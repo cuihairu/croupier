@@ -1,0 +1,5 @@
+#!/bin/sh
+
+            go fmt .
+            golangci-lint run
+    
