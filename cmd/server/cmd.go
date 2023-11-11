@@ -1,13 +1,16 @@
 package main
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/chuihairu/croupier/internal/version"
+	"github.com/spf13/cobra"
+)
 
 var configFile string
 
 var rootCmd = &cobra.Command{
 	Use:     "server",
 	Long:    "croupier server",
-	Version: "0.1.0",
+	Version: version.GetVersion(),
 	Run: func(cmd *cobra.Command, args []string) {
 		app := newServerApplication()
 		app.Run()

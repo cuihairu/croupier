@@ -1,11 +1,13 @@
 MODULE = $(shell go list -m)
+GIT_COMMIT=$(shell git rev-parse --short HEAD)
 
 .PHONY: generate build test lint build-docker compose compose-down migrate
+
 generate:
 	go generate ./...
 
 build: # build a server
-	go build -a -o server $(MODULE)/cmd/server
+	go build -a -ldflags "-s -X github.com/chuihairu/croupier/internal/version.GitCommit=$(GIT_COMMIT)" -o server github.com/chuihairu/croupier/cmd/server
 
 test:
 	go clean -testcache
@@ -14,8 +16,8 @@ test:
 lint:
 	gofmt -l .
 
-build-docker: # build docker image
-	docker build -f cmd/server/Dockerfile -t gin-example/article-server .
+docker-build: # build docker image
+	docker build --progress=plain --no-cache -f build/package/Dockerfile -t cuihairu/croupier --build-arg GITCOMMIT=$(GIT_COMMIT) .
 
 compose.%:
 	$(eval CMD = ${subst compose.,,$(@)})
