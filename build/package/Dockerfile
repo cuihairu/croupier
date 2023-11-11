@@ -20,7 +20,6 @@ WORKDIR /app
 
 COPY --from=builder /app/dist  .
 
-# 指定运行时环境变量
 ENV GIN_MODE=release \
     PORT=80
 
