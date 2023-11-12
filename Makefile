@@ -1,7 +1,7 @@
 MODULE = $(shell go list -m)
 GIT_COMMIT=$(shell git rev-parse --short HEAD)
 
-.PHONY: generate build test lint build-docker compose compose-down migrate
+.PHONY: generate build debug-build test lint docker-build compose compose-down migrate
 
 generate:
 	go generate ./...
