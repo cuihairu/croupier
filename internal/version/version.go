@@ -22,12 +22,22 @@ type version struct {
 	versionString string
 }
 
+func createVersion() *version {
+	ver = &version{
+		majorVersion:  majorVersion,
+		minorVersion:  minorVersion,
+		patchVersion:  patchVersion,
+		versionString: fmt.Sprintf("%d.%d.%d", majorVersion, minorVersion, patchVersion),
+	}
+	if len(GitCommit) > 0 {
+		ver.versionString = fmt.Sprintf("%s+%s", ver.versionString, GitCommit)
+	}
+	return ver
+}
+
 // Format version to "<majorVersion>.<minorVersion>.<patchVersion>[+<gitCommit>]",
 // like "1.0.0", or "1.0.0+1a2b3c4d".
 func (v version) String() string {
-	if len(GitCommit) > 0 {
-		return fmt.Sprintf("%s+%s", v.versionString, GitCommit)
-	}
 	return v.versionString
 }
 
@@ -35,11 +45,6 @@ func GetVersion() string {
 	if ver != nil {
 		return ver.String()
 	}
-	ver = &version{
-		majorVersion:  majorVersion,
-		minorVersion:  minorVersion,
-		patchVersion:  patchVersion,
-		versionString: fmt.Sprintf("%d.%d.%d", majorVersion, minorVersion, patchVersion),
-	}
+	ver = createVersion()
 	return ver.String()
 }

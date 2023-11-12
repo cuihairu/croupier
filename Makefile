@@ -9,6 +9,9 @@ generate:
 build: # build a server
 	go build -a -ldflags "-s -X github.com/chuihairu/croupier/internal/version.GitCommit=$(GIT_COMMIT)" -o server github.com/chuihairu/croupier/cmd/server
 
+debug-build:
+	go build -gcflags "all=-N -l" -a -ldflags "-compressdwarf=false -s -X github.com/chuihairu/croupier/internal/version.GitCommit=$(GIT_COMMIT)" -o server github.com/chuihairu/croupier/cmd/server
+
 test:
 	go clean -testcache
 	go test ./... -v
