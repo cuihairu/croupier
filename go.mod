@@ -38,3 +38,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/gorm v1.25.5 // indirect
 )
+
+replace github.com/chuihairu/croupier  => ./
