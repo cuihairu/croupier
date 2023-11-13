@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"fmt"
 	"github.com/chuihairu/croupier/internal/config"
 	"gorm.io/gorm"
 	"log"
@@ -35,5 +36,8 @@ func (s *ServerApplication) Run() {
 	for {
 		log.Printf("runing")
 		time.Sleep(3 * time.Second)
+		if s.db != nil {
+			fmt.Print("db init")
+		}
 	}
 }
