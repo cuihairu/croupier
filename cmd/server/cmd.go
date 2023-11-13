@@ -1,22 +1,27 @@
 package main
 
 import (
+	"github.com/chuihairu/croupier/internal"
 	"github.com/chuihairu/croupier/internal/version"
 	"github.com/spf13/cobra"
 )
 
 var configFile string
-
 var rootCmd = &cobra.Command{
 	Use:     "server",
 	Long:    "croupier server",
 	Version: version.GetVersion(),
-	Run: func(cmd *cobra.Command, args []string) {
-		app := newServerApplication()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		app := internal.ServerApplicationInstance()
+		err := app.LoadConfig(configFile)
+		if err != nil {
+			return err
+		}
 		app.Run()
+		return nil
 	},
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&configFile, "conf", "", "", "config file path")
+	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "", "", "config file path")
 }
