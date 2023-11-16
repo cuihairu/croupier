@@ -9,7 +9,10 @@ import (
 	"time"
 )
 
-var app *ServerApplication
+var (
+	app  *ServerApplication
+	once sync.Once
+)
 
 type ServerApplication struct {
 	config *config.Config
@@ -17,14 +20,14 @@ type ServerApplication struct {
 }
 
 func ServerApplicationInstance() *ServerApplication {
-	sync.OnceFunc(func() {
+	once.Do(func() {
 		app = &ServerApplication{}
 	})
 	return app
 }
 
-func (s *ServerApplication) LoadConfig(configFile string) error {
-	loadConfig, err := config.LoadConfig(configFile)
+func (s *ServerApplication) LoadConfig(configFile string, debug bool) error {
+	loadConfig, err := config.LoadConfig(configFile, debug)
 	if err != nil {
 		return err
 	}
