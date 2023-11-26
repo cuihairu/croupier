@@ -35,6 +35,10 @@ func (s *ServerApplication) LoadConfig(configFile string, debug bool) error {
 	return nil
 }
 
+func (s *ServerApplication) SaveConfig(configFile string) error {
+	return config.SaveConfig(configFile)
+}
+
 func (s *ServerApplication) Run() {
 	for {
 		log.Printf("runing")
