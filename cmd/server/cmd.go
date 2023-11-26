@@ -24,6 +24,6 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "config.yaml", "config file")
+	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "config/config.yaml", "config file")
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "debug mode")
 }

@@ -49,7 +49,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./config/local.yaml:/config/config.yaml
+      - ./config/config.yaml:/config/config.yaml
       - ./migrations:/config/migrations
     command: article-server --conf /config/config.yaml
     restart: always
