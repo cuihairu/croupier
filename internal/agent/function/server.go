@@ -7,6 +7,7 @@ import (
     functionv1 "github.com/your-org/croupier/gen/go/croupier/function/v1"
     "github.com/your-org/croupier/internal/agent/registry"
     "github.com/your-org/croupier/internal/agent/jobs"
+    "github.com/your-org/croupier/internal/transport/interceptors"
 
     "google.golang.org/grpc"
 )
@@ -25,7 +26,16 @@ func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*fu
     // route to local game server based on function id
     entry, ok := s.store.Get(req.GetFunctionId())
     if !ok { return nil, fmt.Errorf("no local handler for %s", req.GetFunctionId()) }
-    cc, err := grpc.Dial(entry.Addr, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")))
+    // best-effort trace log
+    if req.Metadata != nil {
+        // defer print to avoid noisy logs; a structured logger would be preferred
+        _ = req.Metadata["trace_id"]
+    }
+    cc, err := grpc.Dial(entry.Addr,
+        grpc.WithInsecure(),
+        grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")),
+        interceptors.Chain(nil)...,
+    )
     if err != nil { return nil, err }
     defer cc.Close()
     cli := functionv1.NewFunctionServiceClient(cc)
