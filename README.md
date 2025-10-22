@@ -155,6 +155,7 @@ croupier/
 ├── sdks/
 │   └── go/                   # Go SDK 子模块（croupier-sdk-go）
 │   └── cpp/                  # C++ SDK 子模块（croupier-sdk-cpp）（后续实现）
+│   └── java/                 # Java SDK 子模块（croupier-sdk-java）（后续实现）
 ├── web/                      # 前端子模块（croupier-web）
 ├── configs/                  # 配置
 ├── scripts/                  # 部署脚本
@@ -309,6 +310,9 @@ npm run build  # 产物到 web/dist，Core 会优先静态服务 web/dist
 
 # C++ SDK（子模块：sdks/cpp）
 # 当前仅添加为子模块占位，优先完成 Go 版本后再逐步实现 C++ 版本。
+
+# Java SDK（子模块：sdks/java）
+# 同上，作为占位先引入，优先保证 Go 版本稳定，随后实现 Java 版本。
 
 # 调用验证（浏览器访问）
 # 开发：访问 http://localhost:8000（前端 dev server）
