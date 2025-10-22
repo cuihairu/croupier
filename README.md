@@ -154,6 +154,7 @@ croupier/
 │   └── types/                # 公共类型（暂留）
 ├── sdks/
 │   └── go/                   # Go SDK 子模块（croupier-sdk-go）
+│   └── cpp/                  # C++ SDK 子模块（croupier-sdk-cpp）（后续实现）
 ├── web/                      # 前端子模块（croupier-web）
 ├── configs/                  # 配置
 ├── scripts/                  # 部署脚本
@@ -305,6 +306,9 @@ npm run build  # 产物到 web/dist，Core 会优先静态服务 web/dist
 # 当前仓库仍保留内置样例 SDK（pkg/sdk）用于演示闭环。后续将迁移至子模块。
 # 使用子模块 SDK 时，建议直接引用模块路径 github.com/cuihairu/croupier-sdk-go，
 # 或在本仓库 go.mod 中通过 replace 指向 ./sdks/go 做本地联调。
+
+# C++ SDK（子模块：sdks/cpp）
+# 当前仅添加为子模块占位，优先完成 Go 版本后再逐步实现 C++ 版本。
 
 # 调用验证（浏览器访问）
 # 开发：访问 http://localhost:8000（前端 dev server）
