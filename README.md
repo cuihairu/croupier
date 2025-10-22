@@ -153,7 +153,7 @@ croupier/
 │   ├── sdk/                  # 多语言 SDK（由 Proto 生成 + 拦截器）
 │   ├── protocol/             # 公共协议常量/拦截器
 │   └── types/                # 公共类型
-├── web/                      # React 前端
+├── web/                      # 前端子模块（croupier-web）
 ├── configs/                  # 配置
 ├── scripts/                  # 部署脚本
 ├── docs/                     # 文档
@@ -288,9 +288,22 @@ make build
 # 3) 示例游戏服连接 Agent
 go run ./examples/go-server
 
+# 前端子模块
+# 初始化/更新前端子模块
+git submodule update --init --recursive
+
+# 前端开发（在子模块仓库中运行；建议 antd-pro/umi 默认 8000 端口）
+cd web
+npm install
+npm run dev  # 或 npm run start
+
+# 生产构建
+npm run build  # 产物到 web/dist，Core 会优先静态服务 web/dist
+
 # 调用验证（浏览器访问）
-# http://localhost:8080 可见静态页面；/api/descriptors 返回函数列表
-# 页面发起请求会带 `X-User: user:dev`，RBAC 策略在 `configs/rbac.json`，默认允许全部与取消作业
+# 开发：访问 http://localhost:8000（前端 dev server）
+# 生产：构建后访问 http://localhost:8080（Core 静态服务 web/dist）；/api/* 为后端接口
+# 前端请求需带 `X-User: user:dev`（开发模式 RBAC 放行），也可在前端配置 proxy/header
 ```
 
 提交流程：Fork → 分支 → 提交 → 推送 → PR。
