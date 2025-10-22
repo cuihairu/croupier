@@ -14,6 +14,7 @@ import (
     "github.com/your-org/croupier/internal/validation"
     auditchain "github.com/your-org/croupier/internal/audit/chain"
     "github.com/your-org/croupier/internal/auth/rbac"
+    "os"
 )
 
 type Server struct {
@@ -44,10 +45,12 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
 
 func (s *Server) routes() {
     s.mux.HandleFunc("/api/descriptors", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
         w.Header().Set("Content-Type", "application/json")
         _ = json.NewEncoder(w).Encode(s.descs)
     })
     s.mux.HandleFunc("/api/invoke", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
         user := r.Header.Get("X-User"); if user == "" { user = "user:dev" }
         var in struct{
@@ -86,6 +89,7 @@ func (s *Server) routes() {
         _, _ = w.Write(resp.GetPayload())
     })
     s.mux.HandleFunc("/api/start_job", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
         user := r.Header.Get("X-User"); if user == "" { user = "user:dev" }
         var in struct{ FunctionID string `json:"function_id"`; Payload any `json:"payload"`; IdempotencyKey string `json:"idempotency_key"` }
@@ -111,6 +115,7 @@ func (s *Server) routes() {
         _ = json.NewEncoder(w).Encode(resp)
     })
     s.mux.HandleFunc("/api/stream_job", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
         jobID := r.URL.Query().Get("id")
         if jobID == "" { http.Error(w, "missing id", 400); return }
         w.Header().Set("Content-Type", "text/event-stream")
@@ -134,6 +139,7 @@ func (s *Server) routes() {
         }
     })
     s.mux.HandleFunc("/api/cancel_job", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
         user := r.Header.Get("X-User"); if user == "" { user = "user:dev" }
         var in struct{ JobID string `json:"job_id"` }
@@ -146,8 +152,12 @@ func (s *Server) routes() {
         }
         w.WriteHeader(204)
     })
-    // Static files (very simple demo UI)
-    fs := http.FileServer(http.Dir("web/static"))
+    // Static files: prefer production build at web/dist, fallback to web/static
+    staticDir := "web/dist"
+    if st, err := os.Stat(staticDir); err != nil || !st.IsDir() {
+        staticDir = "web/static"
+    }
+    fs := http.FileServer(http.Dir(staticDir))
     s.mux.Handle("/", fs)
 }
 
@@ -160,4 +170,12 @@ func randHex(n int) string {
     b := make([]byte, n)
     _, _ = rand.Read(b)
     return hex.EncodeToString(b)
+}
+
+func addCORS(w http.ResponseWriter, r *http.Request) {
+    // Very simple CORS for dev
+    w.Header().Set("Access-Control-Allow-Origin", "*")
+    w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-User")
+    w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    if r.Method == http.MethodOptions { w.WriteHeader(http.StatusNoContent) }
 }
