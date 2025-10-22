@@ -31,11 +31,9 @@ func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*fu
         // defer print to avoid noisy logs; a structured logger would be preferred
         _ = req.Metadata["trace_id"]
     }
-    cc, err := grpc.Dial(entry.Addr,
-        grpc.WithInsecure(),
-        grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")),
-        interceptors.Chain(nil)...,
-    )
+    base := []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json"))}
+    opts := append(base, interceptors.Chain(nil)...)
+    cc, err := grpc.Dial(entry.Addr, opts...)
     if err != nil { return nil, err }
     defer cc.Close()
     cli := functionv1.NewFunctionServiceClient(cc)

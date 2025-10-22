@@ -44,7 +44,9 @@ func (e *Executor) Start(ctx context.Context, req *functionv1.InvokeRequest, loc
         emit(&functionv1.JobEvent{Type: "progress", Progress: 20})
 
         // call local function via gRPC
-        cc, err := grpc.Dial(localAddr, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")), interceptors.Chain(nil)...)
+        base := []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json"))}
+        opts := append(base, interceptors.Chain(nil)...)
+        cc, err := grpc.Dial(localAddr, opts...)
         if err != nil { emit(&functionv1.JobEvent{Type: "error", Message: err.Error()}); return }
         cli := functionv1.NewFunctionServiceClient(cc)
         ctx2, cancel := context.WithCancel(ctx)
@@ -70,10 +72,6 @@ func (e *Executor) Cancel(jobID string) bool {
     e.mu.Lock(); defer e.mu.Unlock()
     if c, ok := e.cancel[jobID]; ok {
         c()
-        // push a canceled event if possible
-        if ch, ok2 := e.ch[jobID]; ok2 {
-            select { case ch <- &functionv1.JobEvent{Type: "error", Message: "canceled"}: default: }
-        }
         delete(e.cancel, jobID)
         return true
     }
