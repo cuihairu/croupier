@@ -4,3 +4,6 @@
 [submodule "sdks/go"]
 	path = sdks/go
 	url = git@github.com:cuihairu/croupier-sdk-go.git
+[submodule "sdks/cpp"]
+	path = sdks/cpp
+	url = git@github.com:cuihairu/croupier-sdk-cpp.git
