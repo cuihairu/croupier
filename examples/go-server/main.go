@@ -6,13 +6,12 @@ import (
     "log"
     "time"
 
-    sdk "github.com/your-org/croupier/pkg/sdk"
-    // register json codec
-    _ "github.com/your-org/croupier/internal/transport/jsoncodec"
+    sdk "github.com/cuihairu/croupier-sdk-go/sdk"
+    // SDK registers its own json codec; agent/core use json too
 )
 
 func main() {
-    cli := sdk.NewClient(sdk.ClientConfig{Addr: "127.0.0.1:19090", UseTLS: false, LocalListen: "127.0.0.1:0"})
+    cli := sdk.NewClient(sdk.ClientConfig{Addr: "127.0.0.1:19090", LocalListen: "127.0.0.1:0"})
 
     // Register a function handler: player.ban
     schema := map[string]any{
