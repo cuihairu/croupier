@@ -7,3 +7,6 @@
 [submodule "sdks/cpp"]
 	path = sdks/cpp
 	url = git@github.com:cuihairu/croupier-sdk-cpp.git
+[submodule "sdks/java"]
+	path = sdks/java
+	url = git@github.com:cuihairu/croupier-sdk-java.git
