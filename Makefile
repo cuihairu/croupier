@@ -2,6 +2,9 @@ BINDIR := bin
 
 .PHONY: proto build server agent dev tidy
 
+submodules:
+	git submodule update --init --recursive
+
 proto:
 	@echo "[proto] generating code via buf..."
 	buf generate
@@ -21,4 +24,4 @@ tidy:
 
 dev: build
 	@echo "Run binaries in two shells or via supervisor with your TLS config."
-
+	@echo "Tip: make submodules to initialize web and SDK submodules."
