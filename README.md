@@ -292,7 +292,7 @@ make build
 go run ./examples/go-server
 
 # 子模块（前端、SDK）
-# 初始化/更新前端子模块
+# 初始化/更新子模块
 git submodule update --init --recursive
 
 # 前端开发（在子模块仓库中运行；建议 antd-pro/umi 默认 8000 端口）
@@ -313,6 +313,9 @@ npm run build  # 产物到 web/dist，Core 会优先静态服务 web/dist
 
 # Java SDK（子模块：sdks/java）
 # 同上，作为占位先引入，优先保证 Go 版本稳定，随后实现 Java 版本。
+
+CI 提示
+- CI 已配置检出子模块（submodules: recursive）。如需在本地一键初始化，请运行：`make submodules`。
 
 # 调用验证（浏览器访问）
 # 开发：访问 http://localhost:8000（前端 dev server）
