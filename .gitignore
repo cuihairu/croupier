@@ -20,3 +20,10 @@
 # Go workspace file
 go.work
 go.work.sum
+
+# Local build and generated code
+bin/
+gen/
+
+# Local TLS dev certs
+configs/dev/

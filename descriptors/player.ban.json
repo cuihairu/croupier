@@ -1,0 +1,23 @@
+{
+  "id": "player.ban",
+  "version": "1.2.0",
+  "category": "player",
+  "risk": "high",
+  "auth": { "permission": "player.ban", "two_person_rule": true },
+  "params": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "player_id": { "type": "string" },
+      "reason": { "type": "string" }
+    },
+    "required": ["player_id"]
+  },
+  "semantics": {
+    "mode": "command",
+    "idempotency_key": true,
+    "timeout": "30s",
+    "returns": "job"
+  }
+}
+

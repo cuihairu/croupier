@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package croupier.control.v1;
+
+option go_package = "github.com/your-org/croupier/gen/go/croupier/control/v1;controlv1";
+
+message FunctionDescriptor {
+  string id = 1;        // function id, e.g. "player.ban"
+  string version = 2;   // semver, e.g. "1.2.0"
+  string category = 3;  // grouping
+  string risk = 4;      // "low"|"medium"|"high"
+}
+
+message RegisterRequest {
+  string agent_id = 1;              // agent unique id
+  string version = 2;               // agent version
+  repeated FunctionDescriptor functions = 3; // summarized function list
+  string rpc_addr = 4;              // agent's reachable gRPC address (DEV ONLY)
+}
+
+message RegisterResponse {
+  string session_id = 1;
+  int64 expire_at = 2; // epoch seconds
+}
+
+message HeartbeatRequest {
+  string agent_id = 1;
+  string session_id = 2;
+}
+
+message HeartbeatResponse {}
+
+service ControlService {
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+}

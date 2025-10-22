@@ -1,0 +1,6 @@
+{
+  "allow": {
+    "user:dev": ["*", "job:cancel"]
+  }
+}
+

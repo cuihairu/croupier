@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package croupier.function.v1;
+
+option go_package = "github.com/your-org/croupier/gen/go/croupier/function/v1;functionv1";
+
+// InvokeRequest carries a function invocation.
+message InvokeRequest {
+  string function_id = 1;           // e.g. "player.ban"
+  string idempotency_key = 2;       // client-supplied idempotency key
+  bytes payload = 3;                // serialized request (JSON/Proto), agreed by descriptor
+  map<string, string> metadata = 4; // optional k/v metadata
+}
+
+message InvokeResponse {
+  bytes payload = 1; // serialized response body
+}
+
+message StartJobResponse {
+  string job_id = 1;
+}
+
+message JobStreamRequest {
+  string job_id = 1;
+}
+
+message JobEvent {
+  string type = 1;      // "progress" | "log" | "done" | "error"
+  string message = 2;   // free text for log/error
+  int32 progress = 3;   // 0..100 when type == progress
+  bytes payload = 4;    // optional final result
+}
+
+service FunctionService {
+  rpc Invoke(InvokeRequest) returns (InvokeResponse);
+  rpc StartJob(InvokeRequest) returns (StartJobResponse);
+  rpc StreamJob(JobStreamRequest) returns (stream JobEvent);
+}
+
