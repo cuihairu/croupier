@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+      - name: Lint proto
+        run: buf lint
+      - name: Generate proto
+        run: buf generate
+      - name: Go mod download
+        run: go mod download
+      - name: Build
+        run: make build
+      - name: Unit tests
+        run: go test ./...
+

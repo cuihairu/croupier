@@ -1,0 +1,8 @@
+agent:
+  local_addr: "127.0.0.1:19090"
+  core_addr: "127.0.0.1:8443"
+  tls:
+    cert_file: "configs/dev/agent.crt"
+    key_file: "configs/dev/agent.key"
+    ca_file: "configs/dev/ca.crt"
+

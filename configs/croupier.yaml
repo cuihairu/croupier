@@ -1,0 +1,7 @@
+server:
+  addr: ":8443"
+  tls:
+    cert_file: "configs/dev/server.crt"
+    key_file: "configs/dev/server.key"
+    ca_file: "configs/dev/ca.crt"
+
