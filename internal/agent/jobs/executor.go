@@ -8,6 +8,7 @@ import (
     "time"
 
     functionv1 "github.com/your-org/croupier/gen/go/croupier/function/v1"
+    "github.com/your-org/croupier/internal/transport/interceptors"
     "google.golang.org/grpc"
 )
 
@@ -43,7 +44,7 @@ func (e *Executor) Start(ctx context.Context, req *functionv1.InvokeRequest, loc
         emit(&functionv1.JobEvent{Type: "progress", Progress: 20})
 
         // call local function via gRPC
-        cc, err := grpc.Dial(localAddr, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")))
+        cc, err := grpc.Dial(localAddr, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")), interceptors.Chain(nil)...)
         if err != nil { emit(&functionv1.JobEvent{Type: "error", Message: err.Error()}); return }
         cli := functionv1.NewFunctionServiceClient(cc)
         ctx2, cancel := context.WithCancel(ctx)

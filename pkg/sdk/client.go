@@ -20,6 +20,7 @@ import (
     functionv1 "github.com/your-org/croupier/gen/go/croupier/function/v1"
     localv1 "github.com/your-org/croupier/gen/go/croupier/agent/local/v1"
     "github.com/your-org/croupier/internal/validation"
+    "github.com/your-org/croupier/internal/transport/interceptors"
 )
 
 // ClientConfig defines SDK client options.
@@ -54,7 +55,11 @@ func (c *Client) Connect(ctx context.Context) error {
     } else {
         opt = grpc.WithTransportCredentials(insecure.NewCredentials())
     }
-    cc, err := grpc.DialContext(ctx, c.cfg.Addr, opt, grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 30 * time.Second}), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")))
+    cc, err := grpc.DialContext(ctx, c.cfg.Addr, opt,
+        grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 30 * time.Second}),
+        grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")),
+        interceptors.Chain(nil)...,
+    )
     if err != nil {
         return err
     }

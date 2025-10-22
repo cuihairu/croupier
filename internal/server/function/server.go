@@ -9,6 +9,7 @@ import (
     functionv1 "github.com/your-org/croupier/gen/go/croupier/function/v1"
     "github.com/your-org/croupier/internal/jobs"
     "github.com/your-org/croupier/internal/server/registry"
+    "github.com/your-org/croupier/internal/transport/interceptors"
 
     "google.golang.org/grpc"
 )
@@ -32,22 +33,34 @@ func (s *Server) pickAgent(fid string) (*registry.AgentSession, error) {
 func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
     agent, err := s.pickAgent(req.GetFunctionId())
     if err != nil { return nil, err }
-    cc, err := grpc.Dial(agent.RPCAddr, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")))
+    cc, err := grpc.Dial(agent.RPCAddr,
+        grpc.WithInsecure(),
+        grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")),
+        interceptors.Chain(nil)...,
+    )
     if err != nil { return nil, fmt.Errorf("dial agent %s: %w", agent.AgentID, err) }
     defer cc.Close()
     cli := functionv1.NewFunctionServiceClient(cc)
-    log.Printf("routing invoke %s to agent %s@%s", req.GetFunctionId(), agent.AgentID, agent.RPCAddr)
+    trace := ""
+    if req.Metadata != nil { trace = req.Metadata["trace_id"] }
+    log.Printf("routing invoke %s to agent %s@%s trace=%s idem=%s", req.GetFunctionId(), agent.AgentID, agent.RPCAddr, trace, req.GetIdempotencyKey())
     return cli.Invoke(ctx, req)
 }
 
 func (s *Server) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {
     agent, err := s.pickAgent(req.GetFunctionId())
     if err != nil { return nil, err }
-    cc, err := grpc.Dial(agent.RPCAddr, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")))
+    cc, err := grpc.Dial(agent.RPCAddr,
+        grpc.WithInsecure(),
+        grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")),
+        interceptors.Chain(nil)...,
+    )
     if err != nil { return nil, fmt.Errorf("dial agent %s: %w", agent.AgentID, err) }
     defer cc.Close()
     cli := functionv1.NewFunctionServiceClient(cc)
-    log.Printf("routing start-job %s to agent %s@%s", req.GetFunctionId(), agent.AgentID, agent.RPCAddr)
+    trace := ""
+    if req.Metadata != nil { trace = req.Metadata["trace_id"] }
+    log.Printf("routing start-job %s to agent %s@%s trace=%s idem=%s", req.GetFunctionId(), agent.AgentID, agent.RPCAddr, trace, req.GetIdempotencyKey())
     resp, err := cli.StartJob(ctx, req)
     if err == nil {
         s.jobs.Set(resp.GetJobId(), agent.RPCAddr)
@@ -58,7 +71,11 @@ func (s *Server) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*
 func (s *Server) StreamJob(req *functionv1.JobStreamRequest, stream functionv1.FunctionService_StreamJobServer) error {
     rpcAddr, ok := s.jobs.Get(req.GetJobId())
     if !ok { return errors.New("unknown job") }
-    cc, err := grpc.Dial(rpcAddr, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")))
+    cc, err := grpc.Dial(rpcAddr,
+        grpc.WithInsecure(),
+        grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")),
+        interceptors.Chain(nil)...,
+    )
     if err != nil { return fmt.Errorf("dial agent: %w", err) }
     defer cc.Close()
     cli := functionv1.NewFunctionServiceClient(cc)
@@ -77,7 +94,11 @@ func (s *Server) StreamJob(req *functionv1.JobStreamRequest, stream functionv1.F
 func (s *Server) CancelJob(ctx context.Context, req *functionv1.CancelJobRequest) (*functionv1.StartJobResponse, error) {
     rpcAddr, ok := s.jobs.Get(req.GetJobId())
     if !ok { return nil, errors.New("unknown job") }
-    cc, err := grpc.Dial(rpcAddr, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")))
+    cc, err := grpc.Dial(rpcAddr,
+        grpc.WithInsecure(),
+        grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")),
+        interceptors.Chain(nil)...,
+    )
     if err != nil { return nil, fmt.Errorf("dial agent: %w", err) }
     defer cc.Close()
     cli := functionv1.NewFunctionServiceClient(cc)
