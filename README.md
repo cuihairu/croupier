@@ -150,9 +150,10 @@ croupier/
 │   ├── jobs/                 # Job 状态机与队列
 │   └── web/                  # Web 后端
 ├── pkg/
-│   ├── sdk/                  # 多语言 SDK（由 Proto 生成 + 拦截器）
-│   ├── protocol/             # 公共协议常量/拦截器
-│   └── types/                # 公共类型
+│   ├── protocol/             # 公共协议常量/拦截器（暂留）
+│   └── types/                # 公共类型（暂留）
+├── sdks/
+│   └── go/                   # Go SDK 子模块（croupier-sdk-go）
 ├── web/                      # 前端子模块（croupier-web）
 ├── configs/                  # 配置
 ├── scripts/                  # 部署脚本
@@ -288,7 +289,7 @@ make build
 # 3) 示例游戏服连接 Agent
 go run ./examples/go-server
 
-# 前端子模块
+# 子模块（前端、SDK）
 # 初始化/更新前端子模块
 git submodule update --init --recursive
 
@@ -299,6 +300,11 @@ npm run dev  # 或 npm run start
 
 # 生产构建
 npm run build  # 产物到 web/dist，Core 会优先静态服务 web/dist
+
+# Go SDK（子模块：sdks/go）
+# 当前仓库仍保留内置样例 SDK（pkg/sdk）用于演示闭环。后续将迁移至子模块。
+# 使用子模块 SDK 时，建议直接引用模块路径 github.com/cuihairu/croupier-sdk-go，
+# 或在本仓库 go.mod 中通过 replace 指向 ./sdks/go 做本地联调。
 
 # 调用验证（浏览器访问）
 # 开发：访问 http://localhost:8000（前端 dev server）
