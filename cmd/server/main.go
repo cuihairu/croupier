@@ -21,6 +21,7 @@ import (
     // register json codec
     _ "github.com/your-org/croupier/internal/transport/jsoncodec"
     auditchain "github.com/your-org/croupier/internal/audit/chain"
+    rbac "github.com/your-org/croupier/internal/auth/rbac"
 )
 
 // loadServerTLS builds a tls.Config for mTLS if caFile is provided.

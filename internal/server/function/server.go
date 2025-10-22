@@ -33,11 +33,9 @@ func (s *Server) pickAgent(fid string) (*registry.AgentSession, error) {
 func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
     agent, err := s.pickAgent(req.GetFunctionId())
     if err != nil { return nil, err }
-    cc, err := grpc.Dial(agent.RPCAddr,
-        grpc.WithInsecure(),
-        grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")),
-        interceptors.Chain(nil)...,
-    )
+    base := []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json"))}
+    opts := append(base, interceptors.Chain(nil)...)
+    cc, err := grpc.Dial(agent.RPCAddr, opts...)
     if err != nil { return nil, fmt.Errorf("dial agent %s: %w", agent.AgentID, err) }
     defer cc.Close()
     cli := functionv1.NewFunctionServiceClient(cc)
@@ -50,11 +48,9 @@ func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*fu
 func (s *Server) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {
     agent, err := s.pickAgent(req.GetFunctionId())
     if err != nil { return nil, err }
-    cc, err := grpc.Dial(agent.RPCAddr,
-        grpc.WithInsecure(),
-        grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")),
-        interceptors.Chain(nil)...,
-    )
+    base := []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json"))}
+    opts := append(base, interceptors.Chain(nil)...)
+    cc, err := grpc.Dial(agent.RPCAddr, opts...)
     if err != nil { return nil, fmt.Errorf("dial agent %s: %w", agent.AgentID, err) }
     defer cc.Close()
     cli := functionv1.NewFunctionServiceClient(cc)
@@ -71,11 +67,9 @@ func (s *Server) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*
 func (s *Server) StreamJob(req *functionv1.JobStreamRequest, stream functionv1.FunctionService_StreamJobServer) error {
     rpcAddr, ok := s.jobs.Get(req.GetJobId())
     if !ok { return errors.New("unknown job") }
-    cc, err := grpc.Dial(rpcAddr,
-        grpc.WithInsecure(),
-        grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")),
-        interceptors.Chain(nil)...,
-    )
+    base := []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json"))}
+    opts := append(base, interceptors.Chain(nil)...)
+    cc, err := grpc.Dial(rpcAddr, opts...)
     if err != nil { return fmt.Errorf("dial agent: %w", err) }
     defer cc.Close()
     cli := functionv1.NewFunctionServiceClient(cc)
@@ -94,11 +88,9 @@ func (s *Server) StreamJob(req *functionv1.JobStreamRequest, stream functionv1.F
 func (s *Server) CancelJob(ctx context.Context, req *functionv1.CancelJobRequest) (*functionv1.StartJobResponse, error) {
     rpcAddr, ok := s.jobs.Get(req.GetJobId())
     if !ok { return nil, errors.New("unknown job") }
-    cc, err := grpc.Dial(rpcAddr,
-        grpc.WithInsecure(),
-        grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")),
-        interceptors.Chain(nil)...,
-    )
+    base := []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json"))}
+    opts := append(base, interceptors.Chain(nil)...)
+    cc, err := grpc.Dial(rpcAddr, opts...)
     if err != nil { return nil, fmt.Errorf("dial agent: %w", err) }
     defer cc.Close()
     cli := functionv1.NewFunctionServiceClient(cc)

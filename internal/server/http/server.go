@@ -60,18 +60,17 @@ func (s *Server) routes() {
         }
         if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
         // schema validation (best-effort)
-        d := s.descIndex[in.FunctionID]
-        if d != nil {
-            if ps, ok := d.Params.(map[string]any); ok {
+        if d := s.descIndex[in.FunctionID]; d != nil {
+            if ps := d.Params; ps != nil {
                 b, _ := json.Marshal(in.Payload)
                 if err := validation.ValidateJSON(ps, b); err != nil { http.Error(w, fmt.Sprintf("payload invalid: %v", err), 400); return }
             }
         }
         // rbac check
         perm := "function:" + in.FunctionID
-        if d != nil {
-            if auth, ok := d.Auth.(map[string]any); ok {
-                if p, ok2 := auth["permission"].(string); ok2 && p != "" { perm = p }
+        if d := s.descIndex[in.FunctionID]; d != nil {
+            if auth := d.Auth; auth != nil {
+                if p, ok := auth["permission"].(string); ok && p != "" { perm = p }
             }
         }
         if s.rbac != nil && !s.rbac.Can(user, perm) { http.Error(w, "forbidden", http.StatusForbidden); return }
@@ -95,14 +94,17 @@ func (s *Server) routes() {
         var in struct{ FunctionID string `json:"function_id"`; Payload any `json:"payload"`; IdempotencyKey string `json:"idempotency_key"` }
         if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
         // validate
-        if d := s.descIndex[in.FunctionID]; d != nil { if ps, ok := d.Params.(map[string]any); ok {
-            b, _ := json.Marshal(in.Payload); if err := validation.ValidateJSON(ps, b); err != nil { http.Error(w, fmt.Sprintf("payload invalid: %v", err), 400); return }
-        }}
+        if d := s.descIndex[in.FunctionID]; d != nil {
+            if ps := d.Params; ps != nil {
+                b, _ := json.Marshal(in.Payload)
+                if err := validation.ValidateJSON(ps, b); err != nil { http.Error(w, fmt.Sprintf("payload invalid: %v", err), 400); return }
+            }
+        }
         // rbac check
         perm := "function:" + in.FunctionID
         if d := s.descIndex[in.FunctionID]; d != nil {
-            if auth, ok := d.Auth.(map[string]any); ok {
-                if p, ok2 := auth["permission"].(string); ok2 && p != "" { perm = p }
+            if auth := d.Auth; auth != nil {
+                if p, ok := auth["permission"].(string); ok && p != "" { perm = p }
             }
         }
         if s.rbac != nil && !s.rbac.Can(user, perm) { http.Error(w, "forbidden", http.StatusForbidden); return }
