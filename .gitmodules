@@ -1,3 +1,6 @@
 [submodule "web"]
 	path = web
 	url = git@github.com:cuihairu/croupier-web.git
+[submodule "sdks/go"]
+	path = sdks/go
+	url = git@github.com:cuihairu/croupier-sdk-go.git
