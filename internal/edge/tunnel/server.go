@@ -7,6 +7,7 @@ import (
     "time"
 
     tunnelv1 "github.com/your-org/croupier/gen/go/croupier/tunnel/v1"
+    functionv1 "github.com/your-org/croupier/gen/go/croupier/function/v1"
 )
 
 type pending struct{
@@ -27,9 +28,11 @@ type Server struct {
     agents map[string]*edgeConn // agent_id -> conn
     pendMu sync.Mutex
     pending map[string]*pending // request_id -> chan
+    evMu sync.RWMutex
+    subs map[string][]chan *functionv1.JobEvent // job_id -> subscribers
 }
 
-func NewServer() *Server { return &Server{agents: map[string]*edgeConn{}, pending: map[string]*pending{}} }
+func NewServer() *Server { return &Server{agents: map[string]*edgeConn{}, pending: map[string]*pending{}, subs: map[string][]chan *functionv1.JobEvent{}} }
 
 func (s *Server) Open(stream tunnelv1.TunnelService_OpenServer) error {
     // expect Hello first
@@ -44,12 +47,41 @@ func (s *Server) Open(stream tunnelv1.TunnelService_OpenServer) error {
         msg, err := stream.Recv()
         if err != nil { break }
         if msg == nil { continue }
-        if msg.Type == "result" && msg.Result != nil {
-            s.pendMu.Lock()
-            if p := s.pending[msg.Result.RequestId]; p != nil {
-                select { case p.ch <- msg.Result: default: }
+        switch msg.Type {
+        case "result":
+            if msg.Result != nil {
+                s.pendMu.Lock()
+                if p := s.pending[msg.Result.RequestId]; p != nil {
+                    select { case p.ch <- msg.Result: default: }
+                }
+                s.pendMu.Unlock()
             }
-            s.pendMu.Unlock()
+        case "start_job_result":
+            if msg.StartR != nil {
+                s.pendMu.Lock()
+                if p := s.pending[msg.StartR.RequestId]; p != nil {
+                    // overload result via pending: reuse ResultFrame error/payload not used here
+                    rf := &tunnelv1.ResultFrame{RequestId: msg.StartR.RequestId, Payload: []byte(msg.StartR.JobId), Error: msg.StartR.Error}
+                    select { case p.ch <- rf: default: }
+                }
+                s.pendMu.Unlock()
+            }
+        case "job_event":
+            if msg.JobEvt != nil {
+                ev := msg.JobEvt
+                s.evMu.RLock()
+                arr := s.subs[ev.JobId]
+                s.evMu.RUnlock()
+                je := &functionv1.JobEvent{Type: ev.Type, Message: ev.Message, Progress: ev.Progress, Payload: ev.Payload}
+                for _, ch := range arr { select { case ch <- je: default: } }
+                if ev.Type == "done" || ev.Type == "error" {
+                    // close and remove subscribers
+                    s.evMu.Lock()
+                    for _, ch := range s.subs[ev.JobId] { close(ch) }
+                    delete(s.subs, ev.JobId)
+                    s.evMu.Unlock()
+                }
+            }
         }
     }
     // cleanup
@@ -76,3 +108,32 @@ func (s *Server) InvokeViaTunnel(agentID, requestID, functionID string, idem str
     }
 }
 
+func (s *Server) StartJobViaTunnel(agentID, requestID, functionID string, idem string, payload []byte, meta map[string]string) (string, error) {
+    s.mu.RLock(); conn := s.agents[agentID]; s.mu.RUnlock()
+    if conn == nil { return "", errors.New("agent not connected") }
+    ch := make(chan *tunnelv1.ResultFrame, 1)
+    s.pendMu.Lock(); s.pending[requestID] = &pending{ch: ch, created: time.Now()}; s.pendMu.Unlock()
+    defer func(){ s.pendMu.Lock(); delete(s.pending, requestID); s.pendMu.Unlock() }()
+    msg := &tunnelv1.TunnelMessage{Type:"start_job", Start: &tunnelv1.StartJobFrame{RequestId: requestID, FunctionId: functionID, IdempotencyKey: idem, Payload: payload, Metadata: meta}}
+    if err := conn.srv.Send(msg); err != nil { return "", err }
+    select {
+    case res := <-ch:
+        if res.Error != "" { return "", errors.New(res.Error) }
+        return string(res.Payload), nil // payload carries job_id for simplicity
+    case <-time.After(5 * time.Second):
+        return "", errors.New("tunnel start_job timeout")
+    }
+}
+
+func (s *Server) SubscribeJob(jobID string) <-chan *functionv1.JobEvent {
+    ch := make(chan *functionv1.JobEvent, 16)
+    s.evMu.Lock(); s.subs[jobID] = append(s.subs[jobID], ch); s.evMu.Unlock()
+    return ch
+}
+
+func (s *Server) CancelJobViaTunnel(agentID, jobID string) error {
+    s.mu.RLock(); conn := s.agents[agentID]; s.mu.RUnlock()
+    if conn == nil { return errors.New("agent not connected") }
+    msg := &tunnelv1.TunnelMessage{Type:"cancel_job", Cancel: &tunnelv1.CancelJobFrame{JobId: jobID}}
+    return conn.srv.Send(msg)
+}

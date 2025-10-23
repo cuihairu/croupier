@@ -43,16 +43,40 @@ func (s *EdgeServer) Invoke(ctx context.Context, req *functionv1.InvokeRequest) 
 }
 
 func (s *EdgeServer) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {
+    var gameID string
+    if req.Metadata != nil { gameID = req.Metadata["game_id"] }
+    cands := s.store.AgentsForFunctionScoped(gameID, req.GetFunctionId(), true)
+    if len(cands) == 0 { return nil, errors.New("no agent available") }
+    agent := cands[0]
+    rid := req.GetIdempotencyKey()
+    if rid == "" { rid = fmt.Sprintf("rid-%s", agent.AgentID) }
+    if s.tun != nil {
+        jobID, err := s.tun.StartJobViaTunnel(agent.AgentID, rid, req.GetFunctionId(), req.GetIdempotencyKey(), req.GetPayload(), req.Metadata)
+        if err == nil { return &functionv1.StartJobResponse{JobId: jobID}, nil }
+    }
     legacy := function.NewServer(s.store)
     return legacy.StartJob(ctx, req)
 }
 
 func (s *EdgeServer) StreamJob(req *functionv1.JobStreamRequest, srv functionv1.FunctionService_StreamJobServer) error {
+    if s.tun != nil {
+        ch := s.tun.SubscribeJob(req.GetJobId())
+        for ev := range ch {
+            if err := srv.Send(ev); err != nil { return err }
+            if ev.GetType() == "done" || ev.GetType() == "error" { return nil }
+        }
+        return nil
+    }
     legacy := function.NewServer(s.store)
     return legacy.StreamJob(req, srv)
 }
 
 func (s *EdgeServer) CancelJob(ctx context.Context, req *functionv1.CancelJobRequest) (*functionv1.StartJobResponse, error) {
+    // best-effort tunnel cancel: pick any agent (unknown mapping here without job->agent store)
+    // TODO: maintain job->agent mapping in edge for precise cancel
+    if s.tun != nil {
+        s.tun.CancelJobViaTunnel("", req.GetJobId()) // agentID omitted in PoC
+    }
     legacy := function.NewServer(s.store)
     return legacy.CancelJob(ctx, req)
 }
