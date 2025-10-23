@@ -47,6 +47,7 @@ Croupier 是一个专为游戏运营设计的通用 GM 后台系统，支持多�
 - Query（查询）同步返回；Command（命令）异步返回 `job_id`
 - 长任务通过流式接口返回进度/日志，可取消/重试，保证幂等（`idempotency-key`）
 - 所有函数字段由 Descriptor（JSON Schema/Proto 选其一）定义，UI/校验/鉴权共享同一描述
+- Metadata：统一携带 `trace_id`（链路诊断）与 `game_id`/`env`（多游戏作用域）。HTTP 层通过 `X-Game-ID`/`X-Env` 透传至南向调用。
   
 开发便捷性说明：骨架阶段为便于本地联调，Agent 在 `Register` 时会上报 `rpc_addr`，Core 通过该地址直连 Agent 完成调用（DEV ONLY）。生产将改为“Agent 外连双向流”模式，不需 Core 入内网。
 
@@ -81,6 +82,35 @@ Core 位于 DMZ/公网，Agent 在游戏内网，仅出站到 Core。游戏服�
 
 # 3) 游戏服务器连接本机 Agent（gRPC）
 ./game-server
+ 
+### 模式 3：Edge 转发（Core 在内网）
+
+适用于 Core 无法部署在 DMZ/公网、又需要管理多条游戏内网的场景。
+
+思路：在 DMZ/公网部署轻量 Edge，所有 Agent 主动外连 Edge；Core 从企业内网“仅出站”连到 Edge（mTLS/443），通过双向流隧道进行转发与路由。
+
+```
+  ┌────────── 企业内网 ──────────┐      ┌────────────── DMZ/公网 ─────────────┐
+  │                              │      │                                      │
+  │  ┌────────────────────────┐  │      │  ┌────────────────────────────────┐ │
+  │  │     Croupier Core      │──┼──────┼──│          Croupier Edge         │ │
+  │  │  (仅出站到 Edge)       │  │      │  │ (多路复用、转发 Core↔Agent)   │ │
+  │  └────────────────────────┘  │      │  └────────────────────────────────┘ │
+  │                              │      │                  ▲                   │
+  └──────────────┬───────────────┘      └───────────────┬──┴──────────────────┘
+                 │                                      │
+                 │ mTLS/443                             │ mTLS/443
+                 │                                      │
+          ┌──────┴──────┐                       ┌───────┴──────┐
+          │  游戏内网A  │                       │  游戏内网B   │
+          │ Agent 外连  │                       │ Agent 外连   │
+          └─────────────┘                       └──────────────┘
+```
+
+运行流程（PoC 设计，后续补齐）：
+- Edge：监听 443，接受 Agent 外连；与 Core 建立单条出站长连；基于双向流做请求转发与路由。
+- Core：将南向请求发给 Edge 逻辑“路由器”；Edge 转发给对应 Agent；返回路径相反。
+- Agent：对 Core/Edge 无感，保持原“主动外连”模式即可。
 ```
 
 ### SDK 集成示例
@@ -131,6 +161,34 @@ _ = cli.Connect(context.Background())
 ```
 
 访问 `http://localhost:8080` 可使用由 Descriptor 自动生成的管理界面。
+
+## 🧭 多游戏管理（Game/Env 作用域）
+
+为支持一个 Core 管理多款游戏/多环境，引入作用域并贯穿全链路。
+
+- 作用域字段
+  - `game_id`：必填，游戏标识（示例：`game_kr`、`game_en`、`game_x`）
+  - `env`：可选，环境（`prod`/`stage`/`test`）
+  - `cluster`/`region`：可选标签，便于进一步路由与展示
+
+- 协议与注册（建议）
+  - Control.RegisterRequest：新增 `game_id`、`env`（Agent 注册时上报自身作用域）
+  - Function.InvokeRequest：`Metadata["game_id"]`/`Metadata["env"]` 作为路由依据
+
+- 路由与索引
+  - Registry 改为“按 (game_id, function_id)”索引 Agent；pickAgent 时需传入 `game_id`
+  - Job 路由：记录 job_id → (game_id, agent_addr) 映射
+
+- HTTP & UI
+  - HTTP 请求头：`X-Game-ID`、`X-Env`；后端透传到 `InvokeRequest.Metadata`
+  - 前端提供 Game/Env 切换器（全局状态），所有 API 自动附带头信息
+
+- SDK
+  - 增加全局默认 `game_id` 与每次调用覆盖的能力；或在注册阶段绑定作用域
+
+- RBAC 与审计
+  - RBAC：支持作用域的细粒度控制（示例：`game:<game_id>:function:<id>` 或 ABAC 属性匹配）
+  - 审计：记录 `game_id`/`env`，查询时按作用域过滤
 
 ## 📋 项目结构（建议）
 
@@ -256,6 +314,22 @@ croupier/
     - `croupier-proxy` 重命名与配置兼容；必要时提供桥接层
     - 迁移指引文档与回滚策略
   - DoD：试点业务零停机迁移，出现问题可一键回滚
+
+- Phase 8：多游戏作用域（1 周）
+  - 目标：引入 Game/Env 作用域，打通注册、路由、调用、审计
+  - 任务：
+    - 协议：Control.RegisterRequest 增 `game_id`/`env`；Invoke 元数据透传
+    - Registry：按 (game_id,function_id) 索引；HTTP 透传 `X-Game-ID`/`X-Env`
+    - UI：全局 Game/Env 切换器；RBAC 权限与审计增加作用域
+  - DoD：不同 `game_id` 的函数路由隔离；审计可按 `game_id` 查询
+
+- Phase 9：Edge PoC（1 周）
+  - 目标：在 Core 不出网场景，通过 Edge 转发实现 Core↔Agent 联通
+  - 任务：
+    - `cmd/edge` 进程：接收 Agent 外连；Core 出站连 Edge；双向流隧道
+    - 转发：Function/Control 请求/响应的多路复用与路由
+    - TLS 与鉴权：沿用 mTLS 身份，Edge 仅转发合法实体
+  - DoD：Core 内网仅出站，Agent 外连 Edge，功能调用正常
 
 里程碑验收清单（节选）
 - e2e：`examples/go-server` 可注册/调用/长任务/取消/审计全链路跑通
