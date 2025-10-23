@@ -433,7 +433,7 @@ CI 提示
 # 调用验证（浏览器访问）
 # 开发：访问 http://localhost:8000（前端 dev server）
 # 生产：构建后访问 http://localhost:8080（Core 静态服务 web/dist）；/api/* 为后端接口
-# 前端请求需带 `X-User: user:dev`（开发模式 RBAC 放行），也可在前端配置 proxy/header
+# 前端请求默认附带 Authorization: Bearer <token>（登录后自动注入）
 ```
 
 提交流程：Fork → 分支 → 提交 → 推送 → PR。
@@ -463,3 +463,16 @@ Croupier - 让游戏运营变得简单而强大 🎮
 # 3) Agent 指向 Edge 外连
 ./bin/croupier-agent --local_addr :19090 --core_addr 127.0.0.1:9443 --game_id default --env dev \
   --cert configs/dev/agent.crt --key configs/dev/agent.key --ca configs/dev/ca.crt
+### 容器化部署（示例）
+
+```bash
+# 准备开发证书
+./scripts/dev-certs.sh
+
+# 构建容器并启动（Core/Edge/Agent）
+docker compose up --build
+
+# Web 前端（子模块 web）单独启动 dev，或将构建产物挂载到 Core 静态目录
+```
+
+登录后获取 token，前端会自动附带 Authorization 进行调用。
