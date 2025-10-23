@@ -13,12 +13,13 @@ import (
 func main() {
     cli := sdk.NewClient(sdk.ClientConfig{Addr: "127.0.0.1:19090", LocalListen: "127.0.0.1:0"})
 
-    // Register a function handler: player.ban
+    // Register a function handler: player.ban（从 descriptors 加载）
     schema := map[string]any{
         "type": "object",
         "properties": map[string]any{"player_id": map[string]any{"type":"string"}, "reason": map[string]any{"type":"string"}},
         "required": []any{"player_id"},
     }
+    // 也可使用 RegisterFromDescriptor("descriptors/player.ban.json", handler)
     _ = cli.RegisterFunction(sdk.Function{ID: "player.ban", Version: "1.2.0", Schema: schema}, func(ctx context.Context, payload []byte) ([]byte, error) {
         var in struct{ PlayerID string `json:"player_id"`; Reason string `json:"reason"` }
         _ = json.Unmarshal(payload, &in)
