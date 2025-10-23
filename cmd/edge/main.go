@@ -19,6 +19,8 @@ import (
     "github.com/cuihairu/croupier/internal/server/games"
     tunnelsrv "github.com/cuihairu/croupier/internal/edge/tunnel"
     tunnelv1 "github.com/cuihairu/croupier/gen/go/croupier/tunnel/v1"
+    "net/http"
+    "encoding/json"
 )
 
 func loadTLS(certFile, keyFile, caFile string, requireClient bool) (credentials.TransportCredentials, error) {
@@ -42,6 +44,7 @@ func main() {
     key := flag.String("key", "", "TLS key file")
     ca := flag.String("ca", "", "CA cert file (client verify)")
     gamesPath := flag.String("games_config", "configs/games.json", "allowed games config (json)")
+    httpAddr := flag.String("http_addr", ":9080", "edge http listen for health/metrics")
     flag.Parse()
 
     if *cert == "" || *key == "" { log.Fatal("TLS cert/key required") }
@@ -63,6 +66,14 @@ func main() {
     fn := functionserver.NewEdgeServer(ctrl.Store(), tun)
     functionv1.RegisterFunctionServiceServer(s, fn)
 
+    // HTTP health/metrics
+    go func(){
+        mux := http.NewServeMux()
+        mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request){ w.WriteHeader(http.StatusOK); _,_ = w.Write([]byte("ok")) })
+        mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request){ _ = json.NewEncoder(w).Encode(map[string]any{"tunnel_agents": tun.ConnCount(), "tunnel_pending": tun.PendingCount(), "tunnel_jobs": tun.JobsCount()}) })
+        log.Printf("edge http listening on %s", *httpAddr)
+        _ = http.ListenAndServe(*httpAddr, mux)
+    }()
     log.Printf("edge listening on %s", *addr)
     if err := s.Serve(lis); err != nil { log.Fatalf("serve: %v", err) }
 }
