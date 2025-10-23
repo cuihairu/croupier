@@ -3,6 +3,7 @@ package function
 import (
     "context"
     "fmt"
+    "hash/fnv"
 
     functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
     "github.com/cuihairu/croupier/internal/agent/registry"
@@ -23,7 +24,7 @@ type Server struct {
 func NewServer(store *registry.LocalStore, exec *jobs.Executor) *Server { return &Server{store: store, exec: exec} }
 
 func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
-    // routing: target_service_id > broadcast > round-robin
+    // routing: target_service_id > broadcast > hash > round-robin
     if req.Metadata != nil {
         if target := req.Metadata["target_service_id"]; target != "" {
             // pick matching instance
@@ -61,6 +62,21 @@ func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*fu
             }
             out = append(out, ']')
             return &functionv1.InvokeResponse{Payload: out}, nil
+        }
+        if route := req.Metadata["route"]; route == "hash" {
+            key := req.Metadata["hash_key"]
+            lst := s.store.Instances(req.GetFunctionId())
+            if len(lst) == 0 { return nil, fmt.Errorf("no local handler for %s", req.GetFunctionId()) }
+            // stable hash on key to index
+            h := fnv.New32a(); h.Write([]byte(key)); idx := int(h.Sum32()) % len(lst)
+            inst := lst[idx]
+            base := []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json"))}
+            opts := append(base, interceptors.Chain(nil)...)
+            cc, err := grpc.Dial(inst.Addr, opts...)
+            if err != nil { return nil, err }
+            defer cc.Close()
+            cli := functionv1.NewFunctionServiceClient(cc)
+            return cli.Invoke(ctx, req)
         }
     }
     // round-robin default
