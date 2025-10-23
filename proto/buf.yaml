@@ -2,9 +2,6 @@ version: v1
 name: buf.build/your-org/croupier
 deps:
   - buf.build/googleapis/googleapis
-build:
-  roots:
-    - proto
 lint:
   use:
     - STANDARD
@@ -15,3 +12,4 @@ lint:
 breaking:
   use:
     - FILE
+
