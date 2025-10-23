@@ -15,8 +15,10 @@ import (
     controlv1 "github.com/your-org/croupier/gen/go/croupier/control/v1"
     functionv1 "github.com/your-org/croupier/gen/go/croupier/function/v1"
     controlserver "github.com/your-org/croupier/internal/server/control"
-    functionserver "github.com/your-org/croupier/internal/server/function"
+    functionserver "github.com/your-org/croupier/internal/edge/function"
     "github.com/your-org/croupier/internal/server/games"
+    tunnelsrv "github.com/your-org/croupier/internal/edge/tunnel"
+    tunnelv1 "github.com/your-org/croupier/gen/go/croupier/tunnel/v1"
 )
 
 func loadTLS(certFile, keyFile, caFile string, requireClient bool) (credentials.TransportCredentials, error) {
@@ -54,11 +56,13 @@ func main() {
     _ = gstore.Load()
     ctrl := controlserver.NewServer(gstore)
     controlv1.RegisterControlServiceServer(s, ctrl)
-    // FunctionService at edge routes to Agent via RPCAddr (DEV PoC)
-    fn := functionserver.NewServer(ctrl.Store())
+    // Tunnel service for Agent connections
+    tun := tunnelsrv.NewServer()
+    tunnelv1.RegisterTunnelServiceServer(s, tun)
+    // FunctionService at edge routes to Agent via tunnel, fallback to RPCAddr
+    fn := functionserver.NewEdgeServer(ctrl.Store(), tun)
     functionv1.RegisterFunctionServiceServer(s, fn)
 
     log.Printf("edge listening on %s", *addr)
     if err := s.Serve(lis); err != nil { log.Fatalf("serve: %v", err) }
 }
-
