@@ -58,6 +58,8 @@ func main() {
     insecureLocal := flag.Bool("insecure_local", true, "use insecure for local listener (development)")
     agentID := flag.String("agent_id", "agent-1", "agent id")
     agentVersion := flag.String("agent_version", "0.1.0", "agent version")
+    gameID := flag.String("game_id", "", "game id (required if server enforces whitelist)")
+    env := flag.String("env", "", "environment (optional) e.g. prod/stage/test")
     flag.Parse()
 
     // Connect to Core with mTLS
@@ -84,7 +86,7 @@ func main() {
         cc := controlclient.NewClient(coreConn)
         fns := []*controlv1.FunctionDescriptor{}
         ctx := context.Background()
-        cc.RegisterAndHeartbeat(ctx, *agentID, *agentVersion, *localAddr, fns)
+        cc.RegisterAndHeartbeat(ctx, *agentID, *agentVersion, *localAddr, *gameID, *env, fns)
     }()
 
     // Local gRPC for game servers to connect

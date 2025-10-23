@@ -16,6 +16,8 @@ message RegisterRequest {
   string version = 2;               // agent version
   repeated FunctionDescriptor functions = 3; // summarized function list
   string rpc_addr = 4;              // agent's reachable gRPC address (DEV ONLY)
+  string game_id = 5;               // game scope (required for multi-game)
+  string env = 6;                   // environment (optional: prod/stage/test)
 }
 
 message RegisterResponse {

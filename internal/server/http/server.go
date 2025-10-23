@@ -15,6 +15,7 @@ import (
     auditchain "github.com/your-org/croupier/internal/audit/chain"
     "github.com/your-org/croupier/internal/auth/rbac"
     "os"
+    "github.com/your-org/croupier/internal/server/games"
 )
 
 type Server struct {
@@ -24,6 +25,7 @@ type Server struct {
     invoker FunctionInvoker
     audit *auditchain.Writer
     rbac  *rbac.Policy
+    games *games.Store
 }
 
 type FunctionInvoker interface {
@@ -33,12 +35,12 @@ type FunctionInvoker interface {
     CancelJob(ctx context.Context, req *functionv1.CancelJobRequest) (*functionv1.StartJobResponse, error)
 }
 
-func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.Writer, policy *rbac.Policy) (*Server, error) {
+func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.Writer, policy *rbac.Policy, gamesStore *games.Store) (*Server, error) {
     descs, err := descriptor.LoadAll(descriptorDir)
     if err != nil { return nil, err }
     idx := map[string]*descriptor.Descriptor{}
     for _, d := range descs { idx[d.ID] = d }
-    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy}
+    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, games: gamesStore}
     s.routes()
     return s, nil
 }
@@ -53,6 +55,8 @@ func (s *Server) routes() {
         addCORS(w, r)
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
         user := r.Header.Get("X-User"); if user == "" { user = "user:dev" }
+        gameID := r.Header.Get("X-Game-ID")
+        env := r.Header.Get("X-Env")
         var in struct{
             FunctionID string `json:"function_id"`
             Payload    any    `json:"payload"`
@@ -79,7 +83,10 @@ func (s *Server) routes() {
         if in.IdempotencyKey == "" { in.IdempotencyKey = randHex(16) }
         traceID := randHex(8)
         _ = s.audit.Log("invoke", user, in.FunctionID, map[string]string{"ip": r.RemoteAddr, "trace_id": traceID})
-        resp, err := s.invoker.Invoke(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: map[string]string{"trace_id": traceID}})
+        meta := map[string]string{"trace_id": traceID}
+        if gameID != "" { meta["game_id"] = gameID }
+        if env != "" { meta["env"] = env }
+        resp, err := s.invoker.Invoke(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta})
         if err != nil { http.Error(w, err.Error(), 500); return }
         w.Header().Set("Content-Type", "application/json")
         if len(resp.GetPayload()) == 0 {
@@ -91,6 +98,8 @@ func (s *Server) routes() {
         addCORS(w, r)
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
         user := r.Header.Get("X-User"); if user == "" { user = "user:dev" }
+        gameID := r.Header.Get("X-Game-ID")
+        env := r.Header.Get("X-Env")
         var in struct{ FunctionID string `json:"function_id"`; Payload any `json:"payload"`; IdempotencyKey string `json:"idempotency_key"` }
         if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
         // validate
@@ -112,7 +121,10 @@ func (s *Server) routes() {
         if in.IdempotencyKey == "" { in.IdempotencyKey = randHex(16) }
         traceID := randHex(8)
         _ = s.audit.Log("start_job", user, in.FunctionID, map[string]string{"ip": r.RemoteAddr, "trace_id": traceID})
-        resp, err := s.invoker.StartJob(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: map[string]string{"trace_id": traceID}})
+        meta := map[string]string{"trace_id": traceID}
+        if gameID != "" { meta["game_id"] = gameID }
+        if env != "" { meta["env"] = env }
+        resp, err := s.invoker.StartJob(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta})
         if err != nil { http.Error(w, err.Error(), 500); return }
         _ = json.NewEncoder(w).Encode(resp)
     })
@@ -154,6 +166,26 @@ func (s *Server) routes() {
         }
         w.WriteHeader(204)
     })
+    // Game whitelist management
+    s.mux.HandleFunc("/api/games", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
+        user := r.Header.Get("X-User"); if user == "" { user = "user:dev" }
+        switch r.Method {
+        case http.MethodGet:
+            _ = json.NewEncoder(w).Encode(struct{ Games []games.Entry `json:"games"` }{Games: s.games.List()})
+        case http.MethodPost:
+            if s.rbac != nil && !s.rbac.Can(user, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
+            var in games.Entry
+            if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
+            if in.GameID == "" { http.Error(w, "missing game_id", 400); return }
+            s.games.Add(in.GameID, in.Env)
+            _ = s.games.Save()
+            w.WriteHeader(http.StatusNoContent)
+        default:
+            w.WriteHeader(http.StatusMethodNotAllowed)
+        }
+    })
+
     // Static files: prefer production build at web/dist, fallback to web/static
     staticDir := "web/dist"
     if st, err := os.Stat(staticDir); err != nil || !st.IsDir() {
