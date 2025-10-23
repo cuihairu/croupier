@@ -70,19 +70,27 @@ func (s *Server) routes() {
                 if err := validation.ValidateJSON(ps, b); err != nil { http.Error(w, fmt.Sprintf("payload invalid: %v", err), 400); return }
             }
         }
-        // rbac check
-        perm := "function:" + in.FunctionID
+        // rbac check (scoped)
+        basePerm := "function:" + in.FunctionID
         if d := s.descIndex[in.FunctionID]; d != nil {
             if auth := d.Auth; auth != nil {
-                if p, ok := auth["permission"].(string); ok && p != "" { perm = p }
+                if p, ok := auth["permission"].(string); ok && p != "" { basePerm = p }
             }
         }
-        if s.rbac != nil && !s.rbac.Can(user, perm) { http.Error(w, "forbidden", http.StatusForbidden); return }
+        scopedOk := false
+        if s.rbac != nil {
+            scoped := basePerm
+            if gameID != "" { scoped = "game:" + gameID + ":" + basePerm }
+            if s.rbac.Can(user, scoped) || s.rbac.Can(user, basePerm) || (gameID != "" && s.rbac.Can(user, "game:"+gameID+":*")) || s.rbac.Can(user, "*") {
+                scopedOk = true
+            }
+        } else { scopedOk = true }
+        if !scopedOk { http.Error(w, "forbidden", http.StatusForbidden); return }
         b, err := json.Marshal(in.Payload)
         if err != nil { http.Error(w, err.Error(), 400); return }
         if in.IdempotencyKey == "" { in.IdempotencyKey = randHex(16) }
         traceID := randHex(8)
-        _ = s.audit.Log("invoke", user, in.FunctionID, map[string]string{"ip": r.RemoteAddr, "trace_id": traceID})
+        _ = s.audit.Log("invoke", user, in.FunctionID, map[string]string{"ip": r.RemoteAddr, "trace_id": traceID, "game_id": gameID, "env": env})
         meta := map[string]string{"trace_id": traceID}
         if gameID != "" { meta["game_id"] = gameID }
         if env != "" { meta["env"] = env }
@@ -109,18 +117,26 @@ func (s *Server) routes() {
                 if err := validation.ValidateJSON(ps, b); err != nil { http.Error(w, fmt.Sprintf("payload invalid: %v", err), 400); return }
             }
         }
-        // rbac check
-        perm := "function:" + in.FunctionID
+        // rbac check (scoped)
+        basePerm := "function:" + in.FunctionID
         if d := s.descIndex[in.FunctionID]; d != nil {
             if auth := d.Auth; auth != nil {
-                if p, ok := auth["permission"].(string); ok && p != "" { perm = p }
+                if p, ok := auth["permission"].(string); ok && p != "" { basePerm = p }
             }
         }
-        if s.rbac != nil && !s.rbac.Can(user, perm) { http.Error(w, "forbidden", http.StatusForbidden); return }
+        scopedOk := false
+        if s.rbac != nil {
+            scoped := basePerm
+            if gameID != "" { scoped = "game:" + gameID + ":" + basePerm }
+            if s.rbac.Can(user, scoped) || s.rbac.Can(user, basePerm) || (gameID != "" && s.rbac.Can(user, "game:"+gameID+":*")) || s.rbac.Can(user, "*") {
+                scopedOk = true
+            }
+        } else { scopedOk = true }
+        if !scopedOk { http.Error(w, "forbidden", http.StatusForbidden); return }
         b, _ := json.Marshal(in.Payload)
         if in.IdempotencyKey == "" { in.IdempotencyKey = randHex(16) }
         traceID := randHex(8)
-        _ = s.audit.Log("start_job", user, in.FunctionID, map[string]string{"ip": r.RemoteAddr, "trace_id": traceID})
+        _ = s.audit.Log("start_job", user, in.FunctionID, map[string]string{"ip": r.RemoteAddr, "trace_id": traceID, "game_id": gameID, "env": env})
         meta := map[string]string{"trace_id": traceID}
         if gameID != "" { meta["game_id"] = gameID }
         if env != "" { meta["env"] = env }
