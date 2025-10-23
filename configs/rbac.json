@@ -1,6 +1,6 @@
 {
   "allow": {
-    "user:dev": ["*", "job:cancel"]
+    "user:dev": ["*", "job:cancel"],
+    "role:admin": ["*"]
   }
 }
-

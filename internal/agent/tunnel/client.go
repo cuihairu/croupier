@@ -19,6 +19,10 @@ type Client struct {
     localAddr string // local function endpoint
 }
 
+var reconnects int64
+func IncReconnect() { reconnects++ }
+func Reconnects() int64 { return reconnects }
+
 func NewClient(addr, agentID, gameID, env, localAddr string) *Client {
     return &Client{addr: addr, agentID: agentID, gameID: gameID, env: env, localAddr: localAddr}
 }
