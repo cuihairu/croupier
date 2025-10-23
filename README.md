@@ -262,14 +262,14 @@ croupier/
 
 ## 🔐 安全与权限
 
-### 传输与身份
-- mTLS：Client/Server 双向校验；证书颁发与轮换可接入 SPIFFE/SPIRE、ACME 或企业 CA
-- 通信仅走 443/HTTP/2；Agent/SDK 统一出站，便于穿透防火墙/代理
+### 认证与授权（MVP）
+- 登录：POST `/api/auth/login`（Body: `{username,password}`）返回 `{token,user}`；前端保存 token 并通过 `Authorization: Bearer <token>` 访问 /api/*
+- 会话：GET `/api/auth/me` 返回 `{username,roles}`；未登录 401
+- 权限：RBAC 支持函数级 + 作用域（例如 `game:<game_id>:function:<id>`、`game:<game_id>:*`、`*`）；支持基于 `role:<role>` 的规则
 
-### 用户与权限
-- 用户侧：OIDC 登录（SAML/LDAP 可兼容），支持 MFA
-- 权限：功能级/资源级/环境级 RBAC/ABAC（如 `player:ban@prod`），可配置双人审批
-- 脱敏：支持字段级脱敏（如手机号、IP），按权限查看明文/脱敏值
+### 传输与身份
+- mTLS：Core/Edge/Agent 默认要求提供 `--cert/--key/--ca`，Agent 外连必须启用 mTLS；证书颁发与轮换可接入 SPIFFE/SPIRE、ACME 或企业 CA
+- 出站：通信仅走 443/HTTP/2；Agent/SDK 统一出站（便于穿透防火墙/代理）
 
 ### 审计与防护
 - 全量审计：功能 ID、调用人、参数摘要（敏感字段散列）、目标资源、结果、耗时、traceId

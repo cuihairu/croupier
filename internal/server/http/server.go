@@ -22,6 +22,9 @@ import (
     "time"
     users "github.com/cuihairu/croupier/internal/auth/users"
     jwt "github.com/cuihairu/croupier/internal/auth/token"
+    localv1 "github.com/cuihairu/croupier/gen/go/croupier/agent/local/v1"
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
 )
 
 type Server struct {
@@ -126,8 +129,14 @@ func (s *Server) routes() {
         if s.rbac != nil {
             scoped := basePerm
             if gameID != "" { scoped = "game:" + gameID + ":" + basePerm }
+            // by username or by role
             if s.rbac.Can(user, scoped) || s.rbac.Can(user, basePerm) || (gameID != "" && s.rbac.Can(user, "game:"+gameID+":*")) || s.rbac.Can(user, "*") {
                 scopedOk = true
+            } else {
+                _, roles, _ := s.auth(r)
+                for _, role := range roles {
+                    if s.rbac.Can("role:"+role, scoped) || s.rbac.Can("role:"+role, basePerm) { scopedOk = true; break }
+                }
             }
         } else { scopedOk = true }
         if !scopedOk { http.Error(w, "forbidden", http.StatusForbidden); return }
@@ -188,6 +197,11 @@ func (s *Server) routes() {
             if gameID != "" { scoped = "game:" + gameID + ":" + basePerm }
             if s.rbac.Can(user, scoped) || s.rbac.Can(user, basePerm) || (gameID != "" && s.rbac.Can(user, "game:"+gameID+":*")) || s.rbac.Can(user, "*") {
                 scopedOk = true
+            } else {
+                _, roles, _ := s.auth(r)
+                for _, role := range roles {
+                    if s.rbac.Can("role:"+role, scoped) || s.rbac.Can("role:"+role, basePerm) { scopedOk = true; break }
+                }
             }
         } else { scopedOk = true }
         if !scopedOk { http.Error(w, "forbidden", http.StatusForbidden); return }
@@ -307,6 +321,37 @@ func (s *Server) routes() {
             s.reg.Mu().RUnlock()
         }
         _ = json.NewEncoder(w).Encode(struct{ Agents []Agent `json:"agents"`; Functions []Function `json:"functions"` }{Agents: agents, Functions: functions})
+    })
+    // Function instances across agents (targeted routing aid)
+    s.mux.HandleFunc("/api/function_instances", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
+        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        gameID := r.URL.Query().Get("game_id")
+        fid := r.URL.Query().Get("function_id")
+        type Inst struct{ AgentID, ServiceID, Addr, Version string }
+        var out []Inst
+        if s.reg != nil {
+            s.reg.Mu().RLock()
+            for _, a := range s.reg.AgentsUnsafe() {
+                if gameID != "" && a.GameID != gameID { continue }
+                if fid != "" { if _, ok := a.Functions[fid]; !ok { continue } }
+                // dial agent local control and list
+                cc, err := grpc.Dial(a.RPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+                if err != nil { continue }
+                cli := localv1.NewLocalControlServiceClient(cc)
+                resp, err := cli.ListLocal(r.Context(), &localv1.ListLocalRequest{})
+                _ = cc.Close()
+                if err != nil || resp == nil { continue }
+                for _, lf := range resp.Functions {
+                    if fid != "" && lf.Id != fid { continue }
+                    for _, inst := range lf.Instances {
+                        out = append(out, Inst{AgentID: a.AgentID, ServiceID: inst.ServiceId, Addr: inst.Addr, Version: inst.Version})
+                    }
+                }
+            }
+            s.reg.Mu().RUnlock()
+        }
+        _ = json.NewEncoder(w).Encode(struct{ Instances []Inst `json:"instances"` }{Instances: out})
     })
     // Game whitelist management
     s.mux.HandleFunc("/api/games", func(w http.ResponseWriter, r *http.Request) {

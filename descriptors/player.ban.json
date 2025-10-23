@@ -17,7 +17,7 @@
     "mode": "command",
     "idempotency_key": true,
     "timeout": "30s",
-    "returns": "job"
+    "returns": "job",
+    "route": "lb"
   }
 }
-

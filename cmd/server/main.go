@@ -34,18 +34,14 @@ func loadServerTLS(certFile, keyFile, caFile string) (credentials.TransportCrede
         return nil, err
     }
     cfg := &tls.Config{Certificates: []tls.Certificate{cert}}
-    if caFile != "" {
-        caPEM, err := ioutil.ReadFile(caFile)
-        if err != nil {
-            return nil, err
-        }
-        pool := x509.NewCertPool()
-        if !pool.AppendCertsFromPEM(caPEM) {
-            return nil, err
-        }
-        cfg.ClientCAs = pool
-        cfg.ClientAuth = tls.RequireAndVerifyClientCert
-    }
+    // Enforce mTLS: require CA for client verification
+    if caFile == "" { return nil, fmt.Errorf("ca certificate required for mTLS: provide --ca") }
+    caPEM, err := ioutil.ReadFile(caFile)
+    if err != nil { return nil, err }
+    pool := x509.NewCertPool()
+    if !pool.AppendCertsFromPEM(caPEM) { return nil, fmt.Errorf("failed to append CA") }
+    cfg.ClientCAs = pool
+    cfg.ClientAuth = tls.RequireAndVerifyClientCert
     return credentials.NewTLS(cfg), nil
 }
 
