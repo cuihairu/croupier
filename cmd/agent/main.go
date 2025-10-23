@@ -15,17 +15,17 @@ import (
     "google.golang.org/grpc/credentials/insecure"
     "google.golang.org/grpc/keepalive"
 
-    controlclient "github.com/your-org/croupier/internal/agent/control"
-    controlv1 "github.com/your-org/croupier/gen/go/croupier/control/v1"
-    functionv1 "github.com/your-org/croupier/gen/go/croupier/function/v1"
-    agentfunc "github.com/your-org/croupier/internal/agent/function"
-    localv1 "github.com/your-org/croupier/gen/go/croupier/agent/local/v1"
-    locallib "github.com/your-org/croupier/internal/agent/local"
-    localreg "github.com/your-org/croupier/internal/agent/registry"
-    "github.com/your-org/croupier/internal/agent/jobs"
-    tunn "github.com/your-org/croupier/internal/agent/tunnel"
+    controlclient "github.com/cuihairu/croupier/internal/agent/control"
+    controlv1 "github.com/cuihairu/croupier/gen/go/croupier/control/v1"
+    functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
+    agentfunc "github.com/cuihairu/croupier/internal/agent/function"
+    localv1 "github.com/cuihairu/croupier/gen/go/croupier/agent/local/v1"
+    locallib "github.com/cuihairu/croupier/internal/agent/local"
+    localreg "github.com/cuihairu/croupier/internal/agent/registry"
+    "github.com/cuihairu/croupier/internal/agent/jobs"
+    tunn "github.com/cuihairu/croupier/internal/agent/tunnel"
     // register json codec
-    _ "github.com/your-org/croupier/internal/transport/jsoncodec"
+    _ "github.com/cuihairu/croupier/internal/transport/jsoncodec"
 )
 
 func loadClientTLS(certFile, keyFile, caFile string, serverName string) (credentials.TransportCredentials, error) {
@@ -123,6 +123,11 @@ func main() {
     }()
 
     log.Printf("croupier-agent listening on %s; connected to core %s", *localAddr, *coreAddr)
+    // prune stale instances periodically
+    go func(){
+        ticker := time.NewTicker(30 * time.Second); defer ticker.Stop()
+        for range ticker.C { removed := lstore.Prune(60*time.Second); if removed > 0 { log.Printf("pruned %d stale local instances", removed) } }
+    }()
     if err := srv.Serve(lis); err != nil {
         log.Fatalf("serve local: %v", err)
     }

@@ -5,9 +5,9 @@ import (
     "log"
     "time"
 
-    controlv1 "github.com/your-org/croupier/gen/go/croupier/control/v1"
-    "github.com/your-org/croupier/internal/server/registry"
-    "github.com/your-org/croupier/internal/server/games"
+    controlv1 "github.com/cuihairu/croupier/gen/go/croupier/control/v1"
+    "github.com/cuihairu/croupier/internal/server/registry"
+    "github.com/cuihairu/croupier/internal/server/games"
 
     "google.golang.org/grpc/codes"
     "google.golang.org/grpc/status"

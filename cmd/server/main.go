@@ -13,16 +13,16 @@ import (
     "google.golang.org/grpc/credentials"
     "google.golang.org/grpc/keepalive"
 
-    controlv1 "github.com/your-org/croupier/gen/go/croupier/control/v1"
-    controlserver "github.com/your-org/croupier/internal/server/control"
-    functionv1 "github.com/your-org/croupier/gen/go/croupier/function/v1"
-    functionserver "github.com/your-org/croupier/internal/server/function"
-    httpserver "github.com/your-org/croupier/internal/server/http"
+    controlv1 "github.com/cuihairu/croupier/gen/go/croupier/control/v1"
+    controlserver "github.com/cuihairu/croupier/internal/server/control"
+    functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
+    functionserver "github.com/cuihairu/croupier/internal/server/function"
+    httpserver "github.com/cuihairu/croupier/internal/server/http"
     // register json codec
-    _ "github.com/your-org/croupier/internal/transport/jsoncodec"
-    auditchain "github.com/your-org/croupier/internal/audit/chain"
-    rbac "github.com/your-org/croupier/internal/auth/rbac"
-    "github.com/your-org/croupier/internal/server/games"
+    _ "github.com/cuihairu/croupier/internal/transport/jsoncodec"
+    auditchain "github.com/cuihairu/croupier/internal/audit/chain"
+    rbac "github.com/cuihairu/croupier/internal/auth/rbac"
+    "github.com/cuihairu/croupier/internal/server/games"
 )
 
 // loadServerTLS builds a tls.Config for mTLS if caFile is provided.
@@ -111,7 +111,7 @@ func main() {
         defer aw.Close()
         var pol *rbac.Policy
         if p, err := rbac.LoadPolicy(*rbacPath); err == nil { pol = p } else { pol = rbac.NewPolicy(); pol.Grant("user:dev", "*"); pol.Grant("user:dev", "job:cancel") }
-        httpSrv, err := httpserver.NewServer("descriptors", invoker, aw, pol, gstore)
+        httpSrv, err := httpserver.NewServer("descriptors", invoker, aw, pol, gstore, ctrl.Store())
         if err != nil { log.Fatalf("http server: %v", err) }
         if err := httpSrv.ListenAndServe(*httpAddr); err != nil {
             log.Fatalf("serve http: %v", err)

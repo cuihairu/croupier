@@ -12,13 +12,13 @@ import (
     "google.golang.org/grpc/credentials"
     "google.golang.org/grpc/keepalive"
 
-    controlv1 "github.com/your-org/croupier/gen/go/croupier/control/v1"
-    functionv1 "github.com/your-org/croupier/gen/go/croupier/function/v1"
-    controlserver "github.com/your-org/croupier/internal/server/control"
-    functionserver "github.com/your-org/croupier/internal/edge/function"
-    "github.com/your-org/croupier/internal/server/games"
-    tunnelsrv "github.com/your-org/croupier/internal/edge/tunnel"
-    tunnelv1 "github.com/your-org/croupier/gen/go/croupier/tunnel/v1"
+    controlv1 "github.com/cuihairu/croupier/gen/go/croupier/control/v1"
+    functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
+    controlserver "github.com/cuihairu/croupier/internal/server/control"
+    functionserver "github.com/cuihairu/croupier/internal/edge/function"
+    "github.com/cuihairu/croupier/internal/server/games"
+    tunnelsrv "github.com/cuihairu/croupier/internal/edge/tunnel"
+    tunnelv1 "github.com/cuihairu/croupier/gen/go/croupier/tunnel/v1"
 )
 
 func loadTLS(certFile, keyFile, caFile string, requireClient bool) (credentials.TransportCredentials, error) {

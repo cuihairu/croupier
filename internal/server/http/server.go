@@ -5,17 +5,18 @@ import (
     "log"
     "net/http"
 
-    "github.com/your-org/croupier/internal/function/descriptor"
-    functionv1 "github.com/your-org/croupier/gen/go/croupier/function/v1"
+    "github.com/cuihairu/croupier/internal/function/descriptor"
+    functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
     "context"
     "crypto/rand"
     "encoding/hex"
     "fmt"
-    "github.com/your-org/croupier/internal/validation"
-    auditchain "github.com/your-org/croupier/internal/audit/chain"
-    "github.com/your-org/croupier/internal/auth/rbac"
+    "github.com/cuihairu/croupier/internal/validation"
+    auditchain "github.com/cuihairu/croupier/internal/audit/chain"
+    "github.com/cuihairu/croupier/internal/auth/rbac"
     "os"
-    "github.com/your-org/croupier/internal/server/games"
+    "github.com/cuihairu/croupier/internal/server/games"
+    "github.com/cuihairu/croupier/internal/server/registry"
     "bufio"
     "strings"
 )
@@ -28,6 +29,7 @@ type Server struct {
     audit *auditchain.Writer
     rbac  *rbac.Policy
     games *games.Store
+    reg   *registry.Store
 }
 
 type FunctionInvoker interface {
@@ -37,12 +39,12 @@ type FunctionInvoker interface {
     CancelJob(ctx context.Context, req *functionv1.CancelJobRequest) (*functionv1.StartJobResponse, error)
 }
 
-func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.Writer, policy *rbac.Policy, gamesStore *games.Store) (*Server, error) {
+func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.Writer, policy *rbac.Policy, gamesStore *games.Store, reg *registry.Store) (*Server, error) {
     descs, err := descriptor.LoadAll(descriptorDir)
     if err != nil { return nil, err }
     idx := map[string]*descriptor.Descriptor{}
     for _, d := range descs { idx[d.ID] = d }
-    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, games: gamesStore}
+    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, games: gamesStore, reg: reg}
     s.routes()
     return s, nil
 }
@@ -63,6 +65,8 @@ func (s *Server) routes() {
             FunctionID string `json:"function_id"`
             Payload    any    `json:"payload"`
             IdempotencyKey string `json:"idempotency_key"`
+            Route string `json:"route"`
+            TargetServiceID string `json:"target_service_id"`
         }
         if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
         // schema validation (best-effort)
@@ -96,6 +100,8 @@ func (s *Server) routes() {
         meta := map[string]string{"trace_id": traceID}
         if gameID != "" { meta["game_id"] = gameID }
         if env != "" { meta["env"] = env }
+        if in.Route != "" { meta["route"] = in.Route }
+        if in.TargetServiceID != "" { meta["target_service_id"] = in.TargetServiceID }
         resp, err := s.invoker.Invoke(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta})
         if err != nil { http.Error(w, err.Error(), 500); return }
         w.Header().Set("Content-Type", "application/json")
@@ -222,6 +228,33 @@ func (s *Server) routes() {
         if len(events) > limit { events = events[len(events)-limit:] }
         // sort by time ascending (already append order)
         _ = json.NewEncoder(w).Encode(resp{Events: events})
+    })
+    // Registry summary
+    s.mux.HandleFunc("/api/registry", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
+        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        type Agent struct{ AgentID, GameID, Env, RpcAddr string; Functions int }
+        type Function struct{ GameID, ID string; Agents int }
+        var agents []Agent
+        var functions []Function
+        if s.reg != nil {
+            s.reg.Mu().RLock()
+            for _, a := range s.reg.AgentsUnsafe() {
+                agents = append(agents, Agent{AgentID: a.AgentID, GameID: a.GameID, Env: a.Env, RpcAddr: a.RPCAddr, Functions: len(a.Functions)})
+            }
+            fnCount := map[string]map[string]int{}
+            for _, a := range s.reg.AgentsUnsafe() {
+                for fid := range a.Functions {
+                    if fnCount[a.GameID] == nil { fnCount[a.GameID] = map[string]int{} }
+                    fnCount[a.GameID][fid]++
+                }
+            }
+            for gid, m := range fnCount {
+                for fid, c := range m { functions = append(functions, Function{GameID: gid, ID: fid, Agents: c}) }
+            }
+            s.reg.Mu().RUnlock()
+        }
+        _ = json.NewEncoder(w).Encode(struct{ Agents []Agent `json:"agents"`; Functions []Function `json:"functions"` }{Agents: agents, Functions: functions})
     })
     // Game whitelist management
     s.mux.HandleFunc("/api/games", func(w http.ResponseWriter, r *http.Request) {

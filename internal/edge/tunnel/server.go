@@ -6,8 +6,8 @@ import (
     "sync"
     "time"
 
-    tunnelv1 "github.com/your-org/croupier/gen/go/croupier/tunnel/v1"
-    functionv1 "github.com/your-org/croupier/gen/go/croupier/function/v1"
+    tunnelv1 "github.com/cuihairu/croupier/gen/go/croupier/tunnel/v1"
+    functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
 )
 
 type pending struct{

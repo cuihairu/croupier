@@ -1,4 +1,4 @@
-module github.com/your-org/croupier
+module github.com/cuihairu/croupier
 
 go 1.21
 

@@ -6,10 +6,10 @@ import (
     "fmt"
     "log"
 
-    functionv1 "github.com/your-org/croupier/gen/go/croupier/function/v1"
-    "github.com/your-org/croupier/internal/jobs"
-    "github.com/your-org/croupier/internal/server/registry"
-    "github.com/your-org/croupier/internal/transport/interceptors"
+    functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
+    "github.com/cuihairu/croupier/internal/jobs"
+    "github.com/cuihairu/croupier/internal/server/registry"
+    "github.com/cuihairu/croupier/internal/transport/interceptors"
 
     "google.golang.org/grpc"
 )

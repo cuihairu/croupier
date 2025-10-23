@@ -2,7 +2,7 @@ version: v1
 managed:
   enabled: true
   go_package_prefix:
-    default: github.com/your-org/croupier/gen/go
+    default: github.com/cuihairu/croupier/gen/go
 plugins:
   - plugin: buf.build/protocolbuffers/go
     out: gen/go
