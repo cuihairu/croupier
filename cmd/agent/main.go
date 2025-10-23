@@ -66,7 +66,7 @@ func main() {
     httpAddr := flag.String("http_addr", ":19091", "agent http listen for health/metrics")
     flag.Parse()
 
-    // Connect to Core with mTLS
+    // Connect to Core with mTLS (require by default)
     var dialOpt grpc.DialOption
     if *cert != "" && *key != "" && *ca != "" {
         creds, err := loadClientTLS(*cert, *key, *ca, *serverName)
@@ -75,8 +75,7 @@ func main() {
         }
         dialOpt = grpc.WithTransportCredentials(creds)
     } else {
-        log.Printf("WARNING: no mTLS provided, using insecure dial to core for development")
-        dialOpt = grpc.WithTransportCredentials(insecure.NewCredentials())
+        log.Fatalf("TLS cert/key/ca required for agent outbound; provide --cert/--key/--ca")
     }
 
     coreConn, err := grpc.Dial(*coreAddr, dialOpt, grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 30 * time.Second}), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")))

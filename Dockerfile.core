@@ -1,0 +1,15 @@
+# syntax=docker/dockerfile:1
+FROM golang:1.21 as build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/croupier-server ./cmd/server
+
+FROM gcr.io/distroless/static:nonroot
+WORKDIR /app
+COPY --from=build /out/croupier-server /app/
+COPY configs /app/configs
+EXPOSE 8443 8080
+USER nonroot
+ENTRYPOINT ["/app/croupier-server"]

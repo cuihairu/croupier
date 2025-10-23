@@ -145,6 +145,10 @@ func (s *Server) routes() {
                 if rv, ok := sem["route"].(string); ok && rv != "" { meta["route"] = rv }
             }
         }
+        // validate route value
+        if rv, ok := meta["route"]; ok && rv != "lb" && rv != "broadcast" && rv != "targeted" {
+            http.Error(w, "invalid route", 400); return
+        }
         if in.TargetServiceID != "" { meta["target_service_id"] = in.TargetServiceID }
         resp, err := s.invoker.Invoke(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta})
         if err != nil { http.Error(w, err.Error(), 500); return }

@@ -1,0 +1,22 @@
+version: '3.9'
+services:
+  edge:
+    build:
+      context: .
+      dockerfile: Dockerfile.edge
+    command: ["--addr", ":9443", "--http_addr", ":9080", "--games_config", "/app/configs/games.json", "--cert", "/app/configs/dev/server.crt", "--key", "/app/configs/dev/server.key", "--ca", "/app/configs/dev/ca.crt"]
+    ports: ["9443:9443", "9080:9080"]
+  core:
+    build:
+      context: .
+      dockerfile: Dockerfile.core
+    command: ["--addr", ":8443", "--http_addr", ":8080", "--edge_addr", "edge:9443", "--rbac_config", "/app/configs/rbac.json", "--games_config", "/app/configs/games.json", "--users_config", "/app/configs/users.json", "--jwt_secret", "change-me", "--cert", "/app/configs/dev/server.crt", "--key", "/app/configs/dev/server.key", "--ca", "/app/configs/dev/ca.crt"]
+    ports: ["8443:8443", "8080:8080"]
+    depends_on: [edge]
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    command: ["--local_addr", ":19090", "--http_addr", ":19091", "--core_addr", "edge:9443", "--game_id", "default", "--env", "dev", "--cert", "/app/configs/dev/agent.crt", "--key", "/app/configs/dev/agent.key", "--ca", "/app/configs/dev/ca.crt"]
+    ports: ["19090:19090", "19091:19091"]
+    depends_on: [edge]
