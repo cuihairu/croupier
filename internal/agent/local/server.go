@@ -16,10 +16,12 @@ type Server struct {
     agentID string
     agentVersion string
     agentRPCAddr string
+    gameID string
+    env    string
 }
 
-func NewServer(store *registry.LocalStore, ctrl controlv1.ControlServiceClient, agentID, agentVersion, agentRPCAddr string) *Server {
-    return &Server{store: store, ctrl: ctrl, agentID: agentID, agentVersion: agentVersion, agentRPCAddr: agentRPCAddr}
+func NewServer(store *registry.LocalStore, ctrl controlv1.ControlServiceClient, agentID, agentVersion, agentRPCAddr, gameID, env string) *Server {
+    return &Server{store: store, ctrl: ctrl, agentID: agentID, agentVersion: agentVersion, agentRPCAddr: agentRPCAddr, gameID: gameID, env: env}
 }
 
 func (s *Server) RegisterLocal(ctx context.Context, req *localv1.RegisterLocalRequest) (*localv1.RegisterLocalResponse, error) {
@@ -31,7 +33,7 @@ func (s *Server) RegisterLocal(ctx context.Context, req *localv1.RegisterLocalRe
         fns = append(fns, &controlv1.FunctionDescriptor{Id: fid, Version: e.Version})
     }
     if s.ctrl != nil {
-        if _, err := s.ctrl.Register(ctx, &controlv1.RegisterRequest{AgentId: s.agentID, Version: s.agentVersion, RpcAddr: s.agentRPCAddr, Functions: fns}); err != nil {
+        if _, err := s.ctrl.Register(ctx, &controlv1.RegisterRequest{AgentId: s.agentID, Version: s.agentVersion, RpcAddr: s.agentRPCAddr, GameId: s.gameID, Env: s.env, Functions: fns}); err != nil {
             log.Printf("core register update failed: %v", err)
         }
     }

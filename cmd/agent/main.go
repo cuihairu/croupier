@@ -108,7 +108,7 @@ func main() {
     // Register local FunctionService endpoint (routes to local game servers & job executor)
     functionv1.RegisterFunctionServiceServer(srv, agentfunc.NewServer(lstore, exec))
     // Register LocalControl service for SDKs to register themselves
-    localv1.RegisterLocalControlServiceServer(srv, locallib.NewServer(lstore, controlv1.NewControlServiceClient(coreConn), *agentID, *agentVersion, *localAddr))
+    localv1.RegisterLocalControlServiceServer(srv, locallib.NewServer(lstore, controlv1.NewControlServiceClient(coreConn), *agentID, *agentVersion, *localAddr, *gameID, *env))
 
     log.Printf("croupier-agent listening on %s; connected to core %s", *localAddr, *coreAddr)
     if err := srv.Serve(lis); err != nil {
