@@ -35,6 +35,9 @@ type Server struct {
     reg   *registry.Store
     userStore *users.Store
     jwtMgr    *jwt.Manager
+    startedAt time.Time
+    invocations int64
+    jobsStarted int64
 }
 
 type FunctionInvoker interface {
@@ -49,7 +52,7 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
     if err != nil { return nil, err }
     idx := map[string]*descriptor.Descriptor{}
     for _, d := range descs { idx[d.ID] = d }
-    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, games: gamesStore, reg: reg, userStore: userStore, jwtMgr: jwtMgr}
+    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, games: gamesStore, reg: reg, userStore: userStore, jwtMgr: jwtMgr, startedAt: time.Now()}
     s.routes()
     return s, nil
 }
@@ -77,6 +80,18 @@ func (s *Server) routes() {
         addCORS(w, r)
         w.Header().Set("Content-Type", "application/json")
         _ = json.NewEncoder(w).Encode(s.descs)
+    })
+    s.mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusOK)
+        _, _ = w.Write([]byte("ok"))
+    })
+    s.mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
+        _ = json.NewEncoder(w).Encode(map[string]any{
+            "uptime_sec": int(time.Since(s.startedAt).Seconds()),
+            "invocations_total": s.invocations,
+            "jobs_started_total": s.jobsStarted,
+        })
     })
     s.mux.HandleFunc("/api/invoke", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
@@ -124,10 +139,16 @@ func (s *Server) routes() {
         meta := map[string]string{"trace_id": traceID}
         if gameID != "" { meta["game_id"] = gameID }
         if env != "" { meta["env"] = env }
-        if in.Route != "" { meta["route"] = in.Route }
+        // route selection: request override > descriptor.semantics.route
+        if in.Route != "" { meta["route"] = in.Route } else if d := s.descIndex[in.FunctionID]; d != nil {
+            if sem := d.Semantics; sem != nil {
+                if rv, ok := sem["route"].(string); ok && rv != "" { meta["route"] = rv }
+            }
+        }
         if in.TargetServiceID != "" { meta["target_service_id"] = in.TargetServiceID }
         resp, err := s.invoker.Invoke(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta})
         if err != nil { http.Error(w, err.Error(), 500); return }
+        s.invocations++
         w.Header().Set("Content-Type", "application/json")
         if len(resp.GetPayload()) == 0 {
             w.WriteHeader(204); return
@@ -175,6 +196,7 @@ func (s *Server) routes() {
         if env != "" { meta["env"] = env }
         resp, err := s.invoker.StartJob(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta})
         if err != nil { http.Error(w, err.Error(), 500); return }
+        s.jobsStarted++
         _ = json.NewEncoder(w).Encode(resp)
     })
     s.mux.HandleFunc("/api/stream_job", func(w http.ResponseWriter, r *http.Request) {
@@ -285,7 +307,8 @@ func (s *Server) routes() {
     // Game whitelist management
     s.mux.HandleFunc("/api/games", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
-        user := r.Header.Get("X-User"); if user == "" { user = "user:dev" }
+        user, _, ok := s.auth(r)
+        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         switch r.Method {
         case http.MethodGet:
             _ = json.NewEncoder(w).Encode(struct{ Games []games.Entry `json:"games"` }{Games: s.games.List()})

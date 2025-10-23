@@ -148,3 +148,8 @@ func (s *Server) CancelJobViaTunnel(jobID string) error {
     msg := &tunnelv1.TunnelMessage{Type:"cancel_job", Cancel: &tunnelv1.CancelJobFrame{JobId: jobID}}
     return conn.srv.Send(msg)
 }
+
+// Metrics helpers
+func (s *Server) ConnCount() int { s.mu.RLock(); defer s.mu.RUnlock(); return len(s.agents) }
+func (s *Server) PendingCount() int { s.pendMu.Lock(); defer s.pendMu.Unlock(); return len(s.pending) }
+func (s *Server) JobsCount() int { s.jobsMu.RLock(); defer s.jobsMu.RUnlock(); return len(s.jobs) }

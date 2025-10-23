@@ -9,6 +9,8 @@ import (
     "log"
     "net"
     "time"
+    "net/http"
+    "encoding/json"
 
     "google.golang.org/grpc"
     "google.golang.org/grpc/credentials"
@@ -61,6 +63,7 @@ func main() {
     agentVersion := flag.String("agent_version", "0.1.0", "agent version")
     gameID := flag.String("game_id", "", "game id (required if server enforces whitelist)")
     env := flag.String("env", "", "environment (optional) e.g. prod/stage/test")
+    httpAddr := flag.String("http_addr", ":19091", "agent http listen for health/metrics")
     flag.Parse()
 
     // Connect to Core with mTLS
@@ -122,6 +125,19 @@ func main() {
         }
     }()
 
+    // HTTP health/metrics
+    go func(){
+        mux := http.NewServeMux()
+        mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request){ w.WriteHeader(http.StatusOK); _,_ = w.Write([]byte("ok")) })
+        mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request){
+            // summarize instances
+            mp := lstore.List(); total := 0; fns := 0
+            for _, arr := range mp { fns++; total += len(arr) }
+            _ = json.NewEncoder(w).Encode(map[string]any{"functions": fns, "instances": total})
+        })
+        log.Printf("agent http listening on %s", *httpAddr)
+        _ = http.ListenAndServe(*httpAddr, mux)
+    }()
     log.Printf("croupier-agent listening on %s; connected to core %s", *localAddr, *coreAddr)
     // prune stale instances periodically
     go func(){
