@@ -11,6 +11,7 @@ import (
     "time"
     "net/http"
     "encoding/json"
+    "strings"
 
     "google.golang.org/grpc"
     "google.golang.org/grpc/credentials"
@@ -28,6 +29,7 @@ import (
     tunn "github.com/cuihairu/croupier/internal/agent/tunnel"
     // register json codec
     _ "github.com/cuihairu/croupier/internal/transport/jsoncodec"
+    "github.com/cuihairu/croupier/internal/devcert"
 )
 
 func loadClientTLS(certFile, keyFile, caFile string, serverName string) (credentials.TransportCredentials, error) {
@@ -66,10 +68,29 @@ func main() {
     httpAddr := flag.String("http_addr", ":19091", "agent http listen for health/metrics")
     flag.Parse()
 
+    // Auto-generate dev certs when not provided (DEV ONLY)
+    if (*cert == "" || *key == "" || *ca == "") && *coreAddr != "" {
+        out := "configs/dev"
+        caCrt, caKey, err := devcert.EnsureDevCA(out)
+        if err != nil { log.Fatalf("generate dev CA: %v", err) }
+        agCrt, agKey, err := devcert.EnsureAgentCert(out, caCrt, caKey, *agentID)
+        if err != nil { log.Fatalf("generate dev agent cert: %v", err) }
+        *cert, *key, *ca = agCrt, agKey, caCrt
+        log.Printf("[devcert] generated dev mTLS certs under %s (DEV ONLY)", out)
+    }
+
     // Connect to Core with mTLS (require by default)
     var dialOpt grpc.DialOption
     if *cert != "" && *key != "" && *ca != "" {
-        creds, err := loadClientTLS(*cert, *key, *ca, *serverName)
+        // Default SNI from core_addr host if not provided
+        sni := *serverName
+        if sni == "" {
+            host := *coreAddr
+            if i := strings.Index(host, "://"); i >= 0 { host = host[i+3:] }
+            if i := strings.LastIndex(host, ":"); i >= 0 { host = host[:i] }
+            sni = host
+        }
+        creds, err := loadClientTLS(*cert, *key, *ca, sni)
         if err != nil {
             log.Fatalf("load TLS: %v", err)
         }
