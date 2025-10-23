@@ -2,10 +2,16 @@ version: v1
 name: buf.build/your-org/croupier
 deps:
   - buf.build/googleapis/googleapis
+build:
+  roots:
+    - proto
 lint:
   use:
-    - DEFAULT
+    - STANDARD
+  except:
+    - RPC_REQUEST_RESPONSE_UNIQUE
+    - RPC_REQUEST_STANDARD_NAME
+    - RPC_RESPONSE_STANDARD_NAME
 breaking:
   use:
     - FILE
-
