@@ -2,7 +2,7 @@
   {
     "username": "admin",
     "salt": "croupier",
-    "password": "0b7e7e6e3a22ceede5022b83b7d9cde1f048fffaa604ee7ec07a3307b032c12a",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
     "roles": ["admin"]
   }
 ]
