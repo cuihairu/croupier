@@ -23,7 +23,6 @@ go.work.sum
 
 # Local build and generated code
 bin/
-gen/
 
 # Local module/build caches
 .gocache/
