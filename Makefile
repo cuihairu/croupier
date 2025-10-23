@@ -1,6 +1,12 @@
 BINDIR := bin
+VERSION := $(shell git describe --tags --always --dirty)
+BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
+LDFLAGS := -X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -s -w
 
-.PHONY: proto build server agent dev tidy
+.PHONY: proto build server agent edge clean dev tidy test lint help all
+
+# Build all components
+all: build
 
 submodules:
 	git submodule update --init --recursive
@@ -11,17 +17,74 @@ proto:
 
 server:
 	@echo "[build] server"
-	GOFLAGS=-mod=mod go build -o $(BINDIR)/croupier-server ./cmd/server
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-server ./cmd/server
 
 agent:
 	@echo "[build] agent"
-	GOFLAGS=-mod=mod go build -o $(BINDIR)/croupier-agent ./cmd/agent
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-agent ./cmd/agent
 
-build: server agent
+edge:
+	@echo "[build] edge"
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-edge ./cmd/edge
 
+build: server agent edge
+
+# Cross-compile for multiple platforms
+build-linux-amd64:
+	@echo "[cross-build] linux/amd64"
+	@mkdir -p $(BINDIR)/linux-amd64
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/linux-amd64/croupier-server ./cmd/server
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/linux-amd64/croupier-agent ./cmd/agent
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/linux-amd64/croupier-edge ./cmd/edge
+
+build-windows-amd64:
+	@echo "[cross-build] windows/amd64"
+	@mkdir -p $(BINDIR)/windows-amd64
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/windows-amd64/croupier-server.exe ./cmd/server
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/windows-amd64/croupier-agent.exe ./cmd/agent
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/windows-amd64/croupier-edge.exe ./cmd/edge
+
+# Clean build artifacts
+clean:
+	@echo "[clean] removing build artifacts..."
+	rm -rf $(BINDIR)
+	rm -rf gen/
+
+# Development setup
 tidy:
 	go mod tidy
 
-dev: build
-	@echo "Run binaries in two shells or via supervisor with your TLS config."
-	@echo "Tip: make submodules to initialize web and SDK submodules."
+test:
+	@echo "[test] running unit tests..."
+	go test -v -race ./...
+
+lint:
+	@echo "[lint] running golangci-lint..."
+	golangci-lint run
+
+dev: clean proto build
+	@echo "✅ Development build complete!"
+	@echo "📦 Binaries available in $(BINDIR)/"
+	@echo "🔧 Run binaries in separate shells with your TLS config"
+	@echo "💡 Tip: run 'make submodules' to initialize web and SDK submodules"
+
+# Show help
+help:
+	@echo "Available targets:"
+	@echo "  build              Build all components (server, agent, edge)"
+	@echo "  server             Build server component only"
+	@echo "  agent              Build agent component only"
+	@echo "  edge               Build edge component only"
+	@echo "  build-linux-amd64  Cross-compile for Linux AMD64"
+	@echo "  build-windows-amd64 Cross-compile for Windows AMD64"
+	@echo "  proto              Generate protobuf code"
+	@echo "  test               Run unit tests"
+	@echo "  lint               Run linter"
+	@echo "  clean              Clean build artifacts"
+	@echo "  tidy               Tidy Go modules"
+	@echo "  dev                Full development build (clean + proto + build)"
+	@echo "  submodules         Initialize git submodules"
+	@echo "  help               Show this help"
