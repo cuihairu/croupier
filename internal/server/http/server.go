@@ -41,7 +41,9 @@ type Server struct {
     jwtMgr    *jwt.Manager
     startedAt time.Time
     invocations int64
+    invocationsError int64
     jobsStarted int64
+    jobsError int64
 }
 
 type FunctionInvoker interface {
@@ -93,8 +95,10 @@ func (s *Server) routes() {
         addCORS(w, r)
         _ = json.NewEncoder(w).Encode(map[string]any{
             "uptime_sec": int(time.Since(s.startedAt).Seconds()),
-            "invocations_total": s.invocations,
-            "jobs_started_total": s.jobsStarted,
+            "invocations_total": atomic.LoadInt64(&s.invocations),
+            "invocations_error_total": atomic.LoadInt64(&s.invocationsError),
+            "jobs_started_total": atomic.LoadInt64(&s.jobsStarted),
+            "jobs_error_total": atomic.LoadInt64(&s.jobsError),
         })
     })
     s.mux.HandleFunc("/api/invoke", func(w http.ResponseWriter, r *http.Request) {
@@ -156,13 +160,14 @@ func (s *Server) routes() {
             }
         }
         // validate route value
-        if rv, ok := meta["route"]; ok && rv != "lb" && rv != "broadcast" && rv != "targeted" {
+        if rv, ok := meta["route"]; ok && rv != "lb" && rv != "broadcast" && rv != "targeted" && rv != "hash" {
             http.Error(w, "invalid route", 400); return
         }
+        if meta["route"] == "hash" && meta["hash_key"] == "" { http.Error(w, "hash_key required for hash route", 400); return }
         if in.TargetServiceID != "" { meta["target_service_id"] = in.TargetServiceID }
         if meta["route"] == "targeted" && meta["target_service_id"] == "" { http.Error(w, "target_service_id required for targeted route", 400); return }
         resp, err := s.invoker.Invoke(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta})
-        if err != nil { http.Error(w, err.Error(), 500); return }
+        if err != nil { atomic.AddInt64(&s.invocationsError,1); http.Error(w, err.Error(), 500); return }
         atomic.AddInt64(&s.invocations, 1)
         w.Header().Set("Content-Type", "application/json")
         if len(resp.GetPayload()) == 0 {
@@ -215,7 +220,7 @@ func (s *Server) routes() {
         if gameID != "" { meta["game_id"] = gameID }
         if env != "" { meta["env"] = env }
         resp, err := s.invoker.StartJob(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta})
-        if err != nil { http.Error(w, err.Error(), 500); return }
+        if err != nil { atomic.AddInt64(&s.jobsError,1); http.Error(w, err.Error(), 500); return }
         atomic.AddInt64(&s.jobsStarted, 1)
         _ = json.NewEncoder(w).Encode(resp)
     })

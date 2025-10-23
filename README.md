@@ -245,6 +245,23 @@ curl -sS http://localhost:8080/api/invoke \
   -d '{"function_id":"player.ban","payload":{"player_id":"1003"},"route":"targeted","target_service_id":"'"$TARGET"'"}' | jq
 ```
 
+更多接口（示例）
+```bash
+# 查看注册表（Agent 概览与函数覆盖）
+curl -sS http://localhost:8080/api/registry \
+  -H "Authorization: Bearer $(cat /tmp/token)" | jq
+
+# 查询审计（可带 game_id/env/actor/kind）
+curl -sS "http://localhost:8080/api/audit?game_id=default&limit=50" \
+  -H "Authorization: Bearer $(cat /tmp/token)" | jq '.events[-5:]'
+
+# 健康与指标（Core/Edge/Agent）
+curl -sS http://localhost:8080/healthz && echo
+curl -sS http://localhost:8080/metrics | jq
+curl -sS http://localhost:9080/metrics | jq   # Edge
+curl -sS http://localhost:19091/metrics | jq  # Agent
+```
+
 ## 🧭 多游戏管理（Game/Env 作用域）
 
 为支持一个 Core 管理多款游戏/多环境，引入作用域并贯穿全链路。
@@ -520,3 +537,11 @@ docker compose up --build
 ```
 
 登录后获取 token，前端会自动附带 Authorization 进行调用。
+
+### 路由策略（lb / broadcast / targeted / hash）
+- 默认路由可在 `descriptors/*` 的 `semantics.route` 声明（如 `lb`）。
+- 运行时可在 GM 界面选择 `lb` / `broadcast` / `targeted` / `hash`：
+  - `lb`：轮询本地多实例
+  - `broadcast`：对所有实例执行，结果聚合为 JSON 数组
+  - `targeted`：需要选择目标实例（调用 `/api/function_instances` 获取实例列表），执行时会传 `target_service_id`
+  - `hash`：对 `hash_key` 做一致性哈希（当前实现为简单 FNV32 模运算），用于基于字段（如 `player_id`）定向到固定实例

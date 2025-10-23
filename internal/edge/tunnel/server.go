@@ -4,6 +4,7 @@ import (
     "errors"
     "log"
     "sync"
+    "sync/atomic"
     "time"
 
     tunnelv1 "github.com/cuihairu/croupier/gen/go/croupier/tunnel/v1"
@@ -33,6 +34,12 @@ type Server struct {
     subs map[string][]chan *functionv1.JobEvent // job_id -> subscribers
     jobsMu sync.RWMutex
     jobs map[string]string // job_id -> agent_id
+    connects int64
+    disconnects int64
+    invokes int64
+    starts int64
+    events int64
+    cancels int64
 }
 
 func NewServer() *Server { return &Server{agents: map[string]*edgeConn{}, pending: map[string]*pending{}, subs: map[string][]chan *functionv1.JobEvent{}, jobs: map[string]string{}} }
@@ -45,6 +52,7 @@ func (s *Server) Open(stream tunnelv1.TunnelService_OpenServer) error {
     conn := &edgeConn{agentID: h.AgentId, gameID: h.GameId, env: h.Env, srv: stream, last: time.Now()}
     s.mu.Lock(); s.agents[h.AgentId] = conn; s.mu.Unlock()
     log.Printf("tunnel: agent connected id=%s game=%s env=%s", h.AgentId, h.GameId, h.Env)
+    atomic.AddInt64(&s.connects, 1)
     // reader loop for results
     for {
         msg, err := stream.Recv()
@@ -77,6 +85,7 @@ func (s *Server) Open(stream tunnelv1.TunnelService_OpenServer) error {
                 s.evMu.RUnlock()
                 je := &functionv1.JobEvent{Type: ev.Type, Message: ev.Message, Progress: ev.Progress, Payload: ev.Payload}
                 for _, ch := range arr { select { case ch <- je: default: } }
+                atomic.AddInt64(&s.events, 1)
                 if ev.Type == "done" || ev.Type == "error" {
                     // close and remove subscribers
                     s.evMu.Lock()
@@ -92,7 +101,7 @@ func (s *Server) Open(stream tunnelv1.TunnelService_OpenServer) error {
         }
     }
     // cleanup
-    s.mu.Lock(); delete(s.agents, h.AgentId); s.mu.Unlock()
+    s.mu.Lock(); delete(s.agents, h.AgentId); s.mu.Unlock(); atomic.AddInt64(&s.disconnects,1)
     return nil
 }
 
@@ -106,6 +115,7 @@ func (s *Server) InvokeViaTunnel(agentID, requestID, functionID string, idem str
     // send invoke
     msg := &tunnelv1.TunnelMessage{Type:"invoke", Invoke: &tunnelv1.InvokeFrame{RequestId: requestID, FunctionId: functionID, IdempotencyKey: idem, Payload: payload, Metadata: meta}}
     if err := conn.srv.Send(msg); err != nil { return nil, err }
+    atomic.AddInt64(&s.invokes, 1)
     // wait result with timeout
     select {
     case res := <-ch:
@@ -123,6 +133,7 @@ func (s *Server) StartJobViaTunnel(agentID, requestID, functionID string, idem s
     defer func(){ s.pendMu.Lock(); delete(s.pending, requestID); s.pendMu.Unlock() }()
     msg := &tunnelv1.TunnelMessage{Type:"start_job", Start: &tunnelv1.StartJobFrame{RequestId: requestID, FunctionId: functionID, IdempotencyKey: idem, Payload: payload, Metadata: meta}}
     if err := conn.srv.Send(msg); err != nil { return "", err }
+    atomic.AddInt64(&s.starts, 1)
     select {
     case res := <-ch:
         if res.Error != "" { return "", errors.New(res.Error) }
@@ -146,6 +157,7 @@ func (s *Server) CancelJobViaTunnel(jobID string) error {
     s.mu.RLock(); conn := s.agents[agentID]; s.mu.RUnlock()
     if conn == nil { return errors.New("agent not connected") }
     msg := &tunnelv1.TunnelMessage{Type:"cancel_job", Cancel: &tunnelv1.CancelJobFrame{JobId: jobID}}
+    atomic.AddInt64(&s.cancels, 1)
     return conn.srv.Send(msg)
 }
 
@@ -161,5 +173,11 @@ func (s *Server) MetricsMap() map[string]any {
         "tunnel_agents": conns,
         "tunnel_pending": pend,
         "tunnel_jobs": jobs,
+        "tunnel_connects_total": atomic.LoadInt64(&s.connects),
+        "tunnel_disconnects_total": atomic.LoadInt64(&s.disconnects),
+        "tunnel_invokes_total": atomic.LoadInt64(&s.invokes),
+        "tunnel_starts_total": atomic.LoadInt64(&s.starts),
+        "tunnel_events_total": atomic.LoadInt64(&s.events),
+        "tunnel_cancels_total": atomic.LoadInt64(&s.cancels),
     }
 }
