@@ -19,6 +19,9 @@ import (
     "github.com/cuihairu/croupier/internal/server/registry"
     "bufio"
     "strings"
+    "time"
+    users "github.com/cuihairu/croupier/internal/auth/users"
+    jwt "github.com/cuihairu/croupier/internal/auth/token"
 )
 
 type Server struct {
@@ -30,6 +33,8 @@ type Server struct {
     rbac  *rbac.Policy
     games *games.Store
     reg   *registry.Store
+    userStore *users.Store
+    jwtMgr    *jwt.Manager
 }
 
 type FunctionInvoker interface {
@@ -39,17 +44,35 @@ type FunctionInvoker interface {
     CancelJob(ctx context.Context, req *functionv1.CancelJobRequest) (*functionv1.StartJobResponse, error)
 }
 
-func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.Writer, policy *rbac.Policy, gamesStore *games.Store, reg *registry.Store) (*Server, error) {
+func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.Writer, policy *rbac.Policy, gamesStore *games.Store, reg *registry.Store, userStore *users.Store, jwtMgr *jwt.Manager) (*Server, error) {
     descs, err := descriptor.LoadAll(descriptorDir)
     if err != nil { return nil, err }
     idx := map[string]*descriptor.Descriptor{}
     for _, d := range descs { idx[d.ID] = d }
-    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, games: gamesStore, reg: reg}
+    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, games: gamesStore, reg: reg, userStore: userStore, jwtMgr: jwtMgr}
     s.routes()
     return s, nil
 }
 
 func (s *Server) routes() {
+    // Auth endpoints
+    s.mux.HandleFunc("/api/auth/login", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
+        if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        if s.userStore == nil || s.jwtMgr == nil { http.Error(w, "auth disabled", http.StatusServiceUnavailable); return }
+        var in struct{ Username string `json:"username"`; Password string `json:"password"` }
+        if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
+        u, err := s.userStore.Verify(in.Username, in.Password)
+        if err != nil { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
+        tok, _ := s.jwtMgr.Sign(u.Username, u.Roles, 8*time.Hour)
+        _ = json.NewEncoder(w).Encode(struct{ Token string `json:"token"`; User any `json:"user"` }{Token: tok, User: struct{ Username string `json:"username"`; Roles []string `json:"roles"` }{u.Username, u.Roles}})
+    })
+    s.mux.HandleFunc("/api/auth/me", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
+        user, roles, ok := s.auth(r)
+        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
+        _ = json.NewEncoder(w).Encode(struct{ Username string `json:"username"`; Roles []string `json:"roles"` }{user, roles})
+    })
     s.mux.HandleFunc("/api/descriptors", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
         w.Header().Set("Content-Type", "application/json")
@@ -58,7 +81,8 @@ func (s *Server) routes() {
     s.mux.HandleFunc("/api/invoke", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        user := r.Header.Get("X-User"); if user == "" { user = "user:dev" }
+        user, _, ok := s.auth(r)
+        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         gameID := r.Header.Get("X-Game-ID")
         env := r.Header.Get("X-Env")
         var in struct{
@@ -113,7 +137,8 @@ func (s *Server) routes() {
     s.mux.HandleFunc("/api/start_job", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        user := r.Header.Get("X-User"); if user == "" { user = "user:dev" }
+        user, _, ok := s.auth(r)
+        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         gameID := r.Header.Get("X-Game-ID")
         env := r.Header.Get("X-Env")
         var in struct{ FunctionID string `json:"function_id"`; Payload any `json:"payload"`; IdempotencyKey string `json:"idempotency_key"` }
@@ -179,7 +204,8 @@ func (s *Server) routes() {
     s.mux.HandleFunc("/api/cancel_job", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        user := r.Header.Get("X-User"); if user == "" { user = "user:dev" }
+        user, _, ok := s.auth(r)
+        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         var in struct{ JobID string `json:"job_id"` }
         if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
         if in.JobID == "" { http.Error(w, "missing job_id", 400); return }
@@ -299,7 +325,18 @@ func randHex(n int) string {
 func addCORS(w http.ResponseWriter, r *http.Request) {
     // Very simple CORS for dev
     w.Header().Set("Access-Control-Allow-Origin", "*")
-    w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-User, X-Game-ID, X-Env")
+    w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Game-ID, X-Env")
     w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     if r.Method == http.MethodOptions { w.WriteHeader(http.StatusNoContent) }
+}
+
+// auth extracts username and roles from Authorization: Bearer <token>
+func (s *Server) auth(r *http.Request) (string, []string, bool) {
+    authz := r.Header.Get("Authorization")
+    if strings.HasPrefix(authz, "Bearer ") && s.jwtMgr != nil {
+        tok := strings.TrimPrefix(authz, "Bearer ")
+        user, roles, err := s.jwtMgr.Verify(tok)
+        if err == nil { return user, roles, true }
+    }
+    return "", nil, false
 }
