@@ -77,25 +77,37 @@ sequenceDiagram
 适用于 Core 与 Game 在同一内网且允许直连的场景（仍建议使用 mTLS）。
 
 ```bash
-# 1) 启动 Core（默认监听 443 或自定义）
-./croupier-server --config configs/croupier.yaml
+# 1) 启动 Core（当前未实现 --config，直接使用显式参数）
+./croupier-server \
+  --addr :8443 --http_addr :8080 \
+  --rbac_config configs/rbac.json --games_config configs/games.json --users_config configs/users.json \
+  --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
 
 # 2) 游戏服务器 SDK 直接连接 Core（gRPC/mTLS）
 ./game-server
 ```
+
+提示：仓库内的 `configs/croupier.yaml` 与 `configs/agent.yaml` 目前仅作为示例配置参考，二进制暂未实现 `--config` 读取 YAML 的能力，后续会补充 `--config` 支持或在启动脚本中进行参数映射。
 
 ### 模式 2：Agent 外连（推荐）
 
 Core 位于 DMZ/公网，Agent 在游戏内网，仅出站到 Core。游戏服只连本机/就近 Agent。
 
 ```bash
-# 1) DMZ 启动 Core
-./croupier-server --config configs/croupier.yaml
+# 1) DMZ 启动 Core（显式参数）
+./croupier-server \
+  --addr :8443 --http_addr :8080 \
+  --rbac_config configs/rbac.json --games_config configs/games.json --users_config configs/users.json \
+  --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
 
-# 2) 内网启动 Agent（若二进制名仍为 proxy，请先用 proxy）
-./croupier-agent --config configs/agent.yaml
-# 或
-./croupier-proxy  --config configs/agent.yaml
+# 2) 内网启动 Agent（显式参数；若二进制名仍为 proxy，请先用 proxy）
+./croupier-agent \
+  --local_addr :19090 --core_addr 127.0.0.1:8443 --game_id default --env dev \
+  --cert configs/dev/agent.crt --key configs/dev/agent.key --ca configs/dev/ca.crt
+# 或（历史命名）
+./croupier-proxy \
+  --local_addr :19090 --core_addr 127.0.0.1:8443 --game_id default --env dev \
+  --cert configs/dev/agent.crt --key configs/dev/agent.key --ca configs/dev/ca.crt
 
 # 3) 游戏服务器连接本机 Agent（gRPC）
 ./game-server
