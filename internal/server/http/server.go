@@ -16,6 +16,8 @@ import (
     "github.com/your-org/croupier/internal/auth/rbac"
     "os"
     "github.com/your-org/croupier/internal/server/games"
+    "bufio"
+    "strings"
 )
 
 type Server struct {
@@ -181,6 +183,45 @@ func (s *Server) routes() {
             http.Error(w, err.Error(), 500); return
         }
         w.WriteHeader(204)
+    })
+
+    // Audit list (simple JSONL reader with filters)
+    s.mux.HandleFunc("/api/audit", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
+        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        gameID := r.URL.Query().Get("game_id")
+        env := r.URL.Query().Get("env")
+        actor := r.URL.Query().Get("actor")
+        kind := r.URL.Query().Get("kind")
+        limit := 200
+        if qs := r.URL.Query().Get("limit"); qs != "" { fmt.Sscanf(qs, "%d", &limit) }
+        type resp struct{ Events []auditchain.Event `json:"events"` }
+        var events []auditchain.Event
+        // naive scan
+        f, err := os.Open("logs/audit.log")
+        if err == nil {
+            defer f.Close()
+            sc := bufio.NewScanner(f)
+            for sc.Scan() {
+                line := sc.Text()
+                if strings.TrimSpace(line) == "" { continue }
+                var ev auditchain.Event
+                if err := json.Unmarshal([]byte(line), &ev); err != nil { continue }
+                // filters
+                if gameID != "" && ev.Meta["game_id"] != gameID { continue }
+                if env != "" && ev.Meta["env"] != env { continue }
+                if actor != "" && ev.Actor != actor { continue }
+                if kind != "" && ev.Kind != kind { continue }
+                events = append(events, ev)
+                if len(events) > limit*2 { // basic cap
+                    events = events[len(events)-limit:]
+                }
+            }
+        }
+        // tail limit
+        if len(events) > limit { events = events[len(events)-limit:] }
+        // sort by time ascending (already append order)
+        _ = json.NewEncoder(w).Encode(resp{Events: events})
     })
     // Game whitelist management
     s.mux.HandleFunc("/api/games", func(w http.ResponseWriter, r *http.Request) {
