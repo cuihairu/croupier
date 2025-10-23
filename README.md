@@ -337,6 +337,24 @@ croupier/
 - 日志防篡改：链式哈希或外部归档；保留周期与合规策略可配置
 - 限流与背压：连接数/并发/速率限制，超时与熔断策略
 
+## 部署与配置（建议）
+
+- TLS/mTLS（默认开启）
+  - Core/Edge/Agent 均要求 `--cert/--key/--ca`（Agent 外连必须 mTLS）
+  - 开发可使用 `./scripts/dev-certs.sh` 生成自签证书
+  - 证书颁发建议 SPIFFE/SPIRE 或企业 CA，并定期轮换
+- 认证与前端
+  - 登录 `POST /api/auth/login` → 保存 token；前端请求自动附带 `Authorization: Bearer <token>`
+  - 开发时 CORS 放开；生产建议反向代理或同域部署前端
+- 多游戏作用域
+  - 后台添加 game_id/env（`/api/games`）后，Agent 才能注册成功（白名单 Gate）
+  - 所有调用带 `X-Game-ID`/`X-Env`，后端透传到元数据用于路由与审计
+- 可观测与运行
+  - Core/Edge/Agent 暴露 `/healthz` 与 `/metrics`（JSON）
+  - Edge 指标包含隧道连接数/待处理/作业映射与累积事件计数
+- 容器化
+  - 提供 `Dockerfile.*` 与 `docker-compose.yml`，一键构建与运行（需先生成 dev 证书）
+
 ## ⚙️ 调用模型
 
 - Query：同步调用，超时短；适用于查询/校验
