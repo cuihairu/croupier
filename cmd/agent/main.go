@@ -113,7 +113,13 @@ func main() {
     // Open tunnel to Edge/Core for Invoke proxy
     go func(){
         t := tunn.NewClient(*coreAddr, *agentID, *gameID, *env, *localAddr)
-        if err := t.Start(context.Background()); err != nil { log.Printf("tunnel start error: %v", err) }
+        backoff := time.Second
+        for {
+            err := t.Start(context.Background())
+            if err != nil { log.Printf("tunnel disconnected: %v", err) }
+            time.Sleep(backoff)
+            if backoff < 30*time.Second { backoff *= 2 }
+        }
     }()
 
     log.Printf("croupier-agent listening on %s; connected to core %s", *localAddr, *coreAddr)
