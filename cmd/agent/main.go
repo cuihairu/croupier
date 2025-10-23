@@ -23,6 +23,7 @@ import (
     locallib "github.com/your-org/croupier/internal/agent/local"
     localreg "github.com/your-org/croupier/internal/agent/registry"
     "github.com/your-org/croupier/internal/agent/jobs"
+    tunn "github.com/your-org/croupier/internal/agent/tunnel"
     // register json codec
     _ "github.com/your-org/croupier/internal/transport/jsoncodec"
 )
@@ -109,6 +110,11 @@ func main() {
     functionv1.RegisterFunctionServiceServer(srv, agentfunc.NewServer(lstore, exec))
     // Register LocalControl service for SDKs to register themselves
     localv1.RegisterLocalControlServiceServer(srv, locallib.NewServer(lstore, controlv1.NewControlServiceClient(coreConn), *agentID, *agentVersion, *localAddr, *gameID, *env))
+    // Open tunnel to Edge/Core for Invoke proxy
+    go func(){
+        t := tunn.NewClient(*coreAddr, *agentID, *gameID, *env, *localAddr)
+        if err := t.Start(context.Background()); err != nil { log.Printf("tunnel start error: %v", err) }
+    }()
 
     log.Printf("croupier-agent listening on %s; connected to core %s", *localAddr, *coreAddr)
     if err := srv.Serve(lis); err != nil {
