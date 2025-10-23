@@ -23,15 +23,18 @@ type Server struct {
 
 func NewServer(store *registry.Store) *Server { return &Server{store: store, jobs: jobs.NewRouter()} }
 
-func (s *Server) pickAgent(fid string) (*registry.AgentSession, error) {
-    cands := s.store.AgentsForFunction(fid)
+func (s *Server) pickAgent(fid, gameID string) (*registry.AgentSession, error) {
+    // prefer matching game_id; fallback to any if not found
+    cands := s.store.AgentsForFunctionScoped(gameID, fid, true)
     if len(cands) == 0 { return nil, errors.New("no agent available") }
     // TODO: Load balancing policy; for now pick first
     return cands[0], nil
 }
 
 func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
-    agent, err := s.pickAgent(req.GetFunctionId())
+    var gameID string
+    if req.Metadata != nil { gameID = req.Metadata["game_id"] }
+    agent, err := s.pickAgent(req.GetFunctionId(), gameID)
     if err != nil { return nil, err }
     base := []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json"))}
     opts := append(base, interceptors.Chain(nil)...)
@@ -46,7 +49,9 @@ func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*fu
 }
 
 func (s *Server) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {
-    agent, err := s.pickAgent(req.GetFunctionId())
+    var gameID string
+    if req.Metadata != nil { gameID = req.Metadata["game_id"] }
+    agent, err := s.pickAgent(req.GetFunctionId(), gameID)
     if err != nil { return nil, err }
     base := []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json"))}
     opts := append(base, interceptors.Chain(nil)...)
