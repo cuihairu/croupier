@@ -87,7 +87,7 @@ Core 位于 DMZ/公网，Agent 在游戏内网，仅出站到 Core。游戏服�
 
 适用于 Core 无法部署在 DMZ/公网、又需要管理多条游戏内网的场景。
 
-思路：在 DMZ/公网部署轻量 Edge，所有 Agent 主动外连 Edge；Core 从企业内网“仅出站”连到 Edge（mTLS/443），通过双向流隧道进行转发与路由。
+思路：在 DMZ/公网部署轻量 Edge，所有 Agent 主动外连 Edge；Core 从企业内网“仅出站”连到 Edge（mTLS/443），由 Edge 转发请求与路由。
 
 ```
   ┌────────── 企业内网 ──────────┐      ┌────────────── DMZ/公网 ─────────────┐
@@ -107,10 +107,10 @@ Core 位于 DMZ/公网，Agent 在游戏内网，仅出站到 Core。游戏服�
           └─────────────┘                       └──────────────┘
 ```
 
-运行流程（PoC 设计，后续补齐）：
-- Edge：监听 443，接受 Agent 外连；与 Core 建立单条出站长连；基于双向流做请求转发与路由。
-- Core：将南向请求发给 Edge 逻辑“路由器”；Edge 转发给对应 Agent；返回路径相反。
-- Agent：对 Core/Edge 无感，保持原“主动外连”模式即可。
+运行流程（PoC 设计）：
+- Edge：监听 9443，接受 Agent 外连并注册（ControlService）；同时暴露 FunctionService，对 Core 作为调用入口并转发到 Agent。
+- Core：使用 `--edge_addr` 将 FunctionService 调用转发到 Edge；HTTP/UI 不变。
+- Agent：将 `--core_addr` 指向 Edge 地址，实现“仅外连”注册。
 ```
 
 ### SDK 集成示例
@@ -413,3 +413,14 @@ CI 提示
 ---
 
 Croupier - 让游戏运营变得简单而强大 🎮
+# Edge PoC（Core 内网仅出站）
+# 1) 启动 Edge
+./bin/croupier-edge --addr :9443 --games_config configs/games.json \
+  --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
+# 2) Core 出站到 Edge（转发 Function 调用）
+./bin/croupier-server --addr :8443 --http_addr :8080 --edge_addr 127.0.0.1:9443 \
+  --rbac_config configs/rbac.json --games_config configs/games.json \
+  --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
+# 3) Agent 指向 Edge 外连
+./bin/croupier-agent --local_addr :19090 --core_addr 127.0.0.1:9443 --game_id default --env dev \
+  --cert configs/dev/agent.crt --key configs/dev/agent.key --ca configs/dev/ca.crt
