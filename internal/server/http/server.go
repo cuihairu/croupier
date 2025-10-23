@@ -209,7 +209,7 @@ func randHex(n int) string {
 func addCORS(w http.ResponseWriter, r *http.Request) {
     // Very simple CORS for dev
     w.Header().Set("Access-Control-Allow-Origin", "*")
-    w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-User")
+    w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-User, X-Game-ID, X-Env")
     w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     if r.Method == http.MethodOptions { w.WriteHeader(http.StatusNoContent) }
 }
