@@ -6,5 +6,3 @@
     "roles": ["admin"]
   }
 ]
-
-# password is sha256(salt+plaintext), here plaintext is "admin123"
