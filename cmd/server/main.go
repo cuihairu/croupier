@@ -50,6 +50,7 @@ func loadServerTLS(certFile, keyFile, caFile string) (credentials.TransportCrede
 func main() {
     addr := flag.String("addr", ":8443", "grpc listen address")
     httpAddr := flag.String("http_addr", ":8080", "http api listen address")
+    edgeAddr := flag.String("edge_addr", "", "optional edge address for forwarding function calls (DEV PoC)")
     rbacPath := flag.String("rbac_config", "configs/rbac.json", "rbac policy json path")
     cert := flag.String("cert", "", "server cert file")
     key := flag.String("key", "", "server key file")
@@ -82,8 +83,17 @@ func main() {
     if err := gstore.Load(); err != nil { log.Fatalf("load games: %v", err) }
     ctrl := controlserver.NewServer(gstore)
     controlv1.RegisterControlServiceServer(s, ctrl)
-    fnsrv := functionserver.NewServer(ctrl.Store())
-    functionv1.RegisterFunctionServiceServer(s, fnsrv)
+    var invoker httpserver.FunctionInvoker
+    if *edgeAddr != "" {
+        // Forward all FunctionService calls to Edge
+        fwd := functionserver.NewForwarder(*edgeAddr)
+        functionv1.RegisterFunctionServiceServer(s, fwd)
+        invoker = functionserver.NewForwarderInvoker(fwd)
+    } else {
+        fnsrv := functionserver.NewServer(ctrl.Store())
+        functionv1.RegisterFunctionServiceServer(s, fnsrv)
+        invoker = functionserver.NewClientAdapter(fnsrv)
+    }
 
     var wg sync.WaitGroup
     wg.Add(2)
@@ -101,7 +111,7 @@ func main() {
         defer aw.Close()
         var pol *rbac.Policy
         if p, err := rbac.LoadPolicy(*rbacPath); err == nil { pol = p } else { pol = rbac.NewPolicy(); pol.Grant("user:dev", "*"); pol.Grant("user:dev", "job:cancel") }
-        httpSrv, err := httpserver.NewServer("descriptors", functionserver.NewClientAdapter(fnsrv), aw, pol, gstore)
+        httpSrv, err := httpserver.NewServer("descriptors", invoker, aw, pol, gstore)
         if err != nil { log.Fatalf("http server: %v", err) }
         if err := httpSrv.ListenAndServe(*httpAddr); err != nil {
             log.Fatalf("serve http: %v", err)
