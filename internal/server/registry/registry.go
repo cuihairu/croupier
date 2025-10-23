@@ -85,3 +85,7 @@ func (s *Store) AgentsForFunctionScoped(gameID, fid string, fallback bool) []*Ag
 }
 
 func compositeKey(gameID, fid string) string { return gameID + "|" + fid }
+
+// Introspection helpers (for HTTP)
+func (s *Store) Mu() *sync.RWMutex { return &s.mu }
+func (s *Store) AgentsUnsafe() map[string]*AgentSession { return s.agents }

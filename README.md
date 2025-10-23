@@ -24,14 +24,20 @@ Croupier 是一个专为游戏运营设计的通用 GM 后台系统，支持多�
 
 ```mermaid
 graph LR
-  UI[Web 管理界面] -->|HTTP/REST| Core[Croupier Core]
-  A1[Croupier Agent] -->|gRPC/mTLS :443| Core
-  A2[Croupier Agent] -->|gRPC/mTLS :443| Core
-  GS1[Game Server A + SDK] -->|local gRPC| A1
-  GS2[Game Server B + SDK] -->|local gRPC| A2
+  UI[Web 管理界面] -->|HTTP REST| Core[Croupier Core]
+  A1[Croupier Agent] -->|gRPC mTLS 443| Core
+  A2[Croupier Agent] -->|gRPC mTLS 443| Core
+  subgraph GSA[本机/同域]
+    GS1[Game Server A + SDK]
+    GS2[Game Server B + SDK]
+  end
+  GS1 -->|local gRPC| A1
+  GS2 -->|local gRPC| A1
   classDef core fill:#e8f5ff,stroke:#1890ff;
   classDef agent fill:#f6ffed,stroke:#52c41a;
-  class Core core; class A1,A2 agent;
+  class Core core
+  class A1 agent
+  class A2 agent
 ```
 
 ### 调用与数据流
@@ -46,7 +52,7 @@ graph LR
 sequenceDiagram
   participant UI as Web UI
   participant Core as Core
-  participant Edge as Edge (可选)
+  participant Edge as Edge Optional
   participant Agent as Agent
   participant GS as Game Server
   UI->>Core: POST /api/invoke {function_id, payload, X-Game-ID}
@@ -104,11 +110,12 @@ graph LR
     A[Croupier Agent]
     GS[Game Servers + SDK]
   end
-  A -->|gRPC/mTLS :443 (出站)| Core
-  GS -->|local gRPC| A
+  A -->|gRPC mTLS 443 outbound| Core
+  GS -->|local gRPC multi-instance| A
   classDef core fill:#e8f5ff,stroke:#1890ff;
   classDef agent fill:#f6ffed,stroke:#52c41a;
-  class Core core; class A agent;
+  class Core core
+  class A agent
 ```
 ### 模式 3：Edge 转发（Core 在内网）
 
@@ -118,7 +125,7 @@ graph LR
 
 ```mermaid
 graph LR
-  subgraph 内网[企业内网]
+  subgraph INTRANET[企业内网]
     Core[Croupier Core]
   end
   subgraph DMZ[DMZ/公网]
@@ -128,20 +135,22 @@ graph LR
     A1[Croupier Agent]
     GS1[Game Servers + SDK]
   end
-  Core -->|出站 gRPC/mTLS :443| Edge
-  A1 -->|出站 gRPC/mTLS :443| Edge
-  GS1 -->|local gRPC| A1
+  Core -->|gRPC mTLS 443 outbound| Edge
+  A1 -->|gRPC mTLS 443 outbound| Edge
+  GS1 -->|local gRPC multi-instance| A1
   classDef core fill:#e8f5ff,stroke:#1890ff;
   classDef agent fill:#f6ffed,stroke:#52c41a;
   classDef edge fill:#fffbe6,stroke:#faad14;
-  class Core core; class A1 agent; class Edge edge;
+  class Core core
+  class A1 agent
+  class Edge edge
 ```
 
 运行流程（PoC 设计）：
 - Edge：监听 9443，接受 Agent 外连并注册（ControlService）；同时暴露 FunctionService，对 Core 作为调用入口并转发到 Agent。
 - Core：使用 `--edge_addr` 将 FunctionService 调用转发到 Edge；HTTP/UI 不变。
 - Agent：将 `--core_addr` 指向 Edge 地址，实现“仅外连”注册。
-```
+
 
 ### SDK 集成示例
 
@@ -371,7 +380,7 @@ croupier/
 
 ```bash
 # 克隆
-git clone https://github.com/your-org/croupier.git
+git clone https://github.com/cuihairu/croupier.git
 cd croupier
 
 # Go 依赖（需网络）

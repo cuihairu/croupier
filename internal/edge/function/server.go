@@ -5,10 +5,10 @@ import (
     "errors"
     "fmt"
 
-    functionv1 "github.com/your-org/croupier/gen/go/croupier/function/v1"
-    "github.com/your-org/croupier/internal/edge/tunnel"
-    "github.com/your-org/croupier/internal/server/registry"
-    function "github.com/your-org/croupier/internal/server/function"
+    functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
+    "github.com/cuihairu/croupier/internal/edge/tunnel"
+    "github.com/cuihairu/croupier/internal/server/registry"
+    function "github.com/cuihairu/croupier/internal/server/function"
 )
 
 // EdgeServer forwards FunctionService calls via tunnel when possible, else falls back to dialing RPCAddr.
