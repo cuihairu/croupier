@@ -23,6 +23,8 @@ import (
     auditchain "github.com/cuihairu/croupier/internal/audit/chain"
     rbac "github.com/cuihairu/croupier/internal/auth/rbac"
     "github.com/cuihairu/croupier/internal/server/games"
+    users "github.com/cuihairu/croupier/internal/auth/users"
+    jwt "github.com/cuihairu/croupier/internal/auth/token"
 )
 
 // loadServerTLS builds a tls.Config for mTLS if caFile is provided.
@@ -56,6 +58,8 @@ func main() {
     key := flag.String("key", "", "server key file")
     ca := flag.String("ca", "", "ca cert file for client cert verification (optional)")
     gamesPath := flag.String("games_config", "configs/games.json", "allowed games config (json)")
+    usersPath := flag.String("users_config", "configs/users.json", "users config json")
+    jwtSecret := flag.String("jwt_secret", "dev-secret", "jwt hs256 secret")
     flag.Parse()
 
     if *cert == "" || *key == "" {
@@ -111,7 +115,10 @@ func main() {
         defer aw.Close()
         var pol *rbac.Policy
         if p, err := rbac.LoadPolicy(*rbacPath); err == nil { pol = p } else { pol = rbac.NewPolicy(); pol.Grant("user:dev", "*"); pol.Grant("user:dev", "job:cancel") }
-        httpSrv, err := httpserver.NewServer("descriptors", invoker, aw, pol, gstore, ctrl.Store())
+        var us *users.Store
+        if s, err := users.Load(*usersPath); err == nil { us = s } else { log.Printf("users load failed: %v", err) }
+        jm := jwt.NewManager(*jwtSecret)
+        httpSrv, err := httpserver.NewServer("descriptors", invoker, aw, pol, gstore, ctrl.Store(), us, jm)
         if err != nil { log.Fatalf("http server: %v", err) }
         if err := httpSrv.ListenAndServe(*httpAddr); err != nil {
             log.Fatalf("serve http: %v", err)
