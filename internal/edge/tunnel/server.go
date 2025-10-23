@@ -30,9 +30,11 @@ type Server struct {
     pending map[string]*pending // request_id -> chan
     evMu sync.RWMutex
     subs map[string][]chan *functionv1.JobEvent // job_id -> subscribers
+    jobsMu sync.RWMutex
+    jobs map[string]string // job_id -> agent_id
 }
 
-func NewServer() *Server { return &Server{agents: map[string]*edgeConn{}, pending: map[string]*pending{}, subs: map[string][]chan *functionv1.JobEvent{}} }
+func NewServer() *Server { return &Server{agents: map[string]*edgeConn{}, pending: map[string]*pending{}, subs: map[string][]chan *functionv1.JobEvent{}, jobs: map[string]string{}} }
 
 func (s *Server) Open(stream tunnelv1.TunnelService_OpenServer) error {
     // expect Hello first
@@ -80,6 +82,8 @@ func (s *Server) Open(stream tunnelv1.TunnelService_OpenServer) error {
                     for _, ch := range s.subs[ev.JobId] { close(ch) }
                     delete(s.subs, ev.JobId)
                     s.evMu.Unlock()
+                    // drop job->agent mapping
+                    s.jobsMu.Lock(); delete(s.jobs, ev.JobId); s.jobsMu.Unlock()
                 }
             }
         }
@@ -119,7 +123,10 @@ func (s *Server) StartJobViaTunnel(agentID, requestID, functionID string, idem s
     select {
     case res := <-ch:
         if res.Error != "" { return "", errors.New(res.Error) }
-        return string(res.Payload), nil // payload carries job_id for simplicity
+        jobID := string(res.Payload)
+        // record job->agent mapping
+        s.jobsMu.Lock(); s.jobs[jobID] = agentID; s.jobsMu.Unlock()
+        return jobID, nil
     case <-time.After(5 * time.Second):
         return "", errors.New("tunnel start_job timeout")
     }
@@ -131,7 +138,8 @@ func (s *Server) SubscribeJob(jobID string) <-chan *functionv1.JobEvent {
     return ch
 }
 
-func (s *Server) CancelJobViaTunnel(agentID, jobID string) error {
+func (s *Server) CancelJobViaTunnel(jobID string) error {
+    s.jobsMu.RLock(); agentID := s.jobs[jobID]; s.jobsMu.RUnlock()
     s.mu.RLock(); conn := s.agents[agentID]; s.mu.RUnlock()
     if conn == nil { return errors.New("agent not connected") }
     msg := &tunnelv1.TunnelMessage{Type:"cancel_job", Cancel: &tunnelv1.CancelJobFrame{JobId: jobID}}

@@ -72,10 +72,8 @@ func (s *EdgeServer) StreamJob(req *functionv1.JobStreamRequest, srv functionv1.
 }
 
 func (s *EdgeServer) CancelJob(ctx context.Context, req *functionv1.CancelJobRequest) (*functionv1.StartJobResponse, error) {
-    // best-effort tunnel cancel: pick any agent (unknown mapping here without job->agent store)
-    // TODO: maintain job->agent mapping in edge for precise cancel
     if s.tun != nil {
-        s.tun.CancelJobViaTunnel("", req.GetJobId()) // agentID omitted in PoC
+        _ = s.tun.CancelJobViaTunnel(req.GetJobId())
     }
     legacy := function.NewServer(s.store)
     return legacy.CancelJob(ctx, req)
