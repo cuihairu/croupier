@@ -153,3 +153,13 @@ func (s *Server) CancelJobViaTunnel(jobID string) error {
 func (s *Server) ConnCount() int { s.mu.RLock(); defer s.mu.RUnlock(); return len(s.agents) }
 func (s *Server) PendingCount() int { s.pendMu.Lock(); defer s.pendMu.Unlock(); return len(s.pending) }
 func (s *Server) JobsCount() int { s.jobsMu.RLock(); defer s.jobsMu.RUnlock(); return len(s.jobs) }
+func (s *Server) MetricsMap() map[string]any {
+    s.mu.RLock(); conns := len(s.agents); s.mu.RUnlock()
+    s.pendMu.Lock(); pend := len(s.pending); s.pendMu.Unlock()
+    s.jobsMu.RLock(); jobs := len(s.jobs); s.jobsMu.RUnlock()
+    return map[string]any{
+        "tunnel_agents": conns,
+        "tunnel_pending": pend,
+        "tunnel_jobs": jobs,
+    }
+}

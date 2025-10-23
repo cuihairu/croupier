@@ -70,7 +70,7 @@ func main() {
     go func(){
         mux := http.NewServeMux()
         mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request){ w.WriteHeader(http.StatusOK); _,_ = w.Write([]byte("ok")) })
-        mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request){ _ = json.NewEncoder(w).Encode(map[string]any{"tunnel_agents": tun.ConnCount(), "tunnel_pending": tun.PendingCount(), "tunnel_jobs": tun.JobsCount()}) })
+        mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request){ _ = json.NewEncoder(w).Encode(tun.MetricsMap()) })
         log.Printf("edge http listening on %s", *httpAddr)
         _ = http.ListenAndServe(*httpAddr, mux)
     }()

@@ -121,6 +121,7 @@ func main() {
             if err != nil { log.Printf("tunnel disconnected: %v", err) }
             time.Sleep(backoff)
             if backoff < 30*time.Second { backoff *= 2 }
+            tunn.IncReconnect()
         }
     }()
 
@@ -132,7 +133,7 @@ func main() {
             // summarize instances
             mp := lstore.List(); total := 0; fns := 0
             for _, arr := range mp { fns++; total += len(arr) }
-            _ = json.NewEncoder(w).Encode(map[string]any{"functions": fns, "instances": total})
+            _ = json.NewEncoder(w).Encode(map[string]any{"functions": fns, "instances": total, "tunnel_reconnects": tunn.Reconnects()})
         })
         log.Printf("agent http listening on %s", *httpAddr)
         _ = http.ListenAndServe(*httpAddr, mux)

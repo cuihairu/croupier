@@ -201,6 +201,50 @@ _ = cli.Connect(context.Background())
 
 访问 `http://localhost:8080` 可使用由 Descriptor 自动生成的管理界面。
 
+### 命令行快速验证（示例）
+
+```bash
+# 登录获取 token（默认示例用户）
+curl -sS http://localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"admin123"}' | jq -r .token | tee /tmp/token
+
+# 查看当前用户
+curl -sS http://localhost:8080/api/auth/me \
+  -H "Authorization: Bearer $(cat /tmp/token)" | jq
+
+# 查看可用的函数描述符
+curl -sS http://localhost:8080/api/descriptors \
+  -H "Authorization: Bearer $(cat /tmp/token)" | jq '.[] | {id,version}'
+
+#（可选）查看某函数的实例列表（用于 targeted 路由）
+curl -sS "http://localhost:8080/api/function_instances?function_id=player.ban&game_id=default" \
+  -H "Authorization: Bearer $(cat /tmp/token)" | jq
+
+# 执行函数（lb 路由）
+curl -sS http://localhost:8080/api/invoke \
+  -H "Authorization: Bearer $(cat /tmp/token)" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Game-ID: default' \
+  -d '{"function_id":"player.ban","payload":{"player_id":"1001","reason":"test"},"route":"lb"}' | jq
+
+# 执行函数（broadcast，对所有实例执行并聚合结果）
+curl -sS http://localhost:8080/api/invoke \
+  -H "Authorization: Bearer $(cat /tmp/token)" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Game-ID: default' \
+  -d '{"function_id":"player.ban","payload":{"player_id":"1002"},"route":"broadcast"}' | jq
+
+# 执行函数（targeted，定向到目标实例，需要先查询 service_id）
+TARGET=$(curl -sS "http://localhost:8080/api/function_instances?function_id=player.ban&game_id=default" \
+  -H "Authorization: Bearer $(cat /tmp/token)" | jq -r '.instances[0].service_id')
+curl -sS http://localhost:8080/api/invoke \
+  -H "Authorization: Bearer $(cat /tmp/token)" \
+  -H 'Content-Type: application/json' \
+  -H 'X-Game-ID: default' \
+  -d '{"function_id":"player.ban","payload":{"player_id":"1003"},"route":"targeted","target_service_id":"'"$TARGET"'"}' | jq
+```
+
 ## 🧭 多游戏管理（Game/Env 作用域）
 
 为支持一个 Core 管理多款游戏/多环境，引入作用域并贯穿全链路。
