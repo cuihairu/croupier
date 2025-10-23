@@ -20,6 +20,7 @@ import (
     "bufio"
     "strings"
     "time"
+    "sync/atomic"
     users "github.com/cuihairu/croupier/internal/auth/users"
     jwt "github.com/cuihairu/croupier/internal/auth/token"
     localv1 "github.com/cuihairu/croupier/gen/go/croupier/agent/local/v1"
@@ -159,9 +160,10 @@ func (s *Server) routes() {
             http.Error(w, "invalid route", 400); return
         }
         if in.TargetServiceID != "" { meta["target_service_id"] = in.TargetServiceID }
+        if meta["route"] == "targeted" && meta["target_service_id"] == "" { http.Error(w, "target_service_id required for targeted route", 400); return }
         resp, err := s.invoker.Invoke(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta})
         if err != nil { http.Error(w, err.Error(), 500); return }
-        s.invocations++
+        atomic.AddInt64(&s.invocations, 1)
         w.Header().Set("Content-Type", "application/json")
         if len(resp.GetPayload()) == 0 {
             w.WriteHeader(204); return
@@ -214,7 +216,7 @@ func (s *Server) routes() {
         if env != "" { meta["env"] = env }
         resp, err := s.invoker.StartJob(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta})
         if err != nil { http.Error(w, err.Error(), 500); return }
-        s.jobsStarted++
+        atomic.AddInt64(&s.jobsStarted, 1)
         _ = json.NewEncoder(w).Encode(resp)
     })
     s.mux.HandleFunc("/api/stream_job", func(w http.ResponseWriter, r *http.Request) {
@@ -260,6 +262,7 @@ func (s *Server) routes() {
     // Audit list (simple JSONL reader with filters)
     s.mux.HandleFunc("/api/audit", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
+        if _, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
         gameID := r.URL.Query().Get("game_id")
         env := r.URL.Query().Get("env")
@@ -298,6 +301,7 @@ func (s *Server) routes() {
     // Registry summary
     s.mux.HandleFunc("/api/registry", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
+        if _, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
         type Agent struct{ AgentID, GameID, Env, RpcAddr string; Functions int }
         type Function struct{ GameID, ID string; Agents int }
@@ -325,6 +329,7 @@ func (s *Server) routes() {
     // Function instances across agents (targeted routing aid)
     s.mux.HandleFunc("/api/function_instances", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
+        if _, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
         gameID := r.URL.Query().Get("game_id")
         fid := r.URL.Query().Get("function_id")

@@ -8,6 +8,7 @@ import (
     "log"
     "net"
     "sync"
+    "fmt"
 
     "google.golang.org/grpc"
     "google.golang.org/grpc/credentials"
@@ -110,7 +111,7 @@ func main() {
         if err != nil { log.Fatalf("audit: %v", err) }
         defer aw.Close()
         var pol *rbac.Policy
-        if p, err := rbac.LoadPolicy(*rbacPath); err == nil { pol = p } else { pol = rbac.NewPolicy(); pol.Grant("user:dev", "*"); pol.Grant("user:dev", "job:cancel") }
+        if p, err := rbac.LoadPolicy(*rbacPath); err == nil { pol = p } else { pol = rbac.NewPolicy(); pol.Grant("user:dev", "*"); pol.Grant("user:dev", "job:cancel"); pol.Grant("role:admin", "*") }
         var us *users.Store
         if s, err := users.Load(*usersPath); err == nil { us = s } else { log.Printf("users load failed: %v", err) }
         jm := jwt.NewManager(*jwtSecret)
