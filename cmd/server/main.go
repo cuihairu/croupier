@@ -26,6 +26,7 @@ import (
     "github.com/cuihairu/croupier/internal/server/games"
     users "github.com/cuihairu/croupier/internal/auth/users"
     jwt "github.com/cuihairu/croupier/internal/auth/token"
+    "github.com/cuihairu/croupier/internal/devcert"
 )
 
 // loadServerTLS builds a tls.Config for mTLS if caFile is provided.
@@ -59,8 +60,17 @@ func main() {
     jwtSecret := flag.String("jwt_secret", "dev-secret", "jwt hs256 secret")
     flag.Parse()
 
-    if *cert == "" || *key == "" {
-        log.Fatal("TLS cert/key required: use --cert and --key")
+    // Auto-generate dev certs when not provided (DEV ONLY)
+    if *cert == "" || *key == "" || *ca == "" {
+        out := "configs/dev"
+        caCrt, caKey, err := devcert.EnsureDevCA(out)
+        if err != nil { log.Fatalf("generate dev CA: %v", err) }
+        // include common localhost hosts for dev
+        srvCrt, srvKey, err := devcert.EnsureServerCert(out, caCrt, caKey, []string{"localhost", "127.0.0.1"})
+        if err != nil { log.Fatalf("generate dev server cert: %v", err) }
+        // set flags to generated paths
+        *cert, *key, *ca = srvCrt, srvKey, caCrt
+        log.Printf("[devcert] generated dev TLS certs under %s (DEV ONLY)", out)
     }
 
     creds, err := loadServerTLS(*cert, *key, *ca)
