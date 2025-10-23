@@ -1,0 +1,6 @@
+{
+  "games": [
+    { "game_id": "default", "env": "dev" }
+  ]
+}
+

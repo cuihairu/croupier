@@ -18,8 +18,8 @@ type Client struct {
 func NewClient(cc *grpc.ClientConn) *Client { return &Client{c: controlv1.NewControlServiceClient(cc)} }
 
 // RegisterAndHeartbeat performs initial register and keeps sending heartbeats until ctx done.
-func (cl *Client) RegisterAndHeartbeat(ctx context.Context, agentID, version, rpcAddr string, fns []*controlv1.FunctionDescriptor) {
-    resp, err := cl.c.Register(ctx, &controlv1.RegisterRequest{AgentId: agentID, Version: version, RpcAddr: rpcAddr, Functions: fns})
+func (cl *Client) RegisterAndHeartbeat(ctx context.Context, agentID, version, rpcAddr, gameID, env string, fns []*controlv1.FunctionDescriptor) {
+    resp, err := cl.c.Register(ctx, &controlv1.RegisterRequest{AgentId: agentID, Version: version, RpcAddr: rpcAddr, GameId: gameID, Env: env, Functions: fns})
     if err != nil {
         log.Printf("register failed: %v", err)
         return

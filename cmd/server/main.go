@@ -22,6 +22,7 @@ import (
     _ "github.com/your-org/croupier/internal/transport/jsoncodec"
     auditchain "github.com/your-org/croupier/internal/audit/chain"
     rbac "github.com/your-org/croupier/internal/auth/rbac"
+    "github.com/your-org/croupier/internal/server/games"
 )
 
 // loadServerTLS builds a tls.Config for mTLS if caFile is provided.
@@ -53,6 +54,7 @@ func main() {
     cert := flag.String("cert", "", "server cert file")
     key := flag.String("key", "", "server key file")
     ca := flag.String("ca", "", "ca cert file for client cert verification (optional)")
+    gamesPath := flag.String("games_config", "configs/games.json", "allowed games config (json)")
     flag.Parse()
 
     if *cert == "" || *key == "" {
@@ -75,7 +77,10 @@ func main() {
     )
 
     // Register services
-    ctrl := controlserver.NewServer()
+    // Allowed games store
+    gstore := games.NewStore(*gamesPath)
+    if err := gstore.Load(); err != nil { log.Fatalf("load games: %v", err) }
+    ctrl := controlserver.NewServer(gstore)
     controlv1.RegisterControlServiceServer(s, ctrl)
     fnsrv := functionserver.NewServer(ctrl.Store())
     functionv1.RegisterFunctionServiceServer(s, fnsrv)
@@ -96,7 +101,7 @@ func main() {
         defer aw.Close()
         var pol *rbac.Policy
         if p, err := rbac.LoadPolicy(*rbacPath); err == nil { pol = p } else { pol = rbac.NewPolicy(); pol.Grant("user:dev", "*"); pol.Grant("user:dev", "job:cancel") }
-        httpSrv, err := httpserver.NewServer("descriptors", functionserver.NewClientAdapter(fnsrv), aw, pol)
+        httpSrv, err := httpserver.NewServer("descriptors", functionserver.NewClientAdapter(fnsrv), aw, pol, gstore)
         if err != nil { log.Fatalf("http server: %v", err) }
         if err := httpSrv.ListenAndServe(*httpAddr); err != nil {
             log.Fatalf("serve http: %v", err)

@@ -9,6 +9,8 @@ type AgentSession struct {
     AgentID   string
     Version   string
     RPCAddr   string
+    GameID    string
+    Env       string
     Functions map[string]bool
     ExpireAt  time.Time
 }
