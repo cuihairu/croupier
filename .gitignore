@@ -25,5 +25,9 @@ go.work.sum
 bin/
 gen/
 
+# Local module/build caches
+.gocache/
+.gomodcache/
+
 # Local TLS dev certs
 configs/dev/

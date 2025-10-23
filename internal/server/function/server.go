@@ -5,11 +5,13 @@ import (
     "errors"
     "fmt"
     "log"
+    "time"
 
     functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
+    "github.com/cuihairu/croupier/internal/connpool"
     "github.com/cuihairu/croupier/internal/jobs"
+    "github.com/cuihairu/croupier/internal/loadbalancer"
     "github.com/cuihairu/croupier/internal/server/registry"
-    "github.com/cuihairu/croupier/internal/transport/interceptors"
 
     "google.golang.org/grpc"
 )
@@ -17,104 +19,287 @@ import (
 // Server implements FunctionService at Core side, routing calls to agents.
 type Server struct {
     functionv1.UnimplementedFunctionServiceServer
-    store *registry.Store
-    jobs  *jobs.Router
+    store       *registry.Store
+    jobs        *jobs.Router
+    balancer    loadbalancer.LoadBalancer
+    connPool    connpool.ConnectionPool
+    stats       loadbalancer.StatsCollector
+    healthCheck loadbalancer.HealthChecker
 }
 
-func NewServer(store *registry.Store) *Server { return &Server{store: store, jobs: jobs.NewRouter()} }
+// ServerConfig holds configuration for the function server
+type ServerConfig struct {
+    // LoadBalancerStrategy defines which load balancing strategy to use
+    // Options: "round_robin", "weighted_round_robin", "least_connections", "consistent_hash"
+    LoadBalancerStrategy string
+    // ConnectionPool configuration
+    ConnPoolConfig *connpool.PoolConfig
+    // HealthCheck interval
+    HealthCheckInterval time.Duration
+}
 
-func (s *Server) pickAgent(fid, gameID string) (*registry.AgentSession, error) {
-    // prefer matching game_id; fallback to any if not found
+func NewServer(store *registry.Store, config *ServerConfig) *Server {
+    if config == nil {
+        config = &ServerConfig{
+            LoadBalancerStrategy: "round_robin",
+            ConnPoolConfig:       connpool.DefaultPoolConfig(),
+            HealthCheckInterval:  30 * time.Second,
+        }
+    }
+
+    // Initialize components
+    stats := loadbalancer.NewDefaultStatsCollector()
+    healthCheck := loadbalancer.NewDefaultHealthChecker(config.HealthCheckInterval)
+    connPool := connpool.NewConnectionPool(config.ConnPoolConfig)
+
+    // Initialize load balancer based on strategy
+    var balancer loadbalancer.LoadBalancer
+    switch config.LoadBalancerStrategy {
+    case "weighted_round_robin":
+        balancer = loadbalancer.NewWeightedRoundRobinBalancer(healthCheck)
+    case "least_connections":
+        balancer = loadbalancer.NewLeastConnectionsBalancer(stats, healthCheck)
+    case "consistent_hash":
+        balancer = loadbalancer.NewConsistentHashBalancer(150, healthCheck)
+    default: // "round_robin"
+        balancer = loadbalancer.NewRoundRobinBalancer(healthCheck)
+    }
+
+    return &Server{
+        store:       store,
+        jobs:        jobs.NewRouter(),
+        balancer:    balancer,
+        connPool:    connPool,
+        stats:       stats,
+        healthCheck: healthCheck,
+    }
+}
+
+func (s *Server) pickAgent(fid, gameID, hashKey string) (*registry.AgentSession, error) {
+    // Get candidates for this function and game
     cands := s.store.AgentsForFunctionScoped(gameID, fid, true)
-    if len(cands) == 0 { return nil, errors.New("no agent available") }
-    // TODO: Load balancing policy; for now pick first
-    return cands[0], nil
+    if len(cands) == 0 {
+        return nil, errors.New("no agent available")
+    }
+
+    // Use load balancer to pick the best agent
+    ctx := context.Background()
+    agent, err := s.balancer.Pick(ctx, cands, hashKey)
+    if err != nil {
+        return nil, fmt.Errorf("load balancer failed to pick agent: %w", err)
+    }
+
+    return agent, nil
+}
+
+func (s *Server) getConnection(ctx context.Context, agentAddr string) (*grpc.ClientConn, error) {
+    // Use connection pool to get/create connection
+    conn, err := s.connPool.Get(ctx, agentAddr)
+    if err != nil {
+        return nil, fmt.Errorf("failed to get connection: %w", err)
+    }
+    return conn, nil
+}
+
+func (s *Server) recordStats(agentID string, start time.Time, success bool) {
+    duration := time.Since(start)
+    s.stats.RecordRequest(agentID, duration, success)
 }
 
 func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
-    var gameID string
-    if req.Metadata != nil { gameID = req.Metadata["game_id"] }
-    agent, err := s.pickAgent(req.GetFunctionId(), gameID)
-    if err != nil { return nil, err }
-    base := []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json"))}
-    opts := append(base, interceptors.Chain(nil)...)
-    cc, err := grpc.Dial(agent.RPCAddr, opts...)
-    if err != nil { return nil, fmt.Errorf("dial agent %s: %w", agent.AgentID, err) }
-    defer cc.Close()
-    cli := functionv1.NewFunctionServiceClient(cc)
+    start := time.Now()
+    var gameID, hashKey string
+    if req.Metadata != nil {
+        gameID = req.Metadata["game_id"]
+        hashKey = req.Metadata["hash_key"]
+    }
+
+    // Pick agent using load balancer
+    agent, err := s.pickAgent(req.GetFunctionId(), gameID, hashKey)
+    if err != nil {
+        return nil, err
+    }
+
+    // Increment active connections for stats
+    s.stats.IncrementActiveConns(agent.AgentID)
+    defer s.stats.DecrementActiveConns(agent.AgentID)
+
+    // Get connection from pool
+    conn, err := s.getConnection(ctx, agent.RPCAddr)
+    if err != nil {
+        s.recordStats(agent.AgentID, start, false)
+        s.balancer.UpdateHealth(agent.AgentID, false)
+        return nil, fmt.Errorf("dial agent %s: %w", agent.AgentID, err)
+    }
+
+    // Create client
+    cli := functionv1.NewFunctionServiceClient(conn)
+
+    // Log request
     trace := ""
-    if req.Metadata != nil { trace = req.Metadata["trace_id"] }
-    log.Printf("routing invoke %s to agent %s@%s trace=%s idem=%s", req.GetFunctionId(), agent.AgentID, agent.RPCAddr, trace, req.GetIdempotencyKey())
-    return cli.Invoke(ctx, req)
+    if req.Metadata != nil {
+        trace = req.Metadata["trace_id"]
+    }
+    log.Printf("routing invoke %s to agent %s@%s trace=%s idem=%s strategy=%s",
+        req.GetFunctionId(), agent.AgentID, agent.RPCAddr, trace,
+        req.GetIdempotencyKey(), s.balancer.Name())
+
+    // Make the call
+    resp, err := cli.Invoke(ctx, req)
+    success := err == nil
+
+    // Record stats and update health
+    s.recordStats(agent.AgentID, start, success)
+    s.balancer.UpdateHealth(agent.AgentID, success)
+
+    return resp, err
 }
 
 func (s *Server) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {
-    var gameID string
-    if req.Metadata != nil { gameID = req.Metadata["game_id"] }
-    agent, err := s.pickAgent(req.GetFunctionId(), gameID)
-    if err != nil { return nil, err }
-    base := []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json"))}
-    opts := append(base, interceptors.Chain(nil)...)
-    cc, err := grpc.Dial(agent.RPCAddr, opts...)
-    if err != nil { return nil, fmt.Errorf("dial agent %s: %w", agent.AgentID, err) }
-    defer cc.Close()
-    cli := functionv1.NewFunctionServiceClient(cc)
+    start := time.Now()
+    var gameID, hashKey string
+    if req.Metadata != nil {
+        gameID = req.Metadata["game_id"]
+        hashKey = req.Metadata["hash_key"]
+    }
+
+    // Pick agent using load balancer
+    agent, err := s.pickAgent(req.GetFunctionId(), gameID, hashKey)
+    if err != nil {
+        return nil, err
+    }
+
+    // Increment active connections for stats
+    s.stats.IncrementActiveConns(agent.AgentID)
+    defer s.stats.DecrementActiveConns(agent.AgentID)
+
+    // Get connection from pool
+    conn, err := s.getConnection(ctx, agent.RPCAddr)
+    if err != nil {
+        s.recordStats(agent.AgentID, start, false)
+        s.balancer.UpdateHealth(agent.AgentID, false)
+        return nil, fmt.Errorf("dial agent %s: %w", agent.AgentID, err)
+    }
+
+    // Create client
+    cli := functionv1.NewFunctionServiceClient(conn)
+
+    // Log request
     trace := ""
-    if req.Metadata != nil { trace = req.Metadata["trace_id"] }
-    log.Printf("routing start-job %s to agent %s@%s trace=%s idem=%s", req.GetFunctionId(), agent.AgentID, agent.RPCAddr, trace, req.GetIdempotencyKey())
+    if req.Metadata != nil {
+        trace = req.Metadata["trace_id"]
+    }
+    log.Printf("routing start-job %s to agent %s@%s trace=%s idem=%s strategy=%s",
+        req.GetFunctionId(), agent.AgentID, agent.RPCAddr, trace,
+        req.GetIdempotencyKey(), s.balancer.Name())
+
+    // Make the call
     resp, err := cli.StartJob(ctx, req)
+    success := err == nil
+
+    // Record stats and update health
+    s.recordStats(agent.AgentID, start, success)
+    s.balancer.UpdateHealth(agent.AgentID, success)
+
+    // Store job mapping if successful
     if err == nil {
         s.jobs.Set(resp.GetJobId(), agent.RPCAddr)
     }
+
     return resp, err
 }
 
 func (s *Server) StreamJob(req *functionv1.JobStreamRequest, stream functionv1.FunctionService_StreamJobServer) error {
     rpcAddr, ok := s.jobs.Get(req.GetJobId())
-    if !ok { return errors.New("unknown job") }
-    base := []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json"))}
-    opts := append(base, interceptors.Chain(nil)...)
-    cc, err := grpc.Dial(rpcAddr, opts...)
-    if err != nil { return fmt.Errorf("dial agent: %w", err) }
-    defer cc.Close()
-    cli := functionv1.NewFunctionServiceClient(cc)
+    if !ok {
+        return errors.New("unknown job")
+    }
+
+    // Get connection from pool
+    conn, err := s.getConnection(stream.Context(), rpcAddr)
+    if err != nil {
+        return fmt.Errorf("dial agent: %w", err)
+    }
+
+    cli := functionv1.NewFunctionServiceClient(conn)
 
     // Fan-out events from agent to caller
     agentStream, err := cli.StreamJob(stream.Context(), req)
-    if err != nil { return err }
+    if err != nil {
+        return err
+    }
+
     for {
         ev, err := agentStream.Recv()
-        if err != nil { return err }
-        if err := stream.Send(ev); err != nil { return err }
-        if ev.GetType() == "done" || ev.GetType() == "error" { return nil }
+        if err != nil {
+            return err
+        }
+        if err := stream.Send(ev); err != nil {
+            return err
+        }
+        if ev.GetType() == "done" || ev.GetType() == "error" {
+            return nil
+        }
     }
 }
 
 func (s *Server) CancelJob(ctx context.Context, req *functionv1.CancelJobRequest) (*functionv1.StartJobResponse, error) {
     rpcAddr, ok := s.jobs.Get(req.GetJobId())
-    if !ok { return nil, errors.New("unknown job") }
-    base := []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json"))}
-    opts := append(base, interceptors.Chain(nil)...)
-    cc, err := grpc.Dial(rpcAddr, opts...)
-    if err != nil { return nil, fmt.Errorf("dial agent: %w", err) }
-    defer cc.Close()
-    cli := functionv1.NewFunctionServiceClient(cc)
+    if !ok {
+        return nil, errors.New("unknown job")
+    }
+
+    // Get connection from pool
+    conn, err := s.getConnection(ctx, rpcAddr)
+    if err != nil {
+        return nil, fmt.Errorf("dial agent: %w", err)
+    }
+
+    cli := functionv1.NewFunctionServiceClient(conn)
     return cli.CancelJob(ctx, req)
+}
+
+// Close cleans up server resources
+func (s *Server) Close() error {
+    if s.connPool != nil {
+        return s.connPool.Close()
+    }
+    return nil
+}
+
+// GetStats returns current load balancer statistics
+func (s *Server) GetStats() map[string]*loadbalancer.AgentStats {
+    if s.stats != nil {
+        return s.stats.GetAllStats()
+    }
+    return nil
+}
+
+// GetPoolStats returns connection pool statistics
+func (s *Server) GetPoolStats() *connpool.PoolStats {
+    if s.connPool != nil {
+        return s.connPool.Stats()
+    }
+    return nil
 }
 
 // Implement client-like helper to satisfy httpserver.FunctionInvoker
 func (s *Server) StreamJobClient(ctx context.Context, req *functionv1.JobStreamRequest) (functionv1.FunctionService_StreamJobClient, error) {
-    // not used; httpserver expects StreamJob, not StreamJobClient
-    return nil, errors.New("not implemented")
-}
+    rpcAddr, ok := s.jobs.Get(req.GetJobId())
+    if !ok {
+        return nil, errors.New("unknown job")
+    }
 
-// Compile-time check
-var _ interface{ 
-    Invoke(context.Context, *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error)
-    StartJob(context.Context, *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error)
-    StreamJob(ctx context.Context, req *functionv1.JobStreamRequest) (functionv1.FunctionService_StreamJobClient, error)
-    CancelJob(ctx context.Context, req *functionv1.CancelJobRequest) (*functionv1.StartJobResponse, error)
-} = (*clientAdapter)(nil)
+    // Get connection from pool
+    conn, err := s.getConnection(ctx, rpcAddr)
+    if err != nil {
+        return nil, err
+    }
+
+    // Note: caller must manage connection lifecycle when using this method
+    cli := functionv1.NewFunctionServiceClient(conn)
+    return cli.StreamJob(ctx, req)
+}
 
 // clientAdapter wraps Server to expose client-style StreamJob for httpserver.
 type clientAdapter struct{ s *Server }
@@ -122,19 +307,15 @@ type clientAdapter struct{ s *Server }
 func (a *clientAdapter) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
     return a.s.Invoke(ctx, req)
 }
+
 func (a *clientAdapter) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {
     return a.s.StartJob(ctx, req)
 }
+
 func (a *clientAdapter) StreamJob(ctx context.Context, req *functionv1.JobStreamRequest) (functionv1.FunctionService_StreamJobClient, error) {
-    // create a client by dialing the chosen agent and delegating stream to it
-    rpcAddr, ok := a.s.jobs.Get(req.GetJobId())
-    if !ok { return nil, errors.New("unknown job") }
-    cc, err := grpc.Dial(rpcAddr, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")))
-    if err != nil { return nil, err }
-    // Note: caller must drain stream and connection will close when GC'ed; here we don't retain cc reference
-    cli := functionv1.NewFunctionServiceClient(cc)
-    return cli.StreamJob(ctx, req)
+    return a.s.StreamJobClient(ctx, req)
 }
+
 func (a *clientAdapter) CancelJob(ctx context.Context, req *functionv1.CancelJobRequest) (*functionv1.StartJobResponse, error) {
     return a.s.CancelJob(ctx, req)
 }
