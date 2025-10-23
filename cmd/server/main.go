@@ -91,7 +91,8 @@ func main() {
         functionv1.RegisterFunctionServiceServer(s, fwd)
         invoker = functionserver.NewForwarderInvoker(fwd)
     } else {
-        fnsrv := functionserver.NewServer(ctrl.Store())
+        // Use default function server config when running in-core
+        fnsrv := functionserver.NewServer(ctrl.Store(), nil)
         functionv1.RegisterFunctionServiceServer(s, fnsrv)
         invoker = functionserver.NewClientAdapter(fnsrv)
     }

@@ -38,7 +38,7 @@ func (s *EdgeServer) Invoke(ctx context.Context, req *functionv1.InvokeRequest) 
         // fallback
     }
     // fallback to legacy dialing: reuse existing server impl by composing
-    legacy := function.NewServer(s.store)
+    legacy := function.NewServer(s.store, nil)
     return legacy.Invoke(ctx, req)
 }
 
@@ -54,7 +54,7 @@ func (s *EdgeServer) StartJob(ctx context.Context, req *functionv1.InvokeRequest
         jobID, err := s.tun.StartJobViaTunnel(agent.AgentID, rid, req.GetFunctionId(), req.GetIdempotencyKey(), req.GetPayload(), req.Metadata)
         if err == nil { return &functionv1.StartJobResponse{JobId: jobID}, nil }
     }
-    legacy := function.NewServer(s.store)
+    legacy := function.NewServer(s.store, nil)
     return legacy.StartJob(ctx, req)
 }
 
@@ -67,7 +67,7 @@ func (s *EdgeServer) StreamJob(req *functionv1.JobStreamRequest, srv functionv1.
         }
         return nil
     }
-    legacy := function.NewServer(s.store)
+    legacy := function.NewServer(s.store, nil)
     return legacy.StreamJob(req, srv)
 }
 
@@ -75,6 +75,6 @@ func (s *EdgeServer) CancelJob(ctx context.Context, req *functionv1.CancelJobReq
     if s.tun != nil {
         _ = s.tun.CancelJobViaTunnel(req.GetJobId())
     }
-    legacy := function.NewServer(s.store)
+    legacy := function.NewServer(s.store, nil)
     return legacy.CancelJob(ctx, req)
 }
