@@ -31,9 +31,13 @@ message JobEvent {
   bytes payload = 4;    // optional final result
 }
 
+message CancelJobRequest {
+  string job_id = 1;
+}
+
 service FunctionService {
   rpc Invoke(InvokeRequest) returns (InvokeResponse);
   rpc StartJob(InvokeRequest) returns (StartJobResponse);
   rpc StreamJob(JobStreamRequest) returns (stream JobEvent);
+  rpc CancelJob(CancelJobRequest) returns (StartJobResponse);
 }
-
