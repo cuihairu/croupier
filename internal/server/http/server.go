@@ -101,6 +101,33 @@ func (s *Server) routes() {
             "jobs_error_total": atomic.LoadInt64(&s.jobsError),
         })
     })
+
+    // Ant Design Pro demo stubs (for template pages)
+    // GET /api/rule -> return empty rule list; POST /api/rule -> no-op
+    s.mux.HandleFunc("/api/rule", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
+        switch r.Method {
+        case http.MethodGet:
+            type RuleItem struct{
+                Key int `json:"key"`
+                Name string `json:"name"`
+                Desc string `json:"desc"`
+                Status int `json:"status"`
+                UpdatedAt string `json:"updatedAt"`
+                CreatedAt string `json:"createdAt"`
+                Progress int `json:"progress"`
+            }
+            _ = json.NewEncoder(w).Encode(struct{
+                Data   []RuleItem `json:"data"`
+                Total  int       `json:"total"`
+                Success bool     `json:"success"`
+            }{Data: []RuleItem{}, Total: 0, Success: true})
+        case http.MethodPost:
+            _ = json.NewEncoder(w).Encode(struct{ Success bool `json:"success"` }{Success: true})
+        default:
+            w.WriteHeader(http.StatusMethodNotAllowed)
+        }
+    })
     s.mux.HandleFunc("/api/invoke", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
