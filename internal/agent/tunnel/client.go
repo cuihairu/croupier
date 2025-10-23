@@ -3,6 +3,7 @@ package tunnel
 import (
     "context"
     "log"
+    "time"
 
     functionv1 "github.com/your-org/croupier/gen/go/croupier/function/v1"
     tunnelv1 "github.com/your-org/croupier/gen/go/croupier/tunnel/v1"
@@ -32,16 +33,29 @@ func (c *Client) Start(ctx context.Context) error {
     if err != nil { return err }
     // send hello
     if err := stream.Send(&tunnelv1.TunnelMessage{Type: "hello", Hello: &tunnelv1.Hello{AgentId: c.agentID, GameId: c.gameID, Env: c.env}}); err != nil { return err }
-    // recv loop
+    // heartbeat sender
+    done := make(chan struct{})
     go func(){
+        ticker := time.NewTicker(15 * time.Second)
+        defer ticker.Stop()
         for {
-            msg, err := stream.Recv()
-            if err != nil { log.Printf("tunnel recv end: %v", err); return }
-            if msg == nil { continue }
-            // dial local
-            lcc, err := grpc.Dial(c.localAddr, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")))
-            if err != nil { continue }
-            lcli := functionv1.NewFunctionServiceClient(lcc)
+            select {
+            case <-ticker.C:
+                _ = stream.Send(&tunnelv1.TunnelMessage{Type:"heartbeat"})
+            case <-done:
+                return
+            }
+        }
+    }()
+    // recv loop (blocking)
+    for {
+        msg, err := stream.Recv()
+        if err != nil { close(done); log.Printf("tunnel recv end: %v", err); return err }
+        if msg == nil { continue }
+        // dial local
+        lcc, err := grpc.Dial(c.localAddr, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")))
+        if err != nil { continue }
+        lcli := functionv1.NewFunctionServiceClient(lcc)
             switch msg.Type {
             case "invoke":
                 inv := msg.Invoke
@@ -76,8 +90,6 @@ func (c *Client) Start(ctx context.Context) error {
                 _, _ = lcli.CancelJob(ctx, &functionv1.CancelJobRequest{JobId: cj.JobId})
                 // no ack in PoC
             }
-            _ = lcc.Close()
-        }
-    }()
-    return nil
+        _ = lcc.Close()
+    }
 }

@@ -20,6 +20,7 @@ type edgeConn struct{
     gameID string
     env string
     srv tunnelv1.TunnelService_OpenServer
+    last time.Time
 }
 
 type Server struct {
@@ -41,7 +42,7 @@ func (s *Server) Open(stream tunnelv1.TunnelService_OpenServer) error {
     hello, err := stream.Recv()
     if err != nil || hello == nil || hello.Type != "hello" || hello.Hello == nil { return errors.New("bad hello") }
     h := hello.Hello
-    conn := &edgeConn{agentID: h.AgentId, gameID: h.GameId, env: h.Env, srv: stream}
+    conn := &edgeConn{agentID: h.AgentId, gameID: h.GameId, env: h.Env, srv: stream, last: time.Now()}
     s.mu.Lock(); s.agents[h.AgentId] = conn; s.mu.Unlock()
     log.Printf("tunnel: agent connected id=%s game=%s env=%s", h.AgentId, h.GameId, h.Env)
     // reader loop for results
@@ -86,6 +87,8 @@ func (s *Server) Open(stream tunnelv1.TunnelService_OpenServer) error {
                     s.jobsMu.Lock(); delete(s.jobs, ev.JobId); s.jobsMu.Unlock()
                 }
             }
+        case "heartbeat":
+            s.mu.Lock(); if c := s.agents[h.AgentId]; c != nil { c.last = time.Now() }; s.mu.Unlock()
         }
     }
     // cleanup
