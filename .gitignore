@@ -30,3 +30,6 @@ bin/
 
 # Local TLS dev certs
 configs/dev/
+
+# Logs
+logs/
