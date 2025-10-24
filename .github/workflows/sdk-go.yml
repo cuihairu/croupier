@@ -1,0 +1,25 @@
+name: SDK Go CI
+on:
+  push:
+    paths:
+      - 'sdks/go/**'
+      - '.github/workflows/sdk-go.yml'
+  pull_request:
+    paths:
+      - 'sdks/go/**'
+      - '.github/workflows/sdk-go.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      - name: Go Test (SDK)
+        working-directory: sdks/go
+        run: |
+          go mod tidy
+          go test ./... -count=1
