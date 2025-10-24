@@ -514,6 +514,9 @@ make build
 # 3) 示例游戏服连接 Agent
 go run ./examples/go-server
 
+# 4) 直连调用示例（Invoker）
+go run ./examples/go-invoker
+
 # 子模块（前端、SDK）
 # 初始化/更新子模块
 git submodule update --init --recursive
