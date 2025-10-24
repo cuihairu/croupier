@@ -8,6 +8,25 @@ Croupier 是一个专为游戏运营设计的通用 GM 后台系统，支持多�
 
 本 README 描述的是推荐的 vNext 架构：gRPC + mTLS、Descriptor 驱动 UI、Agent 外连拓扑。与现有实现兼容演进（现有 `croupier-proxy` 在本文中称为 Agent）。
 
+## 📦 SDKs
+
+- Go SDK（推荐优先）
+  - 仓库：https://github.com/cuihairu/croupier-sdk-go
+  - 子模块路径：`sdks/go`（已在本仓库引入）
+  - 文档：`sdks/go/README.md`
+  - 能力：注册本地函数到 Agent、承载 FunctionService、JSON 编解码、简单超时/重试拦截器
+- C++ SDK（WIP）
+  - 仓库：https://github.com/cuihairu/croupier-sdk-cpp
+  - 子模块路径：`sdks/cpp`
+  - 状态：占位，优先完成 Go 版本后逐步实现
+- Java SDK（WIP）
+  - 仓库：https://github.com/cuihairu/croupier-sdk-java
+  - 子模块路径：`sdks/java`
+  - 状态：占位，优先保证 Go 版本稳定后实现
+
+使用建议
+- 生产接入建议以 IDL 生成多语言 SDK；当前阶段 Go SDK 为最优先完善路径，其他语言逐步跟进。
+
 ## 🎯 核心特性
 
 - 🔐 gRPC + mTLS：双向身份与加密传输（HTTP/2/443），内置重试/流控
@@ -508,9 +527,8 @@ npm run dev  # 或 npm run start
 npm run build  # 产物到 web/dist，Core 会优先静态服务 web/dist
 
 # Go SDK（子模块：sdks/go）
-# 当前仓库仍保留内置样例 SDK（pkg/sdk）用于演示闭环。后续将迁移至子模块。
-# 使用子模块 SDK 时，建议直接引用模块路径 github.com/cuihairu/croupier-sdk-go，
-# 或在本仓库 go.mod 中通过 replace 指向 ./sdks/go 做本地联调。
+# 建议直接在业务工程中引用模块路径 github.com/cuihairu/croupier-sdk-go；
+# 在本仓库内开发/联调时，可在 go.mod 用 replace 指向 ./sdks/go。
 
 # C++ SDK（子模块：sdks/cpp）
 # 当前仅添加为子模块占位，优先完成 Go 版本后再逐步实现 C++ 版本。
