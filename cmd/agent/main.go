@@ -132,7 +132,7 @@ func main() {
     // Register local FunctionService endpoint (routes to local game servers & job executor)
     functionv1.RegisterFunctionServiceServer(srv, agentfunc.NewServer(lstore, exec))
     // Register LocalControl service for SDKs to register themselves
-    localv1.RegisterLocalControlServiceServer(srv, locallib.NewServer(lstore, controlv1.NewControlServiceClient(coreConn), *agentID, *agentVersion, *localAddr, *gameID, *env))
+    localv1.RegisterLocalControlServiceServer(srv, locallib.NewServer(lstore, controlv1.NewControlServiceClient(coreConn), *agentID, *agentVersion, *localAddr, *gameID, *env, exec))
     // Open tunnel to Edge/Core for Invoke proxy
     go func(){
         t := tunn.NewClient(*coreAddr, *agentID, *gameID, *env, *localAddr)

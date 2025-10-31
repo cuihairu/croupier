@@ -26,6 +26,8 @@ import (
     localv1 "github.com/cuihairu/croupier/gen/go/croupier/agent/local/v1"
     "google.golang.org/grpc"
     "google.golang.org/grpc/credentials/insecure"
+    "github.com/cuihairu/croupier/internal/loadbalancer"
+    "github.com/cuihairu/croupier/internal/connpool"
 )
 
 type Server struct {
@@ -44,6 +46,11 @@ type Server struct {
     invocationsError int64
     jobsStarted int64
     jobsError int64
+    locator interface{ GetJobAddr(string) (string, bool) }
+    statsProv interface{
+        GetStats() map[string]*loadbalancer.AgentStats
+        GetPoolStats() *connpool.PoolStats
+    }
 }
 
 type FunctionInvoker interface {
@@ -53,12 +60,12 @@ type FunctionInvoker interface {
     CancelJob(ctx context.Context, req *functionv1.CancelJobRequest) (*functionv1.StartJobResponse, error)
 }
 
-func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.Writer, policy *rbac.Policy, gamesStore *games.Store, reg *registry.Store, userStore *users.Store, jwtMgr *jwt.Manager) (*Server, error) {
+func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.Writer, policy *rbac.Policy, gamesStore *games.Store, reg *registry.Store, userStore *users.Store, jwtMgr *jwt.Manager, locator interface{ GetJobAddr(string) (string, bool) }, statsProv interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }) (*Server, error) {
     descs, err := descriptor.LoadAll(descriptorDir)
     if err != nil { return nil, err }
     idx := map[string]*descriptor.Descriptor{}
     for _, d := range descs { idx[d.ID] = d }
-    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, games: gamesStore, reg: reg, userStore: userStore, jwtMgr: jwtMgr, startedAt: time.Now()}
+    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, games: gamesStore, reg: reg, userStore: userStore, jwtMgr: jwtMgr, startedAt: time.Now(), locator: locator, statsProv: statsProv}
     s.routes()
     return s, nil
 }
@@ -93,13 +100,18 @@ func (s *Server) routes() {
     })
     s.mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
-        _ = json.NewEncoder(w).Encode(map[string]any{
+        out := map[string]any{
             "uptime_sec": int(time.Since(s.startedAt).Seconds()),
             "invocations_total": atomic.LoadInt64(&s.invocations),
             "invocations_error_total": atomic.LoadInt64(&s.invocationsError),
             "jobs_started_total": atomic.LoadInt64(&s.jobsStarted),
             "jobs_error_total": atomic.LoadInt64(&s.jobsError),
-        })
+        }
+        if s.statsProv != nil {
+            out["lb_stats"] = s.statsProv.GetStats()
+            out["conn_pool"] = s.statsProv.GetPoolStats()
+        }
+        _ = json.NewEncoder(w).Encode(out)
     })
 
     // Ant Design Pro demo stubs (for template pages)
@@ -141,6 +153,7 @@ func (s *Server) routes() {
             IdempotencyKey string `json:"idempotency_key"`
             Route string `json:"route"`
             TargetServiceID string `json:"target_service_id"`
+            HashKey string `json:"hash_key"`
         }
         if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
         // schema validation (best-effort)
@@ -190,6 +203,7 @@ func (s *Server) routes() {
         if rv, ok := meta["route"]; ok && rv != "lb" && rv != "broadcast" && rv != "targeted" && rv != "hash" {
             http.Error(w, "invalid route", 400); return
         }
+        if in.HashKey != "" { meta["hash_key"] = in.HashKey }
         if meta["route"] == "hash" && meta["hash_key"] == "" { http.Error(w, "hash_key required for hash route", 400); return }
         if in.TargetServiceID != "" { meta["target_service_id"] = in.TargetServiceID }
         if meta["route"] == "targeted" && meta["target_service_id"] == "" { http.Error(w, "target_service_id required for targeted route", 400); return }
@@ -209,7 +223,14 @@ func (s *Server) routes() {
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         gameID := r.Header.Get("X-Game-ID")
         env := r.Header.Get("X-Env")
-        var in struct{ FunctionID string `json:"function_id"`; Payload any `json:"payload"`; IdempotencyKey string `json:"idempotency_key"` }
+        var in struct{
+            FunctionID string `json:"function_id"`
+            Payload any `json:"payload"`
+            IdempotencyKey string `json:"idempotency_key"`
+            Route string `json:"route"`
+            TargetServiceID string `json:"target_service_id"`
+            HashKey string `json:"hash_key"`
+        }
         if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
         // validate
         if d := s.descIndex[in.FunctionID]; d != nil {
@@ -246,6 +267,9 @@ func (s *Server) routes() {
         meta := map[string]string{"trace_id": traceID}
         if gameID != "" { meta["game_id"] = gameID }
         if env != "" { meta["env"] = env }
+        if in.Route != "" { meta["route"] = in.Route }
+        if in.HashKey != "" { meta["hash_key"] = in.HashKey }
+        if in.TargetServiceID != "" { meta["target_service_id"] = in.TargetServiceID }
         resp, err := s.invoker.StartJob(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta})
         if err != nil { atomic.AddInt64(&s.jobsError,1); http.Error(w, err.Error(), 500); return }
         atomic.AddInt64(&s.jobsStarted, 1)
@@ -289,6 +313,37 @@ func (s *Server) routes() {
             http.Error(w, err.Error(), 500); return
         }
         w.WriteHeader(204)
+    })
+
+    // Query job result/status (best-effort; in edge-forward mode may be unavailable)
+    s.mux.HandleFunc("/api/job_result", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
+        if _, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
+        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        jobID := r.URL.Query().Get("id")
+        if jobID == "" { http.Error(w, "missing id", 400); return }
+        if s.locator != nil {
+            addr, ok := s.locator.GetJobAddr(jobID)
+            if !ok { http.Error(w, "unknown job", 404); return }
+            // dial agent local control to query job result
+            cc, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+            if err != nil { http.Error(w, err.Error(), 502); return }
+            defer cc.Close()
+            cli := localv1.NewLocalControlServiceClient(cc)
+            resp, err := cli.GetJobResult(r.Context(), &localv1.GetJobResultRequest{JobId: jobID})
+            if err != nil { http.Error(w, err.Error(), 502); return }
+            _ = json.NewEncoder(w).Encode(resp)
+            return
+        }
+        // Edge-forward mode: try invoker extension if available
+        type jobFetcher interface{ JobResult(ctx context.Context, jobID string) (string, []byte, string, error) }
+        if jf, ok := s.invoker.(jobFetcher); ok {
+            st, payload, errMsg, err := jf.JobResult(r.Context(), jobID)
+            if err != nil { http.Error(w, err.Error(), 502); return }
+            _ = json.NewEncoder(w).Encode(struct{ State string `json:"state"`; Payload []byte `json:"payload,omitempty"`; Error string `json:"error,omitempty"` }{State: st, Payload: payload, Error: errMsg})
+            return
+        }
+        http.Error(w, "job_result not available", http.StatusNotImplemented)
     })
 
     // Audit list (simple JSONL reader with filters)

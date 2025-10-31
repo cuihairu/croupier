@@ -21,6 +21,8 @@ import (
     tunnelv1 "github.com/cuihairu/croupier/gen/go/croupier/tunnel/v1"
     "net/http"
     "encoding/json"
+    jobv1 "github.com/cuihairu/croupier/gen/go/croupier/edge/job/v1"
+    jobserver "github.com/cuihairu/croupier/internal/edge/job"
 )
 
 func loadTLS(certFile, keyFile, caFile string, requireClient bool) (credentials.TransportCredentials, error) {
@@ -65,6 +67,8 @@ func main() {
     // FunctionService at edge routes to Agent via tunnel, fallback to RPCAddr
     fn := functionserver.NewEdgeServer(ctrl.Store(), tun)
     functionv1.RegisterFunctionServiceServer(s, fn)
+    // JobService for job_result query
+    jobv1.RegisterJobServiceServer(s, jobserver.New(tun))
 
     // HTTP health/metrics
     go func(){

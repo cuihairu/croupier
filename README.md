@@ -274,6 +274,13 @@ curl -sS http://localhost:8080/api/invoke \
   -H 'Content-Type: application/json' \
   -H 'X-Game-ID: default' \
   -d '{"function_id":"player.ban","payload":{"player_id":"1003"},"route":"targeted","target_service_id":"'"$TARGET"'"}' | jq
+
+# 执行函数（hash，基于字段稳定路由到实例；需提供 hash_key）
+curl -sS http://localhost:8080/api/invoke \\
+  -H "Authorization: Bearer $(cat /tmp/token)" \\
+  -H 'Content-Type: application/json' \\
+  -H 'X-Game-ID: default' \\
+  -d '{"function_id":"player.ban","payload":{"player_id":"1004"},"route":"hash","hash_key":"1004"}' | jq
 ```
 
 更多接口（示例）
@@ -291,6 +298,10 @@ curl -sS http://localhost:8080/healthz && echo
 curl -sS http://localhost:8080/metrics | jq
 curl -sS http://localhost:9080/metrics | jq   # Edge
 curl -sS http://localhost:19091/metrics | jq  # Agent
+
+# 查询作业结果（Core 直连模式与 Edge 转发模式均可用）
+curl -sS "http://localhost:8080/api/job_result?id=<job_id>" \
+  -H "Authorization: Bearer $(cat /tmp/token)" | jq
 ```
 
 ## 🧭 多游戏管理（Game/Env 作用域）

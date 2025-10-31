@@ -31,6 +31,7 @@ type LocalControlServiceServer interface {
     RegisterLocal(ctx context.Context, in *RegisterLocalRequest) (*RegisterLocalResponse, error)
     Heartbeat(ctx context.Context, in *HeartbeatRequest) (*HeartbeatResponse, error)
     ListLocal(ctx context.Context, in *ListLocalRequest) (*ListLocalResponse, error)
+    GetJobResult(ctx context.Context, in *GetJobResultRequest) (*GetJobResultResponse, error)
 }
 
 type UnimplementedLocalControlServiceServer struct{}
@@ -49,6 +50,7 @@ func RegisterLocalControlServiceServer(s *grpc.Server, srv LocalControlServiceSe
         Methods: []grpc.MethodDesc{
             {MethodName: "RegisterLocal", Handler: _LocalControlService_RegisterLocal_Handler},
             {MethodName: "Heartbeat", Handler: _LocalControlService_Heartbeat_Handler},
+            {MethodName: "GetJobResult", Handler: _LocalControlService_GetJobResult_Handler},
             {MethodName: "ListLocal", Handler: _LocalControlService_ListLocal_Handler},
         },
         Streams: []grpc.StreamDesc{},
@@ -78,6 +80,21 @@ func _LocalControlService_Heartbeat_Handler(srv interface{}, ctx context.Context
     return interceptor(ctx, in, info, handler)
 }
 
+// --- JobResult messages and handler ---
+type GetJobResultRequest struct { JobId string `json:"job_id,omitempty"` }
+type GetJobResultResponse struct { State string `json:"state,omitempty"`; Payload []byte `json:"payload,omitempty"`; Error string `json:"error,omitempty"` }
+
+func _LocalControlService_GetJobResult_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+    in := new(GetJobResultRequest)
+    if err := dec(in); err != nil { return nil, err }
+    if interceptor == nil { return srv.(LocalControlServiceServer).GetJobResult(ctx, in) }
+    info := &grpc.UnaryServerInfo{Server: srv, FullMethod: "/croupier.agent.local.v1.LocalControlService/GetJobResult"}
+    handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+        return srv.(LocalControlServiceServer).GetJobResult(ctx, req.(*GetJobResultRequest))
+    }
+    return interceptor(ctx, in, info, handler)
+}
+
 // Messages for list
 type LocalInstance struct { ServiceId string `json:"service_id,omitempty"`; Addr string `json:"addr,omitempty"`; Version string `json:"version,omitempty"`; LastSeen string `json:"last_seen,omitempty"` }
 type LocalFunction struct { Id string `json:"id,omitempty"`; Instances []*LocalInstance `json:"instances,omitempty"` }
@@ -100,6 +117,7 @@ type LocalControlServiceClient interface {
     RegisterLocal(ctx context.Context, in *RegisterLocalRequest, opts ...grpc.CallOption) (*RegisterLocalResponse, error)
     Heartbeat(ctx context.Context, in *HeartbeatRequest, opts ...grpc.CallOption) (*HeartbeatResponse, error)
     ListLocal(ctx context.Context, in *ListLocalRequest, opts ...grpc.CallOption) (*ListLocalResponse, error)
+    GetJobResult(ctx context.Context, in *GetJobResultRequest, opts ...grpc.CallOption) (*GetJobResultResponse, error)
 }
 
 type localControlServiceClient struct { cc grpc.ClientConnInterface }
@@ -121,6 +139,13 @@ func (c *localControlServiceClient) Heartbeat(ctx context.Context, in *Heartbeat
 func (c *localControlServiceClient) ListLocal(ctx context.Context, in *ListLocalRequest, opts ...grpc.CallOption) (*ListLocalResponse, error) {
     out := new(ListLocalResponse)
     err := c.cc.Invoke(ctx, "/croupier.agent.local.v1.LocalControlService/ListLocal", in, out, opts...)
+    if err != nil { return nil, err }
+    return out, nil
+}
+
+func (c *localControlServiceClient) GetJobResult(ctx context.Context, in *GetJobResultRequest, opts ...grpc.CallOption) (*GetJobResultResponse, error) {
+    out := new(GetJobResultResponse)
+    err := c.cc.Invoke(ctx, "/croupier.agent.local.v1.LocalControlService/GetJobResult", in, out, opts...)
     if err != nil { return nil, err }
     return out, nil
 }

@@ -27,6 +27,8 @@ import (
     users "github.com/cuihairu/croupier/internal/auth/users"
     jwt "github.com/cuihairu/croupier/internal/auth/token"
     "github.com/cuihairu/croupier/internal/devcert"
+    "github.com/cuihairu/croupier/internal/loadbalancer"
+    "github.com/cuihairu/croupier/internal/connpool"
 )
 
 // loadServerTLS builds a tls.Config for mTLS if caFile is provided.
@@ -95,16 +97,19 @@ func main() {
     ctrl := controlserver.NewServer(gstore)
     controlv1.RegisterControlServiceServer(s, ctrl)
     var invoker httpserver.FunctionInvoker
+    var locator interface{ GetJobAddr(string) (string, bool) }
     if *edgeAddr != "" {
         // Forward all FunctionService calls to Edge
         fwd := functionserver.NewForwarder(*edgeAddr)
         functionv1.RegisterFunctionServiceServer(s, fwd)
         invoker = functionserver.NewForwarderInvoker(fwd)
+        locator = nil // edge-forward mode: job_result API not available in Core
     } else {
         // Use default function server config when running in-core
         fnsrv := functionserver.NewServer(ctrl.Store(), nil)
         functionv1.RegisterFunctionServiceServer(s, fnsrv)
         invoker = functionserver.NewClientAdapter(fnsrv)
+        locator = fnsrv
     }
 
     var wg sync.WaitGroup
@@ -126,7 +131,9 @@ func main() {
         var us *users.Store
         if s, err := users.Load(*usersPath); err == nil { us = s } else { log.Printf("users load failed: %v", err) }
         jm := jwt.NewManager(*jwtSecret)
-        httpSrv, err := httpserver.NewServer("descriptors", invoker, aw, pol, gstore, ctrl.Store(), us, jm)
+        var statsProv interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }
+        if sp, ok := invoker.(interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }); ok { statsProv = sp }
+        httpSrv, err := httpserver.NewServer("descriptors", invoker, aw, pol, gstore, ctrl.Store(), us, jm, locator, statsProv)
         if err != nil { log.Fatalf("http server: %v", err) }
         if err := httpSrv.ListenAndServe(*httpAddr); err != nil {
             log.Fatalf("serve http: %v", err)
