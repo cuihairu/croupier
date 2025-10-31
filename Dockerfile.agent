@@ -4,6 +4,8 @@ ARG RUNTIME_IMAGE=gcr.io/distroless/static:nonroot
 FROM ${GO_IMAGE} as build
 WORKDIR /src
 COPY go.mod go.sum ./
+# To satisfy local replace (./sdks/go), copy its go.mod/go.sum before download for better caching
+COPY sdks/go/go.mod sdks/go/go.sum sdks/go/
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/croupier-agent ./cmd/agent
@@ -11,7 +13,7 @@ RUN CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/croupier-agent ./cmd/agent
 FROM ${RUNTIME_IMAGE}
 WORKDIR /app
 COPY --from=build /out/croupier-agent /app/
-COPY configs /app/configs
+COPY --chown=nonroot:nonroot configs /app/configs
 EXPOSE 19090 19091
 USER nonroot
 ENTRYPOINT ["/app/croupier-agent"]
