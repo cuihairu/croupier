@@ -9,6 +9,7 @@ import (
     "github.com/cuihairu/croupier/internal/edge/tunnel"
     "github.com/cuihairu/croupier/internal/server/registry"
     function "github.com/cuihairu/croupier/internal/server/function"
+    "time"
 )
 
 // EdgeServer forwards FunctionService calls via tunnel when possible, else falls back to dialing RPCAddr.
@@ -21,12 +22,22 @@ type EdgeServer struct {
 func NewEdgeServer(store *registry.Store, tun *tunnel.Server) *EdgeServer { return &EdgeServer{store: store, tun: tun} }
 
 func (s *EdgeServer) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
-    var gameID string
-    if req.Metadata != nil { gameID = req.Metadata["game_id"] }
+    var gameID, route, target string
+    if req.Metadata != nil { gameID = req.Metadata["game_id"]; route = req.Metadata["route"]; target = req.Metadata["target_service_id"] }
     cands := s.store.AgentsForFunctionScoped(gameID, req.GetFunctionId(), true)
     if len(cands) == 0 { return nil, errors.New("no agent available") }
-    // prefer first candidate; invoke via tunnel
+    // targeted: try to locate correct agent via tunnel list_local
     agent := cands[0]
+    if route == "targeted" && target != "" && s.tun != nil {
+        for _, a := range cands {
+            reqID := fmt.Sprintf("lr-%d", time.Now().UnixNano())
+            ids, err := s.tun.ListLocalViaTunnel(a.AgentID, reqID, req.GetFunctionId())
+            if err == nil {
+                for _, id := range ids { if id == target { agent = a; break } }
+                if agent.AgentID == a.AgentID { break }
+            }
+        }
+    }
     // try tunnel
     rid := req.GetIdempotencyKey()
     if rid == "" { rid = fmt.Sprintf("rid-%s", agent.AgentID) }
@@ -43,11 +54,21 @@ func (s *EdgeServer) Invoke(ctx context.Context, req *functionv1.InvokeRequest) 
 }
 
 func (s *EdgeServer) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {
-    var gameID string
-    if req.Metadata != nil { gameID = req.Metadata["game_id"] }
+    var gameID, route, target string
+    if req.Metadata != nil { gameID = req.Metadata["game_id"]; route = req.Metadata["route"]; target = req.Metadata["target_service_id"] }
     cands := s.store.AgentsForFunctionScoped(gameID, req.GetFunctionId(), true)
     if len(cands) == 0 { return nil, errors.New("no agent available") }
     agent := cands[0]
+    if route == "targeted" && target != "" && s.tun != nil {
+        for _, a := range cands {
+            reqID := fmt.Sprintf("lr-%d", time.Now().UnixNano())
+            ids, err := s.tun.ListLocalViaTunnel(a.AgentID, reqID, req.GetFunctionId())
+            if err == nil {
+                for _, id := range ids { if id == target { agent = a; break } }
+                if agent.AgentID == a.AgentID { break }
+            }
+        }
+    }
     rid := req.GetIdempotencyKey()
     if rid == "" { rid = fmt.Sprintf("rid-%s", agent.AgentID) }
     if s.tun != nil {

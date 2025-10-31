@@ -8,6 +8,7 @@ import (
     localv1 "github.com/cuihairu/croupier/gen/go/croupier/agent/local/v1"
     controlv1 "github.com/cuihairu/croupier/gen/go/croupier/control/v1"
     "github.com/cuihairu/croupier/internal/agent/registry"
+    "github.com/cuihairu/croupier/internal/agent/jobs"
 )
 
 type Server struct {
@@ -19,10 +20,11 @@ type Server struct {
     agentRPCAddr string
     gameID string
     env    string
+    exec *jobs.Executor
 }
 
-func NewServer(store *registry.LocalStore, ctrl controlv1.ControlServiceClient, agentID, agentVersion, agentRPCAddr, gameID, env string) *Server {
-    return &Server{store: store, ctrl: ctrl, agentID: agentID, agentVersion: agentVersion, agentRPCAddr: agentRPCAddr, gameID: gameID, env: env}
+func NewServer(store *registry.LocalStore, ctrl controlv1.ControlServiceClient, agentID, agentVersion, agentRPCAddr, gameID, env string, exec *jobs.Executor) *Server {
+    return &Server{store: store, ctrl: ctrl, agentID: agentID, agentVersion: agentVersion, agentRPCAddr: agentRPCAddr, gameID: gameID, env: env, exec: exec}
 }
 
 func (s *Server) RegisterLocal(ctx context.Context, req *localv1.RegisterLocalRequest) (*localv1.RegisterLocalResponse, error) {
@@ -60,4 +62,11 @@ func (s *Server) ListLocal(ctx context.Context, _ *localv1.ListLocalRequest) (*l
         out.Functions = append(out.Functions, lf)
     }
     return out, nil
+}
+
+func (s *Server) GetJobResult(ctx context.Context, req *localv1.GetJobResultRequest) (*localv1.GetJobResultResponse, error) {
+    if s.exec == nil { return &localv1.GetJobResultResponse{State: "unknown"}, nil }
+    st, ok := s.exec.Status(req.JobId)
+    if !ok { return &localv1.GetJobResultResponse{State: "unknown"}, nil }
+    return &localv1.GetJobResultResponse{State: st.State, Payload: st.Payload, Error: st.Error}, nil
 }

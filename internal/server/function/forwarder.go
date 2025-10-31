@@ -7,6 +7,7 @@ import (
     functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
     "github.com/cuihairu/croupier/internal/transport/interceptors"
     "google.golang.org/grpc"
+    jobv1 "github.com/cuihairu/croupier/gen/go/croupier/edge/job/v1"
 )
 
 // Forwarder forwards FunctionService calls to a remote endpoint (e.g., Edge),
@@ -83,4 +84,14 @@ func (i *ForwarderInvoker) StreamJob(ctx context.Context, req *functionv1.JobStr
     cli := functionv1.NewFunctionServiceClient(cc)
     // NOTE: cc leaked for stream lifetime in PoC
     return cli.StreamJob(ctx, req)
+}
+
+// Optional: job result fetch via Edge JobService (used by HTTP /api/job_result when Core is in edge-forward mode)
+func (i *ForwarderInvoker) JobResult(ctx context.Context, jobID string) (state string, payload []byte, errMsg string, err error) {
+    cc, err2 := i.f.dial()
+    if err2 != nil { return "", nil, "", fmt.Errorf("dial edge: %w", err2) }
+    cli := jobv1.NewJobServiceClient(cc)
+    resp, err2 := cli.GetJobResult(ctx, &jobv1.GetJobResultRequest{JobId: jobID})
+    if err2 != nil { return "", nil, "", err2 }
+    return resp.State, resp.Payload, resp.Error, nil
 }

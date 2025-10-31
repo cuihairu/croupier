@@ -28,7 +28,7 @@ type ResultFrame struct {
 }
 
 type TunnelMessage struct {
-    Type    string            `json:"type,omitempty"` // "hello"|"invoke"|"result"|"start_job"|"start_job_result"|"job_event"|"cancel_job"|"cancel_job_result"|"heartbeat"
+    Type    string            `json:"type,omitempty"` // "hello"|"invoke"|"result"|"start_job"|"start_job_result"|"job_event"|"cancel_job"|"cancel_job_result"|"heartbeat"|"list_local_req"|"list_local_res"
     Hello   *Hello            `json:"hello,omitempty"`
     Invoke  *InvokeFrame      `json:"invoke,omitempty"`
     Result  *ResultFrame      `json:"result,omitempty"`
@@ -37,6 +37,10 @@ type TunnelMessage struct {
     JobEvt  *JobEventFrame    `json:"job_event,omitempty"`
     Cancel  *CancelJobFrame   `json:"cancel_job,omitempty"`
     CancelR *CancelJobResult  `json:"cancel_job_result,omitempty"`
+    ListReq *ListLocalRequest `json:"list_local_req,omitempty"`
+    ListRes *ListLocalResponse `json:"list_local_res,omitempty"`
+    JobResReq *GetJobResultRequest `json:"get_job_result_req,omitempty"`
+    JobResRes *GetJobResultResponse `json:"get_job_result_res,omitempty"`
 }
 // --- StartJob/Cancel/Events ---
 type StartJobFrame struct {
@@ -63,6 +67,14 @@ type CancelJobResult struct { RequestId string `json:"request_id,omitempty"`; Jo
 
 // extend message union
 // (note: above fields are included directly in TunnelMessage)
+
+// List local instances for a function on the agent (for targeted routing via edge)
+type ListLocalRequest struct { RequestId string `json:"request_id,omitempty"`; FunctionId string `json:"function_id,omitempty"` }
+type ListLocalResponse struct { RequestId string `json:"request_id,omitempty"`; FunctionId string `json:"function_id,omitempty"`; ServiceIds []string `json:"service_ids,omitempty"`; Error string `json:"error,omitempty"` }
+
+// Get job result via tunnel
+type GetJobResultRequest struct { RequestId string `json:"request_id,omitempty"`; JobId string `json:"job_id,omitempty"` }
+type GetJobResultResponse struct { RequestId string `json:"request_id,omitempty"`; State string `json:"state,omitempty"`; Payload []byte `json:"payload,omitempty"`; Error string `json:"error,omitempty"` }
 
 
 type TunnelServiceServer interface {

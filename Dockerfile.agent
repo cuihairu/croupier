@@ -1,12 +1,14 @@
 # syntax=docker/dockerfile:1
-FROM golang:1.21 as build
+ARG GO_IMAGE=golang:1.21
+ARG RUNTIME_IMAGE=gcr.io/distroless/static:nonroot
+FROM ${GO_IMAGE} as build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/croupier-agent ./cmd/agent
 
-FROM gcr.io/distroless/static:nonroot
+FROM ${RUNTIME_IMAGE}
 WORKDIR /app
 COPY --from=build /out/croupier-agent /app/
 COPY configs /app/configs

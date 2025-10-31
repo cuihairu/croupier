@@ -29,11 +29,17 @@ type Server struct {
     mu sync.RWMutex
     agents map[string]*edgeConn // agent_id -> conn
     pendMu sync.Mutex
-    pending map[string]*pending // request_id -> chan
+    pending map[string]*pending // request_id -> chan (invoke/start)
+    lpMu sync.Mutex
+    pendingList map[string]chan *tunnelv1.ListLocalResponse // request_id -> chan (list_local)
+    jrMu sync.Mutex
+    pendingJobRes map[string]chan *tunnelv1.GetJobResultResponse // request_id -> chan (job_result)
     evMu sync.RWMutex
     subs map[string][]chan *functionv1.JobEvent // job_id -> subscribers
     jobsMu sync.RWMutex
     jobs map[string]string // job_id -> agent_id
+    resMu sync.RWMutex
+    results map[string]JobResult // job_id -> result snapshot
     connects int64
     disconnects int64
     invokes int64
@@ -42,7 +48,7 @@ type Server struct {
     cancels int64
 }
 
-func NewServer() *Server { return &Server{agents: map[string]*edgeConn{}, pending: map[string]*pending{}, subs: map[string][]chan *functionv1.JobEvent{}, jobs: map[string]string{}} }
+func NewServer() *Server { return &Server{agents: map[string]*edgeConn{}, pending: map[string]*pending{}, pendingList: map[string]chan *tunnelv1.ListLocalResponse{}, pendingJobRes: map[string]chan *tunnelv1.GetJobResultResponse{}, subs: map[string][]chan *functionv1.JobEvent{}, jobs: map[string]string{}, results: map[string]JobResult{}} }
 
 func (s *Server) Open(stream tunnelv1.TunnelService_OpenServer) error {
     // expect Hello first
@@ -94,15 +100,40 @@ func (s *Server) Open(stream tunnelv1.TunnelService_OpenServer) error {
                     s.evMu.Unlock()
                     // drop job->agent mapping
                     s.jobsMu.Lock(); delete(s.jobs, ev.JobId); s.jobsMu.Unlock()
+                    // save final result snapshot
+                    st := JobResult{State: ev.Type}
+                    if ev.Type == "done" { st.Payload = ev.Payload } else { st.Error = ev.Message }
+                    s.resMu.Lock(); s.results[ev.JobId] = st; s.resMu.Unlock()
                 }
             }
         case "heartbeat":
             s.mu.Lock(); if c := s.agents[h.AgentId]; c != nil { c.last = time.Now() }; s.mu.Unlock()
+        case "list_local_res":
+            if msg.ListRes != nil {
+                s.lpMu.Lock()
+                if ch := s.pendingList[msg.ListRes.RequestId]; ch != nil { select { case ch <- msg.ListRes: default: } }
+                s.lpMu.Unlock()
+            }
+        case "get_job_result_res":
+            if msg.JobResRes != nil {
+                s.jrMu.Lock()
+                if ch := s.pendingJobRes[msg.JobResRes.RequestId]; ch != nil { select { case ch <- msg.JobResRes: default: } }
+                s.jrMu.Unlock()
+            }
         }
     }
     // cleanup
     s.mu.Lock(); delete(s.agents, h.AgentId); s.mu.Unlock(); atomic.AddInt64(&s.disconnects,1)
     return nil
+}
+
+// JobResult holds final status
+type JobResult struct { State string; Payload []byte; Error string }
+
+func (s *Server) GetCachedJobResult(jobID string) (JobResult, bool) {
+    s.resMu.RLock(); defer s.resMu.RUnlock()
+    st, ok := s.results[jobID]
+    return st, ok
 }
 
 func (s *Server) InvokeViaTunnel(agentID, requestID, functionID string, idem string, payload []byte, meta map[string]string) (*tunnelv1.ResultFrame, error) {
@@ -159,6 +190,49 @@ func (s *Server) CancelJobViaTunnel(jobID string) error {
     msg := &tunnelv1.TunnelMessage{Type:"cancel_job", Cancel: &tunnelv1.CancelJobFrame{JobId: jobID}}
     atomic.AddInt64(&s.cancels, 1)
     return conn.srv.Send(msg)
+}
+
+// GetJobAgent returns the agent id for a running job if known.
+func (s *Server) GetJobAgent(jobID string) (string, bool) {
+    s.jobsMu.RLock(); defer s.jobsMu.RUnlock()
+    id, ok := s.jobs[jobID]
+    return id, ok
+}
+
+// ListLocalViaTunnel requests the agent to list service_ids for a function via tunnel.
+func (s *Server) ListLocalViaTunnel(agentID, requestID, functionID string) ([]string, error) {
+    s.mu.RLock(); conn := s.agents[agentID]; s.mu.RUnlock()
+    if conn == nil { return nil, errors.New("agent not connected") }
+    ch := make(chan *tunnelv1.ListLocalResponse, 1)
+    s.lpMu.Lock(); s.pendingList[requestID] = ch; s.lpMu.Unlock()
+    defer func(){ s.lpMu.Lock(); delete(s.pendingList, requestID); s.lpMu.Unlock() }()
+    // send request
+    msg := &tunnelv1.TunnelMessage{Type: "list_local_req", ListReq: &tunnelv1.ListLocalRequest{RequestId: requestID, FunctionId: functionID}}
+    if err := conn.srv.Send(msg); err != nil { return nil, err }
+    // await response
+    select {
+    case res := <-ch:
+        if res.Error != "" { return nil, errors.New(res.Error) }
+        return res.ServiceIds, nil
+    case <-time.After(3 * time.Second):
+        return nil, errors.New("tunnel list_local timeout")
+    }
+}
+
+func (s *Server) GetJobResultViaTunnel(agentID, requestID, jobID string) (JobResult, error) {
+    s.mu.RLock(); conn := s.agents[agentID]; s.mu.RUnlock()
+    if conn == nil { return JobResult{}, errors.New("agent not connected") }
+    ch := make(chan *tunnelv1.GetJobResultResponse, 1)
+    s.jrMu.Lock(); s.pendingJobRes[requestID] = ch; s.jrMu.Unlock()
+    defer func(){ s.jrMu.Lock(); delete(s.pendingJobRes, requestID); s.jrMu.Unlock() }()
+    msg := &tunnelv1.TunnelMessage{Type: "get_job_result_req", JobResReq: &tunnelv1.GetJobResultRequest{RequestId: requestID, JobId: jobID}}
+    if err := conn.srv.Send(msg); err != nil { return JobResult{}, err }
+    select {
+    case res := <-ch:
+        return JobResult{State: res.State, Payload: res.Payload, Error: res.Error}, nil
+    case <-time.After(3 * time.Second):
+        return JobResult{}, errors.New("tunnel get_job_result timeout")
+    }
 }
 
 // Metrics helpers

@@ -7,6 +7,7 @@ import (
 
     functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
     tunnelv1 "github.com/cuihairu/croupier/gen/go/croupier/tunnel/v1"
+    localv1 "github.com/cuihairu/croupier/gen/go/croupier/agent/local/v1"
     "github.com/cuihairu/croupier/internal/transport/interceptors"
     "google.golang.org/grpc"
 )
@@ -56,10 +57,11 @@ func (c *Client) Start(ctx context.Context) error {
         msg, err := stream.Recv()
         if err != nil { close(done); log.Printf("tunnel recv end: %v", err); return err }
         if msg == nil { continue }
-        // dial local
+        // dial local (both function and local control share the same listener)
         lcc, err := grpc.Dial(c.localAddr, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")))
         if err != nil { continue }
         lcli := functionv1.NewFunctionServiceClient(lcc)
+        lctrl := localv1.NewLocalControlServiceClient(lcc)
             switch msg.Type {
             case "invoke":
                 inv := msg.Invoke
@@ -93,6 +95,25 @@ func (c *Client) Start(ctx context.Context) error {
                 cj := msg.Cancel
                 _, _ = lcli.CancelJob(ctx, &functionv1.CancelJobRequest{JobId: cj.JobId})
                 // no ack in PoC
+            case "list_local_req":
+                lr := msg.ListReq
+                // fetch local instances and respond service_ids for the function
+                resp, err := lctrl.ListLocal(ctx, &localv1.ListLocalRequest{})
+                if err != nil || resp == nil {
+                    _ = stream.Send(&tunnelv1.TunnelMessage{Type:"list_local_res", ListRes: &tunnelv1.ListLocalResponse{RequestId: lr.RequestId, FunctionId: lr.FunctionId, Error: "list failed"}})
+                } else {
+                    var ids []string
+                    for _, lf := range resp.Functions { if lf.Id == lr.FunctionId { for _, inst := range lf.Instances { ids = append(ids, inst.ServiceId) } } }
+                    _ = stream.Send(&tunnelv1.TunnelMessage{Type:"list_local_res", ListRes: &tunnelv1.ListLocalResponse{RequestId: lr.RequestId, FunctionId: lr.FunctionId, ServiceIds: ids}})
+                }
+            case "get_job_result_req":
+                jr := msg.JobResReq
+                r, err := lctrl.GetJobResult(ctx, &localv1.GetJobResultRequest{JobId: jr.JobId})
+                if err != nil || r == nil {
+                    _ = stream.Send(&tunnelv1.TunnelMessage{Type:"get_job_result_res", JobResRes: &tunnelv1.GetJobResultResponse{RequestId: jr.RequestId, State: "unknown", Error: "query failed"}})
+                } else {
+                    _ = stream.Send(&tunnelv1.TunnelMessage{Type:"get_job_result_res", JobResRes: &tunnelv1.GetJobResultResponse{RequestId: jr.RequestId, State: r.State, Payload: r.Payload, Error: r.Error}})
+                }
             }
         _ = lcc.Close()
     }

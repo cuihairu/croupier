@@ -14,6 +14,8 @@ import (
     "github.com/cuihairu/croupier/internal/server/registry"
 
     "google.golang.org/grpc"
+    localv1 "github.com/cuihairu/croupier/gen/go/croupier/agent/local/v1"
+    "google.golang.org/grpc/credentials/insecure"
 )
 
 // Server implements FunctionService at Core side, routing calls to agents.
@@ -108,16 +110,28 @@ func (s *Server) recordStats(agentID string, start time.Time, success bool) {
 
 func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
     start := time.Now()
-    var gameID, hashKey string
+    var gameID, hashKey, route, target string
     if req.Metadata != nil {
         gameID = req.Metadata["game_id"]
         hashKey = req.Metadata["hash_key"]
+        route = req.Metadata["route"]
+        target = req.Metadata["target_service_id"]
     }
 
-    // Pick agent using load balancer
-    agent, err := s.pickAgent(req.GetFunctionId(), gameID, hashKey)
-    if err != nil {
-        return nil, err
+    var agent *registry.AgentSession
+    var err error
+    if route == "targeted" && target != "" {
+        // Find the agent that actually hosts the target service id
+        agent, err = s.findAgentForTarget(ctx, req.GetFunctionId(), gameID, target)
+        if err != nil {
+            return nil, err
+        }
+    } else {
+        // Pick agent using load balancer
+        agent, err = s.pickAgent(req.GetFunctionId(), gameID, hashKey)
+        if err != nil {
+            return nil, err
+        }
     }
 
     // Increment active connections for stats
@@ -157,16 +171,21 @@ func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*fu
 
 func (s *Server) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {
     start := time.Now()
-    var gameID, hashKey string
+    var gameID, hashKey, route, target string
     if req.Metadata != nil {
         gameID = req.Metadata["game_id"]
         hashKey = req.Metadata["hash_key"]
+        route = req.Metadata["route"]
+        target = req.Metadata["target_service_id"]
     }
-
-    // Pick agent using load balancer
-    agent, err := s.pickAgent(req.GetFunctionId(), gameID, hashKey)
-    if err != nil {
-        return nil, err
+    var agent *registry.AgentSession
+    var err error
+    if route == "targeted" && target != "" {
+        agent, err = s.findAgentForTarget(ctx, req.GetFunctionId(), gameID, target)
+        if err != nil { return nil, err }
+    } else {
+        agent, err = s.pickAgent(req.GetFunctionId(), gameID, hashKey)
+        if err != nil { return nil, err }
     }
 
     // Increment active connections for stats
@@ -207,6 +226,35 @@ func (s *Server) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*
     }
 
     return resp, err
+}
+
+// findAgentForTarget scans candidate agents for a function in a given game scope
+// and returns the one that exposes the target service_id, by querying the agent's
+// LocalControl service. This avoids routing targeted requests to the wrong agent.
+func (s *Server) findAgentForTarget(ctx context.Context, fid, gameID, targetServiceID string) (*registry.AgentSession, error) {
+    cands := s.store.AgentsForFunctionScoped(gameID, fid, true)
+    if len(cands) == 0 { return nil, errors.New("no agent available") }
+    // short timeout for discovery per agent
+    for _, a := range cands {
+        // Best-effort insecure dial to agent's local control (DEV topology)
+        cc, err := grpc.DialContext(ctx, a.RPCAddr,
+            grpc.WithTransportCredentials(insecure.NewCredentials()),
+            grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")))
+        if err != nil { continue }
+        cli := localv1.NewLocalControlServiceClient(cc)
+        dctx, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
+        resp, err := cli.ListLocal(dctx, &localv1.ListLocalRequest{})
+        cancel()
+        _ = cc.Close()
+        if err != nil || resp == nil { continue }
+        for _, lf := range resp.Functions {
+            if lf.Id != fid { continue }
+            for _, inst := range lf.Instances {
+                if inst.ServiceId == targetServiceID { return a, nil }
+            }
+        }
+    }
+    return nil, fmt.Errorf("target service not found: %s", targetServiceID)
 }
 
 func (s *Server) StreamJob(req *functionv1.JobStreamRequest, stream functionv1.FunctionService_StreamJobServer) error {
@@ -257,6 +305,12 @@ func (s *Server) CancelJob(ctx context.Context, req *functionv1.CancelJobRequest
 
     cli := functionv1.NewFunctionServiceClient(conn)
     return cli.CancelJob(ctx, req)
+}
+
+// JobLocator interface for HTTP layer to resolve job_id -> agent address
+func (s *Server) GetJobAddr(jobID string) (string, bool) {
+    addr, ok := s.jobs.Get(jobID)
+    return addr, ok
 }
 
 // Close cleans up server resources
@@ -321,3 +375,10 @@ func (a *clientAdapter) CancelJob(ctx context.Context, req *functionv1.CancelJob
 }
 
 func NewClientAdapter(s *Server) *clientAdapter { return &clientAdapter{s: s} }
+
+// Expose server for stats when needed (HTTP metrics)
+func (a *clientAdapter) S() *Server { return a.s }
+
+// Optional stats provider interface for HTTP metrics
+func (a *clientAdapter) GetStats() map[string]*loadbalancer.AgentStats { return a.s.GetStats() }
+func (a *clientAdapter) GetPoolStats() *connpool.PoolStats { return a.s.GetPoolStats() }

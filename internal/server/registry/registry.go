@@ -37,10 +37,21 @@ func (s *Store) UpsertAgent(sess *AgentSession) {
     s.agents[sess.AgentID] = sess
     // rebuild function index entries for this agent
     for fid := range sess.Functions {
+        // index by (game_id|function_id) for scoped routing
         key := compositeKey(sess.GameID, fid)
         m := s.fIndex[key]
-        if m == nil { m = map[string]struct{}{}; s.fIndex[fid] = m }
+        if m == nil {
+            m = map[string]struct{}{}
+            s.fIndex[key] = m
+        }
         m[sess.AgentID] = struct{}{}
+        // maintain legacy index by function only as a fallback for older callers
+        legacy := s.fIndex[fid]
+        if legacy == nil {
+            legacy = map[string]struct{}{}
+            s.fIndex[fid] = legacy
+        }
+        legacy[sess.AgentID] = struct{}{}
     }
 }
 
