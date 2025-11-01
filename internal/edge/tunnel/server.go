@@ -2,7 +2,7 @@ package tunnel
 
 import (
     "errors"
-    "log"
+    "log/slog"
     "sync"
     "sync/atomic"
     "time"
@@ -57,7 +57,7 @@ func (s *Server) Open(stream tunnelv1.TunnelService_OpenServer) error {
     h := hello.Hello
     conn := &edgeConn{agentID: h.AgentId, gameID: h.GameId, env: h.Env, srv: stream, last: time.Now()}
     s.mu.Lock(); s.agents[h.AgentId] = conn; s.mu.Unlock()
-    log.Printf("tunnel: agent connected id=%s game=%s env=%s", h.AgentId, h.GameId, h.Env)
+    slog.Info("tunnel connected", "agent_id", h.AgentId, "game_id", h.GameId, "env", h.Env)
     atomic.AddInt64(&s.connects, 1)
     // reader loop for results
     for {

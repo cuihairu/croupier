@@ -47,21 +47,18 @@ func loadClientTLS(certFile, keyFile, caFile string, serverName string) (credent
 // New returns the `croupier agent` command.
 func New() *cobra.Command {
     var cfgFile string
+    var includes []string
+    var profile string
     cmd := &cobra.Command{
         Use:   "agent",
         Short: "Run Croupier Agent",
         RunE: func(cmd *cobra.Command, args []string) error {
-            v := viper.GetViper()
+            v, err := common.LoadWithIncludes(cfgFile, includes)
+            if err != nil { return err }
             v.SetEnvPrefix("CROUPIER_AGENT")
             v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
             v.AutomaticEnv()
-            if cfgFile != "" {
-                v.SetConfigFile(cfgFile)
-                if err := v.ReadInConfig(); err == nil {
-                    log.Printf("[config] using %s", v.ConfigFileUsed())
-                } else { log.Printf("[warn] read config: %v", err) }
-                if sub := v.Sub("agent"); sub != nil { v = sub }
-            }
+            if v, err = common.ApplySectionAndProfile(v, "agent", profile); err != nil { return err }
             common.MergeLogSection(v)
 
             // logging setup
@@ -202,6 +199,8 @@ func New() *cobra.Command {
         },
     }
     cmd.Flags().StringVar(&cfgFile, "config", "", "config file (yaml), supports top-level 'agent:' section")
+    cmd.Flags().StringSliceVar(&includes, "config-include", nil, "additional config files to merge in order (overrides base)")
+    cmd.Flags().StringVar(&profile, "profile", "", "profile name under 'profiles:' to overlay")
     cmd.Flags().String("local_addr", ":19090", "local gRPC listen for game servers")
     cmd.Flags().String("server_addr", "", "server grpc address (alias for --core_addr)")
     cmd.Flags().String("core_addr", "127.0.0.1:8443", "server grpc address (deprecated)")

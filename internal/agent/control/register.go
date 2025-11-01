@@ -2,7 +2,7 @@ package control
 
 import (
     "context"
-    "log"
+    "log/slog"
     "time"
 
     "google.golang.org/grpc"
@@ -21,10 +21,10 @@ func NewClient(cc *grpc.ClientConn) *Client { return &Client{c: controlv1.NewCon
 func (cl *Client) RegisterAndHeartbeat(ctx context.Context, agentID, version, rpcAddr, gameID, env string, fns []*controlv1.FunctionDescriptor) {
     resp, err := cl.c.Register(ctx, &controlv1.RegisterRequest{AgentId: agentID, Version: version, RpcAddr: rpcAddr, GameId: gameID, Env: env, Functions: fns})
     if err != nil {
-        log.Printf("register failed: %v", err)
+        slog.Error("agent register failed", "error", err.Error())
         return
     }
-    log.Printf("registered session=%s", resp.GetSessionId())
+    slog.Info("agent registered", "session", resp.GetSessionId())
     ticker := time.NewTicker(30 * time.Second)
     defer ticker.Stop()
     for {
@@ -33,7 +33,7 @@ func (cl *Client) RegisterAndHeartbeat(ctx context.Context, agentID, version, rp
             return
         case <-ticker.C:
             if _, err := cl.c.Heartbeat(ctx, &controlv1.HeartbeatRequest{AgentId: agentID, SessionId: resp.GetSessionId()}); err != nil {
-                log.Printf("heartbeat failed: %v", err)
+                slog.Warn("heartbeat failed", "error", err.Error())
             }
         }
     }

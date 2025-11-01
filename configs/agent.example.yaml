@@ -10,3 +10,19 @@ insecure_local: true
 cert: "configs/dev/agent.crt"
 key: "configs/dev/agent.key"
 ca: "configs/dev/ca.crt"
+
+log:
+  level: info
+  format: console
+  # file: logs/agent.log
+  max_size: 100
+  max_backups: 7
+  max_age: 7
+  compress: true
+
+profiles:
+  prod:
+    log:
+      level: info
+      format: json
+      file: logs/agent.log

@@ -2,7 +2,7 @@ package control
 
 import (
     "context"
-    "log"
+    "log/slog"
     "time"
 
     controlv1 "github.com/cuihairu/croupier/gen/go/croupier/control/v1"
@@ -27,7 +27,7 @@ func (s *Server) Store() *registry.Store { return s.store }
 
 func (s *Server) Register(ctx context.Context, req *controlv1.RegisterRequest) (*controlv1.RegisterResponse, error) {
     // TODO: validate req, upsert agent session, index functions
-    log.Printf("control:Register agent_id=%s version=%s game=%s env=%s functions=%d", req.GetAgentId(), req.GetVersion(), req.GetGameId(), req.GetEnv(), len(req.GetFunctions()))
+    slog.Info("control register", "agent_id", req.GetAgentId(), "version", req.GetVersion(), "game_id", req.GetGameId(), "env", req.GetEnv(), "functions", len(req.GetFunctions()))
     // Gate by allowed games
     if s.games != nil {
         if req.GetGameId() == "" || !s.games.IsAllowed(req.GetGameId(), req.GetEnv()) {
