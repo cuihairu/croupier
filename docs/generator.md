@@ -3,6 +3,7 @@
 This plugin turns your .proto into Croupier "packs": descriptors, UI schema, a manifest and an fds.pb. It can also bundle them into `pack.tgz`.
 
 Status: initial skeleton. It derives defaults when no custom options are present. Custom option parsing will be added next.
+Update: basic custom options parsing implemented via UninterpretedOption aggregate parsing.
 
 ## Install/Build
 
@@ -50,7 +51,10 @@ Note: remote plugins in `buf.gen.yaml` may require network. You can remove them 
 - outputs: a default `json.view`
 
 ## Next steps
-- Parse custom options from `proto/croupier/options/*.proto`
-- UI annotations to enrich generated UI Schema
-- Per-field sensitive/enum/show_if, and per-method route/approval config
+- Parse map-style options (labels/enum_map) – basic support added; improve nested parsing
+- UI annotations enrich generated UI Schema – widget/label/placeholder/sensitive/show_if/required_if supported
+- Enum detection in JSON Schema – supported (string names + enum list)
+- Map fields in JSON Schema – supported (additionalProperties)
+- Per-method route/approval/placement/timeout – supported
+- Pack signature and validation
 - Pack signature and validation
