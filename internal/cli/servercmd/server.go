@@ -54,6 +54,8 @@ func New() *cobra.Command {
     var cfgFile string
     var includes []string
     var profile string
+    var perFn bool
+    var perGameDenies bool
     cmd := &cobra.Command{
         Use:   "server",
         Short: "Run Croupier Server",
@@ -68,6 +70,10 @@ func New() *cobra.Command {
             // apply section+profile
             if v, err = common.ApplySectionAndProfile(v, "server", profile); err != nil { return err }
             common.MergeLogSection(v)
+            // metrics options toggles
+            perFn = v.GetBool("metrics.per_function")
+            perGameDenies = v.GetBool("metrics.per_game_denies")
+            httpserver.SetMetricsOptions(perFn, perGameDenies)
 
             // logging setup
             common.SetupLoggerWithFile(
@@ -183,6 +189,8 @@ func New() *cobra.Command {
     cmd.Flags().Int("log.max_backups", 7, "max number of old log files to retain")
     cmd.Flags().Int("log.max_age", 7, "max age (days) to retain old log files")
     cmd.Flags().Bool("log.compress", true, "compress rotated log files")
+    cmd.Flags().Bool("metrics.per_function", true, "export per-function metrics (invocations/errors/latency)")
+    cmd.Flags().Bool("metrics.per_game_denies", false, "export RBAC denied counts per game within per-function metrics")
     _ = viper.BindPFlags(cmd.Flags())
     return cmd
 }

@@ -17,9 +17,13 @@ server:
   addr: ":8443"
   http_addr: ":8080"
   log: { level: debug, format: console }
+  metrics:
+    per_function: true
+    per_game_denies: false
   profiles:
     prod:
       log: { level: info, format: json, file: logs/server.log }
+      metrics: { per_function: true }
 ```
 
 Start with overlay files and profile:

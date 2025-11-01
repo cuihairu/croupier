@@ -2,7 +2,7 @@ package httpserver
 
 import (
     "encoding/json"
-    "log"
+    "log/slog"
     "net/http"
 
     "github.com/cuihairu/croupier/internal/function/descriptor"
@@ -21,6 +21,7 @@ import (
     "strings"
     "time"
     "sync/atomic"
+    "sync"
     users "github.com/cuihairu/croupier/internal/auth/users"
     jwt "github.com/cuihairu/croupier/internal/auth/token"
     localv1 "github.com/cuihairu/croupier/gen/go/croupier/agent/local/v1"
@@ -54,6 +55,8 @@ type Server struct {
         GetStats() map[string]*loadbalancer.AgentStats
         GetPoolStats() *connpool.PoolStats
     }
+    mu sync.RWMutex
+    fn map[string]*fnMetrics
 }
 
 type FunctionInvoker interface {
@@ -68,9 +71,61 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
     if err != nil { return nil, err }
     idx := map[string]*descriptor.Descriptor{}
     for _, d := range descs { idx[d.ID] = d }
-    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, games: gamesStore, reg: reg, userStore: userStore, jwtMgr: jwtMgr, startedAt: time.Now(), locator: locator, statsProv: statsProv}
+    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, games: gamesStore, reg: reg, userStore: userStore, jwtMgr: jwtMgr, startedAt: time.Now(), locator: locator, statsProv: statsProv, fn: map[string]*fnMetrics{}}
     s.routes()
     return s, nil
+}
+
+// metrics toggles and per-function structures
+var metricsPerFunction atomic.Bool
+var metricsPerGameDenies atomic.Bool
+
+func SetMetricsOptions(perFunction bool, perGameDenies bool) {
+    metricsPerFunction.Store(perFunction)
+    metricsPerGameDenies.Store(perGameDenies)
+}
+
+type histogram struct{
+    buckets []float64
+    counts  []int64
+    sum     float64
+    count   int64
+}
+func newHistogram() *histogram {
+    b := []float64{0.005,0.01,0.025,0.05,0.1,0.25,0.5,1,2.5,5,10}
+    return &histogram{buckets: b, counts: make([]int64, len(b))}
+}
+func (h *histogram) observe(sec float64) {
+    h.count++
+    h.sum += sec
+    for i, le := range h.buckets {
+        if sec <= le { h.counts[i]++; break }
+    }
+}
+func (h *histogram) approxQuantile(q float64) float64 {
+    if h.count == 0 { return 0 }
+    target := int64(float64(h.count) * q)
+    if target <= 0 { target = 1 }
+    var cum int64
+    for i, c := range h.counts {
+        cum += c
+        if cum >= target { return h.buckets[i] }
+    }
+    return h.buckets[len(h.buckets)-1]
+}
+
+type fnMetrics struct{
+    invocations int64
+    errors int64
+    rbacDenied int64
+    hist *histogram
+    deniesByGame map[string]int64
+}
+func (s *Server) getFn(id string) *fnMetrics {
+    s.mu.Lock(); defer s.mu.Unlock()
+    m := s.fn[id]
+    if m == nil { m = &fnMetrics{hist: newHistogram(), deniesByGame: map[string]int64{}}; s.fn[id] = m }
+    return m
 }
 
 func (s *Server) routes() {
