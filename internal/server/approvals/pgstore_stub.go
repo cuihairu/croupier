@@ -1,3 +1,5 @@
+//go:build !pg
+
 package approvals
 
 import "fmt"
@@ -7,4 +9,3 @@ import "fmt"
 func NewPGStore(dsn string) (Store, error) {
     return nil, fmt.Errorf("postgres approval store not enabled (build with -tags pg)")
 }
-

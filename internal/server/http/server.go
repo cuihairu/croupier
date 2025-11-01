@@ -620,7 +620,6 @@ func (s *Server) routes() {
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
         if s.rbac != nil && !(s.rbac.Can(user, "approvals:reject") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
-        var in struct{ ID, Reason string `json:"id" json:"reason"` }
         // decode flexible
         dec := json.NewDecoder(r.Body)
         var tmp map[string]any
