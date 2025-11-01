@@ -106,7 +106,7 @@ sequenceDiagram
 ./game-server
 ```
 
-提示：仓库内的 `configs/croupier.yaml` 与 `configs/agent.yaml` 目前仅作为示例配置参考，二进制暂未实现 `--config` 读取 YAML 的能力，后续会补充 `--config` 支持或在启动脚本中进行参数映射。
+提示：已支持使用 `--config` 指定 YAML 配置文件，或通过环境变量覆盖（前缀 `CROUPIER_`，例如 `CROUPIER_ADDR=":8443"`）。可参考 `configs/server.example.yaml` 与 `configs/agent.example.yaml`。
 
 ### 模式 2：Agent 外连（推荐）
 
