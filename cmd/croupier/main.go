@@ -46,12 +46,31 @@ func main() {
         v := viper.New()
         v.SetConfigFile(cfgFile)
         if err := v.ReadInConfig(); err != nil { return err }
+        // Prepare snapshot helper
+        snapshot := func(sub *viper.Viper, sect string) error {
+            if sub == nil { return fmt.Errorf("section %s not found", sect) }
+            // merge log subsection for snapshot
+            common.MergeLogSection(sub)
+            m := map[string]any{}
+            for _, k := range sub.AllKeys() { m[k] = sub.Get(k) }
+            // validate strictly
+            var err error
+            switch sect {
+            case "server": err = common.ValidateServerConfig(sub, true)
+            case "agent": err = common.ValidateAgentConfig(sub, true)
+            }
+            if err != nil { return err }
+            // print pretty JSON
+            enc := json.NewEncoder(os.Stdout)
+            enc.SetIndent("", "  ")
+            return enc.Encode(map[string]any{"section": sect, "effective": m})
+        }
         switch section {
-        case "server": return common.ValidateServerConfig(v, true)
-        case "agent": return common.ValidateAgentConfig(v, true)
+        case "server": return snapshot(v.Sub("server"), "server")
+        case "agent": return snapshot(v.Sub("agent"), "agent")
         case "":
-            if err := common.ValidateServerConfig(v, true); err == nil { fmt.Println("server config OK"); return nil }
-            if err := common.ValidateAgentConfig(v, true); err == nil { fmt.Println("agent config OK"); return nil }
+            if s := v.Sub("server"); s != nil { if err := snapshot(s, "server"); err == nil { return nil } }
+            if a := v.Sub("agent"); a != nil { if err := snapshot(a, "agent"); err == nil { return nil } }
             return fmt.Errorf("no valid section found; specify --section")
         default:
             return fmt.Errorf("unknown section: %s", section)

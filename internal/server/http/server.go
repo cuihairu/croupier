@@ -28,6 +28,7 @@ import (
     "google.golang.org/grpc/credentials/insecure"
     "github.com/cuihairu/croupier/internal/loadbalancer"
     "github.com/cuihairu/croupier/internal/connpool"
+    common "github.com/cuihairu/croupier/internal/cli/common"
 )
 
 type Server struct {
@@ -111,6 +112,7 @@ func (s *Server) routes() {
             out["lb_stats"] = s.statsProv.GetStats()
             out["conn_pool"] = s.statsProv.GetPoolStats()
         }
+        out["logs"] = common.GetLogCounters()
         _ = json.NewEncoder(w).Encode(out)
     })
 
