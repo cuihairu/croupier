@@ -59,17 +59,17 @@ func main() {
         snapshot := func(base *viper.Viper, sect string) error {
             if base == nil { return fmt.Errorf("section %s not found", sect) }
             // merge log subsection for snapshot
-            v, err := common.ApplySectionAndProfile(base, sect, profile)
+            vv, err := common.ApplySectionAndProfile(base, sect, profile)
             if err != nil { return err }
-            common.MergeLogSection(v)
-            m := v.AllSettings()
+            common.MergeLogSection(vv)
+            m := vv.AllSettings()
             // validate strictly
-            var err error
+            var verr error
             switch sect {
-            case "server": err = common.ValidateServerConfig(v, true)
-            case "agent": err = common.ValidateAgentConfig(v, true)
+            case "server": verr = common.ValidateServerConfig(vv, true)
+            case "agent": verr = common.ValidateAgentConfig(vv, true)
             }
-            if err != nil { return err }
+            if verr != nil { return verr }
             // print pretty JSON
             enc := json.NewEncoder(os.Stdout)
             enc.SetIndent("", "  ")

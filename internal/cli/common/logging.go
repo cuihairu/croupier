@@ -1,6 +1,7 @@
 package common
 
 import (
+    "context"
     "io"
     "log"
     "log/slog"
@@ -57,8 +58,8 @@ var cntDebug, cntInfo, cntWarn, cntError atomic.Int64
 
 type countHandler struct{ next slog.Handler }
 
-func (c *countHandler) Enabled(ctx slog.Context, lvl slog.Level) bool { return c.next.Enabled(ctx, lvl) }
-func (c *countHandler) Handle(ctx slog.Context, rec slog.Record) error {
+func (c *countHandler) Enabled(ctx context.Context, lvl slog.Level) bool { return c.next.Enabled(ctx, lvl) }
+func (c *countHandler) Handle(ctx context.Context, rec slog.Record) error {
     switch rec.Level {
     case slog.LevelDebug:
         cntDebug.Add(1)
