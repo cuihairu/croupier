@@ -12,4 +12,8 @@ plugins:
     out: gen/go
     opt:
       - paths=source_relative
-
+  # Local custom plugin: protoc-gen-croupier (must be on PATH)
+  - plugin: croupier
+    out: gen/croupier
+    opt:
+      - emit_pack=true
