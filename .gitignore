@@ -36,3 +36,9 @@ logs/
 
 # IDE
 .idea/
+
+# Local binaries (root)
+/server
+/prom
+/croupier
+/agent
