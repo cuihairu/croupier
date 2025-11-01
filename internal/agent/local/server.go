@@ -30,7 +30,7 @@ func NewServer(store *registry.LocalStore, ctrl controlv1.ControlServiceClient, 
 func (s *Server) RegisterLocal(ctx context.Context, req *localv1.RegisterLocalRequest) (*localv1.RegisterLocalResponse, error) {
     for _, f := range req.Functions { s.store.Add(f.Id, req.ServiceId, req.RpcAddr, f.Version) }
     log.Printf("local register: service=%s addr=%s functions=%d", req.ServiceId, req.RpcAddr, len(req.Functions))
-    // Update Core with functions seen by Agent (DEV ONLY path)
+    // Update Server with functions seen by Agent (DEV ONLY path)
     var fns []*controlv1.FunctionDescriptor
     for fid, arr := range s.store.List() {
         ver := ""

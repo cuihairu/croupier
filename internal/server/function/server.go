@@ -18,7 +18,7 @@ import (
     "google.golang.org/grpc/credentials/insecure"
 )
 
-// Server implements FunctionService at Core side, routing calls to agents.
+// Server implements FunctionService at Server side, routing calls to agents.
 type Server struct {
     functionv1.UnimplementedFunctionServiceServer
     store       *registry.Store

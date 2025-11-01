@@ -103,9 +103,9 @@ func main() {
         fwd := functionserver.NewForwarder(*edgeAddr)
         functionv1.RegisterFunctionServiceServer(s, fwd)
         invoker = functionserver.NewForwarderInvoker(fwd)
-        locator = nil // edge-forward mode: job_result API not available in Core
+        locator = nil // edge-forward mode: job_result API not available in Server
     } else {
-        // Use default function server config when running in-core
+        // Use default function server config when running in-server
         fnsrv := functionserver.NewServer(ctrl.Store(), nil)
         functionv1.RegisterFunctionServiceServer(s, fnsrv)
         invoker = functionserver.NewClientAdapter(fnsrv)
@@ -116,7 +116,7 @@ func main() {
     wg.Add(2)
     go func() {
         defer wg.Done()
-        log.Printf("croupier-core (grpc) listening on %s", *addr)
+        log.Printf("croupier-server (grpc) listening on %s", *addr)
         if err := s.Serve(lis); err != nil {
             log.Fatalf("serve grpc: %v", err)
         }

@@ -80,7 +80,7 @@ func EnsureServerCert(dir, caCrtPath, caKeyPath string, hosts []string) (crtPath
     serialNumber, _ := rand.Int(rand.Reader, serialNumberLimit)
     tmpl := &x509.Certificate{
         SerialNumber: serialNumber,
-        Subject: pkix.Name{CommonName: "croupier-core"},
+        Subject: pkix.Name{CommonName: "croupier-server"},
         NotBefore: time.Now().Add(-time.Hour),
         NotAfter:  time.Now().AddDate(1, 0, 0),
         KeyUsage: x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
@@ -141,4 +141,3 @@ func EnsureAgentCert(dir, caCrtPath, caKeyPath, commonName string) (crtPath, key
     if err := writeFile(keyPath, keyPEM, 0o600); err != nil { return "", "", err }
     return crtPath, keyPath, nil
 }
-
