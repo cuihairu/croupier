@@ -18,6 +18,8 @@ service PlayerGm {
       timeout: "30s"
       two_person_rule: true
       placement: "agent"
+      mode: "command"
+      idempotency_key: true
     };
   }
 }
@@ -28,4 +30,3 @@ message BanRequest {
 }
 
 message BanResponse { string result = 1; }
-
