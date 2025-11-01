@@ -57,4 +57,26 @@ Note: remote plugins in `buf.gen.yaml` may require network. You can remove them 
 - Map fields in JSON Schema – supported (additionalProperties)
 - Per-method route/approval/placement/timeout – supported
 - Pack signature and validation
+
+## Supported custom options (current)
+- Method option `(croupier.options.function)` fields parsed:
+  - `function_id`, `version`, `category`, `risk`, `route`, `timeout`, `two_person_rule`, `placement`, `mode`, `idempotency_key`
+- Field option `(croupier.options.ui)` fields parsed:
+  - `widget`, `label`, `placeholder`, `sensitive`, `show_if`, `required_if`, `enum_map`
+
+Example:
+```
+rpc Ban(BanRequest) returns (BanResponse) {
+  option (croupier.options.function) = {
+    function_id: "player.ban" version: "1.2.0" risk: "high"
+    route: "lb" timeout: "30s" two_person_rule: true placement: "agent"
+    mode: "command" idempotency_key: true
+  };
+}
+
+message BanRequest {
+  string player_id = 1 [(croupier.options.ui) = { label: "玩家ID", widget: "input" }];
+  string reason    = 2 [(croupier.options.ui) = { widget: "textarea", placeholder: "原因" }];
+}
+```
 - Pack signature and validation
