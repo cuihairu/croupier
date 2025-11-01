@@ -57,3 +57,4 @@ Edge Prometheus (/metrics.prom)
 Notes
 - Histogram buckets follow Prometheus defaults (0.005 .. 10 seconds). Values are best-effort for HTTP path and meant for dashboards/alerts.
 - Series cardinality: per-function metrics may increase cardinality; keep function ids bounded.
+- Toggles: you can disable per-function metrics via `--metrics.per_function=false` and enable per-game RBAC denied counters via `--metrics.per_game_denies=true`.
