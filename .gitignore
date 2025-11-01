@@ -33,3 +33,6 @@ configs/dev/
 
 # Logs
 logs/
+
+# IDE
+.idea/
