@@ -8,14 +8,14 @@ COPY go.mod go.sum ./
 COPY sdks/go/go.mod sdks/go/go.sum sdks/go/
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/croupier-server ./cmd/server
+RUN CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/croupier ./cmd/croupier
 
 FROM ${RUNTIME_IMAGE}
 WORKDIR /app
-COPY --from=build /out/croupier-server /app/
+COPY --from=build /out/croupier /app/
 COPY --chown=nonroot:nonroot configs /app/configs
 COPY --chown=nonroot:nonroot descriptors /app/descriptors
 COPY --chown=nonroot:nonroot logs /app/logs
 EXPOSE 8443 8080
 USER nonroot
-ENTRYPOINT ["/app/croupier-server"]
+ENTRYPOINT ["/app/croupier"]

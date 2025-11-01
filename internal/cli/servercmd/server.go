@@ -71,6 +71,12 @@ func New() *cobra.Command {
                 }
             }
 
+            // logging setup
+            common.SetupLogger(v.GetString("log.level"), v.GetString("log.format"))
+
+            // config validation (non-strict: allow devcert fallback)
+            if err := common.ValidateServerConfig(v, false); err != nil { return fmt.Errorf("config invalid: %w", err) }
+
             addr := v.GetString("addr")
             httpAddr := v.GetString("http_addr")
             edgeAddr := v.GetString("edge_addr")
@@ -162,6 +168,8 @@ func New() *cobra.Command {
     cmd.Flags().String("games_config", "configs/games.json", "allowed games config (json)")
     cmd.Flags().String("users_config", "configs/users.json", "users config json")
     cmd.Flags().String("jwt_secret", "dev-secret", "jwt hs256 secret")
+    cmd.Flags().String("log.level", "info", "log level: debug|info|warn|error")
+    cmd.Flags().String("log.format", "console", "log format: console|json")
     _ = viper.BindPFlags(cmd.Flags())
     return cmd
 }

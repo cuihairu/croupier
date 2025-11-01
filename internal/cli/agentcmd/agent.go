@@ -30,6 +30,7 @@ import (
     tunn "github.com/cuihairu/croupier/internal/agent/tunnel"
     _ "github.com/cuihairu/croupier/internal/transport/jsoncodec"
     "github.com/cuihairu/croupier/internal/devcert"
+    common "github.com/cuihairu/croupier/internal/cli/common"
 )
 
 func loadClientTLS(certFile, keyFile, caFile string, serverName string) (credentials.TransportCredentials, error) {
@@ -62,6 +63,9 @@ func New() *cobra.Command {
                 if sub := v.Sub("agent"); sub != nil { v = sub }
             }
 
+            // logging setup
+            common.SetupLogger(v.GetString("log.level"), v.GetString("log.format"))
+
             localAddr := v.GetString("local_addr")
             serverAddr := v.GetString("server_addr")
             coreAddr := v.GetString("core_addr")
@@ -85,6 +89,8 @@ func New() *cobra.Command {
                 log.Printf("[warn] --core_addr is deprecated; please use --server_addr")
             }
 
+            // Validate config (non-strict) then auto-generate dev certs when not provided (DEV ONLY)
+            if err := common.ValidateAgentConfig(v, false); err != nil { return err }
             // Auto-generate dev certs when not provided (DEV ONLY)
             if (cert == "" || key == "" || ca == "") && coreAddr != "" {
                 out := "configs/dev"
@@ -180,6 +186,8 @@ func New() *cobra.Command {
     cmd.Flags().String("game_id", "", "game id (required if server enforces whitelist)")
     cmd.Flags().String("env", "", "environment (optional) e.g. prod/stage/test")
     cmd.Flags().String("http_addr", ":19091", "agent http listen for health/metrics")
+    cmd.Flags().String("log.level", "info", "log level: debug|info|warn|error")
+    cmd.Flags().String("log.format", "console", "log format: console|json")
     _ = viper.BindPFlags(cmd.Flags())
     return cmd
 }
