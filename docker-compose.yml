@@ -65,7 +65,7 @@ services:
   core:
     build:
       context: .
-      dockerfile: Dockerfile.core
+      dockerfile: Dockerfile.server
       args:
         GO_IMAGE: ${GO_IMAGE:-golang:1.21}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
