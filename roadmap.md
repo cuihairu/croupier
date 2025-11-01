@@ -7,14 +7,14 @@
 ## 原则
 - Proto 作为单一事实来源（契约、类型、演进、跨语言）。
 - 由生成器从 proto 派生：Descriptors、JSON Schema、UI Schema、Manifest、FDS（FileDescriptorSet）。
-- Core/Agent 动态加载类型（TypeRegistry + dynamicpb），按 descriptor.transport 编解码。
+- Server/Agent 动态加载类型（TypeRegistry + dynamicpb），按 descriptor.transport 编解码。
 - 界面“视图驱动”，可插拔 Renderer（表格/图表/JSON/第三方库），由 Descriptor 下发视图规范。
 - 适配器（Adapter）支持无 SDK 系统（Prom/HTTP/K8s/SQL 等），以 pack 形式导入/下发。
 
 ## 关键交付物
 - protoc 插件：`protoc-gen-croupier`（或 Buf 插件），输入用户 proto → 输出 pack.tgz。
 - Pack 规范：`fds.pb` + `descriptors/*.json` + `ui/*.json` + `manifest.json` + 可选 `web-plugin/*`。
-- Core：Pack 导入、动态类型注册、编解码桥接、审计/权限、视图规范下发。
+- Server：Pack 导入、动态类型注册、编解码桥接、审计/权限、视图规范下发。
 - Web：Schema-Form 渲染、Renderer 注册与插件加载、视图布局与数据变换。
 - Agent/SDK：注册能力上报、pack 下发与适配器装载、流式/长任务支持。
 - 适配器：`prom-adapter`（专用）与 `http-adapter`（通用配置）。
@@ -41,7 +41,7 @@
       "proto": {
         "request_fqn": "<pkg.Message>",
         "response_fqn": "<pkg.Message>",
-        "encoding": "pb-json"  // UI 与 HTTP 层 JSON，Core 内部统一转 pb-bin
+        "encoding": "pb-json"  // UI 与 HTTP 层 JSON，Server 内部统一转 pb-bin
       }
     }
   }
@@ -83,7 +83,7 @@
 
 验收：`buf generate` 一键生成 pack；用 CLI `croupier pack inspect` 可查看清单。
 
-### M2 Core：Pack 导入与动态类型桥接
+### M2 Server：Pack 导入与动态类型桥接
 目标：导入 pack → UI/调用可用。
 - [ ] CLI/API：`/api/packs/import`、`croupier packs import pack.tgz`。
 - [ ] TypeRegistry：从 `fds.pb` 载入，缓存/版本化，冲突检测。
@@ -120,17 +120,17 @@
 ### M5 Agent/SDK 能力上报与 pack 下发
 目标：能力发现、热更新与分发。
 - [ ] Agent 注册上报：函数 id/版本、request/response FQN、stream 支持、标签（game/env/region）。
-- [ ] Core → Agent pack 下发：按作用域（game/env）分发，热更新启停适配器。
+- [ ] Server → Agent pack 下发：按作用域（game/env）分发，热更新启停适配器。
 - [ ] Go SDK：简化 Handler（ctx+req→resp），自动注册辅助；示例工程。
 - [ ] 作业流：日志/进度流式透传（UI 接收）。
 
-验收：Core 控制某 game/env 下发/撤回某适配器；SDK 示例正常注册与调用。
+验收：Server 控制某 game/env 下发/撤回某适配器；SDK 示例正常注册与调用。
 
 ### M6 安全与可观测
 - [ ] RBAC/ABAC 表达式（基于上下文如 actor/game/env）。
 - [ ] 两人规则：申请/审批/执行链路与审计。
 - [ ] 速率/并发/熔断与重试策略（函数级）。
-- [ ] 指标/追踪：Core/Agent/适配器统一 metrics + trace_id 透传。
+- [ ] 指标/追踪：Server/Agent/适配器统一 metrics + trace_id 透传。
 - [ ] 兼容策略：函数版本协商、灰度/回滚。
 
 验收：关键函数开启审批与限流，指标在 Prom/Grafana 可见，链路可追踪。
@@ -156,6 +156,5 @@
 —
 
 ## 验收样例（端到端）
-- 用户写 `games.player.v1` 的 `Ban` proto + 注解 → 生成 pack → 在 Core 导入 → UI 自动出现表单 → 提交 → Core 编解码为 pb → Agent → 业务服返回 → UI 以 table/json 展示。
+- 用户写 `games.player.v1` 的 `Ban` proto + 注解 → 生成 pack → 在 Server 导入 → UI 自动出现表单 → 提交 → Server 编解码为 pb → Agent → 业务服返回 → UI 以 table/json 展示。
 - 导入 `prom-adapter` pack → 选择表达式与时间区间 → UI 折线图展示，审计记录查询参数。
-
