@@ -111,6 +111,27 @@ sequenceDiagram
 - 日志：新增 `--log.level`（debug|info|warn|error）、`--log.format`（console|json）与 `--log.file`（启用滚动日志：`--log.max_size`/`--log.max_backups`/`--log.max_age`/`--log.compress`）。
 可参考 `configs/server.example.yaml` 与 `configs/agent.example.yaml`。
 
+配置分层与叠加（profiles/include）
+- 支持 `--config-include` 顺序叠加多个配置文件（后者覆盖前者）。
+- 支持在 YAML `server:`/`agent:` 下声明 `profiles:` 子段，并用 `--profile` 选择叠加（优先级低于环境变量与命令行）。
+  例如：
+  ```yaml
+  server:
+    addr: :8443
+    log: { level: debug }
+    profiles:
+      prod:
+        log: { level: info, format: json, file: logs/server.log }
+  ```
+  启动：`./croupier server --config base.yaml --config-include overlay.yaml --profile prod`
+
+指标导出
+- JSON：Server `/metrics`、Agent `/metrics`、Edge `/metrics` 都包含 `logs` 统计。
+- Prometheus 文本：Server `/metrics.prom`，Agent `/metrics.prom`，Edge `/metrics.prom`。
+  - Server：`croupier_invocations_total`、`croupier_invocations_error_total`、`croupier_jobs_started_total`、`croupier_jobs_error_total`、`croupier_rbac_denied_total`、`croupier_audit_errors_total`、`croupier_logs_total{level=...}`
+  - Agent：`croupier_agent_instances`、`croupier_tunnel_reconnects`、`croupier_logs_total{level=...}`
+  - Edge：`croupier_logs_total{level=...}`
+
 ### 模式 2：Agent 外连（推荐）
 
 Server 位于 DMZ/公网，Agent 在游戏内网，仅出站到 Server。游戏服只连本机/就近 Agent。

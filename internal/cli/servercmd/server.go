@@ -52,25 +52,21 @@ func loadServerTLS(certFile, keyFile, caFile string) (credentials.TransportCrede
 // New returns the `croupier server` command.
 func New() *cobra.Command {
     var cfgFile string
+    var includes []string
+    var profile string
     cmd := &cobra.Command{
         Use:   "server",
         Short: "Run Croupier Server",
         RunE: func(cmd *cobra.Command, args []string) error {
-            v := viper.GetViper()
+            // load base + includes
+            v, err := common.LoadWithIncludes(cfgFile, includes)
+            if err != nil { return err }
+            // env overlay
             v.SetEnvPrefix("CROUPIER_SERVER")
             v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
             v.AutomaticEnv()
-            if cfgFile != "" {
-                v.SetConfigFile(cfgFile)
-                if err := v.ReadInConfig(); err == nil {
-                    log.Printf("[config] using %s", v.ConfigFileUsed())
-                } else {
-                    log.Printf("[warn] read config: %v", err)
-                }
-                if sub := v.Sub("server"); sub != nil {
-                    v = sub // prefer sectioned config
-                }
-            }
+            // apply section+profile
+            if v, err = common.ApplySectionAndProfile(v, "server", profile); err != nil { return err }
             common.MergeLogSection(v)
 
             // logging setup
@@ -168,6 +164,8 @@ func New() *cobra.Command {
     }
     // Flags and config binding
     cmd.Flags().StringVar(&cfgFile, "config", "", "config file (yaml), supports top-level 'server:' section")
+    cmd.Flags().StringSliceVar(&includes, "config-include", nil, "additional config files to merge in order (overrides base)")
+    cmd.Flags().StringVar(&profile, "profile", "", "profile name under 'profiles:' to overlay")
     cmd.Flags().String("addr", ":8443", "grpc listen address")
     cmd.Flags().String("http_addr", ":8080", "http api listen address")
     cmd.Flags().String("edge_addr", "", "optional edge address for forwarding function calls (DEV PoC)")

@@ -8,3 +8,21 @@ jwt_secret: "dev-secret"
 cert: "configs/dev/server.crt"
 key: "configs/dev/server.key"
 ca: "configs/dev/ca.crt"
+
+# Logging (can also use log.* flags)
+log:
+  level: info
+  format: console   # or json
+  # file: logs/server.log
+  max_size: 100
+  max_backups: 7
+  max_age: 7
+  compress: true
+
+# Optional profiles overlay
+profiles:
+  prod:
+    log:
+      level: info
+      format: json
+      file: logs/server.log

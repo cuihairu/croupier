@@ -47,6 +47,8 @@ type Server struct {
     invocationsError int64
     jobsStarted int64
     jobsError int64
+    rbacDenied int64
+    auditErrors int64
     locator interface{ GetJobAddr(string) (string, bool) }
     statsProv interface{
         GetStats() map[string]*loadbalancer.AgentStats
@@ -107,6 +109,8 @@ func (s *Server) routes() {
             "invocations_error_total": atomic.LoadInt64(&s.invocationsError),
             "jobs_started_total": atomic.LoadInt64(&s.jobsStarted),
             "jobs_error_total": atomic.LoadInt64(&s.jobsError),
+            "rbac_denied_total": atomic.LoadInt64(&s.rbacDenied),
+            "audit_errors_total": atomic.LoadInt64(&s.auditErrors),
         }
         if s.statsProv != nil {
             out["lb_stats"] = s.statsProv.GetStats()
@@ -127,6 +131,10 @@ func (s *Server) routes() {
         fmt.Fprintf(w, "croupier_jobs_started_total %d\n", atomic.LoadInt64(&s.jobsStarted))
         fmt.Fprintf(w, "# TYPE croupier_jobs_error_total counter\n")
         fmt.Fprintf(w, "croupier_jobs_error_total %d\n", atomic.LoadInt64(&s.jobsError))
+        fmt.Fprintf(w, "# TYPE croupier_rbac_denied_total counter\n")
+        fmt.Fprintf(w, "croupier_rbac_denied_total %d\n", atomic.LoadInt64(&s.rbacDenied))
+        fmt.Fprintf(w, "# TYPE croupier_audit_errors_total counter\n")
+        fmt.Fprintf(w, "croupier_audit_errors_total %d\n", atomic.LoadInt64(&s.auditErrors))
         lc := common.GetLogCounters()
         fmt.Fprintf(w, "# TYPE croupier_logs_total counter\n")
         fmt.Fprintf(w, "croupier_logs_total{level=\"debug\"} %d\n", lc["debug"])
@@ -210,7 +218,7 @@ func (s *Server) routes() {
         if err != nil { http.Error(w, err.Error(), 400); return }
         if in.IdempotencyKey == "" { in.IdempotencyKey = randHex(16) }
         traceID := randHex(8)
-        _ = s.audit.Log("invoke", user, in.FunctionID, map[string]string{"ip": r.RemoteAddr, "trace_id": traceID, "game_id": gameID, "env": env})
+        if err := s.audit.Log("invoke", user, in.FunctionID, map[string]string{"ip": r.RemoteAddr, "trace_id": traceID, "game_id": gameID, "env": env}); err != nil { atomic.AddInt64(&s.auditErrors,1) }
         meta := map[string]string{"trace_id": traceID}
         if gameID != "" { meta["game_id"] = gameID }
         if env != "" { meta["env"] = env }
@@ -283,11 +291,11 @@ func (s *Server) routes() {
                 }
             }
         } else { scopedOk = true }
-        if !scopedOk { http.Error(w, "forbidden", http.StatusForbidden); return }
+        if !scopedOk { atomic.AddInt64(&s.rbacDenied,1); http.Error(w, "forbidden", http.StatusForbidden); return }
         b, _ := json.Marshal(in.Payload)
         if in.IdempotencyKey == "" { in.IdempotencyKey = randHex(16) }
         traceID := randHex(8)
-        _ = s.audit.Log("start_job", user, in.FunctionID, map[string]string{"ip": r.RemoteAddr, "trace_id": traceID, "game_id": gameID, "env": env})
+        if err := s.audit.Log("start_job", user, in.FunctionID, map[string]string{"ip": r.RemoteAddr, "trace_id": traceID, "game_id": gameID, "env": env}); err != nil { atomic.AddInt64(&s.auditErrors,1) }
         meta := map[string]string{"trace_id": traceID}
         if gameID != "" { meta["game_id"] = gameID }
         if env != "" { meta["env"] = env }

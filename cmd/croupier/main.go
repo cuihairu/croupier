@@ -39,25 +39,29 @@ func main() {
     // config test (minimal validation)
     cfgTest := &cobra.Command{Use: "config test", Short: "Validate and print effective config"}
     var cfgFile, section string
+    var includes []string
+    var profile string
     cfgTest.Flags().StringVar(&cfgFile, "config", "", "config file path")
     cfgTest.Flags().StringVar(&section, "section", "", "optional section: server|agent")
+    cfgTest.Flags().StringSliceVar(&includes, "config-include", nil, "additional config files to merge in order")
+    cfgTest.Flags().StringVar(&profile, "profile", "", "profile name under 'profiles:' to overlay")
     cfgTest.RunE = func(cmd *cobra.Command, args []string) error {
         if cfgFile == "" { return fmt.Errorf("--config required") }
-        v := viper.New()
-        v.SetConfigFile(cfgFile)
-        if err := v.ReadInConfig(); err != nil { return err }
+        v, err := common.LoadWithIncludes(cfgFile, includes)
+        if err != nil { return err }
         // Prepare snapshot helper
-        snapshot := func(sub *viper.Viper, sect string) error {
-            if sub == nil { return fmt.Errorf("section %s not found", sect) }
+        snapshot := func(base *viper.Viper, sect string) error {
+            if base == nil { return fmt.Errorf("section %s not found", sect) }
             // merge log subsection for snapshot
-            common.MergeLogSection(sub)
-            m := map[string]any{}
-            for _, k := range sub.AllKeys() { m[k] = sub.Get(k) }
+            v, err := common.ApplySectionAndProfile(base, sect, profile)
+            if err != nil { return err }
+            common.MergeLogSection(v)
+            m := v.AllSettings()
             // validate strictly
             var err error
             switch sect {
-            case "server": err = common.ValidateServerConfig(sub, true)
-            case "agent": err = common.ValidateAgentConfig(sub, true)
+            case "server": err = common.ValidateServerConfig(v, true)
+            case "agent": err = common.ValidateAgentConfig(v, true)
             }
             if err != nil { return err }
             // print pretty JSON
@@ -66,11 +70,11 @@ func main() {
             return enc.Encode(map[string]any{"section": sect, "effective": m})
         }
         switch section {
-        case "server": return snapshot(v.Sub("server"), "server")
-        case "agent": return snapshot(v.Sub("agent"), "agent")
+        case "server": return snapshot(v, "server")
+        case "agent": return snapshot(v, "agent")
         case "":
-            if s := v.Sub("server"); s != nil { if err := snapshot(s, "server"); err == nil { return nil } }
-            if a := v.Sub("agent"); a != nil { if err := snapshot(a, "agent"); err == nil { return nil } }
+            if err := snapshot(v, "server"); err == nil { return nil }
+            if err := snapshot(v, "agent"); err == nil { return nil }
             return fmt.Errorf("no valid section found; specify --section")
         default:
             return fmt.Errorf("unknown section: %s", section)

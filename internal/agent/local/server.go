@@ -2,7 +2,7 @@ package local
 
 import (
     "context"
-    "log"
+    "log/slog"
     "time"
 
     localv1 "github.com/cuihairu/croupier/gen/go/croupier/agent/local/v1"
@@ -29,7 +29,7 @@ func NewServer(store *registry.LocalStore, ctrl controlv1.ControlServiceClient, 
 
 func (s *Server) RegisterLocal(ctx context.Context, req *localv1.RegisterLocalRequest) (*localv1.RegisterLocalResponse, error) {
     for _, f := range req.Functions { s.store.Add(f.Id, req.ServiceId, req.RpcAddr, f.Version) }
-    log.Printf("local register: service=%s addr=%s functions=%d", req.ServiceId, req.RpcAddr, len(req.Functions))
+    slog.Info("local register", "service_id", req.ServiceId, "rpc_addr", req.RpcAddr, "functions", len(req.Functions))
     // Update Server with functions seen by Agent (DEV ONLY path)
     var fns []*controlv1.FunctionDescriptor
     for fid, arr := range s.store.List() {
@@ -39,7 +39,7 @@ func (s *Server) RegisterLocal(ctx context.Context, req *localv1.RegisterLocalRe
     }
     if s.ctrl != nil {
         if _, err := s.ctrl.Register(ctx, &controlv1.RegisterRequest{AgentId: s.agentID, Version: s.agentVersion, RpcAddr: s.agentRPCAddr, GameId: s.gameID, Env: s.env, Functions: fns}); err != nil {
-            log.Printf("core register update failed: %v", err)
+            slog.Warn("core register update failed", "error", err.Error())
         }
     }
     return &localv1.RegisterLocalResponse{SessionId: "local-" + req.ServiceId}, nil

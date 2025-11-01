@@ -2,7 +2,7 @@ package tunnel
 
 import (
     "context"
-    "log"
+    "log/slog"
     "time"
 
     functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
@@ -55,7 +55,7 @@ func (c *Client) Start(ctx context.Context) error {
     // recv loop (blocking)
     for {
         msg, err := stream.Recv()
-        if err != nil { close(done); log.Printf("tunnel recv end: %v", err); return err }
+        if err != nil { close(done); slog.Warn("tunnel recv end", "error", err.Error()); return err }
         if msg == nil { continue }
         // dial local (both function and local control share the same listener)
         lcc, err := grpc.Dial(c.localAddr, grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")))
