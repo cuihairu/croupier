@@ -20,9 +20,9 @@ DNS.1 = localhost
 IP.1 = 127.0.0.1
 EOF
 
-echo "Generating Core cert..."
+echo "Generating Server cert..."
 openssl genrsa -out "$OUT/server.key" 2048 >/dev/null 2>&1
-openssl req -new -key "$OUT/server.key" -subj "/CN=croupier-core" -out "$OUT/server.csr" -config "$OUT/core-openssl.cnf" >/dev/null 2>&1
+openssl req -new -key "$OUT/server.key" -subj "/CN=croupier-server" -out "$OUT/server.csr" -config "$OUT/core-openssl.cnf" >/dev/null 2>&1
 openssl x509 -req -in "$OUT/server.csr" -CA "$OUT/ca.crt" -CAkey "$OUT/ca.key" -CAcreateserial \
   -out "$OUT/server.crt" -days 365 -sha256 -extensions v3_req -extfile "$OUT/core-openssl.cnf" >/dev/null 2>&1
 
@@ -34,4 +34,3 @@ openssl x509 -req -in "$OUT/agent.csr" -CA "$OUT/ca.crt" -CAkey "$OUT/ca.key" -C
 
 echo "Done. Files in $OUT:"
 ls -1 "$OUT" | sed 's/^/  - /'
-
