@@ -10,7 +10,7 @@ import (
 )
 
 // This example demonstrates using the Go SDK Invoker to call a function
-// via FunctionService (Core or Agent address). It assumes a local Agent
+// via FunctionService (Server or Agent address). It assumes a local Agent
 // is running on 127.0.0.1:19090 and has a handler for "player.ban".
 func main() {
     ctx := context.Background()
@@ -49,4 +49,3 @@ func main() {
         log.Printf("expected invalid payload: %v", err)
     }
 }
-
