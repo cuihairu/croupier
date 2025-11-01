@@ -116,6 +116,25 @@ func (s *Server) routes() {
         _ = json.NewEncoder(w).Encode(out)
     })
 
+    // Prometheus text exposition (basic)
+    s.mux.HandleFunc("/metrics.prom", func(w http.ResponseWriter, r *http.Request){
+        w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+        fmt.Fprintf(w, "# TYPE croupier_invocations_total counter\n")
+        fmt.Fprintf(w, "croupier_invocations_total %d\n", atomic.LoadInt64(&s.invocations))
+        fmt.Fprintf(w, "# TYPE croupier_invocations_error_total counter\n")
+        fmt.Fprintf(w, "croupier_invocations_error_total %d\n", atomic.LoadInt64(&s.invocationsError))
+        fmt.Fprintf(w, "# TYPE croupier_jobs_started_total counter\n")
+        fmt.Fprintf(w, "croupier_jobs_started_total %d\n", atomic.LoadInt64(&s.jobsStarted))
+        fmt.Fprintf(w, "# TYPE croupier_jobs_error_total counter\n")
+        fmt.Fprintf(w, "croupier_jobs_error_total %d\n", atomic.LoadInt64(&s.jobsError))
+        lc := common.GetLogCounters()
+        fmt.Fprintf(w, "# TYPE croupier_logs_total counter\n")
+        fmt.Fprintf(w, "croupier_logs_total{level=\"debug\"} %d\n", lc["debug"])
+        fmt.Fprintf(w, "croupier_logs_total{level=\"info\"} %d\n", lc["info"])
+        fmt.Fprintf(w, "croupier_logs_total{level=\"warn\"} %d\n", lc["warn"])
+        fmt.Fprintf(w, "croupier_logs_total{level=\"error\"} %d\n", lc["error"])
+    })
+
     // Ant Design Pro demo stubs (for template pages)
     // GET /api/rule -> return empty rule list; POST /api/rule -> no-op
     s.mux.HandleFunc("/api/rule", func(w http.ResponseWriter, r *http.Request) {
@@ -210,12 +229,15 @@ func (s *Server) routes() {
         if in.TargetServiceID != "" { meta["target_service_id"] = in.TargetServiceID }
         if meta["route"] == "targeted" && meta["target_service_id"] == "" { http.Error(w, "target_service_id required for targeted route", 400); return }
         resp, err := s.invoker.Invoke(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta})
-        if err != nil { atomic.AddInt64(&s.invocationsError,1); http.Error(w, err.Error(), 500); return }
+        if err != nil {
+            atomic.AddInt64(&s.invocationsError,1)
+            slog.Error("invoke failed", "user", user, "function_id", in.FunctionID, "trace_id", traceID, "game_id", gameID, "env", env, "route", meta["route"], "error", err.Error())
+            http.Error(w, err.Error(), 500); return
+        }
+        slog.Info("invoke", "user", user, "function_id", in.FunctionID, "trace_id", traceID, "game_id", gameID, "env", env, "route", meta["route"]) 
         atomic.AddInt64(&s.invocations, 1)
         w.Header().Set("Content-Type", "application/json")
-        if len(resp.GetPayload()) == 0 {
-            w.WriteHeader(204); return
-        }
+        if len(resp.GetPayload()) == 0 { w.WriteHeader(204); return }
         _, _ = w.Write(resp.GetPayload())
     })
     s.mux.HandleFunc("/api/start_job", func(w http.ResponseWriter, r *http.Request) {
@@ -273,7 +295,12 @@ func (s *Server) routes() {
         if in.HashKey != "" { meta["hash_key"] = in.HashKey }
         if in.TargetServiceID != "" { meta["target_service_id"] = in.TargetServiceID }
         resp, err := s.invoker.StartJob(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta})
-        if err != nil { atomic.AddInt64(&s.jobsError,1); http.Error(w, err.Error(), 500); return }
+        if err != nil {
+            atomic.AddInt64(&s.jobsError,1)
+            slog.Error("start_job failed", "user", user, "function_id", in.FunctionID, "trace_id", traceID, "game_id", gameID, "env", env, "route", in.Route, "error", err.Error())
+            http.Error(w, err.Error(), 500); return
+        }
+        slog.Info("start_job", "user", user, "function_id", in.FunctionID, "trace_id", traceID, "game_id", gameID, "env", env, "route", in.Route)
         atomic.AddInt64(&s.jobsStarted, 1)
         _ = json.NewEncoder(w).Encode(resp)
     })
