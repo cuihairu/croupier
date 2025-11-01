@@ -73,7 +73,7 @@ services:
       # 数据库配置
       DATABASE_URL: postgres://croupier:croupier_dev_password@postgres:5432/croupier?sslmode=disable
       REDIS_URL: redis://redis:6379/0
-    command: ["--addr", ":8443", "--http_addr", ":8080", "--edge_addr", "edge:9443", "--rbac_config", "/app/configs/rbac.json", "--games_config", "/app/configs/games.json", "--users_config", "/app/configs/users.json", "--jwt_secret", "change-me", "--cert", "/app/configs/dev/server.crt", "--key", "/app/configs/dev/server.key", "--ca", "/app/configs/dev/ca.crt"]
+    command: ["server", "--addr", ":8443", "--http_addr", ":8080", "--edge_addr", "edge:9443", "--rbac_config", "/app/configs/rbac.json", "--games_config", "/app/configs/games.json", "--users_config", "/app/configs/users.json", "--jwt_secret", "change-me", "--cert", "/app/configs/dev/server.crt", "--key", "/app/configs/dev/server.key", "--ca", "/app/configs/dev/ca.crt"]
     ports: ["8443:8443", "18080:8080"]
     depends_on:
       - edge

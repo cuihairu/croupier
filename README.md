@@ -97,7 +97,7 @@ sequenceDiagram
 
 ```bash
 # 1) 启动 Server（当前未实现 --config，直接使用显式参数）
-./croupier-server \
+./croupier server \
   --addr :8443 --http_addr :8080 \
   --rbac_config configs/rbac.json --games_config configs/games.json --users_config configs/users.json \
   --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
@@ -120,7 +120,7 @@ Server 位于 DMZ/公网，Agent 在游戏内网，仅出站到 Server。游戏�
   --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
 
 # 2) 内网启动 Agent（显式参数；若二进制名仍为 proxy，请先用 proxy）
-./croupier-agent \
+./croupier agent \
   --local_addr :19090 --core_addr 127.0.0.1:8443 --game_id default --env dev \
   --cert configs/dev/agent.crt --key configs/dev/agent.key --ca configs/dev/ca.crt
 # 注：从此版本起，`--server_addr` 为 `--core_addr` 的别名（推荐使用 `--server_addr`），`--core_addr` 保留兼容并打印弃用提示。

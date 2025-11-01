@@ -3,7 +3,7 @@ VERSION := $(shell git describe --tags --always --dirty)
 BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 LDFLAGS := -X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -s -w
 
-.PHONY: proto build server agent edge clean dev tidy test lint help all
+.PHONY: proto build server agent edge cli clean dev tidy test lint help all
 
 # Build all components
 all: build
@@ -48,6 +48,11 @@ edge:
 	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-edge ./cmd/edge
 
 build: server agent edge
+
+cli:
+	@echo "[build] unified CLI"
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier ./cmd/croupier
 
 # Cross-compile for multiple platforms
 build-linux-amd64:
