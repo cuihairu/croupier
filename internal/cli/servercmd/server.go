@@ -71,6 +71,7 @@ func New() *cobra.Command {
                     v = sub // prefer sectioned config
                 }
             }
+            common.MergeLogSection(v)
 
             // logging setup
             common.SetupLoggerWithFile(

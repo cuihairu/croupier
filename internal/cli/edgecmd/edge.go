@@ -53,6 +53,7 @@ func New() *cobra.Command {
             v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
             v.AutomaticEnv()
             if cfgFile != "" { v.SetConfigFile(cfgFile); _ = v.ReadInConfig() }
+            common.MergeLogSection(v)
             common.SetupLoggerWithFile(
                 v.GetString("log.level"),
                 v.GetString("log.format"),
@@ -94,7 +95,11 @@ func New() *cobra.Command {
             go func(){
                 mux := http.NewServeMux()
                 mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request){ w.WriteHeader(http.StatusOK); _,_ = w.Write([]byte("ok")) })
-                mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request){ _ = json.NewEncoder(w).Encode(tun.MetricsMap()) })
+                mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request){
+                    m := tun.MetricsMap()
+                    m["logs"] = common.GetLogCounters()
+                    _ = json.NewEncoder(w).Encode(m)
+                })
                 log.Printf("edge http listening on %s", httpAddr)
                 _ = http.ListenAndServe(httpAddr, mux)
             }()

@@ -62,6 +62,7 @@ func New() *cobra.Command {
                 } else { log.Printf("[warn] read config: %v", err) }
                 if sub := v.Sub("agent"); sub != nil { v = sub }
             }
+            common.MergeLogSection(v)
 
             // logging setup
             common.SetupLoggerWithFile(
@@ -170,7 +171,12 @@ func New() *cobra.Command {
                 mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request){
                     mp := lstore.List(); total := 0; fns := 0
                     for _, arr := range mp { fns++; total += len(arr) }
-                    _ = json.NewEncoder(w).Encode(map[string]any{"functions": fns, "instances": total, "tunnel_reconnects": tunn.Reconnects()})
+                    _ = json.NewEncoder(w).Encode(map[string]any{
+                        "functions": fns,
+                        "instances": total,
+                        "tunnel_reconnects": tunn.Reconnects(),
+                        "logs": common.GetLogCounters(),
+                    })
                 })
                 log.Printf("agent http listening on %s", httpAddr)
                 _ = http.ListenAndServe(httpAddr, mux)
