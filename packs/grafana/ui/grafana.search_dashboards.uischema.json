@@ -1,0 +1,13 @@
+{
+  "ui:layout": { "type": "grid", "cols": 2 },
+  "ui:groups": [
+    { "title": "Grafana", "fields": ["base_url"] },
+    { "title": "Query", "fields": ["query", "type"] }
+  ],
+  "ui:fields": {
+    "base_url": { "label": "Base URL", "placeholder": "http://grafana:3000" },
+    "query": { "label": "Query", "placeholder": "dashboard name" },
+    "type": { "label": "Type", "placeholder": "dash-db" }
+  }
+}
+

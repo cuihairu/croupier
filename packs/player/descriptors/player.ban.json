@@ -1,0 +1,23 @@
+{
+  "id": "player.ban",
+  "version": "1.2.0",
+  "category": "player",
+  "risk": "high",
+  "auth": { "permission": "player.ban", "two_person_rule": true },
+  "params": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "playerId": { "type": "string" },
+      "reason": { "type": "string" }
+    },
+    "required": ["playerId"]
+  },
+  "semantics": { "mode": "command", "route": "lb", "timeout": "30s", "idempotency_key": true },
+  "outputs": {
+    "views": [
+      { "id": "json", "type": "json", "renderer": "json.view" }
+    ]
+  }
+}
+

@@ -1,0 +1,6 @@
+{
+  "functions": [
+    { "id": "http.generic_invoke", "version": "1.0.0", "category": "http" }
+  ]
+}
+

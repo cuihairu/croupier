@@ -1,0 +1,28 @@
+{
+  "id": "grafana.search_dashboards",
+  "version": "1.0.0",
+  "category": "grafana",
+  "risk": "low",
+  "auth": { "permission": "grafana.search_dashboards" },
+  "params": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "base_url": { "type": "string", "format": "uri" },
+      "query": { "type": "string" },
+      "type": { "type": "string", "default": "dash-db" }
+    },
+    "required": ["base_url"]
+  },
+  "semantics": { "mode": "query", "route": "lb", "timeout": "30s" },
+  "outputs": {
+    "layout": { "type": "grid", "cols": 1 },
+    "views": [
+      { "id": "table", "renderer": "table.basic",
+        "transform": { "expr": "$" }
+      },
+      { "id": "json", "renderer": "json.view" }
+    ]
+  }
+}
+

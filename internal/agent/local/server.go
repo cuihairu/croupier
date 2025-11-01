@@ -21,10 +21,12 @@ type Server struct {
     gameID string
     env    string
     exec *jobs.Executor
+    // allowed functions (if empty -> allow all)
+    allowed map[string]bool
 }
 
 func NewServer(store *registry.LocalStore, ctrl controlv1.ControlServiceClient, agentID, agentVersion, agentRPCAddr, gameID, env string, exec *jobs.Executor) *Server {
-    return &Server{store: store, ctrl: ctrl, agentID: agentID, agentVersion: agentVersion, agentRPCAddr: agentRPCAddr, gameID: gameID, env: env, exec: exec}
+    return &Server{store: store, ctrl: ctrl, agentID: agentID, agentVersion: agentVersion, agentRPCAddr: agentRPCAddr, gameID: gameID, env: env, exec: exec, allowed: map[string]bool{}}
 }
 
 func (s *Server) RegisterLocal(ctx context.Context, req *localv1.RegisterLocalRequest) (*localv1.RegisterLocalResponse, error) {
@@ -55,6 +57,7 @@ func (s *Server) ListLocal(ctx context.Context, _ *localv1.ListLocalRequest) (*l
     out := &localv1.ListLocalResponse{}
     mp := s.store.List()
     for fid, arr := range mp {
+        if len(s.allowed) > 0 { if !s.allowed[fid] { continue } }
         lf := &localv1.LocalFunction{Id: fid}
         for _, inst := range arr {
             lf.Instances = append(lf.Instances, &localv1.LocalInstance{ServiceId: inst.ServiceID, Addr: inst.Addr, Version: inst.Version, LastSeen: inst.LastSeen.Format(time.RFC3339)})
@@ -62,6 +65,13 @@ func (s *Server) ListLocal(ctx context.Context, _ *localv1.ListLocalRequest) (*l
         out.Functions = append(out.Functions, lf)
     }
     return out, nil
+}
+
+// UpdateAllowed sets the allow-list for functions (empty slice -> allow all).
+func (s *Server) UpdateAllowed(fns []string) {
+    m := map[string]bool{}
+    for _, id := range fns { if id != "" { m[id] = true } }
+    s.allowed = m
 }
 
 func (s *Server) GetJobResult(ctx context.Context, req *localv1.GetJobResultRequest) (*localv1.GetJobResultResponse, error) {

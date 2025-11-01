@@ -1,0 +1,28 @@
+{
+  "id": "http.generic_invoke",
+  "version": "1.0.0",
+  "category": "http",
+  "risk": "low",
+  "auth": { "permission": "http.generic_invoke" },
+  "params": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "method": { "type": "string", "enum": ["GET","POST","PUT","PATCH","DELETE"] },
+      "url": { "type": "string" },
+      "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+      "body": { "type": "string" }
+    },
+    "required": ["method","url"]
+  },
+  "semantics": { "mode": "query", "route": "lb", "timeout": "30s" },
+  "outputs": {
+    "layout": { "type": "grid", "cols": 2 },
+    "views": [
+      { "id": "json", "type": "json", "renderer": "json.view", "transform": { "lang": "cel", "expr": "$" } },
+      { "id": "table", "type": "table", "renderer": "table.basic", "show_if": "$.data.items", "transform": { "expr": "$.data.items" } },
+      { "id": "table_root", "type": "table", "renderer": "table.basic", "show_if": "$.0", "transform": { "expr": "$" } },
+      { "id": "chart_series", "type": "chart", "renderer": "echarts.line", "show_if": "$.series", "transform": { "expr": "$.series" }, "options": { "smooth": true } }
+    ]
+  }
+}

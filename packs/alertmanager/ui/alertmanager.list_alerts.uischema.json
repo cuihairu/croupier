@@ -1,0 +1,14 @@
+{
+  "ui:layout": { "type": "grid", "cols": 2 },
+  "ui:groups": [
+    { "title": "Alertmanager", "fields": ["base_url"] },
+    { "title": "Filters", "fields": ["silenced", "inhibited", "active"] }
+  ],
+  "ui:fields": {
+    "base_url": { "label": "Base URL", "placeholder": "http://alertmanager:9093" },
+    "silenced": { "label": "Silenced" },
+    "inhibited": { "label": "Inhibited" },
+    "active": { "label": "Active" }
+  }
+}
+

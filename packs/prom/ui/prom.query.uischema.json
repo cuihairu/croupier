@@ -1,0 +1,12 @@
+{
+  "ui:layout": { "type": "grid", "cols": 2 },
+  "ui:groups": [
+    { "title": "PromQL", "fields": ["expr"] },
+    { "title": "Time", "fields": ["time"] }
+  ],
+  "ui:fields": {
+    "expr": { "widget": "textarea", "placeholder": "up" },
+    "time": { "widget": "date" }
+  }
+}
+

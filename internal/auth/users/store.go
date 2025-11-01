@@ -14,6 +14,7 @@ type User struct {
     Password string   `json:"password"` // sha256(salt+password) hex
     Roles    []string `json:"roles"`
     Perms    []string `json:"perms,omitempty"`
+    OTPSecret string  `json:"otp_secret,omitempty"`
 }
 
 type Store struct {
@@ -39,4 +40,3 @@ func (s *Store) Verify(username, password string) (User, error) {
     if hex.EncodeToString(h[:]) != u.Password { return User{}, errors.New("invalid credentials") }
     return u, nil
 }
-

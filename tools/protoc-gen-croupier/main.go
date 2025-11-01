@@ -141,9 +141,9 @@ func main() {
                 addJSON(resp, &generatedFiles, filepath.Join("ui", sanitize(funID)+".schema.json"), schema)
                 addJSON(resp, &generatedFiles, filepath.Join("ui", sanitize(funID)+".uischema.json"), uiSchema)
             }
-				addJSON(resp, &generatedFiles, filepath.Join("descriptors", sanitize(funID)+".json"), desc)
+                addJSON(resp, &generatedFiles, filepath.Join("descriptors", sanitize(funID)+".json"), desc)
 
-				manifest.Functions = append(manifest.Functions, FunctionSpec{ID: funID, Version: version, Category: category})
+				manifest.Functions = append(manifest.Functions, FunctionSpec{ID: funID, Version: version, Category: category, Labels: fo.Labels})
 			}
 		}
 	}

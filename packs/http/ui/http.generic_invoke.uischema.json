@@ -1,0 +1,13 @@
+{
+  "ui:layout": { "type": "grid", "cols": 2 },
+  "ui:groups": [
+    { "title": "Request", "fields": ["method","url","headers","body"] }
+  ],
+  "ui:fields": {
+    "method": { "label": "Method" },
+    "url": { "label": "URL", "placeholder": "https://api.example.com/path" },
+    "headers": { "label": "Headers" },
+    "body": { "widget": "textarea", "label": "Body" }
+  }
+}
+

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "title": "QueryRequest",
+  "properties": {
+    "expr": { "type": "string" },
+    "time": { "type": "string", "format": "date-time" }
+  },
+  "required": ["expr"]
+}
+

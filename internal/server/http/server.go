@@ -11,6 +11,7 @@ import (
     "context"
     "crypto/rand"
     "encoding/hex"
+    "crypto/sha256"
     "fmt"
     "github.com/cuihairu/croupier/internal/validation"
     auditchain "github.com/cuihairu/croupier/internal/audit/chain"
@@ -77,6 +78,8 @@ type Server struct {
     // assignments: game_id|env -> []function_ids
     assignments map[string][]string
     assignmentsPath string
+    // packs export auth requirement (optional via env)
+    packsExportRequireAuth bool
 }
 
 type FunctionInvoker interface {
@@ -111,13 +114,16 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
     if b, err := os.ReadFile(s.assignmentsPath); err == nil {
         _ = json.Unmarshal(b, &s.assignments)
     }
-    // optional metrics toggles via env
+    // optional toggles via env
     // METRICS_PER_FUNCTION=true|false, METRICS_PER_GAME_DENIES=true|false
     if v := os.Getenv("METRICS_PER_FUNCTION"); v != "" {
         SetMetricsOptions(strings.EqualFold(v, "true") || v == "1" || strings.EqualFold(v, "yes"), metricsPerGameDenies.Load())
     }
     if v := os.Getenv("METRICS_PER_GAME_DENIES"); v != "" {
         SetMetricsOptions(metricsPerFunction.Load(), strings.EqualFold(v, "true") || v == "1" || strings.EqualFold(v, "yes"))
+    }
+    if v := os.Getenv("PACKS_EXPORT_REQUIRE_AUTH"); v != "" {
+        s.packsExportRequireAuth = strings.EqualFold(v, "true") || v == "1" || strings.EqualFold(v, "yes")
     }
     s.routes()
     return s, nil
@@ -139,6 +145,58 @@ type histogram struct{
     counts  []int64
     sum     float64
     count   int64
+}
+
+// computePackETag returns a stable sha256 hex digest for current pack content under packDir.
+// It walks manifest.json, descriptors/*.json, ui/*.json, web-plugin/*.js and any *.pb at root,
+// hashing rel path and file bytes to build a content-addressed ETag.
+func computePackETag(packDir string) string {
+    h := sha256.New()
+    writeFile := func(rel string) {
+        p := filepath.Join(packDir, rel)
+        b, err := os.ReadFile(p)
+        if err != nil { return }
+        _, _ = h.Write([]byte(rel))
+        _, _ = h.Write([]byte{0})
+        _, _ = h.Write(b)
+        _, _ = h.Write([]byte{0})
+    }
+    // manifest
+    writeFile("manifest.json")
+    // descriptors and ui
+    _ = filepath.Walk(filepath.Join(packDir, "descriptors"), func(path string, info os.FileInfo, err error) error {
+        if err != nil || info == nil || info.IsDir() { return nil }
+        if filepath.Ext(path) != ".json" { return nil }
+        rel, _ := filepath.Rel(packDir, path)
+        writeFile(rel)
+        return nil
+    })
+    _ = filepath.Walk(filepath.Join(packDir, "ui"), func(path string, info os.FileInfo, err error) error {
+        if err != nil || info == nil || info.IsDir() { return nil }
+        if filepath.Ext(path) != ".json" { return nil }
+        rel, _ := filepath.Rel(packDir, path)
+        writeFile(rel)
+        return nil
+    })
+    // web-plugin js
+    _ = filepath.Walk(filepath.Join(packDir, "web-plugin"), func(path string, info os.FileInfo, err error) error {
+        if err != nil || info == nil || info.IsDir() { return nil }
+        if filepath.Ext(path) != ".js" { return nil }
+        rel, _ := filepath.Rel(packDir, path)
+        writeFile(rel)
+        return nil
+    })
+    // root *.pb
+    _ = filepath.Walk(packDir, func(path string, info os.FileInfo, err error) error {
+        if err != nil || info == nil || info.IsDir() { return nil }
+        if filepath.Dir(path) != packDir { return nil }
+        if filepath.Ext(path) != ".pb" { return nil }
+        rel, _ := filepath.Rel(packDir, path)
+        writeFile(rel)
+        return nil
+    })
+    sum := h.Sum(nil)
+    return hex.EncodeToString(sum)
 }
 func newHistogram() *histogram {
     b := []float64{0.005,0.01,0.025,0.05,0.1,0.25,0.5,1,2.5,5,10}
@@ -256,7 +314,11 @@ func (s *Server) routes() {
 
     // Pack import: multipart/form-data with file=pack.tgz
     s.mux.HandleFunc("/api/packs/import", func(w http.ResponseWriter, r *http.Request){
+        addCORS(w, r)
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        if user, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return } else {
+            if s.rbac != nil && !(s.rbac.Can(user, "packs:import") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+        }
         if err := r.ParseMultipartForm(32 << 20); err != nil { http.Error(w, err.Error(), 400); return }
         f, hdr, err := r.FormFile("file")
         if err != nil { http.Error(w, "missing file", 400); return }
@@ -300,12 +362,19 @@ func (s *Server) routes() {
             if filepath.Ext(path) == ".json" { c.UISchema++ }
             return nil
         })
-        _ = json.NewEncoder(w).Encode(map[string]any{"manifest": mani, "counts": c})
+        etag := computePackETag(s.packDir)
+        _ = json.NewEncoder(w).Encode(map[string]any{"manifest": mani, "counts": c, "etag": etag, "export_auth_required": s.packsExportRequireAuth})
     })
     // Packs export: stream current pack (descriptors/ui/manifest/web-plugin/*.js and any *.pb) as tar.gz
     s.mux.HandleFunc("/api/packs/export", func(w http.ResponseWriter, r *http.Request){
         addCORS(w, r)
         if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        if s.packsExportRequireAuth {
+            if user, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return } else {
+                if s.rbac != nil && !(s.rbac.Can(user, "packs:export") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+            }
+        }
+        if et := computePackETag(s.packDir); et != "" { w.Header().Set("ETag", et) }
         w.Header().Set("Content-Type", "application/gzip")
         w.Header().Set("Content-Disposition", "attachment; filename=pack.tgz")
         gz := gzip.NewWriter(w)
@@ -351,7 +420,11 @@ func (s *Server) routes() {
     })
     // Packs reload: rescan packDir for descriptors and fds (useful after out-of-band changes)
     s.mux.HandleFunc("/api/packs/reload", func(w http.ResponseWriter, r *http.Request){
+        addCORS(w, r)
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        if user, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return } else {
+            if s.rbac != nil && !(s.rbac.Can(user, "packs:reload") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+        }
         // Reload descriptors and FDS
         descs, err := descriptor.LoadAll(s.packDir)
         if err == nil {
@@ -385,8 +458,10 @@ func (s *Server) routes() {
             s.mu.RUnlock()
             _ = json.NewEncoder(w).Encode(struct{ Assignments map[string][]string `json:"assignments"` }{Assignments: out})
         case http.MethodPost:
-            if user, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return } else {
-                if s.rbac != nil && !(s.rbac.Can(user, "assignments:write") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+            actor := ""
+            if u, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return } else {
+                actor = u
+                if s.rbac != nil && !(s.rbac.Can(u, "assignments:write") || s.rbac.Can(u, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
             }
             var in struct{ GameID, Env string; Functions []string }
             if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.GameID == "" {
@@ -401,6 +476,17 @@ func (s *Server) routes() {
             s.mu.Lock(); s.assignments[key] = append([]string{}, valid...); s.mu.Unlock()
             b, _ := json.MarshalIndent(s.assignments, "", "  ")
             _ = os.WriteFile(s.assignmentsPath, b, 0o644)
+            // audit
+            if s.audit != nil {
+                meta := map[string]string{
+                    "game_env": key,
+                    "game_id": in.GameID,
+                    "env": in.Env,
+                    "functions": strings.Join(valid, ","),
+                }
+                if len(unknown) > 0 { meta["unknown"] = strings.Join(unknown, ",") }
+                if err := s.audit.Log("assignments.update", actor, key, meta); err != nil { atomic.AddInt64(&s.auditErrors, 1) }
+            }
             _ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "unknown": unknown})
         default:
             w.WriteHeader(http.StatusMethodNotAllowed)
@@ -927,17 +1013,47 @@ func (s *Server) routes() {
     // Audit list (simple JSONL reader with filters)
     s.mux.HandleFunc("/api/audit", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
-        if _, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
+        if user, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return } else {
+            if s.rbac != nil && !(s.rbac.Can(user, "audit:read") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+        }
         if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
         gameID := r.URL.Query().Get("game_id")
         env := r.URL.Query().Get("env")
         actor := r.URL.Query().Get("actor")
         kind := r.URL.Query().Get("kind")
+        // optional time range filters: start/end accept RFC3339 or unix seconds/milliseconds
+        parseBound := func(qs string) (time.Time, bool) {
+            v := strings.TrimSpace(r.URL.Query().Get(qs))
+            if v == "" { return time.Time{}, false }
+            // try RFC3339
+            if t, err := time.Parse(time.RFC3339, v); err == nil { return t, true }
+            // try integer seconds or ms
+            var n int64
+            if _, err := fmt.Sscanf(v, "%d", &n); err == nil {
+                if n > 1_000_000_000_000 { // likely ms
+                    return time.Unix(0, n*int64(time.Millisecond)), true
+                }
+                return time.Unix(n, 0), true
+            }
+            return time.Time{}, false
+        }
+        startT, hasStart := parseBound("start")
+        endT, hasEnd := parseBound("end")
+        // pagination (optional): limit, offset or page+size
         limit := 200
         if qs := r.URL.Query().Get("limit"); qs != "" { fmt.Sscanf(qs, "%d", &limit) }
-        type resp struct{ Events []auditchain.Event `json:"events"` }
-        var events []auditchain.Event
-        // naive scan
+        if qs := r.URL.Query().Get("size"); qs != "" { fmt.Sscanf(qs, "%d", &limit) }
+        if limit <= 0 { limit = 200 }
+        offset := 0
+        if qs := r.URL.Query().Get("offset"); qs != "" { fmt.Sscanf(qs, "%d", &offset) }
+        if qs := r.URL.Query().Get("page"); qs != "" {
+            var page int
+            fmt.Sscanf(qs, "%d", &page)
+            if page > 0 { offset = (page-1) * limit }
+        }
+        type resp struct{ Events []auditchain.Event `json:"events"`; Total int `json:"total"` }
+        all := make([]auditchain.Event, 0, limit)
+        // naive scan (reads entire logs/audit.log; ok for dev/demo)
         f, err := os.Open("logs/audit.log")
         if err == nil {
             defer f.Close()
@@ -952,25 +1068,33 @@ func (s *Server) routes() {
                 if env != "" && ev.Meta["env"] != env { continue }
                 if actor != "" && ev.Actor != actor { continue }
                 if kind != "" && ev.Kind != kind { continue }
-                events = append(events, ev)
-                if len(events) > limit*2 { // basic cap
-                    events = events[len(events)-limit:]
-                }
+                if hasStart && ev.Time.Before(startT) { continue }
+                if hasEnd && ev.Time.After(endT) { continue }
+                all = append(all, ev)
             }
         }
-        // tail limit
-        if len(events) > limit { events = events[len(events)-limit:] }
-        // sort by time ascending (already append order)
-        _ = json.NewEncoder(w).Encode(resp{Events: events})
+        // newest-first ordering
+        for i, j := 0, len(all)-1; i < j; i, j = i+1, j-1 { all[i], all[j] = all[j], all[i] }
+        total := len(all)
+        // apply offset+limit window
+        start := offset
+        if start > total { start = total }
+        end := start + limit
+        if end > total { end = total }
+        window := all[start:end]
+        _ = json.NewEncoder(w).Encode(resp{Events: window, Total: total})
     })
     // Registry summary
     s.mux.HandleFunc("/api/registry", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
-        if _, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
+        if user, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return } else {
+            if s.rbac != nil && !(s.rbac.Can(user, "registry:read") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+        }
         if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
         type Agent struct{ AgentID, GameID, Env, RpcAddr string; Functions int; Healthy bool; ExpiresInSec int }
         type Function struct{ GameID, ID string; Agents int }
-        type Coverage struct{ GameEnv string `json:"game_env"`; Functions map[string]int `json:"functions"` }
+        type FuncCov struct{ Healthy int `json:"healthy"`; Total int `json:"total"` }
+        type Coverage struct{ GameEnv string `json:"game_env"`; Functions map[string]FuncCov `json:"functions"`; Uncovered []string `json:"uncovered"` }
         var agents []Agent
         var functions []Function
         var coverage []Coverage
@@ -983,23 +1107,35 @@ func (s *Server) routes() {
                 if exp < 0 { exp = 0 }
                 agents = append(agents, Agent{AgentID: a.AgentID, GameID: a.GameID, Env: a.Env, RpcAddr: a.RPCAddr, Functions: len(a.Functions), Healthy: healthy, ExpiresInSec: exp})
             }
-            fnCount := map[string]map[string]int{}
+            fnCountAll := map[string]map[string]int{}
+            fnCountHealthy := map[string]map[string]int{}
             for _, a := range s.reg.AgentsUnsafe() {
+                isHealthy := now.Before(a.ExpireAt)
                 for fid := range a.Functions {
-                    if fnCount[a.GameID] == nil { fnCount[a.GameID] = map[string]int{} }
-                    fnCount[a.GameID][fid]++
+                    if fnCountAll[a.GameID] == nil { fnCountAll[a.GameID] = map[string]int{} }
+                    fnCountAll[a.GameID][fid]++
+                    if isHealthy {
+                        if fnCountHealthy[a.GameID] == nil { fnCountHealthy[a.GameID] = map[string]int{} }
+                        fnCountHealthy[a.GameID][fid]++
+                    }
                 }
             }
-            for gid, m := range fnCount {
+            for gid, m := range fnCountHealthy {
                 for fid, c := range m { functions = append(functions, Function{GameID: gid, ID: fid, Agents: c}) }
             }
             // assignments coverage: for each game|env key, compute agents covering its functions (by game only)
             for k, fns := range s.assignments {
                 parts := strings.SplitN(k, "|", 2)
                 gid := parts[0]
-                cov := map[string]int{}
-                for _, fid := range fns { cov[fid] = fnCount[gid][fid] }
-                coverage = append(coverage, Coverage{GameEnv: k, Functions: cov})
+                cov := map[string]FuncCov{}
+                uncovered := []string{}
+                for _, fid := range fns {
+                    h := fnCountHealthy[gid][fid]
+                    t := fnCountAll[gid][fid]
+                    cov[fid] = FuncCov{Healthy: h, Total: t}
+                    if h == 0 { uncovered = append(uncovered, fid) }
+                }
+                coverage = append(coverage, Coverage{GameEnv: k, Functions: cov, Uncovered: uncovered})
             }
             s.reg.Mu().RUnlock()
         }
