@@ -1,0 +1,12 @@
+local_addr: ":19090"
+server_addr: "127.0.0.1:8443"  # or use core_addr (deprecated)
+server_name: ""                # optional SNI override
+http_addr: ":19091"
+agent_id: "agent-1"
+agent_version: "0.1.0"
+game_id: "default"
+env: "dev"
+insecure_local: true
+cert: "configs/dev/agent.crt"
+key: "configs/dev/agent.key"
+ca: "configs/dev/ca.crt"
