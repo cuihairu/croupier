@@ -1,0 +1,32 @@
+syntax = "proto3";
+package croupier.options;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "github.com/cuihairu/croupier/gen/go/croupier/options;optionspb";
+
+// 方法级元信息（可选）。插件未识别时将使用默认推断。
+message FunctionOptions {
+  // 全局唯一函数ID（默认：<package>.<service>.<method> 转小写）
+  string function_id = 1;
+  // 版本（默认 1.0.0）
+  string version = 2;
+  // 类目（默认取 package 里的第二级，如 games.player.v1 → player）
+  string category = 3;
+  // 风险级别：low/medium/high（默认 medium）
+  string risk = 4;
+  // 路由策略：lb/broadcast/targeted/hash（默认 lb）
+  string route = 5;
+  // 超时（默认 30s）
+  string timeout = 6;
+  // 两人审批（默认 false）
+  bool two_person_rule = 7;
+  // 放置位置：core/agent（默认 agent）
+  string placement = 8;
+  // 额外标签
+  map<string,string> labels = 9;
+}
+
+extend google.protobuf.MethodOptions {
+  FunctionOptions function = 51001;
+}
