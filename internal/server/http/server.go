@@ -25,6 +25,7 @@ import (
     "sync"
     users "github.com/cuihairu/croupier/internal/auth/users"
     jwt "github.com/cuihairu/croupier/internal/auth/token"
+    "github.com/cuihairu/croupier/internal/auth/otp"
     localv1 "github.com/cuihairu/croupier/gen/go/croupier/agent/local/v1"
     "google.golang.org/grpc"
     "google.golang.org/grpc/credentials/insecure"
@@ -38,6 +39,7 @@ import (
     "archive/tar"
     "compress/gzip"
     "strconv"
+    "math"
 )
 
 type Server struct {
@@ -69,6 +71,12 @@ type Server struct {
     fn map[string]*fnMetrics
     // approvals store (two-person rule)
     approvals appr.Store
+    // per-function rate limiters and concurrency semaphores
+    rl map[string]*rateLimiter
+    conc map[string]chan struct{}
+    // assignments: game_id|env -> []function_ids
+    assignments map[string][]string
+    assignmentsPath string
 }
 
 type FunctionInvoker interface {
@@ -83,21 +91,34 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
     if err != nil { return nil, err }
     idx := map[string]*descriptor.Descriptor{}
     for _, d := range descs { idx[d.ID] = d }
-    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, games: gamesStore, reg: reg, userStore: userStore, jwtMgr: jwtMgr, startedAt: time.Now(), locator: locator, statsProv: statsProv, fn: map[string]*fnMetrics{}, typeReg: pack.NewTypeRegistry(), packDir: descriptorDir}
+    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, games: gamesStore, reg: reg, userStore: userStore, jwtMgr: jwtMgr, startedAt: time.Now(), locator: locator, statsProv: statsProv, fn: map[string]*fnMetrics{}, typeReg: pack.NewTypeRegistry(), packDir: descriptorDir, rl: map[string]*rateLimiter{}, conc: map[string]chan struct{}{}, assignments: map[string][]string{}, assignmentsPath: filepath.Join(descriptorDir, "assignments.json")}
     // approvals store: prefer Postgres via env DATABASE_URL, else in-memory
     dbURL := os.Getenv("DATABASE_URL")
     if dbURL != "" {
-        if st, err := appr.NewPGStore(dbURL); err == nil {
-            s.approvals = st
-            log.Printf("[approvals] using postgres store")
+        // Prefer explicit scheme
+        if strings.HasPrefix(dbURL, "postgres://") || strings.HasPrefix(dbURL, "postgresql://") || strings.HasPrefix(dbURL, "pgx://") {
+            if st, err := appr.NewPGStore(dbURL); err == nil { s.approvals = st; log.Printf("[approvals] using postgres store") } else { log.Printf("[approvals] postgres disabled: %v; fallback to memory", err); s.approvals = appr.NewMemStore() }
+        } else if strings.HasPrefix(dbURL, "sqlite://") || strings.HasPrefix(dbURL, "file:") || strings.HasSuffix(dbURL, ".db") || dbURL == ":memory:" {
+            if st, err := appr.NewSQLiteStore(dbURL); err == nil { s.approvals = st; log.Printf("[approvals] using sqlite store") } else { log.Printf("[approvals] sqlite disabled: %v; fallback to memory", err); s.approvals = appr.NewMemStore() }
         } else {
-            log.Printf("[approvals] postgres disabled: %v; fallback to memory", err)
+            // unknown scheme
+            log.Printf("[approvals] unknown DATABASE_URL scheme; using memory")
             s.approvals = appr.NewMemStore()
         }
-    } else {
-        s.approvals = appr.NewMemStore()
-    }
+    } else { s.approvals = appr.NewMemStore() }
     _ = s.typeReg.LoadFDSFromDir(descriptorDir)
+    // load assignments (best-effort)
+    if b, err := os.ReadFile(s.assignmentsPath); err == nil {
+        _ = json.Unmarshal(b, &s.assignments)
+    }
+    // optional metrics toggles via env
+    // METRICS_PER_FUNCTION=true|false, METRICS_PER_GAME_DENIES=true|false
+    if v := os.Getenv("METRICS_PER_FUNCTION"); v != "" {
+        SetMetricsOptions(strings.EqualFold(v, "true") || v == "1" || strings.EqualFold(v, "yes"), metricsPerGameDenies.Load())
+    }
+    if v := os.Getenv("METRICS_PER_GAME_DENIES"); v != "" {
+        SetMetricsOptions(metricsPerFunction.Load(), strings.EqualFold(v, "true") || v == "1" || strings.EqualFold(v, "yes"))
+    }
     s.routes()
     return s, nil
 }
@@ -200,7 +221,37 @@ func (s *Server) routes() {
             out["conn_pool"] = s.statsProv.GetPoolStats()
         }
         out["logs"] = common.GetLogCounters()
+        // approvals snapshot counters (best-effort)
+        if s.approvals != nil {
+            type cnt struct{ Pending, Approved, Rejected int }
+            get := func(state string) int {
+                items, total, err := s.approvals.List(appr.Filter{State: state}, appr.Page{Page: 1, Size: 1})
+                _ = items
+                if err != nil { return -1 }
+                return total
+            }
+            out["approvals"] = map[string]int{
+                "pending":  get("pending"),
+                "approved": get("approved"),
+                "rejected": get("rejected"),
+            }
+        }
         _ = json.NewEncoder(w).Encode(out)
+    })
+
+    // UI schema fetch: /api/ui_schema?id=<function_id>
+    s.mux.HandleFunc("/api/ui_schema", func(w http.ResponseWriter, r *http.Request){
+        addCORS(w, r)
+        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        id := r.URL.Query().Get("id")
+        if id == "" { http.Error(w, "missing id", 400); return }
+        base := sanitize(id)
+        schemaPath := filepath.Join(s.packDir, "ui", base+".schema.json")
+        uiPath := filepath.Join(s.packDir, "ui", base+".uischema.json")
+        var schema, uischema any
+        if b, err := os.ReadFile(schemaPath); err == nil { _ = json.Unmarshal(b, &schema) }
+        if b, err := os.ReadFile(uiPath); err == nil { _ = json.Unmarshal(b, &uischema) }
+        _ = json.NewEncoder(w).Encode(map[string]any{"schema": schema, "uischema": uischema})
     })
 
     // Pack import: multipart/form-data with file=pack.tgz
@@ -227,6 +278,134 @@ func (s *Server) routes() {
         _ = s.typeReg.LoadFDSFromDir(s.packDir)
         _ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
     })
+    // Packs list: return current manifest and basic counts
+    s.mux.HandleFunc("/api/packs/list", func(w http.ResponseWriter, r *http.Request){
+        addCORS(w, r)
+        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        maniPath := filepath.Join(s.packDir, "manifest.json")
+        b, err := os.ReadFile(maniPath)
+        if err != nil { http.Error(w, "manifest not found", http.StatusNotFound); return }
+        var mani any
+        _ = json.Unmarshal(b, &mani)
+        // basic counts
+        type counts struct{ Descriptors int `json:"descriptors"`; UISchema int `json:"ui_schema"` }
+        c := counts{}
+        _ = filepath.Walk(filepath.Join(s.packDir, "descriptors"), func(path string, info os.FileInfo, err error) error {
+            if err != nil || info == nil || info.IsDir() { return nil }
+            if filepath.Ext(path) == ".json" { c.Descriptors++ }
+            return nil
+        })
+        _ = filepath.Walk(filepath.Join(s.packDir, "ui"), func(path string, info os.FileInfo, err error) error {
+            if err != nil || info == nil || info.IsDir() { return nil }
+            if filepath.Ext(path) == ".json" { c.UISchema++ }
+            return nil
+        })
+        _ = json.NewEncoder(w).Encode(map[string]any{"manifest": mani, "counts": c})
+    })
+    // Packs export: stream current pack (descriptors/ui/manifest/web-plugin/*.js and any *.pb) as tar.gz
+    s.mux.HandleFunc("/api/packs/export", func(w http.ResponseWriter, r *http.Request){
+        addCORS(w, r)
+        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        w.Header().Set("Content-Type", "application/gzip")
+        w.Header().Set("Content-Disposition", "attachment; filename=pack.tgz")
+        gz := gzip.NewWriter(w)
+        defer gz.Close()
+        tw := tar.NewWriter(gz)
+        defer tw.Close()
+        // write manifest.json if exists
+        maniPath := filepath.Join(s.packDir, "manifest.json")
+        if b, err := os.ReadFile(maniPath); err == nil {
+            hdr := &tar.Header{Name: "manifest.json", Mode: 0644, Size: int64(len(b))}
+            if err := tw.WriteHeader(hdr); err == nil { _, _ = tw.Write(b) }
+        }
+        // helper to add files under a dir with a prefix
+        addDir := func(rel string) {
+            base := filepath.Join(s.packDir, rel)
+            _ = filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
+                if err != nil || info == nil || info.IsDir() { return nil }
+                // limit to json/js/pb files
+                if !(filepath.Ext(path) == ".json" || filepath.Ext(path) == ".js" || filepath.Ext(path) == ".pb") { return nil }
+                b, err := os.ReadFile(path)
+                if err != nil { return nil }
+                relPath, _ := filepath.Rel(s.packDir, path)
+                hdr := &tar.Header{Name: filepath.ToSlash(relPath), Mode: 0644, Size: int64(len(b))}
+                if err := tw.WriteHeader(hdr); err == nil { _, _ = tw.Write(b) }
+                return nil
+            })
+        }
+        addDir("descriptors")
+        addDir("ui")
+        addDir("web-plugin")
+        // also include any *.pb at root
+        _ = filepath.Walk(s.packDir, func(path string, info os.FileInfo, err error) error {
+            if err != nil || info == nil || info.IsDir() { return nil }
+            if filepath.Dir(path) != s.packDir { return nil }
+            if filepath.Ext(path) != ".pb" { return nil }
+            b, err := os.ReadFile(path)
+            if err != nil { return nil }
+            relPath, _ := filepath.Rel(s.packDir, path)
+            hdr := &tar.Header{Name: filepath.ToSlash(relPath), Mode: 0644, Size: int64(len(b))}
+            if err := tw.WriteHeader(hdr); err == nil { _, _ = tw.Write(b) }
+            return nil
+        })
+    })
+    // Packs reload: rescan packDir for descriptors and fds (useful after out-of-band changes)
+    s.mux.HandleFunc("/api/packs/reload", func(w http.ResponseWriter, r *http.Request){
+        if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        // Reload descriptors and FDS
+        descs, err := descriptor.LoadAll(s.packDir)
+        if err == nil {
+            idx := map[string]*descriptor.Descriptor{}
+            for _, d := range descs { idx[d.ID] = d }
+            s.descs = descs; s.descIndex = idx
+        }
+        _ = s.typeReg.LoadFDSFromDir(s.packDir)
+        _ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+    })
+    // Assignments management: GET list; POST set {game_id,env,functions}
+    s.mux.HandleFunc("/api/assignments", func(w http.ResponseWriter, r *http.Request){
+        addCORS(w, r)
+        switch r.Method {
+        case http.MethodGet:
+            if user, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return } else {
+                if s.rbac != nil && !(s.rbac.Can(user, "assignments:read") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+            }
+            gid := r.URL.Query().Get("game_id")
+            env := r.URL.Query().Get("env")
+            s.mu.RLock()
+            out := map[string][]string{}
+            for k, v := range s.assignments {
+                if gid != "" || env != "" {
+                    parts := strings.SplitN(k, "|", 2)
+                    ge := ""; if len(parts) > 1 { ge = parts[1] }
+                    if (gid != "" && parts[0] != gid) || (env != "" && ge != env) { continue }
+                }
+                out[k] = append([]string{}, v...)
+            }
+            s.mu.RUnlock()
+            _ = json.NewEncoder(w).Encode(struct{ Assignments map[string][]string `json:"assignments"` }{Assignments: out})
+        case http.MethodPost:
+            if user, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return } else {
+                if s.rbac != nil && !(s.rbac.Can(user, "assignments:write") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+            }
+            var in struct{ GameID, Env string; Functions []string }
+            if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.GameID == "" {
+                http.Error(w, "bad request", http.StatusBadRequest); return }
+            // validate function ids
+            valid := make([]string, 0, len(in.Functions))
+            unknown := []string{}
+            for _, fid := range in.Functions {
+                if _, ok := s.descIndex[fid]; ok { valid = append(valid, fid) } else { unknown = append(unknown, fid) }
+            }
+            key := in.GameID + "|" + in.Env
+            s.mu.Lock(); s.assignments[key] = append([]string{}, valid...); s.mu.Unlock()
+            b, _ := json.MarshalIndent(s.assignments, "", "  ")
+            _ = os.WriteFile(s.assignmentsPath, b, 0o644)
+            _ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "unknown": unknown})
+        default:
+            w.WriteHeader(http.StatusMethodNotAllowed)
+        }
+    })
 
     // Prometheus text exposition (basic)
     s.mux.HandleFunc("/metrics.prom", func(w http.ResponseWriter, r *http.Request){
@@ -250,6 +429,9 @@ func (s *Server) routes() {
         fmt.Fprintf(w, "croupier_logs_total{level=\"warn\"} %d\n", lc["warn"])
         fmt.Fprintf(w, "croupier_logs_total{level=\"error\"} %d\n", lc["error"])
     })
+
+    // Serve pack static (manifest.json, web-plugin/*)
+    s.mux.Handle("/pack_static/", http.StripPrefix("/pack_static/", http.FileServer(http.Dir(s.packDir))))
 
     // Ant Design Pro demo stubs (for template pages)
     // GET /api/rule -> return empty rule list; POST /api/rule -> no-op
@@ -322,6 +504,31 @@ func (s *Server) routes() {
             }
         } else { scopedOk = true }
         if !scopedOk { http.Error(w, "forbidden", http.StatusForbidden); return }
+        // ABAC allow_if expression (optional): descriptor.auth.allow_if
+        if d := s.descIndex[in.FunctionID]; d != nil && d.Auth != nil {
+            if expr, ok := d.Auth["allow_if"].(string); ok && expr != "" {
+                userName, roles, _ := s.auth(r)
+                ctx := policyContext{User: userName, Roles: roles, GameID: gameID, Env: env, FunctionID: in.FunctionID}
+                if !evalAllowIf(expr, ctx) { http.Error(w, "forbidden", http.StatusForbidden); return }
+            }
+        }
+        // rate limit and concurrency guards
+        if d := s.descIndex[in.FunctionID]; d != nil && d.Semantics != nil {
+            if v, ok := d.Semantics["rate_limit"].(string); ok && v != "" {
+                rl := s.getRateLimiter(in.FunctionID, v)
+                if rl != nil && !rl.Try() { http.Error(w, "rate limited", 429); return }
+            }
+            if v, ok := d.Semantics["concurrency"].(float64); ok && v > 0 {
+                sem := s.getSemaphore(in.FunctionID, int(v))
+                select {
+                case sem <- struct{}{}:
+                    defer func(){ <-sem }()
+                default:
+                    http.Error(w, "too many concurrent requests", 429)
+                    return
+                }
+            }
+        }
         b, err := json.Marshal(in.Payload)
         if err != nil { http.Error(w, err.Error(), 400); return }
         if in.IdempotencyKey == "" { in.IdempotencyKey = randHex(16) }
@@ -576,10 +783,23 @@ func (s *Server) routes() {
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
         if s.rbac != nil && !(s.rbac.Can(user, "approvals:approve") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
-        var in struct{ ID string `json:"id"` }
+        var in struct{ ID string `json:"id"`; OTP string `json:"otp,omitempty"` }
         if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.ID == "" { http.Error(w, "missing id", 400); return }
         a, err := s.approvals.Approve(in.ID)
         if err != nil { http.Error(w, err.Error(), 409); return }
+        // OTP check (optional): require OTP if function is high risk or descriptor.auth.require_otp == true and user has otp_secret
+        if d := s.descIndex[a.FunctionID]; d != nil {
+            needOTP := strings.EqualFold(d.Risk, "high")
+            if auth := d.Auth; auth != nil {
+                if v, ok := auth["require_otp"].(bool); ok && v { needOTP = true }
+            }
+            if needOTP && s.userStore != nil {
+                if u, ok := s.userStore.Get(user); ok && u.OTPSecret != "" {
+                    if in.OTP == "" { http.Error(w, "otp required", 403); return }
+                    if !otp.VerifyTOTP(u.OTPSecret, in.OTP, 1) { http.Error(w, "invalid otp", 403); return }
+                }
+            }
+        }
         // build meta from stored approval
         meta := map[string]string{}
         if a.Route != "" { meta["route"] = a.Route }
@@ -748,14 +968,20 @@ func (s *Server) routes() {
         addCORS(w, r)
         if _, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        type Agent struct{ AgentID, GameID, Env, RpcAddr string; Functions int }
+        type Agent struct{ AgentID, GameID, Env, RpcAddr string; Functions int; Healthy bool; ExpiresInSec int }
         type Function struct{ GameID, ID string; Agents int }
+        type Coverage struct{ GameEnv string `json:"game_env"`; Functions map[string]int `json:"functions"` }
         var agents []Agent
         var functions []Function
+        var coverage []Coverage
         if s.reg != nil {
             s.reg.Mu().RLock()
+            now := time.Now()
             for _, a := range s.reg.AgentsUnsafe() {
-                agents = append(agents, Agent{AgentID: a.AgentID, GameID: a.GameID, Env: a.Env, RpcAddr: a.RPCAddr, Functions: len(a.Functions)})
+                healthy := now.Before(a.ExpireAt)
+                exp := int(time.Until(a.ExpireAt).Seconds())
+                if exp < 0 { exp = 0 }
+                agents = append(agents, Agent{AgentID: a.AgentID, GameID: a.GameID, Env: a.Env, RpcAddr: a.RPCAddr, Functions: len(a.Functions), Healthy: healthy, ExpiresInSec: exp})
             }
             fnCount := map[string]map[string]int{}
             for _, a := range s.reg.AgentsUnsafe() {
@@ -767,9 +993,17 @@ func (s *Server) routes() {
             for gid, m := range fnCount {
                 for fid, c := range m { functions = append(functions, Function{GameID: gid, ID: fid, Agents: c}) }
             }
+            // assignments coverage: for each game|env key, compute agents covering its functions (by game only)
+            for k, fns := range s.assignments {
+                parts := strings.SplitN(k, "|", 2)
+                gid := parts[0]
+                cov := map[string]int{}
+                for _, fid := range fns { cov[fid] = fnCount[gid][fid] }
+                coverage = append(coverage, Coverage{GameEnv: k, Functions: cov})
+            }
             s.reg.Mu().RUnlock()
         }
-        _ = json.NewEncoder(w).Encode(struct{ Agents []Agent `json:"agents"`; Functions []Function `json:"functions"` }{Agents: agents, Functions: functions})
+        _ = json.NewEncoder(w).Encode(struct{ Agents []Agent `json:"agents"`; Functions []Function `json:"functions"`; Assignments any `json:"assignments"`; Coverage []Coverage `json:"coverage"` }{Agents: agents, Functions: functions, Assignments: s.assignments, Coverage: coverage})
     })
     // Function instances across agents (targeted routing aid)
     s.mux.HandleFunc("/api/function_instances", func(w http.ResponseWriter, r *http.Request) {
@@ -846,9 +1080,14 @@ func extractPack(archive, dest string) error {
         hdr, err := tr.Next()
         if err == io.EOF { break }
         if err != nil { return err }
-        // Only extract descriptors/*.json, ui/*.json and any *.pb
-        if strings.HasPrefix(hdr.Name, "descriptors/") || strings.HasPrefix(hdr.Name, "ui/") || strings.HasSuffix(hdr.Name, ".pb") {
-            target := filepath.Join(dest, filepath.FromSlash(hdr.Name))
+        // Only extract descriptors/*.json, ui/*.json, manifest.json, web-plugin/* and any *.pb
+        if strings.HasPrefix(hdr.Name, "descriptors/") || strings.HasPrefix(hdr.Name, "ui/") || strings.HasPrefix(hdr.Name, "web-plugin/") || hdr.Name == "manifest.json" || strings.HasSuffix(hdr.Name, ".pb") {
+            // Normalize: strip leading "descriptors/" so files land directly under dest/
+            name := filepath.FromSlash(hdr.Name)
+            if strings.HasPrefix(name, "descriptors/") {
+                name = strings.TrimPrefix(name, "descriptors/")
+            }
+            target := filepath.Join(dest, name)
             if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil { return err }
             w, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
             if err != nil { return err }
@@ -938,4 +1177,129 @@ func maskAny(v any, sensitive map[string]struct{}) any {
     default:
         return t
     }
+}
+
+// --- Simple ABAC policy evaluator (==,!=,&&,||, has_role('x')) ---
+type policyContext struct { User string; Roles []string; GameID string; Env string; FunctionID string }
+func hasRole(roles []string, want string) bool { for _, r := range roles { if r == want { return true } }; return false }
+func evalAllowIf(expr string, ctx policyContext) bool {
+    trim := strings.TrimSpace
+    parseLit := func(s string) any {
+        s = trim(s)
+        if s == "true" { return true }; if s == "false" { return false }
+        if (strings.HasPrefix(s, "\"") && strings.HasSuffix(s, "\"")) || (strings.HasPrefix(s, "'") && strings.HasSuffix(s, "'")) { return s[1:len(s)-1] }
+        if n, err := strconv.ParseFloat(s, 64); err == nil { return n }
+        return s
+    }
+    get := func(path string) any {
+        p := trim(path)
+        switch p {
+        case "user": return ctx.User
+        case "game_id": return ctx.GameID
+        case "env": return ctx.Env
+        case "function_id": return ctx.FunctionID
+        default:
+            if strings.HasPrefix(p, "has_role(") && strings.HasSuffix(p, ")") {
+                arg := strings.TrimSuffix(strings.TrimPrefix(p, "has_role("), ")")
+                v := parseLit(arg)
+                if s, ok := v.(string); ok { return hasRole(ctx.Roles, s) }
+                return false
+            }
+            // unknown identifier -> empty
+            return ""
+        }
+    }
+    // Evaluate OR of AND terms
+    orParts := strings.Split(expr, "||")
+    for _, orp := range orParts {
+        andOk := true
+        for _, andp := range strings.Split(orp, "&&") {
+            p := trim(andp)
+            if p == "" { continue }
+            // support lhs op rhs or function(bool)
+            if strings.Contains(p, "==") || strings.Contains(p, "!=") {
+                op := "=="; i := strings.Index(p, "=="); j := strings.Index(p, "!=")
+                if j >= 0 && (i < 0 || j < i) { op = "!="; i = j }
+                lhs := trim(p[:i]); rhs := trim(p[i+len(op):])
+                lv := get(lhs); rv := parseLit(rhs)
+                eq := false
+                switch l := lv.(type) {
+                case string:
+                    if rs, ok := rv.(string); ok { eq = (l == rs) }
+                case bool:
+                    if rb, ok := rv.(bool); ok { eq = (l == rb) }
+                case float64:
+                    if rf, ok := rv.(float64); ok { eq = (math.Abs(l-rf) < 1e-9) }
+                default:
+                    eq = false
+                }
+                if (op == "==" && !eq) || (op == "!=" && eq) { andOk = false; break }
+            } else {
+                // bare function/identifier truthiness
+                v := get(p)
+                ok := false
+                switch t := v.(type) {
+                case bool: ok = t
+                case string: ok = (t != "")
+                default: ok = v != nil
+                }
+                if !ok { andOk = false; break }
+            }
+        }
+        if andOk { return true }
+    }
+    return false
+}
+
+// --- Simple token bucket ---
+type rateLimiter struct { cap int; tokens float64; last time.Time; rate float64; mu sync.Mutex }
+func newRateLimiter(rps int) *rateLimiter { return &rateLimiter{cap: rps, tokens: float64(rps), last: time.Now(), rate: float64(rps)} }
+func (r *rateLimiter) Try() bool {
+    r.mu.Lock(); defer r.mu.Unlock()
+    now := time.Now()
+    dt := now.Sub(r.last).Seconds()
+    r.tokens = math.Min(float64(r.cap), r.tokens + dt*r.rate)
+    r.last = now
+    if r.tokens >= 1 { r.tokens -= 1; return true }
+    return false
+}
+func parseRPS(s string) int {
+    s = strings.TrimSpace(s)
+    if strings.HasSuffix(s, "rps") { s = strings.TrimSuffix(s, "rps") }
+    if n, err := strconv.Atoi(strings.TrimSpace(s)); err == nil && n>0 { return n }
+    return 0
+}
+func (s *Server) getRateLimiter(fid string, cfg string) *rateLimiter {
+    rps := parseRPS(cfg)
+    if rps <= 0 { return nil }
+    s.mu.Lock(); defer s.mu.Unlock()
+    rl := s.rl[fid]
+    if rl == nil { rl = newRateLimiter(rps); s.rl[fid] = rl }
+    return rl
+}
+func (s *Server) getSemaphore(fid string, n int) chan struct{} {
+    if n <= 0 { return nil }
+    s.mu.Lock(); defer s.mu.Unlock()
+    sem := s.conc[fid]
+    if sem == nil || cap(sem) != n { sem = make(chan struct{}, n); s.conc[fid] = sem }
+    return sem
+}
+
+// sanitize converts an id into a filesystem-friendly base name (mirrors generator sanitize)
+func sanitize(id string) string {
+    out := strings.Map(func(r rune) rune {
+        switch {
+        case r >= 'a' && r <= 'z':
+            return r
+        case r >= 'A' && r <= 'Z':
+            return r
+        case r >= '0' && r <= '9':
+            return r
+        case r == '.' || r == '-' || r == '_':
+            return r
+        default:
+            return '-'
+        }
+    }, id)
+    return out
 }
