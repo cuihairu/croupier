@@ -4,7 +4,7 @@ import (
     "context"
     "errors"
     "fmt"
-    "log"
+    "log/slog"
     "time"
 
     functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
@@ -154,9 +154,7 @@ func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*fu
     if req.Metadata != nil {
         trace = req.Metadata["trace_id"]
     }
-    log.Printf("routing invoke %s to agent %s@%s trace=%s idem=%s strategy=%s",
-        req.GetFunctionId(), agent.AgentID, agent.RPCAddr, trace,
-        req.GetIdempotencyKey(), s.balancer.Name())
+    slog.Info("route invoke", "function_id", req.GetFunctionId(), "agent_id", agent.AgentID, "rpc_addr", agent.RPCAddr, "trace_id", trace, "idempotency_key", req.GetIdempotencyKey(), "strategy", s.balancer.Name(), "route", route, "hash_key", hashKey)
 
     // Make the call
     resp, err := cli.Invoke(ctx, req)
@@ -208,9 +206,7 @@ func (s *Server) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*
     if req.Metadata != nil {
         trace = req.Metadata["trace_id"]
     }
-    log.Printf("routing start-job %s to agent %s@%s trace=%s idem=%s strategy=%s",
-        req.GetFunctionId(), agent.AgentID, agent.RPCAddr, trace,
-        req.GetIdempotencyKey(), s.balancer.Name())
+    slog.Info("route start_job", "function_id", req.GetFunctionId(), "agent_id", agent.AgentID, "rpc_addr", agent.RPCAddr, "trace_id", trace, "idempotency_key", req.GetIdempotencyKey(), "strategy", s.balancer.Name(), "route", route, "hash_key", hashKey)
 
     // Make the call
     resp, err := cli.StartJob(ctx, req)
