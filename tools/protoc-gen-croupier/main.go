@@ -62,8 +62,9 @@ func main() {
 			continue
 		}
 		pkg := fd.GetPackage()
-		// Index messages by FQN for JSON schema mapping
-		msgIndex := indexMessages(fd)
+            // Index messages/enums by FQN for JSON schema mapping
+            msgIndex := indexMessages(fd)
+            enumIndex := indexEnums(fd)
 
 		for _, svc := range fd.GetService() {
 			for _, m := range svc.GetMethod() {
@@ -128,7 +129,7 @@ func main() {
             // JSON schema for input + UI schema (with field-level UI options if any)
             if inMsg := msgIndex[m.GetInputType()]; inMsg != nil {
                 uiHints := collectUIFieldHints(inMsg)
-                schema := buildJSONSchema(pkg, msgIndex, inMsg)
+                schema := buildJSONSchema(pkg, msgIndex, enumIndex, inMsg)
                 uiSchema := buildUISchema(schema, uiHints)
                 // Attach sensitive fields into descriptor (for audit masking)
                 if len(uiHints.Sensitive) > 0 {
@@ -199,56 +200,78 @@ func parseParams(p string) map[string]string {
 }
 
 func indexMessages(fd *descriptorpb.FileDescriptorProto) map[string]*descriptorpb.DescriptorProto {
-	idx := map[string]*descriptorpb.DescriptorProto{}
-	var walk func(prefix string, msgs []*descriptorpb.DescriptorProto)
-	walk = func(prefix string, msgs []*descriptorpb.DescriptorProto) {
-		for _, m := range msgs {
-			fqn := prefix + "." + m.GetName()
-			idx["."+fqn] = m
-			// nested
-			if len(m.NestedType) > 0 { walk(fqn, m.NestedType) }
-		}
-	}
-	pkg := fd.GetPackage()
-	walk(pkg, fd.GetMessageType())
-	return idx
+    idx := map[string]*descriptorpb.DescriptorProto{}
+    var walk func(prefix string, msgs []*descriptorpb.DescriptorProto)
+    walk = func(prefix string, msgs []*descriptorpb.DescriptorProto) {
+        for _, m := range msgs {
+            fqn := prefix + "." + m.GetName()
+            idx["."+fqn] = m
+            // nested
+            if len(m.NestedType) > 0 { walk(fqn, m.NestedType) }
+        }
+    }
+    pkg := fd.GetPackage()
+    walk(pkg, fd.GetMessageType())
+    return idx
 }
 
-func buildJSONSchema(pkg string, idx map[string]*descriptorpb.DescriptorProto, m *descriptorpb.DescriptorProto) map[string]any {
-	schema := map[string]any{
-		"$schema":  "https://json-schema.org/draft/2020-12/schema",
-		"type":     "object",
-		"title":    m.GetName(),
-		"properties": map[string]any{},
-	}
-	props := schema["properties"].(map[string]any)
-	var required []string
-	for _, f := range m.GetField() {
-		name := f.GetJsonName()
-		if name == "" { name = f.GetName() }
-		typ, req := fieldToJSONSchema(pkg, idx, f)
-		props[name] = typ
-		if req { required = append(required, name) }
-	}
-	if len(required) > 0 { schema["required"] = required }
-	return schema
+func indexEnums(fd *descriptorpb.FileDescriptorProto) map[string]*descriptorpb.EnumDescriptorProto {
+    idx := map[string]*descriptorpb.EnumDescriptorProto{}
+    var walk func(prefix string, msgs []*descriptorpb.DescriptorProto)
+    walk = func(prefix string, msgs []*descriptorpb.DescriptorProto) {
+        for _, m := range msgs {
+            fqn := prefix + "." + m.GetName()
+            for _, e := range m.GetEnumType() {
+                idx["."+fqn+"."+e.GetName()] = e
+            }
+            if len(m.NestedType) > 0 { walk(fqn, m.NestedType) }
+        }
+    }
+    pkg := fd.GetPackage()
+    // top-level enums
+    for _, e := range fd.GetEnumType() {
+        idx["."+pkg+"."+e.GetName()] = e
+    }
+    // nested enums
+    walk(pkg, fd.GetMessageType())
+    return idx
 }
 
-func fieldToJSONSchema(pkg string, idx map[string]*descriptorpb.DescriptorProto, f *descriptorpb.FieldDescriptorProto) (map[string]any, bool) {
-	required := false
-	switch f.GetLabel() {
-	case descriptorpb.FieldDescriptorProto_LABEL_REQUIRED:
-		required = true
-	}
+func buildJSONSchema(pkg string, msgIdx map[string]*descriptorpb.DescriptorProto, enumIdx map[string]*descriptorpb.EnumDescriptorProto, m *descriptorpb.DescriptorProto) map[string]any {
+    schema := map[string]any{
+        "$schema":  "https://json-schema.org/draft/2020-12/schema",
+        "type":     "object",
+        "title":    m.GetName(),
+        "properties": map[string]any{},
+    }
+    props := schema["properties"].(map[string]any)
+    var required []string
+    for _, f := range m.GetField() {
+        name := f.GetJsonName()
+        if name == "" { name = f.GetName() }
+        typ, req := fieldToJSONSchema(pkg, msgIdx, enumIdx, f)
+        props[name] = typ
+        if req { required = append(required, name) }
+    }
+    if len(required) > 0 { schema["required"] = required }
+    return schema
+}
+
+func fieldToJSONSchema(pkg string, msgIdx map[string]*descriptorpb.DescriptorProto, enumIdx map[string]*descriptorpb.EnumDescriptorProto, f *descriptorpb.FieldDescriptorProto) (map[string]any, bool) {
+    required := false
+    switch f.GetLabel() {
+    case descriptorpb.FieldDescriptorProto_LABEL_REQUIRED:
+        required = true
+    }
 
 	basic := func(t string) map[string]any { return map[string]any{"type": t} }
 	format := func(t, fmt string) map[string]any { return map[string]any{"type": t, "format": fmt} }
 
-	switch f.GetType() {
-	case descriptorpb.FieldDescriptorProto_TYPE_STRING:
-		return basic("string"), required
-	case descriptorpb.FieldDescriptorProto_TYPE_BOOL:
-		return basic("boolean"), required
+    switch f.GetType() {
+    case descriptorpb.FieldDescriptorProto_TYPE_STRING:
+        return basic("string"), required
+    case descriptorpb.FieldDescriptorProto_TYPE_BOOL:
+        return basic("boolean"), required
 	case descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_TYPE_SINT32, descriptorpb.FieldDescriptorProto_TYPE_SFIXED32:
 		return format("integer", "int32"), required
 	case descriptorpb.FieldDescriptorProto_TYPE_UINT32, descriptorpb.FieldDescriptorProto_TYPE_FIXED32:
@@ -263,41 +286,61 @@ func fieldToJSONSchema(pkg string, idx map[string]*descriptorpb.DescriptorProto,
 		return format("number", "double"), required
 	case descriptorpb.FieldDescriptorProto_TYPE_BYTES:
 		return basic("string"), required
-	case descriptorpb.FieldDescriptorProto_TYPE_ENUM:
-		return basic("string"), required
-	case descriptorpb.FieldDescriptorProto_TYPE_MESSAGE:
-		// Map or nested message
-		t := f.GetTypeName()
-		if strings.HasPrefix(t, ".") { t = t }
-		// Detect google.protobuf.Timestamp/Duration → strings with format
-		if t == ".google.protobuf.Timestamp" {
-			return map[string]any{"type": "string", "format": "date-time"}, required
-		}
-		if t == ".google.protobuf.Duration" {
-			return map[string]any{"type": "string", "pattern": "^\\d+[smhd]$"}, required
-		}
-		// Map type
-		if f.GetTypeName() == "" && f.GetLabel() == descriptorpb.FieldDescriptorProto_LABEL_REPEATED {
-			// Should not happen since map has message type; keep fallback
-			return map[string]any{"type": "array", "items": map[string]any{"type": "object"}}, required
-		}
-		// Repeated message as array
-		if f.GetLabel() == descriptorpb.FieldDescriptorProto_LABEL_REPEATED {
-			item := map[string]any{"type": "object"}
-			if sub := idx[f.GetTypeName()]; sub != nil {
-				item = buildJSONSchema(pkg, idx, sub)
-			}
-			return map[string]any{"type": "array", "items": item}, required
-		}
-		// Nested object
-		sub := idx[f.GetTypeName()]
-		if sub != nil {
-			return buildJSONSchema(pkg, idx, sub), required
-		}
-		return map[string]any{"type": "object"}, required
-	default:
-		return basic("string"), required
-	}
+    case descriptorpb.FieldDescriptorProto_TYPE_ENUM:
+        // enums use string names in proto JSON
+        sch := basic("string")
+        if e := enumIdx[f.GetTypeName()]; e != nil {
+            vals := make([]string, 0, len(e.GetValue()))
+            for _, v := range e.GetValue() { vals = append(vals, v.GetName()) }
+            sort.Strings(vals)
+            sch["enum"] = vals
+            sch["x-enum-source"] = strings.TrimPrefix(f.GetTypeName(), ".")
+        }
+        return sch, required
+    case descriptorpb.FieldDescriptorProto_TYPE_MESSAGE:
+        // Map or nested message
+        t := f.GetTypeName()
+        if strings.HasPrefix(t, ".") { t = t }
+        // Detect google.protobuf.Timestamp/Duration → strings with format
+        if t == ".google.protobuf.Timestamp" {
+            return map[string]any{"type": "string", "format": "date-time"}, required
+        }
+        if t == ".google.protobuf.Duration" {
+            return map[string]any{"type": "string", "pattern": "^\\d+[smhd]$"}, required
+        }
+        // Map type (detect map_entry)
+        if sub := msgIdx[f.GetTypeName()]; sub != nil && sub.GetOptions().GetMapEntry() {
+            // map<key, value> represented by a message with key/value fields
+            var _, valType map[string]any
+            for _, sf := range sub.GetField() {
+                if sf.GetName() == "key" {
+                    _, _ = fieldToJSONSchema(pkg, msgIdx, enumIdx, sf)
+                } else if sf.GetName() == "value" {
+                    valType, _ = fieldToJSONSchema(pkg, msgIdx, enumIdx, sf)
+                }
+            }
+            sch := map[string]any{"type": "object"}
+            if valType != nil { sch["additionalProperties"] = valType }
+            // optional: propertyNames constraints for key type not added (JSON Schema limitation)
+            return sch, required
+        }
+        // Repeated message as array
+        if f.GetLabel() == descriptorpb.FieldDescriptorProto_LABEL_REPEATED {
+            item := map[string]any{"type": "object"}
+            if sub := msgIdx[f.GetTypeName()]; sub != nil {
+                item = buildJSONSchema(pkg, msgIdx, enumIdx, sub)
+            }
+            return map[string]any{"type": "array", "items": item}, required
+        }
+        // Nested object
+        sub := msgIdx[f.GetTypeName()]
+        if sub != nil {
+            return buildJSONSchema(pkg, msgIdx, enumIdx, sub), required
+        }
+        return map[string]any{"type": "object"}, required
+    default:
+        return basic("string"), required
+    }
 }
 
 type uiFieldHints struct {
@@ -399,7 +442,8 @@ func collectUIFieldHints(msg *descriptorpb.DescriptorProto) uiFieldHints {
         if fo := f.GetOptions(); fo != nil {
             for _, u := range fo.GetUninterpretedOption() {
                 if joinOptionName(u) != "croupier.options.ui" { continue }
-                kv := parseAggregateKV(u.GetAggregateValue())
+                raw := u.GetAggregateValue()
+                kv := parseAggregateKV(raw)
                 cfg := map[string]any{}
                 if v := kv["widget"]; v != "" { cfg["widget"] = trimQuotes(v) }
                 if v := kv["label"]; v != "" { cfg["label"] = trimQuotes(v) }
@@ -407,6 +451,16 @@ func collectUIFieldHints(msg *descriptorpb.DescriptorProto) uiFieldHints {
                 if v := kv["show_if"]; v != "" { cfg["show_if"] = trimQuotes(v) }
                 if v := kv["required_if"]; v != "" { cfg["required_if"] = trimQuotes(v) }
                 if v := kv["sensitive"]; v != "" { b := parseBool(v); cfg["sensitive"] = b; if b { hints.Sensitive = append(hints.Sensitive, name) } }
+                // enum_map parsing for select enums
+                if m := parseOptionObjectMap(raw, "enum_map"); len(m) > 0 {
+                    // JSON Schema: enum keys + labels extension
+                    values := make([]string, 0, len(m))
+                    labels := map[string]string{}
+                    for k, v := range m { values = append(values, k); labels[k] = v }
+                    sort.Strings(values)
+                    cfg["enum"] = values
+                    cfg["x-enum-labels"] = labels
+                }
                 if len(cfg) > 0 { fieldCfg = cfg }
             }
         }
@@ -499,6 +553,78 @@ func parseAggregateKV(s string) map[string]string {
         if name != "" { res[name] = val }
         // skip trailing separators
         for i < len(src) && (src[i] == ',' || src[i] == ' ' || src[i] == '\n' || src[i] == '\t') { i++ }
+    }
+    return res
+}
+
+// parseOptionObjectMap extracts a simple object map for a given field name inside an aggregate_value string.
+// Example: fieldName: { k1: "v1", k2: "v2" }
+func parseOptionObjectMap(s, fieldName string) map[string]string {
+    res := map[string]string{}
+    if s == "" || fieldName == "" { return res }
+    i := 0
+    for i < len(s) {
+        idx := strings.Index(s[i:], fieldName)
+        if idx < 0 { break }
+        i += idx
+        // ensure it's a full field name followed by ':'
+        j := i + len(fieldName)
+        // skip spaces
+        for j < len(s) && (s[j] == ' ' || s[j] == '\t' || s[j] == '\n') { j++ }
+        if j >= len(s) || s[j] != ':' { i = j; continue }
+        j++
+        for j < len(s) && (s[j] == ' ' || s[j] == '\t' || s[j] == '\n') { j++ }
+        if j >= len(s) || s[j] != '{' { i = j; continue }
+        // parse object body until matching }
+        j++
+        depth := 1
+        start := j
+        for j < len(s) && depth > 0 {
+            if s[j] == '{' { depth++ } else if s[j] == '}' { depth-- }
+            j++
+        }
+        body := s[start:j-1]
+        // parse simple k: "v" pairs
+        k := 0
+        for k < len(body) {
+            // skip separators
+            for k < len(body) && (body[k] == ' ' || body[k] == '\n' || body[k] == '\t' || body[k] == ',') { k++ }
+            if k >= len(body) { break }
+            // key
+            ks := k
+            for k < len(body) {
+                c := body[k]
+                if c == ':' || c == ' ' || c == '\n' || c == '\t' { break }
+                k++
+            }
+            key := strings.TrimSpace(body[ks:k])
+            for k < len(body) && body[k] != ':' { k++ }
+            if k < len(body) && body[k] == ':' { k++ }
+            for k < len(body) && (body[k] == ' ' || body[k] == '\n' || body[k] == '\t') { k++ }
+            // value (expect quoted)
+            val := ""
+            if k < len(body) && body[k] == '"' {
+                k++
+                var b strings.Builder
+                for k < len(body) {
+                    if body[k] == '\\' && k+1 < len(body) { b.WriteByte(body[k+1]); k += 2; continue }
+                    if body[k] == '"' { k++; break }
+                    b.WriteByte(body[k])
+                    k++
+                }
+                val = b.String()
+            } else {
+                vs := k
+                for k < len(body) {
+                    c := body[k]
+                    if c == ',' || c == '\n' || c == ' ' { break }
+                    k++
+                }
+                val = strings.TrimSpace(body[vs:k])
+            }
+            if key != "" { res[key] = val }
+        }
+        i = j
     }
     return res
 }

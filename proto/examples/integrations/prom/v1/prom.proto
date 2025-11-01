@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package croupier.integrations.prom.v1;
+
+import "croupier/options/function.proto";
+import "croupier/options/ui.proto";
+
+option go_package = "github.com/cuihairu/croupier/gen/go/examples/integrations/prom/v1;promv1";
+
+service PromGm {
+  rpc QueryRange(QueryRangeRequest) returns (QueryRangeResponse) {
+    option (croupier.options.function) = {
+      function_id: "prom.query_range"
+      version: "1.0.0"
+      category: "prom"
+      route: "lb"
+      timeout: "30s"
+      placement: "agent"
+    };
+  }
+}
+
+message QueryRangeRequest {
+  string expr = 1 [(croupier.options.ui) = { label: "PromQL", widget: "textarea", placeholder: "rate(http_requests_total[5m])" }];
+  string start = 2 [(croupier.options.ui) = { label: "开始时间", widget: "date" }];
+  string end = 3 [(croupier.options.ui) = { label: "结束时间", widget: "date" }];
+  string step = 4 [(croupier.options.ui) = { label: "步长", placeholder: "30s" }];
+}
+
+message Sample { int64 t = 1; double v = 2; }
+
+message Timeseries {
+  map<string,string> labels = 1;
+  repeated Sample samples = 2;
+}
+
+message QueryRangeResponse { repeated Timeseries series = 1; }
+
