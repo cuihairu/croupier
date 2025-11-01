@@ -6,7 +6,7 @@
 
 Croupier 是一个专为游戏运营设计的通用 GM 后台系统，支持多语言游戏服务器接入，提供统一的管理界面与强大的扩展能力。
 
-本 README 描述的是推荐的 vNext 架构：gRPC + mTLS、Descriptor 驱动 UI、Agent 外连拓扑。与现有实现兼容演进（现有 `croupier-proxy` 在本文中称为 Agent）。
+本 README 描述的是推荐的 vNext 架构：gRPC + mTLS、Descriptor 驱动 UI、Agent 外连拓扑。与现有实现兼容演进（现有 `croupier-proxy` 在本文中称为 Agent）。本文中原“Core”统一改称“Server”（croupier-server）。
 
 ## 📦 SDKs
 
@@ -33,7 +33,7 @@ Croupier 是一个专为游戏运营设计的通用 GM 后台系统，支持多�
 - 🧩 IDL 生成：以 Proto 定义服务与消息，生成多语言 SDK（Go/Java/C++/Python）
 - 🧱 Descriptor 驱动 UI：函数入参/出参、校验、敏感字段、超时等描述，自动生成表单与结果展示
 - 📡 实时流式：支持长任务进度/日志流、订阅/推送
-- 🛰️ Agent 外连：内网仅出站至 DMZ/Core，无需内网入站；多服务多路复用一条长连
+- 🛰️ Agent 外连：内网仅出站至 DMZ/Server，无需内网入站；多服务多路复用一条长连
 - 🔑 细粒度权限：功能级/资源级/环境级 RBAC/ABAC，支持高危操作双人审批与审计
 - 🧪 易扩展：Function 版本化与兼容协商、幂等键、灰度/回滚
 
@@ -43,18 +43,18 @@ Croupier 是一个专为游戏运营设计的通用 GM 后台系统，支持多�
 
 ```mermaid
 graph LR
-  UI[Web 管理界面] -->|HTTP REST| Core[Croupier Core]
-  A1[Croupier Agent] -->|gRPC mTLS 443| Core
-  A2[Croupier Agent] -->|gRPC mTLS 443| Core
+  UI[Web 管理界面] -->|HTTP REST| Server[Croupier Server]
+  A1[Croupier Agent] -->|gRPC mTLS 443| Server
+  A2[Croupier Agent] -->|gRPC mTLS 443| Server
   subgraph GSA[本机/同域]
     GS1[Game Server A + SDK]
     GS2[Game Server B + SDK]
   end
   GS1 -->|local gRPC| A1
   GS2 -->|local gRPC| A1
-  classDef core fill:#e8f5ff,stroke:#1890ff;
+  classDef server fill:#e8f5ff,stroke:#1890ff;
   classDef agent fill:#f6ffed,stroke:#52c41a;
-  class Core core
+  class Server server
   class A1 agent
   class A2 agent
 ```
@@ -65,26 +65,26 @@ graph LR
 - 所有函数字段由 Descriptor（JSON Schema/Proto 选其一）定义，UI/校验/鉴权共享同一描述
 - Metadata：统一携带 `trace_id`（链路诊断）与 `game_id`/`env`（多游戏作用域）。HTTP 层通过 `X-Game-ID`/`X-Env` 透传至南向调用。
  
-开发便捷性说明：骨架阶段为便于本地联调，Agent 在 `Register` 时会上报 `rpc_addr`，Core 通过该地址直连 Agent 完成调用（DEV ONLY）。生产将改为“Agent 外连双向流”模式，不需 Core 入内网。
+开发便捷性说明：骨架阶段为便于本地联调，Agent 在 `Register` 时会上报 `rpc_addr`，Server 通过该地址直连 Agent 完成调用（DEV ONLY）。生产将改为“Agent 外连双向流”模式，不需 Server 入内网。
 
 ```mermaid
 sequenceDiagram
   participant UI as Web UI
-  participant Core as Core
+  participant Server as Server
   participant Edge as Edge Optional
   participant Agent as Agent
   participant GS as Game Server
-  UI->>Core: POST /api/invoke {function_id, payload, X-Game-ID}
-  alt Core 直连
-    Core->>Agent: FunctionService.Invoke
-  else Core 经 Edge 转发
-    Core->>Edge: Forward Invoke
+  UI->>Server: POST /api/invoke {function_id, payload, X-Game-ID}
+  alt Server 直连
+    Server->>Agent: FunctionService.Invoke
+  else Server 经 Edge 转发
+    Server->>Edge: Forward Invoke
     Edge->>Agent: Tunnel Invoke (bidi)
   end
   Agent->>GS: local gRPC Invoke
   GS-->>Agent: response
-  Agent-->>Core: response (via Edge/直连)
-  Core-->>UI: result
+  Agent-->>Server: response (via Edge/直连)
+  Server-->>UI: result
 ```
 
 ## 🚀 快速开始
@@ -93,16 +93,16 @@ sequenceDiagram
 
 ### 模式 1：同网部署（直连，简化）
 
-适用于 Core 与 Game 在同一内网且允许直连的场景（仍建议使用 mTLS）。
+适用于 Server 与 Game 在同一内网且允许直连的场景（仍建议使用 mTLS）。
 
 ```bash
-# 1) 启动 Core（当前未实现 --config，直接使用显式参数）
+# 1) 启动 Server（当前未实现 --config，直接使用显式参数）
 ./croupier-server \
   --addr :8443 --http_addr :8080 \
   --rbac_config configs/rbac.json --games_config configs/games.json --users_config configs/users.json \
   --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
 
-# 2) 游戏服务器 SDK 直接连接 Core（gRPC/mTLS）
+# 2) 游戏服务器 SDK 直接连接 Server（gRPC/mTLS）
 ./game-server
 ```
 
@@ -110,10 +110,10 @@ sequenceDiagram
 
 ### 模式 2：Agent 外连（推荐）
 
-Core 位于 DMZ/公网，Agent 在游戏内网，仅出站到 Core。游戏服只连本机/就近 Agent。
+Server 位于 DMZ/公网，Agent 在游戏内网，仅出站到 Server。游戏服只连本机/就近 Agent。
 
 ```bash
-# 1) DMZ 启动 Core（显式参数）
+# 1) DMZ 启动 Server（显式参数）
 ./croupier-server \
   --addr :8443 --http_addr :8080 \
   --rbac_config configs/rbac.json --games_config configs/games.json --users_config configs/users.json \
@@ -135,29 +135,29 @@ Core 位于 DMZ/公网，Agent 在游戏内网，仅出站到 Core。游戏服�
 ```mermaid
 graph LR
   subgraph DMZ[DMZ/公网]
-    Core[Croupier Core]
+    Server[Croupier Server]
   end
   subgraph NETA[游戏内网]
     A[Croupier Agent]
     GS[Game Servers + SDK]
   end
-  A -->|gRPC mTLS 443 outbound| Core
+  A -->|gRPC mTLS 443 outbound| Server
   GS -->|local gRPC multi-instance| A
   classDef core fill:#e8f5ff,stroke:#1890ff;
   classDef agent fill:#f6ffed,stroke:#52c41a;
-  class Core core
+  class Server server
   class A agent
 ```
-### 模式 3：Edge 转发（Core 在内网）
+### 模式 3：Edge 转发（Server 在内网）
 
-适用于 Core 无法部署在 DMZ/公网、又需要管理多条游戏内网的场景。
+适用于 Server 无法部署在 DMZ/公网、又需要管理多条游戏内网的场景。
 
-思路：在 DMZ/公网部署轻量 Edge，所有 Agent 主动外连 Edge；Core 从企业内网“仅出站”连到 Edge（mTLS/443），由 Edge 转发请求与路由。
+思路：在 DMZ/公网部署轻量 Edge，所有 Agent 主动外连 Edge；Server 从企业内网“仅出站”连到 Edge（mTLS/443），由 Edge 转发请求与路由。
 
 ```mermaid
 graph LR
   subgraph INTRANET[企业内网]
-    Core[Croupier Core]
+    Server[Croupier Server]
   end
   subgraph DMZ[DMZ/公网]
     Edge[Croupier Edge]
@@ -166,20 +166,20 @@ graph LR
     A1[Croupier Agent]
     GS1[Game Servers + SDK]
   end
-  Core -->|gRPC mTLS 443 outbound| Edge
+  Server -->|gRPC mTLS 443 outbound| Edge
   A1 -->|gRPC mTLS 443 outbound| Edge
   GS1 -->|local gRPC multi-instance| A1
   classDef core fill:#e8f5ff,stroke:#1890ff;
   classDef agent fill:#f6ffed,stroke:#52c41a;
   classDef edge fill:#fffbe6,stroke:#faad14;
-  class Core core
+  class Server server
   class A1 agent
   class Edge edge
 ```
 
 运行流程（PoC 设计）：
-- Edge：监听 9443，接受 Agent 外连并注册（ControlService）；同时暴露 FunctionService，对 Core 作为调用入口并转发到 Agent。
-- Core：使用 `--edge_addr` 将 FunctionService 调用转发到 Edge；HTTP/UI 不变。
+- Edge：监听 9443，接受 Agent 外连并注册（ControlService）；同时暴露 FunctionService，对 Server 作为调用入口并转发到 Agent。
+- Server：使用 `--edge_addr` 将 FunctionService 调用转发到 Edge；HTTP/UI 不变。
 - Agent：将 `--core_addr` 指向 Edge 地址，实现“仅外连”注册。
 
 
@@ -293,20 +293,20 @@ curl -sS http://localhost:8080/api/registry \
 curl -sS "http://localhost:8080/api/audit?game_id=default&limit=50" \
   -H "Authorization: Bearer $(cat /tmp/token)" | jq '.events[-5:]'
 
-# 健康与指标（Core/Edge/Agent）
+# 健康与指标（Server/Edge/Agent）
 curl -sS http://localhost:8080/healthz && echo
 curl -sS http://localhost:8080/metrics | jq
 curl -sS http://localhost:9080/metrics | jq   # Edge
 curl -sS http://localhost:19091/metrics | jq  # Agent
 
-# 查询作业结果（Core 直连模式与 Edge 转发模式均可用）
+# 查询作业结果（Server 直连模式与 Edge 转发模式均可用）
 curl -sS "http://localhost:8080/api/job_result?id=<job_id>" \
   -H "Authorization: Bearer $(cat /tmp/token)" | jq
 ```
 
 ## 🧭 多游戏管理（Game/Env 作用域）
 
-为支持一个 Core 管理多款游戏/多环境，引入作用域并贯穿全链路。
+为支持一个 Server 管理多款游戏/多环境，引入作用域并贯穿全链路。
 
 - 作用域字段
   - `game_id`：必填，游戏标识（示例：`game_kr`、`game_en`、`game_x`）
@@ -337,13 +337,13 @@ curl -sS "http://localhost:8080/api/job_result?id=<job_id>" \
 ```
 croupier/
 ├── cmd/
-│   ├── server/               # Core 进程
+│   ├── server/               # Server 进程
 │   ├── agent/                # Agent 进程（原 proxy）
 │   └── cli/                  # 命令行工具
 ├── proto/                    # gRPC Proto（IDL 源）
 ├── descriptors/              # 函数描述符（JSON Schema/元数据）
 ├── internal/
-│   ├── server/               # Core 业务
+│   ├── server/               # Server 业务
 │   ├── agent/                # Agent 业务
 │   ├── auth/                 # OIDC/mTLS/会话管理
 │   ├── function/             # 路由、幂等、重试、版本协商
@@ -371,7 +371,7 @@ croupier/
 - 权限：RBAC 支持函数级 + 作用域（例如 `game:<game_id>:function:<id>`、`game:<game_id>:*`、`*`）；支持基于 `role:<role>` 的规则
 
 ### 传输与身份
-- mTLS：Core/Edge/Agent 默认要求提供 `--cert/--key/--ca`，Agent 外连必须启用 mTLS；证书颁发与轮换可接入 SPIFFE/SPIRE、ACME 或企业 CA
+- mTLS：Server/Edge/Agent 默认要求提供 `--cert/--key/--ca`，Agent 外连必须启用 mTLS；证书颁发与轮换可接入 SPIFFE/SPIRE、ACME 或企业 CA
 - 出站：通信仅走 443/HTTP/2；Agent/SDK 统一出站（便于穿透防火墙/代理）
 
 ### 审计与防护
@@ -382,7 +382,7 @@ croupier/
 ## 部署与配置（建议）
 
 - TLS/mTLS（默认开启）
-  - Core/Edge/Agent 均要求 `--cert/--key/--ca`（Agent 外连必须 mTLS）
+  - Server/Edge/Agent 均要求 `--cert/--key/--ca`（Agent 外连必须 mTLS）
   - 开发可使用 `./scripts/dev-certs.sh` 生成自签证书
   - 证书颁发建议 SPIFFE/SPIRE 或企业 CA，并定期轮换
 - 认证与前端
@@ -392,7 +392,7 @@ croupier/
   - 后台添加 game_id/env（`/api/games`）后，Agent 才能注册成功（白名单 Gate）
   - 所有调用带 `X-Game-ID`/`X-Env`，后端透传到元数据用于路由与审计
 - 可观测与运行
-  - Core/Edge/Agent 暴露 `/healthz` 与 `/metrics`（JSON）
+  - Server/Edge/Agent 暴露 `/healthz` 与 `/metrics`（JSON）
   - Edge 指标包含隧道连接数/待处理/作业映射与累积事件计数
 - 容器化
   - 提供 `Dockerfile.*` 与 `docker-compose.yml`，一键构建与运行（需先生成 dev 证书）
@@ -402,7 +402,7 @@ croupier/
 - Query：同步调用，超时短；适用于查询/校验
 - Command：异步调用，返回 `job_id`；支持取消/重试/进度/日志
 - 幂等：以 `idempotency-key` 去重；服务端记录窗口以防重放
-- 版本协商：函数 `id@semver`；Core/Agent/SDK 通过特性协商降级
+- 版本协商：函数 `id@semver`；Server/Agent/SDK 通过特性协商降级
 
 ## 🗺️ 演进与兼容
 
@@ -422,13 +422,13 @@ croupier/
   - DoD：`make dev` 一键起本地开发；`buf lint`、`go test ./...` 通过
 
 - Phase 1：gRPC + mTLS 南向最小骨架（2 周）
-  - 目标：Core/Agent/Go SDK 直连，具备注册/调用/健康检查能力。
+  - 目标：Server/Agent/Go SDK 直连，具备注册/调用/健康检查能力。
   - 任务：
     - 定义基础 Proto：`FunctionService.Invoke`、`ControlService.Register/Heartbeat`、标准错误码
     - mTLS：自签或 SPIFFE/SPIRE 接入；Keepalive/连接复用/超时配置
-    - Agent：出站长连到 Core，承载多游戏服复用；本地 gRPC 监听供 SDK 使用
+    - Agent：出站长连到 Server，承载多游戏服复用；本地 gRPC 监听供 SDK 使用
     - Go SDK：连接管理、拦截器（超时/重试/trace）与简单示例
-  - DoD：示例游戏服通过 Agent 注册 1 个函数，并被 Core 端成功 Invoke；TLS 轮换演练通过；e2e 冒烟用例通过
+  - DoD：示例游戏服通过 Agent 注册 1 个函数，并被 Server 端成功 Invoke；TLS 轮换演练通过；e2e 冒烟用例通过
 
 - Phase 2：Descriptor 驱动 UI（2 周，可与 Phase 1 后半重叠）
   - 目标：由描述符自动生成参数表单与校验，实现从 UI 到后端的真实闭环。
@@ -484,18 +484,18 @@ croupier/
   - DoD：不同 `game_id` 的函数路由隔离；审计可按 `game_id` 查询
 
 - Phase 9：Edge PoC（1 周）
-  - 目标：在 Core 不出网场景，通过 Edge 转发实现 Core↔Agent 联通
+- 目标：在 Server 不出网场景，通过 Edge 转发实现 Server↔Agent 联通
   - 任务：
-    - `cmd/edge` 进程：接收 Agent 外连；Core 出站连 Edge；双向流隧道
+    - `cmd/edge` 进程：接收 Agent 外连；Server 出站连 Edge；双向流隧道
     - 转发：Function/Control 请求/响应的多路复用与路由
     - TLS 与鉴权：沿用 mTLS 身份，Edge 仅转发合法实体
-  - DoD：Core 内网仅出站，Agent 外连 Edge，功能调用正常
+  - DoD：Server 内网仅出站，Agent 外连 Edge，功能调用正常
 
 里程碑验收清单（节选）
 - e2e：`examples/go-server` 可注册/调用/长任务/取消/审计全链路跑通
 - 安全：mTLS 双向认证；OIDC/MFA 登录；审批 + 审计链可验证
 - 可靠性：连接保活/重连、限流背压、幂等去重；灰度与版本协商
-- 观测：Tracing 贯通 Core/Agent/SDK；指标完整并可告警
+- 观测：Tracing 贯通 Server/Agent/SDK；指标完整并可告警
 
 ## 🤝 贡献
 
@@ -513,14 +513,14 @@ go mod download
 # 生成 Proto 代码（需安装 buf 与 protoc 插件，或在 CI 里跑；本地有手写 stub 可直接编译）
 buf lint && buf generate
 
-# 构建 Core 与 Agent
+# 构建 Server 与 Agent
 make build
 
 # 本地运行（在两个终端中）：
-# 1) Core（示例参数，需自备 TLS 证书）
+# 1) Server（示例参数，需自备 TLS 证书）
 ./bin/croupier-server --addr :8443 --http_addr :8080 --rbac_config configs/rbac.json \
   --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
-# 2) Agent（本地明文监听，mTLS 连接 Core）
+# 2) Agent（本地明文监听，mTLS 连接 Server）
 ./bin/croupier-agent --local_addr :19090 --core_addr 127.0.0.1:8443 --cert configs/dev/agent.crt --key configs/dev/agent.key --ca configs/dev/ca.crt
 # 3) 示例游戏服连接 Agent
 go run ./examples/go-server
@@ -538,7 +538,7 @@ npm install
 npm run dev  # 或 npm run start
 
 # 生产构建
-npm run build  # 产物到 web/dist，Core 会优先静态服务 web/dist
+npm run build  # 产物到 web/dist，Server 会优先静态服务 web/dist
 
 # Go SDK（子模块：sdks/go）
 # 建议直接在业务工程中引用模块路径 github.com/cuihairu/croupier-sdk-go；
@@ -555,7 +555,7 @@ CI 提示
 
 # 调用验证（浏览器访问）
 # 开发：访问 http://localhost:8000（前端 dev server）
-# 生产：构建后访问 http://localhost:8080（Core 静态服务 web/dist）；/api/* 为后端接口
+# 生产：构建后访问 http://localhost:8080（Server 静态服务 web/dist）；/api/* 为后端接口
 # 前端请求默认附带 Authorization: Bearer <token>（登录后自动注入）
 ```
 
@@ -575,11 +575,11 @@ CI 提示
 ---
 
 Croupier - 让游戏运营变得简单而强大 🎮
-# Edge PoC（Core 内网仅出站）
+# Edge PoC（Server 内网仅出站）
 # 1) 启动 Edge
 ./bin/croupier-edge --addr :9443 --games_config configs/games.json \
   --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
-# 2) Core 出站到 Edge（转发 Function 调用）
+# 2) Server 出站到 Edge（转发 Function 调用）
 ./bin/croupier-server --addr :8443 --http_addr :8080 --edge_addr 127.0.0.1:9443 \
   --rbac_config configs/rbac.json --games_config configs/games.json \
   --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
@@ -592,10 +592,10 @@ Croupier - 让游戏运营变得简单而强大 🎮
 # 准备开发证书
 ./scripts/dev-certs.sh
 
-# 构建容器并启动（Core/Edge/Agent）
+# 构建容器并启动（Server/Edge/Agent）
 docker compose up --build
 
-# Web 前端（子模块 web）单独启动 dev，或将构建产物挂载到 Core 静态目录
+# Web 前端（子模块 web）单独启动 dev，或将构建产物挂载到 Server 静态目录
 ```
 
 登录后获取 token，前端会自动附带 Authorization 进行调用。
