@@ -85,12 +85,14 @@
 
 ### M2 Server：Pack 导入与动态类型桥接
 目标：导入 pack → UI/调用可用。
-- [ ] CLI/API：`/api/packs/import`、`croupier packs import pack.tgz`。
-- [ ] TypeRegistry：从 `fds.pb` 载入，缓存/版本化，冲突检测。
-- [ ] Invoke 编解码桥：UI JSON → dynamicpb（pb-json → pb-bin），响应反向转换。
-- [ ] 审计：入参脱敏（按注解/descriptor.sensitive），记录摘要。
-- [ ] 权限：descriptor.auth → RBAC；two_person_rule 流程骨架。
-- [ ] 兼容现有调用路径（不破坏已有接口）。
+- [x] CLI/API：`/api/packs/import`、`croupier packs import pack.tgz`。
+- [x] TypeRegistry：从 `fds.pb` 载入（目录加载 `*.pb`），动态编解码。
+- [x] Invoke 编解码桥：UI JSON → dynamicpb（pb-json → pb-bin），响应反向转换。
+- [x] StartJob：与 Invoke 一致的路由校验与 protobuf 编码（新增）。
+- [x] 审计：入参脱敏（按 UI `sensitive` + 常见字段），记录摘要。
+- [x] 权限：descriptor.auth → RBAC；two_person_rule：服务端已实现审批队列与 API；支持 Postgres 持久化（需 -tags pg）。
+  - [ ] 审批 UI 打通（前端列表/详情/同意/拒绝、筛选/分页、二次确认/MFA）。
+- [x] 兼容现有调用路径（不破坏已有接口）。
 
 验收：示例 pack 导入后，前端可看到函数、填写表单、完成一次调用（回环或回声）。
 
@@ -128,9 +130,10 @@
 
 ### M6 安全与可观测
 - [ ] RBAC/ABAC 表达式（基于上下文如 actor/game/env）。
-- [ ] 两人规则：申请/审批/执行链路与审计。
+- [ ] 两人规则：审批持久化、幂等与并发控制、UI 审批页。
 - [ ] 速率/并发/熔断与重试策略（函数级）。
-- [ ] 指标/追踪：Server/Agent/适配器统一 metrics + trace_id 透传。
+- [x] 指标：Server/Agent/Edge 统一 metrics（JSON + Prometheus 文本）；支持 per_function 与 per_game_denies 开关。
+- [ ] 追踪：trace_id 贯通，后续接入 OTLP。
 - [ ] 兼容策略：函数版本协商、灰度/回滚。
 
 验收：关键函数开启审批与限流，指标在 Prom/Grafana 可见，链路可追踪。
@@ -158,3 +161,13 @@
 ## 验收样例（端到端）
 - 用户写 `games.player.v1` 的 `Ban` proto + 注解 → 生成 pack → 在 Server 导入 → UI 自动出现表单 → 提交 → Server 编解码为 pb → Agent → 业务服返回 → UI 以 table/json 展示。
 - 导入 `prom-adapter` pack → 选择表达式与时间区间 → UI 折线图展示，审计记录查询参数。
+
+—
+
+## 近期迭代计划（滚动两周）
+- 审批持久化落地：嵌入式 SQLite（或 BoltDB）实现 `/api/approvals*` 存储、分页、筛选；补充并发与幂等保护；补齐 CLI 辅助命令。
+- TypeRegistry/编解码测试：为 `LoadFDS/JSONToProtoBin/ProtoBinToJSON` 与 HTTP `/api/invoke|/api/start_job` 路径补充单测（`internal/pack/testdata`）。
+- Web 表单与 Renderer 骨架：Schema-Form 渲染基础能力；Renderer Registry + 内置 `json.view/table.basic/echarts.line`；打通 `outputs.views`。
+- 适配器雏形：`adapters/prom` 与 `adapters/http` PoC，生成示例 pack 并通过 `/api/packs/import` 导入。
+- 配置与观测：确认 metrics 默认值透传；整理 `docs/metrics.md` 与 `docs/config.md` 的样例配置；补充 `/metrics.prom` per-function 开关说明。
+- 清理与对齐：README 统一使用 unified CLI（`croupier server/agent/edge`），保留历史参数别名说明；移除残留 `core` 叙述。

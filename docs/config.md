@@ -16,6 +16,8 @@ Examples
 server:
   addr: ":8443"
   http_addr: ":8080"
+  # Optional: database (use environment for secrets)
+  # DATABASE_URL: postgres://user:pass@host:5432/db?sslmode=verify-full
   log: { level: debug, format: console }
   metrics:
     per_function: true

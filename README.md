@@ -137,20 +137,20 @@ sequenceDiagram
 Server 位于 DMZ/公网，Agent 在游戏内网，仅出站到 Server。游戏服只连本机/就近 Agent。
 
 ```bash
-# 1) DMZ 启动 Server（显式参数）
-./croupier-server \
+# 1) DMZ 启动 Server（统一 CLI）
+./croupier server \
   --addr :8443 --http_addr :8080 \
   --rbac_config configs/rbac.json --games_config configs/games.json --users_config configs/users.json \
   --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
 
 # 2) 内网启动 Agent（显式参数；若二进制名仍为 proxy，请先用 proxy）
 ./croupier agent \
-  --local_addr :19090 --core_addr 127.0.0.1:8443 --game_id default --env dev \
+  --local_addr :19090 --server_addr 127.0.0.1:8443 --game_id default --env dev \
   --cert configs/dev/agent.crt --key configs/dev/agent.key --ca configs/dev/ca.crt
-# 注：从此版本起，`--server_addr` 为 `--core_addr` 的别名（推荐使用 `--server_addr`），`--core_addr` 保留兼容并打印弃用提示。
-# 或（历史命名）
+# 注：`--server_addr` 为推荐参数；`--core_addr` 仍保留为别名并打印弃用提示（向后兼容）。
+# 或（历史命名）仍可用（逐步迁移至 unified CLI）
 ./croupier-proxy \
-  --local_addr :19090 --core_addr 127.0.0.1:8443 --game_id default --env dev \
+  --local_addr :19090 --server_addr 127.0.0.1:8443 --game_id default --env dev \
   --cert configs/dev/agent.crt --key configs/dev/agent.key --ca configs/dev/ca.crt
 
 # 3) 游戏服务器连接本机 Agent（gRPC）
@@ -168,7 +168,7 @@ graph LR
   end
   A -->|gRPC mTLS 443 outbound| Server
   GS -->|local gRPC multi-instance| A
-  classDef core fill:#e8f5ff,stroke:#1890ff;
+  classDef server fill:#e8f5ff,stroke:#1890ff;
   classDef agent fill:#f6ffed,stroke:#52c41a;
   class Server server
   class A agent
@@ -194,7 +194,7 @@ graph LR
   Server -->|gRPC mTLS 443 outbound| Edge
   A1 -->|gRPC mTLS 443 outbound| Edge
   GS1 -->|local gRPC multi-instance| A1
-  classDef core fill:#e8f5ff,stroke:#1890ff;
+  classDef server fill:#e8f5ff,stroke:#1890ff;
   classDef agent fill:#f6ffed,stroke:#52c41a;
   classDef edge fill:#fffbe6,stroke:#faad14;
   class Server server
@@ -205,7 +205,7 @@ graph LR
 运行流程（PoC 设计）：
 - Edge：监听 9443，接受 Agent 外连并注册（ControlService）；同时暴露 FunctionService，对 Server 作为调用入口并转发到 Agent。
 - Server：使用 `--edge_addr` 将 FunctionService 调用转发到 Edge；HTTP/UI 不变。
-- Agent：将 `--core_addr` 指向 Edge 地址，实现“仅外连”注册。
+- Agent：将 `--server_addr` 指向 Edge 地址，实现“仅外连”注册（`--core_addr` 兼容）。
 
 
 ### SDK 集成示例
@@ -546,7 +546,7 @@ make build
 ./bin/croupier-server --addr :8443 --http_addr :8080 --rbac_config configs/rbac.json \
   --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
 # 2) Agent（本地明文监听，mTLS 连接 Server）
-./bin/croupier-agent --local_addr :19090 --core_addr 127.0.0.1:8443 --cert configs/dev/agent.crt --key configs/dev/agent.key --ca configs/dev/ca.crt
+./bin/croupier-agent --local_addr :19090 --server_addr 127.0.0.1:8443 --cert configs/dev/agent.crt --key configs/dev/agent.key --ca configs/dev/ca.crt
 # 3) 示例游戏服连接 Agent
 go run ./examples/go-server
 
@@ -609,7 +609,7 @@ Croupier - 让游戏运营变得简单而强大 🎮
   --rbac_config configs/rbac.json --games_config configs/games.json \
   --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
 # 3) Agent 指向 Edge 外连
-./croupier agent --local_addr :19090 --core_addr 127.0.0.1:9443 --game_id default --env dev \
+./croupier agent --local_addr :19090 --server_addr 127.0.0.1:9443 --game_id default --env dev \
   --cert configs/dev/agent.crt --key configs/dev/agent.key --ca configs/dev/ca.crt
 ### 容器化部署（示例）
 
@@ -632,3 +632,6 @@ docker compose up --build
   - `broadcast`：对所有实例执行，结果聚合为 JSON 数组
   - `targeted`：需要选择目标实例（调用 `/api/function_instances` 获取实例列表），执行时会传 `target_service_id`
   - `hash`：对 `hash_key` 做一致性哈希（当前实现为简单 FNV32 模运算），用于基于字段（如 `player_id`）定向到固定实例
+提示：审批持久化（Two-person rule）
+- 默认使用内存；如果在运行环境提供 `DATABASE_URL=postgres://...`，并以 `-tags pg` 构建二进制（Dockerfile.server 已内置该参数），Server 将自动使用 Postgres 存储审批数据（表名 `approvals`）。
+- API：`GET /api/approvals`（分页/过滤）、`POST /api/approvals/approve|reject`。详见 docs/security.md。
