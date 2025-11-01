@@ -62,7 +62,7 @@ services:
     networks:
       - croupier-network
 
-  core:
+  server:
     build:
       context: .
       dockerfile: Dockerfile.server
@@ -89,13 +89,13 @@ services:
       args:
         GO_IMAGE: ${GO_IMAGE:-golang:1.21}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
-    command: ["agent", "--local_addr", ":19090", "--http_addr", ":19091", "--core_addr", "edge:9443", "--game_id", "default", "--env", "dev", "--cert", "/app/configs/dev/agent.crt", "--key", "/app/configs/dev/agent.key", "--ca", "/app/configs/dev/ca.crt"]
+    command: ["agent", "--local_addr", ":19090", "--http_addr", ":19091", "--server_addr", "edge:9443", "--game_id", "default", "--env", "dev", "--cert", "/app/configs/dev/agent.crt", "--key", "/app/configs/dev/agent.key", "--ca", "/app/configs/dev/ca.crt"]
     ports: ["19090:19090", "19091:19091"]
     depends_on: [edge]
     networks:
       - croupier-network
 
-  # Web UI (Umi Max) served by Nginx; proxies /api to core:8080
+  # Web UI (Umi Max) served by Nginx; proxies /api to server:8080
   web:
     build:
       context: .
@@ -107,7 +107,7 @@ services:
         NPM_REGISTRY: ${NPM_REGISTRY:-}
     ports: ["8000:80"]
     depends_on:
-      - core
+      - server
     networks:
       - croupier-network
 
