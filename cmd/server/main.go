@@ -3,13 +3,14 @@ package main
 import (
     "crypto/tls"
     "crypto/x509"
-    "flag"
+    "fmt"
     "io/ioutil"
     "log"
     "net"
     "sync"
-    "fmt"
 
+    "github.com/spf13/cobra"
+    "github.com/spf13/viper"
     "google.golang.org/grpc"
     "google.golang.org/grpc/credentials"
     "google.golang.org/grpc/keepalive"
@@ -29,6 +30,7 @@ import (
     "github.com/cuihairu/croupier/internal/devcert"
     "github.com/cuihairu/croupier/internal/loadbalancer"
     "github.com/cuihairu/croupier/internal/connpool"
+    "strings"
 )
 
 // loadServerTLS builds a tls.Config for mTLS if caFile is provided.
@@ -50,94 +52,123 @@ func loadServerTLS(certFile, keyFile, caFile string) (credentials.TransportCrede
 }
 
 func main() {
-    addr := flag.String("addr", ":8443", "grpc listen address")
-    httpAddr := flag.String("http_addr", ":8080", "http api listen address")
-    edgeAddr := flag.String("edge_addr", "", "optional edge address for forwarding function calls (DEV PoC)")
-    rbacPath := flag.String("rbac_config", "configs/rbac.json", "rbac policy json path")
-    cert := flag.String("cert", "", "server cert file")
-    key := flag.String("key", "", "server key file")
-    ca := flag.String("ca", "", "ca cert file for client cert verification (optional)")
-    gamesPath := flag.String("games_config", "configs/games.json", "allowed games config (json)")
-    usersPath := flag.String("users_config", "configs/users.json", "users config json")
-    jwtSecret := flag.String("jwt_secret", "dev-secret", "jwt hs256 secret")
-    flag.Parse()
+    var cfgFile string
+    root := &cobra.Command{
+        Use:   "croupier-server",
+        Short: "Croupier Server",
+        RunE: func(cmd *cobra.Command, args []string) error {
+            viper.SetEnvPrefix("CROUPIER")
+            viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+            viper.AutomaticEnv()
+            if cfgFile != "" {
+                viper.SetConfigFile(cfgFile)
+                if err := viper.ReadInConfig(); err != nil {
+                    log.Printf("[warn] read config: %v", err)
+                } else {
+                    log.Printf("[config] using %s", viper.ConfigFileUsed())
+                }
+            }
 
-    // Auto-generate dev certs when not provided (DEV ONLY)
-    if *cert == "" || *key == "" || *ca == "" {
-        out := "configs/dev"
-        caCrt, caKey, err := devcert.EnsureDevCA(out)
-        if err != nil { log.Fatalf("generate dev CA: %v", err) }
-        // include common localhost hosts for dev
-        srvCrt, srvKey, err := devcert.EnsureServerCert(out, caCrt, caKey, []string{"localhost", "127.0.0.1"})
-        if err != nil { log.Fatalf("generate dev server cert: %v", err) }
-        // set flags to generated paths
-        *cert, *key, *ca = srvCrt, srvKey, caCrt
-        log.Printf("[devcert] generated dev TLS certs under %s (DEV ONLY)", out)
+            addr := viper.GetString("addr")
+            httpAddr := viper.GetString("http_addr")
+            edgeAddr := viper.GetString("edge_addr")
+            rbacPath := viper.GetString("rbac_config")
+            cert := viper.GetString("cert")
+            key := viper.GetString("key")
+            ca := viper.GetString("ca")
+            gamesPath := viper.GetString("games_config")
+            usersPath := viper.GetString("users_config")
+            jwtSecret := viper.GetString("jwt_secret")
+
+            // Auto-generate dev certs when not provided (DEV ONLY)
+            if cert == "" || key == "" || ca == "" {
+                out := "configs/dev"
+                caCrt, caKey, err := devcert.EnsureDevCA(out)
+                if err != nil { log.Fatalf("generate dev CA: %v", err) }
+                // include common localhost hosts for dev
+                srvCrt, srvKey, err := devcert.EnsureServerCert(out, caCrt, caKey, []string{"localhost", "127.0.0.1"})
+                if err != nil { log.Fatalf("generate dev server cert: %v", err) }
+                // set to generated paths
+                cert, key, ca = srvCrt, srvKey, caCrt
+                log.Printf("[devcert] generated dev TLS certs under %s (DEV ONLY)", out)
+            }
+
+            creds, err := loadServerTLS(cert, key, ca)
+            if err != nil { log.Fatalf("load TLS: %v", err) }
+
+            lis, err := net.Listen("tcp", addr)
+            if err != nil { log.Fatalf("listen: %v", err) }
+
+            s := grpc.NewServer(
+                grpc.Creds(creds),
+                grpc.KeepaliveParams(keepalive.ServerParameters{}),
+            )
+
+            // Register services
+            // Allowed games store
+            gstore := games.NewStore(gamesPath)
+            if err := gstore.Load(); err != nil { log.Fatalf("load games: %v", err) }
+            ctrl := controlserver.NewServer(gstore)
+            controlv1.RegisterControlServiceServer(s, ctrl)
+            var invoker httpserver.FunctionInvoker
+            var locator interface{ GetJobAddr(string) (string, bool) }
+            if edgeAddr != "" {
+                // Forward all FunctionService calls to Edge
+                fwd := functionserver.NewForwarder(edgeAddr)
+                functionv1.RegisterFunctionServiceServer(s, fwd)
+                invoker = functionserver.NewForwarderInvoker(fwd)
+                locator = nil // edge-forward mode: job_result API not available in Server
+            } else {
+                // Use default function server config when running in-server
+                fnsrv := functionserver.NewServer(ctrl.Store(), nil)
+                functionv1.RegisterFunctionServiceServer(s, fnsrv)
+                invoker = functionserver.NewClientAdapter(fnsrv)
+                locator = fnsrv
+            }
+
+            var wg sync.WaitGroup
+            wg.Add(2)
+            go func() {
+                defer wg.Done()
+                log.Printf("croupier-server (grpc) listening on %s", addr)
+                if err := s.Serve(lis); err != nil { log.Fatalf("serve grpc: %v", err) }
+            }()
+            go func() {
+                defer wg.Done()
+                aw, err := auditchain.NewWriter("logs/audit.log")
+                if err != nil { log.Fatalf("audit: %v", err) }
+                defer aw.Close()
+                var pol *rbac.Policy
+                if p, err := rbac.LoadPolicy(rbacPath); err == nil { pol = p } else { pol = rbac.NewPolicy(); pol.Grant("user:dev", "*"); pol.Grant("user:dev", "job:cancel"); pol.Grant("role:admin", "*") }
+                var us *users.Store
+                if s, err := users.Load(usersPath); err == nil { us = s } else { log.Printf("users load failed: %v", err) }
+                jm := jwt.NewManager(jwtSecret)
+                var statsProv interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }
+                if sp, ok := invoker.(interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }); ok { statsProv = sp }
+                httpSrv, err := httpserver.NewServer("descriptors", invoker, aw, pol, gstore, ctrl.Store(), us, jm, locator, statsProv)
+                if err != nil { log.Fatalf("http server: %v", err) }
+                if err := httpSrv.ListenAndServe(httpAddr); err != nil { log.Fatalf("serve http: %v", err) }
+            }()
+            wg.Wait()
+            return nil
+        },
     }
 
-    creds, err := loadServerTLS(*cert, *key, *ca)
-    if err != nil {
-        log.Fatalf("load TLS: %v", err)
+    // Flags and config
+    root.Flags().StringVar(&cfgFile, "config", "", "config file (yaml), e.g. configs/server.yaml")
+    root.Flags().String("addr", ":8443", "grpc listen address")
+    root.Flags().String("http_addr", ":8080", "http api listen address")
+    root.Flags().String("edge_addr", "", "optional edge address for forwarding function calls (DEV PoC)")
+    root.Flags().String("rbac_config", "configs/rbac.json", "rbac policy json path")
+    root.Flags().String("cert", "", "server cert file")
+    root.Flags().String("key", "", "server key file")
+    root.Flags().String("ca", "", "ca cert file for client cert verification")
+    root.Flags().String("games_config", "configs/games.json", "allowed games config (json)")
+    root.Flags().String("users_config", "configs/users.json", "users config json")
+    root.Flags().String("jwt_secret", "dev-secret", "jwt hs256 secret")
+    _ = viper.BindPFlags(root.Flags())
+
+    if err := root.Execute(); err != nil {
+        log.Fatal(err)
     }
-
-    lis, err := net.Listen("tcp", *addr)
-    if err != nil {
-        log.Fatalf("listen: %v", err)
-    }
-
-    s := grpc.NewServer(
-        grpc.Creds(creds),
-        grpc.KeepaliveParams(keepalive.ServerParameters{}),
-    )
-
-    // Register services
-    // Allowed games store
-    gstore := games.NewStore(*gamesPath)
-    if err := gstore.Load(); err != nil { log.Fatalf("load games: %v", err) }
-    ctrl := controlserver.NewServer(gstore)
-    controlv1.RegisterControlServiceServer(s, ctrl)
-    var invoker httpserver.FunctionInvoker
-    var locator interface{ GetJobAddr(string) (string, bool) }
-    if *edgeAddr != "" {
-        // Forward all FunctionService calls to Edge
-        fwd := functionserver.NewForwarder(*edgeAddr)
-        functionv1.RegisterFunctionServiceServer(s, fwd)
-        invoker = functionserver.NewForwarderInvoker(fwd)
-        locator = nil // edge-forward mode: job_result API not available in Server
-    } else {
-        // Use default function server config when running in-server
-        fnsrv := functionserver.NewServer(ctrl.Store(), nil)
-        functionv1.RegisterFunctionServiceServer(s, fnsrv)
-        invoker = functionserver.NewClientAdapter(fnsrv)
-        locator = fnsrv
-    }
-
-    var wg sync.WaitGroup
-    wg.Add(2)
-    go func() {
-        defer wg.Done()
-        log.Printf("croupier-server (grpc) listening on %s", *addr)
-        if err := s.Serve(lis); err != nil {
-            log.Fatalf("serve grpc: %v", err)
-        }
-    }()
-    go func() {
-        defer wg.Done()
-        aw, err := auditchain.NewWriter("logs/audit.log")
-        if err != nil { log.Fatalf("audit: %v", err) }
-        defer aw.Close()
-        var pol *rbac.Policy
-        if p, err := rbac.LoadPolicy(*rbacPath); err == nil { pol = p } else { pol = rbac.NewPolicy(); pol.Grant("user:dev", "*"); pol.Grant("user:dev", "job:cancel"); pol.Grant("role:admin", "*") }
-        var us *users.Store
-        if s, err := users.Load(*usersPath); err == nil { us = s } else { log.Printf("users load failed: %v", err) }
-        jm := jwt.NewManager(*jwtSecret)
-        var statsProv interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }
-        if sp, ok := invoker.(interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }); ok { statsProv = sp }
-        httpSrv, err := httpserver.NewServer("descriptors", invoker, aw, pol, gstore, ctrl.Store(), us, jm, locator, statsProv)
-        if err != nil { log.Fatalf("http server: %v", err) }
-        if err := httpSrv.ListenAndServe(*httpAddr); err != nil {
-            log.Fatalf("serve http: %v", err)
-        }
-    }()
-    wg.Wait()
 }
