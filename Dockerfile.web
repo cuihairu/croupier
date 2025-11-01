@@ -1,0 +1,30 @@
+## Multi-stage build for the Web UI (Umi Max)
+# Global build args must be declared before any FROM
+ARG NODE_IMAGE=node:20-alpine
+ARG NGINX_IMAGE=nginx:alpine
+
+# Build stage
+FROM ${NODE_IMAGE} AS build
+WORKDIR /web
+
+# Optional: use a faster npm registry inside CN if provided at build time
+ARG NPM_REGISTRY=
+RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi
+
+# Install deps
+COPY web/package.json web/pnpm-lock.yaml ./
+# Use npm (no package-lock.json present). For reproducibility, consider pnpm later.
+RUN npm i
+
+# Build
+COPY web/ .
+RUN npm run build
+
+# Runtime stage
+FROM ${NGINX_IMAGE} AS runtime
+
+# Nginx config to serve SPA and proxy API to core service
+COPY web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /web/dist/ /usr/share/nginx/html/
+
+EXPOSE 80

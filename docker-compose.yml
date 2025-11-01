@@ -95,6 +95,22 @@ services:
     networks:
       - croupier-network
 
+  # Web UI (Umi Max) served by Nginx; proxies /api to core:8080
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:20-alpine}
+        NGINX_IMAGE: ${NGINX_IMAGE:-nginx:alpine}
+        # Optional domestic registry for npm (e.g. https://registry.npmmirror.com)
+        NPM_REGISTRY: ${NPM_REGISTRY:-}
+    ports: ["8000:80"]
+    depends_on:
+      - core
+    networks:
+      - croupier-network
+
   # ================================
   # 管理工具 (可选)
   # ================================
