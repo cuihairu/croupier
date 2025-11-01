@@ -55,7 +55,7 @@ services:
       context: .
       dockerfile: Dockerfile.edge
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.21}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.24}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     command: ["edge", "--addr", ":9443", "--http_addr", ":9080", "--games_config", "/app/configs/games.json", "--cert", "/app/configs/dev/server.crt", "--key", "/app/configs/dev/server.key", "--ca", "/app/configs/dev/ca.crt"]
     ports: ["9443:9443", "9080:9080"]
@@ -67,7 +67,7 @@ services:
       context: .
       dockerfile: Dockerfile.server
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.21}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.24}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     environment:
       # 数据库配置
@@ -87,7 +87,7 @@ services:
       context: .
       dockerfile: Dockerfile.agent
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.21}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.24}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     command: ["agent", "--local_addr", ":19090", "--http_addr", ":19091", "--server_addr", "edge:9443", "--game_id", "default", "--env", "dev", "--cert", "/app/configs/dev/agent.crt", "--key", "/app/configs/dev/agent.key", "--ca", "/app/configs/dev/ca.crt"]
     ports: ["19090:19090", "19091:19091"]
