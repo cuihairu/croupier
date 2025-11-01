@@ -2,6 +2,7 @@ package httpserver
 
 import (
     "encoding/json"
+    "log"
     "log/slog"
     "net/http"
 
@@ -31,8 +32,12 @@ import (
     "github.com/cuihairu/croupier/internal/connpool"
     common "github.com/cuihairu/croupier/internal/cli/common"
     pack "github.com/cuihairu/croupier/internal/pack"
+    appr "github.com/cuihairu/croupier/internal/server/approvals"
     "path/filepath"
     "io"
+    "archive/tar"
+    "compress/gzip"
+    "strconv"
 )
 
 type Server struct {
@@ -62,6 +67,8 @@ type Server struct {
     packDir string
     mu sync.RWMutex
     fn map[string]*fnMetrics
+    // approvals store (two-person rule)
+    approvals appr.Store
 }
 
 type FunctionInvoker interface {
@@ -77,6 +84,19 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
     idx := map[string]*descriptor.Descriptor{}
     for _, d := range descs { idx[d.ID] = d }
     s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, games: gamesStore, reg: reg, userStore: userStore, jwtMgr: jwtMgr, startedAt: time.Now(), locator: locator, statsProv: statsProv, fn: map[string]*fnMetrics{}, typeReg: pack.NewTypeRegistry(), packDir: descriptorDir}
+    // approvals store: prefer Postgres via env DATABASE_URL, else in-memory
+    dbURL := os.Getenv("DATABASE_URL")
+    if dbURL != "" {
+        if st, err := appr.NewPGStore(dbURL); err == nil {
+            s.approvals = st
+            log.Printf("[approvals] using postgres store")
+        } else {
+            log.Printf("[approvals] postgres disabled: %v; fallback to memory", err)
+            s.approvals = appr.NewMemStore()
+        }
+    } else {
+        s.approvals = appr.NewMemStore()
+    }
     _ = s.typeReg.LoadFDSFromDir(descriptorDir)
     s.routes()
     return s, nil
@@ -90,6 +110,8 @@ func SetMetricsOptions(perFunction bool, perGameDenies bool) {
     metricsPerFunction.Store(perFunction)
     metricsPerGameDenies.Store(perGameDenies)
 }
+
+// Approval struct moved to approvals package
 
 type histogram struct{
     buckets []float64
@@ -304,7 +326,9 @@ func (s *Server) routes() {
         if err != nil { http.Error(w, err.Error(), 400); return }
         if in.IdempotencyKey == "" { in.IdempotencyKey = randHex(16) }
         traceID := randHex(8)
-        if err := s.audit.Log("invoke", user, in.FunctionID, map[string]string{"ip": r.RemoteAddr, "trace_id": traceID, "game_id": gameID, "env": env}); err != nil { atomic.AddInt64(&s.auditErrors,1) }
+        // audit with masked snapshot
+        masked := s.maskSnapshot(in.FunctionID, in.Payload)
+        if err := s.audit.Log("invoke", user, in.FunctionID, map[string]string{"ip": r.RemoteAddr, "trace_id": traceID, "game_id": gameID, "env": env, "payload_snapshot": masked}); err != nil { atomic.AddInt64(&s.auditErrors,1) }
         meta := map[string]string{"trace_id": traceID}
         if gameID != "" { meta["game_id"] = gameID }
         if env != "" { meta["env"] = env }
@@ -327,6 +351,18 @@ func (s *Server) routes() {
             if tp, ok := d.Transport["proto"].(map[string]any); ok {
                 if fqn, ok2 := tp["request_fqn"].(string); ok2 && fqn != "" && s.typeReg != nil {
                     if pb, err2 := s.typeReg.JSONToProtoBin(fqn, b); err2 == nil { b = pb } else { slog.Warn("encode proto failed; fallback json", "function_id", in.FunctionID, "error", err2.Error()) }
+                }
+            }
+        }
+        // if two_person_rule enabled, store approval and return 202 pending
+        if d := s.descIndex[in.FunctionID]; d != nil {
+            if auth := d.Auth; auth != nil {
+                if tpr, ok := auth["two_person_rule"].(bool); ok && tpr {
+                    id := randHex(12)
+                    _ = s.approvals.Create(&appr.Approval{ID: id, CreatedAt: time.Now(), Actor: user, FunctionID: in.FunctionID, Payload: b, IdempotencyKey: in.IdempotencyKey, Route: meta["route"], TargetServiceID: meta["target_service_id"], HashKey: meta["hash_key"], GameID: gameID, Env: env, State: "pending", Mode: "invoke"})
+                    w.WriteHeader(http.StatusAccepted)
+                    _ = json.NewEncoder(w).Encode(map[string]any{"approval_id": id, "state": "pending"})
+                    return
                 }
             }
         }
@@ -402,9 +438,40 @@ func (s *Server) routes() {
         meta := map[string]string{"trace_id": traceID}
         if gameID != "" { meta["game_id"] = gameID }
         if env != "" { meta["env"] = env }
-        if in.Route != "" { meta["route"] = in.Route }
+        // route selection: request override > descriptor.semantics.route
+        if in.Route != "" { meta["route"] = in.Route } else if d := s.descIndex[in.FunctionID]; d != nil {
+            if sem := d.Semantics; sem != nil {
+                if rv, ok := sem["route"].(string); ok && rv != "" { meta["route"] = rv }
+            }
+        }
+        // validate route
+        if rv, ok := meta["route"]; ok && rv != "lb" && rv != "broadcast" && rv != "targeted" && rv != "hash" {
+            http.Error(w, "invalid route", 400); return
+        }
         if in.HashKey != "" { meta["hash_key"] = in.HashKey }
+        if meta["route"] == "hash" && meta["hash_key"] == "" { http.Error(w, "hash_key required for hash route", 400); return }
         if in.TargetServiceID != "" { meta["target_service_id"] = in.TargetServiceID }
+        if meta["route"] == "targeted" && meta["target_service_id"] == "" { http.Error(w, "target_service_id required for targeted route", 400); return }
+        // transport-aware encode
+        if d := s.descIndex[in.FunctionID]; d != nil && d.Transport != nil {
+            if tp, ok := d.Transport["proto"].(map[string]any); ok {
+                if fqn, ok2 := tp["request_fqn"].(string); ok2 && fqn != "" && s.typeReg != nil {
+                    if pb, err2 := s.typeReg.JSONToProtoBin(fqn, b); err2 == nil { b = pb } else { slog.Warn("encode proto failed; fallback json", "function_id", in.FunctionID, "error", err2.Error()) }
+                }
+            }
+        }
+        // two_person_rule for start_job
+        if d := s.descIndex[in.FunctionID]; d != nil {
+            if auth := d.Auth; auth != nil {
+                if tpr, ok := auth["two_person_rule"].(bool); ok && tpr {
+                    id := randHex(12)
+                    _ = s.approvals.Create(&appr.Approval{ID: id, CreatedAt: time.Now(), Actor: user, FunctionID: in.FunctionID, Payload: b, IdempotencyKey: in.IdempotencyKey, Route: meta["route"], TargetServiceID: meta["target_service_id"], HashKey: meta["hash_key"], GameID: gameID, Env: env, State: "pending", Mode: "start_job"})
+                    w.WriteHeader(http.StatusAccepted)
+                    _ = json.NewEncoder(w).Encode(map[string]any{"approval_id": id, "state": "pending"})
+                    return
+                }
+            }
+        }
         resp, err := s.invoker.StartJob(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta})
         if err != nil {
             atomic.AddInt64(&s.jobsError,1)
@@ -414,6 +481,158 @@ func (s *Server) routes() {
         slog.Info("start_job", "user", user, "function_id", in.FunctionID, "trace_id", traceID, "game_id", gameID, "env", env, "route", in.Route)
         atomic.AddInt64(&s.jobsStarted, 1)
         _ = json.NewEncoder(w).Encode(resp)
+    })
+    // approvals endpoints
+    s.mux.HandleFunc("/api/approvals", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
+        user, _, ok := s.auth(r)
+        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
+        if s.rbac != nil && !(s.rbac.Can(user, "approvals:read") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        // filters + pagination
+        f := appr.Filter{
+            State: r.URL.Query().Get("state"),
+            FunctionID: r.URL.Query().Get("function_id"),
+            GameID: r.URL.Query().Get("game_id"),
+            Env: r.URL.Query().Get("env"),
+            Actor: r.URL.Query().Get("actor"),
+            Mode: r.URL.Query().Get("mode"),
+        }
+        page := 1; size := 20; sort := r.URL.Query().Get("sort")
+        if v := r.URL.Query().Get("page"); v != "" { if n, err := strconv.Atoi(v); err == nil && n > 0 { page = n } }
+        if v := r.URL.Query().Get("size"); v != "" { if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 200 { size = n } }
+        items, total, err := s.approvals.List(f, appr.Page{Page: page, Size: size, Sort: sort})
+        if err != nil { http.Error(w, err.Error(), 500); return }
+        type view struct{ ID, CreatedAt, Actor, FunctionID, IdempotencyKey, Route, TargetServiceID, HashKey, GameID, Env, State, Mode string }
+        out := make([]view, 0, len(items))
+        for _, a := range items {
+            out = append(out, view{
+                ID: a.ID,
+                CreatedAt: a.CreatedAt.Format(time.RFC3339),
+                Actor: a.Actor,
+                FunctionID: a.FunctionID,
+                IdempotencyKey: a.IdempotencyKey,
+                Route: a.Route,
+                TargetServiceID: a.TargetServiceID,
+                HashKey: a.HashKey,
+                GameID: a.GameID,
+                Env: a.Env,
+                State: a.State,
+                Mode: a.Mode,
+            })
+        }
+        _ = json.NewEncoder(w).Encode(struct{
+            Approvals []view `json:"approvals"`
+            Total int `json:"total"`
+            Page int `json:"page"`
+            Size int `json:"size"`
+        }{Approvals: out, Total: total, Page: page, Size: size})
+    })
+    // approval detail
+    s.mux.HandleFunc("/api/approvals/get", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
+        user, _, ok := s.auth(r)
+        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
+        if s.rbac != nil && !(s.rbac.Can(user, "approvals:read") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        id := r.URL.Query().Get("id")
+        if id == "" { http.Error(w, "missing id", 400); return }
+        a, err := s.approvals.Get(id)
+        if err != nil { http.Error(w, "not found", 404); return }
+        // try build masked preview
+        var preview string
+        if d := s.descIndex[a.FunctionID]; d != nil && d.Transport != nil {
+            if tp, ok := d.Transport["proto"].(map[string]any); ok {
+                if fqn, ok2 := tp["request_fqn"].(string); ok2 && fqn != "" && s.typeReg != nil {
+                    if j, err2 := s.typeReg.ProtoBinToJSON(fqn, a.Payload); err2 == nil {
+                        preview = s.maskSnapshot(a.FunctionID, j)
+                    }
+                }
+            }
+        }
+        if preview == "" {
+            preview = s.maskSnapshot(a.FunctionID, a.Payload)
+        }
+        _ = json.NewEncoder(w).Encode(map[string]any{
+            "id": a.ID,
+            "created_at": a.CreatedAt.Format(time.RFC3339),
+            "actor": a.Actor,
+            "function_id": a.FunctionID,
+            "idempotency_key": a.IdempotencyKey,
+            "route": a.Route,
+            "target_service_id": a.TargetServiceID,
+            "hash_key": a.HashKey,
+            "game_id": a.GameID,
+            "env": a.Env,
+            "state": a.State,
+            "mode": a.Mode,
+            "reason": a.Reason,
+            "payload_preview": preview,
+        })
+    })
+    s.mux.HandleFunc("/api/approvals/approve", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
+        user, _, ok := s.auth(r)
+        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
+        if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        if s.rbac != nil && !(s.rbac.Can(user, "approvals:approve") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+        var in struct{ ID string `json:"id"` }
+        if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.ID == "" { http.Error(w, "missing id", 400); return }
+        a, err := s.approvals.Approve(in.ID)
+        if err != nil { http.Error(w, err.Error(), 409); return }
+        // build meta from stored approval
+        meta := map[string]string{}
+        if a.Route != "" { meta["route"] = a.Route }
+        if a.HashKey != "" { meta["hash_key"] = a.HashKey }
+        if a.TargetServiceID != "" { meta["target_service_id"] = a.TargetServiceID }
+        if a.GameID != "" { meta["game_id"] = a.GameID }
+        if a.Env != "" { meta["env"] = a.Env }
+        // audit
+        if err := s.audit.Log("approval_approve", user, a.FunctionID, map[string]string{"approval_id": a.ID}); err != nil { atomic.AddInt64(&s.auditErrors,1) }
+        // execute
+        switch a.Mode {
+        case "invoke":
+            resp, err := s.invoker.Invoke(r.Context(), &functionv1.InvokeRequest{FunctionId: a.FunctionID, IdempotencyKey: a.IdempotencyKey, Payload: a.Payload, Metadata: meta})
+            if err != nil { http.Error(w, err.Error(), 500); return }
+            // decode response if needed
+            out := resp.GetPayload()
+            if d := s.descIndex[a.FunctionID]; d != nil && d.Transport != nil {
+                if tp, ok := d.Transport["proto"].(map[string]any); ok {
+                    if fqn, ok2 := tp["response_fqn"].(string); ok2 && fqn != "" && s.typeReg != nil {
+                        if j, err2 := s.typeReg.ProtoBinToJSON(fqn, out); err2 == nil { out = j }
+                    }
+                }
+            }
+            if len(out) == 0 { w.WriteHeader(204); return }
+            w.Header().Set("Content-Type", "application/json")
+            _, _ = w.Write(out)
+        case "start_job":
+            resp, err := s.invoker.StartJob(r.Context(), &functionv1.InvokeRequest{FunctionId: a.FunctionID, IdempotencyKey: a.IdempotencyKey, Payload: a.Payload, Metadata: meta})
+            if err != nil { http.Error(w, err.Error(), 500); return }
+            _ = json.NewEncoder(w).Encode(resp)
+        default:
+            http.Error(w, "unknown mode", 400)
+        }
+    })
+    s.mux.HandleFunc("/api/approvals/reject", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
+        user, _, ok := s.auth(r)
+        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
+        if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        if s.rbac != nil && !(s.rbac.Can(user, "approvals:reject") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+        var in struct{ ID, Reason string `json:"id" json:"reason"` }
+        // decode flexible
+        dec := json.NewDecoder(r.Body)
+        var tmp map[string]any
+        if err := dec.Decode(&tmp); err != nil { http.Error(w, "bad request", 400); return }
+        id, _ := tmp["id"].(string)
+        reason, _ := tmp["reason"].(string)
+        if id == "" { http.Error(w, "missing id", 400); return }
+        a, err := s.approvals.Reject(id, reason)
+        if err != nil { http.Error(w, err.Error(), 409); return }
+        // audit
+        if err := s.audit.Log("approval_reject", user, a.FunctionID, map[string]string{"approval_id": a.ID, "reason": reason}); err != nil { atomic.AddInt64(&s.auditErrors,1) }
+        w.WriteHeader(http.StatusNoContent)
     })
     s.mux.HandleFunc("/api/stream_job", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
@@ -669,4 +888,55 @@ func (s *Server) auth(r *http.Request) (string, []string, bool) {
         if err == nil { return user, roles, true }
     }
     return "", nil, false
+}
+
+// maskSnapshot masks sensitive fields in payload based on descriptor UI hints.
+func (s *Server) maskSnapshot(fid string, payload any) string {
+    // Build sensitive keys set
+    sensitive := map[string]struct{}{
+        "password":{}, "pass":{}, "secret":{}, "token":{}, "api_key":{}, "apikey":{}, "authorization":{}, "auth":{}, "key":{},
+    }
+    if d := s.descIndex[fid]; d != nil && d.UI != nil {
+        // support ui.sensitive: ["field1", "nested.field2"]
+        if raw, ok := d.UI["sensitive"]; ok {
+            if arr, ok := raw.([]any); ok {
+                for _, v := range arr {
+                    if s1, ok := v.(string); ok && s1 != "" { sensitive[strings.ToLower(s1)] = struct{}{} }
+                }
+            }
+        }
+    }
+    // Work on a generic map clone
+    var m any = payload
+    // If payload is raw JSON bytes (from proxy), try decode
+    if b, ok := payload.([]byte); ok {
+        var tmp any
+        if err := json.Unmarshal(b, &tmp); err == nil { m = tmp }
+    }
+    masked := maskAny(m, sensitive)
+    out, err := json.Marshal(masked)
+    if err != nil { return "{}" }
+    return string(out)
+}
+
+// maskAny recursively masks maps/slices for keys present in sensitive set.
+func maskAny(v any, sensitive map[string]struct{}) any {
+    switch t := v.(type) {
+    case map[string]any:
+        mm := map[string]any{}
+        for k, val := range t {
+            if _, ok := sensitive[strings.ToLower(k)]; ok {
+                mm[k] = "***"
+                continue
+            }
+            mm[k] = maskAny(val, sensitive)
+        }
+        return mm
+    case []any:
+        out := make([]any, len(t))
+        for i, e := range t { out[i] = maskAny(e, sensitive) }
+        return out
+    default:
+        return t
+    }
 }

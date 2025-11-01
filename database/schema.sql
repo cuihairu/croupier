@@ -197,6 +197,25 @@ CREATE TABLE audit_events (
     hash VARCHAR(64) NOT NULL -- 当前记录哈希
 );
 
+-- 审批（Two-person rule）
+CREATE TABLE approvals (
+    id VARCHAR(64) PRIMARY KEY,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    actor VARCHAR(100) NOT NULL,
+    function_id VARCHAR(100) NOT NULL,
+    payload BYTEA,
+    idempotency_key VARCHAR(100),
+    route VARCHAR(20),
+    target_service_id VARCHAR(100),
+    hash_key VARCHAR(200),
+    game_id VARCHAR(100),
+    env VARCHAR(50),
+    state VARCHAR(20) DEFAULT 'pending' CHECK (state IN ('pending','approved','rejected')),
+    mode VARCHAR(20) NOT NULL CHECK (mode IN ('invoke','start_job')),
+    reason TEXT
+);
+
 -- ================================
 -- 5. 配置和系统管理
 -- ================================
@@ -270,6 +289,13 @@ CREATE INDEX idx_audit_events_timestamp ON audit_events(timestamp);
 CREATE INDEX idx_audit_events_actor ON audit_events(actor_type, actor_id);
 CREATE INDEX idx_audit_events_target ON audit_events(target_type, target_id);
 CREATE INDEX idx_audit_events_kind ON audit_events(kind);
+
+-- 审批索引
+CREATE INDEX idx_approvals_state ON approvals(state);
+CREATE INDEX idx_approvals_function ON approvals(function_id);
+CREATE INDEX idx_approvals_game_env ON approvals(game_id, env);
+CREATE INDEX idx_approvals_actor ON approvals(actor);
+CREATE INDEX idx_approvals_created_at ON approvals(created_at);
 
 -- 系统配置索引
 CREATE INDEX idx_system_configs_category ON system_configs(category);

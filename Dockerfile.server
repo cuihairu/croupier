@@ -8,7 +8,7 @@ COPY go.mod go.sum ./
 COPY sdks/go/go.mod sdks/go/go.sum sdks/go/
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/croupier ./cmd/croupier
+RUN CGO_ENABLED=0 GOFLAGS=-mod=mod go build -tags pg -o /out/croupier ./cmd/croupier
 
 FROM ${RUNTIME_IMAGE}
 WORKDIR /app

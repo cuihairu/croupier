@@ -18,6 +18,7 @@ type Descriptor struct {
     Semantics map[string]any `json:"semantics"`
     Transport map[string]any `json:"transport"`
     Outputs   map[string]any `json:"outputs"`
+    UI        map[string]any `json:"ui"`
 }
 
 func LoadAll(dir string) ([]*Descriptor, error) {

@@ -35,7 +35,7 @@ pack: croupier-plugin
 server:
 	@echo "[build] server"
 	@mkdir -p $(BINDIR)
-	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-server ./cmd/server
+	GOFLAGS=-mod=mod go build -tags pg -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-server ./cmd/server
 
 agent:
 	@echo "[build] agent"
@@ -52,7 +52,7 @@ build: server agent edge
 cli:
 	@echo "[build] unified CLI"
 	@mkdir -p $(BINDIR)
-	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier ./cmd/croupier
+	GOFLAGS=-mod=mod go build -tags pg -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier ./cmd/croupier
 
 # Cross-compile for multiple platforms
 build-linux-amd64:
