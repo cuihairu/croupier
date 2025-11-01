@@ -128,6 +128,7 @@ func main() {
             if fo.Risk != "" { desc["risk"] = strings.ToLower(fo.Risk) }
             if fo.Mode != "" { desc["semantics"].(map[string]any)["mode"] = strings.ToLower(fo.Mode) }
             if fo.IdempotencyKeySet { desc["semantics"].(map[string]any)["idempotency_key"] = fo.IdempotencyKey }
+            if len(fo.Labels) > 0 { desc["labels"] = fo.Labels }
             // JSON schema for input + UI schema (with field-level UI options if any)
             if inMsg := msgIndex[m.GetInputType()]; inMsg != nil {
                 uiHints := collectUIFieldHints(inMsg)
@@ -416,6 +417,7 @@ type funcOpts struct {
     Mode           string
     IdempotencyKey bool
     IdempotencyKeySet bool
+    Labels         map[string]string
 }
 
 func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
@@ -425,7 +427,8 @@ func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
         // Expect extension name like (croupier.options.function)
         name := joinOptionName(u)
         if name != "croupier.options.function" { continue }
-        kv := parseAggregateKV(u.GetAggregateValue())
+        raw := u.GetAggregateValue()
+        kv := parseAggregateKV(raw)
         if v := kv["function_id"]; v != "" { out.FunctionID = trimQuotes(v) }
         if v := kv["version"]; v != "" { out.Version = trimQuotes(v) }
         if v := kv["category"]; v != "" { out.Category = trimQuotes(v) }
@@ -436,6 +439,7 @@ func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
         if v := kv["placement"]; v != "" { out.Placement = trimQuotes(v) }
         if v := kv["mode"]; v != "" { out.Mode = trimQuotes(v) }
         if v := kv["idempotency_key"]; v != "" { out.IdempotencyKey, out.IdempotencyKeySet = parseBool(v), true }
+        if m := parseOptionObjectMap(raw, "labels"); len(m) > 0 { out.Labels = m }
     }
     return out
 }
