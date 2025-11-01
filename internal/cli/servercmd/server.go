@@ -31,6 +31,7 @@ import (
     "github.com/cuihairu/croupier/internal/devcert"
     "github.com/cuihairu/croupier/internal/loadbalancer"
     "github.com/cuihairu/croupier/internal/connpool"
+    common "github.com/cuihairu/croupier/internal/cli/common"
 )
 
 // loadServerTLS is kept here to avoid leaking into other packages.
@@ -72,7 +73,15 @@ func New() *cobra.Command {
             }
 
             // logging setup
-            common.SetupLogger(v.GetString("log.level"), v.GetString("log.format"))
+            common.SetupLoggerWithFile(
+                v.GetString("log.level"),
+                v.GetString("log.format"),
+                v.GetString("log.file"),
+                v.GetInt("log.max_size"),
+                v.GetInt("log.max_backups"),
+                v.GetInt("log.max_age"),
+                v.GetBool("log.compress"),
+            )
 
             // config validation (non-strict: allow devcert fallback)
             if err := common.ValidateServerConfig(v, false); err != nil { return fmt.Errorf("config invalid: %w", err) }
@@ -170,6 +179,11 @@ func New() *cobra.Command {
     cmd.Flags().String("jwt_secret", "dev-secret", "jwt hs256 secret")
     cmd.Flags().String("log.level", "info", "log level: debug|info|warn|error")
     cmd.Flags().String("log.format", "console", "log format: console|json")
+    cmd.Flags().String("log.file", "", "log file path (if set, enable rotation)")
+    cmd.Flags().Int("log.max_size", 100, "max size of log file in MB before rotation")
+    cmd.Flags().Int("log.max_backups", 7, "max number of old log files to retain")
+    cmd.Flags().Int("log.max_age", 7, "max age (days) to retain old log files")
+    cmd.Flags().Bool("log.compress", true, "compress rotated log files")
     _ = viper.BindPFlags(cmd.Flags())
     return cmd
 }
