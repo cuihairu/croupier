@@ -106,7 +106,7 @@ sequenceDiagram
 ./game-server
 ```
 
-提示：已支持使用 `--config` 指定 YAML 配置文件，或通过环境变量覆盖（前缀 `CROUPIER_`，例如 `CROUPIER_ADDR=":8443"`）。可参考 `configs/server.example.yaml` 与 `configs/agent.example.yaml`。
+提示：已支持使用 `--config` 指定 YAML 配置文件，或通过环境变量覆盖（前缀 `CROUPIER_SERVER_` 和 `CROUPIER_AGENT_`，例如 `CROUPIER_SERVER_ADDR=":8443"`、`CROUPIER_AGENT_SERVER_ADDR="127.0.0.1:8443"`）。可参考 `configs/server.example.yaml` 与 `configs/agent.example.yaml`。
 
 ### 模式 2：Agent 外连（推荐）
 
@@ -578,14 +578,14 @@ CI 提示
 Croupier - 让游戏运营变得简单而强大 🎮
 # Edge PoC（Server 内网仅出站）
 # 1) 启动 Edge
-./bin/croupier-edge --addr :9443 --games_config configs/games.json \
+./croupier edge --addr :9443 --games_config configs/games.json \
   --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
 # 2) Server 出站到 Edge（转发 Function 调用）
-./bin/croupier-server --addr :8443 --http_addr :8080 --edge_addr 127.0.0.1:9443 \
+./croupier server --addr :8443 --http_addr :8080 --edge_addr 127.0.0.1:9443 \
   --rbac_config configs/rbac.json --games_config configs/games.json \
   --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
 # 3) Agent 指向 Edge 外连
-./bin/croupier-agent --local_addr :19090 --core_addr 127.0.0.1:9443 --game_id default --env dev \
+./croupier agent --local_addr :19090 --core_addr 127.0.0.1:9443 --game_id default --env dev \
   --cert configs/dev/agent.crt --key configs/dev/agent.key --ca configs/dev/ca.crt
 ### 容器化部署（示例）
 
