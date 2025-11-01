@@ -11,6 +11,10 @@ import (
     agentcmd "github.com/cuihairu/croupier/internal/cli/agentcmd"
     edgecmd "github.com/cuihairu/croupier/internal/cli/edgecmd"
     common "github.com/cuihairu/croupier/internal/cli/common"
+    "net/http"
+    "mime/multipart"
+    "path/filepath"
+    "io"
 )
 
 func main() {
@@ -81,6 +85,35 @@ func main() {
         }
     }
     root.AddCommand(cfgTest)
+
+    // packs import (POST to server /api/packs/import)
+    packs := &cobra.Command{Use: "packs"}
+    importCmd := &cobra.Command{Use: "import <pack.tgz>", Short: "Import a function pack (fds+descriptors) into the running server"}
+    var api string
+    importCmd.Flags().StringVar(&api, "api", "http://localhost:8080", "Server HTTP address")
+    importCmd.RunE = func(cmd *cobra.Command, args []string) error {
+        if len(args) == 0 { return fmt.Errorf("pack path required") }
+        path := args[0]
+        body := &bytes.Buffer{}
+        mw := multipart.NewWriter(body)
+        fw, err := mw.CreateFormFile("file", filepath.Base(path))
+        if err != nil { return err }
+        f, err := os.Open(path)
+        if err != nil { return err }
+        defer f.Close()
+        if _, err := io.Copy(fw, f); err != nil { return err }
+        mw.Close()
+        req, _ := http.NewRequest("POST", api+"/api/packs/import", body)
+        req.Header.Set("Content-Type", mw.FormDataContentType())
+        resp, err := http.DefaultClient.Do(req)
+        if err != nil { return err }
+        defer resp.Body.Close()
+        if resp.StatusCode/100 != 2 { b,_ := io.ReadAll(resp.Body); return fmt.Errorf("import failed: %s", string(b)) }
+        fmt.Println("import ok")
+        return nil
+    }
+    packs.AddCommand(importCmd)
+    root.AddCommand(packs)
 
     if err := root.Execute(); err != nil { log.Fatal(err) }
 }

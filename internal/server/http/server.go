@@ -30,6 +30,9 @@ import (
     "github.com/cuihairu/croupier/internal/loadbalancer"
     "github.com/cuihairu/croupier/internal/connpool"
     common "github.com/cuihairu/croupier/internal/cli/common"
+    pack "github.com/cuihairu/croupier/internal/pack"
+    "path/filepath"
+    "io"
 )
 
 type Server struct {
@@ -55,6 +58,8 @@ type Server struct {
         GetStats() map[string]*loadbalancer.AgentStats
         GetPoolStats() *connpool.PoolStats
     }
+    typeReg *pack.TypeRegistry
+    packDir string
     mu sync.RWMutex
     fn map[string]*fnMetrics
 }
@@ -71,7 +76,8 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
     if err != nil { return nil, err }
     idx := map[string]*descriptor.Descriptor{}
     for _, d := range descs { idx[d.ID] = d }
-    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, games: gamesStore, reg: reg, userStore: userStore, jwtMgr: jwtMgr, startedAt: time.Now(), locator: locator, statsProv: statsProv, fn: map[string]*fnMetrics{}}
+    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, games: gamesStore, reg: reg, userStore: userStore, jwtMgr: jwtMgr, startedAt: time.Now(), locator: locator, statsProv: statsProv, fn: map[string]*fnMetrics{}, typeReg: pack.NewTypeRegistry(), packDir: descriptorDir}
+    _ = s.typeReg.LoadFDSFromDir(descriptorDir)
     s.routes()
     return s, nil
 }
@@ -173,6 +179,31 @@ func (s *Server) routes() {
         }
         out["logs"] = common.GetLogCounters()
         _ = json.NewEncoder(w).Encode(out)
+    })
+
+    // Pack import: multipart/form-data with file=pack.tgz
+    s.mux.HandleFunc("/api/packs/import", func(w http.ResponseWriter, r *http.Request){
+        if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        if err := r.ParseMultipartForm(32 << 20); err != nil { http.Error(w, err.Error(), 400); return }
+        f, hdr, err := r.FormFile("file")
+        if err != nil { http.Error(w, "missing file", 400); return }
+        defer f.Close()
+        // Save to temp and extract
+        tmpPath := filepath.Join(os.TempDir(), hdr.Filename)
+        out, err := os.Create(tmpPath)
+        if err != nil { http.Error(w, err.Error(), 500); return }
+        if _, err := io.Copy(out, f); err != nil { out.Close(); http.Error(w, err.Error(), 500); return }
+        out.Close()
+        if err := extractPack(tmpPath, s.packDir); err != nil { http.Error(w, err.Error(), 500); return }
+        // Reload descriptors and FDS
+        descs, err := descriptor.LoadAll(s.packDir)
+        if err == nil {
+            idx := map[string]*descriptor.Descriptor{}
+            for _, d := range descs { idx[d.ID] = d }
+            s.descs = descs; s.descIndex = idx
+        }
+        _ = s.typeReg.LoadFDSFromDir(s.packDir)
+        _ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
     })
 
     // Prometheus text exposition (basic)
@@ -291,6 +322,14 @@ func (s *Server) routes() {
         if meta["route"] == "hash" && meta["hash_key"] == "" { http.Error(w, "hash_key required for hash route", 400); return }
         if in.TargetServiceID != "" { meta["target_service_id"] = in.TargetServiceID }
         if meta["route"] == "targeted" && meta["target_service_id"] == "" { http.Error(w, "target_service_id required for targeted route", 400); return }
+        // transport-aware encode: JSON -> pb-bin if descriptor.transport.proto.request_fqn is set
+        if d := s.descIndex[in.FunctionID]; d != nil && d.Transport != nil {
+            if tp, ok := d.Transport["proto"].(map[string]any); ok {
+                if fqn, ok2 := tp["request_fqn"].(string); ok2 && fqn != "" && s.typeReg != nil {
+                    if pb, err2 := s.typeReg.JSONToProtoBin(fqn, b); err2 == nil { b = pb } else { slog.Warn("encode proto failed; fallback json", "function_id", in.FunctionID, "error", err2.Error()) }
+                }
+            }
+        }
         resp, err := s.invoker.Invoke(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta})
         if err != nil {
             atomic.AddInt64(&s.invocationsError,1)
@@ -299,9 +338,18 @@ func (s *Server) routes() {
         }
         slog.Info("invoke", "user", user, "function_id", in.FunctionID, "trace_id", traceID, "game_id", gameID, "env", env, "route", meta["route"]) 
         atomic.AddInt64(&s.invocations, 1)
+        // decode pb-bin -> JSON if response_fqn present
+        out := resp.GetPayload()
+        if d := s.descIndex[in.FunctionID]; d != nil && d.Transport != nil {
+            if tp, ok := d.Transport["proto"].(map[string]any); ok {
+                if fqn, ok2 := tp["response_fqn"].(string); ok2 && fqn != "" && s.typeReg != nil {
+                    if j, err2 := s.typeReg.ProtoBinToJSON(fqn, out); err2 == nil { out = j }
+                }
+            }
+        }
+        if len(out) == 0 { w.WriteHeader(204); return }
         w.Header().Set("Content-Type", "application/json")
-        if len(resp.GetPayload()) == 0 { w.WriteHeader(204); return }
-        _, _ = w.Write(resp.GetPayload())
+        _, _ = w.Write(out)
     })
     s.mux.HandleFunc("/api/start_job", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
@@ -565,6 +613,32 @@ func (s *Server) routes() {
     }
     fs := http.FileServer(http.Dir(staticDir))
     s.mux.Handle("/", fs)
+}
+
+// extractPack extracts a tar.gz pack into dest directory; keeps descriptors and fds
+func extractPack(archive, dest string) error {
+    f, err := os.Open(archive)
+    if err != nil { return err }
+    defer f.Close()
+    gz, err := gzip.NewReader(f)
+    if err != nil { return err }
+    defer gz.Close()
+    tr := tar.NewReader(gz)
+    for {
+        hdr, err := tr.Next()
+        if err == io.EOF { break }
+        if err != nil { return err }
+        // Only extract descriptors/*.json, ui/*.json and any *.pb
+        if strings.HasPrefix(hdr.Name, "descriptors/") || strings.HasPrefix(hdr.Name, "ui/") || strings.HasSuffix(hdr.Name, ".pb") {
+            target := filepath.Join(dest, filepath.FromSlash(hdr.Name))
+            if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil { return err }
+            w, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+            if err != nil { return err }
+            if _, err := io.Copy(w, tr); err != nil { w.Close(); return err }
+            w.Close()
+        }
+    }
+    return nil
 }
 
 func (s *Server) ListenAndServe(addr string) error {

@@ -58,3 +58,22 @@ Notes
 - Histogram buckets follow Prometheus defaults (0.005 .. 10 seconds). Values are best-effort for HTTP path and meant for dashboards/alerts.
 - Series cardinality: per-function metrics may increase cardinality; keep function ids bounded.
 - Toggles: you can disable per-function metrics via `--metrics.per_function=false` and enable per-game RBAC denied counters via `--metrics.per_game_denies=true`.
+
+Prometheus scrape example
+```yaml
+scrape_configs:
+  - job_name: 'croupier-server'
+    metrics_path: /metrics.prom
+    static_configs: [ { targets: ['localhost:8080'] } ]
+  - job_name: 'croupier-agent'
+    metrics_path: /metrics.prom
+    static_configs: [ { targets: ['localhost:19091'] } ]
+  - job_name: 'croupier-edge'
+    metrics_path: /metrics.prom
+    static_configs: [ { targets: ['localhost:9080'] } ]
+```
+
+Grafana quick panel ideas
+- Query rate by function: `increase(croupier_invocations_total{function_id="$fid"}[5m])`
+- Error ratio: `increase(croupier_invocations_error_total{function_id="$fid"}[5m]) / increase(croupier_invocations_total{function_id="$fid"}[5m])`
+- P95 latency: `histogram_quantile(0.95, sum by (le,function_id) (rate(croupier_invoke_latency_seconds_bucket[5m])))`
