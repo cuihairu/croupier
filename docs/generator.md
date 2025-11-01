@@ -44,7 +44,7 @@ Note: remote plugins in `buf.gen.yaml` may require network. You can remove them 
 - function_id: `<package>.<Service>.<Method>` lowercased
 - version: `1.0.0`
 - category: second-to-last segment of package (e.g., `games.player.v1` → `player`)
-- transport: protobuf (pb-json UI, Core encodes to pb-bin)
+- transport: protobuf (pb-json UI, Server encodes to pb-bin)
 - semantics: mode=query, route=lb, timeout=30s, idempotency_key=false
 - auth: permission=function_id, two_person_rule=false
 - placement: agent

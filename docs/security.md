@@ -1,8 +1,7 @@
 # Security
 
-- mTLS for Core/Agent
+- mTLS for Server/Agent
 - OIDC/MFA for users
 - RBAC/ABAC, approvals, audit log chain
 
 Status: skeleton.
-
