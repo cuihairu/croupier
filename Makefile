@@ -15,6 +15,23 @@ proto:
 	@echo "[proto] generating code via buf..."
 	buf generate
 
+# Build local protoc plugin for pack generation
+.PHONY: croupier-plugin
+croupier-plugin:
+	@echo "[build] protoc-gen-croupier"
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -o $(BINDIR)/protoc-gen-croupier ./tools/protoc-gen-croupier
+
+# Generate croupier pack artifacts (requires protoc on PATH)
+.PHONY: pack
+pack: croupier-plugin
+	@echo "[pack] generating croupier artifacts with protoc-gen-croupier..."
+	PATH="$(PWD)/$(BINDIR):$$PATH" \
+	protoc \
+		-I proto \
+		--croupier_out=emit_pack=true:gen/croupier \
+		$(shell rg -n --files proto | tr '\n' ' ')
+
 server:
 	@echo "[build] server"
 	@mkdir -p $(BINDIR)
