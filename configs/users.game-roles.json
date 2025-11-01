@@ -1,0 +1,198 @@
+[
+  {
+    "username": "super_admin",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["super_admin"],
+    "description": "系统超级管理员"
+  },
+  {
+    "username": "admin",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["admin"],
+    "description": "系统管理员"
+  },
+  {
+    "username": "project_manager",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["project_manager"],
+    "description": "项目经理"
+  },
+  {
+    "username": "producer",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["producer"],
+    "description": "制作人"
+  },
+  {
+    "username": "tech_lead",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["tech_lead"],
+    "description": "技术负责人"
+  },
+  {
+    "username": "senior_dev",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["senior_developer"],
+    "description": "高级开发工程师"
+  },
+  {
+    "username": "dev_user",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["developer"],
+    "description": "开发工程师"
+  },
+  {
+    "username": "test_user",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["tester"],
+    "description": "测试工程师"
+  },
+  {
+    "username": "ops_user",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["ops"],
+    "description": "运维工程师"
+  },
+  {
+    "username": "game_designer",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["game_designer"],
+    "description": "游戏策划/设计师"
+  },
+  {
+    "username": "level_designer",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["level_designer"],
+    "description": "关卡策划"
+  },
+  {
+    "username": "system_designer",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["system_designer"],
+    "description": "系统策划"
+  },
+  {
+    "username": "numerical_designer",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["numerical_designer"],
+    "description": "数值策划"
+  },
+  {
+    "username": "ui_designer",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["ui_designer"],
+    "description": "UI设计师"
+  },
+  {
+    "username": "operator",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["operator"],
+    "description": "游戏运营"
+  },
+  {
+    "username": "marketing",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["marketing"],
+    "description": "市场营销"
+  },
+  {
+    "username": "community",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["community"],
+    "description": "社区管理"
+  },
+  {
+    "username": "content_manager",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["content_manager"],
+    "description": "内容管理员"
+  },
+  {
+    "username": "analyst",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["analyst"],
+    "description": "数据分析师"
+  },
+  {
+    "username": "bi_analyst",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["bi_analyst"],
+    "description": "商业智能分析师"
+  },
+  {
+    "username": "user_researcher",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["user_researcher"],
+    "description": "用户研究员"
+  },
+  {
+    "username": "support_manager",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["support_manager"],
+    "description": "客服主管"
+  },
+  {
+    "username": "senior_support",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["senior_support"],
+    "description": "高级客服"
+  },
+  {
+    "username": "support",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["support"],
+    "description": "客服人员"
+  },
+  {
+    "username": "gm",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["gm"],
+    "description": "游戏管理员(GM)"
+  },
+  {
+    "username": "bot_operator",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["bot_operator"],
+    "description": "托/机器人操作员"
+  },
+  {
+    "username": "security",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["security"],
+    "description": "安全专员"
+  },
+  {
+    "username": "auditor",
+    "salt": "croupier",
+    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "roles": ["auditor"],
+    "description": "审计员"
+  }
+]
