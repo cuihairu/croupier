@@ -126,6 +126,8 @@ func main() {
             }
             if fo.Placement != "" { desc["placement"] = strings.ToLower(fo.Placement) }
             if fo.Risk != "" { desc["risk"] = strings.ToLower(fo.Risk) }
+            if fo.Mode != "" { desc["semantics"].(map[string]any)["mode"] = strings.ToLower(fo.Mode) }
+            if fo.IdempotencyKeySet { desc["semantics"].(map[string]any)["idempotency_key"] = fo.IdempotencyKey }
             // JSON schema for input + UI schema (with field-level UI options if any)
             if inMsg := msgIndex[m.GetInputType()]; inMsg != nil {
                 uiHints := collectUIFieldHints(inMsg)
@@ -411,6 +413,9 @@ type funcOpts struct {
     TwoPersonRule  bool
     TwoPersonRuleSet bool
     Placement      string
+    Mode           string
+    IdempotencyKey bool
+    IdempotencyKeySet bool
 }
 
 func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
@@ -429,6 +434,8 @@ func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
         if v := kv["timeout"]; v != "" { out.Timeout = trimQuotes(v) }
         if v := kv["two_person_rule"]; v != "" { out.TwoPersonRule, out.TwoPersonRuleSet = parseBool(v), true }
         if v := kv["placement"]; v != "" { out.Placement = trimQuotes(v) }
+        if v := kv["mode"]; v != "" { out.Mode = trimQuotes(v) }
+        if v := kv["idempotency_key"]; v != "" { out.IdempotencyKey, out.IdempotencyKeySet = parseBool(v), true }
     }
     return out
 }

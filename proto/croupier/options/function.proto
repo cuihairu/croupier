@@ -25,6 +25,10 @@ message FunctionOptions {
   string placement = 8;
   // 额外标签
   map<string,string> labels = 9;
+  // 调用模式：query/command（默认 query）
+  string mode = 10;
+  // 是否启用幂等键（默认 false）
+  bool idempotency_key = 11;
 }
 
 extend google.protobuf.MethodOptions {
