@@ -40,6 +40,27 @@ Environment overrides
 - Server: CROUPIER_SERVER_ADDR, CROUPIER_SERVER_HTTP_ADDR, CROUPIER_SERVER_LOG_LEVEL, ...
 - Agent:  CROUPIER_AGENT_SERVER_ADDR, CROUPIER_AGENT_LOCAL_ADDR, ...
 
+Metrics env toggles (server)
+- METRICS_PER_FUNCTION=true|false to enable per-function latency histogram and counters.
+- METRICS_PER_GAME_DENIES=true|false to enable per-game RBAC deny counters.
+
+Agent Assignments & Downlink (dev)
+```yaml
+agent:
+  assignments_api: http://localhost:8080   # poll assignments and pack export from this server
+  assignments_poll_sec: 30                 # polling interval seconds
+  downlink_dir: ./packs/downlink           # save/export current pack here on updates
+  # optional adapter process demo (dev-only)
+  adapter_prom_cmd: "go run ./adapters/prom"
+  adapter_http_cmd: "go run ./adapters/http"
+```
+
+Adapter supervisor (dev)
+- Agent will supervise optional adapters with graceful restart and backoff.
+- Environment passed to adapter process includes: `CROUPIER_AGENT_ID`, `CROUPIER_GAME_ID`, `CROUPIER_ENV`, and passthrough `PROM_URL`/`ASSIGNMENTS_API` if present.
+- Desired adapters are inferred from assignments: `prom.*` → prom adapter, `http.*|grafana.*|alertmanager.*` → http adapter. Empty assignments means allow all → start both if configured.
+- After downlink import/reload, Agent polls `/api/packs/list` briefly to verify server responds.
+
 Effective config snapshot
 - Validate and print merged config (strict):
 ```bash
