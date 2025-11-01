@@ -55,7 +55,8 @@ func loadClientTLS(certFile, keyFile, caFile string, serverName string) (credent
 
 func main() {
     localAddr := flag.String("local_addr", ":19090", "local gRPC listen for game servers")
-    coreAddr := flag.String("core_addr", "127.0.0.1:8443", "server grpc address")
+    coreAddr := flag.String("core_addr", "127.0.0.1:8443", "server grpc address (deprecated, use --server_addr)")
+    serverAddr := flag.String("server_addr", "", "server grpc address (alias for --core_addr)")
     serverName := flag.String("server_name", "", "tls server name for server (SNI)")
     cert := flag.String("cert", "", "client mTLS cert file")
     key := flag.String("key", "", "client mTLS key file")
@@ -77,6 +78,16 @@ func main() {
         if err != nil { log.Fatalf("generate dev agent cert: %v", err) }
         *cert, *key, *ca = agCrt, agKey, caCrt
         log.Printf("[devcert] generated dev mTLS certs under %s (DEV ONLY)", out)
+    }
+
+    // Prefer --server_addr if provided (alias), warn on deprecated --core_addr usage
+    if serverAddr != nil && *serverAddr != "" {
+        if coreAddr != nil && *coreAddr != "127.0.0.1:8443" {
+            log.Printf("[warn] both --server_addr and --core_addr provided; using --server_addr=%s", *serverAddr)
+        }
+        *coreAddr = *serverAddr
+    } else {
+        log.Printf("[warn] --core_addr is deprecated; please use --server_addr")
     }
 
     // Connect to Server with mTLS (required by default)
