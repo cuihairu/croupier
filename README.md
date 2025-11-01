@@ -1,31 +1,33 @@
 # Croupier - 游戏GM后台系统
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Go Version](https://img.shields.io/badge/go-1.21+-green.svg)
+![Go Version](https://img.shields.io/badge/go-1.24+-green.svg)
 ![Status](https://img.shields.io/badge/status-in%20development-yellow.svg)
 
 Croupier 是一个专为游戏运营设计的通用 GM 后台系统，支持多语言游戏服务器接入，提供统一的管理界面与强大的扩展能力。
 
-本 README 描述的是推荐的 vNext 架构：gRPC + mTLS、Descriptor 驱动 UI、Agent 外连拓扑。与现有实现兼容演进（现有 `croupier-proxy` 在本文中称为 Agent）。本文中原“Core”统一改称“Server”（croupier-server）。
+## 🧠 设计理念
 
-## 📦 SDKs
+Croupier 围绕**"让游戏运营既安全又高效"**的核心目标设计，将传统单体 GM 后台拆分为三个独立但协同的层次：
 
-- Go SDK（推荐优先）
-  - 仓库：https://github.com/cuihairu/croupier-sdk-go
-  - 子模块路径：`sdks/go`（已在本仓库引入）
-  - 文档：`sdks/go/README.md`
-  - 能力：注册本地函数到 Agent、承载 FunctionService、JSON 编解码、简单超时/重试拦截器
-- C++ SDK（WIP）
-  - 仓库：https://github.com/cuihairu/croupier-sdk-cpp
-  - 子模块路径：`sdks/cpp`
-  - 状态：占位，优先完成 Go 版本后逐步实现
-- Java SDK（WIP）
-  - 仓库：https://github.com/cuihairu/croupier-sdk-java
-  - 子模块路径：`sdks/java`
-  - 状态：占位，优先保证 Go 版本稳定后实现
+### **1. 权限控制层（独立的安全基座）**
+- **独立的权限模型**：RBAC/ABAC 权限系统完全独立于游戏逻辑
+- **统一的安全策略**：所有游戏、所有环境共享同一套权限框架
+- **多层安全机制**：身份认证、授权控制、操作审批、审计追踪
 
-使用建议
-- 生产接入建议以 IDL 生成多语言 SDK；当前阶段 Go SDK 为最优先完善路径，其他语言逐步跟进。
+### **2. 游戏控制层（函数注册驱动）**
+- **函数注册机制**：游戏服务器向 Agent 注册可调用函数
+- **标准化接口**：所有游戏操作抽象为统一的函数调用模型
+- **业务逻辑内聚**：游戏相关的控制逻辑完全在游戏服务器内部
+- **作用域隔离**：`game_id`/`env` 确保不同游戏/环境的逻辑隔离
+
+### **3. 可观测展示层（描述符驱动生成）**
+- **描述符驱动 UI**：JSON Schema 描述符自动生成操作表单
+- **零代码运营界面**：运营人员无需开发即可获得专业管理界面
+- **统一的展示标准**：参数校验、敏感字段脱敏、风险标识、进度追踪
+- **可观测性集成**：指标、日志、链路追踪统一展示
+
+**核心理念**：*让专业的人做专业的事* - 平台专注安全和基础设施，游戏专注业务逻辑实现，运营专注策略和执行。
 
 ## 🎯 核心特性
 
@@ -39,7 +41,7 @@ Croupier 是一个专为游戏运营设计的通用 GM 后台系统，支持多�
 
 ## 🏗️ 系统架构
 
-### 整体架构图（vNext）
+### 整体架构图
 
 ```mermaid
 graph LR
@@ -62,10 +64,8 @@ graph LR
 ### 调用与数据流
 - Query（查询）同步返回；Command（命令）异步返回 `job_id`
 - 长任务通过流式接口返回进度/日志，可取消/重试，保证幂等（`idempotency-key`）
-- 所有函数字段由 Descriptor（JSON Schema/Proto 选其一）定义，UI/校验/鉴权共享同一描述
+- 所有函数字段由 Descriptor（JSON Schema）定义，UI/校验/鉴权共享同一描述
 - Metadata：统一携带 `trace_id`（链路诊断）与 `game_id`/`env`（多游戏作用域）。HTTP 层通过 `X-Game-ID`/`X-Env` 透传至南向调用。
- 
-开发便捷性说明：骨架阶段为便于本地联调，Agent 在 `Register` 时会上报 `rpc_addr`，Server 通过该地址直连 Agent 完成调用（DEV ONLY）。生产将改为“Agent 外连双向流”模式，不需 Server 入内网。
 
 ```mermaid
 sequenceDiagram
@@ -89,14 +89,12 @@ sequenceDiagram
 
 ## 🚀 快速开始
 
-> 说明：如当前仓库仍提供 `croupier-proxy`，在落地 Agent 前，先以 `croupier-proxy` 作为 Agent 使用；命名将逐步迁移为 `croupier-agent`。
-
 ### 模式 1：同网部署（直连，简化）
 
 适用于 Server 与 Game 在同一内网且允许直连的场景（仍建议使用 mTLS）。
 
 ```bash
-# 1) 启动 Server（当前未实现 --config，直接使用显式参数）
+# 1) 启动 Server
 ./croupier server \
   --addr :8443 --http_addr :8080 \
   --rbac_config configs/rbac.json --games_config configs/games.json --users_config configs/users.json \
@@ -143,13 +141,8 @@ Server 位于 DMZ/公网，Agent 在游戏内网，仅出站到 Server。游戏�
   --rbac_config configs/rbac.json --games_config configs/games.json --users_config configs/users.json \
   --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
 
-# 2) 内网启动 Agent（显式参数；若二进制名仍为 proxy，请先用 proxy）
+# 2) 内网启动 Agent
 ./croupier agent \
-  --local_addr :19090 --server_addr 127.0.0.1:8443 --game_id default --env dev \
-  --cert configs/dev/agent.crt --key configs/dev/agent.key --ca configs/dev/ca.crt
-# 注：`--server_addr` 为推荐参数；`--core_addr` 仍保留为别名并打印弃用提示（向后兼容）。
-# 或（历史命名）仍可用（逐步迁移至 unified CLI）
-./croupier-proxy \
   --local_addr :19090 --server_addr 127.0.0.1:8443 --game_id default --env dev \
   --cert configs/dev/agent.crt --key configs/dev/agent.key --ca configs/dev/ca.crt
 
@@ -205,57 +198,8 @@ graph LR
 运行流程（PoC 设计）：
 - Edge：监听 9443，接受 Agent 外连并注册（ControlService）；同时暴露 FunctionService，对 Server 作为调用入口并转发到 Agent。
 - Server：使用 `--edge_addr` 将 FunctionService 调用转发到 Edge；HTTP/UI 不变。
-- Agent：将 `--server_addr` 指向 Edge 地址，实现“仅外连”注册（`--core_addr` 兼容）。
+- Agent：将 `--server_addr` 指向 Edge 地址，实现"仅外连"注册。
 
-
-### SDK 集成示例
-
-以 Go 为例（通过 Proto 生成的 SDK）。
-
-```proto
-// proto/gm/function.proto
-service FunctionService {
-  rpc Invoke(InvokeRequest) returns (InvokeResponse);          // 短任务/查询
-  rpc StartJob(InvokeRequest) returns (StartJobResponse);      // 长任务/命令
-  rpc StreamJob(JobStreamRequest) returns (stream JobEvent);   // 进度/日志
-}
-```
-
-```json
-// descriptors/player.ban.json - 函数描述符（驱动 UI/校验/鉴权）
-{
-  "id": "player.ban",
-  "version": "1.2.0",
-  "category": "player",
-  "risk": "high",
-  "auth": { "permission": "player.ban", "two_person_rule": true },
-  "params": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "properties": {
-      "player_id": { "type": "string" },
-      "reason": { "type": "string" }
-    },
-    "required": ["player_id"]
-  },
-  "semantics": {
-    "mode": "command",
-    "idempotency_key": true,
-    "timeout": "30s",
-    "returns": "job"
-  }
-}
-```
-
-```go
-// examples/go-server/main.go（最小示例，已在仓库提供）
-// 1) 连接本机 Agent 2) 注册函数 3) 启动本地服务并向 Agent 报到
-cli := sdk.NewClient(sdk.ClientConfig{Addr: "127.0.0.1:19090", LocalListen: "127.0.0.1:0"})
-_ = cli.RegisterFunction(sdk.Function{ID: "player.ban", Version: "1.2.0"}, handler)
-_ = cli.Connect(context.Background())
-```
-
-访问 `http://localhost:8080` 可使用由 Descriptor 自动生成的管理界面。
 
 ### 命令行快速验证（示例）
 
@@ -431,8 +375,8 @@ croupier/
 
 ## 🗺️ 演进与兼容
 
-- 现有 `croupier-proxy` 可作为 Agent 使用；后续重命名为 `croupier-agent`
 - 保持向后兼容：先引入 TLS 与 Descriptor，再平滑迁移到 gRPC 接口
+- 版本协商：函数 `id@semver`；Server/Agent/SDK 通过特性协商降级
 
 ## 🗓️ 开发计划（详细）
 
@@ -586,6 +530,86 @@ CI 提示
 
 提交流程：Fork → 分支 → 提交 → 推送 → PR。
 
+## 📦 SDKs
+
+### Go SDK（生产就绪）
+- **仓库**：https://github.com/cuihairu/croupier-sdk-go
+- **子模块路径**：`sdks/go`（已在本仓库引入）
+- **文档**：`sdks/go/README.md`
+- **功能特性**：
+  - 注册本地函数到 Agent
+  - 承载 FunctionService gRPC 服务
+  - JSON 编解码与 Schema 校验
+  - 超时/重试拦截器
+  - 幂等键支持
+
+### 集成示例
+
+以 Go SDK 为例：
+
+```proto
+// proto/croupier/function/v1/function.proto
+service FunctionService {
+  rpc Invoke(InvokeRequest) returns (InvokeResponse);          // 短任务/查询
+  rpc StartJob(InvokeRequest) returns (StartJobResponse);      // 长任务/命令
+  rpc StreamJob(JobStreamRequest) returns (stream JobEvent);   // 进度/日志
+}
+```
+
+```json
+// descriptors/player.ban.json - 函数描述符（驱动 UI/校验/鉴权）
+{
+  "id": "player.ban",
+  "version": "1.2.0",
+  "category": "player",
+  "risk": "high",
+  "auth": { "permission": "player.ban", "two_person_rule": true },
+  "params": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "player_id": { "type": "string" },
+      "reason": { "type": "string" }
+    },
+    "required": ["player_id"]
+  },
+  "semantics": {
+    "mode": "command",
+    "idempotency_key": true,
+    "timeout": "30s",
+    "returns": "job"
+  }
+}
+```
+
+```go
+// examples/go-server/main.go（最小示例，已在仓库提供）
+// 1) 连接本机 Agent 2) 注册函数 3) 启动本地服务并向 Agent 报到
+cli := sdk.NewClient(sdk.ClientConfig{
+    Addr: "127.0.0.1:19090",
+    LocalListen: "127.0.0.1:0"
+})
+_ = cli.RegisterFunction(sdk.Function{
+    ID: "player.ban",
+    Version: "1.2.0"
+}, handler)
+_ = cli.Connect(context.Background())
+```
+
+访问 `http://localhost:8080` 可使用由 Descriptor 自动生成的管理界面。
+
+### C++ SDK（规划中）
+- **仓库**：https://github.com/cuihairu/croupier-sdk-cpp
+- **子模块路径**：`sdks/cpp`
+- **状态**：占位符，优先完成 Go 版本后逐步实现
+
+### Java SDK（规划中）
+- **仓库**：https://github.com/cuihairu/croupier-sdk-java
+- **子模块路径**：`sdks/java`
+- **状态**：占位符，优先保证 Go 版本稳定后实现
+
+**使用建议**：生产接入建议以 IDL 生成多语言 SDK；当前阶段 Go SDK 为最优先完善路径，其他语言逐步跟进。
+
 ## 📖 文档
 
 - docs/api.md
@@ -600,38 +624,3 @@ CI 提示
 ---
 
 Croupier - 让游戏运营变得简单而强大 🎮
-# Edge PoC（Server 内网仅出站）
-# 1) 启动 Edge
-./croupier edge --addr :9443 --games_config configs/games.json \
-  --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
-# 2) Server 出站到 Edge（转发 Function 调用）
-./croupier server --addr :8443 --http_addr :8080 --edge_addr 127.0.0.1:9443 \
-  --rbac_config configs/rbac.json --games_config configs/games.json \
-  --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
-# 3) Agent 指向 Edge 外连
-./croupier agent --local_addr :19090 --server_addr 127.0.0.1:9443 --game_id default --env dev \
-  --cert configs/dev/agent.crt --key configs/dev/agent.key --ca configs/dev/ca.crt
-### 容器化部署（示例）
-
-```bash
-# 准备开发证书
-./scripts/dev-certs.sh
-
-# 构建容器并启动（Server/Edge/Agent）
-docker compose up --build
-
-# Web 前端（子模块 web）单独启动 dev，或将构建产物挂载到 Server 静态目录
-```
-
-登录后获取 token，前端会自动附带 Authorization 进行调用。
-
-### 路由策略（lb / broadcast / targeted / hash）
-- 默认路由可在 `descriptors/*` 的 `semantics.route` 声明（如 `lb`）。
-- 运行时可在 GM 界面选择 `lb` / `broadcast` / `targeted` / `hash`：
-  - `lb`：轮询本地多实例
-  - `broadcast`：对所有实例执行，结果聚合为 JSON 数组
-  - `targeted`：需要选择目标实例（调用 `/api/function_instances` 获取实例列表），执行时会传 `target_service_id`
-  - `hash`：对 `hash_key` 做一致性哈希（当前实现为简单 FNV32 模运算），用于基于字段（如 `player_id`）定向到固定实例
-提示：审批持久化（Two-person rule）
-- 默认使用内存；如果在运行环境提供 `DATABASE_URL=postgres://...`，并以 `-tags pg` 构建二进制（Dockerfile.server 已内置该参数），Server 将自动使用 Postgres 存储审批数据（表名 `approvals`）。
-- API：`GET /api/approvals`（分页/过滤）、`POST /api/approvals/approve|reject`。详见 docs/security.md。
