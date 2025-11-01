@@ -1,46 +1,48 @@
 package common
 
 import (
-    "encoding/json"
     "io"
     "log"
+    "log/slog"
     "os"
     "strings"
-    "time"
+
+    lumberjack "gopkg.in/natefinch/lumberjack.v2"
 )
 
-// SetupLogger configures standard log package according to level/format.
-// level: debug|info|warn|error (currently informational only for std log)
-// format: console|json
-func SetupLogger(level, format string) {
-    lvl := strings.ToLower(strings.TrimSpace(level))
-    if lvl == "" { lvl = "info" }
-    f := strings.ToLower(strings.TrimSpace(format))
-    if f == "json" {
-        log.SetFlags(0)
-        log.SetOutput(jsonWriter{level: lvl, w: os.Stderr})
+// SetupLoggerWithFile configures both std log and slog default logger.
+// format: console|json; level: debug|info|warn|error.
+// If filePath != "", logs write to a rotating file.
+func SetupLoggerWithFile(level, format, filePath string, maxSizeMB, maxBackups, maxAgeDays int, compress bool) {
+    // writer
+    var w io.Writer = os.Stderr
+    if strings.TrimSpace(filePath) != "" {
+        w = &lumberjack.Logger{Filename: filePath, MaxSize: maxSizeMB, MaxBackups: maxBackups, MaxAge: maxAgeDays, Compress: compress}
+    }
+    // slog handler
+    var h slog.Handler
+    lvl := slog.LevelInfo
+    switch strings.ToLower(level) {
+    case "debug": lvl = slog.LevelDebug
+    case "warn": lvl = slog.LevelWarn
+    case "error": lvl = slog.LevelError
+    }
+    opts := &slog.HandlerOptions{Level: lvl}
+    if strings.ToLower(format) == "json" {
+        h = slog.NewJSONHandler(w, opts)
     } else {
-        // console
+        h = slog.NewTextHandler(w, opts)
+    }
+    slog.SetDefault(slog.New(h))
+    // std log bridge to same writer (simple; keep std flags minimal when json)
+    if strings.ToLower(format) == "json" {
+        log.SetFlags(0)
+    } else {
         log.SetFlags(log.LstdFlags | log.Lmicroseconds)
-        log.SetOutput(os.Stderr)
     }
+    log.SetOutput(writerFunc(func(p []byte) (int, error) { return w.Write(p) }))
 }
 
-type jsonWriter struct {
-    level string
-    w     io.Writer
-}
+type writerFunc func(p []byte) (n int, err error)
 
-func (j jsonWriter) Write(p []byte) (int, error) {
-    // Strip trailing newline; wrap into JSON with ts, level, msg
-    msg := strings.TrimRight(string(p), "\n")
-    rec := map[string]any{
-        "ts":    time.Now().Format(time.RFC3339Nano),
-        "level": j.level,
-        "msg":   msg,
-    }
-    b, _ := json.Marshal(rec)
-    b = append(b, '\n')
-    return j.w.Write(b)
-}
-
+func (f writerFunc) Write(p []byte) (int, error) { return f(p) }

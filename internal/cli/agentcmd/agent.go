@@ -64,7 +64,15 @@ func New() *cobra.Command {
             }
 
             // logging setup
-            common.SetupLogger(v.GetString("log.level"), v.GetString("log.format"))
+            common.SetupLoggerWithFile(
+                v.GetString("log.level"),
+                v.GetString("log.format"),
+                v.GetString("log.file"),
+                v.GetInt("log.max_size"),
+                v.GetInt("log.max_backups"),
+                v.GetInt("log.max_age"),
+                v.GetBool("log.compress"),
+            )
 
             localAddr := v.GetString("local_addr")
             serverAddr := v.GetString("server_addr")
@@ -188,6 +196,11 @@ func New() *cobra.Command {
     cmd.Flags().String("http_addr", ":19091", "agent http listen for health/metrics")
     cmd.Flags().String("log.level", "info", "log level: debug|info|warn|error")
     cmd.Flags().String("log.format", "console", "log format: console|json")
+    cmd.Flags().String("log.file", "", "log file path (if set, enable rotation)")
+    cmd.Flags().Int("log.max_size", 100, "max size of log file in MB before rotation")
+    cmd.Flags().Int("log.max_backups", 7, "max number of old log files to retain")
+    cmd.Flags().Int("log.max_age", 7, "max age (days) to retain old log files")
+    cmd.Flags().Bool("log.compress", true, "compress rotated log files")
     _ = viper.BindPFlags(cmd.Flags())
     return cmd
 }

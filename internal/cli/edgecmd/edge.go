@@ -53,7 +53,15 @@ func New() *cobra.Command {
             v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
             v.AutomaticEnv()
             if cfgFile != "" { v.SetConfigFile(cfgFile); _ = v.ReadInConfig() }
-            common.SetupLogger(v.GetString("log.level"), v.GetString("log.format"))
+            common.SetupLoggerWithFile(
+                v.GetString("log.level"),
+                v.GetString("log.format"),
+                v.GetString("log.file"),
+                v.GetInt("log.max_size"),
+                v.GetInt("log.max_backups"),
+                v.GetInt("log.max_age"),
+                v.GetBool("log.compress"),
+            )
 
             addr := v.GetString("addr")
             httpAddr := v.GetString("http_addr")
@@ -104,7 +112,11 @@ func New() *cobra.Command {
     cmd.Flags().String("games_config", "configs/games.json", "allowed games config (json)")
     cmd.Flags().String("log.level", "info", "log level: debug|info|warn|error")
     cmd.Flags().String("log.format", "console", "log format: console|json")
+    cmd.Flags().String("log.file", "", "log file path (if set, enable rotation)")
+    cmd.Flags().Int("log.max_size", 100, "max size of log file in MB before rotation")
+    cmd.Flags().Int("log.max_backups", 7, "max number of old log files to retain")
+    cmd.Flags().Int("log.max_age", 7, "max age (days) to retain old log files")
+    cmd.Flags().Bool("log.compress", true, "compress rotated log files")
     _ = viper.BindPFlags(cmd.Flags())
     return cmd
 }
-
