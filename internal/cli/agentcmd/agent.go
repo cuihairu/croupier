@@ -178,6 +178,21 @@ func New() *cobra.Command {
                         "logs": common.GetLogCounters(),
                     })
                 })
+                mux.HandleFunc("/metrics.prom", func(w http.ResponseWriter, r *http.Request){
+                    w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+                    mp := lstore.List(); total := 0
+                    for _, arr := range mp { total += len(arr) }
+                    fmt.Fprintf(w, "# TYPE croupier_agent_instances gauge\n")
+                    fmt.Fprintf(w, "croupier_agent_instances %d\n", total)
+                    fmt.Fprintf(w, "# TYPE croupier_tunnel_reconnects counter\n")
+                    fmt.Fprintf(w, "croupier_tunnel_reconnects %d\n", tunn.Reconnects())
+                    lc := common.GetLogCounters()
+                    fmt.Fprintf(w, "# TYPE croupier_logs_total counter\n")
+                    fmt.Fprintf(w, "croupier_logs_total{level=\"debug\"} %d\n", lc["debug"])
+                    fmt.Fprintf(w, "croupier_logs_total{level=\"info\"} %d\n", lc["info"])
+                    fmt.Fprintf(w, "croupier_logs_total{level=\"warn\"} %d\n", lc["warn"])
+                    fmt.Fprintf(w, "croupier_logs_total{level=\"error\"} %d\n", lc["error"])
+                })
                 log.Printf("agent http listening on %s", httpAddr)
                 _ = http.ListenAndServe(httpAddr, mux)
             }()
