@@ -18,6 +18,8 @@ import (
     functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
     "context"
     jwt "github.com/cuihairu/croupier/internal/auth/token"
+    "github.com/cuihairu/croupier/internal/auth/rbac"
+    "time"
 )
 
 type fakeInvoker struct{}
@@ -46,7 +48,9 @@ func TestPacks_List_And_UISchema_Export(t *testing.T) {
     mustWrite(filepath.Join(dir, "ui", "ex.fn.schema.json"), []byte(`{"type":"object","properties":{}}`))
     mustWrite(filepath.Join(dir, "ui", "ex.fn.uischema.json"), []byte(`{"ui:layout":{"type":"grid","cols":2}}`))
 
-    aw, err := auditchain.NewWriter(filepath.Join(dir, "audit.log"))
+    // audit endpoint reads from logs/audit.log, so write there for this test
+    _ = os.MkdirAll("logs", 0o755)
+    aw, err := auditchain.NewWriter("logs/audit.log")
     if err != nil { t.Fatalf("audit writer: %v", err) }
     defer aw.Close()
     srv, err := NewServer(dir, new(fakeInvoker), aw, nil, games.NewStore("") , registry.NewStore(), nil, nil, nil, nil)
@@ -60,6 +64,7 @@ func TestPacks_List_And_UISchema_Export(t *testing.T) {
     var out map[string]any
     if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil { t.Fatalf("json: %v", err) }
     if out["manifest"] == nil { t.Fatalf("missing manifest in list") }
+    if etg, _ := out["etag"].(string); etg == "" { t.Fatalf("missing etag in packs/list") }
 
     // GET /api/ui_schema?id=ex.fn
     rr = httptest.NewRecorder()
@@ -72,6 +77,7 @@ func TestPacks_List_And_UISchema_Export(t *testing.T) {
     req = httptest.NewRequest(http.MethodGet, "/api/packs/export", nil)
     srv.mux.ServeHTTP(rr, req)
     if rr.Code/100 != 2 { t.Fatalf("export code=%d body=%s", rr.Code, rr.Body.String()) }
+    if et := rr.Header().Get("ETag"); et == "" { t.Fatalf("missing ETag header on export") }
     // read tar.gz entries
     gz, err := gzip.NewReader(bytes.NewReader(rr.Body.Bytes()))
     if err != nil { t.Fatalf("gz: %v", err) }
@@ -157,3 +163,147 @@ func TestAssignments_Get_Post_And_PacksReload(t *testing.T) {
     for _, d := range descs { if id, ok := d["id"].(string); ok { have[id] = true } }
     if !(have["ex.fn"] && have["ex2.fn"]) { t.Fatalf("expected ex.fn and ex2.fn after reload, got: %+v", have) }
 }
+
+func TestPacksReload_RBAC(t *testing.T) {
+    dir := t.TempDir()
+    // minimal pack state
+    _ = os.WriteFile(filepath.Join(dir, "manifest.json"), []byte(`{"functions":[]}`), 0o644)
+    aw, err := auditchain.NewWriter(filepath.Join(dir, "audit.log"))
+    if err != nil { t.Fatalf("audit writer: %v", err) }
+    defer aw.Close()
+    mgr := jwt.NewManager("s")
+    pol := rbac.NewPolicy()
+    pol.Grant("ok", "packs:reload")
+    srv, err := NewServer(dir, new(fakeInvoker), aw, pol, games.NewStore(""), registry.NewStore(), nil, mgr, nil, nil)
+    if err != nil { t.Fatalf("NewServer: %v", err) }
+    // unauthorized user (no auth)
+    rr := httptest.NewRecorder()
+    req := httptest.NewRequest(http.MethodPost, "/api/packs/reload", nil)
+    srv.mux.ServeHTTP(rr, req)
+    if rr.Code != http.StatusUnauthorized { t.Fatalf("expected 401, got %d", rr.Code) }
+    // forbidden user
+    tokFail, _ := mgr.Sign("nope", nil, 0)
+    rr = httptest.NewRecorder()
+    req = httptest.NewRequest(http.MethodPost, "/api/packs/reload", nil)
+    req.Header.Set("Authorization", "Bearer "+tokFail)
+    srv.mux.ServeHTTP(rr, req)
+    if rr.Code != http.StatusForbidden { t.Fatalf("expected 403, got %d", rr.Code) }
+    // allowed user
+    tokOK, _ := mgr.Sign("ok", nil, 0)
+    rr = httptest.NewRecorder()
+    req = httptest.NewRequest(http.MethodPost, "/api/packs/reload", nil)
+    req.Header.Set("Authorization", "Bearer "+tokOK)
+    srv.mux.ServeHTTP(rr, req)
+    if rr.Code/100 != 2 { t.Fatalf("expected 2xx, got %d", rr.Code) }
+}
+
+func TestRegistry_Coverage_HealthyTotal_Uncovered(t *testing.T) {
+    dir := t.TempDir()
+    // minimal pack
+    _ = os.WriteFile(filepath.Join(dir, "manifest.json"), []byte(`{"functions":[]}`), 0o644)
+    aw, err := auditchain.NewWriter(filepath.Join(dir, "audit.log"))
+    if err != nil { t.Fatalf("audit writer: %v", err) }
+    defer aw.Close()
+    mgr := jwt.NewManager("s")
+    reg := registry.NewStore()
+    srv, err := NewServer(dir, new(fakeInvoker), aw, nil, games.NewStore(""), reg, nil, mgr, nil, nil)
+    if err != nil { t.Fatalf("NewServer: %v", err) }
+    // prepare two agents for g1 with ex.fn: one healthy, one expired; and no agent for ex2.fn
+    now := time.Now()
+    reg.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "g1", Env: "dev", RPCAddr: "127.0.0.1:1", Functions: map[string]bool{"ex.fn": true}, ExpireAt: now.Add(60 * time.Second)})
+    reg.UpsertAgent(&registry.AgentSession{AgentID: "a2", GameID: "g1", Env: "dev", RPCAddr: "127.0.0.1:2", Functions: map[string]bool{"ex.fn": true}, ExpireAt: now.Add(-10 * time.Second)})
+    // set assignments for g1|dev -> [ex.fn, ex2.fn]
+    srv.assignments["g1|dev"] = []string{"ex.fn", "ex2.fn"}
+    // call /api/registry
+    rr := httptest.NewRecorder()
+    req := httptest.NewRequest(http.MethodGet, "/api/registry", nil)
+    // auth
+    tok, _ := mgr.Sign("u", nil, 0)
+    req.Header.Set("Authorization", "Bearer "+tok)
+    srv.mux.ServeHTTP(rr, req)
+    if rr.Code/100 != 2 { t.Fatalf("registry code=%d body=%s", rr.Code, rr.Body.String()) }
+    var out struct{
+        Coverage []struct{
+            GameEnv string `json:"game_env"`
+            Functions map[string]struct{ Healthy, Total int } `json:"functions"`
+            Uncovered []string `json:"uncovered"`
+        } `json:"coverage"`
+    }
+    if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil { t.Fatalf("json: %v", err) }
+    if len(out.Coverage) == 0 { t.Fatalf("missing coverage") }
+    var cov map[string]struct{ Healthy, Total int }
+    var unc []string
+    for _, c := range out.Coverage { if c.GameEnv == "g1|dev" { cov = c.Functions; unc = c.Uncovered; break } }
+    if cov == nil { t.Fatalf("missing coverage for g1|dev") }
+    if cov["ex.fn"].Healthy != 1 || cov["ex.fn"].Total != 2 { t.Fatalf("unexpected ex.fn cov: %+v", cov["ex.fn"]) }
+    if cov["ex2.fn"].Healthy != 0 || cov["ex2.fn"].Total != 0 { t.Fatalf("unexpected ex2.fn cov: %+v", cov["ex2.fn"]) }
+    // uncovered should include ex2.fn
+    found := false
+    for _, id := range unc { if id == "ex2.fn" { found = true; break } }
+    if !found { t.Fatalf("ex2.fn should be in uncovered: %+v", unc) }
+}
+
+func TestRegistry_RBAC(t *testing.T) {
+    dir := t.TempDir()
+    _ = os.WriteFile(filepath.Join(dir, "manifest.json"), []byte(`{"functions":[]}`), 0o644)
+    aw, err := auditchain.NewWriter(filepath.Join(dir, "audit.log"))
+    if err != nil { t.Fatalf("audit writer: %v", err) }
+    defer aw.Close()
+    mgr := jwt.NewManager("s")
+    pol := rbac.NewPolicy()
+    pol.Grant("ok", "registry:read")
+    srv, err := NewServer(dir, new(fakeInvoker), aw, pol, games.NewStore(""), registry.NewStore(), nil, mgr, nil, nil)
+    if err != nil { t.Fatalf("NewServer: %v", err) }
+    // unauthorized
+    rr := httptest.NewRecorder()
+    req := httptest.NewRequest(http.MethodGet, "/api/registry", nil)
+    srv.mux.ServeHTTP(rr, req)
+    if rr.Code != http.StatusUnauthorized { t.Fatalf("expect 401, got %d", rr.Code) }
+    // forbidden
+    tokNope, _ := mgr.Sign("nope", nil, 0)
+    rr = httptest.NewRecorder()
+    req = httptest.NewRequest(http.MethodGet, "/api/registry", nil)
+    req.Header.Set("Authorization", "Bearer "+tokNope)
+    srv.mux.ServeHTTP(rr, req)
+    if rr.Code != http.StatusForbidden { t.Fatalf("expect 403, got %d", rr.Code) }
+    // allowed
+    tokOK, _ := mgr.Sign("ok", nil, 0)
+    rr = httptest.NewRecorder()
+    req = httptest.NewRequest(http.MethodGet, "/api/registry", nil)
+    req.Header.Set("Authorization", "Bearer "+tokOK)
+    srv.mux.ServeHTTP(rr, req)
+    if rr.Code/100 != 2 { t.Fatalf("expect 2xx, got %d", rr.Code) }
+}
+
+func TestAudit_RBAC(t *testing.T) {
+    dir := t.TempDir()
+    _ = os.WriteFile(filepath.Join(dir, "manifest.json"), []byte(`{"functions":[]}`), 0o644)
+    aw, _ := auditchain.NewWriter(filepath.Join(dir, "audit.log"))
+    defer aw.Close()
+    mgr := jwt.NewManager("s")
+    pol := rbac.NewPolicy()
+    pol.Grant("ok", "audit:read")
+    srv, err := NewServer(dir, new(fakeInvoker), aw, pol, games.NewStore(""), registry.NewStore(), nil, mgr, nil, nil)
+    if err != nil { t.Fatalf("NewServer: %v", err) }
+    // unauthorized
+    rr := httptest.NewRecorder()
+    req := httptest.NewRequest(http.MethodGet, "/api/audit", nil)
+    srv.mux.ServeHTTP(rr, req)
+    if rr.Code != http.StatusUnauthorized { t.Fatalf("expect 401, got %d", rr.Code) }
+    // forbidden
+    tokNope, _ := mgr.Sign("nope", nil, 0)
+    rr = httptest.NewRecorder()
+    req = httptest.NewRequest(http.MethodGet, "/api/audit", nil)
+    req.Header.Set("Authorization", "Bearer "+tokNope)
+    srv.mux.ServeHTTP(rr, req)
+    if rr.Code != http.StatusForbidden { t.Fatalf("expect 403, got %d", rr.Code) }
+    // allowed
+    tokOK, _ := mgr.Sign("ok", nil, 0)
+    rr = httptest.NewRecorder()
+    req = httptest.NewRequest(http.MethodGet, "/api/audit", nil)
+    req.Header.Set("Authorization", "Bearer "+tokOK)
+    srv.mux.ServeHTTP(rr, req)
+    if rr.Code/100 != 2 { t.Fatalf("expect 2xx, got %d body=%s", rr.Code, rr.Body.String()) }
+}
+
+// assignments audit is covered by manual tests; integration test omitted due to external log path dependency.

@@ -1,0 +1,14 @@
+{
+  "ui:layout": { "type": "grid", "cols": 2 },
+  "ui:groups": [
+    { "title": "PromQL", "fields": ["expr"] },
+    { "title": "Range", "fields": ["start", "end", "step"] }
+  ],
+  "ui:fields": {
+    "expr": { "widget": "textarea", "placeholder": "rate(http_requests_total[5m])" },
+    "start": { "widget": "date" },
+    "end": { "widget": "date" },
+    "step": { "placeholder": "30s" }
+  }
+}
+

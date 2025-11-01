@@ -1,0 +1,11 @@
+{
+  "ui:layout": { "type": "grid", "cols": 2 },
+  "ui:groups": [
+    { "title": "Ban", "fields": ["playerId", "reason"] }
+  ],
+  "ui:fields": {
+    "playerId": { "label": "玩家ID" },
+    "reason": { "widget": "textarea", "label": "原因" }
+  }
+}
+

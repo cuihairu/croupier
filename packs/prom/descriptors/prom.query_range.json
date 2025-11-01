@@ -1,0 +1,31 @@
+{
+  "id": "prom.query_range",
+  "version": "1.0.0",
+  "category": "prom",
+  "risk": "low",
+  "auth": { "permission": "prom.query_range" },
+  "params": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "expr": { "type": "string" },
+      "start": { "type": "string", "format": "date-time" },
+      "end": { "type": "string", "format": "date-time" },
+      "step": { "type": "string" }
+    },
+    "required": ["expr"]
+  },
+  "semantics": { "mode": "query", "route": "lb", "timeout": "30s" },
+  "outputs": {
+    "layout": { "type": "grid", "cols": 2 },
+    "views": [
+      { "id": "json", "type": "json", "renderer": "json.view" },
+      { "id": "chart", "type": "chart", "renderer": "echarts.line",
+        "transform": {
+          "template": { "forEach": { "path": "$.data.result", "template": { "name": "$.metric.instance", "data": "$.values" } } }
+        },
+        "options": { "smooth": true }
+      }
+    ]
+  }
+}

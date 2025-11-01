@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "title": "Alertmanager List Alerts",
+  "properties": {
+    "base_url": { "type": "string", "format": "uri" },
+    "silenced": { "type": "boolean" },
+    "inhibited": { "type": "boolean" },
+    "active": { "type": "boolean" }
+  },
+  "required": ["base_url"]
+}
+

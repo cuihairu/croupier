@@ -91,18 +91,22 @@
 - [x] StartJob：与 Invoke 一致的路由校验与 protobuf 编码（新增）。
 - [x] 审计：入参脱敏（按 UI `sensitive` + 常见字段），记录摘要。
 - [x] 权限：descriptor.auth → RBAC；two_person_rule：服务端已实现审批队列与 API；支持 Postgres 持久化（需 -tags pg）。
-  - [ ] 审批 UI 打通（前端列表/详情/同意/拒绝、筛选/分页、二次确认/MFA）。
+  - [x] 审批 UI 打通（前端列表/详情/同意/拒绝、筛选/分页、二次确认/MFA）。
 - [x] 兼容现有调用路径（不破坏已有接口）。
+- [x] Packs ETag/version：`/api/packs/export` 返回 `ETag`，`/api/packs/list` 返回 `etag`（Agent 用于下发激活校验）；可选导出 RBAC（`PACKS_EXPORT_REQUIRE_AUTH=true` 时校验 `packs:export`）。
+- [x] API RBAC 门禁补充：`/api/registry`（`registry:read`）与 `/api/audit`（`audit:read`）。
 
 验收：示例 pack 导入后，前端可看到函数、填写表单、完成一次调用（回环或回声）。
 
 ### M3 Web：Schema‑Form 与 Renderer 插件
 目标：通用表单 + 视图渲染 + 插件注册。
-- [ ] Schema‑Form 渲染（支持 grid/group/tabs/array/map、校验、显隐/联动）。
-- [ ] Renderer Registry：`registerRenderer(id, component)` 与调用管线。
-- [ ] 内置 renderer：`table.basic`、`json.view`、`echarts.line`（或 `vega-lite`）。
-- [ ] 视图数据流：执行 transform（前端 CEL），渲染多视图+布局。
-- [ ] 插件装载：从 pack manifest 动态 import 前端插件（ESM），支持 sandbox 选项。
+- [x] Schema‑Form 渲染（支持 grid/group/tabs/array/map、校验、显隐/联动）。
+- [x] Renderer Registry：`registerRenderer(id, component)` 与调用管线。
+  - [x] 内置 renderer：`echarts.line`（或 `vega-lite`）。
+- [x] 视图数据流：执行 transform（前端 CEL-lite），渲染多视图+布局（expr+template/forEach/filter）。
+- [x] 插件装载：从 pack manifest 动态 import 前端插件（ESM），支持 sandbox 选项（基础）。
+- [x] GM Pages：Assignments/Packs/Registry/Audit 门禁与可用性（筛选/分页/导出/覆盖健康、Only Uncovered/Partial/分组）。
+- [x] Transform 单测补充（map/pluck/sum/avg、数组下标、toFixed/iso*）。
 
 验收：用示例函数展示表格/折线图；可动态加载 echarts 插件渲染。
 
@@ -110,31 +114,33 @@
 目标：无 SDK 系统接入。
 - [ ] prom-adapter（Agent 侧，placement=agent）：
   - [ ] Proto：Query/QueryRange/Timeseries；UI 注解；Descriptor + 视图（折线）。
-  - [ ] 实现：调用 `/api/v1/query(_range)`，认证/超时/缓存/限流。
-  - [ ] Pack：发布 prom 示例 pack。
+  - [x] 实现雏形：QueryRange 调用 `/api/v1/query_range`（基础，无缓存/限流）。
+  - [x] Pack：发布 prom 示例 pack。
 - [ ] http-adapter（通用配置）：
   - [ ] 固定 proto：GenericHttpInvoke{request,response}
   - [ ] 映射：JMESPath/CEL 把 JSON → 目标 pb（或标准契约）。
-  - [ ] Pack：示例（Alertmanager/Grafana 简单查询）。
+  - [x] Pack：示例（Alertmanager/Grafana 简单查询）。
 
 验收：导入 prom pack，在 UI 选择区间并绘图；导入 http pack，完成一次 REST → 表格展示。
 
 ### M5 Agent/SDK 能力上报与 pack 下发
 目标：能力发现、热更新与分发。
 - [ ] Agent 注册上报：函数 id/版本、request/response FQN、stream 支持、标签（game/env/region）。
-- [ ] Server → Agent pack 下发：按作用域（game/env）分发，热更新启停适配器。
+- [x] Server → Agent pack 下发（最小演示）：按作用域（game/env）分发，Agent 轮询 assignments 与 pack export，支持目录落地与 Server reload/import 触发；ListLocal 过滤实例。
+- [x] Adapter 管理（基础）：健康检查、优雅退出、指数退避重启、日志滚动、指标导出（running/healthy/last_health_ts/last_start_ts/health_failures_total），可选“连续失败阈值自动重启”。
+- [x] 下发激活校验：Agent 导入/重载后对比 `/api/packs/list` 的 `etag`，确认生效。
 - [ ] Go SDK：简化 Handler（ctx+req→resp），自动注册辅助；示例工程。
 - [ ] 作业流：日志/进度流式透传（UI 接收）。
 
 验收：Server 控制某 game/env 下发/撤回某适配器；SDK 示例正常注册与调用。
 
 ### M6 安全与可观测
-- [ ] RBAC/ABAC 表达式（基于上下文如 actor/game/env）。
-- [ ] 两人规则：审批持久化、幂等与并发控制、UI 审批页。
-- [ ] 速率/并发/熔断与重试策略（函数级）。
+- [x] RBAC/ABAC 表达式（基于上下文如 actor/game/env）：`auth.allow_if`（Lite）。
+- [x] 两人规则：审批持久化、幂等与并发控制、UI 审批页。
+- [x] 速率/并发/熔断与重试策略（函数级）（基础：rate_limit、concurrency）。
 - [x] 指标：Server/Agent/Edge 统一 metrics（JSON + Prometheus 文本）；支持 per_function 与 per_game_denies 开关。
-- [ ] 追踪：trace_id 贯通，后续接入 OTLP。
-- [ ] 兼容策略：函数版本协商、灰度/回滚。
+- [x] 追踪：trace_id 贯通（HTTP 适配器向下游透传 X-Trace-Id/Game/Env），后续接入 OTLP。
+- [x] 兼容策略：函数版本协商、灰度/回滚（基础：Agent 侧 prefer version 路由）。
 
 验收：关键函数开启审批与限流，指标在 Prom/Grafana 可见，链路可追踪。
 

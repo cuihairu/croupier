@@ -178,8 +178,26 @@ func New() *cobra.Command {
                         "PROM_URL":          os.Getenv("PROM_URL"),
                         "ASSIGNMENTS_API":   api,
                     })
-                    promSup = newAdapterSupervisor("prom", promCmd, baseEnv)
-                    httpSup = newAdapterSupervisor("http", httpCmd, baseEnv)
+                    // adapter logging and health options
+                    logDir := v.GetString("adapter_log_dir")
+                    maxBytes := int64(v.GetInt("adapter_log_max_mb")) * 1024 * 1024
+                    backups := v.GetInt("adapter_log_backups")
+                    healthProm := v.GetString("adapter_prom_health_url")
+                    healthHttp := v.GetString("adapter_http_health_url")
+                    hi := time.Duration(v.GetInt("adapter_health_interval_sec")) * time.Second
+                    promSup = newAdapterSupervisor(adapterOpts{
+                        name: "prom", args: promCmd, env: baseEnv,
+                        logDir: logDir, logMaxBytes: maxBytes, logBackups: backups,
+                        healthURL: healthProm, healthInterval: hi,
+                    })
+                    httpSup = newAdapterSupervisor(adapterOpts{
+                        name: "http", args: httpCmd, env: baseEnv,
+                        logDir: logDir, logMaxBytes: maxBytes, logBackups: backups,
+                        healthURL: healthHttp, healthInterval: hi,
+                    })
+                    // restart threshold
+                    promSup.restartThreshold = v.GetInt("adapter_health_restart_threshold")
+                    httpSup.restartThreshold = v.GetInt("adapter_health_restart_threshold")
                     for {
                         func(){
                             req, _ := http.NewRequest("GET", api+"/api/assignments?game_id="+gameID+"&env="+env, nil)
@@ -206,7 +224,7 @@ func New() *cobra.Command {
                                 // fetch current pack export and write to downDir/pack.tgz (and extract)
                                 if err := os.MkdirAll(downDir, 0o755); err != nil { log.Printf("downlink dir: %v", err) } else {
                                     packPath := filepath.Join(downDir, "pack.tgz")
-                                    if err := downloadAndExtractPack(api+"/api/packs/export", packPath, downDir); err != nil {
+                                    if etag, err := downloadAndExtractPack(api+"/api/packs/export", packPath, downDir); err != nil {
                                         log.Printf("downlink export failed: %v", err)
                                     } else {
                                         log.Printf("downlink export saved to %s", downDir)
@@ -215,8 +233,8 @@ func New() *cobra.Command {
                                             // fallback to reload
                                             _, _ = http.Post(api+"/api/packs/reload", "application/json", nil)
                                         }
-                                        // verify server responds to packs/list (basic reload check)
-                                        if err := verifyServerPacksList(api, 5*time.Second); err != nil {
+                                        // verify server packs/list etag matches what we exported (basic activation check)
+                                        if err := verifyServerPacksList(api, etag, 5*time.Second); err != nil {
                                             log.Printf("downlink verify packs/list failed: %v", err)
                                         } else { log.Printf("downlink verify packs/list ok") }
                                     }
@@ -279,11 +297,23 @@ func New() *cobra.Command {
                         fmt.Fprintf(w, "croupier_adapter_running{adapter=\"prom\"} %d\n", b2i(st.Running))
                         fmt.Fprintf(w, "# TYPE croupier_adapter_restarts_total counter\n")
                         fmt.Fprintf(w, "croupier_adapter_restarts_total{adapter=\"prom\"} %d\n", st.Restarts)
+                        fmt.Fprintf(w, "# TYPE croupier_adapter_healthy gauge\n")
+                        fmt.Fprintf(w, "croupier_adapter_healthy{adapter=\"prom\"} %d\n", b2i(st.Healthy))
+                        fmt.Fprintf(w, "# TYPE croupier_adapter_last_health_ts gauge\n")
+                        fmt.Fprintf(w, "croupier_adapter_last_health_ts{adapter=\"prom\"} %d\n", st.LastHealthTs)
+                        fmt.Fprintf(w, "# TYPE croupier_adapter_last_start_ts gauge\n")
+                        fmt.Fprintf(w, "croupier_adapter_last_start_ts{adapter=\"prom\"} %d\n", st.LastStartTs)
+                        fmt.Fprintf(w, "# TYPE croupier_adapter_health_failures_total counter\n")
+                        fmt.Fprintf(w, "croupier_adapter_health_failures_total{adapter=\"prom\"} %d\n", st.HealthFailuresTotal)
                     }
                     if httpSup != nil {
                         st := httpSup.Stats()
                         fmt.Fprintf(w, "croupier_adapter_running{adapter=\"http\"} %d\n", b2i(st.Running))
                         fmt.Fprintf(w, "croupier_adapter_restarts_total{adapter=\"http\"} %d\n", st.Restarts)
+                        fmt.Fprintf(w, "croupier_adapter_healthy{adapter=\"http\"} %d\n", b2i(st.Healthy))
+                        fmt.Fprintf(w, "croupier_adapter_last_health_ts{adapter=\"http\"} %d\n", st.LastHealthTs)
+                        fmt.Fprintf(w, "croupier_adapter_last_start_ts{adapter=\"http\"} %d\n", st.LastStartTs)
+                        fmt.Fprintf(w, "croupier_adapter_health_failures_total{adapter=\"http\"} %d\n", st.HealthFailuresTotal)
                     }
                 })
                 log.Printf("agent http listening on %s", httpAddr)
@@ -322,49 +352,69 @@ func New() *cobra.Command {
     cmd.Flags().Int("log.max_backups", 7, "max number of old log files to retain")
     cmd.Flags().Int("log.max_age", 7, "max age (days) to retain old log files")
     cmd.Flags().Bool("log.compress", true, "compress rotated log files")
+    // adapter supervisor extras (dev)
+    cmd.Flags().String("adapter_log_dir", "logs", "directory to write adapter stdout/stderr logs")
+    cmd.Flags().Int("adapter_log_max_mb", 10, "max size per adapter log file in MB before rotation")
+    cmd.Flags().Int("adapter_log_backups", 3, "max number of rotated adapter log files to retain")
+    cmd.Flags().String("adapter_prom_health_url", "", "optional HTTP health URL for prom adapter")
+    cmd.Flags().String("adapter_http_health_url", "", "optional HTTP health URL for http adapter")
+    cmd.Flags().Int("adapter_health_interval_sec", 10, "health check interval seconds for adapters")
+    cmd.Flags().Int("adapter_health_restart_threshold", 0, "consecutive health failures to trigger adapter restart (0=disabled)")
     _ = viper.BindPFlags(cmd.Flags())
     return cmd
 }
 
 // downloadAndExtractPack downloads a tar.gz from url to dstFile and extracts selected entries into dir.
-func downloadAndExtractPack(url, dstFile, dir string) error {
+func downloadAndExtractPack(url, dstFile, dir string) (string, error) {
     resp, err := http.Get(url)
-    if err != nil { return err }
+    if err != nil { return "", err }
     defer resp.Body.Close()
-    if resp.StatusCode/100 != 2 { b,_ := io.ReadAll(resp.Body); return fmt.Errorf("download failed: %s", string(b)) }
+    if resp.StatusCode/100 != 2 { b,_ := io.ReadAll(resp.Body); return "", fmt.Errorf("download failed: %s", string(b)) }
+    etag := resp.Header.Get("ETag")
     // save
     f, err := os.Create(dstFile)
-    if err != nil { return err }
-    if _, err := io.Copy(f, resp.Body); err != nil { f.Close(); return err }
+    if err != nil { return "", err }
+    if _, err := io.Copy(f, resp.Body); err != nil { f.Close(); return "", err }
     f.Close()
     // extract
     rf, err := os.Open(dstFile)
-    if err != nil { return err }
+    if err != nil { return "", err }
     defer rf.Close()
     gz, err := gzip.NewReader(rf)
-    if err != nil { return err }
+    if err != nil { return "", err }
     defer gz.Close()
     tr := tar.NewReader(gz)
     for {
         hdr, err := tr.Next()
         if err == io.EOF { break }
-        if err != nil { return err }
+        if err != nil { return "", err }
         name := hdr.Name
         // Only extract descriptors/ui/manifest.json/web-plugin/*.js and *.pb at root
         if !(strings.HasPrefix(name, "descriptors/") || strings.HasPrefix(name, "ui/") || strings.HasPrefix(name, "web-plugin/") || name == "manifest.json" || strings.HasSuffix(name, ".pb")) {
             continue
         }
         outPath := filepath.Join(dir, filepath.FromSlash(name))
-        if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil { return err }
+        if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil { return "", err }
         out, err := os.Create(outPath)
-        if err != nil { return err }
-        if _, err := io.Copy(out, tr); err != nil { out.Close(); return err }
+        if err != nil { return "", err }
+        if _, err := io.Copy(out, tr); err != nil { out.Close(); return "", err }
         out.Close()
     }
-    return nil
+    return etag, nil
 }
 
 // adapter supervisor: manages adapter process with graceful stop and backoff restarts (dev-grade)
+type adapterOpts struct{
+    name string
+    args []string
+    env  []string
+    logDir string
+    logMaxBytes int64
+    logBackups int
+    healthURL string
+    healthInterval time.Duration
+}
+
 type adapterSupervisor struct {
     name     string
     args     []string
@@ -377,10 +427,30 @@ type adapterSupervisor struct {
     stopping bool
     restarts int64
     lastStart time.Time
+    // logging
+    logDir string
+    logMaxBytes int64
+    logBackups int
+    stdout *rotatingWriter
+    stderr *rotatingWriter
+    // health
+    healthURL string
+    healthInterval time.Duration
+    healthy bool
+    lastHealth time.Time
+    lastError string
+    // health failure tracking
+    healthFailuresTotal int64
+    consecutiveFailures int
+    restartThreshold int
 }
 
-func newAdapterSupervisor(name string, args []string, env []string) *adapterSupervisor {
-    return &adapterSupervisor{name: name, args: args, env: env, backoff: time.Second}
+func newAdapterSupervisor(o adapterOpts) *adapterSupervisor {
+    return &adapterSupervisor{
+        name: o.name, args: o.args, env: o.env, backoff: time.Second,
+        logDir: o.logDir, logMaxBytes: o.logMaxBytes, logBackups: o.logBackups,
+        healthURL: o.healthURL, healthInterval: o.healthInterval,
+    }
 }
 
 func (s *adapterSupervisor) SetDesired(want bool) {
@@ -400,8 +470,17 @@ func (s *adapterSupervisor) startLoop() {
     if s.running || !s.desired || len(s.args) == 0 { s.mu.Unlock(); return }
     // spawn process
     cmd := exec.Command(s.args[0], s.args[1:]...)
-    cmd.Stdout = os.Stdout
-    cmd.Stderr = os.Stderr
+    // setup rotating logs per adapter
+    if s.logDir != "" {
+        _ = os.MkdirAll(s.logDir, 0o755)
+        if s.stdout == nil { s.stdout = newRotatingWriter(filepath.Join(s.logDir, fmt.Sprintf("adapter-%s.out.log", s.name)), s.logMaxBytes, s.logBackups) }
+        if s.stderr == nil { s.stderr = newRotatingWriter(filepath.Join(s.logDir, fmt.Sprintf("adapter-%s.err.log", s.name)), s.logMaxBytes, s.logBackups) }
+        cmd.Stdout = s.stdout
+        cmd.Stderr = s.stderr
+    } else {
+        cmd.Stdout = os.Stdout
+        cmd.Stderr = os.Stderr
+    }
     cmd.Env = s.env
     if err := cmd.Start(); err != nil {
         log.Printf("adapter %s start error: %v", s.name, err)
@@ -419,6 +498,13 @@ func (s *adapterSupervisor) startLoop() {
     s.lastStart = time.Now()
     log.Printf("adapter %s started: %s", s.name, strings.Join(s.args, " "))
     s.mu.Unlock()
+
+    // health loop (non-fatal) if configured
+    if s.healthURL != "" && s.healthInterval > 0 {
+        go s.healthLoop()
+    } else {
+        s.mu.Lock(); s.healthy = true; s.lastHealth = time.Now(); s.mu.Unlock()
+    }
 
     // wait and handle exit
     err := cmd.Wait()
@@ -458,6 +544,45 @@ func (s *adapterSupervisor) stopGraceful(timeout time.Duration) {
     }
 }
 
+func (s *adapterSupervisor) healthLoop() {
+    cli := &http.Client{ Timeout: 2 * time.Second }
+    ticker := time.NewTicker(s.healthInterval)
+    defer ticker.Stop()
+    for {
+        s.mu.Lock(); running := s.running; desired := s.desired; url := s.healthURL; s.mu.Unlock()
+        if !desired || !running || url == "" { return }
+        resp, err := cli.Get(url)
+        s.mu.Lock()
+        s.lastHealth = time.Now()
+        if err != nil || resp.StatusCode/100 != 2 {
+            s.healthy = false
+            if err != nil { s.lastError = err.Error() } else { s.lastError = resp.Status }
+            s.healthFailuresTotal++
+            s.consecutiveFailures++
+        } else {
+            s.healthy = true
+            s.lastError = ""
+            s.consecutiveFailures = 0
+        }
+        if resp != nil { io.Copy(io.Discard, resp.Body); resp.Body.Close() }
+        // optional restart on consecutive failures
+        thresh := s.restartThreshold
+        doRestart := false
+        if thresh > 0 && s.consecutiveFailures >= thresh {
+            doRestart = true
+            s.consecutiveFailures = 0
+        }
+        s.mu.Unlock()
+        if doRestart {
+            log.Printf("adapter %s health failures exceeded threshold (%d), restarting...", s.name, thresh)
+            s.stopGraceful(2 * time.Second)
+            // startLoop will be triggered by SetDesired(true), but we are still in desired state; ensure start
+            go s.startLoop()
+        }
+        <-ticker.C
+    }
+}
+
 func buildAdapterEnv(base []string, extra map[string]string) []string {
     // copy base first
     out := append([]string{}, base...)
@@ -476,6 +601,12 @@ type AdapterStats struct{
     Restarts int64 `json:"restarts"`
     BackoffSec int `json:"backoff_sec"`
     UptimeSec int `json:"uptime_sec"`
+    Healthy bool `json:"healthy"`
+    LastError string `json:"last_error"`
+    LastHealthTs int64 `json:"last_health_ts"`
+    LastStartTs int64 `json:"last_start_ts"`
+    HealthFailuresTotal int64 `json:"health_failures_total"`
+    ConsecutiveFailures int `json:"consecutive_failures"`
 }
 
 func (s *adapterSupervisor) Stats() AdapterStats {
@@ -489,10 +620,65 @@ func (s *adapterSupervisor) Stats() AdapterStats {
         Restarts: s.restarts,
         BackoffSec: int(s.backoff.Seconds()),
         UptimeSec: up,
+        Healthy: s.healthy,
+        LastError: s.lastError,
+        LastHealthTs: s.lastHealth.Unix(),
+        LastStartTs: s.lastStart.Unix(),
+        HealthFailuresTotal: s.healthFailuresTotal,
+        ConsecutiveFailures: s.consecutiveFailures,
     }
 }
 
 func b2i(b bool) int { if b { return 1 } ; return 0 }
+
+// rotatingWriter is a tiny size-based log rotator (no compression).
+type rotatingWriter struct{
+    mu sync.Mutex
+    path string
+    maxBytes int64
+    backups int
+    f *os.File
+    size int64
+}
+func newRotatingWriter(path string, maxBytes int64, backups int) *rotatingWriter {
+    if maxBytes <= 0 { maxBytes = 10 * 1024 * 1024 }
+    if backups <= 0 { backups = 3 }
+    w := &rotatingWriter{path: path, maxBytes: maxBytes, backups: backups}
+    _ = w.open()
+    return w
+}
+func (w *rotatingWriter) open() error {
+    f, err := os.OpenFile(w.path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+    if err != nil { return err }
+    st, _ := f.Stat()
+    w.f = f
+    w.size = 0
+    if st != nil { w.size = st.Size() }
+    return nil
+}
+func (w *rotatingWriter) rotate() error {
+    if w.f != nil { w.f.Close() }
+    // shift backups: .(backups-1) -> .backups, ..., .1 -> .2
+    for i := w.backups - 1; i >= 1; i-- {
+        src := fmt.Sprintf("%s.%d", w.path, i)
+        dst := fmt.Sprintf("%s.%d", w.path, i+1)
+        _ = os.Rename(src, dst)
+    }
+    // current -> .1
+    _ = os.Rename(w.path, fmt.Sprintf("%s.%d", w.path, 1))
+    w.size = 0
+    return w.open()
+}
+func (w *rotatingWriter) Write(p []byte) (int, error) {
+    w.mu.Lock(); defer w.mu.Unlock()
+    if w.f == nil { if err := w.open(); err != nil { return 0, err } }
+    if w.size+int64(len(p)) > w.maxBytes {
+        if err := w.rotate(); err != nil { return 0, err }
+    }
+    n, err := w.f.Write(p)
+    w.size += int64(n)
+    return n, err
+}
 func splitCmd(s string) []string {
     if s == "" { return nil }
     return strings.Fields(s)
@@ -526,17 +712,23 @@ func uploadPack(importURL, path string) error {
 }
 
 // verifyServerPacksList polls /api/packs/list to ensure server responds within timeout.
-func verifyServerPacksList(api string, timeout time.Duration) error {
+func verifyServerPacksList(api string, expectedETag string, timeout time.Duration) error {
     deadline := time.Now().Add(timeout)
     for {
         resp, err := http.Get(api + "/api/packs/list")
         if err == nil {
-            io.Copy(io.Discard, resp.Body)
+            b, _ := io.ReadAll(resp.Body)
             resp.Body.Close()
-            if resp.StatusCode/100 == 2 { return nil }
+            if resp.StatusCode/100 == 2 {
+                if expectedETag == "" { return nil }
+                var out struct{ ETag string `json:"etag"` }
+                _ = json.Unmarshal(b, &out)
+                if out.ETag != "" && out.ETag == expectedETag { return nil }
+            }
         }
         if time.Now().After(deadline) { break }
         time.Sleep(200 * time.Millisecond)
     }
+    if expectedETag != "" { return fmt.Errorf("packs/list not confirmed with expected etag within %s", timeout) }
     return fmt.Errorf("packs/list not confirmed within %s", timeout)
 }

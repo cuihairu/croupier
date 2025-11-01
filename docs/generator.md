@@ -30,6 +30,28 @@ Artifacts go to `gen/croupier/`:
 - `fds.pb`: FileDescriptorSet (types)
 - `pack.tgz`: all the above bundled (if `emit_pack=true`)
 
+## Inspect & Validate packs
+
+Use the unified CLI to inspect or validate a generated pack:
+
+```
+# show manifest and list files
+./bin/croupier packs inspect gen/croupier/pack.tgz
+
+# validate presence of manifest/fds/descriptors for each function
+./bin/croupier packs validate gen/croupier/pack.tgz
+# or validate an extracted directory
+./bin/croupier packs validate gen/croupier
+```
+
+If you prefer a one-liner with checks, use:
+
+```
+./scripts/generate-pack.sh
+```
+
+This script builds `protoc-gen-croupier` if needed and invokes `protoc` against all files under `proto/`.
+
 ## Generate with buf (optional)
 
 Buf will look for `protoc-gen-croupier` on PATH.

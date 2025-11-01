@@ -49,6 +49,27 @@ func (s *LocalStore) Next(fid string) (Instance, bool) {
     return lst[idx], true
 }
 
+// NextWithVersion prefers instances matching version; falls back to any.
+func (s *LocalStore) NextWithVersion(fid, ver string) (Instance, bool) {
+    if ver == "" { return s.Next(fid) }
+    s.mu.Lock(); defer s.mu.Unlock()
+    lst := s.fn[fid]
+    if len(lst) == 0 { return Instance{}, false }
+    // filter matching version
+    var matches []Instance
+    for _, inst := range lst { if inst.Version == ver { matches = append(matches, inst) } }
+    if len(matches) == 0 {
+        // fallback to RR among all
+        idx := s.rr[fid] % len(lst)
+        s.rr[fid] = (s.rr[fid] + 1) % len(lst)
+        return lst[idx], true
+    }
+    // RR among matches using same counter to avoid extra state
+    idx := s.rr[fid] % len(matches)
+    s.rr[fid] = (s.rr[fid] + 1) % len(matches)
+    return matches[idx], true
+}
+
 // List returns a copy of the mapping for summary purposes.
 func (s *LocalStore) List() map[string][]Instance {
     s.mu.RLock(); defer s.mu.RUnlock()

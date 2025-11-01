@@ -69,6 +69,8 @@ services:
       args:
         GO_IMAGE: ${GO_IMAGE:-golang:1.24}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
+        # Optional: include sqlite support by setting BUILD_TAGS to "pg sqlite"
+        BUILD_TAGS: ${SERVER_BUILD_TAGS:-pg}
     environment:
       # 数据库配置
       DATABASE_URL: postgres://croupier:croupier_dev_password@postgres:5432/croupier?sslmode=disable

@@ -1,0 +1,37 @@
+{
+  "id": "alertmanager.list_alerts",
+  "version": "1.0.0",
+  "category": "alert",
+  "risk": "low",
+  "auth": { "permission": "alertmanager.list_alerts" },
+  "params": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "base_url": { "type": "string", "format": "uri" },
+      "silenced": { "type": "boolean" },
+      "inhibited": { "type": "boolean" },
+      "active": { "type": "boolean" }
+    },
+    "required": ["base_url"]
+  },
+  "semantics": { "mode": "query", "route": "lb", "timeout": "30s" },
+  "outputs": {
+    "layout": { "type": "grid", "cols": 1 },
+    "views": [
+      { "id": "table", "renderer": "table.basic",
+        "transform": {
+          "template": { "forEach": { "path": "$", "template": {
+            "name": "$.labels.alertname",
+            "severity": "$.labels.severity",
+            "status": "$.status.state",
+            "startsAt": "$.startsAt",
+            "summary": "$.annotations.summary"
+          } } }
+        }
+      },
+      { "id": "json", "renderer": "json.view" }
+    ]
+  }
+}
+

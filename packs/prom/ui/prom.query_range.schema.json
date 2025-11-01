@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "title": "QueryRangeRequest",
+  "properties": {
+    "expr": { "type": "string" },
+    "start": { "type": "string", "format": "date-time" },
+    "end": { "type": "string", "format": "date-time" },
+    "step": { "type": "string" }
+  },
+  "required": ["expr"]
+}
+

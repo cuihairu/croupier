@@ -26,6 +26,7 @@ func NewServer(store *registry.LocalStore, exec *jobs.Executor) *Server { return
 func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
     // routing: target_service_id > broadcast > hash > round-robin
     if req.Metadata != nil {
+        ver := req.Metadata["version"]
         if target := req.Metadata["target_service_id"]; target != "" {
             // pick matching instance
             for _, inst := range s.store.Instances(req.GetFunctionId()) {
@@ -45,6 +46,7 @@ func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*fu
             // call all instances sequentially and aggregate JSON array strings
             var payloads [][]byte
             for _, inst := range s.store.Instances(req.GetFunctionId()) {
+                if ver != "" && inst.Version != ver { continue }
                 base := []grpc.DialOption{grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json"))}
                 opts := append(base, interceptors.Chain(nil)...)
                 cc, err := grpc.Dial(inst.Addr, opts...)
@@ -66,6 +68,11 @@ func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*fu
         if route := req.Metadata["route"]; route == "hash" {
             key := req.Metadata["hash_key"]
             lst := s.store.Instances(req.GetFunctionId())
+            if ver != "" {
+                tmp := lst[:0]
+                for _, inst := range lst { if inst.Version == ver { tmp = append(tmp, inst) } }
+                lst = tmp
+            }
             if len(lst) == 0 { return nil, fmt.Errorf("no local handler for %s", req.GetFunctionId()) }
             // stable hash on key to index
             h := fnv.New32a(); h.Write([]byte(key)); idx := int(h.Sum32()) % len(lst)
@@ -80,7 +87,9 @@ func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*fu
         }
     }
     // round-robin default
-    inst, ok := s.store.Next(req.GetFunctionId())
+    ver := ""
+    if req.Metadata != nil { ver = req.Metadata["version"] }
+    inst, ok := s.store.NextWithVersion(req.GetFunctionId(), ver)
     if !ok { return nil, fmt.Errorf("no local handler for %s", req.GetFunctionId()) }
     // best-effort trace log
     if req.Metadata != nil {

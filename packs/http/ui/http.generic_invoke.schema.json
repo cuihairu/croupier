@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "title": "GenericHttpInvokeRequest",
+  "properties": {
+    "method": { "type": "string", "enum": ["GET","POST","PUT","PATCH","DELETE"] },
+    "url": { "type": "string" },
+    "headers": { "type": "object", "additionalProperties": { "type": "string" } },
+    "body": { "type": "string" }
+  },
+  "required": ["method","url"]
+}
+

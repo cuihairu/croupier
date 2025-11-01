@@ -1,0 +1,38 @@
+{
+  "id": "prom.query",
+  "version": "1.0.0",
+  "category": "prom",
+  "risk": "low",
+  "auth": { "permission": "prom.query" },
+  "params": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "expr": { "type": "string" },
+      "time": { "type": "string", "format": "date-time" }
+    },
+    "required": ["expr"]
+  },
+  "semantics": { "mode": "query", "route": "lb", "timeout": "30s" },
+  "outputs": {
+    "views": [
+      { "id": "json", "type": "json", "renderer": "json.view" },
+      { "id": "table", "type": "table", "renderer": "table.basic", "show_if": "$.data.result",
+        "transform": {
+          "template": { "forEach": { "path": "$.data.result", "template": {
+            "metric": "$.metric",
+            "value": { "number": "$.value[1]" },
+            "ts": { "msFromSec": "$.value[0]" },
+            "time": { "isoFromSec": "$.value[0]" }
+          } } }
+        }
+      },
+      { "id": "bar", "type": "chart", "renderer": "echarts.bar", "show_if": "$.data.result",
+        "transform": { "template": { "forEach": { "path": "$.data.result", "template": {
+          "name": "$.metric.instance",
+          "value": { "number": "$.value[1]" }
+        } } } }
+      }
+    ]
+  }
+}

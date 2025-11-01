@@ -32,10 +32,31 @@ pack: croupier-plugin
 		--croupier_out=emit_pack=true:gen/croupier \
 		$(shell rg -n --files proto | tr '\n' ' ')
 
+.PHONY: pack-local
+pack-local:
+	@"$(PWD)/scripts/generate-pack.sh"
+
+.PHONY: packs-build
+packs-build:
+	@echo "[packs] building example packs..."
+	@mkdir -p packs/dist
+	@tar -czf packs/dist/prom.pack.tgz -C packs/prom .
+	@tar -czf packs/dist/http.pack.tgz -C packs/http .
+	@tar -czf packs/dist/player.pack.tgz -C packs/player .
+	@tar -czf packs/dist/alertmanager.pack.tgz -C packs/alertmanager .
+	@tar -czf packs/dist/grafana.pack.tgz -C packs/grafana .
+	@echo "done: packs/dist/*.pack.tgz"
+
 server:
 	@echo "[build] server"
 	@mkdir -p $(BINDIR)
 	GOFLAGS=-mod=mod go build -tags pg -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-server ./cmd/server
+
+.PHONY: server-sqlite
+server-sqlite:
+	@echo "[build] server (+sqlite)"
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -tags "pg sqlite" -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-server ./cmd/server
 
 agent:
 	@echo "[build] agent"
@@ -53,6 +74,12 @@ cli:
 	@echo "[build] unified CLI"
 	@mkdir -p $(BINDIR)
 	GOFLAGS=-mod=mod go build -tags pg -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier ./cmd/croupier
+
+.PHONY: cli-sqlite
+cli-sqlite:
+	@echo "[build] unified CLI (+sqlite)"
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -tags "pg sqlite" -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier ./cmd/croupier
 
 # Cross-compile for multiple platforms
 build-linux-amd64:
