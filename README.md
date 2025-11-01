@@ -123,6 +123,7 @@ Server 位于 DMZ/公网，Agent 在游戏内网，仅出站到 Server。游戏�
 ./croupier-agent \
   --local_addr :19090 --core_addr 127.0.0.1:8443 --game_id default --env dev \
   --cert configs/dev/agent.crt --key configs/dev/agent.key --ca configs/dev/ca.crt
+# 注：从此版本起，`--server_addr` 为 `--core_addr` 的别名（推荐使用 `--server_addr`），`--core_addr` 保留兼容并打印弃用提示。
 # 或（历史命名）
 ./croupier-proxy \
   --local_addr :19090 --core_addr 127.0.0.1:8443 --game_id default --env dev \
