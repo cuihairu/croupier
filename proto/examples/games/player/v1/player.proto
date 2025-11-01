@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package games.player.v1;
+
+import "croupier/options/function.proto";
+import "croupier/options/ui.proto";
+
+option go_package = "github.com/cuihairu/croupier/gen/go/examples/games/player/v1;playerv1";
+
+service PlayerGm {
+  rpc Ban(BanRequest) returns (BanResponse) {
+    option (croupier.options.function) = {
+      function_id: "player.ban"
+      version: "1.2.0"
+      category: "player"
+      risk: "high"
+      route: "lb"
+      timeout: "30s"
+      two_person_rule: true
+      placement: "agent"
+    };
+  }
+}
+
+message BanRequest {
+  string player_id = 1 [(croupier.options.ui) = { label: "玩家ID", widget: "input" }];
+  string reason = 2 [(croupier.options.ui) = { widget: "textarea", placeholder: "原因" }];
+}
+
+message BanResponse { string result = 1; }
+
