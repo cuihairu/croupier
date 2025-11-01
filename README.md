@@ -530,6 +530,38 @@ CI 提示
 
 提交流程：Fork → 分支 → 提交 → 推送 → PR。
 
+## 🎨 Web 管理界面
+
+Croupier 提供了完整的 Web 管理界面，基于现代前端技术栈构建：
+
+- **仓库**：https://github.com/cuihairu/croupier-web
+- **子模块路径**：`web`（已在本仓库引入）
+- **技术栈**：Umi Max + Ant Design Pro + TypeScript
+- **功能特性**：
+  - 描述符驱动的动态表单生成
+  - 游戏/环境切换器（全局状态管理）
+  - 函数调用界面（支持 lb/broadcast/targeted/hash 路由）
+  - 实时作业进度追踪和日志流
+  - 审批工作流界面（双人审批）
+  - 审计日志查看器（支持过滤和搜索）
+  - 注册表管理（Agent 和函数实例概览）
+  - 函数包管理（上传/导入/导出）
+  - 多语言支持（中文、英文、日文等）
+
+**本地开发**：
+```bash
+cd web
+npm install
+npm run dev    # 开发服务器（默认端口 8000）
+```
+
+**生产构建**：
+```bash
+npm run build  # 产物到 web/dist，Server 会静态服务此目录
+```
+
+访问 `http://localhost:8080` 使用完整的管理界面，或 `http://localhost:8000`（开发模式）。
+
 ## 📦 SDKs
 
 ### Go SDK（生产就绪）
