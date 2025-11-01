@@ -86,7 +86,7 @@ func (i *ForwarderInvoker) StreamJob(ctx context.Context, req *functionv1.JobStr
     return cli.StreamJob(ctx, req)
 }
 
-// Optional: job result fetch via Edge JobService (used by HTTP /api/job_result when Core is in edge-forward mode)
+// Optional: job result fetch via Edge JobService (used by HTTP /api/job_result when Server is in edge-forward mode)
 func (i *ForwarderInvoker) JobResult(ctx context.Context, jobID string) (state string, payload []byte, errMsg string, err error) {
     cc, err2 := i.f.dial()
     if err2 != nil { return "", nil, "", fmt.Errorf("dial edge: %w", err2) }

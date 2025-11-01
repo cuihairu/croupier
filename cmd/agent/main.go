@@ -55,11 +55,11 @@ func loadClientTLS(certFile, keyFile, caFile string, serverName string) (credent
 
 func main() {
     localAddr := flag.String("local_addr", ":19090", "local gRPC listen for game servers")
-    coreAddr := flag.String("core_addr", "127.0.0.1:8443", "core grpc address")
-    serverName := flag.String("server_name", "", "tls server name for core (SNI)")
+    coreAddr := flag.String("core_addr", "127.0.0.1:8443", "server grpc address")
+    serverName := flag.String("server_name", "", "tls server name for server (SNI)")
     cert := flag.String("cert", "", "client mTLS cert file")
     key := flag.String("key", "", "client mTLS key file")
-    ca := flag.String("ca", "", "ca cert file to verify core")
+    ca := flag.String("ca", "", "ca cert file to verify server")
     insecureLocal := flag.Bool("insecure_local", true, "use insecure for local listener (development)")
     agentID := flag.String("agent_id", "agent-1", "agent id")
     agentVersion := flag.String("agent_version", "0.1.0", "agent version")
@@ -79,7 +79,7 @@ func main() {
         log.Printf("[devcert] generated dev mTLS certs under %s (DEV ONLY)", out)
     }
 
-    // Connect to Core with mTLS (require by default)
+    // Connect to Server with mTLS (required by default)
     var dialOpt grpc.DialOption
     if *cert != "" && *key != "" && *ca != "" {
         // Default SNI from core_addr host if not provided
@@ -101,7 +101,7 @@ func main() {
 
     coreConn, err := grpc.Dial(*coreAddr, dialOpt, grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 30 * time.Second}), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")))
     if err != nil {
-        log.Fatalf("dial core: %v", err)
+        log.Fatalf("dial server: %v", err)
     }
     defer coreConn.Close()
 
@@ -133,7 +133,7 @@ func main() {
     functionv1.RegisterFunctionServiceServer(srv, agentfunc.NewServer(lstore, exec))
     // Register LocalControl service for SDKs to register themselves
     localv1.RegisterLocalControlServiceServer(srv, locallib.NewServer(lstore, controlv1.NewControlServiceClient(coreConn), *agentID, *agentVersion, *localAddr, *gameID, *env, exec))
-    // Open tunnel to Edge/Core for Invoke proxy
+    // Open tunnel to Edge/Server for Invoke proxy
     go func(){
         t := tunn.NewClient(*coreAddr, *agentID, *gameID, *env, *localAddr)
         backoff := time.Second
@@ -159,7 +159,7 @@ func main() {
         log.Printf("agent http listening on %s", *httpAddr)
         _ = http.ListenAndServe(*httpAddr, mux)
     }()
-    log.Printf("croupier-agent listening on %s; connected to core %s", *localAddr, *coreAddr)
+    log.Printf("croupier-agent listening on %s; connected to server %s", *localAddr, *coreAddr)
     // prune stale instances periodically
     go func(){
         ticker := time.NewTicker(30 * time.Second); defer ticker.Stop()
