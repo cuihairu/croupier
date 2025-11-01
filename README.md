@@ -106,7 +106,10 @@ sequenceDiagram
 ./game-server
 ```
 
-提示：已支持使用 `--config` 指定 YAML 配置文件，或通过环境变量覆盖（前缀 `CROUPIER_SERVER_` 和 `CROUPIER_AGENT_`，例如 `CROUPIER_SERVER_ADDR=":8443"`、`CROUPIER_AGENT_SERVER_ADDR="127.0.0.1:8443"`）。可参考 `configs/server.example.yaml` 与 `configs/agent.example.yaml`。
+提示：
+- 已支持使用 `--config` 指定 YAML 配置文件，或通过环境变量覆盖（前缀 `CROUPIER_SERVER_` 和 `CROUPIER_AGENT_`，例如 `CROUPIER_SERVER_ADDR=":8443"`、`CROUPIER_AGENT_SERVER_ADDR="127.0.0.1:8443"`）。
+- 日志：新增 `--log.level`（debug|info|warn|error）、`--log.format`（console|json）与 `--log.file`（启用滚动日志：`--log.max_size`/`--log.max_backups`/`--log.max_age`/`--log.compress`）。
+可参考 `configs/server.example.yaml` 与 `configs/agent.example.yaml`。
 
 ### 模式 2：Agent 外连（推荐）
 
