@@ -1,0 +1,245 @@
+{
+  "allow": {
+    "role:super_admin": [
+      "*"
+    ],
+    "role:admin": [
+      "system:config",
+      "system:restart",
+      "system:backup",
+      "user:*",
+      "game:*",
+      "function:*",
+      "audit:view",
+      "monitor:view"
+    ],
+    "role:project_manager": [
+      "game:config:read",
+      "player:query",
+      "data:report",
+      "monitor:view",
+      "audit:view",
+      "user:view",
+      "function:view"
+    ],
+    "role:producer": [
+      "game:config:read",
+      "player:query",
+      "data:*",
+      "monitor:view",
+      "audit:view",
+      "design:view",
+      "content:view",
+      "marketing:view"
+    ],
+    "role:tech_lead": [
+      "function:*",
+      "job:*",
+      "game:config",
+      "system:monitor",
+      "monitor:*",
+      "audit:view",
+      "user:developer:manage"
+    ],
+    "role:senior_developer": [
+      "function:*",
+      "job:*",
+      "game:config:update",
+      "player:query",
+      "monitor:view",
+      "system:monitor"
+    ],
+    "role:developer": [
+      "function:register",
+      "function:update",
+      "function:test",
+      "function:view",
+      "job:create",
+      "job:view",
+      "job:cancel",
+      "game:config:read",
+      "player:query",
+      "monitor:view"
+    ],
+    "role:tester": [
+      "function:test",
+      "function:view",
+      "job:create",
+      "job:view",
+      "player:create:test",
+      "player:query",
+      "game:config:read",
+      "design:view"
+    ],
+    "role:ops": [
+      "system:monitor",
+      "system:restart",
+      "job:view",
+      "job:cancel",
+      "job:retry",
+      "monitor:*",
+      "audit:view",
+      "function:deploy",
+      "game:deploy",
+      "security:monitor"
+    ],
+    "role:game_designer": [
+      "design:*",
+      "level:*",
+      "content:create",
+      "content:update",
+      "player:query",
+      "data:query",
+      "game:config:read",
+      "event:design"
+    ],
+    "role:level_designer": [
+      "level:*",
+      "design:level",
+      "content:level",
+      "player:query",
+      "data:level",
+      "game:config:read"
+    ],
+    "role:system_designer": [
+      "design:system",
+      "design:feature",
+      "content:system",
+      "player:query",
+      "data:query",
+      "game:config:read",
+      "function:view"
+    ],
+    "role:numerical_designer": [
+      "numerical:*",
+      "economy:*",
+      "design:numerical",
+      "player:query",
+      "data:economy",
+      "data:balance",
+      "game:config:numerical",
+      "reward:config"
+    ],
+    "role:ui_designer": [
+      "design:ui",
+      "content:ui",
+      "player:query",
+      "game:config:read"
+    ],
+    "role:operator": [
+      "event:*",
+      "announcement:*",
+      "mail:system",
+      "content:manage",
+      "player:query",
+      "data:operation",
+      "marketing:campaign",
+      "community:moderate",
+      "reward:send"
+    ],
+    "role:marketing": [
+      "marketing:*",
+      "event:marketing",
+      "announcement:marketing",
+      "data:marketing",
+      "player:segment",
+      "content:marketing"
+    ],
+    "role:community": [
+      "community:*",
+      "announcement:community",
+      "player:query",
+      "player:communicate",
+      "content:community",
+      "event:community"
+    ],
+    "role:content_manager": [
+      "content:*",
+      "announcement:*",
+      "event:content",
+      "player:query",
+      "audit:content"
+    ],
+    "role:analyst": [
+      "data:*",
+      "player:query",
+      "player:export",
+      "audit:view",
+      "monitor:view",
+      "job:create:readonly",
+      "economy:analyze"
+    ],
+    "role:bi_analyst": [
+      "data:*",
+      "player:export",
+      "monitor:view",
+      "audit:view",
+      "economy:report",
+      "marketing:analytics"
+    ],
+    "role:user_researcher": [
+      "data:user",
+      "player:query",
+      "player:behavior",
+      "audit:view:user",
+      "design:research"
+    ],
+    "role:support_manager": [
+      "support:*",
+      "player:*",
+      "ban:*",
+      "mail:support",
+      "reward:compensation",
+      "audit:support",
+      "user:support:manage"
+    ],
+    "role:senior_support": [
+      "support:*",
+      "player:update",
+      "player:query",
+      "ban:temporary",
+      "mail:support",
+      "reward:compensation:basic",
+      "audit:view:player"
+    ],
+    "role:support": [
+      "player:query",
+      "player:update:basic",
+      "support:ticket",
+      "support:chat",
+      "audit:view:player",
+      "mail:support:template"
+    ],
+    "role:gm": [
+      "gm:*",
+      "player:*",
+      "ban:*",
+      "reward:*",
+      "mail:*",
+      "announcement:gm",
+      "event:gm",
+      "audit:gm"
+    ],
+    "role:bot_operator": [
+      "bot:*",
+      "player:bot",
+      "data:bot",
+      "monitor:bot",
+      "audit:bot"
+    ],
+    "role:security": [
+      "security:*",
+      "ban:*",
+      "audit:*",
+      "player:security",
+      "monitor:security",
+      "system:security"
+    ],
+    "role:auditor": [
+      "audit:*",
+      "data:audit",
+      "player:audit",
+      "system:audit"
+    ]
+  }
+}
