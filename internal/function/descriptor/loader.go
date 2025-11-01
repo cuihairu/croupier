@@ -16,6 +16,8 @@ type Descriptor struct {
     Auth    map[string]any `json:"auth"`
     Params  map[string]any `json:"params"`
     Semantics map[string]any `json:"semantics"`
+    Transport map[string]any `json:"transport"`
+    Outputs   map[string]any `json:"outputs"`
 }
 
 func LoadAll(dir string) ([]*Descriptor, error) {
@@ -33,4 +35,3 @@ func LoadAll(dir string) ([]*Descriptor, error) {
     })
     return out, err
 }
-
