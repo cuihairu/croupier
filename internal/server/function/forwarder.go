@@ -3,6 +3,7 @@ package function
 import (
     "context"
     "fmt"
+    "log/slog"
 
     functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
     "github.com/cuihairu/croupier/internal/transport/interceptors"
@@ -26,6 +27,7 @@ func (f *Forwarder) dial() (*grpc.ClientConn, error) {
 }
 
 func (f *Forwarder) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
+    slog.Info("forward invoke", "function_id", req.GetFunctionId(), "edge_addr", f.addr, "idempotency_key", req.GetIdempotencyKey())
     cc, err := f.dial()
     if err != nil { return nil, fmt.Errorf("dial edge: %w", err) }
     defer cc.Close()
@@ -34,6 +36,7 @@ func (f *Forwarder) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (
 }
 
 func (f *Forwarder) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {
+    slog.Info("forward start_job", "function_id", req.GetFunctionId(), "edge_addr", f.addr, "idempotency_key", req.GetIdempotencyKey())
     cc, err := f.dial()
     if err != nil { return nil, fmt.Errorf("dial edge: %w", err) }
     defer cc.Close()
