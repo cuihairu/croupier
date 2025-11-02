@@ -1,16 +1,12 @@
 package main
 
 import (
-    "crypto/tls"
-    "crypto/x509"
     "flag"
-    "io/ioutil"
     "log/slog"
     "os"
     "net"
 
     "google.golang.org/grpc"
-    "google.golang.org/grpc/credentials"
     "google.golang.org/grpc/keepalive"
 
     controlv1 "github.com/cuihairu/croupier/pkg/pb/croupier/control/v1"
@@ -25,21 +21,8 @@ import (
     jobv1 "github.com/cuihairu/croupier/pkg/pb/croupier/edge/job/v1"
     jobserver "github.com/cuihairu/croupier/internal/edge/job"
     common "github.com/cuihairu/croupier/internal/cli/common"
+    tlsutil "github.com/cuihairu/croupier/internal/tlsutil"
 )
-
-func loadTLS(certFile, keyFile, caFile string, requireClient bool) (credentials.TransportCredentials, error) {
-    cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-    if err != nil { return nil, err }
-    cfg := &tls.Config{Certificates: []tls.Certificate{cert}}
-    if caFile != "" {
-        caPEM, err := ioutil.ReadFile(caFile)
-        if err != nil { return nil, err }
-        pool := x509.NewCertPool(); pool.AppendCertsFromPEM(caPEM)
-        cfg.ClientCAs = pool
-        if requireClient { cfg.ClientAuth = tls.RequireAndVerifyClientCert }
-    }
-    return credentials.NewTLS(cfg), nil
-}
 
 func main() {
     // initialize logger (stdout, console) before prints; can be overridden by env LOG_OUTPUT or config in other modes
@@ -54,7 +37,7 @@ func main() {
     flag.Parse()
 
     if *cert == "" || *key == "" { slog.Error("TLS cert/key required"); os.Exit(1) }
-    creds, err := loadTLS(*cert, *key, *ca, true)
+    creds, err := tlsutil.ServerTLS(*cert, *key, *ca, true)
     if err != nil { slog.Error("load TLS", "error", err); os.Exit(1) }
 
     lis, err := net.Listen("tcp", *addr)
