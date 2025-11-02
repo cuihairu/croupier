@@ -5,9 +5,10 @@ import (
     "crypto/x509"
     "fmt"
     "io/ioutil"
-    "log"
     "net"
     "strings"
+    "os"
+    "log/slog"
     "sync"
 
     "github.com/spf13/cobra"
@@ -108,7 +109,7 @@ func New() *cobra.Command {
                 srvCrt, srvKey, err := devcert.EnsureServerCert(out, caCrt, caKey, []string{"localhost", "127.0.0.1"})
                 if err != nil { return fmt.Errorf("generate dev server cert: %w", err) }
                 cert, key, ca = srvCrt, srvKey, caCrt
-                log.Printf("[devcert] generated dev TLS certs under %s (DEV ONLY)", out)
+                slog.Info("devcert generated", "dir", out)
             }
 
             creds, err := loadServerTLS(cert, key, ca)
@@ -145,24 +146,24 @@ func New() *cobra.Command {
             wg.Add(2)
             go func() {
                 defer wg.Done()
-                log.Printf("croupier-server (grpc) listening on %s", addr)
-                if err := s.Serve(lis); err != nil { log.Fatalf("serve grpc: %v", err) }
+                slog.Info("croupier-server listening", "grpc", addr)
+                if err := s.Serve(lis); err != nil { slog.Error("serve grpc", "error", err); os.Exit(1) }
             }()
             go func() {
                 defer wg.Done()
                 aw, err := auditchain.NewWriter("logs/audit.log")
-                if err != nil { log.Fatalf("audit: %v", err) }
+                if err != nil { slog.Error("audit", "error", err); os.Exit(1) }
                 defer aw.Close()
                 var pol *rbac.Policy
                 if p, err := rbac.LoadPolicy(rbacPath); err == nil { pol = p } else { pol = rbac.NewPolicy(); pol.Grant("user:dev", "*"); pol.Grant("user:dev", "job:cancel"); pol.Grant("role:admin", "*") }
                 var us *users.Store
-                if s, err := users.Load(usersPath); err == nil { us = s } else { log.Printf("users load failed: %v", err) }
+                if s, err := users.Load(usersPath); err == nil { us = s } else { slog.Warn("users load failed", "error", err) }
                 jm := jwt.NewManager(jwtSecret)
                 var statsProv interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }
                 if sp, ok := invoker.(interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }); ok { statsProv = sp }
                 httpSrv, err := httpserver.NewServer("descriptors", invoker, aw, pol, gstore, ctrl.Store(), us, jm, locator, statsProv)
-                if err != nil { log.Fatalf("http server: %v", err) }
-                if err := httpSrv.ListenAndServe(httpAddr); err != nil { log.Fatalf("serve http: %v", err) }
+                if err != nil { slog.Error("http server", "error", err); os.Exit(1) }
+                if err := httpSrv.ListenAndServe(httpAddr); err != nil { slog.Error("serve http", "error", err); os.Exit(1) }
             }()
             wg.Wait()
             return nil

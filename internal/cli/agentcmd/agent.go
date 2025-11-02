@@ -8,7 +8,7 @@ import (
     "fmt"
     "io"
     "io/ioutil"
-    "log"
+    "log/slog"
     "net"
     "net/http"
     "archive/tar"
@@ -96,12 +96,10 @@ func New() *cobra.Command {
             httpAddr := v.GetString("http_addr")
 
             if serverAddr != "" {
-                if coreAddr != "" && coreAddr != "127.0.0.1:8443" {
-                    log.Printf("[warn] both --server_addr and --core_addr provided; using --server_addr=%s", serverAddr)
-                }
+                if coreAddr != "" && coreAddr != "127.0.0.1:8443" { slog.Warn("both server_addr and core_addr provided; using server_addr", "server_addr", serverAddr) }
                 coreAddr = serverAddr
             } else if coreAddr != "" {
-                log.Printf("[warn] --core_addr is deprecated; please use --server_addr")
+                slog.Warn("--core_addr is deprecated; use --server_addr")
             }
 
             // Validate config (non-strict) then auto-generate dev certs when not provided (DEV ONLY)
@@ -114,7 +112,7 @@ func New() *cobra.Command {
                 agCrt, agKey, err := devcert.EnsureAgentCert(out, caCrt, caKey, agentID)
                 if err != nil { return err }
                 cert, key, ca = agCrt, agKey, caCrt
-                log.Printf("[devcert] generated dev mTLS certs under %s (DEV ONLY)", out)
+                slog.Info("devcert generated", "dir", out)
             }
 
             // Connect to Server with mTLS
@@ -202,15 +200,15 @@ func New() *cobra.Command {
                         func(){
                             req, _ := http.NewRequest("GET", api+"/api/assignments?game_id="+gameID+"&env="+env, nil)
                             resp, err := http.DefaultClient.Do(req)
-                            if err != nil { log.Printf("assignments poll error: %v", err); return }
+                            if err != nil { slog.Warn("assignments poll error", "error", err); return }
                             defer resp.Body.Close()
-                            if resp.StatusCode/100 != 2 { b,_ := io.ReadAll(resp.Body); log.Printf("assignments poll failed: %s", string(b)); return }
+                            if resp.StatusCode/100 != 2 { b,_ := io.ReadAll(resp.Body); slog.Warn("assignments poll failed", "status", resp.StatusCode, "body", string(b)); return }
                             var out struct{ Assignments map[string][]string `json:"assignments"` }
-                            if err := json.NewDecoder(resp.Body).Decode(&out); err != nil { log.Printf("assignments decode: %v", err); return }
+                            if err := json.NewDecoder(resp.Body).Decode(&out); err != nil { slog.Warn("assignments decode", "error", err); return }
                             var fns []string
                             for _, arr := range out.Assignments { fns = append(fns, arr...) }
                             lserver.UpdateAllowed(fns)
-                            log.Printf("assignments updated: %d functions", len(fns))
+                            slog.Info("assignments updated", "functions", len(fns))
                             // optional adapter start/stop (supervised, best-effort)
                             if len(fns) == 0 { // empty -> allow all
                                 promSup.SetDesired(true)
@@ -222,12 +220,12 @@ func New() *cobra.Command {
                             }
                             if downDir != "" {
                                 // fetch current pack export and write to downDir/pack.tgz (and extract)
-                                if err := os.MkdirAll(downDir, 0o755); err != nil { log.Printf("downlink dir: %v", err) } else {
+                                if err := os.MkdirAll(downDir, 0o755); err != nil { slog.Warn("downlink dir", "error", err) } else {
                                     packPath := filepath.Join(downDir, "pack.tgz")
                                     if etag, err := downloadAndExtractPack(api+"/api/packs/export", packPath, downDir); err != nil {
-                                        log.Printf("downlink export failed: %v", err)
+                                        slog.Warn("downlink export", "error", err)
                                     } else {
-                                        log.Printf("downlink export saved to %s", downDir)
+                                        slog.Info("downlink export saved", "dir", downDir)
                                         // optionally notify server to reload (best-effort) or import the pack we just downloaded
                                         if err := uploadPack(api+"/api/packs/import", packPath); err != nil {
                                             // fallback to reload
@@ -235,8 +233,8 @@ func New() *cobra.Command {
                                         }
                                         // verify server packs/list etag matches what we exported (basic activation check)
                                         if err := verifyServerPacksList(api, etag, 5*time.Second); err != nil {
-                                            log.Printf("downlink verify packs/list failed: %v", err)
-                                        } else { log.Printf("downlink verify packs/list ok") }
+                                            slog.Warn("downlink verify packs/list failed", "error", err)
+                                        } else { slog.Info("downlink verify packs/list ok") }
                                     }
                                 }
                             }
@@ -251,7 +249,7 @@ func New() *cobra.Command {
                 t := tunn.NewClient(coreAddr, agentID, gameID, env, localAddr)
                 backoff := time.Second
                 for {
-                    if err := t.Start(context.Background()); err != nil { log.Printf("tunnel disconnected: %v", err) }
+                    if err := t.Start(context.Background()); err != nil { slog.Warn("tunnel disconnected", "error", err) }
                     time.Sleep(backoff)
                     if backoff < 30*time.Second { backoff *= 2 }
                     tunn.IncReconnect()
@@ -316,10 +314,10 @@ func New() *cobra.Command {
                         fmt.Fprintf(w, "croupier_adapter_health_failures_total{adapter=\"http\"} %d\n", st.HealthFailuresTotal)
                     }
                 })
-                log.Printf("agent http listening on %s", httpAddr)
+                slog.Info("agent http listening", "addr", httpAddr)
                 _ = http.ListenAndServe(httpAddr, mux)
             }()
-            log.Printf("croupier-agent listening on %s; connected to server %s", localAddr, coreAddr)
+            slog.Info("croupier-agent listening", "local", localAddr, "server", coreAddr)
             if err := srv.Serve(lis); err != nil { return err }
             return nil
         },
@@ -483,7 +481,7 @@ func (s *adapterSupervisor) startLoop() {
     }
     cmd.Env = s.env
     if err := cmd.Start(); err != nil {
-        log.Printf("adapter %s start error: %v", s.name, err)
+        slog.Error("adapter start error", "name", s.name, "error", err)
         s.mu.Unlock()
         time.Sleep(s.backoff)
         if s.backoff < 30*time.Second { s.backoff *= 2 }
@@ -496,7 +494,7 @@ func (s *adapterSupervisor) startLoop() {
     s.running = true
     s.backoff = time.Second // reset backoff on successful start
     s.lastStart = time.Now()
-    log.Printf("adapter %s started: %s", s.name, strings.Join(s.args, " "))
+    slog.Info("adapter started", "name", s.name, "args", strings.Join(s.args, " "))
     s.mu.Unlock()
 
     // health loop (non-fatal) if configured
@@ -513,11 +511,11 @@ func (s *adapterSupervisor) startLoop() {
     s.cmd = nil
     s.mu.Unlock()
     if s.stopping {
-        log.Printf("adapter %s exited (stopped)", s.name)
+        slog.Info("adapter exited (stopped)", "name", s.name)
         s.stopping = false
         return
     }
-    if err != nil { log.Printf("adapter %s exited: %v", s.name, err) } else { log.Printf("adapter %s exited", s.name) }
+    if err != nil { slog.Error("adapter exited", "name", s.name, "error", err) } else { slog.Info("adapter exited", "name", s.name) }
     // count restarts only when unexpected exit
     s.mu.Lock(); s.restarts++; s.mu.Unlock()
     // backoff and restart if still desired
@@ -574,7 +572,7 @@ func (s *adapterSupervisor) healthLoop() {
         }
         s.mu.Unlock()
         if doRestart {
-            log.Printf("adapter %s health failures exceeded threshold (%d), restarting...", s.name, thresh)
+            slog.Warn("adapter health failures exceeded threshold, restarting", "name", s.name, "threshold", thresh)
             s.stopGraceful(2 * time.Second)
             // startLoop will be triggered by SetDesired(true), but we are still in desired state; ensure start
             go s.startLoop()
