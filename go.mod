@@ -11,7 +11,10 @@ require (
 	gorm.io/driver/postgres v1.5.7
 	gorm.io/driver/sqlite v1.5.7
 	gorm.io/gorm v1.25.11
-	modernc.org/sqlite v1.39.1
+modernc.org/sqlite v1.39.1
+gocloud.dev v0.36.0
+github.com/aliyun/aliyun-oss-go-sdk v2.2.9+incompatible
+github.com/tencentyun/cos-go-sdk-v5 v0.7.45
 )
 
 require (

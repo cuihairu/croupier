@@ -37,7 +37,7 @@ Object Storage (uploads)
 ```yaml
 server:
   storage:
-    driver: s3     # s3 | oss | file
+    driver: s3     # s3 | cos | oss | file
     bucket: my-bucket
     region: ap-shanghai
     endpoint: https://cos.ap-shanghai.myqcloud.com   # s3/minio/cos endpoint (optional)
@@ -52,20 +52,32 @@ server:
 
 Notes:
 - s3 覆盖 AWS/MinIO/腾讯 COS（S3 兼容模式）。COS 建议设置 `force_path_style=true`，并指定正确的 `region` 与 `endpoint`。
-- 阿里云 OSS 建议使用官方 SDK 驱动（后续提供）；Go Cloud 无原生 OSS 驱动。
+- 腾讯 COS 也提供官方 SDK 驱动（`driver: cos`），在 S3 兼容遇到边角不兼容时使用。
+- 阿里云 OSS 使用官方 SDK 驱动（`driver: oss`）；Go Cloud 无原生 OSS 驱动。
 - file 驱动仅用于本地开发，静态路径 `/uploads/` 会映射到 `base_dir`。
 
-Tencent COS（S3 兼容）示例
+Tencent COS（两种方式）
 ```yaml
 server:
   storage:
-    driver: s3
+    driver: s3  # 方式一：S3 兼容
     bucket: your-bucket
     region: ap-shanghai
     endpoint: https://cos.ap-shanghai.myqcloud.com
     access_key: ${TENCENT_SECRET_ID}
     secret_key: ${TENCENT_SECRET_KEY}
     force_path_style: true
+    signed_url_ttl: 15m
+
+# 或者使用官方 SDK 驱动：
+server:
+  storage:
+    driver: cos  # 方式二：官方 SDK
+    bucket: your-bucket-APPID
+    region: ap-shanghai
+    # endpoint 可选： https://cos.ap-shanghai.myqcloud.com
+    access_key: ${TENCENT_SECRET_ID}
+    secret_key: ${TENCENT_SECRET_KEY}
     signed_url_ttl: 15m
 ```
 说明：
