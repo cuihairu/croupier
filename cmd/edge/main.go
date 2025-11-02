@@ -5,6 +5,7 @@ import (
     "log/slog"
     "os"
     "net"
+    "time"
 
     "google.golang.org/grpc"
     "google.golang.org/grpc/keepalive"
@@ -60,6 +61,17 @@ func main() {
     // HTTP health/metrics
     go func(){
         r := gin.New()
+        r.Use(func(c *gin.Context){
+            w := c.Writer; r0 := c.Request
+            w.Header().Set("Access-Control-Allow-Origin", "*")
+            w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+            w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            if r0.Method == http.MethodOptions { c.Status(http.StatusNoContent); c.Abort(); return }
+            start := time.Now(); c.Next(); dur := time.Since(start)
+            lvl := slog.LevelInfo; st := c.Writer.Status()
+            if st >= 500 { lvl = slog.LevelError } else if st >= 400 { lvl = slog.LevelWarn }
+            slog.Log(c, lvl, "edge_http", "method", r0.Method, "path", r0.URL.Path, "status", st, "dur_ms", dur.Milliseconds())
+        })
         r.GET("/healthz", func(c *gin.Context){ c.String(http.StatusOK, "ok") })
         r.GET("/metrics", func(c *gin.Context){ c.JSON(http.StatusOK, tun.MetricsMap()) })
         slog.Info("edge http listening", "addr", *httpAddr)
