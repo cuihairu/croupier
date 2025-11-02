@@ -16,8 +16,14 @@ Examples
 server:
   addr: ":8443"
   http_addr: ":8080"
-  # Optional: database (use environment for secrets)
-  # DATABASE_URL: postgres://user:pass@host:5432/db?sslmode=verify-full
+  # Database (YAML preferred; flags/env can override per-env)
+  db:
+    driver: auto      # postgres | mysql | sqlite | auto
+    dsn: ""          # DSN/URL. Examples:
+    # Postgres: postgres://user:pass@host:5432/croupier?sslmode=disable
+    # MySQL (URL): mysql://user:pass@host:3306/croupier?charset=utf8mb4
+    # MySQL (DSN):  user:pass@tcp(host:3306)/croupier?parseTime=true&charset=utf8mb4
+    # SQLite:       file:data/croupier.db  (defaults to data/croupier.db if empty)
   log: { level: debug, format: console }
   metrics:
     per_function: true
@@ -38,6 +44,7 @@ Start with overlay files and profile:
 
 Environment overrides
 - Server: CROUPIER_SERVER_ADDR, CROUPIER_SERVER_HTTP_ADDR, CROUPIER_SERVER_LOG_LEVEL, ...
+- DB selection (server): DB_DRIVER=postgres|mysql|sqlite|auto, DATABASE_URL=<dsn>  (derived automatically from server.db.* when YAML is present)
 - Agent:  CROUPIER_AGENT_SERVER_ADDR, CROUPIER_AGENT_LOCAL_ADDR, ...
 
 Metrics env toggles (server)
@@ -91,4 +98,5 @@ Effective config snapshot
 
 Notes
 - Flags always win; prefer YAML + env for deploy, flags for local dev tweaks.
+- The server binary reads `server.*` section. In CLI mode (`croupier server`), the same section applies.
 - You can keep secrets (JWT, TLS paths) in environment or external secret managers; YAML supports file paths, not secret storage.
