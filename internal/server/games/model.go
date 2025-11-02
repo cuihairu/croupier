@@ -15,7 +15,6 @@ type Game struct {
 // GameEnv expresses an allowed environment for a game.
 type GameEnv struct {
     gorm.Model
-    GameID uint   `gorm:"index:uniq_game_env,unique;not null"`
-    Env    string `gorm:"size:64;index:uniq_game_env,unique;not null"`
+    GameID uint   `gorm:"uniqueIndex:uniq_game_env,priority:1;not null"`
+    Env    string `gorm:"size:64;uniqueIndex:uniq_game_env,priority:2;not null"`
 }
-
