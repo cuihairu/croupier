@@ -67,6 +67,16 @@ func main() {
             // DB config (prefer YAML in server.*)
             if vv := v.GetString("db.driver"); vv != "" { _ = os.Setenv("DB_DRIVER", vv) }
             if vv := v.GetString("db.dsn"); vv != "" { _ = os.Setenv("DATABASE_URL", vv) }
+            // Storage config (to env bridge for http server)
+            if vv := v.GetString("storage.driver"); vv != "" { _ = os.Setenv("STORAGE_DRIVER", vv) }
+            if vv := v.GetString("storage.bucket"); vv != "" { _ = os.Setenv("STORAGE_BUCKET", vv) }
+            if vv := v.GetString("storage.region"); vv != "" { _ = os.Setenv("STORAGE_REGION", vv) }
+            if vv := v.GetString("storage.endpoint"); vv != "" { _ = os.Setenv("STORAGE_ENDPOINT", vv) }
+            if vv := v.GetString("storage.access_key"); vv != "" { _ = os.Setenv("STORAGE_ACCESS_KEY", vv); _ = os.Setenv("AWS_ACCESS_KEY_ID", vv) }
+            if vv := v.GetString("storage.secret_key"); vv != "" { _ = os.Setenv("STORAGE_SECRET_KEY", vv); _ = os.Setenv("AWS_SECRET_ACCESS_KEY", vv) }
+            if v.IsSet("storage.force_path_style") { _ = os.Setenv("STORAGE_FORCE_PATH_STYLE", fmt.Sprintf("%v", v.GetBool("storage.force_path_style"))) }
+            if vv := v.GetString("storage.base_dir"); vv != "" { _ = os.Setenv("STORAGE_BASE_DIR", vv) }
+            if vv := v.GetString("storage.signed_url_ttl"); vv != "" { _ = os.Setenv("STORAGE_SIGNED_URL_TTL", vv) }
 
             addr := v.GetString("addr")
             httpAddr := v.GetString("http_addr")
@@ -167,6 +177,16 @@ func main() {
     root.Flags().String("jwt_secret", "dev-secret", "jwt hs256 secret")
     root.Flags().String("db.driver", "auto", "database driver: postgres|mysql|sqlite|auto")
     root.Flags().String("db.dsn", "", "database DSN/URL; for sqlite can be file:path.db or :memory:")
+    // storage
+    root.Flags().String("storage.driver", "", "object storage driver: s3|oss|file")
+    root.Flags().String("storage.bucket", "", "object storage bucket")
+    root.Flags().String("storage.region", "", "object storage region (s3)")
+    root.Flags().String("storage.endpoint", "", "object storage endpoint (s3/cos/minio)")
+    root.Flags().String("storage.access_key", "", "object storage access key")
+    root.Flags().String("storage.secret_key", "", "object storage secret key")
+    root.Flags().Bool("storage.force_path_style", false, "s3 path-style routing")
+    root.Flags().String("storage.base_dir", "", "local storage base dir when driver=file (default data/uploads)")
+    root.Flags().String("storage.signed_url_ttl", "15m", "signed URL TTL, e.g. 15m,1h")
     _ = viper.BindPFlags(root.Flags())
 
     if err := root.Execute(); err != nil { slog.Error("server exit", "error", err); os.Exit(1) }

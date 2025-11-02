@@ -18,6 +18,18 @@ server:
                    # MySQL (DSN):  user:pass@tcp(host:3306)/croupier?parseTime=true&charset=utf8mb4
                    # SQLite:       file:data/croupier.db (defaults to data/croupier.db when empty)
 
+  # Object storage (uploads/asset hosting)
+  storage:
+    driver: s3     # s3 | oss | file
+    bucket: my-bucket
+    region: ap-shanghai
+    endpoint: https://cos.ap-shanghai.myqcloud.com   # s3/minio/cos endpoint
+    access_key: "${STORAGE_AK}"
+    secret_key: "${STORAGE_SK}"
+    force_path_style: true        # s3/cos/minio 建议 true
+    signed_url_ttl: 15m
+    # file driver (dev): base_dir: data/uploads
+
   # Files (RBAC/users/examples)
   rbac_config:   "configs/rbac.json"
   users_config:  "configs/users.json"
@@ -45,4 +57,3 @@ server:
     prod:
       log: { level: info, format: json, file: logs/server.log }
       db:  { driver: postgres }
-

@@ -32,6 +32,28 @@ server:
     prod:
       log: { level: info, format: json, file: logs/server.log }
       metrics: { per_function: true }
+
+Object Storage (uploads)
+```yaml
+server:
+  storage:
+    driver: s3     # s3 | oss | file
+    bucket: my-bucket
+    region: ap-shanghai
+    endpoint: https://cos.ap-shanghai.myqcloud.com   # s3/minio/cos endpoint (optional)
+    access_key: ${STORAGE_AK}
+    secret_key: ${STORAGE_SK}
+    force_path_style: true
+    signed_url_ttl: 15m
+    # dev local:
+    # driver: file
+    # base_dir: data/uploads
+```
+
+Notes:
+- s3 覆盖 AWS/MinIO/腾讯 COS（S3 兼容模式）。COS 建议设置 `force_path_style=true`，并指定正确的 `region` 与 `endpoint`。
+- 阿里云 OSS 建议使用官方 SDK 驱动（后续提供）；Go Cloud 无原生 OSS 驱动。
+- file 驱动仅用于本地开发，静态路径 `/uploads/` 会映射到 `base_dir`。
 ```
 
 Start with overlay files and profile:
