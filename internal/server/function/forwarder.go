@@ -5,10 +5,10 @@ import (
     "fmt"
     "log/slog"
 
-    functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
+    functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
     "github.com/cuihairu/croupier/internal/transport/interceptors"
     "google.golang.org/grpc"
-    jobv1 "github.com/cuihairu/croupier/gen/go/croupier/edge/job/v1"
+    jobv1 "github.com/cuihairu/croupier/pkg/pb/croupier/edge/job/v1"
 )
 
 // Forwarder forwards FunctionService calls to a remote endpoint (e.g., Edge),

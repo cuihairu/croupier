@@ -1,0 +1,33 @@
+{
+  "auth": {
+    "permission": "croupier.function.v1.functionservice.startjob",
+    "two_person_rule": false
+  },
+  "category": "function",
+  "id": "croupier.function.v1.functionservice.startjob",
+  "outputs": {
+    "views": [
+      {
+        "id": "json",
+        "renderer": "json.view",
+        "type": "json"
+      }
+    ]
+  },
+  "placement": "agent",
+  "semantics": {
+    "idempotency_key": false,
+    "mode": "query",
+    "route": "lb",
+    "timeout": "30s"
+  },
+  "transport": {
+    "proto": {
+      "encoding": "pb-json",
+      "request_fqn": "croupier.function.v1.InvokeRequest",
+      "response_fqn": "croupier.function.v1.StartJobResponse"
+    },
+    "request_type": "proto"
+  },
+  "version": "1.0.0"
+}

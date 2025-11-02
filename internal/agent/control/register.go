@@ -7,7 +7,7 @@ import (
 
     "google.golang.org/grpc"
 
-    controlv1 "github.com/cuihairu/croupier/gen/go/croupier/control/v1"
+    controlv1 "github.com/cuihairu/croupier/pkg/pb/croupier/control/v1"
 )
 
 // Client wraps the generated ControlService client with helper methods.

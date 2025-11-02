@@ -5,7 +5,7 @@ package games.player.v1;
 import "croupier/options/function.proto";
 import "croupier/options/ui.proto";
 
-option go_package = "github.com/cuihairu/croupier/gen/go/examples/games/player/v1;playerv1";
+option go_package = "github.com/cuihairu/croupier/pkg/pb/examples/games/player/v1;playerv1";
 
 service PlayerGm {
   rpc Ban(BanRequest) returns (BanResponse) {

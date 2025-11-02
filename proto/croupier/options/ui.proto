@@ -3,7 +3,7 @@ package croupier.options;
 
 import "google/protobuf/descriptor.proto";
 
-option go_package = "github.com/cuihairu/croupier/gen/go/croupier/options;optionspb";
+option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/options;optionspb";
 
 // 字段级 UI 元信息（可选）。插件未识别时仅用于 UI，协议不受影响。
 message UIFieldOptions {

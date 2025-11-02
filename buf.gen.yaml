@@ -2,14 +2,14 @@ version: v1
 managed:
   enabled: true
   go_package_prefix:
-    default: github.com/cuihairu/croupier/gen/go
+    default: github.com/cuihairu/croupier/pkg/pb
 plugins:
   - plugin: buf.build/protocolbuffers/go
-    out: gen/go
+    out: pkg/pb
     opt:
       - paths=source_relative
   - plugin: buf.build/grpc/go
-    out: gen/go
+    out: pkg/pb
     opt:
       - paths=source_relative
   # Local custom plugin: protoc-gen-croupier (must be on PATH)

@@ -7,8 +7,8 @@ import (
     "sync/atomic"
     "time"
 
-    tunnelv1 "github.com/cuihairu/croupier/gen/go/croupier/tunnel/v1"
-    functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
+    tunnelv1 "github.com/cuihairu/croupier/pkg/pb/croupier/tunnel/v1"
+    functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 )
 
 type pending struct{

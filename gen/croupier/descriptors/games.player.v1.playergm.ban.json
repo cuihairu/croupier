@@ -1,0 +1,33 @@
+{
+  "auth": {
+    "permission": "games.player.v1.playergm.ban",
+    "two_person_rule": false
+  },
+  "category": "player",
+  "id": "games.player.v1.playergm.ban",
+  "outputs": {
+    "views": [
+      {
+        "id": "json",
+        "renderer": "json.view",
+        "type": "json"
+      }
+    ]
+  },
+  "placement": "agent",
+  "semantics": {
+    "idempotency_key": false,
+    "mode": "query",
+    "route": "lb",
+    "timeout": "30s"
+  },
+  "transport": {
+    "proto": {
+      "encoding": "pb-json",
+      "request_fqn": "games.player.v1.BanRequest",
+      "response_fqn": "games.player.v1.BanResponse"
+    },
+    "request_type": "proto"
+  },
+  "version": "1.0.0"
+}

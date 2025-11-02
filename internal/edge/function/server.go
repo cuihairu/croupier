@@ -5,7 +5,7 @@ import (
     "errors"
     "fmt"
 
-    functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
+    functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
     "github.com/cuihairu/croupier/internal/edge/tunnel"
     "github.com/cuihairu/croupier/internal/server/registry"
     function "github.com/cuihairu/croupier/internal/server/function"

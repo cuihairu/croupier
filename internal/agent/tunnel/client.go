@@ -5,9 +5,9 @@ import (
     "log/slog"
     "time"
 
-    functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
-    tunnelv1 "github.com/cuihairu/croupier/gen/go/croupier/tunnel/v1"
-    localv1 "github.com/cuihairu/croupier/gen/go/croupier/agent/local/v1"
+    functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
+    tunnelv1 "github.com/cuihairu/croupier/pkg/pb/croupier/tunnel/v1"
+    localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
     "github.com/cuihairu/croupier/internal/transport/interceptors"
     "google.golang.org/grpc"
 )

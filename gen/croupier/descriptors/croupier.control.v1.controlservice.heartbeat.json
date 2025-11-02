@@ -1,0 +1,33 @@
+{
+  "auth": {
+    "permission": "croupier.control.v1.controlservice.heartbeat",
+    "two_person_rule": false
+  },
+  "category": "control",
+  "id": "croupier.control.v1.controlservice.heartbeat",
+  "outputs": {
+    "views": [
+      {
+        "id": "json",
+        "renderer": "json.view",
+        "type": "json"
+      }
+    ]
+  },
+  "placement": "agent",
+  "semantics": {
+    "idempotency_key": false,
+    "mode": "query",
+    "route": "lb",
+    "timeout": "30s"
+  },
+  "transport": {
+    "proto": {
+      "encoding": "pb-json",
+      "request_fqn": "croupier.control.v1.HeartbeatRequest",
+      "response_fqn": "croupier.control.v1.HeartbeatResponse"
+    },
+    "request_type": "proto"
+  },
+  "version": "1.0.0"
+}
