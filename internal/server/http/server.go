@@ -40,6 +40,8 @@ import (
     "compress/gzip"
     "strconv"
     "math"
+    "time"
+    "runtime/debug"
     "gorm.io/gorm"
     gpostgres "gorm.io/driver/postgres"
     gmysql "gorm.io/driver/mysql"
@@ -1378,10 +1380,10 @@ func (s *Server) routes() {
         addCORS(w, r)
         user, roles, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        if s.obj == nil { http.Error(w, "storage not available", http.StatusServiceUnavailable); return }
+        if s.obj == nil { slog.Error("upload storage not available"); http.Error(w, "storage not available", http.StatusServiceUnavailable); return }
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
         // RBAC: require uploads:write
-        if !s.can(user, roles, "uploads:write") { http.Error(w, "forbidden", http.StatusForbidden); return }
+        if !s.can(user, roles, "uploads:write") { slog.Warn("upload forbidden", "user", user); http.Error(w, "forbidden", http.StatusForbidden); return }
         // Size limit: 120MB
         constMax := int64(120 * 1024 * 1024)
         if cl := r.Header.Get("Content-Length"); cl != "" {
@@ -1390,9 +1392,9 @@ func (s *Server) routes() {
             }
         }
         r.Body = http.MaxBytesReader(w, r.Body, constMax)
-        if err := r.ParseMultipartForm(32 << 20); err != nil { http.Error(w, err.Error(), 400); return }
+        if err := r.ParseMultipartForm(32 << 20); err != nil { slog.Error("upload parse form", "error", err); http.Error(w, err.Error(), 400); return }
         f, fh, err := r.FormFile("file")
-        if err != nil { http.Error(w, "missing file", 400); return }
+        if err != nil { slog.Error("upload file missing", "error", err); http.Error(w, "missing file", 400); return }
         defer f.Close()
         // generate key
         ts := time.Now().UnixNano()
@@ -1400,14 +1402,15 @@ func (s *Server) routes() {
         key := fmt.Sprintf("%s/%d_%s", user, ts, name)
         // copy to temp file to support ReadSeeker
         tmp, err := os.CreateTemp("", "upload-*")
-        if err != nil { http.Error(w, err.Error(), 500); return }
+        if err != nil { slog.Error("upload temp", "error", err); http.Error(w, err.Error(), 500); return }
         defer os.Remove(tmp.Name())
-        if _, err := io.Copy(tmp, f); err != nil { tmp.Close(); http.Error(w, err.Error(), 500); return }
-        if _, err := tmp.Seek(0, io.SeekStart); err != nil { tmp.Close(); http.Error(w, err.Error(), 500); return }
+        if _, err := io.Copy(tmp, f); err != nil { tmp.Close(); slog.Error("upload copy", "error", err); http.Error(w, err.Error(), 500); return }
+        if _, err := tmp.Seek(0, io.SeekStart); err != nil { tmp.Close(); slog.Error("upload seek", "error", err); http.Error(w, err.Error(), 500); return }
         ct := fh.Header.Get("Content-Type")
-        if err := s.obj.Put(r.Context(), key, tmp, fh.Size, ct); err != nil { tmp.Close(); http.Error(w, err.Error(), 500); return }
+        if err := s.obj.Put(r.Context(), key, tmp, fh.Size, ct); err != nil { tmp.Close(); slog.Error("upload put", "error", err, "user", user, "key", key, "size", fh.Size, "ct", ct); http.Error(w, err.Error(), 500); return }
         _ = tmp.Close()
-        url, _ := s.obj.SignedURL(r.Context(), key, "GET", s.objConf.SignedURLTTL)
+        url, err := s.obj.SignedURL(r.Context(), key, "GET", s.objConf.SignedURLTTL)
+        if err != nil { slog.Error("upload signed url", "error", err, "key", key); }
         _ = json.NewEncoder(w).Encode(struct{ Key, URL string }{Key: key, URL: url})
     })
 
@@ -1425,6 +1428,44 @@ func (s *Server) routes() {
         url, err := s.obj.SignedURL(r.Context(), key, method, exp)
         if err != nil { http.Error(w, err.Error(), 500); return }
         _ = json.NewEncoder(w).Encode(struct{ URL string `json:"url"` }{URL: url})
+    })
+}
+
+// loggingResponseWriter wraps ResponseWriter to capture status and bytes.
+type loggingResponseWriter struct {
+    http.ResponseWriter
+    status int
+    nbytes int
+}
+func (w *loggingResponseWriter) WriteHeader(code int) { w.status = code; w.ResponseWriter.WriteHeader(code) }
+func (w *loggingResponseWriter) Write(b []byte) (int, error) { if w.status == 0 { w.status = http.StatusOK }; n, err := w.ResponseWriter.Write(b); w.nbytes += n; return n, err }
+
+// loggingHandler logs each HTTP request with status and latency, capturing panics.
+func (s *Server) loggingHandler(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        start := time.Now()
+        lrw := &loggingResponseWriter{ResponseWriter: w}
+        // recover panics
+        defer func() {
+            if rec := recover(); rec != nil {
+                lrw.WriteHeader(http.StatusInternalServerError)
+                slog.Error("http panic", "method", r.Method, "path", r.URL.Path, "panic", rec, "stack", string(debug.Stack()))
+            }
+            dur := time.Since(start)
+            user, _, _ := s.auth(r) // best-effort
+            lvl := slog.LevelInfo
+            if lrw.status >= 500 { lvl = slog.LevelError } else if lrw.status >= 400 { lvl = slog.LevelWarn }
+            slog.Log(r.Context(), lvl, "http",
+                "method", r.Method,
+                "path", r.URL.Path,
+                "status", lrw.status,
+                "bytes", lrw.nbytes,
+                "remote", r.RemoteAddr,
+                "user", user,
+                "dur_ms", dur.Milliseconds(),
+            )
+        }()
+        next.ServeHTTP(lrw, r)
     })
 }
 
@@ -1541,7 +1582,7 @@ func extractPack(archive, dest string) error {
 
 func (s *Server) ListenAndServe(addr string) error {
     log.Printf("http api listening on %s", addr)
-    return http.ListenAndServe(addr, s.mux)
+    return http.ListenAndServe(addr, s.loggingHandler(s.mux))
 }
 
 func randHex(n int) string {
