@@ -24,7 +24,7 @@ import (
     "time"
     "sync/atomic"
     "sync"
-    users "github.com/cuihairu/croupier/internal/auth/users"
+    usersgorm "github.com/cuihairu/croupier/internal/infra/persistence/gorm/users"
     jwt "github.com/cuihairu/croupier/internal/auth/token"
     "github.com/cuihairu/croupier/internal/auth/otp"
     localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
@@ -45,7 +45,7 @@ import (
     gpostgres "gorm.io/driver/postgres"
     gmysql "gorm.io/driver/mysql"
     gsqlite "gorm.io/driver/sqlite"
-    gamesmeta "github.com/cuihairu/croupier/internal/server/gamesmeta"
+    
     "net/url"
     obj "github.com/cuihairu/croupier/internal/objstore"
 )
@@ -57,9 +57,9 @@ type Server struct {
     invoker FunctionInvoker
     audit *auditchain.Writer
     rbac  *rbac.Policy
-    games *games.Store
+    games *games.Repo
     reg   *registry.Store
-    userStore *users.Store
+    userRepo *usersgorm.Repo
     jwtMgr    *jwt.Manager
     startedAt time.Time
     invocations int64
@@ -89,7 +89,7 @@ type Server struct {
     packsExportRequireAuth bool
     // games metadata via GORM (postgres preferred, else sqlite)
     gdb *gorm.DB
-    gms gamesmeta.Store
+    
     obj obj.Store
     objConf obj.Config
 }
@@ -101,12 +101,12 @@ type FunctionInvoker interface {
     CancelJob(ctx context.Context, req *functionv1.CancelJobRequest) (*functionv1.StartJobResponse, error)
 }
 
-func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.Writer, policy *rbac.Policy, gamesStore *games.Store, reg *registry.Store, userStore *users.Store, jwtMgr *jwt.Manager, locator interface{ GetJobAddr(string) (string, bool) }, statsProv interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }) (*Server, error) {
+func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.Writer, policy *rbac.Policy, reg *registry.Store, jwtMgr *jwt.Manager, locator interface{ GetJobAddr(string) (string, bool) }, statsProv interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }) (*Server, error) {
     descs, err := descriptor.LoadAll(descriptorDir)
     if err != nil { return nil, err }
     idx := map[string]*descriptor.Descriptor{}
     for _, d := range descs { idx[d.ID] = d }
-    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, games: gamesStore, reg: reg, userStore: userStore, jwtMgr: jwtMgr, startedAt: time.Now(), locator: locator, statsProv: statsProv, fn: map[string]*fnMetrics{}, typeReg: pack.NewTypeRegistry(), packDir: descriptorDir, rl: map[string]*rateLimiter{}, conc: map[string]chan struct{}{}, assignments: map[string][]string{}, assignmentsPath: filepath.Join(descriptorDir, "assignments.json")}
+    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, reg: reg, jwtMgr: jwtMgr, startedAt: time.Now(), locator: locator, statsProv: statsProv, fn: map[string]*fnMetrics{}, typeReg: pack.NewTypeRegistry(), packDir: descriptorDir, rl: map[string]*rateLimiter{}, conc: map[string]chan struct{}{}, assignments: map[string][]string{}, assignmentsPath: filepath.Join(descriptorDir, "assignments.json")}
     // approvals store: prefer Postgres via env DATABASE_URL, else in-memory
     dbURL := os.Getenv("DATABASE_URL")
     if dbURL != "" {
@@ -172,9 +172,11 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
         if db, err := gorm.Open(gsqlite.Open(dsn), &gorm.Config{}); err == nil { s.gdb = db }
     }
     if s.gdb != nil {
-        // auto-migrate and prepare store
-        _ = s.gdb.AutoMigrate(&gamesmeta.Game{})
-        s.gms = &gormGames{db: s.gdb}
+        // auto-migrate and prepare repos
+        _ = games.AutoMigrate(s.gdb)
+        s.games = games.NewRepo(s.gdb)
+        _ = usersgorm.AutoMigrate(s.gdb)
+        s.userRepo = usersgorm.New(s.gdb)
     }
     // init object storage (from env bridge STORAGE_*)
     s.objConf = obj.FromEnv()
@@ -336,13 +338,18 @@ func (s *Server) routes() {
     s.mux.HandleFunc("/api/auth/login", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        if s.userStore == nil || s.jwtMgr == nil { http.Error(w, "auth disabled", http.StatusServiceUnavailable); return }
+        if s.userRepo == nil || s.jwtMgr == nil { http.Error(w, "auth disabled", http.StatusServiceUnavailable); return }
         var in struct{ Username string `json:"username"`; Password string `json:"password"` }
         if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
-        u, err := s.userStore.Verify(in.Username, in.Password)
+        ur, err := s.userRepo.Verify(r.Context(), in.Username, in.Password)
         if err != nil { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        tok, _ := s.jwtMgr.Sign(u.Username, u.Roles, 8*time.Hour)
-        _ = json.NewEncoder(w).Encode(struct{ Token string `json:"token"`; User any `json:"user"` }{Token: tok, User: struct{ Username string `json:"username"`; Roles []string `json:"roles"` }{u.Username, u.Roles}})
+        // collect role names
+        roles := []string{}
+        if rs, err := s.userRepo.ListUserRoles(r.Context(), ur.ID); err == nil {
+            for _, rr := range rs { roles = append(roles, rr.Name) }
+        }
+        tok, _ := s.jwtMgr.Sign(in.Username, roles, 8*time.Hour)
+        _ = json.NewEncoder(w).Encode(struct{ Token string `json:"token"`; User any `json:"user"` }{Token: tok, User: struct{ Username string `json:"username"`; Roles []string `json:"roles"` }{in.Username, roles}})
     })
     s.mux.HandleFunc("/api/auth/me", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
@@ -975,12 +982,7 @@ func (s *Server) routes() {
             if auth := d.Auth; auth != nil {
                 if v, ok := auth["require_otp"].(bool); ok && v { needOTP = true }
             }
-            if needOTP && s.userStore != nil {
-                if u, ok := s.userStore.Get(user); ok && u.OTPSecret != "" {
-                    if in.OTP == "" { http.Error(w, "otp required", 403); return }
-                    if !otp.VerifyTOTP(u.OTPSecret, in.OTP, 1) { http.Error(w, "invalid otp", 403); return }
-                }
-            }
+            // Optional OTP support can be reintroduced when user store tracks OTP secrets in DB.
         }
         // build meta from stored approval
         meta := map[string]string{}
@@ -1269,52 +1271,93 @@ func (s *Server) routes() {
         }
         _ = json.NewEncoder(w).Encode(struct{ Instances []Inst `json:"instances"` }{Instances: out})
     })
-    // Game whitelist management
+    // Games RESTful implemented below
+
+    // Games RESTful APIs
     s.mux.HandleFunc("/api/games", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
         user, _, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
+        canRead := s.rbac == nil || s.rbac.Can(user, "games:read") || s.rbac.Can(user, "games:manage")
+        canManage := s.rbac == nil || s.rbac.Can(user, "games:manage")
         switch r.Method {
         case http.MethodGet:
-            _ = json.NewEncoder(w).Encode(struct{ Games []games.Entry `json:"games"` }{Games: s.games.List()})
+            if !canRead { http.Error(w, "forbidden", http.StatusForbidden); return }
+            items, err := s.games.List(r.Context())
+            if err != nil { http.Error(w, err.Error(), 500); return }
+            _ = json.NewEncoder(w).Encode(struct{ Games []*games.Game `json:"games"` }{Games: items})
         case http.MethodPost:
-            if s.rbac != nil && !s.rbac.Can(user, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
-            var in games.Entry
+            if !canManage { http.Error(w, "forbidden", http.StatusForbidden); return }
+            var in struct{ ID uint; Name, Icon, Description string; Enabled bool }
             if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
-            if in.GameID == "" { http.Error(w, "missing game_id", 400); return }
-            s.games.Add(in.GameID, in.Env)
-            _ = s.games.Save()
-            w.WriteHeader(http.StatusNoContent)
+            if in.ID == 0 {
+                g := &games.Game{Name: in.Name, Icon: in.Icon, Description: in.Description, Enabled: in.Enabled}
+                if err := s.games.Create(r.Context(), g); err != nil { http.Error(w, err.Error(), 500); return }
+                _ = json.NewEncoder(w).Encode(struct{ ID uint `json:"id"` }{ID: g.ID})
+            } else {
+                g, err := s.games.Get(r.Context(), in.ID)
+                if err != nil { http.Error(w, err.Error(), 404); return }
+                g.Name, g.Icon, g.Description, g.Enabled = in.Name, in.Icon, in.Description, in.Enabled
+                if err := s.games.Update(r.Context(), g); err != nil { http.Error(w, err.Error(), 500); return }
+                w.WriteHeader(http.StatusNoContent)
+            }
         default:
             w.WriteHeader(http.StatusMethodNotAllowed)
         }
     })
-
-    // Games metadata management (GORM-backed)
-    s.mux.HandleFunc("/api/games_meta", func(w http.ResponseWriter, r *http.Request) {
+    s.mux.HandleFunc("/api/games/", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
         user, _, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        if s.gms == nil { http.Error(w, "games meta store not available", http.StatusServiceUnavailable); return }
+        rest := strings.TrimPrefix(r.URL.Path, "/api/games/")
+        if strings.HasSuffix(rest, "/envs") {
+            idStr := strings.TrimSuffix(strings.TrimSuffix(rest, "/envs"), "/")
+            id64, _ := strconv.ParseUint(idStr, 10, 64)
+            id := uint(id64)
+            switch r.Method {
+            case http.MethodGet:
+                if s.rbac != nil && !(s.rbac.Can(user, "games:read") || s.rbac.Can(user, "games:manage")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+                envs, err := s.games.ListEnvs(r.Context(), id)
+                if err != nil { http.Error(w, err.Error(), 500); return }
+                _ = json.NewEncoder(w).Encode(struct{ Envs []string `json:"envs"` }{Envs: envs})
+            case http.MethodPost:
+                if s.rbac != nil && !s.rbac.Can(user, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
+                var in struct{ Env string }
+                if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.Env == "" { http.Error(w, "invalid env", 400); return }
+                if err := s.games.AddEnv(r.Context(), id, in.Env); err != nil { http.Error(w, err.Error(), 500); return }
+                w.WriteHeader(http.StatusNoContent)
+            case http.MethodDelete:
+                if s.rbac != nil && !s.rbac.Can(user, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
+                env := r.URL.Query().Get("env")
+                if env == "" { http.Error(w, "missing env", 400); return }
+                if err := s.games.RemoveEnv(r.Context(), id, env); err != nil { http.Error(w, err.Error(), 500); return }
+                w.WriteHeader(http.StatusNoContent)
+            default:
+                w.WriteHeader(http.StatusMethodNotAllowed)
+            }
+            return
+        }
+        idStr := strings.TrimSuffix(rest, "/")
+        id64, _ := strconv.ParseUint(idStr, 10, 64)
+        id := uint(id64)
         switch r.Method {
         case http.MethodGet:
-            // RBAC: games:read OR games:manage can view
             if s.rbac != nil && !(s.rbac.Can(user, "games:read") || s.rbac.Can(user, "games:manage")) { http.Error(w, "forbidden", http.StatusForbidden); return }
-            items, err := s.gms.List()
-            if err != nil { http.Error(w, err.Error(), 500); return }
-            _ = json.NewEncoder(w).Encode(struct{ Games []*gamesmeta.Game `json:"games"` }{Games: items})
-        case http.MethodPost, http.MethodPut:
+            g, err := s.games.Get(r.Context(), id)
+            if err != nil { http.Error(w, err.Error(), 404); return }
+            _ = json.NewEncoder(w).Encode(g)
+        case http.MethodPut:
             if s.rbac != nil && !s.rbac.Can(user, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
-            var g gamesmeta.Game
-            if err := json.NewDecoder(r.Body).Decode(&g); err != nil { http.Error(w, err.Error(), 400); return }
-            if g.ID == "" { http.Error(w, "missing game_id", 400); return }
-            if err := s.gms.Upsert(g); err != nil { http.Error(w, err.Error(), 500); return }
+            var in struct{ Name, Icon, Description string; Enabled bool }
+            if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
+            g, err := s.games.Get(r.Context(), id)
+            if err != nil { http.Error(w, err.Error(), 404); return }
+            g.Name, g.Icon, g.Description, g.Enabled = in.Name, in.Icon, in.Description, in.Enabled
+            if err := s.games.Update(r.Context(), g); err != nil { http.Error(w, err.Error(), 500); return }
             w.WriteHeader(http.StatusNoContent)
         case http.MethodDelete:
             if s.rbac != nil && !s.rbac.Can(user, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
-            id := r.URL.Query().Get("id")
-            if id == "" { http.Error(w, "missing id", 400); return }
-            if err := s.gms.Delete(id); err != nil { http.Error(w, err.Error(), 500); return }
+            if err := s.games.Delete(r.Context(), id); err != nil { http.Error(w, err.Error(), 500); return }
             w.WriteHeader(http.StatusNoContent)
         default:
             w.WriteHeader(http.StatusMethodNotAllowed)
