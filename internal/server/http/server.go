@@ -48,8 +48,6 @@ import (
     
     "net/url"
     obj "github.com/cuihairu/croupier/internal/objstore"
-    usersgorm "github.com/cuihairu/croupier/internal/infra/persistence/gorm/users"
-    games "github.com/cuihairu/croupier/internal/server/games"
 )
 
 type Server struct {
@@ -696,26 +694,18 @@ func (s *Server) routes() {
                 if p, ok := auth["permission"].(string); ok && p != "" { basePerm = p }
             }
         }
-        scopedOk := false
+        scopedOk := true
         if s.rbac != nil {
+            scopedOk = false
             scoped := basePerm
             if gameID != "" { scoped = "game:" + gameID + ":" + basePerm }
-            // by username or by role
-            if s.rbac.Can(user, scoped) || s.rbac.Can(user, basePerm) || (gameID != "" && s.rbac.Can(user, "game:"+gameID+":*")) || s.rbac.Can(user, "*") {
-                scopedOk = true
-            } else {
-                _, roles, _ := s.auth(r)
-                for _, role := range roles {
-                    if s.rbac.Can("role:"+role, scoped) || s.rbac.Can("role:"+role, basePerm) { scopedOk = true; break }
-                }
-            }
-        } else { scopedOk = true }
+            if s.can(user, roles, scoped) || s.can(user, roles, basePerm) || (gameID != "" && s.can(user, roles, "game:"+gameID+":*")) { scopedOk = true }
+        }
         if !scopedOk { http.Error(w, "forbidden", http.StatusForbidden); return }
         // ABAC allow_if expression (optional): descriptor.auth.allow_if
         if d := s.descIndex[in.FunctionID]; d != nil && d.Auth != nil {
             if expr, ok := d.Auth["allow_if"].(string); ok && expr != "" {
-                userName, roles, _ := s.auth(r)
-                ctx := policyContext{User: userName, Roles: roles, GameID: gameID, Env: env, FunctionID: in.FunctionID}
+                ctx := policyContext{User: user, Roles: roles, GameID: gameID, Env: env, FunctionID: in.FunctionID}
                 if !evalAllowIf(expr, ctx) { http.Error(w, "forbidden", http.StatusForbidden); return }
             }
         }
@@ -831,19 +821,13 @@ func (s *Server) routes() {
                 if p, ok := auth["permission"].(string); ok && p != "" { basePerm = p }
             }
         }
-        scopedOk := false
+        scopedOk := true
         if s.rbac != nil {
+            scopedOk = false
             scoped := basePerm
             if gameID != "" { scoped = "game:" + gameID + ":" + basePerm }
-            if s.rbac.Can(user, scoped) || s.rbac.Can(user, basePerm) || (gameID != "" && s.rbac.Can(user, "game:"+gameID+":*")) || s.rbac.Can(user, "*") {
-                scopedOk = true
-            } else {
-                _, roles, _ := s.auth(r)
-                for _, role := range roles {
-                    if s.rbac.Can("role:"+role, scoped) || s.rbac.Can("role:"+role, basePerm) { scopedOk = true; break }
-                }
-            }
-        } else { scopedOk = true }
+            if s.can(user, roles, scoped) || s.can(user, roles, basePerm) || (gameID != "" && s.can(user, roles, "game:"+gameID+":*")) { scopedOk = true }
+        }
         if !scopedOk { atomic.AddInt64(&s.rbacDenied,1); http.Error(w, "forbidden", http.StatusForbidden); return }
         b, _ := json.Marshal(in.Payload)
         if in.IdempotencyKey == "" { in.IdempotencyKey = randHex(16) }
@@ -901,7 +885,7 @@ func (s *Server) routes() {
         addCORS(w, r)
         user, roles, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        if s.rbac != nil && !(s.rbac.Can(user, "approvals:read") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+        if !s.can(user, roles, "approvals:read") { http.Error(w, "forbidden", http.StatusForbidden); return }
         if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
         // filters + pagination
         f := appr.Filter{
@@ -947,7 +931,7 @@ func (s *Server) routes() {
         addCORS(w, r)
         user, roles, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        if s.rbac != nil && !(s.rbac.Can(user, "approvals:read") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+        if !s.can(user, roles, "approvals:read") { http.Error(w, "forbidden", http.StatusForbidden); return }
         if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
         id := r.URL.Query().Get("id")
         if id == "" { http.Error(w, "missing id", 400); return }
@@ -986,7 +970,7 @@ func (s *Server) routes() {
     })
     s.mux.HandleFunc("/api/approvals/approve", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
-        user, _, ok := s.auth(r)
+        user, roles, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
         if s.rbac != nil && !(s.rbac.Can(user, "approvals:approve") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
@@ -995,13 +979,7 @@ func (s *Server) routes() {
         a, err := s.approvals.Approve(in.ID)
         if err != nil { http.Error(w, err.Error(), 409); return }
         // OTP check (optional): require OTP if function is high risk or descriptor.auth.require_otp == true and user has otp_secret
-        if d := s.descIndex[a.FunctionID]; d != nil {
-            needOTP := strings.EqualFold(d.Risk, "high")
-            if auth := d.Auth; auth != nil {
-                if v, ok := auth["require_otp"].(bool); ok && v { needOTP = true }
-            }
-            // Optional OTP support can be reintroduced when user store tracks OTP secrets in DB.
-        }
+        // OTP requirement can be reintroduced when user table tracks OTP secrets.
         // build meta from stored approval
         meta := map[string]string{}
         if a.Route != "" { meta["route"] = a.Route }
@@ -1038,7 +1016,7 @@ func (s *Server) routes() {
     })
     s.mux.HandleFunc("/api/approvals/reject", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
-        user, _, ok := s.auth(r)
+        user, roles, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
         if s.rbac != nil && !(s.rbac.Can(user, "approvals:reject") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
@@ -1082,7 +1060,7 @@ func (s *Server) routes() {
     s.mux.HandleFunc("/api/cancel_job", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        user, _, ok := s.auth(r)
+        user, roles, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         var in struct{ JobID string `json:"job_id"` }
         if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
@@ -1294,7 +1272,7 @@ func (s *Server) routes() {
     // Games RESTful APIs
     s.mux.HandleFunc("/api/games", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
-        user, _, ok := s.auth(r)
+        user, roles, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         canRead := s.can(user, roles, "games:read") || s.can(user, roles, "games:manage")
         canManage := s.can(user, roles, "games:manage")
