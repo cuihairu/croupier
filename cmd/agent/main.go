@@ -30,6 +30,7 @@ import (
     "github.com/cuihairu/croupier/internal/devcert"
     common "github.com/cuihairu/croupier/internal/cli/common"
     tlsutil "github.com/cuihairu/croupier/internal/tlsutil"
+    gin "github.com/gin-gonic/gin"
 )
 
 // Deprecated: local TLS helper replaced by tlsutil.ClientTLS
@@ -156,18 +157,17 @@ func main() {
                 }
             }()
 
-            // HTTP health/metrics
+            // HTTP health/metrics (Gin)
             go func(){
-                mux := http.NewServeMux()
-                mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request){ w.WriteHeader(http.StatusOK); _,_ = w.Write([]byte("ok")) })
-                mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request){
-                    // summarize instances
+                r := gin.New()
+                r.GET("/healthz", func(c *gin.Context){ c.String(http.StatusOK, "ok") })
+                r.GET("/metrics", func(c *gin.Context){
                     mp := lstore.List(); total := 0; fns := 0
                     for _, arr := range mp { fns++; total += len(arr) }
-                    _ = json.NewEncoder(w).Encode(map[string]any{"functions": fns, "instances": total, "tunnel_reconnects": tunn.Reconnects()})
+                    c.JSON(http.StatusOK, gin.H{"functions": fns, "instances": total, "tunnel_reconnects": tunn.Reconnects()})
                 })
                 slog.Info("agent http listening", "addr", httpAddr)
-                _ = http.ListenAndServe(httpAddr, mux)
+                _ = http.ListenAndServe(httpAddr, r)
             }()
             slog.Info("croupier-agent listening", "local", localAddr, "server", coreAddr)
             // prune stale instances periodically

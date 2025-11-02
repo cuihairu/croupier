@@ -31,7 +31,6 @@ import (
     "google.golang.org/grpc/credentials/insecure"
     "github.com/cuihairu/croupier/internal/loadbalancer"
     "github.com/cuihairu/croupier/internal/connpool"
-    common "github.com/cuihairu/croupier/internal/cli/common"
     pack "github.com/cuihairu/croupier/internal/pack"
     appr "github.com/cuihairu/croupier/internal/server/approvals"
     "path/filepath"
@@ -48,10 +47,10 @@ import (
     
     "net/url"
     obj "github.com/cuihairu/croupier/internal/objstore"
+    gin "github.com/gin-gonic/gin"
 )
 
 type Server struct {
-    mux   *http.ServeMux
     descs []*descriptor.Descriptor
     descIndex map[string]*descriptor.Descriptor
     invoker FunctionInvoker
@@ -117,7 +116,7 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
     if err != nil { return nil, err }
     idx := map[string]*descriptor.Descriptor{}
     for _, d := range descs { idx[d.ID] = d }
-    s := &Server{mux: http.NewServeMux(), descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, reg: reg, jwtMgr: jwtMgr, startedAt: time.Now(), locator: locator, statsProv: statsProv, fn: map[string]*fnMetrics{}, typeReg: pack.NewTypeRegistry(), packDir: descriptorDir, rl: map[string]*rateLimiter{}, conc: map[string]chan struct{}{}, assignments: map[string][]string{}, assignmentsPath: filepath.Join(descriptorDir, "assignments.json")}
+    s := &Server{descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, reg: reg, jwtMgr: jwtMgr, startedAt: time.Now(), locator: locator, statsProv: statsProv, fn: map[string]*fnMetrics{}, typeReg: pack.NewTypeRegistry(), packDir: descriptorDir, rl: map[string]*rateLimiter{}, conc: map[string]chan struct{}{}, assignments: map[string][]string{}, assignmentsPath: filepath.Join(descriptorDir, "assignments.json")}
     // approvals store: prefer Postgres via env DATABASE_URL, else in-memory
     dbURL := os.Getenv("DATABASE_URL")
     if dbURL != "" {
@@ -214,7 +213,7 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
             }
         }
     }
-    s.routes()
+    // All routes are defined in Gin engine now; no legacy mux routes
     return s, nil
 }
 
@@ -349,1086 +348,7 @@ func (s *Server) getFn(id string) *fnMetrics {
     return m
 }
 
-func (s *Server) routes() {
-    // Auth endpoints
-    s.mux.HandleFunc("/api/auth/login", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        if s.userRepo == nil || s.jwtMgr == nil { http.Error(w, "auth disabled", http.StatusServiceUnavailable); return }
-        var in struct{ Username string `json:"username"`; Password string `json:"password"` }
-        if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
-        ur, err := s.userRepo.Verify(r.Context(), in.Username, in.Password)
-        if err != nil { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        // collect role names
-        roles := []string{}
-        if rs, err := s.userRepo.ListUserRoles(r.Context(), ur.ID); err == nil {
-            for _, rr := range rs { roles = append(roles, rr.Name) }
-        }
-        tok, _ := s.jwtMgr.Sign(in.Username, roles, 8*time.Hour)
-        _ = json.NewEncoder(w).Encode(struct{ Token string `json:"token"`; User any `json:"user"` }{Token: tok, User: struct{ Username string `json:"username"`; Roles []string `json:"roles"` }{in.Username, roles}})
-    })
-    s.mux.HandleFunc("/api/auth/me", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        user, roles, ok := s.auth(r)
-        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        _ = json.NewEncoder(w).Encode(struct{ Username string `json:"username"`; Roles []string `json:"roles"` }{user, roles})
-    })
-    s.mux.HandleFunc("/api/descriptors", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        w.Header().Set("Content-Type", "application/json")
-        _ = json.NewEncoder(w).Encode(s.descs)
-    })
-    s.mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-        w.WriteHeader(http.StatusOK)
-        _, _ = w.Write([]byte("ok"))
-    })
-    s.mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        out := map[string]any{
-            "uptime_sec": int(time.Since(s.startedAt).Seconds()),
-            "invocations_total": atomic.LoadInt64(&s.invocations),
-            "invocations_error_total": atomic.LoadInt64(&s.invocationsError),
-            "jobs_started_total": atomic.LoadInt64(&s.jobsStarted),
-            "jobs_error_total": atomic.LoadInt64(&s.jobsError),
-            "rbac_denied_total": atomic.LoadInt64(&s.rbacDenied),
-            "audit_errors_total": atomic.LoadInt64(&s.auditErrors),
-        }
-        if s.statsProv != nil {
-            out["lb_stats"] = s.statsProv.GetStats()
-            out["conn_pool"] = s.statsProv.GetPoolStats()
-        }
-        out["logs"] = common.GetLogCounters()
-        // approvals snapshot counters (best-effort)
-        if s.approvals != nil {
-            type cnt struct{ Pending, Approved, Rejected int }
-            get := func(state string) int {
-                items, total, err := s.approvals.List(appr.Filter{State: state}, appr.Page{Page: 1, Size: 1})
-                _ = items
-                if err != nil { return -1 }
-                return total
-            }
-            out["approvals"] = map[string]int{
-                "pending":  get("pending"),
-                "approved": get("approved"),
-                "rejected": get("rejected"),
-            }
-        }
-        _ = json.NewEncoder(w).Encode(out)
-    })
 
-    // UI schema fetch: /api/ui_schema?id=<function_id>
-    s.mux.HandleFunc("/api/ui_schema", func(w http.ResponseWriter, r *http.Request){
-        addCORS(w, r)
-        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        id := r.URL.Query().Get("id")
-        if id == "" { http.Error(w, "missing id", 400); return }
-        base := sanitize(id)
-        schemaPath := filepath.Join(s.packDir, "ui", base+".schema.json")
-        uiPath := filepath.Join(s.packDir, "ui", base+".uischema.json")
-        var schema, uischema any
-        if b, err := os.ReadFile(schemaPath); err == nil { _ = json.Unmarshal(b, &schema) }
-        if b, err := os.ReadFile(uiPath); err == nil { _ = json.Unmarshal(b, &uischema) }
-        _ = json.NewEncoder(w).Encode(map[string]any{"schema": schema, "uischema": uischema})
-    })
-
-    // Pack import: multipart/form-data with file=pack.tgz
-    s.mux.HandleFunc("/api/packs/import", func(w http.ResponseWriter, r *http.Request){
-        addCORS(w, r)
-        if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        if user, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return } else {
-            if s.rbac != nil && !(s.rbac.Can(user, "packs:import") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
-        }
-        if err := r.ParseMultipartForm(32 << 20); err != nil { http.Error(w, err.Error(), 400); return }
-        f, hdr, err := r.FormFile("file")
-        if err != nil { http.Error(w, "missing file", 400); return }
-        defer f.Close()
-        // Save to temp and extract
-        tmpPath := filepath.Join(os.TempDir(), hdr.Filename)
-        out, err := os.Create(tmpPath)
-        if err != nil { http.Error(w, err.Error(), 500); return }
-        if _, err := io.Copy(out, f); err != nil { out.Close(); http.Error(w, err.Error(), 500); return }
-        out.Close()
-        if err := extractPack(tmpPath, s.packDir); err != nil { http.Error(w, err.Error(), 500); return }
-        // Reload descriptors and FDS
-        descs, err := descriptor.LoadAll(s.packDir)
-        if err == nil {
-            idx := map[string]*descriptor.Descriptor{}
-            for _, d := range descs { idx[d.ID] = d }
-            s.descs = descs; s.descIndex = idx
-        }
-        _ = s.typeReg.LoadFDSFromDir(s.packDir)
-        _ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
-    })
-    // Packs list: return current manifest and basic counts
-    s.mux.HandleFunc("/api/packs/list", func(w http.ResponseWriter, r *http.Request){
-        addCORS(w, r)
-        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        maniPath := filepath.Join(s.packDir, "manifest.json")
-        b, err := os.ReadFile(maniPath)
-        if err != nil { http.Error(w, "manifest not found", http.StatusNotFound); return }
-        var mani any
-        _ = json.Unmarshal(b, &mani)
-        // basic counts
-        type counts struct{ Descriptors int `json:"descriptors"`; UISchema int `json:"ui_schema"` }
-        c := counts{}
-        _ = filepath.Walk(filepath.Join(s.packDir, "descriptors"), func(path string, info os.FileInfo, err error) error {
-            if err != nil || info == nil || info.IsDir() { return nil }
-            if filepath.Ext(path) == ".json" { c.Descriptors++ }
-            return nil
-        })
-        _ = filepath.Walk(filepath.Join(s.packDir, "ui"), func(path string, info os.FileInfo, err error) error {
-            if err != nil || info == nil || info.IsDir() { return nil }
-            if filepath.Ext(path) == ".json" { c.UISchema++ }
-            return nil
-        })
-        etag := computePackETag(s.packDir)
-        _ = json.NewEncoder(w).Encode(map[string]any{"manifest": mani, "counts": c, "etag": etag, "export_auth_required": s.packsExportRequireAuth})
-    })
-    // Packs export: stream current pack (descriptors/ui/manifest/web-plugin/*.js and any *.pb) as tar.gz
-    s.mux.HandleFunc("/api/packs/export", func(w http.ResponseWriter, r *http.Request){
-        addCORS(w, r)
-        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        if s.packsExportRequireAuth {
-            if user, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return } else {
-                if s.rbac != nil && !(s.rbac.Can(user, "packs:export") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
-            }
-        }
-        if et := computePackETag(s.packDir); et != "" { w.Header().Set("ETag", et) }
-        w.Header().Set("Content-Type", "application/gzip")
-        w.Header().Set("Content-Disposition", "attachment; filename=pack.tgz")
-        gz := gzip.NewWriter(w)
-        defer gz.Close()
-        tw := tar.NewWriter(gz)
-        defer tw.Close()
-        // write manifest.json if exists
-        maniPath := filepath.Join(s.packDir, "manifest.json")
-        if b, err := os.ReadFile(maniPath); err == nil {
-            hdr := &tar.Header{Name: "manifest.json", Mode: 0644, Size: int64(len(b))}
-            if err := tw.WriteHeader(hdr); err == nil { _, _ = tw.Write(b) }
-        }
-        // helper to add files under a dir with a prefix
-        addDir := func(rel string) {
-            base := filepath.Join(s.packDir, rel)
-            _ = filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
-                if err != nil || info == nil || info.IsDir() { return nil }
-                // limit to json/js/pb files
-                if !(filepath.Ext(path) == ".json" || filepath.Ext(path) == ".js" || filepath.Ext(path) == ".pb") { return nil }
-                b, err := os.ReadFile(path)
-                if err != nil { return nil }
-                relPath, _ := filepath.Rel(s.packDir, path)
-                hdr := &tar.Header{Name: filepath.ToSlash(relPath), Mode: 0644, Size: int64(len(b))}
-                if err := tw.WriteHeader(hdr); err == nil { _, _ = tw.Write(b) }
-                return nil
-            })
-        }
-        addDir("descriptors")
-        addDir("ui")
-        addDir("web-plugin")
-        // also include any *.pb at root
-        _ = filepath.Walk(s.packDir, func(path string, info os.FileInfo, err error) error {
-            if err != nil || info == nil || info.IsDir() { return nil }
-            if filepath.Dir(path) != s.packDir { return nil }
-            if filepath.Ext(path) != ".pb" { return nil }
-            b, err := os.ReadFile(path)
-            if err != nil { return nil }
-            relPath, _ := filepath.Rel(s.packDir, path)
-            hdr := &tar.Header{Name: filepath.ToSlash(relPath), Mode: 0644, Size: int64(len(b))}
-            if err := tw.WriteHeader(hdr); err == nil { _, _ = tw.Write(b) }
-            return nil
-        })
-    })
-    // Packs reload: rescan packDir for descriptors and fds (useful after out-of-band changes)
-    s.mux.HandleFunc("/api/packs/reload", func(w http.ResponseWriter, r *http.Request){
-        addCORS(w, r)
-        if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        if user, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return } else {
-            if s.rbac != nil && !(s.rbac.Can(user, "packs:reload") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
-        }
-        // Reload descriptors and FDS
-        descs, err := descriptor.LoadAll(s.packDir)
-        if err == nil {
-            idx := map[string]*descriptor.Descriptor{}
-            for _, d := range descs { idx[d.ID] = d }
-            s.descs = descs; s.descIndex = idx
-        }
-        _ = s.typeReg.LoadFDSFromDir(s.packDir)
-        _ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
-    })
-    // Assignments management: GET list; POST set {game_id,env,functions}
-    s.mux.HandleFunc("/api/assignments", func(w http.ResponseWriter, r *http.Request){
-        addCORS(w, r)
-        switch r.Method {
-        case http.MethodGet:
-            if user, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return } else {
-                if s.rbac != nil && !(s.rbac.Can(user, "assignments:read") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
-            }
-            gid := r.URL.Query().Get("game_id")
-            env := r.URL.Query().Get("env")
-            s.mu.RLock()
-            out := map[string][]string{}
-            for k, v := range s.assignments {
-                if gid != "" || env != "" {
-                    parts := strings.SplitN(k, "|", 2)
-                    ge := ""; if len(parts) > 1 { ge = parts[1] }
-                    if (gid != "" && parts[0] != gid) || (env != "" && ge != env) { continue }
-                }
-                out[k] = append([]string{}, v...)
-            }
-            s.mu.RUnlock()
-            _ = json.NewEncoder(w).Encode(struct{ Assignments map[string][]string `json:"assignments"` }{Assignments: out})
-        case http.MethodPost:
-            actor := ""
-            if u, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return } else {
-                actor = u
-                if s.rbac != nil && !(s.rbac.Can(u, "assignments:write") || s.rbac.Can(u, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
-            }
-            var in struct{ GameID, Env string; Functions []string }
-            if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.GameID == "" {
-                http.Error(w, "bad request", http.StatusBadRequest); return }
-            // validate function ids
-            valid := make([]string, 0, len(in.Functions))
-            unknown := []string{}
-            for _, fid := range in.Functions {
-                if _, ok := s.descIndex[fid]; ok { valid = append(valid, fid) } else { unknown = append(unknown, fid) }
-            }
-            key := in.GameID + "|" + in.Env
-            s.mu.Lock(); s.assignments[key] = append([]string{}, valid...); s.mu.Unlock()
-            b, _ := json.MarshalIndent(s.assignments, "", "  ")
-            _ = os.WriteFile(s.assignmentsPath, b, 0o644)
-            // audit
-            if s.audit != nil {
-                meta := map[string]string{
-                    "game_env": key,
-                    "game_id": in.GameID,
-                    "env": in.Env,
-                    "functions": strings.Join(valid, ","),
-                }
-                if len(unknown) > 0 { meta["unknown"] = strings.Join(unknown, ",") }
-                if err := s.audit.Log("assignments.update", actor, key, meta); err != nil { atomic.AddInt64(&s.auditErrors, 1) }
-            }
-            _ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "unknown": unknown})
-        default:
-            w.WriteHeader(http.StatusMethodNotAllowed)
-        }
-    })
-
-    // Prometheus text exposition (basic)
-    s.mux.HandleFunc("/metrics.prom", func(w http.ResponseWriter, r *http.Request){
-        w.Header().Set("Content-Type", "text/plain; version=0.0.4")
-        fmt.Fprintf(w, "# TYPE croupier_invocations_total counter\n")
-        fmt.Fprintf(w, "croupier_invocations_total %d\n", atomic.LoadInt64(&s.invocations))
-        fmt.Fprintf(w, "# TYPE croupier_invocations_error_total counter\n")
-        fmt.Fprintf(w, "croupier_invocations_error_total %d\n", atomic.LoadInt64(&s.invocationsError))
-        fmt.Fprintf(w, "# TYPE croupier_jobs_started_total counter\n")
-        fmt.Fprintf(w, "croupier_jobs_started_total %d\n", atomic.LoadInt64(&s.jobsStarted))
-        fmt.Fprintf(w, "# TYPE croupier_jobs_error_total counter\n")
-        fmt.Fprintf(w, "croupier_jobs_error_total %d\n", atomic.LoadInt64(&s.jobsError))
-        fmt.Fprintf(w, "# TYPE croupier_rbac_denied_total counter\n")
-        fmt.Fprintf(w, "croupier_rbac_denied_total %d\n", atomic.LoadInt64(&s.rbacDenied))
-        fmt.Fprintf(w, "# TYPE croupier_audit_errors_total counter\n")
-        fmt.Fprintf(w, "croupier_audit_errors_total %d\n", atomic.LoadInt64(&s.auditErrors))
-        lc := common.GetLogCounters()
-        fmt.Fprintf(w, "# TYPE croupier_logs_total counter\n")
-        fmt.Fprintf(w, "croupier_logs_total{level=\"debug\"} %d\n", lc["debug"])
-        fmt.Fprintf(w, "croupier_logs_total{level=\"info\"} %d\n", lc["info"])
-        fmt.Fprintf(w, "croupier_logs_total{level=\"warn\"} %d\n", lc["warn"])
-        fmt.Fprintf(w, "croupier_logs_total{level=\"error\"} %d\n", lc["error"])
-    })
-
-    // Serve pack static (manifest.json, web-plugin/*)
-    s.mux.Handle("/pack_static/", http.StripPrefix("/pack_static/", http.FileServer(http.Dir(s.packDir))))
-
-    // Ant Design Pro demo stubs (for template pages)
-    // GET /api/rule -> return empty rule list; POST /api/rule -> no-op
-    s.mux.HandleFunc("/api/rule", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        switch r.Method {
-        case http.MethodGet:
-            type RuleItem struct{
-                Key int `json:"key"`
-                Name string `json:"name"`
-                Desc string `json:"desc"`
-                Status int `json:"status"`
-                UpdatedAt string `json:"updatedAt"`
-                CreatedAt string `json:"createdAt"`
-                Progress int `json:"progress"`
-            }
-            _ = json.NewEncoder(w).Encode(struct{
-                Data   []RuleItem `json:"data"`
-                Total  int       `json:"total"`
-                Success bool     `json:"success"`
-            }{Data: []RuleItem{}, Total: 0, Success: true})
-        case http.MethodPost:
-            _ = json.NewEncoder(w).Encode(struct{ Success bool `json:"success"` }{Success: true})
-        default:
-            w.WriteHeader(http.StatusMethodNotAllowed)
-        }
-    })
-    s.mux.HandleFunc("/api/invoke", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        user, roles, ok := s.auth(r)
-        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        gameID := r.Header.Get("X-Game-ID")
-        env := r.Header.Get("X-Env")
-        var in struct{
-            FunctionID string `json:"function_id"`
-            Payload    any    `json:"payload"`
-            IdempotencyKey string `json:"idempotency_key"`
-            Route string `json:"route"`
-            TargetServiceID string `json:"target_service_id"`
-            HashKey string `json:"hash_key"`
-        }
-        if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
-        // schema validation (best-effort)
-        if d := s.descIndex[in.FunctionID]; d != nil {
-            if ps := d.Params; ps != nil {
-                b, _ := json.Marshal(in.Payload)
-                if err := validation.ValidateJSON(ps, b); err != nil { http.Error(w, fmt.Sprintf("payload invalid: %v", err), 400); return }
-            }
-        }
-        // rbac check (scoped)
-        basePerm := "function:" + in.FunctionID
-        if d := s.descIndex[in.FunctionID]; d != nil {
-            if auth := d.Auth; auth != nil {
-                if p, ok := auth["permission"].(string); ok && p != "" { basePerm = p }
-            }
-        }
-        scopedOk := true
-        if s.rbac != nil {
-            scopedOk = false
-            scoped := basePerm
-            if gameID != "" { scoped = "game:" + gameID + ":" + basePerm }
-            if s.can(user, roles, scoped) || s.can(user, roles, basePerm) || (gameID != "" && s.can(user, roles, "game:"+gameID+":*")) { scopedOk = true }
-        }
-        if !scopedOk { http.Error(w, "forbidden", http.StatusForbidden); return }
-        // ABAC allow_if expression (optional): descriptor.auth.allow_if
-        if d := s.descIndex[in.FunctionID]; d != nil && d.Auth != nil {
-            if expr, ok := d.Auth["allow_if"].(string); ok && expr != "" {
-                ctx := policyContext{User: user, Roles: roles, GameID: gameID, Env: env, FunctionID: in.FunctionID}
-                if !evalAllowIf(expr, ctx) { http.Error(w, "forbidden", http.StatusForbidden); return }
-            }
-        }
-        // rate limit and concurrency guards
-        if d := s.descIndex[in.FunctionID]; d != nil && d.Semantics != nil {
-            if v, ok := d.Semantics["rate_limit"].(string); ok && v != "" {
-                rl := s.getRateLimiter(in.FunctionID, v)
-                if rl != nil && !rl.Try() { http.Error(w, "rate limited", 429); return }
-            }
-            if v, ok := d.Semantics["concurrency"].(float64); ok && v > 0 {
-                sem := s.getSemaphore(in.FunctionID, int(v))
-                select {
-                case sem <- struct{}{}:
-                    defer func(){ <-sem }()
-                default:
-                    http.Error(w, "too many concurrent requests", 429)
-                    return
-                }
-            }
-        }
-        b, err := json.Marshal(in.Payload)
-        if err != nil { http.Error(w, err.Error(), 400); return }
-        if in.IdempotencyKey == "" { in.IdempotencyKey = randHex(16) }
-        traceID := randHex(8)
-        // audit with masked snapshot
-        masked := s.maskSnapshot(in.FunctionID, in.Payload)
-        if err := s.audit.Log("invoke", user, in.FunctionID, map[string]string{"ip": r.RemoteAddr, "trace_id": traceID, "game_id": gameID, "env": env, "payload_snapshot": masked}); err != nil { atomic.AddInt64(&s.auditErrors,1) }
-        meta := map[string]string{"trace_id": traceID}
-        if gameID != "" { meta["game_id"] = gameID }
-        if env != "" { meta["env"] = env }
-        // route selection: request override > descriptor.semantics.route
-        if in.Route != "" { meta["route"] = in.Route } else if d := s.descIndex[in.FunctionID]; d != nil {
-            if sem := d.Semantics; sem != nil {
-                if rv, ok := sem["route"].(string); ok && rv != "" { meta["route"] = rv }
-            }
-        }
-        // validate route value
-        if rv, ok := meta["route"]; ok && rv != "lb" && rv != "broadcast" && rv != "targeted" && rv != "hash" {
-            http.Error(w, "invalid route", 400); return
-        }
-        if in.HashKey != "" { meta["hash_key"] = in.HashKey }
-        if meta["route"] == "hash" && meta["hash_key"] == "" { http.Error(w, "hash_key required for hash route", 400); return }
-        if in.TargetServiceID != "" { meta["target_service_id"] = in.TargetServiceID }
-        if meta["route"] == "targeted" && meta["target_service_id"] == "" { http.Error(w, "target_service_id required for targeted route", 400); return }
-        // transport-aware encode: JSON -> pb-bin if descriptor.transport.proto.request_fqn is set
-        if d := s.descIndex[in.FunctionID]; d != nil && d.Transport != nil {
-            if tp, ok := d.Transport["proto"].(map[string]any); ok {
-                if fqn, ok2 := tp["request_fqn"].(string); ok2 && fqn != "" && s.typeReg != nil {
-                    if pb, err2 := s.typeReg.JSONToProtoBin(fqn, b); err2 == nil { b = pb } else { slog.Warn("encode proto failed; fallback json", "function_id", in.FunctionID, "error", err2.Error()) }
-                }
-            }
-        }
-        // if two_person_rule enabled, store approval and return 202 pending
-        if d := s.descIndex[in.FunctionID]; d != nil {
-            if auth := d.Auth; auth != nil {
-                if tpr, ok := auth["two_person_rule"].(bool); ok && tpr {
-                    id := randHex(12)
-                    _ = s.approvals.Create(&appr.Approval{ID: id, CreatedAt: time.Now(), Actor: user, FunctionID: in.FunctionID, Payload: b, IdempotencyKey: in.IdempotencyKey, Route: meta["route"], TargetServiceID: meta["target_service_id"], HashKey: meta["hash_key"], GameID: gameID, Env: env, State: "pending", Mode: "invoke"})
-                    w.WriteHeader(http.StatusAccepted)
-                    _ = json.NewEncoder(w).Encode(map[string]any{"approval_id": id, "state": "pending"})
-                    return
-                }
-            }
-        }
-        resp, err := s.invoker.Invoke(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta})
-        if err != nil {
-            atomic.AddInt64(&s.invocationsError,1)
-            slog.Error("invoke failed", "user", user, "function_id", in.FunctionID, "trace_id", traceID, "game_id", gameID, "env", env, "route", meta["route"], "error", err.Error())
-            http.Error(w, err.Error(), 500); return
-        }
-        slog.Info("invoke", "user", user, "function_id", in.FunctionID, "trace_id", traceID, "game_id", gameID, "env", env, "route", meta["route"]) 
-        atomic.AddInt64(&s.invocations, 1)
-        // decode pb-bin -> JSON if response_fqn present
-        out := resp.GetPayload()
-        if d := s.descIndex[in.FunctionID]; d != nil && d.Transport != nil {
-            if tp, ok := d.Transport["proto"].(map[string]any); ok {
-                if fqn, ok2 := tp["response_fqn"].(string); ok2 && fqn != "" && s.typeReg != nil {
-                    if j, err2 := s.typeReg.ProtoBinToJSON(fqn, out); err2 == nil { out = j }
-                }
-            }
-        }
-        if len(out) == 0 { w.WriteHeader(204); return }
-        w.Header().Set("Content-Type", "application/json")
-        _, _ = w.Write(out)
-    })
-    s.mux.HandleFunc("/api/start_job", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        user, roles, ok := s.auth(r)
-        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        gameID := r.Header.Get("X-Game-ID")
-        env := r.Header.Get("X-Env")
-        var in struct{
-            FunctionID string `json:"function_id"`
-            Payload any `json:"payload"`
-            IdempotencyKey string `json:"idempotency_key"`
-            Route string `json:"route"`
-            TargetServiceID string `json:"target_service_id"`
-            HashKey string `json:"hash_key"`
-        }
-        if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
-        // validate
-        if d := s.descIndex[in.FunctionID]; d != nil {
-            if ps := d.Params; ps != nil {
-                b, _ := json.Marshal(in.Payload)
-                if err := validation.ValidateJSON(ps, b); err != nil { http.Error(w, fmt.Sprintf("payload invalid: %v", err), 400); return }
-            }
-        }
-        // rbac check (scoped)
-        basePerm := "function:" + in.FunctionID
-        if d := s.descIndex[in.FunctionID]; d != nil {
-            if auth := d.Auth; auth != nil {
-                if p, ok := auth["permission"].(string); ok && p != "" { basePerm = p }
-            }
-        }
-        scopedOk := true
-        if s.rbac != nil {
-            scopedOk = false
-            scoped := basePerm
-            if gameID != "" { scoped = "game:" + gameID + ":" + basePerm }
-            if s.can(user, roles, scoped) || s.can(user, roles, basePerm) || (gameID != "" && s.can(user, roles, "game:"+gameID+":*")) { scopedOk = true }
-        }
-        if !scopedOk { atomic.AddInt64(&s.rbacDenied,1); http.Error(w, "forbidden", http.StatusForbidden); return }
-        b, _ := json.Marshal(in.Payload)
-        if in.IdempotencyKey == "" { in.IdempotencyKey = randHex(16) }
-        traceID := randHex(8)
-        if err := s.audit.Log("start_job", user, in.FunctionID, map[string]string{"ip": r.RemoteAddr, "trace_id": traceID, "game_id": gameID, "env": env}); err != nil { atomic.AddInt64(&s.auditErrors,1) }
-        meta := map[string]string{"trace_id": traceID}
-        if gameID != "" { meta["game_id"] = gameID }
-        if env != "" { meta["env"] = env }
-        // route selection: request override > descriptor.semantics.route
-        if in.Route != "" { meta["route"] = in.Route } else if d := s.descIndex[in.FunctionID]; d != nil {
-            if sem := d.Semantics; sem != nil {
-                if rv, ok := sem["route"].(string); ok && rv != "" { meta["route"] = rv }
-            }
-        }
-        // validate route
-        if rv, ok := meta["route"]; ok && rv != "lb" && rv != "broadcast" && rv != "targeted" && rv != "hash" {
-            http.Error(w, "invalid route", 400); return
-        }
-        if in.HashKey != "" { meta["hash_key"] = in.HashKey }
-        if meta["route"] == "hash" && meta["hash_key"] == "" { http.Error(w, "hash_key required for hash route", 400); return }
-        if in.TargetServiceID != "" { meta["target_service_id"] = in.TargetServiceID }
-        if meta["route"] == "targeted" && meta["target_service_id"] == "" { http.Error(w, "target_service_id required for targeted route", 400); return }
-        // transport-aware encode
-        if d := s.descIndex[in.FunctionID]; d != nil && d.Transport != nil {
-            if tp, ok := d.Transport["proto"].(map[string]any); ok {
-                if fqn, ok2 := tp["request_fqn"].(string); ok2 && fqn != "" && s.typeReg != nil {
-                    if pb, err2 := s.typeReg.JSONToProtoBin(fqn, b); err2 == nil { b = pb } else { slog.Warn("encode proto failed; fallback json", "function_id", in.FunctionID, "error", err2.Error()) }
-                }
-            }
-        }
-        // two_person_rule for start_job
-        if d := s.descIndex[in.FunctionID]; d != nil {
-            if auth := d.Auth; auth != nil {
-                if tpr, ok := auth["two_person_rule"].(bool); ok && tpr {
-                    id := randHex(12)
-                    _ = s.approvals.Create(&appr.Approval{ID: id, CreatedAt: time.Now(), Actor: user, FunctionID: in.FunctionID, Payload: b, IdempotencyKey: in.IdempotencyKey, Route: meta["route"], TargetServiceID: meta["target_service_id"], HashKey: meta["hash_key"], GameID: gameID, Env: env, State: "pending", Mode: "start_job"})
-                    w.WriteHeader(http.StatusAccepted)
-                    _ = json.NewEncoder(w).Encode(map[string]any{"approval_id": id, "state": "pending"})
-                    return
-                }
-            }
-        }
-        resp, err := s.invoker.StartJob(r.Context(), &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta})
-        if err != nil {
-            atomic.AddInt64(&s.jobsError,1)
-            slog.Error("start_job failed", "user", user, "function_id", in.FunctionID, "trace_id", traceID, "game_id", gameID, "env", env, "route", in.Route, "error", err.Error())
-            http.Error(w, err.Error(), 500); return
-        }
-        slog.Info("start_job", "user", user, "function_id", in.FunctionID, "trace_id", traceID, "game_id", gameID, "env", env, "route", in.Route)
-        atomic.AddInt64(&s.jobsStarted, 1)
-        _ = json.NewEncoder(w).Encode(resp)
-    })
-    // approvals endpoints
-    s.mux.HandleFunc("/api/approvals", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        user, roles, ok := s.auth(r)
-        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        if !s.can(user, roles, "approvals:read") { http.Error(w, "forbidden", http.StatusForbidden); return }
-        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        // filters + pagination
-        f := appr.Filter{
-            State: r.URL.Query().Get("state"),
-            FunctionID: r.URL.Query().Get("function_id"),
-            GameID: r.URL.Query().Get("game_id"),
-            Env: r.URL.Query().Get("env"),
-            Actor: r.URL.Query().Get("actor"),
-            Mode: r.URL.Query().Get("mode"),
-        }
-        page := 1; size := 20; sort := r.URL.Query().Get("sort")
-        if v := r.URL.Query().Get("page"); v != "" { if n, err := strconv.Atoi(v); err == nil && n > 0 { page = n } }
-        if v := r.URL.Query().Get("size"); v != "" { if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 200 { size = n } }
-        items, total, err := s.approvals.List(f, appr.Page{Page: page, Size: size, Sort: sort})
-        if err != nil { http.Error(w, err.Error(), 500); return }
-        type view struct{ ID, CreatedAt, Actor, FunctionID, IdempotencyKey, Route, TargetServiceID, HashKey, GameID, Env, State, Mode string }
-        out := make([]view, 0, len(items))
-        for _, a := range items {
-            out = append(out, view{
-                ID: a.ID,
-                CreatedAt: a.CreatedAt.Format(time.RFC3339),
-                Actor: a.Actor,
-                FunctionID: a.FunctionID,
-                IdempotencyKey: a.IdempotencyKey,
-                Route: a.Route,
-                TargetServiceID: a.TargetServiceID,
-                HashKey: a.HashKey,
-                GameID: a.GameID,
-                Env: a.Env,
-                State: a.State,
-                Mode: a.Mode,
-            })
-        }
-        _ = json.NewEncoder(w).Encode(struct{
-            Approvals []view `json:"approvals"`
-            Total int `json:"total"`
-            Page int `json:"page"`
-            Size int `json:"size"`
-        }{Approvals: out, Total: total, Page: page, Size: size})
-    })
-    // approval detail
-    s.mux.HandleFunc("/api/approvals/get", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        user, roles, ok := s.auth(r)
-        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        if !s.can(user, roles, "approvals:read") { http.Error(w, "forbidden", http.StatusForbidden); return }
-        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        id := r.URL.Query().Get("id")
-        if id == "" { http.Error(w, "missing id", 400); return }
-        a, err := s.approvals.Get(id)
-        if err != nil { http.Error(w, "not found", 404); return }
-        // try build masked preview
-        var preview string
-        if d := s.descIndex[a.FunctionID]; d != nil && d.Transport != nil {
-            if tp, ok := d.Transport["proto"].(map[string]any); ok {
-                if fqn, ok2 := tp["request_fqn"].(string); ok2 && fqn != "" && s.typeReg != nil {
-                    if j, err2 := s.typeReg.ProtoBinToJSON(fqn, a.Payload); err2 == nil {
-                        preview = s.maskSnapshot(a.FunctionID, j)
-                    }
-                }
-            }
-        }
-        if preview == "" {
-            preview = s.maskSnapshot(a.FunctionID, a.Payload)
-        }
-        _ = json.NewEncoder(w).Encode(map[string]any{
-            "id": a.ID,
-            "created_at": a.CreatedAt.Format(time.RFC3339),
-            "actor": a.Actor,
-            "function_id": a.FunctionID,
-            "idempotency_key": a.IdempotencyKey,
-            "route": a.Route,
-            "target_service_id": a.TargetServiceID,
-            "hash_key": a.HashKey,
-            "game_id": a.GameID,
-            "env": a.Env,
-            "state": a.State,
-            "mode": a.Mode,
-            "reason": a.Reason,
-            "payload_preview": preview,
-        })
-    })
-    s.mux.HandleFunc("/api/approvals/approve", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        user, roles, ok := s.auth(r)
-        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        if !s.can(user, roles, "approvals:approve") { http.Error(w, "forbidden", http.StatusForbidden); return }
-        var in struct{ ID string `json:"id"`; OTP string `json:"otp,omitempty"` }
-        if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.ID == "" { http.Error(w, "missing id", 400); return }
-        a, err := s.approvals.Approve(in.ID)
-        if err != nil { http.Error(w, err.Error(), 409); return }
-        // OTP check (optional): require OTP if function is high risk or descriptor.auth.require_otp == true and user has otp_secret
-        // OTP requirement can be reintroduced when user table tracks OTP secrets.
-        // build meta from stored approval
-        meta := map[string]string{}
-        if a.Route != "" { meta["route"] = a.Route }
-        if a.HashKey != "" { meta["hash_key"] = a.HashKey }
-        if a.TargetServiceID != "" { meta["target_service_id"] = a.TargetServiceID }
-        if a.GameID != "" { meta["game_id"] = a.GameID }
-        if a.Env != "" { meta["env"] = a.Env }
-        // audit
-        if err := s.audit.Log("approval_approve", user, a.FunctionID, map[string]string{"approval_id": a.ID}); err != nil { atomic.AddInt64(&s.auditErrors,1) }
-        // execute
-        switch a.Mode {
-        case "invoke":
-            resp, err := s.invoker.Invoke(r.Context(), &functionv1.InvokeRequest{FunctionId: a.FunctionID, IdempotencyKey: a.IdempotencyKey, Payload: a.Payload, Metadata: meta})
-            if err != nil { http.Error(w, err.Error(), 500); return }
-            // decode response if needed
-            out := resp.GetPayload()
-            if d := s.descIndex[a.FunctionID]; d != nil && d.Transport != nil {
-                if tp, ok := d.Transport["proto"].(map[string]any); ok {
-                    if fqn, ok2 := tp["response_fqn"].(string); ok2 && fqn != "" && s.typeReg != nil {
-                        if j, err2 := s.typeReg.ProtoBinToJSON(fqn, out); err2 == nil { out = j }
-                    }
-                }
-            }
-            if len(out) == 0 { w.WriteHeader(204); return }
-            w.Header().Set("Content-Type", "application/json")
-            _, _ = w.Write(out)
-        case "start_job":
-            resp, err := s.invoker.StartJob(r.Context(), &functionv1.InvokeRequest{FunctionId: a.FunctionID, IdempotencyKey: a.IdempotencyKey, Payload: a.Payload, Metadata: meta})
-            if err != nil { http.Error(w, err.Error(), 500); return }
-            _ = json.NewEncoder(w).Encode(resp)
-        default:
-            http.Error(w, "unknown mode", 400)
-        }
-    })
-    s.mux.HandleFunc("/api/approvals/reject", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        user, roles, ok := s.auth(r)
-        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        if !s.can(user, roles, "approvals:reject") { http.Error(w, "forbidden", http.StatusForbidden); return }
-        // decode flexible
-        dec := json.NewDecoder(r.Body)
-        var tmp map[string]any
-        if err := dec.Decode(&tmp); err != nil { http.Error(w, "bad request", 400); return }
-        id, _ := tmp["id"].(string)
-        reason, _ := tmp["reason"].(string)
-        if id == "" { http.Error(w, "missing id", 400); return }
-        a, err := s.approvals.Reject(id, reason)
-        if err != nil { http.Error(w, err.Error(), 409); return }
-        // audit
-        if err := s.audit.Log("approval_reject", user, a.FunctionID, map[string]string{"approval_id": a.ID, "reason": reason}); err != nil { atomic.AddInt64(&s.auditErrors,1) }
-        w.WriteHeader(http.StatusNoContent)
-    })
-    s.mux.HandleFunc("/api/stream_job", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        jobID := r.URL.Query().Get("id")
-        if jobID == "" { http.Error(w, "missing id", 400); return }
-        w.Header().Set("Content-Type", "text/event-stream")
-        w.Header().Set("Cache-Control", "no-cache")
-        w.Header().Set("Connection", "keep-alive")
-        flusher, ok := w.(http.Flusher)
-        if !ok { http.Error(w, "stream unsupported", 500); return }
-        ctx := r.Context()
-        stream, err := s.invoker.StreamJob(ctx, &functionv1.JobStreamRequest{JobId: jobID})
-        if err != nil { http.Error(w, err.Error(), 500); return }
-        enc := json.NewEncoder(w)
-        for {
-            ev, err := stream.Recv()
-            if err != nil { return }
-            fmt.Fprintf(w, "event: %s\n", ev.GetType())
-            fmt.Fprintf(w, "data: ")
-            _ = enc.Encode(ev)
-            fmt.Fprint(w, "\n")
-            flusher.Flush()
-            if ev.GetType() == "done" || ev.GetType() == "error" { return }
-        }
-    })
-    s.mux.HandleFunc("/api/cancel_job", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        user, roles, ok := s.auth(r)
-        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        var in struct{ JobID string `json:"job_id"` }
-        if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
-        if in.JobID == "" { http.Error(w, "missing job_id", 400); return }
-        if !s.can(user, roles, "job:cancel") { http.Error(w, "forbidden", http.StatusForbidden); return }
-        _ = s.audit.Log("cancel_job", user, in.JobID, map[string]string{"ip": r.RemoteAddr})
-        if _, err := s.invoker.CancelJob(r.Context(), &functionv1.CancelJobRequest{JobId: in.JobID}); err != nil {
-            http.Error(w, err.Error(), 500); return
-        }
-        w.WriteHeader(204)
-    })
-
-    // Query job result/status (best-effort; in edge-forward mode may be unavailable)
-    s.mux.HandleFunc("/api/job_result", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        if _, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        jobID := r.URL.Query().Get("id")
-        if jobID == "" { http.Error(w, "missing id", 400); return }
-        if s.locator != nil {
-            addr, ok := s.locator.GetJobAddr(jobID)
-            if !ok { http.Error(w, "unknown job", 404); return }
-            // dial agent local control to query job result
-            cc, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-            if err != nil { http.Error(w, err.Error(), 502); return }
-            defer cc.Close()
-            cli := localv1.NewLocalControlServiceClient(cc)
-            resp, err := cli.GetJobResult(r.Context(), &localv1.GetJobResultRequest{JobId: jobID})
-            if err != nil { http.Error(w, err.Error(), 502); return }
-            _ = json.NewEncoder(w).Encode(resp)
-            return
-        }
-        // Edge-forward mode: try invoker extension if available
-        type jobFetcher interface{ JobResult(ctx context.Context, jobID string) (string, []byte, string, error) }
-        if jf, ok := s.invoker.(jobFetcher); ok {
-            st, payload, errMsg, err := jf.JobResult(r.Context(), jobID)
-            if err != nil { http.Error(w, err.Error(), 502); return }
-            _ = json.NewEncoder(w).Encode(struct{ State string `json:"state"`; Payload []byte `json:"payload,omitempty"`; Error string `json:"error,omitempty"` }{State: st, Payload: payload, Error: errMsg})
-            return
-        }
-        http.Error(w, "job_result not available", http.StatusNotImplemented)
-    })
-
-    // Audit list (simple JSONL reader with filters)
-    s.mux.HandleFunc("/api/audit", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        if user, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return } else {
-            if s.rbac != nil && !(s.rbac.Can(user, "audit:read") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
-        }
-        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        gameID := r.URL.Query().Get("game_id")
-        env := r.URL.Query().Get("env")
-        actor := r.URL.Query().Get("actor")
-        kind := r.URL.Query().Get("kind")
-        // optional time range filters: start/end accept RFC3339 or unix seconds/milliseconds
-        parseBound := func(qs string) (time.Time, bool) {
-            v := strings.TrimSpace(r.URL.Query().Get(qs))
-            if v == "" { return time.Time{}, false }
-            // try RFC3339
-            if t, err := time.Parse(time.RFC3339, v); err == nil { return t, true }
-            // try integer seconds or ms
-            var n int64
-            if _, err := fmt.Sscanf(v, "%d", &n); err == nil {
-                if n > 1_000_000_000_000 { // likely ms
-                    return time.Unix(0, n*int64(time.Millisecond)), true
-                }
-                return time.Unix(n, 0), true
-            }
-            return time.Time{}, false
-        }
-        startT, hasStart := parseBound("start")
-        endT, hasEnd := parseBound("end")
-        // pagination (optional): limit, offset or page+size
-        limit := 200
-        if qs := r.URL.Query().Get("limit"); qs != "" { fmt.Sscanf(qs, "%d", &limit) }
-        if qs := r.URL.Query().Get("size"); qs != "" { fmt.Sscanf(qs, "%d", &limit) }
-        if limit <= 0 { limit = 200 }
-        offset := 0
-        if qs := r.URL.Query().Get("offset"); qs != "" { fmt.Sscanf(qs, "%d", &offset) }
-        if qs := r.URL.Query().Get("page"); qs != "" {
-            var page int
-            fmt.Sscanf(qs, "%d", &page)
-            if page > 0 { offset = (page-1) * limit }
-        }
-        type resp struct{ Events []auditchain.Event `json:"events"`; Total int `json:"total"` }
-        all := make([]auditchain.Event, 0, limit)
-        // naive scan (reads entire logs/audit.log; ok for dev/demo)
-        f, err := os.Open("logs/audit.log")
-        if err == nil {
-            defer f.Close()
-            sc := bufio.NewScanner(f)
-            for sc.Scan() {
-                line := sc.Text()
-                if strings.TrimSpace(line) == "" { continue }
-                var ev auditchain.Event
-                if err := json.Unmarshal([]byte(line), &ev); err != nil { continue }
-                // filters
-                if gameID != "" && ev.Meta["game_id"] != gameID { continue }
-                if env != "" && ev.Meta["env"] != env { continue }
-                if actor != "" && ev.Actor != actor { continue }
-                if kind != "" && ev.Kind != kind { continue }
-                if hasStart && ev.Time.Before(startT) { continue }
-                if hasEnd && ev.Time.After(endT) { continue }
-                all = append(all, ev)
-            }
-        }
-        // newest-first ordering
-        for i, j := 0, len(all)-1; i < j; i, j = i+1, j-1 { all[i], all[j] = all[j], all[i] }
-        total := len(all)
-        // apply offset+limit window
-        start := offset
-        if start > total { start = total }
-        end := start + limit
-        if end > total { end = total }
-        window := all[start:end]
-        _ = json.NewEncoder(w).Encode(resp{Events: window, Total: total})
-    })
-    // Registry summary
-    s.mux.HandleFunc("/api/registry", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        if user, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return } else {
-            if s.rbac != nil && !(s.rbac.Can(user, "registry:read") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
-        }
-        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        type Agent struct{ AgentID, GameID, Env, RpcAddr string; Functions int; Healthy bool; ExpiresInSec int }
-        type Function struct{ GameID, ID string; Agents int }
-        type FuncCov struct{ Healthy int `json:"healthy"`; Total int `json:"total"` }
-        type Coverage struct{ GameEnv string `json:"game_env"`; Functions map[string]FuncCov `json:"functions"`; Uncovered []string `json:"uncovered"` }
-        var agents []Agent
-        var functions []Function
-        var coverage []Coverage
-        if s.reg != nil {
-            s.reg.Mu().RLock()
-            now := time.Now()
-            for _, a := range s.reg.AgentsUnsafe() {
-                healthy := now.Before(a.ExpireAt)
-                exp := int(time.Until(a.ExpireAt).Seconds())
-                if exp < 0 { exp = 0 }
-                agents = append(agents, Agent{AgentID: a.AgentID, GameID: a.GameID, Env: a.Env, RpcAddr: a.RPCAddr, Functions: len(a.Functions), Healthy: healthy, ExpiresInSec: exp})
-            }
-            fnCountAll := map[string]map[string]int{}
-            fnCountHealthy := map[string]map[string]int{}
-            for _, a := range s.reg.AgentsUnsafe() {
-                isHealthy := now.Before(a.ExpireAt)
-                for fid := range a.Functions {
-                    if fnCountAll[a.GameID] == nil { fnCountAll[a.GameID] = map[string]int{} }
-                    fnCountAll[a.GameID][fid]++
-                    if isHealthy {
-                        if fnCountHealthy[a.GameID] == nil { fnCountHealthy[a.GameID] = map[string]int{} }
-                        fnCountHealthy[a.GameID][fid]++
-                    }
-                }
-            }
-            for gid, m := range fnCountHealthy {
-                for fid, c := range m { functions = append(functions, Function{GameID: gid, ID: fid, Agents: c}) }
-            }
-            // assignments coverage: for each game|env key, compute agents covering its functions (by game only)
-            for k, fns := range s.assignments {
-                parts := strings.SplitN(k, "|", 2)
-                gid := parts[0]
-                cov := map[string]FuncCov{}
-                uncovered := []string{}
-                for _, fid := range fns {
-                    h := fnCountHealthy[gid][fid]
-                    t := fnCountAll[gid][fid]
-                    cov[fid] = FuncCov{Healthy: h, Total: t}
-                    if h == 0 { uncovered = append(uncovered, fid) }
-                }
-                coverage = append(coverage, Coverage{GameEnv: k, Functions: cov, Uncovered: uncovered})
-            }
-            s.reg.Mu().RUnlock()
-        }
-        _ = json.NewEncoder(w).Encode(struct{ Agents []Agent `json:"agents"`; Functions []Function `json:"functions"`; Assignments any `json:"assignments"`; Coverage []Coverage `json:"coverage"` }{Agents: agents, Functions: functions, Assignments: s.assignments, Coverage: coverage})
-    })
-    // Function instances across agents (targeted routing aid)
-    s.mux.HandleFunc("/api/function_instances", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        if _, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        gameID := r.URL.Query().Get("game_id")
-        fid := r.URL.Query().Get("function_id")
-        type Inst struct{ AgentID, ServiceID, Addr, Version string }
-        var out []Inst
-        if s.reg != nil {
-            s.reg.Mu().RLock()
-            for _, a := range s.reg.AgentsUnsafe() {
-                if gameID != "" && a.GameID != gameID { continue }
-                if fid != "" { if _, ok := a.Functions[fid]; !ok { continue } }
-                // dial agent local control and list
-                cc, err := grpc.Dial(a.RPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-                if err != nil { continue }
-                cli := localv1.NewLocalControlServiceClient(cc)
-                resp, err := cli.ListLocal(r.Context(), &localv1.ListLocalRequest{})
-                _ = cc.Close()
-                if err != nil || resp == nil { continue }
-                for _, lf := range resp.Functions {
-                    if fid != "" && lf.Id != fid { continue }
-                    for _, inst := range lf.Instances {
-                        out = append(out, Inst{AgentID: a.AgentID, ServiceID: inst.ServiceId, Addr: inst.Addr, Version: inst.Version})
-                    }
-                }
-            }
-            s.reg.Mu().RUnlock()
-        }
-        _ = json.NewEncoder(w).Encode(struct{ Instances []Inst `json:"instances"` }{Instances: out})
-    })
-    // Games RESTful implemented below
-
-    // Games RESTful APIs
-    s.mux.HandleFunc("/api/games", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        user, roles, ok := s.auth(r)
-        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        canRead := s.can(user, roles, "games:read") || s.can(user, roles, "games:manage")
-        canManage := s.can(user, roles, "games:manage")
-        switch r.Method {
-        case http.MethodGet:
-            if !canRead { http.Error(w, "forbidden", http.StatusForbidden); return }
-            items, err := s.games.List(r.Context())
-            if err != nil { http.Error(w, err.Error(), 500); return }
-            _ = json.NewEncoder(w).Encode(struct{ Games []*games.Game `json:"games"` }{Games: items})
-        case http.MethodPost:
-            if !canManage { http.Error(w, "forbidden", http.StatusForbidden); return }
-            var in struct{ ID uint; Name, Icon, Description string; Enabled bool }
-            if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
-            if in.ID == 0 {
-                g := &games.Game{Name: in.Name, Icon: in.Icon, Description: in.Description, Enabled: in.Enabled}
-                if err := s.games.Create(r.Context(), g); err != nil { http.Error(w, err.Error(), 500); return }
-                _ = json.NewEncoder(w).Encode(struct{ ID uint `json:"id"` }{ID: g.ID})
-            } else {
-                g, err := s.games.Get(r.Context(), in.ID)
-                if err != nil { http.Error(w, err.Error(), 404); return }
-                g.Name, g.Icon, g.Description, g.Enabled = in.Name, in.Icon, in.Description, in.Enabled
-                if err := s.games.Update(r.Context(), g); err != nil { http.Error(w, err.Error(), 500); return }
-                w.WriteHeader(http.StatusNoContent)
-            }
-        default:
-            w.WriteHeader(http.StatusMethodNotAllowed)
-        }
-    })
-    s.mux.HandleFunc("/api/games/", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        user, roles, ok := s.auth(r)
-        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        rest := strings.TrimPrefix(r.URL.Path, "/api/games/")
-        if strings.HasSuffix(rest, "/envs") {
-            idStr := strings.TrimSuffix(strings.TrimSuffix(rest, "/envs"), "/")
-            id64, _ := strconv.ParseUint(idStr, 10, 64)
-            id := uint(id64)
-            switch r.Method {
-            case http.MethodGet:
-                if !s.can(user, roles, "games:read") && !s.can(user, roles, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
-                envs, err := s.games.ListEnvs(r.Context(), id)
-                if err != nil { http.Error(w, err.Error(), 500); return }
-                _ = json.NewEncoder(w).Encode(struct{ Envs []string `json:"envs"` }{Envs: envs})
-            case http.MethodPost:
-                if !s.can(user, roles, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
-                var in struct{ Env string }
-                if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.Env == "" { http.Error(w, "invalid env", 400); return }
-                if err := s.games.AddEnv(r.Context(), id, in.Env); err != nil { http.Error(w, err.Error(), 500); return }
-                w.WriteHeader(http.StatusNoContent)
-            case http.MethodDelete:
-                if !s.can(user, roles, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
-                env := r.URL.Query().Get("env")
-                if env == "" { http.Error(w, "missing env", 400); return }
-                if err := s.games.RemoveEnv(r.Context(), id, env); err != nil { http.Error(w, err.Error(), 500); return }
-                w.WriteHeader(http.StatusNoContent)
-            default:
-                w.WriteHeader(http.StatusMethodNotAllowed)
-            }
-            return
-        }
-        idStr := strings.TrimSuffix(rest, "/")
-        id64, _ := strconv.ParseUint(idStr, 10, 64)
-        id := uint(id64)
-        switch r.Method {
-        case http.MethodGet:
-            if !s.can(user, roles, "games:read") && !s.can(user, roles, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
-            g, err := s.games.Get(r.Context(), id)
-            if err != nil { http.Error(w, err.Error(), 404); return }
-            _ = json.NewEncoder(w).Encode(g)
-        case http.MethodPut:
-            if !s.can(user, roles, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
-            var in struct{ Name, Icon, Description string; Enabled bool }
-            if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
-            g, err := s.games.Get(r.Context(), id)
-            if err != nil { http.Error(w, err.Error(), 404); return }
-            g.Name, g.Icon, g.Description, g.Enabled = in.Name, in.Icon, in.Description, in.Enabled
-            if err := s.games.Update(r.Context(), g); err != nil { http.Error(w, err.Error(), 500); return }
-            w.WriteHeader(http.StatusNoContent)
-        case http.MethodDelete:
-            if !s.can(user, roles, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
-            if err := s.games.Delete(r.Context(), id); err != nil { http.Error(w, err.Error(), 500); return }
-            w.WriteHeader(http.StatusNoContent)
-        default:
-            w.WriteHeader(http.StatusMethodNotAllowed)
-        }
-    })
-
-    // Static files: prefer production build at web/dist, fallback to web/static
-    staticDir := "web/dist"
-    if st, err := os.Stat(staticDir); err != nil || !st.IsDir() {
-        staticDir = "web/static"
-    }
-    fs := http.FileServer(http.Dir(staticDir))
-    s.mux.Handle("/", fs)
-
-    // serve local uploads if using file driver
-    if strings.ToLower(s.objConf.Driver) == "file" && s.objConf.BaseDir != "" {
-        upfs := http.FileServer(http.Dir(s.objConf.BaseDir))
-        s.mux.Handle("/uploads/", http.StripPrefix("/uploads/", upfs))
-    }
-
-    // basic upload + signed url endpoints
-    s.mux.HandleFunc("/api/upload", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        user, roles, ok := s.auth(r)
-        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        if s.obj == nil { slog.Error("upload storage not available"); http.Error(w, "storage not available", http.StatusServiceUnavailable); return }
-        if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        // RBAC: require uploads:write
-        if !s.can(user, roles, "uploads:write") { slog.Warn("upload forbidden", "user", user); http.Error(w, "forbidden", http.StatusForbidden); return }
-        // Size limit: 120MB
-        constMax := int64(120 * 1024 * 1024)
-        if cl := r.Header.Get("Content-Length"); cl != "" {
-            if n, err := strconv.ParseInt(cl, 10, 64); err == nil && n > constMax {
-                http.Error(w, "request too large", http.StatusRequestEntityTooLarge); return
-            }
-        }
-        r.Body = http.MaxBytesReader(w, r.Body, constMax)
-        if err := r.ParseMultipartForm(32 << 20); err != nil { slog.Error("upload parse form", "error", err); http.Error(w, err.Error(), 400); return }
-        f, fh, err := r.FormFile("file")
-        if err != nil { slog.Error("upload file missing", "error", err); http.Error(w, "missing file", 400); return }
-        defer f.Close()
-        // generate key
-        ts := time.Now().UnixNano()
-        name := fh.Filename
-        key := fmt.Sprintf("%s/%d_%s", user, ts, name)
-        // copy to temp file to support ReadSeeker
-        tmp, err := os.CreateTemp("", "upload-*")
-        if err != nil { slog.Error("upload temp", "error", err); http.Error(w, err.Error(), 500); return }
-        defer os.Remove(tmp.Name())
-        if _, err := io.Copy(tmp, f); err != nil { tmp.Close(); slog.Error("upload copy", "error", err); http.Error(w, err.Error(), 500); return }
-        if _, err := tmp.Seek(0, io.SeekStart); err != nil { tmp.Close(); slog.Error("upload seek", "error", err); http.Error(w, err.Error(), 500); return }
-        ct := fh.Header.Get("Content-Type")
-        if err := s.obj.Put(r.Context(), key, tmp, fh.Size, ct); err != nil { tmp.Close(); slog.Error("upload put", "error", err, "user", user, "key", key, "size", fh.Size, "ct", ct); http.Error(w, err.Error(), 500); return }
-        _ = tmp.Close()
-        url, err := s.obj.SignedURL(r.Context(), key, "GET", s.objConf.SignedURLTTL)
-        if err != nil { slog.Error("upload signed url", "error", err, "key", key); }
-        _ = json.NewEncoder(w).Encode(struct{ Key, URL string }{Key: key, URL: url})
-    })
-
-    s.mux.HandleFunc("/api/signed_url", func(w http.ResponseWriter, r *http.Request) {
-        addCORS(w, r)
-        if _, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        if s.obj == nil { http.Error(w, "storage not available", http.StatusServiceUnavailable); return }
-        key := r.URL.Query().Get("key")
-        if key == "" { http.Error(w, "missing key", 400); return }
-        method := r.URL.Query().Get("op")
-        if method == "" { method = "GET" }
-        // parse expiry like 10m
-        exp := s.objConf.SignedURLTTL
-        if v := r.URL.Query().Get("ttl"); v != "" { if d, err := time.ParseDuration(v); err == nil { exp = d } }
-        url, err := s.obj.SignedURL(r.Context(), key, method, exp)
-        if err != nil { http.Error(w, err.Error(), 500); return }
-        _ = json.NewEncoder(w).Encode(struct{ URL string `json:"url"` }{URL: url})
-    })
-}
 
 // loggingResponseWriter wraps ResponseWriter to capture status and bytes.
 type loggingResponseWriter struct {
@@ -1466,6 +386,40 @@ func (s *Server) loggingHandler(next http.Handler) http.Handler {
         }()
         next.ServeHTTP(lrw, r)
     })
+}
+
+// gin middlewares
+func (s *Server) ginCORS() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        w := c.Writer
+        r := c.Request
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Game-ID, X-Env")
+        w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        if r.Method == http.MethodOptions { c.Status(http.StatusNoContent); c.Abort(); return }
+        c.Next()
+    }
+}
+
+func (s *Server) ginLogger() gin.HandlerFunc {
+    return func(c *gin.Context) {
+        start := time.Now()
+        c.Next()
+        dur := time.Since(start)
+        user, _, _ := s.auth(c.Request)
+        lvl := slog.LevelInfo
+        st := c.Writer.Status()
+        if st >= 500 { lvl = slog.LevelError } else if st >= 400 { lvl = slog.LevelWarn }
+        slog.Log(c, lvl, "http",
+            "method", c.Request.Method,
+            "path", c.Request.URL.Path,
+            "status", st,
+            "bytes", c.Writer.Size(),
+            "remote", c.Request.RemoteAddr,
+            "user", user,
+            "dur_ms", dur.Milliseconds(),
+        )
+    }
 }
 
 // importLegacyUsersIfEmpty imports users and roles from JSON files when DB tables are empty.
@@ -1579,9 +533,343 @@ func extractPack(archive, dest string) error {
     return nil
 }
 
+// ginEngine builds a Gin engine and mounts selected routes natively; the rest fall back to mux via NoRoute.
+func (s *Server) ginEngine() *gin.Engine {
+    // Default mode; use Recovery + custom logger + CORS
+    r := gin.New()
+    r.Use(s.ginCORS(), s.ginLogger(), gin.Recovery())
+    // Native Gin routes for performance-sensitive or upload endpoints
+    r.POST("/api/upload", func(c *gin.Context) {
+        addCORS(c.Writer, c.Request)
+        user, roles, ok := s.auth(c.Request)
+        if !ok { c.String(http.StatusUnauthorized, "unauthorized"); return }
+        if s.obj == nil { slog.Error("upload storage not available"); c.String(http.StatusServiceUnavailable, "storage not available"); return }
+        if !s.can(user, roles, "uploads:write") { slog.Warn("upload forbidden", "user", user); c.String(http.StatusForbidden, "forbidden"); return }
+        constMax := int64(120 * 1024 * 1024)
+        if cl := c.Request.Header.Get("Content-Length"); cl != "" {
+            if n, err := strconv.ParseInt(cl, 10, 64); err == nil && n > constMax {
+                c.String(http.StatusRequestEntityTooLarge, "request too large"); return
+            }
+        }
+        c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, constMax)
+        if err := c.Request.ParseMultipartForm(32 << 20); err != nil { slog.Error("upload parse form", "error", err); c.String(http.StatusBadRequest, err.Error()); return }
+        f, fh, err := c.Request.FormFile("file")
+        if err != nil { slog.Error("upload file missing", "error", err); c.String(http.StatusBadRequest, "missing file"); return }
+        defer f.Close()
+        ts := time.Now().UnixNano()
+        name := fh.Filename
+        key := fmt.Sprintf("%s/%d_%s", user, ts, name)
+        tmp, err := os.CreateTemp("", "upload-*")
+        if err != nil { slog.Error("upload temp", "error", err); c.String(http.StatusInternalServerError, err.Error()); return }
+        defer os.Remove(tmp.Name())
+        if _, err := io.Copy(tmp, f); err != nil { tmp.Close(); slog.Error("upload copy", "error", err); c.String(http.StatusInternalServerError, err.Error()); return }
+        if _, err := tmp.Seek(0, io.SeekStart); err != nil { tmp.Close(); slog.Error("upload seek", "error", err); c.String(http.StatusInternalServerError, err.Error()); return }
+        ct := fh.Header.Get("Content-Type")
+        if err := s.obj.Put(c, key, tmp, fh.Size, ct); err != nil { tmp.Close(); slog.Error("upload put", "error", err, "user", user, "key", key, "size", fh.Size, "ct", ct); c.String(http.StatusInternalServerError, err.Error()); return }
+        _ = tmp.Close()
+        url, err := s.obj.SignedURL(c, key, "GET", s.objConf.SignedURLTTL)
+        if err != nil { slog.Error("upload signed url", "error", err, "key", key) }
+        c.JSON(http.StatusOK, gin.H{"Key": key, "URL": url})
+    })
+    // Games routes
+    r.GET("/api/games", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; if !(s.can(user, roles, "games:read") || s.can(user, roles, "games:manage")) { c.String(403, "forbidden"); return }; items, err := s.games.List(c); if err != nil { c.String(500, err.Error()); return }; c.JSON(200, gin.H{"games": items}) })
+    r.POST("/api/games", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; if !s.can(user, roles, "games:manage") { c.String(403, "forbidden"); return }; var in struct{ ID uint; Name, Icon, Description string; Enabled bool }; if err := c.BindJSON(&in); err != nil { c.String(400, err.Error()); return }; if in.ID == 0 { g := &games.Game{Name: in.Name, Icon: in.Icon, Description: in.Description, Enabled: in.Enabled}; if err := s.games.Create(c, g); err != nil { c.String(500, err.Error()); return }; c.JSON(200, gin.H{"id": g.ID}) } else { g, err := s.games.Get(c, in.ID); if err != nil { c.String(404, err.Error()); return }; g.Name, g.Icon, g.Description, g.Enabled = in.Name, in.Icon, in.Description, in.Enabled; if err := s.games.Update(c, g); err != nil { c.String(500, err.Error()); return }; c.Status(204) } })
+    r.GET("/api/games/:id", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; if !(s.can(user, roles, "games:read") || s.can(user, roles, "games:manage")) { c.String(403, "forbidden"); return }; id64, _ := strconv.ParseUint(c.Param("id"), 10, 64); g, err := s.games.Get(c, uint(id64)); if err != nil { c.String(404, err.Error()); return }; c.JSON(200, g) })
+    r.PUT("/api/games/:id", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; if !s.can(user, roles, "games:manage") { c.String(403, "forbidden"); return }; id64, _ := strconv.ParseUint(c.Param("id"), 10, 64); var in struct{ Name, Icon, Description string; Enabled bool }; if err := c.BindJSON(&in); err != nil { c.String(400, err.Error()); return }; g, err := s.games.Get(c, uint(id64)); if err != nil { c.String(404, err.Error()); return }; g.Name, g.Icon, g.Description, g.Enabled = in.Name, in.Icon, in.Description, in.Enabled; if err := s.games.Update(c, g); err != nil { c.String(500, err.Error()); return }; c.Status(204) })
+    r.DELETE("/api/games/:id", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; if !s.can(user, roles, "games:manage") { c.String(403, "forbidden"); return }; id64, _ := strconv.ParseUint(c.Param("id"), 10, 64); if err := s.games.Delete(c, uint(id64)); err != nil { c.String(500, err.Error()); return }; c.Status(204) })
+    r.GET("/api/games/:id/envs", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; if !(s.can(user, roles, "games:read") || s.can(user, roles, "games:manage")) { c.String(403, "forbidden"); return }; id64, _ := strconv.ParseUint(c.Param("id"), 10, 64); envs, err := s.games.ListEnvs(c, uint(id64)); if err != nil { c.String(500, err.Error()); return }; c.JSON(200, gin.H{"envs": envs}) })
+    r.POST("/api/games/:id/envs", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; if !s.can(user, roles, "games:manage") { c.String(403, "forbidden"); return }; id64, _ := strconv.ParseUint(c.Param("id"), 10, 64); var in struct{ Env string }; if err := c.BindJSON(&in); err != nil || in.Env == "" { c.String(400, "invalid env"); return }; if err := s.games.AddEnv(c, uint(id64), in.Env); err != nil { c.String(500, err.Error()); return }; c.Status(204) })
+    r.DELETE("/api/games/:id/envs", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; if !s.can(user, roles, "games:manage") { c.String(403, "forbidden"); return }; id64, _ := strconv.ParseUint(c.Param("id"), 10, 64); env := c.Query("env"); if env == "" { c.String(400, "missing env"); return }; if err := s.games.RemoveEnv(c, uint(id64), env); err != nil { c.String(500, err.Error()); return }; c.Status(204) })
+
+    // Auth
+    r.POST("/api/auth/login", func(c *gin.Context){ addCORS(c.Writer, c.Request); if c.Request.Method != http.MethodPost { c.Status(405); return }; if s.userRepo == nil || s.jwtMgr == nil { c.String(503, "auth disabled"); return }; var in struct{ Username, Password string }; if err := c.BindJSON(&in); err != nil { c.String(400, err.Error()); return }; ur, err := s.userRepo.Verify(c, in.Username, in.Password); if err != nil { c.String(401, "unauthorized"); return }; roles := []string{}; if rs, err := s.userRepo.ListUserRoles(c, ur.ID); err == nil { for _, rr := range rs { roles = append(roles, rr.Name) } }; tok, _ := s.jwtMgr.Sign(in.Username, roles, 8*time.Hour); c.JSON(200, gin.H{"token": tok, "user": gin.H{"username": in.Username, "roles": roles}}) })
+    r.GET("/api/auth/me", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; c.JSON(200, gin.H{"username": user, "roles": roles}) })
+
+    // Descriptors
+    r.GET("/api/descriptors", func(c *gin.Context){ addCORS(c.Writer, c.Request); c.JSON(200, s.descs) })
+    r.GET("/healthz", func(c *gin.Context){ c.String(200, "ok") })
+    r.GET("/metrics", func(c *gin.Context){ addCORS(c.Writer, c.Request); out := map[string]any{"uptime_sec": int(time.Since(s.startedAt).Seconds()), "invocations_total": atomic.LoadInt64(&s.invocations), "invocations_error_total": atomic.LoadInt64(&s.invocationsError), "jobs_started_total": atomic.LoadInt64(&s.jobsStarted), "jobs_error_total": atomic.LoadInt64(&s.jobsError), "rbac_denied_total": atomic.LoadInt64(&s.rbacDenied), "audit_errors_total": atomic.LoadInt64(&s.auditErrors)}; c.JSON(200, out) })
+
+    // UI schema
+    r.GET("/api/ui_schema", func(c *gin.Context){ addCORS(c.Writer, c.Request); id := c.Query("id"); if id == "" { c.String(400, "missing id"); return }; base := sanitize(id); schemaPath := filepath.Join(s.packDir, "ui", base+".schema.json"); uiPath := filepath.Join(s.packDir, "ui", base+".uischema.json"); var schema, uischema any; if b, err := os.ReadFile(schemaPath); err == nil { _ = json.Unmarshal(b, &schema) }; if b, err := os.ReadFile(uiPath); err == nil { _ = json.Unmarshal(b, &uischema) }; c.JSON(200, gin.H{"schema": schema, "uischema": uischema}) })
+
+    // Packs management
+    r.POST("/api/packs/import", func(c *gin.Context){
+        addCORS(c.Writer, c.Request)
+        user, _, ok := s.auth(c.Request)
+        if !ok { c.String(401, "unauthorized"); return }
+        if s.rbac != nil && !(s.rbac.Can(user, "packs:import") || s.rbac.Can(user, "*")) { c.String(403, "forbidden"); return }
+        if err := c.Request.ParseMultipartForm(32 << 20); err != nil { c.String(400, err.Error()); return }
+        f, hdr, err := c.Request.FormFile("file")
+        if err != nil { c.String(400, "missing file"); return }
+        defer f.Close()
+        tmpPath := filepath.Join(os.TempDir(), hdr.Filename)
+        out, err := os.Create(tmpPath)
+        if err != nil { c.String(500, err.Error()); return }
+        if _, err := io.Copy(out, f); err != nil { out.Close(); c.String(500, err.Error()); return }
+        _ = out.Close()
+        if err := extractPack(tmpPath, s.packDir); err != nil { c.String(500, err.Error()); return }
+        if descs, err := descriptor.LoadAll(s.packDir); err == nil {
+            idx := map[string]*descriptor.Descriptor{}
+            for _, d := range descs { idx[d.ID] = d }
+            s.descs = descs; s.descIndex = idx
+        }
+        _ = s.typeReg.LoadFDSFromDir(s.packDir)
+        c.JSON(200, gin.H{"ok": true})
+    })
+    r.GET("/api/packs/list", func(c *gin.Context){
+        addCORS(c.Writer, c.Request)
+        maniPath := filepath.Join(s.packDir, "manifest.json")
+        b, err := os.ReadFile(maniPath)
+        if err != nil { c.String(404, "manifest not found"); return }
+        var mani any
+        _ = json.Unmarshal(b, &mani)
+        type counts struct{ Descriptors int `json:"descriptors"`; UISchema int `json:"ui_schema"` }
+        cts := counts{}
+        _ = filepath.Walk(filepath.Join(s.packDir, "descriptors"), func(path string, info os.FileInfo, err error) error {
+            if err != nil || info == nil || info.IsDir() { return nil }
+            if filepath.Ext(path) == ".json" { cts.Descriptors++ }
+            return nil
+        })
+        _ = filepath.Walk(filepath.Join(s.packDir, "ui"), func(path string, info os.FileInfo, err error) error {
+            if err != nil || info == nil || info.IsDir() { return nil }
+            if filepath.Ext(path) == ".json" { cts.UISchema++ }
+            return nil
+        })
+        etag := computePackETag(s.packDir)
+        c.JSON(200, gin.H{"manifest": mani, "counts": cts, "etag": etag, "export_auth_required": s.packsExportRequireAuth})
+    })
+    r.GET("/api/packs/export", func(c *gin.Context){
+        addCORS(c.Writer, c.Request)
+        if s.packsExportRequireAuth {
+            if user, _, ok := s.auth(c.Request); !ok { c.String(401, "unauthorized"); return } else {
+                if s.rbac != nil && !(s.rbac.Can(user, "packs:export") || s.rbac.Can(user, "*")) { c.String(403, "forbidden"); return }
+            }
+        }
+        if et := computePackETag(s.packDir); et != "" { c.Writer.Header().Set("ETag", et) }
+        c.Writer.Header().Set("Content-Type", "application/gzip")
+        c.Writer.Header().Set("Content-Disposition", "attachment; filename=pack.tgz")
+        gz := gzip.NewWriter(c.Writer)
+        defer gz.Close()
+        tw := tar.NewWriter(gz)
+        defer tw.Close()
+        filepath.Walk(s.packDir, func(path string, info os.FileInfo, err error) error {
+            if err != nil || info == nil || info.IsDir() { return nil }
+            rel, _ := filepath.Rel(s.packDir, path)
+            if !(strings.HasPrefix(rel, "descriptors/") || strings.HasPrefix(rel, "ui/") || strings.HasPrefix(rel, "web-plugin/") || rel == "manifest.json" || filepath.Ext(rel) == ".pb") { return nil }
+            hdr, _ := tar.FileInfoHeader(info, "")
+            hdr.Name = filepath.ToSlash(rel)
+            if err := tw.WriteHeader(hdr); err != nil { return err }
+            f, err := os.Open(path)
+            if err != nil { return err }
+            _, _ = io.Copy(tw, f)
+            _ = f.Close()
+            return nil
+        })
+    })
+    r.POST("/api/packs/reload", func(c *gin.Context){
+        addCORS(c.Writer, c.Request)
+        user, _, ok := s.auth(c.Request)
+        if !ok { c.String(401, "unauthorized"); return }
+        if s.rbac != nil && !(s.rbac.Can(user, "packs:import") || s.rbac.Can(user, "*")) { c.String(403, "forbidden"); return }
+        if descs, err := descriptor.LoadAll(s.packDir); err == nil {
+            idx := map[string]*descriptor.Descriptor{}
+            for _, d := range descs { idx[d.ID] = d }
+            s.descs = descs; s.descIndex = idx
+        }
+        _ = s.typeReg.LoadFDSFromDir(s.packDir)
+        c.JSON(200, gin.H{"ok": true})
+    })
+
+    // Assignments (in-memory)
+    r.GET("/api/assignments", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, _, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; if s.rbac != nil && !(s.rbac.Can(user, "assignments:read") || s.rbac.Can(user, "*")) { c.String(403, "forbidden"); return }; gid := c.Query("game_id"); env := c.Query("env"); s.mu.RLock(); out := map[string][]string{}; for k, v := range s.assignments { if gid != "" || env != "" { parts := strings.SplitN(k, "|", 2); ge := ""; if len(parts) > 1 { ge = parts[1] }; if (gid != "" && parts[0] != gid) || (env != "" && ge != env) { continue } }; out[k] = append([]string{}, v...) }; s.mu.RUnlock(); c.JSON(200, gin.H{"assignments": out}) })
+    r.POST("/api/assignments", func(c *gin.Context){ addCORS(c.Writer, c.Request); actor, _, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; if s.rbac != nil && !(s.rbac.Can(actor, "assignments:write") || s.rbac.Can(actor, "*")) { c.String(403, "forbidden"); return }; var in struct{ GameID, Env string; Functions []string }; if err := c.BindJSON(&in); err != nil || in.GameID == "" { c.String(400, "bad request"); return }; valid := make([]string,0,len(in.Functions)); unknown := []string{}; for _, fid := range in.Functions { if _, ok := s.descIndex[fid]; ok { valid = append(valid,fid) } else { unknown = append(unknown,fid) } }; key := in.GameID+"|"+in.Env; s.mu.Lock(); s.assignments[key] = append([]string{}, valid...); s.mu.Unlock(); b, _ := json.MarshalIndent(s.assignments, "", "  "); _ = os.WriteFile(s.assignmentsPath, b, 0o644); if s.audit != nil { meta := map[string]string{"game_env": key, "game_id": in.GameID, "env": in.Env, "functions": strings.Join(valid, ",")}; if len(unknown)>0 { meta["unknown"]=strings.Join(unknown, ",") }; if err := s.audit.Log("assignments.update", actor, key, meta); err != nil { atomic.AddInt64(&s.auditErrors,1) } }; c.JSON(200, gin.H{"ok": true, "unknown": unknown}) })
+
+    // Ant Design Pro demo stub
+    r.Any("/api/rule", func(c *gin.Context){ addCORS(c.Writer, c.Request); if c.Request.Method==http.MethodGet { c.JSON(200, gin.H{"data": []any{}, "total": 0, "success": true}) } else if c.Request.Method==http.MethodPost { c.JSON(200, gin.H{"success": true}) } else { c.Status(405) } })
+
+    // Function invoke
+    r.POST("/api/invoke", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; gameID := c.Request.Header.Get("X-Game-ID"); env := c.Request.Header.Get("X-Env"); var in struct{ FunctionID string `json:"function_id"`; Payload any `json:"payload"`; IdempotencyKey string `json:"idempotency_key"`; Route string `json:"route"`; TargetServiceID string `json:"target_service_id"`; HashKey string `json:"hash_key"` }; if err := c.BindJSON(&in); err != nil { c.String(400, err.Error()); return }; if d := s.descIndex[in.FunctionID]; d != nil { if ps := d.Params; ps != nil { b, _ := json.Marshal(in.Payload); if err := validation.ValidateJSON(ps, b); err != nil { c.String(400, fmt.Sprintf("payload invalid: %v", err)); return } } }; basePerm := "function:"+in.FunctionID; if d := s.descIndex[in.FunctionID]; d != nil { if auth := d.Auth; auth != nil { if p, ok := auth["permission"].(string); ok && p != "" { basePerm = p } } }; scopedOk := true; if s.rbac != nil { scopedOk = false; scoped := basePerm; if gameID != "" { scoped = "game:"+gameID+":"+basePerm }; if s.can(user, roles, scoped) || s.can(user, roles, basePerm) || (gameID != "" && s.can(user, roles, "game:"+gameID+":*")) { scopedOk = true } }; if !scopedOk { atomic.AddInt64(&s.rbacDenied,1); c.String(403, "forbidden"); return }; if d := s.descIndex[in.FunctionID]; d != nil && d.Auth != nil { if expr, ok := d.Auth["allow_if"].(string); ok && expr != "" { ctx := policyContext{User: user, Roles: roles, GameID: gameID, Env: env, FunctionID: in.FunctionID}; if !evalAllowIf(expr, ctx) { c.String(403, "forbidden"); return } } }; b, err := json.Marshal(in.Payload); if err != nil { c.String(400, err.Error()); return }; if in.IdempotencyKey == "" { in.IdempotencyKey = randHex(16) }; traceID := randHex(8); masked := s.maskSnapshot(in.FunctionID, in.Payload); if err := s.audit.Log("invoke", user, in.FunctionID, map[string]string{"ip": c.Request.RemoteAddr, "trace_id": traceID, "game_id": gameID, "env": env, "payload_snapshot": masked}); err != nil { atomic.AddInt64(&s.auditErrors,1) }; meta := map[string]string{"trace_id": traceID}; if gameID != "" { meta["game_id"]=gameID }; if env != "" { meta["env"]=env }; if in.Route != "" { meta["route"]=in.Route } else if d := s.descIndex[in.FunctionID]; d != nil { if sem := d.Semantics; sem != nil { if rv, ok := sem["route"].(string); ok && rv != "" { meta["route"]=rv } } }; if rv, ok := meta["route"]; ok && rv!="lb" && rv!="broadcast" && rv!="targeted" && rv!="hash" { c.String(400, "invalid route"); return }; if in.HashKey != "" { meta["hash_key"]=in.HashKey }; if meta["route"]=="hash" && meta["hash_key"]=="" { c.String(400, "hash_key required for hash route"); return }; if d := s.descIndex[in.FunctionID]; d != nil && d.Semantics != nil { if v, ok := d.Semantics["rate_limit"].(string); ok && v != "" { rl := s.getRateLimiter(in.FunctionID, v); if rl != nil && !rl.Try() { c.String(429, "rate limited"); return } }; if v, ok := d.Semantics["concurrency"].(float64); ok && v > 0 { sem := s.getSemaphore(in.FunctionID, int(v)); select { case sem <- struct{}{}: defer func(){ <-sem }(); default: c.String(429, "too many concurrent requests"); return } } }; resp, err := s.invoker.Invoke(c, &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta}); if err != nil { atomic.AddInt64(&s.invocationsError,1); slog.Error("invoke failed", "user", user, "function_id", in.FunctionID, "trace_id", traceID, "game_id", gameID, "env", env, "route", meta["route"], "error", err.Error()); c.String(500, err.Error()); return }; slog.Info("invoke", "user", user, "function_id", in.FunctionID, "trace_id", traceID, "game_id", gameID, "env", env, "route", meta["route"]); atomic.AddInt64(&s.invocations,1); out := resp.GetPayload(); if d := s.descIndex[in.FunctionID]; d != nil && d.Transport != nil { if tp, ok := d.Transport["proto"].(map[string]any); ok { if fqn, ok2 := tp["response_fqn"].(string); ok2 && fqn != "" && s.typeReg != nil { if j, err2 := s.typeReg.ProtoBinToJSON(fqn, out); err2 == nil { out = j } } } }; if len(out) == 0 { c.Status(204); return }; c.Data(200, "application/json", out) })
+
+    r.POST("/api/start_job", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; gameID := c.Request.Header.Get("X-Game-ID"); env := c.Request.Header.Get("X-Env"); var in struct{ FunctionID string; Payload any; IdempotencyKey string; Route string; TargetServiceID string; HashKey string }; if err := c.BindJSON(&in); err != nil { c.String(400, err.Error()); return }; if d := s.descIndex[in.FunctionID]; d != nil { if ps := d.Params; ps != nil { b, _ := json.Marshal(in.Payload); if err := validation.ValidateJSON(ps, b); err != nil { c.String(400, fmt.Sprintf("payload invalid: %v", err)); return } } }; basePerm := "function:"+in.FunctionID; if d := s.descIndex[in.FunctionID]; d != nil { if auth := d.Auth; auth != nil { if p, ok := auth["permission"].(string); ok && p != "" { basePerm = p } } }; scopedOk := true; if s.rbac != nil { scopedOk = false; scoped := basePerm; if gameID != "" { scoped = "game:"+gameID+":"+basePerm }; if s.can(user, roles, scoped) || s.can(user, roles, basePerm) || (gameID != "" && s.can(user, roles, "game:"+gameID+":*")) { scopedOk = true } }; if !scopedOk { atomic.AddInt64(&s.rbacDenied,1); c.String(403, "forbidden"); return }; b, _ := json.Marshal(in.Payload); if in.IdempotencyKey == "" { in.IdempotencyKey = randHex(16) }; traceID := randHex(8); if err := s.audit.Log("start_job", user, in.FunctionID, map[string]string{"ip": c.Request.RemoteAddr, "trace_id": traceID, "game_id": gameID, "env": env}); err != nil { atomic.AddInt64(&s.auditErrors,1) }; meta := map[string]string{"trace_id": traceID}; if gameID != "" { meta["game_id"]=gameID }; if env != "" { meta["env"]=env }; if in.Route != "" { meta["route"]=in.Route }; resp, err := s.invoker.StartJob(c, &functionv1.InvokeRequest{FunctionId: in.FunctionID, IdempotencyKey: in.IdempotencyKey, Payload: b, Metadata: meta}); if err != nil { atomic.AddInt64(&s.jobsError,1); slog.Error("start_job failed", "user", user, "function_id", in.FunctionID, "trace_id", traceID, "game_id", gameID, "env", env, "route", in.Route, "error", err.Error()); c.String(500, err.Error()); return }; slog.Info("start_job", "user", user, "function_id", in.FunctionID, "trace_id", traceID, "game_id", gameID, "env", env, "route", in.Route); atomic.AddInt64(&s.jobsStarted, 1); c.JSON(200, resp) })
+
+    // Approvals
+    r.GET("/api/approvals", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; if !s.can(user, roles, "approvals:read") { c.String(403, "forbidden"); return }; f := appr.Filter{ State: c.Query("state"), FunctionID: c.Query("function_id"), GameID: c.Query("game_id"), Env: c.Query("env"), Actor: c.Query("actor"), Mode: c.Query("mode") }; page := 1; size := 20; sort := c.Query("sort"); if v:=c.Query("page"); v!="" { if n,err:=strconv.Atoi(v); err==nil && n>0 { page=n } }; if v:=c.Query("size"); v!="" { if n,err:=strconv.Atoi(v); err==nil && n>0 && n<=200 { size=n } }; items,total,err := s.approvals.List(f, appr.Page{Page:page, Size:size, Sort:sort}); if err != nil { c.String(500, err.Error()); return }; type view struct{ ID, CreatedAt, Actor, FunctionID, IdempotencyKey, Route, TargetServiceID, HashKey, GameID, Env, State, Mode string }; out := make([]view,0,len(items)); for _, a := range items { out = append(out, view{ ID:a.ID, CreatedAt:a.CreatedAt.Format(time.RFC3339), Actor:a.Actor, FunctionID:a.FunctionID, IdempotencyKey:a.IdempotencyKey, Route:a.Route, TargetServiceID:a.TargetServiceID, HashKey:a.HashKey, GameID:a.GameID, Env:a.Env, State:a.State, Mode:a.Mode }) }; c.JSON(200, gin.H{"approvals": out, "total": total, "page": page, "size": size}) })
+    r.GET("/api/approvals/get", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; if !s.can(user, roles, "approvals:read") { c.String(403, "forbidden"); return }; id := c.Query("id"); if id=="" { c.String(400, "missing id"); return }; a, err := s.approvals.Get(id); if err != nil { c.String(404, "not found"); return }; var preview string; if d:=s.descIndex[a.FunctionID]; d!=nil && d.Transport != nil { if tp, ok := d.Transport["proto"].(map[string]any); ok { if fqn, ok2 := tp["request_fqn"].(string); ok2 && fqn != "" && s.typeReg != nil { if j, err2 := s.typeReg.ProtoBinToJSON(fqn, a.Payload); err2 == nil { preview = s.maskSnapshot(a.FunctionID, j) } } } }; if preview == "" { preview = s.maskSnapshot(a.FunctionID, a.Payload) }; c.JSON(200, gin.H{"id": a.ID, "created_at": a.CreatedAt.Format(time.RFC3339), "actor": a.Actor, "function_id": a.FunctionID, "idempotency_key": a.IdempotencyKey, "route": a.Route, "target_service_id": a.TargetServiceID, "hash_key": a.HashKey, "game_id": a.GameID, "env": a.Env, "state": a.State, "mode": a.Mode, "reason": a.Reason, "payload_preview": preview}) })
+    r.POST("/api/approvals/approve", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; if !s.can(user, roles, "approvals:approve") { c.String(403, "forbidden"); return }; var in struct{ ID, OTP string }; if err := c.BindJSON(&in); err != nil || in.ID=="" { c.String(400, "missing id"); return }; a, err := s.approvals.Approve(in.ID); if err != nil { c.String(409, err.Error()); return }; meta := map[string]string{}; if a.Route != "" { meta["route"]=a.Route }; if a.HashKey != "" { meta["hash_key"]=a.HashKey }; if a.TargetServiceID != "" { meta["target_service_id"]=a.TargetServiceID }; if a.GameID != "" { meta["game_id"]=a.GameID }; if a.Env != "" { meta["env"]=a.Env }; if err := s.audit.Log("approval_approve", user, a.FunctionID, map[string]string{"approval_id": a.ID}); err != nil { atomic.AddInt64(&s.auditErrors,1) }; switch a.Mode { case "invoke": resp, err := s.invoker.Invoke(c, &functionv1.InvokeRequest{FunctionId:a.FunctionID, IdempotencyKey:a.IdempotencyKey, Payload:a.Payload, Metadata: meta}); if err != nil { c.String(500, err.Error()); return }; out := resp.GetPayload(); if d:=s.descIndex[a.FunctionID]; d!=nil && d.Transport != nil { if tp, ok := d.Transport["proto"].(map[string]any); ok { if fqn, ok2 := tp["response_fqn"].(string); ok2 && fqn != "" && s.typeReg != nil { if j, err2 := s.typeReg.ProtoBinToJSON(fqn, out); err2 == nil { out = j } } } }; if len(out)==0 { c.Status(204); return }; c.Data(200, "application/json", out); case "start_job": resp, err := s.invoker.StartJob(c, &functionv1.InvokeRequest{FunctionId:a.FunctionID, IdempotencyKey:a.IdempotencyKey, Payload:a.Payload, Metadata: meta}); if err != nil { c.String(500, err.Error()); return }; c.JSON(200, resp); default: c.String(400, "unknown mode") } })
+    r.POST("/api/approvals/reject", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; if !s.can(user, roles, "approvals:reject") { c.String(403, "forbidden"); return }; var tmp map[string]any; if err := c.BindJSON(&tmp); err != nil { c.String(400, "bad request"); return }; id, _ := tmp["id"].(string); reason, _ := tmp["reason"].(string); if id=="" { c.String(400, "missing id"); return }; a, err := s.approvals.Reject(id, reason); if err != nil { c.String(409, err.Error()); return }; if err := s.audit.Log("approval_reject", user, a.FunctionID, map[string]string{"approval_id": a.ID, "reason": reason}); err != nil { atomic.AddInt64(&s.auditErrors,1) }; c.Status(204) })
+
+    // Stream job (SSE)
+    r.GET("/api/stream_job", func(c *gin.Context){ addCORS(c.Writer, c.Request); jobID := c.Query("id"); if jobID=="" { c.String(400, "missing id"); return }; c.Writer.Header().Set("Content-Type", "text/event-stream"); c.Writer.Header().Set("Cache-Control", "no-cache"); c.Writer.Header().Set("Connection", "keep-alive"); flusher, ok := c.Writer.(http.Flusher); if !ok { c.String(500, "stream unsupported"); return }; ctx := c.Request.Context(); stream, err := s.invoker.StreamJob(ctx, &functionv1.JobStreamRequest{JobId: jobID}); if err != nil { c.String(500, err.Error()); return }; enc := json.NewEncoder(c.Writer); for { ev, err := stream.Recv(); if err != nil { return }; fmt.Fprintf(c.Writer, "event: %s\n", ev.GetType()); fmt.Fprintf(c.Writer, "data: "); _ = enc.Encode(ev); fmt.Fprint(c.Writer, "\n"); flusher.Flush(); if ev.GetType()=="done" || ev.GetType()=="error" { return } } })
+    r.POST("/api/cancel_job", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; var in struct{ JobID string `json:"job_id"` }; if err := c.BindJSON(&in); err != nil { c.String(400, err.Error()); return }; if in.JobID=="" { c.String(400, "missing job_id"); return }; if !s.can(user, roles, "job:cancel") { c.String(403, "forbidden"); return }; _ = s.audit.Log("cancel_job", user, in.JobID, map[string]string{"ip": c.Request.RemoteAddr}); if _, err := s.invoker.CancelJob(c, &functionv1.CancelJobRequest{JobId: in.JobID}); err != nil { c.String(500, err.Error()); return }; c.Status(204) })
+    r.GET("/api/job_result", func(c *gin.Context){ addCORS(c.Writer, c.Request); if _, _, ok := s.auth(c.Request); !ok { c.String(401, "unauthorized"); return }; if c.Request.Method != http.MethodGet { c.Status(405); return }; jobID := c.Query("id"); if jobID=="" { c.String(400, "missing id"); return }; if s.locator != nil { addr, ok := s.locator.GetJobAddr(jobID); if !ok { c.String(404, "unknown job"); return }; cc, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials())); if err != nil { c.String(502, err.Error()); return }; defer cc.Close(); cli := localv1.NewLocalControlServiceClient(cc); resp, err := cli.GetJobResult(c, &localv1.GetJobResultRequest{JobId: jobID}); if err != nil { c.String(502, err.Error()); return }; c.JSON(200, resp); return }; type jobFetcher interface{ JobResult(ctx context.Context, jobID string) (string, []byte, string, error) }; if jf, ok := s.invoker.(jobFetcher); ok { st, payload, errMsg, err := jf.JobResult(c, jobID); if err != nil { c.String(502, err.Error()); return }; c.JSON(200, gin.H{"state": st, "payload": payload, "error": errMsg}); return }; c.String(501, "job_result not available") })
+
+    // Audit list
+    r.GET("/api/audit", func(c *gin.Context){
+        addCORS(c.Writer, c.Request)
+        user, _, ok := s.auth(c.Request)
+        if !ok { c.String(401, "unauthorized"); return }
+        if s.rbac != nil && !(s.rbac.Can(user, "audit:read") || s.rbac.Can(user, "*")) { c.String(403, "forbidden"); return }
+        gameID := c.Query("game_id")
+        env := c.Query("env")
+        actor := c.Query("actor")
+        kind := c.Query("kind")
+        parseBound := func(v string) (time.Time, bool) {
+            v = strings.TrimSpace(v)
+            if v == "" { return time.Time{}, false }
+            if t, err := time.Parse(time.RFC3339, v); err == nil { return t, true }
+            var n int64
+            if _, err := fmt.Sscanf(v, "%d", &n); err == nil {
+                if n > 1_000_000_000_000 { return time.Unix(0, n*int64(time.Millisecond)), true }
+                return time.Unix(n, 0), true
+            }
+            return time.Time{}, false
+        }
+        startT, _ := parseBound(c.Query("start"))
+        endT, _ := parseBound(c.Query("end"))
+        limit := 200
+        if v := c.Query("limit"); v != "" { fmt.Sscanf(v, "%d", &limit) }
+        if v := c.Query("size"); v != "" { fmt.Sscanf(v, "%d", &limit) }
+        if limit <= 0 { limit = 200 }
+        offset := 0
+        if v := c.Query("offset"); v != "" { fmt.Sscanf(v, "%d", &offset) }
+        if v := c.Query("page"); v != "" { var p int; fmt.Sscanf(v, "%d", &p); if p > 0 { offset = (p-1) * limit } }
+        type resp struct{ Events []auditchain.Event `json:"events"`; Total int `json:"total"` }
+        all := make([]auditchain.Event, 0, limit)
+        f, err := os.Open("logs/audit.log")
+        if err == nil {
+            defer f.Close()
+            sc := bufio.NewScanner(f)
+            for sc.Scan() {
+                line := strings.TrimSpace(sc.Text())
+                if line == "" { continue }
+                var ev auditchain.Event
+                if err := json.Unmarshal([]byte(line), &ev); err != nil { continue }
+                if actor != "" && ev.Actor != actor { continue }
+                if kind != "" && ev.Kind != kind { continue }
+                if gameID != "" && ev.Meta["game_id"] != gameID { continue }
+                if env != "" && ev.Meta["env"] != env { continue }
+                if !startT.IsZero() { if t, err := time.Parse(time.RFC3339, ev.Time); err == nil && t.Before(startT) { continue } }
+                if !endT.IsZero() { if t, err := time.Parse(time.RFC3339, ev.Time); err == nil && t.After(endT) { continue } }
+                all = append(all, ev)
+            }
+        }
+        for i, j := 0, len(all)-1; i < j; i, j = i+1, j-1 { all[i], all[j] = all[j], all[i] }
+        total := len(all)
+        start := offset; if start > total { start = total }
+        endi := start + limit; if endi > total { endi = total }
+        window := all[start:endi]
+        c.JSON(200, resp{Events: window, Total: total})
+    })
+
+    // Registry
+    r.GET("/api/registry", func(c *gin.Context){
+        addCORS(c.Writer, c.Request)
+        user, _, ok := s.auth(c.Request)
+        if !ok { c.String(401, "unauthorized"); return }
+        if s.rbac != nil && !(s.rbac.Can(user, "registry:read") || s.rbac.Can(user, "*")) { c.String(403, "forbidden"); return }
+        type Agent struct{ AgentID, GameID, Env, RpcAddr string; Functions int; Healthy bool; ExpiresInSec int }
+        type Function struct{ GameID, ID string; Agents int }
+        type FuncCov struct{ Healthy int `json:"healthy"`; Total int `json:"total"` }
+        type Coverage struct{ GameEnv string `json:"game_env"`; Functions map[string]FuncCov `json:"functions"`; Uncovered []string `json:"uncovered"` }
+        var agents []Agent
+        var functions []Function
+        var coverage []Coverage
+        if s.reg != nil {
+            s.reg.Mu().RLock()
+            now := time.Now()
+            for _, a := range s.reg.AgentsUnsafe() {
+                healthy := now.Before(a.ExpireAt)
+                exp := int(time.Until(a.ExpireAt).Seconds())
+                if exp < 0 { exp = 0 }
+                agents = append(agents, Agent{AgentID: a.AgentID, GameID: a.GameID, Env: a.Env, RpcAddr: a.RPCAddr, Functions: len(a.Functions), Healthy: healthy, ExpiresInSec: exp})
+            }
+            fnCountAll := map[string]map[string]int{}
+            fnCountHealthy := map[string]map[string]int{}
+            for _, a := range s.reg.AgentsUnsafe() {
+                isHealthy := now.Before(a.ExpireAt)
+                for fid := range a.Functions {
+                    if fnCountAll[a.GameID] == nil { fnCountAll[a.GameID] = map[string]int{} }
+                    fnCountAll[a.GameID][fid]++
+                    if isHealthy {
+                        if fnCountHealthy[a.GameID] == nil { fnCountHealthy[a.GameID] = map[string]int{} }
+                        fnCountHealthy[a.GameID][fid]++
+                    }
+                }
+            }
+            for gid, m := range fnCountHealthy {
+                for fid, c2 := range m { functions = append(functions, Function{GameID: gid, ID: fid, Agents: c2}) }
+            }
+            for k, fns := range s.assignments {
+                parts := strings.SplitN(k, "|", 2)
+                gid := parts[0]
+                cov := map[string]FuncCov{}
+                uncovered := []string{}
+                for _, fid := range fns {
+                    h := fnCountHealthy[gid][fid]
+                    t := fnCountAll[gid][fid]
+                    cov[fid] = FuncCov{Healthy: h, Total: t}
+                    if h == 0 { uncovered = append(uncovered, fid) }
+                }
+                coverage = append(coverage, Coverage{GameEnv: k, Functions: cov, Uncovered: uncovered})
+            }
+            s.reg.Mu().RUnlock()
+        }
+        c.JSON(200, gin.H{"agents": agents, "functions": functions, "assignments": s.assignments, "coverage": coverage})
+    })
+
+    // Function instances
+    r.GET("/api/function_instances", func(c *gin.Context){
+        addCORS(c.Writer, c.Request)
+        if _, _, ok := s.auth(c.Request); !ok { c.String(401, "unauthorized"); return }
+        gameID := c.Query("game_id")
+        fid := c.Query("function_id")
+        type Inst struct{ AgentID, ServiceID, Addr, Version string }
+        var out []Inst
+        if s.reg != nil {
+            s.reg.Mu().RLock()
+            for _, a := range s.reg.AgentsUnsafe() {
+                if gameID != "" && a.GameID != gameID { continue }
+                if fid != "" { if _, ok := a.Functions[fid]; !ok { continue } }
+                cc, err := grpc.Dial(a.RPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+                if err != nil { continue }
+                cli := localv1.NewLocalControlServiceClient(cc)
+                resp, err := cli.ListLocal(c, &localv1.ListLocalRequest{})
+                _ = cc.Close()
+                if err != nil || resp == nil { continue }
+                for _, lf := range resp.Functions {
+                    if fid != "" && lf.Id != fid { continue }
+                    for _, inst := range lf.Instances {
+                        out = append(out, Inst{AgentID: a.AgentID, ServiceID: inst.ServiceId, Addr: inst.Addr, Version: inst.Version})
+                    }
+                }
+            }
+            s.reg.Mu().RUnlock()
+        }
+        c.JSON(200, gin.H{"instances": out})
+    })
+
+    // Signed URL
+    r.GET("/api/signed_url", func(c *gin.Context){ addCORS(c.Writer, c.Request); if _, _, ok := s.auth(c.Request); !ok { c.String(401, "unauthorized"); return }; if s.obj == nil { c.String(503, "storage not available"); return }; key := c.Query("key"); if key == "" { c.String(400, "missing key"); return }; method := c.Query("op"); if method == "" { method = "GET" }; exp := s.objConf.SignedURLTTL; if v:=c.Query("ttl"); v!="" { if d, err := time.ParseDuration(v); err == nil { exp = d } }; url, err := s.obj.SignedURL(c, key, method, exp); if err != nil { c.String(500, err.Error()); return }; c.JSON(200, gin.H{"url": url}) })
+
+    // Prom metrics text
+    r.GET("/metrics.prom", func(c *gin.Context){ w := c.Writer; w.Header().Set("Content-Type", "text/plain; version=0.0.4"); fmt.Fprintf(w, "# TYPE croupier_invocations_total counter\n"); fmt.Fprintf(w, "croupier_invocations_total %d\n", atomic.LoadInt64(&s.invocations)); fmt.Fprintf(w, "# TYPE croupier_invocations_error_total counter\n"); fmt.Fprintf(w, "croupier_invocations_error_total %d\n", atomic.LoadInt64(&s.invocationsError)); fmt.Fprintf(w, "# TYPE croupier_jobs_started_total counter\n"); fmt.Fprintf(w, "croupier_jobs_started_total %d\n", atomic.LoadInt64(&s.jobsStarted)); fmt.Fprintf(w, "# TYPE croupier_jobs_error_total counter\n"); fmt.Fprintf(w, "croupier_jobs_error_total %d\n", atomic.LoadInt64(&s.jobsError)); fmt.Fprintf(w, "# TYPE croupier_rbac_denied_total counter\n"); fmt.Fprintf(w, "croupier_rbac_denied_total %d\n", atomic.LoadInt64(&s.rbacDenied)) })
+
+    // Static files
+    staticDir := "web/dist"; if st, err := os.Stat(staticDir); err != nil || !st.IsDir() { staticDir = "web/static" }
+    r.Static("/", staticDir)
+    if strings.ToLower(s.objConf.Driver) == "file" && s.objConf.BaseDir != "" { r.Static("/uploads", s.objConf.BaseDir) }
+    // Serve pack static
+    r.Static("/pack_static", s.packDir)
+    return r
+}
+
 func (s *Server) ListenAndServe(addr string) error {
     log.Printf("http api listening on %s", addr)
-    return http.ListenAndServe(addr, s.loggingHandler(s.mux))
+    // Build existing mux routes
+    // All routes are registered in Gin via ginEngine()
+    // Serve via Gin engine (with logging & recovery)
+    return http.ListenAndServe(addr, s.ginEngine())
 }
 
 func randHex(n int) string {
@@ -1653,6 +941,33 @@ func maskAny(v any, sensitive map[string]struct{}) any {
         return mm
     case []any:
         out := make([]any, len(t))
+
+    // Stream job events (SSE)
+    r.GET("/api/stream_job", func(c *gin.Context){
+        addCORS(c.Writer, c.Request)
+        jobID := c.Query("id")
+        if jobID == "" { c.String(400, "missing id"); return }
+        c.Writer.Header().Set("Content-Type", "text/event-stream")
+        c.Writer.Header().Set("Cache-Control", "no-cache")
+        c.Writer.Header().Set("Connection", "keep-alive")
+        flusher, ok := c.Writer.(http.Flusher)
+        if !ok { c.String(500, "stream unsupported"); return }
+        stream, err := s.invoker.StreamJob(c, &functionv1.JobStreamRequest{JobId: jobID})
+        if err != nil { c.String(500, err.Error()); return }
+        enc := json.NewEncoder(c.Writer)
+        for {
+            ev, err := stream.Recv()
+            if err != nil { return }
+            fmt.Fprintf(c.Writer, "event: %s
+", ev.GetType())
+            fmt.Fprintf(c.Writer, "data: ")
+            _ = enc.Encode(ev)
+            fmt.Fprint(c.Writer, "
+")
+            flusher.Flush()
+            if ev.GetType() == "done" || ev.GetType() == "error" { return }
+        }
+    })
         for i, e := range t { out[i] = maskAny(e, sensitive) }
         return out
     default:

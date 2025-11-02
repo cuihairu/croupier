@@ -24,6 +24,7 @@ import (
     jobserver "github.com/cuihairu/croupier/internal/edge/job"
     common "github.com/cuihairu/croupier/internal/cli/common"
     tlsutil "github.com/cuihairu/croupier/internal/tlsutil"
+    gin "github.com/gin-gonic/gin"
 )
 
 
@@ -77,14 +78,15 @@ func New() *cobra.Command {
             jobv1.RegisterJobServiceServer(s, jobserver.New(tun))
 
             go func(){
-                mux := http.NewServeMux()
-                mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request){ w.WriteHeader(http.StatusOK); _,_ = w.Write([]byte("ok")) })
-                mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request){
+                r := gin.New()
+                r.GET("/healthz", func(c *gin.Context){ c.String(http.StatusOK, "ok") })
+                r.GET("/metrics", func(c *gin.Context){
                     m := tun.MetricsMap()
                     m["logs"] = common.GetLogCounters()
-                    _ = json.NewEncoder(w).Encode(m)
+                    c.JSON(http.StatusOK, m)
                 })
-                mux.HandleFunc("/metrics.prom", func(w http.ResponseWriter, r *http.Request){
+                r.GET("/metrics.prom", func(c *gin.Context){
+                    w := c.Writer
                     w.Header().Set("Content-Type", "text/plain; version=0.0.4")
                     lc := common.GetLogCounters()
                     fmt.Fprintf(w, "# TYPE croupier_logs_total counter\n")
@@ -94,7 +96,7 @@ func New() *cobra.Command {
                     fmt.Fprintf(w, "croupier_logs_total{level=\"error\"} %d\n", lc["error"])
                 })
                 slog.Info("edge http listening", "addr", httpAddr)
-                _ = http.ListenAndServe(httpAddr, mux)
+                _ = http.ListenAndServe(httpAddr, r)
             }()
             slog.Info("edge listening", "addr", addr)
             if err := s.Serve(lis); err != nil { return err }

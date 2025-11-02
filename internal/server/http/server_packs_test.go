@@ -13,7 +13,6 @@ import (
     "testing"
 
     auditchain "github.com/cuihairu/croupier/internal/audit/chain"
-    "github.com/cuihairu/croupier/internal/server/games"
     "github.com/cuihairu/croupier/internal/server/registry"
     functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
     "context"
@@ -53,13 +52,13 @@ func TestPacks_List_And_UISchema_Export(t *testing.T) {
     aw, err := auditchain.NewWriter("logs/audit.log")
     if err != nil { t.Fatalf("audit writer: %v", err) }
     defer aw.Close()
-    srv, err := NewServer(dir, new(fakeInvoker), aw, nil, games.NewStore("") , registry.NewStore(), nil, nil, nil, nil)
+    srv, err := NewServer(dir, new(fakeInvoker), aw, nil, registry.NewStore(), nil, nil, nil)
     if err != nil { t.Fatalf("NewServer: %v", err) }
 
     // GET /api/packs/list
     rr := httptest.NewRecorder()
     req := httptest.NewRequest(http.MethodGet, "/api/packs/list", nil)
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code/100 != 2 { t.Fatalf("packs list code=%d body=%s", rr.Code, rr.Body.String()) }
     var out map[string]any
     if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil { t.Fatalf("json: %v", err) }
@@ -69,13 +68,13 @@ func TestPacks_List_And_UISchema_Export(t *testing.T) {
     // GET /api/ui_schema?id=ex.fn
     rr = httptest.NewRecorder()
     req = httptest.NewRequest(http.MethodGet, "/api/ui_schema?id=ex.fn", nil)
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code/100 != 2 { t.Fatalf("ui_schema code=%d body=%s", rr.Code, rr.Body.String()) }
 
     // GET /api/packs/export
     rr = httptest.NewRecorder()
     req = httptest.NewRequest(http.MethodGet, "/api/packs/export", nil)
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code/100 != 2 { t.Fatalf("export code=%d body=%s", rr.Code, rr.Body.String()) }
     if et := rr.Header().Get("ETag"); et == "" { t.Fatalf("missing ETag header on export") }
     // read tar.gz entries
@@ -110,7 +109,7 @@ func TestAssignments_Get_Post_And_PacksReload(t *testing.T) {
     defer aw.Close()
     // enable JWT for assignments endpoint
     mgr := jwt.NewManager("test-secret")
-    srv, err := NewServer(dir, new(fakeInvoker), aw, nil, games.NewStore(""), registry.NewStore(), nil, mgr, nil, nil)
+    srv, err := NewServer(dir, new(fakeInvoker), aw, nil, registry.NewStore(), mgr, nil, nil)
     if err != nil { t.Fatalf("NewServer: %v", err) }
     tok, _ := mgr.Sign("tester", []string{"admin"}, 0)
 
@@ -118,7 +117,7 @@ func TestAssignments_Get_Post_And_PacksReload(t *testing.T) {
     rr := httptest.NewRecorder()
     req := httptest.NewRequest(http.MethodGet, "/api/assignments?game_id=g1&env=dev", nil)
     req.Header.Set("Authorization", "Bearer "+tok)
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code/100 != 2 { t.Fatalf("assignments get code=%d body=%s", rr.Code, rr.Body.String()) }
 
     // POST /api/assignments with known+unknown ids
@@ -127,7 +126,7 @@ func TestAssignments_Get_Post_And_PacksReload(t *testing.T) {
     req = httptest.NewRequest(http.MethodPost, "/api/assignments", body)
     req.Header.Set("Authorization", "Bearer "+tok)
     req.Header.Set("Content-Type", "application/json")
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code/100 != 2 { t.Fatalf("assignments post code=%d body=%s", rr.Code, rr.Body.String()) }
     var postOut struct{ Ok bool `json:"ok"`; Unknown []string `json:"unknown"` }
     if err := json.Unmarshal(rr.Body.Bytes(), &postOut); err != nil { t.Fatalf("json: %v", err) }
@@ -137,7 +136,7 @@ func TestAssignments_Get_Post_And_PacksReload(t *testing.T) {
     rr = httptest.NewRecorder()
     req = httptest.NewRequest(http.MethodGet, "/api/assignments?game_id=g1&env=dev", nil)
     req.Header.Set("Authorization", "Bearer "+tok)
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code/100 != 2 { t.Fatalf("assignments get2 code=%d body=%s", rr.Code, rr.Body.String()) }
     var getOut struct{ Assignments map[string][]string `json:"assignments"` }
     if err := json.Unmarshal(rr.Body.Bytes(), &getOut); err != nil { t.Fatalf("json: %v", err) }
@@ -149,13 +148,13 @@ func TestAssignments_Get_Post_And_PacksReload(t *testing.T) {
     mustWrite(filepath.Join(dir, "descriptors", "ex2.fn.json"), []byte(`{"id":"ex2.fn","version":"1.0.0","params":{"type":"object","properties":{}}}`))
     rr = httptest.NewRecorder()
     req = httptest.NewRequest(http.MethodPost, "/api/packs/reload", nil)
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code/100 != 2 { t.Fatalf("reload code=%d body=%s", rr.Code, rr.Body.String()) }
 
     // Verify /api/descriptors includes the new one
     rr = httptest.NewRecorder()
     req = httptest.NewRequest(http.MethodGet, "/api/descriptors", nil)
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code/100 != 2 { t.Fatalf("descriptors code=%d body=%s", rr.Code, rr.Body.String()) }
     var descs []map[string]any
     if err := json.Unmarshal(rr.Body.Bytes(), &descs); err != nil { t.Fatalf("json: %v", err) }
@@ -174,26 +173,26 @@ func TestPacksReload_RBAC(t *testing.T) {
     mgr := jwt.NewManager("s")
     pol := rbac.NewPolicy()
     pol.Grant("ok", "packs:reload")
-    srv, err := NewServer(dir, new(fakeInvoker), aw, pol, games.NewStore(""), registry.NewStore(), nil, mgr, nil, nil)
+    srv, err := NewServer(dir, new(fakeInvoker), aw, pol, registry.NewStore(), mgr, nil, nil)
     if err != nil { t.Fatalf("NewServer: %v", err) }
     // unauthorized user (no auth)
     rr := httptest.NewRecorder()
     req := httptest.NewRequest(http.MethodPost, "/api/packs/reload", nil)
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code != http.StatusUnauthorized { t.Fatalf("expected 401, got %d", rr.Code) }
     // forbidden user
     tokFail, _ := mgr.Sign("nope", nil, 0)
     rr = httptest.NewRecorder()
     req = httptest.NewRequest(http.MethodPost, "/api/packs/reload", nil)
     req.Header.Set("Authorization", "Bearer "+tokFail)
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code != http.StatusForbidden { t.Fatalf("expected 403, got %d", rr.Code) }
     // allowed user
     tokOK, _ := mgr.Sign("ok", nil, 0)
     rr = httptest.NewRecorder()
     req = httptest.NewRequest(http.MethodPost, "/api/packs/reload", nil)
     req.Header.Set("Authorization", "Bearer "+tokOK)
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code/100 != 2 { t.Fatalf("expected 2xx, got %d", rr.Code) }
 }
 
@@ -206,7 +205,7 @@ func TestRegistry_Coverage_HealthyTotal_Uncovered(t *testing.T) {
     defer aw.Close()
     mgr := jwt.NewManager("s")
     reg := registry.NewStore()
-    srv, err := NewServer(dir, new(fakeInvoker), aw, nil, games.NewStore(""), reg, nil, mgr, nil, nil)
+    srv, err := NewServer(dir, new(fakeInvoker), aw, nil, reg, mgr, nil, nil)
     if err != nil { t.Fatalf("NewServer: %v", err) }
     // prepare two agents for g1 with ex.fn: one healthy, one expired; and no agent for ex2.fn
     now := time.Now()
@@ -220,7 +219,7 @@ func TestRegistry_Coverage_HealthyTotal_Uncovered(t *testing.T) {
     // auth
     tok, _ := mgr.Sign("u", nil, 0)
     req.Header.Set("Authorization", "Bearer "+tok)
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code/100 != 2 { t.Fatalf("registry code=%d body=%s", rr.Code, rr.Body.String()) }
     var out struct{
         Coverage []struct{
@@ -252,26 +251,26 @@ func TestRegistry_RBAC(t *testing.T) {
     mgr := jwt.NewManager("s")
     pol := rbac.NewPolicy()
     pol.Grant("ok", "registry:read")
-    srv, err := NewServer(dir, new(fakeInvoker), aw, pol, games.NewStore(""), registry.NewStore(), nil, mgr, nil, nil)
+    srv, err := NewServer(dir, new(fakeInvoker), aw, pol, registry.NewStore(), mgr, nil, nil)
     if err != nil { t.Fatalf("NewServer: %v", err) }
     // unauthorized
     rr := httptest.NewRecorder()
     req := httptest.NewRequest(http.MethodGet, "/api/registry", nil)
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code != http.StatusUnauthorized { t.Fatalf("expect 401, got %d", rr.Code) }
     // forbidden
     tokNope, _ := mgr.Sign("nope", nil, 0)
     rr = httptest.NewRecorder()
     req = httptest.NewRequest(http.MethodGet, "/api/registry", nil)
     req.Header.Set("Authorization", "Bearer "+tokNope)
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code != http.StatusForbidden { t.Fatalf("expect 403, got %d", rr.Code) }
     // allowed
     tokOK, _ := mgr.Sign("ok", nil, 0)
     rr = httptest.NewRecorder()
     req = httptest.NewRequest(http.MethodGet, "/api/registry", nil)
     req.Header.Set("Authorization", "Bearer "+tokOK)
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code/100 != 2 { t.Fatalf("expect 2xx, got %d", rr.Code) }
 }
 
@@ -283,26 +282,26 @@ func TestAudit_RBAC(t *testing.T) {
     mgr := jwt.NewManager("s")
     pol := rbac.NewPolicy()
     pol.Grant("ok", "audit:read")
-    srv, err := NewServer(dir, new(fakeInvoker), aw, pol, games.NewStore(""), registry.NewStore(), nil, mgr, nil, nil)
+    srv, err := NewServer(dir, new(fakeInvoker), aw, pol, registry.NewStore(), mgr, nil, nil)
     if err != nil { t.Fatalf("NewServer: %v", err) }
     // unauthorized
     rr := httptest.NewRecorder()
     req := httptest.NewRequest(http.MethodGet, "/api/audit", nil)
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code != http.StatusUnauthorized { t.Fatalf("expect 401, got %d", rr.Code) }
     // forbidden
     tokNope, _ := mgr.Sign("nope", nil, 0)
     rr = httptest.NewRecorder()
     req = httptest.NewRequest(http.MethodGet, "/api/audit", nil)
     req.Header.Set("Authorization", "Bearer "+tokNope)
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code != http.StatusForbidden { t.Fatalf("expect 403, got %d", rr.Code) }
     // allowed
     tokOK, _ := mgr.Sign("ok", nil, 0)
     rr = httptest.NewRecorder()
     req = httptest.NewRequest(http.MethodGet, "/api/audit", nil)
     req.Header.Set("Authorization", "Bearer "+tokOK)
-    srv.mux.ServeHTTP(rr, req)
+    srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code/100 != 2 { t.Fatalf("expect 2xx, got %d body=%s", rr.Code, rr.Body.String()) }
 }
 
