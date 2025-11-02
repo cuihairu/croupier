@@ -7,7 +7,7 @@ import (
 
 // GORM models (IDs as uint via gorm.Model)
 
-type UserRecord struct {
+type UserAccount struct {
     gorm.Model
     Username     string `gorm:"uniqueIndex;size:64;not null"`
     DisplayName  string `gorm:"size:128"`
@@ -37,7 +37,7 @@ type RolePermRecord struct {
 }
 
 func AutoMigrate(db *gorm.DB) error {
-    return db.AutoMigrate(&UserRecord{}, &RoleRecord{}, &UserRoleRecord{}, &RolePermRecord{})
+    return db.AutoMigrate(&UserAccount{}, &RoleRecord{}, &UserRoleRecord{}, &RolePermRecord{})
 }
 
 // Helpers to stamp time manually if needed
