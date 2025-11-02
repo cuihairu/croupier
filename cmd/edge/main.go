@@ -17,7 +17,6 @@ import (
     tunnelsrv "github.com/cuihairu/croupier/internal/edge/tunnel"
     tunnelv1 "github.com/cuihairu/croupier/pkg/pb/croupier/tunnel/v1"
     "net/http"
-    "encoding/json"
     jobv1 "github.com/cuihairu/croupier/pkg/pb/croupier/edge/job/v1"
     jobserver "github.com/cuihairu/croupier/internal/edge/job"
     common "github.com/cuihairu/croupier/internal/cli/common"

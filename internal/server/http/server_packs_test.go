@@ -148,6 +148,7 @@ func TestAssignments_Get_Post_And_PacksReload(t *testing.T) {
     mustWrite(filepath.Join(dir, "descriptors", "ex2.fn.json"), []byte(`{"id":"ex2.fn","version":"1.0.0","params":{"type":"object","properties":{}}}`))
     rr = httptest.NewRecorder()
     req = httptest.NewRequest(http.MethodPost, "/api/packs/reload", nil)
+    req.Header.Set("Authorization", "Bearer "+tok)
     srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code/100 != 2 { t.Fatalf("reload code=%d body=%s", rr.Code, rr.Body.String()) }
 
