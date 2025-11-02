@@ -6,7 +6,7 @@ import (
     "encoding/json"
     "fmt"
     "io/ioutil"
-    "log"
+    "log/slog"
     "net"
     "net/http"
     "strings"
@@ -109,10 +109,10 @@ func New() *cobra.Command {
                     fmt.Fprintf(w, "croupier_logs_total{level=\"warn\"} %d\n", lc["warn"])
                     fmt.Fprintf(w, "croupier_logs_total{level=\"error\"} %d\n", lc["error"])
                 })
-                log.Printf("edge http listening on %s", httpAddr)
+                slog.Info("edge http listening", "addr", httpAddr)
                 _ = http.ListenAndServe(httpAddr, mux)
             }()
-            log.Printf("edge listening on %s", addr)
+            slog.Info("edge listening", "addr", addr)
             if err := s.Serve(lis); err != nil { return err }
             return nil
         },
