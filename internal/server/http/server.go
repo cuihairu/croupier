@@ -191,6 +191,8 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
                 if st, err := obj.OpenFile(context.Background(), s.objConf); err == nil { s.obj = st }
             case "oss":
                 if st, err := obj.OpenOSS(context.Background(), s.objConf); err == nil { s.obj = st }
+            case "cos":
+                if st, err := obj.OpenCOS(context.Background(), s.objConf); err == nil { s.obj = st }
             }
         }
     }

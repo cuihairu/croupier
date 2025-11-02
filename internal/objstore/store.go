@@ -62,6 +62,10 @@ func Validate(c Config) error {
         if c.Bucket == "" { return errors.New("bucket required for oss driver") }
         if c.Endpoint == "" { return errors.New("endpoint required for oss driver") }
         if c.AccessKey == "" || c.SecretKey == "" { return errors.New("access_key/secret_key required for oss driver") }
+    case "cos":
+        if c.Bucket == "" { return errors.New("bucket required for cos driver") }
+        if c.Region == "" && c.Endpoint == "" { return errors.New("region or endpoint required for cos driver") }
+        if c.AccessKey == "" || c.SecretKey == "" { return errors.New("access_key/secret_key required for cos driver") }
     case "file":
         if c.BaseDir == "" { return errors.New("base_dir required for file driver") }
         if err := os.MkdirAll(c.BaseDir, 0o755); err != nil { return fmt.Errorf("ensure base_dir: %w", err) }

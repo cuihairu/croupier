@@ -20,15 +20,25 @@ server:
 
   # Object storage (uploads/asset hosting)
   storage:
-    driver: s3     # s3 | oss | file
+    driver: s3     # s3 | cos | oss | file
     bucket: my-bucket
     region: ap-shanghai
-    endpoint: https://cos.ap-shanghai.myqcloud.com   # s3/minio/cos endpoint
+    endpoint: https://cos.ap-shanghai.myqcloud.com   # s3/minio endpoint; COS 可单独用 driver: cos
     access_key: "${STORAGE_AK}"
     secret_key: "${STORAGE_SK}"
     force_path_style: true        # s3/cos/minio 建议 true
     signed_url_ttl: 15m
     # file driver (dev): base_dir: data/uploads
+
+  # COS 专用（官方 SDK 驱动）示例：
+  # storage:
+  #   driver: cos
+  #   bucket: your-bucket-APPID
+  #   region: ap-shanghai
+  #   endpoint: https://cos.ap-shanghai.myqcloud.com   # 可省略，自动根据 bucket+region 组装
+  #   access_key: ${TENCENT_SECRET_ID}
+  #   secret_key: ${TENCENT_SECRET_KEY}
+  #   signed_url_ttl: 15m
 
   # Files (RBAC/users/examples)
   rbac_config:   "configs/rbac.json"
