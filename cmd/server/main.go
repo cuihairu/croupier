@@ -164,7 +164,7 @@ func main() {
                 jm := jwt.NewManager(jwtSecret)
                 var statsProv interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }
                 if sp, ok := invoker.(interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }); ok { statsProv = sp }
-                httpSrv, err := httpserver.NewServer("descriptors", invoker, aw, pol, gstore, ctrl.Store(), us, jm, locator, statsProv)
+                httpSrv, err := httpserver.NewServer("gen/croupier", invoker, aw, pol, gstore, ctrl.Store(), us, jm, locator, statsProv)
                 if err != nil { slog.Error("http server", "error", err); os.Exit(1) }
                 if err := httpSrv.ListenAndServe(httpAddr); err != nil { slog.Error("serve http", "error", err); os.Exit(1) }
             }()
