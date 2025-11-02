@@ -5,7 +5,8 @@ import (
     "crypto/x509"
     "fmt"
     "io/ioutil"
-    "log"
+    "log/slog"
+    "os"
     "net"
     "sync"
 
@@ -31,6 +32,7 @@ import (
     "github.com/cuihairu/croupier/internal/loadbalancer"
     "github.com/cuihairu/croupier/internal/connpool"
     "strings"
+    common "github.com/cuihairu/croupier/internal/cli/common"
 )
 
 // loadServerTLS builds a tls.Config for mTLS if caFile is provided.
@@ -57,17 +59,34 @@ func main() {
         Use:   "croupier-server",
         Short: "Croupier Server",
         RunE: func(cmd *cobra.Command, args []string) error {
+            // initialize default logger to stdout to avoid red stderr in early logs
+            common.SetupLoggerWithFile("info", "console", "", 0, 0, 0, false)
             viper.SetEnvPrefix("CROUPIER")
             viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
             viper.AutomaticEnv()
             if cfgFile != "" {
                 viper.SetConfigFile(cfgFile)
                 if err := viper.ReadInConfig(); err != nil {
-                    log.Printf("[warn] read config: %v", err)
+                    slog.Warn("read config", "error", err)
                 } else {
-                    log.Printf("[config] using %s", viper.ConfigFileUsed())
+                    slog.Info("config loaded", "file", viper.ConfigFileUsed())
                 }
             }
+            // set up logger (stdout by default); honor log.* if present
+            common.MergeLogSection(viper.GetViper())
+            if viper.IsSet("log.output") {
+                // pass to logger via env bridge
+                _ = os.Setenv("CROUPIER_LOG_OUTPUT", viper.GetString("log.output"))
+            }
+            common.SetupLoggerWithFile(
+                viper.GetString("log.level"),
+                viper.GetString("log.format"),
+                viper.GetString("log.file"),
+                viper.GetInt("log.max_size"),
+                viper.GetInt("log.max_backups"),
+                viper.GetInt("log.max_age"),
+                viper.GetBool("log.compress"),
+            )
 
             addr := viper.GetString("addr")
             httpAddr := viper.GetString("http_addr")
@@ -84,20 +103,20 @@ func main() {
             if cert == "" || key == "" || ca == "" {
                 out := "configs/dev"
                 caCrt, caKey, err := devcert.EnsureDevCA(out)
-                if err != nil { log.Fatalf("generate dev CA: %v", err) }
+                if err != nil { slog.Error("generate dev CA", "error", err); os.Exit(1) }
                 // include common localhost hosts for dev
                 srvCrt, srvKey, err := devcert.EnsureServerCert(out, caCrt, caKey, []string{"localhost", "127.0.0.1"})
-                if err != nil { log.Fatalf("generate dev server cert: %v", err) }
+                if err != nil { slog.Error("generate dev server cert", "error", err); os.Exit(1) }
                 // set to generated paths
                 cert, key, ca = srvCrt, srvKey, caCrt
-                log.Printf("[devcert] generated dev TLS certs under %s (DEV ONLY)", out)
+                slog.Info("devcert generated", "dir", out)
             }
 
             creds, err := loadServerTLS(cert, key, ca)
-            if err != nil { log.Fatalf("load TLS: %v", err) }
+            if err != nil { slog.Error("load TLS", "error", err); os.Exit(1) }
 
             lis, err := net.Listen("tcp", addr)
-            if err != nil { log.Fatalf("listen: %v", err) }
+            if err != nil { slog.Error("listen", "error", err); os.Exit(1) }
 
             s := grpc.NewServer(
                 grpc.Creds(creds),
@@ -107,7 +126,7 @@ func main() {
             // Register services
             // Allowed games store
             gstore := games.NewStore(gamesPath)
-            if err := gstore.Load(); err != nil { log.Fatalf("load games: %v", err) }
+            if err := gstore.Load(); err != nil { slog.Error("load games", "error", err); os.Exit(1) }
             ctrl := controlserver.NewServer(gstore)
             controlv1.RegisterControlServiceServer(s, ctrl)
             var invoker httpserver.FunctionInvoker
@@ -130,24 +149,24 @@ func main() {
             wg.Add(2)
             go func() {
                 defer wg.Done()
-                log.Printf("croupier-server (grpc) listening on %s", addr)
-                if err := s.Serve(lis); err != nil { log.Fatalf("serve grpc: %v", err) }
+                slog.Info("croupier-server listening", "grpc", addr)
+                if err := s.Serve(lis); err != nil { slog.Error("serve grpc", "error", err); os.Exit(1) }
             }()
             go func() {
                 defer wg.Done()
                 aw, err := auditchain.NewWriter("logs/audit.log")
-                if err != nil { log.Fatalf("audit: %v", err) }
+                if err != nil { slog.Error("audit", "error", err); os.Exit(1) }
                 defer aw.Close()
                 var pol *rbac.Policy
                 if p, err := rbac.LoadPolicy(rbacPath); err == nil { pol = p } else { pol = rbac.NewPolicy(); pol.Grant("user:dev", "*"); pol.Grant("user:dev", "job:cancel"); pol.Grant("role:admin", "*") }
                 var us *users.Store
-                if s, err := users.Load(usersPath); err == nil { us = s } else { log.Printf("users load failed: %v", err) }
+                if s, err := users.Load(usersPath); err == nil { us = s } else { slog.Warn("users load failed", "error", err) }
                 jm := jwt.NewManager(jwtSecret)
                 var statsProv interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }
                 if sp, ok := invoker.(interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }); ok { statsProv = sp }
                 httpSrv, err := httpserver.NewServer("descriptors", invoker, aw, pol, gstore, ctrl.Store(), us, jm, locator, statsProv)
-                if err != nil { log.Fatalf("http server: %v", err) }
-                if err := httpSrv.ListenAndServe(httpAddr); err != nil { log.Fatalf("serve http: %v", err) }
+                if err != nil { slog.Error("http server", "error", err); os.Exit(1) }
+                if err := httpSrv.ListenAndServe(httpAddr); err != nil { slog.Error("serve http", "error", err); os.Exit(1) }
             }()
             wg.Wait()
             return nil
@@ -168,7 +187,5 @@ func main() {
     root.Flags().String("jwt_secret", "dev-secret", "jwt hs256 secret")
     _ = viper.BindPFlags(root.Flags())
 
-    if err := root.Execute(); err != nil {
-        log.Fatal(err)
-    }
+    if err := root.Execute(); err != nil { slog.Error("server exit", "error", err); os.Exit(1) }
 }

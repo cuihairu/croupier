@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "functions": {
+      "items": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "title": "LocalFunctionDescriptor",
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "rpcAddr": {
+      "type": "string"
+    },
+    "serviceId": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "title": "RegisterLocalRequest",
+  "type": "object"
+}

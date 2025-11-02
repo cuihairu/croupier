@@ -1,0 +1,17 @@
+{
+  "ui:groups": [
+    {
+      "fields": [
+        "functions",
+        "rpcAddr",
+        "serviceId",
+        "version"
+      ],
+      "title": "基本"
+    }
+  ],
+  "ui:layout": {
+    "cols": 2,
+    "type": "grid"
+  }
+}

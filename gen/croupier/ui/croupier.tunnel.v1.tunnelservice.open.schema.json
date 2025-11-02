@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "cancel": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "jobId": {
+          "type": "string"
+        }
+      },
+      "title": "CancelJobFrame",
+      "type": "object"
+    },
+    "hello": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "agentId": {
+          "type": "string"
+        },
+        "env": {
+          "type": "string"
+        },
+        "gameId": {
+          "type": "string"
+        }
+      },
+      "title": "Hello",
+      "type": "object"
+    },
+    "invoke": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "functionId": {
+          "type": "string"
+        },
+        "idempotencyKey": {
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "payload": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        }
+      },
+      "title": "InvokeFrame",
+      "type": "object"
+    },
+    "jobEvt": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "jobId": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "payload": {
+          "type": "string"
+        },
+        "progress": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "title": "JobEventFrame",
+      "type": "object"
+    },
+    "jobResReq": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "jobId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        }
+      },
+      "title": "GetJobResultRequest",
+      "type": "object"
+    },
+    "jobResRes": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "payload": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        }
+      },
+      "title": "GetJobResultResponse",
+      "type": "object"
+    },
+    "listReq": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "functionId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        }
+      },
+      "title": "ListLocalRequest",
+      "type": "object"
+    },
+    "listRes": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "functionId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        },
+        "serviceIds": {
+          "type": "string"
+        }
+      },
+      "title": "ListLocalResponse",
+      "type": "object"
+    },
+    "result": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "payload": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        }
+      },
+      "title": "ResultFrame",
+      "type": "object"
+    },
+    "start": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "functionId": {
+          "type": "string"
+        },
+        "idempotencyKey": {
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "payload": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        }
+      },
+      "title": "StartJobFrame",
+      "type": "object"
+    },
+    "startR": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "jobId": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        }
+      },
+      "title": "StartJobResult",
+      "type": "object"
+    },
+    "type": {
+      "type": "string"
+    }
+  },
+  "title": "TunnelMessage",
+  "type": "object"
+}
