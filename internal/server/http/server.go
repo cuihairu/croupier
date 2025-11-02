@@ -48,6 +48,8 @@ import (
     
     "net/url"
     obj "github.com/cuihairu/croupier/internal/objstore"
+    usersgorm "github.com/cuihairu/croupier/internal/infra/persistence/gorm/users"
+    games "github.com/cuihairu/croupier/internal/server/games"
 )
 
 type Server struct {
@@ -92,6 +94,17 @@ type Server struct {
     
     obj obj.Store
     objConf obj.Config
+}
+
+// can checks permission for user or any of their roles.
+func (s *Server) can(user string, roles []string, perm string) bool {
+    if s.rbac == nil { return true }
+    if s.rbac.Can(user, perm) || s.rbac.Can(user, "*") { return true }
+    for _, r := range roles {
+        rn := "role:" + r
+        if s.rbac.Can(rn, perm) || s.rbac.Can(rn, "*") { return true }
+    }
+    return false
 }
 
 type FunctionInvoker interface {
@@ -177,6 +190,11 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
         s.games = games.NewRepo(s.gdb)
         _ = usersgorm.AutoMigrate(s.gdb)
         s.userRepo = usersgorm.New(s.gdb)
+        // optional: import legacy JSON when empty DB (DEV bootstrap)
+        _ = s.importLegacyUsersIfEmpty()
+        _ = s.importLegacyGamesIfEmpty()
+        // rebuild in-memory RBAC policy from DB roles/permissions
+        _ = s.buildPolicyFromDB()
     }
     // init object storage (from env bridge STORAGE_*)
     s.objConf = obj.FromEnv()
@@ -651,7 +669,7 @@ func (s *Server) routes() {
     s.mux.HandleFunc("/api/invoke", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        user, _, ok := s.auth(r)
+        user, roles, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         gameID := r.Header.Get("X-Game-ID")
         env := r.Header.Get("X-Env")
@@ -786,7 +804,7 @@ func (s *Server) routes() {
     s.mux.HandleFunc("/api/start_job", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        user, _, ok := s.auth(r)
+        user, roles, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         gameID := r.Header.Get("X-Game-ID")
         env := r.Header.Get("X-Env")
@@ -881,7 +899,7 @@ func (s *Server) routes() {
     // approvals endpoints
     s.mux.HandleFunc("/api/approvals", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
-        user, _, ok := s.auth(r)
+        user, roles, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         if s.rbac != nil && !(s.rbac.Can(user, "approvals:read") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
         if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
@@ -927,7 +945,7 @@ func (s *Server) routes() {
     // approval detail
     s.mux.HandleFunc("/api/approvals/get", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
-        user, _, ok := s.auth(r)
+        user, roles, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         if s.rbac != nil && !(s.rbac.Can(user, "approvals:read") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
         if r.Method != http.MethodGet { w.WriteHeader(http.StatusMethodNotAllowed); return }
@@ -1278,8 +1296,8 @@ func (s *Server) routes() {
         addCORS(w, r)
         user, _, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
-        canRead := s.rbac == nil || s.rbac.Can(user, "games:read") || s.rbac.Can(user, "games:manage")
-        canManage := s.rbac == nil || s.rbac.Can(user, "games:manage")
+        canRead := s.can(user, roles, "games:read") || s.can(user, roles, "games:manage")
+        canManage := s.can(user, roles, "games:manage")
         switch r.Method {
         case http.MethodGet:
             if !canRead { http.Error(w, "forbidden", http.StatusForbidden); return }
@@ -1316,18 +1334,18 @@ func (s *Server) routes() {
             id := uint(id64)
             switch r.Method {
             case http.MethodGet:
-                if s.rbac != nil && !(s.rbac.Can(user, "games:read") || s.rbac.Can(user, "games:manage")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+                if !s.can(user, roles, "games:read") && !s.can(user, roles, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
                 envs, err := s.games.ListEnvs(r.Context(), id)
                 if err != nil { http.Error(w, err.Error(), 500); return }
                 _ = json.NewEncoder(w).Encode(struct{ Envs []string `json:"envs"` }{Envs: envs})
             case http.MethodPost:
-                if s.rbac != nil && !s.rbac.Can(user, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
+                if !s.can(user, roles, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
                 var in struct{ Env string }
                 if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.Env == "" { http.Error(w, "invalid env", 400); return }
                 if err := s.games.AddEnv(r.Context(), id, in.Env); err != nil { http.Error(w, err.Error(), 500); return }
                 w.WriteHeader(http.StatusNoContent)
             case http.MethodDelete:
-                if s.rbac != nil && !s.rbac.Can(user, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
+                if !s.can(user, roles, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
                 env := r.URL.Query().Get("env")
                 if env == "" { http.Error(w, "missing env", 400); return }
                 if err := s.games.RemoveEnv(r.Context(), id, env); err != nil { http.Error(w, err.Error(), 500); return }
@@ -1342,12 +1360,12 @@ func (s *Server) routes() {
         id := uint(id64)
         switch r.Method {
         case http.MethodGet:
-            if s.rbac != nil && !(s.rbac.Can(user, "games:read") || s.rbac.Can(user, "games:manage")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+            if !s.can(user, roles, "games:read") && !s.can(user, roles, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
             g, err := s.games.Get(r.Context(), id)
             if err != nil { http.Error(w, err.Error(), 404); return }
             _ = json.NewEncoder(w).Encode(g)
         case http.MethodPut:
-            if s.rbac != nil && !s.rbac.Can(user, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
+            if !s.can(user, roles, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
             var in struct{ Name, Icon, Description string; Enabled bool }
             if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
             g, err := s.games.Get(r.Context(), id)
@@ -1356,7 +1374,7 @@ func (s *Server) routes() {
             if err := s.games.Update(r.Context(), g); err != nil { http.Error(w, err.Error(), 500); return }
             w.WriteHeader(http.StatusNoContent)
         case http.MethodDelete:
-            if s.rbac != nil && !s.rbac.Can(user, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
+            if !s.can(user, roles, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
             if err := s.games.Delete(r.Context(), id); err != nil { http.Error(w, err.Error(), 500); return }
             w.WriteHeader(http.StatusNoContent)
         default:
@@ -1431,6 +1449,86 @@ func (s *Server) routes() {
         if err != nil { http.Error(w, err.Error(), 500); return }
         _ = json.NewEncoder(w).Encode(struct{ URL string `json:"url"` }{URL: url})
     })
+}
+
+// importLegacyUsersIfEmpty imports users and roles from JSON files when DB tables are empty.
+func (s *Server) importLegacyUsersIfEmpty() error {
+    if s.gdb == nil || s.userRepo == nil { return nil }
+    var cnt int64
+    if err := s.gdb.Model(&usersgorm.UserRecord{}).Count(&cnt).Error; err != nil { return err }
+    if cnt > 0 { return nil }
+    // Try configs/users.json
+    b, err := os.ReadFile("configs/users.json")
+    if err != nil { return nil }
+    var in []struct{
+        Username string   `json:"username"`
+        Roles    []string `json:"roles"`
+        Perms    []string `json:"perms"`
+        DisplayName string `json:"display_name"`
+        Email    string   `json:"email"`
+        Phone    string   `json:"phone"`
+        OTPSecret string  `json:"otp_secret"`
+    }
+    if err := json.Unmarshal(b, &in); err != nil { return nil }
+    for _, u := range in {
+        ur := &usersgorm.UserRecord{Username: u.Username, DisplayName: u.DisplayName, Email: u.Email, Phone: u.Phone, Active: true, OTPSecret: u.OTPSecret}
+        if err := s.userRepo.CreateUser(context.Background(), ur); err != nil { continue }
+        // attach roles
+        for _, rn := range u.Roles {
+            var role usersgorm.RoleRecord
+            if err := s.gdb.Where("name = ?", rn).First(&role).Error; err != nil {
+                role = usersgorm.RoleRecord{Name: rn}
+                _ = s.gdb.Create(&role).Error
+            }
+            _ = s.userRepo.AddUserRole(context.Background(), ur.ID, role.ID)
+        }
+        // attach direct perms via a per-user role: user:<username>
+        if len(u.Perms) > 0 {
+            rname := "user:" + u.Username
+            var role usersgorm.RoleRecord
+            if err := s.gdb.Where("name = ?", rname).First(&role).Error; err != nil {
+                role = usersgorm.RoleRecord{Name: rname}
+                _ = s.gdb.Create(&role).Error
+            }
+            _ = s.userRepo.AddUserRole(context.Background(), ur.ID, role.ID)
+            for _, p := range u.Perms { _ = s.userRepo.GrantRolePerm(context.Background(), role.ID, p) }
+        }
+    }
+    return nil
+}
+
+// importLegacyGamesIfEmpty imports allowed envs from configs/games.json by creating Game rows with Name=legacy game_id.
+func (s *Server) importLegacyGamesIfEmpty() error {
+    if s.gdb == nil || s.games == nil { return nil }
+    var cnt int64
+    if err := s.gdb.Model(&games.Game{}).Count(&cnt).Error; err != nil { return err }
+    if cnt > 0 { return nil }
+    b, err := os.ReadFile("configs/games.json")
+    if err != nil { return nil }
+    var data struct{ Games []struct{ GameID string `json:"game_id"`; Env string `json:"env"` } `json:"games"` }
+    if err := json.Unmarshal(b, &data); err != nil { return nil }
+    // group envs by legacy id
+    m := map[string][]string{}
+    for _, e := range data.Games { if e.GameID != "" { m[e.GameID] = append(m[e.GameID], e.Env) } }
+    for name, envs := range m {
+        g := &games.Game{Name: name, Enabled: true}
+        if err := s.games.Create(context.Background(), g); err != nil { continue }
+        for _, env := range envs { if env != "" { _ = s.games.AddEnv(context.Background(), g.ID, env) } }
+    }
+    return nil
+}
+
+// buildPolicyFromDB rebuilds in-memory RBAC policy using role_perms table.
+func (s *Server) buildPolicyFromDB() error {
+    if s.userRepo == nil { return nil }
+    snaps, err := s.userRepo.BuildPolicySnapshot(context.Background())
+    if err != nil { return err }
+    p := rbac.NewPolicy()
+    for role, perms := range snaps {
+        for _, perm := range perms { p.Grant("role:"+role, perm) }
+    }
+    s.rbac = p
+    return nil
 }
 
 // extractPack extracts a tar.gz pack into dest directory; keeps descriptors and fds

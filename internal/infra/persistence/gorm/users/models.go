@@ -15,6 +15,7 @@ type UserRecord struct {
     Phone        string `gorm:"size:32"`
     PasswordHash string `gorm:"size:255"` // bcrypt hash
     Active       bool   `gorm:"default:true"`
+    OTPSecret    string `gorm:"size:64"`
 }
 
 type RoleRecord struct {
@@ -41,4 +42,3 @@ func AutoMigrate(db *gorm.DB) error {
 
 // Helpers to stamp time manually if needed
 func now() time.Time { return time.Now().UTC() }
-
