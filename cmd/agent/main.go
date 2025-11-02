@@ -2,10 +2,7 @@ package main
 
 import (
     "context"
-    "crypto/tls"
-    "crypto/x509"
     "encoding/json"
-    "io/ioutil"
     "log/slog"
     "os"
     "net"
@@ -16,7 +13,6 @@ import (
     "github.com/spf13/cobra"
     "github.com/spf13/viper"
     "google.golang.org/grpc"
-    "google.golang.org/grpc/credentials"
     // "google.golang.org/grpc/credentials/insecure"
     "google.golang.org/grpc/keepalive"
 
@@ -33,28 +29,10 @@ import (
     _ "github.com/cuihairu/croupier/internal/transport/jsoncodec"
     "github.com/cuihairu/croupier/internal/devcert"
     common "github.com/cuihairu/croupier/internal/cli/common"
+    tlsutil "github.com/cuihairu/croupier/internal/tlsutil"
 )
 
-func loadClientTLS(certFile, keyFile, caFile string, serverName string) (credentials.TransportCredentials, error) {
-    cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-    if err != nil {
-        return nil, err
-    }
-    caPEM, err := ioutil.ReadFile(caFile)
-    if err != nil {
-        return nil, err
-    }
-    pool := x509.NewCertPool()
-    if !pool.AppendCertsFromPEM(caPEM) {
-        return nil, err
-    }
-    cfg := &tls.Config{
-        Certificates: []tls.Certificate{cert},
-        RootCAs:      pool,
-        ServerName:   serverName,
-    }
-    return credentials.NewTLS(cfg), nil
-}
+// Deprecated: local TLS helper replaced by tlsutil.ClientTLS
 
 func main() {
     var cfgFile string
@@ -132,7 +110,7 @@ func main() {
                     if i := strings.LastIndex(host, ":"); i >= 0 { host = host[:i] }
                     sni = host
                 }
-                creds, err := loadClientTLS(cert, key, ca, sni)
+                creds, err := tlsutil.ClientTLS(cert, key, ca, sni)
                 if err != nil { slog.Error("load TLS", "error", err); os.Exit(1) }
                 dialOpt = grpc.WithTransportCredentials(creds)
             } else {

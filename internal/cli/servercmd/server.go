@@ -1,10 +1,7 @@
 package servercmd
 
 import (
-    "crypto/tls"
-    "crypto/x509"
     "fmt"
-    "io/ioutil"
     "net"
     "strings"
     "os"
@@ -14,7 +11,6 @@ import (
     "github.com/spf13/cobra"
     "github.com/spf13/viper"
     "google.golang.org/grpc"
-    "google.golang.org/grpc/credentials"
     "google.golang.org/grpc/keepalive"
 
     controlv1 "github.com/cuihairu/croupier/pkg/pb/croupier/control/v1"
@@ -33,22 +29,11 @@ import (
     "github.com/cuihairu/croupier/internal/loadbalancer"
     "github.com/cuihairu/croupier/internal/connpool"
     common "github.com/cuihairu/croupier/internal/cli/common"
+    tlsutil "github.com/cuihairu/croupier/internal/tlsutil"
 )
 
 // loadServerTLS is kept here to avoid leaking into other packages.
-func loadServerTLS(certFile, keyFile, caFile string) (credentials.TransportCredentials, error) {
-    cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-    if err != nil { return nil, err }
-    cfg := &tls.Config{Certificates: []tls.Certificate{cert}}
-    if caFile == "" { return nil, fmt.Errorf("ca certificate required for mTLS: provide --ca") }
-    caPEM, err := ioutil.ReadFile(caFile)
-    if err != nil { return nil, err }
-    pool := x509.NewCertPool()
-    if !pool.AppendCertsFromPEM(caPEM) { return nil, fmt.Errorf("failed to append CA") }
-    cfg.ClientCAs = pool
-    cfg.ClientAuth = tls.RequireAndVerifyClientCert
-    return credentials.NewTLS(cfg), nil
-}
+// Deprecated: replaced by tlsutil.ServerTLS
 
 // New returns the `croupier server` command.
 func New() *cobra.Command {
@@ -112,7 +97,7 @@ func New() *cobra.Command {
                 slog.Info("devcert generated", "dir", out)
             }
 
-            creds, err := loadServerTLS(cert, key, ca)
+            creds, err := tlsutil.ServerTLS(cert, key, ca, true)
             if err != nil { return fmt.Errorf("load TLS: %w", err) }
 
             lis, err := net.Listen("tcp", addr)

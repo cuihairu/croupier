@@ -1,11 +1,8 @@
 package edgecmd
 
 import (
-    "crypto/tls"
-    "crypto/x509"
     "encoding/json"
     "fmt"
-    "io/ioutil"
     "log/slog"
     "net"
     "net/http"
@@ -14,7 +11,6 @@ import (
     "github.com/spf13/cobra"
     "github.com/spf13/viper"
     "google.golang.org/grpc"
-    "google.golang.org/grpc/credentials"
     "google.golang.org/grpc/keepalive"
 
     controlv1 "github.com/cuihairu/croupier/pkg/pb/croupier/control/v1"
@@ -27,21 +23,9 @@ import (
     jobv1 "github.com/cuihairu/croupier/pkg/pb/croupier/edge/job/v1"
     jobserver "github.com/cuihairu/croupier/internal/edge/job"
     common "github.com/cuihairu/croupier/internal/cli/common"
+    tlsutil "github.com/cuihairu/croupier/internal/tlsutil"
 )
 
-func loadTLS(certFile, keyFile, caFile string, requireClient bool) (credentials.TransportCredentials, error) {
-    cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-    if err != nil { return nil, err }
-    cfg := &tls.Config{Certificates: []tls.Certificate{cert}}
-    if caFile != "" {
-        caPEM, err := ioutil.ReadFile(caFile)
-        if err != nil { return nil, err }
-        pool := x509.NewCertPool(); pool.AppendCertsFromPEM(caPEM)
-        cfg.ClientCAs = pool
-        if requireClient { cfg.ClientAuth = tls.RequireAndVerifyClientCert }
-    }
-    return credentials.NewTLS(cfg), nil
-}
 
 // New returns `croupier edge` command.
 func New() *cobra.Command {
@@ -75,7 +59,7 @@ func New() *cobra.Command {
             if err := common.ValidateAddr(httpAddr); err != nil { return fmt.Errorf("http_addr: %w", err) }
             if err := common.ValidateTLS(cert, key, ca, true); err != nil { return err }
 
-            creds, err := loadTLS(cert, key, ca, true)
+            creds, err := tlsutil.ServerTLS(cert, key, ca, true)
             if err != nil { return fmt.Errorf("load TLS: %w", err) }
 
             lis, err := net.Listen("tcp", addr)
