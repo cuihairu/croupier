@@ -1,0 +1,8 @@
+version: v1
+plugins:
+  # Use local protoc plugin binary `protoc-gen-croupier` to generate pack artifacts.
+  - name: croupier
+    strategy: all
+    out: gen/croupier
+    opt:
+      - emit_pack=true

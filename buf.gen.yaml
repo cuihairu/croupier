@@ -13,7 +13,9 @@ plugins:
     opt:
       - paths=source_relative
   # Local custom plugin: protoc-gen-croupier (must be on PATH)
-  - plugin: croupier
+  - name: croupier
+    path: bin/protoc-gen-croupier
+    strategy: all
     out: gen/croupier
     opt:
       - emit_pack=true
