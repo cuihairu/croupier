@@ -19,8 +19,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
-      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
     networks:
       - croupier-network
     healthcheck:
@@ -78,9 +76,12 @@ services:
     command: ["server", "--addr", ":8443", "--http_addr", ":8080", "--edge_addr", "edge:9443", "--rbac_config", "/app/configs/rbac.json", "--games_config", "/app/configs/games.json", "--users_config", "/app/configs/users.json", "--jwt_secret", "change-me", "--cert", "/app/configs/dev/server.crt", "--key", "/app/configs/dev/server.key", "--ca", "/app/configs/dev/ca.crt"]
     ports: ["8443:8443", "18080:8080"]
     depends_on:
-      - edge
-      - postgres
-      - redis
+      edge:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - croupier-network
 

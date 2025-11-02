@@ -25,4 +25,3 @@ func (r *Repo) List(ctx context.Context) ([]*Game, error) {
 func (r *Repo) ListEnvs(ctx context.Context, gameID uint) ([]string, error) { var out []string; if err := r.db.WithContext(ctx).Model(&GameEnv{}).Where("game_id=?", gameID).Pluck("env", &out).Error; err != nil { return nil, err }; return out, nil }
 func (r *Repo) AddEnv(ctx context.Context, gameID uint, env string) error { ge := &GameEnv{GameID: gameID, Env: env}; return r.db.WithContext(ctx).Create(ge).Error }
 func (r *Repo) RemoveEnv(ctx context.Context, gameID uint, env string) error { return r.db.WithContext(ctx).Where("game_id=? AND env=?", gameID, env).Delete(&GameEnv{}).Error }
-

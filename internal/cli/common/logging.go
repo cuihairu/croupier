@@ -11,19 +11,32 @@ import (
     lumberjack "gopkg.in/natefinch/lumberjack.v2"
     "sync/atomic"
     "github.com/spf13/viper"
+    "path/filepath"
 )
 
 // SetupLoggerWithFile configures both std log and slog default logger.
 // format: console|json; level: debug|info|warn|error.
 // If filePath != "", logs write to a rotating file.
 func SetupLoggerWithFile(level, format, filePath string, maxSizeMB, maxBackups, maxAgeDays int, compress bool) {
-    // choose writer: default stdout to avoid terminals showing stderr in red
-    var w io.Writer = os.Stdout
-    if dest := strings.ToLower(os.Getenv("LOG_OUTPUT")); dest == "stderr" { w = os.Stderr }
-    if v := os.Getenv("CROUPIER_LOG_OUTPUT"); strings.ToLower(v) == "stderr" { w = os.Stderr }
+    // choose console writer: default stdout (避免终端红色 stderr)
+    var console io.Writer = os.Stdout
+    if dest := strings.ToLower(os.Getenv("LOG_OUTPUT")); dest == "stderr" { console = os.Stderr }
+    if v := os.Getenv("CROUPIER_LOG_OUTPUT"); strings.ToLower(v) == "stderr" { console = os.Stderr }
+    // optional file writer
+    var file io.Writer
     if strings.TrimSpace(filePath) != "" {
-        w = &lumberjack.Logger{Filename: filePath, MaxSize: maxSizeMB, MaxBackups: maxBackups, MaxAge: maxAgeDays, Compress: compress}
+        // ensure parent dir exists to avoid silent failures in lumberjack writer
+        if dir := filepath.Dir(filePath); dir != "." && dir != "" {
+            if err := os.MkdirAll(dir, 0o755); err != nil {
+                // fallback: 仅输出到 console，并提示
+                log.Printf("warn: create log dir failed: %v (using console output)", err)
+            }
+        }
+        file = &lumberjack.Logger{Filename: filePath, MaxSize: maxSizeMB, MaxBackups: maxBackups, MaxAge: maxAgeDays, Compress: compress}
     }
+    // dual write: console + file (若未配置 file 则仅 console)
+    var w io.Writer
+    if file != nil { w = io.MultiWriter(console, file) } else { w = console }
     // slog handler
     var h slog.Handler
     lvl := slog.LevelInfo

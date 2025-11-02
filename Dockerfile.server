@@ -2,14 +2,17 @@
 ARG GO_IMAGE=golang:1.24
 ARG RUNTIME_IMAGE=gcr.io/distroless/static:nonroot
 ARG BUILD_TAGS="pg"
+ARG GOPROXY_URL=https://goproxy.cn,direct
 FROM ${GO_IMAGE} as build
 WORKDIR /src
+ENV GOPROXY=${GOPROXY_URL} \
+    GOFLAGS=-modcacherw
 COPY go.mod go.sum ./
 # To satisfy local replace (./sdks/go), copy its go.mod/go.sum before download for better caching
 COPY sdks/go/go.mod sdks/go/go.sum sdks/go/
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .
-RUN CGO_ENABLED=0 GOFLAGS=-mod=mod go build -tags "$BUILD_TAGS" -o /out/croupier ./cmd/croupier
+RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -tags "$BUILD_TAGS" -o /out/croupier ./cmd/croupier
 
 FROM ${RUNTIME_IMAGE}
 WORKDIR /app

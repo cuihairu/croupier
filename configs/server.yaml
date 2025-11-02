@@ -1,0 +1,52 @@
+# Development server configuration
+# This file is intended for local development and testing.
+
+server:
+  # Listen addresses
+  addr: ":8443"      # gRPC (mTLS)
+  http_addr: ":8080" # HTTP API/UI
+
+  # TLS (dev): leave empty to auto-generate under configs/dev
+  cert: ""
+  key: ""
+  ca:  ""
+
+  # Database (dev): PostgreSQL
+  db:
+    driver: postgres
+    # Local host example:
+    dsn: "postgres://croupier:croupier_dev_password@localhost:5432/croupier?sslmode=disable"
+    # If running inside docker-compose, the host is service name `postgres`:
+    # dsn: "postgres://croupier:croupier_dev_password@postgres:5432/croupier?sslmode=disable"
+
+  # Object storage (dev): local directory
+  storage:
+    driver: file
+    base_dir: data/uploads         # will be created if missing
+    signed_url_ttl: 15m
+
+  # Auth & RBAC
+  rbac_config:   "configs/rbac.json"
+  users_config:  "configs/users.json"   # if DB empty, will import once on first start
+  games_config:  "configs/games.json"   # legacy import to seed games table when empty
+  jwt_secret:    "dev-secret"           # change for production
+
+  # Logging: dual output (console + file)
+  log:
+    level:  debug       # debug|info|warn|error
+    format: console     # console|json
+    output: stdout      # stdout|stderr (console)
+    file:   "logs/server.log"  # rolling file (created automatically)
+    max_size:    100    # MB
+    max_backups: 7
+    max_age:     7      # days
+    compress:    true
+
+  # Metrics toggles
+  metrics:
+    per_function: true
+    per_game_denies: false
+
+# Tips:
+# - Set CROUPIER_DEV_SEED=1 on first run to seed an admin/admin account for quick login.
+# - Run: go run ./cmd/server --config configs/server.yaml
