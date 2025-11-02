@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package croupier.agent.local.v1;
+
+option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1;localv1";
+
+// Local function registration from game servers to Agent
+message LocalFunctionDescriptor {
+  string id = 1;
+  string version = 2;
+}
+
+message RegisterLocalRequest {
+  string service_id = 1;
+  string version = 2;
+  string rpc_addr = 3;
+  repeated LocalFunctionDescriptor functions = 4;
+}
+
+message RegisterLocalResponse { string session_id = 1; }
+
+message HeartbeatRequest { string service_id = 1; string session_id = 2; }
+message HeartbeatResponse {}
+
+// Query local registered instances
+message LocalInstance { string service_id = 1; string addr = 2; string version = 3; string last_seen = 4; }
+message LocalFunction { string id = 1; repeated LocalInstance instances = 2; }
+message ListLocalRequest {}
+message ListLocalResponse { repeated LocalFunction functions = 1; }
+
+// Query job result from Agent (best-effort)
+message GetJobResultRequest { string job_id = 1; }
+message GetJobResultResponse { string state = 1; bytes payload = 2; string error = 3; }
+
+service LocalControlService {
+  rpc RegisterLocal(RegisterLocalRequest) returns (RegisterLocalResponse);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  rpc ListLocal(ListLocalRequest) returns (ListLocalResponse);
+  rpc GetJobResult(GetJobResultRequest) returns (GetJobResultResponse);
+}
+
