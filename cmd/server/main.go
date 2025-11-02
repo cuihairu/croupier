@@ -21,8 +21,7 @@ import (
     _ "github.com/cuihairu/croupier/internal/transport/jsoncodec"
     auditchain "github.com/cuihairu/croupier/internal/audit/chain"
     rbac "github.com/cuihairu/croupier/internal/auth/rbac"
-    "github.com/cuihairu/croupier/internal/server/games"
-    users "github.com/cuihairu/croupier/internal/auth/users"
+    
     jwt "github.com/cuihairu/croupier/internal/auth/token"
     "github.com/cuihairu/croupier/internal/devcert"
     "github.com/cuihairu/croupier/internal/loadbalancer"
@@ -116,7 +115,7 @@ func main() {
 
             // Register services
             // Allowed games store
-            gstore := games.NewStore(gamesPath)
+            _ = gamesPath // legacy allowed-list file ignored; DB-backed games in http server
             if err := gstore.Load(); err != nil { slog.Error("load games", "error", err); os.Exit(1) }
             ctrl := controlserver.NewServer(gstore)
             controlv1.RegisterControlServiceServer(s, ctrl)
@@ -150,12 +149,11 @@ func main() {
                 defer aw.Close()
                 var pol *rbac.Policy
                 if p, err := rbac.LoadPolicy(rbacPath); err == nil { pol = p } else { pol = rbac.NewPolicy(); pol.Grant("user:dev", "*"); pol.Grant("user:dev", "job:cancel"); pol.Grant("role:admin", "*") }
-                var us *users.Store
-                if s, err := users.Load(usersPath); err == nil { us = s } else { slog.Warn("users load failed", "error", err) }
+                _ = usersPath // legacy users.json ignored; DB-backed users in http server
                 jm := jwt.NewManager(jwtSecret)
                 var statsProv interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }
                 if sp, ok := invoker.(interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }); ok { statsProv = sp }
-                httpSrv, err := httpserver.NewServer("gen/croupier", invoker, aw, pol, gstore, ctrl.Store(), us, jm, locator, statsProv)
+                httpSrv, err := httpserver.NewServer("gen/croupier", invoker, aw, pol, ctrl.Store(), jm, locator, statsProv)
                 if err != nil { slog.Error("http server", "error", err); os.Exit(1) }
                 if err := httpSrv.ListenAndServe(httpAddr); err != nil { slog.Error("serve http", "error", err); os.Exit(1) }
             }()
