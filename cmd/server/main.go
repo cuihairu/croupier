@@ -68,6 +68,9 @@ func main() {
                 viper.GetInt("log.max_age"),
                 viper.GetBool("log.compress"),
             )
+            // DB config (flags/env): allow driver selection and DSN override
+            if v := viper.GetString("db.driver"); v != "" { _ = os.Setenv("DB_DRIVER", v) }
+            if v := viper.GetString("db.dsn"); v != "" { _ = os.Setenv("DATABASE_URL", v) }
 
             addr := viper.GetString("addr")
             httpAddr := viper.GetString("http_addr")
@@ -166,6 +169,8 @@ func main() {
     root.Flags().String("games_config", "configs/games.json", "allowed games config (json)")
     root.Flags().String("users_config", "configs/users.json", "users config json")
     root.Flags().String("jwt_secret", "dev-secret", "jwt hs256 secret")
+    root.Flags().String("db.driver", "auto", "database driver: postgres|mysql|sqlite|auto")
+    root.Flags().String("db.dsn", "", "database DSN/URL; for sqlite can be file:path.db or :memory:")
     _ = viper.BindPFlags(root.Flags())
 
     if err := root.Execute(); err != nil { slog.Error("server exit", "error", err); os.Exit(1) }

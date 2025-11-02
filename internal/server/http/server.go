@@ -135,16 +135,32 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
         s.packsExportRequireAuth = strings.EqualFold(v, "true") || v == "1" || strings.EqualFold(v, "yes")
     }
     // init GORM (prefer postgres)
-    if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
-        // postgres
-        if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") || strings.HasPrefix(dsn, "pgx://") {
-            if db, err := gorm.Open(gpostgres.Open(dsn), &gorm.Config{}); err == nil { s.gdb = db }
+    // DB initialization by config/env: DB_DRIVER=[postgres|mysql|sqlite|auto], DATABASE_URL as DSN
+    sel := strings.ToLower(strings.TrimSpace(os.Getenv("DB_DRIVER")))
+    dsn := os.Getenv("DATABASE_URL")
+    openAuto := func() {
+        if dsn != "" {
+            if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") || strings.HasPrefix(dsn, "pgx://") {
+                if db, err := gorm.Open(gpostgres.Open(dsn), &gorm.Config{}); err == nil { s.gdb = db; return }
+            }
+            if strings.HasPrefix(dsn, "mysql://") || strings.Contains(dsn, "@tcp(") {
+                norm := normalizeMySQLDSN(dsn)
+                if db, err := gorm.Open(gmysql.Open(norm), &gorm.Config{}); err == nil { s.gdb = db; return }
+            }
         }
-        // mysql: accept mysql://user:pass@host:port/db?params or native DSN user:pass@tcp(host:port)/db?params
-        if s.gdb == nil && (strings.HasPrefix(dsn, "mysql://") || strings.Contains(dsn, "@tcp(")) {
-            norm := normalizeMySQLDSN(dsn)
-            if db, err := gorm.Open(gmysql.Open(norm), &gorm.Config{}); err == nil { s.gdb = db }
-        }
+    }
+    switch sel {
+    case "postgres":
+        if dsn != "" { if db, err := gorm.Open(gpostgres.Open(dsn), &gorm.Config{}); err == nil { s.gdb = db } }
+    case "mysql":
+        if dsn != "" { if db, err := gorm.Open(gmysql.Open(normalizeMySQLDSN(dsn)), &gorm.Config{}); err == nil { s.gdb = db } }
+    case "sqlite":
+        // allow explicit sqlite DSN; if empty, fallback below
+        if dsn != "" { if db, err := gorm.Open(gsqlite.Open(dsn), &gorm.Config{}); err == nil { s.gdb = db } }
+    case "", "auto":
+        openAuto()
+    default:
+        openAuto()
     }
     if s.gdb == nil { // fallback sqlite local
         _ = os.MkdirAll("data", 0o755)

@@ -72,6 +72,10 @@ func New() *cobra.Command {
                 v.GetBool("log.compress"),
             )
 
+            // DB config → env bridge
+            if v.IsSet("db.driver") { _ = os.Setenv("DB_DRIVER", v.GetString("db.driver")) }
+            if v.IsSet("db.dsn") { _ = os.Setenv("DATABASE_URL", v.GetString("db.dsn")) }
+
             // config validation (non-strict: allow devcert fallback)
             if err := common.ValidateServerConfig(v, false); err != nil { return fmt.Errorf("config invalid: %w", err) }
 
@@ -177,6 +181,8 @@ func New() *cobra.Command {
     cmd.Flags().Bool("log.compress", true, "compress rotated log files")
     cmd.Flags().Bool("metrics.per_function", true, "export per-function metrics (invocations/errors/latency)")
     cmd.Flags().Bool("metrics.per_game_denies", false, "export RBAC denied counts per game within per-function metrics")
+    cmd.Flags().String("db.driver", "auto", "database driver: postgres|mysql|sqlite|auto")
+    cmd.Flags().String("db.dsn", "", "database DSN/URL; for sqlite can be file:path.db or :memory:")
     _ = viper.BindPFlags(cmd.Flags())
     return cmd
 }
