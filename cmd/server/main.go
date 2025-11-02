@@ -47,41 +47,37 @@ func main() {
             viper.AutomaticEnv()
             if cfgFile != "" {
                 viper.SetConfigFile(cfgFile)
-                if err := viper.ReadInConfig(); err != nil {
-                    slog.Warn("read config", "error", err)
-                } else {
-                    slog.Info("config loaded", "file", viper.ConfigFileUsed())
-                }
+                if err := viper.ReadInConfig(); err != nil { slog.Warn("read config", "error", err) } else { slog.Info("config loaded", "file", viper.ConfigFileUsed()) }
             }
+            // Extract `server` section if present (YAML friendly)
+            v := viper.GetViper()
+            if sub := v.Sub("server"); sub != nil { v = sub }
             // set up logger (stdout by default); honor log.* if present
-            common.MergeLogSection(viper.GetViper())
-            if viper.IsSet("log.output") {
-                // pass to logger via env bridge
-                _ = os.Setenv("CROUPIER_LOG_OUTPUT", viper.GetString("log.output"))
-            }
+            common.MergeLogSection(v)
+            if v.IsSet("log.output") { _ = os.Setenv("CROUPIER_LOG_OUTPUT", v.GetString("log.output")) }
             common.SetupLoggerWithFile(
-                viper.GetString("log.level"),
-                viper.GetString("log.format"),
-                viper.GetString("log.file"),
-                viper.GetInt("log.max_size"),
-                viper.GetInt("log.max_backups"),
-                viper.GetInt("log.max_age"),
-                viper.GetBool("log.compress"),
+                v.GetString("log.level"),
+                v.GetString("log.format"),
+                v.GetString("log.file"),
+                v.GetInt("log.max_size"),
+                v.GetInt("log.max_backups"),
+                v.GetInt("log.max_age"),
+                v.GetBool("log.compress"),
             )
-            // DB config (flags/env): allow driver selection and DSN override
-            if v := viper.GetString("db.driver"); v != "" { _ = os.Setenv("DB_DRIVER", v) }
-            if v := viper.GetString("db.dsn"); v != "" { _ = os.Setenv("DATABASE_URL", v) }
+            // DB config (prefer YAML in server.*)
+            if vv := v.GetString("db.driver"); vv != "" { _ = os.Setenv("DB_DRIVER", vv) }
+            if vv := v.GetString("db.dsn"); vv != "" { _ = os.Setenv("DATABASE_URL", vv) }
 
-            addr := viper.GetString("addr")
-            httpAddr := viper.GetString("http_addr")
-            edgeAddr := viper.GetString("edge_addr")
-            rbacPath := viper.GetString("rbac_config")
-            cert := viper.GetString("cert")
-            key := viper.GetString("key")
-            ca := viper.GetString("ca")
-            gamesPath := viper.GetString("games_config")
-            usersPath := viper.GetString("users_config")
-            jwtSecret := viper.GetString("jwt_secret")
+            addr := v.GetString("addr")
+            httpAddr := v.GetString("http_addr")
+            edgeAddr := v.GetString("edge_addr")
+            rbacPath := v.GetString("rbac_config")
+            cert := v.GetString("cert")
+            key := v.GetString("key")
+            ca := v.GetString("ca")
+            gamesPath := v.GetString("games_config")
+            usersPath := v.GetString("users_config")
+            jwtSecret := v.GetString("jwt_secret")
 
             // Auto-generate dev certs when not provided (DEV ONLY)
             if cert == "" || key == "" || ca == "" {

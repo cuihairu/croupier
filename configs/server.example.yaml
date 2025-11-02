@@ -1,28 +1,48 @@
-addr: ":8443"
-http_addr: ":8080"
-edge_addr: ""
-rbac_config: "configs/rbac.json"
-games_config: "configs/games.json"
-users_config: "configs/users.json"
-jwt_secret: "dev-secret"
-cert: "configs/dev/server.crt"
-key: "configs/dev/server.key"
-ca: "configs/dev/ca.crt"
+# Example server configuration (YAML)
 
-# Logging (can also use log.* flags)
-log:
-  level: info
-  format: console   # or json
-  # file: logs/server.log
-  max_size: 100
-  max_backups: 7
-  max_age: 7
-  compress: true
+server:
+  # Listen addresses
+  addr: ":8443"      # gRPC (mTLS)
+  http_addr: ":8080" # HTTP API/UI
 
-# Optional profiles overlay
-profiles:
-  prod:
-    log:
-      level: info
-      format: json
-      file: logs/server.log
+  # TLS (dev: empty to auto-generate under configs/dev)
+  cert: ""
+  key: ""
+  ca:  ""
+
+  # Database selection
+  db:
+    driver: auto   # postgres | mysql | sqlite | auto
+    dsn: ""       # Postgres: postgres://user:pass@host:5432/croupier?sslmode=disable
+                   # MySQL (URL): mysql://user:pass@host:3306/croupier?charset=utf8mb4
+                   # MySQL (DSN):  user:pass@tcp(host:3306)/croupier?parseTime=true&charset=utf8mb4
+                   # SQLite:       file:data/croupier.db (defaults to data/croupier.db when empty)
+
+  # Files (RBAC/users/examples)
+  rbac_config:   "configs/rbac.json"
+  users_config:  "configs/users.json"
+  games_config:  "configs/games.json"    # whitelist (legacy); metadata is managed via /api/games_meta
+  jwt_secret:    "dev-secret"            # change in production
+
+  # Logging
+  log:
+    level:  info       # debug|info|warn|error
+    format: console    # console|json
+    output: stdout     # stdout|stderr (default stdout)
+    file:   ""         # optional file path (enables rotation)
+    max_size:    100   # MB
+    max_backups: 7
+    max_age:     7     # days
+    compress:    true
+
+  # Metrics toggles
+  metrics:
+    per_function: true
+    per_game_denies: false
+
+  # Optional profile overlays
+  profiles:
+    prod:
+      log: { level: info, format: json, file: logs/server.log }
+      db:  { driver: postgres }
+
