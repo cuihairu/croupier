@@ -41,6 +41,12 @@ import (
     "compress/gzip"
     "strconv"
     "math"
+    "gorm.io/gorm"
+    gpostgres "gorm.io/driver/postgres"
+    gmysql "gorm.io/driver/mysql"
+    gsqlite "gorm.io/driver/sqlite"
+    gamesmeta "github.com/cuihairu/croupier/internal/server/gamesmeta"
+    "net/url"
 )
 
 type Server struct {
@@ -80,6 +86,9 @@ type Server struct {
     assignmentsPath string
     // packs export auth requirement (optional via env)
     packsExportRequireAuth bool
+    // games metadata via GORM (postgres preferred, else sqlite)
+    gdb *gorm.DB
+    gms gamesmeta.Store
 }
 
 type FunctionInvoker interface {
@@ -125,8 +134,56 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
     if v := os.Getenv("PACKS_EXPORT_REQUIRE_AUTH"); v != "" {
         s.packsExportRequireAuth = strings.EqualFold(v, "true") || v == "1" || strings.EqualFold(v, "yes")
     }
+    // init GORM (prefer postgres)
+    if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
+        // postgres
+        if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") || strings.HasPrefix(dsn, "pgx://") {
+            if db, err := gorm.Open(gpostgres.Open(dsn), &gorm.Config{}); err == nil { s.gdb = db }
+        }
+        // mysql: accept mysql://user:pass@host:port/db?params or native DSN user:pass@tcp(host:port)/db?params
+        if s.gdb == nil && (strings.HasPrefix(dsn, "mysql://") || strings.Contains(dsn, "@tcp(")) {
+            norm := normalizeMySQLDSN(dsn)
+            if db, err := gorm.Open(gmysql.Open(norm), &gorm.Config{}); err == nil { s.gdb = db }
+        }
+    }
+    if s.gdb == nil { // fallback sqlite local
+        _ = os.MkdirAll("data", 0o755)
+        fp := filepath.ToSlash(filepath.Join("data", "croupier.db"))
+        dsn := "file:" + fp
+        if db, err := gorm.Open(gsqlite.Open(dsn), &gorm.Config{}); err == nil { s.gdb = db }
+    }
+    if s.gdb != nil {
+        // auto-migrate and prepare store
+        _ = s.gdb.AutoMigrate(&gamesmeta.Game{})
+        s.gms = &gormGames{db: s.gdb}
+    }
     s.routes()
     return s, nil
+}
+
+// normalizeMySQLDSN converts mysql:// URIs to go-sql-driver DSN when needed and ensures parseTime.
+func normalizeMySQLDSN(dsn string) string {
+    // already native DSN
+    if !strings.HasPrefix(dsn, "mysql://") {
+        if !strings.Contains(strings.ToLower(dsn), "parsetime=") { // append parseTime if missing
+            sep := "?"; if strings.Contains(dsn, "?") { sep = "&" }
+            dsn = dsn + sep + "parseTime=true"
+        }
+        return dsn
+    }
+    // Convert mysql://user:pass@host:port/db?params -> user:pass@tcp(host:port)/db?params
+    u, err := url.Parse(dsn)
+    if err != nil { return dsn }
+    user := ""; pass := ""
+    if u.User != nil { user = u.User.Username(); pass, _ = u.User.Password() }
+    host := u.Host
+    db := strings.TrimPrefix(u.Path, "/")
+    q := u.RawQuery
+    if !strings.Contains(strings.ToLower(q), "parsetime=") { if q == "" { q = "parseTime=true" } else { q = q + "&parseTime=true" } }
+    auth := user
+    if pass != "" { auth = auth + ":" + pass }
+    if auth != "" { auth = auth + "@" }
+    return fmt.Sprintf("%stcp(%s)/%s?%s", auth, host, db, q)
 }
 
 // metrics toggles and per-function structures
@@ -1188,6 +1245,35 @@ func (s *Server) routes() {
             if in.GameID == "" { http.Error(w, "missing game_id", 400); return }
             s.games.Add(in.GameID, in.Env)
             _ = s.games.Save()
+            w.WriteHeader(http.StatusNoContent)
+        default:
+            w.WriteHeader(http.StatusMethodNotAllowed)
+        }
+    })
+
+    // Games metadata management (GORM-backed)
+    s.mux.HandleFunc("/api/games_meta", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
+        user, _, ok := s.auth(r)
+        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
+        if s.gms == nil { http.Error(w, "games meta store not available", http.StatusServiceUnavailable); return }
+        switch r.Method {
+        case http.MethodGet:
+            items, err := s.gms.List()
+            if err != nil { http.Error(w, err.Error(), 500); return }
+            _ = json.NewEncoder(w).Encode(struct{ Games []*gamesmeta.Game `json:"games"` }{Games: items})
+        case http.MethodPost, http.MethodPut:
+            if s.rbac != nil && !s.rbac.Can(user, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
+            var g gamesmeta.Game
+            if err := json.NewDecoder(r.Body).Decode(&g); err != nil { http.Error(w, err.Error(), 400); return }
+            if g.ID == "" { http.Error(w, "missing game_id", 400); return }
+            if err := s.gms.Upsert(g); err != nil { http.Error(w, err.Error(), 500); return }
+            w.WriteHeader(http.StatusNoContent)
+        case http.MethodDelete:
+            if s.rbac != nil && !s.rbac.Can(user, "games:manage") { http.Error(w, "forbidden", http.StatusForbidden); return }
+            id := r.URL.Query().Get("id")
+            if id == "" { http.Error(w, "missing id", 400); return }
+            if err := s.gms.Delete(id); err != nil { http.Error(w, err.Error(), 500); return }
             w.WriteHeader(http.StatusNoContent)
         default:
             w.WriteHeader(http.StatusMethodNotAllowed)
