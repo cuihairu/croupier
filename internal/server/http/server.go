@@ -671,7 +671,7 @@ func (s *Server) ginEngine() *gin.Engine {
         addCORS(c.Writer, c.Request)
         user, _, ok := s.auth(c.Request)
         if !ok { c.String(401, "unauthorized"); return }
-        if s.rbac != nil && !(s.rbac.Can(user, "packs:import") || s.rbac.Can(user, "*")) { c.String(403, "forbidden"); return }
+        if s.rbac != nil && !(s.rbac.Can(user, "packs:reload") || s.rbac.Can(user, "*")) { c.String(403, "forbidden"); return }
         if descs, err := descriptor.LoadAll(s.packDir); err == nil {
             idx := map[string]*descriptor.Descriptor{}
             for _, d := range descs { idx[d.ID] = d }
@@ -700,7 +700,6 @@ func (s *Server) ginEngine() *gin.Engine {
     r.POST("/api/approvals/reject", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; if !s.can(user, roles, "approvals:reject") { c.String(403, "forbidden"); return }; var tmp map[string]any; if err := c.BindJSON(&tmp); err != nil { c.String(400, "bad request"); return }; id, _ := tmp["id"].(string); reason, _ := tmp["reason"].(string); if id=="" { c.String(400, "missing id"); return }; a, err := s.approvals.Reject(id, reason); if err != nil { c.String(409, err.Error()); return }; if err := s.audit.Log("approval_reject", user, a.FunctionID, map[string]string{"approval_id": a.ID, "reason": reason}); err != nil { atomic.AddInt64(&s.auditErrors,1) }; c.Status(204) })
 
     // Stream job (SSE)
-    r.GET("/api/stream_job", func(c *gin.Context){ addCORS(c.Writer, c.Request); jobID := c.Query("id"); if jobID=="" { c.String(400, "missing id"); return }; c.Writer.Header().Set("Content-Type", "text/event-stream"); c.Writer.Header().Set("Cache-Control", "no-cache"); c.Writer.Header().Set("Connection", "keep-alive"); flusher, ok := c.Writer.(http.Flusher); if !ok { c.String(500, "stream unsupported"); return }; ctx := c.Request.Context(); stream, err := s.invoker.StreamJob(ctx, &functionv1.JobStreamRequest{JobId: jobID}); if err != nil { c.String(500, err.Error()); return }; enc := json.NewEncoder(c.Writer); for { ev, err := stream.Recv(); if err != nil { return }; fmt.Fprintf(c.Writer, "event: %s\n", ev.GetType()); fmt.Fprintf(c.Writer, "data: "); _ = enc.Encode(ev); fmt.Fprint(c.Writer, "\n"); flusher.Flush(); if ev.GetType()=="done" || ev.GetType()=="error" { return } } })
     r.POST("/api/cancel_job", func(c *gin.Context){ addCORS(c.Writer, c.Request); user, roles, ok := s.auth(c.Request); if !ok { c.String(401, "unauthorized"); return }; var in struct{ JobID string `json:"job_id"` }; if err := c.BindJSON(&in); err != nil { c.String(400, err.Error()); return }; if in.JobID=="" { c.String(400, "missing job_id"); return }; if !s.can(user, roles, "job:cancel") { c.String(403, "forbidden"); return }; _ = s.audit.Log("cancel_job", user, in.JobID, map[string]string{"ip": c.Request.RemoteAddr}); if _, err := s.invoker.CancelJob(c, &functionv1.CancelJobRequest{JobId: in.JobID}); err != nil { c.String(500, err.Error()); return }; c.Status(204) })
     r.GET("/api/job_result", func(c *gin.Context){ addCORS(c.Writer, c.Request); if _, _, ok := s.auth(c.Request); !ok { c.String(401, "unauthorized"); return }; if c.Request.Method != http.MethodGet { c.Status(405); return }; jobID := c.Query("id"); if jobID=="" { c.String(400, "missing id"); return }; if s.locator != nil { addr, ok := s.locator.GetJobAddr(jobID); if !ok { c.String(404, "unknown job"); return }; cc, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials())); if err != nil { c.String(502, err.Error()); return }; defer cc.Close(); cli := localv1.NewLocalControlServiceClient(cc); resp, err := cli.GetJobResult(c, &localv1.GetJobResultRequest{JobId: jobID}); if err != nil { c.String(502, err.Error()); return }; c.JSON(200, resp); return }; type jobFetcher interface{ JobResult(ctx context.Context, jobID string) (string, []byte, string, error) }; if jf, ok := s.invoker.(jobFetcher); ok { st, payload, errMsg, err := jf.JobResult(c, jobID); if err != nil { c.String(502, err.Error()); return }; c.JSON(200, gin.H{"state": st, "payload": payload, "error": errMsg}); return }; c.String(501, "job_result not available") })
 
@@ -749,8 +748,8 @@ func (s *Server) ginEngine() *gin.Engine {
                 if kind != "" && ev.Kind != kind { continue }
                 if gameID != "" && ev.Meta["game_id"] != gameID { continue }
                 if env != "" && ev.Meta["env"] != env { continue }
-                if !startT.IsZero() { if t, err := time.Parse(time.RFC3339, ev.Time); err == nil && t.Before(startT) { continue } }
-                if !endT.IsZero() { if t, err := time.Parse(time.RFC3339, ev.Time); err == nil && t.After(endT) { continue } }
+                if !startT.IsZero() { if ev.Time.Before(startT) { continue } }
+                if !endT.IsZero() { if ev.Time.After(endT) { continue } }
                 all = append(all, ev)
             }
         }
@@ -849,6 +848,31 @@ func (s *Server) ginEngine() *gin.Engine {
         c.JSON(200, gin.H{"instances": out})
     })
 
+    // Stream job events (SSE)
+    r.GET("/api/stream_job", func(c *gin.Context){
+        addCORS(c.Writer, c.Request)
+        jobID := c.Query("id")
+        if jobID == "" { c.String(http.StatusBadRequest, "missing id"); return }
+        c.Writer.Header().Set("Content-Type", "text/event-stream")
+        c.Writer.Header().Set("Cache-Control", "no-cache")
+        c.Writer.Header().Set("Connection", "keep-alive")
+        flusher, ok := c.Writer.(http.Flusher)
+        if !ok { c.String(http.StatusInternalServerError, "stream unsupported"); return }
+        stream, err := s.invoker.StreamJob(c, &functionv1.JobStreamRequest{JobId: jobID})
+        if err != nil { c.String(http.StatusInternalServerError, err.Error()); return }
+        enc := json.NewEncoder(c.Writer)
+        for {
+            ev, err := stream.Recv()
+            if err != nil { return }
+            fmt.Fprintf(c.Writer, "event: %s\n", ev.GetType())
+            fmt.Fprintf(c.Writer, "data: ")
+            _ = enc.Encode(ev)
+            fmt.Fprint(c.Writer, "\n")
+            flusher.Flush()
+            if ev.GetType() == "done" || ev.GetType() == "error" { return }
+        }
+    })
+
     // Signed URL
     r.GET("/api/signed_url", func(c *gin.Context){ addCORS(c.Writer, c.Request); if _, _, ok := s.auth(c.Request); !ok { c.String(401, "unauthorized"); return }; if s.obj == nil { c.String(503, "storage not available"); return }; key := c.Query("key"); if key == "" { c.String(400, "missing key"); return }; method := c.Query("op"); if method == "" { method = "GET" }; exp := s.objConf.SignedURLTTL; if v:=c.Query("ttl"); v!="" { if d, err := time.ParseDuration(v); err == nil { exp = d } }; url, err := s.obj.SignedURL(c, key, method, exp); if err != nil { c.String(500, err.Error()); return }; c.JSON(200, gin.H{"url": url}) })
 
@@ -857,7 +881,8 @@ func (s *Server) ginEngine() *gin.Engine {
 
     // Static files
     staticDir := "web/dist"; if st, err := os.Stat(staticDir); err != nil || !st.IsDir() { staticDir = "web/static" }
-    r.Static("/", staticDir)
+    // NOTE: Gin does not allow root catch-all with other prefixes; serve under /static
+    r.Static("/static", staticDir)
     if strings.ToLower(s.objConf.Driver) == "file" && s.objConf.BaseDir != "" { r.Static("/uploads", s.objConf.BaseDir) }
     // Serve pack static
     r.Static("/pack_static", s.packDir)
@@ -941,33 +966,6 @@ func maskAny(v any, sensitive map[string]struct{}) any {
         return mm
     case []any:
         out := make([]any, len(t))
-
-    // Stream job events (SSE)
-    r.GET("/api/stream_job", func(c *gin.Context){
-        addCORS(c.Writer, c.Request)
-        jobID := c.Query("id")
-        if jobID == "" { c.String(400, "missing id"); return }
-        c.Writer.Header().Set("Content-Type", "text/event-stream")
-        c.Writer.Header().Set("Cache-Control", "no-cache")
-        c.Writer.Header().Set("Connection", "keep-alive")
-        flusher, ok := c.Writer.(http.Flusher)
-        if !ok { c.String(500, "stream unsupported"); return }
-        stream, err := s.invoker.StreamJob(c, &functionv1.JobStreamRequest{JobId: jobID})
-        if err != nil { c.String(500, err.Error()); return }
-        enc := json.NewEncoder(c.Writer)
-        for {
-            ev, err := stream.Recv()
-            if err != nil { return }
-            fmt.Fprintf(c.Writer, "event: %s
-", ev.GetType())
-            fmt.Fprintf(c.Writer, "data: ")
-            _ = enc.Encode(ev)
-            fmt.Fprint(c.Writer, "
-")
-            flusher.Flush()
-            if ev.GetType() == "done" || ev.GetType() == "error" { return }
-        }
-    })
         for i, e := range t { out[i] = maskAny(e, sensitive) }
         return out
     default:
