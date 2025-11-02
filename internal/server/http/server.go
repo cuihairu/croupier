@@ -192,6 +192,8 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
         _ = s.importLegacyGamesIfEmpty()
         // rebuild in-memory RBAC policy from DB roles/permissions
         _ = s.buildPolicyFromDB()
+        // seed defaults if empty (dev/first boot)
+        _ = s.seedDefaultsIfEmpty()
     }
     // init object storage (from env bridge STORAGE_*)
     s.objConf = obj.FromEnv()
@@ -420,6 +422,30 @@ func (s *Server) ginLogger() gin.HandlerFunc {
             "dur_ms", dur.Milliseconds(),
         )
     }
+}
+
+// seedDefaultsIfEmpty creates default roles and an optional admin user when tables are empty.
+func (s *Server) seedDefaultsIfEmpty() error {
+    if s.userRepo == nil { return nil }
+    var roleCnt int64
+    if err := s.gdb.Model(&usersgorm.RoleRecord{}).Count(&roleCnt).Error; err != nil { return err }
+    if roleCnt == 0 {
+        // Create admin role with wildcard
+        admin := &usersgorm.RoleRecord{Name: "admin", Description: "Administrator"}
+        if err := s.gdb.Create(admin).Error; err == nil {
+            _ = s.userRepo.GrantRolePerm(context.Background(), admin.ID, "*")
+        }
+        // Optionally create an admin user if CROUPIER_DEV_SEED=1
+        if os.Getenv("CROUPIER_DEV_SEED") == "1" {
+            u := &usersgorm.UserRecord{Username: "admin", DisplayName: "Administrator", Active: true}
+            if err := s.userRepo.CreateUser(context.Background(), u); err == nil {
+                // default password 'admin' for dev-only
+                _ = s.userRepo.SetPassword(context.Background(), u.ID, "admin")
+                _ = s.userRepo.AddUserRole(context.Background(), u.ID, admin.ID)
+            }
+        }
+    }
+    return nil
 }
 
 // importLegacyUsersIfEmpty imports users and roles from JSON files when DB tables are empty.
@@ -881,8 +907,21 @@ func (s *Server) ginEngine() *gin.Engine {
 
     // Static files
     staticDir := "web/dist"; if st, err := os.Stat(staticDir); err != nil || !st.IsDir() { staticDir = "web/static" }
-    // NOTE: Gin does not allow root catch-all with other prefixes; serve under /static
+    // NOTE: Gin 不允许根通配和前缀共存，这里将静态资源挂到 /static
     r.Static("/static", staticDir)
+    // 根路径返回 index.html（若存在），便于 SPA 在生产环境直接托管
+    if _, err := os.Stat(filepath.Join(staticDir, "index.html")); err == nil {
+        r.GET("/", func(c *gin.Context){ c.File(filepath.Join(staticDir, "index.html")) })
+        // 非 /api/* 的未知路由回退到 index.html，支持 SPA 刷新
+        r.NoRoute(func(c *gin.Context){
+            p := c.Request.URL.Path
+            if strings.HasPrefix(p, "/api/") || p == "/metrics" || strings.HasPrefix(p, "/metrics") {
+                c.Status(http.StatusNotFound)
+                return
+            }
+            c.File(filepath.Join(staticDir, "index.html"))
+        })
+    }
     if strings.ToLower(s.objConf.Driver) == "file" && s.objConf.BaseDir != "" { r.Static("/uploads", s.objConf.BaseDir) }
     // Serve pack static
     r.Static("/pack_static", s.packDir)
