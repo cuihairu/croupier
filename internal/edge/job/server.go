@@ -2,7 +2,7 @@ package jobserver
 
 import (
     "context"
-    jobv1 "github.com/cuihairu/croupier/gen/go/croupier/edge/job/v1"
+    jobv1 "github.com/cuihairu/croupier/pkg/pb/croupier/edge/job/v1"
     "github.com/cuihairu/croupier/internal/edge/tunnel"
     "fmt"
     "time"

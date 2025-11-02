@@ -1,0 +1,44 @@
+{
+  "functions": [
+    {
+      "id": "croupier.control.v1.controlservice.register",
+      "version": "1.0.0",
+      "category": "control"
+    },
+    {
+      "id": "croupier.control.v1.controlservice.heartbeat",
+      "version": "1.0.0",
+      "category": "control"
+    },
+    {
+      "id": "croupier.function.v1.functionservice.invoke",
+      "version": "1.0.0",
+      "category": "function"
+    },
+    {
+      "id": "croupier.function.v1.functionservice.startjob",
+      "version": "1.0.0",
+      "category": "function"
+    },
+    {
+      "id": "croupier.function.v1.functionservice.streamjob",
+      "version": "1.0.0",
+      "category": "function"
+    },
+    {
+      "id": "croupier.function.v1.functionservice.canceljob",
+      "version": "1.0.0",
+      "category": "function"
+    },
+    {
+      "id": "games.player.v1.playergm.ban",
+      "version": "1.0.0",
+      "category": "player"
+    },
+    {
+      "id": "croupier.integrations.prom.v1.promgm.queryrange",
+      "version": "1.0.0",
+      "category": "prom"
+    }
+  ]
+}

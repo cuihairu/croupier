@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "agentId": {
+      "type": "string"
+    },
+    "env": {
+      "type": "string"
+    },
+    "functions": {
+      "items": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "category": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "risk": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "title": "FunctionDescriptor",
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "gameId": {
+      "type": "string"
+    },
+    "rpcAddr": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "title": "RegisterRequest",
+  "type": "object"
+}

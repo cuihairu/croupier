@@ -5,7 +5,7 @@ import (
     "log/slog"
     "time"
 
-    controlv1 "github.com/cuihairu/croupier/gen/go/croupier/control/v1"
+    controlv1 "github.com/cuihairu/croupier/pkg/pb/croupier/control/v1"
     "github.com/cuihairu/croupier/internal/server/registry"
     "github.com/cuihairu/croupier/internal/server/games"
 

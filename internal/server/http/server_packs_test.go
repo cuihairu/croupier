@@ -15,7 +15,7 @@ import (
     auditchain "github.com/cuihairu/croupier/internal/audit/chain"
     "github.com/cuihairu/croupier/internal/server/games"
     "github.com/cuihairu/croupier/internal/server/registry"
-    functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
+    functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
     "context"
     jwt "github.com/cuihairu/croupier/internal/auth/token"
     "github.com/cuihairu/croupier/internal/auth/rbac"

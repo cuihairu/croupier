@@ -5,7 +5,7 @@ package croupier.integrations.prom.v1;
 import "croupier/options/function.proto";
 import "croupier/options/ui.proto";
 
-option go_package = "github.com/cuihairu/croupier/gen/go/examples/integrations/prom/v1;promv1";
+option go_package = "github.com/cuihairu/croupier/pkg/pb/examples/integrations/prom/v1;promv1";
 
 service PromGm {
   rpc QueryRange(QueryRangeRequest) returns (QueryRangeResponse) {
@@ -35,4 +35,3 @@ message Timeseries {
 }
 
 message QueryRangeResponse { repeated Timeseries series = 1; }
-

@@ -7,14 +7,14 @@ import (
     "log/slog"
     "time"
 
-    functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
+    functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
     "github.com/cuihairu/croupier/internal/connpool"
     "github.com/cuihairu/croupier/internal/jobs"
     "github.com/cuihairu/croupier/internal/loadbalancer"
     "github.com/cuihairu/croupier/internal/server/registry"
 
     "google.golang.org/grpc"
-    localv1 "github.com/cuihairu/croupier/gen/go/croupier/agent/local/v1"
+    localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
     "google.golang.org/grpc/credentials/insecure"
 )
 

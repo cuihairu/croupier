@@ -15,9 +15,9 @@ import (
     "google.golang.org/grpc/credentials"
     "google.golang.org/grpc/keepalive"
 
-    controlv1 "github.com/cuihairu/croupier/gen/go/croupier/control/v1"
+    controlv1 "github.com/cuihairu/croupier/pkg/pb/croupier/control/v1"
     controlserver "github.com/cuihairu/croupier/internal/server/control"
-    functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
+    functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
     functionserver "github.com/cuihairu/croupier/internal/server/function"
     httpserver "github.com/cuihairu/croupier/internal/server/http"
     // register json codec

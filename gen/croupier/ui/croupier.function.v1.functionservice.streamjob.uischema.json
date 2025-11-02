@@ -1,0 +1,14 @@
+{
+  "ui:groups": [
+    {
+      "fields": [
+        "jobId"
+      ],
+      "title": "基本"
+    }
+  ],
+  "ui:layout": {
+    "cols": 2,
+    "type": "grid"
+  }
+}

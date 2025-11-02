@@ -5,7 +5,7 @@ import (
     "fmt"
     "hash/fnv"
 
-    functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
+    functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
     "github.com/cuihairu/croupier/internal/agent/registry"
     "github.com/cuihairu/croupier/internal/agent/jobs"
     "github.com/cuihairu/croupier/internal/transport/interceptors"

@@ -5,8 +5,8 @@ import (
     "log/slog"
     "time"
 
-    localv1 "github.com/cuihairu/croupier/gen/go/croupier/agent/local/v1"
-    controlv1 "github.com/cuihairu/croupier/gen/go/croupier/control/v1"
+    localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
+    controlv1 "github.com/cuihairu/croupier/pkg/pb/croupier/control/v1"
     "github.com/cuihairu/croupier/internal/agent/registry"
     "github.com/cuihairu/croupier/internal/agent/jobs"
 )

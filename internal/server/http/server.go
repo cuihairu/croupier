@@ -7,7 +7,7 @@ import (
     "net/http"
 
     "github.com/cuihairu/croupier/internal/function/descriptor"
-    functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
+    functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
     "context"
     "crypto/rand"
     "encoding/hex"
@@ -27,7 +27,7 @@ import (
     users "github.com/cuihairu/croupier/internal/auth/users"
     jwt "github.com/cuihairu/croupier/internal/auth/token"
     "github.com/cuihairu/croupier/internal/auth/otp"
-    localv1 "github.com/cuihairu/croupier/gen/go/croupier/agent/local/v1"
+    localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
     "google.golang.org/grpc"
     "google.golang.org/grpc/credentials/insecure"
     "github.com/cuihairu/croupier/internal/loadbalancer"

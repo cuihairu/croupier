@@ -20,10 +20,10 @@ import (
     "google.golang.org/grpc/keepalive"
 
     controlclient "github.com/cuihairu/croupier/internal/agent/control"
-    controlv1 "github.com/cuihairu/croupier/gen/go/croupier/control/v1"
-    functionv1 "github.com/cuihairu/croupier/gen/go/croupier/function/v1"
+    controlv1 "github.com/cuihairu/croupier/pkg/pb/croupier/control/v1"
+    functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
     agentfunc "github.com/cuihairu/croupier/internal/agent/function"
-    localv1 "github.com/cuihairu/croupier/gen/go/croupier/agent/local/v1"
+    localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
     locallib "github.com/cuihairu/croupier/internal/agent/local"
     localreg "github.com/cuihairu/croupier/internal/agent/registry"
     "github.com/cuihairu/croupier/internal/agent/jobs"

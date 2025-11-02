@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "playerId": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "title": "BanRequest",
+  "type": "object"
+}
