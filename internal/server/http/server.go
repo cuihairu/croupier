@@ -1298,6 +1298,8 @@ func (s *Server) routes() {
         if s.gms == nil { http.Error(w, "games meta store not available", http.StatusServiceUnavailable); return }
         switch r.Method {
         case http.MethodGet:
+            // RBAC: games:read OR games:manage can view
+            if s.rbac != nil && !(s.rbac.Can(user, "games:read") || s.rbac.Can(user, "games:manage")) { http.Error(w, "forbidden", http.StatusForbidden); return }
             items, err := s.gms.List()
             if err != nil { http.Error(w, err.Error(), 500); return }
             _ = json.NewEncoder(w).Encode(struct{ Games []*gamesmeta.Game `json:"games"` }{Games: items})
