@@ -22,10 +22,7 @@ type Store interface {
     Delete(id string) error
 }
 
-// onConflictByID returns GORM clause to upsert by PK.
-// Kept minimal here to avoid importing gorm/clause from all call sites.
-// Implemented in sqlite/pg files.
-func onConflictByID() any { return nil }
+// onConflictByID is implemented in clause.go using gorm/clause.
 
 // ErrDriverUnavailable is returned when a requested driver is not built in.
 func ErrDriverUnavailable(driver string) error { return errors.New("driver unavailable: " + driver) }

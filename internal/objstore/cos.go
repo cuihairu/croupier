@@ -10,7 +10,7 @@ import (
     cos "github.com/tencentyun/cos-go-sdk-v5"
 )
 
-type cosStore struct { cli *cos.Client; ttl time.Duration }
+type cosStore struct { cli *cos.Client; ttl time.Duration; sid string; sk string }
 
 func OpenCOS(_ context.Context, c Config) (Store, error) {
     // build bucket URL
@@ -32,7 +32,7 @@ func OpenCOS(_ context.Context, c Config) (Store, error) {
     cli := cos.NewClient(b, &http.Client{Transport: &cos.AuthorizationTransport{SecretID: c.AccessKey, SecretKey: c.SecretKey}})
     ttl := c.SignedURLTTL
     if ttl == 0 { ttl = 15 * time.Minute }
-    return &cosStore{cli: cli, ttl: ttl}, nil
+    return &cosStore{cli: cli, ttl: ttl, sid: c.AccessKey, sk: c.SecretKey}, nil
 }
 
 func (s *cosStore) Put(ctx context.Context, key string, r ReadSeeker, _ int64, contentType string) error {
@@ -54,7 +54,7 @@ func (s *cosStore) SignedURL(ctx context.Context, key string, method string, exp
     case http.MethodGet: fallthrough
     default: m = http.MethodGet
     }
-    u, err := s.cli.Object.GetPresignedURL(ctx, m, key, s.cli.Conf.SecretID, s.cli.Conf.SecretKey, time.Duration(sec)*time.Second, nil)
+    u, err := s.cli.Object.GetPresignedURL(ctx, m, key, s.sid, s.sk, time.Duration(sec)*time.Second, nil)
     if err != nil { return "", err }
     return u.String(), nil
 }
@@ -64,4 +64,3 @@ func (s *cosStore) Delete(ctx context.Context, key string) error {
     _, err := s.cli.Object.Delete(ctx, key)
     return err
 }
-
