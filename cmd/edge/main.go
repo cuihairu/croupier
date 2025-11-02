@@ -6,6 +6,8 @@ import (
     "os"
     "net"
     "time"
+    "os/signal"
+    "syscall"
 
     "google.golang.org/grpc"
     "google.golang.org/grpc/keepalive"
@@ -59,6 +61,7 @@ func main() {
     jobv1.RegisterJobServiceServer(s, jobserver.New(tun))
 
     // HTTP health/metrics
+    var httpSrv *http.Server
     go func(){
         r := gin.New()
         r.Use(func(c *gin.Context){
@@ -75,8 +78,18 @@ func main() {
         r.GET("/healthz", func(c *gin.Context){ c.String(http.StatusOK, "ok") })
         r.GET("/metrics", func(c *gin.Context){ c.JSON(http.StatusOK, tun.MetricsMap()) })
         slog.Info("edge http listening", "addr", *httpAddr)
-        _ = http.ListenAndServe(*httpAddr, r)
+        httpSrv = &http.Server{Addr: *httpAddr, Handler: r}
+        _ = httpSrv.ListenAndServe()
     }()
     slog.Info("edge listening", "addr", *addr)
+    // graceful shutdown
+    go func(){
+        c := make(chan os.Signal, 1)
+        signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+        <-c
+        slog.Info("edge shutting down")
+        if httpSrv != nil { _ = httpSrv.Shutdown(nil) }
+        s.GracefulStop()
+    }()
     if err := s.Serve(lis); err != nil { slog.Error("serve", "error", err); os.Exit(1) }
 }

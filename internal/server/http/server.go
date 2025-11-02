@@ -91,6 +91,7 @@ type Server struct {
     
     obj obj.Store
     objConf obj.Config
+    httpSrv *http.Server
 }
 
 // can checks permission for user or any of their roles.
@@ -930,10 +931,17 @@ func (s *Server) ginEngine() *gin.Engine {
 
 func (s *Server) ListenAndServe(addr string) error {
     log.Printf("http api listening on %s", addr)
-    // Build existing mux routes
     // All routes are registered in Gin via ginEngine()
-    // Serve via Gin engine (with logging & recovery)
-    return http.ListenAndServe(addr, s.ginEngine())
+    s.httpSrv = &http.Server{Addr: addr, Handler: s.ginEngine()}
+    err := s.httpSrv.ListenAndServe()
+    if err == http.ErrServerClosed { return nil }
+    return err
+}
+
+// Shutdown gracefully shuts down the HTTP server.
+func (s *Server) Shutdown(ctx context.Context) error {
+    if s.httpSrv != nil { return s.httpSrv.Shutdown(ctx) }
+    return nil
 }
 
 func randHex(n int) string {

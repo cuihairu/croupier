@@ -6,6 +6,9 @@ import (
     "os"
     "net"
     "sync"
+    "os/signal"
+    "syscall"
+    "context"
 
     "github.com/spf13/cobra"
     "github.com/spf13/viper"
@@ -141,6 +144,7 @@ func main() {
                 slog.Info("croupier-server listening", "grpc", addr)
                 if err := s.Serve(lis); err != nil { slog.Error("serve grpc", "error", err); os.Exit(1) }
             }()
+            var httpSrv *httpserver.Server
             go func() {
                 defer wg.Done()
                 aw, err := auditchain.NewWriter("logs/audit.log")
@@ -152,9 +156,20 @@ func main() {
                 jm := jwt.NewManager(jwtSecret)
                 var statsProv interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }
                 if sp, ok := invoker.(interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }); ok { statsProv = sp }
-                httpSrv, err := httpserver.NewServer("gen/croupier", invoker, aw, pol, ctrl.Store(), jm, locator, statsProv)
+                httpSrv, err = httpserver.NewServer("gen/croupier", invoker, aw, pol, ctrl.Store(), jm, locator, statsProv)
                 if err != nil { slog.Error("http server", "error", err); os.Exit(1) }
                 if err := httpSrv.ListenAndServe(httpAddr); err != nil { slog.Error("serve http", "error", err); os.Exit(1) }
+            }()
+            // graceful shutdown on SIGINT/SIGTERM
+            go func() {
+                sigCh := make(chan os.Signal, 1)
+                signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+                sig := <-sigCh
+                slog.Info("shutdown signal", "signal", sig.String())
+                // stop HTTP first
+                if httpSrv != nil { _ = httpSrv.Shutdown(context.Background()) }
+                // then gRPC
+                s.GracefulStop()
             }()
             wg.Wait()
             return nil

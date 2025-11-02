@@ -8,6 +8,8 @@ import (
     "net/http"
     "strings"
     "time"
+    "os/signal"
+    "syscall"
 
     "github.com/spf13/cobra"
     "github.com/spf13/viper"
@@ -157,6 +159,7 @@ func main() {
             }()
 
             // HTTP health/metrics (Gin)
+            var httpSrv *http.Server
             go func(){
                 r := gin.New()
                 r.Use(func(c *gin.Context){
@@ -177,13 +180,23 @@ func main() {
                     c.JSON(http.StatusOK, gin.H{"functions": fns, "instances": total, "tunnel_reconnects": tunn.Reconnects()})
                 })
                 slog.Info("agent http listening", "addr", httpAddr)
-                _ = http.ListenAndServe(httpAddr, r)
+                httpSrv = &http.Server{Addr: httpAddr, Handler: r}
+                _ = httpSrv.ListenAndServe()
             }()
             slog.Info("croupier-agent listening", "local", localAddr, "server", coreAddr)
             // prune stale instances periodically
             go func(){
                 ticker := time.NewTicker(30 * time.Second); defer ticker.Stop()
                 for range ticker.C { removed := lstore.Prune(60*time.Second); if removed > 0 { slog.Info("pruned stale local instances", "count", removed) } }
+            }()
+            // graceful shutdown
+            go func(){
+                c := make(chan os.Signal, 1)
+                signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+                <-c
+                slog.Info("agent shutting down")
+                if httpSrv != nil { _ = httpSrv.Shutdown(context.Background()) }
+                srv.GracefulStop()
             }()
             if err := srv.Serve(lis); err != nil { slog.Error("serve local", "error", err); os.Exit(1) }
             return nil

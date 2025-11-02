@@ -7,6 +7,9 @@ import (
     "net/http"
     "strings"
     "time"
+    "os/signal"
+    "syscall"
+    "os"
 
     "github.com/spf13/cobra"
     "github.com/spf13/viper"
@@ -77,6 +80,7 @@ func New() *cobra.Command {
             functionv1.RegisterFunctionServiceServer(s, fn)
             jobv1.RegisterJobServiceServer(s, jobserver.New(tun))
 
+            var httpSrv *http.Server
             go func(){
                 r := gin.New()
                 r.Use(func(c *gin.Context){
@@ -107,9 +111,19 @@ func New() *cobra.Command {
                     fmt.Fprintf(w, "croupier_logs_total{level=\"error\"} %d\n", lc["error"])
                 })
                 slog.Info("edge http listening", "addr", httpAddr)
-                _ = http.ListenAndServe(httpAddr, r)
+                httpSrv = &http.Server{Addr: httpAddr, Handler: r}
+                _ = httpSrv.ListenAndServe()
             }()
             slog.Info("edge listening", "addr", addr)
+            // graceful shutdown
+            go func(){
+                c := make(chan os.Signal, 1)
+                signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+                <-c
+                slog.Info("edge shutting down")
+                if httpSrv != nil { _ = httpSrv.Shutdown(nil) }
+                s.GracefulStop()
+            }()
             if err := s.Serve(lis); err != nil { return err }
             return nil
         },
