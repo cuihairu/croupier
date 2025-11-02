@@ -26,7 +26,6 @@ import (
     "sync"
     usersgorm "github.com/cuihairu/croupier/internal/infra/persistence/gorm/users"
     jwt "github.com/cuihairu/croupier/internal/auth/token"
-    "github.com/cuihairu/croupier/internal/auth/otp"
     localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
     "google.golang.org/grpc"
     "google.golang.org/grpc/credentials/insecure"
@@ -973,7 +972,7 @@ func (s *Server) routes() {
         user, roles, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        if s.rbac != nil && !(s.rbac.Can(user, "approvals:approve") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+        if !s.can(user, roles, "approvals:approve") { http.Error(w, "forbidden", http.StatusForbidden); return }
         var in struct{ ID string `json:"id"`; OTP string `json:"otp,omitempty"` }
         if err := json.NewDecoder(r.Body).Decode(&in); err != nil || in.ID == "" { http.Error(w, "missing id", 400); return }
         a, err := s.approvals.Approve(in.ID)
@@ -1019,7 +1018,7 @@ func (s *Server) routes() {
         user, roles, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        if s.rbac != nil && !(s.rbac.Can(user, "approvals:reject") || s.rbac.Can(user, "*")) { http.Error(w, "forbidden", http.StatusForbidden); return }
+        if !s.can(user, roles, "approvals:reject") { http.Error(w, "forbidden", http.StatusForbidden); return }
         // decode flexible
         dec := json.NewDecoder(r.Body)
         var tmp map[string]any
@@ -1065,7 +1064,7 @@ func (s *Server) routes() {
         var in struct{ JobID string `json:"job_id"` }
         if err := json.NewDecoder(r.Body).Decode(&in); err != nil { http.Error(w, err.Error(), 400); return }
         if in.JobID == "" { http.Error(w, "missing job_id", 400); return }
-        if s.rbac != nil && !s.rbac.Can(user, "job:cancel") { http.Error(w, "forbidden", http.StatusForbidden); return }
+        if !s.can(user, roles, "job:cancel") { http.Error(w, "forbidden", http.StatusForbidden); return }
         _ = s.audit.Log("cancel_job", user, in.JobID, map[string]string{"ip": r.RemoteAddr})
         if _, err := s.invoker.CancelJob(r.Context(), &functionv1.CancelJobRequest{JobId: in.JobID}); err != nil {
             http.Error(w, err.Error(), 500); return
@@ -1303,7 +1302,7 @@ func (s *Server) routes() {
     })
     s.mux.HandleFunc("/api/games/", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
-        user, _, ok := s.auth(r)
+        user, roles, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         rest := strings.TrimPrefix(r.URL.Path, "/api/games/")
         if strings.HasSuffix(rest, "/envs") {
@@ -1377,12 +1376,12 @@ func (s *Server) routes() {
     // basic upload + signed url endpoints
     s.mux.HandleFunc("/api/upload", func(w http.ResponseWriter, r *http.Request) {
         addCORS(w, r)
-        user, _, ok := s.auth(r)
+        user, roles, ok := s.auth(r)
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         if s.obj == nil { http.Error(w, "storage not available", http.StatusServiceUnavailable); return }
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
         // RBAC: require uploads:write
-        if s.rbac != nil && !s.rbac.Can(user, "uploads:write") { http.Error(w, "forbidden", http.StatusForbidden); return }
+        if !s.can(user, roles, "uploads:write") { http.Error(w, "forbidden", http.StatusForbidden); return }
         // Size limit: 120MB
         constMax := int64(120 * 1024 * 1024)
         if cl := r.Header.Get("Content-Length"); cl != "" {
