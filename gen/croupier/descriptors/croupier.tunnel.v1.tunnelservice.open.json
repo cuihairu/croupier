@@ -1,0 +1,33 @@
+{
+  "auth": {
+    "permission": "croupier.tunnel.v1.tunnelservice.open",
+    "two_person_rule": false
+  },
+  "category": "tunnel",
+  "id": "croupier.tunnel.v1.tunnelservice.open",
+  "outputs": {
+    "views": [
+      {
+        "id": "json",
+        "renderer": "json.view",
+        "type": "json"
+      }
+    ]
+  },
+  "placement": "agent",
+  "semantics": {
+    "idempotency_key": false,
+    "mode": "query",
+    "route": "lb",
+    "timeout": "30s"
+  },
+  "transport": {
+    "proto": {
+      "encoding": "pb-json",
+      "request_fqn": "croupier.tunnel.v1.TunnelMessage",
+      "response_fqn": "croupier.tunnel.v1.TunnelMessage"
+    },
+    "request_type": "proto"
+  },
+  "version": "1.0.0"
+}

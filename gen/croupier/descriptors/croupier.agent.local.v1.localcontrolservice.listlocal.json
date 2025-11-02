@@ -1,0 +1,33 @@
+{
+  "auth": {
+    "permission": "croupier.agent.local.v1.localcontrolservice.listlocal",
+    "two_person_rule": false
+  },
+  "category": "local",
+  "id": "croupier.agent.local.v1.localcontrolservice.listlocal",
+  "outputs": {
+    "views": [
+      {
+        "id": "json",
+        "renderer": "json.view",
+        "type": "json"
+      }
+    ]
+  },
+  "placement": "agent",
+  "semantics": {
+    "idempotency_key": false,
+    "mode": "query",
+    "route": "lb",
+    "timeout": "30s"
+  },
+  "transport": {
+    "proto": {
+      "encoding": "pb-json",
+      "request_fqn": "croupier.agent.local.v1.ListLocalRequest",
+      "response_fqn": "croupier.agent.local.v1.ListLocalResponse"
+    },
+    "request_type": "proto"
+  },
+  "version": "1.0.0"
+}

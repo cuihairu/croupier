@@ -6,7 +6,8 @@ import (
     "crypto/x509"
     "encoding/json"
     "io/ioutil"
-    "log"
+    "log/slog"
+    "os"
     "net"
     "net/http"
     "strings"
@@ -31,6 +32,7 @@ import (
     // register json codec
     _ "github.com/cuihairu/croupier/internal/transport/jsoncodec"
     "github.com/cuihairu/croupier/internal/devcert"
+    common "github.com/cuihairu/croupier/internal/cli/common"
 )
 
 func loadClientTLS(certFile, keyFile, caFile string, serverName string) (credentials.TransportCredentials, error) {
@@ -60,15 +62,29 @@ func main() {
         Use:   "croupier-agent",
         Short: "Croupier Agent",
         RunE: func(cmd *cobra.Command, args []string) error {
+            // default logger to stdout for early logs
+            common.SetupLoggerWithFile("info", "console", "", 0, 0, 0, false)
             viper.SetEnvPrefix("CROUPIER")
             viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
             viper.AutomaticEnv()
             if cfgFile != "" {
                 viper.SetConfigFile(cfgFile)
                 if err := viper.ReadInConfig(); err != nil {
-                    log.Printf("[warn] read config: %v", err)
-                } else { log.Printf("[config] using %s", viper.ConfigFileUsed()) }
+                    slog.Warn("read config", "error", err)
+                } else { slog.Info("config loaded", "file", viper.ConfigFileUsed()) }
             }
+            // logging: default to stdout; honor log.* config if provided
+            common.MergeLogSection(viper.GetViper())
+            if viper.IsSet("log.output") { _ = os.Setenv("CROUPIER_LOG_OUTPUT", viper.GetString("log.output")) }
+            common.SetupLoggerWithFile(
+                viper.GetString("log.level"),
+                viper.GetString("log.format"),
+                viper.GetString("log.file"),
+                viper.GetInt("log.max_size"),
+                viper.GetInt("log.max_backups"),
+                viper.GetInt("log.max_age"),
+                viper.GetBool("log.compress"),
+            )
 
             localAddr := viper.GetString("local_addr")
             serverAddr := viper.GetString("server_addr")
@@ -87,22 +103,22 @@ func main() {
             // Prefer --server_addr if provided (alias), warn on deprecated --core_addr usage
             if serverAddr != "" {
                 if coreAddr != "" && coreAddr != "127.0.0.1:8443" {
-                    log.Printf("[warn] both --server_addr and --core_addr provided; using --server_addr=%s", serverAddr)
+                    slog.Warn("both server_addr and core_addr provided; using server_addr", "server_addr", serverAddr)
                 }
                 coreAddr = serverAddr
             } else if coreAddr != "" {
-                log.Printf("[warn] --core_addr is deprecated; please use --server_addr")
+                slog.Warn("--core_addr is deprecated; use --server_addr")
             }
 
             // Auto-generate dev certs when not provided (DEV ONLY)
             if (cert == "" || key == "" || ca == "") && coreAddr != "" {
                 out := "configs/dev"
                 caCrt, caKey, err := devcert.EnsureDevCA(out)
-                if err != nil { log.Fatalf("generate dev CA: %v", err) }
+                if err != nil { slog.Error("generate dev CA", "error", err); os.Exit(1) }
                 agCrt, agKey, err := devcert.EnsureAgentCert(out, caCrt, caKey, agentID)
-                if err != nil { log.Fatalf("generate dev agent cert: %v", err) }
+                if err != nil { slog.Error("generate dev agent cert", "error", err); os.Exit(1) }
                 cert, key, ca = agCrt, agKey, caCrt
-                log.Printf("[devcert] generated dev mTLS certs under %s (DEV ONLY)", out)
+                slog.Info("devcert generated", "dir", out)
             }
 
             // Connect to Server with mTLS (required by default)
@@ -117,14 +133,14 @@ func main() {
                     sni = host
                 }
                 creds, err := loadClientTLS(cert, key, ca, sni)
-                if err != nil { log.Fatalf("load TLS: %v", err) }
+                if err != nil { slog.Error("load TLS", "error", err); os.Exit(1) }
                 dialOpt = grpc.WithTransportCredentials(creds)
             } else {
-                log.Fatalf("TLS cert/key/ca required for agent outbound; provide --cert/--key/--ca")
+                slog.Error("TLS cert/key/ca required for agent outbound; provide --cert/--key/--ca"); os.Exit(1)
             }
 
             coreConn, err := grpc.Dial(coreAddr, dialOpt, grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 30 * time.Second}), grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")))
-            if err != nil { log.Fatalf("dial server: %v", err) }
+            if err != nil { slog.Error("dial server", "error", err); os.Exit(1) }
             defer coreConn.Close()
 
             // Bootstrap register/heartbeat (placeholder function list; Local server will update on RegisterLocal)
@@ -137,10 +153,10 @@ func main() {
 
             // Local gRPC for game servers to connect
             lis, err := net.Listen("tcp", localAddr)
-            if err != nil { log.Fatalf("listen local: %v", err) }
+            if err != nil { slog.Error("listen local", "error", err); os.Exit(1) }
 
             var srv *grpc.Server
-            if insecureLocal { srv = grpc.NewServer() } else { log.Fatalf("secure local server not implemented in skeleton; run with --insecure_local") }
+            if insecureLocal { srv = grpc.NewServer() } else { slog.Error("secure local server not implemented; run with --insecure_local"); os.Exit(1) }
 
             // Local registry (function id -> local game server endpoint/version)
             lstore := localreg.NewLocalStore()
@@ -155,7 +171,7 @@ func main() {
                 backoff := time.Second
                 for {
                     err := t.Start(context.Background())
-                    if err != nil { log.Printf("tunnel disconnected: %v", err) }
+                    if err != nil { slog.Warn("tunnel disconnected", "error", err) }
                     time.Sleep(backoff)
                     if backoff < 30*time.Second { backoff *= 2 }
                     tunn.IncReconnect()
@@ -172,16 +188,16 @@ func main() {
                     for _, arr := range mp { fns++; total += len(arr) }
                     _ = json.NewEncoder(w).Encode(map[string]any{"functions": fns, "instances": total, "tunnel_reconnects": tunn.Reconnects()})
                 })
-                log.Printf("agent http listening on %s", httpAddr)
+                slog.Info("agent http listening", "addr", httpAddr)
                 _ = http.ListenAndServe(httpAddr, mux)
             }()
-            log.Printf("croupier-agent listening on %s; connected to server %s", localAddr, coreAddr)
+            slog.Info("croupier-agent listening", "local", localAddr, "server", coreAddr)
             // prune stale instances periodically
             go func(){
                 ticker := time.NewTicker(30 * time.Second); defer ticker.Stop()
-                for range ticker.C { removed := lstore.Prune(60*time.Second); if removed > 0 { log.Printf("pruned %d stale local instances", removed) } }
+                for range ticker.C { removed := lstore.Prune(60*time.Second); if removed > 0 { slog.Info("pruned stale local instances", "count", removed) } }
             }()
-            if err := srv.Serve(lis); err != nil { log.Fatalf("serve local: %v", err) }
+            if err := srv.Serve(lis); err != nil { slog.Error("serve local", "error", err); os.Exit(1) }
             return nil
         },
     }
@@ -203,5 +219,5 @@ func main() {
     root.Flags().String("http_addr", ":19091", "agent http listen for health/metrics")
     _ = viper.BindPFlags(root.Flags())
 
-    if err := root.Execute(); err != nil { log.Fatal(err) }
+    if err := root.Execute(); err != nil { slog.Error("agent exit", "error", err); os.Exit(1) }
 }

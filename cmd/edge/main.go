@@ -5,7 +5,8 @@ import (
     "crypto/x509"
     "flag"
     "io/ioutil"
-    "log"
+    "log/slog"
+    "os"
     "net"
 
     "google.golang.org/grpc"
@@ -23,6 +24,7 @@ import (
     "encoding/json"
     jobv1 "github.com/cuihairu/croupier/pkg/pb/croupier/edge/job/v1"
     jobserver "github.com/cuihairu/croupier/internal/edge/job"
+    common "github.com/cuihairu/croupier/internal/cli/common"
 )
 
 func loadTLS(certFile, keyFile, caFile string, requireClient bool) (credentials.TransportCredentials, error) {
@@ -40,6 +42,8 @@ func loadTLS(certFile, keyFile, caFile string, requireClient bool) (credentials.
 }
 
 func main() {
+    // initialize logger (stdout, console) before prints; can be overridden by env LOG_OUTPUT or config in other modes
+    common.SetupLoggerWithFile("info", "console", "", 0, 0, 0, false)
     // Ports can be the same; FunctionService and ControlService share one listener.
     addr := flag.String("addr", ":9443", "edge grpc listen")
     cert := flag.String("cert", "", "TLS cert file")
@@ -49,12 +53,12 @@ func main() {
     httpAddr := flag.String("http_addr", ":9080", "edge http listen for health/metrics")
     flag.Parse()
 
-    if *cert == "" || *key == "" { log.Fatal("TLS cert/key required") }
+    if *cert == "" || *key == "" { slog.Error("TLS cert/key required"); os.Exit(1) }
     creds, err := loadTLS(*cert, *key, *ca, true)
-    if err != nil { log.Fatalf("load TLS: %v", err) }
+    if err != nil { slog.Error("load TLS", "error", err); os.Exit(1) }
 
     lis, err := net.Listen("tcp", *addr)
-    if err != nil { log.Fatalf("listen: %v", err) }
+    if err != nil { slog.Error("listen", "error", err); os.Exit(1) }
     s := grpc.NewServer(grpc.Creds(creds), grpc.KeepaliveParams(keepalive.ServerParameters{}))
 
     gstore := games.NewStore(*gamesPath)
@@ -75,9 +79,9 @@ func main() {
         mux := http.NewServeMux()
         mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request){ w.WriteHeader(http.StatusOK); _,_ = w.Write([]byte("ok")) })
         mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request){ _ = json.NewEncoder(w).Encode(tun.MetricsMap()) })
-        log.Printf("edge http listening on %s", *httpAddr)
+        slog.Info("edge http listening", "addr", *httpAddr)
         _ = http.ListenAndServe(*httpAddr, mux)
     }()
-    log.Printf("edge listening on %s", *addr)
-    if err := s.Serve(lis); err != nil { log.Fatalf("serve: %v", err) }
+    slog.Info("edge listening", "addr", *addr)
+    if err := s.Serve(lis); err != nil { slog.Error("serve", "error", err); os.Exit(1) }
 }

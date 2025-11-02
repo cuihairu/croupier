@@ -17,8 +17,10 @@ import (
 // format: console|json; level: debug|info|warn|error.
 // If filePath != "", logs write to a rotating file.
 func SetupLoggerWithFile(level, format, filePath string, maxSizeMB, maxBackups, maxAgeDays int, compress bool) {
-    // writer
-    var w io.Writer = os.Stderr
+    // choose writer: default stdout to avoid terminals showing stderr in red
+    var w io.Writer = os.Stdout
+    if dest := strings.ToLower(os.Getenv("LOG_OUTPUT")); dest == "stderr" { w = os.Stderr }
+    if v := os.Getenv("CROUPIER_LOG_OUTPUT"); strings.ToLower(v) == "stderr" { w = os.Stderr }
     if strings.TrimSpace(filePath) != "" {
         w = &lumberjack.Logger{Filename: filePath, MaxSize: maxSizeMB, MaxBackups: maxBackups, MaxAge: maxAgeDays, Compress: compress}
     }
@@ -31,11 +33,7 @@ func SetupLoggerWithFile(level, format, filePath string, maxSizeMB, maxBackups, 
     case "error": lvl = slog.LevelError
     }
     opts := &slog.HandlerOptions{Level: lvl}
-    if strings.ToLower(format) == "json" {
-        h = slog.NewJSONHandler(w, opts)
-    } else {
-        h = slog.NewTextHandler(w, opts)
-    }
+    if strings.ToLower(format) == "json" { h = slog.NewJSONHandler(w, opts) } else { h = slog.NewTextHandler(w, opts) }
     // wrap with counting handler
     h = &countHandler{next: h}
     slog.SetDefault(slog.New(h))
@@ -84,7 +82,7 @@ func GetLogCounters() map[string]int64 {
 // MergeLogSection flattens a nested "log" section into top-level log.* keys.
 func MergeLogSection(v *viper.Viper) {
     if sub := v.Sub("log"); sub != nil {
-        for _, k := range []string{"level","format","file","max_size","max_backups","max_age","compress"} {
+        for _, k := range []string{"level","format","file","max_size","max_backups","max_age","compress","output"} {
             if sub.IsSet(k) { v.Set("log."+k, sub.Get(k)) }
         }
     }
