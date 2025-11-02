@@ -54,6 +54,24 @@ Notes:
 - s3 覆盖 AWS/MinIO/腾讯 COS（S3 兼容模式）。COS 建议设置 `force_path_style=true`，并指定正确的 `region` 与 `endpoint`。
 - 阿里云 OSS 建议使用官方 SDK 驱动（后续提供）；Go Cloud 无原生 OSS 驱动。
 - file 驱动仅用于本地开发，静态路径 `/uploads/` 会映射到 `base_dir`。
+
+Tencent COS（S3 兼容）示例
+```yaml
+server:
+  storage:
+    driver: s3
+    bucket: your-bucket
+    region: ap-shanghai
+    endpoint: https://cos.ap-shanghai.myqcloud.com
+    access_key: ${TENCENT_SECRET_ID}
+    secret_key: ${TENCENT_SECRET_KEY}
+    force_path_style: true
+    signed_url_ttl: 15m
+```
+说明：
+- 使用 `force_path_style: true` 避免虚拟主机名路由导致的兼容问题。
+- `region` 需与 COS 控制台一致，否则签名可能失败。
+- 如果使用 MinIO，请将 `endpoint` 指向 MinIO 地址（如 `http://minio:9000`），并保留 `force_path_style: true`。
 ```
 
 Start with overlay files and profile:
