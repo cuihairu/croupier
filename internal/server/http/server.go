@@ -184,10 +184,13 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
     }
     if s.objConf.Driver != "" {
         if err := obj.Validate(s.objConf); err == nil {
-            if strings.ToLower(s.objConf.Driver) == "s3" {
-                if st, err := openS3(context.Background(), s.objConf); err == nil { s.obj = st }
-            } else if strings.ToLower(s.objConf.Driver) == "file" {
-                if st, err := openFile(context.Background(), s.objConf); err == nil { s.obj = st }
+            switch strings.ToLower(s.objConf.Driver) {
+            case "s3":
+                if st, err := obj.OpenS3(context.Background(), s.objConf); err == nil { s.obj = st }
+            case "file":
+                if st, err := obj.OpenFile(context.Background(), s.objConf); err == nil { s.obj = st }
+            case "oss":
+                if st, err := obj.OpenOSS(context.Background(), s.objConf); err == nil { s.obj = st }
             }
         }
     }

@@ -3,10 +3,12 @@ module github.com/cuihairu/croupier
 go 1.24.0
 
 require (
+	github.com/aliyun/aliyun-oss-go-sdk v2.2.9+incompatible
 	github.com/jackc/pgx/v5 v5.7.6
+	gocloud.dev v0.36.0
 	google.golang.org/grpc v1.76.0
-	gorm.io/driver/postgres v1.5.7
 	gorm.io/driver/mysql v1.5.6
+	gorm.io/driver/postgres v1.5.7
 	gorm.io/driver/sqlite v1.5.7
 	gorm.io/gorm v1.25.11
 	modernc.org/sqlite v1.39.1
@@ -37,7 +39,7 @@ require (
 	github.com/spf13/cast v1.6.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	go.uber.org/multierr v1.9.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.43.0 // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
 	golang.org/x/sync v0.17.0 // indirect

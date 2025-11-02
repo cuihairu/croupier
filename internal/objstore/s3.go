@@ -3,13 +3,14 @@ package objstore
 import (
     "context"
     "time"
+    "io"
     "gocloud.dev/blob"
     _ "gocloud.dev/blob/s3blob"
 )
 
 type s3Store struct { bk *blob.Bucket; ttl time.Duration }
 
-func openS3(ctx context.Context, c Config) (Store, error) {
+func OpenS3(ctx context.Context, c Config) (Store, error) {
     u := buildS3URL(c)
     bk, err := blob.OpenBucket(ctx, u)
     if err != nil { return nil, err }
@@ -23,13 +24,7 @@ func (s *s3Store) Put(ctx context.Context, key string, r ReadSeeker, _ int64, co
     w, err := s.bk.NewWriter(ctx, key, &blob.WriterOptions{ContentType: contentType})
     if err != nil { return err }
     defer w.Close()
-    buf := make([]byte, 32*1024)
-    for {
-        n, er := r.Read(buf)
-        if n > 0 { if _, ew := w.Write(buf[:n]); ew != nil { return ew } }
-        if er != nil { if er.Error() == "EOF" { break } else { break } }
-        if n == 0 { break }
-    }
+    if _, err := io.Copy(w, r); err != nil { return err }
     return w.Close()
 }
 
@@ -43,4 +38,3 @@ func (s *s3Store) Delete(ctx context.Context, key string) error {
     key = sanitizeKey(key)
     return s.bk.Delete(ctx, key)
 }
-
