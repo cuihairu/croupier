@@ -1338,8 +1338,17 @@ func (s *Server) routes() {
         if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
         if s.obj == nil { http.Error(w, "storage not available", http.StatusServiceUnavailable); return }
         if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
-        // TODO: RBAC e.g., uploads:write
-        if err := r.ParseMultipartForm(64 << 20); err != nil { http.Error(w, err.Error(), 400); return }
+        // RBAC: require uploads:write
+        if s.rbac != nil && !s.rbac.Can(user, "uploads:write") { http.Error(w, "forbidden", http.StatusForbidden); return }
+        // Size limit: 120MB
+        constMax := int64(120 * 1024 * 1024)
+        if cl := r.Header.Get("Content-Length"); cl != "" {
+            if n, err := strconv.ParseInt(cl, 10, 64); err == nil && n > constMax {
+                http.Error(w, "request too large", http.StatusRequestEntityTooLarge); return
+            }
+        }
+        r.Body = http.MaxBytesReader(w, r.Body, constMax)
+        if err := r.ParseMultipartForm(32 << 20); err != nil { http.Error(w, err.Error(), 400); return }
         f, fh, err := r.FormFile("file")
         if err != nil { http.Error(w, "missing file", 400); return }
         defer f.Close()
