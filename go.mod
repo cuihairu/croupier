@@ -3,6 +3,7 @@ module github.com/cuihairu/croupier
 go 1.24.0
 
 require (
+    github.com/gin-gonic/gin v1.10.0
 	github.com/aliyun/aliyun-oss-go-sdk v2.2.9+incompatible
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.45

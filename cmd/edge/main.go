@@ -22,6 +22,7 @@ import (
     jobserver "github.com/cuihairu/croupier/internal/edge/job"
     common "github.com/cuihairu/croupier/internal/cli/common"
     tlsutil "github.com/cuihairu/croupier/internal/tlsutil"
+    gin "github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -59,11 +60,11 @@ func main() {
 
     // HTTP health/metrics
     go func(){
-        mux := http.NewServeMux()
-        mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request){ w.WriteHeader(http.StatusOK); _,_ = w.Write([]byte("ok")) })
-        mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request){ _ = json.NewEncoder(w).Encode(tun.MetricsMap()) })
+        r := gin.New()
+        r.GET("/healthz", func(c *gin.Context){ c.String(http.StatusOK, "ok") })
+        r.GET("/metrics", func(c *gin.Context){ c.JSON(http.StatusOK, tun.MetricsMap()) })
         slog.Info("edge http listening", "addr", *httpAddr)
-        _ = http.ListenAndServe(*httpAddr, mux)
+        _ = http.ListenAndServe(*httpAddr, r)
     }()
     slog.Info("edge listening", "addr", *addr)
     if err := s.Serve(lis); err != nil { slog.Error("serve", "error", err); os.Exit(1) }
