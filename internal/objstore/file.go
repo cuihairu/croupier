@@ -12,7 +12,7 @@ import (
 
 type fileStore struct { base string; publicPrefix string; ttl time.Duration }
 
-func openFile(_ context.Context, c Config) (Store, error) {
+func OpenFile(_ context.Context, c Config) (Store, error) {
     if c.BaseDir == "" { return nil, fmt.Errorf("base_dir required for file driver") }
     if err := os.MkdirAll(c.BaseDir, 0o755); err != nil { return nil, err }
     ttl := c.SignedURLTTL
@@ -44,4 +44,3 @@ func (s *fileStore) Delete(_ context.Context, key string) error {
     path := filepath.Join(s.base, filepath.FromSlash(key))
     return os.Remove(path)
 }
-
