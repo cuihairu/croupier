@@ -114,10 +114,9 @@ func main() {
             )
 
             // Register services
-            // Allowed games store
-            _ = gamesPath // legacy allowed-list file ignored; DB-backed games in http server
-            if err := gstore.Load(); err != nil { slog.Error("load games", "error", err); os.Exit(1) }
-            ctrl := controlserver.NewServer(gstore)
+            // DB-backed games; ignore legacy gamesPath
+            _ = gamesPath
+            ctrl := controlserver.NewServer(nil)
             controlv1.RegisterControlServiceServer(s, ctrl)
             var invoker httpserver.FunctionInvoker
             var locator interface{ GetJobAddr(string) (string, bool) }
