@@ -72,9 +72,18 @@ func New() *cobra.Command {
                 v.GetBool("log.compress"),
             )
 
-            // DB config → env bridge
+            // DB/Storage config → env bridge
             if v.IsSet("db.driver") { _ = os.Setenv("DB_DRIVER", v.GetString("db.driver")) }
             if v.IsSet("db.dsn") { _ = os.Setenv("DATABASE_URL", v.GetString("db.dsn")) }
+            if vv := v.GetString("storage.driver"); vv != "" { _ = os.Setenv("STORAGE_DRIVER", vv) }
+            if vv := v.GetString("storage.bucket"); vv != "" { _ = os.Setenv("STORAGE_BUCKET", vv) }
+            if vv := v.GetString("storage.region"); vv != "" { _ = os.Setenv("STORAGE_REGION", vv) }
+            if vv := v.GetString("storage.endpoint"); vv != "" { _ = os.Setenv("STORAGE_ENDPOINT", vv) }
+            if vv := v.GetString("storage.access_key"); vv != "" { _ = os.Setenv("STORAGE_ACCESS_KEY", vv); _ = os.Setenv("AWS_ACCESS_KEY_ID", vv) }
+            if vv := v.GetString("storage.secret_key"); vv != "" { _ = os.Setenv("STORAGE_SECRET_KEY", vv); _ = os.Setenv("AWS_SECRET_ACCESS_KEY", vv) }
+            if v.IsSet("storage.force_path_style") { _ = os.Setenv("STORAGE_FORCE_PATH_STYLE", fmt.Sprintf("%v", v.GetBool("storage.force_path_style"))) }
+            if vv := v.GetString("storage.base_dir"); vv != "" { _ = os.Setenv("STORAGE_BASE_DIR", vv) }
+            if vv := v.GetString("storage.signed_url_ttl"); vv != "" { _ = os.Setenv("STORAGE_SIGNED_URL_TTL", vv) }
 
             // config validation (non-strict: allow devcert fallback)
             if err := common.ValidateServerConfig(v, false); err != nil { return fmt.Errorf("config invalid: %w", err) }

@@ -47,6 +47,7 @@ import (
     gsqlite "gorm.io/driver/sqlite"
     gamesmeta "github.com/cuihairu/croupier/internal/server/gamesmeta"
     "net/url"
+    obj "github.com/cuihairu/croupier/internal/objstore"
 )
 
 type Server struct {
@@ -89,6 +90,8 @@ type Server struct {
     // games metadata via GORM (postgres preferred, else sqlite)
     gdb *gorm.DB
     gms gamesmeta.Store
+    obj obj.Store
+    objConf obj.Config
 }
 
 type FunctionInvoker interface {
@@ -172,6 +175,21 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
         // auto-migrate and prepare store
         _ = s.gdb.AutoMigrate(&gamesmeta.Game{})
         s.gms = &gormGames{db: s.gdb}
+    }
+    // init object storage (from env bridge STORAGE_*)
+    s.objConf = obj.FromEnv()
+    if s.objConf.Driver == "file" && s.objConf.BaseDir == "" {
+        // default uploads dir for local
+        s.objConf.BaseDir = filepath.Join("data", "uploads")
+    }
+    if s.objConf.Driver != "" {
+        if err := obj.Validate(s.objConf); err == nil {
+            if strings.ToLower(s.objConf.Driver) == "s3" {
+                if st, err := openS3(context.Background(), s.objConf); err == nil { s.obj = st }
+            } else if strings.ToLower(s.objConf.Driver) == "file" {
+                if st, err := openFile(context.Background(), s.objConf); err == nil { s.obj = st }
+            }
+        }
     }
     s.routes()
     return s, nil
@@ -1303,6 +1321,57 @@ func (s *Server) routes() {
     }
     fs := http.FileServer(http.Dir(staticDir))
     s.mux.Handle("/", fs)
+
+    // serve local uploads if using file driver
+    if strings.ToLower(s.objConf.Driver) == "file" && s.objConf.BaseDir != "" {
+        upfs := http.FileServer(http.Dir(s.objConf.BaseDir))
+        s.mux.Handle("/uploads/", http.StripPrefix("/uploads/", upfs))
+    }
+
+    // basic upload + signed url endpoints
+    s.mux.HandleFunc("/api/upload", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
+        user, _, ok := s.auth(r)
+        if !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
+        if s.obj == nil { http.Error(w, "storage not available", http.StatusServiceUnavailable); return }
+        if r.Method != http.MethodPost { w.WriteHeader(http.StatusMethodNotAllowed); return }
+        // TODO: RBAC e.g., uploads:write
+        if err := r.ParseMultipartForm(64 << 20); err != nil { http.Error(w, err.Error(), 400); return }
+        f, fh, err := r.FormFile("file")
+        if err != nil { http.Error(w, "missing file", 400); return }
+        defer f.Close()
+        // generate key
+        ts := time.Now().UnixNano()
+        name := fh.Filename
+        key := fmt.Sprintf("%s/%d_%s", user, ts, name)
+        // copy to temp file to support ReadSeeker
+        tmp, err := os.CreateTemp("", "upload-*")
+        if err != nil { http.Error(w, err.Error(), 500); return }
+        defer os.Remove(tmp.Name())
+        if _, err := io.Copy(tmp, f); err != nil { tmp.Close(); http.Error(w, err.Error(), 500); return }
+        if _, err := tmp.Seek(0, io.SeekStart); err != nil { tmp.Close(); http.Error(w, err.Error(), 500); return }
+        ct := fh.Header.Get("Content-Type")
+        if err := s.obj.Put(r.Context(), key, tmp, fh.Size, ct); err != nil { tmp.Close(); http.Error(w, err.Error(), 500); return }
+        _ = tmp.Close()
+        url, _ := s.obj.SignedURL(r.Context(), key, "GET", s.objConf.SignedURLTTL)
+        _ = json.NewEncoder(w).Encode(struct{ Key, URL string }{Key: key, URL: url})
+    })
+
+    s.mux.HandleFunc("/api/signed_url", func(w http.ResponseWriter, r *http.Request) {
+        addCORS(w, r)
+        if _, _, ok := s.auth(r); !ok { http.Error(w, "unauthorized", http.StatusUnauthorized); return }
+        if s.obj == nil { http.Error(w, "storage not available", http.StatusServiceUnavailable); return }
+        key := r.URL.Query().Get("key")
+        if key == "" { http.Error(w, "missing key", 400); return }
+        method := r.URL.Query().Get("op")
+        if method == "" { method = "GET" }
+        // parse expiry like 10m
+        exp := s.objConf.SignedURLTTL
+        if v := r.URL.Query().Get("ttl"); v != "" { if d, err := time.ParseDuration(v); err == nil { exp = d } }
+        url, err := s.obj.SignedURL(r.Context(), key, method, exp)
+        if err != nil { http.Error(w, err.Error(), 500); return }
+        _ = json.NewEncoder(w).Encode(struct{ URL string `json:"url"` }{URL: url})
+    })
 }
 
 // extractPack extracts a tar.gz pack into dest directory; keeps descriptors and fds
