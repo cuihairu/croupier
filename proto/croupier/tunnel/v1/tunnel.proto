@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package croupier.tunnel.v1;
+
+option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/tunnel/v1;tunnelv1";
+
+// Hello from Agent when opening the tunnel
+message Hello { string agent_id = 1; string game_id = 2; string env = 3; }
+
+// Invoke/Start frames
+message InvokeFrame {
+  string request_id = 1;
+  string function_id = 2;
+  string idempotency_key = 3;
+  bytes payload = 4;
+  map<string,string> metadata = 5;
+}
+message StartJobFrame {
+  string request_id = 1;
+  string function_id = 2;
+  string idempotency_key = 3;
+  bytes payload = 4;
+  map<string,string> metadata = 5;
+}
+message CancelJobFrame { string job_id = 1; }
+
+// Results and events
+message ResultFrame { string request_id = 1; bytes payload = 2; string error = 3; }
+message StartJobResult { string request_id = 1; string job_id = 2; string error = 3; }
+message JobEventFrame { string job_id = 1; string type = 2; string message = 3; int32 progress = 4; bytes payload = 5; }
+
+// List local instances for a function
+message ListLocalRequest { string request_id = 1; string function_id = 2; }
+message ListLocalResponse { string request_id = 1; string function_id = 2; repeated string service_ids = 3; string error = 4; }
+
+// Query job result via tunnel
+message GetJobResultRequest { string request_id = 1; string job_id = 2; }
+message GetJobResultResponse { string request_id = 1; string state = 2; bytes payload = 3; string error = 4; }
+
+// Bidirectional enveloped stream
+message TunnelMessage {
+  string type = 1;
+  Hello hello = 2;
+  ResultFrame result = 3;
+  StartJobResult start_r = 4;
+  JobEventFrame job_evt = 5;
+  ListLocalRequest list_req = 6;
+  ListLocalResponse list_res = 7;
+  GetJobResultRequest job_res_req = 8;
+  GetJobResultResponse job_res_res = 9;
+  InvokeFrame invoke = 10;
+  StartJobFrame start = 11;
+  CancelJobFrame cancel = 12;
+}
+
+service TunnelService {
+  rpc Open(stream TunnelMessage) returns (stream TunnelMessage);
+}
+

@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package croupier.edge.job.v1;
+
+option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/edge/job/v1;jobv1";
+
+message GetJobResultRequest { string job_id = 1; }
+message GetJobResultResponse { string state = 1; bytes payload = 2; string error = 3; }
+
+service JobService {
+  rpc GetJobResult(GetJobResultRequest) returns (GetJobResultResponse);
+}
+
