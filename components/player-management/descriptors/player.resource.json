@@ -1,0 +1,122 @@
+{
+  "id": "player.resource",
+  "version": "1.0.0",
+  "name": "Player Resource Management",
+  "description": "Complete CRUD operations for player management",
+  "category": "player",
+  "type": "resource",
+  "entity": {
+    "name": "player",
+    "label": "玩家",
+    "primary_key": "player_id",
+    "display_field": "username"
+  },
+  "operations": {
+    "create": {
+      "function": "player.register",
+      "label": "注册玩家",
+      "icon": "UserAddOutlined"
+    },
+    "read": {
+      "function": "player.profile.get",
+      "label": "查看详情",
+      "icon": "EyeOutlined"
+    },
+    "update": {
+      "function": "player.profile.update",
+      "label": "编辑资料",
+      "icon": "EditOutlined"
+    },
+    "delete": {
+      "function": "player.ban",
+      "label": "封禁玩家",
+      "icon": "StopOutlined",
+      "danger": true
+    },
+    "list": {
+      "function": "player.list",
+      "label": "玩家列表",
+      "icon": "TableOutlined"
+    }
+  },
+  "ui": {
+    "type": "pro-table",
+    "layout": "table",
+    "columns": [
+      {
+        "dataIndex": "player_id",
+        "title": "ID",
+        "width": 100,
+        "fixed": "left"
+      },
+      {
+        "dataIndex": "username",
+        "title": "用户名",
+        "width": 120,
+        "searchable": true
+      },
+      {
+        "dataIndex": "nickname",
+        "title": "昵称",
+        "width": 120,
+        "searchable": true
+      },
+      {
+        "dataIndex": "email",
+        "title": "邮箱",
+        "width": 200
+      },
+      {
+        "dataIndex": "region",
+        "title": "地区",
+        "width": 80,
+        "filterable": true
+      },
+      {
+        "dataIndex": "status",
+        "title": "状态",
+        "width": 80,
+        "filterable": true,
+        "render": "status_badge"
+      },
+      {
+        "dataIndex": "level",
+        "title": "等级",
+        "width": 80,
+        "sortable": true
+      },
+      {
+        "dataIndex": "created_at",
+        "title": "注册时间",
+        "width": 150,
+        "render": "datetime"
+      },
+      {
+        "dataIndex": "last_login",
+        "title": "最后登录",
+        "width": 150,
+        "render": "datetime"
+      }
+    ],
+    "actions": {
+      "toolbar": ["create"],
+      "row": ["read", "update", "delete"]
+    },
+    "features": {
+      "searchable": true,
+      "pagination": true,
+      "sortable": true,
+      "filterable": true,
+      "exportable": true
+    },
+    "batch_operations": ["delete"]
+  },
+  "auth": {
+    "permission": "player:manage",
+    "allow_if": "has_role('gm') || has_role('admin')"
+  },
+  "semantics": {
+    "cacheable": true,
+    "cache_ttl": "5m"
+  }
+}

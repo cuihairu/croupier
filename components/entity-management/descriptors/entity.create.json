@@ -1,0 +1,177 @@
+{
+  "id": "entity.create",
+  "version": "1.0.0",
+  "name": "Create Entity Definition",
+  "description": "Create a new entity definition with JSON Schema",
+  "category": "system",
+  "entity": {
+    "name": "entity",
+    "operation": "create"
+  },
+  "params": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9_.-]+$",
+        "description": "Unique entity identifier",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "name": {
+        "type": "string",
+        "description": "Human-readable entity name",
+        "maxLength": 100
+      },
+      "description": {
+        "type": "string",
+        "description": "Entity description",
+        "maxLength": 500
+      },
+      "category": {
+        "type": "string",
+        "enum": ["player", "item", "economy", "social", "system", "custom"],
+        "description": "Entity category"
+      },
+      "component": {
+        "type": "string",
+        "description": "Target component for this entity",
+        "pattern": "^[a-zA-Z0-9_-]+$"
+      },
+      "schema": {
+        "type": "object",
+        "description": "JSON Schema for entity data structure",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["object"]
+          },
+          "properties": {
+            "type": "object"
+          },
+          "required": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "operations": {
+        "type": "object",
+        "description": "Operations mapping to function IDs",
+        "properties": {
+          "create": {
+            "oneOf": [
+              {"type": "string"},
+              {"type": "array", "items": {"type": "string"}}
+            ]
+          },
+          "read": {
+            "oneOf": [
+              {"type": "string"},
+              {"type": "array", "items": {"type": "string"}}
+            ]
+          },
+          "update": {
+            "oneOf": [
+              {"type": "string"},
+              {"type": "array", "items": {"type": "string"}}
+            ]
+          },
+          "delete": {
+            "oneOf": [
+              {"type": "string"},
+              {"type": "array", "items": {"type": "string"}}
+            ]
+          },
+          "list": {
+            "oneOf": [
+              {"type": "string"},
+              {"type": "array", "items": {"type": "string"}}
+            ]
+          }
+        }
+      },
+      "ui": {
+        "type": "object",
+        "description": "UI configuration for this entity",
+        "properties": {
+          "display_field": {
+            "type": "string",
+            "description": "Primary field for display"
+          },
+          "title_template": {
+            "type": "string",
+            "description": "Template for entity title"
+          },
+          "icon_field": {
+            "type": "string",
+            "description": "Field containing icon reference"
+          },
+          "status_field": {
+            "type": "string",
+            "description": "Field indicating entity status"
+          }
+        }
+      }
+    },
+    "required": ["id", "name", "category", "component", "schema"]
+  },
+  "result": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "Created entity ID"
+      },
+      "created": {
+        "type": "boolean",
+        "description": "Whether entity was created successfully"
+      },
+      "file_path": {
+        "type": "string",
+        "description": "Path to created entity file"
+      }
+    }
+  },
+  "auth": {
+    "permission": "entities:create",
+    "allow_if": "has_role('admin') || has_role('developer')"
+  },
+  "ui": {
+    "form": {
+      "layout": "vertical",
+      "size": "large",
+      "steps": [
+        {
+          "title": "Basic Information",
+          "fields": ["id", "name", "description", "category", "component"]
+        },
+        {
+          "title": "JSON Schema",
+          "fields": ["schema"]
+        },
+        {
+          "title": "Operations Mapping",
+          "fields": ["operations"]
+        },
+        {
+          "title": "UI Configuration",
+          "fields": ["ui"]
+        }
+      ]
+    },
+    "fieldTypes": {
+      "schema": "jsoneditor",
+      "operations": "jsoneditor",
+      "ui": "jsoneditor"
+    }
+  },
+  "semantics": {
+    "idempotent": true,
+    "rate_limit": "5rps",
+    "timeout": "10s"
+  }
+}

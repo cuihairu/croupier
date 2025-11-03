@@ -1,0 +1,70 @@
+{
+  "id": "entity.preview",
+  "version": "1.0.0",
+  "name": "Preview Entity UI",
+  "description": "Generate UI configuration preview for an entity",
+  "category": "system",
+  "entity": {
+    "name": "entity",
+    "operation": "read"
+  },
+  "params": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "Entity ID to preview",
+        "pattern": "^[a-zA-Z0-9_.-]+$"
+      }
+    },
+    "required": ["id"]
+  },
+  "result": {
+    "type": "object",
+    "properties": {
+      "entity": {
+        "type": "object",
+        "description": "Entity definition"
+      },
+      "proTableConfig": {
+        "type": "object",
+        "description": "Generated ProTable configuration"
+      },
+      "proFormConfig": {
+        "type": "object",
+        "description": "Generated ProForm configuration"
+      }
+    }
+  },
+  "auth": {
+    "permission": "entities:read",
+    "allow_if": "has_role('admin') || has_role('developer') || has_role('viewer')"
+  },
+  "ui": {
+    "result": {
+      "type": "preview",
+      "tabs": [
+        {
+          "key": "table",
+          "title": "ProTable Preview",
+          "content": "proTableConfig"
+        },
+        {
+          "key": "form",
+          "title": "ProForm Preview",
+          "content": "proFormConfig"
+        },
+        {
+          "key": "raw",
+          "title": "Raw Entity",
+          "content": "entity"
+        }
+      ]
+    }
+  },
+  "semantics": {
+    "idempotent": true,
+    "rate_limit": "20rps",
+    "timeout": "5s"
+  }
+}

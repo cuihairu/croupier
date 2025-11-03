@@ -1,0 +1,114 @@
+{
+  "id": "currency.resource",
+  "version": "1.0.0",
+  "name": "Currency Resource Management",
+  "description": "Complete CRUD operations for currency management",
+  "category": "economy",
+  "type": "resource",
+  "entity": {
+    "name": "currency",
+    "label": "货币",
+    "primary_key": "currency_id",
+    "display_field": "name"
+  },
+  "operations": {
+    "create": {
+      "function": "currency.create",
+      "label": "创建货币",
+      "icon": "PlusOutlined"
+    },
+    "read": {
+      "function": "currency.get",
+      "label": "查看详情",
+      "icon": "EyeOutlined"
+    },
+    "update": {
+      "function": "currency.update",
+      "label": "编辑货币",
+      "icon": "EditOutlined"
+    },
+    "delete": {
+      "function": "currency.delete",
+      "label": "删除货币",
+      "icon": "DeleteOutlined",
+      "danger": true
+    },
+    "list": {
+      "function": "currency.list",
+      "label": "货币列表",
+      "icon": "TableOutlined"
+    }
+  },
+  "ui": {
+    "type": "pro-table",
+    "layout": "table",
+    "columns": [
+      {
+        "dataIndex": "currency_id",
+        "title": "货币ID",
+        "width": 100,
+        "fixed": "left"
+      },
+      {
+        "dataIndex": "name",
+        "title": "货币名称",
+        "width": 120,
+        "searchable": true
+      },
+      {
+        "dataIndex": "symbol",
+        "title": "符号",
+        "width": 80
+      },
+      {
+        "dataIndex": "type",
+        "title": "类型",
+        "width": 100,
+        "filterable": true
+      },
+      {
+        "dataIndex": "total_supply",
+        "title": "总发行量",
+        "width": 120,
+        "render": "number"
+      },
+      {
+        "dataIndex": "circulating_supply",
+        "title": "流通量",
+        "width": 120,
+        "render": "number"
+      },
+      {
+        "dataIndex": "enabled",
+        "title": "启用状态",
+        "width": 80,
+        "render": "boolean_icon"
+      },
+      {
+        "dataIndex": "created_at",
+        "title": "创建时间",
+        "width": 150,
+        "render": "datetime"
+      }
+    ],
+    "actions": {
+      "toolbar": ["create"],
+      "row": ["read", "update", "delete"]
+    },
+    "features": {
+      "searchable": true,
+      "pagination": true,
+      "sortable": true,
+      "filterable": true,
+      "exportable": true
+    }
+  },
+  "auth": {
+    "permission": "economy:currency:manage",
+    "allow_if": "has_role('admin')"
+  },
+  "semantics": {
+    "cacheable": true,
+    "cache_ttl": "10m"
+  }
+}

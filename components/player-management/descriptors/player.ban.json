@@ -1,0 +1,77 @@
+{
+  "id": "player.ban",
+  "version": "1.0.0",
+  "name": "Ban Player",
+  "description": "Ban a player account",
+  "category": "player",
+  "params": {
+    "type": "object",
+    "properties": {
+      "player_id": {
+        "type": "string",
+        "description": "Player ID to ban"
+      },
+      "username": {
+        "type": "string",
+        "description": "Player username (alternative to player_id)"
+      },
+      "reason": {
+        "type": "string",
+        "minLength": 5,
+        "maxLength": 500,
+        "description": "Ban reason"
+      },
+      "duration": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Ban duration in hours (0 for permanent)"
+      },
+      "ban_type": {
+        "type": "string",
+        "enum": ["temporary", "permanent"],
+        "description": "Type of ban"
+      }
+    },
+    "anyOf": [
+      {"required": ["player_id", "reason", "ban_type"]},
+      {"required": ["username", "reason", "ban_type"]}
+    ]
+  },
+  "result": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string",
+        "enum": ["success", "player_not_found", "already_banned"],
+        "description": "Ban operation status"
+      },
+      "ban_id": {
+        "type": "string",
+        "description": "Generated ban record ID"
+      },
+      "banned_until": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Ban expiration time (null for permanent)"
+      },
+      "banned_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Ban timestamp"
+      }
+    }
+  },
+  "auth": {
+    "permission": "player:ban",
+    "allow_if": "has_role('gm') || has_role('admin')"
+  },
+  "ui": {
+    "sensitive": ["reason"]
+  },
+  "semantics": {
+    "idempotent": true,
+    "rate_limit": "5rps",
+    "timeout": "20s",
+    "approval_required": true
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "id": "player-management",
+  "name": "Player Management System",
+  "version": "1.0.0",
+  "description": "Core player operations including registration, profile management, and basic player data",
+  "category": "player",
+  "dependencies": [],
+  "functions": [
+    {
+      "id": "player.register",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Register a new player account"
+    },
+    {
+      "id": "player.profile.get",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Get player profile information"
+    },
+    {
+      "id": "player.profile.update",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Update player profile information"
+    },
+    {
+      "id": "player.ban",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Ban a player (requires approval)"
+    },
+    {
+      "id": "player.unban",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Unban a player (requires approval)"
+    }
+  ],
+  "author": "Croupier Team",
+  "license": "MIT"
+}

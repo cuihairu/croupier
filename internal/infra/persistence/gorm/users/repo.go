@@ -50,7 +50,7 @@ func (r *Repo) AddUserRole(ctx context.Context, userID, roleID uint) error { ret
 func (r *Repo) RemoveUserRole(ctx context.Context, userID, roleID uint) error { return r.db.WithContext(ctx).Where("user_id = ? AND role_id = ?", userID, roleID).Delete(&UserRoleRecord{}).Error }
 func (r *Repo) ListUserRoles(ctx context.Context, userID uint) ([]*RoleRecord, error) {
     var roles []*RoleRecord
-    if err := r.db.WithContext(ctx).Raw("SELECT r.* FROM role_record r JOIN user_role_record ur ON r.id=ur.role_id WHERE ur.user_id=?", userID).Scan(&roles).Error; err != nil { return nil, err }
+    if err := r.db.WithContext(ctx).Raw("SELECT r.* FROM role_records r JOIN user_role_records ur ON r.id=ur.role_id WHERE ur.user_id=?", userID).Scan(&roles).Error; err != nil { return nil, err }
     return roles, nil
 }
 func (r *Repo) GrantRolePerm(ctx context.Context, roleID uint, perm string) error { return r.db.WithContext(ctx).Create(&RolePermRecord{RoleID: roleID, Perm: perm}).Error }
@@ -60,7 +60,7 @@ func (r *Repo) BuildPolicySnapshot(ctx context.Context) (map[string][]string, er
     // roleName -> perms
     type row struct{ Name string; Perm string }
     var rows []row
-    if err := r.db.WithContext(ctx).Raw("SELECT r.name as name, rp.perm as perm FROM role_record r JOIN role_perm_record rp ON r.id = rp.role_id").Scan(&rows).Error; err != nil { return nil, err }
+    if err := r.db.WithContext(ctx).Raw("SELECT r.name as name, rp.perm as perm FROM role_records r JOIN role_perm_records rp ON r.id = rp.role_id").Scan(&rows).Error; err != nil { return nil, err }
     out := map[string][]string{}
     for _, x := range rows { out[x.Name] = append(out[x.Name], x.Perm) }
     return out, nil

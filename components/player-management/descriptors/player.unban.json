@@ -1,0 +1,57 @@
+{
+  "id": "player.unban",
+  "version": "1.0.0",
+  "name": "Unban Player",
+  "description": "Remove ban from a player account",
+  "category": "player",
+  "params": {
+    "type": "object",
+    "properties": {
+      "player_id": {
+        "type": "string",
+        "description": "Player ID to unban"
+      },
+      "username": {
+        "type": "string",
+        "description": "Player username (alternative to player_id)"
+      },
+      "reason": {
+        "type": "string",
+        "minLength": 5,
+        "maxLength": 300,
+        "description": "Unban reason"
+      }
+    },
+    "anyOf": [
+      {"required": ["player_id", "reason"]},
+      {"required": ["username", "reason"]}
+    ]
+  },
+  "result": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string",
+        "enum": ["success", "player_not_found", "not_banned"],
+        "description": "Unban operation status"
+      },
+      "unbanned_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Unban timestamp"
+      }
+    }
+  },
+  "auth": {
+    "permission": "player:unban",
+    "allow_if": "has_role('gm') || has_role('admin')"
+  },
+  "ui": {
+    "sensitive": ["reason"]
+  },
+  "semantics": {
+    "idempotent": true,
+    "rate_limit": "5rps",
+    "timeout": "15s"
+  }
+}
