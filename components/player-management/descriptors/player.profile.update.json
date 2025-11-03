@@ -1,0 +1,61 @@
+{
+  "id": "player.profile.update",
+  "version": "1.0.0",
+  "name": "Update Player Profile",
+  "description": "Update player profile information",
+  "category": "player",
+  "params": {
+    "type": "object",
+    "properties": {
+      "player_id": {
+        "type": "string",
+        "description": "Player ID"
+      },
+      "nickname": {
+        "type": "string",
+        "maxLength": 50,
+        "description": "Player display nickname"
+      },
+      "email": {
+        "type": "string",
+        "format": "email",
+        "description": "Player email address"
+      },
+      "birth_date": {
+        "type": "string",
+        "format": "date",
+        "description": "Player birth date (YYYY-MM-DD)"
+      },
+      "region": {
+        "type": "string",
+        "enum": ["CN", "US", "EU", "JP", "KR", "SEA"],
+        "description": "Player region"
+      }
+    },
+    "required": ["player_id"]
+  },
+  "result": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string",
+        "enum": ["success", "player_not_found", "invalid_data"],
+        "description": "Update status"
+      },
+      "updated_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Profile update timestamp"
+      }
+    }
+  },
+  "auth": {
+    "permission": "player:write",
+    "allow_if": "has_role('gm') || has_role('admin')"
+  },
+  "semantics": {
+    "idempotent": true,
+    "rate_limit": "10rps",
+    "timeout": "15s"
+  }
+}

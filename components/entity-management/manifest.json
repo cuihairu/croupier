@@ -1,0 +1,42 @@
+{
+  "id": "entity-management",
+  "name": "Entity Management",
+  "version": "1.0.0",
+  "description": "Virtual object definition and management system",
+  "category": "system",
+  "dependencies": [],
+  "functions": [
+    {
+      "id": "entity.resource",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Entity definition management operations"
+    },
+    {
+      "id": "entity.create",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Create new entity definition"
+    },
+    {
+      "id": "entity.update",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Update entity definition"
+    },
+    {
+      "id": "entity.preview",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Preview entity UI configuration"
+    },
+    {
+      "id": "schema.validate",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Validate JSON schema"
+    }
+  ],
+  "author": "Croupier Team",
+  "license": "MIT"
+}

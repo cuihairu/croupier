@@ -1,0 +1,43 @@
+{
+  "id": "item.get",
+  "version": "1.0.0",
+  "name": "Get Item",
+  "description": "Get item template details",
+  "category": "item",
+  "params": {
+    "type": "object",
+    "properties": {
+      "item_id": {
+        "type": "string",
+        "description": "Item ID"
+      }
+    },
+    "required": ["item_id"]
+  },
+  "result": {
+    "type": "object",
+    "properties": {
+      "item_id": {"type": "string"},
+      "name": {"type": "string"},
+      "type": {"type": "string"},
+      "rarity": {"type": "string"},
+      "description": {"type": "string"},
+      "properties": {"type": "object"},
+      "stackable": {"type": "boolean"},
+      "max_stack": {"type": "integer"},
+      "tradeable": {"type": "boolean"},
+      "icon": {"type": "string"},
+      "created_at": {"type": "string", "format": "date-time"},
+      "updated_at": {"type": "string", "format": "date-time"}
+    }
+  },
+  "auth": {
+    "permission": "item:read",
+    "allow_if": "has_role('gm') || has_role('admin')"
+  },
+  "semantics": {
+    "idempotent": true,
+    "rate_limit": "50rps",
+    "timeout": "5s"
+  }
+}

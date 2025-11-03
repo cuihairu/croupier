@@ -1,0 +1,83 @@
+{
+  "id": "player.entity",
+  "version": "1.0.0",
+  "name": "Player Entity",
+  "description": "Player business object definition",
+  "type": "entity",
+  "category": "player",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "player_id": {
+        "type": "string",
+        "description": "Unique player identifier",
+        "primary_key": true
+      },
+      "username": {
+        "type": "string",
+        "description": "Player username",
+        "unique": true,
+        "searchable": true
+      },
+      "nickname": {
+        "type": "string",
+        "description": "Display nickname",
+        "searchable": true
+      },
+      "email": {
+        "type": "string",
+        "format": "email",
+        "description": "Email address",
+        "unique": true
+      },
+      "region": {
+        "type": "string",
+        "enum": ["CN", "US", "EU", "JP", "KR", "SEA"],
+        "description": "Player region",
+        "filterable": true
+      },
+      "status": {
+        "type": "string",
+        "enum": ["active", "banned", "suspended"],
+        "description": "Account status",
+        "filterable": true
+      },
+      "level": {
+        "type": "integer",
+        "description": "Player level",
+        "sortable": true
+      },
+      "experience": {
+        "type": "integer",
+        "description": "Experience points"
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Registration time",
+        "sortable": true
+      },
+      "last_login": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Last login time",
+        "sortable": true
+      }
+    },
+    "required": ["player_id", "username", "email"]
+  },
+  "operations": {
+    "create": ["player.register"],
+    "read": ["player.profile.get"],
+    "update": ["player.profile.update"],
+    "delete": ["player.ban"],
+    "list": ["player.list"],
+    "unban": ["player.unban"]
+  },
+  "ui": {
+    "display_field": "username",
+    "title_template": "{username} ({nickname})",
+    "avatar_field": "avatar_url",
+    "status_field": "status"
+  }
+}

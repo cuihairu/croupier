@@ -1,0 +1,60 @@
+{
+  "id": "item-management",
+  "name": "Item Management",
+  "version": "1.0.0",
+  "description": "Game item and inventory management system",
+  "category": "item",
+  "dependencies": ["player-management"],
+  "functions": [
+    {
+      "id": "item.create",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Create a new item template"
+    },
+    {
+      "id": "item.get",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Get item template information"
+    },
+    {
+      "id": "item.update",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Update item template"
+    },
+    {
+      "id": "item.delete",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Delete item template"
+    },
+    {
+      "id": "inventory.add",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Add items to player inventory"
+    },
+    {
+      "id": "inventory.remove",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Remove items from player inventory"
+    },
+    {
+      "id": "inventory.get",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Get player inventory"
+    },
+    {
+      "id": "inventory.transfer",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Transfer items between players"
+    }
+  ],
+  "author": "Croupier Team",
+  "license": "MIT"
+}

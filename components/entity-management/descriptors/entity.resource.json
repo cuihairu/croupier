@@ -1,0 +1,142 @@
+{
+  "id": "entity.resource",
+  "version": "1.0.0",
+  "name": "Entity Management Operations",
+  "description": "Entity definition management resource configuration",
+  "type": "resource",
+  "category": "system",
+  "operations": {
+    "create": {
+      "function": "entity.create",
+      "title": "Create Entity",
+      "description": "Create a new entity definition"
+    },
+    "read": {
+      "function": "entity.get",
+      "title": "Get Entity",
+      "description": "Get entity definition details"
+    },
+    "update": {
+      "function": "entity.update",
+      "title": "Update Entity",
+      "description": "Update entity definition"
+    },
+    "delete": {
+      "function": "entity.delete",
+      "title": "Delete Entity",
+      "description": "Delete entity definition"
+    },
+    "list": {
+      "function": "entity.list",
+      "title": "List Entities",
+      "description": "List all entity definitions"
+    },
+    "validate": {
+      "function": "entity.validate",
+      "title": "Validate Entity",
+      "description": "Validate entity definition"
+    },
+    "preview": {
+      "function": "entity.preview",
+      "title": "Preview Entity UI",
+      "description": "Preview entity UI configuration"
+    }
+  },
+  "ui": {
+    "type": "pro-table",
+    "title": "Entity Management",
+    "description": "Manage virtual object definitions",
+    "columns": [
+      {
+        "dataIndex": "id",
+        "title": "Entity ID",
+        "key": "id",
+        "search": true,
+        "sorter": true,
+        "fixed": "left",
+        "width": 150
+      },
+      {
+        "dataIndex": "name",
+        "title": "Name",
+        "key": "name",
+        "search": true,
+        "sorter": true,
+        "width": 200
+      },
+      {
+        "dataIndex": "category",
+        "title": "Category",
+        "key": "category",
+        "filters": [
+          {"text": "Player", "value": "player"},
+          {"text": "Item", "value": "item"},
+          {"text": "Economy", "value": "economy"},
+          {"text": "Social", "value": "social"},
+          {"text": "System", "value": "system"}
+        ],
+        "width": 120
+      },
+      {
+        "dataIndex": "component",
+        "title": "Component",
+        "key": "component",
+        "search": true,
+        "width": 150
+      },
+      {
+        "dataIndex": "description",
+        "title": "Description",
+        "key": "description",
+        "ellipsis": true,
+        "width": 300
+      },
+      {
+        "dataIndex": "version",
+        "title": "Version",
+        "key": "version",
+        "width": 100
+      }
+    ],
+    "search": {
+      "placeholder": "Search entities..."
+    },
+    "pagination": {
+      "pageSize": 20,
+      "showSizeChanger": true,
+      "showQuickJumper": true
+    },
+    "actions": ["create", "edit", "delete", "preview"],
+    "toolBarRender": [
+      {
+        "key": "create",
+        "type": "primary",
+        "text": "Create Entity"
+      },
+      {
+        "key": "validate",
+        "type": "default",
+        "text": "Validate Schema"
+      }
+    ],
+    "rowActions": [
+      {
+        "key": "edit",
+        "text": "Edit",
+        "type": "link"
+      },
+      {
+        "key": "preview",
+        "text": "Preview UI",
+        "type": "link"
+      },
+      {
+        "key": "delete",
+        "text": "Delete",
+        "type": "link",
+        "danger": true,
+        "confirm": "Are you sure you want to delete this entity?"
+      }
+    ]
+  }
+}

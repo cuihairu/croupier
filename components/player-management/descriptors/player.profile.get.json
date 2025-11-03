@@ -1,0 +1,86 @@
+{
+  "id": "player.profile.get",
+  "version": "1.0.0",
+  "name": "Get Player Profile",
+  "description": "Get player profile information",
+  "category": "player",
+  "params": {
+    "type": "object",
+    "properties": {
+      "player_id": {
+        "type": "string",
+        "description": "Player ID"
+      },
+      "username": {
+        "type": "string",
+        "description": "Player username (alternative to player_id)"
+      }
+    },
+    "anyOf": [
+      {"required": ["player_id"]},
+      {"required": ["username"]}
+    ]
+  },
+  "result": {
+    "type": "object",
+    "properties": {
+      "player_id": {
+        "type": "string",
+        "description": "Player ID"
+      },
+      "username": {
+        "type": "string",
+        "description": "Player username"
+      },
+      "nickname": {
+        "type": "string",
+        "description": "Player display nickname"
+      },
+      "email": {
+        "type": "string",
+        "description": "Player email address"
+      },
+      "birth_date": {
+        "type": "string",
+        "format": "date",
+        "description": "Player birth date"
+      },
+      "region": {
+        "type": "string",
+        "description": "Player region"
+      },
+      "status": {
+        "type": "string",
+        "enum": ["active", "banned", "suspended"],
+        "description": "Player account status"
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Account creation timestamp"
+      },
+      "last_login": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Last login timestamp"
+      },
+      "level": {
+        "type": "integer",
+        "description": "Player level"
+      },
+      "experience": {
+        "type": "integer",
+        "description": "Player experience points"
+      }
+    }
+  },
+  "auth": {
+    "permission": "player:read",
+    "allow_if": "has_role('gm') || has_role('admin') || has_role('cs')"
+  },
+  "semantics": {
+    "idempotent": true,
+    "rate_limit": "20rps",
+    "timeout": "10s"
+  }
+}

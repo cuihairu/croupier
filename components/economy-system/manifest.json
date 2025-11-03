@@ -1,0 +1,42 @@
+{
+  "id": "economy-system",
+  "name": "Virtual Economy System",
+  "version": "1.0.0",
+  "description": "Virtual currency, item trading, and marketplace functionality",
+  "category": "economy",
+  "dependencies": ["player-management"],
+  "functions": [
+    {
+      "id": "economy.currency.add",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Add virtual currency to player account"
+    },
+    {
+      "id": "economy.currency.deduct",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Deduct virtual currency from player account"
+    },
+    {
+      "id": "economy.item.grant",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Grant item to player inventory"
+    },
+    {
+      "id": "economy.trade.create",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "Create trade offer between players"
+    },
+    {
+      "id": "economy.marketplace.list",
+      "version": "1.0.0",
+      "enabled": true,
+      "description": "List items on marketplace"
+    }
+  ],
+  "author": "Croupier Team",
+  "license": "MIT"
+}

@@ -1,0 +1,97 @@
+{
+  "id": "entity.update",
+  "version": "1.0.0",
+  "name": "Update Entity Definition",
+  "description": "Update an existing entity definition",
+  "category": "system",
+  "entity": {
+    "name": "entity",
+    "operation": "update"
+  },
+  "params": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "Entity ID to update",
+        "pattern": "^[a-zA-Z0-9_.-]+$"
+      },
+      "name": {
+        "type": "string",
+        "description": "Human-readable entity name",
+        "maxLength": 100
+      },
+      "description": {
+        "type": "string",
+        "description": "Entity description",
+        "maxLength": 500
+      },
+      "category": {
+        "type": "string",
+        "enum": ["player", "item", "economy", "social", "system", "custom"],
+        "description": "Entity category"
+      },
+      "schema": {
+        "type": "object",
+        "description": "JSON Schema for entity data structure",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["object"]
+          },
+          "properties": {
+            "type": "object"
+          },
+          "required": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "operations": {
+        "type": "object",
+        "description": "Operations mapping to function IDs"
+      },
+      "ui": {
+        "type": "object",
+        "description": "UI configuration for this entity"
+      }
+    },
+    "required": ["id"]
+  },
+  "result": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "Updated entity ID"
+      },
+      "updated": {
+        "type": "boolean",
+        "description": "Whether entity was updated successfully"
+      }
+    }
+  },
+  "auth": {
+    "permission": "entities:update",
+    "allow_if": "has_role('admin') || has_role('developer')"
+  },
+  "ui": {
+    "form": {
+      "layout": "vertical",
+      "size": "large"
+    },
+    "fieldTypes": {
+      "schema": "jsoneditor",
+      "operations": "jsoneditor",
+      "ui": "jsoneditor"
+    }
+  },
+  "semantics": {
+    "idempotent": true,
+    "rate_limit": "5rps",
+    "timeout": "10s"
+  }
+}

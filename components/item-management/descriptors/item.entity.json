@@ -1,0 +1,84 @@
+{
+  "id": "item.entity",
+  "version": "1.0.0",
+  "name": "Item Entity",
+  "description": "Item template business object definition",
+  "type": "entity",
+  "category": "item",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "item_id": {
+        "type": "string",
+        "description": "Unique item identifier",
+        "primary_key": true
+      },
+      "name": {
+        "type": "string",
+        "description": "Item name",
+        "searchable": true
+      },
+      "type": {
+        "type": "string",
+        "enum": ["weapon", "armor", "consumable", "material", "quest", "currency"],
+        "description": "Item type",
+        "filterable": true
+      },
+      "rarity": {
+        "type": "string",
+        "enum": ["common", "uncommon", "rare", "epic", "legendary"],
+        "description": "Item rarity",
+        "filterable": true
+      },
+      "description": {
+        "type": "string",
+        "description": "Item description"
+      },
+      "properties": {
+        "type": "object",
+        "description": "Item-specific properties"
+      },
+      "stackable": {
+        "type": "boolean",
+        "description": "Whether item can be stacked"
+      },
+      "max_stack": {
+        "type": "integer",
+        "description": "Maximum stack size"
+      },
+      "tradeable": {
+        "type": "boolean",
+        "description": "Whether item can be traded"
+      },
+      "icon": {
+        "type": "string",
+        "description": "Item icon"
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Creation time",
+        "sortable": true
+      },
+      "updated_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Last update time"
+      }
+    },
+    "required": ["item_id", "name", "type", "rarity"]
+  },
+  "operations": {
+    "create": ["item.create"],
+    "read": ["item.get"],
+    "update": ["item.update"],
+    "delete": ["item.delete"],
+    "list": ["item.list"]
+  },
+  "ui": {
+    "display_field": "name",
+    "title_template": "{name} ({type})",
+    "icon_field": "icon",
+    "status_field": "rarity"
+  }
+}

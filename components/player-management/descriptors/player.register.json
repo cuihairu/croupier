@@ -1,0 +1,78 @@
+{
+  "id": "player.register",
+  "version": "1.0.0",
+  "name": "Player Registration",
+  "description": "Register a new player account",
+  "category": "player",
+  "entity": {
+    "name": "player",
+    "operation": "create"
+  },
+  "params": {
+    "type": "object",
+    "properties": {
+      "username": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9_]{3,16}$",
+        "description": "Player username (3-16 alphanumeric characters)"
+      },
+      "email": {
+        "type": "string",
+        "format": "email",
+        "description": "Player email address"
+      },
+      "password": {
+        "type": "string",
+        "minLength": 8,
+        "description": "Player password (min 8 characters)"
+      },
+      "nickname": {
+        "type": "string",
+        "maxLength": 50,
+        "description": "Player display nickname"
+      },
+      "birth_date": {
+        "type": "string",
+        "format": "date",
+        "description": "Player birth date (YYYY-MM-DD)"
+      },
+      "region": {
+        "type": "string",
+        "enum": ["CN", "US", "EU", "JP", "KR", "SEA"],
+        "description": "Player region"
+      }
+    },
+    "required": ["username", "email", "password"]
+  },
+  "result": {
+    "type": "object",
+    "properties": {
+      "player_id": {
+        "type": "string",
+        "description": "Generated player ID"
+      },
+      "status": {
+        "type": "string",
+        "enum": ["success", "duplicate_username", "duplicate_email", "invalid_data"],
+        "description": "Registration status"
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "description": "Account creation timestamp"
+      }
+    }
+  },
+  "auth": {
+    "permission": "player:register",
+    "allow_if": "has_role('gm') || has_role('admin')"
+  },
+  "ui": {
+    "sensitive": ["password"]
+  },
+  "semantics": {
+    "idempotent": true,
+    "rate_limit": "10rps",
+    "timeout": "30s"
+  }
+}

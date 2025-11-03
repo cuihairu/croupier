@@ -39,6 +39,7 @@ import (
 	"github.com/cuihairu/croupier/internal/server/games"
 	"github.com/cuihairu/croupier/internal/server/registry"
 	"github.com/cuihairu/croupier/internal/validation"
+	entityvalidation "github.com/cuihairu/croupier/internal/validation"
 	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
 	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	"google.golang.org/grpc"
@@ -96,9 +97,10 @@ type Server struct {
 	// games metadata via GORM (postgres preferred, else sqlite)
 	gdb *gorm.DB
 
-	obj     obj.Store
-	objConf obj.Config
-	httpSrv *http.Server
+	obj           obj.Store
+	objConf       obj.Config
+	httpSrv       *http.Server
+	componentMgr  *pack.ComponentManager
 }
 
 // can checks permission for user or any of their roles.
@@ -280,6 +282,11 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
 				}
 			}
 		}
+	}
+	// Initialize component manager for managing function components
+	s.componentMgr = pack.NewComponentManager("data")
+	if err := s.componentMgr.LoadRegistry(); err != nil {
+		log.Printf("[components] failed to load registry: %v", err)
 	}
 	// All routes are defined in Gin engine now; no legacy mux routes
 	return s, nil
@@ -564,7 +571,7 @@ func (s *Server) ginLogger() gin.HandlerFunc {
 	}
 }
 
-// seedDefaultsIfEmpty creates default roles and an optional admin user when tables are empty.
+// seedDefaultsIfEmpty creates default roles and an admin user when tables are empty.
 func (s *Server) seedDefaultsIfEmpty() error {
 	if s.userRepo == nil {
 		return nil
@@ -573,18 +580,34 @@ func (s *Server) seedDefaultsIfEmpty() error {
     var admin usersgorm.RoleRecord
     if err := s.gdb.Where("name = ?", "admin").First(&admin).Error; err != nil {
         admin = usersgorm.RoleRecord{Name: "admin", Description: "Administrator"}
-        if err2 := s.gdb.Create(&admin).Error; err2 == nil { _ = s.userRepo.GrantRolePerm(context.Background(), admin.ID, "*") }
+        if err2 := s.gdb.Create(&admin).Error; err2 == nil {
+            _ = s.userRepo.GrantRolePerm(context.Background(), admin.ID, "*")
+        }
     }
-    // Optionally ensure admin user exists (dev only)
-    if os.Getenv("CROUPIER_DEV_SEED") == "1" {
-        var cnt int64
-        _ = s.gdb.Model(&usersgorm.UserAccount{}).Where("username = ?", "admin").Count(&cnt).Error
-        if cnt == 0 {
-            u := &usersgorm.UserAccount{Username: "admin", DisplayName: "Administrator", Active: true}
-            if err := s.userRepo.CreateUser(context.Background(), u); err == nil {
-                _ = s.userRepo.SetPassword(context.Background(), u.ID, "admin")
-                _ = s.userRepo.AddUserRole(context.Background(), u.ID, admin.ID)
-            }
+
+    // Check if admin user exists and has password
+    var adminUser usersgorm.UserAccount
+    err := s.gdb.Where("username = ?", "admin").First(&adminUser).Error
+    if err != nil {
+        // No admin user, create one
+        slog.Info("No admin user found, creating default admin user")
+        u := &usersgorm.UserAccount{Username: "admin", DisplayName: "Administrator", Active: true}
+        if err := s.userRepo.CreateUser(context.Background(), u); err == nil {
+            _ = s.userRepo.SetPassword(context.Background(), u.ID, "admin")
+            _ = s.userRepo.AddUserRole(context.Background(), u.ID, admin.ID)
+            slog.Info("Default admin user created", "username", "admin", "password", "admin")
+        } else {
+            slog.Error("Failed to create default admin user", "error", err)
+        }
+    } else if adminUser.PasswordHash == "" {
+        // Admin user exists but has no password
+        slog.Info("Admin user exists but has no password, setting default password")
+        if err := s.userRepo.SetPassword(context.Background(), adminUser.ID, "admin"); err == nil {
+            // Ensure admin has admin role
+            _ = s.userRepo.AddUserRole(context.Background(), adminUser.ID, admin.ID)
+            slog.Info("Admin user password set", "username", "admin", "password", "admin")
+        } else {
+            slog.Error("Failed to set admin user password", "error", err)
         }
     }
 	return nil
@@ -1302,6 +1325,681 @@ func (s *Server) ginEngine() *gin.Engine {
 		}
 		_ = s.typeReg.LoadFDSFromDir(s.packDir)
 		c.JSON(200, gin.H{"ok": true})
+	})
+
+	// Function Components Management
+	r.GET("/api/components", func(c *gin.Context) {
+		addCORS(c.Writer, c.Request)
+		user, roles, ok := s.auth(c.Request)
+		if !ok {
+			c.String(401, "unauthorized")
+			return
+		}
+		if !s.can(user, roles, "components:read") {
+			c.String(403, "forbidden")
+			return
+		}
+
+		category := c.Query("category")
+		var result any
+
+		if category != "" {
+			result = s.componentMgr.ListByCategory(category)
+		} else {
+			result = gin.H{
+				"installed": s.componentMgr.ListInstalled(),
+				"disabled":  s.componentMgr.ListDisabled(),
+			}
+		}
+
+		c.JSON(200, gin.H{"components": result})
+	})
+
+	r.POST("/api/components/install", func(c *gin.Context) {
+		addCORS(c.Writer, c.Request)
+		user, roles, ok := s.auth(c.Request)
+		if !ok {
+			c.String(401, "unauthorized")
+			return
+		}
+		if !s.can(user, roles, "components:install") {
+			c.String(403, "forbidden")
+			return
+		}
+
+		if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
+			c.String(400, err.Error())
+			return
+		}
+
+		f, hdr, err := c.Request.FormFile("file")
+		if err != nil {
+			c.String(400, "missing file")
+			return
+		}
+		defer f.Close()
+
+		tmpPath := filepath.Join(os.TempDir(), hdr.Filename)
+		out, err := os.Create(tmpPath)
+		if err != nil {
+			c.String(500, err.Error())
+			return
+		}
+
+		if _, err := io.Copy(out, f); err != nil {
+			out.Close()
+			c.String(500, err.Error())
+			return
+		}
+		_ = out.Close()
+
+		if err := extractPack(tmpPath, "components/staging"); err != nil {
+			c.String(500, err.Error())
+			return
+		}
+
+		if err := s.componentMgr.InstallComponent("components/staging"); err != nil {
+			c.String(500, err.Error())
+			return
+		}
+
+		c.JSON(200, gin.H{"ok": true})
+	})
+
+	r.DELETE("/api/components/:id", func(c *gin.Context) {
+		addCORS(c.Writer, c.Request)
+		user, roles, ok := s.auth(c.Request)
+		if !ok {
+			c.String(401, "unauthorized")
+			return
+		}
+		if !s.can(user, roles, "components:uninstall") {
+			c.String(403, "forbidden")
+			return
+		}
+
+		componentID := c.Param("id")
+		if err := s.componentMgr.UninstallComponent(componentID); err != nil {
+			c.String(500, err.Error())
+			return
+		}
+
+		c.JSON(200, gin.H{"ok": true})
+	})
+
+	r.POST("/api/components/:id/enable", func(c *gin.Context) {
+		addCORS(c.Writer, c.Request)
+		user, roles, ok := s.auth(c.Request)
+		if !ok {
+			c.String(401, "unauthorized")
+			return
+		}
+		if !s.can(user, roles, "components:manage") {
+			c.String(403, "forbidden")
+			return
+		}
+
+		componentID := c.Param("id")
+		if err := s.componentMgr.EnableComponent(componentID); err != nil {
+			c.String(500, err.Error())
+			return
+		}
+
+		c.JSON(200, gin.H{"ok": true})
+	})
+
+	r.POST("/api/components/:id/disable", func(c *gin.Context) {
+		addCORS(c.Writer, c.Request)
+		user, roles, ok := s.auth(c.Request)
+		if !ok {
+			c.String(401, "unauthorized")
+			return
+		}
+		if !s.can(user, roles, "components:manage") {
+			c.String(403, "forbidden")
+			return
+		}
+
+		componentID := c.Param("id")
+		if err := s.componentMgr.DisableComponent(componentID); err != nil {
+			c.String(500, err.Error())
+			return
+		}
+
+		c.JSON(200, gin.H{"ok": true})
+	})
+
+	// Entity Management APIs
+	r.GET("/api/entities", func(c *gin.Context) {
+		addCORS(c.Writer, c.Request)
+		user, roles, ok := s.auth(c.Request)
+		if !ok {
+			c.String(401, "unauthorized")
+			return
+		}
+		if !s.can(user, roles, "entities:read") {
+			c.String(403, "forbidden")
+			return
+		}
+
+		// Load all entity definitions from components
+		entities := []map[string]any{}
+
+		// Scan all component directories for entity definitions
+		componentsDir := "components"
+		if _, err := os.Stat(componentsDir); os.IsNotExist(err) {
+			c.JSON(200, gin.H{"entities": entities})
+			return
+		}
+
+		entries, err := os.ReadDir(componentsDir)
+		if err != nil {
+			c.String(500, err.Error())
+			return
+		}
+
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+
+			descriptorsDir := filepath.Join(componentsDir, entry.Name(), "descriptors")
+			if _, err := os.Stat(descriptorsDir); os.IsNotExist(err) {
+				continue
+			}
+
+			descriptorFiles, err := os.ReadDir(descriptorsDir)
+			if err != nil {
+				continue
+			}
+
+			for _, file := range descriptorFiles {
+				if !strings.HasSuffix(file.Name(), ".entity.json") {
+					continue
+				}
+
+				entityPath := filepath.Join(descriptorsDir, file.Name())
+				entityData, err := os.ReadFile(entityPath)
+				if err != nil {
+					continue
+				}
+
+				var entity map[string]any
+				if err := json.Unmarshal(entityData, &entity); err != nil {
+					continue
+				}
+
+				// Add component info
+				entity["component"] = entry.Name()
+				entities = append(entities, entity)
+			}
+		}
+
+		c.JSON(200, gin.H{"entities": entities})
+	})
+
+	r.POST("/api/entities", func(c *gin.Context) {
+		addCORS(c.Writer, c.Request)
+		user, roles, ok := s.auth(c.Request)
+		if !ok {
+			c.String(401, "unauthorized")
+			return
+		}
+		if !s.can(user, roles, "entities:create") {
+			c.String(403, "forbidden")
+			return
+		}
+
+		var entity map[string]any
+		if err := c.BindJSON(&entity); err != nil {
+			c.String(400, err.Error())
+			return
+		}
+
+		// Validate required fields
+		id, ok := entity["id"].(string)
+		if !ok || id == "" {
+			c.String(400, "missing or invalid entity id")
+			return
+		}
+
+		entityType, ok := entity["type"].(string)
+		if !ok || entityType != "entity" {
+			c.String(400, "type must be 'entity'")
+			return
+		}
+
+		// Determine target component
+		component, ok := entity["component"].(string)
+		if !ok || component == "" {
+			c.String(400, "missing component")
+			return
+		}
+
+		// Create entity file
+		componentDir := filepath.Join("components", component)
+		descriptorsDir := filepath.Join(componentDir, "descriptors")
+
+		if err := os.MkdirAll(descriptorsDir, 0755); err != nil {
+			c.String(500, err.Error())
+			return
+		}
+
+		// Remove component field from entity data before saving
+		delete(entity, "component")
+
+		entityData, err := json.MarshalIndent(entity, "", "  ")
+		if err != nil {
+			c.String(500, err.Error())
+			return
+		}
+
+		entityFile := filepath.Join(descriptorsDir, id+".json")
+		if err := os.WriteFile(entityFile, entityData, 0644); err != nil {
+			c.String(500, err.Error())
+			return
+		}
+
+		c.JSON(200, gin.H{"id": id, "created": true})
+	})
+
+	r.GET("/api/entities/:id", func(c *gin.Context) {
+		addCORS(c.Writer, c.Request)
+		user, roles, ok := s.auth(c.Request)
+		if !ok {
+			c.String(401, "unauthorized")
+			return
+		}
+		if !s.can(user, roles, "entities:read") {
+			c.String(403, "forbidden")
+			return
+		}
+
+		entityID := c.Param("id")
+
+		// Search for entity in all components
+		componentsDir := "components"
+		entries, err := os.ReadDir(componentsDir)
+		if err != nil {
+			c.String(500, err.Error())
+			return
+		}
+
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+
+			entityPath := filepath.Join(componentsDir, entry.Name(), "descriptors", entityID+".json")
+			if _, err := os.Stat(entityPath); os.IsNotExist(err) {
+				continue
+			}
+
+			entityData, err := os.ReadFile(entityPath)
+			if err != nil {
+				continue
+			}
+
+			var entity map[string]any
+			if err := json.Unmarshal(entityData, &entity); err != nil {
+				continue
+			}
+
+			// Add component info
+			entity["component"] = entry.Name()
+			c.JSON(200, entity)
+			return
+		}
+
+		c.String(404, "entity not found")
+	})
+
+	r.PUT("/api/entities/:id", func(c *gin.Context) {
+		addCORS(c.Writer, c.Request)
+		user, roles, ok := s.auth(c.Request)
+		if !ok {
+			c.String(401, "unauthorized")
+			return
+		}
+		if !s.can(user, roles, "entities:update") {
+			c.String(403, "forbidden")
+			return
+		}
+
+		entityID := c.Param("id")
+		var entity map[string]any
+		if err := c.BindJSON(&entity); err != nil {
+			c.String(400, err.Error())
+			return
+		}
+
+		// Find existing entity
+		componentsDir := "components"
+		entries, err := os.ReadDir(componentsDir)
+		if err != nil {
+			c.String(500, err.Error())
+			return
+		}
+
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+
+			entityPath := filepath.Join(componentsDir, entry.Name(), "descriptors", entityID+".json")
+			if _, err := os.Stat(entityPath); os.IsNotExist(err) {
+				continue
+			}
+
+			// Remove component field from entity data before saving
+			delete(entity, "component")
+
+			// Ensure ID matches
+			entity["id"] = entityID
+
+			entityData, err := json.MarshalIndent(entity, "", "  ")
+			if err != nil {
+				c.String(500, err.Error())
+				return
+			}
+
+			if err := os.WriteFile(entityPath, entityData, 0644); err != nil {
+				c.String(500, err.Error())
+				return
+			}
+
+			c.JSON(200, gin.H{"id": entityID, "updated": true})
+			return
+		}
+
+		c.String(404, "entity not found")
+	})
+
+	r.DELETE("/api/entities/:id", func(c *gin.Context) {
+		addCORS(c.Writer, c.Request)
+		user, roles, ok := s.auth(c.Request)
+		if !ok {
+			c.String(401, "unauthorized")
+			return
+		}
+		if !s.can(user, roles, "entities:delete") {
+			c.String(403, "forbidden")
+			return
+		}
+
+		entityID := c.Param("id")
+
+		// Find and delete entity
+		componentsDir := "components"
+		entries, err := os.ReadDir(componentsDir)
+		if err != nil {
+			c.String(500, err.Error())
+			return
+		}
+
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+
+			entityPath := filepath.Join(componentsDir, entry.Name(), "descriptors", entityID+".json")
+			if _, err := os.Stat(entityPath); os.IsNotExist(err) {
+				continue
+			}
+
+			if err := os.Remove(entityPath); err != nil {
+				c.String(500, err.Error())
+				return
+			}
+
+			c.JSON(200, gin.H{"id": entityID, "deleted": true})
+			return
+		}
+
+		c.String(404, "entity not found")
+	})
+
+	r.POST("/api/entities/validate", func(c *gin.Context) {
+		addCORS(c.Writer, c.Request)
+		user, roles, ok := s.auth(c.Request)
+		if !ok {
+			c.String(401, "unauthorized")
+			return
+		}
+		if !s.can(user, roles, "entities:read") {
+			c.String(403, "forbidden")
+			return
+		}
+
+		var entity map[string]any
+		if err := c.BindJSON(&entity); err != nil {
+			c.String(400, err.Error())
+			return
+		}
+
+		// Use the enhanced validation function
+		errors := entityvalidation.ValidateEntityDefinition(entity)
+
+		c.JSON(200, gin.H{
+			"valid":  len(errors) == 0,
+			"errors": errors,
+		})
+	})
+
+	r.POST("/api/entities/:id/preview", func(c *gin.Context) {
+		addCORS(c.Writer, c.Request)
+		user, roles, ok := s.auth(c.Request)
+		if !ok {
+			c.String(401, "unauthorized")
+			return
+		}
+		if !s.can(user, roles, "entities:read") {
+			c.String(403, "forbidden")
+			return
+		}
+
+		entityID := c.Param("id")
+
+		// Find entity
+		componentsDir := "components"
+		entries, err := os.ReadDir(componentsDir)
+		if err != nil {
+			c.String(500, err.Error())
+			return
+		}
+
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+
+			entityPath := filepath.Join(componentsDir, entry.Name(), "descriptors", entityID+".json")
+			if _, err := os.Stat(entityPath); os.IsNotExist(err) {
+				continue
+			}
+
+			entityData, err := os.ReadFile(entityPath)
+			if err != nil {
+				continue
+			}
+
+			var entity map[string]any
+			if err := json.Unmarshal(entityData, &entity); err != nil {
+				continue
+			}
+
+			// Generate ProTable configuration
+			proTableConfig := map[string]any{
+				"columns": []map[string]any{},
+				"search": map[string]any{"placeholder": "Search " + entityID},
+				"pagination": map[string]any{"pageSize": 20},
+			}
+
+			// Generate ProForm configuration
+			proFormConfig := map[string]any{
+				"layout": "vertical",
+				"submitter": map[string]any{
+					"searchConfig": map[string]any{"submitText": "Save"},
+				},
+			}
+
+			// Extract schema properties for column/form generation
+			if schema, ok := entity["schema"].(map[string]any); ok {
+				if properties, ok := schema["properties"].(map[string]any); ok {
+					columns := []map[string]any{}
+					formItems := []map[string]any{}
+
+					for fieldName, fieldDef := range properties {
+						if fieldDefMap, ok := fieldDef.(map[string]any); ok {
+							fieldType, _ := fieldDefMap["type"].(string)
+							description, _ := fieldDefMap["description"].(string)
+
+							// ProTable column
+							column := map[string]any{
+								"dataIndex": fieldName,
+								"title":     description,
+								"key":       fieldName,
+							}
+
+							// Add special handling based on field properties
+							if searchable, ok := fieldDefMap["searchable"].(bool); ok && searchable {
+								column["search"] = true
+							}
+							if sortable, ok := fieldDefMap["sortable"].(bool); ok && sortable {
+								column["sorter"] = true
+							}
+							if filterable, ok := fieldDefMap["filterable"].(bool); ok && filterable {
+								if enum, ok := fieldDefMap["enum"].([]any); ok {
+									options := []map[string]any{}
+									for _, v := range enum {
+										if s, ok := v.(string); ok {
+											options = append(options, map[string]any{
+												"text": s, "value": s,
+											})
+										}
+									}
+									column["filters"] = options
+								}
+							}
+
+							columns = append(columns, column)
+
+							// ProForm item
+							formItem := map[string]any{
+								"name":  fieldName,
+								"label": description,
+								"rules": []map[string]any{},
+							}
+
+							// Determine form field type
+							switch fieldType {
+							case "string":
+								if enum, ok := fieldDefMap["enum"].([]any); ok {
+									formItem["valueType"] = "select"
+									options := []map[string]any{}
+									for _, v := range enum {
+										if s, ok := v.(string); ok {
+											options = append(options, map[string]any{
+												"label": s, "value": s,
+											})
+										}
+									}
+									formItem["options"] = options
+								} else if format, ok := fieldDefMap["format"].(string); ok {
+									switch format {
+									case "date":
+										formItem["valueType"] = "date"
+									case "date-time":
+										formItem["valueType"] = "dateTime"
+									case "email":
+										formItem["valueType"] = "email"
+									default:
+										formItem["valueType"] = "text"
+									}
+								} else {
+									formItem["valueType"] = "text"
+								}
+							case "integer", "number":
+								formItem["valueType"] = "digit"
+							case "boolean":
+								formItem["valueType"] = "switch"
+							default:
+								formItem["valueType"] = "text"
+							}
+
+							// Add validation rules
+							if required, ok := schema["required"].([]any); ok {
+								for _, r := range required {
+									if rs, ok := r.(string); ok && rs == fieldName {
+										formItem["rules"] = append(formItem["rules"].([]map[string]any), map[string]any{
+											"required": true,
+											"message":  "Please input " + description,
+										})
+										break
+									}
+								}
+							}
+
+							formItems = append(formItems, formItem)
+						}
+					}
+
+					proTableConfig["columns"] = columns
+					proFormConfig["items"] = formItems
+				}
+			}
+
+			c.JSON(200, gin.H{
+				"entity":         entity,
+				"proTableConfig": proTableConfig,
+				"proFormConfig":  proFormConfig,
+			})
+			return
+		}
+
+		c.String(404, "entity not found")
+	})
+
+	// Schema validation endpoint
+	r.POST("/api/schema/validate", func(c *gin.Context) {
+		addCORS(c.Writer, c.Request)
+		user, roles, ok := s.auth(c.Request)
+		if !ok {
+			c.String(401, "unauthorized")
+			return
+		}
+		if !s.can(user, roles, "schema:validate") {
+			c.String(403, "forbidden")
+			return
+		}
+
+		var request struct {
+			Schema map[string]any `json:"schema"`
+		}
+		if err := c.BindJSON(&request); err != nil {
+			c.String(400, err.Error())
+			return
+		}
+
+		// Validate just the JSON Schema part
+		errors := entityvalidation.ValidateEntityDefinition(map[string]any{
+			"id":     "temp",
+			"type":   "entity",
+			"schema": request.Schema,
+		})
+
+		// Filter out errors that aren't schema-related
+		schemaErrors := []string{}
+		for _, err := range errors {
+			if strings.Contains(err, "schema") {
+				schemaErrors = append(schemaErrors, err)
+			}
+		}
+
+		c.JSON(200, gin.H{
+			"valid":  len(schemaErrors) == 0,
+			"errors": schemaErrors,
+		})
 	})
 
 	// Assignments (in-memory)

@@ -1,0 +1,50 @@
+{
+  "id": "schema.validate",
+  "version": "1.0.0",
+  "name": "Validate JSON Schema",
+  "description": "Validate a JSON Schema definition",
+  "category": "system",
+  "params": {
+    "type": "object",
+    "properties": {
+      "schema": {
+        "type": "object",
+        "description": "JSON Schema to validate"
+      }
+    },
+    "required": ["schema"]
+  },
+  "result": {
+    "type": "object",
+    "properties": {
+      "valid": {
+        "type": "boolean",
+        "description": "Whether the schema is valid"
+      },
+      "errors": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "List of validation errors"
+      }
+    }
+  },
+  "auth": {
+    "permission": "schema:validate",
+    "allow_if": "has_role('admin') || has_role('developer')"
+  },
+  "ui": {
+    "form": {
+      "layout": "vertical"
+    },
+    "fieldTypes": {
+      "schema": "jsoneditor"
+    }
+  },
+  "semantics": {
+    "idempotent": true,
+    "rate_limit": "10rps",
+    "timeout": "5s"
+  }
+}

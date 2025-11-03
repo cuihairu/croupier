@@ -1,8 +1,7 @@
 [
   {
     "username": "admin",
-    "salt": "croupier",
-    "password": "51639ecbb5df1d4c67acb404b47f421c67b96153b73945a0c14ab015c533b518",
+    "password": "admin",
     "roles": ["admin"]
   }
 ]
