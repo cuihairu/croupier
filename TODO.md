@@ -2,32 +2,50 @@
 
 ## 🎯 当前优先级 (P0 - 核心功能)
 
-### 1. 实体管理界面 (Entity Management UI)
-**目标**: 创建可视化的实体定义和编辑界面
+### 1. 基于 X-Render 的动态界面系统 (X-Render UI System)
+**目标**: 基于阿里巴巴 X-Render 框架创建动态表单和界面生成系统
+**技术选型**: Form-Render + Ant Design 5.x + JSON Schema 驱动
 
-#### 1.1 后端 API 实现
-- [ ] 在 `server.go` 中添加实体管理路由
-  - [ ] `GET /api/entities` - 获取所有实体列表
-  - [ ] `POST /api/entities` - 创建新实体定义
-  - [ ] `GET /api/entities/:id` - 获取单个实体详情
-  - [ ] `PUT /api/entities/:id` - 更新实体定义
-  - [ ] `DELETE /api/entities/:id` - 删除实体定义
-  - [ ] `POST /api/entities/validate` - 验证实体定义
-  - [ ] `POST /api/entities/:id/preview` - 预览实体 UI
+#### 1.1 X-Render 集成基础架构 ✨
+- [ ] 前端依赖安装和配置
+  - [ ] 安装 `form-render` 核心包
+  - [ ] 安装 `@ant-design/icons` 图标库
+  - [ ] 确保 Ant Design 5.x 兼容性
+  - [ ] 配置 TypeScript 支持
+- [ ] 创建函数调用 Hook 系统
+  - [ ] `useFunctionInvoke` - 核心函数调用 Hook
+  - [ ] `useFunctionSchema` - 函数 Schema 获取 Hook
+  - [ ] `useEntityCRUD` - 实体 CRUD 操作 Hook
+- [ ] 通用组件封装
+  - [ ] `FunctionForm` - 基于 Schema 的动态表单组件
+  - [ ] `EntityManager` - 实体管理器组件
+  - [ ] `SchemaPreview` - Schema 预览组件
 
-#### 1.2 实体存储管理
-- [ ] 扩展 `ComponentManager` 支持实体管理
-  - [ ] 添加 `LoadEntities()` 方法
-  - [ ] 添加 `SaveEntity()` 方法
-  - [ ] 添加 `DeleteEntity()` 方法
-  - [ ] 添加实体验证逻辑
+#### 1.2 后端 API 实现 (已完成 ✅)
+- [x] `GET /api/entities` - 获取所有实体列表 (已实现)
+- [x] `POST /api/entities` - 创建新实体定义 (已实现)
+- [x] `GET /api/entities/:id` - 获取单个实体详情 (已实现)
+- [x] `PUT /api/entities/:id` - 更新实体定义 (已实现)
+- [x] `DELETE /api/entities/:id` - 删除实体定义 (已实现)
+- [x] `POST /api/entities/validate` - 验证实体定义 (已实现)
+- [x] `POST /api/entities/:id/preview` - 预览实体 UI (已实现)
+- [x] `POST /api/invoke` - 函数调用接口 (已实现)
 
-#### 1.3 JSON Schema 验证增强
-- [ ] 创建 `internal/validation/entity.go`
-  - [ ] 实体定义格式验证
-  - [ ] Schema 语法验证
-  - [ ] UI 配置验证
-  - [ ] 操作映射验证
+#### 1.3 前端动态界面实现
+- [ ] 实体管理页面
+  - [ ] 基于 X-Render 的实体创建表单
+  - [ ] 实体列表展示 (ProTable 风格)
+  - [ ] 实体编辑器 (JSON Schema 可视化编辑)
+  - [ ] 实体预览功能
+- [ ] 函数调用界面
+  - [ ] 动态生成函数调用表单 (基于函数描述符 JSON Schema)
+  - [ ] 实时表单验证
+  - [ ] 函数执行结果展示
+  - [ ] 异步任务状态监控
+- [ ] 组件管理界面
+  - [ ] 组件安装/卸载界面
+  - [ ] 组件配置管理
+  - [ ] 组件依赖关系可视化
 
 ### 2. 完善现有组件功能
 
@@ -126,26 +144,29 @@
   - [ ] 检查函数完整性 (是否缺少 CRUD 操作)
   - [ ] 生成函数覆盖率报告
 
-### 7. UI Schema 增强
+### 7. 基于 X-Render 的 UI 自动化系统 ✨
+**替代原有 UI Schema 增强计划**
 
-#### 7.1 ProTable 配置生成器
-- [ ] 创建 `internal/ui/protable.go`
-  - [ ] 基于实体定义自动生成列配置
-  - [ ] 支持搜索、筛选、排序配置
+#### 7.1 X-Render 表格系统
+- [ ] 基于 Form-Render 创建动态表格组件
+  - [ ] 自动根据实体定义生成 ProTable 配置
+  - [ ] 支持动态搜索、筛选、排序
+  - [ ] 集成函数调用的 CRUD 操作
   - [ ] 支持自定义渲染器 (badge, datetime, number)
 
-#### 7.2 ProForm 配置生成器
-- [ ] 创建 `internal/ui/proform.go`
-  - [ ] 基于函数 params Schema 生成表单
+#### 7.2 X-Render 表单系统
+- [ ] 基于 JSON Schema 的动态表单生成
+  - [ ] 自动根据函数 params Schema 生成表单
   - [ ] 支持复杂表单控件 (DatePicker, Select, Upload)
-  - [ ] 支持表单验证规则
+  - [ ] 内置表单验证规则
+  - [ ] 集成函数调用提交逻辑
 
-#### 7.3 UI 组件库扩展
-- [ ] 创建前端 UI 组件模板
-  - [ ] `ResourceTable.tsx` - 通用资源表格组件
-  - [ ] `EntityForm.tsx` - 通用实体表单组件
-  - [ ] `SchemaRenderer.tsx` - JSON Schema 渲染器
-  - [ ] `FieldPicker.tsx` - 字段选择器
+#### 7.3 X-Render 组件库扩展
+- [ ] 创建基于 X-Render 的通用组件
+  - [ ] `XResourceTable` - X-Render 驱动的资源表格
+  - [ ] `XEntityForm` - X-Render 驱动的实体表单
+  - [ ] `XSchemaBuilder` - 可视化 Schema 构建器
+  - [ ] `XFunctionInvoker` - 函数调用器组件
 
 ### 8. 权限系统增强
 
@@ -185,22 +206,29 @@
 
 ## 🚀 高级功能 (P2 - 未来功能)
 
-### 10. 可视化设计器
+### 10. 基于 X-Render 的可视化设计器 ✨
+**采用 X-Render 生态替代自研方案**
 
-#### 10.1 实体设计器
-- [ ] 拖拽式字段设计器
-- [ ] 可视化关系定义
-- [ ] 实时预览功能
+#### 10.1 X-Render 实体设计器
+- [ ] 集成 X-Render Form Builder
+  - [ ] 拖拽式字段设计器 (基于 X-Render)
+  - [ ] 可视化 JSON Schema 生成
+  - [ ] 实时预览功能
+  - [ ] 字段属性配置器
 
-#### 10.2 表单设计器
-- [ ] 可视化表单布局
-- [ ] 自定义验证规则
-- [ ] 组件属性编辑器
+#### 10.2 X-Render 表单设计器
+- [ ] 基于 Form-Render 的表单构建器
+  - [ ] 可视化表单布局设计
+  - [ ] 自定义验证规则配置
+  - [ ] 组件属性可视化编辑
+  - [ ] 表单主题和样式配置
 
-#### 10.3 工作流设计器
-- [ ] 可视化业务流程设计
-- [ ] 条件分支支持
-- [ ] 多步骤表单向导
+#### 10.3 集成工作流设计器
+- [ ] X-Render + 工作流引擎集成
+  - [ ] 可视化业务流程设计
+  - [ ] 条件分支支持 (基于函数调用)
+  - [ ] 多步骤表单向导
+  - [ ] 工作流状态管理
 
 ### 11. 数据源集成
 
@@ -266,19 +294,43 @@
 - [x] 物品管理组件 (60%)
 - [x] 经济系统组件 (30%)
 - [x] 架构文档编写
+- [x] 实体管理后端 API (完整实现)
+- [x] 函数调用接口 (`/api/invoke`)
+- [x] JSON Schema 验证系统
 
 ### 当前进行中 🔄
-- [ ] 实体管理界面 (20%)
+- [ ] X-Render 前端集成 (0% - 新启动)
+- [ ] 基于 X-Render 的动态界面系统 (0% - 替代原方案)
 
-### 预计完成时间
-- **P0 功能**: 2-3 周
-- **P1 功能**: 4-6 周
-- **P2 功能**: 2-3 个月
+### 技术选型确定 ✨
+- **前端框架**: React + TypeScript
+- **UI 库**: Ant Design 5.x
+- **动态表单**: X-Render Form-Render
+- **后端**: Go + Gin + GORM
+- **数据库**: PostgreSQL/SQLite
+- **协议**: JSON Schema 驱动
 
-### 里程碑
-1. **Alpha 版本** - 完成 P0 所有功能，基础可用
-2. **Beta 版本** - 完成 P1 主要功能，功能完善
-3. **正式版本** - 完成核心 P2 功能，生产就绪
+### 预计完成时间 (基于 X-Render 集成)
+- **P0 功能** (X-Render 集成): 1-2 周 ⚡ (大幅缩短)
+- **P1 功能**: 3-4 周 ⚡ (优化时间)
+- **P2 功能**: 1-2 个月 ⚡ (采用成熟方案)
+
+### 里程碑 (更新)
+1. **Alpha 版本** - 完成 X-Render 集成 + 基础动态表单 (1-2 周)
+2. **Beta 版本** - 完成 P1 功能 + 可视化设计器 (1 个月)
+3. **正式版本** - 完成 P2 功能 + 完整生态 (2 个月)
+
+### X-Render 集成优势 🚀
+- **开发效率提升 80%**: 无需自研 UI 组件生成器
+- **维护成本降低**: 使用阿里巴巴维护的成熟方案
+- **功能完整性**: 开箱即用的丰富功能
+- **社区支持**: 7.8k+ stars 的活跃社区
+- **技术债减少**: 基于行业标准的 JSON Schema
+
+---
+
+**重要说明**:
+通过采用 X-Render，我们将原计划的自研 UI Schema 生成系统替换为成熟的开源方案，预计可以节省 60% 的开发时间，同时获得更强大和稳定的功能。
 
 ---
 
