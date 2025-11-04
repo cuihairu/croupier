@@ -34,15 +34,24 @@ func (s *Server) Register(ctx context.Context, req *controlv1.RegisterRequest) (
             return nil, status.Error(codes.PermissionDenied, "game not allowed; ask admin to add game_id first")
         }
     }
-    fset := map[string]bool{}
-    for _, f := range req.GetFunctions() { fset[f.GetId()] = true }
+
+    // Build FunctionMeta map from descriptors
+    functions := map[string]registry.FunctionMeta{}
+    for _, f := range req.GetFunctions() {
+        functions[f.GetId()] = registry.FunctionMeta{
+            Entity:    f.GetEntity(),
+            Operation: f.GetOperation(),
+            Enabled:   f.GetEnabled(),
+        }
+    }
+
     s.store.UpsertAgent(&registry.AgentSession{
         AgentID: req.GetAgentId(),
         Version: req.GetVersion(),
         RPCAddr: req.GetRpcAddr(),
         GameID:  req.GetGameId(),
         Env:     req.GetEnv(),
-        Functions: fset,
+        Functions: functions,
         ExpireAt: time.Now().Add(24 * time.Hour),
     })
     return &controlv1.RegisterResponse{SessionId: "sess-" + req.GetAgentId(), ExpireAt: time.Now().Add(24 * time.Hour).Unix()}, nil

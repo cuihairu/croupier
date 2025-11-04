@@ -9,6 +9,9 @@ message FunctionDescriptor {
   string version = 2;   // semver, e.g. "1.2.0"
   string category = 3;  // grouping
   string risk = 4;      // "low"|"medium"|"high"
+  string entity = 5;    // entity type, e.g. "item", "player"
+  string operation = 6; // operation type, e.g. "create", "read", "update", "delete"
+  bool enabled = 7;     // whether this function is currently enabled
 }
 
 message RegisterRequest {
