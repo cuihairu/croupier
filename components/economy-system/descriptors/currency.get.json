@@ -1,0 +1,49 @@
+{
+  "id": "currency.get",
+  "version": "1.0.0",
+  "name": "Get Currency",
+  "description": "Get currency details by ID or code",
+  "category": "economy",
+  "params": {
+    "type": "object",
+    "properties": {
+      "currency_id": {
+        "type": "string",
+        "description": "Currency ID"
+      },
+      "code": {
+        "type": "string",
+        "description": "Currency code (alternative to ID)"
+      }
+    },
+    "oneOf": [
+      {"required": ["currency_id"]},
+      {"required": ["code"]}
+    ]
+  },
+  "result": {
+    "type": "object",
+    "properties": {
+      "currency_id": {"type": "string"},
+      "code": {"type": "string"},
+      "name": {"type": "string"},
+      "symbol": {"type": "string"},
+      "decimal_places": {"type": "integer"},
+      "enabled": {"type": "boolean"},
+      "metadata": {"type": "object"},
+      "created_at": {"type": "string", "format": "date-time"},
+      "updated_at": {"type": "string", "format": "date-time"}
+    }
+  },
+  "auth": {
+    "permission": "currency:read",
+    "allow_if": "has_role('gm') || has_role('admin') || has_role('economy_manager')"
+  },
+  "semantics": {
+    "idempotent": true,
+    "rate_limit": "50rps",
+    "timeout": "5s",
+    "cacheable": true,
+    "cache_ttl": "5m"
+  }
+}

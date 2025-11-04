@@ -1,0 +1,80 @@
+{
+  "id": "currency.list",
+  "version": "1.0.0",
+  "name": "List Currencies",
+  "description": "Get paginated list of currencies",
+  "category": "economy",
+  "params": {
+    "type": "object",
+    "properties": {
+      "page": {
+        "type": "integer",
+        "minimum": 1,
+        "default": 1,
+        "description": "Page number"
+      },
+      "size": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 20,
+        "description": "Page size"
+      },
+      "enabled": {
+        "type": "boolean",
+        "description": "Filter by enabled status"
+      },
+      "search": {
+        "type": "string",
+        "description": "Search by name or code"
+      },
+      "sort": {
+        "type": "string",
+        "enum": ["code", "name", "created_at"],
+        "default": "code",
+        "description": "Sort field"
+      },
+      "order": {
+        "type": "string",
+        "enum": ["asc", "desc"],
+        "default": "asc",
+        "description": "Sort order"
+      }
+    }
+  },
+  "result": {
+    "type": "object",
+    "properties": {
+      "currencies": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "currency_id": {"type": "string"},
+            "code": {"type": "string"},
+            "name": {"type": "string"},
+            "symbol": {"type": "string"},
+            "decimal_places": {"type": "integer"},
+            "enabled": {"type": "boolean"},
+            "created_at": {"type": "string", "format": "date-time"}
+          }
+        }
+      },
+      "total": {"type": "integer"},
+      "page": {"type": "integer"},
+      "size": {"type": "integer"},
+      "total_pages": {"type": "integer"}
+    }
+  },
+  "auth": {
+    "permission": "currency:read",
+    "allow_if": "has_role('gm') || has_role('admin') || has_role('economy_manager')"
+  },
+  "semantics": {
+    "idempotent": true,
+    "rate_limit": "30rps",
+    "timeout": "10s",
+    "cacheable": true,
+    "cache_ttl": "2m"
+  }
+}

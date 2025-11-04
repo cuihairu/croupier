@@ -1,0 +1,65 @@
+{
+  "id": "wallet.transfer",
+  "version": "1.0.0",
+  "name": "Transfer Currency",
+  "description": "Transfer currency between wallets (cross-entity operation)",
+  "category": "economy",
+  "params": {
+    "type": "object",
+    "properties": {
+      "from_player_id": {
+        "type": "string",
+        "description": "Source player ID"
+      },
+      "to_player_id": {
+        "type": "string",
+        "description": "Target player ID"
+      },
+      "currency_code": {
+        "type": "string",
+        "description": "Currency to transfer"
+      },
+      "amount": {
+        "type": "string",
+        "pattern": "^[0-9]+\\.?[0-9]*$",
+        "description": "Amount to transfer (decimal string)"
+      },
+      "reason": {
+        "type": "string",
+        "maxLength": 255,
+        "description": "Transfer reason for audit"
+      },
+      "reference": {
+        "type": "string",
+        "maxLength": 100,
+        "description": "External reference ID"
+      }
+    },
+    "required": ["from_player_id", "to_player_id", "currency_code", "amount", "reason"]
+  },
+  "result": {
+    "type": "object",
+    "properties": {
+      "transfer_id": {"type": "string"},
+      "status": {
+        "type": "string",
+        "enum": ["success", "insufficient_funds", "currency_not_found", "player_not_found", "same_player", "currency_disabled"]
+      },
+      "from_balance_after": {"type": "string"},
+      "to_balance_after": {"type": "string"},
+      "processed_at": {"type": "string", "format": "date-time"}
+    }
+  },
+  "auth": {
+    "permission": "wallet:transfer",
+    "allow_if": "has_role('admin') || has_role('economy_manager')",
+    "risk": "high",
+    "two_person_rule": true
+  },
+  "semantics": {
+    "idempotent": true,
+    "rate_limit": "10rps",
+    "timeout": "15s",
+    "atomic": true
+  }
+}
