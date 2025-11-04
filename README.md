@@ -568,6 +568,46 @@ npm install form-render @ant-design/icons
 npm run dev    # 开发服务器（默认端口 8000）
 ```
 
+### 前端 X-Render 启动与使用指南
+
+#### 🚀 快速启动步骤
+
+1. **环境准备**
+   ```bash
+   cd web
+   npm install                          # 安装基础依赖
+   npm install form-render @ant-design/icons  # 安装 X-Render 依赖
+   ```
+
+2. **启动开发服务器**
+   ```bash
+   npm run dev                          # 启动前端开发服务器（端口 8000）
+   ```
+
+3. **访问管理界面**
+   - 开发环境：http://localhost:8000
+   - 生产环境：http://localhost:8080 (需要先构建)
+
+#### 🎯 X-Render 核心功能使用
+
+**函数表单渲染 (GmFunctions 页面)**
+- 支持 Form-Render 和 Legacy 两种渲染模式切换
+- 基于 JSON Schema 自动生成表单字段
+- 支持复杂字段类型：对象、数组、枚举、日期等
+- 自动参数校验和错误提示
+
+**实体管理 (Entities 页面)**
+- 基于 ProTable 和 form-render 的 CRUD 操作
+- 实时预览实体 UI 效果
+- JSON Schema 验证和错误展示
+- 支持拖拽排序和批量操作
+
+**开发者最佳实践**
+- 使用 `FormRender` 组件进行 schema 驱动的表单开发
+- 通过 `uiSchema` 自定义字段组件和布局
+- 利用 `show_if` 和 `required_if` 实现动态表单逻辑
+- 集成 Ant Design 组件保持 UI 一致性
+
 ### 生产构建：
 ```bash
 npm run build  # 产物到 web/dist，Server 会静态服务此目录
