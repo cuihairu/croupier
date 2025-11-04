@@ -30,7 +30,7 @@ pack: croupier-plugin
 	protoc \
 		-I proto \
 		--croupier_out=emit_pack=true:gen/croupier \
-		$(shell rg -n --files proto | tr '\n' ' ')
+		$(shell find proto -name "*.proto" | tr '\n' ' ')
 
 .PHONY: pack-local
 pack-local:

@@ -1,6 +1,16 @@
 {
   "functions": [
     {
+      "id": "croupier.integrations.prom.v1.promgm.queryrange",
+      "version": "1.0.0",
+      "category": "prom"
+    },
+    {
+      "id": "games.player.v1.playergm.ban",
+      "version": "1.0.0",
+      "category": "player"
+    },
+    {
       "id": "croupier.agent.local.v1.localcontrolservice.registerlocal",
       "version": "1.0.0",
       "category": "local"
@@ -19,21 +29,6 @@
       "id": "croupier.agent.local.v1.localcontrolservice.getjobresult",
       "version": "1.0.0",
       "category": "local"
-    },
-    {
-      "id": "croupier.control.v1.controlservice.register",
-      "version": "1.0.0",
-      "category": "control"
-    },
-    {
-      "id": "croupier.control.v1.controlservice.heartbeat",
-      "version": "1.0.0",
-      "category": "control"
-    },
-    {
-      "id": "croupier.edge.job.v1.jobservice.getjobresult",
-      "version": "1.0.0",
-      "category": "job"
     },
     {
       "id": "croupier.function.v1.functionservice.invoke",
@@ -56,19 +51,24 @@
       "category": "function"
     },
     {
+      "id": "croupier.edge.job.v1.jobservice.getjobresult",
+      "version": "1.0.0",
+      "category": "job"
+    },
+    {
       "id": "croupier.tunnel.v1.tunnelservice.open",
       "version": "1.0.0",
       "category": "tunnel"
     },
     {
-      "id": "games.player.v1.playergm.ban",
+      "id": "croupier.control.v1.controlservice.register",
       "version": "1.0.0",
-      "category": "player"
+      "category": "control"
     },
     {
-      "id": "croupier.integrations.prom.v1.promgm.queryrange",
+      "id": "croupier.control.v1.controlservice.heartbeat",
       "version": "1.0.0",
-      "category": "prom"
+      "category": "control"
     }
   ]
 }

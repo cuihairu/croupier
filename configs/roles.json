@@ -1,0 +1,80 @@
+[
+  {
+    "code": "admin",
+    "name": "超级管理员",
+    "description": "拥有全部系统权限",
+    "level": 100,
+    "permissions": ["admin:all"]
+  },
+  {
+    "code": "gm",
+    "name": "游戏管理员",
+    "description": "游戏运营管理员",
+    "level": 80,
+    "permissions": [
+      "function:invoke",
+      "assignments:read",
+      "assignments:write",
+      "entity:read",
+      "entity:write",
+      "item:create",
+      "item:read",
+      "item:update",
+      "item:delete",
+      "currency:read",
+      "wallet:read"
+    ]
+  },
+  {
+    "code": "economy_manager",
+    "name": "经济管理员",
+    "description": "虚拟经济系统管理员",
+    "level": 70,
+    "permissions": [
+      "currency:create",
+      "currency:read",
+      "wallet:read",
+      "wallet:transfer"
+    ]
+  },
+  {
+    "code": "user_manager",
+    "name": "用户管理员",
+    "description": "后台用户账号管理员",
+    "level": 60,
+    "permissions": [
+      "user:read",
+      "user:write",
+      "role:read",
+      "role:write",
+      "permission:read",
+      "permission:write"
+    ]
+  },
+  {
+    "code": "operator",
+    "name": "运营专员",
+    "description": "基础运营人员",
+    "level": 40,
+    "permissions": [
+      "function:invoke",
+      "assignments:read",
+      "entity:read",
+      "item:read",
+      "currency:read",
+      "wallet:read"
+    ]
+  },
+  {
+    "code": "viewer",
+    "name": "查看者",
+    "description": "只读权限用户",
+    "level": 20,
+    "permissions": [
+      "assignments:read",
+      "entity:read",
+      "item:read",
+      "currency:read"
+    ]
+  }
+]
