@@ -23,10 +23,13 @@ const (
 
 type FunctionDescriptor struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`             // function id, e.g. "player.ban"
-	Version       string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`   // semver, e.g. "1.2.0"
-	Category      string                 `protobuf:"bytes,3,opt,name=category,proto3" json:"category,omitempty"` // grouping
-	Risk          string                 `protobuf:"bytes,4,opt,name=risk,proto3" json:"risk,omitempty"`         // "low"|"medium"|"high"
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`               // function id, e.g. "player.ban"
+	Version       string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`     // semver, e.g. "1.2.0"
+	Category      string                 `protobuf:"bytes,3,opt,name=category,proto3" json:"category,omitempty"`   // grouping
+	Risk          string                 `protobuf:"bytes,4,opt,name=risk,proto3" json:"risk,omitempty"`           // "low"|"medium"|"high"
+	Entity        string                 `protobuf:"bytes,5,opt,name=entity,proto3" json:"entity,omitempty"`       // entity type, e.g. "item", "player"
+	Operation     string                 `protobuf:"bytes,6,opt,name=operation,proto3" json:"operation,omitempty"` // operation type, e.g. "create", "read", "update", "delete"
+	Enabled       bool                   `protobuf:"varint,7,opt,name=enabled,proto3" json:"enabled,omitempty"`    // whether this function is currently enabled
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -87,6 +90,27 @@ func (x *FunctionDescriptor) GetRisk() string {
 		return x.Risk
 	}
 	return ""
+}
+
+func (x *FunctionDescriptor) GetEntity() string {
+	if x != nil {
+		return x.Entity
+	}
+	return ""
+}
+
+func (x *FunctionDescriptor) GetOperation() string {
+	if x != nil {
+		return x.Operation
+	}
+	return ""
+}
+
+func (x *FunctionDescriptor) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
 }
 
 type RegisterRequest struct {
@@ -317,12 +341,15 @@ var File_croupier_control_v1_control_proto protoreflect.FileDescriptor
 
 const file_croupier_control_v1_control_proto_rawDesc = "" +
 	"\n" +
-	"!croupier/control/v1/control.proto\x12\x13croupier.control.v1\"n\n" +
+	"!croupier/control/v1/control.proto\x12\x13croupier.control.v1\"\xbe\x01\n" +
 	"\x12FunctionDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x1a\n" +
 	"\bcategory\x18\x03 \x01(\tR\bcategory\x12\x12\n" +
-	"\x04risk\x18\x04 \x01(\tR\x04risk\"\xd3\x01\n" +
+	"\x04risk\x18\x04 \x01(\tR\x04risk\x12\x16\n" +
+	"\x06entity\x18\x05 \x01(\tR\x06entity\x12\x1c\n" +
+	"\toperation\x18\x06 \x01(\tR\toperation\x12\x18\n" +
+	"\aenabled\x18\a \x01(\bR\aenabled\"\xd3\x01\n" +
 	"\x0fRegisterRequest\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12E\n" +

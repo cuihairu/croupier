@@ -14,7 +14,16 @@
           "category": {
             "type": "string"
           },
+          "enabled": {
+            "type": "boolean"
+          },
+          "entity": {
+            "type": "string"
+          },
           "id": {
+            "type": "string"
+          },
+          "operation": {
             "type": "string"
           },
           "risk": {

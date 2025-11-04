@@ -161,7 +161,7 @@ func (s *Store) GetEntitiesWithOperation(operation string) []string {
     entities := make(map[string]struct{})
     if fids := s.operationIndex[operation]; fids != nil {
         // For each function with this operation, find its entity
-        for agentID, agent := range s.agents {
+        for _, agent := range s.agents {
             for fid, meta := range agent.Functions {
                 if _, hasFid := fids[fid]; hasFid && meta.Entity != "" {
                     entities[meta.Entity] = struct{}{}
