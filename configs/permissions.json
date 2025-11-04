@@ -1,0 +1,142 @@
+[
+  {
+    "code": "admin:all",
+    "name": "全部管理权限",
+    "description": "超级管理员权限，包含所有功能",
+    "category": "admin",
+    "module": "system"
+  },
+  {
+    "code": "user:read",
+    "name": "用户查看",
+    "description": "查看用户信息",
+    "category": "user",
+    "module": "account"
+  },
+  {
+    "code": "user:write",
+    "name": "用户管理",
+    "description": "创建、编辑、删除用户",
+    "category": "user",
+    "module": "account"
+  },
+  {
+    "code": "role:read",
+    "name": "角色查看",
+    "description": "查看角色信息",
+    "category": "role",
+    "module": "account"
+  },
+  {
+    "code": "role:write",
+    "name": "角色管理",
+    "description": "创建、编辑、删除角色",
+    "category": "role",
+    "module": "account"
+  },
+  {
+    "code": "permission:read",
+    "name": "权限查看",
+    "description": "查看权限配置",
+    "category": "permission",
+    "module": "account"
+  },
+  {
+    "code": "permission:write",
+    "name": "权限管理",
+    "description": "分配权限给角色",
+    "category": "permission",
+    "module": "account"
+  },
+  {
+    "code": "function:invoke",
+    "name": "函数调用",
+    "description": "调用游戏管理函数",
+    "category": "function",
+    "module": "gm"
+  },
+  {
+    "code": "assignments:read",
+    "name": "分配查看",
+    "description": "查看函数分配配置",
+    "category": "assignments",
+    "module": "gm"
+  },
+  {
+    "code": "assignments:write",
+    "name": "分配管理",
+    "description": "管理函数分配配置",
+    "category": "assignments",
+    "module": "gm"
+  },
+  {
+    "code": "entity:read",
+    "name": "实体查看",
+    "description": "查看实体定义",
+    "category": "entity",
+    "module": "schema"
+  },
+  {
+    "code": "entity:write",
+    "name": "实体管理",
+    "description": "创建、编辑实体定义",
+    "category": "entity",
+    "module": "schema"
+  },
+  {
+    "code": "item:create",
+    "name": "道具创建",
+    "description": "创建游戏道具",
+    "category": "item",
+    "module": "game"
+  },
+  {
+    "code": "item:read",
+    "name": "道具查看",
+    "description": "查看游戏道具信息",
+    "category": "item",
+    "module": "game"
+  },
+  {
+    "code": "item:update",
+    "name": "道具编辑",
+    "description": "编辑游戏道具",
+    "category": "item",
+    "module": "game"
+  },
+  {
+    "code": "item:delete",
+    "name": "道具删除",
+    "description": "删除游戏道具",
+    "category": "item",
+    "module": "game"
+  },
+  {
+    "code": "currency:create",
+    "name": "货币创建",
+    "description": "创建虚拟货币",
+    "category": "currency",
+    "module": "economy"
+  },
+  {
+    "code": "currency:read",
+    "name": "货币查看",
+    "description": "查看货币信息",
+    "category": "currency",
+    "module": "economy"
+  },
+  {
+    "code": "wallet:read",
+    "name": "钱包查看",
+    "description": "查看玩家钱包",
+    "category": "wallet",
+    "module": "economy"
+  },
+  {
+    "code": "wallet:transfer",
+    "name": "货币转账",
+    "description": "执行货币转账操作",
+    "category": "wallet",
+    "module": "economy"
+  }
+]
