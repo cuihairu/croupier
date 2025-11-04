@@ -1150,8 +1150,37 @@ func (s *Server) ginEngine() *gin.Engine {
 	r.GET("/healthz", func(c *gin.Context) { c.String(200, "ok") })
 	r.GET("/metrics", func(c *gin.Context) {
 		addCORS(c.Writer, c.Request)
-		out := map[string]any{"uptime_sec": int(time.Since(s.startedAt).Seconds()), "invocations_total": atomic.LoadInt64(&s.invocations), "invocations_error_total": atomic.LoadInt64(&s.invocationsError), "jobs_started_total": atomic.LoadInt64(&s.jobsStarted), "jobs_error_total": atomic.LoadInt64(&s.jobsError), "rbac_denied_total": atomic.LoadInt64(&s.rbacDenied), "audit_errors_total": atomic.LoadInt64(&s.auditErrors)}
-		c.JSON(200, out)
+		w := c.Writer
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+
+		// Basic counters
+		fmt.Fprintf(w, "# HELP croupier_uptime_seconds Time since server started\n")
+		fmt.Fprintf(w, "# TYPE croupier_uptime_seconds gauge\n")
+		fmt.Fprintf(w, "croupier_uptime_seconds %d\n", int(time.Since(s.startedAt).Seconds()))
+
+		fmt.Fprintf(w, "# HELP croupier_invocations_total Total number of function invocations\n")
+		fmt.Fprintf(w, "# TYPE croupier_invocations_total counter\n")
+		fmt.Fprintf(w, "croupier_invocations_total %d\n", atomic.LoadInt64(&s.invocations))
+
+		fmt.Fprintf(w, "# HELP croupier_invocations_error_total Total number of failed invocations\n")
+		fmt.Fprintf(w, "# TYPE croupier_invocations_error_total counter\n")
+		fmt.Fprintf(w, "croupier_invocations_error_total %d\n", atomic.LoadInt64(&s.invocationsError))
+
+		fmt.Fprintf(w, "# HELP croupier_jobs_started_total Total number of jobs started\n")
+		fmt.Fprintf(w, "# TYPE croupier_jobs_started_total counter\n")
+		fmt.Fprintf(w, "croupier_jobs_started_total %d\n", atomic.LoadInt64(&s.jobsStarted))
+
+		fmt.Fprintf(w, "# HELP croupier_jobs_error_total Total number of job errors\n")
+		fmt.Fprintf(w, "# TYPE croupier_jobs_error_total counter\n")
+		fmt.Fprintf(w, "croupier_jobs_error_total %d\n", atomic.LoadInt64(&s.jobsError))
+
+		fmt.Fprintf(w, "# HELP croupier_rbac_denied_total Total number of RBAC denials\n")
+		fmt.Fprintf(w, "# TYPE croupier_rbac_denied_total counter\n")
+		fmt.Fprintf(w, "croupier_rbac_denied_total %d\n", atomic.LoadInt64(&s.rbacDenied))
+
+		fmt.Fprintf(w, "# HELP croupier_audit_errors_total Total number of audit errors\n")
+		fmt.Fprintf(w, "# TYPE croupier_audit_errors_total counter\n")
+		fmt.Fprintf(w, "croupier_audit_errors_total %d\n", atomic.LoadInt64(&s.auditErrors))
 	})
 
 	// UI schema

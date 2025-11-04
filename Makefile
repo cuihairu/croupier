@@ -3,7 +3,7 @@ VERSION := $(shell git describe --tags --always --dirty)
 BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 LDFLAGS := -X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -s -w
 
-.PHONY: proto build server agent edge cli clean dev tidy test lint help all
+.PHONY: proto build server agent edge cli clean dev tidy test lint help all tools schema-validator pack-builder
 
 # Build all components
 all: build
@@ -68,7 +68,19 @@ edge:
 	@mkdir -p $(BINDIR)
 	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-edge ./cmd/edge
 
-build: server agent edge
+build: server agent edge tools
+
+tools: schema-validator pack-builder
+
+schema-validator:
+	@echo "[build] schema-validator"
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/schema-validator ./cmd/schema-validator
+
+pack-builder:
+	@echo "[build] pack-builder"
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/pack-builder ./cmd/pack-builder
 
 cli:
 	@echo "[build] unified CLI"

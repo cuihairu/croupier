@@ -1,0 +1,58 @@
+{
+  "id": "currency.entity",
+  "version": "1.0.0",
+  "name": "Currency Entity",
+  "description": "Currency entity definition for economy system",
+  "schema": {
+    "type": "object",
+    "title": "Currency",
+    "properties": {
+      "currency_id": {
+        "type": "string",
+        "title": "Currency ID",
+        "readOnly": true
+      },
+      "code": {
+        "type": "string",
+        "title": "Currency Code",
+        "pattern": "^[A-Z]{3}$",
+        "description": "3-letter currency code"
+      },
+      "name": {
+        "type": "string",
+        "title": "Currency Name",
+        "maxLength": 100
+      },
+      "symbol": {
+        "type": "string",
+        "title": "Symbol",
+        "maxLength": 10
+      },
+      "decimal_places": {
+        "type": "integer",
+        "title": "Decimal Places",
+        "minimum": 0,
+        "maximum": 8,
+        "default": 2
+      },
+      "enabled": {
+        "type": "boolean",
+        "title": "Enabled",
+        "default": true
+      }
+    },
+    "required": ["code", "name"]
+  },
+  "operations": {
+    "create": "currency.create",
+    "read": "currency.get",
+    "list": "currency.list"
+  },
+  "relationships": {
+    "wallets": {
+      "type": "one-to-many",
+      "entity": "wallet",
+      "foreign_key": "currency_id"
+    }
+  }
+}

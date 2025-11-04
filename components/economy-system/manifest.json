@@ -2,39 +2,61 @@
   "id": "economy-system",
   "name": "Virtual Economy System",
   "version": "1.0.0",
-  "description": "Virtual currency, item trading, and marketplace functionality",
+  "description": "Virtual currency, wallet management, and cross-entity operations",
   "category": "economy",
   "dependencies": ["player-management"],
+  "entities": [
+    {
+      "id": "currency",
+      "name": "Currency",
+      "description": "Virtual currency definition"
+    },
+    {
+      "id": "wallet",
+      "name": "Wallet",
+      "description": "Player currency balances"
+    }
+  ],
   "functions": [
     {
-      "id": "economy.currency.add",
+      "id": "currency.create",
       "version": "1.0.0",
       "enabled": true,
-      "description": "Add virtual currency to player account"
+      "entity": "currency",
+      "operation": "create",
+      "description": "Create new currency"
     },
     {
-      "id": "economy.currency.deduct",
+      "id": "currency.get",
       "version": "1.0.0",
       "enabled": true,
-      "description": "Deduct virtual currency from player account"
+      "entity": "currency",
+      "operation": "read",
+      "description": "Get currency details"
     },
     {
-      "id": "economy.item.grant",
+      "id": "currency.list",
       "version": "1.0.0",
       "enabled": true,
-      "description": "Grant item to player inventory"
+      "entity": "currency",
+      "operation": "list",
+      "description": "List currencies"
     },
     {
-      "id": "economy.trade.create",
+      "id": "wallet.get",
       "version": "1.0.0",
       "enabled": true,
-      "description": "Create trade offer between players"
+      "entity": "wallet",
+      "operation": "read",
+      "description": "Get wallet balances"
     },
     {
-      "id": "economy.marketplace.list",
+      "id": "wallet.transfer",
       "version": "1.0.0",
       "enabled": true,
-      "description": "List items on marketplace"
+      "entity": "wallet",
+      "operation": "transfer",
+      "description": "Transfer currency between wallets (cross-entity)"
     }
   ],
   "author": "Croupier Team",

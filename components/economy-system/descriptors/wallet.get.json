@@ -1,0 +1,59 @@
+{
+  "id": "wallet.get",
+  "version": "1.0.0",
+  "name": "Get Wallet",
+  "description": "Get wallet balances for a player",
+  "category": "economy",
+  "params": {
+    "type": "object",
+    "properties": {
+      "player_id": {
+        "type": "string",
+        "description": "Player ID"
+      },
+      "currency_code": {
+        "type": "string",
+        "description": "Specific currency code (optional, returns all if not specified)"
+      },
+      "include_disabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Include disabled currencies"
+      }
+    },
+    "required": ["player_id"]
+  },
+  "result": {
+    "type": "object",
+    "properties": {
+      "player_id": {"type": "string"},
+      "balances": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "currency_id": {"type": "string"},
+            "currency_code": {"type": "string"},
+            "currency_name": {"type": "string"},
+            "balance": {"type": "string", "description": "String representation to avoid precision loss"},
+            "locked_balance": {"type": "string", "description": "Locked/reserved balance"},
+            "available_balance": {"type": "string", "description": "Available for spending"},
+            "last_updated": {"type": "string", "format": "date-time"}
+          }
+        }
+      },
+      "total_currencies": {"type": "integer"}
+    }
+  },
+  "auth": {
+    "permission": "wallet:read",
+    "allow_if": "has_role('gm') || has_role('admin') || (has_role('player') && is_owner('player_id'))"
+  },
+  "semantics": {
+    "idempotent": true,
+    "rate_limit": "100rps",
+    "timeout": "5s",
+    "cacheable": true,
+    "cache_ttl": "30s"
+  }
+}

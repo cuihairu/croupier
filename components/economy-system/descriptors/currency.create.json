@@ -1,0 +1,71 @@
+{
+  "id": "currency.create",
+  "version": "1.0.0",
+  "name": "Create Currency",
+  "description": "Create a new currency in the economy system",
+  "category": "economy",
+  "params": {
+    "type": "object",
+    "properties": {
+      "code": {
+        "type": "string",
+        "pattern": "^[A-Z]{3}$",
+        "description": "Currency code (3 uppercase letters)"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "description": "Currency display name"
+      },
+      "symbol": {
+        "type": "string",
+        "maxLength": 10,
+        "description": "Currency symbol"
+      },
+      "decimal_places": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 8,
+        "default": 2,
+        "description": "Number of decimal places"
+      },
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Whether this currency is active"
+      },
+      "metadata": {
+        "type": "object",
+        "description": "Additional currency metadata"
+      }
+    },
+    "required": ["code", "name"]
+  },
+  "result": {
+    "type": "object",
+    "properties": {
+      "currency_id": {
+        "type": "string",
+        "description": "Generated currency ID"
+      },
+      "status": {
+        "type": "string",
+        "enum": ["success", "duplicate_code", "invalid_data"]
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time"
+      }
+    }
+  },
+  "auth": {
+    "permission": "currency:create",
+    "allow_if": "has_role('admin') || has_role('economy_manager')"
+  },
+  "semantics": {
+    "idempotent": true,
+    "rate_limit": "5rps",
+    "timeout": "10s"
+  }
+}
