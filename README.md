@@ -471,67 +471,135 @@ croupier/
 
 ## 🤝 贡献
 
+### 开发环境设置
+
 ```bash
-# 克隆
+# 1. 克隆项目
 git clone https://github.com/cuihairu/croupier.git
 cd croupier
 
-# Go 依赖（需网络）
-go mod download
-
-# 生成开发用 TLS 证书（本地自签，生成到 configs/dev/）
-./scripts/dev-certs.sh
-
-# 生成 Proto 代码（需安装 buf 与 protoc 插件，或在 CI 里跑；本地有手写 stub 可直接编译）
-buf lint && buf generate
-
-# 构建 Server 与 Agent
-make build
-
-# 本地运行（在两个终端中）：
-# 1) Server（示例参数，需自备 TLS 证书）
-./bin/croupier-server --addr :8443 --http_addr :8080 --rbac_config configs/rbac.json \
-  --cert configs/dev/server.crt --key configs/dev/server.key --ca configs/dev/ca.crt
-# 2) Agent（本地明文监听，mTLS 连接 Server）
-./bin/croupier-agent --local_addr :19090 --server_addr 127.0.0.1:8443 --cert configs/dev/agent.crt --key configs/dev/agent.key --ca configs/dev/ca.crt
-# 3) 示例游戏服连接 Agent
-go run ./examples/go-server
-
-# 4) 直连调用示例（Invoker）
-go run ./examples/go-invoker
-
-# 子模块（前端、SDK）
-# 初始化/更新子模块
+# 2. 初始化子模块（前端、SDK）
 git submodule update --init --recursive
 
-# 前端开发（在子模块仓库中运行；建议 antd-pro/umi 默认 8000 端口）
+# 3. 安装 Go 依赖
+go mod download
+
+# 4. 生成开发用 TLS 证书（本地自签，生成到 configs/dev/）
+./scripts/dev-certs.sh
+```
+
+### 生成协议文件与构建
+
+⚠️ **重要**：`gen/` 目录包含自动生成的文件，**不应该**提交到版本控制中。请使用以下命令生成：
+
+```bash
+# 方法 1: 一键开发构建（推荐）
+make dev                    # 执行: clean + proto + build
+
+# 方法 2: 分步骤执行
+make proto                  # 生成 protobuf Go 代码
+make pack                   # 生成 gen/croupier/ 目录（函数描述符、UI schema 等）
+make build                  # 构建所有二进制文件
+
+# 方法 3: 清理重建
+make clean                  # 清理 bin/ 和 gen/ 目录
+make dev                    # 重新生成和构建
+```
+
+**生成的文件结构：**
+```
+gen/croupier/
+├── descriptors/          # 函数描述符 JSON 文件
+├── ui/                   # UI 模式和配置文件
+├── fds.pb               # Protocol Buffer 文件描述符集
+├── manifest.json        # 包清单文件
+└── pack.tgz            # 打包的构件
+```
+
+**注意事项：**
+- `gen/` 目录已在 `.gitignore` 中，不会被提交
+- 首次开发或切换分支后，必须运行 `make dev` 重新生成
+- 如果遇到 "gen/croupier: no such file or directory" 错误，运行 `make pack` 即可解决
+
+### 本地运行
+
+构建完成后，可以在多个终端中运行：
+
+```bash
+# 终端 1: 启动 Server
+./bin/croupier-server --config configs/server.example.yaml
+
+# 终端 2: 启动 Agent（连接本地 Server）
+./bin/croupier-agent --config configs/agent.example.yaml
+
+# 终端 3: 运行示例游戏服务器（连接本地 Agent）
+go run ./examples/go-server
+
+# 终端 4: 运行示例调用客户端
+go run ./examples/go-invoker
+```
+
+### 前端开发
+
+```bash
 cd web
 npm install
+
+# 安装 X-Render 依赖
+npm install form-render @ant-design/icons
+
+# 启动开发服务器（默认端口 8000）
 npm run dev  # 或 npm run start
 
 # 生产构建
 npm run build  # 产物到 web/dist，Server 会优先静态服务 web/dist
-
-# Go SDK（子模块：sdks/go）
-# 建议直接在业务工程中引用模块路径 github.com/cuihairu/croupier-sdk-go；
-# 在本仓库内开发/联调时，可在 go.mod 用 replace 指向 ./sdks/go。
-
-# C++ SDK（子模块：sdks/cpp）
-# 当前仅添加为子模块占位，优先完成 Go 版本后再逐步实现 C++ 版本。
-
-# Java SDK（子模块：sdks/java）
-# 同上，作为占位先引入，优先保证 Go 版本稳定，随后实现 Java 版本。
-
-CI 提示
-- CI 已配置检出子模块（submodules: recursive）。如需在本地一键初始化，请运行：`make submodules`。
-
-# 调用验证（浏览器访问）
-# 开发：访问 http://localhost:8000（前端 dev server）
-# 生产：构建后访问 http://localhost:8080（Server 静态服务 web/dist）；/api/* 为后端接口
-# 前端请求默认附带 Authorization: Bearer <token>（登录后自动注入）
 ```
 
-提交流程：Fork → 分支 → 提交 → 推送 → PR。
+### 开发工作流程
+
+1. **首次设置**：`make dev` - 完整的开发环境构建
+2. **日常开发**：
+   - 修改 `.proto` 文件后：`make proto && make pack`
+   - 修改 Go 代码后：`make build`
+   - 修改前端代码：在 `web/` 目录中 `npm run dev`
+3. **清理重建**：`make clean && make dev`
+
+### 验证安装
+
+```bash
+# 检查生成的文件
+ls -la gen/croupier/                    # 应该包含 descriptors/, ui/, fds.pb 等
+
+# 检查二进制文件
+ls -la bin/                             # 应该包含 croupier-server, croupier-agent 等
+
+# 访问管理界面
+# 开发环境：http://localhost:8000（前端 dev server）
+# 生产环境：http://localhost:8080（Server 静态服务）
+# 默认登录：用户名 admin，密码 admin
+```
+
+### SDK 开发
+
+- **Go SDK**：子模块在 `sdks/go`，建议直接引用 `github.com/cuihairu/croupier-sdk-go`
+- **C++ SDK**：子模块 `sdks/cpp`（规划中）
+- **Java SDK**：子模块 `sdks/java`（规划中）
+
+### CI 说明
+
+- CI 已配置检出子模块（`submodules: recursive`）
+- 本地一键初始化：`make submodules`
+
+### 提交流程
+
+1. **Fork** 本仓库到您的 GitHub 账户
+2. **创建分支**：`git checkout -b feature/your-feature-name`
+3. **开发**：使用上述开发工作流程
+4. **提交**：`git commit -m "your message"`
+5. **推送**：`git push origin feature/your-feature-name`
+6. **创建 PR**：在 GitHub 上创建 Pull Request
+
+**注意**：请确保不要提交 `gen/` 和 `bin/` 目录中的文件。
 
 ## 🎨 Web 管理界面
 
