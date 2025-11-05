@@ -33,6 +33,7 @@ import (
 	"github.com/cuihairu/croupier/internal/function/descriptor"
 	msgsgorm "github.com/cuihairu/croupier/internal/infra/persistence/gorm/messages"
 	usersgorm "github.com/cuihairu/croupier/internal/infra/persistence/gorm/users"
+	certmonitor "github.com/cuihairu/croupier/internal/infra/monitoring/certificates"
 	"github.com/cuihairu/croupier/internal/loadbalancer"
 	pack "github.com/cuihairu/croupier/internal/pack"
 	appr "github.com/cuihairu/croupier/internal/server/approvals"
@@ -60,7 +61,7 @@ type Server struct {
 	descIndex map[string]*descriptor.Descriptor
 	invoker   FunctionInvoker
 	audit     *auditchain.Writer
-	rbac      *rbac.Policy
+	rbac      rbac.PolicyInterface
 	games     *games.Repo
 	reg       *registry.Store
 	userRepo  *usersgorm.Repo
@@ -101,6 +102,8 @@ type Server struct {
 	objConf       obj.Config
 	httpSrv       *http.Server
 	componentMgr  *pack.ComponentManager
+	// monitoring stores
+	certStore *certmonitor.Store
 }
 
 // can checks permission for user or any of their roles.
@@ -108,16 +111,41 @@ func (s *Server) can(user string, roles []string, perm string) bool {
 	if s.rbac == nil {
 		return true
 	}
-	if s.rbac.Can(user, perm) || s.rbac.Can(user, "*") {
+
+	// Check direct user permissions
+	if s.rbac.Can(user, perm) {
+		log.Printf("[RBAC] ALLOWED: user %s has permission %s", user, perm)
 		return true
 	}
-	for _, r := range roles {
-		rn := "role:" + r
-		if s.rbac.Can(rn, perm) || s.rbac.Can(rn, "*") {
+
+	// Check user with prefix
+	userKey := "user:" + user
+	if s.rbac.Can(userKey, perm) {
+		log.Printf("[RBAC] ALLOWED: %s has permission %s", userKey, perm)
+		return true
+	}
+
+	// Check role permissions
+	for _, role := range roles {
+		roleKey := "role:" + role
+		if s.rbac.Can(roleKey, perm) {
+			log.Printf("[RBAC] ALLOWED: user %s has permission %s via role %s", user, perm, roleKey)
 			return true
 		}
 	}
+
+	log.Printf("[RBAC] DENIED: user=%s, roles=%v, perm=%s", user, roles, perm)
 	return false
+}
+
+// canHTTP checks HTTP request permission using the new interface
+func (s *Server) canHTTP(user string, roles []string, r *http.Request) bool {
+	if s.rbac == nil {
+		return true
+	}
+
+	// Use the new CanHTTP method if available
+	return s.rbac.CanHTTP(user, roles, r)
 }
 
 type FunctionInvoker interface {
@@ -127,7 +155,7 @@ type FunctionInvoker interface {
 	CancelJob(ctx context.Context, req *functionv1.CancelJobRequest) (*functionv1.StartJobResponse, error)
 }
 
-func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.Writer, policy *rbac.Policy, reg *registry.Store, jwtMgr *jwt.Manager, locator interface{ GetJobAddr(string) (string, bool) }, statsProv interface {
+func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.Writer, policy rbac.PolicyInterface, reg *registry.Store, jwtMgr *jwt.Manager, locator interface{ GetJobAddr(string) (string, bool) }, statsProv interface {
 	GetStats() map[string]*loadbalancer.AgentStats
 	GetPoolStats() *connpool.PoolStats
 }) (*Server, error) {
@@ -247,6 +275,12 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
 		_ = msgsgorm.AutoMigrate(s.gdb)
 		s.userRepo = usersgorm.New(s.gdb)
 		s.msgRepo = msgsgorm.NewRepo(s.gdb)
+		// monitoring: certificates
+		{
+			cs := certmonitor.NewStore(s.gdb)
+			_ = cs.AutoMigrate()
+			s.certStore = cs
+		}
 		// optional: import legacy JSON when empty DB (DEV bootstrap)
 		_ = s.importLegacyUsersIfEmpty()
 		_ = s.importLegacyGamesIfEmpty()
@@ -3677,6 +3711,11 @@ func (s *Server) ginEngine() *gin.Engine {
 		fmt.Fprintf(w, "# TYPE croupier_rbac_denied_total counter\n")
 		fmt.Fprintf(w, "croupier_rbac_denied_total %d\n", atomic.LoadInt64(&s.rbacDenied))
 	})
+
+	// Register optional feature routes
+	if s.certStore != nil {
+		s.addCertificateRoutes(r)
+	}
 
 	// Static files
 	staticDir := "web/dist"

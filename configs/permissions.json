@@ -7,6 +7,13 @@
     "module": "system"
   },
   {
+    "code": "*",
+    "name": "通配符权限",
+    "description": "所有权限的通配符",
+    "category": "admin",
+    "module": "system"
+  },
+  {
     "code": "user:read",
     "name": "用户查看",
     "description": "查看用户信息",
@@ -28,9 +35,23 @@
     "module": "account"
   },
   {
+    "code": "roles:read",
+    "name": "角色查看",
+    "description": "查看角色信息（复数形式）",
+    "category": "role",
+    "module": "account"
+  },
+  {
     "code": "role:write",
     "name": "角色管理",
     "description": "创建、编辑、删除角色",
+    "category": "role",
+    "module": "account"
+  },
+  {
+    "code": "roles:manage",
+    "name": "角色管理",
+    "description": "创建、编辑、删除角色（复数形式）",
     "category": "role",
     "module": "account"
   },
@@ -70,18 +91,102 @@
     "module": "gm"
   },
   {
-    "code": "entity:read",
+    "code": "games:read",
+    "name": "游戏查看",
+    "description": "查看游戏信息",
+    "category": "games",
+    "module": "game"
+  },
+  {
+    "code": "games:manage",
+    "name": "游戏管理",
+    "description": "管理游戏配置",
+    "category": "games",
+    "module": "game"
+  },
+  {
+    "code": "uploads:write",
+    "name": "文件上传",
+    "description": "上传文件权限",
+    "category": "upload",
+    "module": "system"
+  },
+  {
+    "code": "components:read",
+    "name": "组件查看",
+    "description": "查看组件信息",
+    "category": "components",
+    "module": "system"
+  },
+  {
+    "code": "components:install",
+    "name": "组件安装",
+    "description": "安装组件",
+    "category": "components",
+    "module": "system"
+  },
+  {
+    "code": "components:uninstall",
+    "name": "组件卸载",
+    "description": "卸载组件",
+    "category": "components",
+    "module": "system"
+  },
+  {
+    "code": "components:manage",
+    "name": "组件管理",
+    "description": "管理组件",
+    "category": "components",
+    "module": "system"
+  },
+  {
+    "code": "entities:read",
     "name": "实体查看",
     "description": "查看实体定义",
     "category": "entity",
     "module": "schema"
   },
   {
-    "code": "entity:write",
-    "name": "实体管理",
-    "description": "创建、编辑实体定义",
+    "code": "entities:create",
+    "name": "实体创建",
+    "description": "创建实体定义",
     "category": "entity",
     "module": "schema"
+  },
+  {
+    "code": "entities:update",
+    "name": "实体编辑",
+    "description": "编辑实体定义",
+    "category": "entity",
+    "module": "schema"
+  },
+  {
+    "code": "entities:delete",
+    "name": "实体删除",
+    "description": "删除实体定义",
+    "category": "entity",
+    "module": "schema"
+  },
+  {
+    "code": "entity:read",
+    "name": "实体查看",
+    "description": "查看实体定义（单数形式）",
+    "category": "entity",
+    "module": "schema"
+  },
+  {
+    "code": "entity:write",
+    "name": "实体管理",
+    "description": "创建、编辑实体定义（单数形式）",
+    "category": "entity",
+    "module": "schema"
+  },
+  {
+    "code": "certificates:manage",
+    "name": "证书管理",
+    "description": "管理SSL证书监控",
+    "category": "certificates",
+    "module": "system"
   },
   {
     "code": "item:create",

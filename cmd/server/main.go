@@ -2,6 +2,7 @@ package main
 
 import (
     "fmt"
+    "log"
     "log/slog"
     "os"
     "net"
@@ -150,8 +151,18 @@ func main() {
                 aw, err := auditchain.NewWriter("logs/audit.log")
                 if err != nil { slog.Error("audit", "error", err); os.Exit(1) }
                 defer aw.Close()
-                var pol *rbac.Policy
-                if p, err := rbac.LoadPolicy(rbacPath); err == nil { pol = p } else { pol = rbac.NewPolicy(); pol.Grant("user:dev", "*"); pol.Grant("user:dev", "job:cancel"); pol.Grant("role:admin", "*") }
+                var pol rbac.PolicyInterface
+                if p, err := rbac.LoadCasbinPolicy(rbacPath); err == nil {
+                    pol = p
+                } else {
+                    log.Printf("[RBAC] Failed to load Casbin policy, creating fallback policy: %v", err)
+                    fallback := rbac.NewPolicy()
+                    fallback.Grant("user:dev", "*")
+                    fallback.Grant("user:dev", "job:cancel")
+                    fallback.Grant("role:admin", "*")
+                    fallback.Grant("user:admin", "*")
+                    pol = fallback
+                }
                 _ = usersPath // legacy users.json ignored; DB-backed users in http server
                 jm := jwt.NewManager(jwtSecret)
                 var statsProv interface{ GetStats() map[string]*loadbalancer.AgentStats; GetPoolStats() *connpool.PoolStats }
