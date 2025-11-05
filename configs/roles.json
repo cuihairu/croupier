@@ -4,7 +4,7 @@
     "name": "超级管理员",
     "description": "拥有全部系统权限",
     "level": 100,
-    "permissions": ["admin:all"]
+    "permissions": ["admin:all", "*"]
   },
   {
     "code": "gm",

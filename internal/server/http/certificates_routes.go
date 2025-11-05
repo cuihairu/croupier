@@ -1,34 +1,31 @@
 package httpserver
 
 import (
-	"net/http"
-	"strconv"
-	"time"
+    "strconv"
 
-	"github.com/gin-gonic/gin"
-	"github.com/cuihairu/croupier/internal/infra/monitoring/certificates"
+    "github.com/gin-gonic/gin"
 )
 
 // addCertificateRoutes adds certificate monitoring routes
 func (s *Server) addCertificateRoutes(r *gin.Engine) {
 	certGroup := r.Group("/api/certificates")
-	certGroup.Use(func(c *gin.Context) {
-		addCORS(c.Writer, c.Request)
-		user, _, ok := s.auth(c.Request)
-		if !ok {
-			c.JSON(401, gin.H{"error": "unauthorized"})
-			c.Abort()
-			return
-		}
+    certGroup.Use(func(c *gin.Context) {
+        addCORS(c.Writer, c.Request)
+        user, roles, ok := s.auth(c.Request)
+        if !ok {
+            c.JSON(401, gin.H{"error": "unauthorized"})
+            c.Abort()
+            return
+        }
 
-		// Check admin permission for certificate management
-		if s.rbac != nil && !s.rbac.Can(user, "admin:certificates") {
-			c.JSON(403, gin.H{"error": "insufficient permissions"})
-			c.Abort()
-			return
-		}
-		c.Next()
-	})
+        // Check permission for certificate management; allow wildcard via s.can
+        if !s.can(user, roles, "certificates:manage") {
+            c.JSON(403, gin.H{"error": "insufficient permissions"})
+            c.Abort()
+            return
+        }
+        c.Next()
+    })
 
 	// List certificates
 	certGroup.GET("", func(c *gin.Context) {

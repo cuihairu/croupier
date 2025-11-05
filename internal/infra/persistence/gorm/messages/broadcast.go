@@ -14,6 +14,10 @@ type BroadcastMessageRecord struct {
     Content string  `gorm:"type:text"`
     Type    string  `gorm:"size:32"` // info|warning|task
     Audience string `gorm:"size:16"` // all|roles
+
+    // Associations
+    BroadcastRoleRecords []BroadcastRoleRecord `gorm:"foreignKey:BroadcastID"`
+    BroadcastAckRecords  []BroadcastAckRecord  `gorm:"foreignKey:BroadcastID"`
 }
 
 // Target roles (normalized by name)
@@ -60,26 +64,53 @@ func (r *BroadcastRepo) Create(ctx context.Context, msg *BroadcastMessageRecord,
 
 // List returns applicable broadcasts for the user's roles; if unreadOnly is true, only unread ones.
 func (r *BroadcastRepo) List(ctx context.Context, userID uint, roleNames []string, unreadOnly bool, limit, offset int) ([]BroadItem, int64, error) {
-    if len(roleNames) == 0 { roleNames = []string{""} }
-    q := r.db.WithContext(ctx).Table("broadcast_message_records AS bm").
-        Select("bm.id, bm.title, bm.content, bm.type, bm.created_at, CASE WHEN ba.id IS NULL THEN 0 ELSE 1 END AS read").
-        Joins("LEFT JOIN broadcast_ack_records ba ON ba.broadcast_id = bm.id AND ba.user_id = ?", userID).
-        Joins("LEFT JOIN broadcast_role_records br ON br.broadcast_id = bm.id").
-        Where("bm.audience = 'all' OR br.role_name IN ?", roleNames)
-    if unreadOnly {
-        q = q.Where("ba.id IS NULL")
+    if len(roleNames) == 0 {
+        roleNames = []string{""}
     }
-    q2 := r.db.WithContext(ctx).Table("broadcast_message_records AS bm").
-        Joins("LEFT JOIN broadcast_ack_records ba ON ba.broadcast_id = bm.id AND ba.user_id = ?", userID).
-        Joins("LEFT JOIN broadcast_role_records br ON br.broadcast_id = bm.id").
-        Where("bm.audience = 'all' OR br.role_name IN ?", roleNames)
-    if unreadOnly { q2 = q2.Where("ba.id IS NULL") }
+
+    // Use GORM's Raw method with proper SQL to avoid alias issues
+    baseSQL := `SELECT bm.id, bm.title, bm.content, bm.type, bm.created_at,
+                CASE WHEN ba.id IS NULL THEN 0 ELSE 1 END AS read
+                FROM broadcast_message_records AS bm
+                LEFT JOIN broadcast_ack_records ba ON ba.broadcast_id = bm.id AND ba.user_id = ?
+                LEFT JOIN broadcast_role_records br ON br.broadcast_id = bm.id
+                WHERE (bm.audience = 'all' OR br.role_name IN ?)
+                AND bm.deleted_at IS NULL`
+
+    var sqlParams []interface{}
+    sqlParams = append(sqlParams, userID, roleNames)
+
+    if unreadOnly {
+        baseSQL += " AND ba.id IS NULL"
+    }
+
+    // Count total
+    countSQL := `SELECT COUNT(DISTINCT bm.id)
+                FROM broadcast_message_records AS bm
+                LEFT JOIN broadcast_ack_records ba ON ba.broadcast_id = bm.id AND ba.user_id = ?
+                LEFT JOIN broadcast_role_records br ON br.broadcast_id = bm.id
+                WHERE (bm.audience = 'all' OR br.role_name IN ?)
+                AND bm.deleted_at IS NULL`
+
+    countParams := []interface{}{userID, roleNames}
+    if unreadOnly {
+        countSQL += " AND ba.id IS NULL"
+    }
+
     var total int64
-    if err := q2.Distinct("bm.id").Count(&total).Error; err != nil { return nil, 0, err }
-    var rows []BroadItem
-    if err := q.Distinct("bm.id, bm.title, bm.content, bm.type, bm.created_at, read").Order("bm.created_at DESC").Limit(limit).Offset(offset).Scan(&rows).Error; err != nil {
+    if err := r.db.WithContext(ctx).Raw(countSQL, countParams...).Scan(&total).Error; err != nil {
         return nil, 0, err
     }
+
+    // Get results
+    finalSQL := baseSQL + " GROUP BY bm.id, bm.title, bm.content, bm.type, bm.created_at, ba.id ORDER BY bm.created_at DESC LIMIT ? OFFSET ?"
+    sqlParams = append(sqlParams, limit, offset)
+
+    var rows []BroadItem
+    if err := r.db.WithContext(ctx).Raw(finalSQL, sqlParams...).Scan(&rows).Error; err != nil {
+        return nil, 0, err
+    }
+
     return rows, total, nil
 }
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"gorm.io/gorm"
 	"net"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -270,11 +269,11 @@ func (s *Store) GetDomainInfo(domain string) (*DomainInfo, error) {
 
 // CertificateStats contains certificate statistics
 type CertificateStats struct {
-	Total       int `json:"total"`
-	Valid       int `json:"valid"`
-	Expiring    int `json:"expiring"`
-	Expired     int `json:"expired"`
-	Errors      int `json:"errors"`
+	Total       int64 `json:"total"`
+	Valid       int64 `json:"valid"`
+	Expiring    int64 `json:"expiring"`
+	Expired     int64 `json:"expired"`
+	Errors      int64 `json:"errors"`
 	LastChecked time.Time `json:"last_checked"`
 }
 
@@ -288,7 +287,7 @@ func (s *Store) GetCertificateStats() (*CertificateStats, error) {
 	// Count by status
 	var statusCounts []struct {
 		Status string
-		Count  int
+		Count  int64
 	}
 	s.db.Model(&Certificate{}).
 		Select("status, count(*) as count").

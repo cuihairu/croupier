@@ -2,6 +2,7 @@ package servercmd
 
 import (
     "fmt"
+    "log"
     "net"
     "strings"
     "os"
@@ -150,8 +151,18 @@ func New() *cobra.Command {
                 aw, err := auditchain.NewWriter("logs/audit.log")
                 if err != nil { slog.Error("audit", "error", err); os.Exit(1) }
                 defer aw.Close()
-                var pol *rbac.Policy
-                if p, err := rbac.LoadPolicy(rbacPath); err == nil { pol = p } else { pol = rbac.NewPolicy(); pol.Grant("user:dev", "*"); pol.Grant("user:dev", "job:cancel"); pol.Grant("role:admin", "*") }
+                var pol rbac.PolicyInterface
+                if p, err := rbac.LoadCasbinPolicy(rbacPath); err == nil {
+                    pol = p
+                } else {
+                    log.Printf("[RBAC] Failed to load Casbin policy, creating fallback policy: %v", err)
+                    fallback := rbac.NewPolicy()
+                    fallback.Grant("user:dev", "*")
+                    fallback.Grant("user:dev", "job:cancel")
+                    fallback.Grant("role:admin", "*")
+                    fallback.Grant("user:admin", "*")
+                    pol = fallback
+                }
                 // DB-backed users; ignore legacy usersPath
                 _ = usersPath
                 jm := jwt.NewManager(jwtSecret)

@@ -1,0 +1,53 @@
+# Policy definitions (subject, object, action)
+# Direct user permissions
+p, user:admin, *, *
+p, user:dev, *, *
+p, admin, *, *
+
+# Role permissions
+p, role:admin, *, *
+p, role:gm, /api/functions, GET
+p, role:gm, /api/functions, POST
+p, role:gm, /api/functions/*, GET
+p, role:gm, /api/functions/*, POST
+p, role:gm, /api/assignments, GET
+p, role:gm, /api/assignments, POST
+p, role:gm, /api/assignments, PUT
+p, role:gm, /api/entities, GET
+p, role:gm, /api/entities, POST
+p, role:gm, /api/entities, PUT
+p, role:gm, /api/entities, DELETE
+p, role:gm, /api/items, GET
+p, role:gm, /api/items, POST
+p, role:gm, /api/items, PUT
+p, role:gm, /api/items, DELETE
+
+p, role:user_manager, /api/users, GET
+p, role:user_manager, /api/users, POST
+p, role:user_manager, /api/users, PUT
+p, role:user_manager, /api/users, DELETE
+p, role:user_manager, /api/roles, GET
+p, role:user_manager, /api/roles, POST
+p, role:user_manager, /api/roles, PUT
+p, role:user_manager, /api/roles, DELETE
+p, role:user_manager, /api/permissions, GET
+
+p, role:economy_manager, /api/currency, GET
+p, role:economy_manager, /api/currency, POST
+p, role:economy_manager, /api/wallet, GET
+p, role:economy_manager, /api/wallet, POST
+
+p, role:operator, /api/functions, GET
+p, role:operator, /api/functions/*, GET
+p, role:operator, /api/functions/*, POST
+p, role:operator, /api/assignments, GET
+p, role:operator, /api/entities, GET
+p, role:operator, /api/items, GET
+
+p, role:viewer, /api/assignments, GET
+p, role:viewer, /api/entities, GET
+p, role:viewer, /api/items, GET
+
+# Role inheritance (user, role)
+g, admin, role:admin
+g, user:admin, role:admin
