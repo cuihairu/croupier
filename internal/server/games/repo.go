@@ -22,6 +22,30 @@ func (r *Repo) List(ctx context.Context) ([]*Game, error) {
 }
 
 // Env scopes
-func (r *Repo) ListEnvs(ctx context.Context, gameID uint) ([]string, error) { var out []string; if err := r.db.WithContext(ctx).Model(&GameEnv{}).Where("game_id=?", gameID).Pluck("env", &out).Error; err != nil { return nil, err }; return out, nil }
-func (r *Repo) AddEnv(ctx context.Context, gameID uint, env string) error { ge := &GameEnv{GameID: gameID, Env: env}; return r.db.WithContext(ctx).Create(ge).Error }
+func (r *Repo) ListEnvs(ctx context.Context, gameID uint) ([]string, error) {
+    var out []string
+    if err := r.db.WithContext(ctx).Model(&GameEnv{}).Where("game_id=?", gameID).Pluck("env", &out).Error; err != nil { return nil, err }
+    return out, nil
+}
+
+// List env records with id/env/description
+func (r *Repo) ListEnvRecords(ctx context.Context, gameID uint) ([]*GameEnv, error) {
+    var arr []*GameEnv
+    if err := r.db.WithContext(ctx).Where("game_id=?", gameID).Order("env ASC").Find(&arr).Error; err != nil { return nil, err }
+    return arr, nil
+}
+
+func (r *Repo) AddEnv(ctx context.Context, gameID uint, env string) error { return r.AddEnvWithDesc(ctx, gameID, env, "") }
+func (r *Repo) AddEnvWithDesc(ctx context.Context, gameID uint, env, desc string) error {
+    ge := &GameEnv{GameID: gameID, Env: env, Description: desc}
+    return r.db.WithContext(ctx).Create(ge).Error
+}
+func (r *Repo) UpdateEnv(ctx context.Context, gameID uint, oldEnv, newEnv, desc string) error {
+    var ge GameEnv
+    if err := r.db.WithContext(ctx).Where("game_id=? AND env=?", gameID, oldEnv).First(&ge).Error; err != nil { return err }
+    if newEnv != "" { ge.Env = newEnv }
+    ge.Description = desc
+    return r.db.WithContext(ctx).Save(&ge).Error
+}
 func (r *Repo) RemoveEnv(ctx context.Context, gameID uint, env string) error { return r.db.WithContext(ctx).Where("game_id=? AND env=?", gameID, env).Delete(&GameEnv{}).Error }
+func (r *Repo) RemoveEnvByID(ctx context.Context, id uint) error { return r.db.WithContext(ctx).Delete(&GameEnv{}, id).Error }

@@ -10,6 +10,10 @@ type Game struct {
     Icon        string
     Description string `gorm:"type:text"`
     Enabled     bool   `gorm:"default:true"`
+    // Additional metadata fields
+    AliasName   string `gorm:"size:64"`
+    Homepage    string `gorm:"size:255"`
+    Status      string `gorm:"size:32;default:online"` // online|offline|running
 }
 
 // GameEnv expresses an allowed environment for a game.
@@ -17,4 +21,5 @@ type GameEnv struct {
     gorm.Model
     GameID uint   `gorm:"uniqueIndex:uniq_game_env,priority:1;not null"`
     Env    string `gorm:"size:64;uniqueIndex:uniq_game_env,priority:2;not null"`
+    Description string `gorm:"type:text"`
 }

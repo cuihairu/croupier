@@ -13,7 +13,7 @@ server:
 
   # Database (dev): PostgreSQL
   db:
-    driver: postgres
+    driver: sqlite
     # Local host example:
     dsn: "postgres://croupier:croupier_dev_password@localhost:5432/croupier?sslmode=disable"
     # If running inside docker-compose, the host is service name `postgres`:
