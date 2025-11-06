@@ -5,6 +5,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+    "net"
 
 	"archive/tar"
 	"bufio"
@@ -978,32 +979,55 @@ func (s *Server) ginEngine() *gin.Engine {
 			c.String(403, "forbidden")
 			return
 		}
-		var in struct{ ID uint; Name, Icon, Description string; Enabled bool }
+    var in struct{
+        ID          uint   `json:"id"`
+        Name        string `json:"name"`
+        Icon        string `json:"icon"`
+        Description string `json:"description"`
+        Enabled     bool   `json:"enabled"`
+        Status      string `json:"status"`
+        AliasName   string `json:"alias_name"`
+        Homepage    string `json:"homepage"`
+    }
 		if err := c.BindJSON(&in); err != nil {
 			c.String(400, err.Error())
 			return
 		}
-		if in.ID == 0 {
-			g := &games.Game{Name: in.Name, Icon: in.Icon, Description: in.Description, Enabled: in.Enabled}
-			if err := s.games.Create(c, g); err != nil {
-				c.String(500, err.Error())
-				return
-			}
-			c.JSON(200, gin.H{"id": g.ID})
-		} else {
-			g, err := s.games.Get(c, in.ID)
-			if err != nil {
-				c.String(404, err.Error())
-				return
-			}
-			g.Name, g.Icon, g.Description, g.Enabled = in.Name, in.Icon, in.Description, in.Enabled
-			if err := s.games.Update(c, g); err != nil {
-				c.String(500, err.Error())
-				return
-			}
-			c.Status(204)
-		}
-	})
+        if in.ID == 0 {
+            g := &games.Game{
+                Name:        in.Name,
+                Icon:        in.Icon,
+                Description: in.Description,
+                Enabled:     in.Enabled,
+                Status:      in.Status,
+                AliasName:   in.AliasName,
+                Homepage:    in.Homepage,
+            }
+            if err := s.games.Create(c, g); err != nil {
+                c.String(500, err.Error())
+                return
+            }
+            c.JSON(200, gin.H{"id": g.ID})
+        } else {
+            g, err := s.games.Get(c, in.ID)
+            if err != nil {
+                c.String(404, err.Error())
+                return
+            }
+            if in.Name != "" { g.Name = in.Name }
+            g.Icon = in.Icon
+            g.Description = in.Description
+            g.Enabled = in.Enabled
+            if in.Status != "" { g.Status = in.Status }
+            g.AliasName = in.AliasName
+            g.Homepage = in.Homepage
+            if err := s.games.Update(c, g); err != nil {
+                c.String(500, err.Error())
+                return
+            }
+            c.Status(204)
+        }
+    })
 	r.GET("/api/games/:id", func(c *gin.Context) {
 		addCORS(c.Writer, c.Request)
 		user, roles, ok := s.auth(c.Request)
@@ -1035,7 +1059,15 @@ func (s *Server) ginEngine() *gin.Engine {
 			return
 		}
 		id64, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-		var in struct{ Name, Icon, Description string; Enabled bool }
+    var in struct{
+        Name        string `json:"name"`
+        Icon        string `json:"icon"`
+        Description string `json:"description"`
+        Enabled     bool   `json:"enabled"`
+        Status      string `json:"status"`
+        AliasName   string `json:"alias_name"`
+        Homepage    string `json:"homepage"`
+    }
 		if err := c.BindJSON(&in); err != nil {
 			c.String(400, err.Error())
 			return
@@ -1045,13 +1077,16 @@ func (s *Server) ginEngine() *gin.Engine {
 			c.String(404, err.Error())
 			return
 		}
-		if in.Name != "" { g.Name = in.Name }
-		g.Icon, g.Description, g.Enabled = in.Icon, in.Description, in.Enabled
-		if err := s.games.Update(c, g); err != nil {
-			c.String(500, err.Error())
-			return
-		}
-		c.Status(204)
+        if in.Name != "" { g.Name = in.Name }
+        g.Icon, g.Description, g.Enabled = in.Icon, in.Description, in.Enabled
+        if in.Status != "" { g.Status = in.Status }
+        g.AliasName = in.AliasName
+        g.Homepage = in.Homepage
+        if err := s.games.Update(c, g); err != nil {
+            c.String(500, err.Error())
+            return
+        }
+        c.Status(204)
 	})
 	r.DELETE("/api/games/:id", func(c *gin.Context) {
 		addCORS(c.Writer, c.Request)
@@ -1071,73 +1106,100 @@ func (s *Server) ginEngine() *gin.Engine {
 		}
 		c.Status(204)
 	})
-	r.GET("/api/games/:id/envs", func(c *gin.Context) {
-		addCORS(c.Writer, c.Request)
-		user, roles, ok := s.auth(c.Request)
-		if !ok {
-			c.String(401, "unauthorized")
-			return
-		}
-		if !(s.can(user, roles, "games:read") || s.can(user, roles, "games:manage")) {
-			c.String(403, "forbidden")
-			return
-		}
-		id64, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-		envs, err := s.games.ListEnvs(c, uint(id64))
-		if err != nil {
-			c.String(500, err.Error())
-			return
-		}
-		c.JSON(200, gin.H{"envs": envs})
-	})
-	r.POST("/api/games/:id/envs", func(c *gin.Context) {
-		addCORS(c.Writer, c.Request)
-		user, roles, ok := s.auth(c.Request)
-		if !ok {
-			c.String(401, "unauthorized")
-			return
-		}
-		if !s.can(user, roles, "games:manage") {
-			c.String(403, "forbidden")
-			return
-		}
-		id64, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-		var in struct{ Env string }
-		if err := c.BindJSON(&in); err != nil {
-			c.String(400, err.Error())
-			return
-		}
-		name := strings.TrimSpace(in.Env)
-		if name == "" { c.String(400, "invalid env"); return }
-		if err := s.games.AddEnv(c, uint(id64), name); err != nil {
-			c.String(500, err.Error())
-			return
-		}
-		c.Status(204)
-	})
-	r.DELETE("/api/games/:id/envs", func(c *gin.Context) {
-		addCORS(c.Writer, c.Request)
-		user, roles, ok := s.auth(c.Request)
-		if !ok {
-			c.String(401, "unauthorized")
-			return
-		}
-		if !s.can(user, roles, "games:manage") {
-			c.String(403, "forbidden")
-			return
-		}
-		id64, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-		env := c.Query("env")
-		if env == "" {
-			c.String(400, "missing env")
-			return
-		}
-		if err := s.games.RemoveEnv(c, uint(id64), env); err != nil {
-			c.String(500, err.Error())
-			return
-		}
-		c.Status(204)
-	})
+    r.GET("/api/games/:id/envs", func(c *gin.Context) {
+        addCORS(c.Writer, c.Request)
+        user, roles, ok := s.auth(c.Request)
+        if !ok {
+            c.String(401, "unauthorized")
+            return
+        }
+        if !(s.can(user, roles, "games:read") || s.can(user, roles, "games:manage")) {
+            c.String(403, "forbidden")
+            return
+        }
+        id64, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+        envs, err := s.games.ListEnvRecords(c, uint(id64))
+        if err != nil {
+            c.String(500, err.Error())
+            return
+        }
+        // Map to lean response for FE
+        type envOut struct{ ID uint `json:"id"`; Env string `json:"env"`; Description string `json:"description"` }
+        out := make([]envOut, 0, len(envs))
+        for _, e := range envs { out = append(out, envOut{ID: e.ID, Env: e.Env, Description: e.Description}) }
+        c.JSON(200, gin.H{"envs": out})
+    })
+    r.POST("/api/games/:id/envs", func(c *gin.Context) {
+        addCORS(c.Writer, c.Request)
+        user, roles, ok := s.auth(c.Request)
+        if !ok {
+            c.String(401, "unauthorized")
+            return
+        }
+        if !s.can(user, roles, "games:manage") {
+            c.String(403, "forbidden")
+            return
+        }
+        id64, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+        var in struct{ Env, Description string }
+        if err := c.BindJSON(&in); err != nil {
+            c.String(400, err.Error())
+            return
+        }
+        name := strings.TrimSpace(in.Env)
+        if name == "" { c.String(400, "invalid env"); return }
+        if err := s.games.AddEnvWithDesc(c, uint(id64), name, strings.TrimSpace(in.Description)); err != nil {
+            c.String(500, err.Error())
+            return
+        }
+        c.Status(204)
+    })
+    r.PUT("/api/games/:id/envs", func(c *gin.Context) {
+        addCORS(c.Writer, c.Request)
+        user, roles, ok := s.auth(c.Request)
+        if !ok {
+            c.String(401, "unauthorized")
+            return
+        }
+        if !s.can(user, roles, "games:manage") {
+            c.String(403, "forbidden")
+            return
+        }
+        id64, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+        var in struct{ OldEnv, Env, Description string }
+        if err := c.BindJSON(&in); err != nil { c.String(400, err.Error()); return }
+        oldEnv := strings.TrimSpace(in.OldEnv)
+        if oldEnv == "" { c.String(400, "missing old_env"); return }
+        if err := s.games.UpdateEnv(c, uint(id64), oldEnv, strings.TrimSpace(in.Env), strings.TrimSpace(in.Description)); err != nil { c.String(500, err.Error()); return }
+        c.Status(204)
+    })
+    r.DELETE("/api/games/:id/envs", func(c *gin.Context) {
+        addCORS(c.Writer, c.Request)
+        user, roles, ok := s.auth(c.Request)
+        if !ok {
+            c.String(401, "unauthorized")
+            return
+        }
+        if !s.can(user, roles, "games:manage") {
+            c.String(403, "forbidden")
+            return
+        }
+        id64, _ := strconv.ParseUint(c.Param("id"), 10, 64)
+        if idStr := c.Query("id"); idStr != "" {
+            if idv, err := strconv.ParseUint(idStr, 10, 64); err == nil {
+                if err := s.games.RemoveEnvByID(c, uint(idv)); err != nil { c.String(500, err.Error()); return }
+                c.Status(204)
+                return
+            }
+        }
+        env := c.Query("env")
+        if env == "" { c.String(400, "missing env"); return }
+        if err := s.games.RemoveEnv(c, uint(id64), env); err != nil {
+            c.String(500, err.Error())
+            return
+        }
+        c.Status(204)
+    })
 
 	// Auth
 	r.POST("/api/auth/login", func(c *gin.Context) {
@@ -3503,12 +3565,18 @@ func (s *Server) ginEngine() *gin.Engine {
 			c.String(403, "forbidden")
 			return
 		}
-		type Agent struct {
-			AgentID, GameID, Env, RpcAddr string
-			Functions                     int
-			Healthy                       bool
-			ExpiresInSec                  int
-		}
+        type Agent struct {
+            AgentID   string `json:"agent_id"`
+            GameID    string `json:"game_id"`
+            Env       string `json:"env"`
+            RpcAddr   string `json:"rpc_addr"`
+            IP        string `json:"ip"`
+            Type      string `json:"type"`
+            Version   string `json:"version"`
+            Functions int    `json:"functions"`
+            Healthy   bool   `json:"healthy"`
+            ExpiresInSec int `json:"expires_in_sec"`
+        }
 		type Function struct {
 			GameID, ID string
 			Agents     int
@@ -3528,14 +3596,28 @@ func (s *Server) ginEngine() *gin.Engine {
 		if s.reg != nil {
 			s.reg.Mu().RLock()
 			now := time.Now()
-			for _, a := range s.reg.AgentsUnsafe() {
-				healthy := now.Before(a.ExpireAt)
-				exp := int(time.Until(a.ExpireAt).Seconds())
-				if exp < 0 {
-					exp = 0
-				}
-				agents = append(agents, Agent{AgentID: a.AgentID, GameID: a.GameID, Env: a.Env, RpcAddr: a.RPCAddr, Functions: len(a.Functions), Healthy: healthy, ExpiresInSec: exp})
-			}
+            for _, a := range s.reg.AgentsUnsafe() {
+                healthy := now.Before(a.ExpireAt)
+                exp := int(time.Until(a.ExpireAt).Seconds())
+                if exp < 0 { exp = 0 }
+                ip := ""
+                if h, _, err := net.SplitHostPort(a.RPCAddr); err == nil { ip = h } else {
+                    // fallback: strip suffix after ':' if any
+                    if i := strings.LastIndex(a.RPCAddr, ":"); i > 0 { ip = a.RPCAddr[:i] } else { ip = a.RPCAddr }
+                }
+                agents = append(agents, Agent{
+                    AgentID: a.AgentID,
+                    GameID: a.GameID,
+                    Env: a.Env,
+                    RpcAddr: a.RPCAddr,
+                    IP: ip,
+                    Type: "agent",
+                    Version: a.Version,
+                    Functions: len(a.Functions),
+                    Healthy: healthy,
+                    ExpiresInSec: exp,
+                })
+            }
 			fnCountAll := map[string]map[string]int{}
 			fnCountHealthy := map[string]map[string]int{}
 			for _, a := range s.reg.AgentsUnsafe() {

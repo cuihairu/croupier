@@ -3,9 +3,11 @@
 p, user:admin, *, *
 p, user:dev, *, *
 p, admin, *, *
+p, admin, audit, read
 
 # Role permissions
 p, role:admin, *, *
+p, role:admin, audit, read
 p, role:gm, /api/functions, GET
 p, role:gm, /api/functions, POST
 p, role:gm, /api/functions/*, GET
