@@ -555,6 +555,35 @@ npm run dev  # 或 npm run start
 npm run build  # 产物到 web/dist，Server 会优先静态服务 web/dist
 ```
 
+### IP 属地（GeoIP，登录/操作日志的属地显示）
+
+后台会在审计事件中尽量填充 `meta.ip_region`，并在“登录日志 / 操作日志 / 审批列表”等页面显示“属地”。该功能默认可用，行为如下：
+
+- 本地与内网地址无需查询：
+  - `127.0.0.1`/`::1` → “本地”
+  - 私网/链路本地地址（10/172.16–31/192.168/169.254、fc00::/7、fe80::/10）→ “局域网”
+- 公网地址解析（可选，二选一或同时启用）：
+  1) 离线库 IP2Location（推荐，可离线）：
+     - 需自行下载 LITE 数据库 BIN 文件（免费）：
+       - IPv4：`IP2LOCATION-LITE-DB3.BIN`
+       - IPv6：`IP2LOCATION-LITE-DB3.IPV6.BIN`
+       - 下载地址：https://lite.ip2location.com/database/db3-ip-country-region-city
+     - 放置到项目 `configs/` 目录（文件名保持一致）即可自动启用；或通过环境变量指定绝对路径：
+       - `IP2LOCATION_BIN_PATH=/abs/path/IP2LOCATION-LITE-DB3.BIN`
+       - `IP2LOCATION_BIN_PATH_V6=/abs/path/IP2LOCATION-LITE-DB3.IPV6.BIN`
+     - 构建无需任何 build tag，系统会在运行时自动探测；若文件不存在则回退。
+  2) 在线 HTTP 解析（可选）：
+     - 设置 `GEOIP_HTTP_URL`（如 `https://your-geo.example.com/lookup?ip={{ip}}`），以及超时 `GEOIP_TIMEOUT_MS`（默认 1500）。
+     - 返回 JSON 中常见字段名将被自动识别（如 country/region/city）。
+
+校验方式：
+- 登录一次后台 → “后台用户 → 登录日志”中“属地”列应出现“本地/局域网/国家/省/市”。
+- 也可调用 `/api/audit?kinds=login`，查看 `events[].meta.ip_region`。
+
+注意：
+- `configs/*.BIN` 文件不会提交到版本库（已加入 `.gitignore`），请按需自行下载放置。
+- 开发脚本 `scripts/dev-run-server.sh` 会在检测到 `configs/` 下存在 BIN 时自动导出相应环境变量并设置合理的 GEOIP 超时时间。
+
 ### 开发工作流程
 
 1. **首次设置**：`make dev` - 完整的开发环境构建
