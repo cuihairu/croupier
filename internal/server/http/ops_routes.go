@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"github.com/cuihairu/croupier/internal/loadbalancer"
 	"github.com/gin-gonic/gin"
+	redis "github.com/redis/go-redis/v9"
 	"net"
 	"net/http"
 	"net/url"
@@ -13,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-    redis "github.com/redis/go-redis/v9"
 )
 
 // addOpsRoutes registers /api/ops/* endpoints.
@@ -238,70 +238,95 @@ func (s *Server) addOpsRoutes(r *gin.Engine) {
 		s.JSON(c, 200, gin.H{"rules": out})
 	})
 
-    // MQ info (redis|kafka|noop)
-    r.GET("/api/ops/mq", func(c *gin.Context) {
-        if _, _, ok := s.require(c, "ops:read"); !ok { return }
-        typ := strings.TrimSpace(os.Getenv("ANALYTICS_MQ_TYPE"))
-        if typ == "" { typ = "noop" }
-        out := gin.H{"type": typ}
-        switch typ {
-        case "redis":
-            url := strings.TrimSpace(os.Getenv("REDIS_URL"))
-            se := os.Getenv("ANALYTICS_REDIS_STREAM_EVENTS"); if se == "" { se = "analytics:events" }
-            sp := os.Getenv("ANALYTICS_REDIS_STREAM_PAYMENTS"); if sp == "" { sp = "analytics:payments" }
-            out["redis"] = gin.H{"url": url, "streams": gin.H{"events": se, "payments": sp}}
-            // Optional lengths and consumer groups
-            lens := gin.H{}
-            groups := []gin.H{}
-            if url != "" {
-                if opt, err := redis.ParseURL(url); err == nil {
-                    cli := redis.NewClient(opt)
-                    ctx, cancel := context.WithTimeout(context.Background(), 800*time.Millisecond); defer cancel()
-                    if se != "" {
-                        if n, err := cli.XLen(ctx, se).Result(); err == nil { lens[se] = n }
-                        if gs, err := cli.XInfoGroups(ctx, se).Result(); err == nil {
-                            for _, g := range gs {
-                                groups = append(groups, gin.H{
-                                    "stream": se,
-                                    "name": g.Name,
-                                    "consumers": g.Consumers,
-                                    "pending": g.Pending,
-                                    // EntriesRead / Lag available in newer redis versions
-                                    "entries_read": g.EntriesRead,
-                                    "lag": g.Lag,
-                                })
-                            }
-                        }
-                    }
-                    if sp != "" {
-                        if n, err := cli.XLen(ctx, sp).Result(); err == nil { lens[sp] = n }
-                        if gs, err := cli.XInfoGroups(ctx, sp).Result(); err == nil {
-                            for _, g := range gs {
-                                groups = append(groups, gin.H{
-                                    "stream": sp,
-                                    "name": g.Name,
-                                    "consumers": g.Consumers,
-                                    "pending": g.Pending,
-                                    "entries_read": g.EntriesRead,
-                                    "lag": g.Lag,
-                                })
-                            }
-                        }
-                    }
-                    _ = cli.Close()
-                }
-            }
-            if len(lens) > 0 { out["lengths"] = lens }
-            if len(groups) > 0 { out["groups"] = groups }
-        case "kafka":
-            brokers := strings.TrimSpace(os.Getenv("KAFKA_BROKERS"))
-            te := os.Getenv("KAFKA_TOPIC_EVENTS"); if te == "" { te = "events" }
-            tp := os.Getenv("KAFKA_TOPIC_PAYMENTS"); if tp == "" { tp = "payments" }
-            out["kafka"] = gin.H{"brokers": brokers, "topics": gin.H{"events": te, "payments": tp}}
-        default:
-        }
-        c.JSON(200, out)
-    })
+	// MQ info (redis|kafka|noop)
+	r.GET("/api/ops/mq", func(c *gin.Context) {
+		if _, _, ok := s.require(c, "ops:read"); !ok {
+			return
+		}
+		typ := strings.TrimSpace(os.Getenv("ANALYTICS_MQ_TYPE"))
+		if typ == "" {
+			typ = "noop"
+		}
+		out := gin.H{"type": typ}
+		switch typ {
+		case "redis":
+			url := strings.TrimSpace(os.Getenv("REDIS_URL"))
+			se := os.Getenv("ANALYTICS_REDIS_STREAM_EVENTS")
+			if se == "" {
+				se = "analytics:events"
+			}
+			sp := os.Getenv("ANALYTICS_REDIS_STREAM_PAYMENTS")
+			if sp == "" {
+				sp = "analytics:payments"
+			}
+			out["redis"] = gin.H{"url": url, "streams": gin.H{"events": se, "payments": sp}}
+			// Optional lengths and consumer groups
+			lens := gin.H{}
+			groups := []gin.H{}
+			if url != "" {
+				if opt, err := redis.ParseURL(url); err == nil {
+					cli := redis.NewClient(opt)
+					ctx, cancel := context.WithTimeout(context.Background(), 800*time.Millisecond)
+					defer cancel()
+					if se != "" {
+						if n, err := cli.XLen(ctx, se).Result(); err == nil {
+							lens[se] = n
+						}
+						if gs, err := cli.XInfoGroups(ctx, se).Result(); err == nil {
+							for _, g := range gs {
+								groups = append(groups, gin.H{
+									"stream":    se,
+									"name":      g.Name,
+									"consumers": g.Consumers,
+									"pending":   g.Pending,
+									// EntriesRead / Lag available in newer redis versions
+									"entries_read": g.EntriesRead,
+									"lag":          g.Lag,
+								})
+							}
+						}
+					}
+					if sp != "" {
+						if n, err := cli.XLen(ctx, sp).Result(); err == nil {
+							lens[sp] = n
+						}
+						if gs, err := cli.XInfoGroups(ctx, sp).Result(); err == nil {
+							for _, g := range gs {
+								groups = append(groups, gin.H{
+									"stream":       sp,
+									"name":         g.Name,
+									"consumers":    g.Consumers,
+									"pending":      g.Pending,
+									"entries_read": g.EntriesRead,
+									"lag":          g.Lag,
+								})
+							}
+						}
+					}
+					_ = cli.Close()
+				}
+			}
+			if len(lens) > 0 {
+				out["lengths"] = lens
+			}
+			if len(groups) > 0 {
+				out["groups"] = groups
+			}
+		case "kafka":
+			brokers := strings.TrimSpace(os.Getenv("KAFKA_BROKERS"))
+			te := os.Getenv("KAFKA_TOPIC_EVENTS")
+			if te == "" {
+				te = "events"
+			}
+			tp := os.Getenv("KAFKA_TOPIC_PAYMENTS")
+			if tp == "" {
+				tp = "payments"
+			}
+			out["kafka"] = gin.H{"brokers": brokers, "topics": gin.H{"events": te, "payments": tp}}
+		default:
+		}
+		c.JSON(200, out)
+	})
 	r.PUT("/api/ops/rate-limits", func(c *gin.Context) {
 		user, _, ok := s.require(c, "ops:manage")
 		if !ok {

@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"log/slog"
 	"net"
@@ -54,6 +55,7 @@ import (
 
 	"net/url"
 
+	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
 	obj "github.com/cuihairu/croupier/internal/objstore"
 	gin "github.com/gin-gonic/gin"
 )
@@ -136,6 +138,9 @@ type Server struct {
 		PublishEvent(map[string]any) error
 		PublishPayment(map[string]any) error
 	}
+
+	// Optional ClickHouse connection for analytics queries
+	ch clickhouse.Conn
 }
 
 // rateRuleAdv supports gray matching and percent rollout
@@ -343,6 +348,20 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
 	}
 	// Init analytics MQ (noop by default; can be redis|kafka via ANALYTICS_MQ_TYPE)
 	s.initAnalyticsMQ()
+	// Optional ClickHouse connection for analytics queries
+	if dsn := strings.TrimSpace(os.Getenv("CLICKHOUSE_DSN")); dsn != "" {
+		addr := strings.TrimPrefix(strings.TrimPrefix(dsn, "clickhouse://"), "http://")
+		host := addr
+		if i := strings.Index(host, "/"); i >= 0 {
+			host = host[:i]
+		}
+		if cc, err := clickhouse.Open(&clickhouse.Options{Addr: []string{host}}); err == nil {
+			s.ch = cc
+			log.Printf("[analytics] clickhouse connected: %s", host)
+		} else {
+			log.Printf("[analytics] clickhouse connect failed: %v", err)
+		}
+	}
 	// init GORM (prefer postgres)
 	// DB initialization by config/env: DB_DRIVER=[postgres|mysql|sqlite|auto], DATABASE_URL as DSN
 	sel := strings.ToLower(strings.TrimSpace(os.Getenv("DB_DRIVER")))
