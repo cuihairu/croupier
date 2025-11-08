@@ -16,7 +16,12 @@ func (s *Server) addAnalyticsRoutes(r *gin.Engine) {
             "registered_total": 0,
             "d1": 0, "d7": 0, "d30": 0,
             "pay_rate": 0, "arpu": 0, "arppu": 0, "revenue_cents": 0,
-            "series": gin.H{"dau": []},
+            "series": gin.H{
+                "dau": [] ,
+                "new_users": [] ,
+                "peak_online": [] ,
+                "revenue_cents": [] ,
+            },
         })
     })
     // Retention
