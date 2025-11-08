@@ -97,6 +97,12 @@ pack-builder:
 	@mkdir -p $(BINDIR)
 	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/pack-builder ./cmd/pack-builder
 
+.PHONY: worker
+worker:
+	@echo "[build] analytics-worker"
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/analytics-worker ./cmd/analytics-worker
+
 cli:
     @echo "[build] unified CLI (pg+sqlite)"
     @mkdir -p $(BINDIR)
