@@ -3704,6 +3704,8 @@ func (s *Server) ginEngine() *gin.Engine {
         s.addSupportRoutes(r)
         // Ops routes (/api/ops/*)
         s.addOpsRoutes(r)
+        // Analytics routes (/api/analytics/*)
+        s.addAnalyticsRoutes(r)
 
 	// Static files
 	staticDir := "web/dist"
