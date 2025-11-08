@@ -12,21 +12,21 @@ import (
 
 // Certificate represents a monitored SSL certificate
 type Certificate struct {
-	ID          uint   `gorm:"primaryKey"`
-	Domain      string `gorm:"column:domain;uniqueIndex;size:255"`
-	Port        int    `gorm:"column:port;default:443"`
-	Issuer      string `gorm:"column:issuer;size:500"`
-	Subject     string `gorm:"column:subject;size:500"`
-	Algorithm   string `gorm:"column:algorithm;size:100"`
-	KeyUsage    string `gorm:"column:key_usage;size:200"`
+	ID          uint      `gorm:"primaryKey"`
+	Domain      string    `gorm:"column:domain;uniqueIndex;size:255"`
+	Port        int       `gorm:"column:port;default:443"`
+	Issuer      string    `gorm:"column:issuer;size:500"`
+	Subject     string    `gorm:"column:subject;size:500"`
+	Algorithm   string    `gorm:"column:algorithm;size:100"`
+	KeyUsage    string    `gorm:"column:key_usage;size:200"`
 	ValidFrom   time.Time `gorm:"column:valid_from"`
 	ValidTo     time.Time `gorm:"column:valid_to"`
-	DaysLeft    int    `gorm:"column:days_left"`
-	Status      string `gorm:"column:status;size:50"` // valid, expired, expiring, error
+	DaysLeft    int       `gorm:"column:days_left"`
+	Status      string    `gorm:"column:status;size:50"` // valid, expired, expiring, error
 	LastChecked time.Time `gorm:"column:last_checked"`
-	ErrorMsg    string `gorm:"column:error_msg;type:text"`
-	AlertDays   int    `gorm:"column:alert_days;default:30"` // Alert when days left <= this value
-	Enabled     bool   `gorm:"column:enabled;default:true"`
+	ErrorMsg    string    `gorm:"column:error_msg;type:text"`
+	AlertDays   int       `gorm:"column:alert_days;default:30"` // Alert when days left <= this value
+	Enabled     bool      `gorm:"column:enabled;default:true"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -37,14 +37,14 @@ func (Certificate) TableName() string {
 
 // CertificateAlert represents alert configuration
 type CertificateAlert struct {
-	ID           uint   `gorm:"primaryKey"`
-	CertificateID uint   `gorm:"column:certificate_id;index"`
-	AlertType    string `gorm:"column:alert_type;size:50"` // email, sms, webhook, chat
-	Target       string `gorm:"column:target;size:500"`    // email address, phone, webhook URL, chat ID
-	Enabled      bool   `gorm:"column:enabled;default:true"`
-	LastSent     *time.Time `gorm:"column:last_sent"`
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID            uint       `gorm:"primaryKey"`
+	CertificateID uint       `gorm:"column:certificate_id;index"`
+	AlertType     string     `gorm:"column:alert_type;size:50"` // email, sms, webhook, chat
+	Target        string     `gorm:"column:target;size:500"`    // email address, phone, webhook URL, chat ID
+	Enabled       bool       `gorm:"column:enabled;default:true"`
+	LastSent      *time.Time `gorm:"column:last_sent"`
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 
 	Certificate Certificate `gorm:"foreignKey:CertificateID"`
 }
@@ -235,13 +235,13 @@ func (s *Store) GetAlertsForCertificate(certID uint) ([]CertificateAlert, error)
 
 // DomainInfo contains domain registration information
 type DomainInfo struct {
-	Domain         string    `json:"domain"`
-	Registrar      string    `json:"registrar"`
+	Domain           string     `json:"domain"`
+	Registrar        string     `json:"registrar"`
 	RegistrationDate *time.Time `json:"registration_date,omitempty"`
 	ExpirationDate   *time.Time `json:"expiration_date,omitempty"`
-	NameServers    []string  `json:"name_servers"`
-	DaysToExpiry   int       `json:"days_to_expiry"`
-	Status         string    `json:"status"`
+	NameServers      []string   `json:"name_servers"`
+	DaysToExpiry     int        `json:"days_to_expiry"`
+	Status           string     `json:"status"`
 }
 
 // GetDomainInfo attempts to get domain registration info (basic implementation)
@@ -269,11 +269,11 @@ func (s *Store) GetDomainInfo(domain string) (*DomainInfo, error) {
 
 // CertificateStats contains certificate statistics
 type CertificateStats struct {
-	Total       int64 `json:"total"`
-	Valid       int64 `json:"valid"`
-	Expiring    int64 `json:"expiring"`
-	Expired     int64 `json:"expired"`
-	Errors      int64 `json:"errors"`
+	Total       int64     `json:"total"`
+	Valid       int64     `json:"valid"`
+	Expiring    int64     `json:"expiring"`
+	Expired     int64     `json:"expired"`
+	Errors      int64     `json:"errors"`
 	LastChecked time.Time `json:"last_checked"`
 }
 

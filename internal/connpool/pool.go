@@ -60,13 +60,13 @@ type PoolStats struct {
 
 // ConnectionInfo holds information about a pooled connection
 type ConnectionInfo struct {
-	conn        *grpc.ClientConn
-	target      string
-	createdAt   time.Time
-	lastUsed    time.Time
-	useCount    int64
-	healthy     bool
-	mu          sync.RWMutex
+	conn      *grpc.ClientConn
+	target    string
+	createdAt time.Time
+	lastUsed  time.Time
+	useCount  int64
+	healthy   bool
+	mu        sync.RWMutex
 }
 
 // DefaultConnectionPool implements ConnectionPool interface

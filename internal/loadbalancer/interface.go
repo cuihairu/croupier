@@ -31,16 +31,16 @@ type HealthChecker interface {
 
 // AgentStats holds statistics for an agent
 type AgentStats struct {
-    AgentID         string
-    ActiveConns     int64
-    TotalRequests   int64
-    FailedRequests  int64
-    AvgResponseTime time.Duration
-    LastSeen        time.Time
-    Weight          int
-    Healthy         bool
-    // Derived metrics (best-effort, sliding window)
-    QPS1m           float64
+	AgentID         string
+	ActiveConns     int64
+	TotalRequests   int64
+	FailedRequests  int64
+	AvgResponseTime time.Duration
+	LastSeen        time.Time
+	Weight          int
+	Healthy         bool
+	// Derived metrics (best-effort, sliding window)
+	QPS1m float64
 }
 
 // StatsCollector collects and maintains agent statistics

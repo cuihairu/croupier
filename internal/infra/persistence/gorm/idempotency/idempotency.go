@@ -9,13 +9,13 @@ import (
 
 // IdempotencyRecord represents an idempotency key record
 type IdempotencyRecord struct {
-	ID           uint   `gorm:"primaryKey"`
-	Key          string `gorm:"column:idempotency_key;uniqueIndex;size:255"`
-	UserID       string `gorm:"column:user_id;index;size:100"`
-	FunctionID   string `gorm:"column:function_id;index;size:100"`
-	RequestHash  string `gorm:"column:request_hash;size:32"` // MD5 hash of request parameters
-	ResponseBody string `gorm:"column:response_body;type:text"`
-	StatusCode   int    `gorm:"column:status_code"`
+	ID           uint      `gorm:"primaryKey"`
+	Key          string    `gorm:"column:idempotency_key;uniqueIndex;size:255"`
+	UserID       string    `gorm:"column:user_id;index;size:100"`
+	FunctionID   string    `gorm:"column:function_id;index;size:100"`
+	RequestHash  string    `gorm:"column:request_hash;size:32"` // MD5 hash of request parameters
+	ResponseBody string    `gorm:"column:response_body;type:text"`
+	StatusCode   int       `gorm:"column:status_code"`
 	ExpiresAt    time.Time `gorm:"column:expires_at;index"`
 	CreatedAt    time.Time
 	UpdatedAt    time.Time

@@ -22,15 +22,15 @@ type ComponentRegistry struct {
 }
 
 type ComponentManifest struct {
-	ID           string               `json:"id"`
-	Name         string               `json:"name"`
-	Version      string               `json:"version"`
-	Description  string               `json:"description"`
-	Category     string               `json:"category"` // player, item, economy, social, etc.
-	Dependencies []string             `json:"dependencies,omitempty"`
-	Functions    []ComponentFunction  `json:"functions"`
-	Author       string               `json:"author,omitempty"`
-	License      string               `json:"license,omitempty"`
+	ID           string              `json:"id"`
+	Name         string              `json:"name"`
+	Version      string              `json:"version"`
+	Description  string              `json:"description"`
+	Category     string              `json:"category"` // player, item, economy, social, etc.
+	Dependencies []string            `json:"dependencies,omitempty"`
+	Functions    []ComponentFunction `json:"functions"`
+	Author       string              `json:"author,omitempty"`
+	License      string              `json:"license,omitempty"`
 }
 
 type ComponentFunction struct {
@@ -45,7 +45,7 @@ func NewComponentManager(dataDir string) *ComponentManager {
 		dataDir:      dataDir,
 		installedDir: filepath.Join(dataDir, "components", "installed"),
 		disabledDir:  filepath.Join(dataDir, "components", "disabled"),
-		registry:     &ComponentRegistry{
+		registry: &ComponentRegistry{
 			Installed: make(map[string]*ComponentManifest),
 			Disabled:  make(map[string]*ComponentManifest),
 		},

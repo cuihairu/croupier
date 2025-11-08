@@ -11,12 +11,12 @@ import (
 
 // AuthContext provides the context for evaluating authorization rules
 type AuthContext struct {
-	User        string            // Current user ID
-	Permissions []string          // User's permissions
-	Roles       []string          // User's roles
-	Resource    map[string]any    // Resource data being accessed
-	Request     map[string]any    // Request parameters
-	Now         time.Time         // Current time
+	User        string         // Current user ID
+	Permissions []string       // User's permissions
+	Roles       []string       // User's roles
+	Resource    map[string]any // Resource data being accessed
+	Request     map[string]any // Request parameters
+	Now         time.Time      // Current time
 }
 
 // EnhancedEvaluator provides advanced allow_if evaluation capabilities
@@ -387,8 +387,8 @@ func (e *EnhancedEvaluator) toFloat64(val any) (float64, bool) {
 func (e *EnhancedEvaluator) isTimeWindowExpression(term string) bool {
 	// Simple time window patterns
 	timePatterns := []string{
-		`\d{1,2}:\d{2}-\d{1,2}:\d{2}`,        // 09:00-17:00
-		`(Mon|Tue|Wed|Thu|Fri|Sat|Sun)`,      // Day of week
+		`\d{1,2}:\d{2}-\d{1,2}:\d{2}`,   // 09:00-17:00
+		`(Mon|Tue|Wed|Thu|Fri|Sat|Sun)`, // Day of week
 	}
 
 	for _, pattern := range timePatterns {
