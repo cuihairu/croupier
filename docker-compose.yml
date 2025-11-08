@@ -68,11 +68,15 @@ services:
         GO_IMAGE: ${GO_IMAGE:-golang:1.24}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
         # Optional: include sqlite support by setting BUILD_TAGS to "pg sqlite"
-        BUILD_TAGS: ${SERVER_BUILD_TAGS:-pg}
+        BUILD_TAGS: ${SERVER_BUILD_TAGS:-"pg ip2location"}
     environment:
       # 数据库配置
       DATABASE_URL: postgres://croupier:croupier_dev_password@postgres:5432/croupier?sslmode=disable
       REDIS_URL: redis://redis:6379/0
+      # GeoIP (可选，已内置 configs 下的 LITE BIN 文件，默认启用)
+      IP2LOCATION_BIN_PATH: /app/configs/IP2LOCATION-LITE-DB3.BIN
+      IP2LOCATION_BIN_PATH_V6: /app/configs/IP2LOCATION-LITE-DB3.IPV6.BIN
+      GEOIP_TIMEOUT_MS: 800
     command: ["server", "--addr", ":8443", "--http_addr", ":8080", "--edge_addr", "edge:9443", "--rbac_config", "/app/configs/rbac.json", "--games_config", "/app/configs/games.json", "--users_config", "/app/configs/users.json", "--jwt_secret", "change-me", "--cert", "/app/configs/dev/server.crt", "--key", "/app/configs/dev/server.key", "--ca", "/app/configs/dev/ca.crt"]
     ports: ["8443:8443", "18080:8080"]
     depends_on:

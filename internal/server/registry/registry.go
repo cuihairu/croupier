@@ -18,6 +18,9 @@ type AgentSession struct {
     RPCAddr   string
     GameID    string
     Env       string
+    Region    string
+    Zone      string
+    Labels    map[string]string
     Functions map[string]FunctionMeta // Upgraded from map[string]bool
     ExpireAt  time.Time
 }

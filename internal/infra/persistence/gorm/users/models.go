@@ -56,8 +56,17 @@ func (RolePermRecord) TableName() string {
     return "role_perm_records"
 }
 
+// UserGameScope links a user to allowed game IDs (scope control at game level)
+type UserGameScope struct {
+    gorm.Model
+    UserID uint `gorm:"index;not null"`
+    GameID uint `gorm:"index;not null"`
+}
+
+func (UserGameScope) TableName() string { return "user_game_scopes" }
+
 func AutoMigrate(db *gorm.DB) error {
-    return db.AutoMigrate(&UserAccount{}, &RoleRecord{}, &UserRoleRecord{}, &RolePermRecord{})
+    return db.AutoMigrate(&UserAccount{}, &RoleRecord{}, &UserRoleRecord{}, &RolePermRecord{}, &UserGameScope{})
 }
 
 // Helpers to stamp time manually if needed

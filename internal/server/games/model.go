@@ -13,7 +13,8 @@ type Game struct {
     // Additional metadata fields
     AliasName   string `gorm:"size:64"`
     Homepage    string `gorm:"size:255"`
-    Status      string `gorm:"size:32;default:online"` // online|offline|running
+    // Lifecycle status: dev (开发) | test (测试) | running (运行中) | online (在线) | offline (下线) | maintenance (维护)
+    Status      string `gorm:"size:32;default:dev"`
 }
 
 // GameEnv expresses an allowed environment for a game.

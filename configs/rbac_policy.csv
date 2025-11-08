@@ -15,6 +15,9 @@ p, role:gm, /api/functions/*, POST
 p, role:gm, /api/assignments, GET
 p, role:gm, /api/assignments, POST
 p, role:gm, /api/assignments, PUT
+# GM: allow viewing server registry and audit logs
+p, role:gm, /api/registry, GET
+p, role:gm, /api/audit, GET
 p, role:gm, /api/entities, GET
 p, role:gm, /api/entities, POST
 p, role:gm, /api/entities, PUT
@@ -45,6 +48,9 @@ p, role:operator, /api/functions/*, POST
 p, role:operator, /api/assignments, GET
 p, role:operator, /api/entities, GET
 p, role:operator, /api/items, GET
+
+# Auditor role: audit logs view
+p, role:auditor, /api/audit, GET
 
 p, role:viewer, /api/assignments, GET
 p, role:viewer, /api/entities, GET

@@ -5,6 +5,7 @@ import (
     "errors"
     "fmt"
     "log/slog"
+    "sync"
     "time"
 
     functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
@@ -27,6 +28,10 @@ type Server struct {
     connPool    connpool.ConnectionPool
     stats       loadbalancer.StatsCollector
     healthCheck loadbalancer.HealthChecker
+    // per-agent rate limit (ops: service-level QPS)
+    rlMu        sync.Mutex
+    rateLookup  func(agentID string) int
+    agentRL     map[string]*agentLimiter
 }
 
 // ServerConfig holds configuration for the function server
@@ -74,7 +79,49 @@ func NewServer(store *registry.Store, config *ServerConfig) *Server {
         connPool:    connPool,
         stats:       stats,
         healthCheck: healthCheck,
+        agentRL:     map[string]*agentLimiter{},
     }
+}
+
+// agentLimiter is a simple token bucket per agent
+type agentLimiter struct {
+    cap    int
+    tokens float64
+    last   time.Time
+    rate   float64
+}
+
+func newAgentLimiter(rps int) *agentLimiter { return &agentLimiter{cap: rps, tokens: float64(rps), last: time.Now(), rate: float64(rps)} }
+func (r *agentLimiter) try() bool {
+    now := time.Now()
+    dt := now.Sub(r.last).Seconds()
+    if dt > 0 {
+        r.tokens += dt * r.rate
+        if r.tokens > float64(r.cap) { r.tokens = float64(r.cap) }
+        r.last = now
+    }
+    if r.tokens >= 1 {
+        r.tokens -= 1
+        return true
+    }
+    return false
+}
+
+// SetServiceRateLookup configures per-agent QPS provider used to enforce service-level rate limits.
+func (s *Server) SetServiceRateLookup(fn func(agentID string) int) { s.rlMu.Lock(); defer s.rlMu.Unlock(); s.rateLookup = fn }
+
+func (s *Server) getAgentLimiter(agentID string) *agentLimiter {
+    s.rlMu.Lock()
+    defer s.rlMu.Unlock()
+    if s.rateLookup == nil { return nil }
+    rps := s.rateLookup(agentID)
+    if rps <= 0 { return nil }
+    rl := s.agentRL[agentID]
+    if rl == nil || rl.cap != rps {
+        rl = newAgentLimiter(rps)
+        s.agentRL[agentID] = rl
+    }
+    return rl
 }
 
 func (s *Server) pickAgent(fid, gameID, hashKey string) (*registry.AgentSession, error) {
@@ -134,6 +181,11 @@ func (s *Server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*fu
         }
     }
 
+    // Service-level rate limit (if configured)
+    if rl := s.getAgentLimiter(agent.AgentID); rl != nil && !rl.try() {
+        s.balancer.UpdateHealth(agent.AgentID, true)
+        return nil, fmt.Errorf("rate limited")
+    }
     // Increment active connections for stats
     s.stats.IncrementActiveConns(agent.AgentID)
     defer s.stats.DecrementActiveConns(agent.AgentID)
@@ -186,6 +238,11 @@ func (s *Server) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*
         if err != nil { return nil, err }
     }
 
+    // Service-level rate limit (if configured)
+    if rl := s.getAgentLimiter(agent.AgentID); rl != nil && !rl.try() {
+        s.balancer.UpdateHealth(agent.AgentID, true)
+        return nil, fmt.Errorf("rate limited")
+    }
     // Increment active connections for stats
     s.stats.IncrementActiveConns(agent.AgentID)
     defer s.stats.DecrementActiveConns(agent.AgentID)
@@ -378,3 +435,4 @@ func (a *clientAdapter) S() *Server { return a.s }
 // Optional stats provider interface for HTTP metrics
 func (a *clientAdapter) GetStats() map[string]*loadbalancer.AgentStats { return a.s.GetStats() }
 func (a *clientAdapter) GetPoolStats() *connpool.PoolStats { return a.s.GetPoolStats() }
+func (a *clientAdapter) SetServiceRateLookup(fn func(string) int) { a.s.SetServiceRateLookup(fn) }

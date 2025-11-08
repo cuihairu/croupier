@@ -65,3 +65,28 @@ func (r *Repo) BuildPolicySnapshot(ctx context.Context) (map[string][]string, er
     for _, x := range rows { out[x.Name] = append(out[x.Name], x.Perm) }
     return out, nil
 }
+
+// Game scopes for users
+func (r *Repo) ListUserGameIDs(ctx context.Context, userID uint) ([]uint, error) {
+    var ids []uint
+    if err := r.db.WithContext(ctx).Model(&UserGameScope{}).Where("user_id=?", userID).Pluck("game_id", &ids).Error; err != nil {
+        return nil, err
+    }
+    return ids, nil
+}
+
+// ReplaceUserGameIDs replaces all game scopes for the user with the provided list
+func (r *Repo) ReplaceUserGameIDs(ctx context.Context, userID uint, gameIDs []uint) error {
+    return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+        if err := tx.Where("user_id=?", userID).Delete(&UserGameScope{}).Error; err != nil { return err }
+        // Deduplicate
+        seen := map[uint]struct{}{}
+        for _, gid := range gameIDs {
+            if gid == 0 { continue }
+            if _, ok := seen[gid]; ok { continue }
+            seen[gid] = struct{}{}
+            if err := tx.Create(&UserGameScope{UserID: userID, GameID: gid}).Error; err != nil { return err }
+        }
+        return nil
+    })
+}

@@ -113,9 +113,12 @@ func TestAssignments_Get_Post_And_PacksReload(t *testing.T) {
     if err != nil { t.Fatalf("NewServer: %v", err) }
     tok, _ := mgr.Sign("tester", []string{"admin"}, 0)
 
-    // GET /api/assignments should work with auth
+    // GET /api/assignments should require auth
     rr := httptest.NewRecorder()
     req := httptest.NewRequest(http.MethodGet, "/api/assignments?game_id=g1&env=dev", nil)
+    srv.ginEngine().ServeHTTP(rr, req)
+    if rr.Code != http.StatusUnauthorized { t.Fatalf("assignments get expect 401, got %d", rr.Code) }
+    rr = httptest.NewRecorder()
     req.Header.Set("Authorization", "Bearer "+tok)
     srv.ginEngine().ServeHTTP(rr, req)
     if rr.Code/100 != 2 { t.Fatalf("assignments get code=%d body=%s", rr.Code, rr.Body.String()) }
@@ -210,8 +213,8 @@ func TestRegistry_Coverage_HealthyTotal_Uncovered(t *testing.T) {
     if err != nil { t.Fatalf("NewServer: %v", err) }
     // prepare two agents for g1 with ex.fn: one healthy, one expired; and no agent for ex2.fn
     now := time.Now()
-    reg.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "g1", Env: "dev", RPCAddr: "127.0.0.1:1", Functions: map[string]bool{"ex.fn": true}, ExpireAt: now.Add(60 * time.Second)})
-    reg.UpsertAgent(&registry.AgentSession{AgentID: "a2", GameID: "g1", Env: "dev", RPCAddr: "127.0.0.1:2", Functions: map[string]bool{"ex.fn": true}, ExpireAt: now.Add(-10 * time.Second)})
+    reg.UpsertAgent(&registry.AgentSession{AgentID: "a1", GameID: "g1", Env: "dev", RPCAddr: "127.0.0.1:1", Functions: map[string]registry.FunctionMeta{"ex.fn": {Enabled: true}}, ExpireAt: now.Add(60 * time.Second)})
+    reg.UpsertAgent(&registry.AgentSession{AgentID: "a2", GameID: "g1", Env: "dev", RPCAddr: "127.0.0.1:2", Functions: map[string]registry.FunctionMeta{"ex.fn": {Enabled: true}}, ExpireAt: now.Add(-10 * time.Second)})
     // set assignments for g1|dev -> [ex.fn, ex2.fn]
     srv.assignments["g1|dev"] = []string{"ex.fn", "ex2.fn"}
     // call /api/registry
