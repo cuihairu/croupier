@@ -152,6 +152,76 @@ services:
       - croupier-network
 
   # ================================
+  # 流式计算（可选：profiles: [stream]）
+  # ================================
+
+  # Kafka (KRaft 模式，免 Zookeeper)
+  kafka:
+    image: ${KAFKA_IMAGE:-bitnami/kafka:3.6}
+    container_name: croupier-kafka
+    restart: unless-stopped
+    environment:
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CFG_LOG_DIRS=/bitnami/kafka/data
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      # 调整内存（本地 Dev）
+      - KAFKA_HEAP_OPTS=-Xms256m -Xmx512m
+    volumes:
+      - kafka_data:/bitnami/kafka
+    ports:
+      - "9092:9092"
+    networks:
+      - croupier-network
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo >/dev/tcp/127.0.0.1/9092' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    profiles:
+      - stream
+
+  # Flink JobManager
+  flink-jobmanager:
+    image: ${FLINK_IMAGE:-flink:1.18}
+    container_name: croupier-flink-jobmanager
+    command: jobmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+        parallelism.default: 2
+    ports:
+      - "8081:8081" # Flink Web UI
+    networks:
+      - croupier-network
+    profiles:
+      - stream
+
+  # Flink TaskManager
+  flink-taskmanager:
+    image: ${FLINK_IMAGE:-flink:1.18}
+    container_name: croupier-flink-taskmanager
+    depends_on:
+      - flink-jobmanager
+    command: taskmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
+        parallelism.default: 2
+    networks:
+      - croupier-network
+    profiles:
+      - stream
+
+  # ================================
   # 管理工具 (可选)
   # ================================
 
@@ -201,6 +271,12 @@ volumes:
   redis_data:
     driver: local
   pgadmin_data:
+    driver: local
+  clickhouse_data:
+    driver: local
+  clickhouse_logs:
+    driver: local
+  kafka_data:
     driver: local
 
 networks:
