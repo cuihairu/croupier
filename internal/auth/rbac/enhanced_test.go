@@ -53,10 +53,10 @@ func TestEnhancedEvaluator_IsOwner(t *testing.T) {
 		expression string
 		expected   bool
 	}{
-		{"is_owner()", true},                   // Checks owner field
-		{"is_owner('owner')", true},            // Explicit owner field
-		{"is_owner('created_by')", false},      // Different user
-		{"is_owner('nonexistent')", false},     // Field doesn't exist
+		{"is_owner()", true},               // Checks owner field
+		{"is_owner('owner')", true},        // Explicit owner field
+		{"is_owner('created_by')", false},  // Different user
+		{"is_owner('nonexistent')", false}, // Field doesn't exist
 	}
 
 	for _, test := range tests {
@@ -200,12 +200,12 @@ func TestEnhancedEvaluator_EdgeCases(t *testing.T) {
 		expression string
 		expected   bool
 	}{
-		{"", true},                           // Empty expression should allow
-		{"true", true},                       // Literal true
-		{"false", false},                     // Literal false
-		{"invalid_function()", false},        // Unknown function
-		{"has_permission()", false},          // Missing argument
-		{"resource.nonexistent", false},      // Nonexistent field
+		{"", true},                      // Empty expression should allow
+		{"true", true},                  // Literal true
+		{"false", false},                // Literal false
+		{"invalid_function()", false},   // Unknown function
+		{"has_permission()", false},     // Missing argument
+		{"resource.nonexistent", false}, // Nonexistent field
 	}
 
 	for _, test := range tests {

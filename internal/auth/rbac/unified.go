@@ -8,10 +8,10 @@ import (
 
 // AuthDescriptor represents the auth configuration from function descriptors
 type AuthDescriptor struct {
-	Permission     string      `json:"permission"`
-	AllowIf        string      `json:"allow_if"`
-	Risk           *RiskPolicy `json:"risk"`
-	TwoPersonRule  *TwoPersonRulePolicy `json:"two_person_rule"`
+	Permission    string               `json:"permission"`
+	AllowIf       string               `json:"allow_if"`
+	Risk          *RiskPolicy          `json:"risk"`
+	TwoPersonRule *TwoPersonRulePolicy `json:"two_person_rule"`
 }
 
 // RiskPolicy defines risk-based authorization requirements
@@ -24,42 +24,42 @@ type RiskPolicy struct {
 
 // TwoPersonRulePolicy defines two-person authorization requirements
 type TwoPersonRulePolicy struct {
-	Required    bool     `json:"required"`
-	Approvers   []string `json:"approvers"`   // List of required approver roles
-	Threshold   int      `json:"threshold"`   // Minimum number of approvals needed
-	ExpiryTime  string   `json:"expiry_time"` // How long approval is valid
-	Conditions  []string `json:"conditions"`  // When two-person rule applies
+	Required   bool     `json:"required"`
+	Approvers  []string `json:"approvers"`   // List of required approver roles
+	Threshold  int      `json:"threshold"`   // Minimum number of approvals needed
+	ExpiryTime string   `json:"expiry_time"` // How long approval is valid
+	Conditions []string `json:"conditions"`  // When two-person rule applies
 }
 
 // AuthorizationRequest represents a request for authorization
 type AuthorizationRequest struct {
-	User        string            `json:"user"`
-	Function    string            `json:"function"`
-	Parameters  map[string]any    `json:"parameters"`
-	Context     map[string]any    `json:"context"`
-	Approvals   []Approval        `json:"approvals"`
-	RequestTime time.Time         `json:"request_time"`
+	User        string         `json:"user"`
+	Function    string         `json:"function"`
+	Parameters  map[string]any `json:"parameters"`
+	Context     map[string]any `json:"context"`
+	Approvals   []Approval     `json:"approvals"`
+	RequestTime time.Time      `json:"request_time"`
 }
 
 // Approval represents an approval from another user
 type Approval struct {
-	ApproverID  string    `json:"approver_id"`
-	ApproverRole string   `json:"approver_role"`
-	Timestamp   time.Time `json:"timestamp"`
-	Signature   string    `json:"signature"` // Optional cryptographic signature
+	ApproverID   string    `json:"approver_id"`
+	ApproverRole string    `json:"approver_role"`
+	Timestamp    time.Time `json:"timestamp"`
+	Signature    string    `json:"signature"` // Optional cryptographic signature
 }
 
 // AuthorizationResult represents the result of authorization check
 type AuthorizationResult struct {
-	Allowed           bool               `json:"allowed"`
-	RequiresApproval  bool               `json:"requires_approval"`
-	RequiresMFA       bool               `json:"requires_mfa"`
-	RiskLevel         string             `json:"risk_level"`
-	Reason            string             `json:"reason"`
-	RequiredApprovals int                `json:"required_approvals"`
-	ExistingApprovals int                `json:"existing_approvals"`
-	Conditions        []string           `json:"conditions"`
-	ExpiresAt         *time.Time         `json:"expires_at,omitempty"`
+	Allowed           bool       `json:"allowed"`
+	RequiresApproval  bool       `json:"requires_approval"`
+	RequiresMFA       bool       `json:"requires_mfa"`
+	RiskLevel         string     `json:"risk_level"`
+	Reason            string     `json:"reason"`
+	RequiredApprovals int        `json:"required_approvals"`
+	ExistingApprovals int        `json:"existing_approvals"`
+	Conditions        []string   `json:"conditions"`
+	ExpiresAt         *time.Time `json:"expires_at,omitempty"`
 }
 
 // UnifiedPolicyEngine provides centralized authorization decisions
@@ -165,11 +165,11 @@ func (upe *UnifiedPolicyEngine) Authorize(ctx context.Context, authDesc *AuthDes
 }
 
 type RiskAssessmentResult struct {
-	Allowed      bool
-	Level        string
-	RequiresMFA  bool
-	Reason       string
-	Conditions   []string
+	Allowed     bool
+	Level       string
+	RequiresMFA bool
+	Reason      string
+	Conditions  []string
 }
 
 func (upe *UnifiedPolicyEngine) assessRisk(ctx context.Context, riskPolicy *RiskPolicy, request *AuthorizationRequest) *RiskAssessmentResult {

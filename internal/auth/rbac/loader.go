@@ -65,4 +65,3 @@ func LoadPolicyAuto(configPath string) (PolicyInterface, error) {
 	// Otherwise try Casbin first
 	return LoadCasbinPolicy(configPath)
 }
-
