@@ -250,18 +250,49 @@ func (s *Server) addOpsRoutes(r *gin.Engine) {
             se := os.Getenv("ANALYTICS_REDIS_STREAM_EVENTS"); if se == "" { se = "analytics:events" }
             sp := os.Getenv("ANALYTICS_REDIS_STREAM_PAYMENTS"); if sp == "" { sp = "analytics:payments" }
             out["redis"] = gin.H{"url": url, "streams": gin.H{"events": se, "payments": sp}}
-            // Optional lengths
+            // Optional lengths and consumer groups
             lens := gin.H{}
+            groups := []gin.H{}
             if url != "" {
                 if opt, err := redis.ParseURL(url); err == nil {
                     cli := redis.NewClient(opt)
                     ctx, cancel := context.WithTimeout(context.Background(), 800*time.Millisecond); defer cancel()
-                    if se != "" { if n, err := cli.XLen(ctx, se).Result(); err == nil { lens[se] = n } }
-                    if sp != "" { if n, err := cli.XLen(ctx, sp).Result(); err == nil { lens[sp] = n } }
+                    if se != "" {
+                        if n, err := cli.XLen(ctx, se).Result(); err == nil { lens[se] = n }
+                        if gs, err := cli.XInfoGroups(ctx, se).Result(); err == nil {
+                            for _, g := range gs {
+                                groups = append(groups, gin.H{
+                                    "stream": se,
+                                    "name": g.Name,
+                                    "consumers": g.Consumers,
+                                    "pending": g.Pending,
+                                    // EntriesRead / Lag available in newer redis versions
+                                    "entries_read": g.EntriesRead,
+                                    "lag": g.Lag,
+                                })
+                            }
+                        }
+                    }
+                    if sp != "" {
+                        if n, err := cli.XLen(ctx, sp).Result(); err == nil { lens[sp] = n }
+                        if gs, err := cli.XInfoGroups(ctx, sp).Result(); err == nil {
+                            for _, g := range gs {
+                                groups = append(groups, gin.H{
+                                    "stream": sp,
+                                    "name": g.Name,
+                                    "consumers": g.Consumers,
+                                    "pending": g.Pending,
+                                    "entries_read": g.EntriesRead,
+                                    "lag": g.Lag,
+                                })
+                            }
+                        }
+                    }
                     _ = cli.Close()
                 }
             }
             if len(lens) > 0 { out["lengths"] = lens }
+            if len(groups) > 0 { out["groups"] = groups }
         case "kafka":
             brokers := strings.TrimSpace(os.Getenv("KAFKA_BROKERS"))
             te := os.Getenv("KAFKA_TOPIC_EVENTS"); if te == "" { te = "events" }

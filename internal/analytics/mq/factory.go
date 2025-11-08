@@ -1,22 +1,26 @@
 package mq
 
 import (
-	"log"
-	"os"
+    "log"
+    "os"
 )
 
 // NewFromEnv builds a Queue based on env configuration.
 // ANALYTICS_MQ_TYPE: redis|kafka|noop (default)
 // For redis/kafka, real implementations can be added without changing callers.
 func NewFromEnv() Queue {
-	t := os.Getenv("ANALYTICS_MQ_TYPE")
-	switch t {
-	case "redis":
-		log.Printf("[analytics-mq] redis requested; using noop placeholder (implement me)")
-		return NewNoop()
-	case "kafka":
-		log.Printf("[analytics-mq] kafka requested; using noop placeholder (implement me)")
-		return NewNoop()
+    t := os.Getenv("ANALYTICS_MQ_TYPE")
+    switch t {
+    case "redis":
+        if q, err := newRedisFromEnv(); err == nil && q != nil {
+            log.Printf("[analytics-mq] redis publisher enabled")
+            return q
+        }
+        log.Printf("[analytics-mq] redis requested; fallback to noop (build with -tags redis_mq to enable)")
+        return NewNoop()
+    case "kafka":
+        log.Printf("[analytics-mq] kafka requested; using noop placeholder (implement me)")
+        return NewNoop()
 	default:
 		if t == "" {
 			log.Printf("[analytics-mq] ANALYTICS_MQ_TYPE not set; using noop")
