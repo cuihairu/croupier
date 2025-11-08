@@ -14,7 +14,10 @@ func TestStore_UpsertAndLookupScoped(t *testing.T) {
         RPCAddr:   "127.0.0.1:1234",
         GameID:    "game_x",
         Env:       "dev",
-        Functions: map[string]bool{"player.ban": true, "player.kick": true},
+        Functions: map[string]FunctionMeta{
+            "player.ban": {Enabled: true, Entity: "player", Operation: "ban"},
+            "player.kick": {Enabled: true, Entity: "player", Operation: "kick"},
+        },
         ExpireAt:  time.Now().Add(time.Hour),
     }
     s.UpsertAgent(sess)
@@ -37,4 +40,3 @@ func TestStore_UpsertAndLookupScoped(t *testing.T) {
         t.Fatalf("expected fallback to legacy to return a1, got %#v", got)
     }
 }
-

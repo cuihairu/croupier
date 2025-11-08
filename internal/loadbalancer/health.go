@@ -103,30 +103,73 @@ func (h *DefaultHealthChecker) performHealthCheck(agents []*registry.AgentSessio
 
 // DefaultStatsCollector implements basic statistics collection
 type DefaultStatsCollector struct {
-	mu    sync.RWMutex
-	stats map[string]*AgentStats
+    mu    sync.RWMutex
+    stats map[string]*AgentStats
+    // per-agent QPS window (last 60 seconds, per-second buckets)
+    qps   map[string]*qpsWindow
 }
 
 // NewDefaultStatsCollector creates a new stats collector
 func NewDefaultStatsCollector() *DefaultStatsCollector {
-	return &DefaultStatsCollector{
-		stats: make(map[string]*AgentStats),
-	}
+    return &DefaultStatsCollector{
+        stats: make(map[string]*AgentStats),
+        qps:   make(map[string]*qpsWindow),
+    }
+}
+
+type qpsWindow struct {
+    slots   [60]int64
+    lastSec int64
+}
+
+func (w *qpsWindow) add(nowSec int64) {
+    if w.lastSec == 0 {
+        w.lastSec = nowSec
+    }
+    // advance and zero passed buckets if time jumped
+    if nowSec > w.lastSec {
+        diff := nowSec - w.lastSec
+        if diff >= 60 {
+            // too far, reset all
+            for i := 0; i < 60; i++ { w.slots[i] = 0 }
+        } else {
+            for i := int64(1); i <= diff; i++ {
+                w.slots[(w.lastSec+i)%60] = 0
+            }
+        }
+        w.lastSec = nowSec
+    }
+    w.slots[nowSec%60]++
+}
+
+func (w *qpsWindow) qps(nowSec int64) float64 {
+    if w.lastSec == 0 { return 0 }
+    var sum int64
+    var span int64
+    // consider up to last 60 seconds actually elapsed
+    if nowSec > w.lastSec { span = nowSec - w.lastSec + 1 } else { span = 1 }
+    if span > 60 { span = 60 }
+    // sum last span seconds ending at nowSec
+    for i := int64(0); i < span; i++ {
+        sum += w.slots[(nowSec-i)%60]
+    }
+    if span <= 0 { return 0 }
+    return float64(sum) / float64(span)
 }
 
 func (s *DefaultStatsCollector) RecordRequest(agentID string, duration time.Duration, success bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+    s.mu.Lock()
+    defer s.mu.Unlock()
 
-	stats := s.stats[agentID]
-	if stats == nil {
-		stats = &AgentStats{
-			AgentID: agentID,
-			Weight:  1,
-			Healthy: true,
-		}
-		s.stats[agentID] = stats
-	}
+    stats := s.stats[agentID]
+    if stats == nil {
+        stats = &AgentStats{
+            AgentID: agentID,
+            Weight:  1,
+            Healthy: true,
+        }
+        s.stats[agentID] = stats
+    }
 
 	stats.TotalRequests++
 	if !success {
@@ -142,7 +185,13 @@ func (s *DefaultStatsCollector) RecordRequest(agentID string, duration time.Dura
 		)
 	}
 
-	stats.LastSeen = time.Now()
+    stats.LastSeen = time.Now()
+
+    // update QPS window
+    nowSec := time.Now().Unix()
+    w := s.qps[agentID]
+    if w == nil { w = &qpsWindow{}; s.qps[agentID] = w }
+    w.add(nowSec)
 }
 
 func (s *DefaultStatsCollector) GetStats(agentID string) *AgentStats {
@@ -158,14 +207,18 @@ func (s *DefaultStatsCollector) GetStats(agentID string) *AgentStats {
 }
 
 func (s *DefaultStatsCollector) GetAllStats() map[string]*AgentStats {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	result := make(map[string]*AgentStats)
-	for id, stats := range s.stats {
-		copy := *stats
-		result[id] = &copy
-	}
-	return result
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+    result := make(map[string]*AgentStats)
+    nowSec := time.Now().Unix()
+    for id, stats := range s.stats {
+        copy := *stats
+        if w := s.qps[id]; w != nil {
+            copy.QPS1m = w.qps(nowSec)
+        }
+        result[id] = &copy
+    }
+    return result
 }
 
 func (s *DefaultStatsCollector) IncrementActiveConns(agentID string) {
