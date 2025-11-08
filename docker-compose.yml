@@ -44,6 +44,35 @@ services:
       timeout: 5s
       retries: 5
 
+  # ClickHouse 分析型数据库（本地开发）
+  clickhouse:
+    image: ${CLICKHOUSE_IMAGE:-clickhouse/clickhouse-server:23}
+    container_name: croupier-clickhouse
+    restart: unless-stopped
+    environment:
+      # 默认用户/密码（生产请改强）
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-analytics}
+    ports:
+      - "8123:8123"   # HTTP
+      - "9000:9000"   # Native
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_logs:/var/log/clickhouse-server
+      - ./configs/clickhouse/initdb:/docker-entrypoint-initdb.d:ro
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8123/?query=SELECT%201 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - croupier-network
+
   # ================================
   # Croupier 服务
   # ================================
@@ -77,6 +106,8 @@ services:
       IP2LOCATION_BIN_PATH: /app/configs/IP2LOCATION-LITE-DB3.BIN
       IP2LOCATION_BIN_PATH_V6: /app/configs/IP2LOCATION-LITE-DB3.IPV6.BIN
       GEOIP_TIMEOUT_MS: 800
+      # ClickHouse（可选）
+      CLICKHOUSE_DSN: ${CLICKHOUSE_DSN:-clickhouse://clickhouse:9000/analytics?dial_timeout=5s&compress=true}
     command: ["server", "--addr", ":8443", "--http_addr", ":8080", "--edge_addr", "edge:9443", "--rbac_config", "/app/configs/rbac.json", "--games_config", "/app/configs/games.json", "--users_config", "/app/configs/users.json", "--jwt_secret", "change-me", "--cert", "/app/configs/dev/server.crt", "--key", "/app/configs/dev/server.key", "--ca", "/app/configs/dev/ca.crt"]
     ports: ["8443:8443", "18080:8080"]
     depends_on:
@@ -85,6 +116,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      clickhouse:
         condition: service_healthy
     networks:
       - croupier-network
