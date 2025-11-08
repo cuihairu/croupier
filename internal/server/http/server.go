@@ -127,6 +127,12 @@ type Server struct {
     geoIPTimeout  time.Duration
     ipRegionCache map[string]struct{ val string; exp time.Time }
     ipRegionMu    sync.RWMutex
+
+    // Analytics MQ (publish ingested events/payments to MQ layer; can be noop/kafka/redis)
+    analyticsMQ interface{
+        PublishEvent(map[string]any) error
+        PublishPayment(map[string]any) error
+    }
 }
 
 // rateRuleAdv supports gray matching and percent rollout
@@ -325,6 +331,8 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
         if n, err := strconv.Atoi(tv); err == nil && n > 0 { s.geoIPTimeout = time.Duration(n) * time.Millisecond }
     }
     if s.geoIPTimeout == 0 { s.geoIPTimeout = 1500 * time.Millisecond }
+    // Init analytics MQ (noop by default; can be redis|kafka via ANALYTICS_MQ_TYPE)
+    s.initAnalyticsMQ()
 	// init GORM (prefer postgres)
 	// DB initialization by config/env: DB_DRIVER=[postgres|mysql|sqlite|auto], DATABASE_URL as DSN
 	sel := strings.ToLower(strings.TrimSpace(os.Getenv("DB_DRIVER")))

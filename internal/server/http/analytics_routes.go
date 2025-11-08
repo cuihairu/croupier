@@ -69,10 +69,17 @@ func (s *Server) addAnalyticsRoutes(r *gin.Engine) {
     // Ingest endpoints (placeholder)
     r.POST("/api/analytics/ingest", func(c *gin.Context) {
         if _, _, ok := s.require(c, "analytics:manage"); !ok { return }
-        c.Status(204)
+        var arr []map[string]any
+        if err := c.BindJSON(&arr); err != nil { s.respondError(c, 400, "bad_request", "invalid payload"); return }
+        // publish best-effort to MQ (no-op by default)
+        for _, e := range arr { _ = s.analyticsMQ.PublishEvent(e) }
+        c.Status(202)
     })
     r.POST("/api/analytics/payments/ingest", func(c *gin.Context) {
         if _, _, ok := s.require(c, "analytics:manage"); !ok { return }
-        c.Status(204)
+        var arr []map[string]any
+        if err := c.BindJSON(&arr); err != nil { s.respondError(c, 400, "bad_request", "invalid payload"); return }
+        for _, e := range arr { _ = s.analyticsMQ.PublishPayment(e) }
+        c.Status(202)
     })
 }
