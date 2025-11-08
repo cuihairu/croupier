@@ -6,7 +6,10 @@ require (
 	github.com/aliyun/aliyun-oss-go-sdk v2.2.9+incompatible
 	github.com/casbin/casbin/v2 v2.132.0
 	github.com/gin-gonic/gin v1.10.0
+	github.com/ip2location/ip2location-go/v9 v9.8.0
 	github.com/jackc/pgx/v5 v5.7.6
+	github.com/json-iterator/go v1.1.12
+	github.com/modern-go/reflect2 v1.0.2
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.45
 	github.com/xeipuuv/gojsonschema v1.2.0
 	gocloud.dev v0.36.0
@@ -70,7 +73,6 @@ require (
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
@@ -78,7 +80,6 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mozillazg/go-httpheader v0.2.1 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
@@ -103,6 +104,7 @@ require (
 	google.golang.org/api v0.153.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	lukechampine.com/uint128 v1.2.0 // indirect
 	modernc.org/libc v1.66.10 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect

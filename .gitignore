@@ -37,6 +37,7 @@ logs/
 
 # IDE
 .idea/
+.DS_Store
 
 # Local binaries (root)
 /server
@@ -44,3 +45,7 @@ logs/
 /croupier
 /agent
 data/
+
+# Local IP2Location BIN databases (downloaded externally; do not commit)
+configs/IP2LOCATION-LITE-DB*.BIN
+configs/*.BIN
