@@ -38,6 +38,8 @@ logs/
 # IDE
 .idea/
 .DS_Store
+.bufcache
+.claude
 
 # Local binaries (root)
 /server
