@@ -13,6 +13,7 @@ func (s *Server) addAnalyticsRoutes(r *gin.Engine) {
         if _, _, ok := s.require(c, "analytics:read"); !ok { return }
         s.JSON(c, 200, gin.H{
             "dau": 0, "wau": 0, "mau": 0, "new_users": 0,
+            "registered_total": 0,
             "d1": 0, "d7": 0, "d30": 0,
             "pay_rate": 0, "arpu": 0, "arppu": 0, "revenue_cents": 0,
             "series": gin.H{"dau": []},
@@ -26,7 +27,12 @@ func (s *Server) addAnalyticsRoutes(r *gin.Engine) {
     // Realtime
     r.GET("/api/analytics/realtime", func(c *gin.Context) {
         if _, _, ok := s.require(c, "analytics:read"); !ok { return }
-        s.JSON(c, 200, gin.H{"online": 0, "active_5m": 0, "rev_5m": 0, "pay_succ_rate": 0})
+        s.JSON(c, 200, gin.H{
+            "online": 0, "active_5m": 0, "rev_5m": 0, "pay_succ_rate": 0,
+            "registered_total": 0,
+            "online_peak_today": 0,
+            "online_peak_all_time": 0,
+        })
     })
     // Behavior: events + funnel
     r.GET("/api/analytics/behavior/events", func(c *gin.Context) {
@@ -65,4 +71,3 @@ func (s *Server) addAnalyticsRoutes(r *gin.Engine) {
         c.Status(204)
     })
 }
-
