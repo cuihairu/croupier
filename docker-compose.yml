@@ -221,6 +221,31 @@ services:
     profiles:
       - stream
 
+  # Analytics Worker (Redis Streams -> ClickHouse) - optional
+  analytics-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+      args:
+        GO_IMAGE: ${GO_IMAGE:-golang:1.24}
+        RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
+    command: ["analytics-worker"]
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      ANALYTICS_REDIS_STREAM_EVENTS: ${ANALYTICS_REDIS_STREAM_EVENTS:-analytics:events}
+      ANALYTICS_REDIS_STREAM_PAYMENTS: ${ANALYTICS_REDIS_STREAM_PAYMENTS:-analytics:payments}
+      CLICKHOUSE_DSN: ${CLICKHOUSE_DSN:-clickhouse://clickhouse:9000/analytics}
+      WORKER_GROUP: ${WORKER_GROUP:-analytics-worker}
+    depends_on:
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    networks:
+      - croupier-network
+    profiles:
+      - stream
+
   # ================================
   # 管理工具 (可选)
   # ================================
