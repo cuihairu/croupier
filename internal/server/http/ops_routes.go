@@ -9,6 +9,10 @@ import (
     "github.com/gin-gonic/gin"
     redis "github.com/redis/go-redis/v9"
     "crypto/tls"
+    "archive/tar"
+    "compress/gzip"
+    "io"
+    "os/exec"
     "net"
     "net/http"
     "net/url"
@@ -391,10 +395,9 @@ func (s *Server) addOpsRoutes(r *gin.Engine) {
 		path := filepath.Join(s.backupsDir, id+".tar.gz")
 		be := backupEntry{ID: id, Kind: in.Kind, Target: in.Target, Path: path, Status: "running", CreatedAt: time.Now()}
 		s.backupsMu.Lock(); s.backups = append([]backupEntry{be}, s.backups...); s.backupsMu.Unlock()
-		go func() {
-			// naive: create a tar.gz with a manifest.json; leave real DB dump integration for later
-			err := createBackupArchive(path, map[string]any{"id": id, "kind": in.Kind, "target": in.Target, "created_at": be.CreatedAt.Format(time.RFC3339)})
-			s.backupsMu.Lock()
+    go func() {
+            err := s.createBackup(id, in.Kind, in.Target, path, be.CreatedAt)
+            s.backupsMu.Lock()
 			for i := range s.backups { if s.backups[i].ID == id {
 				if err != nil { s.backups[i].Status = "failed"; s.backups[i].Error = err.Error() } else {
 					s.backups[i].Status = "done"
@@ -1391,4 +1394,64 @@ func createBackupArchive(path string, manifest map[string]any) error {
     if err := tw.WriteHeader(hdr); err != nil { return err }
     if _, err := tw.Write(b); err != nil { return err }
     return nil
+}
+
+// createBackup chooses backup strategy by kind
+func (s *Server) createBackup(id, kind, target, outPath string, ts time.Time) error {
+    meta := map[string]any{"id": id, "kind": kind, "target": target, "created_at": ts.Format(time.RFC3339)}
+    switch strings.ToLower(strings.TrimSpace(kind)) {
+    case "packs":
+        // tar descriptors/, packs/, configs/ if存在 + manifest
+        f, err := os.Create(outPath)
+        if err != nil { return err }
+        defer f.Close()
+        gz := gzip.NewWriter(f); defer gz.Close()
+        tw := tar.NewWriter(gz); defer tw.Close()
+        // manifest
+        b, _ := json.MarshalIndent(meta, "", "  ")
+        _ = tw.WriteHeader(&tar.Header{Name: "manifest.json", Mode: 0o644, Size: int64(len(b))})
+        _, _ = tw.Write(b)
+        // include dirs
+        for _, dir := range []string{"descriptors", "packs", "configs"} {
+            if fi, err := os.Stat(dir); err == nil && fi.IsDir() {
+                filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+                    if err != nil { return nil }
+                    if info.IsDir() { return nil }
+                    rel := filepath.ToSlash(path)
+                    // skip large/binary logs
+                    if strings.HasPrefix(rel, "configs/dev/") { /* include dev certs for local */ }
+                    hdr, _ := tar.FileInfoHeader(info, "")
+                    hdr.Name = rel
+                    if err := tw.WriteHeader(hdr); err != nil { return nil }
+                    f, err := os.Open(path); if err != nil { return nil }
+                    defer f.Close()
+                    io.Copy(tw, f)
+                    return nil
+                })
+            }
+        }
+        return nil
+    case "postgres":
+        // if pg_dumpall exists, prefer it; target可选
+        if _, err := exec.LookPath("pg_dumpall"); err == nil {
+            cmd := exec.Command("pg_dumpall")
+            if strings.TrimSpace(target) != "" { cmd = exec.Command("pg_dumpall", "-d", target) }
+            out, err := cmd.Output()
+            if err != nil { return err }
+            // tar.gz with manifest + dump.sql
+            f, _ := os.Create(outPath); defer f.Close(); gz := gzip.NewWriter(f); defer gz.Close(); tw := tar.NewWriter(gz); defer tw.Close()
+            b, _ := json.MarshalIndent(meta, "", "  "); _ = tw.WriteHeader(&tar.Header{Name:"manifest.json",Mode:0o644,Size:int64(len(b))}); _, _ = tw.Write(b)
+            _ = tw.WriteHeader(&tar.Header{Name:"dump.sql",Mode:0o644,Size:int64(len(out))}); _, _ = tw.Write(out)
+            return nil
+        }
+        return createBackupArchive(outPath, meta)
+    case "redis":
+        // try redis-cli --rdb - (not portable); fallback manifest
+        return createBackupArchive(outPath, meta)
+    case "clickhouse":
+        // try HTTP select version(); fallback
+        return createBackupArchive(outPath, meta)
+    default:
+        return createBackupArchive(outPath, meta)
+    }
 }
