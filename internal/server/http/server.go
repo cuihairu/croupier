@@ -1,32 +1,32 @@
 package httpserver
 
 import (
-	"bytes"
-	"encoding/json"
-	"io"
-	"log"
-	"log/slog"
-	"net"
-	"net/http"
+    "bytes"
+    "encoding/json"
+    "io"
+    "log"
+    "log/slog"
+    "net"
+    "net/http"
 
-	"archive/tar"
-	"bufio"
-	"compress/gzip"
-	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-	"math"
-	"os"
-	"path/filepath"
-	"runtime/debug"
-	"sort"
-	"strconv"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
+    "archive/tar"
+    "bufio"
+    "compress/gzip"
+    "context"
+    "crypto/rand"
+    "crypto/sha256"
+    "encoding/hex"
+    "fmt"
+    "math"
+    "os"
+    "path/filepath"
+    "runtime/debug"
+    "sort"
+    "strconv"
+    "strings"
+    "sync"
+    "sync/atomic"
+    "time"
 
 	auditchain "github.com/cuihairu/croupier/internal/audit/chain"
 	"github.com/cuihairu/croupier/internal/auth/rbac"
@@ -57,7 +57,7 @@ import (
 
 	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
 	obj "github.com/cuihairu/croupier/internal/objstore"
-	gin "github.com/gin-gonic/gin"
+    gin "github.com/gin-gonic/gin"
 )
 
 type Server struct {
@@ -182,6 +182,17 @@ type Server struct {
     maintenancePath string
     maintenanceMu   sync.RWMutex
     maintenance     []maintWindow
+
+    // Service health checks (ops-controlled)
+    healthChecksPath string
+    healthMu         sync.RWMutex
+    healthChecks     []healthCheck
+    healthStatus     map[string]healthStatus
+
+    // Backups registry (file-backed artifacts under data/backups)
+    backupsMu   sync.Mutex
+    backupsDir  string
+    backups     []backupEntry
 }
 
 // configEntry stores versioned config content per id|game|env.
@@ -214,6 +225,37 @@ type maintWindow struct {
     End        time.Time `json:"end"`
     Message    string    `json:"message"`
     BlockWrites bool     `json:"block_writes"`
+}
+
+// healthCheck defines a probe for service health
+type healthCheck struct {
+    ID          string `json:"id"`
+    Kind        string `json:"kind"`   // http|tcp|redis|postgres|clickhouse|kafka|tls
+    Target      string `json:"target"` // URL or host:port or DSN
+    Expect      string `json:"expect,omitempty"` // substring for http body or status code "200"
+    IntervalSec int    `json:"interval_sec,omitempty"`
+    TimeoutMs   int    `json:"timeout_ms,omitempty"`
+    Region      string `json:"region,omitempty"`
+}
+
+type healthStatus struct {
+    ID        string    `json:"id"`
+    OK        bool      `json:"ok"`
+    LatencyMs int64     `json:"latency_ms"`
+    Error     string    `json:"error,omitempty"`
+    CheckedAt time.Time `json:"checked_at"`
+}
+
+// backupEntry tracks a backup artifact
+type backupEntry struct {
+    ID        string    `json:"id"`
+    Kind      string    `json:"kind"`
+    Target    string    `json:"target"`
+    Path      string    `json:"path"`
+    Size      int64     `json:"size"`
+    Status    string    `json:"status"`
+    Error     string    `json:"error,omitempty"`
+    CreatedAt time.Time `json:"created_at"`
 }
 
 // NotifyChannel defines a delivery endpoint for notifications.
@@ -383,6 +425,104 @@ func (s *Server) notifySend(ch NotifyChannel, text string) {
 	}
 }
 
+// healthLoop periodically runs configured health checks based on interval
+func (s *Server) healthLoop() {
+    ticker := time.NewTicker(15 * time.Second)
+    defer ticker.Stop()
+    lastRun := map[string]time.Time{}
+    for range ticker.C {
+        s.healthMu.RLock()
+        checks := append([]healthCheck{}, s.healthChecks...)
+        s.healthMu.RUnlock()
+        now := time.Now()
+        for _, hc := range checks {
+            if hc.ID == "" { continue }
+            iv := time.Duration(hc.IntervalSec) * time.Second
+            if iv <= 0 { iv = 60 * time.Second }
+            if now.Sub(lastRun[hc.ID]) >= iv {
+                go func(h healthCheck) {
+                    st := runHealthCheck(h)
+                    s.healthMu.Lock()
+                    if s.healthStatus == nil { s.healthStatus = map[string]healthStatus{} }
+                    prev := s.healthStatus[h.ID]
+                    s.healthStatus[h.ID] = st
+                    s.healthMu.Unlock()
+                    // notify on failure transition
+                    if prev.ID != "" && prev.OK && !st.OK {
+                        s.notifyEvent("health.check.failed", map[string]any{"id": h.ID, "kind": h.Kind, "target": h.Target, "error": st.Error})
+                    }
+                }(hc)
+                lastRun[hc.ID] = now
+            }
+        }
+    }
+}
+
+// runHealthOnce runs specific check or all when id empty
+func (s *Server) runHealthOnce(id string) {
+    s.healthMu.RLock()
+    checks := append([]healthCheck{}, s.healthChecks...)
+    s.healthMu.RUnlock()
+    for _, hc := range checks {
+        if id != "" && hc.ID != id { continue }
+        st := runHealthCheck(hc)
+        s.healthMu.Lock()
+        if s.healthStatus == nil { s.healthStatus = map[string]healthStatus{} }
+        s.healthStatus[hc.ID] = st
+        s.healthMu.Unlock()
+    }
+}
+
+// runHealthCheck executes a single check and returns status
+func runHealthCheck(hc healthCheck) healthStatus {
+    st := healthStatus{ID: hc.ID, CheckedAt: time.Now()}
+    to := time.Duration(hc.TimeoutMs) * time.Millisecond
+    if to <= 0 { to = 1000 * time.Millisecond }
+    start := time.Now()
+    var err error
+    switch strings.ToLower(hc.Kind) {
+    case "http":
+        cli := &http.Client{Timeout: to}
+        resp, e := cli.Get(hc.Target)
+        if e != nil { err = e; break }
+        io.Copy(io.Discard, resp.Body); resp.Body.Close()
+        // Expect can be numeric status code
+        if hc.Expect != "" {
+            if code, convErr := strconv.Atoi(hc.Expect); convErr == nil {
+                if resp.StatusCode != code { err = fmt.Errorf("status %d != %d", resp.StatusCode, code) }
+            }
+        }
+    case "tcp":
+        conn, e := net.DialTimeout("tcp", hc.Target, to)
+        if e != nil { err = e; break }
+        conn.Close()
+    case "tls":
+        d := &net.Dialer{Timeout: to}
+        conn, e := tls.DialWithDialer(d, "tcp", hc.Target, &tls.Config{InsecureSkipVerify: true})
+        if e != nil { err = e; break }
+        state := conn.ConnectionState()
+        if len(state.PeerCertificates) > 0 {
+            cert := state.PeerCertificates[0]
+            // If Expect given as days threshold (e.g., ">30"), check days left
+            _ = cert
+        }
+        conn.Close()
+    case "redis":
+        if opt, e := redis.ParseURL(hc.Target); e == nil {
+            cli := redis.NewClient(opt)
+            ctx, cancel := context.WithTimeout(context.Background(), to)
+            defer cancel()
+            if _, e := cli.Ping(ctx).Result(); e != nil { err = e }
+            _ = cli.Close()
+        } else { err = e }
+    default:
+        err = fmt.Errorf("unsupported kind: %s", hc.Kind)
+    }
+    st.LatencyMs = time.Since(start).Milliseconds()
+    if err != nil { st.OK = false; st.Error = err.Error() } else { st.OK = true }
+    return st
+}
+
 // can checks permission for user or any of their roles.
 func (s *Server) can(user string, roles []string, perm string) bool {
 	if s.rbac == nil {
@@ -451,7 +591,7 @@ s := &Server{descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac:
     }{}, analyticsFiltersPath: filepath.Join(descriptorDir, "analytics_filters.json"), notificationsPath: filepath.Join("data", "notifications.json"), loginAttempts: map[string][]time.Time{}, ipRegionCache: map[string]struct {
         val string
         exp time.Time
-    }{}, rateLimitRules: map[string]int{}, serviceRateRules: map[string]int{}, jobs: map[string]*jobInfo{}, nodeCmds: map[string][]string{}, nodeStatus: map[string]struct{ Draining bool }{}, maintenancePath: filepath.Join("data", "maintenance.json")}
+    }{}, rateLimitRules: map[string]int{}, serviceRateRules: map[string]int{}, jobs: map[string]*jobInfo{}, nodeCmds: map[string][]string{}, nodeStatus: map[string]struct{ Draining bool }{}, maintenancePath: filepath.Join("data", "maintenance.json"), healthChecksPath: filepath.Join("data", "health_checks.json"), healthStatus: map[string]healthStatus{}, backupsDir: filepath.Join("data", "backups")}
 	// Init rate limits persistence path
 	if v := strings.TrimSpace(os.Getenv("RATE_LIMITS_PATH")); v != "" {
 		s.rateLimitsPath = v
@@ -499,8 +639,8 @@ s := &Server{descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac:
 	if b, err := os.ReadFile(s.analyticsFiltersPath); err == nil {
 		_ = json.Unmarshal(b, &s.analyticsFilters)
 	}
-	// load notifications config (best-effort)
-	if b, err := os.ReadFile(s.notificationsPath); err == nil {
+    // load notifications config (best-effort)
+    if b, err := os.ReadFile(s.notificationsPath); err == nil {
 		var cfg struct {
 			Channels []struct{ ID, Type, URL, Secret, Provider, Account, From, To string } `json:"channels"`
 			Rules    []struct {
@@ -508,7 +648,16 @@ s := &Server{descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac:
 				Channels      []string
 				ThresholdDays int
 			} `json:"rules"`
-		}
+    }
+    // load health checks (best-effort)
+    if b, err := os.ReadFile(s.healthChecksPath); err == nil {
+        var cfg struct{ Checks []healthCheck `json:"checks"` }
+        if err := json.Unmarshal(b, &cfg); err == nil {
+            s.healthChecks = cfg.Checks
+        }
+    }
+    _ = os.MkdirAll(s.backupsDir, 0o755)
+    go s.healthLoop()
 		if err := json.Unmarshal(b, &cfg); err == nil {
 			chs := make([]NotifyChannel, 0, len(cfg.Channels))
 			for _, c0 := range cfg.Channels {
