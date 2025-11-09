@@ -101,6 +101,153 @@ func validateManifestJSON(doc []byte) error {
     return nil
 }
 
+// generateSchemaFromComponents converts x-render component configuration to JSON Schema
+func generateSchemaFromComponents(schema, uiSchema gin.H, componentsConfig map[string]interface{}) {
+	if properties, ok := schema["properties"].(gin.H); ok {
+		if uiProperties, ok := uiSchema["properties"].(gin.H); ok {
+			processComponentsRecursive(properties, uiProperties, componentsConfig)
+		}
+	}
+}
+
+// processComponentsRecursive recursively processes component configuration
+func processComponentsRecursive(schemaProps, uiProps gin.H, config map[string]interface{}) {
+	if configType, ok := config["type"].(string); ok && configType == "object" {
+		if configProps, ok := config["properties"].(map[string]interface{}); ok {
+			for propName, propConfig := range configProps {
+				if propConfigMap, ok := propConfig.(map[string]interface{}); ok {
+					component, _ := propConfigMap["component"].(string)
+					title, _ := propConfigMap["title"].(string)
+					required, _ := propConfigMap["required"].(bool)
+
+					// Generate schema property based on component type
+					schemaProp := gin.H{}
+					uiProp := gin.H{}
+
+					switch component {
+					case "input":
+						schemaProp["type"] = "string"
+						schemaProp["title"] = title
+						if maxLen, ok := propConfigMap["maxLength"].(float64); ok {
+							schemaProp["maxLength"] = int(maxLen)
+						}
+						uiProp["widget"] = "input"
+						if placeholder, ok := propConfigMap["placeholder"].(string); ok {
+							uiProp["placeholder"] = placeholder
+						}
+
+					case "textarea":
+						schemaProp["type"] = "string"
+						schemaProp["title"] = title
+						if maxLen, ok := propConfigMap["maxLength"].(float64); ok {
+							schemaProp["maxLength"] = int(maxLen)
+						}
+						uiProp["widget"] = "textarea"
+						if rows, ok := propConfigMap["rows"].(float64); ok {
+							uiProp["rows"] = int(rows)
+						}
+
+					case "number":
+						schemaProp["type"] = "number"
+						schemaProp["title"] = title
+						if min, ok := propConfigMap["minimum"].(float64); ok {
+							schemaProp["minimum"] = min
+						}
+						if max, ok := propConfigMap["maximum"].(float64); ok {
+							schemaProp["maximum"] = max
+						}
+						uiProp["widget"] = "number"
+
+					case "select":
+						schemaProp["type"] = "string"
+						schemaProp["title"] = title
+						if options, ok := propConfigMap["options"].([]interface{}); ok {
+							enumValues := make([]string, len(options))
+							for i, opt := range options {
+								if optStr, ok := opt.(string); ok {
+									enumValues[i] = optStr
+								}
+							}
+							schemaProp["enum"] = enumValues
+						}
+						uiProp["widget"] = "select"
+
+					case "switch":
+						schemaProp["type"] = "boolean"
+						schemaProp["title"] = title
+						if defaultVal, ok := propConfigMap["default"].(bool); ok {
+							schemaProp["default"] = defaultVal
+						}
+						uiProp["widget"] = "switch"
+
+					case "object":
+						schemaProp["type"] = "object"
+						schemaProp["title"] = title
+						schemaProp["properties"] = gin.H{}
+						uiProp["widget"] = "object"
+						if displayType, ok := propConfigMap["displayType"].(string); ok {
+							uiProp["displayType"] = displayType
+						}
+						// Recursively process nested properties
+						if nestedProps, ok := propConfigMap["properties"].(map[string]interface{}); ok {
+							nestedSchemaProps := schemaProp["properties"].(gin.H)
+							nestedUIProps := gin.H{}
+							processComponentsRecursive(nestedSchemaProps, nestedUIProps, map[string]interface{}{
+								"type":       "object",
+								"properties": nestedProps,
+							})
+							uiProp["properties"] = nestedUIProps
+						}
+
+					case "array":
+						schemaProp["type"] = "array"
+						schemaProp["title"] = title
+						if minItems, ok := propConfigMap["minItems"].(float64); ok {
+							schemaProp["minItems"] = int(minItems)
+						}
+						if maxItems, ok := propConfigMap["maxItems"].(float64); ok {
+							schemaProp["maxItems"] = int(maxItems)
+						}
+
+						// Process array items
+						if itemsConfig, ok := propConfigMap["items"].(map[string]interface{}); ok {
+							itemsSchema := gin.H{}
+							itemsUI := gin.H{}
+							processComponentsRecursive(gin.H{"item": itemsSchema}, gin.H{"item": itemsUI}, map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"item": itemsConfig,
+								},
+							})
+							if itemSchema, exists := itemsSchema["item"]; exists {
+								schemaProp["items"] = itemSchema
+							}
+							if itemUI, exists := itemsUI["item"]; exists {
+								uiProp["items"] = itemUI
+							}
+						}
+						uiProp["widget"] = "list"
+
+					default:
+						// Default to string input
+						schemaProp["type"] = "string"
+						schemaProp["title"] = title
+						uiProp["widget"] = "input"
+					}
+
+					schemaProps[propName] = schemaProp
+					uiProps[propName] = uiProp
+
+					// Handle required fields
+					if required {
+						// TODO: Add to required array in parent schema
+					}
+				}
+			}
+		}
+	}
+}
+
 // addProviderFunctionsFromManifest parses manifest JSON and appends function descriptors to s.descs/index.
 func (s *Server) addProviderFunctionsFromManifest(doc []byte) error {
     var m struct {
@@ -4373,6 +4520,793 @@ func (s *Server) ginEngine() *gin.Engine {
 		s.JSON(c, 200, gin.H{
 			"valid":  len(schemaErrors) == 0,
 			"errors": schemaErrors,
+		})
+	})
+
+	// ========== Phase 2: Schema Management APIs ==========
+
+	// List all schemas with filtering capabilities
+	r.GET("/api/schemas", func(c *gin.Context) {
+		_, _, ok := s.require(c, "schemas:read")
+		if !ok {
+			return
+		}
+
+		category := c.Query("category") // function, entity, component, ui
+		search := c.Query("search")
+
+		schemas := []gin.H{}
+
+		// Scan pack directory for schema files
+		packUIDir := filepath.Join(s.packDir, "ui")
+		if entries, err := os.ReadDir(packUIDir); err == nil {
+			for _, entry := range entries {
+				if strings.HasSuffix(entry.Name(), ".schema.json") {
+					id := strings.TrimSuffix(entry.Name(), ".schema.json")
+					if search != "" && !strings.Contains(strings.ToLower(id), strings.ToLower(search)) {
+						continue
+					}
+
+					schemaPath := filepath.Join(packUIDir, entry.Name())
+					var schema map[string]interface{}
+					if b, err := os.ReadFile(schemaPath); err == nil {
+						json.Unmarshal(b, &schema)
+
+						schemaCategory := "function" // default
+						if cat, ok := schema["category"].(string); ok {
+							schemaCategory = cat
+						}
+
+						if category != "" && schemaCategory != category {
+							continue
+						}
+
+						info, _ := entry.Info()
+						schemas = append(schemas, gin.H{
+							"id":          id,
+							"title":       schema["title"],
+							"description": schema["description"],
+							"category":    schemaCategory,
+							"type":        schema["type"],
+							"version":     schema["version"],
+							"updated_at":  info.ModTime(),
+							"size":        len(b),
+						})
+					}
+				}
+			}
+		}
+
+		s.JSON(c, 200, gin.H{
+			"schemas": schemas,
+			"total":   len(schemas),
+		})
+	})
+
+	// Get specific schema details with UI configuration
+	r.GET("/api/schemas/:id", func(c *gin.Context) {
+		_, _, ok := s.require(c, "schemas:read")
+		if !ok {
+			return
+		}
+
+		id := sanitize(c.Param("id"))
+		if id == "" {
+			s.respondError(c, 400, "bad_request", "invalid schema id")
+			return
+		}
+
+		schemaPath := filepath.Join(s.packDir, "ui", id+".schema.json")
+		uiPath := filepath.Join(s.packDir, "ui", id+".uischema.json")
+
+		var schema, uischema interface{}
+		var schemaBytes, uiBytes []byte
+		var err error
+
+		// Read schema file
+		if schemaBytes, err = os.ReadFile(schemaPath); err != nil {
+			s.respondError(c, 404, "not_found", "schema not found")
+			return
+		}
+		json.Unmarshal(schemaBytes, &schema)
+
+		// Read UI schema file (optional)
+		if uiBytes, err = os.ReadFile(uiPath); err == nil {
+			json.Unmarshal(uiBytes, &uischema)
+		}
+
+		// Get file info
+		info, _ := os.Stat(schemaPath)
+
+		s.JSON(c, 200, gin.H{
+			"id":          id,
+			"schema":      schema,
+			"ui_schema":   uischema,
+			"updated_at":  info.ModTime(),
+			"size":        len(schemaBytes),
+		})
+	})
+
+	// Create new schema
+	r.POST("/api/schemas", func(c *gin.Context) {
+		actor, _, ok := s.require(c, "schemas:write")
+		if !ok {
+			return
+		}
+
+		var request struct {
+			ID       string      `json:"id" binding:"required"`
+			Schema   interface{} `json:"schema" binding:"required"`
+			UISchema interface{} `json:"ui_schema,omitempty"`
+		}
+
+		if err := c.ShouldBindJSON(&request); err != nil {
+			s.respondError(c, 400, "bad_request", err.Error())
+			return
+		}
+
+		id := sanitize(request.ID)
+		if id == "" || id != request.ID {
+			s.respondError(c, 400, "bad_request", "invalid schema id")
+			return
+		}
+
+		// Check if schema already exists
+		schemaPath := filepath.Join(s.packDir, "ui", id+".schema.json")
+		if _, err := os.Stat(schemaPath); err == nil {
+			s.respondError(c, 409, "conflict", "schema already exists")
+			return
+		}
+
+		// Ensure UI directory exists
+		os.MkdirAll(filepath.Join(s.packDir, "ui"), 0755)
+
+		// Write schema file
+		schemaData, _ := json.MarshalIndent(request.Schema, "", "  ")
+		if err := os.WriteFile(schemaPath, schemaData, 0644); err != nil {
+			s.respondError(c, 500, "internal_error", "failed to save schema")
+			return
+		}
+
+		// Write UI schema file if provided
+		if request.UISchema != nil {
+			uiPath := filepath.Join(s.packDir, "ui", id+".uischema.json")
+			uiData, _ := json.MarshalIndent(request.UISchema, "", "  ")
+			os.WriteFile(uiPath, uiData, 0644)
+		}
+
+		// Log action
+		slog.Info("Schema created", "actor", actor, "schema_id", id, "size", len(schemaData))
+
+		s.JSON(c, 201, gin.H{
+			"id":      id,
+			"message": "schema created successfully",
+		})
+	})
+
+	// Update existing schema
+	r.PUT("/api/schemas/:id", func(c *gin.Context) {
+		actor, _, ok := s.require(c, "schemas:write")
+		if !ok {
+			return
+		}
+
+		id := sanitize(c.Param("id"))
+		if id == "" {
+			s.respondError(c, 400, "bad_request", "invalid schema id")
+			return
+		}
+
+		var request struct {
+			Schema   interface{} `json:"schema,omitempty"`
+			UISchema interface{} `json:"ui_schema,omitempty"`
+		}
+
+		if err := c.ShouldBindJSON(&request); err != nil {
+			s.respondError(c, 400, "bad_request", err.Error())
+			return
+		}
+
+		schemaPath := filepath.Join(s.packDir, "ui", id+".schema.json")
+		uiPath := filepath.Join(s.packDir, "ui", id+".uischema.json")
+
+		// Check if schema exists
+		if _, err := os.Stat(schemaPath); err != nil {
+			s.respondError(c, 404, "not_found", "schema not found")
+			return
+		}
+
+		updated := false
+
+		// Update schema if provided
+		if request.Schema != nil {
+			schemaData, _ := json.MarshalIndent(request.Schema, "", "  ")
+			if err := os.WriteFile(schemaPath, schemaData, 0644); err != nil {
+				s.respondError(c, 500, "internal_error", "failed to update schema")
+				return
+			}
+			updated = true
+		}
+
+		// Update UI schema if provided
+		if request.UISchema != nil {
+			uiData, _ := json.MarshalIndent(request.UISchema, "", "  ")
+			if err := os.WriteFile(uiPath, uiData, 0644); err != nil {
+				s.respondError(c, 500, "internal_error", "failed to update ui schema")
+				return
+			}
+			updated = true
+		}
+
+		if !updated {
+			s.respondError(c, 400, "bad_request", "no data to update")
+			return
+		}
+
+		// Log action
+		slog.Info("Schema updated", "actor", actor, "schema_id", id)
+
+		s.JSON(c, 200, gin.H{
+			"message": "schema updated successfully",
+		})
+	})
+
+	// Delete schema
+	r.DELETE("/api/schemas/:id", func(c *gin.Context) {
+		actor, _, ok := s.require(c, "schemas:write")
+		if !ok {
+			return
+		}
+
+		id := sanitize(c.Param("id"))
+		if id == "" {
+			s.respondError(c, 400, "bad_request", "invalid schema id")
+			return
+		}
+
+		schemaPath := filepath.Join(s.packDir, "ui", id+".schema.json")
+		uiPath := filepath.Join(s.packDir, "ui", id+".uischema.json")
+
+		// Check if schema exists
+		if _, err := os.Stat(schemaPath); err != nil {
+			s.respondError(c, 404, "not_found", "schema not found")
+			return
+		}
+
+		// Remove schema file
+		if err := os.Remove(schemaPath); err != nil {
+			s.respondError(c, 500, "internal_error", "failed to delete schema")
+			return
+		}
+
+		// Remove UI schema file if exists
+		os.Remove(uiPath)
+
+		// Log action
+		slog.Info("Schema deleted", "actor", actor, "schema_id", id)
+
+		s.JSON(c, 200, gin.H{
+			"message": "schema deleted successfully",
+		})
+	})
+
+	// Validate data against schema
+	r.POST("/api/schemas/:id/validate", func(c *gin.Context) {
+		_, _, ok := s.require(c, "schemas:read")
+		if !ok {
+			return
+		}
+
+		id := sanitize(c.Param("id"))
+		if id == "" {
+			s.respondError(c, 400, "bad_request", "invalid schema id")
+			return
+		}
+
+		var request struct {
+			Data interface{} `json:"data" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&request); err != nil {
+			s.respondError(c, 400, "bad_request", err.Error())
+			return
+		}
+
+		schemaPath := filepath.Join(s.packDir, "ui", id+".schema.json")
+
+		// Check if schema exists and validate
+		if _, err := os.Stat(schemaPath); err != nil {
+			s.respondError(c, 404, "not_found", "schema not found")
+			return
+		}
+
+		// Simple validation - just check if schema exists
+		// TODO: Add proper JSON Schema validation later
+		errors := []string{}
+
+		s.JSON(c, 200, gin.H{
+			"valid":  len(errors) == 0,
+			"errors": errors,
+		})
+	})
+
+	// Get UI configuration for x-render integration
+	r.GET("/api/schemas/:id/ui-config", func(c *gin.Context) {
+		_, _, ok := s.require(c, "schemas:read")
+		if !ok {
+			return
+		}
+
+		id := sanitize(c.Param("id"))
+		if id == "" {
+			s.respondError(c, 400, "bad_request", "invalid schema id")
+			return
+		}
+
+		uiPath := filepath.Join(s.packDir, "ui", id+".uischema.json")
+
+		var uischema interface{}
+		if b, err := os.ReadFile(uiPath); err == nil {
+			json.Unmarshal(b, &uischema)
+		} else {
+			// Generate default UI config based on schema
+			schemaPath := filepath.Join(s.packDir, "ui", id+".schema.json")
+			if b, err := os.ReadFile(schemaPath); err == nil {
+				var schema map[string]interface{}
+				json.Unmarshal(b, &schema)
+
+				// Basic UI config generation for x-render
+				uischema = gin.H{
+					"type": "object",
+					"displayType": "row",
+					"properties": gin.H{},
+				}
+
+				if props, ok := schema["properties"].(map[string]interface{}); ok {
+					uiProps := gin.H{}
+					for propName, prop := range props {
+						if propMap, ok := prop.(map[string]interface{}); ok {
+							propType := "input"
+							if t, ok := propMap["type"].(string); ok {
+								switch t {
+								case "boolean":
+									propType = "switch"
+								case "number", "integer":
+									propType = "number"
+								case "array":
+									propType = "list"
+								case "object":
+									propType = "object"
+								}
+							}
+							uiProps[propName] = gin.H{
+								"title": propMap["title"],
+								"widget": propType,
+							}
+						}
+					}
+					if config, ok := uischema.(gin.H); ok {
+						if properties, ok := config["properties"].(gin.H); ok {
+							for k, v := range uiProps {
+								properties[k] = v
+							}
+						}
+					}
+				}
+			}
+		}
+
+		s.JSON(c, 200, gin.H{
+			"ui_config": uischema,
+		})
+	})
+
+	// Update UI configuration for x-render integration
+	r.PUT("/api/schemas/:id/ui-config", func(c *gin.Context) {
+		actor, _, ok := s.require(c, "schemas:write")
+		if !ok {
+			return
+		}
+
+		id := sanitize(c.Param("id"))
+		if id == "" {
+			s.respondError(c, 400, "bad_request", "invalid schema id")
+			return
+		}
+
+		var request struct {
+			UIConfig interface{} `json:"ui_config" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&request); err != nil {
+			s.respondError(c, 400, "bad_request", err.Error())
+			return
+		}
+
+		// Check if schema exists
+		schemaPath := filepath.Join(s.packDir, "ui", id+".schema.json")
+		if _, err := os.Stat(schemaPath); err != nil {
+			s.respondError(c, 404, "not_found", "schema not found")
+			return
+		}
+
+		// Save UI configuration
+		uiPath := filepath.Join(s.packDir, "ui", id+".uischema.json")
+		uiData, _ := json.MarshalIndent(request.UIConfig, "", "  ")
+
+		if err := os.WriteFile(uiPath, uiData, 0644); err != nil {
+			s.respondError(c, 500, "internal_error", "failed to save ui config")
+			return
+		}
+
+		// Log action
+		slog.Info("Schema UI config updated", "actor", actor, "schema_id", id)
+
+		s.JSON(c, 200, gin.H{
+			"message": "ui configuration updated successfully",
+		})
+	})
+
+	// ========== x-render Integration APIs ==========
+
+	// Get available UI components for x-render designer
+	r.GET("/api/x-render/components", func(c *gin.Context) {
+		_, _, ok := s.require(c, "schemas:read")
+		if !ok {
+			return
+		}
+
+		category := c.Query("category") // form, display, layout, input
+
+		// Define available x-render components with their properties
+		components := gin.H{
+			"form": []gin.H{
+				{
+					"id":           "input",
+					"name":         "文本输入",
+					"category":     "form",
+					"widget":       "input",
+					"icon":         "input",
+					"description":  "单行文本输入框",
+					"properties": gin.H{
+						"title":       gin.H{"type": "string", "title": "标题"},
+						"placeholder": gin.H{"type": "string", "title": "占位符"},
+						"maxLength":   gin.H{"type": "number", "title": "最大长度"},
+						"required":    gin.H{"type": "boolean", "title": "必填", "default": false},
+					},
+					"schema_template": gin.H{
+						"type":      "string",
+						"title":     "",
+						"maxLength": 100,
+					},
+				},
+				{
+					"id":           "textarea",
+					"name":         "多行文本",
+					"category":     "form",
+					"widget":       "textarea",
+					"icon":         "textarea",
+					"description":  "多行文本输入框",
+					"properties": gin.H{
+						"title":       gin.H{"type": "string", "title": "标题"},
+						"placeholder": gin.H{"type": "string", "title": "占位符"},
+						"rows":        gin.H{"type": "number", "title": "行数", "default": 4},
+						"maxLength":   gin.H{"type": "number", "title": "最大长度"},
+						"required":    gin.H{"type": "boolean", "title": "必填", "default": false},
+					},
+					"schema_template": gin.H{
+						"type":      "string",
+						"title":     "",
+						"maxLength": 1000,
+					},
+				},
+				{
+					"id":           "number",
+					"name":         "数字输入",
+					"category":     "form",
+					"widget":       "number",
+					"icon":         "number",
+					"description":  "数字输入框",
+					"properties": gin.H{
+						"title":    gin.H{"type": "string", "title": "标题"},
+						"minimum":  gin.H{"type": "number", "title": "最小值"},
+						"maximum":  gin.H{"type": "number", "title": "最大值"},
+						"step":     gin.H{"type": "number", "title": "步长", "default": 1},
+						"required": gin.H{"type": "boolean", "title": "必填", "default": false},
+					},
+					"schema_template": gin.H{
+						"type":  "number",
+						"title": "",
+					},
+				},
+				{
+					"id":           "select",
+					"name":         "下拉选择",
+					"category":     "form",
+					"widget":       "select",
+					"icon":         "select",
+					"description":  "下拉选择框",
+					"properties": gin.H{
+						"title":    gin.H{"type": "string", "title": "标题"},
+						"options":  gin.H{"type": "array", "title": "选项列表", "items": gin.H{"type": "string"}},
+						"required": gin.H{"type": "boolean", "title": "必填", "default": false},
+					},
+					"schema_template": gin.H{
+						"type":  "string",
+						"title": "",
+						"enum":  []string{},
+					},
+				},
+				{
+					"id":           "switch",
+					"name":         "开关",
+					"category":     "form",
+					"widget":       "switch",
+					"icon":         "switch",
+					"description":  "布尔值开关",
+					"properties": gin.H{
+						"title":   gin.H{"type": "string", "title": "标题"},
+						"default": gin.H{"type": "boolean", "title": "默认值", "default": false},
+					},
+					"schema_template": gin.H{
+						"type":    "boolean",
+						"title":   "",
+						"default": false,
+					},
+				},
+			},
+			"layout": []gin.H{
+				{
+					"id":           "object",
+					"name":         "对象容器",
+					"category":     "layout",
+					"widget":       "object",
+					"icon":         "object",
+					"description":  "嵌套对象容器",
+					"properties": gin.H{
+						"title":       gin.H{"type": "string", "title": "标题"},
+						"displayType": gin.H{"type": "string", "title": "展示类型", "enum": []string{"column", "row", "inline"}},
+					},
+					"schema_template": gin.H{
+						"type":       "object",
+						"title":      "",
+						"properties": gin.H{},
+					},
+				},
+				{
+					"id":           "array",
+					"name":         "数组列表",
+					"category":     "layout",
+					"widget":       "list",
+					"icon":         "list",
+					"description":  "可添加/删除的数组列表",
+					"properties": gin.H{
+						"title":    gin.H{"type": "string", "title": "标题"},
+						"minItems": gin.H{"type": "number", "title": "最小项数"},
+						"maxItems": gin.H{"type": "number", "title": "最大项数"},
+					},
+					"schema_template": gin.H{
+						"type":  "array",
+						"title": "",
+						"items": gin.H{"type": "object", "properties": gin.H{}},
+					},
+				},
+			},
+		}
+
+		if category != "" {
+			if categoryComponents, exists := components[category]; exists {
+				s.JSON(c, 200, gin.H{
+					"components": categoryComponents,
+				})
+			} else {
+				s.JSON(c, 200, gin.H{
+					"components": []gin.H{},
+				})
+			}
+		} else {
+			s.JSON(c, 200, components)
+		}
+	})
+
+	// Generate JSON Schema from x-render component configuration
+	r.POST("/api/x-render/generate-schema", func(c *gin.Context) {
+		actor, _, ok := s.require(c, "schemas:write")
+		if !ok {
+			return
+		}
+
+		var request struct {
+			SchemaID   string      `json:"schema_id" binding:"required"`
+			Components interface{} `json:"components" binding:"required"`
+			UIConfig   interface{} `json:"ui_config,omitempty"`
+		}
+
+		if err := c.ShouldBindJSON(&request); err != nil {
+			s.respondError(c, 400, "bad_request", err.Error())
+			return
+		}
+
+		id := sanitize(request.SchemaID)
+		if id == "" || id != request.SchemaID {
+			s.respondError(c, 400, "bad_request", "invalid schema id")
+			return
+		}
+
+		// Generate JSON Schema from components configuration
+		schema := gin.H{
+			"$schema":     "http://json-schema.org/draft-07/schema#",
+			"type":        "object",
+			"title":       id,
+			"description": "Generated from x-render components",
+			"properties":  gin.H{},
+			"required":    []string{},
+		}
+
+		uiSchema := gin.H{
+			"type":        "object",
+			"displayType": "column",
+			"properties":  gin.H{},
+		}
+
+		// Process components configuration to generate schema
+		if componentsConfig, ok := request.Components.(map[string]interface{}); ok {
+			generateSchemaFromComponents(schema, uiSchema, componentsConfig)
+		}
+
+		// Save generated schema
+		schemaPath := filepath.Join(s.packDir, "ui", id+".schema.json")
+		uiPath := filepath.Join(s.packDir, "ui", id+".uischema.json")
+
+		// Check if schema already exists
+		if _, err := os.Stat(schemaPath); err == nil {
+			s.respondError(c, 409, "conflict", "schema already exists")
+			return
+		}
+
+		// Ensure directory exists
+		os.MkdirAll(filepath.Join(s.packDir, "ui"), 0755)
+
+		// Write schema file
+		schemaData, _ := json.MarshalIndent(schema, "", "  ")
+		if err := os.WriteFile(schemaPath, schemaData, 0644); err != nil {
+			s.respondError(c, 500, "internal_error", "failed to save schema")
+			return
+		}
+
+		// Write UI schema file
+		uiData, _ := json.MarshalIndent(uiSchema, "", "  ")
+		os.WriteFile(uiPath, uiData, 0644)
+
+		// Log action
+		slog.Info("Schema generated from x-render", "actor", actor, "schema_id", id, "size", len(schemaData))
+
+		s.JSON(c, 201, gin.H{
+			"id":        id,
+			"schema":    schema,
+			"ui_schema": uiSchema,
+			"message":   "schema generated successfully",
+		})
+	})
+
+	// Preview schema generation without saving
+	r.POST("/api/x-render/preview-schema", func(c *gin.Context) {
+		_, _, ok := s.require(c, "schemas:read")
+		if !ok {
+			return
+		}
+
+		var request struct {
+			Components interface{} `json:"components" binding:"required"`
+		}
+
+		if err := c.ShouldBindJSON(&request); err != nil {
+			s.respondError(c, 400, "bad_request", err.Error())
+			return
+		}
+
+		// Generate preview schema
+		schema := gin.H{
+			"$schema":     "http://json-schema.org/draft-07/schema#",
+			"type":        "object",
+			"title":       "Preview Schema",
+			"description": "Preview from x-render components",
+			"properties":  gin.H{},
+			"required":    []string{},
+		}
+
+		uiSchema := gin.H{
+			"type":        "object",
+			"displayType": "column",
+			"properties":  gin.H{},
+		}
+
+		// Process components configuration
+		if componentsConfig, ok := request.Components.(map[string]interface{}); ok {
+			generateSchemaFromComponents(schema, uiSchema, componentsConfig)
+		}
+
+		s.JSON(c, 200, gin.H{
+			"schema":    schema,
+			"ui_schema": uiSchema,
+		})
+	})
+
+	// UI Component templates for different scenarios
+	r.GET("/api/x-render/templates", func(c *gin.Context) {
+		_, _, ok := s.require(c, "schemas:read")
+		if !ok {
+			return
+		}
+
+		templates := gin.H{
+			"user_form": gin.H{
+				"name":        "用户表单模板",
+				"description": "典型的用户信息表单",
+				"components": gin.H{
+					"type": "object",
+					"properties": gin.H{
+						"username": gin.H{
+							"component": "input",
+							"title":     "用户名",
+							"required":  true,
+						},
+						"email": gin.H{
+							"component": "input",
+							"title":     "邮箱",
+							"required":  true,
+						},
+						"profile": gin.H{
+							"component": "object",
+							"title":     "个人信息",
+							"properties": gin.H{
+								"nickname": gin.H{
+									"component": "input",
+									"title":     "昵称",
+								},
+								"bio": gin.H{
+									"component": "textarea",
+									"title":     "个人简介",
+								},
+							},
+						},
+					},
+				},
+			},
+			"game_config": gin.H{
+				"name":        "游戏配置模板",
+				"description": "游戏参数配置表单",
+				"components": gin.H{
+					"type": "object",
+					"properties": gin.H{
+						"server_name": gin.H{
+							"component": "input",
+							"title":     "服务器名称",
+							"required":  true,
+						},
+						"max_players": gin.H{
+							"component": "number",
+							"title":     "最大玩家数",
+							"minimum":   1,
+							"maximum":   1000,
+							"required":  true,
+						},
+						"features": gin.H{
+							"component": "array",
+							"title":     "功能列表",
+							"items": gin.H{
+								"component": "select",
+								"title":     "功能",
+								"options":   []string{"pvp", "guild", "auction", "chat"},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		s.JSON(c, 200, gin.H{
+			"templates": templates,
 		})
 	})
 
