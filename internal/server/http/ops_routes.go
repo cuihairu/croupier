@@ -1,20 +1,22 @@
 package httpserver
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"github.com/cuihairu/croupier/internal/loadbalancer"
-	"github.com/gin-gonic/gin"
-	redis "github.com/redis/go-redis/v9"
-	"net"
-	"net/http"
-	"net/url"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
-	"time"
+    "bytes"
+    "context"
+    "encoding/json"
+    "errors"
+    "github.com/cuihairu/croupier/internal/loadbalancer"
+    "github.com/gin-gonic/gin"
+    redis "github.com/redis/go-redis/v9"
+    "crypto/tls"
+    "net"
+    "net/http"
+    "net/url"
+    "os"
+    "path/filepath"
+    "strconv"
+    "strings"
+    "time"
 )
 
 // addOpsRoutes registers /api/ops/* endpoints.
@@ -334,6 +336,95 @@ func (s *Server) addOpsRoutes(r *gin.Engine) {
 		default:
 		}
 		c.JSON(200, out)
+	})
+
+	// Health checks config and status
+	r.GET("/api/ops/health", func(c *gin.Context) {
+		if _, _, ok := s.require(c, "ops:read", "ops:manage"); !ok { return }
+		s.healthMu.RLock(); defer s.healthMu.RUnlock()
+		// copy status map into slice
+		stats := []gin.H{}
+		for _, hc := range s.healthChecks {
+			st := s.healthStatus[hc.ID]
+			stats = append(stats, gin.H{"id": hc.ID, "ok": st.OK, "latency_ms": st.LatencyMs, "error": st.Error, "checked_at": st.CheckedAt})
+		}
+		c.JSON(200, gin.H{"checks": s.healthChecks, "status": stats})
+	})
+	r.PUT("/api/ops/health", func(c *gin.Context) {
+		actor, _, ok := s.require(c, "ops:manage"); if !ok { return }
+		var in struct{ Checks []healthCheck `json:"checks"` }
+		if err := c.BindJSON(&in); err != nil { s.respondError(c, 400, "bad_request", "invalid payload"); return }
+		// basic normalize
+		for i := range in.Checks {
+			in.Checks[i].ID = strings.TrimSpace(in.Checks[i].ID)
+			in.Checks[i].Kind = strings.ToLower(strings.TrimSpace(in.Checks[i].Kind))
+			if in.Checks[i].IntervalSec <= 0 { in.Checks[i].IntervalSec = 60 }
+			if in.Checks[i].TimeoutMs <= 0 { in.Checks[i].TimeoutMs = 1000 }
+		}
+		s.healthMu.Lock(); s.healthChecks = in.Checks; s.healthMu.Unlock()
+		b, _ := json.MarshalIndent(gin.H{"checks": in.Checks}, "", "  ")
+		_ = os.MkdirAll("data", 0o755)
+		_ = os.WriteFile(s.healthChecksPath, b, 0o644)
+		if s.audit != nil { _ = s.audit.Log("ops.health.update", actor, "checks", map[string]string{"count": strconv.Itoa(len(in.Checks)), "ip": c.ClientIP()}) }
+		c.Status(204)
+	})
+	r.POST("/api/ops/health/run", func(c *gin.Context) {
+		if _, _, ok := s.require(c, "ops:manage"); !ok { return }
+		id := strings.TrimSpace(c.Query("id"))
+		go func() { s.runHealthOnce(id) }()
+		c.JSON(200, gin.H{"ok": true})
+	})
+
+	// Backups: list/create/delete/download (MVP)
+	r.GET("/api/ops/backups", func(c *gin.Context) {
+		if _, _, ok := s.require(c, "ops:read", "ops:manage"); !ok { return }
+		s.backupsMu.Lock(); defer s.backupsMu.Unlock()
+		c.JSON(200, gin.H{"backups": s.backups})
+	})
+	r.POST("/api/ops/backups", func(c *gin.Context) {
+		actor, _, ok := s.require(c, "ops:manage"); if !ok { return }
+		var in struct{ Kind, Target string }
+		if err := c.BindJSON(&in); err != nil || strings.TrimSpace(in.Kind) == "" { s.respondError(c, 400, "bad_request", "invalid payload"); return }
+		id := fmt.Sprintf("bkp-%d", time.Now().UnixNano())
+		// create artifact path
+		_ = os.MkdirAll(s.backupsDir, 0o755)
+		path := filepath.Join(s.backupsDir, id+".tar.gz")
+		be := backupEntry{ID: id, Kind: in.Kind, Target: in.Target, Path: path, Status: "running", CreatedAt: time.Now()}
+		s.backupsMu.Lock(); s.backups = append([]backupEntry{be}, s.backups...); s.backupsMu.Unlock()
+		go func() {
+			// naive: create a tar.gz with a manifest.json; leave real DB dump integration for later
+			err := createBackupArchive(path, map[string]any{"id": id, "kind": in.Kind, "target": in.Target, "created_at": be.CreatedAt.Format(time.RFC3339)})
+			s.backupsMu.Lock()
+			for i := range s.backups { if s.backups[i].ID == id {
+				if err != nil { s.backups[i].Status = "failed"; s.backups[i].Error = err.Error() } else {
+					s.backups[i].Status = "done"
+					if fi, e := os.Stat(path); e == nil { s.backups[i].Size = fi.Size() }
+				}
+				break
+			}}
+			s.backupsMu.Unlock()
+			if err != nil { s.notifyEvent("backup.failed", map[string]any{"id": id, "kind": in.Kind, "error": err.Error()}) } else { s.notifyEvent("backup.done", map[string]any{"id": id, "kind": in.Kind}) }
+		}()
+		if s.audit != nil { _ = s.audit.Log("ops.backup.create", actor, id, map[string]string{"kind": in.Kind, "target": in.Target, "ip": c.ClientIP()}) }
+		c.JSON(200, gin.H{"id": id})
+	})
+	r.DELETE("/api/ops/backups/:id", func(c *gin.Context) {
+		actor, _, ok := s.require(c, "ops:manage"); if !ok { return }
+		id := strings.TrimSpace(c.Param("id"))
+		s.backupsMu.Lock()
+		var path string
+		for i := range s.backups { if s.backups[i].ID == id { path = s.backups[i].Path; s.backups = append(s.backups[:i], s.backups[i+1:]...); break } }
+		s.backupsMu.Unlock()
+		if path != "" { _ = os.Remove(path) }
+		if s.audit != nil { _ = s.audit.Log("ops.backup.delete", actor, id, map[string]string{"ip": c.ClientIP()}) }
+		c.Status(204)
+	})
+	r.GET("/api/ops/backups/:id/download", func(c *gin.Context) {
+		if _, _, ok := s.require(c, "ops:read", "ops:manage"); !ok { return }
+		id := strings.TrimSpace(c.Param("id"))
+		s.backupsMu.Lock(); defer s.backupsMu.Unlock()
+		for _, b := range s.backups { if b.ID == id { c.FileAttachment(b.Path, filepath.Base(b.Path)); return } }
+		s.respondError(c, 404, "not_found", "no such backup")
 	})
 
 	// Notifications config (channels + rules)
@@ -1284,4 +1375,20 @@ func (s *Server) addOpsRoutes(r *gin.Engine) {
 		p95, _ := doRange(rep(qP95, inst))
 		s.JSON(c, 200, gin.H{"qps": qps, "err_rate": errRate, "p95_ms": p95})
 	})
+}
+
+// createBackupArchive creates tar.gz with a manifest.json entry
+func createBackupArchive(path string, manifest map[string]any) error {
+    f, err := os.Create(path)
+    if err != nil { return err }
+    defer f.Close()
+    gw := gzip.NewWriter(f)
+    defer gw.Close()
+    tw := tar.NewWriter(gw)
+    defer tw.Close()
+    b, _ := json.MarshalIndent(manifest, "", "  ")
+    hdr := &tar.Header{Name: "manifest.json", Mode: 0o644, Size: int64(len(b))}
+    if err := tw.WriteHeader(hdr); err != nil { return err }
+    if _, err := tw.Write(b); err != nil { return err }
+    return nil
 }
