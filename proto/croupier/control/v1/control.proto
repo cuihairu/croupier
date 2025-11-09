@@ -38,4 +38,22 @@ message HeartbeatResponse {}
 service ControlService {
   rpc Register(RegisterRequest) returns (RegisterResponse);
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  // New in capabilities: provider manifest upload (language-agnostic declaration)
+  rpc RegisterCapabilities(RegisterCapabilitiesRequest) returns (RegisterCapabilitiesResponse);
 }
+
+// Provider capabilities (manifest) — language-agnostic declaration
+message ProviderMeta {
+  string id = 1;
+  string version = 2;
+  string lang = 3;
+  string sdk = 4;
+}
+
+message RegisterCapabilitiesRequest {
+  ProviderMeta provider = 1;
+  bytes manifest_json_gz = 2; // gzipped manifest.json
+  // reserved 10 to 19 for future attachments (e.g., FDS)
+}
+
+message RegisterCapabilitiesResponse {}

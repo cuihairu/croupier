@@ -1,6 +1,10 @@
 {
+  "default_envs": [
+    { "env": "prod", "description": "生产环境", "color": "#52c41a" },
+    { "env": "test", "description": "测试环境", "color": "#722ed1" },
+    { "env": "dev",  "description": "开发环境", "color": "#1677ff" }
+  ],
   "games": [
     { "game_id": "default", "env": "dev" }
   ]
 }
-

@@ -12,11 +12,12 @@ server:
 
   # Database selection
   db:
-    driver: auto   # postgres | mysql | sqlite | auto
-    dsn: ""       # Postgres: postgres://user:pass@host:5432/croupier?sslmode=disable
-                   # MySQL (URL): mysql://user:pass@host:3306/croupier?charset=utf8mb4
-                   # MySQL (DSN):  user:pass@tcp(host:3306)/croupier?parseTime=true&charset=utf8mb4
-                   # SQLite:       file:data/croupier.db (defaults to data/croupier.db when empty)
+    driver: auto   # postgres | mysql | sqlite | mssql | sqlserver | auto
+    dsn: ""       # Postgres:   postgres://user:pass@host:5432/croupier?sslmode=disable
+                   # MySQL(URL): mysql://user:pass@host:3306/croupier?charset=utf8mb4
+                   # MySQL(DSN): user:pass@tcp(host:3306)/croupier?parseTime=true&charset=utf8mb4
+                   # SQL Server: sqlserver://user:pass@host:1433?database=croupier
+                   # SQLite:     file:data/croupier.db (defaults to data/croupier.db when empty)
 
   # Object storage (uploads/asset hosting)
   storage:

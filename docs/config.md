@@ -110,8 +110,8 @@ agent:
   assignments_poll_sec: 30                 # polling interval seconds
   downlink_dir: ./packs/downlink           # save/export current pack here on updates
   # optional adapter process demo (dev-only)
-  adapter_prom_cmd: "go run ./adapters/prom"
-  adapter_http_cmd: "go run ./adapters/http"
+  adapter_prom_cmd: "go run ./tools/adapters/prom"
+  adapter_http_cmd: "go run ./tools/adapters/http"
 ```
 
 Adapter supervisor (dev)

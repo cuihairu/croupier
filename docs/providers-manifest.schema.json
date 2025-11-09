@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://croupier.dev/schemas/providers-manifest.schema.json",
+  "title": "Croupier Provider Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["provider"],
+  "properties": {
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "lang": {"type": "string"},
+        "sdk": {"type": "string"},
+        "description": {"type": "string"}
+      }
+    },
+    "functions": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/function"}
+    },
+    "entities": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/entity"}
+    }
+  },
+  "$defs": {
+    "schemaRef": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["json_schema"],
+          "properties": {
+            "json_schema": {"type": "string", "minLength": 1}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["proto_fqn"],
+          "properties": {
+            "proto_fqn": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
+    "rateLimit": {
+      "oneOf": [
+        {"type": "string", "minLength": 1},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "window"],
+          "properties": {
+            "value": {"type": "integer", "minimum": 1},
+            "window": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
+    "auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "require": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "idempotent": {"type": "boolean"},
+        "rate_limit": {"$ref": "#/$defs/rateLimit"},
+        "concurrency": {"type": "integer", "minimum": 1}
+      }
+    },
+    "transportProto": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "request_fqn": {"type": "string"},
+        "response_fqn": {"type": "string"}
+      }
+    },
+    "routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hash_key": {"type": "string"},
+        "jsonpath": {"type": "string"}
+      }
+    },
+    "ui": {
+      "type": "object",
+      "properties": {
+        "category": {"type": "string"},
+        "risk": {"type": "string", "enum": ["low", "medium", "high"]},
+        "tags": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "function": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "request", "response"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "request": {"$ref": "#/$defs/schemaRef"},
+        "response": {"$ref": "#/$defs/schemaRef"},
+        "auth": {"$ref": "#/$defs/auth"},
+        "semantics": {"$ref": "#/$defs/semantics"},
+        "transport": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {"proto": {"$ref": "#/$defs/transportProto"}}
+        },
+        "routing": {"$ref": "#/$defs/routing"},
+        "ui": {"$ref": "#/$defs/ui"}
+      }
+    },
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "title": {"type": "string"},
+        "color": {"type": "string", "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$"},
+        "schema": {"$ref": "#/$defs/schemaRef"},
+        "operations": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/operation"}
+        }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "request", "response"],
+      "properties": {
+        "op": {"type": "string", "minLength": 1},
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "field": {"type": "string"},
+            "jsonpath": {"type": "string"}
+          }
+        },
+        "request": {"$ref": "#/$defs/schemaRef"},
+        "response": {"$ref": "#/$defs/schemaRef"},
+        "auth": {"$ref": "#/$defs/auth"},
+        "semantics": {"$ref": "#/$defs/semantics"},
+        "transport": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {"proto": {"$ref": "#/$defs/transportProto"}}
+        },
+        "routing": {"$ref": "#/$defs/routing"},
+        "ui": {"$ref": "#/$defs/ui"}
+      }
+    }
+  }
+}
+

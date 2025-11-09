@@ -1,72 +1,123 @@
-﻿# Croupier TODO（优化版 v2）
+# TODO
 
-目标：两周内打通“Proto-first → Pack → Server/Agent → RBAC/审批 → 动态 UI”的最小竖切；将“可视化/多域扩展”放到 P1/P2。
+## C-Architecture Migration (Ports/Adapters + Wire)
 
-## P0（两周，最小竖切）
-- X‑Render 集成（基础）
-  - 前端引入 form-render 与 @ant-design/icons，保留现有 GmFunctions 渲染为 fallback；
-  - 在 GmFunctions 中按 descriptors/ui schema 渲染参数表单，先替换“函数表单”路径；
-  - 成功标准：不改后端即可通过 JSON Schema 自动渲染并提交调用，基础字段/数组/对象/Map 可用。
-- 实体管理页 MVP
-  - 列表 + 新建/校验/预览，直接使用 /api/entities、/api/entities/:id、/api/entities/validate、/api/entities/:id/preview；
-  - 表格用 ProTable，表单用 form-render；不做拖拽与复杂筛选；
-  - 成功标准：能新增一个实体定义并通过预览看到 UI。
-- 道具域闭环补齐
-  - 新增 descriptors：components/item-management/descriptors/item.update.json、item.delete.json；
-  - 成功标准：item.create/get/list/update/delete 完整可调用（前端表单渲染正常）。
-- 注册中心增强（最小版）
-  - internal/server/registry/registry.go 增加 FunctionMeta{Entity,Operation,Enabled}，将 AgentSession.Functions 从 map[string]bool 升级为 map[string]FunctionMeta；
-  - 增加查询：GetFunctionsForEntity(entity)、GetEntitiesWithOperation(op)、GetFunctionByEntityOp(entity, op)；
-  - 成功标准：可按实体/操作检索可用函数（用于前端联动或调试页）。
-- 打包与文档小步
-  - 沿用 Makefile pack；README 增补“前端 X‑Render 启动与使用”简节；
-  - 成功标准：开发者按 README 启动即可演示“函数表单 + 实体管理 + 道具 CRUD”。
+Goal: Clear app/service/ports/repo layering, Wire DI, single-source models, no infra leakage.
 
-## P1（强化易用性与工程化）
-- X 组件沉淀
-  - 抽象 XResourceTable、XEntityForm，在 EntityManager 与其他模块复用；
-  - 完善 UI schema 能力：show_if/required_if/枚举 label/日期时间等控件。
-- RBAC 与审批
-  - allow_if 增强：has_permission/is_owner/数值比较/时间窗口；
-  - 基于 descriptors.auth.risk / auth.two_person_rule 的统一策略入口。
-- 幂等与 assignments
-  - 命令类幂等：唯一键 + 软 TTL（最小实现）；
-  - assignments 落 GORM（替代 assignments.json），HTTP 查询保持兼容。
-- 工具与可观测
-  - cmd/schema-validator：校验 descriptors/ui/manifest/pack；
-  - cmd/pack-builder：一键打包 + 校验；
-  - /metrics 暴露 Prometheus 规范指标（当前为 JSON）。
-- 经济域竖切
-  - currency.create/get/list + wallet.get，演示跨实体操作。
+### 0) Agree On Structure (done)
+- Docs: `docs/directory-structure.md` describing target layout
+- Naming: `app/`, `service/`, `ports/`, `repo/gorm/`, `platform/`, `security/`
 
-## P2（可视化与生态）
-- 可视化 Builder（拖拽 + 实时预览），优先服务“函数参数 Schema”的所见即所得；
-- 连接器与渲染：REST/GraphQL/SQL 适配与 outputs.views 渲染器插件；
-- 多租户/计费（如有）：租户隔离/配额/审计增强。
+### 1) Repo Unification (low risk)
+- [x] Move GORM repos to `internal/repo/gorm/*`
+  - [x] `internal/infra/persistence/gorm/users`     → `internal/repo/gorm/users`
+  - [x] `internal/infra/persistence/gorm/messages`  → `internal/repo/gorm/messages`
+  - [x] `internal/infra/persistence/gorm/support`   → `internal/repo/gorm/support`
+  - [x] `internal/infra/persistence/gorm/assignments` → `internal/repo/gorm/assignments`
+- [x] Update imports across codebase
+- [x] `go mod tidy` + build + smoke test (users/messages/support/assignments) — build OK (server/edge/agent)
 
-## 验收清单（关键交付）
-- P0：
-  - 通过 X‑Render 渲染并成功调用任一函数（无手写表单）；
-  - 实体管理页可新增/校验/预览实体；
-  - item.* CRUD 函数齐全且可调用；
-  - 注册中心可按实体/操作检索（返回非空）。
-- P1：
-  - 统一的 X 组件在两处以上复用；
-  - allow_if 新语义单测覆盖通过；
-  - schema-validator/pack-builder 在 CI 运行并拦截不规范包；
-  - assignments 使用 DB 存储后支持分页/筛选。
-- P2：
-  - 表单拖拽能产出可用 JSON Schema（并可回填渲染）。
+### 2) Games Domain Split
+- [x] Define ports for games
+  - [x] `internal/ports/games.go`: `GamesRepository`, `UnitOfWork`, DTOs
+- [x] Create repo/gorm/games (implement ports)
+  - [x] Adapter wraps existing `internal/server/games.Repo` for now
+  - [x] Move GORM models from `internal/server/games` into `internal/repo/gorm/games` (store remains under server for edge)
+  - [x] Methods: Get/Create/Update/ListEnvs/ListEnvDefs/EnsureEnvDef
+- [x] Create service/games (use-cases)
+  - [x] AddEnv/UpdateEnv/RemoveEnv: rules (normalize/unique/case-insensitive)
+  - [x] Apply defaults from `configs/games.json`
+- [x] Wire
+  - [x] `internal/app/server/http/wire.go`: RepoSet + ServiceSet + InitServerApp
+  - [x] Generate `wire_gen.go` (checked-in; manual generation for now)
+  - [x] Switch cmd/server and servercmd to use InitServerApp
+  - [x] Later: run `wire` tool in CI/dev to verify
+- [ ] HTTP handlers refactor
+  - [x] Replace direct GORM calls with service invocations for envs POST/PUT/DELETE/GET
+  - [x] Create uses service defaults
+  - [x] Move other game handlers to service (list/detail/update/delete)
+  - [x] /api/me/games moved to service where available
+  - [x] importLegacyGamesIfEmpty uses service (when available) for consistency
+  - [x] Responses keep `envs` + `game_envs[{env,description,color}]`
+- [x] Build + e2e test (create game → default envs + colors → CRUD envs)
 
-## 涉及文件（分阶段执行）
-- P0：
-  - web/package.json：新增 form-render；
-  - web/src/pages/GmFunctions/index.tsx：接入 form-render 渲染；
-  - web/src/pages/Entities/index.tsx：新增 EntityManager MVP 页面；
-  - components/item-management/descriptors/item.update.json、item.delete.json：新增；
-  - internal/server/registry/registry.go：引入 FunctionMeta 与查询函数；必要时在 Agent 注册路径携带元数据。
-- P1：
-  - web/src/components/XResourceTable.tsx、web/src/components/XEntityForm.tsx：新增；
-  - internal/server/http/server.go：allow_if 解析增强；/metrics Prometheus 导出；
-  - 新增 cmd/schema-validator、cmd/pack-builder；Makefile 增加目标；
-  - assignments GORM 落库与 API 兼容。
+### 3) App Layer Placement
+- [x] Move `internal/server/http` → `internal/app/server/http`
+- [x] Fix imports; keep route paths unchanged
+- [x] Verify middlewares (RBAC, ScopeGuard, CORS, Logger)
+
+### 4) Security/Platform Renames (optional)
+- [x] `internal/auth/*` → `internal/security/*` (rbac, token)
+- [x] `internal/objstore` → `internal/platform/objstore`
+- [x] `internal/tlsutil` → `internal/platform/tlsutil`
+- [x] Update imports + build
+
+### 5) Adapters Examples
+- [x] Move `adapters/http` → `tools/adapters/http` (sample)
+- [x] README note: examples are non-critical
+ - [x] Remove empty legacy `adapters/` root
+
+### 6) Permissions Package Decision
+- [x] Remove legacy permissions package (unused)
+- Notes: roles/permissions currently managed via usersgorm + Casbin; revisit unification later if needed
+
+### 7) CI/Docs
+- [x] Update README (architecture overview + DB drivers + Wire usage note)
+- [x] Ensure `wire` installed in dev tooling; document `wire` generation (see `docs/wire-and-di.md`)
+- [x] Add CI step: `wire` check (or commit `wire_gen.go`)
+
+Notes:
+- Already removed legacy `internal/infra/persistence/gorm/gamemeta/models.go` to avoid env table conflicts.
+- Removed `internal/infra/persistence/gorm` and `internal/infra/persistence` (legacy paths) after moving repos.
+- Frontend: removed legacy GamesMeta page/service; switched to `/api/games` and `/api/me/games` via `web/src/services/croupier/games.ts`.
+- Games envs now: global env PK (varchar(50), description, color), per-game `envs` JSON list.
+
+## Provider Manifest + 多语言 SDK（语言无关能力声明）
+
+目标：以 Manifest(JSON) + JSON‑Schema 为权威声明，兼容 protobuf；支持 Go in‑proc 与 Python/Node 等 out‑of‑proc。Server 合并 descriptors 到 `/api/descriptors`。
+
+### A) 设计与文档
+- [x] 写入 `docs/providers-manifest.md`（中文）说明目标、概念、清单结构、注册流程、参数/校验、实体/操作、错误模型、打包与示例。
+- [x] 定义 Manifest 的 JSON Schema：`docs/providers-manifest.schema.json`（约束 provider/functions/entities/operations，扩展 `x-ui`/`x-mask`/`x-source`）。
+- [x] 撰写控制面扩展草案：`docs/control-capabilities.md`（RegisterCapabilities RPC、向后兼容、实施步骤）。
+
+### B) 控制面（ControlService）扩展（向后兼容）
+- 方案一（推荐）：新增 `RegisterCapabilities`（携带 `provider` 元数据 + 压缩 manifest JSON + 可选内嵌 schemas/fds）。
+- 方案二：在现有 `Register` 增加可选字段 `manifest_json_gz`，大于阈值改走分段上传或对象存储。
+- [ ] 选型并更新 `proto/croupier/control/v1/control.proto`；`buf generate`。
+- [ ] Server 端解析与合并：保存/缓存 manifest；构建统一 descriptors，暴露 `/api/descriptors`。
+- [ ] 单测：小 manifest、嵌入 schema、无/有 fds；向后兼容（旧 Agent 仅 functions 列表）。
+
+### C) protoc 插件：从 protobuf 生成 Manifest（可选）
+- [ ] 扩展 `tools/protoc-gen-croupier`：`emit_manifest=true`，从 .proto + 自定义 options 产出 `manifest.json` + `schema/*.json`。
+- [ ] 自定义注解 options（示例）：`auth.require`、`semantics.rate_limit/concurrency/idempotent`、`entity/op/target`、`ui hints`。
+- [ ] 示例 .proto + 生成产物 + 测试。
+
+### D) SDK 骨架（多语言）
+- Go（in‑proc）：
+  - [ ] Builder 生成 manifest（代码优先），或加载外部 manifest（清单优先）。
+  - [ ] 绑定 handler（函数/实体操作）、JSON‑Schema 校验、错误映射、注册到 Control、启动 FunctionService。
+- Python/Node（out‑of‑proc）：
+  - [ ] 加载 manifest.json，绑定 handler；内置 jsonschema 校验；起 gRPC 服务；注册到 Control。
+  - [ ] 示例 Provider（player/session）：函数 + 实体操作，含 target 解析与权限。
+- [ ] 统一错误模型与重试建议（InvalidArgument/NotFound/RateLimited/...）。
+
+### E) Server/Edge 集成
+- [ ] Server 合并多 Provider 的 descriptors（函数 + 实体/操作），供 `/api/descriptors` 使用。
+- [ ] Edge 仅路由 function_id，不关心 manifest 细节；保留 JSON↔Proto 编解码支持。
+- [ ] /metrics 暴露 Provider/Forwarder 关键指标（已接入 forwarder 基础指标，可按需扩展）。
+
+### F) 前端与权限
+- [ ] 前端从 `/api/descriptors` 读取 Entity/Operation + 字段 UI hints，自动渲染“对象+操作”页面；减少硬编码。
+- [ ] RBAC：将 `auth.require` 与角色模板联动（configs/roles.json），提供默认勾选建议。
+
+### G) 测试矩阵
+- [ ] Manifest 校验（JSON Schema）、参数校验（必填/枚举/范围/oneOf）。
+- [ ] 实体 target 解析（field/jsonpath）与错误处理。
+- [ ] Proto FQN 映射（FDS 下 JSON↔Proto 循环测试）。
+- [ ] 端到端：Server/Edge/Provider 调用（JSON 与 Proto 两条路径）。
+
+里程碑建议
+- M1：文档+Schema+Control 扩展雏形+Server 合并+Go in‑proc 示例（1 周）。
+- M2：Python/Node SDK 骨架 + 示例 Provider + e2e（1–2 周）。
+- M3：protoc‑gen‑croupier emit_manifest 与前端自动化（1 周）。

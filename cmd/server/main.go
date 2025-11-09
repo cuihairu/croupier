@@ -3,37 +3,191 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"log/slog"
 	"net"
 	"os"
 	"os/signal"
 	"sync"
+	"sync/atomic"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
-	controlserver "github.com/cuihairu/croupier/internal/server/control"
-	functionserver "github.com/cuihairu/croupier/internal/server/function"
-	httpserver "github.com/cuihairu/croupier/internal/server/http"
+	httpserver "github.com/cuihairu/croupier/internal/app/server/http"
+	controlserver "github.com/cuihairu/croupier/internal/platform/control"
 	controlv1 "github.com/cuihairu/croupier/pkg/pb/croupier/control/v1"
 	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	// register json codec
-	auditchain "github.com/cuihairu/croupier/internal/audit/chain"
-	rbac "github.com/cuihairu/croupier/internal/auth/rbac"
 	_ "github.com/cuihairu/croupier/internal/transport/jsoncodec"
 
-	jwt "github.com/cuihairu/croupier/internal/auth/token"
 	common "github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/cuihairu/croupier/internal/connpool"
 	"github.com/cuihairu/croupier/internal/devcert"
-	"github.com/cuihairu/croupier/internal/loadbalancer"
-	tlsutil "github.com/cuihairu/croupier/internal/tlsutil"
+	tlsutil "github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"strings"
 )
+
+// noopInvoker implements httpserver.FunctionInvoker with no-op behavior so that
+// the HTTP server can run non-function endpoints without wiring FunctionService.
+type noopInvoker struct{}
+
+func (noopInvoker) Invoke(ctx context.Context, in *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
+	return &functionv1.InvokeResponse{Payload: nil}, nil
+}
+func (noopInvoker) StartJob(ctx context.Context, in *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {
+	return &functionv1.StartJobResponse{JobId: ""}, nil
+}
+func (noopInvoker) StreamJob(ctx context.Context, in *functionv1.JobStreamRequest) (functionv1.FunctionService_StreamJobClient, error) {
+	return nil, fmt.Errorf("stream not available")
+}
+func (noopInvoker) CancelJob(ctx context.Context, in *functionv1.CancelJobRequest) (*functionv1.StartJobResponse, error) {
+	return &functionv1.StartJobResponse{JobId: in.GetJobId()}, nil
+}
+
+// edgeForwarder implements FunctionInvoker by forwarding to an Edge instance over gRPC.
+type edgeForwarder struct {
+	cc    *grpc.ClientConn
+	cli   functionv1.FunctionServiceClient
+	mu    sync.Mutex
+	stats httpserver.AgentStats
+	// sliding QPS window (60s)
+	buckets [60]int64
+	lastSec int64
+}
+
+func newEdgeForwarder(addr string, creds credentials.TransportCredentials) (*edgeForwarder, error) {
+	cc, err := grpc.Dial(addr,
+		grpc.WithTransportCredentials(creds),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{}),
+		grpc.WithDefaultCallOptions(grpc.CallContentSubtype("json")),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &edgeForwarder{cc: cc, cli: functionv1.NewFunctionServiceClient(cc)}, nil
+}
+
+func (e *edgeForwarder) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
+	var out *functionv1.InvokeResponse
+	err := e.withStats(func(ctx context.Context) error {
+		var err error
+		out, err = e.cli.Invoke(ctx, req)
+		return err
+	})
+	return out, err
+}
+func (e *edgeForwarder) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {
+	var out *functionv1.StartJobResponse
+	err := e.withStats(func(ctx context.Context) error {
+		var err error
+		out, err = e.cli.StartJob(ctx, req)
+		return err
+	})
+	return out, err
+}
+func (e *edgeForwarder) StreamJob(ctx context.Context, req *functionv1.JobStreamRequest) (functionv1.FunctionService_StreamJobClient, error) {
+	atomic.AddInt64(&e.stats.ActiveConns, 1)
+	start := time.Now()
+	stream, err := e.cli.StreamJob(ctx, req)
+	dur := time.Since(start)
+	atomic.AddInt64(&e.stats.ActiveConns, -1)
+	e.finishSample(dur, err)
+	return stream, err
+}
+func (e *edgeForwarder) CancelJob(ctx context.Context, req *functionv1.CancelJobRequest) (*functionv1.StartJobResponse, error) {
+	var out *functionv1.StartJobResponse
+	err := e.withStats(func(ctx context.Context) error {
+		var err error
+		out, err = e.cli.CancelJob(ctx, req)
+		return err
+	})
+	return out, err
+}
+
+// withStats wraps a unary RPC with timeout + one retry on transient error, and updates stats.
+func (e *edgeForwarder) withStats(call func(ctx context.Context) error) error {
+	atomic.AddInt64(&e.stats.ActiveConns, 1)
+	defer atomic.AddInt64(&e.stats.ActiveConns, -1)
+	// per-call timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	start := time.Now()
+	err := call(ctx)
+	if shouldRetry(err) {
+		// brief backoff
+		time.Sleep(200 * time.Millisecond)
+		start = time.Now()
+		// renew timeout for retry
+		ctx2, cancel2 := context.WithTimeout(context.Background(), 10*time.Second)
+		err = call(ctx2)
+		cancel2()
+	}
+	e.finishSample(time.Since(start), err)
+	return err
+}
+
+func (e *edgeForwarder) finishSample(dur time.Duration, err error) {
+	// total
+	atomic.AddInt64(&e.stats.TotalRequests, 1)
+	if err != nil {
+		atomic.AddInt64(&e.stats.FailedRequests, 1)
+	}
+	// avg response time (EMA)
+	e.mu.Lock()
+	if e.stats.AvgResponseTime == 0 {
+		e.stats.AvgResponseTime = dur
+	} else {
+		e.stats.AvgResponseTime = (e.stats.AvgResponseTime*9 + dur) / 10
+	}
+	// QPS window
+	now := time.Now().Unix()
+	sec := now % 60
+	if e.lastSec == 0 {
+		e.lastSec = now
+	}
+	if now != e.lastSec {
+		if now-e.lastSec >= 60 {
+			for i := 0; i < 60; i++ {
+				e.buckets[i] = 0
+			}
+		} else {
+			for t := e.lastSec + 1; t <= now; t++ {
+				e.buckets[t%60] = 0
+			}
+		}
+		e.lastSec = now
+	}
+	e.buckets[sec]++
+	var sum int64
+	for i := 0; i < 60; i++ {
+		sum += e.buckets[i]
+	}
+	e.stats.QPS1m = float64(sum) / 60.0
+	e.stats.LastSeen = time.Now()
+	e.mu.Unlock()
+}
+
+func shouldRetry(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := strings.ToLower(err.Error())
+	return strings.Contains(s, "unavailable") || strings.Contains(s, "deadline") || strings.Contains(s, "timeout")
+}
+
+// Stats provider for HTTP layer
+func (e *edgeForwarder) GetStats() map[string]*httpserver.AgentStats {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	cp := e.stats
+	return map[string]*httpserver.AgentStats{"edge": &cp}
+}
+func (e *edgeForwarder) GetPoolStats() *connpool.PoolStats { return nil }
 
 // loadServerTLS builds a tls.Config for mTLS if caFile is provided.
 // Deprecated: inlined TLS helpers replaced by tlsutil
@@ -166,21 +320,35 @@ func main() {
 			_ = gamesPath
 			ctrl := controlserver.NewServer(nil)
 			controlv1.RegisterControlServiceServer(s, ctrl)
-			var invoker httpserver.FunctionInvoker
-			var locator interface{ GetJobAddr(string) (string, bool) }
+			// FunctionService invoker: forward to Edge when provided, else use a no-op.
+			var invoker httpserver.FunctionInvoker = noopInvoker{}
 			if edgeAddr != "" {
-				// Forward all FunctionService calls to Edge
-				fwd := functionserver.NewForwarder(edgeAddr)
-				functionv1.RegisterFunctionServiceServer(s, fwd)
-				invoker = functionserver.NewForwarderInvoker(fwd)
-				locator = nil // edge-forward mode: job_result API not available in Server
-			} else {
-				// Use default function server config when running in-server
-				fnsrv := functionserver.NewServer(ctrl.Store(), nil)
-				functionv1.RegisterFunctionServiceServer(s, fnsrv)
-				invoker = functionserver.NewClientAdapter(fnsrv)
-				locator = fnsrv
+				// Build mTLS creds for dialing edge (reuse server certs/CA).
+				// Use SNI from host part when possible.
+				sni := ""
+				host := edgeAddr
+				if i := strings.Index(host, "://"); i >= 0 {
+					host = host[i+3:]
+				}
+				if i := strings.LastIndex(host, ":"); i >= 0 {
+					host = host[:i]
+				}
+				if host != "" && host != ":" {
+					sni = host
+				}
+				creds, err := tlsutil.ClientTLS(cert, key, ca, sni)
+				if err != nil {
+					slog.Error("edge dial tls", "error", err)
+					os.Exit(1)
+				}
+				fwd, err := newEdgeForwarder(edgeAddr, creds)
+				if err != nil {
+					slog.Error("edge dial", "error", err)
+					os.Exit(1)
+				}
+				invoker = fwd
 			}
+			var locator interface{ GetJobAddr(string) (string, bool) } = nil
 
 			var wg sync.WaitGroup
 			wg.Add(2)
@@ -195,37 +363,22 @@ func main() {
 			var httpSrv *httpserver.Server
 			go func() {
 				defer wg.Done()
-				aw, err := auditchain.NewWriter("logs/audit.log")
-				if err != nil {
-					slog.Error("audit", "error", err)
-					os.Exit(1)
-				}
-				defer aw.Close()
-				var pol rbac.PolicyInterface
-				if p, err := rbac.LoadCasbinPolicy(rbacPath); err == nil {
-					pol = p
-				} else {
-					log.Printf("[RBAC] Failed to load Casbin policy, creating fallback policy: %v", err)
-					fallback := rbac.NewPolicy()
-					fallback.Grant("user:dev", "*")
-					fallback.Grant("user:dev", "job:cancel")
-					fallback.Grant("role:admin", "*")
-					fallback.Grant("user:admin", "*")
-					pol = fallback
-				}
 				_ = usersPath // legacy users.json ignored; DB-backed users in http server
-				jm := jwt.NewManager(jwtSecret)
+				// Export RBAC/JWT config to env for InitServerAppAuto providers
+				if rbacPath != "" {
+					_ = os.Setenv("RBAC_CONFIG", rbacPath)
+				}
+				if jwtSecret != "" {
+					_ = os.Setenv("JWT_SECRET", jwtSecret)
+				}
 				var statsProv interface {
-					GetStats() map[string]*loadbalancer.AgentStats
+					GetStats() map[string]*httpserver.AgentStats
 					GetPoolStats() *connpool.PoolStats
 				}
-				if sp, ok := invoker.(interface {
-					GetStats() map[string]*loadbalancer.AgentStats
-					GetPoolStats() *connpool.PoolStats
-				}); ok {
-					statsProv = sp
+				if ef, ok := invoker.(*edgeForwarder); ok {
+					statsProv = ef
 				}
-				httpSrv, err = httpserver.NewServer("gen/croupier", invoker, aw, pol, ctrl.Store(), jm, locator, statsProv)
+				httpSrv, err = httpserver.InitServerAppAuto("gen/croupier", invoker, ctrl.Store(), locator, statsProv)
 				if err != nil {
 					slog.Error("http server", "error", err)
 					os.Exit(1)

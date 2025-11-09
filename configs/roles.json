@@ -1,80 +1,50 @@
 [
-  {
-    "code": "admin",
-    "name": "超级管理员",
-    "description": "拥有全部系统权限",
-    "level": 100,
-    "permissions": ["admin:all", "*"]
-  },
-  {
-    "code": "gm",
-    "name": "游戏管理员",
-    "description": "游戏运营管理员",
-    "level": 80,
-    "permissions": [
-      "function:invoke",
-      "assignments:read",
-      "assignments:write",
-      "entity:read",
-      "entity:write",
-      "item:create",
-      "item:read",
-      "item:update",
-      "item:delete",
-      "currency:read",
-      "wallet:read"
-    ]
-  },
-  {
-    "code": "economy_manager",
-    "name": "经济管理员",
-    "description": "虚拟经济系统管理员",
-    "level": 70,
-    "permissions": [
-      "currency:create",
-      "currency:read",
-      "wallet:read",
-      "wallet:transfer"
-    ]
-  },
-  {
-    "code": "user_manager",
-    "name": "用户管理员",
-    "description": "后台用户账号管理员",
-    "level": 60,
-    "permissions": [
-      "user:read",
-      "user:write",
-      "role:read",
-      "role:write",
-      "permission:read",
-      "permission:write"
-    ]
-  },
-  {
-    "code": "operator",
-    "name": "运营专员",
-    "description": "基础运营人员",
-    "level": 40,
-    "permissions": [
-      "function:invoke",
-      "assignments:read",
-      "entity:read",
-      "item:read",
-      "currency:read",
-      "wallet:read"
-    ]
-  },
-  {
-    "code": "viewer",
-    "name": "查看者",
-    "description": "只读权限用户",
-    "level": 20,
-    "permissions": [
-      "assignments:read",
-      "entity:read",
-      "item:read",
-      "currency:read"
-    ]
-  }
+  { "code": "super_admin", "name": "超级管理员(系统)", "description": "拥有全部权限（超管）", "level": 110, "permissions": ["admin:all", "*"] },
+  { "code": "admin",        "name": "超级管理员",       "description": "拥有全部系统权限",       "level": 100, "permissions": ["admin:all", "*"] },
+
+  { "code": "producer",          "name": "制作人",       "description": "整体项目负责人，产品方向/上线决策",        "level": 90, "permissions": ["games:manage", "assignments:read", "entity:read", "item:read"] },
+  { "code": "project_manager",   "name": "项目经理",     "description": "项目推进与协调",                        "level": 85, "permissions": ["games:read", "assignments:read", "entity:read", "item:read"] },
+  { "code": "tech_lead",         "name": "技术负责人",   "description": "技术架构与研发把关",                      "level": 85, "permissions": ["games:manage", "components:manage", "uploads:write", "entities:create", "entities:update", "entities:delete", "item:create", "item:update", "item:delete", "assignments:write", "function:invoke"] },
+  { "code": "backend_lead",      "name": "后端主程",     "description": "后端主程/技术负责人",                    "level": 85, "permissions": ["games:manage", "components:manage", "uploads:write", "entities:create", "entities:update", "entities:delete", "item:create", "item:update", "item:delete", "assignments:write", "function:invoke"] },
+  { "code": "qa_lead",           "name": "测试主管",     "description": "测试团队负责人",                          "level": 80, "permissions": ["function:invoke", "assignments:read", "entity:read", "item:read", "games:read"] },
+  { "code": "ops_manager",       "name": "运维主管",     "description": "运维团队负责人",                          "level": 80, "permissions": ["components:manage", "certificates:manage", "games:manage", "uploads:write", "entity:read", "item:read"] },
+  { "code": "operations_manager", "name": "运营经理",    "description": "运营团队负责人",                          "level": 80, "permissions": ["function:invoke", "assignments:read", "entity:read", "item:read", "currency:read", "wallet:read", "games:read"] },
+  { "code": "operations_lead",   "name": "运营主管",     "description": "运营团队管理",                            "level": 75, "permissions": ["function:invoke", "assignments:read", "assignments:write", "entity:read", "item:read", "currency:read", "wallet:read", "games:read"] },
+  { "code": "art_lead",          "name": "美术主管",     "description": "美术团队负责人",                          "level": 80, "permissions": ["uploads:write", "entity:read", "item:read", "games:read"] },
+  { "code": "support_manager",   "name": "客服主管",     "description": "客服团队负责人",                          "level": 80, "permissions": ["wallet:read", "currency:read", "entity:read", "games:read"] },
+
+  { "code": "senior_developer",  "name": "高级开发工程师", "description": "核心功能开发与代码评审",                   "level": 70, "permissions": ["function:invoke", "uploads:write", "entities:update", "item:update", "games:read", "assignments:read"] },
+  { "code": "developer",         "name": "开发工程师",     "description": "日常功能开发与联调",                       "level": 60, "permissions": ["function:invoke", "uploads:write", "entity:read", "item:read", "games:read", "assignments:read"] },
+  { "code": "frontend_developer", "name": "前端开发工程师", "description": "前端开发与集成",                          "level": 60, "permissions": ["uploads:write", "entity:read", "item:read", "games:read"] },
+  { "code": "tester",            "name": "测试工程师",     "description": "功能/回归/联调测试",                       "level": 60, "permissions": ["function:invoke", "assignments:read", "entity:read", "item:read", "games:read"] },
+
+  { "code": "ops",               "name": "运维工程师",     "description": "部署运维与日常保障",                       "level": 70, "permissions": ["components:manage", "certificates:manage", "games:read", "uploads:write", "entity:read"] },
+  { "code": "sre",               "name": "SRE 工程师",     "description": "可靠性工程与平台运维",                     "level": 70, "permissions": ["components:manage", "certificates:manage", "games:read", "entity:read"] },
+  { "code": "security",          "name": "安全专员",       "description": "安全与风控相关工作",                       "level": 70, "permissions": ["certificates:manage", "entity:read", "games:read"] },
+
+  { "code": "operator",          "name": "运营专员",       "description": "基础运营人员",                             "level": 40, "permissions": ["function:invoke", "assignments:read", "entity:read", "item:read", "currency:read", "wallet:read"] },
+  { "code": "marketing",         "name": "市场营销",       "description": "活动/投放/增长相关",                       "level": 50, "permissions": ["entity:read", "item:read", "games:read"] },
+  { "code": "community",         "name": "社区运营",       "description": "社区/公告/活动相关",                       "level": 50, "permissions": ["entity:read", "item:read", "games:read"] },
+  { "code": "content_manager",   "name": "内容管理员",     "description": "内容/道具配置管理",                       "level": 55, "permissions": ["item:create", "item:read", "item:update", "uploads:write"] },
+
+  { "code": "game_designer",     "name": "游戏策划",       "description": "玩法/活动/系统设计",                       "level": 55, "permissions": ["entity:read", "item:read", "games:read"] },
+  { "code": "system_designer",   "name": "系统策划",       "description": "系统/功能策划",                           "level": 55, "permissions": ["entity:read", "item:read", "games:read"] },
+  { "code": "level_designer",    "name": "关卡策划",       "description": "关卡/剧情相关策划",                       "level": 55, "permissions": ["entity:read", "item:read", "games:read"] },
+  { "code": "numerical_designer", "name": "数值策划",      "description": "数值/经济设计与平衡",                       "level": 55, "permissions": ["currency:read", "wallet:read", "entity:read", "games:read"] },
+  { "code": "ui_designer",       "name": "UI 设计师",      "description": "界面/交互设计",                           "level": 50, "permissions": ["entity:read", "games:read", "uploads:write"] },
+  { "code": "art",               "name": "美术",           "description": "美术资源与规范",                           "level": 50, "permissions": ["uploads:write", "entity:read", "games:read"] },
+  { "code": "animator",          "name": "动画",           "description": "动画资源与规范",                           "level": 50, "permissions": ["uploads:write", "entity:read"] },
+
+  { "code": "analyst",           "name": "数据分析师",     "description": "数据分析与报告",                           "level": 45, "permissions": ["currency:read", "wallet:read", "entity:read", "item:read", "games:read"] },
+  { "code": "bi_analyst",        "name": "商业智能分析师", "description": "BI/报表/增长分析",                         "level": 45, "permissions": ["currency:read", "wallet:read", "entity:read", "item:read", "games:read"] },
+  { "code": "user_researcher",   "name": "用户研究员",     "description": "用户研究与调研",                           "level": 45, "permissions": ["entity:read", "item:read", "games:read"] },
+
+  { "code": "senior_support",    "name": "高级客服",       "description": "高级客服与问题处理",                       "level": 50, "permissions": ["wallet:read", "currency:read", "entity:read"] },
+  { "code": "support",           "name": "客服人员",       "description": "客服问答与常规处理",                       "level": 40, "permissions": ["wallet:read", "currency:read", "entity:read"] },
+  { "code": "gm",                "name": "游戏管理员",     "description": "游戏运营管理员",                           "level": 80, "permissions": ["function:invoke", "assignments:read", "assignments:write", "entity:read", "entity:write", "item:create", "item:read", "item:update", "item:delete", "currency:read", "wallet:read"] },
+  { "code": "economy_manager",   "name": "经济管理员",     "description": "虚拟经济系统管理员",                       "level": 70, "permissions": ["currency:create", "currency:read", "wallet:read", "wallet:transfer"] },
+  { "code": "user_manager",      "name": "用户管理员",     "description": "后台用户账号管理员",                       "level": 60, "permissions": ["user:read", "user:write", "role:read", "role:write", "permission:read", "permission:write"] },
+  { "code": "bot_operator",      "name": "机器人操作员",   "description": "机器人/托管相关操作",                      "level": 40, "permissions": ["function:invoke", "assignments:read", "entity:read", "item:read"] },
+  { "code": "auditor",           "name": "审计员",         "description": "审计与合规检查",                           "level": 40, "permissions": ["entity:read", "item:read", "games:read"] },
+  { "code": "viewer",            "name": "查看者",         "description": "只读权限用户",                             "level": 20, "permissions": ["assignments:read", "entity:read", "item:read", "currency:read"] }
 ]

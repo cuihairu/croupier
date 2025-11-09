@@ -13,11 +13,17 @@ server:
 
   # Database (dev): PostgreSQL
   db:
+    # driver: postgres | mysql | sqlite | mssql | sqlserver | auto
     driver: sqlite
-    # Local host example:
-    dsn: "postgres://croupier:croupier_dev_password@localhost:5432/croupier?sslmode=disable"
-    # If running inside docker-compose, the host is service name `postgres`:
+    # Example DSNs:
+    # PostgreSQL (local):
+    # dsn: "postgres://croupier:croupier_dev_password@localhost:5432/croupier?sslmode=disable"
+    # PostgreSQL (docker-compose):
     # dsn: "postgres://croupier:croupier_dev_password@postgres:5432/croupier?sslmode=disable"
+    # MySQL:
+    # dsn: "mysql://user:pass@tcp(127.0.0.1:3306)/croupier?charset=utf8mb4&parseTime=True&loc=Local"
+    # SQL Server:
+    # dsn: "sqlserver://user:pass@localhost:1433?database=croupier"
 
   # Object storage (dev): local directory
   storage:

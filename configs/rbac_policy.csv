@@ -1,60 +1,215 @@
 # Policy definitions (subject, object, action)
-# Direct user permissions
+# Direct user permissions (keep admin convenience; avoid wildcard for generic dev accounts in tests)
 p, user:admin, *, *
-p, user:dev, *, *
 p, admin, *, *
 p, admin, audit, read
 
 # Role permissions
 p, role:admin, *, *
 p, role:admin, audit, read
-p, role:gm, /api/functions, GET
-p, role:gm, /api/functions, POST
-p, role:gm, /api/functions/*, GET
-p, role:gm, /api/functions/*, POST
+# Super admin full access
+p, role:super_admin, *, *
+# GM: function invoke + assignments + entities + registry/audit
+p, role:gm, /api/invoke, POST
+p, role:gm, /api/start_job, POST
+p, role:gm, /api/cancel_job, POST
+p, role:gm, /api/job_result, GET
+p, role:gm, /api/stream_job, GET
+p, role:gm, /api/function_instances, GET
 p, role:gm, /api/assignments, GET
 p, role:gm, /api/assignments, POST
-p, role:gm, /api/assignments, PUT
-# GM: allow viewing server registry and audit logs
-p, role:gm, /api/registry, GET
-p, role:gm, /api/audit, GET
 p, role:gm, /api/entities, GET
 p, role:gm, /api/entities, POST
-p, role:gm, /api/entities, PUT
-p, role:gm, /api/entities, DELETE
-p, role:gm, /api/items, GET
-p, role:gm, /api/items, POST
-p, role:gm, /api/items, PUT
-p, role:gm, /api/items, DELETE
+p, role:gm, /api/entities/*, GET
+p, role:gm, /api/entities/*, PUT
+p, role:gm, /api/entities/*, DELETE
+# GM: view registry and audit logs
+p, role:gm, /api/registry, GET
+p, role:gm, /api/audit, GET
 
 p, role:user_manager, /api/users, GET
 p, role:user_manager, /api/users, POST
-p, role:user_manager, /api/users, PUT
-p, role:user_manager, /api/users, DELETE
+p, role:user_manager, /api/users/*, PUT
+p, role:user_manager, /api/users/*, DELETE
+p, role:user_manager, /api/users/*/password, POST
+p, role:user_manager, /api/users/*/games, GET
+p, role:user_manager, /api/users/*/games, PUT
+p, role:user_manager, /api/users/*/games/*/envs, GET
+p, role:user_manager, /api/users/*/games/*/envs, PUT
 p, role:user_manager, /api/roles, GET
 p, role:user_manager, /api/roles, POST
-p, role:user_manager, /api/roles, PUT
-p, role:user_manager, /api/roles, DELETE
-p, role:user_manager, /api/permissions, GET
+p, role:user_manager, /api/roles/*, PUT
+p, role:user_manager, /api/roles/*, DELETE
 
-p, role:economy_manager, /api/currency, GET
-p, role:economy_manager, /api/currency, POST
-p, role:economy_manager, /api/wallet, GET
-p, role:economy_manager, /api/wallet, POST
+# (economy_manager REST endpoints not implemented in server; skip HTTP grants)
 
-p, role:operator, /api/functions, GET
-p, role:operator, /api/functions/*, GET
-p, role:operator, /api/functions/*, POST
+p, role:operator, /api/invoke, POST
+p, role:operator, /api/start_job, POST
+p, role:operator, /api/job_result, GET
+p, role:operator, /api/stream_job, GET
+p, role:operator, /api/function_instances, GET
 p, role:operator, /api/assignments, GET
 p, role:operator, /api/entities, GET
-p, role:operator, /api/items, GET
+p, role:operator, /api/entities/*, GET
+p, role:operator, /api/analytics/*, GET
+
+# Developer: invoke + schema/entity validate + entities read
+p, role:developer, /api/invoke, POST
+p, role:developer, /api/start_job, POST
+p, role:developer, /api/job_result, GET
+p, role:developer, /api/stream_job, GET
+p, role:developer, /api/function_instances, GET
+p, role:developer, /api/schema/validate, POST
+p, role:developer, /api/entities/validate, POST
+p, role:developer, /api/entities, GET
+p, role:developer, /api/entities/*, GET
+
+# Senior developer: can update entities
+p, role:senior_developer, /api/invoke, POST
+p, role:senior_developer, /api/start_job, POST
+p, role:senior_developer, /api/entities, POST
+p, role:senior_developer, /api/entities/*, PUT
+p, role:senior_developer, /api/entities/*, GET
+
+# Frontend developer: uploads + readonly entities
+p, role:frontend_developer, /api/upload, POST
+p, role:frontend_developer, /api/signed_url, GET
+p, role:frontend_developer, /api/entities, GET
+p, role:frontend_developer, /api/entities/*, GET
+
+# Tester and QA lead: invoke + entities read + schema validate
+p, role:tester, /api/invoke, POST
+p, role:tester, /api/start_job, POST
+p, role:tester, /api/job_result, GET
+p, role:tester, /api/entities, GET
+p, role:tester, /api/entities/*, GET
+p, role:tester, /api/entities/validate, POST
+p, role:qa_lead, /api/invoke, POST
+p, role:qa_lead, /api/start_job, POST
+p, role:qa_lead, /api/job_result, GET
+p, role:qa_lead, /api/entities, GET
+p, role:qa_lead, /api/entities/*, GET
+p, role:qa_lead, /api/entities/validate, POST
+
+# Tech lead / Backend lead: components + packs + games manage + uploads
+p, role:tech_lead, /api/components, GET
+p, role:tech_lead, /api/components/install, POST
+p, role:tech_lead, /api/components/*/enable, POST
+p, role:tech_lead, /api/components/*/disable, POST
+p, role:tech_lead, /api/components/*, DELETE
+p, role:tech_lead, /api/packs/*, GET
+p, role:tech_lead, /api/packs/*, POST
+p, role:tech_lead, /api/upload, POST
+p, role:tech_lead, /api/signed_url, GET
+p, role:tech_lead, /api/games, GET
+p, role:tech_lead, /api/games, POST
+p, role:tech_lead, /api/games/*, GET
+p, role:tech_lead, /api/games/*, PUT
+p, role:tech_lead, /api/games/*, DELETE
+p, role:backend_lead, /api/components, GET
+p, role:backend_lead, /api/components/install, POST
+p, role:backend_lead, /api/components/*/enable, POST
+p, role:backend_lead, /api/components/*/disable, POST
+p, role:backend_lead, /api/components/*, DELETE
+p, role:backend_lead, /api/packs/*, GET
+p, role:backend_lead, /api/packs/*, POST
+p, role:backend_lead, /api/upload, POST
+p, role:backend_lead, /api/signed_url, GET
+p, role:backend_lead, /api/games, GET
+p, role:backend_lead, /api/games, POST
+p, role:backend_lead, /api/games/*, GET
+p, role:backend_lead, /api/games/*, PUT
+p, role:backend_lead, /api/games/*, DELETE
+
+# Ops roles: components manage + uploads + games read
+p, role:ops, /api/components, GET
+p, role:ops, /api/components/install, POST
+p, role:ops, /api/components/*/enable, POST
+p, role:ops, /api/components/*/disable, POST
+p, role:ops, /api/components/*, DELETE
+p, role:ops, /api/upload, POST
+p, role:ops, /api/signed_url, GET
+p, role:ops, /api/games, GET
+p, role:ops_manager, /api/components, GET
+p, role:ops_manager, /api/components/*, DELETE
+p, role:ops_manager, /api/components/*/enable, POST
+p, role:ops_manager, /api/components/*/disable, POST
+p, role:ops_manager, /api/upload, POST
+p, role:ops_manager, /api/signed_url, GET
+p, role:ops_manager, /api/games, GET
+
+# Design & content
+p, role:content_manager, /api/entities, GET
+p, role:content_manager, /api/entities, POST
+p, role:content_manager, /api/entities/*, GET
+p, role:content_manager, /api/entities/*, PUT
+p, role:content_manager, /api/upload, POST
+p, role:content_manager, /api/signed_url, GET
+p, role:ui_designer, /api/upload, POST
+p, role:ui_designer, /api/signed_url, GET
+p, role:ui_designer, /api/entities, GET
+p, role:ui_designer, /api/entities/*, GET
+p, role:art, /api/upload, POST
+p, role:art, /api/signed_url, GET
+p, role:art, /api/entities, GET
+p, role:art, /api/entities/*, GET
+p, role:animator, /api/upload, POST
+p, role:animator, /api/signed_url, GET
+p, role:animator, /api/entities, GET
+p, role:animator, /api/entities/*, GET
+p, role:game_designer, /api/entities, GET
+p, role:game_designer, /api/entities/*, GET
+p, role:system_designer, /api/entities, GET
+p, role:system_designer, /api/entities/*, GET
+p, role:level_designer, /api/entities, GET
+p, role:level_designer, /api/entities/*, GET
+p, role:numerical_designer, /api/entities, GET
+p, role:numerical_designer, /api/entities/*, GET
+
+# Analytics
+p, role:analyst, /api/analytics/*, GET
+p, role:bi_analyst, /api/analytics/*, GET
+p, role:user_researcher, /api/analytics/*, GET
+p, role:marketing, /api/analytics/*, GET
+p, role:community, /api/analytics/*, GET
+p, role:operator, /api/analytics/*, GET
+p, role:producer, /api/analytics/*, GET
+p, role:project_manager, /api/analytics/*, GET
+p, role:tech_lead, /api/analytics/*, GET
+p, role:backend_lead, /api/analytics/*, GET
+p, role:ops_manager, /api/analytics/*, GET
+p, role:operations_manager, /api/analytics/*, GET
+p, role:operations_lead, /api/analytics/*, GET
+p, role:qa_lead, /api/analytics/*, GET
+p, role:art_lead, /api/analytics/*, GET
+p, role:support_manager, /api/analytics/*, GET
+p, role:senior_support, /api/analytics/*, GET
+p, role:support, /api/analytics/*, GET
+p, role:viewer, /api/analytics/*, GET
+
+# Support
+p, role:support_manager, /api/entities, GET
+p, role:support_manager, /api/entities/*, GET
+p, role:senior_support, /api/entities, GET
+p, role:senior_support, /api/entities/*, GET
+p, role:support, /api/entities, GET
+p, role:support, /api/entities/*, GET
+
+# Producer/PM: games read, assignments read, registry read
+p, role:producer, /api/games, GET
+p, role:producer, /api/games/*, GET
+p, role:producer, /api/assignments, GET
+p, role:producer, /api/registry, GET
+p, role:project_manager, /api/games, GET
+p, role:project_manager, /api/games/*, GET
+p, role:project_manager, /api/assignments, GET
 
 # Auditor role: audit logs view
 p, role:auditor, /api/audit, GET
 
-p, role:viewer, /api/assignments, GET
+# Viewer: minimal read-only (no assignments by default)
 p, role:viewer, /api/entities, GET
-p, role:viewer, /api/items, GET
+p, role:viewer, /api/entities/*, GET
 
 # Role inheritance (user, role)
 g, admin, role:admin
