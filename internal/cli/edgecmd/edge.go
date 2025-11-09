@@ -29,6 +29,8 @@ import (
 	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	tunnelv1 "github.com/cuihairu/croupier/pkg/pb/croupier/tunnel/v1"
 	gin "github.com/gin-gonic/gin"
+	"encoding/json"
+	"net/url"
 )
 
 // New returns `croupier edge` command.
@@ -119,6 +121,34 @@ func New() *cobra.Command {
 							if resp, err := cli.Do(req); err == nil {
 								if resp.Body != nil {
 									resp.Body.Close()
+								}
+							}
+						}()
+						time.Sleep(interval)
+					}
+				}()
+				// also poll node commands (drain/restart)
+				go func() {
+					for {
+						func() {
+							req, _ := http.NewRequest(http.MethodGet, strings.TrimRight(u, "/")+"/api/ops/nodes/commands?node_id="+url.QueryEscape("edge-1"), nil)
+							if tok != "" { req.Header.Set("X-Agent-Token", tok) }
+							cli := &http.Client{Timeout: 3 * time.Second}
+							resp, err := cli.Do(req)
+							if err != nil { return }
+							defer resp.Body.Close()
+							if resp.StatusCode/100 != 2 { return }
+							var out struct{ Commands []string `json:"commands"` }
+							if err := json.NewDecoder(resp.Body).Decode(&out); err != nil { return }
+							for _, cmd := range out.Commands {
+								switch strings.ToLower(strings.TrimSpace(cmd)) {
+								case "restart":
+									slog.Info("edge node command: restart -> SIGTERM")
+									_ = syscall.Kill(os.Getpid(), syscall.SIGTERM)
+								case "drain":
+									slog.Info("edge node command: drain")
+								case "undrain":
+									slog.Info("edge node command: undrain")
 								}
 							}
 						}()

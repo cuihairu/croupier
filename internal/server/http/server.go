@@ -139,13 +139,14 @@ type Server struct {
 		PublishPayment(map[string]any) error
 	}
 
-	// Analytics filters (per game/env) to throttle/allow specific client events and payments.
-	// Persisted as JSON at analyticsFiltersPath for simple operations control.
-	analyticsFilters map[string]struct {
-		Events          []string `json:"events"`
-		PaymentsEnabled bool     `json:"payments_enabled"`
-	}
-	analyticsFiltersPath string
+    // Analytics filters (per game/env) to throttle/allow specific client events and payments.
+    // Persisted as JSON at analyticsFiltersPath for simple operations control.
+    analyticsFilters map[string]struct {
+        Events          []string `json:"events"`
+        PaymentsEnabled bool     `json:"payments_enabled"`
+        SampleGlobal    int      `json:"sample_global,omitempty"` // 0-100, default 100
+    }
+    analyticsFiltersPath string
 
 	// Ops notifications: channels and rules (persisted to notificationsPath).
 	notificationsPath string
@@ -155,18 +156,23 @@ type Server struct {
 	// Optional ClickHouse connection for analytics queries
 	ch clickhouse.Conn
 
-	// Edge nodes (reported via /api/ops/nodes/meta)
-	edgeMu    sync.RWMutex
-	edgeNodes map[string]struct {
-		ID       string
-		Addr     string
-		HTTPAddr string
-		Version  string
-		IP       string
-		Region   string
-		Zone     string
-		LastSeen time.Time
-	}
+    // Edge nodes (reported via /api/ops/nodes/meta)
+    edgeMu    sync.RWMutex
+    edgeNodes map[string]struct {
+        ID       string
+        Addr     string
+        HTTPAddr string
+        Version  string
+        IP       string
+        Region   string
+        Zone     string
+        LastSeen time.Time
+    }
+
+    // Node operations (in-memory): pending commands and status flags
+    nodeMu     sync.Mutex
+    nodeCmds   map[string][]string     // node_id -> queued commands (drain|undrain|restart)
+    nodeStatus map[string]struct{ Draining bool }
 
 	// Config management (MVP): file-backed versions store
 	configsPath string
@@ -243,8 +249,8 @@ type jobInfo struct {
 // If not using Casbin, it becomes a no-op (per-route checks remain effective).
 func (s *Server) ginAuthZ() gin.HandlerFunc {
 	// endpoints to skip (auth handled specially or should be public)
-	skip := map[string]bool{
-		"/api/auth/login":              true,
+    skip := map[string]bool{
+        "/api/auth/login":              true,
 		"/api/auth/me":                 true, // user info handled by route-level token check
 		"/api/descriptors":             true, // keep backward-compatible public descriptors
 		"/api/ui_schema":               true, // schema preview
@@ -252,8 +258,9 @@ func (s *Server) ginAuthZ() gin.HandlerFunc {
 		"/api/messages/unread_count":   true, // route-level token check
 		"/api/messages":                true, // route-level token check
 		"/api/agent/meta":              true, // agent meta reports are token-gated separately
-		"/api/agent/analytics_filters": true, // agent filters fetch is token-gated separately
-	}
+        "/api/agent/analytics_filters": true, // agent filters fetch is token-gated separately
+        "/api/ops/nodes/commands":      true, // node commands are token-gated via X-Agent-Token
+    }
 	return func(c *gin.Context) {
 		// Only guard API paths; let static and others pass
 		p := c.Request.URL.Path
@@ -421,13 +428,14 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
 	for _, d := range descs {
 		idx[d.ID] = d
 	}
-	s := &Server{descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, reg: reg, jwtMgr: jwtMgr, startedAt: time.Now(), locator: locator, statsProv: statsProv, fn: map[string]*fnMetrics{}, typeReg: pack.NewTypeRegistry(), packDir: descriptorDir, rl: map[string]*rateLimiter{}, conc: map[string]chan struct{}{}, assignments: map[string][]string{}, assignmentsPath: filepath.Join(descriptorDir, "assignments.json"), analyticsFilters: map[string]struct {
-		Events          []string `json:"events"`
-		PaymentsEnabled bool     `json:"payments_enabled"`
-	}{}, analyticsFiltersPath: filepath.Join(descriptorDir, "analytics_filters.json"), notificationsPath: filepath.Join("data", "notifications.json"), loginAttempts: map[string][]time.Time{}, ipRegionCache: map[string]struct {
-		val string
-		exp time.Time
-	}{}, rateLimitRules: map[string]int{}, serviceRateRules: map[string]int{}, jobs: map[string]*jobInfo{}}
+s := &Server{descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, reg: reg, jwtMgr: jwtMgr, startedAt: time.Now(), locator: locator, statsProv: statsProv, fn: map[string]*fnMetrics{}, typeReg: pack.NewTypeRegistry(), packDir: descriptorDir, rl: map[string]*rateLimiter{}, conc: map[string]chan struct{}{}, assignments: map[string][]string{}, assignmentsPath: filepath.Join(descriptorDir, "assignments.json"), analyticsFilters: map[string]struct {
+        Events          []string `json:"events"`
+        PaymentsEnabled bool     `json:"payments_enabled"`
+        SampleGlobal    int      `json:"sample_global,omitempty"`
+    }{}, analyticsFiltersPath: filepath.Join(descriptorDir, "analytics_filters.json"), notificationsPath: filepath.Join("data", "notifications.json"), loginAttempts: map[string][]time.Time{}, ipRegionCache: map[string]struct {
+        val string
+        exp time.Time
+    }{}, rateLimitRules: map[string]int{}, serviceRateRules: map[string]int{}, jobs: map[string]*jobInfo{}, nodeCmds: map[string][]string{}, nodeStatus: map[string]struct{ Draining bool }{}}
 	// Init rate limits persistence path
 	if v := strings.TrimSpace(os.Getenv("RATE_LIMITS_PATH")); v != "" {
 		s.rateLimitsPath = v
@@ -2944,12 +2952,14 @@ func (s *Server) ginEngine() *gin.Engine {
 		s.mu.RLock()
 		if v, ok := s.analyticsFilters[key]; ok {
 			s.mu.RUnlock()
-			c.JSON(200, gin.H{"events": v.Events, "payments_enabled": v.PaymentsEnabled})
+			pct := v.SampleGlobal
+			if pct <= 0 { pct = 100 }
+			c.JSON(200, gin.H{"events": v.Events, "payments_enabled": v.PaymentsEnabled, "sample_global": pct})
 			return
 		}
 		s.mu.RUnlock()
 		// not configured -> default allow-all (empty events means allow all), payments on
-		c.JSON(200, gin.H{"events": []string{}, "payments_enabled": true})
+		c.JSON(200, gin.H{"events": []string{}, "payments_enabled": true, "sample_global": 100})
 	})
 	r.POST("/api/analytics/filters", func(c *gin.Context) {
 		actor, _, ok := s.require(c, "analytics:manage")
@@ -2961,41 +2971,49 @@ func (s *Server) ginEngine() *gin.Engine {
 			Env             string   `json:"env"`
 			Events          []string `json:"events"`
 			PaymentsEnabled *bool    `json:"payments_enabled"`
+			SampleGlobal    *int     `json:"sample_global"`
 		}
 		if err := c.BindJSON(&in); err != nil || strings.TrimSpace(in.GameID) == "" {
 			s.respondError(c, 400, "bad_request", "invalid payload")
 			return
 		}
-		key := strings.TrimSpace(in.GameID) + "|" + strings.TrimSpace(in.Env)
-		v := struct {
-			Events          []string `json:"events"`
-			PaymentsEnabled bool     `json:"payments_enabled"`
-		}{Events: []string{}, PaymentsEnabled: true}
-		// normalize: trim unique
-		seen := map[string]struct{}{}
-		for _, e := range in.Events {
-			e = strings.TrimSpace(e)
-			if e == "" {
-				continue
-			}
-			if _, ok := seen[e]; ok {
-				continue
-			}
-			seen[e] = struct{}{}
-			v.Events = append(v.Events, e)
-		}
-		if in.PaymentsEnabled != nil {
-			v.PaymentsEnabled = *in.PaymentsEnabled
-		}
-		s.mu.Lock()
-		s.analyticsFilters[key] = v
-		s.mu.Unlock()
-		b, _ := json.MarshalIndent(s.analyticsFilters, "", "  ")
-		_ = os.WriteFile(s.analyticsFiltersPath, b, 0o644)
-		if s.audit != nil {
-			meta := map[string]string{"game_env": key, "game_id": in.GameID, "env": in.Env, "events": strings.Join(v.Events, ","), "payments_enabled": strconv.FormatBool(v.PaymentsEnabled), "ip": c.ClientIP()}
-			_ = s.audit.Log("analytics.filters.update", actor, key, meta)
-		}
+        key := strings.TrimSpace(in.GameID) + "|" + strings.TrimSpace(in.Env)
+        // normalize: trim unique
+        seen := map[string]struct{}{}
+        events := []string{}
+        for _, e := range in.Events {
+            e = strings.TrimSpace(e)
+            if e == "" {
+                continue
+            }
+            if _, ok := seen[e]; ok {
+                continue
+            }
+            seen[e] = struct{}{}
+            events = append(events, e)
+        }
+        payments := true
+        if in.PaymentsEnabled != nil { payments = *in.PaymentsEnabled }
+        sample := 100
+        if in.SampleGlobal != nil {
+            pct := *in.SampleGlobal
+            if pct < 0 { pct = 0 }
+            if pct > 100 { pct = 100 }
+            sample = pct
+        }
+        s.mu.Lock()
+        s.analyticsFilters[key] = struct {
+            Events          []string `json:"events"`
+            PaymentsEnabled bool     `json:"payments_enabled"`
+            SampleGlobal    int      `json:"sample_global,omitempty"`
+        }{Events: events, PaymentsEnabled: payments, SampleGlobal: sample}
+        s.mu.Unlock()
+        b, _ := json.MarshalIndent(s.analyticsFilters, "", "  ")
+        _ = os.WriteFile(s.analyticsFiltersPath, b, 0o644)
+        if s.audit != nil {
+            meta := map[string]string{"game_env": key, "game_id": in.GameID, "env": in.Env, "events": strings.Join(events, ","), "payments_enabled": strconv.FormatBool(payments), "ip": c.ClientIP(), "sample_global": strconv.Itoa(sample)}
+            _ = s.audit.Log("analytics.filters.update", actor, key, meta)
+        }
 		c.JSON(200, gin.H{"ok": true})
 	})
 
@@ -3016,11 +3034,13 @@ func (s *Server) ginEngine() *gin.Engine {
 		s.mu.RLock()
 		if v, ok := s.analyticsFilters[key]; ok {
 			s.mu.RUnlock()
-			c.JSON(200, gin.H{"events": v.Events, "payments_enabled": v.PaymentsEnabled})
+			pct := v.SampleGlobal
+			if pct <= 0 { pct = 100 }
+			c.JSON(200, gin.H{"events": v.Events, "payments_enabled": v.PaymentsEnabled, "sample_global": pct})
 			return
 		}
 		s.mu.RUnlock()
-		c.JSON(200, gin.H{"events": []string{}, "payments_enabled": true})
+		c.JSON(200, gin.H{"events": []string{}, "payments_enabled": true, "sample_global": 100})
 	})
 
 	// Ant Design Pro demo stub
