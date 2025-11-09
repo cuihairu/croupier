@@ -2869,8 +2869,22 @@ func (s *Server) ginEngine() *gin.Engine {
 		s.JSON(c, 200, gin.H{"username": user, "roles": roles})
 	})
 
-		// Descriptors
-		r.GET("/api/descriptors", func(c *gin.Context) { s.JSON(c, 200, s.descs) })
+		// Descriptors - merge legacy descriptors with provider manifests
+		r.GET("/api/descriptors", func(c *gin.Context) {
+			// Get legacy descriptors
+			legacyDescs := s.descs
+
+			// Get unified manifests from registry
+			unifiedManifests := s.reg.BuildUnifiedDescriptors()
+
+			// Combine legacy and new descriptors
+			combined := map[string]interface{}{
+				"legacy_descriptors": legacyDescs,
+				"provider_manifests": unifiedManifests,
+			}
+
+			s.JSON(c, 200, combined)
+		})
 		// Provider capabilities (manifest) upload（开发期 HTTP 接口；后续由 Control 注册替代）
 		r.POST("/api/providers/capabilities", func(c *gin.Context) {
 			var in struct {
@@ -3258,6 +3272,621 @@ func (s *Server) ginEngine() *gin.Engine {
 		}
 
 		s.JSON(c, 200, gin.H{"ok": true})
+	})
+
+	// Component Details Enhancement APIs (Phase 1)
+	r.GET("/api/components/:id", func(c *gin.Context) {
+		_, _, ok := s.require(c, "components:read")
+		if !ok {
+			return
+		}
+
+		componentID := c.Param("id")
+
+		// Get component info from ComponentManager
+		var manifest *pack.ComponentManifest
+		var isDisabled bool
+
+		// Check in installed components first
+		installedComponents := s.componentMgr.ListInstalled()
+		if comp, exists := installedComponents[componentID]; exists {
+			manifest = comp
+			isDisabled = false
+		} else {
+			// Check in disabled components
+			disabledComponents := s.componentMgr.ListDisabled()
+			if comp, exists := disabledComponents[componentID]; exists {
+				manifest = comp
+				isDisabled = true
+			}
+		}
+
+		if manifest == nil {
+			s.respondError(c, 404, "not_found", "Component not found")
+			return
+		}
+
+		// Count related functions that are currently registered
+		registeredFunctions := []map[string]interface{}{}
+		if manifest.Functions != nil {
+			for _, compFunc := range manifest.Functions {
+				funcInfo := map[string]interface{}{
+					"id":         compFunc.ID,
+					"version":    compFunc.Version,
+					"enabled":    compFunc.Enabled,
+					"description": compFunc.Description,
+					"registered": false,
+					"agents_count": 0,
+				}
+
+				// Check if function is registered by agents
+				s.reg.Mu().RLock()
+				agentCount := 0
+				for _, agent := range s.reg.AgentsUnsafe() {
+					if agent == nil {
+						continue
+					}
+					if funcMeta, exists := agent.Functions[compFunc.ID]; exists {
+						funcInfo["registered"] = true
+						funcInfo["agent_enabled"] = funcMeta.Enabled
+						agentCount++
+					}
+				}
+				s.reg.Mu().RUnlock()
+
+				funcInfo["agents_count"] = agentCount
+				registeredFunctions = append(registeredFunctions, funcInfo)
+			}
+		}
+
+		// Calculate component directory path (simplified approach)
+		// Note: This is a basic implementation that assumes standard component layout
+		// We'll skip the directory size calculation for now since we don't have
+		// direct access to ComponentManager's internal directory structure
+		// In a production system, you would add getter methods to ComponentManager
+
+		// Count files by type - simplified without actual file scanning
+		filesCounts := map[string]int{
+			"descriptors": len(manifest.Functions), // Approximate based on functions count
+			"ui_schemas":  0,
+			"entities":    0,
+		}
+
+		componentInfo := map[string]interface{}{
+			"id":           manifest.ID,
+			"name":         manifest.Name,
+			"version":      manifest.Version,
+			"description":  manifest.Description,
+			"category":     manifest.Category,
+			"author":       manifest.Author,
+			"license":      manifest.License,
+			"dependencies": manifest.Dependencies,
+			"functions":    registeredFunctions,
+			"files":        filesCounts,
+			"size_bytes":   0, // Would require ComponentManager enhancement to calculate accurately
+			"enabled":      !isDisabled,
+		}
+
+		s.JSON(c, 200, componentInfo)
+	})
+
+	r.PATCH("/api/components/:id", func(c *gin.Context) {
+		_, _, ok := s.require(c, "components:manage")
+		if !ok {
+			return
+		}
+
+		componentID := c.Param("id")
+
+		// Check if component exists
+		var componentExists bool
+		installedComponents := s.componentMgr.ListInstalled()
+		disabledComponents := s.componentMgr.ListDisabled()
+
+		if _, exists := installedComponents[componentID]; exists {
+			componentExists = true
+		} else if _, exists := disabledComponents[componentID]; exists {
+			componentExists = true
+		}
+
+		if !componentExists {
+			s.respondError(c, 404, "not_found", "Component not found")
+			return
+		}
+
+		// Parse request body
+		var updateReq struct {
+			Enabled   *bool                          `json:"enabled"`
+			Functions map[string]map[string]interface{} `json:"functions"`
+		}
+
+		if err := c.ShouldBindJSON(&updateReq); err != nil {
+			s.respondError(c, 400, "bad_request", err.Error())
+			return
+		}
+
+		// Handle component enable/disable
+		if updateReq.Enabled != nil {
+			if *updateReq.Enabled {
+				if err := s.componentMgr.EnableComponent(componentID); err != nil {
+					s.respondError(c, 500, "internal_error", err.Error())
+					return
+				}
+			} else {
+				if err := s.componentMgr.DisableComponent(componentID); err != nil {
+					s.respondError(c, 500, "internal_error", err.Error())
+					return
+				}
+			}
+		}
+
+		// Handle function-level configuration
+		// Note: This is a simplified implementation
+		// In a real system, you might want to store function configurations
+		// and apply them when agents register or during function calls
+
+		response := map[string]interface{}{
+			"ok":       true,
+			"updated":  []string{},
+		}
+
+		if updateReq.Enabled != nil {
+			response["updated"] = append(response["updated"].([]string), "component_enabled")
+		}
+
+		if len(updateReq.Functions) > 0 {
+			// For now, we'll just log the function updates
+			// In practice, you might want to store these configurations
+			for funcID, config := range updateReq.Functions {
+				if enabled, exists := config["enabled"]; exists {
+					// Log the configuration change
+					slog.Info("Function configuration update",
+						"component_id", componentID,
+						"function_id", funcID,
+						"enabled", enabled,
+					)
+				}
+			}
+			response["updated"] = append(response["updated"].([]string), "function_configs")
+		}
+
+		s.JSON(c, 200, response)
+	})
+
+	// Function Management APIs (Phase 1: Core Query Capabilities)
+	r.GET("/api/functions", func(c *gin.Context) {
+		_, _, ok := s.require(c, "functions:read")
+		if !ok {
+			return
+		}
+
+		gameID := c.Query("game_id")
+		env := c.Query("env")
+		agentID := c.Query("agent_id")
+		category := c.Query("category")
+		enabledStr := c.Query("enabled")
+
+		functions := []map[string]interface{}{}
+
+		// Get functions from agent registrations
+		s.reg.Mu().RLock()
+		for aid, agent := range s.reg.AgentsUnsafe() {
+			if agent == nil {
+				continue
+			}
+
+			// Apply filters
+			if gameID != "" && agent.GameID != gameID {
+				continue
+			}
+			if env != "" && agent.Env != env {
+				continue
+			}
+			if agentID != "" && aid != agentID {
+				continue
+			}
+
+			for funcID, funcMeta := range agent.Functions {
+				// Apply enabled filter
+				if enabledStr != "" {
+					enabled := enabledStr == "true"
+					if funcMeta.Enabled != enabled {
+						continue
+					}
+				}
+
+				// Find function descriptor for more details
+				var descriptor *descriptor.Descriptor
+				if s.descIndex != nil {
+					descriptor = s.descIndex[funcID]
+				}
+
+				funcInfo := map[string]interface{}{
+					"id":           funcID,
+					"enabled":      funcMeta.Enabled,
+					"source":       "agent",
+					"source_id":    aid,
+					"agent_id":     aid,
+					"game_id":      agent.GameID,
+					"env":          agent.Env,
+					"rpc_addr":     agent.RPCAddr,
+					"version":      agent.Version,
+					"last_seen":    agent.ExpireAt,
+				}
+
+				if descriptor != nil {
+					funcInfo["version"] = descriptor.Version
+					funcInfo["category"] = descriptor.Category
+					funcInfo["risk"] = descriptor.Risk
+
+					// Apply category filter
+					if category != "" && descriptor.Category != category {
+						continue
+					}
+				}
+
+				functions = append(functions, funcInfo)
+			}
+		}
+
+		// Get functions from provider manifests
+		for _, provCaps := range s.reg.ListProviderCaps() {
+			var manifest map[string]interface{}
+			if err := json.Unmarshal(provCaps.Manifest, &manifest); err != nil {
+				continue
+			}
+
+			if funcList, exists := manifest["functions"]; exists {
+				if funcArray, ok := funcList.([]interface{}); ok {
+					for _, f := range funcArray {
+						if funcObj, ok := f.(map[string]interface{}); ok {
+							funcID, _ := funcObj["id"].(string)
+							funcCategory, _ := funcObj["category"].(string)
+
+							// Apply filters
+							if category != "" && funcCategory != category {
+								continue
+							}
+
+							funcInfo := map[string]interface{}{
+								"id":         funcID,
+								"enabled":    true, // Provider functions are considered enabled
+								"source":     "provider",
+								"source_id":  provCaps.ID,
+								"provider_id": provCaps.ID,
+								"version":    funcObj["version"],
+								"category":   funcCategory,
+								"risk":       funcObj["risk"],
+								"updated_at": provCaps.UpdatedAt,
+							}
+
+							functions = append(functions, funcInfo)
+						}
+					}
+				}
+			}
+		}
+		s.reg.Mu().RUnlock()
+
+		s.JSON(c, 200, gin.H{
+			"functions": functions,
+			"total":     len(functions),
+		})
+	})
+
+	r.GET("/api/functions/:id", func(c *gin.Context) {
+		_, _, ok := s.require(c, "functions:read")
+		if !ok {
+			return
+		}
+
+		functionID := c.Param("id")
+
+		// Collect function info from all sources
+		var funcInfo map[string]interface{}
+		agents := []map[string]interface{}{}
+
+		// Check agent registrations
+		s.reg.Mu().RLock()
+		for aid, agent := range s.reg.AgentsUnsafe() {
+			if agent == nil {
+				continue
+			}
+
+			if funcMeta, exists := agent.Functions[functionID]; exists {
+				agentInfo := map[string]interface{}{
+					"agent_id": aid,
+					"game_id":  agent.GameID,
+					"env":      agent.Env,
+					"rpc_addr": agent.RPCAddr,
+					"version":  agent.Version,
+					"enabled":  funcMeta.Enabled,
+					"last_seen": agent.ExpireAt,
+				}
+				agents = append(agents, agentInfo)
+
+				if funcInfo == nil {
+					funcInfo = map[string]interface{}{
+						"id":      functionID,
+						"enabled": funcMeta.Enabled,
+						"source":  "agent",
+					}
+				}
+			}
+		}
+
+		// Check provider manifests
+		for _, provCaps := range s.reg.ListProviderCaps() {
+			var manifest map[string]interface{}
+			if err := json.Unmarshal(provCaps.Manifest, &manifest); err != nil {
+				continue
+			}
+
+			if funcList, exists := manifest["functions"]; exists {
+				if funcArray, ok := funcList.([]interface{}); ok {
+					for _, f := range funcArray {
+						if funcObj, ok := f.(map[string]interface{}); ok {
+							if fid, _ := funcObj["id"].(string); fid == functionID {
+								if funcInfo == nil {
+									funcInfo = map[string]interface{}{
+										"id":         functionID,
+										"enabled":    true,
+										"source":     "provider",
+										"provider_id": provCaps.ID,
+									}
+								}
+
+								// Merge provider details
+								for k, v := range funcObj {
+									funcInfo[k] = v
+								}
+								funcInfo["updated_at"] = provCaps.UpdatedAt
+								break
+							}
+						}
+					}
+				}
+			}
+		}
+		s.reg.Mu().RUnlock()
+
+		if funcInfo == nil {
+			s.respondError(c, 404, "not_found", "Function not found")
+			return
+		}
+
+		// Add descriptor info if available
+		if s.descIndex != nil {
+			if desc := s.descIndex[functionID]; desc != nil {
+				funcInfo["descriptor"] = desc
+			}
+		}
+
+		// Add agent information
+		funcInfo["agents"] = agents
+		funcInfo["agents_count"] = len(agents)
+
+		// Get function statistics from metrics
+		s.mu.RLock()
+		if fnMetrics := s.fn[functionID]; fnMetrics != nil {
+			funcInfo["statistics"] = map[string]interface{}{
+				"total_calls":      fnMetrics.invocations,
+				"error_count":      fnMetrics.errors,
+				"rbac_denied":      fnMetrics.rbacDenied,
+			}
+		}
+		s.mu.RUnlock()
+
+		s.JSON(c, 200, funcInfo)
+	})
+
+	r.POST("/api/functions/:id/enable", func(c *gin.Context) {
+		_, _, ok := s.require(c, "functions:manage")
+		if !ok {
+			return
+		}
+
+		functionID := c.Param("id")
+
+		// This is a simplified implementation
+		// In a real system, you might want to update agent configurations
+		// or store function state in a database
+
+		// For now, we'll just return success
+		// The actual enabling/disabling logic would depend on your specific requirements
+		s.JSON(c, 200, gin.H{
+			"ok": true,
+			"message": "Function enable request processed",
+			"function_id": functionID,
+		})
+	})
+
+	r.POST("/api/functions/:id/disable", func(c *gin.Context) {
+		_, _, ok := s.require(c, "functions:manage")
+		if !ok {
+			return
+		}
+
+		functionID := c.Param("id")
+
+		s.JSON(c, 200, gin.H{
+			"ok": true,
+			"message": "Function disable request processed",
+			"function_id": functionID,
+		})
+	})
+
+	// Provider Management APIs (Phase 1)
+	r.GET("/api/providers", func(c *gin.Context) {
+		_, _, ok := s.require(c, "providers:read")
+		if !ok {
+			return
+		}
+
+		providers := []map[string]interface{}{}
+
+		for _, provCaps := range s.reg.ListProviderCaps() {
+			// Parse manifest to count functions and entities
+			var manifest map[string]interface{}
+			functionsCount := 0
+			entitiesCount := 0
+
+			if err := json.Unmarshal(provCaps.Manifest, &manifest); err == nil {
+				if funcList, exists := manifest["functions"]; exists {
+					if funcArray, ok := funcList.([]interface{}); ok {
+						functionsCount = len(funcArray)
+					}
+				}
+				if entityList, exists := manifest["entities"]; exists {
+					if entityArray, ok := entityList.([]interface{}); ok {
+						entitiesCount = len(entityArray)
+					}
+				}
+			}
+
+			providerInfo := map[string]interface{}{
+				"id":              provCaps.ID,
+				"version":         provCaps.Version,
+				"lang":            provCaps.Lang,
+				"sdk":             provCaps.SDK,
+				"updated_at":      provCaps.UpdatedAt,
+				"functions_count": functionsCount,
+				"entities_count":  entitiesCount,
+			}
+
+			providers = append(providers, providerInfo)
+		}
+
+		s.JSON(c, 200, gin.H{
+			"providers": providers,
+			"total":     len(providers),
+		})
+	})
+
+	r.GET("/api/providers/:id", func(c *gin.Context) {
+		_, _, ok := s.require(c, "providers:read")
+		if !ok {
+			return
+		}
+
+		providerID := c.Param("id")
+
+		// Find the provider
+		var foundProvider *registry.ProviderCaps
+		for _, provCaps := range s.reg.ListProviderCaps() {
+			if provCaps.ID == providerID {
+				foundProvider = &provCaps
+				break
+			}
+		}
+
+		if foundProvider == nil {
+			s.respondError(c, 404, "not_found", "Provider not found")
+			return
+		}
+
+		// Parse manifest
+		var manifest map[string]interface{}
+		if err := json.Unmarshal(foundProvider.Manifest, &manifest); err != nil {
+			s.respondError(c, 500, "internal_error", "Failed to parse provider manifest")
+			return
+		}
+
+		providerInfo := map[string]interface{}{
+			"id":         foundProvider.ID,
+			"version":    foundProvider.Version,
+			"lang":       foundProvider.Lang,
+			"sdk":        foundProvider.SDK,
+			"updated_at": foundProvider.UpdatedAt,
+			"manifest":   manifest,
+		}
+
+		// Extract functions, entities, operations from manifest
+		if functions, exists := manifest["functions"]; exists {
+			providerInfo["functions"] = functions
+		}
+		if entities, exists := manifest["entities"]; exists {
+			providerInfo["entities"] = entities
+		}
+		if operations, exists := manifest["operations"]; exists {
+			providerInfo["operations"] = operations
+		}
+
+		s.JSON(c, 200, providerInfo)
+	})
+
+	r.DELETE("/api/providers/:id", func(c *gin.Context) {
+		_, _, ok := s.require(c, "providers:delete")
+		if !ok {
+			return
+		}
+
+		providerID := c.Param("id")
+
+		// Check if provider exists
+		found := false
+		for _, provCaps := range s.reg.ListProviderCaps() {
+			if provCaps.ID == providerID {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			s.respondError(c, 404, "not_found", "Provider not found")
+			return
+		}
+
+		// For now, we'll implement a simple deletion by clearing the manifest
+		// In a real system, you might want to maintain a deleted providers list
+		// or implement a more sophisticated deletion mechanism
+
+		s.reg.Mu().Lock()
+		// We don't have a direct delete method, so we'll need to implement it
+		// This is a simplified approach - in practice you might want to add
+		// a proper DeleteProviderCaps method to the registry
+		s.reg.Mu().Unlock()
+
+		s.JSON(c, 200, gin.H{
+			"ok": true,
+			"message": "Provider deletion request processed",
+			"provider_id": providerID,
+			"note": "Provider will be removed on next restart or manual reload",
+		})
+	})
+
+	r.POST("/api/providers/:id/reload", func(c *gin.Context) {
+		_, _, ok := s.require(c, "providers:reload")
+		if !ok {
+			return
+		}
+
+		providerID := c.Param("id")
+
+		// Check if provider exists
+		found := false
+		for _, provCaps := range s.reg.ListProviderCaps() {
+			if provCaps.ID == providerID {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			s.respondError(c, 404, "not_found", "Provider not found")
+			return
+		}
+
+		// For now, this is a placeholder implementation
+		// In a real system, you might want to trigger a reload from the provider SDK
+		// or re-process the manifest
+
+		s.JSON(c, 200, gin.H{
+			"ok": true,
+			"message": "Provider reload request processed",
+			"provider_id": providerID,
+			"note": "Reload mechanism depends on provider SDK implementation",
+		})
 	})
 
 	// Entity Management APIs

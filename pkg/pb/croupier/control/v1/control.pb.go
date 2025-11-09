@@ -337,6 +337,163 @@ func (*HeartbeatResponse) Descriptor() ([]byte, []int) {
 	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{4}
 }
 
+// Provider capabilities (manifest) — language-agnostic declaration
+type ProviderMeta struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Version       string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	Lang          string                 `protobuf:"bytes,3,opt,name=lang,proto3" json:"lang,omitempty"`
+	Sdk           string                 `protobuf:"bytes,4,opt,name=sdk,proto3" json:"sdk,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProviderMeta) Reset() {
+	*x = ProviderMeta{}
+	mi := &file_croupier_control_v1_control_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProviderMeta) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProviderMeta) ProtoMessage() {}
+
+func (x *ProviderMeta) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_control_v1_control_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProviderMeta.ProtoReflect.Descriptor instead.
+func (*ProviderMeta) Descriptor() ([]byte, []int) {
+	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ProviderMeta) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *ProviderMeta) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *ProviderMeta) GetLang() string {
+	if x != nil {
+		return x.Lang
+	}
+	return ""
+}
+
+func (x *ProviderMeta) GetSdk() string {
+	if x != nil {
+		return x.Sdk
+	}
+	return ""
+}
+
+type RegisterCapabilitiesRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Provider       *ProviderMeta          `protobuf:"bytes,1,opt,name=provider,proto3" json:"provider,omitempty"`
+	ManifestJsonGz []byte                 `protobuf:"bytes,2,opt,name=manifest_json_gz,json=manifestJsonGz,proto3" json:"manifest_json_gz,omitempty"` // gzipped manifest.json
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *RegisterCapabilitiesRequest) Reset() {
+	*x = RegisterCapabilitiesRequest{}
+	mi := &file_croupier_control_v1_control_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterCapabilitiesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterCapabilitiesRequest) ProtoMessage() {}
+
+func (x *RegisterCapabilitiesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_control_v1_control_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterCapabilitiesRequest.ProtoReflect.Descriptor instead.
+func (*RegisterCapabilitiesRequest) Descriptor() ([]byte, []int) {
+	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *RegisterCapabilitiesRequest) GetProvider() *ProviderMeta {
+	if x != nil {
+		return x.Provider
+	}
+	return nil
+}
+
+func (x *RegisterCapabilitiesRequest) GetManifestJsonGz() []byte {
+	if x != nil {
+		return x.ManifestJsonGz
+	}
+	return nil
+}
+
+type RegisterCapabilitiesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterCapabilitiesResponse) Reset() {
+	*x = RegisterCapabilitiesResponse{}
+	mi := &file_croupier_control_v1_control_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterCapabilitiesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterCapabilitiesResponse) ProtoMessage() {}
+
+func (x *RegisterCapabilitiesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_control_v1_control_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterCapabilitiesResponse.ProtoReflect.Descriptor instead.
+func (*RegisterCapabilitiesResponse) Descriptor() ([]byte, []int) {
+	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{7}
+}
+
 var File_croupier_control_v1_control_proto protoreflect.FileDescriptor
 
 const file_croupier_control_v1_control_proto_rawDesc = "" +
@@ -365,10 +522,20 @@ const file_croupier_control_v1_control_proto_rawDesc = "" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x02 \x01(\tR\tsessionId\"\x13\n" +
-	"\x11HeartbeatResponse2\xc5\x01\n" +
+	"\x11HeartbeatResponse\"^\n" +
+	"\fProviderMeta\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion\x12\x12\n" +
+	"\x04lang\x18\x03 \x01(\tR\x04lang\x12\x10\n" +
+	"\x03sdk\x18\x04 \x01(\tR\x03sdk\"\x86\x01\n" +
+	"\x1bRegisterCapabilitiesRequest\x12=\n" +
+	"\bprovider\x18\x01 \x01(\v2!.croupier.control.v1.ProviderMetaR\bprovider\x12(\n" +
+	"\x10manifest_json_gz\x18\x02 \x01(\fR\x0emanifestJsonGz\"\x1e\n" +
+	"\x1cRegisterCapabilitiesResponse2\xc2\x02\n" +
 	"\x0eControlService\x12W\n" +
 	"\bRegister\x12$.croupier.control.v1.RegisterRequest\x1a%.croupier.control.v1.RegisterResponse\x12Z\n" +
-	"\tHeartbeat\x12%.croupier.control.v1.HeartbeatRequest\x1a&.croupier.control.v1.HeartbeatResponseB\xd8\x01\n" +
+	"\tHeartbeat\x12%.croupier.control.v1.HeartbeatRequest\x1a&.croupier.control.v1.HeartbeatResponse\x12{\n" +
+	"\x14RegisterCapabilities\x120.croupier.control.v1.RegisterCapabilitiesRequest\x1a1.croupier.control.v1.RegisterCapabilitiesResponseB\xd8\x01\n" +
 	"\x17com.croupier.control.v1B\fControlProtoP\x01ZAgithub.com/cuihairu/croupier/pkg/pb/croupier/control/v1;controlv1\xa2\x02\x03CCX\xaa\x02\x13Croupier.Control.V1\xca\x02\x13Croupier\\Control\\V1\xe2\x02\x1fCroupier\\Control\\V1\\GPBMetadata\xea\x02\x15Croupier::Control::V1b\x06proto3"
 
 var (
@@ -383,25 +550,31 @@ func file_croupier_control_v1_control_proto_rawDescGZIP() []byte {
 	return file_croupier_control_v1_control_proto_rawDescData
 }
 
-var file_croupier_control_v1_control_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_croupier_control_v1_control_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_croupier_control_v1_control_proto_goTypes = []any{
-	(*FunctionDescriptor)(nil), // 0: croupier.control.v1.FunctionDescriptor
-	(*RegisterRequest)(nil),    // 1: croupier.control.v1.RegisterRequest
-	(*RegisterResponse)(nil),   // 2: croupier.control.v1.RegisterResponse
-	(*HeartbeatRequest)(nil),   // 3: croupier.control.v1.HeartbeatRequest
-	(*HeartbeatResponse)(nil),  // 4: croupier.control.v1.HeartbeatResponse
+	(*FunctionDescriptor)(nil),           // 0: croupier.control.v1.FunctionDescriptor
+	(*RegisterRequest)(nil),              // 1: croupier.control.v1.RegisterRequest
+	(*RegisterResponse)(nil),             // 2: croupier.control.v1.RegisterResponse
+	(*HeartbeatRequest)(nil),             // 3: croupier.control.v1.HeartbeatRequest
+	(*HeartbeatResponse)(nil),            // 4: croupier.control.v1.HeartbeatResponse
+	(*ProviderMeta)(nil),                 // 5: croupier.control.v1.ProviderMeta
+	(*RegisterCapabilitiesRequest)(nil),  // 6: croupier.control.v1.RegisterCapabilitiesRequest
+	(*RegisterCapabilitiesResponse)(nil), // 7: croupier.control.v1.RegisterCapabilitiesResponse
 }
 var file_croupier_control_v1_control_proto_depIdxs = []int32{
 	0, // 0: croupier.control.v1.RegisterRequest.functions:type_name -> croupier.control.v1.FunctionDescriptor
-	1, // 1: croupier.control.v1.ControlService.Register:input_type -> croupier.control.v1.RegisterRequest
-	3, // 2: croupier.control.v1.ControlService.Heartbeat:input_type -> croupier.control.v1.HeartbeatRequest
-	2, // 3: croupier.control.v1.ControlService.Register:output_type -> croupier.control.v1.RegisterResponse
-	4, // 4: croupier.control.v1.ControlService.Heartbeat:output_type -> croupier.control.v1.HeartbeatResponse
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	5, // 1: croupier.control.v1.RegisterCapabilitiesRequest.provider:type_name -> croupier.control.v1.ProviderMeta
+	1, // 2: croupier.control.v1.ControlService.Register:input_type -> croupier.control.v1.RegisterRequest
+	3, // 3: croupier.control.v1.ControlService.Heartbeat:input_type -> croupier.control.v1.HeartbeatRequest
+	6, // 4: croupier.control.v1.ControlService.RegisterCapabilities:input_type -> croupier.control.v1.RegisterCapabilitiesRequest
+	2, // 5: croupier.control.v1.ControlService.Register:output_type -> croupier.control.v1.RegisterResponse
+	4, // 6: croupier.control.v1.ControlService.Heartbeat:output_type -> croupier.control.v1.HeartbeatResponse
+	7, // 7: croupier.control.v1.ControlService.RegisterCapabilities:output_type -> croupier.control.v1.RegisterCapabilitiesResponse
+	5, // [5:8] is the sub-list for method output_type
+	2, // [2:5] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_croupier_control_v1_control_proto_init() }
@@ -415,7 +588,7 @@ func file_croupier_control_v1_control_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_control_v1_control_proto_rawDesc), len(file_croupier_control_v1_control_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

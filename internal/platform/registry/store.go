@@ -1,6 +1,7 @@
 package registry
 
 import (
+    "encoding/json"
     "sync"
     "time"
 )
@@ -82,4 +83,72 @@ func (s *Store) ListProviderCaps() []ProviderCaps {
     out := make([]ProviderCaps, 0, len(s.provCaps))
     for _, v := range s.provCaps { out = append(out, v) }
     return out
+}
+
+// BuildUnifiedDescriptors merges all provider manifests into a unified descriptor structure
+func (s *Store) BuildUnifiedDescriptors() map[string]interface{} {
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+
+    unified := map[string]interface{}{
+        "providers":  make(map[string]interface{}),
+        "functions":  make([]interface{}, 0),
+        "entities":   make([]interface{}, 0),
+        "operations": make([]interface{}, 0),
+    }
+
+    for providerID, provCaps := range s.provCaps {
+        if len(provCaps.Manifest) == 0 {
+            continue
+        }
+
+        // Parse the manifest JSON
+        var manifest map[string]interface{}
+        if err := json.Unmarshal(provCaps.Manifest, &manifest); err != nil {
+            continue // skip invalid manifests
+        }
+
+        // Add provider info
+        if providers, ok := unified["providers"].(map[string]interface{}); ok {
+            providers[providerID] = map[string]interface{}{
+                "id":      provCaps.ID,
+                "version": provCaps.Version,
+                "lang":    provCaps.Lang,
+                "sdk":     provCaps.SDK,
+                "updated_at": provCaps.UpdatedAt,
+            }
+            if provider, exists := manifest["provider"]; exists {
+                providers[providerID] = provider
+            }
+        }
+
+        // Merge functions
+        if functions, exists := manifest["functions"]; exists {
+            if funcList, ok := functions.([]interface{}); ok {
+                if unifiedFunctions, ok := unified["functions"].([]interface{}); ok {
+                    unified["functions"] = append(unifiedFunctions, funcList...)
+                }
+            }
+        }
+
+        // Merge entities
+        if entities, exists := manifest["entities"]; exists {
+            if entityList, ok := entities.([]interface{}); ok {
+                if unifiedEntities, ok := unified["entities"].([]interface{}); ok {
+                    unified["entities"] = append(unifiedEntities, entityList...)
+                }
+            }
+        }
+
+        // Merge operations
+        if operations, exists := manifest["operations"]; exists {
+            if opList, ok := operations.([]interface{}); ok {
+                if unifiedOperations, ok := unified["operations"].([]interface{}); ok {
+                    unified["operations"] = append(unifiedOperations, opList...)
+                }
+            }
+        }
+    }
+
+    return unified
 }
