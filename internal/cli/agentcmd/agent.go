@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"math/rand"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -77,6 +78,9 @@ func New() *cobra.Command {
 				v.GetInt("log.max_age"),
 				v.GetBool("log.compress"),
 			)
+
+			// seed rng for sampling
+			rand.Seed(time.Now().UnixNano())
 
 			localAddr := v.GetString("local_addr")
 			serverAddr := v.GetString("server_addr")
@@ -181,6 +185,7 @@ func New() *cobra.Command {
 				eventsMu        sync.RWMutex
 				allowedEvents   map[string]struct{}
 				paymentsEnabled atomic.Bool
+				samplePercent   atomic.Int64
 				droppedEvents   atomic.Int64
 				droppedPayments atomic.Int64
 			)
@@ -275,6 +280,7 @@ func New() *cobra.Command {
 											var f struct {
 												Events          []string `json:"events"`
 												PaymentsEnabled bool     `json:"payments_enabled"`
+												SampleGlobal    int      `json:"sample_global"`
 											}
 											if err := json.NewDecoder(resp2.Body).Decode(&f); err == nil {
 												evset := map[string]struct{}{}
@@ -287,12 +293,45 @@ func New() *cobra.Command {
 												allowedEvents = evset // nil -> allow all; empty -> close all
 												eventsMu.Unlock()
 												paymentsEnabled.Store(f.PaymentsEnabled)
+												if f.SampleGlobal <= 0 { f.SampleGlobal = 100 }
+												samplePercent.Store(int64(f.SampleGlobal))
 												slog.Info("analytics filters updated", "events", len(evset), "payments_enabled", f.PaymentsEnabled)
 											}
 										}
 									}()
 								}
 								// best-effort: ignore errors
+							}
+
+							// fetch node commands (drain/restart) and act
+							if api != "" && agentID != "" {
+								tok := strings.TrimSpace(os.Getenv("AGENT_META_TOKEN"))
+								if tok != "" {
+									req3, _ := http.NewRequest("GET", api+"/api/ops/nodes/commands?node_id="+agentID, nil)
+									req3.Header.Set("X-Agent-Token", tok)
+									if resp3, err := http.DefaultClient.Do(req3); err == nil {
+										func() {
+											defer resp3.Body.Close()
+											if resp3.StatusCode/100 == 2 {
+												var out struct{ Commands []string `json:"commands"` }
+												if err := json.NewDecoder(resp3.Body).Decode(&out); err == nil {
+													for _, cmd := range out.Commands {
+														c := strings.ToLower(strings.TrimSpace(cmd))
+														switch c {
+														case "restart":
+															slog.Info("node command: restart -> sending SIGTERM")
+															_ = syscall.Kill(os.Getpid(), syscall.SIGTERM)
+														case "drain":
+															slog.Info("node command: drain")
+														case "undrain":
+															slog.Info("node command: undrain")
+														}
+													}
+												}
+											}
+										}()
+									}
+								}
 							}
 							if downDir != "" {
 								// fetch current pack export and write to downDir/pack.tgz (and extract)
@@ -448,6 +487,8 @@ func New() *cobra.Command {
 					fmt.Fprintf(w, "croupier_analytics_allowed_events %d\n", allowLen)
 					fmt.Fprintf(w, "# TYPE croupier_analytics_payments_enabled gauge\n")
 					fmt.Fprintf(w, "croupier_analytics_payments_enabled %d\n", b2i(paymentsEnabled.Load()))
+					fmt.Fprintf(w, "# TYPE croupier_analytics_sample_percent gauge\n")
+					fmt.Fprintf(w, "croupier_analytics_sample_percent %d\n", samplePercent.Load())
 					fmt.Fprintf(w, "# TYPE croupier_analytics_dropped_events_total counter\n")
 					fmt.Fprintf(w, "croupier_analytics_dropped_events_total %d\n", droppedEvents.Load())
 					fmt.Fprintf(w, "# TYPE croupier_analytics_dropped_payments_total counter\n")
@@ -455,7 +496,7 @@ func New() *cobra.Command {
 				})
 				// Analytics ingest (SDK -> Agent) over HTTP: /analytics/report and /analytics/payments
 				anq := mq.NewFromEnv()
-				// helper: check if event allowed
+				// helper: check if event allowed and sampled in
 				isAllowed := func(ev string) bool {
 					eventsMu.RLock()
 					defer eventsMu.RUnlock()
@@ -466,7 +507,12 @@ func New() *cobra.Command {
 						return false
 					}
 					_, ok := allowedEvents[strings.TrimSpace(ev)]
-					return ok
+					if !ok { return false }
+					pct := int(samplePercent.Load())
+					if pct >= 100 { return true }
+					if pct <= 0 { return false }
+					// simple random sampling
+					return rand.Intn(100) < pct
 				}
 
 				r.POST("/analytics/report", func(c *gin.Context) {

@@ -412,7 +412,11 @@ func (s *Server) addOpsRoutes(r *gin.Engine) {
 				if h, _, err := net.SplitHostPort(a.RPCAddr); err == nil {
 					ip = h
 				}
-				out = append(out, gin.H{"id": a.AgentID, "type": "agent", "game_id": a.GameID, "env": a.Env, "addr": a.RPCAddr, "ip": ip, "version": a.Version, "healthy": healthy, "expires_in_sec": exp})
+				// include draining flag if set
+				s.nodeMu.Lock()
+				draining := s.nodeStatus[a.AgentID].Draining
+				s.nodeMu.Unlock()
+				out = append(out, gin.H{"id": a.AgentID, "type": "agent", "game_id": a.GameID, "env": a.Env, "addr": a.RPCAddr, "ip": ip, "version": a.Version, "healthy": healthy, "expires_in_sec": exp, "draining": draining})
 			}
 			s.reg.Mu().RUnlock()
 		}
@@ -421,10 +425,68 @@ func (s *Server) addOpsRoutes(r *gin.Engine) {
 		for _, e := range s.edgeNodes {
 			// consider edge healthy if last seen within 90s
 			healthy := time.Since(e.LastSeen) <= 90*time.Second
-			out = append(out, gin.H{"id": e.ID, "type": "edge", "addr": e.Addr, "http_addr": e.HTTPAddr, "ip": e.IP, "version": e.Version, "region": e.Region, "zone": e.Zone, "healthy": healthy, "last_seen": e.LastSeen.Format(time.RFC3339)})
+			s.nodeMu.Lock()
+			draining := s.nodeStatus[e.ID].Draining
+			s.nodeMu.Unlock()
+			out = append(out, gin.H{"id": e.ID, "type": "edge", "addr": e.Addr, "http_addr": e.HTTPAddr, "ip": e.IP, "version": e.Version, "region": e.Region, "zone": e.Zone, "healthy": healthy, "last_seen": e.LastSeen.Format(time.RFC3339), "draining": draining})
 		}
 		s.edgeMu.RUnlock()
 		c.JSON(200, gin.H{"nodes": out})
+	})
+
+	// Node operations: drain / undrain / restart (RBAC: ops:manage)
+	r.POST("/api/ops/nodes/:id/drain", func(c *gin.Context) {
+		actor, _, ok := s.require(c, "ops:manage")
+		if !ok { return }
+		id := strings.TrimSpace(c.Param("id"))
+		if id == "" { s.respondError(c, 400, "bad_request", "invalid id"); return }
+		s.nodeMu.Lock()
+		st := s.nodeStatus[id]
+		st.Draining = true
+		s.nodeStatus[id] = st
+		s.nodeCmds[id] = append(s.nodeCmds[id], "drain")
+		s.nodeMu.Unlock()
+		if s.audit != nil { _ = s.audit.Log("ops.node.drain", actor, id, map[string]string{"ip": c.ClientIP()}) }
+		c.JSON(200, gin.H{"ok": true})
+	})
+	r.POST("/api/ops/nodes/:id/undrain", func(c *gin.Context) {
+		actor, _, ok := s.require(c, "ops:manage")
+		if !ok { return }
+		id := strings.TrimSpace(c.Param("id"))
+		if id == "" { s.respondError(c, 400, "bad_request", "invalid id"); return }
+		s.nodeMu.Lock()
+		st := s.nodeStatus[id]
+		st.Draining = false
+		s.nodeStatus[id] = st
+		s.nodeCmds[id] = append(s.nodeCmds[id], "undrain")
+		s.nodeMu.Unlock()
+		if s.audit != nil { _ = s.audit.Log("ops.node.undrain", actor, id, map[string]string{"ip": c.ClientIP()}) }
+		c.JSON(200, gin.H{"ok": true})
+	})
+	r.POST("/api/ops/nodes/:id/restart", func(c *gin.Context) {
+		actor, _, ok := s.require(c, "ops:manage")
+		if !ok { return }
+		id := strings.TrimSpace(c.Param("id"))
+		if id == "" { s.respondError(c, 400, "bad_request", "invalid id"); return }
+		s.nodeMu.Lock()
+		s.nodeCmds[id] = append(s.nodeCmds[id], "restart")
+		s.nodeMu.Unlock()
+		if s.audit != nil { _ = s.audit.Log("ops.node.restart", actor, id, map[string]string{"ip": c.ClientIP()}) }
+		c.JSON(200, gin.H{"ok": true})
+	})
+
+	// Node command fetch (token-gated for Agent/Edge): pop and return pending commands
+	r.GET("/api/ops/nodes/commands", func(c *gin.Context) {
+		tok := strings.TrimSpace(os.Getenv("AGENT_META_TOKEN"))
+		if tok == "" { s.respondError(c, 503, "unavailable", "disabled"); return }
+		if c.Request.Header.Get("X-Agent-Token") != tok { s.respondError(c, 401, "unauthorized", "unauthorized"); return }
+		id := strings.TrimSpace(c.Query("node_id"))
+		if id == "" { s.respondError(c, 400, "bad_request", "missing node_id"); return }
+		s.nodeMu.Lock()
+		cmds := append([]string{}, s.nodeCmds[id]...)
+		s.nodeCmds[id] = nil
+		s.nodeMu.Unlock()
+		c.JSON(200, gin.H{"commands": cmds})
 	})
 	r.PUT("/api/ops/notifications", func(c *gin.Context) {
 		actor, _, ok := s.require(c, "ops:manage")
