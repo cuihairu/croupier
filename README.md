@@ -110,6 +110,7 @@ sequenceDiagram
 提示：
 - 已支持使用 `--config` 指定 YAML 配置文件，或通过环境变量覆盖（前缀 `CROUPIER_SERVER_` 和 `CROUPIER_AGENT_`，例如 `CROUPIER_SERVER_ADDR=":8443"`、`CROUPIER_AGENT_SERVER_ADDR="127.0.0.1:8443"`）。
 - 日志：新增 `--log.level`（debug|info|warn|error）、`--log.format`（console|json）与 `--log.file`（启用滚动日志：`--log.max_size`/`--log.max_backups`/`--log.max_age`/`--log.compress`）。
+- 数据库：支持 Postgres/MySQL/SQLite/SQL Server 多后端，参见“数据库配置”一节。
 可参考 `configs/server.example.yaml` 与 `configs/agent.example.yaml`。
 
 配置分层与叠加（profiles/include）
@@ -131,7 +132,41 @@ sequenceDiagram
 - Prometheus 文本：Server `/metrics.prom`，Agent `/metrics.prom`，Edge `/metrics.prom`。
   - Server：`croupier_invocations_total`、`croupier_invocations_error_total`、`croupier_jobs_started_total`、`croupier_jobs_error_total`、`croupier_rbac_denied_total`、`croupier_audit_errors_total`、`croupier_logs_total{level=...}`
   - Agent：`croupier_agent_instances`、`croupier_tunnel_reconnects`、`croupier_logs_total{level=...}`
-  - Edge：`croupier_logs_total{level=...}`
+ - Edge：`croupier_logs_total{level=...}`
+
+## 数据库配置
+
+支持的驱动：`postgres` | `mysql` | `sqlite` | `mssql` | `sqlserver` | `auto`
+
+配置方式 1：YAML（推荐）
+
+```yaml
+server:
+  db:
+    driver: auto   # postgres | mysql | sqlite | mssql | sqlserver | auto
+    dsn: ""       # Postgres:   postgres://user:pass@host:5432/croupier?sslmode=disable
+                   # MySQL(URL): mysql://user:pass@host:3306/croupier?charset=utf8mb4
+                   # MySQL(DSN): user:pass@tcp(host:3306)/croupier?parseTime=true&charset=utf8mb4
+                   # SQL Server: sqlserver://user:pass@host:1433?database=croupier
+                   # SQLite:     file:data/croupier.db
+```
+
+配置方式 2：环境变量
+
+```bash
+export DB_DRIVER=sqlserver
+export DATABASE_URL="sqlserver://user:pass@localhost:1433?database=croupier"
+```
+
+注意事项（SQL Server）：
+- 建议在连接串指定 `database`，默认端口 1433；启用 TCP 连接
+- GORM 驱动：`gorm.io/driver/sqlserver`；本项目已引入
+- JSON 字段在某些版本上为 `NVARCHAR` 存储（由 GORM 扩展类型管理），若需复杂 JSON 检索建议在 PG/MySQL 使用 JSONB/JSON
+- 权限/登录建议使用 SQL 认证（默认混合模式）
+
+注意事项（MySQL）：
+- DSN 需包含 `parseTime=true`；字符集推荐 `utf8mb4`
+- 建议使用 InnoDB 存储引擎
 
 ### 模式 2：Agent 外连（推荐）
 
@@ -881,3 +916,55 @@ _ = cli.Connect(context.Background())
 ---
 
 Croupier - 让游戏运营变得简单而强大 🎮
+Examples & Adapters
+-------------------
+
+- HTTP adapter PoC: `tools/adapters/http`
+- Prom adapter PoC: `tools/adapters/prom`
+- These are non-critical examples for development and demos; not required in production.
+
+Architecture Overview
+---------------------
+
+Core layering (C-architecture, Ports/Adapters + Wire DI):
+
+- `internal/app/*` (process assemblers): HTTP/gRPC servers, routes, middleware, Wire injectors
+- `internal/service/*` (use-cases): business logic, depends only on `internal/ports`
+- `internal/ports/*` (interfaces): repository/service contracts (no infra deps)
+- `internal/repo/gorm/*` (adapters): GORM implementations of ports; owns DB models
+- `internal/platform/*` (integrations): objstore, tlsutil, etc.
+- `internal/security/*` (security): rbac (Casbin), token (JWT)
+
+Database Drivers
+----------------
+
+Supported via GORM drivers: Postgres, MySQL, SQLite, SQL Server.
+
+- `DB_DRIVER`: `postgres|mysql|sqlite|mssql|sqlserver|auto` (default `auto`)
+- `DATABASE_URL`: DSN/URL (e.g. `postgres://...`, `mysql://...`, `file:data/croupier.db`)
+
+Auto mode attempts Postgres → MySQL → SQL Server, else falls back to SQLite at `data/croupier.db`.
+
+Wire DI & Providers
+-------------------
+
+Server assembly uses Google Wire (with a checked-in `wire_gen.go`):
+
+- Manual: `InitServerApp(descriptorDir, invoker, audit, rbac, registry, jwt, locator, stats)`
+- Auto: `InitServerAppAuto(descriptorDir, invoker, registry, locator, stats)` — builds audit/RBAC/JWT/DB/Repos/Services from env
+
+Providers (env-driven where applicable):
+
+- DB: `ProvideGormDBFromEnv()` → `DB_DRIVER`, `DATABASE_URL`
+- Games: `ProvideGamesDefaults()` → reads `configs/games.json`
+- RBAC: `ProvideRBACPolicyAuto()` → `RBAC_MODEL` + `RBAC_POLICY` or `RBAC_CONFIG`
+- JWT: `ProvideJWTManagerFromEnv()` → `JWT_SECRET` (default `dev-secret`)
+- Cert store: `ProvideCertStore(db)`
+- Object store: `ProvideObjectStoreFromEnv()` → `STORAGE_*` (file/S3/OSS/COS)
+- ClickHouse: `ProvideClickHouseFromEnv()` → `CLICKHOUSE_DSN` (optional)
+
+Local development:
+
+- Install wire: `go install github.com/google/wire/cmd/wire@latest`
+- Generate: `make wire` (runs in `internal/app/server/http`)
+- CI already validates generation (see `.github/workflows/ci.yml`).

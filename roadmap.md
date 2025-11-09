@@ -28,7 +28,7 @@
 - `internal/pack/`：pack 解析/校验/落库与 TypeRegistry 装载。
 - `internal/core/descriptor/`：transport/outputs/views/transform 支持。
 - `web/src/plugin/registry.ts`：Renderer 注册与动态装载。
-- `adapters/prom/`、`adapters/http/`：适配器实现与示例。
+- `tools/adapters/prom/`、`tools/adapters/http/`：适配器实现与示例。
 
 —
 
@@ -174,6 +174,6 @@
 - 审批持久化落地：嵌入式 SQLite（或 BoltDB）实现 `/api/approvals*` 存储、分页、筛选；补充并发与幂等保护；补齐 CLI 辅助命令。
 - TypeRegistry/编解码测试：为 `LoadFDS/JSONToProtoBin/ProtoBinToJSON` 与 HTTP `/api/invoke|/api/start_job` 路径补充单测（`internal/pack/testdata`）。
 - Web 表单与 Renderer 骨架：Schema-Form 渲染基础能力；Renderer Registry + 内置 `json.view/table.basic/echarts.line`；打通 `outputs.views`。
-- 适配器雏形：`adapters/prom` 与 `adapters/http` PoC，生成示例 pack 并通过 `/api/packs/import` 导入。
+- 适配器雏形：`tools/adapters/prom` 与 `tools/adapters/http` PoC，生成示例 pack 并通过 `/api/packs/import` 导入。
 - 配置与观测：确认 metrics 默认值透传；整理 `docs/metrics.md` 与 `docs/config.md` 的样例配置；补充 `/metrics.prom` per-function 开关说明。
 - 清理与对齐：README 统一使用 unified CLI（`croupier server/agent/edge`），保留历史参数别名说明；移除残留 `core` 叙述。

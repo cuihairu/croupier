@@ -12,17 +12,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 
+	edgeapp "github.com/cuihairu/croupier/internal/app/edge"
 	common "github.com/cuihairu/croupier/internal/cli/common"
-	functionserver "github.com/cuihairu/croupier/internal/edge/function"
-	jobserver "github.com/cuihairu/croupier/internal/edge/job"
-	tunnelsrv "github.com/cuihairu/croupier/internal/edge/tunnel"
-	controlserver "github.com/cuihairu/croupier/internal/server/control"
-	"github.com/cuihairu/croupier/internal/server/games"
-	tlsutil "github.com/cuihairu/croupier/internal/tlsutil"
-	controlv1 "github.com/cuihairu/croupier/pkg/pb/croupier/control/v1"
-	jobv1 "github.com/cuihairu/croupier/pkg/pb/croupier/edge/job/v1"
-	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
-	tunnelv1 "github.com/cuihairu/croupier/pkg/pb/croupier/tunnel/v1"
+	registry "github.com/cuihairu/croupier/internal/platform/registry"
+	tlsutil "github.com/cuihairu/croupier/internal/platform/tlsutil"
 	gin "github.com/gin-gonic/gin"
 	"net/http"
 )
@@ -35,7 +28,7 @@ func main() {
 	cert := flag.String("cert", "", "TLS cert file")
 	key := flag.String("key", "", "TLS key file")
 	ca := flag.String("ca", "", "CA cert file (client verify)")
-	gamesPath := flag.String("games_config", "configs/games.json", "allowed games config (json)")
+	_ = flag.String("games_config", "", "(deprecated) allowed games config")
 	httpAddr := flag.String("http_addr", ":9080", "edge http listen for health/metrics")
 	flag.Parse()
 
@@ -56,18 +49,9 @@ func main() {
 	}
 	s := grpc.NewServer(grpc.Creds(creds), grpc.KeepaliveParams(keepalive.ServerParameters{}))
 
-	gstore := games.NewStore(*gamesPath)
-	_ = gstore.Load()
-	ctrl := controlserver.NewServer(gstore)
-	controlv1.RegisterControlServiceServer(s, ctrl)
-	// Tunnel service for Agent connections
-	tun := tunnelsrv.NewServer()
-	tunnelv1.RegisterTunnelServiceServer(s, tun)
-	// FunctionService at edge routes to Agent via tunnel, fallback to RPCAddr
-	fn := functionserver.NewEdgeServer(ctrl.Store(), tun)
-	functionv1.RegisterFunctionServiceServer(s, fn)
-	// JobService for job_result query
-	jobv1.RegisterJobServiceServer(s, jobserver.New(tun))
+	reg := registry.NewStore()
+	app := edgeapp.New(reg)
+	app.RegisterGRPC(s)
 
 	// HTTP health/metrics
 	var httpSrv *http.Server
@@ -97,7 +81,7 @@ func main() {
 			slog.Log(c, lvl, "edge_http", "method", r0.Method, "path", r0.URL.Path, "status", st, "dur_ms", dur.Milliseconds())
 		})
 		r.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
-		r.GET("/metrics", func(c *gin.Context) { c.JSON(http.StatusOK, tun.MetricsMap()) })
+		r.GET("/metrics", func(c *gin.Context) { c.JSON(http.StatusOK, app.MetricsMap()) })
 		slog.Info("edge http listening", "addr", *httpAddr)
 		httpSrv = &http.Server{Addr: *httpAddr, Handler: r}
 		_ = httpSrv.ListenAndServe()
