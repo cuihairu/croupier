@@ -96,7 +96,7 @@ func validateManifestJSON(doc []byte) error {
             }
             msgs = append(msgs, e.String())
         }
-        return fmt.Errorf(strings.Join(msgs, "; "))
+        return fmt.Errorf("%s", strings.Join(msgs, "; "))
     }
     return nil
 }
