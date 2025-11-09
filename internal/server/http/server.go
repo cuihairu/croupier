@@ -56,10 +56,14 @@ import (
 
 	"net/url"
 
-	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
+    clickhouse "github.com/ClickHouse/clickhouse-go/v2"
+    redis "github.com/redis/go-redis/v9"
 	obj "github.com/cuihairu/croupier/internal/objstore"
     gin "github.com/gin-gonic/gin"
 )
+
+// small helper for inline ternary-like selection
+func ifelse[T any](cond bool, a, b T) T { if cond { return a }; return b }
 
 type Server struct {
 	descs     []*descriptor.Descriptor
@@ -426,6 +430,22 @@ func (s *Server) notifySend(ch NotifyChannel, text string) {
 	}
 }
 
+// isWriteBlocked returns whether writes should be blocked for given game/env due to active maintenance window
+func (s *Server) isWriteBlocked(gameID, env string) (bool, string) {
+    now := time.Now()
+    s.maintenanceMu.RLock()
+    defer s.maintenanceMu.RUnlock()
+    for _, w := range s.maintenance {
+        if !w.BlockWrites { continue }
+        if w.Start.IsZero() || w.End.IsZero() { continue }
+        if now.Before(w.Start) || now.After(w.End) { continue }
+        if w.GameID != "" && gameID != "" && !strings.EqualFold(w.GameID, gameID) { continue }
+        if w.Env != "" && env != "" && !strings.EqualFold(w.Env, env) { continue }
+        return true, w.Message
+    }
+    return false, ""
+}
+
 // healthLoop periodically runs configured health checks based on interval
 func (s *Server) healthLoop() {
     ticker := time.NewTicker(15 * time.Second)
@@ -516,6 +536,37 @@ func runHealthCheck(hc healthCheck) healthStatus {
             if _, e := cli.Ping(ctx).Result(); e != nil { err = e }
             _ = cli.Close()
         } else { err = e }
+    case "postgres":
+        u, e := url.Parse(hc.Target)
+        if e != nil { err = e; break }
+        host := u.Host
+        if host == "" { err = fmt.Errorf("invalid DSN host"); break }
+        if !strings.Contains(host, ":") { host += ":5432" }
+        _, e = net.DialTimeout("tcp", host, to)
+        if e != nil { err = e }
+    case "clickhouse":
+        u, e := url.Parse(hc.Target)
+        if e == nil && u.Host != "" {
+            host := u.Host
+            if !strings.Contains(host, ":") { host += ":9000" }
+            _, e = net.DialTimeout("tcp", host, to)
+            if e != nil { err = e }
+        } else {
+            err = e
+        }
+    case "kafka":
+        // target may be comma-separated brokers
+        brokers := strings.Split(hc.Target, ",")
+        tried := 0
+        var last error
+        for _, b := range brokers {
+            addr := strings.TrimSpace(b)
+            if addr == "" { continue }
+            if !strings.Contains(addr, ":") { addr += ":9092" }
+            tried++
+            if conn, e := net.DialTimeout("tcp", addr, to); e == nil { conn.Close(); last = nil; break } else { last = e }
+        }
+        if tried == 0 { err = fmt.Errorf("no brokers") } else if last != nil { err = last }
     default:
         err = fmt.Errorf("unsupported kind: %s", hc.Kind)
     }
@@ -3950,7 +4001,7 @@ func (s *Server) ginEngine() *gin.Engine {
 	})
 
 	// Function invoke
-	r.POST("/api/invoke", func(c *gin.Context) {
+		r.POST("/api/invoke", func(c *gin.Context) {
 		user, roles, ok := s.auth(c.Request)
 		if !ok {
 			s.respondError(c, 401, "unauthorized", "unauthorized")
@@ -4003,7 +4054,12 @@ func (s *Server) ginEngine() *gin.Engine {
 			s.respondError(c, 403, "forbidden", "forbidden")
 			return
 		}
-		if d := s.descIndex[in.FunctionID]; d != nil && d.Auth != nil {
+			// maintenance guard (block writes)
+			if blocked, msg := s.isWriteBlocked(gameID, env); blocked {
+				s.respondError(c, 503, "maintenance", ifelse(msg!="", msg, "service in maintenance"))
+				return
+			}
+			if d := s.descIndex[in.FunctionID]; d != nil && d.Auth != nil {
 			if expr, ok := d.Auth["allow_if"].(string); ok && expr != "" {
 				ctx := policyContext{User: user, Roles: roles, GameID: gameID, Env: env, FunctionID: in.FunctionID}
 				if !evalAllowIf(expr, ctx) {
@@ -4108,7 +4164,7 @@ func (s *Server) ginEngine() *gin.Engine {
 		c.Data(200, "application/json", out)
 	})
 
-	r.POST("/api/start_job", func(c *gin.Context) {
+		r.POST("/api/start_job", func(c *gin.Context) {
 		user, roles, ok := s.auth(c.Request)
 		if !ok {
 			s.respondError(c, 401, "unauthorized", "unauthorized")
@@ -4128,7 +4184,12 @@ func (s *Server) ginEngine() *gin.Engine {
 			s.respondError(c, 400, "bad_request", "invalid payload")
 			return
 		}
-		if d := s.descIndex[in.FunctionID]; d != nil {
+			// maintenance guard (block writes)
+			if blocked, msg := s.isWriteBlocked(gameID, env); blocked {
+				s.respondError(c, 503, "maintenance", ifelse(msg!="", msg, "service in maintenance"))
+				return
+			}
+			if d := s.descIndex[in.FunctionID]; d != nil {
 			if ps := d.Params; ps != nil {
 				b, _ := json.Marshal(in.Payload)
 				if err := validation.ValidateJSON(ps, b); err != nil {
