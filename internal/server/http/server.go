@@ -17,6 +17,7 @@ import (
     "crypto/sha256"
     "encoding/hex"
     "fmt"
+    "crypto/tls"
     "math"
     "os"
     "path/filepath"
