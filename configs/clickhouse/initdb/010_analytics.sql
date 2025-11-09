@@ -28,6 +28,9 @@ CREATE TABLE IF NOT EXISTS analytics.payments (
   channel LowCardinality(String),
   platform LowCardinality(String),
   country FixedString(2),
+  region LowCardinality(String),
+  city String,
+  product_id LowCardinality(String),
   reason String
 ) ENGINE = MergeTree
 PARTITION BY toYYYYMM(time)
@@ -83,4 +86,3 @@ CREATE TABLE IF NOT EXISTS analytics.daily_revenue (
 ) ENGINE = ReplacingMergeTree(version)
 PARTITION BY toYYYYMM(d)
 ORDER BY (game_id, env, d);
-

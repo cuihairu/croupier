@@ -47,14 +47,14 @@ func main() {
 	}
 
 	builder := &PackBuilder{
-		InputDir:  *input,
-		OutputFile: *output,
-		Name:      *name,
-		Version:   *version,
+		InputDir:    *input,
+		OutputFile:  *output,
+		Name:        *name,
+		Version:     *version,
 		Description: *desc,
-		Author:    *author,
-		Validate:  *validate,
-		Verbose:   *verbose,
+		Author:      *author,
+		Validate:    *validate,
+		Verbose:     *verbose,
 	}
 
 	if err := builder.Build(); err != nil {

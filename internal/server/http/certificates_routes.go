@@ -2,6 +2,8 @@ package httpserver
 
 import (
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -76,7 +78,15 @@ func (s *Server) addCertificateRoutes(r *gin.Engine) {
 			s.respondError(c, 500, "internal_error", err.Error())
 			return
 		}
-
+		// best-effort notify based on status
+		if cert, err := s.certStore.GetByID(uint(id)); err == nil {
+			status := strings.ToLower(cert.Status)
+			if status == "expired" || status == "expiring" {
+				meta := map[string]any{"domain": cert.Domain, "port": cert.Port, "status": status, "days_left": cert.DaysLeft, "valid_to": cert.ValidTo.Format(time.RFC3339)}
+				evt := "certificate_" + status
+				s.notifyEvent(evt, meta)
+			}
+		}
 		c.JSON(200, gin.H{"message": "certificate checked"})
 	})
 
@@ -86,8 +96,30 @@ func (s *Server) addCertificateRoutes(r *gin.Engine) {
 			s.respondError(c, 500, "internal_error", err.Error())
 			return
 		}
-
+		// after bulk check, send notifications for expiring/expired (best-effort)
+		if certs, err := s.certStore.GetExpiringCertificates(); err == nil {
+			for _, cert := range certs {
+				status := strings.ToLower(cert.Status)
+				meta := map[string]any{"domain": cert.Domain, "port": cert.Port, "status": status, "days_left": cert.DaysLeft, "valid_to": cert.ValidTo.Format(time.RFC3339)}
+				evt := "certificate_" + status
+				s.notifyEvent(evt, meta)
+			}
+		}
 		c.JSON(200, gin.H{"message": "all certificates checked"})
+	})
+
+	// Delete certificate
+	certGroup.DELETE("/:id", func(c *gin.Context) {
+		id, err := strconv.ParseUint(c.Param("id"), 10, 32)
+		if err != nil {
+			s.respondError(c, 400, "bad_request", "invalid certificate id")
+			return
+		}
+		if err := s.certStore.Delete(uint(id)); err != nil {
+			s.respondError(c, 500, "internal_error", err.Error())
+			return
+		}
+		c.Status(204)
 	})
 
 	// Get certificate statistics

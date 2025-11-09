@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -314,18 +315,160 @@ func (s *Server) addOpsRoutes(r *gin.Engine) {
 			}
 		case "kafka":
 			brokers := strings.TrimSpace(os.Getenv("KAFKA_BROKERS"))
-			te := os.Getenv("KAFKA_TOPIC_EVENTS")
+			// Prefer ANALYTICS_KAFKA_TOPIC_* if present, fallback to KAFKA_TOPIC_*
+			te := os.Getenv("ANALYTICS_KAFKA_TOPIC_EVENTS")
 			if te == "" {
-				te = "events"
+				te = os.Getenv("KAFKA_TOPIC_EVENTS")
 			}
-			tp := os.Getenv("KAFKA_TOPIC_PAYMENTS")
+			if te == "" {
+				te = "analytics.events"
+			}
+			tp := os.Getenv("ANALYTICS_KAFKA_TOPIC_PAYMENTS")
 			if tp == "" {
-				tp = "payments"
+				tp = os.Getenv("KAFKA_TOPIC_PAYMENTS")
+			}
+			if tp == "" {
+				tp = "analytics.payments"
 			}
 			out["kafka"] = gin.H{"brokers": brokers, "topics": gin.H{"events": te, "payments": tp}}
 		default:
 		}
 		c.JSON(200, out)
+	})
+
+	// Notifications config (channels + rules)
+	r.GET("/api/ops/notifications", func(c *gin.Context) {
+		if _, _, ok := s.require(c, "ops:manage"); !ok {
+			return
+		}
+		out := gin.H{"channels": s.notifyChannels, "rules": s.notifyRules}
+		c.JSON(200, out)
+	})
+
+	// Nodes meta report (edge or others). Token-gated via AGENT_META_TOKEN.
+	r.POST("/api/ops/nodes/meta", func(c *gin.Context) {
+		ok := strings.TrimSpace(os.Getenv("AGENT_META_TOKEN"))
+		if ok == "" {
+			s.respondError(c, 503, "unavailable", "meta disabled")
+			return
+		}
+		if c.Request.Header.Get("X-Agent-Token") != ok {
+			s.respondError(c, 401, "unauthorized", "unauthorized")
+			return
+		}
+		var in struct {
+			Type     string `json:"type"` // edge|agent|other
+			ID       string `json:"id"`
+			Addr     string `json:"addr"`
+			HTTPAddr string `json:"http_addr"`
+			Version  string `json:"version"`
+			Region   string `json:"region"`
+			Zone     string `json:"zone"`
+		}
+		if err := c.BindJSON(&in); err != nil || strings.TrimSpace(in.ID) == "" {
+			s.respondError(c, 400, "bad_request", "invalid payload")
+			return
+		}
+		if strings.ToLower(strings.TrimSpace(in.Type)) != "edge" {
+			c.Status(204)
+			return // currently only record edge; agents are tracked via registry
+		}
+		ip := ""
+		if h, _, err := net.SplitHostPort(in.Addr); err == nil {
+			ip = h
+		}
+		s.edgeMu.Lock()
+		if s.edgeNodes == nil {
+			s.edgeNodes = map[string]struct {
+				ID, Addr, HTTPAddr, Version, IP, Region, Zone string
+				LastSeen                                      time.Time
+			}{}
+		}
+		s.edgeNodes[in.ID] = struct {
+			ID, Addr, HTTPAddr, Version, IP, Region, Zone string
+			LastSeen                                      time.Time
+		}{ID: in.ID, Addr: in.Addr, HTTPAddr: in.HTTPAddr, Version: in.Version, IP: ip, Region: strings.TrimSpace(in.Region), Zone: strings.TrimSpace(in.Zone), LastSeen: time.Now()}
+		s.edgeMu.Unlock()
+		c.Status(204)
+	})
+
+	// Nodes list: combine agents + edges (best-effort)
+	r.GET("/api/ops/nodes", func(c *gin.Context) {
+		if _, _, ok := s.require(c, "ops:read", "registry:read"); !ok {
+			return
+		}
+		out := []gin.H{}
+		// agents
+		if s.reg != nil {
+			s.reg.Mu().RLock()
+			now := time.Now()
+			for _, a := range s.reg.AgentsUnsafe() {
+				healthy := now.Before(a.ExpireAt)
+				exp := int(time.Until(a.ExpireAt).Seconds())
+				if exp < 0 {
+					exp = 0
+				}
+				ip := ""
+				if h, _, err := net.SplitHostPort(a.RPCAddr); err == nil {
+					ip = h
+				}
+				out = append(out, gin.H{"id": a.AgentID, "type": "agent", "game_id": a.GameID, "env": a.Env, "addr": a.RPCAddr, "ip": ip, "version": a.Version, "healthy": healthy, "expires_in_sec": exp})
+			}
+			s.reg.Mu().RUnlock()
+		}
+		// edges
+		s.edgeMu.RLock()
+		for _, e := range s.edgeNodes {
+			// consider edge healthy if last seen within 90s
+			healthy := time.Since(e.LastSeen) <= 90*time.Second
+			out = append(out, gin.H{"id": e.ID, "type": "edge", "addr": e.Addr, "http_addr": e.HTTPAddr, "ip": e.IP, "version": e.Version, "region": e.Region, "zone": e.Zone, "healthy": healthy, "last_seen": e.LastSeen.Format(time.RFC3339)})
+		}
+		s.edgeMu.RUnlock()
+		c.JSON(200, gin.H{"nodes": out})
+	})
+	r.PUT("/api/ops/notifications", func(c *gin.Context) {
+		actor, _, ok := s.require(c, "ops:manage")
+		if !ok {
+			return
+		}
+		var in struct {
+			Channels []struct{ ID, Type, URL, Secret, Provider, Account, From, To string } `json:"channels"`
+			Rules    []struct {
+				Event         string
+				Channels      []string
+				ThresholdDays int
+			} `json:"rules"`
+		}
+		if err := c.BindJSON(&in); err != nil {
+			s.respondError(c, 400, "bad_request", "invalid payload")
+			return
+		}
+		// basic normalize: trim ids and types
+		for i := range in.Channels {
+			in.Channels[i].ID = strings.TrimSpace(in.Channels[i].ID)
+			in.Channels[i].Type = strings.ToLower(strings.TrimSpace(in.Channels[i].Type))
+		}
+		// assign and persist
+		// map to named types
+		s.mu.Lock()
+		chs := make([]NotifyChannel, 0, len(in.Channels))
+		for _, c0 := range in.Channels {
+			chs = append(chs, NotifyChannel{ID: c0.ID, Type: c0.Type, URL: c0.URL, Secret: c0.Secret, Provider: c0.Provider, Account: c0.Account, From: c0.From, To: c0.To})
+		}
+		rs := make([]NotifyRule, 0, len(in.Rules))
+		for _, r0 := range in.Rules {
+			rs = append(rs, NotifyRule{Event: r0.Event, Channels: r0.Channels, ThresholdDays: r0.ThresholdDays})
+		}
+		s.notifyChannels = chs
+		s.notifyRules = rs
+		s.mu.Unlock()
+		_ = os.MkdirAll(filepath.Dir(s.notificationsPath), 0o755)
+		b, _ := json.MarshalIndent(in, "", "  ")
+		_ = os.WriteFile(s.notificationsPath, b, 0o644)
+		if s.audit != nil {
+			_ = s.audit.Log("ops.notifications.update", actor, "notifications", map[string]string{"ip": c.ClientIP()})
+		}
+		c.JSON(200, gin.H{"ok": true})
 	})
 	r.PUT("/api/ops/rate-limits", func(c *gin.Context) {
 		user, _, ok := s.require(c, "ops:manage")

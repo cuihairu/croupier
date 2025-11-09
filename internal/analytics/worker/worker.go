@@ -205,12 +205,15 @@ func (w *Worker) insertPayment(ctx context.Context, m map[string]any) error {
 	channel := asString(m, "channel")
 	platform := asString(m, "platform")
 	country := asString(m, "country")
+	region := asString(m, "region")
+	city := asString(m, "city")
+	product := asString(m, "product_id")
 	reason := asString(m, "reason")
-	batch, err := w.ch.PrepareBatch(ctx, "INSERT INTO analytics.payments (time, game_id, env, user_id, order_id, amount_cents, currency, status, channel, platform, country, reason)")
+	batch, err := w.ch.PrepareBatch(ctx, "INSERT INTO analytics.payments (time, game_id, env, user_id, order_id, amount_cents, currency, status, channel, platform, country, region, city, product_id, reason)")
 	if err != nil {
 		return err
 	}
-	if err := batch.Append(ts, game, env, uid, oid, uint64(amount), curr, status, channel, platform, country, reason); err != nil {
+	if err := batch.Append(ts, game, env, uid, oid, uint64(amount), curr, status, channel, platform, country, region, city, product, reason); err != nil {
 		return err
 	}
 	return batch.Send()

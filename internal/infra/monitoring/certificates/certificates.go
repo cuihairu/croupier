@@ -233,6 +233,20 @@ func (s *Store) GetAlertsForCertificate(certID uint) ([]CertificateAlert, error)
 	return alerts, err
 }
 
+// GetByID returns a certificate by ID
+func (s *Store) GetByID(id uint) (*Certificate, error) {
+	var c Certificate
+	if err := s.db.First(&c, id).Error; err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+// Delete removes a certificate from monitoring
+func (s *Store) Delete(id uint) error {
+	return s.db.Delete(&Certificate{}, id).Error
+}
+
 // DomainInfo contains domain registration information
 type DomainInfo struct {
 	Domain           string     `json:"domain"`
