@@ -48,9 +48,9 @@ packs-build:
 	@echo "done: packs/dist/*.pack.tgz"
 
 server:
-    @echo "[build] server (pg+sqlite)"
-    @mkdir -p $(BINDIR)
-    GOFLAGS=-mod=mod go build -tags "pg sqlite" -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-server ./cmd/server
+	@echo "[build] server (pg+sqlite)"
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -tags "pg sqlite" -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-server ./cmd/server
 
 .PHONY: server-sqlite
 server-sqlite:

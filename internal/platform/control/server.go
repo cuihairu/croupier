@@ -1,7 +1,11 @@
 package control
 
 import (
+    "bytes"
+    "compress/gzip"
     "context"
+    "fmt"
+    "io"
     "time"
 
     reg "github.com/cuihairu/croupier/internal/platform/registry"
@@ -57,4 +61,51 @@ func (s *Server) Heartbeat(ctx context.Context, in *controlv1.HeartbeatRequest) 
     }
     s.reg.Mu().Unlock()
     return &controlv1.HeartbeatResponse{}, nil
+}
+
+// RegisterCapabilities handles provider manifest registration with language-agnostic declaration.
+func (s *Server) RegisterCapabilities(ctx context.Context, in *controlv1.RegisterCapabilitiesRequest) (*controlv1.RegisterCapabilitiesResponse, error) {
+    if in == nil {
+        return &controlv1.RegisterCapabilitiesResponse{}, fmt.Errorf("request cannot be nil")
+    }
+
+    provider := in.GetProvider()
+    if provider == nil || provider.GetId() == "" {
+        return &controlv1.RegisterCapabilitiesResponse{}, fmt.Errorf("provider metadata is required")
+    }
+
+    // Decompress the manifest JSON
+    manifestData, err := s.decompressManifest(in.GetManifestJsonGz())
+    if err != nil {
+        return &controlv1.RegisterCapabilitiesResponse{}, fmt.Errorf("failed to decompress manifest: %w", err)
+    }
+
+    // Store the provider capabilities in registry
+    providerCaps := reg.ProviderCaps{
+        ID:        provider.GetId(),
+        Version:   provider.GetVersion(),
+        Lang:      provider.GetLang(),
+        SDK:       provider.GetSdk(),
+        Manifest:  manifestData,
+        UpdatedAt: time.Now(),
+    }
+
+    s.reg.UpsertProviderCaps(providerCaps)
+
+    return &controlv1.RegisterCapabilitiesResponse{}, nil
+}
+
+// decompressManifest decompresses gzipped manifest data
+func (s *Server) decompressManifest(data []byte) ([]byte, error) {
+    if len(data) == 0 {
+        return nil, fmt.Errorf("manifest data is empty")
+    }
+
+    reader, err := gzip.NewReader(bytes.NewReader(data))
+    if err != nil {
+        return nil, fmt.Errorf("failed to create gzip reader: %w", err)
+    }
+    defer reader.Close()
+
+    return io.ReadAll(reader)
 }
