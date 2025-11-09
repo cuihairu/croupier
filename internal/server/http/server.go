@@ -174,9 +174,14 @@ type Server struct {
     nodeCmds   map[string][]string     // node_id -> queued commands (drain|undrain|restart)
     nodeStatus map[string]struct{ Draining bool }
 
-	// Config management (MVP): file-backed versions store
-	configsPath string
-	configs     map[string]*configEntry
+    // Config management (MVP): file-backed versions store
+    configsPath string
+    configs     map[string]*configEntry
+
+    // Maintenance windows (ops-controlled), persisted to file
+    maintenancePath string
+    maintenanceMu   sync.RWMutex
+    maintenance     []maintWindow
 }
 
 // configEntry stores versioned config content per id|game|env.
@@ -198,6 +203,17 @@ type configVersion struct {
 	CreatedAt time.Time `json:"created_at"`
 	ETag      string    `json:"etag"`
 	Size      int       `json:"size"`
+}
+
+// maintWindow defines a maintenance window for a game/env
+type maintWindow struct {
+    ID         string    `json:"id"`
+    GameID     string    `json:"game_id"`
+    Env        string    `json:"env"`
+    Start      time.Time `json:"start"`
+    End        time.Time `json:"end"`
+    Message    string    `json:"message"`
+    BlockWrites bool     `json:"block_writes"`
 }
 
 // NotifyChannel defines a delivery endpoint for notifications.
@@ -435,7 +451,7 @@ s := &Server{descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac:
     }{}, analyticsFiltersPath: filepath.Join(descriptorDir, "analytics_filters.json"), notificationsPath: filepath.Join("data", "notifications.json"), loginAttempts: map[string][]time.Time{}, ipRegionCache: map[string]struct {
         val string
         exp time.Time
-    }{}, rateLimitRules: map[string]int{}, serviceRateRules: map[string]int{}, jobs: map[string]*jobInfo{}, nodeCmds: map[string][]string{}, nodeStatus: map[string]struct{ Draining bool }{}}
+    }{}, rateLimitRules: map[string]int{}, serviceRateRules: map[string]int{}, jobs: map[string]*jobInfo{}, nodeCmds: map[string][]string{}, nodeStatus: map[string]struct{ Draining bool }{}, maintenancePath: filepath.Join("data", "maintenance.json")}
 	// Init rate limits persistence path
 	if v := strings.TrimSpace(os.Getenv("RATE_LIMITS_PATH")); v != "" {
 		s.rateLimitsPath = v

@@ -392,6 +392,36 @@ func (s *Server) addOpsRoutes(r *gin.Engine) {
 		c.Status(204)
 	})
 
+	// Maintenance windows management (simple file-backed) and public status
+	r.GET("/api/ops/maintenance", func(c *gin.Context) {
+		if _, _, ok := s.require(c, "ops:read", "ops:manage"); !ok { return }
+		s.maintenanceMu.RLock(); defer s.maintenanceMu.RUnlock()
+		c.JSON(200, gin.H{"windows": s.maintenance})
+	})
+	r.PUT("/api/ops/maintenance", func(c *gin.Context) {
+		actor, _, ok := s.require(c, "ops:manage"); if !ok { return }
+		var in struct{ Windows []maintWindow `json:"windows"` }
+		if err := c.BindJSON(&in); err != nil { s.respondError(c, 400, "bad_request", "invalid payload"); return }
+		s.maintenanceMu.Lock(); s.maintenance = in.Windows; s.maintenanceMu.Unlock()
+		_ = os.MkdirAll("data", 0o755)
+		b, _ := json.MarshalIndent(gin.H{"windows": in.Windows}, "", "  ")
+		_ = os.WriteFile(s.maintenancePath, b, 0o644)
+		if s.audit != nil { _ = s.audit.Log("ops.maintenance.update", actor, "windows", map[string]string{"count": strconv.Itoa(len(in.Windows)), "ip": c.ClientIP()}) }
+		c.Status(204)
+	})
+	r.GET("/api/status", func(c *gin.Context) {
+		// public status: active maintenance windows only
+		now := time.Now()
+		s.maintenanceMu.RLock(); defer s.maintenanceMu.RUnlock()
+		active := []maintWindow{}
+		for _, w := range s.maintenance {
+			if !w.Start.IsZero() && !w.End.IsZero() && now.After(w.Start) && now.Before(w.End) {
+				active = append(active, w)
+			}
+		}
+		c.JSON(200, gin.H{"maintenance": active})
+	})
+
 	// Nodes list: combine agents + edges (best-effort)
 	r.GET("/api/ops/nodes", func(c *gin.Context) {
 		if _, _, ok := s.require(c, "ops:read", "registry:read"); !ok {
