@@ -19,7 +19,10 @@ func NewFromEnv() Queue {
 		log.Printf("[analytics-mq] redis requested; fallback to noop (build with -tags redis_mq to enable)")
 		return NewNoop()
 	case "kafka":
-		log.Printf("[analytics-mq] kafka requested; using noop placeholder (implement me)")
+		if q, err := newKafkaFromEnv(); err == nil && q != nil {
+			return q
+		}
+		log.Printf("[analytics-mq] kafka requested; fallback to noop")
 		return NewNoop()
 	default:
 		if t == "" {

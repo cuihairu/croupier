@@ -1,8 +1,9 @@
 package httpserver
 
 import (
+	"bytes"
 	"encoding/json"
-	"errors"
+	"io"
 	"log"
 	"log/slog"
 	"net"
@@ -16,7 +17,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -139,8 +139,78 @@ type Server struct {
 		PublishPayment(map[string]any) error
 	}
 
+	// Analytics filters (per game/env) to throttle/allow specific client events and payments.
+	// Persisted as JSON at analyticsFiltersPath for simple operations control.
+	analyticsFilters map[string]struct {
+		Events          []string `json:"events"`
+		PaymentsEnabled bool     `json:"payments_enabled"`
+	}
+	analyticsFiltersPath string
+
+	// Ops notifications: channels and rules (persisted to notificationsPath).
+	notificationsPath string
+	notifyChannels    []NotifyChannel
+	notifyRules       []NotifyRule
+
 	// Optional ClickHouse connection for analytics queries
 	ch clickhouse.Conn
+
+	// Edge nodes (reported via /api/ops/nodes/meta)
+	edgeMu    sync.RWMutex
+	edgeNodes map[string]struct {
+		ID       string
+		Addr     string
+		HTTPAddr string
+		Version  string
+		IP       string
+		Region   string
+		Zone     string
+		LastSeen time.Time
+	}
+
+	// Config management (MVP): file-backed versions store
+	configsPath string
+	configs     map[string]*configEntry
+}
+
+// configEntry stores versioned config content per id|game|env.
+type configEntry struct {
+    ID       string          `json:"id"`
+    GameID   string          `json:"game_id"`
+    Env      string          `json:"env"`
+    Format   string          `json:"format"`
+    Center   string          `json:"center_key,omitempty"`
+    Schema   string          `json:"schema,omitempty"`
+    Latest   int             `json:"latest_version"`
+    Versions []configVersion `json:"versions"`
+}
+type configVersion struct {
+	Version   int       `json:"version"`
+	Content   string    `json:"content"`
+	Message   string    `json:"message,omitempty"`
+	Editor    string    `json:"editor,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	ETag      string    `json:"etag"`
+	Size      int       `json:"size"`
+}
+
+// NotifyChannel defines a delivery endpoint for notifications.
+type NotifyChannel struct {
+	ID       string `json:"id"`
+	Type     string `json:"type"`   // dingtalk|feishu|wechat|webhook|sms
+	URL      string `json:"url"`    // webhook URL for robot integrations
+	Secret   string `json:"secret"` // optional secret/token
+	Provider string `json:"provider,omitempty"`
+	Account  string `json:"account,omitempty"`
+	From     string `json:"from,omitempty"`
+	To       string `json:"to,omitempty"`
+}
+
+// NotifyRule selects channels for an event.
+type NotifyRule struct {
+	Event         string   `json:"event"`
+	Channels      []string `json:"channels"`
+	ThresholdDays int      `json:"threshold_days,omitempty"`
 }
 
 // rateRuleAdv supports gray matching and percent rollout
@@ -174,14 +244,15 @@ type jobInfo struct {
 func (s *Server) ginAuthZ() gin.HandlerFunc {
 	// endpoints to skip (auth handled specially or should be public)
 	skip := map[string]bool{
-		"/api/auth/login":            true,
-		"/api/auth/me":               true, // user info handled by route-level token check
-		"/api/descriptors":           true, // keep backward-compatible public descriptors
-		"/api/ui_schema":             true, // schema preview
-		"/api/messages/stream":       true, // SSE uses token query param; route does its own auth
-		"/api/messages/unread_count": true, // route-level token check
-		"/api/messages":              true, // route-level token check
-		"/api/agent/meta":            true, // agent meta reports are token-gated separately
+		"/api/auth/login":              true,
+		"/api/auth/me":                 true, // user info handled by route-level token check
+		"/api/descriptors":             true, // keep backward-compatible public descriptors
+		"/api/ui_schema":               true, // schema preview
+		"/api/messages/stream":         true, // SSE uses token query param; route does its own auth
+		"/api/messages/unread_count":   true, // route-level token check
+		"/api/messages":                true, // route-level token check
+		"/api/agent/meta":              true, // agent meta reports are token-gated separately
+		"/api/agent/analytics_filters": true, // agent filters fetch is token-gated separately
 	}
 	return func(c *gin.Context) {
 		// Only guard API paths; let static and others pass
@@ -212,6 +283,80 @@ func (s *Server) ginAuthZ() gin.HandlerFunc {
 			return
 		}
 		c.Next()
+	}
+}
+
+// notifyEvent sends notification to configured channels according to rules for an event.
+func (s *Server) notifyEvent(event string, meta map[string]any) {
+	if len(s.notifyRules) == 0 || len(s.notifyChannels) == 0 {
+		return
+	}
+	// build message (basic text)
+	text := "[" + event + "]"
+	if d, ok := meta["domain"]; ok {
+		text += " " + fmt.Sprint(d)
+	}
+	if p, ok := meta["port"]; ok {
+		text += ":" + fmt.Sprint(p)
+	}
+	if st, ok := meta["status"]; ok {
+		text += " 状态:" + fmt.Sprint(st)
+	}
+	if dl, ok := meta["days_left"]; ok {
+		text += " 剩余天数:" + fmt.Sprint(dl)
+	}
+	if vt, ok := meta["valid_to"]; ok {
+		text += " 到期:" + fmt.Sprint(vt)
+	}
+	// pick channels
+	ids := []string{}
+	for _, r := range s.notifyRules {
+		if strings.EqualFold(strings.TrimSpace(r.Event), event) {
+			ids = append(ids, r.Channels...)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	// build id -> channel map
+	cmap := map[string]NotifyChannel{}
+	for _, ch := range s.notifyChannels {
+		cmap[ch.ID] = ch
+	}
+	for _, id := range ids {
+		ch, ok := cmap[id]
+		if !ok {
+			continue
+		}
+		go s.notifySend(ch, text)
+	}
+}
+
+func (s *Server) notifySend(ch NotifyChannel, text string) {
+	typ := strings.ToLower(strings.TrimSpace(ch.Type))
+	url := strings.TrimSpace(ch.URL)
+	if url == "" {
+		return
+	}
+	var body []byte
+	ct := "application/json"
+	switch typ {
+	case "dingtalk":
+		body, _ = json.Marshal(map[string]any{"msgtype": "text", "text": map[string]string{"content": text}})
+	case "feishu":
+		body, _ = json.Marshal(map[string]any{"msg_type": "text", "content": map[string]string{"text": text}})
+	case "wechat": // WeCom bot webhook
+		body, _ = json.Marshal(map[string]any{"msgtype": "text", "text": map[string]any{"content": text}})
+	default: // generic webhook
+		body, _ = json.Marshal(map[string]any{"event": "notification", "text": text})
+	}
+	req, _ := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	req.Header.Set("Content-Type", ct)
+	cli := &http.Client{Timeout: 4 * time.Second}
+	resp, err := cli.Do(req)
+	if err == nil && resp != nil {
+		io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
 	}
 }
 
@@ -276,7 +421,10 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
 	for _, d := range descs {
 		idx[d.ID] = d
 	}
-	s := &Server{descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, reg: reg, jwtMgr: jwtMgr, startedAt: time.Now(), locator: locator, statsProv: statsProv, fn: map[string]*fnMetrics{}, typeReg: pack.NewTypeRegistry(), packDir: descriptorDir, rl: map[string]*rateLimiter{}, conc: map[string]chan struct{}{}, assignments: map[string][]string{}, assignmentsPath: filepath.Join(descriptorDir, "assignments.json"), loginAttempts: map[string][]time.Time{}, ipRegionCache: map[string]struct {
+	s := &Server{descs: descs, descIndex: idx, invoker: invoker, audit: audit, rbac: policy, reg: reg, jwtMgr: jwtMgr, startedAt: time.Now(), locator: locator, statsProv: statsProv, fn: map[string]*fnMetrics{}, typeReg: pack.NewTypeRegistry(), packDir: descriptorDir, rl: map[string]*rateLimiter{}, conc: map[string]chan struct{}{}, assignments: map[string][]string{}, assignmentsPath: filepath.Join(descriptorDir, "assignments.json"), analyticsFilters: map[string]struct {
+		Events          []string `json:"events"`
+		PaymentsEnabled bool     `json:"payments_enabled"`
+	}{}, analyticsFiltersPath: filepath.Join(descriptorDir, "analytics_filters.json"), notificationsPath: filepath.Join("data", "notifications.json"), loginAttempts: map[string][]time.Time{}, ipRegionCache: map[string]struct {
 		val string
 		exp time.Time
 	}{}, rateLimitRules: map[string]int{}, serviceRateRules: map[string]int{}, jobs: map[string]*jobInfo{}}
@@ -322,6 +470,33 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
 	// load assignments (best-effort)
 	if b, err := os.ReadFile(s.assignmentsPath); err == nil {
 		_ = json.Unmarshal(b, &s.assignments)
+	}
+	// load analytics filters (best-effort)
+	if b, err := os.ReadFile(s.analyticsFiltersPath); err == nil {
+		_ = json.Unmarshal(b, &s.analyticsFilters)
+	}
+	// load notifications config (best-effort)
+	if b, err := os.ReadFile(s.notificationsPath); err == nil {
+		var cfg struct {
+			Channels []struct{ ID, Type, URL, Secret, Provider, Account, From, To string } `json:"channels"`
+			Rules    []struct {
+				Event         string
+				Channels      []string
+				ThresholdDays int
+			} `json:"rules"`
+		}
+		if err := json.Unmarshal(b, &cfg); err == nil {
+			chs := make([]NotifyChannel, 0, len(cfg.Channels))
+			for _, c0 := range cfg.Channels {
+				chs = append(chs, NotifyChannel{ID: c0.ID, Type: c0.Type, URL: c0.URL, Secret: c0.Secret, Provider: c0.Provider, Account: c0.Account, From: c0.From, To: c0.To})
+			}
+			rs := make([]NotifyRule, 0, len(cfg.Rules))
+			for _, r0 := range cfg.Rules {
+				rs = append(rs, NotifyRule{Event: r0.Event, Channels: r0.Channels, ThresholdDays: r0.ThresholdDays})
+			}
+			s.notifyChannels = chs
+			s.notifyRules = rs
+		}
 	}
 	// optional toggles via env
 	// METRICS_PER_FUNCTION=true|false, METRICS_PER_GAME_DENIES=true|false
@@ -2758,6 +2933,96 @@ func (s *Server) ginEngine() *gin.Engine {
 		s.JSON(c, 200, gin.H{"ok": true, "unknown": unknown})
 	})
 
+	// Analytics filters (admin): per game/env whitelist and payments toggle
+	r.GET("/api/analytics/filters", func(c *gin.Context) {
+		if _, _, ok := s.require(c, "analytics:read", "analytics:manage"); !ok {
+			return
+		}
+		gid := strings.TrimSpace(c.Query("game_id"))
+		env := strings.TrimSpace(c.Query("env"))
+		key := gid + "|" + env
+		s.mu.RLock()
+		if v, ok := s.analyticsFilters[key]; ok {
+			s.mu.RUnlock()
+			c.JSON(200, gin.H{"events": v.Events, "payments_enabled": v.PaymentsEnabled})
+			return
+		}
+		s.mu.RUnlock()
+		// not configured -> default allow-all (empty events means allow all), payments on
+		c.JSON(200, gin.H{"events": []string{}, "payments_enabled": true})
+	})
+	r.POST("/api/analytics/filters", func(c *gin.Context) {
+		actor, _, ok := s.require(c, "analytics:manage")
+		if !ok {
+			return
+		}
+		var in struct {
+			GameID          string   `json:"game_id"`
+			Env             string   `json:"env"`
+			Events          []string `json:"events"`
+			PaymentsEnabled *bool    `json:"payments_enabled"`
+		}
+		if err := c.BindJSON(&in); err != nil || strings.TrimSpace(in.GameID) == "" {
+			s.respondError(c, 400, "bad_request", "invalid payload")
+			return
+		}
+		key := strings.TrimSpace(in.GameID) + "|" + strings.TrimSpace(in.Env)
+		v := struct {
+			Events          []string `json:"events"`
+			PaymentsEnabled bool     `json:"payments_enabled"`
+		}{Events: []string{}, PaymentsEnabled: true}
+		// normalize: trim unique
+		seen := map[string]struct{}{}
+		for _, e := range in.Events {
+			e = strings.TrimSpace(e)
+			if e == "" {
+				continue
+			}
+			if _, ok := seen[e]; ok {
+				continue
+			}
+			seen[e] = struct{}{}
+			v.Events = append(v.Events, e)
+		}
+		if in.PaymentsEnabled != nil {
+			v.PaymentsEnabled = *in.PaymentsEnabled
+		}
+		s.mu.Lock()
+		s.analyticsFilters[key] = v
+		s.mu.Unlock()
+		b, _ := json.MarshalIndent(s.analyticsFilters, "", "  ")
+		_ = os.WriteFile(s.analyticsFiltersPath, b, 0o644)
+		if s.audit != nil {
+			meta := map[string]string{"game_env": key, "game_id": in.GameID, "env": in.Env, "events": strings.Join(v.Events, ","), "payments_enabled": strconv.FormatBool(v.PaymentsEnabled), "ip": c.ClientIP()}
+			_ = s.audit.Log("analytics.filters.update", actor, key, meta)
+		}
+		c.JSON(200, gin.H{"ok": true})
+	})
+
+	// Analytics filters for agents (token-gated via AGENT_META_TOKEN)
+	r.GET("/api/agent/analytics_filters", func(c *gin.Context) {
+		tok := strings.TrimSpace(os.Getenv("AGENT_META_TOKEN"))
+		if tok == "" {
+			s.respondError(c, 503, "unavailable", "agent filters disabled")
+			return
+		}
+		if c.Request.Header.Get("X-Agent-Token") != tok {
+			s.respondError(c, 401, "unauthorized", "unauthorized")
+			return
+		}
+		gid := strings.TrimSpace(c.Query("game_id"))
+		env := strings.TrimSpace(c.Query("env"))
+		key := gid + "|" + env
+		s.mu.RLock()
+		if v, ok := s.analyticsFilters[key]; ok {
+			s.mu.RUnlock()
+			c.JSON(200, gin.H{"events": v.Events, "payments_enabled": v.PaymentsEnabled})
+			return
+		}
+		s.mu.RUnlock()
+		c.JSON(200, gin.H{"events": []string{}, "payments_enabled": true})
+	})
+
 	// Ant Design Pro demo stub
 	r.Any("/api/rule", func(c *gin.Context) {
 		if c.Request.Method == http.MethodGet {
@@ -4520,6 +4785,9 @@ func (s *Server) ginEngine() *gin.Engine {
 		s.addCertificateRoutes(r)
 	}
 
+	// Config management routes (MVP)
+	s.addConfigsRoutes(r)
+
 	// Support system routes (tickets/faq/feedback)
 	s.addSupportRoutes(r)
 	// Ops routes (/api/ops/*)
@@ -4654,6 +4922,18 @@ func (s *Server) saveRateLimitsToFile() error {
 		return err
 	}
 	_ = os.MkdirAll(filepath.Dir(path), 0o755)
+	// snapshot old/new to logs for audit diff (best-effort)
+	func() {
+		defer func() { _ = recover() }()
+		ts := time.Now().Format("20060102-150405")
+		_ = os.MkdirAll("logs", 0o755)
+		// old
+		if old, err := os.ReadFile(path); err == nil {
+			_ = os.WriteFile(filepath.Join("logs", "rate_limits."+ts+".old.json"), old, 0o644)
+		}
+		// new
+		_ = os.WriteFile(filepath.Join("logs", "rate_limits."+ts+".new.json"), b, 0o644)
+	}()
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, b, 0o644); err != nil {
 		return err

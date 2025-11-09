@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -175,6 +176,15 @@ func New() *cobra.Command {
 			lserver := locallib.NewServer(lstore, controlv1.NewControlServiceClient(coreConn), agentID, agentVersion, localAddr, gameID, env, exec)
 			localv1.RegisterLocalControlServiceServer(srv, lserver)
 
+			// analytics filters (fetched from server) and drop counters
+			var (
+				eventsMu        sync.RWMutex
+				allowedEvents   map[string]struct{}
+				paymentsEnabled atomic.Bool
+				droppedEvents   atomic.Int64
+				droppedPayments atomic.Int64
+			)
+
 			// optional assignments polling for downlink preview and lightweight adapter control
 			var promSup *adapterSupervisor
 			var httpSup *adapterSupervisor
@@ -251,6 +261,38 @@ func New() *cobra.Command {
 								wantProm, wantHttp := calcAdapterNeeds(fns)
 								promSup.SetDesired(len(promCmd) > 0 && wantProm)
 								httpSup.SetDesired(len(httpCmd) > 0 && wantHttp)
+							}
+
+							// fetch analytics filters for this game/env (token-gated)
+							tok := strings.TrimSpace(os.Getenv("AGENT_META_TOKEN"))
+							if tok != "" {
+								req2, _ := http.NewRequest("GET", api+"/api/agent/analytics_filters?game_id="+gameID+"&env="+env, nil)
+								req2.Header.Set("X-Agent-Token", tok)
+								if resp2, err := http.DefaultClient.Do(req2); err == nil {
+									func() {
+										defer resp2.Body.Close()
+										if resp2.StatusCode/100 == 2 {
+											var f struct {
+												Events          []string `json:"events"`
+												PaymentsEnabled bool     `json:"payments_enabled"`
+											}
+											if err := json.NewDecoder(resp2.Body).Decode(&f); err == nil {
+												evset := map[string]struct{}{}
+												for _, e := range f.Events {
+													if strings.TrimSpace(e) != "" {
+														evset[strings.TrimSpace(e)] = struct{}{}
+													}
+												}
+												eventsMu.Lock()
+												allowedEvents = evset // nil -> allow all; empty -> close all
+												eventsMu.Unlock()
+												paymentsEnabled.Store(f.PaymentsEnabled)
+												slog.Info("analytics filters updated", "events", len(evset), "payments_enabled", f.PaymentsEnabled)
+											}
+										}
+									}()
+								}
+								// best-effort: ignore errors
 							}
 							if downDir != "" {
 								// fetch current pack export and write to downDir/pack.tgz (and extract)
@@ -348,6 +390,12 @@ func New() *cobra.Command {
 						"tunnel_reconnects": tunn.Reconnects(),
 						"logs":              common.GetLogCounters(),
 						"adapters":          adapters,
+						"analytics": gin.H{
+							"allowed_events":         func() int { eventsMu.RLock(); defer eventsMu.RUnlock(); return len(allowedEvents) }(),
+							"payments_enabled":       paymentsEnabled.Load(),
+							"dropped_events_total":   droppedEvents.Load(),
+							"dropped_payments_total": droppedPayments.Load(),
+						},
 					})
 				})
 				r.GET("/metrics.prom", func(c *gin.Context) {
@@ -392,9 +440,35 @@ func New() *cobra.Command {
 						fmt.Fprintf(w, "croupier_adapter_last_start_ts{adapter=\"http\"} %d\n", st.LastStartTs)
 						fmt.Fprintf(w, "croupier_adapter_health_failures_total{adapter=\"http\"} %d\n", st.HealthFailuresTotal)
 					}
+					// analytics metrics
+					eventsMu.RLock()
+					allowLen := len(allowedEvents)
+					eventsMu.RUnlock()
+					fmt.Fprintf(w, "# TYPE croupier_analytics_allowed_events gauge\n")
+					fmt.Fprintf(w, "croupier_analytics_allowed_events %d\n", allowLen)
+					fmt.Fprintf(w, "# TYPE croupier_analytics_payments_enabled gauge\n")
+					fmt.Fprintf(w, "croupier_analytics_payments_enabled %d\n", b2i(paymentsEnabled.Load()))
+					fmt.Fprintf(w, "# TYPE croupier_analytics_dropped_events_total counter\n")
+					fmt.Fprintf(w, "croupier_analytics_dropped_events_total %d\n", droppedEvents.Load())
+					fmt.Fprintf(w, "# TYPE croupier_analytics_dropped_payments_total counter\n")
+					fmt.Fprintf(w, "croupier_analytics_dropped_payments_total %d\n", droppedPayments.Load())
 				})
 				// Analytics ingest (SDK -> Agent) over HTTP: /analytics/report and /analytics/payments
 				anq := mq.NewFromEnv()
+				// helper: check if event allowed
+				isAllowed := func(ev string) bool {
+					eventsMu.RLock()
+					defer eventsMu.RUnlock()
+					if allowedEvents == nil { // nil -> no server config -> allow all
+						return true
+					}
+					if len(allowedEvents) == 0 { // explicitly empty -> allow none
+						return false
+					}
+					_, ok := allowedEvents[strings.TrimSpace(ev)]
+					return ok
+				}
+
 				r.POST("/analytics/report", func(c *gin.Context) {
 					var body any
 					if err := c.BindJSON(&body); err != nil {
@@ -405,11 +479,21 @@ func New() *cobra.Command {
 					case []any:
 						for _, it := range v {
 							if m, ok := it.(map[string]any); ok {
-								_ = anq.PublishEvent(m)
+								ev, _ := m["event"].(string)
+								if isAllowed(ev) {
+									_ = anq.PublishEvent(m)
+								} else {
+									droppedEvents.Add(1)
+								}
 							}
 						}
 					case map[string]any:
-						_ = anq.PublishEvent(v)
+						ev, _ := v["event"].(string)
+						if isAllowed(ev) {
+							_ = anq.PublishEvent(v)
+						} else {
+							droppedEvents.Add(1)
+						}
 					default:
 						c.JSON(http.StatusBadRequest, gin.H{"error": "invalid payload"})
 						return
@@ -417,6 +501,12 @@ func New() *cobra.Command {
 					c.Status(http.StatusAccepted)
 				})
 				r.POST("/analytics/payments", func(c *gin.Context) {
+					if !paymentsEnabled.Load() {
+						// drop entire batch when disabled
+						droppedPayments.Add(1)
+						c.Status(http.StatusAccepted)
+						return
+					}
 					var body any
 					if err := c.BindJSON(&body); err != nil {
 						c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})

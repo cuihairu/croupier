@@ -15,7 +15,7 @@ var ip2db4 *ip2location.DB
 var ip2db6 *ip2location.DB
 var ip2once sync.Once
 
-// ip2locRegion tries to resolve IP to region using IP2Location BIN database when built with tag 'ip2location'.
+// ip2locRegion tries to resolve IP to region using IP2Location BIN database (optional).
 // Configure via env:
 //
 //	IP2LOCATION_BIN_PATH       -> IPv4 BIN (or IPv6 if that's the only one you have)

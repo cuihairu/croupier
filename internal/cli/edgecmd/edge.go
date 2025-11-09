@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -93,6 +94,38 @@ func New() *cobra.Command {
 			jobv1.RegisterJobServiceServer(s, jobserver.New(tun))
 
 			var httpSrv *http.Server
+			// Edge meta report (optional): report_url + token -> server
+			if u := strings.TrimSpace(os.Getenv("EDGE_REPORT_URL")); u != "" {
+				tok := strings.TrimSpace(os.Getenv("EDGE_REPORT_TOKEN"))
+				if tok == "" {
+					tok = strings.TrimSpace(os.Getenv("AGENT_META_TOKEN"))
+				}
+				interval := 30 * time.Second
+				if v := strings.TrimSpace(os.Getenv("EDGE_REPORT_INTERVAL_SEC")); v != "" {
+					if n, err := strconv.Atoi(v); err == nil && n > 0 {
+						interval = time.Duration(n) * time.Second
+					}
+				}
+				go func() {
+					for {
+						func() {
+							body := strings.NewReader(fmt.Sprintf(`{"type":"edge","id":"%s","addr":"%s","http_addr":"%s","version":"%s"}`, "edge-1", addr, httpAddr, v.GetString("version")))
+							req, _ := http.NewRequest(http.MethodPost, strings.TrimRight(u, "/")+"/api/ops/nodes/meta", body)
+							req.Header.Set("Content-Type", "application/json")
+							if tok != "" {
+								req.Header.Set("X-Agent-Token", tok)
+							}
+							cli := &http.Client{Timeout: 2 * time.Second}
+							if resp, err := cli.Do(req); err == nil {
+								if resp.Body != nil {
+									resp.Body.Close()
+								}
+							}
+						}()
+						time.Sleep(interval)
+					}
+				}()
+			}
 			go func() {
 				r := gin.New()
 				r.Use(func(c *gin.Context) {
