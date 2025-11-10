@@ -1,0 +1,258 @@
+﻿version: 0.1.0
+naming:
+  event_id: "lower.dot.segments"   # e.g., session.start
+  attribute_case: "snake_case"
+
+enums:
+  platform: [ios, android, windows, macos, linux, web, ps, xbox, switch]
+  currency_kind: [soft, hard, real]
+  ad_format: [rewarded, interstitial, banner, native]
+  ad_placement: [between_waves, revive, booster, double_reward, interstitial]
+  match_result: [win, lose, draw, abandon]
+  queue_type: [solo, duo, squad, ranked, unranked]
+  performance_grade: [low, mid, high]
+  game_mode: [pve, pvp, coop, ranked, casual]
+
+privacy:
+  user_id: "pseudonymous"          # salted hash, no raw PII
+  device_id: "pseudonymous"
+
+common_attributes:
+  - key: user_id
+    type: string
+    required: true
+    pii: pseudonymous
+  - key: session_id
+    type: string
+    required: true
+  - key: device_id
+    type: string
+    required: false
+    pii: pseudonymous
+  - key: platform
+    type: enum
+    enum: platform
+  - key: region
+    type: string
+  - key: country
+    type: string
+  - key: app_version
+    type: string
+  - key: build_number
+    type: string
+  - key: server
+    type: string
+  - key: game_type
+    type: string      # refer to configs/analytics/game_types.yaml ids
+  - key: genre_code
+    type: string      # refer to configs/analytics/taxonomy.yaml codes (e.g., RPG/ARPG/RTS/TD)
+  - key: event_time
+    type: datetime
+    format: iso8601
+
+# Core event definitions
+events:
+  - id: session.start
+    category: session
+    required_attributes: [user_id, session_id, event_time, platform]
+    optional_attributes: [entry_point, campaign_id, country, region, device_id]
+    signal: log
+
+  - id: session.end
+    category: session
+    required_attributes: [user_id, session_id, event_time]
+    optional_attributes: [duration_ms, cause_of_end]   # normal/crash/disconnect/quit
+    signal: log
+
+  - id: user.register
+    category: user
+    required_attributes: [user_id, event_time]
+    optional_attributes: [channel, device_id, country, region]
+    signal: log
+
+  - id: user.login
+    category: user
+    required_attributes: [user_id, event_time]
+    optional_attributes: [method, device_id, app_version]
+    signal: log
+
+  - id: progression.start
+    category: progression
+    required_attributes: [user_id, session_id, event_time, level_id]
+    optional_attributes: [chapter_id, stage_id, attempt_index, difficulty, wave_index, is_boss_wave]
+    signal: log
+
+  - id: progression.complete
+    category: progression
+    required_attributes: [user_id, session_id, event_time, level_id]
+    optional_attributes: [chapter_id, stage_id, duration_ms, stars, retries, wave_index, is_boss_wave, hearts_remaining]
+    signal: log
+
+  - id: progression.fail
+    category: progression
+    required_attributes: [user_id, session_id, event_time, level_id]
+    optional_attributes: [chapter_id, stage_id, duration_ms, reason, wave_index, is_boss_wave, hearts_remaining]
+    signal: log
+
+  - id: match.start
+    category: match
+    required_attributes: [user_id, session_id, event_time, match_id, game_mode]
+    optional_attributes: [queue_type, team_id, map_id, mmr, queue_time_ms, deck_id, deck_archetype, deck_cards, game_variant, seat_id, stakes]
+    signal: log
+
+  - id: match.end
+    category: match
+    required_attributes: [user_id, session_id, event_time, match_id, match_result]
+    optional_attributes: [duration_ms, kills, deaths, assists, damage_done, damage_taken, heal_done, surrender, deck_id, deck_archetype, deck_cards, rake, pot, seat_id, stakes]
+    signal: log
+
+  - id: round.start
+    category: round
+    required_attributes: [user_id, event_time, match_id, round_id]
+    optional_attributes: [game_variant, seat_id, stakes]
+    signal: log
+
+  - id: round.end
+    category: round
+    required_attributes: [user_id, event_time, match_id, round_id, result]
+    optional_attributes: [rake, duration_ms, pot]
+    signal: log
+
+  - id: combat.stats
+    category: combat
+    required_attributes: [user_id, event_time]
+    optional_attributes: [weapon_id, map_id, shots, hits, headshots, damage_done]
+    signal: log
+
+  - id: deck.set_active
+    category: deck
+    required_attributes: [user_id, event_time, deck_id]
+    optional_attributes: [deck_archetype, card_ids]
+    signal: log
+
+  - id: economy.earn
+    category: economy
+    required_attributes: [user_id, event_time, currency, amount]
+    optional_attributes: [source, item_id, currency_kind, balance_after]   # source e.g., kill_enemy/wave_bonus/quest/ad_reward/offline
+    signal: log
+
+  - id: economy.spend
+    category: economy
+    required_attributes: [user_id, event_time, currency, amount]
+    optional_attributes: [sink, item_id, currency_kind, balance_after]     # sink e.g., tower_build/tower_upgrade/ability/unlock/boost/reroll
+    signal: log
+
+  - id: monetization.purchase_attempt
+    category: monetization
+    required_attributes: [user_id, event_time, order_id, sku_id]
+    optional_attributes: [price_usd, currency_code, payment_provider]
+    signal: log
+
+  - id: monetization.purchase_success
+    category: monetization
+    required_attributes: [user_id, event_time, order_id, sku_id, price_usd]
+    optional_attributes: [currency_code, payment_provider, tax_usd, country]
+    signal: log
+
+  - id: monetization.purchase_fail
+    category: monetization
+    required_attributes: [user_id, event_time, order_id, sku_id]
+    optional_attributes: [reason]
+    signal: log
+
+  - id: ad.impression
+    category: ad
+    required_attributes: [user_id, event_time, ad_network, placement_id, ad_format]
+    optional_attributes: [ecpm_usd, revenue_usd, placement_type]   # ad_placement enum recommended
+    signal: log
+
+  - id: ad.click
+    category: ad
+    required_attributes: [user_id, event_time, ad_network, placement_id, ad_format]
+    optional_attributes: [placement_type]
+    signal: log
+
+  - id: ad.reward
+    category: ad
+    required_attributes: [user_id, event_time, ad_network, placement_id]
+    optional_attributes: [reward_type, reward_amount, placement_type]
+    signal: log
+
+  - id: gacha.pull
+    category: loot
+    required_attributes: [user_id, event_time, pool_id, pulls]
+    optional_attributes: [rarity, pity_counter, item_ids]
+    signal: log
+
+  - id: craft.complete
+    category: crafting
+    required_attributes: [user_id, event_time, recipe_id]
+    optional_attributes: [inputs, output_item_id, duration_ms]
+    signal: log
+
+  - id: ui.screen_view
+    category: ui
+    required_attributes: [user_id, event_time, screen_name]
+    optional_attributes: [from_screen]
+    signal: log
+
+  - id: ui.click
+    category: ui
+    required_attributes: [user_id, event_time, element_id]
+    optional_attributes: [screen_name]
+    signal: log
+
+  - id: performance.frame
+    category: performance
+    required_attributes: [user_id, event_time, fps]
+    optional_attributes: [frame_time_ms, memory_mb, cpu_load, gpu_load]
+    signal: metric
+    metric:
+      type: histogram
+      unit: fps
+
+  - id: performance.device
+    category: performance
+    required_attributes: [user_id, event_time]
+    optional_attributes: [device_model, os_version, gpu_model, perf_grade]
+    signal: log
+
+  - id: network.rtt
+    category: network
+    required_attributes: [user_id, event_time, rtt_ms]
+    optional_attributes: [jitter_ms, packet_loss]
+    signal: metric
+
+  - id: error.crash
+    category: error
+    required_attributes: [user_id, event_time, session_id]
+    optional_attributes: [stack_hash, signal_code, scene, device_id]
+    signal: log
+
+  - id: error.anr
+    category: error
+    required_attributes: [user_id, event_time]
+    optional_attributes: [scene, app_state, device_id]
+    signal: log
+
+  - id: social.guild_join
+    category: social
+    required_attributes: [user_id, event_time, guild_id]
+    signal: log
+
+  - id: social.guild_leave
+    category: social
+    required_attributes: [user_id, event_time, guild_id]
+    signal: log
+
+  - id: td.tower.build
+    category: td
+    required_attributes: [user_id, event_time, level_id, tower_id, tower_type, pos_x, pos_y, cost]
+    optional_attributes: [wave_index]
+    signal: log
+
+  - id: td.tower.upgrade
+    category: td
+    required_attributes: [user_id, event_time, level_id, tower_id, from_level, to_level, cost]
+    optional_attributes: [wave_index, tower_type]
+    signal: log

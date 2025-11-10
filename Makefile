@@ -103,3 +103,8 @@ worker:
 	@mkdir -p $(BINDIR)
 	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/analytics-worker ./cmd/analytics-worker
 
+
+.PHONY: analytics-spec
+analytics-spec:
+	@echo "[analytics] exporting analytics spec JSON to web/public/analytics-spec.json"
+	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/export-analytics-spec.ps1

@@ -1,0 +1,102 @@
+﻿version: 0.1.0
+genres:
+  - code: RPG
+    name: "Role-Playing Game"
+    zh_name: "角色扮演游戏"
+    aliases: ["RPG","角色扮演"]
+    maps_to: ["rpg","mmorpg","arpg","srpg"]
+  - code: ARPG
+    name: "Action RPG"
+    zh_name: "动作角色扮演"
+    aliases: ["ARPG","动作RPG","刷刷刷"]
+    maps_to: ["arpg","rpg"]
+  - code: SRPG
+    name: "Simulation/Tactical RPG"
+    zh_name: "模拟/战棋RPG"
+    aliases: ["SRPG","战棋RPG","策略RPG"]
+    maps_to: ["srpg","strategy_4x"]
+  - code: FPS
+    name: "First-Person Shooter"
+    zh_name: "第一人称射击"
+    aliases: ["FPS","第一人称"]
+    maps_to: ["shooter"]
+  - code: STG
+    name: "Shooting Game"
+    zh_name: "射击类"
+    aliases: ["STG","射击"]
+    maps_to: ["shooter"]
+  - code: RTS
+    name: "Real-Time Strategy"
+    zh_name: "即时战略"
+    aliases: ["RTS","即时策略"]
+    maps_to: ["rts","strategy_4x"]
+  - code: SLG
+    name: "Strategy/Simulation Game"
+    zh_name: "策略/战棋"
+    aliases: ["SLG","策略","战棋"]
+    maps_to: ["strategy_4x","srpg","tower_defense"]
+  - code: TD
+    name: "Tower Defense"
+    zh_name: "塔防"
+    aliases: ["TD","塔防"]
+    maps_to: ["tower_defense"]
+  - code: RAC
+    name: "Racing"
+    zh_name: "赛车竞速"
+    aliases: ["RAC","竞速","赛车"]
+    maps_to: ["racing","sports_racing"]
+  - code: ACT
+    name: "Action Game"
+    zh_name: "动作类"
+    aliases: ["ACT","动作"]
+    maps_to: ["action_act","platformer_metroidvania","shooter"]
+  - code: SIM
+    name: "Simulation"
+    zh_name: "模拟经营"
+    aliases: ["SIM","模拟","经营"]
+    maps_to: ["simulation_tycoon","raising_sim","flight_sim"]
+  - code: EDU
+    name: "Raising/Education"
+    zh_name: "养成/教育"
+    aliases: ["EDU","养成","育成"]
+    maps_to: ["raising_sim"]
+  - code: FLY
+    name: "Flight Simulation"
+    zh_name: "飞行模拟"
+    aliases: ["FLY","飞行模拟"]
+    maps_to: ["flight_sim"]
+  - code: TAB
+    name: "Table/Board Game"
+    zh_name: "桌面/棋牌"
+    aliases: ["TAB","桌游","棋牌"]
+    maps_to: ["board_table","social_casino"]
+  - code: SPG
+    name: "Sports Game"
+    zh_name: "体育类"
+    aliases: ["SPG","体育"]
+    maps_to: ["sports","sports_racing"]
+  - code: FTG
+    name: "Fighting Game"
+    zh_name: "格斗类"
+    aliases: ["FTG","格斗"]
+    maps_to: ["fighting_ftg"]
+  - code: SFTG
+    name: "Simulation Fighting Game"
+    zh_name: "模拟格斗"
+    aliases: ["SFTG","模拟格斗"]
+    maps_to: ["fighting_sim"]
+  - code: PUZ
+    name: "Puzzle"
+    zh_name: "益智/解谜"
+    aliases: ["PUZ","益智","解谜"]
+    maps_to: ["casual_puzzle"]
+  - code: AVG
+    name: "Adventure Game"
+    zh_name: "冒险类"
+    aliases: ["AVG","冒险","视觉小说"]
+    maps_to: ["narrative_adventure"]
+  - code: ETC
+    name: "Others"
+    zh_name: "其他"
+    aliases: ["ETC","其它","其他"]
+    maps_to: []

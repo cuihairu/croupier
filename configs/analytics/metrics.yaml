@@ -1,0 +1,311 @@
+﻿version: 0.1.0
+metrics:
+  - id: dau
+    zh_name: "日活跃用户数"
+    zh_desc: "当日内产生关键事件（session.start 或 user.login）的独立用户数量，用于衡量日活规模。"
+    type: counter
+    window: 1d
+    source: "unique(user_id) on events in [session.start, user.login]"
+    dimensions: [platform, region, channel]
+
+  - id: wau
+    zh_name: "周活跃用户数"
+    zh_desc: "最近7天内产生关键事件的独立用户数量（日去重），衡量周活规模。"
+    type: counter
+    window: 7d
+    source: "unique(user_id) on events in [session.start, user.login]"
+    dimensions: [platform, region]
+
+  - id: mau
+    zh_name: "月活跃用户数"
+    zh_desc: "最近30天内产生关键事件的独立用户数量（日去重），衡量月活规模。"
+    type: counter
+    window: 30d
+    source: "unique(user_id) on events in [session.start, user.login]"
+    dimensions: [platform, region]
+
+  - id: retention_d1
+    zh_name: "次日留存率"
+    zh_desc: "在注册当日（D0）注册且在次日（D1）仍有启动/游玩行为的用户占比；分母为D0注册用户数。"
+    type: ratio
+    window: 1d
+    numerator: "users with session.start on day+1 and user.register on day 0"
+    denominator: "users with user.register on day 0"
+    dimensions: [channel, platform, region]
+
+  - id: retention_d7
+    zh_name: "7日留存率"
+    zh_desc: "在注册当日（D0）注册且在第7天（D7）仍有启动/游玩行为的用户占比。"
+    type: ratio
+    window: 7d
+    numerator: "users with session.start on day+7 and user.register on day 0"
+    denominator: "users with user.register on day 0"
+    dimensions: [channel, platform]
+
+  - id: retention_d30
+    zh_name: "30日留存率"
+    zh_desc: "在注册当日（D0）注册且在第30天（D30）仍有启动/游玩行为的用户占比。"
+    type: ratio
+    window: 30d
+    numerator: "users with session.start on day+30 and user.register on day 0"
+    denominator: "users with user.register on day 0"
+    dimensions: [channel, platform]
+
+  - id: session_length_p50
+    zh_name: "会话时长P50"
+    zh_desc: "会话结束事件（session.end.duration_ms）的中位数，反映典型单次游玩时长。"
+    type: histogram
+    source: session.end.duration_ms
+    agg: p50
+    unit: ms
+    dimensions: [platform, region, entry_point]
+
+  - id: session_length_p95
+    zh_name: "会话时长P95"
+    zh_desc: "会话结束事件（session.end.duration_ms）的95分位，反映重度用户或极端会话时长。"
+    type: histogram
+    source: session.end.duration_ms
+    agg: p95
+    unit: ms
+    dimensions: [platform, region]
+
+  - id: crash_rate
+    zh_name: "崩溃率"
+    zh_desc: "崩溃事件数（error.crash）占会话结束数（session.end）的比例，越低越好。"
+    type: ratio
+    numerator: "count(error.crash)"
+    denominator: "count(session.end)"
+    dimensions: [platform, app_version]
+
+  - id: crash_free_users_rate
+    zh_name: "无崩溃用户占比"
+    zh_desc: "当日启动过的用户中，从未发生崩溃的用户占比，衡量整体稳定性体验。"
+    type: ratio
+    numerator: "unique(user_id) with no error.crash"
+    denominator: "unique(user_id) on session.start"
+    dimensions: [platform, app_version]
+
+  - id: anr_rate
+    zh_name: "ANR率"
+    zh_desc: "ANR事件数（error.anr）占会话结束数（session.end）的比例，越低越好。"
+    type: ratio
+    numerator: "count(error.anr)"
+    denominator: "count(session.end)"
+    dimensions: [platform, app_version]
+
+  - id: arpu
+    zh_name: "每用户平均收入（ARPU）"
+    zh_desc: "当日总收入除以DAU，反映平均变现能力。"
+    type: gauge
+    formula: "sum(monetization.purchase_success.price_usd) / dau"
+    window: 1d
+    dimensions: [region, platform, channel]
+
+  - id: arppu
+    zh_name: "每付费用户平均收入（ARPPU）"
+    zh_desc: "当日总收入除以付费用户数，反映付费深度。"
+    type: gauge
+    formula: "sum(monetization.purchase_success.price_usd) / unique(purchasers)"
+    window: 1d
+    dimensions: [region, platform]
+
+  - id: pur
+    zh_name: "付费率（PUR）"
+    zh_desc: "当日付费用户数占DAU的比例，衡量付费渗透。"
+    type: ratio
+    numerator: "unique(purchasers)"
+    denominator: "dau"
+    window: 1d
+    dimensions: [channel, platform]
+
+  - id: ad_arpu
+    zh_name: "广告ARPU"
+    zh_desc: "当日广告收入除以DAU，衡量广告变现强度。"
+    type: gauge
+    formula: "sum(ad.impression.revenue_usd) / dau"
+    window: 1d
+    dimensions: [ad_network, placement_id, platform]
+
+  - id: ad_impressions_per_dau
+    zh_name: "广告曝光数/DAU"
+    zh_desc: "广告曝光次数除以DAU，反映人均曝光强度。"
+    type: gauge
+    formula: "count(ad.impression) / dau"
+    window: 1d
+    dimensions: [ad_network, placement_id, platform]
+
+  - id: win_rate
+    zh_name: "胜率"
+    zh_desc: "胜场数占总对局数的比例，可按模式/地图等维度切片。"
+    type: ratio
+    numerator: "count(match.end where match_result = 'win')"
+    denominator: "count(match.end)"
+    dimensions: [game_mode, map_id]
+
+  - id: kda
+    zh_name: "KDA"
+    zh_desc: "（击杀+助攻）/ max(1, 死亡）在统计窗口内的聚合，反映个人战绩表现。"
+    type: gauge
+    formula: "(sum(kills) + sum(assists)) / max(1, sum(deaths))"
+    source: match.end
+    dimensions: [game_mode, hero_id]
+
+  - id: accuracy_rate
+    zh_name: "命中率"
+    zh_desc: "命中次数占射击次数的比例，反映射击精度。"
+    type: ratio
+    numerator: "sum(combat.stats.hits)"
+    denominator: "sum(combat.stats.shots)"
+    dimensions: [weapon_id, map_id]
+
+  - id: queue_time_p95
+    zh_name: "匹配等待时长P95"
+    zh_desc: "匹配开始事件中的排队等待时长的95分位，反映极端等待体验。"
+    type: histogram
+    source: match.start.queue_time_ms
+    agg: p95
+    unit: ms
+    dimensions: [queue_type, game_mode, region]
+
+  - id: level_completion_rate
+    zh_name: "关卡完成率"
+    zh_desc: "关卡完成事件占关卡开始事件的比例，衡量关卡难度与漏斗。"
+    type: ratio
+    numerator: "count(progression.complete)"
+    denominator: "count(progression.start)"
+    dimensions: [level_id, difficulty]
+
+  - id: retries_avg
+    zh_name: "平均重试次数"
+    zh_desc: "每次关卡完成前的平均重试次数，反映关卡挑战性。"
+    type: gauge
+    formula: "avg(progression.complete.retries)"
+    dimensions: [level_id]
+
+  - id: pity_counter_avg
+    zh_name: "平均保底计数"
+    zh_desc: "抽卡保底计数的平均值，反映卡池保底区间的实际位置。"
+    type: gauge
+    formula: "avg(gacha.pull.pity_counter)"
+    dimensions: [pool_id]
+
+  # ---- Additions for idle/card/board/TD ----
+  - id: idle_offline_income_share
+    zh_name: "离线收益占比"
+    zh_desc: "离线来源的收益金额占总收益金额的比例，用于评估放置收益依赖度。"
+    type: ratio
+    numerator: "sum(economy.earn.amount where source = 'offline')"
+    denominator: "sum(economy.earn.amount)"
+    window: 1d
+    dimensions: [platform, region]
+
+  - id: economy_balance_ratio
+    zh_name: "经济产消比"
+    zh_desc: "收入总额与支出总额的比值，衡量游戏内经济供需平衡。"
+    type: gauge
+    formula: "sum(economy.earn.amount) / nullif(sum(economy.spend.amount),0)"
+    window: 1d
+    dimensions: [platform, region]
+
+  - id: card_usage_rate
+    zh_name: "卡牌使用率"
+    zh_desc: "含指定卡牌的对局占全部对局的比例，反映卡牌出场频率。"
+    type: ratio
+    numerator: "count(match.end where contains(deck_cards, card_id))"
+    denominator: "count(match.end)"
+    dimensions: [card_id, deck_archetype]
+
+  - id: card_win_rate
+    zh_name: "卡牌胜率"
+    zh_desc: "使用指定卡牌的对局中获胜的比例，反映卡牌强度。"
+    type: ratio
+    numerator: "count(match.end where match_result = 'win' and contains(deck_cards, card_id))"
+    denominator: "count(match.end where contains(deck_cards, card_id))"
+    dimensions: [card_id, deck_archetype]
+
+  - id: deck_archetype_share
+    zh_name: "卡组原型占比"
+    zh_desc: "指定卡组原型参与的对局占比，反映环境占有率。"
+    type: ratio
+    numerator: "count(match.end where deck_archetype = X)"
+    denominator: "count(match.end)"
+    dimensions: [deck_archetype]
+
+  - id: deck_archetype_win_rate
+    zh_name: "卡组原型胜率"
+    zh_desc: "指定卡组原型对局中的胜率，反映环境强度。"
+    type: ratio
+    numerator: "count(match.end where match_result = 'win' and deck_archetype = X)"
+    denominator: "count(match.end where deck_archetype = X)"
+    dimensions: [deck_archetype]
+
+  - id: avg_round_duration
+    zh_name: "回合时长P50"
+    zh_desc: "round.end.duration_ms 的中位数，描述单回合典型耗时。"
+    type: histogram
+    source: round.end.duration_ms
+    agg: p50
+    unit: ms
+    dimensions: [game_variant, stakes]
+
+  - id: win_rate_by_seat
+    zh_name: "按座位胜率"
+    zh_desc: "不同座位位次的胜率，用于公平性与位置优势分析。"
+    type: ratio
+    numerator: "count(match.end where result = 'win')"
+    denominator: "count(match.end)"
+    dimensions: [seat_id, game_variant]
+
+  - id: rake_rate
+    zh_name: "抽水率"
+    zh_desc: "平台抽佣金额占底池或有效投注金额的比例，衡量商业化合理性。"
+    type: gauge
+    formula: "sum(match.end.rake) / nullif(sum(match.end.pot),0)"
+    dimensions: [game_variant, stakes]
+
+  - id: afk_leave_rate
+    zh_name: "中途离场率"
+    zh_desc: "以放弃/掉线结束的对局占比，衡量对局稳定与反作弊。"
+    type: ratio
+    numerator: "count(match.end where result = 'abandon')"
+    denominator: "count(match.end)"
+    dimensions: [game_variant]
+
+  - id: td_level_clear_rate
+    zh_name: "塔防关卡通关率"
+    zh_desc: "塔防关卡的完成率，衡量关卡难度与节奏。"
+    type: ratio
+    numerator: "count(progression.complete)"
+    denominator: "count(progression.start)"
+    dimensions: [level_id, difficulty]
+
+  - id: td_wave_fail_rate_by_wave
+    zh_name: "各波次失败率"
+    zh_desc: "在各波次发生失败的比例，定位具体波次的难点。"
+    type: ratio
+    numerator: "count(progression.fail where wave_index is not null)"
+    denominator: "count(progression.start where wave_index is not null)"
+    dimensions: [level_id, wave_index]
+
+  - id: td_avg_hearts_remaining
+    zh_name: "平均残余生命"
+    zh_desc: "通关时剩余生命（或“心”）的平均值，反映通关裕量。"
+    type: gauge
+    formula: "avg(progression.complete.hearts_remaining)"
+    dimensions: [level_id, difficulty]
+
+  - id: td_tower_usage_rate_by_type
+    zh_name: "塔型使用率"
+    zh_desc: "各塔型被建造的频次占比，评估塔型热度与平衡。"
+    type: ratio
+    numerator: "count(td.tower.build where tower_type = T)"
+    denominator: "count(progression.start)"
+    dimensions: [tower_type, level_id]
+
+  - id: td_upgrade_rate
+    zh_name: "塔升级率"
+    zh_desc: "升级次数相对建造次数的比例，反映升级策略与资源压力。"
+    type: ratio
+    numerator: "count(td.tower.upgrade)"
+    denominator: "count(td.tower.build)"
+    dimensions: [level_id]
