@@ -1,4 +1,4 @@
-package games
+﻿package games
 
 import (
     "encoding/json"
@@ -17,8 +17,10 @@ type Game struct {
     // Additional metadata fields
     AliasName string `gorm:"size:64"`
     Homepage  string `gorm:"size:255"`
-    // Lifecycle status: dev (开发) | test (测试) | running (运行中) | online (在线) | offline (下线) | maintenance (维护)
+    // Lifecycle status: dev (寮€鍙? | test (娴嬭瘯) | running (杩愯涓? | online (鍦ㄧ嚎) | offline (涓嬬嚎) | maintenance (缁存姢)
     Status string `gorm:"size:32;default:dev"`
+    GameType string
+    GenreCode string
     // Envs stores the list of env names this game supports (JSON array of strings)
     Envs datatypes.JSON `gorm:"type:json"`
 }

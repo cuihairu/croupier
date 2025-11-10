@@ -89,3 +89,71 @@ A: 浏览器 Network 标签查看请求。确保后端在 http://localhost:8080
 ---
 
 所有文档已保存在 `web/` 目录。祝开发愉快！
+
+## 前端读取 Analytics 规范（JSON）
+- 生成：`make analytics-spec`（调用 `scripts/export-analytics-spec.ps1`，读取 `configs/analytics/*.yaml` 并导出 JSON）
+- 输出：`web/public/analytics-spec.json`
+- 用法（Umi/React 示例）：
+  ```ts
+  // src/services/analyticsSpec.ts
+  export async function loadAnalyticsSpec() {
+    const res = await fetch('/analytics-spec.json');
+    return res.json();
+  }
+  ```
+- 展示：从 `metrics.metrics` 读取 `zh_name/zh_desc` 用于表格/筛选/Tooltip；从 `game_types.game_types` 读取 `summary/description`。
+
+## 在后台“游戏管理”页面展示游戏类型信息
+- 预置：运行 `make analytics-spec` 生成 `/analytics-spec.json`。
+- 组件：`web/src/components/analytics/GameTypeInfo.tsx`
+- 用法示例：
+  ```tsx
+  import GameTypeInfo from '@/components/analytics/GameTypeInfo';
+
+  export default function GameDetail() {
+    // 假设从接口拿到 game.game_type = 'tower_defense'
+    const gameTypeId = 'tower_defense';
+    return <GameTypeInfo gameTypeId={gameTypeId} />;
+  }
+  ```
+- 组件内容：名称/ID、summary、description、特征、别名、代表作、推荐指标（带中文名）与推荐事件、默认维度。
+
+## 后台游戏管理页：游戏类型区块
+- 组件：`GameTypeSelectCard` + `GameTypeInfo` + 可选 `MetricsCatalogModal`
+- 示例：
+  ```tsx
+  import GameTypeSelectCard from '@/components/analytics/GameTypeSelectCard';
+  import MetricsCatalogModal from '@/components/analytics/MetricsCatalogModal';
+  import { updateGame } from '@/services/games';
+
+  export default function GameAdminSection({ game }: { game: { id: number; game_type?: string } }) {
+    const [open, setOpen] = useState(false);
+    return (
+      <>
+        <GameTypeSelectCard
+          gameTypeId={game.game_type}
+          onSave={async (next) => {
+            // 后端若支持，直接保存到 /api/games/:id
+            await updateGame(game.id, { game_type: next });
+          }}
+        />
+        <a onClick={() => setOpen(true)}>查看指标目录</a>
+        <MetricsCatalogModal open={open} onClose={() => setOpen(false)} />
+      </>
+    );
+  }
+  ```
+- Demo：打开 `/dev/analytics-types` 预览所有类型卡片。
+
+### 进阶：后端未支持 game_type 时的兜底存储
+- 使用 `/api/configs` 存储游戏元信息（ID=`game.meta`，game_id=数值ID，env=空）。
+- 服务封装：`web/src/services/gameMeta.ts` 提供 `loadGameMeta` / `saveGameMeta`。
+- 组件 `GameTypeSelectCard` 内置了兜底 `saveGameMeta` 调用；也可在页面加载时用 `loadGameMeta` 预填 game_type。
+- 等后端 `/api/games` 接口扩展出 `game_type/genre_code` 字段后，优先使用 `updateGame` 持久化，`configs` 作为备份。
+
+### 在游戏管理列表显示类型/分类代码，并支持编辑
+- 列展示：使用 `GameTypeTag` 渲染 `record.game_type`，直接加两列：
+  - `游戏类型`（GameTypeTag）
+  - `分类代码`（genre_code）
+- 选择卡片：`GameTypeSelectCard` 已支持 `genre_code` 下拉（基于 `taxonomy.yaml`），保存时同时提交 `game_type/genre_code`。
+- 演示：打开 `/dev/games-table` 查看列表与编辑交互。

@@ -1,4 +1,4 @@
-package games
+﻿package games
 
 import (
     "context"
@@ -16,7 +16,7 @@ var _ dom.GamesRepository = (*PortRepo)(nil)
 
 func (p *PortRepo) Create(ctx context.Context, g *dom.Game) error {
     if g == nil { return nil }
-    m := &Game{ Name: g.Name, Icon: g.Icon, Description: g.Description, Enabled: g.Enabled, AliasName: g.AliasName, Homepage: g.Homepage, Status: g.Status }
+    m := &Game{ Name: g.Name, Icon: g.Icon, Description: g.Description, Enabled: g.Enabled, AliasName: g.AliasName, Homepage: g.Homepage, Status: g.Status, GameType: g.GameType, GenreCode: g.GenreCode }
     if len(g.Envs) > 0 { m.SetEnvList(g.Envs) }
     if err := p.r.Create(ctx, m); err != nil { return err }
     g.ID = m.ID
@@ -24,7 +24,7 @@ func (p *PortRepo) Create(ctx context.Context, g *dom.Game) error {
 }
 func (p *PortRepo) Update(ctx context.Context, g *dom.Game) error {
     if g == nil { return nil }
-    m := &Game{ Model: gorm.Model{ID: g.ID}, Name: g.Name, Icon: g.Icon, Description: g.Description, Enabled: g.Enabled, AliasName: g.AliasName, Homepage: g.Homepage, Status: g.Status }
+    m := &Game{ Model: gorm.Model{ID: g.ID}, Name: g.Name, Icon: g.Icon, Description: g.Description, Enabled: g.Enabled, AliasName: g.AliasName, Homepage: g.Homepage, Status: g.Status, GameType: g.GameType, GenreCode: g.GenreCode }
     if len(g.Envs) > 0 { m.SetEnvList(g.Envs) }
     return p.r.Update(ctx, m)
 }
@@ -70,6 +70,8 @@ func toDomain(g *Game) *dom.Game {
         AliasName:   g.AliasName,
         Homepage:    g.Homepage,
         Status:      g.Status,
+        GameType:    g.GameType,
+        GenreCode:   g.GenreCode,
         Envs:        g.GetEnvList(),
         CreatedAt:   g.CreatedAt,
         UpdatedAt:   g.UpdatedAt,
@@ -77,3 +79,5 @@ func toDomain(g *Game) *dom.Game {
 }
 
 // no-op helper kept to minimize patch churn in future
+
+

@@ -1,4 +1,4 @@
-package httpserver
+﻿package httpserver
 
 import (
 	"bytes"
@@ -749,13 +749,13 @@ func (s *Server) notifyEvent(event string, meta map[string]any) {
 		text += ":" + fmt.Sprint(p)
 	}
 	if st, ok := meta["status"]; ok {
-		text += " 状态:" + fmt.Sprint(st)
+		text += " 鐘舵€?" + fmt.Sprint(st)
 	}
 	if dl, ok := meta["days_left"]; ok {
-		text += " 剩余天数:" + fmt.Sprint(dl)
+		text += " 鍓╀綑澶╂暟:" + fmt.Sprint(dl)
 	}
 	if vt, ok := meta["valid_to"]; ok {
-		text += " 到期:" + fmt.Sprint(vt)
+		text += " 鍒版湡:" + fmt.Sprint(vt)
 	}
 	// pick channels
 	ids := []string{}
@@ -1807,33 +1807,33 @@ func (s *Server) respondError(c *gin.Context, status int, code, message string) 
 		Message   string `json:"message"`
 		RequestID string `json:"request_id,omitempty"`
 	}
-	// Map常见错误到中文，以便直接呈现；对于具体错误细节（如 err.Error()），保持原样
+	// Map甯歌閿欒鍒颁腑鏂囷紝浠ヤ究鐩存帴鍛堢幇锛涘浜庡叿浣撻敊璇粏鑺傦紙濡?err.Error()锛夛紝淇濇寔鍘熸牱
 	zh := map[string]string{
-		"unauthorized":       "未授权",
-		"forbidden":          "无权限",
-		"bad_request":        "请求参数无效",
-		"internal_error":     "服务器内部错误",
-		"not_found":          "资源不存在",
-		"unavailable":        "服务不可用",
-		"conflict":           "资源冲突",
-		"rate_limited":       "请求过于频繁",
-		"method_not_allowed": "方法不被允许",
-		"not_implemented":    "未实现",
-		"bad_gateway":        "上游服务错误",
-		"request_too_large":  "请求体过大",
+		"unauthorized":       "鏈巿鏉?,
+		"forbidden":          "鏃犳潈闄?,
+		"bad_request":        "璇锋眰鍙傛暟鏃犳晥",
+		"internal_error":     "鏈嶅姟鍣ㄥ唴閮ㄩ敊璇?,
+		"not_found":          "璧勬簮涓嶅瓨鍦?,
+		"unavailable":        "鏈嶅姟涓嶅彲鐢?,
+		"conflict":           "璧勬簮鍐茬獊",
+		"rate_limited":       "璇锋眰杩囦簬棰戠箒",
+		"method_not_allowed": "鏂规硶涓嶈鍏佽",
+		"not_implemented":    "鏈疄鐜?,
+		"bad_gateway":        "涓婃父鏈嶅姟閿欒",
+		"request_too_large":  "璇锋眰浣撹繃澶?,
 	}
-	// 仅在 message 看起来是占位提示或为空时，采用中文映射
+	// 浠呭湪 message 鐪嬭捣鏉ユ槸鍗犱綅鎻愮ず鎴栦负绌烘椂锛岄噰鐢ㄤ腑鏂囨槧灏?
 	if v, ok := zh[code]; ok {
 		switch strings.ToLower(strings.TrimSpace(message)) {
 		case "", "unauthorized", "forbidden", "bad request", "internal error", "not found", "service unavailable", "conflict", "too many login attempts", "method not allowed", "not implemented", "bad gateway", "request too large", "invalid payload":
 			message = v
 		}
 	}
-	// 内部错误：若携带具体错误信息，则在前面增加中文前缀，便于用户理解
+	// 鍐呴儴閿欒锛氳嫢鎼哄甫鍏蜂綋閿欒淇℃伅锛屽垯鍦ㄥ墠闈㈠鍔犱腑鏂囧墠缂€锛屼究浜庣敤鎴风悊瑙?
 	if code == "internal_error" {
 		m := strings.TrimSpace(message)
-		if m != "" && !strings.HasPrefix(m, "服务器内部错误") {
-			message = "服务器内部错误：" + m
+		if m != "" && !strings.HasPrefix(m, "鏈嶅姟鍣ㄥ唴閮ㄩ敊璇?) {
+			message = "鏈嶅姟鍣ㄥ唴閮ㄩ敊璇細" + m
 		}
 	}
 	rid, _ := c.Get("reqid")
@@ -1918,7 +1918,7 @@ func (s *Server) ginLogger() gin.HandlerFunc {
 }
 
 // ipRegion returns a human-readable region string for an IP (e.g., "CN/Zhejiang/Hangzhou") using optional HTTP resolver.
-// Results are cached in-memory with a short TTL; private/local addresses map to "内网".
+// Results are cached in-memory with a short TTL; private/local addresses map to "鍐呯綉".
 func (s *Server) ipRegion(ip string) string {
 	ip = cleanIP(strings.TrimSpace(ip))
 	if ip == "" {
@@ -1926,10 +1926,10 @@ func (s *Server) ipRegion(ip string) string {
 	}
 	// quick local/LAN detection
 	if isLoopbackIP(ip) {
-		return "本地"
+		return "鏈湴"
 	}
 	if isLANIP(ip) {
-		return "局域网"
+		return "灞€鍩熺綉"
 	}
 	// cache
 	s.ipRegionMu.RLock()
@@ -2574,6 +2574,8 @@ func (s *Server) ginEngine() *gin.Engine {
 				AliasName   string           `json:"alias_name"`
 				Homepage    string           `json:"homepage"`
 				Status      string           `json:"status"`
+				GameType    string           `json:"game_type"`
+				GenreCode   string           `json:"genre_code"`
 				CreatedAt   string           `json:"created_at"`
 				UpdatedAt   string           `json:"updated_at"`
 				Envs        []string         `json:"envs,omitempty"`
@@ -2589,7 +2591,7 @@ func (s *Server) ginEngine() *gin.Engine {
 				out = append(out, gv{
 					ID: g.ID, Name: g.Name, Icon: g.Icon, Description: g.Description,
 					Enabled: g.Enabled, AliasName: g.AliasName, Homepage: g.Homepage, Status: g.Status,
-					CreatedAt: g.CreatedAt.Format(time.RFC3339), UpdatedAt: g.UpdatedAt.Format(time.RFC3339),
+					CreatedAt: g.CreatedAt.Format(time.RFC3339), UpdatedAt: g.UpdatedAt.Format(time.RFC3339), GameType: g.GameType, GenreCode: g.GenreCode,
 					Envs: g.Envs, GameEnvs: recs,
 				})
 			}
@@ -2631,7 +2633,7 @@ func (s *Server) ginEngine() *gin.Engine {
 			out = append(out, gv{
 				ID: g.ID, Name: g.Name, Icon: g.Icon, Description: g.Description,
 				Enabled: g.Enabled, AliasName: g.AliasName, Homepage: g.Homepage, Status: g.Status,
-				CreatedAt: g.CreatedAt.Format(time.RFC3339), UpdatedAt: g.UpdatedAt.Format(time.RFC3339),
+				CreatedAt: g.CreatedAt.Format(time.RFC3339), UpdatedAt: g.UpdatedAt.Format(time.RFC3339), GameType: g.GameType, GenreCode: g.GenreCode,
 				Envs: envNames, GameEnvs: recs,
 			})
 		}
@@ -2651,6 +2653,8 @@ func (s *Server) ginEngine() *gin.Engine {
 			Status      string `json:"status"`
 			AliasName   string `json:"alias_name"`
 			Homepage    string `json:"homepage"`
+			GameType    string           `json:"game_type"`
+			GenreCode   string           `json:"genre_code"`
 		}
 		if err := c.BindJSON(&in); err != nil {
 			s.respondError(c, 400, "bad_request", "invalid payload")
@@ -2677,6 +2681,8 @@ func (s *Server) ginEngine() *gin.Engine {
 					Status:      status,
 					AliasName:   in.AliasName,
 					Homepage:    in.Homepage,
+\t\t\t\tGameType:    strings.TrimSpace(in.GameType),
+\t\t\t\tGenreCode:   strings.TrimSpace(in.GenreCode),
 				}
 				if err := s.gamesSvc.CreateGame(c, dg); err != nil {
 					s.respondError(c, 500, "internal_error", "failed to create game")
@@ -2687,7 +2693,7 @@ func (s *Server) ginEngine() *gin.Engine {
 				return
 			}
 			// Fallback: direct repo path
-			g := &repogames.Game{Name: in.Name, Icon: in.Icon, Description: in.Description, Enabled: in.Enabled, Status: status, AliasName: in.AliasName, Homepage: in.Homepage}
+			g := &repogames.Game{Name: in.Name, Icon: in.Icon, Description: in.Description, Enabled: in.Enabled, Status: status, AliasName: in.AliasName, Homepage: in.Homepage, GameType: strings.TrimSpace(in.GameType), GenreCode: strings.TrimSpace(in.GenreCode)}
 			if err := s.games.Create(c, g); err != nil {
 				s.respondError(c, 500, "internal_error", "failed to create game")
 				return
@@ -2712,8 +2718,10 @@ func (s *Server) ginEngine() *gin.Engine {
 			}
 			g.AliasName = in.AliasName
 			g.Homepage = in.Homepage
+\t\tif strings.TrimSpace(in.GameType) != "" { g.GameType = strings.TrimSpace(in.GameType) }
+\t\tif strings.TrimSpace(in.GenreCode) != "" { g.GenreCode = strings.TrimSpace(in.GenreCode) }
 			if s.gamesSvc != nil {
-				dg := &dom.Game{ID: g.ID, Name: g.Name, Icon: g.Icon, Description: g.Description, Enabled: g.Enabled, Status: g.Status, AliasName: g.AliasName, Homepage: g.Homepage, Envs: g.GetEnvList(), CreatedAt: g.CreatedAt, UpdatedAt: g.UpdatedAt}
+				dg := &dom.Game{ID: g.ID, Name: g.Name, Icon: g.Icon, Description: g.Description, Enabled: g.Enabled, Status: g.Status, AliasName: g.AliasName, Homepage: g.Homepage, GameType: g.GameType, GenreCode: g.GenreCode, Envs: g.GetEnvList(), CreatedAt: g.CreatedAt, UpdatedAt: g.UpdatedAt}
 				if err := s.gamesSvc.UpdateGame(c, dg); err != nil {
 					s.respondError(c, 500, "internal_error", "failed to update game")
 					return
@@ -2746,7 +2754,7 @@ func (s *Server) ginEngine() *gin.Engine {
 			}
 			s.JSON(c, 200, gin.H{
 				"id": g.ID, "name": g.Name, "icon": g.Icon, "description": g.Description,
-				"enabled": g.Enabled, "alias_name": g.AliasName, "homepage": g.Homepage, "status": g.Status,
+				"enabled": g.Enabled, "alias_name": g.AliasName, "homepage": g.Homepage, "status": g.Status, "game_type": g.GameType, "genre_code": g.GenreCode,
 				"created_at": g.CreatedAt.Format(time.RFC3339), "updated_at": g.UpdatedAt.Format(time.RFC3339),
 				"envs": g.Envs, "game_envs": recs,
 			})
@@ -2766,7 +2774,7 @@ func (s *Server) ginEngine() *gin.Engine {
 		}
 		s.JSON(c, 200, gin.H{
 			"id": g.ID, "name": g.Name, "icon": g.Icon, "description": g.Description,
-			"enabled": g.Enabled, "alias_name": g.AliasName, "homepage": g.Homepage, "status": g.Status,
+			"enabled": g.Enabled, "alias_name": g.AliasName, "homepage": g.Homepage, "status": g.Status, "game_type": g.GameType, "genre_code": g.GenreCode,
 			"created_at": g.CreatedAt.Format(time.RFC3339), "updated_at": g.UpdatedAt.Format(time.RFC3339),
 			"envs": envNames, "game_envs": recs,
 		})
@@ -2785,6 +2793,8 @@ func (s *Server) ginEngine() *gin.Engine {
 			Status      string `json:"status"`
 			AliasName   string `json:"alias_name"`
 			Homepage    string `json:"homepage"`
+			GameType    string           `json:"game_type"`
+			GenreCode   string           `json:"genre_code"`
 		}
 		if err := c.BindJSON(&in); err != nil {
 			s.respondError(c, 400, "bad_request", "invalid payload")
@@ -2804,8 +2814,10 @@ func (s *Server) ginEngine() *gin.Engine {
 		}
 		g.AliasName = in.AliasName
 		g.Homepage = in.Homepage
+\t\tif strings.TrimSpace(in.GameType) != "" { g.GameType = strings.TrimSpace(in.GameType) }
+\t\tif strings.TrimSpace(in.GenreCode) != "" { g.GenreCode = strings.TrimSpace(in.GenreCode) }
 		if s.gamesSvc != nil {
-			dg := &dom.Game{ID: g.ID, Name: g.Name, Icon: g.Icon, Description: g.Description, Enabled: g.Enabled, Status: g.Status, AliasName: g.AliasName, Homepage: g.Homepage, Envs: g.GetEnvList(), CreatedAt: g.CreatedAt, UpdatedAt: g.UpdatedAt}
+			dg := &dom.Game{ID: g.ID, Name: g.Name, Icon: g.Icon, Description: g.Description, Enabled: g.Enabled, Status: g.Status, AliasName: g.AliasName, Homepage: g.Homepage, GameType: g.GameType, GenreCode: g.GenreCode, Envs: g.GetEnvList(), CreatedAt: g.CreatedAt, UpdatedAt: g.UpdatedAt}
 			if err := s.gamesSvc.UpdateGame(c, dg); err != nil {
 				s.respondError(c, 500, "internal_error", "failed to update game")
 				return
@@ -3032,7 +3044,7 @@ func (s *Server) ginEngine() *gin.Engine {
 
 			s.JSON(c, 200, combined)
 		})
-		// Provider capabilities (manifest) upload（开发期 HTTP 接口；后续由 Control 注册替代）
+		// Provider capabilities (manifest) upload锛堝紑鍙戞湡 HTTP 鎺ュ彛锛涘悗缁敱 Control 娉ㄥ唽鏇夸唬锛?
 		r.POST("/api/providers/capabilities", func(c *gin.Context) {
 			var in struct {
 				Provider struct{
@@ -3054,7 +3066,7 @@ func (s *Server) ginEngine() *gin.Engine {
 			_ = s.addProviderFunctionsFromManifest(in.Manifest)
 			c.Status(204)
 		})
-		// List provider capabilities（开发期）
+		// List provider capabilities锛堝紑鍙戞湡锛?
 		r.GET("/api/providers/descriptors", func(c *gin.Context) {
 			if s.reg == nil { s.respondError(c, 503, "unavailable", "registry unavailable"); return }
 			caps := s.reg.ListProviderCaps()
@@ -3062,7 +3074,7 @@ func (s *Server) ginEngine() *gin.Engine {
 			for _, v := range caps { var m any; _ = json.Unmarshal(v.Manifest, &m); out = append(out, gin.H{"id": v.ID, "version": v.Version, "lang": v.Lang, "sdk": v.SDK, "manifest": m, "updated_at": v.UpdatedAt}) }
 			s.JSON(c, 200, gin.H{"providers": out})
 		})
-		// List provider entities（聚合各 provider 的 entities，用于 UI 渲染）
+		// List provider entities锛堣仛鍚堝悇 provider 鐨?entities锛岀敤浜?UI 娓叉煋锛?
 		r.GET("/api/providers/entities", func(c *gin.Context) {
 			if s.reg == nil { s.respondError(c, 503, "unavailable", "registry unavailable"); return }
 			caps := s.reg.ListProviderCaps()
@@ -4460,7 +4472,7 @@ func (s *Server) ginEngine() *gin.Engine {
 										formItem["rules"] = append(formItem["rules"].([]map[string]any), map[string]any{
 											"required": true,
 											// Primary UI language is zh-CN
-											"message": "请输入 " + description,
+											"message": "璇疯緭鍏?" + description,
 										})
 										break
 									}
@@ -4963,16 +4975,16 @@ func (s *Server) ginEngine() *gin.Engine {
 			"form": []gin.H{
 				{
 					"id":           "input",
-					"name":         "文本输入",
+					"name":         "鏂囨湰杈撳叆",
 					"category":     "form",
 					"widget":       "input",
 					"icon":         "input",
-					"description":  "单行文本输入框",
+					"description":  "鍗曡鏂囨湰杈撳叆妗?,
 					"properties": gin.H{
-						"title":       gin.H{"type": "string", "title": "标题"},
-						"placeholder": gin.H{"type": "string", "title": "占位符"},
-						"maxLength":   gin.H{"type": "number", "title": "最大长度"},
-						"required":    gin.H{"type": "boolean", "title": "必填", "default": false},
+						"title":       gin.H{"type": "string", "title": "鏍囬"},
+						"placeholder": gin.H{"type": "string", "title": "鍗犱綅绗?},
+						"maxLength":   gin.H{"type": "number", "title": "鏈€澶ч暱搴?},
+						"required":    gin.H{"type": "boolean", "title": "蹇呭～", "default": false},
 					},
 					"schema_template": gin.H{
 						"type":      "string",
@@ -4982,17 +4994,17 @@ func (s *Server) ginEngine() *gin.Engine {
 				},
 				{
 					"id":           "textarea",
-					"name":         "多行文本",
+					"name":         "澶氳鏂囨湰",
 					"category":     "form",
 					"widget":       "textarea",
 					"icon":         "textarea",
-					"description":  "多行文本输入框",
+					"description":  "澶氳鏂囨湰杈撳叆妗?,
 					"properties": gin.H{
-						"title":       gin.H{"type": "string", "title": "标题"},
-						"placeholder": gin.H{"type": "string", "title": "占位符"},
-						"rows":        gin.H{"type": "number", "title": "行数", "default": 4},
-						"maxLength":   gin.H{"type": "number", "title": "最大长度"},
-						"required":    gin.H{"type": "boolean", "title": "必填", "default": false},
+						"title":       gin.H{"type": "string", "title": "鏍囬"},
+						"placeholder": gin.H{"type": "string", "title": "鍗犱綅绗?},
+						"rows":        gin.H{"type": "number", "title": "琛屾暟", "default": 4},
+						"maxLength":   gin.H{"type": "number", "title": "鏈€澶ч暱搴?},
+						"required":    gin.H{"type": "boolean", "title": "蹇呭～", "default": false},
 					},
 					"schema_template": gin.H{
 						"type":      "string",
@@ -5002,17 +5014,17 @@ func (s *Server) ginEngine() *gin.Engine {
 				},
 				{
 					"id":           "number",
-					"name":         "数字输入",
+					"name":         "鏁板瓧杈撳叆",
 					"category":     "form",
 					"widget":       "number",
 					"icon":         "number",
-					"description":  "数字输入框",
+					"description":  "鏁板瓧杈撳叆妗?,
 					"properties": gin.H{
-						"title":    gin.H{"type": "string", "title": "标题"},
-						"minimum":  gin.H{"type": "number", "title": "最小值"},
-						"maximum":  gin.H{"type": "number", "title": "最大值"},
-						"step":     gin.H{"type": "number", "title": "步长", "default": 1},
-						"required": gin.H{"type": "boolean", "title": "必填", "default": false},
+						"title":    gin.H{"type": "string", "title": "鏍囬"},
+						"minimum":  gin.H{"type": "number", "title": "鏈€灏忓€?},
+						"maximum":  gin.H{"type": "number", "title": "鏈€澶у€?},
+						"step":     gin.H{"type": "number", "title": "姝ラ暱", "default": 1},
+						"required": gin.H{"type": "boolean", "title": "蹇呭～", "default": false},
 					},
 					"schema_template": gin.H{
 						"type":  "number",
@@ -5021,15 +5033,15 @@ func (s *Server) ginEngine() *gin.Engine {
 				},
 				{
 					"id":           "select",
-					"name":         "下拉选择",
+					"name":         "涓嬫媺閫夋嫨",
 					"category":     "form",
 					"widget":       "select",
 					"icon":         "select",
-					"description":  "下拉选择框",
+					"description":  "涓嬫媺閫夋嫨妗?,
 					"properties": gin.H{
-						"title":    gin.H{"type": "string", "title": "标题"},
-						"options":  gin.H{"type": "array", "title": "选项列表", "items": gin.H{"type": "string"}},
-						"required": gin.H{"type": "boolean", "title": "必填", "default": false},
+						"title":    gin.H{"type": "string", "title": "鏍囬"},
+						"options":  gin.H{"type": "array", "title": "閫夐」鍒楄〃", "items": gin.H{"type": "string"}},
+						"required": gin.H{"type": "boolean", "title": "蹇呭～", "default": false},
 					},
 					"schema_template": gin.H{
 						"type":  "string",
@@ -5039,14 +5051,14 @@ func (s *Server) ginEngine() *gin.Engine {
 				},
 				{
 					"id":           "switch",
-					"name":         "开关",
+					"name":         "寮€鍏?,
 					"category":     "form",
 					"widget":       "switch",
 					"icon":         "switch",
-					"description":  "布尔值开关",
+					"description":  "甯冨皵鍊煎紑鍏?,
 					"properties": gin.H{
-						"title":   gin.H{"type": "string", "title": "标题"},
-						"default": gin.H{"type": "boolean", "title": "默认值", "default": false},
+						"title":   gin.H{"type": "string", "title": "鏍囬"},
+						"default": gin.H{"type": "boolean", "title": "榛樿鍊?, "default": false},
 					},
 					"schema_template": gin.H{
 						"type":    "boolean",
@@ -5058,14 +5070,14 @@ func (s *Server) ginEngine() *gin.Engine {
 			"layout": []gin.H{
 				{
 					"id":           "object",
-					"name":         "对象容器",
+					"name":         "瀵硅薄瀹瑰櫒",
 					"category":     "layout",
 					"widget":       "object",
 					"icon":         "object",
-					"description":  "嵌套对象容器",
+					"description":  "宓屽瀵硅薄瀹瑰櫒",
 					"properties": gin.H{
-						"title":       gin.H{"type": "string", "title": "标题"},
-						"displayType": gin.H{"type": "string", "title": "展示类型", "enum": []string{"column", "row", "inline"}},
+						"title":       gin.H{"type": "string", "title": "鏍囬"},
+						"displayType": gin.H{"type": "string", "title": "灞曠ず绫诲瀷", "enum": []string{"column", "row", "inline"}},
 					},
 					"schema_template": gin.H{
 						"type":       "object",
@@ -5075,15 +5087,15 @@ func (s *Server) ginEngine() *gin.Engine {
 				},
 				{
 					"id":           "array",
-					"name":         "数组列表",
+					"name":         "鏁扮粍鍒楄〃",
 					"category":     "layout",
 					"widget":       "list",
 					"icon":         "list",
-					"description":  "可添加/删除的数组列表",
+					"description":  "鍙坊鍔?鍒犻櫎鐨勬暟缁勫垪琛?,
 					"properties": gin.H{
-						"title":    gin.H{"type": "string", "title": "标题"},
-						"minItems": gin.H{"type": "number", "title": "最小项数"},
-						"maxItems": gin.H{"type": "number", "title": "最大项数"},
+						"title":    gin.H{"type": "string", "title": "鏍囬"},
+						"minItems": gin.H{"type": "number", "title": "鏈€灏忛」鏁?},
+						"maxItems": gin.H{"type": "number", "title": "鏈€澶ч」鏁?},
 					},
 					"schema_template": gin.H{
 						"type":  "array",
@@ -5241,32 +5253,32 @@ func (s *Server) ginEngine() *gin.Engine {
 
 		templates := gin.H{
 			"user_form": gin.H{
-				"name":        "用户表单模板",
-				"description": "典型的用户信息表单",
+				"name":        "鐢ㄦ埛琛ㄥ崟妯℃澘",
+				"description": "鍏稿瀷鐨勭敤鎴蜂俊鎭〃鍗?,
 				"components": gin.H{
 					"type": "object",
 					"properties": gin.H{
 						"username": gin.H{
 							"component": "input",
-							"title":     "用户名",
+							"title":     "鐢ㄦ埛鍚?,
 							"required":  true,
 						},
 						"email": gin.H{
 							"component": "input",
-							"title":     "邮箱",
+							"title":     "閭",
 							"required":  true,
 						},
 						"profile": gin.H{
 							"component": "object",
-							"title":     "个人信息",
+							"title":     "涓汉淇℃伅",
 							"properties": gin.H{
 								"nickname": gin.H{
 									"component": "input",
-									"title":     "昵称",
+									"title":     "鏄电О",
 								},
 								"bio": gin.H{
 									"component": "textarea",
-									"title":     "个人简介",
+									"title":     "涓汉绠€浠?,
 								},
 							},
 						},
@@ -5274,29 +5286,29 @@ func (s *Server) ginEngine() *gin.Engine {
 				},
 			},
 			"game_config": gin.H{
-				"name":        "游戏配置模板",
-				"description": "游戏参数配置表单",
+				"name":        "娓告垙閰嶇疆妯℃澘",
+				"description": "娓告垙鍙傛暟閰嶇疆琛ㄥ崟",
 				"components": gin.H{
 					"type": "object",
 					"properties": gin.H{
 						"server_name": gin.H{
 							"component": "input",
-							"title":     "服务器名称",
+							"title":     "鏈嶅姟鍣ㄥ悕绉?,
 							"required":  true,
 						},
 						"max_players": gin.H{
 							"component": "number",
-							"title":     "最大玩家数",
+							"title":     "鏈€澶х帺瀹舵暟",
 							"minimum":   1,
 							"maximum":   1000,
 							"required":  true,
 						},
 						"features": gin.H{
 							"component": "array",
-							"title":     "功能列表",
+							"title":     "鍔熻兘鍒楄〃",
 							"items": gin.H{
 								"component": "select",
-								"title":     "功能",
+								"title":     "鍔熻兘",
 								"options":   []string{"pvp", "guild", "auction", "chat"},
 							},
 						},
@@ -6806,7 +6818,7 @@ func (s *Server) ginEngine() *gin.Engine {
 		if withAudit {
 			want := map[string]struct{}{}
 			for _, a := range items {
-				// 仅对非 pending 的记录回填审计信息，避免无谓扫描
+				// 浠呭闈?pending 鐨勮褰曞洖濉璁′俊鎭紝閬垮厤鏃犺皳鎵弿
 				if strings.EqualFold(a.State, "pending") {
 					continue
 				}
@@ -7528,12 +7540,12 @@ func (s *Server) ginEngine() *gin.Engine {
 	if st, err := os.Stat(staticDir); err != nil || !st.IsDir() {
 		staticDir = "web/static"
 	}
-	// NOTE: Gin 不允许根通配和前缀共存，这里将静态资源挂到 /static
+	// NOTE: Gin 涓嶅厑璁告牴閫氶厤鍜屽墠缂€鍏卞瓨锛岃繖閲屽皢闈欐€佽祫婧愭寕鍒?/static
 	r.Static("/static", staticDir)
-	// 根路径返回 index.html（若存在），便于 SPA 在生产环境直接托管
+	// 鏍硅矾寰勮繑鍥?index.html锛堣嫢瀛樺湪锛夛紝渚夸簬 SPA 鍦ㄧ敓浜х幆澧冪洿鎺ユ墭绠?
 	if _, err := os.Stat(filepath.Join(staticDir, "index.html")); err == nil {
 		r.GET("/", func(c *gin.Context) { c.File(filepath.Join(staticDir, "index.html")) })
-		// 非 /api/* 的未知路由回退到 index.html，支持 SPA 刷新
+		// 闈?/api/* 鐨勬湭鐭ヨ矾鐢卞洖閫€鍒?index.html锛屾敮鎸?SPA 鍒锋柊
 		r.NoRoute(func(c *gin.Context) {
 			p := c.Request.URL.Path
 			if strings.HasPrefix(p, "/api/") || p == "/metrics" || strings.HasPrefix(p, "/metrics") {

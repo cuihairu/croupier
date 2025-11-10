@@ -1,0 +1,331 @@
+﻿version: 0.1.0
+game_types:
+  - id: casual_puzzle
+    name: "Casual Puzzle"
+    summary: "Casual Puzzle 休闲解谜/消除类"
+    description: "轻度解谜/消除，核心循环为关卡尝试->失败/重试->道具/体力驱动推进，节奏短平快。变现以激励视频/插屏广告为主，内购为体力/道具/去广告；分析关注关卡漏斗、重试分布、广告曝光/奖励转化与D1/D7留存。"
+    characteristics: ["short_sessions","many_levels","ads_heavy"]
+    aliases: ["PUZ","益智","解谜","三消"]
+    examples: ["Candy Crush Saga","Toon Blast","Homescapes"]
+    recommended_events: [session.start, session.end, progression.start, progression.complete, ad.impression, monetization.purchase_success, error.crash, performance.frame]
+    recommended_metrics: [dau, retention_d1, session_length_p50, ad_arpu, level_completion_rate]
+    breakdowns: [platform, region, channel, level_id]
+
+  - id: hyper_casual
+    name: "Hyper Casual"
+    summary: "Hyper Casual 超休闲"
+    description: "极简单指操作，核心为快速体验->分数追求->关卡或外观轻养成，生命周期短。变现高度依赖广告与买量闭环；关注前3局留存、前端流失、eCPM与曝光/DAU、渠道ROI。"
+    characteristics: ["ultra_short_sessions","ua_driven"]
+    aliases: ["HC","超休闲"]
+    examples: ["Helix Jump","Aquapark.io"]
+    recommended_events: [session.start, session.end, progression.start, progression.complete, ad.impression]
+    recommended_metrics: [dau, retention_d1, session_length_p50, ad_impressions_per_dau]
+    breakdowns: [platform, channel, level_id]
+
+  - id: idle_incremental
+    name: "Idle / Incremental"
+    summary: "Idle/Incremental 放置/增量游戏"
+    description: "放置成长与数值指数扩张，在线/离线收益积累驱动解锁与循环深化。变现以加速/产能/离线收益包为主；关注离线收益口径、产消平衡、长期留存与召回、核心节点付费。"
+    characteristics: ["offline_income","long_retention"]
+    aliases: ["放置","挂机","incremental"]
+    examples: ["Adventure Capitalist","Idle Heroes"]
+    recommended_events: [session.start, session.end, economy.earn, economy.spend, progression.complete, monetization.purchase_success]
+    recommended_metrics: [retention_d7, dau, arpu, session_length_p95]
+    breakdowns: [platform, region]
+
+  - id: rpg
+    name: "RPG"
+    summary: "RPG 角色扮演游戏（Role-Playing Game）"
+    description: "角色养成（等级/装备/技能）与副本推进，抽卡或掉落构成长线追求。变现以卡池/礼包/战令为主；关注等级/战力进度、付费漏斗与LTV、保底与稀有度、公平性与活动节奏。"
+    characteristics: ["long_term_progression","gear_score","gacha"]
+    aliases: ["RPG","角色扮演"]
+    examples: ["Final Fantasy","Dragon Quest"]
+    recommended_events: [session.start, progression.start, progression.complete, economy.earn, economy.spend, gacha.pull, monetization.purchase_success, match.start, match.end]
+    recommended_metrics: [dau, retention_d7, arpu, arppu, win_rate, kda]
+    breakdowns: [platform, region, chapter_id]
+
+  - id: arpg
+    name: "ARPG"
+    summary: "ARPG 动作角色扮演（Action RPG）"
+    description: "即时战斗与数值成长并重，刷副本/装备构成核心循环。变现以通行证/外观/卡池为主；关注战力与副本效率、掉落概率、公平性与活动节奏。"
+    characteristics: ["action_combat","loot_grind","gear_score"]
+    aliases: ["ARPG","动作RPG","刷刷刷"]
+    examples: ["Diablo","Path of Exile","Torchlight"]
+    recommended_events: [session.start, progression.start, progression.complete, economy.earn, economy.spend, gacha.pull, monetization.purchase_success]
+    recommended_metrics: [retention_d7, arpu, arppu, level_completion_rate]
+    breakdowns: [platform, region]
+
+  - id: srpg
+    name: "SRPG"
+    summary: "SRPG 战棋/策略角色扮演（Simulation/Tactical RPG）"
+    description: "回合制网格战斗与养成结合，关卡策略性强。变现以卡池/角色包/皮肤为主；关注关卡完成率与重试、角色/阵容使用率、活动关卡参与度。"
+    characteristics: ["turn_based","grid_combat","lineup"]
+    aliases: ["SRPG","战棋RPG","策略RPG"]
+    examples: ["Fire Emblem","Disgaea","Triangle Strategy"]
+    recommended_events: [progression.start, progression.fail, progression.complete, gacha.pull, monetization.purchase_success]
+    recommended_metrics: [level_completion_rate, retries_avg, retention_d7]
+    breakdowns: [level_id]
+
+  - id: mmorpg
+    name: "MMORPG"
+    summary: "MMORPG 大型多人在线角色扮演游戏（Massively Multiplayer Online RPG）"
+    description: "大型多人在线，长线成长与公会社交，团队副本/世界事件/交易经济构成核心。变现以月卡/礼包/外观/服务为主；关注公会覆盖与活跃、组队/副本完成、经济通胀/交易异常、跨服活动与服务器稳定性。"
+    characteristics: ["guild","raid","economy_complex"]
+    aliases: ["MMORPG","大型多人在线RPG","网游RPG"]
+    examples: ["World of Warcraft","Final Fantasy XIV"]
+    recommended_events: [session.start, match.start, match.end, social.guild_join, social.guild_leave, economy.earn, economy.spend, monetization.purchase_success]
+    recommended_metrics: [retention_d30, dau, arpu, crash_rate]
+    breakdowns: [platform, region, guild_id]
+
+  - id: strategy_4x
+    name: "Strategy 4X/SLG"
+    summary: "Strategy 4X/SLG 策略（4X: eXplore/eXpand/eXploit/eXterminate）"
+    description: "资源采集->建筑升级->科技解锁->扩张对抗的长周期策略循环。变现以加速/资源/建造队列为主；关注资源产消比、建筑/科技进度、战报胜率与损耗、联盟活跃与留存。"
+    characteristics: ["resources","build_tech","wars"]
+    aliases: ["SLG","4X","策略"]
+    examples: ["Civilization","Clash of Clans","Stellaris"]
+    recommended_events: [progression.start, progression.complete, economy.earn, economy.spend, match.end]
+    recommended_metrics: [retention_d7, dau, arpu]
+    breakdowns: [region]
+
+  - id: rts
+    name: "RTS"
+    summary: "RTS 即时战略（Real-Time Strategy）"
+    description: "实时资源采集、建造与部队指挥，运营与微操并重。变现以买断/DLC/装饰/赛季为主；关注胜率、对局时长、APM近似指标（可由操作频次估算）、匹配等待与性能。"
+    characteristics: ["real_time","macro_micro","base_building"]
+    aliases: ["RTS","即时战略","即时策略"]
+    examples: ["StarCraft","Age of Empires"]
+    recommended_events: [match.start, match.end, performance.frame]
+    recommended_metrics: [win_rate, session_length_p50, crash_rate]
+    breakdowns: [map_id, game_mode]
+
+  - id: tower_defense
+    name: "Tower Defense"
+    summary: "Tower Defense 塔防（TD）"
+    description: "路径/格点上布置防御塔抵御波次进攻，资源分配与塔型搭配为核心。变现以广告/关卡包/增益为主；关注关卡难度与失败波次、塔型使用率、瓶颈路口热力、广告收益。"
+    characteristics: ["waves","pathing","tower_building"]
+    aliases: ["TD","塔防"]
+    examples: ["Plants vs. Zombies","Kingdom Rush","Bloons TD"]
+    recommended_events: [progression.start, progression.fail, progression.complete, ad.impression, monetization.purchase_success]
+    recommended_metrics: [level_completion_rate, retries_avg, ad_arpu, retention_d7]
+    breakdowns: [level_id, map_id]
+
+  - id: moba
+    name: "MOBA"
+    summary: "MOBA 多人在线战术竞技（Multiplayer Online Battle Arena）"
+    description: "团队对局，分路与角色定位协作，技能与经济节奏决定胜负。变现以外观/战令为主；关注胜率/KDA、对局时长/中途退出、匹配质量（MMR差/等待时长）、英雄与装备平衡。"
+    characteristics: ["match_based","roles","mmr"]
+    aliases: ["MOBA","多人在线竞技"]
+    examples: ["League of Legends","Dota 2","Honor of Kings"]
+    recommended_events: [match.start, match.end, economy.earn, monetization.purchase_success, session.start, error.crash, performance.frame]
+    recommended_metrics: [win_rate, kda, session_length_p50, crash_rate]
+    breakdowns: [game_mode, map_id]
+
+  - id: shooter
+    name: "Shooter FPS/TPS"
+    summary: "Shooter 第一/第三人称射击（First/Third-Person Shooter）"
+    description: "射击命中与手感为核心，地图资源与回合目标塑造战斗节奏。变现以外观/通行证为主；关注命中/爆头率、TTK、网络延迟/抖动/丢包、外挂与异常行为线索。"
+    characteristics: ["aim_precision","net_sensitivity"]
+    aliases: ["FPS","TPS","射击","枪战"]
+    examples: ["Counter-Strike","Call of Duty","Overwatch"]
+    recommended_events: [match.start, match.end, performance.frame, network.rtt, error.crash, monetization.purchase_success, combat.stats]
+    recommended_metrics: [accuracy_rate, win_rate, session_length_p50, crash_rate]
+    breakdowns: [weapon_id, map_id, game_mode]
+
+  - id: battle_royale
+    name: "Battle Royale"
+    summary: "Battle Royale 大逃杀"
+    description: "大地图多人淘汰，搜集->生存->圈内博弈，随机掉落与安全区推进影响节奏。变现以外观/通行证/主题活动为主；关注开局死亡热区、圈段存活率、资源热度、匹配时长与性能稳定。"
+    characteristics: ["large_map","drop_randomness"]
+    aliases: ["大逃杀","吃鸡","BR"]
+    examples: ["PUBG","Fortnite","Apex Legends"]
+    recommended_events: [match.start, match.end, performance.frame, network.rtt]
+    recommended_metrics: [win_rate, session_length_p95, crash_rate]
+    breakdowns: [map_id, game_mode]
+
+  - id: sports
+    name: "Sports"
+    summary: "Sports 体育类（SPG）"
+    description: "基于真实或拟制体育规则的对抗或团队竞技，数据结构化且公平性要求高。变现以包年/通行证/外观为主；关注胜率/段位、犯规与公平性、延迟与断线、模式参与。"
+    characteristics: ["competitive_rules","teamplay"]
+    aliases: ["SPG","体育"]
+    examples: ["EA Sports FC","NBA 2K"]
+    recommended_events: [match.start, match.end, performance.frame, error.crash]
+    recommended_metrics: [win_rate, session_length_p50, crash_rate]
+    breakdowns: [game_mode]
+
+  - id: racing
+    name: "Racing"
+    summary: "Racing 赛车竞速（RAC）"
+    description: "车辆操控与赛道熟练度决定成绩，含计时赛与对战赛。变现以车辆/外观/通行证为主；关注成绩分布、碰撞/犯规、匹配与延迟、赛道偏好。"
+    characteristics: ["timed_runs","vehicle_handling"]
+    aliases: ["RAC","竞速","赛车"]
+    examples: ["Forza Horizon","Gran Turismo","Mario Kart"]
+    recommended_events: [match.start, match.end, performance.frame, error.crash]
+    recommended_metrics: [session_length_p50, crash_rate]
+    breakdowns: [track_id, game_mode]
+
+  - id: card_ccg
+    name: "Card / CCG"
+    summary: "Card/CCG 集换式卡牌（Collectible Card Game）"
+    description: "卡牌收集与构筑，对局环境与资源稀缺决定卡组生态。变现以卡包/通行证/皮肤为主；关注卡牌使用率/胜率、卡组原型识别、抽到率与保底机制、环境健康度。"
+    characteristics: ["deck_building","balance"]
+    aliases: ["CCG","卡牌","集换式卡牌","TCG"]
+    examples: ["Hearthstone","Legends of Runeterra"]
+    recommended_events: [match.start, match.end, monetization.purchase_success, gacha.pull]
+    recommended_metrics: [win_rate, arpu, arppu]
+    breakdowns: [card_id, deck_archetype]
+
+  - id: roguelike
+    name: "Roguelike / Roguelite"
+    summary: "Roguelike/Roguelite 类 Rogue 随机地牢"
+    description: "随机关卡/构筑与复玩性强，失败-重来推动技能熟练与路线探索。变现以内购解锁/外观/轻度成长为主；关注层数/节点通过率、构筑选择热度、死亡原因与复玩间隔。"
+    characteristics: ["random_nodes","replayability"]
+    aliases: ["Rogue","肉鸽"]
+    examples: ["Hades","Dead Cells","Slay the Spire"]
+    recommended_events: [progression.start, progression.fail, progression.complete, economy.earn]
+    recommended_metrics: [level_completion_rate, retries_avg, retention_d7]
+    breakdowns: [level_id]
+
+  - id: simulation_tycoon
+    name: "Simulation / Tycoon"
+    summary: "Simulation/Tycoon 模拟经营"
+    description: "经营循环（产出->加工->销售->再投资）与长期规划，系统耦合复杂。变现以加速/货币包/DLC为主；关注产销与库存周转、建造/解锁节奏、用户分层与长期留存。"
+    characteristics: ["production_cycle","long_path_optimization"]
+    aliases: ["SIM","模拟经营"]
+    examples: ["SimCity","Cities: Skylines","Planet Coaster"]
+    recommended_events: [economy.earn, economy.spend, craft.complete, monetization.purchase_success]
+    recommended_metrics: [arpu, retention_d30]
+    breakdowns: [region]
+
+  - id: sandbox_survival
+    name: "Sandbox / Survival"
+    summary: "Sandbox/Survival 沙盒/生存"
+    description: "开放世界采集/制作/建造与生存压力驱动，目标自定与高自由度。变现以DLC/装饰/服务器服务为主；关注资源热区、合成/蓝图漏斗、死亡/饥饿/环境致死、长期稳定性。"
+    characteristics: ["open_world","crafting","harvesting"]
+    aliases: ["沙盒","生存","开放世界"]
+    examples: ["Minecraft","ARK","Rust"]
+    recommended_events: [craft.complete, progression.complete, performance.frame, error.crash]
+    recommended_metrics: [session_length_p95, crash_rate]
+    breakdowns: [biome_id]
+
+  - id: party
+    name: "Party"
+    summary: "Party 派对小游戏"
+    description: "轻量聚会社交小游戏，短局高频互动与随机事件提升乐趣。变现以皮肤/票券/套包为主；关注房间转化、掉线/重连、模式参与与留存。"
+    characteristics: ["short_rounds","social"]
+    aliases: ["派对","聚会"]
+    examples: ["Fall Guys","Mario Party"]
+    recommended_events: [match.start, match.end, session.start]
+    recommended_metrics: [win_rate, retention_d1]
+    breakdowns: [game_mode]
+
+  - id: rhythm
+    name: "Rhythm"
+    summary: "Rhythm 音乐节奏"
+    description: "音乐节奏判定，谱面/手感与判定窗口共同塑造体验。变现以曲包/订阅/外观为主；关注命中偏差分布、谱面难度与通过率、设备/延迟校准影响。"
+    characteristics: ["timing_accuracy"]
+    aliases: ["音游","节奏","音乐游戏"]
+    examples: ["Beat Saber","Cytus","osu!"]
+    recommended_events: [session.start, session.end, ui.screen_view]
+    recommended_metrics: [session_length_p50, retention_d7]
+    breakdowns: [song_id, difficulty]
+
+  - id: platformer_metroidvania
+    name: "Platformer / Metroidvania"
+    summary: "Platformer/Metroidvania 横版平台/银河城"
+    description: "平台跳跃与战斗、探索解锁相结合，地图回溯式进展。变现以买断/DLC/外观为主；关注死亡热力点、机关/跳跃失败、关卡时长与重试。"
+    characteristics: ["precision_movement"]
+    aliases: ["平台动作","银河城","横版"]
+    examples: ["Hollow Knight","Ori","Celeste","Metroid"]
+    recommended_events: [progression.start, progression.fail, progression.complete, performance.frame]
+    recommended_metrics: [level_completion_rate, retries_avg]
+    breakdowns: [level_id]
+
+  - id: narrative_adventure
+    name: "Narrative / Adventure / VN"
+    summary: "Narrative/Adventure/VN 叙事/冒险/视觉小说（Visual Novel）"
+    description: "线性或分支叙事，交互适中，重在剧情推进与演出表现。变现以章节/结局解锁/语音包为主；关注分支选择分布、章节流失节点、结局达成率与周目行为。"
+    characteristics: ["branching_story"]
+    aliases: ["AVG","冒险","视觉小说","VN"]
+    examples: ["Life is Strange","Steins;Gate"]
+    recommended_events: [progression.start, progression.complete, ui.screen_view]
+    recommended_metrics: [retention_d7, session_length_p50]
+    breakdowns: [chapter_id]
+
+  - id: social_casino
+    name: "Social Casino"
+    summary: "Social Casino 社交赌场/模拟博彩"
+    description: "模拟博彩机制，筹码经济与RTP/波动性调控支撑长期留存。变现以筹码包/订阅/活动为主；关注RTP/波动、下注/筹码留存、付费/广告收益结构与风控异常。"
+    characteristics: ["rtp","chips_economy"]
+    aliases: ["社交赌场","Slots","Poker"]
+    examples: ["Slotomania","Zynga Poker"]
+    recommended_events: [economy.earn, economy.spend, monetization.purchase_success, ad.impression]
+    recommended_metrics: [arpu, arppu, ad_arpu, retention_d30]
+    breakdowns: [region]
+
+  - id: fighting_ftg
+    name: "Fighting (FTG)"
+    summary: "FTG 格斗类（Fighting Game）"
+    description: "1v1或小型多人对战，连段判定与帧数博弈决定对抗深度。变现以买断/角色包/外观为主；关注胜率对战公平、角色对局表、断线率与输入延迟。"
+    characteristics: ["duel","frame_data","combos"]
+    aliases: ["FTG","格斗"]
+    examples: ["Street Fighter","Tekken","Mortal Kombat"]
+    recommended_events: [match.start, match.end, performance.frame, network.rtt]
+    recommended_metrics: [win_rate, session_length_p50, crash_rate]
+    breakdowns: [character_id, stage_id]
+
+  - id: fighting_sim
+    name: "Fighting Simulation (SFTG)"
+    summary: "SFTG 模拟格斗（Simulation Fighting）"
+    description: "偏模拟与规则化的格斗/搏击体验，物理与体能系统占比更高。变现以买断/DLC/角色包为主；关注胜率、回合时长、犯规与判罚、网络延迟。"
+    characteristics: ["simulation","stamina","grappling"]
+    aliases: ["SFTG","模拟格斗"]
+    examples: ["UFC","WWE 2K"]
+    recommended_events: [match.start, match.end, performance.frame, network.rtt]
+    recommended_metrics: [win_rate, session_length_p50, crash_rate]
+    breakdowns: [character_id, arena_id]
+
+  - id: board_table
+    name: "Board / Table"
+    summary: "TAB 桌面/棋牌（Table/Board Game）"
+    description: "规则明确、轮次清晰的棋类/桌游/棋牌，社交属性强。变现以买断/道具/房卡为主；关注对局时长、胜率与段位、房间转化、作弊与异常对局。"
+    characteristics: ["turn_based","rules_strict","social"]
+    aliases: ["TAB","桌游","棋牌","棋类","麻将"]
+    examples: ["Chess","Mahjong","Uno"]
+    recommended_events: [match.start, match.end]
+    recommended_metrics: [win_rate, session_length_p50]
+    breakdowns: [game_variant]
+
+  - id: flight_sim
+    name: "Flight Simulation"
+    summary: "FLY 飞行模拟（Flight Simulation）"
+    description: "高真实度载具系统与物理仿真，学习曲线较陡，硬件影响显著。变现以买断/DLC/载具包为主；关注性能与稳定性、会话时长、任务完成率与设备适配。"
+    characteristics: ["simulation","vehicle","physics"]
+    aliases: ["FLY","飞行模拟"]
+    examples: ["Microsoft Flight Simulator"]
+    recommended_events: [session.start, session.end, performance.frame, error.crash]
+    recommended_metrics: [session_length_p95, crash_rate]
+    breakdowns: [aircraft_id]
+
+  - id: raising_sim
+    name: "Raising / Education"
+    summary: "EDU 养成/教育（Raising/Education）"
+    description: "以养成/教学为目标的轻交互体验，强调长期陪伴与阶段成果。变现以订阅/礼包/道具为主；关注阶段转化、长期留存与召回、内容完成度。"
+    characteristics: ["raising","education","long_term"]
+    aliases: ["EDU","养成","育成"]
+    examples: ["Princess Maker","Tamagotchi"]
+    recommended_events: [progression.start, progression.complete, monetization.purchase_success]
+    recommended_metrics: [retention_d30, arpu]
+    breakdowns: [stage_id]
+
+  - id: action_act
+    name: "Action (ACT)"
+    summary: "ACT 动作类（Action Game）"
+    description: "以动作与反应为主的通用向玩法，包含闯关/对战/探索等多种形态。变现因子多样；关注关卡完成与死亡热力、对战胜率与时长、性能与输入延迟。"
+    characteristics: ["action","timing","reaction"]
+    aliases: ["ACT","动作"]
+    examples: ["Devil May Cry","Bayonetta"]
+    recommended_events: [progression.start, progression.fail, progression.complete, match.start, match.end, performance.frame]
+    recommended_metrics: [level_completion_rate, session_length_p50]
+    breakdowns: [level_id]

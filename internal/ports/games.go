@@ -1,4 +1,4 @@
-package ports
+﻿package ports
 
 import (
     "context"
@@ -14,8 +14,7 @@ type Game struct {
     Enabled     bool
     AliasName   string
     Homepage    string
-    Status      string
-    Envs        []string // list of env names (unique, case-insensitive)
+    Status      string\n    GameType    string\n    GenreCode   string\n    Envs        []string // list of env names (unique, case-insensitive)
     CreatedAt   time.Time
     UpdatedAt   time.Time
 }
@@ -49,3 +48,4 @@ type GamesRepository interface {
 type UnitOfWork interface {
     Do(ctx context.Context, fn func(ctx context.Context) error) error
 }
+
