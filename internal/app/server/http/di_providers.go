@@ -9,7 +9,7 @@ import (
     jwt "github.com/cuihairu/croupier/internal/security/token"
     "github.com/cuihairu/croupier/internal/connpool"
     // local AgentStats replaces loadbalancer in http tests
-    certmonitor "github.com/cuihairu/croupier/internal/infra/monitoring/certificates"
+    certmonitor "github.com/cuihairu/croupier/internal/platform/monitoring/certificates"
     clickhouse "github.com/ClickHouse/clickhouse-go/v2"
     dom "github.com/cuihairu/croupier/internal/ports"
     repogames "github.com/cuihairu/croupier/internal/repo/gorm/games"
