@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	rbac "github.com/cuihairu/croupier/internal/security/rbac"
-	users "github.com/cuihairu/croupier/internal/auth/users"
+	users "github.com/cuihairu/croupier/internal/security/users"
 	"github.com/spf13/viper"
 )
 

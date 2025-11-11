@@ -14,7 +14,10 @@ type Game struct {
     Enabled     bool
     AliasName   string
     Homepage    string
-    Status      string\n    GameType    string\n    GenreCode   string\n    Envs        []string // list of env names (unique, case-insensitive)
+    Status      string
+    GameType    string
+    GenreCode   string
+    Envs        []string // list of env names (unique, case-insensitive)
     CreatedAt   time.Time
     UpdatedAt   time.Time
 }
