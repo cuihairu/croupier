@@ -1,0 +1,54 @@
+# Prometheus配置 - Croupier游戏监控
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alert_rules.yml"
+
+scrape_configs:
+  # OTel Collector指标
+  - job_name: 'otel-collector'
+    static_configs:
+      - targets: ['otel-collector:8888']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+
+  # Croupier Server指标
+  - job_name: 'croupier-server'
+    static_configs:
+      - targets: ['host.docker.internal:8080']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'croupier-server'
+
+  # Croupier Agent指标
+  - job_name: 'croupier-agents'
+    static_configs:
+      - targets: ['host.docker.internal:19090']
+    scrape_interval: 30s
+
+  # 游戏专用指标
+  - job_name: 'game-metrics'
+    static_configs:
+      - targets: ['otel-collector:8888']
+    scrape_interval: 10s
+    metrics_path: '/metrics'
+    metric_relabel_configs:
+      # 只保留游戏相关指标
+      - source_labels: [__name__]
+        regex: 'game_.*'
+        action: keep
+      # 添加游戏标签
+      - target_label: 'system'
+        replacement: 'croupier'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
