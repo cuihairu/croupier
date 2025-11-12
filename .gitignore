@@ -51,3 +51,4 @@ data/
 # Local IP2Location BIN databases (downloaded externally; do not commit)
 configs/IP2LOCATION-LITE-DB*.BIN
 configs/*.BIN
+web.local/
