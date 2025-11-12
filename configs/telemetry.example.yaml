@@ -1,0 +1,95 @@
+# OpenTelemetry与Analytics集成配置示例
+# 此配置展示如何将OTel游戏监控与现有Analytics系统集成
+
+# OpenTelemetry基础配置
+telemetry:
+  # 服务标识
+  service_name: "croupier-server"
+  service_version: "1.0.0"
+  environment: "production"
+  game_id: "tower-defense-hero"
+
+  # OTel Collector配置
+  collector_url: "http://otel-collector:4318"
+  enable_tracing: true
+  enable_metrics: true
+  sampling_ratio: 0.1  # 10% 采样率，生产环境建议
+
+  # Analytics桥接器配置
+  analytics:
+    enabled: true
+
+    # Redis配置 (现有Analytics MQ)
+    redis_addr: "analytics-redis:6379"
+    redis_password: ""  # 从环境变量或密钥文件读取
+    redis_db: 2         # 专用DB避免冲突
+
+    # 事件流配置
+    topic_prefix: "game:events"
+    retention_hours: 168  # 7天事件保留期
+
+    # 批量发送配置
+    batch_size: 100
+    flush_interval: "30s"
+
+# 环境变量映射
+# OTEL_SERVICE_NAME -> telemetry.service_name
+# OTEL_SERVICE_VERSION -> telemetry.service_version
+# OTEL_ENVIRONMENT -> telemetry.environment
+# OTEL_EXPORTER_OTLP_ENDPOINT -> telemetry.collector_url
+# GAME_ID -> telemetry.game_id
+# OTEL_ENABLE_TRACING -> telemetry.enable_tracing
+# OTEL_ENABLE_METRICS -> telemetry.enable_metrics
+# OTEL_SAMPLING_RATIO -> telemetry.sampling_ratio
+# ANALYTICS_BRIDGE_ENABLED -> telemetry.analytics.enabled
+# ANALYTICS_REDIS_ADDR -> telemetry.analytics.redis_addr
+# ANALYTICS_REDIS_PASSWORD -> telemetry.analytics.redis_password
+# ANALYTICS_REDIS_DB -> telemetry.analytics.redis_db
+# ANALYTICS_TOPIC_PREFIX -> telemetry.analytics.topic_prefix
+# ANALYTICS_RETENTION_HOURS -> telemetry.analytics.retention_hours
+# ANALYTICS_BATCH_SIZE -> telemetry.analytics.batch_size
+# ANALYTICS_FLUSH_INTERVAL -> telemetry.analytics.flush_interval
+
+# 生产环境推荐配置
+production_env_vars: |
+  # 基础配置
+  OTEL_SERVICE_NAME=croupier-server
+  OTEL_SERVICE_VERSION=1.2.3
+  OTEL_ENVIRONMENT=production
+  GAME_ID=my-tower-defense
+
+  # OTel Collector
+  OTEL_EXPORTER_OTLP_ENDPOINT=https://otel-collector.company.com:4318
+  OTEL_ENABLE_TRACING=true
+  OTEL_ENABLE_METRICS=true
+  OTEL_SAMPLING_RATIO=0.05  # 5% 生产采样率
+
+  # Analytics Redis
+  ANALYTICS_BRIDGE_ENABLED=true
+  ANALYTICS_REDIS_ADDR=analytics-redis.company.com:6379
+  ANALYTICS_REDIS_PASSWORD=${REDIS_PASSWORD}  # 从密钥管理读取
+  ANALYTICS_REDIS_DB=2
+
+  # 事件配置
+  ANALYTICS_TOPIC_PREFIX=game:events:prod
+  ANALYTICS_RETENTION_HOURS=336  # 14天保留
+  ANALYTICS_BATCH_SIZE=500       # 更大批次提升性能
+  ANALYTICS_FLUSH_INTERVAL=60s   # 1分钟刷新间隔
+
+# 开发环境配置
+development_env_vars: |
+  # 基础配置
+  OTEL_SERVICE_NAME=croupier-dev
+  OTEL_ENVIRONMENT=development
+  GAME_ID=dev-game
+
+  # 本地OTel
+  OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+  OTEL_SAMPLING_RATIO=1.0  # 开发环境100%采样
+
+  # 本地Redis
+  ANALYTICS_REDIS_ADDR=localhost:6379
+  ANALYTICS_REDIS_DB=3
+  ANALYTICS_TOPIC_PREFIX=game:events:dev
+  ANALYTICS_BATCH_SIZE=10      # 小批次便于调试
+  ANALYTICS_FLUSH_INTERVAL=5s  # 快速刷新便于调试

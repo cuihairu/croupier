@@ -1,0 +1,141 @@
+# OpenTelemetry游戏监控系统Docker Compose配置
+# 包含OTel Collector, Jaeger, Prometheus, Redis等服务
+
+version: '3.8'
+
+services:
+  # OpenTelemetry Collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.91.0
+    container_name: croupier-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./configs/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+      - "8888:8888"   # Prometheus metrics endpoint
+    depends_on:
+      - jaeger
+      - prometheus
+    networks:
+      - croupier-telemetry
+
+  # Jaeger - 分布式链路追踪
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: croupier-jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14250:14250"  # Jaeger gRPC
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - croupier-telemetry
+
+  # Prometheus - 指标收集和存储
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: croupier-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-storage:/prometheus
+    networks:
+      - croupier-telemetry
+
+  # Grafana - 监控仪表板
+  grafana:
+    image: grafana/grafana:latest
+    container_name: croupier-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./configs/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./configs/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    networks:
+      - croupier-telemetry
+
+  # Redis - Analytics MQ
+  redis:
+    image: redis:7-alpine
+    container_name: croupier-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - croupier-telemetry
+
+  # ClickHouse - Analytics数据仓库
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: croupier-clickhouse
+    ports:
+      - "8123:8123"  # HTTP interface
+      - "9000:9000"  # Native interface
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./configs/clickhouse/users.xml:/etc/clickhouse-server/users.d/custom-users.xml:ro
+    environment:
+      - CLICKHOUSE_DB=analytics
+      - CLICKHOUSE_USER=analytics
+      - CLICKHOUSE_PASSWORD=analytics123
+    networks:
+      - croupier-telemetry
+
+  # 可选: OpenTelemetry演示应用
+  croupier-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile.demo
+    container_name: croupier-demo-app
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      - OTEL_SERVICE_NAME=croupier-demo
+      - OTEL_SERVICE_VERSION=1.0.0
+      - GAME_ID=tower-defense-demo
+      - ANALYTICS_REDIS_ADDR=redis:6379
+    depends_on:
+      - otel-collector
+      - redis
+    ports:
+      - "8080:8080"
+    networks:
+      - croupier-telemetry
+
+volumes:
+  prometheus-storage:
+  grafana-storage:
+  redis-data:
+  clickhouse-data:
+
+networks:
+  croupier-telemetry:
+    driver: bridge
+
+# 使用说明:
+# 1. 启动所有服务: docker-compose up -d
+# 2. 访问Jaeger UI: http://localhost:16686
+# 3. 访问Prometheus: http://localhost:9090
+# 4. 访问Grafana: http://localhost:3000 (admin/admin)
+# 5. 演示应用: http://localhost:8080
+#
+# 配置文件位置:
+# - configs/otel-collector-config.yaml
+# - configs/prometheus.yml
+# - configs/grafana/
