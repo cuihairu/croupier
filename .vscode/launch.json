@@ -10,7 +10,9 @@
       "args": ["--config", "configs/server.yaml"],
       "env": {
         "CROUPIER_DEV_SEED": "1"
-      }
+      },
+      "buildFlags": ["-tags=pg sqlite"],
+      "cwd": ""
     },
     {
       "name": "Server (postgres)",
@@ -24,7 +26,9 @@
         "DATABASE_URL": "postgres://croupier:croupier_dev_password@localhost:5432/croupier?sslmode=disable",
         "REDIS_URL": "redis://localhost:6379/0",
         "CLICKHOUSE_DSN": "clickhouse://localhost:9000/analytics"
-      }
+      },
+      "buildFlags": ["-tags=pg sqlite"],
+      "cwd": ""
     },
     {
       "name": "Edge (dev)",
@@ -39,7 +43,9 @@
         "--cert", "configs/dev/server.crt",
         "--key", "configs/dev/server.key",
         "--ca", "configs/dev/ca.crt"
-      ]
+      ],
+      "buildFlags": ["-tags=pg sqlite"],
+      "cwd": ""
     },
     {
       "name": "Analytics Worker",
@@ -50,7 +56,9 @@
       "env": {
         "REDIS_URL": "redis://localhost:6379/0",
         "CLICKHOUSE_DSN": "clickhouse://localhost:9000/analytics"
-      }
+      },
+      "buildFlags": ["-tags=pg sqlite"],
+      "cwd": ""
     },
     {
       "name": "Web (pnpm start)",
