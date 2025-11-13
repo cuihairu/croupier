@@ -108,3 +108,8 @@ worker:
 analytics-spec:
 	@echo "[analytics] exporting analytics spec JSON to web/public/analytics-spec.json"
 	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/export-analytics-spec.ps1
+
+.PHONY: proto-docs
+proto-docs:
+	@echo "[proto] generating docs..."
+	buf generate --template buf.gen.docs.yaml

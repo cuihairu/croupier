@@ -1,0 +1,35 @@
+{
+    "version":  "2.0.0",
+    "tasks":  [
+                  {
+                      "label":  "proto:gen",
+                      "problemMatcher":  [
+
+                                         ],
+                      "command":  "buf",
+                      "type":  "shell",
+                      "args":  [
+                                   "generate"
+                               ],
+                      "options":  {
+                                      "cwd":  ""
+                                  }
+                  },
+                  {
+                      "label":  "proto:docs",
+                      "problemMatcher":  [
+
+                                         ],
+                      "command":  "buf",
+                      "type":  "shell",
+                      "args":  [
+                                   "generate",
+                                   "--template",
+                                   "buf.gen.docs.yaml"
+                               ],
+                      "options":  {
+                                      "cwd":  ""
+                                  }
+                  }
+              ]
+}
