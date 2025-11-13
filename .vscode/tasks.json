@@ -2,6 +2,21 @@
     "version":  "2.0.0",
     "tasks":  [
                   {
+                      "label":  "proto:install-doc-plugin",
+                      "problemMatcher":  [
+
+                                         ],
+                      "command":  "go",
+                      "type":  "shell",
+                      "args":  [
+                                   "install",
+                                   "github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@latest"
+                               ],
+                      "options":  {
+                                      "cwd":  ""
+                                  }
+                  },
+                  {
                       "label":  "proto:gen",
                       "problemMatcher":  [
 
@@ -16,7 +31,7 @@
                                   }
                   },
                   {
-                      "label":  "proto:docs",
+                      "label":  "proto:docs (md+html)",
                       "problemMatcher":  [
 
                                          ],
@@ -30,6 +45,18 @@
                       "options":  {
                                       "cwd":  ""
                                   }
+                  },
+                  {
+                      "label":  "proto:docs",
+                      "group":  {
+                                    "kind":  "build",
+                                    "isDefault":  true
+                                },
+                      "dependsOn":  [
+                                        "proto:install-doc-plugin",
+                                        "proto:docs (md+html)"
+                                    ],
+                      "dependsOrder":  "sequence"
                   }
               ]
 }
