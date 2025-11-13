@@ -5,3 +5,8 @@ plugins:
     out: docs
     opt:
       - markdown,proto-api.md
+  - name: doc
+    path: protoc-gen-doc
+    out: docs
+    opt:
+      - html,proto-api.html

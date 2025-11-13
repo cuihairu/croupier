@@ -1,0 +1,6 @@
+{
+    "recommendations":  [
+                            "bufbuild.vscode-buf",
+                            "zxh404.vscode-proto3"
+                        ]
+}
