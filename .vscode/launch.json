@@ -1,0 +1,72 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Server (dev sqlite)",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "/cmd/server",
+      "args": ["--config", "configs/server.yaml"],
+      "env": {
+        "CROUPIER_DEV_SEED": "1"
+      }
+    },
+    {
+      "name": "Server (postgres)",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "/cmd/server",
+      "args": ["--config", "configs/server.yaml"],
+      "env": {
+        "DB_DRIVER": "postgres",
+        "DATABASE_URL": "postgres://croupier:croupier_dev_password@localhost:5432/croupier?sslmode=disable",
+        "REDIS_URL": "redis://localhost:6379/0",
+        "CLICKHOUSE_DSN": "clickhouse://localhost:9000/analytics"
+      }
+    },
+    {
+      "name": "Edge (dev)",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "/cmd/edge",
+      "args": [
+        "--addr", ":9443",
+        "--http_addr", ":9080",
+        "--games_config", "configs/games.json",
+        "--cert", "configs/dev/server.crt",
+        "--key", "configs/dev/server.key",
+        "--ca", "configs/dev/ca.crt"
+      ]
+    },
+    {
+      "name": "Analytics Worker",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "/cmd/analytics-worker",
+      "env": {
+        "REDIS_URL": "redis://localhost:6379/0",
+        "CLICKHOUSE_DSN": "clickhouse://localhost:9000/analytics"
+      }
+    },
+    {
+      "name": "Web (pnpm start)",
+      "type": "pwa-node",
+      "request": "launch",
+      "cwd": "/web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["start"],
+      "env": { "UMI_ENV": "dev", "REACT_APP_ENV": "dev", "MOCK": "none" },
+      "console": "integratedTerminal"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Server + Web",
+      "configurations": ["Server (dev sqlite)", "Web (pnpm start)"]
+    }
+  ]
+}
