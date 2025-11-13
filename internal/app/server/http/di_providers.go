@@ -18,7 +18,7 @@ import (
     obj "github.com/cuihairu/croupier/internal/platform/objstore"
     gmysql "gorm.io/driver/mysql"
     gpostgres "gorm.io/driver/postgres"
-    gsqlite "gorm.io/driver/sqlite"
+    gsqlite "github.com/glebarez/sqlite"
     gsqlserver "gorm.io/driver/sqlserver"
     "gorm.io/gorm"
     "context"
@@ -191,3 +191,4 @@ func initServerAuto(descriptorDir string, invoker FunctionInvoker, reg *registry
     if ch != nil { s.ch = ch }
     return s, nil
 }
+
