@@ -1,4 +1,4 @@
-﻿package httpserver
+package httpserver
 
 import (
 	"bytes"
@@ -53,7 +53,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	gmysql "gorm.io/driver/mysql"
 	gpostgres "gorm.io/driver/postgres"
-	gsqlite "gorm.io/driver/sqlite"
+	gsqlite "github.com/glebarez/sqlite"
 	gsqlserver "gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
 
@@ -749,13 +749,13 @@ func (s *Server) notifyEvent(event string, meta map[string]any) {
 		text += ":" + fmt.Sprint(p)
 	}
 	if st, ok := meta["status"]; ok {
-		text += " 鐘舵€?" + fmt.Sprint(st)
+		text += " ????" + fmt.Sprint(st)
 	}
 	if dl, ok := meta["days_left"]; ok {
-		text += " 鍓╀綑澶╂暟:" + fmt.Sprint(dl)
+		text += " ??????:" + fmt.Sprint(dl)
 	}
 	if vt, ok := meta["valid_to"]; ok {
-		text += " 鍒版湡:" + fmt.Sprint(vt)
+		text += " ???:" + fmt.Sprint(vt)
 	}
 	// pick channels
 	ids := []string{}
@@ -1807,33 +1807,33 @@ func (s *Server) respondError(c *gin.Context, status int, code, message string) 
 		Message   string `json:"message"`
 		RequestID string `json:"request_id,omitempty"`
 	}
-	// Map常见错误到中文，以便直接呈现；对于具体错误细节（如 err.Error()），保持原样
+	// Map????????????????????????? err.Error()??????
 	zh := map[string]string{
-		"unauthorized":       "未授权",
-		"forbidden":          "无权限",
-		"bad_request":        "请求参数无效",
-		"internal_error":     "服务器内部错误",
-		"not_found":          "资源不存在",
-		"unavailable":        "服务不可用",
-		"conflict":           "资源冲突",
-		"rate_limited":       "请求过于频繁",
-		"method_not_allowed": "方法不被允许",
-		"not_implemented":    "未实现",
-		"bad_gateway":        "上游服务错误",
-		"request_too_large":  "请求体过大",
+		"unauthorized":       "???",
+		"forbidden":          "???",
+		"bad_request":        "??????",
+		"internal_error":     "???????",
+		"not_found":          "?????",
+		"unavailable":        "?????",
+		"conflict":           "????",
+		"rate_limited":       "??????",
+		"method_not_allowed": "??????",
+		"not_implemented":    "???",
+		"bad_gateway":        "??????",
+		"request_too_large":  "?????",
 	}
-	// 仅在 message 看起来是占位提示或为空时，采用中文映射
+	// ?? message ???????????????????
 	if v, ok := zh[code]; ok {
 		switch strings.ToLower(strings.TrimSpace(message)) {
 		case "", "unauthorized", "forbidden", "bad request", "internal error", "not found", "service unavailable", "conflict", "too many login attempts", "method not allowed", "not implemented", "bad gateway", "request too large", "invalid payload":
 			message = v
 		}
 	}
-	// 内部错误：若携带具体错误信息，则在前面添加中文前缀，便于用户理解
+	// ????????????????????????????????
 	if code == "internal_error" {
 		m := strings.TrimSpace(message)
-		if m != "" && !strings.HasPrefix(m, "服务器内部错误") {
-			message = "服务器内部错误：" + m
+		if m != "" && !strings.HasPrefix(m, "???????") {
+			message = "????????" + m
 		}
 	}
 	rid, _ := c.Get("reqid")
@@ -1918,7 +1918,7 @@ func (s *Server) ginLogger() gin.HandlerFunc {
 }
 
 // ipRegion returns a human-readable region string for an IP (e.g., "CN/Zhejiang/Hangzhou") using optional HTTP resolver.
-// Results are cached in-memory with a short TTL; private/local addresses map to "鍐呯綉".
+// Results are cached in-memory with a short TTL; private/local addresses map to "???".
 func (s *Server) ipRegion(ip string) string {
 	ip = cleanIP(strings.TrimSpace(ip))
 	if ip == "" {
@@ -1926,10 +1926,10 @@ func (s *Server) ipRegion(ip string) string {
 	}
 	// quick local/LAN detection
 	if isLoopbackIP(ip) {
-		return "鏈湴"
+		return "???"
 	}
 	if isLANIP(ip) {
-		return "灞€鍩熺綉"
+		return "?????"
 	}
 	// cache
 	s.ipRegionMu.RLock()
@@ -3053,7 +3053,7 @@ func (s *Server) ginEngine() *gin.Engine {
 			// Default behavior: return legacy descriptors for backward compatibility
 			s.JSON(c, 200, s.descs)
 		})
-		// Provider capabilities (manifest) upload锛堝紑鍙戞湡 HTTP 鎺ュ彛锛涘悗缁敱 Control 娉ㄥ唽鏇夸唬锛?
+		// Provider capabilities (manifest) upload?????? HTTP ????????? Control ????????
 		r.POST("/api/providers/capabilities", func(c *gin.Context) {
 			var in struct {
 				Provider struct{
@@ -3075,7 +3075,7 @@ func (s *Server) ginEngine() *gin.Engine {
 			_ = s.addProviderFunctionsFromManifest(in.Manifest)
 			c.Status(204)
 		})
-		// List provider capabilities锛堝紑鍙戞湡锛?
+		// List provider capabilities????????
 		r.GET("/api/providers/descriptors", func(c *gin.Context) {
 			if s.reg == nil { s.respondError(c, 503, "unavailable", "registry unavailable"); return }
 			caps := s.reg.ListProviderCaps()
@@ -3083,7 +3083,7 @@ func (s *Server) ginEngine() *gin.Engine {
 			for _, v := range caps { var m any; _ = json.Unmarshal(v.Manifest, &m); out = append(out, gin.H{"id": v.ID, "version": v.Version, "lang": v.Lang, "sdk": v.SDK, "manifest": m, "updated_at": v.UpdatedAt}) }
 			s.JSON(c, 200, gin.H{"providers": out})
 		})
-		// List provider entities锛堣仛鍚堝悇 provider 鐨?entities锛岀敤浜?UI 娓叉煋锛?
+		// List provider entities?????? provider ??entities?????UI ?????
 		r.GET("/api/providers/entities", func(c *gin.Context) {
 			if s.reg == nil { s.respondError(c, 503, "unavailable", "registry unavailable"); return }
 			caps := s.reg.ListProviderCaps()
@@ -4481,7 +4481,7 @@ func (s *Server) ginEngine() *gin.Engine {
 										formItem["rules"] = append(formItem["rules"].([]map[string]any), map[string]any{
 											"required": true,
 											// Primary UI language is zh-CN
-											"message": "请输入" + description,
+											"message": "???" + description,
 										})
 										break
 									}
@@ -4984,16 +4984,16 @@ func (s *Server) ginEngine() *gin.Engine {
 			"form": []gin.H{
 				{
 					"id":           "input",
-					"name":         "鏂囨湰杈撳叆",
+					"name":         "??????",
 					"category":     "form",
 					"widget":       "input",
 					"icon":         "input",
-					"description":  "单行文本输入框",
+					"description":  "???????",
 					"properties": gin.H{
-						"title":       gin.H{"type": "string", "title": "标题"},
-						"placeholder": gin.H{"type": "string", "title": "占位符"},
-						"maxLength":   gin.H{"type": "number", "title": "最大长度"},
-						"required":    gin.H{"type": "boolean", "title": "必填", "default": false},
+						"title":       gin.H{"type": "string", "title": "??"},
+						"placeholder": gin.H{"type": "string", "title": "???"},
+						"maxLength":   gin.H{"type": "number", "title": "????"},
+						"required":    gin.H{"type": "boolean", "title": "??", "default": false},
 					},
 					"schema_template": gin.H{
 						"type":      "string",
@@ -5003,17 +5003,17 @@ func (s *Server) ginEngine() *gin.Engine {
 				},
 				{
 					"id":           "textarea",
-					"name":         "澶氳鏂囨湰",
+					"name":         "??????",
 					"category":     "form",
 					"widget":       "textarea",
 					"icon":         "textarea",
-					"description":  "多行文本输入框",
+					"description":  "???????",
 					"properties": gin.H{
-						"title":       gin.H{"type": "string", "title": "标题"},
-						"placeholder": gin.H{"type": "string", "title": "占位符"},
-						"rows":        gin.H{"type": "number", "title": "行数", "default": 4},
-						"maxLength":   gin.H{"type": "number", "title": "最大长度"},
-						"required":    gin.H{"type": "boolean", "title": "必填", "default": false},
+						"title":       gin.H{"type": "string", "title": "??"},
+						"placeholder": gin.H{"type": "string", "title": "???"},
+						"rows":        gin.H{"type": "number", "title": "??", "default": 4},
+						"maxLength":   gin.H{"type": "number", "title": "????"},
+						"required":    gin.H{"type": "boolean", "title": "??", "default": false},
 					},
 					"schema_template": gin.H{
 						"type":      "string",
@@ -5023,17 +5023,17 @@ func (s *Server) ginEngine() *gin.Engine {
 				},
 				{
 					"id":           "number",
-					"name":         "鏁板瓧杈撳叆",
+					"name":         "??????",
 					"category":     "form",
 					"widget":       "number",
 					"icon":         "number",
-					"description":  "数字输入框",
+					"description":  "?????",
 					"properties": gin.H{
-						"title":    gin.H{"type": "string", "title": "鏍囬"},
-						"minimum":  gin.H{"type": "number", "title": "最小值"},
-						"maximum":  gin.H{"type": "number", "title": "最大值"},
-						"step":     gin.H{"type": "number", "title": "姝ラ暱", "default": 1},
-						"required": gin.H{"type": "boolean", "title": "蹇呭～", "default": false},
+						"title":    gin.H{"type": "string", "title": "???"},
+						"minimum":  gin.H{"type": "number", "title": "???"},
+						"maximum":  gin.H{"type": "number", "title": "???"},
+						"step":     gin.H{"type": "number", "title": "???", "default": 1},
+						"required": gin.H{"type": "boolean", "title": "???", "default": false},
 					},
 					"schema_template": gin.H{
 						"type":  "number",
@@ -5042,15 +5042,15 @@ func (s *Server) ginEngine() *gin.Engine {
 				},
 				{
 					"id":           "select",
-					"name":         "涓嬫媺閫夋嫨",
+					"name":         "??????",
 					"category":     "form",
 					"widget":       "select",
 					"icon":         "select",
-					"description":  "下拉选择框",
+					"description":  "?????",
 					"properties": gin.H{
-						"title":    gin.H{"type": "string", "title": "鏍囬"},
-						"options":  gin.H{"type": "array", "title": "閫夐」鍒楄〃", "items": gin.H{"type": "string"}},
-						"required": gin.H{"type": "boolean", "title": "蹇呭～", "default": false},
+						"title":    gin.H{"type": "string", "title": "???"},
+						"options":  gin.H{"type": "array", "title": "??????", "items": gin.H{"type": "string"}},
+						"required": gin.H{"type": "boolean", "title": "???", "default": false},
 					},
 					"schema_template": gin.H{
 						"type":  "string",
@@ -5060,14 +5060,14 @@ func (s *Server) ginEngine() *gin.Engine {
 				},
 				{
 					"id":           "switch",
-					"name":         "开关",
+					"name":         "??",
 					"category":     "form",
 					"widget":       "switch",
 					"icon":         "switch",
-					"description":  "布尔值开关",
+					"description":  "?????",
 					"properties": gin.H{
-						"title":   gin.H{"type": "string", "title": "标题"},
-						"default": gin.H{"type": "boolean", "title": "默认值", "default": false},
+						"title":   gin.H{"type": "string", "title": "??"},
+						"default": gin.H{"type": "boolean", "title": "???", "default": false},
 					},
 					"schema_template": gin.H{
 						"type":    "boolean",
@@ -5079,14 +5079,14 @@ func (s *Server) ginEngine() *gin.Engine {
 			"layout": []gin.H{
 				{
 					"id":           "object",
-					"name":         "瀵硅薄瀹瑰櫒",
+					"name":         "??????",
 					"category":     "layout",
 					"widget":       "object",
 					"icon":         "object",
-					"description":  "宓屽瀵硅薄瀹瑰櫒",
+					"description":  "?????????",
 					"properties": gin.H{
-						"title":       gin.H{"type": "string", "title": "鏍囬"},
-						"displayType": gin.H{"type": "string", "title": "灞曠ず绫诲瀷", "enum": []string{"column", "row", "inline"}},
+						"title":       gin.H{"type": "string", "title": "???"},
+						"displayType": gin.H{"type": "string", "title": "??????", "enum": []string{"column", "row", "inline"}},
 					},
 					"schema_template": gin.H{
 						"type":       "object",
@@ -5096,15 +5096,15 @@ func (s *Server) ginEngine() *gin.Engine {
 				},
 				{
 					"id":           "array",
-				"name":         "数组列表",
+				"name":         "????",
 					"category":     "layout",
 					"widget":       "list",
 					"icon":         "list",
-				"description":  "可添加删除的数组列表",
+				"description":  "??????????",
 					"properties": gin.H{
-					"title":    gin.H{"type": "string", "title": "标题"},
-						"minItems": gin.H{"type": "number", "title": "最小项数"},
-						"maxItems": gin.H{"type": "number", "title": "最大项数"},
+					"title":    gin.H{"type": "string", "title": "??"},
+						"minItems": gin.H{"type": "number", "title": "????"},
+						"maxItems": gin.H{"type": "number", "title": "????"},
 					},
 					"schema_template": gin.H{
 						"type":  "array",
@@ -5262,32 +5262,32 @@ func (s *Server) ginEngine() *gin.Engine {
 
 		templates := gin.H{
 			"user_form": gin.H{
-				"name":        "用户表单模板",
-			"description": "典型的用户信息表单",
+				"name":        "??????",
+			"description": "?????????",
 				"components": gin.H{
 					"type": "object",
 					"properties": gin.H{
 						"username": gin.H{
 							"component": "input",
-							"title":     "用户名",
+							"title":     "???",
 							"required":  true,
 						},
 						"email": gin.H{
 							"component": "input",
-					"title":     "邮箱",
+					"title":     "??",
 							"required":  true,
 						},
 						"profile": gin.H{
 							"component": "object",
-							"title":     "涓汉淇℃伅",
+							"title":     "??????",
 							"properties": gin.H{
 								"nickname": gin.H{
 									"component": "input",
-									"title":     "鏄电О",
+									"title":     "???",
 								},
 								"bio": gin.H{
 									"component": "textarea",
-							"title":     "个人简介",
+							"title":     "????",
 								},
 							},
 						},
@@ -5295,29 +5295,29 @@ func (s *Server) ginEngine() *gin.Engine {
 				},
 			},
 			"game_config": gin.H{
-				"name":        "娓告垙閰嶇疆妯℃澘",
-				"description": "娓告垙鍙傛暟閰嶇疆琛ㄥ崟",
+				"name":        "?????????",
+				"description": "????????????",
 				"components": gin.H{
 					"type": "object",
 					"properties": gin.H{
 						"server_name": gin.H{
 							"component": "input",
-							"title":     "服务器名称",
+							"title":     "?????",
 							"required":  true,
 						},
 						"max_players": gin.H{
 							"component": "number",
-							"title":     "最大玩家数",
+							"title":     "?????",
 							"minimum":   1,
 							"maximum":   1000,
 							"required":  true,
 						},
 						"features": gin.H{
 							"component": "array",
-							"title":     "鍔熻兘鍒楄〃",
+							"title":     "??????",
 							"items": gin.H{
 								"component": "select",
-								"title":     "鍔熻兘",
+								"title":     "???",
 								"options":   []string{"pvp", "guild", "auction", "chat"},
 							},
 						},
@@ -6827,7 +6827,7 @@ func (s *Server) ginEngine() *gin.Engine {
 		if withAudit {
 			want := map[string]struct{}{}
 			for _, a := range items {
-				// 浠呭闈?pending 鐨勮褰曞洖濉璁′俊鎭紝閬垮厤鏃犺皳鎵弿
+				// ?????pending ????????????????????????
 				if strings.EqualFold(a.State, "pending") {
 					continue
 				}
@@ -7549,12 +7549,12 @@ func (s *Server) ginEngine() *gin.Engine {
 	if st, err := os.Stat(staticDir); err != nil || !st.IsDir() {
 		staticDir = "web/static"
 	}
-	// NOTE: Gin 不允许根通配和前缀共存锛岃繖閲屽皢闈欐€佽祫婧愭寕鍒?/static
+	// NOTE: Gin ???????????????????????????/static
 	r.Static("/static", staticDir)
-	// 鏍硅矾寰勮繑鍥?index.html锛堣嫢瀛樺湪锛夛紝渚夸簬 SPA 鍦ㄧ敓浜х幆澧冪洿鎺ユ墭绠?
+	// ????????index.html???????????? SPA ??????????????
 	if _, err := os.Stat(filepath.Join(staticDir, "index.html")); err == nil {
 		r.GET("/", func(c *gin.Context) { c.File(filepath.Join(staticDir, "index.html")) })
-		// 闈?/api/* 鐨勬湭鐭ヨ矾鐢卞洖閫€鍒?index.html锛屾敮鎸?SPA 鍒锋柊
+		// ??/api/* ?????????????index.html?????SPA ???
 		r.NoRoute(func(c *gin.Context) {
 			p := c.Request.URL.Path
 			if strings.HasPrefix(p, "/api/") || p == "/metrics" || strings.HasPrefix(p, "/metrics") {
@@ -8036,3 +8036,4 @@ func ifEmpty(s string, d string) string {
 	}
 	return s
 }
+
