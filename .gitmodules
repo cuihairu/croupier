@@ -10,3 +10,9 @@
 [submodule "sdks/java"]
 	path = sdks/java
 	url = git@github.com:cuihairu/croupier-sdk-java.git
+[submodule "sdks/python"]
+	path = sdks/python
+	url = git@github.com:cuihairu/croupier-sdk-python.git
+[submodule "sdks/js"]
+	path = sdks/js
+	url = git@github.com:cuihairu/croupier-sdk-js.git
