@@ -47,21 +47,87 @@ Croupier 围绕**"让游戏运营既安全又高效"**的核心目标设计，�
 ### 整体架构图
 
 ```mermaid
-graph LR
-  UI[Web 管理界面] -->|HTTP REST| Server[Croupier Server]
-  A1[Croupier Agent] -->|gRPC mTLS 443| Server
-  A2[Croupier Agent] -->|gRPC mTLS 443| Server
-  subgraph GSA[本机/同域]
-    GS1[Game Server A + SDK]
-    GS2[Game Server B + SDK]
+graph TB
+  subgraph "管理控制层"
+    UI[Web 管理界面<br/>Ant Design + TypeScript]
   end
-  GS1 -->|local gRPC| A1
-  GS2 -->|local gRPC| A1
-  classDef server fill:#e8f5ff,stroke:#1890ff;
-  classDef agent fill:#f6ffed,stroke:#52c41a;
-  class Server server
-  class A1 agent
-  class A2 agent
+
+  subgraph "数据收集层"
+    Server[Croupier Server<br/>功能调度 + Analytics API]
+    OtelCol[OpenTelemetry Collector<br/>标准化遥测数据收集]
+  end
+
+  subgraph "分布式代理层"
+    A1[Croupier Agent 1<br/>游戏服务代理]
+    A2[Croupier Agent 2<br/>游戏服务代理]
+  end
+
+  subgraph "游戏服务层"
+    subgraph GSA[游戏集群 A]
+      GS1[Game Server A + SDK<br/>+SimpleAnalytics]
+      GS2[Game Server B + SDK<br/>+OTel Integration]
+    end
+    subgraph GSB[游戏集群 B]
+      GS3[Game Server C + SDK<br/>+Mobile Analytics]
+      GS4[Game Server D + SDK<br/>+Web Analytics]
+    end
+  end
+
+  subgraph "数据处理层"
+    Redis[(Redis Streams<br/>analytics:events<br/>analytics:payments)]
+    Worker[Analytics Worker Group<br/>实时数据处理]
+  end
+
+  subgraph "存储观测层"
+    ClickHouse[(ClickHouse<br/>分析数据存储)]
+    Jaeger[Jaeger<br/>分布式追踪]
+    Prometheus[Prometheus<br/>指标收集]]
+    Grafana[Grafana<br/>可视化面板]
+  end
+
+  %% 控制流
+  UI -->|HTTP REST| Server
+  Server -->|gRPC mTLS| A1
+  Server -->|gRPC mTLS| A2
+
+  %% 数据流 - 功能调用
+  A1 -->|local gRPC| GS1
+  A1 -->|local gRPC| GS2
+  A2 -->|local gRPC| GS3
+  A2 -->|local gRPC| GS4
+
+  %% 数据流 - Analytics
+  GS1 -->|HTTP Analytics| Server
+  GS2 -->|OTLP| OtelCol
+  GS3 -->|HTTP Analytics| Server
+  GS4 -->|HTTP Analytics| Server
+
+  OtelCol -->|processed events| Redis
+  Server -->|raw events| Redis
+
+  Redis -->|stream consume| Worker
+  Worker -->|batch insert| ClickHouse
+
+  %% 观测性
+  OtelCol -->|traces| Jaeger
+  OtelCol -->|metrics| Prometheus
+  Prometheus --> Grafana
+  Jaeger --> Grafana
+  ClickHouse --> Grafana
+
+  classDef ui fill:#e8f5ff,stroke:#1890ff
+  classDef server fill:#f6ffed,stroke:#52c41a
+  classDef agent fill:#f6ffed,stroke:#52c41a
+  classDef game fill:#fff7e6,stroke:#fa8c16
+  classDef data fill:#f0f9e6,stroke:#52c41a
+  classDef storage fill:#f9f0ff,stroke:#722ed1
+
+  class UI ui
+  class Server,OtelCol server
+  class A1,A2 agent
+  class GS1,GS2,GS3,GS4 game
+  class Redis,Worker data
+  class ClickHouse,Jaeger,Prometheus,Grafana storage
 ```
 
 ### 调用与数据流
@@ -92,7 +158,67 @@ sequenceDiagram
 
 ## 🚀 快速开始
 
-### 模式 1：同网部署（直连，简化）
+### 模式 1：游戏分析快速集成（5分钟）
+
+适用于快速接入游戏分析和监控功能。
+
+```bash
+# 1) 启动 Croupier Server（已集成 Analytics API）
+./croupier server --config configs/server.example.yaml
+
+# 2) 配置 Analytics 环境变量
+export ANALYTICS_MQ_TYPE=redis
+export REDIS_URL=redis://localhost:6379/0
+
+# 3) 启动 Analytics Worker
+./analytics-worker
+
+# 4) 游戏服务器中集成 SimpleAnalytics（Go示例）
+```
+
+```go
+import "github.com/cuihairu/croupier/examples/otel-integration/internal/telemetry"
+
+// 初始化（一次性）
+telemetry.Init(telemetry.SimpleConfig{
+    GameID:    "my-game",
+    ServerURL: "http://localhost:8080",
+})
+
+// 发送事件（随时调用）
+telemetry.Login("user123", "ios", "cn-north")
+telemetry.StartLevel("user123", "session456", "level-1", "tutorial")
+telemetry.Buy("user123", "order789", "coin_pack", 0.99, "USD", true)
+```
+
+**🎮 完整演示：**
+```bash
+cd examples/otel-integration
+make demo-simple  # 一键体验完整流程
+```
+
+### 模式 2：OpenTelemetry 标准集成
+
+适用于需要完整可观测性功能（traces + metrics + logs）的场景。
+
+```bash
+# 1) 启动完整 OTel 环境
+cd examples/otel-integration
+make start
+
+# 2) 验证服务
+make health-check
+
+# 3) 运行演示
+make demo
+
+# 访问监控界面
+# Grafana: http://localhost:3000 (admin/admin)
+# Jaeger: http://localhost:16686
+# Prometheus: http://localhost:9090
+```
+
+### 模式 3：传统部署（直连，简化）
 
 适用于 Server 与 Game 在同一内网且允许直连的场景（仍建议使用 mTLS）。
 
