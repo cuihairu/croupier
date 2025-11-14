@@ -1,0 +1,56 @@
+# Air配置文件 - 支持Croupier热重载
+root = "."
+testdata_dir = "testdata"
+tmp_dir = "tmp"
+
+[build]
+# 自定义构建命令
+args_bin = []
+bin = "./tmp/main"
+cmd = "go build -o ./tmp/main ."
+delay = 1000
+exclude_dir = ["assets", "tmp", "vendor", "testdata"]
+exclude_file = []
+exclude_regex = ["_test.go"]
+exclude_unchanged = false
+follow_symlink = false
+full_bin = ""
+include_dir = []
+include_ext = ["go", "yaml", "json"]
+include_file = []
+kill_delay = "0s"
+log = "build-errors.log"
+poll = false
+poll_interval = 0
+rerun = false
+rerun_delay = 500
+send_interrupt = false
+stop_on_root = false
+
+# 在构建前运行的命令
+pre_cmd = ["echo '🔥 Preparing hot reload build...'"]
+
+# 在构建后运行的命令
+post_cmd = [
+  "echo '✅ Build completed, starting server...'",
+  "echo '📡 Server will auto-reconnect to Agent'",
+  "echo '💡 Modify .go files to trigger reload'"
+]
+
+[color]
+app = ""
+build = "yellow"
+main = "magenta"
+runner = "green"
+watcher = "cyan"
+
+[log]
+main_only = false
+time = true
+
+[misc]
+clean_on_exit = true
+
+[screen]
+clear_on_rebuild = false
+keep_scroll = true

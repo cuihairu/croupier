@@ -1,0 +1,57 @@
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@example.com'
+
+route:
+  group_by: ['alertname', 'severity', 'category']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'game-alerts'
+  routes:
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+    - match:
+        category: monetization
+      receiver: 'business-alerts'
+    - match:
+        category: stability
+      receiver: 'stability-alerts'
+
+receivers:
+  - name: 'game-alerts'
+    webhook_configs:
+      - url: 'http://localhost:9093/api/v1/alerts'
+        send_resolved: true
+
+  - name: 'critical-alerts'
+    webhook_configs:
+      - url: 'http://localhost:9093/api/v1/alerts/critical'
+        send_resolved: true
+    # 可以添加邮件、Slack等通知
+    # email_configs:
+    #   - to: 'devops@example.com'
+    #     subject: '[CRITICAL] Game Alert'
+    #     body: |
+    #       {{ range .Alerts }}
+    #       Alert: {{ .Annotations.summary }}
+    #       Description: {{ .Annotations.description }}
+    #       {{ end }}
+
+  - name: 'business-alerts'
+    webhook_configs:
+      - url: 'http://localhost:9093/api/v1/alerts/business'
+        send_resolved: true
+
+  - name: 'stability-alerts'
+    webhook_configs:
+      - url: 'http://localhost:9093/api/v1/alerts/stability'
+        send_resolved: true
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'game_id', 'instance']

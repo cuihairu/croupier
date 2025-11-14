@@ -1,0 +1,117 @@
+# 游戏业务告警规则
+groups:
+  - name: game.business.alerts
+    rules:
+      # 崩溃率过高
+      - alert: HighCrashRate
+        expr: rate(game_crash_total[5m]) > 0.01  # 1% 崩溃率
+        for: 2m
+        labels:
+          severity: critical
+          category: stability
+        annotations:
+          summary: "游戏崩溃率过高"
+          description: "游戏 {{ $labels.game_id }} 在平台 {{ $labels.game_platform }} 上的崩溃率为 {{ $value | humanizePercentage }}"
+
+      # 关卡完成率过低
+      - alert: LowLevelCompletionRate
+        expr: rate(game_level_complete_total[10m]) / rate(game_level_start_total[10m]) < 0.3  # 30% 完成率
+        for: 5m
+        labels:
+          severity: warning
+          category: gameplay
+        annotations:
+          summary: "关卡完成率过低"
+          description: "关卡 {{ $labels.level_id }} 的完成率为 {{ $value | humanizePercentage }}，可能存在难度问题"
+
+      # 收入下降
+      - alert: RevenueDrop
+        expr: rate(game_revenue_total[1h]) < rate(game_revenue_total[1h] offset 24h) * 0.8  # 下降20%
+        for: 10m
+        labels:
+          severity: warning
+          category: monetization
+        annotations:
+          summary: "游戏收入显著下降"
+          description: "游戏收入相比24小时前下降了 {{ $value | humanizePercentage }}"
+
+      # 会话时长过短
+      - alert: ShortSessionDuration
+        expr: rate(game_session_duration_sum[10m]) / rate(game_session_duration_count[10m]) < 120000  # 少于2分钟
+        for: 5m
+        labels:
+          severity: warning
+          category: engagement
+        annotations:
+          summary: "用户会话时长过短"
+          description: "平均会话时长仅为 {{ $value | humanizeDuration }}，用户参与度可能有问题"
+
+      # 高延迟
+      - alert: HighNetworkLatency
+        expr: histogram_quantile(0.95, rate(game_network_latency_bucket[5m])) > 200  # P95 > 200ms
+        for: 3m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "网络延迟过高"
+          description: "P95网络延迟为 {{ $value }}ms，用户体验可能受影响"
+
+      # 低帧率
+      - alert: LowFrameRate
+        expr: histogram_quantile(0.5, rate(game_client_fps_bucket[5m])) < 30  # P50 < 30 FPS
+        for: 5m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "客户端帧率过低"
+          description: "中位数帧率为 {{ $value }} FPS，性能需要优化"
+
+  - name: system.alerts
+    rules:
+      # 请求错误率过高
+      - alert: HighRequestErrorRate
+        expr: rate(game_error_total[5m]) / rate(game_request_total[5m]) > 0.05  # 5% 错误率
+        for: 2m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "API错误率过高"
+          description: "错误率为 {{ $value | humanizePercentage }}，系统可能存在问题"
+
+      # 请求延迟过高
+      - alert: HighRequestLatency
+        expr: histogram_quantile(0.99, rate(game_request_duration_bucket[5m])) > 1000  # P99 > 1s
+        for: 3m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "API响应延迟过高"
+          description: "P99延迟为 {{ $value }}ms"
+
+  - name: user.behavior.alerts
+    rules:
+      # 在线用户数异常下降
+      - alert: OnlineUsersDropped
+        expr: game_players_online < game_players_online offset 1h * 0.7  # 下降30%
+        for: 5m
+        labels:
+          severity: warning
+          category: user_activity
+        annotations:
+          summary: "在线用户数异常下降"
+          description: "当前在线用户 {{ $value }} 人，相比1小时前下降超过30%"
+
+      # 付费转化率过低
+      - alert: LowConversionRate
+        expr: rate(game_monetization_purchase_success_total[1h]) / rate(game_session_total[1h]) < 0.01  # 1% 转化率
+        for: 15m
+        labels:
+          severity: info
+          category: monetization
+        annotations:
+          summary: "付费转化率过低"
+          description: "付费转化率为 {{ $value | humanizePercentage }}"
