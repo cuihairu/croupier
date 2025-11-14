@@ -4,6 +4,7 @@ managed:
   go_package_prefix:
     default: github.com/cuihairu/croupier/pkg/pb
 plugins:
+  # Go plugins for new SDK structure
   - plugin: buf.build/protocolbuffers/go
     out: pkg/pb
     opt:
@@ -12,6 +13,7 @@ plugins:
     out: pkg/pb
     opt:
       - paths=source_relative
+
   # Local custom plugin: protoc-gen-croupier (must be on PATH)
   - name: croupier
     path: bin/protoc-gen-croupier
@@ -19,3 +21,15 @@ plugins:
     out: gen/croupier
     opt:
       - emit_pack=true
+
+  # Generate C++ code for SDK
+  - plugin: buf.build/protocolbuffers/cpp
+    out: sdks/cpp/generated
+
+  # Generate Java code for SDK
+  - plugin: buf.build/protocolbuffers/java
+    out: sdks/java/generated
+
+  # Java gRPC plugin
+  - plugin: buf.build/grpc/java
+    out: sdks/java/generated

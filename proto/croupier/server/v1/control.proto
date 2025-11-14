@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package croupier.server.v1;
+
+option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1;serverv1";
+
+// Server-side Function Descriptor
+message FunctionDescriptor {
+  string id = 1;        // function id, e.g. "player.ban"
+  string version = 2;   // semver, e.g. "1.2.0"
+  string category = 3;  // grouping
+  string risk = 4;      // "low"|"medium"|"high"
+  string entity = 5;    // entity type, e.g. "item", "player"
+  string operation = 6; // operation type, e.g. "create", "read", "update", "delete"
+  bool enabled = 7;     // whether this function is currently enabled
+}
+
+// Agent Registration Request
+message RegisterRequest {
+  string agent_id = 1;              // agent unique id
+  string version = 2;               // agent version
+  repeated FunctionDescriptor functions = 3; // summarized function list
+  string rpc_addr = 4;              // agent's reachable gRPC address (DEV ONLY)
+  string game_id = 5;               // game scope (required for multi-game)
+  string env = 6;                   // environment (optional: prod/stage/test)
+}
+
+// Agent Registration Response
+message RegisterResponse {
+  string session_id = 1;
+  int64 expire_at = 2; // epoch seconds
+}
+
+// Agent Heartbeat Request
+message HeartbeatRequest {
+  string agent_id = 1;
+  string session_id = 2;
+}
+
+// Agent Heartbeat Response
+message HeartbeatResponse {}
+
+// Provider capabilities (manifest) — language-agnostic declaration
+message ProviderMeta {
+  string id = 1;
+  string version = 2;
+  string lang = 3;
+  string sdk = 4;
+}
+
+// Register Capabilities Request
+message RegisterCapabilitiesRequest {
+  ProviderMeta provider = 1;
+  bytes manifest_json_gz = 2; // gzipped manifest.json
+  // reserved 10 to 19 for future attachments (e.g., FDS)
+}
+
+// Register Capabilities Response
+message RegisterCapabilitiesResponse {}
+
+// Server Control Service - Internal interface for agent registration and management
+service ControlService {
+  // Agent registration with server
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+
+  // Agent heartbeat
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+
+  // Provider capabilities registration
+  rpc RegisterCapabilities(RegisterCapabilitiesRequest) returns (RegisterCapabilitiesResponse);
+}
