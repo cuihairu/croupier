@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package croupier.sdk.v1;
+
+option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1";
+
+// SDK Function Descriptor for local registration
+message FunctionDescriptor {
+  string id = 1;
+  string version = 2;
+}
+
+// SDK Client Registration Request
+message RegisterClientRequest {
+  string service_id = 1;
+  string version = 2;
+  string rpc_addr = 3;                              // client's gRPC listener address
+  repeated FunctionDescriptor functions = 4;         // functions this client provides
+}
+
+// SDK Client Registration Response
+message RegisterClientResponse {
+  string session_id = 1;
+}
+
+// SDK Client Heartbeat Request
+message HeartbeatRequest {
+  string service_id = 1;
+  string session_id = 2;
+}
+
+// SDK Client Heartbeat Response
+message HeartbeatResponse {}
+
+// SDK Local Instance Info
+message ClientInstance {
+  string service_id = 1;
+  string addr = 2;
+  string version = 3;
+  string last_seen = 4;
+}
+
+// SDK Local Function Info
+message ClientFunction {
+  string id = 1;
+  repeated ClientInstance instances = 2;
+}
+
+// SDK List Clients Request
+message ListClientsRequest {}
+
+// SDK List Clients Response
+message ListClientsResponse {
+  repeated ClientFunction functions = 1;
+}
+
+// SDK Job Result Request
+message GetJobResultRequest {
+  string job_id = 1;
+}
+
+// SDK Job Result Response
+message GetJobResultResponse {
+  string state = 1;
+  bytes payload = 2;
+  string error = 3;
+}
+
+// SDK Client Service - Interface for registering game functions with Agent
+// This is what SDK clients use to register themselves and their functions
+service ClientService {
+  // Register this client and its functions with the Agent
+  rpc RegisterClient(RegisterClientRequest) returns (RegisterClientResponse);
+
+  // Send periodic heartbeats to maintain session
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+
+  // List all registered clients and their functions
+  rpc ListClients(ListClientsRequest) returns (ListClientsResponse);
+
+  // Get job result (best-effort)
+  rpc GetJobResult(GetJobResultRequest) returns (GetJobResultResponse);
+}

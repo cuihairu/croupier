@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package croupier.api.v1;
+
+option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/api/v1;apiv1";
+
+// Future: HTTP REST API definitions for external integrations
+// This file is a placeholder for public API definitions
+
+// Management API Request (placeholder)
+message ManagementRequest {
+  string operation = 1;
+  map<string, string> parameters = 2;
+}
+
+// Management API Response (placeholder)
+message ManagementResponse {
+  string result = 1;
+  string error = 2;
+}
+
+// Public Management Service (placeholder)
+service ManagementService {
+  // Future: HTTP REST API management endpoint
+  rpc Manage(ManagementRequest) returns (ManagementResponse);
+}

@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package croupier.sdk.v1;
+
+option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1";
+
+// Function Descriptor - Complete definition for a function
+message FunctionDefinition {
+  string id = 1;        // function id, e.g. "player.ban"
+  string version = 2;   // semver, e.g. "1.2.0"
+  string category = 3;  // grouping
+  string risk = 4;      // "low"|"medium"|"high"
+  string entity = 5;    // entity type, e.g. "item", "player"
+  string operation = 6; // operation type, e.g. "create", "read", "update", "delete"
+  bool enabled = 7;     // whether this function is currently enabled
+}
+
+// Service Configuration for SDK clients
+message ServiceConfig {
+  string service_id = 1;
+  string version = 2;
+  string game_id = 3;
+  string env = 4;           // environment: dev, staging, prod
+  string local_addr = 5;    // local listening address
+  int32 timeout_seconds = 6;
+}
+
+// Job Status enumeration
+enum JobStatus {
+  JOB_STATUS_UNSPECIFIED = 0;
+  JOB_STATUS_PENDING = 1;
+  JOB_STATUS_RUNNING = 2;
+  JOB_STATUS_COMPLETED = 3;
+  JOB_STATUS_FAILED = 4;
+  JOB_STATUS_CANCELLED = 5;
+}
+
+// Job Information
+message JobInfo {
+  string job_id = 1;
+  string function_id = 2;
+  JobStatus status = 3;
+  int64 created_at = 4;
+  int64 updated_at = 5;
+  string error = 6;
+  int32 progress = 7;       // 0-100
+}
+
+// Error information for SDK responses
+message ErrorInfo {
+  string code = 1;          // error code
+  string message = 2;       // error message
+  map<string, string> details = 3; // additional error context
+}

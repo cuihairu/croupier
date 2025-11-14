@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package croupier.server.v1;
+
+option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1;serverv1";
+
+// Edge Job Result Request
+message GetJobResultRequest {
+  string job_id = 1;
+}
+
+// Edge Job Result Response
+message GetJobResultResponse {
+  string state = 1;
+  bytes payload = 2;
+  string error = 3;
+}
+
+// Server Edge Service - Internal interface for edge proxy job queries
+service EdgeService {
+  // Get job result through edge proxy
+  rpc GetJobResult(GetJobResultRequest) returns (GetJobResultResponse);
+}
