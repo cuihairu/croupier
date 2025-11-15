@@ -1,0 +1,32 @@
+name: Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+      - name: Generate proto
+        run: buf generate
+      - name: Go mod download
+        run: go mod download
+      - name: Install wire
+        run: |
+          go install github.com/google/wire/cmd/wire@latest
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+      - name: Wire generate
+        run: make wire
+      - name: Unit tests
+        run: go test ./...
