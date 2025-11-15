@@ -37,28 +37,28 @@
 
 ```mermaid
 graph TB
-    subgraph "数据采集层"
-        A[游戏客户端] --> B[OTel SDK]
-        C[游戏服务器] --> D[OTel Agent]
+    subgraph "采集层（公网/DMZ + 内网）"
+        A[游戏客户端] --> I[Analytics Ingestion<br/>HTTP/JSON+签名+限流]
+        C[游戏服务器] --> D[OTel SDK/Agent]
     end
 
-    subgraph "数据处理层"
-        B --> E[OTel Collector]
-        D --> E
-        E --> F[数据转换]
-        F --> G[质量校验]
+    subgraph "处理层（可组合）"
+        D --> E[OTel Collector<br/>OTLP/gRPC|HTTP]
+        I --> R[MQ: Redis/Kafka]
+        E --> R
+        R --> W[Analytics Worker<br/>清洗/聚合/入库]
     end
 
-    subgraph "数据存储层"
-        G --> H[ClickHouse<br/>时序数据]
-        G --> I[Redis<br/>实时缓存]
-        G --> J[Kafka<br/>消息队列]
+    subgraph "存储层（内网）"
+        W --> H[ClickHouse<br/>事件/聚合表]
+        E --> P[Prometheus<br/>指标]
+        E --> JG[Jaeger/Tempo<br/>链路]
     end
 
-    subgraph "数据应用层"
-        H --> K[分析报表]
-        I --> L[实时大屏]
-        J --> M[AI模型训练]
+    subgraph "应用层"
+        H --> K[分析报表/Grafana]
+        P --> K
+        JG --> K
     end
 ```
 
@@ -90,6 +90,35 @@ graph TB
 - **开发效率提升 70%** - 标准化SDK和工具链
 - **故障定位速度提升 80%** - 分布式链路追踪
 - **运维成本降低 50%** - 自动化监控和告警
+
+## 🌐 公网采集入口（Analytics Ingestion）
+
+面向“游戏客户端”的事件上报，推荐使用独立的 Analytics Ingestion 服务（与控制面解耦），具备如下特性：
+- 安全：前置 CDN/WAF、基于 HMAC-SHA256 的签名校验、时间戳+nonce 防重放、按游戏/环境限流
+- 可靠：写入 MQ（Redis Streams/Kafka），消费失败可重放；支持 MaxLen 背压
+- 灵活：完全业务事件模型（login/progression/purchase…），字段白名单与灰度开关
+
+最小化落地示例（已在本仓库提供 cmd/analytics-ingest）：
+- 端点：
+  - POST /api/ingest/events（通用事件数组）
+  - POST /api/ingest/payments（支付事件数组）
+- 认证与防重放（请求头）：
+  - X-Timestamp：Unix 秒；与服务器允许的时间偏差默认 300s
+  - X-Nonce：客户端生成随机字符串
+  - X-Signature：Base64(HMAC-SHA256(secret, `${timestamp}\n${nonce}\n${sha256(body)}`))
+  - 共享密钥通过环境变量 `ANALYTICS_INGEST_SECRET` 配置
+- 环境变量：
+  - ANALYTICS_MQ_TYPE=redis
+  - REDIS_URL=redis://user:pass@host:6379/0
+  - ANALYTICS_REDIS_STREAM_EVENTS=analytics:events
+  - ANALYTICS_REDIS_STREAM_PAYMENTS=analytics:payments
+  - ANALYTICS_INGEST_SECRET=your-secret
+  - ANALYTICS_INGEST_SKEW=300（可选，允许时间偏差秒）
+
+与 OTel Collector 的关系：
+- 客户端若不便引入 OTLP，可直接用 Ingestion（HTTP/JSON）
+- 服务端/Agent 的 traces/metrics 建议走 OTel Collector；业务事件可通过 SDK/Bridge 写 MQ
+- 二者可并存，最终在 ClickHouse/Grafana 汇聚
 
 ## 🚀 快速开始
 
