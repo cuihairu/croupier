@@ -104,7 +104,7 @@ graph TB
 
   %% 数据管道
   Ingest -->|写入| Redis
-  OtelColPub -->|导出事件(可选)| Redis
+  OtelColPub -- "导出事件(可选)" --> Redis
   Redis -->|stream consume| Worker
   Worker -->|batch insert| ClickHouse
 
