@@ -1,0 +1,40 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+      - name: Lint proto
+        run: buf lint
+      - name: Generate proto
+        run: buf generate
+      - name: Go mod download
+        run: go mod download
+      - name: Install wire
+        run: |
+          go install github.com/google/wire/cmd/wire@latest
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+      - name: Wire generate
+        run: make wire
+      - name: Verify no diff after wire
+        run: git diff --exit-code
+      - name: Lint Go code
+        run: |
+          go install golang.org/x/lint/golint@latest
+          golint ./...
+      - name: Vet Go code
+        run: go vet ./...
