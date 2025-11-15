@@ -44,73 +44,73 @@ Croupier 围绕**"让游戏运营既安全又高效"**的核心目标设计，�
 
 ## 🏗️ 系统架构
 
-### 整体架构图
+### 整体架构图（采集与控制面解耦）
 
 ```mermaid
 graph TB
-  subgraph "管理控制层"
+  subgraph "客户端"
+    Client[游戏客户端<br/>iOS/Android/Web]
+  end
+
+  subgraph "管理控制层（内网）"
     UI[Web 管理界面<br/>Ant Design + TypeScript]
+    Server[Croupier Server<br/>控制面/权限/查询]
   end
 
-  subgraph "数据收集层"
-    Server[Croupier Server<br/>功能调度 + Analytics API]
-    OtelCol[OpenTelemetry Collector<br/>标准化遥测数据收集]
+  subgraph "DMZ/公网"
+    Edge[Edge（可选）<br/>控制面转发]
+    Ingest[Analytics Ingestion<br/>HTTP/OTLP + CDN/WAF/限流]
+    OtelColPub[OTel Collector<br/>公共/DMZ接入(可选)]
   end
 
-  subgraph "分布式代理层"
-    A1[Croupier Agent 1<br/>游戏服务代理]
-    A2[Croupier Agent 2<br/>游戏服务代理]
+  subgraph "分布式代理层（游戏内网）"
+    A1[Croupier Agent 1]
+    A2[Croupier Agent 2]
   end
 
-  subgraph "游戏服务层"
-    subgraph GSA[游戏集群 A]
-      GS1[Game Server A + SDK<br/>+SimpleAnalytics]
-      GS2[Game Server B + SDK<br/>+OTel Integration]
-    end
-    subgraph GSB[游戏集群 B]
-      GS3[Game Server C + SDK<br/>+Mobile Analytics]
-      GS4[Game Server D + SDK<br/>+Web Analytics]
-    end
+  subgraph "游戏服务层（游戏内网）"
+    GS1[Game Server A + SDK<br/>+SimpleAnalytics]
+    GS2[Game Server B + SDK<br/>+OTel Integration]
+    GS3[Game Server C + SDK]
+    GS4[Game Server D + SDK]
   end
 
-  subgraph "数据处理层"
+  subgraph "数据处理层（内网）"
     Redis[(Redis Streams<br/>analytics:events<br/>analytics:payments)]
     Worker[Analytics Worker Group<br/>实时数据处理]
   end
 
-	  subgraph "存储观测层"
-	    ClickHouse[(ClickHouse<br/>分析数据存储)]
-	    Jaeger[Jaeger<br/>分布式追踪]
-	    Prometheus[Prometheus<br/>指标收集]
-	    Grafana[Grafana<br/>可视化面板]
-	  end
+  subgraph "存储观测层（内网）"
+    ClickHouse[(ClickHouse<br/>分析数据存储)]
+    Jaeger[Jaeger<br/>分布式追踪]
+    Prometheus[Prometheus<br/>指标收集]
+    Grafana[Grafana<br/>可视化面板]
+  end
 
-  %% 控制流
+  %% 控制面
   UI -->|HTTP REST| Server
   Server -->|gRPC mTLS| A1
   Server -->|gRPC mTLS| A2
+  Server -->|可选| Edge
+  Edge -->|gRPC mTLS| A1
+  Edge -->|gRPC mTLS| A2
 
-  %% 数据流 - 功能调用
-  A1 -->|local gRPC| GS1
-  A1 -->|local gRPC| GS2
-  A2 -->|local gRPC| GS3
-  A2 -->|local gRPC| GS4
+  %% 客户端数据上报（公网）
+  Client -->|HTTPS| Ingest
 
-  %% 数据流 - Analytics
-  GS1 -->|HTTP Analytics| Server
-  GS2 -->|OTLP| OtelCol
-  GS3 -->|HTTP Analytics| Server
-  GS4 -->|HTTP Analytics| Server
+  %% 服务器端数据（游戏内网）
+  GS1 -->|SDK 事件| Redis
+  GS2 -->|OTLP/HTTP| OtelColPub
 
-  OtelCol -->|processed events| Redis
-  Server -->|raw events| Redis
-
+  %% 数据管道
+  Ingest -->|写入| Redis
+  OtelColPub -->|导出事件(可选)| Redis
   Redis -->|stream consume| Worker
   Worker -->|batch insert| ClickHouse
 
   %% 观测性
-  OtelCol -->|traces| Jaeger
-  OtelCol -->|metrics| Prometheus
+  OtelColPub -->|traces| Jaeger
+  OtelColPub -->|metrics| Prometheus
   Prometheus --> Grafana
   Jaeger --> Grafana
   ClickHouse --> Grafana
@@ -121,20 +121,22 @@ graph TB
   classDef game fill:#fff7e6,stroke:#fa8c16
   classDef data fill:#f0f9e6,stroke:#52c41a
   classDef storage fill:#f9f0ff,stroke:#722ed1
+  classDef dmz fill:#fffbe6,stroke:#faad14
 
   class UI ui
-  class Server,OtelCol server
+  class Server server
   class A1,A2 agent
   class GS1,GS2,GS3,GS4 game
   class Redis,Worker data
   class ClickHouse,Jaeger,Prometheus,Grafana storage
+  class Edge,Ingest,OtelColPub dmz
 ```
 
 ### 调用与数据流
-- Query（查询）同步返回；Command（命令）异步返回 `job_id`
-- 长任务通过流式接口返回进度/日志，可取消/重试，保证幂等（`idempotency-key`）
-- 所有函数字段由 Descriptor（JSON Schema）定义，UI/校验/鉴权共享同一描述
-- Metadata：统一携带 `trace_id`（链路诊断）与 `game_id`/`env`（多游戏作用域）。HTTP 层通过 `X-Game-ID`/`X-Env` 透传至南向调用。
+- 控制面：Query（查询）同步返回；Command（命令）异步返回 `job_id`。长任务通过流式接口返回进度/日志，可取消/重试，保证幂等（`idempotency-key`）。
+- 采集面：客户端事件走 `Analytics Ingestion`（公网/DMZ，前置 CDN/WAF/签名/限流）；服务端遥测走 `OTel Collector`（traces/metrics）。
+- Server 常驻内网，不对公网提供数据上报入口；采集与控制面解耦，统一写入 MQ（Redis/Kafka）后由 `Analytics Worker` 入库 ClickHouse。
+- 所有函数字段由 Descriptor（JSON Schema）定义，UI/校验/鉴权共享同一描述；HTTP 层通过 `X-Game-ID`/`X-Env` 透传至南向调用。
 
 ```mermaid
 sequenceDiagram
