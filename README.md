@@ -59,8 +59,8 @@ graph TB
 
   subgraph "DMZ/公网"
     Edge[Edge（可选）<br/>控制面转发]
-    Ingest[Analytics Ingestion<br/>HTTP/OTLP + CDN/WAF/限流]
-    OtelColPub[OTel Collector<br/>公共/DMZ接入(可选)]
+    Ingest[Analytics Ingestion<br/>HTTP/OTLP · CDN/WAF/限流]
+    OtelColPub[OTel Collector<br/>公共/DMZ接入 可选]
   end
 
   subgraph "分布式代理层（游戏内网）"
