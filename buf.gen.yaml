@@ -33,3 +33,29 @@ plugins:
   # Java gRPC plugin
   - plugin: buf.build/grpc/java
     out: sdks/java/generated
+
+  # Generate Go code for SDK
+  - plugin: buf.build/protocolbuffers/go
+    out: sdks/go/generated
+    opt:
+      - paths=source_relative
+  - plugin: buf.build/grpc/go
+    out: sdks/go/generated
+    opt:
+      - paths=source_relative
+
+  # Generate Python code for SDK
+  - plugin: buf.build/protocolbuffers/python
+    out: sdks/python/generated
+  - plugin: buf.build/grpc/python
+    out: sdks/python/generated
+
+  # Generate JavaScript/TypeScript code for SDK (modern approach)
+  - plugin: buf.build/bufbuild/es
+    out: sdks/js/generated
+    opt:
+      - target=ts  # 生成 TypeScript
+  - plugin: buf.build/connectrpc/es
+    out: sdks/js/generated
+    opt:
+      - target=ts  # 生成 Connect RPC TypeScript

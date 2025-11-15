@@ -1,0 +1,2 @@
+/usr/bin/ar qc libcroupier-sdk-static.a "CMakeFiles/croupier-sdk-static.dir/src/croupier_client.cpp.o" "CMakeFiles/croupier-sdk-static.dir/src/grpc_service.cpp.o" "CMakeFiles/croupier-sdk-static.dir/src/config_driven_loader.cpp.o" "CMakeFiles/croupier-sdk-static.dir/src/utils/json_utils.cpp.o" "CMakeFiles/croupier-sdk-static.dir/src/utils/file_utils.cpp.o" "CMakeFiles/croupier-sdk-static.dir/src/config/client_config_loader.cpp.o" "CMakeFiles/croupier-sdk-static.dir/src/plugin/dynamic_loader.cpp.o"
+/usr/bin/ranlib libcroupier-sdk-static.a

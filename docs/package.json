@@ -1,0 +1,22 @@
+{
+  "name": "croupier-docs",
+  "version": "1.0.0",
+  "description": "Croupier Project Documentation",
+  "private": true,
+  "scripts": {
+    "dev": "vuepress dev .",
+    "build": "vuepress build .",
+    "serve": "vuepress serve ."
+  },
+  "devDependencies": {
+    "vuepress": "^2.0.0-rc.14",
+    "@vuepress/bundler-vite": "^2.0.0-rc.14",
+    "@vuepress/theme-default": "^2.0.0-rc.14"
+  },
+  "keywords": [
+    "croupier",
+    "documentation",
+    "vuepress"
+  ],
+  "license": "MIT"
+}

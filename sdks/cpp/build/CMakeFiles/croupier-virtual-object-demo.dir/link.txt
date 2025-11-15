@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,-search_paths_first -Wl,-headerpad_max_install_names "CMakeFiles/croupier-virtual-object-demo.dir/examples/virtual_object_demo.cpp.o" -o bin/croupier-virtual-object-demo  -Wl,-rpath,/Users/cui/Workspaces/croupier/sdks/cpp/build libcroupier-sdk.1.0.0.dylib
