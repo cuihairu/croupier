@@ -78,12 +78,12 @@ graph TB
     Worker[Analytics Worker Group<br/>实时数据处理]
   end
 
-  subgraph "存储观测层"
-    ClickHouse[(ClickHouse<br/>分析数据存储)]
-    Jaeger[Jaeger<br/>分布式追踪]
-    Prometheus[Prometheus<br/>指标收集]]
-    Grafana[Grafana<br/>可视化面板]
-  end
+	  subgraph "存储观测层"
+	    ClickHouse[(ClickHouse<br/>分析数据存储)]
+	    Jaeger[Jaeger<br/>分布式追踪]
+	    Prometheus[Prometheus<br/>指标收集]
+	    Grafana[Grafana<br/>可视化面板]
+	  end
 
   %% 控制流
   UI -->|HTTP REST| Server
