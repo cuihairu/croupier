@@ -4,12 +4,18 @@ BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 LDFLAGS := -X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -s -w
 
 .PHONY: proto build server agent edge cli clean dev tidy test lint help all tools schema-validator pack-builder
+.PHONY: build-sdks build-sdks-cpp build-sdks-go build-sdks-java build-sdks-js build-sdks-python
+.PHONY: build-web build-dashboard build-website dev-dashboard dev-website
 
-# Build all components
-all: build
+# Build all components (server + sdks + web)
+all: build build-sdks build-web
 
+# ========== Legacy Submodule Support (Removed) ==========
+# Note: Submodules have been migrated to monorepo structure
+# SDKs are now in sdks/ directory as source code
 submodules:
-	git submodule update --init --recursive
+	@echo "⚠️  Submodules have been migrated to monorepo structure"
+	@echo "✅ SDKs are now directly available in sdks/ directory"
 
 proto:
 	@echo "[proto] generating code via buf..."
@@ -106,8 +112,103 @@ worker:
 
 .PHONY: analytics-spec
 analytics-spec:
-	@echo "[analytics] exporting analytics spec JSON to web/public/analytics-spec.json"
+	@echo "[analytics] exporting analytics spec JSON to web/dashboard/public/analytics-spec.json"
+	@mkdir -p web/dashboard/public
 	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/export-analytics-spec.ps1
+
+# ========== SDK Build Targets ==========
+build-sdks: build-sdks-cpp build-sdks-go
+
+build-sdks-cpp:
+	@echo "[sdks] building C++ SDK..."
+	@cd sdks/cpp && cmake -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_GRPC=ON
+	@cd sdks/cpp && cmake --build build --parallel
+
+build-sdks-go:
+	@echo "[sdks] building Go SDK..."
+	@cd sdks/go && go mod tidy && go build ./...
+
+build-sdks-java:
+	@echo "[sdks] building Java SDK..."
+	@cd sdks/java && ./gradlew build -x test
+
+build-sdks-js:
+	@echo "[sdks] building JavaScript SDK..."
+	@cd sdks/js && npm ci && npm run build
+
+build-sdks-python:
+	@echo "[sdks] building Python SDK..."
+	@cd sdks/python && pip install -e . && python -m pytest
+
+# ========== Web & Docs Build Targets ==========
+build-web: build-dashboard build-docs
+
+build-dashboard:
+	@echo "[web] building dashboard..."
+	@cd dashboard && npm ci && npm run build
+
+build-docs:
+	@echo "[docs] building documentation..."
+	@cd docs && npm ci && npm run build
+
+# ========== Development Targets ==========
+dev-dashboard:
+	@echo "[web] starting dashboard development server..."
+	@cd dashboard && npm ci && npm run dev
+
+dev-docs:
+	@echo "[docs] starting documentation development server..."
+	@cd docs && npm ci && npm run dev
+
+# ========== Clean Targets ==========
+clean: clean-sdks clean-web
+	rm -rf $(BINDIR)
+	rm -rf gen/
+
+clean-sdks:
+	@echo "[clean] cleaning SDK build artifacts..."
+	@rm -rf sdks/cpp/build sdks/java/build sdks/js/dist sdks/js/node_modules
+	@cd sdks/go && go clean -cache -modcache -testcache || true
+	@cd sdks/python && rm -rf build/ dist/ *.egg-info/ __pycache__/ || true
+
+clean-web:
+	@echo "[clean] cleaning web and docs build artifacts..."
+	@rm -rf dashboard/dist dashboard/node_modules
+	@rm -rf docs/.vuepress/dist docs/node_modules
+
+# ========== Help Target ==========
+help:
+	@echo "Croupier Build System (Monorepo)"
+	@echo ""
+	@echo "Core Targets:"
+	@echo "  all              - Build server, SDKs, and web components"
+	@echo "  build            - Build server components (server, agent, edge)"
+	@echo "  proto            - Generate protobuf code"
+	@echo ""
+	@echo "Server Targets:"
+	@echo "  server           - Build croupier-server"
+	@echo "  agent            - Build croupier-agent"
+	@echo "  edge             - Build croupier-edge"
+	@echo ""
+	@echo "SDK Targets:"
+	@echo "  build-sdks       - Build all SDKs (C++, Go)"
+	@echo "  build-sdks-cpp   - Build C++ SDK"
+	@echo "  build-sdks-go    - Build Go SDK"
+	@echo "  build-sdks-java  - Build Java SDK"
+	@echo "  build-sdks-js    - Build JavaScript SDK"
+	@echo "  build-sdks-python- Build Python SDK"
+	@echo ""
+	@echo "Web & Docs Targets:"
+	@echo "  build-web        - Build web and docs components"
+	@echo "  build-dashboard  - Build management dashboard"
+	@echo "  build-docs       - Build VuePress documentation"
+	@echo "  dev-dashboard    - Start dashboard dev server"
+	@echo "  dev-docs         - Start docs dev server"
+	@echo ""
+	@echo "Utility Targets:"
+	@echo "  clean            - Clean all build artifacts"
+	@echo "  clean-sdks       - Clean SDK build artifacts"
+	@echo "  clean-web        - Clean web build artifacts"
 
 .PHONY: proto-docs
 proto-docs:

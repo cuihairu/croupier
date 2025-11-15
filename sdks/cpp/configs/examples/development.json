@@ -1,0 +1,16 @@
+{
+  "game_id": "example-game",
+  "env": "development",
+  "service_id": "cpp-sdk-dev",
+  "agent_addr": "127.0.0.1:19090",
+  "local_listen": "0.0.0.0:0",
+  "insecure": true,
+  "timeout_seconds": 30,
+  "auth": {
+    "headers": {
+      "X-Game-Version": "1.0.0-dev",
+      "X-Client-ID": "cpp-sdk-development",
+      "X-Environment": "development"
+    }
+  }
+}

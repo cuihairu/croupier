@@ -1,7 +1,5 @@
 version: v1
 name: buf.build/your-org/croupier
-deps:
-  - buf.build/googleapis/googleapis
 lint:
   use:
     - STANDARD
@@ -12,4 +10,3 @@ lint:
 breaking:
   use:
     - FILE
-

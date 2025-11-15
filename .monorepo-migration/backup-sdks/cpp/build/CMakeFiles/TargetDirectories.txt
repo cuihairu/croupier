@@ -1,0 +1,13 @@
+/Users/cui/Workspaces/croupier/sdks/cpp/build/CMakeFiles/croupier-sdk-shared.dir
+/Users/cui/Workspaces/croupier/sdks/cpp/build/CMakeFiles/croupier-sdk-static.dir
+/Users/cui/Workspaces/croupier/sdks/cpp/build/CMakeFiles/croupier-example.dir
+/Users/cui/Workspaces/croupier/sdks/cpp/build/CMakeFiles/croupier-virtual-object-demo.dir
+/Users/cui/Workspaces/croupier/sdks/cpp/build/CMakeFiles/croupier-complete-example.dir
+/Users/cui/Workspaces/croupier/sdks/cpp/build/CMakeFiles/croupier-config-example.dir
+/Users/cui/Workspaces/croupier/sdks/cpp/build/CMakeFiles/croupier-plugin-demo.dir
+/Users/cui/Workspaces/croupier/sdks/cpp/build/CMakeFiles/croupier-comprehensive-demo.dir
+/Users/cui/Workspaces/croupier/sdks/cpp/build/CMakeFiles/example_plugin.dir
+/Users/cui/Workspaces/croupier/sdks/cpp/build/CMakeFiles/package.dir
+/Users/cui/Workspaces/croupier/sdks/cpp/build/CMakeFiles/package_source.dir
+/Users/cui/Workspaces/croupier/sdks/cpp/build/CMakeFiles/edit_cache.dir
+/Users/cui/Workspaces/croupier/sdks/cpp/build/CMakeFiles/rebuild_cache.dir
