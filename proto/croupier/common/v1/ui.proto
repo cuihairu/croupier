@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package croupier.common.v1;
+
+option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/common/v1;commonv1";
+
+// Generic i18n text with common languages.
+message I18nText {
+  string en = 1;
+  string zh = 2;
+  // reserved for more locales
+}
+
+// Menu metadata for building dynamic navigation in the UI.
+message Menu {
+  string section = 1;  // Top-level section: e.g. "Function Management" | "Operations" | "Analytics"
+  string group   = 2;  // Group within section: e.g. "Moderation" | "Player"
+  string path    = 3;  // Preferred landing path: e.g. "/functions/invoke"
+  int32  order   = 4;  // Ordering weight (ascending)
+  string icon    = 5;  // Icon id (frontend mapping)
+  string badge   = 6;  // "beta" | "new" | custom
+  bool   hidden  = 7;  // true → do not show in menu
+}
+
+// Role binding: which roles should be granted which verbs by default.
+message RoleBinding {
+  string role = 1;
+  repeated string verbs = 2;
+}
+
+// Permission specification for a resource (function/component).
+message PermissionSpec {
+  // Verbs applicable to the resource: e.g. read/invoke/view_history/manage/use
+  repeated string verbs = 1;
+  // Scopes supported for ABAC policies: e.g. game/env/function_id
+  repeated string scopes = 2;
+  // Default role → verbs bindings (suggested grants).
+  repeated RoleBinding defaults = 3;
+  // Optional zh texts per verb. If absent, UI will fallback to templates.
+  map<string, string> i18n_zh = 4;
+}
+

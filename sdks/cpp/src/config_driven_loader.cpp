@@ -3,8 +3,14 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
-#include <dlfcn.h>  // Unix动态库加载
 #include <iostream>
+
+// Platform-specific dynamic library headers
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <dlfcn.h>  // Unix 动态库加载
+#endif
 
 // 简单的 JSON 解析器 (生产环境建议使用 nlohmann/json)
 #ifdef CROUPIER_SDK_ENABLE_JSON
