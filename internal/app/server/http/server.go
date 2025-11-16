@@ -1307,6 +1307,8 @@ func NewServer(descriptorDir string, invoker FunctionInvoker, audit *auditchain.
 		// optional: import legacy JSON when empty DB (DEV bootstrap)
 		_ = s.importLegacyUsersIfEmpty()
 		_ = s.importLegacyGamesIfEmpty()
+		// optional: seed a default example game when no games exist (dev bootstrap)
+		_ = s.seedExampleGameIfEmpty()
 		// Prepare Games Service (defaults loader)
 		if s.games != nil {
 			if defs, err := gamesvc.LoadDefaultsFromFile("configs/games.json"); err == nil {
@@ -2329,6 +2331,48 @@ func (s *Server) importLegacyGamesIfEmpty() error {
 					_ = s.games.AddEnv(context.Background(), g.ID, env)
 				}
 			}
+		}
+	}
+	return nil
+}
+
+// seedExampleGameIfEmpty creates a single example game when the games table is empty.
+// This is intended for local/dev environments to make the UI usable out-of-the-box.
+func (s *Server) seedExampleGameIfEmpty() error {
+	if s.gdb == nil || s.games == nil {
+		return nil
+	}
+	// Allow opt-out via env
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("SEED_EXAMPLE_GAME")), "false") {
+		return nil
+	}
+	var cnt int64
+	if err := s.gdb.Model(&repogames.Game{}).Count(&cnt).Error; err != nil {
+		return err
+	}
+	if cnt > 0 {
+		return nil
+	}
+	// Use an Iconify public icon (Material Design: gamepad variant)
+	const iconURL = "https://api.iconify.design/mdi:gamepad-variant.svg?color=%23888888"
+	const name = "Example Game"
+	const desc = "Preloaded example game for development."
+	envs := []string{"dev", "staging", "production"}
+	if s.gamesSvc != nil {
+		dg := &dom.Game{Name: name, Enabled: true, Icon: iconURL, Description: desc}
+		if err := s.gamesSvc.CreateGame(context.Background(), dg); err != nil {
+			return nil
+		}
+		for _, e := range envs {
+			_ = s.gamesSvc.AddEnv(context.Background(), dg.ID, dom.GameEnvDef{Env: e})
+		}
+	} else {
+		g := &repogames.Game{Name: name, Enabled: true, Icon: iconURL, Description: desc}
+		if err := s.games.Create(context.Background(), g); err != nil {
+			return nil
+		}
+		for _, e := range envs {
+			_ = s.games.AddEnv(context.Background(), g.ID, e)
 		}
 	}
 	return nil
@@ -8036,4 +8080,3 @@ func ifEmpty(s string, d string) string {
 	}
 	return s
 }
-
