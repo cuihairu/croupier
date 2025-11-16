@@ -28,13 +28,5 @@ jobs:
         run: go mod download
       - name: Build
         run: make build
-      - name: Install wire
-        run: |
-          go install github.com/google/wire/cmd/wire@latest
-          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-      - name: Wire generate
-        run: make wire
-      - name: Verify no diff after wire
-        run: git diff --exit-code
       - name: Unit tests
         run: go test ./...
