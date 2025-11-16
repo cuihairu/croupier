@@ -7,7 +7,7 @@ version = '1.0.0'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(11)
     }
     withSourcesJar()
 }
@@ -30,6 +30,11 @@ tasks.withType(Test).configureEach {
     useJUnitPlatform()
 }
 
+// Compile to Java 11 bytecode for broader compatibility
+tasks.withType(JavaCompile).configureEach {
+    options.release = 11
+}
+
 // Include both pre-generated proto sources and conventional src layout
 sourceSets {
     main {
@@ -43,4 +48,3 @@ tasks.jar {
     // Produce a stable filename for nightly artifacts
     archiveBaseName.set("croupier-java-sdk")
 }
-
