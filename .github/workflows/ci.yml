@@ -15,7 +15,7 @@ jobs:
           submodules: recursive
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.25'
       - name: Install buf
         uses: bufbuild/buf-setup-action@v1
       - name: Lint proto
@@ -28,5 +28,13 @@ jobs:
         run: go mod download
       - name: Build
         run: make build
+      - name: Clear test cache
+        run: go clean -testcache
+      - name: Sanity check code includes latest schema/x-render fixes
+        shell: bash
+        run: |
+          set -e
+          grep -n "invalid schema payload" internal/app/server/http/server.go
+          ! grep -R --line-number "httptest.NewRequest(.*(\*bytes.Buffer)" internal/app/server/http/server_new_apis_test.go || true
       - name: Unit tests
-        run: go test ./...
+        run: go test -count=1 ./...
