@@ -2,6 +2,9 @@ package registry
 
 import (
     "encoding/json"
+    "io/fs"
+    "os"
+    "path/filepath"
     "sync"
     "time"
 )
@@ -228,4 +231,74 @@ func (s *Store) BuildFunctionIndex() map[string]map[string]interface{} {
         }
     }
     return idx
+}
+
+// LoadUIOverrides loads server-side UI/RBAC overrides from one or more JSON files.
+// Expected structure:
+// {
+//   "player.ban": {
+//     "display_name": {"zh":"封禁玩家","en":"Ban Player"},
+//     "summary": {"zh":"..."},
+//     "tags": ["moderation"],
+//     "menu": { "section":"Function Management", "group":"Moderation", "order": 100, "hidden": false },
+//     "permissions": { "verbs":["read","invoke"], "scopes":["game","env","function_id"], "defaults":[{"role":"operator","verbs":["invoke"]}] }
+//   },
+//   ...
+// }
+func (s *Store) LoadUIOverrides(paths ...string) map[string]map[string]interface{} {
+    merged := map[string]map[string]interface{}{}
+    for _, p := range paths {
+        if p == "" {
+            continue
+        }
+        expanded := expandIfDir(p)
+        for _, file := range expanded {
+            b, err := os.ReadFile(file)
+            if err != nil || len(b) == 0 {
+                continue
+            }
+            var m map[string]map[string]interface{}
+            if err := json.Unmarshal(b, &m); err != nil {
+                continue
+            }
+            for fid, meta := range m {
+                if fid == "" || meta == nil {
+                    continue
+                }
+                if _, ok := merged[fid]; !ok {
+                    merged[fid] = map[string]interface{}{}
+                }
+                // shallow merge/replace: server overrides take precedence
+                for k, v := range meta {
+                    merged[fid][k] = v
+                }
+            }
+        }
+    }
+    return merged
+}
+
+// expandIfDir: if p is a directory, return *.json files within; else return [p] if exists; else [].
+func expandIfDir(p string) []string {
+    info, err := os.Stat(p)
+    if err != nil {
+        return nil
+    }
+    if info.IsDir() {
+        files := []string{}
+        _ = filepath.WalkDir(p, func(path string, d fs.DirEntry, err error) error {
+            if err != nil {
+                return nil
+            }
+            if d.IsDir() {
+                return nil
+            }
+            if filepath.Ext(d.Name()) == ".json" {
+                files = append(files, path)
+            }
+            return nil
+        })
+        return files
+    }
+    return []string{p}
 }
