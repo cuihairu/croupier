@@ -137,13 +137,10 @@ jobs:
           # Pin builtin-baseline in manifest to the cloned vcpkg commit
           BASELINE="$("$VCPKG_ROOT"/git-2*/bin/git rev-parse HEAD 2>/dev/null || git -C "$VCPKG_ROOT" rev-parse HEAD)"
           sed -i.bak "s/__VCPKG_BASELINE__/${BASELINE}/" sdks/cpp/vcpkg.json || true
-          # Preinstall via manifest to warm cache
-          EXTRA=""
-          # Only enable aria2 if both aria2c exists AND vcpkg supports the switch
-          if command -v aria2c >/dev/null 2>&1 && "$VCPKG_ROOT/vcpkg" help | grep -q -- '--x-use-aria2'; then
-            EXTRA="--x-use-aria2"
-          fi
-          (cd sdks/cpp && "$VCPKG_ROOT/vcpkg" install --triplet ${{ matrix.triplet }} $EXTRA) || true
+          # Preinstall via manifest to warm cache.
+          # In manifest mode, avoid positional package args; set default triplet via env.
+          export VCPKG_DEFAULT_TRIPLET=${{ matrix.triplet }}
+          (cd sdks/cpp && "$VCPKG_ROOT/vcpkg" install) || true
           echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
 
       - name: Install vcpkg (Windows)
@@ -212,12 +209,10 @@ jobs:
           $baseline = git -C $env:VCPKG_ROOT rev-parse HEAD
           (Get-Content sdks/cpp/vcpkg.json).Replace("__VCPKG_BASELINE__", $baseline) | Set-Content sdks/cpp/vcpkg.json
           pushd sdks/cpp
-          $extra = ""
-          if (Get-Command aria2c.exe -ErrorAction SilentlyContinue) {
-            $help = & "$env:VCPKG_ROOT\vcpkg.exe" help | Out-String
-            if ($help -match "--x-use-aria2") { $extra = "--x-use-aria2" }
-          }
-          & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet ${{ matrix.triplet }} $extra
+          # Preinstall via manifest to warm cache.
+          # In manifest mode, avoid positional package args; set default triplet via env.
+          $env:VCPKG_DEFAULT_TRIPLET = "${{ matrix.triplet }}"
+          & "$env:VCPKG_ROOT\vcpkg.exe" install
           if ($LASTEXITCODE -ne 0) {
             Write-Host "manifest preinstall skipped (non-zero exit code $LASTEXITCODE)"
             $global:LASTEXITCODE = 0
