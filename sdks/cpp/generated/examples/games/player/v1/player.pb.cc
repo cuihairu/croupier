@@ -24,6 +24,7 @@ PROTOBUF_PRAGMA_INIT_SEG
 namespace _pb = ::google::protobuf;
 namespace _pbi = ::google::protobuf::internal;
 namespace _fl = ::google::protobuf::internal::field_layout;
+namespace examples {
 namespace games {
 namespace player {
 namespace v1 {
@@ -87,6 +88,7 @@ PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
 }  // namespace v1
 }  // namespace player
 }  // namespace games
+}  // namespace examples
 static constexpr const ::_pb::EnumDescriptor* PROTOBUF_NONNULL* PROTOBUF_NULLABLE
     file_level_enum_descriptors_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto = nullptr;
 static constexpr const ::_pb::ServiceDescriptor* PROTOBUF_NONNULL* PROTOBUF_NULLABLE
@@ -95,57 +97,59 @@ const ::uint32_t
     TableStruct_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto::offsets[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
         protodesc_cold) = {
         0x081, // bitmap
-        PROTOBUF_FIELD_OFFSET(::games::player::v1::BanRequest, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::examples::games::player::v1::BanRequest, _impl_._has_bits_),
         5, // hasbit index offset
-        PROTOBUF_FIELD_OFFSET(::games::player::v1::BanRequest, _impl_.player_id_),
-        PROTOBUF_FIELD_OFFSET(::games::player::v1::BanRequest, _impl_.reason_),
+        PROTOBUF_FIELD_OFFSET(::examples::games::player::v1::BanRequest, _impl_.player_id_),
+        PROTOBUF_FIELD_OFFSET(::examples::games::player::v1::BanRequest, _impl_.reason_),
         0,
         1,
         0x081, // bitmap
-        PROTOBUF_FIELD_OFFSET(::games::player::v1::BanResponse, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::examples::games::player::v1::BanResponse, _impl_._has_bits_),
         4, // hasbit index offset
-        PROTOBUF_FIELD_OFFSET(::games::player::v1::BanResponse, _impl_.result_),
+        PROTOBUF_FIELD_OFFSET(::examples::games::player::v1::BanResponse, _impl_.result_),
         0,
 };
 
 static const ::_pbi::MigrationSchema
     schemas[] ABSL_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
-        {0, sizeof(::games::player::v1::BanRequest)},
-        {7, sizeof(::games::player::v1::BanResponse)},
+        {0, sizeof(::examples::games::player::v1::BanRequest)},
+        {7, sizeof(::examples::games::player::v1::BanResponse)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
-    &::games::player::v1::_BanRequest_default_instance_._instance,
-    &::games::player::v1::_BanResponse_default_instance_._instance,
+    &::examples::games::player::v1::_BanRequest_default_instance_._instance,
+    &::examples::games::player::v1::_BanResponse_default_instance_._instance,
 };
 const char descriptor_table_protodef_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
     "\n%examples/games/player/v1/player.proto\022"
-    "\017games.player.v1\032\037croupier/options/funct"
-    "ion.proto\032\031croupier/options/ui.proto\"p\n\n"
-    "BanRequest\0222\n\tplayer_id\030\001 \001(\tB\025\212\262\031\021\n\005inp"
-    "ut\022\010\347\216\251\345\256\266IDR\010playerId\022.\n\006reason\030\002 \001(\tB\026"
-    "\212\262\031\022\n\010textarea\032\006\345\216\237\345\233\240R\006reason\"%\n\013BanRes"
-    "ponse\022\026\n\006result\030\001 \001(\tR\006result2\221\001\n\010Player"
-    "Gm\022\204\001\n\003Ban\022\033.games.player.v1.BanRequest\032"
-    "\034.games.player.v1.BanResponse\"B\312\363\030>\n\npla"
+    "\030examples.games.player.v1\032\"croupier/opti"
+    "ons/v1/function.proto\032\034croupier/options/"
+    "v1/ui.proto\"p\n\nBanRequest\0222\n\tplayer_id\030\001"
+    " \001(\tB\025\212\262\031\021\n\005input\022\010\347\216\251\345\256\266IDR\010playerId\022.\n"
+    "\006reason\030\002 \001(\tB\026\212\262\031\022\n\010textarea\032\006\345\216\237\345\233\240R\006r"
+    "eason\"%\n\013BanResponse\022\026\n\006result\030\001 \001(\tR\006re"
+    "sult2\252\001\n\017PlayerGmService\022\226\001\n\003Ban\022$.examp"
+    "les.games.player.v1.BanRequest\032%.example"
+    "s.games.player.v1.BanResponse\"B\312\363\030>\n\npla"
     "yer.ban\022\0051.2.0\032\006player\"\004high*\002lb2\00330s8\001B"
-    "\005agentR\007commandX\001B\307\001\n\023com.games.player.v"
-    "1B\013PlayerProtoP\001ZEgithub.com/cuihairu/cr"
-    "oupier/pkg/pb/examples/games/player/v1;p"
-    "layerv1\242\002\003GPX\252\002\017Games.Player.V1\312\002\017Games\\"
-    "Player\\V1\342\002\033Games\\Player\\V1\\GPBMetadata\352"
-    "\002\021Games::Player::V1b\006proto3"
+    "\005agentR\007commandX\001B\365\001\n\034com.examples.games"
+    ".player.v1B\013PlayerProtoP\001ZEgithub.com/cu"
+    "ihairu/croupier/pkg/pb/examples/games/pl"
+    "ayer/v1;playerv1\242\002\003EGP\252\002\030Examples.Games."
+    "Player.V1\312\002\030Examples\\Games\\Player\\V1\342\002$E"
+    "xamples\\Games\\Player\\V1\\GPBMetadata\352\002\033Ex"
+    "amples::Games::Player::V1b\006proto3"
 };
 static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
     descriptor_table_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto_deps[2] = {
-        &::descriptor_table_croupier_2foptions_2ffunction_2eproto,
-        &::descriptor_table_croupier_2foptions_2fui_2eproto,
+        &::descriptor_table_croupier_2foptions_2fv1_2ffunction_2eproto,
+        &::descriptor_table_croupier_2foptions_2fv1_2fui_2eproto,
 };
 static ::absl::once_flag descriptor_table_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto = {
     false,
     false,
-    627,
+    713,
     descriptor_table_protodef_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto,
     "examples/games/player/v1/player.proto",
     &descriptor_table_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto_once,
@@ -158,6 +162,7 @@ PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_examples_2fgam
     file_level_enum_descriptors_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto,
     file_level_service_descriptors_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto,
 };
+namespace examples {
 namespace games {
 namespace player {
 namespace v1 {
@@ -178,12 +183,12 @@ BanRequest::BanRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
     : ::google::protobuf::Message(arena) {
 #endif  // PROTOBUF_CUSTOM_VTABLE
   SharedCtor(arena);
-  // @@protoc_insertion_point(arena_constructor:games.player.v1.BanRequest)
+  // @@protoc_insertion_point(arena_constructor:examples.games.player.v1.BanRequest)
 }
 PROTOBUF_NDEBUG_INLINE BanRequest::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
-    [[maybe_unused]] const ::games::player::v1::BanRequest& from_msg)
+    [[maybe_unused]] const ::examples::games::player::v1::BanRequest& from_msg)
       : _has_bits_{from._has_bits_},
         _cached_size_{0},
         player_id_(arena, from.player_id_),
@@ -203,7 +208,7 @@ BanRequest::BanRequest(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
 
-  // @@protoc_insertion_point(copy_constructor:games.player.v1.BanRequest)
+  // @@protoc_insertion_point(copy_constructor:examples.games.player.v1.BanRequest)
 }
 PROTOBUF_NDEBUG_INLINE BanRequest::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
@@ -216,7 +221,7 @@ inline void BanRequest::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
 }
 BanRequest::~BanRequest() {
-  // @@protoc_insertion_point(destructor:games.player.v1.BanRequest)
+  // @@protoc_insertion_point(destructor:examples.games.player.v1.BanRequest)
   SharedDtor(*this);
 }
 inline void BanRequest::SharedDtor(MessageLite& self) {
@@ -274,7 +279,7 @@ BanRequest::GetClassData() const {
   return BanRequest_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<1, 2, 0, 50, 2>
+const ::_pbi::TcParseTable<1, 2, 0, 59, 2>
 BanRequest::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(BanRequest, _impl_._has_bits_),
@@ -290,35 +295,35 @@ BanRequest::_table_ = {
     nullptr,  // post_loop_handler
     ::_pbi::TcParser::GenericFallback,  // fallback
     #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
-    ::_pbi::TcParser::GetTable<::games::player::v1::BanRequest>(),  // to_prefetch
+    ::_pbi::TcParser::GetTable<::examples::games::player::v1::BanRequest>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // string reason = 2 [json_name = "reason", (.croupier.options.ui) = {
+    // string reason = 2 [json_name = "reason", (.croupier.options.v1.ui) = {
     {::_pbi::TcParser::FastUS1,
      {18, 1, 0,
       PROTOBUF_FIELD_OFFSET(BanRequest, _impl_.reason_)}},
-    // string player_id = 1 [json_name = "playerId", (.croupier.options.ui) = {
+    // string player_id = 1 [json_name = "playerId", (.croupier.options.v1.ui) = {
     {::_pbi::TcParser::FastUS1,
      {10, 0, 0,
       PROTOBUF_FIELD_OFFSET(BanRequest, _impl_.player_id_)}},
   }}, {{
     65535, 65535
   }}, {{
-    // string player_id = 1 [json_name = "playerId", (.croupier.options.ui) = {
+    // string player_id = 1 [json_name = "playerId", (.croupier.options.v1.ui) = {
     {PROTOBUF_FIELD_OFFSET(BanRequest, _impl_.player_id_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string reason = 2 [json_name = "reason", (.croupier.options.ui) = {
+    // string reason = 2 [json_name = "reason", (.croupier.options.v1.ui) = {
     {PROTOBUF_FIELD_OFFSET(BanRequest, _impl_.reason_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }},
   // no aux_entries
   {{
-    "\32\11\6\0\0\0\0\0"
-    "games.player.v1.BanRequest"
+    "\43\11\6\0\0\0\0\0"
+    "examples.games.player.v1.BanRequest"
     "player_id"
     "reason"
   }},
 };
 PROTOBUF_NOINLINE void BanRequest::Clear() {
-// @@protoc_insertion_point(message_clear_start:games.player.v1.BanRequest)
+// @@protoc_insertion_point(message_clear_start:examples.games.player.v1.BanRequest)
   ::google::protobuf::internal::TSanWrite(&_impl_);
   ::uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
@@ -351,27 +356,27 @@ PROTOBUF_NOINLINE void BanRequest::Clear() {
   if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
     this_.CheckHasBitConsistency();
   }
-  // @@protoc_insertion_point(serialize_to_array_start:games.player.v1.BanRequest)
+  // @@protoc_insertion_point(serialize_to_array_start:examples.games.player.v1.BanRequest)
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
 
   cached_has_bits = this_._impl_._has_bits_[0];
-  // string player_id = 1 [json_name = "playerId", (.croupier.options.ui) = {
+  // string player_id = 1 [json_name = "playerId", (.croupier.options.v1.ui) = {
   if (CheckHasBit(cached_has_bits, 0x00000001U)) {
     if (!this_._internal_player_id().empty()) {
       const ::std::string& _s = this_._internal_player_id();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "games.player.v1.BanRequest.player_id");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "examples.games.player.v1.BanRequest.player_id");
       target = stream->WriteStringMaybeAliased(1, _s, target);
     }
   }
 
-  // string reason = 2 [json_name = "reason", (.croupier.options.ui) = {
+  // string reason = 2 [json_name = "reason", (.croupier.options.v1.ui) = {
   if (CheckHasBit(cached_has_bits, 0x00000002U)) {
     if (!this_._internal_reason().empty()) {
       const ::std::string& _s = this_._internal_reason();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "games.player.v1.BanRequest.reason");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "examples.games.player.v1.BanRequest.reason");
       target = stream->WriteStringMaybeAliased(2, _s, target);
     }
   }
@@ -381,7 +386,7 @@ PROTOBUF_NOINLINE void BanRequest::Clear() {
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
             this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
   }
-  // @@protoc_insertion_point(serialize_to_array_end:games.player.v1.BanRequest)
+  // @@protoc_insertion_point(serialize_to_array_end:examples.games.player.v1.BanRequest)
   return target;
 }
 
@@ -392,7 +397,7 @@ PROTOBUF_NOINLINE void BanRequest::Clear() {
 ::size_t BanRequest::ByteSizeLong() const {
   const BanRequest& this_ = *this;
 #endif  // PROTOBUF_CUSTOM_VTABLE
-  // @@protoc_insertion_point(message_byte_size_start:games.player.v1.BanRequest)
+  // @@protoc_insertion_point(message_byte_size_start:examples.games.player.v1.BanRequest)
   ::size_t total_size = 0;
 
   ::uint32_t cached_has_bits = 0;
@@ -402,14 +407,14 @@ PROTOBUF_NOINLINE void BanRequest::Clear() {
   ::_pbi::Prefetch5LinesFrom7Lines(&this_);
   cached_has_bits = this_._impl_._has_bits_[0];
   if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
-    // string player_id = 1 [json_name = "playerId", (.croupier.options.ui) = {
+    // string player_id = 1 [json_name = "playerId", (.croupier.options.v1.ui) = {
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
       if (!this_._internal_player_id().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_player_id());
       }
     }
-    // string reason = 2 [json_name = "reason", (.croupier.options.ui) = {
+    // string reason = 2 [json_name = "reason", (.croupier.options.v1.ui) = {
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
       if (!this_._internal_reason().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
@@ -429,7 +434,7 @@ void BanRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
   if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
     from.CheckHasBitConsistency();
   }
-  // @@protoc_insertion_point(class_specific_merge_from_start:games.player.v1.BanRequest)
+  // @@protoc_insertion_point(class_specific_merge_from_start:examples.games.player.v1.BanRequest)
   ABSL_DCHECK_NE(&from, _this);
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
@@ -461,7 +466,7 @@ void BanRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
 }
 
 void BanRequest::CopyFrom(const BanRequest& from) {
-  // @@protoc_insertion_point(class_specific_copy_from_start:games.player.v1.BanRequest)
+  // @@protoc_insertion_point(class_specific_copy_from_start:examples.games.player.v1.BanRequest)
   if (&from == this) return;
   Clear();
   MergeFrom(from);
@@ -498,12 +503,12 @@ BanResponse::BanResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
     : ::google::protobuf::Message(arena) {
 #endif  // PROTOBUF_CUSTOM_VTABLE
   SharedCtor(arena);
-  // @@protoc_insertion_point(arena_constructor:games.player.v1.BanResponse)
+  // @@protoc_insertion_point(arena_constructor:examples.games.player.v1.BanResponse)
 }
 PROTOBUF_NDEBUG_INLINE BanResponse::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
-    [[maybe_unused]] const ::games::player::v1::BanResponse& from_msg)
+    [[maybe_unused]] const ::examples::games::player::v1::BanResponse& from_msg)
       : _has_bits_{from._has_bits_},
         _cached_size_{0},
         result_(arena, from.result_) {}
@@ -522,7 +527,7 @@ BanResponse::BanResponse(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
 
-  // @@protoc_insertion_point(copy_constructor:games.player.v1.BanResponse)
+  // @@protoc_insertion_point(copy_constructor:examples.games.player.v1.BanResponse)
 }
 PROTOBUF_NDEBUG_INLINE BanResponse::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
@@ -534,7 +539,7 @@ inline void BanResponse::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
 }
 BanResponse::~BanResponse() {
-  // @@protoc_insertion_point(destructor:games.player.v1.BanResponse)
+  // @@protoc_insertion_point(destructor:examples.games.player.v1.BanResponse)
   SharedDtor(*this);
 }
 inline void BanResponse::SharedDtor(MessageLite& self) {
@@ -591,7 +596,7 @@ BanResponse::GetClassData() const {
   return BanResponse_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<0, 1, 0, 42, 2>
+const ::_pbi::TcParseTable<0, 1, 0, 51, 2>
 BanResponse::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(BanResponse, _impl_._has_bits_),
@@ -607,7 +612,7 @@ BanResponse::_table_ = {
     nullptr,  // post_loop_handler
     ::_pbi::TcParser::GenericFallback,  // fallback
     #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
-    ::_pbi::TcParser::GetTable<::games::player::v1::BanResponse>(),  // to_prefetch
+    ::_pbi::TcParser::GetTable<::examples::games::player::v1::BanResponse>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
     // string result = 1 [json_name = "result"];
@@ -622,13 +627,13 @@ BanResponse::_table_ = {
   }},
   // no aux_entries
   {{
-    "\33\6\0\0\0\0\0\0"
-    "games.player.v1.BanResponse"
+    "\44\6\0\0\0\0\0\0"
+    "examples.games.player.v1.BanResponse"
     "result"
   }},
 };
 PROTOBUF_NOINLINE void BanResponse::Clear() {
-// @@protoc_insertion_point(message_clear_start:games.player.v1.BanResponse)
+// @@protoc_insertion_point(message_clear_start:examples.games.player.v1.BanResponse)
   ::google::protobuf::internal::TSanWrite(&_impl_);
   ::uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
@@ -656,7 +661,7 @@ PROTOBUF_NOINLINE void BanResponse::Clear() {
   if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
     this_.CheckHasBitConsistency();
   }
-  // @@protoc_insertion_point(serialize_to_array_start:games.player.v1.BanResponse)
+  // @@protoc_insertion_point(serialize_to_array_start:examples.games.player.v1.BanResponse)
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
 
@@ -666,7 +671,7 @@ PROTOBUF_NOINLINE void BanResponse::Clear() {
     if (!this_._internal_result().empty()) {
       const ::std::string& _s = this_._internal_result();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "games.player.v1.BanResponse.result");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "examples.games.player.v1.BanResponse.result");
       target = stream->WriteStringMaybeAliased(1, _s, target);
     }
   }
@@ -676,7 +681,7 @@ PROTOBUF_NOINLINE void BanResponse::Clear() {
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
             this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
   }
-  // @@protoc_insertion_point(serialize_to_array_end:games.player.v1.BanResponse)
+  // @@protoc_insertion_point(serialize_to_array_end:examples.games.player.v1.BanResponse)
   return target;
 }
 
@@ -687,7 +692,7 @@ PROTOBUF_NOINLINE void BanResponse::Clear() {
 ::size_t BanResponse::ByteSizeLong() const {
   const BanResponse& this_ = *this;
 #endif  // PROTOBUF_CUSTOM_VTABLE
-  // @@protoc_insertion_point(message_byte_size_start:games.player.v1.BanResponse)
+  // @@protoc_insertion_point(message_byte_size_start:examples.games.player.v1.BanResponse)
   ::size_t total_size = 0;
 
   ::uint32_t cached_has_bits = 0;
@@ -716,7 +721,7 @@ void BanResponse::MergeImpl(::google::protobuf::MessageLite& to_msg,
   if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
     from.CheckHasBitConsistency();
   }
-  // @@protoc_insertion_point(class_specific_merge_from_start:games.player.v1.BanResponse)
+  // @@protoc_insertion_point(class_specific_merge_from_start:examples.games.player.v1.BanResponse)
   ABSL_DCHECK_NE(&from, _this);
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
@@ -737,7 +742,7 @@ void BanResponse::MergeImpl(::google::protobuf::MessageLite& to_msg,
 }
 
 void BanResponse::CopyFrom(const BanResponse& from) {
-  // @@protoc_insertion_point(class_specific_copy_from_start:games.player.v1.BanResponse)
+  // @@protoc_insertion_point(class_specific_copy_from_start:examples.games.player.v1.BanResponse)
   if (&from == this) return;
   Clear();
   MergeFrom(from);
@@ -760,6 +765,7 @@ void BanResponse::InternalSwap(BanResponse* PROTOBUF_RESTRICT PROTOBUF_NONNULL o
 }  // namespace v1
 }  // namespace player
 }  // namespace games
+}  // namespace examples
 namespace google {
 namespace protobuf {
 }  // namespace protobuf

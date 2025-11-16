@@ -24,7 +24,7 @@ PROTOBUF_PRAGMA_INIT_SEG
 namespace _pb = ::google::protobuf;
 namespace _pbi = ::google::protobuf::internal;
 namespace _fl = ::google::protobuf::internal::field_layout;
-namespace croupier {
+namespace examples {
 namespace integrations {
 namespace prom {
 namespace v1 {
@@ -162,7 +162,7 @@ PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
 }  // namespace v1
 }  // namespace prom
 }  // namespace integrations
-}  // namespace croupier
+}  // namespace examples
 static constexpr const ::_pb::EnumDescriptor* PROTOBUF_NONNULL* PROTOBUF_NULLABLE
     file_level_enum_descriptors_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto = nullptr;
 static constexpr const ::_pb::ServiceDescriptor* PROTOBUF_NONNULL* PROTOBUF_NULLABLE
@@ -171,102 +171,102 @@ const ::uint32_t
     TableStruct_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto::offsets[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
         protodesc_cold) = {
         0x081, // bitmap
-        PROTOBUF_FIELD_OFFSET(::croupier::integrations::prom::v1::QueryRangeRequest, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::examples::integrations::prom::v1::QueryRangeRequest, _impl_._has_bits_),
         7, // hasbit index offset
-        PROTOBUF_FIELD_OFFSET(::croupier::integrations::prom::v1::QueryRangeRequest, _impl_.expr_),
-        PROTOBUF_FIELD_OFFSET(::croupier::integrations::prom::v1::QueryRangeRequest, _impl_.start_),
-        PROTOBUF_FIELD_OFFSET(::croupier::integrations::prom::v1::QueryRangeRequest, _impl_.end_),
-        PROTOBUF_FIELD_OFFSET(::croupier::integrations::prom::v1::QueryRangeRequest, _impl_.step_),
+        PROTOBUF_FIELD_OFFSET(::examples::integrations::prom::v1::QueryRangeRequest, _impl_.expr_),
+        PROTOBUF_FIELD_OFFSET(::examples::integrations::prom::v1::QueryRangeRequest, _impl_.start_),
+        PROTOBUF_FIELD_OFFSET(::examples::integrations::prom::v1::QueryRangeRequest, _impl_.end_),
+        PROTOBUF_FIELD_OFFSET(::examples::integrations::prom::v1::QueryRangeRequest, _impl_.step_),
         0,
         1,
         2,
         3,
         0x081, // bitmap
-        PROTOBUF_FIELD_OFFSET(::croupier::integrations::prom::v1::Sample, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::examples::integrations::prom::v1::Sample, _impl_._has_bits_),
         5, // hasbit index offset
-        PROTOBUF_FIELD_OFFSET(::croupier::integrations::prom::v1::Sample, _impl_.t_),
-        PROTOBUF_FIELD_OFFSET(::croupier::integrations::prom::v1::Sample, _impl_.v_),
+        PROTOBUF_FIELD_OFFSET(::examples::integrations::prom::v1::Sample, _impl_.t_),
+        PROTOBUF_FIELD_OFFSET(::examples::integrations::prom::v1::Sample, _impl_.v_),
         0,
         1,
         0x081, // bitmap
-        PROTOBUF_FIELD_OFFSET(::croupier::integrations::prom::v1::Timeseries_LabelsEntry_DoNotUse, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::examples::integrations::prom::v1::Timeseries_LabelsEntry_DoNotUse, _impl_._has_bits_),
         5, // hasbit index offset
-        PROTOBUF_FIELD_OFFSET(::croupier::integrations::prom::v1::Timeseries_LabelsEntry_DoNotUse, _impl_.key_),
-        PROTOBUF_FIELD_OFFSET(::croupier::integrations::prom::v1::Timeseries_LabelsEntry_DoNotUse, _impl_.value_),
+        PROTOBUF_FIELD_OFFSET(::examples::integrations::prom::v1::Timeseries_LabelsEntry_DoNotUse, _impl_.key_),
+        PROTOBUF_FIELD_OFFSET(::examples::integrations::prom::v1::Timeseries_LabelsEntry_DoNotUse, _impl_.value_),
         0,
         1,
         0x081, // bitmap
-        PROTOBUF_FIELD_OFFSET(::croupier::integrations::prom::v1::Timeseries, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::examples::integrations::prom::v1::Timeseries, _impl_._has_bits_),
         5, // hasbit index offset
-        PROTOBUF_FIELD_OFFSET(::croupier::integrations::prom::v1::Timeseries, _impl_.labels_),
-        PROTOBUF_FIELD_OFFSET(::croupier::integrations::prom::v1::Timeseries, _impl_.samples_),
+        PROTOBUF_FIELD_OFFSET(::examples::integrations::prom::v1::Timeseries, _impl_.labels_),
+        PROTOBUF_FIELD_OFFSET(::examples::integrations::prom::v1::Timeseries, _impl_.samples_),
         1,
         0,
         0x081, // bitmap
-        PROTOBUF_FIELD_OFFSET(::croupier::integrations::prom::v1::QueryRangeResponse, _impl_._has_bits_),
+        PROTOBUF_FIELD_OFFSET(::examples::integrations::prom::v1::QueryRangeResponse, _impl_._has_bits_),
         4, // hasbit index offset
-        PROTOBUF_FIELD_OFFSET(::croupier::integrations::prom::v1::QueryRangeResponse, _impl_.series_),
+        PROTOBUF_FIELD_OFFSET(::examples::integrations::prom::v1::QueryRangeResponse, _impl_.series_),
         0,
 };
 
 static const ::_pbi::MigrationSchema
     schemas[] ABSL_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
-        {0, sizeof(::croupier::integrations::prom::v1::QueryRangeRequest)},
-        {11, sizeof(::croupier::integrations::prom::v1::Sample)},
-        {18, sizeof(::croupier::integrations::prom::v1::Timeseries_LabelsEntry_DoNotUse)},
-        {25, sizeof(::croupier::integrations::prom::v1::Timeseries)},
-        {32, sizeof(::croupier::integrations::prom::v1::QueryRangeResponse)},
+        {0, sizeof(::examples::integrations::prom::v1::QueryRangeRequest)},
+        {11, sizeof(::examples::integrations::prom::v1::Sample)},
+        {18, sizeof(::examples::integrations::prom::v1::Timeseries_LabelsEntry_DoNotUse)},
+        {25, sizeof(::examples::integrations::prom::v1::Timeseries)},
+        {32, sizeof(::examples::integrations::prom::v1::QueryRangeResponse)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
-    &::croupier::integrations::prom::v1::_QueryRangeRequest_default_instance_._instance,
-    &::croupier::integrations::prom::v1::_Sample_default_instance_._instance,
-    &::croupier::integrations::prom::v1::_Timeseries_LabelsEntry_DoNotUse_default_instance_._instance,
-    &::croupier::integrations::prom::v1::_Timeseries_default_instance_._instance,
-    &::croupier::integrations::prom::v1::_QueryRangeResponse_default_instance_._instance,
+    &::examples::integrations::prom::v1::_QueryRangeRequest_default_instance_._instance,
+    &::examples::integrations::prom::v1::_Sample_default_instance_._instance,
+    &::examples::integrations::prom::v1::_Timeseries_LabelsEntry_DoNotUse_default_instance_._instance,
+    &::examples::integrations::prom::v1::_Timeseries_default_instance_._instance,
+    &::examples::integrations::prom::v1::_QueryRangeResponse_default_instance_._instance,
 };
 const char descriptor_table_protodef_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
     "\n(examples/integrations/prom/v1/prom.pro"
-    "to\022\035croupier.integrations.prom.v1\032\037croup"
-    "ier/options/function.proto\032\031croupier/opt"
-    "ions/ui.proto\"\341\001\n\021QueryRangeRequest\022I\n\004e"
-    "xpr\030\001 \001(\tB5\212\262\0311\n\010textarea\022\006PromQL\032\035rate("
-    "http_requests_total[5m])R\004expr\022.\n\005start\030"
-    "\002 \001(\tB\030\212\262\031\024\n\004date\022\014\345\274\200\345\247\213\346\227\266\351\227\264R\005start\022*"
-    "\n\003end\030\003 \001(\tB\030\212\262\031\024\n\004date\022\014\347\273\223\346\235\237\346\227\266\351\227\264R\003e"
-    "nd\022%\n\004step\030\004 \001(\tB\021\212\262\031\r\022\006\346\255\245\351\225\277\032\00330sR\004ste"
-    "p\"$\n\006Sample\022\014\n\001t\030\001 \001(\003R\001t\022\014\n\001v\030\002 \001(\001R\001v\""
-    "\327\001\n\nTimeseries\022M\n\006labels\030\001 \003(\01325.croupie"
-    "r.integrations.prom.v1.Timeseries.Labels"
-    "EntryR\006labels\022\?\n\007samples\030\002 \003(\0132%.croupie"
-    "r.integrations.prom.v1.SampleR\007samples\0329"
-    "\n\013LabelsEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value"
-    "\030\002 \001(\tR\005value:\0028\001\"W\n\022QueryRangeResponse\022"
-    "A\n\006series\030\001 \003(\0132).croupier.integrations."
-    "prom.v1.TimeseriesR\006series2\261\001\n\006PromGm\022\246\001"
-    "\n\nQueryRange\0220.croupier.integrations.pro"
-    "m.v1.QueryRangeRequest\0321.croupier.integr"
-    "ations.prom.v1.QueryRangeResponse\"3\312\363\030/\n"
-    "\020prom.query_range\022\0051.0.0\032\004prom*\002lb2\00330sB"
-    "\005agentB\217\002\n!com.croupier.integrations.pro"
-    "m.v1B\tPromProtoP\001ZHgithub.com/cuihairu/c"
-    "roupier/pkg/pb/examples/integrations/pro"
-    "m/v1;promv1\242\002\003CIP\252\002\035Croupier.Integration"
-    "s.Prom.V1\312\002\035Croupier\\Integrations\\Prom\\V"
-    "1\342\002)Croupier\\Integrations\\Prom\\V1\\GPBMet"
-    "adata\352\002 Croupier::Integrations::Prom::V1"
-    "b\006proto3"
+    "to\022\035examples.integrations.prom.v1\032\"croup"
+    "ier/options/v1/function.proto\032\034croupier/"
+    "options/v1/ui.proto\"\341\001\n\021QueryRangeReques"
+    "t\022I\n\004expr\030\001 \001(\tB5\212\262\0311\n\010textarea\022\006PromQL\032"
+    "\035rate(http_requests_total[5m])R\004expr\022.\n\005"
+    "start\030\002 \001(\tB\030\212\262\031\024\n\004date\022\014\345\274\200\345\247\213\346\227\266\351\227\264R\005s"
+    "tart\022*\n\003end\030\003 \001(\tB\030\212\262\031\024\n\004date\022\014\347\273\223\346\235\237\346\227\266"
+    "\351\227\264R\003end\022%\n\004step\030\004 \001(\tB\021\212\262\031\r\022\006\346\255\245\351\225\277\032\00330"
+    "sR\004step\"$\n\006Sample\022\014\n\001t\030\001 \001(\003R\001t\022\014\n\001v\030\002 \001"
+    "(\001R\001v\"\327\001\n\nTimeseries\022M\n\006labels\030\001 \003(\01325.e"
+    "xamples.integrations.prom.v1.Timeseries."
+    "LabelsEntryR\006labels\022\?\n\007samples\030\002 \003(\0132%.e"
+    "xamples.integrations.prom.v1.SampleR\007sam"
+    "ples\0329\n\013LabelsEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n"
+    "\005value\030\002 \001(\tR\005value:\0028\001\"W\n\022QueryRangeRes"
+    "ponse\022A\n\006series\030\001 \003(\0132).examples.integra"
+    "tions.prom.v1.TimeseriesR\006series2\270\001\n\rPro"
+    "mGmService\022\246\001\n\nQueryRange\0220.examples.int"
+    "egrations.prom.v1.QueryRangeRequest\0321.ex"
+    "amples.integrations.prom.v1.QueryRangeRe"
+    "sponse\"3\312\363\030/\n\020prom.query_range\022\0051.0.0\032\004p"
+    "rom*\002lb2\00330sB\005agentB\217\002\n!com.examples.int"
+    "egrations.prom.v1B\tPromProtoP\001ZHgithub.c"
+    "om/cuihairu/croupier/pkg/pb/examples/int"
+    "egrations/prom/v1;promv1\242\002\003EIP\252\002\035Example"
+    "s.Integrations.Prom.V1\312\002\035Examples\\Integr"
+    "ations\\Prom\\V1\342\002)Examples\\Integrations\\P"
+    "rom\\V1\\GPBMetadata\352\002 Examples::Integrati"
+    "ons::Prom::V1b\006proto3"
 };
 static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
     descriptor_table_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto_deps[2] = {
-        &::descriptor_table_croupier_2foptions_2ffunction_2eproto,
-        &::descriptor_table_croupier_2foptions_2fui_2eproto,
+        &::descriptor_table_croupier_2foptions_2fv1_2ffunction_2eproto,
+        &::descriptor_table_croupier_2foptions_2fv1_2fui_2eproto,
 };
 static ::absl::once_flag descriptor_table_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto = {
     false,
     false,
-    1168,
+    1181,
     descriptor_table_protodef_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto,
     "examples/integrations/prom/v1/prom.proto",
     &descriptor_table_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto_once,
@@ -279,7 +279,7 @@ PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_examples_2fint
     file_level_enum_descriptors_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto,
     file_level_service_descriptors_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto,
 };
-namespace croupier {
+namespace examples {
 namespace integrations {
 namespace prom {
 namespace v1 {
@@ -300,12 +300,12 @@ QueryRangeRequest::QueryRangeRequest(::google::protobuf::Arena* PROTOBUF_NULLABL
     : ::google::protobuf::Message(arena) {
 #endif  // PROTOBUF_CUSTOM_VTABLE
   SharedCtor(arena);
-  // @@protoc_insertion_point(arena_constructor:croupier.integrations.prom.v1.QueryRangeRequest)
+  // @@protoc_insertion_point(arena_constructor:examples.integrations.prom.v1.QueryRangeRequest)
 }
 PROTOBUF_NDEBUG_INLINE QueryRangeRequest::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
-    [[maybe_unused]] const ::croupier::integrations::prom::v1::QueryRangeRequest& from_msg)
+    [[maybe_unused]] const ::examples::integrations::prom::v1::QueryRangeRequest& from_msg)
       : _has_bits_{from._has_bits_},
         _cached_size_{0},
         expr_(arena, from.expr_),
@@ -327,7 +327,7 @@ QueryRangeRequest::QueryRangeRequest(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
 
-  // @@protoc_insertion_point(copy_constructor:croupier.integrations.prom.v1.QueryRangeRequest)
+  // @@protoc_insertion_point(copy_constructor:examples.integrations.prom.v1.QueryRangeRequest)
 }
 PROTOBUF_NDEBUG_INLINE QueryRangeRequest::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
@@ -342,7 +342,7 @@ inline void QueryRangeRequest::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena)
   new (&_impl_) Impl_(internal_visibility(), arena);
 }
 QueryRangeRequest::~QueryRangeRequest() {
-  // @@protoc_insertion_point(destructor:croupier.integrations.prom.v1.QueryRangeRequest)
+  // @@protoc_insertion_point(destructor:examples.integrations.prom.v1.QueryRangeRequest)
   SharedDtor(*this);
 }
 inline void QueryRangeRequest::SharedDtor(MessageLite& self) {
@@ -418,41 +418,41 @@ QueryRangeRequest::_table_ = {
     nullptr,  // post_loop_handler
     ::_pbi::TcParser::GenericFallback,  // fallback
     #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
-    ::_pbi::TcParser::GetTable<::croupier::integrations::prom::v1::QueryRangeRequest>(),  // to_prefetch
+    ::_pbi::TcParser::GetTable<::examples::integrations::prom::v1::QueryRangeRequest>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // string step = 4 [json_name = "step", (.croupier.options.ui) = {
+    // string step = 4 [json_name = "step", (.croupier.options.v1.ui) = {
     {::_pbi::TcParser::FastUS1,
      {34, 3, 0,
       PROTOBUF_FIELD_OFFSET(QueryRangeRequest, _impl_.step_)}},
-    // string expr = 1 [json_name = "expr", (.croupier.options.ui) = {
+    // string expr = 1 [json_name = "expr", (.croupier.options.v1.ui) = {
     {::_pbi::TcParser::FastUS1,
      {10, 0, 0,
       PROTOBUF_FIELD_OFFSET(QueryRangeRequest, _impl_.expr_)}},
-    // string start = 2 [json_name = "start", (.croupier.options.ui) = {
+    // string start = 2 [json_name = "start", (.croupier.options.v1.ui) = {
     {::_pbi::TcParser::FastUS1,
      {18, 1, 0,
       PROTOBUF_FIELD_OFFSET(QueryRangeRequest, _impl_.start_)}},
-    // string end = 3 [json_name = "end", (.croupier.options.ui) = {
+    // string end = 3 [json_name = "end", (.croupier.options.v1.ui) = {
     {::_pbi::TcParser::FastUS1,
      {26, 2, 0,
       PROTOBUF_FIELD_OFFSET(QueryRangeRequest, _impl_.end_)}},
   }}, {{
     65535, 65535
   }}, {{
-    // string expr = 1 [json_name = "expr", (.croupier.options.ui) = {
+    // string expr = 1 [json_name = "expr", (.croupier.options.v1.ui) = {
     {PROTOBUF_FIELD_OFFSET(QueryRangeRequest, _impl_.expr_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string start = 2 [json_name = "start", (.croupier.options.ui) = {
+    // string start = 2 [json_name = "start", (.croupier.options.v1.ui) = {
     {PROTOBUF_FIELD_OFFSET(QueryRangeRequest, _impl_.start_), _Internal::kHasBitsOffset + 1, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string end = 3 [json_name = "end", (.croupier.options.ui) = {
+    // string end = 3 [json_name = "end", (.croupier.options.v1.ui) = {
     {PROTOBUF_FIELD_OFFSET(QueryRangeRequest, _impl_.end_), _Internal::kHasBitsOffset + 2, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
-    // string step = 4 [json_name = "step", (.croupier.options.ui) = {
+    // string step = 4 [json_name = "step", (.croupier.options.v1.ui) = {
     {PROTOBUF_FIELD_OFFSET(QueryRangeRequest, _impl_.step_), _Internal::kHasBitsOffset + 3, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
   }},
   // no aux_entries
   {{
     "\57\4\5\3\4\0\0\0"
-    "croupier.integrations.prom.v1.QueryRangeRequest"
+    "examples.integrations.prom.v1.QueryRangeRequest"
     "expr"
     "start"
     "end"
@@ -460,7 +460,7 @@ QueryRangeRequest::_table_ = {
   }},
 };
 PROTOBUF_NOINLINE void QueryRangeRequest::Clear() {
-// @@protoc_insertion_point(message_clear_start:croupier.integrations.prom.v1.QueryRangeRequest)
+// @@protoc_insertion_point(message_clear_start:examples.integrations.prom.v1.QueryRangeRequest)
   ::google::protobuf::internal::TSanWrite(&_impl_);
   ::uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
@@ -499,47 +499,47 @@ PROTOBUF_NOINLINE void QueryRangeRequest::Clear() {
   if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
     this_.CheckHasBitConsistency();
   }
-  // @@protoc_insertion_point(serialize_to_array_start:croupier.integrations.prom.v1.QueryRangeRequest)
+  // @@protoc_insertion_point(serialize_to_array_start:examples.integrations.prom.v1.QueryRangeRequest)
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
 
   cached_has_bits = this_._impl_._has_bits_[0];
-  // string expr = 1 [json_name = "expr", (.croupier.options.ui) = {
+  // string expr = 1 [json_name = "expr", (.croupier.options.v1.ui) = {
   if (CheckHasBit(cached_has_bits, 0x00000001U)) {
     if (!this_._internal_expr().empty()) {
       const ::std::string& _s = this_._internal_expr();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.integrations.prom.v1.QueryRangeRequest.expr");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "examples.integrations.prom.v1.QueryRangeRequest.expr");
       target = stream->WriteStringMaybeAliased(1, _s, target);
     }
   }
 
-  // string start = 2 [json_name = "start", (.croupier.options.ui) = {
+  // string start = 2 [json_name = "start", (.croupier.options.v1.ui) = {
   if (CheckHasBit(cached_has_bits, 0x00000002U)) {
     if (!this_._internal_start().empty()) {
       const ::std::string& _s = this_._internal_start();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.integrations.prom.v1.QueryRangeRequest.start");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "examples.integrations.prom.v1.QueryRangeRequest.start");
       target = stream->WriteStringMaybeAliased(2, _s, target);
     }
   }
 
-  // string end = 3 [json_name = "end", (.croupier.options.ui) = {
+  // string end = 3 [json_name = "end", (.croupier.options.v1.ui) = {
   if (CheckHasBit(cached_has_bits, 0x00000004U)) {
     if (!this_._internal_end().empty()) {
       const ::std::string& _s = this_._internal_end();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.integrations.prom.v1.QueryRangeRequest.end");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "examples.integrations.prom.v1.QueryRangeRequest.end");
       target = stream->WriteStringMaybeAliased(3, _s, target);
     }
   }
 
-  // string step = 4 [json_name = "step", (.croupier.options.ui) = {
+  // string step = 4 [json_name = "step", (.croupier.options.v1.ui) = {
   if (CheckHasBit(cached_has_bits, 0x00000008U)) {
     if (!this_._internal_step().empty()) {
       const ::std::string& _s = this_._internal_step();
       ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
-          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.integrations.prom.v1.QueryRangeRequest.step");
+          _s.data(), static_cast<int>(_s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "examples.integrations.prom.v1.QueryRangeRequest.step");
       target = stream->WriteStringMaybeAliased(4, _s, target);
     }
   }
@@ -549,7 +549,7 @@ PROTOBUF_NOINLINE void QueryRangeRequest::Clear() {
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
             this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
   }
-  // @@protoc_insertion_point(serialize_to_array_end:croupier.integrations.prom.v1.QueryRangeRequest)
+  // @@protoc_insertion_point(serialize_to_array_end:examples.integrations.prom.v1.QueryRangeRequest)
   return target;
 }
 
@@ -560,7 +560,7 @@ PROTOBUF_NOINLINE void QueryRangeRequest::Clear() {
 ::size_t QueryRangeRequest::ByteSizeLong() const {
   const QueryRangeRequest& this_ = *this;
 #endif  // PROTOBUF_CUSTOM_VTABLE
-  // @@protoc_insertion_point(message_byte_size_start:croupier.integrations.prom.v1.QueryRangeRequest)
+  // @@protoc_insertion_point(message_byte_size_start:examples.integrations.prom.v1.QueryRangeRequest)
   ::size_t total_size = 0;
 
   ::uint32_t cached_has_bits = 0;
@@ -570,28 +570,28 @@ PROTOBUF_NOINLINE void QueryRangeRequest::Clear() {
   ::_pbi::Prefetch5LinesFrom7Lines(&this_);
   cached_has_bits = this_._impl_._has_bits_[0];
   if (BatchCheckHasBit(cached_has_bits, 0x0000000fU)) {
-    // string expr = 1 [json_name = "expr", (.croupier.options.ui) = {
+    // string expr = 1 [json_name = "expr", (.croupier.options.v1.ui) = {
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
       if (!this_._internal_expr().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_expr());
       }
     }
-    // string start = 2 [json_name = "start", (.croupier.options.ui) = {
+    // string start = 2 [json_name = "start", (.croupier.options.v1.ui) = {
     if (CheckHasBit(cached_has_bits, 0x00000002U)) {
       if (!this_._internal_start().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_start());
       }
     }
-    // string end = 3 [json_name = "end", (.croupier.options.ui) = {
+    // string end = 3 [json_name = "end", (.croupier.options.v1.ui) = {
     if (CheckHasBit(cached_has_bits, 0x00000004U)) {
       if (!this_._internal_end().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
                                         this_._internal_end());
       }
     }
-    // string step = 4 [json_name = "step", (.croupier.options.ui) = {
+    // string step = 4 [json_name = "step", (.croupier.options.v1.ui) = {
     if (CheckHasBit(cached_has_bits, 0x00000008U)) {
       if (!this_._internal_step().empty()) {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::StringSize(
@@ -611,7 +611,7 @@ void QueryRangeRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
   if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
     from.CheckHasBitConsistency();
   }
-  // @@protoc_insertion_point(class_specific_merge_from_start:croupier.integrations.prom.v1.QueryRangeRequest)
+  // @@protoc_insertion_point(class_specific_merge_from_start:examples.integrations.prom.v1.QueryRangeRequest)
   ABSL_DCHECK_NE(&from, _this);
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
@@ -661,7 +661,7 @@ void QueryRangeRequest::MergeImpl(::google::protobuf::MessageLite& to_msg,
 }
 
 void QueryRangeRequest::CopyFrom(const QueryRangeRequest& from) {
-  // @@protoc_insertion_point(class_specific_copy_from_start:croupier.integrations.prom.v1.QueryRangeRequest)
+  // @@protoc_insertion_point(class_specific_copy_from_start:examples.integrations.prom.v1.QueryRangeRequest)
   if (&from == this) return;
   Clear();
   MergeFrom(from);
@@ -700,7 +700,7 @@ Sample::Sample(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
     : ::google::protobuf::Message(arena) {
 #endif  // PROTOBUF_CUSTOM_VTABLE
   SharedCtor(arena);
-  // @@protoc_insertion_point(arena_constructor:croupier.integrations.prom.v1.Sample)
+  // @@protoc_insertion_point(arena_constructor:examples.integrations.prom.v1.Sample)
 }
 Sample::Sample(
     ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Sample& from)
@@ -728,7 +728,7 @@ inline void Sample::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
                sizeof(Impl_::v_));
 }
 Sample::~Sample() {
-  // @@protoc_insertion_point(destructor:croupier.integrations.prom.v1.Sample)
+  // @@protoc_insertion_point(destructor:examples.integrations.prom.v1.Sample)
   SharedDtor(*this);
 }
 inline void Sample::SharedDtor(MessageLite& self) {
@@ -800,7 +800,7 @@ Sample::_table_ = {
     nullptr,  // post_loop_handler
     ::_pbi::TcParser::GenericFallback,  // fallback
     #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
-    ::_pbi::TcParser::GetTable<::croupier::integrations::prom::v1::Sample>(),  // to_prefetch
+    ::_pbi::TcParser::GetTable<::examples::integrations::prom::v1::Sample>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
     // double v = 2 [json_name = "v"];
@@ -824,7 +824,7 @@ Sample::_table_ = {
   }},
 };
 PROTOBUF_NOINLINE void Sample::Clear() {
-// @@protoc_insertion_point(message_clear_start:croupier.integrations.prom.v1.Sample)
+// @@protoc_insertion_point(message_clear_start:examples.integrations.prom.v1.Sample)
   ::google::protobuf::internal::TSanWrite(&_impl_);
   ::uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
@@ -854,7 +854,7 @@ PROTOBUF_NOINLINE void Sample::Clear() {
   if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
     this_.CheckHasBitConsistency();
   }
-  // @@protoc_insertion_point(serialize_to_array_start:croupier.integrations.prom.v1.Sample)
+  // @@protoc_insertion_point(serialize_to_array_start:examples.integrations.prom.v1.Sample)
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
 
@@ -882,7 +882,7 @@ PROTOBUF_NOINLINE void Sample::Clear() {
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
             this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
   }
-  // @@protoc_insertion_point(serialize_to_array_end:croupier.integrations.prom.v1.Sample)
+  // @@protoc_insertion_point(serialize_to_array_end:examples.integrations.prom.v1.Sample)
   return target;
 }
 
@@ -893,7 +893,7 @@ PROTOBUF_NOINLINE void Sample::Clear() {
 ::size_t Sample::ByteSizeLong() const {
   const Sample& this_ = *this;
 #endif  // PROTOBUF_CUSTOM_VTABLE
-  // @@protoc_insertion_point(message_byte_size_start:croupier.integrations.prom.v1.Sample)
+  // @@protoc_insertion_point(message_byte_size_start:examples.integrations.prom.v1.Sample)
   ::size_t total_size = 0;
 
   ::uint32_t cached_has_bits = 0;
@@ -929,7 +929,7 @@ void Sample::MergeImpl(::google::protobuf::MessageLite& to_msg,
   if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
     from.CheckHasBitConsistency();
   }
-  // @@protoc_insertion_point(class_specific_merge_from_start:croupier.integrations.prom.v1.Sample)
+  // @@protoc_insertion_point(class_specific_merge_from_start:examples.integrations.prom.v1.Sample)
   ABSL_DCHECK_NE(&from, _this);
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
@@ -953,7 +953,7 @@ void Sample::MergeImpl(::google::protobuf::MessageLite& to_msg,
 }
 
 void Sample::CopyFrom(const Sample& from) {
-  // @@protoc_insertion_point(class_specific_copy_from_start:croupier.integrations.prom.v1.Sample)
+  // @@protoc_insertion_point(class_specific_copy_from_start:examples.integrations.prom.v1.Sample)
   if (&from == this) return;
   Clear();
   MergeFrom(from);
@@ -1046,7 +1046,7 @@ Timeseries_LabelsEntry_DoNotUse::_table_ = {
     nullptr,  // post_loop_handler
     ::_pbi::TcParser::DiscardEverythingFallback,  // fallback
     #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
-    ::_pbi::TcParser::GetTable<::croupier::integrations::prom::v1::Timeseries_LabelsEntry_DoNotUse>(),  // to_prefetch
+    ::_pbi::TcParser::GetTable<::examples::integrations::prom::v1::Timeseries_LabelsEntry_DoNotUse>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
     // string value = 2 [json_name = "value"];
@@ -1068,7 +1068,7 @@ Timeseries_LabelsEntry_DoNotUse::_table_ = {
   // no aux_entries
   {{
     "\64\3\5\0\0\0\0\0"
-    "croupier.integrations.prom.v1.Timeseries.LabelsEntry"
+    "examples.integrations.prom.v1.Timeseries.LabelsEntry"
     "key"
     "value"
   }},
@@ -1090,12 +1090,12 @@ Timeseries::Timeseries(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
     : ::google::protobuf::Message(arena) {
 #endif  // PROTOBUF_CUSTOM_VTABLE
   SharedCtor(arena);
-  // @@protoc_insertion_point(arena_constructor:croupier.integrations.prom.v1.Timeseries)
+  // @@protoc_insertion_point(arena_constructor:examples.integrations.prom.v1.Timeseries)
 }
 PROTOBUF_NDEBUG_INLINE Timeseries::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
-    [[maybe_unused]] const ::croupier::integrations::prom::v1::Timeseries& from_msg)
+    [[maybe_unused]] const ::examples::integrations::prom::v1::Timeseries& from_msg)
       : _has_bits_{from._has_bits_},
         _cached_size_{0},
         samples_{visibility, arena, from.samples_},
@@ -1115,7 +1115,7 @@ Timeseries::Timeseries(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
 
-  // @@protoc_insertion_point(copy_constructor:croupier.integrations.prom.v1.Timeseries)
+  // @@protoc_insertion_point(copy_constructor:examples.integrations.prom.v1.Timeseries)
 }
 PROTOBUF_NDEBUG_INLINE Timeseries::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
@@ -1128,7 +1128,7 @@ inline void Timeseries::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
 }
 Timeseries::~Timeseries() {
-  // @@protoc_insertion_point(destructor:croupier.integrations.prom.v1.Timeseries)
+  // @@protoc_insertion_point(destructor:examples.integrations.prom.v1.Timeseries)
   SharedDtor(*this);
 }
 inline void Timeseries::SharedDtor(MessageLite& self) {
@@ -1216,10 +1216,10 @@ Timeseries::_table_ = {
     nullptr,  // post_loop_handler
     ::_pbi::TcParser::GenericFallback,  // fallback
     #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
-    ::_pbi::TcParser::GetTable<::croupier::integrations::prom::v1::Timeseries>(),  // to_prefetch
+    ::_pbi::TcParser::GetTable<::examples::integrations::prom::v1::Timeseries>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];
+    // repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];
     {::_pbi::TcParser::FastMtR1,
      {18, 0, 0,
       PROTOBUF_FIELD_OFFSET(Timeseries, _impl_.samples_)}},
@@ -1228,22 +1228,22 @@ Timeseries::_table_ = {
   }}, {{
     // map<string, string> labels = 1 [json_name = "labels"];
     {PROTOBUF_FIELD_OFFSET(Timeseries, _impl_.labels_), _Internal::kHasBitsOffset + 1, 1, (0 | ::_fl::kFcRepeated | ::_fl::kMap)},
-    // repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];
+    // repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];
     {PROTOBUF_FIELD_OFFSET(Timeseries, _impl_.samples_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
   }},
   {{
-      {::_pbi::TcParser::GetTable<::croupier::integrations::prom::v1::Sample>()},
+      {::_pbi::TcParser::GetTable<::examples::integrations::prom::v1::Sample>()},
       {::_pbi::TcParser::GetMapAuxInfo(
           1, 0, 9, 9, 0)},
   }},
   {{
     "\50\6\0\0\0\0\0\0"
-    "croupier.integrations.prom.v1.Timeseries"
+    "examples.integrations.prom.v1.Timeseries"
     "labels"
   }},
 };
 PROTOBUF_NOINLINE void Timeseries::Clear() {
-// @@protoc_insertion_point(message_clear_start:croupier.integrations.prom.v1.Timeseries)
+// @@protoc_insertion_point(message_clear_start:examples.integrations.prom.v1.Timeseries)
   ::google::protobuf::internal::TSanWrite(&_impl_);
   ::uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
@@ -1276,7 +1276,7 @@ PROTOBUF_NOINLINE void Timeseries::Clear() {
   if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
     this_.CheckHasBitConsistency();
   }
-  // @@protoc_insertion_point(serialize_to_array_start:croupier.integrations.prom.v1.Timeseries)
+  // @@protoc_insertion_point(serialize_to_array_start:examples.integrations.prom.v1.Timeseries)
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
 
@@ -1296,10 +1296,10 @@ PROTOBUF_NOINLINE void Timeseries::Clear() {
               1, entry.first, entry.second, target, stream);
           ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
               entry.first.data(), static_cast<int>(entry.first.length()),
- ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.integrations.prom.v1.Timeseries.labels");
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "examples.integrations.prom.v1.Timeseries.labels");
           ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
               entry.second.data(), static_cast<int>(entry.second.length()),
- ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.integrations.prom.v1.Timeseries.labels");
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "examples.integrations.prom.v1.Timeseries.labels");
         }
       } else {
         for (const auto& entry : field) {
@@ -1307,16 +1307,16 @@ PROTOBUF_NOINLINE void Timeseries::Clear() {
               1, entry.first, entry.second, target, stream);
           ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
               entry.first.data(), static_cast<int>(entry.first.length()),
- ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.integrations.prom.v1.Timeseries.labels");
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "examples.integrations.prom.v1.Timeseries.labels");
           ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
               entry.second.data(), static_cast<int>(entry.second.length()),
- ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.integrations.prom.v1.Timeseries.labels");
+ ::google::protobuf::internal::WireFormatLite::SERIALIZE, "examples.integrations.prom.v1.Timeseries.labels");
         }
       }
     }
   }
 
-  // repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];
+  // repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];
   if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
     for (unsigned i = 0, n = static_cast<unsigned>(
                              this_._internal_samples_size());
@@ -1334,7 +1334,7 @@ PROTOBUF_NOINLINE void Timeseries::Clear() {
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
             this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
   }
-  // @@protoc_insertion_point(serialize_to_array_end:croupier.integrations.prom.v1.Timeseries)
+  // @@protoc_insertion_point(serialize_to_array_end:examples.integrations.prom.v1.Timeseries)
   return target;
 }
 
@@ -1345,7 +1345,7 @@ PROTOBUF_NOINLINE void Timeseries::Clear() {
 ::size_t Timeseries::ByteSizeLong() const {
   const Timeseries& this_ = *this;
 #endif  // PROTOBUF_CUSTOM_VTABLE
-  // @@protoc_insertion_point(message_byte_size_start:croupier.integrations.prom.v1.Timeseries)
+  // @@protoc_insertion_point(message_byte_size_start:examples.integrations.prom.v1.Timeseries)
   ::size_t total_size = 0;
 
   ::uint32_t cached_has_bits = 0;
@@ -1355,7 +1355,7 @@ PROTOBUF_NOINLINE void Timeseries::Clear() {
   ::_pbi::Prefetch5LinesFrom7Lines(&this_);
   cached_has_bits = this_._impl_._has_bits_[0];
   if (BatchCheckHasBit(cached_has_bits, 0x00000003U)) {
-    // repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];
+    // repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];
     if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
       total_size += 1UL * this_._internal_samples_size();
       for (const auto& msg : this_._internal_samples()) {
@@ -1386,7 +1386,7 @@ void Timeseries::MergeImpl(::google::protobuf::MessageLite& to_msg,
     from.CheckHasBitConsistency();
   }
   ::google::protobuf::Arena* arena = _this->GetArena();
-  // @@protoc_insertion_point(class_specific_merge_from_start:croupier.integrations.prom.v1.Timeseries)
+  // @@protoc_insertion_point(class_specific_merge_from_start:examples.integrations.prom.v1.Timeseries)
   ABSL_DCHECK_NE(&from, _this);
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
@@ -1408,7 +1408,7 @@ void Timeseries::MergeImpl(::google::protobuf::MessageLite& to_msg,
 }
 
 void Timeseries::CopyFrom(const Timeseries& from) {
-  // @@protoc_insertion_point(class_specific_copy_from_start:croupier.integrations.prom.v1.Timeseries)
+  // @@protoc_insertion_point(class_specific_copy_from_start:examples.integrations.prom.v1.Timeseries)
   if (&from == this) return;
   Clear();
   MergeFrom(from);
@@ -1443,12 +1443,12 @@ QueryRangeResponse::QueryRangeResponse(::google::protobuf::Arena* PROTOBUF_NULLA
     : ::google::protobuf::Message(arena) {
 #endif  // PROTOBUF_CUSTOM_VTABLE
   SharedCtor(arena);
-  // @@protoc_insertion_point(arena_constructor:croupier.integrations.prom.v1.QueryRangeResponse)
+  // @@protoc_insertion_point(arena_constructor:examples.integrations.prom.v1.QueryRangeResponse)
 }
 PROTOBUF_NDEBUG_INLINE QueryRangeResponse::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
     [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
-    [[maybe_unused]] const ::croupier::integrations::prom::v1::QueryRangeResponse& from_msg)
+    [[maybe_unused]] const ::examples::integrations::prom::v1::QueryRangeResponse& from_msg)
       : _has_bits_{from._has_bits_},
         _cached_size_{0},
         series_{visibility, arena, from.series_} {}
@@ -1467,7 +1467,7 @@ QueryRangeResponse::QueryRangeResponse(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
 
-  // @@protoc_insertion_point(copy_constructor:croupier.integrations.prom.v1.QueryRangeResponse)
+  // @@protoc_insertion_point(copy_constructor:examples.integrations.prom.v1.QueryRangeResponse)
 }
 PROTOBUF_NDEBUG_INLINE QueryRangeResponse::Impl_::Impl_(
     [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
@@ -1479,7 +1479,7 @@ inline void QueryRangeResponse::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena
   new (&_impl_) Impl_(internal_visibility(), arena);
 }
 QueryRangeResponse::~QueryRangeResponse() {
-  // @@protoc_insertion_point(destructor:croupier.integrations.prom.v1.QueryRangeResponse)
+  // @@protoc_insertion_point(destructor:examples.integrations.prom.v1.QueryRangeResponse)
   SharedDtor(*this);
 }
 inline void QueryRangeResponse::SharedDtor(MessageLite& self) {
@@ -1563,27 +1563,27 @@ QueryRangeResponse::_table_ = {
     nullptr,  // post_loop_handler
     ::_pbi::TcParser::GenericFallback,  // fallback
     #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
-    ::_pbi::TcParser::GetTable<::croupier::integrations::prom::v1::QueryRangeResponse>(),  // to_prefetch
+    ::_pbi::TcParser::GetTable<::examples::integrations::prom::v1::QueryRangeResponse>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    // repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];
+    // repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];
     {::_pbi::TcParser::FastMtR1,
      {10, 0, 0,
       PROTOBUF_FIELD_OFFSET(QueryRangeResponse, _impl_.series_)}},
   }}, {{
     65535, 65535
   }}, {{
-    // repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];
+    // repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];
     {PROTOBUF_FIELD_OFFSET(QueryRangeResponse, _impl_.series_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
   }},
   {{
-      {::_pbi::TcParser::GetTable<::croupier::integrations::prom::v1::Timeseries>()},
+      {::_pbi::TcParser::GetTable<::examples::integrations::prom::v1::Timeseries>()},
   }},
   {{
   }},
 };
 PROTOBUF_NOINLINE void QueryRangeResponse::Clear() {
-// @@protoc_insertion_point(message_clear_start:croupier.integrations.prom.v1.QueryRangeResponse)
+// @@protoc_insertion_point(message_clear_start:examples.integrations.prom.v1.QueryRangeResponse)
   ::google::protobuf::internal::TSanWrite(&_impl_);
   ::uint32_t cached_has_bits = 0;
   // Prevent compiler warnings about cached_has_bits being unused
@@ -1611,12 +1611,12 @@ PROTOBUF_NOINLINE void QueryRangeResponse::Clear() {
   if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
     this_.CheckHasBitConsistency();
   }
-  // @@protoc_insertion_point(serialize_to_array_start:croupier.integrations.prom.v1.QueryRangeResponse)
+  // @@protoc_insertion_point(serialize_to_array_start:examples.integrations.prom.v1.QueryRangeResponse)
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
 
   cached_has_bits = this_._impl_._has_bits_[0];
-  // repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];
+  // repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];
   if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
     for (unsigned i = 0, n = static_cast<unsigned>(
                              this_._internal_series_size());
@@ -1634,7 +1634,7 @@ PROTOBUF_NOINLINE void QueryRangeResponse::Clear() {
         ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
             this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
   }
-  // @@protoc_insertion_point(serialize_to_array_end:croupier.integrations.prom.v1.QueryRangeResponse)
+  // @@protoc_insertion_point(serialize_to_array_end:examples.integrations.prom.v1.QueryRangeResponse)
   return target;
 }
 
@@ -1645,7 +1645,7 @@ PROTOBUF_NOINLINE void QueryRangeResponse::Clear() {
 ::size_t QueryRangeResponse::ByteSizeLong() const {
   const QueryRangeResponse& this_ = *this;
 #endif  // PROTOBUF_CUSTOM_VTABLE
-  // @@protoc_insertion_point(message_byte_size_start:croupier.integrations.prom.v1.QueryRangeResponse)
+  // @@protoc_insertion_point(message_byte_size_start:examples.integrations.prom.v1.QueryRangeResponse)
   ::size_t total_size = 0;
 
   ::uint32_t cached_has_bits = 0;
@@ -1654,7 +1654,7 @@ PROTOBUF_NOINLINE void QueryRangeResponse::Clear() {
 
   ::_pbi::Prefetch5LinesFrom7Lines(&this_);
    {
-    // repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];
+    // repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];
     cached_has_bits = this_._impl_._has_bits_[0];
     if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
       total_size += 1UL * this_._internal_series_size();
@@ -1676,7 +1676,7 @@ void QueryRangeResponse::MergeImpl(::google::protobuf::MessageLite& to_msg,
     from.CheckHasBitConsistency();
   }
   ::google::protobuf::Arena* arena = _this->GetArena();
-  // @@protoc_insertion_point(class_specific_merge_from_start:croupier.integrations.prom.v1.QueryRangeResponse)
+  // @@protoc_insertion_point(class_specific_merge_from_start:examples.integrations.prom.v1.QueryRangeResponse)
   ABSL_DCHECK_NE(&from, _this);
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
@@ -1693,7 +1693,7 @@ void QueryRangeResponse::MergeImpl(::google::protobuf::MessageLite& to_msg,
 }
 
 void QueryRangeResponse::CopyFrom(const QueryRangeResponse& from) {
-  // @@protoc_insertion_point(class_specific_copy_from_start:croupier.integrations.prom.v1.QueryRangeResponse)
+  // @@protoc_insertion_point(class_specific_copy_from_start:examples.integrations.prom.v1.QueryRangeResponse)
   if (&from == this) return;
   Clear();
   MergeFrom(from);
@@ -1714,7 +1714,7 @@ void QueryRangeResponse::InternalSwap(QueryRangeResponse* PROTOBUF_RESTRICT PROT
 }  // namespace v1
 }  // namespace prom
 }  // namespace integrations
-}  // namespace croupier
+}  // namespace examples
 namespace google {
 namespace protobuf {
 }  // namespace protobuf

@@ -7,7 +7,7 @@
 package promv1
 
 import (
-	_ "github.com/cuihairu/croupier/pkg/pb/croupier/options"
+	_ "github.com/cuihairu/croupier/pkg/pb/croupier/options/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -242,7 +242,7 @@ var File_examples_integrations_prom_v1_prom_proto protoreflect.FileDescriptor
 
 const file_examples_integrations_prom_v1_prom_proto_rawDesc = "" +
 	"\n" +
-	"(examples/integrations/prom/v1/prom.proto\x12\x1dcroupier.integrations.prom.v1\x1a\x1fcroupier/options/function.proto\x1a\x19croupier/options/ui.proto\"\xe1\x01\n" +
+	"(examples/integrations/prom/v1/prom.proto\x12\x1dexamples.integrations.prom.v1\x1a\"croupier/options/v1/function.proto\x1a\x1ccroupier/options/v1/ui.proto\"\xe1\x01\n" +
 	"\x11QueryRangeRequest\x12I\n" +
 	"\x04expr\x18\x01 \x01(\tB5\x8a\xb2\x191\n" +
 	"\btextarea\x12\x06PromQL\x1a\x1drate(http_requests_total[5m])R\x04expr\x12.\n" +
@@ -256,18 +256,18 @@ const file_examples_integrations_prom_v1_prom_proto_rawDesc = "" +
 	"\x01v\x18\x02 \x01(\x01R\x01v\"\xd7\x01\n" +
 	"\n" +
 	"Timeseries\x12M\n" +
-	"\x06labels\x18\x01 \x03(\v25.croupier.integrations.prom.v1.Timeseries.LabelsEntryR\x06labels\x12?\n" +
-	"\asamples\x18\x02 \x03(\v2%.croupier.integrations.prom.v1.SampleR\asamples\x1a9\n" +
+	"\x06labels\x18\x01 \x03(\v25.examples.integrations.prom.v1.Timeseries.LabelsEntryR\x06labels\x12?\n" +
+	"\asamples\x18\x02 \x03(\v2%.examples.integrations.prom.v1.SampleR\asamples\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"W\n" +
 	"\x12QueryRangeResponse\x12A\n" +
-	"\x06series\x18\x01 \x03(\v2).croupier.integrations.prom.v1.TimeseriesR\x06series2\xb1\x01\n" +
-	"\x06PromGm\x12\xa6\x01\n" +
+	"\x06series\x18\x01 \x03(\v2).examples.integrations.prom.v1.TimeseriesR\x06series2\xb8\x01\n" +
+	"\rPromGmService\x12\xa6\x01\n" +
 	"\n" +
-	"QueryRange\x120.croupier.integrations.prom.v1.QueryRangeRequest\x1a1.croupier.integrations.prom.v1.QueryRangeResponse\"3\xca\xf3\x18/\n" +
+	"QueryRange\x120.examples.integrations.prom.v1.QueryRangeRequest\x1a1.examples.integrations.prom.v1.QueryRangeResponse\"3\xca\xf3\x18/\n" +
 	"\x10prom.query_range\x12\x051.0.0\x1a\x04prom*\x02lb2\x0330sB\x05agentB\x8f\x02\n" +
-	"!com.croupier.integrations.prom.v1B\tPromProtoP\x01ZHgithub.com/cuihairu/croupier/pkg/pb/examples/integrations/prom/v1;promv1\xa2\x02\x03CIP\xaa\x02\x1dCroupier.Integrations.Prom.V1\xca\x02\x1dCroupier\\Integrations\\Prom\\V1\xe2\x02)Croupier\\Integrations\\Prom\\V1\\GPBMetadata\xea\x02 Croupier::Integrations::Prom::V1b\x06proto3"
+	"!com.examples.integrations.prom.v1B\tPromProtoP\x01ZHgithub.com/cuihairu/croupier/pkg/pb/examples/integrations/prom/v1;promv1\xa2\x02\x03EIP\xaa\x02\x1dExamples.Integrations.Prom.V1\xca\x02\x1dExamples\\Integrations\\Prom\\V1\xe2\x02)Examples\\Integrations\\Prom\\V1\\GPBMetadata\xea\x02 Examples::Integrations::Prom::V1b\x06proto3"
 
 var (
 	file_examples_integrations_prom_v1_prom_proto_rawDescOnce sync.Once
@@ -283,18 +283,18 @@ func file_examples_integrations_prom_v1_prom_proto_rawDescGZIP() []byte {
 
 var file_examples_integrations_prom_v1_prom_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_examples_integrations_prom_v1_prom_proto_goTypes = []any{
-	(*QueryRangeRequest)(nil),  // 0: croupier.integrations.prom.v1.QueryRangeRequest
-	(*Sample)(nil),             // 1: croupier.integrations.prom.v1.Sample
-	(*Timeseries)(nil),         // 2: croupier.integrations.prom.v1.Timeseries
-	(*QueryRangeResponse)(nil), // 3: croupier.integrations.prom.v1.QueryRangeResponse
-	nil,                        // 4: croupier.integrations.prom.v1.Timeseries.LabelsEntry
+	(*QueryRangeRequest)(nil),  // 0: examples.integrations.prom.v1.QueryRangeRequest
+	(*Sample)(nil),             // 1: examples.integrations.prom.v1.Sample
+	(*Timeseries)(nil),         // 2: examples.integrations.prom.v1.Timeseries
+	(*QueryRangeResponse)(nil), // 3: examples.integrations.prom.v1.QueryRangeResponse
+	nil,                        // 4: examples.integrations.prom.v1.Timeseries.LabelsEntry
 }
 var file_examples_integrations_prom_v1_prom_proto_depIdxs = []int32{
-	4, // 0: croupier.integrations.prom.v1.Timeseries.labels:type_name -> croupier.integrations.prom.v1.Timeseries.LabelsEntry
-	1, // 1: croupier.integrations.prom.v1.Timeseries.samples:type_name -> croupier.integrations.prom.v1.Sample
-	2, // 2: croupier.integrations.prom.v1.QueryRangeResponse.series:type_name -> croupier.integrations.prom.v1.Timeseries
-	0, // 3: croupier.integrations.prom.v1.PromGm.QueryRange:input_type -> croupier.integrations.prom.v1.QueryRangeRequest
-	3, // 4: croupier.integrations.prom.v1.PromGm.QueryRange:output_type -> croupier.integrations.prom.v1.QueryRangeResponse
+	4, // 0: examples.integrations.prom.v1.Timeseries.labels:type_name -> examples.integrations.prom.v1.Timeseries.LabelsEntry
+	1, // 1: examples.integrations.prom.v1.Timeseries.samples:type_name -> examples.integrations.prom.v1.Sample
+	2, // 2: examples.integrations.prom.v1.QueryRangeResponse.series:type_name -> examples.integrations.prom.v1.Timeseries
+	0, // 3: examples.integrations.prom.v1.PromGmService.QueryRange:input_type -> examples.integrations.prom.v1.QueryRangeRequest
+	3, // 4: examples.integrations.prom.v1.PromGmService.QueryRange:output_type -> examples.integrations.prom.v1.QueryRangeResponse
 	4, // [4:5] is the sub-list for method output_type
 	3, // [3:4] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name

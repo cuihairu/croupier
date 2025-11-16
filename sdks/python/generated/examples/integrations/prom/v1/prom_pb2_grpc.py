@@ -5,7 +5,7 @@ import grpc
 from examples.integrations.prom.v1 import prom_pb2 as examples_dot_integrations_dot_prom_dot_v1_dot_prom__pb2
 
 
-class PromGmStub(object):
+class PromGmServiceStub(object):
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -15,13 +15,13 @@ class PromGmStub(object):
             channel: A grpc.Channel.
         """
         self.QueryRange = channel.unary_unary(
-                '/croupier.integrations.prom.v1.PromGm/QueryRange',
+                '/examples.integrations.prom.v1.PromGmService/QueryRange',
                 request_serializer=examples_dot_integrations_dot_prom_dot_v1_dot_prom__pb2.QueryRangeRequest.SerializeToString,
                 response_deserializer=examples_dot_integrations_dot_prom_dot_v1_dot_prom__pb2.QueryRangeResponse.FromString,
                 _registered_method=True)
 
 
-class PromGmServicer(object):
+class PromGmServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def QueryRange(self, request, context):
@@ -31,7 +31,7 @@ class PromGmServicer(object):
         raise NotImplementedError('Method not implemented!')
 
 
-def add_PromGmServicer_to_server(servicer, server):
+def add_PromGmServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'QueryRange': grpc.unary_unary_rpc_method_handler(
                     servicer.QueryRange,
@@ -40,13 +40,13 @@ def add_PromGmServicer_to_server(servicer, server):
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'croupier.integrations.prom.v1.PromGm', rpc_method_handlers)
+            'examples.integrations.prom.v1.PromGmService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('croupier.integrations.prom.v1.PromGm', rpc_method_handlers)
+    server.add_registered_method_handlers('examples.integrations.prom.v1.PromGmService', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
-class PromGm(object):
+class PromGmService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
@@ -63,7 +63,7 @@ class PromGm(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/croupier.integrations.prom.v1.PromGm/QueryRange',
+            '/examples.integrations.prom.v1.PromGmService/QueryRange',
             examples_dot_integrations_dot_prom_dot_v1_dot_prom__pb2.QueryRangeRequest.SerializeToString,
             examples_dot_integrations_dot_prom_dot_v1_dot_prom__pb2.QueryRangeResponse.FromString,
             options,

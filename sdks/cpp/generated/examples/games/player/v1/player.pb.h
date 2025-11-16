@@ -29,8 +29,8 @@
 #include "google/protobuf/repeated_field.h"  // IWYU pragma: export
 #include "google/protobuf/extension_set.h"  // IWYU pragma: export
 #include "google/protobuf/unknown_field_set.h"
-#include "croupier/options/function.pb.h"
-#include "croupier/options/ui.pb.h"
+#include "croupier/options/v1/function.pb.h"
+#include "croupier/options/v1/ui.pb.h"
 // @@protoc_insertion_point(includes)
 
 // Must be included last.
@@ -54,6 +54,7 @@ struct TableStruct_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto {
 extern "C" {
 extern const ::google::protobuf::internal::DescriptorTable descriptor_table_examples_2fgames_2fplayer_2fv1_2fplayer_2eproto;
 }  // extern "C"
+namespace examples {
 namespace games {
 namespace player {
 namespace v1 {
@@ -68,11 +69,13 @@ extern const ::google::protobuf::internal::ClassDataFull BanResponse_class_data_
 }  // namespace v1
 }  // namespace player
 }  // namespace games
+}  // namespace examples
 namespace google {
 namespace protobuf {
 }  // namespace protobuf
 }  // namespace google
 
+namespace examples {
 namespace games {
 namespace player {
 namespace v1 {
@@ -83,7 +86,7 @@ namespace v1 {
 // -------------------------------------------------------------------
 
 class BanResponse final : public ::google::protobuf::Message
-/* @@protoc_insertion_point(class_definition:games.player.v1.BanResponse) */ {
+/* @@protoc_insertion_point(class_definition:examples.games.player.v1.BanResponse) */ {
  public:
   inline BanResponse() : BanResponse(nullptr) {}
   ~BanResponse() PROTOBUF_FINAL;
@@ -201,7 +204,7 @@ class BanResponse final : public ::google::protobuf::Message
  private:
   template <typename T>
   friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
-  static ::absl::string_view FullMessageName() { return "games.player.v1.BanResponse"; }
+  static ::absl::string_view FullMessageName() { return "examples.games.player.v1.BanResponse"; }
 
   explicit BanResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
   BanResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const BanResponse& from);
@@ -241,12 +244,12 @@ class BanResponse final : public ::google::protobuf::Message
   ::std::string* PROTOBUF_NONNULL _internal_mutable_result();
 
   public:
-  // @@protoc_insertion_point(class_scope:games.player.v1.BanResponse)
+  // @@protoc_insertion_point(class_scope:examples.games.player.v1.BanResponse)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<0, 1,
-                                   0, 42,
+                                   0, 51,
                                    2>
       _table_;
 
@@ -278,7 +281,7 @@ extern const ::google::protobuf::internal::ClassDataFull BanResponse_class_data_
 // -------------------------------------------------------------------
 
 class BanRequest final : public ::google::protobuf::Message
-/* @@protoc_insertion_point(class_definition:games.player.v1.BanRequest) */ {
+/* @@protoc_insertion_point(class_definition:examples.games.player.v1.BanRequest) */ {
  public:
   inline BanRequest() : BanRequest(nullptr) {}
   ~BanRequest() PROTOBUF_FINAL;
@@ -396,7 +399,7 @@ class BanRequest final : public ::google::protobuf::Message
  private:
   template <typename T>
   friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
-  static ::absl::string_view FullMessageName() { return "games.player.v1.BanRequest"; }
+  static ::absl::string_view FullMessageName() { return "examples.games.player.v1.BanRequest"; }
 
   explicit BanRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
   BanRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const BanRequest& from);
@@ -422,7 +425,7 @@ class BanRequest final : public ::google::protobuf::Message
     kPlayerIdFieldNumber = 1,
     kReasonFieldNumber = 2,
   };
-  // string player_id = 1 [json_name = "playerId", (.croupier.options.ui) = {
+  // string player_id = 1 [json_name = "playerId", (.croupier.options.v1.ui) = {
   void clear_player_id() ;
   const ::std::string& player_id() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -437,7 +440,7 @@ class BanRequest final : public ::google::protobuf::Message
   ::std::string* PROTOBUF_NONNULL _internal_mutable_player_id();
 
   public:
-  // string reason = 2 [json_name = "reason", (.croupier.options.ui) = {
+  // string reason = 2 [json_name = "reason", (.croupier.options.v1.ui) = {
   void clear_reason() ;
   const ::std::string& reason() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -452,12 +455,12 @@ class BanRequest final : public ::google::protobuf::Message
   ::std::string* PROTOBUF_NONNULL _internal_mutable_reason();
 
   public:
-  // @@protoc_insertion_point(class_scope:games.player.v1.BanRequest)
+  // @@protoc_insertion_point(class_scope:examples.games.player.v1.BanRequest)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<1, 2,
-                                   0, 50,
+                                   0, 59,
                                    2>
       _table_;
 
@@ -504,7 +507,7 @@ extern const ::google::protobuf::internal::ClassDataFull BanRequest_class_data_;
 
 // BanRequest
 
-// string player_id = 1 [json_name = "playerId", (.croupier.options.ui) = {
+// string player_id = 1 [json_name = "playerId", (.croupier.options.v1.ui) = {
 inline void BanRequest::clear_player_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.player_id_.ClearToEmpty();
@@ -513,7 +516,7 @@ inline void BanRequest::clear_player_id() {
 }
 inline const ::std::string& BanRequest::player_id() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:games.player.v1.BanRequest.player_id)
+  // @@protoc_insertion_point(field_get:examples.games.player.v1.BanRequest.player_id)
   return _internal_player_id();
 }
 template <typename Arg_, typename... Args_>
@@ -521,13 +524,13 @@ PROTOBUF_ALWAYS_INLINE void BanRequest::set_player_id(Arg_&& arg, Args_... args)
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000001U);
   _impl_.player_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:games.player.v1.BanRequest.player_id)
+  // @@protoc_insertion_point(field_set:examples.games.player.v1.BanRequest.player_id)
 }
 inline ::std::string* PROTOBUF_NONNULL BanRequest::mutable_player_id()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000001U);
   ::std::string* _s = _internal_mutable_player_id();
-  // @@protoc_insertion_point(field_mutable:games.player.v1.BanRequest.player_id)
+  // @@protoc_insertion_point(field_mutable:examples.games.player.v1.BanRequest.player_id)
   return _s;
 }
 inline const ::std::string& BanRequest::_internal_player_id() const {
@@ -544,7 +547,7 @@ inline ::std::string* PROTOBUF_NONNULL BanRequest::_internal_mutable_player_id()
 }
 inline ::std::string* PROTOBUF_NULLABLE BanRequest::release_player_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:games.player.v1.BanRequest.player_id)
+  // @@protoc_insertion_point(field_release:examples.games.player.v1.BanRequest.player_id)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
     return nullptr;
   }
@@ -566,10 +569,10 @@ inline void BanRequest::set_allocated_player_id(::std::string* PROTOBUF_NULLABLE
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.player_id_.IsDefault()) {
     _impl_.player_id_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:games.player.v1.BanRequest.player_id)
+  // @@protoc_insertion_point(field_set_allocated:examples.games.player.v1.BanRequest.player_id)
 }
 
-// string reason = 2 [json_name = "reason", (.croupier.options.ui) = {
+// string reason = 2 [json_name = "reason", (.croupier.options.v1.ui) = {
 inline void BanRequest::clear_reason() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.reason_.ClearToEmpty();
@@ -578,7 +581,7 @@ inline void BanRequest::clear_reason() {
 }
 inline const ::std::string& BanRequest::reason() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:games.player.v1.BanRequest.reason)
+  // @@protoc_insertion_point(field_get:examples.games.player.v1.BanRequest.reason)
   return _internal_reason();
 }
 template <typename Arg_, typename... Args_>
@@ -586,13 +589,13 @@ PROTOBUF_ALWAYS_INLINE void BanRequest::set_reason(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   _impl_.reason_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:games.player.v1.BanRequest.reason)
+  // @@protoc_insertion_point(field_set:examples.games.player.v1.BanRequest.reason)
 }
 inline ::std::string* PROTOBUF_NONNULL BanRequest::mutable_reason()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   ::std::string* _s = _internal_mutable_reason();
-  // @@protoc_insertion_point(field_mutable:games.player.v1.BanRequest.reason)
+  // @@protoc_insertion_point(field_mutable:examples.games.player.v1.BanRequest.reason)
   return _s;
 }
 inline const ::std::string& BanRequest::_internal_reason() const {
@@ -609,7 +612,7 @@ inline ::std::string* PROTOBUF_NONNULL BanRequest::_internal_mutable_reason() {
 }
 inline ::std::string* PROTOBUF_NULLABLE BanRequest::release_reason() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:games.player.v1.BanRequest.reason)
+  // @@protoc_insertion_point(field_release:examples.games.player.v1.BanRequest.reason)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
     return nullptr;
   }
@@ -631,7 +634,7 @@ inline void BanRequest::set_allocated_reason(::std::string* PROTOBUF_NULLABLE va
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.reason_.IsDefault()) {
     _impl_.reason_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:games.player.v1.BanRequest.reason)
+  // @@protoc_insertion_point(field_set_allocated:examples.games.player.v1.BanRequest.reason)
 }
 
 // -------------------------------------------------------------------
@@ -647,7 +650,7 @@ inline void BanResponse::clear_result() {
 }
 inline const ::std::string& BanResponse::result() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:games.player.v1.BanResponse.result)
+  // @@protoc_insertion_point(field_get:examples.games.player.v1.BanResponse.result)
   return _internal_result();
 }
 template <typename Arg_, typename... Args_>
@@ -655,13 +658,13 @@ PROTOBUF_ALWAYS_INLINE void BanResponse::set_result(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000001U);
   _impl_.result_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:games.player.v1.BanResponse.result)
+  // @@protoc_insertion_point(field_set:examples.games.player.v1.BanResponse.result)
 }
 inline ::std::string* PROTOBUF_NONNULL BanResponse::mutable_result()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000001U);
   ::std::string* _s = _internal_mutable_result();
-  // @@protoc_insertion_point(field_mutable:games.player.v1.BanResponse.result)
+  // @@protoc_insertion_point(field_mutable:examples.games.player.v1.BanResponse.result)
   return _s;
 }
 inline const ::std::string& BanResponse::_internal_result() const {
@@ -678,7 +681,7 @@ inline ::std::string* PROTOBUF_NONNULL BanResponse::_internal_mutable_result() {
 }
 inline ::std::string* PROTOBUF_NULLABLE BanResponse::release_result() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:games.player.v1.BanResponse.result)
+  // @@protoc_insertion_point(field_release:examples.games.player.v1.BanResponse.result)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
     return nullptr;
   }
@@ -700,7 +703,7 @@ inline void BanResponse::set_allocated_result(::std::string* PROTOBUF_NULLABLE v
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.result_.IsDefault()) {
     _impl_.result_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:games.player.v1.BanResponse.result)
+  // @@protoc_insertion_point(field_set_allocated:examples.games.player.v1.BanResponse.result)
 }
 
 #ifdef __GNUC__
@@ -711,6 +714,7 @@ inline void BanResponse::set_allocated_result(::std::string* PROTOBUF_NULLABLE v
 }  // namespace v1
 }  // namespace player
 }  // namespace games
+}  // namespace examples
 
 
 // @@protoc_insertion_point(global_scope)

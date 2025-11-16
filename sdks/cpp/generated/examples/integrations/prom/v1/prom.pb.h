@@ -33,8 +33,8 @@
 #include "google/protobuf/map_entry.h"
 #include "google/protobuf/map_field.h"
 #include "google/protobuf/unknown_field_set.h"
-#include "croupier/options/function.pb.h"
-#include "croupier/options/ui.pb.h"
+#include "croupier/options/v1/function.pb.h"
+#include "croupier/options/v1/ui.pb.h"
 // @@protoc_insertion_point(includes)
 
 // Must be included last.
@@ -58,7 +58,7 @@ struct TableStruct_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto {
 extern "C" {
 extern const ::google::protobuf::internal::DescriptorTable descriptor_table_examples_2fintegrations_2fprom_2fv1_2fprom_2eproto;
 }  // extern "C"
-namespace croupier {
+namespace examples {
 namespace integrations {
 namespace prom {
 namespace v1 {
@@ -85,13 +85,13 @@ extern const ::google::protobuf::internal::ClassDataFull Timeseries_LabelsEntry_
 }  // namespace v1
 }  // namespace prom
 }  // namespace integrations
-}  // namespace croupier
+}  // namespace examples
 namespace google {
 namespace protobuf {
 }  // namespace protobuf
 }  // namespace google
 
-namespace croupier {
+namespace examples {
 namespace integrations {
 namespace prom {
 namespace v1 {
@@ -141,7 +141,7 @@ extern const ::google::protobuf::internal::ClassDataFull Timeseries_LabelsEntry_
 // -------------------------------------------------------------------
 
 class Sample final : public ::google::protobuf::Message
-/* @@protoc_insertion_point(class_definition:croupier.integrations.prom.v1.Sample) */ {
+/* @@protoc_insertion_point(class_definition:examples.integrations.prom.v1.Sample) */ {
  public:
   inline Sample() : Sample(nullptr) {}
   ~Sample() PROTOBUF_FINAL;
@@ -259,7 +259,7 @@ class Sample final : public ::google::protobuf::Message
  private:
   template <typename T>
   friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
-  static ::absl::string_view FullMessageName() { return "croupier.integrations.prom.v1.Sample"; }
+  static ::absl::string_view FullMessageName() { return "examples.integrations.prom.v1.Sample"; }
 
   explicit Sample(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
   Sample(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Sample& from);
@@ -305,7 +305,7 @@ class Sample final : public ::google::protobuf::Message
   void _internal_set_v(double value);
 
   public:
-  // @@protoc_insertion_point(class_scope:croupier.integrations.prom.v1.Sample)
+  // @@protoc_insertion_point(class_scope:examples.integrations.prom.v1.Sample)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
@@ -343,7 +343,7 @@ extern const ::google::protobuf::internal::ClassDataFull Sample_class_data_;
 // -------------------------------------------------------------------
 
 class QueryRangeRequest final : public ::google::protobuf::Message
-/* @@protoc_insertion_point(class_definition:croupier.integrations.prom.v1.QueryRangeRequest) */ {
+/* @@protoc_insertion_point(class_definition:examples.integrations.prom.v1.QueryRangeRequest) */ {
  public:
   inline QueryRangeRequest() : QueryRangeRequest(nullptr) {}
   ~QueryRangeRequest() PROTOBUF_FINAL;
@@ -461,7 +461,7 @@ class QueryRangeRequest final : public ::google::protobuf::Message
  private:
   template <typename T>
   friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
-  static ::absl::string_view FullMessageName() { return "croupier.integrations.prom.v1.QueryRangeRequest"; }
+  static ::absl::string_view FullMessageName() { return "examples.integrations.prom.v1.QueryRangeRequest"; }
 
   explicit QueryRangeRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
   QueryRangeRequest(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const QueryRangeRequest& from);
@@ -489,7 +489,7 @@ class QueryRangeRequest final : public ::google::protobuf::Message
     kEndFieldNumber = 3,
     kStepFieldNumber = 4,
   };
-  // string expr = 1 [json_name = "expr", (.croupier.options.ui) = {
+  // string expr = 1 [json_name = "expr", (.croupier.options.v1.ui) = {
   void clear_expr() ;
   const ::std::string& expr() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -504,7 +504,7 @@ class QueryRangeRequest final : public ::google::protobuf::Message
   ::std::string* PROTOBUF_NONNULL _internal_mutable_expr();
 
   public:
-  // string start = 2 [json_name = "start", (.croupier.options.ui) = {
+  // string start = 2 [json_name = "start", (.croupier.options.v1.ui) = {
   void clear_start() ;
   const ::std::string& start() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -519,7 +519,7 @@ class QueryRangeRequest final : public ::google::protobuf::Message
   ::std::string* PROTOBUF_NONNULL _internal_mutable_start();
 
   public:
-  // string end = 3 [json_name = "end", (.croupier.options.ui) = {
+  // string end = 3 [json_name = "end", (.croupier.options.v1.ui) = {
   void clear_end() ;
   const ::std::string& end() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -534,7 +534,7 @@ class QueryRangeRequest final : public ::google::protobuf::Message
   ::std::string* PROTOBUF_NONNULL _internal_mutable_end();
 
   public:
-  // string step = 4 [json_name = "step", (.croupier.options.ui) = {
+  // string step = 4 [json_name = "step", (.croupier.options.v1.ui) = {
   void clear_step() ;
   const ::std::string& step() const;
   template <typename Arg_ = const ::std::string&, typename... Args_>
@@ -549,7 +549,7 @@ class QueryRangeRequest final : public ::google::protobuf::Message
   ::std::string* PROTOBUF_NONNULL _internal_mutable_step();
 
   public:
-  // @@protoc_insertion_point(class_scope:croupier.integrations.prom.v1.QueryRangeRequest)
+  // @@protoc_insertion_point(class_scope:examples.integrations.prom.v1.QueryRangeRequest)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
@@ -589,7 +589,7 @@ extern const ::google::protobuf::internal::ClassDataFull QueryRangeRequest_class
 // -------------------------------------------------------------------
 
 class Timeseries final : public ::google::protobuf::Message
-/* @@protoc_insertion_point(class_definition:croupier.integrations.prom.v1.Timeseries) */ {
+/* @@protoc_insertion_point(class_definition:examples.integrations.prom.v1.Timeseries) */ {
  public:
   inline Timeseries() : Timeseries(nullptr) {}
   ~Timeseries() PROTOBUF_FINAL;
@@ -707,7 +707,7 @@ class Timeseries final : public ::google::protobuf::Message
  private:
   template <typename T>
   friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
-  static ::absl::string_view FullMessageName() { return "croupier.integrations.prom.v1.Timeseries"; }
+  static ::absl::string_view FullMessageName() { return "examples.integrations.prom.v1.Timeseries"; }
 
   explicit Timeseries(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
   Timeseries(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Timeseries& from);
@@ -733,23 +733,23 @@ class Timeseries final : public ::google::protobuf::Message
     kSamplesFieldNumber = 2,
     kLabelsFieldNumber = 1,
   };
-  // repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];
+  // repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];
   int samples_size() const;
   private:
   int _internal_samples_size() const;
 
   public:
   void clear_samples() ;
-  ::croupier::integrations::prom::v1::Sample* PROTOBUF_NONNULL mutable_samples(int index);
-  ::google::protobuf::RepeatedPtrField<::croupier::integrations::prom::v1::Sample>* PROTOBUF_NONNULL mutable_samples();
+  ::examples::integrations::prom::v1::Sample* PROTOBUF_NONNULL mutable_samples(int index);
+  ::google::protobuf::RepeatedPtrField<::examples::integrations::prom::v1::Sample>* PROTOBUF_NONNULL mutable_samples();
 
   private:
-  const ::google::protobuf::RepeatedPtrField<::croupier::integrations::prom::v1::Sample>& _internal_samples() const;
-  ::google::protobuf::RepeatedPtrField<::croupier::integrations::prom::v1::Sample>* PROTOBUF_NONNULL _internal_mutable_samples();
+  const ::google::protobuf::RepeatedPtrField<::examples::integrations::prom::v1::Sample>& _internal_samples() const;
+  ::google::protobuf::RepeatedPtrField<::examples::integrations::prom::v1::Sample>* PROTOBUF_NONNULL _internal_mutable_samples();
   public:
-  const ::croupier::integrations::prom::v1::Sample& samples(int index) const;
-  ::croupier::integrations::prom::v1::Sample* PROTOBUF_NONNULL add_samples();
-  const ::google::protobuf::RepeatedPtrField<::croupier::integrations::prom::v1::Sample>& samples() const;
+  const ::examples::integrations::prom::v1::Sample& samples(int index) const;
+  ::examples::integrations::prom::v1::Sample* PROTOBUF_NONNULL add_samples();
+  const ::google::protobuf::RepeatedPtrField<::examples::integrations::prom::v1::Sample>& samples() const;
   // map<string, string> labels = 1 [json_name = "labels"];
   int labels_size() const;
   private:
@@ -765,7 +765,7 @@ class Timeseries final : public ::google::protobuf::Message
   ::google::protobuf::Map<::std::string, ::std::string>* PROTOBUF_NONNULL _internal_mutable_labels();
 
   public:
-  // @@protoc_insertion_point(class_scope:croupier.integrations.prom.v1.Timeseries)
+  // @@protoc_insertion_point(class_scope:examples.integrations.prom.v1.Timeseries)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
@@ -791,7 +791,7 @@ class Timeseries final : public ::google::protobuf::Message
         const Timeseries& from_msg);
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     ::google::protobuf::internal::CachedSize _cached_size_;
-    ::google::protobuf::RepeatedPtrField< ::croupier::integrations::prom::v1::Sample > samples_;
+    ::google::protobuf::RepeatedPtrField< ::examples::integrations::prom::v1::Sample > samples_;
     ::google::protobuf::internal::MapField<Timeseries_LabelsEntry_DoNotUse, ::std::string, ::std::string,
                       ::google::protobuf::internal::WireFormatLite::TYPE_STRING,
                       ::google::protobuf::internal::WireFormatLite::TYPE_STRING>
@@ -806,7 +806,7 @@ extern const ::google::protobuf::internal::ClassDataFull Timeseries_class_data_;
 // -------------------------------------------------------------------
 
 class QueryRangeResponse final : public ::google::protobuf::Message
-/* @@protoc_insertion_point(class_definition:croupier.integrations.prom.v1.QueryRangeResponse) */ {
+/* @@protoc_insertion_point(class_definition:examples.integrations.prom.v1.QueryRangeResponse) */ {
  public:
   inline QueryRangeResponse() : QueryRangeResponse(nullptr) {}
   ~QueryRangeResponse() PROTOBUF_FINAL;
@@ -924,7 +924,7 @@ class QueryRangeResponse final : public ::google::protobuf::Message
  private:
   template <typename T>
   friend ::absl::string_view(::google::protobuf::internal::GetAnyMessageName)();
-  static ::absl::string_view FullMessageName() { return "croupier.integrations.prom.v1.QueryRangeResponse"; }
+  static ::absl::string_view FullMessageName() { return "examples.integrations.prom.v1.QueryRangeResponse"; }
 
   explicit QueryRangeResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena);
   QueryRangeResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const QueryRangeResponse& from);
@@ -949,24 +949,24 @@ class QueryRangeResponse final : public ::google::protobuf::Message
   enum : int {
     kSeriesFieldNumber = 1,
   };
-  // repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];
+  // repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];
   int series_size() const;
   private:
   int _internal_series_size() const;
 
   public:
   void clear_series() ;
-  ::croupier::integrations::prom::v1::Timeseries* PROTOBUF_NONNULL mutable_series(int index);
-  ::google::protobuf::RepeatedPtrField<::croupier::integrations::prom::v1::Timeseries>* PROTOBUF_NONNULL mutable_series();
+  ::examples::integrations::prom::v1::Timeseries* PROTOBUF_NONNULL mutable_series(int index);
+  ::google::protobuf::RepeatedPtrField<::examples::integrations::prom::v1::Timeseries>* PROTOBUF_NONNULL mutable_series();
 
   private:
-  const ::google::protobuf::RepeatedPtrField<::croupier::integrations::prom::v1::Timeseries>& _internal_series() const;
-  ::google::protobuf::RepeatedPtrField<::croupier::integrations::prom::v1::Timeseries>* PROTOBUF_NONNULL _internal_mutable_series();
+  const ::google::protobuf::RepeatedPtrField<::examples::integrations::prom::v1::Timeseries>& _internal_series() const;
+  ::google::protobuf::RepeatedPtrField<::examples::integrations::prom::v1::Timeseries>* PROTOBUF_NONNULL _internal_mutable_series();
   public:
-  const ::croupier::integrations::prom::v1::Timeseries& series(int index) const;
-  ::croupier::integrations::prom::v1::Timeseries* PROTOBUF_NONNULL add_series();
-  const ::google::protobuf::RepeatedPtrField<::croupier::integrations::prom::v1::Timeseries>& series() const;
-  // @@protoc_insertion_point(class_scope:croupier.integrations.prom.v1.QueryRangeResponse)
+  const ::examples::integrations::prom::v1::Timeseries& series(int index) const;
+  ::examples::integrations::prom::v1::Timeseries* PROTOBUF_NONNULL add_series();
+  const ::google::protobuf::RepeatedPtrField<::examples::integrations::prom::v1::Timeseries>& series() const;
+  // @@protoc_insertion_point(class_scope:examples.integrations.prom.v1.QueryRangeResponse)
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
@@ -992,7 +992,7 @@ class QueryRangeResponse final : public ::google::protobuf::Message
         const QueryRangeResponse& from_msg);
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     ::google::protobuf::internal::CachedSize _cached_size_;
-    ::google::protobuf::RepeatedPtrField< ::croupier::integrations::prom::v1::Timeseries > series_;
+    ::google::protobuf::RepeatedPtrField< ::examples::integrations::prom::v1::Timeseries > series_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -1017,7 +1017,7 @@ extern const ::google::protobuf::internal::ClassDataFull QueryRangeResponse_clas
 
 // QueryRangeRequest
 
-// string expr = 1 [json_name = "expr", (.croupier.options.ui) = {
+// string expr = 1 [json_name = "expr", (.croupier.options.v1.ui) = {
 inline void QueryRangeRequest::clear_expr() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.expr_.ClearToEmpty();
@@ -1026,7 +1026,7 @@ inline void QueryRangeRequest::clear_expr() {
 }
 inline const ::std::string& QueryRangeRequest::expr() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.integrations.prom.v1.QueryRangeRequest.expr)
+  // @@protoc_insertion_point(field_get:examples.integrations.prom.v1.QueryRangeRequest.expr)
   return _internal_expr();
 }
 template <typename Arg_, typename... Args_>
@@ -1034,13 +1034,13 @@ PROTOBUF_ALWAYS_INLINE void QueryRangeRequest::set_expr(Arg_&& arg, Args_... arg
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000001U);
   _impl_.expr_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.integrations.prom.v1.QueryRangeRequest.expr)
+  // @@protoc_insertion_point(field_set:examples.integrations.prom.v1.QueryRangeRequest.expr)
 }
 inline ::std::string* PROTOBUF_NONNULL QueryRangeRequest::mutable_expr()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000001U);
   ::std::string* _s = _internal_mutable_expr();
-  // @@protoc_insertion_point(field_mutable:croupier.integrations.prom.v1.QueryRangeRequest.expr)
+  // @@protoc_insertion_point(field_mutable:examples.integrations.prom.v1.QueryRangeRequest.expr)
   return _s;
 }
 inline const ::std::string& QueryRangeRequest::_internal_expr() const {
@@ -1057,7 +1057,7 @@ inline ::std::string* PROTOBUF_NONNULL QueryRangeRequest::_internal_mutable_expr
 }
 inline ::std::string* PROTOBUF_NULLABLE QueryRangeRequest::release_expr() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.integrations.prom.v1.QueryRangeRequest.expr)
+  // @@protoc_insertion_point(field_release:examples.integrations.prom.v1.QueryRangeRequest.expr)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
     return nullptr;
   }
@@ -1079,10 +1079,10 @@ inline void QueryRangeRequest::set_allocated_expr(::std::string* PROTOBUF_NULLAB
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.expr_.IsDefault()) {
     _impl_.expr_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.integrations.prom.v1.QueryRangeRequest.expr)
+  // @@protoc_insertion_point(field_set_allocated:examples.integrations.prom.v1.QueryRangeRequest.expr)
 }
 
-// string start = 2 [json_name = "start", (.croupier.options.ui) = {
+// string start = 2 [json_name = "start", (.croupier.options.v1.ui) = {
 inline void QueryRangeRequest::clear_start() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.start_.ClearToEmpty();
@@ -1091,7 +1091,7 @@ inline void QueryRangeRequest::clear_start() {
 }
 inline const ::std::string& QueryRangeRequest::start() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.integrations.prom.v1.QueryRangeRequest.start)
+  // @@protoc_insertion_point(field_get:examples.integrations.prom.v1.QueryRangeRequest.start)
   return _internal_start();
 }
 template <typename Arg_, typename... Args_>
@@ -1099,13 +1099,13 @@ PROTOBUF_ALWAYS_INLINE void QueryRangeRequest::set_start(Arg_&& arg, Args_... ar
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   _impl_.start_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.integrations.prom.v1.QueryRangeRequest.start)
+  // @@protoc_insertion_point(field_set:examples.integrations.prom.v1.QueryRangeRequest.start)
 }
 inline ::std::string* PROTOBUF_NONNULL QueryRangeRequest::mutable_start()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   ::std::string* _s = _internal_mutable_start();
-  // @@protoc_insertion_point(field_mutable:croupier.integrations.prom.v1.QueryRangeRequest.start)
+  // @@protoc_insertion_point(field_mutable:examples.integrations.prom.v1.QueryRangeRequest.start)
   return _s;
 }
 inline const ::std::string& QueryRangeRequest::_internal_start() const {
@@ -1122,7 +1122,7 @@ inline ::std::string* PROTOBUF_NONNULL QueryRangeRequest::_internal_mutable_star
 }
 inline ::std::string* PROTOBUF_NULLABLE QueryRangeRequest::release_start() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.integrations.prom.v1.QueryRangeRequest.start)
+  // @@protoc_insertion_point(field_release:examples.integrations.prom.v1.QueryRangeRequest.start)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
     return nullptr;
   }
@@ -1144,10 +1144,10 @@ inline void QueryRangeRequest::set_allocated_start(::std::string* PROTOBUF_NULLA
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.start_.IsDefault()) {
     _impl_.start_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.integrations.prom.v1.QueryRangeRequest.start)
+  // @@protoc_insertion_point(field_set_allocated:examples.integrations.prom.v1.QueryRangeRequest.start)
 }
 
-// string end = 3 [json_name = "end", (.croupier.options.ui) = {
+// string end = 3 [json_name = "end", (.croupier.options.v1.ui) = {
 inline void QueryRangeRequest::clear_end() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.end_.ClearToEmpty();
@@ -1156,7 +1156,7 @@ inline void QueryRangeRequest::clear_end() {
 }
 inline const ::std::string& QueryRangeRequest::end() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.integrations.prom.v1.QueryRangeRequest.end)
+  // @@protoc_insertion_point(field_get:examples.integrations.prom.v1.QueryRangeRequest.end)
   return _internal_end();
 }
 template <typename Arg_, typename... Args_>
@@ -1164,13 +1164,13 @@ PROTOBUF_ALWAYS_INLINE void QueryRangeRequest::set_end(Arg_&& arg, Args_... args
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000004U);
   _impl_.end_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.integrations.prom.v1.QueryRangeRequest.end)
+  // @@protoc_insertion_point(field_set:examples.integrations.prom.v1.QueryRangeRequest.end)
 }
 inline ::std::string* PROTOBUF_NONNULL QueryRangeRequest::mutable_end()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000004U);
   ::std::string* _s = _internal_mutable_end();
-  // @@protoc_insertion_point(field_mutable:croupier.integrations.prom.v1.QueryRangeRequest.end)
+  // @@protoc_insertion_point(field_mutable:examples.integrations.prom.v1.QueryRangeRequest.end)
   return _s;
 }
 inline const ::std::string& QueryRangeRequest::_internal_end() const {
@@ -1187,7 +1187,7 @@ inline ::std::string* PROTOBUF_NONNULL QueryRangeRequest::_internal_mutable_end(
 }
 inline ::std::string* PROTOBUF_NULLABLE QueryRangeRequest::release_end() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.integrations.prom.v1.QueryRangeRequest.end)
+  // @@protoc_insertion_point(field_release:examples.integrations.prom.v1.QueryRangeRequest.end)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
     return nullptr;
   }
@@ -1209,10 +1209,10 @@ inline void QueryRangeRequest::set_allocated_end(::std::string* PROTOBUF_NULLABL
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.end_.IsDefault()) {
     _impl_.end_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.integrations.prom.v1.QueryRangeRequest.end)
+  // @@protoc_insertion_point(field_set_allocated:examples.integrations.prom.v1.QueryRangeRequest.end)
 }
 
-// string step = 4 [json_name = "step", (.croupier.options.ui) = {
+// string step = 4 [json_name = "step", (.croupier.options.v1.ui) = {
 inline void QueryRangeRequest::clear_step() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.step_.ClearToEmpty();
@@ -1221,7 +1221,7 @@ inline void QueryRangeRequest::clear_step() {
 }
 inline const ::std::string& QueryRangeRequest::step() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.integrations.prom.v1.QueryRangeRequest.step)
+  // @@protoc_insertion_point(field_get:examples.integrations.prom.v1.QueryRangeRequest.step)
   return _internal_step();
 }
 template <typename Arg_, typename... Args_>
@@ -1229,13 +1229,13 @@ PROTOBUF_ALWAYS_INLINE void QueryRangeRequest::set_step(Arg_&& arg, Args_... arg
   ::google::protobuf::internal::TSanWrite(&_impl_);
   SetHasBit(_impl_._has_bits_[0], 0x00000008U);
   _impl_.step_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
-  // @@protoc_insertion_point(field_set:croupier.integrations.prom.v1.QueryRangeRequest.step)
+  // @@protoc_insertion_point(field_set:examples.integrations.prom.v1.QueryRangeRequest.step)
 }
 inline ::std::string* PROTOBUF_NONNULL QueryRangeRequest::mutable_step()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBit(_impl_._has_bits_[0], 0x00000008U);
   ::std::string* _s = _internal_mutable_step();
-  // @@protoc_insertion_point(field_mutable:croupier.integrations.prom.v1.QueryRangeRequest.step)
+  // @@protoc_insertion_point(field_mutable:examples.integrations.prom.v1.QueryRangeRequest.step)
   return _s;
 }
 inline const ::std::string& QueryRangeRequest::_internal_step() const {
@@ -1252,7 +1252,7 @@ inline ::std::string* PROTOBUF_NONNULL QueryRangeRequest::_internal_mutable_step
 }
 inline ::std::string* PROTOBUF_NULLABLE QueryRangeRequest::release_step() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  // @@protoc_insertion_point(field_release:croupier.integrations.prom.v1.QueryRangeRequest.step)
+  // @@protoc_insertion_point(field_release:examples.integrations.prom.v1.QueryRangeRequest.step)
   if (!CheckHasBit(_impl_._has_bits_[0], 0x00000008U)) {
     return nullptr;
   }
@@ -1274,7 +1274,7 @@ inline void QueryRangeRequest::set_allocated_step(::std::string* PROTOBUF_NULLAB
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.step_.IsDefault()) {
     _impl_.step_.Set("", GetArena());
   }
-  // @@protoc_insertion_point(field_set_allocated:croupier.integrations.prom.v1.QueryRangeRequest.step)
+  // @@protoc_insertion_point(field_set_allocated:examples.integrations.prom.v1.QueryRangeRequest.step)
 }
 
 // -------------------------------------------------------------------
@@ -1289,13 +1289,13 @@ inline void Sample::clear_t() {
                   0x00000001U);
 }
 inline ::int64_t Sample::t() const {
-  // @@protoc_insertion_point(field_get:croupier.integrations.prom.v1.Sample.t)
+  // @@protoc_insertion_point(field_get:examples.integrations.prom.v1.Sample.t)
   return _internal_t();
 }
 inline void Sample::set_t(::int64_t value) {
   _internal_set_t(value);
   SetHasBit(_impl_._has_bits_[0], 0x00000001U);
-  // @@protoc_insertion_point(field_set:croupier.integrations.prom.v1.Sample.t)
+  // @@protoc_insertion_point(field_set:examples.integrations.prom.v1.Sample.t)
 }
 inline ::int64_t Sample::_internal_t() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
@@ -1314,13 +1314,13 @@ inline void Sample::clear_v() {
                   0x00000002U);
 }
 inline double Sample::v() const {
-  // @@protoc_insertion_point(field_get:croupier.integrations.prom.v1.Sample.v)
+  // @@protoc_insertion_point(field_get:examples.integrations.prom.v1.Sample.v)
   return _internal_v();
 }
 inline void Sample::set_v(double value) {
   _internal_set_v(value);
   SetHasBit(_impl_._has_bits_[0], 0x00000002U);
-  // @@protoc_insertion_point(field_set:croupier.integrations.prom.v1.Sample.v)
+  // @@protoc_insertion_point(field_set:examples.integrations.prom.v1.Sample.v)
 }
 inline double Sample::_internal_v() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
@@ -1355,7 +1355,7 @@ inline const ::google::protobuf::Map<::std::string, ::std::string>& Timeseries::
   return _impl_.labels_.GetMap();
 }
 inline const ::google::protobuf::Map<::std::string, ::std::string>& Timeseries::labels() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_map:croupier.integrations.prom.v1.Timeseries.labels)
+  // @@protoc_insertion_point(field_map:examples.integrations.prom.v1.Timeseries.labels)
   return _internal_labels();
 }
 inline ::google::protobuf::Map<::std::string, ::std::string>* PROTOBUF_NONNULL Timeseries::_internal_mutable_labels() {
@@ -1365,11 +1365,11 @@ inline ::google::protobuf::Map<::std::string, ::std::string>* PROTOBUF_NONNULL T
 inline ::google::protobuf::Map<::std::string, ::std::string>* PROTOBUF_NONNULL Timeseries::mutable_labels()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000002U);
-  // @@protoc_insertion_point(field_mutable_map:croupier.integrations.prom.v1.Timeseries.labels)
+  // @@protoc_insertion_point(field_mutable_map:examples.integrations.prom.v1.Timeseries.labels)
   return _internal_mutable_labels();
 }
 
-// repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];
+// repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];
 inline int Timeseries::_internal_samples_size() const {
   return _internal_samples().size();
 }
@@ -1382,44 +1382,44 @@ inline void Timeseries::clear_samples() {
   ClearHasBitForRepeated(_impl_._has_bits_[0],
                   0x00000001U);
 }
-inline ::croupier::integrations::prom::v1::Sample* PROTOBUF_NONNULL Timeseries::mutable_samples(int index)
+inline ::examples::integrations::prom::v1::Sample* PROTOBUF_NONNULL Timeseries::mutable_samples(int index)
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_mutable:croupier.integrations.prom.v1.Timeseries.samples)
+  // @@protoc_insertion_point(field_mutable:examples.integrations.prom.v1.Timeseries.samples)
   return _internal_mutable_samples()->Mutable(index);
 }
-inline ::google::protobuf::RepeatedPtrField<::croupier::integrations::prom::v1::Sample>* PROTOBUF_NONNULL Timeseries::mutable_samples()
+inline ::google::protobuf::RepeatedPtrField<::examples::integrations::prom::v1::Sample>* PROTOBUF_NONNULL Timeseries::mutable_samples()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
-  // @@protoc_insertion_point(field_mutable_list:croupier.integrations.prom.v1.Timeseries.samples)
+  // @@protoc_insertion_point(field_mutable_list:examples.integrations.prom.v1.Timeseries.samples)
   ::google::protobuf::internal::TSanWrite(&_impl_);
   return _internal_mutable_samples();
 }
-inline const ::croupier::integrations::prom::v1::Sample& Timeseries::samples(int index) const
+inline const ::examples::integrations::prom::v1::Sample& Timeseries::samples(int index) const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.integrations.prom.v1.Timeseries.samples)
+  // @@protoc_insertion_point(field_get:examples.integrations.prom.v1.Timeseries.samples)
   return _internal_samples().Get(index);
 }
-inline ::croupier::integrations::prom::v1::Sample* PROTOBUF_NONNULL Timeseries::add_samples()
+inline ::examples::integrations::prom::v1::Sample* PROTOBUF_NONNULL Timeseries::add_samples()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  ::croupier::integrations::prom::v1::Sample* _add =
+  ::examples::integrations::prom::v1::Sample* _add =
       _internal_mutable_samples()->InternalAddWithArena(
           ::google::protobuf::MessageLite::internal_visibility(), GetArena());
   SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
-  // @@protoc_insertion_point(field_add:croupier.integrations.prom.v1.Timeseries.samples)
+  // @@protoc_insertion_point(field_add:examples.integrations.prom.v1.Timeseries.samples)
   return _add;
 }
-inline const ::google::protobuf::RepeatedPtrField<::croupier::integrations::prom::v1::Sample>& Timeseries::samples() const
+inline const ::google::protobuf::RepeatedPtrField<::examples::integrations::prom::v1::Sample>& Timeseries::samples() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_list:croupier.integrations.prom.v1.Timeseries.samples)
+  // @@protoc_insertion_point(field_list:examples.integrations.prom.v1.Timeseries.samples)
   return _internal_samples();
 }
-inline const ::google::protobuf::RepeatedPtrField<::croupier::integrations::prom::v1::Sample>&
+inline const ::google::protobuf::RepeatedPtrField<::examples::integrations::prom::v1::Sample>&
 Timeseries::_internal_samples() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.samples_;
 }
-inline ::google::protobuf::RepeatedPtrField<::croupier::integrations::prom::v1::Sample>* PROTOBUF_NONNULL
+inline ::google::protobuf::RepeatedPtrField<::examples::integrations::prom::v1::Sample>* PROTOBUF_NONNULL
 Timeseries::_internal_mutable_samples() {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return &_impl_.samples_;
@@ -1429,7 +1429,7 @@ Timeseries::_internal_mutable_samples() {
 
 // QueryRangeResponse
 
-// repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];
+// repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];
 inline int QueryRangeResponse::_internal_series_size() const {
   return _internal_series().size();
 }
@@ -1442,44 +1442,44 @@ inline void QueryRangeResponse::clear_series() {
   ClearHasBitForRepeated(_impl_._has_bits_[0],
                   0x00000001U);
 }
-inline ::croupier::integrations::prom::v1::Timeseries* PROTOBUF_NONNULL QueryRangeResponse::mutable_series(int index)
+inline ::examples::integrations::prom::v1::Timeseries* PROTOBUF_NONNULL QueryRangeResponse::mutable_series(int index)
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_mutable:croupier.integrations.prom.v1.QueryRangeResponse.series)
+  // @@protoc_insertion_point(field_mutable:examples.integrations.prom.v1.QueryRangeResponse.series)
   return _internal_mutable_series()->Mutable(index);
 }
-inline ::google::protobuf::RepeatedPtrField<::croupier::integrations::prom::v1::Timeseries>* PROTOBUF_NONNULL QueryRangeResponse::mutable_series()
+inline ::google::protobuf::RepeatedPtrField<::examples::integrations::prom::v1::Timeseries>* PROTOBUF_NONNULL QueryRangeResponse::mutable_series()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
-  // @@protoc_insertion_point(field_mutable_list:croupier.integrations.prom.v1.QueryRangeResponse.series)
+  // @@protoc_insertion_point(field_mutable_list:examples.integrations.prom.v1.QueryRangeResponse.series)
   ::google::protobuf::internal::TSanWrite(&_impl_);
   return _internal_mutable_series();
 }
-inline const ::croupier::integrations::prom::v1::Timeseries& QueryRangeResponse::series(int index) const
+inline const ::examples::integrations::prom::v1::Timeseries& QueryRangeResponse::series(int index) const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_get:croupier.integrations.prom.v1.QueryRangeResponse.series)
+  // @@protoc_insertion_point(field_get:examples.integrations.prom.v1.QueryRangeResponse.series)
   return _internal_series().Get(index);
 }
-inline ::croupier::integrations::prom::v1::Timeseries* PROTOBUF_NONNULL QueryRangeResponse::add_series()
+inline ::examples::integrations::prom::v1::Timeseries* PROTOBUF_NONNULL QueryRangeResponse::add_series()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  ::croupier::integrations::prom::v1::Timeseries* _add =
+  ::examples::integrations::prom::v1::Timeseries* _add =
       _internal_mutable_series()->InternalAddWithArena(
           ::google::protobuf::MessageLite::internal_visibility(), GetArena());
   SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
-  // @@protoc_insertion_point(field_add:croupier.integrations.prom.v1.QueryRangeResponse.series)
+  // @@protoc_insertion_point(field_add:examples.integrations.prom.v1.QueryRangeResponse.series)
   return _add;
 }
-inline const ::google::protobuf::RepeatedPtrField<::croupier::integrations::prom::v1::Timeseries>& QueryRangeResponse::series() const
+inline const ::google::protobuf::RepeatedPtrField<::examples::integrations::prom::v1::Timeseries>& QueryRangeResponse::series() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  // @@protoc_insertion_point(field_list:croupier.integrations.prom.v1.QueryRangeResponse.series)
+  // @@protoc_insertion_point(field_list:examples.integrations.prom.v1.QueryRangeResponse.series)
   return _internal_series();
 }
-inline const ::google::protobuf::RepeatedPtrField<::croupier::integrations::prom::v1::Timeseries>&
+inline const ::google::protobuf::RepeatedPtrField<::examples::integrations::prom::v1::Timeseries>&
 QueryRangeResponse::_internal_series() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return _impl_.series_;
 }
-inline ::google::protobuf::RepeatedPtrField<::croupier::integrations::prom::v1::Timeseries>* PROTOBUF_NONNULL
+inline ::google::protobuf::RepeatedPtrField<::examples::integrations::prom::v1::Timeseries>* PROTOBUF_NONNULL
 QueryRangeResponse::_internal_mutable_series() {
   ::google::protobuf::internal::TSanRead(&_impl_);
   return &_impl_.series_;
@@ -1493,7 +1493,7 @@ QueryRangeResponse::_internal_mutable_series() {
 }  // namespace v1
 }  // namespace prom
 }  // namespace integrations
-}  // namespace croupier
+}  // namespace examples
 
 
 // @@protoc_insertion_point(global_scope)
