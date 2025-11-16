@@ -164,8 +164,20 @@ jobs:
       - name: Collect and upload
         run: |
           mkdir -p out
-          # Copy to a stable filename
-          cp sdks/java/build/libs/*.jar "out/croupier-java-sdk.jar"
+          # Copy the built jar to a stable filename
+          set -euo pipefail
+          JAR=""
+          if ls sdks/java/build/libs/croupier-java-sdk-*.jar >/dev/null 2>&1; then
+            JAR=$(ls -1 sdks/java/build/libs/croupier-java-sdk-*.jar | head -n1)
+          elif ls sdks/java/build/libs/*.jar >/dev/null 2>&1; then
+            JAR=$(ls -1 sdks/java/build/libs/*.jar | head -n1)
+          fi
+          if [ -z "${JAR}" ]; then
+            echo "No jar found under sdks/java/build/libs"
+            ls -R sdks/java/build || true
+            exit 1
+          fi
+          cp "${JAR}" "out/croupier-java-sdk.jar"
         shell: bash
       - uses: actions/upload-artifact@v4
         with:
