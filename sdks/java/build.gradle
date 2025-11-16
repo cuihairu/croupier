@@ -5,12 +5,7 @@ plugins {
 group = 'com.croupier'
 version = '1.0.0'
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(11)
-    }
-    withSourcesJar()
-}
+java { withSourcesJar() }
 
 repositories {
     mavenCentral()
