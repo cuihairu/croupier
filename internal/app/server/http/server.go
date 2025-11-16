@@ -3892,7 +3892,8 @@ func (s *Server) ginEngine() *gin.Engine {
 		s.JSON(c, 200, funcInfo)
 	})
 
-	r.POST("/api/functions/:id/enable", func(c *gin.Context) {
+	// allow both POST and PATCH for enable/disable for compatibility with tests/tools
+	enableHandler := func(c *gin.Context) {
 		_, _, ok := s.require(c, "functions:manage")
 		if !ok {
 			return
@@ -3911,9 +3912,11 @@ func (s *Server) ginEngine() *gin.Engine {
 			"message": "Function enable request processed",
 			"function_id": functionID,
 		})
-	})
+	}
+	r.POST("/api/functions/:id/enable", enableHandler)
+	r.PATCH("/api/functions/:id/enable", enableHandler)
 
-	r.POST("/api/functions/:id/disable", func(c *gin.Context) {
+	disableHandler := func(c *gin.Context) {
 		_, _, ok := s.require(c, "functions:manage")
 		if !ok {
 			return
@@ -3926,7 +3929,9 @@ func (s *Server) ginEngine() *gin.Engine {
 			"message": "Function disable request processed",
 			"function_id": functionID,
 		})
-	})
+	}
+	r.POST("/api/functions/:id/disable", disableHandler)
+	r.PATCH("/api/functions/:id/disable", disableHandler)
 
 	// Provider Management APIs (Phase 1)
 	r.GET("/api/providers", func(c *gin.Context) {

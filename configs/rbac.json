@@ -1,12 +1,80 @@
 {
   "allow": {
-    "user:dev": ["*", "job:cancel"],
-    "user:admin": ["*"],
-    "role:admin": ["*", "admin:all", "roles:read", "roles:manage", "games:read", "games:manage", "uploads:write", "components:read", "components:install", "components:uninstall", "components:manage", "entities:read", "entities:create", "entities:update", "entities:delete", "certificates:manage"],
-    "role:gm": ["function:invoke", "assignments:read", "assignments:write", "entity:read", "entity:write", "item:create", "item:read", "item:update", "item:delete", "currency:read", "wallet:read"],
-    "role:user_manager": ["user:read", "user:write", "role:read", "role:write", "permission:read", "permission:write", "roles:read", "roles:manage"],
-    "role:economy_manager": ["currency:create", "currency:read", "wallet:read", "wallet:transfer"],
-    "role:operator": ["function:invoke", "assignments:read", "entity:read", "item:read", "currency:read", "wallet:read"],
-    "role:viewer": ["assignments:read", "entity:read", "item:read", "currency:read"]
+    "user:dev": [
+      "*",
+      "job:cancel"
+    ],
+    "user:admin": [
+      "*"
+    ],
+    "role:admin": [
+      "*",
+      "admin:all",
+      "roles:read",
+      "roles:manage",
+      "games:read",
+      "games:manage",
+      "uploads:write",
+      "components:read",
+      "components:install",
+      "components:uninstall",
+      "components:manage",
+      "entities:read",
+      "entities:create",
+      "entities:update",
+      "entities:delete",
+      "certificates:manage"
+    ],
+    "role:gm": [
+      "function:invoke",
+      "assignments:read",
+      "assignments:write",
+      "entity:read",
+      "entity:write",
+      "item:create",
+      "item:read",
+      "item:update",
+      "item:delete",
+      "currency:read",
+      "wallet:read"
+    ],
+    "role:user_manager": [
+      "user:read",
+      "user:write",
+      "role:read",
+      "role:write",
+      "permission:read",
+      "permission:write",
+      "roles:read",
+      "roles:manage"
+    ],
+    "role:economy_manager": [
+      "currency:create",
+      "currency:read",
+      "wallet:read",
+      "wallet:transfer"
+    ],
+    "role:operator": [
+      "function:invoke",
+      "assignments:read",
+      "entity:read",
+      "item:read",
+      "currency:read",
+      "wallet:read"
+    ],
+    "role:viewer": [
+      "assignments:read",
+      "entity:read",
+      "item:read",
+      "currency:read"
+    ],
+    "role:developer": [
+      "functions:read",
+      "schemas:read",
+      "schemas:write"
+    ],
+    "role:tech_lead": [
+      "schemas:read"
+    ]
   }
 }
