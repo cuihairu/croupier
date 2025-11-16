@@ -7,6 +7,7 @@ import (
     "encoding/json"
     "fmt"
     "io"
+    "os"
     "time"
 
     reg "github.com/cuihairu/croupier/internal/platform/registry"
@@ -224,13 +225,13 @@ func (s *Server) decompressManifest(data []byte) ([]byte, error) {
 
 // --- helpers to parse provider manifest metadata into proto types ---
 
-func parseI18n(v interface{}) *commonv1.I18nText {
+func parseI18n(v interface{}) *commonv1.I18NText {
     if v == nil {
         return nil
     }
     switch t := v.(type) {
     case map[string]interface{}:
-        out := &commonv1.I18nText{}
+        out := &commonv1.I18NText{}
         if en, ok := t["en"].(string); ok {
             out.En = en
         }
@@ -243,13 +244,13 @@ func parseI18n(v interface{}) *commonv1.I18nText {
         return out
     case string:
         // Shortcut: string treated as zh
-        return &commonv1.I18nText{Zh: t}
+        return &commonv1.I18NText{Zh: t}
     default:
         // Try JSON string
         if s, ok := v.(string); ok {
             var m map[string]string
             if err := json.Unmarshal([]byte(s), &m); err == nil {
-                out := &commonv1.I18nText{En: m["en"], Zh: m["zh"]}
+                out := &commonv1.I18NText{En: m["en"], Zh: m["zh"]}
                 if out.En != "" || out.Zh != "" {
                     return out
                 }
