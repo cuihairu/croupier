@@ -68,6 +68,8 @@ p, role:developer, /api/functions, GET
 p, role:developer, /api/functions/*, GET
 p, role:developer, /api/schemas, POST
 p, role:developer, /api/x-render/components, GET
+p, role:tech_lead, /api/functions, GET
+p, role:viewer, /api/functions, GET
 
 # Senior developer: can update entities
 p, role:senior_developer, /api/invoke, POST
