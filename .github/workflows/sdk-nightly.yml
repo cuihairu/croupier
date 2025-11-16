@@ -60,6 +60,19 @@ jobs:
       - name: Setup CMake
         uses: lukka/get-cmake@latest
 
+      - name: Install Ninja (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update -y
+            sudo apt-get install -y ninja-build
+          elif command -v brew >/dev/null 2>&1; then
+            brew update || true
+            brew install ninja || true
+          fi
+
       - name: Install vcpkg (Unix)
         if: runner.os != 'Windows'
         shell: bash
@@ -171,6 +184,11 @@ jobs:
         shell: pwsh
         run: |
           choco install aria2 -y || echo "aria2 install skipped"
+      - name: Install Ninja (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install ninja -y || echo "ninja install skipped"
       - name: Cache vcpkg downloads (Windows)
         if: runner.os == 'Windows'
         uses: actions/cache@v4
@@ -211,6 +229,7 @@ jobs:
         shell: bash
         run: |
           cmake -S sdks/cpp -B build \
+            -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
             -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} \
