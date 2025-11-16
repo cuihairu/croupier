@@ -290,11 +290,13 @@ jobs:
             mkdir -p "out/${PKG}/include/generated"
             cp -R sdks/cpp/generated/* "out/${PKG}/include/generated/"
           fi
-          # Find built lib (platform-specific name)
-          libfile="$(find build -type f \( -name 'libcroupier-sdk-static.*' -o -name 'croupier-sdk-static.lib' \) | head -n1 || true)"
+          # Find built lib (platform-specific name; handle libcroupier-sdk.a or libcroupier-sdk-static.a)
+          libfile="$(find build -type f \( -name 'libcroupier-sdk-static.*' -o -name 'libcroupier-sdk.*' -o -name 'croupier-sdk-static.lib' -o -name 'croupier-sdk.lib' \) | head -n1 || true)"
           if [ -z "${libfile}" ]; then
             echo "Static library not found"
             ls -R build || true
+            echo "Debug: listing candidate archives"
+            find build -type f \( -name '*.a' -o -name '*.lib' \) -maxdepth 5 -print || true
             exit 1
           fi
           cp "${libfile}" "out/${PKG}/lib/"
