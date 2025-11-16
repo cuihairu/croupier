@@ -1,0 +1,78 @@
+name: Wire Check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'internal/**'
+      - 'cmd/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/wire-check.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'internal/**'
+      - 'cmd/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/wire-check.yml'
+
+jobs:
+  wire:
+    name: Generate Wire (non-blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Go mod download
+        run: go mod download
+
+      - name: Install wire
+        run: |
+          go install github.com/google/wire/cmd/wire@latest
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Run make wire (non-blocking)
+        id: run_wire
+        continue-on-error: true
+        run: |
+          make wire
+
+      - name: Show wire status
+        run: |
+          git status --porcelain
+          git diff --stat || true
+          git diff > wire.diff || true
+
+      - name: Upload wire_gen.go files
+        uses: actions/upload-artifact@v4
+        with:
+          name: wire-gen-files
+          path: |
+            **/wire_gen.go
+          if-no-files-found: warn
+
+      - name: Upload wire diff
+        uses: actions/upload-artifact@v4
+        with:
+          name: wire-diff
+          path: wire.diff
+          if-no-files-found: warn
+
+      - name: Report outcome (do not fail workflow)
+        run: |
+          if [ "${{ steps.run_wire.outcome }}" != "success" ]; then
+            echo "::warning::wire failed (non-blocking). See artifacts for diffs/logs."
+          else
+            echo "wire succeeded."
+          fi
