@@ -215,3 +215,9 @@ help:
 proto-docs:
 	@echo "[proto] generating docs..."
 	buf generate --template buf.gen.docs.yaml
+
+# ========== Wire (DI) Generation ==========
+.PHONY: wire
+wire:
+	@echo "[wire] generating dependency injection code..."
+	@wire ./internal/app/server/http
