@@ -22,6 +22,10 @@ func NewService(repo dom.GamesRepository, defaults []dom.GameEnvDef) *Service {
 func LoadDefaultsFromFile(path string) ([]dom.GameEnvDef, error) {
     b, err := os.ReadFile(path)
     if err != nil { return nil, err }
+    // Strip UTF-8 BOM if present to avoid json.Unmarshal error like 'invalid character \\ufeff'
+    if len(b) >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF {
+        b = b[3:]
+    }
     var cfg struct {
         DefaultEnvs []struct {
             Env         string `json:"env"`
