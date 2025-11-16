@@ -5,8 +5,9 @@ from setuptools import setup, find_packages
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
-with open("requirements.txt", "r", encoding="utf-8") as fh:
-    requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
+# Keep runtime deps minimal and inline to avoid external files in build envs.
+# Optional features are exposed via extras_require.
+requirements = []
 
 setup(
     name="croupier-sdk",
