@@ -16,12 +16,43 @@ async function fetchFunctions(): Promise<FuncItem[]> {
   }
 }
 
-function buildDynamicMenu(funcs: FuncItem[]) {
+async function fetchCurrentAccess(): Promise<{ roles: string[]; accessSet: Set<string> }> {
+  try {
+    const me: any = await request('/api/auth/me', { method: 'GET' });
+    const roles: string[] = me?.roles || [];
+    // try extended access CSV if available
+    const accessCsv: string | undefined = (me?.access as string) || '';
+    const set = new Set<string>((accessCsv || '').split(',').map((s) => s.trim()).filter(Boolean));
+    // basic roles expansion
+    if (roles.includes('admin')) {
+      set.add('*');
+    }
+    if (roles.includes('operator') || roles.includes('admin')) {
+      set.add('functions:read');
+    }
+    return { roles, accessSet: set };
+  } catch {
+    return { roles: [], accessSet: new Set<string>() };
+  }
+}
+
+function buildDynamicMenu(funcs: FuncItem[], accessSet: Set<string>) {
+  const has = (p: string) => accessSet.has('*') || accessSet.has(p);
   // Group by section -> group
   const sections: Record<string, any> = {};
   for (const f of funcs) {
     const m = f.menu || {};
     if (m.hidden) continue;
+    // permission gate: admin|functions:read|function:{id}:read|function:{id}:invoke
+    const fid = f.id;
+    if (
+      !has('functions:read') &&
+      !has(`function:${fid}:read`) &&
+      !has(`function:${fid}:invoke`) &&
+      !has('*')
+    ) {
+      continue;
+    }
     const section = m.section || 'Function Management';
     const group = m.group || 'Uncategorized';
     sections[section] = sections[section] || {};
@@ -62,12 +93,11 @@ export const layout: RunTimeLayoutConfig = () => {
       // request is supported by ProLayout; when present, it overrides default menuData
       // We'll merge default with dynamic by returning concatenation.
       request: async (params, defaultMenuData) => {
-        const funcs = await fetchFunctions();
-        const dyn = buildDynamicMenu(funcs);
+        const [funcs, me] = await Promise.all([fetchFunctions(), fetchCurrentAccess()]);
+        const dyn = buildDynamicMenu(funcs, me.accessSet);
         // Merge: keep existing menu first, then dynamic sections
         return [...(defaultMenuData || []), ...dyn];
       },
     },
   };
 };
-
