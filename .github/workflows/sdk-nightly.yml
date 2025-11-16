@@ -155,10 +155,9 @@ jobs:
             $help = & "$env:VCPKG_ROOT\vcpkg.exe" help | Out-String
             if ($help -match "--x-use-aria2") { $extra = "--x-use-aria2" }
           }
-          try {
-            & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet ${{ matrix.triplet }} $extra
-          } catch {
-            Write-Host "manifest preinstall skipped: $($_.Exception.Message)"
+          & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet ${{ matrix.triplet }} $extra
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "manifest preinstall skipped (non-zero exit code $LASTEXITCODE)"
             $global:LASTEXITCODE = 0
           }
           popd
