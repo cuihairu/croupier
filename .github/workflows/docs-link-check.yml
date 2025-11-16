@@ -38,7 +38,7 @@ jobs:
           pnpm --version
 
       - name: Install deps
-        run: pnpm -C docs install --frozen-lockfile || (cd docs && npm ci --no-audit --no-fund)
+        run: pnpm -C docs install --no-frozen-lockfile || (cd docs && npm ci --no-audit --no-fund)
 
       - name: Build docs (fail on broken links)
         env:

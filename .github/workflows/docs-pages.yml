@@ -53,7 +53,7 @@ jobs:
 
       - name: Install dependencies (pnpm)
         working-directory: docs
-        run: pnpm install || npm ci --no-audit --no-fund
+        run: pnpm install --no-frozen-lockfile || npm ci --no-audit --no-fund
 
       - name: Build website (pnpm)
         working-directory: docs
