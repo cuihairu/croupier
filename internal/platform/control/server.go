@@ -10,6 +10,7 @@ import (
 
     reg "github.com/cuihairu/croupier/internal/platform/registry"
     controlv1 "github.com/cuihairu/croupier/pkg/pb/croupier/control/v1"
+    "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // Server implements the ControlService and exposes a registry store for other components.
@@ -93,6 +94,39 @@ func (s *Server) RegisterCapabilities(ctx context.Context, in *controlv1.Registe
     s.reg.UpsertProviderCaps(providerCaps)
 
     return &controlv1.RegisterCapabilitiesResponse{}, nil
+}
+
+// ListFunctionsSummary aggregates unique functions across all registered agents and returns
+// a summarized descriptor list for dashboard consumption. This is a minimal baseline that
+// can be enriched with UI/RBAC metadata sourced from proto options or provider manifests.
+func (s *Server) ListFunctionsSummary(ctx context.Context, _ *emptypb.Empty) (*controlv1.ListFunctionsSummaryResponse, error) {
+    out := &controlv1.ListFunctionsSummaryResponse{}
+    seen := map[string]struct{}{}
+
+    s.reg.Mu().RLock()
+    for _, a := range s.reg.AgentsUnsafe() {
+        if a == nil || a.Functions == nil {
+            continue
+        }
+        for fid, meta := range a.Functions {
+            if fid == "" {
+                continue
+            }
+            if _, ok := seen[fid]; ok {
+                continue
+            }
+            seen[fid] = struct{}{}
+            // Fill minimal fields for now; UI/RBAC/i18n can be populated later
+            fd := &controlv1.FunctionDescriptor{
+                Id:      fid,
+                Enabled: meta.Enabled,
+            }
+            out.Functions = append(out.Functions, fd)
+        }
+    }
+    s.reg.Mu().RUnlock()
+
+    return out, nil
 }
 
 // decompressManifest decompresses gzipped manifest data
