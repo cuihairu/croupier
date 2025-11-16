@@ -1,1 +1,0 @@
-/usr/bin/c++ -Wl,-search_paths_first -Wl,-headerpad_max_install_names "CMakeFiles/croupier-config-example.dir/examples/config_example.cpp.o" -o bin/croupier-config-example  -Wl,-rpath,/Users/cui/Workspaces/croupier/sdks/cpp/build libcroupier-sdk.1.0.0.dylib

@@ -1,0 +1,3 @@
+# Ignore local build directory and generated build files
+build/
+
