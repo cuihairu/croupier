@@ -1,5 +1,6 @@
 plugins {
     id 'java-library'
+    id 'com.google.protobuf' version '0.9.4'
 }
 
 group = 'com.croupier'
@@ -12,7 +13,7 @@ repositories {
 }
 
 dependencies {
-    // Protobuf / gRPC runtime to compile generated sources
+    // Protobuf / gRPC runtime (v1 API)
     implementation "com.google.protobuf:protobuf-java:4.33.1"
     implementation "io.grpc:grpc-netty-shaded:1.68.2"
     implementation "io.grpc:grpc-protobuf:1.68.2"
@@ -33,11 +34,16 @@ tasks.withType(JavaCompile).configureEach {
     options.release = 11
 }
 
-// Include both pre-generated proto sources and conventional src layout
+// Use Gradle to generate Java stubs from repo protos (v1 API),
+// and only include our hand-written sources from src/main/java.
 sourceSets {
     main {
         java {
-            srcDirs = ["generated", "src/main/java"]
+            srcDirs = ["src/main/java"]
+        }
+        proto {
+            // Point to the monorepo proto root
+            srcDirs += ["${projectDir}/../../proto"]
         }
     }
 }
@@ -45,4 +51,27 @@ sourceSets {
 tasks.jar {
     // Produce a stable filename for nightly artifacts
     archiveBaseName.set("croupier-java-sdk")
+}
+
+protobuf {
+    protoc {
+        // Align with protobuf-java 4.33.x (protoc 28.x series)
+        artifact = "com.google.protobuf:protoc:28.3"
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:1.68.2"
+        }
+    }
+    generateProtoTasks {
+        all().configureEach { task ->
+            plugins {
+                grpc {}
+            }
+            // Ensure generated sources use Java (not lite)
+            builtins {
+                java {}
+            }
+        }
+    }
 }
