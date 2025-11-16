@@ -69,6 +69,8 @@ jobs:
           git clone --depth 1 https://github.com/microsoft/vcpkg "$VCPKG_ROOT"
           # Cache vcpkg downloads to speed up subsequent runs
           echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
+          # Build only Release binaries for ports to halve build time
+          echo "VCPKG_BUILD_TYPE=release" >> "$GITHUB_ENV"
 
       - name: Create nuget.config (GitHub Packages) [Unix]
         if: runner.os != 'Windows'
@@ -150,6 +152,8 @@ jobs:
         run: |
           $env:VCPKG_ROOT="$PWD\.vcpkg"
           git clone --depth 1 https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
+          # Build only Release binaries for ports to halve build time
+          echo "VCPKG_BUILD_TYPE=release" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           # Configure NuGet-based binary caching (GitHub Packages) with files fallback
           $owner = "${{ github.repository_owner }}"
           $token = "${{ secrets.GITHUB_TOKEN }}"
