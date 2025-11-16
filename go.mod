@@ -3,6 +3,7 @@ module github.com/cuihairu/croupier
 go 1.24.0
 
 require (
+	github.com/cuihairu/croupier-sdk-go v0.0.0-00010101000000-000000000000
 	github.com/ClickHouse/clickhouse-go/v2 v2.40.3
 	github.com/aliyun/aliyun-oss-go-sdk v2.2.9+incompatible
 	github.com/casbin/casbin/v2 v2.132.0
