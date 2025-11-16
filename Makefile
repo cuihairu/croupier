@@ -17,7 +17,8 @@ submodules:
 	@echo "⚠️  Submodules have been migrated to monorepo structure"
 	@echo "✅ SDKs are now directly available in sdks/ directory"
 
-proto:
+# Ensure local protoc plugin exists before running buf
+proto: croupier-plugin
 	@echo "[proto] generating code via buf..."
 	buf generate
 
@@ -157,7 +158,7 @@ dev-dashboard:
 	@cd dashboard && npm ci && npm run dev
 
 dev-docs:
-	@echo "[docs] starting documentation development server..."
+	@echo "[docs] starting Docusaurus documentation dev server..."
 	@cd docs && npm ci && npm run dev
 
 # ========== Clean Targets ==========
@@ -174,7 +175,7 @@ clean-sdks:
 clean-web:
 	@echo "[clean] cleaning web and docs build artifacts..."
 	@rm -rf dashboard/dist dashboard/node_modules
-	@rm -rf docs/.vuepress/dist docs/node_modules
+	@rm -rf docs/.vuepress/dist docs/build docs/.docusaurus docs/node_modules
 
 # ========== Help Target ==========
 help:
@@ -201,7 +202,7 @@ help:
 	@echo "Web & Docs Targets:"
 	@echo "  build-web        - Build web and docs components"
 	@echo "  build-dashboard  - Build management dashboard"
-	@echo "  build-docs       - Build VuePress documentation"
+	@echo "  build-docs       - Build Docusaurus documentation"
 	@echo "  dev-dashboard    - Start dashboard dev server"
 	@echo "  dev-docs         - Start docs dev server"
 	@echo ""
