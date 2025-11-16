@@ -255,8 +255,7 @@ func (c *hotReloadClient) GetReloadStatus() HotReloadMetrics {
 func (c *hotReloadClient) GracefulShutdown(timeout time.Duration) error {
 	log.Printf("🛑 Starting graceful shutdown (timeout: %v)", timeout)
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	// We don't currently use a context in Stop(); keep timeout available for future use.
 
 	// 停止文件监听
 	c.stopFileWatching()
@@ -459,7 +458,7 @@ func (c *hotReloadClient) reregisterAllFunctions() error {
 
 	for functionID, desc := range c.functionDescs {
 		// 这里需要重新获取handler，实际实现中应该也保存handlers
-		log.Printf("Re-registering function: %s", functionID)
+		log.Printf("Re-registering function: %s (v%s)", functionID, desc.Version)
 		// 实际实现需要调用 c.Client.RegisterFunction(desc, savedHandler)
 	}
 

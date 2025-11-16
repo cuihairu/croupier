@@ -66,7 +66,8 @@ func (g *grpcManager) Connect(ctx context.Context) error {
 	// Set timeout
 	if g.config.TimeoutSeconds > 0 {
 		timeout := time.Duration(g.config.TimeoutSeconds) * time.Second
-		ctx, cancel := context.WithTimeout(ctx, timeout)
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
 	}
 
@@ -172,9 +173,8 @@ func (g *grpcManager) StartServer(ctx context.Context) error {
 
 	g.server = grpc.NewServer(opts...)
 
-	// Register function service
-	// In a real implementation, this would register the generated gRPC service
-	// from function.proto: RegisterFunctionServiceServer(g.server, &functionServiceImpl{handlers: g.handlers})
+	// Register function service (placeholder)
+	// In a real implementation, register generated service here.
 
 	fmt.Printf("🚀 Local gRPC server started on: %s\n", g.localAddr)
 
@@ -220,3 +220,4 @@ func (g *grpcManager) createServerTLSCredentials() (credentials.TransportCredent
 	// This would load server certificates in a real implementation
 	return credentials.NewTLS(nil), nil
 }
+

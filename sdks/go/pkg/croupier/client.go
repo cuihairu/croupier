@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 )
+// NewGRPCManager is provided in this package (moved from internal)
 
 // Client represents a Croupier client for function registration and execution
 type Client interface {

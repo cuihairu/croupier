@@ -142,7 +142,7 @@ func printHotReloadStatus(hotReloader croupier.HotReloadable) {
 	fmt.Printf("配置重载: %d\n", status.ConfigReloads)
 	fmt.Printf("失败次数: %d\n", status.FailedReloads)
 	fmt.Printf("最后重连时间: %v\n", status.LastReconnectTime)
-	fmt.Println("================\n")
+    fmt.Println("================")
 }
 
 // demonstrateHotReload 演示热重载功能
