@@ -38,6 +38,11 @@ const config = {
       }),
     ],
   ],
+  // Enable Mermaid support for ```mermaid code blocks (flowcharts, sequence diagrams, etc.)
+  markdown: {
+    mermaid: true,
+  },
+  themes: ['@docusaurus/theme-mermaid'],
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
