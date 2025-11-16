@@ -1,0 +1,238 @@
+name: SDK Nightly Release
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *" # daily at 03:00 UTC
+
+concurrency:
+  group: sdk-nightly-${{ github.ref }}-${{ github.run_id }}
+  cancel-in-progress: false
+
+env:
+  NIGHTLY_TAG: sdk-nightly-${{ github.run_id }}-${{ github.event.schedule != '' && format('{0}', github.run_id) || '' }}
+  DATE: ${{ github.event.schedule != '' && (format('{0,date,yyyyMMdd}', github.event.schedule)) || (github.run_id) }}
+
+jobs:
+  compute-meta:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.mk.outputs.tag }}
+      date: ${{ steps.mk.outputs.date }}
+    steps:
+      - name: Compute tag/date
+        id: mk
+        run: |
+          ts=$(date -u +%Y%m%d)
+          echo "tag=sdk-nightly-${ts}" >> "$GITHUB_OUTPUT"
+          echo "date=${ts}" >> "$GITHUB_OUTPUT"
+
+  # --------------- C++ SDK (static lib) ---------------
+  cpp:
+    name: cpp (${{ matrix.name }})
+    needs: compute-meta
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu-x64
+            runs-on: ubuntu-latest
+            triplet: x64-linux
+            os_label: linux
+            arch: x86_64
+          - name: ubuntu-arm64
+            runs-on: ubuntu-24.04-arm64
+            triplet: arm64-linux
+            os_label: linux
+            arch: arm64
+            allow_fail: true
+          - name: macos-x64
+            runs-on: macos-13
+            triplet: x64-osx
+            os_label: macos
+            arch: x86_64
+          - name: macos-arm64
+            runs-on: macos-14
+            triplet: arm64-osx
+            os_label: macos
+            arch: arm64
+          - name: windows-x64
+            runs-on: windows-latest
+            triplet: x64-windows-static
+            os_label: windows
+            arch: x86_64
+    runs-on: ${{ matrix.runs-on }}
+    continue-on-error: ${{ matrix.allow_fail == true }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Setup vcpkg
+        uses: microsoft/setup-vcpkg@v1
+        with:
+          vcpkgJsonGlob: sdks/cpp/vcpkg.json
+
+      - name: Configure (Release, static)
+        shell: bash
+        run: |
+          cmake -S sdks/cpp -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+
+      - name: Build static library
+        shell: bash
+        run: cmake --build build --config Release --target croupier-sdk-static -j 2
+
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          PKG="croupier-cpp-sdk-${{ matrix.os_label }}-${{ matrix.arch }}-static-${{ needs.compute-meta.outputs.date }}"
+          mkdir -p "out/${PKG}/include" "out/${PKG}/lib"
+          cp -R sdks/cpp/include/* "out/${PKG}/include/"
+          if [ -d sdks/cpp/generated ]; then
+            mkdir -p "out/${PKG}/include/generated"
+            cp -R sdks/cpp/generated/* "out/${PKG}/include/generated/"
+          fi
+          # Find built lib (platform-specific name)
+          libfile=""
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            libfile=$(ls build/Release/croupier-sdk-static.lib 2>/dev/null || ls build/**/croupier-sdk-static.lib 2>/dev/null || true)
+          else
+            libfile=$(ls build/**/libcroupier-sdk-static.* 2>/dev/null | head -n1 || true)
+          fi
+          if [ -z "${libfile}" ]; then
+            echo "Static library not found"
+            ls -R build || true
+            exit 1
+          fi
+          cp "${libfile}" "out/${PKG}/lib/"
+          cp sdks/cpp/README.md "out/${PKG}/" || true
+          cp sdks/cpp/LICENSE "out/${PKG}/" 2>/dev/null || true
+          (cd out && tar czf "${PKG}.tar.gz" "${PKG}")
+          echo "PACKAGE_NAME=${PKG}" >> "$GITHUB_ENV"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PACKAGE_NAME }}
+          path: out/${{ env.PACKAGE_NAME }}.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  # --------------- Java SDK (Jar) ---------------
+  java:
+    needs: compute-meta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - name: Build JAR
+        run: mvn -B -f sdks/java/pom.xml -DskipTests package
+      - name: Collect and upload
+        run: |
+          mkdir -p out
+          cp sdks/java/target/*.jar "out/croupier-java-sdk-${{ needs.compute-meta.outputs.date }}.jar"
+        shell: bash
+      - uses: actions/upload-artifact@v4
+        with:
+          name: croupier-java-sdk-${{ needs.compute-meta.outputs.date }}
+          path: out/croupier-java-sdk-${{ needs.compute-meta.outputs.date }}.jar
+          if-no-files-found: error
+          retention-days: 7
+
+  # --------------- Python SDK (wheel + sdist) ---------------
+  python:
+    needs: compute-meta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build sdks/python
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: croupier-python-sdk-${{ needs.compute-meta.outputs.date }}
+          path: |
+            sdks/python/dist/*.whl
+            sdks/python/dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  # --------------- JavaScript SDK (npm package) ---------------
+  js:
+    needs: compute-meta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Pack npm tarball
+        working-directory: sdks/js
+        run: |
+          npm ci || true
+          npm pack
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: croupier-js-sdk-${{ needs.compute-meta.outputs.date }}
+          path: sdks/js/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  # --------------- Go SDK (source tarball) ---------------
+  go:
+    needs: compute-meta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tarball Go SDK source
+        run: |
+          mkdir -p out
+          tar czf "out/croupier-go-sdk-${{ needs.compute-meta.outputs.date }}.tar.gz" -C sdks go
+      - uses: actions/upload-artifact@v4
+        with:
+          name: croupier-go-sdk-${{ needs.compute-meta.outputs.date }}
+          path: out/croupier-go-sdk-${{ needs.compute-meta.outputs.date }}.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  # --------------- Aggregate release ---------------
+  release:
+    name: Publish Nightly Release
+    needs: [compute-meta, cpp, java, python, js, go]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: List artifacts
+        run: ls -R artifacts
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.compute-meta.outputs.tag }}
+          name: "SDK Nightly ${{ needs.compute-meta.outputs.date }}"
+          prerelease: true
+          generate_release_notes: false
+          files: |
+            artifacts/**/*.*
+          fail_on_unmatched_files: false
+          make_latest: false
+          draft: false
+          token: ${{ secrets.GITHUB_TOKEN }}
