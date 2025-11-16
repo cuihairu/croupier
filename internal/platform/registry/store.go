@@ -152,3 +152,80 @@ func (s *Store) BuildUnifiedDescriptors() map[string]interface{} {
 
     return unified
 }
+
+// BuildFunctionIndex parses provider manifests and builds an index of function metadata by id.
+// Expected manifest structure for functions:
+// {
+//   "functions": [
+//     {
+//       "id": "player.ban",
+//       "display_name": {"en":"Ban Player","zh":"封禁玩家"},
+//       "summary": {"en":"...","zh":"..."},
+//       "tags": ["moderation","player"],
+//       "menu": { "section":"Function Management","group":"Moderation","path":"/functions/invoke","order":120,"icon":"StopOutlined","badge":"beta","hidden":false },
+//       "permissions": {
+//          "verbs": ["read","invoke","view_history"],
+//          "scopes": ["game","env","function_id"],
+//          "defaults": [ {"role":"operator","verbs":["invoke"]}, {"role":"auditor","verbs":["read","view_history"]} ],
+//          "i18n_zh": { "invoke":"调用函数 封禁玩家" }
+//       }
+//     }
+//   ]
+// }
+func (s *Store) BuildFunctionIndex() map[string]map[string]interface{} {
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+    idx := map[string]map[string]interface{}{}
+    for _, pc := range s.provCaps {
+        if len(pc.Manifest) == 0 {
+            continue
+        }
+        var m map[string]interface{}
+        if err := json.Unmarshal(pc.Manifest, &m); err != nil {
+            continue
+        }
+        rawFns, ok := m["functions"]
+        if !ok {
+            continue
+        }
+        fnList, ok := rawFns.([]interface{})
+        if !ok {
+            continue
+        }
+        for _, it := range fnList {
+            fn, ok := it.(map[string]interface{})
+            if !ok {
+                continue
+            }
+            idv, ok := fn["id"]
+            if !ok {
+                continue
+            }
+            fid, _ := idv.(string)
+            if fid == "" {
+                continue
+            }
+            // Shallow copy metadata into index
+            meta := map[string]interface{}{}
+            if dn, ok := fn["display_name"]; ok {
+                meta["display_name"] = dn
+            }
+            if sm, ok := fn["summary"]; ok {
+                meta["summary"] = sm
+            }
+            if tags, ok := fn["tags"]; ok {
+                meta["tags"] = tags
+            }
+            if menu, ok := fn["menu"]; ok {
+                meta["menu"] = menu
+            }
+            if perm, ok := fn["permissions"]; ok {
+                meta["permissions"] = perm
+            }
+            if len(meta) > 0 {
+                idx[fid] = meta
+            }
+        }
+    }
+    return idx
+}
