@@ -101,6 +101,7 @@ p, role:tech_lead, /api/components, GET
 p, role:tech_lead, /api/components/install, POST
 p, role:tech_lead, /api/components/*/enable, POST
 p, role:tech_lead, /api/components/*/disable, POST
+p, role:tech_lead, /api/components/*, GET
 p, role:tech_lead, /api/components/*, DELETE
 p, role:tech_lead, /api/packs/*, GET
 p, role:tech_lead, /api/packs/*, POST
