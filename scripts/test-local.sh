@@ -69,6 +69,20 @@ fi
 # Ensure modules are downloaded (some CI/dev envs have stale caches)
 GOFLAGS= GOWORK=off go mod download
 
-# Run tests
-go test "${PKGS[@]}" "${ARGS[@]}"
+# Run tests and capture output
+LOG_FILE="$(mktemp -t croupier-test-XXXXXX.log)"
+set +e
+go test "${PKGS[@]}" "${ARGS[@]}" 2>&1 | tee "${LOG_FILE}"
+STATUS=${PIPESTATUS[0]}
+set -e
 
+echo
+echo "=== Summary (status=${STATUS}) ==="
+if command -v rg >/dev/null 2>&1; then
+  rg -n '^(FAIL\s+\S+|--- FAIL:)' "${LOG_FILE}" || true
+else
+  # Fallback to grep if ripgrep is unavailable
+  grep -En '^(FAIL[[:space:]]+[[:graph:]]+|--- FAIL:)' "${LOG_FILE}" || true
+fi
+
+exit "${STATUS}"
