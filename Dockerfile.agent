@@ -2,8 +2,9 @@
 ARG GO_IMAGE=golang:1.24
 ARG RUNTIME_IMAGE=gcr.io/distroless/static:nonroot
 ARG GOPROXY_URL=https://goproxy.cn,direct
-FROM ${GO_IMAGE} as build
+FROM ${GO_IMAGE} AS build
 WORKDIR /src
+ARG GOPROXY_URL
 ENV GOPROXY=${GOPROXY_URL} \
     GOFLAGS=-modcacherw
 COPY go.mod go.sum ./
@@ -11,12 +12,14 @@ COPY go.mod go.sum ./
 COPY sdks/go/go.mod sdks/go/go.sum sdks/go/
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .
-RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/croupier ./cmd/croupier
+RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/croupier-agent ./cmd/agent
+RUN mkdir -p /out/logs
 
 FROM ${RUNTIME_IMAGE}
 WORKDIR /app
-COPY --from=build /out/croupier /app/
-COPY --chown=nonroot:nonroot configs /app/configs
+COPY --from=build /out/croupier-agent /app/
+COPY --from=build --chown=nonroot:nonroot /src/configs /app/configs
+COPY --from=build --chown=nonroot:nonroot /out/logs /app/logs
 EXPOSE 19090 19091
 USER nonroot
-ENTRYPOINT ["/app/croupier"]
+ENTRYPOINT ["/app/croupier-agent"]
