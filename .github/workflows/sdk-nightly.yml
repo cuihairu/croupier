@@ -76,22 +76,9 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          cat > "$GITHUB_WORKSPACE/nuget.config" <<EOF
-          <?xml version="1.0" encoding="utf-8"?>
-          <configuration>
-            <packageSources>
-              <add key="github" value="https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" />
-            </packageSources>
-            <packageSourceCredentials>
-              <github>
-                <add key="Username" value="${{ github.repository_owner }}" />
-                <add key="ClearTextPassword" value="${{ secrets.GITHUB_TOKEN }}" />
-              </github>
-            </packageSourceCredentials>
-          </configuration>
-          EOF
-          # Use NuGet-based binary caching with files fallback
-          echo "VCPKG_BINARY_SOURCES=clear;nugetconfig,$GITHUB_WORKSPACE/nuget.config,readwrite;files,$VCPKG_ROOT/archives,readwrite" >> "$GITHUB_ENV"
+          # On Unix runners, avoid NuGet provider to prevent mono dependency.
+          # Use local 'files' binary cache only; we still cache it via actions/cache.
+          echo "VCPKG_BINARY_SOURCES=clear;files,$VCPKG_ROOT/archives,readwrite" >> "$GITHUB_ENV"
 
       - name: Set vcpkg concurrency (Unix)
         if: runner.os != 'Windows'
