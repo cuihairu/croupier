@@ -52,8 +52,6 @@ jobs:
     env:
       # Enable vcpkg binary caching to GitHub Actions cache provider
       VCPKG_BINARY_SOURCES: clear;x-gha,readwrite
-      # Parallelize vcpkg builds
-      VCPKG_MAX_CONCURRENCY: ${{ runner.maxParallel }}
     steps:
       - uses: actions/checkout@v4
 
@@ -69,6 +67,13 @@ jobs:
           git clone --depth 1 https://github.com/microsoft/vcpkg "$VCPKG_ROOT"
           # Cache vcpkg downloads to speed up subsequent runs
           echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
+
+      - name: Set vcpkg concurrency (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          CORES="$( (command -v nproc >/dev/null 2>&1 && nproc) || (command -v sysctl >/dev/null 2>&1 && sysctl -n hw.ncpu) || echo 2 )"
+          echo "VCPKG_MAX_CONCURRENCY=$CORES" >> "$GITHUB_ENV"
 
       - name: Install aria2 (Unix)
         if: runner.os != 'Windows'
@@ -113,6 +118,14 @@ jobs:
         run: |
           $env:VCPKG_ROOT="$PWD\.vcpkg"
           git clone --depth 1 https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
+
+      - name: Set vcpkg concurrency (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $cores = (Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors
+          if (-not $cores) { $cores = 2 }
+          echo "VCPKG_MAX_CONCURRENCY=$cores" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Install aria2 (Windows)
         if: runner.os == 'Windows'
