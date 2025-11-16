@@ -13,6 +13,7 @@
 - [OpenTelemetry集成指南](./opentelemetry-integration.md) - 现代化遥测解决方案
 - [当前系统分析](./current-system-analysis.md) - 现有Analytics系统详解
 - [系统增强方案](./enhancement-plan.md) - 完整的系统升级路线图
+- [ClickHouse 表结构](./clickhouse-schema.md) - 事件/支付与按天聚合表设计
 
 ### 🚀 实施指南
 - [快速开始](./quick-start.md) - 5分钟上手指南
