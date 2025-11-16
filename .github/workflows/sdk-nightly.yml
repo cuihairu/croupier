@@ -56,7 +56,7 @@ jobs:
         uses: lukka/get-cmake@latest
 
       - name: Setup vcpkg
-        uses: lukka/setup-vcpkg@v1
+        uses: lukka/get-vcpkg@v1
         with:
           vcpkgJsonGlob: sdks/cpp/vcpkg.json
 
@@ -67,7 +67,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
             -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} \
-            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
 
       - name: Build static library
         shell: bash
