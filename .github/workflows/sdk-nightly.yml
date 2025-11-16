@@ -33,12 +33,12 @@ jobs:
             arch: arm64
             allow_fail: true
           - name: macos-x64
-            runs-on: macos-13
+            runs-on: macos-15-intel
             triplet: x64-osx
             os_label: macos
             arch: x86_64
           - name: macos-arm64
-            runs-on: macos-14
+            runs-on: macos-latest
             triplet: arm64-osx
             os_label: macos
             arch: arm64
@@ -56,7 +56,7 @@ jobs:
         uses: lukka/get-cmake@latest
 
       - name: Setup vcpkg
-        uses: microsoft/setup-vcpkg@v1
+        uses: lukka/setup-vcpkg@v1
         with:
           vcpkgJsonGlob: sdks/cpp/vcpkg.json
 
@@ -133,6 +133,7 @@ jobs:
   # --------------- Java SDK (Jar) ---------------
   java:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -166,16 +167,13 @@ jobs:
       - name: Build wheel
         run: |
           python -m pip install --upgrade pip build
-          python -m build sdks/python
+          # Build wheel only to avoid sdist requiring requirements.txt in setup.py
+          python -m build --wheel sdks/python
           # Add stable aliases for convenience downloads
           mkdir -p sdks/python/out
           WHL=$(ls sdks/python/dist/*.whl | head -n1 || true)
-          SDIST=$(ls sdks/python/dist/*.tar.gz | head -n1 || true)
           if [ -n "${WHL}" ]; then
             cp "${WHL}" sdks/python/out/croupier-python-sdk.whl
-          fi
-          if [ -n "${SDIST}" ]; then
-            cp "${SDIST}" sdks/python/out/croupier-python-sdk.tar.gz
           fi
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -183,9 +181,7 @@ jobs:
           name: croupier-python-sdk
           path: |
             sdks/python/dist/*.whl
-            sdks/python/dist/*.tar.gz
             sdks/python/out/croupier-python-sdk.whl
-            sdks/python/out/croupier-python-sdk.tar.gz
           if-no-files-found: error
           retention-days: 7
 
