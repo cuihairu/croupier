@@ -4697,46 +4697,74 @@ func (s *Server) ginEngine() *gin.Engine {
 		})
 	})
 
-	// Create new schema
-	r.POST("/api/schemas", func(c *gin.Context) {
-		actor, _, ok := s.require(c, "schemas:write")
-		if !ok {
-			return
-		}
+    // Create new schema
+    r.POST("/api/schemas", func(c *gin.Context) {
+        actor, _, ok := s.require(c, "schemas:write")
+        if !ok {
+            return
+        }
 
-		var request struct {
-			ID       string      `json:"id" binding:"required"`
-			Schema   interface{} `json:"schema" binding:"required"`
-			UISchema interface{} `json:"ui_schema,omitempty"`
-		}
+        // Accept either wrapped payload {id, schema, ui_schema} or raw schema object
+        var request struct {
+            ID       string      `json:"id"`
+            Schema   interface{} `json:"schema"`
+            UISchema interface{} `json:"ui_schema,omitempty"`
+        }
+        // Read raw body to allow multiple unmarshal attempts
+        bodyBytes, _ := io.ReadAll(c.Request.Body)
+        // Restore body for downstream (not strictly needed here)
+        c.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+        // First try wrapped format
+        if err := json.Unmarshal(bodyBytes, &request); err != nil || (request.ID == "" && request.Schema == nil) {
+            // Try interpret as raw schema
+            var raw map[string]interface{}
+            if err2 := json.Unmarshal(bodyBytes, &raw); err2 == nil {
+                request.Schema = raw
+            } else {
+                s.respondError(c, 400, "bad_request", "invalid schema payload")
+                return
+            }
+        }
 
-		if err := c.ShouldBindJSON(&request); err != nil {
-			s.respondError(c, 400, "bad_request", err.Error())
-			return
-		}
+        id := sanitize(request.ID)
+        if id == "" && request.Schema != nil {
+            // Generate a simple id when not provided
+            id = fmt.Sprintf("schema-%d", time.Now().UnixNano())
+        }
+        if id == "" || (request.ID != "" && id != request.ID) {
+            s.respondError(c, 400, "bad_request", "invalid schema id")
+            return
+        }
 
-		id := sanitize(request.ID)
-		if id == "" || id != request.ID {
-			s.respondError(c, 400, "bad_request", "invalid schema id")
-			return
-		}
+        // Basic validation for schema object (must contain at least 'type' or '$schema')
+        if m, ok := request.Schema.(map[string]interface{}); ok {
+            if _, ok1 := m["type"]; !ok1 {
+                if _, ok2 := m["$schema"]; !ok2 {
+                    s.respondError(c, 400, "bad_request", "invalid schema payload: missing 'type'")
+                    return
+                }
+            }
+        } else if request.Schema == nil {
+            s.respondError(c, 400, "bad_request", "invalid schema payload")
+            return
+        }
 
-		// Check if schema already exists
-		schemaPath := filepath.Join(s.packDir, "ui", id+".schema.json")
-		if _, err := os.Stat(schemaPath); err == nil {
-			s.respondError(c, 409, "conflict", "schema already exists")
-			return
-		}
+        // Check if schema already exists
+        schemaPath := filepath.Join(s.packDir, "ui", id+".schema.json")
+        if _, err := os.Stat(schemaPath); err == nil {
+            s.respondError(c, 409, "conflict", "schema already exists")
+            return
+        }
 
 		// Ensure UI directory exists
 		os.MkdirAll(filepath.Join(s.packDir, "ui"), 0755)
 
 		// Write schema file
-		schemaData, _ := json.MarshalIndent(request.Schema, "", "  ")
-		if err := os.WriteFile(schemaPath, schemaData, 0644); err != nil {
-			s.respondError(c, 500, "internal_error", "failed to save schema")
-			return
-		}
+        schemaData, _ := json.MarshalIndent(request.Schema, "", "  ")
+        if err := os.WriteFile(schemaPath, schemaData, 0644); err != nil {
+            s.respondError(c, 500, "internal_error", "failed to save schema")
+            return
+        }
 
 		// Write UI schema file if provided
 		if request.UISchema != nil {
@@ -4751,7 +4779,7 @@ func (s *Server) ginEngine() *gin.Engine {
 		s.JSON(c, 201, gin.H{
 			"id":      id,
 			"message": "schema created successfully",
-		})
+    })
 	})
 
 	// Update existing schema
@@ -5019,12 +5047,18 @@ func (s *Server) ginEngine() *gin.Engine {
 
 	// ========== x-render Integration APIs ==========
 
-	// Get available UI components for x-render designer
-	r.GET("/api/x-render/components", func(c *gin.Context) {
-		_, _, ok := s.require(c, "schemas:read")
-		if !ok {
-			return
-		}
+    // Get available UI components for x-render designer
+    r.GET("/api/x-render/components", func(c *gin.Context) {
+        // Prefer HTTP-aware RBAC (Casbin path rules). Fallback to legacy if not configured.
+        user, roles, ok := s.auth(c.Request)
+        if !ok {
+            s.respondError(c, 401, "unauthorized", "unauthorized")
+            return
+        }
+        if !s.canHTTP(user, roles, c.Request) {
+            s.respondError(c, 403, "forbidden", "forbidden")
+            return
+        }
 
 		category := c.Query("category") // form, display, layout, input
 
@@ -5164,19 +5198,16 @@ func (s *Server) ginEngine() *gin.Engine {
 			},
 		}
 
-		if category != "" {
-			if categoryComponents, exists := components[category]; exists {
-				s.JSON(c, 200, gin.H{
-					"components": categoryComponents,
-				})
-			} else {
-				s.JSON(c, 200, gin.H{
-					"components": []gin.H{},
-				})
-			}
-		} else {
-			s.JSON(c, 200, components)
-		}
+        if category != "" {
+            if categoryComponents, exists := components[category]; exists {
+                s.JSON(c, 200, gin.H{"components": categoryComponents})
+                return
+            }
+            s.JSON(c, 200, gin.H{"components": []gin.H{}})
+            return
+        }
+        // Always wrap in top-level {components: ...} for consistent response shape
+        s.JSON(c, 200, gin.H{"components": components})
 	})
 
 	// Generate JSON Schema from x-render component configuration
