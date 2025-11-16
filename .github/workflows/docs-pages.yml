@@ -54,11 +54,11 @@ jobs:
 
       - name: Install dependencies (pnpm)
         working-directory: docs
-        run: pnpm install
+        run: pnpm install || npm ci --no-audit --no-fund
 
       - name: Build website (pnpm)
         working-directory: docs
-        run: pnpm build
+        run: pnpm build || npm run build --no-audit --no-fund
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
