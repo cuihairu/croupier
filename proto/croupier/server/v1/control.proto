@@ -4,6 +4,9 @@ package croupier.server.v1;
 
 option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1;serverv1";
 
+import "croupier/common/v1/ui.proto";
+import "google/protobuf/empty.proto";
+
 // Server-side Function Descriptor
 message FunctionDescriptor {
   string id = 1;        // function id, e.g. "player.ban"
@@ -13,6 +16,13 @@ message FunctionDescriptor {
   string entity = 5;    // entity type, e.g. "item", "player"
   string operation = 6; // operation type, e.g. "create", "read", "update", "delete"
   bool enabled = 7;     // whether this function is currently enabled
+
+  // New: UI/i18n/tags/menu/permissions for dynamic navigation & RBAC generation
+  croupier.common.v1.I18nText display_name = 20;
+  croupier.common.v1.I18nText summary      = 21;
+  repeated string tags = 22;
+  croupier.common.v1.Menu menu = 23;
+  croupier.common.v1.PermissionSpec permissions = 24;
 }
 
 // Agent Registration Request
@@ -60,6 +70,9 @@ message RegisterCapabilitiesResponse {}
 
 // Server Control Service - Internal interface for agent registration and management
 service ControlService {
+  // Summarized function catalog with UI/RBAC metadata (for dashboard)
+  rpc ListFunctionsSummary(google.protobuf.Empty) returns (ListFunctionsSummaryResponse);
+
   // Agent registration with server
   rpc Register(RegisterRequest) returns (RegisterResponse);
 
@@ -68,4 +81,8 @@ service ControlService {
 
   // Provider capabilities registration
   rpc RegisterCapabilities(RegisterCapabilitiesRequest) returns (RegisterCapabilitiesResponse);
+}
+
+message ListFunctionsSummaryResponse {
+  repeated FunctionDescriptor functions = 1;
 }

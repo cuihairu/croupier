@@ -2,6 +2,7 @@ syntax = "proto3";
 package croupier.options.v1;
 
 import "google/protobuf/descriptor.proto";
+import "croupier/common/v1/ui.proto";
 
 option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/options/v1;optionsv1";
 
@@ -29,9 +30,19 @@ message FunctionOptions {
   string mode = 10;
   // 是否启用幂等键（默认 false）
   bool idempotency_key = 11;
+
+  // ========== 展示 & 权限（UI/菜单/权限，强类型定义） ==========
+  // 展示名称与摘要（i18n）
+  croupier.common.v1.I18nText display_name = 12;
+  croupier.common.v1.I18nText summary      = 13;
+  // 标签
+  repeated string tags = 14;
+  // 菜单元数据（用于构建前端菜单）
+  croupier.common.v1.Menu menu = 15;
+  // 权限规范（verbs/scopes/default role grants/i18n）
+  croupier.common.v1.PermissionSpec permissions = 16;
 }
 
 extend google.protobuf.MethodOptions {
   FunctionOptions function = 51001;
 }
-
