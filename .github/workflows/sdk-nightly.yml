@@ -10,27 +10,13 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  NIGHTLY_TAG: sdk-nightly-${{ github.run_id }}-${{ github.event.schedule != '' && format('{0}', github.run_id) || '' }}
-  DATE: ${{ github.event.schedule != '' && (format('{0,date,yyyyMMdd}', github.event.schedule)) || (github.run_id) }}
+  NIGHTLY_TAG: sdk-nightly
 
 jobs:
-  compute-meta:
-    runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.mk.outputs.tag }}
-      date: ${{ steps.mk.outputs.date }}
-    steps:
-      - name: Compute tag/date
-        id: mk
-        run: |
-          ts=$(date -u +%Y%m%d)
-          echo "tag=sdk-nightly-${ts}" >> "$GITHUB_OUTPUT"
-          echo "date=${ts}" >> "$GITHUB_OUTPUT"
 
   # --------------- C++ SDK (static lib) ---------------
   cpp:
     name: cpp (${{ matrix.name }})
-    needs: compute-meta
     strategy:
       fail-fast: false
       matrix:
@@ -91,7 +77,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          PKG="croupier-cpp-sdk-${{ matrix.os_label }}-${{ matrix.arch }}-static-${{ needs.compute-meta.outputs.date }}"
+          PKG="croupier-cpp-sdk-${{ matrix.os_label }}-${{ matrix.arch }}-static"
           mkdir -p "out/${PKG}/include" "out/${PKG}/lib"
           cp -R sdks/cpp/include/* "out/${PKG}/include/"
           if [ -d sdks/cpp/generated ]; then
@@ -126,7 +112,6 @@ jobs:
 
   # --------------- Java SDK (Jar) ---------------
   java:
-    needs: compute-meta
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -140,18 +125,18 @@ jobs:
       - name: Collect and upload
         run: |
           mkdir -p out
-          cp sdks/java/target/*.jar "out/croupier-java-sdk-${{ needs.compute-meta.outputs.date }}.jar"
+          # Copy to a stable filename
+          cp sdks/java/target/*.jar "out/croupier-java-sdk.jar"
         shell: bash
       - uses: actions/upload-artifact@v4
         with:
-          name: croupier-java-sdk-${{ needs.compute-meta.outputs.date }}
-          path: out/croupier-java-sdk-${{ needs.compute-meta.outputs.date }}.jar
+          name: croupier-java-sdk
+          path: out/croupier-java-sdk.jar
           if-no-files-found: error
           retention-days: 7
 
   # --------------- Python SDK (wheel + sdist) ---------------
   python:
-    needs: compute-meta
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -165,7 +150,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: croupier-python-sdk-${{ needs.compute-meta.outputs.date }}
+          name: croupier-python-sdk
           path: |
             sdks/python/dist/*.whl
             sdks/python/dist/*.tar.gz
@@ -174,7 +159,6 @@ jobs:
 
   # --------------- JavaScript SDK (npm package) ---------------
   js:
-    needs: compute-meta
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -189,32 +173,31 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: croupier-js-sdk-${{ needs.compute-meta.outputs.date }}
+          name: croupier-js-sdk
           path: sdks/js/*.tgz
           if-no-files-found: error
           retention-days: 7
 
   # --------------- Go SDK (source tarball) ---------------
   go:
-    needs: compute-meta
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Tarball Go SDK source
         run: |
           mkdir -p out
-          tar czf "out/croupier-go-sdk-${{ needs.compute-meta.outputs.date }}.tar.gz" -C sdks go
+          tar czf "out/croupier-go-sdk.tar.gz" -C sdks go
       - uses: actions/upload-artifact@v4
         with:
-          name: croupier-go-sdk-${{ needs.compute-meta.outputs.date }}
-          path: out/croupier-go-sdk-${{ needs.compute-meta.outputs.date }}.tar.gz
+          name: croupier-go-sdk
+          path: out/croupier-go-sdk.tar.gz
           if-no-files-found: error
           retention-days: 7
 
   # --------------- Aggregate release ---------------
   release:
     name: Publish Nightly Release
-    needs: [compute-meta, cpp, java, python, js, go]
+    needs: [cpp, java, python, js, go]
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -223,16 +206,25 @@ jobs:
           path: artifacts
       - name: List artifacts
         run: ls -R artifacts
-      - name: Create or update GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.compute-meta.outputs.tag }}
-          name: "SDK Nightly ${{ needs.compute-meta.outputs.date }}"
-          prerelease: true
-          generate_release_notes: false
-          files: |
-            artifacts/**/*.*
-          fail_on_unmatched_files: false
-          make_latest: false
-          draft: false
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Ensure release exists (sdk-nightly)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          if gh release view "${NIGHTLY_TAG}" >/dev/null 2>&1; then
+            echo "Release ${NIGHTLY_TAG} exists"
+          else
+            gh release create "${NIGHTLY_TAG}" -t "SDK Nightly" -n "Auto-updated nightly build. Assets are replaced on each run." -p
+          fi
+      - name: Upload assets (overwrite)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          shopt -s globstar nullglob
+          files=(artifacts/**/*)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No artifacts found"
+            exit 1
+          fi
+          gh release upload "${NIGHTLY_TAG}" "${files[@]}" --clobber
