@@ -220,4 +220,6 @@ proto-docs:
 .PHONY: wire
 wire:
 	@echo "[wire] generating dependency injection code..."
-	@wire ./internal/app/server/http
+	@# Ensure modules and types are available for analysis; clear GOFLAGS that might interfere
+	@GOFLAGS= GOWORK=off go mod download
+	@GOFLAGS= GOWORK=off wire ./internal/app/server/http
