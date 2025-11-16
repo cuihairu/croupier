@@ -1,0 +1,23 @@
+{
+  "id": "playbooks/board-table-cn",
+  "title": "棋牌/桌面（Board/Table）数据采集与分析指引",
+  "description": "目标：保障公平与稳态经济，监控对局质量与抽水合理性。",
+  "source": "@site/docs/analytics/playbooks/board-table-cn.md",
+  "sourceDirName": "playbooks",
+  "slug": "/playbooks/board-table-cn",
+  "permalink": "/croupier/analytics/playbooks/board-table-cn",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "OpenTelemetry 游戏分析集成指南",
+    "permalink": "/croupier/analytics/opentelemetry-integration"
+  },
+  "next": {
+    "title": "卡牌（Card/CCG）数据采集与分析指引",
+    "permalink": "/croupier/analytics/playbooks/card-ccg-cn"
+  }
+}

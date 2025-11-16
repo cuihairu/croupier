@@ -1,0 +1,26 @@
+{
+  "id": "http-adapter",
+  "title": "HTTP Adapter (Generic)",
+  "description": "The http-adapter exposes one function http.generic_invoke that forwards a generic HTTP request and returns the response body (best-effort JSON passthrough).",
+  "source": "@site/docs/http-adapter.md",
+  "sourceDirName": ".",
+  "slug": "/http-adapter",
+  "permalink": "/croupier/http-adapter",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/cuihairu/croupier/edit/main/docs/docs/http-adapter.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "protoc-gen-croupier (skeleton)",
+    "permalink": "/croupier/generator"
+  },
+  "next": {
+    "title": "Metrics & Observability",
+    "permalink": "/croupier/metrics"
+  }
+}

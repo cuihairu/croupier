@@ -1,0 +1,26 @@
+{
+  "id": "SDK_HOTRELOAD_SUPPORT",
+  "title": "🔥 Croupier SDK 热更新方案支持策略",
+  "description": "📋 主流热更新方案分析",
+  "source": "@site/docs/SDK_HOTRELOAD_SUPPORT.md",
+  "sourceDirName": ".",
+  "slug": "/SDK_HOTRELOAD_SUPPORT",
+  "permalink": "/croupier/SDK_HOTRELOAD_SUPPORT",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/cuihairu/croupier/edit/main/docs/docs/SDK_HOTRELOAD_SUPPORT.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "🔥 游戏开发热更新方案总览",
+    "permalink": "/croupier/HOT_RELOAD_SOLUTIONS"
+  },
+  "next": {
+    "title": "vcpkg 多配置优化方案",
+    "permalink": "/croupier/VCPKG_OPTIMIZATION"
+  }
+}

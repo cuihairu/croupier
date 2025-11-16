@@ -1,0 +1,26 @@
+{
+  "id": "HOTRELOAD_BEST_PRACTICES",
+  "title": "🔥 Croupier SDK 热更新最佳实践指南",
+  "description": "📋 概述",
+  "source": "@site/docs/HOTRELOAD_BEST_PRACTICES.md",
+  "sourceDirName": ".",
+  "slug": "/HOTRELOAD_BEST_PRACTICES",
+  "permalink": "/croupier/HOTRELOAD_BEST_PRACTICES",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/cuihairu/croupier/edit/main/docs/docs/HOTRELOAD_BEST_PRACTICES.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Croupier 函数管理系统分析文档",
+    "permalink": "/croupier/FUNCTION_MANAGEMENT_README"
+  },
+  "next": {
+    "title": "🔥 Croupier 热更新系统总结",
+    "permalink": "/croupier/HOTRELOAD_IMPLEMENTATION_SUMMARY"
+  }
+}

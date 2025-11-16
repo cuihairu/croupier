@@ -1,0 +1,19 @@
+{
+  "id": "data-collection-architecture",
+  "title": "数据采集架构设计",
+  "description": "本文档详细描述了游戏数据采集的技术架构，包括客户端、服务器端和混合采集策略的最佳实践。",
+  "source": "@site/docs/analytics/data-collection-architecture.md",
+  "sourceDirName": ".",
+  "slug": "/data-collection-architecture",
+  "permalink": "/croupier/analytics/data-collection-architecture",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "next": {
+    "title": "游戏指标全景图",
+    "permalink": "/croupier/analytics/game-metrics-overview"
+  }
+}

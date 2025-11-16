@@ -1,3 +1,6 @@
+---
+draft: true
+---
 # Metrics & Observability
 
 This doc lists the built-in metrics endpoints and exported series for Server/Agent/Edge.
@@ -17,11 +20,11 @@ Server JSON (/metrics)
 - invocations_total / invocations_error_total
 - jobs_started_total / jobs_error_total
 - rbac_denied_total / audit_errors_total
-- logs: { debug, info, warn, error, total }
+- logs: `{ debug, info, warn, error, total }`
 - lb_stats, conn_pool (when available)
 - functions: per-function snapshot
   - invocations_total / errors_total / rbac_denied_total
-  - latency_seconds: { buckets[], counts[], sum, count }
+  - latency_seconds: `{ buckets[], counts[], sum, count }`
 
 Server Prometheus (/metrics.prom)
 - croupier_invocations_total

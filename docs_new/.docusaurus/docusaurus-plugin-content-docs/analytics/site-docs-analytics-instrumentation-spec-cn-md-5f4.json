@@ -1,0 +1,23 @@
+{
+  "id": "instrumentation-spec-cn",
+  "title": "Croupier 游戏数据埋点与指标规范（中文）",
+  "description": "本文档说明本仓库的标准化埋点与指标体系，并给出不同游戏类型的特征与建议分析点。对应的机器可读配置：",
+  "source": "@site/docs/analytics/instrumentation-spec-cn.md",
+  "sourceDirName": ".",
+  "slug": "/instrumentation-spec-cn",
+  "permalink": "/croupier/analytics/instrumentation-spec-cn",
+  "draft": false,
+  "unlisted": false,
+  "tags": [],
+  "version": "current",
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "游戏指标全景图",
+    "permalink": "/croupier/analytics/game-metrics-overview"
+  },
+  "next": {
+    "title": "OpenTelemetry 游戏分析集成指南",
+    "permalink": "/croupier/analytics/opentelemetry-integration"
+  }
+}

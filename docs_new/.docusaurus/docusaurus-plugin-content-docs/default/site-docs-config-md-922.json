@@ -1,0 +1,26 @@
+{
+  "id": "config",
+  "title": "Configuration (YAML, Includes, Profiles)",
+  "description": "Croupier uses Cobra+Viper for configuration. You can combine flags, environment variables and YAML files. This document summarizes precedence and patterns.",
+  "source": "@site/docs/config.md",
+  "sourceDirName": ".",
+  "slug": "/config",
+  "permalink": "/croupier/config",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/cuihairu/croupier/edit/main/docs/docs/config.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "完整游戏团队角色权限体系设计",
+    "permalink": "/croupier/complete-game-roles-design"
+  },
+  "next": {
+    "title": "control-capabilities",
+    "permalink": "/croupier/control-capabilities"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "id": "CPP_SDK_DEEP_ANALYSIS",
+  "title": "Croupier C++ SDK 深度分析",
+  "description": "创建日期: 2025-11-13",
+  "source": "@site/docs/CPP_SDK_DEEP_ANALYSIS.md",
+  "sourceDirName": ".",
+  "slug": "/CPP_SDK_DEEP_ANALYSIS",
+  "permalink": "/croupier/CPP_SDK_DEEP_ANALYSIS",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/cuihairu/croupier/edit/main/docs/docs/CPP_SDK_DEEP_ANALYSIS.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "C++ SDK 构建优化方案",
+    "permalink": "/croupier/CPP_SDK_BUILD_OPTIMIZATION"
+  },
+  "next": {
+    "title": "Croupier C++ SDK 目录索引与文件映射",
+    "permalink": "/croupier/CPP_SDK_DIRECTORY_INDEX"
+  }
+}

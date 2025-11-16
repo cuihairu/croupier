@@ -1,0 +1,26 @@
+{
+  "id": "security",
+  "title": "Security",
+  "description": "- mTLS for Server/Agent",
+  "source": "@site/docs/security.md",
+  "sourceDirName": ".",
+  "slug": "/security",
+  "permalink": "/croupier/security",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/cuihairu/croupier/edit/main/docs/docs/security.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "SDK Development",
+    "permalink": "/croupier/sdk-development"
+  },
+  "next": {
+    "title": "Tracing & Trace ID Propagation",
+    "permalink": "/croupier/tracing"
+  }
+}
