@@ -285,12 +285,7 @@ jobs:
             cp -R sdks/cpp/generated/* "out/${PKG}/include/generated/"
           fi
           # Find built lib (platform-specific name)
-          libfile=""
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            libfile=$(ls build/Release/croupier-sdk-static.lib 2>/dev/null || ls build/**/croupier-sdk-static.lib 2>/dev/null || true)
-          else
-            libfile=$(ls build/**/libcroupier-sdk-static.* 2>/dev/null | head -n1 || true)
-          fi
+          libfile="$(find build -type f \( -name 'libcroupier-sdk-static.*' -o -name 'croupier-sdk-static.lib' \) | head -n1 || true)"
           if [ -z "${libfile}" ]; then
             echo "Static library not found"
             ls -R build || true
