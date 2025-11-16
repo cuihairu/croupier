@@ -33,6 +33,10 @@ jobs:
           set -euxo pipefail
           corepack enable
           corepack prepare pnpm@9 --activate
+          if ! command -v pnpm >/dev/null 2>&1; then
+            echo "pnpm not found after corepack; installing via npm as fallback"
+            npm i -g pnpm@9
+          fi
           pnpm --version
 
       - name: Install deps
