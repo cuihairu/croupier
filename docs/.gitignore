@@ -1,0 +1,5 @@
+# Docusaurus build outputs
+.docusaurus
+build
+.cache-loader
+node_modules
