@@ -163,4 +163,4 @@ require (
 )
 
 // 移除了子模块依赖以便OpenTelemetry集成完成
-// replace github.com/cuihairu/croupier-sdk-go => ./sdks/go
+replace github.com/cuihairu/croupier-sdk-go => ./sdks/go
