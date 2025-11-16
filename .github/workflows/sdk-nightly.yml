@@ -48,18 +48,33 @@ jobs:
             os_label: windows
             arch: x86_64
     runs-on: ${{ matrix.runs-on }}
-    # Temporarily continue on error until vcpkg baseline is pinned.
-    continue-on-error: true
+    continue-on-error: ${{ matrix.allow_fail == true }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup CMake
         uses: lukka/get-cmake@latest
 
-      - name: Setup vcpkg
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgJsonGlob: sdks/cpp/vcpkg.json
+      - name: Install vcpkg (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          VCPKG_ROOT="$PWD/.vcpkg"
+          git clone --depth 1 https://github.com/microsoft/vcpkg "$VCPKG_ROOT"
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+          "$VCPKG_ROOT/vcpkg" install grpc protobuf nlohmann-json --triplet ${{ matrix.triplet }}
+          echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
+
+      - name: Install vcpkg (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:VCPKG_ROOT="$PWD\.vcpkg"
+          git clone --depth 1 https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
+          & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
+          & "$env:VCPKG_ROOT\vcpkg.exe" install grpc protobuf nlohmann-json --triplet ${{ matrix.triplet }}
+          echo "VCPKG_ROOT=$env:VCPKG_ROOT" >> $env:GITHUB_ENV
 
       - name: Configure (Release, static)
         shell: bash
@@ -68,6 +83,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
             -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} \
+            -DVCPKG_MANIFEST_MODE=OFF \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
 
       - name: Build static library
