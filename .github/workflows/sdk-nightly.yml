@@ -270,7 +270,13 @@ jobs:
 
       - name: Build static library
         shell: bash
-        run: cmake --build build --config Release --target croupier-sdk-static -j 2
+        run: |
+          # Use max available cores (default to 2 if not detected)
+          CORES="${VCPKG_MAX_CONCURRENCY:-}"
+          if [ -z "$CORES" ]; then
+            CORES="$( (command -v nproc >/dev/null 2>&1 && nproc) || (command -v sysctl >/dev/null 2>&1 && sysctl -n hw.ncpu) || echo 2 )"
+          fi
+          cmake --build build --config Release --target croupier-sdk-static -j "$CORES"
 
       - name: Collect artifacts
         shell: bash
