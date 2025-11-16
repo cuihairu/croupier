@@ -31,7 +31,7 @@ const config = {
         },
         blog: false,
         theme: {
-          customCss: [], // no custom CSS for now
+          // no custom CSS for now
         },
       }),
     ],
@@ -57,4 +57,3 @@ const config = {
 };
 
 module.exports = config;
-
