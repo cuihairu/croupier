@@ -297,9 +297,9 @@ ComponentDescriptor ConfigDrivenLoader::ParseJsonToComponent(const std::string& 
         component.description = comp.value("description", "");
     }
 
-    // 解析虚拟对象
-    if (config.contains("virtual_objects")) {
-        for (const auto& obj_config : config["virtual_objects"]) {
+    // 解析实体（虚拟对象），兼容键名 "entities" 和老的 "virtual_objects"
+    auto parse_entities_array = [&](const nlohmann::json& arr) {
+        for (const auto& obj_config : arr) {
             VirtualObjectDescriptor obj;
             obj.id = obj_config.value("id", "");
             obj.version = obj_config.value("version", "1.0.0");
@@ -323,8 +323,15 @@ ComponentDescriptor ConfigDrivenLoader::ParseJsonToComponent(const std::string& 
                 }
             }
 
-            component.virtual_objects[obj.id] = obj;
+            // 新版 ComponentDescriptor 使用 vector<VirtualObjectDescriptor> entities;
+            component.entities.push_back(std::move(obj));
         }
+    };
+    if (config.contains("entities") && config["entities"].is_array()) {
+        parse_entities_array(config["entities"]);
+    } else if (config.contains("virtual_objects") && config["virtual_objects"].is_array()) {
+        // 兼容旧字段
+        parse_entities_array(config["virtual_objects"]);
     }
 #else
     // 简化解析实现
