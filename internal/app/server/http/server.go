@@ -3172,6 +3172,117 @@ func (s *Server) ginEngine() *gin.Engine {
 			}
 			c.Status(204)
 		})
+
+		// GET only permissions (effective = override or manifest)
+		r.GET("/api/admin/functions/:fid/permissions", func(c *gin.Context) {
+			fid := strings.TrimSpace(c.Param("fid"))
+			if fid == "" {
+				s.respondError(c, 400, "bad_request", "missing function id")
+				return
+			}
+			ov := s.loadUIOverrides()
+			if m, ok := ov[fid]; ok && m != nil {
+				if perm, ok := m["permissions"]; ok {
+					s.JSON(c, 200, gin.H{"function_id": fid, "permissions": perm})
+					return
+				}
+			}
+			// fallback to manifest suggestion
+			meta := s.reg.BuildFunctionIndex()
+			if m, ok := meta[fid]; ok && m != nil {
+				if perm, ok := m["permissions"]; ok {
+					s.JSON(c, 200, gin.H{"function_id": fid, "permissions": perm})
+					return
+				}
+			}
+			s.JSON(c, 200, gin.H{"function_id": fid})
+		})
+		// PUT only permissions (write override subset)
+		r.PUT("/api/admin/functions/:fid/permissions", func(c *gin.Context) {
+			fid := strings.TrimSpace(c.Param("fid"))
+			if fid == "" {
+				s.respondError(c, 400, "bad_request", "missing function id")
+				return
+			}
+			var body map[string]any
+			if err := c.BindJSON(&body); err != nil {
+				s.respondError(c, 400, "bad_request", "invalid json")
+				return
+			}
+			// expect {"verbs":[...], "scopes":[...], "defaults":[...], "i18n_zh":{...}}
+			cur := s.loadUIOverrides()
+			entry := map[string]any{}
+			if m, ok := cur[fid]; ok && m != nil {
+				// shallow copy existing
+				for k, v := range m {
+					entry[k] = v
+				}
+			}
+			entry["permissions"] = body
+			if err := s.saveUIOverride(fid, entry); err != nil {
+				s.respondError(c, 500, "internal_error", fmt.Sprintf("save permissions failed: %v", err))
+				return
+			}
+			c.Status(204)
+		})
+
+		// List pending functions (present in manifest/agents but no server override yet)
+		r.GET("/api/admin/pending", func(c *gin.Context) {
+			ov := s.loadUIOverrides()
+			meta := s.reg.BuildFunctionIndex()
+			pending := []gin.H{}
+			seen := map[string]struct{}{}
+			// Include all manifest functions missing in overrides
+			for fid, m := range meta {
+				if _, ok := ov[fid]; !ok {
+					item := gin.H{"function_id": fid}
+					if dn, ok := m["display_name"]; ok {
+						item["display_name"] = dn
+					}
+					if sm, ok := m["summary"]; ok {
+						item["summary"] = sm
+					}
+					if perm, ok := m["permissions"]; ok {
+						item["suggested_permissions"] = perm
+					}
+					pending = append(pending, item)
+					seen[fid] = struct{}{}
+				}
+			}
+			// Also include enabled functions discovered on agents but not overridden or in manifest
+			if s.reg != nil {
+				s.reg.Mu().RLock()
+				for _, a := range s.reg.AgentsUnsafe() {
+					for fid := range a.Functions {
+						if fid == "" {
+							continue
+						}
+						if _, ok := seen[fid]; ok {
+							continue
+						}
+						if _, ok := ov[fid]; ok {
+							continue
+						}
+						item := gin.H{"function_id": fid}
+						if m, ok := meta[fid]; ok && m != nil {
+							if dn, ok := m["display_name"]; ok {
+								item["display_name"] = dn
+							}
+							if sm, ok := m["summary"]; ok {
+								item["summary"] = sm
+							}
+							if perm, ok := m["permissions"]; ok {
+								item["suggested_permissions"] = perm
+							}
+						}
+						pending = append(pending, item)
+						seen[fid] = struct{}{}
+					}
+				}
+				s.reg.Mu().RUnlock()
+			}
+			s.JSON(c, 200, gin.H{"pending": pending})
+		})
 		r.GET("/healthz", func(c *gin.Context) { c.String(200, "ok") })
 	r.GET("/metrics", func(c *gin.Context) {
 		w := c.Writer
