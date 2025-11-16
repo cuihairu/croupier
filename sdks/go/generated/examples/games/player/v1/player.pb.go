@@ -7,7 +7,7 @@
 package playerv1
 
 import (
-	_ "github.com/cuihairu/croupier/pkg/pb/croupier/options"
+	_ "github.com/cuihairu/croupier/pkg/pb/croupier/options/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -122,7 +122,7 @@ var File_examples_games_player_v1_player_proto protoreflect.FileDescriptor
 
 const file_examples_games_player_v1_player_proto_rawDesc = "" +
 	"\n" +
-	"%examples/games/player/v1/player.proto\x12\x0fgames.player.v1\x1a\x1fcroupier/options/function.proto\x1a\x19croupier/options/ui.proto\"p\n" +
+	"%examples/games/player/v1/player.proto\x12\x18examples.games.player.v1\x1a\"croupier/options/v1/function.proto\x1a\x1ccroupier/options/v1/ui.proto\"p\n" +
 	"\n" +
 	"BanRequest\x122\n" +
 	"\tplayer_id\x18\x01 \x01(\tB\x15\x8a\xb2\x19\x11\n" +
@@ -130,12 +130,12 @@ const file_examples_games_player_v1_player_proto_rawDesc = "" +
 	"\x06reason\x18\x02 \x01(\tB\x16\x8a\xb2\x19\x12\n" +
 	"\btextarea\x1a\x06原因R\x06reason\"%\n" +
 	"\vBanResponse\x12\x16\n" +
-	"\x06result\x18\x01 \x01(\tR\x06result2\x91\x01\n" +
-	"\bPlayerGm\x12\x84\x01\n" +
-	"\x03Ban\x12\x1b.games.player.v1.BanRequest\x1a\x1c.games.player.v1.BanResponse\"B\xca\xf3\x18>\n" +
+	"\x06result\x18\x01 \x01(\tR\x06result2\xaa\x01\n" +
+	"\x0fPlayerGmService\x12\x96\x01\n" +
+	"\x03Ban\x12$.examples.games.player.v1.BanRequest\x1a%.examples.games.player.v1.BanResponse\"B\xca\xf3\x18>\n" +
 	"\n" +
-	"player.ban\x12\x051.2.0\x1a\x06player\"\x04high*\x02lb2\x0330s8\x01B\x05agentR\acommandX\x01B\xc7\x01\n" +
-	"\x13com.games.player.v1B\vPlayerProtoP\x01ZEgithub.com/cuihairu/croupier/pkg/pb/examples/games/player/v1;playerv1\xa2\x02\x03GPX\xaa\x02\x0fGames.Player.V1\xca\x02\x0fGames\\Player\\V1\xe2\x02\x1bGames\\Player\\V1\\GPBMetadata\xea\x02\x11Games::Player::V1b\x06proto3"
+	"player.ban\x12\x051.2.0\x1a\x06player\"\x04high*\x02lb2\x0330s8\x01B\x05agentR\acommandX\x01B\xf5\x01\n" +
+	"\x1ccom.examples.games.player.v1B\vPlayerProtoP\x01ZEgithub.com/cuihairu/croupier/pkg/pb/examples/games/player/v1;playerv1\xa2\x02\x03EGP\xaa\x02\x18Examples.Games.Player.V1\xca\x02\x18Examples\\Games\\Player\\V1\xe2\x02$Examples\\Games\\Player\\V1\\GPBMetadata\xea\x02\x1bExamples::Games::Player::V1b\x06proto3"
 
 var (
 	file_examples_games_player_v1_player_proto_rawDescOnce sync.Once
@@ -151,12 +151,12 @@ func file_examples_games_player_v1_player_proto_rawDescGZIP() []byte {
 
 var file_examples_games_player_v1_player_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_examples_games_player_v1_player_proto_goTypes = []any{
-	(*BanRequest)(nil),  // 0: games.player.v1.BanRequest
-	(*BanResponse)(nil), // 1: games.player.v1.BanResponse
+	(*BanRequest)(nil),  // 0: examples.games.player.v1.BanRequest
+	(*BanResponse)(nil), // 1: examples.games.player.v1.BanResponse
 }
 var file_examples_games_player_v1_player_proto_depIdxs = []int32{
-	0, // 0: games.player.v1.PlayerGm.Ban:input_type -> games.player.v1.BanRequest
-	1, // 1: games.player.v1.PlayerGm.Ban:output_type -> games.player.v1.BanResponse
+	0, // 0: examples.games.player.v1.PlayerGmService.Ban:input_type -> examples.games.player.v1.BanRequest
+	1, // 1: examples.games.player.v1.PlayerGmService.Ban:output_type -> examples.games.player.v1.BanResponse
 	1, // [1:2] is the sub-list for method output_type
 	0, // [0:1] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name

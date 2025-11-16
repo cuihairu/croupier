@@ -19,101 +19,101 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	PromGm_QueryRange_FullMethodName = "/croupier.integrations.prom.v1.PromGm/QueryRange"
+	PromGmService_QueryRange_FullMethodName = "/examples.integrations.prom.v1.PromGmService/QueryRange"
 )
 
-// PromGmClient is the client API for PromGm service.
+// PromGmServiceClient is the client API for PromGmService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type PromGmClient interface {
+type PromGmServiceClient interface {
 	QueryRange(ctx context.Context, in *QueryRangeRequest, opts ...grpc.CallOption) (*QueryRangeResponse, error)
 }
 
-type promGmClient struct {
+type promGmServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewPromGmClient(cc grpc.ClientConnInterface) PromGmClient {
-	return &promGmClient{cc}
+func NewPromGmServiceClient(cc grpc.ClientConnInterface) PromGmServiceClient {
+	return &promGmServiceClient{cc}
 }
 
-func (c *promGmClient) QueryRange(ctx context.Context, in *QueryRangeRequest, opts ...grpc.CallOption) (*QueryRangeResponse, error) {
+func (c *promGmServiceClient) QueryRange(ctx context.Context, in *QueryRangeRequest, opts ...grpc.CallOption) (*QueryRangeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(QueryRangeResponse)
-	err := c.cc.Invoke(ctx, PromGm_QueryRange_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, PromGmService_QueryRange_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// PromGmServer is the server API for PromGm service.
-// All implementations must embed UnimplementedPromGmServer
+// PromGmServiceServer is the server API for PromGmService service.
+// All implementations must embed UnimplementedPromGmServiceServer
 // for forward compatibility.
-type PromGmServer interface {
+type PromGmServiceServer interface {
 	QueryRange(context.Context, *QueryRangeRequest) (*QueryRangeResponse, error)
-	mustEmbedUnimplementedPromGmServer()
+	mustEmbedUnimplementedPromGmServiceServer()
 }
 
-// UnimplementedPromGmServer must be embedded to have
+// UnimplementedPromGmServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedPromGmServer struct{}
+type UnimplementedPromGmServiceServer struct{}
 
-func (UnimplementedPromGmServer) QueryRange(context.Context, *QueryRangeRequest) (*QueryRangeResponse, error) {
+func (UnimplementedPromGmServiceServer) QueryRange(context.Context, *QueryRangeRequest) (*QueryRangeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method QueryRange not implemented")
 }
-func (UnimplementedPromGmServer) mustEmbedUnimplementedPromGmServer() {}
-func (UnimplementedPromGmServer) testEmbeddedByValue()                {}
+func (UnimplementedPromGmServiceServer) mustEmbedUnimplementedPromGmServiceServer() {}
+func (UnimplementedPromGmServiceServer) testEmbeddedByValue()                       {}
 
-// UnsafePromGmServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to PromGmServer will
+// UnsafePromGmServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to PromGmServiceServer will
 // result in compilation errors.
-type UnsafePromGmServer interface {
-	mustEmbedUnimplementedPromGmServer()
+type UnsafePromGmServiceServer interface {
+	mustEmbedUnimplementedPromGmServiceServer()
 }
 
-func RegisterPromGmServer(s grpc.ServiceRegistrar, srv PromGmServer) {
-	// If the following call pancis, it indicates UnimplementedPromGmServer was
+func RegisterPromGmServiceServer(s grpc.ServiceRegistrar, srv PromGmServiceServer) {
+	// If the following call pancis, it indicates UnimplementedPromGmServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&PromGm_ServiceDesc, srv)
+	s.RegisterService(&PromGmService_ServiceDesc, srv)
 }
 
-func _PromGm_QueryRange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _PromGmService_QueryRange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryRangeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(PromGmServer).QueryRange(ctx, in)
+		return srv.(PromGmServiceServer).QueryRange(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: PromGm_QueryRange_FullMethodName,
+		FullMethod: PromGmService_QueryRange_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PromGmServer).QueryRange(ctx, req.(*QueryRangeRequest))
+		return srv.(PromGmServiceServer).QueryRange(ctx, req.(*QueryRangeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// PromGm_ServiceDesc is the grpc.ServiceDesc for PromGm service.
+// PromGmService_ServiceDesc is the grpc.ServiceDesc for PromGmService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var PromGm_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "croupier.integrations.prom.v1.PromGm",
-	HandlerType: (*PromGmServer)(nil),
+var PromGmService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "examples.integrations.prom.v1.PromGmService",
+	HandlerType: (*PromGmServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "QueryRange",
-			Handler:    _PromGm_QueryRange_Handler,
+			Handler:    _PromGmService_QueryRange_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
