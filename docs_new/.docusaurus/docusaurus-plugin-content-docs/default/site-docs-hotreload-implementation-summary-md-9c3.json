@@ -1,0 +1,26 @@
+{
+  "id": "HOTRELOAD_IMPLEMENTATION_SUMMARY",
+  "title": "🔥 Croupier 热更新系统总结",
+  "description": "✅ 完成的工作",
+  "source": "@site/docs/HOTRELOAD_IMPLEMENTATION_SUMMARY.md",
+  "sourceDirName": ".",
+  "slug": "/HOTRELOAD_IMPLEMENTATION_SUMMARY",
+  "permalink": "/croupier/HOTRELOAD_IMPLEMENTATION_SUMMARY",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/cuihairu/croupier/edit/main/docs/docs/HOTRELOAD_IMPLEMENTATION_SUMMARY.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "🔥 Croupier SDK 热更新最佳实践指南",
+    "permalink": "/croupier/HOTRELOAD_BEST_PRACTICES"
+  },
+  "next": {
+    "title": "🔥 游戏开发热更新方案总览",
+    "permalink": "/croupier/HOT_RELOAD_SOLUTIONS"
+  }
+}

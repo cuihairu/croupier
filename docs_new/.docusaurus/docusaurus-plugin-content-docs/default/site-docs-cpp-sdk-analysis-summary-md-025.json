@@ -1,0 +1,26 @@
+{
+  "id": "CPP_SDK_ANALYSIS_SUMMARY",
+  "title": "C++ SDK 探索总结",
+  "description": "📋 主要发现",
+  "source": "@site/docs/CPP_SDK_ANALYSIS_SUMMARY.md",
+  "sourceDirName": ".",
+  "slug": "/CPP_SDK_ANALYSIS_SUMMARY",
+  "permalink": "/croupier/CPP_SDK_ANALYSIS_SUMMARY",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/cuihairu/croupier/edit/main/docs/docs/CPP_SDK_ANALYSIS_SUMMARY.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Croupier C++ SDK 完整分析报告",
+    "permalink": "/croupier/CPP_SDK_ANALYSIS"
+  },
+  "next": {
+    "title": "C++ SDK 构建优化方案",
+    "permalink": "/croupier/CPP_SDK_BUILD_OPTIMIZATION"
+  }
+}

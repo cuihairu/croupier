@@ -225,11 +225,10 @@ services:
   analytics-worker:
     build:
       context: .
-      dockerfile: Dockerfile.server
+      dockerfile: Dockerfile.analytics-worker
       args:
         GO_IMAGE: ${GO_IMAGE:-golang:1.24}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
-    command: ["analytics-worker"]
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
       ANALYTICS_REDIS_STREAM_EVENTS: ${ANALYTICS_REDIS_STREAM_EVENTS:-analytics:events}
@@ -245,6 +244,28 @@ services:
       - croupier-network
     profiles:
       - stream
+  
+  # Analytics Ingestion (Public HTTP/JSON with HMAC signature)
+  ingestion:
+    build:
+      context: .
+      dockerfile: Dockerfile.analytics-ingest
+      args:
+        GO_IMAGE: ${GO_IMAGE:-golang:1.24}
+        RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      ANALYTICS_INGEST_SECRET: ${ANALYTICS_INGEST_SECRET:-change-me}
+      ANALYTICS_REDIS_STREAM_EVENTS: ${ANALYTICS_REDIS_STREAM_EVENTS:-analytics:events}
+      ANALYTICS_REDIS_STREAM_PAYMENTS: ${ANALYTICS_REDIS_STREAM_PAYMENTS:-analytics:payments}
+      ANALYTICS_INGEST_SKEW: ${ANALYTICS_INGEST_SKEW:-300}
+    ports:
+      - "18080:8088"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - croupier-network
 
   # ================================
   # 管理工具 (可选)

@@ -39,6 +39,7 @@ COPY --from=vcpkg-builder /vcpkg/installed /opt/vcpkg/installed
 # ========== 方案 3: 缓存优化 ==========
 
 # GitHub Actions 缓存配置
+```yaml
 - name: Cache vcpkg
   uses: actions/cache@v3
   with:
@@ -49,6 +50,7 @@ COPY --from=vcpkg-builder /vcpkg/installed /opt/vcpkg/installed
     restore-keys: |
       ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}-
       ${{ runner.os }}-vcpkg-
+```
 
 # 缓存命中率 90%+，大幅减少重复下载编译
 

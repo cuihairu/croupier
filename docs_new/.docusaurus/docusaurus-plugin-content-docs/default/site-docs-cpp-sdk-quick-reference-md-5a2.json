@@ -1,0 +1,26 @@
+{
+  "id": "CPP_SDK_QUICK_REFERENCE",
+  "title": "Croupier C++ SDK 快速参考",
+  "description": "🎯 四种使用模式速查表",
+  "source": "@site/docs/CPP_SDK_QUICK_REFERENCE.md",
+  "sourceDirName": ".",
+  "slug": "/CPP_SDK_QUICK_REFERENCE",
+  "permalink": "/croupier/CPP_SDK_QUICK_REFERENCE",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/cuihairu/croupier/edit/main/docs/docs/CPP_SDK_QUICK_REFERENCE.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "C++ SDK 文档索引",
+    "permalink": "/croupier/CPP_SDK_DOCS_INDEX"
+  },
+  "next": {
+    "title": "Croupier 系统函数管理架构分析报告",
+    "permalink": "/croupier/FUNCTION_MANAGEMENT_ARCHITECTURE_ANALYSIS"
+  }
+}

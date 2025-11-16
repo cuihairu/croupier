@@ -3,7 +3,7 @@
 This document explains how the Web app renders forms (UI Schema) and output views from packs.
 
 UI Schema
-- Source: ui/<function_id>.schema.json (JSON Schema), ui/<function_id>.uischema.json (UI Schema)
+- Source: `ui/<function_id>.schema.json` (JSON Schema), `ui/<function_id>.uischema.json` (UI Schema)
 - Layout (optional):
   - `ui:layout`: `{ "type": "grid", "cols": 1|2|3|4 }` (default 1)
   - `ui:groups`: `[ { "title": "Group Name", "fields": ["field1","field2",...] }, ... ]`

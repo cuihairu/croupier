@@ -6,7 +6,7 @@ Precedence (low → high)
 - Base YAML: --config base.yaml
 - Include YAMLs: --config-include a.yaml --config-include b.yaml (later overrides earlier)
 - Section select: server:/agent:/edge: (subtree of the merged YAML)
-- Profile overlay: --profile <name> (applied from section.profiles.<name>)
+- Profile overlay: --profile `<name>` (applied from section.profiles.`<name>`)
 - Environment: CROUPIER_SERVER_* / CROUPIER_AGENT_* / CROUPIER_EDGE_* (dots and dashes become underscores)
 - Flags: highest precedence
 
@@ -96,7 +96,7 @@ Start with overlay files and profile:
 
 Environment overrides
 - Server: CROUPIER_SERVER_ADDR, CROUPIER_SERVER_HTTP_ADDR, CROUPIER_SERVER_LOG_LEVEL, ...
-- DB selection (server): DB_DRIVER=postgres|mysql|sqlite|auto, DATABASE_URL=<dsn>  (derived automatically from server.db.* when YAML is present)
+- DB selection (server): DB_DRIVER=postgres|mysql|sqlite|auto, DATABASE_URL=`<dsn>`  (derived automatically from server.db.* when YAML is present)
 - Agent:  CROUPIER_AGENT_SERVER_ADDR, CROUPIER_AGENT_LOCAL_ADDR, ...
 
 Metrics env toggles (server)

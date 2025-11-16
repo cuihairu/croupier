@@ -1,0 +1,26 @@
+{
+  "id": "directory-structure",
+  "title": "Directory Structure (Ports/Adapters + Wire)",
+  "description": "This document defines the target repo layout based on a clear layering with Ports/Adapters and Google Wire for dependency injection. It aims to keep process boundaries explicit, business logic centralized, and infrastructure replaceable.",
+  "source": "@site/docs/directory-structure.md",
+  "sourceDirName": ".",
+  "slug": "/directory-structure",
+  "permalink": "/croupier/directory-structure",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/cuihairu/croupier/edit/main/docs/docs/directory-structure.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Deployment",
+    "permalink": "/croupier/deployment"
+  },
+  "next": {
+    "title": "End-to-End Example (Proto → Pack → Import → UI)",
+    "permalink": "/croupier/e2e-example"
+  }
+}

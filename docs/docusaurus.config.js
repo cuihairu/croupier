@@ -25,6 +25,8 @@ const config = {
           path: '.', // use current folder as docs source
           routeBasePath: '/', // serve docs at site root
           sidebarPath: require.resolve('./sidebars.js'),
+          // Ignore bundled dependencies inside docs/ to avoid MDX parsing 3rd-party READMEs
+          exclude: ['**/node_modules/**'],
           editUrl: 'https://github.com/cuihairu/croupier/edit/main/docs/',
           showLastUpdateAuthor: true,
           showLastUpdateTime: true,

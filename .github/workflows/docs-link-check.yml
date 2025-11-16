@@ -1,0 +1,40 @@
+name: Docs Link Check
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs-link-check.yml"
+  push:
+    branches: [ main ]
+    paths:
+      - "docs/**"
+      - ".github/workflows/docs-link-check.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+          cache-dependency-path: docs/pnpm-lock.yaml
+
+      - name: Install deps
+        run: pnpm -C docs install --frozen-lockfile
+
+      - name: Build docs (fail on broken links)
+        env:
+          # Ensure CI is non-interactive and strict
+          CI: "true"
+        run: pnpm -C docs build

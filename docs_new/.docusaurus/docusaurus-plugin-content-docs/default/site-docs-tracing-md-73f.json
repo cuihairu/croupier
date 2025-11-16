@@ -1,0 +1,26 @@
+{
+  "id": "tracing",
+  "title": "Tracing & Trace ID Propagation",
+  "description": "Croupier propagates a lightweight trace_id across the Server → Agent → Adapter chain. This helps correlate UI/API calls, audit events, and downstream requests.",
+  "source": "@site/docs/tracing.md",
+  "sourceDirName": ".",
+  "slug": "/tracing",
+  "permalink": "/croupier/tracing",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/cuihairu/croupier/edit/main/docs/docs/tracing.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Security",
+    "permalink": "/croupier/security"
+  },
+  "next": {
+    "title": "UI Schema & Views (Web)",
+    "permalink": "/croupier/ui-and-views"
+  }
+}

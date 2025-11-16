@@ -1,0 +1,26 @@
+{
+  "id": "VIRTUAL_OBJECT_DESIGN",
+  "title": "Croupier 虚拟对象(Virtual Object)架构完整分析",
+  "description": "📚 执行摘要",
+  "source": "@site/docs/VIRTUAL_OBJECT_DESIGN.md",
+  "sourceDirName": ".",
+  "slug": "/VIRTUAL_OBJECT_DESIGN",
+  "permalink": "/croupier/VIRTUAL_OBJECT_DESIGN",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/cuihairu/croupier/edit/main/docs/docs/VIRTUAL_OBJECT_DESIGN.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "vcpkg 多配置优化方案",
+    "permalink": "/croupier/VCPKG_OPTIMIZATION"
+  },
+  "next": {
+    "title": "Croupier 虚拟对象(Virtual Object) - 快速参考指南",
+    "permalink": "/croupier/VIRTUAL_OBJECT_QUICK_REFERENCE"
+  }
+}

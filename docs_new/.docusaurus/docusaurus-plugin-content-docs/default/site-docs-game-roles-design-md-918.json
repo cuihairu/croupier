@@ -1,0 +1,26 @@
+{
+  "id": "game-roles-design",
+  "title": "游戏后台角色权限体系设计",
+  "description": "角色层级架构",
+  "source": "@site/docs/game-roles-design.md",
+  "sourceDirName": ".",
+  "slug": "/game-roles-design",
+  "permalink": "/croupier/game-roles-design",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/cuihairu/croupier/edit/main/docs/docs/game-roles-design.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "End-to-End Example (Proto → Pack → Import → UI)",
+    "permalink": "/croupier/e2e-example"
+  },
+  "next": {
+    "title": "protoc-gen-croupier (skeleton)",
+    "permalink": "/croupier/generator"
+  }
+}

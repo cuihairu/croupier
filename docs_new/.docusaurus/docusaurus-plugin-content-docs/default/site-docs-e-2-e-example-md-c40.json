@@ -1,0 +1,26 @@
+{
+  "id": "e2e-example",
+  "title": "End-to-End Example (Proto → Pack → Import → UI)",
+  "description": "This walkthrough shows how to go from .proto with Croupier options to a function pack, import it into the Server, and invoke from the Web UI.",
+  "source": "@site/docs/e2e-example.md",
+  "sourceDirName": ".",
+  "slug": "/e2e-example",
+  "permalink": "/croupier/e2e-example",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/cuihairu/croupier/edit/main/docs/docs/e2e-example.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Directory Structure (Ports/Adapters + Wire)",
+    "permalink": "/croupier/directory-structure"
+  },
+  "next": {
+    "title": "游戏后台角色权限体系设计",
+    "permalink": "/croupier/game-roles-design"
+  }
+}

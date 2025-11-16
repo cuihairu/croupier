@@ -1,7 +1,7 @@
 # Croupier 文档首页
 
 [![GitHub](https://img.shields.io/badge/GitHub-cuihairu%2Fcroupier-blue)](https://github.com/cuihairu/croupier)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/cuihairu/croupier/blob/main/LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.21+-blue.svg)](https://golang.org/)
 
 欢迎来到 **Croupier** - 新一代分布式游戏管理系统！
@@ -101,7 +101,7 @@ make build-docs     # 构建 Docusaurus 文档
 
 - [系统架构概览](ARCHITECTURE.md) - 整体架构设计
 - [虚拟对象设计](VIRTUAL_OBJECT_DESIGN.md) - 四层对象模型
-- [函数管理系统](FUNCTION_MANAGEMENT_README.md) - 函数注册机制
+- 函数管理系统（此章节当前为草稿，稍后发布）
 
 ### SDK 开发
 
@@ -162,7 +162,7 @@ Web UI → Server (HTTP) → Load Balancer → Agent → Game Server
 
 ## 📄 许可证
 
-本项目采用 [MIT 许可证](LICENSE)。
+本项目采用 [MIT 许可证](https://github.com/cuihairu/croupier/blob/main/LICENSE)。
 
 ## 🔗 相关链接
 

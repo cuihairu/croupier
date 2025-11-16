@@ -1,0 +1,26 @@
+{
+  "id": "CPP_SDK_DIRECTORY_INDEX",
+  "title": "Croupier C++ SDK 目录索引与文件映射",
+  "description": "📦 完整目录结构",
+  "source": "@site/docs/CPP_SDK_DIRECTORY_INDEX.md",
+  "sourceDirName": ".",
+  "slug": "/CPP_SDK_DIRECTORY_INDEX",
+  "permalink": "/croupier/CPP_SDK_DIRECTORY_INDEX",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/cuihairu/croupier/edit/main/docs/docs/CPP_SDK_DIRECTORY_INDEX.md",
+  "tags": [],
+  "version": "current",
+  "lastUpdatedBy": null,
+  "lastUpdatedAt": null,
+  "frontMatter": {},
+  "sidebar": "docs",
+  "previous": {
+    "title": "Croupier C++ SDK 深度分析",
+    "permalink": "/croupier/CPP_SDK_DEEP_ANALYSIS"
+  },
+  "next": {
+    "title": "C++ SDK 文档索引",
+    "permalink": "/croupier/CPP_SDK_DOCS_INDEX"
+  }
+}

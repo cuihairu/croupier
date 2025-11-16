@@ -285,16 +285,17 @@ CPP_SDK_ANALYSIS.md → GitHub Actions 章节 (15分钟)
 ## 🔗 外部资源链接
 
 ### 官方文档
-- [README.md](../sdks/cpp/README.md) - SDK 官方文档
-- [CONFIG_GUIDE.md](../sdks/cpp/CONFIG_GUIDE.md) - 配置指南
-- [PLUGIN_GUIDE.md](../sdks/cpp/PLUGIN_GUIDE.md) - 插件开发
-- [VIRTUAL_OBJECT_REGISTRATION.md](../sdks/cpp/VIRTUAL_OBJECT_REGISTRATION.md) - 虚拟对象
+- [README.md](./sdks/cpp/README.md) - SDK 官方文档
+- [CONFIG_GUIDE.md](./sdks/cpp/CONFIG_GUIDE.md) - 配置指南
+- [PLUGIN_GUIDE.md](./sdks/cpp/PLUGIN_GUIDE.md) - 插件开发
+- [VIRTUAL_OBJECT_REGISTRATION.md](./sdks/cpp/VIRTUAL_OBJECT_REGISTRATION.md) - 虚拟对象
+- [GitHub Workflows](https://github.com/cuihairu/croupier/tree/main/sdks/cpp/.github/workflows)
 
 ### 源代码位置
 - [CMakeLists.txt](../sdks/cpp/CMakeLists.txt)
 - [build.sh](../sdks/cpp/scripts/build.sh)
 - [build-optimized.sh](../sdks/cpp/scripts/build-optimized.sh)
-- [GitHub Workflows](.github/workflows/)
+- [GitHub Workflows](https://github.com/cuihairu/croupier/tree/main/sdks/cpp/.github/workflows)
 
 ---
 
@@ -317,4 +318,3 @@ CPP_SDK_ANALYSIS.md → GitHub Actions 章节 (15分钟)
 **分析工具：** Anthropic Claude Code
 **文档版本：** 1.0
 **质量等级：** ⭐⭐⭐⭐⭐ 企业级
-
