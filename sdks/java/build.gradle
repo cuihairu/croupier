@@ -14,9 +14,12 @@ repositories {
 dependencies {
     // Protobuf / gRPC runtime to compile generated sources
     implementation "com.google.protobuf:protobuf-java:4.33.1"
-    implementation "io.grpc:grpc-netty-shaded:1.67.1"
-    implementation "io.grpc:grpc-protobuf:1.67.1"
-    implementation "io.grpc:grpc-stub:1.67.1"
+    implementation "io.grpc:grpc-netty-shaded:1.68.2"
+    implementation "io.grpc:grpc-protobuf:1.68.2"
+    implementation "io.grpc:grpc-stub:1.68.2"
+
+    // Logging API used in sdk sources
+    implementation "org.slf4j:slf4j-api:2.0.13"
 
     testImplementation "org.junit.jupiter:junit-jupiter:5.10.0"
 }
