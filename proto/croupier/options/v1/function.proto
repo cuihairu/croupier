@@ -1,9 +1,9 @@
 syntax = "proto3";
-package croupier.options;
+package croupier.options.v1;
 
 import "google/protobuf/descriptor.proto";
 
-option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/options;optionspb";
+option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/options/v1;optionsv1";
 
 // 方法级元信息（可选）。插件未识别时将使用默认推断。
 message FunctionOptions {
@@ -34,3 +34,4 @@ message FunctionOptions {
 extend google.protobuf.MethodOptions {
   FunctionOptions function = 51001;
 }
+

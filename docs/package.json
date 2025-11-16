@@ -1,22 +1,31 @@
 {
   "name": "croupier-docs",
   "version": "1.0.0",
-  "description": "Croupier Project Documentation",
+  "description": "Croupier Project Documentation (Docusaurus)",
   "private": true,
   "scripts": {
-    "dev": "vuepress dev .",
-    "build": "vuepress build .",
-    "serve": "vuepress serve ."
+    "dev": "docusaurus start .",
+    "start": "docusaurus start .",
+    "build": "docusaurus build .",
+    "serve": "docusaurus serve .",
+    "clean": "rimraf build .docusaurus"
   },
-  "devDependencies": {
-    "vuepress": "^2.0.0-rc.14",
-    "@vuepress/bundler-vite": "^2.0.0-rc.14",
-    "@vuepress/theme-default": "^2.0.0-rc.14"
+  "dependencies": {
+    "@docusaurus/core": "^3.2.1",
+    "@docusaurus/preset-classic": "^3.2.1",
+    "@docusaurus/theme-classic": "^3.2.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "rimraf": "^5.0.5"
   },
   "keywords": [
     "croupier",
     "documentation",
-    "vuepress"
+    "docusaurus",
+    "react"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
 }

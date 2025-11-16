@@ -1,15 +1,15 @@
 syntax = "proto3";
 
-package games.player.v1;
+package examples.games.player.v1;
 
-import "croupier/options/function.proto";
-import "croupier/options/ui.proto";
+import "croupier/options/v1/function.proto";
+import "croupier/options/v1/ui.proto";
 
 option go_package = "github.com/cuihairu/croupier/pkg/pb/examples/games/player/v1;playerv1";
 
-service PlayerGm {
+service PlayerGmService {
   rpc Ban(BanRequest) returns (BanResponse) {
-    option (croupier.options.function) = {
+    option (croupier.options.v1.function) = {
       function_id: "player.ban"
       version: "1.2.0"
       category: "player"
@@ -25,8 +25,8 @@ service PlayerGm {
 }
 
 message BanRequest {
-  string player_id = 1 [(croupier.options.ui) = { label: "玩家ID", widget: "input" }];
-  string reason = 2 [(croupier.options.ui) = { widget: "textarea", placeholder: "原因" }];
+  string player_id = 1 [(croupier.options.v1.ui) = { label: "玩家ID", widget: "input" }];
+  string reason = 2 [(croupier.options.v1.ui) = { widget: "textarea", placeholder: "原因" }];
 }
 
 message BanResponse { string result = 1; }

@@ -57,7 +57,7 @@ graph TB
 ### 环境要求
 
 - Go 1.21+
-- Node.js 16+
+- Node.js 18+
 - Docker (可选)
 - CMake 3.20+ (C++ SDK)
 
@@ -92,7 +92,7 @@ make build-sdks-cpp # 仅 C++ SDK
 make dev-dashboard  # 启动 dashboard 开发服务器
 
 # 构建文档
-make build-docs     # 构建 VuePress 文档
+make build-docs     # 构建 Docusaurus 文档
 ```
 
 ## 📚 核心文档
@@ -148,7 +148,7 @@ Web UI → Server (HTTP) → Load Balancer → Agent → Game Server
 
 - **Buf** - Protocol Buffers 工具链
 - **Wire** - 依赖注入代码生成
-- **VuePress** - 文档生成
+- **Docusaurus** - 文档站点（React 技术栈）
 - **GitHub Actions** - CI/CD 流水线
 
 ## 🤝 贡献指南
