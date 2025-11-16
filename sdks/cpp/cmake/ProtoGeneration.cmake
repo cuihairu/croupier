@@ -139,10 +139,10 @@ function(setup_standalone_build)
                 list(LENGTH GENERATED_PROTO_SOURCES file_count)
                 message(STATUS "✅ Found ${file_count} generated proto source files")
                 return()
-            else
+            else()
                 message(STATUS "⚠️ Prebuilt directory exists but no .cc files found")
             endif()
-        else
+        else()
             message(STATUS "⚠️ Prebuilt proto directory not found")
         endif()
 
@@ -164,7 +164,7 @@ function(setup_standalone_build)
 
             message(STATUS "✅ Online proto generation configured")
             return()
-        else
+        else()
             message(STATUS "⚠️ Proto directory not found: ${CROUPIER_PROTO_DIR}")
         endif()
     endif()
@@ -191,7 +191,7 @@ function(setup_ci_build)
 
             # Generate gRPC code from pre-copied files
             generate_grpc_code("${CMAKE_CURRENT_SOURCE_DIR}/generated" ${PROTO_GENERATED_DIR})
-        else
+        else()
             # Fallback: download from main project
             message(STATUS "⬇️  Proto files not pre-copied, downloading from main project...")
             set(PROTO_DOWNLOAD_DIR "${CMAKE_CURRENT_BINARY_DIR}/downloaded_proto")
