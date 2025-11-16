@@ -345,8 +345,9 @@ func fieldToJSONSchema(pkg string, msgIdx map[string]*descriptorpb.DescriptorPro
 	case descriptorpb.FieldDescriptorProto_TYPE_MESSAGE:
 		// Map or nested message
 		t := f.GetTypeName()
-		if strings.HasPrefix(t, ".") {
-			t = t
+		// Normalize to a leading dot for fully-qualified type comparisons
+		if !strings.HasPrefix(t, ".") {
+			t = "." + t
 		}
 		// Detect google.protobuf.Timestamp/Duration → strings with format
 		if t == ".google.protobuf.Timestamp" {
@@ -356,7 +357,7 @@ func fieldToJSONSchema(pkg string, msgIdx map[string]*descriptorpb.DescriptorPro
 			return map[string]any{"type": "string", "pattern": "^\\d+[smhd]$"}, required
 		}
 		// Map type (detect map_entry)
-		if sub := msgIdx[f.GetTypeName()]; sub != nil && sub.GetOptions().GetMapEntry() {
+		if sub := msgIdx[t]; sub != nil && sub.GetOptions().GetMapEntry() {
 			// map<key, value> represented by a message with key/value fields
 			var _, valType map[string]any
 			for _, sf := range sub.GetField() {
@@ -376,13 +377,13 @@ func fieldToJSONSchema(pkg string, msgIdx map[string]*descriptorpb.DescriptorPro
 		// Repeated message as array
 		if f.GetLabel() == descriptorpb.FieldDescriptorProto_LABEL_REPEATED {
 			item := map[string]any{"type": "object"}
-			if sub := msgIdx[f.GetTypeName()]; sub != nil {
+			if sub := msgIdx[t]; sub != nil {
 				item = buildJSONSchema(pkg, msgIdx, enumIdx, sub)
 			}
 			return map[string]any{"type": "array", "items": item}, required
 		}
 		// Nested object
-		sub := msgIdx[f.GetTypeName()]
+		sub := msgIdx[t]
 		if sub != nil {
 			return buildJSONSchema(pkg, msgIdx, enumIdx, sub), required
 		}
