@@ -157,14 +157,15 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-          cache: maven
-      - name: Build JAR
-        run: mvn -B -f sdks/java/pom.xml -DskipTests package
+          cache: gradle
+      - name: Build JAR (Gradle)
+        run: |
+          gradle -p sdks/java clean build -x test
       - name: Collect and upload
         run: |
           mkdir -p out
           # Copy to a stable filename
-          cp sdks/java/target/*.jar "out/croupier-java-sdk.jar"
+          cp sdks/java/build/libs/*.jar "out/croupier-java-sdk.jar"
         shell: bash
       - uses: actions/upload-artifact@v4
         with:

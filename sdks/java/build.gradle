@@ -1,0 +1,46 @@
+plugins {
+    id 'java-library'
+}
+
+group = 'com.croupier'
+version = '1.0.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+    withSourcesJar()
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Protobuf / gRPC runtime to compile generated sources
+    implementation "com.google.protobuf:protobuf-java:4.33.1"
+    implementation "io.grpc:grpc-netty-shaded:1.67.1"
+    implementation "io.grpc:grpc-protobuf:1.67.1"
+    implementation "io.grpc:grpc-stub:1.67.1"
+
+    testImplementation "org.junit.jupiter:junit-jupiter:5.10.0"
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+// Include both pre-generated proto sources and conventional src layout
+sourceSets {
+    main {
+        java {
+            srcDirs = ["generated", "src/main/java"]
+        }
+    }
+}
+
+tasks.jar {
+    // Produce a stable filename for nightly artifacts
+    archiveBaseName.set("croupier-java-sdk")
+}
+
