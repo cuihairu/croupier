@@ -22,28 +22,28 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from croupier.options import function_pb2 as croupier_dot_options_dot_function__pb2
-from croupier.options import ui_pb2 as croupier_dot_options_dot_ui__pb2
+from croupier.options.v1 import function_pb2 as croupier_dot_options_dot_v1_dot_function__pb2
+from croupier.options.v1 import ui_pb2 as croupier_dot_options_dot_v1_dot_ui__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%examples/games/player/v1/player.proto\x12\x0fgames.player.v1\x1a\x1f\x63roupier/options/function.proto\x1a\x19\x63roupier/options/ui.proto\"p\n\nBanRequest\x12\x32\n\tplayer_id\x18\x01 \x01(\tB\x15\x8a\xb2\x19\x11\n\x05input\x12\x08\xe7\x8e\xa9\xe5\xae\xb6IDR\x08playerId\x12.\n\x06reason\x18\x02 \x01(\tB\x16\x8a\xb2\x19\x12\n\x08textarea\x1a\x06\xe5\x8e\x9f\xe5\x9b\xa0R\x06reason\"%\n\x0b\x42\x61nResponse\x12\x16\n\x06result\x18\x01 \x01(\tR\x06result2\x91\x01\n\x08PlayerGm\x12\x84\x01\n\x03\x42\x61n\x12\x1b.games.player.v1.BanRequest\x1a\x1c.games.player.v1.BanResponse\"B\xca\xf3\x18>\n\nplayer.ban\x12\x05\x31.2.0\x1a\x06player\"\x04high*\x02lb2\x03\x33\x30s8\x01\x42\x05\x61gentR\x07\x63ommandX\x01\x42\xc7\x01\n\x13\x63om.games.player.v1B\x0bPlayerProtoP\x01ZEgithub.com/cuihairu/croupier/pkg/pb/examples/games/player/v1;playerv1\xa2\x02\x03GPX\xaa\x02\x0fGames.Player.V1\xca\x02\x0fGames\\Player\\V1\xe2\x02\x1bGames\\Player\\V1\\GPBMetadata\xea\x02\x11Games::Player::V1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%examples/games/player/v1/player.proto\x12\x18\x65xamples.games.player.v1\x1a\"croupier/options/v1/function.proto\x1a\x1c\x63roupier/options/v1/ui.proto\"p\n\nBanRequest\x12\x32\n\tplayer_id\x18\x01 \x01(\tB\x15\x8a\xb2\x19\x11\n\x05input\x12\x08\xe7\x8e\xa9\xe5\xae\xb6IDR\x08playerId\x12.\n\x06reason\x18\x02 \x01(\tB\x16\x8a\xb2\x19\x12\n\x08textarea\x1a\x06\xe5\x8e\x9f\xe5\x9b\xa0R\x06reason\"%\n\x0b\x42\x61nResponse\x12\x16\n\x06result\x18\x01 \x01(\tR\x06result2\xaa\x01\n\x0fPlayerGmService\x12\x96\x01\n\x03\x42\x61n\x12$.examples.games.player.v1.BanRequest\x1a%.examples.games.player.v1.BanResponse\"B\xca\xf3\x18>\n\nplayer.ban\x12\x05\x31.2.0\x1a\x06player\"\x04high*\x02lb2\x03\x33\x30s8\x01\x42\x05\x61gentR\x07\x63ommandX\x01\x42\xf5\x01\n\x1c\x63om.examples.games.player.v1B\x0bPlayerProtoP\x01ZEgithub.com/cuihairu/croupier/pkg/pb/examples/games/player/v1;playerv1\xa2\x02\x03\x45GP\xaa\x02\x18\x45xamples.Games.Player.V1\xca\x02\x18\x45xamples\\Games\\Player\\V1\xe2\x02$Examples\\Games\\Player\\V1\\GPBMetadata\xea\x02\x1b\x45xamples::Games::Player::V1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'examples.games.player.v1.player_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
-  _globals['DESCRIPTOR']._serialized_options = b'\n\023com.games.player.v1B\013PlayerProtoP\001ZEgithub.com/cuihairu/croupier/pkg/pb/examples/games/player/v1;playerv1\242\002\003GPX\252\002\017Games.Player.V1\312\002\017Games\\Player\\V1\342\002\033Games\\Player\\V1\\GPBMetadata\352\002\021Games::Player::V1'
+  _globals['DESCRIPTOR']._serialized_options = b'\n\034com.examples.games.player.v1B\013PlayerProtoP\001ZEgithub.com/cuihairu/croupier/pkg/pb/examples/games/player/v1;playerv1\242\002\003EGP\252\002\030Examples.Games.Player.V1\312\002\030Examples\\Games\\Player\\V1\342\002$Examples\\Games\\Player\\V1\\GPBMetadata\352\002\033Examples::Games::Player::V1'
   _globals['_BANREQUEST'].fields_by_name['player_id']._loaded_options = None
   _globals['_BANREQUEST'].fields_by_name['player_id']._serialized_options = b'\212\262\031\021\n\005input\022\010\347\216\251\345\256\266ID'
   _globals['_BANREQUEST'].fields_by_name['reason']._loaded_options = None
   _globals['_BANREQUEST'].fields_by_name['reason']._serialized_options = b'\212\262\031\022\n\010textarea\032\006\345\216\237\345\233\240'
-  _globals['_PLAYERGM'].methods_by_name['Ban']._loaded_options = None
-  _globals['_PLAYERGM'].methods_by_name['Ban']._serialized_options = b'\312\363\030>\n\nplayer.ban\022\0051.2.0\032\006player\"\004high*\002lb2\00330s8\001B\005agentR\007commandX\001'
-  _globals['_BANREQUEST']._serialized_start=118
-  _globals['_BANREQUEST']._serialized_end=230
-  _globals['_BANRESPONSE']._serialized_start=232
-  _globals['_BANRESPONSE']._serialized_end=269
-  _globals['_PLAYERGM']._serialized_start=272
-  _globals['_PLAYERGM']._serialized_end=417
+  _globals['_PLAYERGMSERVICE'].methods_by_name['Ban']._loaded_options = None
+  _globals['_PLAYERGMSERVICE'].methods_by_name['Ban']._serialized_options = b'\312\363\030>\n\nplayer.ban\022\0051.2.0\032\006player\"\004high*\002lb2\00330s8\001B\005agentR\007commandX\001'
+  _globals['_BANREQUEST']._serialized_start=133
+  _globals['_BANREQUEST']._serialized_end=245
+  _globals['_BANRESPONSE']._serialized_start=247
+  _globals['_BANRESPONSE']._serialized_end=284
+  _globals['_PLAYERGMSERVICE']._serialized_start=287
+  _globals['_PLAYERGMSERVICE']._serialized_end=457
 # @@protoc_insertion_point(module_scope)

@@ -19,101 +19,101 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	PlayerGm_Ban_FullMethodName = "/games.player.v1.PlayerGm/Ban"
+	PlayerGmService_Ban_FullMethodName = "/examples.games.player.v1.PlayerGmService/Ban"
 )
 
-// PlayerGmClient is the client API for PlayerGm service.
+// PlayerGmServiceClient is the client API for PlayerGmService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type PlayerGmClient interface {
+type PlayerGmServiceClient interface {
 	Ban(ctx context.Context, in *BanRequest, opts ...grpc.CallOption) (*BanResponse, error)
 }
 
-type playerGmClient struct {
+type playerGmServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewPlayerGmClient(cc grpc.ClientConnInterface) PlayerGmClient {
-	return &playerGmClient{cc}
+func NewPlayerGmServiceClient(cc grpc.ClientConnInterface) PlayerGmServiceClient {
+	return &playerGmServiceClient{cc}
 }
 
-func (c *playerGmClient) Ban(ctx context.Context, in *BanRequest, opts ...grpc.CallOption) (*BanResponse, error) {
+func (c *playerGmServiceClient) Ban(ctx context.Context, in *BanRequest, opts ...grpc.CallOption) (*BanResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(BanResponse)
-	err := c.cc.Invoke(ctx, PlayerGm_Ban_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, PlayerGmService_Ban_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// PlayerGmServer is the server API for PlayerGm service.
-// All implementations must embed UnimplementedPlayerGmServer
+// PlayerGmServiceServer is the server API for PlayerGmService service.
+// All implementations must embed UnimplementedPlayerGmServiceServer
 // for forward compatibility.
-type PlayerGmServer interface {
+type PlayerGmServiceServer interface {
 	Ban(context.Context, *BanRequest) (*BanResponse, error)
-	mustEmbedUnimplementedPlayerGmServer()
+	mustEmbedUnimplementedPlayerGmServiceServer()
 }
 
-// UnimplementedPlayerGmServer must be embedded to have
+// UnimplementedPlayerGmServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedPlayerGmServer struct{}
+type UnimplementedPlayerGmServiceServer struct{}
 
-func (UnimplementedPlayerGmServer) Ban(context.Context, *BanRequest) (*BanResponse, error) {
+func (UnimplementedPlayerGmServiceServer) Ban(context.Context, *BanRequest) (*BanResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ban not implemented")
 }
-func (UnimplementedPlayerGmServer) mustEmbedUnimplementedPlayerGmServer() {}
-func (UnimplementedPlayerGmServer) testEmbeddedByValue()                  {}
+func (UnimplementedPlayerGmServiceServer) mustEmbedUnimplementedPlayerGmServiceServer() {}
+func (UnimplementedPlayerGmServiceServer) testEmbeddedByValue()                         {}
 
-// UnsafePlayerGmServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to PlayerGmServer will
+// UnsafePlayerGmServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to PlayerGmServiceServer will
 // result in compilation errors.
-type UnsafePlayerGmServer interface {
-	mustEmbedUnimplementedPlayerGmServer()
+type UnsafePlayerGmServiceServer interface {
+	mustEmbedUnimplementedPlayerGmServiceServer()
 }
 
-func RegisterPlayerGmServer(s grpc.ServiceRegistrar, srv PlayerGmServer) {
-	// If the following call pancis, it indicates UnimplementedPlayerGmServer was
+func RegisterPlayerGmServiceServer(s grpc.ServiceRegistrar, srv PlayerGmServiceServer) {
+	// If the following call pancis, it indicates UnimplementedPlayerGmServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&PlayerGm_ServiceDesc, srv)
+	s.RegisterService(&PlayerGmService_ServiceDesc, srv)
 }
 
-func _PlayerGm_Ban_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _PlayerGmService_Ban_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(BanRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(PlayerGmServer).Ban(ctx, in)
+		return srv.(PlayerGmServiceServer).Ban(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: PlayerGm_Ban_FullMethodName,
+		FullMethod: PlayerGmService_Ban_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PlayerGmServer).Ban(ctx, req.(*BanRequest))
+		return srv.(PlayerGmServiceServer).Ban(ctx, req.(*BanRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// PlayerGm_ServiceDesc is the grpc.ServiceDesc for PlayerGm service.
+// PlayerGmService_ServiceDesc is the grpc.ServiceDesc for PlayerGmService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var PlayerGm_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "games.player.v1.PlayerGm",
-	HandlerType: (*PlayerGmServer)(nil),
+var PlayerGmService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "examples.games.player.v1.PlayerGmService",
+	HandlerType: (*PlayerGmServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Ban",
-			Handler:    _PlayerGm_Ban_Handler,
+			Handler:    _PlayerGmService_Ban_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

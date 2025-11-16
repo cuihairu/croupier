@@ -5,7 +5,7 @@ import grpc
 from examples.games.player.v1 import player_pb2 as examples_dot_games_dot_player_dot_v1_dot_player__pb2
 
 
-class PlayerGmStub(object):
+class PlayerGmServiceStub(object):
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -15,13 +15,13 @@ class PlayerGmStub(object):
             channel: A grpc.Channel.
         """
         self.Ban = channel.unary_unary(
-                '/games.player.v1.PlayerGm/Ban',
+                '/examples.games.player.v1.PlayerGmService/Ban',
                 request_serializer=examples_dot_games_dot_player_dot_v1_dot_player__pb2.BanRequest.SerializeToString,
                 response_deserializer=examples_dot_games_dot_player_dot_v1_dot_player__pb2.BanResponse.FromString,
                 _registered_method=True)
 
 
-class PlayerGmServicer(object):
+class PlayerGmServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def Ban(self, request, context):
@@ -31,7 +31,7 @@ class PlayerGmServicer(object):
         raise NotImplementedError('Method not implemented!')
 
 
-def add_PlayerGmServicer_to_server(servicer, server):
+def add_PlayerGmServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Ban': grpc.unary_unary_rpc_method_handler(
                     servicer.Ban,
@@ -40,13 +40,13 @@ def add_PlayerGmServicer_to_server(servicer, server):
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'games.player.v1.PlayerGm', rpc_method_handlers)
+            'examples.games.player.v1.PlayerGmService', rpc_method_handlers)
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('games.player.v1.PlayerGm', rpc_method_handlers)
+    server.add_registered_method_handlers('examples.games.player.v1.PlayerGmService', rpc_method_handlers)
 
 
  # This class is part of an EXPERIMENTAL API.
-class PlayerGm(object):
+class PlayerGmService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
@@ -63,7 +63,7 @@ class PlayerGm(object):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/games.player.v1.PlayerGm/Ban',
+            '/examples.games.player.v1.PlayerGmService/Ban',
             examples_dot_games_dot_player_dot_v1_dot_player__pb2.BanRequest.SerializeToString,
             examples_dot_games_dot_player_dot_v1_dot_player__pb2.BanResponse.FromString,
             options,

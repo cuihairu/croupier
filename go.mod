@@ -3,10 +3,10 @@ module github.com/cuihairu/croupier
 go 1.24.0
 
 require (
-	github.com/cuihairu/croupier-sdk-go v0.0.0-00010101000000-000000000000
 	github.com/ClickHouse/clickhouse-go/v2 v2.40.3
 	github.com/aliyun/aliyun-oss-go-sdk v2.2.9+incompatible
 	github.com/casbin/casbin/v2 v2.132.0
+	github.com/cuihairu/croupier-sdk-go v0.0.0-00010101000000-000000000000
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/wire v0.5.0
 	github.com/ip2location/ip2location-go/v9 v9.8.0
@@ -33,12 +33,15 @@ require (
 	gorm.io/datatypes v1.2.7
 	gorm.io/driver/mysql v1.5.6
 	gorm.io/driver/postgres v1.5.7
-	gorm.io/driver/sqlite v1.5.7
+	gorm.io/driver/sqlite v1.5.7 // indirect
 	gorm.io/driver/sqlserver v1.6.3
 	gorm.io/gorm v1.30.0
 )
 
-require github.com/glebarez/sqlite v1.11.0
+require (
+	github.com/fsnotify/fsnotify v1.7.0
+	github.com/glebarez/sqlite v1.11.0
+)
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
@@ -75,7 +78,6 @@ require (
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.4 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/glebarez/go-sqlite v1.21.2 // indirect
@@ -109,7 +111,6 @@ require (
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/microsoft/go-mssqldb v1.8.2 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
