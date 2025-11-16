@@ -8,7 +8,7 @@ import (
 
     repogames "github.com/cuihairu/croupier/internal/repo/gorm/games"
     dom "github.com/cuihairu/croupier/internal/ports"
-    "gorm.io/driver/sqlite"
+    "github.com/glebarez/sqlite"
     "gorm.io/gorm"
 )
 

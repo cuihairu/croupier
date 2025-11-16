@@ -13,7 +13,7 @@ import (
     jwt "github.com/cuihairu/croupier/internal/security/token"
     repogames "github.com/cuihairu/croupier/internal/repo/gorm/games"
     gamesvc "github.com/cuihairu/croupier/internal/service/games"
-    "gorm.io/driver/sqlite"
+    "github.com/glebarez/sqlite"
     "gorm.io/gorm"
 )
 

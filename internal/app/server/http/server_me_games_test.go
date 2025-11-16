@@ -10,7 +10,7 @@ import (
     usersgorm "github.com/cuihairu/croupier/internal/repo/gorm/users"
     gamesvc "github.com/cuihairu/croupier/internal/service/games"
     jwt "github.com/cuihairu/croupier/internal/security/token"
-    "gorm.io/driver/sqlite"
+    "github.com/glebarez/sqlite"
     "gorm.io/gorm"
 )
 

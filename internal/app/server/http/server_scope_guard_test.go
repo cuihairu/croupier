@@ -10,7 +10,7 @@ import (
     repogames "github.com/cuihairu/croupier/internal/repo/gorm/games"
     usersgorm "github.com/cuihairu/croupier/internal/repo/gorm/users"
     jwt "github.com/cuihairu/croupier/internal/security/token"
-    "gorm.io/driver/sqlite"
+    "github.com/glebarez/sqlite"
     "gorm.io/gorm"
 )
 
@@ -83,4 +83,3 @@ func TestScopeGuard_EnvDenied(t *testing.T) {
         t.Fatalf("expected 403 for env scope denied, got %d (%s)", w.Code, w.Body.String())
     }
 }
-
