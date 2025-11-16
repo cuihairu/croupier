@@ -63,6 +63,11 @@ p, role:developer, /api/schema/validate, POST
 p, role:developer, /api/entities/validate, POST
 p, role:developer, /api/entities, GET
 p, role:developer, /api/entities/*, GET
+# Developer: functions listing and schema/x-render operations used in tests
+p, role:developer, /api/functions, GET
+p, role:developer, /api/functions/*, GET
+p, role:developer, /api/schemas, POST
+p, role:developer, /api/x-render/components, GET
 
 # Senior developer: can update entities
 p, role:senior_developer, /api/invoke, POST
