@@ -1,0 +1,52 @@
+name: Docs (GitHub Pages)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs-pages.yml'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Install dependencies
+        working-directory: docs
+        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
+      - name: Build website
+        working-directory: docs
+        run: npx docusaurus build .
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/build
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

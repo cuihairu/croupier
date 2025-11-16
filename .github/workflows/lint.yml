@@ -20,6 +20,8 @@ jobs:
         uses: bufbuild/buf-setup-action@v1
       - name: Lint proto
         run: buf lint
+      - name: Build protoc-gen-croupier
+        run: make croupier-plugin
       - name: Generate proto
         run: buf generate
       - name: Go mod download
