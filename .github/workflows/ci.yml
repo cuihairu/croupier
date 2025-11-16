@@ -28,6 +28,8 @@ jobs:
         run: go mod download
       - name: Build
         run: make build
+      - name: Prepare storage directory
+        run: mkdir -p data/uploads
       - name: Clear test cache
         run: go clean -testcache
       - name: Sanity check code includes latest schema/x-render fixes
@@ -37,4 +39,10 @@ jobs:
           grep -n "invalid schema payload" internal/app/server/http/server.go
           ! grep -R --line-number "httptest.NewRequest(.*(\*bytes.Buffer)" internal/app/server/http/server_new_apis_test.go || true
       - name: Unit tests
+        env:
+          DB_DRIVER: sqlite
+          DATABASE_URL: ":memory:"
+          STORAGE_DRIVER: file
+          STORAGE_BASE_DIR: data/uploads
+          GIN_MODE: release
         run: go test -count=1 ./...
