@@ -433,7 +433,7 @@ func TestXRenderAPIs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, tt.path, (*bytes.Buffer)(nil))
+			req := httptest.NewRequest(tt.method, tt.path, nil)
 			if tt.token != "" {
 				req.Header.Set("Authorization", "Bearer "+tt.token)
 			}
@@ -500,9 +500,11 @@ func TestComponentDetailsAPIs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var body *bytes.Buffer = nil
+			var body io.Reader
 			if tt.body != "" {
 				body = bytes.NewBufferString(tt.body)
+			} else {
+				body = nil
 			}
 
 			req := httptest.NewRequest(tt.method, tt.path, body)
