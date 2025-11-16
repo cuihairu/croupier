@@ -20,7 +20,7 @@
 
         <!-- Dependency versions -->
         <grpc.version>1.67.1</grpc.version>
-        <protobuf.version>4.29.3</protobuf.version>
+        <protobuf.version>4.33.1</protobuf.version>
         <jackson.version>2.15.2</jackson.version>
         <junit.version>5.10.0</junit.version>
         <slf4j.version>2.0.9</slf4j.version>
