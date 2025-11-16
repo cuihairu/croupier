@@ -4,12 +4,14 @@ import (
     "bytes"
     "compress/gzip"
     "context"
+    "encoding/json"
     "fmt"
     "io"
     "time"
 
     reg "github.com/cuihairu/croupier/internal/platform/registry"
     controlv1 "github.com/cuihairu/croupier/pkg/pb/croupier/control/v1"
+    commonv1 "github.com/cuihairu/croupier/pkg/pb/croupier/common/v1"
     "google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -102,6 +104,7 @@ func (s *Server) RegisterCapabilities(ctx context.Context, in *controlv1.Registe
 func (s *Server) ListFunctionsSummary(ctx context.Context, _ *emptypb.Empty) (*controlv1.ListFunctionsSummaryResponse, error) {
     out := &controlv1.ListFunctionsSummaryResponse{}
     seen := map[string]struct{}{}
+    enabledMap := map[string]bool{}
 
     s.reg.Mu().RLock()
     for _, a := range s.reg.AgentsUnsafe() {
@@ -112,19 +115,51 @@ func (s *Server) ListFunctionsSummary(ctx context.Context, _ *emptypb.Empty) (*c
             if fid == "" {
                 continue
             }
-            if _, ok := seen[fid]; ok {
-                continue
-            }
+            enabledMap[fid] = enabledMap[fid] || meta.Enabled
             seen[fid] = struct{}{}
-            // Fill minimal fields for now; UI/RBAC/i18n can be populated later
-            fd := &controlv1.FunctionDescriptor{
-                Id:      fid,
-                Enabled: meta.Enabled,
-            }
-            out.Functions = append(out.Functions, fd)
         }
     }
+    // Build metadata index from provider manifests
+    metaIdx := s.reg.BuildFunctionIndex()
     s.reg.Mu().RUnlock()
+
+    // Union of ids from enabledMap and metaIdx
+    union := map[string]struct{}{}
+    for k := range enabledMap {
+        union[k] = struct{}{}
+    }
+    for k := range metaIdx {
+        union[k] = struct{}{}
+    }
+    // Build descriptors
+    for fid := range union {
+        fd := &controlv1.FunctionDescriptor{
+            Id:      fid,
+            Enabled: enabledMap[fid],
+        }
+        if m, ok := metaIdx[fid]; ok {
+            // display_name / summary (I18nText)
+            if dn := parseI18n(m["display_name"]); dn != nil {
+                fd.DisplayName = dn
+            }
+            if sm := parseI18n(m["summary"]); sm != nil {
+                fd.Summary = sm
+            }
+            // tags
+            if tags := parseStringSlice(m["tags"]); len(tags) > 0 {
+                fd.Tags = tags
+            }
+            // menu
+            if menu := parseMenu(m["menu"]); menu != nil {
+                fd.Menu = menu
+            }
+            // permissions
+            if perm := parsePerm(m["permissions"]); perm != nil {
+                fd.Permissions = perm
+            }
+        }
+        out.Functions = append(out.Functions, fd)
+    }
 
     return out, nil
 }
@@ -142,4 +177,145 @@ func (s *Server) decompressManifest(data []byte) ([]byte, error) {
     defer reader.Close()
 
     return io.ReadAll(reader)
+}
+
+// --- helpers to parse provider manifest metadata into proto types ---
+
+func parseI18n(v interface{}) *commonv1.I18nText {
+    if v == nil {
+        return nil
+    }
+    switch t := v.(type) {
+    case map[string]interface{}:
+        out := &commonv1.I18nText{}
+        if en, ok := t["en"].(string); ok {
+            out.En = en
+        }
+        if zh, ok := t["zh"].(string); ok {
+            out.Zh = zh
+        }
+        if out.En == "" && out.Zh == "" {
+            return nil
+        }
+        return out
+    case string:
+        // Shortcut: string treated as zh
+        return &commonv1.I18nText{Zh: t}
+    default:
+        // Try JSON string
+        if s, ok := v.(string); ok {
+            var m map[string]string
+            if err := json.Unmarshal([]byte(s), &m); err == nil {
+                out := &commonv1.I18nText{En: m["en"], Zh: m["zh"]}
+                if out.En != "" || out.Zh != "" {
+                    return out
+                }
+            }
+        }
+    }
+    return nil
+}
+
+func parseStringSlice(v interface{}) []string {
+    if v == nil {
+        return nil
+    }
+    out := []string{}
+    switch t := v.(type) {
+    case []interface{}:
+        for _, it := range t {
+            if s, ok := it.(string); ok && s != "" {
+                out = append(out, s)
+            }
+        }
+    case []string:
+        out = append(out, t...)
+    }
+    return out
+}
+
+func parseMenu(v interface{}) *commonv1.Menu {
+    m, ok := v.(map[string]interface{})
+    if !ok {
+        return nil
+    }
+    out := &commonv1.Menu{}
+    if s, ok := m["section"].(string); ok {
+        out.Section = s
+    }
+    if s, ok := m["group"].(string); ok {
+        out.Group = s
+    }
+    if s, ok := m["path"].(string); ok {
+        out.Path = s
+    }
+    if f, ok := toFloat(m["order"]); ok {
+        out.Order = int32(f)
+    }
+    if s, ok := m["icon"].(string); ok {
+        out.Icon = s
+    }
+    if s, ok := m["badge"].(string); ok {
+        out.Badge = s
+    }
+    if b, ok := m["hidden"].(bool); ok {
+        out.Hidden = b
+    }
+    return out
+}
+
+func parsePerm(v interface{}) *commonv1.PermissionSpec {
+    m, ok := v.(map[string]interface{})
+    if !ok {
+        return nil
+    }
+    out := &commonv1.PermissionSpec{}
+    if verbs := parseStringSlice(m["verbs"]); len(verbs) > 0 {
+        out.Verbs = verbs
+    }
+    if scopes := parseStringSlice(m["scopes"]); len(scopes) > 0 {
+        out.Scopes = scopes
+    }
+    // defaults
+    if defs, ok := m["defaults"].([]interface{}); ok {
+        for _, d := range defs {
+            dm, ok := d.(map[string]interface{})
+            if !ok {
+                continue
+            }
+            rb := &commonv1.RoleBinding{}
+            if r, ok := dm["role"].(string); ok {
+                rb.Role = r
+            }
+            if vs := parseStringSlice(dm["verbs"]); len(vs) > 0 {
+                rb.Verbs = vs
+            }
+            if rb.Role != "" && len(rb.Verbs) > 0 {
+                out.Defaults = append(out.Defaults, rb)
+            }
+        }
+    }
+    if zhMap, ok := m["i18n_zh"].(map[string]interface{}); ok {
+        out.I18NZh = map[string]string{}
+        for k, vv := range zhMap {
+            if s, ok := vv.(string); ok {
+                out.I18NZh[k] = s
+            }
+        }
+    }
+    return out
+}
+
+func toFloat(v interface{}) (float64, bool) {
+    switch t := v.(type) {
+    case float64:
+        return t, true
+    case int:
+        return float64(t), true
+    case int32:
+        return float64(t), true
+    case int64:
+        return float64(t), true
+    }
+    return 0, false
 }
