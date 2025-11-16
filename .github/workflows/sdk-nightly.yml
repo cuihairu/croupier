@@ -83,7 +83,11 @@ jobs:
           set -euxo pipefail
           VCPKG_ROOT="$PWD/.vcpkg"
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
-          "$VCPKG_ROOT/vcpkg" install grpc protobuf nlohmann-json --triplet ${{ matrix.triplet }}
+          # Pin builtin-baseline in manifest to the cloned vcpkg commit
+          BASELINE="$("$VCPKG_ROOT"/git-2*/bin/git rev-parse HEAD 2>/dev/null || git -C "$VCPKG_ROOT" rev-parse HEAD)"
+          sed -i.bak "s/__VCPKG_BASELINE__/${BASELINE}/" sdks/cpp/vcpkg.json || true
+          # Preinstall via manifest to warm cache
+          (cd sdks/cpp && "$VCPKG_ROOT/vcpkg" install --triplet ${{ matrix.triplet }}) || true
           echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
 
       - name: Install vcpkg (Windows)
@@ -106,7 +110,11 @@ jobs:
         run: |
           $env:VCPKG_ROOT="$PWD\.vcpkg"
           & "$env:VCPKG_ROOT\bootstrap-vcpkg.bat" -disableMetrics
-          & "$env:VCPKG_ROOT\vcpkg.exe" install grpc protobuf nlohmann-json --triplet ${{ matrix.triplet }}
+          $baseline = git -C $env:VCPKG_ROOT rev-parse HEAD
+          (Get-Content sdks/cpp/vcpkg.json).Replace("__VCPKG_BASELINE__", $baseline) | Set-Content sdks/cpp/vcpkg.json
+          pushd sdks/cpp
+          & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet ${{ matrix.triplet }} || echo "manifest preinstall skipped"
+          popd
           echo "VCPKG_ROOT=$env:VCPKG_ROOT" >> $env:GITHUB_ENV
 
       - name: Configure (Release, static)
@@ -116,8 +124,17 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
             -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} \
-            -DVCPKG_MANIFEST_MODE=OFF \
+            -DVCPKG_MANIFEST_MODE=ON \
+            -DVCPKG_FEATURE_FLAGS=manifests,binarycaching \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+
+      - name: Cache vcpkg_installed (manifest)
+        uses: actions/cache@v4
+        with:
+          path: sdks/cpp/vcpkg_installed
+          key: vcpkg-installed-${{ runner.os }}-${{ matrix.triplet }}-${{ hashFiles('sdks/cpp/vcpkg.json') }}
+          restore-keys: |
+            vcpkg-installed-${{ runner.os }}-${{ matrix.triplet }}-
 
       - name: Build static library
         shell: bash
