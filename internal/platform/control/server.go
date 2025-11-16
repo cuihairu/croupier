@@ -121,6 +121,49 @@ func (s *Server) ListFunctionsSummary(ctx context.Context, _ *emptypb.Empty) (*c
     }
     // Build metadata index from provider manifests
     metaIdx := s.reg.BuildFunctionIndex()
+    // Load server-side UI overrides and overlay (server overrides take precedence)
+    uiPath := os.Getenv("CROUPIER_UI_CONFIG")
+    if uiPath == "" {
+        // default lookup: single file or directory with multiple jsons
+        // try common locations
+        // 1) configs/ui/functions.override.json
+        // 2) configs/ui/functions.json
+        // 3) configs/ui (dir)
+        // We merge in this order so that functions.override.json wins.
+        // We'll feed all three paths to loader which merges in sequence.
+        override1 := "configs/ui/functions.override.json"
+        override2 := "configs/ui/functions.json"
+        dir := "configs/ui"
+        overrides := s.reg.LoadUIOverrides(override2, dir, override1)
+        if len(overrides) > 0 {
+            for fid, data := range overrides {
+                if data == nil {
+                    continue
+                }
+                if _, ok := metaIdx[fid]; !ok {
+                    metaIdx[fid] = map[string]interface{}{}
+                }
+                for k, v := range data {
+                    metaIdx[fid][k] = v
+                }
+            }
+        }
+    } else {
+        overrides := s.reg.LoadUIOverrides(uiPath)
+        if len(overrides) > 0 {
+            for fid, data := range overrides {
+                if data == nil {
+                    continue
+                }
+                if _, ok := metaIdx[fid]; !ok {
+                    metaIdx[fid] = map[string]interface{}{}
+                }
+                for k, v := range data {
+                    metaIdx[fid][k] = v
+                }
+            }
+        }
+    }
     s.reg.Mu().RUnlock()
 
     // Union of ids from enabledMap and metaIdx
