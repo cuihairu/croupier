@@ -41,8 +41,12 @@ jobs:
         with:
           enablement: true
 
-      - name: Enable Corepack
-        run: corepack enable
+      - name: Enable Corepack and prepare pnpm
+        run: |
+          set -euxo pipefail
+          corepack enable
+          corepack prepare pnpm@9 --activate
+          pnpm --version
 
       - name: Install dependencies (pnpm)
         working-directory: docs

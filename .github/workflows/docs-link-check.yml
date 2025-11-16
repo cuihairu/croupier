@@ -28,6 +28,12 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 9
+      - name: Enable Corepack and prepare pnpm
+        run: |
+          set -euxo pipefail
+          corepack enable
+          corepack prepare pnpm@9 --activate
+          pnpm --version
 
       - name: Install deps
         run: pnpm -C docs install --frozen-lockfile
