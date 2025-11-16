@@ -24,7 +24,15 @@ jobs:
         run: buf generate
       - name: Go mod download
         run: go mod download
+      - name: Prepare storage directory
+        run: mkdir -p data/uploads
       - name: Clear test cache
         run: go clean -testcache
       - name: Unit tests
+        env:
+          DB_DRIVER: sqlite
+          DATABASE_URL: ":memory:"
+          STORAGE_DRIVER: file
+          STORAGE_BASE_DIR: data/uploads
+          GIN_MODE: release
         run: go test -count=1 ./...
