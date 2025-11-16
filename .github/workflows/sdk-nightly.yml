@@ -175,6 +175,24 @@ jobs:
           $nuget | Out-File -FilePath $nugetPath -Encoding UTF8
           # Use 'nuget,<url>' provider so vcpkg passes -Source explicitly; credentials resolved from NuGet.Config
           echo "VCPKG_BINARY_SOURCES=clear;nuget,https://nuget.pkg.github.com/$owner/index.json,readwrite;files,$env:VCPKG_ROOT\archives,readwrite" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          # Remove any workspace-level nuget.config to avoid older runs influencing nuget.exe
+          if (Test-Path \"$env:GITHUB_WORKSPACE\\nuget.config\") { Remove-Item \"$env:GITHUB_WORKSPACE\\nuget.config\" -Force }
+
+      - name: Diagnostics (Windows NuGet/vcpkg)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host \"VCPKG_BINARY_SOURCES=$env:VCPKG_BINARY_SOURCES\"
+          if (Get-Command nuget.exe -ErrorAction SilentlyContinue) {
+            nuget sources list -NonInteractive -Verbosity detailed
+            Write-Host \"NuGet.Config location:\" (Join-Path $env:APPDATA \"NuGet\\NuGet.Config\")
+            if (Test-Path \"$env:GITHUB_WORKSPACE\\nuget.config\") {
+              Write-Host \"Warning: found workspace nuget.config; removing to avoid conflicts\"
+              Remove-Item \"$env:GITHUB_WORKSPACE\\nuget.config\" -Force
+            }
+          } else {
+            Write-Host \"nuget.exe not found in PATH\"
+          }
 
       - name: Set vcpkg concurrency (Windows)
         if: runner.os == 'Windows'
