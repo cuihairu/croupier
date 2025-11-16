@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http/httptest"
 	"os"
 	"testing"
@@ -168,7 +169,7 @@ func TestFunctionManagementAPIs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var body *bytes.Buffer
+			var body io.Reader
 			if tt.body != "" {
 				body = bytes.NewBufferString(tt.body)
 			} else {
@@ -266,7 +267,7 @@ func TestProviderManagementAPIs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(tt.method, tt.path, (*bytes.Buffer)(nil))
+			req := httptest.NewRequest(tt.method, tt.path, nil)
 			if tt.token != "" {
 				req.Header.Set("Authorization", "Bearer "+tt.token)
 			}
@@ -358,9 +359,11 @@ func TestSchemaManagementAPIs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var body *bytes.Buffer = nil
+			var body io.Reader
 			if tt.body != "" {
 				body = bytes.NewBufferString(tt.body)
+			} else {
+				body = nil
 			}
 
 			req := httptest.NewRequest(tt.method, tt.path, body)
@@ -573,7 +576,7 @@ func TestNewAPIsRBACPermissions(t *testing.T) {
 			t.Run(roleName+"_"+test.method+"_"+test.endpoint, func(t *testing.T) {
 				token, _ := srv.jwtMgr.Sign("user", roleList, 0)
 
-				req := httptest.NewRequest(test.method, test.endpoint, (*bytes.Buffer)(nil))
+				req := httptest.NewRequest(test.method, test.endpoint, nil)
 				req.Header.Set("Authorization", "Bearer "+token)
 				if test.method == "POST" || test.method == "PATCH" {
 					req.Header.Set("Content-Type", "application/json")
@@ -632,7 +635,7 @@ func TestNewAPIsResponseFormats(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", test.endpoint, (*bytes.Buffer)(nil))
+			req := httptest.NewRequest("GET", test.endpoint, nil)
 			req.Header.Set("Authorization", "Bearer "+adminToken)
 
 			rr := httptest.NewRecorder()
