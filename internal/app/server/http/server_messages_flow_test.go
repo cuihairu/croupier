@@ -11,7 +11,7 @@ import (
     msgsgorm "github.com/cuihairu/croupier/internal/repo/gorm/messages"
     usersgorm "github.com/cuihairu/croupier/internal/repo/gorm/users"
     jwt "github.com/cuihairu/croupier/internal/security/token"
-    "gorm.io/driver/sqlite"
+    "github.com/glebarez/sqlite"
     "gorm.io/gorm"
 )
 
@@ -122,4 +122,3 @@ func TestMessagesFlow_DirectAndBroadcast(t *testing.T) {
 
 func jsonNum(id uint) string { return strconvFormatUint(uint64(id)) }
 func strconvFormatUint(v uint64) string { b, _ := json.Marshal(v); return string(b) }
-
