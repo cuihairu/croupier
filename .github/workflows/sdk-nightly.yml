@@ -9,6 +9,11 @@ concurrency:
   group: sdk-nightly-${{ github.ref }}-${{ github.run_id }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  packages: write
+  actions: write
+
 env:
   NIGHTLY_TAG: sdk-nightly
 
@@ -49,9 +54,6 @@ jobs:
             arch: x86_64
     runs-on: ${{ matrix.runs-on }}
     continue-on-error: ${{ matrix.allow_fail == true }}
-    env:
-      # Enable vcpkg binary caching to GitHub Actions cache provider
-      VCPKG_BINARY_SOURCES: clear;x-gha,readwrite
     steps:
       - uses: actions/checkout@v4
 
@@ -67,6 +69,27 @@ jobs:
           git clone --depth 1 https://github.com/microsoft/vcpkg "$VCPKG_ROOT"
           # Cache vcpkg downloads to speed up subsequent runs
           echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
+
+      - name: Create nuget.config (GitHub Packages) [Unix]
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          cat > "$GITHUB_WORKSPACE/nuget.config" <<EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <add key="github" value="https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" />
+            </packageSources>
+            <packageSourceCredentials>
+              <github>
+                <add key="Username" value="${{ github.repository_owner }}" />
+                <add key="ClearTextPassword" value="${{ secrets.GITHUB_TOKEN }}" />
+              </github>
+            </packageSourceCredentials>
+          </configuration>
+          EOF
+          # Use NuGet-based binary caching with files fallback
+          echo "VCPKG_BINARY_SOURCES=clear;nugetconfig,$GITHUB_WORKSPACE/nuget.config,readwrite;files,$VCPKG_ROOT/archives,readwrite" >> "$GITHUB_ENV"
 
       - name: Set vcpkg concurrency (Unix)
         if: runner.os != 'Windows'
@@ -94,6 +117,14 @@ jobs:
           key: vcpkg-downloads-${{ runner.os }}-${{ matrix.triplet }}
           restore-keys: |
             vcpkg-downloads-${{ runner.os }}-
+      - name: Cache vcpkg archives (Unix)
+        if: runner.os != 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: .vcpkg/archives
+          key: vcpkg-archives-${{ runner.os }}-${{ matrix.triplet }}
+          restore-keys: |
+            vcpkg-archives-${{ runner.os }}-
       - name: Bootstrap and install ports (Unix)
         if: runner.os != 'Windows'
         shell: bash
@@ -119,6 +150,25 @@ jobs:
         run: |
           $env:VCPKG_ROOT="$PWD\.vcpkg"
           git clone --depth 1 https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
+          # Configure NuGet-based binary caching (GitHub Packages) with files fallback
+          $owner = "${{ github.repository_owner }}"
+          $token = "${{ secrets.GITHUB_TOKEN }}"
+          $nuget = @"
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <add key="github" value="https://nuget.pkg.github.com/$owner/index.json" />
+            </packageSources>
+            <packageSourceCredentials>
+              <github>
+                <add key="Username" value="$owner" />
+                <add key="ClearTextPassword" value="$token" />
+              </github>
+            </packageSourceCredentials>
+          </configuration>
+          "@
+          $nuget | Out-File -FilePath "$env:GITHUB_WORKSPACE\nuget.config" -Encoding UTF8
+          echo "VCPKG_BINARY_SOURCES=clear;nugetconfig,$env:GITHUB_WORKSPACE\nuget.config,readwrite;files,$env:VCPKG_ROOT\archives,readwrite" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Set vcpkg concurrency (Windows)
         if: runner.os == 'Windows'
@@ -141,6 +191,14 @@ jobs:
           key: vcpkg-downloads-${{ runner.os }}-${{ matrix.triplet }}
           restore-keys: |
             vcpkg-downloads-${{ runner.os }}-
+      - name: Cache vcpkg archives (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/cache@v4
+        with:
+          path: .vcpkg\archives
+          key: vcpkg-archives-${{ runner.os }}-${{ matrix.triplet }}
+          restore-keys: |
+            vcpkg-archives-${{ runner.os }}-
       - name: Bootstrap and install ports (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
