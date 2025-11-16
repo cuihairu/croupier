@@ -106,7 +106,8 @@ jobs:
           sed -i.bak "s/__VCPKG_BASELINE__/${BASELINE}/" sdks/cpp/vcpkg.json || true
           # Preinstall via manifest to warm cache
           EXTRA=""
-          if command -v aria2c >/dev/null 2>&1; then
+          # Only enable aria2 if both aria2c exists AND vcpkg supports the switch
+          if command -v aria2c >/dev/null 2>&1 && "$VCPKG_ROOT/vcpkg" help | grep -q -- '--x-use-aria2'; then
             EXTRA="--x-use-aria2"
           fi
           (cd sdks/cpp && "$VCPKG_ROOT/vcpkg" install --triplet ${{ matrix.triplet }} $EXTRA) || true
@@ -150,8 +151,16 @@ jobs:
           (Get-Content sdks/cpp/vcpkg.json).Replace("__VCPKG_BASELINE__", $baseline) | Set-Content sdks/cpp/vcpkg.json
           pushd sdks/cpp
           $extra = ""
-          if (Get-Command aria2c.exe -ErrorAction SilentlyContinue) { $extra = "--x-use-aria2" }
-          & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet ${{ matrix.triplet }} $extra || echo "manifest preinstall skipped"
+          if (Get-Command aria2c.exe -ErrorAction SilentlyContinue) {
+            $help = & "$env:VCPKG_ROOT\vcpkg.exe" help | Out-String
+            if ($help -match "--x-use-aria2") { $extra = "--x-use-aria2" }
+          }
+          try {
+            & "$env:VCPKG_ROOT\vcpkg.exe" install --triplet ${{ matrix.triplet }} $extra
+          } catch {
+            Write-Host "manifest preinstall skipped: $($_.Exception.Message)"
+            $global:LASTEXITCODE = 0
+          }
           popd
           echo "VCPKG_ROOT=$env:VCPKG_ROOT" >> $env:GITHUB_ENV
 
