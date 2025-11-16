@@ -1,6 +1,3 @@
----
-draft: true
----
 # 远程访问（网页 RDP/SSH）方案设计
 
 面向 Croupier 平台，将“服务器的登录与操作”纳入统一入口并留痕审计的可行方案整理。遵循 KISS/YAGNI：本设计先给出稳妥选型与最小闭环，后续按优先级扩展。
@@ -56,14 +53,14 @@ draft: true
 
 ## Guacamole 关键配置（示例）
 - RDP 连接参数：
-  - recording-path=/var/recordings/rdp
-  - recording-name=${GUAC_USERNAME}-${GUAC_DATE}.guac
-  - create-recording-path=true
-  - disable-clipboard=true, enable-audio=false, enable-drive=false（按需）
+  - `recording-path=/var/recordings/rdp`
+  - `recording-name=\${GUAC_USERNAME}-\${GUAC_DATE}.guac`
+  - `create-recording-path=true`
+  - `disable-clipboard=true, enable-audio=false, enable-drive=false`（按需）
 - SSH 连接参数：
-  - typescript-path=/var/recordings/ssh
-  - typescript-name=${GUAC_USERNAME}-${GUAC_DATE}
-  - create-typescript-path=true
+  - `typescript-path=/var/recordings/ssh`
+  - `typescript-name=\${GUAC_USERNAME}-\${GUAC_DATE}`
+  - `create-typescript-path=true`
 - 认证与 SSO：
   - 数据库/MySQL/Postgres
   - OIDC/TOTP 模块（与反向代理/OAuth2 Proxy 配合）
