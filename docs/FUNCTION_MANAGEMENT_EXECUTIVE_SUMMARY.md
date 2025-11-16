@@ -1,6 +1,4 @@
----
-draft: true
----
+
 # Croupier 函数管理系统 - 架构分析与改进方案
 
 ## 执行摘要
@@ -63,7 +61,7 @@ draft: true
 - Assignments 仅支持白名单，没有灰度发布或时间控制
 
 **建议：** 扩展权限模型
-- 支持 function:{id}:invoke 等细粒度权限
+- 支持 `function:{id}:invoke` 等细粒度权限
 - 按角色绑定权限集合
 - 支持时间窗口和百分比灰度
 
