@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <limits.h>
+#include <cstring>
 #define ACCESS access
 #define GETCWD getcwd
 #define MKDIR(path) mkdir(path, 0755)
