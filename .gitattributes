@@ -1,0 +1,36 @@
+## GitHub Linguist configuration
+# Goal: ensure primary language reflects real source (Go/TS/etc.), not build outputs or backups.
+# See: https://github.com/github/linguist#overrides
+
+# Binary build artifacts (exclude from language stats)
+agent                  linguist-generated
+edge                   linguist-generated
+server                 linguist-generated
+croupier               linguist-generated
+bin/**                 linguist-generated
+.gocache/**            linguist-generated
+
+# SDK build outputs
+sdks/**/build/**       linguist-generated
+
+# Generated code
+gen/**                 linguist-generated
+
+# Frontend dependencies and build outputs
+dashboard/node_modules/**  linguist-vendored
+dashboard/dist/**          linguist-generated
+dashboard/.umi/**          linguist-generated
+dashboard/tmp/**           linguist-generated
+
+# If you also have a web/ app in the future, keep it tidy too
+web/node_modules/**    linguist-vendored
+web/dist/**            linguist-generated
+web/.umi/**            linguist-generated
+web/tmp/**             linguist-generated
+
+# Migration/backup snapshots (do not count)
+.monorepo-migration/** linguist-vendored
+
+# Tip: if GitHub still shows Makefile dominating, uncomment the line below to exclude it:
+# Makefile              linguist-vendored
+
