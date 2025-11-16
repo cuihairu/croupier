@@ -3283,6 +3283,49 @@ func (s *Server) ginEngine() *gin.Engine {
 			}
 			s.JSON(c, 200, gin.H{"pending": pending})
 		})
+
+		// Publish a pending function: adopt manifest metadata into server override
+		r.POST("/api/admin/functions/:fid/publish", func(c *gin.Context) {
+			fid := strings.TrimSpace(c.Param("fid"))
+			if fid == "" {
+				s.respondError(c, 400, "bad_request", "missing function id")
+				return
+			}
+			meta := s.reg.BuildFunctionIndex()
+			m, ok := meta[fid]
+			if !ok || m == nil {
+				s.respondError(c, 404, "not_found", "no manifest metadata for function")
+				return
+			}
+			// Build override entry from manifest metadata (display_name/summary/tags/menu/permissions)
+			entry := map[string]any{}
+			for _, k := range []string{"display_name", "summary", "tags", "menu", "permissions"} {
+				if v, ok := m[k]; ok && v != nil {
+					entry[k] = v
+				}
+			}
+			// Merge with existing override (if any)
+			cur := s.loadUIOverrides()
+			if cur != nil {
+				if ex, ok := cur[fid]; ok && ex != nil {
+					for k, v := range ex {
+						// prefer manifest values for initial publish, but keep keys that manifest lacks
+						if _, exists := entry[k]; !exists {
+							entry[k] = v
+						}
+					}
+				}
+			}
+			if len(entry) == 0 {
+				// minimal publish: set enabled override with empty menu/permissions (not ideal, but unblocks)
+				entry["display_name"] = map[string]string{"zh": fid}
+			}
+			if err := s.saveUIOverride(fid, entry); err != nil {
+				s.respondError(c, 500, "internal_error", fmt.Sprintf("publish failed: %v", err))
+				return
+			}
+			c.Status(204)
+		})
 		r.GET("/healthz", func(c *gin.Context) { c.String(200, "ok") })
 	r.GET("/metrics", func(c *gin.Context) {
 		w := c.Writer
