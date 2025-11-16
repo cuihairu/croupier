@@ -3127,7 +3127,7 @@ func (s *Server) ginEngine() *gin.Engine {
 			for _, v := range caps { var m any; _ = json.Unmarshal(v.Manifest, &m); out = append(out, gin.H{"id": v.ID, "version": v.Version, "lang": v.Lang, "sdk": v.SDK, "manifest": m, "updated_at": v.UpdatedAt}) }
 			s.JSON(c, 200, gin.H{"providers": out})
 		})
-		// List provider entities?????? provider ??entities?????UI ?????
+		// List provider entities
 		r.GET("/api/providers/entities", func(c *gin.Context) {
 			if s.reg == nil { s.respondError(c, 503, "unavailable", "registry unavailable"); return }
 			caps := s.reg.ListProviderCaps()
@@ -3139,6 +3139,38 @@ func (s *Server) ginEngine() *gin.Engine {
 				out = append(out, gin.H{"provider": gin.H{"id": v.ID, "version": v.Version}, "entities": m.Entities})
 			}
 			s.JSON(c, 200, gin.H{"providers": out})
+		})
+
+		// Admin: Function UI/RBAC overrides
+		r.GET("/api/admin/functions/:fid/ui", func(c *gin.Context) {
+			fid := strings.TrimSpace(c.Param("fid"))
+			if fid == "" {
+				s.respondError(c, 400, "bad_request", "missing function id")
+				return
+			}
+			ov := s.loadUIOverrides()
+			if m, ok := ov[fid]; ok && m != nil {
+				s.JSON(c, 200, gin.H{"function_id": fid, "ui": m})
+				return
+			}
+			s.JSON(c, 200, gin.H{"function_id": fid})
+		})
+		r.PUT("/api/admin/functions/:fid/ui", func(c *gin.Context) {
+			fid := strings.TrimSpace(c.Param("fid"))
+			if fid == "" {
+				s.respondError(c, 400, "bad_request", "missing function id")
+				return
+			}
+			var body map[string]any
+			if err := c.BindJSON(&body); err != nil {
+				s.respondError(c, 400, "bad_request", "invalid json")
+				return
+			}
+			if err := s.saveUIOverride(fid, body); err != nil {
+				s.respondError(c, 500, "internal_error", fmt.Sprintf("save override failed: %v", err))
+				return
+			}
+			c.Status(204)
 		})
 		r.GET("/healthz", func(c *gin.Context) { c.String(200, "ok") })
 	r.GET("/metrics", func(c *gin.Context) {
@@ -8115,4 +8147,56 @@ func ifEmpty(s string, d string) string {
 		return d
 	}
 	return s
+}
+
+// --- UI Override helpers (HTTP layer) ---
+func (s *Server) uiOverridePath() (string, error) {
+	// Use env CROUPIER_UI_CONFIG if set and is a file; else fallback to configs/ui/functions.override.json
+	if p := strings.TrimSpace(os.Getenv("CROUPIER_UI_CONFIG")); p != "" {
+		if info, err := os.Stat(p); err == nil && !info.IsDir() {
+			return p, nil
+		}
+	}
+	dir := "configs/ui"
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "functions.override.json"), nil
+}
+
+func (s *Server) loadUIOverrides() map[string]map[string]any {
+	path, err := s.uiOverridePath()
+	if err != nil {
+		return map[string]map[string]any{}
+	}
+	b, err := os.ReadFile(path)
+	if err != nil || len(b) == 0 {
+		return map[string]map[string]any{}
+	}
+	var m map[string]map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		return map[string]map[string]any{}
+	}
+	return m
+}
+
+func (s *Server) saveUIOverride(fid string, ui map[string]any) error {
+	path, err := s.uiOverridePath()
+	if err != nil {
+		return err
+	}
+	cur := s.loadUIOverrides()
+	if cur == nil {
+		cur = map[string]map[string]any{}
+	}
+	cur[fid] = ui
+	b, err := json.MarshalIndent(cur, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
