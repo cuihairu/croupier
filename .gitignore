@@ -52,3 +52,4 @@ data/
 configs/IP2LOCATION-LITE-DB*.BIN
 configs/*.BIN
 web.local/
+docs_new/
