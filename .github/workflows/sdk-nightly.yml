@@ -166,13 +166,15 @@ jobs:
                 <add key="ClearTextPassword" value="$token" />
               </github>
             </packageSourceCredentials>
-            <config>
-              <add key="defaultPushSource" value="https://nuget.pkg.github.com/$owner/index.json" />
-            </config>
           </configuration>
           "@
-          $nuget | Out-File -FilePath "$env:GITHUB_WORKSPACE\nuget.config" -Encoding UTF8
-          echo "VCPKG_BINARY_SOURCES=clear;nugetconfig,$env:GITHUB_WORKSPACE\nuget.config,readwrite;files,$env:VCPKG_ROOT\archives,readwrite" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          # Write NuGet config to the default location so nuget.exe can discover it implicitly
+          $nugetDir = Join-Path $env:APPDATA "NuGet"
+          New-Item -ItemType Directory -Force -Path $nugetDir | Out-Null
+          $nugetPath = Join-Path $nugetDir "NuGet.Config"
+          $nuget | Out-File -FilePath $nugetPath -Encoding UTF8
+          # Use 'nuget,<url>' provider so vcpkg passes -Source explicitly; credentials resolved from NuGet.Config
+          echo "VCPKG_BINARY_SOURCES=clear;nuget,https://nuget.pkg.github.com/$owner/index.json,readwrite;files,$env:VCPKG_ROOT\archives,readwrite" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Set vcpkg concurrency (Windows)
         if: runner.os == 'Windows'
