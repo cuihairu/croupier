@@ -166,6 +166,9 @@ jobs:
                 <add key="ClearTextPassword" value="$token" />
               </github>
             </packageSourceCredentials>
+            <config>
+              <add key="defaultPushSource" value="https://nuget.pkg.github.com/$owner/index.json" />
+            </config>
           </configuration>
           "@
           $nuget | Out-File -FilePath "$env:GITHUB_WORKSPACE\nuget.config" -Encoding UTF8
