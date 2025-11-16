@@ -3,11 +3,11 @@
 // source: examples/games/player/v1/player.proto
 // Protobuf Java Version: 4.33.1
 
-package com.games.player.v1;
+package com.examples.games.player.v1;
 
 @com.google.protobuf.Generated
 public interface BanResponseOrBuilder extends
-    // @@protoc_insertion_point(interface_extends:games.player.v1.BanResponse)
+    // @@protoc_insertion_point(interface_extends:examples.games.player.v1.BanResponse)
     com.google.protobuf.MessageOrBuilder {
 
   /**

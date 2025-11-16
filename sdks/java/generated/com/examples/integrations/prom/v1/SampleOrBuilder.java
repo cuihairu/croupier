@@ -3,11 +3,11 @@
 // source: examples/integrations/prom/v1/prom.proto
 // Protobuf Java Version: 4.33.1
 
-package com.croupier.integrations.prom.v1;
+package com.examples.integrations.prom.v1;
 
 @com.google.protobuf.Generated
 public interface SampleOrBuilder extends
-    // @@protoc_insertion_point(interface_extends:croupier.integrations.prom.v1.Sample)
+    // @@protoc_insertion_point(interface_extends:examples.integrations.prom.v1.Sample)
     com.google.protobuf.MessageOrBuilder {
 
   /**

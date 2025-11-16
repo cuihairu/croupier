@@ -3,32 +3,32 @@
 // source: examples/games/player/v1/player.proto
 // Protobuf Java Version: 4.33.1
 
-package com.games.player.v1;
+package com.examples.games.player.v1;
 
 @com.google.protobuf.Generated
 public interface BanRequestOrBuilder extends
-    // @@protoc_insertion_point(interface_extends:games.player.v1.BanRequest)
+    // @@protoc_insertion_point(interface_extends:examples.games.player.v1.BanRequest)
     com.google.protobuf.MessageOrBuilder {
 
   /**
-   * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.ui) = { ... }</code>
+   * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.v1.ui) = { ... }</code>
    * @return The playerId.
    */
   java.lang.String getPlayerId();
   /**
-   * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.ui) = { ... }</code>
+   * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.v1.ui) = { ... }</code>
    * @return The bytes for playerId.
    */
   com.google.protobuf.ByteString
       getPlayerIdBytes();
 
   /**
-   * <code>string reason = 2 [json_name = "reason", (.croupier.options.ui) = { ... }</code>
+   * <code>string reason = 2 [json_name = "reason", (.croupier.options.v1.ui) = { ... }</code>
    * @return The reason.
    */
   java.lang.String getReason();
   /**
-   * <code>string reason = 2 [json_name = "reason", (.croupier.options.ui) = { ... }</code>
+   * <code>string reason = 2 [json_name = "reason", (.croupier.options.v1.ui) = { ... }</code>
    * @return The bytes for reason.
    */
   com.google.protobuf.ByteString
