@@ -79,6 +79,7 @@ jobs:
           set -euo pipefail
           PKG="croupier-cpp-sdk-${{ matrix.os_label }}-${{ matrix.arch }}-static"
           mkdir -p "out/${PKG}/include" "out/${PKG}/lib"
+          mkdir -p "out/${PKG}/cmake"
           cp -R sdks/cpp/include/* "out/${PKG}/include/"
           if [ -d sdks/cpp/generated ]; then
             mkdir -p "out/${PKG}/include/generated"
@@ -97,6 +98,25 @@ jobs:
             exit 1
           fi
           cp "${libfile}" "out/${PKG}/lib/"
+          LIBNAME="$(basename "${libfile}")"
+          # Generate a minimal CMake package config for find_package(croupier-sdk)
+          cat > "out/${PKG}/cmake/croupier-sdk-config.cmake" <<EOF
+          # Auto-generated config for croupier-sdk (nightly)
+          set(_CROUPIER_SDK_PREFIX "\${CMAKE_CURRENT_LIST_DIR}/..")
+          if (NOT TARGET croupier-sdk-static)
+            add_library(croupier-sdk-static STATIC IMPORTED)
+            set_target_properties(croupier-sdk-static PROPERTIES
+              IMPORTED_LOCATION "\${_CROUPIER_SDK_PREFIX}/lib/${LIBNAME}"
+              INTERFACE_INCLUDE_DIRECTORIES "\${_CROUPIER_SDK_PREFIX}/include"
+            )
+          endif()
+          if (NOT TARGET croupier::sdk-static)
+            add_library(croupier::sdk-static ALIAS croupier-sdk-static)
+          endif()
+          if (NOT TARGET croupier::sdk)
+            add_library(croupier::sdk ALIAS croupier-sdk-static)
+          endif()
+          EOF
           cp sdks/cpp/README.md "out/${PKG}/" || true
           cp sdks/cpp/LICENSE "out/${PKG}/" 2>/dev/null || true
           (cd out && tar czf "${PKG}.tar.gz" "${PKG}")
@@ -147,6 +167,16 @@ jobs:
         run: |
           python -m pip install --upgrade pip build
           python -m build sdks/python
+          # Add stable aliases for convenience downloads
+          mkdir -p sdks/python/out
+          WHL=$(ls sdks/python/dist/*.whl | head -n1 || true)
+          SDIST=$(ls sdks/python/dist/*.tar.gz | head -n1 || true)
+          if [ -n "${WHL}" ]; then
+            cp "${WHL}" sdks/python/out/croupier-python-sdk.whl
+          fi
+          if [ -n "${SDIST}" ]; then
+            cp "${SDIST}" sdks/python/out/croupier-python-sdk.tar.gz
+          fi
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -154,6 +184,8 @@ jobs:
           path: |
             sdks/python/dist/*.whl
             sdks/python/dist/*.tar.gz
+            sdks/python/out/croupier-python-sdk.whl
+            sdks/python/out/croupier-python-sdk.tar.gz
           if-no-files-found: error
           retention-days: 7
 
