@@ -25,7 +25,8 @@ type LocalFunctionDescriptor struct {
 }
 
 // FunctionHandler defines the signature for game function handlers
-type FunctionHandler func(ctx context.Context, payload string) (string, error)
+// Use []byte payloads to be language-agnostic and align with wire formats.
+type FunctionHandler func(ctx context.Context, payload []byte) ([]byte, error)
 
 // ClientConfig holds configuration for the Croupier client
 type ClientConfig struct {
