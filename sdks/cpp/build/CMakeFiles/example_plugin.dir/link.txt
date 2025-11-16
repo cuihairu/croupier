@@ -1,1 +1,0 @@
-/usr/bin/c++ -dynamiclib -Wl,-headerpad_max_install_names -o plugins/libexample_plugin.dylib -install_name @rpath/libexample_plugin.dylib CMakeFiles/example_plugin.dir/examples/plugins/example_plugin.cpp.o
