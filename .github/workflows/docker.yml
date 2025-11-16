@@ -40,6 +40,28 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+      - name: Make GHCR package public (server)
+        if: github.event_name != 'pull_request'
+        env:
+          GH_OWNER: ${{ github.repository_owner }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PKG: croupier-server
+        run: |
+          set -euo pipefail
+          for scope in "orgs/${GH_OWNER}" "user"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -L -X PUT \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/${scope}/packages/container/${PKG}/visibility" \
+              -d '{"visibility":"public"}' || true)
+            if [ "$code" = "204" ] || [ "$code" = "200" ]; then
+              echo "Package ${PKG} set to public via ${scope}"
+              exit 0
+            fi
+          done
+          echo "Failed to set ${PKG} public"
+          exit 1
 
   build-agent:
     runs-on: ubuntu-latest
@@ -69,6 +91,28 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+      - name: Make GHCR package public (agent)
+        if: github.event_name != 'pull_request'
+        env:
+          GH_OWNER: ${{ github.repository_owner }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PKG: croupier-agent
+        run: |
+          set -euo pipefail
+          for scope in "orgs/${GH_OWNER}" "user"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -L -X PUT \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/${scope}/packages/container/${PKG}/visibility" \
+              -d '{"visibility":"public"}' || true)
+            if [ "$code" = "204" ] || [ "$code" = "200" ]; then
+              echo "Package ${PKG} set to public via ${scope}"
+              exit 0
+            fi
+          done
+          echo "Failed to set ${PKG} public"
+          exit 1
 
   build-edge:
     runs-on: ubuntu-latest
@@ -98,3 +142,25 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+      - name: Make GHCR package public (edge)
+        if: github.event_name != 'pull_request'
+        env:
+          GH_OWNER: ${{ github.repository_owner }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PKG: croupier-edge
+        run: |
+          set -euo pipefail
+          for scope in "orgs/${GH_OWNER}" "user"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -L -X PUT \
+              -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/${scope}/packages/container/${PKG}/visibility" \
+              -d '{"visibility":"public"}' || true)
+            if [ "$code" = "204" ] || [ "$code" = "200" ]; then
+              echo "Package ${PKG} set to public via ${scope}"
+              exit 0
+            fi
+          done
+          echo "Failed to set ${PKG} public"
+          exit 1
