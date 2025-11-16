@@ -3,15 +3,15 @@
 // source: examples/games/player/v1/player.proto
 // Protobuf Java Version: 4.33.1
 
-package com.games.player.v1;
+package com.examples.games.player.v1;
 
 /**
- * Protobuf type {@code games.player.v1.BanRequest}
+ * Protobuf type {@code examples.games.player.v1.BanRequest}
  */
 @com.google.protobuf.Generated
 public final class BanRequest extends
     com.google.protobuf.GeneratedMessage implements
-    // @@protoc_insertion_point(message_implements:games.player.v1.BanRequest)
+    // @@protoc_insertion_point(message_implements:examples.games.player.v1.BanRequest)
     BanRequestOrBuilder {
 private static final long serialVersionUID = 0L;
   static {
@@ -34,22 +34,22 @@ private static final long serialVersionUID = 0L;
 
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return com.games.player.v1.PlayerProto.internal_static_games_player_v1_BanRequest_descriptor;
+    return com.examples.games.player.v1.PlayerProto.internal_static_examples_games_player_v1_BanRequest_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return com.games.player.v1.PlayerProto.internal_static_games_player_v1_BanRequest_fieldAccessorTable
+    return com.examples.games.player.v1.PlayerProto.internal_static_examples_games_player_v1_BanRequest_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            com.games.player.v1.BanRequest.class, com.games.player.v1.BanRequest.Builder.class);
+            com.examples.games.player.v1.BanRequest.class, com.examples.games.player.v1.BanRequest.Builder.class);
   }
 
   public static final int PLAYER_ID_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
   private volatile java.lang.Object playerId_ = "";
   /**
-   * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.ui) = { ... }</code>
+   * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.v1.ui) = { ... }</code>
    * @return The playerId.
    */
   @java.lang.Override
@@ -66,7 +66,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.ui) = { ... }</code>
+   * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.v1.ui) = { ... }</code>
    * @return The bytes for playerId.
    */
   @java.lang.Override
@@ -88,7 +88,7 @@ private static final long serialVersionUID = 0L;
   @SuppressWarnings("serial")
   private volatile java.lang.Object reason_ = "";
   /**
-   * <code>string reason = 2 [json_name = "reason", (.croupier.options.ui) = { ... }</code>
+   * <code>string reason = 2 [json_name = "reason", (.croupier.options.v1.ui) = { ... }</code>
    * @return The reason.
    */
   @java.lang.Override
@@ -105,7 +105,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string reason = 2 [json_name = "reason", (.croupier.options.ui) = { ... }</code>
+   * <code>string reason = 2 [json_name = "reason", (.croupier.options.v1.ui) = { ... }</code>
    * @return The bytes for reason.
    */
   @java.lang.Override
@@ -168,10 +168,10 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof com.games.player.v1.BanRequest)) {
+    if (!(obj instanceof com.examples.games.player.v1.BanRequest)) {
       return super.equals(obj);
     }
-    com.games.player.v1.BanRequest other = (com.games.player.v1.BanRequest) obj;
+    com.examples.games.player.v1.BanRequest other = (com.examples.games.player.v1.BanRequest) obj;
 
     if (!getPlayerId()
         .equals(other.getPlayerId())) return false;
@@ -197,44 +197,44 @@ private static final long serialVersionUID = 0L;
     return hash;
   }
 
-  public static com.games.player.v1.BanRequest parseFrom(
+  public static com.examples.games.player.v1.BanRequest parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.games.player.v1.BanRequest parseFrom(
+  public static com.examples.games.player.v1.BanRequest parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.games.player.v1.BanRequest parseFrom(
+  public static com.examples.games.player.v1.BanRequest parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.games.player.v1.BanRequest parseFrom(
+  public static com.examples.games.player.v1.BanRequest parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.games.player.v1.BanRequest parseFrom(byte[] data)
+  public static com.examples.games.player.v1.BanRequest parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.games.player.v1.BanRequest parseFrom(
+  public static com.examples.games.player.v1.BanRequest parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.games.player.v1.BanRequest parseFrom(java.io.InputStream input)
+  public static com.examples.games.player.v1.BanRequest parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseWithIOException(PARSER, input);
   }
-  public static com.games.player.v1.BanRequest parseFrom(
+  public static com.examples.games.player.v1.BanRequest parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -242,26 +242,26 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
-  public static com.games.player.v1.BanRequest parseDelimitedFrom(java.io.InputStream input)
+  public static com.examples.games.player.v1.BanRequest parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseDelimitedWithIOException(PARSER, input);
   }
 
-  public static com.games.player.v1.BanRequest parseDelimitedFrom(
+  public static com.examples.games.player.v1.BanRequest parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static com.games.player.v1.BanRequest parseFrom(
+  public static com.examples.games.player.v1.BanRequest parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseWithIOException(PARSER, input);
   }
-  public static com.games.player.v1.BanRequest parseFrom(
+  public static com.examples.games.player.v1.BanRequest parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -274,7 +274,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(com.games.player.v1.BanRequest prototype) {
+  public static Builder newBuilder(com.examples.games.player.v1.BanRequest prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -290,26 +290,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * Protobuf type {@code games.player.v1.BanRequest}
+   * Protobuf type {@code examples.games.player.v1.BanRequest}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessage.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:games.player.v1.BanRequest)
-      com.games.player.v1.BanRequestOrBuilder {
+      // @@protoc_insertion_point(builder_implements:examples.games.player.v1.BanRequest)
+      com.examples.games.player.v1.BanRequestOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return com.games.player.v1.PlayerProto.internal_static_games_player_v1_BanRequest_descriptor;
+      return com.examples.games.player.v1.PlayerProto.internal_static_examples_games_player_v1_BanRequest_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.games.player.v1.PlayerProto.internal_static_games_player_v1_BanRequest_fieldAccessorTable
+      return com.examples.games.player.v1.PlayerProto.internal_static_examples_games_player_v1_BanRequest_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.games.player.v1.BanRequest.class, com.games.player.v1.BanRequest.Builder.class);
+              com.examples.games.player.v1.BanRequest.class, com.examples.games.player.v1.BanRequest.Builder.class);
     }
 
-    // Construct using com.games.player.v1.BanRequest.newBuilder()
+    // Construct using com.examples.games.player.v1.BanRequest.newBuilder()
     private Builder() {
 
     }
@@ -331,17 +331,17 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return com.games.player.v1.PlayerProto.internal_static_games_player_v1_BanRequest_descriptor;
+      return com.examples.games.player.v1.PlayerProto.internal_static_examples_games_player_v1_BanRequest_descriptor;
     }
 
     @java.lang.Override
-    public com.games.player.v1.BanRequest getDefaultInstanceForType() {
-      return com.games.player.v1.BanRequest.getDefaultInstance();
+    public com.examples.games.player.v1.BanRequest getDefaultInstanceForType() {
+      return com.examples.games.player.v1.BanRequest.getDefaultInstance();
     }
 
     @java.lang.Override
-    public com.games.player.v1.BanRequest build() {
-      com.games.player.v1.BanRequest result = buildPartial();
+    public com.examples.games.player.v1.BanRequest build() {
+      com.examples.games.player.v1.BanRequest result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -349,14 +349,14 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public com.games.player.v1.BanRequest buildPartial() {
-      com.games.player.v1.BanRequest result = new com.games.player.v1.BanRequest(this);
+    public com.examples.games.player.v1.BanRequest buildPartial() {
+      com.examples.games.player.v1.BanRequest result = new com.examples.games.player.v1.BanRequest(this);
       if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
     }
 
-    private void buildPartial0(com.games.player.v1.BanRequest result) {
+    private void buildPartial0(com.examples.games.player.v1.BanRequest result) {
       int from_bitField0_ = bitField0_;
       if (((from_bitField0_ & 0x00000001) != 0)) {
         result.playerId_ = playerId_;
@@ -368,16 +368,16 @@ private static final long serialVersionUID = 0L;
 
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof com.games.player.v1.BanRequest) {
-        return mergeFrom((com.games.player.v1.BanRequest)other);
+      if (other instanceof com.examples.games.player.v1.BanRequest) {
+        return mergeFrom((com.examples.games.player.v1.BanRequest)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(com.games.player.v1.BanRequest other) {
-      if (other == com.games.player.v1.BanRequest.getDefaultInstance()) return this;
+    public Builder mergeFrom(com.examples.games.player.v1.BanRequest other) {
+      if (other == com.examples.games.player.v1.BanRequest.getDefaultInstance()) return this;
       if (!other.getPlayerId().isEmpty()) {
         playerId_ = other.playerId_;
         bitField0_ |= 0x00000001;
@@ -443,7 +443,7 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object playerId_ = "";
     /**
-     * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.ui) = { ... }</code>
+     * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.v1.ui) = { ... }</code>
      * @return The playerId.
      */
     public java.lang.String getPlayerId() {
@@ -459,7 +459,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.ui) = { ... }</code>
+     * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.v1.ui) = { ... }</code>
      * @return The bytes for playerId.
      */
     public com.google.protobuf.ByteString
@@ -476,7 +476,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.ui) = { ... }</code>
+     * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.v1.ui) = { ... }</code>
      * @param value The playerId to set.
      * @return This builder for chaining.
      */
@@ -489,7 +489,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.ui) = { ... }</code>
+     * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.v1.ui) = { ... }</code>
      * @return This builder for chaining.
      */
     public Builder clearPlayerId() {
@@ -499,7 +499,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.ui) = { ... }</code>
+     * <code>string player_id = 1 [json_name = "playerId", (.croupier.options.v1.ui) = { ... }</code>
      * @param value The bytes for playerId to set.
      * @return This builder for chaining.
      */
@@ -515,7 +515,7 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object reason_ = "";
     /**
-     * <code>string reason = 2 [json_name = "reason", (.croupier.options.ui) = { ... }</code>
+     * <code>string reason = 2 [json_name = "reason", (.croupier.options.v1.ui) = { ... }</code>
      * @return The reason.
      */
     public java.lang.String getReason() {
@@ -531,7 +531,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string reason = 2 [json_name = "reason", (.croupier.options.ui) = { ... }</code>
+     * <code>string reason = 2 [json_name = "reason", (.croupier.options.v1.ui) = { ... }</code>
      * @return The bytes for reason.
      */
     public com.google.protobuf.ByteString
@@ -548,7 +548,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string reason = 2 [json_name = "reason", (.croupier.options.ui) = { ... }</code>
+     * <code>string reason = 2 [json_name = "reason", (.croupier.options.v1.ui) = { ... }</code>
      * @param value The reason to set.
      * @return This builder for chaining.
      */
@@ -561,7 +561,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string reason = 2 [json_name = "reason", (.croupier.options.ui) = { ... }</code>
+     * <code>string reason = 2 [json_name = "reason", (.croupier.options.v1.ui) = { ... }</code>
      * @return This builder for chaining.
      */
     public Builder clearReason() {
@@ -571,7 +571,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string reason = 2 [json_name = "reason", (.croupier.options.ui) = { ... }</code>
+     * <code>string reason = 2 [json_name = "reason", (.croupier.options.v1.ui) = { ... }</code>
      * @param value The bytes for reason to set.
      * @return This builder for chaining.
      */
@@ -585,16 +585,16 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    // @@protoc_insertion_point(builder_scope:games.player.v1.BanRequest)
+    // @@protoc_insertion_point(builder_scope:examples.games.player.v1.BanRequest)
   }
 
-  // @@protoc_insertion_point(class_scope:games.player.v1.BanRequest)
-  private static final com.games.player.v1.BanRequest DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:examples.games.player.v1.BanRequest)
+  private static final com.examples.games.player.v1.BanRequest DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new com.games.player.v1.BanRequest();
+    DEFAULT_INSTANCE = new com.examples.games.player.v1.BanRequest();
   }
 
-  public static com.games.player.v1.BanRequest getDefaultInstance() {
+  public static com.examples.games.player.v1.BanRequest getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
@@ -630,7 +630,7 @@ private static final long serialVersionUID = 0L;
   }
 
   @java.lang.Override
-  public com.games.player.v1.BanRequest getDefaultInstanceForType() {
+  public com.examples.games.player.v1.BanRequest getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

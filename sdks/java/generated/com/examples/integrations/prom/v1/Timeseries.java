@@ -3,15 +3,15 @@
 // source: examples/integrations/prom/v1/prom.proto
 // Protobuf Java Version: 4.33.1
 
-package com.croupier.integrations.prom.v1;
+package com.examples.integrations.prom.v1;
 
 /**
- * Protobuf type {@code croupier.integrations.prom.v1.Timeseries}
+ * Protobuf type {@code examples.integrations.prom.v1.Timeseries}
  */
 @com.google.protobuf.Generated
 public final class Timeseries extends
     com.google.protobuf.GeneratedMessage implements
-    // @@protoc_insertion_point(message_implements:croupier.integrations.prom.v1.Timeseries)
+    // @@protoc_insertion_point(message_implements:examples.integrations.prom.v1.Timeseries)
     TimeseriesOrBuilder {
 private static final long serialVersionUID = 0L;
   static {
@@ -33,7 +33,7 @@ private static final long serialVersionUID = 0L;
 
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return com.croupier.integrations.prom.v1.PromProto.internal_static_croupier_integrations_prom_v1_Timeseries_descriptor;
+    return com.examples.integrations.prom.v1.PromProto.internal_static_examples_integrations_prom_v1_Timeseries_descriptor;
   }
 
   @SuppressWarnings({"rawtypes"})
@@ -51,9 +51,9 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return com.croupier.integrations.prom.v1.PromProto.internal_static_croupier_integrations_prom_v1_Timeseries_fieldAccessorTable
+    return com.examples.integrations.prom.v1.PromProto.internal_static_examples_integrations_prom_v1_Timeseries_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            com.croupier.integrations.prom.v1.Timeseries.class, com.croupier.integrations.prom.v1.Timeseries.Builder.class);
+            com.examples.integrations.prom.v1.Timeseries.class, com.examples.integrations.prom.v1.Timeseries.Builder.class);
   }
 
   public static final int LABELS_FIELD_NUMBER = 1;
@@ -62,7 +62,7 @@ private static final long serialVersionUID = 0L;
         java.lang.String, java.lang.String> defaultEntry =
             com.google.protobuf.MapEntry
             .<java.lang.String, java.lang.String>newDefaultInstance(
-                com.croupier.integrations.prom.v1.PromProto.internal_static_croupier_integrations_prom_v1_Timeseries_LabelsEntry_descriptor, 
+                com.examples.integrations.prom.v1.PromProto.internal_static_examples_integrations_prom_v1_Timeseries_LabelsEntry_descriptor, 
                 com.google.protobuf.WireFormat.FieldType.STRING,
                 "",
                 com.google.protobuf.WireFormat.FieldType.STRING,
@@ -137,41 +137,41 @@ java.lang.String defaultValue) {
 
   public static final int SAMPLES_FIELD_NUMBER = 2;
   @SuppressWarnings("serial")
-  private java.util.List<com.croupier.integrations.prom.v1.Sample> samples_;
+  private java.util.List<com.examples.integrations.prom.v1.Sample> samples_;
   /**
-   * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+   * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
    */
   @java.lang.Override
-  public java.util.List<com.croupier.integrations.prom.v1.Sample> getSamplesList() {
+  public java.util.List<com.examples.integrations.prom.v1.Sample> getSamplesList() {
     return samples_;
   }
   /**
-   * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+   * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
    */
   @java.lang.Override
-  public java.util.List<? extends com.croupier.integrations.prom.v1.SampleOrBuilder> 
+  public java.util.List<? extends com.examples.integrations.prom.v1.SampleOrBuilder> 
       getSamplesOrBuilderList() {
     return samples_;
   }
   /**
-   * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+   * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
    */
   @java.lang.Override
   public int getSamplesCount() {
     return samples_.size();
   }
   /**
-   * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+   * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
    */
   @java.lang.Override
-  public com.croupier.integrations.prom.v1.Sample getSamples(int index) {
+  public com.examples.integrations.prom.v1.Sample getSamples(int index) {
     return samples_.get(index);
   }
   /**
-   * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+   * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
    */
   @java.lang.Override
-  public com.croupier.integrations.prom.v1.SampleOrBuilder getSamplesOrBuilder(
+  public com.examples.integrations.prom.v1.SampleOrBuilder getSamplesOrBuilder(
       int index) {
     return samples_.get(index);
   }
@@ -232,10 +232,10 @@ java.lang.String defaultValue) {
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof com.croupier.integrations.prom.v1.Timeseries)) {
+    if (!(obj instanceof com.examples.integrations.prom.v1.Timeseries)) {
       return super.equals(obj);
     }
-    com.croupier.integrations.prom.v1.Timeseries other = (com.croupier.integrations.prom.v1.Timeseries) obj;
+    com.examples.integrations.prom.v1.Timeseries other = (com.examples.integrations.prom.v1.Timeseries) obj;
 
     if (!internalGetLabels().equals(
         other.internalGetLabels())) return false;
@@ -265,44 +265,44 @@ java.lang.String defaultValue) {
     return hash;
   }
 
-  public static com.croupier.integrations.prom.v1.Timeseries parseFrom(
+  public static com.examples.integrations.prom.v1.Timeseries parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.croupier.integrations.prom.v1.Timeseries parseFrom(
+  public static com.examples.integrations.prom.v1.Timeseries parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.croupier.integrations.prom.v1.Timeseries parseFrom(
+  public static com.examples.integrations.prom.v1.Timeseries parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.croupier.integrations.prom.v1.Timeseries parseFrom(
+  public static com.examples.integrations.prom.v1.Timeseries parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.croupier.integrations.prom.v1.Timeseries parseFrom(byte[] data)
+  public static com.examples.integrations.prom.v1.Timeseries parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.croupier.integrations.prom.v1.Timeseries parseFrom(
+  public static com.examples.integrations.prom.v1.Timeseries parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.croupier.integrations.prom.v1.Timeseries parseFrom(java.io.InputStream input)
+  public static com.examples.integrations.prom.v1.Timeseries parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseWithIOException(PARSER, input);
   }
-  public static com.croupier.integrations.prom.v1.Timeseries parseFrom(
+  public static com.examples.integrations.prom.v1.Timeseries parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -310,26 +310,26 @@ java.lang.String defaultValue) {
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
-  public static com.croupier.integrations.prom.v1.Timeseries parseDelimitedFrom(java.io.InputStream input)
+  public static com.examples.integrations.prom.v1.Timeseries parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseDelimitedWithIOException(PARSER, input);
   }
 
-  public static com.croupier.integrations.prom.v1.Timeseries parseDelimitedFrom(
+  public static com.examples.integrations.prom.v1.Timeseries parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static com.croupier.integrations.prom.v1.Timeseries parseFrom(
+  public static com.examples.integrations.prom.v1.Timeseries parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseWithIOException(PARSER, input);
   }
-  public static com.croupier.integrations.prom.v1.Timeseries parseFrom(
+  public static com.examples.integrations.prom.v1.Timeseries parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -342,7 +342,7 @@ java.lang.String defaultValue) {
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(com.croupier.integrations.prom.v1.Timeseries prototype) {
+  public static Builder newBuilder(com.examples.integrations.prom.v1.Timeseries prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -358,15 +358,15 @@ java.lang.String defaultValue) {
     return builder;
   }
   /**
-   * Protobuf type {@code croupier.integrations.prom.v1.Timeseries}
+   * Protobuf type {@code examples.integrations.prom.v1.Timeseries}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessage.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:croupier.integrations.prom.v1.Timeseries)
-      com.croupier.integrations.prom.v1.TimeseriesOrBuilder {
+      // @@protoc_insertion_point(builder_implements:examples.integrations.prom.v1.Timeseries)
+      com.examples.integrations.prom.v1.TimeseriesOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return com.croupier.integrations.prom.v1.PromProto.internal_static_croupier_integrations_prom_v1_Timeseries_descriptor;
+      return com.examples.integrations.prom.v1.PromProto.internal_static_examples_integrations_prom_v1_Timeseries_descriptor;
     }
 
     @SuppressWarnings({"rawtypes"})
@@ -394,12 +394,12 @@ java.lang.String defaultValue) {
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.croupier.integrations.prom.v1.PromProto.internal_static_croupier_integrations_prom_v1_Timeseries_fieldAccessorTable
+      return com.examples.integrations.prom.v1.PromProto.internal_static_examples_integrations_prom_v1_Timeseries_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.croupier.integrations.prom.v1.Timeseries.class, com.croupier.integrations.prom.v1.Timeseries.Builder.class);
+              com.examples.integrations.prom.v1.Timeseries.class, com.examples.integrations.prom.v1.Timeseries.Builder.class);
     }
 
-    // Construct using com.croupier.integrations.prom.v1.Timeseries.newBuilder()
+    // Construct using com.examples.integrations.prom.v1.Timeseries.newBuilder()
     private Builder() {
 
     }
@@ -427,17 +427,17 @@ java.lang.String defaultValue) {
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return com.croupier.integrations.prom.v1.PromProto.internal_static_croupier_integrations_prom_v1_Timeseries_descriptor;
+      return com.examples.integrations.prom.v1.PromProto.internal_static_examples_integrations_prom_v1_Timeseries_descriptor;
     }
 
     @java.lang.Override
-    public com.croupier.integrations.prom.v1.Timeseries getDefaultInstanceForType() {
-      return com.croupier.integrations.prom.v1.Timeseries.getDefaultInstance();
+    public com.examples.integrations.prom.v1.Timeseries getDefaultInstanceForType() {
+      return com.examples.integrations.prom.v1.Timeseries.getDefaultInstance();
     }
 
     @java.lang.Override
-    public com.croupier.integrations.prom.v1.Timeseries build() {
-      com.croupier.integrations.prom.v1.Timeseries result = buildPartial();
+    public com.examples.integrations.prom.v1.Timeseries build() {
+      com.examples.integrations.prom.v1.Timeseries result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -445,15 +445,15 @@ java.lang.String defaultValue) {
     }
 
     @java.lang.Override
-    public com.croupier.integrations.prom.v1.Timeseries buildPartial() {
-      com.croupier.integrations.prom.v1.Timeseries result = new com.croupier.integrations.prom.v1.Timeseries(this);
+    public com.examples.integrations.prom.v1.Timeseries buildPartial() {
+      com.examples.integrations.prom.v1.Timeseries result = new com.examples.integrations.prom.v1.Timeseries(this);
       buildPartialRepeatedFields(result);
       if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
     }
 
-    private void buildPartialRepeatedFields(com.croupier.integrations.prom.v1.Timeseries result) {
+    private void buildPartialRepeatedFields(com.examples.integrations.prom.v1.Timeseries result) {
       if (samplesBuilder_ == null) {
         if (((bitField0_ & 0x00000002) != 0)) {
           samples_ = java.util.Collections.unmodifiableList(samples_);
@@ -465,7 +465,7 @@ java.lang.String defaultValue) {
       }
     }
 
-    private void buildPartial0(com.croupier.integrations.prom.v1.Timeseries result) {
+    private void buildPartial0(com.examples.integrations.prom.v1.Timeseries result) {
       int from_bitField0_ = bitField0_;
       if (((from_bitField0_ & 0x00000001) != 0)) {
         result.labels_ = internalGetLabels();
@@ -475,16 +475,16 @@ java.lang.String defaultValue) {
 
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof com.croupier.integrations.prom.v1.Timeseries) {
-        return mergeFrom((com.croupier.integrations.prom.v1.Timeseries)other);
+      if (other instanceof com.examples.integrations.prom.v1.Timeseries) {
+        return mergeFrom((com.examples.integrations.prom.v1.Timeseries)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(com.croupier.integrations.prom.v1.Timeseries other) {
-      if (other == com.croupier.integrations.prom.v1.Timeseries.getDefaultInstance()) return this;
+    public Builder mergeFrom(com.examples.integrations.prom.v1.Timeseries other) {
+      if (other == com.examples.integrations.prom.v1.Timeseries.getDefaultInstance()) return this;
       internalGetMutableLabels().mergeFrom(
           other.internalGetLabels());
       bitField0_ |= 0x00000001;
@@ -550,9 +550,9 @@ java.lang.String defaultValue) {
               break;
             } // case 10
             case 18: {
-              com.croupier.integrations.prom.v1.Sample m =
+              com.examples.integrations.prom.v1.Sample m =
                   input.readMessage(
-                      com.croupier.integrations.prom.v1.Sample.parser(),
+                      com.examples.integrations.prom.v1.Sample.parser(),
                       extensionRegistry);
               if (samplesBuilder_ == null) {
                 ensureSamplesIsMutable();
@@ -706,22 +706,22 @@ java.lang.String defaultValue) {
       return this;
     }
 
-    private java.util.List<com.croupier.integrations.prom.v1.Sample> samples_ =
+    private java.util.List<com.examples.integrations.prom.v1.Sample> samples_ =
       java.util.Collections.emptyList();
     private void ensureSamplesIsMutable() {
       if (!((bitField0_ & 0x00000002) != 0)) {
-        samples_ = new java.util.ArrayList<com.croupier.integrations.prom.v1.Sample>(samples_);
+        samples_ = new java.util.ArrayList<com.examples.integrations.prom.v1.Sample>(samples_);
         bitField0_ |= 0x00000002;
        }
     }
 
     private com.google.protobuf.RepeatedFieldBuilder<
-        com.croupier.integrations.prom.v1.Sample, com.croupier.integrations.prom.v1.Sample.Builder, com.croupier.integrations.prom.v1.SampleOrBuilder> samplesBuilder_;
+        com.examples.integrations.prom.v1.Sample, com.examples.integrations.prom.v1.Sample.Builder, com.examples.integrations.prom.v1.SampleOrBuilder> samplesBuilder_;
 
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
-    public java.util.List<com.croupier.integrations.prom.v1.Sample> getSamplesList() {
+    public java.util.List<com.examples.integrations.prom.v1.Sample> getSamplesList() {
       if (samplesBuilder_ == null) {
         return java.util.Collections.unmodifiableList(samples_);
       } else {
@@ -729,7 +729,7 @@ java.lang.String defaultValue) {
       }
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
     public int getSamplesCount() {
       if (samplesBuilder_ == null) {
@@ -739,9 +739,9 @@ java.lang.String defaultValue) {
       }
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
-    public com.croupier.integrations.prom.v1.Sample getSamples(int index) {
+    public com.examples.integrations.prom.v1.Sample getSamples(int index) {
       if (samplesBuilder_ == null) {
         return samples_.get(index);
       } else {
@@ -749,10 +749,10 @@ java.lang.String defaultValue) {
       }
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
     public Builder setSamples(
-        int index, com.croupier.integrations.prom.v1.Sample value) {
+        int index, com.examples.integrations.prom.v1.Sample value) {
       if (samplesBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
@@ -766,10 +766,10 @@ java.lang.String defaultValue) {
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
     public Builder setSamples(
-        int index, com.croupier.integrations.prom.v1.Sample.Builder builderForValue) {
+        int index, com.examples.integrations.prom.v1.Sample.Builder builderForValue) {
       if (samplesBuilder_ == null) {
         ensureSamplesIsMutable();
         samples_.set(index, builderForValue.build());
@@ -780,9 +780,9 @@ java.lang.String defaultValue) {
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
-    public Builder addSamples(com.croupier.integrations.prom.v1.Sample value) {
+    public Builder addSamples(com.examples.integrations.prom.v1.Sample value) {
       if (samplesBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
@@ -796,10 +796,10 @@ java.lang.String defaultValue) {
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
     public Builder addSamples(
-        int index, com.croupier.integrations.prom.v1.Sample value) {
+        int index, com.examples.integrations.prom.v1.Sample value) {
       if (samplesBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
@@ -813,10 +813,10 @@ java.lang.String defaultValue) {
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
     public Builder addSamples(
-        com.croupier.integrations.prom.v1.Sample.Builder builderForValue) {
+        com.examples.integrations.prom.v1.Sample.Builder builderForValue) {
       if (samplesBuilder_ == null) {
         ensureSamplesIsMutable();
         samples_.add(builderForValue.build());
@@ -827,10 +827,10 @@ java.lang.String defaultValue) {
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
     public Builder addSamples(
-        int index, com.croupier.integrations.prom.v1.Sample.Builder builderForValue) {
+        int index, com.examples.integrations.prom.v1.Sample.Builder builderForValue) {
       if (samplesBuilder_ == null) {
         ensureSamplesIsMutable();
         samples_.add(index, builderForValue.build());
@@ -841,10 +841,10 @@ java.lang.String defaultValue) {
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
     public Builder addAllSamples(
-        java.lang.Iterable<? extends com.croupier.integrations.prom.v1.Sample> values) {
+        java.lang.Iterable<? extends com.examples.integrations.prom.v1.Sample> values) {
       if (samplesBuilder_ == null) {
         ensureSamplesIsMutable();
         com.google.protobuf.AbstractMessageLite.Builder.addAll(
@@ -856,7 +856,7 @@ java.lang.String defaultValue) {
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
     public Builder clearSamples() {
       if (samplesBuilder_ == null) {
@@ -869,7 +869,7 @@ java.lang.String defaultValue) {
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
     public Builder removeSamples(int index) {
       if (samplesBuilder_ == null) {
@@ -882,16 +882,16 @@ java.lang.String defaultValue) {
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
-    public com.croupier.integrations.prom.v1.Sample.Builder getSamplesBuilder(
+    public com.examples.integrations.prom.v1.Sample.Builder getSamplesBuilder(
         int index) {
       return internalGetSamplesFieldBuilder().getBuilder(index);
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
-    public com.croupier.integrations.prom.v1.SampleOrBuilder getSamplesOrBuilder(
+    public com.examples.integrations.prom.v1.SampleOrBuilder getSamplesOrBuilder(
         int index) {
       if (samplesBuilder_ == null) {
         return samples_.get(index);  } else {
@@ -899,9 +899,9 @@ java.lang.String defaultValue) {
       }
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
-    public java.util.List<? extends com.croupier.integrations.prom.v1.SampleOrBuilder> 
+    public java.util.List<? extends com.examples.integrations.prom.v1.SampleOrBuilder> 
          getSamplesOrBuilderList() {
       if (samplesBuilder_ != null) {
         return samplesBuilder_.getMessageOrBuilderList();
@@ -910,33 +910,33 @@ java.lang.String defaultValue) {
       }
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
-    public com.croupier.integrations.prom.v1.Sample.Builder addSamplesBuilder() {
+    public com.examples.integrations.prom.v1.Sample.Builder addSamplesBuilder() {
       return internalGetSamplesFieldBuilder().addBuilder(
-          com.croupier.integrations.prom.v1.Sample.getDefaultInstance());
+          com.examples.integrations.prom.v1.Sample.getDefaultInstance());
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
-    public com.croupier.integrations.prom.v1.Sample.Builder addSamplesBuilder(
+    public com.examples.integrations.prom.v1.Sample.Builder addSamplesBuilder(
         int index) {
       return internalGetSamplesFieldBuilder().addBuilder(
-          index, com.croupier.integrations.prom.v1.Sample.getDefaultInstance());
+          index, com.examples.integrations.prom.v1.Sample.getDefaultInstance());
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Sample samples = 2 [json_name = "samples"];</code>
      */
-    public java.util.List<com.croupier.integrations.prom.v1.Sample.Builder> 
+    public java.util.List<com.examples.integrations.prom.v1.Sample.Builder> 
          getSamplesBuilderList() {
       return internalGetSamplesFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
-        com.croupier.integrations.prom.v1.Sample, com.croupier.integrations.prom.v1.Sample.Builder, com.croupier.integrations.prom.v1.SampleOrBuilder> 
+        com.examples.integrations.prom.v1.Sample, com.examples.integrations.prom.v1.Sample.Builder, com.examples.integrations.prom.v1.SampleOrBuilder> 
         internalGetSamplesFieldBuilder() {
       if (samplesBuilder_ == null) {
         samplesBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
-            com.croupier.integrations.prom.v1.Sample, com.croupier.integrations.prom.v1.Sample.Builder, com.croupier.integrations.prom.v1.SampleOrBuilder>(
+            com.examples.integrations.prom.v1.Sample, com.examples.integrations.prom.v1.Sample.Builder, com.examples.integrations.prom.v1.SampleOrBuilder>(
                 samples_,
                 ((bitField0_ & 0x00000002) != 0),
                 getParentForChildren(),
@@ -946,16 +946,16 @@ java.lang.String defaultValue) {
       return samplesBuilder_;
     }
 
-    // @@protoc_insertion_point(builder_scope:croupier.integrations.prom.v1.Timeseries)
+    // @@protoc_insertion_point(builder_scope:examples.integrations.prom.v1.Timeseries)
   }
 
-  // @@protoc_insertion_point(class_scope:croupier.integrations.prom.v1.Timeseries)
-  private static final com.croupier.integrations.prom.v1.Timeseries DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:examples.integrations.prom.v1.Timeseries)
+  private static final com.examples.integrations.prom.v1.Timeseries DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new com.croupier.integrations.prom.v1.Timeseries();
+    DEFAULT_INSTANCE = new com.examples.integrations.prom.v1.Timeseries();
   }
 
-  public static com.croupier.integrations.prom.v1.Timeseries getDefaultInstance() {
+  public static com.examples.integrations.prom.v1.Timeseries getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
@@ -991,7 +991,7 @@ java.lang.String defaultValue) {
   }
 
   @java.lang.Override
-  public com.croupier.integrations.prom.v1.Timeseries getDefaultInstanceForType() {
+  public com.examples.integrations.prom.v1.Timeseries getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

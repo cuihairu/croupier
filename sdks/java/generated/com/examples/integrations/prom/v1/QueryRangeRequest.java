@@ -3,15 +3,15 @@
 // source: examples/integrations/prom/v1/prom.proto
 // Protobuf Java Version: 4.33.1
 
-package com.croupier.integrations.prom.v1;
+package com.examples.integrations.prom.v1;
 
 /**
- * Protobuf type {@code croupier.integrations.prom.v1.QueryRangeRequest}
+ * Protobuf type {@code examples.integrations.prom.v1.QueryRangeRequest}
  */
 @com.google.protobuf.Generated
 public final class QueryRangeRequest extends
     com.google.protobuf.GeneratedMessage implements
-    // @@protoc_insertion_point(message_implements:croupier.integrations.prom.v1.QueryRangeRequest)
+    // @@protoc_insertion_point(message_implements:examples.integrations.prom.v1.QueryRangeRequest)
     QueryRangeRequestOrBuilder {
 private static final long serialVersionUID = 0L;
   static {
@@ -36,22 +36,22 @@ private static final long serialVersionUID = 0L;
 
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return com.croupier.integrations.prom.v1.PromProto.internal_static_croupier_integrations_prom_v1_QueryRangeRequest_descriptor;
+    return com.examples.integrations.prom.v1.PromProto.internal_static_examples_integrations_prom_v1_QueryRangeRequest_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return com.croupier.integrations.prom.v1.PromProto.internal_static_croupier_integrations_prom_v1_QueryRangeRequest_fieldAccessorTable
+    return com.examples.integrations.prom.v1.PromProto.internal_static_examples_integrations_prom_v1_QueryRangeRequest_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            com.croupier.integrations.prom.v1.QueryRangeRequest.class, com.croupier.integrations.prom.v1.QueryRangeRequest.Builder.class);
+            com.examples.integrations.prom.v1.QueryRangeRequest.class, com.examples.integrations.prom.v1.QueryRangeRequest.Builder.class);
   }
 
   public static final int EXPR_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
   private volatile java.lang.Object expr_ = "";
   /**
-   * <code>string expr = 1 [json_name = "expr", (.croupier.options.ui) = { ... }</code>
+   * <code>string expr = 1 [json_name = "expr", (.croupier.options.v1.ui) = { ... }</code>
    * @return The expr.
    */
   @java.lang.Override
@@ -68,7 +68,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string expr = 1 [json_name = "expr", (.croupier.options.ui) = { ... }</code>
+   * <code>string expr = 1 [json_name = "expr", (.croupier.options.v1.ui) = { ... }</code>
    * @return The bytes for expr.
    */
   @java.lang.Override
@@ -90,7 +90,7 @@ private static final long serialVersionUID = 0L;
   @SuppressWarnings("serial")
   private volatile java.lang.Object start_ = "";
   /**
-   * <code>string start = 2 [json_name = "start", (.croupier.options.ui) = { ... }</code>
+   * <code>string start = 2 [json_name = "start", (.croupier.options.v1.ui) = { ... }</code>
    * @return The start.
    */
   @java.lang.Override
@@ -107,7 +107,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string start = 2 [json_name = "start", (.croupier.options.ui) = { ... }</code>
+   * <code>string start = 2 [json_name = "start", (.croupier.options.v1.ui) = { ... }</code>
    * @return The bytes for start.
    */
   @java.lang.Override
@@ -129,7 +129,7 @@ private static final long serialVersionUID = 0L;
   @SuppressWarnings("serial")
   private volatile java.lang.Object end_ = "";
   /**
-   * <code>string end = 3 [json_name = "end", (.croupier.options.ui) = { ... }</code>
+   * <code>string end = 3 [json_name = "end", (.croupier.options.v1.ui) = { ... }</code>
    * @return The end.
    */
   @java.lang.Override
@@ -146,7 +146,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string end = 3 [json_name = "end", (.croupier.options.ui) = { ... }</code>
+   * <code>string end = 3 [json_name = "end", (.croupier.options.v1.ui) = { ... }</code>
    * @return The bytes for end.
    */
   @java.lang.Override
@@ -168,7 +168,7 @@ private static final long serialVersionUID = 0L;
   @SuppressWarnings("serial")
   private volatile java.lang.Object step_ = "";
   /**
-   * <code>string step = 4 [json_name = "step", (.croupier.options.ui) = { ... }</code>
+   * <code>string step = 4 [json_name = "step", (.croupier.options.v1.ui) = { ... }</code>
    * @return The step.
    */
   @java.lang.Override
@@ -185,7 +185,7 @@ private static final long serialVersionUID = 0L;
     }
   }
   /**
-   * <code>string step = 4 [json_name = "step", (.croupier.options.ui) = { ... }</code>
+   * <code>string step = 4 [json_name = "step", (.croupier.options.v1.ui) = { ... }</code>
    * @return The bytes for step.
    */
   @java.lang.Override
@@ -260,10 +260,10 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof com.croupier.integrations.prom.v1.QueryRangeRequest)) {
+    if (!(obj instanceof com.examples.integrations.prom.v1.QueryRangeRequest)) {
       return super.equals(obj);
     }
-    com.croupier.integrations.prom.v1.QueryRangeRequest other = (com.croupier.integrations.prom.v1.QueryRangeRequest) obj;
+    com.examples.integrations.prom.v1.QueryRangeRequest other = (com.examples.integrations.prom.v1.QueryRangeRequest) obj;
 
     if (!getExpr()
         .equals(other.getExpr())) return false;
@@ -297,44 +297,44 @@ private static final long serialVersionUID = 0L;
     return hash;
   }
 
-  public static com.croupier.integrations.prom.v1.QueryRangeRequest parseFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeRequest parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeRequest parseFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeRequest parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeRequest parseFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeRequest parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeRequest parseFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeRequest parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeRequest parseFrom(byte[] data)
+  public static com.examples.integrations.prom.v1.QueryRangeRequest parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeRequest parseFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeRequest parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeRequest parseFrom(java.io.InputStream input)
+  public static com.examples.integrations.prom.v1.QueryRangeRequest parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseWithIOException(PARSER, input);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeRequest parseFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeRequest parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -342,26 +342,26 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
-  public static com.croupier.integrations.prom.v1.QueryRangeRequest parseDelimitedFrom(java.io.InputStream input)
+  public static com.examples.integrations.prom.v1.QueryRangeRequest parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseDelimitedWithIOException(PARSER, input);
   }
 
-  public static com.croupier.integrations.prom.v1.QueryRangeRequest parseDelimitedFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeRequest parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeRequest parseFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeRequest parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseWithIOException(PARSER, input);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeRequest parseFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeRequest parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -374,7 +374,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(com.croupier.integrations.prom.v1.QueryRangeRequest prototype) {
+  public static Builder newBuilder(com.examples.integrations.prom.v1.QueryRangeRequest prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -390,26 +390,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * Protobuf type {@code croupier.integrations.prom.v1.QueryRangeRequest}
+   * Protobuf type {@code examples.integrations.prom.v1.QueryRangeRequest}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessage.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:croupier.integrations.prom.v1.QueryRangeRequest)
-      com.croupier.integrations.prom.v1.QueryRangeRequestOrBuilder {
+      // @@protoc_insertion_point(builder_implements:examples.integrations.prom.v1.QueryRangeRequest)
+      com.examples.integrations.prom.v1.QueryRangeRequestOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return com.croupier.integrations.prom.v1.PromProto.internal_static_croupier_integrations_prom_v1_QueryRangeRequest_descriptor;
+      return com.examples.integrations.prom.v1.PromProto.internal_static_examples_integrations_prom_v1_QueryRangeRequest_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.croupier.integrations.prom.v1.PromProto.internal_static_croupier_integrations_prom_v1_QueryRangeRequest_fieldAccessorTable
+      return com.examples.integrations.prom.v1.PromProto.internal_static_examples_integrations_prom_v1_QueryRangeRequest_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.croupier.integrations.prom.v1.QueryRangeRequest.class, com.croupier.integrations.prom.v1.QueryRangeRequest.Builder.class);
+              com.examples.integrations.prom.v1.QueryRangeRequest.class, com.examples.integrations.prom.v1.QueryRangeRequest.Builder.class);
     }
 
-    // Construct using com.croupier.integrations.prom.v1.QueryRangeRequest.newBuilder()
+    // Construct using com.examples.integrations.prom.v1.QueryRangeRequest.newBuilder()
     private Builder() {
 
     }
@@ -433,17 +433,17 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return com.croupier.integrations.prom.v1.PromProto.internal_static_croupier_integrations_prom_v1_QueryRangeRequest_descriptor;
+      return com.examples.integrations.prom.v1.PromProto.internal_static_examples_integrations_prom_v1_QueryRangeRequest_descriptor;
     }
 
     @java.lang.Override
-    public com.croupier.integrations.prom.v1.QueryRangeRequest getDefaultInstanceForType() {
-      return com.croupier.integrations.prom.v1.QueryRangeRequest.getDefaultInstance();
+    public com.examples.integrations.prom.v1.QueryRangeRequest getDefaultInstanceForType() {
+      return com.examples.integrations.prom.v1.QueryRangeRequest.getDefaultInstance();
     }
 
     @java.lang.Override
-    public com.croupier.integrations.prom.v1.QueryRangeRequest build() {
-      com.croupier.integrations.prom.v1.QueryRangeRequest result = buildPartial();
+    public com.examples.integrations.prom.v1.QueryRangeRequest build() {
+      com.examples.integrations.prom.v1.QueryRangeRequest result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -451,14 +451,14 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public com.croupier.integrations.prom.v1.QueryRangeRequest buildPartial() {
-      com.croupier.integrations.prom.v1.QueryRangeRequest result = new com.croupier.integrations.prom.v1.QueryRangeRequest(this);
+    public com.examples.integrations.prom.v1.QueryRangeRequest buildPartial() {
+      com.examples.integrations.prom.v1.QueryRangeRequest result = new com.examples.integrations.prom.v1.QueryRangeRequest(this);
       if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
     }
 
-    private void buildPartial0(com.croupier.integrations.prom.v1.QueryRangeRequest result) {
+    private void buildPartial0(com.examples.integrations.prom.v1.QueryRangeRequest result) {
       int from_bitField0_ = bitField0_;
       if (((from_bitField0_ & 0x00000001) != 0)) {
         result.expr_ = expr_;
@@ -476,16 +476,16 @@ private static final long serialVersionUID = 0L;
 
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof com.croupier.integrations.prom.v1.QueryRangeRequest) {
-        return mergeFrom((com.croupier.integrations.prom.v1.QueryRangeRequest)other);
+      if (other instanceof com.examples.integrations.prom.v1.QueryRangeRequest) {
+        return mergeFrom((com.examples.integrations.prom.v1.QueryRangeRequest)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(com.croupier.integrations.prom.v1.QueryRangeRequest other) {
-      if (other == com.croupier.integrations.prom.v1.QueryRangeRequest.getDefaultInstance()) return this;
+    public Builder mergeFrom(com.examples.integrations.prom.v1.QueryRangeRequest other) {
+      if (other == com.examples.integrations.prom.v1.QueryRangeRequest.getDefaultInstance()) return this;
       if (!other.getExpr().isEmpty()) {
         expr_ = other.expr_;
         bitField0_ |= 0x00000001;
@@ -571,7 +571,7 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object expr_ = "";
     /**
-     * <code>string expr = 1 [json_name = "expr", (.croupier.options.ui) = { ... }</code>
+     * <code>string expr = 1 [json_name = "expr", (.croupier.options.v1.ui) = { ... }</code>
      * @return The expr.
      */
     public java.lang.String getExpr() {
@@ -587,7 +587,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string expr = 1 [json_name = "expr", (.croupier.options.ui) = { ... }</code>
+     * <code>string expr = 1 [json_name = "expr", (.croupier.options.v1.ui) = { ... }</code>
      * @return The bytes for expr.
      */
     public com.google.protobuf.ByteString
@@ -604,7 +604,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string expr = 1 [json_name = "expr", (.croupier.options.ui) = { ... }</code>
+     * <code>string expr = 1 [json_name = "expr", (.croupier.options.v1.ui) = { ... }</code>
      * @param value The expr to set.
      * @return This builder for chaining.
      */
@@ -617,7 +617,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string expr = 1 [json_name = "expr", (.croupier.options.ui) = { ... }</code>
+     * <code>string expr = 1 [json_name = "expr", (.croupier.options.v1.ui) = { ... }</code>
      * @return This builder for chaining.
      */
     public Builder clearExpr() {
@@ -627,7 +627,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string expr = 1 [json_name = "expr", (.croupier.options.ui) = { ... }</code>
+     * <code>string expr = 1 [json_name = "expr", (.croupier.options.v1.ui) = { ... }</code>
      * @param value The bytes for expr to set.
      * @return This builder for chaining.
      */
@@ -643,7 +643,7 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object start_ = "";
     /**
-     * <code>string start = 2 [json_name = "start", (.croupier.options.ui) = { ... }</code>
+     * <code>string start = 2 [json_name = "start", (.croupier.options.v1.ui) = { ... }</code>
      * @return The start.
      */
     public java.lang.String getStart() {
@@ -659,7 +659,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string start = 2 [json_name = "start", (.croupier.options.ui) = { ... }</code>
+     * <code>string start = 2 [json_name = "start", (.croupier.options.v1.ui) = { ... }</code>
      * @return The bytes for start.
      */
     public com.google.protobuf.ByteString
@@ -676,7 +676,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string start = 2 [json_name = "start", (.croupier.options.ui) = { ... }</code>
+     * <code>string start = 2 [json_name = "start", (.croupier.options.v1.ui) = { ... }</code>
      * @param value The start to set.
      * @return This builder for chaining.
      */
@@ -689,7 +689,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string start = 2 [json_name = "start", (.croupier.options.ui) = { ... }</code>
+     * <code>string start = 2 [json_name = "start", (.croupier.options.v1.ui) = { ... }</code>
      * @return This builder for chaining.
      */
     public Builder clearStart() {
@@ -699,7 +699,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string start = 2 [json_name = "start", (.croupier.options.ui) = { ... }</code>
+     * <code>string start = 2 [json_name = "start", (.croupier.options.v1.ui) = { ... }</code>
      * @param value The bytes for start to set.
      * @return This builder for chaining.
      */
@@ -715,7 +715,7 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object end_ = "";
     /**
-     * <code>string end = 3 [json_name = "end", (.croupier.options.ui) = { ... }</code>
+     * <code>string end = 3 [json_name = "end", (.croupier.options.v1.ui) = { ... }</code>
      * @return The end.
      */
     public java.lang.String getEnd() {
@@ -731,7 +731,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string end = 3 [json_name = "end", (.croupier.options.ui) = { ... }</code>
+     * <code>string end = 3 [json_name = "end", (.croupier.options.v1.ui) = { ... }</code>
      * @return The bytes for end.
      */
     public com.google.protobuf.ByteString
@@ -748,7 +748,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string end = 3 [json_name = "end", (.croupier.options.ui) = { ... }</code>
+     * <code>string end = 3 [json_name = "end", (.croupier.options.v1.ui) = { ... }</code>
      * @param value The end to set.
      * @return This builder for chaining.
      */
@@ -761,7 +761,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string end = 3 [json_name = "end", (.croupier.options.ui) = { ... }</code>
+     * <code>string end = 3 [json_name = "end", (.croupier.options.v1.ui) = { ... }</code>
      * @return This builder for chaining.
      */
     public Builder clearEnd() {
@@ -771,7 +771,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string end = 3 [json_name = "end", (.croupier.options.ui) = { ... }</code>
+     * <code>string end = 3 [json_name = "end", (.croupier.options.v1.ui) = { ... }</code>
      * @param value The bytes for end to set.
      * @return This builder for chaining.
      */
@@ -787,7 +787,7 @@ private static final long serialVersionUID = 0L;
 
     private java.lang.Object step_ = "";
     /**
-     * <code>string step = 4 [json_name = "step", (.croupier.options.ui) = { ... }</code>
+     * <code>string step = 4 [json_name = "step", (.croupier.options.v1.ui) = { ... }</code>
      * @return The step.
      */
     public java.lang.String getStep() {
@@ -803,7 +803,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string step = 4 [json_name = "step", (.croupier.options.ui) = { ... }</code>
+     * <code>string step = 4 [json_name = "step", (.croupier.options.v1.ui) = { ... }</code>
      * @return The bytes for step.
      */
     public com.google.protobuf.ByteString
@@ -820,7 +820,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>string step = 4 [json_name = "step", (.croupier.options.ui) = { ... }</code>
+     * <code>string step = 4 [json_name = "step", (.croupier.options.v1.ui) = { ... }</code>
      * @param value The step to set.
      * @return This builder for chaining.
      */
@@ -833,7 +833,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string step = 4 [json_name = "step", (.croupier.options.ui) = { ... }</code>
+     * <code>string step = 4 [json_name = "step", (.croupier.options.v1.ui) = { ... }</code>
      * @return This builder for chaining.
      */
     public Builder clearStep() {
@@ -843,7 +843,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>string step = 4 [json_name = "step", (.croupier.options.ui) = { ... }</code>
+     * <code>string step = 4 [json_name = "step", (.croupier.options.v1.ui) = { ... }</code>
      * @param value The bytes for step to set.
      * @return This builder for chaining.
      */
@@ -857,16 +857,16 @@ private static final long serialVersionUID = 0L;
       return this;
     }
 
-    // @@protoc_insertion_point(builder_scope:croupier.integrations.prom.v1.QueryRangeRequest)
+    // @@protoc_insertion_point(builder_scope:examples.integrations.prom.v1.QueryRangeRequest)
   }
 
-  // @@protoc_insertion_point(class_scope:croupier.integrations.prom.v1.QueryRangeRequest)
-  private static final com.croupier.integrations.prom.v1.QueryRangeRequest DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:examples.integrations.prom.v1.QueryRangeRequest)
+  private static final com.examples.integrations.prom.v1.QueryRangeRequest DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new com.croupier.integrations.prom.v1.QueryRangeRequest();
+    DEFAULT_INSTANCE = new com.examples.integrations.prom.v1.QueryRangeRequest();
   }
 
-  public static com.croupier.integrations.prom.v1.QueryRangeRequest getDefaultInstance() {
+  public static com.examples.integrations.prom.v1.QueryRangeRequest getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
@@ -902,7 +902,7 @@ private static final long serialVersionUID = 0L;
   }
 
   @java.lang.Override
-  public com.croupier.integrations.prom.v1.QueryRangeRequest getDefaultInstanceForType() {
+  public com.examples.integrations.prom.v1.QueryRangeRequest getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 

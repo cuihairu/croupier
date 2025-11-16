@@ -3,15 +3,15 @@
 // source: examples/integrations/prom/v1/prom.proto
 // Protobuf Java Version: 4.33.1
 
-package com.croupier.integrations.prom.v1;
+package com.examples.integrations.prom.v1;
 
 /**
- * Protobuf type {@code croupier.integrations.prom.v1.QueryRangeResponse}
+ * Protobuf type {@code examples.integrations.prom.v1.QueryRangeResponse}
  */
 @com.google.protobuf.Generated
 public final class QueryRangeResponse extends
     com.google.protobuf.GeneratedMessage implements
-    // @@protoc_insertion_point(message_implements:croupier.integrations.prom.v1.QueryRangeResponse)
+    // @@protoc_insertion_point(message_implements:examples.integrations.prom.v1.QueryRangeResponse)
     QueryRangeResponseOrBuilder {
 private static final long serialVersionUID = 0L;
   static {
@@ -33,54 +33,54 @@ private static final long serialVersionUID = 0L;
 
   public static final com.google.protobuf.Descriptors.Descriptor
       getDescriptor() {
-    return com.croupier.integrations.prom.v1.PromProto.internal_static_croupier_integrations_prom_v1_QueryRangeResponse_descriptor;
+    return com.examples.integrations.prom.v1.PromProto.internal_static_examples_integrations_prom_v1_QueryRangeResponse_descriptor;
   }
 
   @java.lang.Override
   protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internalGetFieldAccessorTable() {
-    return com.croupier.integrations.prom.v1.PromProto.internal_static_croupier_integrations_prom_v1_QueryRangeResponse_fieldAccessorTable
+    return com.examples.integrations.prom.v1.PromProto.internal_static_examples_integrations_prom_v1_QueryRangeResponse_fieldAccessorTable
         .ensureFieldAccessorsInitialized(
-            com.croupier.integrations.prom.v1.QueryRangeResponse.class, com.croupier.integrations.prom.v1.QueryRangeResponse.Builder.class);
+            com.examples.integrations.prom.v1.QueryRangeResponse.class, com.examples.integrations.prom.v1.QueryRangeResponse.Builder.class);
   }
 
   public static final int SERIES_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
-  private java.util.List<com.croupier.integrations.prom.v1.Timeseries> series_;
+  private java.util.List<com.examples.integrations.prom.v1.Timeseries> series_;
   /**
-   * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+   * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
    */
   @java.lang.Override
-  public java.util.List<com.croupier.integrations.prom.v1.Timeseries> getSeriesList() {
+  public java.util.List<com.examples.integrations.prom.v1.Timeseries> getSeriesList() {
     return series_;
   }
   /**
-   * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+   * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
    */
   @java.lang.Override
-  public java.util.List<? extends com.croupier.integrations.prom.v1.TimeseriesOrBuilder> 
+  public java.util.List<? extends com.examples.integrations.prom.v1.TimeseriesOrBuilder> 
       getSeriesOrBuilderList() {
     return series_;
   }
   /**
-   * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+   * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
    */
   @java.lang.Override
   public int getSeriesCount() {
     return series_.size();
   }
   /**
-   * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+   * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
    */
   @java.lang.Override
-  public com.croupier.integrations.prom.v1.Timeseries getSeries(int index) {
+  public com.examples.integrations.prom.v1.Timeseries getSeries(int index) {
     return series_.get(index);
   }
   /**
-   * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+   * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
    */
   @java.lang.Override
-  public com.croupier.integrations.prom.v1.TimeseriesOrBuilder getSeriesOrBuilder(
+  public com.examples.integrations.prom.v1.TimeseriesOrBuilder getSeriesOrBuilder(
       int index) {
     return series_.get(index);
   }
@@ -125,10 +125,10 @@ private static final long serialVersionUID = 0L;
     if (obj == this) {
      return true;
     }
-    if (!(obj instanceof com.croupier.integrations.prom.v1.QueryRangeResponse)) {
+    if (!(obj instanceof com.examples.integrations.prom.v1.QueryRangeResponse)) {
       return super.equals(obj);
     }
-    com.croupier.integrations.prom.v1.QueryRangeResponse other = (com.croupier.integrations.prom.v1.QueryRangeResponse) obj;
+    com.examples.integrations.prom.v1.QueryRangeResponse other = (com.examples.integrations.prom.v1.QueryRangeResponse) obj;
 
     if (!getSeriesList()
         .equals(other.getSeriesList())) return false;
@@ -152,44 +152,44 @@ private static final long serialVersionUID = 0L;
     return hash;
   }
 
-  public static com.croupier.integrations.prom.v1.QueryRangeResponse parseFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeResponse parseFrom(
       java.nio.ByteBuffer data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeResponse parseFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeResponse parseFrom(
       java.nio.ByteBuffer data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeResponse parseFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeResponse parseFrom(
       com.google.protobuf.ByteString data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeResponse parseFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeResponse parseFrom(
       com.google.protobuf.ByteString data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeResponse parseFrom(byte[] data)
+  public static com.examples.integrations.prom.v1.QueryRangeResponse parseFrom(byte[] data)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeResponse parseFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeResponse parseFrom(
       byte[] data,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws com.google.protobuf.InvalidProtocolBufferException {
     return PARSER.parseFrom(data, extensionRegistry);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeResponse parseFrom(java.io.InputStream input)
+  public static com.examples.integrations.prom.v1.QueryRangeResponse parseFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseWithIOException(PARSER, input);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeResponse parseFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeResponse parseFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -197,26 +197,26 @@ private static final long serialVersionUID = 0L;
         .parseWithIOException(PARSER, input, extensionRegistry);
   }
 
-  public static com.croupier.integrations.prom.v1.QueryRangeResponse parseDelimitedFrom(java.io.InputStream input)
+  public static com.examples.integrations.prom.v1.QueryRangeResponse parseDelimitedFrom(java.io.InputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseDelimitedWithIOException(PARSER, input);
   }
 
-  public static com.croupier.integrations.prom.v1.QueryRangeResponse parseDelimitedFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeResponse parseDelimitedFrom(
       java.io.InputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeResponse parseFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeResponse parseFrom(
       com.google.protobuf.CodedInputStream input)
       throws java.io.IOException {
     return com.google.protobuf.GeneratedMessage
         .parseWithIOException(PARSER, input);
   }
-  public static com.croupier.integrations.prom.v1.QueryRangeResponse parseFrom(
+  public static com.examples.integrations.prom.v1.QueryRangeResponse parseFrom(
       com.google.protobuf.CodedInputStream input,
       com.google.protobuf.ExtensionRegistryLite extensionRegistry)
       throws java.io.IOException {
@@ -229,7 +229,7 @@ private static final long serialVersionUID = 0L;
   public static Builder newBuilder() {
     return DEFAULT_INSTANCE.toBuilder();
   }
-  public static Builder newBuilder(com.croupier.integrations.prom.v1.QueryRangeResponse prototype) {
+  public static Builder newBuilder(com.examples.integrations.prom.v1.QueryRangeResponse prototype) {
     return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
   }
   @java.lang.Override
@@ -245,26 +245,26 @@ private static final long serialVersionUID = 0L;
     return builder;
   }
   /**
-   * Protobuf type {@code croupier.integrations.prom.v1.QueryRangeResponse}
+   * Protobuf type {@code examples.integrations.prom.v1.QueryRangeResponse}
    */
   public static final class Builder extends
       com.google.protobuf.GeneratedMessage.Builder<Builder> implements
-      // @@protoc_insertion_point(builder_implements:croupier.integrations.prom.v1.QueryRangeResponse)
-      com.croupier.integrations.prom.v1.QueryRangeResponseOrBuilder {
+      // @@protoc_insertion_point(builder_implements:examples.integrations.prom.v1.QueryRangeResponse)
+      com.examples.integrations.prom.v1.QueryRangeResponseOrBuilder {
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
-      return com.croupier.integrations.prom.v1.PromProto.internal_static_croupier_integrations_prom_v1_QueryRangeResponse_descriptor;
+      return com.examples.integrations.prom.v1.PromProto.internal_static_examples_integrations_prom_v1_QueryRangeResponse_descriptor;
     }
 
     @java.lang.Override
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
         internalGetFieldAccessorTable() {
-      return com.croupier.integrations.prom.v1.PromProto.internal_static_croupier_integrations_prom_v1_QueryRangeResponse_fieldAccessorTable
+      return com.examples.integrations.prom.v1.PromProto.internal_static_examples_integrations_prom_v1_QueryRangeResponse_fieldAccessorTable
           .ensureFieldAccessorsInitialized(
-              com.croupier.integrations.prom.v1.QueryRangeResponse.class, com.croupier.integrations.prom.v1.QueryRangeResponse.Builder.class);
+              com.examples.integrations.prom.v1.QueryRangeResponse.class, com.examples.integrations.prom.v1.QueryRangeResponse.Builder.class);
     }
 
-    // Construct using com.croupier.integrations.prom.v1.QueryRangeResponse.newBuilder()
+    // Construct using com.examples.integrations.prom.v1.QueryRangeResponse.newBuilder()
     private Builder() {
 
     }
@@ -291,17 +291,17 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public com.google.protobuf.Descriptors.Descriptor
         getDescriptorForType() {
-      return com.croupier.integrations.prom.v1.PromProto.internal_static_croupier_integrations_prom_v1_QueryRangeResponse_descriptor;
+      return com.examples.integrations.prom.v1.PromProto.internal_static_examples_integrations_prom_v1_QueryRangeResponse_descriptor;
     }
 
     @java.lang.Override
-    public com.croupier.integrations.prom.v1.QueryRangeResponse getDefaultInstanceForType() {
-      return com.croupier.integrations.prom.v1.QueryRangeResponse.getDefaultInstance();
+    public com.examples.integrations.prom.v1.QueryRangeResponse getDefaultInstanceForType() {
+      return com.examples.integrations.prom.v1.QueryRangeResponse.getDefaultInstance();
     }
 
     @java.lang.Override
-    public com.croupier.integrations.prom.v1.QueryRangeResponse build() {
-      com.croupier.integrations.prom.v1.QueryRangeResponse result = buildPartial();
+    public com.examples.integrations.prom.v1.QueryRangeResponse build() {
+      com.examples.integrations.prom.v1.QueryRangeResponse result = buildPartial();
       if (!result.isInitialized()) {
         throw newUninitializedMessageException(result);
       }
@@ -309,15 +309,15 @@ private static final long serialVersionUID = 0L;
     }
 
     @java.lang.Override
-    public com.croupier.integrations.prom.v1.QueryRangeResponse buildPartial() {
-      com.croupier.integrations.prom.v1.QueryRangeResponse result = new com.croupier.integrations.prom.v1.QueryRangeResponse(this);
+    public com.examples.integrations.prom.v1.QueryRangeResponse buildPartial() {
+      com.examples.integrations.prom.v1.QueryRangeResponse result = new com.examples.integrations.prom.v1.QueryRangeResponse(this);
       buildPartialRepeatedFields(result);
       if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
     }
 
-    private void buildPartialRepeatedFields(com.croupier.integrations.prom.v1.QueryRangeResponse result) {
+    private void buildPartialRepeatedFields(com.examples.integrations.prom.v1.QueryRangeResponse result) {
       if (seriesBuilder_ == null) {
         if (((bitField0_ & 0x00000001) != 0)) {
           series_ = java.util.Collections.unmodifiableList(series_);
@@ -329,22 +329,22 @@ private static final long serialVersionUID = 0L;
       }
     }
 
-    private void buildPartial0(com.croupier.integrations.prom.v1.QueryRangeResponse result) {
+    private void buildPartial0(com.examples.integrations.prom.v1.QueryRangeResponse result) {
       int from_bitField0_ = bitField0_;
     }
 
     @java.lang.Override
     public Builder mergeFrom(com.google.protobuf.Message other) {
-      if (other instanceof com.croupier.integrations.prom.v1.QueryRangeResponse) {
-        return mergeFrom((com.croupier.integrations.prom.v1.QueryRangeResponse)other);
+      if (other instanceof com.examples.integrations.prom.v1.QueryRangeResponse) {
+        return mergeFrom((com.examples.integrations.prom.v1.QueryRangeResponse)other);
       } else {
         super.mergeFrom(other);
         return this;
       }
     }
 
-    public Builder mergeFrom(com.croupier.integrations.prom.v1.QueryRangeResponse other) {
-      if (other == com.croupier.integrations.prom.v1.QueryRangeResponse.getDefaultInstance()) return this;
+    public Builder mergeFrom(com.examples.integrations.prom.v1.QueryRangeResponse other) {
+      if (other == com.examples.integrations.prom.v1.QueryRangeResponse.getDefaultInstance()) return this;
       if (seriesBuilder_ == null) {
         if (!other.series_.isEmpty()) {
           if (series_.isEmpty()) {
@@ -398,9 +398,9 @@ private static final long serialVersionUID = 0L;
               done = true;
               break;
             case 10: {
-              com.croupier.integrations.prom.v1.Timeseries m =
+              com.examples.integrations.prom.v1.Timeseries m =
                   input.readMessage(
-                      com.croupier.integrations.prom.v1.Timeseries.parser(),
+                      com.examples.integrations.prom.v1.Timeseries.parser(),
                       extensionRegistry);
               if (seriesBuilder_ == null) {
                 ensureSeriesIsMutable();
@@ -427,22 +427,22 @@ private static final long serialVersionUID = 0L;
     }
     private int bitField0_;
 
-    private java.util.List<com.croupier.integrations.prom.v1.Timeseries> series_ =
+    private java.util.List<com.examples.integrations.prom.v1.Timeseries> series_ =
       java.util.Collections.emptyList();
     private void ensureSeriesIsMutable() {
       if (!((bitField0_ & 0x00000001) != 0)) {
-        series_ = new java.util.ArrayList<com.croupier.integrations.prom.v1.Timeseries>(series_);
+        series_ = new java.util.ArrayList<com.examples.integrations.prom.v1.Timeseries>(series_);
         bitField0_ |= 0x00000001;
        }
     }
 
     private com.google.protobuf.RepeatedFieldBuilder<
-        com.croupier.integrations.prom.v1.Timeseries, com.croupier.integrations.prom.v1.Timeseries.Builder, com.croupier.integrations.prom.v1.TimeseriesOrBuilder> seriesBuilder_;
+        com.examples.integrations.prom.v1.Timeseries, com.examples.integrations.prom.v1.Timeseries.Builder, com.examples.integrations.prom.v1.TimeseriesOrBuilder> seriesBuilder_;
 
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
-    public java.util.List<com.croupier.integrations.prom.v1.Timeseries> getSeriesList() {
+    public java.util.List<com.examples.integrations.prom.v1.Timeseries> getSeriesList() {
       if (seriesBuilder_ == null) {
         return java.util.Collections.unmodifiableList(series_);
       } else {
@@ -450,7 +450,7 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
     public int getSeriesCount() {
       if (seriesBuilder_ == null) {
@@ -460,9 +460,9 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
-    public com.croupier.integrations.prom.v1.Timeseries getSeries(int index) {
+    public com.examples.integrations.prom.v1.Timeseries getSeries(int index) {
       if (seriesBuilder_ == null) {
         return series_.get(index);
       } else {
@@ -470,10 +470,10 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
     public Builder setSeries(
-        int index, com.croupier.integrations.prom.v1.Timeseries value) {
+        int index, com.examples.integrations.prom.v1.Timeseries value) {
       if (seriesBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
@@ -487,10 +487,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
     public Builder setSeries(
-        int index, com.croupier.integrations.prom.v1.Timeseries.Builder builderForValue) {
+        int index, com.examples.integrations.prom.v1.Timeseries.Builder builderForValue) {
       if (seriesBuilder_ == null) {
         ensureSeriesIsMutable();
         series_.set(index, builderForValue.build());
@@ -501,9 +501,9 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
-    public Builder addSeries(com.croupier.integrations.prom.v1.Timeseries value) {
+    public Builder addSeries(com.examples.integrations.prom.v1.Timeseries value) {
       if (seriesBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
@@ -517,10 +517,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
     public Builder addSeries(
-        int index, com.croupier.integrations.prom.v1.Timeseries value) {
+        int index, com.examples.integrations.prom.v1.Timeseries value) {
       if (seriesBuilder_ == null) {
         if (value == null) {
           throw new NullPointerException();
@@ -534,10 +534,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
     public Builder addSeries(
-        com.croupier.integrations.prom.v1.Timeseries.Builder builderForValue) {
+        com.examples.integrations.prom.v1.Timeseries.Builder builderForValue) {
       if (seriesBuilder_ == null) {
         ensureSeriesIsMutable();
         series_.add(builderForValue.build());
@@ -548,10 +548,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
     public Builder addSeries(
-        int index, com.croupier.integrations.prom.v1.Timeseries.Builder builderForValue) {
+        int index, com.examples.integrations.prom.v1.Timeseries.Builder builderForValue) {
       if (seriesBuilder_ == null) {
         ensureSeriesIsMutable();
         series_.add(index, builderForValue.build());
@@ -562,10 +562,10 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
     public Builder addAllSeries(
-        java.lang.Iterable<? extends com.croupier.integrations.prom.v1.Timeseries> values) {
+        java.lang.Iterable<? extends com.examples.integrations.prom.v1.Timeseries> values) {
       if (seriesBuilder_ == null) {
         ensureSeriesIsMutable();
         com.google.protobuf.AbstractMessageLite.Builder.addAll(
@@ -577,7 +577,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
     public Builder clearSeries() {
       if (seriesBuilder_ == null) {
@@ -590,7 +590,7 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
     public Builder removeSeries(int index) {
       if (seriesBuilder_ == null) {
@@ -603,16 +603,16 @@ private static final long serialVersionUID = 0L;
       return this;
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
-    public com.croupier.integrations.prom.v1.Timeseries.Builder getSeriesBuilder(
+    public com.examples.integrations.prom.v1.Timeseries.Builder getSeriesBuilder(
         int index) {
       return internalGetSeriesFieldBuilder().getBuilder(index);
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
-    public com.croupier.integrations.prom.v1.TimeseriesOrBuilder getSeriesOrBuilder(
+    public com.examples.integrations.prom.v1.TimeseriesOrBuilder getSeriesOrBuilder(
         int index) {
       if (seriesBuilder_ == null) {
         return series_.get(index);  } else {
@@ -620,9 +620,9 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
-    public java.util.List<? extends com.croupier.integrations.prom.v1.TimeseriesOrBuilder> 
+    public java.util.List<? extends com.examples.integrations.prom.v1.TimeseriesOrBuilder> 
          getSeriesOrBuilderList() {
       if (seriesBuilder_ != null) {
         return seriesBuilder_.getMessageOrBuilderList();
@@ -631,33 +631,33 @@ private static final long serialVersionUID = 0L;
       }
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
-    public com.croupier.integrations.prom.v1.Timeseries.Builder addSeriesBuilder() {
+    public com.examples.integrations.prom.v1.Timeseries.Builder addSeriesBuilder() {
       return internalGetSeriesFieldBuilder().addBuilder(
-          com.croupier.integrations.prom.v1.Timeseries.getDefaultInstance());
+          com.examples.integrations.prom.v1.Timeseries.getDefaultInstance());
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
-    public com.croupier.integrations.prom.v1.Timeseries.Builder addSeriesBuilder(
+    public com.examples.integrations.prom.v1.Timeseries.Builder addSeriesBuilder(
         int index) {
       return internalGetSeriesFieldBuilder().addBuilder(
-          index, com.croupier.integrations.prom.v1.Timeseries.getDefaultInstance());
+          index, com.examples.integrations.prom.v1.Timeseries.getDefaultInstance());
     }
     /**
-     * <code>repeated .croupier.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
+     * <code>repeated .examples.integrations.prom.v1.Timeseries series = 1 [json_name = "series"];</code>
      */
-    public java.util.List<com.croupier.integrations.prom.v1.Timeseries.Builder> 
+    public java.util.List<com.examples.integrations.prom.v1.Timeseries.Builder> 
          getSeriesBuilderList() {
       return internalGetSeriesFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
-        com.croupier.integrations.prom.v1.Timeseries, com.croupier.integrations.prom.v1.Timeseries.Builder, com.croupier.integrations.prom.v1.TimeseriesOrBuilder> 
+        com.examples.integrations.prom.v1.Timeseries, com.examples.integrations.prom.v1.Timeseries.Builder, com.examples.integrations.prom.v1.TimeseriesOrBuilder> 
         internalGetSeriesFieldBuilder() {
       if (seriesBuilder_ == null) {
         seriesBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
-            com.croupier.integrations.prom.v1.Timeseries, com.croupier.integrations.prom.v1.Timeseries.Builder, com.croupier.integrations.prom.v1.TimeseriesOrBuilder>(
+            com.examples.integrations.prom.v1.Timeseries, com.examples.integrations.prom.v1.Timeseries.Builder, com.examples.integrations.prom.v1.TimeseriesOrBuilder>(
                 series_,
                 ((bitField0_ & 0x00000001) != 0),
                 getParentForChildren(),
@@ -667,16 +667,16 @@ private static final long serialVersionUID = 0L;
       return seriesBuilder_;
     }
 
-    // @@protoc_insertion_point(builder_scope:croupier.integrations.prom.v1.QueryRangeResponse)
+    // @@protoc_insertion_point(builder_scope:examples.integrations.prom.v1.QueryRangeResponse)
   }
 
-  // @@protoc_insertion_point(class_scope:croupier.integrations.prom.v1.QueryRangeResponse)
-  private static final com.croupier.integrations.prom.v1.QueryRangeResponse DEFAULT_INSTANCE;
+  // @@protoc_insertion_point(class_scope:examples.integrations.prom.v1.QueryRangeResponse)
+  private static final com.examples.integrations.prom.v1.QueryRangeResponse DEFAULT_INSTANCE;
   static {
-    DEFAULT_INSTANCE = new com.croupier.integrations.prom.v1.QueryRangeResponse();
+    DEFAULT_INSTANCE = new com.examples.integrations.prom.v1.QueryRangeResponse();
   }
 
-  public static com.croupier.integrations.prom.v1.QueryRangeResponse getDefaultInstance() {
+  public static com.examples.integrations.prom.v1.QueryRangeResponse getDefaultInstance() {
     return DEFAULT_INSTANCE;
   }
 
@@ -712,7 +712,7 @@ private static final long serialVersionUID = 0L;
   }
 
   @java.lang.Override
-  public com.croupier.integrations.prom.v1.QueryRangeResponse getDefaultInstanceForType() {
+  public com.examples.integrations.prom.v1.QueryRangeResponse getDefaultInstanceForType() {
     return DEFAULT_INSTANCE;
   }
 
