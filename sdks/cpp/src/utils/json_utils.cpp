@@ -52,7 +52,7 @@ JsonUtils::SimpleJson JsonUtils::ParseJson(const std::string& json_content) {
 bool JsonUtils::IsValidJson(const std::string& json_content) {
     try {
 #ifdef CROUPIER_SDK_ENABLE_JSON
-        nlohmann::json::parse(json_content);
+        [[maybe_unused]] auto parsed = nlohmann::json::parse(json_content);
 #else
         // Simple validation for basic JSON structure
         if (json_content.empty() ||
