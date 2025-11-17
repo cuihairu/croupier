@@ -437,6 +437,7 @@ jobs:
     needs: [cpp, java, python, js, go]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
