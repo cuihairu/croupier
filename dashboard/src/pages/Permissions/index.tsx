@@ -27,6 +27,7 @@ const PermissionsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<FuncRow | null>(null);
   const [permDraft, setPermDraft] = useState<PermissionSpec>({});
+  const [formI18nKeys, setFormI18nKeys] = useState<string[]>([]);
 
   const reload = async () => {
     setLoading(true);
@@ -78,7 +79,16 @@ const PermissionsPage: React.FC = () => {
             const verbs: string[] = values.verbs || permDraft.verbs || [];
             const scopes: string[] = values.scopes || permDraft.scopes || [];
             const defaults = (permDraft.defaults || []).slice();
-            await savePermissions(editing!.id, { verbs, scopes, defaults, i18n_zh: permDraft.i18n_zh });
+            // collect i18n_zh from dynamic fields
+            const i18n_zh: Record<string, string> = {};
+            (verbs || []).forEach((v) => {
+              const key = `i18n_${v}`;
+              const val = values[key];
+              if (val && typeof val === 'string') {
+                i18n_zh[v] = val;
+              }
+            });
+            await savePermissions(editing!.id, { verbs, scopes, defaults, i18n_zh });
             message.success('已保存权限配置');
             setEditing(null);
             reload();
@@ -96,6 +106,12 @@ const PermissionsPage: React.FC = () => {
             label="verbs"
             initialValue={permDraft.verbs}
             placeholder="如 read/invoke/view_history/manage/use"
+            fieldProps={{
+              onChange: (vals) => {
+                // update keys for i18n editors
+                setFormI18nKeys((vals as string[]) || []);
+              },
+            }}
           />
         </ProFormGroup>
         <ProFormGroup title="范围 (scopes)">
@@ -107,12 +123,16 @@ const PermissionsPage: React.FC = () => {
             placeholder="如 game/env/function_id"
           />
         </ProFormGroup>
-        <ProFormGroup title="中文文案（后续版本支持逐动词编辑）">
-          <ProFormText
-            name="i18n_hint"
-            label="提示"
-            initialValue="暂不支持在此编辑 i18n_zh（后续提供逐动词编辑），可先在 JSON 文件中维护"
-          />
+        <ProFormGroup title="中文文案（逐动词）">
+          {(formI18nKeys.length ? formI18nKeys : (permDraft.verbs || [])).map((v) => (
+            <ProFormText
+              key={`i18n_${v}`}
+              name={`i18n_${v}`}
+              label={`${v} 的中文文案`}
+              initialValue={permDraft.i18n_zh?.[v] || ''}
+              placeholder={`例如：调用函数（${v}）`}
+            />
+          ))}
         </ProFormGroup>
       </ModalForm>
     </PageContainer>
