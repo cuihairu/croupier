@@ -8,11 +8,6 @@
 #include <direct.h>
 #include <windows.h>
 #include <io.h>
-#include <shlwapi.h>
-// Link shlwapi only on MSVC; MinGW treats unknown pragmas as errors.
-#ifdef _MSC_VER
-#pragma comment(lib, "shlwapi.lib")
-#endif
 #define ACCESS _access
 #define GETCWD _getcwd
 #define MKDIR(path) _mkdir(path)
@@ -353,7 +348,7 @@ std::string FileSystemUtils::ToAbsolutePath(const std::string& relative_path,
         return NormalizePath(relative_path);
     }
 
-    std::string base = base_path.empty() ? GetCurrentDirectory() : base_path;
+    std::string base = base_path.empty() ? FileSystemUtils::GetCurrentDirectory() : base_path;
     return NormalizePath(JoinPath(base, relative_path));
 }
 
