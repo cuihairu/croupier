@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write   # required for creating/uploading releases
   packages: write
   actions: write
 
@@ -450,6 +450,7 @@ jobs:
     name: Publish Nightly Release
     needs: [cpp, java, python, js, go]
     runs-on: ubuntu-latest
+    if: github.repository_owner == 'cuihairu'
     steps:
       - uses: actions/checkout@v4
       - name: Download all artifacts
