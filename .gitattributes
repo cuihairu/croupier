@@ -28,9 +28,5 @@ web/dist/**            linguist-generated
 web/.umi/**            linguist-generated
 web/tmp/**             linguist-generated
 
-# Migration/backup snapshots (do not count)
-.monorepo-migration/** linguist-vendored
-
 # Tip: if GitHub still shows Makefile dominating, uncomment the line below to exclude it:
 # Makefile              linguist-vendored
-
