@@ -1,163 +1,262 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { PageContainer, ProTable, ProColumns, ModalForm, ProFormText, ProFormTextArea, ProFormGroup, ProFormSwitch } from '@ant-design/pro-components';
-import { Button, App, Tag, Space, Divider, Typography } from 'antd';
-import { request } from '@umijs/max';
+import React, { useState, useEffect } from 'react';
+import { Card, Tabs, Badge, Space, Button, Dropdown, Menu } from 'antd';
+import {
+  FunctionOutlined,
+  DatabaseOutlined,
+  AppstoreOutlined,
+  MonitorOutlined,
+  SettingOutlined,
+  PlusOutlined,
+  ApartmentOutlined
+} from '@ant-design/icons';
+import { useModel } from '@umijs/max';
+import FunctionWorkspace from './components/FunctionWorkspace';
+import RegistryDashboard from './components/RegistryDashboard';
+import PackageCenter from './components/PackageCenter';
+import ExecutionMonitor from './components/ExecutionMonitor';
+import VirtualObjectManager from './components/VirtualObjectManager';
+import GameSelector from '@/components/GameSelector';
 
-type I18N = { zh?: string; en?: string };
-type Menu = { section?: string; group?: string; path?: string; order?: number; icon?: string; badge?: string; hidden?: boolean };
-type PermissionSpec = { verbs?: string[]; scopes?: string[]; defaults?: { role: string; verbs: string[] }[]; i18n_zh?: Record<string, string> };
+const { TabPane } = Tabs;
 
-type FuncRow = {
-  id: string;
-  enabled?: boolean;
-  display_name?: I18N;
-  summary?: I18N;
-  tags?: string[];
-  menu?: Menu;
-  permissions?: PermissionSpec;
-};
+interface ComponentStats {
+  totalFunctions: number;
+  activeFunctions: number;
+  runningJobs: number;
+  availablePackages: number;
+  connectedAgents: number;
+  virtualObjects: number;
+}
 
-const fetchSummary = async (): Promise<FuncRow[]> => {
-  const res = await request('/api/functions/summary', { method: 'GET' });
-  // Expect { functions: [...] } or array; normalize
-  if (Array.isArray(res)) return res as FuncRow[];
-  if (res && Array.isArray(res.functions)) return res.functions as FuncRow[];
-  return [];
-};
+export default function ComponentManagement() {
+  const [activeTab, setActiveTab] = useState('workspace');
+  const [stats, setStats] = useState<ComponentStats>({
+    totalFunctions: 0,
+    activeFunctions: 0,
+    runningJobs: 0,
+    availablePackages: 0,
+    connectedAgents: 0,
+    virtualObjects: 0
+  });
 
-const fetchUI = async (fid: string): Promise<any> => {
-  const res = await request(`/api/admin/functions/${encodeURIComponent(fid)}/ui`, { method: 'GET' });
-  return res?.ui || {};
-};
+  const { initialState } = useModel('@@initialState');
+  const currentUser = (initialState as any)?.currentUser;
+  const roles = currentUser?.access?.split(',') || [];
 
-const saveUI = async (fid: string, ui: any) => {
-  await request(`/api/admin/functions/${encodeURIComponent(fid)}/ui`, { method: 'PUT', data: ui });
-};
+  // 权限检查
+  const canManagePackages = roles.includes('*') || roles.includes('functions:manage');
+  const canViewRegistry = roles.includes('*') || roles.includes('registry:read');
 
-const savePermissions = async (fid: string, perm: PermissionSpec) => {
-  await request(`/api/admin/functions/${encodeURIComponent(fid)}/permissions`, { method: 'PUT', data: perm });
-};
+  useEffect(() => {
+    loadStats();
+    const interval = setInterval(loadStats, 30000); // 30秒刷新
+    return () => clearInterval(interval);
+  }, []);
 
-const ComponentManagement: React.FC = () => {
-  const { message } = App.useApp();
-  const [rows, setRows] = useState<FuncRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [editing, setEditing] = useState<FuncRow | null>(null);
-  const [uiDraft, setUiDraft] = useState<any>({});
-
-  const reload = async () => {
-    setLoading(true);
+  const loadStats = async () => {
     try {
-      const data = await fetchSummary();
-      setRows(data);
-    } catch (e: any) {
-      message.error(e?.message || '加载失败');
-    } finally {
-      setLoading(false);
+      const [descriptors, registry, packs, entities] = await Promise.all([
+        fetch('/api/descriptors').then(r => r.json()).catch(() => ({})),
+        fetch('/api/registry').then(r => r.json()).catch(() => ({})),
+        fetch('/api/packs/list').then(r => r.json()).catch(() => ({})),
+        fetch('/api/entities/list').then(r => r.json()).catch(() => ({}))
+      ]);
+
+      setStats({
+        totalFunctions: descriptors && typeof descriptors === 'object' ? Object.keys(descriptors).length : 0,
+        activeFunctions: descriptors && typeof descriptors === 'object' ? Object.values(descriptors).filter((d: any) => d?.enabled).length : 0,
+        runningJobs: 0, // TODO: 从job API获取
+        availablePackages: packs?.packages && Array.isArray(packs.packages) ? packs.packages.length : 0,
+        connectedAgents: registry?.agents && Array.isArray(registry.agents) ? registry.agents.filter((a: any) => a?.connected).length : 0,
+        virtualObjects: entities?.entities && Array.isArray(entities.entities) ? entities.entities.length : 0
+      });
+    } catch (error) {
+      console.error('Failed to load function stats:', error);
+      // 如果网络完全失败，设置默认值
+      setStats({
+        totalFunctions: 0,
+        activeFunctions: 0,
+        runningJobs: 0,
+        availablePackages: 0,
+        connectedAgents: 0,
+        virtualObjects: 0
+      });
     }
   };
 
-  useEffect(() => { reload(); }, []);
+  const quickActionsMenu = (
+    <Menu>
+      <Menu.Item key="import-pack" icon={<PlusOutlined />}>
+        导入组件包
+      </Menu.Item>
+      <Menu.Item key="create-function">
+        创建新组件
+      </Menu.Item>
+      <Menu.Item key="create-virtual-object" icon={<ApartmentOutlined />}>
+        创建虚拟对象
+      </Menu.Item>
+      <Menu.Item key="bulk-enable">
+        批量启用/禁用
+      </Menu.Item>
+      <Menu.Item key="export-config">
+        导出配置
+      </Menu.Item>
+    </Menu>
+  );
 
-  const columns: ProColumns<FuncRow>[] = useMemo(() => [
-    { title: '函数ID', dataIndex: 'id', width: 280, copyable: true, ellipsis: true },
-    { title: '名称(zh)', dataIndex: ['display_name', 'zh'], width: 220, ellipsis: true },
-    { title: '摘要(zh)', dataIndex: ['summary', 'zh'], width: 320, ellipsis: true },
-    { title: '标签', dataIndex: 'tags', width: 220, render: (_, r) => <Space size="small">{(r.tags || []).map(t => <Tag key={t}>{t}</Tag>)}</Space> },
-    { title: '菜单', dataIndex: 'menu', width: 280, render: (_, r) => r.menu ? <span>{r.menu.section} / {r.menu.group} {r.menu.hidden ? <Tag color="default">hidden</Tag> : null}</span> : '-' },
-    {
-      title: '操作',
-      valueType: 'option',
-      width: 200,
-      render: (_, r) => [
-        <a key="edit" onClick={async () => {
-          setEditing(r);
-          const ui = await fetchUI(r.id);
-          setUiDraft({
-            display_name: ui.display_name || r.display_name || {},
-            summary: ui.summary || r.summary || {},
-            tags: ui.tags || r.tags || [],
-            menu: ui.menu || r.menu || {},
-            permissions: ui.permissions || r.permissions || {},
-          });
-        }}>编辑</a>,
-      ],
-    },
-  ], []);
+  const renderTabTitle = (title: string, count?: number, color?: string) => (
+    <Space>
+      {title}
+      {count !== undefined && (
+        <Badge
+          count={count}
+          style={{ backgroundColor: color || '#1890ff' }}
+          overflowCount={999}
+        />
+      )}
+    </Space>
+  );
 
   return (
-    <PageContainer title="组件管理（函数目录）" extra={[
-      <Button key="refresh" onClick={reload}>刷新</Button>,
-    ]}>
-      <ProTable<FuncRow>
-        rowKey="id"
-        search={{ filterType: 'light' }}
-        loading={loading}
-        columns={columns}
-        dataSource={rows}
-        pagination={{ pageSize: 10 }}
-        toolBarRender={() => [
-          <Typography.Text type="secondary" key="tip">从 /api/functions/summary 动态加载，编辑将写入服务器覆盖（configs/ui/functions.override.json）</Typography.Text>
-        ]}
-      />
-
-      <ModalForm
-        title={editing ? `编辑：${editing.id}` : '编辑'}
-        open={!!editing}
-        width={720}
-        onOpenChange={(v) => !v && setEditing(null)}
-        onFinish={async (values: any) => {
-          try {
-            // merge fields into uiDraft
-            const next = {
-              display_name: { zh: values.dn_zh, en: values.dn_en },
-              summary: { zh: values.sm_zh, en: values.sm_en },
-              tags: (values.tags || '').split(',').map((s: string) => s.trim()).filter(Boolean),
-              menu: { section: values.menu_section, group: values.menu_group, path: values.menu_path, order: Number(values.menu_order || 0), icon: values.menu_icon, badge: values.menu_badge, hidden: !!values.menu_hidden },
-              permissions: uiDraft.permissions || {},
-            };
-            await saveUI(editing!.id, next);
-            message.success('已保存覆盖');
-            setEditing(null);
-            reload();
-            return true;
-          } catch (e: any) {
-            message.error(e?.message || '保存失败');
-            return false;
-          }
-        }}
+    <div>
+      <Card
+        title={
+          <Space>
+            <ApartmentOutlined />
+            组件管理
+          </Space>
+        }
+        extra={
+          <Space>
+            <GameSelector />
+            <Dropdown overlay={quickActionsMenu} placement="bottomRight">
+              <Button icon={<SettingOutlined />}>
+                快速操作
+              </Button>
+            </Dropdown>
+          </Space>
+        }
+        bordered={false}
       >
-        <ProFormGroup title="显示名称">
-          <ProFormText name="dn_zh" label="名称(zh)" initialValue={uiDraft?.display_name?.zh} />
-          <ProFormText name="dn_en" label="名称(en)" initialValue={uiDraft?.display_name?.en} />
-        </ProFormGroup>
-        <ProFormGroup title="摘要">
-          <ProFormTextArea name="sm_zh" label="摘要(zh)" initialValue={uiDraft?.summary?.zh} />
-          <ProFormTextArea name="sm_en" label="摘要(en)" initialValue={uiDraft?.summary?.en} />
-        </ProFormGroup>
-        <ProFormText name="tags" label="标签(逗号分隔)" initialValue={(uiDraft?.tags || []).join(',')} />
-        <Divider />
-        <ProFormGroup title="菜单">
-          <ProFormText name="menu_section" label="Section" initialValue={uiDraft?.menu?.section} />
-          <ProFormText name="menu_group" label="Group" initialValue={uiDraft?.menu?.group} />
-          <ProFormText name="menu_path" label="Path" initialValue={uiDraft?.menu?.path} />
-          <ProFormText name="menu_order" label="Order" initialValue={uiDraft?.menu?.order} />
-          <ProFormText name="menu_icon" label="Icon" initialValue={uiDraft?.menu?.icon} />
-          <ProFormText name="menu_badge" label="Badge" initialValue={uiDraft?.menu?.badge} />
-          <ProFormSwitch name="menu_hidden" label="隐藏" initialValue={uiDraft?.menu?.hidden} />
-        </ProFormGroup>
-        <Divider />
-        <Space direction="vertical" style={{ width: '100%' }}>
-          <Typography.Text>权限（verbs/scopes/defaults）请在“权限管理”页维护；此处保存不覆盖 permissions。</Typography.Text>
-        </Space>
-      </ModalForm>
-    </PageContainer>
+        {/* 统计概览 */}
+        <Card.Grid hoverable={false} style={{ width: '16.66%', textAlign: 'center' }}>
+          <div>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
+              {stats.totalFunctions}
+            </div>
+            <div style={{ color: '#666' }}>总函数数</div>
+          </div>
+        </Card.Grid>
+
+        <Card.Grid hoverable={false} style={{ width: '16.66%', textAlign: 'center' }}>
+          <div>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
+              {stats.activeFunctions}
+            </div>
+            <div style={{ color: '#666' }}>活跃函数</div>
+          </div>
+        </Card.Grid>
+
+        <Card.Grid hoverable={false} style={{ width: '16.66%', textAlign: 'center' }}>
+          <div>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>
+              {stats.runningJobs}
+            </div>
+            <div style={{ color: '#666' }}>运行中任务</div>
+          </div>
+        </Card.Grid>
+
+        <Card.Grid hoverable={false} style={{ width: '16.66%', textAlign: 'center' }}>
+          <div>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#722ed1' }}>
+              {stats.availablePackages}
+            </div>
+            <div style={{ color: '#666' }}>可用包数</div>
+          </div>
+        </Card.Grid>
+
+        <Card.Grid hoverable={false} style={{ width: '16.66%', textAlign: 'center' }}>
+          <div>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#13c2c2' }}>
+              {stats.connectedAgents}
+            </div>
+            <div style={{ color: '#666' }}>在线代理</div>
+          </div>
+        </Card.Grid>
+
+        <Card.Grid hoverable={false} style={{ width: '16.66%', textAlign: 'center' }}>
+          <div>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#eb2f96' }}>
+              {stats.virtualObjects}
+            </div>
+            <div style={{ color: '#666' }}>虚拟对象</div>
+          </div>
+        </Card.Grid>
+      </Card>
+
+      {/* 功能标签页 */}
+      <Card style={{ marginTop: 16 }} bodyStyle={{ padding: 0 }}>
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          size="large"
+          tabBarStyle={{ margin: 0, paddingLeft: 24, paddingRight: 24 }}
+        >
+          <TabPane
+            tab={renderTabTitle("组件工作台", stats.activeFunctions, '#52c41a')}
+            key="workspace"
+            icon={<FunctionOutlined />}
+          >
+            <div style={{ padding: 24 }}>
+              <FunctionWorkspace />
+            </div>
+          </TabPane>
+
+          {canViewRegistry && (
+            <TabPane
+              tab={renderTabTitle("注册表", stats.connectedAgents, '#13c2c2')}
+              key="registry"
+              icon={<DatabaseOutlined />}
+            >
+              <div style={{ padding: 24 }}>
+                <RegistryDashboard />
+              </div>
+            </TabPane>
+          )}
+
+          {canManagePackages && (
+            <TabPane
+              tab={renderTabTitle("组件包", stats.availablePackages, '#722ed1')}
+              key="packages"
+              icon={<AppstoreOutlined />}
+            >
+              <div style={{ padding: 24 }}>
+                <PackageCenter />
+              </div>
+            </TabPane>
+          )}
+
+          <TabPane
+            tab={renderTabTitle("执行监控", stats.runningJobs, '#faad14')}
+            key="monitor"
+            icon={<MonitorOutlined />}
+          >
+            <div style={{ padding: 24 }}>
+              <ExecutionMonitor />
+            </div>
+          </TabPane>
+
+          <TabPane
+            tab={renderTabTitle("虚拟对象", stats.virtualObjects, '#eb2f96')}
+            key="virtual-objects"
+            icon={<ApartmentOutlined />}
+          >
+            <div style={{ padding: 24 }}>
+              <VirtualObjectManager />
+            </div>
+          </TabPane>
+        </Tabs>
+      </Card>
+    </div>
   );
-};
-
-export default () => (
-  <App>
-    <ComponentManagement />
-  </App>
-);
-
+}

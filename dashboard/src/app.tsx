@@ -1,103 +1,155 @@
+import { Footer, Question, SelectLang, AvatarDropdown, AvatarName } from '@/components';
+import MessagesBell from '@/components/MessagesBell';
+import { LinkOutlined } from '@ant-design/icons';
+import type { Settings as LayoutSettings } from '@ant-design/pro-components';
+import { SettingDrawer } from '@ant-design/pro-components';
 import type { RunTimeLayoutConfig } from '@umijs/max';
-import { request } from '@umijs/max';
+import { history, Link } from '@umijs/max';
+import GameSelector from '@/components/GameSelector';
+import defaultSettings from '../config/defaultSettings';
+import { errorConfig } from './requestErrorConfig';
+import { fetchMe } from '@/services/croupier';
+import React, { useEffect } from 'react';
+import { App as AntdApp } from 'antd';
+import { setAppApi } from './utils/antdApp';
+const isDev = process.env.NODE_ENV === 'development';
+const loginPath = '/user/login';
 
-type I18N = { zh?: string; en?: string };
-type MenuMeta = { section?: string; group?: string; path?: string; order?: number; icon?: string; badge?: string; hidden?: boolean };
-type FuncItem = { id: string; display_name?: I18N; menu?: MenuMeta };
-
-async function fetchFunctions(): Promise<FuncItem[]> {
-  try {
-    const res: any = await request('/api/functions/summary', { method: 'GET' });
-    if (Array.isArray(res)) return res;
-    if (res && Array.isArray(res.functions)) return res.functions;
-    return [];
-  } catch {
-    return [];
-  }
-}
-
-async function fetchCurrentAccess(): Promise<{ roles: string[]; accessSet: Set<string> }> {
-  try {
-    const me: any = await request('/api/auth/me', { method: 'GET' });
-    const roles: string[] = me?.roles || [];
-    // try extended access CSV if available
-    const accessCsv: string | undefined = (me?.access as string) || '';
-    const set = new Set<string>((accessCsv || '').split(',').map((s) => s.trim()).filter(Boolean));
-    // basic roles expansion
-    if (roles.includes('admin')) {
-      set.add('*');
+/**
+ * @see  https://umijs.org/zh-CN/plugins/plugin-initial-state
+ * */
+export async function getInitialState(): Promise<{
+  settings?: Partial<LayoutSettings>;
+  currentUser?: API.CurrentUser;
+  loading?: boolean;
+  fetchUserInfo?: () => Promise<API.CurrentUser | undefined>;
+}> {
+  const fetchUserInfo = async () => {
+    // Only call backend when we have a token; otherwise avoid a 401 on boot
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return undefined;
+      const me = await fetchMe();
+      return { name: me.username, userid: me.username, access: (me.roles||[]).join(',') } as any;
+    } catch (error) {
+      history.push(loginPath);
+      return undefined;
     }
-    if (roles.includes('operator') || roles.includes('admin')) {
-      set.add('functions:read');
-    }
-    return { roles, accessSet: set };
-  } catch {
-    return { roles: [], accessSet: new Set<string>() };
+  };
+  // 如果不是登录页面，执行
+  const { location } = history;
+  if (location.pathname !== loginPath) {
+    const currentUser = await fetchUserInfo();
+    return {
+      fetchUserInfo,
+      currentUser,
+      settings: defaultSettings as Partial<LayoutSettings>,
+    };
   }
-}
-
-function buildDynamicMenu(funcs: FuncItem[], accessSet: Set<string>) {
-  const has = (p: string) => accessSet.has('*') || accessSet.has(p);
-  // Group by section -> group
-  const sections: Record<string, any> = {};
-  for (const f of funcs) {
-    const m = f.menu || {};
-    if (m.hidden) continue;
-    // permission gate: admin|functions:read|function:{id}:read|function:{id}:invoke
-    const fid = f.id;
-    if (
-      !has('functions:read') &&
-      !has(`function:${fid}:read`) &&
-      !has(`function:${fid}:invoke`) &&
-      !has('*')
-    ) {
-      continue;
-    }
-    const section = m.section || 'Function Management';
-    const group = m.group || 'Uncategorized';
-    sections[section] = sections[section] || {};
-    sections[section][group] = sections[section][group] || [];
-    sections[section][group].push({
-      name: (f.display_name?.zh || f.display_name?.en || f.id),
-      path: (m.path || '/GmFunctions') + `?fid=${encodeURIComponent(f.id)}`,
-      icon: m.icon,
-      order: m.order || 0,
-    });
-  }
-  // Compose menu tree
-  const menu: any[] = [];
-  Object.keys(sections).forEach((section) => {
-    const groups = sections[section];
-    const children: any[] = [];
-    Object.keys(groups).forEach((g) => {
-      const items = groups[g].sort((a: any, b: any) => a.order - b.order);
-      children.push({
-        name: g,
-        path: `/${encodeURIComponent(section)}/${encodeURIComponent(g)}`,
-        routes: items,
-      });
-    });
-    menu.push({
-      name: section,
-      path: `/${encodeURIComponent(section)}`,
-      routes: children,
-    });
-  });
-  return menu;
-}
-
-export const layout: RunTimeLayoutConfig = () => {
   return {
-    // Merge dynamic menus with existing route-based menus
-    menu: {
-      // request is supported by ProLayout; when present, it overrides default menuData
-      // We'll merge default with dynamic by returning concatenation.
-      request: async (params, defaultMenuData) => {
-        const [funcs, me] = await Promise.all([fetchFunctions(), fetchCurrentAccess()]);
-        const dyn = buildDynamicMenu(funcs, me.accessSet);
-        // Merge: keep existing menu first, then dynamic sections
-        return [...(defaultMenuData || []), ...dyn];
+    fetchUserInfo,
+    settings: defaultSettings as Partial<LayoutSettings>,
+  };
+}
+
+// ProLayout 支持的api https://procomponents.ant.design/components/layout
+export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) => {
+  const AppApiRegistrar: React.FC = () => {
+    const inst = AntdApp.useApp();
+    useEffect(() => {
+      setAppApi({ message: inst.message, notification: inst.notification });
+    }, [inst]);
+    return null;
+  };
+  const isAuthed = !!initialState?.currentUser;
+  return {
+    actionsRender: () => [
+      <GameSelector key="scope" />,
+      isAuthed ? <MessagesBell key="msgs" /> : null,
+      <Question key="doc" />,
+      <SelectLang key="SelectLang" />,
+    ].filter(Boolean) as any,
+    avatarProps: {
+      src: initialState?.currentUser?.avatar,
+      title: <AvatarName />,
+      render: (_, avatarChildren) => {
+        return <AvatarDropdown menu>{avatarChildren}</AvatarDropdown>;
       },
     },
+    waterMarkProps: {
+      content: initialState?.currentUser?.name,
+    },
+    footerRender: () => <Footer />,
+    onPageChange: () => {
+      const { location } = history;
+      // 如果没有登录，重定向到 login
+      if (!initialState?.currentUser && location.pathname !== loginPath) {
+        history.push(loginPath);
+      }
+    },
+    bgLayoutImgList: [
+      {
+        src: 'https://mdn.alipayobjects.com/yuyan_qk0oxh/afts/img/D2LWSqNny4sAAAAAAAAAAAAAFl94AQBr',
+        left: 85,
+        bottom: 100,
+        height: '303px',
+      },
+      {
+        src: 'https://mdn.alipayobjects.com/yuyan_qk0oxh/afts/img/C2TWRpJpiC0AAAAAAAAAAAAAFl94AQBr',
+        bottom: -68,
+        right: -45,
+        height: '303px',
+      },
+      {
+        src: 'https://mdn.alipayobjects.com/yuyan_qk0oxh/afts/img/F6vSTbj8KpYAAAAAAAAAAAAAFl94AQBr',
+        bottom: 0,
+        left: 0,
+        width: '331px',
+      },
+    ],
+    links: isDev
+      ? [
+          <Link key="openapi" to="/umi/plugin/openapi" target="_blank">
+            <LinkOutlined />
+            <span>OpenAPI 文档</span>
+          </Link>,
+        ]
+      : [],
+    menuHeaderRender: undefined,
+    // 自定义 403 页面
+    // unAccessible: <div>unAccessible</div>,
+    // 增加一个 loading 的状态
+    childrenRender: (children) => {
+      // if (initialState?.loading) return <PageLoading />;
+      return (
+        <AntdApp>
+          <AppApiRegistrar />
+          {children}
+          {isDev && (
+            <SettingDrawer
+              disableUrlParams
+              enableDarkTheme
+              settings={initialState?.settings}
+              onSettingChange={(settings) => {
+                setInitialState((preInitialState) => ({
+                  ...preInitialState,
+                  settings,
+                }));
+              }}
+            />
+          )}
+        </AntdApp>
+      );
+    },
+    ...initialState?.settings,
   };
+};
+
+/**
+ * @name request 配置，可以配置错误处理
+ * 它基于 axios 和 ahooks 的 useRequest 提供了一套统一的网络请求和错误处理方案。
+ * @doc https://umijs.org/docs/max/request#配置
+ */
+export const request = {
+  ...errorConfig,
 };
