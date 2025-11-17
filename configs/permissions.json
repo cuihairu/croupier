@@ -243,5 +243,54 @@
     "description": "执行货币转账操作",
     "category": "wallet",
     "module": "economy"
+  },
+  {
+    "code": "registry:read",
+    "name": "注册表查看",
+    "description": "查看 Agent/服务注册信息",
+    "category": "registry",
+    "module": "ops"
+  },
+  {
+    "code": "registry:manage",
+    "name": "注册表管理",
+    "description": "管理注册表数据",
+    "category": "registry",
+    "module": "ops"
+  },
+  {
+    "code": "packs:read",
+    "name": "组件包查看",
+    "description": "查看组件包列表",
+    "category": "packs",
+    "module": "system"
+  },
+  {
+    "code": "packs:list",
+    "name": "组件包列表",
+    "description": "读取组件包列表",
+    "category": "packs",
+    "module": "system"
+  },
+  {
+    "code": "packs:reload",
+    "name": "组件包重载",
+    "description": "重新加载组件包",
+    "category": "packs",
+    "module": "system"
+  },
+  {
+    "code": "entities:list",
+    "name": "实体列表",
+    "description": "查看实体列表",
+    "category": "entity",
+    "module": "schema"
+  },
+  {
+    "code": "functions:read",
+    "name": "函数查看",
+    "description": "读取函数描述符",
+    "category": "function",
+    "module": "gm"
   }
 ]
