@@ -11,6 +11,7 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -19,6 +20,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
+	ControlService_ListFunctionsSummary_FullMethodName = "/croupier.server.v1.ControlService/ListFunctionsSummary"
 	ControlService_Register_FullMethodName             = "/croupier.server.v1.ControlService/Register"
 	ControlService_Heartbeat_FullMethodName            = "/croupier.server.v1.ControlService/Heartbeat"
 	ControlService_RegisterCapabilities_FullMethodName = "/croupier.server.v1.ControlService/RegisterCapabilities"
@@ -30,6 +32,8 @@ const (
 //
 // Server Control Service - Internal interface for agent registration and management
 type ControlServiceClient interface {
+	// Summarized function catalog with UI/RBAC metadata (for dashboard)
+	ListFunctionsSummary(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListFunctionsSummaryResponse, error)
 	// Agent registration with server
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
 	// Agent heartbeat
@@ -44,6 +48,16 @@ type controlServiceClient struct {
 
 func NewControlServiceClient(cc grpc.ClientConnInterface) ControlServiceClient {
 	return &controlServiceClient{cc}
+}
+
+func (c *controlServiceClient) ListFunctionsSummary(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListFunctionsSummaryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListFunctionsSummaryResponse)
+	err := c.cc.Invoke(ctx, ControlService_ListFunctionsSummary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *controlServiceClient) Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error) {
@@ -82,6 +96,8 @@ func (c *controlServiceClient) RegisterCapabilities(ctx context.Context, in *Reg
 //
 // Server Control Service - Internal interface for agent registration and management
 type ControlServiceServer interface {
+	// Summarized function catalog with UI/RBAC metadata (for dashboard)
+	ListFunctionsSummary(context.Context, *emptypb.Empty) (*ListFunctionsSummaryResponse, error)
 	// Agent registration with server
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
 	// Agent heartbeat
@@ -98,6 +114,9 @@ type ControlServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedControlServiceServer struct{}
 
+func (UnimplementedControlServiceServer) ListFunctionsSummary(context.Context, *emptypb.Empty) (*ListFunctionsSummaryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListFunctionsSummary not implemented")
+}
 func (UnimplementedControlServiceServer) Register(context.Context, *RegisterRequest) (*RegisterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Register not implemented")
 }
@@ -126,6 +145,24 @@ func RegisterControlServiceServer(s grpc.ServiceRegistrar, srv ControlServiceSer
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&ControlService_ServiceDesc, srv)
+}
+
+func _ControlService_ListFunctionsSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).ListFunctionsSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_ListFunctionsSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).ListFunctionsSummary(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _ControlService_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -189,6 +226,10 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "croupier.server.v1.ControlService",
 	HandlerType: (*ControlServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListFunctionsSummary",
+			Handler:    _ControlService_ListFunctionsSummary_Handler,
+		},
 		{
 			MethodName: "Register",
 			Handler:    _ControlService_Register_Handler,

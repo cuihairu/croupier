@@ -7,6 +7,7 @@
 package optionsv1
 
 import (
+	v1 "github.com/cuihairu/croupier/pkg/pb/croupier/common/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
@@ -47,8 +48,18 @@ type FunctionOptions struct {
 	Mode string `protobuf:"bytes,10,opt,name=mode,proto3" json:"mode,omitempty"`
 	// 是否启用幂等键（默认 false）
 	IdempotencyKey bool `protobuf:"varint,11,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// ========== 展示 & 权限（UI/菜单/权限，强类型定义） ==========
+	// 展示名称与摘要（i18n）
+	DisplayName *v1.I18NText `protobuf:"bytes,12,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Summary     *v1.I18NText `protobuf:"bytes,13,opt,name=summary,proto3" json:"summary,omitempty"`
+	// 标签
+	Tags []string `protobuf:"bytes,14,rep,name=tags,proto3" json:"tags,omitempty"`
+	// 菜单元数据（用于构建前端菜单）
+	Menu *v1.Menu `protobuf:"bytes,15,opt,name=menu,proto3" json:"menu,omitempty"`
+	// 权限规范（verbs/scopes/default role grants/i18n）
+	Permissions   *v1.PermissionSpec `protobuf:"bytes,16,opt,name=permissions,proto3" json:"permissions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *FunctionOptions) Reset() {
@@ -158,6 +169,41 @@ func (x *FunctionOptions) GetIdempotencyKey() bool {
 	return false
 }
 
+func (x *FunctionOptions) GetDisplayName() *v1.I18NText {
+	if x != nil {
+		return x.DisplayName
+	}
+	return nil
+}
+
+func (x *FunctionOptions) GetSummary() *v1.I18NText {
+	if x != nil {
+		return x.Summary
+	}
+	return nil
+}
+
+func (x *FunctionOptions) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *FunctionOptions) GetMenu() *v1.Menu {
+	if x != nil {
+		return x.Menu
+	}
+	return nil
+}
+
+func (x *FunctionOptions) GetPermissions() *v1.PermissionSpec {
+	if x != nil {
+		return x.Permissions
+	}
+	return nil
+}
+
 var file_croupier_options_v1_function_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*descriptorpb.MethodOptions)(nil),
@@ -179,7 +225,7 @@ var File_croupier_options_v1_function_proto protoreflect.FileDescriptor
 
 const file_croupier_options_v1_function_proto_rawDesc = "" +
 	"\n" +
-	"\"croupier/options/v1/function.proto\x12\x13croupier.options.v1\x1a google/protobuf/descriptor.proto\"\xb4\x03\n" +
+	"\"croupier/options/v1/function.proto\x12\x13croupier.options.v1\x1a google/protobuf/descriptor.proto\x1a\x1bcroupier/common/v1/ui.proto\"\xb5\x05\n" +
 	"\x0fFunctionOptions\x12\x1f\n" +
 	"\vfunction_id\x18\x01 \x01(\tR\n" +
 	"functionId\x12\x18\n" +
@@ -193,7 +239,12 @@ const file_croupier_options_v1_function_proto_rawDesc = "" +
 	"\x06labels\x18\t \x03(\v20.croupier.options.v1.FunctionOptions.LabelsEntryR\x06labels\x12\x12\n" +
 	"\x04mode\x18\n" +
 	" \x01(\tR\x04mode\x12'\n" +
-	"\x0fidempotency_key\x18\v \x01(\bR\x0eidempotencyKey\x1a9\n" +
+	"\x0fidempotency_key\x18\v \x01(\bR\x0eidempotencyKey\x12?\n" +
+	"\fdisplay_name\x18\f \x01(\v2\x1c.croupier.common.v1.I18nTextR\vdisplayName\x126\n" +
+	"\asummary\x18\r \x01(\v2\x1c.croupier.common.v1.I18nTextR\asummary\x12\x12\n" +
+	"\x04tags\x18\x0e \x03(\tR\x04tags\x12,\n" +
+	"\x04menu\x18\x0f \x01(\v2\x18.croupier.common.v1.MenuR\x04menu\x12D\n" +
+	"\vpermissions\x18\x10 \x01(\v2\".croupier.common.v1.PermissionSpecR\vpermissions\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01:b\n" +
@@ -216,17 +267,24 @@ var file_croupier_options_v1_function_proto_msgTypes = make([]protoimpl.MessageI
 var file_croupier_options_v1_function_proto_goTypes = []any{
 	(*FunctionOptions)(nil),            // 0: croupier.options.v1.FunctionOptions
 	nil,                                // 1: croupier.options.v1.FunctionOptions.LabelsEntry
-	(*descriptorpb.MethodOptions)(nil), // 2: google.protobuf.MethodOptions
+	(*v1.I18NText)(nil),                // 2: croupier.common.v1.I18nText
+	(*v1.Menu)(nil),                    // 3: croupier.common.v1.Menu
+	(*v1.PermissionSpec)(nil),          // 4: croupier.common.v1.PermissionSpec
+	(*descriptorpb.MethodOptions)(nil), // 5: google.protobuf.MethodOptions
 }
 var file_croupier_options_v1_function_proto_depIdxs = []int32{
 	1, // 0: croupier.options.v1.FunctionOptions.labels:type_name -> croupier.options.v1.FunctionOptions.LabelsEntry
-	2, // 1: croupier.options.v1.function:extendee -> google.protobuf.MethodOptions
-	0, // 2: croupier.options.v1.function:type_name -> croupier.options.v1.FunctionOptions
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	2, // [2:3] is the sub-list for extension type_name
-	1, // [1:2] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 1: croupier.options.v1.FunctionOptions.display_name:type_name -> croupier.common.v1.I18nText
+	2, // 2: croupier.options.v1.FunctionOptions.summary:type_name -> croupier.common.v1.I18nText
+	3, // 3: croupier.options.v1.FunctionOptions.menu:type_name -> croupier.common.v1.Menu
+	4, // 4: croupier.options.v1.FunctionOptions.permissions:type_name -> croupier.common.v1.PermissionSpec
+	5, // 5: croupier.options.v1.function:extendee -> google.protobuf.MethodOptions
+	0, // 6: croupier.options.v1.function:type_name -> croupier.options.v1.FunctionOptions
+	7, // [7:7] is the sub-list for method output_type
+	7, // [7:7] is the sub-list for method input_type
+	6, // [6:7] is the sub-list for extension type_name
+	5, // [5:6] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_croupier_options_v1_function_proto_init() }

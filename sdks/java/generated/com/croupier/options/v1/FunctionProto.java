@@ -59,38 +59,46 @@ public final class FunctionProto extends com.google.protobuf.GeneratedFile {
     java.lang.String[] descriptorData = {
       "\n\"croupier/options/v1/function.proto\022\023cr" +
       "oupier.options.v1\032 google/protobuf/descr" +
-      "iptor.proto\"\264\003\n\017FunctionOptions\022\037\n\013funct" +
-      "ion_id\030\001 \001(\tR\nfunctionId\022\030\n\007version\030\002 \001(" +
-      "\tR\007version\022\032\n\010category\030\003 \001(\tR\010category\022\022" +
-      "\n\004risk\030\004 \001(\tR\004risk\022\024\n\005route\030\005 \001(\tR\005route" +
-      "\022\030\n\007timeout\030\006 \001(\tR\007timeout\022&\n\017two_person" +
-      "_rule\030\007 \001(\010R\rtwoPersonRule\022\034\n\tplacement\030" +
-      "\010 \001(\tR\tplacement\022H\n\006labels\030\t \003(\01320.croup" +
-      "ier.options.v1.FunctionOptions.LabelsEnt" +
-      "ryR\006labels\022\022\n\004mode\030\n \001(\tR\004mode\022\'\n\017idempo" +
-      "tency_key\030\013 \001(\010R\016idempotencyKey\0329\n\013Label" +
-      "sEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030\002 \001(\tR" +
-      "\005value:\0028\001:b\n\010function\022\036.google.protobuf" +
-      ".MethodOptions\030\271\216\003 \001(\0132$.croupier.option" +
-      "s.v1.FunctionOptionsR\010functionB\331\001\n\027com.c" +
-      "roupier.options.v1B\rFunctionProtoP\001ZAgit" +
-      "hub.com/cuihairu/croupier/pkg/pb/croupie" +
-      "r/options/v1;optionsv1\242\002\003COX\252\002\023Croupier." +
-      "Options.V1\312\002\023Croupier\\Options\\V1\342\002\037Croup" +
-      "ier\\Options\\V1\\GPBMetadata\352\002\025Croupier::O" +
-      "ptions::V1b\006proto3"
+      "iptor.proto\032\033croupier/common/v1/ui.proto" +
+      "\"\265\005\n\017FunctionOptions\022\037\n\013function_id\030\001 \001(" +
+      "\tR\nfunctionId\022\030\n\007version\030\002 \001(\tR\007version\022" +
+      "\032\n\010category\030\003 \001(\tR\010category\022\022\n\004risk\030\004 \001(" +
+      "\tR\004risk\022\024\n\005route\030\005 \001(\tR\005route\022\030\n\007timeout" +
+      "\030\006 \001(\tR\007timeout\022&\n\017two_person_rule\030\007 \001(\010" +
+      "R\rtwoPersonRule\022\034\n\tplacement\030\010 \001(\tR\tplac" +
+      "ement\022H\n\006labels\030\t \003(\01320.croupier.options" +
+      ".v1.FunctionOptions.LabelsEntryR\006labels\022" +
+      "\022\n\004mode\030\n \001(\tR\004mode\022\'\n\017idempotency_key\030\013" +
+      " \001(\010R\016idempotencyKey\022?\n\014display_name\030\014 \001" +
+      "(\0132\034.croupier.common.v1.I18nTextR\013displa" +
+      "yName\0226\n\007summary\030\r \001(\0132\034.croupier.common" +
+      ".v1.I18nTextR\007summary\022\022\n\004tags\030\016 \003(\tR\004tag" +
+      "s\022,\n\004menu\030\017 \001(\0132\030.croupier.common.v1.Men" +
+      "uR\004menu\022D\n\013permissions\030\020 \001(\0132\".croupier." +
+      "common.v1.PermissionSpecR\013permissions\0329\n" +
+      "\013LabelsEntry\022\020\n\003key\030\001 \001(\tR\003key\022\024\n\005value\030" +
+      "\002 \001(\tR\005value:\0028\001:b\n\010function\022\036.google.pr" +
+      "otobuf.MethodOptions\030\271\216\003 \001(\0132$.croupier." +
+      "options.v1.FunctionOptionsR\010functionB\331\001\n" +
+      "\027com.croupier.options.v1B\rFunctionProtoP" +
+      "\001ZAgithub.com/cuihairu/croupier/pkg/pb/c" +
+      "roupier/options/v1;optionsv1\242\002\003COX\252\002\023Cro" +
+      "upier.Options.V1\312\002\023Croupier\\Options\\V1\342\002" +
+      "\037Croupier\\Options\\V1\\GPBMetadata\352\002\025Croup" +
+      "ier::Options::V1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
           com.google.protobuf.DescriptorProtos.getDescriptor(),
+          com.croupier.common.v1.UiProto.getDescriptor(),
         });
     internal_static_croupier_options_v1_FunctionOptions_descriptor =
       getDescriptor().getMessageType(0);
     internal_static_croupier_options_v1_FunctionOptions_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_croupier_options_v1_FunctionOptions_descriptor,
-        new java.lang.String[] { "FunctionId", "Version", "Category", "Risk", "Route", "Timeout", "TwoPersonRule", "Placement", "Labels", "Mode", "IdempotencyKey", });
+        new java.lang.String[] { "FunctionId", "Version", "Category", "Risk", "Route", "Timeout", "TwoPersonRule", "Placement", "Labels", "Mode", "IdempotencyKey", "DisplayName", "Summary", "Tags", "Menu", "Permissions", });
     internal_static_croupier_options_v1_FunctionOptions_LabelsEntry_descriptor =
       internal_static_croupier_options_v1_FunctionOptions_descriptor.getNestedType(0);
     internal_static_croupier_options_v1_FunctionOptions_LabelsEntry_fieldAccessorTable = new
@@ -100,6 +108,7 @@ public final class FunctionProto extends com.google.protobuf.GeneratedFile {
     function.internalInit(descriptor.getExtension(0));
     descriptor.resolveAllFeaturesImmutable();
     com.google.protobuf.DescriptorProtos.getDescriptor();
+    com.croupier.common.v1.UiProto.getDescriptor();
   }
 
   // @@protoc_insertion_point(outer_class_scope)

@@ -3,8 +3,8 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { HeartbeatRequest, HeartbeatResponse, RegisterCapabilitiesRequest, RegisterCapabilitiesResponse, RegisterRequest, RegisterResponse } from "./control_pb.js";
-import { MethodKind } from "@bufbuild/protobuf";
+import { Empty, MethodKind } from "@bufbuild/protobuf";
+import { HeartbeatRequest, HeartbeatResponse, ListFunctionsSummaryResponse, RegisterCapabilitiesRequest, RegisterCapabilitiesResponse, RegisterRequest, RegisterResponse } from "./control_pb.js";
 
 /**
  * Server Control Service - Internal interface for agent registration and management
@@ -14,6 +14,17 @@ import { MethodKind } from "@bufbuild/protobuf";
 export const ControlService = {
   typeName: "croupier.server.v1.ControlService",
   methods: {
+    /**
+     * Summarized function catalog with UI/RBAC metadata (for dashboard)
+     *
+     * @generated from rpc croupier.server.v1.ControlService.ListFunctionsSummary
+     */
+    listFunctionsSummary: {
+      name: "ListFunctionsSummary",
+      I: Empty,
+      O: ListFunctionsSummaryResponse,
+      kind: MethodKind.Unary,
+    },
     /**
      * Agent registration with server
      *

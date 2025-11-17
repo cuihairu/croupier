@@ -3,6 +3,7 @@
 import grpc
 
 from croupier.server.v1 import control_pb2 as croupier_dot_server_dot_v1_dot_control__pb2
+from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 
 
 class ControlServiceStub(object):
@@ -15,6 +16,11 @@ class ControlServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.ListFunctionsSummary = channel.unary_unary(
+                '/croupier.server.v1.ControlService/ListFunctionsSummary',
+                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                response_deserializer=croupier_dot_server_dot_v1_dot_control__pb2.ListFunctionsSummaryResponse.FromString,
+                _registered_method=True)
         self.Register = channel.unary_unary(
                 '/croupier.server.v1.ControlService/Register',
                 request_serializer=croupier_dot_server_dot_v1_dot_control__pb2.RegisterRequest.SerializeToString,
@@ -35,6 +41,13 @@ class ControlServiceStub(object):
 class ControlServiceServicer(object):
     """Server Control Service - Internal interface for agent registration and management
     """
+
+    def ListFunctionsSummary(self, request, context):
+        """Summarized function catalog with UI/RBAC metadata (for dashboard)
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def Register(self, request, context):
         """Agent registration with server
@@ -60,6 +73,11 @@ class ControlServiceServicer(object):
 
 def add_ControlServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'ListFunctionsSummary': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListFunctionsSummary,
+                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                    response_serializer=croupier_dot_server_dot_v1_dot_control__pb2.ListFunctionsSummaryResponse.SerializeToString,
+            ),
             'Register': grpc.unary_unary_rpc_method_handler(
                     servicer.Register,
                     request_deserializer=croupier_dot_server_dot_v1_dot_control__pb2.RegisterRequest.FromString,
@@ -86,6 +104,33 @@ def add_ControlServiceServicer_to_server(servicer, server):
 class ControlService(object):
     """Server Control Service - Internal interface for agent registration and management
     """
+
+    @staticmethod
+    def ListFunctionsSummary(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/croupier.server.v1.ControlService/ListFunctionsSummary',
+            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            croupier_dot_server_dot_v1_dot_control__pb2.ListFunctionsSummaryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
 
     @staticmethod
     def Register(request,

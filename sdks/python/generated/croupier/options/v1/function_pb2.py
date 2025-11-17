@@ -23,9 +23,10 @@ _sym_db = _symbol_database.Default()
 
 
 from google.protobuf import descriptor_pb2 as google_dot_protobuf_dot_descriptor__pb2
+from croupier.common.v1 import ui_pb2 as croupier_dot_common_dot_v1_dot_ui__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"croupier/options/v1/function.proto\x12\x13\x63roupier.options.v1\x1a google/protobuf/descriptor.proto\"\xb4\x03\n\x0f\x46unctionOptions\x12\x1f\n\x0b\x66unction_id\x18\x01 \x01(\tR\nfunctionId\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x1a\n\x08\x63\x61tegory\x18\x03 \x01(\tR\x08\x63\x61tegory\x12\x12\n\x04risk\x18\x04 \x01(\tR\x04risk\x12\x14\n\x05route\x18\x05 \x01(\tR\x05route\x12\x18\n\x07timeout\x18\x06 \x01(\tR\x07timeout\x12&\n\x0ftwo_person_rule\x18\x07 \x01(\x08R\rtwoPersonRule\x12\x1c\n\tplacement\x18\x08 \x01(\tR\tplacement\x12H\n\x06labels\x18\t \x03(\x0b\x32\x30.croupier.options.v1.FunctionOptions.LabelsEntryR\x06labels\x12\x12\n\x04mode\x18\n \x01(\tR\x04mode\x12\'\n\x0fidempotency_key\x18\x0b \x01(\x08R\x0eidempotencyKey\x1a\x39\n\x0bLabelsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01:b\n\x08\x66unction\x12\x1e.google.protobuf.MethodOptions\x18\xb9\x8e\x03 \x01(\x0b\x32$.croupier.options.v1.FunctionOptionsR\x08\x66unctionB\xd9\x01\n\x17\x63om.croupier.options.v1B\rFunctionProtoP\x01ZAgithub.com/cuihairu/croupier/pkg/pb/croupier/options/v1;optionsv1\xa2\x02\x03\x43OX\xaa\x02\x13\x43roupier.Options.V1\xca\x02\x13\x43roupier\\Options\\V1\xe2\x02\x1f\x43roupier\\Options\\V1\\GPBMetadata\xea\x02\x15\x43roupier::Options::V1b\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\"croupier/options/v1/function.proto\x12\x13\x63roupier.options.v1\x1a google/protobuf/descriptor.proto\x1a\x1b\x63roupier/common/v1/ui.proto\"\xb5\x05\n\x0f\x46unctionOptions\x12\x1f\n\x0b\x66unction_id\x18\x01 \x01(\tR\nfunctionId\x12\x18\n\x07version\x18\x02 \x01(\tR\x07version\x12\x1a\n\x08\x63\x61tegory\x18\x03 \x01(\tR\x08\x63\x61tegory\x12\x12\n\x04risk\x18\x04 \x01(\tR\x04risk\x12\x14\n\x05route\x18\x05 \x01(\tR\x05route\x12\x18\n\x07timeout\x18\x06 \x01(\tR\x07timeout\x12&\n\x0ftwo_person_rule\x18\x07 \x01(\x08R\rtwoPersonRule\x12\x1c\n\tplacement\x18\x08 \x01(\tR\tplacement\x12H\n\x06labels\x18\t \x03(\x0b\x32\x30.croupier.options.v1.FunctionOptions.LabelsEntryR\x06labels\x12\x12\n\x04mode\x18\n \x01(\tR\x04mode\x12\'\n\x0fidempotency_key\x18\x0b \x01(\x08R\x0eidempotencyKey\x12?\n\x0c\x64isplay_name\x18\x0c \x01(\x0b\x32\x1c.croupier.common.v1.I18nTextR\x0b\x64isplayName\x12\x36\n\x07summary\x18\r \x01(\x0b\x32\x1c.croupier.common.v1.I18nTextR\x07summary\x12\x12\n\x04tags\x18\x0e \x03(\tR\x04tags\x12,\n\x04menu\x18\x0f \x01(\x0b\x32\x18.croupier.common.v1.MenuR\x04menu\x12\x44\n\x0bpermissions\x18\x10 \x01(\x0b\x32\".croupier.common.v1.PermissionSpecR\x0bpermissions\x1a\x39\n\x0bLabelsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01:b\n\x08\x66unction\x12\x1e.google.protobuf.MethodOptions\x18\xb9\x8e\x03 \x01(\x0b\x32$.croupier.options.v1.FunctionOptionsR\x08\x66unctionB\xd9\x01\n\x17\x63om.croupier.options.v1B\rFunctionProtoP\x01ZAgithub.com/cuihairu/croupier/pkg/pb/croupier/options/v1;optionsv1\xa2\x02\x03\x43OX\xaa\x02\x13\x43roupier.Options.V1\xca\x02\x13\x43roupier\\Options\\V1\xe2\x02\x1f\x43roupier\\Options\\V1\\GPBMetadata\xea\x02\x15\x43roupier::Options::V1b\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,8 +36,8 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._serialized_options = b'\n\027com.croupier.options.v1B\rFunctionProtoP\001ZAgithub.com/cuihairu/croupier/pkg/pb/croupier/options/v1;optionsv1\242\002\003COX\252\002\023Croupier.Options.V1\312\002\023Croupier\\Options\\V1\342\002\037Croupier\\Options\\V1\\GPBMetadata\352\002\025Croupier::Options::V1'
   _globals['_FUNCTIONOPTIONS_LABELSENTRY']._loaded_options = None
   _globals['_FUNCTIONOPTIONS_LABELSENTRY']._serialized_options = b'8\001'
-  _globals['_FUNCTIONOPTIONS']._serialized_start=94
-  _globals['_FUNCTIONOPTIONS']._serialized_end=530
-  _globals['_FUNCTIONOPTIONS_LABELSENTRY']._serialized_start=473
-  _globals['_FUNCTIONOPTIONS_LABELSENTRY']._serialized_end=530
+  _globals['_FUNCTIONOPTIONS']._serialized_start=123
+  _globals['_FUNCTIONOPTIONS']._serialized_end=816
+  _globals['_FUNCTIONOPTIONS_LABELSENTRY']._serialized_start=759
+  _globals['_FUNCTIONOPTIONS_LABELSENTRY']._serialized_end=816
 # @@protoc_insertion_point(module_scope)

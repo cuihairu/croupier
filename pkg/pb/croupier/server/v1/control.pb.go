@@ -7,8 +7,10 @@
 package serverv1
 
 import (
+	v1 "github.com/cuihairu/croupier/pkg/pb/croupier/common/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -23,14 +25,20 @@ const (
 
 // Server-side Function Descriptor
 type FunctionDescriptor struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`               // function id, e.g. "player.ban"
-	Version       string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`     // semver, e.g. "1.2.0"
-	Category      string                 `protobuf:"bytes,3,opt,name=category,proto3" json:"category,omitempty"`   // grouping
-	Risk          string                 `protobuf:"bytes,4,opt,name=risk,proto3" json:"risk,omitempty"`           // "low"|"medium"|"high"
-	Entity        string                 `protobuf:"bytes,5,opt,name=entity,proto3" json:"entity,omitempty"`       // entity type, e.g. "item", "player"
-	Operation     string                 `protobuf:"bytes,6,opt,name=operation,proto3" json:"operation,omitempty"` // operation type, e.g. "create", "read", "update", "delete"
-	Enabled       bool                   `protobuf:"varint,7,opt,name=enabled,proto3" json:"enabled,omitempty"`    // whether this function is currently enabled
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Id        string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`               // function id, e.g. "player.ban"
+	Version   string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`     // semver, e.g. "1.2.0"
+	Category  string                 `protobuf:"bytes,3,opt,name=category,proto3" json:"category,omitempty"`   // grouping
+	Risk      string                 `protobuf:"bytes,4,opt,name=risk,proto3" json:"risk,omitempty"`           // "low"|"medium"|"high"
+	Entity    string                 `protobuf:"bytes,5,opt,name=entity,proto3" json:"entity,omitempty"`       // entity type, e.g. "item", "player"
+	Operation string                 `protobuf:"bytes,6,opt,name=operation,proto3" json:"operation,omitempty"` // operation type, e.g. "create", "read", "update", "delete"
+	Enabled   bool                   `protobuf:"varint,7,opt,name=enabled,proto3" json:"enabled,omitempty"`    // whether this function is currently enabled
+	// New: UI/i18n/tags/menu/permissions for dynamic navigation & RBAC generation
+	DisplayName   *v1.I18NText       `protobuf:"bytes,20,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Summary       *v1.I18NText       `protobuf:"bytes,21,opt,name=summary,proto3" json:"summary,omitempty"`
+	Tags          []string           `protobuf:"bytes,22,rep,name=tags,proto3" json:"tags,omitempty"`
+	Menu          *v1.Menu           `protobuf:"bytes,23,opt,name=menu,proto3" json:"menu,omitempty"`
+	Permissions   *v1.PermissionSpec `protobuf:"bytes,24,opt,name=permissions,proto3" json:"permissions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -112,6 +120,41 @@ func (x *FunctionDescriptor) GetEnabled() bool {
 		return x.Enabled
 	}
 	return false
+}
+
+func (x *FunctionDescriptor) GetDisplayName() *v1.I18NText {
+	if x != nil {
+		return x.DisplayName
+	}
+	return nil
+}
+
+func (x *FunctionDescriptor) GetSummary() *v1.I18NText {
+	if x != nil {
+		return x.Summary
+	}
+	return nil
+}
+
+func (x *FunctionDescriptor) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *FunctionDescriptor) GetMenu() *v1.Menu {
+	if x != nil {
+		return x.Menu
+	}
+	return nil
+}
+
+func (x *FunctionDescriptor) GetPermissions() *v1.PermissionSpec {
+	if x != nil {
+		return x.Permissions
+	}
+	return nil
 }
 
 // Agent Registration Request
@@ -501,11 +544,55 @@ func (*RegisterCapabilitiesResponse) Descriptor() ([]byte, []int) {
 	return file_croupier_server_v1_control_proto_rawDescGZIP(), []int{7}
 }
 
+type ListFunctionsSummaryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Functions     []*FunctionDescriptor  `protobuf:"bytes,1,rep,name=functions,proto3" json:"functions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListFunctionsSummaryResponse) Reset() {
+	*x = ListFunctionsSummaryResponse{}
+	mi := &file_croupier_server_v1_control_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListFunctionsSummaryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListFunctionsSummaryResponse) ProtoMessage() {}
+
+func (x *ListFunctionsSummaryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_server_v1_control_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListFunctionsSummaryResponse.ProtoReflect.Descriptor instead.
+func (*ListFunctionsSummaryResponse) Descriptor() ([]byte, []int) {
+	return file_croupier_server_v1_control_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ListFunctionsSummaryResponse) GetFunctions() []*FunctionDescriptor {
+	if x != nil {
+		return x.Functions
+	}
+	return nil
+}
+
 var File_croupier_server_v1_control_proto protoreflect.FileDescriptor
 
 const file_croupier_server_v1_control_proto_rawDesc = "" +
 	"\n" +
-	" croupier/server/v1/control.proto\x12\x12croupier.server.v1\"\xbe\x01\n" +
+	" croupier/server/v1/control.proto\x12\x12croupier.server.v1\x1a\x1bcroupier/common/v1/ui.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xbf\x03\n" +
 	"\x12FunctionDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x1a\n" +
@@ -513,7 +600,12 @@ const file_croupier_server_v1_control_proto_rawDesc = "" +
 	"\x04risk\x18\x04 \x01(\tR\x04risk\x12\x16\n" +
 	"\x06entity\x18\x05 \x01(\tR\x06entity\x12\x1c\n" +
 	"\toperation\x18\x06 \x01(\tR\toperation\x12\x18\n" +
-	"\aenabled\x18\a \x01(\bR\aenabled\"\xd2\x01\n" +
+	"\aenabled\x18\a \x01(\bR\aenabled\x12?\n" +
+	"\fdisplay_name\x18\x14 \x01(\v2\x1c.croupier.common.v1.I18nTextR\vdisplayName\x126\n" +
+	"\asummary\x18\x15 \x01(\v2\x1c.croupier.common.v1.I18nTextR\asummary\x12\x12\n" +
+	"\x04tags\x18\x16 \x03(\tR\x04tags\x12,\n" +
+	"\x04menu\x18\x17 \x01(\v2\x18.croupier.common.v1.MenuR\x04menu\x12D\n" +
+	"\vpermissions\x18\x18 \x01(\v2\".croupier.common.v1.PermissionSpecR\vpermissions\"\xd2\x01\n" +
 	"\x0fRegisterRequest\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12D\n" +
@@ -538,8 +630,11 @@ const file_croupier_server_v1_control_proto_rawDesc = "" +
 	"\x1bRegisterCapabilitiesRequest\x12<\n" +
 	"\bprovider\x18\x01 \x01(\v2 .croupier.server.v1.ProviderMetaR\bprovider\x12(\n" +
 	"\x10manifest_json_gz\x18\x02 \x01(\fR\x0emanifestJsonGz\"\x1e\n" +
-	"\x1cRegisterCapabilitiesResponse2\xbc\x02\n" +
-	"\x0eControlService\x12U\n" +
+	"\x1cRegisterCapabilitiesResponse\"d\n" +
+	"\x1cListFunctionsSummaryResponse\x12D\n" +
+	"\tfunctions\x18\x01 \x03(\v2&.croupier.server.v1.FunctionDescriptorR\tfunctions2\x9e\x03\n" +
+	"\x0eControlService\x12`\n" +
+	"\x14ListFunctionsSummary\x12\x16.google.protobuf.Empty\x1a0.croupier.server.v1.ListFunctionsSummaryResponse\x12U\n" +
 	"\bRegister\x12#.croupier.server.v1.RegisterRequest\x1a$.croupier.server.v1.RegisterResponse\x12X\n" +
 	"\tHeartbeat\x12$.croupier.server.v1.HeartbeatRequest\x1a%.croupier.server.v1.HeartbeatResponse\x12y\n" +
 	"\x14RegisterCapabilities\x12/.croupier.server.v1.RegisterCapabilitiesRequest\x1a0.croupier.server.v1.RegisterCapabilitiesResponseB\xd1\x01\n" +
@@ -557,7 +652,7 @@ func file_croupier_server_v1_control_proto_rawDescGZIP() []byte {
 	return file_croupier_server_v1_control_proto_rawDescData
 }
 
-var file_croupier_server_v1_control_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_croupier_server_v1_control_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_croupier_server_v1_control_proto_goTypes = []any{
 	(*FunctionDescriptor)(nil),           // 0: croupier.server.v1.FunctionDescriptor
 	(*RegisterRequest)(nil),              // 1: croupier.server.v1.RegisterRequest
@@ -567,21 +662,33 @@ var file_croupier_server_v1_control_proto_goTypes = []any{
 	(*ProviderMeta)(nil),                 // 5: croupier.server.v1.ProviderMeta
 	(*RegisterCapabilitiesRequest)(nil),  // 6: croupier.server.v1.RegisterCapabilitiesRequest
 	(*RegisterCapabilitiesResponse)(nil), // 7: croupier.server.v1.RegisterCapabilitiesResponse
+	(*ListFunctionsSummaryResponse)(nil), // 8: croupier.server.v1.ListFunctionsSummaryResponse
+	(*v1.I18NText)(nil),                  // 9: croupier.common.v1.I18nText
+	(*v1.Menu)(nil),                      // 10: croupier.common.v1.Menu
+	(*v1.PermissionSpec)(nil),            // 11: croupier.common.v1.PermissionSpec
+	(*emptypb.Empty)(nil),                // 12: google.protobuf.Empty
 }
 var file_croupier_server_v1_control_proto_depIdxs = []int32{
-	0, // 0: croupier.server.v1.RegisterRequest.functions:type_name -> croupier.server.v1.FunctionDescriptor
-	5, // 1: croupier.server.v1.RegisterCapabilitiesRequest.provider:type_name -> croupier.server.v1.ProviderMeta
-	1, // 2: croupier.server.v1.ControlService.Register:input_type -> croupier.server.v1.RegisterRequest
-	3, // 3: croupier.server.v1.ControlService.Heartbeat:input_type -> croupier.server.v1.HeartbeatRequest
-	6, // 4: croupier.server.v1.ControlService.RegisterCapabilities:input_type -> croupier.server.v1.RegisterCapabilitiesRequest
-	2, // 5: croupier.server.v1.ControlService.Register:output_type -> croupier.server.v1.RegisterResponse
-	4, // 6: croupier.server.v1.ControlService.Heartbeat:output_type -> croupier.server.v1.HeartbeatResponse
-	7, // 7: croupier.server.v1.ControlService.RegisterCapabilities:output_type -> croupier.server.v1.RegisterCapabilitiesResponse
-	5, // [5:8] is the sub-list for method output_type
-	2, // [2:5] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	9,  // 0: croupier.server.v1.FunctionDescriptor.display_name:type_name -> croupier.common.v1.I18nText
+	9,  // 1: croupier.server.v1.FunctionDescriptor.summary:type_name -> croupier.common.v1.I18nText
+	10, // 2: croupier.server.v1.FunctionDescriptor.menu:type_name -> croupier.common.v1.Menu
+	11, // 3: croupier.server.v1.FunctionDescriptor.permissions:type_name -> croupier.common.v1.PermissionSpec
+	0,  // 4: croupier.server.v1.RegisterRequest.functions:type_name -> croupier.server.v1.FunctionDescriptor
+	5,  // 5: croupier.server.v1.RegisterCapabilitiesRequest.provider:type_name -> croupier.server.v1.ProviderMeta
+	0,  // 6: croupier.server.v1.ListFunctionsSummaryResponse.functions:type_name -> croupier.server.v1.FunctionDescriptor
+	12, // 7: croupier.server.v1.ControlService.ListFunctionsSummary:input_type -> google.protobuf.Empty
+	1,  // 8: croupier.server.v1.ControlService.Register:input_type -> croupier.server.v1.RegisterRequest
+	3,  // 9: croupier.server.v1.ControlService.Heartbeat:input_type -> croupier.server.v1.HeartbeatRequest
+	6,  // 10: croupier.server.v1.ControlService.RegisterCapabilities:input_type -> croupier.server.v1.RegisterCapabilitiesRequest
+	8,  // 11: croupier.server.v1.ControlService.ListFunctionsSummary:output_type -> croupier.server.v1.ListFunctionsSummaryResponse
+	2,  // 12: croupier.server.v1.ControlService.Register:output_type -> croupier.server.v1.RegisterResponse
+	4,  // 13: croupier.server.v1.ControlService.Heartbeat:output_type -> croupier.server.v1.HeartbeatResponse
+	7,  // 14: croupier.server.v1.ControlService.RegisterCapabilities:output_type -> croupier.server.v1.RegisterCapabilitiesResponse
+	11, // [11:15] is the sub-list for method output_type
+	7,  // [7:11] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_croupier_server_v1_control_proto_init() }
@@ -595,7 +702,7 @@ func file_croupier_server_v1_control_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_server_v1_control_proto_rawDesc), len(file_croupier_server_v1_control_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
