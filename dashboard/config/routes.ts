@@ -30,6 +30,13 @@ export default [
   },
   // Move 运营管理 (Operations) to second position in the menu
   {
+    path: '/components',
+    name: 'ComponentManagement',
+    icon: 'appstore',
+    access: 'canFunctionsRead',
+    component: './ComponentManagement',
+  },
+  {
     path: '/operations',
     name: 'Operations',
     icon: 'dashboard',
@@ -61,12 +68,14 @@ export default [
         name: 'Registry',
         access: 'canRegistryRead',
         component: './Registry',
+        hideInMenu: true,
       },
       {
         path: '/operations/servers',
         name: 'Servers',
         access: 'canRegistryRead',
         component: './Servers',
+        hideInMenu: true,
       },
       {
         path: '/operations/configs',
@@ -206,13 +215,15 @@ export default [
         name: 'GameFunctions',
         access: 'canFunctionsRead',
         component: './GmFunctions',
+        hideInMenu: true,
       },
-      // 新增统一组件管理中心
+      // 新增统一组件管理中心（主菜单已迁移到 /components）
       {
         path: '/game/component-management',
         name: 'ComponentManagement',
         access: 'canFunctionsRead',
         component: './ComponentManagement',
+        hideInMenu: true,
       },
       // 游戏运营管理
       {
