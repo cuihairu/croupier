@@ -30,13 +30,6 @@ export default [
   },
   // Move 运营管理 (Operations) to second position in the menu
   {
-    path: '/components',
-    name: 'ComponentManagement',
-    icon: 'appstore',
-    access: 'canFunctionsRead',
-    component: './ComponentManagement',
-  },
-  {
     path: '/operations',
     name: 'Operations',
     icon: 'dashboard',
@@ -262,6 +255,13 @@ export default [
     ],
   },
   // Security menu removed (duplicated with AdminUsers/Permissions)
+  {
+    path: '/components',
+    name: 'ComponentManagement',
+    icon: 'appstore',
+    access: 'canFunctionsRead',
+    component: './ComponentManagement',
+  },
   {
     path: '/',
     redirect: '/analytics/realtime',
