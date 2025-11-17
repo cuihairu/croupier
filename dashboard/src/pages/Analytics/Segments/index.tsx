@@ -22,7 +22,7 @@ export default function AnalyticsSegmentsPage() {
 
   return (
     <div style={{ padding: 24 }}>
-      <Card title="分层与人群" extra={<Space>
+      <Card title="人群分层" extra={<Space>
         <Select value={breakdown} onChange={setBreakdown as any} style={{ width: 180 }} options={[{label:'RFM 分层',value:'rfm'},{label:'留存×付费',value:'retention_pay'},{label:'国家/平台/渠道',value:'geo_platform_channel'}]} />
         <DatePicker.RangePicker value={range as any} onChange={setRange as any} />
         <Button type="primary" onClick={load}>查询</Button>
