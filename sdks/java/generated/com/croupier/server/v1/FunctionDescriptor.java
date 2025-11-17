@@ -38,6 +38,8 @@ private static final long serialVersionUID = 0L;
     risk_ = "";
     entity_ = "";
     operation_ = "";
+    tags_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -53,6 +55,7 @@ private static final long serialVersionUID = 0L;
             com.croupier.server.v1.FunctionDescriptor.class, com.croupier.server.v1.FunctionDescriptor.Builder.class);
   }
 
+  private int bitField0_;
   public static final int ID_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
   private volatile java.lang.Object id_ = "";
@@ -350,6 +353,159 @@ private static final long serialVersionUID = 0L;
     return enabled_;
   }
 
+  public static final int DISPLAY_NAME_FIELD_NUMBER = 20;
+  private com.croupier.common.v1.I18nText displayName_;
+  /**
+   * <pre>
+   * New: UI/i18n/tags/menu/permissions for dynamic navigation &amp; RBAC generation
+   * </pre>
+   *
+   * <code>.croupier.common.v1.I18nText display_name = 20 [json_name = "displayName"];</code>
+   * @return Whether the displayName field is set.
+   */
+  @java.lang.Override
+  public boolean hasDisplayName() {
+    return ((bitField0_ & 0x00000001) != 0);
+  }
+  /**
+   * <pre>
+   * New: UI/i18n/tags/menu/permissions for dynamic navigation &amp; RBAC generation
+   * </pre>
+   *
+   * <code>.croupier.common.v1.I18nText display_name = 20 [json_name = "displayName"];</code>
+   * @return The displayName.
+   */
+  @java.lang.Override
+  public com.croupier.common.v1.I18nText getDisplayName() {
+    return displayName_ == null ? com.croupier.common.v1.I18nText.getDefaultInstance() : displayName_;
+  }
+  /**
+   * <pre>
+   * New: UI/i18n/tags/menu/permissions for dynamic navigation &amp; RBAC generation
+   * </pre>
+   *
+   * <code>.croupier.common.v1.I18nText display_name = 20 [json_name = "displayName"];</code>
+   */
+  @java.lang.Override
+  public com.croupier.common.v1.I18nTextOrBuilder getDisplayNameOrBuilder() {
+    return displayName_ == null ? com.croupier.common.v1.I18nText.getDefaultInstance() : displayName_;
+  }
+
+  public static final int SUMMARY_FIELD_NUMBER = 21;
+  private com.croupier.common.v1.I18nText summary_;
+  /**
+   * <code>.croupier.common.v1.I18nText summary = 21 [json_name = "summary"];</code>
+   * @return Whether the summary field is set.
+   */
+  @java.lang.Override
+  public boolean hasSummary() {
+    return ((bitField0_ & 0x00000002) != 0);
+  }
+  /**
+   * <code>.croupier.common.v1.I18nText summary = 21 [json_name = "summary"];</code>
+   * @return The summary.
+   */
+  @java.lang.Override
+  public com.croupier.common.v1.I18nText getSummary() {
+    return summary_ == null ? com.croupier.common.v1.I18nText.getDefaultInstance() : summary_;
+  }
+  /**
+   * <code>.croupier.common.v1.I18nText summary = 21 [json_name = "summary"];</code>
+   */
+  @java.lang.Override
+  public com.croupier.common.v1.I18nTextOrBuilder getSummaryOrBuilder() {
+    return summary_ == null ? com.croupier.common.v1.I18nText.getDefaultInstance() : summary_;
+  }
+
+  public static final int TAGS_FIELD_NUMBER = 22;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList tags_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <code>repeated string tags = 22 [json_name = "tags"];</code>
+   * @return A list containing the tags.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getTagsList() {
+    return tags_;
+  }
+  /**
+   * <code>repeated string tags = 22 [json_name = "tags"];</code>
+   * @return The count of tags.
+   */
+  public int getTagsCount() {
+    return tags_.size();
+  }
+  /**
+   * <code>repeated string tags = 22 [json_name = "tags"];</code>
+   * @param index The index of the element to return.
+   * @return The tags at the given index.
+   */
+  public java.lang.String getTags(int index) {
+    return tags_.get(index);
+  }
+  /**
+   * <code>repeated string tags = 22 [json_name = "tags"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the tags at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getTagsBytes(int index) {
+    return tags_.getByteString(index);
+  }
+
+  public static final int MENU_FIELD_NUMBER = 23;
+  private com.croupier.common.v1.Menu menu_;
+  /**
+   * <code>.croupier.common.v1.Menu menu = 23 [json_name = "menu"];</code>
+   * @return Whether the menu field is set.
+   */
+  @java.lang.Override
+  public boolean hasMenu() {
+    return ((bitField0_ & 0x00000004) != 0);
+  }
+  /**
+   * <code>.croupier.common.v1.Menu menu = 23 [json_name = "menu"];</code>
+   * @return The menu.
+   */
+  @java.lang.Override
+  public com.croupier.common.v1.Menu getMenu() {
+    return menu_ == null ? com.croupier.common.v1.Menu.getDefaultInstance() : menu_;
+  }
+  /**
+   * <code>.croupier.common.v1.Menu menu = 23 [json_name = "menu"];</code>
+   */
+  @java.lang.Override
+  public com.croupier.common.v1.MenuOrBuilder getMenuOrBuilder() {
+    return menu_ == null ? com.croupier.common.v1.Menu.getDefaultInstance() : menu_;
+  }
+
+  public static final int PERMISSIONS_FIELD_NUMBER = 24;
+  private com.croupier.common.v1.PermissionSpec permissions_;
+  /**
+   * <code>.croupier.common.v1.PermissionSpec permissions = 24 [json_name = "permissions"];</code>
+   * @return Whether the permissions field is set.
+   */
+  @java.lang.Override
+  public boolean hasPermissions() {
+    return ((bitField0_ & 0x00000008) != 0);
+  }
+  /**
+   * <code>.croupier.common.v1.PermissionSpec permissions = 24 [json_name = "permissions"];</code>
+   * @return The permissions.
+   */
+  @java.lang.Override
+  public com.croupier.common.v1.PermissionSpec getPermissions() {
+    return permissions_ == null ? com.croupier.common.v1.PermissionSpec.getDefaultInstance() : permissions_;
+  }
+  /**
+   * <code>.croupier.common.v1.PermissionSpec permissions = 24 [json_name = "permissions"];</code>
+   */
+  @java.lang.Override
+  public com.croupier.common.v1.PermissionSpecOrBuilder getPermissionsOrBuilder() {
+    return permissions_ == null ? com.croupier.common.v1.PermissionSpec.getDefaultInstance() : permissions_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -385,6 +541,21 @@ private static final long serialVersionUID = 0L;
     if (enabled_ != false) {
       output.writeBool(7, enabled_);
     }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      output.writeMessage(20, getDisplayName());
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      output.writeMessage(21, getSummary());
+    }
+    for (int i = 0; i < tags_.size(); i++) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 22, tags_.getRaw(i));
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      output.writeMessage(23, getMenu());
+    }
+    if (((bitField0_ & 0x00000008) != 0)) {
+      output.writeMessage(24, getPermissions());
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -416,6 +587,30 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(7, enabled_);
     }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(20, getDisplayName());
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(21, getSummary());
+    }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < tags_.size(); i++) {
+        dataSize += computeStringSizeNoTag(tags_.getRaw(i));
+      }
+      size += dataSize;
+      size += 2 * getTagsList().size();
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(23, getMenu());
+    }
+    if (((bitField0_ & 0x00000008) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(24, getPermissions());
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -445,6 +640,28 @@ private static final long serialVersionUID = 0L;
         .equals(other.getOperation())) return false;
     if (getEnabled()
         != other.getEnabled()) return false;
+    if (hasDisplayName() != other.hasDisplayName()) return false;
+    if (hasDisplayName()) {
+      if (!getDisplayName()
+          .equals(other.getDisplayName())) return false;
+    }
+    if (hasSummary() != other.hasSummary()) return false;
+    if (hasSummary()) {
+      if (!getSummary()
+          .equals(other.getSummary())) return false;
+    }
+    if (!getTagsList()
+        .equals(other.getTagsList())) return false;
+    if (hasMenu() != other.hasMenu()) return false;
+    if (hasMenu()) {
+      if (!getMenu()
+          .equals(other.getMenu())) return false;
+    }
+    if (hasPermissions() != other.hasPermissions()) return false;
+    if (hasPermissions()) {
+      if (!getPermissions()
+          .equals(other.getPermissions())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -471,6 +688,26 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + ENABLED_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getEnabled());
+    if (hasDisplayName()) {
+      hash = (37 * hash) + DISPLAY_NAME_FIELD_NUMBER;
+      hash = (53 * hash) + getDisplayName().hashCode();
+    }
+    if (hasSummary()) {
+      hash = (37 * hash) + SUMMARY_FIELD_NUMBER;
+      hash = (53 * hash) + getSummary().hashCode();
+    }
+    if (getTagsCount() > 0) {
+      hash = (37 * hash) + TAGS_FIELD_NUMBER;
+      hash = (53 * hash) + getTagsList().hashCode();
+    }
+    if (hasMenu()) {
+      hash = (37 * hash) + MENU_FIELD_NUMBER;
+      hash = (53 * hash) + getMenu().hashCode();
+    }
+    if (hasPermissions()) {
+      hash = (37 * hash) + PERMISSIONS_FIELD_NUMBER;
+      hash = (53 * hash) + getPermissions().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -594,13 +831,22 @@ private static final long serialVersionUID = 0L;
 
     // Construct using com.croupier.server.v1.FunctionDescriptor.newBuilder()
     private Builder() {
-
+      maybeForceBuilderInitialization();
     }
 
     private Builder(
         com.google.protobuf.GeneratedMessage.BuilderParent parent) {
       super(parent);
-
+      maybeForceBuilderInitialization();
+    }
+    private void maybeForceBuilderInitialization() {
+      if (com.google.protobuf.GeneratedMessage
+              .alwaysUseFieldBuilders) {
+        internalGetDisplayNameFieldBuilder();
+        internalGetSummaryFieldBuilder();
+        internalGetMenuFieldBuilder();
+        internalGetPermissionsFieldBuilder();
+      }
     }
     @java.lang.Override
     public Builder clear() {
@@ -613,6 +859,28 @@ private static final long serialVersionUID = 0L;
       entity_ = "";
       operation_ = "";
       enabled_ = false;
+      displayName_ = null;
+      if (displayNameBuilder_ != null) {
+        displayNameBuilder_.dispose();
+        displayNameBuilder_ = null;
+      }
+      summary_ = null;
+      if (summaryBuilder_ != null) {
+        summaryBuilder_.dispose();
+        summaryBuilder_ = null;
+      }
+      tags_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
+      menu_ = null;
+      if (menuBuilder_ != null) {
+        menuBuilder_.dispose();
+        menuBuilder_ = null;
+      }
+      permissions_ = null;
+      if (permissionsBuilder_ != null) {
+        permissionsBuilder_.dispose();
+        permissionsBuilder_ = null;
+      }
       return this;
     }
 
@@ -667,6 +935,36 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000040) != 0)) {
         result.enabled_ = enabled_;
       }
+      int to_bitField0_ = 0;
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.displayName_ = displayNameBuilder_ == null
+            ? displayName_
+            : displayNameBuilder_.build();
+        to_bitField0_ |= 0x00000001;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.summary_ = summaryBuilder_ == null
+            ? summary_
+            : summaryBuilder_.build();
+        to_bitField0_ |= 0x00000002;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        tags_.makeImmutable();
+        result.tags_ = tags_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.menu_ = menuBuilder_ == null
+            ? menu_
+            : menuBuilder_.build();
+        to_bitField0_ |= 0x00000004;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.permissions_ = permissionsBuilder_ == null
+            ? permissions_
+            : permissionsBuilder_.build();
+        to_bitField0_ |= 0x00000008;
+      }
+      result.bitField0_ |= to_bitField0_;
     }
 
     @java.lang.Override
@@ -713,6 +1011,28 @@ private static final long serialVersionUID = 0L;
       }
       if (other.getEnabled() != false) {
         setEnabled(other.getEnabled());
+      }
+      if (other.hasDisplayName()) {
+        mergeDisplayName(other.getDisplayName());
+      }
+      if (other.hasSummary()) {
+        mergeSummary(other.getSummary());
+      }
+      if (!other.tags_.isEmpty()) {
+        if (tags_.isEmpty()) {
+          tags_ = other.tags_;
+          bitField0_ |= 0x00000200;
+        } else {
+          ensureTagsIsMutable();
+          tags_.addAll(other.tags_);
+        }
+        onChanged();
+      }
+      if (other.hasMenu()) {
+        mergeMenu(other.getMenu());
+      }
+      if (other.hasPermissions()) {
+        mergePermissions(other.getPermissions());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -775,6 +1095,40 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000040;
               break;
             } // case 56
+            case 162: {
+              input.readMessage(
+                  internalGetDisplayNameFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 162
+            case 170: {
+              input.readMessage(
+                  internalGetSummaryFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 170
+            case 178: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureTagsIsMutable();
+              tags_.add(s);
+              break;
+            } // case 178
+            case 186: {
+              input.readMessage(
+                  internalGetMenuFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 186
+            case 194: {
+              input.readMessage(
+                  internalGetPermissionsFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 194
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1386,6 +1740,637 @@ private static final long serialVersionUID = 0L;
       enabled_ = false;
       onChanged();
       return this;
+    }
+
+    private com.croupier.common.v1.I18nText displayName_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.croupier.common.v1.I18nText, com.croupier.common.v1.I18nText.Builder, com.croupier.common.v1.I18nTextOrBuilder> displayNameBuilder_;
+    /**
+     * <pre>
+     * New: UI/i18n/tags/menu/permissions for dynamic navigation &amp; RBAC generation
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 20 [json_name = "displayName"];</code>
+     * @return Whether the displayName field is set.
+     */
+    public boolean hasDisplayName() {
+      return ((bitField0_ & 0x00000080) != 0);
+    }
+    /**
+     * <pre>
+     * New: UI/i18n/tags/menu/permissions for dynamic navigation &amp; RBAC generation
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 20 [json_name = "displayName"];</code>
+     * @return The displayName.
+     */
+    public com.croupier.common.v1.I18nText getDisplayName() {
+      if (displayNameBuilder_ == null) {
+        return displayName_ == null ? com.croupier.common.v1.I18nText.getDefaultInstance() : displayName_;
+      } else {
+        return displayNameBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * New: UI/i18n/tags/menu/permissions for dynamic navigation &amp; RBAC generation
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 20 [json_name = "displayName"];</code>
+     */
+    public Builder setDisplayName(com.croupier.common.v1.I18nText value) {
+      if (displayNameBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        displayName_ = value;
+      } else {
+        displayNameBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * New: UI/i18n/tags/menu/permissions for dynamic navigation &amp; RBAC generation
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 20 [json_name = "displayName"];</code>
+     */
+    public Builder setDisplayName(
+        com.croupier.common.v1.I18nText.Builder builderForValue) {
+      if (displayNameBuilder_ == null) {
+        displayName_ = builderForValue.build();
+      } else {
+        displayNameBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * New: UI/i18n/tags/menu/permissions for dynamic navigation &amp; RBAC generation
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 20 [json_name = "displayName"];</code>
+     */
+    public Builder mergeDisplayName(com.croupier.common.v1.I18nText value) {
+      if (displayNameBuilder_ == null) {
+        if (((bitField0_ & 0x00000080) != 0) &&
+          displayName_ != null &&
+          displayName_ != com.croupier.common.v1.I18nText.getDefaultInstance()) {
+          getDisplayNameBuilder().mergeFrom(value);
+        } else {
+          displayName_ = value;
+        }
+      } else {
+        displayNameBuilder_.mergeFrom(value);
+      }
+      if (displayName_ != null) {
+        bitField0_ |= 0x00000080;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * New: UI/i18n/tags/menu/permissions for dynamic navigation &amp; RBAC generation
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 20 [json_name = "displayName"];</code>
+     */
+    public Builder clearDisplayName() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      displayName_ = null;
+      if (displayNameBuilder_ != null) {
+        displayNameBuilder_.dispose();
+        displayNameBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * New: UI/i18n/tags/menu/permissions for dynamic navigation &amp; RBAC generation
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 20 [json_name = "displayName"];</code>
+     */
+    public com.croupier.common.v1.I18nText.Builder getDisplayNameBuilder() {
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return internalGetDisplayNameFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * New: UI/i18n/tags/menu/permissions for dynamic navigation &amp; RBAC generation
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 20 [json_name = "displayName"];</code>
+     */
+    public com.croupier.common.v1.I18nTextOrBuilder getDisplayNameOrBuilder() {
+      if (displayNameBuilder_ != null) {
+        return displayNameBuilder_.getMessageOrBuilder();
+      } else {
+        return displayName_ == null ?
+            com.croupier.common.v1.I18nText.getDefaultInstance() : displayName_;
+      }
+    }
+    /**
+     * <pre>
+     * New: UI/i18n/tags/menu/permissions for dynamic navigation &amp; RBAC generation
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 20 [json_name = "displayName"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.croupier.common.v1.I18nText, com.croupier.common.v1.I18nText.Builder, com.croupier.common.v1.I18nTextOrBuilder> 
+        internalGetDisplayNameFieldBuilder() {
+      if (displayNameBuilder_ == null) {
+        displayNameBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.croupier.common.v1.I18nText, com.croupier.common.v1.I18nText.Builder, com.croupier.common.v1.I18nTextOrBuilder>(
+                getDisplayName(),
+                getParentForChildren(),
+                isClean());
+        displayName_ = null;
+      }
+      return displayNameBuilder_;
+    }
+
+    private com.croupier.common.v1.I18nText summary_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.croupier.common.v1.I18nText, com.croupier.common.v1.I18nText.Builder, com.croupier.common.v1.I18nTextOrBuilder> summaryBuilder_;
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 21 [json_name = "summary"];</code>
+     * @return Whether the summary field is set.
+     */
+    public boolean hasSummary() {
+      return ((bitField0_ & 0x00000100) != 0);
+    }
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 21 [json_name = "summary"];</code>
+     * @return The summary.
+     */
+    public com.croupier.common.v1.I18nText getSummary() {
+      if (summaryBuilder_ == null) {
+        return summary_ == null ? com.croupier.common.v1.I18nText.getDefaultInstance() : summary_;
+      } else {
+        return summaryBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 21 [json_name = "summary"];</code>
+     */
+    public Builder setSummary(com.croupier.common.v1.I18nText value) {
+      if (summaryBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        summary_ = value;
+      } else {
+        summaryBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 21 [json_name = "summary"];</code>
+     */
+    public Builder setSummary(
+        com.croupier.common.v1.I18nText.Builder builderForValue) {
+      if (summaryBuilder_ == null) {
+        summary_ = builderForValue.build();
+      } else {
+        summaryBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 21 [json_name = "summary"];</code>
+     */
+    public Builder mergeSummary(com.croupier.common.v1.I18nText value) {
+      if (summaryBuilder_ == null) {
+        if (((bitField0_ & 0x00000100) != 0) &&
+          summary_ != null &&
+          summary_ != com.croupier.common.v1.I18nText.getDefaultInstance()) {
+          getSummaryBuilder().mergeFrom(value);
+        } else {
+          summary_ = value;
+        }
+      } else {
+        summaryBuilder_.mergeFrom(value);
+      }
+      if (summary_ != null) {
+        bitField0_ |= 0x00000100;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 21 [json_name = "summary"];</code>
+     */
+    public Builder clearSummary() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      summary_ = null;
+      if (summaryBuilder_ != null) {
+        summaryBuilder_.dispose();
+        summaryBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 21 [json_name = "summary"];</code>
+     */
+    public com.croupier.common.v1.I18nText.Builder getSummaryBuilder() {
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return internalGetSummaryFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 21 [json_name = "summary"];</code>
+     */
+    public com.croupier.common.v1.I18nTextOrBuilder getSummaryOrBuilder() {
+      if (summaryBuilder_ != null) {
+        return summaryBuilder_.getMessageOrBuilder();
+      } else {
+        return summary_ == null ?
+            com.croupier.common.v1.I18nText.getDefaultInstance() : summary_;
+      }
+    }
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 21 [json_name = "summary"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.croupier.common.v1.I18nText, com.croupier.common.v1.I18nText.Builder, com.croupier.common.v1.I18nTextOrBuilder> 
+        internalGetSummaryFieldBuilder() {
+      if (summaryBuilder_ == null) {
+        summaryBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.croupier.common.v1.I18nText, com.croupier.common.v1.I18nText.Builder, com.croupier.common.v1.I18nTextOrBuilder>(
+                getSummary(),
+                getParentForChildren(),
+                isClean());
+        summary_ = null;
+      }
+      return summaryBuilder_;
+    }
+
+    private com.google.protobuf.LazyStringArrayList tags_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureTagsIsMutable() {
+      if (!tags_.isModifiable()) {
+        tags_ = new com.google.protobuf.LazyStringArrayList(tags_);
+      }
+      bitField0_ |= 0x00000200;
+    }
+    /**
+     * <code>repeated string tags = 22 [json_name = "tags"];</code>
+     * @return A list containing the tags.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getTagsList() {
+      tags_.makeImmutable();
+      return tags_;
+    }
+    /**
+     * <code>repeated string tags = 22 [json_name = "tags"];</code>
+     * @return The count of tags.
+     */
+    public int getTagsCount() {
+      return tags_.size();
+    }
+    /**
+     * <code>repeated string tags = 22 [json_name = "tags"];</code>
+     * @param index The index of the element to return.
+     * @return The tags at the given index.
+     */
+    public java.lang.String getTags(int index) {
+      return tags_.get(index);
+    }
+    /**
+     * <code>repeated string tags = 22 [json_name = "tags"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the tags at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getTagsBytes(int index) {
+      return tags_.getByteString(index);
+    }
+    /**
+     * <code>repeated string tags = 22 [json_name = "tags"];</code>
+     * @param index The index to set the value at.
+     * @param value The tags to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTags(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureTagsIsMutable();
+      tags_.set(index, value);
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>repeated string tags = 22 [json_name = "tags"];</code>
+     * @param value The tags to add.
+     * @return This builder for chaining.
+     */
+    public Builder addTags(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureTagsIsMutable();
+      tags_.add(value);
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>repeated string tags = 22 [json_name = "tags"];</code>
+     * @param values The tags to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllTags(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureTagsIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, tags_);
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>repeated string tags = 22 [json_name = "tags"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTags() {
+      tags_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00000200);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>repeated string tags = 22 [json_name = "tags"];</code>
+     * @param value The bytes of the tags to add.
+     * @return This builder for chaining.
+     */
+    public Builder addTagsBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureTagsIsMutable();
+      tags_.add(value);
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+
+    private com.croupier.common.v1.Menu menu_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.croupier.common.v1.Menu, com.croupier.common.v1.Menu.Builder, com.croupier.common.v1.MenuOrBuilder> menuBuilder_;
+    /**
+     * <code>.croupier.common.v1.Menu menu = 23 [json_name = "menu"];</code>
+     * @return Whether the menu field is set.
+     */
+    public boolean hasMenu() {
+      return ((bitField0_ & 0x00000400) != 0);
+    }
+    /**
+     * <code>.croupier.common.v1.Menu menu = 23 [json_name = "menu"];</code>
+     * @return The menu.
+     */
+    public com.croupier.common.v1.Menu getMenu() {
+      if (menuBuilder_ == null) {
+        return menu_ == null ? com.croupier.common.v1.Menu.getDefaultInstance() : menu_;
+      } else {
+        return menuBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.croupier.common.v1.Menu menu = 23 [json_name = "menu"];</code>
+     */
+    public Builder setMenu(com.croupier.common.v1.Menu value) {
+      if (menuBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        menu_ = value;
+      } else {
+        menuBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.croupier.common.v1.Menu menu = 23 [json_name = "menu"];</code>
+     */
+    public Builder setMenu(
+        com.croupier.common.v1.Menu.Builder builderForValue) {
+      if (menuBuilder_ == null) {
+        menu_ = builderForValue.build();
+      } else {
+        menuBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.croupier.common.v1.Menu menu = 23 [json_name = "menu"];</code>
+     */
+    public Builder mergeMenu(com.croupier.common.v1.Menu value) {
+      if (menuBuilder_ == null) {
+        if (((bitField0_ & 0x00000400) != 0) &&
+          menu_ != null &&
+          menu_ != com.croupier.common.v1.Menu.getDefaultInstance()) {
+          getMenuBuilder().mergeFrom(value);
+        } else {
+          menu_ = value;
+        }
+      } else {
+        menuBuilder_.mergeFrom(value);
+      }
+      if (menu_ != null) {
+        bitField0_ |= 0x00000400;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <code>.croupier.common.v1.Menu menu = 23 [json_name = "menu"];</code>
+     */
+    public Builder clearMenu() {
+      bitField0_ = (bitField0_ & ~0x00000400);
+      menu_ = null;
+      if (menuBuilder_ != null) {
+        menuBuilder_.dispose();
+        menuBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.croupier.common.v1.Menu menu = 23 [json_name = "menu"];</code>
+     */
+    public com.croupier.common.v1.Menu.Builder getMenuBuilder() {
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return internalGetMenuFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.croupier.common.v1.Menu menu = 23 [json_name = "menu"];</code>
+     */
+    public com.croupier.common.v1.MenuOrBuilder getMenuOrBuilder() {
+      if (menuBuilder_ != null) {
+        return menuBuilder_.getMessageOrBuilder();
+      } else {
+        return menu_ == null ?
+            com.croupier.common.v1.Menu.getDefaultInstance() : menu_;
+      }
+    }
+    /**
+     * <code>.croupier.common.v1.Menu menu = 23 [json_name = "menu"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.croupier.common.v1.Menu, com.croupier.common.v1.Menu.Builder, com.croupier.common.v1.MenuOrBuilder> 
+        internalGetMenuFieldBuilder() {
+      if (menuBuilder_ == null) {
+        menuBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.croupier.common.v1.Menu, com.croupier.common.v1.Menu.Builder, com.croupier.common.v1.MenuOrBuilder>(
+                getMenu(),
+                getParentForChildren(),
+                isClean());
+        menu_ = null;
+      }
+      return menuBuilder_;
+    }
+
+    private com.croupier.common.v1.PermissionSpec permissions_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.croupier.common.v1.PermissionSpec, com.croupier.common.v1.PermissionSpec.Builder, com.croupier.common.v1.PermissionSpecOrBuilder> permissionsBuilder_;
+    /**
+     * <code>.croupier.common.v1.PermissionSpec permissions = 24 [json_name = "permissions"];</code>
+     * @return Whether the permissions field is set.
+     */
+    public boolean hasPermissions() {
+      return ((bitField0_ & 0x00000800) != 0);
+    }
+    /**
+     * <code>.croupier.common.v1.PermissionSpec permissions = 24 [json_name = "permissions"];</code>
+     * @return The permissions.
+     */
+    public com.croupier.common.v1.PermissionSpec getPermissions() {
+      if (permissionsBuilder_ == null) {
+        return permissions_ == null ? com.croupier.common.v1.PermissionSpec.getDefaultInstance() : permissions_;
+      } else {
+        return permissionsBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.croupier.common.v1.PermissionSpec permissions = 24 [json_name = "permissions"];</code>
+     */
+    public Builder setPermissions(com.croupier.common.v1.PermissionSpec value) {
+      if (permissionsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        permissions_ = value;
+      } else {
+        permissionsBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.croupier.common.v1.PermissionSpec permissions = 24 [json_name = "permissions"];</code>
+     */
+    public Builder setPermissions(
+        com.croupier.common.v1.PermissionSpec.Builder builderForValue) {
+      if (permissionsBuilder_ == null) {
+        permissions_ = builderForValue.build();
+      } else {
+        permissionsBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.croupier.common.v1.PermissionSpec permissions = 24 [json_name = "permissions"];</code>
+     */
+    public Builder mergePermissions(com.croupier.common.v1.PermissionSpec value) {
+      if (permissionsBuilder_ == null) {
+        if (((bitField0_ & 0x00000800) != 0) &&
+          permissions_ != null &&
+          permissions_ != com.croupier.common.v1.PermissionSpec.getDefaultInstance()) {
+          getPermissionsBuilder().mergeFrom(value);
+        } else {
+          permissions_ = value;
+        }
+      } else {
+        permissionsBuilder_.mergeFrom(value);
+      }
+      if (permissions_ != null) {
+        bitField0_ |= 0x00000800;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <code>.croupier.common.v1.PermissionSpec permissions = 24 [json_name = "permissions"];</code>
+     */
+    public Builder clearPermissions() {
+      bitField0_ = (bitField0_ & ~0x00000800);
+      permissions_ = null;
+      if (permissionsBuilder_ != null) {
+        permissionsBuilder_.dispose();
+        permissionsBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.croupier.common.v1.PermissionSpec permissions = 24 [json_name = "permissions"];</code>
+     */
+    public com.croupier.common.v1.PermissionSpec.Builder getPermissionsBuilder() {
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return internalGetPermissionsFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.croupier.common.v1.PermissionSpec permissions = 24 [json_name = "permissions"];</code>
+     */
+    public com.croupier.common.v1.PermissionSpecOrBuilder getPermissionsOrBuilder() {
+      if (permissionsBuilder_ != null) {
+        return permissionsBuilder_.getMessageOrBuilder();
+      } else {
+        return permissions_ == null ?
+            com.croupier.common.v1.PermissionSpec.getDefaultInstance() : permissions_;
+      }
+    }
+    /**
+     * <code>.croupier.common.v1.PermissionSpec permissions = 24 [json_name = "permissions"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.croupier.common.v1.PermissionSpec, com.croupier.common.v1.PermissionSpec.Builder, com.croupier.common.v1.PermissionSpecOrBuilder> 
+        internalGetPermissionsFieldBuilder() {
+      if (permissionsBuilder_ == null) {
+        permissionsBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.croupier.common.v1.PermissionSpec, com.croupier.common.v1.PermissionSpec.Builder, com.croupier.common.v1.PermissionSpecOrBuilder>(
+                getPermissions(),
+                getParentForChildren(),
+                isClean());
+        permissions_ = null;
+      }
+      return permissionsBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:croupier.server.v1.FunctionDescriptor)

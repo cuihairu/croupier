@@ -243,4 +243,144 @@ java.lang.String defaultValue);
    * @return The idempotencyKey.
    */
   boolean getIdempotencyKey();
+
+  /**
+   * <pre>
+   * ========== 展示 &amp; 权限（UI/菜单/权限，强类型定义） ==========
+   * 展示名称与摘要（i18n）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.I18nText display_name = 12 [json_name = "displayName"];</code>
+   * @return Whether the displayName field is set.
+   */
+  boolean hasDisplayName();
+  /**
+   * <pre>
+   * ========== 展示 &amp; 权限（UI/菜单/权限，强类型定义） ==========
+   * 展示名称与摘要（i18n）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.I18nText display_name = 12 [json_name = "displayName"];</code>
+   * @return The displayName.
+   */
+  com.croupier.common.v1.I18nText getDisplayName();
+  /**
+   * <pre>
+   * ========== 展示 &amp; 权限（UI/菜单/权限，强类型定义） ==========
+   * 展示名称与摘要（i18n）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.I18nText display_name = 12 [json_name = "displayName"];</code>
+   */
+  com.croupier.common.v1.I18nTextOrBuilder getDisplayNameOrBuilder();
+
+  /**
+   * <code>.croupier.common.v1.I18nText summary = 13 [json_name = "summary"];</code>
+   * @return Whether the summary field is set.
+   */
+  boolean hasSummary();
+  /**
+   * <code>.croupier.common.v1.I18nText summary = 13 [json_name = "summary"];</code>
+   * @return The summary.
+   */
+  com.croupier.common.v1.I18nText getSummary();
+  /**
+   * <code>.croupier.common.v1.I18nText summary = 13 [json_name = "summary"];</code>
+   */
+  com.croupier.common.v1.I18nTextOrBuilder getSummaryOrBuilder();
+
+  /**
+   * <pre>
+   * 标签
+   * </pre>
+   *
+   * <code>repeated string tags = 14 [json_name = "tags"];</code>
+   * @return A list containing the tags.
+   */
+  java.util.List<java.lang.String>
+      getTagsList();
+  /**
+   * <pre>
+   * 标签
+   * </pre>
+   *
+   * <code>repeated string tags = 14 [json_name = "tags"];</code>
+   * @return The count of tags.
+   */
+  int getTagsCount();
+  /**
+   * <pre>
+   * 标签
+   * </pre>
+   *
+   * <code>repeated string tags = 14 [json_name = "tags"];</code>
+   * @param index The index of the element to return.
+   * @return The tags at the given index.
+   */
+  java.lang.String getTags(int index);
+  /**
+   * <pre>
+   * 标签
+   * </pre>
+   *
+   * <code>repeated string tags = 14 [json_name = "tags"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the tags at the given index.
+   */
+  com.google.protobuf.ByteString
+      getTagsBytes(int index);
+
+  /**
+   * <pre>
+   * 菜单元数据（用于构建前端菜单）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.Menu menu = 15 [json_name = "menu"];</code>
+   * @return Whether the menu field is set.
+   */
+  boolean hasMenu();
+  /**
+   * <pre>
+   * 菜单元数据（用于构建前端菜单）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.Menu menu = 15 [json_name = "menu"];</code>
+   * @return The menu.
+   */
+  com.croupier.common.v1.Menu getMenu();
+  /**
+   * <pre>
+   * 菜单元数据（用于构建前端菜单）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.Menu menu = 15 [json_name = "menu"];</code>
+   */
+  com.croupier.common.v1.MenuOrBuilder getMenuOrBuilder();
+
+  /**
+   * <pre>
+   * 权限规范（verbs/scopes/default role grants/i18n）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.PermissionSpec permissions = 16 [json_name = "permissions"];</code>
+   * @return Whether the permissions field is set.
+   */
+  boolean hasPermissions();
+  /**
+   * <pre>
+   * 权限规范（verbs/scopes/default role grants/i18n）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.PermissionSpec permissions = 16 [json_name = "permissions"];</code>
+   * @return The permissions.
+   */
+  com.croupier.common.v1.PermissionSpec getPermissions();
+  /**
+   * <pre>
+   * 权限规范（verbs/scopes/default role grants/i18n）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.PermissionSpec permissions = 16 [json_name = "permissions"];</code>
+   */
+  com.croupier.common.v1.PermissionSpecOrBuilder getPermissionsOrBuilder();
 }

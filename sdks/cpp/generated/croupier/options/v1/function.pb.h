@@ -34,6 +34,7 @@
 #include "google/protobuf/map_field.h"
 #include "google/protobuf/unknown_field_set.h"
 #include "google/protobuf/descriptor.pb.h"
+#include "croupier/common/v1/ui.pb.h"
 // @@protoc_insertion_point(includes)
 
 // Must be included last.
@@ -266,6 +267,7 @@ class FunctionOptions final : public ::google::protobuf::Message
 
   // accessors -------------------------------------------------------
   enum : int {
+    kTagsFieldNumber = 14,
     kFunctionIdFieldNumber = 1,
     kVersionFieldNumber = 2,
     kCategoryFieldNumber = 3,
@@ -274,10 +276,36 @@ class FunctionOptions final : public ::google::protobuf::Message
     kTimeoutFieldNumber = 6,
     kPlacementFieldNumber = 8,
     kModeFieldNumber = 10,
+    kDisplayNameFieldNumber = 12,
+    kSummaryFieldNumber = 13,
+    kMenuFieldNumber = 15,
+    kPermissionsFieldNumber = 16,
     kTwoPersonRuleFieldNumber = 7,
     kIdempotencyKeyFieldNumber = 11,
     kLabelsFieldNumber = 9,
   };
+  // repeated string tags = 14 [json_name = "tags"];
+  int tags_size() const;
+  private:
+  int _internal_tags_size() const;
+
+  public:
+  void clear_tags() ;
+  const ::std::string& tags(int index) const;
+  ::std::string* PROTOBUF_NONNULL mutable_tags(int index);
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void set_tags(int index, Arg_&& value, Args_... args);
+  ::std::string* PROTOBUF_NONNULL add_tags();
+  template <typename Arg_ = const ::std::string&, typename... Args_>
+  void add_tags(Arg_&& value, Args_... args);
+  const ::google::protobuf::RepeatedPtrField<::std::string>& tags() const;
+  ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL mutable_tags();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<::std::string>& _internal_tags() const;
+  ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL _internal_mutable_tags();
+
+  public:
   // string function_id = 1 [json_name = "functionId"];
   void clear_function_id() ;
   const ::std::string& function_id() const;
@@ -398,6 +426,66 @@ class FunctionOptions final : public ::google::protobuf::Message
   ::std::string* PROTOBUF_NONNULL _internal_mutable_mode();
 
   public:
+  // .croupier.common.v1.I18nText display_name = 12 [json_name = "displayName"];
+  bool has_display_name() const;
+  void clear_display_name() ;
+  const ::croupier::common::v1::I18nText& display_name() const;
+  [[nodiscard]] ::croupier::common::v1::I18nText* PROTOBUF_NULLABLE release_display_name();
+  ::croupier::common::v1::I18nText* PROTOBUF_NONNULL mutable_display_name();
+  void set_allocated_display_name(::croupier::common::v1::I18nText* PROTOBUF_NULLABLE value);
+  void unsafe_arena_set_allocated_display_name(::croupier::common::v1::I18nText* PROTOBUF_NULLABLE value);
+  ::croupier::common::v1::I18nText* PROTOBUF_NULLABLE unsafe_arena_release_display_name();
+
+  private:
+  const ::croupier::common::v1::I18nText& _internal_display_name() const;
+  ::croupier::common::v1::I18nText* PROTOBUF_NONNULL _internal_mutable_display_name();
+
+  public:
+  // .croupier.common.v1.I18nText summary = 13 [json_name = "summary"];
+  bool has_summary() const;
+  void clear_summary() ;
+  const ::croupier::common::v1::I18nText& summary() const;
+  [[nodiscard]] ::croupier::common::v1::I18nText* PROTOBUF_NULLABLE release_summary();
+  ::croupier::common::v1::I18nText* PROTOBUF_NONNULL mutable_summary();
+  void set_allocated_summary(::croupier::common::v1::I18nText* PROTOBUF_NULLABLE value);
+  void unsafe_arena_set_allocated_summary(::croupier::common::v1::I18nText* PROTOBUF_NULLABLE value);
+  ::croupier::common::v1::I18nText* PROTOBUF_NULLABLE unsafe_arena_release_summary();
+
+  private:
+  const ::croupier::common::v1::I18nText& _internal_summary() const;
+  ::croupier::common::v1::I18nText* PROTOBUF_NONNULL _internal_mutable_summary();
+
+  public:
+  // .croupier.common.v1.Menu menu = 15 [json_name = "menu"];
+  bool has_menu() const;
+  void clear_menu() ;
+  const ::croupier::common::v1::Menu& menu() const;
+  [[nodiscard]] ::croupier::common::v1::Menu* PROTOBUF_NULLABLE release_menu();
+  ::croupier::common::v1::Menu* PROTOBUF_NONNULL mutable_menu();
+  void set_allocated_menu(::croupier::common::v1::Menu* PROTOBUF_NULLABLE value);
+  void unsafe_arena_set_allocated_menu(::croupier::common::v1::Menu* PROTOBUF_NULLABLE value);
+  ::croupier::common::v1::Menu* PROTOBUF_NULLABLE unsafe_arena_release_menu();
+
+  private:
+  const ::croupier::common::v1::Menu& _internal_menu() const;
+  ::croupier::common::v1::Menu* PROTOBUF_NONNULL _internal_mutable_menu();
+
+  public:
+  // .croupier.common.v1.PermissionSpec permissions = 16 [json_name = "permissions"];
+  bool has_permissions() const;
+  void clear_permissions() ;
+  const ::croupier::common::v1::PermissionSpec& permissions() const;
+  [[nodiscard]] ::croupier::common::v1::PermissionSpec* PROTOBUF_NULLABLE release_permissions();
+  ::croupier::common::v1::PermissionSpec* PROTOBUF_NONNULL mutable_permissions();
+  void set_allocated_permissions(::croupier::common::v1::PermissionSpec* PROTOBUF_NULLABLE value);
+  void unsafe_arena_set_allocated_permissions(::croupier::common::v1::PermissionSpec* PROTOBUF_NULLABLE value);
+  ::croupier::common::v1::PermissionSpec* PROTOBUF_NULLABLE unsafe_arena_release_permissions();
+
+  private:
+  const ::croupier::common::v1::PermissionSpec& _internal_permissions() const;
+  ::croupier::common::v1::PermissionSpec* PROTOBUF_NONNULL _internal_mutable_permissions();
+
+  public:
   // bool two_person_rule = 7 [json_name = "twoPersonRule"];
   void clear_two_person_rule() ;
   bool two_person_rule() const;
@@ -437,8 +525,8 @@ class FunctionOptions final : public ::google::protobuf::Message
  private:
   class _Internal;
   friend class ::google::protobuf::internal::TcParser;
-  static const ::google::protobuf::internal::TcParseTable<4, 11,
-                                   1, 113,
+  static const ::google::protobuf::internal::TcParseTable<4, 16,
+                                   5, 125,
                                    2>
       _table_;
 
@@ -459,6 +547,7 @@ class FunctionOptions final : public ::google::protobuf::Message
         const FunctionOptions& from_msg);
     ::google::protobuf::internal::HasBits<1> _has_bits_;
     ::google::protobuf::internal::CachedSize _cached_size_;
+    ::google::protobuf::RepeatedPtrField<::std::string> tags_;
     ::google::protobuf::internal::ArenaStringPtr function_id_;
     ::google::protobuf::internal::ArenaStringPtr version_;
     ::google::protobuf::internal::ArenaStringPtr category_;
@@ -467,6 +556,10 @@ class FunctionOptions final : public ::google::protobuf::Message
     ::google::protobuf::internal::ArenaStringPtr timeout_;
     ::google::protobuf::internal::ArenaStringPtr placement_;
     ::google::protobuf::internal::ArenaStringPtr mode_;
+    ::croupier::common::v1::I18nText* PROTOBUF_NULLABLE display_name_;
+    ::croupier::common::v1::I18nText* PROTOBUF_NULLABLE summary_;
+    ::croupier::common::v1::Menu* PROTOBUF_NULLABLE menu_;
+    ::croupier::common::v1::PermissionSpec* PROTOBUF_NULLABLE permissions_;
     bool two_person_rule_;
     bool idempotency_key_;
     ::google::protobuf::internal::MapField<FunctionOptions_LabelsEntry_DoNotUse, ::std::string, ::std::string,
@@ -508,7 +601,7 @@ inline void FunctionOptions::clear_function_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.function_id_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000001U);
+                  0x00000002U);
 }
 inline const ::std::string& FunctionOptions::function_id() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -518,13 +611,13 @@ inline const ::std::string& FunctionOptions::function_id() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void FunctionOptions::set_function_id(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   _impl_.function_id_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.options.v1.FunctionOptions.function_id)
 }
 inline ::std::string* PROTOBUF_NONNULL FunctionOptions::mutable_function_id()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   ::std::string* _s = _internal_mutable_function_id();
   // @@protoc_insertion_point(field_mutable:croupier.options.v1.FunctionOptions.function_id)
   return _s;
@@ -544,10 +637,10 @@ inline ::std::string* PROTOBUF_NONNULL FunctionOptions::_internal_mutable_functi
 inline ::std::string* PROTOBUF_NULLABLE FunctionOptions::release_function_id() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.options.v1.FunctionOptions.function_id)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000001U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
   auto* released = _impl_.function_id_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.function_id_.Set("", GetArena());
@@ -557,9 +650,9 @@ inline ::std::string* PROTOBUF_NULLABLE FunctionOptions::release_function_id() {
 inline void FunctionOptions::set_allocated_function_id(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000001U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000001U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
   }
   _impl_.function_id_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.function_id_.IsDefault()) {
@@ -573,7 +666,7 @@ inline void FunctionOptions::clear_version() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.version_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000002U);
+                  0x00000004U);
 }
 inline const ::std::string& FunctionOptions::version() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -583,13 +676,13 @@ inline const ::std::string& FunctionOptions::version() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void FunctionOptions::set_version(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
   _impl_.version_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.options.v1.FunctionOptions.version)
 }
 inline ::std::string* PROTOBUF_NONNULL FunctionOptions::mutable_version()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
   ::std::string* _s = _internal_mutable_version();
   // @@protoc_insertion_point(field_mutable:croupier.options.v1.FunctionOptions.version)
   return _s;
@@ -609,10 +702,10 @@ inline ::std::string* PROTOBUF_NONNULL FunctionOptions::_internal_mutable_versio
 inline ::std::string* PROTOBUF_NULLABLE FunctionOptions::release_version() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.options.v1.FunctionOptions.version)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000002U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
   auto* released = _impl_.version_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.version_.Set("", GetArena());
@@ -622,9 +715,9 @@ inline ::std::string* PROTOBUF_NULLABLE FunctionOptions::release_version() {
 inline void FunctionOptions::set_allocated_version(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000002U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000004U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000002U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
   }
   _impl_.version_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.version_.IsDefault()) {
@@ -638,7 +731,7 @@ inline void FunctionOptions::clear_category() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.category_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000004U);
+                  0x00000008U);
 }
 inline const ::std::string& FunctionOptions::category() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -648,13 +741,13 @@ inline const ::std::string& FunctionOptions::category() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void FunctionOptions::set_category(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
   _impl_.category_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.options.v1.FunctionOptions.category)
 }
 inline ::std::string* PROTOBUF_NONNULL FunctionOptions::mutable_category()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
   ::std::string* _s = _internal_mutable_category();
   // @@protoc_insertion_point(field_mutable:croupier.options.v1.FunctionOptions.category)
   return _s;
@@ -674,10 +767,10 @@ inline ::std::string* PROTOBUF_NONNULL FunctionOptions::_internal_mutable_catego
 inline ::std::string* PROTOBUF_NULLABLE FunctionOptions::release_category() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.options.v1.FunctionOptions.category)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000004U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000008U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
   auto* released = _impl_.category_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.category_.Set("", GetArena());
@@ -687,9 +780,9 @@ inline ::std::string* PROTOBUF_NULLABLE FunctionOptions::release_category() {
 inline void FunctionOptions::set_allocated_category(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000004U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000008U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000004U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
   }
   _impl_.category_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.category_.IsDefault()) {
@@ -703,7 +796,7 @@ inline void FunctionOptions::clear_risk() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.risk_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000008U);
+                  0x00000010U);
 }
 inline const ::std::string& FunctionOptions::risk() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -713,13 +806,13 @@ inline const ::std::string& FunctionOptions::risk() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void FunctionOptions::set_risk(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   _impl_.risk_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.options.v1.FunctionOptions.risk)
 }
 inline ::std::string* PROTOBUF_NONNULL FunctionOptions::mutable_risk()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   ::std::string* _s = _internal_mutable_risk();
   // @@protoc_insertion_point(field_mutable:croupier.options.v1.FunctionOptions.risk)
   return _s;
@@ -739,10 +832,10 @@ inline ::std::string* PROTOBUF_NONNULL FunctionOptions::_internal_mutable_risk()
 inline ::std::string* PROTOBUF_NULLABLE FunctionOptions::release_risk() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.options.v1.FunctionOptions.risk)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000008U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000010U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
   auto* released = _impl_.risk_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.risk_.Set("", GetArena());
@@ -752,9 +845,9 @@ inline ::std::string* PROTOBUF_NULLABLE FunctionOptions::release_risk() {
 inline void FunctionOptions::set_allocated_risk(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000008U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000010U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000008U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
   }
   _impl_.risk_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.risk_.IsDefault()) {
@@ -768,7 +861,7 @@ inline void FunctionOptions::clear_route() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.route_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000010U);
+                  0x00000020U);
 }
 inline const ::std::string& FunctionOptions::route() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -778,13 +871,13 @@ inline const ::std::string& FunctionOptions::route() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void FunctionOptions::set_route(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
   _impl_.route_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.options.v1.FunctionOptions.route)
 }
 inline ::std::string* PROTOBUF_NONNULL FunctionOptions::mutable_route()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
   ::std::string* _s = _internal_mutable_route();
   // @@protoc_insertion_point(field_mutable:croupier.options.v1.FunctionOptions.route)
   return _s;
@@ -804,10 +897,10 @@ inline ::std::string* PROTOBUF_NONNULL FunctionOptions::_internal_mutable_route(
 inline ::std::string* PROTOBUF_NULLABLE FunctionOptions::release_route() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.options.v1.FunctionOptions.route)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000010U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000020U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
   auto* released = _impl_.route_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.route_.Set("", GetArena());
@@ -817,9 +910,9 @@ inline ::std::string* PROTOBUF_NULLABLE FunctionOptions::release_route() {
 inline void FunctionOptions::set_allocated_route(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000010U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000020U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000010U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
   }
   _impl_.route_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.route_.IsDefault()) {
@@ -833,7 +926,7 @@ inline void FunctionOptions::clear_timeout() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.timeout_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000020U);
+                  0x00000040U);
 }
 inline const ::std::string& FunctionOptions::timeout() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -843,13 +936,13 @@ inline const ::std::string& FunctionOptions::timeout() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void FunctionOptions::set_timeout(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
   _impl_.timeout_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.options.v1.FunctionOptions.timeout)
 }
 inline ::std::string* PROTOBUF_NONNULL FunctionOptions::mutable_timeout()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
   ::std::string* _s = _internal_mutable_timeout();
   // @@protoc_insertion_point(field_mutable:croupier.options.v1.FunctionOptions.timeout)
   return _s;
@@ -869,10 +962,10 @@ inline ::std::string* PROTOBUF_NONNULL FunctionOptions::_internal_mutable_timeou
 inline ::std::string* PROTOBUF_NULLABLE FunctionOptions::release_timeout() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.options.v1.FunctionOptions.timeout)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000020U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000040U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
   auto* released = _impl_.timeout_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.timeout_.Set("", GetArena());
@@ -882,9 +975,9 @@ inline ::std::string* PROTOBUF_NULLABLE FunctionOptions::release_timeout() {
 inline void FunctionOptions::set_allocated_timeout(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000020U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000040U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000020U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
   }
   _impl_.timeout_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.timeout_.IsDefault()) {
@@ -898,7 +991,7 @@ inline void FunctionOptions::clear_two_person_rule() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.two_person_rule_ = false;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000100U);
+                  0x00002000U);
 }
 inline bool FunctionOptions::two_person_rule() const {
   // @@protoc_insertion_point(field_get:croupier.options.v1.FunctionOptions.two_person_rule)
@@ -906,7 +999,7 @@ inline bool FunctionOptions::two_person_rule() const {
 }
 inline void FunctionOptions::set_two_person_rule(bool value) {
   _internal_set_two_person_rule(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
+  SetHasBit(_impl_._has_bits_[0], 0x00002000U);
   // @@protoc_insertion_point(field_set:croupier.options.v1.FunctionOptions.two_person_rule)
 }
 inline bool FunctionOptions::_internal_two_person_rule() const {
@@ -923,7 +1016,7 @@ inline void FunctionOptions::clear_placement() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.placement_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000040U);
+                  0x00000080U);
 }
 inline const ::std::string& FunctionOptions::placement() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -933,13 +1026,13 @@ inline const ::std::string& FunctionOptions::placement() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void FunctionOptions::set_placement(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   _impl_.placement_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.options.v1.FunctionOptions.placement)
 }
 inline ::std::string* PROTOBUF_NONNULL FunctionOptions::mutable_placement()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   ::std::string* _s = _internal_mutable_placement();
   // @@protoc_insertion_point(field_mutable:croupier.options.v1.FunctionOptions.placement)
   return _s;
@@ -959,10 +1052,10 @@ inline ::std::string* PROTOBUF_NONNULL FunctionOptions::_internal_mutable_placem
 inline ::std::string* PROTOBUF_NULLABLE FunctionOptions::release_placement() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.options.v1.FunctionOptions.placement)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000040U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000080U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   auto* released = _impl_.placement_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.placement_.Set("", GetArena());
@@ -972,9 +1065,9 @@ inline ::std::string* PROTOBUF_NULLABLE FunctionOptions::release_placement() {
 inline void FunctionOptions::set_allocated_placement(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000040U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000040U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
   }
   _impl_.placement_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.placement_.IsDefault()) {
@@ -994,7 +1087,7 @@ inline void FunctionOptions::clear_labels() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.labels_.Clear();
   ClearHasBitForRepeated(_impl_._has_bits_[0],
-                  0x00000400U);
+                  0x00008000U);
 }
 inline const ::google::protobuf::Map<::std::string, ::std::string>& FunctionOptions::_internal_labels() const {
   ::google::protobuf::internal::TSanRead(&_impl_);
@@ -1010,7 +1103,7 @@ inline ::google::protobuf::Map<::std::string, ::std::string>* PROTOBUF_NONNULL F
 }
 inline ::google::protobuf::Map<::std::string, ::std::string>* PROTOBUF_NONNULL FunctionOptions::mutable_labels()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000400U);
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00008000U);
   // @@protoc_insertion_point(field_mutable_map:croupier.options.v1.FunctionOptions.labels)
   return _internal_mutable_labels();
 }
@@ -1020,7 +1113,7 @@ inline void FunctionOptions::clear_mode() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.mode_.ClearToEmpty();
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000080U);
+                  0x00000100U);
 }
 inline const ::std::string& FunctionOptions::mode() const
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
@@ -1030,13 +1123,13 @@ inline const ::std::string& FunctionOptions::mode() const
 template <typename Arg_, typename... Args_>
 PROTOBUF_ALWAYS_INLINE void FunctionOptions::set_mode(Arg_&& arg, Args_... args) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
-  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   _impl_.mode_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
   // @@protoc_insertion_point(field_set:croupier.options.v1.FunctionOptions.mode)
 }
 inline ::std::string* PROTOBUF_NONNULL FunctionOptions::mutable_mode()
     ABSL_ATTRIBUTE_LIFETIME_BOUND {
-  SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+  SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   ::std::string* _s = _internal_mutable_mode();
   // @@protoc_insertion_point(field_mutable:croupier.options.v1.FunctionOptions.mode)
   return _s;
@@ -1056,10 +1149,10 @@ inline ::std::string* PROTOBUF_NONNULL FunctionOptions::_internal_mutable_mode()
 inline ::std::string* PROTOBUF_NULLABLE FunctionOptions::release_mode() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   // @@protoc_insertion_point(field_release:croupier.options.v1.FunctionOptions.mode)
-  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000080U)) {
+  if (!CheckHasBit(_impl_._has_bits_[0], 0x00000100U)) {
     return nullptr;
   }
-  ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+  ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
   auto* released = _impl_.mode_.Release();
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString()) {
     _impl_.mode_.Set("", GetArena());
@@ -1069,9 +1162,9 @@ inline ::std::string* PROTOBUF_NULLABLE FunctionOptions::release_mode() {
 inline void FunctionOptions::set_allocated_mode(::std::string* PROTOBUF_NULLABLE value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   if (value != nullptr) {
-    SetHasBit(_impl_._has_bits_[0], 0x00000080U);
+    SetHasBit(_impl_._has_bits_[0], 0x00000100U);
   } else {
-    ClearHasBit(_impl_._has_bits_[0], 0x00000080U);
+    ClearHasBit(_impl_._has_bits_[0], 0x00000100U);
   }
   _impl_.mode_.SetAllocated(value, GetArena());
   if (::google::protobuf::internal::DebugHardenForceCopyDefaultString() && _impl_.mode_.IsDefault()) {
@@ -1085,7 +1178,7 @@ inline void FunctionOptions::clear_idempotency_key() {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.idempotency_key_ = false;
   ClearHasBit(_impl_._has_bits_[0],
-                  0x00000200U);
+                  0x00004000U);
 }
 inline bool FunctionOptions::idempotency_key() const {
   // @@protoc_insertion_point(field_get:croupier.options.v1.FunctionOptions.idempotency_key)
@@ -1093,7 +1186,7 @@ inline bool FunctionOptions::idempotency_key() const {
 }
 inline void FunctionOptions::set_idempotency_key(bool value) {
   _internal_set_idempotency_key(value);
-  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  SetHasBit(_impl_._has_bits_[0], 0x00004000U);
   // @@protoc_insertion_point(field_set:croupier.options.v1.FunctionOptions.idempotency_key)
 }
 inline bool FunctionOptions::_internal_idempotency_key() const {
@@ -1103,6 +1196,450 @@ inline bool FunctionOptions::_internal_idempotency_key() const {
 inline void FunctionOptions::_internal_set_idempotency_key(bool value) {
   ::google::protobuf::internal::TSanWrite(&_impl_);
   _impl_.idempotency_key_ = value;
+}
+
+// .croupier.common.v1.I18nText display_name = 12 [json_name = "displayName"];
+inline bool FunctionOptions::has_display_name() const {
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000200U);
+  PROTOBUF_ASSUME(!value || _impl_.display_name_ != nullptr);
+  return value;
+}
+inline const ::croupier::common::v1::I18nText& FunctionOptions::_internal_display_name() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  const ::croupier::common::v1::I18nText* p = _impl_.display_name_;
+  return p != nullptr ? *p : reinterpret_cast<const ::croupier::common::v1::I18nText&>(::croupier::common::v1::_I18nText_default_instance_);
+}
+inline const ::croupier::common::v1::I18nText& FunctionOptions::display_name() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.options.v1.FunctionOptions.display_name)
+  return _internal_display_name();
+}
+inline void FunctionOptions::unsafe_arena_set_allocated_display_name(
+    ::croupier::common::v1::I18nText* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.display_name_);
+  }
+  _impl_.display_name_ = reinterpret_cast<::croupier::common::v1::I18nText*>(value);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:croupier.options.v1.FunctionOptions.display_name)
+}
+inline ::croupier::common::v1::I18nText* PROTOBUF_NULLABLE FunctionOptions::release_display_name() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+
+  ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
+  ::croupier::common::v1::I18nText* released = _impl_.display_name_;
+  _impl_.display_name_ = nullptr;
+  if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
+    auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+    if (GetArena() == nullptr) {
+      delete old;
+    }
+  } else {
+    if (GetArena() != nullptr) {
+      released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+    }
+  }
+  return released;
+}
+inline ::croupier::common::v1::I18nText* PROTOBUF_NULLABLE FunctionOptions::unsafe_arena_release_display_name() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.options.v1.FunctionOptions.display_name)
+
+  ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
+  ::croupier::common::v1::I18nText* temp = _impl_.display_name_;
+  _impl_.display_name_ = nullptr;
+  return temp;
+}
+inline ::croupier::common::v1::I18nText* PROTOBUF_NONNULL FunctionOptions::_internal_mutable_display_name() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (_impl_.display_name_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::croupier::common::v1::I18nText>(GetArena());
+    _impl_.display_name_ = reinterpret_cast<::croupier::common::v1::I18nText*>(p);
+  }
+  return _impl_.display_name_;
+}
+inline ::croupier::common::v1::I18nText* PROTOBUF_NONNULL FunctionOptions::mutable_display_name()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  ::croupier::common::v1::I18nText* _msg = _internal_mutable_display_name();
+  // @@protoc_insertion_point(field_mutable:croupier.options.v1.FunctionOptions.display_name)
+  return _msg;
+}
+inline void FunctionOptions::set_allocated_display_name(::croupier::common::v1::I18nText* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.display_name_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::Message*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    SetHasBit(_impl_._has_bits_[0], 0x00000200U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000200U);
+  }
+
+  _impl_.display_name_ = reinterpret_cast<::croupier::common::v1::I18nText*>(value);
+  // @@protoc_insertion_point(field_set_allocated:croupier.options.v1.FunctionOptions.display_name)
+}
+
+// .croupier.common.v1.I18nText summary = 13 [json_name = "summary"];
+inline bool FunctionOptions::has_summary() const {
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000400U);
+  PROTOBUF_ASSUME(!value || _impl_.summary_ != nullptr);
+  return value;
+}
+inline const ::croupier::common::v1::I18nText& FunctionOptions::_internal_summary() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  const ::croupier::common::v1::I18nText* p = _impl_.summary_;
+  return p != nullptr ? *p : reinterpret_cast<const ::croupier::common::v1::I18nText&>(::croupier::common::v1::_I18nText_default_instance_);
+}
+inline const ::croupier::common::v1::I18nText& FunctionOptions::summary() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.options.v1.FunctionOptions.summary)
+  return _internal_summary();
+}
+inline void FunctionOptions::unsafe_arena_set_allocated_summary(
+    ::croupier::common::v1::I18nText* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.summary_);
+  }
+  _impl_.summary_ = reinterpret_cast<::croupier::common::v1::I18nText*>(value);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000400U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000400U);
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:croupier.options.v1.FunctionOptions.summary)
+}
+inline ::croupier::common::v1::I18nText* PROTOBUF_NULLABLE FunctionOptions::release_summary() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+
+  ClearHasBit(_impl_._has_bits_[0], 0x00000400U);
+  ::croupier::common::v1::I18nText* released = _impl_.summary_;
+  _impl_.summary_ = nullptr;
+  if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
+    auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+    if (GetArena() == nullptr) {
+      delete old;
+    }
+  } else {
+    if (GetArena() != nullptr) {
+      released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+    }
+  }
+  return released;
+}
+inline ::croupier::common::v1::I18nText* PROTOBUF_NULLABLE FunctionOptions::unsafe_arena_release_summary() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.options.v1.FunctionOptions.summary)
+
+  ClearHasBit(_impl_._has_bits_[0], 0x00000400U);
+  ::croupier::common::v1::I18nText* temp = _impl_.summary_;
+  _impl_.summary_ = nullptr;
+  return temp;
+}
+inline ::croupier::common::v1::I18nText* PROTOBUF_NONNULL FunctionOptions::_internal_mutable_summary() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (_impl_.summary_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::croupier::common::v1::I18nText>(GetArena());
+    _impl_.summary_ = reinterpret_cast<::croupier::common::v1::I18nText*>(p);
+  }
+  return _impl_.summary_;
+}
+inline ::croupier::common::v1::I18nText* PROTOBUF_NONNULL FunctionOptions::mutable_summary()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000400U);
+  ::croupier::common::v1::I18nText* _msg = _internal_mutable_summary();
+  // @@protoc_insertion_point(field_mutable:croupier.options.v1.FunctionOptions.summary)
+  return _msg;
+}
+inline void FunctionOptions::set_allocated_summary(::croupier::common::v1::I18nText* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.summary_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::Message*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    SetHasBit(_impl_._has_bits_[0], 0x00000400U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000400U);
+  }
+
+  _impl_.summary_ = reinterpret_cast<::croupier::common::v1::I18nText*>(value);
+  // @@protoc_insertion_point(field_set_allocated:croupier.options.v1.FunctionOptions.summary)
+}
+
+// repeated string tags = 14 [json_name = "tags"];
+inline int FunctionOptions::_internal_tags_size() const {
+  return _internal_tags().size();
+}
+inline int FunctionOptions::tags_size() const {
+  return _internal_tags_size();
+}
+inline void FunctionOptions::clear_tags() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  _impl_.tags_.Clear();
+  ClearHasBitForRepeated(_impl_._has_bits_[0],
+                  0x00000001U);
+}
+inline ::std::string* PROTOBUF_NONNULL FunctionOptions::add_tags()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::std::string* _s =
+      _internal_mutable_tags()->InternalAddWithArena(
+          ::google::protobuf::MessageLite::internal_visibility(), GetArena());
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_add_mutable:croupier.options.v1.FunctionOptions.tags)
+  return _s;
+}
+inline const ::std::string& FunctionOptions::tags(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.options.v1.FunctionOptions.tags)
+  return _internal_tags().Get(index);
+}
+inline ::std::string* PROTOBUF_NONNULL FunctionOptions::mutable_tags(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:croupier.options.v1.FunctionOptions.tags)
+  return _internal_mutable_tags()->Mutable(index);
+}
+template <typename Arg_, typename... Args_>
+inline void FunctionOptions::set_tags(int index, Arg_&& value, Args_... args) {
+  ::google::protobuf::internal::AssignToString(*_internal_mutable_tags()->Mutable(index), ::std::forward<Arg_>(value),
+                        args... );
+  // @@protoc_insertion_point(field_set:croupier.options.v1.FunctionOptions.tags)
+}
+template <typename Arg_, typename... Args_>
+inline void FunctionOptions::add_tags(Arg_&& value, Args_... args) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::google::protobuf::internal::AddToRepeatedPtrField(
+      ::google::protobuf::MessageLite::internal_visibility(), GetArena(),
+      *_internal_mutable_tags(), ::std::forward<Arg_>(value),
+      args... );
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_add:croupier.options.v1.FunctionOptions.tags)
+}
+inline const ::google::protobuf::RepeatedPtrField<::std::string>& FunctionOptions::tags()
+    const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:croupier.options.v1.FunctionOptions.tags)
+  return _internal_tags();
+}
+inline ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL
+FunctionOptions::mutable_tags() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBitForRepeated(_impl_._has_bits_[0], 0x00000001U);
+  // @@protoc_insertion_point(field_mutable_list:croupier.options.v1.FunctionOptions.tags)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  return _internal_mutable_tags();
+}
+inline const ::google::protobuf::RepeatedPtrField<::std::string>&
+FunctionOptions::_internal_tags() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return _impl_.tags_;
+}
+inline ::google::protobuf::RepeatedPtrField<::std::string>* PROTOBUF_NONNULL
+FunctionOptions::_internal_mutable_tags() {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  return &_impl_.tags_;
+}
+
+// .croupier.common.v1.Menu menu = 15 [json_name = "menu"];
+inline bool FunctionOptions::has_menu() const {
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00000800U);
+  PROTOBUF_ASSUME(!value || _impl_.menu_ != nullptr);
+  return value;
+}
+inline const ::croupier::common::v1::Menu& FunctionOptions::_internal_menu() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  const ::croupier::common::v1::Menu* p = _impl_.menu_;
+  return p != nullptr ? *p : reinterpret_cast<const ::croupier::common::v1::Menu&>(::croupier::common::v1::_Menu_default_instance_);
+}
+inline const ::croupier::common::v1::Menu& FunctionOptions::menu() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.options.v1.FunctionOptions.menu)
+  return _internal_menu();
+}
+inline void FunctionOptions::unsafe_arena_set_allocated_menu(
+    ::croupier::common::v1::Menu* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.menu_);
+  }
+  _impl_.menu_ = reinterpret_cast<::croupier::common::v1::Menu*>(value);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00000800U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000800U);
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:croupier.options.v1.FunctionOptions.menu)
+}
+inline ::croupier::common::v1::Menu* PROTOBUF_NULLABLE FunctionOptions::release_menu() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+
+  ClearHasBit(_impl_._has_bits_[0], 0x00000800U);
+  ::croupier::common::v1::Menu* released = _impl_.menu_;
+  _impl_.menu_ = nullptr;
+  if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
+    auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+    if (GetArena() == nullptr) {
+      delete old;
+    }
+  } else {
+    if (GetArena() != nullptr) {
+      released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+    }
+  }
+  return released;
+}
+inline ::croupier::common::v1::Menu* PROTOBUF_NULLABLE FunctionOptions::unsafe_arena_release_menu() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.options.v1.FunctionOptions.menu)
+
+  ClearHasBit(_impl_._has_bits_[0], 0x00000800U);
+  ::croupier::common::v1::Menu* temp = _impl_.menu_;
+  _impl_.menu_ = nullptr;
+  return temp;
+}
+inline ::croupier::common::v1::Menu* PROTOBUF_NONNULL FunctionOptions::_internal_mutable_menu() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (_impl_.menu_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::croupier::common::v1::Menu>(GetArena());
+    _impl_.menu_ = reinterpret_cast<::croupier::common::v1::Menu*>(p);
+  }
+  return _impl_.menu_;
+}
+inline ::croupier::common::v1::Menu* PROTOBUF_NONNULL FunctionOptions::mutable_menu()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00000800U);
+  ::croupier::common::v1::Menu* _msg = _internal_mutable_menu();
+  // @@protoc_insertion_point(field_mutable:croupier.options.v1.FunctionOptions.menu)
+  return _msg;
+}
+inline void FunctionOptions::set_allocated_menu(::croupier::common::v1::Menu* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.menu_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::Message*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    SetHasBit(_impl_._has_bits_[0], 0x00000800U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00000800U);
+  }
+
+  _impl_.menu_ = reinterpret_cast<::croupier::common::v1::Menu*>(value);
+  // @@protoc_insertion_point(field_set_allocated:croupier.options.v1.FunctionOptions.menu)
+}
+
+// .croupier.common.v1.PermissionSpec permissions = 16 [json_name = "permissions"];
+inline bool FunctionOptions::has_permissions() const {
+  bool value = CheckHasBit(_impl_._has_bits_[0], 0x00001000U);
+  PROTOBUF_ASSUME(!value || _impl_.permissions_ != nullptr);
+  return value;
+}
+inline const ::croupier::common::v1::PermissionSpec& FunctionOptions::_internal_permissions() const {
+  ::google::protobuf::internal::TSanRead(&_impl_);
+  const ::croupier::common::v1::PermissionSpec* p = _impl_.permissions_;
+  return p != nullptr ? *p : reinterpret_cast<const ::croupier::common::v1::PermissionSpec&>(::croupier::common::v1::_PermissionSpec_default_instance_);
+}
+inline const ::croupier::common::v1::PermissionSpec& FunctionOptions::permissions() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:croupier.options.v1.FunctionOptions.permissions)
+  return _internal_permissions();
+}
+inline void FunctionOptions::unsafe_arena_set_allocated_permissions(
+    ::croupier::common::v1::PermissionSpec* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.permissions_);
+  }
+  _impl_.permissions_ = reinterpret_cast<::croupier::common::v1::PermissionSpec*>(value);
+  if (value != nullptr) {
+    SetHasBit(_impl_._has_bits_[0], 0x00001000U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00001000U);
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:croupier.options.v1.FunctionOptions.permissions)
+}
+inline ::croupier::common::v1::PermissionSpec* PROTOBUF_NULLABLE FunctionOptions::release_permissions() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+
+  ClearHasBit(_impl_._has_bits_[0], 0x00001000U);
+  ::croupier::common::v1::PermissionSpec* released = _impl_.permissions_;
+  _impl_.permissions_ = nullptr;
+  if (::google::protobuf::internal::DebugHardenForceCopyInRelease()) {
+    auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+    if (GetArena() == nullptr) {
+      delete old;
+    }
+  } else {
+    if (GetArena() != nullptr) {
+      released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+    }
+  }
+  return released;
+}
+inline ::croupier::common::v1::PermissionSpec* PROTOBUF_NULLABLE FunctionOptions::unsafe_arena_release_permissions() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  // @@protoc_insertion_point(field_release:croupier.options.v1.FunctionOptions.permissions)
+
+  ClearHasBit(_impl_._has_bits_[0], 0x00001000U);
+  ::croupier::common::v1::PermissionSpec* temp = _impl_.permissions_;
+  _impl_.permissions_ = nullptr;
+  return temp;
+}
+inline ::croupier::common::v1::PermissionSpec* PROTOBUF_NONNULL FunctionOptions::_internal_mutable_permissions() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (_impl_.permissions_ == nullptr) {
+    auto* p = ::google::protobuf::Message::DefaultConstruct<::croupier::common::v1::PermissionSpec>(GetArena());
+    _impl_.permissions_ = reinterpret_cast<::croupier::common::v1::PermissionSpec*>(p);
+  }
+  return _impl_.permissions_;
+}
+inline ::croupier::common::v1::PermissionSpec* PROTOBUF_NONNULL FunctionOptions::mutable_permissions()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  SetHasBit(_impl_._has_bits_[0], 0x00001000U);
+  ::croupier::common::v1::PermissionSpec* _msg = _internal_mutable_permissions();
+  // @@protoc_insertion_point(field_mutable:croupier.options.v1.FunctionOptions.permissions)
+  return _msg;
+}
+inline void FunctionOptions::set_allocated_permissions(::croupier::common::v1::PermissionSpec* PROTOBUF_NULLABLE value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.permissions_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::google::protobuf::Message*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    SetHasBit(_impl_._has_bits_[0], 0x00001000U);
+  } else {
+    ClearHasBit(_impl_._has_bits_[0], 0x00001000U);
+  }
+
+  _impl_.permissions_ = reinterpret_cast<::croupier::common::v1::PermissionSpec*>(value);
+  // @@protoc_insertion_point(field_set_allocated:croupier.options.v1.FunctionOptions.permissions)
 }
 
 #ifdef __GNUC__

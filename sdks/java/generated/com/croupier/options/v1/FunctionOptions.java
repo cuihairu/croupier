@@ -40,6 +40,8 @@ private static final long serialVersionUID = 0L;
     timeout_ = "";
     placement_ = "";
     mode_ = "";
+    tags_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -67,6 +69,7 @@ private static final long serialVersionUID = 0L;
             com.croupier.options.v1.FunctionOptions.class, com.croupier.options.v1.FunctionOptions.Builder.class);
   }
 
+  private int bitField0_;
   public static final int FUNCTION_ID_FIELD_NUMBER = 1;
   @SuppressWarnings("serial")
   private volatile java.lang.Object functionId_ = "";
@@ -568,6 +571,202 @@ java.lang.String defaultValue) {
     return idempotencyKey_;
   }
 
+  public static final int DISPLAY_NAME_FIELD_NUMBER = 12;
+  private com.croupier.common.v1.I18nText displayName_;
+  /**
+   * <pre>
+   * ========== 展示 &amp; 权限（UI/菜单/权限，强类型定义） ==========
+   * 展示名称与摘要（i18n）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.I18nText display_name = 12 [json_name = "displayName"];</code>
+   * @return Whether the displayName field is set.
+   */
+  @java.lang.Override
+  public boolean hasDisplayName() {
+    return ((bitField0_ & 0x00000001) != 0);
+  }
+  /**
+   * <pre>
+   * ========== 展示 &amp; 权限（UI/菜单/权限，强类型定义） ==========
+   * 展示名称与摘要（i18n）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.I18nText display_name = 12 [json_name = "displayName"];</code>
+   * @return The displayName.
+   */
+  @java.lang.Override
+  public com.croupier.common.v1.I18nText getDisplayName() {
+    return displayName_ == null ? com.croupier.common.v1.I18nText.getDefaultInstance() : displayName_;
+  }
+  /**
+   * <pre>
+   * ========== 展示 &amp; 权限（UI/菜单/权限，强类型定义） ==========
+   * 展示名称与摘要（i18n）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.I18nText display_name = 12 [json_name = "displayName"];</code>
+   */
+  @java.lang.Override
+  public com.croupier.common.v1.I18nTextOrBuilder getDisplayNameOrBuilder() {
+    return displayName_ == null ? com.croupier.common.v1.I18nText.getDefaultInstance() : displayName_;
+  }
+
+  public static final int SUMMARY_FIELD_NUMBER = 13;
+  private com.croupier.common.v1.I18nText summary_;
+  /**
+   * <code>.croupier.common.v1.I18nText summary = 13 [json_name = "summary"];</code>
+   * @return Whether the summary field is set.
+   */
+  @java.lang.Override
+  public boolean hasSummary() {
+    return ((bitField0_ & 0x00000002) != 0);
+  }
+  /**
+   * <code>.croupier.common.v1.I18nText summary = 13 [json_name = "summary"];</code>
+   * @return The summary.
+   */
+  @java.lang.Override
+  public com.croupier.common.v1.I18nText getSummary() {
+    return summary_ == null ? com.croupier.common.v1.I18nText.getDefaultInstance() : summary_;
+  }
+  /**
+   * <code>.croupier.common.v1.I18nText summary = 13 [json_name = "summary"];</code>
+   */
+  @java.lang.Override
+  public com.croupier.common.v1.I18nTextOrBuilder getSummaryOrBuilder() {
+    return summary_ == null ? com.croupier.common.v1.I18nText.getDefaultInstance() : summary_;
+  }
+
+  public static final int TAGS_FIELD_NUMBER = 14;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.LazyStringArrayList tags_ =
+      com.google.protobuf.LazyStringArrayList.emptyList();
+  /**
+   * <pre>
+   * 标签
+   * </pre>
+   *
+   * <code>repeated string tags = 14 [json_name = "tags"];</code>
+   * @return A list containing the tags.
+   */
+  public com.google.protobuf.ProtocolStringList
+      getTagsList() {
+    return tags_;
+  }
+  /**
+   * <pre>
+   * 标签
+   * </pre>
+   *
+   * <code>repeated string tags = 14 [json_name = "tags"];</code>
+   * @return The count of tags.
+   */
+  public int getTagsCount() {
+    return tags_.size();
+  }
+  /**
+   * <pre>
+   * 标签
+   * </pre>
+   *
+   * <code>repeated string tags = 14 [json_name = "tags"];</code>
+   * @param index The index of the element to return.
+   * @return The tags at the given index.
+   */
+  public java.lang.String getTags(int index) {
+    return tags_.get(index);
+  }
+  /**
+   * <pre>
+   * 标签
+   * </pre>
+   *
+   * <code>repeated string tags = 14 [json_name = "tags"];</code>
+   * @param index The index of the value to return.
+   * @return The bytes of the tags at the given index.
+   */
+  public com.google.protobuf.ByteString
+      getTagsBytes(int index) {
+    return tags_.getByteString(index);
+  }
+
+  public static final int MENU_FIELD_NUMBER = 15;
+  private com.croupier.common.v1.Menu menu_;
+  /**
+   * <pre>
+   * 菜单元数据（用于构建前端菜单）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.Menu menu = 15 [json_name = "menu"];</code>
+   * @return Whether the menu field is set.
+   */
+  @java.lang.Override
+  public boolean hasMenu() {
+    return ((bitField0_ & 0x00000004) != 0);
+  }
+  /**
+   * <pre>
+   * 菜单元数据（用于构建前端菜单）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.Menu menu = 15 [json_name = "menu"];</code>
+   * @return The menu.
+   */
+  @java.lang.Override
+  public com.croupier.common.v1.Menu getMenu() {
+    return menu_ == null ? com.croupier.common.v1.Menu.getDefaultInstance() : menu_;
+  }
+  /**
+   * <pre>
+   * 菜单元数据（用于构建前端菜单）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.Menu menu = 15 [json_name = "menu"];</code>
+   */
+  @java.lang.Override
+  public com.croupier.common.v1.MenuOrBuilder getMenuOrBuilder() {
+    return menu_ == null ? com.croupier.common.v1.Menu.getDefaultInstance() : menu_;
+  }
+
+  public static final int PERMISSIONS_FIELD_NUMBER = 16;
+  private com.croupier.common.v1.PermissionSpec permissions_;
+  /**
+   * <pre>
+   * 权限规范（verbs/scopes/default role grants/i18n）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.PermissionSpec permissions = 16 [json_name = "permissions"];</code>
+   * @return Whether the permissions field is set.
+   */
+  @java.lang.Override
+  public boolean hasPermissions() {
+    return ((bitField0_ & 0x00000008) != 0);
+  }
+  /**
+   * <pre>
+   * 权限规范（verbs/scopes/default role grants/i18n）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.PermissionSpec permissions = 16 [json_name = "permissions"];</code>
+   * @return The permissions.
+   */
+  @java.lang.Override
+  public com.croupier.common.v1.PermissionSpec getPermissions() {
+    return permissions_ == null ? com.croupier.common.v1.PermissionSpec.getDefaultInstance() : permissions_;
+  }
+  /**
+   * <pre>
+   * 权限规范（verbs/scopes/default role grants/i18n）
+   * </pre>
+   *
+   * <code>.croupier.common.v1.PermissionSpec permissions = 16 [json_name = "permissions"];</code>
+   */
+  @java.lang.Override
+  public com.croupier.common.v1.PermissionSpecOrBuilder getPermissionsOrBuilder() {
+    return permissions_ == null ? com.croupier.common.v1.PermissionSpec.getDefaultInstance() : permissions_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -617,6 +816,21 @@ java.lang.String defaultValue) {
     }
     if (idempotencyKey_ != false) {
       output.writeBool(11, idempotencyKey_);
+    }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      output.writeMessage(12, getDisplayName());
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      output.writeMessage(13, getSummary());
+    }
+    for (int i = 0; i < tags_.size(); i++) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 14, tags_.getRaw(i));
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      output.writeMessage(15, getMenu());
+    }
+    if (((bitField0_ & 0x00000008) != 0)) {
+      output.writeMessage(16, getPermissions());
     }
     getUnknownFields().writeTo(output);
   }
@@ -669,6 +883,30 @@ java.lang.String defaultValue) {
       size += com.google.protobuf.CodedOutputStream
         .computeBoolSize(11, idempotencyKey_);
     }
+    if (((bitField0_ & 0x00000001) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(12, getDisplayName());
+    }
+    if (((bitField0_ & 0x00000002) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(13, getSummary());
+    }
+    {
+      int dataSize = 0;
+      for (int i = 0; i < tags_.size(); i++) {
+        dataSize += computeStringSizeNoTag(tags_.getRaw(i));
+      }
+      size += dataSize;
+      size += 1 * getTagsList().size();
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(15, getMenu());
+    }
+    if (((bitField0_ & 0x00000008) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(16, getPermissions());
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -706,6 +944,28 @@ java.lang.String defaultValue) {
         .equals(other.getMode())) return false;
     if (getIdempotencyKey()
         != other.getIdempotencyKey()) return false;
+    if (hasDisplayName() != other.hasDisplayName()) return false;
+    if (hasDisplayName()) {
+      if (!getDisplayName()
+          .equals(other.getDisplayName())) return false;
+    }
+    if (hasSummary() != other.hasSummary()) return false;
+    if (hasSummary()) {
+      if (!getSummary()
+          .equals(other.getSummary())) return false;
+    }
+    if (!getTagsList()
+        .equals(other.getTagsList())) return false;
+    if (hasMenu() != other.hasMenu()) return false;
+    if (hasMenu()) {
+      if (!getMenu()
+          .equals(other.getMenu())) return false;
+    }
+    if (hasPermissions() != other.hasPermissions()) return false;
+    if (hasPermissions()) {
+      if (!getPermissions()
+          .equals(other.getPermissions())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -743,6 +1003,26 @@ java.lang.String defaultValue) {
     hash = (37 * hash) + IDEMPOTENCY_KEY_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
         getIdempotencyKey());
+    if (hasDisplayName()) {
+      hash = (37 * hash) + DISPLAY_NAME_FIELD_NUMBER;
+      hash = (53 * hash) + getDisplayName().hashCode();
+    }
+    if (hasSummary()) {
+      hash = (37 * hash) + SUMMARY_FIELD_NUMBER;
+      hash = (53 * hash) + getSummary().hashCode();
+    }
+    if (getTagsCount() > 0) {
+      hash = (37 * hash) + TAGS_FIELD_NUMBER;
+      hash = (53 * hash) + getTagsList().hashCode();
+    }
+    if (hasMenu()) {
+      hash = (37 * hash) + MENU_FIELD_NUMBER;
+      hash = (53 * hash) + getMenu().hashCode();
+    }
+    if (hasPermissions()) {
+      hash = (37 * hash) + PERMISSIONS_FIELD_NUMBER;
+      hash = (53 * hash) + getPermissions().hashCode();
+    }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -888,13 +1168,22 @@ java.lang.String defaultValue) {
 
     // Construct using com.croupier.options.v1.FunctionOptions.newBuilder()
     private Builder() {
-
+      maybeForceBuilderInitialization();
     }
 
     private Builder(
         com.google.protobuf.GeneratedMessage.BuilderParent parent) {
       super(parent);
-
+      maybeForceBuilderInitialization();
+    }
+    private void maybeForceBuilderInitialization() {
+      if (com.google.protobuf.GeneratedMessage
+              .alwaysUseFieldBuilders) {
+        internalGetDisplayNameFieldBuilder();
+        internalGetSummaryFieldBuilder();
+        internalGetMenuFieldBuilder();
+        internalGetPermissionsFieldBuilder();
+      }
     }
     @java.lang.Override
     public Builder clear() {
@@ -911,6 +1200,28 @@ java.lang.String defaultValue) {
       internalGetMutableLabels().clear();
       mode_ = "";
       idempotencyKey_ = false;
+      displayName_ = null;
+      if (displayNameBuilder_ != null) {
+        displayNameBuilder_.dispose();
+        displayNameBuilder_ = null;
+      }
+      summary_ = null;
+      if (summaryBuilder_ != null) {
+        summaryBuilder_.dispose();
+        summaryBuilder_ = null;
+      }
+      tags_ =
+          com.google.protobuf.LazyStringArrayList.emptyList();
+      menu_ = null;
+      if (menuBuilder_ != null) {
+        menuBuilder_.dispose();
+        menuBuilder_ = null;
+      }
+      permissions_ = null;
+      if (permissionsBuilder_ != null) {
+        permissionsBuilder_.dispose();
+        permissionsBuilder_ = null;
+      }
       return this;
     }
 
@@ -978,6 +1289,36 @@ java.lang.String defaultValue) {
       if (((from_bitField0_ & 0x00000400) != 0)) {
         result.idempotencyKey_ = idempotencyKey_;
       }
+      int to_bitField0_ = 0;
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.displayName_ = displayNameBuilder_ == null
+            ? displayName_
+            : displayNameBuilder_.build();
+        to_bitField0_ |= 0x00000001;
+      }
+      if (((from_bitField0_ & 0x00001000) != 0)) {
+        result.summary_ = summaryBuilder_ == null
+            ? summary_
+            : summaryBuilder_.build();
+        to_bitField0_ |= 0x00000002;
+      }
+      if (((from_bitField0_ & 0x00002000) != 0)) {
+        tags_.makeImmutable();
+        result.tags_ = tags_;
+      }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.menu_ = menuBuilder_ == null
+            ? menu_
+            : menuBuilder_.build();
+        to_bitField0_ |= 0x00000004;
+      }
+      if (((from_bitField0_ & 0x00008000) != 0)) {
+        result.permissions_ = permissionsBuilder_ == null
+            ? permissions_
+            : permissionsBuilder_.build();
+        to_bitField0_ |= 0x00000008;
+      }
+      result.bitField0_ |= to_bitField0_;
     }
 
     @java.lang.Override
@@ -1040,6 +1381,28 @@ java.lang.String defaultValue) {
       }
       if (other.getIdempotencyKey() != false) {
         setIdempotencyKey(other.getIdempotencyKey());
+      }
+      if (other.hasDisplayName()) {
+        mergeDisplayName(other.getDisplayName());
+      }
+      if (other.hasSummary()) {
+        mergeSummary(other.getSummary());
+      }
+      if (!other.tags_.isEmpty()) {
+        if (tags_.isEmpty()) {
+          tags_ = other.tags_;
+          bitField0_ |= 0x00002000;
+        } else {
+          ensureTagsIsMutable();
+          tags_.addAll(other.tags_);
+        }
+        onChanged();
+      }
+      if (other.hasMenu()) {
+        mergeMenu(other.getMenu());
+      }
+      if (other.hasPermissions()) {
+        mergePermissions(other.getPermissions());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1126,6 +1489,40 @@ java.lang.String defaultValue) {
               bitField0_ |= 0x00000400;
               break;
             } // case 88
+            case 98: {
+              input.readMessage(
+                  internalGetDisplayNameFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 98
+            case 106: {
+              input.readMessage(
+                  internalGetSummaryFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00001000;
+              break;
+            } // case 106
+            case 114: {
+              java.lang.String s = input.readStringRequireUtf8();
+              ensureTagsIsMutable();
+              tags_.add(s);
+              break;
+            } // case 114
+            case 122: {
+              input.readMessage(
+                  internalGetMenuFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00004000;
+              break;
+            } // case 122
+            case 130: {
+              input.readMessage(
+                  internalGetPermissionsFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00008000;
+              break;
+            } // case 130
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2120,6 +2517,754 @@ java.lang.String defaultValue) {
       idempotencyKey_ = false;
       onChanged();
       return this;
+    }
+
+    private com.croupier.common.v1.I18nText displayName_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.croupier.common.v1.I18nText, com.croupier.common.v1.I18nText.Builder, com.croupier.common.v1.I18nTextOrBuilder> displayNameBuilder_;
+    /**
+     * <pre>
+     * ========== 展示 &amp; 权限（UI/菜单/权限，强类型定义） ==========
+     * 展示名称与摘要（i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 12 [json_name = "displayName"];</code>
+     * @return Whether the displayName field is set.
+     */
+    public boolean hasDisplayName() {
+      return ((bitField0_ & 0x00000800) != 0);
+    }
+    /**
+     * <pre>
+     * ========== 展示 &amp; 权限（UI/菜单/权限，强类型定义） ==========
+     * 展示名称与摘要（i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 12 [json_name = "displayName"];</code>
+     * @return The displayName.
+     */
+    public com.croupier.common.v1.I18nText getDisplayName() {
+      if (displayNameBuilder_ == null) {
+        return displayName_ == null ? com.croupier.common.v1.I18nText.getDefaultInstance() : displayName_;
+      } else {
+        return displayNameBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * ========== 展示 &amp; 权限（UI/菜单/权限，强类型定义） ==========
+     * 展示名称与摘要（i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 12 [json_name = "displayName"];</code>
+     */
+    public Builder setDisplayName(com.croupier.common.v1.I18nText value) {
+      if (displayNameBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        displayName_ = value;
+      } else {
+        displayNameBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * ========== 展示 &amp; 权限（UI/菜单/权限，强类型定义） ==========
+     * 展示名称与摘要（i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 12 [json_name = "displayName"];</code>
+     */
+    public Builder setDisplayName(
+        com.croupier.common.v1.I18nText.Builder builderForValue) {
+      if (displayNameBuilder_ == null) {
+        displayName_ = builderForValue.build();
+      } else {
+        displayNameBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * ========== 展示 &amp; 权限（UI/菜单/权限，强类型定义） ==========
+     * 展示名称与摘要（i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 12 [json_name = "displayName"];</code>
+     */
+    public Builder mergeDisplayName(com.croupier.common.v1.I18nText value) {
+      if (displayNameBuilder_ == null) {
+        if (((bitField0_ & 0x00000800) != 0) &&
+          displayName_ != null &&
+          displayName_ != com.croupier.common.v1.I18nText.getDefaultInstance()) {
+          getDisplayNameBuilder().mergeFrom(value);
+        } else {
+          displayName_ = value;
+        }
+      } else {
+        displayNameBuilder_.mergeFrom(value);
+      }
+      if (displayName_ != null) {
+        bitField0_ |= 0x00000800;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * ========== 展示 &amp; 权限（UI/菜单/权限，强类型定义） ==========
+     * 展示名称与摘要（i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 12 [json_name = "displayName"];</code>
+     */
+    public Builder clearDisplayName() {
+      bitField0_ = (bitField0_ & ~0x00000800);
+      displayName_ = null;
+      if (displayNameBuilder_ != null) {
+        displayNameBuilder_.dispose();
+        displayNameBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * ========== 展示 &amp; 权限（UI/菜单/权限，强类型定义） ==========
+     * 展示名称与摘要（i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 12 [json_name = "displayName"];</code>
+     */
+    public com.croupier.common.v1.I18nText.Builder getDisplayNameBuilder() {
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return internalGetDisplayNameFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * ========== 展示 &amp; 权限（UI/菜单/权限，强类型定义） ==========
+     * 展示名称与摘要（i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 12 [json_name = "displayName"];</code>
+     */
+    public com.croupier.common.v1.I18nTextOrBuilder getDisplayNameOrBuilder() {
+      if (displayNameBuilder_ != null) {
+        return displayNameBuilder_.getMessageOrBuilder();
+      } else {
+        return displayName_ == null ?
+            com.croupier.common.v1.I18nText.getDefaultInstance() : displayName_;
+      }
+    }
+    /**
+     * <pre>
+     * ========== 展示 &amp; 权限（UI/菜单/权限，强类型定义） ==========
+     * 展示名称与摘要（i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.I18nText display_name = 12 [json_name = "displayName"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.croupier.common.v1.I18nText, com.croupier.common.v1.I18nText.Builder, com.croupier.common.v1.I18nTextOrBuilder> 
+        internalGetDisplayNameFieldBuilder() {
+      if (displayNameBuilder_ == null) {
+        displayNameBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.croupier.common.v1.I18nText, com.croupier.common.v1.I18nText.Builder, com.croupier.common.v1.I18nTextOrBuilder>(
+                getDisplayName(),
+                getParentForChildren(),
+                isClean());
+        displayName_ = null;
+      }
+      return displayNameBuilder_;
+    }
+
+    private com.croupier.common.v1.I18nText summary_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.croupier.common.v1.I18nText, com.croupier.common.v1.I18nText.Builder, com.croupier.common.v1.I18nTextOrBuilder> summaryBuilder_;
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 13 [json_name = "summary"];</code>
+     * @return Whether the summary field is set.
+     */
+    public boolean hasSummary() {
+      return ((bitField0_ & 0x00001000) != 0);
+    }
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 13 [json_name = "summary"];</code>
+     * @return The summary.
+     */
+    public com.croupier.common.v1.I18nText getSummary() {
+      if (summaryBuilder_ == null) {
+        return summary_ == null ? com.croupier.common.v1.I18nText.getDefaultInstance() : summary_;
+      } else {
+        return summaryBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 13 [json_name = "summary"];</code>
+     */
+    public Builder setSummary(com.croupier.common.v1.I18nText value) {
+      if (summaryBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        summary_ = value;
+      } else {
+        summaryBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 13 [json_name = "summary"];</code>
+     */
+    public Builder setSummary(
+        com.croupier.common.v1.I18nText.Builder builderForValue) {
+      if (summaryBuilder_ == null) {
+        summary_ = builderForValue.build();
+      } else {
+        summaryBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 13 [json_name = "summary"];</code>
+     */
+    public Builder mergeSummary(com.croupier.common.v1.I18nText value) {
+      if (summaryBuilder_ == null) {
+        if (((bitField0_ & 0x00001000) != 0) &&
+          summary_ != null &&
+          summary_ != com.croupier.common.v1.I18nText.getDefaultInstance()) {
+          getSummaryBuilder().mergeFrom(value);
+        } else {
+          summary_ = value;
+        }
+      } else {
+        summaryBuilder_.mergeFrom(value);
+      }
+      if (summary_ != null) {
+        bitField0_ |= 0x00001000;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 13 [json_name = "summary"];</code>
+     */
+    public Builder clearSummary() {
+      bitField0_ = (bitField0_ & ~0x00001000);
+      summary_ = null;
+      if (summaryBuilder_ != null) {
+        summaryBuilder_.dispose();
+        summaryBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 13 [json_name = "summary"];</code>
+     */
+    public com.croupier.common.v1.I18nText.Builder getSummaryBuilder() {
+      bitField0_ |= 0x00001000;
+      onChanged();
+      return internalGetSummaryFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 13 [json_name = "summary"];</code>
+     */
+    public com.croupier.common.v1.I18nTextOrBuilder getSummaryOrBuilder() {
+      if (summaryBuilder_ != null) {
+        return summaryBuilder_.getMessageOrBuilder();
+      } else {
+        return summary_ == null ?
+            com.croupier.common.v1.I18nText.getDefaultInstance() : summary_;
+      }
+    }
+    /**
+     * <code>.croupier.common.v1.I18nText summary = 13 [json_name = "summary"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.croupier.common.v1.I18nText, com.croupier.common.v1.I18nText.Builder, com.croupier.common.v1.I18nTextOrBuilder> 
+        internalGetSummaryFieldBuilder() {
+      if (summaryBuilder_ == null) {
+        summaryBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.croupier.common.v1.I18nText, com.croupier.common.v1.I18nText.Builder, com.croupier.common.v1.I18nTextOrBuilder>(
+                getSummary(),
+                getParentForChildren(),
+                isClean());
+        summary_ = null;
+      }
+      return summaryBuilder_;
+    }
+
+    private com.google.protobuf.LazyStringArrayList tags_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+    private void ensureTagsIsMutable() {
+      if (!tags_.isModifiable()) {
+        tags_ = new com.google.protobuf.LazyStringArrayList(tags_);
+      }
+      bitField0_ |= 0x00002000;
+    }
+    /**
+     * <pre>
+     * 标签
+     * </pre>
+     *
+     * <code>repeated string tags = 14 [json_name = "tags"];</code>
+     * @return A list containing the tags.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getTagsList() {
+      tags_.makeImmutable();
+      return tags_;
+    }
+    /**
+     * <pre>
+     * 标签
+     * </pre>
+     *
+     * <code>repeated string tags = 14 [json_name = "tags"];</code>
+     * @return The count of tags.
+     */
+    public int getTagsCount() {
+      return tags_.size();
+    }
+    /**
+     * <pre>
+     * 标签
+     * </pre>
+     *
+     * <code>repeated string tags = 14 [json_name = "tags"];</code>
+     * @param index The index of the element to return.
+     * @return The tags at the given index.
+     */
+    public java.lang.String getTags(int index) {
+      return tags_.get(index);
+    }
+    /**
+     * <pre>
+     * 标签
+     * </pre>
+     *
+     * <code>repeated string tags = 14 [json_name = "tags"];</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the tags at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getTagsBytes(int index) {
+      return tags_.getByteString(index);
+    }
+    /**
+     * <pre>
+     * 标签
+     * </pre>
+     *
+     * <code>repeated string tags = 14 [json_name = "tags"];</code>
+     * @param index The index to set the value at.
+     * @param value The tags to set.
+     * @return This builder for chaining.
+     */
+    public Builder setTags(
+        int index, java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureTagsIsMutable();
+      tags_.set(index, value);
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 标签
+     * </pre>
+     *
+     * <code>repeated string tags = 14 [json_name = "tags"];</code>
+     * @param value The tags to add.
+     * @return This builder for chaining.
+     */
+    public Builder addTags(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      ensureTagsIsMutable();
+      tags_.add(value);
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 标签
+     * </pre>
+     *
+     * <code>repeated string tags = 14 [json_name = "tags"];</code>
+     * @param values The tags to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllTags(
+        java.lang.Iterable<java.lang.String> values) {
+      ensureTagsIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, tags_);
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 标签
+     * </pre>
+     *
+     * <code>repeated string tags = 14 [json_name = "tags"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearTags() {
+      tags_ =
+        com.google.protobuf.LazyStringArrayList.emptyList();
+      bitField0_ = (bitField0_ & ~0x00002000);;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 标签
+     * </pre>
+     *
+     * <code>repeated string tags = 14 [json_name = "tags"];</code>
+     * @param value The bytes of the tags to add.
+     * @return This builder for chaining.
+     */
+    public Builder addTagsBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      ensureTagsIsMutable();
+      tags_.add(value);
+      bitField0_ |= 0x00002000;
+      onChanged();
+      return this;
+    }
+
+    private com.croupier.common.v1.Menu menu_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.croupier.common.v1.Menu, com.croupier.common.v1.Menu.Builder, com.croupier.common.v1.MenuOrBuilder> menuBuilder_;
+    /**
+     * <pre>
+     * 菜单元数据（用于构建前端菜单）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.Menu menu = 15 [json_name = "menu"];</code>
+     * @return Whether the menu field is set.
+     */
+    public boolean hasMenu() {
+      return ((bitField0_ & 0x00004000) != 0);
+    }
+    /**
+     * <pre>
+     * 菜单元数据（用于构建前端菜单）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.Menu menu = 15 [json_name = "menu"];</code>
+     * @return The menu.
+     */
+    public com.croupier.common.v1.Menu getMenu() {
+      if (menuBuilder_ == null) {
+        return menu_ == null ? com.croupier.common.v1.Menu.getDefaultInstance() : menu_;
+      } else {
+        return menuBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * 菜单元数据（用于构建前端菜单）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.Menu menu = 15 [json_name = "menu"];</code>
+     */
+    public Builder setMenu(com.croupier.common.v1.Menu value) {
+      if (menuBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        menu_ = value;
+      } else {
+        menuBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 菜单元数据（用于构建前端菜单）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.Menu menu = 15 [json_name = "menu"];</code>
+     */
+    public Builder setMenu(
+        com.croupier.common.v1.Menu.Builder builderForValue) {
+      if (menuBuilder_ == null) {
+        menu_ = builderForValue.build();
+      } else {
+        menuBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 菜单元数据（用于构建前端菜单）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.Menu menu = 15 [json_name = "menu"];</code>
+     */
+    public Builder mergeMenu(com.croupier.common.v1.Menu value) {
+      if (menuBuilder_ == null) {
+        if (((bitField0_ & 0x00004000) != 0) &&
+          menu_ != null &&
+          menu_ != com.croupier.common.v1.Menu.getDefaultInstance()) {
+          getMenuBuilder().mergeFrom(value);
+        } else {
+          menu_ = value;
+        }
+      } else {
+        menuBuilder_.mergeFrom(value);
+      }
+      if (menu_ != null) {
+        bitField0_ |= 0x00004000;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * 菜单元数据（用于构建前端菜单）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.Menu menu = 15 [json_name = "menu"];</code>
+     */
+    public Builder clearMenu() {
+      bitField0_ = (bitField0_ & ~0x00004000);
+      menu_ = null;
+      if (menuBuilder_ != null) {
+        menuBuilder_.dispose();
+        menuBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 菜单元数据（用于构建前端菜单）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.Menu menu = 15 [json_name = "menu"];</code>
+     */
+    public com.croupier.common.v1.Menu.Builder getMenuBuilder() {
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return internalGetMenuFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * 菜单元数据（用于构建前端菜单）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.Menu menu = 15 [json_name = "menu"];</code>
+     */
+    public com.croupier.common.v1.MenuOrBuilder getMenuOrBuilder() {
+      if (menuBuilder_ != null) {
+        return menuBuilder_.getMessageOrBuilder();
+      } else {
+        return menu_ == null ?
+            com.croupier.common.v1.Menu.getDefaultInstance() : menu_;
+      }
+    }
+    /**
+     * <pre>
+     * 菜单元数据（用于构建前端菜单）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.Menu menu = 15 [json_name = "menu"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.croupier.common.v1.Menu, com.croupier.common.v1.Menu.Builder, com.croupier.common.v1.MenuOrBuilder> 
+        internalGetMenuFieldBuilder() {
+      if (menuBuilder_ == null) {
+        menuBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.croupier.common.v1.Menu, com.croupier.common.v1.Menu.Builder, com.croupier.common.v1.MenuOrBuilder>(
+                getMenu(),
+                getParentForChildren(),
+                isClean());
+        menu_ = null;
+      }
+      return menuBuilder_;
+    }
+
+    private com.croupier.common.v1.PermissionSpec permissions_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.croupier.common.v1.PermissionSpec, com.croupier.common.v1.PermissionSpec.Builder, com.croupier.common.v1.PermissionSpecOrBuilder> permissionsBuilder_;
+    /**
+     * <pre>
+     * 权限规范（verbs/scopes/default role grants/i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.PermissionSpec permissions = 16 [json_name = "permissions"];</code>
+     * @return Whether the permissions field is set.
+     */
+    public boolean hasPermissions() {
+      return ((bitField0_ & 0x00008000) != 0);
+    }
+    /**
+     * <pre>
+     * 权限规范（verbs/scopes/default role grants/i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.PermissionSpec permissions = 16 [json_name = "permissions"];</code>
+     * @return The permissions.
+     */
+    public com.croupier.common.v1.PermissionSpec getPermissions() {
+      if (permissionsBuilder_ == null) {
+        return permissions_ == null ? com.croupier.common.v1.PermissionSpec.getDefaultInstance() : permissions_;
+      } else {
+        return permissionsBuilder_.getMessage();
+      }
+    }
+    /**
+     * <pre>
+     * 权限规范（verbs/scopes/default role grants/i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.PermissionSpec permissions = 16 [json_name = "permissions"];</code>
+     */
+    public Builder setPermissions(com.croupier.common.v1.PermissionSpec value) {
+      if (permissionsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        permissions_ = value;
+      } else {
+        permissionsBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 权限规范（verbs/scopes/default role grants/i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.PermissionSpec permissions = 16 [json_name = "permissions"];</code>
+     */
+    public Builder setPermissions(
+        com.croupier.common.v1.PermissionSpec.Builder builderForValue) {
+      if (permissionsBuilder_ == null) {
+        permissions_ = builderForValue.build();
+      } else {
+        permissionsBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 权限规范（verbs/scopes/default role grants/i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.PermissionSpec permissions = 16 [json_name = "permissions"];</code>
+     */
+    public Builder mergePermissions(com.croupier.common.v1.PermissionSpec value) {
+      if (permissionsBuilder_ == null) {
+        if (((bitField0_ & 0x00008000) != 0) &&
+          permissions_ != null &&
+          permissions_ != com.croupier.common.v1.PermissionSpec.getDefaultInstance()) {
+          getPermissionsBuilder().mergeFrom(value);
+        } else {
+          permissions_ = value;
+        }
+      } else {
+        permissionsBuilder_.mergeFrom(value);
+      }
+      if (permissions_ != null) {
+        bitField0_ |= 0x00008000;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <pre>
+     * 权限规范（verbs/scopes/default role grants/i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.PermissionSpec permissions = 16 [json_name = "permissions"];</code>
+     */
+    public Builder clearPermissions() {
+      bitField0_ = (bitField0_ & ~0x00008000);
+      permissions_ = null;
+      if (permissionsBuilder_ != null) {
+        permissionsBuilder_.dispose();
+        permissionsBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * 权限规范（verbs/scopes/default role grants/i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.PermissionSpec permissions = 16 [json_name = "permissions"];</code>
+     */
+    public com.croupier.common.v1.PermissionSpec.Builder getPermissionsBuilder() {
+      bitField0_ |= 0x00008000;
+      onChanged();
+      return internalGetPermissionsFieldBuilder().getBuilder();
+    }
+    /**
+     * <pre>
+     * 权限规范（verbs/scopes/default role grants/i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.PermissionSpec permissions = 16 [json_name = "permissions"];</code>
+     */
+    public com.croupier.common.v1.PermissionSpecOrBuilder getPermissionsOrBuilder() {
+      if (permissionsBuilder_ != null) {
+        return permissionsBuilder_.getMessageOrBuilder();
+      } else {
+        return permissions_ == null ?
+            com.croupier.common.v1.PermissionSpec.getDefaultInstance() : permissions_;
+      }
+    }
+    /**
+     * <pre>
+     * 权限规范（verbs/scopes/default role grants/i18n）
+     * </pre>
+     *
+     * <code>.croupier.common.v1.PermissionSpec permissions = 16 [json_name = "permissions"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.croupier.common.v1.PermissionSpec, com.croupier.common.v1.PermissionSpec.Builder, com.croupier.common.v1.PermissionSpecOrBuilder> 
+        internalGetPermissionsFieldBuilder() {
+      if (permissionsBuilder_ == null) {
+        permissionsBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.croupier.common.v1.PermissionSpec, com.croupier.common.v1.PermissionSpec.Builder, com.croupier.common.v1.PermissionSpecOrBuilder>(
+                getPermissions(),
+                getParentForChildren(),
+                isClean());
+        permissions_ = null;
+      }
+      return permissionsBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:croupier.options.v1.FunctionOptions)

@@ -66,6 +66,11 @@ public final class ControlProto extends com.google.protobuf.GeneratedFile {
   static final 
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
       internal_static_croupier_server_v1_RegisterCapabilitiesResponse_fieldAccessorTable;
+  static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_croupier_server_v1_ListFunctionsSummaryResponse_descriptor;
+  static final 
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_croupier_server_v1_ListFunctionsSummaryResponse_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -76,53 +81,67 @@ public final class ControlProto extends com.google.protobuf.GeneratedFile {
   static {
     java.lang.String[] descriptorData = {
       "\n croupier/server/v1/control.proto\022\022crou" +
-      "pier.server.v1\"\276\001\n\022FunctionDescriptor\022\016\n" +
-      "\002id\030\001 \001(\tR\002id\022\030\n\007version\030\002 \001(\tR\007version\022" +
-      "\032\n\010category\030\003 \001(\tR\010category\022\022\n\004risk\030\004 \001(" +
-      "\tR\004risk\022\026\n\006entity\030\005 \001(\tR\006entity\022\034\n\topera" +
-      "tion\030\006 \001(\tR\toperation\022\030\n\007enabled\030\007 \001(\010R\007" +
-      "enabled\"\322\001\n\017RegisterRequest\022\031\n\010agent_id\030" +
-      "\001 \001(\tR\007agentId\022\030\n\007version\030\002 \001(\tR\007version" +
-      "\022D\n\tfunctions\030\003 \003(\0132&.croupier.server.v1" +
-      ".FunctionDescriptorR\tfunctions\022\031\n\010rpc_ad" +
-      "dr\030\004 \001(\tR\007rpcAddr\022\027\n\007game_id\030\005 \001(\tR\006game" +
-      "Id\022\020\n\003env\030\006 \001(\tR\003env\"N\n\020RegisterResponse" +
-      "\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022\033\n\texpir" +
-      "e_at\030\002 \001(\003R\010expireAt\"L\n\020HeartbeatRequest" +
-      "\022\031\n\010agent_id\030\001 \001(\tR\007agentId\022\035\n\nsession_i" +
-      "d\030\002 \001(\tR\tsessionId\"\023\n\021HeartbeatResponse\"" +
-      "^\n\014ProviderMeta\022\016\n\002id\030\001 \001(\tR\002id\022\030\n\007versi" +
-      "on\030\002 \001(\tR\007version\022\022\n\004lang\030\003 \001(\tR\004lang\022\020\n" +
-      "\003sdk\030\004 \001(\tR\003sdk\"\205\001\n\033RegisterCapabilities" +
-      "Request\022<\n\010provider\030\001 \001(\0132 .croupier.ser" +
-      "ver.v1.ProviderMetaR\010provider\022(\n\020manifes" +
-      "t_json_gz\030\002 \001(\014R\016manifestJsonGz\"\036\n\034Regis" +
-      "terCapabilitiesResponse2\274\002\n\016ControlServi" +
-      "ce\022U\n\010Register\022#.croupier.server.v1.Regi" +
-      "sterRequest\032$.croupier.server.v1.Registe" +
-      "rResponse\022X\n\tHeartbeat\022$.croupier.server" +
-      ".v1.HeartbeatRequest\032%.croupier.server.v" +
-      "1.HeartbeatResponse\022y\n\024RegisterCapabilit" +
-      "ies\022/.croupier.server.v1.RegisterCapabil" +
-      "itiesRequest\0320.croupier.server.v1.Regist" +
-      "erCapabilitiesResponseB\321\001\n\026com.croupier." +
-      "server.v1B\014ControlProtoP\001Z?github.com/cu" +
-      "ihairu/croupier/pkg/pb/croupier/server/v" +
-      "1;serverv1\242\002\003CSX\252\002\022Croupier.Server.V1\312\002\022" +
-      "Croupier\\Server\\V1\342\002\036Croupier\\Server\\V1\\" +
-      "GPBMetadata\352\002\024Croupier::Server::V1b\006prot" +
-      "o3"
+      "pier.server.v1\032\033croupier/common/v1/ui.pr" +
+      "oto\032\033google/protobuf/empty.proto\"\277\003\n\022Fun" +
+      "ctionDescriptor\022\016\n\002id\030\001 \001(\tR\002id\022\030\n\007versi" +
+      "on\030\002 \001(\tR\007version\022\032\n\010category\030\003 \001(\tR\010cat" +
+      "egory\022\022\n\004risk\030\004 \001(\tR\004risk\022\026\n\006entity\030\005 \001(" +
+      "\tR\006entity\022\034\n\toperation\030\006 \001(\tR\toperation\022" +
+      "\030\n\007enabled\030\007 \001(\010R\007enabled\022?\n\014display_nam" +
+      "e\030\024 \001(\0132\034.croupier.common.v1.I18nTextR\013d" +
+      "isplayName\0226\n\007summary\030\025 \001(\0132\034.croupier.c" +
+      "ommon.v1.I18nTextR\007summary\022\022\n\004tags\030\026 \003(\t" +
+      "R\004tags\022,\n\004menu\030\027 \001(\0132\030.croupier.common.v" +
+      "1.MenuR\004menu\022D\n\013permissions\030\030 \001(\0132\".crou" +
+      "pier.common.v1.PermissionSpecR\013permissio" +
+      "ns\"\322\001\n\017RegisterRequest\022\031\n\010agent_id\030\001 \001(\t" +
+      "R\007agentId\022\030\n\007version\030\002 \001(\tR\007version\022D\n\tf" +
+      "unctions\030\003 \003(\0132&.croupier.server.v1.Func" +
+      "tionDescriptorR\tfunctions\022\031\n\010rpc_addr\030\004 " +
+      "\001(\tR\007rpcAddr\022\027\n\007game_id\030\005 \001(\tR\006gameId\022\020\n" +
+      "\003env\030\006 \001(\tR\003env\"N\n\020RegisterResponse\022\035\n\ns" +
+      "ession_id\030\001 \001(\tR\tsessionId\022\033\n\texpire_at\030" +
+      "\002 \001(\003R\010expireAt\"L\n\020HeartbeatRequest\022\031\n\010a" +
+      "gent_id\030\001 \001(\tR\007agentId\022\035\n\nsession_id\030\002 \001" +
+      "(\tR\tsessionId\"\023\n\021HeartbeatResponse\"^\n\014Pr" +
+      "oviderMeta\022\016\n\002id\030\001 \001(\tR\002id\022\030\n\007version\030\002 " +
+      "\001(\tR\007version\022\022\n\004lang\030\003 \001(\tR\004lang\022\020\n\003sdk\030" +
+      "\004 \001(\tR\003sdk\"\205\001\n\033RegisterCapabilitiesReque" +
+      "st\022<\n\010provider\030\001 \001(\0132 .croupier.server.v" +
+      "1.ProviderMetaR\010provider\022(\n\020manifest_jso" +
+      "n_gz\030\002 \001(\014R\016manifestJsonGz\"\036\n\034RegisterCa" +
+      "pabilitiesResponse\"d\n\034ListFunctionsSumma" +
+      "ryResponse\022D\n\tfunctions\030\001 \003(\0132&.croupier" +
+      ".server.v1.FunctionDescriptorR\tfunctions" +
+      "2\236\003\n\016ControlService\022`\n\024ListFunctionsSumm" +
+      "ary\022\026.google.protobuf.Empty\0320.croupier.s" +
+      "erver.v1.ListFunctionsSummaryResponse\022U\n" +
+      "\010Register\022#.croupier.server.v1.RegisterR" +
+      "equest\032$.croupier.server.v1.RegisterResp" +
+      "onse\022X\n\tHeartbeat\022$.croupier.server.v1.H" +
+      "eartbeatRequest\032%.croupier.server.v1.Hea" +
+      "rtbeatResponse\022y\n\024RegisterCapabilities\022/" +
+      ".croupier.server.v1.RegisterCapabilities" +
+      "Request\0320.croupier.server.v1.RegisterCap" +
+      "abilitiesResponseB\321\001\n\026com.croupier.serve" +
+      "r.v1B\014ControlProtoP\001Z?github.com/cuihair" +
+      "u/croupier/pkg/pb/croupier/server/v1;ser" +
+      "verv1\242\002\003CSX\252\002\022Croupier.Server.V1\312\002\022Croup" +
+      "ier\\Server\\V1\342\002\036Croupier\\Server\\V1\\GPBMe" +
+      "tadata\352\002\024Croupier::Server::V1b\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
+          com.croupier.common.v1.UiProto.getDescriptor(),
+          com.google.protobuf.EmptyProto.getDescriptor(),
         });
     internal_static_croupier_server_v1_FunctionDescriptor_descriptor =
       getDescriptor().getMessageType(0);
     internal_static_croupier_server_v1_FunctionDescriptor_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_croupier_server_v1_FunctionDescriptor_descriptor,
-        new java.lang.String[] { "Id", "Version", "Category", "Risk", "Entity", "Operation", "Enabled", });
+        new java.lang.String[] { "Id", "Version", "Category", "Risk", "Entity", "Operation", "Enabled", "DisplayName", "Summary", "Tags", "Menu", "Permissions", });
     internal_static_croupier_server_v1_RegisterRequest_descriptor =
       getDescriptor().getMessageType(1);
     internal_static_croupier_server_v1_RegisterRequest_fieldAccessorTable = new
@@ -165,7 +184,15 @@ public final class ControlProto extends com.google.protobuf.GeneratedFile {
       com.google.protobuf.GeneratedMessage.FieldAccessorTable(
         internal_static_croupier_server_v1_RegisterCapabilitiesResponse_descriptor,
         new java.lang.String[] { });
+    internal_static_croupier_server_v1_ListFunctionsSummaryResponse_descriptor =
+      getDescriptor().getMessageType(8);
+    internal_static_croupier_server_v1_ListFunctionsSummaryResponse_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_croupier_server_v1_ListFunctionsSummaryResponse_descriptor,
+        new java.lang.String[] { "Functions", });
     descriptor.resolveAllFeaturesImmutable();
+    com.croupier.common.v1.UiProto.getDescriptor();
+    com.google.protobuf.EmptyProto.getDescriptor();
   }
 
   // @@protoc_insertion_point(outer_class_scope)

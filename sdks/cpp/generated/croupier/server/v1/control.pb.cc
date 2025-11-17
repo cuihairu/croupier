@@ -158,6 +158,34 @@ struct HeartbeatRequestDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 HeartbeatRequestDefaultTypeInternal _HeartbeatRequest_default_instance_;
 
+inline constexpr RegisterCapabilitiesRequest::Impl_::Impl_(
+    ::_pbi::ConstantInitialized) noexcept
+      : _cached_size_{0},
+        manifest_json_gz_(
+            &::google::protobuf::internal::fixed_address_empty_string,
+            ::_pbi::ConstantInitialized()),
+        provider_{nullptr} {}
+
+template <typename>
+PROTOBUF_CONSTEXPR RegisterCapabilitiesRequest::RegisterCapabilitiesRequest(::_pbi::ConstantInitialized)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(RegisterCapabilitiesRequest_class_data_.base()),
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(),
+#endif  // PROTOBUF_CUSTOM_VTABLE
+      _impl_(::_pbi::ConstantInitialized()) {
+}
+struct RegisterCapabilitiesRequestDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR RegisterCapabilitiesRequestDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~RegisterCapabilitiesRequestDefaultTypeInternal() {}
+  union {
+    RegisterCapabilitiesRequest _instance;
+  };
+};
+
+PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 RegisterCapabilitiesRequestDefaultTypeInternal _RegisterCapabilitiesRequest_default_instance_;
+
 inline constexpr FunctionDescriptor::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : _cached_size_{0},
@@ -179,7 +207,12 @@ inline constexpr FunctionDescriptor::Impl_::Impl_(
         operation_(
             &::google::protobuf::internal::fixed_address_empty_string,
             ::_pbi::ConstantInitialized()),
-        enabled_{false} {}
+        display_name_{nullptr},
+        summary_{nullptr},
+        menu_{nullptr},
+        permissions_{nullptr},
+        enabled_{false},
+        tags_{} {}
 
 template <typename>
 PROTOBUF_CONSTEXPR FunctionDescriptor::FunctionDescriptor(::_pbi::ConstantInitialized)
@@ -241,33 +274,30 @@ struct RegisterRequestDefaultTypeInternal {
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
     PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 RegisterRequestDefaultTypeInternal _RegisterRequest_default_instance_;
 
-inline constexpr RegisterCapabilitiesRequest::Impl_::Impl_(
+inline constexpr ListFunctionsSummaryResponse::Impl_::Impl_(
     ::_pbi::ConstantInitialized) noexcept
       : _cached_size_{0},
-        manifest_json_gz_(
-            &::google::protobuf::internal::fixed_address_empty_string,
-            ::_pbi::ConstantInitialized()),
-        provider_{nullptr} {}
+        functions_{} {}
 
 template <typename>
-PROTOBUF_CONSTEXPR RegisterCapabilitiesRequest::RegisterCapabilitiesRequest(::_pbi::ConstantInitialized)
+PROTOBUF_CONSTEXPR ListFunctionsSummaryResponse::ListFunctionsSummaryResponse(::_pbi::ConstantInitialized)
 #if defined(PROTOBUF_CUSTOM_VTABLE)
-    : ::google::protobuf::Message(RegisterCapabilitiesRequest_class_data_.base()),
+    : ::google::protobuf::Message(ListFunctionsSummaryResponse_class_data_.base()),
 #else   // PROTOBUF_CUSTOM_VTABLE
     : ::google::protobuf::Message(),
 #endif  // PROTOBUF_CUSTOM_VTABLE
       _impl_(::_pbi::ConstantInitialized()) {
 }
-struct RegisterCapabilitiesRequestDefaultTypeInternal {
-  PROTOBUF_CONSTEXPR RegisterCapabilitiesRequestDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
-  ~RegisterCapabilitiesRequestDefaultTypeInternal() {}
+struct ListFunctionsSummaryResponseDefaultTypeInternal {
+  PROTOBUF_CONSTEXPR ListFunctionsSummaryResponseDefaultTypeInternal() : _instance(::_pbi::ConstantInitialized{}) {}
+  ~ListFunctionsSummaryResponseDefaultTypeInternal() {}
   union {
-    RegisterCapabilitiesRequest _instance;
+    ListFunctionsSummaryResponse _instance;
   };
 };
 
 PROTOBUF_ATTRIBUTE_NO_DESTROY PROTOBUF_CONSTINIT
-    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 RegisterCapabilitiesRequestDefaultTypeInternal _RegisterCapabilitiesRequest_default_instance_;
+    PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 ListFunctionsSummaryResponseDefaultTypeInternal _ListFunctionsSummaryResponse_default_instance_;
 }  // namespace v1
 }  // namespace server
 }  // namespace croupier
@@ -280,7 +310,7 @@ const ::uint32_t
         protodesc_cold) = {
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::server::v1::FunctionDescriptor, _impl_._has_bits_),
-        10, // hasbit index offset
+        15, // hasbit index offset
         PROTOBUF_FIELD_OFFSET(::croupier::server::v1::FunctionDescriptor, _impl_.id_),
         PROTOBUF_FIELD_OFFSET(::croupier::server::v1::FunctionDescriptor, _impl_.version_),
         PROTOBUF_FIELD_OFFSET(::croupier::server::v1::FunctionDescriptor, _impl_.category_),
@@ -288,13 +318,23 @@ const ::uint32_t
         PROTOBUF_FIELD_OFFSET(::croupier::server::v1::FunctionDescriptor, _impl_.entity_),
         PROTOBUF_FIELD_OFFSET(::croupier::server::v1::FunctionDescriptor, _impl_.operation_),
         PROTOBUF_FIELD_OFFSET(::croupier::server::v1::FunctionDescriptor, _impl_.enabled_),
+        PROTOBUF_FIELD_OFFSET(::croupier::server::v1::FunctionDescriptor, _impl_.display_name_),
+        PROTOBUF_FIELD_OFFSET(::croupier::server::v1::FunctionDescriptor, _impl_.summary_),
+        PROTOBUF_FIELD_OFFSET(::croupier::server::v1::FunctionDescriptor, _impl_.tags_),
+        PROTOBUF_FIELD_OFFSET(::croupier::server::v1::FunctionDescriptor, _impl_.menu_),
+        PROTOBUF_FIELD_OFFSET(::croupier::server::v1::FunctionDescriptor, _impl_.permissions_),
         0,
         1,
         2,
         3,
         4,
         5,
+        10,
         6,
+        7,
+        11,
+        8,
+        9,
         0x081, // bitmap
         PROTOBUF_FIELD_OFFSET(::croupier::server::v1::RegisterRequest, _impl_._has_bits_),
         9, // hasbit index offset
@@ -344,18 +384,24 @@ const ::uint32_t
         1,
         0,
         0x000, // bitmap
+        0x081, // bitmap
+        PROTOBUF_FIELD_OFFSET(::croupier::server::v1::ListFunctionsSummaryResponse, _impl_._has_bits_),
+        4, // hasbit index offset
+        PROTOBUF_FIELD_OFFSET(::croupier::server::v1::ListFunctionsSummaryResponse, _impl_.functions_),
+        0,
 };
 
 static const ::_pbi::MigrationSchema
     schemas[] ABSL_ATTRIBUTE_SECTION_VARIABLE(protodesc_cold) = {
         {0, sizeof(::croupier::server::v1::FunctionDescriptor)},
-        {17, sizeof(::croupier::server::v1::RegisterRequest)},
-        {32, sizeof(::croupier::server::v1::RegisterResponse)},
-        {39, sizeof(::croupier::server::v1::HeartbeatRequest)},
-        {46, sizeof(::croupier::server::v1::HeartbeatResponse)},
-        {47, sizeof(::croupier::server::v1::ProviderMeta)},
-        {58, sizeof(::croupier::server::v1::RegisterCapabilitiesRequest)},
-        {65, sizeof(::croupier::server::v1::RegisterCapabilitiesResponse)},
+        {27, sizeof(::croupier::server::v1::RegisterRequest)},
+        {42, sizeof(::croupier::server::v1::RegisterResponse)},
+        {49, sizeof(::croupier::server::v1::HeartbeatRequest)},
+        {56, sizeof(::croupier::server::v1::HeartbeatResponse)},
+        {57, sizeof(::croupier::server::v1::ProviderMeta)},
+        {68, sizeof(::croupier::server::v1::RegisterCapabilitiesRequest)},
+        {75, sizeof(::croupier::server::v1::RegisterCapabilitiesResponse)},
+        {76, sizeof(::croupier::server::v1::ListFunctionsSummaryResponse)},
 };
 static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::croupier::server::v1::_FunctionDescriptor_default_instance_._instance,
@@ -366,58 +412,76 @@ static const ::_pb::Message* PROTOBUF_NONNULL const file_default_instances[] = {
     &::croupier::server::v1::_ProviderMeta_default_instance_._instance,
     &::croupier::server::v1::_RegisterCapabilitiesRequest_default_instance_._instance,
     &::croupier::server::v1::_RegisterCapabilitiesResponse_default_instance_._instance,
+    &::croupier::server::v1::_ListFunctionsSummaryResponse_default_instance_._instance,
 };
 const char descriptor_table_protodef_croupier_2fserver_2fv1_2fcontrol_2eproto[] ABSL_ATTRIBUTE_SECTION_VARIABLE(
     protodesc_cold) = {
     "\n croupier/server/v1/control.proto\022\022crou"
-    "pier.server.v1\"\276\001\n\022FunctionDescriptor\022\016\n"
-    "\002id\030\001 \001(\tR\002id\022\030\n\007version\030\002 \001(\tR\007version\022"
-    "\032\n\010category\030\003 \001(\tR\010category\022\022\n\004risk\030\004 \001("
-    "\tR\004risk\022\026\n\006entity\030\005 \001(\tR\006entity\022\034\n\topera"
-    "tion\030\006 \001(\tR\toperation\022\030\n\007enabled\030\007 \001(\010R\007"
-    "enabled\"\322\001\n\017RegisterRequest\022\031\n\010agent_id\030"
-    "\001 \001(\tR\007agentId\022\030\n\007version\030\002 \001(\tR\007version"
-    "\022D\n\tfunctions\030\003 \003(\0132&.croupier.server.v1"
-    ".FunctionDescriptorR\tfunctions\022\031\n\010rpc_ad"
-    "dr\030\004 \001(\tR\007rpcAddr\022\027\n\007game_id\030\005 \001(\tR\006game"
-    "Id\022\020\n\003env\030\006 \001(\tR\003env\"N\n\020RegisterResponse"
-    "\022\035\n\nsession_id\030\001 \001(\tR\tsessionId\022\033\n\texpir"
-    "e_at\030\002 \001(\003R\010expireAt\"L\n\020HeartbeatRequest"
-    "\022\031\n\010agent_id\030\001 \001(\tR\007agentId\022\035\n\nsession_i"
-    "d\030\002 \001(\tR\tsessionId\"\023\n\021HeartbeatResponse\""
-    "^\n\014ProviderMeta\022\016\n\002id\030\001 \001(\tR\002id\022\030\n\007versi"
-    "on\030\002 \001(\tR\007version\022\022\n\004lang\030\003 \001(\tR\004lang\022\020\n"
-    "\003sdk\030\004 \001(\tR\003sdk\"\205\001\n\033RegisterCapabilities"
-    "Request\022<\n\010provider\030\001 \001(\0132 .croupier.ser"
-    "ver.v1.ProviderMetaR\010provider\022(\n\020manifes"
-    "t_json_gz\030\002 \001(\014R\016manifestJsonGz\"\036\n\034Regis"
-    "terCapabilitiesResponse2\274\002\n\016ControlServi"
-    "ce\022U\n\010Register\022#.croupier.server.v1.Regi"
-    "sterRequest\032$.croupier.server.v1.Registe"
-    "rResponse\022X\n\tHeartbeat\022$.croupier.server"
-    ".v1.HeartbeatRequest\032%.croupier.server.v"
-    "1.HeartbeatResponse\022y\n\024RegisterCapabilit"
-    "ies\022/.croupier.server.v1.RegisterCapabil"
-    "itiesRequest\0320.croupier.server.v1.Regist"
-    "erCapabilitiesResponseB\321\001\n\026com.croupier."
-    "server.v1B\014ControlProtoP\001Z\?github.com/cu"
-    "ihairu/croupier/pkg/pb/croupier/server/v"
-    "1;serverv1\242\002\003CSX\252\002\022Croupier.Server.V1\312\002\022"
-    "Croupier\\Server\\V1\342\002\036Croupier\\Server\\V1\\"
-    "GPBMetadata\352\002\024Croupier::Server::V1b\006prot"
-    "o3"
+    "pier.server.v1\032\033croupier/common/v1/ui.pr"
+    "oto\032\033google/protobuf/empty.proto\"\277\003\n\022Fun"
+    "ctionDescriptor\022\016\n\002id\030\001 \001(\tR\002id\022\030\n\007versi"
+    "on\030\002 \001(\tR\007version\022\032\n\010category\030\003 \001(\tR\010cat"
+    "egory\022\022\n\004risk\030\004 \001(\tR\004risk\022\026\n\006entity\030\005 \001("
+    "\tR\006entity\022\034\n\toperation\030\006 \001(\tR\toperation\022"
+    "\030\n\007enabled\030\007 \001(\010R\007enabled\022\?\n\014display_nam"
+    "e\030\024 \001(\0132\034.croupier.common.v1.I18nTextR\013d"
+    "isplayName\0226\n\007summary\030\025 \001(\0132\034.croupier.c"
+    "ommon.v1.I18nTextR\007summary\022\022\n\004tags\030\026 \003(\t"
+    "R\004tags\022,\n\004menu\030\027 \001(\0132\030.croupier.common.v"
+    "1.MenuR\004menu\022D\n\013permissions\030\030 \001(\0132\".crou"
+    "pier.common.v1.PermissionSpecR\013permissio"
+    "ns\"\322\001\n\017RegisterRequest\022\031\n\010agent_id\030\001 \001(\t"
+    "R\007agentId\022\030\n\007version\030\002 \001(\tR\007version\022D\n\tf"
+    "unctions\030\003 \003(\0132&.croupier.server.v1.Func"
+    "tionDescriptorR\tfunctions\022\031\n\010rpc_addr\030\004 "
+    "\001(\tR\007rpcAddr\022\027\n\007game_id\030\005 \001(\tR\006gameId\022\020\n"
+    "\003env\030\006 \001(\tR\003env\"N\n\020RegisterResponse\022\035\n\ns"
+    "ession_id\030\001 \001(\tR\tsessionId\022\033\n\texpire_at\030"
+    "\002 \001(\003R\010expireAt\"L\n\020HeartbeatRequest\022\031\n\010a"
+    "gent_id\030\001 \001(\tR\007agentId\022\035\n\nsession_id\030\002 \001"
+    "(\tR\tsessionId\"\023\n\021HeartbeatResponse\"^\n\014Pr"
+    "oviderMeta\022\016\n\002id\030\001 \001(\tR\002id\022\030\n\007version\030\002 "
+    "\001(\tR\007version\022\022\n\004lang\030\003 \001(\tR\004lang\022\020\n\003sdk\030"
+    "\004 \001(\tR\003sdk\"\205\001\n\033RegisterCapabilitiesReque"
+    "st\022<\n\010provider\030\001 \001(\0132 .croupier.server.v"
+    "1.ProviderMetaR\010provider\022(\n\020manifest_jso"
+    "n_gz\030\002 \001(\014R\016manifestJsonGz\"\036\n\034RegisterCa"
+    "pabilitiesResponse\"d\n\034ListFunctionsSumma"
+    "ryResponse\022D\n\tfunctions\030\001 \003(\0132&.croupier"
+    ".server.v1.FunctionDescriptorR\tfunctions"
+    "2\236\003\n\016ControlService\022`\n\024ListFunctionsSumm"
+    "ary\022\026.google.protobuf.Empty\0320.croupier.s"
+    "erver.v1.ListFunctionsSummaryResponse\022U\n"
+    "\010Register\022#.croupier.server.v1.RegisterR"
+    "equest\032$.croupier.server.v1.RegisterResp"
+    "onse\022X\n\tHeartbeat\022$.croupier.server.v1.H"
+    "eartbeatRequest\032%.croupier.server.v1.Hea"
+    "rtbeatResponse\022y\n\024RegisterCapabilities\022/"
+    ".croupier.server.v1.RegisterCapabilities"
+    "Request\0320.croupier.server.v1.RegisterCap"
+    "abilitiesResponseB\321\001\n\026com.croupier.serve"
+    "r.v1B\014ControlProtoP\001Z\?github.com/cuihair"
+    "u/croupier/pkg/pb/croupier/server/v1;ser"
+    "verv1\242\002\003CSX\252\002\022Croupier.Server.V1\312\002\022Croup"
+    "ier\\Server\\V1\342\002\036Croupier\\Server\\V1\\GPBMe"
+    "tadata\352\002\024Croupier::Server::V1b\006proto3"
+};
+static const ::_pbi::DescriptorTable* PROTOBUF_NONNULL const
+    descriptor_table_croupier_2fserver_2fv1_2fcontrol_2eproto_deps[2] = {
+        &::descriptor_table_croupier_2fcommon_2fv1_2fui_2eproto,
+        &::descriptor_table_google_2fprotobuf_2fempty_2eproto,
 };
 static ::absl::once_flag descriptor_table_croupier_2fserver_2fv1_2fcontrol_2eproto_once;
 PROTOBUF_CONSTINIT const ::_pbi::DescriptorTable descriptor_table_croupier_2fserver_2fv1_2fcontrol_2eproto = {
     false,
     false,
-    1442,
+    1957,
     descriptor_table_protodef_croupier_2fserver_2fv1_2fcontrol_2eproto,
     "croupier/server/v1/control.proto",
     &descriptor_table_croupier_2fserver_2fv1_2fcontrol_2eproto_once,
-    nullptr,
-    0,
-    8,
+    descriptor_table_croupier_2fserver_2fv1_2fcontrol_2eproto_deps,
+    2,
+    9,
     schemas,
     file_default_instances,
     TableStruct_croupier_2fserver_2fv1_2fcontrol_2eproto::offsets,
@@ -437,6 +501,30 @@ class FunctionDescriptor::_Internal {
       8 * PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_._has_bits_);
 };
 
+void FunctionDescriptor::clear_display_name() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (_impl_.display_name_ != nullptr) _impl_.display_name_->Clear();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000040U);
+}
+void FunctionDescriptor::clear_summary() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (_impl_.summary_ != nullptr) _impl_.summary_->Clear();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000080U);
+}
+void FunctionDescriptor::clear_menu() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (_impl_.menu_ != nullptr) _impl_.menu_->Clear();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000100U);
+}
+void FunctionDescriptor::clear_permissions() {
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  if (_impl_.permissions_ != nullptr) _impl_.permissions_->Clear();
+  ClearHasBit(_impl_._has_bits_[0],
+                  0x00000200U);
+}
 FunctionDescriptor::FunctionDescriptor(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
 #if defined(PROTOBUF_CUSTOM_VTABLE)
     : ::google::protobuf::Message(arena, FunctionDescriptor_class_data_.base()) {
@@ -457,7 +545,8 @@ PROTOBUF_NDEBUG_INLINE FunctionDescriptor::Impl_::Impl_(
         category_(arena, from.category_),
         risk_(arena, from.risk_),
         entity_(arena, from.entity_),
-        operation_(arena, from.operation_) {}
+        operation_(arena, from.operation_),
+        tags_{visibility, arena, from.tags_} {}
 
 FunctionDescriptor::FunctionDescriptor(
     ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
@@ -472,6 +561,19 @@ FunctionDescriptor::FunctionDescriptor(
   _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
       from._internal_metadata_);
   new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
+  ::uint32_t cached_has_bits = _impl_._has_bits_[0];
+  _impl_.display_name_ = (CheckHasBit(cached_has_bits, 0x00000040U))
+                ? ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.display_name_)
+                : nullptr;
+  _impl_.summary_ = (CheckHasBit(cached_has_bits, 0x00000080U))
+                ? ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.summary_)
+                : nullptr;
+  _impl_.menu_ = (CheckHasBit(cached_has_bits, 0x00000100U))
+                ? ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.menu_)
+                : nullptr;
+  _impl_.permissions_ = (CheckHasBit(cached_has_bits, 0x00000200U))
+                ? ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.permissions_)
+                : nullptr;
   _impl_.enabled_ = from._impl_.enabled_;
 
   // @@protoc_insertion_point(copy_constructor:croupier.server.v1.FunctionDescriptor)
@@ -485,11 +587,17 @@ PROTOBUF_NDEBUG_INLINE FunctionDescriptor::Impl_::Impl_(
         category_(arena),
         risk_(arena),
         entity_(arena),
-        operation_(arena) {}
+        operation_(arena),
+        tags_{visibility, arena} {}
 
 inline void FunctionDescriptor::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
   new (&_impl_) Impl_(internal_visibility(), arena);
-  _impl_.enabled_ = {};
+  ::memset(reinterpret_cast<char*>(&_impl_) +
+               offsetof(Impl_, display_name_),
+           0,
+           offsetof(Impl_, enabled_) -
+               offsetof(Impl_, display_name_) +
+               sizeof(Impl_::enabled_));
 }
 FunctionDescriptor::~FunctionDescriptor() {
   // @@protoc_insertion_point(destructor:croupier.server.v1.FunctionDescriptor)
@@ -508,6 +616,10 @@ inline void FunctionDescriptor::SharedDtor(MessageLite& self) {
   this_._impl_.risk_.Destroy();
   this_._impl_.entity_.Destroy();
   this_._impl_.operation_.Destroy();
+  delete this_._impl_.display_name_;
+  delete this_._impl_.summary_;
+  delete this_._impl_.menu_;
+  delete this_._impl_.permissions_;
   this_._impl_.~Impl_();
 }
 
@@ -517,8 +629,20 @@ inline void* PROTOBUF_NONNULL FunctionDescriptor::PlacementNew_(
   return ::new (mem) FunctionDescriptor(arena);
 }
 constexpr auto FunctionDescriptor::InternalNewImpl_() {
-  return ::google::protobuf::internal::MessageCreator::CopyInit(sizeof(FunctionDescriptor),
-                                            alignof(FunctionDescriptor));
+  constexpr auto arena_bits = ::google::protobuf::internal::EncodePlacementArenaOffsets({
+      PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.tags_) +
+          decltype(FunctionDescriptor::_impl_.tags_)::
+              InternalGetArenaOffset(
+                  ::google::protobuf::Message::internal_visibility()),
+  });
+  if (arena_bits.has_value()) {
+    return ::google::protobuf::internal::MessageCreator::CopyInit(
+        sizeof(FunctionDescriptor), alignof(FunctionDescriptor), *arena_bits);
+  } else {
+    return ::google::protobuf::internal::MessageCreator(&FunctionDescriptor::PlacementNew_,
+                                 sizeof(FunctionDescriptor),
+                                 alignof(FunctionDescriptor));
+  }
 }
 constexpr auto FunctionDescriptor::InternalGenerateClassData_() {
   return ::google::protobuf::internal::ClassDataFull{
@@ -554,18 +678,18 @@ FunctionDescriptor::GetClassData() const {
   return FunctionDescriptor_class_data_.base();
 }
 PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
-const ::_pbi::TcParseTable<3, 7, 0, 82, 2>
+const ::_pbi::TcParseTable<3, 12, 4, 94, 2>
 FunctionDescriptor::_table_ = {
   {
     PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_._has_bits_),
     0, // no _extensions_
-    7, 56,  // max_field_number, fast_idx_mask
+    24, 56,  // max_field_number, fast_idx_mask
     offsetof(decltype(_table_), field_lookup_table),
-    4294967168,  // skipmap
+    4278714240,  // skipmap
     offsetof(decltype(_table_), field_entries),
-    7,  // num_field_entries
-    0,  // num_aux_entries
-    offsetof(decltype(_table_), field_names),  // no aux_entries
+    12,  // num_field_entries
+    4,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
     FunctionDescriptor_class_data_.base(),
     nullptr,  // post_loop_handler
     ::_pbi::TcParser::GenericFallback,  // fallback
@@ -573,7 +697,10 @@ FunctionDescriptor::_table_ = {
     ::_pbi::TcParser::GetTable<::croupier::server::v1::FunctionDescriptor>(),  // to_prefetch
     #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
   }, {{
-    {::_pbi::TcParser::MiniParse, {}},
+    // .croupier.common.v1.PermissionSpec permissions = 24 [json_name = "permissions"];
+    {::_pbi::TcParser::FastMtS2,
+     {450, 9, 3,
+      PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.permissions_)}},
     // string id = 1 [json_name = "id"];
     {::_pbi::TcParser::FastUS1,
      {10, 0, 0,
@@ -599,8 +726,8 @@ FunctionDescriptor::_table_ = {
      {50, 5, 0,
       PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.operation_)}},
     // bool enabled = 7 [json_name = "enabled"];
-    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(FunctionDescriptor, _impl_.enabled_), 6>(),
-     {56, 6, 0,
+    {::_pbi::TcParser::SingularVarintNoZag1<bool, offsetof(FunctionDescriptor, _impl_.enabled_), 10>(),
+     {56, 10, 0,
       PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.enabled_)}},
   }}, {{
     65535, 65535
@@ -618,11 +745,26 @@ FunctionDescriptor::_table_ = {
     // string operation = 6 [json_name = "operation"];
     {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.operation_), _Internal::kHasBitsOffset + 5, 0, (0 | ::_fl::kFcOptional | ::_fl::kUtf8String | ::_fl::kRepAString)},
     // bool enabled = 7 [json_name = "enabled"];
-    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.enabled_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.enabled_), _Internal::kHasBitsOffset + 10, 0, (0 | ::_fl::kFcOptional | ::_fl::kBool)},
+    // .croupier.common.v1.I18nText display_name = 20 [json_name = "displayName"];
+    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.display_name_), _Internal::kHasBitsOffset + 6, 0, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .croupier.common.v1.I18nText summary = 21 [json_name = "summary"];
+    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.summary_), _Internal::kHasBitsOffset + 7, 1, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // repeated string tags = 22 [json_name = "tags"];
+    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.tags_), _Internal::kHasBitsOffset + 11, 0, (0 | ::_fl::kFcRepeated | ::_fl::kUtf8String | ::_fl::kRepSString)},
+    // .croupier.common.v1.Menu menu = 23 [json_name = "menu"];
+    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.menu_), _Internal::kHasBitsOffset + 8, 2, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
+    // .croupier.common.v1.PermissionSpec permissions = 24 [json_name = "permissions"];
+    {PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.permissions_), _Internal::kHasBitsOffset + 9, 3, (0 | ::_fl::kFcOptional | ::_fl::kMessage | ::_fl::kTvTable)},
   }},
-  // no aux_entries
   {{
-    "\45\2\7\10\4\6\11\0"
+      {::_pbi::TcParser::GetTable<::croupier::common::v1::I18nText>()},
+      {::_pbi::TcParser::GetTable<::croupier::common::v1::I18nText>()},
+      {::_pbi::TcParser::GetTable<::croupier::common::v1::Menu>()},
+      {::_pbi::TcParser::GetTable<::croupier::common::v1::PermissionSpec>()},
+  }},
+  {{
+    "\45\2\7\10\4\6\11\0\0\0\4\0\0\0\0\0"
     "croupier.server.v1.FunctionDescriptor"
     "id"
     "version"
@@ -630,6 +772,7 @@ FunctionDescriptor::_table_ = {
     "risk"
     "entity"
     "operation"
+    "tags"
   }},
 };
 PROTOBUF_NOINLINE void FunctionDescriptor::Clear() {
@@ -640,7 +783,7 @@ PROTOBUF_NOINLINE void FunctionDescriptor::Clear() {
   (void) cached_has_bits;
 
   cached_has_bits = _impl_._has_bits_[0];
-  if (BatchCheckHasBit(cached_has_bits, 0x0000003fU)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x000000ffU)) {
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
       _impl_.id_.ClearNonDefaultToEmpty();
     }
@@ -659,8 +802,31 @@ PROTOBUF_NOINLINE void FunctionDescriptor::Clear() {
     if (CheckHasBit(cached_has_bits, 0x00000020U)) {
       _impl_.operation_.ClearNonDefaultToEmpty();
     }
+    if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+      ABSL_DCHECK(_impl_.display_name_ != nullptr);
+      _impl_.display_name_->Clear();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+      ABSL_DCHECK(_impl_.summary_ != nullptr);
+      _impl_.summary_->Clear();
+    }
   }
-  _impl_.enabled_ = false;
+  if (BatchCheckHasBit(cached_has_bits, 0x00000300U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+      ABSL_DCHECK(_impl_.menu_ != nullptr);
+      _impl_.menu_->Clear();
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+      ABSL_DCHECK(_impl_.permissions_ != nullptr);
+      _impl_.permissions_->Clear();
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00000c00U)) {
+    _impl_.enabled_ = false;
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00000800U)) {
+      _impl_.tags_.Clear();
+    }
+  }
   _impl_._has_bits_.Clear();
   _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
 }
@@ -745,12 +911,50 @@ PROTOBUF_NOINLINE void FunctionDescriptor::Clear() {
   }
 
   // bool enabled = 7 [json_name = "enabled"];
-  if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+  if (CheckHasBit(cached_has_bits, 0x00000400U)) {
     if (this_._internal_enabled() != 0) {
       target = stream->EnsureSpace(target);
       target = ::_pbi::WireFormatLite::WriteBoolToArray(
           7, this_._internal_enabled(), target);
     }
+  }
+
+  // .croupier.common.v1.I18nText display_name = 20 [json_name = "displayName"];
+  if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        20, *this_._impl_.display_name_, this_._impl_.display_name_->GetCachedSize(), target,
+        stream);
+  }
+
+  // .croupier.common.v1.I18nText summary = 21 [json_name = "summary"];
+  if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        21, *this_._impl_.summary_, this_._impl_.summary_->GetCachedSize(), target,
+        stream);
+  }
+
+  // repeated string tags = 22 [json_name = "tags"];
+  if (CheckHasBitForRepeated(cached_has_bits, 0x00000800U)) {
+    for (int i = 0, n = this_._internal_tags_size(); i < n; ++i) {
+      const auto& s = this_._internal_tags().Get(i);
+      ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+          s.data(), static_cast<int>(s.length()), ::google::protobuf::internal::WireFormatLite::SERIALIZE, "croupier.server.v1.FunctionDescriptor.tags");
+      target = stream->WriteString(22, s, target);
+    }
+  }
+
+  // .croupier.common.v1.Menu menu = 23 [json_name = "menu"];
+  if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        23, *this_._impl_.menu_, this_._impl_.menu_->GetCachedSize(), target,
+        stream);
+  }
+
+  // .croupier.common.v1.PermissionSpec permissions = 24 [json_name = "permissions"];
+  if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+    target = ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+        24, *this_._impl_.permissions_, this_._impl_.permissions_->GetCachedSize(), target,
+        stream);
   }
 
   if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
@@ -778,7 +982,7 @@ PROTOBUF_NOINLINE void FunctionDescriptor::Clear() {
 
   ::_pbi::Prefetch5LinesFrom7Lines(&this_);
   cached_has_bits = this_._impl_._has_bits_[0];
-  if (BatchCheckHasBit(cached_has_bits, 0x0000007fU)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x000000ffU)) {
     // string id = 1 [json_name = "id"];
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
       if (!this_._internal_id().empty()) {
@@ -821,10 +1025,41 @@ PROTOBUF_NOINLINE void FunctionDescriptor::Clear() {
                                         this_._internal_operation());
       }
     }
-    // bool enabled = 7 [json_name = "enabled"];
+    // .croupier.common.v1.I18nText display_name = 20 [json_name = "displayName"];
     if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+      total_size += 2 +
+                    ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.display_name_);
+    }
+    // .croupier.common.v1.I18nText summary = 21 [json_name = "summary"];
+    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+      total_size += 2 +
+                    ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.summary_);
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00000f00U)) {
+    // .croupier.common.v1.Menu menu = 23 [json_name = "menu"];
+    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+      total_size += 2 +
+                    ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.menu_);
+    }
+    // .croupier.common.v1.PermissionSpec permissions = 24 [json_name = "permissions"];
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+      total_size += 2 +
+                    ::google::protobuf::internal::WireFormatLite::MessageSize(*this_._impl_.permissions_);
+    }
+    // bool enabled = 7 [json_name = "enabled"];
+    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
       if (this_._internal_enabled() != 0) {
         total_size += 2;
+      }
+    }
+    // repeated string tags = 22 [json_name = "tags"];
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00000800U)) {
+      total_size +=
+          2 * ::google::protobuf::internal::FromIntSize(this_._internal_tags().size());
+      for (int i = 0, n = this_._internal_tags().size(); i < n; ++i) {
+        total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+            this_._internal_tags().Get(i));
       }
     }
   }
@@ -840,13 +1075,14 @@ void FunctionDescriptor::MergeImpl(::google::protobuf::MessageLite& to_msg,
   if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
     from.CheckHasBitConsistency();
   }
+  ::google::protobuf::Arena* arena = _this->GetArena();
   // @@protoc_insertion_point(class_specific_merge_from_start:croupier.server.v1.FunctionDescriptor)
   ABSL_DCHECK_NE(&from, _this);
   ::uint32_t cached_has_bits = 0;
   (void)cached_has_bits;
 
   cached_has_bits = from._impl_._has_bits_[0];
-  if (BatchCheckHasBit(cached_has_bits, 0x0000007fU)) {
+  if (BatchCheckHasBit(cached_has_bits, 0x000000ffU)) {
     if (CheckHasBit(cached_has_bits, 0x00000001U)) {
       if (!from._internal_id().empty()) {
         _this->_internal_set_id(from._internal_id());
@@ -902,9 +1138,48 @@ void FunctionDescriptor::MergeImpl(::google::protobuf::MessageLite& to_msg,
       }
     }
     if (CheckHasBit(cached_has_bits, 0x00000040U)) {
+      ABSL_DCHECK(from._impl_.display_name_ != nullptr);
+      if (_this->_impl_.display_name_ == nullptr) {
+        _this->_impl_.display_name_ = ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.display_name_);
+      } else {
+        _this->_impl_.display_name_->MergeFrom(*from._impl_.display_name_);
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000080U)) {
+      ABSL_DCHECK(from._impl_.summary_ != nullptr);
+      if (_this->_impl_.summary_ == nullptr) {
+        _this->_impl_.summary_ = ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.summary_);
+      } else {
+        _this->_impl_.summary_->MergeFrom(*from._impl_.summary_);
+      }
+    }
+  }
+  if (BatchCheckHasBit(cached_has_bits, 0x00000f00U)) {
+    if (CheckHasBit(cached_has_bits, 0x00000100U)) {
+      ABSL_DCHECK(from._impl_.menu_ != nullptr);
+      if (_this->_impl_.menu_ == nullptr) {
+        _this->_impl_.menu_ = ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.menu_);
+      } else {
+        _this->_impl_.menu_->MergeFrom(*from._impl_.menu_);
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000200U)) {
+      ABSL_DCHECK(from._impl_.permissions_ != nullptr);
+      if (_this->_impl_.permissions_ == nullptr) {
+        _this->_impl_.permissions_ = ::google::protobuf::Message::CopyConstruct(arena, *from._impl_.permissions_);
+      } else {
+        _this->_impl_.permissions_->MergeFrom(*from._impl_.permissions_);
+      }
+    }
+    if (CheckHasBit(cached_has_bits, 0x00000400U)) {
       if (from._internal_enabled() != 0) {
         _this->_impl_.enabled_ = from._impl_.enabled_;
       }
+    }
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00000800U)) {
+      _this->_internal_mutable_tags()->InternalMergeFromWithArena(
+          ::google::protobuf::MessageLite::internal_visibility(), arena,
+          from._internal_tags());
     }
   }
   _this->_impl_._has_bits_[0] |= cached_has_bits;
@@ -932,7 +1207,13 @@ void FunctionDescriptor::InternalSwap(FunctionDescriptor* PROTOBUF_RESTRICT PROT
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.risk_, &other->_impl_.risk_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.entity_, &other->_impl_.entity_, arena);
   ::_pbi::ArenaStringPtr::InternalSwap(&_impl_.operation_, &other->_impl_.operation_, arena);
-  swap(_impl_.enabled_, other->_impl_.enabled_);
+  ::google::protobuf::internal::memswap<
+      PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.enabled_)
+      + sizeof(FunctionDescriptor::_impl_.enabled_)
+      - PROTOBUF_FIELD_OFFSET(FunctionDescriptor, _impl_.display_name_)>(
+          reinterpret_cast<char*>(&_impl_.display_name_),
+          reinterpret_cast<char*>(&other->_impl_.display_name_));
+  _impl_.tags_.InternalSwap(&other->_impl_.tags_);
 }
 
 ::google::protobuf::Metadata FunctionDescriptor::GetMetadata() const {
@@ -2993,6 +3274,290 @@ RegisterCapabilitiesResponse::_table_ = {
 
 ::google::protobuf::Metadata RegisterCapabilitiesResponse::GetMetadata() const {
   return ::google::protobuf::internal::ZeroFieldsBase::GetMetadataImpl(GetClassData()->full());
+}
+// ===================================================================
+
+class ListFunctionsSummaryResponse::_Internal {
+ public:
+  using HasBits =
+      decltype(::std::declval<ListFunctionsSummaryResponse>()._impl_._has_bits_);
+  static constexpr ::int32_t kHasBitsOffset =
+      8 * PROTOBUF_FIELD_OFFSET(ListFunctionsSummaryResponse, _impl_._has_bits_);
+};
+
+ListFunctionsSummaryResponse::ListFunctionsSummaryResponse(::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, ListFunctionsSummaryResponse_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  SharedCtor(arena);
+  // @@protoc_insertion_point(arena_constructor:croupier.server.v1.ListFunctionsSummaryResponse)
+}
+PROTOBUF_NDEBUG_INLINE ListFunctionsSummaryResponse::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena, const Impl_& from,
+    [[maybe_unused]] const ::croupier::server::v1::ListFunctionsSummaryResponse& from_msg)
+      : _has_bits_{from._has_bits_},
+        _cached_size_{0},
+        functions_{visibility, arena, from.functions_} {}
+
+ListFunctionsSummaryResponse::ListFunctionsSummaryResponse(
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena,
+    const ListFunctionsSummaryResponse& from)
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+    : ::google::protobuf::Message(arena, ListFunctionsSummaryResponse_class_data_.base()) {
+#else   // PROTOBUF_CUSTOM_VTABLE
+    : ::google::protobuf::Message(arena) {
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  ListFunctionsSummaryResponse* const _this = this;
+  (void)_this;
+  _internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+  new (&_impl_) Impl_(internal_visibility(), arena, from._impl_, from);
+
+  // @@protoc_insertion_point(copy_constructor:croupier.server.v1.ListFunctionsSummaryResponse)
+}
+PROTOBUF_NDEBUG_INLINE ListFunctionsSummaryResponse::Impl_::Impl_(
+    [[maybe_unused]] ::google::protobuf::internal::InternalVisibility visibility,
+    [[maybe_unused]] ::google::protobuf::Arena* PROTOBUF_NULLABLE arena)
+      : _cached_size_{0},
+        functions_{visibility, arena} {}
+
+inline void ListFunctionsSummaryResponse::SharedCtor(::_pb::Arena* PROTOBUF_NULLABLE arena) {
+  new (&_impl_) Impl_(internal_visibility(), arena);
+}
+ListFunctionsSummaryResponse::~ListFunctionsSummaryResponse() {
+  // @@protoc_insertion_point(destructor:croupier.server.v1.ListFunctionsSummaryResponse)
+  SharedDtor(*this);
+}
+inline void ListFunctionsSummaryResponse::SharedDtor(MessageLite& self) {
+  ListFunctionsSummaryResponse& this_ = static_cast<ListFunctionsSummaryResponse&>(self);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  this_._internal_metadata_.Delete<::google::protobuf::UnknownFieldSet>();
+  ABSL_DCHECK(this_.GetArena() == nullptr);
+  this_._impl_.~Impl_();
+}
+
+inline void* PROTOBUF_NONNULL ListFunctionsSummaryResponse::PlacementNew_(
+    const void* PROTOBUF_NONNULL, void* PROTOBUF_NONNULL mem,
+    ::google::protobuf::Arena* PROTOBUF_NULLABLE arena) {
+  return ::new (mem) ListFunctionsSummaryResponse(arena);
+}
+constexpr auto ListFunctionsSummaryResponse::InternalNewImpl_() {
+  constexpr auto arena_bits = ::google::protobuf::internal::EncodePlacementArenaOffsets({
+      PROTOBUF_FIELD_OFFSET(ListFunctionsSummaryResponse, _impl_.functions_) +
+          decltype(ListFunctionsSummaryResponse::_impl_.functions_)::
+              InternalGetArenaOffset(
+                  ::google::protobuf::Message::internal_visibility()),
+  });
+  if (arena_bits.has_value()) {
+    return ::google::protobuf::internal::MessageCreator::ZeroInit(
+        sizeof(ListFunctionsSummaryResponse), alignof(ListFunctionsSummaryResponse), *arena_bits);
+  } else {
+    return ::google::protobuf::internal::MessageCreator(&ListFunctionsSummaryResponse::PlacementNew_,
+                                 sizeof(ListFunctionsSummaryResponse),
+                                 alignof(ListFunctionsSummaryResponse));
+  }
+}
+constexpr auto ListFunctionsSummaryResponse::InternalGenerateClassData_() {
+  return ::google::protobuf::internal::ClassDataFull{
+      ::google::protobuf::internal::ClassData{
+          &_ListFunctionsSummaryResponse_default_instance_._instance,
+          &_table_.header,
+          nullptr,  // OnDemandRegisterArenaDtor
+          nullptr,  // IsInitialized
+          &ListFunctionsSummaryResponse::MergeImpl,
+          ::google::protobuf::Message::GetNewImpl<ListFunctionsSummaryResponse>(),
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+          &ListFunctionsSummaryResponse::SharedDtor,
+          ::google::protobuf::Message::GetClearImpl<ListFunctionsSummaryResponse>(), &ListFunctionsSummaryResponse::ByteSizeLong,
+              &ListFunctionsSummaryResponse::_InternalSerialize,
+#endif  // PROTOBUF_CUSTOM_VTABLE
+          PROTOBUF_FIELD_OFFSET(ListFunctionsSummaryResponse, _impl_._cached_size_),
+          false,
+      },
+      &ListFunctionsSummaryResponse::kDescriptorMethods,
+      &descriptor_table_croupier_2fserver_2fv1_2fcontrol_2eproto,
+      nullptr,  // tracker
+  };
+}
+
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1 const
+    ::google::protobuf::internal::ClassDataFull ListFunctionsSummaryResponse_class_data_ =
+        ListFunctionsSummaryResponse::InternalGenerateClassData_();
+
+PROTOBUF_ATTRIBUTE_WEAK const ::google::protobuf::internal::ClassData* PROTOBUF_NONNULL
+ListFunctionsSummaryResponse::GetClassData() const {
+  ::google::protobuf::internal::PrefetchToLocalCache(&ListFunctionsSummaryResponse_class_data_);
+  ::google::protobuf::internal::PrefetchToLocalCache(ListFunctionsSummaryResponse_class_data_.tc_table);
+  return ListFunctionsSummaryResponse_class_data_.base();
+}
+PROTOBUF_CONSTINIT PROTOBUF_ATTRIBUTE_INIT_PRIORITY1
+const ::_pbi::TcParseTable<0, 1, 1, 0, 2>
+ListFunctionsSummaryResponse::_table_ = {
+  {
+    PROTOBUF_FIELD_OFFSET(ListFunctionsSummaryResponse, _impl_._has_bits_),
+    0, // no _extensions_
+    1, 0,  // max_field_number, fast_idx_mask
+    offsetof(decltype(_table_), field_lookup_table),
+    4294967294,  // skipmap
+    offsetof(decltype(_table_), field_entries),
+    1,  // num_field_entries
+    1,  // num_aux_entries
+    offsetof(decltype(_table_), aux_entries),
+    ListFunctionsSummaryResponse_class_data_.base(),
+    nullptr,  // post_loop_handler
+    ::_pbi::TcParser::GenericFallback,  // fallback
+    #ifdef PROTOBUF_PREFETCH_PARSE_TABLE
+    ::_pbi::TcParser::GetTable<::croupier::server::v1::ListFunctionsSummaryResponse>(),  // to_prefetch
+    #endif  // PROTOBUF_PREFETCH_PARSE_TABLE
+  }, {{
+    // repeated .croupier.server.v1.FunctionDescriptor functions = 1 [json_name = "functions"];
+    {::_pbi::TcParser::FastMtR1,
+     {10, 0, 0,
+      PROTOBUF_FIELD_OFFSET(ListFunctionsSummaryResponse, _impl_.functions_)}},
+  }}, {{
+    65535, 65535
+  }}, {{
+    // repeated .croupier.server.v1.FunctionDescriptor functions = 1 [json_name = "functions"];
+    {PROTOBUF_FIELD_OFFSET(ListFunctionsSummaryResponse, _impl_.functions_), _Internal::kHasBitsOffset + 0, 0, (0 | ::_fl::kFcRepeated | ::_fl::kMessage | ::_fl::kTvTable)},
+  }},
+  {{
+      {::_pbi::TcParser::GetTable<::croupier::server::v1::FunctionDescriptor>()},
+  }},
+  {{
+  }},
+};
+PROTOBUF_NOINLINE void ListFunctionsSummaryResponse::Clear() {
+// @@protoc_insertion_point(message_clear_start:croupier.server.v1.ListFunctionsSummaryResponse)
+  ::google::protobuf::internal::TSanWrite(&_impl_);
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  cached_has_bits = _impl_._has_bits_[0];
+  if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
+    _impl_.functions_.Clear();
+  }
+  _impl_._has_bits_.Clear();
+  _internal_metadata_.Clear<::google::protobuf::UnknownFieldSet>();
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::uint8_t* PROTOBUF_NONNULL ListFunctionsSummaryResponse::_InternalSerialize(
+    const ::google::protobuf::MessageLite& base, ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) {
+  const ListFunctionsSummaryResponse& this_ = static_cast<const ListFunctionsSummaryResponse&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::uint8_t* PROTOBUF_NONNULL ListFunctionsSummaryResponse::_InternalSerialize(
+    ::uint8_t* PROTOBUF_NONNULL target,
+    ::google::protobuf::io::EpsCopyOutputStream* PROTOBUF_NONNULL stream) const {
+  const ListFunctionsSummaryResponse& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    this_.CheckHasBitConsistency();
+  }
+  // @@protoc_insertion_point(serialize_to_array_start:croupier.server.v1.ListFunctionsSummaryResponse)
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = this_._impl_._has_bits_[0];
+  // repeated .croupier.server.v1.FunctionDescriptor functions = 1 [json_name = "functions"];
+  if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
+    for (unsigned i = 0, n = static_cast<unsigned>(
+                             this_._internal_functions_size());
+         i < n; i++) {
+      const auto& repfield = this_._internal_functions().Get(i);
+      target =
+          ::google::protobuf::internal::WireFormatLite::InternalWriteMessage(
+              1, repfield, repfield.GetCachedSize(),
+              target, stream);
+    }
+  }
+
+  if (ABSL_PREDICT_FALSE(this_._internal_metadata_.have_unknown_fields())) {
+    target =
+        ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
+            this_._internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance), target, stream);
+  }
+  // @@protoc_insertion_point(serialize_to_array_end:croupier.server.v1.ListFunctionsSummaryResponse)
+  return target;
+}
+
+#if defined(PROTOBUF_CUSTOM_VTABLE)
+::size_t ListFunctionsSummaryResponse::ByteSizeLong(const MessageLite& base) {
+  const ListFunctionsSummaryResponse& this_ = static_cast<const ListFunctionsSummaryResponse&>(base);
+#else   // PROTOBUF_CUSTOM_VTABLE
+::size_t ListFunctionsSummaryResponse::ByteSizeLong() const {
+  const ListFunctionsSummaryResponse& this_ = *this;
+#endif  // PROTOBUF_CUSTOM_VTABLE
+  // @@protoc_insertion_point(message_byte_size_start:croupier.server.v1.ListFunctionsSummaryResponse)
+  ::size_t total_size = 0;
+
+  ::uint32_t cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void)cached_has_bits;
+
+  ::_pbi::Prefetch5LinesFrom7Lines(&this_);
+   {
+    // repeated .croupier.server.v1.FunctionDescriptor functions = 1 [json_name = "functions"];
+    cached_has_bits = this_._impl_._has_bits_[0];
+    if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
+      total_size += 1UL * this_._internal_functions_size();
+      for (const auto& msg : this_._internal_functions()) {
+        total_size += ::google::protobuf::internal::WireFormatLite::MessageSize(msg);
+      }
+    }
+  }
+  return this_.MaybeComputeUnknownFieldsSize(total_size,
+                                             &this_._impl_._cached_size_);
+}
+
+void ListFunctionsSummaryResponse::MergeImpl(::google::protobuf::MessageLite& to_msg,
+                            const ::google::protobuf::MessageLite& from_msg) {
+   auto* const _this =
+      static_cast<ListFunctionsSummaryResponse*>(&to_msg);
+  auto& from = static_cast<const ListFunctionsSummaryResponse&>(from_msg);
+  if constexpr (::_pbi::DebugHardenCheckHasBitConsistency()) {
+    from.CheckHasBitConsistency();
+  }
+  ::google::protobuf::Arena* arena = _this->GetArena();
+  // @@protoc_insertion_point(class_specific_merge_from_start:croupier.server.v1.ListFunctionsSummaryResponse)
+  ABSL_DCHECK_NE(&from, _this);
+  ::uint32_t cached_has_bits = 0;
+  (void)cached_has_bits;
+
+  cached_has_bits = from._impl_._has_bits_[0];
+  if (CheckHasBitForRepeated(cached_has_bits, 0x00000001U)) {
+    _this->_internal_mutable_functions()->InternalMergeFromWithArena(
+        ::google::protobuf::MessageLite::internal_visibility(), arena,
+        from._internal_functions());
+  }
+  _this->_impl_._has_bits_[0] |= cached_has_bits;
+  _this->_internal_metadata_.MergeFrom<::google::protobuf::UnknownFieldSet>(
+      from._internal_metadata_);
+}
+
+void ListFunctionsSummaryResponse::CopyFrom(const ListFunctionsSummaryResponse& from) {
+  // @@protoc_insertion_point(class_specific_copy_from_start:croupier.server.v1.ListFunctionsSummaryResponse)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+
+void ListFunctionsSummaryResponse::InternalSwap(ListFunctionsSummaryResponse* PROTOBUF_RESTRICT PROTOBUF_NONNULL other) {
+  using ::std::swap;
+  _internal_metadata_.InternalSwap(&other->_internal_metadata_);
+  swap(_impl_._has_bits_[0], other->_impl_._has_bits_[0]);
+  _impl_.functions_.InternalSwap(&other->_impl_.functions_);
+}
+
+::google::protobuf::Metadata ListFunctionsSummaryResponse::GetMetadata() const {
+  return ::google::protobuf::Message::GetMetadataImpl(GetClassData()->full());
 }
 // @@protoc_insertion_point(namespace_scope)
 }  // namespace v1

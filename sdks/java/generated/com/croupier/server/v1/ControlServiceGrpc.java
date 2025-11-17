@@ -15,6 +15,37 @@ public final class ControlServiceGrpc {
   public static final java.lang.String SERVICE_NAME = "croupier.server.v1.ControlService";
 
   // Static method descriptors that strictly reflect the proto.
+  private static volatile io.grpc.MethodDescriptor<com.google.protobuf.Empty,
+      com.croupier.server.v1.ListFunctionsSummaryResponse> getListFunctionsSummaryMethod;
+
+  @io.grpc.stub.annotations.RpcMethod(
+      fullMethodName = SERVICE_NAME + '/' + "ListFunctionsSummary",
+      requestType = com.google.protobuf.Empty.class,
+      responseType = com.croupier.server.v1.ListFunctionsSummaryResponse.class,
+      methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
+  public static io.grpc.MethodDescriptor<com.google.protobuf.Empty,
+      com.croupier.server.v1.ListFunctionsSummaryResponse> getListFunctionsSummaryMethod() {
+    io.grpc.MethodDescriptor<com.google.protobuf.Empty, com.croupier.server.v1.ListFunctionsSummaryResponse> getListFunctionsSummaryMethod;
+    if ((getListFunctionsSummaryMethod = ControlServiceGrpc.getListFunctionsSummaryMethod) == null) {
+      synchronized (ControlServiceGrpc.class) {
+        if ((getListFunctionsSummaryMethod = ControlServiceGrpc.getListFunctionsSummaryMethod) == null) {
+          ControlServiceGrpc.getListFunctionsSummaryMethod = getListFunctionsSummaryMethod =
+              io.grpc.MethodDescriptor.<com.google.protobuf.Empty, com.croupier.server.v1.ListFunctionsSummaryResponse>newBuilder()
+              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
+              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "ListFunctionsSummary"))
+              .setSampledToLocalTracing(true)
+              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  com.google.protobuf.Empty.getDefaultInstance()))
+              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
+                  com.croupier.server.v1.ListFunctionsSummaryResponse.getDefaultInstance()))
+              .setSchemaDescriptor(new ControlServiceMethodDescriptorSupplier("ListFunctionsSummary"))
+              .build();
+        }
+      }
+    }
+    return getListFunctionsSummaryMethod;
+  }
+
   private static volatile io.grpc.MethodDescriptor<com.croupier.server.v1.RegisterRequest,
       com.croupier.server.v1.RegisterResponse> getRegisterMethod;
 
@@ -176,6 +207,16 @@ public final class ControlServiceGrpc {
 
     /**
      * <pre>
+     * Summarized function catalog with UI/RBAC metadata (for dashboard)
+     * </pre>
+     */
+    default void listFunctionsSummary(com.google.protobuf.Empty request,
+        io.grpc.stub.StreamObserver<com.croupier.server.v1.ListFunctionsSummaryResponse> responseObserver) {
+      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getListFunctionsSummaryMethod(), responseObserver);
+    }
+
+    /**
+     * <pre>
      * Agent registration with server
      * </pre>
      */
@@ -240,6 +281,17 @@ public final class ControlServiceGrpc {
 
     /**
      * <pre>
+     * Summarized function catalog with UI/RBAC metadata (for dashboard)
+     * </pre>
+     */
+    public void listFunctionsSummary(com.google.protobuf.Empty request,
+        io.grpc.stub.StreamObserver<com.croupier.server.v1.ListFunctionsSummaryResponse> responseObserver) {
+      io.grpc.stub.ClientCalls.asyncUnaryCall(
+          getChannel().newCall(getListFunctionsSummaryMethod(), getCallOptions()), request, responseObserver);
+    }
+
+    /**
+     * <pre>
      * Agent registration with server
      * </pre>
      */
@@ -289,6 +341,16 @@ public final class ControlServiceGrpc {
     protected ControlServiceBlockingV2Stub build(
         io.grpc.Channel channel, io.grpc.CallOptions callOptions) {
       return new ControlServiceBlockingV2Stub(channel, callOptions);
+    }
+
+    /**
+     * <pre>
+     * Summarized function catalog with UI/RBAC metadata (for dashboard)
+     * </pre>
+     */
+    public com.croupier.server.v1.ListFunctionsSummaryResponse listFunctionsSummary(com.google.protobuf.Empty request) throws io.grpc.StatusException {
+      return io.grpc.stub.ClientCalls.blockingV2UnaryCall(
+          getChannel(), getListFunctionsSummaryMethod(), getCallOptions(), request);
     }
 
     /**
@@ -343,6 +405,16 @@ public final class ControlServiceGrpc {
 
     /**
      * <pre>
+     * Summarized function catalog with UI/RBAC metadata (for dashboard)
+     * </pre>
+     */
+    public com.croupier.server.v1.ListFunctionsSummaryResponse listFunctionsSummary(com.google.protobuf.Empty request) {
+      return io.grpc.stub.ClientCalls.blockingUnaryCall(
+          getChannel(), getListFunctionsSummaryMethod(), getCallOptions(), request);
+    }
+
+    /**
+     * <pre>
      * Agent registration with server
      * </pre>
      */
@@ -393,6 +465,17 @@ public final class ControlServiceGrpc {
 
     /**
      * <pre>
+     * Summarized function catalog with UI/RBAC metadata (for dashboard)
+     * </pre>
+     */
+    public com.google.common.util.concurrent.ListenableFuture<com.croupier.server.v1.ListFunctionsSummaryResponse> listFunctionsSummary(
+        com.google.protobuf.Empty request) {
+      return io.grpc.stub.ClientCalls.futureUnaryCall(
+          getChannel().newCall(getListFunctionsSummaryMethod(), getCallOptions()), request);
+    }
+
+    /**
+     * <pre>
      * Agent registration with server
      * </pre>
      */
@@ -425,9 +508,10 @@ public final class ControlServiceGrpc {
     }
   }
 
-  private static final int METHODID_REGISTER = 0;
-  private static final int METHODID_HEARTBEAT = 1;
-  private static final int METHODID_REGISTER_CAPABILITIES = 2;
+  private static final int METHODID_LIST_FUNCTIONS_SUMMARY = 0;
+  private static final int METHODID_REGISTER = 1;
+  private static final int METHODID_HEARTBEAT = 2;
+  private static final int METHODID_REGISTER_CAPABILITIES = 3;
 
   private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
@@ -446,6 +530,10 @@ public final class ControlServiceGrpc {
     @java.lang.SuppressWarnings("unchecked")
     public void invoke(Req request, io.grpc.stub.StreamObserver<Resp> responseObserver) {
       switch (methodId) {
+        case METHODID_LIST_FUNCTIONS_SUMMARY:
+          serviceImpl.listFunctionsSummary((com.google.protobuf.Empty) request,
+              (io.grpc.stub.StreamObserver<com.croupier.server.v1.ListFunctionsSummaryResponse>) responseObserver);
+          break;
         case METHODID_REGISTER:
           serviceImpl.register((com.croupier.server.v1.RegisterRequest) request,
               (io.grpc.stub.StreamObserver<com.croupier.server.v1.RegisterResponse>) responseObserver);
@@ -476,6 +564,13 @@ public final class ControlServiceGrpc {
 
   public static final io.grpc.ServerServiceDefinition bindService(AsyncService service) {
     return io.grpc.ServerServiceDefinition.builder(getServiceDescriptor())
+        .addMethod(
+          getListFunctionsSummaryMethod(),
+          io.grpc.stub.ServerCalls.asyncUnaryCall(
+            new MethodHandlers<
+              com.google.protobuf.Empty,
+              com.croupier.server.v1.ListFunctionsSummaryResponse>(
+                service, METHODID_LIST_FUNCTIONS_SUMMARY)))
         .addMethod(
           getRegisterMethod(),
           io.grpc.stub.ServerCalls.asyncUnaryCall(
@@ -545,6 +640,7 @@ public final class ControlServiceGrpc {
         if (result == null) {
           serviceDescriptor = result = io.grpc.ServiceDescriptor.newBuilder(SERVICE_NAME)
               .setSchemaDescriptor(new ControlServiceFileDescriptorSupplier())
+              .addMethod(getListFunctionsSummaryMethod())
               .addMethod(getRegisterMethod())
               .addMethod(getHeartbeatMethod())
               .addMethod(getRegisterCapabilitiesMethod())

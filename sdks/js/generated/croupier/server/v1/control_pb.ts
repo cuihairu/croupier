@@ -4,13 +4,17 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import type { I18nText, Menu, PermissionSpec } from "../../common/v1/ui_pb";
+import { file_croupier_common_v1_ui } from "../../common/v1/ui_pb";
+import type { EmptySchema } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_empty } from "@bufbuild/protobuf/wkt";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file croupier/server/v1/control.proto.
  */
 export const file_croupier_server_v1_control: GenFile = /*@__PURE__*/
-  fileDesc("CiBjcm91cGllci9zZXJ2ZXIvdjEvY29udHJvbC5wcm90bxISY3JvdXBpZXIuc2VydmVyLnYxIoUBChJGdW5jdGlvbkRlc2NyaXB0b3ISCgoCaWQYASABKAkSDwoHdmVyc2lvbhgCIAEoCRIQCghjYXRlZ29yeRgDIAEoCRIMCgRyaXNrGAQgASgJEg4KBmVudGl0eRgFIAEoCRIRCglvcGVyYXRpb24YBiABKAkSDwoHZW5hYmxlZBgHIAEoCCKfAQoPUmVnaXN0ZXJSZXF1ZXN0EhAKCGFnZW50X2lkGAEgASgJEg8KB3ZlcnNpb24YAiABKAkSOQoJZnVuY3Rpb25zGAMgAygLMiYuY3JvdXBpZXIuc2VydmVyLnYxLkZ1bmN0aW9uRGVzY3JpcHRvchIQCghycGNfYWRkchgEIAEoCRIPCgdnYW1lX2lkGAUgASgJEgsKA2VudhgGIAEoCSI5ChBSZWdpc3RlclJlc3BvbnNlEhIKCnNlc3Npb25faWQYASABKAkSEQoJZXhwaXJlX2F0GAIgASgDIjgKEEhlYXJ0YmVhdFJlcXVlc3QSEAoIYWdlbnRfaWQYASABKAkSEgoKc2Vzc2lvbl9pZBgCIAEoCSITChFIZWFydGJlYXRSZXNwb25zZSJGCgxQcm92aWRlck1ldGESCgoCaWQYASABKAkSDwoHdmVyc2lvbhgCIAEoCRIMCgRsYW5nGAMgASgJEgsKA3NkaxgEIAEoCSJrChtSZWdpc3RlckNhcGFiaWxpdGllc1JlcXVlc3QSMgoIcHJvdmlkZXIYASABKAsyIC5jcm91cGllci5zZXJ2ZXIudjEuUHJvdmlkZXJNZXRhEhgKEG1hbmlmZXN0X2pzb25fZ3oYAiABKAwiHgocUmVnaXN0ZXJDYXBhYmlsaXRpZXNSZXNwb25zZTK8AgoOQ29udHJvbFNlcnZpY2USVQoIUmVnaXN0ZXISIy5jcm91cGllci5zZXJ2ZXIudjEuUmVnaXN0ZXJSZXF1ZXN0GiQuY3JvdXBpZXIuc2VydmVyLnYxLlJlZ2lzdGVyUmVzcG9uc2USWAoJSGVhcnRiZWF0EiQuY3JvdXBpZXIuc2VydmVyLnYxLkhlYXJ0YmVhdFJlcXVlc3QaJS5jcm91cGllci5zZXJ2ZXIudjEuSGVhcnRiZWF0UmVzcG9uc2USeQoUUmVnaXN0ZXJDYXBhYmlsaXRpZXMSLy5jcm91cGllci5zZXJ2ZXIudjEuUmVnaXN0ZXJDYXBhYmlsaXRpZXNSZXF1ZXN0GjAuY3JvdXBpZXIuc2VydmVyLnYxLlJlZ2lzdGVyQ2FwYWJpbGl0aWVzUmVzcG9uc2VC0QEKFmNvbS5jcm91cGllci5zZXJ2ZXIudjFCDENvbnRyb2xQcm90b1ABWj9naXRodWIuY29tL2N1aWhhaXJ1L2Nyb3VwaWVyL3BrZy9wYi9jcm91cGllci9zZXJ2ZXIvdjE7c2VydmVydjGiAgNDU1iqAhJDcm91cGllci5TZXJ2ZXIuVjHKAhJDcm91cGllclxTZXJ2ZXJcVjHiAh5Dcm91cGllclxTZXJ2ZXJcVjFcR1BCTWV0YWRhdGHqAhRDcm91cGllcjo6U2VydmVyOjpWMWIGcHJvdG8z");
+  fileDesc("CiBjcm91cGllci9zZXJ2ZXIvdjEvY29udHJvbC5wcm90bxISY3JvdXBpZXIuc2VydmVyLnYxItcCChJGdW5jdGlvbkRlc2NyaXB0b3ISCgoCaWQYASABKAkSDwoHdmVyc2lvbhgCIAEoCRIQCghjYXRlZ29yeRgDIAEoCRIMCgRyaXNrGAQgASgJEg4KBmVudGl0eRgFIAEoCRIRCglvcGVyYXRpb24YBiABKAkSDwoHZW5hYmxlZBgHIAEoCBIyCgxkaXNwbGF5X25hbWUYFCABKAsyHC5jcm91cGllci5jb21tb24udjEuSTE4blRleHQSLQoHc3VtbWFyeRgVIAEoCzIcLmNyb3VwaWVyLmNvbW1vbi52MS5JMThuVGV4dBIMCgR0YWdzGBYgAygJEiYKBG1lbnUYFyABKAsyGC5jcm91cGllci5jb21tb24udjEuTWVudRI3CgtwZXJtaXNzaW9ucxgYIAEoCzIiLmNyb3VwaWVyLmNvbW1vbi52MS5QZXJtaXNzaW9uU3BlYyKfAQoPUmVnaXN0ZXJSZXF1ZXN0EhAKCGFnZW50X2lkGAEgASgJEg8KB3ZlcnNpb24YAiABKAkSOQoJZnVuY3Rpb25zGAMgAygLMiYuY3JvdXBpZXIuc2VydmVyLnYxLkZ1bmN0aW9uRGVzY3JpcHRvchIQCghycGNfYWRkchgEIAEoCRIPCgdnYW1lX2lkGAUgASgJEgsKA2VudhgGIAEoCSI5ChBSZWdpc3RlclJlc3BvbnNlEhIKCnNlc3Npb25faWQYASABKAkSEQoJZXhwaXJlX2F0GAIgASgDIjgKEEhlYXJ0YmVhdFJlcXVlc3QSEAoIYWdlbnRfaWQYASABKAkSEgoKc2Vzc2lvbl9pZBgCIAEoCSITChFIZWFydGJlYXRSZXNwb25zZSJGCgxQcm92aWRlck1ldGESCgoCaWQYASABKAkSDwoHdmVyc2lvbhgCIAEoCRIMCgRsYW5nGAMgASgJEgsKA3NkaxgEIAEoCSJrChtSZWdpc3RlckNhcGFiaWxpdGllc1JlcXVlc3QSMgoIcHJvdmlkZXIYASABKAsyIC5jcm91cGllci5zZXJ2ZXIudjEuUHJvdmlkZXJNZXRhEhgKEG1hbmlmZXN0X2pzb25fZ3oYAiABKAwiHgocUmVnaXN0ZXJDYXBhYmlsaXRpZXNSZXNwb25zZSJZChxMaXN0RnVuY3Rpb25zU3VtbWFyeVJlc3BvbnNlEjkKCWZ1bmN0aW9ucxgBIAMoCzImLmNyb3VwaWVyLnNlcnZlci52MS5GdW5jdGlvbkRlc2NyaXB0b3IyngMKDkNvbnRyb2xTZXJ2aWNlEmAKFExpc3RGdW5jdGlvbnNTdW1tYXJ5EhYuZ29vZ2xlLnByb3RvYnVmLkVtcHR5GjAuY3JvdXBpZXIuc2VydmVyLnYxLkxpc3RGdW5jdGlvbnNTdW1tYXJ5UmVzcG9uc2USVQoIUmVnaXN0ZXISIy5jcm91cGllci5zZXJ2ZXIudjEuUmVnaXN0ZXJSZXF1ZXN0GiQuY3JvdXBpZXIuc2VydmVyLnYxLlJlZ2lzdGVyUmVzcG9uc2USWAoJSGVhcnRiZWF0EiQuY3JvdXBpZXIuc2VydmVyLnYxLkhlYXJ0YmVhdFJlcXVlc3QaJS5jcm91cGllci5zZXJ2ZXIudjEuSGVhcnRiZWF0UmVzcG9uc2USeQoUUmVnaXN0ZXJDYXBhYmlsaXRpZXMSLy5jcm91cGllci5zZXJ2ZXIudjEuUmVnaXN0ZXJDYXBhYmlsaXRpZXNSZXF1ZXN0GjAuY3JvdXBpZXIuc2VydmVyLnYxLlJlZ2lzdGVyQ2FwYWJpbGl0aWVzUmVzcG9uc2VC0QEKFmNvbS5jcm91cGllci5zZXJ2ZXIudjFCDENvbnRyb2xQcm90b1ABWj9naXRodWIuY29tL2N1aWhhaXJ1L2Nyb3VwaWVyL3BrZy9wYi9jcm91cGllci9zZXJ2ZXIvdjE7c2VydmVydjGiAgNDU1iqAhJDcm91cGllci5TZXJ2ZXIuVjHKAhJDcm91cGllclxTZXJ2ZXJcVjHiAh5Dcm91cGllclxTZXJ2ZXJcVjFcR1BCTWV0YWRhdGHqAhRDcm91cGllcjo6U2VydmVyOjpWMWIGcHJvdG8z", [file_croupier_common_v1_ui, file_google_protobuf_empty]);
 
 /**
  * Server-side Function Descriptor
@@ -66,6 +70,33 @@ export type FunctionDescriptor = Message<"croupier.server.v1.FunctionDescriptor"
    * @generated from field: bool enabled = 7;
    */
   enabled: boolean;
+
+  /**
+   * New: UI/i18n/tags/menu/permissions for dynamic navigation & RBAC generation
+   *
+   * @generated from field: croupier.common.v1.I18nText display_name = 20;
+   */
+  displayName?: I18nText;
+
+  /**
+   * @generated from field: croupier.common.v1.I18nText summary = 21;
+   */
+  summary?: I18nText;
+
+  /**
+   * @generated from field: repeated string tags = 22;
+   */
+  tags: string[];
+
+  /**
+   * @generated from field: croupier.common.v1.Menu menu = 23;
+   */
+  menu?: Menu;
+
+  /**
+   * @generated from field: croupier.common.v1.PermissionSpec permissions = 24;
+   */
+  permissions?: PermissionSpec;
 };
 
 /**
@@ -272,11 +303,38 @@ export const RegisterCapabilitiesResponseSchema: GenMessage<RegisterCapabilities
   messageDesc(file_croupier_server_v1_control, 7);
 
 /**
+ * @generated from message croupier.server.v1.ListFunctionsSummaryResponse
+ */
+export type ListFunctionsSummaryResponse = Message<"croupier.server.v1.ListFunctionsSummaryResponse"> & {
+  /**
+   * @generated from field: repeated croupier.server.v1.FunctionDescriptor functions = 1;
+   */
+  functions: FunctionDescriptor[];
+};
+
+/**
+ * Describes the message croupier.server.v1.ListFunctionsSummaryResponse.
+ * Use `create(ListFunctionsSummaryResponseSchema)` to create a new message.
+ */
+export const ListFunctionsSummaryResponseSchema: GenMessage<ListFunctionsSummaryResponse> = /*@__PURE__*/
+  messageDesc(file_croupier_server_v1_control, 8);
+
+/**
  * Server Control Service - Internal interface for agent registration and management
  *
  * @generated from service croupier.server.v1.ControlService
  */
 export const ControlService: GenService<{
+  /**
+   * Summarized function catalog with UI/RBAC metadata (for dashboard)
+   *
+   * @generated from rpc croupier.server.v1.ControlService.ListFunctionsSummary
+   */
+  listFunctionsSummary: {
+    methodKind: "unary";
+    input: typeof EmptySchema;
+    output: typeof ListFunctionsSummaryResponseSchema;
+  },
   /**
    * Agent registration with server
    *

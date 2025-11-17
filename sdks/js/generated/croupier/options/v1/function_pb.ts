@@ -6,13 +6,15 @@ import type { GenExtension, GenFile, GenMessage } from "@bufbuild/protobuf/codeg
 import { extDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { MethodOptions } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_descriptor } from "@bufbuild/protobuf/wkt";
+import type { I18nText, Menu, PermissionSpec } from "../../common/v1/ui_pb";
+import { file_croupier_common_v1_ui } from "../../common/v1/ui_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file croupier/options/v1/function.proto.
  */
 export const file_croupier_options_v1_function: GenFile = /*@__PURE__*/
-  fileDesc("CiJjcm91cGllci9vcHRpb25zL3YxL2Z1bmN0aW9uLnByb3RvEhNjcm91cGllci5vcHRpb25zLnYxIrsCCg9GdW5jdGlvbk9wdGlvbnMSEwoLZnVuY3Rpb25faWQYASABKAkSDwoHdmVyc2lvbhgCIAEoCRIQCghjYXRlZ29yeRgDIAEoCRIMCgRyaXNrGAQgASgJEg0KBXJvdXRlGAUgASgJEg8KB3RpbWVvdXQYBiABKAkSFwoPdHdvX3BlcnNvbl9ydWxlGAcgASgIEhEKCXBsYWNlbWVudBgIIAEoCRJACgZsYWJlbHMYCSADKAsyMC5jcm91cGllci5vcHRpb25zLnYxLkZ1bmN0aW9uT3B0aW9ucy5MYWJlbHNFbnRyeRIMCgRtb2RlGAogASgJEhcKD2lkZW1wb3RlbmN5X2tleRgLIAEoCBotCgtMYWJlbHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBOmIKCGZ1bmN0aW9uEh4uZ29vZ2xlLnByb3RvYnVmLk1ldGhvZE9wdGlvbnMYuY4DIAEoCzIkLmNyb3VwaWVyLm9wdGlvbnMudjEuRnVuY3Rpb25PcHRpb25zUghmdW5jdGlvbkLZAQoXY29tLmNyb3VwaWVyLm9wdGlvbnMudjFCDUZ1bmN0aW9uUHJvdG9QAVpBZ2l0aHViLmNvbS9jdWloYWlydS9jcm91cGllci9wa2cvcGIvY3JvdXBpZXIvb3B0aW9ucy92MTtvcHRpb25zdjGiAgNDT1iqAhNDcm91cGllci5PcHRpb25zLlYxygITQ3JvdXBpZXJcT3B0aW9uc1xWMeICH0Nyb3VwaWVyXE9wdGlvbnNcVjFcR1BCTWV0YWRhdGHqAhVDcm91cGllcjo6T3B0aW9uczo6VjFiBnByb3RvMw", [file_google_protobuf_descriptor]);
+  fileDesc("CiJjcm91cGllci9vcHRpb25zL3YxL2Z1bmN0aW9uLnByb3RvEhNjcm91cGllci5vcHRpb25zLnYxIo0ECg9GdW5jdGlvbk9wdGlvbnMSEwoLZnVuY3Rpb25faWQYASABKAkSDwoHdmVyc2lvbhgCIAEoCRIQCghjYXRlZ29yeRgDIAEoCRIMCgRyaXNrGAQgASgJEg0KBXJvdXRlGAUgASgJEg8KB3RpbWVvdXQYBiABKAkSFwoPdHdvX3BlcnNvbl9ydWxlGAcgASgIEhEKCXBsYWNlbWVudBgIIAEoCRJACgZsYWJlbHMYCSADKAsyMC5jcm91cGllci5vcHRpb25zLnYxLkZ1bmN0aW9uT3B0aW9ucy5MYWJlbHNFbnRyeRIMCgRtb2RlGAogASgJEhcKD2lkZW1wb3RlbmN5X2tleRgLIAEoCBIyCgxkaXNwbGF5X25hbWUYDCABKAsyHC5jcm91cGllci5jb21tb24udjEuSTE4blRleHQSLQoHc3VtbWFyeRgNIAEoCzIcLmNyb3VwaWVyLmNvbW1vbi52MS5JMThuVGV4dBIMCgR0YWdzGA4gAygJEiYKBG1lbnUYDyABKAsyGC5jcm91cGllci5jb21tb24udjEuTWVudRI3CgtwZXJtaXNzaW9ucxgQIAEoCzIiLmNyb3VwaWVyLmNvbW1vbi52MS5QZXJtaXNzaW9uU3BlYxotCgtMYWJlbHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBOmIKCGZ1bmN0aW9uEh4uZ29vZ2xlLnByb3RvYnVmLk1ldGhvZE9wdGlvbnMYuY4DIAEoCzIkLmNyb3VwaWVyLm9wdGlvbnMudjEuRnVuY3Rpb25PcHRpb25zUghmdW5jdGlvbkLZAQoXY29tLmNyb3VwaWVyLm9wdGlvbnMudjFCDUZ1bmN0aW9uUHJvdG9QAVpBZ2l0aHViLmNvbS9jdWloYWlydS9jcm91cGllci9wa2cvcGIvY3JvdXBpZXIvb3B0aW9ucy92MTtvcHRpb25zdjGiAgNDT1iqAhNDcm91cGllci5PcHRpb25zLlYxygITQ3JvdXBpZXJcT3B0aW9uc1xWMeICH0Nyb3VwaWVyXE9wdGlvbnNcVjFcR1BCTWV0YWRhdGHqAhVDcm91cGllcjo6T3B0aW9uczo6VjFiBnByb3RvMw", [file_google_protobuf_descriptor, file_croupier_common_v1_ui]);
 
 /**
  * 方法级元信息（可选）。插件未识别时将使用默认推断。
@@ -96,6 +98,40 @@ export type FunctionOptions = Message<"croupier.options.v1.FunctionOptions"> & {
    * @generated from field: bool idempotency_key = 11;
    */
   idempotencyKey: boolean;
+
+  /**
+   * ========== 展示 & 权限（UI/菜单/权限，强类型定义） ==========
+   * 展示名称与摘要（i18n）
+   *
+   * @generated from field: croupier.common.v1.I18nText display_name = 12;
+   */
+  displayName?: I18nText;
+
+  /**
+   * @generated from field: croupier.common.v1.I18nText summary = 13;
+   */
+  summary?: I18nText;
+
+  /**
+   * 标签
+   *
+   * @generated from field: repeated string tags = 14;
+   */
+  tags: string[];
+
+  /**
+   * 菜单元数据（用于构建前端菜单）
+   *
+   * @generated from field: croupier.common.v1.Menu menu = 15;
+   */
+  menu?: Menu;
+
+  /**
+   * 权限规范（verbs/scopes/default role grants/i18n）
+   *
+   * @generated from field: croupier.common.v1.PermissionSpec permissions = 16;
+   */
+  permissions?: PermissionSpec;
 };
 
 /**
