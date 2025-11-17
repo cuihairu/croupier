@@ -69,7 +69,7 @@ export default {
   'menu.Analytics.Payments': '支付分析',
   'menu.Analytics.Levels': '关卡分析',
   'menu.Analytics.Attribution': '渠道投放',
-  'menu.Analytics.Segments': '分层与人群',
+  'menu.Analytics.Segments': '人群分层',
   'menu.ComponentManagement': '组件管理',
 
   // Legacy menu items (保持向后兼容)
