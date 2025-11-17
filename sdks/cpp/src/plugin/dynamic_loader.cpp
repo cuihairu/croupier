@@ -208,7 +208,7 @@ void DynamicLibraryManager::SetErrorCallback(std::function<void(const std::strin
 
 #ifdef _WIN32
 LibraryHandle DynamicLibraryManager::LoadLibraryImpl(const std::string& lib_path) {
-    return LoadLibraryA(lib_path.c_str());
+    return ::LoadLibraryA(lib_path.c_str());
 }
 
 void DynamicLibraryManager::UnloadLibraryImpl(LibraryHandle handle) {
@@ -216,11 +216,11 @@ void DynamicLibraryManager::UnloadLibraryImpl(LibraryHandle handle) {
 }
 
 void* DynamicLibraryManager::GetFunctionImpl(LibraryHandle handle, const std::string& function_name) {
-    return GetProcAddress(handle, function_name.c_str());
+    return reinterpret_cast<void*>(::GetProcAddress(handle, function_name.c_str()));
 }
 
 std::string DynamicLibraryManager::GetPlatformError() {
-    DWORD error = GetLastError();
+    DWORD error = ::GetLastError();
     if (error == 0) return "Unknown error";
 
     LPSTR messageBuffer = nullptr;

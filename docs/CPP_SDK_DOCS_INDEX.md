@@ -285,10 +285,10 @@ CPP_SDK_ANALYSIS.md → GitHub Actions 章节 (15分钟)
 ## 🔗 外部资源链接
 
 ### 官方文档
-- [README.md](../sdks/cpp/README.md) - SDK 官方文档
-- [CONFIG_GUIDE.md](../sdks/cpp/CONFIG_GUIDE.md) - 配置指南
-- [PLUGIN_GUIDE.md](../sdks/cpp/PLUGIN_GUIDE.md) - 插件开发
-- [VIRTUAL_OBJECT_REGISTRATION.md](../sdks/cpp/VIRTUAL_OBJECT_REGISTRATION.md) - 虚拟对象
+- [README.md](sdks/cpp/) - SDK 官方文档
+- [CONFIG_GUIDE.md](sdks/cpp/CONFIG_GUIDE) - 配置指南
+- [PLUGIN_GUIDE.md](sdks/cpp/PLUGIN_GUIDE) - 插件开发
+- [VIRTUAL_OBJECT_REGISTRATION.md](sdks/cpp/VIRTUAL_OBJECT_REGISTRATION) - 虚拟对象
 - [GitHub Workflows](https://github.com/cuihairu/croupier/tree/main/sdks/cpp/.github/workflows)
 
 ### 源代码位置
