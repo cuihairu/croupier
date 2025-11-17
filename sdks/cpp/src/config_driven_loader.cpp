@@ -488,7 +488,15 @@ FunctionHandler ConfigDrivenLoader::LoadFromDynamicLib(const std::string& lib_pa
     }
 
     typedef const char* (*HandlerFunc)(const char* context, const char* payload);
-    HandlerFunc func = (HandlerFunc)GetProcAddress(handle, function_name.c_str());
+    HandlerFunc func = nullptr;
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
+    func = reinterpret_cast<HandlerFunc>(GetProcAddress(handle, function_name.c_str()));
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
     if (!func) {
         std::cerr << "❌ 无法找到函数: " << function_name << std::endl;
         FreeLibrary(handle);
