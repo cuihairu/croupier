@@ -9,10 +9,18 @@
 #include <windows.h>
 #include <io.h>
 #include <shlwapi.h>
+// Link shlwapi only on MSVC; MinGW treats unknown pragmas as errors.
+#ifdef _MSC_VER
 #pragma comment(lib, "shlwapi.lib")
+#endif
 #define ACCESS _access
 #define GETCWD _getcwd
 #define MKDIR(path) _mkdir(path)
+// Avoid collisions with WinAPI macros (CreateDirectory, GetCurrentDirectory, etc.)
+#undef CreateDirectory
+#undef GetCurrentDirectory
+#undef RemoveDirectory
+#undef CopyFile
 #else
 #include <sys/stat.h>
 #include <sys/types.h>
