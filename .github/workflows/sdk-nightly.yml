@@ -142,10 +142,19 @@ jobs:
         shell: pwsh
         run: |
           $env:VCPKG_ROOT="$PWD\.vcpkg"
+          $needsClone = $true
           if (Test-Path $env:VCPKG_ROOT -PathType Container) {
-            Write-Host "Reusing existing vcpkg directory at $env:VCPKG_ROOT"
-          } else {
-            if (Test-Path $env:VCPKG_ROOT) { Remove-Item $env:VCPKG_ROOT -Recurse -Force }
+            if (Test-Path (Join-Path $env:VCPKG_ROOT "bootstrap-vcpkg.bat")) {
+              Write-Host "Reusing existing vcpkg directory at $env:VCPKG_ROOT"
+              $needsClone = $false
+            } else {
+              Write-Host "Existing $env:VCPKG_ROOT missing bootstrap script; removing"
+              Remove-Item $env:VCPKG_ROOT -Recurse -Force
+            }
+          } elseif (Test-Path $env:VCPKG_ROOT) {
+            Remove-Item $env:VCPKG_ROOT -Recurse -Force
+          }
+          if ($needsClone) {
             git clone --depth 1 https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
           }
           # Build only Release binaries for ports to halve build time
