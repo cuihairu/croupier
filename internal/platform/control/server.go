@@ -11,14 +11,14 @@ import (
     "time"
 
     reg "github.com/cuihairu/croupier/internal/platform/registry"
-    controlv1 "github.com/cuihairu/croupier/pkg/pb/croupier/control/v1"
+    serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
     commonv1 "github.com/cuihairu/croupier/pkg/pb/croupier/common/v1"
     "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // Server implements the ControlService and exposes a registry store for other components.
 type Server struct {
-    controlv1.UnimplementedControlServiceServer
+    serverv1.UnimplementedControlServiceServer
     reg *reg.Store
 }
 
@@ -33,8 +33,8 @@ func NewServer(registry *reg.Store) *Server {
 func (s *Server) Store() *reg.Store { return s.reg }
 
 // Register registers or updates an agent session. Minimal fields are accepted.
-func (s *Server) Register(ctx context.Context, in *controlv1.RegisterRequest) (*controlv1.RegisterResponse, error) {
-    if in == nil { return &controlv1.RegisterResponse{}, nil }
+func (s *Server) Register(ctx context.Context, in *serverv1.RegisterRequest) (*serverv1.RegisterResponse, error) {
+    if in == nil { return &serverv1.RegisterResponse{}, nil }
     sess := &reg.AgentSession{
         AgentID:  in.GetAgentId(),
         GameID:   in.GetGameId(),
@@ -53,35 +53,35 @@ func (s *Server) Register(ctx context.Context, in *controlv1.RegisterRequest) (*
         }
     }
     s.reg.UpsertAgent(sess)
-    return &controlv1.RegisterResponse{}, nil
+    return &serverv1.RegisterResponse{}, nil
 }
 
 // Heartbeat extends the expiry of an agent session.
-func (s *Server) Heartbeat(ctx context.Context, in *controlv1.HeartbeatRequest) (*controlv1.HeartbeatResponse, error) {
-    if in == nil || in.GetAgentId() == "" { return &controlv1.HeartbeatResponse{}, nil }
+func (s *Server) Heartbeat(ctx context.Context, in *serverv1.HeartbeatRequest) (*serverv1.HeartbeatResponse, error) {
+    if in == nil || in.GetAgentId() == "" { return &serverv1.HeartbeatResponse{}, nil }
     s.reg.Mu().Lock()
     if a := s.reg.AgentsUnsafe()[in.GetAgentId()]; a != nil {
         a.ExpireAt = time.Now().Add(60 * time.Second)
     }
     s.reg.Mu().Unlock()
-    return &controlv1.HeartbeatResponse{}, nil
+    return &serverv1.HeartbeatResponse{}, nil
 }
 
 // RegisterCapabilities handles provider manifest registration with language-agnostic declaration.
-func (s *Server) RegisterCapabilities(ctx context.Context, in *controlv1.RegisterCapabilitiesRequest) (*controlv1.RegisterCapabilitiesResponse, error) {
+func (s *Server) RegisterCapabilities(ctx context.Context, in *serverv1.RegisterCapabilitiesRequest) (*serverv1.RegisterCapabilitiesResponse, error) {
     if in == nil {
-        return &controlv1.RegisterCapabilitiesResponse{}, fmt.Errorf("request cannot be nil")
+        return &serverv1.RegisterCapabilitiesResponse{}, fmt.Errorf("request cannot be nil")
     }
 
     provider := in.GetProvider()
     if provider == nil || provider.GetId() == "" {
-        return &controlv1.RegisterCapabilitiesResponse{}, fmt.Errorf("provider metadata is required")
+        return &serverv1.RegisterCapabilitiesResponse{}, fmt.Errorf("provider metadata is required")
     }
 
     // Decompress the manifest JSON
     manifestData, err := s.decompressManifest(in.GetManifestJsonGz())
     if err != nil {
-        return &controlv1.RegisterCapabilitiesResponse{}, fmt.Errorf("failed to decompress manifest: %w", err)
+        return &serverv1.RegisterCapabilitiesResponse{}, fmt.Errorf("failed to decompress manifest: %w", err)
     }
 
     // Store the provider capabilities in registry
@@ -96,14 +96,14 @@ func (s *Server) RegisterCapabilities(ctx context.Context, in *controlv1.Registe
 
     s.reg.UpsertProviderCaps(providerCaps)
 
-    return &controlv1.RegisterCapabilitiesResponse{}, nil
+    return &serverv1.RegisterCapabilitiesResponse{}, nil
 }
 
 // ListFunctionsSummary aggregates unique functions across all registered agents and returns
 // a summarized descriptor list for dashboard consumption. This is a minimal baseline that
 // can be enriched with UI/RBAC metadata sourced from proto options or provider manifests.
-func (s *Server) ListFunctionsSummary(ctx context.Context, _ *emptypb.Empty) (*controlv1.ListFunctionsSummaryResponse, error) {
-    out := &controlv1.ListFunctionsSummaryResponse{}
+func (s *Server) ListFunctionsSummary(ctx context.Context, _ *emptypb.Empty) (*serverv1.ListFunctionsSummaryResponse, error) {
+    out := &serverv1.ListFunctionsSummaryResponse{}
     seen := map[string]struct{}{}
     enabledMap := map[string]bool{}
 
@@ -177,7 +177,7 @@ func (s *Server) ListFunctionsSummary(ctx context.Context, _ *emptypb.Empty) (*c
     }
     // Build descriptors
     for fid := range union {
-        fd := &controlv1.FunctionDescriptor{
+        fd := &serverv1.FunctionDescriptor{
             Id:      fid,
             Enabled: enabledMap[fid],
         }

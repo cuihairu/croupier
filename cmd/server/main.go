@@ -318,8 +318,8 @@ func main() {
 			// Register services
 			// DB-backed games; ignore legacy gamesPath
 			_ = gamesPath
-			ctrl := controlserver.NewServer(nil)
-			controlv1.RegisterControlServiceServer(s, ctrl)
+            ctrl := controlserver.NewServer(nil)
+            serverv1.RegisterControlServiceServer(s, ctrl)
 			// FunctionService invoker: forward to Edge when provided, else use a no-op.
 			var invoker httpserver.FunctionInvoker = noopInvoker{}
 			if edgeAddr != "" {

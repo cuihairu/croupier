@@ -3,7 +3,7 @@ package edge
 import (
     ctrl "github.com/cuihairu/croupier/internal/platform/control"
     reg "github.com/cuihairu/croupier/internal/platform/registry"
-    controlv1 "github.com/cuihairu/croupier/pkg/pb/croupier/control/v1"
+    serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
     functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
     jobv1 "github.com/cuihairu/croupier/pkg/pb/croupier/edge/job/v1"
     tunnelv1 "github.com/cuihairu/croupier/pkg/pb/croupier/tunnel/v1"
@@ -22,7 +22,7 @@ func New(registry *reg.Store) *App {
 
 // RegisterGRPC registers gRPC services on the given server.
 func (a *App) RegisterGRPC(s *grpc.Server) {
-    controlv1.RegisterControlServiceServer(s, a.ctrl)
+    serverv1.RegisterControlServiceServer(s, a.ctrl)
     tunnelv1.RegisterTunnelServiceServer(s, &TunnelServer{})
     functionv1.RegisterFunctionServiceServer(s, &FunctionServer{})
     jobv1.RegisterJobServiceServer(s, &JobServer{})
@@ -39,4 +39,3 @@ type FunctionServer struct{ functionv1.UnimplementedFunctionServiceServer }
 
 // JobServer is a stub implementation.
 type JobServer struct{ jobv1.UnimplementedJobServiceServer }
-
