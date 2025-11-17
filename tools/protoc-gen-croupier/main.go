@@ -151,6 +151,38 @@ func main() {
 				if len(fo.Labels) > 0 {
 					desc["labels"] = fo.Labels
 				}
+				// --- UI/RBAC bridging from proto options into manifest ---
+				if len(fo.DisplayName) > 0 {
+					desc["display_name"] = fo.DisplayName
+				}
+				if len(fo.Summary) > 0 {
+					desc["summary"] = fo.Summary
+				}
+				if len(fo.Tags) > 0 {
+					desc["tags"] = fo.Tags
+				}
+				if len(fo.Menu) > 0 {
+					desc["menu"] = fo.Menu
+				}
+				if len(fo.Permissions) > 0 {
+					desc["permissions"] = fo.Permissions
+				}
+				// --- UI/RBAC bridging from proto options into manifest ---
+				if len(fo.DisplayName) > 0 {
+					desc["display_name"] = fo.DisplayName
+				}
+				if len(fo.Summary) > 0 {
+					desc["summary"] = fo.Summary
+				}
+				if len(fo.Tags) > 0 {
+					desc["tags"] = fo.Tags
+				}
+				if len(fo.Menu) > 0 {
+					desc["menu"] = fo.Menu
+				}
+				if len(fo.Permissions) > 0 {
+					desc["permissions"] = fo.Permissions
+				}
 				// JSON schema for input + UI schema (with field-level UI options if any)
 				if inMsg := msgIndex[m.GetInputType()]; inMsg != nil {
 					uiHints := collectUIFieldHints(inMsg)
@@ -471,6 +503,12 @@ type funcOpts struct {
 	IdempotencyKey    bool
 	IdempotencyKeySet bool
 	Labels            map[string]string
+	// Extended UI/RBAC
+	DisplayName map[string]string
+	Summary     map[string]string
+	Tags        []string
+	Menu        map[string]any
+	Permissions map[string]any
 }
 
 func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
@@ -518,6 +556,44 @@ func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
 		}
 		if m := parseOptionObjectMap(raw, "labels"); len(m) > 0 {
 			out.Labels = m
+		}
+		// UI/i18n
+		if m := parseOptionObjectMap(raw, "display_name"); len(m) > 0 {
+			out.DisplayName = m
+		}
+		if m := parseOptionObjectMap(raw, "summary"); len(m) > 0 {
+			out.Summary = m
+		}
+		if arr := parseOptionArray(raw, "tags"); len(arr) > 0 {
+			out.Tags = arr
+		}
+		// Menu object
+		if m := parseOptionObjectMap(raw, "menu"); len(m) > 0 {
+			menu := map[string]any{}
+			for k, v := range m {
+				switch k {
+				case "section", "group", "path", "icon", "badge":
+					menu[k] = v
+				case "order":
+					menu[k] = parseIntMaybe(v)
+				case "hidden":
+					menu[k] = parseBool(v)
+				default:
+					menu[k] = v
+				}
+			}
+			out.Menu = menu
+		}
+		// Permissions (verbs/scopes)
+		perms := map[string]any{}
+		if arr := parseOptionArray(raw, "permissions.verbs"); len(arr) > 0 {
+			perms["verbs"] = arr
+		}
+		if arr := parseOptionArray(raw, "permissions.scopes"); len(arr) > 0 {
+			perms["scopes"] = arr
+		}
+		if len(perms) > 0 {
+			out.Permissions = perms
 		}
 	}
 	return out
@@ -818,6 +894,95 @@ func parseOptionObjectMap(s, fieldName string) map[string]string {
 	return res
 }
 
+// parseOptionArray extracts a simple string array for "field: [a,b,c]" or "field: \"a,b,c\"" into []string
+func parseOptionArray(s, field string) []string {
+	out := []string{}
+	if s == "" || field == "" {
+		return out
+	}
+	i := 0
+	for i < len(s) {
+		idx := strings.Index(s[i:], field)
+		if idx < 0 {
+			break
+		}
+		i += idx + len(field)
+		// skip spaces
+		for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n') {
+			i++
+		}
+		if i >= len(s) || s[i] != ':' {
+			continue
+		}
+		i++ // skip colon
+		for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n') {
+			i++
+		}
+		if i >= len(s) {
+			break
+		}
+		if s[i] == '[' {
+			// parse until matching ]
+			i++
+			start := i
+			depth := 1
+			for i < len(s) && depth > 0 {
+				if s[i] == '[' {
+					depth++
+				} else if s[i] == ']' {
+					depth--
+					if depth == 0 {
+						break
+					}
+				}
+				i++
+			}
+			end := i
+			if end > start {
+				inside := s[start:end]
+				parts := strings.Split(inside, ",")
+				for _, p := range parts {
+					p = strings.TrimSpace(strings.Trim(p, "\"'"))
+					if p != "" {
+						out = append(out, p)
+					}
+				}
+			}
+			break
+		} else if s[i] == '"' {
+			// quoted csv
+			i++
+			start := i
+			for i < len(s) && s[i] != '"' {
+				i++
+			}
+			if i > start {
+				inside := s[start:i]
+				parts := strings.Split(inside, ",")
+				for _, p := range parts {
+					p = strings.TrimSpace(p)
+					if p != "" {
+						out = append(out, p)
+					}
+				}
+			}
+			break
+		} else {
+			// plain token or csv until comma/newline/}
+			start := i
+			for i < len(s) && s[i] != ',' && s[i] != '\n' && s[i] != '}' {
+				i++
+			}
+			token := strings.TrimSpace(s[start:i])
+			if token != "" {
+				out = append(out, token)
+			}
+			break
+		}
+	}
+	return out
+}
+
 func trimQuotes(s string) string {
 	return strings.Trim(s, "\"")
 }
@@ -825,6 +990,18 @@ func trimQuotes(s string) string {
 func parseBool(s string) bool {
 	s = strings.ToLower(strings.TrimSpace(trimQuotes(s)))
 	return s == "true" || s == "1" || s == "yes"
+}
+
+func parseIntMaybe(s string) int {
+	ss := strings.TrimSpace(trimQuotes(s))
+	n := 0
+	for i := 0; i < len(ss); i++ {
+		if ss[i] < '0' || ss[i] > '9' {
+			return 0
+		}
+		n = n*10 + int(ss[i]-'0')
+	}
+	return n
 }
 
 func buildPackTarGz(files []generatedFile) ([]byte, error) {
