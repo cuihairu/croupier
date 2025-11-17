@@ -544,11 +544,29 @@ export default function GmFunctionsPage() {
                 onChange={(e)=>setHashKey(e.target.value)} />
             </>
           )}
-        </Space>
+      </Space>
 
-        {/* Form Rendering Section */}
-        {(() => {
-          if (renderMode === 'form-render' && currentDesc?.params) {
+      {/* 配置可视化，便于后台查看参数与 UI 定制 */}
+      <Row gutter={16}>
+        <Col span={12}>
+          <Card size="small" title="参数 Schema">
+            <pre style={{ whiteSpace: 'pre-wrap', margin: 0, maxHeight: 240, overflow: 'auto' }}>
+              {currentDesc?.params ? JSON.stringify(currentDesc.params, null, 2) : '无参数定义'}
+            </pre>
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card size="small" title="UI 参数 (uiSchema)">
+            <pre style={{ whiteSpace: 'pre-wrap', margin: 0, maxHeight: 240, overflow: 'auto' }}>
+              {uiSchema ? JSON.stringify(uiSchema, null, 2) : '无 UI Schema'}
+            </pre>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Form Rendering Section */}
+      {(() => {
+        if (renderMode === 'form-render' && currentDesc?.params) {
             return (
               <FormRender
                 schema={currentDesc.params}
