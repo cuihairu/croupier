@@ -20,7 +20,7 @@ import (
 
 	httpserver "github.com/cuihairu/croupier/internal/app/server/http"
 	controlserver "github.com/cuihairu/croupier/internal/platform/control"
-	controlv1 "github.com/cuihairu/croupier/pkg/pb/croupier/control/v1"
+	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	// register json codec
 	_ "github.com/cuihairu/croupier/internal/transport/jsoncodec"
