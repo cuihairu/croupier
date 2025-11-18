@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Table, Space, Button, Modal, Form, InputNumber, Select, Input, App, Tag, Checkbox } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
+import { useIntl } from '@umijs/max';
 import type { ColumnsType } from 'antd/es/table';
 import { listRateLimits, putRateLimits, deleteRateLimit, type RateLimitRule, listOpsFunctions, fetchOpsServices, previewRateLimit } from '@/services/croupier/ops';
 
 export default function OpsRateLimitsPage() {
   const { message } = App.useApp();
+  const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [rules, setRules] = useState<RateLimitRule[]>([]);
   const [open, setOpen] = useState(false);
@@ -57,15 +60,15 @@ export default function OpsRateLimitsPage() {
   useEffect(()=>{ load(); }, []);
 
   const columns: ColumnsType<RateLimitRule> = [
-    { title:'作用域', dataIndex:'scope', width:120, render:(v)=> v==='function'? <Tag color="blue">函数</Tag>: <Tag color='purple'>服务</Tag> },
+    { title:intl.formatMessage({ id: 'pages.scope' }), dataIndex:'scope', width:120, render:(v)=> v==='function'? <Tag color="blue">{intl.formatMessage({ id: 'pages.rate.limits.functions' })}</Tag>: <Tag color='purple'>{intl.formatMessage({ id: 'pages.rate.limits.services' })}</Tag> },
     { title:'Key', dataIndex:'key', width:240 },
     { title:'QPS', dataIndex:'limit_qps', width:100 },
-    { title:'比例(%)', dataIndex:'percent', width:100, render:(v)=> v||100 },
-    { title:'匹配', dataIndex:'match', width:200, render:(m:any)=> m? Object.entries(m).map(([k,v])=> <Tag key={k}>{k}:{String(v)}</Tag>): '-' },
-    { title:'操作', render: (_:any, r)=> (
+    { title:intl.formatMessage({ id: 'pages.rate.limits.percentage' }), dataIndex:'percent', width:100, render:(v)=> v||100 },
+    { title:intl.formatMessage({ id: 'pages.rate.limits.match' }).replace('（可选）', ''), dataIndex:'match', width:200, render:(m:any)=> m? Object.entries(m).map(([k,v])=> <Tag key={k}>{k}:{String(v)}</Tag>): '-' },
+    { title:intl.formatMessage({ id: 'pages.permissions.actions' }), render: (_:any, r)=> (
       <Space>
-        <Button size="small" onClick={()=> { setOpen(true); form.setFieldsValue(r); }}>编辑</Button>
-        <Button size="small" danger onClick={()=> Modal.confirm({ title:'删除限速', content:`确定删除规则 ${r.scope}:${r.key}?`, onOk: async()=> { await deleteRateLimit(r.scope, r.key); message.success('已删除'); load(); } })}>删除</Button>
+        <Button size="small" onClick={()=> { setOpen(true); form.setFieldsValue(r); }}>{intl.formatMessage({ id: 'pages.permissions.edit.button' })}</Button>
+        <Button size="small" danger onClick={()=> Modal.confirm({ title:intl.formatMessage({ id: 'pages.rate.limits.management' }).replace('限速管理', '删除限速'), content:intl.formatMessage({ id: 'pages.rate.limits.delete.confirm' }, { scope: r.scope, key: r.key }), onOk: async()=> { await deleteRateLimit(r.scope, r.key); message.success(intl.formatMessage({ id: 'pages.permissions.save.success' }).replace('已保存权限配置', '已删除')); load(); } })}>{intl.formatMessage({ id: 'pages.permissions.edit.button' }).replace('编辑', '删除')}</Button>
       </Space>
     )}
   ];
@@ -110,27 +113,49 @@ export default function OpsRateLimitsPage() {
   };
 
   return (
-    <div style={{ padding: 24 }}>
-      <Card title="限速管理" extra={<Button type="primary" onClick={()=> { setOpen(true); form.setFieldsValue({ scope:'function', limit_qps: 10 }); }}>新建规则</Button>}>
+    <PageContainer>
+      <Card 
+        title={intl.formatMessage({ id: 'pages.rate.limits.management' })} 
+        extra={<Button type="primary" onClick={()=> { setOpen(true); form.setFieldsValue({ scope:'function', limit_qps: 10 }); }}>{intl.formatMessage({ id: 'pages.rate.limits.new.rule' })}</Button>}
+      >
         <Table rowKey={(r)=> `${r.scope}:${r.key}`} loading={loading} dataSource={rules} columns={columns} pagination={{ pageSize: 10 }} />
       </Card>
 
-      <Modal title="编辑限速规则" open={open} onOk={onSubmit} onCancel={()=> { setOpen(false); setPreview(null); }} destroyOnHidden>
+      <Modal 
+        title={intl.formatMessage({ id: 'pages.rate.limits.edit.rule' })} 
+        open={open} 
+        onOk={onSubmit} 
+        onCancel={()=> { setOpen(false); setPreview(null); }} 
+        destroyOnHidden
+      >
         <Form form={form} layout="vertical" onValuesChange={onFormValuesChange} initialValues={{ scope:'function', limit_qps: 10, percent: 100 }}>
-          <Form.Item label="作用域" name="scope" rules={[{required:true}]}> <Select options={[{label:'函数', value:'function'},{label:'服务', value:'service'}]} onChange={()=> form.setFieldValue('key','')} /> </Form.Item>
+          <Form.Item label={intl.formatMessage({ id: 'pages.scope' })} name="scope" rules={[{required:true}]}> 
+            <Select options={[
+              {label:intl.formatMessage({ id: 'pages.rate.limits.functions' }), value:'function'},
+              {label:intl.formatMessage({ id: 'pages.rate.limits.services' }), value:'service'}
+            ]} onChange={()=> form.setFieldValue('key','')} /> 
+          </Form.Item>
           <Form.Item noStyle shouldUpdate={(prev,cur)=> prev.scope!==cur.scope}>
             {() => {
               const scope = form.getFieldValue('scope');
               return (
-                <Form.Item label={scope==='service'? 'Key（AgentID）':'Key（函数ID）'} name="key" rules={[{required:true}]}> 
-                  <Select showSearch placeholder={scope==='service'? 'agent_id':'function_id'} options={(scope==='service'? agents: functions).map((id)=> ({ label:id, value:id }))} />
+                <Form.Item 
+                  label={scope==='service'? intl.formatMessage({ id: 'pages.rate.limits.key.agent' }): intl.formatMessage({ id: 'pages.rate.limits.key.function' })} 
+                  name="key" 
+                  rules={[{required:true}]}
+                > 
+                  <Select 
+                    showSearch 
+                    placeholder={scope==='service'? 'agent_id':'function_id'} 
+                    options={(scope==='service'? agents: functions).map((id)=> ({ label:id, value:id }))} 
+                  />
                 </Form.Item>
               );
             }}
           </Form.Item>
-          <Form.Item label="限速 QPS" name="limit_qps" rules={[{required:true, type:'number', min:1}]}> <InputNumber min={1} /> </Form.Item>
-          <Form.Item label="比例(%)" name="percent" tooltip="按比例生效（函数灰度为按 trace 采样；服务灰度折算 QPS）"> <InputNumber min={1} max={100} /> </Form.Item>
-          <Form.Item label="匹配（可选）">
+          <Form.Item label={intl.formatMessage({ id: 'pages.rate.limits.qps' })} name="limit_qps" rules={[{required:true, type:'number', min:1}]}> <InputNumber min={1} /> </Form.Item>
+          <Form.Item label={intl.formatMessage({ id: 'pages.rate.limits.percentage' })} name="percent" tooltip="按比例生效（函数灰度为按 trace 采样；服务灰度折算 QPS）"> <InputNumber min={1} max={100} /> </Form.Item>
+          <Form.Item label={intl.formatMessage({ id: 'pages.rate.limits.match' })}>
             <Space>
               <Form.Item name="match_game_id" noStyle> <Input placeholder="game_id" style={{ width: 160 }} /> </Form.Item>
               <Form.Item name="match_env" noStyle> <Input placeholder="env" style={{ width: 120 }} /> </Form.Item>
@@ -139,7 +164,7 @@ export default function OpsRateLimitsPage() {
             </Space>
           </Form.Item>
           <Space>
-            <Button onClick={onPreview}>预览命中</Button>
+            <Button onClick={onPreview}>{intl.formatMessage({ id: 'pages.rate.limits.preview' })}</Button>
             {preview && <span>命中实例：{preview.matched}</span>}
             {preview && <Checkbox checked={onlyOver} onChange={(e)=> setOnlyOver(e.target.checked)}>仅显示超限（当前QPS&gt;限速）</Checkbox>}
             {preview && <Button onClick={()=>{
@@ -155,7 +180,7 @@ export default function OpsRateLimitsPage() {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a'); a.href = url; a.download = 'rate_limit_preview.csv'; a.click(); URL.revokeObjectURL(url);
               } catch {}
-            }}>导出 CSV</Button>}
+            }}>{intl.formatMessage({ id: 'pages.rate.limits.export.csv' })}</Button>}
           </Space>
           {preview && (
             <div style={{ maxHeight: 180, overflow:'auto', border:'1px solid #f0f0f0', padding: 8, marginTop: 8 }}>
@@ -175,6 +200,6 @@ export default function OpsRateLimitsPage() {
           )}
         </Form>
       </Modal>
-    </div>
+    </PageContainer>
   );
 }

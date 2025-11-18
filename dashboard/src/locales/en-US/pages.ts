@@ -80,4 +80,52 @@ export default {
   'pages.assignments.select.game': 'Select game/env first',
   'pages.assignments.no.permission': 'no permission',
   'pages.assignments.select.placeholder': 'Select functions to assign (empty means allow all)',
+  
+  // Scope related
+  'pages.scope': 'Scope',
+  'pages.scope.select': 'Please select scope',
+  'pages.scope.description': 'If you leave this empty, all functions are allowed for the selected scope.',
+  
+  // Permissions page
+  'pages.permissions.title': 'Permission Management',
+  'pages.permissions.function.id': 'Function ID',
+  'pages.permissions.name': 'Name',
+  'pages.permissions.verbs': 'Permissions',
+  'pages.permissions.scopes': 'Scopes',
+  'pages.permissions.actions': 'Actions',
+  'pages.permissions.edit.button': 'Edit',
+  'pages.permissions.configure': 'Configure Permissions',
+  'pages.permissions.save.success': 'Permission configuration saved',
+  'pages.permissions.save.error': 'Save failed',
+  'pages.permissions.load.error': 'Load failed',
+  'pages.permissions.verbs.placeholder': 'e.g. read/invoke/view_history/manage/use',
+  'pages.permissions.scopes.placeholder': 'e.g. game/env/function_id',
+  'pages.permissions.chinese.text': 'Chinese Text (per verb)',
+  'pages.permissions.verb.chinese.text': 'Chinese text for {verb}',
+  'pages.permissions.verb.chinese.placeholder': 'e.g. Invoke function ({verb})',
+  
+  // Rate Limits page
+  'pages.rate.limits.management': 'Rate Limit Management',
+  'pages.rate.limits.new.rule': 'New Rule',
+  'pages.rate.limits.edit.rule': 'Edit Rate Limit Rule',
+  'pages.rate.limits.delete.confirm': 'Confirm deletion of rule {scope}:{key}?',
+  'pages.rate.limits.qps': 'Rate Limit QPS',
+  'pages.rate.limits.percentage': 'Percentage(%)',
+  'pages.rate.limits.match': 'Match (optional)',
+  'pages.rate.limits.preview': 'Preview Match',
+  'pages.rate.limits.export.csv': 'Export CSV',
+  'pages.rate.limits.functions': 'Functions',
+  'pages.rate.limits.services': 'Services',
+  'pages.rate.limits.key.function': 'Key (Function ID)',
+  'pages.rate.limits.key.agent': 'Key (Agent ID)',
+  
+  // Component Management page
+  'pages.component.management.title': 'Component Management',
+  'pages.component.management.quick.actions': 'Quick Actions',
+  'pages.component.management.total.functions': 'Total Functions',
+  'pages.component.management.active.functions': 'Active Functions',
+  'pages.component.management.running.jobs': 'Running Jobs',
+  'pages.component.management.available.packages': 'Available Packages',
+  'pages.component.management.connected.agents': 'Connected Agents',
+  'pages.component.management.virtual.objects': 'Virtual Objects',
 };

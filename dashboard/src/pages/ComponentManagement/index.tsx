@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Tabs, Badge, Space, Button, Dropdown, Modal, Form, Input, message, Select } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import {
   FunctionOutlined,
   DatabaseOutlined,
@@ -56,6 +57,7 @@ interface ComponentStats {
 }
 
 export default function ComponentManagement() {
+  const intl = useIntl();
   const [activeTab, setActiveTab] = useState('workspace');
   const [unauthorized, setUnauthorized] = useState(false);
   const [initError, setInitError] = useState<string | null>(null);
@@ -343,12 +345,12 @@ export default function ComponentManagement() {
   );
 
   return (
-    <div>
+    <PageContainer>
       <Card
         title={
           <Space>
             <ApartmentOutlined />
-            组件管理
+            {intl.formatMessage({ id: 'pages.component.management.title' } || '组件管理')}
           </Space>
         }
         extra={
@@ -356,7 +358,7 @@ export default function ComponentManagement() {
             <GameSelector />
             <Dropdown menu={quickActionsMenu} placement="bottomRight" trigger={['click']}>
               <Button icon={<SettingOutlined />}>
-                快速操作
+                {intl.formatMessage({ id: 'pages.component.management.quick.actions' } || '快速操作')}
               </Button>
             </Dropdown>
           </Space>
@@ -369,7 +371,7 @@ export default function ComponentManagement() {
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
               {stats.totalFunctions}
             </div>
-            <div style={{ color: '#666' }}>总函数数</div>
+            <div style={{ color: '#666' }}>{intl.formatMessage({ id: 'pages.component.management.total.functions' })}</div>
           </div>
         </Card.Grid>
 
@@ -378,7 +380,7 @@ export default function ComponentManagement() {
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
               {stats.activeFunctions}
             </div>
-            <div style={{ color: '#666' }}>活跃函数</div>
+            <div style={{ color: '#666' }}>{intl.formatMessage({ id: 'pages.component.management.active.functions' })}</div>
           </div>
         </Card.Grid>
 
@@ -387,7 +389,7 @@ export default function ComponentManagement() {
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>
               {stats.runningJobs}
             </div>
-            <div style={{ color: '#666' }}>运行中任务</div>
+            <div style={{ color: '#666' }}>{intl.formatMessage({ id: 'pages.component.management.running.jobs' })}</div>
           </div>
         </Card.Grid>
 
@@ -396,7 +398,7 @@ export default function ComponentManagement() {
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#722ed1' }}>
               {stats.availablePackages}
             </div>
-            <div style={{ color: '#666' }}>可用包数</div>
+            <div style={{ color: '#666' }}>{intl.formatMessage({ id: 'pages.component.management.available.packages' })}</div>
           </div>
         </Card.Grid>
 
@@ -405,7 +407,7 @@ export default function ComponentManagement() {
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#13c2c2' }}>
               {stats.connectedAgents}
             </div>
-            <div style={{ color: '#666' }}>在线代理</div>
+            <div style={{ color: '#666' }}>{intl.formatMessage({ id: 'pages.component.management.connected.agents' })}</div>
           </div>
         </Card.Grid>
 
@@ -414,7 +416,7 @@ export default function ComponentManagement() {
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#eb2f96' }}>
               {stats.virtualObjects}
             </div>
-            <div style={{ color: '#666' }}>虚拟对象</div>
+            <div style={{ color: '#666' }}>{intl.formatMessage({ id: 'pages.component.management.virtual.objects' })}</div>
           </div>
         </Card.Grid>
       </Card>
@@ -503,6 +505,6 @@ export default function ComponentManagement() {
           </>
         )}
       </Modal>
-    </div>
+    </PageContainer>
   );
 }

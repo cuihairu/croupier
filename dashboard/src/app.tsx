@@ -80,6 +80,8 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
       content: initialState?.currentUser?.name,
     },
     footerRender: () => <Footer />,
+    layout: 'mix',
+    splitMenus: true,
     onPageChange: () => {
       const { location } = history;
       // 如果没有登录，重定向到 login
@@ -122,9 +124,11 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     childrenRender: (children) => {
       // if (initialState?.loading) return <PageLoading />;
       return (
-        <AntdApp>
+        <AntdApp style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
           <AppApiRegistrar />
-          {children}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            {children}
+          </div>
           {isDev && (
             <SettingDrawer
               disableUrlParams

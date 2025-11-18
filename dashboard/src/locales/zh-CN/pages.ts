@@ -77,4 +77,52 @@ export default {
   'pages.assignments.select.game': '请先选择游戏/环境',
   'pages.assignments.no.permission': '无权限',
   'pages.assignments.select.placeholder': '选择要分配的功能函数（留空表示允许全部）',
+  
+  // Scope related
+  'pages.scope': '范围',
+  'pages.scope.select': '请选择范围',
+  'pages.scope.description': '如果留空，表示为选定范围允许所有功能。',
+  
+  // Permissions page
+  'pages.permissions.title': '权限管理',
+  'pages.permissions.function.id': '函数ID',
+  'pages.permissions.name': '名称',
+  'pages.permissions.verbs': '已配权限',
+  'pages.permissions.scopes': '范围',
+  'pages.permissions.actions': '操作',
+  'pages.permissions.edit.button': '编辑',
+  'pages.permissions.configure': '配置权限',
+  'pages.permissions.save.success': '已保存权限配置',
+  'pages.permissions.save.error': '保存失败',
+  'pages.permissions.load.error': '加载失败',
+  'pages.permissions.verbs.placeholder': '如 read/invoke/view_history/manage/use',
+  'pages.permissions.scopes.placeholder': '如 game/env/function_id',
+  'pages.permissions.chinese.text': '中文文案（逐动词）',
+  'pages.permissions.verb.chinese.text': '{verb} 的中文文案',
+  'pages.permissions.verb.chinese.placeholder': '例如：调用函数（{verb}）',
+  
+  // Rate Limits page
+  'pages.rate.limits.management': '限速管理',
+  'pages.rate.limits.new.rule': '新建规则',
+  'pages.rate.limits.edit.rule': '编辑限速规则',
+  'pages.rate.limits.delete.confirm': '确定删除规则 {scope}:{key}?',
+  'pages.rate.limits.qps': '限速 QPS',
+  'pages.rate.limits.percentage': '比例(%)',
+  'pages.rate.limits.match': '匹配（可选）',
+  'pages.rate.limits.preview': '预览命中',
+  'pages.rate.limits.export.csv': '导出 CSV',
+  'pages.rate.limits.functions': '函数',
+  'pages.rate.limits.services': '服务',
+  'pages.rate.limits.key.function': 'Key（函数ID）',
+  'pages.rate.limits.key.agent': 'Key（Agent ID）',
+  
+  // Component Management page
+  'pages.component.management.title': '组件管理',
+  'pages.component.management.quick.actions': '快速操作',
+  'pages.component.management.total.functions': '总函数数',
+  'pages.component.management.active.functions': '活跃函数',
+  'pages.component.management.running.jobs': '运行中任务',
+  'pages.component.management.available.packages': '可用包数',
+  'pages.component.management.connected.agents': '在线代理',
+  'pages.component.management.virtual.objects': '虚拟对象',
 };

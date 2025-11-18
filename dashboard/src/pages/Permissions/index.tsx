@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { PageContainer, ProTable, ProColumns, ModalForm, ProFormSelect, ProFormText, ProFormGroup } from '@ant-design/pro-components';
 import { App, Space, Tag } from 'antd';
-import { request } from '@umijs/max';
+import { request, useIntl } from '@umijs/max';
 
 type PermissionSpec = { verbs?: string[]; scopes?: string[]; defaults?: { role: string; verbs: string[] }[]; i18n_zh?: Record<string, string> };
 type FuncRow = { id: string; permissions?: PermissionSpec; display_name?: { zh?: string } };
@@ -23,6 +23,7 @@ const savePermissions = async (fid: string, perm: PermissionSpec) => {
 
 const PermissionsPage: React.FC = () => {
   const { message } = App.useApp();
+  const intl = useIntl();
   const [rows, setRows] = useState<FuncRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<FuncRow | null>(null);
@@ -35,7 +36,7 @@ const PermissionsPage: React.FC = () => {
       const data = await fetchSummary();
       setRows(data);
     } catch (e: any) {
-      message.error(e?.message || '加载失败');
+      message.error(e?.message || intl.formatMessage({ id: 'pages.permissions.load.error' }));
     } finally {
       setLoading(false);
     }
@@ -43,19 +44,19 @@ const PermissionsPage: React.FC = () => {
   useEffect(() => { reload(); }, []);
 
   const columns: ProColumns<FuncRow>[] = useMemo(() => [
-    { title: '函数ID', dataIndex: 'id', width: 280, copyable: true, ellipsis: true },
-    { title: '名称', dataIndex: ['display_name','zh'], width: 220, ellipsis: true },
-    { title: '已配权限', dataIndex: ['permissions','verbs'], render: (_, r) => <Space>{(r.permissions?.verbs||[]).map(v => <Tag key={v}>{v}</Tag>)}</Space> },
-    { title: 'Scopes', dataIndex: ['permissions','scopes'], render: (_, r) => <Space>{(r.permissions?.scopes||[]).map(v => <Tag key={v}>{v}</Tag>)}</Space> },
+    { title: intl.formatMessage({ id: 'pages.permissions.function.id' }), dataIndex: 'id', width: 280, copyable: true, ellipsis: true },
+    { title: intl.formatMessage({ id: 'pages.permissions.name' }), dataIndex: ['display_name','zh'], width: 220, ellipsis: true },
+    { title: intl.formatMessage({ id: 'pages.permissions.verbs' }), dataIndex: ['permissions','verbs'], render: (_, r) => <Space>{(r.permissions?.verbs||[]).map(v => <Tag key={v}>{v}</Tag>)}</Space> },
+    { title: intl.formatMessage({ id: 'pages.scope' }), dataIndex: ['permissions','scopes'], render: (_, r) => <Space>{(r.permissions?.scopes||[]).map(v => <Tag key={v}>{v}</Tag>)}</Space> },
     {
-      title: '操作',
+      title: intl.formatMessage({ id: 'pages.permissions.actions' }),
       valueType: 'option',
       render: (_, r) => [
         <a key="edit" onClick={async () => {
           setEditing(r);
           const perm = await fetchPermissions(r.id);
           setPermDraft(perm || {});
-        }}>编辑</a>
+        }}>{intl.formatMessage({ id: 'pages.permissions.edit.button' })}</a>
       ]
     }
   ], []);
@@ -71,7 +72,7 @@ const PermissionsPage: React.FC = () => {
         pagination={{ pageSize: 10 }}
       />
       <ModalForm
-        title={editing ? `配置权限：${editing.id}` : '配置权限'}
+        title={editing ? `${intl.formatMessage({ id: 'pages.permissions.configure' })}：${editing.id}` : intl.formatMessage({ id: 'pages.permissions.configure' })}
         open={!!editing}
         onOpenChange={(v) => !v && setEditing(null)}
         onFinish={async (values: any) => {
@@ -89,23 +90,23 @@ const PermissionsPage: React.FC = () => {
               }
             });
             await savePermissions(editing!.id, { verbs, scopes, defaults, i18n_zh });
-            message.success('已保存权限配置');
+            message.success(intl.formatMessage({ id: 'pages.permissions.save.success' }));
             setEditing(null);
             reload();
             return true;
           } catch (e: any) {
-            message.error(e?.message || '保存失败');
+            message.error(e?.message || intl.formatMessage({ id: 'pages.permissions.save.error' }));
             return false;
           }
         }}
       >
-        <ProFormGroup title="动作 (verbs)">
+        <ProFormGroup title={`${intl.formatMessage({ id: 'pages.permissions.verbs' })} (verbs)`}>
           <ProFormSelect
             name="verbs"
             mode="tags"
             label="verbs"
             initialValue={permDraft.verbs}
-            placeholder="如 read/invoke/view_history/manage/use"
+            placeholder={intl.formatMessage({ id: 'pages.permissions.verbs.placeholder' })}
             fieldProps={{
               onChange: (vals) => {
                 // update keys for i18n editors
@@ -114,23 +115,23 @@ const PermissionsPage: React.FC = () => {
             }}
           />
         </ProFormGroup>
-        <ProFormGroup title="范围 (scopes)">
+        <ProFormGroup title={`${intl.formatMessage({ id: 'pages.scope' })} (scopes)`}>
           <ProFormSelect
             name="scopes"
             mode="tags"
             label="scopes"
             initialValue={permDraft.scopes}
-            placeholder="如 game/env/function_id"
+            placeholder={intl.formatMessage({ id: 'pages.permissions.scopes.placeholder' })}
           />
         </ProFormGroup>
-        <ProFormGroup title="中文文案（逐动词）">
+        <ProFormGroup title={intl.formatMessage({ id: 'pages.permissions.chinese.text' })}>
           {(formI18nKeys.length ? formI18nKeys : (permDraft.verbs || [])).map((v) => (
             <ProFormText
               key={`i18n_${v}`}
               name={`i18n_${v}`}
-              label={`${v} 的中文文案`}
+              label={intl.formatMessage({ id: 'pages.permissions.verb.chinese.text' }, { verb: v })}
               initialValue={permDraft.i18n_zh?.[v] || ''}
-              placeholder={`例如：调用函数（${v}）`}
+              placeholder={intl.formatMessage({ id: 'pages.permissions.verb.chinese.placeholder' }, { verb: v })}
             />
           ))}
         </ProFormGroup>
@@ -139,4 +140,16 @@ const PermissionsPage: React.FC = () => {
   );
 };
 
-export default () => (<App><PermissionsPage /></App>);
+const PermissionsPageWrapper: React.FC = () => {
+  const intl = useIntl();
+  
+  return (
+    <App>
+      <PageContainer title={intl.formatMessage({ id: 'pages.permissions.title' })}>
+        <PermissionsPage />
+      </PageContainer>
+    </App>
+  );
+};
+
+export default PermissionsPageWrapper;

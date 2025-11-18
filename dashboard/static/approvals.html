@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Croupier Approvals</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 16px; }
+    header { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    input, select, button { padding:6px 8px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+    th, td { border: 1px solid #ddd; padding: 8px; font-size: 14px; }
+    th { background: #fafafa; }
+    .row-actions { display:flex; gap:8px; }
+    #preview { white-space: pre-wrap; background:#f6f6f6; padding:8px; border:1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <h2>Approvals</h2>
+  <header>
+    <label>JWT <input id="jwt" placeholder="paste token" size="40" /></label>
+    <label>OTP <input id="otp" placeholder="6-digit" size="8" /></label>
+    <label>State
+      <select id="state">
+        <option value="">(all)</option>
+        <option value="pending" selected>pending</option>
+        <option value="approved">approved</option>
+        <option value="rejected">rejected</option>
+      </select>
+    </label>
+    <label>Function <input id="function_id" placeholder="function id" /></label>
+    <label>Game <input id="game_id" placeholder="game id" /></label>
+    <label>Env <input id="env" placeholder="env" /></label>
+    <label>Page <input id="page" type="number" value="1" min="1" style="width:72px" /></label>
+    <label>Size <input id="size" type="number" value="20" min="1" max="200" style="width:72px" /></label>
+    <button id="load">Load</button>
+  </header>
+
+  <table id="tbl">
+    <thead><tr>
+      <th>Created</th><th>Actor</th><th>Function</th><th>Game/Env</th><th>State</th><th>Mode</th><th>Route</th><th>Actions</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <h3>Detail</h3>
+  <div id="detail"></div>
+  <pre id="preview"></pre>
+
+  <script src="./approvals.js"></script>
+</body>
+</html>

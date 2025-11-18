@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Space, Select, Button, Typography, Alert, App } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import { useModel } from '@umijs/max';
 import { useIntl } from '@umijs/max';
 import GameSelector from '@/components/GameSelector';
@@ -66,47 +67,49 @@ export default function AssignmentsPage() {
   };
 
   return (
-    <Card 
-      title={intl.formatMessage({ id: 'pages.assignments.title' })} 
-      extra={<GameSelector />}
-    >
-      <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Typography.Text>
-          Game: <b>{gameId || '-'}</b> / Env: <b>{env || '-'}</b>
-        </Typography.Text>
-        <div>
-          <div style={{ marginBottom: 8 }}>{intl.formatMessage({ id: 'pages.assignments.functions.label' })}</div>
-          <Select
-            mode="multiple"
-            style={{ minWidth: 480 }}
-            value={selected}
-            onChange={setSelected as any}
-            options={options}
-            placeholder={intl.formatMessage({ id: 'pages.assignments.select.placeholder' })}
-          />
-          <div style={{ marginTop: 8 }}>
-            <Alert 
-              type="info" 
-              showIcon 
-              message={intl.formatMessage({ id: 'pages.assignments.hint' })}
-              description={intl.formatMessage({ id: 'pages.assignments.hint.description' })}
+    <PageContainer>
+      <Card 
+        title={intl.formatMessage({ id: 'pages.assignments.title' })} 
+        extra={<GameSelector />}
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size="large">
+          <Typography.Text>
+            Game: <b>{gameId || '-'}</b> / Env: <b>{env || '-'}</b>
+          </Typography.Text>
+          <div>
+            <div style={{ marginBottom: 8 }}>{intl.formatMessage({ id: 'pages.assignments.functions.label' })}</div>
+            <Select
+              mode="multiple"
+              style={{ minWidth: 480 }}
+              value={selected}
+              onChange={setSelected as any}
+              options={options}
+              placeholder={intl.formatMessage({ id: 'pages.assignments.select.placeholder' })}
             />
+            <div style={{ marginTop: 8 }}>
+              <Alert 
+                type="info" 
+                showIcon 
+                message={intl.formatMessage({ id: 'pages.assignments.hint' })}
+                description={intl.formatMessage({ id: 'pages.scope.description' })}
+              />
+            </div>
           </div>
-        </div>
-        <Space>
-          <Button 
-            type="primary" 
-            onClick={onSave} 
-            disabled={!gameId || !canWrite} 
-            title={!canWrite ? intl.formatMessage({ id: 'pages.assignments.no.permission' }) : undefined}
-          >
-            {intl.formatMessage({ id: 'pages.assignments.save.button' })}
-          </Button>
-          <Button onClick={load}>
-            {intl.formatMessage({ id: 'pages.assignments.reload.button' })}
-          </Button>
+          <Space>
+            <Button 
+              type="primary" 
+              onClick={onSave} 
+              disabled={!gameId || !canWrite} 
+              title={!canWrite ? intl.formatMessage({ id: 'pages.assignments.no.permission' }) : undefined}
+            >
+              {intl.formatMessage({ id: 'pages.assignments.save.button' })}
+            </Button>
+            <Button onClick={load}>
+              {intl.formatMessage({ id: 'pages.assignments.reload.button' })}
+            </Button>
+          </Space>
         </Space>
-      </Space>
-    </Card>
+      </Card>
+    </PageContainer>
   );
 }

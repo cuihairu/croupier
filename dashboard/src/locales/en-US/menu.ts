@@ -1,0 +1,95 @@
+export default {
+  'menu.AdminUsers': 'Admin Users',
+  'menu.AdminUsers.UserAccount': 'User Account',
+  'menu.AdminUsers.UserAccount.Center': 'Account Center',
+  'menu.AdminUsers.UserAccount.Settings': 'Account Settings',
+  'menu.AdminUsers.UserAccount.Messages': 'Messages',
+  'menu.AdminUsers.Permissions': 'Permission Management',
+  'menu.AdminUsers.Permissions.Roles': 'Role Management',
+  'menu.AdminUsers.Permissions.Users': 'User Management',
+  'menu.AdminUsers.Permissions.Config': 'Permission Config',
+  'menu.AdminUsers.Audit': 'Audit Logs',
+  'menu.AdminUsers.LoginLogs': 'Login Logs',
+  'menu.AdminUsers.OperationLogs': 'Operation Logs',
+
+  // Support
+  'menu.Support': 'Support',
+  'menu.Support.Tickets': 'Tickets',
+  'menu.Support.TicketDetail': 'Ticket Detail',
+  'menu.Support.FAQ': 'FAQ',
+  'menu.Support.Feedback': 'Player Feedback',
+  'menu.Support.Bugs': 'Bugs',
+
+
+  // Security settings
+  'menu.Security': 'Security',
+  'menu.Security.Roles': 'Role Management',
+  'menu.Security.Users': 'User Management',
+  'menu.Security.Config': 'Permission Config',
+
+  // New game management structure
+  'menu.GameManagement': 'Game Management',
+  'menu.GameManagement.GameEnvironments': 'Game Environments',
+  'menu.GameManagement.GameEntities': 'Entity Management',
+  'menu.GameManagement.GameFunctions': 'Function Management',
+  'menu.GameManagement.ComponentManagement': 'Component Management',
+  'menu.GameManagement.GameAssignments': 'Function Assignments',
+  'menu.GameManagement.GamePacks': 'Pack Management',
+
+  // Operations management
+  'menu.Operations': 'Operations',
+  'menu.Operations.Approvals': 'Approval Management',
+  'menu.Operations.Audit': 'Audit Logs',
+  'menu.Operations.OperationLogs': 'Operation Logs',
+  'menu.Operations.Registry': 'Service Registry',
+  'menu.Operations.Servers': 'Servers',
+  'menu.Operations.Configs': 'Configs',
+
+  // Ops
+  'menu.Ops': 'Operations',
+  'menu.Ops.Services': 'Services',
+  'menu.Ops.Health': 'Health',
+  'menu.Ops.Nodes': 'Node Maintenance',
+  'menu.Ops.Jobs': 'Jobs',
+  'menu.Ops.Alerts': 'Alerts',
+  'menu.Ops.RateLimits': 'Rate Limits',
+  'menu.Ops.MQ': 'Message Queue',
+  'menu.Ops.Certificates': 'Certificates',
+  'menu.Ops.Notifications': 'Notifications',
+  'menu.Ops.AnalyticsFilters': 'Sampling Control',
+  'menu.Ops.Backups': 'Backups',
+  'menu.Ops.Maintenance': 'Maintenance',
+
+  // Analytics
+  'menu.Analytics': 'Analytics',
+  'menu.Analytics.Overview': 'Overview',
+  'menu.Analytics.Retention': 'Retention',
+  'menu.Analytics.Realtime': 'Realtime',
+  'menu.Analytics.Behavior': 'Behavior',
+  'menu.Analytics.Payments': 'Payments',
+  'menu.Analytics.Levels': 'Levels',
+  'menu.Analytics.Attribution': 'Attribution',
+  'menu.Analytics.Segments': 'Segments',
+
+  // Legacy menu items (for backward compatibility)
+  'menu.GameAssignments': 'Assignments',
+  'menu.GM': 'Game Management',
+  'menu.GM.Approvals': 'Approvals',
+  'menu.GM.Functions': 'Functions',
+  'menu.GM.Games': 'Games',
+  'menu.GM.Assignments': 'Assignments',
+  'menu.GM.Audit': 'Audit',
+  'menu.GM.Packs': 'Packs',
+  'menu.GM.Registry': 'Registry',
+  'menu.GameMgmt': 'Game Management',
+  'menu.GameMgmt.Games Meta': 'Games Meta',
+  'menu.GameMgmt.Entities': 'Entity Management',
+  // Backward-compat for older route keys that may still reference GM.Games Meta
+  'menu.GM.Games Meta': 'Games Meta',
+  'menu.Permissions': 'Permission Management',
+  'menu.Permissions.Roles': 'Role Management',
+  'menu.Permissions.Users': 'User Management',
+  'menu.Permissions.Config': 'Permission Config',
+  'menu.welcome': 'Welcome',
+  'menu.login': 'Login',
+};
