@@ -32,7 +32,7 @@ jobs:
             os_label: linux
             arch: x86_64
           - name: macos-x64
-            runs-on: macos-15-intel
+            runs-on: macos-13
             triplet: x64-osx
             os_label: macos
             arch: x86_64
@@ -352,8 +352,9 @@ jobs:
           java-version: 17
           cache: gradle
       - name: Build JAR (Gradle)
+        working-directory: sdks/java
         run: |
-          gradle -p sdks/java clean build -x test
+          ./gradlew --no-daemon clean build -x test
       - name: Collect and upload
         run: |
           mkdir -p out
@@ -382,6 +383,7 @@ jobs:
   # --------------- Python SDK (wheel + sdist) ---------------
   python:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -411,6 +413,7 @@ jobs:
   # --------------- JavaScript SDK (npm package) ---------------
   js:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -457,6 +460,32 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+      - name: Verify expected artifacts
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          missing=0
+          check() {
+            local pattern="$1"
+            if compgen -G "artifacts/**/${pattern}" >/dev/null; then
+              echo "Found ${pattern}"
+            else
+              echo "::error::Missing artifact matching ${pattern}"
+              missing=1
+            fi
+          }
+          check "croupier-cpp-sdk-linux-x86_64-static.tar.gz"
+          check "croupier-cpp-sdk-macos-x86_64-static.tar.gz"
+          check "croupier-cpp-sdk-macos-arm64-static.tar.gz"
+          check "croupier-cpp-sdk-windows-x86_64-static.tar.gz"
+          check "croupier-java-sdk.jar"
+          check "croupier-go-sdk.tar.gz"
+          check "croupier-js-sdk*.tgz"
+          check "croupier-python-sdk*.whl"
+          if [ "$missing" -ne 0 ]; then
+            echo "One or more artifacts missing; aborting release upload."
+            exit 1
+          fi
       - name: List artifacts
         run: ls -R artifacts
       - name: Ensure release exists (sdk-nightly)
@@ -473,14 +502,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -e
-          shopt -s globstar nullglob
+          set -euo pipefail
           files=()
-          for file in artifacts/**/*; do
-            if [[ -f "$file" ]]; then
-              files+=("$file")
-            fi
-          done
+          while IFS= read -r -d '' file; do
+            files+=("$file")
+          done < <(find artifacts -type f -print0)
           if [ ${#files[@]} -eq 0 ]; then
             echo "No artifacts found"
             exit 1
