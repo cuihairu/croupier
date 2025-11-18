@@ -70,16 +70,8 @@ export default function AnalyticsOverviewPage() {
   };
 
   return (
-    <div style={{ padding: 24 }}>
-      <Card title="概览 KPI" extra={
-        <Space>
-          <DatePicker.RangePicker showTime value={range as any} onChange={setRange as any} />
-          <Select allowClear placeholder="渠道" value={channel} onChange={setChannel} style={{ width: 140 }} options={[]} />
-          <Select allowClear placeholder="平台" value={platform} onChange={setPlatform} style={{ width: 140 }} options={[]} />
-          <Button type="primary" onClick={load}>查询</Button>
-          <Button onClick={exportExcel}>导出 Excel</Button>
-        </Space>
-      }>
+    <PageContainer>
+      <Card title={intl.formatMessage({ id: 'pages.analytics.overview.title' } || '概览 KPI')} extra={<Space>
         <Row gutter={[16,16]}>
           <Col span={4}><Card loading={loading}><Statistic title="DAU" value={data?.dau||0} /></Card></Col>
           <Col span={4}><Card loading={loading}><Statistic title="WAU" value={data?.wau||0} /></Card></Col>

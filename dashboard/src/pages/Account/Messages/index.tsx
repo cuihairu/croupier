@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Tag, Button, Space } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
+import { useIntl } from '@umijs/max';
 import type { ColumnsType } from 'antd/es/table';
 import { getMessage } from '@/utils/antdApp';
 import { listMessages, markMessagesRead, type MessageItem } from '@/services/croupier';
 
 export default function AccountMessages() {
+  const intl = useIntl();
   const [items, setItems] = useState<MessageItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -31,34 +34,34 @@ export default function AccountMessages() {
     const sel = directIds.concat(bcastIds);
     if (sel.length === 0) return;
     await markMessagesRead(directIds, { broadcast_ids: bcastIds });
-    getMessage()?.success('已标记为已读');
+    getMessage()?.success(intl.formatMessage({ id: 'pages.account.messages.marked.read' }));
     refresh();
   };
 
   const columns: ColumnsType<MessageItem> = [
-    { title: '时间', dataIndex: 'created_at', key: 'created_at' },
-    { title: '类型', dataIndex: 'type', key: 'type', render: (t?: string) => <Tag>{t || 'info'}</Tag> },
-    { title: '标题', dataIndex: 'title', key: 'title' },
-    { title: '内容', dataIndex: 'content', key: 'content' },
-    { title: '状态', dataIndex: 'read', key: 'read', render: (r: boolean) => r ? <Tag>已读</Tag> : <Tag color="red">未读</Tag> },
-    { title: '操作', key: 'ops', render: (_: any, rec) => (
+    { title: intl.formatMessage({ id: 'pages.account.messages.time' }), dataIndex: 'created_at', key: 'created_at' },
+    { title: intl.formatMessage({ id: 'pages.account.messages.type' }), dataIndex: 'type', key: 'type', render: (t?: string) => <Tag>{t || 'info'}</Tag> },
+    { title: intl.formatMessage({ id: 'pages.account.messages.title' }), dataIndex: 'title', key: 'title' },
+    { title: intl.formatMessage({ id: 'pages.account.messages.content' }), dataIndex: 'content', key: 'content' },
+    { title: intl.formatMessage({ id: 'pages.account.messages.status' }), dataIndex: 'read', key: 'read', render: (r: boolean) => r ? <Tag>{intl.formatMessage({ id: 'pages.account.messages.read' })}</Tag> : <Tag color="red">{intl.formatMessage({ id: 'pages.account.messages.unread' })}</Tag> },
+    { title: intl.formatMessage({ id: 'pages.account.messages.actions' }), key: 'ops', render: (_: any, rec) => (
       <Space>
         {!rec.read && (
-          <Button size="small" onClick={() => markSelRead([rec.id], [rec.kind || 'direct'])}>标记已读</Button>
+          <Button size="small" onClick={() => markSelRead([rec.id], [rec.kind || 'direct'])}>{intl.formatMessage({ id: 'pages.account.messages.mark.read' })}</Button>
         )}
       </Space>
     )},
   ];
 
   return (
-    <div style={{ padding: 24 }}>
+    <PageContainer>
       <Card
-        title={status === 'unread' ? '未读消息' : '全部消息'}
+        title={status === 'unread' ? intl.formatMessage({ id: 'pages.account.messages.unread.title' }) : intl.formatMessage({ id: 'pages.account.messages.all.title' })}
         extra={
           <Space>
-            <Button type={status === 'unread' ? 'primary' : 'default'} onClick={() => setStatus('unread')}>未读</Button>
-            <Button type={status === 'all' ? 'primary' : 'default'} onClick={() => setStatus('all')}>全部</Button>
-            <Button onClick={() => markSelRead()}>全部标记已读</Button>
+            <Button type={status === 'unread' ? 'primary' : 'default'} onClick={() => setStatus('unread')}>{intl.formatMessage({ id: 'pages.account.messages.unread.button' })}</Button>
+            <Button type={status === 'all' ? 'primary' : 'default'} onClick={() => setStatus('all')}>{intl.formatMessage({ id: 'pages.account.messages.all.button' })}</Button>
+            <Button onClick={() => markSelRead()}>{intl.formatMessage({ id: 'pages.account.messages.mark.all.read' })}</Button>
           </Space>
         }
       >
@@ -70,6 +73,6 @@ export default function AccountMessages() {
           pagination={{ current: page, pageSize: size, total, onChange: (p, s) => refresh(p, s, status) }}
         />
       </Card>
-    </div>
+    </PageContainer>
   );
 }
