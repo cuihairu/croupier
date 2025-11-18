@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Space, Select, Button, Typography, Alert, App } from 'antd';
 import { useModel } from '@umijs/max';
+import { useIntl } from '@umijs/max';
 import GameSelector from '@/components/GameSelector';
 import { listDescriptors, fetchAssignments, setAssignments, FunctionDescriptor } from '@/services/croupier';
 
 export default function AssignmentsPage() {
   const { message } = App.useApp();
+  const intl = useIntl();
   const [descs, setDescs] = useState<FunctionDescriptor[]>([]);
   const [gameId, setGameId] = useState<string | undefined>(localStorage.getItem('game_id') || undefined);
   const [env, setEnv] = useState<string | undefined>(localStorage.getItem('env') || undefined);
@@ -45,41 +47,64 @@ export default function AssignmentsPage() {
   }, []);
 
   const onSave = async () => {
-    if (!gameId) { message.warning('Select game/env first'); return; }
+    if (!gameId) { 
+      message.warning(intl.formatMessage({ id: 'pages.assignments.select.game' })); 
+      return; 
+    }
     const res = await setAssignments({ game_id: gameId, env, functions: selected });
     const unknown = res?.unknown || [];
     if (unknown.length > 0) {
-      message.warning(`Saved, but ${unknown.length} unknown function id(s): ${unknown.join(', ')}`);
+      message.warning(
+        intl.formatMessage(
+          { id: 'pages.assignments.save.warning' }, 
+          { count: unknown.length, ids: unknown.join(', ') }
+        )
+      );
     } else {
-      message.success('Assignments saved');
+      message.success(intl.formatMessage({ id: 'pages.assignments.save.success' }));
     }
   };
 
   return (
-    <Card title="Assignments" extra={<GameSelector />}>
+    <Card 
+      title={intl.formatMessage({ id: 'pages.assignments.title' })} 
+      extra={<GameSelector />}
+    >
       <Space direction="vertical" style={{ width: '100%' }} size="large">
         <Typography.Text>
           Game: <b>{gameId || '-'}</b> / Env: <b>{env || '-'}</b>
         </Typography.Text>
         <div>
-          <div style={{ marginBottom: 8 }}>Functions:</div>
+          <div style={{ marginBottom: 8 }}>{intl.formatMessage({ id: 'pages.assignments.functions.label' })}</div>
           <Select
             mode="multiple"
             style={{ minWidth: 480 }}
             value={selected}
             onChange={setSelected as any}
             options={options}
-            placeholder="Select functions to assign (empty means allow all)"
+            placeholder={intl.formatMessage({ id: 'pages.assignments.select.placeholder' })}
           />
           <div style={{ marginTop: 8 }}>
-            <Alert type="info" showIcon message="Hint"
-              description="If you leave this empty, all functions are allowed for the selected scope."
+            <Alert 
+              type="info" 
+              showIcon 
+              message={intl.formatMessage({ id: 'pages.assignments.hint' })}
+              description={intl.formatMessage({ id: 'pages.assignments.hint.description' })}
             />
           </div>
         </div>
         <Space>
-          <Button type="primary" onClick={onSave} disabled={!gameId || !canWrite} title={!canWrite ? 'no permission' : undefined}>Save</Button>
-          <Button onClick={load}>Reload</Button>
+          <Button 
+            type="primary" 
+            onClick={onSave} 
+            disabled={!gameId || !canWrite} 
+            title={!canWrite ? intl.formatMessage({ id: 'pages.assignments.no.permission' }) : undefined}
+          >
+            {intl.formatMessage({ id: 'pages.assignments.save.button' })}
+          </Button>
+          <Button onClick={load}>
+            {intl.formatMessage({ id: 'pages.assignments.reload.button' })}
+          </Button>
         </Space>
       </Space>
     </Card>
