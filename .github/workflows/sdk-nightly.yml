@@ -475,7 +475,12 @@ jobs:
         run: |
           set -e
           shopt -s globstar nullglob
-          files=(artifacts/**/*)
+          files=()
+          for file in artifacts/**/*; do
+            if [[ -f "$file" ]]; then
+              files+=("$file")
+            fi
+          done
           if [ ${#files[@]} -eq 0 ]; then
             echo "No artifacts found"
             exit 1
