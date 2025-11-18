@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Space, DatePicker, Select, Button, Row, Col, Statistic, Divider, Table } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
+import { useIntl } from '@umijs/max';
 import { exportToXLSX } from '@/utils/export';
 import { fetchAnalyticsOverview } from '@/services/croupier/analytics';
 
 export default function AnalyticsOverviewPage() {
+  const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [range, setRange] = useState<any>(null);
   const [channel, setChannel] = useState<string>('');

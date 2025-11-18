@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Space, Button, Row, Col, Statistic, DatePicker } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
+import { useIntl } from '@umijs/max';
 import { fetchAnalyticsRealtime, fetchRealtimeSeries } from '@/services/croupier/analytics';
 
 export default function AnalyticsRealtimePage() {
+  const intl = useIntl();
   const [data, setData] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [auto, setAuto] = useState(true);
@@ -65,12 +68,12 @@ export default function AnalyticsRealtimePage() {
   }, [auto]);
 
   return (
-    <div style={{ padding: 24 }}>
-      <Card title="实时大屏" extra={<Space>
-        <Button onClick={load} loading={loading}>刷新</Button>
-        <Button type={auto?'primary':'default'} onClick={()=> setAuto(x=>!x)}>{auto?'自动刷新:开':'自动刷新:关'}</Button>
-        <Button onClick={()=>{ setPtsOnline([]); setPtsA5([]); setPtsA15([]); setPtsRev5([]); try{ sessionStorage.removeItem('realtime:series'); }catch{} }}>清空趋势</Button>
-        <span>阈值(在线/5m活跃):</span>
+    <PageContainer>
+      <Card title={intl.formatMessage({ id: 'pages.analytics.realtime.title' }) || '实时大屏'} extra={<Space>
+        <Button onClick={load} loading={loading}>{intl.formatMessage({ id: 'pages.analytics.refresh' }) || '刷新'}</Button>
+        <Button type={auto?'primary':'default'} onClick={()=> setAuto(x=>!x)}>{auto ? intl.formatMessage({ id: 'pages.analytics.auto.refresh.on' }) || '自动刷新:开' : intl.formatMessage({ id: 'pages.analytics.auto.refresh.off' }) || '自动刷新:关'}</Button>
+        <Button onClick={()=>{ setPtsOnline([]); setPtsA5([]); setPtsA15([]); setPtsRev5([]); try{ sessionStorage.removeItem('realtime:series'); }catch{} }}>{intl.formatMessage({ id: 'pages.analytics.clear.trends' }) || '清空趋势'}</Button>
+        <span>{intl.formatMessage({ id: 'pages.analytics.threshold' }) || '阈值(在线/5m活跃):'}</span>
         <input type="number" value={thrOnline} onChange={(e)=> setThrOnline(Number(e.target.value||0))} style={{ width: 80 }} />
         <input type="number" value={thrA5} onChange={(e)=> setThrA5(Number(e.target.value||0))} style={{ width: 80 }} />
         <DatePicker.RangePicker showTime value={expRange as any} onChange={setExpRange as any} />
@@ -92,8 +95,8 @@ export default function AnalyticsRealtimePage() {
             const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='realtime_window.csv'; a.click(); URL.revokeObjectURL(url);
           } catch {}
-        }}>导出窗口 CSV</Button>
-        <Button onClick={()=>{
+        }}>{intl.formatMessage({ id: 'pages.analytics.export.window.csv' }) || '导出窗口 CSV'}</Button>
+        <Button onClick={()=->{
           try {
             const last10 = (arr:[number,number][])=>{
               const t = Date.now()-10*60*1000;
@@ -112,7 +115,7 @@ export default function AnalyticsRealtimePage() {
             const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='realtime_last10m.csv'; a.click(); URL.revokeObjectURL(url);
           } catch {}
-        }}>导出10分钟CSV</Button>
+        }}>{intl.formatMessage({ id: 'pages.analytics.export.10min.csv' }) || '导出10分钟CSV'}</Button>
       </Space>}>
         <Row gutter={[16,16]}>
           <Col span={6}><Card loading={loading}>
@@ -158,7 +161,7 @@ export default function AnalyticsRealtimePage() {
           <Col span={6}><Card loading={loading}><Statistic title="今日充值(元)" value={(Number(data?.rev_today||0))/100} precision={2} prefix="¥" /><div style={{ marginTop: 6 }}><Spark data={[]} /></div></Card></Col>
         </Row>
       </Card>
-    </div>
+    </PageContainer>
   );
 }
 

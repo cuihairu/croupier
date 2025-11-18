@@ -53,3 +53,27 @@ configs/IP2LOCATION-LITE-DB*.BIN
 configs/*.BIN
 web.local/
 docs_new/
+
+# Dashboard specific
+dashboard/node_modules/
+dashboard/.umi/
+dashboard/dist/
+dashboard/public/
+dashboard/src/.umi/
+dashboard/build/
+dashboard/.next/
+dashboard/yarn.lock
+dashboard/pnpm-lock.yaml
+
+# Dashboard/node_modules
+dashboard/node_modules/
+dashboard/.umi/
+dashboard/dist/
+dashboard/.next/
+dashboard/build/
+dashboard/.nyc_output/
+dashboard/coverage/
+dashboard/.eslintcache
+dashboard/.DS_Store
+dashboard/.pnpm-debug.log
+dashboard/.pnpm-store/

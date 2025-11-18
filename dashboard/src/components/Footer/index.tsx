@@ -7,7 +7,6 @@ const Footer: React.FC = () => {
     <DefaultFooter
       style={{
         background: 'none',
-        marginTop: 'auto', // 确保 footer 在内容底部
       }}
       links={[
         {
