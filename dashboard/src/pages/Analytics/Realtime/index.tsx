@@ -70,10 +70,10 @@ export default function AnalyticsRealtimePage() {
   return (
     <PageContainer>
       <Card title={intl.formatMessage({ id: 'pages.analytics.realtime.title' }) || '实时大屏'} extra={<Space>
-        <Button onClick={load} loading={loading}>{intl.formatMessage({ id: 'pages.analytics.refresh' }) || '刷新'}</Button>
-        <Button type={auto?'primary':'default'} onClick={()=> setAuto(x=>!x)}>{auto ? intl.formatMessage({ id: 'pages.analytics.auto.refresh.on' }) || '自动刷新:开' : intl.formatMessage({ id: 'pages.analytics.auto.refresh.off' }) || '自动刷新:关'}</Button>
-        <Button onClick={()=>{ setPtsOnline([]); setPtsA5([]); setPtsA15([]); setPtsRev5([]); try{ sessionStorage.removeItem('realtime:series'); }catch{} }}>{intl.formatMessage({ id: 'pages.analytics.clear.trends' }) || '清空趋势'}</Button>
-        <span>{intl.formatMessage({ id: 'pages.analytics.threshold' }) || '阈值(在线/5m活跃):'}</span>
+        <Button onClick={load} loading={loading}>{intl.formatMessage({ id: 'pages.analytics.realtime.refresh' }) || '刷新'}</Button>
+        <Button type={auto?'primary':'default'} onClick={()=> setAuto(x=>!x)}>{auto ? intl.formatMessage({ id: 'pages.analytics.realtime.auto.refresh.on' }) || '自动刷新:开' : intl.formatMessage({ id: 'pages.analytics.realtime.auto.refresh.off' }) || '自动刷新:关'}</Button>
+        <Button onClick={()=>{ setPtsOnline([]); setPtsA5([]); setPtsA15([]); setPtsRev5([]); try{ sessionStorage.removeItem('realtime:series'); }catch{} }}>{intl.formatMessage({ id: 'pages.analytics.realtime.clear.trend' }) || '清空趋势'}</Button>
+        <span>{intl.formatMessage({ id: 'pages.analytics.realtime.threshold' }) || '阈值(在线/5m活跃):'}</span>
         <input type="number" value={thrOnline} onChange={(e)=> setThrOnline(Number(e.target.value||0))} style={{ width: 80 }} />
         <input type="number" value={thrA5} onChange={(e)=> setThrA5(Number(e.target.value||0))} style={{ width: 80 }} />
         <DatePicker.RangePicker showTime value={expRange as any} onChange={setExpRange as any} />
@@ -95,8 +95,8 @@ export default function AnalyticsRealtimePage() {
             const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='realtime_window.csv'; a.click(); URL.revokeObjectURL(url);
           } catch {}
-        }}>{intl.formatMessage({ id: 'pages.analytics.export.window.csv' }) || '导出窗口 CSV'}</Button>
-        <Button onClick={()=->{
+        }}>{intl.formatMessage({ id: 'pages.analytics.realtime.export.window.csv' }) || '导出窗口 CSV'}</Button>
+        <Button onClick={()=>{
           try {
             const last10 = (arr:[number,number][])=>{
               const t = Date.now()-10*60*1000;
@@ -115,7 +115,7 @@ export default function AnalyticsRealtimePage() {
             const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='realtime_last10m.csv'; a.click(); URL.revokeObjectURL(url);
           } catch {}
-        }}>{intl.formatMessage({ id: 'pages.analytics.export.10min.csv' }) || '导出10分钟CSV'}</Button>
+        }}>{intl.formatMessage({ id: 'pages.analytics.realtime.export.10min.csv' }) || '导出10分钟CSV'}</Button>
       </Space>}>
         <Row gutter={[16,16]}>
           <Col span={6}><Card loading={loading}>

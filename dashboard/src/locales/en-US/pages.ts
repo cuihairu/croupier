@@ -129,6 +129,9 @@ export default {
   'pages.component.management.connected.agents': 'Connected Agents',
   'pages.component.management.virtual.objects': 'Virtual Objects',
   
+  // Analytics Overview page
+  'pages.analytics.overview.title': 'Analytics Overview',
+
   // Analytics pages
   'pages.analytics.realtime.title': 'Real-time Dashboard',
   'pages.analytics.realtime.refresh': 'Refresh',
@@ -142,14 +145,14 @@ export default {
   'pages.analytics.realtime.active.1m': '1min Active',
   'pages.analytics.realtime.active.5m': '5min Active',
   'pages.analytics.realtime.active.15m': '15min Active',
-  'pages.analytics.realtime.today.peak.online': 'Today's Peak Online',
+  'pages.analytics.realtime.today.peak.online': 'Today\'s Peak Online',
   'pages.analytics.realtime.history.peak.online': 'Historical Peak Online',
-  'pages.analytics.realtime.today.dau': 'Today's DAU',
-  'pages.analytics.realtime.today.new': 'Today's New Users',
+  'pages.analytics.realtime.today.dau': 'Today\'s DAU',
+  'pages.analytics.realtime.today.new': 'Today\'s New Users',
   'pages.analytics.realtime.total.registered.users': 'Total Registered Users',
   'pages.analytics.realtime.revenue.5m': '5min Revenue (Yuan)',
   'pages.analytics.realtime.pay.success.rate': 'Payment Success Rate',
-  'pages.analytics.realtime.today.revenue': 'Today's Revenue (Yuan)',
+  'pages.analytics.realtime.today.revenue': 'Today\'s Revenue (Yuan)',
   
   // Account Center page
   'pages.account.center.profile.title': 'Profile',

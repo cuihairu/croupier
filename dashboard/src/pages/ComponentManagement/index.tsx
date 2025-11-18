@@ -10,7 +10,7 @@ import {
   PlusOutlined,
   ApartmentOutlined
 } from '@ant-design/icons';
-import { useModel } from '@umijs/max';
+import { useModel, useIntl } from '@umijs/max';
 import FunctionWorkspace from './components/FunctionWorkspace';
 import RegistryDashboard from './components/RegistryDashboard';
 import PackageCenter from './components/PackageCenter';
@@ -19,8 +19,6 @@ import VirtualObjectManager from './components/VirtualObjectManager';
 import GameSelector from '@/components/GameSelector';
 import { reloadPacks } from '@/services/croupier/packs';
 import { createEntity } from '@/services/croupier/entities';
-
-const { TabPane } = Tabs;
 
 const QUICK_ACTIONS = {
   importPack: {
@@ -105,7 +103,15 @@ export default function ComponentManagement() {
     if (unauthorized) return;
 
     const fetchJson = async (url: string) => {
-      const resp = await fetch(url);
+      const headers: Record<string, string> = {};
+      const token = localStorage.getItem('token');
+      const gid = localStorage.getItem('game_id');
+      const env = localStorage.getItem('env');
+      const isASCII = (s?: string | null) => !!s && /^[\x00-\x7F]*$/.test(s);
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (isASCII(gid)) headers['X-Game-ID'] = gid as string;
+      if (isASCII(env)) headers['X-Env'] = env as string;
+      const resp = await fetch(url, { credentials: 'include', headers });
       if (resp.status === 401) {
         if (!mounted.current) return null;
         setUnauthorized(true);
@@ -124,8 +130,12 @@ export default function ComponentManagement() {
         fetchJson('/api/descriptors').catch(() => ({})),
         fetchJson('/api/registry').catch(() => ({})),
         fetchJson('/api/packs/list').catch(() => ({})),
-        fetchJson('/api/entities/list').catch(() => ({}))
+        fetchJson('/api/entities').catch(() => ({}))
       ]);
+
+      const entitiesCount = Array.isArray(entities)
+        ? entities.length
+        : (entities?.entities && Array.isArray(entities.entities) ? entities.entities.length : 0);
 
       setStats({
         totalFunctions: descriptors && typeof descriptors === 'object' ? Object.keys(descriptors).length : 0,
@@ -133,7 +143,7 @@ export default function ComponentManagement() {
         runningJobs: 0, // TODO: 从job API获取
         availablePackages: packs?.packages && Array.isArray(packs.packages) ? packs.packages.length : 0,
         connectedAgents: registry?.agents && Array.isArray(registry.agents) ? registry.agents.filter((a: any) => a?.connected).length : 0,
-        virtualObjects: entities?.entities && Array.isArray(entities.entities) ? entities.entities.length : 0
+        virtualObjects: entitiesCount
       });
       if (!mounted.current) return;
       setInitError(null);

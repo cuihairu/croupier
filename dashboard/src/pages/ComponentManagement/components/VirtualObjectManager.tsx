@@ -34,7 +34,6 @@ import {
 
 const { Option } = Select;
 const { TextArea } = Input;
-const { TabPane } = Tabs;
 
 interface EntityDefinition {
   id: string;
@@ -85,6 +84,18 @@ export default function VirtualObjectManager() {
   const [selectedEntity, setSelectedEntity] = useState<EntityDefinition | null>(null);
   const [form] = Form.useForm();
 
+  const authHeaders = () => {
+    const headers: Record<string, string> = {};
+    const token = localStorage.getItem('token');
+    const gid = localStorage.getItem('game_id');
+    const env = localStorage.getItem('env');
+    const isASCII = (s?: string | null) => !!s && /^[\x00-\x7F]*$/.test(s);
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (isASCII(gid)) headers['X-Game-ID'] = gid as string;
+    if (isASCII(env)) headers['X-Env'] = env as string;
+    return headers;
+  };
+
   useEffect(() => {
     loadEntities();
     loadFunctions();
@@ -93,11 +104,13 @@ export default function VirtualObjectManager() {
   const loadEntities = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/entities/list');
+      const response = await fetch('/api/entities', { credentials: 'include', headers: authHeaders() });
       const data = await response.json();
 
+      const list = Array.isArray(data) ? data : (Array.isArray((data as any)?.entities) ? (data as any).entities : null);
+
       // 如果API调用失败或返回错误格式，使用模拟数据
-      if (!response.ok || !data || !Array.isArray(data.entities)) {
+      if (!response.ok || !list) {
         console.warn('API返回格式错误或未授权，使用模拟数据');
 
         // 模拟数据
@@ -184,7 +197,7 @@ export default function VirtualObjectManager() {
         setEntities(mockEntities);
       } else {
         // API返回正确格式的数据
-        setEntities(data.entities);
+        setEntities(list);
       }
     } catch (error) {
       message.error('加载虚拟对象失败');
@@ -197,7 +210,7 @@ export default function VirtualObjectManager() {
 
   const loadFunctions = async () => {
     try {
-      const response = await fetch('/api/descriptors');
+      const response = await fetch('/api/descriptors', { credentials: 'include', headers: authHeaders() });
       const data = await response.json();
 
       if (!response.ok || !data || typeof data !== 'object') {
@@ -233,9 +246,10 @@ export default function VirtualObjectManager() {
         usageCount: 0
       };
 
-      const response = await fetch('/api/entities/create', {
+      const response = await fetch('/api/entities', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        credentials: 'include',
         body: JSON.stringify(entityData)
       });
 
@@ -255,7 +269,9 @@ export default function VirtualObjectManager() {
   const handleDeleteEntity = async (entityId: string) => {
     try {
       const response = await fetch(`/api/entities/${entityId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        credentials: 'include',
+        headers: authHeaders(),
       });
 
       if (response.ok) {
@@ -273,7 +289,8 @@ export default function VirtualObjectManager() {
     try {
       const response = await fetch(`/api/entities/${entityId}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        credentials: 'include',
         body: JSON.stringify({ status: enabled ? 'active' : 'inactive' })
       });
 
@@ -460,97 +477,113 @@ export default function VirtualObjectManager() {
         footer={null}
       >
         {selectedEntity && (
-          <Tabs defaultActiveKey="basic">
-            <TabPane tab="基本信息" key="basic">
-              <Descriptions column={2} bordered>
-                <Descriptions.Item label="对象ID">{selectedEntity.id}</Descriptions.Item>
-                <Descriptions.Item label="对象名称">{selectedEntity.name}</Descriptions.Item>
-                <Descriptions.Item label="版本">{selectedEntity.version}</Descriptions.Item>
-                <Descriptions.Item label="状态">
-                  <Tag color={selectedEntity.status === 'active' ? 'green' : 'red'}>
-                    {selectedEntity.status === 'active' ? '活跃' : '停用'}
-                  </Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label="使用次数" span={2}>
-                  <Badge count={selectedEntity.usageCount} showZero />
-                </Descriptions.Item>
-                <Descriptions.Item label="描述" span={2}>
-                  {selectedEntity.description}
-                </Descriptions.Item>
-                <Descriptions.Item label="创建时间">
-                  {new Date(selectedEntity.createdAt).toLocaleString()}
-                </Descriptions.Item>
-                <Descriptions.Item label="更新时间">
-                  {new Date(selectedEntity.updatedAt).toLocaleString()}
-                </Descriptions.Item>
-              </Descriptions>
-            </TabPane>
-
-            <TabPane tab="操作列表" key="operations">
-              <Table
-                dataSource={Object.entries(selectedEntity.operations || {}).map(([key, op]) => ({
-                  key,
-                  operation: key,
-                  function: op.function,
-                  description: op.description
-                }))}
-                columns={[
-                  { title: '操作名', dataIndex: 'operation', key: 'operation' },
-                  { title: '函数', dataIndex: 'function', key: 'function' },
-                  { title: '描述', dataIndex: 'description', key: 'description' }
-                ]}
-                pagination={false}
-                size="small"
-              />
-            </TabPane>
-
-            <TabPane tab="资源组" key="resources">
-              <Table
-                dataSource={Object.entries(selectedEntity.resources || {}).map(([key, res]) => ({
-                  key,
-                  name: key,
-                  title: res.title,
-                  functions: res.functions
-                }))}
-                columns={[
-                  { title: '资源组名', dataIndex: 'name', key: 'name' },
-                  { title: '标题', dataIndex: 'title', key: 'title' },
-                  {
-                    title: '包含函数',
-                    dataIndex: 'functions',
-                    key: 'functions',
-                    render: (funcs: string[]) => (
-                      <Space wrap>
-                        {funcs.map(f => <Tag key={f}>{f}</Tag>)}
-                      </Space>
-                    )
-                  }
-                ]}
-                pagination={false}
-                size="small"
-              />
-            </TabPane>
-
-            <TabPane tab="关系" key="relationships">
-              <Table
-                dataSource={Object.entries(selectedEntity.relationships || {}).map(([key, rel]) => ({
-                  key,
-                  name: key,
-                  type: rel.type,
-                  target: rel.target,
-                  cardinality: rel.cardinality
-                }))}
-                columns={[
-                  { title: '关系名', dataIndex: 'name', key: 'name' },
-                  { title: '关系类型', dataIndex: 'type', key: 'type' },
-                  { title: '目标实体', dataIndex: 'target', key: 'target' },
-                  { title: '基数', dataIndex: 'cardinality', key: 'cardinality' }
-                ]}
-                pagination={false}
-                size="small"
-              />
-            </TabPane>
-          </Tabs>
+          <Tabs
+            defaultActiveKey="basic"
+            items={[
+              {
+                key: 'basic',
+                label: '基本信息',
+                children: (
+                  <Descriptions column={2} bordered>
+                    <Descriptions.Item label="对象ID">{selectedEntity.id}</Descriptions.Item>
+                    <Descriptions.Item label="对象名称">{selectedEntity.name}</Descriptions.Item>
+                    <Descriptions.Item label="版本">{selectedEntity.version}</Descriptions.Item>
+                    <Descriptions.Item label="状态">
+                      <Tag color={selectedEntity.status === 'active' ? 'green' : 'red'}>
+                        {selectedEntity.status === 'active' ? '活跃' : '停用'}
+                      </Tag>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="使用次数" span={2}>
+                      <Badge count={selectedEntity.usageCount} showZero />
+                    </Descriptions.Item>
+                    <Descriptions.Item label="描述" span={2}>
+                      {selectedEntity.description}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="创建时间">
+                      {new Date(selectedEntity.createdAt).toLocaleString()}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="更新时间">
+                      {new Date(selectedEntity.updatedAt).toLocaleString()}
+                    </Descriptions.Item>
+                  </Descriptions>
+                )
+              },
+              {
+                key: 'operations',
+                label: '操作列表',
+                children: (
+                  <Table
+                    dataSource={Object.entries(selectedEntity.operations || {}).map(([key, op]) => ({
+                      key,
+                      operation: key,
+                      function: op.function,
+                      description: op.description
+                    }))}
+                    columns={[
+                      { title: '操作名', dataIndex: 'operation', key: 'operation' },
+                      { title: '函数', dataIndex: 'function', key: 'function' },
+                      { title: '描述', dataIndex: 'description', key: 'description' }
+                    ]}
+                    pagination={false}
+                    size="small"
+                  />
+                )
+              },
+              {
+                key: 'resources',
+                label: '资源组',
+                children: (
+                  <Table
+                    dataSource={Object.entries(selectedEntity.resources || {}).map(([key, res]) => ({
+                      key,
+                      name: key,
+                      title: res.title,
+                      functions: res.functions
+                    }))}
+                    columns={[
+                      { title: '资源组名', dataIndex: 'name', key: 'name' },
+                      { title: '标题', dataIndex: 'title', key: 'title' },
+                      {
+                        title: '包含函数',
+                        dataIndex: 'functions',
+                        key: 'functions',
+                        render: (funcs: string[]) => (
+                          <Space wrap>
+                            {funcs.map(f => <Tag key={f}>{f}</Tag>)}
+                          </Space>
+                        )
+                      }
+                    ]}
+                    pagination={false}
+                    size="small"
+                  />
+                )
+              },
+              {
+                key: 'relationships',
+                label: '关系',
+                children: (
+                  <Table
+                    dataSource={Object.entries(selectedEntity.relationships || {}).map(([key, rel]) => ({
+                      key,
+                      name: key,
+                      type: rel.type,
+                      target: rel.target,
+                      cardinality: rel.cardinality
+                    }))}
+                    columns={[
+                      { title: '关系名称', dataIndex: 'name', key: 'name' },
+                      { title: '类型', dataIndex: 'type', key: 'type' },
+                      { title: '目标', dataIndex: 'target', key: 'target' },
+                      { title: '基数', dataIndex: 'cardinality', key: 'cardinality' }
+                    ]}
+                    pagination={false}
+                    size="small"
+                  />
+                )
+              },
+            ]}
+          />
         )}
       </Modal>
 

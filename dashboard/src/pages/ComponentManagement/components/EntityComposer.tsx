@@ -14,7 +14,6 @@ const { Step } = Steps;
 const { TextArea } = Input;
 const { Text, Title } = Typography;
 const { Option } = Select;
-const { TabPane } = Tabs;
 const { Panel } = Collapse;
 
 interface FunctionInfo {
@@ -127,9 +126,21 @@ export default function EntityComposer({ entity, visible, onSave, onCancel }: En
     form.resetFields();
   };
 
+  const authHeaders = () => {
+    const headers: Record<string, string> = {};
+    const token = localStorage.getItem('token');
+    const gid = localStorage.getItem('game_id');
+    const env = localStorage.getItem('env');
+    const isASCII = (s?: string | null) => !!s && /^[\x00-\x7F]*$/.test(s);
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (isASCII(gid)) headers['X-Game-ID'] = gid as string;
+    if (isASCII(env)) headers['X-Env'] = env as string;
+    return headers;
+  };
+
   const loadAvailableFunctions = async () => {
     try {
-      const response = await fetch('/api/descriptors');
+      const response = await fetch('/api/descriptors', { credentials: 'include', headers: authHeaders() });
       const data = await response.json();
 
       const functions: FunctionInfo[] = Object.entries(data || {}).map(([key, desc]: [string, any]) => ({
@@ -148,9 +159,10 @@ export default function EntityComposer({ entity, visible, onSave, onCancel }: En
 
   const loadAvailableEntities = async () => {
     try {
-      const response = await fetch('/api/entities/list');
+      const response = await fetch('/api/entities', { credentials: 'include', headers: authHeaders() });
       const data = await response.json();
-      setAvailableEntities(data.entities?.map((e: any) => e.id) || []);
+      const list = Array.isArray(data) ? data : (Array.isArray(data?.entities) ? data.entities : []);
+      setAvailableEntities(list.map((e: any) => e.id) || []);
     } catch (error) {
       console.error('Failed to load entities:', error);
     }
@@ -672,71 +684,93 @@ export default function EntityComposer({ entity, visible, onSave, onCancel }: En
               style={{ marginBottom: 16 }}
             />
 
-            <Tabs defaultActiveKey="summary">
-              <TabPane tab="配置概要" key="summary">
-                <Descriptions column={2} bordered size="small">
-                  <Descriptions.Item label="实体ID">{composition.id}</Descriptions.Item>
-                  <Descriptions.Item label="名称">{composition.name}</Descriptions.Item>
-                  <Descriptions.Item label="版本">{composition.version}</Descriptions.Item>
-                  <Descriptions.Item label="操作数量">{composition.operations.length}</Descriptions.Item>
-                  <Descriptions.Item label="资源组数量">{composition.resources.length}</Descriptions.Item>
-                  <Descriptions.Item label="关系数量">{composition.relationships.length}</Descriptions.Item>
-                  <Descriptions.Item label="描述" span={2}>{composition.description}</Descriptions.Item>
-                </Descriptions>
+            <Tabs
+              defaultActiveKey="summary"
+              items={[
+                {
+                  key: 'summary',
+                  label: '配置概要',
+                  children: (
+                    <>
+                      <Descriptions column={2} bordered size="small">
+                        <Descriptions.Item label="实体ID">{composition.id}</Descriptions.Item>
+                        <Descriptions.Item label="名称">{composition.name}</Descriptions.Item>
+                        <Descriptions.Item label="版本">{composition.version}</Descriptions.Item>
+                        <Descriptions.Item label="操作数量">{composition.operations.length}</Descriptions.Item>
+                        <Descriptions.Item label="资源组数量">{composition.resources.length}</Descriptions.Item>
+                        <Descriptions.Item label="关系数量">{composition.relationships.length}</Descriptions.Item>
+                        <Descriptions.Item label="描述" span={2}>{composition.description}</Descriptions.Item>
+                      </Descriptions>
 
-                <Divider />
+                      <Divider />
 
-                <Space style={{ marginBottom: 16 }}>
-                  <Button icon={<EyeOutlined />} onClick={() => setPreviewModalVisible(true)}>
-                    预览配置
-                  </Button>
-                  <Button icon={<PlayCircleOutlined />} onClick={() => setTestModalVisible(true)}>
-                    测试验证
-                  </Button>
-                </Space>
-              </TabPane>
-
-              <TabPane tab="操作列表" key="operations">
-                <Table
-                  size="small"
-                  dataSource={composition.operations.sort((a, b) => a.order - b.order)}
-                  rowKey="id"
-                  pagination={false}
-                  columns={[
-                    { title: '顺序', dataIndex: 'order', key: 'order', width: 60 },
-                    { title: '操作名', dataIndex: 'name', key: 'name' },
-                    { title: '函数', dataIndex: 'functionId', key: 'functionId' },
-                    { title: '描述', dataIndex: 'description', key: 'description' }
-                  ]}
-                />
-              </TabPane>
-
-              <TabPane tab="资源组织" key="resources">
-                {composition.resources.map(resource => (
-                  <Card key={resource.id} size="small" style={{ marginBottom: 8 }}>
-                    <Text strong>{resource.title}</Text>
-                    <br />
-                    <Text type="secondary">{resource.description}</Text>
-                    <br />
-                    <Tag color="blue">布局: {resource.layout}</Tag>
-                    <Tag color="green">函数: {resource.functions.length}</Tag>
-                  </Card>
-                ))}
-              </TabPane>
-
-              <TabPane tab="关系定义" key="relationships">
-                {composition.relationships.map(rel => (
-                  <Card key={rel.id} size="small" style={{ marginBottom: 8 }}>
-                    <Text strong>{rel.name}</Text>
-                    <Tag color="blue" style={{ marginLeft: 8 }}>{rel.type}</Tag>
-                    <ArrowRightOutlined style={{ margin: '0 8px' }} />
-                    <Text code>{rel.targetEntity}</Text>
-                    <br />
-                    <Text type="secondary">{rel.description}</Text>
-                  </Card>
-                ))}
-              </TabPane>
-            </Tabs>
+                      <Space style={{ marginBottom: 16 }}>
+                        <Button icon={<EyeOutlined />} onClick={() => setPreviewModalVisible(true)}>
+                          预览配置
+                        </Button>
+                        <Button icon={<PlayCircleOutlined />} onClick={() => setTestModalVisible(true)}>
+                          测试验证
+                        </Button>
+                      </Space>
+                    </>
+                  )
+                },
+                {
+                  key: 'operations',
+                  label: '操作列表',
+                  children: (
+                    <Table
+                      size="small"
+                      dataSource={composition.operations.sort((a, b) => a.order - b.order)}
+                      rowKey="id"
+                      pagination={false}
+                      columns={[
+                        { title: '顺序', dataIndex: 'order', key: 'order', width: 60 },
+                        { title: '操作名', dataIndex: 'name', key: 'name' },
+                        { title: '函数', dataIndex: 'functionId', key: 'functionId' },
+                        { title: '描述', dataIndex: 'description', key: 'description' }
+                      ]}
+                    />
+                  )
+                },
+                {
+                  key: 'resources',
+                  label: '资源组织',
+                  children: (
+                    <>
+                      {composition.resources.map(resource => (
+                        <Card key={resource.id} size="small" style={{ marginBottom: 8 }}>
+                          <Text strong>{resource.title}</Text>
+                          <br />
+                          <Text type="secondary">{resource.description}</Text>
+                          <br />
+                          <Tag color="blue">布局: {resource.layout}</Tag>
+                          <Tag color="green">函数: {resource.functions.length}</Tag>
+                        </Card>
+                      ))}
+                    </>
+                  )
+                },
+                {
+                  key: 'relationships',
+                  label: '关系定义',
+                  children: (
+                    <>
+                      {composition.relationships.map(rel => (
+                        <Card key={rel.id} size="small" style={{ marginBottom: 8 }}>
+                          <Text strong>{rel.name}</Text>
+                          <Tag color="blue" style={{ marginLeft: 8 }}>{rel.type}</Tag>
+                          <ArrowRightOutlined style={{ margin: '0 8px' }} />
+                          <Text code>{rel.targetEntity}</Text>
+                          <br />
+                          <Text type="secondary">{rel.description}</Text>
+                        </Card>
+                      ))}
+                    </>
+                  )
+                },
+              ]}
+            />
           </Card>
         );
 

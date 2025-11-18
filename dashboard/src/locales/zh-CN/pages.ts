@@ -126,6 +126,9 @@ export default {
   'pages.component.management.connected.agents': '在线代理',
   'pages.component.management.virtual.objects': '虚拟对象',
   
+  // Analytics Overview page
+  'pages.analytics.overview.title': '概览 KPI',
+
   // Analytics pages
   'pages.analytics.realtime.title': '实时大屏',
   'pages.analytics.realtime.refresh': '刷新',
