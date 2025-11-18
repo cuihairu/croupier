@@ -254,14 +254,6 @@ export default [
       { path: '/ops/maintenance', name: 'Maintenance', access: 'canOpsManage', component: './Ops/Maintenance' },
     ],
   },
-  // Security menu removed (duplicated with AdminUsers/Permissions)
-  {
-    path: '/components',
-    name: 'ComponentManagement',
-    icon: 'appstore',
-    access: 'canFunctionsRead',
-    component: './ComponentManagement',
-  },
   {
     path: '/',
     redirect: '/analytics/realtime',
@@ -330,6 +322,22 @@ export default [
   {
     path: '/gm',
     redirect: '/game/meta',
+  },
+  // Security menu removed (duplicated with AdminUsers/Permissions)
+  {
+    path: '/components',
+    name: 'ComponentManagement',
+    icon: 'appstore',
+    access: 'canFunctionsRead',
+    component: './ComponentManagement',
+  },
+  // 后台组件分配，显式展示在主菜单
+  {
+    path: '/assignments',
+    name: 'GameAssignments',
+    icon: 'branches',
+    access: 'canAssignmentsRead',
+    component: './Assignments',
   },
   {
     path: '*',

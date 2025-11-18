@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Tabs, Badge, Space, Button, Dropdown, Menu, Modal, Form, Input, message, Select } from 'antd';
+import { Card, Tabs, Badge, Space, Button, Dropdown, Modal, Form, Input, message, Select } from 'antd';
 import {
   FunctionOutlined,
   DatabaseOutlined,
@@ -88,6 +88,18 @@ export default function ComponentManagement() {
   }, []);
 
   const loadStats = async () => {
+    if (!currentUser) {
+      setUnauthorized(true);
+      setStats({
+        totalFunctions: 0,
+        activeFunctions: 0,
+        runningJobs: 0,
+        availablePackages: 0,
+        connectedAgents: 0,
+        virtualObjects: 0
+      });
+      return;
+    }
     if (unauthorized) return;
 
     const fetchJson = async (url: string) => {
@@ -306,25 +318,16 @@ export default function ComponentManagement() {
     }
   };
 
-  const quickActionsMenu = (
-    <Menu onClick={({ key }) => handleQuickAction(key as QuickActionKey)}>
-      <Menu.Item key="importPack" icon={<PlusOutlined />}>
-        导入组件包
-      </Menu.Item>
-      <Menu.Item key="createFunction">
-        创建新组件
-      </Menu.Item>
-      <Menu.Item key="createVirtualObject" icon={<ApartmentOutlined />}>
-        创建虚拟对象
-      </Menu.Item>
-      <Menu.Item key="bulkEnable">
-        批量启用/禁用
-      </Menu.Item>
-      <Menu.Item key="exportConfig">
-        导出配置
-      </Menu.Item>
-    </Menu>
-  );
+  const quickActionsMenu = {
+    items: [
+      { key: 'importPack', icon: <PlusOutlined />, label: '导入组件包' },
+      { key: 'createFunction', label: '创建新组件' },
+      { key: 'createVirtualObject', icon: <ApartmentOutlined />, label: '创建虚拟对象' },
+      { key: 'bulkEnable', label: '批量启用/禁用' },
+      { key: 'exportConfig', label: '导出配置' },
+    ],
+    onClick: ({ key }: { key: string }) => handleQuickAction(key as QuickActionKey),
+  };
 
   const renderTabTitle = (title: string, count?: number, color?: string) => (
     <Space>
@@ -351,14 +354,14 @@ export default function ComponentManagement() {
         extra={
           <Space>
             <GameSelector />
-            <Dropdown overlay={quickActionsMenu} placement="bottomRight" trigger={['click']}>
+            <Dropdown menu={quickActionsMenu} placement="bottomRight" trigger={['click']}>
               <Button icon={<SettingOutlined />}>
                 快速操作
               </Button>
             </Dropdown>
           </Space>
         }
-        bordered={false}
+        variant="bordered"
       >
         {/* 统计概览 */}
         <Card.Grid hoverable={false} style={{ width: '16.66%', textAlign: 'center' }}>
@@ -417,13 +420,13 @@ export default function ComponentManagement() {
       </Card>
 
       {unauthorized && (
-        <Card style={{ marginTop: 16 }} type="inner" headStyle={{ fontWeight: 600 }} title="未授权">
+        <Card style={{ marginTop: 16 }} type="inner" styles={{ header: { fontWeight: 600 } }} title="未授权" variant="bordered">
           <p>无法访问部分接口（如注册表、组件包列表），已停止自动刷新。请登录或联系管理员获取权限。</p>
         </Card>
       )}
 
       {/* 功能标签页 */}
-      <Card style={{ marginTop: 16 }} styles={{ body: { padding: 0 } }}>
+      <Card style={{ marginTop: 16 }} styles={{ body: { padding: 0 } }} variant="bordered">
         <Tabs
           activeKey={activeTab}
           onChange={setActiveTab}
@@ -489,7 +492,7 @@ export default function ComponentManagement() {
         onOk={handleActionSubmit}
         confirmLoading={actionSubmitting}
         onCancel={closeActionModal}
-        destroyOnClose
+        destroyOnHidden
       >
         {actionModal && (
           <>

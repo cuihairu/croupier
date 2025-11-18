@@ -71,6 +71,8 @@ export default {
   'menu.Analytics.Attribution': '渠道投放',
   'menu.Analytics.Segments': '人群分层',
   'menu.ComponentManagement': '组件管理',
+  'menu.Assignments': '功能分配',
+  'menu.GameAssignments': '功能分配',
 
   // Legacy menu items (保持向后兼容)
   'menu.GM': '运营',
