@@ -6,7 +6,7 @@ agent_id: "agent-1"
 agent_version: "0.1.0"
 game_id: "default"
 env: "dev"
-insecure_local: true
+insecure_local: true   # 设为 false 启用本地 TLS（未提供证书时将自动生成 dev cert）
 cert: "configs/dev/agent.crt"
 key: "configs/dev/agent.key"
 ca: "configs/dev/ca.crt"
