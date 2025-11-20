@@ -236,6 +236,26 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 			{
 				Method:  http.MethodGet,
+				Path:    "/api/approvals",
+				Handler: ApprovalsListHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/api/approvals/get",
+				Handler: ApprovalGetHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/api/approvals/approve",
+				Handler: ApprovalApproveHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/api/approvals/reject",
+				Handler: ApprovalRejectHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
 				Path:    "/healthz",
 				Handler: HealthzHandler(serverCtx),
 			},

@@ -29,6 +29,7 @@ import (
 
 	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/cuihairu/croupier/internal/analytics/mq"
+	appr "github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/function/descriptor"
 	"github.com/cuihairu/croupier/internal/pack"
 	"github.com/cuihairu/croupier/internal/platform/objstore"
@@ -108,6 +109,7 @@ type ServiceContext struct {
 	gamesRepo        ports.GamesRepository
 	gamesSvc         ports.GamesRepository
 	supportRepo      SupportRepository
+	approvals        appr.Store
 	analyticsQueue   mq.Queue
 	ch               clickhouse.Conn
 }
@@ -355,6 +357,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		jwtMgr:            jwtMgr,
 		loginAttempts:     map[string][]time.Time{},
 		supportRepo:       supportRepo,
+		approvals:         appr.NewMemStore(),
 		analyticsQueue:   analyticsQueue,
 	}
 	ctx.initClickHouse()
@@ -1703,6 +1706,10 @@ func (s *ServiceContext) SupportRepository() SupportRepository {
 		s.supportRepo = newMemorySupportRepo()
 	}
 	return s.supportRepo
+}
+
+func (s *ServiceContext) ApprovalsStore() appr.Store {
+	return s.approvals
 }
 
 func (s *ServiceContext) AnalyticsQueue() mq.Queue {

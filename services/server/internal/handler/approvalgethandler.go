@@ -8,17 +8,23 @@ import (
 
 	"github.com/cuihairu/croupier/services/server/internal/logic"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
+	"github.com/cuihairu/croupier/services/server/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 func ApprovalGetHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		l := logic.NewApprovalGetLogic(r.Context(), svcCtx)
-		resp, err := l.ApprovalGet()
-		if err != nil {
+		var req types.ApprovalGetRequest
+		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
-		} else {
-			httpx.OkJsonCtx(r.Context(), w, resp)
+			return
 		}
+		l := logic.NewApprovalGetLogic(r.Context(), svcCtx)
+		resp, err := l.ApprovalGet(&req)
+		if err != nil {
+			writeApprovalsError(r.Context(), w, err)
+			return
+		}
+		httpx.OkJsonCtx(r.Context(), w, resp)
 	}
 }

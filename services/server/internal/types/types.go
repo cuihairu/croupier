@@ -243,16 +243,16 @@ type MeProfileResponse struct {
 }
 
 type MeGame struct {
-	Id          uint         `json:"id"`
-	Name        string       `json:"name"`
-	AliasName   string       `json:"alias_name"`
-	Status      string       `json:"status"`
-	Enabled     bool         `json:"enabled"`
-	Description string       `json:"description"`
-	Icon        string       `json:"icon"`
-	Homepage    string       `json:"homepage"`
-	Envs        []string     `json:"envs"`
-	GameEnvs    []MeGameEnv  `json:"game_envs"`
+	Id          uint        `json:"id"`
+	Name        string      `json:"name"`
+	AliasName   string      `json:"alias_name"`
+	Status      string      `json:"status"`
+	Enabled     bool        `json:"enabled"`
+	Description string      `json:"description"`
+	Icon        string      `json:"icon"`
+	Homepage    string      `json:"homepage"`
+	Envs        []string    `json:"envs"`
+	GameEnvs    []MeGameEnv `json:"game_envs"`
 }
 
 type MeGameEnv struct {
@@ -273,8 +273,8 @@ type MeProfileUpdateRequest struct {
 }
 
 type MePasswordRequest struct {
-	Current  string `json:"current"`
-	Password string `json:"password"`
+	Current     string `json:"current"`
+	Password    string `json:"password"`
 	OldPassword string `json:"old_password,optional"`
 	NewPassword string `json:"new_password,optional"`
 }
@@ -1812,4 +1812,58 @@ type AdminPublishRequest struct {
 
 type AdminPublishResponse struct {
 	Ok bool `json:"ok"`
+}
+
+type ApprovalsListRequest struct {
+	State         string `form:"state,optional"`
+	FunctionId    string `form:"function_id,optional"`
+	GameId        string `form:"game_id,optional"`
+	Env           string `form:"env,optional"`
+	Actor         string `form:"actor,optional"`
+	Mode          string `form:"mode,optional"`
+	Page          int    `form:"page,optional"`
+	Size          int    `form:"size,optional"`
+	Sort          string `form:"sort,optional"`
+	CompletedOnly bool   `form:"completed_only,optional"`
+}
+
+type ApprovalSummary struct {
+	Id              string `json:"id"`
+	CreatedAt       string `json:"created_at"`
+	Actor           string `json:"actor"`
+	FunctionId      string `json:"function_id"`
+	IdempotencyKey  string `json:"idempotency_key,omitempty"`
+	Route           string `json:"route,omitempty"`
+	TargetServiceId string `json:"target_service_id,omitempty"`
+	HashKey         string `json:"hash_key,omitempty"`
+	GameId          string `json:"game_id,omitempty"`
+	Env             string `json:"env,omitempty"`
+	State           string `json:"state"`
+	Mode            string `json:"mode,omitempty"`
+	Reason          string `json:"reason,omitempty"`
+}
+
+type ApprovalsListResponse struct {
+	Approvals []ApprovalSummary `json:"approvals"`
+	Total     int               `json:"total"`
+	Page      int               `json:"page"`
+	Size      int               `json:"size"`
+}
+
+type ApprovalGetRequest struct {
+	Id string `form:"id"`
+}
+
+type ApprovalDetailResponse struct {
+	ApprovalSummary
+	PayloadPreview string `json:"payload_preview,omitempty"`
+}
+
+type ApprovalApproveRequest struct {
+	Id string `json:"id"`
+}
+
+type ApprovalRejectRequest struct {
+	Id     string `json:"id"`
+	Reason string `json:"reason,optional"`
 }
