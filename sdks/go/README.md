@@ -20,7 +20,7 @@ The Croupier Go SDK enables game servers to register functions with the Croupier
 ### Installation
 
 ```bash
-go get github.com/cuihairu/croupier-sdk-go
+go get github.com/cuihairu/croupier/sdks/go
 ```
 
 ### Basic Usage
@@ -32,7 +32,7 @@ import (
     "context"
     "log"
 
-    "github.com/cuihairu/croupier-sdk-go/pkg/croupier"
+    "github.com/cuihairu/croupier/sdks/go/pkg/croupier"
 )
 
 func main() {

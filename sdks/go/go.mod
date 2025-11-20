@@ -1,4 +1,4 @@
-module github.com/cuihairu/croupier-sdk-go
+module github.com/cuihairu/croupier/sdks/go
 
 go 1.24.0
 

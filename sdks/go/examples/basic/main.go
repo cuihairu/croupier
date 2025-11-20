@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cuihairu/croupier-sdk-go/pkg/croupier"
+	"github.com/cuihairu/croupier/sdks/go/pkg/croupier"
 )
 
 func main() {
