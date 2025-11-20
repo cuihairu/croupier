@@ -234,20 +234,49 @@ type AnalyticsPaymentsIngestRequest struct {
 }
 
 type MeProfileResponse struct {
-	Profile interface{} `json:"profile"`
+	Username    string   `json:"username"`
+	DisplayName string   `json:"display_name"`
+	Email       string   `json:"email"`
+	Phone       string   `json:"phone"`
+	Active      bool     `json:"active"`
+	Roles       []string `json:"roles"`
+}
+
+type MeGame struct {
+	Id          uint         `json:"id"`
+	Name        string       `json:"name"`
+	AliasName   string       `json:"alias_name"`
+	Status      string       `json:"status"`
+	Enabled     bool         `json:"enabled"`
+	Description string       `json:"description"`
+	Icon        string       `json:"icon"`
+	Homepage    string       `json:"homepage"`
+	Envs        []string     `json:"envs"`
+	GameEnvs    []MeGameEnv  `json:"game_envs"`
+}
+
+type MeGameEnv struct {
+	Env         string `json:"env"`
+	Description string `json:"description"`
+	ApiBase     string `json:"api_base"`
+	Color       string `json:"color"`
 }
 
 type MeGamesResponse struct {
-	Games interface{} `json:"games"`
+	Games []MeGame `json:"games"`
 }
 
 type MeProfileUpdateRequest struct {
-	Profile interface{} `json:"profile"`
+	DisplayName string `json:"display_name,optional"`
+	Email       string `json:"email,optional"`
+	Phone       string `json:"phone,optional"`
 }
 
 type MePasswordRequest struct {
-	OldPassword string `json:"old_password"`
-	NewPassword string `json:"new_password"`
+	Current  string `json:"current"`
+	Password string `json:"password"`
+	OldPassword string `json:"old_password,optional"`
+	NewPassword string `json:"new_password,optional"`
 }
 
 type AnalyticsPaymentsSummaryQuery struct {
