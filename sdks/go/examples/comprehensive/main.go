@@ -24,8 +24,8 @@ import (
 
 // ==================== Function Handlers ====================
 
-func playerBanHandler(ctx context.Context, payload string) (string, error) {
-	log.Printf("🔨 执行玩家封禁 - Payload: %s", payload)
+func playerBanHandler(ctx context.Context, payload []byte) ([]byte, error) {
+	log.Printf("🔨 执行玩家封禁 - Payload: %s", string(payload))
 
 	// 模拟处理时间
 	time.Sleep(100 * time.Millisecond)
@@ -39,11 +39,11 @@ func playerBanHandler(ctx context.Context, payload string) (string, error) {
 	}
 
 	data, _ := json.Marshal(result)
-	return string(data), nil
+	return data, nil
 }
 
-func itemCreateHandler(ctx context.Context, payload string) (string, error) {
-	log.Printf("📦 创建游戏道具 - Payload: %s", payload)
+func itemCreateHandler(ctx context.Context, payload []byte) ([]byte, error) {
+	log.Printf("📦 创建游戏道具 - Payload: %s", string(payload))
 
 	result := map[string]interface{}{
 		"status":    "success",
@@ -54,11 +54,11 @@ func itemCreateHandler(ctx context.Context, payload string) (string, error) {
 	}
 
 	data, _ := json.Marshal(result)
-	return string(data), nil
+	return data, nil
 }
 
-func playerDataHandler(ctx context.Context, payload string) (string, error) {
-	log.Printf("👤 处理玩家数据 - Payload: %s", payload)
+func playerDataHandler(ctx context.Context, payload []byte) ([]byte, error) {
+	log.Printf("👤 处理玩家数据 - Payload: %s", string(payload))
 
 	result := map[string]interface{}{
 		"status":    "success",
@@ -69,11 +69,11 @@ func playerDataHandler(ctx context.Context, payload string) (string, error) {
 	}
 
 	data, _ := json.Marshal(result)
-	return string(data), nil
+	return data, nil
 }
 
-func guildManageHandler(ctx context.Context, payload string) (string, error) {
-	log.Printf("🏰 管理公会 - Payload: %s", payload)
+func guildManageHandler(ctx context.Context, payload []byte) ([]byte, error) {
+	log.Printf("🏰 管理公会 - Payload: %s", string(payload))
 
 	result := map[string]interface{}{
 		"status":   "success",
@@ -83,11 +83,11 @@ func guildManageHandler(ctx context.Context, payload string) (string, error) {
 	}
 
 	data, _ := json.Marshal(result)
-	return string(data), nil
+	return data, nil
 }
 
-func utilityHandler(ctx context.Context, payload string) (string, error) {
-	log.Printf("🔧 工具函数 - Payload: %s", payload)
+func utilityHandler(ctx context.Context, payload []byte) ([]byte, error) {
+	log.Printf("🔧 工具函数 - Payload: %s", string(payload))
 
 	result := map[string]interface{}{
 		"status": "success",
@@ -96,7 +96,7 @@ func utilityHandler(ctx context.Context, payload string) (string, error) {
 	}
 
 	data, _ := json.Marshal(result)
-	return string(data), nil
+	return data, nil
 }
 
 // ==================== Demo Functions ====================
