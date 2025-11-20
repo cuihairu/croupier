@@ -1,6 +1,6 @@
 {
-  "name": "croupier-sdk",
-  "version": "1.0.0",
+  "name": "croupier-js-sdk",
+  "version": "0.1.0",
   "description": "Croupier Node.js SDK for Game Function Registration with Hot Reload Support",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -44,10 +44,10 @@
     "start": "node dist/examples/main.js"
   },
   "dependencies": {
-    "chokidar": "^3.5.3",
     "@bufbuild/protobuf": "^1.6.0",
     "@connectrpc/connect": "^1.2.0",
-    "@connectrpc/connect-node": "^1.2.0"
+    "@connectrpc/connect-node": "^1.2.0",
+    "chokidar": "^3.5.3"
   },
   "devDependencies": {
     "@types/node": "^20.8.0",
@@ -61,6 +61,7 @@
     "rimraf": "^5.0.5",
     "ts-jest": "^29.1.1",
     "ts-node-dev": "^2.0.0",
+    "tslib": "^2.8.1",
     "typescript": "^5.2.2"
   },
   "peerDependencies": {

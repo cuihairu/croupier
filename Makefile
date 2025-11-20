@@ -6,6 +6,7 @@ LDFLAGS := -X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -s -w
 .PHONY: proto build server agent edge cli clean dev tidy test lint help all tools schema-validator pack-builder
 .PHONY: build-sdks build-sdks-cpp build-sdks-go build-sdks-java build-sdks-js build-sdks-python
 .PHONY: build-web build-dashboard build-website dev-dashboard dev-website
+.PHONY: version version-sync
 
 # Build all components (server + sdks + web)
 all: build build-sdks build-web
@@ -182,6 +183,25 @@ clean-web:
 	@rm -rf dashboard/dist dashboard/node_modules
 	@rm -rf docs/.vuepress/dist docs/build docs/.docusaurus docs/node_modules
 
+# ========== Version Management ==========
+.PHONY: version version-sync
+version:
+	@echo "Current SDK Version: $$(cat VERSION 2>/dev/null || echo 'VERSION file not found')"
+	@echo ""
+	@echo "SDK Versions:"
+	@echo "  JS:     $$(grep '"version"' sdks/js/package.json | head -1 | sed 's/.*: "\(.*\)".*/\1/')"
+	@echo "  Python: $$(grep 'version=' sdks/python/setup.py | sed 's/.*version="\(.*\)".*/\1/')"
+	@echo "  Java:   $$(grep '^version' sdks/java/build.gradle | sed "s/.*'\(.*\)'.*/\1/")"
+	@echo "  C++:    $$(grep -A1 '^project' sdks/cpp/CMakeLists.txt | grep 'VERSION' | awk '{print $$2}')"
+	@echo "  Go:     $$(grep 'const Version' sdks/go/version.go 2>/dev/null | sed 's/.*"\(.*\)".*/\1/' || echo 'N/A')"
+
+version-sync:
+	@echo "[version] Synchronizing all SDK versions..."
+	@./scripts/sync-sdk-versions.sh
+	@echo "[version] Updating JS lock file..."
+	@cd sdks/js && pnpm install --lockfile-only
+	@echo "✅ Version sync complete. Don't forget to commit changes!"
+
 # ========== Help Target ==========
 help:
 	@echo "Croupier Build System (Monorepo)"
@@ -215,6 +235,10 @@ help:
 	@echo "  clean            - Clean all build artifacts"
 	@echo "  clean-sdks       - Clean SDK build artifacts"
 	@echo "  clean-web        - Clean web build artifacts"
+	@echo ""
+	@echo "Version Management:"
+	@echo "  version          - Show current SDK versions"
+	@echo "  version-sync     - Sync all SDK versions from VERSION file"
 
 .PHONY: proto-docs
 proto-docs:

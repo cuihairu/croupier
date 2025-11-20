@@ -10,8 +10,8 @@ with open("README.md", "r", encoding="utf-8") as fh:
 requirements = []
 
 setup(
-    name="croupier-sdk",
-    version="1.0.0",
+    name="croupier-python-sdk",
+    version="0.1.0",
     author="Croupier Team",
     author_email="dev@croupier.io",
     description="Croupier Python SDK for Game Function Registration with Hot Reload Support",

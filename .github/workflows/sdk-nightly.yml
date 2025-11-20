@@ -416,14 +416,19 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Pack npm tarball
+          cache: 'pnpm'
+          cache-dependency-path: sdks/js/pnpm-lock.yaml
+      - name: Install dependencies and pack
         working-directory: sdks/js
         run: |
-          npm ci || true
-          npm pack
+          pnpm install --frozen-lockfile
+          pnpm pack
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
