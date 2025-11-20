@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Space, DatePicker, Input, Select, Button, Table, Tag } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import { exportToXLSX } from '@/utils/export';
 import { fetchAnalyticsAttribution } from '@/services/croupier/analytics';
 
@@ -25,7 +26,7 @@ export default function AnalyticsAttributionPage() {
   useEffect(()=>{ /* not auto-load */ }, []);
 
   return (
-    <div style={{ padding: 24 }}>
+    <PageContainer>
       <Card title="渠道投放" extra={<Space>
         <DatePicker.RangePicker value={range as any} onChange={setRange as any} />
         <Select allowClear placeholder="渠道" value={channel} onChange={setChannel} style={{ width: 160 }} options={[]} />
@@ -53,6 +54,6 @@ export default function AnalyticsAttributionPage() {
           }}>导出 Excel</Button>
         </div>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Table, Space, Input, Button, DatePicker, Tag } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import { listAudit, type AuditEvent } from '@/services/croupier';
 
 export default function LoginLogsPage() {
@@ -91,7 +92,8 @@ export default function LoginLogsPage() {
   }
 
   return (
-    <Card title="登录日志">
+    <PageContainer>
+      <Card title="登录日志">
       <Space style={{ marginBottom: 12 }} wrap>
         <Input placeholder="操作者" value={actor} onChange={(e)=>setActor(e.target.value)} style={{ width: 160 }} />
         <Input placeholder="IP" value={ip} onChange={(e)=>setIP(e.target.value)} style={{ width: 160 }} />
@@ -150,6 +152,7 @@ export default function LoginLogsPage() {
         }}
         pagination={{ current: page, pageSize: size, total: filtered.length, showSizeChanger: true, onChange: (p, ps)=> { setPage(p); setSize(ps||20); } }}
       />
-    </Card>
+      </Card>
+    </PageContainer>
   );
 }

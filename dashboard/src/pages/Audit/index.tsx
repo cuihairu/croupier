@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Table, Space, Input, Select, Button, Typography, Switch, Tag, DatePicker } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import { getMessage } from '@/utils/antdApp';
 import { useModel } from '@umijs/max';
 import { listAudit, AuditEvent } from '@/services/croupier';
@@ -78,14 +79,17 @@ export default function AuditPage(){
 
   if (!canRead) {
     return (
-      <Card title="审计日志">
-        <Typography.Text type="secondary">无权限：audit:read</Typography.Text>
-      </Card>
+      <PageContainer>
+        <Card title="审计日志">
+          <Typography.Text type="secondary">无权限：audit:read</Typography.Text>
+        </Card>
+      </PageContainer>
     );
   }
 
   return (
-    <Card title="审计日志" extra={<GameSelector />}> 
+    <PageContainer>
+      <Card title="审计日志" extra={<GameSelector />}> 
       <Space style={{ marginBottom: 12 }}>
         <Input placeholder="操作者" value={filters.actor} onChange={e=>setFilters({...filters, actor:e.target.value||undefined})} />
         <Select allowClear placeholder="类型" style={{ width: 220 }} value={filters.kind} onChange={(v)=>setFilters({...filters, kind:v})}
@@ -120,6 +124,7 @@ export default function AuditPage(){
           { title: 'Trace', dataIndex: ['meta','trace_id'] },
           { title: '元信息', render: (_:any, r:any)=> <span style={{fontFamily:'monospace'}}>{JSON.stringify(r.meta||{})}</span> },
         ]} />
-    </Card>
+      </Card>
+    </PageContainer>
   );
 }

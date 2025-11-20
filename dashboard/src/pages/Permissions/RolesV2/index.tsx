@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Button, Modal, Form, Input, Tag, Space, Popconfirm, Select } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { getMessage } from '@/utils/antdApp';
 import { listRoles, createRole, updateRole, deleteRole, setRolePerms, type RoleRecord } from '@/services/croupier';
@@ -66,7 +67,7 @@ export default function RolesV2() {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
+    <PageContainer>
       <Card title="角色管理" extra={<Button type="primary" onClick={openAdd}>新增角色</Button>}>
         <Table rowKey="id" columns={columns} dataSource={roles} loading={loading} pagination={{ pageSize: 10 }} />
       </Card>
@@ -85,6 +86,6 @@ export default function RolesV2() {
           </Form.Item>
         </Form>
       </Modal>
-    </div>
+    </PageContainer>
   );
 }

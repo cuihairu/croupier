@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Space, DatePicker, Select, Button, Table, Tag } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import { exportToXLSX } from '@/utils/export';
 import { fetchAnalyticsPaymentsSummary, fetchAnalyticsTransactions, fetchProductTrend } from '@/services/croupier/analytics';
 
@@ -40,7 +41,7 @@ export default function AnalyticsPaymentsPage() {
   useEffect(()=>{ load(); }, [page, size]);
 
   return (
-    <div style={{ padding: 24 }}>
+    <PageContainer>
       <Card title="支付分析" extra={<Space>
         <DatePicker.RangePicker value={range as any} onChange={setRange as any} />
         <Select allowClear placeholder="渠道" value={channel} onChange={setChannel} style={{ width: 140 }} options={[]} />
@@ -165,7 +166,7 @@ export default function AnalyticsPaymentsPage() {
         </div>
         <DeltaSection range={range} channel={channel} platform={platform} country={country} region={region} city={city} />
       </Card>
-    </div>
+    </PageContainer>
   );
 }
 

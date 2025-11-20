@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Table, Button, Modal, Form, Input, Switch, Select, Tag, Space, Popconfirm, Divider } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { getMessage } from '@/utils/antdApp';
 import { listUsers, createUser, updateUser, deleteUser, setUserPassword, listRoles, listUserGames, setUserGames, listUserGameEnvs, setUserGameEnvs, type UserRecord } from '@/services/croupier';
@@ -143,7 +144,7 @@ export default function UsersV2() {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
+    <PageContainer>
       <Card title="用户管理" extra={<Button type="primary" onClick={openAdd}>新增用户</Button>}>
         <Table rowKey="id" columns={columns} dataSource={users} loading={loading} pagination={{ pageSize: 10 }} />
       </Card>
@@ -205,6 +206,6 @@ export default function UsersV2() {
           </Form.Item>
         </Form>
       </Modal>
-    </div>
+    </PageContainer>
   );
 }

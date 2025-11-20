@@ -1,0 +1,58 @@
+Name: croupier-edge
+Host: 0.0.0.0
+Port: 8889
+
+# Server configuration
+Server:
+  InternalAddr: "localhost:8443"
+  PublicAddr:   "edge.example.com"
+  Insecure:     false
+  TLSCertFile:  ""
+  TLSKeyFile:   ""
+
+# Edge configuration
+Edge:
+  Region: ""
+  Zone: ""
+  Labels: {}
+
+# Tunnel configuration
+Tunnel:
+  MaxTunnels: 1000
+  Timeout: 300000
+  IdleTimeout: 60000
+  BufferSize: 32768
+
+# Proxy configuration
+Proxy:
+  MaxConnections: 10000
+  RequestTimeout: 30000
+  ReadTimeout:    30000
+  WriteTimeout:   30000
+
+# Load balancer configuration
+LoadBalancer:
+  Strategy: "round_robin" // round_robin, least_conn, ip_hash
+  HealthCheck: true
+  HealthInterval: 30
+  HealthTimeout: 5000
+
+# Metrics configuration
+Metrics:
+  Enabled: true
+  Port: 9091
+  Path: /metrics
+
+# Logging configuration
+Log:
+  ServiceName: croupier-edge
+  Mode: console
+  Level: info
+
+# TLS configuration
+TLS:
+  Enabled: false
+  CertFile: ""
+  KeyFile: ""
+  CAFile: ""
+  InsecureSkipVerify: false

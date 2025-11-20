@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Table, Space, Tag, Select, Input, Button, App, Modal } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { request } from '@umijs/max';
 import { fetchRegistry, type ServerAgent as RegistryAgent } from '@/services/croupier/registry';
@@ -91,7 +92,7 @@ export default function OpsNodesPage() {
   const envs = Array.from(new Set(rows.map(r=> r.env).filter(Boolean))).map(v=> ({ label:v, value:v }));
 
   return (
-    <div style={{ padding: 24 }}>
+    <PageContainer>
       <Card title='节点维护' extra={<Space>
         <Select allowClear placeholder='Game' value={game} onChange={setGame as any} style={{ width: 140 }} options={games} />
         <Select allowClear placeholder='Env' value={env} onChange={setEnv as any} style={{ width: 120 }} options={envs} />
@@ -112,6 +113,6 @@ export default function OpsNodesPage() {
           pagination={{ pageSize: 10 }}
         />
       </Card>
-    </div>
+    </PageContainer>
   );
 }

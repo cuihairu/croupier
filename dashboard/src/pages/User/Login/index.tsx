@@ -1,5 +1,5 @@
 import { Footer } from '@/components';
-import { loginAuth } from '@/services/croupier';
+import { createSession } from '@/services/croupier';
 import {
   LockOutlined,
   UserOutlined,
@@ -103,8 +103,8 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (values: any) => {
     try {
-      // 登录
-      const res = await loginAuth({ username: values.username, password: values.password });
+      // RESTful: 创建会话
+      const res = await createSession({ username: values.username, password: values.password });
       localStorage.setItem('token', res.token);
       getMessage()?.success(intl.formatMessage({ id: 'pages.login.success', defaultMessage: '登录成功！' }));
       await fetchUserInfo();

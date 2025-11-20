@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Table, Space, Tag, Select, Input, Button, App, Modal, Form, Input as AntInput } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { listConfigs, getConfig, saveConfig, validateConfig, listVersions, getVersion } from '@/services/croupier/configs';
 import { CodeEditor, DiffEditor as MonacoDiff } from '@/components/MonacoDynamic';
@@ -95,7 +96,7 @@ export default function OperationsConfigsPage() {
   };
 
   return (
-    <div style={{ padding: 24 }}>
+    <PageContainer>
       <Card title='配置管理' extra={<Space>
         <Select allowClear placeholder='Game' value={game} onChange={setGame as any} style={{ width: 140 }} options={games} />
         <Select allowClear placeholder='Env' value={env} onChange={setEnv as any} style={{ width: 120 }} options={envs} />
@@ -156,7 +157,7 @@ export default function OperationsConfigsPage() {
         </div>
         {!hasMonaco() && <DiffView left={diffLeft} right={diffRight} />}
       </Modal>
-    </div>
+    </PageContainer>
   );
 }
 

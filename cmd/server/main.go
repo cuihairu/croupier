@@ -20,16 +20,18 @@ import (
 
 	httpserver "github.com/cuihairu/croupier/internal/app/server/http"
 	controlserver "github.com/cuihairu/croupier/internal/platform/control"
-	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
+	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
+
 	// register json codec
 	_ "github.com/cuihairu/croupier/internal/transport/jsoncodec"
+
+	"strings"
 
 	common "github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/cuihairu/croupier/internal/connpool"
 	"github.com/cuihairu/croupier/internal/devcert"
 	tlsutil "github.com/cuihairu/croupier/internal/platform/tlsutil"
-	"strings"
 )
 
 // noopInvoker implements httpserver.FunctionInvoker with no-op behavior so that
@@ -279,29 +281,43 @@ func main() {
 			usersPath := v.GetString("users_config")
 			jwtSecret := v.GetString("jwt_secret")
 
-			// Auto-generate dev certs when not provided (DEV ONLY)
-			if cert == "" || key == "" || ca == "" {
-				out := "configs/dev"
-				caCrt, caKey, err := devcert.EnsureDevCA(out)
-				if err != nil {
-					slog.Error("generate dev CA", "error", err)
-					os.Exit(1)
+			insecure := v.GetBool("insecure")
+			var s *grpc.Server
+			if insecure {
+				slog.Warn("running in insecure mode (no TLS)")
+				s = grpc.NewServer(
+					grpc.KeepaliveParams(keepalive.ServerParameters{}),
+				)
+			} else {
+				// Auto-generate dev certs when not provided (DEV ONLY)
+				if cert == "" || key == "" || ca == "" {
+					out := "configs/dev"
+					caCrt, caKey, err := devcert.EnsureDevCA(out)
+					if err != nil {
+						slog.Error("generate dev CA", "error", err)
+						os.Exit(1)
+					}
+					// include common localhost hosts for dev
+					srvCrt, srvKey, err := devcert.EnsureServerCert(out, caCrt, caKey, []string{"localhost", "127.0.0.1"})
+					if err != nil {
+						slog.Error("generate dev server cert", "error", err)
+						os.Exit(1)
+					}
+					// set to generated paths
+					cert, key, ca = srvCrt, srvKey, caCrt
+					slog.Info("devcert generated", "dir", out)
 				}
-				// include common localhost hosts for dev
-				srvCrt, srvKey, err := devcert.EnsureServerCert(out, caCrt, caKey, []string{"localhost", "127.0.0.1"})
-				if err != nil {
-					slog.Error("generate dev server cert", "error", err)
-					os.Exit(1)
-				}
-				// set to generated paths
-				cert, key, ca = srvCrt, srvKey, caCrt
-				slog.Info("devcert generated", "dir", out)
-			}
 
-			creds, err := tlsutil.ServerTLS(cert, key, ca, true)
-			if err != nil {
-				slog.Error("load TLS", "error", err)
-				os.Exit(1)
+				creds, err := tlsutil.ServerTLS(cert, key, ca, true)
+				if err != nil {
+					slog.Error("load TLS", "error", err)
+					os.Exit(1)
+				}
+
+				s = grpc.NewServer(
+					grpc.Creds(creds),
+					grpc.KeepaliveParams(keepalive.ServerParameters{}),
+				)
 			}
 
 			lis, err := net.Listen("tcp", addr)
@@ -310,16 +326,11 @@ func main() {
 				os.Exit(1)
 			}
 
-			s := grpc.NewServer(
-				grpc.Creds(creds),
-				grpc.KeepaliveParams(keepalive.ServerParameters{}),
-			)
-
 			// Register services
 			// DB-backed games; ignore legacy gamesPath
 			_ = gamesPath
-            ctrl := controlserver.NewServer(nil)
-            serverv1.RegisterControlServiceServer(s, ctrl)
+			ctrl := controlserver.NewServer(nil)
+			serverv1.RegisterControlServiceServer(s, ctrl)
 			// FunctionService invoker: forward to Edge when provided, else use a no-op.
 			var invoker httpserver.FunctionInvoker = noopInvoker{}
 			if edgeAddr != "" {
@@ -409,6 +420,7 @@ func main() {
 	// Flags and config
 	root.Flags().StringVar(&cfgFile, "config", "", "config file (yaml), e.g. configs/server.yaml")
 	root.Flags().String("addr", ":8443", "grpc listen address")
+	root.Flags().Bool("insecure", false, "run without TLS")
 	root.Flags().String("http_addr", ":8080", "http api listen address")
 	root.Flags().String("edge_addr", "", "optional edge address for forwarding function calls (DEV PoC)")
 	root.Flags().String("rbac_config", "configs/rbac.json", "rbac policy json path")

@@ -1,0 +1,61 @@
+Name: croupier-agent
+Host: 0.0.0.0
+Port: 8888
+
+# Server configuration
+Server:
+  Addr: localhost:8443
+  Insecure: false
+  TLSCertFile: ""
+  TLSKeyFile: ""
+  CAFile: ""
+
+# Agent configuration
+Agent:
+  ID: ""
+  GameID: ""
+  Env: ""
+  LocalAddr: "127.0.0.1:19090"
+  HTTPAddr: "127.0.0.1:19091"
+  Region: ""
+  Zone: ""
+  Labels: {}
+
+# gRPC configuration
+GRPC:
+  Host: 127.0.0.1
+  Port: 19090
+  Timeout: 30000
+
+# Upstream configuration
+Upstream:
+  HeartbeatInterval: 30
+  RetryInterval: 5
+  MaxRetries: 3
+  Timeout: 10000
+
+# Job configuration
+Job:
+  MaxConcurrent: 100
+  Timeout: 300000
+  Retries: 3
+
+# Metrics configuration
+Metrics:
+  Enabled: true
+  Port: 9090
+  Path: /metrics
+
+# Logging configuration
+Log:
+  ServiceName: croupier-agent
+  Mode: console
+  Level: info
+
+# TLS configuration
+TLS:
+  Enabled: false
+  CertFile: ""
+  KeyFile: ""
+  CAFile: ""
+  InsecureSkipVerify: false

@@ -1,0 +1,18 @@
+Name: croupier-api
+Host: 0.0.0.0
+Port: 8888
+Registry:
+  AssignmentsPath: "data/assignments.json"
+  AnalyticsFiltersPath: "packs/ui/analytics_filters.json"
+  RateLimitsPath: "data/rate_limits.json"
+Auth:
+  JWTSecret: "dev-secret"
+Descriptors:
+  Dir: "packs"
+Components:
+  DataDir: "data"
+  StagingDir: "data/components/staging"
+Schemas:
+  Dir: "packs/ui"
+Packs:
+  Dir: "packs"

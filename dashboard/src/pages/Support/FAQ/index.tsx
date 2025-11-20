@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Space, Button, Input, Switch, Modal, Form } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import { listFAQ, createFAQ, updateFAQ, deleteFAQ } from '@/services/croupier/support';
 import { useAccess } from '@umijs/max';
 
@@ -35,7 +36,8 @@ export default function SupportFAQPage() {
   const onDelete = (rec: any) => { Modal.confirm({ title:'删除 FAQ', onOk: async()=> { await deleteFAQ(rec.id); load(); } }); };
 
   return (
-    <Card title="常见问题（FAQ）" extra={
+    <PageContainer>
+      <Card title="常见问题（FAQ）" extra={
       <Space>
         <Input placeholder="关键词" value={q} onChange={(e)=>setQ(e.target.value)} style={{ width: 200 }} />
         <Input placeholder="分类" value={category} onChange={(e)=>setCategory(e.target.value)} style={{ width: 140 }} />
@@ -71,5 +73,6 @@ export default function SupportFAQPage() {
         </Form>
       </Modal>
     </Card>
+    </PageContainer>
   );
 }

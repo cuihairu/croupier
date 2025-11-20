@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Table, Tag, Space, Typography, Tabs, Collapse, Badge, Tooltip, Input, Button } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import { getMessage } from '@/utils/antdApp';
 import {
   SettingOutlined,
@@ -250,6 +251,7 @@ export default function ConfigPage() {
   };
 
   return (
+    <PageContainer>
     <div style={{ padding: '24px' }}>
       <Card>
         <div style={{ marginBottom: '16px' }}>
@@ -484,5 +486,6 @@ export default function ConfigPage() {
         />
       </Card>
     </div>
+    </PageContainer>
   );
 }

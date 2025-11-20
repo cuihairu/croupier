@@ -1,0 +1,146 @@
+syntax = "v1"
+
+info (
+	title: "Croupier Edge API"
+	desc:  "go-zero migration of edge proxy and tunneling APIs"
+)
+
+type (
+	// Tunnel establishment request
+	TunnelCreateRequest {
+		AgentId    string `json:"agent_id"`
+		ServerId   string `json:"server_id"`
+		Protocol   string `json:"protocol"` // http, grpc, ws
+		RemoteAddr string `json:"remote_addr"`
+		LocalAddr  string `json:"local_addr"`
+		Options    map[string]interface{} `json:"options,optional"`
+	}
+
+	// Tunnel creation response
+	TunnelCreateResponse {
+		Success    bool   `json:"success"`
+		TunnelId   string `json:"tunnel_id"`
+		Message    string `json:"message"`
+		PublicUrl  string `json:"public_url,optional"`
+	}
+
+	// Tunnel status request
+	TunnelStatusRequest {
+		TunnelId string `path:"tunnel_id"`
+	}
+
+	// Tunnel status response
+	TunnelStatusResponse {
+		TunnelId    string `json:"tunnel_id"`
+		Status      string `json:"status"`
+		Protocol    string `json:"protocol"`
+		RemoteAddr  string `json:"remote_addr"`
+		LocalAddr   string `json:"local_addr"`
+		Connections int64  `json:"connections"`
+		BytesIn     int64  `json:"bytes_in"`
+		BytesOut    int64  `json:"bytes_out"`
+		CreatedAt   string `json:"created_at"`
+		LastActive  string `json:"last_active"`
+	}
+
+	// Tunnel list request
+	TunnelListRequest {
+		AgentId string `form:"agent_id,optional"`
+		Status  string `form:"status,optional"`
+		Page    int    `form:"page,optional"`
+		Size    int    `form:"size,optional"`
+	}
+
+	// Tunnel list response
+	TunnelListResponse {
+		Tunnels []TunnelStatusResponse `json:"tunnels"`
+		Total   int64                  `json:"total"`
+		Page    int                    `json:"page"`
+		Size    int                    `json:"size"`
+	}
+
+	// Tunnel close request
+	TunnelCloseRequest {
+		TunnelId string `path:"tunnel_id"`
+	}
+
+	// Tunnel close response
+	TunnelCloseResponse {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}
+
+	// Proxy request
+	ProxyRequest {
+		TunnelId string `path:"tunnel_id"`
+		Method   string `json:"method"`
+		Path     string `json:"path"`
+		Headers  map[string]string `json:"headers,optional"`
+		Body     string `json:"body,optional"`
+	}
+
+	// Proxy response
+	ProxyResponse {
+		Status  int               `json:"status"`
+		Headers map[string]string `json:"headers"`
+		Body    string            `json:"body"`
+	}
+
+	// Edge health check request
+	EdgeHealthRequest {
+		RequestId string `path:"request_id"`
+	}
+
+	// Edge health response
+	EdgeHealthResponse {
+		Status    string            `json:"status"`
+		Uptime    int64             `json:"uptime"`
+		Version   string            `json:"version"`
+		Tunnels   int64             `json:"active_tunnels"`
+		Agents    int64             `json:"connected_agents"`
+		Load      map[string]float64 `json:"load"`
+		Timestamp string            `json:"timestamp"`
+	}
+
+	// Edge metrics request
+	EdgeMetricsRequest {
+		Start string `form:"start,optional"`
+		End   string `form:"end,optional"`
+		Type  string `form:"type,optional"` // system, tunnels, agents
+	}
+
+	// Edge metrics response
+	EdgeMetricsResponse {
+		Metrics map[string]interface{} `json:"metrics"`
+	}
+)
+
+@server (
+	prefix: /api/v1
+	group:  edge
+)
+service croupier-edge {
+	// Tunnel management
+	@handler TunnelCreateHandler
+	post /tunnel (TunnelCreateRequest) returns (TunnelCreateResponse)
+
+	@handler TunnelStatusHandler
+	get /tunnel/:tunnel_id/status (TunnelStatusRequest) returns (TunnelStatusResponse)
+
+	@handler TunnelListHandler
+	get /tunnels (TunnelListRequest) returns (TunnelListResponse)
+
+	@handler TunnelCloseHandler
+	delete /tunnel/:tunnel_id (TunnelCloseRequest) returns (TunnelCloseResponse)
+
+	// Proxy operations
+	@handler ProxyHandler
+	post /proxy/:tunnel_id (ProxyRequest) returns (ProxyResponse)
+
+	// Edge management
+	@handler EdgeHealthHandler
+	get /edge/health/:request_id (EdgeHealthRequest) returns (EdgeHealthResponse)
+
+	@handler EdgeMetricsHandler
+	get /edge/metrics (EdgeMetricsRequest) returns (EdgeMetricsResponse)
+}

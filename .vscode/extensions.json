@@ -3,10 +3,14 @@
         "bufbuild.vscode-buf",
         "zxh404.vscode-proto3",
         "golang.go",
+        "goctl.vscode-goctl",
         "vscjava.vscode-java-pack",
         "ms-python.python",
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
-        "ms-vscode.cpptools"
+        "ms-vscode.cpptools",
+        "redhat.vscode-yaml",
+        "bradlc.vscode-tailwindcss",
+        "formulahendry.auto-rename-tag"
     ]
 }

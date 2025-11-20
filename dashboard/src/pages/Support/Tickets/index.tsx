@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Space, Button, Input, Select, Tag, Modal, Form, Dropdown } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import type { MenuProps } from 'antd';
 import { listUsers } from '@/services/croupier';
 import { updateTicket as updateTicketAPI } from '@/services/croupier/support';
@@ -73,7 +74,8 @@ export default function SupportTicketsPage() {
     .map(s=> ({ key:s, label:({open:'打开',in_progress:'处理中',resolved:'已解决',closed:'已关闭'} as any)[s]||s })));
 
   return (
-    <Card title="工单系统" extra={
+    <PageContainer>
+      <Card title="工单系统" extra={
       <Space>
         <Input placeholder="关键词" value={q} onChange={(e)=>setQ(e.target.value)} style={{ width: 180 }} />
         <Select placeholder="状态" value={status} onChange={setStatus} allowClear style={{ width: 140 }} options={[
@@ -134,6 +136,7 @@ export default function SupportTicketsPage() {
           <Form.Item label="来源" name="source"> <Input /> </Form.Item>
         </Form>
       </Modal>
-    </Card>
+      </Card>
+    </PageContainer>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Table, Space, Tag, Select, Input, Button, App, Tooltip, Drawer } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import GameSelector from '@/components/GameSelector';
 import { fetchOpsServices, type OpsAgent, fetchOpsMetrics, updateAgentMeta } from '@/services/croupier/ops';
@@ -103,7 +104,7 @@ export default function OpsServicesPage() {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
+    <PageContainer>
       <Card title="服务列表" extra={
         <Space>
           <GameSelector />
@@ -171,7 +172,7 @@ export default function OpsServicesPage() {
           </Space>
         )}
       </Drawer>
-    </div>
+    </PageContainer>
   );
 }
 

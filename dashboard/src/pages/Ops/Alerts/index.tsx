@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Table, Space, Tag, Button, Select, Input, App, Modal, Drawer, Typography } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { request } from '@umijs/max';
 import { listSilences, deleteSilence, fetchOpsConfig } from '@/services/croupier/ops';
@@ -77,7 +78,7 @@ export default function OpsAlertsPage() {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
+    <PageContainer>
       <Card title="告警中心" extra={
         <Space>
           <Select placeholder='严重度' allowClear style={{ width:140 }} value={sev||undefined} onChange={(v)=> setSev(v||'')} options={[{label:'critical',value:'critical'},{label:'warning',value:'warning'},{label:'info',value:'info'}]} />
@@ -139,6 +140,6 @@ export default function OpsAlertsPage() {
           </Space>
         )}
       </Drawer>
-    </div>
+    </PageContainer>
   );
 }

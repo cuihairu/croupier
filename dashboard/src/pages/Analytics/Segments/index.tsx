@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Space, DatePicker, Select, Button, Table, Tag } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import { fetchAnalyticsSegments } from '@/services/croupier/analytics';
 
 export default function AnalyticsSegmentsPage() {
@@ -21,7 +22,7 @@ export default function AnalyticsSegmentsPage() {
   useEffect(()=>{ /* not auto-load */ }, []);
 
   return (
-    <div style={{ padding: 24 }}>
+    <PageContainer>
       <Card title="人群分层" extra={<Space>
         <Select value={breakdown} onChange={setBreakdown as any} style={{ width: 180 }} options={[{label:'RFM 分层',value:'rfm'},{label:'留存×付费',value:'retention_pay'},{label:'国家/平台/渠道',value:'geo_platform_channel'}]} />
         <DatePicker.RangePicker value={range as any} onChange={setRange as any} />
@@ -33,6 +34,6 @@ export default function AnalyticsSegmentsPage() {
           pagination={{ pageSize: 10 }}
         />
       </Card>
-    </div>
+    </PageContainer>
   );
 }

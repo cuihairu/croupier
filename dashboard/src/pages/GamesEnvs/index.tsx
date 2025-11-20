@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Space, Select, Button, Table, Modal, Form, Input, App, Tag } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { listGamesMeta, type Game as GameMeta } from '@/services/croupier';
 import { listGameEnvs, addGameEnv, updateGameEnv, deleteGameEnv, type GameEnv } from '@/services/croupier/envs';
@@ -71,7 +72,7 @@ export default function GamesEnvsPage() {
   }, [editOpen, editing, editForm]);
 
   return (
-    <div style={{ padding: 24 }}>
+    <PageContainer>
       <Card title="游戏环境" extra={
         <Space>
           <Select
@@ -122,6 +123,6 @@ export default function GamesEnvsPage() {
           </Form.Item>
         </Form>
       </Modal>
-    </div>
+    </PageContainer>
   );
 }

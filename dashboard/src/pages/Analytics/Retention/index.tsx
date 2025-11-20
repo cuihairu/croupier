@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Space, DatePicker, Select, Button, Table } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import { exportToXLSX } from '@/utils/export';
 import { fetchAnalyticsRetention } from '@/services/croupier/analytics';
 
@@ -25,7 +26,7 @@ export default function AnalyticsRetentionPage() {
   const rowsData = (data?.cohorts || []).map((c:any, idx:number)=>({ key: idx, cohort_date: c.date, total: c.total, d1:c.d1, d7:c.d7, d30:c.d30 }));
 
   return (
-    <div style={{ padding: 24 }}>
+    <PageContainer>
       <Card title="留存分析" extra={
         <Space>
           <Select value={cohort} onChange={setCohort as any} options={[{label:'按注册',value:'signup'},{label:'按首次活跃',value:'first_active'}]} />
@@ -47,6 +48,6 @@ export default function AnalyticsRetentionPage() {
           ]}
         />
       </Card>
-    </div>
+    </PageContainer>
   );
 }

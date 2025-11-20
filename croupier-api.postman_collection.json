@@ -1,0 +1,802 @@
+{
+	"info": {
+		"_postman_id": "croupier-go-zero-2024",
+		"name": "Croupier Go-Zero APIs",
+		"description": "Croupier微服务API集合 - API服务、Agent服务、Edge服务",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "croupier-export"
+	},
+	"item": [
+		{
+			"name": "API服务 (localhost:8888)",
+			"description": "主要API服务，提供认证、游戏管理、系统运维等功能",
+			"item": [
+				{
+					"name": "认证管理",
+					"item": [
+						{
+							"name": "创建会话 (登录)",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.json().token) {",
+											"    pm.collectionVariables.set('token', pm.response.json().token);",
+											"    pm.environment.set('token', pm.response.json().token);",
+											"}",
+											"pm.test(`${pm.info.requestName} Status Code is 200 or 201`, function () {",
+											"    pm.expect(pm.response).to.have.status(200);",
+											"    if (pm.response.json().token) {",
+											"        pm.collectionVariables.set('token', pm.response.json().token);",
+											"    }",
+											"});"
+										]
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/auth/sessions",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "auth", "sessions"]
+								},
+								"description": "RESTful: 创建用户会话替代传统的登录API"
+							}
+						},
+						{
+							"name": "获取当前用户",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/users/current",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "users", "current"]
+								},
+								"description": "RESTful: 获取当前用户信息替代 /api/auth/me"
+							}
+						},
+						{
+							"name": "获取用户资料",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/users/current/profile",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "users", "current", "profile"]
+								},
+								"description": "RESTful: 获取用户详细资料信息"
+							}
+						},
+						{
+							"name": "更新用户资料",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"display_name\": \"管理员\",\n  \"email\": \"admin@croupier.com\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/users/current/profile",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "users", "current", "profile"]
+								},
+								"description": "RESTful: 更新当前用户资料"
+							}
+						},
+						{
+							"name": "修改密码",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"old_password\": \"admin123\",\n  \"new_password\": \"newadmin123\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/users/current/password",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "users", "current", "password"]
+								},
+								"description": "RESTful: 修改当前用户密码"
+							}
+						},
+						{
+							"name": "获取用户游戏权限",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/users/current/games",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "users", "current", "games"]
+								},
+								"description": "RESTful: 获取当前用户可访问的游戏列表"
+							}
+						}
+					]
+				},
+				{
+					"name": "游戏管理",
+					"item": [
+						{
+							"name": "获取游戏列表",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/games?page=1&size=20",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "games"],
+									"query": [
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "size",
+											"value": "20"
+										}
+									]
+								},
+								"description": "分页获取游戏列表"
+							}
+						},
+						{
+							"name": "创建游戏",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Demo Game\",\n  \"description\": \"演示游戏项目\",\n  \"config\": {\n    \"max_players\": 1000,\n    \"regions\": [\"us-east-1\", \"eu-west-1\"],\n    \"features\": [\"pvp\", \"leaderboard\"]\n  }\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/games",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "games"]
+								},
+								"description": "创建新的游戏项目"
+							}
+						},
+						{
+							"name": "获取游戏详情",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/games/{{gameId}}",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "games", "{{gameId}}"]
+								},
+								"description": "获取指定游戏的详细信息"
+							}
+						},
+						{
+							"name": "更新游戏",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Updated Game\",\n  \"description\": \"更新后的描述\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/games/{{gameId}}",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "games", "{{gameId}}"]
+								},
+								"description": "更新游戏信息"
+							}
+						},
+						{
+							"name": "删除游戏",
+							"request": {
+								"method": "DELETE",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/games/{{gameId}}",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "games", "{{gameId}}"]
+								},
+								"description": "删除指定游戏"
+							}
+						}
+					]
+				},
+				{
+					"name": "系统运维",
+					"item": [
+						{
+							"name": "获取服务状态",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/services",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "services"]
+								},
+								"description": "RESTful: 简化了ops前缀，获取所有微服务状态"
+							}
+						},
+						{
+							"name": "获取节点列表",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/nodes",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "nodes"]
+								},
+								"description": "RESTful: 简化了ops前缀，获取系统节点信息"
+							}
+						},
+						{
+							"name": "更新节点状态",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"state\": \"drained\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/nodes/{{nodeId}}",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "nodes", "{{nodeId}}"]
+								},
+								"description": "RESTful: 统一节点状态管理，替代drain/undrain操作"
+							}
+						},
+						{
+							"name": "获取任务列表",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/jobs",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "jobs"]
+								},
+								"description": "RESTful: 简化了ops前缀，获取系统任务列表"
+							}
+						},
+						{
+							"name": "健康检查",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/health",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "health"]
+								},
+								"description": "RESTful: 简化了ops前缀，系统健康检查"
+							}
+						}
+					]
+				},
+				{
+					"name": "分析统计",
+					"item": [
+						{
+							"name": "获取概览分析",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/analytics/overview?game_id={{gameId}}&env={{env}}",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "analytics", "overview"],
+									"query": [
+										{
+											"key": "game_id",
+											"value": "{{gameId}}"
+										},
+										{
+											"key": "env",
+											"value": "{{env}}"
+										}
+									]
+								},
+								"description": "获取游戏分析概览"
+							}
+						},
+						{
+							"name": "获取采纳率分析",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/analytics/adoption-breakdown",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "analytics", "adoption-breakdown"]
+								},
+								"description": "RESTful: 简化了behavior/路径，获取功能采纳率分析"
+							}
+						},
+						{
+							"name": "获取支付趋势",
+							"request": {
+								"method": "GET",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{token}}"
+									}
+								],
+								"url": {
+									"raw": "{{baseUrl}}/api/analytics/payment-trends",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "analytics", "payment-trends"]
+								},
+								"description": "RESTful: 简化了payments/路径，获取支付趋势分析"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Agent服务 (localhost:8889)",
+			"description": "游戏服务器代理服务，处理游戏逻辑和函数执行",
+			"item": [
+				{
+					"name": "代理注册",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"game_id\": \"demo-game\",\n  \"env\": \"production\",\n  \"agent_id\": \"agent-001\",\n  \"rpc_addr\": \"127.0.0.1:19090\",\n  \"ip\": \"127.0.0.1\",\n  \"type\": \"game-server\",\n  \"version\": \"1.0.0\",\n  \"functions\": 15,\n  \"metadata\": {\n    \"region\": \"us-east-1\",\n    \"zone\": \"us-east-1a\",\n    \"capabilities\": [\"realtime\", \"batch\"]\n  }\n}"
+						},
+						"url": {
+							"raw": "{{agentUrl}}/api/v1/agent/register",
+							"host": ["{{agentUrl}}"],
+							"path": ["api", "v1", "agent", "register"]
+						},
+						"description": "注册Agent到系统"
+					}
+				},
+				{
+					"name": "发送心跳",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"agent_id\": \"agent-001\",\n  \"game_id\": \"demo-game\",\n  \"env\": \"production\",\n  \"functions\": 15,\n  \"status\": \"healthy\",\n  \"metadata\": {\n    \"cpu_usage\": 45.2,\n    \"memory_usage\": 512,\n    \"uptime\": 3600,\n    \"active_connections\": 25\n  }\n}"
+						},
+						"url": {
+							"raw": "{{agentUrl}}/api/v1/agent/heartbeat",
+							"host": ["agentUrl}}"],
+							"path": ["api", "v1", "agent", "heartbeat"]
+						},
+						"description": "发送Agent心跳维持连接"
+					}
+				},
+				{
+					"name": "函数注册",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"game_id\": \"demo-game\",\n  \"env\": \"production\",\n  \"function_id\": \"user-login\",\n  \"descriptor\": {\n    \"name\": \"用户登录\",\n    \"description\": \"处理用户登录逻辑\",\n    \"inputs\": {\n      \"username\": \"string\",\n      \"password\": \"string\",\n      \"device_id\": \"string\"\n    },\n    \"outputs\": {\n      \"success\": \"boolean\",\n      \"user_id\": \"string\",\n      \"session_token\": \"string\"\n    }\n  },\n  \"schema\": {\n    \"type\": \"object\",\n    \"properties\": {\n      \"username\": {\"type\": \"string\"},\n      \"password\": {\"type\": \"string\"}\n    },\n    \"required\": [\"username\", \"password\"]\n  }\n}"
+						},
+						"url": {
+							"raw": "{{agentUrl}}/api/v1/function/register",
+							"host": ["{{agentUrl}}"],
+							"path": ["api", "v1", "function", "register"]
+						},
+						"description": "注册游戏函数到Agent"
+					}
+				},
+				{
+					"name": "执行任务",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"job_id\": \"job-001\",\n  \"function_id\": \"user-login\",\n  \"game_id\": \"demo-game\",\n  \"env\": \"production\",\n  \"inputs\": {\n    \"username\": \"player123\",\n    \"password\": \"pass123\",\n    \"device_id\": \"device-001\",\n    \"ip\": \"192.168.1.100\"\n  },\n  \"options\": {\n    \"timeout\": 30000,\n    \"retry_count\": 3,\n    \"async\": false\n  }\n}"
+						},
+						"url": {
+							"raw": "{{agentUrl}}/api/v1/job/execute",
+							"host": ["{{agentUrl}}"],
+							"path": ["api", "v1", "job", "execute"]
+						},
+						"description": "执行游戏函数任务"
+					}
+				},
+				{
+					"name": "获取任务状态",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{agentUrl}}/api/v1/job/job-001/status",
+							"host": ["{{agentUrl}}"],
+							"path": ["api", "v1", "job", "job-001", "status"]
+						},
+						"description": "查询任务执行状态"
+					}
+				},
+				{
+					"name": "获取Agent健康状态",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{agentUrl}}/api/v1/agent/agent-001/health",
+							"host": ["{{agentUrl}}"],
+							"path": ["api", "v1", "agent", "agent-001", "health"]
+						},
+						"description": "获取Agent健康检查信息"
+					}
+				}
+			]
+		},
+		{
+			"name": "Edge服务 (localhost:8890)",
+			"description": "边缘代理服务，处理隧道、负载均衡和流量转发",
+			"item": [
+				{
+					"name": "创建隧道",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"agent_id\": \"agent-001\",\n  \"server_id\": \"edge-server-01\",\n  \"protocol\": \"http\",\n  \"remote_addr\": \"127.0.0.1:8080\",\n  \"local_addr\": \"127.0.0.1:8081\",\n  \"options\": {\n    \"timeout\": 30000,\n    \"buffer_size\": 32768,\n    \"compression\": true,\n    \"headers\": {\n      \"X-Forwarded-For\": \"true\"\n    }\n  }\n}"
+						},
+						"url": {
+							"raw": "{{edgeUrl}}/api/v1/tunnel",
+							"host": ["{{edgeUrl}}"],
+							"path": ["api", "v1", "tunnel"]
+						},
+						"description": "创建边缘隧道连接"
+					}
+				},
+				{
+					"name": "获取隧道状态",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{edgeUrl}}/api/v1/tunnel/tunnel-001/status",
+							"host": ["{{edgeUrl}}"],
+							"path": ["api", "v1", "tunnel", "tunnel-001", "status"]
+						},
+						"description": "查询隧道连接状态"
+					}
+				},
+				{
+					"name": "获取隧道列表",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{edgeUrl}}/api/v1/tunnels?status=active&page=1&size=20",
+							"host": ["edgeUrl}}"],
+							"path": ["api", "v1", "tunnels"],
+							"query": [
+								{
+									"key": "status",
+									"value": "active"
+								},
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "size",
+									"value": "20"
+								}
+							]
+						},
+						"description": "分页获取隧道列表"
+					}
+				},
+				{
+					"name": "关闭隧道",
+					"request": {
+						"method": "DELETE",
+						"url": {
+							"raw": "{{edgeUrl}}/api/v1/tunnel/tunnel-001",
+							"host": ["{{edgeUrl}}"],
+							"path": ["api", "v1", "tunnel", "tunnel-001"]
+						},
+						"description": "关闭指定的隧道连接"
+					}
+				},
+				{
+					"name": "获取Edge健康状态",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{edgeUrl}}/api/v1/edge/health/ping",
+							"host": ["{{edgeUrl}}"],
+							"path": ["api", "v1", "edge", "health", "ping"]
+						},
+						"description": "Edge服务健康检查"
+					}
+				},
+				{
+					"name": "获取Edge指标",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{edgeUrl}}/api/v1/edge/metrics?type=system&start=2024-01-01&end=2024-01-02",
+							"host": ["{{edgeUrl}}"],
+							"path": ["api", "v1", "edge", "metrics"],
+							"query": [
+								{
+									"key": "type",
+									"value": "system"
+								},
+								{
+									"key": "start",
+									"value": "2024-01-01"
+								},
+								{
+									"key": "end",
+									"value": "2024-01-02"
+								}
+							]
+						},
+						"description": "获取Edge服务性能指标"
+					}
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"exec": [
+					"// 自动设置认证头",
+					"if (pm.request.url.includes('/api/') || pm.request.url.includes('/agent/') || pm.request.url.includes('/edge/')) {",
+					"    const token = pm.collectionVariables.get('token') || pm.environment.get('token');",
+					"    if (token && !pm.request.headers.has('Authorization')) {",
+					"        pm.request.headers.add({",
+					"            key: 'Authorization',",
+					"            value: `Bearer ${token}`",
+					"        });",
+					"    }",
+					"}",
+					"",
+					"// 记录请求时间",
+					"pm.collectionVariables.set('requestTime', new Date().toISOString());"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"exec": [
+					"// 记录响应时间",
+					"const responseTime = new Date() - new Date(pm.collectionVariables.get('requestTime'));",
+					"pm.collectionVariables.set('responseTime', responseTime);",
+					"",
+					"// 保存token",
+					"if (pm.response.json().token) {",
+					"    pm.collectionVariables.set('token', pm.response.json().token);",
+					"    pm.environment.set('token', pm.response.json().token);",
+					"}",
+					"",
+					"// 记录请求日志",
+					"console.log(`[${pm.info.requestMethod}] ${pm.info.requestName}: ${pm.response.code} (${responseTime}ms)`);",
+					"",
+					"pm.test(`${pm.info.requestName} Status Code Check`, function () {",
+					"    pm.expect(pm.response).to.have.status(pm.response.code === 200 || pm.response.code === 201 || pm.response.code === 204);",
+					"});",
+					"",
+					"// 响应时间检查",
+					"pm.test(`${pm.info.requestName} Response Time < 3s`, function () {",
+					"    pm.expect(responseTime).to.be.below(3000, 'Response time should be less than 3 seconds');",
+					"});",
+					"",
+					"// 错误日志记录",
+					"if (pm.response.code >= 400) {",
+					"    console.error(`API Error: ${pm.info.requestName}`, {",
+					"        url: pm.info.requestUrl,",
+					"        method: pm.info.requestMethod,",
+					"        status: pm.response.code,",
+					"        response: pm.response.json(),",
+					"        time: `${responseTime}ms`",
+					"    });",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+			{
+				"key": "baseUrl",
+				"value": "http://localhost:8888",
+				"type": "string",
+				"description": "API服务地址"
+			},
+			{
+				"key": "agentUrl",
+				"value": "http://localhost:8889",
+				"type": "string",
+				"description": "Agent服务地址"
+			},
+			{
+				"key": "edgeUrl",
+				"value": "http://localhost:8890",
+				"type": "string",
+				"description": "Edge服务地址"
+			},
+			{
+				"key": "token",
+				"value": "",
+				"type": "string",
+				"description": "认证token，登录后自动获取"
+			},
+			{
+				"key": "gameId",
+				"value": "demo-game",
+				"type": "string",
+				"description": "游戏ID"
+			},
+			{
+				"key": "env",
+				"value": "development",
+				"type": "string",
+				"description": "环境标识"
+			},
+			{
+				"key": "nodeId",
+				"value": "node-001",
+				"type": "string",
+				"description": "节点ID"
+			}
+		]
+	}
+}

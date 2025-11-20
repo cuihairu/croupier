@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Space, DatePicker, Input, Button, Table, Tag, Select } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import { exportToXLSX } from '@/utils/export';
 import { fetchAnalyticsLevels, fetchAnalyticsLevelsEpisodes, fetchAnalyticsLevelsMaps } from '@/services/croupier/analytics';
 
@@ -33,7 +34,7 @@ export default function AnalyticsLevelsPage() {
   };
 
   return (
-    <div style={{ padding: 24 }}>
+    <PageContainer>
       <Space direction="vertical" style={{ width:'100%' }}>
         <Card title="关卡漏斗" extra={<Space>
           <Input placeholder="章节/地图（可选）" value={episode} onChange={(e)=> setEpisode(e.target.value)} style={{ width: 200 }} />
@@ -88,7 +89,7 @@ export default function AnalyticsLevelsPage() {
         <EpisodeFacets range={range} />
         <MapFacets range={range} />
       </Space>
-    </div>
+    </PageContainer>
   );
 }
 

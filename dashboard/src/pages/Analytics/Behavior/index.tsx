@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Space, DatePicker, Input, Button, Table, Select, Switch, InputNumber, Checkbox, Tag, Modal } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import { exportToXLSX } from '@/utils/export';
 import { fetchAnalyticsEvents, fetchAnalyticsFunnel, fetchAnalyticsPaths, fetchAnalyticsAdoption, fetchAnalyticsAdoptionBreakdown } from '@/services/croupier/analytics';
 
@@ -57,7 +58,7 @@ export default function AnalyticsBehaviorPage() {
   }, []);
 
   return (
-    <div style={{ padding: 24 }}>
+    <PageContainer>
       <Space direction="vertical" style={{ width:'100%' }}>
         <Card title="事件探索" extra={<Space>
           <Input placeholder="事件名" value={eventName} onChange={(e)=> setEventName(e.target.value)} style={{ width:160 }} />
@@ -117,7 +118,7 @@ export default function AnalyticsBehaviorPage() {
           <AdoptionControls range={range} />
         </Card>
       </Space>
-    </div>
+    </PageContainer>
   );
 }
 

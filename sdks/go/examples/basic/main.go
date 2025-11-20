@@ -74,8 +74,8 @@ func registerFunctions(client croupier.Client) error {
 		Enabled:   true,
 	}
 
-	playerBanHandler := func(ctx context.Context, payload string) (string, error) {
-		fmt.Printf("🔨 Banning player with payload: %s\n", payload)
+	playerBanHandler := func(ctx context.Context, payload []byte) ([]byte, error) {
+		fmt.Printf("🔨 Banning player with payload: %s\n", string(payload))
 
 		// Simulate processing time
 		time.Sleep(100 * time.Millisecond)
@@ -87,7 +87,7 @@ func registerFunctions(client croupier.Client) error {
 			"message": "Player banned successfully"
 		}`, time.Now().Format(time.RFC3339))
 
-		return result, nil
+		return []byte(result), nil
 	}
 
 	if err := client.RegisterFunction(playerBanDesc, playerBanHandler); err != nil {
@@ -105,8 +105,8 @@ func registerFunctions(client croupier.Client) error {
 		Enabled:   true,
 	}
 
-	itemCreateHandler := func(ctx context.Context, payload string) (string, error) {
-		fmt.Printf("📦 Creating item with payload: %s\n", payload)
+	itemCreateHandler := func(ctx context.Context, payload []byte) ([]byte, error) {
+		fmt.Printf("📦 Creating item with payload: %s\n", string(payload))
 
 		result := fmt.Sprintf(`{
 			"status": "success",
@@ -115,7 +115,7 @@ func registerFunctions(client croupier.Client) error {
 			"timestamp": "%s"
 		}`, time.Now().Unix(), time.Now().Format(time.RFC3339))
 
-		return result, nil
+		return []byte(result), nil
 	}
 
 	if err := client.RegisterFunction(itemCreateDesc, itemCreateHandler); err != nil {

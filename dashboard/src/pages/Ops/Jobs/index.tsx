@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Table, Space, Tag, Button, Select, Input, App, Drawer, Typography } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { listOpsJobs, type OpsJob, listOpsFunctions } from '@/services/croupier/ops';
 import { cancelJob, fetchJobResult } from '@/services/croupier/functions';
@@ -80,7 +81,7 @@ export default function OpsJobsPage() {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
+    <PageContainer>
       <Card title="任务监控" extra={
         <Space>
           <Select placeholder='状态' allowClear style={{ width:140 }} value={status||undefined} onChange={(v)=> setStatus(v||'')} options={[{label:'running',value:'running'},{label:'succeeded',value:'succeeded'},{label:'failed',value:'failed'},{label:'canceled',value:'canceled'}]} />
@@ -143,6 +144,6 @@ export default function OpsJobsPage() {
           </Space>
         )}
       </Drawer>
-    </div>
+    </PageContainer>
   );
 }

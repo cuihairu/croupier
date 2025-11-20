@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Space, Button, Tag, Modal, Form, Input, Select, App } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import { request } from '@umijs/max';
 
 type Backup = { id:string; kind:string; target?:string; path:string; size:number; status:string; error?:string; created_at:string };
@@ -17,7 +18,7 @@ export default function OpsBackupsPage() {
   const del = async (r:Backup)=>{ try{ await request(`/api/ops/backups/${r.id}`, { method:'DELETE' }); message.success('已删除'); load(); } catch(e:any){ message.error(e?.message||'失败'); } };
 
   return (
-    <div style={{ padding: 24 }}>
+    <PageContainer>
       <Card title='数据备份' extra={<Space>
         <Button onClick={load} loading={loading}>刷新</Button>
         <Button type='primary' onClick={()=>{ form.resetFields(); setOpen(true); }}>创建备份</Button>
@@ -51,7 +52,6 @@ export default function OpsBackupsPage() {
           </Form.Item>
         </Form>
       </Modal>
-    </div>
+    </PageContainer>
   );
 }
-

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Space, Button, Input, Select, Modal, Form } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import { listFeedback, createFeedback, updateFeedback, deleteFeedback, createTicket } from '@/services/croupier/support';
 import { getMessage } from '@/utils/antdApp';
 import { useAccess } from '@umijs/max';
@@ -40,7 +41,8 @@ export default function SupportFeedbackPage() {
   const onDelete = (rec: any) => { Modal.confirm({ title:'删除反馈', onOk: async()=> { await deleteFeedback(rec.id); load(); } }); };
 
   return (
-    <Card title="玩家反馈" extra={
+    <PageContainer>
+      <Card title="玩家反馈" extra={
       <Space>
         <Input placeholder="关键词" value={q} onChange={(e)=>setQ(e.target.value)} style={{ width: 200 }} />
         <Input placeholder="分类" value={category} onChange={(e)=>setCategory(e.target.value)} style={{ width: 140 }} />
@@ -96,5 +98,6 @@ export default function SupportFeedbackPage() {
         </Form>
       </Modal>
     </Card>
+    </PageContainer>
   );
 }

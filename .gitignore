@@ -71,3 +71,31 @@ dashboard/.DS_Store
 dashboard/.pnpm-debug.log
 dashboard/yarn.lock
 dashboard/pnpm-lock.yaml
+
+# API Documentation and Swagger Files (临时生成的文件)
+# 保留主要的 server.api 和必要的文档，忽略临时生成的文件
+services/server/croupier-api-simple.json
+services/server/croupier-api-*.json
+services/server/croupier-api.json
+services/server/croupier-apifox-collection.json
+services/server/test-swagger.json
+services/server/server.json
+services/server/simple-swagger.api
+services/server/temp-server.api
+services/server/backup-*.api
+services/server/*.backup.*
+services/server/annotated-api.api
+services/server/api.api.bak
+
+# Temporary API files and scripts
+services/server/missing_handlers.txt
+services/server/original_handlers.txt
+services/server/current_handlers.txt
+
+# Generated backup files
+*.backup.*
+*_backup.*
+
+# Temporary build artifacts
+services/*/bin/
+services/*/logs/

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Space, Button, Input, Select, Tag, Modal, Form } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import { listTickets, createTicket, updateTicket, deleteTicket } from '@/services/croupier/support';
 import { history, useAccess } from '@umijs/max';
 import { listUsers } from '@/services/croupier';
@@ -59,7 +60,8 @@ export default function SupportBugsPage() {
   };
 
   return (
-    <Card title="缺陷列表" extra={
+    <PageContainer>
+      <Card title="缺陷列表" extra={
       <Space>
         <Input placeholder="关键词" value={q} onChange={(e)=>setQ(e.target.value)} style={{ width: 180 }} />
         <Select placeholder="状态" value={status} onChange={setStatus} allowClear style={{ width: 140 }} options={[
@@ -116,5 +118,6 @@ export default function SupportBugsPage() {
         </Form>
       </Modal>
     </Card>
+    </PageContainer>
   );
 }

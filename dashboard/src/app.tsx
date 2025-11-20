@@ -8,7 +8,7 @@ import { history, Link } from '@umijs/max';
 import GameSelector from '@/components/GameSelector';
 import defaultSettings from '../config/defaultSettings';
 import { errorConfig } from './requestErrorConfig';
-import { fetchMe } from '@/services/croupier';
+import { fetchCurrentUser } from '@/services/croupier';
 import React, { useEffect } from 'react';
 import { App as AntdApp } from 'antd';
 import { setAppApi } from './utils/antdApp';
@@ -29,8 +29,8 @@ export async function getInitialState(): Promise<{
     try {
       const token = localStorage.getItem('token');
       if (!token) return undefined;
-      const me = await fetchMe();
-      return { name: me.username, userid: me.username, access: (me.roles||[]).join(',') } as any;
+      const currentUser = await fetchCurrentUser();
+      return { name: currentUser.username, userid: currentUser.username, access: (currentUser.roles||[]).join(',') } as any;
     } catch (error) {
       history.push(loginPath);
       return undefined;

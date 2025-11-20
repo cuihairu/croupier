@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Space, Button, Tag, Modal, Form, Input, InputNumber, Select, App } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import { request } from '@umijs/max';
 
 type HealthCheck = { id: string; kind: string; target: string; expect?: string; interval_sec?: number; timeout_ms?: number; region?: string };
@@ -28,7 +29,7 @@ export default function OpsHealthPage() {
   const runNow = async (id?:string)=>{ try { await request('/api/ops/health/run', { method:'POST', params:{ id } }); message.success('已下发'); } catch(e:any){ message.error(e?.message||'失败'); } };
 
   return (
-    <div style={{ padding: 24 }}>
+    <PageContainer>
       <Card title='服务探活' extra={<Space>
         <Button onClick={()=> load()} loading={loading}>刷新</Button>
         <Button type='primary' onClick={()=>{ form.resetFields(); setOpen(true); }}>新增检查</Button>
@@ -72,6 +73,6 @@ export default function OpsHealthPage() {
           <Form.Item label='区域' name='region'><Input /></Form.Item>
         </Form>
       </Modal>
-    </div>
+    </PageContainer>
   );
 }
