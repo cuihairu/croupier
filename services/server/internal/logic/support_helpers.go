@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/repo/gorm/support"
-	"github.com/cuihairu/croupier/services/api/internal/types"
+	"github.com/cuihairu/croupier/services/server/internal/types"
 )
 
 func supportTicketToType(t *support.Ticket) types.SupportTicket {

@@ -35,7 +35,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/ports"
 	"github.com/cuihairu/croupier/internal/security/token"
-	"github.com/cuihairu/croupier/services/api/internal/config"
+	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/logx"
 )

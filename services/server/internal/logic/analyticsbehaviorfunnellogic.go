@@ -9,8 +9,8 @@ import (
 	"time"
 
 	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
-	"github.com/cuihairu/croupier/services/api/internal/svc"
-	"github.com/cuihairu/croupier/services/api/internal/types"
+	"github.com/cuihairu/croupier/services/server/internal/svc"
+	"github.com/cuihairu/croupier/services/server/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )

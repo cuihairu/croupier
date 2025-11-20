@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/ports"
-	"github.com/cuihairu/croupier/services/api/internal/types"
+	"github.com/cuihairu/croupier/services/server/internal/types"
 )
 
 var allowedGameStatuses = map[string]struct{}{

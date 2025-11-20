@@ -7,9 +7,9 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/cuihairu/croupier/services/api/internal/config"
-	"github.com/cuihairu/croupier/services/api/internal/handler"
-	"github.com/cuihairu/croupier/services/api/internal/svc"
+	"github.com/cuihairu/croupier/services/server/internal/config"
+	"github.com/cuihairu/croupier/services/server/internal/handler"
+	"github.com/cuihairu/croupier/services/server/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/rest"

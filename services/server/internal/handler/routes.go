@@ -6,7 +6,7 @@ package handler
 import (
 	"net/http"
 
-	"github.com/cuihairu/croupier/services/api/internal/svc"
+	"github.com/cuihairu/croupier/services/server/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
 )

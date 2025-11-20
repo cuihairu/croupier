@@ -8,8 +8,8 @@ import (
 	"time"
 
 	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
-	"github.com/cuihairu/croupier/services/api/internal/svc"
-	"github.com/cuihairu/croupier/services/api/internal/types"
+	"github.com/cuihairu/croupier/services/server/internal/svc"
+	"github.com/cuihairu/croupier/services/server/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc"

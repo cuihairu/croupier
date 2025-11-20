@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cuihairu/croupier/services/api/internal/svc"
-	"github.com/cuihairu/croupier/services/api/internal/types"
+	"github.com/cuihairu/croupier/services/server/internal/svc"
+	"github.com/cuihairu/croupier/services/server/internal/types"
 	"github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/logx"
 )

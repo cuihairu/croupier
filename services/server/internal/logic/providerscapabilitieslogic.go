@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/platform/registry"
-	"github.com/cuihairu/croupier/services/api/internal/svc"
-	"github.com/cuihairu/croupier/services/api/internal/types"
+	"github.com/cuihairu/croupier/services/server/internal/svc"
+	"github.com/cuihairu/croupier/services/server/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )

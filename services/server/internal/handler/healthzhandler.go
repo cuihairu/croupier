@@ -3,8 +3,8 @@ package handler
 import (
 	"net/http"
 
-	"github.com/cuihairu/croupier/services/api/internal/logic"
-	"github.com/cuihairu/croupier/services/api/internal/svc"
+	"github.com/cuihairu/croupier/services/server/internal/logic"
+	"github.com/cuihairu/croupier/services/server/internal/svc"
 )
 
 func HealthzHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
