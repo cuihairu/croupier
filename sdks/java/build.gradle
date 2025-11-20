@@ -3,7 +3,7 @@ plugins {
     id 'com.google.protobuf' version '0.9.4'
 }
 
-group = 'com.github.cuihairu.croupier'
+group = 'io.github.cuihairu.croupier'
 version = '0.1.0'
 
 java { withSourcesJar() }

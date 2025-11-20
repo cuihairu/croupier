@@ -1,0 +1,21 @@
+# Binaries
+comprehensive
+basic
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
