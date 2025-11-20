@@ -1,18 +1,61 @@
+# go-zero server configuration
 Name: croupier-api
 Host: 0.0.0.0
-Port: 8888
+Port: 8080
+
+# Server configuration
+Server:
+  Addr: ":8443"           # gRPC (mTLS)
+  HttpAddr: ":8080"       # HTTP API/UI
+  Cert: ""                # TLS cert (empty to auto-generate)
+  Key: ""                 # TLS key (empty to auto-generate)
+  CA: ""                  # TLS CA (empty to auto-generate)
+  Database:
+    DataSource: "data/croupier.db"
+    Driver: "sqlite"
+
+# Registry configuration
 Registry:
   AssignmentsPath: "data/assignments.json"
   AnalyticsFiltersPath: "packs/ui/analytics_filters.json"
   RateLimitsPath: "data/rate_limits.json"
+
+# Authentication configuration
 Auth:
   JWTSecret: "dev-secret"
+  RBACConfig: "configs/rbac.json"
+  UsersConfig: "configs/users.json"
+  GamesConfig: "configs/games.json"
+
+# Descriptors configuration
 Descriptors:
   Dir: "packs"
+
+# Components configuration
 Components:
   DataDir: "data"
   StagingDir: "data/components/staging"
+
+# Schemas configuration
 Schemas:
   Dir: "packs/ui"
+
+# Packs configuration
 Packs:
   Dir: "packs"
+
+# Storage configuration
+Storage:
+  Driver: "file"
+  BaseDir: "data/uploads"
+
+# Logging configuration
+CroupierLog:
+  Level: "info"
+  Format: "console"
+  Output: "stdout"
+
+# Metrics configuration
+Metrics:
+  PerFunction: true
+  PerGameDenies: false
