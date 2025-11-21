@@ -58,13 +58,13 @@ packs-build:
 server:
 	@echo "[build] server (pg+sqlite)"
 	@mkdir -p $(BINDIR)
-	GOFLAGS=-mod=mod go build -tags "pg sqlite" -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-server ./cmd/server
+	GOFLAGS=-mod=mod go build -tags "pg sqlite" -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-server ./services/server
 
 .PHONY: server-sqlite
 server-sqlite:
 	@echo "[build] server (+sqlite)"
 	@mkdir -p $(BINDIR)
-	GOFLAGS=-mod=mod go build -tags "pg sqlite" -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-server ./cmd/server
+	GOFLAGS=-mod=mod go build -tags "pg sqlite" -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-server ./services/server
 
 .PHONY: server-ip2loc
 server-ip2loc:

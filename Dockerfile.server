@@ -14,7 +14,7 @@ COPY go.mod go.sum ./
 COPY sdks/go/go.mod sdks/go/go.sum sdks/go/
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .
-RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -tags "$BUILD_TAGS" -o /out/croupier-server ./cmd/server
+RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -tags "$BUILD_TAGS" -o /out/croupier-server ./services/server
 # Create empty runtime dirs that may be missing from repo checkout
 RUN mkdir -p /out/logs
 
