@@ -52,8 +52,8 @@ jobs:
           $BUILD_TIME = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd_HH:mm:ss")
           $LDFLAGS = "-X main.version=$VERSION -X main.buildTime=$BUILD_TIME -s -w"
           go build -tags "pg sqlite" -ldflags "$LDFLAGS" -o bin/croupier-server.exe ./services/server
-          go build -ldflags "$LDFLAGS" -o bin/croupier-agent.exe ./cmd/agent
-          go build -ldflags "$LDFLAGS" -o bin/croupier-edge.exe ./cmd/edge
+          go build -ldflags "$LDFLAGS" -o bin/croupier-agent.exe ./services/agent-stdlib
+          go build -ldflags "$LDFLAGS" -o bin/croupier-edge.exe ./services/edge-stdlib
       - name: Package binaries (Linux/Mac, tar.gz with OS/ARCH)
         if: runner.os != 'Windows'
         shell: bash
