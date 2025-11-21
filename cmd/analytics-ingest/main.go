@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -13,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/cuihairu/croupier/internal/analytics/mq"
 )
 
@@ -44,98 +45,110 @@ func main() {
 
 	s := &server{q: q, secret: secret, allowSkew: allowSkew}
 
-	r := gin.New()
-	r.Use(gin.Recovery())
-	r.GET("/healthz", func(c *gin.Context) { c.String(200, "ok") })
-
-	api := r.Group("/api/ingest", s.authMiddleware)
-	api.POST("/events", s.ingestEvents)
-	api.POST("/payments", s.ingestPayments)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+	mux.Handle("/api/ingest/events", s.authMiddleware(http.HandlerFunc(s.ingestEvents)))
+	mux.Handle("/api/ingest/payments", s.authMiddleware(http.HandlerFunc(s.ingestPayments)))
 
 	addr := strings.TrimSpace(os.Getenv("INGEST_ADDR"))
 	if addr == "" {
 		addr = ":8088"
 	}
 	log.Printf("[ingest] listening on %s", addr)
-	if err := r.Run(addr); err != nil {
+	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatalf("run: %v", err)
 	}
 }
 
 // authMiddleware 校验时间戳/nonce/签名，防止重放。签名: base64(HMAC_SHA256(secret, ts + "\n" + nonce + "\n" + sha256(body))).
-func (s *server) authMiddleware(c *gin.Context) {
-	if s.secret == "" {
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "ingest_disabled"})
-		return
-	}
-	tsStr := strings.TrimSpace(c.GetHeader("X-Timestamp"))
-	nonce := strings.TrimSpace(c.GetHeader("X-Nonce"))
-	sig := strings.TrimSpace(c.GetHeader("X-Signature"))
-	if tsStr == "" || nonce == "" || sig == "" {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing_auth_headers"})
-		return
-	}
-	ts, err := strconv.ParseInt(tsStr, 10, 64)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "bad_timestamp"})
-		return
-	}
-	now := time.Now().Unix()
-	if delta := time.Duration(abs64(now-ts)) * time.Second; delta > s.allowSkew {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "timestamp_skew"})
-		return
-	}
-	// hash body
-	body, err := c.GetRawData()
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "read_body_failed"})
-		return
-	}
-	sum := sha256.Sum256(body)
-	sumHex := hex.EncodeToString(sum[:])
-	msg := tsStr + "\n" + nonce + "\n" + sumHex
-	mac := hmac.New(sha256.New, []byte(s.secret))
-	_, _ = mac.Write([]byte(msg))
-	expected := base64.StdEncoding.EncodeToString(mac.Sum(nil))
-	if !hmac.Equal([]byte(expected), []byte(sig)) {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "bad_signature"})
-		return
-	}
-	// Put back body for next handler
-	c.Request.Body = newReadCloser(body)
-	c.Next()
+func (s *server) authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.secret == "" {
+			respondJSON(w, http.StatusForbidden, map[string]string{"error": "ingest_disabled"})
+			return
+		}
+		tsStr := strings.TrimSpace(r.Header.Get("X-Timestamp"))
+		nonce := strings.TrimSpace(r.Header.Get("X-Nonce"))
+		sig := strings.TrimSpace(r.Header.Get("X-Signature"))
+		if tsStr == "" || nonce == "" || sig == "" {
+			respondJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing_auth_headers"})
+			return
+		}
+		ts, err := strconv.ParseInt(tsStr, 10, 64)
+		if err != nil {
+			respondJSON(w, http.StatusUnauthorized, map[string]string{"error": "bad_timestamp"})
+			return
+		}
+		now := time.Now().Unix()
+		if delta := time.Duration(abs64(now-ts)) * time.Second; delta > s.allowSkew {
+			respondJSON(w, http.StatusUnauthorized, map[string]string{"error": "timestamp_skew"})
+			return
+		}
+		// hash body
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			respondJSON(w, http.StatusBadRequest, map[string]string{"error": "read_body_failed"})
+			return
+		}
+		sum := sha256.Sum256(body)
+		sumHex := hex.EncodeToString(sum[:])
+		msg := tsStr + "\n" + nonce + "\n" + sumHex
+		mac := hmac.New(sha256.New, []byte(s.secret))
+		_, _ = mac.Write([]byte(msg))
+		expected := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+		if !hmac.Equal([]byte(expected), []byte(sig)) {
+			respondJSON(w, http.StatusUnauthorized, map[string]string{"error": "bad_signature"})
+			return
+		}
+		// Put back body for next handler
+		r.Body = io.NopCloser(bytes.NewReader(body))
+		next.ServeHTTP(w, r)
+	})
 }
 
 // ingestEvents 接收通用事件数组，写入 MQ: analytics:events
-func (s *server) ingestEvents(c *gin.Context) {
+func (s *server) ingestEvents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	var arr []map[string]any
-	if err := c.BindJSON(&arr); err != nil {
-		c.JSON(400, gin.H{"error": "invalid_payload"})
+	if err := json.NewDecoder(r.Body).Decode(&arr); err != nil {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_payload"})
 		return
 	}
 	for _, e := range arr {
 		if err := s.q.PublishEvent(e); err != nil {
-			c.JSON(500, gin.H{"error": "queue_write_failed"})
+			respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "queue_write_failed"})
 			return
 		}
 	}
-	c.Status(202)
+	w.WriteHeader(http.StatusAccepted)
 }
 
 // ingestPayments 接收支付事件数组，写入 MQ: analytics:payments
-func (s *server) ingestPayments(c *gin.Context) {
+func (s *server) ingestPayments(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	var arr []map[string]any
-	if err := c.BindJSON(&arr); err != nil {
-		c.JSON(400, gin.H{"error": "invalid_payload"})
+	if err := json.NewDecoder(r.Body).Decode(&arr); err != nil {
+		respondJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid_payload"})
 		return
 	}
 	for _, e := range arr {
 		if err := s.q.PublishPayment(e); err != nil {
-			c.JSON(500, gin.H{"error": "queue_write_failed"})
+			respondJSON(w, http.StatusInternalServerError, map[string]string{"error": "queue_write_failed"})
 			return
 		}
 	}
-	c.Status(202)
+	w.WriteHeader(http.StatusAccepted)
 }
 
 // Helpers
@@ -147,15 +160,8 @@ func abs64(x int64) int64 {
 	return x
 }
 
-type rc struct{ b []byte }
-
-func newReadCloser(b []byte) *rc { return &rc{b: b} }
-func (r *rc) Read(p []byte) (int, error) {
-	n := copy(p, r.b)
-	r.b = r.b[n:]
-	if n == 0 {
-		return 0, io.EOF
-	}
-	return n, nil
+func respondJSON(w http.ResponseWriter, code int, data any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(data)
 }
-func (r *rc) Close() error { return nil }

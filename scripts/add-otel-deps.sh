@@ -22,7 +22,6 @@ go get go.opentelemetry.io/otel/sdk/trace@latest
 go get go.opentelemetry.io/otel/sdk/log@latest
 
 # Auto-instrumentation packages
-go get go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin@latest
 go get go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp@latest
 go get go.opentelemetry.io/otel/semconv/v1.24.0@latest
 

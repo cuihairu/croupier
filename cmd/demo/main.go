@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"log/slog"
 	"math/rand"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/telemetry"
-	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -26,15 +26,12 @@ func main() {
 	}
 	defer telemetryService.Shutdown(context.Background())
 
-	// 创建Gin应用
-	r := gin.Default()
-
-	// 添加OpenTelemetry中间件
-	r.Use(telemetryService.GinMiddleware())
+	// 创建HTTP应用
+	mux := http.NewServeMux()
 
 	// 模拟游戏API端点
-	r.GET("/api/session/start", func(c *gin.Context) {
-		ctx := c.Request.Context()
+	mux.HandleFunc("/api/session/start", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 
 		// 模拟会话开始
 		req := telemetry.SessionStartRequest{
@@ -51,11 +48,11 @@ func main() {
 		ctx, span := telemetryService.StartUserSession(ctx, req)
 		defer span.End()
 
-		c.JSON(http.StatusOK, gin.H{"status": "session started", "session_id": req.SessionID})
+		respondJSON(w, http.StatusOK, map[string]any{"status": "session started", "session_id": req.SessionID})
 	})
 
-	r.GET("/api/session/end", func(c *gin.Context) {
-		ctx := c.Request.Context()
+	mux.HandleFunc("/api/session/end", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 
 		// 模拟会话结束
 		req := telemetry.SessionEndRequest{
@@ -67,11 +64,11 @@ func main() {
 
 		telemetryService.EndUserSession(ctx, req)
 
-		c.JSON(http.StatusOK, gin.H{"status": "session ended"})
+		respondJSON(w, http.StatusOK, map[string]any{"status": "session ended"})
 	})
 
-	r.GET("/api/level/complete", func(c *gin.Context) {
-		ctx := c.Request.Context()
+	mux.HandleFunc("/api/level/complete", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 
 		// 模拟关卡完成
 		req := telemetry.LevelCompleteRequest{
@@ -86,15 +83,15 @@ func main() {
 
 		telemetryService.CompleteLevelPlaythrough(ctx, req)
 
-		c.JSON(http.StatusOK, gin.H{
+		respondJSON(w, http.StatusOK, map[string]any{
 			"status":   "level completed",
 			"level_id": req.LevelID,
 			"stars":    req.Stars,
 		})
 	})
 
-	r.GET("/api/economy/transaction", func(c *gin.Context) {
-		ctx := c.Request.Context()
+	mux.HandleFunc("/api/economy/transaction", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 
 		// 模拟经济交易
 		transaction := telemetry.EconomyTransaction{
@@ -109,7 +106,7 @@ func main() {
 
 		telemetryService.TrackEconomyTransaction(ctx, transaction)
 
-		c.JSON(http.StatusOK, gin.H{
+		respondJSON(w, http.StatusOK, map[string]any{
 			"status":   "transaction recorded",
 			"amount":   transaction.Amount,
 			"currency": transaction.Currency,
@@ -117,28 +114,32 @@ func main() {
 	})
 
 	// 健康检查端点
-	r.GET("/health", func(c *gin.Context) {
-		ctx := c.Request.Context()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
 
 		err := telemetryService.Health(ctx)
 		if err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "error": err.Error()})
+			respondJSON(w, http.StatusServiceUnavailable, map[string]any{"status": "unhealthy", "error": err.Error()})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
+		respondJSON(w, http.StatusOK, map[string]any{"status": "healthy"})
 	})
 
 	// 指标端点（用于Prometheus）
-	r.GET("/metrics", func(c *gin.Context) {
-		c.String(200, "# Prometheus metrics endpoint (placeholder)")
+	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("# Prometheus metrics endpoint (placeholder)"))
 	})
+
+	// 添加OpenTelemetry中间件
+	handler := telemetryService.HTTPMiddleware(mux)
 
 	// 启动自动事件生成器（演示用）
 	go generateDemoEvents(telemetryService)
 
 	logger.Info("Starting Croupier Demo Server", "port", 8080)
-	log.Fatal(r.Run(":8080"))
+	log.Fatal(http.ListenAndServe(":8080", handler))
 }
 
 // generateDemoEvents 生成演示事件
@@ -258,4 +259,10 @@ func randomString(length int) string {
 		b[i] = charset[rand.Intn(len(charset))]
 	}
 	return string(b)
+}
+
+func respondJSON(w http.ResponseWriter, code int, data any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	json.NewEncoder(w).Encode(data)
 }

@@ -1795,3 +1795,17 @@ func (s *ServiceContext) ObjStore() objstore.Store {
 func (s *ServiceContext) ObjConfig() objstore.Config {
 	return s.objConf
 }
+
+// GetStartTime returns the service start time
+func (s *ServiceContext) GetStartTime() time.Time {
+	return s.startedAt
+}
+
+// GetVersion returns the current service version
+func (s *ServiceContext) GetVersion() string {
+	// Try to read from VERSION file, fallback to default
+	if version, err := os.ReadFile("VERSION"); err == nil {
+		return strings.TrimSpace(string(version))
+	}
+	return "dev-1.0.0"
+}

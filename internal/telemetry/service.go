@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 
-	"github.com/gin-gonic/gin"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -168,9 +168,9 @@ func (s *GameTelemetryService) CompletePermissionCheck(ctx context.Context, resu
 
 // === HTTP中间件集成 ===
 
-// GinMiddleware 返回Gin中间件用于HTTP请求追踪
-func (s *GameTelemetryService) GinMiddleware() gin.HandlerFunc {
-	return otelgin.Middleware("croupier-http")
+// HTTPMiddleware 返回标准HTTP中间件用于HTTP请求追踪
+func (s *GameTelemetryService) HTTPMiddleware(handler http.Handler) http.Handler {
+	return otelhttp.NewHandler(handler, "croupier-http")
 }
 
 // === 游戏事件代理方法 ===

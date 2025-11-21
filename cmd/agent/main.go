@@ -23,8 +23,18 @@ import (
 	"github.com/cuihairu/croupier/internal/devcert"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	_ "github.com/cuihairu/croupier/internal/transport/jsoncodec"
-	gin "github.com/gin-gonic/gin"
 )
+
+// responseRecorder wraps http.ResponseWriter to capture status code
+type responseRecorder struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (r *responseRecorder) WriteHeader(code int) {
+	r.statusCode = code
+	r.ResponseWriter.WriteHeader(code)
+}
 
 func main() {
 	var cfgFile string
@@ -98,34 +108,48 @@ func main() {
 
 			var httpSrv *http.Server
 			go func() {
-				r := gin.New()
-				r.Use(func(c *gin.Context) {
-					w := c.Writer
-					r0 := c.Request
+				mux := http.NewServeMux()
+
+				// Health check endpoint
+				mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+					w.Write([]byte("ok"))
+				})
+
+				// Metrics endpoint
+				mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					w.Write([]byte(`{"ok":true}`))
+				})
+
+				// Logging middleware
+				handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Access-Control-Allow-Origin", "*")
 					w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 					w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-					if r0.Method == http.MethodOptions {
-						c.Status(http.StatusNoContent)
-						c.Abort()
+
+					if r.Method == http.MethodOptions {
+						w.WriteHeader(http.StatusNoContent)
 						return
 					}
+
 					start := time.Now()
-					c.Next()
+					rec := &responseRecorder{ResponseWriter: w, statusCode: http.StatusOK}
+					mux.ServeHTTP(rec, r)
 					dur := time.Since(start)
+
 					lvl := slog.LevelInfo
-					st := c.Writer.Status()
-					if st >= 500 {
+					if rec.statusCode >= 500 {
 						lvl = slog.LevelError
-					} else if st >= 400 {
+					} else if rec.statusCode >= 400 {
 						lvl = slog.LevelWarn
 					}
-					slog.Log(c, lvl, "agent_http", "method", r0.Method, "path", r0.URL.Path, "status", st, "dur_ms", dur.Milliseconds())
+					slog.Log(context.Background(), lvl, "agent_http", "method", r.Method, "path", r.URL.Path, "status", rec.statusCode, "dur_ms", dur.Milliseconds())
 				})
-				r.GET("/healthz", func(c *gin.Context) { c.String(http.StatusOK, "ok") })
-				r.GET("/metrics", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
+
 				slog.Info("agent http listening", "addr", httpAddr)
-				httpSrv = &http.Server{Addr: httpAddr, Handler: r}
+				httpSrv = &http.Server{Addr: httpAddr, Handler: handler}
 				_ = httpSrv.ListenAndServe()
 			}()
 
