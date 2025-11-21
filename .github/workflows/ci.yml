@@ -18,6 +18,8 @@ jobs:
           go-version: '1.25'
       - name: Install buf
         uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Lint proto
         run: buf lint
       - name: Build protoc-gen-croupier
@@ -32,12 +34,6 @@ jobs:
         run: mkdir -p data/uploads
       - name: Clear test cache
         run: go clean -testcache
-      - name: Sanity check code includes latest schema/x-render fixes
-        shell: bash
-        run: |
-          set -e
-          grep -n "invalid schema payload" internal/app/server/http/server.go
-          ! grep -R --line-number "httptest.NewRequest(.*(\*bytes.Buffer)" internal/app/server/http/server_new_apis_test.go || true
       - name: Unit tests
         env:
           DB_DRIVER: sqlite

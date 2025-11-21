@@ -18,6 +18,8 @@ jobs:
           go-version: '1.25'
       - name: Install buf
         uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build protoc-gen-croupier
         run: make croupier-plugin
       - name: Generate proto
@@ -34,5 +36,4 @@ jobs:
           DATABASE_URL: ":memory:"
           STORAGE_DRIVER: file
           STORAGE_BASE_DIR: data/uploads
-          GIN_MODE: release
         run: go test -count=1 ./...

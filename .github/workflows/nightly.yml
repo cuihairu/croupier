@@ -30,6 +30,8 @@ jobs:
       - name: Setup buf
         if: runner.os != 'Windows'
         uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Build protoc-gen-croupier
         if: runner.os != 'Windows'
         run: make croupier-plugin
@@ -49,7 +51,7 @@ jobs:
           $VERSION = (git describe --tags --always --dirty)
           $BUILD_TIME = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd_HH:mm:ss")
           $LDFLAGS = "-X main.version=$VERSION -X main.buildTime=$BUILD_TIME -s -w"
-          go build -tags "pg sqlite" -ldflags "$LDFLAGS" -o bin/croupier-server.exe ./cmd/server
+          go build -tags "pg sqlite" -ldflags "$LDFLAGS" -o bin/croupier-server.exe ./services/server
           go build -ldflags "$LDFLAGS" -o bin/croupier-agent.exe ./cmd/agent
           go build -ldflags "$LDFLAGS" -o bin/croupier-edge.exe ./cmd/edge
       - name: Package binaries (Linux/Mac, tar.gz with OS/ARCH)
