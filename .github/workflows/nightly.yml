@@ -84,15 +84,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
       - uses: actions/setup-node@v4
         with:
             node-version: 22
+            cache: 'pnpm'
+            cache-dependency-path: dashboard/pnpm-lock.yaml
       - name: Install deps
         working-directory: dashboard
-        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+        run: pnpm install --frozen-lockfile
       - name: Build dashboard
         working-directory: dashboard
-        run: npm run build
+        run: pnpm run build
       - name: Package dashboard (zip)
         run: |
           cd dashboard
