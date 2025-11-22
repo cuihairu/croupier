@@ -34,12 +34,12 @@ jobs:
           - name: macos-x64
             runs-on: macos-13
             triplet: x64-osx
-            os_label: macos
+            os_label: macos-x64
             arch: x86_64
           - name: macos-arm64
             runs-on: macos-latest
             triplet: arm64-osx
-            os_label: macos
+            os_label: macos-arm64
             arch: arm64
           - name: windows-x64
             runs-on: windows-latest
@@ -480,8 +480,8 @@ jobs:
             fi
           }
           check "croupier-cpp-sdk-linux-x86_64-static-*.tar.gz"
-          check "croupier-cpp-sdk-macos-x86_64-static-*.tar.gz"
-          check "croupier-cpp-sdk-macos-arm64-static-*.tar.gz"
+          check "croupier-cpp-sdk-macos-x64-x86_64-static-*.tar.gz"
+          check "croupier-cpp-sdk-macos-arm64-arm64-static-*.tar.gz"
           check "croupier-cpp-sdk-windows-x86_64-static-*.tar.gz"
           check "croupier-java-sdk-*.jar"
           check "croupier-go-sdk-*.tar.gz"
