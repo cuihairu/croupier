@@ -47,6 +47,7 @@ logs/
 /croupier
 /agent
 data/
+sdks/cpp/vcpkg_installed/
 
 # Local IP2Location BIN databases (downloaded externally; do not commit)
 configs/IP2LOCATION-LITE-DB*.BIN

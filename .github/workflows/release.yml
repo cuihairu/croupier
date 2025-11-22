@@ -194,7 +194,7 @@ jobs:
         working-directory: sdks/cpp
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake pkg-config libprotobuf-dev protobuf-compiler libgrpc-dev
+          sudo apt-get install -y build-essential cmake pkg-config libprotobuf-dev protobuf-compiler libgrpc-dev libgrpc++-dev
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_GRPC=ON
           cmake --build build --parallel
           mkdir -p ../../release-sdks/cpp
@@ -207,7 +207,7 @@ jobs:
       - name: Upload artifact (sdks)
         uses: actions/upload-artifact@v4
         with:
-          name: sdks-${{ github.run_number }}-${{ github.run_attempt }}
+          name: sdks-${{ matrix.sdk }}-${{ github.run_number }}-${{ github.run_attempt }}
           path: |
             sdk-go-src.tar.gz
             release-sdks.tar.gz
