@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+staged_files=$(git diff --cached --name-only --diff-filter=ACM || true)
+
+if [[ -z "${staged_files}" ]]; then
+  exit 0
+fi
+
+has_error=0
+
+detect_bom() {
+  local file="$1"
+  if [[ ! -f "$file" ]]; then
+    return
+  fi
+
+  local header
+  header=$(head -c 3 "$file" 2>/dev/null || true)
+  if [[ "$header" == $'\xEF\xBB\xBF' ]]; then
+    printf 'error: %s contains a UTF-8 BOM. Please remove it.\n' "$file" >&2
+    has_error=1
+  fi
+}
+
+while IFS= read -r file; do
+  detect_bom "$file"
+done <<< "${staged_files}"
+
+mapfile -t go_files < <(printf '%s\n' "${staged_files}" | grep -E '\.go$' || true)
+if [[ ${#go_files[@]} -gt 0 ]]; then
+  if ! unformatted=$(gofmt -l "${go_files[@]}" 2>/dev/null); then
+    has_error=1
+  elif [[ -n "${unformatted}" ]]; then
+    printf 'error: gofmt reported formatting issues in:\n%s\n' "${unformatted}" >&2
+    printf 'run `gofmt -w` on the files above before committing.\n' >&2
+    has_error=1
+  fi
+fi
+
+if [[ "${has_error}" -ne 0 ]]; then
+  exit 1
+fi

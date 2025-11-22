@@ -28,6 +28,18 @@ jobs:
         run: buf generate
       - name: Go mod download
         run: go mod download
+      - name: Check gofmt
+        run: |
+          files=$(git ls-files -z '*.go' || true)
+          if [[ -z "$files" ]]; then
+            exit 0
+          fi
+          fmt_result=$(printf '%s' "$files" | xargs -0 gofmt -l)
+          if [[ -n "$fmt_result" ]]; then
+            echo "The following files need gofmt:"
+            echo "$fmt_result"
+            exit 1
+          fi
       - name: Lint Go code
         run: |
           go install golang.org/x/lint/golint@latest

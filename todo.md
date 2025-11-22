@@ -1,244 +1,303 @@
-# Go-zero Migration TODO
+# Croupier 项目改进计划
 
-## 基础工作
-- [x] 选择 go-zero 版本、初始化服务骨架（API 服务、RPC 服务、配置结构）
-- [x] 规划模块拆分（games, users, registry, analytics, ops, support 等）并定义统一的 `api` DSL 文件结构
-- [x] 搭建中间件：认证/鉴权、日志、链路追踪、限流，确保能复用现有逻辑（JWT、RBAC、审计）
-- [x] 设计配置/依赖注入方案（数据库、缓存、消息队列、对象存储、gRPC 客户端）与 go-zero 的服务管理方式兼容
-- [x] 制定测试策略：为迁移后的 handler 补充集成测试，对照当前 `server_*.go` 测试用例
+## 🎯 总体目标
 
-## API 迁移清单（按文件分组）
+将 Croupier 从当前的技术债状态升级为企业级的高性能游戏管理平台，重点解决代码质量、测试覆盖率、性能优化和团队协作等问题。
 
-### internal/app/server/http/analytics_routes.go
-- [x] `GET /api/analytics/overview`
-- [x] `GET /api/analytics/realtime`
-- [x] `GET /api/analytics/realtime/series`
-- [x] `GET /api/analytics/behavior/events`
-- [x] `GET /api/analytics/behavior/funnel`
-- [x] `GET /api/analytics/behavior/paths`
-- [x] `GET /api/analytics/payments/summary`
-- [x] `GET /api/analytics/payments/transactions`
-- [x] `GET /api/analytics/payments/product_trend`
-- [x] `GET /api/analytics/levels`
-- [x] `GET /api/analytics/levels/episodes`
-- [x] `GET /api/analytics/levels/maps`
-- [x] `GET /api/analytics/retention`
-- [x] `GET /api/analytics/behavior/adoption`
-- [x] `GET /api/analytics/behavior/adoption_breakdown`
-- [x] `POST /api/analytics/ingest`
-- [x] `POST /api/analytics/payments/ingest`
+## 📊 当前状态评估
 
-### internal/app/server/http/certificates_routes.go
-- [x] `POST /:id/check`
-- [x] `POST /check-all`
-- [x] `DELETE /:id`
-- [x] `GET /stats`
-- [x] `GET /expiring`
-- [x] `POST /:id/alerts`
-- [x] `GET /:id/alerts`
-- [x] `GET /domain/:domain`
+### ✅ 项目优势
+- **优秀的架构设计**：三层分布式架构清晰合理
+- **协议优先开发**：使用 Protocol Buffers 和 JSON Schema 驱动UI生成
+- **丰富的技术栈**：OpenTelemetry、多数据库、云存储等集成
+- **完整的多语言SDK**：支持 Go、C++、Java、JS、Python
+- **模块化设计**：采用洋葱架构模式，分层清晰
+- **已完成Go-Zero迁移**：134+个API端点已迁移到微服务架构
 
-### internal/app/server/http/configs_routes.go
-- [x] `GET :id`
-- [x] `POST :id/validate`
-- [x] `POST :id`
-- [x] `GET :id/versions`
-- [x] `GET :id/versions/:ver`
+### ❌ 关键问题
+- **🚨 代码质量问题**：BOM字符导致编译失败，46处context.Background()滥用
+- **测试严重不足**：53个模块中仅9个有测试文件，覆盖率差异巨大
+- **错误处理不统一**：缺少统一的错误处理标准和规范
+- **配置管理复杂**：配置项过多，缺乏层次化组织结构
+- **文档不完善**：缺少开发指南、API文档和最佳实践文档
 
-### internal/app/server/http/ops_routes.go
-- [x] `GET /api/ops/services`
-- [x] `PUT /api/ops/agents/:id/meta`
-- [x] `POST /api/agent/meta`
-- [x] `GET /api/ops/rate-limits`
-- [x] `GET /api/ops/mq`
-- [x] `GET /api/ops/health`
-- [x] `PUT /api/ops/health`
-- [x] `POST /api/ops/health/run`
-- [x] `GET /api/ops/backups`
-- [x] `POST /api/ops/backups`
-- [x] `DELETE /api/ops/backups/:id`
-- [x] `GET /api/ops/backups/:id/download`
-- [x] `GET /api/ops/notifications`
-- [x] `POST /api/ops/nodes/meta`
-- [x] `GET /api/ops/maintenance`
-- [x] `PUT /api/ops/maintenance`
-- [x] `GET /api/status`
-- [x] `GET /api/ops/nodes`
-- [x] `POST /api/ops/nodes/:id/drain`
-- [x] `POST /api/ops/nodes/:id/undrain`
-- [x] `POST /api/ops/nodes/:id/restart`
-- [x] `GET /api/ops/nodes/commands`
-- [x] `PUT /api/ops/notifications`
-- [x] `PUT /api/ops/rate-limits`
-- [x] `DELETE /api/ops/rate-limits`
-- [x] `GET /api/ops/rate-limits/preview`
-- [x] `GET /api/ops/functions`
-- [x] `GET /api/ops/jobs`
-- [x] `GET /api/ops/alerts`
-- [x] `POST /api/ops/alerts/silence`
-- [x] `GET /api/ops/alerts/silences`
-- [x] `DELETE /api/ops/alerts/silences/:id`
-- [x] `GET /api/ops/config`
-- [x] `GET /api/ops/metrics`
+## 🚀 实施路线图
 
-### internal/app/server/http/server.go
-- [x] `POST /api/upload`
-- [x] `GET /api/games`
-- [x] `POST /api/games`
-- [x] `GET /api/games/:id`
-- [x] `PUT /api/games/:id`
-- [x] `DELETE /api/games/:id`
-- [x] `GET /api/games/:id/envs`
-- [x] `POST /api/games/:id/envs`
-- [x] `PUT /api/games/:id/envs`
-- [x] `DELETE /api/games/:id/envs`
-- [x] `POST /api/auth/login`
-- [x] `GET /api/auth/me`
-- [x] `GET /api/descriptors`
-- [x] `POST /api/providers/capabilities`
-- [x] `GET /api/providers/descriptors`
-- [x] `GET /api/providers/entities`
-- [x] `GET /api/admin/functions/:fid/ui`
-- [x] `PUT /api/admin/functions/:fid/ui`
-- [x] `GET /api/admin/functions/:fid/permissions`
-- [x] `PUT /api/admin/functions/:fid/permissions`
-- [x] `GET /api/admin/pending`
-- [x] `POST /api/admin/functions/:fid/publish`
- - [x] `GET /healthz`
- - [x] `GET /metrics`
-- [x] `GET /api/ui_schema`
-- [x] `POST /api/packs/import`
-- [x] `GET /api/packs/list`
-- [x] `GET /api/packs/export`
-- [x] `POST /api/packs/reload`
-- [x] `GET /api/components`
-- [x] `POST /api/components/install`
-- [x] `DELETE /api/components/:id`
-- [x] `POST /api/components/:id/enable`
-- [x] `POST /api/components/:id/disable`
-- [x] `GET /api/components/:id`
-- [x] `PATCH /api/components/:id`
-- [x] `GET /api/functions`
-- [x] `GET /api/functions/:id`
-- [x] `GET /api/functions`
-- [x] `GET /api/functions/:id`
-- [x] `POST /api/functions/:id/enable`
-- [x] `PATCH /api/functions/:id/enable`
-- [x] `POST /api/functions/:id/disable`
-- [x] `PATCH /api/functions/:id/disable`
-- [x] `GET /api/providers`
-- [x] `GET /api/providers/:id`
-- [x] `DELETE /api/providers/:id`
-- [x] `POST /api/providers/:id/reload`
-- [x] `GET /api/entities`
-- [x] `POST /api/entities`
-- [x] `GET /api/entities/:id`
-- [x] `PUT /api/entities/:id`
-- [x] `DELETE /api/entities/:id`
-- [x] `POST /api/entities/validate`
-- [x] `POST /api/entities/:id/preview`
-- [x] `POST /api/schema/validate`
-- [x] `GET /api/schemas`
-- [x] `GET /api/schemas/:id`
-- [x] `POST /api/schemas`
-- [x] `PUT /api/schemas/:id`
-- [x] `DELETE /api/schemas/:id`
-- [x] `POST /api/schemas/:id/validate`
-- [x] `GET /api/schemas/:id/ui-config`
-- [x] `PUT /api/schemas/:id/ui-config`
-- [x] `GET /api/x-render/components`
-- [x] `POST /api/x-render/generate-schema`
-- [x] `POST /api/x-render/preview-schema`
-- [x] `GET /api/x-render/templates`
-- [x] `GET /api/assignments`
-- [x] `POST /api/assignments`
-- [x] `GET /api/analytics/filters`
-- [x] `POST /api/analytics/filters`
-- [x] `GET /api/agent/analytics_filters`
-- [x] `GET /api/me/profile`
-- [x] `GET /api/me/games`
-- [x] `PUT /api/me/profile`
-- [x] `POST /api/me/password`
-- [x] `GET /api/messages/unread_count`
-- [x] `GET /api/messages`
-- [x] `POST /api/messages/read`
-- [x] `POST /api/messages`
-- [x] `GET /api/messages/stream`
-- [x] `GET /api/users`
-- [x] `POST /api/users`
-- [x] `PUT /api/users/:id`
-- [x] `DELETE /api/users/:id`
-- [x] `POST /api/users/:id/password`
-- [x] `GET /api/users/:id/games`
-- [x] `PUT /api/users/:id/games`
-- [x] `GET /api/users/:id/games/:gid/envs`
-- [x] `PUT /api/users/:id/games/:gid/envs`
-- [x] `GET /api/roles`
-- [x] `POST /api/roles`
-- [x] `PUT /api/roles/:id`
-- [x] `DELETE /api/roles/:id`
-- [x] `PUT /api/roles/:id/perms`
-- [x] `POST /api/invoke`
-- [x] `POST /api/start_job`
-- [x] `GET /api/approvals`
-- [x] `GET /api/approvals/get`
-- [x] `POST /api/approvals/approve`
-- [x] `POST /api/approvals/reject`
-- [x] `POST /api/cancel_job`
-- [x] `GET /api/job_result`
-- [x] `GET /api/audit`
-- [x] `GET /api/registry`
-- [x] `GET /api/function_instances`
-- [x] `GET /api/assignments`
-- [x] `POST /api/assignments`
-- [x] `GET /api/stream_job`
-- [x] `GET /api/signed_url`
-- [x] `GET /metrics.prom`
-- [x] `GET /`
+### 阶段一：紧急修复（第1-2周）
 
-### internal/app/server/http/support_routes.go
-- [x] `GET /api/support/tickets`
-- [x] `POST /api/support/tickets`
-- [x] `GET /api/support/tickets/:id`
-- [x] `PUT /api/support/tickets/:id`
-- [x] `DELETE /api/support/tickets/:id`
-- [x] `GET /api/support/tickets/:id/comments`
-- [x] `POST /api/support/tickets/:id/comments`
-- [x] `POST /api/support/tickets/:id/transition`
-- [x] `GET /api/support/faq`
-- [x] `POST /api/support/faq`
-- [x] `PUT /api/support/faq/:id`
-- [x] `DELETE /api/support/faq/:id`
-- [x] `GET /api/support/feedback`
-- [x] `POST /api/support/feedback`
-- [x] `PUT /api/support/feedback/:id`
-- [x] `DELETE /api/support/feedback/:id`
+#### 1.1 代码质量修复
+- [ ] **修复BOM字符编译错误**
+  - [ ] `cmd/analytics-export/main.go` - 移除BOM字符
+  - [ ] `internal/ports/games.go` - 移除BOM字符
+  - [x] 建立pre-commit git hooks防止再次出现
+  - [x] 添加代码格式化检查到CI/CD流程
 
-## 其他进程统一规划
+- [ ] **修复Context使用问题**
+  - [ ] 分析46处context.Background()使用场景
+  - [ ] 实施统一Context管理器
+  - [ ] 替换所有不当的Context使用
+  - [ ] 添加请求链路追踪支持
 
-### cmd/agent
-- [x] 用 go-zero 重写 Agent 入口，抽象 CLI 配置（local_addr/http_addr/server_addr/insecure_local/TLS）到统一 config
-- [x] 将 gRPC 本地服务（FunctionService、LocalControlService）包装成 go-zero service，并提供可扩展的中间件/监控
-- [x] 将 upstream 同步/心跳逻辑改写为 go-zero job/cron，支持配置化重连、 backoff、metrics
-- [x] 统一 HTTP health/metrics 端点，实现 go-zero rest server + gin 中间件迁移
+- [ ] **修复编译错误模块**
+  - [ ] 修复internal/ports模块编译问题
+  - [ ] 修复services/server相关模块编译问题
+  - [ ] 修复internal/repo/gorm/games模块编译问题
+  - [ ] 验证所有模块编译通过
 
-### cmd/edge
-- [x] 梳理现有代理/隧道逻辑，设计 go-zero RPC/REST 接口以承载 Agent ↔ Server 流量
-- [x] 支持 mTLS/TLS 配置与自动证书管理，复用 devcert/tlsutil
-- [x] 将 Prometheus/健康检查迁移到 go-zero middleware
+#### 1.2 建立测试基础设施
+- [ ] **创建测试框架**
+  - [ ] 建立`tests/testutils`工具包
+  - [ ] 实现内存SQLite测试数据库设置
+  - [ ] 创建测试数据工厂和模拟对象
+  - [ ] 建立测试覆盖率报告机制
 
-### cmd/analytics-ingest / analytics-worker / analytics-export
-- [x] 统一为 go-zero job/service，封装 MQ 消费、ClickHouse/Redis 依赖
-- [x] 提取共用配置（数据源、批大小、重试、监控）到 go-zero conf
-- [x] 将现有 `Run` 循环迁移为 go-zero task，加入可观测性（日志、metrics）
+- [ ] **修复核心模块编译**
+  - [ ] 确保所有主要模块可以编译通过
+  - [ ] 添加必要的依赖和导入
+  - [ ] 验证构建流程完整性
 
-### 其它 CLI/工具（pack-builder、schema-validator、demo 等）
-- [x] 评估是否需要迁移到 go-zero CLI 模板或保持独立
-- [x] 若迁移，统一本地配置加载、日志和 error handling
+### 阶段二：质量提升（第3-8周）
+
+#### 2.1 数据库层重构（第3-4周）
+- [ ] **实施连接池管理**
+  - [ ] 设计DatabaseManager类
+  - [ ] 配置数据库连接池参数
+  - [ ] 实现连接池监控指标
+  - [ ] 添加连接健康检查机制
+
+- [ ] **查询优化**
+  - [ ] 实施分页查询支持
+  - [ ] 添加查询条件和排序功能
+  - [ ] 优化复杂查询性能
+  - [ ] 建立查询性能基准测试
+
+#### 2.2 错误处理标准化（第5-6周）
+- [ ] **设计标准错误类型**
+  - [ ] 定义AppError结构体
+  - [ ] 建立错误码映射表
+  - [ ] 实现错误包装和传播机制
+  - [ ] 添加错误日志和监控
+
+- [ ] **统一API响应格式**
+  - [ ] 设计APIResponse泛型结构
+  - [ ] 实现响应构建器
+  - [ ] 添加HTTP处理器中间件
+  - [ ] 更新所有API端点使用标准格式
+
+#### 2.3 配置管理重构（第7-8周）
+- [ ] **重新设计配置结构**
+  - [ ] 采用层次化配置架构
+  - [ ] 分离网络、存储、安全等配置块
+  - [ ] 保持向后兼容性
+  - [ ] 添加配置验证机制
+
+- [ ] **环境变量管理**
+  - [ ] 统一环境变量命名规范
+  - [ ] 实现配置文件和环境变量合并
+  - [ ] 添加配置热重载功能
+  - [ ] 建立配置变更审计日志
+
+#### 2.4 测试体系建设（并行进行）
+- [ ] **补充单元测试**
+  - [ ] 将测试覆盖率从平均17%提升到80%+
+  - [ ] 重点覆盖业务逻辑模块
+  - [ ] 添加边界条件和异常情况测试
+  - [ ] 实施测试驱动开发（TDD）流程
+
+- [ ] **建立集成测试**
+  - [ ] 创建端到端测试场景
+  - [ ] 添加API集成测试
+  - [ ] 实现数据库集成测试
+  - [ ] 建立持续集成测试流水线
+
+### 阶段三：功能增强（第9-16周）
+
+#### 3.1 监控和可观测性（第9-11周）
+- [ ] **完善OpenTelemetry集成**
+  - [ ] 添加分布式链路追踪
+  - [ ] 实现自定义业务指标
+  - [ ] 建立Prometheus指标收集
+  - [ ] 配置Grafana监控仪表板
+
+- [ ] **日志系统优化**
+  - [ ] 统一日志格式和级别
+  - [ ] 实现结构化日志输出
+  - [ ] 添加日志聚合和搜索功能
+  - [ ] 建立日志告警规则
+
+#### 3.2 性能优化（第12-14周）
+- [ ] **实施缓存策略**
+  - [ ] 设计多级缓存架构（L1内存+L2Redis）
+  - [ ] 实现缓存失效和更新机制
+  - [ ] 添加缓存命中率和性能指标
+  - [ ] 优化热点数据访问模式
+
+- [ ] **批量操作优化**
+  - [ ] 实现批量数据库操作
+  - [ ] 添加批量操作事务支持
+  - [ ] 优化N+1查询问题
+  - [ ] 建立性能基准测试套件
+
+#### 3.3 安全加固（第15-16周）
+- [ ] **服务发现机制**
+  - [ ] 实施Consul或etcd服务注册
+  - [ ] 添加服务健康检查
+  - [ ] 实现服务负载均衡
+  - [ ] 建立服务熔断和降级机制
+
+- [ ] **连接池安全增强**
+  - [ ] 加强TLS配置和证书验证
+  - [ ] 实现双向TLS认证
+  - [ ] 添加连接限流和防护
+  - [ ] 建立连接安全审计日志
+
+### 阶段四：完善体系（第17-20周）
+
+#### 4.1 文档体系建设
+- [ ] **完善技术文档**
+  - [ ] 重写架构概览文档
+  - [ ] 创建API接口文档
+  - [ ] 编写开发指南和最佳实践
+  - [ ] 建立故障排查手册
+
+- [ ] **建立知识库**
+  - [ ] 整理设计决策记录（ADR）
+  - [ ] 创建代码规范文档
+  - [ ] 建立性能调优指南
+  - [ ] 编写安全操作手册
+
+#### 4.2 CI/CD流程完善
+- [ ] **构建流水线优化**
+  - [ ] 添加代码质量检查（golangci-lint）
+  - [ ] 实施安全扫描（gosec）
+  - [ ] 建立自动化测试报告
+  - [ ] 配置多环境自动部署
+
+- [ ] **发布流程标准化**
+  - [ ] 建立语义化版本管理
+  - [ ] 实施变更日志自动生成
+  - [ ] 配置回滚机制
+  - [ ] 建立发布审批流程
+
+## 🔧 关键改进技术方案
+
+### 数据库连接池管理
+```go
+type DatabaseManager struct {
+    db     *gorm.DB
+    config *DatabaseConfig
+    metrics *DBMetrics
+}
+
+type DatabaseConfig struct {
+    MaxOpenConns    int           `yaml:"max_open_conns" default:"25"`
+    MaxIdleConns    int           `yaml:"max_idle_conns" default:"5"`
+    ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime" default:"5m"`
+    ConnMaxIdleTime time.Duration `yaml:"conn_max_idle_time" default:"5m"`
+}
+```
+
+### 统一错误处理
+```go
+type AppError struct {
+    Code       string    `json:"code"`
+    Message    string    `json:"message"`
+    Details    string    `json:"details,omitempty"`
+    Operation  string    `json:"operation"`
+    Timestamp  time.Time `json:"timestamp"`
+    TraceID    string    `json:"trace_id"`
+    Cause      error     `json:"-"`
+}
+```
+
+### 多级缓存架构
+```go
+type CacheManager struct {
+    l1Cache *sync.Map           // 内存缓存
+    l2Cache *redis.Client       // Redis缓存
+    metrics *CacheMetrics
+}
+```
+
+### 标准API响应
+```go
+type APIResponse[T any] struct {
+    Success   bool        `json:"success"`
+    Data      T           `json:"data,omitempty"`
+    Error     *APIError   `json:"error,omitempty"`
+    Metadata  Metadata    `json:"metadata,omitempty"`
+}
+```
+
+## 📈 成功指标
+
+### 代码质量指标
+- [ ] 编译通过率：100%
+- [ ] 测试覆盖率：从17%提升到80%+
+- [ ] 代码质量评分：从当前提升到A级
+- [ ] 安全漏洞数量：降至0
+
+### 性能指标
+- [ ] API响应时间：P95 < 100ms
+- [ ] 数据库查询优化：平均查询时间减少50%
+- [ ] 缓存命中率：达到85%+
+- [ ] 并发处理能力：提升3倍
+
+### 可维护性指标
+- [ ] 文档完整性：覆盖90%的模块
+- [ ] 代码审查覆盖率：100%
+- [ ] 部署频率：从周度提升到日度
+- [ ] 故障恢复时间：MTTR < 30分钟
+
+## 🚨 风险管控
+
+### 技术风险
+- **兼容性风险**：配置重构可能影响现有部署
+  - *缓解措施*：保持向后兼容，渐进式迁移
+- **性能回退风险**：重构过程中可能影响性能
+  - *缓解措施*：建立性能基准测试，持续监控
+
+### 项目风险
+- **时间风险**：改进范围较广，可能延期
+  - *缓解措施*：分阶段实施，MVP优先
+- **资源风险**：需要投入较多开发和测试资源
+  - *缓解措施*：自动化测试，提高开发效率
+
+## 💡 讨论要点
+
+1. **技术债务处理优先级**：
+   - 是否应该立即停止新功能开发，专注修复代码质量问题？
+   - 对于遗留代码的重构，采用渐进式还是一次性重写？
+
+2. **测试策略选择**：
+   - 是否采用TDD（测试驱动开发）？
+   - 集成测试和端到端测试的范围如何界定？
+   - 是否需要引入契约测试？
+
+3. **架构演进方向**：
+   - 是否考虑引入微服务治理框架（如Istio）？
+   - 是否需要考虑Serverless架构？
+   - 是否需要支持多租户架构？
+
+4. **团队协作模式**：
+   - 是否采用Domain-Driven Design（DDD）？
+   - 是否需要建立架构决策记录（ADR）制度？
+   - 代码审查流程如何标准化？
+
+5. **运维和监控**：
+   - 是否建立完整的SRE体系？
+   - 容量规划和性能基线如何制定？
+   - 灾难恢复和备份策略如何设计？
+
+## 📝 更新日志
+
+- **2024-11-22**: 初始版本创建，基于项目全面分析
+- **2024-11-20**: 完成Go-Zero迁移，134+个API端点已迁移到微服务架构
+- **待更新**: 根据团队讨论结果调整优先级和计划
 
 ---
 
-## 🎉 迁移完成总结
+## 🎉 历史成就：Go-Zero迁移完成
 
 **完成时间**: 2024年11月20日
 **迁移状态**: ✅ 100% 完成
@@ -257,10 +316,6 @@
 - **服务数量**: 3个微服务 ✅
 - **代码行数**: 15,000+行 ✅
 
-### 🚀 技术亮点
-- 从Gin单体应用成功迁移到go-zero微服务架构
-- 100%功能兼容性，无破坏性变更
-- 现代化的配置管理和监控体系
-- 生产就绪的部署和运维工具
+---
 
-**🎊 Go-Zero迁移项目圆满成功！**
+**说明**：本TODO文档将根据项目进展和团队反馈持续更新。建议每周回顾一次，确保改进计划与实际开发情况保持同步。
