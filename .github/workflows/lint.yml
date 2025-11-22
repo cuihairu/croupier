@@ -30,11 +30,11 @@ jobs:
         run: go mod download
       - name: Check gofmt
         run: |
-          files=$(git ls-files -z '*.go' || true)
-          if [[ -z "$files" ]]; then
+          mapfile -d '' -t go_files < <(git ls-files -z '*.go' || true)
+          if [[ ${#go_files[@]} -eq 0 ]]; then
             exit 0
           fi
-          fmt_result=$(printf '%s' "$files" | xargs -0 gofmt -l)
+          fmt_result=$(gofmt -l "${go_files[@]}")
           if [[ -n "$fmt_result" ]]; then
             echo "The following files need gofmt:"
             echo "$fmt_result"
