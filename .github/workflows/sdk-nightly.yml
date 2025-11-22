@@ -1,7 +1,7 @@
 name: SDK Nightly Release
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
   schedule:
     - cron: "0 3 * * *" # daily at 03:00 UTC
 
