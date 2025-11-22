@@ -105,7 +105,7 @@ jobs:
       - name: Upload artifact (dashboard)
         uses: actions/upload-artifact@v4
         with:
-          name: dashboard-dist
+          name: dashboard-dist-${{ github.run_number }}-${{ github.run_attempt }}
           path: dashboard-dist.zip
           if-no-files-found: error
 
@@ -206,7 +206,7 @@ jobs:
       - name: Upload artifact (sdks)
         uses: actions/upload-artifact@v4
         with:
-          name: sdks
+          name: sdks-${{ github.run_number }}-${{ github.run_attempt }}
           path: |
             sdk-go-src.tar.gz
             release-sdks.tar.gz
