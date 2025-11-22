@@ -39,11 +39,11 @@ type ReloadHandler func(ctx context.Context, event ReloadEvent) error
 
 // ReloadEvent 热更新事件
 type ReloadEvent struct {
-	Type      ReloadType `json:"type"`
-	Path      string     `json:"path"`
-	Content   []byte     `json:"content,omitempty"`
-	Version   string     `json:"version"`
-	Timestamp time.Time  `json:"timestamp"`
+	Type      ReloadType             `json:"type"`
+	Path      string                 `json:"path"`
+	Content   []byte                 `json:"content,omitempty"`
+	Version   string                 `json:"version"`
+	Timestamp time.Time              `json:"timestamp"`
 	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -68,37 +68,37 @@ type VersionInfo struct {
 // Config 热更新配置
 type Config struct {
 	// 基础配置
-	ServerURL    string `json:"server_url"`    // Croupier服务器地址
-	GameID       string `json:"game_id"`       // 游戏ID
-	Environment  string `json:"environment"`   // 环境：dev/test/prod
+	ServerURL   string `json:"server_url"`  // Croupier服务器地址
+	GameID      string `json:"game_id"`     // 游戏ID
+	Environment string `json:"environment"` // 环境：dev/test/prod
 
 	// 监听配置
-	WatchDirs    []string `json:"watch_dirs"`    // 监听目录
-	WatchExts    []string `json:"watch_exts"`    // 监听扩展名
+	WatchDirs      []string `json:"watch_dirs"`      // 监听目录
+	WatchExts      []string `json:"watch_exts"`      // 监听扩展名
 	IgnorePatterns []string `json:"ignore_patterns"` // 忽略模式
 
 	// 行为配置
-	PollInterval    time.Duration `json:"poll_interval"`     // 轮询间隔
-	DebounceTime    time.Duration `json:"debounce_time"`     // 防抖时间
-	MaxRetries      int           `json:"max_retries"`       // 最大重试次数
-	EnableRemote    bool          `json:"enable_remote"`     // 启用远程更新
-	AutoReload      bool          `json:"auto_reload"`       // 自动重载
-	BackupEnabled   bool          `json:"backup_enabled"`    // 启用备份
+	PollInterval  time.Duration `json:"poll_interval"`  // 轮询间隔
+	DebounceTime  time.Duration `json:"debounce_time"`  // 防抖时间
+	MaxRetries    int           `json:"max_retries"`    // 最大重试次数
+	EnableRemote  bool          `json:"enable_remote"`  // 启用远程更新
+	AutoReload    bool          `json:"auto_reload"`    // 自动重载
+	BackupEnabled bool          `json:"backup_enabled"` // 启用备份
 }
 
 // DefaultConfig 默认配置
 func DefaultConfig() *Config {
 	return &Config{
-		Environment:     "development",
-		WatchDirs:       []string{"./configs", "./scripts", "./plugins"},
-		WatchExts:       []string{".json", ".yaml", ".yml", ".lua", ".js", ".so", ".dll"},
-		IgnorePatterns:  []string{"*.tmp", "*.log", ".git/*"},
-		PollInterval:    time.Second,
-		DebounceTime:    500 * time.Millisecond,
-		MaxRetries:      3,
-		EnableRemote:    true,
-		AutoReload:      true,
-		BackupEnabled:   true,
+		Environment:    "development",
+		WatchDirs:      []string{"./configs", "./scripts", "./plugins"},
+		WatchExts:      []string{".json", ".yaml", ".yml", ".lua", ".js", ".so", ".dll"},
+		IgnorePatterns: []string{"*.tmp", "*.log", ".git/*"},
+		PollInterval:   time.Second,
+		DebounceTime:   500 * time.Millisecond,
+		MaxRetries:     3,
+		EnableRemote:   true,
+		AutoReload:     true,
+		BackupEnabled:  true,
 	}
 }
 

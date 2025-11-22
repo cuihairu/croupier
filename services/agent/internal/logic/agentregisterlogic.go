@@ -37,18 +37,18 @@ func (l *AgentRegisterLogic) AgentRegister(req *types.AgentRegisterRequest) (res
 
 	// Store agent information
 	agentInfo := map[string]interface{}{
-		"agent_id":  req.AgentId,
-		"game_id":   req.GameId,
-		"env":       req.Env,
-		"rpc_addr":  req.RpcAddr,
-		"ip":        req.Ip,
-		"type":      req.Type,
-		"version":   req.Version,
-		"functions": req.Functions,
-		"metadata":  req.Metadata,
-		"registered_at": time.Now().Unix(),
+		"agent_id":       req.AgentId,
+		"game_id":        req.GameId,
+		"env":            req.Env,
+		"rpc_addr":       req.RpcAddr,
+		"ip":             req.Ip,
+		"type":           req.Type,
+		"version":        req.Version,
+		"functions":      req.Functions,
+		"metadata":       req.Metadata,
+		"registered_at":  time.Now().Unix(),
 		"last_heartbeat": time.Now().Unix(),
-		"status": "active",
+		"status":         "active",
 	}
 
 	l.svcCtx.AgentStore.SetAgentInfo(req.AgentId, agentInfo)

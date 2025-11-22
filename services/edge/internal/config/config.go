@@ -30,9 +30,9 @@ type Config struct {
 
 	Proxy struct {
 		MaxConnections int   `json:",default=10000"`
-		RequestTimeout  int64 `json:",default=30000"`
-		ReadTimeout     int64 `json:",default=30000"`
-		WriteTimeout    int64 `json:",default=30000"`
+		RequestTimeout int64 `json:",default=30000"`
+		ReadTimeout    int64 `json:",default=30000"`
+		WriteTimeout   int64 `json:",default=30000"`
 	} `json:",optional"`
 
 	LoadBalancer struct {

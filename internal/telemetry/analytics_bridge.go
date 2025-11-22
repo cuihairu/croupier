@@ -20,10 +20,10 @@ type AnalyticsBridge struct {
 	enabled     bool
 
 	// MQ配置
-	topicPrefix     string
-	retentionHours  int
-	batchSize       int
-	flushInterval   time.Duration
+	topicPrefix    string
+	retentionHours int
+	batchSize      int
+	flushInterval  time.Duration
 
 	// 批量发送缓冲区
 	eventBatch   []AnalyticsEvent
@@ -32,28 +32,28 @@ type AnalyticsBridge struct {
 
 // AnalyticsEvent 标准化的游戏分析事件
 type AnalyticsEvent struct {
-	EventType   string                 `json:"event_type"`
-	GameID      string                 `json:"game_id"`
-	UserID      string                 `json:"user_id"`
-	SessionID   string                 `json:"session_id"`
-	Platform    string                 `json:"platform"`
-	Region      string                 `json:"region"`
-	Timestamp   int64                  `json:"timestamp"`
-	Attributes  map[string]interface{} `json:"attributes"`
-	TraceID     string                 `json:"trace_id,omitempty"`
-	SpanID      string                 `json:"span_id,omitempty"`
+	EventType  string                 `json:"event_type"`
+	GameID     string                 `json:"game_id"`
+	UserID     string                 `json:"user_id"`
+	SessionID  string                 `json:"session_id"`
+	Platform   string                 `json:"platform"`
+	Region     string                 `json:"region"`
+	Timestamp  int64                  `json:"timestamp"`
+	Attributes map[string]interface{} `json:"attributes"`
+	TraceID    string                 `json:"trace_id,omitempty"`
+	SpanID     string                 `json:"span_id,omitempty"`
 }
 
 // AnalyticsBridgeConfig Analytics桥接配置
 type AnalyticsBridgeConfig struct {
-	Enabled         bool          `yaml:"enabled"`
-	RedisAddr       string        `yaml:"redis_addr"`
-	RedisPassword   string        `yaml:"redis_password"`
-	RedisDB         int           `yaml:"redis_db"`
-	TopicPrefix     string        `yaml:"topic_prefix"`
-	RetentionHours  int           `yaml:"retention_hours"`
-	BatchSize       int           `yaml:"batch_size"`
-	FlushInterval   time.Duration `yaml:"flush_interval"`
+	Enabled        bool          `yaml:"enabled"`
+	RedisAddr      string        `yaml:"redis_addr"`
+	RedisPassword  string        `yaml:"redis_password"`
+	RedisDB        int           `yaml:"redis_db"`
+	TopicPrefix    string        `yaml:"topic_prefix"`
+	RetentionHours int           `yaml:"retention_hours"`
+	BatchSize      int           `yaml:"batch_size"`
+	FlushInterval  time.Duration `yaml:"flush_interval"`
 }
 
 // NewAnalyticsBridge 创建Analytics桥接器
@@ -70,15 +70,15 @@ func NewAnalyticsBridge(config AnalyticsBridgeConfig, gameID string, logger *slo
 	})
 
 	bridge := &AnalyticsBridge{
-		redisClient:   rdb,
-		logger:        logger,
-		gameID:        gameID,
-		enabled:       true,
-		topicPrefix:   config.TopicPrefix,
+		redisClient:    rdb,
+		logger:         logger,
+		gameID:         gameID,
+		enabled:        true,
+		topicPrefix:    config.TopicPrefix,
 		retentionHours: config.RetentionHours,
-		batchSize:     config.BatchSize,
-		flushInterval: config.FlushInterval,
-		batchChannel:  make(chan AnalyticsEvent, config.BatchSize*2),
+		batchSize:      config.BatchSize,
+		flushInterval:  config.FlushInterval,
+		batchChannel:   make(chan AnalyticsEvent, config.BatchSize*2),
 	}
 
 	// 启动批量处理协程
@@ -142,9 +142,9 @@ func (b *AnalyticsBridge) flushBatch() {
 			pipe.XAdd(ctx, &redis.XAddArgs{
 				Stream: topic,
 				Values: map[string]interface{}{
-					"data": string(data),
-					"game_id": event.GameID,
-					"user_id": event.UserID,
+					"data":      string(data),
+					"game_id":   event.GameID,
+					"user_id":   event.UserID,
 					"timestamp": event.Timestamp,
 				},
 			})

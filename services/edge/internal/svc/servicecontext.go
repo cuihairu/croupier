@@ -19,34 +19,34 @@ type ServiceContext struct {
 }
 
 type Tunnel struct {
-	ID           string                 `json:"id"`
-	AgentID      string                 `json:"agent_id"`
-	ServerID     string                 `json:"server_id"`
-	Protocol     string                 `json:"protocol"`
-	RemoteAddr   string                 `json:"remote_addr"`
-	LocalAddr    string                 `json:"local_addr"`
-	Options      map[string]interface{} `json:"options"`
-	Status       string                 `json:"status"`
-	Connections  int64                  `json:"connections"`
-	BytesIn      int64                  `json:"bytes_in"`
-	BytesOut     int64                  `json:"bytes_out"`
-	CreatedAt    time.Time              `json:"created_at"`
-	LastActive   time.Time              `json:"last_active"`
-	PublicURL    string                 `json:"public_url"`
-	Listener     net.Listener           `json:"-"`
-	ctx          context.Context
-	cancelFunc   context.CancelFunc
+	ID          string                 `json:"id"`
+	AgentID     string                 `json:"agent_id"`
+	ServerID    string                 `json:"server_id"`
+	Protocol    string                 `json:"protocol"`
+	RemoteAddr  string                 `json:"remote_addr"`
+	LocalAddr   string                 `json:"local_addr"`
+	Options     map[string]interface{} `json:"options"`
+	Status      string                 `json:"status"`
+	Connections int64                  `json:"connections"`
+	BytesIn     int64                  `json:"bytes_in"`
+	BytesOut    int64                  `json:"bytes_out"`
+	CreatedAt   time.Time              `json:"created_at"`
+	LastActive  time.Time              `json:"last_active"`
+	PublicURL   string                 `json:"public_url"`
+	Listener    net.Listener           `json:"-"`
+	ctx         context.Context
+	cancelFunc  context.CancelFunc
 }
 
 type ProxyConnection struct {
-	ID        string    `json:"id"`
-	TunnelID  string    `json:"tunnel_id"`
-	ClientConn net.Conn `json:"-"`
-	ServerConn net.Conn `json:"-"`
-	StartTime time.Time `json:"start_time"`
-	BytesIn   int64     `json:"bytes_in"`
-	BytesOut  int64     `json:"bytes_out"`
-	Active    bool      `json:"active"`
+	ID         string    `json:"id"`
+	TunnelID   string    `json:"tunnel_id"`
+	ClientConn net.Conn  `json:"-"`
+	ServerConn net.Conn  `json:"-"`
+	StartTime  time.Time `json:"start_time"`
+	BytesIn    int64     `json:"bytes_in"`
+	BytesOut   int64     `json:"bytes_out"`
+	Active     bool      `json:"active"`
 }
 
 type TunnelManager struct {

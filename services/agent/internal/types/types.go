@@ -2,15 +2,15 @@ package types
 
 type (
 	AgentRegisterRequest struct {
-		GameId     string            `json:"game_id"`
-		Env        string            `json:"env"`
-		AgentId    string            `json:"agent_id"`
-		RpcAddr    string            `json:"rpc_addr"`
-		Ip         string            `json:"ip"`
-		Type       string            `json:"type"`
-		Version    string            `json:"version"`
-		Functions  int64             `json:"functions"`
-		Metadata   map[string]string `json:"metadata,optional"`
+		GameId    string            `json:"game_id"`
+		Env       string            `json:"env"`
+		AgentId   string            `json:"agent_id"`
+		RpcAddr   string            `json:"rpc_addr"`
+		Ip        string            `json:"ip"`
+		Type      string            `json:"type"`
+		Version   string            `json:"version"`
+		Functions int64             `json:"functions"`
+		Metadata  map[string]string `json:"metadata,optional"`
 	}
 
 	AgentRegisterResponse struct {
@@ -67,12 +67,12 @@ type (
 	}
 
 	JobStatusResponse struct {
-		JobId    string                 `json:"job_id"`
-		Status   string                 `json:"status"`
-		Result   map[string]interface{} `json:"result,optional"`
-		Error    string                 `json:"error,optional"`
-		Progress int64                  `json:"progress"`
-		StartTime string                `json:"start_time"`
+		JobId     string                 `json:"job_id"`
+		Status    string                 `json:"status"`
+		Result    map[string]interface{} `json:"result,optional"`
+		Error     string                 `json:"error,optional"`
+		Progress  int64                  `json:"progress"`
+		StartTime string                 `json:"start_time"`
 		EndTime   string                 `json:"end_time,optional"`
 	}
 

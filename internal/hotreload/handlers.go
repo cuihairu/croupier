@@ -146,8 +146,8 @@ func (h *ConfigHandler) RegisterCallback(path string, callback ConfigChangeCallb
 
 // ScriptHandler 脚本热更新处理器
 type ScriptHandler struct {
-	logger      *slog.Logger
-	scripts     map[string][]byte
+	logger       *slog.Logger
+	scripts      map[string][]byte
 	interpreters map[string]ScriptInterpreter
 }
 

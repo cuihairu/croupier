@@ -49,14 +49,14 @@ func (l *FunctionRegisterLogic) FunctionRegister(req *types.FunctionRegisterRequ
 
 	// Prepare function data
 	functionData := map[string]interface{}{
-		"function_id": req.FunctionId,
-		"game_id":     req.GameId,
-		"env":         req.Env,
-		"descriptor":  req.Descriptor,
-		"schema":      req.Schema,
-		"metadata":    req.Metadata,
+		"function_id":   req.FunctionId,
+		"game_id":       req.GameId,
+		"env":           req.Env,
+		"descriptor":    req.Descriptor,
+		"schema":        req.Schema,
+		"metadata":      req.Metadata,
 		"registered_at": time.Now().Unix(),
-		"status":      "active",
+		"status":        "active",
 	}
 
 	// Register function

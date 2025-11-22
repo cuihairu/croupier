@@ -36,12 +36,12 @@ func (l *JobStatusLogic) JobStatus(req *types.JobStatusRequest) (resp *types.Job
 	}
 
 	return &types.JobStatusResponse{
-		JobId:    job.ID,
-		Status:   job.Status,
-		Result:   job.Result,
-		Error:    job.Error,
-		Progress: job.Progress,
+		JobId:     job.ID,
+		Status:    job.Status,
+		Result:    job.Result,
+		Error:     job.Error,
+		Progress:  job.Progress,
 		StartTime: job.StartTime,
-		EndTime:  job.EndTime,
+		EndTime:   job.EndTime,
 	}, nil
 }

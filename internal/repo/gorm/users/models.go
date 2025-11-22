@@ -58,25 +58,25 @@ func (RolePermRecord) TableName() string {
 
 // UserGameScope links a user to allowed game IDs (scope control at game level)
 type UserGameScope struct {
-    gorm.Model
-    UserID uint `gorm:"index;not null"`
-    GameID uint `gorm:"index;not null"`
+	gorm.Model
+	UserID uint `gorm:"index;not null"`
+	GameID uint `gorm:"index;not null"`
 }
 
 func (UserGameScope) TableName() string { return "user_game_scopes" }
 
 // UserGameEnvScope links a user to allowed envs under a specific game.
 type UserGameEnvScope struct {
-    gorm.Model
-    UserID uint   `gorm:"index;not null"`
-    GameID uint   `gorm:"index;not null"`
-    Env    string `gorm:"index;size:64;not null"`
+	gorm.Model
+	UserID uint   `gorm:"index;not null"`
+	GameID uint   `gorm:"index;not null"`
+	Env    string `gorm:"index;size:64;not null"`
 }
 
 func (UserGameEnvScope) TableName() string { return "user_game_env_scopes" }
 
 func AutoMigrate(db *gorm.DB) error {
-    return db.AutoMigrate(&UserAccount{}, &RoleRecord{}, &UserRoleRecord{}, &RolePermRecord{}, &UserGameScope{}, &UserGameEnvScope{})
+	return db.AutoMigrate(&UserAccount{}, &RoleRecord{}, &UserRoleRecord{}, &RolePermRecord{}, &UserGameScope{}, &UserGameEnvScope{})
 }
 
 // Helpers to stamp time manually if needed

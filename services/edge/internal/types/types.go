@@ -76,13 +76,13 @@ type (
 	}
 
 	EdgeHealthResponse struct {
-		Status    string            `json:"status"`
-		Uptime    int64             `json:"uptime"`
-		Version   string            `json:"version"`
-		Tunnels   int64             `json:"active_tunnels"`
-		Agents    int64             `json:"connected_agents"`
+		Status    string             `json:"status"`
+		Uptime    int64              `json:"uptime"`
+		Version   string             `json:"version"`
+		Tunnels   int64              `json:"active_tunnels"`
+		Agents    int64              `json:"connected_agents"`
 		Load      map[string]float64 `json:"load"`
-		Timestamp string            `json:"timestamp"`
+		Timestamp string             `json:"timestamp"`
 	}
 
 	EdgeMetricsRequest struct {

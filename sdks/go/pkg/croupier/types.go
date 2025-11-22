@@ -34,11 +34,11 @@ type ClientConfig struct {
 	AgentAddr string `json:"agent_addr"` // Agent gRPC address, e.g. "localhost:19090"
 
 	// Service identification (multi-tenant support)
-	GameID         string `json:"game_id"`          // game identifier for tenant isolation
-	Env            string `json:"env"`              // environment: "development"|"staging"|"production"
-	ServiceID      string `json:"service_id"`       // unique service identifier
-	ServiceVersion string `json:"service_version"`  // service version for compatibility
-	AgentID        string `json:"agent_id"`         // agent identifier for load balancing
+	GameID         string `json:"game_id"`         // game identifier for tenant isolation
+	Env            string `json:"env"`             // environment: "development"|"staging"|"production"
+	ServiceID      string `json:"service_id"`      // unique service identifier
+	ServiceVersion string `json:"service_version"` // service version for compatibility
+	AgentID        string `json:"agent_id"`        // agent identifier for load balancing
 
 	// Local server settings
 	LocalListen string `json:"local_listen"` // local gRPC listener address

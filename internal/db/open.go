@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	gpostgres "gorm.io/driver/postgres"
 	gsqlite "github.com/glebarez/sqlite"
+	gpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -30,4 +30,3 @@ func Open(dsn string) (*gorm.DB, error) {
 	// sqlite forms: file:... or :memory:
 	return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 }
-

@@ -50,17 +50,17 @@ func (l *JobExecuteLogic) JobExecute(req *types.JobExecuteRequest) (resp *types.
 
 	// Create job object
 	job := &svc.Job{
-		ID:          req.JobId,
-		FunctionID:  req.FunctionId,
-		GameID:      req.GameId,
-		Env:         req.Env,
-		Inputs:      req.Inputs,
-		Options:     req.Options,
-		Status:      "pending",
-		Progress:    0,
-		StartTime:   time.Now().Format(time.RFC3339),
-		Retries:     0,
-		MaxRetries:  l.svcCtx.Config.Job.Retries,
+		ID:         req.JobId,
+		FunctionID: req.FunctionId,
+		GameID:     req.GameId,
+		Env:        req.Env,
+		Inputs:     req.Inputs,
+		Options:    req.Options,
+		Status:     "pending",
+		Progress:   0,
+		StartTime:  time.Now().Format(time.RFC3339),
+		Retries:    0,
+		MaxRetries: l.svcCtx.Config.Job.Retries,
 	}
 
 	// Store job info
@@ -130,7 +130,7 @@ func (l *JobExecuteLogic) simulateJobExecution(job *svc.Job) {
 	job.Status = "completed"
 	job.EndTime = time.Now().Format(time.RFC3339)
 	job.Result = map[string]interface{}{
-		"output": fmt.Sprintf("Function %s executed successfully", job.FunctionID),
+		"output":         fmt.Sprintf("Function %s executed successfully", job.FunctionID),
 		"execution_time": "3s",
 	}
 

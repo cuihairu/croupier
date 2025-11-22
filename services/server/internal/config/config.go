@@ -9,30 +9,30 @@ import (
 
 type Config struct {
 	rest.RestConf
-	Server      ServerConfig      `json:"server" yaml:"server"`
-	Registry    RegistryConfig    `json:"registry" yaml:"registry"`
-	Auth        AuthConfig        `json:"auth" yaml:"auth"`
-	Descriptors DescriptorConfig  `json:"descriptors" yaml:"descriptors"`
-	Components  ComponentsConfig  `json:"components" yaml:"components"`
-	Schemas     SchemasConfig     `json:"schemas" yaml:"schemas"`
-	Packs       PacksConfig       `json:"packs" yaml:"packs"`
-	Storage     StorageConfig     `json:"storage" yaml:"storage"`
-	CroupierLog CroupierLogConfig `json:"croupier_log" yaml:"croupier_log"`
-	Metrics     MetricsConfig     `json:"metrics" yaml:"metrics"`
+	Server      ServerConfig             `json:"server" yaml:"server"`
+	Registry    RegistryConfig           `json:"registry" yaml:"registry"`
+	Auth        AuthConfig               `json:"auth" yaml:"auth"`
+	Descriptors DescriptorConfig         `json:"descriptors" yaml:"descriptors"`
+	Components  ComponentsConfig         `json:"components" yaml:"components"`
+	Schemas     SchemasConfig            `json:"schemas" yaml:"schemas"`
+	Packs       PacksConfig              `json:"packs" yaml:"packs"`
+	Storage     StorageConfig            `json:"storage" yaml:"storage"`
+	CroupierLog CroupierLogConfig        `json:"croupier_log" yaml:"croupier_log"`
+	Metrics     MetricsConfig            `json:"metrics" yaml:"metrics"`
 	Profiles    map[string]ProfileConfig `json:"profiles" yaml:"profiles"`
 }
 
 type ServerConfig struct {
-	Addr     string          `json:"addr" yaml:"addr"`
-	HttpAddr string          `json:"http_addr,optional" yaml:"http_addr,optional"`
-	Cert     string          `json:"cert,optional" yaml:"cert,optional"`
-	Key      string          `json:"key,optional" yaml:"key,optional"`
-	CA       string          `json:"ca,optional" yaml:"ca,optional"`
-	Database DatabaseConfig  `json:"db" yaml:"db"`
+	Addr     string         `json:"addr" yaml:"addr"`
+	HttpAddr string         `json:"http_addr,optional" yaml:"http_addr,optional"`
+	Cert     string         `json:"cert,optional" yaml:"cert,optional"`
+	Key      string         `json:"key,optional" yaml:"key,optional"`
+	CA       string         `json:"ca,optional" yaml:"ca,optional"`
+	Database DatabaseConfig `json:"db" yaml:"db"`
 }
 
 type DatabaseConfig struct {
-	Driver   string `json:"driver,optional" yaml:"driver,optional"`
+	Driver     string `json:"driver,optional" yaml:"driver,optional"`
 	DataSource string `json:"datasource,optional" yaml:"datasource,optional"`
 }
 
@@ -43,10 +43,10 @@ type RegistryConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret    string `json:"jwt_secret,optional" yaml:"jwt_secret,optional"`
-	RBACConfig   string `json:"rbac_config,optional" yaml:"rbac_config,optional"`
-	UsersConfig  string `json:"users_config,optional" yaml:"users_config,optional"`
-	GamesConfig  string `json:"games_config,optional" yaml:"games_config,optional"`
+	JWTSecret   string `json:"jwt_secret,optional" yaml:"jwt_secret,optional"`
+	RBACConfig  string `json:"rbac_config,optional" yaml:"rbac_config,optional"`
+	UsersConfig string `json:"users_config,optional" yaml:"users_config,optional"`
+	GamesConfig string `json:"games_config,optional" yaml:"games_config,optional"`
 }
 
 type DescriptorConfig struct {
@@ -67,15 +67,15 @@ type PacksConfig struct {
 }
 
 type StorageConfig struct {
-	Driver           string `json:"driver,optional" yaml:"driver,optional"`
-	Bucket           string `json:"bucket,optional" yaml:"bucket,optional"`
-	Region           string `json:"region,optional" yaml:"region,optional"`
-	Endpoint         string `json:"endpoint,optional" yaml:"endpoint,optional"`
-	AccessKey        string `json:"access_key,optional" yaml:"access_key,optional"`
-	SecretKey        string `json:"secret_key,optional" yaml:"secret_key,optional"`
-	ForcePathStyle   bool   `json:"force_path_style,optional" yaml:"force_path_style,optional"`
-	SignedURLTTL     string `json:"signed_url_ttl,optional" yaml:"signed_url_ttl,optional"`
-	BaseDir          string `json:"base_dir,optional" yaml:"base_dir,optional"`
+	Driver         string `json:"driver,optional" yaml:"driver,optional"`
+	Bucket         string `json:"bucket,optional" yaml:"bucket,optional"`
+	Region         string `json:"region,optional" yaml:"region,optional"`
+	Endpoint       string `json:"endpoint,optional" yaml:"endpoint,optional"`
+	AccessKey      string `json:"access_key,optional" yaml:"access_key,optional"`
+	SecretKey      string `json:"secret_key,optional" yaml:"secret_key,optional"`
+	ForcePathStyle bool   `json:"force_path_style,optional" yaml:"force_path_style,optional"`
+	SignedURLTTL   string `json:"signed_url_ttl,optional" yaml:"signed_url_ttl,optional"`
+	BaseDir        string `json:"base_dir,optional" yaml:"base_dir,optional"`
 }
 
 type CroupierLogConfig struct {
@@ -90,8 +90,8 @@ type CroupierLogConfig struct {
 }
 
 type MetricsConfig struct {
-	PerFunction    bool `json:"per_function,optional" yaml:"per_function,optional"`
-	PerGameDenies  bool `json:"per_game_denies,optional" yaml:"per_game_denies,optional"`
+	PerFunction   bool `json:"per_function,optional" yaml:"per_function,optional"`
+	PerGameDenies bool `json:"per_game_denies,optional" yaml:"per_game_denies,optional"`
 }
 
 type ProfileConfig struct {

@@ -19,14 +19,14 @@ import (
 
 // TelemetryConfig OpenTelemetry配置
 type TelemetryConfig struct {
-	ServiceName     string `yaml:"service_name"`
-	ServiceVersion  string `yaml:"service_version"`
-	Environment     string `yaml:"environment"`
-	CollectorURL    string `yaml:"collector_url"`
-	GameID          string `yaml:"game_id"`
-	EnableTracing   bool   `yaml:"enable_tracing"`
-	EnableMetrics   bool   `yaml:"enable_metrics"`
-	SamplingRatio   float64 `yaml:"sampling_ratio"`
+	ServiceName    string  `yaml:"service_name"`
+	ServiceVersion string  `yaml:"service_version"`
+	Environment    string  `yaml:"environment"`
+	CollectorURL   string  `yaml:"collector_url"`
+	GameID         string  `yaml:"game_id"`
+	EnableTracing  bool    `yaml:"enable_tracing"`
+	EnableMetrics  bool    `yaml:"enable_metrics"`
+	SamplingRatio  float64 `yaml:"sampling_ratio"`
 
 	// Analytics桥接配置
 	Analytics AnalyticsBridgeConfig `yaml:"analytics"`

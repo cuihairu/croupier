@@ -27,10 +27,10 @@ func (l *EdgeMetricsLogic) EdgeMetrics(req *types.EdgeMetricsRequest) (resp *typ
 	// TODO: implement the EdgeMetrics logic here
 	resp = &types.EdgeMetricsResponse{
 		Metrics: map[string]interface{}{
-			"cpu_usage":    15.5,
-			"memory_usage": 45.2,
-			"network_in":   1024000,
-			"network_out":  2048000,
+			"cpu_usage":      15.5,
+			"memory_usage":   45.2,
+			"network_in":     1024000,
+			"network_out":    2048000,
 			"active_tunnels": 5,
 		},
 	}

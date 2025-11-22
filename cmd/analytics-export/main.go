@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"encoding/json"
@@ -14,12 +14,12 @@ import (
 type Any = any
 
 type Spec struct {
-	Version   string                 `json:"version"`
-	Events    map[string]Any         `json:"events"`
-	Metrics   map[string]Any         `json:"metrics"`
-	GameTypes map[string]Any         `json:"game_types"`
-	Taxonomy  map[string]Any         `json:"taxonomy"`
-	Derived   map[string]Any         `json:"derived,omitempty"`
+	Version   string         `json:"version"`
+	Events    map[string]Any `json:"events"`
+	Metrics   map[string]Any `json:"metrics"`
+	GameTypes map[string]Any `json:"game_types"`
+	Taxonomy  map[string]Any `json:"taxonomy"`
+	Derived   map[string]Any `json:"derived,omitempty"`
 }
 
 func readYAML(path string) (map[string]Any, error) {
@@ -46,11 +46,17 @@ func main() {
 	flag.Parse()
 
 	events, err := readYAML(filepath.Join(*dir, "events.yaml"))
-	if err != nil { panic(fmt.Errorf("read events: %w", err)) }
+	if err != nil {
+		panic(fmt.Errorf("read events: %w", err))
+	}
 	metrics, err := readYAML(filepath.Join(*dir, "metrics.yaml"))
-	if err != nil { panic(fmt.Errorf("read metrics: %w", err)) }
+	if err != nil {
+		panic(fmt.Errorf("read metrics: %w", err))
+	}
 	gameTypes, err := readYAML(filepath.Join(*dir, "game_types.yaml"))
-	if err != nil { panic(fmt.Errorf("read game_types: %w", err)) }
+	if err != nil {
+		panic(fmt.Errorf("read game_types: %w", err))
+	}
 	taxonomy, _ := readYAML(filepath.Join(*dir, "taxonomy.yaml"))
 
 	spec := Spec{
@@ -98,9 +104,15 @@ func main() {
 	}
 
 	b, err := json.MarshalIndent(spec, "", "  ")
-	if err != nil { panic(err) }
+	if err != nil {
+		panic(err)
+	}
 
-	if err := ensureDir(filepath.Dir(*out)); err != nil { panic(err) }
-	if err := ioutil.WriteFile(*out, b, 0o644); err != nil { panic(err) }
+	if err := ensureDir(filepath.Dir(*out)); err != nil {
+		panic(err)
+	}
+	if err := ioutil.WriteFile(*out, b, 0o644); err != nil {
+		panic(err)
+	}
 	fmt.Printf("wrote %s (size=%d)\n", *out, len(b))
 }

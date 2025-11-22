@@ -133,31 +133,35 @@ func (r *Repo) ListUserGameIDs(ctx context.Context, userID uint) ([]uint, error)
 
 // ListUserGameEnvs lists allowed envs for a user under a game. Empty means unrestricted.
 func (r *Repo) ListUserGameEnvs(ctx context.Context, userID, gameID uint) ([]string, error) {
-    var envs []string
-    if err := r.db.WithContext(ctx).Model(&UserGameEnvScope{}).Where("user_id=? AND game_id=?", userID, gameID).Pluck("env", &envs).Error; err != nil {
-        return nil, err
-    }
-    return envs, nil
+	var envs []string
+	if err := r.db.WithContext(ctx).Model(&UserGameEnvScope{}).Where("user_id=? AND game_id=?", userID, gameID).Pluck("env", &envs).Error; err != nil {
+		return nil, err
+	}
+	return envs, nil
 }
 
 // ReplaceUserGameEnvs replaces env scopes for a user under a game. Empty envs clears scopes (unrestricted envs).
 func (r *Repo) ReplaceUserGameEnvs(ctx context.Context, userID, gameID uint, envs []string) error {
-    return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-        if err := tx.Where("user_id=? AND game_id=?", userID, gameID).Delete(&UserGameEnvScope{}).Error; err != nil {
-            return err
-        }
-        seen := map[string]struct{}{}
-        for _, e := range envs {
-            e = strings.TrimSpace(e)
-            if e == "" { continue }
-            if _, ok := seen[e]; ok { continue }
-            seen[e] = struct{}{}
-            if err := tx.Create(&UserGameEnvScope{UserID: userID, GameID: gameID, Env: e}).Error; err != nil {
-                return err
-            }
-        }
-        return nil
-    })
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("user_id=? AND game_id=?", userID, gameID).Delete(&UserGameEnvScope{}).Error; err != nil {
+			return err
+		}
+		seen := map[string]struct{}{}
+		for _, e := range envs {
+			e = strings.TrimSpace(e)
+			if e == "" {
+				continue
+			}
+			if _, ok := seen[e]; ok {
+				continue
+			}
+			seen[e] = struct{}{}
+			if err := tx.Create(&UserGameEnvScope{UserID: userID, GameID: gameID, Env: e}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // ReplaceUserGameIDs replaces all game scopes for the user with the provided list

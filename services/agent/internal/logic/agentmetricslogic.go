@@ -88,8 +88,8 @@ func (l *AgentMetricsLogic) AgentMetrics(req *types.AgentMetricsRequest) (resp *
 	// Configuration metrics
 	metrics["config"] = map[string]interface{}{
 		"max_concurrent_jobs": l.svcCtx.Config.Job.MaxConcurrent,
-		"job_timeout":        l.svcCtx.Config.Job.Timeout,
-		"heartbeat_interval": l.svcCtx.Config.Upstream.HeartbeatInterval,
+		"job_timeout":         l.svcCtx.Config.Job.Timeout,
+		"heartbeat_interval":  l.svcCtx.Config.Upstream.HeartbeatInterval,
 	}
 
 	return &types.AgentMetricsResponse{

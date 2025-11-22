@@ -30,16 +30,16 @@ func NewGameTracer(tracer trace.Tracer, metrics *GameMetrics, bridge *AnalyticsB
 
 // SessionStartRequest 会话开始请求
 type SessionStartRequest struct {
-	UserID      string
-	SessionID   string
-	Platform    string
-	Region      string
-	GameType    string
-	GenreCode   string
-	AppVersion  string
-	EntryPoint  string
-	CampaignID  string
-	DeviceID    string
+	UserID     string
+	SessionID  string
+	Platform   string
+	Region     string
+	GameType   string
+	GenreCode  string
+	AppVersion string
+	EntryPoint string
+	CampaignID string
+	DeviceID   string
 }
 
 // StartUserSession 开始用户会话（顶级 Trace）
@@ -75,12 +75,12 @@ func (t *GameTracer) StartUserSession(ctx context.Context, req SessionStartReque
 	// 发送Analytics事件
 	if t.bridge != nil {
 		t.bridge.SendSessionEvent(ctx, EventSessionStart, span, req.UserID, req.SessionID, req.Platform, req.Region, map[string]interface{}{
-			"game_type":    req.GameType,
-			"genre_code":   req.GenreCode,
-			"app_version":  req.AppVersion,
-			"entry_point":  req.EntryPoint,
-			"campaign_id":  req.CampaignID,
-			"device_id":    req.DeviceID,
+			"game_type":   req.GameType,
+			"genre_code":  req.GenreCode,
+			"app_version": req.AppVersion,
+			"entry_point": req.EntryPoint,
+			"campaign_id": req.CampaignID,
+			"device_id":   req.DeviceID,
 		})
 	}
 
@@ -89,10 +89,10 @@ func (t *GameTracer) StartUserSession(ctx context.Context, req SessionStartReque
 
 // SessionEndRequest 会话结束请求
 type SessionEndRequest struct {
-	UserID      string
-	SessionID   string
-	DurationMs  int64
-	CauseOfEnd  string // normal/crash/disconnect/quit
+	UserID     string
+	SessionID  string
+	DurationMs int64
+	CauseOfEnd string // normal/crash/disconnect/quit
 }
 
 // EndUserSession 结束用户会话
@@ -205,12 +205,12 @@ func (t *GameTracer) CompleteLevelPlaythrough(ctx context.Context, result LevelC
 		// 发送Analytics事件
 		if t.bridge != nil {
 			t.bridge.SendProgressionEvent(ctx, EventProgressionComplete, span, "", "", result.LevelID, map[string]interface{}{
-				"duration_ms":       result.DurationMs,
-				"stars":             result.Stars,
-				"retries":           result.Retries,
-				"wave_index":        result.WaveIndex,
-				"hearts_remaining":  result.HeartsRemaining,
-				"difficulty":        result.Difficulty,
+				"duration_ms":      result.DurationMs,
+				"stars":            result.Stars,
+				"retries":          result.Retries,
+				"wave_index":       result.WaveIndex,
+				"hearts_remaining": result.HeartsRemaining,
+				"difficulty":       result.Difficulty,
 			})
 		}
 
@@ -257,16 +257,16 @@ func (t *GameTracer) FailLevelPlaythrough(ctx context.Context, result LevelFailR
 
 // MatchStartRequest 对战开始请求
 type MatchStartRequest struct {
-	UserID       string
-	SessionID    string
-	MatchID      string
-	GameMode     string
-	QueueType    string
-	MapID        string
-	QueueTimeMs  int
-	MMR          int
-	TeamID       string
-	DeckID       string
+	UserID        string
+	SessionID     string
+	MatchID       string
+	GameMode      string
+	QueueType     string
+	MapID         string
+	QueueTimeMs   int
+	MMR           int
+	TeamID        string
+	DeckID        string
 	DeckArchetype string
 }
 
@@ -410,11 +410,11 @@ func (t *GameTracer) TrackEconomyTransaction(ctx context.Context, transaction Ec
 	// 发送Analytics事件
 	if t.bridge != nil {
 		t.bridge.SendEconomyEvent(ctx, eventName, span, transaction.UserID, transaction.Currency, transaction.Amount, map[string]interface{}{
-			"currency_kind":  transaction.CurrencyKind,
-			"item_id":        transaction.ItemID,
-			"balance_after":  transaction.BalanceAfter,
-			"source":         transaction.Source,
-			"sink":           transaction.Sink,
+			"currency_kind": transaction.CurrencyKind,
+			"item_id":       transaction.ItemID,
+			"balance_after": transaction.BalanceAfter,
+			"source":        transaction.Source,
+			"sink":          transaction.Sink,
 		})
 	}
 }
@@ -423,11 +423,11 @@ func (t *GameTracer) TrackEconomyTransaction(ctx context.Context, transaction Ec
 
 // PurchaseFlow 付费流程
 type PurchaseFlow struct {
-	UserID         string
-	OrderID        string
-	SKUID          string
-	PriceUSD       float64
-	CurrencyCode   string
+	UserID          string
+	OrderID         string
+	SKUID           string
+	PriceUSD        float64
+	CurrencyCode    string
 	PaymentProvider string
 }
 
@@ -491,13 +491,13 @@ func (t *GameTracer) CompletePurchase(ctx context.Context, result PurchaseResult
 
 // AdImpressionRequest 广告曝光请求
 type AdImpressionRequest struct {
-	UserID       string
-	AdNetwork    string
-	PlacementID  string
-	AdFormat     string // rewarded/interstitial/banner/native
+	UserID        string
+	AdNetwork     string
+	PlacementID   string
+	AdFormat      string // rewarded/interstitial/banner/native
 	PlacementType string // between_waves/revive/booster/double_reward
-	EcpmUSD      float64
-	RevenueUSD   float64
+	EcpmUSD       float64
+	RevenueUSD    float64
 }
 
 // TrackAdImpression 追踪广告曝光
@@ -534,13 +534,13 @@ func (t *GameTracer) TrackAdImpression(ctx context.Context, req AdImpressionRequ
 
 // PerformanceMetrics 性能指标
 type PerformanceMetrics struct {
-	UserID      string
-	FPS         float64
-	MemoryMB    float64
-	CPULoad     float64
-	RTTMs       float64
-	JitterMs    float64
-	PacketLoss  float64
+	UserID     string
+	FPS        float64
+	MemoryMB   float64
+	CPULoad    float64
+	RTTMs      float64
+	JitterMs   float64
+	PacketLoss float64
 }
 
 // RecordPerformance 记录性能指标
@@ -571,12 +571,12 @@ func (t *GameTracer) RecordPerformance(ctx context.Context, perf PerformanceMetr
 
 // CrashEvent 崩溃事件
 type CrashEvent struct {
-	UserID      string
-	SessionID   string
-	StackHash   string
-	SignalCode  string
-	Scene       string
-	DeviceID    string
+	UserID     string
+	SessionID  string
+	StackHash  string
+	SignalCode string
+	Scene      string
+	DeviceID   string
 }
 
 // TrackCrash 追踪崩溃
@@ -604,14 +604,14 @@ func (t *GameTracer) TrackCrash(ctx context.Context, crash CrashEvent) {
 
 // TowerBuildRequest 塔建造请求
 type TowerBuildRequest struct {
-	UserID      string
-	LevelID     string
-	TowerID     string
-	TowerType   string
-	PosX        int
-	PosY        int
-	Cost        float64
-	WaveIndex   int
+	UserID    string
+	LevelID   string
+	TowerID   string
+	TowerType string
+	PosX      int
+	PosY      int
+	Cost      float64
+	WaveIndex int
 }
 
 // TrackTowerBuild 追踪塔建造
@@ -638,14 +638,14 @@ func (t *GameTracer) TrackTowerBuild(ctx context.Context, req TowerBuildRequest)
 
 // TowerUpgradeRequest 塔升级请求
 type TowerUpgradeRequest struct {
-	UserID      string
-	LevelID     string
-	TowerID     string
-	TowerType   string
-	FromLevel   int
-	ToLevel     int
-	Cost        float64
-	WaveIndex   int
+	UserID    string
+	LevelID   string
+	TowerID   string
+	TowerType string
+	FromLevel int
+	ToLevel   int
+	Cost      float64
+	WaveIndex int
 }
 
 // TrackTowerUpgrade 追踪塔升级
@@ -674,12 +674,12 @@ func (t *GameTracer) TrackTowerUpgrade(ctx context.Context, req TowerUpgradeRequ
 
 // GachaPullRequest 抽卡请求
 type GachaPullRequest struct {
-	UserID       string
-	PoolID       string
-	Pulls        int
-	Rarity       string
-	PityCounter  int
-	ItemIDs      []string
+	UserID      string
+	PoolID      string
+	Pulls       int
+	Rarity      string
+	PityCounter int
+	ItemIDs     []string
 }
 
 // TrackGachaPull 追踪抽卡

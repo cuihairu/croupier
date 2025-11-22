@@ -15,37 +15,37 @@ type ServiceContext struct {
 }
 
 type AgentStore struct {
-	mu          sync.RWMutex
-	agentInfo   map[string]interface{}
-	functions   map[string]interface{}
-	jobs        map[string]interface{}
+	mu        sync.RWMutex
+	agentInfo map[string]interface{}
+	functions map[string]interface{}
+	jobs      map[string]interface{}
 }
 
 type JobManager struct {
-	mu       sync.RWMutex
-	jobs     map[string]*Job
-	maxJobs  int
-	running  int
+	mu      sync.RWMutex
+	jobs    map[string]*Job
+	maxJobs int
+	running int
 }
 
 type Job struct {
-	ID            string                 `json:"id"`
-	FunctionID    string                 `json:"function_id"`
-	GameID        string                 `json:"game_id"`
-	Env           string                 `json:"env"`
-	Inputs        map[string]interface{} `json:"inputs"`
-	Options       map[string]interface{} `json:"options"`
-	Status        string                 `json:"status"`
-	Result        map[string]interface{} `json:"result"`
-	Error         string                 `json:"error"`
-	Progress      int64                  `json:"progress"`
-	StartTime     string                 `json:"start_time"`
-	EndTime       string                 `json:"end_time"`
-	Retries       int                    `json:"retries"`
-	MaxRetries    int                    `json:"max_retries"`
-	FunctionInfo  interface{}            `json:"function_info"`
-	ctx           context.Context
-	cancelFunc    context.CancelFunc
+	ID           string                 `json:"id"`
+	FunctionID   string                 `json:"function_id"`
+	GameID       string                 `json:"game_id"`
+	Env          string                 `json:"env"`
+	Inputs       map[string]interface{} `json:"inputs"`
+	Options      map[string]interface{} `json:"options"`
+	Status       string                 `json:"status"`
+	Result       map[string]interface{} `json:"result"`
+	Error        string                 `json:"error"`
+	Progress     int64                  `json:"progress"`
+	StartTime    string                 `json:"start_time"`
+	EndTime      string                 `json:"end_time"`
+	Retries      int                    `json:"retries"`
+	MaxRetries   int                    `json:"max_retries"`
+	FunctionInfo interface{}            `json:"function_info"`
+	ctx          context.Context
+	cancelFunc   context.CancelFunc
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -68,9 +68,9 @@ func NewAgentStore() *AgentStore {
 
 func NewJobManager(maxJobs int) *JobManager {
 	return &JobManager{
-		jobs:     make(map[string]*Job),
-		maxJobs:  maxJobs,
-		running:  0,
+		jobs:    make(map[string]*Job),
+		maxJobs: maxJobs,
+		running: 0,
 	}
 }
 

@@ -31,19 +31,19 @@ func (l *AgentHeartbeatLogic) AgentHeartbeat(req *types.AgentHeartbeatRequest) (
 	_, exists := l.svcCtx.AgentStore.GetAgentInfo(req.AgentId)
 	if !exists {
 		return &types.AgentHeartbeatResponse{
-			Success: false,
+			Success:       false,
 			NextHeartbeat: 0,
 		}, nil
 	}
 
 	// Update agent info
 	agentInfo := map[string]interface{}{
-		"agent_id":  req.AgentId,
-		"game_id":   req.GameId,
-		"env":       req.Env,
-		"functions": req.Functions,
-		"status":    req.Status,
-		"metadata":  req.Metadata,
+		"agent_id":       req.AgentId,
+		"game_id":        req.GameId,
+		"env":            req.Env,
+		"functions":      req.Functions,
+		"status":         req.Status,
+		"metadata":       req.Metadata,
 		"last_heartbeat": time.Now().Unix(),
 	}
 
@@ -53,7 +53,7 @@ func (l *AgentHeartbeatLogic) AgentHeartbeat(req *types.AgentHeartbeatRequest) (
 	nextHeartbeat := time.Now().Add(time.Duration(l.svcCtx.Config.Upstream.HeartbeatInterval) * time.Second).Unix()
 
 	return &types.AgentHeartbeatResponse{
-		Success: true,
+		Success:       true,
 		NextHeartbeat: nextHeartbeat,
 	}, nil
 }

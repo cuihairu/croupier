@@ -74,10 +74,10 @@ func main() {
 		req := telemetry.LevelCompleteRequest{
 			LevelID:         "level_1",
 			DurationMs:      int64(rand.Intn(120000) + 30000), // 30秒-2分钟
-			Stars:           rand.Intn(3) + 1,                  // 1-3星
-			Retries:         rand.Intn(3),                      // 0-2次重试
-			WaveIndex:       rand.Intn(10) + 1,                 // 第1-10波
-			HeartsRemaining: rand.Intn(3),                      // 剩余生命
+			Stars:           rand.Intn(3) + 1,                 // 1-3星
+			Retries:         rand.Intn(3),                     // 0-2次重试
+			WaveIndex:       rand.Intn(10) + 1,                // 第1-10波
+			HeartsRemaining: rand.Intn(3),                     // 剩余生命
 			Difficulty:      "normal",
 		}
 
