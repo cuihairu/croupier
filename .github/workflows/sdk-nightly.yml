@@ -24,6 +24,7 @@ jobs:
     name: cpp (${{ matrix.name }})
     strategy:
       fail-fast: false
+      max-parallel: 2  # Limit parallel builds to reduce vcpkg cache conflicts
       matrix:
         include:
           - name: ubuntu-x64
@@ -272,7 +273,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: sdks/cpp/vcpkg_installed
-          key: vcpkg-installed-${{ runner.os }}-${{ matrix.triplet }}-${{ hashFiles('sdks/cpp/vcpkg.json') }}
+          key: vcpkg-installed-${{ runner.os }}-${{ matrix.triplet }}-${{ hashFiles('sdks/cpp/vcpkg.json') }}-${{ github.run_number }}
           restore-keys: |
             vcpkg-installed-${{ runner.os }}-${{ matrix.triplet }}-
 
@@ -329,14 +330,30 @@ jobs:
           EOF
           cp sdks/cpp/README.md "out/${PKG}/" || true
           cp sdks/cpp/LICENSE "out/${PKG}/" 2>/dev/null || true
+          # Create tar.gz with verification
           (cd out && tar czf "${PKG}.tar.gz" "${PKG}")
+          # Verify tar integrity
+          if ! tar -tzf "out/${PKG}.tar.gz" >/dev/null 2>&1; then
+            echo "ERROR: Created tar file is corrupted"
+            ls -la "out/${PKG}.tar.gz" || true
+            exit 1
+          fi
+          # Get file checksum for verification
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "out/${PKG}.tar.gz" > "out/${PKG}.tar.gz.sha256"
+          elif command -v shasum >/dev/null 2>&1; then
+            shasum -a 256 "out/${PKG}.tar.gz" > "out/${PKG}.tar.gz.sha256"
+          fi
           echo "PACKAGE_NAME=${PKG}" >> "$GITHUB_ENV"
+          echo "Tar file created and verified successfully"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PACKAGE_NAME }}-${{ matrix.name }}-sdk-${{ github.run_number }}-${{ github.run_attempt }}
-          path: out/${{ env.PACKAGE_NAME }}.tar.gz
+          path: |
+            out/${{ env.PACKAGE_NAME }}.tar.gz
+            out/${{ env.PACKAGE_NAME }}.tar.gz.sha256
           if-no-files-found: error
           retention-days: 7
 
@@ -465,6 +482,33 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+
+  - name: Verify downloaded artifacts
+        run: |
+          set -euo pipefail
+          echo "Verifying artifact integrity..."
+          # Find and verify all tar.gz files with checksums
+          find artifacts -name "*.tar.gz.sha256" | while read checksum_file; do
+            tar_file="${checksum_file%.sha256}"
+            if [ -f "$tar_file" ]; then
+              echo "Verifying $tar_file..."
+              if command -v sha256sum >/dev/null 2>&1; then
+                sha256sum -c "$checksum_file"
+              elif command -v shasum >/dev/null 2>&1; then
+                shasum -a 256 -c "$checksum_file"
+              else
+                echo "Checksum verification not available, skipping..."
+              fi
+              # Test tar integrity
+              if ! tar -tzf "$tar_file" >/dev/null 2>&1; then
+                echo "ERROR: Tar file $tar_file is corrupted"
+                exit 1
+              fi
+              echo "✓ $tar_file verified successfully"
+            else
+              echo "WARNING: Checksum file found but tar file missing: $tar_file"
+            fi
+          done
       - name: Verify expected artifacts
         run: |
           set -euo pipefail
