@@ -1,10 +1,10 @@
 syntax = "v1"
 
 info (
-	title:   "Croupier API"
+	title:   "Croupier Server API"
 	desc:    "Croupier 游戏管理系统 API - 基于 go-zero 微服务架构"
-	author:  "Croupier Team"
-	email:   "team@croupier.com"
+	author:  "cuihairu"
+	email:   "chuihairu@gmail.com"
 	version: "v1.0"
 )
 

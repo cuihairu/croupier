@@ -1,8 +1,11 @@
 syntax = "v1"
 
 info (
-	title: "Croupier Agent API"
-	desc:  "go-zero migration of agent management APIs"
+	title:   "Croupier Agent API"
+	desc:    "go-zero migration of agent management APIs"
+	author:  "cuihairu"
+	email:   "chuihairu@gmail.com"
+	version: "v1.0"
 )
 
 type (

@@ -1,8 +1,11 @@
 syntax = "v1"
 
 info (
-	title: "Croupier Edge API"
-	desc:  "go-zero migration of edge proxy and tunneling APIs"
+	title:   "Croupier Edge API"
+	desc:    "go-zero migration of edge proxy and tunneling APIs"
+	author:  "cuihairu"
+	email:   "chuihairu@gmail.com"
+	version: "v1.0"
 )
 
 type (
