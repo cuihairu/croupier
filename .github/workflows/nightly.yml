@@ -155,12 +155,24 @@ jobs:
           ./gradlew --no-daemon build -x test
           mkdir -p ../../release-sdks/java
           cp -r build/libs ../../release-sdks/java/
+      - name: Setup pnpm (JS)
+        if: matrix.sdk == 'js'
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Setup Node.js (JS)
+        if: matrix.sdk == 'js'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+          cache-dependency-path: sdks/js/pnpm-lock.yaml
       - name: Build SDK (JS)
         if: matrix.sdk == 'js'
         working-directory: sdks/js
         run: |
-          npm ci --no-audit --no-fund || npm install --no-audit --no-fund
-          npm run build
+          pnpm install --frozen-lockfile
+          pnpm run build
           mkdir -p ../../release-sdks/js
           cp -r dist ../../release-sdks/js/
       - name: Build SDK (Python)
