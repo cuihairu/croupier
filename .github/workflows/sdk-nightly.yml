@@ -335,7 +335,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.PACKAGE_NAME }}-${{ matrix.name }}-${{ github.run_number }}-${{ github.run_attempt }}
+          name: ${{ env.PACKAGE_NAME }}-${{ matrix.name }}-sdk-${{ github.run_number }}-${{ github.run_attempt }}
           path: out/${{ env.PACKAGE_NAME }}.tar.gz
           if-no-files-found: error
           retention-days: 7
