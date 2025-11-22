@@ -375,7 +375,7 @@ jobs:
         shell: bash
       - uses: actions/upload-artifact@v4
         with:
-          name: croupier-java-sdk-java-${{ github.run_number }}-${{ github.run_attempt }}
+          name: java-sdk-${{ github.run_number }}-${{ github.run_attempt }}
           path: out/croupier-java-sdk.jar
           if-no-files-found: error
           retention-days: 7
@@ -403,7 +403,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: croupier-python-sdk-python-${{ github.run_number }}-${{ github.run_attempt }}
+          name: python-sdk-${{ github.run_number }}-${{ github.run_attempt }}
           path: |
             sdks/python/dist/*.whl
             sdks/python/out/croupier-python-sdk.whl
@@ -432,7 +432,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: croupier-js-sdk-js-${{ github.run_number }}-${{ github.run_attempt }}
+          name: js-sdk-${{ github.run_number }}-${{ github.run_attempt }}
           path: sdks/js/*.tgz
           if-no-files-found: error
           retention-days: 7
@@ -448,7 +448,7 @@ jobs:
           tar czf "out/croupier-go-sdk.tar.gz" -C sdks go
       - uses: actions/upload-artifact@v4
         with:
-          name: croupier-go-sdk-go-${{ github.run_number }}-${{ github.run_attempt }}
+          name: go-sdk-${{ github.run_number }}-${{ github.run_attempt }}
           path: out/croupier-go-sdk.tar.gz
           if-no-files-found: error
           retention-days: 7
@@ -483,10 +483,10 @@ jobs:
           check "croupier-cpp-sdk-macos-x64-x86_64-static-*.tar.gz"
           check "croupier-cpp-sdk-macos-arm64-arm64-static-*.tar.gz"
           check "croupier-cpp-sdk-windows-x86_64-static-*.tar.gz"
-          check "croupier-java-sdk-java-*.jar"
-          check "croupier-go-sdk-go-*.tar.gz"
-          check "croupier-js-sdk-js-*.tgz"
-          check "croupier-python-sdk-python-*.whl"
+          check "java-sdk-*.jar"
+          check "go-sdk-*.tar.gz"
+          check "js-sdk-*.tgz"
+          check "python-sdk-*.whl"
           if [ "$missing" -ne 0 ]; then
             echo "One or more artifacts missing; aborting release upload."
             exit 1
