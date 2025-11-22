@@ -12,7 +12,7 @@ COPY go.mod go.sum ./
 COPY sdks/go/go.mod sdks/go/go.sum sdks/go/
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .
-RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/croupier-edge ./cmd/edge
+RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/croupier-edge ./services/edge
 RUN mkdir -p /out/logs
 
 FROM ${RUNTIME_IMAGE}

@@ -12,7 +12,7 @@ import (
 func EdgeMetricsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.EdgeMetricsRequest
-		if err := httpx.ParseForm(r); err != nil {
+		if err := httpx.ParseForm(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}

@@ -203,9 +203,57 @@ export default [
         access: 'canEntitiesRead',
         component: './Entities',
       },
+      // 函数管理模块 - 重构后的统一函数管理菜单
       {
         path: '/game/functions',
-        name: 'GameFunctions',
+        name: 'FunctionManagement',
+        access: 'canFunctionsRead',
+        routes: [
+          {
+            path: '/game/functions',
+            redirect: '/game/functions/catalog',
+          },
+          {
+            path: '/game/functions/catalog',
+            name: 'FunctionCatalog',
+            access: 'canFunctionsRead',
+            component: './Functions/Directory',
+            icon: 'unordered-list',
+          },
+          {
+            path: '/game/functions/invoke',
+            name: 'FunctionInvoke',
+            access: 'canFunctionsRead',
+            component: './GmFunctions',
+            icon: 'play-circle',
+          },
+          {
+            path: '/game/functions/instances',
+            name: 'FunctionInstances',
+            access: 'canFunctionsRead',
+            component: './Functions/Instances',
+            icon: 'cluster',
+          },
+          {
+            path: '/game/functions/assignments',
+            name: 'FunctionAssignments',
+            access: 'canAssignmentsRead',
+            component: './Assignments',
+            icon: 'safety',
+          },
+          {
+            path: '/game/functions/packs',
+            name: 'FunctionPacks',
+            access: 'canPacksRead',
+            component: './Packs',
+            icon: 'inbox',
+          },
+        ],
+      },
+      // 保持向后兼容的重定向
+      {
+        path: '/game/functions/old',
+        name: 'GameFunctionsLegacy',
         access: 'canFunctionsRead',
         component: './GmFunctions',
         hideInMenu: true,

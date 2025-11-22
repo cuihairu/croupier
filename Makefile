@@ -79,12 +79,12 @@ server-sqlite-ip2loc:
 agent:
 	@echo "[build] agent"
 	@mkdir -p $(BINDIR)
-	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-agent ./services/agent-stdlib
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-agent ./services/agent
 
 edge:
 	@echo "[build] edge"
 	@mkdir -p $(BINDIR)
-	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-edge ./services/edge-stdlib
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-edge ./services/edge
 
 build: server agent edge worker ingest tools
 

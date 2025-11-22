@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/cuihairu/croupier/services/edge/internal/config"
 	"github.com/cuihairu/croupier/services/edge/internal/handler"

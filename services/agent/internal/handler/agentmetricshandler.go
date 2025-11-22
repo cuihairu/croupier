@@ -12,11 +12,11 @@ import (
 func AgentMetricsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.AgentMetricsRequest
-		if err := httpx.ParseVars(r, &req); err != nil {
+		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
-		if err := httpx.ParseForm(r); err != nil {
+		if err := httpx.ParseForm(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
