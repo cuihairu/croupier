@@ -193,7 +193,7 @@ jobs:
         working-directory: sdks/cpp
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake pkg-config libprotobuf-dev protobuf-compiler
+          sudo apt-get install -y build-essential cmake pkg-config libprotobuf-dev protobuf-compiler libgrpc-dev grpc-plugins
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_GRPC=ON
           cmake --build build --parallel
           mkdir -p ../../release-sdks/cpp
