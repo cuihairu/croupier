@@ -1,24 +1,14 @@
-import { createHotReloadClient, FunctionDescriptor, FunctionHandler } from '../src';
+import { createClient, FunctionDescriptor, FunctionHandler } from '../src';
 
-// 创建热重载配置
+// 创建基础客户端配置
 const config = {
   agentAddr: '127.0.0.1:19090',
-  autoReconnect: true,
-  reconnectDelay: 5000,
-  fileWatching: {
-    enabled: true,
-    watchDir: './functions',
-    patterns: ['*.ts', '*.js', '*.json']
-  },
-  tools: {
-    nodemon: true,
-    pm2: false,
-    moduleReload: true
-  }
+  timeout: 30000,
+  retryAttempts: 3
 };
 
 // 创建客户端
-const client = createHotReloadClient(config);
+const client = createClient(config);
 
 // 定义游戏函数
 const playerBanHandler: FunctionHandler = async (context: string, payload: string): Promise<string> => {
@@ -181,80 +171,23 @@ const shopBuyDescriptor: FunctionDescriptor = {
 async function main(): Promise<void> {
   console.log('🚀 Starting Croupier TypeScript SDK Demo');
   console.log('=========================================');
+  console.log('📡 File transfer ready for server hot reload support');
 
   try {
-    // 注册函数
-    client
-      .registerFunction(playerBanDescriptor, playerBanHandler)
-      .registerFunction(walletTransferDescriptor, walletTransferHandler)
-      .registerFunction(shopBuyDescriptor, shopBuyHandler);
+    // 注意：基础客户端功能尚未完全实现
+    // 此示例展示未来API的使用方式
+    console.log('⚠️ Basic client is a placeholder - implementation in progress');
 
-    console.log('📝 Functions registered successfully');
+    // 函数注册示例（将来实现）
+    console.log('📝 Function registration interfaces defined:');
+    console.log(`  - ${playerBanDescriptor.id}: ${playerBanDescriptor.name}`);
+    console.log(`  - ${walletTransferDescriptor.id}: ${walletTransferDescriptor.name}`);
+    console.log(`  - ${shopBuyDescriptor.id}: ${shopBuyDescriptor.name}`);
 
-    // 设置事件监听
-    client.on('connected', () => {
-      console.log('✅ Connected to Croupier Agent');
-      console.log('🔥 Hot reload is active - modify function files to see live updates');
-    });
-
-    client.on('functionReloaded', (functionId: string, descriptor: FunctionDescriptor) => {
-      console.log(`🔄 Function reloaded: ${functionId} (${descriptor.version})`);
-    });
-
-    client.on('moduleReloaded', (filePath: string) => {
-      console.log(`📁 Module reloaded: ${filePath}`);
-    });
-
-    client.on('configFileChanged', (filePath: string) => {
-      console.log(`⚙️ Config file changed: ${filePath}`);
-    });
-
-    client.on('reconnected', () => {
-      console.log('🔄 Reconnected to Agent');
-    });
-
-    client.on('connectionError', (error: Error) => {
-      console.error('❌ Connection error:', error.message);
-    });
-
-    // 连接到Agent
-    await client.connect();
-
-    // 定期输出状态
-    const statusInterval = setInterval(() => {
-      const status = client.getReloadStatus();
-      console.log('\n📊 Reload Status:');
-      console.log(`  Connection: ${status.connectionStatus}`);
-      console.log(`  Functions: ${status.functionsCount}`);
-      console.log(`  Reconnects: ${status.reconnectCount}`);
-      console.log(`  Function reloads: ${status.functionReloads}`);
-      console.log(`  Uptime: ${(status.uptime / 1000).toFixed(1)}s`);
-    }, 30000);
-
-    // 优雅关闭处理
-    const gracefulShutdown = async (): Promise<void> => {
-      console.log('\n🛑 Graceful shutdown initiated...');
-      clearInterval(statusInterval);
-
-      try {
-        await client.gracefulShutdown(5000);
-        console.log('✅ Shutdown completed');
-        process.exit(0);
-      } catch (error) {
-        console.error('❌ Shutdown error:', error);
-        process.exit(1);
-      }
-    };
-
-    // 监听关闭信号
-    process.on('SIGINT', gracefulShutdown);
-    process.on('SIGTERM', gracefulShutdown);
-
-    console.log('\n🎮 Demo running! Press Ctrl+C to exit');
-    console.log('💡 Try modifying function files to see hot reload in action');
+    console.log('\n🎮 Demo completed - use gRPC client directly for now');
 
   } catch (error) {
-    console.error('❌ Demo failed to start:', error);
+    console.error('❌ Demo failed:', error);
     process.exit(1);
   }
 }

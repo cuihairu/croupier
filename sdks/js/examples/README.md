@@ -1,13 +1,13 @@
-# 🔥 Croupier Node.js SDK 热重载示例
+# 📡 Croupier Node.js SDK 文件传输示例
 
-这个示例展示了如何在Node.js游戏服务器中集成Croupier SDK的热重载功能。
+这个示例展示了如何使用Croupier Node.js SDK进行文件传输，为服务器端热重载提供基础支持。
 
 ## 🚀 快速开始
 
 ### 1. 安装依赖
 
 ```bash
-cd examples/js-hotreload
+cd examples/js-file-transfer
 npm install
 ```
 
@@ -20,260 +20,256 @@ make build
 ./bin/croupier-agent --config configs/agent.example.yaml
 ```
 
-### 3. 选择运行方式
+### 3. 运行示例
 
-#### Nodemon开发模式（推荐）
 ```bash
+# 编译TypeScript
+npm run build
+
+# 运行示例
+npm start
+
+# 开发模式
 npm run dev
 ```
 
-#### PM2生产模式
-```bash
-npm run dev:pm2    # 开发环境
-npm run prod       # 生产环境
-```
+## 📡 文件传输功能
 
-#### 直接运行
-```bash
-npm start
-```
-
-## 🔧 热重载特性
-
-### 1. 自动重连机制
-
-当Nodemon重启Node.js进程时，SDK会：
-- 检测连接断开
-- 自动重连到Agent
-- 重新注册所有函数
-- 恢复正常服务
-
-### 2. 模块热替换
+### 基础文件上传
 
 ```javascript
-// 启用模块缓存清除
-config.tools.moduleReload = true;
-
-// 当文件变化时，自动清除require缓存
-// 无需重启进程即可加载新代码
-```
-
-### 3. 文件监听
-
-```javascript
-config.fileWatching = {
-  enabled: true,
-  watchDir: './functions',
-  patterns: ['*.js', '*.json']
-};
-```
-
-### 4. 函数热重载
-
-**单函数重载**：
-```javascript
-const newDescriptor = { id: 'player.ban', version: '1.1.0' };
-await client.reloadFunction('player.ban', newDescriptor, newHandler);
-```
-
-**批量重载**：
-```javascript
-const functions = {
-  'player.ban': { descriptor, handler },
-  'server.status': { descriptor, handler }
-};
-await client.reloadFunctions(functions);
-```
-
-## 📊 开发工具集成
-
-### Nodemon配置
-
-```json
-{
-  "watch": ["main.js", "src/", "functions/"],
-  "ext": "js,json",
-  "env": {
-    "NODE_ENV": "development",
-    "CROUPIER_HOTRELOAD": "true"
+// 计划中的文件上传 API
+await client.uploadFile({
+  filePath: './functions/playerBan.js',
+  content: fileContent,
+  metadata: {
+    version: '1.0.0',
+    author: 'game-team',
+    description: 'Player ban functionality'
   }
+});
+```
+
+### 批量文件传输
+
+```javascript
+// 计划中的批量上传
+const files = [
+  {
+    filePath: 'functions/playerBan.js',
+    content: banCode,
+    metadata: { version: '1.0.0' }
+  },
+  {
+    filePath: 'functions/walletTransfer.js',
+    content: transferCode,
+    metadata: { version: '1.0.0' }
+  }
+];
+
+for (const file of files) {
+  await client.uploadFile(file);
 }
 ```
 
-特性：
-- 📁 监听多个目录
-- 🔄 检测js/json文件变更
-- 🚀 自动重启进程
-- 🔗 SDK自动重连
+### 流式文件上传
 
-### PM2配置
+```javascript
+// 计划中的流式上传大文件
+const fs = require('fs');
+const readStream = fs.createReadStream('./large-file.zip');
 
-```bash
-# 开发环境
-npm run dev:pm2
-
-# 生产环境
-npm run prod
-
-# 查看日志
-npm run logs
-
-# 热重载（零停机）
-npm run reload
+await client.uploadFileStream({
+  filePath: './assets/large-file.zip',
+  stream: readStream,
+  metadata: {
+    size: fileStats.size,
+    checksum: 'sha256-hash'
+  }
+});
 ```
 
-PM2特性：
-- 🔄 零停机重载
-- 📊 进程监控
-- 📝 日志管理
-- 🚀 集群模式
+## 🛠️ 开发状态
+
+当前SDK文件传输功能正在开发中：
+
+- ✅ 接口定义完成
+- ✅ TypeScript类型支持
+- 🚧 文件传输实现（开发中）
+- 🚧 流式上传支持（规划中）
+- 🚧 批量操作支持（规划中）
+- 🚧 上传进度监控（规划中）
 
 ## 🎯 功能演示
 
-运行后会自动演示：
+当前示例展示：
 
-1. **基础连接**（启动时）
-   - 连接到Agent
-   - 注册函数
-   - 开始服务
+1. **基础架构**
+   - TypeScript客户端配置
+   - 接口定义展示
+   - 错误处理示例
 
-2. **函数重载**（10秒后）
-   - 将`player.ban`升级到v1.1.0
-   - 增强功能特性
+2. **文件处理**
+   - 文件读取示例
+   - 元数据处理
+   - 基础文件操作
 
-3. **批量重载**（20秒后）
-   - 更新`server.status`到v2.0.0
-   - 增加详细的系统信息
+## 🔧 配置选项
 
-4. **状态监控**（每30秒）
-   - 连接状态
-   - 重载计数
-   - 系统运行时间
+### 客户端配置
 
-## 🛠️ 开发工作流
-
-### 修改函数逻辑
-
-1. 编辑`main.js`中的处理函数
-2. Nodemon检测文件变更
-3. 自动重启进程
-4. SDK自动重连并注册函数
-
-### 测试API调用
-
-```bash
-# 测试玩家封禁
-curl -X POST http://localhost:8080/api/invoke \
-  -H "Content-Type: application/json" \
-  -d '{
-    "function_id": "player.ban",
-    "payload": "{\"player_id\":\"123\",\"reason\":\"cheating\"}"
-  }'
-
-# 测试服务器状态
-curl -X POST http://localhost:8080/api/invoke \
-  -H "Content-Type: application/json" \
-  -d '{
-    "function_id": "server.status",
-    "payload": "{}"
-  }'
+```typescript
+interface FileTransferConfig {
+  agentAddr?: string;
+  timeout?: number;
+  retryAttempts?: number;
+  chunkSize?: number;          // 文件块大小（字节）
+  maxFileSize?: number;       // 最大文件大小（字节）
+  compression?: boolean;       // 启用压缩
+  checksumVerification?: boolean; // 启用校验和验证
+  parallelUploads?: number;   // 并发上传数量
+}
 ```
 
-### 监控重载状态
+### 文件传输配置
 
-热重载状态每30秒打印一次：
-```
-📊 Hot Reload Status:
-  Connection: connected
-  Reconnects: 2
-  Function reloads: 3
-  Failed reloads: 0
-  Uptime: 125s
-```
-
-## 🎮 不同运行模式对比
-
-| 模式 | 重载方式 | 停机时间 | 适用场景 | 命令 |
-|------|---------|----------|----------|------|
-| **Nodemon** | 进程重启 | ~1-2秒 | 开发环境 | `npm run dev` |
-| **PM2 Dev** | 进程重启 | ~1秒 | 开发测试 | `npm run dev:pm2` |
-| **PM2 Prod** | 零停机重载 | 0秒 | 生产环境 | `npm run prod` |
-| **直接运行** | 手动重启 | N/A | 调试模式 | `npm start` |
-
-## 🔍 调试和日志
-
-### Nodemon日志
-```bash
-npm run dev
-# 显示文件变更和重启信息
+```typescript
+const config: FileTransferConfig = {
+  agentAddr: '127.0.0.1:19090',
+  timeout: 30000,
+  retryAttempts: 3,
+  chunkSize: 1024 * 1024,        // 1MB chunks
+  maxFileSize: 100 * 1024 * 1024, // 100MB max
+  compression: true,
+  checksumVerification: true,
+  retryFailedUploads: true,
+  parallelUploads: 4
+};
 ```
 
-### PM2日志
-```bash
-npm run logs
-# 查看所有进程日志
+## 📊 示例函数处理器
 
-pm2 logs croupier-game --lines 100
-# 查看特定进程日志
+### 玩家封禁处理器
+
+```typescript
+const playerBanHandler: FunctionHandler = async (context: string, payload: string): Promise<string> => {
+  console.log(`🚫 Player ban requested: ${payload}`);
+
+  try {
+    const data = JSON.parse(payload);
+    const playerId = data.player_id;
+    const reason = data.reason || 'No reason provided';
+
+    // 模拟玩家封禁逻辑
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    return JSON.stringify({
+      status: 'success',
+      player_id: playerId,
+      action: 'banned',
+      reason: reason,
+      banned_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24小时后解封
+    });
+  } catch (error) {
+    return JSON.stringify({
+      status: 'error',
+      message: 'Invalid payload format',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
 ```
 
-### 调试模式
-```bash
-NODE_ENV=development DEBUG=croupier:* npm run dev
-# 启用详细调试日志
+### 钱包转账处理器
+
+```typescript
+const walletTransferHandler: FunctionHandler = async (context: string, payload: string): Promise<string> => {
+  console.log(`💰 Wallet transfer requested: ${payload}`);
+
+  try {
+    const data = JSON.parse(payload);
+    const { from_player_id, to_player_id, amount, currency = 'gold' } = data;
+
+    // 模拟转账逻辑
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    return JSON.stringify({
+      status: 'success',
+      transaction_id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      from_player_id,
+      to_player_id,
+      amount: parseFloat(amount),
+      currency,
+      fee: parseFloat(amount) * 0.02, // 2% 手续费
+      net_amount: parseFloat(amount) * 0.98,
+      processed_at: new Date().toISOString()
+    });
+  } catch (error) {
+    return JSON.stringify({
+      status: 'error',
+      message: 'Transfer failed',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+};
 ```
 
 ## 🚨 故障排除
 
 ### 常见问题
 
-1. **模块缓存问题**
+1. **连接问题**
    ```
-   Function not updated after reload
+   Error: connect ECONNREFUSED 127.0.0.1:19090
    ```
-   - 确认`moduleReload: true`
-   - 检查文件监听配置
-   - 手动清除缓存
+   - 确保Croupier Agent正在运行
+   - 检查网络连接和端口配置
+   - 验证防火墙设置
 
-2. **连接失败**
+2. **文件权限问题**
    ```
-   Connection failed
+   Error: EACCES: permission denied, open 'functions/test.js'
    ```
-   - 检查Agent是否运行
-   - 确认端口19090可用
-   - 检查网络连接
+   - 检查文件路径权限
+   - 确保有读写权限
+   - 验证文件路径正确性
 
-3. **Nodemon无法启动**
+3. **TypeScript编译错误**
    ```
-   'nodemon' is not recognized
+   error TS2304: Cannot find name 'FileTransferConfig'
    ```
-   - 全局安装：`npm install -g nodemon`
-   - 或使用：`npx nodemon main.js`
+   - 确保类型定义正确导入
+   - 检查tsconfig.json配置
+   - 重新编译：`npm run build`
 
 ### 最佳实践
 
-1. **开发环境**
-   - 使用Nodemon进行快速迭代
-   - 启用文件监听和模块重载
-   - 保持详细日志输出
+1. **文件组织**
+   - 将功能文件放在专门的目录
+   - 使用版本控制管理代码
+   - 保持文件结构清晰
+   - 使用有意义的文件名
 
-2. **生产环境**
-   - 使用PM2集群模式
-   - 启用零停机重载
-   - 配置日志轮转
-   - 关闭开发特性
+2. **错误处理**
+   - 实现重试机制
+   - 添加详细错误日志
+   - 优雅处理网络错误
+   - 验证文件完整性
 
-3. **测试环境**
-   - 模拟生产配置
-   - 测试重载功能
-   - 验证连接恢复
+3. **性能优化**
+   - 使用适当的文件块大小
+   - 实现并发上传
+   - 监控传输进度
+   - 启用压缩减少带宽使用
 
 ## 📚 相关文档
 
-- [SDK热重载支持文档](../../docs/SDK_HOTRELOAD_SUPPORT.md)
-- [热更新方案总览](../../docs/HOT_RELOAD_SOLUTIONS.md)
-- [Croupier架构说明](../../README.md)
+- [Croupier 主文档](https://docs.croupier.io)
+- [gRPC API 参考](https://docs.croupier.io/api/grpc)
+- [Node.js 最佳实践](https://nodejs.org/en/docs/guides/)
+- [TypeScript 手册](https://www.typescriptlang.org/docs/)
 
 ---
 
-*🔥 享受无缝的Node.js热重载开发体验！*
+*📡 为服务器热重载提供强大的文件传输支持！*

@@ -1,7 +1,7 @@
 {
   "name": "croupier-js-sdk",
   "version": "0.1.0",
-  "description": "Croupier Node.js SDK for Game Function Registration with Hot Reload Support",
+  "description": "Croupier Node.js SDK for Game Function Registration and File Transfer",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "keywords": [
@@ -9,7 +9,7 @@
     "game",
     "sdk",
     "grpc",
-    "hotreload",
+    "file-transfer",
     "nodejs",
     "typescript",
     "gaming",
@@ -46,8 +46,7 @@
   "dependencies": {
     "@bufbuild/protobuf": "^1.6.0",
     "@connectrpc/connect": "^1.2.0",
-    "@connectrpc/connect-node": "^1.2.0",
-    "chokidar": "^3.5.3"
+    "@connectrpc/connect-node": "^1.2.0"
   },
   "devDependencies": {
     "@types/node": "^20.8.0",

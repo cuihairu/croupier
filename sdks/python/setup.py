@@ -14,7 +14,7 @@ setup(
     version="0.1.0",
     author="Croupier Team",
     author_email="dev@croupier.io",
-    description="Croupier Python SDK for Game Function Registration with Hot Reload Support",
+    description="Croupier Python SDK for Game Function Registration and File Transfer",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/cuihairu/croupier-sdk-python",

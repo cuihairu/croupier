@@ -4,63 +4,46 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/croupier-sdk)](https://pypi.org/project/croupier-sdk/)
 [![License](https://img.shields.io/github/license/cuihairu/croupier-sdk-python)](https://github.com/cuihairu/croupier-sdk-python/blob/main/LICENSE)
 
-🎯 **Croupier Python SDK** - 适用于游戏功能注册的高性能异步 Python SDK，支持热重载、自动重连和无缝集成。
+🎯 **Croupier Python SDK** - 适用于游戏功能注册的高性能异步 Python SDK，支持文件传输为服务器端热重载提供基础。
 
 ## ✨ 核心特性
 
-- 🔥 **热重载支持** - 文件变更自动重载，无需重启服务
-- 🔄 **自动重连** - 网络断开自动重连，确保服务稳定性
+- 📡 **文件传输** - 支持文件上传传输，为服务器热重载提供基础
 - ⚡ **异步架构** - 基于 asyncio 的完全异步实现
 - 🛠️ **工具集成** - 无缝集成 Uvicorn、Gunicorn、FastAPI
-- 📊 **监控指标** - 内置性能指标和健康检查
-- 🐍 **类型安全** - 完整的 TypeScript 类型定义
+- 🐍 **类型安全** - 完整的类型提示支持
+- 🔄 **gRPC 集成** - 原生支持 Croupier gRPC 协议
+- 📊 **轻量级设计** - 最小化依赖，专注核心功能
 
 ## 🚀 快速开始
 
 ### 安装
 
 ```bash
-pip install croupier-sdk[web,monitoring]
+pip install croupier-sdk
 ```
 
 ### 基础使用
 
 ```python
 import asyncio
-from croupier import create_hotreload_client
+from croupier import create_client
 
 # 创建客户端配置
 config = {
-    "enabled": True,
-    "auto_reconnect": True,
-    "file_watching": {
-        "enabled": True,
-        "watch_dir": "./functions"
-    }
+    "agent_addr": "127.0.0.1:19090",
+    "timeout": 30000,
+    "retry_attempts": 3
 }
 
-# 创建热重载客户端
-client = create_hotreload_client(config)
-
-# 定义游戏函数
-async def player_ban(context: str, payload: str) -> str:
-    # 实现玩家封禁逻辑
-    return f'{{"status": "success", "player_id": "{payload}"}}'
-
-async def wallet_transfer(context: str, payload: str) -> str:
-    # 实现钱包转账逻辑
-    return f'{{"status": "success", "transaction_id": "tx_12345"}}'
+# 创建客户端
+client = create_client(config)
 
 async def main():
-    # 注册函数
-    client.register_function("player.ban", "1.0.0", player_ban)
-    client.register_function("wallet.transfer", "1.0.0", wallet_transfer)
-
-    # 连接到 Agent
-    await client.connect()
-
-    # 保持运行
-    await client.shutdown_event.wait()
+    # 基础客户端功能正在开发中
+    # 目前请直接使用 gRPC 客户端
+    print("📡 File transfer capabilities coming soon!")
+    print("🔧 Use gRPC client directly for now")
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -70,172 +53,69 @@ if __name__ == "__main__":
 
 ```python
 from fastapi import FastAPI
-from croupier import hotreload_client
+from croupier import create_client
 
 app = FastAPI()
 
 @app.on_event("startup")
 async def startup():
     config = {
-        "enabled": True,
-        "auto_reconnect": True,
-        "tools": {
-            "uvicorn": True,
-            "watchdog": True
-        }
+        "agent_addr": "127.0.0.1:19090",
+        "timeout": 30000
     }
 
-    async with hotreload_client(config) as client:
-        # 注册游戏函数
-        await setup_game_functions(client)
-
-async def setup_game_functions(client):
-    """设置游戏函数"""
-    client.register_function("shop.buy", "1.0.0", shop_buy_handler)
-    client.register_function("player.create", "1.0.0", player_create_handler)
+    # 客户端功能开发中
+    print("Croupier SDK ready for server hot reload support")
 ```
 
-## 🛠️ 热重载开发模式
+## 🛠️ 开发状态
 
-### 启用文件监听
+当前 SDK 处于开发阶段，提供基础接口定义：
+
+- ✅ 接口定义完成
+- ✅ 类型提示支持
+- 🚧 文件传输功能（开发中）
+- 🚧 基础客户端实现（规划中）
+
+## 📖 未来功能
+
+### 文件上传接口
 
 ```python
-config = {
-    "file_watching": {
-        "enabled": True,
-        "watch_dir": "./game_functions",
-        "patterns": ["*.py", "*.json", "*.yaml"]
-    },
-    "tools": {
-        "uvicorn": True,        # Uvicorn 开发服务器集成
-        "watchdog": True,       # 文件监听
-        "importlib_reload": True # 模块热重载
-    }
-}
+# 计划中的文件上传 API
+await client.upload_file({
+    "file_path": "./functions/player_ban.py",
+    "content": file_content,
+    "metadata": {"version": "1.0.0"}
+})
 ```
 
-### 开发服务器启动
-
-```bash
-# 使用 Uvicorn + 热重载
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
-
-# 使用 Gunicorn (生产环境)
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app
-```
-
-## 📊 监控与指标
+### 函数注册
 
 ```python
-# 获取热重载状态
-status = client.get_reload_status()
-
-print(f"连接状态: {status.connection_status}")
-print(f"重连次数: {status.reconnect_count}")
-print(f"函数重载次数: {status.function_reloads}")
-print(f"运行时间: {status.uptime:.2f}s")
+# 计划中的函数注册 API
+await client.register_function({
+    "id": "player.ban",
+    "version": "1.0.0",
+    "handler": ban_handler
+})
 ```
 
-## 🔧 高级配置
+## 🧪 示例
 
-### 完整配置示例
+查看 `examples/` 目录获取示例：
 
-```python
-from croupier import HotReloadConfig
-
-config = HotReloadConfig(
-    enabled=True,
-    auto_reconnect=True,
-    reconnect_delay=5.0,
-    max_retry_attempts=10,
-    health_check_interval=30.0,
-    graceful_shutdown_timeout=30.0,
-    file_watching={
-        "enabled": True,
-        "watch_dir": "./functions",
-        "patterns": ["*.py", "*.json", "*.yaml"]
-    },
-    tools={
-        "uvicorn": True,
-        "watchdog": True,
-        "importlib_reload": True
-    }
-)
-```
-
-### 环境变量配置
-
-```bash
-# 基础配置
-CROUPIER_AGENT_ADDR=127.0.0.1:19090
-CROUPIER_GAME_ID=my-game
-CROUPIER_ENV=development
-
-# 热重载配置
-CROUPIER_HOT_RELOAD_ENABLED=true
-CROUPIER_AUTO_RECONNECT=true
-CROUPIER_WATCH_DIR=./functions
-```
-
-## 📖 API 文档
-
-### 核心类
-
-#### `HotReloadableClient`
-
-异步热重载客户端主类。
-
-**方法:**
-- `register_function(function_id, version, handler)` - 注册函数
-- `connect()` - 连接到 Agent
-- `reload_function(function_id, version, handler)` - 重载单个函数
-- `reload_functions(functions)` - 批量重载函数
-- `graceful_shutdown(timeout)` - 优雅关闭
-
-#### `HotReloadConfig`
-
-热重载配置类。
-
-**属性:**
-- `enabled: bool` - 是否启用热重载
-- `auto_reconnect: bool` - 是否自动重连
-- `file_watching: dict` - 文件监听配置
-- `tools: dict` - 工具集成配置
-
-## 🎮 示例项目
-
-查看 `examples/` 目录获取完整示例：
-
-- **基础示例** - 简单的函数注册和热重载
-- **FastAPI 集成** - 与 Web 框架集成
-- **监控示例** - 指标收集和监控
-- **生产部署** - 生产环境配置示例
-
-## 🧪 测试
-
-```bash
-# 运行测试
-python -m pytest tests/ -v
-
-# 测试覆盖率
-python -m pytest tests/ --cov=croupier --cov-report=html
-
-# 类型检查
-mypy croupier/
-
-# 代码格式化
-black croupier/ tests/
-```
+- **基础示例** - 简单的接口使用示例
+- **FastAPI 集成** - 与 Web 框架集成示例
 
 ## 📝 更新日志
 
-### v1.0.0 (2024-11-15)
+### v1.0.0 (开发中)
 
-- ✨ 初始发布
-- 🔥 热重载支持
-- ⚡ 异步架构
-- 🛠️ 工具集成
-- 📊 监控指标
+- 🚧 SDK 架构设计
+- 📡 文件传输接口定义
+- ⚡ 异步架构支持
+- 🐍 类型提示支持
 
 ## 🤝 贡献
 

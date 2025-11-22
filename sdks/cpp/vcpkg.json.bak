@@ -1,0 +1,35 @@
+{
+  "name": "croupier-cpp-sdk",
+  "version": "1.0.0",
+  "description": "Croupier C++ SDK for Virtual Object Registration and gRPC Integration",
+  "homepage": "https://github.com/cuihairu/croupier",
+  "builtin-baseline": "__VCPKG_BASELINE__",
+  "supports": "windows & linux & osx",
+  "dependencies": [
+    {
+      "name": "grpc",
+      "features": ["codegen"]
+    },
+    {
+      "name": "protobuf",
+      "features": ["zlib"]
+    },
+    {
+      "name": "nlohmann-json"
+    }
+  ],
+  "features": {
+    "tests": {
+      "description": "Build unit tests",
+      "dependencies": [
+        {
+          "name": "gtest"
+        }
+      ]
+    },
+    "examples": {
+      "description": "Build example programs",
+      "dependencies": []
+    }
+  }
+}
