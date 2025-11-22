@@ -21,7 +21,8 @@ func main() {
 	flag.Parse()
 
 	var c config.Config
-	conf.MustLoad(*configFile, &c)
+	cfgPath := svc.ResolveServerPath(*configFile)
+	conf.MustLoad(cfgPath, &c)
 
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()

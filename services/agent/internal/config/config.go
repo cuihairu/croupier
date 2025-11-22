@@ -8,19 +8,19 @@ type Config struct {
 	rest.RestConf
 
 	Server struct {
-		Addr           string `json:",default=localhost:8443"`
-		Insecure       bool   `json:",default=false"`
-		TLSCertFile    string `json:",optional"`
-		TLSKeyFile     string `json:",optional"`
-		CAFile         string `json:",optional"`
+		Addr        string `json:",default=localhost:8443"`
+		Insecure    bool   `json:",default=false"`
+		TLSCertFile string `json:",optional"`
+		TLSKeyFile  string `json:",optional"`
+		CAFile      string `json:",optional"`
 	} `json:",optional"`
 
 	Agent struct {
-		ID       string            `json:",optional"`
-		GameID   string            `json:",optional"`
-		Env      string            `json:",optional"`
-		LocalAddr string           `json:",default=127.0.0.1:19090"`
-		HTTPAddr  string           `json:",default=127.0.0.1:19091"`
+		ID        string            `json:",optional"`
+		GameID    string            `json:",optional"`
+		Env       string            `json:",optional"`
+		LocalAddr string            `json:",default=127.0.0.1:19090"`
+		HTTPAddr  string            `json:",default=127.0.0.1:19091"`
 		Region    string            `json:",optional"`
 		Zone      string            `json:",optional"`
 		Labels    map[string]string `json:",optional"`
@@ -49,12 +49,6 @@ type Config struct {
 		Enabled bool   `json:",default=true"`
 		Port    int    `json:",default=9090"`
 		Path    string `json:",default=/metrics"`
-	} `json:",optional"`
-
-	Log struct {
-		ServiceName string `json:",default=croupier-agent"`
-		Mode        string `json:",default=console"`
-		Level       string `json:",default=info"`
 	} `json:",optional"`
 
 	TLS struct {

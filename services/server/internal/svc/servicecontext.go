@@ -29,9 +29,9 @@ import (
 
 	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/cuihairu/croupier/internal/analytics/mq"
-	appr "github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/function/descriptor"
 	"github.com/cuihairu/croupier/internal/pack"
+	appr "github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/platform/objstore"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/ports"
@@ -263,32 +263,46 @@ type JobInfo struct {
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
+	descDir := ResolveWorkspacePath(strings.TrimSpace(c.Descriptors.Dir))
+	if descDir == "" {
+		descDir = ResolveWorkspacePath("packs")
+	}
 	assignPath := strings.TrimSpace(c.Registry.AssignmentsPath)
-	if assignPath == "" && strings.TrimSpace(c.Descriptors.Dir) != "" {
-		assignPath = filepath.Join(strings.TrimSpace(c.Descriptors.Dir), "assignments.json")
+	if assignPath == "" && descDir != "" {
+		assignPath = filepath.Join(descDir, "assignments.json")
+	} else if assignPath == "" {
+		assignPath = filepath.Join("data", "assignments.json")
 	}
+	assignPath = ResolveServerPath(assignPath)
 	analyticsPath := strings.TrimSpace(c.Registry.AnalyticsFiltersPath)
-	if analyticsPath == "" && strings.TrimSpace(c.Descriptors.Dir) != "" {
-		analyticsPath = filepath.Join(strings.TrimSpace(c.Descriptors.Dir), "analytics_filters.json")
+	if analyticsPath == "" && descDir != "" {
+		analyticsPath = filepath.Join(descDir, "analytics_filters.json")
 	}
+	analyticsPath = ResolveWorkspacePath(analyticsPath)
 	rateLimitsPath := strings.TrimSpace(c.Registry.RateLimitsPath)
 	if rateLimitsPath == "" {
 		rateLimitsPath = filepath.Join("data", "rate_limits.json")
 	}
-	healthChecksPath := filepath.Join("data", "health_checks.json")
-	configsPath := filepath.Join("data", "configs.json")
-	notificationsPath := filepath.Join("data", "notifications.json")
-	maintenancePath := filepath.Join("data", "maintenance.json")
-	backupsDir := filepath.Join("data", "backups")
+	rateLimitsPath = ResolveServerPath(rateLimitsPath)
+	healthChecksPath := ResolveServerPath(filepath.Join("data", "health_checks.json"))
+	configsPath := ResolveServerPath(filepath.Join("data", "configs.json"))
+	notificationsPath := ResolveServerPath(filepath.Join("data", "notifications.json"))
+	maintenancePath := ResolveServerPath(filepath.Join("data", "maintenance.json"))
+	backupsDir := ResolveServerPath(filepath.Join("data", "backups"))
 	_ = os.MkdirAll(backupsDir, 0o755)
 	componentDataDir := strings.TrimSpace(c.Components.DataDir)
 	if componentDataDir == "" {
 		componentDataDir = "data"
 	}
+	componentDataDir = ResolveServerPath(componentDataDir)
+	if err := os.MkdirAll(componentDataDir, 0o755); err != nil {
+		logx.Errorf("create components data dir: %v", err)
+	}
 	stagingDir := strings.TrimSpace(c.Components.StagingDir)
 	if stagingDir == "" {
 		stagingDir = filepath.Join(componentDataDir, "components", "staging")
 	}
+	stagingDir = ResolveServerPath(stagingDir)
 	if err := os.MkdirAll(stagingDir, 0o755); err != nil {
 		logx.Errorf("create components staging dir: %v", err)
 	}
@@ -297,10 +311,11 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		logx.Errorf("load component registry: %v", err)
 	}
 	schemaDir := strings.TrimSpace(c.Schemas.Dir)
-	if schemaDir == "" {
-		schemaDir = filepath.Join(strings.TrimSpace(c.Descriptors.Dir), "ui")
+	if schemaDir == "" && descDir != "" {
+		schemaDir = filepath.Join(descDir, "ui")
 	}
-	descs, index := loadDescriptorsIndex(strings.TrimSpace(c.Descriptors.Dir))
+	schemaDir = ResolveWorkspacePath(schemaDir)
+	descs, index := loadDescriptorsIndex(descDir)
 	configEntries := loadConfigs(configsPath)
 	notifyChannels, notifyRules := loadNotifications(notificationsPath)
 	maintenance := loadMaintenanceWindows(maintenancePath)
@@ -346,7 +361,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		componentMgr:      componentMgr,
 		componentStaging:  stagingDir,
 		schemaDir:         schemaDir,
-		packDir:           firstNonEmpty(strings.TrimSpace(c.Packs.Dir), strings.TrimSpace(c.Descriptors.Dir)),
+		packDir:           ResolveWorkspacePath(defaultPackDir(c, descDir)),
 		agentMetaToken:    strings.TrimSpace(os.Getenv("AGENT_META_TOKEN")),
 		startedAt:         time.Now(),
 		objStore:          objSt,
@@ -358,7 +373,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		loginAttempts:     map[string][]time.Time{},
 		supportRepo:       supportRepo,
 		approvals:         appr.NewMemStore(),
-		analyticsQueue:   analyticsQueue,
+		analyticsQueue:    analyticsQueue,
 	}
 	ctx.initClickHouse()
 	if auth, err := newJWTAuthenticator(strings.TrimSpace(c.Auth.JWTSecret)); err == nil {
@@ -1472,6 +1487,10 @@ func (s *ServiceContext) SchemaDir() string {
 
 func (s *ServiceContext) PackDir() string {
 	return s.packDir
+}
+
+func defaultPackDir(c config.Config, descDir string) string {
+	return firstNonEmpty(strings.TrimSpace(c.Packs.Dir), strings.TrimSpace(c.Descriptors.Dir), descDir, "packs")
 }
 
 func firstNonEmpty(values ...string) string {
