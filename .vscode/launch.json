@@ -6,21 +6,21 @@
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}/cmd/server",
-      "args": ["--config", "configs/server.yaml"],
+      "program": "${workspaceFolder}/services/server",
+      "args": ["-f", "etc/server.yaml"],
       "env": {
         "CROUPIER_DEV_SEED": "1"
       },
       "buildFlags": ["-tags=pg sqlite"],
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}/services/server"
     },
     {
       "name": "Server (postgres)",
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}/cmd/server",
-      "args": ["--config", "configs/server.yaml"],
+      "program": "${workspaceFolder}/services/server",
+      "args": ["-f", "etc/server.yaml"],
       "env": {
         "DB_DRIVER": "postgres",
         "DATABASE_URL": "postgres://croupier:croupier_dev_password@localhost:5432/croupier?sslmode=disable",
@@ -28,34 +28,27 @@
         "CLICKHOUSE_DSN": "clickhouse://localhost:9000/analytics"
       },
       "buildFlags": ["-tags=pg sqlite"],
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}/services/server"
     },
     {
       "name": "Edge (dev)",
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}/cmd/edge",
-      "args": [
-        "--addr", ":9443",
-        "--http_addr", ":9080",
-        "--games_config", "configs/games.json",
-        "--cert", "configs/dev/server.crt",
-        "--key", "configs/dev/server.key",
-        "--ca", "configs/dev/ca.crt"
-      ],
+      "program": "${workspaceFolder}/services/edge",
+      "args": ["-f", "etc/edge.yaml"],
       "buildFlags": ["-tags=pg sqlite"],
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}/services/edge"
     },
     {
       "name": "Agent (dev)",
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}/cmd/agent",
-      "args": ["--config", "configs/agent.example.yaml"],
+      "program": "${workspaceFolder}/services/agent",
+      "args": ["-f", "etc/agent.yaml"],
       "env": {},
-      "cwd": "${workspaceFolder}"
+      "cwd": "${workspaceFolder}/services/agent"
     },
     {
       "name": "Analytics Worker",
@@ -71,10 +64,10 @@
       "cwd": "${workspaceFolder}"
     },
     {
-      "name": "Web (pnpm start)",
+      "name": "Dashboard (pnpm start)",
       "type": "pwa-node",
       "request": "launch",
-      "cwd": "${workspaceFolder}/web",
+      "cwd": "${workspaceFolder}/dashboard",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["start"],
       "env": { "UMI_ENV": "dev", "REACT_APP_ENV": "dev", "MOCK": "none" },
@@ -83,8 +76,8 @@
   ],
   "compounds": [
     {
-      "name": "Server + Web",
-      "configurations": ["Server (dev sqlite)", "Web (pnpm start)"]
+      "name": "Server + Dashboard",
+      "configurations": ["Server (dev sqlite)", "Dashboard (pnpm start)"]
     }
   ]
 }
