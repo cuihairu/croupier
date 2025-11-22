@@ -192,9 +192,22 @@ jobs:
         shell: bash
         working-directory: sdks/cpp
         run: |
+          set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake pkg-config libprotobuf-dev protobuf-compiler libgrpc-dev libgrpc++-dev
-          cmake -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_GRPC=ON
+          sudo apt-get install -y build-essential pkg-config git
+          VCPKG_ROOT="$PWD/.vcpkg"
+          if [ ! -d "$VCPKG_ROOT" ]; then
+            git clone --depth 1 https://github.com/microsoft/vcpkg "$VCPKG_ROOT"
+          fi
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+          export VCPKG_DEFAULT_TRIPLET=x64-linux
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DENABLE_GRPC=ON \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET=x64-linux \
+            -DVCPKG_MANIFEST_MODE=ON \
+            -DVCPKG_FEATURE_FLAGS=manifests,binarycaching
           cmake --build build --parallel
           mkdir -p ../../release-sdks/cpp
           cp -r build ../../release-sdks/cpp/

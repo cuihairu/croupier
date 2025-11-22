@@ -186,11 +186,22 @@ function(setup_ci_build)
 
         if(EXISTS ${PROTO_SOURCE_DIR})
             message(STATUS "✅ Using pre-copied proto files from CI")
-            # Create generated directory
-            file(MAKE_DIRECTORY ${PROTO_GENERATED_DIR})
 
-            # Generate gRPC code from pre-copied files
-            generate_grpc_code("${CMAKE_CURRENT_SOURCE_DIR}/generated" ${PROTO_GENERATED_DIR})
+            set(PREBUILT_PROTO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/generated")
+            file(GLOB_RECURSE PREBUILT_PROTO_SRCS "${PREBUILT_PROTO_DIR}/*.cc")
+            file(GLOB_RECURSE PREBUILT_PROTO_HDRS "${PREBUILT_PROTO_DIR}/*.h")
+
+            if(PREBUILT_PROTO_SRCS)
+                list(LENGTH PREBUILT_PROTO_SRCS file_count)
+                message(STATUS "✅ Reusing ${file_count} generated proto source files")
+                set(CROUPIER_SDK_ENABLE_GRPC ON PARENT_SCOPE)
+                set(PROTO_GENERATED_DIR ${PREBUILT_PROTO_DIR} PARENT_SCOPE)
+                set(GENERATED_PROTO_SOURCES ${PREBUILT_PROTO_SRCS} PARENT_SCOPE)
+                set(GENERATED_PROTO_HEADERS ${PREBUILT_PROTO_HDRS} PARENT_SCOPE)
+                return()
+            else()
+                message(STATUS "⚠️ Prebuilt proto directory exists but no generated files found, regenerating...")
+            endif()
         else()
             # Fallback: download from main project
             message(STATUS "⬇️  Proto files not pre-copied, downloading from main project...")
