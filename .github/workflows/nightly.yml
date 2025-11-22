@@ -75,7 +75,7 @@ jobs:
       - name: Upload artifact (binaries)
         uses: actions/upload-artifact@v4
         with:
-          name: croupier-binaries-${{ matrix.os }}
+          name: croupier-binaries-${{ matrix.os }}-${{ github.run_number }}-${{ github.run_attempt }}
           path: release/*
           if-no-files-found: error
 
