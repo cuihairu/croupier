@@ -1,25 +1,39 @@
 import { request } from '@umijs/max';
 
+type ApiResponse<T> = T | { data?: T } | { Data?: T } | null;
+
+function unwrap<T>(resp: ApiResponse<T>): T {
+  if (resp && typeof resp === 'object') {
+    const anyResp = resp as any;
+    if (anyResp.data) return anyResp.data as T;
+    if (anyResp.Data) return anyResp.Data as T;
+  }
+  return resp as T;
+}
+
 // RESTful: 登录，返回 token + 用户信息
 export async function createSession(params: { username: string; password: string }) {
-  return request<{ token: string; user: { username: string; roles: string[] } }>('/api/auth/login', { method: 'POST', data: params });
+  const resp = await request<ApiResponse<{ token: string; user: { username: string; roles: string[] } }>>('/api/auth/login', { method: 'POST', data: params });
+  return unwrap(resp);
 }
 
 // RESTful: 获取当前用户信息
 export async function fetchCurrentUser() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   // Pass Authorization explicitly to avoid any interceptor timing issues
-  return request<{ username: string; roles: string[] }>('/api/users/current', {
+  const resp = await request<ApiResponse<{ username: string; roles: string[] }>>('/api/users/current', {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
+  return unwrap(resp);
 }
 
 // RESTful: 获取当前用户资料
 export async function fetchCurrentUserProfile() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-  return request<{ username: string; display_name: string; email: string; roles: string[] }>('/api/users/current/profile', {
+  const resp = await request<ApiResponse<{ username: string; display_name: string; email: string; roles: string[] }>>('/api/users/current/profile', {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
+  return unwrap(resp);
 }
 
 // RESTful: 更新当前用户资料
@@ -45,9 +59,10 @@ export async function changeCurrentUserPassword(params: { old_password: string; 
 // RESTful: 获取当前用户游戏权限
 export async function fetchCurrentUserGames() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-  return request('/api/users/current/games', {
+  const resp = await request<ApiResponse<{ games?: any[]; envs?: any[] }>>('/api/users/current/games', {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
+  return unwrap(resp);
 }
 
 // 向后兼容的别名函数 (保持原有API调用方式)
