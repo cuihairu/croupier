@@ -113,9 +113,9 @@ worker:
 
 .PHONY: ingest
 ingest:
-	@echo "[build] analytics-ingest"
+	@echo "[build] ingest"
 	@mkdir -p $(BINDIR)
-	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/analytics-ingest ./services/analytics-ingest
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/ingest ./services/ingest
 
 .PHONY: analytics-spec
 analytics-spec:

@@ -249,7 +249,7 @@ services:
   ingestion:
     build:
       context: .
-      dockerfile: Dockerfile.analytics-ingest
+      dockerfile: Dockerfile.ingest
       args:
         GO_IMAGE: ${GO_IMAGE:-golang:1.24}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}

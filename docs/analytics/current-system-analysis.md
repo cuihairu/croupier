@@ -4,7 +4,7 @@ title: 当前系统分析
 # 架构现状
 
 组件
-- Public Ingestion（cmd/analytics-ingest）：HTTP/JSON + HMAC 校验，写入 Redis Streams/Kafka
+- Public Ingestion（services/ingest）：HTTP/JSON + HMAC 校验，写入 Redis Streams/Kafka
 - Analytics Worker（cmd/analytics-worker）：从 MQ 消费 → 清洗/聚合 → 写入 ClickHouse
 - Server（internal/app/server）：OTel 接入、管理 API、可选业务事件直写 MQ
 - 存储：ClickHouse（明细/聚合）、Redis/Kafka（缓冲）

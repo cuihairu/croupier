@@ -99,7 +99,7 @@ graph TB
 - 可靠：写入 MQ（Redis Streams/Kafka），消费失败可重放；支持 MaxLen 背压
 - 灵活：完全业务事件模型（login/progression/purchase…），字段白名单与灰度开关
 
-最小化落地示例（已在本仓库提供 cmd/analytics-ingest）：
+最小化落地示例（已在本仓库提供 `services/ingest`）：
 - 端点：
   - POST /api/ingest/events（通用事件数组）
   - POST /api/ingest/payments（支付事件数组）

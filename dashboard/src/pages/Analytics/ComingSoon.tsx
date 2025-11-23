@@ -13,7 +13,7 @@ type ComingSoonProps = {
 };
 
 const defaultChecklist: { title: string; detail?: string }[] = [
-  { title: '启动 analytics-ingest / analytics-worker', detail: '确保 Redis/ClickHouse 就绪，metrics 才能实时产出。' },
+  { title: '启动 ingest / analytics-worker', detail: '确保 Redis/ClickHouse 就绪，metrics 才能实时产出。' },
   { title: '在 configs/analytics/ 中配置游戏事件', detail: 'events.yaml / metrics.yaml 决定数据口径与显示。' },
   { title: '确认账号具有 canAnalyticsRead 权限', detail: 'RBAC 权限缺失会导致接口 403 或空白页面。' },
 ];
