@@ -481,7 +481,7 @@ jobs:
         with:
           path: artifacts
 
-  - name: Verify downloaded artifacts
+      - name: Verify downloaded artifacts
         run: |
           set -euo pipefail
           echo "Verifying artifact integrity..."
