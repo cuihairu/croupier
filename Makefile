@@ -244,11 +244,3 @@ help:
 proto-docs:
 	@echo "[proto] generating docs..."
 	buf generate --template buf.gen.docs.yaml
-
-# ========== Wire (DI) Generation ==========
-.PHONY: wire
-wire:
-	@echo "[wire] generating dependency injection code..."
-	@# Ensure modules and types are available for analysis; clear GOFLAGS that might interfere
-	@GOFLAGS= GOWORK=off go mod download
-	@GOFLAGS= GOWORK=off wire ./internal/app/server/http
