@@ -11,27 +11,24 @@ info (
 type (
 	// Tunnel establishment request
 	TunnelCreateRequest {
-		AgentId    string `json:"agent_id"`
-		ServerId   string `json:"server_id"`
-		Protocol   string `json:"protocol"` // http, grpc, ws
-		RemoteAddr string `json:"remote_addr"`
-		LocalAddr  string `json:"local_addr"`
+		AgentId    string                 `json:"agent_id"`
+		ServerId   string                 `json:"server_id"`
+		Protocol   string                 `json:"protocol"` // http, grpc, ws
+		RemoteAddr string                 `json:"remote_addr"`
+		LocalAddr  string                 `json:"local_addr"`
 		Options    map[string]interface{} `json:"options,optional"`
 	}
-
 	// Tunnel creation response
 	TunnelCreateResponse {
-		Success    bool   `json:"success"`
-		TunnelId   string `json:"tunnel_id"`
-		Message    string `json:"message"`
-		PublicUrl  string `json:"public_url,optional"`
+		Success   bool   `json:"success"`
+		TunnelId  string `json:"tunnel_id"`
+		Message   string `json:"message"`
+		PublicUrl string `json:"public_url,optional"`
 	}
-
 	// Tunnel status request
 	TunnelStatusRequest {
 		TunnelId string `path:"tunnel_id"`
 	}
-
 	// Tunnel status response
 	TunnelStatusResponse {
 		TunnelId    string `json:"tunnel_id"`
@@ -45,7 +42,6 @@ type (
 		CreatedAt   string `json:"created_at"`
 		LastActive  string `json:"last_active"`
 	}
-
 	// Tunnel list request
 	TunnelListRequest {
 		AgentId string `form:"agent_id,optional"`
@@ -53,7 +49,6 @@ type (
 		Page    int    `form:"page,optional"`
 		Size    int    `form:"size,optional"`
 	}
-
 	// Tunnel list response
 	TunnelListResponse {
 		Tunnels []TunnelStatusResponse `json:"tunnels"`
@@ -61,57 +56,49 @@ type (
 		Page    int                    `json:"page"`
 		Size    int                    `json:"size"`
 	}
-
 	// Tunnel close request
 	TunnelCloseRequest {
 		TunnelId string `path:"tunnel_id"`
 	}
-
 	// Tunnel close response
 	TunnelCloseResponse {
 		Success bool   `json:"success"`
 		Message string `json:"message"`
 	}
-
 	// Proxy request
 	ProxyRequest {
-		TunnelId string `path:"tunnel_id"`
-		Method   string `json:"method"`
-		Path     string `json:"path"`
+		TunnelId string            `path:"tunnel_id"`
+		Method   string            `json:"method"`
+		Path     string            `json:"path"`
 		Headers  map[string]string `json:"headers,optional"`
-		Body     string `json:"body,optional"`
+		Body     string            `json:"body,optional"`
 	}
-
 	// Proxy response
 	ProxyResponse {
 		Status  int               `json:"status"`
 		Headers map[string]string `json:"headers"`
 		Body    string            `json:"body"`
 	}
-
 	// Edge health check request
 	EdgeHealthRequest {
 		RequestId string `path:"request_id"`
 	}
-
 	// Edge health response
 	EdgeHealthResponse {
-		Status    string            `json:"status"`
-		Uptime    int64             `json:"uptime"`
-		Version   string            `json:"version"`
-		Tunnels   int64             `json:"active_tunnels"`
-		Agents    int64             `json:"connected_agents"`
+		Status    string             `json:"status"`
+		Uptime    int64              `json:"uptime"`
+		Version   string             `json:"version"`
+		Tunnels   int64              `json:"active_tunnels"`
+		Agents    int64              `json:"connected_agents"`
 		Load      map[string]float64 `json:"load"`
-		Timestamp string            `json:"timestamp"`
+		Timestamp string             `json:"timestamp"`
 	}
-
 	// Edge metrics request
 	EdgeMetricsRequest {
 		Start string `form:"start,optional"`
 		End   string `form:"end,optional"`
 		Type  string `form:"type,optional"` // system, tunnels, agents
 	}
-
 	// Edge metrics response
 	EdgeMetricsResponse {
 		Metrics map[string]interface{} `json:"metrics"`
@@ -122,7 +109,7 @@ type (
 	prefix: /api/v1
 	group:  edge
 )
-service croupier-edge {
+service croupier_edge {
 	// Tunnel management
 	@handler TunnelCreateHandler
 	post /tunnel (TunnelCreateRequest) returns (TunnelCreateResponse)
@@ -147,3 +134,4 @@ service croupier-edge {
 	@handler EdgeMetricsHandler
 	get /edge/metrics (EdgeMetricsRequest) returns (EdgeMetricsResponse)
 }
+
