@@ -1,0 +1,72 @@
+// ============================================================================
+// AUTH 模块 API 定义
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+// 用户信息
+type UserInfo {
+	Username string   `json:"username"`
+	Roles    []string `json:"roles"`
+}
+
+// 登录数据
+type LoginData {
+	Token string   `json:"token"`
+	User  UserInfo `json:"user"`
+}
+
+type LoginRequest {
+	Username string `json:"username"` // 用户名
+	Password string `json:"password"` // 密码
+}
+
+type LoginResponse {
+	Code    int       `json:"code"`
+	Message string    `json:"message"`
+	Data    LoginData `json:"data,omitempty"` // 包含 token 和 user 信息
+}
+
+type LogoutRequest {}
+
+type LogoutResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type AuthMeRequest {}
+
+// 当前用户信息数据
+type AuthMeData {
+	Username string   `json:"username"`
+	Roles    []string `json:"roles"`
+}
+
+type AuthMeResponse {
+	Code    int        `json:"code"`
+	Message string     `json:"message"`
+	Data    AuthMeData `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/auth
+	group:  auth
+)
+service server {
+	@doc "用户登录"
+	@handler AuthLoginHandler
+	post /login (LoginRequest) returns (LoginResponse)
+
+	@doc "用户登出"
+	@handler AuthLogoutHandler
+	post /logout (LogoutRequest) returns (LogoutResponse)
+
+	@doc "获取当前用户信息"
+	@handler AuthMeHandler
+	get /me (AuthMeRequest) returns (AuthMeResponse)
+}
+

@@ -1,0 +1,411 @@
+// ============================================================================
+// OPS 模块 API 定义
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+type OpsAgentMetaUpdateRequest {
+	AgentID string      `json:"agentId"`
+	Meta    interface{} `json:"meta"`
+}
+
+type OpsAgentMetaResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsAlertSilenceRequest {
+	AlertID  string `json:"alertId"`
+	Duration int    `json:"duration"` // 静默时长（分钟）
+}
+
+type OpsAlertSilenceResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsBackupCreateRequest {
+	Name string `json:"name,optional"`
+}
+
+type OpsBackupCreateResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsBackupDeleteRequest {
+	ID string `path:"id"`
+}
+
+type OpsBackupDeleteResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsBackupDownloadRequest {
+	ID string `path:"id"`
+}
+
+type OpsBackupDownloadResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsBackupsListRequest {
+	Page     int `form:"page,optional"`
+	PageSize int `form:"pageSize,optional"`
+}
+
+type OpsBackupsListResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsConfigRequest {}
+
+type OpsConfigResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsFunctionsRequest {}
+
+type OpsFunctionsResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsHealthGetRequest {}
+
+type OpsHealthGetResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsHealthRunRequest {}
+
+type OpsHealthRunResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsHealthUpdateRequest {
+	Enabled bool `json:"enabled"`
+}
+
+type OpsHealthUpdateResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsMaintenanceGetRequest {}
+
+type OpsMaintenanceGetResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsMaintenanceUpdateRequest {
+	Enabled bool   `json:"enabled"`
+	Message string `json:"message,optional"`
+}
+
+type OpsMaintenanceUpdateResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsMetricsQuery {
+	Start string `form:"start,optional"`
+	End   string `form:"end,optional"`
+}
+
+type OpsMetricsResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsMQRequest {}
+
+type OpsMQResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsNodeCommandsQuery {
+	NodeID string `form:"nodeId"`
+}
+
+type OpsNodeCommandsResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsNodeActionRequest {
+	NodeID string `path:"nodeId"`
+}
+
+type OpsNodeDrainResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsNodeMetaRequest {
+	NodeID string `path:"nodeId"`
+}
+
+type OpsNodeMetaResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsNodeRestartResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsNodesRequest {}
+
+type OpsNodesResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsNodeUndrainResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsNotificationsGetRequest {}
+
+type OpsNotificationsGetResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsNotificationsUpdateRequest {
+	Enabled  bool     `json:"enabled"`
+	Channels []string `json:"channels,optional"`
+}
+
+type OpsNotificationsUpdateResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type RateLimitDeleteRequest {
+	ID string `path:"id"`
+}
+
+type OpsRateLimitsDeleteResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsRateLimitsGetRequest {}
+
+type OpsRateLimitsGetResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type RateLimitPreviewQuery {
+	Rule string `form:"rule"`
+}
+
+type OpsRateLimitsPreviewResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type RateLimitRulesRequest {
+	Rules []interface{} `json:"rules"`
+}
+
+type OpsRateLimitsUpdateResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsServicesRequest {}
+
+type OpsServicesResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsAlertSilenceDeleteRequest {
+	ID string `path:"id"`
+}
+
+type OpsSilenceDeleteResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsSilencesRequest {}
+
+type OpsSilencesResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/ops
+	group:  ops
+)
+service server {
+	@doc "更新代理元数据"
+	@handler OpsAgentMetaHandler
+	put /agent-meta (OpsAgentMetaUpdateRequest) returns (OpsAgentMetaResponse)
+
+	@doc "静默告警"
+	@handler OpsAlertSilenceHandler
+	post /alerts/silence (OpsAlertSilenceRequest) returns (OpsAlertSilenceResponse)
+
+	@doc "创建备份"
+	@handler OpsBackupCreateHandler
+	post /backups (OpsBackupCreateRequest) returns (OpsBackupCreateResponse)
+
+	@doc "删除备份"
+	@handler OpsBackupDeleteHandler
+	delete /backups/:id (OpsBackupDeleteRequest) returns (OpsBackupDeleteResponse)
+
+	@doc "下载备份"
+	@handler OpsBackupDownloadHandler
+	get /backups/:id/download (OpsBackupDownloadRequest) returns (OpsBackupDownloadResponse)
+
+	@doc "获取备份列表"
+	@handler OpsBackupsListHandler
+	get /backups (OpsBackupsListRequest) returns (OpsBackupsListResponse)
+
+	@doc "获取运维配置"
+	@handler OpsConfigHandler
+	get /config (OpsConfigRequest) returns (OpsConfigResponse)
+
+	@doc "获取函数列表"
+	@handler OpsFunctionsHandler
+	get /functions (OpsFunctionsRequest) returns (OpsFunctionsResponse)
+
+	@doc "获取健康状态"
+	@handler OpsHealthGetHandler
+	get /health (OpsHealthGetRequest) returns (OpsHealthGetResponse)
+
+	@doc "运行健康检查"
+	@handler OpsHealthRunHandler
+	post /health/run (OpsHealthRunRequest) returns (OpsHealthRunResponse)
+
+	@doc "更新健康检查配置"
+	@handler OpsHealthUpdateHandler
+	put /health (OpsHealthUpdateRequest) returns (OpsHealthUpdateResponse)
+
+	@doc "获取维护模式状态"
+	@handler OpsMaintenanceGetHandler
+	get /maintenance (OpsMaintenanceGetRequest) returns (OpsMaintenanceGetResponse)
+
+	@doc "更新维护模式"
+	@handler OpsMaintenanceUpdateHandler
+	put /maintenance (OpsMaintenanceUpdateRequest) returns (OpsMaintenanceUpdateResponse)
+
+	@doc "获取指标"
+	@handler OpsMetricsHandler
+	get /metrics (OpsMetricsQuery) returns (OpsMetricsResponse)
+
+	@doc "获取消息队列状态"
+	@handler OpsMQHandler
+	get /mq (OpsMQRequest) returns (OpsMQResponse)
+
+	@doc "获取节点命令"
+	@handler OpsNodeCommandsHandler
+	get /nodes/commands (OpsNodeCommandsQuery) returns (OpsNodeCommandsResponse)
+
+	@doc "排空节点"
+	@handler OpsNodeDrainHandler
+	post /nodes/:nodeId/drain (OpsNodeActionRequest) returns (OpsNodeDrainResponse)
+
+	@doc "获取节点元数据"
+	@handler OpsNodeMetaHandler
+	get /nodes/:nodeId/meta (OpsNodeMetaRequest) returns (OpsNodeMetaResponse)
+
+	@doc "重启节点"
+	@handler OpsNodeRestartHandler
+	post /nodes/:nodeId/restart (OpsNodeActionRequest) returns (OpsNodeRestartResponse)
+
+	@doc "获取节点列表"
+	@handler OpsNodesHandler
+	get /nodes (OpsNodesRequest) returns (OpsNodesResponse)
+
+	@doc "取消排空节点"
+	@handler OpsNodeUndrainHandler
+	post /nodes/:nodeId/undrain (OpsNodeActionRequest) returns (OpsNodeUndrainResponse)
+
+	@doc "获取通知配置"
+	@handler OpsNotificationsGetHandler
+	get /notifications (OpsNotificationsGetRequest) returns (OpsNotificationsGetResponse)
+
+	@doc "更新通知配置"
+	@handler OpsNotificationsUpdateHandler
+	put /notifications (OpsNotificationsUpdateRequest) returns (OpsNotificationsUpdateResponse)
+
+	@doc "删除限流规则"
+	@handler OpsRateLimitsDeleteHandler
+	delete /rate-limits/:id (RateLimitDeleteRequest) returns (OpsRateLimitsDeleteResponse)
+
+	@doc "获取限流规则"
+	@handler OpsRateLimitsGetHandler
+	get /rate-limits (OpsRateLimitsGetRequest) returns (OpsRateLimitsGetResponse)
+
+	@doc "预览限流规则"
+	@handler OpsRateLimitsPreviewHandler
+	get /rate-limits/preview (RateLimitPreviewQuery) returns (OpsRateLimitsPreviewResponse)
+
+	@doc "更新限流规则"
+	@handler OpsRateLimitsUpdateHandler
+	put /rate-limits (RateLimitRulesRequest) returns (OpsRateLimitsUpdateResponse)
+
+	@doc "获取服务列表"
+	@handler OpsServicesHandler
+	get /services (OpsServicesRequest) returns (OpsServicesResponse)
+
+	@doc "删除静默规则"
+	@handler OpsSilenceDeleteHandler
+	delete /silences/:id (OpsAlertSilenceDeleteRequest) returns (OpsSilenceDeleteResponse)
+
+	@doc "获取静默规则列表"
+	@handler OpsSilencesHandler
+	get /silences (OpsSilencesRequest) returns (OpsSilencesResponse)
+}
+

@@ -1,0 +1,111 @@
+// ============================================================================
+// ADMIN 模块 API 定义
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+// AdminFunctionRequest - 通用函数请求
+type AdminFunctionRequest {
+	Fid string `form:"fid"` // 函数ID
+}
+
+// AdminFunctionPermissionsGetResponse - 获取函数权限响应
+type AdminFunctionPermissionsGetResponse {
+	// TODO: 添加响应字段
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// AdminFunctionPermissionsUpdateRequest - 更新函数权限请求
+type AdminFunctionPermissionsUpdateRequest {
+	Fid         string      `json:"fid"` // 函数ID
+	Permissions interface{} `json:"permissions"` // 权限配置
+}
+
+// AdminFunctionPermissionsUpdateResponse - 更新函数权限响应
+type AdminFunctionPermissionsUpdateResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Ok      bool        `json:"ok,omitempty"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// AdminPublishRequest - 发布请求
+type AdminPublishRequest {
+	Fid string `json:"fid"` // 函数ID
+}
+
+// AdminFunctionPublishResponse - 发布函数响应
+type AdminFunctionPublishResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Ok      bool        `json:"ok,omitempty"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// AdminFunctionUIGetResponse - 获取函数UI响应
+type AdminFunctionUIGetResponse {
+	Code       int         `json:"code"`
+	Message    string      `json:"message"`
+	FunctionId string      `json:"functionId,omitempty"`
+	UI         interface{} `json:"ui,omitempty"`
+	Data       interface{} `json:"data,omitempty"`
+}
+
+// AdminFunctionUIUpdateRequest - 更新函数UI请求
+type AdminFunctionUIUpdateRequest {
+	Fid string      `json:"fid"` // 函数ID
+	UI  interface{} `json:"ui"` // UI配置
+}
+
+// AdminFunctionUIUpdateResponse - 更新函数UI响应
+type AdminFunctionUIUpdateResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// AdminPendingRequest - 待处理请求
+type AdminPendingRequest {}
+
+// AdminPendingResponse - 待处理响应
+type AdminPendingResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/admin
+	group:  admin
+)
+service server {
+	@doc "获取函数权限"
+	@handler AdminFunctionPermissionsGetHandler
+	get /function-permissions (AdminFunctionRequest) returns (AdminFunctionPermissionsGetResponse)
+
+	@doc "更新函数权限"
+	@handler AdminFunctionPermissionsUpdateHandler
+	put /function-permissions (AdminFunctionPermissionsUpdateRequest) returns (AdminFunctionPermissionsUpdateResponse)
+
+	@doc "发布函数"
+	@handler AdminFunctionPublishHandler
+	post /function-publish (AdminPublishRequest) returns (AdminFunctionPublishResponse)
+
+	@doc "获取函数UI配置"
+	@handler AdminFunctionUiGetHandler
+	get /function-ui (AdminFunctionRequest) returns (AdminFunctionUIGetResponse)
+
+	@doc "更新函数UI配置"
+	@handler AdminFunctionUiUpdateHandler
+	put /function-ui (AdminFunctionUIUpdateRequest) returns (AdminFunctionUIUpdateResponse)
+
+	@doc "获取待处理项"
+	@handler AdminPendingHandler
+	get /pending (AdminPendingRequest) returns (AdminPendingResponse)
+}
+

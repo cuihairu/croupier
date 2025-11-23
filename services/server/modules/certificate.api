@@ -1,0 +1,181 @@
+// ============================================================================
+// CERTIFICATE 模块 API 定义
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+// --- 证书列表 ---
+type CertificatesListRequest {
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"pageSize,optional"`
+	Status   string `form:"status,optional"`
+}
+
+type CertificatesListResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 添加证书 ---
+type CertificateAddRequest {
+	Domain      string `json:"domain"`
+	Certificate string `json:"certificate,optional"`
+	PrivateKey  string `json:"privateKey,optional"`
+}
+
+type CertificateAddResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 证书详情 ---
+type CertificateDetailRequest {
+	ID string `path:"id"`
+}
+
+type CertificateDetailResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 检查证书 ---
+type CertificateCheckRequest {
+	ID string `path:"id"`
+}
+
+type CertificateCheckResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 删除证书 ---
+type CertificateDeleteRequest {
+	ID string `path:"id"`
+}
+
+type CertificateDeleteResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 证书统计 ---
+type CertificateStatsRequest {}
+
+type CertificateStatsResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 证书告警 ---
+type CertificateAlertAddRequest {
+	Domain    string `json:"domain"`
+	Threshold int    `json:"threshold,optional"`
+}
+
+type CertificateAlertAddResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type CertificateAlertsListRequest {
+	Page     int `form:"page,optional"`
+	PageSize int `form:"pageSize,optional"`
+}
+
+type CertificateAlertsListResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 批量检查 ---
+type CertificateCheckAllRequest {}
+
+type CertificateCheckAllResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 域名信息 ---
+type CertificateDomainInfoRequest {
+	Domain string `form:"domain"`
+}
+
+type CertificateDomainInfoResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 即将过期 ---
+type CertificateExpiringRequest {
+	Days int `form:"days,optional"`
+}
+
+type CertificateExpiringResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/certificates
+	group:  certificate
+)
+service server {
+	@doc "获取证书列表"
+	@handler CertificatesListHandler
+	get / (CertificatesListRequest) returns (CertificatesListResponse)
+
+	@doc "添加证书"
+	@handler CertificateAddHandler
+	post / (CertificateAddRequest) returns (CertificateAddResponse)
+
+	@doc "获取证书详情"
+	@handler CertificateDetailHandler
+	get /:id (CertificateDetailRequest) returns (CertificateDetailResponse)
+
+	@doc "检查证书状态"
+	@handler CertificateCheckHandler
+	post /:id/check (CertificateCheckRequest) returns (CertificateCheckResponse)
+
+	@doc "删除证书"
+	@handler CertificateDeleteHandler
+	delete /:id (CertificateDeleteRequest) returns (CertificateDeleteResponse)
+
+	@doc "获取证书统计"
+	@handler CertificateStatsHandler
+	get /stats (CertificateStatsRequest) returns (CertificateStatsResponse)
+
+	@doc "添加证书告警"
+	@handler CertificateAlertAddHandler
+	post /alerts (CertificateAlertAddRequest) returns (CertificateAlertAddResponse)
+
+	@doc "获取证书告警列表"
+	@handler CertificateAlertsListHandler
+	get /alerts (CertificateAlertsListRequest) returns (CertificateAlertsListResponse)
+
+	@doc "检查所有证书"
+	@handler CertificateCheckAllHandler
+	post /check-all (CertificateCheckAllRequest) returns (CertificateCheckAllResponse)
+
+	@doc "获取域名证书信息"
+	@handler CertificateDomainInfoHandler
+	get /domain-info (CertificateDomainInfoRequest) returns (CertificateDomainInfoResponse)
+
+	@doc "获取即将过期的证书"
+	@handler CertificateExpiringHandler
+	get /expiring (CertificateExpiringRequest) returns (CertificateExpiringResponse)
+}
+

@@ -1,0 +1,112 @@
+// ============================================================================
+// COMPONENT 模块 API 定义 - 组件管理
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+// --- Component 列表 ---
+type ComponentsListRequest {
+	Page     int `form:"page,optional"`
+	PageSize int `form:"pageSize,optional"`
+}
+
+type ComponentsListResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- Component 安装 ---
+type ComponentsInstallRequest {
+	Name    string `json:"name"`
+	Version string `json:"version,optional"`
+}
+
+type ComponentsInstallResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- Component 详情 ---
+type ComponentDetailRequest {
+	ID string `path:"id"`
+}
+
+type ComponentsDetailResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- Component 操作 ---
+type ComponentActionRequest {
+	ID string `path:"id"`
+}
+
+type ComponentsEnableResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type ComponentsDisableResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type ComponentsDeleteResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- Component 补丁 ---
+type ComponentPatchRequest {
+	ID    string      `path:"id"`
+	Patch interface{} `json:"patch"`
+}
+
+type ComponentsPatchResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/components
+	group:  component
+)
+service server {
+	@doc "获取组件列表"
+	@handler ComponentsListHandler
+	get / (ComponentsListRequest) returns (ComponentsListResponse)
+
+	@doc "安装组件"
+	@handler ComponentsInstallHandler
+	post /install (ComponentsInstallRequest) returns (ComponentsInstallResponse)
+
+	@doc "获取组件详情"
+	@handler ComponentsDetailHandler
+	get /:id (ComponentDetailRequest) returns (ComponentsDetailResponse)
+
+	@doc "启用组件"
+	@handler ComponentsEnableHandler
+	post /:id/enable (ComponentActionRequest) returns (ComponentsEnableResponse)
+
+	@doc "禁用组件"
+	@handler ComponentsDisableHandler
+	post /:id/disable (ComponentActionRequest) returns (ComponentsDisableResponse)
+
+	@doc "删除组件"
+	@handler ComponentsDeleteHandler
+	delete /:id (ComponentActionRequest) returns (ComponentsDeleteResponse)
+
+	@doc "更新组件配置"
+	@handler ComponentsPatchHandler
+	patch /:id (ComponentPatchRequest) returns (ComponentsPatchResponse)
+}

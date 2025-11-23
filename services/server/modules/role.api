@@ -1,0 +1,112 @@
+// ============================================================================
+// ROLE 模块 API 定义
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+// --- 角色列表 ---
+type RolesListRequest {
+	Page     int `form:"page,optional"`
+	PageSize int `form:"pageSize,optional"`
+}
+
+type RolesListResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 角色创建 ---
+type RoleCreateRequest {
+	Name        string   `json:"name"`
+	Description string   `json:"description,optional"`
+	Permissions []string `json:"permissions,optional"`
+}
+
+type RoleCreateResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 角色详情 ---
+type RoleDetailRequest {
+	ID string `path:"id"`
+}
+
+type RoleDetailResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 角色更新 ---
+type RoleUpdateRequest {
+	ID          string   `path:"id"`
+	Name        string   `json:"name,optional"`
+	Description string   `json:"description,optional"`
+	Permissions []string `json:"permissions,optional"`
+}
+
+type RoleUpdateResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 角色删除 ---
+type RoleDeleteRequest {
+	ID string `path:"id"`
+}
+
+type RoleDeleteResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 角色权限更新 ---
+type RolePermissionsUpdateRequest {
+	ID          string   `path:"id"`
+	Permissions []string `json:"permissions"`
+}
+
+type RolePermissionsUpdateResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/roles
+	group:  role
+)
+service server {
+	@doc "获取角色列表"
+	@handler RolesListHandler
+	get / (RolesListRequest) returns (RolesListResponse)
+
+	@doc "创建角色"
+	@handler RoleCreateHandler
+	post / (RoleCreateRequest) returns (RoleCreateResponse)
+
+	@doc "获取角色详情"
+	@handler RoleDetailHandler
+	get /:id (RoleDetailRequest) returns (RoleDetailResponse)
+
+	@doc "更新角色"
+	@handler RoleUpdateHandler
+	put /:id (RoleUpdateRequest) returns (RoleUpdateResponse)
+
+	@doc "删除角色"
+	@handler RoleDeleteHandler
+	delete /:id (RoleDeleteRequest) returns (RoleDeleteResponse)
+
+	@doc "更新角色权限"
+	@handler RolePermissionsUpdateHandler
+	put /:id/permissions (RolePermissionsUpdateRequest) returns (RolePermissionsUpdateResponse)
+}
+

@@ -1,0 +1,31 @@
+// ============================================================================
+// STORAGE 模块 API 定义 - 文件存储和访问
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+// --- 签名 URL ---
+type SignedUrlRequest {
+	Path   string `form:"path"`
+	Expire int    `form:"expire,optional"`
+}
+
+type SignedUrlResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/storage
+	group:  storage
+)
+service server {
+	@doc "获取签名URL"
+	@handler SignedUrlHandler
+	get /signed-url (SignedUrlRequest) returns (SignedUrlResponse)
+}
+

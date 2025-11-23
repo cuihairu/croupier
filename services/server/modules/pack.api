@@ -1,0 +1,71 @@
+// ============================================================================
+// PACK 模块 API 定义 - 功能包管理
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+// --- Pack 导出 ---
+type PacksExportRequest {
+	ID string `form:"id"`
+}
+
+type PacksExportResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- Pack 导入 ---
+type PacksImportRequest {}
+
+type PacksImportResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- Pack 列表 ---
+type PacksListRequest {
+	Page     int `form:"page,optional"`
+	PageSize int `form:"pageSize,optional"`
+}
+
+type PacksListResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- Pack 重载 ---
+type PacksReloadRequest {}
+
+type PacksReloadResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/packs
+	group:  pack
+)
+service server {
+	@doc "导出功能包"
+	@handler PacksExportHandler
+	get /export (PacksExportRequest) returns (PacksExportResponse)
+
+	@doc "导入功能包"
+	@handler PacksImportHandler
+	post /import (PacksImportRequest) returns (PacksImportResponse)
+
+	@doc "获取功能包列表"
+	@handler PacksListHandler
+	get / (PacksListRequest) returns (PacksListResponse)
+
+	@doc "重新加载功能包"
+	@handler PacksReloadHandler
+	post /reload (PacksReloadRequest) returns (PacksReloadResponse)
+}

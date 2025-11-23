@@ -1,0 +1,119 @@
+// ============================================================================
+// FUNCTION 模块 API 定义
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+// --- 函数列表 ---
+type FunctionsListRequest {
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"pageSize,optional"`
+	GameID   string `form:"gameId,optional"`
+	Status   string `form:"status,optional"`
+}
+
+type FunctionsListResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 函数详情 ---
+type FunctionDetailRequest {
+	ID string `path:"id"`
+}
+
+type FunctionDetailResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 函数实例 ---
+type FunctionInstancesRequest {
+	ID string `path:"id"`
+}
+
+type FunctionInstancesResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 函数操作 ---
+type FunctionActionRequest {
+	ID string `path:"id"`
+}
+
+type FunctionEnableResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type FunctionDisableResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 函数调用 ---
+type FunctionInvokeRequest {
+	ID     string      `path:"id"`
+	Params interface{} `json:"params,optional"`
+}
+
+type FunctionInvokeResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 函数描述符 ---
+type DescriptorsRequest {
+	Type string `form:"type,optional"`
+}
+
+type DescriptorsResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/functions
+	group:  function
+)
+service server {
+	@doc "获取函数列表"
+	@handler FunctionsListHandler
+	get / (FunctionsListRequest) returns (FunctionsListResponse)
+
+	@doc "获取函数描述符"
+	@handler DescriptorsHandler
+	get /descriptors (DescriptorsRequest) returns (DescriptorsResponse)
+
+	@doc "获取函数详情"
+	@handler FunctionDetailHandler
+	get /:id (FunctionDetailRequest) returns (FunctionDetailResponse)
+
+	@doc "获取函数实例"
+	@handler FunctionInstancesHandler
+	get /:id/instances (FunctionInstancesRequest) returns (FunctionInstancesResponse)
+
+	@doc "启用函数"
+	@handler FunctionEnableHandler
+	post /:id/enable (FunctionActionRequest) returns (FunctionEnableResponse)
+
+	@doc "禁用函数"
+	@handler FunctionDisableHandler
+	post /:id/disable (FunctionActionRequest) returns (FunctionDisableResponse)
+
+	@doc "调用函数"
+	@handler FunctionInvokeHandler
+	post /:id/invoke (FunctionInvokeRequest) returns (FunctionInvokeResponse)
+}
+

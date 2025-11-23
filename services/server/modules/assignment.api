@@ -1,0 +1,45 @@
+// ============================================================================
+// ASSIGNMENT 模块 API 定义 - 分配管理
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+// --- 分配列表 ---
+type AssignmentsListRequest {
+	Page     int `form:"page,optional"`
+	PageSize int `form:"pageSize,optional"`
+}
+
+type AssignmentsListResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 分配更新 ---
+type AssignmentsUpdateRequest {
+	Assignments []interface{} `json:"assignments"`
+}
+
+type AssignmentsUpdateResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/assignments
+	group:  assignment
+)
+service server {
+	@doc "获取分配列表"
+	@handler AssignmentsListHandler
+	get / (AssignmentsListRequest) returns (AssignmentsListResponse)
+
+	@doc "更新分配"
+	@handler AssignmentsUpdateHandler
+	put / (AssignmentsUpdateRequest) returns (AssignmentsUpdateResponse)
+}

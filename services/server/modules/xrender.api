@@ -1,0 +1,92 @@
+// ============================================================================
+// XRENDER 模块 API 定义 - XRender 组件和模板管理
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+// --- XRender 组件 ---
+type XRenderComponentsRequest {}
+
+type XRenderComponentsResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- XRender 模板 ---
+type XRenderTemplatesRequest {}
+
+type XRenderTemplatesResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- XRender Schema 生成 ---
+type XRenderGenerateRequest {
+	Schema interface{} `json:"schema"`
+}
+
+type XRenderGenerateSchemaResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- XRender Schema 预览 ---
+type XRenderPreviewRequest {
+	Schema interface{} `json:"schema"`
+}
+
+type XRenderPreviewSchemaResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- UI Schema ---
+type UISchemaRequest {
+	Type string `form:"type"`
+}
+
+type UISchemaResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/xrender
+	group:  xrender
+)
+service server {
+	@doc "获取XRender组件"
+	@handler XRenderComponentsHandler
+	get /components (XRenderComponentsRequest) returns (XRenderComponentsResponse)
+
+	@doc "获取XRender模板"
+	@handler XRenderTemplatesHandler
+	get /templates (XRenderTemplatesRequest) returns (XRenderTemplatesResponse)
+
+	@doc "生成XRender模式"
+	@handler XRenderGenerateSchemaHandler
+	post /generate (XRenderGenerateRequest) returns (XRenderGenerateSchemaResponse)
+
+	@doc "预览XRender模式"
+	@handler XRenderPreviewSchemaHandler
+	post /preview (XRenderPreviewRequest) returns (XRenderPreviewSchemaResponse)
+}
+
+// UI Schema 服务
+@server (
+	prefix: /api/v1
+	group:  xrender
+)
+service server {
+	@doc "获取UI模式"
+	@handler UiSchemaHandler
+	get /ui-schema (UISchemaRequest) returns (UISchemaResponse)
+}

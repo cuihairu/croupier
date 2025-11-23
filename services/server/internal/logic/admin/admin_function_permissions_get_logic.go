@@ -1,0 +1,30 @@
+package admin
+
+import (
+	"context"
+
+	"github.com/cuihairu/croupier/services/server/internal/svc"
+	"github.com/cuihairu/croupier/services/server/internal/types"
+
+	"github.com/zeromicro/go-zero/core/logx"
+)
+
+type AdminFunctionPermissionsGetLogic struct {
+	logx.Logger
+	ctx    context.Context
+	svcCtx *svc.ServiceContext
+}
+
+func NewAdminFunctionPermissionsGetLogic(ctx context.Context, svcCtx *svc.ServiceContext) *AdminFunctionPermissionsGetLogic {
+	return &AdminFunctionPermissionsGetLogic{
+		Logger: logx.WithContext(ctx),
+		ctx:    ctx,
+		svcCtx: svcCtx,
+	}
+}
+
+func (l *AdminFunctionPermissionsGetLogic) AdminFunctionPermissionsGet(req *types.AdminFunctionRequest) (resp *types.AdminFunctionPermissionsGetResponse, err error) {
+	// TODO: add your logic here and delete this line
+
+	return
+}

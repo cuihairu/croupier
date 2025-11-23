@@ -1,0 +1,74 @@
+// ============================================================================
+// APPROVAL 模块 API 定义
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+type ApprovalApproveRequest {
+	ID string `path:"id"` // 审批ID
+}
+
+type ApprovalApproveResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type ApprovalGetRequest {
+	ID string `path:"id"` // 审批ID
+}
+
+type ApprovalGetResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type ApprovalRejectRequest {
+	ID     string `path:"id"` // 审批ID
+	Reason string `json:"reason"` // 拒绝原因
+}
+
+type ApprovalRejectResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type ApprovalsListRequest {
+	Page     int    `form:"page,optional"` // 页码
+	PageSize int    `form:"pageSize,optional"` // 每页数量
+	Status   string `form:"status,optional"` // 状态过滤
+}
+
+type ApprovalsListResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/approvals
+	group:  approval
+)
+service server {
+	@doc "通过审批"
+	@handler ApprovalApproveHandler
+	post /:id/approve (ApprovalApproveRequest) returns (ApprovalApproveResponse)
+
+	@doc "获取审批详情"
+	@handler ApprovalGetHandler
+	get /:id (ApprovalGetRequest) returns (ApprovalGetResponse)
+
+	@doc "拒绝审批"
+	@handler ApprovalRejectHandler
+	post /:id/reject (ApprovalRejectRequest) returns (ApprovalRejectResponse)
+
+	@doc "获取审批列表"
+	@handler ApprovalsListHandler
+	get / (ApprovalsListRequest) returns (ApprovalsListResponse)
+}
+

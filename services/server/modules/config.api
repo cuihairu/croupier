@@ -1,0 +1,59 @@
+// ============================================================================
+// CONFIG 模块 API 定义
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+type ConfigUpsertRequest {
+	Key   string `json:"key"` // 配置键
+	Value string `json:"value"` // 配置值
+}
+
+type ConfigUpsertResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type ConfigVersionDetailRequest {
+	Key     string `form:"key"` // 配置键
+	Version int    `form:"version"` // 版本号
+}
+
+type ConfigVersionDetailResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type ConfigVersionsRequest {
+	Key string `form:"key"` // 配置键
+}
+
+type ConfigVersionsResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/configs
+	group:  config
+)
+service server {
+	@doc "创建或更新配置"
+	@handler ConfigUpsertHandler
+	post / (ConfigUpsertRequest) returns (ConfigUpsertResponse)
+
+	@doc "获取配置版本详情"
+	@handler ConfigVersionDetailHandler
+	get /version (ConfigVersionDetailRequest) returns (ConfigVersionDetailResponse)
+
+	@doc "获取配置版本列表"
+	@handler ConfigVersionsHandler
+	get /versions (ConfigVersionsRequest) returns (ConfigVersionsResponse)
+}
+

@@ -1,0 +1,371 @@
+// ============================================================================
+// ANALYTICS 模块 API 定义
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+// --- 通用查询参数 ---
+type AnalyticsQuery {
+	GameID    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type AnalyticsResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 概览 ---
+type AnalyticsOverviewRequest {
+	GameID    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type AnalyticsOverviewResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 实时 ---
+type AnalyticsRealtimeRequest {
+	GameID string `form:"gameId,optional"`
+	Env    string `form:"env,optional"`
+}
+
+type AnalyticsRealtimeResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type AnalyticsRealtimeSeriesRequest {
+	GameID   string `form:"gameId,optional"`
+	Env      string `form:"env,optional"`
+	Interval string `form:"interval,optional"`
+}
+
+type AnalyticsRealtimeSeriesResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 行为分析 ---
+type AnalyticsBehaviorRequest {
+	GameID    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type AnalyticsBehaviorResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type AnalyticsBehaviorEventsRequest {
+	GameID    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	EventType string `form:"eventType,optional"`
+}
+
+type AnalyticsBehaviorEventsResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type AnalyticsBehaviorFunnelRequest {
+	GameID string   `form:"gameId,optional"`
+	Env    string   `form:"env,optional"`
+	Steps  []string `form:"steps,optional"`
+}
+
+type AnalyticsBehaviorFunnelResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type AnalyticsBehaviorPathsRequest {
+	GameID string `form:"gameId,optional"`
+	Env    string `form:"env,optional"`
+}
+
+type AnalyticsBehaviorPathsResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type AnalyticsBehaviorAdoptionRequest {
+	GameID string `form:"gameId,optional"`
+	Env    string `form:"env,optional"`
+}
+
+type AnalyticsBehaviorAdoptionResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type AnalyticsBehaviorAdoptionBreakdownRequest {
+	GameID  string `form:"gameId,optional"`
+	Env     string `form:"env,optional"`
+	Feature string `form:"feature,optional"`
+}
+
+type AnalyticsBehaviorAdoptionBreakdownResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 支付分析 ---
+type AnalyticsPaymentsRequest {
+	GameID    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type AnalyticsPaymentsResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type AnalyticsPaymentsSummaryRequest {
+	GameID string `form:"gameId,optional"`
+	Env    string `form:"env,optional"`
+}
+
+type AnalyticsPaymentsSummaryResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type AnalyticsPaymentsTransactionsRequest {
+	GameID   string `form:"gameId,optional"`
+	Env      string `form:"env,optional"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"pageSize,optional"`
+}
+
+type AnalyticsPaymentsTransactionsResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type AnalyticsPaymentsProductTrendRequest {
+	GameID    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	ProductID string `form:"productId,optional"`
+}
+
+type AnalyticsPaymentsProductTrendResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 等级分析 ---
+type AnalyticsLevelsRequest {
+	GameID string `form:"gameId,optional"`
+	Env    string `form:"env,optional"`
+}
+
+type AnalyticsLevelsResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type AnalyticsLevelsEpisodesRequest {
+	GameID string `form:"gameId,optional"`
+	Env    string `form:"env,optional"`
+}
+
+type AnalyticsLevelsEpisodesResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type AnalyticsLevelsMapsRequest {
+	GameID string `form:"gameId,optional"`
+	Env    string `form:"env,optional"`
+}
+
+type AnalyticsLevelsMapsResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 留存分析 ---
+type AnalyticsRetentionRequest {
+	GameID    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type AnalyticsRetentionResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 数据采集 ---
+type AnalyticsIngestRequest {
+	GameID string        `json:"gameId"`
+	Env    string        `json:"env"`
+	Events []interface{} `json:"events"`
+}
+
+type AnalyticsIngestResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type AnalyticsPaymentsIngestRequest {
+	GameID       string        `json:"gameId"`
+	Env          string        `json:"env"`
+	Transactions []interface{} `json:"transactions"`
+}
+
+type AnalyticsPaymentsIngestResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 过滤器 ---
+type AnalyticsFiltersGetRequest {
+	GameID string `form:"gameId,optional"`
+	Env    string `form:"env,optional"`
+}
+
+type AnalyticsFiltersGetResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type AnalyticsFiltersUpdateRequest {
+	GameID          string   `json:"gameId"`
+	Env             string   `json:"env"`
+	Events          []string `json:"events,optional"`
+	PaymentsEnabled bool     `json:"paymentsEnabled,optional"`
+}
+
+type AnalyticsFiltersUpdateResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/analytics
+	group:  analytics
+)
+service server {
+	@doc "获取分析概览"
+	@handler AnalyticsOverviewHandler
+	get /overview (AnalyticsOverviewRequest) returns (AnalyticsOverviewResponse)
+
+	@doc "获取实时数据"
+	@handler AnalyticsRealtimeHandler
+	get /realtime (AnalyticsRealtimeRequest) returns (AnalyticsRealtimeResponse)
+
+	@doc "获取实时序列数据"
+	@handler AnalyticsRealtimeSeriesHandler
+	get /realtime/series (AnalyticsRealtimeSeriesRequest) returns (AnalyticsRealtimeSeriesResponse)
+
+	@doc "获取行为分析"
+	@handler AnalyticsBehaviorHandler
+	get /behavior (AnalyticsBehaviorRequest) returns (AnalyticsBehaviorResponse)
+
+	@doc "获取行为事件"
+	@handler AnalyticsBehaviorEventsHandler
+	get /behavior/events (AnalyticsBehaviorEventsRequest) returns (AnalyticsBehaviorEventsResponse)
+
+	@doc "获取行为漏斗"
+	@handler AnalyticsBehaviorFunnelHandler
+	get /behavior/funnel (AnalyticsBehaviorFunnelRequest) returns (AnalyticsBehaviorFunnelResponse)
+
+	@doc "获取行为路径"
+	@handler AnalyticsBehaviorPathsHandler
+	get /behavior/paths (AnalyticsBehaviorPathsRequest) returns (AnalyticsBehaviorPathsResponse)
+
+	@doc "获取功能采用率"
+	@handler AnalyticsBehaviorAdoptionHandler
+	get /behavior/adoption (AnalyticsBehaviorAdoptionRequest) returns (AnalyticsBehaviorAdoptionResponse)
+
+	@doc "获取功能采用率明细"
+	@handler AnalyticsBehaviorAdoptionBreakdownHandler
+	get /behavior/adoption/breakdown (AnalyticsBehaviorAdoptionBreakdownRequest) returns (AnalyticsBehaviorAdoptionBreakdownResponse)
+
+	@doc "获取支付分析"
+	@handler AnalyticsPaymentsHandler
+	get /payments (AnalyticsPaymentsRequest) returns (AnalyticsPaymentsResponse)
+
+	@doc "获取支付摘要"
+	@handler AnalyticsPaymentsSummaryHandler
+	get /payments/summary (AnalyticsPaymentsSummaryRequest) returns (AnalyticsPaymentsSummaryResponse)
+
+	@doc "获取支付交易列表"
+	@handler AnalyticsPaymentsTransactionsHandler
+	get /payments/transactions (AnalyticsPaymentsTransactionsRequest) returns (AnalyticsPaymentsTransactionsResponse)
+
+	@doc "获取产品趋势"
+	@handler AnalyticsPaymentsProductTrendHandler
+	get /payments/product-trend (AnalyticsPaymentsProductTrendRequest) returns (AnalyticsPaymentsProductTrendResponse)
+
+	@doc "获取等级分析"
+	@handler AnalyticsLevelsHandler
+	get /levels (AnalyticsLevelsRequest) returns (AnalyticsLevelsResponse)
+
+	@doc "获取关卡分析"
+	@handler AnalyticsLevelsEpisodesHandler
+	get /levels/episodes (AnalyticsLevelsEpisodesRequest) returns (AnalyticsLevelsEpisodesResponse)
+
+	@doc "获取地图分析"
+	@handler AnalyticsLevelsMapsHandler
+	get /levels/maps (AnalyticsLevelsMapsRequest) returns (AnalyticsLevelsMapsResponse)
+
+	@doc "获取留存分析"
+	@handler AnalyticsRetentionHandler
+	get /retention (AnalyticsRetentionRequest) returns (AnalyticsRetentionResponse)
+
+	@doc "采集分析数据"
+	@handler AnalyticsIngestHandler
+	post /ingest (AnalyticsIngestRequest) returns (AnalyticsIngestResponse)
+
+	@doc "采集支付数据"
+	@handler AnalyticsPaymentsIngestHandler
+	post /payments/ingest (AnalyticsPaymentsIngestRequest) returns (AnalyticsPaymentsIngestResponse)
+
+	@doc "获取分析过滤器"
+	@handler AnalyticsFiltersGetHandler
+	get /filters (AnalyticsFiltersGetRequest) returns (AnalyticsFiltersGetResponse)
+
+	@doc "更新分析过滤器"
+	@handler AnalyticsFiltersUpdateHandler
+	put /filters (AnalyticsFiltersUpdateRequest) returns (AnalyticsFiltersUpdateResponse)
+}
+

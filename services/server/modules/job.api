@@ -1,0 +1,73 @@
+// ============================================================================
+// JOB 模块 API 定义
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+type JobCancelRequest {
+	ID string `path:"id"` // 任务ID
+}
+
+type JobCancelResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type JobResultRequest {
+	ID string `path:"id"` // 任务ID
+}
+
+type JobResultResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type JobStartRequest {
+	FunctionID string      `json:"functionId"` // 函数ID
+	Params     interface{} `json:"params,optional"`
+}
+
+type JobStartResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 任务流 ---
+type StreamJobRequest {
+	JobID string `path:"jobId"`
+}
+
+type StreamJobResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/jobs
+	group:  job
+)
+service server {
+	@doc "启动任务"
+	@handler JobStartHandler
+	post / (JobStartRequest) returns (JobStartResponse)
+
+	@doc "取消任务"
+	@handler JobCancelHandler
+	post /:id/cancel (JobCancelRequest) returns (JobCancelResponse)
+
+	@doc "获取任务结果"
+	@handler JobResultHandler
+	get /:id/result (JobResultRequest) returns (JobResultResponse)
+
+	@doc "任务流（实时状态和日志）"
+	@handler StreamJobHandler
+	get /:jobId/stream (StreamJobRequest) returns (StreamJobResponse)
+}
+

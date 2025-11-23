@@ -1,0 +1,66 @@
+# Croupier Server API 配置
+Name: croupier-api
+Host: 0.0.0.0
+Port: 8888
+
+# 认证配置
+Auth:
+  JWTSecret: "dev-jwt-secret-change-in-production"  # 开发环境 JWT 密钥
+  RBACConfig: "configs/rbac.json"
+  UsersConfig: "configs/users.json"
+  GamesConfig: "configs/games.json"
+
+# 服务器配置
+Server:
+  Addr: ":8443"      # gRPC 地址
+  HttpAddr: ":8080"  # HTTP API 地址
+
+  # TLS 证书（开发环境可以为空，会自动生成）
+  Cert: ""
+  Key: ""
+  CA: ""
+
+  # 数据库配置
+  Database:
+    Driver: "sqlite"                    # 开发环境使用 sqlite
+    DataSource: "data/croupier.db"     # SQLite 数据库文件路径
+
+# 注册表配置
+Registry:
+  AssignmentsPath: "data/assignments.json"
+  AnalyticsFiltersPath: "data/analytics_filters.json"
+  RateLimitsPath: "data/rate_limits.json"
+
+# 函数描述符目录
+Descriptors:
+  Dir: "descriptors"
+
+# 组件配置
+Components:
+  DataDir: "data/components"
+  StagingDir: "data/staging"
+
+# Schema 配置
+Schemas:
+  Dir: "data/schemas"
+
+# Packs 配置
+Packs:
+  Dir: "packs"
+
+# 存储配置（开发环境使用本地文件系统）
+Storage:
+  Driver: "file"
+  BaseDir: "data/uploads"
+  SignedURLTTL: "15m"
+
+# 日志配置
+CroupierLog:
+  Level: "info"
+  Format: "console"
+  Output: "stdout"
+
+# 指标配置
+Metrics:
+  PerFunction: true
+  PerGameDenies: false

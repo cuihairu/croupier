@@ -1,0 +1,196 @@
+// ============================================================================
+// GAME 模块 API 定义
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+// 环境信息
+type GameEnvItem {
+	Env         string `json:"env"`
+	Description string `json:"description,optional"`
+	Color       string `json:"color,optional"`
+}
+
+// 游戏信息
+type GameInfo {
+	ID          uint          `json:"id"`
+	Name        string        `json:"name"`
+	Icon        string        `json:"icon,optional"`
+	Description string        `json:"description,optional"`
+	Enabled     bool          `json:"enabled"`
+	AliasName   string        `json:"aliasName,optional"`
+	Homepage    string        `json:"homepage,optional"`
+	Status      string        `json:"status"`
+	GameType    string        `json:"gameType,optional"`
+	GenreCode   string        `json:"genreCode,optional"`
+	Envs        []GameEnvItem `json:"envs,optional"`
+	CreatedAt   string        `json:"createdAt,optional"`
+	UpdatedAt   string        `json:"updatedAt,optional"`
+}
+
+// 游戏列表数据
+type GamesData {
+	Games []GameInfo `json:"games"`
+	Total int        `json:"total,optional"`
+}
+
+// --- 游戏列表 ---
+type GamesListRequest {
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"pageSize,optional"`
+	Status   string `form:"status,optional"`
+}
+
+type GamesListResponse {
+	Code    int       `json:"code"`
+	Message string    `json:"message"`
+	Data    GamesData `json:"data,omitempty"`
+}
+
+// --- 游戏创建 ---
+type GameCreateRequest {
+	Name        string `json:"name"`
+	Description string `json:"description,optional"`
+	Config      string `json:"config,optional"`
+}
+
+type GameCreateResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 游戏详情 ---
+type GameDetailRequest {
+	ID string `path:"id"`
+}
+
+type GameDetailResponse {
+	Code    int      `json:"code"`
+	Message string   `json:"message"`
+	Data    GameInfo `json:"data,omitempty"`
+}
+
+// --- 游戏更新 ---
+type GameUpdateRequest {
+	ID          string `path:"id"`
+	Name        string `json:"name,optional"`
+	Description string `json:"description,optional"`
+	Config      string `json:"config,optional"`
+	Status      string `json:"status,optional"`
+}
+
+type GameUpdateResponse {
+	Code    int      `json:"code"`
+	Message string   `json:"message"`
+	Data    GameInfo `json:"data,omitempty"`
+}
+
+// --- 游戏删除 ---
+type GameDeleteRequest {
+	ID string `path:"id"`
+}
+
+type GameDeleteResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// 游戏环境列表数据
+type GameEnvsData {
+	Envs []GameEnvItem `json:"envs"`
+}
+
+// --- 游戏环境 ---
+type GameEnvsListRequest {
+	ID string `path:"id"`
+}
+
+type GameEnvsListResponse {
+	Code    int          `json:"code"`
+	Message string       `json:"message"`
+	Data    GameEnvsData `json:"data,omitempty"`
+}
+
+type GameEnvAddRequest {
+	ID   string `path:"id"`
+	Name string `json:"name"`
+	Type string `json:"type,optional"`
+}
+
+type GameEnvAddResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type GameEnvUpdateRequest {
+	ID    string `path:"id"`
+	EnvID string `path:"envId"`
+	Name  string `json:"name,optional"`
+	Type  string `json:"type,optional"`
+}
+
+type GameEnvUpdateResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type GameEnvDeleteRequest {
+	ID    string `path:"id"`
+	EnvID string `path:"envId"`
+}
+
+type GameEnvDeleteResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/games
+	group:  game
+)
+service server {
+	@doc "获取游戏列表"
+	@handler GamesListHandler
+	get / (GamesListRequest) returns (GamesListResponse)
+
+	@doc "创建游戏"
+	@handler GameCreateHandler
+	post / (GameCreateRequest) returns (GameCreateResponse)
+
+	@doc "获取游戏详情"
+	@handler GameDetailHandler
+	get /:id (GameDetailRequest) returns (GameDetailResponse)
+
+	@doc "更新游戏"
+	@handler GameUpdateHandler
+	put /:id (GameUpdateRequest) returns (GameUpdateResponse)
+
+	@doc "删除游戏"
+	@handler GameDeleteHandler
+	delete /:id (GameDeleteRequest) returns (GameDeleteResponse)
+
+	@doc "获取游戏环境列表"
+	@handler GameEnvsListHandler
+	get /:id/envs (GameEnvsListRequest) returns (GameEnvsListResponse)
+
+	@doc "添加游戏环境"
+	@handler GameEnvAddHandler
+	post /:id/envs (GameEnvAddRequest) returns (GameEnvAddResponse)
+
+	@doc "更新游戏环境"
+	@handler GameEnvUpdateHandler
+	put /:id/envs/:envId (GameEnvUpdateRequest) returns (GameEnvUpdateResponse)
+
+	@doc "删除游戏环境"
+	@handler GameEnvDeleteHandler
+	delete /:id/envs/:envId (GameEnvDeleteRequest) returns (GameEnvDeleteResponse)
+}
+

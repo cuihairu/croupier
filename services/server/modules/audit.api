@@ -1,0 +1,32 @@
+// ============================================================================
+// AUDIT 模块 API 定义
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+type AuditRequest {
+	Page     int    `form:"page,optional"` // 页码
+	PageSize int    `form:"pageSize,optional"` // 每页数量
+	Action   string `form:"action,optional"` // 操作类型过滤
+	UserID   string `form:"userId,optional"` // 用户ID过滤
+}
+
+type AuditResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1
+	group:  audit
+)
+service server {
+	@doc "获取审计日志"
+	@handler AuditHandler
+	get /audit (AuditRequest) returns (AuditResponse)
+}
+

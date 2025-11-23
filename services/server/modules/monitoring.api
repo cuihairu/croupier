@@ -1,0 +1,53 @@
+// ============================================================================
+// MONITORING 模块 API 定义 - 系统监控和健康检查
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+// --- 健康检查 ---
+type HealthzRequest {}
+
+type HealthzResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 系统状态 ---
+type StatusRequest {}
+
+type StatusResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 系统指标 ---
+type MetricsRequest {}
+
+type MetricsResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1
+	group:  monitoring
+)
+service server {
+	@doc "健康检查"
+	@handler HealthzHandler
+	get /healthz (HealthzRequest) returns (HealthzResponse)
+
+	@doc "获取系统状态"
+	@handler StatusHandler
+	get /status (StatusRequest) returns (StatusResponse)
+
+	@doc "获取系统指标"
+	@handler MetricsHandler
+	get /metrics (MetricsRequest) returns (MetricsResponse)
+}

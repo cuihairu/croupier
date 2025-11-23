@@ -1,0 +1,39 @@
+// ============================================================================
+// AGENT 模块 API 定义
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+type AnalyticsFiltersQuery {}
+
+type AgentAnalyticsFiltersResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type AgentMetaReportRequest {}
+
+type AgentMetaResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/agent
+	group:  agent
+)
+service server {
+	@doc "获取分析过滤器"
+	@handler AgentAnalyticsFiltersHandler
+	get /analytics-filters (AnalyticsFiltersQuery) returns (AgentAnalyticsFiltersResponse)
+
+	@doc "上报代理元数据"
+	@handler AgentMetaHandler
+	post /meta (AgentMetaReportRequest) returns (AgentMetaResponse)
+}
+
