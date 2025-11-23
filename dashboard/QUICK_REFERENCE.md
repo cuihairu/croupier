@@ -143,7 +143,7 @@ import { FormattedMessage } from '@umijs/max';
 
 ```typescript
 // Auth
-loginAuth({ username, password })          // POST /api/auth/sessions
+loginAuth({ username, password })          // POST /api/auth/login
 fetchMe()                                    // GET /api/users/current
 
 // Functions

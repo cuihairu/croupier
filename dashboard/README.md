@@ -39,7 +39,7 @@ pnpm test
 ## Backend Expectations
 - Server API listens at 8080 by default; dev proxy rewrites legacy `/api/*` calls to `/api/v1/*`
 - Auth endpoints used by UI:
-  - POST /api/v1/auth/sessions -> { token, user }
+  - POST /api/v1/auth/login -> { token, user }
   - GET  /api/v1/users/current -> { username, roles }
 - Demo pages may call /api/rule (stubbed by Server for template compatibility)
 

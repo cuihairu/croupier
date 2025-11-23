@@ -1,8 +1,8 @@
 import { request } from '@umijs/max';
 
-// RESTful: 创建会话而不是登录
+// RESTful: 登录，返回 token + 用户信息
 export async function createSession(params: { username: string; password: string }) {
-  return request<{ token: string; user: { username: string; roles: string[] } }>('/api/auth/sessions', { method: 'POST', data: params });
+  return request<{ token: string; user: { username: string; roles: string[] } }>('/api/auth/login', { method: 'POST', data: params });
 }
 
 // RESTful: 获取当前用户信息

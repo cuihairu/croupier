@@ -231,7 +231,7 @@ export default function AuditPage() {
 ### 5.2 API 服务层 (`src/services/croupier/index.ts`)
 
 所有后端调用:
-- `loginAuth(params)` → POST /api/auth/sessions
+- `loginAuth(params)` → POST /api/auth/login
 - `fetchMe()` → GET /api/users/current
 - `listDescriptors()` → GET /api/descriptors
 - `invokeFunction(id, payload)` → POST /api/invoke
