@@ -109,7 +109,7 @@ type (
 	prefix: /api/v1
 	group:  edge
 )
-service croupier_edge {
+service edge {
 	// Tunnel management
 	@handler TunnelCreateHandler
 	post /tunnel (TunnelCreateRequest) returns (TunnelCreateResponse)

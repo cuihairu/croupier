@@ -60,7 +60,7 @@ services:
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - clickhouse_logs:/var/log/clickhouse-server
-      - ./configs/clickhouse/initdb:/docker-entrypoint-initdb.d:ro
+      - ../configs/clickhouse/initdb:/docker-entrypoint-initdb.d:ro
     ulimits:
       nofile:
         soft: 262144
@@ -79,8 +79,8 @@ services:
 
   edge:
     build:
-      context: .
-      dockerfile: Dockerfile.edge
+      context: ..
+      dockerfile: docker/Dockerfile.edge
       args:
         GO_IMAGE: ${GO_IMAGE:-golang:1.24}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
@@ -91,8 +91,8 @@ services:
 
   server:
     build:
-      context: .
-      dockerfile: Dockerfile.server
+      context: ..
+      dockerfile: docker/Dockerfile.server
       args:
         GO_IMAGE: ${GO_IMAGE:-golang:1.24}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
@@ -124,8 +124,8 @@ services:
 
   agent:
     build:
-      context: .
-      dockerfile: Dockerfile.agent
+      context: ..
+      dockerfile: docker/Dockerfile.agent
       args:
         GO_IMAGE: ${GO_IMAGE:-golang:1.24}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
@@ -138,8 +138,8 @@ services:
   # Web UI (Umi Max) served by Nginx; proxies /api to server:8080
   web:
     build:
-      context: .
-      dockerfile: Dockerfile.web
+      context: ..
+      dockerfile: docker/Dockerfile.web
       args:
         NODE_IMAGE: ${NODE_IMAGE:-node:20-alpine}
         NGINX_IMAGE: ${NGINX_IMAGE:-nginx:alpine}
@@ -224,8 +224,8 @@ services:
   # Analytics Worker (Redis Streams -> ClickHouse) - optional
   analytics-worker:
     build:
-      context: .
-      dockerfile: Dockerfile.analytics-worker
+      context: ..
+      dockerfile: docker/Dockerfile.analytics-worker
       args:
         GO_IMAGE: ${GO_IMAGE:-golang:1.24}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
@@ -248,8 +248,8 @@ services:
   # Analytics Ingestion (Public HTTP/JSON with HMAC signature)
   ingestion:
     build:
-      context: .
-      dockerfile: Dockerfile.ingest
+      context: ..
+      dockerfile: docker/Dockerfile.ingest
       args:
         GO_IMAGE: ${GO_IMAGE:-golang:1.24}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}

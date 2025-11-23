@@ -113,7 +113,7 @@ type (
 	prefix: /api/v1
 	group:  agent
 )
-service croupier_agent {
+service agent {
 	// Agent registration and management
 	@handler AgentRegisterHandler
 	post /agent/register (AgentRegisterRequest) returns (AgentRegisterResponse)

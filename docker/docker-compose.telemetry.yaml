@@ -10,7 +10,7 @@ services:
     container_name: croupier-otel-collector
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
-      - ./configs/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+      - ../configs/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     ports:
       - "4317:4317"   # OTLP gRPC receiver
       - "4318:4318"   # OTLP HTTP receiver
@@ -47,7 +47,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-storage:/prometheus
     networks:
       - croupier-telemetry
@@ -62,8 +62,8 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes:
       - grafana-storage:/var/lib/grafana
-      - ./configs/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
-      - ./configs/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ../configs/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ../configs/grafana/datasources:/etc/grafana/provisioning/datasources:ro
     depends_on:
       - prometheus
     networks:
@@ -90,7 +90,7 @@ services:
       - "9000:9000"  # Native interface
     volumes:
       - clickhouse-data:/var/lib/clickhouse
-      - ./configs/clickhouse/users.xml:/etc/clickhouse-server/users.d/custom-users.xml:ro
+      - ../configs/clickhouse/users.xml:/etc/clickhouse-server/users.d/custom-users.xml:ro
     environment:
       - CLICKHOUSE_DB=analytics
       - CLICKHOUSE_USER=analytics
@@ -101,8 +101,8 @@ services:
   # 可选: OpenTelemetry演示应用
   croupier-demo:
     build:
-      context: .
-      dockerfile: Dockerfile.demo
+      context: ..
+      dockerfile: docker/Dockerfile.demo
     container_name: croupier-demo-app
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
@@ -136,6 +136,6 @@ networks:
 # 5. 演示应用: http://localhost:8080
 #
 # 配置文件位置:
-# - configs/otel-collector-config.yaml
-# - configs/prometheus.yml
-# - configs/grafana/
+# - ../configs/otel-collector-config.yaml
+# - ../configs/prometheus.yml
+# - ../configs/grafana/
