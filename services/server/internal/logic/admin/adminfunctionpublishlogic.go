@@ -1,3 +1,6 @@
+// Code scaffolded by goctl. Safe to edit.
+// goctl 1.9.2
+
 package admin
 
 import (
@@ -15,6 +18,7 @@ type AdminFunctionPublishLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
+// 发布函数
 func NewAdminFunctionPublishLogic(ctx context.Context, svcCtx *svc.ServiceContext) *AdminFunctionPublishLogic {
 	return &AdminFunctionPublishLogic{
 		Logger: logx.WithContext(ctx),
@@ -24,7 +28,7 @@ func NewAdminFunctionPublishLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *AdminFunctionPublishLogic) AdminFunctionPublish(req *types.AdminPublishRequest) (resp *types.AdminFunctionPublishResponse, err error) {
-	// TODO: add your logic here and delete this line
+	// todo: add your logic here and delete this line
 
 	return
 }

@@ -1,3 +1,6 @@
+// Code scaffolded by goctl. Safe to edit.
+// goctl 1.9.2
+
 package game
 
 import (
@@ -15,6 +18,7 @@ type GameDeleteLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
+// 删除游戏
 func NewGameDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GameDeleteLogic {
 	return &GameDeleteLogic{
 		Logger: logx.WithContext(ctx),
@@ -24,22 +28,7 @@ func NewGameDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GameDe
 }
 
 func (l *GameDeleteLogic) GameDelete(req *types.GameDeleteRequest) (resp *types.GameDeleteResponse, err error) {
-	repo := l.svcCtx.GamesRepository()
-	if repo == nil {
-		return nil, svc.ErrGameNotFound
-	}
+	// todo: add your logic here and delete this line
 
-	gameID, err := parseID(req.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := repo.Delete(l.ctx, gameID); err != nil {
-		return nil, err
-	}
-
-	return &types.GameDeleteResponse{
-		Code:    0,
-		Message: "success",
-	}, nil
+	return
 }

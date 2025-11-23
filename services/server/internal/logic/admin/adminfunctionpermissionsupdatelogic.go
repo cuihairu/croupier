@@ -1,3 +1,6 @@
+// Code scaffolded by goctl. Safe to edit.
+// goctl 1.9.2
+
 package admin
 
 import (
@@ -15,6 +18,7 @@ type AdminFunctionPermissionsUpdateLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
+// 更新函数权限
 func NewAdminFunctionPermissionsUpdateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *AdminFunctionPermissionsUpdateLogic {
 	return &AdminFunctionPermissionsUpdateLogic{
 		Logger: logx.WithContext(ctx),
@@ -24,7 +28,7 @@ func NewAdminFunctionPermissionsUpdateLogic(ctx context.Context, svcCtx *svc.Ser
 }
 
 func (l *AdminFunctionPermissionsUpdateLogic) AdminFunctionPermissionsUpdate(req *types.AdminFunctionPermissionsUpdateRequest) (resp *types.AdminFunctionPermissionsUpdateResponse, err error) {
-	// TODO: add your logic here and delete this line
+	// todo: add your logic here and delete this line
 
 	return
 }

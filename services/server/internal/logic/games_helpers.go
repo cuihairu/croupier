@@ -29,10 +29,6 @@ func normalizeGameStatus(status string) string {
 }
 
 func gameToInfo(g *ports.Game, envRecs []*ports.GameEnvDef) types.GameInfo {
-	envs := make([]string, 0)
-	if g != nil && len(g.Envs) > 0 {
-		envs = append(envs, g.Envs...)
-	}
 	items := make([]types.GameEnvItem, 0, len(envRecs))
 	for _, e := range envRecs {
 		if e == nil {
@@ -51,7 +47,7 @@ func gameToInfo(g *ports.Game, envRecs []*ports.GameEnvDef) types.GameInfo {
 		updated = formatGameTime(g.UpdatedAt)
 	}
 	return types.GameInfo{
-		Id:          int64(g.ID),
+		ID:          g.ID,
 		Name:        g.Name,
 		Icon:        g.Icon,
 		Description: g.Description,
@@ -61,8 +57,7 @@ func gameToInfo(g *ports.Game, envRecs []*ports.GameEnvDef) types.GameInfo {
 		Status:      g.Status,
 		GameType:    g.GameType,
 		GenreCode:   g.GenreCode,
-		Envs:        envs,
-		GameEnvs:    items,
+		Envs:        items,
 		CreatedAt:   created,
 		UpdatedAt:   updated,
 	}

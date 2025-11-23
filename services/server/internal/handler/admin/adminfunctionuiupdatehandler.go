@@ -12,17 +12,17 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-// 获取函数UI配置
-func AdminFunctionUiGetHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+// 更新函数UI配置
+func AdminFunctionUiUpdateHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req types.AdminFunctionRequest
+		var req types.AdminFunctionUIUpdateRequest
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := admin.NewAdminFunctionUIGetLogic(r.Context(), svcCtx)
-		resp, err := l.AdminFunctionUIGet(&req)
+		l := admin.NewAdminFunctionUiUpdateLogic(r.Context(), svcCtx)
+		resp, err := l.AdminFunctionUiUpdate(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

@@ -4,6 +4,53 @@
 // ============================================================================
 // 类型定义
 // ============================================================================
+
+// --- 基础数据类型 ---
+type SupportTicket {
+	Id        int64    `json:"id"`
+	Title     string   `json:"title"`
+	Content   string   `json:"content"`
+	Category  string   `json:"category"`
+	Priority  string   `json:"priority"`
+	Status    string   `json:"status"`
+	Assignee  string   `json:"assignee"`
+	Tags      []string `json:"tags"`
+	PlayerId  string   `json:"playerId"`
+	Contact   string   `json:"contact"`
+	GameId    string   `json:"gameId"`
+	Env       string   `json:"env"`
+	Source    string   `json:"source"`
+	CreatedAt string   `json:"createdAt"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
+type SupportFAQ {
+	Id        int64    `json:"id"`
+	Question  string   `json:"question"`
+	Answer    string   `json:"answer"`
+	Category  string   `json:"category"`
+	Tags      []string `json:"tags"`
+	Visible   bool     `json:"visible"`
+	Sort      int      `json:"sort"`
+	CreatedAt string   `json:"createdAt"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
+type SupportFeedback {
+	Id        int64    `json:"id"`
+	PlayerId  string   `json:"playerId"`
+	Contact   string   `json:"contact"`
+	Content   string   `json:"content"`
+	Category  string   `json:"category"`
+	Priority  string   `json:"priority"`
+	Status    string   `json:"status"`
+	Attach    string   `json:"attach"`
+	GameId    string   `json:"gameId"`
+	Env       string   `json:"env"`
+	CreatedAt string   `json:"createdAt"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
 // --- 工单列表 ---
 type SupportTicketsListRequest {
 	Page     int    `form:"page,optional"`

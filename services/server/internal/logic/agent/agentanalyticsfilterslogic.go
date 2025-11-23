@@ -1,3 +1,6 @@
+// Code scaffolded by goctl. Safe to edit.
+// goctl 1.9.2
+
 package agent
 
 import (
@@ -15,6 +18,7 @@ type AgentAnalyticsFiltersLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
+// 获取分析过滤器
 func NewAgentAnalyticsFiltersLogic(ctx context.Context, svcCtx *svc.ServiceContext) *AgentAnalyticsFiltersLogic {
 	return &AgentAnalyticsFiltersLogic{
 		Logger: logx.WithContext(ctx),
@@ -24,7 +28,7 @@ func NewAgentAnalyticsFiltersLogic(ctx context.Context, svcCtx *svc.ServiceConte
 }
 
 func (l *AgentAnalyticsFiltersLogic) AgentAnalyticsFilters(req *types.AnalyticsFiltersQuery) (resp *types.AgentAnalyticsFiltersResponse, err error) {
-	// TODO: add your logic here and delete this line
+	// todo: add your logic here and delete this line
 
 	return
 }

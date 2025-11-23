@@ -1,3 +1,6 @@
+// Code scaffolded by goctl. Safe to edit.
+// goctl 1.9.2
+
 package agent
 
 import (
@@ -15,6 +18,7 @@ type AgentMetaLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
+// 上报代理元数据
 func NewAgentMetaLogic(ctx context.Context, svcCtx *svc.ServiceContext) *AgentMetaLogic {
 	return &AgentMetaLogic{
 		Logger: logx.WithContext(ctx),
@@ -24,7 +28,7 @@ func NewAgentMetaLogic(ctx context.Context, svcCtx *svc.ServiceContext) *AgentMe
 }
 
 func (l *AgentMetaLogic) AgentMeta(req *types.AgentMetaReportRequest) (resp *types.AgentMetaResponse, err error) {
-	// TODO: add your logic here and delete this line
+	// todo: add your logic here and delete this line
 
 	return
 }

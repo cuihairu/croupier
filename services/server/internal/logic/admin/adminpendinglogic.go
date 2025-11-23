@@ -1,3 +1,6 @@
+// Code scaffolded by goctl. Safe to edit.
+// goctl 1.9.2
+
 package admin
 
 import (
@@ -15,6 +18,7 @@ type AdminPendingLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
+// 获取待处理项
 func NewAdminPendingLogic(ctx context.Context, svcCtx *svc.ServiceContext) *AdminPendingLogic {
 	return &AdminPendingLogic{
 		Logger: logx.WithContext(ctx),
@@ -24,7 +28,7 @@ func NewAdminPendingLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Admi
 }
 
 func (l *AdminPendingLogic) AdminPending(req *types.AdminPendingRequest) (resp *types.AdminPendingResponse, err error) {
-	// TODO: add your logic here and delete this line
+	// todo: add your logic here and delete this line
 
 	return
 }

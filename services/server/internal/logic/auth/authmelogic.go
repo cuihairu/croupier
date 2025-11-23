@@ -1,3 +1,6 @@
+// Code scaffolded by goctl. Safe to edit.
+// goctl 1.9.2
+
 package auth
 
 import (
@@ -15,6 +18,7 @@ type AuthMeLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
+// 获取当前用户信息
 func NewAuthMeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *AuthMeLogic {
 	return &AuthMeLogic{
 		Logger: logx.WithContext(ctx),
@@ -24,15 +28,7 @@ func NewAuthMeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *AuthMeLogi
 }
 
 func (l *AuthMeLogic) AuthMe(req *types.AuthMeRequest) (resp *types.AuthMeResponse, err error) {
-	// TODO: Get user info from JWT token in context
-	// For now, return a placeholder response
-	resp = &types.AuthMeResponse{
-		Code:    0,
-		Message: "success",
-		Data: types.AuthMeData{
-			Username: "placeholder",
-			Roles:    []string{"user"},
-		},
-	}
-	return resp, nil
+	// todo: add your logic here and delete this line
+
+	return
 }

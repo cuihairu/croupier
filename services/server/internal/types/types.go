@@ -1723,6 +1723,18 @@ type SupportCommentsListResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+type SupportFAQ struct {
+	Id        int64    `json:"id"`
+	Question  string   `json:"question"`
+	Answer    string   `json:"answer"`
+	Category  string   `json:"category"`
+	Tags      []string `json:"tags"`
+	Visible   bool     `json:"visible"`
+	Sort      int      `json:"sort"`
+	CreatedAt string   `json:"createdAt"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
 type SupportFAQCreateRequest struct {
 	Category string `json:"category"`
 	Question string `json:"question"`
@@ -1768,6 +1780,21 @@ type SupportFAQUpdateResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+type SupportFeedback struct {
+	Id        int64  `json:"id"`
+	PlayerId  string `json:"playerId"`
+	Contact   string `json:"contact"`
+	Content   string `json:"content"`
+	Category  string `json:"category"`
+	Priority  string `json:"priority"`
+	Status    string `json:"status"`
+	Attach    string `json:"attach"`
+	GameId    string `json:"gameId"`
+	Env       string `json:"env"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
 type SupportFeedbackCreateRequest struct {
 	Type    string `json:"type"`
 	Content string `json:"content"`
@@ -1810,6 +1837,24 @@ type SupportFeedbackUpdateResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
+}
+
+type SupportTicket struct {
+	Id        int64    `json:"id"`
+	Title     string   `json:"title"`
+	Content   string   `json:"content"`
+	Category  string   `json:"category"`
+	Priority  string   `json:"priority"`
+	Status    string   `json:"status"`
+	Assignee  string   `json:"assignee"`
+	Tags      []string `json:"tags"`
+	PlayerId  string   `json:"playerId"`
+	Contact   string   `json:"contact"`
+	GameId    string   `json:"gameId"`
+	Env       string   `json:"env"`
+	Source    string   `json:"source"`
+	CreatedAt string   `json:"createdAt"`
+	UpdatedAt string   `json:"updatedAt"`
 }
 
 type SupportTicketCreateRequest struct {

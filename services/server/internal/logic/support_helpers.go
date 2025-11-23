@@ -1,11 +1,27 @@
 package logic
 
 import (
+	"strings"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/repo/gorm/support"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 )
+
+func splitTags(tags string) []string {
+	if tags == "" {
+		return []string{}
+	}
+	parts := strings.Split(tags, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result
+}
 
 func supportTicketToType(t *support.Ticket) types.SupportTicket {
 	return types.SupportTicket{
@@ -16,7 +32,7 @@ func supportTicketToType(t *support.Ticket) types.SupportTicket {
 		Priority:  t.Priority,
 		Status:    t.Status,
 		Assignee:  t.Assignee,
-		Tags:      t.Tags,
+		Tags:      splitTags(t.Tags),
 		PlayerId:  t.PlayerID,
 		Contact:   t.Contact,
 		GameId:    t.GameID,
@@ -33,7 +49,7 @@ func supportFAQToType(f *support.FAQ) types.SupportFAQ {
 		Question:  f.Question,
 		Answer:    f.Answer,
 		Category:  f.Category,
-		Tags:      f.Tags,
+		Tags:      splitTags(f.Tags),
 		Visible:   f.Visible,
 		Sort:      f.Sort,
 		CreatedAt: formatSupportTime(f.CreatedAt),
