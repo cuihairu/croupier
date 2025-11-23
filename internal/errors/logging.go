@@ -168,9 +168,9 @@ type MetricsCollector interface {
 
 // DefaultMetricsCollector 默认指标收集器
 type DefaultMetricsCollector struct {
-	errorCounts     map[ErrorCode]int64
-	errorDurations  map[ErrorCode]time.Duration
-	requestCounts   map[string]int64
+	errorCounts      map[ErrorCode]int64
+	errorDurations   map[ErrorCode]time.Duration
+	requestCounts    map[string]int64
 	requestDurations map[string]time.Duration
 }
 
@@ -244,11 +244,11 @@ func (dmc *DefaultMetricsCollector) Reset() {
 // ToJSON 将指标转换为JSON
 func (dmc *DefaultMetricsCollector) ToJSON() []byte {
 	metrics := map[string]interface{}{
-		"error_counts":       dmc.GetErrorCounts(),
-		"error_durations":    dmc.GetErrorDurations(),
-		"request_counts":     dmc.GetRequestCounts(),
-		"request_durations":  dmc.requestDurations,
-		"timestamp":          time.Now(),
+		"error_counts":      dmc.GetErrorCounts(),
+		"error_durations":   dmc.GetErrorDurations(),
+		"request_counts":    dmc.GetRequestCounts(),
+		"request_durations": dmc.requestDurations,
+		"timestamp":         time.Now(),
 	}
 
 	data, err := json.MarshalIndent(metrics, "", "  ")
@@ -260,12 +260,12 @@ func (dmc *DefaultMetricsCollector) ToJSON() []byte {
 
 // ErrorStats 错误统计信息
 type ErrorStats struct {
-	TotalErrors      int64                        `json:"total_errors"`
-	ErrorsByCode     map[ErrorCode]int64          `json:"errors_by_code"`
-	ErrorsBySeverity map[ErrorSeverity]int64      `json:"errors_by_severity"`
-	ErrorsByCategory map[ErrorCategory]int64     `json:"errors_by_category"`
-	RecentErrors    []*AppError                  `json:"recent_errors,omitempty"`
-	TimeRange       TimeRange                    `json:"time_range"`
+	TotalErrors      int64                   `json:"total_errors"`
+	ErrorsByCode     map[ErrorCode]int64     `json:"errors_by_code"`
+	ErrorsBySeverity map[ErrorSeverity]int64 `json:"errors_by_severity"`
+	ErrorsByCategory map[ErrorCategory]int64 `json:"errors_by_category"`
+	RecentErrors     []*AppError             `json:"recent_errors,omitempty"`
+	TimeRange        TimeRange               `json:"time_range"`
 }
 
 // TimeRange 时间范围
@@ -276,16 +276,16 @@ type TimeRange struct {
 
 // ErrorAnalyzer 错误分析器
 type ErrorAnalyzer struct {
-	errors         []*AppError
-	maxErrors      int
+	errors           []*AppError
+	maxErrors        int
 	metricsCollector MetricsCollector
 }
 
 // NewErrorAnalyzer 创建错误分析器
 func NewErrorAnalyzer(maxErrors int, collector MetricsCollector) *ErrorAnalyzer {
 	return &ErrorAnalyzer{
-		errors:         make([]*AppError, 0, maxErrors),
-		maxErrors:      maxErrors,
+		errors:           make([]*AppError, 0, maxErrors),
+		maxErrors:        maxErrors,
 		metricsCollector: collector,
 	}
 }
@@ -312,7 +312,7 @@ func (ea *ErrorAnalyzer) GetStats() *ErrorStats {
 		ErrorsByCode:     make(map[ErrorCode]int64),
 		ErrorsBySeverity: make(map[ErrorSeverity]int64),
 		ErrorsByCategory: make(map[ErrorCategory]int64),
-		RecentErrors:    make([]*AppError, 0),
+		RecentErrors:     make([]*AppError, 0),
 	}
 
 	if len(ea.errors) > 0 {

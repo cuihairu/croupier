@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/errors"
 	ctxmanager "github.com/cuihairu/croupier/internal/context"
+	"github.com/cuihairu/croupier/internal/errors"
 )
 
 // ExampleConfigUsage 演示配置系统的使用方式
@@ -85,7 +85,7 @@ func ExampleConfigUsage() {
 	if err != nil {
 		log.Printf("导出JSON配置失败: %v", err)
 	} else {
-		fmt.Printf("当前配置(JSON): %s\n", string(jsonData[:100]) + "...")
+		fmt.Printf("当前配置(JSON): %s\n", string(jsonData[:100])+"...")
 	}
 }
 

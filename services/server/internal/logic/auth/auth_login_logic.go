@@ -1,4 +1,5 @@
 package auth
+
 import (
 	"context"
 	"errors"

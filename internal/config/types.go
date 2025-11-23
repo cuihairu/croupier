@@ -6,13 +6,13 @@ import (
 
 // Config 简化的配置结构
 type Config struct {
-	App         AppConfig        `yaml:"app" json:"app"`
-	Network     NetworkConfig    `yaml:"network" json:"network"`
-	Database    DatabaseConfig   `yaml:"database" json:"database"`
-	Security    SecurityConfig    `yaml:"security" json:"security"`
+	App           AppConfig           `yaml:"app" json:"app"`
+	Network       NetworkConfig       `yaml:"network" json:"network"`
+	Database      DatabaseConfig      `yaml:"database" json:"database"`
+	Security      SecurityConfig      `yaml:"security" json:"security"`
 	Observability ObservabilityConfig `yaml:"observability" json:"observability"`
-	Business    BusinessConfig    `yaml:"business" json:"business"`
-	Storage     StorageConfig     `yaml:"storage" json:"storage"`
+	Business      BusinessConfig      `yaml:"business" json:"business"`
+	Storage       StorageConfig       `yaml:"storage" json:"storage"`
 }
 
 // AppConfig 应用配置
@@ -30,11 +30,11 @@ type NetworkConfig struct {
 
 // ServerConfig 服务器配置
 type ServerConfig struct {
-	Host     string      `yaml:"host" json:"host"`
-	HTTPPort int         `yaml:"http_port" json:"http_port"`
-	GRPCPort int         `yaml:"grpc_port" json:"grpc_port"`
-	TLS      TLSConfig   `yaml:"tls" json:"tls"`
-	CORS     CORSConfig  `yaml:"cors" json:"cors"`
+	Host      string          `yaml:"host" json:"host"`
+	HTTPPort  int             `yaml:"http_port" json:"http_port"`
+	GRPCPort  int             `yaml:"grpc_port" json:"grpc_port"`
+	TLS       TLSConfig       `yaml:"tls" json:"tls"`
+	CORS      CORSConfig      `yaml:"cors" json:"cors"`
 	RateLimit RateLimitConfig `yaml:"rate_limit" json:"rate_limit"`
 }
 
@@ -61,11 +61,11 @@ type RateLimitConfig struct {
 
 // DatabaseConfig 数据库配置
 type DatabaseConfig struct {
-	Enabled       bool                `yaml:"enabled" json:"enabled"`
-	Primary       DatabaseInstance    `yaml:"primary" json:"primary"`
-	ReadOnly      ReadOnlyConfig      `yaml:"read_only" json:"read_only"`
+	Enabled        bool                 `yaml:"enabled" json:"enabled"`
+	Primary        DatabaseInstance     `yaml:"primary" json:"primary"`
+	ReadOnly       ReadOnlyConfig       `yaml:"read_only" json:"read_only"`
 	ConnectionPool ConnectionPoolConfig `yaml:"connection_pool" json:"connection_pool"`
-	Migration     MigrationConfig     `yaml:"migration" json:"migration"`
+	Migration      MigrationConfig      `yaml:"migration" json:"migration"`
 }
 
 // DatabaseInstance 数据库实例配置
@@ -80,9 +80,9 @@ type DatabaseInstance struct {
 
 // ReadOnlyConfig 只读配置
 type ReadOnlyConfig struct {
-	Enabled   bool                `yaml:"enabled" json:"enabled"`
-	Replicas  []DatabaseInstance  `yaml:"replicas" json:"replicas"`
-	LoadBalance string            `yaml:"load_balance" json:"load_balance"`
+	Enabled     bool               `yaml:"enabled" json:"enabled"`
+	Replicas    []DatabaseInstance `yaml:"replicas" json:"replicas"`
+	LoadBalance string             `yaml:"load_balance" json:"load_balance"`
 }
 
 // ConnectionPoolConfig 连接池配置
@@ -100,19 +100,19 @@ type MigrationConfig struct {
 
 // SecurityConfig 安全配置
 type SecurityConfig struct {
-	JWT           JWTConfig     `yaml:"jwt" json:"jwt"`
-	TOTP          TOTPConfig    `yaml:"totp" json:"totp"`
+	JWT            JWTConfig            `yaml:"jwt" json:"jwt"`
+	TOTP           TOTPConfig           `yaml:"totp" json:"totp"`
 	PasswordPolicy PasswordPolicyConfig `yaml:"password_policy" json:"password_policy"`
-	APIKeys       APIKeysConfig `yaml:"api_keys" json:"api_keys"`
-	Audit         AuditConfig   `yaml:"audit" json:"audit"`
+	APIKeys        APIKeysConfig        `yaml:"api_keys" json:"api_keys"`
+	Audit          AuditConfig          `yaml:"audit" json:"audit"`
 }
 
 // JWTConfig JWT配置
 type JWTConfig struct {
-	Enabled        bool          `yaml:"enabled" json:"enabled"`
-	Secret         string        `yaml:"secret" json:"secret"`
-	Expiry         time.Duration `yaml:"expiry" json:"expiry"`
-	RefreshExpiry  time.Duration `yaml:"refresh_expiry" json:"refresh_expiry"`
+	Enabled       bool          `yaml:"enabled" json:"enabled"`
+	Secret        string        `yaml:"secret" json:"secret"`
+	Expiry        time.Duration `yaml:"expiry" json:"expiry"`
+	RefreshExpiry time.Duration `yaml:"refresh_expiry" json:"refresh_expiry"`
 }
 
 // TOTPConfig TOTP配置
@@ -139,15 +139,15 @@ type APIKeysConfig struct {
 
 // AuditConfig 审计配置
 type AuditConfig struct {
-	Enabled  bool          `yaml:"enabled" json:"enabled"`
+	Enabled   bool          `yaml:"enabled" json:"enabled"`
 	Retention time.Duration `yaml:"retention" json:"retention"`
 }
 
 // ObservabilityConfig 可观测性配置
 type ObservabilityConfig struct {
-	Logging    LoggingConfig    `yaml:"logging" json:"logging"`
-	Metrics    MetricsConfig    `yaml:"metrics" json:"metrics"`
-	Tracing    TracingConfig    `yaml:"tracing" json:"tracing"`
+	Logging     LoggingConfig     `yaml:"logging" json:"logging"`
+	Metrics     MetricsConfig     `yaml:"metrics" json:"metrics"`
+	Tracing     TracingConfig     `yaml:"tracing" json:"tracing"`
 	HealthCheck HealthCheckConfig `yaml:"health_check" json:"health_check"`
 }
 
@@ -167,7 +167,7 @@ type MetricsConfig struct {
 
 // TracingConfig 追踪配置
 type TracingConfig struct {
-	Enabled bool      `yaml:"enabled" json:"enabled"`
+	Enabled bool         `yaml:"enabled" json:"enabled"`
 	Jaeger  JaegerConfig `yaml:"jaeger" json:"jaeger"`
 	Zipkin  ZipkinConfig `yaml:"zipkin" json:"zipkin"`
 }
@@ -206,8 +206,8 @@ type GamesConfig struct {
 
 // FunctionsConfig 函数配置
 type FunctionsConfig struct {
-	Registry   RegistryConfig   `yaml:"registry" json:"registry"`
-	Execution  ExecutionConfig  `yaml:"execution" json:"execution"`
+	Registry  RegistryConfig  `yaml:"registry" json:"registry"`
+	Execution ExecutionConfig `yaml:"execution" json:"execution"`
 }
 
 // RegistryConfig 注册表配置
@@ -246,17 +246,17 @@ type StorageConfig struct {
 
 // FilesConfig 文件存储配置
 type FilesConfig struct {
-	Enabled bool   `yaml:"enabled" json:"enabled"`
+	Enabled  bool   `yaml:"enabled" json:"enabled"`
 	BasePath string `yaml:"base_path" json:"base_path"`
 }
 
 // ObjectsConfig 对象存储配置
 type ObjectsConfig struct {
-	Enabled  bool      `yaml:"enabled" json:"enabled"`
-	Provider string    `yaml:"provider" json:"provider"`
-	S3       S3Config  `yaml:"s3" json:"s3"`
+	Enabled  bool        `yaml:"enabled" json:"enabled"`
+	Provider string      `yaml:"provider" json:"provider"`
+	S3       S3Config    `yaml:"s3" json:"s3"`
 	Minio    MinioConfig `yaml:"minio" json:"minio"`
-	OSS      OSSConfig `yaml:"oss" json:"oss"`
+	OSS      OSSConfig   `yaml:"oss" json:"oss"`
 }
 
 // S3Config S3配置

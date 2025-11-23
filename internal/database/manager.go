@@ -230,22 +230,22 @@ func (m *Manager) GetStats() *PoolStats {
 	stats := m.sqlDB.Stats()
 
 	return &PoolStats{
-		MaxOpenConnections:         stats.MaxOpenConnections,
-		OpenConnections:            stats.OpenConnections,
-		InUse:                      stats.InUse,
-		Idle:                       stats.Idle,
-		WaitCount:                  stats.WaitCount,
-		WaitDuration:               stats.WaitDuration,
-		MaxIdleClosed:              stats.MaxIdleClosed,
-		MaxIdleTimeClosed:          stats.MaxIdleTimeClosed,
-		MaxLifetimeClosed:          stats.MaxLifetimeClosed,
-		LastHealthCheckSuccess:     m.metrics.LastHealthCheckSuccess(),
-		LastHealthCheckFailure:     m.metrics.LastHealthCheckFailure(),
-		HealthCheckSuccessCount:    m.metrics.HealthCheckSuccessCount(),
-		HealthCheckFailureCount:    m.metrics.HealthCheckFailureCount(),
-		RetryCount:                 m.metrics.RetryCount(),
-		SuccessCount:               m.metrics.SuccessCount(),
-		FailureCount:               m.metrics.FailureCount(),
+		MaxOpenConnections:      stats.MaxOpenConnections,
+		OpenConnections:         stats.OpenConnections,
+		InUse:                   stats.InUse,
+		Idle:                    stats.Idle,
+		WaitCount:               stats.WaitCount,
+		WaitDuration:            stats.WaitDuration,
+		MaxIdleClosed:           stats.MaxIdleClosed,
+		MaxIdleTimeClosed:       stats.MaxIdleTimeClosed,
+		MaxLifetimeClosed:       stats.MaxLifetimeClosed,
+		LastHealthCheckSuccess:  m.metrics.LastHealthCheckSuccess(),
+		LastHealthCheckFailure:  m.metrics.LastHealthCheckFailure(),
+		HealthCheckSuccessCount: m.metrics.HealthCheckSuccessCount(),
+		HealthCheckFailureCount: m.metrics.HealthCheckFailureCount(),
+		RetryCount:              m.metrics.RetryCount(),
+		SuccessCount:            m.metrics.SuccessCount(),
+		FailureCount:            m.metrics.FailureCount(),
 	}
 }
 

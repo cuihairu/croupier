@@ -11,7 +11,7 @@ type ErrorCode string
 // 预定义错误码
 const (
 	// 通用错误码 (1000-1999)
-	ErrCodeInternal    ErrorCode = "INTERNAL_ERROR"
+	ErrCodeInternal     ErrorCode = "INTERNAL_ERROR"
 	ErrCodeInvalidInput ErrorCode = "INVALID_INPUT"
 	ErrCodeNotFound     ErrorCode = "NOT_FOUND"
 	ErrCodeUnauthorized ErrorCode = "UNAUTHORIZED"
@@ -21,9 +21,9 @@ const (
 	ErrCodeRateLimit    ErrorCode = "RATE_LIMIT"
 
 	// 业务错误码 (2000-2999)
-	ErrCodeGameNotFound     ErrorCode = "GAME_NOT_FOUND"
-	ErrCodeGameAlreadyExist ErrorCode = "GAME_ALREADY_EXIST"
-	ErrCodeGameDisabled     ErrorCode = "GAME_DISABLED"
+	ErrCodeGameNotFound      ErrorCode = "GAME_NOT_FOUND"
+	ErrCodeGameAlreadyExist  ErrorCode = "GAME_ALREADY_EXIST"
+	ErrCodeGameDisabled      ErrorCode = "GAME_DISABLED"
 	ErrCodeInvalidGameStatus ErrorCode = "INVALID_GAME_STATUS"
 
 	// 数据库错误码 (3000-3999)
@@ -32,14 +32,14 @@ const (
 	ErrCodeTransactionFailed ErrorCode = "TRANSACTION_FAILED"
 
 	// 网络错误码 (4000-4999)
-	ErrCodeNetworkError      ErrorCode = "NETWORK_ERROR"
+	ErrCodeNetworkError       ErrorCode = "NETWORK_ERROR"
 	ErrCodeServiceUnavailable ErrorCode = "SERVICE_UNAVAILABLE"
-	ErrCodeConnectionTimeout ErrorCode = "CONNECTION_TIMEOUT"
+	ErrCodeConnectionTimeout  ErrorCode = "CONNECTION_TIMEOUT"
 
 	// 认证授权错误码 (5000-5999)
-	ErrCodeTokenExpired      ErrorCode = "TOKEN_EXPIRED"
-	ErrCodeInvalidToken      ErrorCode = "INVALID_TOKEN"
-	ErrCodeInvalidCredentials ErrorCode = "INVALID_CREDENTIALS"
+	ErrCodeTokenExpired            ErrorCode = "TOKEN_EXPIRED"
+	ErrCodeInvalidToken            ErrorCode = "INVALID_TOKEN"
+	ErrCodeInvalidCredentials      ErrorCode = "INVALID_CREDENTIALS"
 	ErrCodeInsufficientPermissions ErrorCode = "INSUFFICIENT_PERMISSIONS"
 )
 
@@ -56,13 +56,13 @@ const (
 // AppError 应用程序错误
 type AppError struct {
 	// 基本错误信息
-	Code       ErrorCode     `json:"code"`
-	Message    string        `json:"message"`
-	Details    string        `json:"details,omitempty"`
-	Operation  string        `json:"operation"`
-	Timestamp  time.Time     `json:"timestamp"`
-	TraceID    string        `json:"trace_id"`
-	Severity   ErrorSeverity `json:"severity"`
+	Code      ErrorCode     `json:"code"`
+	Message   string        `json:"message"`
+	Details   string        `json:"details,omitempty"`
+	Operation string        `json:"operation"`
+	Timestamp time.Time     `json:"timestamp"`
+	TraceID   string        `json:"trace_id"`
+	Severity  ErrorSeverity `json:"severity"`
 
 	// 错误分类
 	Category  ErrorCategory `json:"category"`
@@ -73,9 +73,9 @@ type AppError struct {
 	HTTPHeaders    map[string]string `json:"http_headers,omitempty"`
 
 	// 重试信息
-	Retryable bool          `json:"retryable"`
+	Retryable  bool          `json:"retryable"`
 	RetryDelay time.Duration `json:"retry_delay,omitempty"`
-	RetryCount int          `json:"retry_count,omitempty"`
+	RetryCount int           `json:"retry_count,omitempty"`
 
 	// 上下文信息
 	Context map[string]interface{} `json:"context,omitempty"`
@@ -88,14 +88,14 @@ type AppError struct {
 type ErrorCategory string
 
 const (
-	CategoryValidation  ErrorCategory = "validation"
-	CategoryBusiness    ErrorCategory = "business"
-	CategoryDatabase    ErrorCategory = "database"
-	CategoryNetwork     ErrorCategory = "network"
-	CategoryAuth        ErrorCategory = "auth"
-	CategoryPermission  ErrorCategory = "permission"
-	CategoryExternal    ErrorCategory = "external"
-	CategorySystem      ErrorCategory = "system"
+	CategoryValidation ErrorCategory = "validation"
+	CategoryBusiness   ErrorCategory = "business"
+	CategoryDatabase   ErrorCategory = "database"
+	CategoryNetwork    ErrorCategory = "network"
+	CategoryAuth       ErrorCategory = "auth"
+	CategoryPermission ErrorCategory = "permission"
+	CategoryExternal   ErrorCategory = "external"
+	CategorySystem     ErrorCategory = "system"
 )
 
 // Error 实现error接口
@@ -159,16 +159,16 @@ func (e *AppError) String() string {
 // ToJSON 返回JSON格式的错误信息
 func (e *AppError) ToJSON() map[string]interface{} {
 	result := map[string]interface{}{
-		"code":         e.Code,
-		"message":      e.Message,
-		"operation":    e.Operation,
-		"timestamp":    e.Timestamp,
-		"trace_id":     e.TraceID,
-		"severity":     e.Severity,
-		"category":     e.Category,
-		"user_error":   e.UserError,
-		"http_status":  e.HTTPStatusCode,
-		"retryable":    e.Retryable,
+		"code":        e.Code,
+		"message":     e.Message,
+		"operation":   e.Operation,
+		"timestamp":   e.Timestamp,
+		"trace_id":    e.TraceID,
+		"severity":    e.Severity,
+		"category":    e.Category,
+		"user_error":  e.UserError,
+		"http_status": e.HTTPStatusCode,
+		"retryable":   e.Retryable,
 	}
 
 	if e.Details != "" {
@@ -196,19 +196,19 @@ func (e *AppError) ToJSON() map[string]interface{} {
 
 // ErrorMetrics 错误指标
 type ErrorMetrics struct {
-	Code       ErrorCode     `json:"code"`
-	Operation  string        `json:"operation"`
-	Count      int64         `json:"count"`
-	FirstSeen  time.Time     `json:"first_seen"`
-	LastSeen   time.Time     `json:"last_seen"`
-	Duration   time.Duration `json:"duration"`
-	Severity   ErrorSeverity `json:"severity"`
+	Code      ErrorCode     `json:"code"`
+	Operation string        `json:"operation"`
+	Count     int64         `json:"count"`
+	FirstSeen time.Time     `json:"first_seen"`
+	LastSeen  time.Time     `json:"last_seen"`
+	Duration  time.Duration `json:"duration"`
+	Severity  ErrorSeverity `json:"severity"`
 }
 
 // ErrorCollection 错误集合，用于批量错误处理
 type ErrorCollection struct {
 	Errors []*AppError `json:"errors"`
-	Total  int        `json:"total"`
+	Total  int         `json:"total"`
 }
 
 // Add 添加错误到集合

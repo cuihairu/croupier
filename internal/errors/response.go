@@ -12,7 +12,7 @@ type ResponseType string
 
 const (
 	ResponseTypeSuccess ResponseType = "success"
-	ResponseTypeError  ResponseType = "error"
+	ResponseTypeError   ResponseType = "error"
 )
 
 // APIResponse 通用API响应结构
@@ -101,14 +101,14 @@ func (rb *ResponseBuilder[T]) Error(err error) *ResponseBuilder[T] {
 
 	if appErr, ok := err.(*AppError); ok {
 		rb.response.Error = &ErrorInfo{
-			Code:       appErr.Code,
-			Message:    appErr.Message,
-			Details:    appErr.Details,
-			Operation:  appErr.Operation,
-			TraceID:    appErr.TraceID,
-			Severity:   appErr.Severity,
-			Retryable:  appErr.Retryable,
-			Context:    appErr.Context,
+			Code:      appErr.Code,
+			Message:   appErr.Message,
+			Details:   appErr.Details,
+			Operation: appErr.Operation,
+			TraceID:   appErr.TraceID,
+			Severity:  appErr.Severity,
+			Retryable: appErr.Retryable,
+			Context:   appErr.Context,
 		}
 
 		if appErr.RetryDelay > 0 {

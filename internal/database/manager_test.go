@@ -90,18 +90,18 @@ func TestListOptions_GetOffset(t *testing.T) {
 		expected int
 	}{
 		{
-			name: "page 1, size 20",
-			opts: &ListOptions{Page: 1, PageSize: 20},
+			name:     "page 1, size 20",
+			opts:     &ListOptions{Page: 1, PageSize: 20},
 			expected: 0,
 		},
 		{
-			name: "page 2, size 20",
-			opts: &ListOptions{Page: 2, PageSize: 20},
+			name:     "page 2, size 20",
+			opts:     &ListOptions{Page: 2, PageSize: 20},
 			expected: 20,
 		},
 		{
-			name: "page 3, size 10",
-			opts: &ListOptions{Page: 3, PageSize: 10},
+			name:     "page 3, size 10",
+			opts:     &ListOptions{Page: 3, PageSize: 10},
 			expected: 20,
 		},
 	}
@@ -122,13 +122,13 @@ func TestListOptions_GetOrderClause(t *testing.T) {
 		expected string
 	}{
 		{
-			name: "id asc",
-			opts: &ListOptions{Sort: "id", Order: "asc"},
+			name:     "id asc",
+			opts:     &ListOptions{Sort: "id", Order: "asc"},
 			expected: "id asc",
 		},
 		{
-			name: "name desc",
-			opts: &ListOptions{Sort: "name", Order: "desc"},
+			name:     "name desc",
+			opts:     &ListOptions{Sort: "name", Order: "desc"},
 			expected: "name desc",
 		},
 	}

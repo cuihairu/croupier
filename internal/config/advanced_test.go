@@ -239,8 +239,8 @@ func TestAdvancedConfigManager_ValidateWithAdvancedValidation(t *testing.T) {
 		},
 		Business: BusinessConfig{
 			Games: GamesConfig{
-				MaxConcurrentGames:  100,
-				MaxPlayersPerGame:   10,
+				MaxConcurrentGames: 100,
+				MaxPlayersPerGame:  10,
 				DefaultGameTimeout: 1 * time.Hour,
 			},
 			Functions: FunctionsConfig{
@@ -257,8 +257,8 @@ func TestAdvancedConfigManager_ValidateWithAdvancedValidation(t *testing.T) {
 					MaxSize: 1000,
 				},
 				Retry: RetryConfig{
-					MaxAttempts:   3,
-					InitialDelay:  1 * time.Second,
+					MaxAttempts:  3,
+					InitialDelay: 1 * time.Second,
 				},
 			},
 		},

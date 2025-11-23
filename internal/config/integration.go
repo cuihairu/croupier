@@ -7,19 +7,19 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	ctxmanager "github.com/cuihairu/croupier/internal/context"
 	"github.com/cuihairu/croupier/internal/database"
 	"github.com/cuihairu/croupier/internal/errors"
-	ctxmanager "github.com/cuihairu/croupier/internal/context"
+	"github.com/gin-gonic/gin"
 )
 
 // IntegratedConfigManager 集成配置管理器
 type IntegratedConfigManager struct {
 	*Manager
-	dbManager     *database.Manager
-	errorFactory  *errors.ErrorFactory
-	contextMgr    *ctxmanager.Manager
-	httpServer    *http.Server
+	dbManager    *database.Manager
+	errorFactory *errors.ErrorFactory
+	contextMgr   *ctxmanager.Manager
+	httpServer   *http.Server
 }
 
 // NewIntegratedConfigManager 创建集成配置管理器
@@ -207,8 +207,8 @@ func (icm *IntegratedConfigManager) handleGetCurrentConfig(c *gin.Context) {
 	safeConfig := icm.sanitizeConfig(config)
 
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    safeConfig,
+		"success":   true,
+		"data":      safeConfig,
 		"timestamp": time.Now(),
 	})
 }
@@ -218,8 +218,8 @@ func (icm *IntegratedConfigManager) handleGetConfigSources(c *gin.Context) {
 	sources := icm.GetConfigSources()
 
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    sources,
+		"success":   true,
+		"data":      sources,
 		"timestamp": time.Now(),
 	})
 }
@@ -233,8 +233,8 @@ func (icm *IntegratedConfigManager) handleReloadConfig(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "配置重新加载成功",
+		"success":   true,
+		"message":   "配置重新加载成功",
 		"timestamp": time.Now(),
 	})
 }
@@ -247,16 +247,16 @@ func (icm *IntegratedConfigManager) handleValidateConfig(c *gin.Context) {
 	err := validator.Validate(config)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"error":   err.Error(),
+			"success":   false,
+			"error":     err.Error(),
 			"timestamp": time.Now(),
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "配置验证通过",
+		"success":   true,
+		"message":   "配置验证通过",
 		"timestamp": time.Now(),
 	})
 }
@@ -267,8 +267,8 @@ func (icm *IntegratedConfigManager) handleGetEnvInfo(c *gin.Context) {
 	envInfo := envManager.GetEnvInfo()
 
 	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"data":    envInfo,
+		"success":   true,
+		"data":      envInfo,
 		"timestamp": time.Now(),
 	})
 }
@@ -296,9 +296,9 @@ func (icm *IntegratedConfigManager) handleExportConfig(c *gin.Context) {
 // handleHealthCheck 配置健康检查
 func (icm *IntegratedConfigManager) handleHealthCheck(c *gin.Context) {
 	status := map[string]interface{}{
-		"config_loaded": true,
+		"config_loaded":      true,
 		"database_connected": false,
-		"last_reload": time.Now(),
+		"last_reload":        time.Now(),
 	}
 
 	// 检查数据库连接
@@ -312,8 +312,8 @@ func (icm *IntegratedConfigManager) handleHealthCheck(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"status": "healthy",
-		"details": status,
+		"status":    "healthy",
+		"details":   status,
 		"timestamp": time.Now(),
 	})
 }
@@ -434,13 +434,13 @@ func (icm *IntegratedConfigManager) cloneConfig(config *Config) *Config {
 	}
 
 	return &Config{
-		App:         config.App,
-		Network:     config.Network,
-		Database:    config.Database,
-		Security:    config.Security,
+		App:           config.App,
+		Network:       config.Network,
+		Database:      config.Database,
+		Security:      config.Security,
 		Observability: config.Observability,
-		Business:    config.Business,
-		Storage:     config.Storage,
+		Business:      config.Business,
+		Storage:       config.Storage,
 	}
 }
 

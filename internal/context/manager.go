@@ -109,10 +109,10 @@ func (m *Manager) WithTimeout(parent context.Context, timeout time.Duration, ope
 
 // 便捷函数，使用默认Manager
 var (
-	FromRequest     = DefaultManager.FromRequest
-	ForServiceCall  = DefaultManager.ForServiceCall
-	ForBackground   = DefaultManager.ForBackground
-	ForDatabase     = DefaultManager.ForDatabase
-	ForCache        = DefaultManager.ForCache
-	WithTimeout     = DefaultManager.WithTimeout
+	FromRequest    = DefaultManager.FromRequest
+	ForServiceCall = DefaultManager.ForServiceCall
+	ForBackground  = DefaultManager.ForBackground
+	ForDatabase    = DefaultManager.ForDatabase
+	ForCache       = DefaultManager.ForCache
+	WithTimeout    = DefaultManager.WithTimeout
 )

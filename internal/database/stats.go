@@ -7,26 +7,26 @@ import (
 
 // PoolStats 连接池统计信息
 type PoolStats struct {
-	MaxOpenConnections         int           `json:"max_open_connections"`
-	OpenConnections            int           `json:"open_connections"`
-	InUse                      int           `json:"in_use"`
-	Idle                       int           `json:"idle"`
-	WaitCount                  int64         `json:"wait_count"`
-	WaitDuration               time.Duration `json:"wait_duration"`
-	MaxIdleClosed              int64         `json:"max_idle_closed"`
-	MaxIdleTimeClosed          int64         `json:"max_idle_time_closed"`
-	MaxLifetimeClosed          int64         `json:"max_lifetime_closed"`
+	MaxOpenConnections int           `json:"max_open_connections"`
+	OpenConnections    int           `json:"open_connections"`
+	InUse              int           `json:"in_use"`
+	Idle               int           `json:"idle"`
+	WaitCount          int64         `json:"wait_count"`
+	WaitDuration       time.Duration `json:"wait_duration"`
+	MaxIdleClosed      int64         `json:"max_idle_closed"`
+	MaxIdleTimeClosed  int64         `json:"max_idle_time_closed"`
+	MaxLifetimeClosed  int64         `json:"max_lifetime_closed"`
 
 	// 健康检查统计
-	LastHealthCheckSuccess     time.Time `json:"last_health_check_success"`
-	LastHealthCheckFailure     time.Time `json:"last_health_check_failure"`
-	HealthCheckSuccessCount    int64     `json:"health_check_success_count"`
-	HealthCheckFailureCount    int64     `json:"health_check_failure_count"`
+	LastHealthCheckSuccess  time.Time `json:"last_health_check_success"`
+	LastHealthCheckFailure  time.Time `json:"last_health_check_failure"`
+	HealthCheckSuccessCount int64     `json:"health_check_success_count"`
+	HealthCheckFailureCount int64     `json:"health_check_failure_count"`
 
 	// 重试和操作统计
-	RetryCount                 int64     `json:"retry_count"`
-	SuccessCount               int64     `json:"success_count"`
-	FailureCount               int64     `json:"failure_count"`
+	RetryCount   int64 `json:"retry_count"`
+	SuccessCount int64 `json:"success_count"`
+	FailureCount int64 `json:"failure_count"`
 }
 
 // Metrics 数据库指标
