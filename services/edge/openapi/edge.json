@@ -1,0 +1,481 @@
+{
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "schemes": [
+    "https"
+  ],
+  "swagger": "2.0",
+  "info": {
+    "title": "Croupier Edge API",
+    "version": "v1.0"
+  },
+  "basePath": "/",
+  "paths": {
+    "/api/v1/edge/health/{request_id}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "EdgeHealthHandler",
+        "operationId": "edgeEdgeHealthHandler",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "request_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "active_tunnels": {
+                  "type": "integer"
+                },
+                "connected_agents": {
+                  "type": "integer"
+                },
+                "load": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "number"
+                  }
+                },
+                "status": {
+                  "type": "string"
+                },
+                "timestamp": {
+                  "type": "string"
+                },
+                "uptime": {
+                  "type": "integer"
+                },
+                "version": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/edge/metrics": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "EdgeMetricsHandler",
+        "operationId": "edgeEdgeMetricsHandler",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "start",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "end",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "description": "system, tunnels, agents",
+            "name": "type",
+            "in": "query",
+            "allowEmptyValue": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "metrics": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/proxy/{tunnel_id}": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "ProxyHandler",
+        "operationId": "edgeProxyHandler",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "tunnel_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "method",
+                "path"
+              ],
+              "properties": {
+                "body": {
+                  "type": "string"
+                },
+                "headers": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "method": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "body": {
+                  "type": "string"
+                },
+                "headers": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "status": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tunnel": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "TunnelCreateHandler",
+        "operationId": "edgeTunnelCreateHandler",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "agent_id",
+                "server_id",
+                "protocol",
+                "remote_addr",
+                "local_addr"
+              ],
+              "properties": {
+                "agent_id": {
+                  "type": "string"
+                },
+                "local_addr": {
+                  "type": "string"
+                },
+                "options": {
+                  "type": "object",
+                  "additionalProperties": {}
+                },
+                "protocol": {
+                  "description": "http, grpc, ws",
+                  "type": "string"
+                },
+                "remote_addr": {
+                  "type": "string"
+                },
+                "server_id": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string"
+                },
+                "public_url": {
+                  "type": "string"
+                },
+                "success": {
+                  "type": "boolean"
+                },
+                "tunnel_id": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tunnel/{tunnel_id}": {
+      "delete": {
+        "consumes": [
+          "application/x-www-form-urlencoded"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "TunnelCloseHandler",
+        "operationId": "edgeTunnelCloseHandler",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "tunnel_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string"
+                },
+                "success": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tunnel/{tunnel_id}/status": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "TunnelStatusHandler",
+        "operationId": "edgeTunnelStatusHandler",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "tunnel_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "bytes_in": {
+                  "type": "integer"
+                },
+                "bytes_out": {
+                  "type": "integer"
+                },
+                "connections": {
+                  "type": "integer"
+                },
+                "created_at": {
+                  "type": "string"
+                },
+                "last_active": {
+                  "type": "string"
+                },
+                "local_addr": {
+                  "type": "string"
+                },
+                "protocol": {
+                  "type": "string"
+                },
+                "remote_addr": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "tunnel_id": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tunnels": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "TunnelListHandler",
+        "operationId": "edgeTunnelListHandler",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "agent_id",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "status",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "page",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "integer",
+            "name": "size",
+            "in": "query",
+            "allowEmptyValue": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "page": {
+                  "type": "integer"
+                },
+                "size": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
+                },
+                "tunnels": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "tunnel_id",
+                      "status",
+                      "protocol",
+                      "remote_addr",
+                      "local_addr",
+                      "connections",
+                      "bytes_in",
+                      "bytes_out",
+                      "created_at",
+                      "last_active"
+                    ],
+                    "properties": {
+                      "bytes_in": {
+                        "type": "integer"
+                      },
+                      "bytes_out": {
+                        "type": "integer"
+                      },
+                      "connections": {
+                        "type": "integer"
+                      },
+                      "created_at": {
+                        "type": "string"
+                      },
+                      "last_active": {
+                        "type": "string"
+                      },
+                      "local_addr": {
+                        "type": "string"
+                      },
+                      "protocol": {
+                        "type": "string"
+                      },
+                      "remote_addr": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "tunnel_id": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-date": "2025-11-23 09:14:43",
+  "x-description": "This is a goctl generated swagger file.",
+  "x-github": "https://github.com/zeromicro/go-zero",
+  "x-go-zero-doc": "https://go-zero.dev/",
+  "x-goctl-version": "1.9.2"
+}

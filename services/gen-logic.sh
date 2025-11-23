@@ -1,4 +1,15 @@
 #!/usr/bin/env bash
+#
+# 统一代码生成脚本
+# 为所有服务（server, agent, edge, ingest, demo）生成 Go 代码
+#
+# 配置文件：services/.goctl.yaml
+# 默认风格：go_zero（下划线分隔，符合 Go 官方规范）
+#
+# 使用方法：
+#   ./gen-logic.sh              # 使用默认 go_zero 风格
+#   ./gen-logic.sh --style gozero   # 指定其他风格
+#
 
 set -euo pipefail
 

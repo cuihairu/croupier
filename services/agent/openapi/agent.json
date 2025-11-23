@@ -1,0 +1,470 @@
+{
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "schemes": [
+    "https"
+  ],
+  "swagger": "2.0",
+  "info": {
+    "title": "Croupier Agent API",
+    "version": "v1.0"
+  },
+  "basePath": "/",
+  "paths": {
+    "/api/v1/agent/heartbeat": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "AgentHeartbeatHandler",
+        "operationId": "agentAgentHeartbeatHandler",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "agent_id",
+                "game_id",
+                "env",
+                "functions",
+                "status"
+              ],
+              "properties": {
+                "agent_id": {
+                  "type": "string"
+                },
+                "env": {
+                  "type": "string"
+                },
+                "functions": {
+                  "type": "integer"
+                },
+                "game_id": {
+                  "type": "string"
+                },
+                "metadata": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "next_heartbeat": {
+                  "type": "integer"
+                },
+                "success": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/register": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "AgentRegisterHandler",
+        "operationId": "agentAgentRegisterHandler",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "game_id",
+                "env",
+                "agent_id",
+                "rpc_addr",
+                "ip",
+                "type",
+                "version",
+                "functions"
+              ],
+              "properties": {
+                "agent_id": {
+                  "type": "string"
+                },
+                "env": {
+                  "type": "string"
+                },
+                "functions": {
+                  "type": "integer"
+                },
+                "game_id": {
+                  "type": "string"
+                },
+                "ip": {
+                  "type": "string"
+                },
+                "metadata": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "rpc_addr": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string"
+                },
+                "success": {
+                  "type": "boolean"
+                },
+                "token": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/{agent_id}/health": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "AgentHealthHandler",
+        "operationId": "agentAgentHealthHandler",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "agent_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "active_jobs": {
+                  "type": "integer"
+                },
+                "cpu_usage": {
+                  "type": "number"
+                },
+                "functions": {
+                  "type": "integer"
+                },
+                "memory_usage": {
+                  "type": "integer"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "uptime": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/{agent_id}/metrics": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "AgentMetricsHandler",
+        "operationId": "agentAgentMetricsHandler",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "agent_id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "name": "start",
+            "in": "query",
+            "allowEmptyValue": true
+          },
+          {
+            "type": "string",
+            "name": "end",
+            "in": "query",
+            "allowEmptyValue": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "metrics": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/function/register": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "FunctionRegisterHandler",
+        "operationId": "agentFunctionRegisterHandler",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "game_id",
+                "env",
+                "function_id",
+                "descriptor"
+              ],
+              "properties": {
+                "descriptor": {
+                  "type": "object",
+                  "additionalProperties": {}
+                },
+                "env": {
+                  "type": "string"
+                },
+                "function_id": {
+                  "type": "string"
+                },
+                "game_id": {
+                  "type": "string"
+                },
+                "metadata": {
+                  "type": "object",
+                  "additionalProperties": {}
+                },
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string"
+                },
+                "success": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/job/execute": {
+      "post": {
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "JobExecuteHandler",
+        "operationId": "agentJobExecuteHandler",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": [
+                "job_id",
+                "function_id",
+                "game_id",
+                "env",
+                "inputs"
+              ],
+              "properties": {
+                "env": {
+                  "type": "string"
+                },
+                "function_id": {
+                  "type": "string"
+                },
+                "game_id": {
+                  "type": "string"
+                },
+                "inputs": {
+                  "type": "object",
+                  "additionalProperties": {}
+                },
+                "job_id": {
+                  "type": "string"
+                },
+                "options": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "job_id": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "success": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/job/{job_id}/status": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "https"
+        ],
+        "summary": "JobStatusHandler",
+        "operationId": "agentJobStatusHandler",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "job_id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "end_time": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "job_id": {
+                  "type": "string"
+                },
+                "progress": {
+                  "type": "integer"
+                },
+                "result": {
+                  "type": "object",
+                  "additionalProperties": {}
+                },
+                "start_time": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-date": "2025-11-23 09:14:42",
+  "x-description": "This is a goctl generated swagger file.",
+  "x-github": "https://github.com/zeromicro/go-zero",
+  "x-go-zero-doc": "https://go-zero.dev/",
+  "x-goctl-version": "1.9.2"
+}

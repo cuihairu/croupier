@@ -1,10 +1,10 @@
 Name: croupier-agent
 Host: 0.0.0.0
-Port: 8888
+Port: 18888
 
 # Server configuration
 Server:
-  Addr: localhost:8443
+  Addr: localhost:18443
   Insecure: false
   TLSCertFile: ""
   TLSKeyFile: ""

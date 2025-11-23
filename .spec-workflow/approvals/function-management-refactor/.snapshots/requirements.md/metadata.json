@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/function-management-refactor/requirements.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-11-21T15:29:45.243Z",
+      "trigger": "initial",
+      "approvalId": "approval_1763738985239_hsjpmg1ri",
+      "approvalTitle": "函数管理系统重构需求文档审批"
+    }
+  ]
+}
