@@ -372,12 +372,12 @@ graph LR
 
 ```bash
 # 登录获取 token（默认示例用户）
-curl -sS http://localhost:8080/api/auth/login \
+curl -sS http://localhost:8080/api/v1/auth/sessions \
   -H 'Content-Type: application/json' \
   -d '{"username":"admin","password":"admin123"}' | jq -r .token | tee /tmp/token
 
 # 查看当前用户
-curl -sS http://localhost:8080/api/auth/me \
+curl -sS http://localhost:8080/api/v1/users/current \
   -H "Authorization: Bearer $(cat /tmp/token)" | jq
 
 # 查看可用的函数描述符
@@ -502,8 +502,8 @@ croupier/
 ## 🔐 安全与权限
 
 ### 认证与授权（MVP）
-- 登录：POST `/api/auth/login`（Body: `{username,password}`）返回 `{token,user}`；前端保存 token 并通过 `Authorization: Bearer <token>` 访问 /api/*
-- 会话：GET `/api/auth/me` 返回 `{username,roles}`；未登录 401
+- 登录：POST `/api/v1/auth/sessions`（Body: `{username,password}`）返回 `{token,user}`；前端保存 token 并通过 `Authorization: Bearer <token>` 访问 /api/*
+- 会话：GET `/api/v1/users/current` 返回 `{username,roles}`；未登录 401
 - 权限：RBAC 支持函数级 + 作用域（例如 `game:<game_id>:function:<id>`、`game:<game_id>:*`、`*`）；支持基于 `role:<role>` 的规则
 
 ### 传输与身份
@@ -522,7 +522,7 @@ croupier/
   - 开发可使用 `./scripts/dev-certs.sh` 生成自签证书
   - 证书颁发建议 SPIFFE/SPIRE 或企业 CA，并定期轮换
 - 认证与前端
-  - 登录 `POST /api/auth/login` → 保存 token；前端请求自动附带 `Authorization: Bearer <token>`
+  - 登录 `POST /api/v1/auth/sessions` → 保存 token；前端请求自动附带 `Authorization: Bearer <token>`
   - 开发时 CORS 放开；生产建议反向代理或同域部署前端
 - 多游戏作用域
   - 后台添加 game_id/env（`/api/games`）后，Agent 才能注册成功（白名单 Gate）

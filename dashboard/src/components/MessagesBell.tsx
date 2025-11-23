@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Badge } from 'antd';
 import { BellOutlined } from '@ant-design/icons';
-import { unreadCount } from '@/services/croupier';
+import { openMessagesStream, unreadCount } from '@/services/croupier';
 import { history } from '@umijs/max';
 
 export default function MessagesBell() {
@@ -17,7 +17,7 @@ export default function MessagesBell() {
       try {
         const token = localStorage.getItem('token') || '';
         if (!token) return; // wait until token available
-        es = new EventSource(`/api/messages/stream?token=${encodeURIComponent(token)}`);
+        es = openMessagesStream();
         const onUnread = (ev: MessageEvent) => {
           try { const data = JSON.parse(ev.data || '{}'); if (typeof data.count === 'number') setCount(data.count); } catch {}
         };

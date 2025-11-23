@@ -5,6 +5,7 @@ import { UserOutlined, UploadOutlined } from '@ant-design/icons';
 import { useIntl } from '@umijs/max';
 import { getMessage } from '@/utils/antdApp';
 import { getMyProfile, updateMyProfile } from '@/services/croupier';
+import { apiUrl } from '@/utils/api';
 
 export default function AccountCenter() {
   const intl = useIntl();
@@ -53,7 +54,7 @@ export default function AccountCenter() {
               <Upload 
                 name="avatar" 
                 showUploadList={false}
-                action="/api/me/avatar"
+                action={apiUrl('/api/me/avatar')}
                 onChange={handleAvatarChange}
                 headers={{ Authorization: `Bearer ${localStorage.getItem('token')}` }}
               >
@@ -93,4 +94,3 @@ export default function AccountCenter() {
     </PageContainer>
   );
 }
-

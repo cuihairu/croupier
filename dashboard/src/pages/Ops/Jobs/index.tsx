@@ -3,7 +3,7 @@ import { Card, Table, Space, Tag, Button, Select, Input, App, Drawer, Typography
 import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { listOpsJobs, type OpsJob, listOpsFunctions } from '@/services/croupier/ops';
-import { cancelJob, fetchJobResult } from '@/services/croupier/functions';
+import { cancelJob, fetchJobResult, openJobEventSource } from '@/services/croupier/functions';
 const { Paragraph, Text } = Typography;
 
 export default function OpsJobsPage() {
@@ -34,7 +34,7 @@ export default function OpsJobsPage() {
     if (detail.state !== 'running') return;
     try { if (esRef.current) { esRef.current.close(); esRef.current = null; } } catch {}
     const id = detail.id;
-    const es = new EventSource(`/api/stream_job?id=${encodeURIComponent(id)}`);
+    const es = openJobEventSource(id);
     const push = (type: string, data: any) => {
       setStream(prev => [...prev, `${type}: ${typeof data==='string'?data:JSON.stringify(data)}`].slice(-200));
     };
@@ -128,7 +128,7 @@ export default function OpsJobsPage() {
                 try {
                   if (esRef.current) { esRef.current.close(); esRef.current = null; }
                 } catch {}
-                const es = new EventSource(`/api/stream_job?id=${encodeURIComponent(detail.id)}`);
+                const es = openJobEventSource(detail.id);
                 const push = (type: string, data: any) => setStream(prev => [...prev, `${type}: ${typeof data==='string'?data:JSON.stringify(data)}`].slice(-200));
                 es.onmessage = (ev)=> push('message', ev.data);
                 ['stdout','stderr','progress','log'].forEach(t => es.addEventListener(t, (ev: MessageEvent)=> push(t, (ev as any).data)));

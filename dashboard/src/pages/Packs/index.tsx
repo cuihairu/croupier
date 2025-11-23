@@ -5,6 +5,7 @@ import { getMessage } from '@/utils/antdApp';
 import GameSelector from '@/components/GameSelector';
 import { listPacks, reloadPacks } from '@/services/croupier';
 import { useModel } from '@umijs/max';
+import { apiUrl } from '@/utils/api';
 
 export default function PacksPage() {
   const [loading, setLoading] = useState(false);
@@ -51,7 +52,7 @@ export default function PacksPage() {
             <Button onClick={onReload} loading={loading}>Reload</Button>
           ) : null}
           {canExport ? (
-            <Button onClick={()=>{ window.location.href = '/api/packs/export'; }}>Export</Button>
+            <Button onClick={()=>{ window.location.href = apiUrl('/api/packs/export'); }}>Export</Button>
           ) : (
             exportAuthRequired ? (
               <Tooltip title="Server requires packs:export to download export"><span><Button disabled>Export</Button></span></Tooltip>

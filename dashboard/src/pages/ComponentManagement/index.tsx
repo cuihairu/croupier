@@ -17,8 +17,10 @@ import PackageCenter from './components/PackageCenter';
 import ExecutionMonitor from './components/ExecutionMonitor';
 import VirtualObjectManager from './components/VirtualObjectManager';
 import GameSelector from '@/components/GameSelector';
-import { reloadPacks } from '@/services/croupier/packs';
-import { createEntity } from '@/services/croupier/entities';
+import { reloadPacks, listPacks } from '@/services/croupier/packs';
+import { createEntity, listEntities } from '@/services/croupier/entities';
+import { fetchRegistry, listDescriptors } from '@/services/croupier';
+import { apiUrl } from '@/utils/api';
 
 const QUICK_ACTIONS = {
   importPack: {
@@ -102,52 +104,41 @@ export default function ComponentManagement() {
     }
     if (unauthorized) return;
 
-    const fetchJson = async (url: string) => {
-      const headers: Record<string, string> = {};
-      const token = localStorage.getItem('token');
-      const gid = localStorage.getItem('game_id');
-      const env = localStorage.getItem('env');
-      const isASCII = (s?: string | null) => !!s && /^[\x00-\x7F]*$/.test(s);
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      if (isASCII(gid)) headers['X-Game-ID'] = gid as string;
-      if (isASCII(env)) headers['X-Env'] = env as string;
-      const resp = await fetch(url, { credentials: 'include', headers });
-      if (resp.status === 401) {
-        if (!mounted.current) return null;
-        setUnauthorized(true);
-        if (refreshTimer.current) {
-          clearInterval(refreshTimer.current);
-        }
-        message.warning('未授权，已停止自动刷新组件统计');
-        return null;
-      }
-      if (!resp.ok) throw new Error(`request failed: ${resp.status}`);
-      return resp.json();
-    };
-
     try {
       const [descriptors, registry, packs, entities] = await Promise.all([
-        fetchJson('/api/descriptors').catch(() => ({})),
-        fetchJson('/api/registry').catch(() => ({})),
-        fetchJson('/api/packs/list').catch(() => ({})),
-        fetchJson('/api/entities').catch(() => ({}))
+        listDescriptors().catch(() => []),
+        fetchRegistry().catch(() => ({} as any)),
+        listPacks().catch(() => ({} as any)),
+        listEntities().catch(() => []),
       ]);
 
-      const entitiesCount = Array.isArray(entities)
-        ? entities.length
-        : (entities?.entities && Array.isArray(entities.entities) ? entities.entities.length : 0);
+      const entityCount = Array.isArray(entities) ? entities.length : 0;
+      const descriptorList = Array.isArray(descriptors) ? descriptors : [];
+      const packCount =
+        packs?.packages && Array.isArray(packs.packages) ? packs.packages.length : packs?.counts?.descriptors || 0;
+      const connectedAgents =
+        registry?.agents && Array.isArray(registry.agents)
+          ? registry.agents.filter((a: any) => a?.connected).length
+          : 0;
 
       setStats({
-        totalFunctions: descriptors && typeof descriptors === 'object' ? Object.keys(descriptors).length : 0,
-        activeFunctions: descriptors && typeof descriptors === 'object' ? Object.values(descriptors).filter((d: any) => d?.enabled).length : 0,
+        totalFunctions: descriptorList.length,
+        activeFunctions: descriptorList.filter((d: any) => d?.enabled).length,
         runningJobs: 0, // TODO: 从job API获取
-        availablePackages: packs?.packages && Array.isArray(packs.packages) ? packs.packages.length : 0,
-        connectedAgents: registry?.agents && Array.isArray(registry.agents) ? registry.agents.filter((a: any) => a?.connected).length : 0,
-        virtualObjects: entitiesCount
+        availablePackages: packCount,
+        connectedAgents,
+        virtualObjects: entityCount,
       });
       if (!mounted.current) return;
       setInitError(null);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.response?.status === 401 || error?.status === 401) {
+        if (!mounted.current) return;
+        setUnauthorized(true);
+        if (refreshTimer.current) clearInterval(refreshTimer.current);
+        message.warning('未授权，已停止自动刷新组件统计');
+        return;
+      }
       console.error('Failed to load function stats:', error);
       if (!initError) setInitError('组件统计加载失败');
       // 如果网络完全失败，设置默认值
@@ -191,7 +182,7 @@ export default function ComponentManagement() {
         await loadStats();
       } else if (actionModal.key === 'exportConfig') {
         const link = document.createElement('a');
-        link.href = '/api/packs/export';
+        link.href = apiUrl('/api/packs/export');
         link.target = '_blank';
         link.rel = 'noopener';
         link.click();

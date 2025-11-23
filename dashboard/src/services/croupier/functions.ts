@@ -1,4 +1,5 @@
 import { request } from '@umijs/max';
+import { createEventSource } from '../core/http';
 
 export type FunctionDescriptor = {
   id: string;
@@ -51,4 +52,12 @@ export async function listFunctionInstances(params: { game_id?: string; function
     '/api/function_instances',
     { params },
   );
+}
+
+export async function fetchFunctionUiSchema(functionId: string) {
+  return request<{ uiSchema?: any; uischema?: any }>('/api/ui_schema', { params: { id: functionId } });
+}
+
+export function openJobEventSource(jobId: string) {
+  return createEventSource('/api/stream_job', { params: { id: jobId } });
 }

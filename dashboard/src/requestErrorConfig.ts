@@ -3,6 +3,7 @@ import type { RequestConfig } from '@umijs/max';
 import { history } from '@umijs/max';
 // Use App.useApp() instances (see app.tsx) to avoid AntD static message warnings
 import { getMessage, getNotification } from './utils/antdApp';
+import { normalizeApiUrl, API_V1_PREFIX } from './utils/api';
 
 // Defer message/notification to avoid calling during render (React 18 concurrent mode)
 function defer(fn: () => void) {
@@ -54,11 +55,12 @@ export const errorConfig: RequestConfig = {
     // 错误接收及处理
     errorHandler: (error: any, opts: any) => {
       if (opts?.skipErrorHandler) throw error;
-      const url: string | undefined = error?.response?.config?.url || error?.request?.url;
+      const rawUrl: string | undefined = error?.response?.config?.url || error?.request?.url;
+      const url = normalizeApiUrl(rawUrl);
       const status: number | undefined = error?.response?.status;
-      // Silence expected 401s during boot/login for auth/me and messages endpoints
+      // Silence expected 401s during boot/login for current-user + messages endpoints
       if (status === 401 && url) {
-        if (url.includes('/api/auth/me') || url.includes('/api/messages')) {
+        if (url.includes(`${API_V1_PREFIX}/users/current`) || url.includes(`${API_V1_PREFIX}/messages`)) {
           return;
         }
         // token 失效：跳转登录
@@ -137,7 +139,8 @@ export const errorConfig: RequestConfig = {
       // HTTP header values must be ASCII per XHR spec; skip if contains non-ASCII to avoid runtime error
       if (isASCII(gid)) headers['X-Game-ID'] = gid as string;
       if (isASCII(env)) headers['X-Env'] = env as string;
-      return { ...config, headers };
+      const nextUrl = typeof config.url === 'string' ? normalizeApiUrl(config.url) : config.url;
+      return { ...config, headers, url: nextUrl ?? config.url };
     },
   ],
 

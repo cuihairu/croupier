@@ -172,7 +172,7 @@ export default function access(initialState: { currentUser?: API.CurrentUser } |
 ```typescript
 export async function getInitialState() {
   const fetchUserInfo = async () => {
-    const me = await fetchMe();  // GET /api/auth/me
+    const me = await fetchMe();  // GET /api/users/current
     return {
       name: me.username,
       userid: me.username,
@@ -231,8 +231,8 @@ export default function AuditPage() {
 ### 5.2 API 服务层 (`src/services/croupier/index.ts`)
 
 所有后端调用:
-- `loginAuth(params)` → POST /api/auth/login
-- `fetchMe()` → GET /api/auth/me
+- `loginAuth(params)` → POST /api/auth/sessions
+- `fetchMe()` → GET /api/users/current
 - `listDescriptors()` → GET /api/descriptors
 - `invokeFunction(id, payload)` → POST /api/invoke
 - `startJob()` → POST /api/start_job
@@ -595,4 +595,3 @@ pnpm dev
 3. **权限审计**: 完整的权限变更日志
 4. **临时权限**: 支持时间限制的临时权限提升
 5. **权限预加载**: 优化初始状态加载
-

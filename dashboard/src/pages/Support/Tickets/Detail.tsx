@@ -3,7 +3,7 @@ import { Card, Space, Tag, Button, Descriptions, Divider, List, Input, Upload, M
 import { useParams, history, useModel } from '@umijs/max';
 import { uploadAsset } from '@/services/croupier/storage';
 import { getMessage } from '@/utils/antdApp';
-import { updateTicket, deleteTicket } from '@/services/croupier/support';
+import { updateTicket, deleteTicket, getTicket, listTicketComments, addTicketComment, transitionTicket } from '@/services/croupier/support';
 
 export default function TicketDetailPage() {
   const { id } = useParams() as any;
@@ -34,8 +34,7 @@ export default function TicketDetailPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const t = await fetch(`/api/support/tickets/${mid}`).then(r=> r.json());
-      const cm = await fetch(`/api/support/tickets/${mid}/comments`).then(r=> r.json());
+      const [t, cm] = await Promise.all([getTicket(mid), listTicketComments(mid)]);
       setTicket(t);
       setComments(cm.comments||[]);
     } finally { setLoading(false); }
@@ -45,14 +44,14 @@ export default function TicketDetailPage() {
   const submitComment = async () => {
     try {
       const attach = files.map((f:any)=> ({ name: f.name, url: f.url||f.response?.URL, key: f.response?.Key })).filter((x:any)=> x.url);
-      await fetch(`/api/support/tickets/${mid}/comments`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ content: cmt, attach: JSON.stringify(attach) }) });
+      await addTicketComment(mid, { content: cmt, attach: JSON.stringify(attach) });
       setCmt(''); setFiles([]); load();
     } catch (e:any) { getMessage()?.error(e?.message||'评论失败'); }
   };
 
   const doTransition = async () => {
     try {
-      await fetch(`/api/support/tickets/${mid}/transition`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ status: transStatus, comment: transComment }) });
+      await transitionTicket(mid, { status: transStatus, comment: transComment ? transComment : undefined });
       setTransOpen(false); setTransStatus(''); setTransComment(''); load();
     } catch (e:any) { getMessage()?.error(e?.message||'流转失败'); }
   };

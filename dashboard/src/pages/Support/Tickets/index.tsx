@@ -5,7 +5,7 @@ import type { MenuProps } from 'antd';
 import { listUsers } from '@/services/croupier';
 import { updateTicket as updateTicketAPI } from '@/services/croupier/support';
 import { history } from '@umijs/max';
-import { listTickets, createTicket, updateTicket, deleteTicket } from '@/services/croupier/support';
+import { listTickets, createTicket, updateTicket, deleteTicket, transitionTicket } from '@/services/croupier/support';
 import { useAccess } from '@umijs/max';
 
 export default function SupportTicketsPage() {
@@ -65,7 +65,7 @@ export default function SupportTicketsPage() {
   };
 
   const transition = async (rec:any, status:string) => {
-    await fetch(`/api/support/tickets/${rec.id}/transition`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ status }) });
+    await transitionTicket(rec.id, { status });
     load();
   };
 

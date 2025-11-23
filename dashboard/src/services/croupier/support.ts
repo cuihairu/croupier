@@ -17,6 +17,25 @@ export async function deleteTicket(id: number) {
   return request<void>(`/api/support/tickets/${id}`, { method: 'DELETE' });
 }
 
+export async function getTicket(id: string | number) {
+  return request<any>(`/api/support/tickets/${id}`);
+}
+
+export async function listTicketComments(id: string | number) {
+  return request<{ comments: any[] }>(`/api/support/tickets/${id}/comments`);
+}
+
+export async function addTicketComment(id: string | number, data: { content: string; attach?: any }) {
+  return request<void>(`/api/support/tickets/${id}/comments`, { method: 'POST', data });
+}
+
+export async function transitionTicket(
+  id: string | number,
+  data: { status?: string; comment?: string; attach?: any },
+) {
+  return request<void>(`/api/support/tickets/${id}/transition`, { method: 'POST', data });
+}
+
 // FAQ
 export async function listFAQ(params?: any) {
   return request<{ faq: any[] }>('/api/support/faq', { params });
@@ -47,4 +66,3 @@ export async function updateFeedback(id: number, data: any) {
 export async function deleteFeedback(id: number) {
   return request<void>(`/api/support/feedback/${id}`, { method: 'DELETE' });
 }
-

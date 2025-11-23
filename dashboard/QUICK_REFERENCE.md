@@ -143,8 +143,8 @@ import { FormattedMessage } from '@umijs/max';
 
 ```typescript
 // Auth
-loginAuth({ username, password })          // POST /api/auth/login
-fetchMe()                                    // GET /api/auth/me
+loginAuth({ username, password })          // POST /api/auth/sessions
+fetchMe()                                    // GET /api/users/current
 
 // Functions
 listDescriptors()                            // GET /api/descriptors
@@ -234,4 +234,3 @@ cd .. && go run ./cmd/server -c configs/server.example.yaml
 - [Ant Design 5 组件库](https://ant.design/components/overview-cn/)
 - [Ant Design Pro](https://procomponents.ant.design/)
 - [TypeScript 手册](https://www.typescriptlang.org/zh/docs/)
-

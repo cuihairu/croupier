@@ -1,4 +1,5 @@
 import { request } from '@umijs/max';
+import { createEventSource } from '../core/http';
 
 export type MessageItem = {
   id: number;
@@ -32,4 +33,8 @@ export async function markMessagesRead(ids: number[], options?: { broadcast_ids?
 // Admin only
 export async function sendMessage(body: { to_username?: string; to_user_id?: number; title: string; content: string; type?: string }) {
   return request<{ id: number }>('/api/messages', { method: 'POST', data: body });
+}
+
+export function openMessagesStream() {
+  return createEventSource('/api/messages/stream');
 }

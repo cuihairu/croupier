@@ -31,6 +31,7 @@ import {
   PlayCircleOutlined,
   PauseCircleOutlined
 } from '@ant-design/icons';
+import { apiUrl } from '@/utils/api';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -104,7 +105,7 @@ export default function VirtualObjectManager() {
   const loadEntities = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/entities', { credentials: 'include', headers: authHeaders() });
+      const response = await fetch(apiUrl('/api/entities'), { credentials: 'include', headers: authHeaders() });
       const data = await response.json();
 
       const list = Array.isArray(data) ? data : (Array.isArray((data as any)?.entities) ? (data as any).entities : null);
@@ -210,7 +211,7 @@ export default function VirtualObjectManager() {
 
   const loadFunctions = async () => {
     try {
-      const response = await fetch('/api/descriptors', { credentials: 'include', headers: authHeaders() });
+      const response = await fetch(apiUrl('/api/descriptors'), { credentials: 'include', headers: authHeaders() });
       const data = await response.json();
 
       if (!response.ok || !data || typeof data !== 'object') {
@@ -246,7 +247,7 @@ export default function VirtualObjectManager() {
         usageCount: 0
       };
 
-      const response = await fetch('/api/entities', {
+      const response = await fetch(apiUrl('/api/entities'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         credentials: 'include',
@@ -268,7 +269,7 @@ export default function VirtualObjectManager() {
 
   const handleDeleteEntity = async (entityId: string) => {
     try {
-      const response = await fetch(`/api/entities/${entityId}`, {
+      const response = await fetch(apiUrl(`/api/entities/${entityId}`), {
         method: 'DELETE',
         credentials: 'include',
         headers: authHeaders(),
@@ -287,7 +288,7 @@ export default function VirtualObjectManager() {
 
   const handleToggleStatus = async (entityId: string, enabled: boolean) => {
     try {
-      const response = await fetch(`/api/entities/${entityId}/status`, {
+      const response = await fetch(apiUrl(`/api/entities/${entityId}/status`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         credentials: 'include',

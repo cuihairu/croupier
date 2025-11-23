@@ -4,7 +4,7 @@ import FormRender from 'form-render';
 import { getMessage } from '@/utils/antdApp';
 import GameSelector from '@/components/GameSelector';
 import { renderXUIField, XUISchemaField } from '@/components/XUISchema';
-import { listDescriptors, listFunctionInstances, invokeFunction, startJob, cancelJob, FunctionDescriptor, fetchAssignments } from '@/services/croupier';
+import { listDescriptors, listFunctionInstances, invokeFunction, startJob, cancelJob, FunctionDescriptor, fetchAssignments, fetchFunctionUiSchema, openJobEventSource } from '@/services/croupier';
 import { getRenderer, registerBuiltins, loadPackPlugins } from '@/plugin/registry';
 import { applyTransform } from '@/plugin/transform';
 
@@ -371,11 +371,11 @@ export default function GmFunctionsPage() {
         setInstances(res.instances||[]);
       });
       // fetch UI schema (optional)
-      fetch(`/api/ui_schema?id=${encodeURIComponent(currentId)}`).then(async (resp)=>{
-        if (!resp.ok) return;
-        const json = await resp.json();
-        setUiSchema(json.uischema || json.uiSchema || { fields: {} });
-      }).catch(()=>{});
+      fetchFunctionUiSchema(currentId)
+        .then((json) => {
+          setUiSchema(json?.uischema || json?.uiSchema || { fields: {} });
+        })
+        .catch(() => {});
       // refresh assignments filter when scope changes
       if (gid) {
         fetchAssignments({ game_id: gid, env }).then((res)=>{
@@ -449,7 +449,7 @@ export default function GmFunctionsPage() {
       setLastOutput(undefined);
       // open SSE
       if (esRef.current) esRef.current.close();
-      const es = new EventSource(`/api/stream_job?id=${encodeURIComponent(res.job_id)}`);
+      const es = openJobEventSource(res.job_id);
       es.onmessage = (ev) => setEvents((prev) => [...prev, ev.data]);
       es.addEventListener('done', () => es.close());
       es.addEventListener('error', () => es.close());

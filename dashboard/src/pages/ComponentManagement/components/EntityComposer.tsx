@@ -9,6 +9,7 @@ import {
   ApartmentOutlined, SettingOutlined, SaveOutlined, PlayCircleOutlined,
   EyeOutlined, ArrowRightOutlined, ApiOutlined, CodeOutlined
 } from '@ant-design/icons';
+import { apiUrl } from '@/utils/api';
 
 const { Step } = Steps;
 const { TextArea } = Input;
@@ -140,7 +141,7 @@ export default function EntityComposer({ entity, visible, onSave, onCancel }: En
 
   const loadAvailableFunctions = async () => {
     try {
-      const response = await fetch('/api/descriptors', { credentials: 'include', headers: authHeaders() });
+      const response = await fetch(apiUrl('/api/descriptors'), { credentials: 'include', headers: authHeaders() });
       const data = await response.json();
 
       const functions: FunctionInfo[] = Object.entries(data || {}).map(([key, desc]: [string, any]) => ({
@@ -159,7 +160,7 @@ export default function EntityComposer({ entity, visible, onSave, onCancel }: En
 
   const loadAvailableEntities = async () => {
     try {
-      const response = await fetch('/api/entities', { credentials: 'include', headers: authHeaders() });
+      const response = await fetch(apiUrl('/api/entities'), { credentials: 'include', headers: authHeaders() });
       const data = await response.json();
       const list = Array.isArray(data) ? data : (Array.isArray(data?.entities) ? data.entities : []);
       setAvailableEntities(list.map((e: any) => e.id) || []);
