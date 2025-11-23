@@ -191,11 +191,15 @@ func TestEnhancedRepo_BulkCreate(t *testing.T) {
 	opts := &database.ListOptions{
 		Page:     1,
 		PageSize: 100,
+		Sort:     "id",
+		Order:    "asc",
 	}
 
 	result, err := repo.List(ctx, opts)
 	assert.NoError(t, err)
-	assert.Equal(t, int64(50), result.Pagination.Total)
+	if err == nil && result != nil {
+		assert.Equal(t, int64(50), result.Pagination.Total)
+	}
 }
 
 func TestEnhancedRepo_GetByName(t *testing.T) {

@@ -194,7 +194,8 @@ func (f *ErrorFactory) ServiceUnavailableError(operation, service string, cause 
 
 // GameNotFoundError 创建游戏未找到错误
 func (f *ErrorFactory) GameNotFoundError(operation, gameID string) *AppError {
-	return f.NotFoundError(operation, "Game", gameID)
+	details := fmt.Sprintf("Game with ID '%s' not found", gameID)
+	return f.NewWithDetails(ErrCodeGameNotFound, operation, details, nil)
 }
 
 // GameAlreadyExistError 创建游戏已存在错误

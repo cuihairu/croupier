@@ -109,7 +109,7 @@ func TestErrorFactory_RateLimitError(t *testing.T) {
 	assert.True(t, err.Retryable)
 	assert.Equal(t, window, err.RetryDelay)
 	assert.NotNil(t, err.HTTPHeaders)
-	assert.Equal(t, "Retry-After", err.HTTPHeaders["Retry-After"])
+	assert.Equal(t, window.String(), err.HTTPHeaders["Retry-After"])
 }
 
 func TestErrorFactory_DatabaseError(t *testing.T) {
@@ -197,11 +197,11 @@ func TestAppError_Error(t *testing.T) {
 
 	err := factory.New(ErrCodeInternal, "test-operation", errors.New("test cause"))
 
-	// 不带详细信息
-	expected := "[INTERNAL_ERROR] test-operation: Internal server error"
+	// ErrCodeInternal 有默认详情
+	expected := "[INTERNAL_ERROR] test-operation: Internal server error - An unexpected error occurred while processing your request"
 	assert.Equal(t, expected, err.Error())
 
-	// 带详细信息
+	// 覆盖详细信息
 	err.WithDetails("additional details")
 	expected = "[INTERNAL_ERROR] test-operation: Internal server error - additional details"
 	assert.Equal(t, expected, err.Error())

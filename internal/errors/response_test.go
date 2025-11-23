@@ -299,7 +299,7 @@ func TestErrorInfo_JsonMarshal(t *testing.T) {
 	assert.Equal(t, errorInfo.TraceID, unmarshaled.TraceID)
 	assert.Equal(t, errorInfo.Severity, unmarshaled.Severity)
 	assert.Equal(t, errorInfo.Retryable, unmarshaled.Retryable)
-	assert.Equal(t, 123, unmarshaled.Context["user_id"])
+	assert.Equal(t, float64(123), unmarshaled.Context["user_id"])
 }
 
 func TestAPIResponse_JsonMarshal(t *testing.T) {
