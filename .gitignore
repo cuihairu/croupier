@@ -62,6 +62,7 @@ dashboard/node_modules/.cache/
 dashboard/node_modules/.pnpm-store/
 dashboard/.umi/
 dashboard/src/.umi/
+dashboard/src/.umi-production/
 dashboard/dist/
 dashboard/build/
 dashboard/.next/

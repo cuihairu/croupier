@@ -4,22 +4,43 @@
 package svc
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 
+	"github.com/cuihairu/croupier/internal/auth/permission"
+	"github.com/cuihairu/croupier/internal/repo/gorm/users"
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/runtime"
+	"gorm.io/gorm"
 )
 
 type ServiceContext struct {
-	Config       config.Config
-	AdminManager *AdminManager
+	Config           config.Config
+	AdminManager     *AdminManager
+	DB               *gorm.DB
+	PermissionService  *permission.PermissionService
+	AdminRepository   *users.AdminRepository
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
-	// 创建管理员管理器
-	configDir := resolveBootstrapAuthDir(c)
+	// 初始化数据库连接
+	db, err := gorm.Open(c.Database.Driver, c.Database.DSN)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to connect to database: %v", err))
+	}
 
+	// 自动迁移数据库模型
+	if err := autoMigrate(db); err != nil {
+		panic(fmt.Sprintf("Failed to auto migrate database: %v", err))
+	}
+
+	// 创建服务
+	permissionService := permission.NewPermissionService(db)
+	adminRepository := users.NewAdminRepository(db)
+
+	// 创建管理员管理器（基于JSON文件）
+	configDir := resolveBootstrapAuthDir(c)
 	adminManager := NewAdminManager(configDir)
 	if err := adminManager.Initialize(); err != nil {
 		// 如果初始化失败，记录错误但不停止服务
@@ -28,9 +49,27 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	}
 
 	return &ServiceContext{
-		Config:       c,
-		AdminManager: adminManager,
+		Config:            c,
+		AdminManager:       adminManager,
+		DB:                db,
+		PermissionService:   permissionService,
+		AdminRepository:     adminRepository,
 	}
+}
+
+// autoMigrate runs all necessary database migrations
+func autoMigrate(db *gorm.DB) error {
+	// Import all model packages and run their AutoMigrate functions
+	if err := users.AutoMigrate(db); err != nil {
+		return fmt.Errorf("failed to migrate users models: %w", err)
+	}
+
+	// Add other model migrations here when they are created
+	// if err := players.AutoMigrate(db); err != nil {
+	//     return fmt.Errorf("failed to migrate players models: %w", err)
+	// }
+
+	return nil
 }
 
 func resolveBootstrapAuthDir(c config.Config) string {
