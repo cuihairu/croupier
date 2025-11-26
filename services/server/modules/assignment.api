@@ -43,3 +43,4 @@ service server {
 	@handler AssignmentsUpdateHandler
 	put / (AssignmentsUpdateRequest) returns (AssignmentsUpdateResponse)
 }
+

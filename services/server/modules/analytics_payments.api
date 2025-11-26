@@ -1,0 +1,141 @@
+// ============================================================================
+// ANALYTICS PAYMENTS 模块 API 定义 - 支付分析
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+// --- 支付分析概览 ---
+type PaymentsRequest {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type PaymentsMetrics {
+	Revenue        float64 `json:"revenue"`
+	Transactions   int     `json:"transactions"`
+	PayingUsers    int     `json:"payingUsers"`
+	ARPU           float64 `json:"arpu"`
+	ARPPU          float64 `json:"arppu"`
+	ConversionRate float64 `json:"conversionRate"`
+}
+
+type PaymentsResponse {
+	Metrics PaymentsMetrics `json:"metrics"`
+	Trends  interface{}     `json:"trends"`
+}
+
+// --- 支付摘要 ---
+type PaymentsSummaryRequest {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+	GroupBy   string `form:"groupBy,optional,default=day"` // day, week, month
+}
+
+type PaymentsSummary {
+	Date         string  `json:"date"`
+	Revenue      float64 `json:"revenue"`
+	Transactions int     `json:"transactions"`
+	Users        int     `json:"users"`
+}
+
+type PaymentsSummaryResponse {
+	Items []PaymentsSummary `json:"items"`
+}
+
+// --- 产品趋势 ---
+type PaymentsProductTrendRequest {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+	Limit     int    `form:"limit,optional,default=10"`
+}
+
+type ProductTrend {
+	ProductId   string  `json:"productId"`
+	ProductName string  `json:"productName"`
+	Revenue     float64 `json:"revenue"`
+	Sales       int     `json:"sales"`
+	Growth      float64 `json:"growth"`
+}
+
+type PaymentsProductTrendResponse {
+	Items []ProductTrend `json:"items"`
+}
+
+// --- 支付交易列表 ---
+type PaymentsTransactionsRequest {
+	Page      int    `form:"page,optional,default=1"`
+	PageSize  int    `form:"pageSize,optional,default=20"`
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	Status    string `form:"status,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type PaymentTransaction {
+	Id            string  `json:"id"`
+	UserId        string  `json:"userId"`
+	ProductId     string  `json:"productId"`
+	Amount        float64 `json:"amount"`
+	Currency      string  `json:"currency"`
+	Status        string  `json:"status"`
+	PaymentMethod string  `json:"paymentMethod"`
+	CreatedAt     string  `json:"createdAt"`
+}
+
+type PaymentsTransactionsResponse {
+	Items []PaymentTransaction `json:"items"`
+	Total int64                `json:"total"`
+	Page  int                  `json:"page"`
+	Size  int                  `json:"pageSize"`
+}
+
+// --- 支付数据采集 ---
+type PaymentsIngestRequest {
+	GameId       string      `json:"gameId"`
+	Env          string      `json:"env"`
+	Transactions interface{} `json:"transactions"`
+	Timestamp    string      `json:"timestamp,optional"`
+}
+
+type PaymentsIngestResponse {
+	Accepted int    `json:"accepted"`
+	Rejected int    `json:"rejected"`
+	BatchId  string `json:"batchId"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/analytics/payments
+	group:  analytics_payments
+)
+service server {
+	@doc "获取支付分析"
+	@handler PaymentsHandler
+	get / (PaymentsRequest) returns (PaymentsResponse)
+
+	@doc "获取支付摘要"
+	@handler PaymentsSummaryHandler
+	get /summary (PaymentsSummaryRequest) returns (PaymentsSummaryResponse)
+
+	@doc "获取产品趋势"
+	@handler PaymentsProductTrendHandler
+	get /product-trend (PaymentsProductTrendRequest) returns (PaymentsProductTrendResponse)
+
+	@doc "获取支付交易列表"
+	@handler PaymentsTransactionsHandler
+	get /transactions (PaymentsTransactionsRequest) returns (PaymentsTransactionsResponse)
+
+	@doc "采集支付数据"
+	@handler PaymentsIngestHandler
+	post /ingest (PaymentsIngestRequest) returns (PaymentsIngestResponse)
+}
+

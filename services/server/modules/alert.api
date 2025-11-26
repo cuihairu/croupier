@@ -1,0 +1,84 @@
+// ============================================================================
+// ALERT 模块 API 定义 - 告警和静默管理
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+type Alert {
+	Id        string      `json:"id"`
+	Type      string      `json:"type"`
+	Level     string      `json:"level"`
+	Message   string      `json:"message"`
+	Source    string      `json:"source"`
+	Status    string      `json:"status"`
+	Details   interface{} `json:"details"`
+	CreatedAt string      `json:"createdAt"`
+}
+
+// --- 告警列表 ---
+type AlertsListRequest {
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"pageSize,optional,default=20"`
+	Level    string `form:"level,optional"`
+	Status   string `form:"status,optional"`
+}
+
+type AlertsListResponse {
+	Items []Alert `json:"items"`
+	Total int64   `json:"total"`
+	Page  int     `json:"page"`
+	Size  int     `json:"pageSize"`
+}
+
+// --- 静默告警 ---
+type AlertSilenceRequest {
+	ID       string `path:"id"`
+	Duration int    `json:"duration"` // 分钟
+	Reason   string `json:"reason,optional"`
+}
+
+// --- 静默规则 ---
+type Silence {
+	Id        string      `json:"id"`
+	AlertType string      `json:"alertType"`
+	Matchers  interface{} `json:"matchers"`
+	StartAt   string      `json:"startAt"`
+	EndAt     string      `json:"endAt"`
+	CreatedBy string      `json:"createdBy"`
+}
+
+type SilencesListRequest {}
+
+type SilencesListResponse {
+	Items []Silence `json:"items"`
+}
+
+type SilenceDeleteRequest {
+	ID string `path:"id"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/alerts
+	group:  alert
+)
+service server {
+	@doc "获取告警列表"
+	@handler AlertsListHandler
+	get / (AlertsListRequest) returns (AlertsListResponse)
+
+	@doc "静默告警"
+	@handler AlertSilenceHandler
+	post /:id/silence (AlertSilenceRequest)
+
+	@doc "获取静默规则列表"
+	@handler SilencesListHandler
+	get /silences (SilencesListRequest) returns (SilencesListResponse)
+
+	@doc "删除静默规则"
+	@handler SilenceDeleteHandler
+	delete /silences/:id (SilenceDeleteRequest)
+}
+

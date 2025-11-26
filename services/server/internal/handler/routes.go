@@ -8,31 +8,42 @@ import (
 
 	admin "github.com/cuihairu/croupier/services/server/internal/handler/admin"
 	agent "github.com/cuihairu/croupier/services/server/internal/handler/agent"
-	analytics "github.com/cuihairu/croupier/services/server/internal/handler/analytics"
+	alert "github.com/cuihairu/croupier/services/server/internal/handler/alert"
+	analytics_behavior "github.com/cuihairu/croupier/services/server/internal/handler/analytics_behavior"
+	analytics_overview "github.com/cuihairu/croupier/services/server/internal/handler/analytics_overview"
+	analytics_payments "github.com/cuihairu/croupier/services/server/internal/handler/analytics_payments"
+	analytics_retention "github.com/cuihairu/croupier/services/server/internal/handler/analytics_retention"
 	approval "github.com/cuihairu/croupier/services/server/internal/handler/approval"
 	assignment "github.com/cuihairu/croupier/services/server/internal/handler/assignment"
 	audit "github.com/cuihairu/croupier/services/server/internal/handler/audit"
 	auth "github.com/cuihairu/croupier/services/server/internal/handler/auth"
+	backup "github.com/cuihairu/croupier/services/server/internal/handler/backup"
 	certificate "github.com/cuihairu/croupier/services/server/internal/handler/certificate"
 	component "github.com/cuihairu/croupier/services/server/internal/handler/component"
 	config "github.com/cuihairu/croupier/services/server/internal/handler/config"
 	entity "github.com/cuihairu/croupier/services/server/internal/handler/entity"
+	faq "github.com/cuihairu/croupier/services/server/internal/handler/faq"
+	feedback "github.com/cuihairu/croupier/services/server/internal/handler/feedback"
 	function "github.com/cuihairu/croupier/services/server/internal/handler/function"
 	game "github.com/cuihairu/croupier/services/server/internal/handler/game"
 	job "github.com/cuihairu/croupier/services/server/internal/handler/job"
-	me "github.com/cuihairu/croupier/services/server/internal/handler/me"
 	message "github.com/cuihairu/croupier/services/server/internal/handler/message"
 	meta "github.com/cuihairu/croupier/services/server/internal/handler/meta"
 	monitoring "github.com/cuihairu/croupier/services/server/internal/handler/monitoring"
+	node "github.com/cuihairu/croupier/services/server/internal/handler/node"
 	ops "github.com/cuihairu/croupier/services/server/internal/handler/ops"
 	pack "github.com/cuihairu/croupier/services/server/internal/handler/pack"
+	permission "github.com/cuihairu/croupier/services/server/internal/handler/permission"
+	player "github.com/cuihairu/croupier/services/server/internal/handler/player"
+	profile "github.com/cuihairu/croupier/services/server/internal/handler/profile"
 	provider "github.com/cuihairu/croupier/services/server/internal/handler/provider"
+	rate_limit "github.com/cuihairu/croupier/services/server/internal/handler/rate_limit"
 	role "github.com/cuihairu/croupier/services/server/internal/handler/role"
 	schema "github.com/cuihairu/croupier/services/server/internal/handler/schema"
 	storage "github.com/cuihairu/croupier/services/server/internal/handler/storage"
-	support "github.com/cuihairu/croupier/services/server/internal/handler/support"
-	user "github.com/cuihairu/croupier/services/server/internal/handler/user"
+	ticket "github.com/cuihairu/croupier/services/server/internal/handler/ticket"
 	xrender "github.com/cuihairu/croupier/services/server/internal/handler/xrender"
+	xrender_schema "github.com/cuihairu/croupier/services/server/internal/handler/xrender_schema"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
@@ -42,40 +53,40 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
-				// 获取函数权限
+				// 获取管理员列表
 				Method:  http.MethodGet,
-				Path:    "/function-permissions",
-				Handler: admin.AdminFunctionPermissionsGetHandler(serverCtx),
+				Path:    "/",
+				Handler: admin.AdminsListHandler(serverCtx),
 			},
 			{
-				// 更新函数权限
-				Method:  http.MethodPut,
-				Path:    "/function-permissions",
-				Handler: admin.AdminFunctionPermissionsUpdateHandler(serverCtx),
-			},
-			{
-				// 发布函数
+				// 创建管理员
 				Method:  http.MethodPost,
-				Path:    "/function-publish",
-				Handler: admin.AdminFunctionPublishHandler(serverCtx),
+				Path:    "/",
+				Handler: admin.AdminCreateHandler(serverCtx),
 			},
 			{
-				// 获取函数UI配置
+				// 获取管理员详情
 				Method:  http.MethodGet,
-				Path:    "/function-ui",
-				Handler: admin.AdminFunctionUiGetHandler(serverCtx),
+				Path:    "/:id",
+				Handler: admin.AdminDetailHandler(serverCtx),
 			},
 			{
-				// 更新函数UI配置
+				// 更新管理员
 				Method:  http.MethodPut,
-				Path:    "/function-ui",
-				Handler: admin.AdminFunctionUiUpdateHandler(serverCtx),
+				Path:    "/:id",
+				Handler: admin.AdminUpdateHandler(serverCtx),
 			},
 			{
-				// 获取待处理项
-				Method:  http.MethodGet,
-				Path:    "/pending",
-				Handler: admin.AdminPendingHandler(serverCtx),
+				// 删除管理员
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: admin.AdminDeleteHandler(serverCtx),
+			},
+			{
+				// 重置管理员密码
+				Method:  http.MethodPost,
+				Path:    "/:id/password-reset",
+				Handler: admin.AdminPasswordResetHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/admin"),
@@ -102,130 +113,178 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
+				// 获取告警列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: alert.AlertsListHandler(serverCtx),
+			},
+			{
+				// 静默告警
+				Method:  http.MethodPost,
+				Path:    "/:id/silence",
+				Handler: alert.AlertSilenceHandler(serverCtx),
+			},
+			{
+				// 获取静默规则列表
+				Method:  http.MethodGet,
+				Path:    "/silences",
+				Handler: alert.SilencesListHandler(serverCtx),
+			},
+			{
+				// 删除静默规则
+				Method:  http.MethodDelete,
+				Path:    "/silences/:id",
+				Handler: alert.SilenceDeleteHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/alerts"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
 				// 获取行为分析
 				Method:  http.MethodGet,
-				Path:    "/behavior",
-				Handler: analytics.AnalyticsBehaviorHandler(serverCtx),
+				Path:    "/",
+				Handler: analytics_behavior.BehaviorHandler(serverCtx),
 			},
 			{
 				// 获取功能采用率
 				Method:  http.MethodGet,
-				Path:    "/behavior/adoption",
-				Handler: analytics.AnalyticsBehaviorAdoptionHandler(serverCtx),
+				Path:    "/adoption",
+				Handler: analytics_behavior.BehaviorAdoptionHandler(serverCtx),
 			},
 			{
-				// 获取功能采用率明细
+				// 获取采用率明细
 				Method:  http.MethodGet,
-				Path:    "/behavior/adoption/breakdown",
-				Handler: analytics.AnalyticsBehaviorAdoptionBreakdownHandler(serverCtx),
+				Path:    "/adoption/breakdown",
+				Handler: analytics_behavior.BehaviorAdoptionBreakdownHandler(serverCtx),
 			},
 			{
 				// 获取行为事件
 				Method:  http.MethodGet,
-				Path:    "/behavior/events",
-				Handler: analytics.AnalyticsBehaviorEventsHandler(serverCtx),
+				Path:    "/events",
+				Handler: analytics_behavior.BehaviorEventsHandler(serverCtx),
 			},
 			{
 				// 获取行为漏斗
-				Method:  http.MethodGet,
-				Path:    "/behavior/funnel",
-				Handler: analytics.AnalyticsBehaviorFunnelHandler(serverCtx),
+				Method:  http.MethodPost,
+				Path:    "/funnel",
+				Handler: analytics_behavior.BehaviorFunnelHandler(serverCtx),
 			},
 			{
 				// 获取行为路径
 				Method:  http.MethodGet,
-				Path:    "/behavior/paths",
-				Handler: analytics.AnalyticsBehaviorPathsHandler(serverCtx),
+				Path:    "/paths",
+				Handler: analytics_behavior.BehaviorPathsHandler(serverCtx),
 			},
+		},
+		rest.WithPrefix("/api/v1/analytics/behavior"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
 			{
 				// 获取分析过滤器
 				Method:  http.MethodGet,
 				Path:    "/filters",
-				Handler: analytics.AnalyticsFiltersGetHandler(serverCtx),
+				Handler: analytics_overview.FiltersGetHandler(serverCtx),
 			},
 			{
 				// 更新分析过滤器
 				Method:  http.MethodPut,
 				Path:    "/filters",
-				Handler: analytics.AnalyticsFiltersUpdateHandler(serverCtx),
+				Handler: analytics_overview.FiltersUpdateHandler(serverCtx),
 			},
 			{
 				// 采集分析数据
 				Method:  http.MethodPost,
 				Path:    "/ingest",
-				Handler: analytics.AnalyticsIngestHandler(serverCtx),
-			},
-			{
-				// 获取等级分析
-				Method:  http.MethodGet,
-				Path:    "/levels",
-				Handler: analytics.AnalyticsLevelsHandler(serverCtx),
-			},
-			{
-				// 获取关卡分析
-				Method:  http.MethodGet,
-				Path:    "/levels/episodes",
-				Handler: analytics.AnalyticsLevelsEpisodesHandler(serverCtx),
-			},
-			{
-				// 获取地图分析
-				Method:  http.MethodGet,
-				Path:    "/levels/maps",
-				Handler: analytics.AnalyticsLevelsMapsHandler(serverCtx),
+				Handler: analytics_overview.IngestHandler(serverCtx),
 			},
 			{
 				// 获取分析概览
 				Method:  http.MethodGet,
 				Path:    "/overview",
-				Handler: analytics.AnalyticsOverviewHandler(serverCtx),
-			},
-			{
-				// 获取支付分析
-				Method:  http.MethodGet,
-				Path:    "/payments",
-				Handler: analytics.AnalyticsPaymentsHandler(serverCtx),
-			},
-			{
-				// 采集支付数据
-				Method:  http.MethodPost,
-				Path:    "/payments/ingest",
-				Handler: analytics.AnalyticsPaymentsIngestHandler(serverCtx),
-			},
-			{
-				// 获取产品趋势
-				Method:  http.MethodGet,
-				Path:    "/payments/product-trend",
-				Handler: analytics.AnalyticsPaymentsProductTrendHandler(serverCtx),
-			},
-			{
-				// 获取支付摘要
-				Method:  http.MethodGet,
-				Path:    "/payments/summary",
-				Handler: analytics.AnalyticsPaymentsSummaryHandler(serverCtx),
-			},
-			{
-				// 获取支付交易列表
-				Method:  http.MethodGet,
-				Path:    "/payments/transactions",
-				Handler: analytics.AnalyticsPaymentsTransactionsHandler(serverCtx),
+				Handler: analytics_overview.OverviewHandler(serverCtx),
 			},
 			{
 				// 获取实时数据
 				Method:  http.MethodGet,
 				Path:    "/realtime",
-				Handler: analytics.AnalyticsRealtimeHandler(serverCtx),
+				Handler: analytics_overview.RealtimeHandler(serverCtx),
 			},
 			{
 				// 获取实时序列数据
 				Method:  http.MethodGet,
 				Path:    "/realtime/series",
-				Handler: analytics.AnalyticsRealtimeSeriesHandler(serverCtx),
+				Handler: analytics_overview.RealtimeSeriesHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/analytics"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取支付分析
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: analytics_payments.PaymentsHandler(serverCtx),
+			},
+			{
+				// 采集支付数据
+				Method:  http.MethodPost,
+				Path:    "/ingest",
+				Handler: analytics_payments.PaymentsIngestHandler(serverCtx),
+			},
+			{
+				// 获取产品趋势
+				Method:  http.MethodGet,
+				Path:    "/product-trend",
+				Handler: analytics_payments.PaymentsProductTrendHandler(serverCtx),
+			},
+			{
+				// 获取支付摘要
+				Method:  http.MethodGet,
+				Path:    "/summary",
+				Handler: analytics_payments.PaymentsSummaryHandler(serverCtx),
+			},
+			{
+				// 获取支付交易列表
+				Method:  http.MethodGet,
+				Path:    "/transactions",
+				Handler: analytics_payments.PaymentsTransactionsHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/analytics/payments"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取关卡分析
+				Method:  http.MethodGet,
+				Path:    "/levels",
+				Handler: analytics_retention.LevelsHandler(serverCtx),
+			},
+			{
+				// 获取章节分析
+				Method:  http.MethodGet,
+				Path:    "/levels/episodes",
+				Handler: analytics_retention.LevelsEpisodesHandler(serverCtx),
+			},
+			{
+				// 获取地图分析
+				Method:  http.MethodGet,
+				Path:    "/levels/maps",
+				Handler: analytics_retention.LevelsMapsHandler(serverCtx),
 			},
 			{
 				// 获取留存分析
 				Method:  http.MethodGet,
 				Path:    "/retention",
-				Handler: analytics.AnalyticsRetentionHandler(serverCtx),
+				Handler: analytics_retention.RetentionHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/analytics"),
@@ -297,22 +356,46 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				// 用户登录
 				Method:  http.MethodPost,
 				Path:    "/login",
-				Handler: auth.AuthLoginHandler(serverCtx),
+				Handler: auth.LoginHandler(serverCtx),
 			},
 			{
 				// 用户登出
 				Method:  http.MethodPost,
 				Path:    "/logout",
-				Handler: auth.AuthLogoutHandler(serverCtx),
-			},
-			{
-				// 获取当前用户信息
-				Method:  http.MethodGet,
-				Path:    "/me",
-				Handler: auth.AuthMeHandler(serverCtx),
+				Handler: auth.LogoutHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/auth"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取备份列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: backup.BackupsListHandler(serverCtx),
+			},
+			{
+				// 创建备份
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: backup.BackupCreateHandler(serverCtx),
+			},
+			{
+				// 删除备份
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: backup.BackupDeleteHandler(serverCtx),
+			},
+			{
+				// 下载备份
+				Method:  http.MethodGet,
+				Path:    "/:id/download",
+				Handler: backup.BackupDownloadHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/backups"),
 	)
 
 	server.AddRoutes(
@@ -510,6 +593,78 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
+				// 获取FAQ列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: faq.FAQListHandler(serverCtx),
+			},
+			{
+				// 创建FAQ
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: faq.FAQCreateHandler(serverCtx),
+			},
+			{
+				// 更新FAQ
+				Method:  http.MethodPut,
+				Path:    "/:id",
+				Handler: faq.FAQUpdateHandler(serverCtx),
+			},
+			{
+				// 删除FAQ
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: faq.FAQDeleteHandler(serverCtx),
+			},
+			{
+				// 获取FAQ分类
+				Method:  http.MethodGet,
+				Path:    "/categories",
+				Handler: faq.FAQCategoriesHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/faqs"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取反馈列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: feedback.FeedbackListHandler(serverCtx),
+			},
+			{
+				// 创建反馈
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: feedback.FeedbackCreateHandler(serverCtx),
+			},
+			{
+				// 更新反馈
+				Method:  http.MethodPut,
+				Path:    "/:id",
+				Handler: feedback.FeedbackUpdateHandler(serverCtx),
+			},
+			{
+				// 删除反馈
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: feedback.FeedbackDeleteHandler(serverCtx),
+			},
+			{
+				// 获取反馈统计
+				Method:  http.MethodGet,
+				Path:    "/stats",
+				Handler: feedback.FeedbackStatsHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/feedback"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
 				// 获取函数列表
 				Method:  http.MethodGet,
 				Path:    "/",
@@ -546,10 +701,46 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: function.FunctionInvokeHandler(serverCtx),
 			},
 			{
-				// 获取函数描述符
+				// 获取函数权限
+				Method:  http.MethodGet,
+				Path:    "/:id/permissions",
+				Handler: function.FunctionPermissionsHandler(serverCtx),
+			},
+			{
+				// 更新函数权限
+				Method:  http.MethodPut,
+				Path:    "/:id/permissions",
+				Handler: function.FunctionPermissionsUpdateHandler(serverCtx),
+			},
+			{
+				// 发布函数
+				Method:  http.MethodPost,
+				Path:    "/:id/publish",
+				Handler: function.FunctionPublishHandler(serverCtx),
+			},
+			{
+				// 获取函数UI配置
+				Method:  http.MethodGet,
+				Path:    "/:id/ui",
+				Handler: function.FunctionUIHandler(serverCtx),
+			},
+			{
+				// 更新函数UI配置
+				Method:  http.MethodPut,
+				Path:    "/:id/ui",
+				Handler: function.FunctionUIUpdateHandler(serverCtx),
+			},
+			{
+				// 获取函数描述符列表
 				Method:  http.MethodGet,
 				Path:    "/descriptors",
 				Handler: function.DescriptorsHandler(serverCtx),
+			},
+			{
+				// 获取待处理函数
+				Method:  http.MethodGet,
+				Path:    "/pending",
+				Handler: function.FunctionsPendingHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/functions"),
@@ -648,36 +839,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
-				// 获取我的游戏
-				Method:  http.MethodGet,
-				Path:    "/games",
-				Handler: me.MeGamesHandler(serverCtx),
-			},
-			{
-				// 修改我的密码
-				Method:  http.MethodPut,
-				Path:    "/password",
-				Handler: me.MePasswordHandler(serverCtx),
-			},
-			{
-				// 获取我的资料
-				Method:  http.MethodGet,
-				Path:    "/profile",
-				Handler: me.MeProfileHandler(serverCtx),
-			},
-			{
-				// 更新我的资料
-				Method:  http.MethodPut,
-				Path:    "/profile",
-				Handler: me.MeProfileUpdateHandler(serverCtx),
-			},
-		},
-		rest.WithPrefix("/api/v1/me"),
-	)
-
-	server.AddRoutes(
-		[]rest.Route{
-			{
 				// 获取消息列表
 				Method:  http.MethodGet,
 				Path:    "/",
@@ -751,6 +912,54 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取节点列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: node.NodesListHandler(serverCtx),
+			},
+			{
+				// 排空节点
+				Method:  http.MethodPost,
+				Path:    "/:id/drain",
+				Handler: node.NodeDrainHandler(serverCtx),
+			},
+			{
+				// 获取节点元数据
+				Method:  http.MethodGet,
+				Path:    "/:id/meta",
+				Handler: node.NodeMetaHandler(serverCtx),
+			},
+			{
+				// 更新节点元数据
+				Method:  http.MethodPut,
+				Path:    "/:id/meta",
+				Handler: node.NodeMetaUpdateHandler(serverCtx),
+			},
+			{
+				// 重启节点
+				Method:  http.MethodPost,
+				Path:    "/:id/restart",
+				Handler: node.NodeRestartHandler(serverCtx),
+			},
+			{
+				// 取消排空节点
+				Method:  http.MethodPost,
+				Path:    "/:id/undrain",
+				Handler: node.NodeUndrainHandler(serverCtx),
+			},
+			{
+				// 获取节点命令
+				Method:  http.MethodGet,
+				Path:    "/commands",
+				Handler: node.NodeCommandsHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/nodes"),
 	)
 
 	server.AddRoutes(
@@ -894,30 +1103,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: ops.OpsNotificationsUpdateHandler(serverCtx),
 			},
 			{
-				// 获取限流规则
-				Method:  http.MethodGet,
-				Path:    "/rate-limits",
-				Handler: ops.OpsRateLimitsGetHandler(serverCtx),
-			},
-			{
-				// 更新限流规则
-				Method:  http.MethodPut,
-				Path:    "/rate-limits",
-				Handler: ops.OpsRateLimitsUpdateHandler(serverCtx),
-			},
-			{
-				// 删除限流规则
-				Method:  http.MethodDelete,
-				Path:    "/rate-limits/:id",
-				Handler: ops.OpsRateLimitsDeleteHandler(serverCtx),
-			},
-			{
-				// 预览限流规则
-				Method:  http.MethodGet,
-				Path:    "/rate-limits/preview",
-				Handler: ops.OpsRateLimitsPreviewHandler(serverCtx),
-			},
-			{
 				// 获取服务列表
 				Method:  http.MethodGet,
 				Path:    "/services",
@@ -972,6 +1157,102 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
+				// 获取权限列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: permission.PermissionsListHandler(serverCtx),
+			},
+			{
+				// 获取权限详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: permission.PermissionDetailHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/permissions"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取玩家列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: player.PlayersListHandler(serverCtx),
+			},
+			{
+				// 创建玩家
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: player.PlayerCreateHandler(serverCtx),
+			},
+			{
+				// 获取玩家详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: player.PlayerDetailHandler(serverCtx),
+			},
+			{
+				// 更新玩家信息
+				Method:  http.MethodPut,
+				Path:    "/:id",
+				Handler: player.PlayerUpdateHandler(serverCtx),
+			},
+			{
+				// 删除玩家
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: player.PlayerDeleteHandler(serverCtx),
+			},
+			{
+				// 调整玩家余额
+				Method:  http.MethodPost,
+				Path:    "/:id/balance",
+				Handler: player.PlayerBalanceHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/players"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取当前用户资料
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: profile.ProfileGetHandler(serverCtx),
+			},
+			{
+				// 更新当前用户资料
+				Method:  http.MethodPut,
+				Path:    "/",
+				Handler: profile.ProfileUpdateHandler(serverCtx),
+			},
+			{
+				// 获取我的游戏
+				Method:  http.MethodGet,
+				Path:    "/games",
+				Handler: profile.ProfileGamesHandler(serverCtx),
+			},
+			{
+				// 修改密码
+				Method:  http.MethodPut,
+				Path:    "/password",
+				Handler: profile.ProfilePasswordHandler(serverCtx),
+			},
+			{
+				// 获取当前用户权限
+				Method:  http.MethodGet,
+				Path:    "/permissions",
+				Handler: profile.ProfilePermissionsHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/profile"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
 				// 获取提供者列表
 				Method:  http.MethodGet,
 				Path:    "/",
@@ -1020,6 +1301,42 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
+				// 获取限流规则列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: rate_limit.RateLimitsListHandler(serverCtx),
+			},
+			{
+				// 创建/更新限流规则
+				Method:  http.MethodPut,
+				Path:    "/",
+				Handler: rate_limit.RateLimitUpsertHandler(serverCtx),
+			},
+			{
+				// 获取限流规则
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: rate_limit.RateLimitGetHandler(serverCtx),
+			},
+			{
+				// 删除限流规则
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: rate_limit.RateLimitDeleteHandler(serverCtx),
+			},
+			{
+				// 预览限流规则
+				Method:  http.MethodPost,
+				Path:    "/preview",
+				Handler: rate_limit.RateLimitPreviewHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/rate-limits"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
 				// 获取角色列表
 				Method:  http.MethodGet,
 				Path:    "/",
@@ -1048,12 +1365,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodDelete,
 				Path:    "/:id",
 				Handler: role.RoleDeleteHandler(serverCtx),
-			},
-			{
-				// 更新角色权限
-				Method:  http.MethodPut,
-				Path:    "/:id/permissions",
-				Handler: role.RolePermissionsUpdateHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/roles"),
@@ -1134,181 +1445,55 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
-				// 获取FAQ列表
-				Method:  http.MethodGet,
-				Path:    "/faq",
-				Handler: support.SupportFAQListHandler(serverCtx),
-			},
-			{
-				// 创建FAQ
-				Method:  http.MethodPost,
-				Path:    "/faq",
-				Handler: support.SupportFAQCreateHandler(serverCtx),
-			},
-			{
-				// 更新FAQ
-				Method:  http.MethodPut,
-				Path:    "/faq/:id",
-				Handler: support.SupportFAQUpdateHandler(serverCtx),
-			},
-			{
-				// 删除FAQ
-				Method:  http.MethodDelete,
-				Path:    "/faq/:id",
-				Handler: support.SupportFAQDeleteHandler(serverCtx),
-			},
-			{
-				// 获取反馈列表
-				Method:  http.MethodGet,
-				Path:    "/feedback",
-				Handler: support.SupportFeedbackListHandler(serverCtx),
-			},
-			{
-				// 创建反馈
-				Method:  http.MethodPost,
-				Path:    "/feedback",
-				Handler: support.SupportFeedbackCreateHandler(serverCtx),
-			},
-			{
-				// 更新反馈
-				Method:  http.MethodPut,
-				Path:    "/feedback/:id",
-				Handler: support.SupportFeedbackUpdateHandler(serverCtx),
-			},
-			{
-				// 删除反馈
-				Method:  http.MethodDelete,
-				Path:    "/feedback/:id",
-				Handler: support.SupportFeedbackDeleteHandler(serverCtx),
-			},
-			{
 				// 获取工单列表
 				Method:  http.MethodGet,
-				Path:    "/tickets",
-				Handler: support.SupportTicketsListHandler(serverCtx),
+				Path:    "/",
+				Handler: ticket.TicketsListHandler(serverCtx),
 			},
 			{
 				// 创建工单
 				Method:  http.MethodPost,
-				Path:    "/tickets",
-				Handler: support.SupportTicketCreateHandler(serverCtx),
+				Path:    "/",
+				Handler: ticket.TicketCreateHandler(serverCtx),
 			},
 			{
 				// 获取工单详情
 				Method:  http.MethodGet,
-				Path:    "/tickets/:id",
-				Handler: support.SupportTicketDetailHandler(serverCtx),
+				Path:    "/:id",
+				Handler: ticket.TicketDetailHandler(serverCtx),
 			},
 			{
 				// 更新工单
 				Method:  http.MethodPut,
-				Path:    "/tickets/:id",
-				Handler: support.SupportTicketUpdateHandler(serverCtx),
+				Path:    "/:id",
+				Handler: ticket.TicketUpdateHandler(serverCtx),
 			},
 			{
 				// 删除工单
 				Method:  http.MethodDelete,
-				Path:    "/tickets/:id",
-				Handler: support.SupportTicketDeleteHandler(serverCtx),
+				Path:    "/:id",
+				Handler: ticket.TicketDeleteHandler(serverCtx),
 			},
 			{
 				// 工单状态转换
 				Method:  http.MethodPost,
-				Path:    "/tickets/:id/transition",
-				Handler: support.SupportTicketTransitionHandler(serverCtx),
+				Path:    "/:id/transition",
+				Handler: ticket.TicketTransitionHandler(serverCtx),
 			},
 			{
 				// 获取工单评论
 				Method:  http.MethodGet,
-				Path:    "/tickets/:ticketId/comments",
-				Handler: support.SupportCommentsListHandler(serverCtx),
+				Path:    "/:ticketId/comments",
+				Handler: ticket.TicketCommentsHandler(serverCtx),
 			},
 			{
 				// 创建工单评论
 				Method:  http.MethodPost,
-				Path:    "/tickets/:ticketId/comments",
-				Handler: support.SupportCommentCreateHandler(serverCtx),
+				Path:    "/:ticketId/comments",
+				Handler: ticket.TicketCommentCreateHandler(serverCtx),
 			},
 		},
-		rest.WithPrefix("/api/v1/support"),
-	)
-
-	server.AddRoutes(
-		[]rest.Route{
-			{
-				// 获取用户列表
-				Method:  http.MethodGet,
-				Path:    "/",
-				Handler: user.UsersListHandler(serverCtx),
-			},
-			{
-				// 创建用户
-				Method:  http.MethodPost,
-				Path:    "/",
-				Handler: user.UserCreateHandler(serverCtx),
-			},
-			{
-				// 获取用户详情
-				Method:  http.MethodGet,
-				Path:    "/:id",
-				Handler: user.UserDetailHandler(serverCtx),
-			},
-			{
-				// 更新用户
-				Method:  http.MethodPut,
-				Path:    "/:id",
-				Handler: user.UserUpdateHandler(serverCtx),
-			},
-			{
-				// 删除用户
-				Method:  http.MethodDelete,
-				Path:    "/:id",
-				Handler: user.UserDeleteHandler(serverCtx),
-			},
-			{
-				// 获取用户游戏环境
-				Method:  http.MethodGet,
-				Path:    "/:id/game-envs",
-				Handler: user.UserGameEnvsHandler(serverCtx),
-			},
-			{
-				// 更新用户游戏环境
-				Method:  http.MethodPut,
-				Path:    "/:id/game-envs",
-				Handler: user.UserGameEnvsUpdateHandler(serverCtx),
-			},
-			{
-				// 获取用户游戏
-				Method:  http.MethodGet,
-				Path:    "/:id/games",
-				Handler: user.UserGamesHandler(serverCtx),
-			},
-			{
-				// 更新用户游戏
-				Method:  http.MethodPut,
-				Path:    "/:id/games",
-				Handler: user.UserGamesUpdateHandler(serverCtx),
-			},
-			{
-				// 重置用户密码
-				Method:  http.MethodPost,
-				Path:    "/:id/password-reset",
-				Handler: user.UserPasswordResetHandler(serverCtx),
-			},
-			{
-				// 获取用户资料
-				Method:  http.MethodGet,
-				Path:    "/:id/profile",
-				Handler: user.UserProfileHandler(serverCtx),
-			},
-			{
-				// 获取当前用户
-				Method:  http.MethodGet,
-				Path:    "/current",
-				Handler: user.UserCurrentHandler(serverCtx),
-			},
-		},
-		rest.WithPrefix("/api/v1/users"),
+		rest.WithPrefix("/api/v1/tickets"),
 	)
 
 	server.AddRoutes(
@@ -1347,9 +1532,9 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				// 获取UI模式
 				Method:  http.MethodGet,
 				Path:    "/ui-schema",
-				Handler: xrender.UiSchemaHandler(serverCtx),
+				Handler: xrender_schema.UiSchemaHandler(serverCtx),
 			},
 		},
-		rest.WithPrefix("/api/v1"),
+		rest.WithPrefix("/api/v1/xrender/schema"),
 	)
 }

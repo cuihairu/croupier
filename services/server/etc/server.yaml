@@ -27,6 +27,10 @@ Auth:
   UsersConfig: "configs/users.json"
   GamesConfig: "configs/games.json"
 
+# Bootstrap data (default JSON seeds)
+BootstrapData:
+  BaseDir: "configs"
+
 # Descriptors configuration
 Descriptors:
   Dir: "packs"

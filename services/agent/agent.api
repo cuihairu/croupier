@@ -5,7 +5,7 @@ info (
 	desc:    "go-zero migration of agent management APIs"
 	author:  "cuihairu"
 	email:   "chuihairu@gmail.com"
-	version: "v1.0"
+	version: "v0.1.0"
 )
 
 type (

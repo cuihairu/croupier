@@ -3,65 +3,82 @@
 
 package types
 
-type AdminFunctionPermissionsGetResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+type Admin struct {
+	Id        int64    `json:"id"`
+	Username  string   `json:"username"`
+	Nickname  string   `json:"nickname"`
+	Email     string   `json:"email"`
+	Phone     string   `json:"phone"`
+	Roles     []string `json:"roles"`
+	Status    int      `json:"status"` // 1:active 0:disabled
+	CreatedAt string   `json:"createdAt"`
+	UpdatedAt string   `json:"updatedAt"`
 }
 
-type AdminFunctionPermissionsUpdateRequest struct {
-	Fid         string      `json:"fid"`         // 函数ID
-	Permissions interface{} `json:"permissions"` // 权限配置
+type AdminCreateRequest struct {
+	Username string   `json:"username"`
+	Password string   `json:"password"`
+	Nickname string   `json:"nickname,optional"`
+	Email    string   `json:"email,optional"`
+	Phone    string   `json:"phone,optional"`
+	Roles    []string `json:"roles"`
 }
 
-type AdminFunctionPermissionsUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Ok      bool        `json:"ok,omitempty"`
-	Data    interface{} `json:"data,omitempty"`
+type AdminCreateResponse struct {
+	Admin
 }
 
-type AdminFunctionPublishResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Ok      bool        `json:"ok,omitempty"`
-	Data    interface{} `json:"data,omitempty"`
+type AdminDeleteRequest struct {
+	ID string `path:"id"`
 }
 
-type AdminFunctionRequest struct {
-	Fid string `form:"fid"` // 函数ID
+type AdminDeleteResponse struct {
+	Message string `json:"message"`
 }
 
-type AdminFunctionUIGetResponse struct {
-	Code       int         `json:"code"`
-	Message    string      `json:"message"`
-	FunctionId string      `json:"functionId,omitempty"`
-	UI         interface{} `json:"ui,omitempty"`
-	Data       interface{} `json:"data,omitempty"`
+type AdminDetailRequest struct {
+	ID string `path:"id"`
 }
 
-type AdminFunctionUIUpdateRequest struct {
-	Fid string      `json:"fid"` // 函数ID
-	UI  interface{} `json:"ui"`  // UI配置
+type AdminDetailResponse struct {
+	Admin
 }
 
-type AdminFunctionUIUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+type AdminPasswordResetRequest struct {
+	ID          string `path:"id"`
+	NewPassword string `json:"newPassword"`
 }
 
-type AdminPendingRequest struct {
+type AdminPasswordResetResponse struct {
+	Message string `json:"message"`
 }
 
-type AdminPendingResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+type AdminUpdateRequest struct {
+	ID       string   `path:"id"`
+	Nickname string   `json:"nickname,optional"`
+	Email    string   `json:"email,optional"`
+	Phone    string   `json:"phone,optional"`
+	Roles    []string `json:"roles,optional"`
+	Status   int      `json:"status,optional"`
 }
 
-type AdminPublishRequest struct {
-	Fid string `json:"fid"` // 函数ID
+type AdminUpdateResponse struct {
+	Admin
+}
+
+type AdminsListRequest struct {
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"pageSize,optional,default=20"`
+	Search   string `form:"search,optional"`
+	Role     string `form:"role,optional"`
+	Status   int    `form:"status,optional"`
+}
+
+type AdminsListResponse struct {
+	Items []Admin `json:"items"`
+	Total int64   `json:"total"`
+	Page  int     `json:"page"`
+	Size  int     `json:"pageSize"`
 }
 
 type AgentAnalyticsFiltersResponse struct {
@@ -79,270 +96,50 @@ type AgentMetaResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-type AnalyticsBehaviorAdoptionBreakdownRequest struct {
-	GameID  string `form:"gameId,optional"`
-	Env     string `form:"env,optional"`
-	Feature string `form:"feature,optional"`
+type Alert struct {
+	Id        string      `json:"id"`
+	Type      string      `json:"type"`
+	Level     string      `json:"level"`
+	Message   string      `json:"message"`
+	Source    string      `json:"source"`
+	Status    string      `json:"status"`
+	Details   interface{} `json:"details"`
+	CreatedAt string      `json:"createdAt"`
 }
 
-type AnalyticsBehaviorAdoptionBreakdownResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+type AlertSilenceRequest struct {
+	ID       string `path:"id"`
+	Duration int    `json:"duration"` // 分钟
+	Reason   string `json:"reason,optional"`
 }
 
-type AnalyticsBehaviorAdoptionRequest struct {
-	GameID string `form:"gameId,optional"`
-	Env    string `form:"env,optional"`
+type AlertsListRequest struct {
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"pageSize,optional,default=20"`
+	Level    string `form:"level,optional"`
+	Status   string `form:"status,optional"`
 }
 
-type AnalyticsBehaviorAdoptionResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+type AlertsListResponse struct {
+	Items []Alert `json:"items"`
+	Total int64   `json:"total"`
+	Page  int     `json:"page"`
+	Size  int     `json:"pageSize"`
 }
 
-type AnalyticsBehaviorEventsRequest struct {
-	GameID    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	EventType string `form:"eventType,optional"`
-}
-
-type AnalyticsBehaviorEventsResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AnalyticsBehaviorFunnelRequest struct {
-	GameID string   `form:"gameId,optional"`
-	Env    string   `form:"env,optional"`
-	Steps  []string `form:"steps,optional"`
-}
-
-type AnalyticsBehaviorFunnelResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AnalyticsBehaviorPathsRequest struct {
-	GameID string `form:"gameId,optional"`
-	Env    string `form:"env,optional"`
-}
-
-type AnalyticsBehaviorPathsResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AnalyticsBehaviorRequest struct {
-	GameID    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
-}
-
-type AnalyticsBehaviorResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AnalyticsFiltersGetRequest struct {
-	GameID string `form:"gameId,optional"`
-	Env    string `form:"env,optional"`
-}
-
-type AnalyticsFiltersGetResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+type AnalyticsFilters struct {
+	GameId  string      `json:"gameId"`
+	Filters interface{} `json:"filters"`
 }
 
 type AnalyticsFiltersQuery struct {
 }
 
-type AnalyticsFiltersUpdateRequest struct {
-	GameID          string   `json:"gameId"`
-	Env             string   `json:"env"`
-	Events          []string `json:"events,optional"`
-	PaymentsEnabled bool     `json:"paymentsEnabled,optional"`
-}
-
-type AnalyticsFiltersUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AnalyticsIngestRequest struct {
-	GameID string        `json:"gameId"`
-	Env    string        `json:"env"`
-	Events []interface{} `json:"events"`
-}
-
-type AnalyticsIngestResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AnalyticsLevelsEpisodesRequest struct {
-	GameID string `form:"gameId,optional"`
-	Env    string `form:"env,optional"`
-}
-
-type AnalyticsLevelsEpisodesResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AnalyticsLevelsMapsRequest struct {
-	GameID string `form:"gameId,optional"`
-	Env    string `form:"env,optional"`
-}
-
-type AnalyticsLevelsMapsResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AnalyticsLevelsRequest struct {
-	GameID string `form:"gameId,optional"`
-	Env    string `form:"env,optional"`
-}
-
-type AnalyticsLevelsResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AnalyticsOverviewRequest struct {
-	GameID    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
-}
-
-type AnalyticsOverviewResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AnalyticsPaymentsIngestRequest struct {
-	GameID       string        `json:"gameId"`
-	Env          string        `json:"env"`
-	Transactions []interface{} `json:"transactions"`
-}
-
-type AnalyticsPaymentsIngestResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AnalyticsPaymentsProductTrendRequest struct {
-	GameID    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	ProductID string `form:"productId,optional"`
-}
-
-type AnalyticsPaymentsProductTrendResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AnalyticsPaymentsRequest struct {
-	GameID    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
-}
-
-type AnalyticsPaymentsResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AnalyticsPaymentsSummaryRequest struct {
-	GameID string `form:"gameId,optional"`
-	Env    string `form:"env,optional"`
-}
-
-type AnalyticsPaymentsSummaryResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AnalyticsPaymentsTransactionsRequest struct {
-	GameID   string `form:"gameId,optional"`
-	Env      string `form:"env,optional"`
-	Page     int    `form:"page,optional"`
-	PageSize int    `form:"pageSize,optional"`
-}
-
-type AnalyticsPaymentsTransactionsResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
 type AnalyticsQuery struct {
-	GameID    string `form:"gameId,optional"`
+	GameId    string `form:"gameId,optional"`
 	Env       string `form:"env,optional"`
 	StartDate string `form:"startDate,optional"`
 	EndDate   string `form:"endDate,optional"`
-}
-
-type AnalyticsRealtimeRequest struct {
-	GameID string `form:"gameId,optional"`
-	Env    string `form:"env,optional"`
-}
-
-type AnalyticsRealtimeResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AnalyticsRealtimeSeriesRequest struct {
-	GameID   string `form:"gameId,optional"`
-	Env      string `form:"env,optional"`
-	Interval string `form:"interval,optional"`
-}
-
-type AnalyticsRealtimeSeriesResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AnalyticsResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AnalyticsRetentionRequest struct {
-	GameID    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
-}
-
-type AnalyticsRetentionResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
 }
 
 type ApprovalApproveRequest struct {
@@ -422,18 +219,126 @@ type AuditResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-type AuthMeData struct {
-	Username string   `json:"username"`
-	Roles    []string `json:"roles"`
+type Backup struct {
+	Id        string `json:"id"`
+	Name      string `json:"name"`
+	Size      int64  `json:"size"`
+	Type      string `json:"type"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"createdAt"`
 }
 
-type AuthMeRequest struct {
+type BackupCreateRequest struct {
+	Name string `json:"name,optional"`
+	Type string `json:"type,optional"` // full, incremental
 }
 
-type AuthMeResponse struct {
-	Code    int        `json:"code"`
-	Message string     `json:"message"`
-	Data    AuthMeData `json:"data,omitempty"`
+type BackupDeleteRequest struct {
+	ID string `path:"id"`
+}
+
+type BackupDetailResponse struct {
+	Backup
+}
+
+type BackupDownloadRequest struct {
+	ID string `path:"id"`
+}
+
+type BackupsListRequest struct {
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"pageSize,optional,default=20"`
+	Type     string `form:"type,optional"`
+}
+
+type BackupsListResponse struct {
+	Items []Backup `json:"items"`
+	Total int64    `json:"total"`
+	Page  int      `json:"page"`
+	Size  int      `json:"pageSize"`
+}
+
+type BehaviorAdoptionBreakdownRequest struct {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	Feature   string `form:"feature"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type BehaviorAdoptionBreakdownResponse struct {
+	BySegment interface{} `json:"bySegment"`
+	ByTime    interface{} `json:"byTime"`
+}
+
+type BehaviorAdoptionRequest struct {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	Feature   string `form:"feature,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type BehaviorAdoptionResponse struct {
+	Features []FeatureAdoption `json:"features"`
+}
+
+type BehaviorEvent struct {
+	EventType string      `json:"eventType"`
+	UserId    string      `json:"userId"`
+	Data      interface{} `json:"data"`
+	Timestamp string      `json:"timestamp"`
+}
+
+type BehaviorEventsRequest struct {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	EventType string `form:"eventType,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+	Limit     int    `form:"limit,optional,default=100"`
+}
+
+type BehaviorEventsResponse struct {
+	Items []BehaviorEvent `json:"items"`
+	Total int64           `json:"total"`
+}
+
+type BehaviorFunnelRequest struct {
+	GameId    string   `form:"gameId,optional"`
+	Env       string   `form:"env,optional"`
+	Steps     []string `json:"steps"`
+	StartDate string   `form:"startDate,optional"`
+	EndDate   string   `form:"endDate,optional"`
+}
+
+type BehaviorFunnelResponse struct {
+	Steps []FunnelStep `json:"steps"`
+}
+
+type BehaviorPathsRequest struct {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+	Depth     int    `form:"depth,optional,default=5"`
+}
+
+type BehaviorPathsResponse struct {
+	Paths interface{} `json:"paths"`
+}
+
+type BehaviorRequest struct {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type BehaviorResponse struct {
+	TopActions interface{} `json:"topActions"`
+	UserFlows  interface{} `json:"userFlows"`
+	HeatMap    interface{} `json:"heatMap"`
 }
 
 type CertificateAddRequest struct {
@@ -550,6 +455,13 @@ type CertificatesListResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+type Comment struct {
+	Id        int64  `json:"id"`
+	Content   string `json:"content"`
+	Author    string `json:"author"`
+	CreatedAt string `json:"createdAt"`
+}
+
 type ComponentActionRequest struct {
 	ID string `path:"id"`
 }
@@ -647,14 +559,21 @@ type ConfigVersionsResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+type Descriptor struct {
+	Id          string      `json:"id"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	Category    string      `json:"category"`
+	Schema      interface{} `json:"schema"`
+}
+
 type DescriptorsRequest struct {
-	Type string `form:"type,optional"`
+	Type   string `form:"type,optional"`
+	GameId string `form:"gameId,optional"`
 }
 
 type DescriptorsResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Items []Descriptor `json:"items"`
 }
 
 type EntitiesListRequest struct {
@@ -732,8 +651,196 @@ type EntityValidateResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+type EpisodeMetrics struct {
+	EpisodeId      string  `json:"episodeId"`
+	Players        int     `json:"players"`
+	CompletionRate float64 `json:"completionRate"`
+	AvgProgress    float64 `json:"avgProgress"`
+}
+
+type FAQ struct {
+	Id        int64    `json:"id"`
+	Question  string   `json:"question"`
+	Answer    string   `json:"answer"`
+	Category  string   `json:"category"`
+	Tags      []string `json:"tags"`
+	Visible   bool     `json:"visible"`
+	Sort      int      `json:"sort"`
+	Views     int      `json:"views"`
+	CreatedAt string   `json:"createdAt"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
+type FAQCategoriesRequest struct {
+}
+
+type FAQCategoriesResponse struct {
+	Items []FAQCategory `json:"items"`
+}
+
+type FAQCategory struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
+type FAQCreateRequest struct {
+	Question string   `json:"question"`
+	Answer   string   `json:"answer"`
+	Category string   `json:"category"`
+	Tags     []string `json:"tags,optional"`
+	Visible  bool     `json:"visible,optional,default=true"`
+	Sort     int      `json:"sort,optional,default=0"`
+}
+
+type FAQDeleteRequest struct {
+	ID string `path:"id"`
+}
+
+type FAQDetailResponse struct {
+	FAQ
+}
+
+type FAQListRequest struct {
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"pageSize,optional,default=20"`
+	Category string `form:"category,optional"`
+	Keyword  string `form:"keyword,optional"`
+	Visible  bool   `form:"visible,optional"`
+}
+
+type FAQListResponse struct {
+	Items []FAQ `json:"items"`
+	Total int64 `json:"total"`
+	Page  int   `json:"page"`
+	Size  int   `json:"pageSize"`
+}
+
+type FAQUpdateRequest struct {
+	ID       string   `path:"id"`
+	Question string   `json:"question,optional"`
+	Answer   string   `json:"answer,optional"`
+	Category string   `json:"category,optional"`
+	Tags     []string `json:"tags,optional"`
+	Visible  bool     `json:"visible,optional"`
+	Sort     int      `json:"sort,optional"`
+}
+
+type FeatureAdoption struct {
+	Feature      string  `json:"feature"`
+	Users        int     `json:"users"`
+	AdoptionRate float64 `json:"adoptionRate"`
+	Frequency    float64 `json:"frequency"`
+}
+
+type Feedback struct {
+	Id        int64  `json:"id"`
+	PlayerId  string `json:"playerId"`
+	Contact   string `json:"contact"`
+	Content   string `json:"content"`
+	Category  string `json:"category"`
+	Priority  string `json:"priority"`
+	Status    string `json:"status"`
+	Rating    int    `json:"rating"` // 1-5星
+	Attach    string `json:"attach"` // 附件URL
+	GameId    string `json:"gameId"`
+	Env       string `json:"env"`
+	Reply     string `json:"reply"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+type FeedbackCreateRequest struct {
+	PlayerId string `json:"playerId,optional"`
+	Contact  string `json:"contact"`
+	Content  string `json:"content"`
+	Category string `json:"category"`
+	Rating   int    `json:"rating,optional"`
+	Attach   string `json:"attach,optional"`
+	GameId   string `json:"gameId,optional"`
+	Env      string `json:"env,optional"`
+}
+
+type FeedbackDeleteRequest struct {
+	ID string `path:"id"`
+}
+
+type FeedbackDetailResponse struct {
+	Feedback
+}
+
+type FeedbackListRequest struct {
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"pageSize,optional,default=20"`
+	Status   string `form:"status,optional"`
+	Category string `form:"category,optional"`
+	GameId   string `form:"gameId,optional"`
+}
+
+type FeedbackListResponse struct {
+	Items []Feedback `json:"items"`
+	Total int64      `json:"total"`
+	Page  int        `json:"page"`
+	Size  int        `json:"pageSize"`
+}
+
+type FeedbackStats struct {
+	Total        int            `json:"total"`
+	ByCategory   map[string]int `json:"byCategory"`
+	ByStatus     map[string]int `json:"byStatus"`
+	AvgRating    float64        `json:"avgRating"`
+	ResponseRate float64        `json:"responseRate"`
+}
+
+type FeedbackStatsRequest struct {
+	GameId string `form:"gameId,optional"`
+	Days   int    `form:"days,optional,default=7"`
+}
+
+type FeedbackStatsResponse struct {
+	FeedbackStats
+}
+
+type FeedbackUpdateRequest struct {
+	ID       string `path:"id"`
+	Status   string `json:"status,optional"`
+	Priority string `json:"priority,optional"`
+	Reply    string `json:"reply,optional"`
+}
+
+type FiltersGetRequest struct {
+	GameId string `form:"gameId,optional"`
+}
+
+type FiltersGetResponse struct {
+	Items []AnalyticsFilters `json:"items"`
+}
+
+type FiltersUpdateRequest struct {
+	GameId  string      `json:"gameId"`
+	Filters interface{} `json:"filters"`
+}
+
+type Function struct {
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+	GameId      string `json:"gameId"`
+	Status      int    `json:"status"`
+	Version     string `json:"version"`
+	Instances   int    `json:"instances"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
 type FunctionActionRequest struct {
 	ID string `path:"id"`
+}
+
+type FunctionDescriptor struct {
+	Input  interface{} `json:"input"`
+	Output interface{} `json:"output"`
+	Schema interface{} `json:"schema"`
 }
 
 type FunctionDetailRequest struct {
@@ -741,21 +848,15 @@ type FunctionDetailRequest struct {
 }
 
 type FunctionDetailResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Function
+	Descriptor FunctionDescriptor `json:"descriptor"`
 }
 
-type FunctionDisableResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type FunctionEnableResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+type FunctionInstance struct {
+	AgentId   string `json:"agentId"`
+	AgentName string `json:"agentName"`
+	Status    string `json:"status"`
+	UpdatedAt string `json:"updatedAt"`
 }
 
 type FunctionInstancesRequest struct {
@@ -763,9 +864,7 @@ type FunctionInstancesRequest struct {
 }
 
 type FunctionInstancesResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Items []FunctionInstance `json:"items"`
 }
 
 type FunctionInvokeRequest struct {
@@ -774,22 +873,82 @@ type FunctionInvokeRequest struct {
 }
 
 type FunctionInvokeResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	JobId  string      `json:"jobId"`
+	Result interface{} `json:"result,omitempty"`
+}
+
+type FunctionPermission struct {
+	Resource string   `json:"resource"`
+	Actions  []string `json:"actions"`
+	Roles    []string `json:"roles"`
+}
+
+type FunctionPermissionsRequest struct {
+	ID string `path:"id"`
+}
+
+type FunctionPermissionsResponse struct {
+	Items []FunctionPermission `json:"items"`
+}
+
+type FunctionPermissionsUpdateRequest struct {
+	ID          string               `path:"id"`
+	Permissions []FunctionPermission `json:"permissions"`
+}
+
+type FunctionPublishRequest struct {
+	ID string `path:"id"`
+}
+
+type FunctionPublishResponse struct {
+	ApprovalId string `json:"approvalId,omitempty"` // 如果需要审批
+	Published  bool   `json:"published"`
+}
+
+type FunctionUIRequest struct {
+	ID string `path:"id"`
+}
+
+type FunctionUIResponse struct {
+	Schema     interface{} `json:"schema"`
+	Layout     interface{} `json:"layout"`
+	Components interface{} `json:"components"`
+}
+
+type FunctionUIUpdateRequest struct {
+	ID         string      `path:"id"`
+	Schema     interface{} `json:"schema,optional"`
+	Layout     interface{} `json:"layout,optional"`
+	Components interface{} `json:"components,optional"`
 }
 
 type FunctionsListRequest struct {
-	Page     int    `form:"page,optional"`
-	PageSize int    `form:"pageSize,optional"`
-	GameID   string `form:"gameId,optional"`
-	Status   string `form:"status,optional"`
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"pageSize,optional,default=20"`
+	GameId   string `form:"gameId,optional"`
+	Category string `form:"category,optional"`
+	Status   int    `form:"status,optional"`
 }
 
 type FunctionsListResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Items []Function `json:"items"`
+	Total int64      `json:"total"`
+	Page  int        `json:"page"`
+	Size  int        `json:"pageSize"`
+}
+
+type FunctionsPendingRequest struct {
+}
+
+type FunctionsPendingResponse struct {
+	Items []PendingFunction `json:"items"`
+}
+
+type FunnelStep struct {
+	Step           string  `json:"step"`
+	Users          int     `json:"users"`
+	ConversionRate float64 `json:"conversionRate"`
+	DropOffRate    float64 `json:"dropOffRate"`
 }
 
 type GameCreateRequest struct {
@@ -936,6 +1095,19 @@ type HealthzResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+type IngestRequest struct {
+	GameId    string      `json:"gameId"`
+	Env       string      `json:"env"`
+	Events    interface{} `json:"events"`
+	Timestamp string      `json:"timestamp,optional"`
+}
+
+type IngestResponse struct {
+	Accepted int    `json:"accepted"`
+	Rejected int    `json:"rejected"`
+	BatchId  string `json:"batchId"`
+}
+
 type JobCancelRequest struct {
 	ID string `path:"id"` // 任务ID
 }
@@ -967,9 +1139,46 @@ type JobStartResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-type LoginData struct {
-	Token string   `json:"token"`
-	User  UserInfo `json:"user"`
+type LevelMetrics struct {
+	LevelId        string  `json:"levelId"`
+	Attempts       int     `json:"attempts"`
+	Completions    int     `json:"completions"`
+	CompletionRate float64 `json:"completionRate"`
+	AvgDuration    float64 `json:"avgDuration"`
+	AvgRetries     float64 `json:"avgRetries"`
+}
+
+type LevelsEpisodesRequest struct {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type LevelsEpisodesResponse struct {
+	Episodes []EpisodeMetrics `json:"episodes"`
+}
+
+type LevelsMapsRequest struct {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type LevelsMapsResponse struct {
+	Maps []MapMetrics `json:"maps"`
+}
+
+type LevelsRequest struct {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type LevelsResponse struct {
+	Levels []LevelMetrics `json:"levels"`
 }
 
 type LoginRequest struct {
@@ -978,59 +1187,20 @@ type LoginRequest struct {
 }
 
 type LoginResponse struct {
-	Code    int       `json:"code"`
-	Message string    `json:"message"`
-	Data    LoginData `json:"data,omitempty"` // 包含 token 和 user 信息
+	Token string   `json:"token"`
+	User  UserInfo `json:"user"`
 }
 
 type LogoutRequest struct {
 }
 
 type LogoutResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
 }
 
-type MeGamesRequest struct {
-}
-
-type MeGamesResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type MePasswordRequest struct {
-	OldPassword string `json:"oldPassword"`
-	NewPassword string `json:"newPassword"`
-}
-
-type MePasswordResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type MeProfileRequest struct {
-}
-
-type MeProfileResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type MeProfileUpdateRequest struct {
-	Name   string `json:"name,optional"`
-	Avatar string `json:"avatar,optional"`
-	Email  string `json:"email,optional"`
-}
-
-type MeProfileUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+type MapMetrics struct {
+	MapId      string      `json:"mapId"`
+	HeatMap    interface{} `json:"heatMap"`
+	DeathSpots interface{} `json:"deathSpots"`
 }
 
 type MessageDetailRequest struct {
@@ -1096,6 +1266,60 @@ type MetricsResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
+}
+
+type Node struct {
+	Id        string      `json:"id"`
+	Name      string      `json:"name"`
+	Type      string      `json:"type"` // server, agent, edge
+	Status    string      `json:"status"`
+	IP        string      `json:"ip"`
+	Port      int         `json:"port"`
+	Resources interface{} `json:"resources"`
+	UpdatedAt string      `json:"updatedAt"`
+}
+
+type NodeActionRequest struct {
+	ID string `path:"id"`
+}
+
+type NodeCommand struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type NodeCommandsRequest struct {
+}
+
+type NodeCommandsResponse struct {
+	Items []NodeCommand `json:"items"`
+}
+
+type NodeDrainRequest struct {
+	ID      string `path:"id"`
+	Timeout int    `json:"timeout,optional"` // 秒
+}
+
+type NodeMetaRequest struct {
+	ID string `path:"id"`
+}
+
+type NodeMetaResponse struct {
+	Meta interface{} `json:"meta"`
+}
+
+type NodeMetaUpdateRequest struct {
+	ID   string      `path:"id"`
+	Meta interface{} `json:"meta"`
+}
+
+type NodesListRequest struct {
+	Type   string `form:"type,optional"`
+	Status string `form:"status,optional"`
+}
+
+type NodesListResponse struct {
+	Items []Node `json:"items"`
 }
 
 type OpsAgentMetaResponse struct {
@@ -1322,33 +1546,6 @@ type OpsNotificationsUpdateResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-type OpsRateLimitsDeleteResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type OpsRateLimitsGetRequest struct {
-}
-
-type OpsRateLimitsGetResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type OpsRateLimitsPreviewResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type OpsRateLimitsUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
 type OpsServicesRequest struct {
 }
 
@@ -1371,6 +1568,25 @@ type OpsSilencesResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
+}
+
+type OverviewMetrics struct {
+	DAU        int     `json:"dau"`
+	MAU        int     `json:"mau"`
+	NewUsers   int     `json:"newUsers"`
+	Revenue    float64 `json:"revenue"`
+	ARPU       float64 `json:"arpu"`
+	ARPPU      float64 `json:"arppu"`
+	PayingRate float64 `json:"payingRate"`
+}
+
+type OverviewRequest struct {
+	AnalyticsQuery
+}
+
+type OverviewResponse struct {
+	Metrics OverviewMetrics `json:"metrics"`
+	Trends  interface{}     `json:"trends"`
 }
 
 type PacksExportRequest struct {
@@ -1410,6 +1626,292 @@ type PacksReloadResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
+}
+
+type PaymentTransaction struct {
+	Id            string  `json:"id"`
+	UserId        string  `json:"userId"`
+	ProductId     string  `json:"productId"`
+	Amount        float64 `json:"amount"`
+	Currency      string  `json:"currency"`
+	Status        string  `json:"status"`
+	PaymentMethod string  `json:"paymentMethod"`
+	CreatedAt     string  `json:"createdAt"`
+}
+
+type PaymentsIngestRequest struct {
+	GameId       string      `json:"gameId"`
+	Env          string      `json:"env"`
+	Transactions interface{} `json:"transactions"`
+	Timestamp    string      `json:"timestamp,optional"`
+}
+
+type PaymentsIngestResponse struct {
+	Accepted int    `json:"accepted"`
+	Rejected int    `json:"rejected"`
+	BatchId  string `json:"batchId"`
+}
+
+type PaymentsMetrics struct {
+	Revenue        float64 `json:"revenue"`
+	Transactions   int     `json:"transactions"`
+	PayingUsers    int     `json:"payingUsers"`
+	ARPU           float64 `json:"arpu"`
+	ARPPU          float64 `json:"arppu"`
+	ConversionRate float64 `json:"conversionRate"`
+}
+
+type PaymentsProductTrendRequest struct {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+	Limit     int    `form:"limit,optional,default=10"`
+}
+
+type PaymentsProductTrendResponse struct {
+	Items []ProductTrend `json:"items"`
+}
+
+type PaymentsRequest struct {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type PaymentsResponse struct {
+	Metrics PaymentsMetrics `json:"metrics"`
+	Trends  interface{}     `json:"trends"`
+}
+
+type PaymentsSummary struct {
+	Date         string  `json:"date"`
+	Revenue      float64 `json:"revenue"`
+	Transactions int     `json:"transactions"`
+	Users        int     `json:"users"`
+}
+
+type PaymentsSummaryRequest struct {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+	GroupBy   string `form:"groupBy,optional,default=day"` // day, week, month
+}
+
+type PaymentsSummaryResponse struct {
+	Items []PaymentsSummary `json:"items"`
+}
+
+type PaymentsTransactionsRequest struct {
+	Page      int    `form:"page,optional,default=1"`
+	PageSize  int    `form:"pageSize,optional,default=20"`
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	Status    string `form:"status,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type PaymentsTransactionsResponse struct {
+	Items []PaymentTransaction `json:"items"`
+	Total int64                `json:"total"`
+	Page  int                  `json:"page"`
+	Size  int                  `json:"pageSize"`
+}
+
+type PendingFunction struct {
+	Id        string `json:"id"`
+	Name      string `json:"name"`
+	Status    string `json:"status"`
+	Requester string `json:"requester"`
+	CreatedAt string `json:"createdAt"`
+}
+
+type Permission struct {
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Resource    string `json:"resource"`
+	Action      string `json:"action"`
+	Category    string `json:"category"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+type PermissionDetailRequest struct {
+	ID string `path:"id"`
+}
+
+type PermissionDetailResponse struct {
+	Permission
+}
+
+type PermissionsListRequest struct {
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"pageSize,optional,default=20"`
+	Category string `form:"category,optional"`
+	Resource string `form:"resource,optional"`
+}
+
+type PermissionsListResponse struct {
+	Items []Permission `json:"items"`
+	Total int64        `json:"total"`
+	Page  int          `json:"page"`
+	Size  int          `json:"pageSize"`
+}
+
+type Player struct {
+	Id        int64  `json:"id"`
+	Username  string `json:"username"`
+	Nickname  string `json:"nickname"`
+	Email     string `json:"email"`
+	Phone     string `json:"phone"`
+	GameId    string `json:"gameId"`
+	Status    int    `json:"status"`  // 1:active 0:banned 2:suspended
+	Balance   int64  `json:"balance"` // 游戏货币
+	Level     int    `json:"level"`
+	Vip       int    `json:"vip"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+type PlayerBalanceRequest struct {
+	ID     string `path:"id"`
+	Amount int64  `json:"amount"`
+	Reason string `json:"reason"`
+}
+
+type PlayerBalanceResponse struct {
+	Player
+}
+
+type PlayerCreateRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Nickname string `json:"nickname,optional"`
+	Email    string `json:"email,optional"`
+	Phone    string `json:"phone,optional"`
+	GameId   string `json:"gameId"`
+}
+
+type PlayerCreateResponse struct {
+	Player
+}
+
+type PlayerDeleteRequest struct {
+	ID string `path:"id"`
+}
+
+type PlayerDetailRequest struct {
+	ID string `path:"id"`
+}
+
+type PlayerDetailResponse struct {
+	Player
+}
+
+type PlayerUpdateRequest struct {
+	ID       string `path:"id"`
+	Nickname string `json:"nickname,optional"`
+	Email    string `json:"email,optional"`
+	Phone    string `json:"phone,optional"`
+	Status   int    `json:"status,optional"`
+	Level    int    `json:"level,optional"`
+	Vip      int    `json:"vip,optional"`
+}
+
+type PlayerUpdateResponse struct {
+	Player
+}
+
+type PlayersListRequest struct {
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"pageSize,optional,default=20"`
+	GameId   string `form:"gameId,optional"`
+	Search   string `form:"search,optional"`
+	Status   int    `form:"status,optional"`
+	Level    int    `form:"level,optional"`
+	Vip      int    `form:"vip,optional"`
+}
+
+type PlayersListResponse struct {
+	Items []Player `json:"items"`
+	Total int64    `json:"total"`
+	Page  int      `json:"page"`
+	Size  int      `json:"pageSize"`
+}
+
+type ProductTrend struct {
+	ProductId   string  `json:"productId"`
+	ProductName string  `json:"productName"`
+	Revenue     float64 `json:"revenue"`
+	Sales       int     `json:"sales"`
+	Growth      float64 `json:"growth"`
+}
+
+type ProfileGame struct {
+	GameId      string   `json:"gameId"`
+	GameName    string   `json:"gameName"`
+	Envs        []string `json:"envs"`
+	Permissions []string `json:"permissions"`
+}
+
+type ProfileGamesRequest struct {
+}
+
+type ProfileGamesResponse struct {
+	Games []ProfileGame `json:"games"`
+}
+
+type ProfileGetRequest struct {
+}
+
+type ProfileGetResponse struct {
+	ProfileInfo
+}
+
+type ProfileInfo struct {
+	Id        int64    `json:"id"`
+	Username  string   `json:"username"`
+	Nickname  string   `json:"nickname"`
+	Email     string   `json:"email"`
+	Phone     string   `json:"phone"`
+	Roles     []string `json:"roles"`
+	Avatar    string   `json:"avatar"`
+	CreatedAt string   `json:"createdAt"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
+type ProfilePasswordRequest struct {
+	OldPassword string `json:"oldPassword"`
+	NewPassword string `json:"newPassword"`
+}
+
+type ProfilePermission struct {
+	Resource string   `json:"resource"`
+	Actions  []string `json:"actions"`
+	GameId   string   `json:"gameId,omitempty"`
+	Env      string   `json:"env,omitempty"`
+}
+
+type ProfilePermissionsRequest struct {
+	GameId string `form:"gameId,optional"`
+	Env    string `form:"env,optional"`
+}
+
+type ProfilePermissionsResponse struct {
+	Permissions []ProfilePermission `json:"permissions"`
+	Admin       bool                `json:"admin"`
+	Roles       []string            `json:"roles"`
+}
+
+type ProfileUpdateRequest struct {
+	Nickname string `json:"nickname,optional"`
+	Email    string `json:"email,optional"`
+	Phone    string `json:"phone,optional"`
+	Avatar   string `json:"avatar,optional"`
 }
 
 type ProviderActionRequest struct {
@@ -1477,38 +1979,127 @@ type ProvidersListResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+type RateLimit struct {
+	Id        string      `json:"id"`
+	Name      string      `json:"name"`
+	Resource  string      `json:"resource"` // function, api, user
+	Limit     int         `json:"limit"`    // 每秒请求数
+	Window    int         `json:"window"`   // 时间窗口（秒）
+	Action    string      `json:"action"`   // reject, throttle
+	Rules     interface{} `json:"rules"`
+	Status    int         `json:"status"`
+	UpdatedAt string      `json:"updatedAt"`
+}
+
 type RateLimitDeleteRequest struct {
 	ID string `path:"id"`
 }
 
-type RateLimitPreviewQuery struct {
-	Rule string `form:"rule"`
+type RateLimitGetRequest struct {
+	ID string `path:"id"`
 }
 
-type RateLimitRulesRequest struct {
-	Rules []interface{} `json:"rules"`
+type RateLimitPreviewRequest struct {
+	Rules interface{} `json:"rules"`
+}
+
+type RateLimitPreviewResponse struct {
+	Matches interface{} `json:"matches"`
+	Impact  interface{} `json:"impact"`
+}
+
+type RateLimitResponse struct {
+	RateLimit
+}
+
+type RateLimitUpsertRequest struct {
+	Name     string      `json:"name"`
+	Resource string      `json:"resource"`
+	Limit    int         `json:"limit"`
+	Window   int         `json:"window"`
+	Action   string      `json:"action"`
+	Rules    interface{} `json:"rules,optional"`
+}
+
+type RateLimitsListRequest struct {
+	Resource string `form:"resource,optional"`
+}
+
+type RateLimitsListResponse struct {
+	Items []RateLimit `json:"items"`
+}
+
+type RealtimeMetrics struct {
+	OnlineUsers    int         `json:"onlineUsers"`
+	ActiveSessions int         `json:"activeSessions"`
+	QPS            float64     `json:"qps"`
+	AvgLatency     float64     `json:"avgLatency"`
+	ErrorRate      float64     `json:"errorRate"`
+	TopEvents      interface{} `json:"topEvents"`
+}
+
+type RealtimeRequest struct {
+	GameId string `form:"gameId,optional"`
+	Env    string `form:"env,optional"`
+}
+
+type RealtimeResponse struct {
+	RealtimeMetrics
+	Timestamp string `json:"timestamp"`
+}
+
+type RealtimeSeriesRequest struct {
+	GameId   string `form:"gameId,optional"`
+	Env      string `form:"env,optional"`
+	Interval string `form:"interval,optional,default=1m"` // 1m, 5m, 15m
+	Duration int    `form:"duration,optional,default=60"` // 分钟
+}
+
+type RealtimeSeriesResponse struct {
+	Series interface{} `json:"series"`
+}
+
+type RetentionCohort struct {
+	Cohort    string    `json:"cohort"`
+	Users     int       `json:"users"`
+	Retention []float64 `json:"retention"` // Day 1, 3, 7, 14, 30
+}
+
+type RetentionRequest struct {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	Cohort    string `form:"cohort,optional"` // daily, weekly, monthly
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type RetentionResponse struct {
+	Cohorts []RetentionCohort `json:"cohorts"`
+}
+
+type Role struct {
+	Id          int64    `json:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Category    string   `json:"category"`
+	Permissions []string `json:"permissions"`
+	CreatedAt   string   `json:"createdAt"`
+	UpdatedAt   string   `json:"updatedAt"`
 }
 
 type RoleCreateRequest struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description,optional"`
+	Category    string   `json:"category,optional"`
 	Permissions []string `json:"permissions,optional"`
 }
 
 type RoleCreateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Role
 }
 
 type RoleDeleteRequest struct {
 	ID string `path:"id"`
-}
-
-type RoleDeleteResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
 }
 
 type RoleDetailRequest struct {
@@ -1516,44 +2107,33 @@ type RoleDetailRequest struct {
 }
 
 type RoleDetailResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type RolePermissionsUpdateRequest struct {
-	ID          string   `path:"id"`
-	Permissions []string `json:"permissions"`
-}
-
-type RolePermissionsUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Role
 }
 
 type RoleUpdateRequest struct {
 	ID          string   `path:"id"`
 	Name        string   `json:"name,optional"`
 	Description string   `json:"description,optional"`
+	Category    string   `json:"category,optional"`
 	Permissions []string `json:"permissions,optional"`
 }
 
 type RoleUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Role
 }
 
 type RolesListRequest struct {
-	Page     int `form:"page,optional"`
-	PageSize int `form:"pageSize,optional"`
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"pageSize,optional,default=20"`
+	Category string `form:"category,optional"`
+	Search   string `form:"search,optional"`
 }
 
 type RolesListResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Items []Role `json:"items"`
+	Total int64  `json:"total"`
+	Page  int    `json:"page"`
+	Size  int    `json:"pageSize"`
 }
 
 type RootRequest struct {
@@ -1672,6 +2252,26 @@ type SignedUrlResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+type Silence struct {
+	Id        string      `json:"id"`
+	AlertType string      `json:"alertType"`
+	Matchers  interface{} `json:"matchers"`
+	StartAt   string      `json:"startAt"`
+	EndAt     string      `json:"endAt"`
+	CreatedBy string      `json:"createdBy"`
+}
+
+type SilenceDeleteRequest struct {
+	ID string `path:"id"`
+}
+
+type SilencesListRequest struct {
+}
+
+type SilencesListResponse struct {
+	Items []Silence `json:"items"`
+}
+
 type StatusRequest struct {
 }
 
@@ -1700,146 +2300,7 @@ type StreamMessagesResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-type SupportCommentCreateRequest struct {
-	TicketID string `path:"ticketId"`
-	Content  string `json:"content"`
-}
-
-type SupportCommentCreateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type SupportCommentsListRequest struct {
-	TicketID string `path:"ticketId"`
-	Page     int    `form:"page,optional"`
-	PageSize int    `form:"pageSize,optional"`
-}
-
-type SupportCommentsListResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type SupportFAQ struct {
-	Id        int64    `json:"id"`
-	Question  string   `json:"question"`
-	Answer    string   `json:"answer"`
-	Category  string   `json:"category"`
-	Tags      []string `json:"tags"`
-	Visible   bool     `json:"visible"`
-	Sort      int      `json:"sort"`
-	CreatedAt string   `json:"createdAt"`
-	UpdatedAt string   `json:"updatedAt"`
-}
-
-type SupportFAQCreateRequest struct {
-	Category string `json:"category"`
-	Question string `json:"question"`
-	Answer   string `json:"answer"`
-}
-
-type SupportFAQCreateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type SupportFAQDeleteRequest struct {
-	ID string `path:"id"`
-}
-
-type SupportFAQDeleteResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type SupportFAQListRequest struct {
-	Category string `form:"category,optional"`
-}
-
-type SupportFAQListResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type SupportFAQUpdateRequest struct {
-	ID       string `path:"id"`
-	Category string `json:"category,optional"`
-	Question string `json:"question,optional"`
-	Answer   string `json:"answer,optional"`
-}
-
-type SupportFAQUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type SupportFeedback struct {
-	Id        int64  `json:"id"`
-	PlayerId  string `json:"playerId"`
-	Contact   string `json:"contact"`
-	Content   string `json:"content"`
-	Category  string `json:"category"`
-	Priority  string `json:"priority"`
-	Status    string `json:"status"`
-	Attach    string `json:"attach"`
-	GameId    string `json:"gameId"`
-	Env       string `json:"env"`
-	CreatedAt string `json:"createdAt"`
-	UpdatedAt string `json:"updatedAt"`
-}
-
-type SupportFeedbackCreateRequest struct {
-	Type    string `json:"type"`
-	Content string `json:"content"`
-}
-
-type SupportFeedbackCreateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type SupportFeedbackDeleteRequest struct {
-	ID string `path:"id"`
-}
-
-type SupportFeedbackDeleteResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type SupportFeedbackListRequest struct {
-	Page     int `form:"page,optional"`
-	PageSize int `form:"pageSize,optional"`
-}
-
-type SupportFeedbackListResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type SupportFeedbackUpdateRequest struct {
-	ID      string `path:"id"`
-	Status  string `json:"status,optional"`
-	Comment string `json:"comment,optional"`
-}
-
-type SupportFeedbackUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type SupportTicket struct {
+type Ticket struct {
 	Id        int64    `json:"id"`
 	Title     string   `json:"title"`
 	Content   string   `json:"content"`
@@ -1857,70 +2318,74 @@ type SupportTicket struct {
 	UpdatedAt string   `json:"updatedAt"`
 }
 
-type SupportTicketCreateRequest struct {
-	Subject string `json:"subject"`
-	Content string `json:"content"`
+type TicketCommentCreateRequest struct {
+	TicketID string `path:"ticketId"`
+	Content  string `json:"content"`
 }
 
-type SupportTicketCreateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+type TicketCommentsRequest struct {
+	TicketID string `path:"ticketId"`
 }
 
-type SupportTicketDeleteRequest struct {
+type TicketCommentsResponse struct {
+	Items []Comment `json:"items"`
+}
+
+type TicketCreateRequest struct {
+	Title    string   `json:"title"`
+	Content  string   `json:"content"`
+	Category string   `json:"category"`
+	Priority string   `json:"priority,optional,default=medium"`
+	Tags     []string `json:"tags,optional"`
+	PlayerId string   `json:"playerId,optional"`
+	Contact  string   `json:"contact,optional"`
+	GameId   string   `json:"gameId,optional"`
+	Env      string   `json:"env,optional"`
+}
+
+type TicketDeleteRequest struct {
 	ID string `path:"id"`
 }
 
-type SupportTicketDeleteResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type SupportTicketDetailRequest struct {
+type TicketDetailRequest struct {
 	ID string `path:"id"`
 }
 
-type SupportTicketDetailResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+type TicketDetailResponse struct {
+	Ticket
+	Comments []Comment `json:"comments,omitempty"`
 }
 
-type SupportTicketTransitionRequest struct {
+type TicketTransitionRequest struct {
 	ID     string `path:"id"`
-	Status string `json:"status"`
+	Status string `json:"status"` // open, in_progress, resolved, closed
+	Note   string `json:"note,optional"`
 }
 
-type SupportTicketTransitionResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+type TicketUpdateRequest struct {
+	ID       string   `path:"id"`
+	Title    string   `json:"title,optional"`
+	Content  string   `json:"content,optional"`
+	Category string   `json:"category,optional"`
+	Priority string   `json:"priority,optional"`
+	Assignee string   `json:"assignee,optional"`
+	Tags     []string `json:"tags,optional"`
 }
 
-type SupportTicketUpdateRequest struct {
-	ID      string `path:"id"`
-	Subject string `json:"subject,optional"`
-	Content string `json:"content,optional"`
-}
-
-type SupportTicketUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type SupportTicketsListRequest struct {
-	Page     int    `form:"page,optional"`
-	PageSize int    `form:"pageSize,optional"`
+type TicketsListRequest struct {
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"pageSize,optional,default=20"`
 	Status   string `form:"status,optional"`
+	Category string `form:"category,optional"`
+	Priority string `form:"priority,optional"`
+	Assignee string `form:"assignee,optional"`
 }
 
-type SupportTicketsListResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+type TicketsListResponse struct {
+	Items []Ticket `json:"items"`
+	Total int64    `json:"total"`
+	Page  int      `json:"page"`
+	Size  int      `json:"pageSize"`
 }
 
 type UISchemaRequest struct {
@@ -1933,140 +2398,12 @@ type UISchemaResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-type UserCreateRequest struct {
-	Username string   `json:"username"`
-	Password string   `json:"password"`
-	Email    string   `json:"email,optional"`
-	Roles    []string `json:"roles,optional"`
-}
-
-type UserCreateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type UserCurrentRequest struct {
-}
-
-type UserCurrentResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type UserDeleteRequest struct {
-	ID string `path:"id"`
-}
-
-type UserDeleteResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type UserDetailRequest struct {
-	ID string `path:"id"`
-}
-
-type UserDetailResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type UserGameEnvsRequest struct {
-	ID string `path:"id"`
-}
-
-type UserGameEnvsResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type UserGameEnvsUpdateRequest struct {
-	ID       string   `path:"id"`
-	GameEnvs []string `json:"gameEnvs"`
-}
-
-type UserGameEnvsUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type UserGamesRequest struct {
-	ID string `path:"id"`
-}
-
-type UserGamesResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type UserGamesUpdateRequest struct {
-	ID    string   `path:"id"`
-	Games []string `json:"games"`
-}
-
-type UserGamesUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
 type UserInfo struct {
 	Username string   `json:"username"`
 	Roles    []string `json:"roles"`
-}
-
-type UserPasswordResetRequest struct {
-	ID string `path:"id"`
-}
-
-type UserPasswordResetResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type UserProfileRequest struct {
-	ID string `path:"id"`
-}
-
-type UserProfileResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type UserUpdateRequest struct {
-	ID       string   `path:"id"`
-	Username string   `json:"username,optional"`
-	Email    string   `json:"email,optional"`
-	Roles    []string `json:"roles,optional"`
-	Status   string   `json:"status,optional"`
-}
-
-type UserUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type UsersListRequest struct {
-	Page     int    `form:"page,optional"`
-	PageSize int    `form:"pageSize,optional"`
-	Search   string `form:"search,optional"`
-	Role     string `form:"role,optional"`
-}
-
-type UsersListResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Nickname string   `json:"nickname,omitempty"`
+	Email    string   `json:"email,omitempty"`
+	Phone    string   `json:"phone,omitempty"`
 }
 
 type XRenderComponentsRequest struct {

@@ -9,17 +9,18 @@ import (
 
 type Config struct {
 	rest.RestConf
-	Server      ServerConfig             `json:"server" yaml:"server"`
-	Registry    RegistryConfig           `json:"registry" yaml:"registry"`
-	Auth        AuthConfig               `json:"auth" yaml:"auth"`
-	Descriptors DescriptorConfig         `json:"descriptors" yaml:"descriptors"`
-	Components  ComponentsConfig         `json:"components" yaml:"components"`
-	Schemas     SchemasConfig            `json:"schemas" yaml:"schemas"`
-	Packs       PacksConfig              `json:"packs" yaml:"packs"`
-	Storage     StorageConfig            `json:"storage" yaml:"storage"`
-	CroupierLog CroupierLogConfig        `json:"croupier_log" yaml:"croupier_log"`
-	Metrics     MetricsConfig            `json:"metrics" yaml:"metrics"`
-	Profiles    map[string]ProfileConfig `json:"profiles" yaml:"profiles"`
+	Server        ServerConfig             `json:"server" yaml:"server"`
+	Registry      RegistryConfig           `json:"registry" yaml:"registry"`
+	Auth          AuthConfig               `json:"auth" yaml:"auth"`
+	BootstrapData BootstrapDataConfig      `json:"bootstrap_data" yaml:"bootstrap_data"`
+	Descriptors   DescriptorConfig         `json:"descriptors" yaml:"descriptors"`
+	Components    ComponentsConfig         `json:"components" yaml:"components"`
+	Schemas       SchemasConfig            `json:"schemas" yaml:"schemas"`
+	Packs         PacksConfig              `json:"packs" yaml:"packs"`
+	Storage       StorageConfig            `json:"storage" yaml:"storage"`
+	CroupierLog   CroupierLogConfig        `json:"croupier_log" yaml:"croupier_log"`
+	Metrics       MetricsConfig            `json:"metrics" yaml:"metrics"`
+	Profiles      map[string]ProfileConfig `json:"profiles" yaml:"profiles"`
 }
 
 type ServerConfig struct {
@@ -47,6 +48,10 @@ type AuthConfig struct {
 	RBACConfig  string `json:"rbac_config,optional" yaml:"rbac_config,optional"`
 	UsersConfig string `json:"users_config,optional" yaml:"users_config,optional"`
 	GamesConfig string `json:"games_config,optional" yaml:"games_config,optional"`
+}
+
+type BootstrapDataConfig struct {
+	BaseDir string `json:"base_dir,optional" yaml:"base_dir,optional"`
 }
 
 type DescriptorConfig struct {

@@ -152,3 +152,4 @@ service server {
 	@handler SchemaUiConfigUpdateHandler
 	put /:id/ui-config (SchemaUIConfigUpdateRequest) returns (SchemaUIConfigUpdateResponse)
 }
+

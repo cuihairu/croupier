@@ -1,0 +1,90 @@
+// ============================================================================
+// RATE_LIMIT 模块 API 定义 - 限流规则管理
+// ============================================================================
+
+// ============================================================================
+// 类型定义
+// ============================================================================
+type RateLimit {
+	Id       string      `json:"id"`
+	Name     string      `json:"name"`
+	Resource string      `json:"resource"` // function, api, user
+	Limit    int         `json:"limit"`    // 每秒请求数
+	Window   int         `json:"window"`   // 时间窗口（秒）
+	Action   string      `json:"action"`   // reject, throttle
+	Rules    interface{} `json:"rules"`
+	Status   int         `json:"status"`
+	UpdatedAt string      `json:"updatedAt"`
+}
+
+// --- 限流规则列表 ---
+type RateLimitsListRequest {
+	Resource string `form:"resource,optional"`
+}
+
+type RateLimitsListResponse {
+	Items []RateLimit `json:"items"`
+}
+
+// --- 获取限流规则 ---
+type RateLimitGetRequest {
+	ID string `path:"id"`
+}
+
+type RateLimitResponse {
+	RateLimit
+}
+
+// --- 创建/更新限流规则 ---
+type RateLimitUpsertRequest {
+	Name     string      `json:"name"`
+	Resource string      `json:"resource"`
+	Limit    int         `json:"limit"`
+	Window   int         `json:"window"`
+	Action   string      `json:"action"`
+	Rules    interface{} `json:"rules,optional"`
+}
+
+// --- 删除限流规则 ---
+type RateLimitDeleteRequest {
+	ID string `path:"id"`
+}
+
+// --- 预览限流规则 ---
+type RateLimitPreviewRequest {
+	Rules interface{} `json:"rules"`
+}
+
+type RateLimitPreviewResponse {
+	Matches interface{} `json:"matches"`
+	Impact  interface{} `json:"impact"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/rate-limits
+	group:  rate_limit
+)
+service server {
+	@doc "获取限流规则列表"
+	@handler RateLimitsListHandler
+	get / (RateLimitsListRequest) returns (RateLimitsListResponse)
+
+	@doc "获取限流规则"
+	@handler RateLimitGetHandler
+	get /:id (RateLimitGetRequest) returns (RateLimitResponse)
+
+	@doc "创建/更新限流规则"
+	@handler RateLimitUpsertHandler
+	put / (RateLimitUpsertRequest) returns (RateLimitResponse)
+
+	@doc "删除限流规则"
+	@handler RateLimitDeleteHandler
+	delete /:id (RateLimitDeleteRequest)
+
+	@doc "预览限流规则"
+	@handler RateLimitPreviewHandler
+	post /preview (RateLimitPreviewRequest) returns (RateLimitPreviewResponse)
+}

@@ -1,20 +1,10 @@
 // ============================================================================
-// AUTH 模块 API 定义
+// AUTH 模块 API 定义 - 身份认证（登录/登出）
 // ============================================================================
+
 // ============================================================================
 // 类型定义
 // ============================================================================
-// 用户信息
-type UserInfo {
-	Username string   `json:"username"`
-	Roles    []string `json:"roles"`
-}
-
-// 登录数据
-type LoginData {
-	Token string   `json:"token"`
-	User  UserInfo `json:"user"`
-}
 
 type LoginRequest {
 	Username string `json:"username"` // 用户名
@@ -22,31 +12,22 @@ type LoginRequest {
 }
 
 type LoginResponse {
-	Code    int       `json:"code"`
-	Message string    `json:"message"`
-	Data    LoginData `json:"data,omitempty"` // 包含 token 和 user 信息
+	Token string `json:"token"`
+	User  UserInfo `json:"user"`
 }
 
-type LogoutRequest {}
+type LogoutRequest {
+}
 
 type LogoutResponse {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
 }
 
-type AuthMeRequest {}
-
-// 当前用户信息数据
-type AuthMeData {
+type UserInfo {
 	Username string   `json:"username"`
 	Roles    []string `json:"roles"`
-}
-
-type AuthMeResponse {
-	Code    int        `json:"code"`
-	Message string     `json:"message"`
-	Data    AuthMeData `json:"data,omitempty"`
+	Nickname string   `json:"nickname,omitempty"`
+	Email    string   `json:"email,omitempty"`
+	Phone    string   `json:"phone,omitempty"`
 }
 
 // ============================================================================
@@ -57,16 +38,12 @@ type AuthMeResponse {
 	group:  auth
 )
 service server {
+	// === 身份认证 ===
 	@doc "用户登录"
-	@handler AuthLoginHandler
+	@handler LoginHandler
 	post /login (LoginRequest) returns (LoginResponse)
 
 	@doc "用户登出"
-	@handler AuthLogoutHandler
+	@handler LogoutHandler
 	post /logout (LogoutRequest) returns (LogoutResponse)
-
-	@doc "获取当前用户信息"
-	@handler AuthMeHandler
-	get /me (AuthMeRequest) returns (AuthMeResponse)
 }
-

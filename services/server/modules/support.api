@@ -4,7 +4,6 @@
 // ============================================================================
 // 类型定义
 // ============================================================================
-
 // --- 基础数据类型 ---
 type SupportTicket {
 	Id        int64    `json:"id"`
@@ -37,18 +36,18 @@ type SupportFAQ {
 }
 
 type SupportFeedback {
-	Id        int64    `json:"id"`
-	PlayerId  string   `json:"playerId"`
-	Contact   string   `json:"contact"`
-	Content   string   `json:"content"`
-	Category  string   `json:"category"`
-	Priority  string   `json:"priority"`
-	Status    string   `json:"status"`
-	Attach    string   `json:"attach"`
-	GameId    string   `json:"gameId"`
-	Env       string   `json:"env"`
-	CreatedAt string   `json:"createdAt"`
-	UpdatedAt string   `json:"updatedAt"`
+	Id        int64  `json:"id"`
+	PlayerId  string `json:"playerId"`
+	Contact   string `json:"contact"`
+	Content   string `json:"content"`
+	Category  string `json:"category"`
+	Priority  string `json:"priority"`
+	Status    string `json:"status"`
+	Attach    string `json:"attach"`
+	GameId    string `json:"gameId"`
+	Env       string `json:"env"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
 }
 
 // --- 工单列表 ---
@@ -321,3 +320,4 @@ service server {
 	@handler SupportFeedbackDeleteHandler
 	delete /feedback/:id (SupportFeedbackDeleteRequest) returns (SupportFeedbackDeleteResponse)
 }
+

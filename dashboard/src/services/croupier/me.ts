@@ -10,14 +10,13 @@ export type MeProfile = {
 };
 
 export async function getMyProfile() {
-  return request<MeProfile>('/api/me/profile');
+  return request<MeProfile>('/api/v1/profile');
 }
 
 export async function updateMyProfile(body: { display_name?: string; email?: string; phone?: string }) {
-  return request<void>('/api/me/profile', { method: 'PUT', data: body });
+  return request<void>('/api/v1/profile', { method: 'PUT', data: body });
 }
 
 export async function changeMyPassword(body: { current: string; password: string }) {
-  return request<void>('/api/me/password', { method: 'POST', data: body });
+  return request<void>('/api/v1/profile/password', { method: 'PUT', data: body });
 }
-

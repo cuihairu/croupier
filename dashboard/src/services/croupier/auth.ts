@@ -13,7 +13,7 @@ function unwrap<T>(resp: ApiResponse<T>): T {
 
 // RESTful: 登录，返回 token + 用户信息
 export async function createSession(params: { username: string; password: string }) {
-  const resp = await request<ApiResponse<{ token: string; user: { username: string; roles: string[] } }>>('/api/auth/login', { method: 'POST', data: params });
+  const resp = await request<ApiResponse<{ token: string; user: { username: string; roles: string[] } }>>('/api/v1/auth/login', { method: 'POST', data: params });
   return unwrap(resp);
 }
 
@@ -21,7 +21,7 @@ export async function createSession(params: { username: string; password: string
 export async function fetchCurrentUser() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   // Pass Authorization explicitly to avoid any interceptor timing issues
-  const resp = await request<ApiResponse<{ username: string; roles: string[] }>>('/api/users/current', {
+  const resp = await request<ApiResponse<{ username: string; roles: string[] }>>('/api/v1/profile', {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
   return unwrap(resp);
@@ -30,16 +30,16 @@ export async function fetchCurrentUser() {
 // RESTful: 获取当前用户资料
 export async function fetchCurrentUserProfile() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-  const resp = await request<ApiResponse<{ username: string; display_name: string; email: string; roles: string[] }>>('/api/users/current/profile', {
+  const resp = await request<ApiResponse<{ username: string; nickname: string; email: string; roles: string[] }>>('/api/v1/profile', {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
   return unwrap(resp);
 }
 
 // RESTful: 更新当前用户资料
-export async function updateCurrentUserProfile(params: { display_name?: string; email?: string; phone?: string }) {
+export async function updateCurrentUserProfile(params: { nickname?: string; email?: string; phone?: string }) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-  return request('/api/users/current/profile', {
+  return request('/api/v1/profile', {
     method: 'PUT',
     data: params,
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
@@ -47,19 +47,31 @@ export async function updateCurrentUserProfile(params: { display_name?: string; 
 }
 
 // RESTful: 修改当前用户密码
-export async function changeCurrentUserPassword(params: { old_password: string; new_password: string }) {
+export async function changeCurrentUserPassword(params: { oldPassword: string; newPassword: string }) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-  return request('/api/users/current/password', {
+  return request('/api/v1/profile/password', {
     method: 'PUT',
     data: params,
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
+// RESTful: 获取当前用户权限
+export async function fetchCurrentUserPermissions(params?: { gameId?: string; env?: string }) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+  const resp = await request<ApiResponse<{ permissions: any[]; admin: boolean; roles: string[] }>>('/api/v1/profile/permissions', {
+    method: 'GET',
+    params,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  return unwrap(resp);
+}
+
 // RESTful: 获取当前用户游戏权限
 export async function fetchCurrentUserGames() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-  const resp = await request<ApiResponse<{ games?: any[]; envs?: any[] }>>('/api/users/current/games', {
+  const resp = await request<ApiResponse<{ games: any[] }>>('/api/v1/profile/games', {
+    method: 'GET',
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
   return unwrap(resp);

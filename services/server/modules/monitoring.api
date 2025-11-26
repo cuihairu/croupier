@@ -51,3 +51,4 @@ service server {
 	@handler MetricsHandler
 	get /metrics (MetricsRequest) returns (MetricsResponse)
 }
+

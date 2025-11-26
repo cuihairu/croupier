@@ -122,3 +122,4 @@ service server {
 	@handler EntityValidateHandler
 	post /validate (EntityValidateRequest) returns (EntityValidateResponse)
 }
+

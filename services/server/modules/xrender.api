@@ -82,11 +82,12 @@ service server {
 
 // UI Schema 服务
 @server (
-	prefix: /api/v1
-	group:  xrender
+	prefix: /api/v1/xrender/schema
+	group:  xrender_schema
 )
 service server {
 	@doc "获取UI模式"
 	@handler UiSchemaHandler
 	get /ui-schema (UISchemaRequest) returns (UISchemaResponse)
 }
+

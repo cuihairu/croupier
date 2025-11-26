@@ -97,13 +97,13 @@ export async function getFunctionSummary(params?: {
   enabled?: boolean;
 }): Promise<FunctionSummary[]> {
   try {
-    const res = await request('/api/functions/summary', { params });
+    const res = await request('/api/v1/functions', { params });
     if (Array.isArray(res)) return res;
     if (res?.functions && Array.isArray(res.functions)) return res.functions;
     return [];
   } catch (error) {
     console.warn('Failed to fetch function summary, falling back to descriptors');
-    const descriptors = await request('/api/descriptors');
+    const descriptors = await request('/api/v1/functions/descriptors');
     return descriptors.map((desc: FunctionDescriptor) => ({
       id: desc.id,
       version: desc.version,
@@ -123,7 +123,7 @@ export async function getFunctionDetail(functionId: string, params?: {
   game_id?: string;
   env?: string;
 }): Promise<FunctionDescriptor & { instances?: FunctionInstance[]; metrics?: FunctionMetrics }> {
-  const res = await request(`/api/functions/${functionId}`, { params });
+  const res = await request(`/api/v1/functions/${functionId}`, { method: 'GET' });
   return res;
 }
 
@@ -141,7 +141,7 @@ export async function getFunctionCalls(params?: {
   limit?: number;
   offset?: number;
 }): Promise<{ calls: FunctionCallRecord[]; total: number; has_more: boolean }> {
-  const res = await request('/api/function_calls', { params });
+  const res = await request('/api/v1/function-calls', { params });
   return {
     calls: res.calls || [],
     total: res.total || 0,
@@ -153,21 +153,21 @@ export async function getFunctionCalls(params?: {
  * 获取单个调用详情
  */
 export async function getFunctionCall(callId: string): Promise<FunctionCallRecord> {
-  return request(`/api/function_calls/${callId}`);
+  return request(`/api/v1/function-calls/${callId}`, { method: 'GET' });
 }
 
 /**
  * 重新运行失败的调用
  */
 export async function rerunFunctionCall(callId: string): Promise<{ job_id: string }> {
-  return request(`/api/function_calls/${callId}/rerun`, { method: 'POST' });
+  return request(`/api/v1/function-calls/${callId}/rerun`, { method: 'POST' });
 }
 
 /**
  * 取消正在运行的调用
  */
 export async function cancelFunctionCall(callId: string): Promise<void> {
-  return request(`/api/function_calls/${callId}/cancel`, { method: 'POST' });
+  return request(`/api/v1/function-calls/${callId}/cancel`, { method: 'POST' });
 }
 
 /**
@@ -179,7 +179,7 @@ export async function getFunctionInstances(params?: {
   env?: string;
   status?: string;
 }): Promise<{ instances: FunctionInstance[]; total: number }> {
-  const res = await request('/api/function_instances', { params });
+  const res = await request('/api/v1/function-instances', { params });
   return {
     instances: res.instances || [],
     total: res.total || 0
@@ -193,7 +193,7 @@ export async function getCoverageAnalysis(params?: {
   game_id?: string;
   env?: string;
 }): Promise<CoverageAnalysis> {
-  return request('/api/coverage/analysis', { params });
+  return request('/api/v1/analytics/coverage', { params });
 }
 
 /**
@@ -204,7 +204,7 @@ export async function getRegistryServices(params?: {
   env?: string;
   status?: string;
 }): Promise<{ services: RegistryService[]; total: number }> {
-  const res = await request('/api/registry/services', { params });
+  const res = await request('/api/v1/registry/services', { params });
   return {
     services: res.services || [],
     total: res.total || 0

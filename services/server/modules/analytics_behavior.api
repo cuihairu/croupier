@@ -1,0 +1,142 @@
+// ============================================================================
+// ANALYTICS BEHAVIOR 模块 API 定义 - 用户行为分析
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+// --- 行为分析 ---
+type BehaviorRequest {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type BehaviorResponse {
+	TopActions interface{} `json:"topActions"`
+	UserFlows  interface{} `json:"userFlows"`
+	HeatMap    interface{} `json:"heatMap"`
+}
+
+// --- 行为事件 ---
+type BehaviorEventsRequest {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	EventType string `form:"eventType,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+	Limit     int    `form:"limit,optional,default=100"`
+}
+
+type BehaviorEvent {
+	EventType string      `json:"eventType"`
+	UserId    string      `json:"userId"`
+	Data      interface{} `json:"data"`
+	Timestamp string      `json:"timestamp"`
+}
+
+type BehaviorEventsResponse {
+	Items []BehaviorEvent `json:"items"`
+	Total int64           `json:"total"`
+}
+
+// --- 行为路径 ---
+type BehaviorPathsRequest {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+	Depth     int    `form:"depth,optional,default=5"`
+}
+
+type BehaviorPathsResponse {
+	Paths interface{} `json:"paths"`
+}
+
+// --- 行为漏斗 ---
+type BehaviorFunnelRequest {
+	GameId    string   `form:"gameId,optional"`
+	Env       string   `form:"env,optional"`
+	Steps     []string `json:"steps"`
+	StartDate string   `form:"startDate,optional"`
+	EndDate   string   `form:"endDate,optional"`
+}
+
+type FunnelStep {
+	Step           string  `json:"step"`
+	Users          int     `json:"users"`
+	ConversionRate float64 `json:"conversionRate"`
+	DropOffRate    float64 `json:"dropOffRate"`
+}
+
+type BehaviorFunnelResponse {
+	Steps []FunnelStep `json:"steps"`
+}
+
+// --- 功能采用率 ---
+type BehaviorAdoptionRequest {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	Feature   string `form:"feature,optional"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type FeatureAdoption {
+	Feature      string  `json:"feature"`
+	Users        int     `json:"users"`
+	AdoptionRate float64 `json:"adoptionRate"`
+	Frequency    float64 `json:"frequency"`
+}
+
+type BehaviorAdoptionResponse {
+	Features []FeatureAdoption `json:"features"`
+}
+
+// --- 采用率明细 ---
+type BehaviorAdoptionBreakdownRequest {
+	GameId    string `form:"gameId,optional"`
+	Env       string `form:"env,optional"`
+	Feature   string `form:"feature"`
+	StartDate string `form:"startDate,optional"`
+	EndDate   string `form:"endDate,optional"`
+}
+
+type BehaviorAdoptionBreakdownResponse {
+	BySegment interface{} `json:"bySegment"`
+	ByTime    interface{} `json:"byTime"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/analytics/behavior
+	group:  analytics_behavior
+)
+service server {
+	@doc "获取行为分析"
+	@handler BehaviorHandler
+	get / (BehaviorRequest) returns (BehaviorResponse)
+
+	@doc "获取行为事件"
+	@handler BehaviorEventsHandler
+	get /events (BehaviorEventsRequest) returns (BehaviorEventsResponse)
+
+	@doc "获取行为路径"
+	@handler BehaviorPathsHandler
+	get /paths (BehaviorPathsRequest) returns (BehaviorPathsResponse)
+
+	@doc "获取行为漏斗"
+	@handler BehaviorFunnelHandler
+	post /funnel (BehaviorFunnelRequest) returns (BehaviorFunnelResponse)
+
+	@doc "获取功能采用率"
+	@handler BehaviorAdoptionHandler
+	get /adoption (BehaviorAdoptionRequest) returns (BehaviorAdoptionResponse)
+
+	@doc "获取采用率明细"
+	@handler BehaviorAdoptionBreakdownHandler
+	get /adoption/breakdown (BehaviorAdoptionBreakdownRequest) returns (BehaviorAdoptionBreakdownResponse)
+}
+

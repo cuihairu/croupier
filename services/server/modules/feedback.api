@@ -1,0 +1,115 @@
+// ============================================================================
+// FEEDBACK 模块 API 定义 - 用户反馈管理
+// ============================================================================
+
+// ============================================================================
+// 类型定义
+// ============================================================================
+type Feedback {
+	Id        int64  `json:"id"`
+	PlayerId  string `json:"playerId"`
+	Contact   string `json:"contact"`
+	Content   string `json:"content"`
+	Category  string `json:"category"`
+	Priority  string `json:"priority"`
+	Status    string `json:"status"`
+	Rating    int    `json:"rating"` // 1-5星
+	Attach    string `json:"attach"` // 附件URL
+	GameId    string `json:"gameId"`
+	Env       string `json:"env"`
+	Reply     string `json:"reply"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+// --- 反馈列表 ---
+type FeedbackListRequest {
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"pageSize,optional,default=20"`
+	Status   string `form:"status,optional"`
+	Category string `form:"category,optional"`
+	GameId   string `form:"gameId,optional"`
+}
+
+type FeedbackListResponse {
+	Items []Feedback `json:"items"`
+	Total int64      `json:"total"`
+	Page  int        `json:"page"`
+	Size  int        `json:"pageSize"`
+}
+
+// --- 创建反馈 ---
+type FeedbackCreateRequest {
+	PlayerId string `json:"playerId,optional"`
+	Contact  string `json:"contact"`
+	Content  string `json:"content"`
+	Category string `json:"category"`
+	Rating   int    `json:"rating,optional"`
+	Attach   string `json:"attach,optional"`
+	GameId   string `json:"gameId,optional"`
+	Env      string `json:"env,optional"`
+}
+
+type FeedbackDetailResponse {
+	Feedback
+}
+
+// --- 更新反馈 ---
+type FeedbackUpdateRequest {
+	ID       string `path:"id"`
+	Status   string `json:"status,optional"`
+	Priority string `json:"priority,optional"`
+	Reply    string `json:"reply,optional"`
+}
+
+// --- 删除反馈 ---
+type FeedbackDeleteRequest {
+	ID string `path:"id"`
+}
+
+// --- 反馈统计 ---
+type FeedbackStatsRequest {
+	GameId string `form:"gameId,optional"`
+	Days   int    `form:"days,optional,default=7"`
+}
+
+type FeedbackStats {
+	Total        int            `json:"total"`
+	ByCategory   map[string]int `json:"byCategory"`
+	ByStatus     map[string]int `json:"byStatus"`
+	AvgRating    float64        `json:"avgRating"`
+	ResponseRate float64        `json:"responseRate"`
+}
+
+type FeedbackStatsResponse {
+	FeedbackStats
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/feedback
+	group:  feedback
+)
+service server {
+	@doc "获取反馈列表"
+	@handler FeedbackListHandler
+	get / (FeedbackListRequest) returns (FeedbackListResponse)
+
+	@doc "创建反馈"
+	@handler FeedbackCreateHandler
+	post / (FeedbackCreateRequest) returns (FeedbackDetailResponse)
+
+	@doc "更新反馈"
+	@handler FeedbackUpdateHandler
+	put /:id (FeedbackUpdateRequest) returns (FeedbackDetailResponse)
+
+	@doc "删除反馈"
+	@handler FeedbackDeleteHandler
+	delete /:id (FeedbackDeleteRequest)
+
+	@doc "获取反馈统计"
+	@handler FeedbackStatsHandler
+	get /stats (FeedbackStatsRequest) returns (FeedbackStatsResponse)
+}

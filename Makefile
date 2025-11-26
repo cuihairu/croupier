@@ -1,9 +1,12 @@
 BINDIR := bin
-VERSION := $(shell git describe --tags --always --dirty)
+VERSION := $(shell cat VERSION 2>/dev/null || echo "0.1.0")
+GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+GIT_DIRTY := $(shell git diff --quiet || echo "-dirty")
 BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
-LDFLAGS := -X main.version=$(VERSION) -X main.buildTime=$(BUILD_TIME) -s -w
+FULL_VERSION := $(VERSION)$(GIT_DIRTY)
+LDFLAGS := -X main.version=$(FULL_VERSION) -X main.buildTime=$(BUILD_TIME) -X main.gitCommit=$(GIT_COMMIT) -s -w
 
-.PHONY: proto build server agent edge cli clean dev tidy test lint help all tools schema-validator pack-builder
+.PHONY: proto api build server agent edge cli clean dev tidy test lint help all tools schema-validator pack-builder
 .PHONY: build-sdks build-sdks-cpp build-sdks-go build-sdks-java build-sdks-js build-sdks-python
 .PHONY: build-web build-dashboard build-website dev-dashboard dev-website
 .PHONY: version version-sync
@@ -22,6 +25,15 @@ submodules:
 proto: croupier-plugin
 	@echo "[proto] generating code via buf..."
 	buf generate
+
+# Generate API code from .api files
+api:
+	@echo "[api] generating API code via goctl..."
+	@PATH=$$PATH:~/go/bin which goctl > /dev/null || (echo "Error: goctl not found. Please install goctl: go install github.com/zeromicro/go-zero/tools/goctl@latest" && exit 1)
+	@cd services/server && rm -rf internal/handler internal/logic internal/types && PATH=$$PATH:~/go/bin goctl api go -api server.api -dir . -style go_zero
+	@cd services/agent && rm -rf internal/handler internal/logic internal/types && PATH=$$PATH:~/go/bin goctl api go -api agent.api -dir . -style go_zero
+	@cd services/edge && rm -rf internal/handler internal/logic internal/types && PATH=$$PATH:~/go/bin goctl api go -api edge.api -dir . -style go_zero
+	@echo "[api] code generation complete"
 
 # Build local protoc plugin for pack generation
 .PHONY: croupier-plugin
@@ -55,10 +67,10 @@ packs-build:
 	@tar -czf packs/dist/grafana.pack.tgz -C packs/grafana .
 	@echo "done: packs/dist/*.pack.tgz"
 
-server:
+server: api
 	@echo "[build] server (pg+sqlite)"
 	@mkdir -p $(BINDIR)
-	GOFLAGS=-mod=mod go build -tags "pg sqlite" -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-server ./services/server
+	cd services/server && GOFLAGS=-mod=mod go build -tags "pg sqlite" -ldflags "-X github.com/cuihairu/croupier/services/server/cmd.Version=$(FULL_VERSION) -X github.com/cuihairu/croupier/services/server/cmd.GitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/services/server/cmd.BuildTime=$(BUILD_TIME) -s -w" -o ../../$(BINDIR)/croupier-server ./cmd
 
 .PHONY: server-sqlite
 server-sqlite:
@@ -76,12 +88,12 @@ server-sqlite-ip2loc:
 	@echo "[deprecated] server-sqlite-ip2loc: ip2location is runtime-enabled; building regular sqlite server"
 	$(MAKE) server-sqlite
 
-agent:
+agent: api
 	@echo "[build] agent"
 	@mkdir -p $(BINDIR)
 	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-agent ./services/agent
 
-edge:
+edge: api
 	@echo "[build] edge"
 	@mkdir -p $(BINDIR)
 	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-edge ./services/edge

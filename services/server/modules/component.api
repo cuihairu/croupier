@@ -110,3 +110,4 @@ service server {
 	@handler ComponentsPatchHandler
 	patch /:id (ComponentPatchRequest) returns (ComponentsPatchResponse)
 }
+

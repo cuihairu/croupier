@@ -1,21 +1,37 @@
 // ============================================================================
-// FUNCTION 模块 API 定义
+// FUNCTION 模块 API 定义 - 函数管理（合并 function + permission + ui）
 // ============================================================================
+
 // ============================================================================
 // 类型定义
 // ============================================================================
+type Function {
+	Id          string      `json:"id"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	Category    string      `json:"category"`
+	GameId      string      `json:"gameId"`
+	Status      int         `json:"status"`
+	Version     string      `json:"version"`
+	Instances   int         `json:"instances"`
+	CreatedAt   string      `json:"createdAt"`
+	UpdatedAt   string      `json:"updatedAt"`
+}
+
 // --- 函数列表 ---
 type FunctionsListRequest {
-	Page     int    `form:"page,optional"`
-	PageSize int    `form:"pageSize,optional"`
-	GameID   string `form:"gameId,optional"`
-	Status   string `form:"status,optional"`
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"pageSize,optional,default=20"`
+	GameId   string `form:"gameId,optional"`
+	Category string `form:"category,optional"`
+	Status   int    `form:"status,optional"`
 }
 
 type FunctionsListResponse {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Items []Function `json:"items"`
+	Total int64      `json:"total"`
+	Page  int        `json:"page"`
+	Size  int        `json:"pageSize"`
 }
 
 // --- 函数详情 ---
@@ -23,10 +39,33 @@ type FunctionDetailRequest {
 	ID string `path:"id"`
 }
 
+type FunctionDescriptor {
+	Input  interface{} `json:"input"`
+	Output interface{} `json:"output"`
+	Schema interface{} `json:"schema"`
+}
+
 type FunctionDetailResponse {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Function
+	Descriptor FunctionDescriptor `json:"descriptor"`
+}
+
+// --- 函数描述符列表 ---
+type DescriptorsRequest {
+	Type   string `form:"type,optional"`
+	GameId string `form:"gameId,optional"`
+}
+
+type Descriptor {
+	Id          string      `json:"id"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	Category    string      `json:"category"`
+	Schema      interface{} `json:"schema"`
+}
+
+type DescriptorsResponse {
+	Items []Descriptor `json:"items"`
 }
 
 // --- 函数实例 ---
@@ -34,27 +73,20 @@ type FunctionInstancesRequest {
 	ID string `path:"id"`
 }
 
+type FunctionInstance {
+	AgentId   string `json:"agentId"`
+	AgentName string `json:"agentName"`
+	Status    string `json:"status"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
 type FunctionInstancesResponse {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Items []FunctionInstance `json:"items"`
 }
 
 // --- 函数操作 ---
 type FunctionActionRequest {
 	ID string `path:"id"`
-}
-
-type FunctionEnableResponse {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type FunctionDisableResponse {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
 }
 
 // --- 函数调用 ---
@@ -64,20 +96,71 @@ type FunctionInvokeRequest {
 }
 
 type FunctionInvokeResponse {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	JobId  string      `json:"jobId"`
+	Result interface{} `json:"result,omitempty"`
 }
 
-// --- 函数描述符 ---
-type DescriptorsRequest {
-	Type string `form:"type,optional"`
+// --- 函数权限 ---
+type FunctionPermissionsRequest {
+	ID string `path:"id"`
 }
 
-type DescriptorsResponse {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+type FunctionPermission {
+	Resource string   `json:"resource"`
+	Actions  []string `json:"actions"`
+	Roles    []string `json:"roles"`
+}
+
+type FunctionPermissionsResponse {
+	Items []FunctionPermission `json:"items"`
+}
+
+type FunctionPermissionsUpdateRequest {
+	ID          string               `path:"id"`
+	Permissions []FunctionPermission `json:"permissions"`
+}
+
+// --- 函数 UI 配置 ---
+type FunctionUIRequest {
+	ID string `path:"id"`
+}
+
+type FunctionUIResponse {
+	Schema     interface{} `json:"schema"`
+	Layout     interface{} `json:"layout"`
+	Components interface{} `json:"components"`
+}
+
+type FunctionUIUpdateRequest {
+	ID         string      `path:"id"`
+	Schema     interface{} `json:"schema,optional"`
+	Layout     interface{} `json:"layout,optional"`
+	Components interface{} `json:"components,optional"`
+}
+
+// --- 函数发布 ---
+type FunctionPublishRequest {
+	ID string `path:"id"`
+}
+
+type FunctionPublishResponse {
+	ApprovalId string `json:"approvalId,omitempty"` // 如果需要审批
+	Published  bool   `json:"published"`
+}
+
+// --- 待处理函数 ---
+type FunctionsPendingRequest {}
+
+type PendingFunction {
+	Id        string `json:"id"`
+	Name      string `json:"name"`
+	Status    string `json:"status"`
+	Requester string `json:"requester"`
+	CreatedAt string `json:"createdAt"`
+}
+
+type FunctionsPendingResponse {
+	Items []PendingFunction `json:"items"`
 }
 
 // ============================================================================
@@ -88,32 +171,62 @@ type DescriptorsResponse {
 	group:  function
 )
 service server {
+	// === 基础 CRUD ===
 	@doc "获取函数列表"
 	@handler FunctionsListHandler
 	get / (FunctionsListRequest) returns (FunctionsListResponse)
-
-	@doc "获取函数描述符"
-	@handler DescriptorsHandler
-	get /descriptors (DescriptorsRequest) returns (DescriptorsResponse)
 
 	@doc "获取函数详情"
 	@handler FunctionDetailHandler
 	get /:id (FunctionDetailRequest) returns (FunctionDetailResponse)
 
-	@doc "获取函数实例"
-	@handler FunctionInstancesHandler
-	get /:id/instances (FunctionInstancesRequest) returns (FunctionInstancesResponse)
-
+	// === 函数操作 ===
 	@doc "启用函数"
 	@handler FunctionEnableHandler
-	post /:id/enable (FunctionActionRequest) returns (FunctionEnableResponse)
+	post /:id/enable (FunctionActionRequest)
 
 	@doc "禁用函数"
 	@handler FunctionDisableHandler
-	post /:id/disable (FunctionActionRequest) returns (FunctionDisableResponse)
+	post /:id/disable (FunctionActionRequest)
 
 	@doc "调用函数"
 	@handler FunctionInvokeHandler
 	post /:id/invoke (FunctionInvokeRequest) returns (FunctionInvokeResponse)
-}
 
+	@doc "发布函数"
+	@handler FunctionPublishHandler
+	post /:id/publish (FunctionPublishRequest) returns (FunctionPublishResponse)
+
+	// === 函数实例 ===
+	@doc "获取函数实例"
+	@handler FunctionInstancesHandler
+	get /:id/instances (FunctionInstancesRequest) returns (FunctionInstancesResponse)
+
+	// === 权限管理 ===
+	@doc "获取函数权限"
+	@handler FunctionPermissionsHandler
+	get /:id/permissions (FunctionPermissionsRequest) returns (FunctionPermissionsResponse)
+
+	@doc "更新函数权限"
+	@handler FunctionPermissionsUpdateHandler
+	put /:id/permissions (FunctionPermissionsUpdateRequest) returns (FunctionPermissionsResponse)
+
+	// === UI 配置 ===
+	@doc "获取函数UI配置"
+	@handler FunctionUIHandler
+	get /:id/ui (FunctionUIRequest) returns (FunctionUIResponse)
+
+	@doc "更新函数UI配置"
+	@handler FunctionUIUpdateHandler
+	put /:id/ui (FunctionUIUpdateRequest) returns (FunctionUIResponse)
+
+	// === 描述符 ===
+	@doc "获取函数描述符列表"
+	@handler DescriptorsHandler
+	get /descriptors (DescriptorsRequest) returns (DescriptorsResponse)
+
+	// === 待处理 ===
+	@doc "获取待处理函数"
+	@handler FunctionsPendingHandler
+	get /pending (FunctionsPendingRequest) returns (FunctionsPendingResponse)
+}

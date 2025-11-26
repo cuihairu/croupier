@@ -216,44 +216,6 @@ type OpsNotificationsUpdateResponse {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-type RateLimitDeleteRequest {
-	ID string `path:"id"`
-}
-
-type OpsRateLimitsDeleteResponse {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type OpsRateLimitsGetRequest {}
-
-type OpsRateLimitsGetResponse {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type RateLimitPreviewQuery {
-	Rule string `form:"rule"`
-}
-
-type OpsRateLimitsPreviewResponse {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type RateLimitRulesRequest {
-	Rules []interface{} `json:"rules"`
-}
-
-type OpsRateLimitsUpdateResponse {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
 type OpsServicesRequest {}
 
 type OpsServicesResponse {
@@ -379,22 +341,6 @@ service server {
 	@doc "更新通知配置"
 	@handler OpsNotificationsUpdateHandler
 	put /notifications (OpsNotificationsUpdateRequest) returns (OpsNotificationsUpdateResponse)
-
-	@doc "删除限流规则"
-	@handler OpsRateLimitsDeleteHandler
-	delete /rate-limits/:id (RateLimitDeleteRequest) returns (OpsRateLimitsDeleteResponse)
-
-	@doc "获取限流规则"
-	@handler OpsRateLimitsGetHandler
-	get /rate-limits (OpsRateLimitsGetRequest) returns (OpsRateLimitsGetResponse)
-
-	@doc "预览限流规则"
-	@handler OpsRateLimitsPreviewHandler
-	get /rate-limits/preview (RateLimitPreviewQuery) returns (OpsRateLimitsPreviewResponse)
-
-	@doc "更新限流规则"
-	@handler OpsRateLimitsUpdateHandler
-	put /rate-limits (RateLimitRulesRequest) returns (OpsRateLimitsUpdateResponse)
 
 	@doc "获取服务列表"
 	@handler OpsServicesHandler

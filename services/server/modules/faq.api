@@ -1,0 +1,106 @@
+// ============================================================================
+// FAQ 模块 API 定义 - 常见问题管理
+// ============================================================================
+
+// ============================================================================
+// 类型定义
+// ============================================================================
+type FAQ {
+	Id        int64    `json:"id"`
+	Question  string   `json:"question"`
+	Answer    string   `json:"answer"`
+	Category  string   `json:"category"`
+	Tags      []string `json:"tags"`
+	Visible   bool     `json:"visible"`
+	Sort      int      `json:"sort"`
+	Views     int      `json:"views"`
+	CreatedAt string   `json:"createdAt"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
+// --- FAQ 列表 ---
+type FAQListRequest {
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"pageSize,optional,default=20"`
+	Category string `form:"category,optional"`
+	Keyword  string `form:"keyword,optional"`
+	Visible  bool   `form:"visible,optional"`
+}
+
+type FAQListResponse {
+	Items []FAQ  `json:"items"`
+	Total int64  `json:"total"`
+	Page  int    `json:"page"`
+	Size  int    `json:"pageSize"`
+}
+
+// --- 创建 FAQ ---
+type FAQCreateRequest {
+	Question string   `json:"question"`
+	Answer   string   `json:"answer"`
+	Category string   `json:"category"`
+	Tags     []string `json:"tags,optional"`
+	Visible  bool     `json:"visible,optional,default=true"`
+	Sort     int      `json:"sort,optional,default=0"`
+}
+
+type FAQDetailResponse {
+	FAQ
+}
+
+// --- 更新 FAQ ---
+type FAQUpdateRequest {
+	ID       string   `path:"id"`
+	Question string   `json:"question,optional"`
+	Answer   string   `json:"answer,optional"`
+	Category string   `json:"category,optional"`
+	Tags     []string `json:"tags,optional"`
+	Visible  bool     `json:"visible,optional"`
+	Sort     int      `json:"sort,optional"`
+}
+
+// --- 删除 FAQ ---
+type FAQDeleteRequest {
+	ID string `path:"id"`
+}
+
+// --- FAQ 分类 ---
+type FAQCategoriesRequest {}
+
+type FAQCategory {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
+type FAQCategoriesResponse {
+	Items []FAQCategory `json:"items"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/faqs
+	group:  faq
+)
+service server {
+	@doc "获取FAQ列表"
+	@handler FAQListHandler
+	get / (FAQListRequest) returns (FAQListResponse)
+
+	@doc "创建FAQ"
+	@handler FAQCreateHandler
+	post / (FAQCreateRequest) returns (FAQDetailResponse)
+
+	@doc "更新FAQ"
+	@handler FAQUpdateHandler
+	put /:id (FAQUpdateRequest) returns (FAQDetailResponse)
+
+	@doc "删除FAQ"
+	@handler FAQDeleteHandler
+	delete /:id (FAQDeleteRequest)
+
+	@doc "获取FAQ分类"
+	@handler FAQCategoriesHandler
+	get /categories (FAQCategoriesRequest) returns (FAQCategoriesResponse)
+}

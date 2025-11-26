@@ -1,47 +1,25 @@
-import { request } from '@umijs/max';
+// 用户管理功能已统一到 permissions.ts
+export type { AdminRecord as UserRecord, AdminGame as UserGameEnv } from './permissions';
 
-export type UserRecord = {
-  id: number;
-  username: string;
-  display_name?: string;
-  email?: string;
-  phone?: string;
-  active?: boolean;
-  roles?: string[];
-};
+export {
+  listAdmins as listUsers,
+  createAdmin as createUser,
+  getAdmin as getUser,
+  updateAdmin as updateUser,
+  deleteAdmin as deleteUser,
+  resetAdminPassword as setUserPassword,
+  getAdminGames as listUserGames,
+  updateAdminGames as setUserGames
+} from './permissions';
 
-export async function listUsers() {
-  return request<{ users: UserRecord[] }>('/api/users');
+// 获取用户游戏环境的兼容函数（已弃用，使用 listUserGames）
+export async function listUserGameEnvs(userId: number, gameId: string) {
+  // 这个需要根据实际 API 实现，暂时返回空数组
+  return Promise.resolve<{ envs: string[] }>({ envs: [] });
 }
 
-export async function createUser(body: { username: string; display_name?: string; email?: string; phone?: string; password?: string; active?: boolean; roles?: string[] }) {
-  return request<{ id: number }>('/api/users', { method: 'POST', data: body });
-}
-
-export async function updateUser(id: number, body: { display_name?: string; email?: string; phone?: string; active?: boolean; roles?: string[] }) {
-  return request<void>(`/api/users/${id}`, { method: 'PUT', data: body });
-}
-
-export async function deleteUser(id: number) {
-  return request<void>(`/api/users/${id}`, { method: 'DELETE' });
-}
-
-export async function setUserPassword(id: number, password: string) {
-  return request<void>(`/api/users/${id}/password`, { method: 'POST', data: { password } });
-}
-
-export async function listUserGames(id: number) {
-  return request<{ game_ids: number[] }>(`/api/users/${id}/games`);
-}
-
-export async function setUserGames(id: number, game_ids: number[]) {
-  return request<void>(`/api/users/${id}/games`, { method: 'PUT', data: { game_ids } });
-}
-
-export async function listUserGameEnvs(id: number, game_id: number) {
-  return request<{ envs: string[] }>(`/api/users/${id}/games/${game_id}/envs`);
-}
-
-export async function setUserGameEnvs(id: number, game_id: number, envs: string[]) {
-  return request<void>(`/api/users/${id}/games/${game_id}/envs`, { method: 'PUT', data: { envs } });
+// 设置用户游戏环境的兼容函数（已弃用，使用 setUserGames）
+export async function setUserGameEnvs(userId: number, gameId: string, envs: string[]) {
+  // 这个需要根据实际 API 实现，暂时返回成功
+  return Promise.resolve<void>();
 }

@@ -1,0 +1,105 @@
+// ============================================================================
+// PROFILE 模块 API 定义 - 当前用户资料和权限
+// ============================================================================
+
+// ============================================================================
+// 类型定义
+// ============================================================================
+
+// --- 当前用户资料 ---
+type ProfileInfo {
+	Id        int64    `json:"id"`
+	Username  string   `json:"username"`
+	Nickname  string   `json:"nickname"`
+	Email     string   `json:"email"`
+	Phone     string   `json:"phone"`
+	Roles     []string `json:"roles"`
+	Avatar    string   `json:"avatar"`
+	CreatedAt string   `json:"createdAt"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
+type ProfileGetRequest {
+}
+
+type ProfileGetResponse {
+	ProfileInfo
+}
+
+type ProfileUpdateRequest {
+	Nickname string `json:"nickname,optional"`
+	Email    string `json:"email,optional"`
+	Phone    string `json:"phone,optional"`
+	Avatar   string `json:"avatar,optional"`
+}
+
+type ProfilePasswordRequest {
+	OldPassword string `json:"oldPassword"`
+	NewPassword string `json:"newPassword"`
+}
+
+// --- 当前用户权限 ---
+type ProfilePermissionsRequest {
+	GameId string `form:"gameId,optional"`
+	Env    string `form:"env,optional"`
+}
+
+type ProfilePermission {
+	Resource string   `json:"resource"`
+	Actions  []string `json:"actions"`
+	GameId   string   `json:"gameId,omitempty"`
+	Env      string   `json:"env,omitempty"`
+}
+
+type ProfilePermissionsResponse {
+	Permissions []ProfilePermission `json:"permissions"`
+	Admin       bool                `json:"admin"`
+	Roles       []string            `json:"roles"`
+}
+
+// --- 我的游戏 ---
+type ProfileGamesRequest {
+}
+
+type ProfileGame {
+	GameId      string   `json:"gameId"`
+	GameName    string   `json:"gameName"`
+	Envs        []string `json:"envs"`
+	Permissions []string `json:"permissions"`
+}
+
+type ProfileGamesResponse {
+	Games []ProfileGame `json:"games"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1/profile
+	group:  profile
+)
+service server {
+	// === 个人资料 ===
+	@doc "获取当前用户资料"
+	@handler ProfileGetHandler
+	get / (ProfileGetRequest) returns (ProfileGetResponse)
+
+	@doc "更新当前用户资料"
+	@handler ProfileUpdateHandler
+	put / (ProfileUpdateRequest) returns (ProfileGetResponse)
+
+	@doc "修改密码"
+	@handler ProfilePasswordHandler
+	put /password (ProfilePasswordRequest)
+
+	// === 权限信息 ===
+	@doc "获取当前用户权限"
+	@handler ProfilePermissionsHandler
+	get /permissions (ProfilePermissionsRequest) returns (ProfilePermissionsResponse)
+
+	// === 我的游戏 ===
+	@doc "获取我的游戏"
+	@handler ProfileGamesHandler
+	get /games (ProfileGamesRequest) returns (ProfileGamesResponse)
+}

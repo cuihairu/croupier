@@ -1,7 +1,16 @@
 [
   {
     "username": "admin",
-    "password": "admin",
+    "password": "admin123",
+    "nickname": "系统管理员",
+    "email": "admin@croupier.local",
     "roles": ["admin"]
+  },
+  {
+    "username": "super_admin",
+    "password": "super123",
+    "nickname": "超级管理员",
+    "email": "super@croupier.local",
+    "roles": ["super_admin"]
   }
 ]

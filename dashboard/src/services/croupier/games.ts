@@ -32,14 +32,14 @@ function normalizeGame(g: any): Game {
 }
 
 export async function listGamesMeta() {
-  const res = await request<any>('/api/games');
+  const res = await request<any>('/api/v1/games');
   const games = Array.isArray(res?.games) ? res.games.map(normalizeGame) : [];
   return { games } as { games: Game[] };
 }
 
 // Only games allowed by current user's scope (empty scope => all games)
 export async function listMyGames() {
-  const res = await request<any>('/api/me/games');
+  const res = await request<any>('/api/v1/profile/games');
   const games = Array.isArray(res?.games)
     ? res.games.map((g: any) => ({ ...normalizeGame(g), envs: Array.isArray(g?.envs) ? g.envs : [] }))
     : [];
@@ -47,10 +47,10 @@ export async function listMyGames() {
 }
 
 export async function upsertGame(g: Game) {
-  // POST /api/games: id==0/undefined -> create; else update
-  return request<{ id: number } | void>('/api/games', { method: 'POST', data: g });
+  // POST /api/v1/games: id==0/undefined -> create; else update
+  return request<{ id: number } | void>('/api/v1/games', { method: 'POST', data: g });
 }
 
 export async function deleteGame(id: number) {
-  return request<void>(`/api/games/${id}`, { method: 'DELETE' });
+  return request<void>(`/api/v1/games/${id}`, { method: 'DELETE' });
 }
