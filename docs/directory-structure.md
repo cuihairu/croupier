@@ -1,144 +1,82 @@
-# Directory Structure (Ports/Adapters + Wire)
+# Directory Structure (Go-Zero Multi-Process)
 
-This document defines the target repo layout based on a clear layering with Ports/Adapters and Google Wire for dependency injection. It aims to keep process boundaries explicit, business logic centralized, and infrastructure replaceable.
+The repository now standardizes on [go-zero](https://go-zero.dev/) across all backend services. Each process (server, agent, edge, analytics-worker, …) manages its own generated code, GORM models, and migrations under `services/<name>/`. This document captures the conventions to keep those services consistent.
 
-## Top-Level
+## Top-Level Layout
 
-- `cmd/`           Executables (one folder per binary)
-  - `server/`     Server main()
-  - `agent/`      Agent main()
-  - `edge/`       Edge main()
-  - `analytics-worker/` (optional) background worker
-- `internal/`      Application code (non-exported)
-- `pkg/`           Shared libraries (if any; stable, exported)
-- `configs/`       YAML configs, RBAC, users, games defaults
-- `proto/`         Protobuf definitions
-- `gen/`           Generated code (from `proto/`)
-- `web/`           Front-end
-- `scripts/`       Dev/CI scripts
-- `tools/`         Examples, utilities, adapters demo (non-critical)
-- `docs/`          Documentation
+- `cmd/`            Legacy entrypoints and helper binaries.
+- `services/`       Go-zero applications (`server`, `agent`, `edge`, `ingest`, …).
+- `internal/`       Shared libraries (auth, db helpers, schedulers, etc.).
+- `pkg/`            Exported helper packages (rare; only for stable APIs).
+- `configs/`        Global YAML, RBAC, bootstrap data.
+- `proto/` & `gen/` Protobuf definitions and generated stubs.
+- `web/`            Frontend (Umi Max + Ant Design 5).
+- `scripts/`, `tools/`, `docs/`, `packs/`, `data/` remain unchanged.
 
-## Internal Layout (C: Ports/Adapters)
+## Go-Zero Service Layout
 
-### `internal/app/` (Process Assemblers)
-
-Role: Compose the process (HTTP routes, middleware, gRPC servers), wire dependencies, read config.
-
-- `internal/app/server/http/`
-  - `routes.go`     Gin routes/handlers (no business logic; call services)
-  - `middleware.go` Common middlewares (authz, scope guard, logging, cors)
-  - `wire.go`       Wire sets and injectors (build: wireinject)
-  - `wire_gen.go`   Wire generated (committed)
-- `internal/app/agent/`  Agent wiring
-- `internal/app/edge/`   Edge wiring
-
-Rules:
-- Handlers only orchestrate: decode → authz → call service → encode
-- No direct SQL/GORM usage in app; no business rules here
-
-### `internal/service/` (Application Services)
-
-Role: Application use-cases (transactions, authorization, audit), built on Ports interfaces.
-
-- `internal/service/games/`
-  - `service.go`     Game + Envs use-cases (add/rename env, apply defaults, validate)
-  - Depends on `internal/ports` interfaces
-- `internal/service/users/`, `assignments/`, `analytics/` …
-
-Rules:
-- No GORM/HTTP imports. Only use Ports.
-- Transaction boundaries are here (via a `UnitOfWork` port), if needed.
-
-### `internal/ports/` (Interfaces)
-
-Role: Abstractions for external dependencies (repositories, object storage, cache, etc.).
-
-- `games.go`  (`GamesRepository`, `UnitOfWork`, structs for DTO-like use)
-- `users.go`, `assignments.go`, …
-
-Rules:
-- No infrastructure imports; only `context`/`time`/`errors` etc.
-
-### `internal/repo/gorm/` (Adapters: SQL via GORM)
-
-Role: Implement Ports with a concrete technology (GORM). One folder per domain.
-
-- `internal/repo/gorm/games/`      GORM models + repository impl for Ports
-- `internal/repo/gorm/users/`
-- `internal/repo/gorm/messages/`
-- `internal/repo/gorm/support/`
-- `internal/repo/gorm/assignments/`
-
-Rules:
-- Only persistence logic here. No business rules.
-- GORM models are here; not spread in service/app.
-
-### `internal/platform/` (3rd-party Integrations)
-
-Role: Non-business platform code: object storage, TLS, packaging, validation, etc.
-
-- `objstore/`, `tlsutil/`, `pack/`, `validation/` …
-
-### `internal/security/`
-
-Role: Security building blocks.
-
-- `rbac/`   Casbin policy loaders, helpers
-- `token/`  JWT manager
-- `approvals/` (if any)
-
-## Dependency Arrows
+Each service inside `services/<name>` follows the go-zero scaffold:
 
 ```
-app  →  service  →  ports  ←  repo/gorm
-                    ↑
-                 security/platform (as needed)
+services/<name>/
+  server.go                # main()
+  etc/                     # config yaml files
+  cmd/                     # optional process-specific commands (migrate, seed…)
+  internal/
+    config/                # goctl generated config structs
+    handler/               # HTTP/gRPC handlers (wire request ↔ logic)
+    logic/                 # business logic (generated skeletons + custom code)
+    model/                 # GORM models + data access helpers
+    svc/                   # ServiceContext (wires config, db, models, services)
+    middleware/, runtime/, common/ … (service-scoped helpers)
 ```
 
-- app depends on service & wiring only
-- service depends only on ports
-- repo/gorm implements ports
-- security/platform are used by service or repo as needed
+Key layering inside a service:
 
-## Naming & Conventions
+- `handler → logic → svc → model`.
+- Handlers perform decoding/encoding + auth guard only.
+- Logic packages contain the use-cases and should rely on interfaces exposed through `svc.ServiceContext`.
+- `svc` wires configs, DB clients, models, and auxiliary services.
+- `internal/model` owns the GORM structs, migrations, and persistence helpers for **that process only**.
 
-- Business models live in service (or a nested `model.go`), infra models live in repo/gorm
-- Ports package exposes small, stable interfaces
-- Avoid circular deps; keep packages cohesive and small
-- Transactions: expose `UnitOfWork` in ports; service coordinates it
-- Wire: keep 1–2 sets per process (`RepoSet`, `ServiceSet`), and a root injector per app
+## Model & Migration Guidelines
 
-## Wire Setup (Example)
+- Every go-zero service keeps its database models under `services/<name>/internal/model`.
+- Models use GORM and expose helper structs (e.g. `AdminModel`) instead of the old `internal/repo/gorm` adapters.
+- `svc/service_context.go` must invoke `<model>.AutoMigrate(db)` so each process migrates only the tables it owns.
+- Cross-process data sharing happens through APIs; do **not** import another service's `internal/model`.
+- Legacy `internal/repo/gorm/*` packages are considered deprecated. Do not add new dependencies to them; migrate features into the corresponding service's `internal/model` as you touch them.
 
-```go
-// internal/app/server/http/wire.go
-//go:build wireinject
-package httpapp
+## Shared Internal Packages
 
-import (
-  "github.com/google/wire"
-  gamesvc "github.com/your/module/internal/service/games"
-  gamesrepo "github.com/your/module/internal/repo/gorm/games"
-)
+The `internal/` directory (outside `services/`) now only hosts code that is safe to share across processes, such as:
 
-var RepoSet = wire.NewSet(ProvideGormDB, gamesrepo.NewRepo /* ports impl */)
-var ServiceSet = wire.NewSet(gamesvc.New /* *gamesvc.Service */)
+- `internal/auth/*` – token helpers, permission checks (may depend on service models via interfaces).
+- `internal/database/*` – helpers for opening and configuring GORM/SQL connections.
+- `internal/platform/*` – integrations (object storage, TLS, packaging).
+- `internal/security/*` – RBAC loaders, JWT tooling.
 
-func InitServerApp(cfg Config) (*Server, error) {
-  wire.Build(RepoSet, ServiceSet, NewHTTPServer /* handlers */)
-  return &Server{}, nil
-}
+When a shared package needs to inspect service-specific tables, inject the required model interface from the service instead of importing the model package directly. This keeps the dependency direction from service → shared helper.
+
+## Dependency Flow
+
 ```
+handler  →  logic  →  svc.ServiceContext  →  internal/model
+                    ↘ shared internal helpers (auth, db, platform)
+```
+
+- Handlers never import `internal/model`.
+- Logic only touches persistence via the interfaces exposed on `svc.ServiceContext`.
+- Shared internal helpers must remain infrastructure-only; no business logic there.
 
 ## Testing Guidance
 
-- service: mock ports (gomock or hand-rolled), test rules/flows
-- repo: sqlite-in-memory AutoMigrate + CRUD integration tests
-- app: thin HTTP tests for routes/middleware
+- Logic: use go-zero generated mocks or hand-rolled stubs for the interfaces exposed via `svc`.
+- Model: prefer sqlite-in-memory or dedicated test schemas; call `model.AutoMigrate` inside tests.
+- Handler: thin HTTP tests verifying routing/middleware.
+- Each service owns its own test data/migrations; do not rely on other services' fixtures.
 
 ## Migration Notes
 
-- GORM models should be unified under repo/gorm (no duplicate models elsewhere)
-- Frontend & handlers should not import repo/gorm directly
-- Legacy GamesMeta page/service removed; UI should call `/api/games` and `/api/me/games` via `web/src/services/croupier/games.ts`.
+- When moving legacy code from `internal/repo/gorm`, port the structs into the relevant `services/<name>/internal/model` package and wire them through that service's `svc`.
+- Update docs and examples as soon as a service completes migration to avoid confusion between old Ports/Adapters notes and the go-zero layout.

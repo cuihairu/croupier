@@ -60,3 +60,23 @@ type Feedback struct {
 func AutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(&Ticket{}, &TicketComment{}, &FAQ{}, &Feedback{})
 }
+
+// TableName returns table name for Ticket migration
+func (Ticket) TableName() string {
+	return "ticket_records_migration"
+}
+
+// TableName returns table name for TicketComment migration
+func (TicketComment) TableName() string {
+	return "ticket_comment_records_migration"
+}
+
+// TableName returns table name for FAQ migration
+func (FAQ) TableName() string {
+	return "faq_records_migration"
+}
+
+// TableName returns table name for Feedback migration
+func (Feedback) TableName() string {
+	return "feedback_records_migration"
+}

@@ -66,3 +66,18 @@ func AutoMigrate(db *gorm.DB) error {
 		&PlayerBalanceRecord{},
 	)
 }
+
+// TableName returns table name for PlayerRecord migration
+func (PlayerRecord) TableName() string {
+	return "player_records_migration"
+}
+
+// TableName returns table name for PlayerLoginRecord migration
+func (PlayerLoginRecord) TableName() string {
+	return "player_login_records_migration"
+}
+
+// TableName returns table name for PlayerBalanceRecord migration
+func (PlayerBalanceRecord) TableName() string {
+	return "player_balance_records_migration"
+}

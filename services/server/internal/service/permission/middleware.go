@@ -3,10 +3,12 @@ package permission
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
+	tokenmgr "github.com/cuihairu/croupier/internal/security/token"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
@@ -22,13 +24,18 @@ type PermissionConfig struct {
 }
 
 // PermissionMiddleware creates a permission checking middleware
-func PermissionMiddleware(permissionService *PermissionService, config PermissionConfig) func(http.Handler) http.Handler {
+func PermissionMiddleware(permissionService *PermissionService, jwtSecret string, config PermissionConfig) func(http.Handler) http.Handler {
+	var tokenManager *tokenmgr.Manager
+	if strings.TrimSpace(jwtSecret) != "" {
+		tokenManager = tokenmgr.NewManager(jwtSecret)
+	}
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 
 			// Get admin ID from JWT token or session
-			adminID, err := extractAdminID(r)
+			adminID, err := extractAdminID(r, tokenManager)
 			if err != nil {
 				logx.Error("Failed to extract admin ID", logx.Field("error", err))
 				httpx.ErrorCtx(ctx, w, errors.New("unauthorized"))
@@ -44,10 +51,8 @@ func PermissionMiddleware(permissionService *PermissionService, config Permissio
 			}
 
 			if !hasPermission {
-				logx.Warn("Permission denied",
-					logx.Field("adminID", adminID),
-					logx.Field("resource", config.Resource),
-					logx.Field("action", config.Action))
+				logx.Infof("Permission denied admin=%d resource=%s action=%s",
+					adminID, config.Resource, config.Action)
 				httpx.ErrorCtx(ctx, w, ErrPermissionDenied)
 				return
 			}
@@ -69,9 +74,7 @@ func PermissionMiddleware(permissionService *PermissionService, config Permissio
 				}
 
 				if !hasGameScope {
-					logx.Warn("Game scope permission denied",
-						logx.Field("adminID", adminID),
-						logx.Field("gameID", gameID))
+					logx.Infof("Game scope permission denied admin=%d game=%d", adminID, gameID)
 					httpx.ErrorCtx(ctx, w, ErrPermissionDenied)
 					return
 				}
@@ -99,10 +102,7 @@ func PermissionMiddleware(permissionService *PermissionService, config Permissio
 				}
 
 				if !hasEnvScope {
-					logx.Warn("Env scope permission denied",
-						logx.Field("adminID", adminID),
-						logx.Field("gameID", gameID),
-						logx.Field("env", env))
+					logx.Infof("Env scope permission denied admin=%d game=%d env=%s", adminID, gameID, env)
 					httpx.ErrorCtx(ctx, w, ErrPermissionDenied)
 					return
 				}
@@ -119,13 +119,26 @@ func PermissionMiddleware(permissionService *PermissionService, config Permissio
 }
 
 // Helper functions to extract data from request
-func extractAdminID(r *http.Request) (uint, error) {
+func extractAdminID(r *http.Request, tokenManager *tokenmgr.Manager) (uint, error) {
 	// Try to get from Authorization header (JWT token)
-	authHeader := r.Header.Get("Authorization")
-	if authHeader != "" {
-		// TODO: Parse JWT token and extract admin ID
-		// For now, return a placeholder
-		return 1, nil
+	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
+	if authHeader != "" && tokenManager != nil {
+		tokenParts := strings.SplitN(authHeader, " ", 2)
+		if len(tokenParts) == 2 && strings.EqualFold(tokenParts[0], "Bearer") {
+			subject, _, err := tokenManager.Verify(tokenParts[1])
+			if err != nil {
+				return 0, fmt.Errorf("invalid token: %w", err)
+			}
+			if subject == "" {
+				return 0, errors.New("token subject missing")
+			}
+
+			adminID, err := strconv.ParseUint(subject, 10, 32)
+			if err != nil {
+				return 0, fmt.Errorf("token subject not numeric: %w", err)
+			}
+			return uint(adminID), nil
+		}
 	}
 
 	// Try to get from cookie or session header
@@ -248,17 +261,17 @@ func GameReadPermission() PermissionConfig {
 
 func PlayerManagePermission() PermissionConfig {
 	return PermissionConfig{
-		Resource:      "player",
-		Action:        "create",
+		Resource:       "player",
+		Action:         "create",
 		CheckGameScope: true,
 	}
 }
 
 func FunctionExecutePermission() PermissionConfig {
 	return PermissionConfig{
-		Resource:      "function",
-		Action:        "execute",
+		Resource:       "function",
+		Action:         "execute",
 		CheckGameScope: true,
-		CheckEnvScope: true,
+		CheckEnvScope:  true,
 	}
 }

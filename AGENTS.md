@@ -2,6 +2,7 @@
 
 ## Project Structure & Module Organization
 - Go monorepo: `cmd/{server,agent,edge,analytics-worker}` (binaries), core in `internal/`, shared libs in `pkg/`.
+- Go-zero services under `services/<name>` manage their own `internal/{config,handler,logic,model,svc}`; treat each as an independent process.
 - Frontend UI: `web/` (Umi Max + Ant Design 5).
 - Configs & assets: `configs/` (RBAC, users, dev certs), `packs/`, `scripts/`, `docs/`, ephemeral data in `data/`.
 - Protocol/IDL: `proto/` (+ `buf.gen.yaml`), generated code under `gen/`.
@@ -17,6 +18,7 @@
 
 ## Coding Style & Naming Conventions
 - Go: `gofmt`/`goimports`; packages lowercase; exported ids `CamelCase`; use `context.Context` first; structured logs.
+- Service-specific GORM models live in that service's `internal/model` package; do not add new code under `internal/repo/gorm`.
 - TypeScript/React: Prettier + ESLint; 2‑space indent; components `PascalCase`; hooks `useX`; pages live in `web/src/pages/*/index.tsx`.
 - Commits: Conventional Commits (`feat(scope): ...`, `fix`, `chore`, `docs`).
 

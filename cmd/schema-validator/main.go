@@ -1,9 +1,12 @@
 package main
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -224,12 +227,87 @@ func validatePack(packPath string, verbose bool) error {
 		fmt.Printf("🔍 Validating pack: %s\n", packPath)
 	}
 
-	// TODO: Implement pack validation
-	// 1. Extract pack to temp directory
-	// 2. Validate manifest.json
-	// 3. Validate all descriptors
-	// 4. Validate UI schemas
-	// 5. Check file consistency
+	tempDir, err := os.MkdirTemp("", "croupier-pack-*")
+	if err != nil {
+		return fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
 
-	return fmt.Errorf("pack validation not yet implemented")
+	if err := extractTarGz(packPath, tempDir); err != nil {
+		return fmt.Errorf("failed to extract pack: %w", err)
+	}
+
+	manifestPath := filepath.Join(tempDir, "manifest.json")
+	if _, err := os.Stat(manifestPath); err != nil {
+		return fmt.Errorf("pack missing manifest.json: %w", err)
+	}
+
+	if err := validateDirectory(tempDir, verbose); err != nil {
+		return fmt.Errorf("pack content validation failed: %w", err)
+	}
+
+	return nil
+}
+
+func extractTarGz(src, dest string) error {
+	file, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("cannot open pack: %w", err)
+	}
+	defer file.Close()
+
+	gzr, err := gzip.NewReader(file)
+	if err != nil {
+		return fmt.Errorf("invalid gzip stream: %w", err)
+	}
+	defer gzr.Close()
+
+	tr := tar.NewReader(gzr)
+	destAbs, err := filepath.Abs(dest)
+	if err != nil {
+		return fmt.Errorf("cannot resolve destination: %w", err)
+	}
+
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("tar iteration error: %w", err)
+		}
+
+		target := filepath.Join(destAbs, hdr.Name)
+		if !strings.HasPrefix(target, destAbs+string(os.PathSeparator)) && target != destAbs {
+			return fmt.Errorf("invalid path in archive: %s", hdr.Name)
+		}
+
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, os.FileMode(hdr.Mode)); err != nil {
+				return fmt.Errorf("failed to create dir %s: %w", target, err)
+			}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				return fmt.Errorf("failed to create parent dir for %s: %w", target, err)
+			}
+			out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(hdr.Mode))
+			if err != nil {
+				return fmt.Errorf("failed to create file %s: %w", target, err)
+			}
+			if _, err := io.Copy(out, tr); err != nil {
+				out.Close()
+				return fmt.Errorf("failed to extract %s: %w", target, err)
+			}
+			out.Close()
+		case tar.TypeSymlink, tar.TypeLink:
+			// skip links for safety
+			continue
+		default:
+			// ignore other types
+			continue
+		}
+	}
+
+	return nil
 }

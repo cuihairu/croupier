@@ -108,5 +108,40 @@ func AutoMigrate(db *gorm.DB) error {
 	)
 }
 
+// TableName returns table name for AdminRecord migration
+func (AdminRecord) TableName() string {
+	return "admin_records_migration"
+}
+
+// TableName returns table name for PermissionRecord migration
+func (PermissionRecord) TableName() string {
+	return "permission_records_migration"
+}
+
+// TableName returns table name for RoleRecord migration
+func (RoleRecord) TableName() string {
+	return "role_records_migration"
+}
+
+// TableName returns table name for AdminRoleRecord migration
+func (AdminRoleRecord) TableName() string {
+	return "admin_role_records_migration"
+}
+
+// TableName returns table name for RolePermRecord migration
+func (RolePermRecord) TableName() string {
+	return "role_perm_records_migration"
+}
+
+// TableName returns table name for AdminGameScope migration
+func (AdminGameScope) TableName() string {
+	return "admin_game_scopes_migration"
+}
+
+// TableName returns table name for AdminGameEnvScope migration
+func (AdminGameEnvScope) TableName() string {
+	return "admin_game_env_scopes_migration"
+}
+
 // Helpers to stamp time manually if needed
 func now() time.Time { return time.Now().UTC() }

@@ -2,192 +2,104 @@ package model
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"time"
 
-	"github.com/zeromicro/go-zero/core/stores/cache"
-	"github.com/zeromicro/go-zero/core/stores/sqlx"
+	"gorm.io/gorm"
 )
 
-var _ EntityModel = (*customEntityModel)(nil)
-
-type (
-	// EntityModel 实体数据访问接口
-	EntityModel interface {
-		Insert(ctx context.Context, data *Entity) (sql.Result, error)
-		FindOne(ctx context.Context, id int64) (*Entity, error)
-		Update(ctx context.Context, data *Entity) error
-		Delete(ctx context.Context, id int64) error
-		List(ctx context.Context, entityType string, page, pageSize int) ([]*Entity, error)
-		Count(ctx context.Context, entityType string) (int64, error)
-	}
-
-	customEntityModel struct {
-		*defaultEntityModel
-	}
-
-	defaultEntityModel struct {
-		sqlx.CachedConn
-		table string
-	}
-
-	// Entity 实体
-	Entity struct {
-		Id         int64           `db:"id"`
-		Type       string          `db:"type"`        // 实体类型: player, item, quest 等
-		Data       json.RawMessage `db:"data"`        // JSON 数据
-		ProviderId string          `db:"provider_id"` // 提供者 ID
-		Status     int8            `db:"status"`      // 0:禁用 1:启用
-		CreatedAt  time.Time       `db:"created_at"`
-		UpdatedAt  time.Time       `db:"updated_at"`
-	}
-)
-
-// NewEntityModel 创建实体 Model
-func NewEntityModel(conn sqlx.SqlConn, c cache.CacheConf) EntityModel {
-	return &customEntityModel{
-		defaultEntityModel: &defaultEntityModel{
-			CachedConn: sqlx.NewConn(conn, c),
-			table:      "`entities`",
-		},
-	}
+// EntityModel 提供实体数据访问方法
+type EntityModel struct {
+	db *gorm.DB
 }
 
-// Insert 插入实体
-func (m *defaultEntityModel) Insert(ctx context.Context, data *Entity) (sql.Result, error) {
-	query := fmt.Sprintf("INSERT INTO %s (type, data, provider_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)", m.table)
-
-	now := NowFunc()
-	if data.CreatedAt.IsZero() {
-		data.CreatedAt = now
-	}
-	if data.UpdatedAt.IsZero() {
-		data.UpdatedAt = now
-	}
-
-	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		return conn.ExecCtx(ctx, query,
-			data.Type,
-			data.Data,
-			data.ProviderId,
-			data.Status,
-			data.CreatedAt,
-			data.UpdatedAt,
-		)
-	})
-
-	return ret, err
+// NewEntityModel 创建实体模型实例
+func NewEntityModel(db *gorm.DB) *EntityModel {
+	return &EntityModel{db: db}
 }
 
-// FindOne 根据 ID 查找实体
-func (m *defaultEntityModel) FindOne(ctx context.Context, id int64) (*Entity, error) {
-	cacheKey := fmt.Sprintf("cache:entity:id:%d", id)
-	var resp Entity
+// ListEntitiesOptions 控制实体列表查询的分页和过滤选项
+type ListEntitiesOptions struct {
+	Page       int
+	PageSize   int
+	Type       string
+	ProviderID string
+	Status     *int
+}
 
-	err := m.QueryRowCtx(ctx, &resp, cacheKey, func(ctx context.Context, conn sqlx.SqlConn, v interface{}) error {
-		query := fmt.Sprintf("SELECT * FROM %s WHERE id = ? LIMIT 1", m.table)
-		return conn.QueryRowCtx(ctx, v, query, id)
-	})
+// Create 插入新实体
+func (m *EntityModel) Create(ctx context.Context, entity *Entity) error {
+	return m.db.WithContext(ctx).Create(entity).Error
+}
 
-	if err != nil {
+// FindOne 根据 ID 获取实体
+func (m *EntityModel) FindOne(ctx context.Context, id uint) (*Entity, error) {
+	var entity Entity
+	if err := m.db.WithContext(ctx).First(&entity, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("entity not found")
+		}
 		return nil, err
 	}
-
-	return &resp, nil
+	return &entity, nil
 }
 
 // Update 更新实体
-func (m *defaultEntityModel) Update(ctx context.Context, data *Entity) error {
-	data.UpdatedAt = NowFunc()
-
-	query := fmt.Sprintf("UPDATE %s SET type = ?, data = ?, provider_id = ?, status = ?, updated_at = ? WHERE id = ?", m.table)
-
-	_, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		return conn.ExecCtx(ctx, query,
-			data.Type,
-			data.Data,
-			data.ProviderId,
-			data.Status,
-			data.UpdatedAt,
-			data.Id,
-		)
-	}, m.getCacheKeys(data)...)
-
-	return err
+func (m *EntityModel) Update(ctx context.Context, id uint, updates map[string]interface{}) error {
+	return m.db.WithContext(ctx).Model(&Entity{}).Where("id = ?", id).Updates(updates).Error
 }
 
 // Delete 删除实体
-func (m *defaultEntityModel) Delete(ctx context.Context, id int64) error {
-	data, err := m.FindOne(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	query := fmt.Sprintf("DELETE FROM %s WHERE id = ?", m.table)
-	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		return conn.ExecCtx(ctx, query, id)
-	}, m.getCacheKeys(data)...)
-
-	return err
+func (m *EntityModel) Delete(ctx context.Context, id uint) error {
+	return m.db.WithContext(ctx).Delete(&Entity{}, id).Error
 }
 
-// List 分页查询实体列表
-func (m *defaultEntityModel) List(ctx context.Context, entityType string, page, pageSize int) ([]*Entity, error) {
-	if page < 1 {
-		page = 1
+// List 分页获取实体列表
+func (m *EntityModel) List(ctx context.Context, opts ListEntitiesOptions) ([]Entity, int64, error) {
+	if opts.Page <= 0 {
+		opts.Page = 1
 	}
-	if pageSize < 1 {
-		pageSize = 10
-	}
-
-	offset := (page - 1) * pageSize
-	var query string
-	var args []interface{}
-
-	if entityType != "" {
-		query = fmt.Sprintf("SELECT * FROM %s WHERE type = ? ORDER BY id DESC LIMIT ? OFFSET ?", m.table)
-		args = []interface{}{entityType, pageSize, offset}
-	} else {
-		query = fmt.Sprintf("SELECT * FROM %s ORDER BY id DESC LIMIT ? OFFSET ?", m.table)
-		args = []interface{}{pageSize, offset}
+	if opts.PageSize <= 0 {
+		opts.PageSize = 20
 	}
 
-	var entities []*Entity
-	err := m.QueryRowsNoCacheCtx(ctx, &entities, query, args...)
-	if err != nil {
-		return nil, err
+	var (
+		entities []Entity
+		total    int64
+	)
+
+	query := m.db.WithContext(ctx).Model(&Entity{})
+
+	if opts.Type != "" {
+		query = query.Where("type = ?", opts.Type)
 	}
 
-	return entities, nil
+	if opts.ProviderID != "" {
+		query = query.Where("provider_id = ?", opts.ProviderID)
+	}
+
+	if opts.Status != nil {
+		query = query.Where("status = ?", *opts.Status)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (opts.Page - 1) * opts.PageSize
+	if err := query.Offset(offset).Limit(opts.PageSize).Find(&entities).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return entities, total, nil
 }
 
-// Count 统计实体总数
-func (m *defaultEntityModel) Count(ctx context.Context, entityType string) (int64, error) {
-	var query string
-	var args []interface{}
-
-	if entityType != "" {
-		query = fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE type = ?", m.table)
-		args = []interface{}{entityType}
-	} else {
-		query = fmt.Sprintf("SELECT COUNT(*) FROM %s", m.table)
-		args = []interface{}{}
+// ValidateEntityData 验证实体数据格式
+func (m *EntityModel) ValidateEntityData(entityType string, data interface{}) error {
+	// 这里可以根据 entityType 实现不同的验证逻辑
+	// 目前只是基本的非空检查
+	if entityType == "" {
+		return fmt.Errorf("entity type cannot be empty")
 	}
-
-	var count int64
-	err := m.QueryRowNoCacheCtx(ctx, &count, query, args...)
-	if err != nil {
-		return 0, err
-	}
-
-	return count, nil
-}
-
-// getCacheKeys 获取缓存键列表
-func (m *defaultEntityModel) getCacheKeys(data *Entity) []string {
-	return []string{
-		fmt.Sprintf("cache:entity:id:%d", data.Id),
-	}
+	return nil
 }

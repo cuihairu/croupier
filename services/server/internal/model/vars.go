@@ -1,58 +1,95 @@
 package model
 
 import (
-	"database/sql"
 	"errors"
 	"time"
 
-	"github.com/zeromicro/go-zero/core/stores/cache"
-	"github.com/zeromicro/go-zero/core/stores/sqlx"
+	"gorm.io/gorm"
 )
 
+// 常用错误定义
 var (
-	// ErrNotFound 记录不存在
-	ErrNotFound = sqlx.ErrNotFound
-
-	// ErrDuplicateKey 唯一键冲突
-	ErrDuplicateKey = errors.New("duplicate key error")
-
-	// ErrInvalidData 无效数据
-	ErrInvalidData = errors.New("invalid data")
+	ErrNotFound            = gorm.ErrRecordNotFound
+	ErrDuplicateKey        = errors.New("duplicate key error")
+	ErrInvalidData         = errors.New("invalid data")
+	ErrInvalidPassword     = errors.New("invalid password")
+	ErrPermissionDenied    = errors.New("permission denied")
+	ErrInsufficientBalance = errors.New("insufficient balance")
 )
 
-// CachedConn 缓存连接接口
-type CachedConn interface {
-	sqlx.SqlConn
-	DelCache(keys ...string) error
-	GetCache(key string, v interface{}) error
-	SetCache(key string, v interface{}) error
+// 状态常量
+const (
+	StatusDisabled  = 0
+	StatusEnabled   = 1
+	StatusSuspended = 2
+)
+
+// 游戏状态常量
+const (
+	GameStatusDev         = "dev"
+	GameStatusTest        = "test"
+	GameStatusRunning     = "running"
+	GameStatusOnline      = "online"
+	GameStatusOffline     = "offline"
+	GameStatusMaintenance = "maintenance"
+)
+
+// 玩家状态常量
+const (
+	PlayerStatusBanned    = 0
+	PlayerStatusActive    = 1
+	PlayerStatusSuspended = 2
+)
+
+// 通用分页选项
+type PaginationOptions struct {
+	Page     int
+	PageSize int
 }
 
-// NowFunc 获取当前时间，便于测试
-var NowFunc = func() time.Time {
-	return time.Now()
-}
-
-// NullString 处理可空字符串
-func NullString(s string) sql.NullString {
-	if s == "" {
-		return sql.NullString{Valid: false}
+// 标准化分页参数
+func (opts *PaginationOptions) Normalize() {
+	if opts.Page <= 0 {
+		opts.Page = 1
 	}
-	return sql.NullString{String: s, Valid: true}
+	if opts.PageSize <= 0 {
+		opts.PageSize = 20
+	}
+	if opts.PageSize > 100 {
+		opts.PageSize = 100
+	}
 }
 
-// NullInt64 处理可空 int64
-func NullInt64(i int64) sql.NullInt64 {
-	if i == 0 {
-		return sql.NullInt64{Valid: false}
-	}
-	return sql.NullInt64{Int64: i, Valid: true}
+// 计算偏移量
+func (opts *PaginationOptions) Offset() int {
+	return (opts.Page - 1) * opts.PageSize
 }
 
-// NullTime 处理可空时间
-func NullTime(t time.Time) sql.NullTime {
-	if t.IsZero() {
-		return sql.NullTime{Valid: false}
+// 通用更新时间跟踪
+type TimestampMixin struct {
+	CreatedAt time.Time `gorm:"autoCreateTime"`
+	UpdatedAt time.Time `gorm:"autoUpdateTime"`
+}
+
+// NowUTC 获取当前 UTC 时间
+func NowUTC() time.Time {
+	return time.Now().UTC()
+}
+
+// IsValidStatus 检查状态值是否有效
+func IsValidStatus(status int) bool {
+	return status >= 0 && status <= 2
+}
+
+// IsValidGameStatus 检查游戏状态值是否有效
+func IsValidGameStatus(status string) bool {
+	validStatuses := map[string]bool{
+		GameStatusDev:         true,
+		GameStatusTest:        true,
+		GameStatusRunning:     true,
+		GameStatusOnline:      true,
+		GameStatusOffline:     true,
+		GameStatusMaintenance: true,
 	}
-	return sql.NullTime{Time: t, Valid: true}
+	return validStatuses[status]
 }

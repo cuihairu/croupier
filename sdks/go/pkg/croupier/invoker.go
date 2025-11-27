@@ -2,11 +2,21 @@ package croupier
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
+	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
+	"github.com/xeipuuv/gojsonschema"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -14,6 +24,7 @@ import (
 type invoker struct {
 	config *InvokerConfig
 	conn   *grpc.ClientConn
+	client functionv1.FunctionServiceClient
 	mu     sync.RWMutex
 
 	// Function schemas for validation
@@ -60,8 +71,11 @@ func (i *invoker) Connect(ctx context.Context) error {
 	if i.config.Insecure {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	} else {
-		// TODO: Implement TLS credentials
-		return fmt.Errorf("TLS not implemented yet")
+		tlsCfg, err := buildTLSConfig(i.config)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)))
 	}
 
 	// Create connection with timeout
@@ -74,6 +88,7 @@ func (i *invoker) Connect(ctx context.Context) error {
 	}
 
 	i.conn = conn
+	i.client = functionv1.NewFunctionServiceClient(conn)
 	i.connected = true
 
 	fmt.Printf("Connected to: %s\n", i.config.Address)
@@ -95,18 +110,25 @@ func (i *invoker) Invoke(ctx context.Context, functionID, payload string, option
 		}
 	}
 
-	fmt.Printf("Invoking function: %s\n", functionID)
-	fmt.Printf("Payload: %s\n", payload)
+	req := &functionv1.InvokeRequest{
+		FunctionId:     functionID,
+		IdempotencyKey: options.IdempotencyKey,
+		Payload:        []byte(payload),
+		Metadata:       map[string]string{},
+	}
+	for k, v := range options.Headers {
+		req.Metadata[k] = v
+	}
 
-	// TODO: Implement actual gRPC call using FunctionService
-	// This would use the generated gRPC client from function.proto
+	callCtx, cancel := i.callContext(ctx, options.Timeout)
+	defer cancel()
 
-	// Mock response for now
-	response := fmt.Sprintf(`{"status":"success","function_id":"%s","timestamp":"%s"}`,
-		functionID, time.Now().Format(time.RFC3339))
+	resp, err := i.client.Invoke(callCtx, req)
+	if err != nil {
+		return "", fmt.Errorf("invoke RPC failed: %w", err)
+	}
 
-	fmt.Printf("Response: %s\n", response)
-	return response, nil
+	return string(resp.GetPayload()), nil
 }
 
 // StartJob implements Invoker.StartJob
@@ -117,16 +139,25 @@ func (i *invoker) StartJob(ctx context.Context, functionID, payload string, opti
 		}
 	}
 
-	fmt.Printf("Starting job for function: %s\n", functionID)
+	req := &functionv1.InvokeRequest{
+		FunctionId:     functionID,
+		IdempotencyKey: options.IdempotencyKey,
+		Payload:        []byte(payload),
+		Metadata:       map[string]string{},
+	}
+	for k, v := range options.Headers {
+		req.Metadata[k] = v
+	}
 
-	// TODO: Implement actual gRPC call for job execution
-	// This would use the JobService from the proto definitions
+	callCtx, cancel := i.callContext(ctx, options.Timeout)
+	defer cancel()
 
-	// Generate mock job ID
-	jobID := fmt.Sprintf("job-%s-%d", functionID, time.Now().Unix())
-	fmt.Printf("Started job: %s\n", jobID)
+	resp, err := i.client.StartJob(callCtx, req)
+	if err != nil {
+		return "", fmt.Errorf("start job RPC failed: %w", err)
+	}
 
-	return jobID, nil
+	return resp.GetJobId(), nil
 }
 
 // StreamJob implements Invoker.StreamJob
@@ -140,38 +171,48 @@ func (i *invoker) StreamJob(ctx context.Context, jobID string) (<-chan JobEvent,
 		}
 	}
 
-	fmt.Printf("Streaming job events for: %s\n", jobID)
+	req := &functionv1.JobStreamRequest{JobId: jobID}
 
-	// Start goroutine to simulate job events
+	stream, err := i.client.StreamJob(ctx, req)
+	if err != nil {
+		close(eventCh)
+		return eventCh, fmt.Errorf("stream job RPC failed: %w", err)
+	}
+
 	go func() {
 		defer close(eventCh)
+		for {
+			evt, err := stream.Recv()
+			if err != nil {
+				if err != io.EOF {
+					eventCh <- JobEvent{
+						EventType: "error",
+						JobID:     jobID,
+						Error:     err.Error(),
+						Done:      true,
+					}
+				}
+				return
+			}
 
-		// Mock job events
-		events := []JobEvent{
-			{
-				EventType: "started",
+			event := JobEvent{
+				EventType: evt.GetType(),
 				JobID:     jobID,
-				Payload:   `{"status":"job_started"}`,
-				Done:      false,
-			},
-			{
-				EventType: "progress",
-				JobID:     jobID,
-				Payload:   `{"progress":50}`,
-				Done:      false,
-			},
-			{
-				EventType: "completed",
-				JobID:     jobID,
-				Payload:   `{"result":"success"}`,
-				Done:      true,
-			},
-		}
+				Payload:   string(evt.GetPayload()),
+				Done:      strings.EqualFold(evt.GetType(), "done"),
+			}
+			if evt.GetType() == "error" {
+				event.Error = evt.GetMessage()
+				event.Done = true
+			} else if msg := evt.GetMessage(); msg != "" {
+				event.Payload = msg
+			}
 
-		for _, event := range events {
 			select {
 			case eventCh <- event:
-				time.Sleep(500 * time.Millisecond) // Simulate processing time
+				if event.Done {
+					return
+				}
 			case <-ctx.Done():
 				return
 			}
@@ -189,10 +230,13 @@ func (i *invoker) CancelJob(ctx context.Context, jobID string) error {
 		}
 	}
 
-	fmt.Printf("Cancelling job: %s\n", jobID)
+	req := &functionv1.CancelJobRequest{JobId: jobID}
+	callCtx, cancel := i.callContext(ctx, 0)
+	defer cancel()
 
-	// TODO: Implement actual gRPC call for job cancellation
-
+	if _, err := i.client.CancelJob(callCtx, req); err != nil {
+		return fmt.Errorf("cancel job RPC failed: %w", err)
+	}
 	return nil
 }
 
@@ -212,6 +256,7 @@ func (i *invoker) Close() error {
 	defer i.mu.Unlock()
 
 	i.connected = false
+	i.client = nil
 
 	if i.conn != nil {
 		i.conn.Close()
@@ -225,10 +270,86 @@ func (i *invoker) Close() error {
 
 // validatePayload validates payload against schema
 func (i *invoker) validatePayload(payload string, schema map[string]interface{}) error {
-	// TODO: Implement proper JSON schema validation
-	// For now, just check if payload is not empty
-	if payload == "" {
-		return fmt.Errorf("payload cannot be empty")
+	if len(schema) == 0 {
+		if payload == "" {
+			return fmt.Errorf("payload cannot be empty")
+		}
+		return nil
 	}
-	return nil
+
+	schemaBytes, err := json.Marshal(schema)
+	if err != nil {
+		return fmt.Errorf("failed to marshal schema: %w", err)
+	}
+
+	schemaLoader := gojsonschema.NewBytesLoader(schemaBytes)
+	payloadLoader := gojsonschema.NewStringLoader(payload)
+
+	result, err := gojsonschema.Validate(schemaLoader, payloadLoader)
+	if err != nil {
+		return fmt.Errorf("schema validation error: %w", err)
+	}
+
+	if result.Valid() {
+		return nil
+	}
+
+	var errs []string
+	for _, desc := range result.Errors() {
+		errs = append(errs, desc.String())
+	}
+
+	return fmt.Errorf("payload validation failed: %s", strings.Join(errs, "; "))
+}
+
+func (i *invoker) callContext(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	if timeout <= 0 {
+		timeout = i.config.DefaultTimeout
+	}
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
+	return context.WithTimeout(ctx, timeout)
+}
+
+func buildTLSConfig(cfg *InvokerConfig) (*tls.Config, error) {
+	tlsCfg := &tls.Config{}
+
+	// Root CA handling
+	if cfg.CAFile != "" {
+		caBytes, err := os.ReadFile(cfg.CAFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read CA file: %w", err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(caBytes) {
+			return nil, fmt.Errorf("failed to append CA certificates")
+		}
+		tlsCfg.RootCAs = pool
+	} else {
+		systemPool, err := x509.SystemCertPool()
+		if err == nil {
+			tlsCfg.RootCAs = systemPool
+		}
+	}
+
+	// Client certificate (optional)
+	if cfg.CertFile != "" && cfg.KeyFile != "" {
+		cert, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load client certificate: %w", err)
+		}
+		tlsCfg.Certificates = []tls.Certificate{cert}
+	}
+
+	// Infer server name for TLS verification
+	if cfg.Address != "" {
+		host := cfg.Address
+		if h, _, err := net.SplitHostPort(cfg.Address); err == nil && h != "" {
+			host = h
+		}
+		tlsCfg.ServerName = host
+	}
+
+	return tlsCfg, nil
 }

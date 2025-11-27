@@ -1,11 +1,16 @@
 package com.croupier.sdk;
 
 import io.grpc.*;
+import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.grpc.netty.shaded.io.netty.handler.ssl.ClientAuth;
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
+
+import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.List;
@@ -50,8 +55,7 @@ public class GrpcManager {
             if (config.isInsecure()) {
                 channelBuilder.usePlaintext();
             } else {
-                // TODO: Implement TLS credentials
-                throw new CroupierException("TLS not implemented yet");
+                channelBuilder.sslContext(createClientSslContext());
             }
 
             // Set timeouts and other options
@@ -130,8 +134,7 @@ public class GrpcManager {
             NettyServerBuilder serverBuilder = NettyServerBuilder.forPort(port);
 
             if (!config.isInsecure()) {
-                // TODO: Implement TLS credentials
-                throw new CroupierException("Server TLS not implemented yet");
+                serverBuilder.sslContext(createServerSslContext());
             }
 
             // Add function service
@@ -214,5 +217,49 @@ public class GrpcManager {
      */
     public String getLocalAddress() {
         return localAddress;
+    }
+
+    private SslContext createClientSslContext() throws CroupierException {
+        try {
+            io.grpc.netty.shaded.io.grpc.netty.SslContextBuilder builder = GrpcSslContexts.forClient();
+
+            if (!isNullOrEmpty(config.getCaFile())) {
+                builder.trustManager(new File(config.getCaFile()));
+            }
+
+            if (!isNullOrEmpty(config.getCertFile()) && !isNullOrEmpty(config.getKeyFile())) {
+                builder.keyManager(new File(config.getCertFile()), new File(config.getKeyFile()));
+            }
+
+            return builder.build();
+        } catch (Exception e) {
+            throw new CroupierException("Failed to create gRPC client TLS context", e);
+        }
+    }
+
+    private SslContext createServerSslContext() throws CroupierException {
+        if (isNullOrEmpty(config.getCertFile()) || isNullOrEmpty(config.getKeyFile())) {
+            throw new CroupierException("Server TLS requires certFile and keyFile");
+        }
+
+        try {
+            io.grpc.netty.shaded.io.grpc.netty.SslContextBuilder builder =
+                GrpcSslContexts.forServer(new File(config.getCertFile()), new File(config.getKeyFile()));
+
+            if (!isNullOrEmpty(config.getCaFile())) {
+                builder.trustManager(new File(config.getCaFile()));
+                builder.clientAuth(ClientAuth.REQUIRE);
+            } else {
+                builder.clientAuth(ClientAuth.NONE);
+            }
+
+            return builder.build();
+        } catch (Exception e) {
+            throw new CroupierException("Failed to create gRPC server TLS context", e);
+        }
+    }
+
+    private boolean isNullOrEmpty(String value) {
+        return value == null || value.isEmpty();
     }
 }

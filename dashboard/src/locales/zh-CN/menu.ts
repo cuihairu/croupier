@@ -1,6 +1,6 @@
 export default {
   'menu.AdminUsers': '后台用户',
-  'menu.AdminUsers.UserAccount': '用户账号',
+  'menu.AdminUsers.UserAccount': '用户管理',
   'menu.AdminUsers.UserAccount.Center': '个人中心',
   'menu.AdminUsers.UserAccount.Settings': '个人设置',
   'menu.AdminUsers.UserAccount.Messages': '消息通知',

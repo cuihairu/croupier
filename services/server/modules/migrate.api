@@ -1,0 +1,98 @@
+// ============================================================================
+// MIGRATE 模块 API 定义 - 数据库迁移
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+// --- 迁移结果 ---
+type MigrationResult {
+	MigrationName string `json:"migrationName"`
+	Direction     string `json:"direction"`     // up, down
+	Status        string `json:"status"`        // pending, success, failed
+	Duration      string `json:"duration"`     // execution time in ms
+	SQL           string `json:"sql"`           // executed SQL
+	DryRun        bool   `json:"dryRun"`       // whether this was a dry run
+	Error         string `json:"error,omitempty"`
+}
+
+// --- 迁移历史 ---
+type MigrationHistory {
+	Items []MigrationResult `json:"items"`
+	Total int64          `json:"total"`
+	Page  int             `json:"page"`
+	Size  int             `json:"pageSize"`
+}
+
+// --- 向上迁移请求 ---
+type MigrateUpRequest {
+	Force bool `json:"force,optional"`      // force run even if already applied
+	Step  int  `json:"step,optional"`       // specific step to run (-1 for all)
+}
+
+type MigrateUpResponse {
+	Success bool             `json:"success"`
+	Message string             `json:"message"`
+	Results []MigrationResult `json:"results,omitempty"`
+}
+
+// --- 向下迁移请求 ---
+type MigrateDownRequest {
+	Target string `json:"target,optional"`    // specific version to migrate to
+	Force   bool   `json:"force,optional"`     // force run even if already applied
+}
+
+type MigrateDownResponse {
+	Success bool             `json:"success"`
+	Message string             `json:"message"`
+	Results []MigrationResult `json:"results,omitempty"`
+}
+
+// --- 迁移历史请求 ---
+type MigrationHistoryRequest {
+	Page     int    `form:"page,optional,default=1"`
+	PageSize  int    `form:"pageSize,optional,default=20"`
+	Status   string `form:"status,optional"`
+}
+
+type MigrationHistoryResponse {
+	Items []MigrationResult `json:"items"`
+	Total int64          `json:"total"`
+	Page  int             `json:"page"`
+	Size  int             `json:"pageSize"`
+}
+
+// --- 迁移状态请求 ---
+type MigrationStatusRequest {
+}
+
+type MigrationStatusResponse {
+	LatestVersion string            `json:"latestVersion"`
+	PendingCount  int             `json:"pendingCount"`
+	HistoryItems  []MigrationResult `json:"historyItems,omitempty"`
+}
+
+// ============================================================================
+// 迁移管理 API
+// ============================================================================
+@server (
+	prefix: /api/v1/migrate
+	group:  migrate
+)
+service server {
+	// === 数据库迁移 ===
+	@doc "获取迁移状态"
+	@handler MigrateStatusHandler
+	get /status (MigrationStatusRequest) returns (MigrationStatusResponse)
+
+	@doc "获取迁移历史"
+	@handler MigrateHistoryHandler
+	get /history (MigrationHistoryRequest) returns (MigrationHistoryResponse)
+
+	@doc "执行向上迁移"
+	@handler MigrateUpHandler
+	post /up (MigrateUpRequest) returns (MigrateUpResponse)
+
+	@doc "执行向下迁移"
+	@handler MigrateDownHandler
+	post /down (MigrateDownRequest) returns (MigrateDownResponse)
+}

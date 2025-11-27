@@ -8,24 +8,24 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cuihairu/croupier/internal/auth/permission"
-	"github.com/cuihairu/croupier/internal/repo/gorm/users"
 	"github.com/cuihairu/croupier/services/server/internal/config"
+	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/runtime"
+	"github.com/cuihairu/croupier/services/server/internal/service/permission"
 	"gorm.io/gorm"
 )
 
 type ServiceContext struct {
-	Config           config.Config
-	AdminManager     *AdminManager
-	DB               *gorm.DB
-	PermissionService  *permission.PermissionService
-	AdminRepository   *users.AdminRepository
+	Config            config.Config
+	AdminManager      *AdminManager
+	DB                *gorm.DB
+	PermissionService *permission.PermissionService
+	AdminModel        *model.AdminModel
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
 	// 初始化数据库连接
-	db, err := gorm.Open(c.Database.Driver, c.Database.DSN)
+	db, err := openDatabase(c)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to connect to database: %v", err))
 	}
@@ -37,7 +37,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 
 	// 创建服务
 	permissionService := permission.NewPermissionService(db)
-	adminRepository := users.NewAdminRepository(db)
+	adminModel := model.NewAdminModel(db)
 
 	// 创建管理员管理器（基于JSON文件）
 	configDir := resolveBootstrapAuthDir(c)
@@ -50,25 +50,21 @@ func NewServiceContext(c config.Config) *ServiceContext {
 
 	return &ServiceContext{
 		Config:            c,
-		AdminManager:       adminManager,
+		AdminManager:      adminManager,
 		DB:                db,
-		PermissionService:   permissionService,
-		AdminRepository:     adminRepository,
+		PermissionService: permissionService,
+		AdminModel:        adminModel,
 	}
 }
 
 // autoMigrate runs all necessary database migrations
 func autoMigrate(db *gorm.DB) error {
 	// Import all model packages and run their AutoMigrate functions
-	if err := users.AutoMigrate(db); err != nil {
-		return fmt.Errorf("failed to migrate users models: %w", err)
+	if err := model.AutoMigrate(db); err != nil {
+		return fmt.Errorf("failed to migrate server models: %w", err)
 	}
 
 	// Add other model migrations here when they are created
-	// if err := players.AutoMigrate(db); err != nil {
-	//     return fmt.Errorf("failed to migrate players models: %w", err)
-	// }
-
 	return nil
 }
 

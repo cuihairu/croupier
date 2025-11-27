@@ -21,7 +21,7 @@ func New(serverAddr, agentID string) *App {
 	return &App{
 		store:    store,
 		jobs:     newJobIndex(),
-		upstream: NewUpstreamClient(serverAddr, agentID, store),
+		upstream: NewUpstreamClient(serverAddr, agentID, store, nil),
 	}
 }
 

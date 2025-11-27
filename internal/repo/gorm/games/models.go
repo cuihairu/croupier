@@ -79,3 +79,8 @@ func AutoMigrate(db *gorm.DB) error {
 		&GameAgentRecord{},
 	)
 }
+
+// TableName returns the table name for GameRecord migration
+func (GameRecord) TableName() string {
+	return "game_records_migration"
+}

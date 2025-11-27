@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"time"
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
@@ -19,15 +20,50 @@ type UpstreamClient struct {
 	store      *agentlocal.LocalStore
 	client     serverv1.ControlServiceClient
 	conn       *grpc.ClientConn
+	gameID     string
+	env        string
+	version    string
+	rpcAddr    string
 }
 
 // NewUpstreamClient creates a new upstream client.
-func NewUpstreamClient(serverAddr, agentID string, store *agentlocal.LocalStore) *UpstreamClient {
-	return &UpstreamClient{
+func NewUpstreamClient(serverAddr, agentID string, store *agentlocal.LocalStore, meta *UpstreamMetadata) *UpstreamClient {
+	if meta == nil {
+		meta = &UpstreamMetadata{
+			GameID:  firstNonEmpty(os.Getenv("CROUPIER_GAME_ID"), os.Getenv("GAME_ID")),
+			Env:     firstNonEmpty(os.Getenv("CROUPIER_ENV"), os.Getenv("ENV")),
+			Version: firstNonEmpty(os.Getenv("CROUPIER_AGENT_VERSION"), os.Getenv("AGENT_VERSION")),
+			RPCAddr: os.Getenv("CROUPIER_AGENT_RPC_ADDR"),
+		}
+	}
+	client := &UpstreamClient{
 		serverAddr: serverAddr,
 		agentID:    agentID,
 		store:      store,
 	}
+	if meta != nil {
+		client.gameID = meta.GameID
+		client.env = meta.Env
+		client.version = meta.Version
+		client.rpcAddr = meta.RPCAddr
+	}
+	return client
+}
+
+// UpstreamMetadata captures optional metadata for registering with server.
+type UpstreamMetadata struct {
+	GameID  string
+	Env     string
+	Version string
+	RPCAddr string
+}
+
+// WithMetadata applies metadata updates for the next sync.
+func (c *UpstreamClient) WithMetadata(meta UpstreamMetadata) {
+	c.gameID = meta.GameID
+	c.env = meta.Env
+	c.version = meta.Version
+	c.rpcAddr = meta.RPCAddr
 }
 
 // Start begins the upstream synchronization process.
@@ -100,8 +136,11 @@ func (c *UpstreamClient) sync(ctx context.Context) error {
 
 	req := &serverv1.RegisterRequest{
 		AgentId:   c.agentID,
+		Version:   c.version,
+		RpcAddr:   c.rpcAddr,
+		GameId:    c.gameID,
+		Env:       c.env,
 		Functions: funcs,
-		// TODO: Populate other fields like GameID, Env from config if available
 	}
 
 	_, err := c.client.Register(ctx, req)
@@ -116,4 +155,13 @@ func (c *UpstreamClient) Stop() {
 	if c.conn != nil {
 		c.conn.Close()
 	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }

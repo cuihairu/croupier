@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/model"
 	"gorm.io/gorm"
-	"github.com/cuihairu/croupier/internal/repo/gorm/users"
 )
 
 var (
@@ -42,10 +42,10 @@ func (s *PermissionService) CheckPermission(ctx context.Context, adminID uint, r
 	}
 
 	// Get admin's roles
-	var roles []users.RoleRecord
-	err := s.db.Table("role_records").
-		Joins("INNER JOIN admin_role_records ON role_records.id = admin_role_records.role_id").
-		Where("admin_role_records.admin_id = ?", adminID).
+	var roles []model.Role
+	err := s.db.Table("roles").
+		Joins("INNER JOIN admin_roles ON roles.id = admin_roles.role_id").
+		Where("admin_roles.admin_id = ?", adminID).
 		Find(&roles).Error
 	if err != nil {
 		return false, fmt.Errorf("failed to get admin roles: %w", err)
@@ -56,12 +56,12 @@ func (s *PermissionService) CheckPermission(ctx context.Context, adminID uint, r
 	}
 
 	// Get permissions for these roles
-	var permissions []users.PermissionRecord
-	err = s.db.Table("permission_records").
-		Joins("INNER JOIN role_perm_records ON permission_records.id = role_perm_records.permission_id").
-		Where("role_perm_records.role_id IN ?", s.getRoleIDs(roles)).
-		Where("permission_records.resource = ?", resource).
-		Where("permission_records.action = ?", action).
+	var permissions []model.Permission
+	err = s.db.Table("permissions").
+		Joins("INNER JOIN role_permissions ON permissions.id = role_permissions.permission_id").
+		Where("role_permissions.role_id IN ?", s.getRoleIDs(roles)).
+		Where("permissions.resource = ?", resource).
+		Where("permissions.action = ?", action).
 		Find(&permissions).Error
 	if err != nil {
 		return false, fmt.Errorf("failed to get permissions: %w", err)
@@ -105,14 +105,14 @@ func (s *PermissionService) CheckGameEnvScope(ctx context.Context, adminID uint,
 }
 
 // GetAdminPermissions returns all permissions for an admin
-func (s *PermissionService) GetAdminPermissions(ctx context.Context, adminID uint) ([]users.PermissionRecord, error) {
-	var permissions []users.PermissionRecord
+func (s *PermissionService) GetAdminPermissions(ctx context.Context, adminID uint) ([]model.Permission, error) {
+	var permissions []model.Permission
 
-	err := s.db.Table("permission_records").
-		Joins("INNER JOIN role_perm_records ON permission_records.id = role_perm_records.permission_id").
-		Joins("INNER JOIN admin_role_records ON role_perm_records.role_id = admin_role_records.role_id").
-		Where("admin_role_records.admin_id = ?", adminID).
-		Distinct("permission_records.*").
+	err := s.db.Table("permissions").
+		Joins("INNER JOIN role_permissions ON permissions.id = role_permissions.permission_id").
+		Joins("INNER JOIN admin_roles ON role_permissions.role_id = admin_roles.role_id").
+		Where("admin_roles.admin_id = ?", adminID).
+		Distinct("permissions.*").
 		Find(&permissions).Error
 
 	if err != nil {
@@ -123,12 +123,12 @@ func (s *PermissionService) GetAdminPermissions(ctx context.Context, adminID uin
 }
 
 // GetAdminRoles returns all roles for an admin
-func (s *PermissionService) GetAdminRoles(ctx context.Context, adminID uint) ([]users.RoleRecord, error) {
-	var roles []users.RoleRecord
+func (s *PermissionService) GetAdminRoles(ctx context.Context, adminID uint) ([]model.Role, error) {
+	var roles []model.Role
 
-	err := s.db.Table("role_records").
-		Joins("INNER JOIN admin_role_records ON role_records.id = admin_role_records.role_id").
-		Where("admin_role_records.admin_id = ?", adminID).
+	err := s.db.Table("roles").
+		Joins("INNER JOIN admin_roles ON roles.id = admin_roles.role_id").
+		Where("admin_roles.admin_id = ?", adminID).
 		Find(&roles).Error
 
 	if err != nil {
@@ -139,7 +139,7 @@ func (s *PermissionService) GetAdminRoles(ctx context.Context, adminID uint) ([]
 }
 
 // Helper functions
-func (s *PermissionService) getRoleIDs(roles []users.RoleRecord) []uint {
+func (s *PermissionService) getRoleIDs(roles []model.Role) []uint {
 	ids := make([]uint, len(roles))
 	for i, role := range roles {
 		ids[i] = role.ID
