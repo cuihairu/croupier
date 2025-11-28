@@ -9,6 +9,13 @@
 #include <algorithm>
 #include <chrono>
 #include <regex>
+#include <cstring>
+#include <stdexcept>
+
+#ifdef CROUPIER_SDK_ENABLE_GRPC
+#include "croupier/control/v1/control.grpc.pb.h"
+#include <zlib.h>
+#endif
 
 namespace croupier {
 namespace sdk {
@@ -343,6 +350,8 @@ public:
             return;
         }
 
+        grpc_manager_->UpdateHandlers(handlers_);
+
         // Convert FunctionDescriptor to LocalFunctionDescriptor (for local registration)
         std::vector<LocalFunctionDescriptor> local_functions;
         for (const auto& desc : descriptors_) {
@@ -366,6 +375,8 @@ public:
         if (connected_) return true;
 
         std::cout << "🔌 连接到 Croupier Agent: " << config_.agent_addr << std::endl;
+
+        grpc_manager_->UpdateHandlers(handlers_);
 
         // 使用 gRPC 管理器连接
         if (!grpc_manager_->Connect()) {
@@ -396,6 +407,14 @@ public:
         std::cout << "✅ 成功连接并注册到 Agent" << std::endl;
         std::cout << "📍 本地服务地址: " << local_address_ << std::endl;
         std::cout << "🔑 会话 ID: " << session_id_ << std::endl;
+
+#ifdef CROUPIER_SDK_ENABLE_GRPC
+        if (!config_.control_addr.empty()) {
+            if (!UploadCapabilitiesManifest()) {
+                std::cerr << "⚠️  Failed to upload provider capabilities manifest" << std::endl;
+            }
+        }
+#endif
 
         return true;
     }
@@ -460,7 +479,187 @@ public:
 
 private:
     // 这些方法现在由 gRPC 管理器处理
+#ifdef CROUPIER_SDK_ENABLE_GRPC
+    bool UploadCapabilitiesManifest();
+    std::string BuildCapabilitiesManifest() const;
+    std::string EscapeJson(const std::string& value) const;
+    std::string DefaultVersion(const std::string& version) const;
+    std::string SafeString(const std::string& value, const std::string& fallback) const;
+    std::string GzipCompress(const std::string& input) const;
+#endif
 };
+
+#ifdef CROUPIER_SDK_ENABLE_GRPC
+bool CroupierClient::Impl::UploadCapabilitiesManifest() {
+    if (!grpc_manager_) {
+        std::cerr << "⚠️  gRPC manager is not initialized; skipping capability upload" << std::endl;
+        return false;
+    }
+    try {
+        const std::string manifest = BuildCapabilitiesManifest();
+        const std::string compressed = GzipCompress(manifest);
+
+        auto credentials = grpc_manager_->BuildClientCredentials();
+        auto channel_args = grpc_manager_->BuildClientChannelArguments();
+        auto channel = grpc::CreateCustomChannel(config_.control_addr, credentials, channel_args);
+
+        const auto timeout = std::chrono::seconds(config_.timeout_seconds > 0 ? config_.timeout_seconds : 30);
+        auto connect_deadline = std::chrono::system_clock::now() + timeout;
+        if (!channel->WaitForConnected(connect_deadline)) {
+            std::cerr << "⚠️  Unable to connect to control service at "
+                      << config_.control_addr << std::endl;
+            return false;
+        }
+
+        auto stub = croupier::control::v1::ControlService::NewStub(channel);
+        grpc::ClientContext ctx;
+        if (config_.timeout_seconds > 0) {
+            ctx.set_deadline(std::chrono::system_clock::now() + timeout);
+        }
+
+        croupier::control::v1::RegisterCapabilitiesRequest request;
+        auto* provider = request.mutable_provider();
+        provider->set_id(SafeString(config_.service_id, "cpp-service"));
+        provider->set_version(DefaultVersion(config_.service_version));
+        provider->set_lang(SafeString(config_.provider_lang, "cpp"));
+        provider->set_sdk(SafeString(config_.provider_sdk, "croupier-cpp-sdk"));
+        request.set_manifest_json_gz(compressed);
+
+        croupier::control::v1::RegisterCapabilitiesResponse response;
+        grpc::Status status = stub->RegisterCapabilities(&ctx, request, &response);
+        if (!status.ok()) {
+            std::cerr << "⚠️  ControlService.RegisterCapabilities failed: "
+                      << status.error_message() << std::endl;
+            return false;
+        }
+
+        std::cout << "📤 Uploaded provider capabilities manifest ("
+                  << descriptors_.size() << " functions)" << std::endl;
+        return true;
+    } catch (const std::exception& e) {
+        std::cerr << "⚠️  Failed to upload capabilities: " << e.what() << std::endl;
+        return false;
+    }
+}
+
+std::string CroupierClient::Impl::BuildCapabilitiesManifest() const {
+    std::ostringstream oss;
+    oss << "{\"provider\":{";
+    oss << "\"id\":\"" << EscapeJson(SafeString(config_.service_id, "cpp-service")) << "\",";
+    oss << "\"version\":\"" << EscapeJson(DefaultVersion(config_.service_version)) << "\",";
+    oss << "\"lang\":\"" << EscapeJson(SafeString(config_.provider_lang, "cpp")) << "\",";
+    oss << "\"sdk\":\"" << EscapeJson(SafeString(config_.provider_sdk, "croupier-cpp-sdk")) << "\"}";
+
+    bool has_functions = false;
+    for (const auto& entry : descriptors_) {
+        const auto& descriptor = entry.second;
+        if (descriptor.id.empty()) {
+            continue;
+        }
+        if (!has_functions) {
+            oss << ",\"functions\":[";
+            has_functions = true;
+        } else {
+            oss << ",";
+        }
+
+        oss << "{";
+        oss << "\"id\":\"" << EscapeJson(descriptor.id) << "\",";
+        oss << "\"version\":\"" << EscapeJson(DefaultVersion(descriptor.version)) << "\"";
+        if (!descriptor.category.empty()) {
+            oss << ",\"category\":\"" << EscapeJson(descriptor.category) << "\"";
+        }
+        if (!descriptor.risk.empty()) {
+            oss << ",\"risk\":\"" << EscapeJson(descriptor.risk) << "\"";
+        }
+        if (!descriptor.entity.empty()) {
+            oss << ",\"entity\":\"" << EscapeJson(descriptor.entity) << "\"";
+        }
+        if (!descriptor.operation.empty()) {
+            oss << ",\"operation\":\"" << EscapeJson(descriptor.operation) << "\"";
+        }
+        if (descriptor.enabled) {
+            oss << ",\"enabled\":true";
+        }
+        oss << "}";
+    }
+    if (has_functions) {
+        oss << "]";
+    }
+
+    oss << "}";
+    return oss.str();
+}
+
+std::string CroupierClient::Impl::EscapeJson(const std::string& value) const {
+    std::ostringstream oss;
+    for (const char ch : value) {
+        switch (ch) {
+            case '"': oss << "\\\""; break;
+            case '\\': oss << "\\\\"; break;
+            case '\b': oss << "\\b"; break;
+            case '\f': oss << "\\f"; break;
+            case '\n': oss << "\\n"; break;
+            case '\r': oss << "\\r"; break;
+            case '\t': oss << "\\t"; break;
+            default:
+                if (static_cast<unsigned char>(ch) < 0x20) {
+                    oss << "\\u" << std::hex << std::setw(4) << std::setfill('0')
+                        << static_cast<int>(static_cast<unsigned char>(ch))
+                        << std::dec << std::setfill(' ');
+                } else {
+                    oss << ch;
+                }
+        }
+    }
+    return oss.str();
+}
+
+std::string CroupierClient::Impl::DefaultVersion(const std::string& version) const {
+    return version.empty() ? "1.0.0" : version;
+}
+
+std::string CroupierClient::Impl::SafeString(const std::string& value, const std::string& fallback) const {
+    return value.empty() ? fallback : value;
+}
+
+std::string CroupierClient::Impl::GzipCompress(const std::string& input) const {
+    if (input.empty()) {
+        return "";
+    }
+
+    z_stream zs;
+    std::memset(&zs, 0, sizeof(zs));
+    int ret = deflateInit2(&zs, Z_BEST_SPEED, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
+    if (ret != Z_OK) {
+        throw std::runtime_error("deflateInit2 failed");
+    }
+
+    zs.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(input.data()));
+    zs.avail_in = static_cast<uInt>(input.size());
+
+    std::string output;
+    output.reserve(input.size());
+
+    char buffer[4096];
+    do {
+        zs.next_out = reinterpret_cast<Bytef*>(buffer);
+        zs.avail_out = sizeof(buffer);
+
+        ret = deflate(&zs, zs.avail_in > 0 ? Z_NO_FLUSH : Z_FINISH);
+        if (ret == Z_STREAM_ERROR) {
+            deflateEnd(&zs);
+            throw std::runtime_error("deflate failed");
+        }
+
+        std::size_t produced = sizeof(buffer) - zs.avail_out;
+        output.append(buffer, produced);
+    } while (ret != Z_STREAM_END);
+
+    deflateEnd(&zs);
+    return output;
+}
+#endif
 
 // Invoker Implementation
 class CroupierInvoker::Impl {
@@ -961,4 +1160,3 @@ std::string ComponentDescriptorToJSON(const ComponentDescriptor& comp) {
 
 } // namespace sdk
 } // namespace croupier
-

@@ -8,6 +8,8 @@
 #include <regex>
 #include <fstream>
 #include <shared_mutex>
+#include <chrono>
+#include <random>
 
 // Note: This implementation requires protobuf generated code
 // In a real project, we need to generate gRPC proto files first, then implement the actual services
@@ -15,6 +17,26 @@
 namespace croupier {
 namespace sdk {
 namespace grpc_service {
+
+namespace {
+
+std::string ReadFileContent(const std::string& path) {
+    if (path.empty()) {
+        return "";
+    }
+    std::ifstream stream(path, std::ios::in | std::ios::binary);
+    if (!stream) {
+        throw std::runtime_error("failed to open file: " + path);
+    }
+    std::ostringstream buffer;
+    buffer << stream.rdbuf();
+    return buffer.str();
+}
+
+} // namespace
+
+namespace localv1 = ::croupier::agent::local::v1;
+namespace functionv1 = ::croupier::function::v1;
 
 //==============================================================================
 // GrpcClientManager Implementation
@@ -115,6 +137,10 @@ bool GrpcClientManager::RegisterWithAgent(
         std::cerr << "❌ Not connected to Agent, cannot register" << std::endl;
         return false;
     }
+    if (local_address_.empty()) {
+        std::cerr << "❌ Local server is not running, cannot register with agent" << std::endl;
+        return false;
+    }
 
     try {
         std::string error_message;
@@ -146,6 +172,17 @@ bool GrpcClientManager::RegisterWithAgent(
     }
 }
 
+bool GrpcClientManager::RegisterAgentWithServer(
+    const std::vector<FunctionDescriptor>& functions,
+    std::string& session_id) {
+    (void)functions;
+    (void)session_id;
+    std::cerr << "⚠️  RegisterAgentWithServer is not implemented on the C++ SDK; "
+                 "agents forward registrations automatically."
+              << std::endl;
+    return false;
+}
+
 bool GrpcClientManager::SendHeartbeat(const std::string& session_id) {
     if (!IsConnected()) {
         return false;
@@ -169,41 +206,60 @@ bool GrpcClientManager::SendHeartbeat(const std::string& session_id) {
 
 bool GrpcClientManager::StartLocalServer() {
     try {
-        // Parse listen address
-        std::string host;
-        int port;
+        const std::string listen_addr = config_.local_listen.empty() ? "127.0.0.1:0" : config_.local_listen;
+        std::string host = "127.0.0.1";
+        int requested_port = 0;
 
-        if (config_.local_listen.empty()) {
-            host = "127.0.0.1";
-            port = 0; // Auto-assign port
+        auto pos = listen_addr.rfind(':');
+        if (pos == std::string::npos) {
+            host = listen_addr;
         } else {
-            auto pos = config_.local_listen.rfind(':');
-            if (pos == std::string::npos) {
-                throw std::runtime_error("Invalid local_listen format");
+            if (pos > 0) {
+                host = listen_addr.substr(0, pos);
+            } else {
+                host.clear(); // signifies all interfaces
             }
-            host = config_.local_listen.substr(0, pos);
-            std::string port_str = config_.local_listen.substr(pos + 1);
-            port = port_str.empty() ? 0 : std::stoi(port_str);
+            std::string port_str = listen_addr.substr(pos + 1);
+            if (!port_str.empty()) {
+                requested_port = std::stoi(port_str);
+            }
         }
 
-        // If port is 0, auto-assign port
-        if (port == 0) {
-            port = 19001; // Default starting port for local services
+        grpc::ServerBuilder builder;
+        auto server_creds = CreateServerCredentials();
+        int bound_port = 0;
+        builder.AddListeningPort(listen_addr, server_creds, &bound_port);
+
+        std::map<std::string, FunctionHandler> handlers_copy;
+        {
+            std::lock_guard<std::mutex> lock(handler_mutex_);
+            handlers_copy = handler_snapshot_;
         }
 
-        local_port_ = port;
+        if (!local_service_) {
+            local_service_ = std::make_unique<LocalFunctionServiceImpl>(handlers_copy);
+        } else {
+            local_service_->UpdateHandlers(handlers_copy);
+        }
 
-        // Create local service implementation
-        std::map<std::string, FunctionHandler> empty_handlers; // Initially empty, will be updated later
-        local_service_ = std::make_unique<LocalFunctionServiceImpl>(empty_handlers);
+        builder.RegisterService(local_service_.get());
+        local_server_ = builder.BuildAndStart();
+        if (!local_server_) {
+            throw std::runtime_error("failed to start local gRPC server");
+        }
 
-        // Build server address
-        local_address_ = host + ":" + std::to_string(port);
+        if (bound_port == 0) {
+            bound_port = requested_port;
+        }
+        if (bound_port == 0) {
+            throw std::runtime_error("server did not report a bound port");
+        }
 
-        // TODO: Start real gRPC server here
-        // For now, just mock success
+        local_port_ = bound_port;
+        const std::string advertised_host = host.empty() ? "127.0.0.1" : host;
+        local_address_ = advertised_host + ":" + std::to_string(bound_port);
+
         std::cout << "🚀 Local gRPC server started on: " << local_address_ << std::endl;
-
         return true;
     } catch (const std::exception& e) {
         std::cerr << "❌ Failed to start local server: " << e.what() << std::endl;
@@ -214,15 +270,26 @@ bool GrpcClientManager::StartLocalServer() {
 void GrpcClientManager::StopLocalServer() {
     if (local_server_) {
         local_server_->Shutdown();
+        local_server_->Wait();
         local_server_.reset();
     }
 
     local_service_.reset();
+    local_address_.clear();
+    local_port_ = 0;
     std::cout << "🛑 Local gRPC server stopped" << std::endl;
 }
 
 std::string GrpcClientManager::GetLocalServerAddress() const {
     return local_address_;
+}
+
+grpc::ChannelArguments GrpcClientManager::BuildClientChannelArguments() const {
+    return CreateChannelArguments();
+}
+
+std::shared_ptr<grpc::ChannelCredentials> GrpcClientManager::BuildClientCredentials() const {
+    return CreateCredentials();
 }
 
 void GrpcClientManager::SetErrorCallback(std::function<void(const std::string&)> callback) {
@@ -231,6 +298,14 @@ void GrpcClientManager::SetErrorCallback(std::function<void(const std::string&)>
 
 void GrpcClientManager::SetReconnectCallback(std::function<void()> callback) {
     reconnect_callback_ = callback;
+}
+
+void GrpcClientManager::UpdateHandlers(const std::map<std::string, FunctionHandler>& handlers) {
+    std::lock_guard<std::mutex> lock(handler_mutex_);
+    handler_snapshot_ = handlers;
+    if (local_service_) {
+        local_service_->UpdateHandlers(handler_snapshot_);
+    }
 }
 
 std::shared_ptr<grpc::Channel> GrpcClientManager::CreateChannel() {
@@ -244,9 +319,6 @@ bool GrpcClientManager::ValidateConnection() {
     if (!agent_channel_) {
         return false;
     }
-
-    // Check channel state
-    grpc_connectivity_state state = agent_channel_->GetState(false);
 
     // Wait for connection to be established
     auto deadline = std::chrono::system_clock::now() + std::chrono::seconds(config_.timeout_seconds);
@@ -316,7 +388,8 @@ void GrpcClientManager::StartHeartbeatLoop(const std::string& session_id) {
 
     heartbeat_running_ = true;
     heartbeat_thread_ = std::thread([this, session_id]() {
-        const auto interval = std::chrono::seconds(60); // 60 second heartbeat interval
+        const auto interval = std::chrono::seconds(
+            config_.heartbeat_interval > 0 ? config_.heartbeat_interval : 60);
 
         while (heartbeat_running_) {
             std::this_thread::sleep_for(interval);
@@ -325,6 +398,7 @@ void GrpcClientManager::StartHeartbeatLoop(const std::string& session_id) {
 
             if (!SendHeartbeat(session_id)) {
                 std::cerr << "💔 Heartbeat failed, may need reconnection" << std::endl;
+                 HandleError("heartbeat failed");
                 break;
             }
 
@@ -343,7 +417,7 @@ void GrpcClientManager::StopHeartbeatLoop() {
     }
 }
 
-grpc::ChannelArguments GrpcClientManager::CreateChannelArguments() {
+grpc::ChannelArguments GrpcClientManager::CreateChannelArguments() const {
     grpc::ChannelArguments args;
 
     // Set timeout
@@ -358,7 +432,7 @@ grpc::ChannelArguments GrpcClientManager::CreateChannelArguments() {
     return args;
 }
 
-std::shared_ptr<grpc::ChannelCredentials> GrpcClientManager::CreateCredentials() {
+std::shared_ptr<grpc::ChannelCredentials> GrpcClientManager::CreateCredentials() const {
     if (config_.insecure) {
         return grpc::InsecureChannelCredentials();
     }
@@ -366,31 +440,56 @@ std::shared_ptr<grpc::ChannelCredentials> GrpcClientManager::CreateCredentials()
     // TLS configuration
     grpc::SslCredentialsOptions ssl_options;
 
-    if (!config_.ca_file.empty()) {
-        std::ifstream ca_file(config_.ca_file);
-        std::stringstream ca_buffer;
-        ca_buffer << ca_file.rdbuf();
-        ssl_options.pem_root_certs = ca_buffer.str();
-    }
+    try {
+        if (!config_.ca_file.empty()) {
+            ssl_options.pem_root_certs = ReadFileContent(config_.ca_file);
+        }
 
-    if (!config_.cert_file.empty() && !config_.key_file.empty()) {
-        std::ifstream cert_file(config_.cert_file);
-        std::stringstream cert_buffer;
-        cert_buffer << cert_file.rdbuf();
-        ssl_options.pem_cert_chain = cert_buffer.str();
-
-        std::ifstream key_file(config_.key_file);
-        std::stringstream key_buffer;
-        key_buffer << key_file.rdbuf();
-        ssl_options.pem_private_key = key_buffer.str();
+        if (!config_.cert_file.empty() && !config_.key_file.empty()) {
+            ssl_options.pem_cert_chain = ReadFileContent(config_.cert_file);
+            ssl_options.pem_private_key = ReadFileContent(config_.key_file);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "⚠️  Failed to load TLS credentials: " << e.what()
+                  << ", falling back to insecure channel" << std::endl;
+        return grpc::InsecureChannelCredentials();
     }
 
     return grpc::SslCredentials(ssl_options);
 }
 
+std::shared_ptr<grpc::ServerCredentials> GrpcClientManager::CreateServerCredentials() const {
+    if (config_.insecure || config_.cert_file.empty() || config_.key_file.empty()) {
+        return grpc::InsecureServerCredentials();
+    }
+
+    grpc::SslServerCredentialsOptions options;
+    try {
+        grpc::SslServerCredentialsOptions::PemKeyCertPair key_cert;
+        key_cert.cert_chain = ReadFileContent(config_.cert_file);
+        key_cert.private_key = ReadFileContent(config_.key_file);
+        options.pem_key_cert_pairs.push_back(key_cert);
+        if (!config_.ca_file.empty()) {
+            options.pem_root_certs = ReadFileContent(config_.ca_file);
+        }
+        return grpc::SslServerCredentials(options);
+    } catch (const std::exception& e) {
+        std::cerr << "⚠️  Failed to initialize server TLS credentials: " << e.what()
+                  << ", falling back to insecure server" << std::endl;
+        return grpc::InsecureServerCredentials();
+    }
+}
+
 //==============================================================================
 // LocalFunctionServiceImpl Implementation
 //==============================================================================
+
+struct LocalFunctionServiceImpl::JobState {
+    std::mutex mutex;
+    std::condition_variable cv;
+    std::deque<functionv1::JobEvent> queue;
+    std::atomic<bool> finished{false};
+};
 
 LocalFunctionServiceImpl::LocalFunctionServiceImpl(
     const std::map<std::string, FunctionHandler>& handlers)
@@ -402,19 +501,19 @@ LocalFunctionServiceImpl::LocalFunctionServiceImpl(
 }
 
 void LocalFunctionServiceImpl::UpdateHandlers(const std::map<std::string, FunctionHandler>& handlers) {
-    std::lock_guard<std::shared_mutex> lock(handlers_mutex_);
+    std::unique_lock<std::shared_mutex> lock(handlers_mutex_);
     handlers_ = handlers;
     std::cout << "🔄 Updated function handlers, current count: " << handlers_.size() << std::endl;
 }
 
 void LocalFunctionServiceImpl::AddHandler(const std::string& function_id, FunctionHandler handler) {
-    std::lock_guard<std::shared_mutex> lock(handlers_mutex_);
+    std::unique_lock<std::shared_mutex> lock(handlers_mutex_);
     handlers_[function_id] = handler;
     std::cout << "➕ Added function handler: " << function_id << std::endl;
 }
 
 void LocalFunctionServiceImpl::RemoveHandler(const std::string& function_id) {
-    std::lock_guard<std::shared_mutex> lock(handlers_mutex_);
+    std::unique_lock<std::shared_mutex> lock(handlers_mutex_);
     auto it = handlers_.find(function_id);
     if (it != handlers_.end()) {
         handlers_.erase(it);
@@ -427,6 +526,102 @@ size_t LocalFunctionServiceImpl::GetHandlerCount() const {
     return handlers_.size();
 }
 
+std::string LocalFunctionServiceImpl::SerializeMetadata(
+    const google::protobuf::Map<std::string, std::string>& metadata) const {
+    if (metadata.empty()) {
+        return "{}";
+    }
+
+    std::ostringstream oss;
+    oss << "{";
+    bool first = true;
+    for (const auto& entry : metadata) {
+        if (!first) {
+            oss << ",";
+        }
+        first = false;
+        oss << "\"" << entry.first << "\":\"" << entry.second << "\"";
+    }
+    oss << "}";
+    return oss.str();
+}
+
+std::string LocalFunctionServiceImpl::NextJobId(const std::string& function_id) {
+    const uint64_t counter = ++job_counter_;
+    const auto now = std::chrono::steady_clock::now().time_since_epoch();
+    const auto micros = std::chrono::duration_cast<std::chrono::microseconds>(now).count();
+    std::ostringstream oss;
+    oss << function_id << "-" << micros << "-" << counter;
+    return oss.str();
+}
+
+std::shared_ptr<LocalFunctionServiceImpl::JobState> LocalFunctionServiceImpl::CreateJob(const std::string& job_id) {
+    auto state = std::make_shared<JobState>();
+    {
+        std::lock_guard<std::mutex> lock(jobs_mutex_);
+        jobs_[job_id] = state;
+    }
+    return state;
+}
+
+std::shared_ptr<LocalFunctionServiceImpl::JobState> LocalFunctionServiceImpl::FindJob(const std::string& job_id) const {
+    std::lock_guard<std::mutex> lock(jobs_mutex_);
+    auto it = jobs_.find(job_id);
+    if (it == jobs_.end()) {
+        return nullptr;
+    }
+    return it->second;
+}
+
+void LocalFunctionServiceImpl::FinishJob(const std::string& job_id) {
+    std::shared_ptr<JobState> state;
+    {
+        std::lock_guard<std::mutex> lock(jobs_mutex_);
+        auto it = jobs_.find(job_id);
+        if (it != jobs_.end()) {
+            state = it->second;
+            jobs_.erase(it);
+        }
+    }
+    if (state) {
+        state->cv.notify_all();
+    }
+}
+
+void LocalFunctionServiceImpl::EnqueueEvent(
+    const std::shared_ptr<JobState>& state,
+    functionv1::JobEvent&& event,
+    bool mark_finished) {
+    {
+        std::lock_guard<std::mutex> lock(state->mutex);
+        if (state->finished && !mark_finished) {
+            return;
+        }
+        state->queue.emplace_back(std::move(event));
+        if (mark_finished) {
+            state->finished = true;
+        }
+    }
+    state->cv.notify_all();
+}
+
+bool LocalFunctionServiceImpl::DequeueEvent(
+    const std::shared_ptr<JobState>& state,
+    functionv1::JobEvent* event) {
+    std::unique_lock<std::mutex> lock(state->mutex);
+    state->cv.wait(lock, [&]() {
+        return !state->queue.empty() || state->finished.load();
+    });
+
+    if (state->queue.empty()) {
+        return false;
+    }
+
+    *event = std::move(state->queue.front());
+    state->queue.pop_front();
+    return true;
+}
+
 std::string LocalFunctionServiceImpl::ExecuteHandler(
     const std::string& function_id,
     const std::string& context,
@@ -434,30 +629,163 @@ std::string LocalFunctionServiceImpl::ExecuteHandler(
 
     total_calls_++;
 
-    std::shared_lock<std::shared_mutex> lock(handlers_mutex_);
-
-    auto it = handlers_.find(function_id);
-    if (it == handlers_.end()) {
-        failed_calls_++;
-        std::cerr << "❌ Function not found: " << function_id << std::endl;
-        return R"({"error": "Function not found", "function_id": ")" + function_id + R"("})";
+    FunctionHandler handler;
+    {
+        std::shared_lock<std::shared_mutex> lock(handlers_mutex_);
+        auto it = handlers_.find(function_id);
+        if (it == handlers_.end()) {
+            failed_calls_++;
+            throw std::runtime_error("function not found: " + function_id);
+        }
+        handler = it->second;
     }
 
-    auto handler = it->second;
-    lock.unlock(); // Release lock to allow concurrent execution
-
     try {
-        std::cout << "🎯 Executing function: " << function_id << std::endl;
         std::string result = handler(context, payload);
         successful_calls_++;
-        std::cout << "✅ Function executed successfully: " << function_id << std::endl;
         return result;
     } catch (const std::exception& e) {
         failed_calls_++;
-        std::cerr << "❌ Function execution failed: " << function_id
-                  << ", error: " << e.what() << std::endl;
-        return R"({"error": ")" + std::string(e.what()) + R"(", "function_id": ")" + function_id + R"("})";
+        throw std::runtime_error("handler error: " + std::string(e.what()));
     }
+}
+
+::grpc::Status LocalFunctionServiceImpl::Invoke(::grpc::ServerContext* context,
+                                                const functionv1::InvokeRequest* request,
+                                                functionv1::InvokeResponse* response) {
+    (void)context;
+    if (!request || request->function_id().empty()) {
+        return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "function_id is required");
+    }
+    if (!response) {
+        return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "response container is nil");
+    }
+
+    try {
+        const auto context_json = SerializeMetadata(request->metadata());
+        const std::string result = ExecuteHandler(
+            request->function_id(),
+            context_json,
+            request->payload());
+        response->set_payload(result);
+        return ::grpc::Status::OK;
+    } catch (const std::exception& e) {
+        return ::grpc::Status(::grpc::StatusCode::INTERNAL, e.what());
+    }
+}
+
+::grpc::Status LocalFunctionServiceImpl::StartJob(::grpc::ServerContext* context,
+                                                  const functionv1::InvokeRequest* request,
+                                                  functionv1::StartJobResponse* response) {
+    (void)context;
+    if (!request || request->function_id().empty()) {
+        return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "function_id is required");
+    }
+    if (!response) {
+        return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "response container is nil");
+    }
+
+    FunctionHandler handler;
+    {
+        std::shared_lock<std::shared_mutex> lock(handlers_mutex_);
+        auto it = handlers_.find(request->function_id());
+        if (it == handlers_.end()) {
+            return ::grpc::Status(::grpc::StatusCode::NOT_FOUND, "function not registered");
+        }
+        handler = it->second;
+    }
+
+    const std::string job_id = NextJobId(request->function_id());
+    auto state = CreateJob(job_id);
+
+    functionv1::JobEvent started;
+    started.set_type("started");
+    started.set_message("job started");
+    EnqueueEvent(state, std::move(started), false);
+
+    const auto context_json = SerializeMetadata(request->metadata());
+    const std::string payload = request->payload();
+
+    std::thread([this, state, handler, job_id, context_json, payload]() {
+        try {
+            const std::string result = handler(context_json, payload);
+            if (state->finished.load()) {
+                FinishJob(job_id);
+                return;
+            }
+            functionv1::JobEvent completed;
+            completed.set_type("completed");
+            completed.set_message("job completed");
+            completed.set_payload(result);
+            EnqueueEvent(state, std::move(completed), true);
+        } catch (const std::exception& e) {
+            if (state->finished.load()) {
+                FinishJob(job_id);
+                return;
+            }
+            functionv1::JobEvent error_evt;
+            error_evt.set_type("error");
+            error_evt.set_message(e.what());
+            EnqueueEvent(state, std::move(error_evt), true);
+        }
+        FinishJob(job_id);
+    }).detach();
+
+    response->set_job_id(job_id);
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status LocalFunctionServiceImpl::StreamJob(
+    ::grpc::ServerContext* context,
+    const functionv1::JobStreamRequest* request,
+    ::grpc::ServerWriter<functionv1::JobEvent>* writer) {
+    (void)context;
+    if (!request || request->job_id().empty()) {
+        return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "job_id is required");
+    }
+    if (!writer) {
+        return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "stream writer missing");
+    }
+
+    auto state = FindJob(request->job_id());
+    if (!state) {
+        return ::grpc::Status(::grpc::StatusCode::NOT_FOUND, "job not found");
+    }
+
+    functionv1::JobEvent event;
+    while (DequeueEvent(state, &event)) {
+        if (!writer->Write(event)) {
+            return ::grpc::Status(::grpc::StatusCode::UNAVAILABLE, "stream closed by peer");
+        }
+    }
+
+    return ::grpc::Status::OK;
+}
+
+::grpc::Status LocalFunctionServiceImpl::CancelJob(::grpc::ServerContext* context,
+                                                   const functionv1::CancelJobRequest* request,
+                                                   functionv1::StartJobResponse* response) {
+    (void)context;
+    if (!request || request->job_id().empty()) {
+        return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "job_id is required");
+    }
+    if (!response) {
+        return ::grpc::Status(::grpc::StatusCode::INVALID_ARGUMENT, "response container is nil");
+    }
+
+    auto state = FindJob(request->job_id());
+    if (!state) {
+        return ::grpc::Status(::grpc::StatusCode::NOT_FOUND, "job not found");
+    }
+
+    functionv1::JobEvent cancelled;
+    cancelled.set_type("cancelled");
+    cancelled.set_message("job cancelled by requester");
+    EnqueueEvent(state, std::move(cancelled), true);
+    FinishJob(request->job_id());
+
+    response->set_job_id(request->job_id());
+    return ::grpc::Status::OK;
 }
 
 //==============================================================================
@@ -466,10 +794,9 @@ std::string LocalFunctionServiceImpl::ExecuteHandler(
 
 LocalControlServiceStub::LocalControlServiceStub(std::shared_ptr<grpc::Channel> channel)
     : channel_(channel)
-    , default_timeout_(30000) // 30 second timeout
-{
-    // Real stub will be initialized here after proto file generation
-}
+    , stub_(localv1::LocalControlService::NewStub(channel))
+    , default_timeout_(std::chrono::milliseconds(30000)) // 30 second timeout
+{}
 
 bool LocalControlServiceStub::RegisterLocal(
     const std::string& service_id,
@@ -480,21 +807,30 @@ bool LocalControlServiceStub::RegisterLocal(
     std::string& error_message) {
 
     try {
-        // This is a mock implementation, real implementation needs proto files
-        // Generate a mock session_id
-        session_id = "mock_session_" + service_id + "_" + std::to_string(std::time(nullptr));
-
-        std::cout << "📡 Registering service with Agent:" << std::endl;
-        std::cout << "   Service ID: " << service_id << std::endl;
-        std::cout << "   Version: " << version << std::endl;
-        std::cout << "   RPC Address: " << rpc_addr << std::endl;
-        std::cout << "   Functions: " << functions.size() << std::endl;
-        for (const auto& func : functions) {
-            std::cout << "     - " << func.id << " (v" << func.version << ")" << std::endl;
+        auto context = CreateContext();
+        localv1::RegisterLocalRequest request;
+        request.set_service_id(service_id);
+        request.set_version(version);
+        request.set_rpc_addr(rpc_addr);
+        for (const auto& fn : functions) {
+            auto* out = request.add_functions();
+            out->set_id(fn.id);
+            out->set_version(fn.version);
         }
-        std::cout << "   Session ID: " << session_id << std::endl;
 
-        // Mock successful registration
+        localv1::RegisterLocalResponse response;
+        grpc::Status status = stub_->RegisterLocal(context.get(), request, &response);
+        if (!status.ok()) {
+            error_message = status.error_message();
+            return false;
+        }
+
+        session_id = response.session_id();
+        if (session_id.empty()) {
+            error_message = "agent did not return a session_id";
+            return false;
+        }
+
         return true;
     } catch (const std::exception& e) {
         error_message = "Registration failed: " + std::string(e.what());
@@ -508,10 +844,17 @@ bool LocalControlServiceStub::Heartbeat(
     std::string& error_message) {
 
     try {
-        // This is a mock implementation
-        // Real implementation will call agent's Heartbeat RPC
+        auto context = CreateContext();
+        localv1::HeartbeatRequest request;
+        request.set_service_id(service_id);
+        request.set_session_id(session_id);
 
-        // Mock successful heartbeat
+        localv1::HeartbeatResponse response;
+        grpc::Status status = stub_->Heartbeat(context.get(), request, &response);
+        if (!status.ok()) {
+            error_message = status.error_message();
+            return false;
+        }
         return true;
     } catch (const std::exception& e) {
         error_message = "Heartbeat failed: " + std::string(e.what());
@@ -524,8 +867,25 @@ bool LocalControlServiceStub::ListLocal(
     std::string& error_message) {
 
     try {
-        // Mock implementation
+        auto context = CreateContext();
+        localv1::ListLocalRequest request;
+        localv1::ListLocalResponse response;
+        grpc::Status status = stub_->ListLocal(context.get(), request, &response);
+        if (!status.ok()) {
+            error_message = status.error_message();
+            return false;
+        }
+
         functions.clear();
+        for (const auto& fn : response.functions()) {
+            FunctionDescriptor desc;
+            desc.id = fn.id();
+            if (!fn.instances().empty()) {
+                desc.version = fn.instances(0).version();
+            }
+            desc.enabled = true;
+            functions.emplace_back(std::move(desc));
+        }
         return true;
     } catch (const std::exception& e) {
         error_message = "List functions failed: " + std::string(e.what());
@@ -538,16 +898,10 @@ bool LocalControlServiceStub::UnregisterLocal(
     const std::string& session_id,
     std::string& error_message) {
 
-    try {
-        std::cout << "📡 Unregistering service from Agent: " << service_id
-                  << ", session: " << session_id << std::endl;
-
-        // Mock successful unregistration
-        return true;
-    } catch (const std::exception& e) {
-        error_message = "Unregistration failed: " + std::string(e.what());
-        return false;
-    }
+    (void)service_id;
+    (void)session_id;
+    error_message = "UnregisterLocal not supported by LocalControlService";
+    return false;
 }
 
 std::unique_ptr<grpc::ClientContext> LocalControlServiceStub::CreateContext() {

@@ -89,6 +89,7 @@ find_package(Threads REQUIRED)
 if(ENABLE_GRPC)
     find_package(gRPC CONFIG REQUIRED)
     find_package(Protobuf CONFIG REQUIRED)
+    find_package(ZLIB REQUIRED)
 
     message(STATUS "Found gRPC: ${gRPC_VERSION}")
     message(STATUS "Found Protobuf: ${Protobuf_VERSION}")
@@ -117,7 +118,7 @@ if(MSVC)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 else()
     # GCC/Clang settings
-    add_compile_options(-Wall -Wextra -Werror)
+    add_compile_options(-Wall -Wextra -Werror -Wno-error=deprecated-declarations -Wno-error=unused-parameter)
 
     # Enable debug info in release builds for better profiling
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -153,6 +154,22 @@ if(ENABLE_GRPC)
     else()
         message(STATUS "⚠️ Main project generated files not found: ${MAIN_PROJECT_GEN_DIR}")
         message(STATUS "Please run 'make proto' from project root to generate proto files")
+    endif()
+
+    # Fallback to SDK-local generated artifacts
+    if(NOT GENERATED_PROTO_SOURCES)
+        set(LOCAL_GENERATED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/generated")
+        if(EXISTS ${LOCAL_GENERATED_DIR})
+            file(GLOB_RECURSE GENERATED_PROTO_SOURCES "${LOCAL_GENERATED_DIR}/**/*.cc")
+            file(GLOB_RECURSE GENERATED_PROTO_HEADERS "${LOCAL_GENERATED_DIR}/**/*.h")
+            if(GENERATED_PROTO_SOURCES)
+                list(LENGTH GENERATED_PROTO_SOURCES file_count)
+                message(STATUS "✅ Found ${file_count} generated proto source files under sdks/cpp/generated")
+                set(PROTO_GENERATED_DIR ${LOCAL_GENERATED_DIR})
+            else()
+                message(STATUS "⚠️ sdks/cpp/generated exists but no generated sources found")
+            endif()
+        endif()
     endif()
 
     # Fallback: Check standalone build options
@@ -228,6 +245,7 @@ if(BUILD_SHARED_LIBS)
         target_link_libraries(croupier-sdk-shared
             PUBLIC
                 ${GRPC_LIBRARIES}
+                ZLIB::ZLIB
         )
         target_compile_definitions(croupier-sdk-shared
             PUBLIC
@@ -282,6 +300,7 @@ if(BUILD_STATIC_LIBS)
         target_link_libraries(croupier-sdk-static
             PUBLIC
                 ${GRPC_LIBRARIES}
+                ZLIB::ZLIB
         )
         target_compile_definitions(croupier-sdk-static
             PUBLIC

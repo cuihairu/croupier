@@ -70,6 +70,9 @@ struct ClientConfig {
     std::string local_listen = "127.0.0.1:0";
     std::string service_id = "cpp-service";
     std::string service_version = "1.0.0";
+    std::string control_addr;               // optional control-plane endpoint
+    std::string provider_lang = "cpp";
+    std::string provider_sdk = "croupier-cpp-sdk";
 
     // ========== Agent Registration ==========
     std::string agent_id;              // Agent unique identifier (auto-generated if empty)
@@ -281,4 +284,3 @@ namespace utils {
 
 } // namespace sdk
 } // namespace croupier
-

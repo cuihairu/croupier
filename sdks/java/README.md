@@ -14,6 +14,7 @@ The Croupier Java SDK enables game servers to register functions with the Croupi
 - **Function registration**: Register game functions with descriptors and handlers
 - **gRPC communication**: Efficient bi-directional communication with agents
 - **Async support**: CompletableFuture-based async operations
+- **Provider manifest uploads**: Automatically publishes function capabilities when a control-plane address is configured
 - **Error handling**: Comprehensive error handling and connection management
 - **Builder pattern**: Fluent API for easy configuration
 
@@ -46,8 +47,11 @@ public class GameServer {
         // Create client configuration
         ClientConfig config = new ClientConfig("my-game", "my-service");
         config.setAgentAddr("localhost:19090");
+        config.setControlAddr("localhost:18080"); // Control plane for manifest upload
         config.setEnv("development");
         config.setInsecure(true); // For development
+        config.setProviderLang("java");
+        config.setProviderSdk("croupier-java-sdk");
 
         // Create client
         CroupierClient client = CroupierSDK.createClient(config);
@@ -135,8 +139,11 @@ config.setEnv("development");               // Environment
 config.setServiceId("my-service");          // Service identifier
 config.setServiceVersion("1.0.0");         // Service version
 config.setLocalListen(":0");                // Local server (auto-port)
+config.setControlAddr("localhost:18080");   // Optional control-plane endpoint for manifests
 config.setTimeoutSeconds(30);              // Connection timeout
 config.setInsecure(true);                   // Use insecure gRPC
+config.setProviderLang("java");             // Provider metadata
+config.setProviderSdk("croupier-java-sdk");
 
 // TLS settings (when not insecure)
 config.setCaFile("/path/to/ca.pem");

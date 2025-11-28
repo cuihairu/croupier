@@ -159,6 +159,8 @@ ClientConfig ClientConfigLoader::CreateDefaultConfig() {
     config.service_id = "cpp-sdk-service";
     config.agent_addr = "127.0.0.1:19090";
     config.local_listen = "0.0.0.0:0";
+    config.provider_lang = "cpp";
+    config.provider_sdk = "croupier-cpp-sdk";
     config.insecure = true;
     config.timeout_seconds = 30;
 
@@ -177,7 +179,10 @@ std::string ClientConfigLoader::GenerateExampleConfig(const std::string& environ
     config["service_id"] = "backend-service-01";
     config["agent_addr"] = "127.0.0.1:19090";
     config["local_listen"] = "0.0.0.0:0";
+    config["control_addr"] = "127.0.0.1:18080";
     config["timeout_seconds"] = 30;
+    config["provider_lang"] = "cpp";
+    config["provider_sdk"] = "croupier-cpp-sdk";
 
     // Environment-specific settings
     if (environment == "development") {
@@ -211,8 +216,11 @@ std::string ClientConfigLoader::GenerateExampleConfig(const std::string& environ
   "service_id": "backend-service-01",
   "agent_addr": "127.0.0.1:19090",
   "local_listen": "0.0.0.0:0",
+  "control_addr": "127.0.0.1:18080",
   "insecure": true,
-  "timeout_seconds": 30
+  "timeout_seconds": 30,
+  "provider_lang": "cpp",
+  "provider_sdk": "croupier-cpp-sdk"
 })";
 #endif
 }
@@ -230,6 +238,7 @@ ClientConfig ClientConfigLoader::MergeConfigs(const ClientConfig& base, const Cl
     if (!overlay.service_id.empty()) result.service_id = overlay.service_id;
     if (!overlay.agent_addr.empty()) result.agent_addr = overlay.agent_addr;
     if (!overlay.local_listen.empty()) result.local_listen = overlay.local_listen;
+    if (!overlay.control_addr.empty()) result.control_addr = overlay.control_addr;
     if (overlay.timeout_seconds > 0) result.timeout_seconds = overlay.timeout_seconds;
 
     // Boolean values
@@ -243,6 +252,8 @@ ClientConfig ClientConfigLoader::MergeConfigs(const ClientConfig& base, const Cl
 
     // Authentication configuration
     if (!overlay.auth_token.empty()) result.auth_token = overlay.auth_token;
+    if (!overlay.provider_lang.empty()) result.provider_lang = overlay.provider_lang;
+    if (!overlay.provider_sdk.empty()) result.provider_sdk = overlay.provider_sdk;
 
     // Merge headers
     for (const auto& [key, value] : overlay.headers) {
@@ -262,6 +273,7 @@ void ClientConfigLoader::ApplyEnvironmentOverrides(ClientConfig& config, const s
     config.service_id = GetEnvironmentVariable(env_prefix + "SERVICE_ID", config.service_id);
     config.agent_addr = GetEnvironmentVariable(env_prefix + "AGENT_ADDR", config.agent_addr);
     config.local_listen = GetEnvironmentVariable(env_prefix + "LOCAL_LISTEN", config.local_listen);
+    config.control_addr = GetEnvironmentVariable(env_prefix + "CONTROL_ADDR", config.control_addr);
 
     // Boolean environment variables
     std::string insecure_env = GetEnvironmentVariable(env_prefix + "INSECURE", "");
@@ -286,6 +298,8 @@ void ClientConfigLoader::ApplyEnvironmentOverrides(ClientConfig& config, const s
     config.ca_file = GetEnvironmentVariable(env_prefix + "CA_FILE", config.ca_file);
     config.server_name = GetEnvironmentVariable(env_prefix + "SERVER_NAME", config.server_name);
     config.auth_token = GetEnvironmentVariable(env_prefix + "AUTH_TOKEN", config.auth_token);
+    config.provider_lang = GetEnvironmentVariable(env_prefix + "PROVIDER_LANG", config.provider_lang);
+    config.provider_sdk = GetEnvironmentVariable(env_prefix + "PROVIDER_SDK", config.provider_sdk);
 }
 
 std::string ClientConfigLoader::GetEnvironmentVariable(const std::string& name, const std::string& default_value) {
@@ -374,8 +388,11 @@ ClientConfig ClientConfigLoader::ParseJsonToClientConfig(const nlohmann::json& c
     config.service_id = utils::JsonUtils::GetStringValue(config_json, "service_id", "cpp-sdk-service");
     config.agent_addr = utils::JsonUtils::GetStringValue(config_json, "agent_addr", "127.0.0.1:19090");
     config.local_listen = utils::JsonUtils::GetStringValue(config_json, "local_listen", "0.0.0.0:0");
+    config.control_addr = utils::JsonUtils::GetStringValue(config_json, "control_addr", "");
     config.insecure = utils::JsonUtils::GetBoolValue(config_json, "insecure", true);
     config.timeout_seconds = utils::JsonUtils::GetIntValue(config_json, "timeout_seconds", 30);
+    config.provider_lang = utils::JsonUtils::GetStringValue(config_json, "provider_lang", "cpp");
+    config.provider_sdk = utils::JsonUtils::GetStringValue(config_json, "provider_sdk", "croupier-cpp-sdk");
 
     // Security configuration
     config.cert_file = utils::JsonUtils::GetStringValue(config_json, "security.cert_file", "");
@@ -406,8 +423,11 @@ ClientConfig ClientConfigLoader::ParseSimpleJsonToClientConfig(const utils::Json
     config.service_id = utils::JsonUtils::GetStringValue(config_json, "service_id", "cpp-sdk-service");
     config.agent_addr = utils::JsonUtils::GetStringValue(config_json, "agent_addr", "127.0.0.1:19090");
     config.local_listen = utils::JsonUtils::GetStringValue(config_json, "local_listen", "0.0.0.0:0");
+    config.control_addr = utils::JsonUtils::GetStringValue(config_json, "control_addr", "");
     config.insecure = utils::JsonUtils::GetBoolValue(config_json, "insecure", true);
     config.timeout_seconds = utils::JsonUtils::GetIntValue(config_json, "timeout_seconds", 30);
+    config.provider_lang = utils::JsonUtils::GetStringValue(config_json, "provider_lang", "cpp");
+    config.provider_sdk = utils::JsonUtils::GetStringValue(config_json, "provider_sdk", "croupier-cpp-sdk");
 
     return config;
 }
