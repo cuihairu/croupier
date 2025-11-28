@@ -139,9 +139,9 @@ export default [
         name: 'UserAccount',
         icon: 'user',
         routes: [
-          { path: '/admin/account/center', name: 'Center', component: './Account/Center' },
-          { path: '/admin/account/settings', name: 'Settings', component: './Account/Settings' },
-          { path: '/admin/account/messages', name: 'Messages', component: './Account/Messages' },
+          { path: '/admin/account/center', name: 'Center', component: './Profile' },
+          { path: '/admin/account/settings', name: 'Settings', component: './Profile' },
+          { path: '/admin/account/messages', name: 'Messages', component: './Profile' },
         ],
       },
       // Back-office user management (mirrors Security pages for convenience)

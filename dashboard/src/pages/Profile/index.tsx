@@ -31,12 +31,12 @@ import {
 import { PageContainer } from '@ant-design/pro-components';
 import { useIntl } from '@umijs/max';
 import { getMyProfile, updateMyProfile, changeMyPassword } from '@/services/croupier/me';
-import { formatMessage } from '@/utils/antdApp';
 
 const { Title, Text } = Typography;
 
 export default function Profile() {
   const intl = useIntl();
+  const formatMessage = (id: string) => intl.formatMessage({ id });
   const [form] = Form.useForm();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(false);
