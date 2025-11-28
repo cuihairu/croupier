@@ -1,8 +1,8 @@
 package com.croupier.sdk;
 
-import com.croupier.control.v1.ControlServiceGrpc;
-import com.croupier.control.v1.ProviderMeta;
-import com.croupier.control.v1.RegisterCapabilitiesRequest;
+import com.github.cuihairu.croupier.control.v1.ControlServiceGrpc;
+import com.github.cuihairu.croupier.control.v1.ProviderMeta;
+import com.github.cuihairu.croupier.control.v1.RegisterCapabilitiesRequest;
 import com.google.protobuf.ByteString;
 import io.grpc.ManagedChannel;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
