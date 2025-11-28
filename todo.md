@@ -40,7 +40,7 @@ The following gaps remain before SDKs can be considered production-ready.
   - [x] C++ SDK: extend `GrpcClientManager` to dial the server ControlService and send manifests.
   - [x] Node.js SDK: add manifest serialization (JSON Schema from `FunctionDescriptor.input_schema/output_schema`) and gRPC client for RegisterCapabilities.
   - [x] Python SDK: same as Node.js; gzip manifest and upload provider meta.
-- [ ] **Documentation/examples parity**:
+- [x] **Documentation/examples parity**:
   - [x] Node.js SDK lacks a README that explains configuration + provides a runnable example (only `examples/main.ts` exists).
   - [x] Python SDK README still describes an async placeholder client and file upload features that are not implemented; align docs + provide an example matching the new `CroupierClient`.
 
