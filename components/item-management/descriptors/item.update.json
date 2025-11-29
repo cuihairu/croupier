@@ -1,0 +1,38 @@
+﻿{
+  "id": "item.update",
+  "version": "1.0.0",
+  "name": "Update Item Template",
+  "description": "Update an existing item template",
+  "category": "item",
+  "params": {
+    "type": "object",
+    "properties": {
+      "item_id": { "type": "string", "description": "Target item id" },
+      "name": { "type": "string", "maxLength": 100 },
+      "type": { "type": "string", "enum": ["weapon", "armor", "consumable", "material", "quest", "currency"] },
+      "rarity": { "type": "string", "enum": ["common", "uncommon", "rare", "epic", "legendary"] },
+      "description": { "type": "string", "maxLength": 500 },
+      "properties": { "type": "object" },
+      "stackable": { "type": "boolean" },
+      "max_stack": { "type": "integer", "minimum": 1, "maximum": 999 },
+      "tradeable": { "type": "boolean" },
+      "icon": { "type": "string" }
+    },
+    "required": ["item_id"]
+  },
+  "result": {
+    "type": "object",
+    "properties": {
+      "status": { "type": "string", "enum": ["success", "not_found", "invalid_data"] },
+      "updated_at": { "type": "string", "format": "date-time" }
+    }
+  },
+  "auth": {
+    "permission": "item:update",
+    "allow_if": "has_role('gm') || has_role('admin')"
+  },
+  "semantics": {
+    "rate_limit": "10rps",
+    "timeout": "15s"
+  }
+}
