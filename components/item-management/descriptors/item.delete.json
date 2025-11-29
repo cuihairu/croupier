@@ -1,0 +1,28 @@
+﻿{
+  "id": "item.delete",
+  "version": "1.0.0",
+  "name": "Delete Item Template",
+  "description": "Delete an item template by id",
+  "category": "item",
+  "params": {
+    "type": "object",
+    "properties": {
+      "item_id": { "type": "string", "description": "Target item id" },
+      "hard_delete": { "type": "boolean", "description": "Permanently delete (if supported)" }
+    },
+    "required": ["item_id"]
+  },
+  "result": {
+    "type": "object",
+    "properties": {
+      "status": { "type": "string", "enum": ["success", "not_found"] }
+    }
+  },
+  "auth": {
+    "permission": "item:delete",
+    "allow_if": "has_role('gm') || has_role('admin')"
+  },
+  "semantics": {
+    "timeout": "10s"
+  }
+}
