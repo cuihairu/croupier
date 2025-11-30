@@ -37,6 +37,7 @@ export default {
   'menu.GameManagement.FunctionManagement.FunctionInstances': '实例管理',
   'menu.GameManagement.FunctionManagement.FunctionAssignments': '权限分配',
   'menu.GameManagement.FunctionManagement.FunctionPacks': '函数包管理',
+  'menu.GameManagement.GameFunctionsLegacy': '旧版函数中心',
   'menu.GameManagement.ComponentManagement': '组件管理',
   'menu.GameManagement.GameAssignments': '功能分配',
   'menu.GameManagement.GamePacks': '功能包管理',

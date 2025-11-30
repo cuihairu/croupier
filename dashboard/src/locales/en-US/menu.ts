@@ -37,6 +37,7 @@ export default {
   'menu.GameManagement.FunctionManagement.FunctionInstances': 'Instance Management',
   'menu.GameManagement.FunctionManagement.FunctionAssignments': 'Permission Assignments',
   'menu.GameManagement.FunctionManagement.FunctionPacks': 'Pack Management',
+  'menu.GameManagement.GameFunctionsLegacy': 'Legacy Function Center',
   'menu.GameManagement.ComponentManagement': 'Component Management',
   'menu.GameManagement.GameAssignments': 'Function Assignments',
   'menu.GameManagement.GamePacks': 'Pack Management',
