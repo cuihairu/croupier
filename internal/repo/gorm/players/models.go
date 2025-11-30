@@ -28,11 +28,11 @@ func (PlayerRecord) TableName() string {
 // PlayerLoginRecord tracks player login activity
 type PlayerLoginRecord struct {
 	gorm.Model
-	PlayerID   uint      `gorm:"index;not null"`
-	LoginIP    string    `gorm:"size:45"` // IPv6 support
-	LoginTime  time.Time `gorm:"index"`
-	UserAgent  string    `gorm:"size:512"`
-	DeviceID   string    `gorm:"size:128"`
+	PlayerID  uint      `gorm:"index;not null"`
+	LoginIP   string    `gorm:"size:45"` // IPv6 support
+	LoginTime time.Time `gorm:"index"`
+	UserAgent string    `gorm:"size:512"`
+	DeviceID  string    `gorm:"size:128"`
 }
 
 // TableName returns the table name for PlayerLoginRecord model
@@ -43,15 +43,15 @@ func (PlayerLoginRecord) TableName() string {
 // PlayerBalanceRecord tracks balance changes
 type PlayerBalanceRecord struct {
 	gorm.Model
-	PlayerID    uint      `gorm:"index;not null"`
-	OldBalance  int64     `gorm:"not null"`
-	NewBalance  int64     `gorm:"not null"`
+	PlayerID     uint      `gorm:"index;not null"`
+	OldBalance   int64     `gorm:"not null"`
+	NewBalance   int64     `gorm:"not null"`
 	ChangeAmount int64     `gorm:"not null"`
-	Reason      string    `gorm:"size:256"`
-	Operation   string    `gorm:"size:64"` // add, subtract, set
-	Operator    string    `gorm:"size:64"` // system, admin, game
-	OperatorID  uint      // 操作者ID
-	CreatedAt   time.Time `gorm:"index"`
+	Reason       string    `gorm:"size:256"`
+	Operation    string    `gorm:"size:64"` // add, subtract, set
+	Operator     string    `gorm:"size:64"` // system, admin, game
+	OperatorID   uint      // 操作者ID
+	CreatedAt    time.Time `gorm:"index"`
 }
 
 // TableName returns the table name for PlayerBalanceRecord model

@@ -31,13 +31,13 @@ func (e *CodeError) ErrorCode() string {
 // 错误码映射
 var errorCodeMap = map[int]string{
 	http.StatusBadRequest:          "bad_request",
-	http.StatusUnauthorized:         "unauthorized",
-	http.StatusForbidden:            "forbidden",
-	http.StatusNotFound:             "not_found",
-	http.StatusConflict:             "conflict",
-	http.StatusUnprocessableEntity:  "validation_failed",
-	http.StatusInternalServerError:  "internal_error",
-	http.StatusServiceUnavailable:   "service_unavailable",
+	http.StatusUnauthorized:        "unauthorized",
+	http.StatusForbidden:           "forbidden",
+	http.StatusNotFound:            "not_found",
+	http.StatusConflict:            "conflict",
+	http.StatusUnprocessableEntity: "validation_failed",
+	http.StatusInternalServerError: "internal_error",
+	http.StatusServiceUnavailable:  "service_unavailable",
 }
 
 // 预定义错误构造函数

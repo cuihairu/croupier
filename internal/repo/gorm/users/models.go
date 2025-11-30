@@ -14,8 +14,8 @@ type AdminRecord struct {
 	DisplayName  string `gorm:"size:128"`
 	Email        string `gorm:"size:256"`
 	Phone        string `gorm:"size:32"`
-	PasswordHash string `gorm:"size:255"` // bcrypt hash
-	Status       int    `gorm:"default:1"`  // 1:active 0:disabled
+	PasswordHash string `gorm:"size:255"`  // bcrypt hash
+	Status       int    `gorm:"default:1"` // 1:active 0:disabled
 	OTPSecret    string `gorm:"size:64"`
 	LastLoginAt  *time.Time
 	CreatedBy    uint // creator admin ID
@@ -34,8 +34,8 @@ type PermissionRecord struct {
 	Name        string `gorm:"size:128;not null"`
 	Description string `gorm:"type:text"`
 	Resource    string `gorm:"size:128;not null"` // Resource: admin, role, function, game, etc.
-	Action      string `gorm:"size:64;not null"`   // Action: create, read, update, delete
-	Category    string `gorm:"size:64;not null"`   // Category: system, game, player, etc.
+	Action      string `gorm:"size:64;not null"`  // Action: create, read, update, delete
+	Category    string `gorm:"size:64;not null"`  // Category: system, game, player, etc.
 }
 
 // TableName returns the table name for PermissionRecord model
@@ -68,8 +68,8 @@ func (AdminRoleRecord) TableName() string {
 
 type RolePermRecord struct {
 	gorm.Model
-	RoleID        uint `gorm:"index;not null"`
-	PermissionID  string `gorm:"index;size:64;not null"`
+	RoleID       uint   `gorm:"index;not null"`
+	PermissionID string `gorm:"index;size:64;not null"`
 }
 
 // TableName returns the table name for RolePermRecord model

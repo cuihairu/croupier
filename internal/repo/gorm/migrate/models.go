@@ -10,14 +10,14 @@ import (
 // MigrationRecord tracks all database migrations
 type MigrationRecord struct {
 	gorm.Model
-	Name        string `gorm:"primaryKey;size:128;not null"` // Migration name
-	Version     string `gorm:"size:32;not null"`      // Semantic version
-	Description string `gorm:"type:text"`               // Migration description
-	SQL         string `gorm:"type:longtext"`           // Migration SQL
-	Checksum   string `gorm:"size:64;not null"`       // MD5 checksum of migration
-	ExecutedAt  *time.Time                          // When migration was executed
-	ExecutedBy  string `gorm:"size:64"`             // Who executed it (system, admin)
-	Status      string `gorm:"size:16;default:pending"` // pending, success, failed
+	Name        string     `gorm:"primaryKey;size:128;not null"` // Migration name
+	Version     string     `gorm:"size:32;not null"`             // Semantic version
+	Description string     `gorm:"type:text"`                    // Migration description
+	SQL         string     `gorm:"type:longtext"`                // Migration SQL
+	Checksum    string     `gorm:"size:64;not null"`             // MD5 checksum of migration
+	ExecutedAt  *time.Time // When migration was executed
+	ExecutedBy  string     `gorm:"size:64"`                 // Who executed it (system, admin)
+	Status      string     `gorm:"size:16;default:pending"` // pending, success, failed
 }
 
 // TableName returns the table name for MigrationRecord
@@ -27,9 +27,9 @@ func (MigrationRecord) TableName() string {
 
 // MigrationStep represents a single migration step
 type MigrationStep struct {
-	Number      int    `json:"number"`       // Step number in order
-	Name        string `json:"name"`       // Step name
-	Description string `json:"description"`  // Step description
+	Number      int    `json:"number"`      // Step number in order
+	Name        string `json:"name"`        // Step name
+	Description string `json:"description"` // Step description
 	SQL         string `json:"sql"`         // SQL to execute
 	RollbackSQL string `json:"rollbackSql"` // SQL to rollback
 	DryRun      bool   `json:"dryRun"`      // Whether this is a dry run
@@ -47,20 +47,20 @@ const (
 type MigrationStatus string
 
 const (
-	StatusPending  MigrationStatus = "pending"
+	StatusPending MigrationStatus = "pending"
 	StatusSuccess MigrationStatus = "success"
 	StatusFailed  MigrationStatus = "failed"
 )
 
 // MigrationResult represents the result of a migration execution
 type MigrationResult struct {
-	MigrationName string            `json:"migrationName"`
+	MigrationName string             `json:"migrationName"`
 	Direction     MigrationDirection `json:"direction"`
-	Status        MigrationStatus     `json:"status"`
-	Error         string               `json:"error,omitempty"`
-	Duration      string               `json:"duration"`
-	SQL            string               `json:"sql"`
-	DryRun         bool                `json:"dryRun"`
+	Status        MigrationStatus    `json:"status"`
+	Error         string             `json:"error,omitempty"`
+	Duration      string             `json:"duration"`
+	SQL           string             `json:"sql"`
+	DryRun        bool               `json:"dryRun"`
 }
 
 // MigrationFunc represents a migration function

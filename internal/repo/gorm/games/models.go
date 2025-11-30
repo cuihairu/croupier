@@ -45,12 +45,12 @@ func (GameEnvRecord) TableName() string { return "game_envs" }
 // GameAgentRecord represents an agent registration for a game
 type GameAgentRecord struct {
 	gorm.Model
-	GameID     string `gorm:"size:64;index;not null"`
-	AgentID    string `gorm:"size:128;not null"`
-	Env        string `gorm:"size:64;index;not null"`
-	Status       string     `gorm:"size:32;default:active"` // active, inactive, error
+	GameID        string `gorm:"size:64;index;not null"`
+	AgentID       string `gorm:"size:128;not null"`
+	Env           string `gorm:"size:64;index;not null"`
+	Status        string `gorm:"size:32;default:active"` // active, inactive, error
 	LastHeartbeat *time.Time
-	Metadata     string     `gorm:"type:json"` // Additional agent metadata
+	Metadata      string `gorm:"type:json"` // Additional agent metadata
 }
 
 // TableName returns the table name for GameAgentRecord model
