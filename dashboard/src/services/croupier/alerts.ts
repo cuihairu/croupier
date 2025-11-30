@@ -85,7 +85,7 @@ export async function silenceAlert(id: string, duration: number, reason?: string
 /**
  * 获取静默规则列表
  */
-export async function listSilences() {
+export async function listAlertSilences() {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   const resp = await request<ApiResponse<SilencesListResponse>>('/api/v1/alerts/silences', {
     method: 'GET',
@@ -97,7 +97,7 @@ export async function listSilences() {
 /**
  * 删除静默规则
  */
-export async function deleteSilence(id: string) {
+export async function deleteAlertSilence(id: string) {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<void>(`/api/v1/alerts/silences/${id}`, {
     method: 'DELETE',

@@ -7,7 +7,6 @@ import {
   Avatar,
   Upload,
   Tabs,
-  TabPane,
   Divider,
   Row,
   Col,
@@ -340,122 +339,124 @@ export default function Profile() {
         {/* 右侧标签页内容 */}
         <Col xs={24} lg={16}>
           <Card>
-            <Tabs activeKey={activeTab} onChange={setActiveTab}>
-              {/* 个人信息编辑 */}
-              <TabPane
-                tab={
-                  <Space>
-                    <UserOutlined />
-                    {formatMessage('profile.tab.info')}
-                  </Space>
-                }
-                key="info"
-              >
-                <Form
-                  form={form}
-                  layout="vertical"
-                  onFinish={handleProfileSubmit}
-                  loading={loading}
-                  style={{ maxWidth: '600px', margin: '0 auto' }}
-                >
-                  <Form.Item
-                    name="display_name"
-                    label={formatMessage('profile.info.display.name')}
-                    rules={[
-                      { required: true, message: formatMessage('profile.display.name.required') },
-                      { max: 50, message: formatMessage('profile.display.name.max.length') },
-                    ]}
-                  >
-                    <Input placeholder={formatMessage('profile.display.name.placeholder')} />
-                  </Form.Item>
-
-                  <Form.Item
-                    name="email"
-                    label={formatMessage('profile.info.email')}
-                    rules={[
-                      { type: 'email', message: formatMessage('profile.email.invalid') },
-                    ]}
-                  >
-                    <Input placeholder={formatMessage('profile.email.placeholder')} />
-                  </Form.Item>
-
-                  <Form.Item
-                    name="phone"
-                    label={formatMessage('profile.info.phone')}
-                    rules={[
-                      { max: 20, message: formatMessage('profile.phone.max.length') },
-                      { pattern: /^1[3-9]\d{9}$/, message: formatMessage('profile.phone.invalid') },
-                    ]}
-                  >
-                    <Input placeholder={formatMessage('profile.phone.placeholder')} />
-                  </Form.Item>
-
-                  <Form.Item>
-                    <Button type="primary" htmlType="submit" loading={loading} block>
-                      {formatMessage('profile.save')}
-                    </Button>
-                  </Form.Item>
-                </Form>
-              </TabPane>
-
-              {/* 安全设置 */}
-              <TabPane
-                tab={
-                  <Space>
-                    <SafetyOutlined />
-                    {formatMessage('profile.tab.security')}
-                  </Space>
-                }
-                key="settings"
-              >
-                <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                  {/* 修改密码 */}
-                  <Card
-                    title={
-                      <Space>
-                        <LockOutlined />
-                        {formatMessage('profile.password.change.title')}
-                      </Space>
-                    }
-                    extra={
-                      <Button type="primary" onClick={showPasswordModal}>
-                        {formatMessage('profile.password.change.btn')}
-                      </Button>
-                    }
-                    style={{ marginBottom: '16px' }}
-                  >
-                    <Text type="secondary">
-                      {formatMessage('profile.password.description')}
-                    </Text>
-                  </Card>
-
-                  {/* 其他安全设置 */}
-                  <Card
-                    title={
-                      <Space>
-                        <SettingOutlined />
-                        {formatMessage('profile.security.settings.title')}
-                      </Space>
-                    }
-                  >
-                    <Space direction="vertical" style={{ width: '100%' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
-                        <Text>{formatMessage('profile.two.factor.auth')}</Text>
-                        <Badge status="default" text={formatMessage('profile.not.enabled')} />
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
-                        <Text>{formatMessage('profile.login.notification')}</Text>
-                        <Badge status="default" text={formatMessage('profile.enabled')} />
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
-                        <Text>{formatMessage('profile.session.management')}</Text>
-                        <Badge status="default" text={formatMessage('profile.view.sessions')} />
-                      </div>
+            <Tabs
+              activeKey={activeTab}
+              onChange={setActiveTab}
+              items={[
+                {
+                  key: 'info',
+                  label: (
+                    <Space>
+                      <UserOutlined />
+                      {formatMessage('profile.tab.info')}
                     </Space>
-                  </Card>
-                </Space>
-              </TabPane>
-            </Tabs>
+                  ),
+                  children: (
+                    <Form
+                      form={form}
+                      layout="vertical"
+                      onFinish={handleProfileSubmit}
+                      style={{ maxWidth: '600px', margin: '0 auto' }}
+                    >
+                      <Form.Item
+                        name="display_name"
+                        label={formatMessage('profile.info.display.name')}
+                        rules={[
+                          { required: true, message: formatMessage('profile.display.name.required') },
+                          { max: 50, message: formatMessage('profile.display.name.max.length') },
+                        ]}
+                      >
+                        <Input placeholder={formatMessage('profile.display.name.placeholder')} />
+                      </Form.Item>
+
+                      <Form.Item
+                        name="email"
+                        label={formatMessage('profile.info.email')}
+                        rules={[
+                          { type: 'email', message: formatMessage('profile.email.invalid') },
+                        ]}
+                      >
+                        <Input placeholder={formatMessage('profile.email.placeholder')} />
+                      </Form.Item>
+
+                      <Form.Item
+                        name="phone"
+                        label={formatMessage('profile.info.phone')}
+                        rules={[
+                          { max: 20, message: formatMessage('profile.phone.max.length') },
+                          { pattern: /^1[3-9]\d{9}$/, message: formatMessage('profile.phone.invalid') },
+                        ]}
+                      >
+                        <Input placeholder={formatMessage('profile.phone.placeholder')} />
+                      </Form.Item>
+
+                      <Form.Item>
+                        <Button type="primary" htmlType="submit" loading={loading} block>
+                          {formatMessage('profile.save')}
+                        </Button>
+                      </Form.Item>
+                    </Form>
+                  ),
+                },
+                {
+                  key: 'settings',
+                  label: (
+                    <Space>
+                      <SafetyOutlined />
+                      {formatMessage('profile.tab.security')}
+                    </Space>
+                  ),
+                  children: (
+                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                      {/* 修改密码 */}
+                      <Card
+                        title={
+                          <Space>
+                            <LockOutlined />
+                            {formatMessage('profile.password.change.title')}
+                          </Space>
+                        }
+                        extra={
+                          <Button type="primary" onClick={showPasswordModal}>
+                            {formatMessage('profile.password.change.btn')}
+                          </Button>
+                        }
+                        style={{ marginBottom: '16px' }}
+                      >
+                        <Text type="secondary">
+                          {formatMessage('profile.password.description')}
+                        </Text>
+                      </Card>
+
+                      {/* 其他安全设置 */}
+                      <Card
+                        title={
+                          <Space>
+                            <SettingOutlined />
+                            {formatMessage('profile.security.settings.title')}
+                          </Space>
+                        }
+                      >
+                        <Space direction="vertical" style={{ width: '100%' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+                            <Text>{formatMessage('profile.two.factor.auth')}</Text>
+                            <Badge status="default" text={formatMessage('profile.not.enabled')} />
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
+                            <Text>{formatMessage('profile.login.notification')}</Text>
+                            <Badge status="default" text={formatMessage('profile.enabled')} />
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
+                            <Text>{formatMessage('profile.session.management')}</Text>
+                            <Badge status="default" text={formatMessage('profile.view.sessions')} />
+                          </div>
+                        </Space>
+                      </Card>
+                    </Space>
+                  ),
+                },
+              ]}
+            />
           </Card>
         </Col>
       </Row>
