@@ -5,7 +5,9 @@ package xrender
 
 import (
 	"context"
+	"time"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +29,26 @@ func NewXRenderGenerateSchemaLogic(ctx context.Context, svcCtx *svc.ServiceConte
 	}
 }
 
-func (l *XRenderGenerateSchemaLogic) XRenderGenerateSchema(req *types.XRenderGenerateRequest) (resp *types.XRenderGenerateSchemaResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *XRenderGenerateSchemaLogic) XRenderGenerateSchema(req *types.XRenderGenerateRequest) (*types.XRenderGenerateSchemaResponse, error) {
+	schema, err := normalizeSchemaInput(req.Schema)
+	if err != nil {
+		return nil, err
+	}
+	schema = ensureObjectSchema(schema)
 
-	return
+	uiSchema := buildDefaultUISchema(schema)
+	fields := extractSchemaFields(schema)
+	sample := generateSampleData(schema)
+
+	return &types.XRenderGenerateSchemaResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"schema":      schema,
+			"uiSchema":    uiSchema,
+			"fields":      fields,
+			"sample":      sample,
+			"generatedAt": utils.FormatTimestamp(time.Now()),
+		},
+	}, nil
 }

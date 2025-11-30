@@ -27,8 +27,20 @@ func NewGameDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GameDe
 	}
 }
 
-func (l *GameDetailLogic) GameDetail(req *types.GameDetailRequest) (resp *types.GameDetailResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *GameDetailLogic) GameDetail(req *types.GameDetailRequest) (*types.GameDetailResponse, error) {
+	id, err := parseGameID(req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	game, err := l.svcCtx.GameModel.FindOne(l.ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.GameDetailResponse{
+		Code:    0,
+		Message: "OK",
+		Data:    buildGameInfo(game),
+	}, nil
 }

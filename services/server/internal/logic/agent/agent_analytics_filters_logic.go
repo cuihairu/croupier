@@ -6,6 +6,7 @@ package agent
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +28,25 @@ func NewAgentAnalyticsFiltersLogic(ctx context.Context, svcCtx *svc.ServiceConte
 	}
 }
 
-func (l *AgentAnalyticsFiltersLogic) AgentAnalyticsFilters(req *types.AnalyticsFiltersQuery) (resp *types.AgentAnalyticsFiltersResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *AgentAnalyticsFiltersLogic) AgentAnalyticsFilters(req *types.AnalyticsFiltersQuery) (*types.AgentAnalyticsFiltersResponse, error) {
+	path := utils.ResolveAnalyticsFiltersPath(l.svcCtx.Config)
 
-	return
+	if lock := l.svcCtx.AnalyticsFiltersLock; lock != nil {
+		lock.RLock()
+		defer lock.RUnlock()
+	}
+
+	items, err := utils.LoadAnalyticsFilters(path)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.AgentAnalyticsFiltersResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"items": items,
+			"count": len(items),
+		},
+	}, nil
 }

@@ -5,6 +5,8 @@ package config
 
 import (
 	"context"
+	"errors"
+	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -27,8 +29,23 @@ func NewConfigUpsertLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Conf
 	}
 }
 
-func (l *ConfigUpsertLogic) ConfigUpsert(req *types.ConfigUpsertRequest) (resp *types.ConfigUpsertResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *ConfigUpsertLogic) ConfigUpsert(req *types.ConfigUpsertRequest) (*types.ConfigUpsertResponse, error) {
+	if req == nil {
+		return nil, errors.New("请求体不能为空")
+	}
+	key := strings.TrimSpace(req.Key)
+	if key == "" {
+		return nil, errors.New("配置键不能为空")
+	}
 
-	return
+	record, err := l.svcCtx.ConfigVersionModel.Create(l.ctx, key, req.Value, configAuthor(l.ctx))
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.ConfigUpsertResponse{
+		Code:    0,
+		Message: "OK",
+		Data:    mapConfigVersion(record, true),
+	}, nil
 }

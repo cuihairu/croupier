@@ -6,6 +6,7 @@ package ops
 import (
 	"context"
 
+	backuplogic "github.com/cuihairu/croupier/services/server/internal/logic/backup"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +28,7 @@ func NewOpsBackupDownloadLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 	}
 }
 
-func (l *OpsBackupDownloadLogic) OpsBackupDownload(req *types.OpsBackupDownloadRequest) (resp *types.OpsBackupDownloadResponse, err error) {
-	// todo: add your logic here and delete this line
-
-	return
+func (l *OpsBackupDownloadLogic) OpsBackupDownload(req *types.OpsBackupDownloadRequest) (*backuplogic.DownloadPayload, error) {
+	downloadReq := &types.BackupDownloadRequest{ID: req.ID}
+	return backuplogic.NewBackupDownloadLogic(l.ctx, l.svcCtx).BackupDownload(downloadReq)
 }

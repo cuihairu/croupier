@@ -1,9 +1,21 @@
 package croupier
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
 	"fmt"
+	"os"
 	"sync"
+	"time"
+
+	controlv1 "github.com/cuihairu/croupier/pkg/pb/croupier/control/v1"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // NewGRPCManager is provided in this package (moved from internal)
@@ -55,9 +67,10 @@ type Invoker interface {
 
 // client implements the Client interface
 type client struct {
-	config   *ClientConfig
-	handlers map[string]FunctionHandler
-	mu       sync.RWMutex
+	config      *ClientConfig
+	handlers    map[string]FunctionHandler
+	descriptors map[string]FunctionDescriptor
+	mu          sync.RWMutex
 
 	// gRPC related fields
 	grpcManager GRPCManager
@@ -77,9 +90,10 @@ func NewClient(config *ClientConfig) Client {
 	}
 
 	return &client{
-		config:   config,
-		handlers: make(map[string]FunctionHandler),
-		stopCh:   make(chan struct{}),
+		config:      config,
+		handlers:    make(map[string]FunctionHandler),
+		descriptors: make(map[string]FunctionDescriptor),
+		stopCh:      make(chan struct{}),
 	}
 }
 
@@ -97,10 +111,11 @@ func (c *client) RegisterFunction(desc FunctionDescriptor, handler FunctionHandl
 		return fmt.Errorf("function ID cannot be empty")
 	}
 	if desc.Version == "" {
-		return fmt.Errorf("function version cannot be empty")
+		desc.Version = "1.0.0"
 	}
 
 	c.handlers[desc.ID] = handler
+	c.descriptors[desc.ID] = desc
 	fmt.Printf("Registered function: %s (version: %s)\n", desc.ID, desc.Version)
 	return nil
 }
@@ -138,6 +153,12 @@ func (c *client) Connect(ctx context.Context) error {
 		return fmt.Errorf("failed to connect to agent: %w", err)
 	}
 
+	// Ensure local server is running before registration
+	if err := c.grpcManager.StartServer(ctx); err != nil {
+		c.grpcManager.Disconnect()
+		return fmt.Errorf("failed to start local server: %w", err)
+	}
+
 	// Register functions with agent
 	localFunctions := c.convertToLocalFunctions()
 	sessionID, err := c.grpcManager.RegisterWithAgent(ctx, c.config.ServiceID, c.config.ServiceVersion, localFunctions)
@@ -153,6 +174,10 @@ func (c *client) Connect(ctx context.Context) error {
 	fmt.Printf("✅ Successfully connected and registered with Agent\n")
 	fmt.Printf("📍 Local service address: %s\n", c.localAddr)
 	fmt.Printf("🔑 Session ID: %s\n", c.sessionID)
+
+	if err := c.registerCapabilities(ctx); err != nil {
+		fmt.Printf("⚠️ Failed to register capabilities: %v\n", err)
+	}
 
 	return nil
 }
@@ -225,12 +250,174 @@ func (c *client) convertToLocalFunctions() []LocalFunctionDescriptor {
 
 	var localFuncs []LocalFunctionDescriptor
 	for funcID := range c.handlers {
-		// Note: In a real implementation, you'd store the full FunctionDescriptor
-		// and convert it here. For simplicity, we're using the handler key.
+		desc, ok := c.descriptors[funcID]
+		if !ok {
+			continue
+		}
+		version := desc.Version
+		if version == "" {
+			version = "1.0.0"
+		}
 		localFuncs = append(localFuncs, LocalFunctionDescriptor{
 			ID:      funcID,
-			Version: "1.0.0", // Default version, should come from stored descriptor
+			Version: version,
 		})
 	}
 	return localFuncs
+}
+
+func (c *client) registerCapabilities(ctx context.Context) error {
+	if c.config.ControlAddr == "" {
+		return nil
+	}
+
+	manifestBytes, err := c.buildManifest()
+	if err != nil {
+		return fmt.Errorf("build manifest: %w", err)
+	}
+	compressed, err := gzipBytes(manifestBytes)
+	if err != nil {
+		return fmt.Errorf("compress manifest: %w", err)
+	}
+
+	conn, err := c.dialControl(ctx)
+	if err != nil {
+		return fmt.Errorf("connect to control service: %w", err)
+	}
+	defer conn.Close()
+
+	client := controlv1.NewControlServiceClient(conn)
+	request := &controlv1.RegisterCapabilitiesRequest{
+		Provider: &controlv1.ProviderMeta{
+			Id:      c.config.ServiceID,
+			Version: c.config.ServiceVersion,
+			Lang:    c.config.ProviderLang,
+			Sdk:     c.config.ProviderSDK,
+		},
+		ManifestJsonGz: compressed,
+	}
+
+	callCtx := ctx
+	var cancel context.CancelFunc
+	if c.config.TimeoutSeconds > 0 {
+		timeout := time.Duration(c.config.TimeoutSeconds) * time.Second
+		callCtx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	if _, err := client.RegisterCapabilities(callCtx, request); err != nil {
+		return err
+	}
+
+	fmt.Println("📤 Uploaded provider capabilities manifest")
+	return nil
+}
+
+func (c *client) dialControl(ctx context.Context) (*grpc.ClientConn, error) {
+	if c.config.ControlAddr == "" {
+		return nil, fmt.Errorf("control address not configured")
+	}
+
+	dialCtx := ctx
+	var cancel context.CancelFunc
+	if c.config.TimeoutSeconds > 0 {
+		timeout := time.Duration(c.config.TimeoutSeconds) * time.Second
+		dialCtx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	var opts []grpc.DialOption
+	if c.config.Insecure {
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	} else {
+		creds, err := c.controlCredentials()
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+	}
+
+	conn, err := grpc.DialContext(dialCtx, c.config.ControlAddr, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return conn, nil
+}
+
+func (c *client) controlCredentials() (credentials.TransportCredentials, error) {
+	if c.config.CAFile == "" {
+		return credentials.NewTLS(&tls.Config{}), nil
+	}
+
+	pemBytes, err := os.ReadFile(c.config.CAFile)
+	if err != nil {
+		return nil, fmt.Errorf("read CA file: %w", err)
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(pemBytes) {
+		return nil, fmt.Errorf("failed to append CA certificate")
+	}
+	tlsConfig := &tls.Config{
+		RootCAs: pool,
+	}
+	return credentials.NewTLS(tlsConfig), nil
+}
+
+func (c *client) buildManifest() ([]byte, error) {
+	type manifestFunction struct {
+		ID        string `json:"id"`
+		Version   string `json:"version"`
+		Category  string `json:"category,omitempty"`
+		Risk      string `json:"risk,omitempty"`
+		Entity    string `json:"entity,omitempty"`
+		Operation string `json:"operation,omitempty"`
+		Enabled   bool   `json:"enabled,omitempty"`
+	}
+	type manifest struct {
+		Provider struct {
+			ID      string `json:"id"`
+			Version string `json:"version"`
+			Lang    string `json:"lang"`
+			SDK     string `json:"sdk"`
+		} `json:"provider"`
+		Functions []manifestFunction `json:"functions,omitempty"`
+	}
+
+	out := manifest{}
+	out.Provider.ID = c.config.ServiceID
+	out.Provider.Version = c.config.ServiceVersion
+	out.Provider.Lang = c.config.ProviderLang
+	out.Provider.SDK = c.config.ProviderSDK
+
+	c.mu.RLock()
+	for _, desc := range c.descriptors {
+		version := desc.Version
+		if version == "" {
+			version = "1.0.0"
+		}
+		out.Functions = append(out.Functions, manifestFunction{
+			ID:        desc.ID,
+			Version:   version,
+			Category:  desc.Category,
+			Risk:      desc.Risk,
+			Entity:    desc.Entity,
+			Operation: desc.Operation,
+			Enabled:   desc.Enabled,
+		})
+	}
+	c.mu.RUnlock()
+
+	return json.Marshal(out)
+}
+
+func gzipBytes(payload []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	if _, err := gz.Write(payload); err != nil {
+		return nil, err
+	}
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }

@@ -27,8 +27,16 @@ func NewSchemaDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Sche
 	}
 }
 
-func (l *SchemaDeleteLogic) SchemaDelete(req *types.SchemaDeleteRequest) (resp *types.SchemaDeleteResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *SchemaDeleteLogic) SchemaDelete(req *types.SchemaDeleteRequest) (*types.SchemaDeleteResponse, error) {
+	if err := deleteSchema(l.svcCtx.Config, req.ID); err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.SchemaDeleteResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"id": req.ID,
+		},
+	}, nil
 }

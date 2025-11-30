@@ -6,8 +6,10 @@
 // ============================================================================
 // --- 分配列表 ---
 type AssignmentsListRequest {
-	Page     int `form:"page,optional"`
-	PageSize int `form:"pageSize,optional"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"pageSize,optional"`
+	GameId   string `form:"game_id,optional"`
+	Env      string `form:"env,optional"`
 }
 
 type AssignmentsListResponse {
@@ -18,7 +20,9 @@ type AssignmentsListResponse {
 
 // --- 分配更新 ---
 type AssignmentsUpdateRequest {
-	Assignments []interface{} `json:"assignments"`
+	GameId    string   `json:"game_id"`
+	Env       string   `json:"env,optional"`
+	Functions []string `json:"functions"`
 }
 
 type AssignmentsUpdateResponse {
@@ -43,4 +47,3 @@ service server {
 	@handler AssignmentsUpdateHandler
 	put / (AssignmentsUpdateRequest) returns (AssignmentsUpdateResponse)
 }
-

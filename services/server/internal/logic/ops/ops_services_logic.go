@@ -6,6 +6,7 @@ package ops
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +28,23 @@ func NewOpsServicesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *OpsSe
 	}
 }
 
-func (l *OpsServicesLogic) OpsServices(req *types.OpsServicesRequest) (resp *types.OpsServicesResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *OpsServicesLogic) OpsServices(req *types.OpsServicesRequest) (*types.OpsServicesResponse, error) {
+	agents := make([]map[string]interface{}, 0)
+	if store := l.svcCtx.RegistryStore; store != nil {
+		store.Mu().RLock()
+		for _, sess := range store.AgentsUnsafe() {
+			if snapshot := utils.BuildOpsAgentSnapshot(sess); snapshot != nil {
+				agents = append(agents, snapshot)
+			}
+		}
+		store.Mu().RUnlock()
+	}
 
-	return
+	return &types.OpsServicesResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"agents": agents,
+		},
+	}, nil
 }

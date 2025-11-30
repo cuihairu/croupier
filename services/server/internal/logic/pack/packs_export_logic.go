@@ -27,8 +27,16 @@ func NewPacksExportLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Packs
 	}
 }
 
-func (l *PacksExportLogic) PacksExport(req *types.PacksExportRequest) (resp *types.PacksExportResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *PacksExportLogic) PacksExport(_ *types.PacksExportRequest) (*types.PacksExportResponse, error) {
+	packsDir := resolvePacksDir(l.svcCtx.Config)
+	filename, data, err := buildPacksArchive(packsDir)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.PacksExportResponse{
+		Filename:    filename,
+		ContentType: "application/gzip",
+		Content:     data,
+	}, nil
 }

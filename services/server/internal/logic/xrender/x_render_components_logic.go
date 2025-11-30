@@ -28,7 +28,25 @@ func NewXRenderComponentsLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 }
 
 func (l *XRenderComponentsLogic) XRenderComponents(req *types.XRenderComponentsRequest) (resp *types.XRenderComponentsResponse, err error) {
-	// todo: add your logic here and delete this line
+	components, err := loadXRenderComponents(l.svcCtx.Config)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	items := make([]map[string]interface{}, 0, len(components))
+	packCounts := make(map[string]int)
+	for _, comp := range components {
+		items = append(items, comp.toMap())
+		packCounts[comp.Pack]++
+	}
+
+	return &types.XRenderComponentsResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"items": items,
+			"total": len(items),
+			"packs": packCounts,
+		},
+	}, nil
 }

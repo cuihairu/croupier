@@ -6,6 +6,8 @@ package ops
 import (
 	"context"
 
+	nodelogic "github.com/cuihairu/croupier/services/server/internal/logic/node"
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +29,23 @@ func NewOpsNodeUndrainLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Op
 	}
 }
 
-func (l *OpsNodeUndrainLogic) OpsNodeUndrain(req *types.OpsNodeActionRequest) (resp *types.OpsNodeUndrainResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *OpsNodeUndrainLogic) OpsNodeUndrain(req *types.OpsNodeActionRequest) (*types.OpsNodeUndrainResponse, error) {
+	nodeID, err := utils.ValidateNodeID(req.NodeID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	actionReq := &types.NodeActionRequest{ID: nodeID}
+	if err := nodelogic.NewNodeUndrainLogic(l.ctx, l.svcCtx).NodeUndrain(actionReq); err != nil {
+		return nil, err
+	}
+
+	return &types.OpsNodeUndrainResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"nodeId": nodeID,
+			"status": "active",
+		},
+	}, nil
 }

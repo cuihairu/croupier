@@ -186,8 +186,10 @@ type ApprovalsListResponse struct {
 }
 
 type AssignmentsListRequest struct {
-	Page     int `form:"page,optional"`
-	PageSize int `form:"pageSize,optional"`
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"pageSize,optional"`
+	GameId   string `form:"game_id,optional"`
+	Env      string `form:"env,optional"`
 }
 
 type AssignmentsListResponse struct {
@@ -197,7 +199,9 @@ type AssignmentsListResponse struct {
 }
 
 type AssignmentsUpdateRequest struct {
-	Assignments []interface{} `json:"assignments"`
+	GameId    string   `json:"game_id"`
+	Env       string   `json:"env,optional"`
+	Functions []string `json:"functions"`
 }
 
 type AssignmentsUpdateResponse struct {
@@ -705,7 +709,7 @@ type FAQListRequest struct {
 	PageSize int    `form:"pageSize,optional,default=20"`
 	Category string `form:"category,optional"`
 	Keyword  string `form:"keyword,optional"`
-	Visible  bool   `form:"visible,optional"`
+	Visible  *bool  `form:"visible,optional"`
 }
 
 type FAQListResponse struct {
@@ -721,8 +725,8 @@ type FAQUpdateRequest struct {
 	Answer   string   `json:"answer,optional"`
 	Category string   `json:"category,optional"`
 	Tags     []string `json:"tags,optional"`
-	Visible  bool     `json:"visible,optional"`
-	Sort     int      `json:"sort,optional"`
+	Visible  *bool    `json:"visible,optional"`
+	Sort     *int     `json:"sort,optional"`
 }
 
 type FeatureAdoption struct {
@@ -1416,7 +1420,26 @@ type OpsHealthGetResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+type OpsHealthCheckItem struct {
+	ID          string `json:"id"`
+	Kind        string `json:"kind"`
+	Target      string `json:"target"`
+	Expect      string `json:"expect,omitempty"`
+	IntervalSec int    `json:"interval_sec,omitempty"`
+	TimeoutMs   int    `json:"timeout_ms,omitempty"`
+	Region      string `json:"region,omitempty"`
+}
+
+type OpsHealthStatusItem struct {
+	ID        string `json:"id"`
+	OK        bool   `json:"ok"`
+	LatencyMS int64  `json:"latency_ms,omitempty"`
+	Error     string `json:"error,omitempty"`
+	CheckedAt string `json:"checked_at,omitempty"`
+}
+
 type OpsHealthRunRequest struct {
+	ID string `form:"id,optional"`
 }
 
 type OpsHealthRunResponse struct {
@@ -1426,7 +1449,7 @@ type OpsHealthRunResponse struct {
 }
 
 type OpsHealthUpdateRequest struct {
-	Enabled bool `json:"enabled"`
+	Checks []OpsHealthCheckItem `json:"checks"`
 }
 
 type OpsHealthUpdateResponse struct {
@@ -1453,9 +1476,18 @@ type OpsMaintenanceGetResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+type OpsMaintenanceWindow struct {
+	ID          string `json:"id"`
+	GameID      string `json:"game_id,omitempty"`
+	Env         string `json:"env,omitempty"`
+	Start       string `json:"start,omitempty"`
+	End         string `json:"end,omitempty"`
+	Message     string `json:"message,omitempty"`
+	BlockWrites bool   `json:"block_writes,omitempty"`
+}
+
 type OpsMaintenanceUpdateRequest struct {
-	Enabled bool   `json:"enabled"`
-	Message string `json:"message,optional"`
+	Windows []OpsMaintenanceWindow `json:"windows"`
 }
 
 type OpsMaintenanceUpdateResponse struct {
@@ -1535,9 +1567,22 @@ type OpsNotificationsGetResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+type OpsNotificationChannelItem struct {
+	ID     string `json:"id"`
+	Type   string `json:"type"`
+	URL    string `json:"url,omitempty"`
+	Secret string `json:"secret,omitempty"`
+}
+
+type OpsNotificationRuleItem struct {
+	Event         string   `json:"event"`
+	Channels      []string `json:"channels"`
+	ThresholdDays int      `json:"threshold_days,omitempty"`
+}
+
 type OpsNotificationsUpdateRequest struct {
-	Enabled  bool     `json:"enabled"`
-	Channels []string `json:"channels,optional"`
+	Channels []OpsNotificationChannelItem `json:"channels"`
+	Rules    []OpsNotificationRuleItem    `json:"rules"`
 }
 
 type OpsNotificationsUpdateResponse struct {
@@ -1590,42 +1635,40 @@ type OverviewResponse struct {
 }
 
 type PacksExportRequest struct {
-	ID string `form:"id"`
 }
 
 type PacksExportResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Filename    string `json:"filename"`
+	ContentType string `json:"content_type"`
+	Content     []byte `json:"-"`
 }
 
 type PacksImportRequest struct {
+	Filename string `json:"filename"`
+	Archive  string `json:"archive"` // base64 encoded tar.gz
 }
 
 type PacksImportResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Message string `json:"message"`
 }
 
 type PacksListRequest struct {
-	Page     int `form:"page,optional"`
-	PageSize int `form:"pageSize,optional"`
 }
 
 type PacksListResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Manifest           map[string]interface{}   `json:"manifest"`
+	Packs              []map[string]interface{} `json:"packs"`
+	Counts             map[string]int           `json:"counts"`
+	ETag               string                   `json:"etag"`
+	ExportAuthRequired bool                     `json:"export_auth_required"`
 }
 
 type PacksReloadRequest struct {
 }
 
 type PacksReloadResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	OK        bool   `json:"ok"`
+	UpdatedAt string `json:"updated_at"`
 }
 
 type PaymentTransaction struct {

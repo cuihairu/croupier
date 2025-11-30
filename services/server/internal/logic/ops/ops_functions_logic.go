@@ -6,6 +6,8 @@ package ops
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
+	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +29,36 @@ func NewOpsFunctionsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *OpsF
 	}
 }
 
-func (l *OpsFunctionsLogic) OpsFunctions(req *types.OpsFunctionsRequest) (resp *types.OpsFunctionsResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *OpsFunctionsLogic) OpsFunctions(req *types.OpsFunctionsRequest) (*types.OpsFunctionsResponse, error) {
+	opts := model.ListFunctionsOptions{
+		PaginationOptions: model.PaginationOptions{
+			Page:     1,
+			PageSize: 200,
+		},
+	}
+	items, _, err := l.svcCtx.FunctionModel.List(l.ctx, opts)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	functions := make([]map[string]interface{}, 0, len(items))
+	for i := range items {
+		fn := items[i]
+		functions = append(functions, map[string]interface{}{
+			"id":        fn.FunctionID,
+			"name":      fn.Name,
+			"category":  fn.Category,
+			"game_id":   fn.GameID,
+			"status":    fn.Status,
+			"updatedAt": utils.FormatTimestamp(fn.UpdatedAt),
+		})
+	}
+
+	return &types.OpsFunctionsResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"functions": functions,
+		},
+	}, nil
 }

@@ -6,6 +6,7 @@ package permission
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +28,18 @@ func NewPermissionDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 	}
 }
 
-func (l *PermissionDetailLogic) PermissionDetail(req *types.PermissionDetailRequest) (resp *types.PermissionDetailResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *PermissionDetailLogic) PermissionDetail(req *types.PermissionDetailRequest) (*types.PermissionDetailResponse, error) {
+	id, err := utils.ValidatePermissionID(req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	perm, err := l.svcCtx.PermissionModel.FindOne(l.ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.PermissionDetailResponse{
+		Permission: utils.BuildPermission(perm),
+	}, nil
 }

@@ -5,7 +5,11 @@ package component
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 
+	"github.com/cuihairu/croupier/internal/pack"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -28,7 +32,45 @@ func NewComponentsInstallLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 }
 
 func (l *ComponentsInstallLogic) ComponentsInstall(req *types.ComponentsInstallRequest) (resp *types.ComponentsInstallResponse, err error) {
-	// todo: add your logic here and delete this line
+	if req == nil || strings.TrimSpace(req.Name) == "" {
+		return nil, errors.New("组件名称不能为空")
+	}
 
-	return
+	var dto componentDTO
+	if err := withComponentManagerWrite(l.svcCtx, func(cm *pack.ComponentManager) error {
+		source, err := locateComponentSource(l.svcCtx.Config, req.Name, req.Version)
+		if err != nil {
+			return err
+		}
+		manifest, err := readComponentManifest(source)
+		if err != nil {
+			return fmt.Errorf("读取组件定义失败: %w", err)
+		}
+		if strings.TrimSpace(manifest.ID) == "" {
+			return errors.New("组件 manifest 缺少 ID")
+		}
+		if _, exists := cm.ListInstalled()[manifest.ID]; exists {
+			return fmt.Errorf("组件 %s 已安装", manifest.ID)
+		}
+		if _, exists := cm.ListDisabled()[manifest.ID]; exists {
+			return fmt.Errorf("组件 %s 当前处于禁用状态，请先删除或启用", manifest.ID)
+		}
+		if err := cm.InstallComponent(source); err != nil {
+			return fmt.Errorf("安装组件失败: %w", err)
+		}
+		entry, err := findComponentEntry(cm, manifest.ID)
+		if err != nil {
+			return err
+		}
+		dto = componentEntryToDTO(l.svcCtx.Config, *entry)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return &types.ComponentsInstallResponse{
+		Code:    0,
+		Message: "组件安装完成",
+		Data:    dto,
+	}, nil
 }

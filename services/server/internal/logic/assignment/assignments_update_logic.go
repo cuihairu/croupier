@@ -5,6 +5,9 @@ package assignment
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -28,7 +31,50 @@ func NewAssignmentsUpdateLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 }
 
 func (l *AssignmentsUpdateLogic) AssignmentsUpdate(req *types.AssignmentsUpdateRequest) (resp *types.AssignmentsUpdateResponse, err error) {
-	// todo: add your logic here and delete this line
+	gameID := strings.TrimSpace(req.GameId)
+	if gameID == "" {
+		return nil, errors.New("game_id不能为空")
+	}
+	env := strings.TrimSpace(req.Env)
 
-	return
+	functions := normalizeFunctions(req.Functions)
+	path := assignmentsPath(l.svcCtx)
+	assignments, err := loadAssignments(path)
+	if err != nil {
+		return nil, fmt.Errorf("读取分配数据失败: %w", err)
+	}
+
+	known := collectKnownFunctions(l.svcCtx)
+	accepted, unknown := splitKnownAndUnknown(functions, known)
+	key := buildAssignmentKey(gameID, env)
+	assignments[key] = accepted
+
+	if err := saveAssignments(path, assignments); err != nil {
+		return nil, fmt.Errorf("保存分配数据失败: %w", err)
+	}
+
+	return &types.AssignmentsUpdateResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"ok":          true,
+			"unknown":     unknown,
+			"assignments": map[string][]string{key: accepted},
+		},
+	}, nil
+}
+
+func collectKnownFunctions(ctx *svc.ServiceContext) map[string]struct{} {
+	if ctx == nil || ctx.RegistryStore == nil {
+		return nil
+	}
+	idx := ctx.RegistryStore.BuildFunctionIndex()
+	if len(idx) == 0 {
+		return nil
+	}
+	known := make(map[string]struct{}, len(idx))
+	for id := range idx {
+		known[id] = struct{}{}
+	}
+	return known
 }

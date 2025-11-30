@@ -6,6 +6,7 @@ package entity
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +28,20 @@ func NewEntityDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Enti
 	}
 }
 
-func (l *EntityDetailLogic) EntityDetail(req *types.EntityDetailRequest) (resp *types.EntityDetailResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *EntityDetailLogic) EntityDetail(req *types.EntityDetailRequest) (*types.EntityDetailResponse, error) {
+	id, err := utils.ParseUintID(req.ID, "实体ID")
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	entity, err := l.svcCtx.EntityModel.FindOne(l.ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.EntityDetailResponse{
+		Code:    0,
+		Message: "OK",
+		Data:    utils.BuildEntityDTO(entity),
+	}, nil
 }

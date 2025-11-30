@@ -6,6 +6,7 @@ package function
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +28,29 @@ func NewFunctionDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Fu
 	}
 }
 
-func (l *FunctionDetailLogic) FunctionDetail(req *types.FunctionDetailRequest) (resp *types.FunctionDetailResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *FunctionDetailLogic) FunctionDetail(req *types.FunctionDetailRequest) (*types.FunctionDetailResponse, error) {
+	functionID, err := utils.ValidateFunctionID(req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	fn, err := l.svcCtx.FunctionModel.FindByFunctionID(l.ctx, functionID)
+	if err != nil {
+		return nil, err
+	}
+
+	desc := types.FunctionDescriptor{}
+	descs, err := l.svcCtx.FunctionModel.ListDescriptors(l.ctx, functionID)
+	if err == nil && len(descs) > 0 {
+		desc = types.FunctionDescriptor{
+			Input:  descs[0].Input,
+			Output: descs[0].Output,
+			Schema: descs[0].Schema,
+		}
+	}
+
+	return &types.FunctionDetailResponse{
+		Function:   utils.BuildFunctionDTO(fn),
+		Descriptor: desc,
+	}, nil
 }

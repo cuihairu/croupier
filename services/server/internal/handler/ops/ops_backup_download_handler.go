@@ -4,7 +4,11 @@
 package ops
 
 import (
+	"fmt"
+	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/ops"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
@@ -22,11 +26,39 @@ func OpsBackupDownloadHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		l := ops.NewOpsBackupDownloadLogic(r.Context(), svcCtx)
-		resp, err := l.OpsBackupDownload(&req)
+		payload, err := l.OpsBackupDownload(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
-		} else {
-			httpx.OkJsonCtx(r.Context(), w, resp)
+			return
+		}
+
+		if payload.RedirectURL != "" {
+			http.Redirect(w, r, payload.RedirectURL, http.StatusFound)
+			return
+		}
+
+		if payload.Reader == nil {
+			httpx.ErrorCtx(r.Context(), w, fmt.Errorf("备份文件不可用"))
+			return
+		}
+		defer payload.Reader.Close()
+
+		filename := payload.Filename
+		if filename == "" {
+			filename = req.ID + ".bak"
+		}
+		disposition := fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s",
+			filename, url.PathEscape(filename))
+
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition", disposition)
+		if payload.Size > 0 {
+			w.Header().Set("Content-Length", strconv.FormatInt(payload.Size, 10))
+		}
+
+		if _, err := io.Copy(w, payload.Reader); err != nil {
+			httpx.ErrorCtx(r.Context(), w, err)
+			return
 		}
 	}
 }

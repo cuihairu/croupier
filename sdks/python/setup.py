@@ -7,7 +7,10 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 # Keep runtime deps minimal and inline to avoid external files in build envs.
 # Optional features are exposed via extras_require.
-requirements = []
+requirements = [
+    "grpcio>=1.59.0",
+    "protobuf>=4.25.0",
+]
 
 setup(
     name="croupier-python-sdk",

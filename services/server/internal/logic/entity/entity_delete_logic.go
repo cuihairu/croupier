@@ -6,6 +6,7 @@ package entity
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +28,18 @@ func NewEntityDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Enti
 	}
 }
 
-func (l *EntityDeleteLogic) EntityDelete(req *types.EntityDeleteRequest) (resp *types.EntityDeleteResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *EntityDeleteLogic) EntityDelete(req *types.EntityDeleteRequest) (*types.EntityDeleteResponse, error) {
+	id, err := utils.ParseUintID(req.ID, "实体ID")
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	if err := l.svcCtx.EntityModel.Delete(l.ctx, id); err != nil {
+		return nil, err
+	}
+
+	return &types.EntityDeleteResponse{
+		Code:    0,
+		Message: "OK",
+	}, nil
 }

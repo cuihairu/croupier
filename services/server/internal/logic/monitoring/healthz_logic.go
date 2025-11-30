@@ -5,7 +5,9 @@ package monitoring
 
 import (
 	"context"
+	"time"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -28,7 +30,30 @@ func NewHealthzLogic(ctx context.Context, svcCtx *svc.ServiceContext) *HealthzLo
 }
 
 func (l *HealthzLogic) Healthz(req *types.HealthzRequest) (resp *types.HealthzResponse, err error) {
-	// todo: add your logic here and delete this line
+	dbStatus := checkDatabaseHealth(l.ctx, l.svcCtx)
+	registryStatus, _ := collectRegistryStats(l.svcCtx.RegistryStore)
+	opsStatus := summarizeOpsState(l.svcCtx)
 
-	return
+	ok := componentHealthy(dbStatus) && componentHealthy(registryStatus) && componentHealthy(opsStatus)
+	message := "OK"
+	if !ok {
+		message = "DEGRADED"
+	}
+
+	data := map[string]interface{}{
+		"ok":             ok,
+		"timestamp":      utils.FormatTimestamp(time.Now()),
+		"uptime_seconds": uptimeSeconds(),
+		"components": map[string]interface{}{
+			"database": dbStatus,
+			"registry": registryStatus,
+			"ops":      opsStatus,
+		},
+	}
+
+	return &types.HealthzResponse{
+		Code:    0,
+		Message: message,
+		Data:    data,
+	}, nil
 }

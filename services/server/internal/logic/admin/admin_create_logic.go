@@ -9,12 +9,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-	"gorm.io/gorm"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"gorm.io/gorm"
 )
 
 type AdminCreateLogic struct {
@@ -32,100 +33,54 @@ func NewAdminCreateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Admin
 	}
 }
 
-func (l *AdminCreateLogic) AdminCreate(req *types.AdminCreateRequest) (resp *types.AdminCreateResponse, err error) {
-	// Check permission for creating admin
-	permissionService := l.svcCtx.PermissionService
-	adminIDValue := l.ctx.Value("adminID")
-	adminID, ok := adminIDValue.(uint)
-	if !ok || adminID == 0 {
-		return nil, errors.New("missing admin context")
+func (l *AdminCreateLogic) AdminCreate(req *types.AdminCreateRequest) (*types.AdminCreateResponse, error) {
+	username := strings.TrimSpace(req.Username)
+	if username == "" {
+		return nil, errors.New("用户名不能为空")
 	}
-
-	hasPermission, err := permissionService.CheckPermission(l.ctx, adminID, "admin", "create")
-	if err != nil {
-		l.Errorf("Permission check failed: %v", err)
-		return nil, err
-	}
-
-	if !hasPermission {
-		l.Errorf("Permission denied: admin create")
-		return nil, errors.New("permission denied")
-	}
-
-	// Create admin
-	adminRepo := l.svcCtx.AdminModel
-	adminRecord := &model.Admin{
-		Username:  req.Username,
-		Nickname:  req.Nickname,
-		Email:     req.Email,
-		Phone:     req.Phone,
-		Status:    1, // active by default
-		CreatedBy: adminID,
-		UpdatedBy: adminID,
-	}
-
-	err = adminRepo.Create(l.ctx, adminRecord, req.Password)
-	if err != nil {
-		l.Errorf("Failed to create admin: %v", err)
-		return nil, err
-	}
-
-	assignedRoles, err := l.assignRoles(req.Roles, adminRecord.ID)
+	password, err := utils.ValidatePassword(req.Password)
 	if err != nil {
 		return nil, err
 	}
 
-	// Convert to response type
-	resp = &types.AdminCreateResponse{
-		Admin: types.Admin{
-			Id:        int64(adminRecord.ID),
-			Username:  adminRecord.Username,
-			Nickname:  adminRecord.Nickname,
-			Email:     adminRecord.Email,
-			Phone:     adminRecord.Phone,
-			Status:    adminRecord.Status,
-			CreatedAt: adminRecord.CreatedAt.Format("2006-01-02 15:04:05"),
-			UpdatedAt: adminRecord.UpdatedAt.Format("2006-01-02 15:04:05"),
-			Roles:     assignedRoles,
-		},
-	}
+	var createdAdmin *model.Admin
+	var assignedRoles []model.Role
 
-	return resp, nil
-}
-
-func (l *AdminCreateLogic) assignRoles(roleNames []string, adminID uint) ([]string, error) {
-	if len(roleNames) == 0 {
-		return nil, nil
-	}
-
-	db := l.svcCtx.DB.WithContext(l.ctx)
-	adminRepo := l.svcCtx.AdminModel
-	assigned := make([]string, 0, len(roleNames))
-
-	for _, name := range roleNames {
-		roleName := strings.TrimSpace(name)
-		if roleName == "" {
-			continue
+	err = l.svcCtx.DB.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
+		adminModel := model.NewAdminModel(tx)
+		admin := &model.Admin{
+			Username: username,
+			Nickname: strings.TrimSpace(req.Nickname),
+			Email:    strings.TrimSpace(req.Email),
+			Phone:    strings.TrimSpace(req.Phone),
+			Status:   1,
 		}
 
-		var role model.Role
-		if err := db.Where("name = ?", roleName).First(&role).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, fmt.Errorf("role %s not found", roleName)
+		if err := adminModel.Create(l.ctx, admin, password); err != nil {
+			return err
+		}
+
+		if len(req.Roles) > 0 {
+			roles, err := fetchRolesByNames(l.ctx, tx, req.Roles)
+			if err != nil {
+				return err
 			}
-			return nil, fmt.Errorf("failed to load role %s: %w", roleName, err)
-		}
-
-		if err := adminRepo.AssignRole(l.ctx, adminID, role.ID); err != nil {
-			if errors.Is(err, gorm.ErrDuplicatedKey) {
-				assigned = append(assigned, role.Name)
-				continue
+			for _, role := range roles {
+				if err := adminModel.AssignRole(l.ctx, admin.ID, role.ID); err != nil {
+					return fmt.Errorf("绑定角色失败: %w", err)
+				}
 			}
-			return nil, fmt.Errorf("failed to assign role %s: %w", roleName, err)
+			assignedRoles = roles
 		}
 
-		assigned = append(assigned, role.Name)
+		createdAdmin = admin
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	return assigned, nil
+	return &types.AdminCreateResponse{
+		Admin: buildAdminResponse(createdAdmin, roleNamesFromModels(assignedRoles)),
+	}, nil
 }

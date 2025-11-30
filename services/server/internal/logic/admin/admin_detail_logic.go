@@ -5,6 +5,7 @@ package admin
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -27,8 +28,23 @@ func NewAdminDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Admin
 	}
 }
 
-func (l *AdminDetailLogic) AdminDetail(req *types.AdminDetailRequest) (resp *types.AdminDetailResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *AdminDetailLogic) AdminDetail(req *types.AdminDetailRequest) (*types.AdminDetailResponse, error) {
+	adminID, err := parseAdminID(req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	admin, err := l.svcCtx.AdminModel.FindOne(l.ctx, adminID)
+	if err != nil {
+		return nil, err
+	}
+
+	roles, err := l.svcCtx.AdminModel.GetAdminRoles(l.ctx, admin.ID)
+	if err != nil {
+		return nil, fmt.Errorf("获取管理员角色失败: %w", err)
+	}
+
+	return &types.AdminDetailResponse{
+		Admin: buildAdminResponse(admin, roleNamesFromModels(roles)),
+	}, nil
 }

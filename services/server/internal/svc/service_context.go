@@ -4,26 +4,70 @@
 package svc
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/cuihairu/croupier/internal/pack"
+	"github.com/cuihairu/croupier/internal/platform/approvals"
+	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
+	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/runtime"
 	"github.com/cuihairu/croupier/services/server/internal/service/permission"
+	"github.com/zeromicro/go-zero/core/logx"
 	"gorm.io/gorm"
 )
 
 type ServiceContext struct {
 	Config            config.Config
 	AdminManager      *AdminManager
+	OpsStateStore     *OpsStateStore
 	DB                *gorm.DB
 	PermissionService *permission.PermissionService
-	AdminModel        *model.AdminModel
+	RegistryStore     *reg.Store
+	Dispatcher        *dispatch.Dispatcher
+
+	ComponentManager *pack.ComponentManager
+	ComponentLock    *sync.RWMutex
+
+	AnalyticsFiltersLock *sync.RWMutex
+
+	ApprovalsStore approvals.Store
+
+	ObjectStore objstore.Store
+
+	AdminModel         *model.AdminModel
+	AlertModel         *model.AlertModel
+	BehaviorModel      *model.BehaviorModel
+	RetentionModel     *model.RetentionModel
+	PaymentsModel      *model.PaymentsModel
+	BackupModel        *model.BackupModel
+	FAQModel           *model.FAQModel
+	FeedbackModel      *model.FeedbackModel
+	EntityModel        *model.EntityModel
+	GameModel          *model.GameModel
+	PlayerModel        *model.PlayerModel
+	ProfileModel       *model.ProfileModel
+	FunctionModel      *model.FunctionModel
+	RoleModel          *model.RoleModel
+	NodeModel          *model.NodeModel
+	PermissionModel    *model.PermissionModel
+	RateLimitModel     *model.RateLimitModel
+	SupportModel       *model.SupportModel
+	TicketModel        *model.TicketModel
+	MessageModel       *model.MessageModel
+	CertificateModel   *model.CertificateModel
+	ConfigVersionModel *model.ConfigVersionModel
 }
 
-func NewServiceContext(c config.Config) *ServiceContext {
+func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	// 初始化数据库连接
 	db, err := openDatabase(c)
 	if err != nil {
@@ -37,7 +81,30 @@ func NewServiceContext(c config.Config) *ServiceContext {
 
 	// 创建服务
 	permissionService := permission.NewPermissionService(db)
+
+	// 模型实例（保持在同一处构建，便于逻辑层复用）
 	adminModel := model.NewAdminModel(db)
+	alertModel := model.NewAlertModel(db)
+	behaviorModel := model.NewBehaviorModel(db)
+	retentionModel := model.NewRetentionModel(db)
+	paymentsModel := model.NewPaymentsModel(db)
+	backupModel := model.NewBackupModel(db)
+	faqModel := model.NewFAQModel(db)
+	feedbackModel := model.NewFeedbackModel(db)
+	entityModel := model.NewEntityModel(db)
+	gameModel := model.NewGameModel(db)
+	playerModel := model.NewPlayerModel(db)
+	profileModel := model.NewProfileModel(db)
+	functionModel := model.NewFunctionModel(db)
+	roleModel := model.NewRoleModel(db)
+	nodeModel := model.NewNodeModel(db)
+	permissionModel := model.NewPermissionModel(db)
+	rateLimitModel := model.NewRateLimitModel(db)
+	supportModel := model.NewSupportModel(db)
+	ticketModel := model.NewTicketModel(db)
+	messageModel := model.NewMessageModel(db)
+	certificateModel := model.NewCertificateModel(db)
+	configVersionModel := model.NewConfigVersionModel(db)
 
 	// 创建管理员管理器（基于JSON文件）
 	configDir := resolveBootstrapAuthDir(c)
@@ -48,13 +115,85 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		// 在生产环境中应该更严格地处理这个错误
 	}
 
-	return &ServiceContext{
+	opsStateStore := NewOpsStateStore(resolveBootstrapBaseDir(c))
+
+	componentDataDir := ResolveComponentDataDir(c)
+	if err := ensureComponentDirs(componentDataDir); err != nil {
+		panic(fmt.Sprintf("Failed to prepare component directories: %v", err))
+	}
+	componentManager := pack.NewComponentManager(componentDataDir)
+	if err := componentManager.LoadRegistry(); err != nil {
+		logx.Errorf("failed to load component registry: %v", err)
+	}
+	if stagingDir := ResolveComponentStagingDir(c); stagingDir != "" {
+		if err := os.MkdirAll(stagingDir, 0o755); err != nil {
+			logx.Errorf("failed to create component staging dir: %v", err)
+		}
+	}
+
+	objectStore, err := initObjectStore(context.Background(), c.Storage)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize object store: %v", err))
+	}
+
+	approvalsStore := approvals.NewMemStore()
+
+	ctx := &ServiceContext{
 		Config:            c,
 		AdminManager:      adminManager,
+		OpsStateStore:     opsStateStore,
 		DB:                db,
 		PermissionService: permissionService,
-		AdminModel:        adminModel,
+
+		AdminModel:         adminModel,
+		AlertModel:         alertModel,
+		BehaviorModel:      behaviorModel,
+		RetentionModel:     retentionModel,
+		PaymentsModel:      paymentsModel,
+		BackupModel:        backupModel,
+		FAQModel:           faqModel,
+		FeedbackModel:      feedbackModel,
+		EntityModel:        entityModel,
+		GameModel:          gameModel,
+		PlayerModel:        playerModel,
+		ProfileModel:       profileModel,
+		FunctionModel:      functionModel,
+		RoleModel:          roleModel,
+		NodeModel:          nodeModel,
+		PermissionModel:    permissionModel,
+		RateLimitModel:     rateLimitModel,
+		SupportModel:       supportModel,
+		TicketModel:        ticketModel,
+		MessageModel:       messageModel,
+		CertificateModel:   certificateModel,
+		ConfigVersionModel: configVersionModel,
+
+		ComponentManager:     componentManager,
+		ComponentLock:        &sync.RWMutex{},
+		AnalyticsFiltersLock: &sync.RWMutex{},
+
+		ObjectStore:    objectStore,
+		ApprovalsStore: approvalsStore,
 	}
+
+	for _, opt := range opts {
+		if opt != nil {
+			opt(ctx)
+		}
+	}
+
+	if ctx.RegistryStore == nil {
+		ctx.RegistryStore = reg.NewStore()
+	}
+	if ctx.Dispatcher == nil {
+		ctx.Dispatcher = dispatch.NewDispatcher(ctx.RegistryStore)
+	}
+
+	if err := seedBootstrapAdmins(ctx); err != nil {
+		logx.Errorf("failed to seed bootstrap admins: %v", err)
+	}
+
+	return ctx
 }
 
 // autoMigrate runs all necessary database migrations
@@ -99,4 +238,147 @@ func toAbs(p string) string {
 		return abs
 	}
 	return p
+}
+
+func seedBootstrapAdmins(ctx *ServiceContext) error {
+	if ctx == nil || ctx.AdminManager == nil || ctx.AdminModel == nil {
+		return nil
+	}
+
+	admins := ctx.AdminManager.ListAdmins()
+	if len(admins) == 0 {
+		return nil
+	}
+
+	bg := context.Background()
+	for _, admin := range admins {
+		username := strings.TrimSpace(admin.Username)
+		if username == "" || strings.TrimSpace(admin.Password) == "" {
+			continue
+		}
+
+		var count int64
+		if err := ctx.DB.WithContext(bg).
+			Model(&model.Admin{}).
+			Where("username = ?", username).
+			Count(&count).Error; err != nil {
+			logx.Errorf("检查管理员 %s 是否存在失败: %v", username, err)
+			continue
+		}
+		if count > 0 {
+			continue
+		}
+
+		status := admin.Status
+		if status != 0 && status != 1 {
+			status = 1
+		}
+
+		newAdmin := &model.Admin{
+			Username: username,
+			Nickname: strings.TrimSpace(admin.Nickname),
+			Email:    strings.TrimSpace(admin.Email),
+			Phone:    strings.TrimSpace(admin.Phone),
+			Status:   status,
+		}
+
+		if err := ctx.AdminModel.Create(bg, newAdmin, admin.Password); err != nil {
+			logx.Errorf("创建引导管理员 %s 失败: %v", username, err)
+			continue
+		}
+
+		for _, roleName := range admin.Roles {
+			trimmed := strings.TrimSpace(roleName)
+			if trimmed == "" {
+				continue
+			}
+			var role model.Role
+			if err := ctx.DB.WithContext(bg).Where("name = ?", trimmed).First(&role).Error; err != nil {
+				logx.Errorf("为管理员 %s 查询角色 %s 失败: %v", username, trimmed, err)
+				continue
+			}
+			if err := ctx.AdminModel.AssignRole(bg, newAdmin.ID, role.ID); err != nil {
+				logx.Errorf("为管理员 %s 分配角色 %s 失败: %v", username, trimmed, err)
+			}
+		}
+
+		logx.Infof("已创建引导管理员账号: %s", username)
+	}
+
+	return nil
+}
+
+func ensureComponentDirs(base string) error {
+	if base == "" {
+		return fmt.Errorf("component data dir is empty")
+	}
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(base, "components", "installed"), 0o755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(base, "components", "disabled"), 0o755); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ResolveComponentDataDir returns the absolute dir used for component registry storage.
+func ResolveComponentDataDir(c config.Config) string {
+	dir := strings.TrimSpace(c.Components.DataDir)
+	if dir == "" {
+		dir = "data"
+	}
+	return toAbs(dir)
+}
+
+// ResolveComponentStagingDir resolves the directory where component archives are staged before install.
+func ResolveComponentStagingDir(c config.Config) string {
+	dir := strings.TrimSpace(c.Components.StagingDir)
+	if dir == "" {
+		base := ResolveComponentDataDir(c)
+		return filepath.Join(base, "components", "staging")
+	}
+	return toAbs(dir)
+}
+
+func initObjectStore(ctx context.Context, cfg config.StorageConfig) (objstore.Store, error) {
+	driver := strings.TrimSpace(cfg.Driver)
+	if driver == "" {
+		return nil, nil
+	}
+
+	storeCfg := objstore.Config{
+		Driver:         driver,
+		Bucket:         strings.TrimSpace(cfg.Bucket),
+		Region:         strings.TrimSpace(cfg.Region),
+		Endpoint:       strings.TrimSpace(cfg.Endpoint),
+		AccessKey:      strings.TrimSpace(cfg.AccessKey),
+		SecretKey:      strings.TrimSpace(cfg.SecretKey),
+		ForcePathStyle: cfg.ForcePathStyle,
+		BaseDir:        toAbs(strings.TrimSpace(cfg.BaseDir)),
+	}
+	if ttl := strings.TrimSpace(cfg.SignedURLTTL); ttl != "" {
+		if d, err := time.ParseDuration(ttl); err == nil {
+			storeCfg.SignedURLTTL = d
+		}
+	}
+
+	if err := objstore.Validate(storeCfg); err != nil {
+		return nil, err
+	}
+
+	switch strings.ToLower(driver) {
+	case "s3":
+		return objstore.OpenS3(ctx, storeCfg)
+	case "oss":
+		return objstore.OpenOSS(ctx, storeCfg)
+	case "cos":
+		return objstore.OpenCOS(ctx, storeCfg)
+	case "file":
+		return objstore.OpenFile(ctx, storeCfg)
+	default:
+		return nil, fmt.Errorf("unsupported storage driver: %s", driver)
+	}
 }

@@ -5,7 +5,9 @@ package ops
 
 import (
 	"context"
+	"strings"
 
+	backuplogic "github.com/cuihairu/croupier/services/server/internal/logic/backup"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +29,19 @@ func NewOpsBackupCreateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *O
 	}
 }
 
-func (l *OpsBackupCreateLogic) OpsBackupCreate(req *types.OpsBackupCreateRequest) (resp *types.OpsBackupCreateResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *OpsBackupCreateLogic) OpsBackupCreate(req *types.OpsBackupCreateRequest) (*types.OpsBackupCreateResponse, error) {
+	createReq := &types.BackupCreateRequest{
+		Name: strings.TrimSpace(req.Name),
+		Type: "manual",
+	}
+	backupResp, err := backuplogic.NewBackupCreateLogic(l.ctx, l.svcCtx).BackupCreate(createReq)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.OpsBackupCreateResponse{
+		Code:    0,
+		Message: "OK",
+		Data:    backupResp.Backup,
+	}, nil
 }

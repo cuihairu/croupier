@@ -6,6 +6,7 @@ package function
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +28,18 @@ func NewFunctionPermissionsLogic(ctx context.Context, svcCtx *svc.ServiceContext
 	}
 }
 
-func (l *FunctionPermissionsLogic) FunctionPermissions(req *types.FunctionPermissionsRequest) (resp *types.FunctionPermissionsResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *FunctionPermissionsLogic) FunctionPermissions(req *types.FunctionPermissionsRequest) (*types.FunctionPermissionsResponse, error) {
+	functionID, err := utils.ValidateFunctionID(req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	perms, err := l.svcCtx.FunctionModel.ListPermissions(l.ctx, functionID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.FunctionPermissionsResponse{
+		Items: utils.BuildFunctionPermissions(perms),
+	}, nil
 }

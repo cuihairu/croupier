@@ -6,6 +6,8 @@ package ops
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
+	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +29,28 @@ func NewOpsBackupsListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Op
 	}
 }
 
-func (l *OpsBackupsListLogic) OpsBackupsList(req *types.OpsBackupsListRequest) (resp *types.OpsBackupsListResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *OpsBackupsListLogic) OpsBackupsList(req *types.OpsBackupsListRequest) (*types.OpsBackupsListResponse, error) {
+	opts := model.ListBackupsOptions{
+		PaginationOptions: model.PaginationOptions{
+			Page:     req.Page,
+			PageSize: req.PageSize,
+		},
+		Type: "",
+	}
 
-	return
+	backups, total, err := l.svcCtx.BackupModel.List(l.ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.OpsBackupsListResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"backups": utils.BuildBackupList(backups),
+			"total":   total,
+			"page":    opts.Page,
+			"size":    opts.PageSize,
+		},
+	}, nil
 }

@@ -28,7 +28,19 @@ func NewFAQCategoriesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FAQ
 }
 
 func (l *FAQCategoriesLogic) FAQCategories(req *types.FAQCategoriesRequest) (resp *types.FAQCategoriesResponse, err error) {
-	// todo: add your logic here and delete this line
+	cats, err := l.svcCtx.FAQModel.ListCategories(l.ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	resp = &types.FAQCategoriesResponse{
+		Items: make([]types.FAQCategory, 0, len(cats)),
+	}
+	for i := range cats {
+		resp.Items = append(resp.Items, types.FAQCategory{
+			Name:  cats[i].Name,
+			Count: cats[i].Count,
+		})
+	}
+	return resp, nil
 }

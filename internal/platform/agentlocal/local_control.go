@@ -23,13 +23,7 @@ func NewServer(store *LocalStore) *Server {
 
 func (s *Server) RegisterLocal(ctx context.Context, in *localv1.RegisterLocalRequest) (*localv1.RegisterLocalResponse, error) {
 	fmt.Printf("DEBUG: RegisterLocal RPC received from %s\n", in.GetServiceId())
-	fnIDs := make([]string, 0, len(in.GetFunctions()))
-	for _, d := range in.GetFunctions() {
-		if d.GetId() != "" {
-			fnIDs = append(fnIDs, d.GetId())
-		}
-	}
-	s.store.Register(in.GetServiceId(), in.GetRpcAddr(), in.GetVersion(), fnIDs)
+	s.store.Register(in.GetServiceId(), in.GetRpcAddr(), in.GetVersion(), in.GetFunctions())
 	return &localv1.RegisterLocalResponse{SessionId: in.GetServiceId() + ":" + time.Now().Format("150405")}, nil
 }
 

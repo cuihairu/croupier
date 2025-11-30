@@ -28,7 +28,16 @@ func NewProvidersDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *P
 }
 
 func (l *ProvidersDetailLogic) ProvidersDetail(req *types.ProviderDetailRequest) (resp *types.ProviderDetailResponse, err error) {
-	// todo: add your logic here and delete this line
+	caps, err := getProviderCaps(l.svcCtx.RegistryStore, req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	meta := buildProviderMeta(caps, true)
+
+	return &types.ProviderDetailResponse{
+		Code:    0,
+		Message: "OK",
+		Data:    meta,
+	}, nil
 }

@@ -5,7 +5,9 @@ package game
 
 import (
 	"context"
+	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +29,29 @@ func NewGameCreateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GameCr
 	}
 }
 
-func (l *GameCreateLogic) GameCreate(req *types.GameCreateRequest) (resp *types.GameCreateResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *GameCreateLogic) GameCreate(req *types.GameCreateRequest) (*types.GameCreateResponse, error) {
+	name, err := sanitizeGameName(req.Name)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	game := &model.Game{
+		Name:        name,
+		Description: strings.TrimSpace(req.Description),
+		Config:      strings.TrimSpace(req.Config),
+		Status:      "dev",
+		Enabled:     true,
+	}
+
+	if err := l.svcCtx.GameModel.Create(l.ctx, game); err != nil {
+		return nil, err
+	}
+
+	return &types.GameCreateResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"game": buildGameInfo(game),
+		},
+	}, nil
 }

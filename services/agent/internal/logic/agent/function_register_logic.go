@@ -5,6 +5,9 @@ package agent
 
 import (
 	"context"
+	"errors"
+	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/services/agent/internal/svc"
 	"github.com/cuihairu/croupier/services/agent/internal/types"
@@ -26,8 +29,30 @@ func NewFunctionRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 	}
 }
 
-func (l *FunctionRegisterLogic) FunctionRegister(req *types.FunctionRegisterRequest) (resp *types.FunctionRegisterResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *FunctionRegisterLogic) FunctionRegister(req *types.FunctionRegisterRequest) (*types.FunctionRegisterResponse, error) {
+	if req == nil {
+		return nil, errors.New("missing request payload")
+	}
+	functionID := strings.TrimSpace(req.FunctionId)
+	if functionID == "" {
+		return nil, errors.New("function_id 不能为空")
+	}
 
-	return
+	state := l.svcCtx.AgentState
+	state.Mu.Lock()
+	state.Functions[functionID] = &svc.FunctionRecord{
+		ID:         functionID,
+		GameID:     strings.TrimSpace(req.GameId),
+		Env:        strings.TrimSpace(req.Env),
+		Descriptor: svc.CloneInterfaceMap(req.Descriptor),
+		Schema:     svc.CloneInterfaceMap(req.Schema),
+		Metadata:   svc.CloneInterfaceMap(req.Metadata),
+		Registered: time.Now(),
+	}
+	state.Mu.Unlock()
+
+	return &types.FunctionRegisterResponse{
+		Success: true,
+		Message: "function registered",
+	}, nil
 }

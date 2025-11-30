@@ -6,6 +6,7 @@ package ops
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +28,18 @@ func NewOpsMQLogic(ctx context.Context, svcCtx *svc.ServiceContext) *OpsMQLogic 
 	}
 }
 
-func (l *OpsMQLogic) OpsMQ(req *types.OpsMQRequest) (resp *types.OpsMQResponse, err error) {
-	// todo: add your logic here and delete this line
-
-	return
+func (l *OpsMQLogic) OpsMQ(req *types.OpsMQRequest) (*types.OpsMQResponse, error) {
+	state := snapshotOpsState(l.svcCtx)
+	return &types.OpsMQResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"type":      state.MQ.Type,
+			"redis":     state.MQ.Redis,
+			"kafka":     state.MQ.Kafka,
+			"lengths":   state.MQ.Lengths,
+			"groups":    state.MQ.Groups,
+			"updatedAt": utils.FormatTimestamp(state.MQ.UpdatedAt),
+		},
+	}, nil
 }

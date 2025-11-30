@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"os"
 
 	"github.com/cuihairu/croupier/services/edge/internal/config"
@@ -10,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/rest"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -89,6 +91,25 @@ func runEdge() error {
 
 	ctx := svc.NewServiceContext(c)
 	handler.RegisterHandlers(server, ctx)
+
+	grpcAddr := c.Server.InternalAddr
+	if grpcAddr == "" {
+		grpcAddr = ":18888"
+	}
+	grpcServer := grpc.NewServer()
+	ctx.EdgeApp.RegisterGRPC(grpcServer)
+	go func() {
+		lis, err := net.Listen("tcp", grpcAddr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to listen for grpc: %v\n", err)
+			return
+		}
+		fmt.Printf("Edge gRPC listening at %s\n", grpcAddr)
+		if err := grpcServer.Serve(lis); err != nil {
+			fmt.Fprintf(os.Stderr, "grpc server exited: %v\n", err)
+		}
+	}()
+	defer grpcServer.GracefulStop()
 
 	fmt.Printf("Starting Croupier Edge at %s:%d (mode: %s, debug: %v)...\n",
 		c.RestConf.Host, c.RestConf.Port, c.RestConf.Mode, debug)

@@ -5,6 +5,8 @@ package approval
 
 import (
 	"context"
+	"errors"
+	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -28,7 +30,28 @@ func NewApprovalRejectLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Ap
 }
 
 func (l *ApprovalRejectLogic) ApprovalReject(req *types.ApprovalRejectRequest) (resp *types.ApprovalRejectResponse, err error) {
-	// todo: add your logic here and delete this line
+	if l.svcCtx.ApprovalsStore == nil {
+		return nil, errors.New("approvals store unavailable")
+	}
+	if req == nil || strings.TrimSpace(req.ID) == "" {
+		return nil, errors.New("id 不能为空")
+	}
+	if strings.TrimSpace(req.Reason) == "" {
+		return nil, errors.New("reason 不能为空")
+	}
 
-	return
+	record, err := l.svcCtx.ApprovalsStore.Reject(strings.TrimSpace(req.ID), strings.TrimSpace(req.Reason))
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.ApprovalRejectResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"id":     record.ID,
+			"state":  record.State,
+			"reason": record.Reason,
+		},
+	}, nil
 }

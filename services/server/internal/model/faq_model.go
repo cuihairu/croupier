@@ -90,12 +90,33 @@ func (m *FAQModel) UpsertCategory(ctx context.Context, category *FAQCategory) er
 }
 
 // ListCategories fetches FAQ categories.
-func (m *FAQModel) ListCategories(ctx context.Context) ([]FAQCategory, error) {
-	var categories []FAQCategory
+type FAQCategoryStat struct {
+	Name  string
+	Count int
+}
+
+func (m *FAQModel) ListCategories(ctx context.Context) ([]FAQCategoryStat, error) {
+	type aggResult struct {
+		Name  string
+		Count int64
+	}
+
+	var rows []aggResult
 	if err := m.db.WithContext(ctx).
-		Order("sort DESC, name ASC").
-		Find(&categories).Error; err != nil {
+		Model(&FAQ{}).
+		Select("category AS name, COUNT(*) AS count").
+		Group("category").
+		Order("count DESC").
+		Scan(&rows).Error; err != nil {
 		return nil, err
 	}
-	return categories, nil
+
+	stats := make([]FAQCategoryStat, 0, len(rows))
+	for _, row := range rows {
+		stats = append(stats, FAQCategoryStat{
+			Name:  row.Name,
+			Count: int(row.Count),
+		})
+	}
+	return stats, nil
 }

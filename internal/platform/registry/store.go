@@ -104,6 +104,31 @@ func (s *Store) ListProviderCaps() []ProviderCaps {
 	return out
 }
 
+// GetProviderCaps returns capabilities for a single provider.
+func (s *Store) GetProviderCaps(id string) (ProviderCaps, bool) {
+	if id == "" {
+		return ProviderCaps{}, false
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	cap, ok := s.provCaps[id]
+	return cap, ok
+}
+
+// DeleteProviderCaps removes provider capabilities by ID.
+func (s *Store) DeleteProviderCaps(id string) bool {
+	if id == "" {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.provCaps[id]; !ok {
+		return false
+	}
+	delete(s.provCaps, id)
+	return true
+}
+
 // BuildUnifiedDescriptors merges all provider manifests into a unified descriptor structure
 func (s *Store) BuildUnifiedDescriptors() map[string]interface{} {
 	s.mu.RLock()

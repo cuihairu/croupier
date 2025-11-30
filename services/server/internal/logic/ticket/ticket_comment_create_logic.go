@@ -5,6 +5,8 @@ package ticket
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -27,8 +29,31 @@ func NewTicketCommentCreateLogic(ctx context.Context, svcCtx *svc.ServiceContext
 	}
 }
 
-func (l *TicketCommentCreateLogic) TicketCommentCreate(req *types.TicketCommentCreateRequest) (resp *types.TicketCommentsResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *TicketCommentCreateLogic) TicketCommentCreate(req *types.TicketCommentCreateRequest) (*types.TicketCommentsResponse, error) {
+	id, err := parseTicketID(req.TicketID)
+	if err != nil {
+		return nil, err
+	}
+	content := strings.TrimSpace(req.Content)
+	if content == "" {
+		return nil, fmt.Errorf("评论内容不能为空")
+	}
 
-	return
+	if _, err := l.svcCtx.TicketModel.FindOne(l.ctx, id); err != nil {
+		return nil, err
+	}
+
+	comment := addComment(commentAuthor(l.ctx), content, id)
+	if err := l.svcCtx.TicketModel.CreateComment(l.ctx, comment); err != nil {
+		return nil, err
+	}
+
+	comments, err := l.svcCtx.TicketModel.ListComments(l.ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.TicketCommentsResponse{
+		Items: buildCommentsDTO(comments),
+	}, nil
 }

@@ -37,4 +37,12 @@ func (a *App) Run(ctx context.Context) error {
 	return a.upstream.Start(ctx)
 }
 
+// WithUpstreamMetadata updates metadata fields propagated to the control server.
+func (a *App) WithUpstreamMetadata(meta UpstreamMetadata) {
+	if a == nil || a.upstream == nil {
+		return
+	}
+	a.upstream.WithMetadata(meta)
+}
+
 // FunctionServer implemented in function_server.go

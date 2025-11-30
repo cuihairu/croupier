@@ -5,6 +5,9 @@ package pack
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -27,8 +30,35 @@ func NewPacksListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PacksLi
 	}
 }
 
-func (l *PacksListLogic) PacksList(req *types.PacksListRequest) (resp *types.PacksListResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *PacksListLogic) PacksList(_ *types.PacksListRequest) (*types.PacksListResponse, error) {
+	packsDir := resolvePacksDir(l.svcCtx.Config)
+	summaries, err := loadPackSummaries(packsDir)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	manifest, packEntries := aggregateManifest(summaries)
+	counts := map[string]int{
+		"descriptors": 0,
+		"ui_schema":   0,
+	}
+	for _, summary := range summaries {
+		counts["descriptors"] += summary.DescriptorCount
+		counts["ui_schema"] += summary.UISchemaCount
+	}
+
+	manifestBytes, _ := json.Marshal(manifest)
+	etag := ""
+	if len(manifestBytes) > 0 {
+		sum := sha256.Sum256(manifestBytes)
+		etag = fmt.Sprintf("%x", sum[:])
+	}
+
+	return &types.PacksListResponse{
+		Manifest:           manifest,
+		Packs:              packEntries,
+		Counts:             counts,
+		ETag:               etag,
+		ExportAuthRequired: false,
+	}, nil
 }

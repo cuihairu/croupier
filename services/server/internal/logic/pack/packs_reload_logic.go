@@ -5,6 +5,7 @@ package pack
 
 import (
 	"context"
+	"time"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -27,8 +28,15 @@ func NewPacksReloadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Packs
 	}
 }
 
-func (l *PacksReloadLogic) PacksReload(req *types.PacksReloadRequest) (resp *types.PacksReloadResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *PacksReloadLogic) PacksReload(_ *types.PacksReloadRequest) (*types.PacksReloadResponse, error) {
+	packsDir := resolvePacksDir(l.svcCtx.Config)
+	_, err := loadPackSummaries(packsDir)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.PacksReloadResponse{
+		OK:        true,
+		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
+	}, nil
 }

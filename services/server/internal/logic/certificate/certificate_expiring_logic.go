@@ -5,7 +5,9 @@ package certificate
 
 import (
 	"context"
+	"time"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +29,28 @@ func NewCertificateExpiringLogic(ctx context.Context, svcCtx *svc.ServiceContext
 	}
 }
 
-func (l *CertificateExpiringLogic) CertificateExpiring(req *types.CertificateExpiringRequest) (resp *types.CertificateExpiringResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *CertificateExpiringLogic) CertificateExpiring(req *types.CertificateExpiringRequest) (*types.CertificateExpiringResponse, error) {
+	days := req.Days
+	if days <= 0 {
+		days = 30
+	}
 
-	return
+	certs, err := l.svcCtx.CertificateModel.ExpiringWithin(l.ctx, time.Hour*24*time.Duration(days))
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]map[string]interface{}, 0, len(certs))
+	for i := range certs {
+		items = append(items, utils.BuildCertificateDTO(&certs[i]))
+	}
+
+	return &types.CertificateExpiringResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"items": items,
+			"days":  days,
+		},
+	}, nil
 }

@@ -2,6 +2,8 @@ package model
 
 import (
 	"context"
+	"errors"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -36,9 +38,35 @@ func (m *BackupModel) FindByID(ctx context.Context, id uint) (*Backup, error) {
 	return &backup, nil
 }
 
+// FindByBackupID fetches a backup via its stable backup_id.
+func (m *BackupModel) FindByBackupID(ctx context.Context, backupID string) (*Backup, error) {
+	trimmed := strings.TrimSpace(backupID)
+	if trimmed == "" {
+		return nil, errors.New("backup id is required")
+	}
+
+	var backup Backup
+	if err := m.db.WithContext(ctx).
+		Where("backup_id = ?", trimmed).
+		First(&backup).Error; err != nil {
+		return nil, err
+	}
+	return &backup, nil
+}
+
 // Delete removes a backup.
 func (m *BackupModel) Delete(ctx context.Context, id uint) error {
 	return m.db.WithContext(ctx).Delete(&Backup{}, id).Error
+}
+
+// DeleteByBackupID removes a backup using backup_id.
+func (m *BackupModel) DeleteByBackupID(ctx context.Context, backupID string) error {
+	trimmed := strings.TrimSpace(backupID)
+	if trimmed == "" {
+		return errors.New("backup id is required")
+	}
+
+	return m.db.WithContext(ctx).Where("backup_id = ?", trimmed).Delete(&Backup{}).Error
 }
 
 // List returns paginated backups.

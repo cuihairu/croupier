@@ -28,7 +28,18 @@ func NewProvidersDescriptorsLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *ProvidersDescriptorsLogic) ProvidersDescriptors(req *types.ProvidersDescriptorsRequest) (resp *types.ProvidersDescriptorsResponse, err error) {
-	// todo: add your logic here and delete this line
+	store, err := ensureRegistryStore(l.svcCtx.RegistryStore)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	descriptors := store.BuildUnifiedDescriptors()
+
+	return &types.ProvidersDescriptorsResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"provider_manifests": descriptors,
+		},
+	}, nil
 }

@@ -5,7 +5,10 @@ package rate_limit
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
+	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -28,7 +31,20 @@ func NewRateLimitGetLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Rate
 }
 
 func (l *RateLimitGetLogic) RateLimitGet(req *types.RateLimitGetRequest) (resp *types.RateLimitResponse, err error) {
-	// todo: add your logic here and delete this line
+	id, err := parseRateLimitID(req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	limit, err := l.svcCtx.RateLimitModel.FindByKey(l.ctx, id)
+	if err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			return nil, fmt.Errorf("限流规则不存在")
+		}
+		return nil, err
+	}
+
+	return &types.RateLimitResponse{
+		RateLimit: buildRateLimitResponse(limit),
+	}, nil
 }

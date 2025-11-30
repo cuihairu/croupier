@@ -5,6 +5,9 @@ package ops
 
 import (
 	"context"
+	"errors"
+	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -27,8 +30,46 @@ func NewOpsMaintenanceUpdateLogic(ctx context.Context, svcCtx *svc.ServiceContex
 	}
 }
 
-func (l *OpsMaintenanceUpdateLogic) OpsMaintenanceUpdate(req *types.OpsMaintenanceUpdateRequest) (resp *types.OpsMaintenanceUpdateResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *OpsMaintenanceUpdateLogic) OpsMaintenanceUpdate(req *types.OpsMaintenanceUpdateRequest) (*types.OpsMaintenanceUpdateResponse, error) {
+	if req == nil {
+		return nil, errors.New("请求体不能为空")
+	}
+	windows := make([]svc.OpsMaintenanceWindow, 0, len(req.Windows))
+	seen := map[string]struct{}{}
+	for _, win := range req.Windows {
+		id := strings.TrimSpace(win.ID)
+		if id == "" {
+			return nil, errors.New("维护窗口ID不能为空")
+		}
+		if _, exists := seen[id]; exists {
+			return nil, errors.New("维护窗口ID重复: " + id)
+		}
+		seen[id] = struct{}{}
+		windows = append(windows, svc.OpsMaintenanceWindow{
+			ID:          id,
+			GameID:      strings.TrimSpace(win.GameID),
+			Env:         strings.TrimSpace(win.Env),
+			Start:       strings.TrimSpace(win.Start),
+			End:         strings.TrimSpace(win.End),
+			Message:     strings.TrimSpace(win.Message),
+			BlockWrites: win.BlockWrites,
+		})
+	}
 
-	return
+	state, err := updateOpsState(l.svcCtx, func(st *svc.OpsState) {
+		st.Maintenance.Windows = windows
+		st.Maintenance.UpdatedAt = time.Now().UTC()
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.OpsMaintenanceUpdateResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"windows":   state.Maintenance.Windows,
+			"updatedAt": state.Maintenance.UpdatedAt,
+		},
+	}, nil
 }

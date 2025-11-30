@@ -28,7 +28,23 @@ func NewProvidersCapabilitiesLogic(ctx context.Context, svcCtx *svc.ServiceConte
 }
 
 func (l *ProvidersCapabilitiesLogic) ProvidersCapabilities(req *types.ProvidersCapabilitiesRequest) (resp *types.ProvidersCapabilitiesResponse, err error) {
-	// todo: add your logic here and delete this line
+	store, err := ensureRegistryStore(l.svcCtx.RegistryStore)
+	if err != nil {
+		return nil, err
+	}
+	caps := store.ListProviderCaps()
 
-	return
+	items := make([]map[string]interface{}, 0, len(caps))
+	for _, cap := range caps {
+		items = append(items, buildProviderMeta(cap, true))
+	}
+
+	return &types.ProvidersCapabilitiesResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"items": items,
+			"total": len(items),
+		},
+	}, nil
 }

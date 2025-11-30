@@ -6,6 +6,7 @@ package admin
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -28,7 +29,15 @@ func NewAdminPasswordResetLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 }
 
 func (l *AdminPasswordResetLogic) AdminPasswordReset(req *types.AdminPasswordResetRequest) error {
-	// todo: add your logic here and delete this line
+	adminID, err := parseAdminID(req.ID)
+	if err != nil {
+		return err
+	}
 
-	return nil
+	password, err := utils.ValidatePassword(req.NewPassword)
+	if err != nil {
+		return err
+	}
+
+	return l.svcCtx.AdminModel.UpdatePassword(l.ctx, adminID, password)
 }

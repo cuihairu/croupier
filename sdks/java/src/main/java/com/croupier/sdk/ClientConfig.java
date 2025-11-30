@@ -16,6 +16,7 @@ public class ClientConfig {
 
     // Local server settings
     private String localListen;     // local gRPC listener address
+    private String controlAddr;     // optional control-plane addr for manifest upload
 
     // Connection settings
     private int timeoutSeconds = 30; // connection timeout in seconds
@@ -25,6 +26,10 @@ public class ClientConfig {
     private String caFile;   // CA certificate file path
     private String certFile; // client certificate file path
     private String keyFile;  // client private key file path
+
+    // Provider metadata
+    private String providerLang = "java";
+    private String providerSdk = "croupier-java-sdk";
 
     public ClientConfig() {}
 
@@ -55,6 +60,9 @@ public class ClientConfig {
     public String getLocalListen() { return localListen; }
     public void setLocalListen(String localListen) { this.localListen = localListen; }
 
+    public String getControlAddr() { return controlAddr; }
+    public void setControlAddr(String controlAddr) { this.controlAddr = controlAddr; }
+
     public int getTimeoutSeconds() { return timeoutSeconds; }
     public void setTimeoutSeconds(int timeoutSeconds) { this.timeoutSeconds = timeoutSeconds; }
 
@@ -69,6 +77,12 @@ public class ClientConfig {
 
     public String getKeyFile() { return keyFile; }
     public void setKeyFile(String keyFile) { this.keyFile = keyFile; }
+
+    public String getProviderLang() { return providerLang; }
+    public void setProviderLang(String providerLang) { this.providerLang = providerLang; }
+
+    public String getProviderSdk() { return providerSdk; }
+    public void setProviderSdk(String providerSdk) { this.providerSdk = providerSdk; }
 
     @Override
     public String toString() {

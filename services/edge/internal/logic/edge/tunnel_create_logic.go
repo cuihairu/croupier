@@ -5,6 +5,10 @@ package edge
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/services/edge/internal/svc"
 	"github.com/cuihairu/croupier/services/edge/internal/types"
@@ -26,8 +30,43 @@ func NewTunnelCreateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Tunn
 	}
 }
 
-func (l *TunnelCreateLogic) TunnelCreate(req *types.TunnelCreateRequest) (resp *types.TunnelCreateResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *TunnelCreateLogic) TunnelCreate(req *types.TunnelCreateRequest) (*types.TunnelCreateResponse, error) {
+	if req == nil {
+		return nil, errors.New("missing payload")
+	}
+	if strings.TrimSpace(req.AgentId) == "" || strings.TrimSpace(req.RemoteAddr) == "" {
+		return nil, errors.New("agent_id 与 remote_addr 不能为空")
+	}
 
-	return
+	id := generateTunnelID(req.AgentId)
+	now := time.Now()
+
+	state := l.svcCtx.State
+	state.Mu.Lock()
+	state.Tunnels[id] = &svc.TunnelRecord{
+		ID:         id,
+		AgentID:    strings.TrimSpace(req.AgentId),
+		ServerID:   strings.TrimSpace(req.ServerId),
+		Protocol:   defaultString(req.Protocol, "http"),
+		RemoteAddr: strings.TrimSpace(req.RemoteAddr),
+		LocalAddr:  strings.TrimSpace(req.LocalAddr),
+		Status:     "active",
+		Options:    svc.CloneMap(req.Options),
+		CreatedAt:  now,
+		LastActive: now,
+	}
+	state.Mu.Unlock()
+
+	publicHost := strings.TrimSpace(l.svcCtx.Config.Server.PublicAddr)
+	if publicHost == "" {
+		publicHost = "edge.local"
+	}
+	publicURL := fmt.Sprintf("https://%s/proxy/%s", publicHost, id)
+
+	return &types.TunnelCreateResponse{
+		Success:   true,
+		TunnelId:  id,
+		Message:   "tunnel created",
+		PublicUrl: publicURL,
+	}, nil
 }

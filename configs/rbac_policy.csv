@@ -27,19 +27,19 @@ p, role:gm, /api/entities/*, DELETE
 p, role:gm, /api/registry, GET
 p, role:gm, /api/audit, GET
 
-p, role:user_manager, /api/users, GET
-p, role:user_manager, /api/users, POST
-p, role:user_manager, /api/users/*, PUT
-p, role:user_manager, /api/users/*, DELETE
-p, role:user_manager, /api/users/*/password, POST
-p, role:user_manager, /api/users/*/games, GET
-p, role:user_manager, /api/users/*/games, PUT
-p, role:user_manager, /api/users/*/games/*/envs, GET
-p, role:user_manager, /api/users/*/games/*/envs, PUT
-p, role:user_manager, /api/roles, GET
-p, role:user_manager, /api/roles, POST
-p, role:user_manager, /api/roles/*, PUT
-p, role:user_manager, /api/roles/*, DELETE
+p, role:admin_manager, /api/users, GET
+p, role:admin_manager, /api/users, POST
+p, role:admin_manager, /api/users/*, PUT
+p, role:admin_manager, /api/users/*, DELETE
+p, role:admin_manager, /api/users/*/password, POST
+p, role:admin_manager, /api/users/*/games, GET
+p, role:admin_manager, /api/users/*/games, PUT
+p, role:admin_manager, /api/users/*/games/*/envs, GET
+p, role:admin_manager, /api/users/*/games/*/envs, PUT
+p, role:admin_manager, /api/roles, GET
+p, role:admin_manager, /api/roles, POST
+p, role:admin_manager, /api/roles/*, PUT
+p, role:admin_manager, /api/roles/*, DELETE
 
 # (economy_manager REST endpoints not implemented in server; skip HTTP grants)
 

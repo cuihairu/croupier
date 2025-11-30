@@ -31,7 +31,8 @@ type FunctionHandler func(ctx context.Context, payload []byte) ([]byte, error)
 // ClientConfig holds configuration for the Croupier client
 type ClientConfig struct {
 	// Agent connection settings
-	AgentAddr string `json:"agent_addr"` // Agent gRPC address, e.g. "localhost:19090"
+	AgentAddr   string `json:"agent_addr"`   // Agent gRPC address, e.g. "localhost:19090"
+	ControlAddr string `json:"control_addr"` // Optional control-plane gRPC address for metadata upload
 
 	// Service identification (multi-tenant support)
 	GameID         string `json:"game_id"`         // game identifier for tenant isolation
@@ -39,6 +40,8 @@ type ClientConfig struct {
 	ServiceID      string `json:"service_id"`      // unique service identifier
 	ServiceVersion string `json:"service_version"` // service version for compatibility
 	AgentID        string `json:"agent_id"`        // agent identifier for load balancing
+	ProviderLang   string `json:"provider_lang"`   // language reported via ProviderMeta
+	ProviderSDK    string `json:"provider_sdk"`    // sdk identifier reported via ProviderMeta
 
 	// Local server settings
 	LocalListen string `json:"local_listen"` // local gRPC listener address
@@ -61,6 +64,8 @@ func DefaultClientConfig() *ClientConfig {
 		ServiceVersion: "1.0.0",
 		TimeoutSeconds: 30,
 		Insecure:       true, // Default to insecure for development
+		ProviderLang:   "go",
+		ProviderSDK:    "croupier-go-sdk",
 	}
 }
 

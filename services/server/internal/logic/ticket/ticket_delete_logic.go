@@ -28,7 +28,9 @@ func NewTicketDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Tick
 }
 
 func (l *TicketDeleteLogic) TicketDelete(req *types.TicketDeleteRequest) error {
-	// todo: add your logic here and delete this line
-
-	return nil
+	id, err := parseTicketID(req.ID)
+	if err != nil {
+		return err
+	}
+	return l.svcCtx.TicketModel.Delete(l.ctx, id)
 }

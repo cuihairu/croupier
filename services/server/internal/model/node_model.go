@@ -2,6 +2,8 @@ package model
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"gorm.io/gorm"
 )
@@ -52,6 +54,28 @@ func (m *NodeModel) UpdateMeta(ctx context.Context, nodeID string, updates map[s
 		Model(&Node{}).
 		Where("node_id = ?", nodeID).
 		Updates(updates).Error
+}
+
+// FindByNodeID fetches a node by its node_id.
+func (m *NodeModel) FindByNodeID(ctx context.Context, nodeID string) (*Node, error) {
+	var node Node
+	if err := m.db.WithContext(ctx).
+		Where("node_id = ?", nodeID).
+		First(&node).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("节点不存在")
+		}
+		return nil, err
+	}
+	return &node, nil
+}
+
+// UpdateStatus updates node status.
+func (m *NodeModel) UpdateStatus(ctx context.Context, nodeID, status string) error {
+	return m.db.WithContext(ctx).
+		Model(&Node{}).
+		Where("node_id = ?", nodeID).
+		Update("status", status).Error
 }
 
 // ListCommands returns registered commands.

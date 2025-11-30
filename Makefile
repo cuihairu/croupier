@@ -98,7 +98,7 @@ edge: api
 	@mkdir -p $(BINDIR)
 	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-edge ./services/edge
 
-build: server agent edge worker ingest tools
+build: server agent edge agentd worker ingest tools
 
 .PHONY: build-ip2loc
 build-ip2loc:
@@ -128,6 +128,12 @@ ingest:
 	@echo "[build] ingest"
 	@mkdir -p $(BINDIR)
 	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/ingest ./services/ingest
+
+.PHONY: agentd
+agentd:
+	@echo "[build] agentd"
+	@mkdir -p $(BINDIR)
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-agentd ./cmd/agentd
 
 .PHONY: analytics-spec
 analytics-spec:

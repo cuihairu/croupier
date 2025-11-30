@@ -20,11 +20,11 @@ type FAQ {
 
 // --- FAQ 列表 ---
 type FAQListRequest {
-	Page     int    `form:"page,optional,default=1"`
-	PageSize int    `form:"pageSize,optional,default=20"`
-	Category string `form:"category,optional"`
-	Keyword  string `form:"keyword,optional"`
-	Visible  bool   `form:"visible,optional"`
+	Page     int     `form:"page,optional,default=1"`
+	PageSize int     `form:"pageSize,optional,default=20"`
+	Category string  `form:"category,optional"`
+	Keyword  string  `form:"keyword,optional"`
+	Visible  *bool   `form:"visible,optional"`
 }
 
 type FAQListResponse {
@@ -55,8 +55,8 @@ type FAQUpdateRequest {
 	Answer   string   `json:"answer,optional"`
 	Category string   `json:"category,optional"`
 	Tags     []string `json:"tags,optional"`
-	Visible  bool     `json:"visible,optional"`
-	Sort     int      `json:"sort,optional"`
+	Visible  *bool    `json:"visible,optional"`
+	Sort     *int     `json:"sort,optional"`
 }
 
 // --- 删除 FAQ ---

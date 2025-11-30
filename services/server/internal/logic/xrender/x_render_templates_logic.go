@@ -28,7 +28,27 @@ func NewXRenderTemplatesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *XRenderTemplatesLogic) XRenderTemplates(req *types.XRenderTemplatesRequest) (resp *types.XRenderTemplatesResponse, err error) {
-	// todo: add your logic here and delete this line
+	templates, err := loadXRenderTemplates(l.svcCtx.Config)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	items := make([]map[string]interface{}, 0, len(templates))
+	rendererCounts := make(map[string]int)
+	for _, tpl := range templates {
+		items = append(items, tpl.toMap())
+		if tpl.Renderer != "" {
+			rendererCounts[tpl.Renderer]++
+		}
+	}
+
+	return &types.XRenderTemplatesResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"items":    items,
+			"total":    len(items),
+			"renderer": rendererCounts,
+		},
+	}, nil
 }

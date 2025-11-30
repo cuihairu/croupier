@@ -212,3 +212,64 @@ func (m *PlayerModel) ActivatePlayer(ctx context.Context, id uint) error {
 		Where("id = ?", id).
 		Update("status", 1).Error
 }
+
+// DailyNewPlayerStat captures per-day signup counts.
+type DailyNewPlayerStat struct {
+	Day   time.Time
+	Count int64
+}
+
+// CountNewPlayers returns the number of players created in the provided window.
+func (m *PlayerModel) CountNewPlayers(ctx context.Context, gameID string, start, end time.Time) (int64, error) {
+	query := m.scopedPlayers(ctx, gameID, start, end)
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// DailyNewPlayers aggregates new player counts per day within the window.
+func (m *PlayerModel) DailyNewPlayers(ctx context.Context, gameID string, start, end time.Time) ([]DailyNewPlayerStat, error) {
+	type row struct {
+		Day   string
+		Count int64
+	}
+
+	query := m.scopedPlayers(ctx, gameID, start, end).
+		Select("DATE(created_at) AS day, COUNT(*) AS count").
+		Group("day").
+		Order("day ASC")
+
+	var rows []row
+	if err := query.Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	stats := make([]DailyNewPlayerStat, 0, len(rows))
+	for _, r := range rows {
+		day, err := time.Parse("2006-01-02", r.Day)
+		if err != nil {
+			day = time.Time{}
+		}
+		stats = append(stats, DailyNewPlayerStat{
+			Day:   day,
+			Count: r.Count,
+		})
+	}
+	return stats, nil
+}
+
+func (m *PlayerModel) scopedPlayers(ctx context.Context, gameID string, start, end time.Time) *gorm.DB {
+	query := m.db.WithContext(ctx).Model(&Player{})
+	if gameID != "" {
+		query = query.Where("game_id = ?", gameID)
+	}
+	if !start.IsZero() {
+		query = query.Where("created_at >= ?", start)
+	}
+	if !end.IsZero() {
+		query = query.Where("created_at <= ?", end)
+	}
+	return query
+}

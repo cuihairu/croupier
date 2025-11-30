@@ -5,7 +5,10 @@ package profile
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -28,7 +31,32 @@ func NewProfileGamesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Prof
 }
 
 func (l *ProfileGamesLogic) ProfileGames(req *types.ProfileGamesRequest) (resp *types.ProfileGamesResponse, err error) {
-	// todo: add your logic here and delete this line
+	admin, _, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	if l.svcCtx.ProfileModel == nil {
+		return nil, errors.New("ProfileModel 未初始化")
+	}
+
+	games, err := l.svcCtx.ProfileModel.ListGames(l.ctx, admin.ID)
+	if err != nil {
+		return nil, fmt.Errorf("获取游戏列表失败: %w", err)
+	}
+
+	respGames := make([]types.ProfileGame, 0, len(games))
+	for i := range games {
+		record := games[i]
+		respGames = append(respGames, types.ProfileGame{
+			GameId:      record.GameID,
+			GameName:    record.GameName,
+			Envs:        utils.DecodeStringSlice(record.Envs),
+			Permissions: utils.DecodeStringSlice(record.Permissions),
+		})
+	}
+
+	return &types.ProfileGamesResponse{
+		Games: respGames,
+	}, nil
 }

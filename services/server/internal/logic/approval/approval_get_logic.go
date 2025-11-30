@@ -5,6 +5,8 @@ package approval
 
 import (
 	"context"
+	"errors"
+	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -28,7 +30,23 @@ func NewApprovalGetLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Appro
 }
 
 func (l *ApprovalGetLogic) ApprovalGet(req *types.ApprovalGetRequest) (resp *types.ApprovalGetResponse, err error) {
-	// todo: add your logic here and delete this line
+	if l.svcCtx.ApprovalsStore == nil {
+		return nil, errors.New("approvals store unavailable")
+	}
+	if req == nil || strings.TrimSpace(req.ID) == "" {
+		return nil, errors.New("id 不能为空")
+	}
 
-	return
+	approval, err := l.svcCtx.ApprovalsStore.Get(strings.TrimSpace(req.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	detail := buildApprovalDetail(approval)
+
+	return &types.ApprovalGetResponse{
+		Code:    0,
+		Message: "OK",
+		Data:    detail,
+	}, nil
 }

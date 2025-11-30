@@ -6,6 +6,8 @@ package ops
 import (
 	"context"
 
+	nodelogic "github.com/cuihairu/croupier/services/server/internal/logic/node"
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +29,23 @@ func NewOpsNodeDrainLogic(ctx context.Context, svcCtx *svc.ServiceContext) *OpsN
 	}
 }
 
-func (l *OpsNodeDrainLogic) OpsNodeDrain(req *types.OpsNodeActionRequest) (resp *types.OpsNodeDrainResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *OpsNodeDrainLogic) OpsNodeDrain(req *types.OpsNodeActionRequest) (*types.OpsNodeDrainResponse, error) {
+	nodeID, err := utils.ValidateNodeID(req.NodeID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	nodeReq := &types.NodeDrainRequest{ID: nodeID}
+	if err := nodelogic.NewNodeDrainLogic(l.ctx, l.svcCtx).NodeDrain(nodeReq); err != nil {
+		return nil, err
+	}
+
+	return &types.OpsNodeDrainResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"nodeId": nodeID,
+			"status": "draining",
+		},
+	}, nil
 }

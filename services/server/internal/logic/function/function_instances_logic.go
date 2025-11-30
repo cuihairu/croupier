@@ -6,6 +6,7 @@ package function
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +28,18 @@ func NewFunctionInstancesLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 	}
 }
 
-func (l *FunctionInstancesLogic) FunctionInstances(req *types.FunctionInstancesRequest) (resp *types.FunctionInstancesResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *FunctionInstancesLogic) FunctionInstances(req *types.FunctionInstancesRequest) (*types.FunctionInstancesResponse, error) {
+	functionID, err := utils.ValidateFunctionID(req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	instances, err := l.svcCtx.FunctionModel.ListInstances(l.ctx, functionID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.FunctionInstancesResponse{
+		Items: utils.BuildFunctionInstances(instances),
+	}, nil
 }

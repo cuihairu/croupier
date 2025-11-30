@@ -5,6 +5,7 @@ package edge
 
 import (
 	"context"
+	"strings"
 
 	"github.com/cuihairu/croupier/services/edge/internal/svc"
 	"github.com/cuihairu/croupier/services/edge/internal/types"
@@ -26,8 +27,32 @@ func NewEdgeMetricsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *EdgeM
 	}
 }
 
-func (l *EdgeMetricsLogic) EdgeMetrics(req *types.EdgeMetricsRequest) (resp *types.EdgeMetricsResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *EdgeMetricsLogic) EdgeMetrics(req *types.EdgeMetricsRequest) (*types.EdgeMetricsResponse, error) {
+	state := l.svcCtx.State
+	state.Mu.RLock()
+	defer state.Mu.RUnlock()
 
-	return
+	totalTunnels := len(state.Tunnels)
+	active := 0
+	bytesIn := int64(0)
+	bytesOut := int64(0)
+	for _, t := range state.Tunnels {
+		bytesIn += t.BytesIn
+		bytesOut += t.BytesOut
+		if strings.EqualFold(t.Status, "active") {
+			active++
+		}
+	}
+
+	metrics := map[string]interface{}{
+		"total_tunnels":  totalTunnels,
+		"active_tunnels": active,
+		"bytes_in":       bytesIn,
+		"bytes_out":      bytesOut,
+		"uptime_sec":     l.svcCtx.Uptime().Seconds(),
+	}
+
+	return &types.EdgeMetricsResponse{
+		Metrics: metrics,
+	}, nil
 }

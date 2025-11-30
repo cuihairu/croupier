@@ -5,6 +5,10 @@ package agent
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/services/agent/internal/svc"
 	"github.com/cuihairu/croupier/services/agent/internal/types"
@@ -26,8 +30,39 @@ func NewJobExecuteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *JobExe
 	}
 }
 
-func (l *JobExecuteLogic) JobExecute(req *types.JobExecuteRequest) (resp *types.JobExecuteResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *JobExecuteLogic) JobExecute(req *types.JobExecuteRequest) (*types.JobExecuteResponse, error) {
+	if req == nil {
+		return nil, errors.New("missing request payload")
+	}
 
-	return
+	jobID := strings.TrimSpace(req.JobId)
+	if jobID == "" {
+		jobID = fmt.Sprintf("job-%d", time.Now().UnixNano())
+	}
+
+	now := time.Now()
+	result := map[string]interface{}{
+		"echo":    svc.CloneInterfaceMap(req.Inputs),
+		"options": svc.CloneInterfaceMap(req.Options),
+	}
+
+	state := l.svcCtx.AgentState
+	state.Mu.Lock()
+	state.Jobs[jobID] = &svc.JobRecord{
+		ID:         jobID,
+		FunctionID: strings.TrimSpace(req.FunctionId),
+		GameID:     strings.TrimSpace(req.GameId),
+		Env:        strings.TrimSpace(req.Env),
+		Status:     "completed",
+		Result:     result,
+		StartTime:  now,
+		EndTime:    func() *time.Time { t := now; return &t }(),
+	}
+	state.Mu.Unlock()
+
+	return &types.JobExecuteResponse{
+		Success: true,
+		JobId:   jobID,
+		Status:  "completed",
+	}, nil
 }

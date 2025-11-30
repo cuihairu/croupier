@@ -27,8 +27,27 @@ func NewXRenderPreviewSchemaLogic(ctx context.Context, svcCtx *svc.ServiceContex
 	}
 }
 
-func (l *XRenderPreviewSchemaLogic) XRenderPreviewSchema(req *types.XRenderPreviewRequest) (resp *types.XRenderPreviewSchemaResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *XRenderPreviewSchemaLogic) XRenderPreviewSchema(req *types.XRenderPreviewRequest) (*types.XRenderPreviewSchemaResponse, error) {
+	schema, err := normalizeSchemaInput(req.Schema)
+	if err != nil {
+		return nil, err
+	}
+	schema = ensureObjectSchema(schema)
 
-	return
+	uiSchema := buildDefaultUISchema(schema)
+	fields := extractSchemaFields(schema)
+	sample := generateSampleData(schema)
+
+	return &types.XRenderPreviewSchemaResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"schema":   schema,
+			"uiSchema": uiSchema,
+			"fields":   fields,
+			"layout":   uiSchema["ui:layout"],
+			"order":    uiSchema["ui:order"],
+			"sample":   sample,
+		},
+	}, nil
 }

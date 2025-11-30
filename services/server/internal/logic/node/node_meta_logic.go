@@ -6,6 +6,7 @@ package node
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +28,18 @@ func NewNodeMetaLogic(ctx context.Context, svcCtx *svc.ServiceContext) *NodeMeta
 	}
 }
 
-func (l *NodeMetaLogic) NodeMeta(req *types.NodeMetaRequest) (resp *types.NodeMetaResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *NodeMetaLogic) NodeMeta(req *types.NodeMetaRequest) (*types.NodeMetaResponse, error) {
+	nodeID, err := utils.ValidateNodeID(req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	node, err := l.svcCtx.NodeModel.FindByNodeID(l.ctx, nodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.NodeMetaResponse{
+		Meta: node.Meta,
+	}, nil
 }

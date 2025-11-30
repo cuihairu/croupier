@@ -5,7 +5,10 @@ package player
 
 import (
 	"context"
+	"errors"
+	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +30,24 @@ func NewPlayerBalanceLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Pla
 	}
 }
 
-func (l *PlayerBalanceLogic) PlayerBalance(req *types.PlayerBalanceRequest) (resp *types.PlayerBalanceResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *PlayerBalanceLogic) PlayerBalance(req *types.PlayerBalanceRequest) (*types.PlayerBalanceResponse, error) {
+	if req == nil {
+		return nil, errors.New("请求体不能为空")
+	}
+	id, err := utils.ParseUintID(req.ID, "玩家ID")
+	if err != nil {
+		return nil, err
+	}
+	reason := strings.TrimSpace(req.Reason)
+	if reason == "" {
+		return nil, errors.New("调整原因不能为空")
+	}
+	player, err := l.svcCtx.PlayerModel.UpdateBalance(l.ctx, id, req.Amount, reason)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.PlayerBalanceResponse{
+		Player: utils.BuildPlayer(player),
+	}, nil
 }

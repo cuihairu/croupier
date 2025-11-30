@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
+	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -23,13 +25,18 @@ type grpcManager struct {
 	conn      *grpc.ClientConn
 	connected bool
 	localAddr string
+	localCli  localv1.LocalControlServiceClient
 
 	// Local server
 	server   *grpc.Server
 	listener net.Listener
+	fnServer *functionServer
 
 	// Session management
-	sessionID string
+	sessionID      string
+	serviceID      string
+	serviceVersion string
+	heartbeatStop  context.CancelFunc
 }
 
 // NewGRPCManager creates a new gRPC manager
@@ -79,6 +86,7 @@ func (g *grpcManager) Connect(ctx context.Context) error {
 
 	g.conn = conn
 	g.connected = true
+	g.localCli = localv1.NewLocalControlServiceClient(conn)
 
 	fmt.Printf("✅ Successfully connected to Agent: %s\n", g.config.AgentAddr)
 	return nil
@@ -90,6 +98,10 @@ func (g *grpcManager) Disconnect() {
 	defer g.mu.Unlock()
 
 	g.connected = false
+	g.sessionID = ""
+	g.serviceID = ""
+	g.serviceVersion = ""
+	g.stopHeartbeatLocked()
 
 	// Stop local server
 	if g.server != nil {
@@ -107,34 +119,61 @@ func (g *grpcManager) Disconnect() {
 		g.conn.Close()
 		g.conn = nil
 	}
+	g.localCli = nil
 
 	fmt.Println("📴 Disconnected from Agent")
 }
 
 // RegisterWithAgent implements GRPCManager.RegisterWithAgent
 func (g *grpcManager) RegisterWithAgent(ctx context.Context, serviceID, serviceVersion string, functions []LocalFunctionDescriptor) (string, error) {
-	if !g.connected {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	if !g.connected || g.conn == nil || g.localCli == nil {
 		return "", fmt.Errorf("not connected to agent")
 	}
+	if g.localAddr == "" {
+		return "", fmt.Errorf("local service address not available, start the server before registering")
+	}
 
-	// This is a mock implementation - in a real implementation, this would:
-	// 1. Use generated gRPC client stub from local.proto
-	// 2. Call the LocalControlService.RegisterLocal RPC
-	// 3. Handle the actual proto message marshaling
+	pbFuncs := make([]*localv1.LocalFunctionDescriptor, 0, len(functions))
+	for _, fn := range functions {
+		if fn.ID == "" {
+			continue
+		}
+		pbFuncs = append(pbFuncs, &localv1.LocalFunctionDescriptor{
+			Id:      fn.ID,
+			Version: fn.Version,
+		})
+	}
 
-	sessionID := fmt.Sprintf("mock_session_%s_%d", serviceID, time.Now().Unix())
+	req := &localv1.RegisterLocalRequest{
+		ServiceId: serviceID,
+		Version:   serviceVersion,
+		RpcAddr:   g.localAddr,
+		Functions: pbFuncs,
+	}
 
-	fmt.Printf("📡 Registering service with Agent:\n")
+	resp, err := g.localCli.RegisterLocal(ctx, req)
+	if err != nil {
+		return "", fmt.Errorf("register RPC failed: %w", err)
+	}
+	sessionID := resp.GetSessionId()
+	if sessionID == "" {
+		return "", fmt.Errorf("agent did not return a session ID")
+	}
+
+	fmt.Printf("📡 Registered service with Agent\n")
 	fmt.Printf("   Service ID: %s\n", serviceID)
 	fmt.Printf("   Version: %s\n", serviceVersion)
 	fmt.Printf("   Local Address: %s\n", g.localAddr)
-	fmt.Printf("   Functions: %d\n", len(functions))
-	for _, fn := range functions {
-		fmt.Printf("     - %s (v%s)\n", fn.ID, fn.Version)
-	}
-	fmt.Printf("   Session ID: %s\n", sessionID)
+	fmt.Printf("   Functions: %d\n", len(pbFuncs))
 
 	g.sessionID = sessionID
+	g.serviceID = serviceID
+	g.serviceVersion = serviceVersion
+	g.startHeartbeatLocked()
+
 	return sessionID, nil
 }
 
@@ -142,6 +181,11 @@ func (g *grpcManager) RegisterWithAgent(ctx context.Context, serviceID, serviceV
 func (g *grpcManager) StartServer(ctx context.Context) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+
+	if g.server != nil {
+		// already running
+		return nil
+	}
 
 	// Parse listen address
 	listenAddr := g.config.LocalListen
@@ -173,8 +217,10 @@ func (g *grpcManager) StartServer(ctx context.Context) error {
 
 	g.server = grpc.NewServer(opts...)
 
-	// Register function service (placeholder)
-	// In a real implementation, register generated service here.
+	if g.fnServer == nil {
+		g.fnServer = newFunctionServer(g.handlers)
+	}
+	functionv1.RegisterFunctionServiceServer(g.server, g.fnServer)
 
 	fmt.Printf("🚀 Local gRPC server started on: %s\n", g.localAddr)
 
@@ -219,4 +265,44 @@ func (g *grpcManager) createTLSCredentials() (credentials.TransportCredentials, 
 func (g *grpcManager) createServerTLSCredentials() (credentials.TransportCredentials, error) {
 	// This would load server certificates in a real implementation
 	return credentials.NewTLS(nil), nil
+}
+
+func (g *grpcManager) startHeartbeatLocked() {
+	if g.localCli == nil || g.sessionID == "" || g.serviceID == "" {
+		return
+	}
+	g.stopHeartbeatLocked()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	g.heartbeatStop = cancel
+
+	sessionID := g.sessionID
+	serviceID := g.serviceID
+	client := g.localCli
+
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				_, err := client.Heartbeat(context.Background(), &localv1.HeartbeatRequest{
+					ServiceId: serviceID,
+					SessionId: sessionID,
+				})
+				if err != nil {
+					log.Printf("Agent heartbeat failed: %v", err)
+				}
+			}
+		}
+	}()
+}
+
+func (g *grpcManager) stopHeartbeatLocked() {
+	if g.heartbeatStop != nil {
+		g.heartbeatStop()
+		g.heartbeatStop = nil
+	}
 }

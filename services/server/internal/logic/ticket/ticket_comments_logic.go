@@ -27,8 +27,18 @@ func NewTicketCommentsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Ti
 	}
 }
 
-func (l *TicketCommentsLogic) TicketComments(req *types.TicketCommentsRequest) (resp *types.TicketCommentsResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *TicketCommentsLogic) TicketComments(req *types.TicketCommentsRequest) (*types.TicketCommentsResponse, error) {
+	id, err := parseTicketID(req.TicketID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	comments, err := l.svcCtx.TicketModel.ListComments(l.ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.TicketCommentsResponse{
+		Items: buildCommentsDTO(comments),
+	}, nil
 }

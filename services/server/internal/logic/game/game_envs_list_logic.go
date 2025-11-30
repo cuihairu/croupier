@@ -27,8 +27,27 @@ func NewGameEnvsListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Game
 	}
 }
 
-func (l *GameEnvsListLogic) GameEnvsList(req *types.GameEnvsListRequest) (resp *types.GameEnvsListResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *GameEnvsListLogic) GameEnvsList(req *types.GameEnvsListRequest) (*types.GameEnvsListResponse, error) {
+	id, err := parseGameID(req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	game, err := l.svcCtx.GameModel.FindOne(l.ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	envs, err := game.GetEnvs()
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.GameEnvsListResponse{
+		Code:    0,
+		Message: "OK",
+		Data: types.GameEnvsData{
+			Envs: convertGameEnvs(envs),
+		},
+	}, nil
 }

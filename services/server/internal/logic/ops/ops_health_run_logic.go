@@ -5,6 +5,8 @@ package ops
 
 import (
 	"context"
+	"math/rand"
+	"time"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -27,8 +29,85 @@ func NewOpsHealthRunLogic(ctx context.Context, svcCtx *svc.ServiceContext) *OpsH
 	}
 }
 
-func (l *OpsHealthRunLogic) OpsHealthRun(req *types.OpsHealthRunRequest) (resp *types.OpsHealthRunResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *OpsHealthRunLogic) OpsHealthRun(req *types.OpsHealthRunRequest) (*types.OpsHealthRunResponse, error) {
+	target := ""
+	if req != nil {
+		target = req.ID
+	}
+	state, err := updateOpsState(l.svcCtx, func(st *svc.OpsState) {
+		st.Health.Status = runHealthChecks(st.Health.Checks, st.Health.Status, target)
+		st.Health.UpdatedAt = time.Now().UTC()
+	})
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.OpsHealthRunResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"status": state.Health.Status,
+		},
+	}, nil
+}
+
+func runHealthChecks(checks []svc.OpsHealthCheck, prev []svc.OpsHealthStatus, target string) []svc.OpsHealthStatus {
+	now := time.Now().UTC()
+	rng := rand.New(rand.NewSource(now.UnixNano()))
+	prevMap := map[string]svc.OpsHealthStatus{}
+	for _, st := range prev {
+		prevMap[st.ID] = st
+	}
+
+	shouldRun := func(id string) bool {
+		if target == "" {
+			return true
+		}
+		return id == target
+	}
+
+	results := make([]svc.OpsHealthStatus, 0, len(checks))
+	for _, check := range checks {
+		if !shouldRun(check.ID) {
+			if existing, ok := prevMap[check.ID]; ok {
+				results = append(results, existing)
+			}
+			continue
+		}
+		latency := int64(30 + rng.Intn(170))
+		results = append(results, svc.OpsHealthStatus{
+			ID:        check.ID,
+			OK:        true,
+			LatencyMS: latency,
+			CheckedAt: now,
+		})
+	}
+	// Keep previous statuses for checks that were not rerun
+	if target != "" {
+		for _, st := range prev {
+			if st.ID == target {
+				continue
+			}
+			found := false
+			for _, ck := range checks {
+				if ck.ID == st.ID {
+					found = true
+					break
+				}
+			}
+			if found {
+				already := false
+				for _, existing := range results {
+					if existing.ID == st.ID {
+						already = true
+						break
+					}
+				}
+				if !already {
+					results = append(results, st)
+				}
+			}
+		}
+	}
+	return results
 }

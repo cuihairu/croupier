@@ -50,6 +50,17 @@ func (m *FunctionModel) FindByID(ctx context.Context, id uint) (*Function, error
 	return &fn, nil
 }
 
+// FindByFunctionID fetches by external function ID.
+func (m *FunctionModel) FindByFunctionID(ctx context.Context, functionID string) (*Function, error) {
+	var fn Function
+	if err := m.db.WithContext(ctx).
+		Where("function_id = ?", functionID).
+		First(&fn).Error; err != nil {
+		return nil, err
+	}
+	return &fn, nil
+}
+
 // List returns paginated functions.
 func (m *FunctionModel) List(ctx context.Context, opts ListFunctionsOptions) ([]Function, int64, error) {
 	opts.PaginationOptions.Normalize()
@@ -101,6 +112,19 @@ func (m *FunctionModel) ListDescriptors(ctx context.Context, functionID string) 
 		Order("version DESC").
 		Find(&descs).Error
 	return descs, err
+}
+
+// ListDescriptorTemplates returns reusable descriptors filtered by category.
+func (m *FunctionModel) ListDescriptorTemplates(ctx context.Context, category string) ([]Descriptor, error) {
+	query := m.db.WithContext(ctx).Model(&Descriptor{})
+	if category != "" {
+		query = query.Where("category = ?", category)
+	}
+	var descs []Descriptor
+	if err := query.Order("updated_at DESC").Find(&descs).Error; err != nil {
+		return nil, err
+	}
+	return descs, nil
 }
 
 // RegisterInstance upserts instance heartbeat data.

@@ -28,7 +28,6 @@ func NewLogoutLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LogoutLogi
 }
 
 func (l *LogoutLogic) Logout(req *types.LogoutRequest) (resp *types.LogoutResponse, err error) {
-	// todo: add your logic here and delete this line
-
-	return
+	l.Logger.Infof("用户登出: %v", l.ctx.Value("user"))
+	return &types.LogoutResponse{}, nil
 }

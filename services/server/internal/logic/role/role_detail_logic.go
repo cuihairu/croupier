@@ -6,6 +6,7 @@ package role
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +28,23 @@ func NewRoleDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *RoleDe
 	}
 }
 
-func (l *RoleDetailLogic) RoleDetail(req *types.RoleDetailRequest) (resp *types.RoleDetailResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *RoleDetailLogic) RoleDetail(req *types.RoleDetailRequest) (*types.RoleDetailResponse, error) {
+	roleID, err := utils.ParseRoleID(req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	role, err := l.svcCtx.RoleModel.FindOne(l.ctx, roleID)
+	if err != nil {
+		return nil, err
+	}
+
+	permissions, err := l.svcCtx.RoleModel.GetRolePermissionIDs(l.ctx, role.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.RoleDetailResponse{
+		Role: utils.BuildRole(role, permissions),
+	}, nil
 }

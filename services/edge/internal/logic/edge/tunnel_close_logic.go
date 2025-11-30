@@ -5,6 +5,9 @@ package edge
 
 import (
 	"context"
+	"errors"
+	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/services/edge/internal/svc"
 	"github.com/cuihairu/croupier/services/edge/internal/types"
@@ -26,8 +29,25 @@ func NewTunnelCloseLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Tunne
 	}
 }
 
-func (l *TunnelCloseLogic) TunnelClose(req *types.TunnelCloseRequest) (resp *types.TunnelCloseResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *TunnelCloseLogic) TunnelClose(req *types.TunnelCloseRequest) (*types.TunnelCloseResponse, error) {
+	if req == nil || strings.TrimSpace(req.TunnelId) == "" {
+		return nil, errors.New("tunnel_id 不能为空")
+	}
 
-	return
+	state := l.svcCtx.State
+	state.Mu.Lock()
+	defer state.Mu.Unlock()
+
+	record := state.Tunnels[req.TunnelId]
+	if record == nil {
+		return nil, errors.New("tunnel not found")
+	}
+
+	record.Status = "closed"
+	record.LastActive = time.Now()
+
+	return &types.TunnelCloseResponse{
+		Success: true,
+		Message: "tunnel closed",
+	}, nil
 }

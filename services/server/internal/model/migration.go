@@ -51,6 +51,10 @@ func AutoMigrate(db *gorm.DB) error {
 		&RateLimit{},
 		&Node{},
 		&NodeCommand{},
+		&Message{},
+		&Certificate{},
+		&CertificateAlert{},
+		&ConfigVersion{},
 	)
 }
 

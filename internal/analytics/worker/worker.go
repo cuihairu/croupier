@@ -6,11 +6,25 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
+	chdriver "github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	redis "github.com/redis/go-redis/v9"
+)
+
+func envOrDefault(key, def string) string {
+	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
+		return v
+	}
+	return def
+}
+
+const (
+	insertEventsSQL   = "INSERT INTO analytics.events (event_time, game_id, env, user_id, session_id, event, channel, platform, country, app_version, event_id, props_json)"
+	insertPaymentsSQL = "INSERT INTO analytics.payments (time, game_id, env, user_id, order_id, amount_cents, currency, status, channel, platform, country, region, city, product_id, reason)"
 )
 
 type Worker struct {
@@ -24,6 +38,15 @@ type Worker struct {
 	touchedMinutes map[string]struct{}
 	touchedDays    map[string]struct{}
 	revAgg         map[string]*revRow
+	// batching
+	eventBatch       chdriver.Batch
+	eventBatchRows   int
+	paymentBatch     chdriver.Batch
+	paymentBatchRows int
+	clickBatchSize   int
+	// checkpoints
+	checkpointPrefix string
+	lastIDs          map[string]string
 }
 
 func NewWorker() (*Worker, error) {
@@ -58,26 +81,51 @@ func NewWorker() (*Worker, error) {
 	if dsn == "" {
 		dsn = "clickhouse://localhost:9000/analytics"
 	}
-	// naive DSN parse: clickhouse://host:port/db
-	addr := strings.TrimPrefix(strings.TrimPrefix(dsn, "clickhouse://"), "http://")
-	host := addr
-	if i := strings.Index(host, "/"); i >= 0 {
-		host = host[:i]
+	opts, err := clickhouse.ParseDSN(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("parse clickhouse dsn: %w", err)
 	}
-	ch, err := clickhouse.Open(&clickhouse.Options{Addr: []string{host}})
+	if len(opts.Addr) == 0 {
+		opts.Addr = []string{"localhost:9000"}
+	}
+	ch, err := clickhouse.Open(opts)
 	if err != nil {
 		return nil, fmt.Errorf("clickhouse: %w", err)
 	}
-	return &Worker{rdb: rdb, ch: ch, streamEvents: se, streamPayments: sp, group: grp, consumer: cons, touchedMinutes: map[string]struct{}{}, touchedDays: map[string]struct{}{}, revAgg: map[string]*revRow{}}, nil
+	batchSize := 500
+	if v := strings.TrimSpace(os.Getenv("ANALYTICS_CLICKHOUSE_BATCH")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			batchSize = n
+		}
+	}
+	return &Worker{
+		rdb:              rdb,
+		ch:               ch,
+		streamEvents:     se,
+		streamPayments:   sp,
+		group:            grp,
+		consumer:         cons,
+		touchedMinutes:   map[string]struct{}{},
+		touchedDays:      map[string]struct{}{},
+		revAgg:           map[string]*revRow{},
+		clickBatchSize:   batchSize,
+		checkpointPrefix: strings.TrimSuffix(envOrDefault("ANALYTICS_CHECKPOINT_PREFIX", "analytics:checkpoint"), ":"),
+		lastIDs:          map[string]string{},
+	}, nil
 }
 
 func (w *Worker) ensureGroups(ctx context.Context) {
 	_ = w.rdb.XGroupCreateMkStream(ctx, w.streamEvents, w.group, "$").Err()
 	_ = w.rdb.XGroupCreateMkStream(ctx, w.streamPayments, w.group, "$").Err()
+	w.restoreCheckpoints(ctx, w.streamEvents)
+	w.restoreCheckpoints(ctx, w.streamPayments)
 }
 
 func (w *Worker) Run(ctx context.Context) error {
 	w.ensureGroups(ctx)
+	defer func() {
+		_ = w.flushBatches(context.Background())
+	}()
 	// periodic flush
 	go func() {
 		tk := time.NewTicker(15 * time.Second)
@@ -124,6 +172,8 @@ func (w *Worker) Run(ctx context.Context) error {
 					}
 				}
 				_ = w.rdb.XAck(ctx, str.Stream, w.group, msg.ID).Err()
+				w.lastIDs[str.Stream] = msg.ID
+				w.persistCheckpoint(ctx, str.Stream, msg.ID)
 			}
 		}
 	}
@@ -180,14 +230,7 @@ func (w *Worker) insertEvent(ctx context.Context, m map[string]any) error {
 	appv := asString(m, "app_version")
 	eid := asString(m, "event_id")
 	propsBytes, _ := json.Marshal(m["props"]) // may be nil
-	batch, err := w.ch.PrepareBatch(ctx, "INSERT INTO analytics.events (event_time, game_id, env, user_id, session_id, event, channel, platform, country, app_version, event_id, props_json)")
-	if err != nil {
-		return err
-	}
-	if err := batch.Append(ts, game, env, uid, sid, evt, channel, platform, country, appv, eid, string(propsBytes)); err != nil {
-		return err
-	}
-	return batch.Send()
+	return w.appendEventRow(ctx, ts, game, env, uid, sid, evt, channel, platform, country, appv, eid, string(propsBytes))
 }
 
 func (w *Worker) insertPayment(ctx context.Context, m map[string]any) error {
@@ -209,14 +252,97 @@ func (w *Worker) insertPayment(ctx context.Context, m map[string]any) error {
 	city := asString(m, "city")
 	product := asString(m, "product_id")
 	reason := asString(m, "reason")
-	batch, err := w.ch.PrepareBatch(ctx, "INSERT INTO analytics.payments (time, game_id, env, user_id, order_id, amount_cents, currency, status, channel, platform, country, region, city, product_id, reason)")
+	return w.appendPaymentRow(ctx, ts, game, env, uid, oid, uint64(amount), curr, status, channel, platform, country, region, city, product, reason)
+}
+
+func (w *Worker) ensureEventBatch(ctx context.Context) (chdriver.Batch, error) {
+	if w.eventBatch != nil {
+		return w.eventBatch, nil
+	}
+	batch, err := w.ch.PrepareBatch(ctx, insertEventsSQL)
+	if err != nil {
+		return nil, err
+	}
+	w.eventBatch = batch
+	w.eventBatchRows = 0
+	return batch, nil
+}
+
+func (w *Worker) ensurePaymentBatch(ctx context.Context) (chdriver.Batch, error) {
+	if w.paymentBatch != nil {
+		return w.paymentBatch, nil
+	}
+	batch, err := w.ch.PrepareBatch(ctx, insertPaymentsSQL)
+	if err != nil {
+		return nil, err
+	}
+	w.paymentBatch = batch
+	w.paymentBatchRows = 0
+	return batch, nil
+}
+
+func (w *Worker) appendEventRow(ctx context.Context, args ...any) error {
+	batch, err := w.ensureEventBatch(ctx)
 	if err != nil {
 		return err
 	}
-	if err := batch.Append(ts, game, env, uid, oid, uint64(amount), curr, status, channel, platform, country, region, city, product, reason); err != nil {
+	if err := batch.Append(args...); err != nil {
 		return err
 	}
-	return batch.Send()
+	w.eventBatchRows++
+	if w.clickBatchSize > 0 && w.eventBatchRows >= w.clickBatchSize {
+		return w.flushEventBatch(ctx)
+	}
+	return nil
+}
+
+func (w *Worker) appendPaymentRow(ctx context.Context, args ...any) error {
+	batch, err := w.ensurePaymentBatch(ctx)
+	if err != nil {
+		return err
+	}
+	if err := batch.Append(args...); err != nil {
+		return err
+	}
+	w.paymentBatchRows++
+	if w.clickBatchSize > 0 && w.paymentBatchRows >= w.clickBatchSize {
+		return w.flushPaymentBatch(ctx)
+	}
+	return nil
+}
+
+func (w *Worker) flushEventBatch(ctx context.Context) error {
+	if w.eventBatch == nil || w.eventBatchRows == 0 {
+		return nil
+	}
+	if err := w.eventBatch.Send(); err != nil {
+		return err
+	}
+	w.eventBatch = nil
+	w.eventBatchRows = 0
+	return nil
+}
+
+func (w *Worker) flushPaymentBatch(ctx context.Context) error {
+	if w.paymentBatch == nil || w.paymentBatchRows == 0 {
+		return nil
+	}
+	if err := w.paymentBatch.Send(); err != nil {
+		return err
+	}
+	w.paymentBatch = nil
+	w.paymentBatchRows = 0
+	return nil
+}
+
+func (w *Worker) flushBatches(ctx context.Context) error {
+	if err := w.flushEventBatch(ctx); err != nil {
+		return err
+	}
+	if err := w.flushPaymentBatch(ctx); err != nil {
+		return err
+	}
+	return nil
 }
 
 // --- Aggregation helpers ---
@@ -292,6 +418,9 @@ func (w *Worker) touchRevenue(ctx context.Context, m map[string]any) {
 }
 
 func (w *Worker) flush(ctx context.Context) error {
+	if err := w.flushBatches(ctx); err != nil {
+		slog.Warn("flush batches", "err", err)
+	}
 	nowMin := time.Now().Truncate(time.Minute)
 	// flush minute_online for minutes earlier than current minute
 	for k := range w.touchedMinutes {
@@ -357,6 +486,7 @@ func (w *Worker) flush(ctx context.Context) error {
 			slog.Warn("daily_users send", "err", err)
 			continue
 		}
+		delete(w.touchedDays, dk)
 	}
 	// flush daily_revenue
 	for rk, rv := range w.revAgg {
@@ -380,6 +510,7 @@ func (w *Worker) flush(ctx context.Context) error {
 			slog.Warn("daily_revenue send", "err", err)
 			continue
 		}
+		delete(w.revAgg, rk)
 	}
 	return nil
 }
@@ -389,4 +520,35 @@ func max0(n int64) int64 {
 		return 0
 	}
 	return n
+}
+func (w *Worker) restoreCheckpoints(ctx context.Context, stream string) {
+	if w.checkpointPrefix == "" {
+		return
+	}
+	key := fmt.Sprintf("%s:%s", w.checkpointPrefix, stream)
+	id, err := w.rdb.Get(ctx, key).Result()
+	if err != nil {
+		if err != redis.Nil {
+			slog.Warn("checkpoint get", "stream", stream, "err", err)
+		}
+		return
+	}
+	if id == "" {
+		return
+	}
+	if err := w.rdb.XGroupSetID(ctx, stream, w.group, id).Err(); err != nil {
+		slog.Warn("checkpoint setid", "stream", stream, "err", err)
+		return
+	}
+	w.lastIDs[stream] = id
+}
+
+func (w *Worker) persistCheckpoint(ctx context.Context, stream, id string) {
+	if w.checkpointPrefix == "" || id == "" {
+		return
+	}
+	key := fmt.Sprintf("%s:%s", w.checkpointPrefix, stream)
+	if err := w.rdb.Set(ctx, key, id, 0).Err(); err != nil {
+		slog.Warn("checkpoint set", "stream", stream, "err", err)
+	}
 }

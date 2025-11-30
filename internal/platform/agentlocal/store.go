@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
 )
 
 type Instance struct {
@@ -17,11 +19,18 @@ type LocalStore struct {
 	mu sync.RWMutex
 	// function_id -> instances
 	data map[string][]Instance
+	// function_id -> service_id -> function version
+	funcVersions map[string]map[string]string
 	// callback for updates
 	onUpdate func()
 }
 
-func NewLocalStore() *LocalStore { return &LocalStore{data: map[string][]Instance{}} }
+func NewLocalStore() *LocalStore {
+	return &LocalStore{
+		data:         map[string][]Instance{},
+		funcVersions: map[string]map[string]string{},
+	}
+}
 
 // OnUpdate sets a callback to be invoked when the store changes.
 func (s *LocalStore) OnUpdate(fn func()) {
@@ -32,10 +41,10 @@ func (s *LocalStore) OnUpdate(fn func()) {
 }
 
 // Register replaces instances for the provided function ids for a service.
-func (s *LocalStore) Register(serviceID, addr, version string, fnIDs []string) {
+func (s *LocalStore) Register(serviceID, addr, version string, funcs []*localv1.LocalFunctionDescriptor) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	fmt.Printf("DEBUG: Register called for %s with %d functions\n", serviceID, len(fnIDs))
+	fmt.Printf("DEBUG: Register called for %s with %d functions\n", serviceID, len(funcs))
 	now := time.Now()
 	// remove prior instances from this serviceID for all functions
 	for fid, arr := range s.data {
@@ -51,9 +60,25 @@ func (s *LocalStore) Register(serviceID, addr, version string, fnIDs []string) {
 			s.data[fid] = next
 		}
 	}
+	for fid, svc := range s.funcVersions {
+		delete(svc, serviceID)
+		if len(svc) == 0 {
+			delete(s.funcVersions, fid)
+		}
+	}
 	inst := Instance{ServiceID: serviceID, Addr: addr, Version: version, LastSeen: now}
-	for _, fid := range fnIDs {
+	for _, fn := range funcs {
+		if fn == nil || fn.GetId() == "" {
+			continue
+		}
+		fid := fn.GetId()
 		s.data[fid] = append(s.data[fid], inst)
+		if fn.GetVersion() != "" {
+			if s.funcVersions[fid] == nil {
+				s.funcVersions[fid] = map[string]string{}
+			}
+			s.funcVersions[fid][serviceID] = fn.GetVersion()
+		}
 	}
 	if s.onUpdate != nil {
 		fmt.Println("DEBUG: Triggering OnUpdate")
@@ -116,4 +141,19 @@ func (s *LocalStore) Prune(maxAge time.Duration) int {
 		go s.onUpdate()
 	}
 	return removed
+}
+
+// FunctionVersions returns snapshot of function versions by service.
+func (s *LocalStore) FunctionVersions() map[string]map[string]string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make(map[string]map[string]string, len(s.funcVersions))
+	for fid, svcVersions := range s.funcVersions {
+		cp := make(map[string]string, len(svcVersions))
+		for sid, ver := range svcVersions {
+			cp[sid] = ver
+		}
+		out[fid] = cp
+	}
+	return out
 }

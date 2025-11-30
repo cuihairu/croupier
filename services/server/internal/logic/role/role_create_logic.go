@@ -5,11 +5,16 @@ package role
 
 import (
 	"context"
+	"errors"
+	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
+	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"gorm.io/gorm"
 )
 
 type RoleCreateLogic struct {
@@ -27,8 +32,39 @@ func NewRoleCreateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *RoleCr
 	}
 }
 
-func (l *RoleCreateLogic) RoleCreate(req *types.RoleCreateRequest) (resp *types.RoleCreateResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *RoleCreateLogic) RoleCreate(req *types.RoleCreateRequest) (*types.RoleCreateResponse, error) {
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		return nil, errors.New("角色名称不能为空")
+	}
 
-	return
+	permissionIDs, err := utils.EnsurePermissionIDs(l.ctx, l.svcCtx.RoleModel, req.Permissions)
+	if err != nil {
+		return nil, err
+	}
+
+	var createdRole *model.Role
+	err = l.svcCtx.DB.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
+		role := &model.Role{
+			Name:        name,
+			Description: strings.TrimSpace(req.Description),
+			Category:    strings.TrimSpace(req.Category),
+		}
+		roleModel := model.NewRoleModel(tx)
+		if err := roleModel.Create(l.ctx, role); err != nil {
+			return err
+		}
+		if err := roleModel.ReplacePermissions(l.ctx, role.ID, permissionIDs); err != nil {
+			return err
+		}
+		createdRole = role
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.RoleCreateResponse{
+		Role: utils.BuildRole(createdRole, permissionIDs),
+	}, nil
 }

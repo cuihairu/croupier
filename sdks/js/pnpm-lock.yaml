@@ -9,14 +9,14 @@ importers:
   .:
     dependencies:
       '@bufbuild/protobuf':
-        specifier: ^1.6.0
-        version: 1.10.1
+        specifier: ^2.10.1
+        version: 2.10.1
       '@connectrpc/connect':
         specifier: ^1.2.0
-        version: 1.7.0(@bufbuild/protobuf@1.10.1)
+        version: 1.7.0(@bufbuild/protobuf@2.10.1)
       '@connectrpc/connect-node':
         specifier: ^1.2.0
-        version: 1.7.0(@bufbuild/protobuf@1.10.1)(@connectrpc/connect@1.7.0(@bufbuild/protobuf@1.10.1))
+        version: 1.7.0(@bufbuild/protobuf@2.10.1)(@connectrpc/connect@1.7.0(@bufbuild/protobuf@2.10.1))
       '@grpc/grpc-js':
         specifier: ^1.9.0
         version: 1.14.1
@@ -231,8 +231,8 @@ packages:
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
 
-  '@bufbuild/protobuf@1.10.1':
-    resolution: {integrity: sha512-wJ8ReQbHxsAfXhrf9ixl0aYbZorRuOWpBNzm8pL8ftmSxQx/wnJD5Eg861NwJU/czy2VXFIebCeZnZrI9rktIQ==}
+  '@bufbuild/protobuf@2.10.1':
+    resolution: {integrity: sha512-ckS3+vyJb5qGpEYv/s1OebUHDi/xSNtfgw1wqKZo7MR9F2z+qXr0q5XagafAG/9O0QPVIUfST0smluYSTpYFkg==}
 
   '@connectrpc/connect-node@1.7.0':
     resolution: {integrity: sha512-6vaPIkG/NyhxlYgytLoR9KYbPhczEboFB2OYWkA9qvUz1K7efXfeGrlRxoLtpa+r8VxyIOw73w5ktNe743nD+A==}
@@ -2491,17 +2491,17 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@bufbuild/protobuf@1.10.1': {}
+  '@bufbuild/protobuf@2.10.1': {}
 
-  '@connectrpc/connect-node@1.7.0(@bufbuild/protobuf@1.10.1)(@connectrpc/connect@1.7.0(@bufbuild/protobuf@1.10.1))':
+  '@connectrpc/connect-node@1.7.0(@bufbuild/protobuf@2.10.1)(@connectrpc/connect@1.7.0(@bufbuild/protobuf@2.10.1))':
     dependencies:
-      '@bufbuild/protobuf': 1.10.1
-      '@connectrpc/connect': 1.7.0(@bufbuild/protobuf@1.10.1)
+      '@bufbuild/protobuf': 2.10.1
+      '@connectrpc/connect': 1.7.0(@bufbuild/protobuf@2.10.1)
       undici: 5.29.0
 
-  '@connectrpc/connect@1.7.0(@bufbuild/protobuf@1.10.1)':
+  '@connectrpc/connect@1.7.0(@bufbuild/protobuf@2.10.1)':
     dependencies:
-      '@bufbuild/protobuf': 1.10.1
+      '@bufbuild/protobuf': 2.10.1
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:

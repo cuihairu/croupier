@@ -653,9 +653,9 @@
     ]
   },
   {
-    "code": "user_manager",
-    "name": "用户管理员",
-    "description": "后台用户账号管理员",
+    "code": "admin_manager",
+    "name": "管理员",
+    "description": "后台管理员账号管理",
     "level": 60,
     "permissions": [
       "user:read",

@@ -5,6 +5,7 @@ package schema
 
 import (
 	"context"
+	"time"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -27,8 +28,25 @@ func NewSchemaUiConfigUpdateLogic(ctx context.Context, svcCtx *svc.ServiceContex
 	}
 }
 
-func (l *SchemaUiConfigUpdateLogic) SchemaUiConfigUpdate(req *types.SchemaUIConfigUpdateRequest) (resp *types.SchemaUIConfigUpdateResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *SchemaUiConfigUpdateLogic) SchemaUiConfigUpdate(req *types.SchemaUIConfigUpdateRequest) (*types.SchemaUIConfigUpdateResponse, error) {
+	doc, err := loadSchema(l.svcCtx.Config, req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	doc.UIConfig = req.Config
+	doc.UpdatedAt = time.Now()
+
+	if err := saveSchema(l.svcCtx.Config, doc); err != nil {
+		return nil, err
+	}
+
+	return &types.SchemaUIConfigUpdateResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"id":       doc.ID,
+			"uiConfig": doc.UIConfig,
+		},
+	}, nil
 }

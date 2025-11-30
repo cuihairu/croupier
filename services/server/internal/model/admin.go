@@ -13,6 +13,7 @@ type Admin struct {
 	Nickname     string `gorm:"size:128"`
 	Email        string `gorm:"size:256"`
 	Phone        string `gorm:"size:32"`
+	Avatar       string `gorm:"size:512"`
 	PasswordHash string `gorm:"size:255"`
 	Status       int    `gorm:"default:1"` // 1:active 0:disabled
 	OTPSecret    string `gorm:"size:64"`

@@ -6,6 +6,7 @@ package function
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +28,27 @@ func NewFunctionUILogic(ctx context.Context, svcCtx *svc.ServiceContext) *Functi
 	}
 }
 
-func (l *FunctionUILogic) FunctionUI(req *types.FunctionUIRequest) (resp *types.FunctionUIResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *FunctionUILogic) FunctionUI(req *types.FunctionUIRequest) (*types.FunctionUIResponse, error) {
+	functionID, err := utils.ValidateFunctionID(req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	fn, err := l.svcCtx.FunctionModel.FindByFunctionID(l.ctx, functionID)
+	if err != nil {
+		return nil, err
+	}
+
+	var layout interface{}
+	var components interface{}
+	if fn.Metadata != nil {
+		layout = fn.Metadata["layout"]
+		components = fn.Metadata["components"]
+	}
+
+	return &types.FunctionUIResponse{
+		Schema:     fn.Schema,
+		Layout:     layout,
+		Components: components,
+	}, nil
 }

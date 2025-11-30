@@ -27,8 +27,21 @@ func NewGameDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GameDe
 	}
 }
 
-func (l *GameDeleteLogic) GameDelete(req *types.GameDeleteRequest) (resp *types.GameDeleteResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *GameDeleteLogic) GameDelete(req *types.GameDeleteRequest) (*types.GameDeleteResponse, error) {
+	id, err := parseGameID(req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	if err := l.svcCtx.GameModel.Delete(l.ctx, id); err != nil {
+		return nil, err
+	}
+
+	return &types.GameDeleteResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"id": id,
+		},
+	}, nil
 }

@@ -38,7 +38,7 @@
       "currency:read",
       "wallet:read"
     ],
-    "role:user_manager": [
+    "role:admin_manager": [
       "user:read",
       "user:write",
       "role:read",

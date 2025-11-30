@@ -5,7 +5,10 @@ package game
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +30,47 @@ func NewGameEnvAddLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GameEn
 	}
 }
 
-func (l *GameEnvAddLogic) GameEnvAdd(req *types.GameEnvAddRequest) (resp *types.GameEnvAddResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *GameEnvAddLogic) GameEnvAdd(req *types.GameEnvAddRequest) (*types.GameEnvAddResponse, error) {
+	id, err := parseGameID(req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	game, err := l.svcCtx.GameModel.FindOne(l.ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	newEnv, err := ensureEnvName(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	envs, err := game.GetEnvs()
+	if err != nil {
+		return nil, err
+	}
+	if findEnvIndex(envs, newEnv) >= 0 {
+		return nil, fmt.Errorf("环境 %s 已存在", newEnv)
+	}
+
+	envs = append(envs, model.GameEnv{
+		Env:         newEnv,
+		Description: strings.TrimSpace(req.Type),
+	})
+	if err := game.SetEnvs(envs); err != nil {
+		return nil, err
+	}
+
+	if err := l.svcCtx.GameModel.Update(l.ctx, id, map[string]interface{}{"envs": game.Envs}); err != nil {
+		return nil, err
+	}
+
+	return &types.GameEnvAddResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"envs": convertGameEnvs(envs),
+		},
+	}, nil
 }

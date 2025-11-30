@@ -124,14 +124,17 @@ func (c *UpstreamClient) heartbeatLoop(ctx context.Context) {
 func (c *UpstreamClient) sync(ctx context.Context) error {
 	// Snapshot local store
 	localData := c.store.List()
+	versionSnapshot := c.store.FunctionVersions()
 
 	// Convert to FunctionDescriptors
 	var funcs []*serverv1.FunctionDescriptor
-	for fid := range localData {
-		funcs = append(funcs, &serverv1.FunctionDescriptor{
+	for fid, instances := range localData {
+		desc := &serverv1.FunctionDescriptor{
 			Id:      fid,
-			Enabled: true,
-		})
+			Enabled: len(instances) > 0,
+			Version: pickVersion(versionSnapshot[fid]),
+		}
+		funcs = append(funcs, desc)
 	}
 
 	req := &serverv1.RegisterRequest{
@@ -164,4 +167,17 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func pickVersion(versions map[string]string) string {
+	best := ""
+	for _, ver := range versions {
+		if ver == "" {
+			continue
+		}
+		if best == "" || ver > best {
+			best = ver
+		}
+	}
+	return best
 }

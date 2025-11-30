@@ -27,8 +27,15 @@ func NewCertificateStatsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 	}
 }
 
-func (l *CertificateStatsLogic) CertificateStats(req *types.CertificateStatsRequest) (resp *types.CertificateStatsResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *CertificateStatsLogic) CertificateStats(req *types.CertificateStatsRequest) (*types.CertificateStatsResponse, error) {
+	stats, err := l.svcCtx.CertificateModel.Stats(l.ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.CertificateStatsResponse{
+		Code:    0,
+		Message: "OK",
+		Data:    stats,
+	}, nil
 }

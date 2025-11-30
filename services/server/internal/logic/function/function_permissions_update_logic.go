@@ -6,6 +6,7 @@ package function
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +28,27 @@ func NewFunctionPermissionsUpdateLogic(ctx context.Context, svcCtx *svc.ServiceC
 	}
 }
 
-func (l *FunctionPermissionsUpdateLogic) FunctionPermissionsUpdate(req *types.FunctionPermissionsUpdateRequest) (resp *types.FunctionPermissionsResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *FunctionPermissionsUpdateLogic) FunctionPermissionsUpdate(req *types.FunctionPermissionsUpdateRequest) (*types.FunctionPermissionsResponse, error) {
+	functionID, err := utils.ValidateFunctionID(req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	records, err := utils.ConvertFunctionPermissions(functionID, req.Permissions)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := l.svcCtx.FunctionModel.ReplacePermissions(l.ctx, functionID, records); err != nil {
+		return nil, err
+	}
+
+	perms, err := l.svcCtx.FunctionModel.ListPermissions(l.ctx, functionID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.FunctionPermissionsResponse{
+		Items: utils.BuildFunctionPermissions(perms),
+	}, nil
 }

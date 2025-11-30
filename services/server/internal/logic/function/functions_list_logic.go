@@ -5,7 +5,10 @@ package function
 
 import (
 	"context"
+	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
+	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -27,8 +30,36 @@ func NewFunctionsListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Fun
 	}
 }
 
-func (l *FunctionsListLogic) FunctionsList(req *types.FunctionsListRequest) (resp *types.FunctionsListResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *FunctionsListLogic) FunctionsList(req *types.FunctionsListRequest) (*types.FunctionsListResponse, error) {
+	opts := model.ListFunctionsOptions{
+		PaginationOptions: model.PaginationOptions{
+			Page:     req.Page,
+			PageSize: req.PageSize,
+		},
+		GameID:   strings.TrimSpace(req.GameId),
+		Category: strings.TrimSpace(req.Category),
+	}
+	if req.Status != 0 {
+		status := req.Status
+		opts.Status = &status
+	}
 
-	return
+	functions, total, err := l.svcCtx.FunctionModel.List(l.ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]types.Function, 0, len(functions))
+	for i := range functions {
+		items = append(items, utils.BuildFunctionDTO(&functions[i]))
+	}
+
+	opts.PaginationOptions.Normalize()
+
+	return &types.FunctionsListResponse{
+		Items: items,
+		Total: total,
+		Page:  opts.Page,
+		Size:  opts.PageSize,
+	}, nil
 }

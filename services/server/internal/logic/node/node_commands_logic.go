@@ -27,8 +27,21 @@ func NewNodeCommandsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Node
 	}
 }
 
-func (l *NodeCommandsLogic) NodeCommands(req *types.NodeCommandsRequest) (resp *types.NodeCommandsResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *NodeCommandsLogic) NodeCommands(req *types.NodeCommandsRequest) (*types.NodeCommandsResponse, error) {
+	commands, err := l.svcCtx.NodeModel.ListCommands(l.ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	items := make([]types.NodeCommand, 0, len(commands))
+	for _, cmd := range commands {
+		items = append(items, types.NodeCommand{
+			Name:        cmd.Name,
+			Description: cmd.Description,
+		})
+	}
+
+	return &types.NodeCommandsResponse{
+		Items: items,
+	}, nil
 }
