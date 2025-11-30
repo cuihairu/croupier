@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	tokenmgr "github.com/cuihairu/croupier/internal/security/token"
 	"github.com/cuihairu/croupier/services/server/internal/model"
@@ -146,7 +147,7 @@ func extractAdminID(ctx context.Context, r *http.Request, tokenManager *tokenmgr
 				return 0, errors.New("token subject missing")
 			}
 
-			admin, err := permSvc.lookupAdminByUsername(r.Context(), subject)
+			admin, err := permSvc.lookupAdminByUsername(subject)
 			if err != nil {
 				return 0, err
 			}
@@ -168,10 +169,13 @@ func extractAdminID(ctx context.Context, r *http.Request, tokenManager *tokenmgr
 	return uint(adminID), nil
 }
 
-func (s *PermissionService) lookupAdminByUsername(ctx context.Context, username string) (*model.Admin, error) {
+func (s *PermissionService) lookupAdminByUsername(username string) (*model.Admin, error) {
 	if strings.TrimSpace(username) == "" {
 		return nil, errors.New("username missing")
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	var admin model.Admin
 	if err := s.db.WithContext(ctx).Where("username = ?", username).First(&admin).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

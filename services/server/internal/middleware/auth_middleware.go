@@ -24,8 +24,8 @@ func NewAuthMiddleware(svcCtx *svc.ServiceContext) *AuthMiddleware {
 	return &AuthMiddleware{
 		svcCtx: svcCtx,
 		allowPaths: map[string]struct{}{
-			"/api/v1/auth/login": {},
-			"/api/v1/monitoring/health": {},
+			"/api/v1/auth/login":         {},
+			"/api/v1/monitoring/health":  {},
 			"/api/v1/monitoring/healthz": {},
 		},
 		allowPref: []string{
@@ -89,7 +89,9 @@ func (m *AuthMiddleware) authenticate(ctx context.Context, token string) (string
 		return "", nil, 0, errors.New("token subject missing")
 	}
 
-	admin, err := m.svcCtx.AdminModel.FindByUsername(ctx, username)
+	lookupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	admin, err := m.svcCtx.AdminModel.FindByUsername(lookupCtx, username)
 	if err != nil {
 		return "", nil, 0, fmt.Errorf("查询管理员失败: %w", err)
 	}
