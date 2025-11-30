@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
@@ -24,6 +25,10 @@ type LoginLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
+
+const defaultJWTSecret = "croupier-dev-secret"
+
+var warnDefaultJWT sync.Once
 
 // 用户登录
 func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic {
@@ -55,6 +60,10 @@ func (l *LoginLogic) Login(req *types.LoginRequest) (*types.LoginResponse, error
 		return nil, err
 	}
 
+	if roles == nil {
+		roles = []string{}
+	}
+
 	return &types.LoginResponse{
 		Token: token,
 		User: types.UserInfo{
@@ -82,7 +91,10 @@ func (l *LoginLogic) authenticateDBUser(username, password string) (*model.Admin
 func (l *LoginLogic) issueToken(username string, roles []string) (string, error) {
 	secret := strings.TrimSpace(l.svcCtx.Config.Auth.JWTSecret)
 	if secret == "" {
-		return fmt.Sprintf("token_%s_%d", username, time.Now().Unix()), nil
+		warnDefaultJWT.Do(func() {
+			logx.WithContext(l.ctx).Warn("JWT secret is empty; falling back to default dev secret. Please configure auth.jwt_secret.")
+		})
+		secret = defaultJWTSecret
 	}
 
 	now := time.Now()
