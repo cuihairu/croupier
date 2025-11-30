@@ -30,7 +30,15 @@ export async function getInitialState(): Promise<{
       const token = localStorage.getItem('token');
       if (!token) return undefined;
       const currentUser = await fetchCurrentUser();
-      return { name: currentUser.username, userid: currentUser.username, access: (currentUser.roles||[]).join(',') } as any;
+      const roles = (currentUser.roles || []).map((role) =>
+        typeof role === 'string' ? role.toLowerCase() : role,
+      );
+      return {
+        name: currentUser.username,
+        userid: currentUser.username,
+        access: roles.join(','),
+        roles,
+      } as any;
     } catch (error) {
       history.push(loginPath);
       return undefined;

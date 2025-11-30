@@ -2,9 +2,17 @@
  * @see https://umijs.org/docs/max/access#access
  * */
 export default function access(initialState: { currentUser?: API.CurrentUser } | undefined) {
-  const acc = (initialState?.currentUser as any)?.access as string | undefined;
-  const perms = new Set((acc || '').split(',').filter(Boolean));
-  const has = (p: string) => perms.has('*') || perms.has(p);
+  const acc = ((initialState?.currentUser as any)?.access as string | undefined) || '';
+  const perms = new Set(
+    acc
+      .split(',')
+      .map((token) => token.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const has = (p: string) => {
+    const key = (p || '').toLowerCase();
+    return perms.has('*') || perms.has(key);
+  };
   return {
     canAdmin: has('admin'),
     // Game meta management
