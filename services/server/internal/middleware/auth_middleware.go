@@ -99,14 +99,18 @@ func (m *AuthMiddleware) authenticate(ctx context.Context, token string) (string
 		return "", nil, 0, errors.New("admin not found")
 	}
 	if admin.LastLoginAt != nil && claims.IssuedAt != nil {
-		issuedAt := claims.IssuedAt.Time.UTC().Round(0)
-		lastLogin := admin.LastLoginAt.UTC().Round(0)
+		issuedAt := truncateMonotonic(claims.IssuedAt.Time)
+		lastLogin := truncateMonotonic(*admin.LastLoginAt)
 		if issuedAt.Before(lastLogin) {
 			return "", nil, 0, errors.New("token has been invalidated by a later login")
 		}
 	}
 
 	return username, claims.Roles, admin.ID, nil
+}
+
+func truncateMonotonic(t time.Time) time.Time {
+	return time.Unix(0, t.UnixNano()).UTC()
 }
 
 func (m *AuthMiddleware) shouldBypass(r *http.Request) bool {
