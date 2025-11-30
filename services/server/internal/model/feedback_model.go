@@ -2,6 +2,8 @@ package model
 
 import (
 	"context"
+	"database/sql"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -19,10 +21,11 @@ func NewFeedbackModel(db *gorm.DB) *FeedbackModel {
 // ListFeedbackOptions controls filtering.
 type ListFeedbackOptions struct {
 	PaginationOptions
-	GameID  string
-	Env     string
-	Status  string
-	Keyword string
+	GameID   string
+	Env      string
+	Status   string
+	Category string
+	Keyword  string
 }
 
 // Create inserts feedback entry.
@@ -38,6 +41,15 @@ func (m *FeedbackModel) Update(ctx context.Context, id uint, updates map[string]
 // Delete removes feedback entry.
 func (m *FeedbackModel) Delete(ctx context.Context, id uint) error {
 	return m.db.WithContext(ctx).Delete(&Feedback{}, id).Error
+}
+
+// FindByID returns a single feedback record.
+func (m *FeedbackModel) FindByID(ctx context.Context, id uint) (*Feedback, error) {
+	var record Feedback
+	if err := m.db.WithContext(ctx).First(&record, id).Error; err != nil {
+		return nil, err
+	}
+	return &record, nil
 }
 
 // List fetches paginated feedback entries.
@@ -59,6 +71,9 @@ func (m *FeedbackModel) List(ctx context.Context, opts ListFeedbackOptions) ([]F
 	if opts.Status != "" {
 		query = query.Where("status = ?", opts.Status)
 	}
+	if opts.Category != "" {
+		query = query.Where("category = ?", opts.Category)
+	}
 	if opts.Keyword != "" {
 		like := "%" + opts.Keyword + "%"
 		query = query.Where("content LIKE ?", like)
@@ -75,4 +90,96 @@ func (m *FeedbackModel) List(ctx context.Context, opts ListFeedbackOptions) ([]F
 		return nil, 0, err
 	}
 	return items, total, nil
+}
+
+// FeedbackStatsOptions configures stats calculations.
+type FeedbackStatsOptions struct {
+	GameID string
+	Days   int
+}
+
+// FeedbackStatsResult aggregates statistics for feedback.
+type FeedbackStatsResult struct {
+	Total      int64
+	ByCategory map[string]int64
+	ByStatus   map[string]int64
+	AvgRating  float64
+	Responded  int64
+}
+
+// Stats returns aggregate metrics for feedback entries.
+func (m *FeedbackModel) Stats(ctx context.Context, opts FeedbackStatsOptions) (*FeedbackStatsResult, error) {
+	query := m.statsQuery(ctx, opts)
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, err
+	}
+
+	result := &FeedbackStatsResult{
+		Total:      total,
+		ByCategory: map[string]int64{},
+		ByStatus:   map[string]int64{},
+		AvgRating:  0,
+	}
+
+	var categories []struct {
+		Category string
+		Count    int64
+	}
+	if err := m.statsQuery(ctx, opts).
+		Select("category, COUNT(*) as count").
+		Group("category").
+		Scan(&categories).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range categories {
+		result.ByCategory[row.Category] = row.Count
+	}
+
+	var statuses []struct {
+		Status string
+		Count  int64
+	}
+	if err := m.statsQuery(ctx, opts).
+		Select("status, COUNT(*) as count").
+		Group("status").
+		Scan(&statuses).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range statuses {
+		result.ByStatus[row.Status] = row.Count
+	}
+
+	var avg sql.NullFloat64
+	if err := m.statsQuery(ctx, opts).
+		Select("AVG(rating) as avg_rating").
+		Scan(&avg).Error; err != nil {
+		return nil, err
+	}
+	if avg.Valid {
+		result.AvgRating = avg.Float64
+	}
+
+	var responded int64
+	if err := m.statsQuery(ctx, opts).
+		Where("reply <> ''").
+		Count(&responded).Error; err != nil {
+		return nil, err
+	}
+	result.Responded = responded
+
+	return result, nil
+}
+
+func (m *FeedbackModel) statsQuery(ctx context.Context, opts FeedbackStatsOptions) *gorm.DB {
+	query := m.db.WithContext(ctx).Model(&Feedback{})
+	if opts.GameID != "" {
+		query = query.Where("game_id = ?", opts.GameID)
+	}
+	if opts.Days > 0 {
+		since := time.Now().Add(-time.Duration(opts.Days) * 24 * time.Hour)
+		query = query.Where("created_at >= ?", since)
+	}
+	return query
 }

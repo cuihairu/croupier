@@ -11,6 +11,8 @@ type Feedback struct {
 	Category string `gorm:"size:64"`
 	Priority string `gorm:"size:16"`
 	Status   string `gorm:"size:16"`
+	Rating   int    `gorm:"default:0"`
+	Reply    string `gorm:"type:text"`
 	Attach   string `gorm:"type:text"`
 	GameID   string `gorm:"size:64;index"`
 	Env      string `gorm:"size:64"`

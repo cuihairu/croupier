@@ -5,7 +5,13 @@ package meta
 
 import (
 	"context"
+	"os"
+	"sort"
+	"strings"
+	"sync"
+	"time"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -28,7 +34,64 @@ func NewRootLogic(ctx context.Context, svcCtx *svc.ServiceContext) *RootLogic {
 }
 
 func (l *RootLogic) Root(req *types.RootRequest) (resp *types.RootResponse, err error) {
-	// todo: add your logic here and delete this line
+	profiles := make([]string, 0, len(l.svcCtx.Config.Profiles))
+	for name := range l.svcCtx.Config.Profiles {
+		profiles = append(profiles, name)
+	}
+	sort.Strings(profiles)
 
-	return
+	data := map[string]interface{}{
+		"service":     "croupier-server",
+		"version":     currentAPIVersion(),
+		"environment": l.svcCtx.Config.RestConf.Mode,
+		"timestamp":   utils.FormatTimestamp(time.Now()),
+		"features": []string{
+			"alerts",
+			"analytics",
+			"functions",
+			"registry",
+			"ops",
+			"feedback",
+		},
+		"profiles": profiles,
+		"links": map[string]string{
+			"docs":   "https://github.com/cuihairu/croupier",
+			"status": "/api/ops/config",
+			"health": "/api/ops/health",
+		},
+	}
+
+	return &types.RootResponse{
+		Code:    0,
+		Message: "OK",
+		Data:    data,
+	}, nil
+}
+
+var (
+	versionOnce sync.Once
+	apiVersion  string
+)
+
+func currentAPIVersion() string {
+	versionOnce.Do(func() {
+		if v := strings.TrimSpace(os.Getenv("CROUPIER_VERSION")); v != "" {
+			apiVersion = v
+			return
+		}
+		if v := readVersionFile(); v != "" {
+			apiVersion = v
+			return
+		}
+		apiVersion = "dev"
+	})
+	return apiVersion
+}
+
+func readVersionFile() string {
+	data, err := os.ReadFile("VERSION")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
 }

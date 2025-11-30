@@ -5,6 +5,8 @@ package alert
 
 import (
 	"context"
+	"errors"
+	"strconv"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -28,7 +30,17 @@ func NewSilenceDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Sil
 }
 
 func (l *SilenceDeleteLogic) SilenceDelete(req *types.SilenceDeleteRequest) error {
-	// todo: add your logic here and delete this line
+	if l.svcCtx.AlertModel == nil {
+		return errors.New("告警模型未初始化")
+	}
+	if req == nil {
+		return errors.New("请求体不能为空")
+	}
 
-	return nil
+	id, err := strconv.ParseUint(req.ID, 10, 64)
+	if err != nil {
+		return errors.New("静默ID格式不正确")
+	}
+
+	return l.svcCtx.AlertModel.DeleteSilence(l.ctx, uint(id))
 }

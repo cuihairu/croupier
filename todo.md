@@ -60,3 +60,123 @@ The following gaps remain before SDKs can be considered production-ready.
 
 - [x] Edge gRPC `FunctionService`/`JobService`/`TunnelService` under `internal/app/edge` are stubs; implement the real proxying logic to upstream agents/server.
 - [x] Edge service (`services/edge`) should wire into `internal/app/edge` so HTTP/REST calls trigger the gRPC control-plane operations.
+
+## Logic Implementation Coverage
+
+- [x] 0 logic handlers remain as goctl scaffolds (`rg -l 'todo: add your logic here'` returns empty).
+  - Server: fully implemented.
+  - Agent: fully implemented.
+  - Edge: fully implemented.
+
+## Logic TODO Checklist
+The following lists every logic handler that still contains the goctl placeholder. Update this checklist whenever implementations land.
+
+### Service: Agent
+#### Module: agent
+- [x] services/agent/internal/logic/agent/agent_health_logic.go
+- [x] services/agent/internal/logic/agent/agent_heartbeat_logic.go
+- [x] services/agent/internal/logic/agent/agent_metrics_logic.go
+- [x] services/agent/internal/logic/agent/agent_register_logic.go
+- [x] services/agent/internal/logic/agent/function_register_logic.go
+- [x] services/agent/internal/logic/agent/job_execute_logic.go
+- [x] services/agent/internal/logic/agent/job_status_logic.go
+
+
+### Service: Edge
+#### Module: edge
+- [x] services/edge/internal/logic/edge/edge_health_logic.go
+- [x] services/edge/internal/logic/edge/edge_metrics_logic.go
+- [x] services/edge/internal/logic/edge/proxy_logic.go
+- [x] services/edge/internal/logic/edge/tunnel_close_logic.go
+- [x] services/edge/internal/logic/edge/tunnel_create_logic.go
+- [x] services/edge/internal/logic/edge/tunnel_list_logic.go
+- [x] services/edge/internal/logic/edge/tunnel_status_logic.go
+
+
+### Service: Server
+#### Module: agent
+- [x] services/server/internal/logic/agent/agent_analytics_filters_logic.go
+- [x] services/server/internal/logic/agent/agent_meta_logic.go
+
+#### Module: alert
+- [x] services/server/internal/logic/alert/alert_silence_logic.go
+- [x] services/server/internal/logic/alert/alerts_list_logic.go
+- [x] services/server/internal/logic/alert/silence_delete_logic.go
+- [x] services/server/internal/logic/alert/silences_list_logic.go
+
+#### Module: analytics_behavior
+- [x] services/server/internal/logic/analytics_behavior/behavior_adoption_breakdown_logic.go
+- [x] services/server/internal/logic/analytics_behavior/behavior_adoption_logic.go
+- [x] services/server/internal/logic/analytics_behavior/behavior_events_logic.go
+- [x] services/server/internal/logic/analytics_behavior/behavior_funnel_logic.go
+- [x] services/server/internal/logic/analytics_behavior/behavior_logic.go
+- [x] services/server/internal/logic/analytics_behavior/behavior_paths_logic.go
+
+#### Module: analytics_overview
+- [x] services/server/internal/logic/analytics_overview/filters_get_logic.go
+- [x] services/server/internal/logic/analytics_overview/filters_update_logic.go
+- [x] services/server/internal/logic/analytics_overview/ingest_logic.go
+- [x] services/server/internal/logic/analytics_overview/overview_logic.go
+- [x] services/server/internal/logic/analytics_overview/realtime_logic.go
+- [x] services/server/internal/logic/analytics_overview/realtime_series_logic.go
+
+#### Module: analytics_payments
+- [x] services/server/internal/logic/analytics_payments/payments_ingest_logic.go
+- [x] services/server/internal/logic/analytics_payments/payments_logic.go
+- [x] services/server/internal/logic/analytics_payments/payments_product_trend_logic.go
+- [x] services/server/internal/logic/analytics_payments/payments_summary_logic.go
+- [x] services/server/internal/logic/analytics_payments/payments_transactions_logic.go
+
+#### Module: analytics_retention
+- [x] services/server/internal/logic/analytics_retention/levels_episodes_logic.go
+- [x] services/server/internal/logic/analytics_retention/levels_logic.go
+- [x] services/server/internal/logic/analytics_retention/levels_maps_logic.go
+- [x] services/server/internal/logic/analytics_retention/retention_logic.go
+
+#### Module: approval
+- [x] services/server/internal/logic/approval/approval_approve_logic.go
+- [x] services/server/internal/logic/approval/approval_get_logic.go
+- [x] services/server/internal/logic/approval/approval_reject_logic.go
+- [x] services/server/internal/logic/approval/approvals_list_logic.go
+
+#### Module: audit
+- [x] services/server/internal/logic/audit/audit_logic.go
+
+#### Module: auth
+- [x] services/server/internal/logic/auth/logout_logic.go
+
+#### Module: component
+- [x] services/server/internal/logic/component/components_delete_logic.go
+- [x] services/server/internal/logic/component/components_detail_logic.go
+- [x] services/server/internal/logic/component/components_disable_logic.go
+- [x] services/server/internal/logic/component/components_enable_logic.go
+- [x] services/server/internal/logic/component/components_install_logic.go
+- [x] services/server/internal/logic/component/components_list_logic.go
+- [x] services/server/internal/logic/component/components_patch_logic.go
+
+#### Module: config
+- [x] services/server/internal/logic/config/config_upsert_logic.go
+- [x] services/server/internal/logic/config/config_version_detail_logic.go
+- [x] services/server/internal/logic/config/config_versions_logic.go
+
+#### Module: feedback
+- [x] services/server/internal/logic/feedback/feedback_create_logic.go
+- [x] services/server/internal/logic/feedback/feedback_delete_logic.go
+- [x] services/server/internal/logic/feedback/feedback_list_logic.go
+- [x] services/server/internal/logic/feedback/feedback_stats_logic.go
+- [x] services/server/internal/logic/feedback/feedback_update_logic.go
+
+#### Module: meta
+- [x] services/server/internal/logic/meta/root_logic.go
+
+#### Module: storage
+- [x] services/server/internal/logic/storage/signed_url_logic.go
+
+#### Module: xrender
+- [x] services/server/internal/logic/xrender/x_render_components_logic.go
+- [x] services/server/internal/logic/xrender/x_render_generate_schema_logic.go
+- [x] services/server/internal/logic/xrender/x_render_preview_schema_logic.go
+- [x] services/server/internal/logic/xrender/x_render_templates_logic.go
+
+#### Module: xrender_schema
+- [x] services/server/internal/logic/xrender_schema/ui_schema_logic.go
