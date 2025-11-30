@@ -140,8 +140,8 @@ export default [
         icon: 'user',
         routes: [
           { path: '/admin/account/center', name: 'Center', component: './Profile' },
-          { path: '/admin/account/settings', name: 'Settings', component: './Profile' },
-          { path: '/admin/account/messages', name: 'Messages', component: './Profile' },
+          { path: '/admin/account/settings', name: 'Settings', redirect: '/admin/account/center?tab=security' },
+          { path: '/admin/account/messages', name: 'Messages', redirect: '/admin/account/center?tab=notifications' },
         ],
       },
       // Back-office user management (mirrors Security pages for convenience)

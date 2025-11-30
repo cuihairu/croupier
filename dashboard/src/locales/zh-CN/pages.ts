@@ -210,6 +210,8 @@ export default {
   'profile.security.settings': '安全设置',
   'profile.security.settings.title': '安全',
   'profile.session.management': '会话管理',
+  'profile.sessions.title': '登录记录',
+  'profile.sessions.empty': '暂无登录记录',
   'profile.status.active': '启用',
   'profile.status.inactive': '未启用',
   'profile.tab.info': '个人信息',
@@ -237,6 +239,9 @@ export default {
   'profile.activities.title': '最近操作',
   'profile.activities.refresh': '重新加载',
   'profile.activities.empty': '暂无审计记录',
+  'profile.notifications.title': '消息通知',
+  'profile.notifications.empty': '暂无消息',
+  'profile.notifications.untitled': '系统通知',
   
   // Account Settings page
   'pages.account.settings.password': '密码',

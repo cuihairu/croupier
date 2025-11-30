@@ -213,6 +213,8 @@ export default {
   'profile.security.settings': 'Security Settings',
   'profile.security.settings.title': 'Security',
   'profile.session.management': 'Session management',
+  'profile.sessions.title': 'Login Records',
+  'profile.sessions.empty': 'No login records yet',
   'profile.status.active': 'Active',
   'profile.status.inactive': 'Inactive',
   'profile.tab.info': 'Profile',
@@ -240,6 +242,9 @@ export default {
   'profile.activities.title': 'Recent Activity',
   'profile.activities.refresh': 'Refresh',
   'profile.activities.empty': 'No recent audit records',
+  'profile.notifications.title': 'Message Notifications',
+  'profile.notifications.empty': 'No message notifications',
+  'profile.notifications.untitled': 'System notification',
   
   // Account Settings page
   'pages.account.settings.password': 'Password',
