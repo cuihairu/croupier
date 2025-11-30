@@ -44,12 +44,15 @@ import (
 	ticket "github.com/cuihairu/croupier/services/server/internal/handler/ticket"
 	xrender "github.com/cuihairu/croupier/services/server/internal/handler/xrender"
 	xrender_schema "github.com/cuihairu/croupier/services/server/internal/handler/xrender_schema"
+	"github.com/cuihairu/croupier/services/server/internal/middleware"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
 )
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
+	authMiddleware := middleware.NewAuthMiddleware(serverCtx)
+	server.Use(authMiddleware.Handle)
 	server.AddRoutes(
 		[]rest.Route{
 			{

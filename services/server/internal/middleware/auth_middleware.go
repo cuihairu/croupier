@@ -6,26 +6,42 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
-	tokenmgr "github.com/cuihairu/croupier/internal/security/token"
+	"github.com/cuihairu/croupier/services/server/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 type AuthMiddleware struct {
-	svcCtx *svc.ServiceContext
+	svcCtx     *svc.ServiceContext
+	allowPaths map[string]struct{}
+	allowPref  []string
 }
 
 func NewAuthMiddleware(svcCtx *svc.ServiceContext) *AuthMiddleware {
 	return &AuthMiddleware{
 		svcCtx: svcCtx,
+		allowPaths: map[string]struct{}{
+			"/api/v1/auth/login": {},
+			"/api/v1/monitoring/health": {},
+			"/api/v1/monitoring/healthz": {},
+		},
+		allowPref: []string{
+			"/api/v1/auth/login",
+		},
 	}
 }
 
 // Handle 处理认证中间件
 func (m *AuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if m.shouldBypass(r) {
+			next(w, r)
+			return
+		}
+
 		// 获取 Authorization header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
@@ -43,7 +59,7 @@ func (m *AuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 		token := tokenParts[1]
 
 		// 验证 JWT token
-		username, roles, err := m.authenticate(r.Context(), token)
+		username, roles, adminID, err := m.authenticate(r.Context(), token)
 		if err != nil {
 			logx.Errorf("authentication failed: %v", err)
 			httpx.ErrorCtx(r.Context(), w, err)
@@ -52,6 +68,7 @@ func (m *AuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 
 		ctx := context.WithValue(r.Context(), "username", username)
 		ctx = context.WithValue(ctx, "roles", roles)
+		ctx = context.WithValue(ctx, "adminID", adminID)
 		r = r.WithContext(ctx)
 		logx.Infof("Authenticated user %s roles=%v", username, roles)
 
@@ -60,21 +77,45 @@ func (m *AuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func (m *AuthMiddleware) authenticate(ctx context.Context, token string) (string, []string, error) {
-	secret := strings.TrimSpace(m.svcCtx.Config.Auth.JWTSecret)
-	if secret == "" {
-		if strings.TrimSpace(token) != "dev-token" {
-			return "", nil, errors.New("invalid dev token")
-		}
-		return "admin", []string{"admin"}, nil
+func (m *AuthMiddleware) authenticate(ctx context.Context, token string) (string, []string, uint, error) {
+	secret, _ := jwtutil.ResolveSecret(m.svcCtx.Config)
+
+	claims, err := jwtutil.Parse(token, secret)
+	if err != nil {
+		return "", nil, 0, fmt.Errorf("invalid token: %w", err)
+	}
+	username := claims.Subject
+	if strings.TrimSpace(username) == "" {
+		return "", nil, 0, errors.New("token subject missing")
 	}
 
-	manager := tokenmgr.NewManager(secret)
-	username, roles, err := manager.Verify(token)
+	admin, err := m.svcCtx.AdminModel.FindByUsername(ctx, username)
 	if err != nil {
-		return "", nil, fmt.Errorf("invalid token: %w", err)
+		return "", nil, 0, fmt.Errorf("查询管理员失败: %w", err)
 	}
-	return username, roles, nil
+	if admin == nil {
+		return "", nil, 0, errors.New("admin not found")
+	}
+	if admin.LastLoginAt != nil && claims.IssuedAt != nil {
+		if claims.IssuedAt.Time.Before(admin.LastLoginAt.Add(-1 * time.Millisecond)) {
+			return "", nil, 0, errors.New("token has been invalidated by a later login")
+		}
+	}
+
+	return username, claims.Roles, admin.ID, nil
+}
+
+func (m *AuthMiddleware) shouldBypass(r *http.Request) bool {
+	path := r.URL.Path
+	if _, ok := m.allowPaths[path]; ok {
+		return true
+	}
+	for _, prefix := range m.allowPref {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // RequirePermission 权限检查中间件

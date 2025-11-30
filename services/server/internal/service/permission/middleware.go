@@ -9,8 +9,10 @@ import (
 	"strings"
 
 	tokenmgr "github.com/cuihairu/croupier/internal/security/token"
+	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest/httpx"
+	"gorm.io/gorm"
 )
 
 // PermissionConfig defines configuration for permission middleware
@@ -34,8 +36,8 @@ func PermissionMiddleware(permissionService *PermissionService, jwtSecret string
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 
-			// Get admin ID from JWT token or session
-			adminID, err := extractAdminID(r, tokenManager)
+			// Get admin ID from context (set by auth middleware) or JWT token
+			adminID, err := extractAdminID(ctx, r, tokenManager, permissionService)
 			if err != nil {
 				logx.Error("Failed to extract admin ID", logx.Field("error", err))
 				httpx.ErrorCtx(ctx, w, errors.New("unauthorized"))
@@ -119,7 +121,18 @@ func PermissionMiddleware(permissionService *PermissionService, jwtSecret string
 }
 
 // Helper functions to extract data from request
-func extractAdminID(r *http.Request, tokenManager *tokenmgr.Manager) (uint, error) {
+func extractAdminID(ctx context.Context, r *http.Request, tokenManager *tokenmgr.Manager, permSvc *PermissionService) (uint, error) {
+	if ctx != nil {
+		if v := ctx.Value("adminID"); v != nil {
+			if id, ok := v.(uint); ok && id > 0 {
+				return id, nil
+			}
+			if id64, ok := v.(int64); ok && id64 > 0 {
+				return uint(id64), nil
+			}
+		}
+	}
+
 	// Try to get from Authorization header (JWT token)
 	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
 	if authHeader != "" && tokenManager != nil {
@@ -133,11 +146,11 @@ func extractAdminID(r *http.Request, tokenManager *tokenmgr.Manager) (uint, erro
 				return 0, errors.New("token subject missing")
 			}
 
-			adminID, err := strconv.ParseUint(subject, 10, 32)
+			admin, err := permSvc.lookupAdminByUsername(r.Context(), subject)
 			if err != nil {
-				return 0, fmt.Errorf("token subject not numeric: %w", err)
+				return 0, err
 			}
-			return uint(adminID), nil
+			return admin.ID, nil
 		}
 	}
 
@@ -153,6 +166,20 @@ func extractAdminID(r *http.Request, tokenManager *tokenmgr.Manager) (uint, erro
 	}
 
 	return uint(adminID), nil
+}
+
+func (s *PermissionService) lookupAdminByUsername(ctx context.Context, username string) (*model.Admin, error) {
+	if strings.TrimSpace(username) == "" {
+		return nil, errors.New("username missing")
+	}
+	var admin model.Admin
+	if err := s.db.WithContext(ctx).Where("username = ?", username).First(&admin).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrAdminNotFound
+		}
+		return nil, fmt.Errorf("failed to lookup admin: %w", err)
+	}
+	return &admin, nil
 }
 
 func extractGameID(r *http.Request) (uint, error) {

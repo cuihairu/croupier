@@ -13,9 +13,9 @@ import (
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
+	"github.com/cuihairu/croupier/services/server/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-	"github.com/golang-jwt/jwt/v4"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -25,8 +25,6 @@ type LoginLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
-
-const defaultJWTSecret = "croupier-dev-secret"
 
 var warnDefaultJWT sync.Once
 
@@ -55,7 +53,8 @@ func (l *LoginLogic) Login(req *types.LoginRequest) (*types.LoginResponse, error
 		return nil, errors.New("用户名或密码错误")
 	}
 
-	token, err := l.issueToken(admin.Username, roles)
+	issuedAt := extractIssuedAt(admin)
+	token, err := l.issueToken(admin.Username, roles, issuedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -88,22 +87,20 @@ func (l *LoginLogic) authenticateDBUser(username, password string) (*model.Admin
 	return admin, utils.RoleNamesFromModels(roleModels), nil
 }
 
-func (l *LoginLogic) issueToken(username string, roles []string) (string, error) {
-	secret := strings.TrimSpace(l.svcCtx.Config.Auth.JWTSecret)
-	if secret == "" {
+func extractIssuedAt(admin *model.Admin) time.Time {
+	if admin != nil && admin.LastLoginAt != nil {
+		return admin.LastLoginAt.UTC()
+	}
+	return time.Now().UTC()
+}
+
+func (l *LoginLogic) issueToken(username string, roles []string, issuedAt time.Time) (string, error) {
+	secret, fallback := jwtutil.ResolveSecret(l.svcCtx.Config)
+	if fallback {
 		warnDefaultJWT.Do(func() {
-			logx.WithContext(l.ctx).Error("JWT secret is empty; using dev fallback secret. Configure auth.jwt_secret for production-safe JWTs.")
+			logx.WithContext(l.ctx).Error("JWT secret not configured; using dev fallback. Set auth.jwt_secret for production deployments.")
 		})
-		secret = defaultJWTSecret
 	}
 
-	now := time.Now()
-	claims := jwt.MapClaims{
-		"sub":   username,
-		"roles": roles,
-		"iat":   now.Unix(),
-		"exp":   now.Add(24 * time.Hour).Unix(),
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secret))
+	return jwtutil.Sign(secret, username, roles, issuedAt)
 }
