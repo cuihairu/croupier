@@ -13,7 +13,10 @@ export default function AssignmentsPage() {
   const [gameId, setGameId] = useState<string | undefined>(localStorage.getItem('game_id') || undefined);
   const [env, setEnv] = useState<string | undefined>(localStorage.getItem('env') || undefined);
   const [selected, setSelected] = useState<string[]>([]);
-  const options = useMemo(() => (descs || []).map((d) => ({ label: `${d.id} v${d.version || ''}`, value: d.id })), [descs]);
+  const options = useMemo(
+    () => (Array.isArray(descs) ? descs : []).map((d) => ({ label: `${d.id} v${d.version || ''}`, value: d.id })),
+    [descs],
+  );
   const { initialState } = useModel('@@initialState');
   const roles = useMemo(() => {
     const acc = (initialState as any)?.currentUser?.access as string | undefined;
@@ -23,7 +26,13 @@ export default function AssignmentsPage() {
 
   async function load() {
     const d = await listDescriptors();
-    setDescs(d || []);
+    if (Array.isArray(d)) {
+      setDescs(d);
+    } else if (d && Array.isArray((d as any)?.descriptors)) {
+      setDescs((d as any).descriptors);
+    } else {
+      setDescs([]);
+    }
     if (gameId) {
       try {
         const res = await fetchAssignments({ game_id: gameId, env });

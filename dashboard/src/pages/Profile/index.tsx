@@ -240,21 +240,28 @@ export default function Profile() {
                     Authorization: `Bearer ${localStorage.getItem('token')}`,
                   }}
                 >
-                  <Avatar
-                    size={96}
-                    src={profile?.avatar}
-                    style={{
-                      border: '3px solid #1890ff',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                      backgroundColor: profile?.avatar ? '#fff' : '#e6f4ff',
-                      color: '#1677ff',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {profile?.avatar
-                      ? null
-                      : getInitials(profile?.display_name || profile?.username, profile?.email) || <UserOutlined />}
-                  </Avatar>
+                  {profile?.avatar ? (
+                    <Avatar
+                      size={96}
+                      src={profile.avatar}
+                      style={{
+                        border: '3px solid #1890ff',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                        backgroundColor: '#fff',
+                      }}
+                    />
+                  ) : (
+                    <Avatar
+                      size={96}
+                      icon={<UserOutlined />}
+                      style={{
+                        border: '3px solid #1890ff',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                        backgroundColor: '#e6f4ff',
+                        color: '#1677ff',
+                      }}
+                    />
+                  )}
                   <div style={{ marginTop: '12px' }}>
                     <Button
                       icon={<UploadOutlined />}
