@@ -92,7 +92,7 @@ func (l *LoginLogic) issueToken(username string, roles []string) (string, error)
 	secret := strings.TrimSpace(l.svcCtx.Config.Auth.JWTSecret)
 	if secret == "" {
 		warnDefaultJWT.Do(func() {
-			logx.WithContext(l.ctx).Warn("JWT secret is empty; falling back to default dev secret. Please configure auth.jwt_secret.")
+			logx.WithContext(l.ctx).Info("JWT secret is empty; falling back to default dev secret. Please configure auth.jwt_secret.")
 		})
 		secret = defaultJWTSecret
 	}
