@@ -99,7 +99,9 @@ func (m *AuthMiddleware) authenticate(ctx context.Context, token string) (string
 		return "", nil, 0, errors.New("admin not found")
 	}
 	if admin.LastLoginAt != nil && claims.IssuedAt != nil {
-		if claims.IssuedAt.Time.Before(admin.LastLoginAt.Add(-1 * time.Millisecond)) {
+		issuedAt := claims.IssuedAt.Time.UTC()
+		lastLogin := admin.LastLoginAt.UTC()
+		if issuedAt.Before(lastLogin) {
 			return "", nil, 0, errors.New("token has been invalidated by a later login")
 		}
 	}
