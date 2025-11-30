@@ -29,9 +29,29 @@ func mapConfigVersion(v *model.ConfigVersion, includeValue bool) map[string]inte
 		"version":   v.Version,
 		"createdBy": v.CreatedBy,
 		"createdAt": utils.FormatTimestamp(v.CreatedAt),
+		"game_id":   v.GameID,
+		"env":       v.Env,
+		"format":    v.Format,
+		"message":   v.Message,
 	}
 	if includeValue {
 		data["value"] = v.Value
 	}
 	return data
+}
+
+func mapConfigItem(v *model.ConfigVersion) map[string]interface{} {
+	if v == nil {
+		return nil
+	}
+	return map[string]interface{}{
+		"id":              v.Key,
+		"format":          v.Format,
+		"game_id":         v.GameID,
+		"env":             v.Env,
+		"latest_version":  v.Version,
+		"updated_at":      utils.FormatTimestamp(v.UpdatedAt),
+		"last_message":    v.Message,
+		"last_modifiedBy": v.CreatedBy,
+	}
 }

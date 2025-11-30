@@ -521,29 +521,65 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		rest.WithPrefix("/api/v1/components"),
 	)
 
-	server.AddRoutes(
-		[]rest.Route{
-			{
-				// 创建或更新配置
-				Method:  http.MethodPost,
-				Path:    "/",
-				Handler: config.ConfigUpsertHandler(serverCtx),
+		server.AddRoutes(
+			[]rest.Route{
+				{
+					// 列出配置
+					Method:  http.MethodGet,
+					Path:    "/",
+					Handler: config.ConfigsListHandler(serverCtx),
+				},
+				{
+					// 读取配置详情
+					Method:  http.MethodGet,
+					Path:    "/:id",
+					Handler: config.ConfigDetailHandler(serverCtx),
+				},
+				{
+					// 保存配置
+					Method:  http.MethodPost,
+					Path:    "/:id",
+					Handler: config.ConfigSaveHandler(serverCtx),
+				},
+				{
+					// 校验配置
+					Method:  http.MethodPost,
+					Path:    "/:id/validate",
+					Handler: config.ConfigValidateHandler(serverCtx),
+				},
+				{
+					// 配置历史版本
+					Method:  http.MethodGet,
+					Path:    "/:id/versions",
+					Handler: config.ConfigItemVersionsHandler(serverCtx),
+				},
+				{
+					// 配置指定版本详情
+					Method:  http.MethodGet,
+					Path:    "/:id/versions/:version",
+					Handler: config.ConfigItemVersionDetailHandler(serverCtx),
+				},
+				{
+					// 创建或更新配置(兼容旧接口)
+					Method:  http.MethodPost,
+					Path:    "/",
+					Handler: config.ConfigUpsertHandler(serverCtx),
+				},
+				{
+					// 获取配置版本详情
+					Method:  http.MethodGet,
+					Path:    "/version",
+					Handler: config.ConfigVersionDetailHandler(serverCtx),
+				},
+				{
+					// 获取配置版本列表
+					Method:  http.MethodGet,
+					Path:    "/versions",
+					Handler: config.ConfigVersionsHandler(serverCtx),
+				},
 			},
-			{
-				// 获取配置版本详情
-				Method:  http.MethodGet,
-				Path:    "/version",
-				Handler: config.ConfigVersionDetailHandler(serverCtx),
-			},
-			{
-				// 获取配置版本列表
-				Method:  http.MethodGet,
-				Path:    "/versions",
-				Handler: config.ConfigVersionsHandler(serverCtx),
-			},
-		},
-		rest.WithPrefix("/api/v1/configs"),
-	)
+			rest.WithPrefix("/api/v1/configs"),
+		)
 
 	server.AddRoutes(
 		[]rest.Route{
