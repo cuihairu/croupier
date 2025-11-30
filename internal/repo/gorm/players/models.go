@@ -1,3 +1,6 @@
+//go:build legacy_repo
+// +build legacy_repo
+
 package players
 
 import (
