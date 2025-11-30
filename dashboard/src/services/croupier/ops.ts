@@ -26,18 +26,19 @@ export async function fetchOpsServices() {
 }
 
 export type RateLimitRule = { scope: 'function'|'service'; key: string; limit_qps: number; match?: Record<string,string>; percent?: number };
+const RATE_LIMIT_BASE = '/api/v1/rate-limits';
 export async function listRateLimits() {
-  return request<{ rules: RateLimitRule[] }>("/api/ops/rate-limits");
+  return request<{ rules: RateLimitRule[] }>(RATE_LIMIT_BASE);
 }
 export async function putRateLimits(rules: RateLimitRule[]) {
-  return request<void>("/api/ops/rate-limits", { method: 'PUT', data: { rules } });
+  return request<void>(RATE_LIMIT_BASE, { method: 'PUT', data: { rules } });
 }
 export async function deleteRateLimit(scope: string, key: string) {
-  return request<void>(`/api/ops/rate-limits?scope=${encodeURIComponent(scope)}&key=${encodeURIComponent(key)}`, { method: 'DELETE' });
+  return request<void>(`${RATE_LIMIT_BASE}?scope=${encodeURIComponent(scope)}&key=${encodeURIComponent(key)}`, { method: 'DELETE' });
 }
 export async function previewRateLimit(params: { scope: 'service'; key?: string; limit_qps: number; percent?: number; match_game_id?: string; match_env?: string; match_region?: string; match_zone?: string }) {
   return request<{ matched: number; agents: { agent_id: string; game_id?: string; env?: string; region?: string; zone?: string; rpc_addr?: string; qps: number }[] }>(
-    "/api/ops/rate-limits/preview",
+    `${RATE_LIMIT_BASE}/preview`,
     { params },
   );
 }
