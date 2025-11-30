@@ -4,6 +4,8 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/handler"
@@ -127,6 +129,8 @@ func runServer() error {
 		c.BootstrapData.BaseDir = bootstrapDataDir
 	}
 
+	applyRuntimeDefaults(&c)
+
 	// 创建服务器
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
@@ -140,4 +144,20 @@ func runServer() error {
 
 	server.Start()
 	return nil
+}
+
+func applyRuntimeDefaults(c *config.Config) {
+	if c == nil {
+		return
+	}
+
+	if strings.TrimSpace(c.Components.DataDir) == "" {
+		c.Components.DataDir = "data"
+	}
+
+	if strings.EqualFold(strings.TrimSpace(c.Storage.Driver), "file") {
+		if strings.TrimSpace(c.Storage.BaseDir) == "" {
+			c.Storage.BaseDir = filepath.Join("data", "uploads")
+		}
+	}
 }
