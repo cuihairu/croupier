@@ -1,4 +1,4 @@
 {
     "java.compile.nullAnalysis.mode": "automatic",
-    "cmake.sourceDirectory": "/Users/cui/Workspaces/croupier/sdks/cpp"
+    "cmake.sourceDirectory": "/sdks/cpp"
 }
