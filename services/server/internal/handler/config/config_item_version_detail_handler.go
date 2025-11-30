@@ -11,8 +11,8 @@ import (
 
 func ConfigItemVersionDetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id := httpx.GetPathVar(r, "id")
-		versionStr := httpx.GetPathVar(r, "version")
+		id := r.PathValue("id")
+		versionStr := r.PathValue("version")
 		version, _ := strconv.Atoi(versionStr)
 		l := configlogic.NewConfigItemVersionDetailLogic(r.Context(), svcCtx)
 		resp, err := l.ConfigItemVersionDetail(id, version)

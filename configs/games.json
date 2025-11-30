@@ -1,10 +1,41 @@
 {
   "default_envs": [
-    { "env": "prod", "description": "Production", "color": "#52c41a" },
-    { "env": "test", "description": "Test", "color": "#722ed1" },
-    { "env": "dev",  "description": "Development", "color": "#1677ff" }
+    { "env": "prod", "description": "Production", "color": "#13c2c2" },
+    { "env": "stage", "description": "Staging", "color": "#fa8c16" },
+    { "env": "test", "description": "Testing", "color": "#722ed1" },
+    { "env": "dev", "description": "Development", "color": "#1677ff" }
   ],
   "games": [
-    { "game_id": "default", "env": "dev", "game_type": "tower_defense", "genre_code": "TD" }
+    {
+      "game_id": "default",
+      "alias_name": "Default Game",
+      "description": "Bootstrap placeholder scope so new installs render meaningful data.",
+      "enabled": true,
+      "status": "dev",
+      "color": "#8c8c8c",
+      "game_type": "demo",
+      "genre_code": "GEN",
+      "envs": [
+        { "env": "prod", "description": "Production", "color": "#13c2c2" },
+        { "env": "stage", "description": "Staging", "color": "#fa8c16" },
+        { "env": "test", "description": "Testing", "color": "#722ed1" },
+        { "env": "dev", "description": "Development", "color": "#1677ff" }
+      ]
+    },
+    {
+      "game_id": "tower_defense",
+      "alias_name": "Tower Defense",
+      "description": "Sample Tower Defense title with color-coded env metadata.",
+      "enabled": true,
+      "status": "running",
+      "color": "#1677ff",
+      "game_type": "tower_defense",
+      "genre_code": "TD",
+      "envs": [
+        { "env": "prod", "description": "Production", "color": "#13c2c2" },
+        { "env": "test", "description": "Testing", "color": "#722ed1" },
+        { "env": "dev", "description": "Development", "color": "#1677ff" }
+      ]
+    }
   ]
 }

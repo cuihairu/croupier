@@ -10,7 +10,7 @@ import (
 
 func ConfigSaveHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id := httpx.GetPathVar(r, "id")
+		id := r.PathValue("id")
 		var req configlogic.ConfigSaveRequest
 		if err := httpx.Parse(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)

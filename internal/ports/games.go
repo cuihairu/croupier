@@ -17,6 +17,7 @@ type Game struct {
 	Status      string
 	GameType    string
 	GenreCode   string
+	Color       string
 	Envs        []string // list of env names (unique, case-insensitive)
 	CreatedAt   time.Time
 	UpdatedAt   time.Time

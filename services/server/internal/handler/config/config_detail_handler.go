@@ -10,7 +10,7 @@ import (
 
 func ConfigDetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id := httpx.GetPathVar(r, "id")
+		id := r.PathValue("id")
 		l := configlogic.NewConfigDetailLogic(r.Context(), svcCtx)
 		resp, err := l.ConfigDetail(id)
 		if err != nil {

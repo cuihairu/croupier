@@ -55,6 +55,10 @@ func (s *PermissionService) CheckPermission(ctx context.Context, adminID uint, r
 		return false, ErrPermissionDenied
 	}
 
+	if hasAdminRole(roles) {
+		return true, nil
+	}
+
 	// Get permissions for these roles
 	var permissions []model.Permission
 	err = s.db.Table("permissions").
@@ -68,6 +72,16 @@ func (s *PermissionService) CheckPermission(ctx context.Context, adminID uint, r
 	}
 
 	return len(permissions) > 0, nil
+}
+
+func hasAdminRole(roles []model.Role) bool {
+	for _, role := range roles {
+		switch strings.ToLower(strings.TrimSpace(role.Name)) {
+		case "admin", "super_admin":
+			return true
+		}
+	}
+	return false
 }
 
 // CheckGameScope checks if admin has access to specific game

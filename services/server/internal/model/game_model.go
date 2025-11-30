@@ -117,3 +117,12 @@ func (m *GameModel) ToggleEnabled(ctx context.Context, id uint) error {
 		Where("id = ?", id).
 		Update("enabled", gorm.Expr("NOT enabled")).Error
 }
+
+// ListAll returns every game ordered by updated time descending.
+func (m *GameModel) ListAll(ctx context.Context) ([]Game, error) {
+	var games []Game
+	err := m.db.WithContext(ctx).
+		Order("updated_at DESC").
+		Find(&games).Error
+	return games, err
+}

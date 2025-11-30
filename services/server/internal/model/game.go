@@ -20,6 +20,7 @@ type Game struct {
 	GameType    string         `gorm:"size:64"`
 	GenreCode   string         `gorm:"size:64"`
 	Config      string         `gorm:"type:text"` // 游戏配置 JSON
+	Color       string         `gorm:"size:32"`
 	Envs        datatypes.JSON `gorm:"type:json"` // 环境列表 JSON
 }
 

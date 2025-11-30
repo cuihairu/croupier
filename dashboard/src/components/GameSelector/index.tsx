@@ -1,105 +1,293 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Space, Select, Tag } from 'antd';
-import { useAccess } from '@umijs/max';
-import { listMyGames, type Game as GameMeta } from '@/services/croupier';
-import { listGameEnvs } from '@/services/croupier/envs';
+import React, { useEffect, useMemo, useState } from "react";
+import { AppstoreOutlined, ThunderboltOutlined } from "@ant-design/icons";
+import { Empty, Select, Spin } from "antd";
+import classNames from "classnames";
+import { listMyGames, type Game, type GameEnvMeta } from "@/services/croupier";
+import styles from "./index.less";
 
-const ENVS = ['prod', 'stage', 'test', 'dev'];
+type GameSelectorProps = {
+  value?: string;
+  envValue?: string;
+  onChange?: (gameId?: string) => void;
+  onEnvChange?: (env?: string) => void;
+  className?: string;
+};
 
-export default function GameSelector() {
-  const access: any = useAccess?.() || {};
-  const canListGames = true; // listMyGames is always allowed for authenticated users
+type EnvOption = {
+  value: string;
+  label: string;
+  color?: string;
+  description?: string;
+};
 
-  const [games, setGames] = useState<GameMeta[]>([]);
-  const [envOptions, setEnvOptions] = useState<string[]>(ENVS);
+const DEFAULT_ENV_OPTIONS: EnvOption[] = [
+  { value: "prod", label: "PROD", color: "#13c2c2", description: "Production" },
+  { value: "stage", label: "STAGE", color: "#fa8c16", description: "Staging" },
+  { value: "test", label: "TEST", color: "#722ed1", description: "Testing" },
+  { value: "dev", label: "DEV", color: "#1677ff", description: "Development" },
+];
 
-  // Persist an ASCII-safe game_id (backend expects ASCII header). UI 可展示 alias_name（中文）
-  const [game, setGame] = useState<string | undefined>(localStorage.getItem('game_id') || undefined);
-  const [selectedGameId, setSelectedGameId] = useState<number | undefined>(undefined);
-  const [env, setEnv] = useState<string | undefined>(localStorage.getItem('env') || 'dev');
+const FALLBACK_COLOR = "#8c8c8c";
 
-  // Load games list (scope-aware)
+const buildEnvOptions = (game?: Game): EnvOption[] => {
+  if (!game) return DEFAULT_ENV_OPTIONS;
+  const fromMeta =
+    Array.isArray(game.envMeta) && game.envMeta.length > 0
+      ? game.envMeta
+      : Array.isArray(game.envs) && game.envs.length > 0
+        ? game.envs.map((env) => ({ env }))
+        : null;
+
+  const source = (fromMeta ?? DEFAULT_ENV_OPTIONS) as (
+    | GameEnvMeta
+    | EnvOption
+  )[];
+  return source
+    .map((env) => {
+      const name = (env as GameEnvMeta).env || (env as EnvOption).value;
+      if (!name) return undefined;
+      const fallback = DEFAULT_ENV_OPTIONS.find((opt) => opt.value === name);
+      return {
+        value: name,
+        label: name.toUpperCase(),
+        color:
+          (env as GameEnvMeta).color ||
+          (env as EnvOption).color ||
+          fallback?.color,
+        description:
+          (env as GameEnvMeta).description ||
+          (env as EnvOption).description ||
+          fallback?.description,
+      } as EnvOption;
+    })
+    .filter((env): env is EnvOption => Boolean(env?.value));
+};
+
+const toRGBA = (hex?: string, alpha = 0.16) => {
+  if (!hex || !hex.startsWith("#")) return undefined;
+  const raw = hex.replace("#", "");
+  const normalized =
+    raw.length === 3
+      ? raw
+          .split("")
+          .map((char) => char + char)
+          .join("")
+      : raw;
+  const int = parseInt(normalized, 16);
+  const r = (int >> 16) & 255;
+  const g = (int >> 8) & 255;
+  const b = int & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const GameSelector: React.FC<GameSelectorProps> = ({
+  value,
+  envValue,
+  onChange,
+  onEnvChange,
+  className,
+}) => {
+  const canListGames = true;
+
+  const [games, setGames] = useState<Game[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const isGameControlled = typeof value !== "undefined";
+  const [gameState, setGameState] = useState<string | undefined>(
+    () => value ?? localStorage.getItem("game_id") ?? undefined,
+  );
+
+  const isEnvControlled = typeof envValue !== "undefined";
+  const [envState, setEnvState] = useState<string | undefined>(
+    () => envValue ?? localStorage.getItem("env") ?? undefined,
+  );
+
+  useEffect(() => {
+    if (isGameControlled) {
+      setGameState(value);
+    }
+  }, [isGameControlled, value]);
+
+  useEffect(() => {
+    if (isEnvControlled) {
+      setEnvState(envValue);
+    }
+  }, [envValue, isEnvControlled]);
+
   useEffect(() => {
     if (!canListGames) return;
-    (async () => {
-      try {
-        const res = await listMyGames();
-        const gs = res.games || [];
-        setGames(gs);
-        // Ensure selection is valid; otherwise default to first
-        const validIds = new Set((gs || []).map((g:any)=> g.id));
-        let nextId = selectedGameId;
-        if (!nextId || !validIds.has(nextId as any)) {
-          nextId = (gs[0] as any)?.id;
+    let mounted = true;
+    setLoading(true);
+    listMyGames()
+      .then((res) => {
+        if (!mounted) return;
+        const scopedGames = Array.isArray(res?.games) ? res.games : [];
+        setGames(scopedGames);
+      })
+      .catch((err) => {
+        console.error("Failed to load games", err);
+      })
+      .finally(() => {
+        if (mounted) {
+          setLoading(false);
         }
-        if (nextId) {
-          const gObj: any = (gs || []).find((x:any)=> x.id === nextId);
-          const ev = Array.isArray(gObj?.envs) && gObj.envs.length > 0 ? gObj.envs : ENVS;
-          setSelectedGameId(nextId as any);
-          setGame(gObj?.name);
-          setEnvOptions(ev);
-          if (!env || !ev.includes(env)) setEnv(ev[0]);
-        }
-      } catch {}
-    })();
+      });
+    return () => {
+      mounted = false;
+    };
   }, [canListGames]);
 
-  // When game changes, persist and set envs for that game (prefer scope-aware envs from /api/me/games)
-  useEffect(() => {
-    if (game) localStorage.setItem('game_id', game);
-    const gid = selectedGameId ?? games.find((x) => x.name === game)?.id;
-    const gObj: any = (games || []).find((x) => (x as any).id === gid);
-    const envs: string[] = Array.isArray((gObj as any)?.envs) && (gObj as any).envs.length > 0 ? (gObj as any).envs : ENVS;
-    setEnvOptions(envs);
-    // Default env: first if current env not set或不在列表
-    if (!env || !envs.includes(env)) {
-      setEnv(envs[0]);
-    }
-  }, [game, games, selectedGameId]);
+  const activeGame = useMemo(() => {
+    if (!games.length) return undefined;
+    const match = games.find((g) => g.name === gameState);
+    return match || games[0];
+  }, [games, gameState]);
+
+  const envOptions = useMemo(() => buildEnvOptions(activeGame), [activeGame]);
 
   useEffect(() => {
-    if (env) localStorage.setItem('env', env);
-  }, [env]);
-
-  const gameOptions = useMemo(() => {
-    if (!canListGames) {
-      return (game ? [game] : []).map((g) => ({ label: g, value: -1, gameName: g }));
+    if (!games.length) {
+      return;
     }
-    return (games || []).map((g) => ({
-      label: `${g.id}:${g.name}` + ((g as any).alias_name ? ` (${(g as any).alias_name})` : ''),
-      value: g.id, // use numeric id as unique value to avoid duplicate keys
-      gameId: g.id,
-      gameName: g.name,
-    }));
-  }, [games, canListGames, game]);
+    if (!gameState || !games.some((g) => g.name === gameState)) {
+      const fallback = games[0]?.name;
+      if (fallback) {
+        if (!isGameControlled) {
+          setGameState(fallback);
+          localStorage.setItem("game_id", fallback);
+        }
+        onChange?.(fallback);
+      }
+    }
+  }, [games, gameState, isGameControlled, onChange]);
+
+  useEffect(() => {
+    if (!envOptions.length) {
+      return;
+    }
+    const currentEnv = isEnvControlled ? envValue : envState;
+    if (!currentEnv || !envOptions.some((env) => env.value === currentEnv)) {
+      const fallback = envOptions[0]?.value;
+      if (fallback) {
+        if (!isEnvControlled) {
+          setEnvState(fallback);
+          localStorage.setItem("env", fallback);
+        }
+        onEnvChange?.(fallback);
+      }
+    }
+  }, [envOptions, envState, envValue, isEnvControlled, onEnvChange]);
+
+  const handleGameChange = (next?: string) => {
+    if (!next) {
+      return;
+    }
+    if (!isGameControlled) {
+      setGameState(next);
+      localStorage.setItem("game_id", next);
+    }
+    onChange?.(next);
+  };
+
+  const handleEnvChange = (next?: string) => {
+    if (!next) {
+      return;
+    }
+    if (!isEnvControlled) {
+      setEnvState(next);
+      localStorage.setItem("env", next);
+    }
+    onEnvChange?.(next);
+  };
+
+  const currentEnv =
+    (isEnvControlled ? envValue : envState) ?? envOptions[0]?.value;
+  const colorDot = (color?: string) => ({
+    backgroundColor: color || FALLBACK_COLOR,
+  });
+
+  const selectOptions = (games || []).map((game) => {
+    const alias = game.alias_name || game.display_name || game.name;
+    return {
+      value: game.name,
+      label: (
+        <div className={styles.gameOption}>
+          <span className={styles.colorDot} style={colorDot(game.color)} />
+          <div className={styles.gameTexts}>
+            <span className={styles.gameAlias}>{alias}</span>
+            <span className={styles.gameId}>{game.name}</span>
+          </div>
+        </div>
+      ),
+      searchValue: `${game.name} ${alias}`.toLowerCase(),
+    };
+  });
+
+  const envSelectOptions = envOptions.map((env) => ({
+    value: env.value,
+    label: (
+      <div className={styles.gameOption}>
+        <span className={styles.colorDot} style={colorDot(env.color)} />
+        <span className={styles.gameAlias}>{env.label}</span>
+      </div>
+    ),
+    searchValue: `${env.value} ${env.label}`.toLowerCase(),
+  }));
 
   return (
-    <Space>
-      <Tag>Scope</Tag>
-      <Select
-        placeholder="game_id"
-        style={{ minWidth: 200 }}
-        showSearch
-        allowClear
-        value={selectedGameId}
-        onChange={(val, opt: any) => {
-          const id = typeof val === 'number' ? val : (val ? Number(val) : undefined);
-          setSelectedGameId(id as any);
-          setGame(opt?.gameName || undefined);
-        }}
-        options={gameOptions}
-        filterOption={(input, option) => (option?.label as string).toLowerCase().includes(input.toLowerCase())}
-      />
-      <Select
-        placeholder="env"
-        style={{ width: 140 }}
-        showSearch
-        allowClear
-        value={env}
-        onChange={setEnv}
-        options={envOptions.map((e) => ({ label: e, value: e }))}
-        filterOption={(input, option) => (option?.value as string).toLowerCase().includes(input.toLowerCase())}
-      />
-    </Space>
+    <div className={classNames(styles.scopeInline, className)}>
+      <div className={styles.inlineGroup}>
+        <span className={styles.inlineLabel}>
+          <AppstoreOutlined className={styles.inlineLabelIcon} />
+          游戏
+        </span>
+        {loading ? (
+          <span className={styles.spinner}>
+            <Spin size="small" /> 加载中
+          </span>
+        ) : games.length === 0 ? (
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description="暂无游戏"
+            style={{ margin: 0 }}
+          />
+        ) : (
+          <Select
+            className={styles.gameSelect}
+            value={gameState}
+            placeholder="选择游戏"
+            onChange={(val) => handleGameChange(val as string)}
+            options={selectOptions}
+            showSearch
+            optionFilterProp="searchValue"
+            popupMatchSelectWidth={360}
+            size="middle"
+          />
+        )}
+      </div>
+
+      <div className={styles.inlineGroup}>
+        <span className={styles.inlineLabel}>
+          <ThunderboltOutlined className={styles.inlineLabelIcon} />
+          环境
+        </span>
+        {envOptions.length === 0 ? (
+          <span className={styles.emptyHint}>未配置可用环境</span>
+        ) : (
+          <Select
+            className={styles.envSelect}
+            value={currentEnv}
+            placeholder="选择环境"
+            onChange={(val) => handleEnvChange(val as string)}
+            options={envSelectOptions as any}
+            showSearch
+            optionFilterProp="searchValue"
+            size="middle"
+          />
+        )}
+      </div>
+    </div>
   );
-}
+};
+
+export default GameSelector;

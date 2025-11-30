@@ -10,7 +10,7 @@ import (
 
 func ConfigItemVersionsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		id := httpx.GetPathVar(r, "id")
+		id := r.PathValue("id")
 		l := configlogic.NewConfigItemVersionsLogic(r.Context(), svcCtx)
 		resp, err := l.ConfigItemVersions(id)
 		if err != nil {

@@ -21,6 +21,7 @@ type ProfileGame struct {
 	AdminID     uint           `gorm:"index"`
 	GameID      string         `gorm:"size:64"`
 	GameName    string         `gorm:"size:128"`
+	Color       string         `gorm:"size:32"`
 	Envs        datatypes.JSON `gorm:"type:json"`
 	Permissions datatypes.JSON `gorm:"type:json"`
 }

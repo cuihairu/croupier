@@ -1054,6 +1054,7 @@ type GameInfo struct {
 	Status      string        `json:"status"`
 	GameType    string        `json:"gameType,optional"`
 	GenreCode   string        `json:"genreCode,optional"`
+	Color       string        `json:"color,optional"`
 	Envs        []GameEnvItem `json:"envs,optional"`
 	CreatedAt   string        `json:"createdAt,optional"`
 	UpdatedAt   string        `json:"updatedAt,optional"`
@@ -1895,10 +1896,12 @@ type ProductTrend struct {
 }
 
 type ProfileGame struct {
-	GameId      string   `json:"gameId"`
-	GameName    string   `json:"gameName"`
-	Envs        []string `json:"envs"`
-	Permissions []string `json:"permissions"`
+	GameId      string        `json:"gameId"`
+	GameName    string        `json:"gameName"`
+	Color       string        `json:"color,omitempty"`
+	Envs        []string      `json:"envs"`
+	EnvMeta     []GameEnvItem `json:"envMeta,omitempty"`
+	Permissions []string      `json:"permissions"`
 }
 
 type ProfileGamesRequest struct {

@@ -199,6 +199,9 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	if err := seedBootstrapAdmins(ctx); err != nil {
 		logx.Errorf("failed to seed bootstrap admins: %v", err)
 	}
+	if err := seedBootstrapGames(ctx); err != nil {
+		logx.Errorf("failed to seed bootstrap games: %v", err)
+	}
 
 	return ctx
 }

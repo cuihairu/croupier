@@ -39,6 +39,7 @@ func buildGameInfo(game *model.Game) types.GameInfo {
 		Status:      game.Status,
 		GameType:    game.GameType,
 		GenreCode:   game.GenreCode,
+		Color:       game.Color,
 		Envs:        envItems,
 		CreatedAt:   utils.FormatTimestamp(game.CreatedAt),
 		UpdatedAt:   utils.FormatTimestamp(game.UpdatedAt),

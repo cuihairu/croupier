@@ -1,0 +1,92 @@
+.scopeInline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  align-items: center;
+}
+
+.inlineGroup {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.inlineLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ant-color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.inlineLabelIcon {
+  color: var(--ant-color-primary);
+}
+
+.gameSelect {
+  min-width: 220px;
+}
+
+.gameSelect :global(.ant-select-selector) {
+  border-radius: 8px !important;
+  padding: 4px 12px !important;
+  min-height: 36px;
+}
+
+.gameOption {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.colorDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.gameTexts {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.gameAlias {
+  font-weight: 600;
+  color: var(--ant-color-text);
+}
+
+.gameId {
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--ant-color-text-tertiary);
+}
+
+.envSelect {
+  min-width: 160px;
+}
+
+.envSelect :global(.ant-select-selector) {
+  border-radius: 8px !important;
+  padding: 4px 10px !important;
+  min-height: 36px;
+}
+
+.emptyHint {
+  font-size: 13px;
+  color: var(--ant-color-text-secondary);
+}
+
+.spinner {
+  display: inline-flex;
+  align-items: center;
+  color: var(--ant-color-text-tertiary);
+  gap: 6px;
+}
