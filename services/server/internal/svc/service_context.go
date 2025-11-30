@@ -5,6 +5,7 @@ package svc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -189,6 +190,12 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		ctx.Dispatcher = dispatch.NewDispatcher(ctx.RegistryStore)
 	}
 
+	if err := seedBootstrapPermissions(ctx); err != nil {
+		logx.Errorf("failed to seed bootstrap permissions: %v", err)
+	}
+	if err := seedBootstrapRoles(ctx); err != nil {
+		logx.Errorf("failed to seed bootstrap roles: %v", err)
+	}
 	if err := seedBootstrapAdmins(ctx); err != nil {
 		logx.Errorf("failed to seed bootstrap admins: %v", err)
 	}
@@ -306,6 +313,147 @@ func seedBootstrapAdmins(ctx *ServiceContext) error {
 	}
 
 	return nil
+}
+
+func seedBootstrapRoles(ctx *ServiceContext) error {
+	if ctx == nil || ctx.AdminManager == nil || ctx.RoleModel == nil || ctx.DB == nil {
+		return nil
+	}
+
+	roles := ctx.AdminManager.ListRoles()
+	if len(roles) == 0 {
+		return nil
+	}
+
+	bg := context.Background()
+	for _, role := range roles {
+		if role == nil {
+			continue
+		}
+		code := strings.TrimSpace(role.Code)
+		if code == "" {
+			continue
+		}
+
+		var dbRole model.Role
+		err := ctx.DB.WithContext(bg).
+			Where("name = ?", code).
+			First(&dbRole).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			dbRole = model.Role{
+				Name:        code,
+				Description: strings.TrimSpace(role.Description),
+				Category:    strings.TrimSpace(role.Name),
+			}
+			if err := ctx.RoleModel.Create(bg, &dbRole); err != nil {
+				logx.Errorf("创建引导角色 %s 失败: %v", code, err)
+				continue
+			}
+			logx.Infof("已创建引导角色: %s", code)
+		} else if err != nil {
+			logx.Errorf("检查引导角色 %s 是否存在失败: %v", code, err)
+			continue
+		}
+
+		if len(role.Permissions) == 0 {
+			continue
+		}
+		normalized, err := ctx.RoleModel.ValidatePermissionIDs(bg, role.Permissions)
+		if err != nil {
+			logx.Errorf("校验角色 %s 权限失败: %v", code, err)
+			continue
+		}
+		if err := ctx.RoleModel.ReplacePermissions(bg, dbRole.ID, normalized); err != nil {
+			logx.Errorf("更新角色 %s 权限失败: %v", code, err)
+		}
+	}
+	return nil
+}
+
+func seedBootstrapPermissions(ctx *ServiceContext) error {
+	if ctx == nil || ctx.AdminManager == nil || ctx.PermissionModel == nil || ctx.DB == nil {
+		return nil
+	}
+
+	perms := ctx.AdminManager.ListPermissions()
+	if len(perms) == 0 {
+		return nil
+	}
+
+	bg := context.Background()
+	for _, perm := range perms {
+		if perm == nil {
+			continue
+		}
+		code := strings.TrimSpace(perm.Code)
+		if code == "" {
+			continue
+		}
+
+		var existing model.Permission
+		err := ctx.DB.WithContext(bg).Where("id = ?", code).First(&existing).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			resource, action := derivePermissionResourceAction(code, perm.Module)
+			category := strings.TrimSpace(perm.Category)
+			if category == "" {
+				category = resource
+			}
+			name := strings.TrimSpace(perm.Name)
+			if name == "" {
+				name = code
+			}
+			record := &model.Permission{
+				ID:          code,
+				Name:        name,
+				Description: strings.TrimSpace(perm.Description),
+				Resource:    resource,
+				Action:      action,
+				Category:    category,
+			}
+			if err := ctx.DB.WithContext(bg).Create(record).Error; err != nil {
+				logx.Errorf("创建引导权限 %s 失败: %v", code, err)
+			} else {
+				logx.Infof("已创建引导权限: %s", code)
+			}
+		} else if err != nil {
+			logx.Errorf("检查权限 %s 是否存在失败: %v", code, err)
+		}
+	}
+	return nil
+}
+
+func derivePermissionResourceAction(code, module string) (string, string) {
+	resource := strings.TrimSpace(module)
+	action := "*"
+
+	baseResource, baseAction := splitPermissionCode(code)
+	if resource == "" {
+		resource = baseResource
+	}
+	if baseAction != "" {
+		action = baseAction
+	}
+	if resource == "" {
+		resource = "global"
+	}
+	if action == "" {
+		action = "*"
+	}
+	return resource, action
+}
+
+func splitPermissionCode(code string) (string, string) {
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return "", ""
+	}
+	parts := strings.SplitN(code, ":", 2)
+	resource := strings.TrimSpace(parts[0])
+	action := "*"
+	if len(parts) == 2 && strings.TrimSpace(parts[1]) != "" {
+		action = strings.TrimSpace(parts[1])
+	}
+	return resource, action
 }
 
 func ensureComponentDirs(base string) error {

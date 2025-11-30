@@ -353,6 +353,18 @@ func (am *AdminManager) ListRoles() []*Role {
 	return roles
 }
 
+// ListPermissions 获取所有默认权限
+func (am *AdminManager) ListPermissions() []*Permission {
+	am.mu.RLock()
+	defer am.mu.RUnlock()
+
+	perms := make([]*Permission, 0, len(am.permissions))
+	for _, perm := range am.permissions {
+		perms = append(perms, perm)
+	}
+	return perms
+}
+
 // CheckPermission 检查用户权限
 func (am *AdminManager) CheckPermission(username, permission string) bool {
 	am.mu.RLock()
