@@ -324,13 +324,14 @@ export default function GmFunctionsPage() {
   const [formData, setFormData] = useState<any>({});
   const [renderMode, setRenderMode] = useState<'form-render' | 'enhanced' | 'legacy'>('enhanced');
 
-  const currentDesc = useMemo(() => descs.find((d) => d.id === currentId), [descs, currentId]);
+  const currentDesc = useMemo(() => (Array.isArray(descs) ? descs : []).find((d) => d.id === currentId), [descs, currentId]);
 
   useEffect(() => {
     registerBuiltins();
     loadPackPlugins().catch(()=>{});
     listDescriptors().then((d) => {
-      setDescs(d);
+      const arr = Array.isArray(d) ? d : Array.isArray((d as any)?.descriptors) ? (d as any).descriptors : [];
+      setDescs(arr);
       // initial filter by assignments (if any)
       const gid = localStorage.getItem('game_id') || undefined;
       const env = localStorage.getItem('env') || undefined;
@@ -338,14 +339,14 @@ export default function GmFunctionsPage() {
         fetchAssignments({ game_id: gid, env }).then((res)=>{
           const m = res?.assignments || {};
           const fns = Object.values(m).flat();
-          const dd = (Array.isArray(d)?d:[]);
+          const dd = Array.isArray(arr) ? arr : [];
           const filt = (fns && fns.length>0) ? dd.filter(x => fns.includes(x.id)) : dd;
           setFilteredDescs(filt);
           if (filt?.length) setCurrentId(filt[0].id);
-        }).catch(()=>{ setFilteredDescs(d); if (d?.length) setCurrentId(d[0].id); });
+        }).catch(()=>{ setFilteredDescs(arr); if (arr?.length) setCurrentId(arr[0].id); });
       } else {
-        setFilteredDescs(d);
-        if (d?.length) setCurrentId(d[0].id);
+        setFilteredDescs(arr);
+        if (arr?.length) setCurrentId(arr[0].id);
       }
     });
     return () => {
