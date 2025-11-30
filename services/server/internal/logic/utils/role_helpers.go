@@ -49,7 +49,7 @@ func EnsurePermissionIDs(ctx context.Context, roleModel *model.RoleModel, permis
 // RoleNamesFromModels extracts role names from model slice.
 func RoleNamesFromModels(roles []model.Role) []string {
 	if len(roles) == 0 {
-		return nil
+		return []string{}
 	}
 	names := make([]string, 0, len(roles))
 	for _, role := range roles {

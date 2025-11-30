@@ -264,33 +264,34 @@ func seedBootstrapAdmins(ctx *ServiceContext) error {
 			continue
 		}
 
-		var count int64
-		if err := ctx.DB.WithContext(bg).
-			Model(&model.Admin{}).
+		var dbAdmin model.Admin
+		err := ctx.DB.WithContext(bg).
 			Where("username = ?", username).
-			Count(&count).Error; err != nil {
-			logx.Errorf("检查管理员 %s 是否存在失败: %v", username, err)
-			continue
-		}
-		if count > 0 {
-			continue
-		}
+			First(&dbAdmin).Error
 
-		status := admin.Status
-		if status != 0 && status != 1 {
-			status = 1
-		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			status := admin.Status
+			if status != 0 && status != 1 {
+				status = 1
+			}
 
-		newAdmin := &model.Admin{
-			Username: username,
-			Nickname: strings.TrimSpace(admin.Nickname),
-			Email:    strings.TrimSpace(admin.Email),
-			Phone:    strings.TrimSpace(admin.Phone),
-			Status:   status,
-		}
+			newAdmin := &model.Admin{
+				Username: username,
+				Nickname: strings.TrimSpace(admin.Nickname),
+				Email:    strings.TrimSpace(admin.Email),
+				Phone:    strings.TrimSpace(admin.Phone),
+				Status:   status,
+			}
 
-		if err := ctx.AdminModel.Create(bg, newAdmin, admin.Password); err != nil {
-			logx.Errorf("创建引导管理员 %s 失败: %v", username, err)
+			if err := ctx.AdminModel.Create(bg, newAdmin, admin.Password); err != nil {
+				logx.Errorf("创建引导管理员 %s 失败: %v", username, err)
+				continue
+			}
+
+			dbAdmin = *newAdmin
+			logx.Infof("已创建引导管理员账号: %s", username)
+		} else if err != nil {
+			logx.Errorf("查询管理员 %s 失败: %v", username, err)
 			continue
 		}
 
@@ -304,12 +305,21 @@ func seedBootstrapAdmins(ctx *ServiceContext) error {
 				logx.Errorf("为管理员 %s 查询角色 %s 失败: %v", username, trimmed, err)
 				continue
 			}
-			if err := ctx.AdminModel.AssignRole(bg, newAdmin.ID, role.ID); err != nil {
+			var relCount int64
+			if err := ctx.DB.WithContext(bg).
+				Model(&model.AdminRole{}).
+				Where("admin_id = ? AND role_id = ?", dbAdmin.ID, role.ID).
+				Count(&relCount).Error; err != nil {
+				logx.Errorf("检查管理员 %s 是否已分配角色 %s 失败: %v", username, trimmed, err)
+				continue
+			}
+			if relCount > 0 {
+				continue
+			}
+			if err := ctx.AdminModel.AssignRole(bg, dbAdmin.ID, role.ID); err != nil {
 				logx.Errorf("为管理员 %s 分配角色 %s 失败: %v", username, trimmed, err)
 			}
 		}
-
-		logx.Infof("已创建引导管理员账号: %s", username)
 	}
 
 	return nil
