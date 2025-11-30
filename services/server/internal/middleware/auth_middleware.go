@@ -45,6 +45,12 @@ func (m *AuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 		// 获取 Authorization header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
+			// 兼容 SSE 等无法自定义 header 的场景，支持 token 查询参数
+			if token := strings.TrimSpace(r.URL.Query().Get("token")); token != "" {
+				authHeader = "Bearer " + token
+			}
+		}
+		if authHeader == "" {
 			httpx.ErrorCtx(r.Context(), w, errors.New("missing authorization header"))
 			return
 		}
@@ -99,8 +105,8 @@ func (m *AuthMiddleware) authenticate(ctx context.Context, token string) (string
 		return "", nil, 0, errors.New("admin not found")
 	}
 	if admin.LastLoginAt != nil && claims.IssuedAt != nil {
-		issuedAt := truncateMonotonic(claims.IssuedAt.Time)
-		lastLogin := truncateMonotonic(*admin.LastLoginAt)
+		issuedAt := normalizeToSecond(claims.IssuedAt.Time)
+		lastLogin := normalizeToSecond(*admin.LastLoginAt)
 		if issuedAt.Before(lastLogin) {
 			return "", nil, 0, errors.New("token has been invalidated by a later login")
 		}
@@ -109,8 +115,8 @@ func (m *AuthMiddleware) authenticate(ctx context.Context, token string) (string
 	return username, claims.Roles, admin.ID, nil
 }
 
-func truncateMonotonic(t time.Time) time.Time {
-	return time.Unix(0, t.UnixNano()).UTC()
+func normalizeToSecond(t time.Time) time.Time {
+	return t.UTC().Truncate(time.Second)
 }
 
 func (m *AuthMiddleware) shouldBypass(r *http.Request) bool {
