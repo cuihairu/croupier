@@ -61,7 +61,7 @@ export type OpsJob = {
   trace_id?: string;
 };
 export async function listOpsJobs(params?: { status?: string; function_id?: string; actor?: string; game_id?: string; env?: string; page?: number; size?: number }) {
-  return request<{ jobs: OpsJob[]; total: number }>("/api/ops/jobs", { params });
+  return request<{ jobs: OpsJob[]; total: number }>("/api/v1/jobs", { params });
 }
 
 export async function fetchOpsMetrics(params: { instance: string; range?: string; step?: string }) {
@@ -69,10 +69,10 @@ export async function fetchOpsMetrics(params: { instance: string; range?: string
 }
 
 export async function listSilences() {
-  return request<{ silences: any[] }>("/api/ops/alerts/silences");
+  return request<{ silences: any[] }>("/api/v1/ops/silences");
 }
 export async function deleteSilence(id: string) {
-  return request<void>(`/api/ops/alerts/silences/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  return request<void>(`/api/v1/ops/silences/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 export async function fetchOpsConfig() {
   return request<{ alertmanager_url?: string; grafana_explore_url?: string }>("/api/ops/config");
