@@ -1,35 +1,46 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
+  Avatar,
+  Badge,
+  Button,
   Card,
+  Col,
+  Descriptions,
   Form,
   Input,
-  Button,
-  Avatar,
-  Upload,
-  Tabs,
-  Divider,
-  Row,
-  Col,
-  Badge,
-  Space,
-  Typography,
-  message,
-  Descriptions,
+  List,
   Modal,
-  Alert,
+  Row,
+  Space,
+  Statistic,
+  Tag,
+  Typography,
+  Upload,
+  message,
 } from 'antd';
 import {
-  UserOutlined,
+  HistoryOutlined,
   LockOutlined,
   MailOutlined,
   PhoneOutlined,
-  UploadOutlined,
+  RocketOutlined,
   SafetyOutlined,
-  SettingOutlined,
+  UploadOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import { useIntl } from '@umijs/max';
-import { getMyProfile, updateMyProfile, changeMyPassword } from '@/services/croupier/me';
+import {
+  changeMyPassword,
+  getMyGames,
+  getMyPermissions,
+  getMyProfile,
+  updateMyProfile,
+  ProfileGame,
+  ProfilePermission,
+} from '@/services/croupier/me';
+import { listAudit, AuditEvent } from '@/services/croupier/audit';
 
 const { Title, Text } = Typography;
 
@@ -37,10 +48,15 @@ export default function Profile() {
   const intl = useIntl();
   const formatMessage = (id: string) => intl.formatMessage({ id });
   const [form] = Form.useForm();
+  const [passwordForm] = Form.useForm();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('info');
+  const [games, setGames] = useState<ProfileGame[]>([]);
+  const [permissions, setPermissions] = useState<ProfilePermission[]>([]);
+  const [activities, setActivities] = useState<AuditEvent[]>([]);
+  const [extrasLoading, setExtrasLoading] = useState(false);
+  const infoSectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadProfile();
@@ -55,8 +71,28 @@ export default function Profile() {
         email: p.email,
         phone: p.phone,
       });
+      loadExtras(p.username);
     } catch (error) {
       message.error(formatMessage('profile.load.error'));
+    }
+  };
+
+  const loadExtras = async (username?: string) => {
+    setExtrasLoading(true);
+    try {
+      const [gamesRes, permsRes] = await Promise.all([getMyGames(), getMyPermissions()]);
+      setGames(gamesRes?.games || []);
+      setPermissions(permsRes?.permissions || []);
+      if (username) {
+        const audits = await listAudit({ actor: username, size: 5 });
+        setActivities(audits?.events || []);
+      } else {
+        setActivities([]);
+      }
+    } catch (error) {
+      message.error(formatMessage('profile.extras.error'));
+    } finally {
+      setExtrasLoading(false);
     }
   };
 
@@ -77,23 +113,8 @@ export default function Profile() {
     }
   };
 
-  const handlePasswordChange = async (values: any) => {
-    setPasswordLoading(true);
-    try {
-      await changeMyPassword({
-        current: values.current,
-        password: values.password,
-      });
-      Modal.destroyAll();
-      message.success(formatMessage('profile.password.success'));
-    } catch (error) {
-      message.error(formatMessage('profile.password.error'));
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
-
   const showPasswordModal = () => {
+    passwordForm.resetFields();
     Modal.confirm({
       title: formatMessage('profile.password.modal.title'),
       content: (
@@ -104,7 +125,7 @@ export default function Profile() {
             showIcon
             style={{ marginBottom: 16 }}
           />
-          <Form layout="vertical" onFinish={handlePasswordChange}>
+          <Form form={passwordForm} layout="vertical">
             <Form.Item
               name="current"
               label={formatMessage('profile.password.current')}
@@ -130,7 +151,7 @@ export default function Profile() {
                 ({ getFieldValue }) => ({
                   validator(_, value) {
                     if (!value || getFieldValue('password') !== value) {
-                      return formatMessage('profile.password.mismatch');
+                      return Promise.reject(formatMessage('profile.password.mismatch'));
                     }
                     return Promise.resolve();
                   },
@@ -144,7 +165,25 @@ export default function Profile() {
       ),
       width: 480,
       okText: formatMessage('profile.password.modal.submit'),
-      confirmLoading: passwordLoading,
+      okButtonProps: { loading: passwordLoading },
+      onOk: async () => {
+        try {
+          const values = await passwordForm.validateFields();
+          setPasswordLoading(true);
+          await changeMyPassword({
+            current: values.current,
+            password: values.password,
+          });
+          message.success(formatMessage('profile.password.success'));
+          setPasswordLoading(false);
+        } catch (error) {
+          setPasswordLoading(false);
+          message.error(
+            error instanceof Error ? error.message : formatMessage('profile.password.error'),
+          );
+          throw error;
+        }
+      },
     });
   };
 
@@ -161,7 +200,11 @@ export default function Profile() {
 
   const getInitials = (name: string, email?: string) => {
     if (name) {
-      return name.split(' ').map(word => word.charAt(0)).join('').toUpperCase();
+      return name
+        .split(' ')
+        .map((word) => word.charAt(0))
+        .join('')
+        .toUpperCase();
     }
     if (email) {
       return email.charAt(0).toUpperCase();
@@ -169,14 +212,45 @@ export default function Profile() {
     return '';
   };
 
-  const getStatusBadge = (status?: boolean) => {
-    return (
-      <Badge
-        status={status ? 'success' : 'default'}
-        text={status ? formatMessage('profile.status.active') : formatMessage('profile.status.inactive')}
-      />
-    );
-  };
+  const getStatusBadge = (status?: boolean) => (
+    <Badge
+      status={status ? 'success' : 'default'}
+      text={status ? formatMessage('profile.status.active') : formatMessage('profile.status.inactive')}
+    />
+  );
+
+  const stats = [
+    { title: formatMessage('profile.stats.games'), value: games.length, icon: <RocketOutlined /> },
+    { title: formatMessage('profile.stats.roles'), value: profile?.roles?.length || 0, icon: <UserOutlined /> },
+    { title: formatMessage('profile.stats.permissions'), value: permissions.length, icon: <SafetyOutlined /> },
+    { title: formatMessage('profile.stats.activities'), value: activities.length, icon: <HistoryOutlined /> },
+  ];
+
+  const permissionGroups = useMemo(() => {
+    const map = new Map<string, { resource: string; actions: Set<string>; scope?: string }>();
+    permissions.forEach((perm) => {
+      const gameId = perm.game_id ?? (perm as any)?.gameId;
+      const env = perm.env ?? (perm as any)?.env;
+      const scope = gameId || env ? `${gameId || ''} ${env || ''}`.trim() : '';
+      const key = `${perm.resource}-${scope}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          resource: perm.resource,
+          actions: new Set(Array.isArray(perm.actions) ? perm.actions : []),
+          scope,
+        });
+      } else {
+        (Array.isArray(perm.actions) ? perm.actions : []).forEach((action) =>
+          map.get(key)!.actions.add(action),
+        );
+      }
+    });
+    return Array.from(map.values()).map((item) => ({
+      resource: item.resource,
+      actions: Array.from(item.actions),
+      scope: item.scope,
+    }));
+  }, [permissions]);
 
   const infoItems = [
     {
@@ -185,49 +259,55 @@ export default function Profile() {
       icon: <UserOutlined />,
     },
     {
+      title: formatMessage('profile.info.email'),
+      value: profile?.email,
+      icon: <MailOutlined />,
+    },
+    {
+      title: formatMessage('profile.info.phone'),
+      value: profile?.phone || 'N/A',
+      icon: <PhoneOutlined />,
+    },
+    {
       title: formatMessage('profile.info.joined'),
-      value: profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'N/A',
-      icon: <UserOutlined />,
+      value: profile?.created_at
+        ? new Date(profile.created_at).toLocaleString()
+        : profile?.createdAt
+        ? new Date(profile.createdAt).toLocaleString()
+        : 'N/A',
+      icon: <RocketOutlined />,
     },
     {
       title: formatMessage('profile.info.last.login'),
-      value: profile?.last_login_at ? new Date(profile.last_login_at).toLocaleString() : 'N/A',
-      icon: <UserOutlined />,
+      value: profile?.last_login_at
+        ? new Date(profile.last_login_at).toLocaleString()
+        : profile?.lastLoginAt
+        ? new Date(profile.lastLoginAt).toLocaleString()
+        : 'N/A',
+      icon: <HistoryOutlined />,
     },
   ];
 
   if (!profile) {
     return (
       <PageContainer>
-        <div style={{ textAlign: 'center', padding: '48px 0' }}>
-          <div style={{ maxWidth: 400 }}>
-            <Card>
-              <Space size="large" direction="vertical">
-                <div style={{ fontSize: '48px', color: '#1890ff', marginBottom: '16px' }}>
-                  <UserOutlined style={{ fontSize: '48px' }} />
-                </div>
-                <Title level={4}>{formatMessage('profile.loading')}</Title>
-              </Space>
-            </Card>
-          </div>
-        </div>
+        <Card>
+          <Space size="large" direction="vertical" align="center" style={{ width: '100%' }}>
+            <Avatar size={96} icon={<UserOutlined />} />
+            <Title level={4}>{formatMessage('profile.loading')}</Title>
+          </Space>
+        </Card>
       </PageContainer>
     );
   }
 
   return (
-    <PageContainer>
-      <Row gutter={[24, 16]}>
-        {/* 左侧个人信息卡片 */}
-        <Col xs={24} lg={8}>
-          <Card
-            title={formatMessage('profile.info.title')}
-            extra={getStatusBadge(profile?.active)}
-            loading={!profile}
-          >
-            <Space size="large" direction="vertical" style={{ width: '100%' }}>
-              {/* 头像 */}
-              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+    <PageContainer className="profile-page">
+      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Card className="profile-hero" bodyStyle={{ padding: 24 }}>
+          <Row gutter={[32, 24]} align="middle">
+            <Col xs={24} md={10}>
+              <Space align="center">
                 <Upload
                   name="avatar"
                   listType="picture-card"
@@ -240,238 +320,294 @@ export default function Profile() {
                     Authorization: `Bearer ${localStorage.getItem('token')}`,
                   }}
                 >
-                  {profile?.avatar ? (
-                    <Avatar
-                      size={96}
-                      src={profile.avatar}
-                      style={{
-                        border: '3px solid #1890ff',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                        backgroundColor: '#fff',
-                      }}
-                    />
-                  ) : (
-                    <Avatar
-                      size={96}
-                      icon={<UserOutlined />}
-                      style={{
-                        border: '3px solid #1890ff',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                        backgroundColor: '#e6f4ff',
-                        color: '#1677ff',
-                      }}
-                    />
-                  )}
-                  <div style={{ marginTop: '12px' }}>
-                    <Button
-                      icon={<UploadOutlined />}
-                      type="link"
-                      onClick={() => document.querySelector('.avatar-uploader input')?.click()}
-                    >
-                      {formatMessage('profile.avatar.change')}
-                    </Button>
-                  </div>
+                  <Avatar
+                    size={96}
+                    src={profile?.avatar}
+                    style={{
+                      border: '3px solid #1890ff',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                    }}
+                  >
+                    {getInitials(profile?.display_name || profile?.username, profile?.email)}
+                  </Avatar>
                 </Upload>
-              </div>
-
-              {/* 基本信息 */}
-              <Descriptions column={1} size="small">
-                <Descriptions.Item
-                  label={formatMessage('profile.info.username')}
-                  labelStyle={{ width: '80px' }}
-                >
-                  <Space>
-                    <Text strong>{profile?.username}</Text>
-                    <Text type="secondary" style={{ marginLeft: '8px' }}>
-                      ({profile?.active ? 'Active' : 'Inactive'})
-                    </Text>
+                <div>
+                  <Space align="center">
+                    <Title level={3} style={{ margin: 0 }}>
+                      {profile?.display_name || profile?.username}
+                    </Title>
+                    {getStatusBadge(profile?.active)}
                   </Space>
-                </Descriptions.Item>
-                <Descriptions.Item
-                  label={formatMessage('profile.info.display.name')}
-                  labelStyle={{ width: '80px' }}
-                >
-                  {profile?.display_name || 'N/A'}
-                </Descriptions.Item>
-                <Descriptions.Item
-                  label={formatMessage('profile.info.email')}
-                  labelStyle={{ width: '80px' }}
-                >
-                  <Space>
-                    <Text>{profile?.email || 'N/A'}</Text>
-                    {profile?.email && (
-                      <Button
-                        type="link"
-                        size="small"
-                        onClick={() => navigator.clipboard.writeText(profile?.email)}
-                      >
-                        {formatMessage('profile.copy')}
-                      </Button>
-                    )}
+                  <Space wrap style={{ marginTop: 8 }}>
+                    {(profile?.roles || []).map((role: string) => (
+                      <Tag color="blue" key={role}>
+                        {role}
+                      </Tag>
+                    ))}
                   </Space>
-                </Descriptions.Item>
-                <Descriptions.Item
-                  label={formatMessage('profile.info.phone')}
-                  labelStyle={{ width: '80px' }}
-                >
-                  {profile?.phone || 'N/A'}
-                </Descriptions.Item>
-              </Descriptions>
-
-              <Divider />
-
-              {/* 账户信息 */}
-              <div style={{ marginBottom: '16px' }}>
-                <Title level={5}>{formatMessage('profile.account.info')}</Title>
-              </div>
-              <Descriptions column={2} size="small">
-                <Descriptions.Item
-                  label={formatMessage('profile.info.joined')}
-                  labelStyle={{ width: '100px' }}
-                >
-                  {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'N/A'}
-                </Descriptions.Item>
-                <Descriptions.Item
-                  label={formatMessage('profile.info.last.login')}
-                  labelStyle={{ width: '100px' }}
-                >
-                  {profile?.last_login_at ? new Date(profile.last_login_at).toLocaleString() : 'N/A'}
-                </Descriptions.Item>
-              </Descriptions>
-            </Space>
-
-            <div style={{ marginTop: '16px' }}>
-              <Button type="primary" block onClick={() => setActiveTab('settings')}>
-                {formatMessage('profile.security.settings')}
-              </Button>
-            </div>
-          </Card>
-        </Col>
-
-        {/* 右侧标签页内容 */}
-        <Col xs={24} lg={16}>
-          <Card>
-            <Tabs
-              activeKey={activeTab}
-              onChange={setActiveTab}
-              items={[
-                {
-                  key: 'info',
-                  label: (
-                    <Space>
-                      <UserOutlined />
-                      {formatMessage('profile.tab.info')}
-                    </Space>
-                  ),
-                  children: (
-                    <Form
-                      form={form}
-                      layout="vertical"
-                      onFinish={handleProfileSubmit}
-                      style={{ maxWidth: '600px', margin: '0 auto' }}
+                  <Descriptions column={1} size="small" style={{ marginTop: 12 }}>
+                    <Descriptions.Item label={formatMessage('profile.info.username')}>
+                      <Text strong>{profile?.username}</Text>
+                    </Descriptions.Item>
+                    <Descriptions.Item label={formatMessage('profile.info.email')}>
+                      {profile?.email || 'N/A'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label={formatMessage('profile.info.phone')}>
+                      {profile?.phone || 'N/A'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label={formatMessage('profile.info.joined')}>
+                      {profile?.created_at
+                        ? new Date(profile.created_at).toLocaleString()
+                        : profile?.createdAt
+                        ? new Date(profile.createdAt).toLocaleString()
+                        : 'N/A'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label={formatMessage('profile.info.last.login')}>
+                      {profile?.last_login_at
+                        ? new Date(profile.last_login_at).toLocaleString()
+                        : profile?.lastLoginAt
+                        ? new Date(profile.lastLoginAt).toLocaleString()
+                        : 'N/A'}
+                    </Descriptions.Item>
+                  </Descriptions>
+                  <Space style={{ marginTop: 12 }}>
+                    <Button
+                      type="primary"
+                      onClick={() => infoSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
                     >
-                      <Form.Item
-                        name="display_name"
-                        label={formatMessage('profile.info.display.name')}
-                        rules={[
-                          { required: true, message: formatMessage('profile.display.name.required') },
-                          { max: 50, message: formatMessage('profile.display.name.max.length') },
-                        ]}
-                      >
-                        <Input placeholder={formatMessage('profile.display.name.placeholder')} />
-                      </Form.Item>
+                      {formatMessage('profile.hero.edit')}
+                    </Button>
+                    <Button onClick={showPasswordModal}>{formatMessage('profile.password.change.btn')}</Button>
+                  </Space>
+                </div>
+              </Space>
+            </Col>
+            <Col xs={24} md={14}>
+              <Row gutter={[16, 16]} className="profile-stats">
+                {stats.map((stat) => (
+                  <Col xs={12} md={6} key={stat.title}>
+                    <Card bordered={false} className="profile-stats__card">
+                      <Statistic title={stat.title} value={stat.value} prefix={stat.icon} />
+                    </Card>
+                  </Col>
+                ))}
+              </Row>
+            </Col>
+          </Row>
+        </Card>
 
-                      <Form.Item
-                        name="email"
-                        label={formatMessage('profile.info.email')}
-                        rules={[
-                          { type: 'email', message: formatMessage('profile.email.invalid') },
-                        ]}
-                      >
-                        <Input placeholder={formatMessage('profile.email.placeholder')} />
-                      </Form.Item>
+        <Row gutter={[24, 24]} ref={infoSectionRef}>
+          <Col xs={24} lg={16}>
+            <Card title={formatMessage('profile.section.profileForm')}>
+              <Form form={form} layout="vertical" onFinish={handleProfileSubmit}>
+                <Form.Item
+                  name="display_name"
+                  label={formatMessage('profile.info.display.name')}
+                  rules={[
+                    { required: true, message: formatMessage('profile.display.name.required') },
+                    { max: 50, message: formatMessage('profile.display.name.max.length') },
+                  ]}
+                >
+                  <Input placeholder={formatMessage('profile.display.name.placeholder')} />
+                </Form.Item>
 
-                      <Form.Item
-                        name="phone"
-                        label={formatMessage('profile.info.phone')}
-                        rules={[
-                          { max: 20, message: formatMessage('profile.phone.max.length') },
-                          { pattern: /^1[3-9]\d{9}$/, message: formatMessage('profile.phone.invalid') },
-                        ]}
-                      >
-                        <Input placeholder={formatMessage('profile.phone.placeholder')} />
-                      </Form.Item>
+                <Form.Item
+                  name="email"
+                  label={formatMessage('profile.info.email')}
+                  rules={[
+                    { type: 'email', message: formatMessage('profile.email.invalid') },
+                  ]}
+                >
+                  <Input placeholder={formatMessage('profile.email.placeholder')} />
+                </Form.Item>
 
-                      <Form.Item>
-                        <Button type="primary" htmlType="submit" loading={loading} block>
-                          {formatMessage('profile.save')}
-                        </Button>
-                      </Form.Item>
-                    </Form>
-                  ),
-                },
-                {
-                  key: 'settings',
-                  label: (
-                    <Space>
-                      <SafetyOutlined />
-                      {formatMessage('profile.tab.security')}
-                    </Space>
-                  ),
-                  children: (
-                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                      {/* 修改密码 */}
-                      <Card
-                        title={
-                          <Space>
-                            <LockOutlined />
-                            {formatMessage('profile.password.change.title')}
-                          </Space>
-                        }
-                        extra={
-                          <Button type="primary" onClick={showPasswordModal}>
-                            {formatMessage('profile.password.change.btn')}
-                          </Button>
-                        }
-                        style={{ marginBottom: '16px' }}
-                      >
-                        <Text type="secondary">
-                          {formatMessage('profile.password.description')}
-                        </Text>
-                      </Card>
+                <Form.Item
+                  name="phone"
+                  label={formatMessage('profile.info.phone')}
+                  rules={[
+                    { max: 20, message: formatMessage('profile.phone.max.length') },
+                    { pattern: /^1[3-9]\d{9}$/, message: formatMessage('profile.phone.invalid') },
+                  ]}
+                >
+                  <Input placeholder={formatMessage('profile.phone.placeholder')} />
+                </Form.Item>
 
-                      {/* 其他安全设置 */}
-                      <Card
-                        title={
-                          <Space>
-                            <SettingOutlined />
-                            {formatMessage('profile.security.settings.title')}
-                          </Space>
-                        }
-                      >
-                        <Space direction="vertical" style={{ width: '100%' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
-                            <Text>{formatMessage('profile.two.factor.auth')}</Text>
-                            <Badge status="default" text={formatMessage('profile.not.enabled')} />
+                <Form.Item>
+                  <Button type="primary" htmlType="submit" loading={loading}>
+                    {formatMessage('profile.save')}
+                  </Button>
+                </Form.Item>
+              </Form>
+            </Card>
+          </Col>
+          <Col xs={24} lg={8}>
+            <Card
+              title={formatMessage('profile.security.center')}
+              extra={
+                <Button type="link" icon={<LockOutlined />} onClick={showPasswordModal}>
+                  {formatMessage('profile.password.change.btn')}
+                </Button>
+              }
+            >
+              <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                <div className="security-item">
+                  <Space>
+                    <SafetyOutlined />
+                    <div>
+                      <Text strong>{formatMessage('profile.security.settings.title')}</Text>
+                      <br />
+                      <Text type="secondary">{formatMessage('profile.security.description')}</Text>
+                    </div>
+                  </Space>
+                  <Badge status="processing" text={formatMessage('profile.enabled')} />
+                </div>
+                <div className="security-item">
+                  <Space>
+                    <PhoneOutlined />
+                    <div>
+                      <Text strong>{formatMessage('profile.login.notification')}</Text>
+                      <br />
+                      <Text type="secondary">{formatMessage('profile.security.phone.helper')}</Text>
+                    </div>
+                  </Space>
+                </div>
+              </Space>
+            </Card>
+          </Col>
+        </Row>
+
+        <Row gutter={[24, 24]}>
+          <Col xs={24} lg={16}>
+            <Card title={formatMessage('profile.games.title')} loading={extrasLoading}>
+              <List
+                dataSource={games}
+                locale={{ emptyText: formatMessage('profile.games.empty') }}
+                renderItem={(game) => (
+                  <List.Item>
+                    <List.Item.Meta
+                      title={
+                        <Space>
+                        <Text strong>{game.game_name || (game as any).gameName || game.game_id || (game as any).gameId}</Text>
+                        <Tag>{game.game_id || (game as any).gameId}</Tag>
+                        </Space>
+                      }
+                      description={
+                        <Space direction="vertical" size="small">
+                          <div>
+                            <Text type="secondary">{formatMessage('profile.games.envs')}</Text>
+                            <Space wrap>
+                              {(game.envs || []).map((env) => (
+                                <Tag key={env} color="geekblue">
+                                  {env}
+                                </Tag>
+                              ))}
+                            </Space>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
-                            <Text>{formatMessage('profile.login.notification')}</Text>
-                            <Badge status="default" text={formatMessage('profile.enabled')} />
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0' }}>
-                            <Text>{formatMessage('profile.session.management')}</Text>
-                            <Badge status="default" text={formatMessage('profile.view.sessions')} />
+                          <div>
+                            <Text type="secondary">{formatMessage('profile.games.permissions')}</Text>
+                            <Space wrap>
+                              {(game.permissions || []).map((perm) => (
+                                <Tag key={perm}>{perm}</Tag>
+                              ))}
+                            </Space>
                           </div>
                         </Space>
-                      </Card>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} lg={8}>
+            <Card title={formatMessage('profile.permissions.summary.title')} loading={extrasLoading}>
+              <List
+                dataSource={permissionGroups}
+                locale={{ emptyText: formatMessage('profile.permissions.empty') }}
+                renderItem={(item) => (
+                  <List.Item>
+                    <div style={{ width: '100%' }}>
+                      <Space>
+                        <Text strong>{item.resource}</Text>
+                        {item.scope && <Tag color="purple">{item.scope}</Tag>}
+                      </Space>
+                      <div style={{ marginTop: 8 }}>
+                        <Space wrap>
+                          {item.actions.map((action) => (
+                            <Tag key={action} color="cyan">
+                              {action}
+                            </Tag>
+                          ))}
+                        </Space>
+                      </div>
+                    </div>
+                  </List.Item>
+                )}
+              />
+            </Card>
+          </Col>
+        </Row>
+
+        <Row gutter={[24, 24]}>
+          <Col xs={24} lg={14}>
+            <Card
+              title={formatMessage('profile.activities.title')}
+              loading={extrasLoading}
+              extra={
+                <Button type="link" onClick={() => loadExtras(profile?.username)}>
+                  {formatMessage('profile.activities.refresh')}
+                </Button>
+              }
+            >
+              <List
+                dataSource={activities}
+                locale={{ emptyText: formatMessage('profile.activities.empty') }}
+                renderItem={(item) => (
+                  <List.Item>
+                    <List.Item.Meta
+                      title={
+                        <Space>
+                          <Tag color="blue">{item.kind}</Tag>
+                          <Text>{item.target || '-'}</Text>
+                        </Space>
+                      }
+                      description={
+                        <Space direction="vertical" size={0}>
+                          <Text type="secondary">
+                            {item.time ? new Date(item.time).toLocaleString() : '-'}
+                          </Text>
+                          {item.meta && (
+                            <Text type="secondary">
+                              {Object.entries(item.meta)
+                                .slice(0, 2)
+                                .map(([key, value]) => `${key}: ${value}`)
+                                .join(' · ')}
+                            </Text>
+                          )}
+                        </Space>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            </Card>
+          </Col>
+          <Col xs={24} lg={10}>
+            <Card title={formatMessage('profile.account.info')}>
+              <Descriptions column={1} size="small">
+                {infoItems.map((item) => (
+                  <Descriptions.Item key={item.title} label={item.title}>
+                    <Space>
+                      {item.icon}
+                      <span>{item.value || 'N/A'}</span>
                     </Space>
-                  ),
-                },
-              ]}
-            />
-          </Card>
-        </Col>
-      </Row>
+                  </Descriptions.Item>
+                ))}
+              </Descriptions>
+            </Card>
+          </Col>
+        </Row>
+      </Space>
     </PageContainer>
   );
 }
