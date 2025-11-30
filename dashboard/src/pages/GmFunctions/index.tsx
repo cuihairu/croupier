@@ -382,12 +382,12 @@ export default function GmFunctionsPage() {
         fetchAssignments({ game_id: gid, env }).then((res)=>{
           const m = res?.assignments || {};
           const fns = Object.values(m).flat();
-          const dd = descs;
+          const dd = Array.isArray(descs) ? descs : [];
           const filt = (fns && fns.length>0) ? dd.filter(x => fns.includes(x.id)) : dd;
           setFilteredDescs(filt);
-        }).catch(()=>{ setFilteredDescs(descs); });
+        }).catch(()=>{ setFilteredDescs(Array.isArray(descs)?descs:[]); });
       } else {
-        setFilteredDescs(descs);
+        setFilteredDescs(Array.isArray(descs)?descs:[]);
       }
     } else {
       setInstances([]);
