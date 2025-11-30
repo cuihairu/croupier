@@ -2,14 +2,14 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { PageContainer, ProTable, ProColumns, ModalForm, ProFormSelect, ProFormText, ProFormGroup } from '@ant-design/pro-components';
 import { App, Space, Tag } from 'antd';
 import { request, useIntl } from '@umijs/max';
+import { getFunctionSummary } from '@/services/croupier/functions-enhanced';
 
 type PermissionSpec = { verbs?: string[]; scopes?: string[]; defaults?: { role: string; verbs: string[] }[]; i18n_zh?: Record<string, string> };
 type FuncRow = { id: string; permissions?: PermissionSpec; display_name?: { zh?: string } };
 
 const fetchSummary = async (): Promise<FuncRow[]> => {
-  const res = await request('/api/functions/summary', { method: 'GET' });
+  const res = await getFunctionSummary();
   if (Array.isArray(res)) return res as FuncRow[];
-  if (res && Array.isArray(res.functions)) return res.functions as FuncRow[];
   return [];
 };
 

@@ -2,8 +2,9 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { PageContainer, ProTable, ProColumns } from '@ant-design/pro-components';
 import { App, Button, Space, Tag, Card, Descriptions, Drawer, Badge, Tooltip, Typography } from 'antd';
 import { EyeOutlined, PlayCircleOutlined, InfoCircleOutlined, ReloadOutlined, FilterOutlined } from '@ant-design/icons';
-import { history, request } from '@umijs/max';
-import { listDescriptors } from '@/services/croupier';
+import { history } from '@umijs/max';
+import { listDescriptors, listFunctionInstances } from '@/services/croupier';
+import { getFunctionSummary } from '@/services/croupier/functions-enhanced';
 
 const { Text } = Typography;
 
@@ -21,24 +22,23 @@ type DetailRow = SummaryRow & {
 
 async function fetchSummary(): Promise<SummaryRow[]> {
   try {
-    const res: any = await request('/api/functions/summary');
-    if (Array.isArray(res)) return res;
-    if (res?.functions && Array.isArray(res.functions)) return res.functions;
-    return [];
+    const res = await getFunctionSummary();
+    if (Array.isArray(res)) {
+      return res as SummaryRow[];
+    }
   } catch (error) {
     console.warn('Failed to fetch from summary API, falling back to descriptors');
-    // Fallback to descriptors API
-    const descriptors = await listDescriptors();
-    return descriptors.map((desc: any) => ({
-      id: desc.id,
-      version: desc.version,
-      enabled: true,
-      display_name: desc.display_name || { zh: desc.id, en: desc.id },
-      summary: desc.summary || { zh: desc.description, en: desc.description },
-      tags: desc.tags || [],
-      category: desc.category
-    }));
   }
+  const descriptors = await listDescriptors();
+  return descriptors.map((desc: any) => ({
+    id: desc.id,
+    version: desc.version,
+    enabled: true,
+    display_name: desc.display_name || { zh: desc.id, en: desc.id },
+    summary: desc.summary || { zh: desc.description, en: desc.description },
+    tags: desc.tags || [],
+    category: desc.category,
+  }));
 }
 
 export default () => {
@@ -79,7 +79,7 @@ export default () => {
 
       // If we have instances API, we could fetch that too
       try {
-        const instances = await request('/api/function_instances', { params: { function_id: record.id } });
+        const instances = await listFunctionInstances({ function_id: record.id });
         detailInfo.instances = instances?.instances?.length || 0;
       } catch {
         detailInfo.instances = 0;
@@ -318,4 +318,3 @@ export default () => {
     </PageContainer>
   );
 };
-
