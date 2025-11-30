@@ -102,3 +102,7 @@ services/server/current_handlers.txt
 # Temporary build artifacts
 services/*/bin/
 services/*/logs/
+
+# Python bytecode caches
+sdks/python/croupier/__pycache__/
+sdks/python/examples/__pycache__/
