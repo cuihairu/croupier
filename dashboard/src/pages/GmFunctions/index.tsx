@@ -330,7 +330,8 @@ export default function GmFunctionsPage() {
     registerBuiltins();
     loadPackPlugins().catch(()=>{});
     listDescriptors().then((d) => {
-      const arr = Array.isArray(d) ? d : Array.isArray((d as any)?.descriptors) ? (d as any).descriptors : [];
+      const raw = Array.isArray(d) ? d : Array.isArray((d as any)?.descriptors) ? (d as any).descriptors : [];
+      const arr = Array.isArray(raw) ? raw : [];
       setDescs(arr);
       // initial filter by assignments (if any)
       const gid = localStorage.getItem('game_id') || undefined;
@@ -378,16 +379,16 @@ export default function GmFunctionsPage() {
         })
         .catch(() => {});
       // refresh assignments filter when scope changes
+      const safeDescs = Array.isArray(descs) ? descs : [];
       if (gid) {
         fetchAssignments({ game_id: gid, env }).then((res)=>{
           const m = res?.assignments || {};
           const fns = Object.values(m).flat();
-          const dd = Array.isArray(descs) ? descs : [];
-          const filt = (fns && fns.length>0) ? dd.filter(x => fns.includes(x.id)) : dd;
+          const filt = (fns && fns.length>0) ? safeDescs.filter(x => fns.includes(x.id)) : safeDescs;
           setFilteredDescs(filt);
-        }).catch(()=>{ setFilteredDescs(Array.isArray(descs)?descs:[]); });
+        }).catch(()=>{ setFilteredDescs(safeDescs); });
       } else {
-        setFilteredDescs(Array.isArray(descs)?descs:[]);
+        setFilteredDescs(safeDescs);
       }
     } else {
       setInstances([]);
