@@ -59,6 +59,8 @@ func handleMessagesSSE(w http.ResponseWriter, r *http.Request, svcCtx *svc.Servi
 	headers.Set("Cache-Control", "no-cache")
 	headers.Set("Connection", "keep-alive")
 	headers.Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+	flusher.Flush()
 
 	ctx := r.Context()
 	username, err := utils.CurrentUsername(ctx)

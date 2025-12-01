@@ -151,6 +151,12 @@ func applyRuntimeDefaults(c *config.Config) {
 		return
 	}
 
+	// Allow long-lived connections (SSE, streaming) by keeping HTTP timeout generous.
+	if c.RestConf.Timeout == 0 {
+		// default go-zero timeout is 3s; bump to 10 minutes for streaming endpoints.
+		c.RestConf.Timeout = 600000
+	}
+
 	if strings.TrimSpace(c.Components.DataDir) == "" {
 		c.Components.DataDir = "data"
 	}

@@ -38,6 +38,7 @@ import (
 	profile "github.com/cuihairu/croupier/services/server/internal/handler/profile"
 	provider "github.com/cuihairu/croupier/services/server/internal/handler/provider"
 	rate_limit "github.com/cuihairu/croupier/services/server/internal/handler/rate_limit"
+	registry "github.com/cuihairu/croupier/services/server/internal/handler/registry"
 	role "github.com/cuihairu/croupier/services/server/internal/handler/role"
 	schema "github.com/cuihairu/croupier/services/server/internal/handler/schema"
 	storage "github.com/cuihairu/croupier/services/server/internal/handler/storage"
@@ -521,65 +522,65 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 		rest.WithPrefix("/api/v1/components"),
 	)
 
-		server.AddRoutes(
-			[]rest.Route{
-				{
-					// 列出配置
-					Method:  http.MethodGet,
-					Path:    "/",
-					Handler: config.ConfigsListHandler(serverCtx),
-				},
-				{
-					// 读取配置详情
-					Method:  http.MethodGet,
-					Path:    "/:id",
-					Handler: config.ConfigDetailHandler(serverCtx),
-				},
-				{
-					// 保存配置
-					Method:  http.MethodPost,
-					Path:    "/:id",
-					Handler: config.ConfigSaveHandler(serverCtx),
-				},
-				{
-					// 校验配置
-					Method:  http.MethodPost,
-					Path:    "/:id/validate",
-					Handler: config.ConfigValidateHandler(serverCtx),
-				},
-				{
-					// 配置历史版本
-					Method:  http.MethodGet,
-					Path:    "/:id/versions",
-					Handler: config.ConfigItemVersionsHandler(serverCtx),
-				},
-				{
-					// 配置指定版本详情
-					Method:  http.MethodGet,
-					Path:    "/:id/versions/:version",
-					Handler: config.ConfigItemVersionDetailHandler(serverCtx),
-				},
-				{
-					// 创建或更新配置(兼容旧接口)
-					Method:  http.MethodPost,
-					Path:    "/",
-					Handler: config.ConfigUpsertHandler(serverCtx),
-				},
-				{
-					// 获取配置版本详情
-					Method:  http.MethodGet,
-					Path:    "/version",
-					Handler: config.ConfigVersionDetailHandler(serverCtx),
-				},
-				{
-					// 获取配置版本列表
-					Method:  http.MethodGet,
-					Path:    "/versions",
-					Handler: config.ConfigVersionsHandler(serverCtx),
-				},
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 列出配置
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: config.ConfigsListHandler(serverCtx),
 			},
-			rest.WithPrefix("/api/v1/configs"),
-		)
+			{
+				// 读取配置详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: config.ConfigDetailHandler(serverCtx),
+			},
+			{
+				// 保存配置
+				Method:  http.MethodPost,
+				Path:    "/:id",
+				Handler: config.ConfigSaveHandler(serverCtx),
+			},
+			{
+				// 校验配置
+				Method:  http.MethodPost,
+				Path:    "/:id/validate",
+				Handler: config.ConfigValidateHandler(serverCtx),
+			},
+			{
+				// 配置历史版本
+				Method:  http.MethodGet,
+				Path:    "/:id/versions",
+				Handler: config.ConfigItemVersionsHandler(serverCtx),
+			},
+			{
+				// 配置指定版本详情
+				Method:  http.MethodGet,
+				Path:    "/:id/versions/:version",
+				Handler: config.ConfigItemVersionDetailHandler(serverCtx),
+			},
+			{
+				// 创建或更新配置(兼容旧接口)
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: config.ConfigUpsertHandler(serverCtx),
+			},
+			{
+				// 获取配置版本详情
+				Method:  http.MethodGet,
+				Path:    "/version",
+				Handler: config.ConfigVersionDetailHandler(serverCtx),
+			},
+			{
+				// 获取配置版本列表
+				Method:  http.MethodGet,
+				Path:    "/versions",
+				Handler: config.ConfigVersionsHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/configs"),
+	)
 
 	server.AddRoutes(
 		[]rest.Route{
@@ -848,6 +849,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
+				// 任务列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: job.JobListHandler(serverCtx),
+			},
+			{
 				// 启动任务
 				Method:  http.MethodPost,
 				Path:    "/",
@@ -915,6 +922,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/messages"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取注册表信息
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: registry.RegistryHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/registry"),
 	)
 
 	server.AddRoutes(
@@ -1008,6 +1027,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPut,
 				Path:    "/agent-meta",
 				Handler: ops.OpsAgentMetaHandler(serverCtx),
+			},
+			{
+				// 获取告警列表
+				Method:  http.MethodGet,
+				Path:    "/alerts",
+				Handler: ops.OpsAlertsHandler(serverCtx),
 			},
 			{
 				// 静默告警

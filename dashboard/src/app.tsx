@@ -1,6 +1,6 @@
 import { Footer, Question, SelectLang, AvatarDropdown, AvatarName } from '@/components';
 import MessagesBell from '@/components/MessagesBell';
-import { LinkOutlined } from '@ant-design/icons';
+import { LinkOutlined, UserOutlined } from '@ant-design/icons';
 import type { Settings as LayoutSettings } from '@ant-design/pro-components';
 import { SettingDrawer } from '@ant-design/pro-components';
 import type { RunTimeLayoutConfig } from '@umijs/max';
@@ -79,6 +79,7 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     ].filter(Boolean) as any,
     avatarProps: {
       src: initialState?.currentUser?.avatar,
+      icon: initialState?.currentUser?.avatar ? undefined : <UserOutlined />,
       title: <AvatarName />,
       render: (_, avatarChildren) => {
         return <AvatarDropdown menu>{avatarChildren}</AvatarDropdown>;

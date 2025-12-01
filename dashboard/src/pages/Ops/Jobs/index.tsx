@@ -19,9 +19,21 @@ export default function OpsJobsPage() {
   const [result, setResult] = useState<{ state?: string; payload?: any; error?: string }|null>(null);
   const esRef = useRef<EventSource | null>(null);
 
-  const load = async ()=>{
+  const load = async () => {
     setLoading(true);
-    try { const r = await listOpsJobs({ status, function_id: fid, actor }); setRows(r.jobs||[]); } catch(e:any){ message.error(e?.message||'加载失败'); } finally { setLoading(false); }
+    try {
+      const params: Record<string, string> = {};
+      if (status) params.status = status;
+      if (fid) params.function_id = fid;
+      const actorValue = actor.trim();
+      if (actorValue) params.actor = actorValue;
+      const r = await listOpsJobs(params);
+      setRows(r.jobs || []);
+    } catch (e: any) {
+      message.error(e?.message || '加载失败');
+    } finally {
+      setLoading(false);
+    }
   };
   useEffect(()=>{ load(); }, [status, fid, actor]);
   useEffect(()=>{ (async()=>{ try { const s = await listOpsFunctions(); setFuncs((s.functions||[]).map(x=>x.id)); } catch{} })(); }, []);

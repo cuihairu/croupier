@@ -68,6 +68,7 @@ export default function Profile() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [games, setGames] = useState<ProfileGame[]>([]);
   const [permissions, setPermissions] = useState<ProfilePermission[]>([]);
   const [activities, setActivities] = useState<AuditEvent[]>([]);
@@ -150,8 +151,9 @@ export default function Profile() {
         current: values.current,
         password: values.password,
       });
-      Modal.destroyAll();
       message.success(formatMessage('profile.password.success'));
+      setPasswordModalVisible(false);
+      passwordForm.resetFields();
     } catch (error) {
       message.error(formatMessage('profile.password.error'));
       throw error;
@@ -162,58 +164,7 @@ export default function Profile() {
 
   const showPasswordModal = () => {
     passwordForm.resetFields();
-    Modal.confirm({
-      title: formatMessage('profile.password.modal.title'),
-      content: (
-        <div>
-          <Alert
-            message={formatMessage('profile.password.modal.warning')}
-            type="warning"
-            showIcon
-            style={{ marginBottom: 16 }}
-          />
-          <Form layout="vertical" form={passwordForm} onFinish={handlePasswordFinish}>
-            <Form.Item
-              name="current"
-              label={formatMessage('profile.password.current')}
-              rules={[{ required: true }]}
-            >
-              <Input.Password placeholder={formatMessage('profile.password.current.placeholder')} />
-            </Form.Item>
-            <Form.Item
-              name="password"
-              label={formatMessage('profile.password.new')}
-              rules={[
-                { required: true },
-                { min: 6, message: formatMessage('profile.password.min.length') },
-              ]}
-            >
-              <Input.Password placeholder={formatMessage('profile.password.new.placeholder')} />
-            </Form.Item>
-            <Form.Item
-              name="confirm"
-              label={formatMessage('profile.password.confirm')}
-              rules={[
-                { required: true },
-                ({ getFieldValue }) => ({
-                  validator(_, value) {
-                    if (!value || getFieldValue('password') === value) {
-                      return Promise.resolve();
-                    }
-                    return Promise.reject(new Error(formatMessage('profile.password.mismatch')));
-                  },
-                }),
-              ]}
-            >
-              <Input.Password placeholder={formatMessage('profile.password.confirm.placeholder')} />
-            </Form.Item>
-          </Form>
-        </div>
-      ),
-      okText: formatMessage('profile.password.modal.submit'),
-      confirmLoading: passwordLoading,
-      onOk: () => passwordForm.submit(),
-    });
+    setPasswordModalVisible(true);
   };
 
   const handleAvatarChange = (info: any) => {
@@ -225,20 +176,6 @@ export default function Profile() {
       message.success(formatMessage('profile.avatar.success'));
       loadProfile();
     }
-  };
-
-  const getInitials = (name: string, email?: string) => {
-    if (name) {
-      return name
-        .split(' ')
-        .map((word) => word.charAt(0))
-        .join('')
-        .toUpperCase();
-    }
-    if (email) {
-      return email.charAt(0).toUpperCase();
-    }
-    return '';
   };
 
   const getStatusBadge = (status?: boolean) => (
@@ -449,23 +386,84 @@ export default function Profile() {
     </Card>
   );
 
+  const passwordModal = (
+    <Modal
+      open={passwordModalVisible}
+      title={formatMessage('profile.password.modal.title')}
+      onCancel={() => {
+        setPasswordModalVisible(false);
+        passwordForm.resetFields();
+      }}
+      onOk={() => passwordForm.submit()}
+      okText={formatMessage('profile.password.modal.submit')}
+      confirmLoading={passwordLoading}
+    >
+      <Alert
+        message={formatMessage('profile.password.modal.warning')}
+        type="warning"
+        showIcon
+        style={{ marginBottom: 16 }}
+      />
+      <Form layout="vertical" form={passwordForm} onFinish={handlePasswordFinish}>
+        <Form.Item
+          name="current"
+          label={formatMessage('profile.password.current')}
+          rules={[{ required: true }]}
+        >
+          <Input.Password placeholder={formatMessage('profile.password.current.placeholder')} />
+        </Form.Item>
+        <Form.Item
+          name="password"
+          label={formatMessage('profile.password.new')}
+          rules={[
+            { required: true },
+            { min: 6, message: formatMessage('profile.password.min.length') },
+          ]}
+        >
+          <Input.Password placeholder={formatMessage('profile.password.new.placeholder')} />
+        </Form.Item>
+        <Form.Item
+          name="confirm"
+          label={formatMessage('profile.password.confirm')}
+          rules={[
+            { required: true },
+            ({ getFieldValue }) => ({
+              validator(_, value) {
+                if (!value || getFieldValue('password') === value) {
+                  return Promise.resolve();
+                }
+                return Promise.reject(new Error(formatMessage('profile.password.mismatch')));
+              },
+            }),
+          ]}
+        >
+          <Input.Password placeholder={formatMessage('profile.password.confirm.placeholder')} />
+        </Form.Item>
+      </Form>
+    </Modal>
+  );
+
   if (!profile) {
     return (
-      <PageContainer>
-        <Card>
-          <Space size="large" direction="vertical" align="center" style={{ width: '100%' }}>
-            <Avatar size={96} icon={<UserOutlined />} />
-            <Title level={4}>{formatMessage('profile.loading')}</Title>
-          </Space>
-        </Card>
-      </PageContainer>
+      <>
+        <PageContainer>
+          <Card>
+            <Space size="large" direction="vertical" align="center" style={{ width: '100%' }}>
+              <Avatar size={96} icon={<UserOutlined />} />
+              <Title level={4}>{formatMessage('profile.loading')}</Title>
+            </Space>
+          </Card>
+        </PageContainer>
+        {passwordModal}
+      </>
     );
   }
 
   return (
-    <PageContainer className="profile-page">
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        <Card className="profile-hero" bodyStyle={{ padding: 24 }}>
+    <>
+      <PageContainer className="profile-page">
+        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <Card className="profile-hero" bodyStyle={{ padding: 24 }}>
           <Row gutter={[32, 24]} align="middle">
             <Col xs={24} md={10}>
               <Space align="center">
@@ -484,13 +482,12 @@ export default function Profile() {
                   <Avatar
                     size={96}
                     src={profile?.avatar}
+                    icon={!profile?.avatar ? <UserOutlined /> : undefined}
                     style={{
                       border: '3px solid #1890ff',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
                     }}
-                  >
-                    {getInitials(profile?.display_name || profile?.username, profile?.email)}
-                  </Avatar>
+                  />
                 </Upload>
                 <div>
                   <Space align="center">
@@ -746,7 +743,9 @@ export default function Profile() {
             },
           ]}
         />
-      </Space>
-    </PageContainer>
+        </Space>
+      </PageContainer>
+      {passwordModal}
+    </>
   );
 }

@@ -332,6 +332,43 @@ type BehaviorPathsResponse struct {
 	Paths interface{} `json:"paths"`
 }
 
+type RegistryRequest struct {
+}
+
+type RegistryAgent struct {
+	AgentID      string `json:"AgentID"`
+	GameID       string `json:"GameID,omitempty"`
+	Env          string `json:"Env,omitempty"`
+	RpcAddr      string `json:"RpcAddr,omitempty"`
+	Functions    int    `json:"Functions"`
+	Healthy      bool   `json:"Healthy"`
+	ExpiresInSec int    `json:"ExpiresInSec"`
+}
+
+type RegistryFunction struct {
+	GameID string   `json:"GameID,omitempty"`
+	ID     string   `json:"ID"`
+	Agents []string `json:"Agents,omitempty"`
+}
+
+type RegistryCoverageStat struct {
+	Healthy int `json:"healthy"`
+	Total   int `json:"total"`
+}
+
+type RegistryCoverage struct {
+	GameEnv   string                          `json:"game_env"`
+	Functions map[string]RegistryCoverageStat `json:"functions"`
+	Uncovered []string                        `json:"uncovered,omitempty"`
+}
+
+type RegistryResponse struct {
+	Agents      []RegistryAgent     `json:"agents"`
+	Functions   []RegistryFunction  `json:"functions"`
+	Assignments map[string][]string `json:"assignments"`
+	Coverage    []RegistryCoverage  `json:"coverage"`
+}
+
 type BehaviorRequest struct {
 	GameId    string `form:"gameId,optional"`
 	Env       string `form:"env,optional"`
@@ -1133,6 +1170,35 @@ type JobResultResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+type JobListRequest struct {
+	Status     string `form:"status,optional"`
+	FunctionID string `form:"function_id,optional"`
+	Actor      string `form:"actor,optional"`
+	GameID     string `form:"game_id,optional"`
+	Env        string `form:"env,optional"`
+	Page       int    `form:"page,optional,default=1"`
+	Size       int    `form:"size,optional,default=20"`
+}
+
+type JobListResponse struct {
+	Jobs  []JobItem `json:"jobs"`
+	Total int       `json:"total"`
+}
+
+type JobItem struct {
+	ID         string `json:"id"`
+	FunctionID string `json:"function_id,omitempty"`
+	Actor      string `json:"actor,omitempty"`
+	State      string `json:"state,omitempty"`
+	GameID     string `json:"game_id,omitempty"`
+	Env        string `json:"env,omitempty"`
+	RPCAddr    string `json:"rpc_addr,omitempty"`
+	StartedAt  string `json:"started_at,omitempty"`
+	EndedAt    string `json:"ended_at,omitempty"`
+	DurationMs int64  `json:"duration_ms,omitempty"`
+	Error      string `json:"error,omitempty"`
+}
+
 type JobStartRequest struct {
 	FunctionID string      `json:"functionId"` // 函数ID
 	Params     interface{} `json:"params,optional"`
@@ -1351,6 +1417,26 @@ type OpsAlertSilenceResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsAlertsRequest struct {
+}
+
+type OpsAlert struct {
+	Severity    string                 `json:"severity,omitempty"`
+	Service     string                 `json:"service,omitempty"`
+	Instance    string                 `json:"instance,omitempty"`
+	Summary     string                 `json:"summary,omitempty"`
+	StartsAt    string                 `json:"starts_at,omitempty"`
+	EndsAt      string                 `json:"ends_at,omitempty"`
+	Duration    string                 `json:"duration,omitempty"`
+	Silenced    bool                   `json:"silenced,omitempty"`
+	Labels      map[string]interface{} `json:"labels,omitempty"`
+	Annotations map[string]interface{} `json:"annotations,omitempty"`
+}
+
+type OpsAlertsResponse struct {
+	Alerts []OpsAlert `json:"alerts"`
 }
 
 type OpsBackupCreateRequest struct {

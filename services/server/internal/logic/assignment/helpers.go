@@ -98,6 +98,12 @@ func cloneAssignments(data map[string][]string) map[string][]string {
 	return out
 }
 
+// LoadAllAssignments returns all assignment mappings for the service context.
+func LoadAllAssignments(ctx *svc.ServiceContext) (map[string][]string, error) {
+	path := assignmentsPath(ctx)
+	return loadAssignments(path)
+}
+
 func normalizeFunctions(functions []string) []string {
 	seen := make(map[string]struct{}, len(functions))
 	result := make([]string, 0, len(functions))

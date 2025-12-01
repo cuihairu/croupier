@@ -25,7 +25,13 @@ export default function OperationsConfigsPage() {
   const load = async () => {
     setLoading(true);
     try {
-      const r = await listConfigs({ game_id: game, env, format, id_like: q });
+      const params: Record<string, string> = {};
+      if (game) params.game_id = game;
+      if (env) params.env = env;
+      if (format) params.format = format;
+      const term = q.trim();
+      if (term) params.id_like = term;
+      const r = await listConfigs(params);
       setRows(r?.items||[]);
     } catch { message.error('加载失败'); }
     finally { setLoading(false); }

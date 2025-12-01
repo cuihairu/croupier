@@ -26,6 +26,25 @@ type OpsAlertSilenceResponse {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+type OpsAlertsRequest {}
+
+type OpsAlert struct {
+	Severity    string                 `json:"severity,omitempty"`
+	Service     string                 `json:"service,omitempty"`
+	Instance    string                 `json:"instance,omitempty"`
+	Summary     string                 `json:"summary,omitempty"`
+	StartsAt    string                 `json:"starts_at,omitempty"`
+	EndsAt      string                 `json:"ends_at,omitempty"`
+	Duration    string                 `json:"duration,omitempty"`
+	Silenced    bool                   `json:"silenced,omitempty"`
+	Labels      map[string]interface{} `json:"labels,omitempty"`
+	Annotations map[string]interface{} `json:"annotations,omitempty"`
+}
+
+type OpsAlertsResponse {
+	Alerts []OpsAlert `json:"alerts"`
+}
+
 type OpsBackupCreateRequest {
 	Name string `json:"name,optional"`
 }
@@ -254,6 +273,10 @@ service server {
 	@handler OpsAgentMetaHandler
 	put /agent-meta (OpsAgentMetaUpdateRequest) returns (OpsAgentMetaResponse)
 
+	@doc "获取告警列表"
+	@handler OpsAlertsHandler
+	get /alerts (OpsAlertsRequest) returns (OpsAlertsResponse)
+
 	@doc "静默告警"
 	@handler OpsAlertSilenceHandler
 	post /alerts/silence (OpsAlertSilenceRequest) returns (OpsAlertSilenceResponse)
@@ -354,4 +377,3 @@ service server {
 	@handler OpsSilencesHandler
 	get /silences (OpsSilencesRequest) returns (OpsSilencesResponse)
 }
-
