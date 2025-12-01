@@ -18,6 +18,7 @@ type Config struct {
 	Schemas       SchemasConfig            `json:"schemas" yaml:"schemas"`
 	Packs         PacksConfig              `json:"packs" yaml:"packs"`
 	Storage       StorageConfig            `json:"storage" yaml:"storage"`
+	Cache         CacheConfig              `json:"cache" yaml:"cache"`
 	CroupierLog   CroupierLogConfig        `json:"croupier_log" yaml:"croupier_log"`
 	Metrics       MetricsConfig            `json:"metrics" yaml:"metrics"`
 	Profiles      map[string]ProfileConfig `json:"profiles" yaml:"profiles"`
@@ -103,4 +104,16 @@ type ProfileConfig struct {
 	Log     map[string]interface{} `json:"log" yaml:"log"`
 	DB      map[string]interface{} `json:"db" yaml:"db"`
 	Storage map[string]interface{} `json:"storage" yaml:"storage"`
+}
+
+type CacheConfig struct {
+	Enabled  bool   `json:"enabled,optional" yaml:"enabled,optional"`                   // 是否启用缓存
+	Type     string `json:"type,optional" yaml:"type,optional"`                         // 缓存类型: redis, local
+	Addr     string `json:"addr,optional" yaml:"addr,optional"`                         // Redis 地址 (host:port)
+	Password string `json:"password,optional" yaml:"password,optional"`                 // Redis 密码
+	DB       int    `json:"db,optional" yaml:"db,optional"`                             // Redis 数据库编号
+	PoolSize int    `json:"pool_size,optional" yaml:"pool_size,optional"`               // Redis 连接池大小
+	TTL      string `json:"ttl,optional" yaml:"ttl,optional"`                           // 默认过期时间 (例如: "5m", "1h")
+	MaxItems int    `json:"max_items,optional" yaml:"max_items,optional"`               // 本地缓存最大条目数
+	EvictTTL string `json:"evict_ttl,optional" yaml:"evict_ttl,optional"`               // 本地缓存清理间隔
 }

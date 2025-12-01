@@ -59,5 +59,7 @@ func (l *ProfilePasswordLogic) ProfilePassword(req *types.ProfilePasswordRequest
 		return fmt.Errorf("更新密码失败: %w", err)
 	}
 
+	l.svcCtx.InvalidateAdminCache(l.ctx, admin.ID, admin.Username)
+
 	return nil
 }

@@ -129,29 +129,32 @@ func (m *ConfigVersionModel) CreateWithMeta(ctx context.Context, payload ConfigV
 
 // ListLatest fetches the latest version per key with optional filters.
 func (m *ConfigVersionModel) ListLatest(ctx context.Context, opts ConfigListOptions) ([]ConfigVersion, error) {
+	// 先应用过滤条件到子查询
 	sub := m.db.WithContext(ctx).
 		Model(&ConfigVersion{}).
-		Select("key, MAX(version) AS version").
-		Group("key")
-
-	query := m.db.WithContext(ctx).
-		Table("(?) AS latest", sub).
-		Joins("JOIN config_versions ON config_versions.key = latest.key AND config_versions.version = latest.version")
+		Select("key, MAX(version) AS version")
 
 	if v := strings.TrimSpace(opts.GameID); v != "" {
-		query = query.Where("config_versions.game_id = ?", v)
+		sub = sub.Where("game_id = ?", v)
 	}
 	if v := strings.TrimSpace(opts.Env); v != "" {
-		query = query.Where("config_versions.env = ?", v)
+		sub = sub.Where("env = ?", v)
 	}
 	if v := strings.TrimSpace(opts.Format); v != "" {
-		query = query.Where("config_versions.format = ?", v)
+		sub = sub.Where("format = ?", v)
 	}
 	if v := strings.TrimSpace(opts.IDLike); v != "" {
-		query = query.Where("config_versions.key LIKE ?", "%"+v+"%")
+		sub = sub.Where("key LIKE ?", "%"+v+"%")
 	}
 
+	sub = sub.Group("key")
+
+	// 查询完整记录
 	var records []ConfigVersion
+	query := m.db.WithContext(ctx).
+		Table("config_versions").
+		Joins("JOIN (?) AS latest ON config_versions.key = latest.key AND config_versions.version = latest.version", sub)
+
 	if err := query.Order("config_versions.updated_at DESC").Find(&records).Error; err != nil {
 		return nil, err
 	}

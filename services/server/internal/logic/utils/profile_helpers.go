@@ -37,12 +37,15 @@ func LoadCurrentAdmin(ctx context.Context, svcCtx *svc.ServiceContext) (*model.A
 		return nil, nil, err
 	}
 
-	admin, err := svcCtx.AdminModel.FindByUsername(ctx, username)
+	admin, err := svcCtx.GetAdminByUsernameCached(ctx, username)
 	if err != nil {
 		return nil, nil, fmt.Errorf("查询管理员失败: %w", err)
 	}
+	if admin == nil {
+		return nil, nil, fmt.Errorf("查询管理员失败: %s 不存在", username)
+	}
 
-	roles, err := svcCtx.AdminModel.GetAdminRoles(ctx, admin.ID)
+	roles, err := svcCtx.GetAdminRolesCached(ctx, admin.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("查询管理员角色失败: %w", err)
 	}

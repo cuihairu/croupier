@@ -33,7 +33,7 @@ func (l *GameEnvsListLogic) GameEnvsList(req *types.GameEnvsListRequest) (*types
 		return nil, err
 	}
 
-	game, err := l.svcCtx.GameModel.FindOne(l.ctx, id)
+	game, err := l.svcCtx.GetGameCached(l.ctx, id)
 	if err != nil {
 		return nil, err
 	}

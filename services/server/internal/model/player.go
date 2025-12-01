@@ -7,15 +7,15 @@ import (
 // Player 玩家结构体 (对应 player.api)
 type Player struct {
 	gorm.Model
-	Username string `gorm:"size:64;not null"`
-	Nickname string `gorm:"size:128"`
-	Email    string `gorm:"size:256"`
-	Phone    string `gorm:"size:32"`
-	GameID   string `gorm:"size:64;index;not null"`
-	Status   int    `gorm:"default:1"` // 1:active 0:banned 2:suspended
-	Balance  int64  `gorm:"default:0"` // 游戏货币
-	Level    int    `gorm:"default:1"`
-	VIP      int    `gorm:"default:0"`
+	Username string `gorm:"size:64;not null;index:idx_player_username_game,priority:1"`
+	Nickname string `gorm:"size:128;index"`
+	Email    string `gorm:"size:256;index"`
+	Phone    string `gorm:"size:32;index"`
+	GameID   string `gorm:"size:64;index:idx_player_game_status,priority:1;index:idx_player_username_game,priority:2;not null"`
+	Status   int    `gorm:"default:1;index:idx_player_game_status,priority:2"` // 1:active 0:banned 2:suspended
+	Balance  int64  `gorm:"default:0;index"`                                    // 游戏货币
+	Level    int    `gorm:"default:1;index"`
+	VIP      int    `gorm:"default:0;index"`
 	Password string `gorm:"size:255"` // 密码哈希
 }
 

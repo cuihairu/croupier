@@ -37,6 +37,8 @@ func (l *GameDeleteLogic) GameDelete(req *types.GameDeleteRequest) (*types.GameD
 		return nil, err
 	}
 
+	l.svcCtx.InvalidateGameCache(l.ctx, id)
+
 	return &types.GameDeleteResponse{
 		Code:    0,
 		Message: "OK",

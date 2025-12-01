@@ -57,6 +57,8 @@ func (l *GameEnvDeleteLogic) GameEnvDelete(req *types.GameEnvDeleteRequest) (*ty
 		return nil, err
 	}
 
+	l.svcCtx.InvalidateGameCache(l.ctx, id)
+
 	return &types.GameEnvDeleteResponse{
 		Code:    0,
 		Message: "OK",

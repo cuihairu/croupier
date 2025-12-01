@@ -37,12 +37,15 @@ func (l *AdminUpdateLogic) AdminUpdate(req *types.AdminUpdateRequest) (*types.Ad
 		return nil, err
 	}
 
+	var existing *model.Admin
 	err = l.svcCtx.DB.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
 		adminModel := model.NewAdminModel(tx)
 
-		if _, err := adminModel.FindOne(l.ctx, adminID); err != nil {
+		adminRecord, err := adminModel.FindOne(l.ctx, adminID)
+		if err != nil {
 			return err
 		}
+		existing = adminRecord
 
 		updates := make(map[string]interface{})
 		if nickname := strings.TrimSpace(req.Nickname); nickname != "" {
@@ -90,12 +93,18 @@ func (l *AdminUpdateLogic) AdminUpdate(req *types.AdminUpdateRequest) (*types.Ad
 		return nil, err
 	}
 
-	admin, err := l.svcCtx.AdminModel.FindOne(l.ctx, adminID)
+	username := ""
+	if existing != nil {
+		username = existing.Username
+	}
+	l.svcCtx.InvalidateAdminCache(l.ctx, adminID, username)
+
+	admin, err := l.svcCtx.GetAdminCached(l.ctx, adminID)
 	if err != nil {
 		return nil, err
 	}
 
-	roles, err := l.svcCtx.AdminModel.GetAdminRoles(l.ctx, adminID)
+	roles, err := l.svcCtx.GetAdminRolesCached(l.ctx, adminID)
 	if err != nil {
 		return nil, fmt.Errorf("获取管理员角色失败: %w", err)
 	}

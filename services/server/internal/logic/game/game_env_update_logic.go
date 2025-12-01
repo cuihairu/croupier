@@ -69,6 +69,8 @@ func (l *GameEnvUpdateLogic) GameEnvUpdate(req *types.GameEnvUpdateRequest) (*ty
 		return nil, err
 	}
 
+	l.svcCtx.InvalidateGameCache(l.ctx, id)
+
 	return &types.GameEnvUpdateResponse{
 		Code:    0,
 		Message: "OK",

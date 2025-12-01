@@ -36,12 +36,15 @@ func (l *AdminDeleteLogic) AdminDelete(req *types.AdminDeleteRequest) error {
 		return err
 	}
 
-	return l.svcCtx.DB.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
+	var existing *model.Admin
+	if err := l.svcCtx.DB.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
 		adminModel := model.NewAdminModel(tx)
 
-		if _, err := adminModel.FindOne(l.ctx, adminID); err != nil {
+		adminRecord, err := adminModel.FindOne(l.ctx, adminID)
+		if err != nil {
 			return err
 		}
+		existing = adminRecord
 
 		if err := tx.WithContext(l.ctx).
 			Where("admin_id = ?", adminID).
@@ -62,5 +65,15 @@ func (l *AdminDeleteLogic) AdminDelete(req *types.AdminDeleteRequest) error {
 		}
 
 		return adminModel.Delete(l.ctx, adminID)
-	})
+	}); err != nil {
+		return err
+	}
+
+	username := ""
+	if existing != nil {
+		username = existing.Username
+	}
+	l.svcCtx.InvalidateAdminCache(l.ctx, adminID, username)
+
+	return nil
 }

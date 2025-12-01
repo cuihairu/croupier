@@ -59,7 +59,9 @@ func (l *ProfileUpdateLogic) ProfileUpdate(req *types.ProfileUpdateRequest) (res
 		return nil, fmt.Errorf("更新个人资料失败: %w", err)
 	}
 
-	updated, err := l.svcCtx.AdminModel.FindOne(l.ctx, admin.ID)
+	l.svcCtx.InvalidateAdminCache(l.ctx, admin.ID, admin.Username)
+
+	updated, err := l.svcCtx.GetAdminCached(l.ctx, admin.ID)
 	if err != nil {
 		return nil, fmt.Errorf("查询更新后的资料失败: %w", err)
 	}

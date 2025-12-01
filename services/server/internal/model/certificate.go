@@ -12,10 +12,10 @@ type Certificate struct {
 	Domain         string `gorm:"size:255;uniqueIndex"`
 	CertificatePEM string `gorm:"type:text"`
 	PrivateKeyPEM  string `gorm:"type:text"`
-	Issuer         string `gorm:"size:255"`
-	ExpiresAt      time.Time
+	Issuer         string `gorm:"size:255;index"`
+	ExpiresAt      time.Time `gorm:"index"`
 	Status         string `gorm:"size:32;index"` // active, expiring, expired
-	LastCheckedAt  *time.Time
+	LastCheckedAt  *time.Time `gorm:"index"`
 	ErrorMessage   string `gorm:"type:text"`
 }
 
@@ -28,8 +28,8 @@ type CertificateAlert struct {
 	gorm.Model
 	Domain          string `gorm:"size:255;index"`
 	ThresholdDays   int    `gorm:"default:30"`
-	Active          bool   `gorm:"default:true"`
-	LastTriggeredAt *time.Time
+	Active          bool   `gorm:"default:true;index"`
+	LastTriggeredAt *time.Time `gorm:"index"`
 }
 
 func (CertificateAlert) TableName() string {

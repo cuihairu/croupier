@@ -39,5 +39,16 @@ func (l *AdminPasswordResetLogic) AdminPasswordReset(req *types.AdminPasswordRes
 		return err
 	}
 
-	return l.svcCtx.AdminModel.UpdatePassword(l.ctx, adminID, password)
+	admin, err := l.svcCtx.AdminModel.FindOne(l.ctx, adminID)
+	if err != nil {
+		return err
+	}
+
+	if err := l.svcCtx.AdminModel.UpdatePassword(l.ctx, adminID, password); err != nil {
+		return err
+	}
+
+	l.svcCtx.InvalidateAdminCache(l.ctx, adminID, admin.Username)
+
+	return nil
 }

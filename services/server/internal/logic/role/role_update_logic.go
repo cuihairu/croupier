@@ -79,14 +79,16 @@ func (l *RoleUpdateLogic) RoleUpdate(req *types.RoleUpdateRequest) (*types.RoleU
 		return nil, err
 	}
 
-	role, err := l.svcCtx.RoleModel.FindOne(l.ctx, roleID)
+	l.svcCtx.InvalidateRoleCache(l.ctx, roleID)
+
+	role, err := l.svcCtx.GetRoleCached(l.ctx, roleID)
 	if err != nil {
 		return nil, err
 	}
 
 	perms := normalizedPermissions
 	if !updatePermissions {
-		perms, err = l.svcCtx.RoleModel.GetRolePermissionIDs(l.ctx, roleID)
+		perms, err = l.svcCtx.GetRolePermissionIDsCached(l.ctx, roleID)
 		if err != nil {
 			return nil, err
 		}

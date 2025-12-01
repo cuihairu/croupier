@@ -59,7 +59,9 @@ func (l *GameUpdateLogic) GameUpdate(req *types.GameUpdateRequest) (*types.GameU
 		return nil, err
 	}
 
-	game, err := l.svcCtx.GameModel.FindOne(l.ctx, id)
+	l.svcCtx.InvalidateGameCache(l.ctx, id)
+
+	game, err := l.svcCtx.GetGameCached(l.ctx, id)
 	if err != nil {
 		return nil, err
 	}

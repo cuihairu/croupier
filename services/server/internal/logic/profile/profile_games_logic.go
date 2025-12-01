@@ -67,7 +67,7 @@ func (l *ProfileGamesLogic) loadGameCatalog() []model.Game {
 	if l.svcCtx.GameModel == nil {
 		return nil
 	}
-	games, err := l.svcCtx.GameModel.ListAll(l.ctx)
+	games, err := l.svcCtx.ListAllGamesCached(l.ctx)
 	if err != nil {
 		logx.Errorf("failed to load game catalog: %v", err)
 		return nil

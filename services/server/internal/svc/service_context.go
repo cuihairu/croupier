@@ -18,6 +18,7 @@ import (
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	"github.com/cuihairu/croupier/services/server/internal/cache"
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/runtime"
@@ -34,6 +35,8 @@ type ServiceContext struct {
 	PermissionService *permission.PermissionService
 	RegistryStore     *reg.Store
 	Dispatcher        *dispatch.Dispatcher
+	Cache             cache.CacheStore
+	CacheHelper       *cache.CacheHelper
 
 	ComponentManager *pack.ComponentManager
 	ComponentLock    *sync.RWMutex
@@ -139,12 +142,22 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 	approvalsStore := approvals.NewMemStore()
 
+	// 初始化缓存
+	cacheStore, err := cache.NewCacheStore(c.Cache)
+	if err != nil {
+		logx.Errorf("Failed to initialize cache, using NullCache: %v", err)
+		cacheStore = cache.NewNullCache()
+	}
+	cacheHelper := cache.NewCacheHelper(cacheStore)
+
 	ctx := &ServiceContext{
 		Config:            c,
 		AdminManager:      adminManager,
 		OpsStateStore:     opsStateStore,
 		DB:                db,
 		PermissionService: permissionService,
+		Cache:             cacheStore,
+		CacheHelper:       cacheHelper,
 
 		AdminModel:         adminModel,
 		AlertModel:         alertModel,
@@ -376,6 +389,33 @@ func seedBootstrapRoles(ctx *ServiceContext) error {
 			logx.Errorf("校验角色 %s 权限失败: %v", code, err)
 			continue
 		}
+
+		// 获取现有权限
+		existingPerms, err := ctx.RoleModel.GetRolePermissionIDs(bg, dbRole.ID)
+		if err != nil {
+			logx.Errorf("查询角色 %s 现有权限失败: %v", code, err)
+			continue
+		}
+
+		// 如果已有权限数量匹配且内容相同，跳过
+		if len(existingPerms) == len(normalized) {
+			existingPermMap := make(map[string]bool)
+			for _, ep := range existingPerms {
+				existingPermMap[ep] = true
+			}
+			allMatch := true
+			for _, perm := range normalized {
+				if !existingPermMap[perm] {
+					allMatch = false
+					break
+				}
+			}
+			if allMatch {
+				continue // 权限完全一致，跳过更新
+			}
+		}
+
+		// 使用 ReplacePermissions 更新，它会先删除旧的再插入新的
 		if err := ctx.RoleModel.ReplacePermissions(bg, dbRole.ID, normalized); err != nil {
 			logx.Errorf("更新角色 %s 权限失败: %v", code, err)
 		}

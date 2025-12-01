@@ -34,12 +34,12 @@ func (l *RoleDetailLogic) RoleDetail(req *types.RoleDetailRequest) (*types.RoleD
 		return nil, err
 	}
 
-	role, err := l.svcCtx.RoleModel.FindOne(l.ctx, roleID)
+	role, err := l.svcCtx.GetRoleCached(l.ctx, roleID)
 	if err != nil {
 		return nil, err
 	}
 
-	permissions, err := l.svcCtx.RoleModel.GetRolePermissionIDs(l.ctx, role.ID)
+	permissions, err := l.svcCtx.GetRolePermissionIDsCached(l.ctx, role.ID)
 	if err != nil {
 		return nil, err
 	}

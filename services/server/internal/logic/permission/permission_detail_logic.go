@@ -34,7 +34,7 @@ func (l *PermissionDetailLogic) PermissionDetail(req *types.PermissionDetailRequ
 		return nil, err
 	}
 
-	perm, err := l.svcCtx.PermissionModel.FindOne(l.ctx, id)
+	perm, err := l.svcCtx.GetPermissionCached(l.ctx, id)
 	if err != nil {
 		return nil, err
 	}

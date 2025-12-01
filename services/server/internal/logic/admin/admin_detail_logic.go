@@ -34,12 +34,12 @@ func (l *AdminDetailLogic) AdminDetail(req *types.AdminDetailRequest) (*types.Ad
 		return nil, err
 	}
 
-	admin, err := l.svcCtx.AdminModel.FindOne(l.ctx, adminID)
+	admin, err := l.svcCtx.GetAdminCached(l.ctx, adminID)
 	if err != nil {
 		return nil, err
 	}
 
-	roles, err := l.svcCtx.AdminModel.GetAdminRoles(l.ctx, admin.ID)
+	roles, err := l.svcCtx.GetAdminRolesCached(l.ctx, admin.ID)
 	if err != nil {
 		return nil, fmt.Errorf("获取管理员角色失败: %w", err)
 	}

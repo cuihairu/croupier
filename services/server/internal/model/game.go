@@ -10,15 +10,15 @@ import (
 // Game 游戏结构体
 type Game struct {
 	gorm.Model
-	Name        string         `gorm:"size:128;not null"`
+	Name        string         `gorm:"size:128;not null;index"`
 	Icon        string         `gorm:"size:255"`
 	Description string         `gorm:"type:text"`
-	Enabled     bool           `gorm:"default:true"`
-	AliasName   string         `gorm:"size:64"`
+	Enabled     bool           `gorm:"default:true;index"`
+	AliasName   string         `gorm:"size:64;uniqueIndex"`
 	Homepage    string         `gorm:"size:255"`
-	Status      string         `gorm:"size:32;default:'dev'"` // dev, test, running, online, offline, maintenance
-	GameType    string         `gorm:"size:64"`
-	GenreCode   string         `gorm:"size:64"`
+	Status      string         `gorm:"size:32;default:'dev';index"` // dev, test, running, online, offline, maintenance
+	GameType    string         `gorm:"size:64;index"`
+	GenreCode   string         `gorm:"size:64;index"`
 	Config      string         `gorm:"type:text"` // 游戏配置 JSON
 	Color       string         `gorm:"size:32"`
 	Envs        datatypes.JSON `gorm:"type:json"` // 环境列表 JSON

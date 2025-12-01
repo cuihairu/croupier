@@ -37,7 +37,7 @@ func (l *RoleDeleteLogic) RoleDelete(req *types.RoleDeleteRequest) error {
 		return err
 	}
 
-	return l.svcCtx.DB.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
+	if err := l.svcCtx.DB.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
 		roleModel := model.NewRoleModel(tx)
 		if _, err := roleModel.FindOne(l.ctx, roleID); err != nil {
 			return err
@@ -50,5 +50,10 @@ func (l *RoleDeleteLogic) RoleDelete(req *types.RoleDeleteRequest) error {
 		}
 
 		return roleModel.Delete(l.ctx, roleID)
-	})
+	}); err != nil {
+		return err
+	}
+
+	l.svcCtx.InvalidateRoleCache(l.ctx, roleID)
+	return nil
 }

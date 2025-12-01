@@ -79,6 +79,8 @@ func (l *LoginLogic) authenticateDBUser(username, password string) (*model.Admin
 		return nil, nil, err
 	}
 
+	l.svcCtx.InvalidateAdminCache(l.ctx, admin.ID, admin.Username)
+
 	roleModels, err := l.svcCtx.AdminModel.GetAdminRoles(l.ctx, admin.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("获取管理员角色失败: %w", err)

@@ -15,9 +15,10 @@ import (
 )
 
 type AuthMiddleware struct {
-	svcCtx     *svc.ServiceContext
-	allowPaths map[string]struct{}
-	allowPref  []string
+	svcCtx             *svc.ServiceContext
+	allowPaths         map[string]struct{}
+	allowPref          []string
+	publicReadPrefixes []string
 }
 
 func NewAuthMiddleware(svcCtx *svc.ServiceContext) *AuthMiddleware {
@@ -30,6 +31,9 @@ func NewAuthMiddleware(svcCtx *svc.ServiceContext) *AuthMiddleware {
 		},
 		allowPref: []string{
 			"/api/v1/auth/login",
+		},
+		publicReadPrefixes: []string{
+			"/api/v1/configs",
 		},
 	}
 }
@@ -127,6 +131,13 @@ func (m *AuthMiddleware) shouldBypass(r *http.Request) bool {
 	for _, prefix := range m.allowPref {
 		if strings.HasPrefix(path, prefix) {
 			return true
+		}
+	}
+	if r.Method == http.MethodGet {
+		for _, prefix := range m.publicReadPrefixes {
+			if strings.HasPrefix(path, prefix) {
+				return true
+			}
 		}
 	}
 	return false

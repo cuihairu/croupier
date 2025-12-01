@@ -47,6 +47,8 @@ func (l *GameCreateLogic) GameCreate(req *types.GameCreateRequest) (*types.GameC
 		return nil, err
 	}
 
+	l.svcCtx.InvalidateGameCache(l.ctx, game.ID)
+
 	return &types.GameCreateResponse{
 		Code:    0,
 		Message: "OK",
