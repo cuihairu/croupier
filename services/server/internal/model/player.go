@@ -13,7 +13,7 @@ type Player struct {
 	Phone    string `gorm:"size:32;index"`
 	GameID   string `gorm:"size:64;index:idx_player_game_status,priority:1;index:idx_player_username_game,priority:2;not null"`
 	Status   int    `gorm:"default:1;index:idx_player_game_status,priority:2"` // 1:active 0:banned 2:suspended
-	Balance  int64  `gorm:"default:0;index"`                                    // 游戏货币
+	Balance  int64  `gorm:"default:0;index"`                                   // 游戏货币
 	Level    int    `gorm:"default:1;index"`
 	VIP      int    `gorm:"default:0;index"`
 	Password string `gorm:"size:255"` // 密码哈希
