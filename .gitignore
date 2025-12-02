@@ -108,3 +108,7 @@ services/*/logs/
 # Python bytecode caches
 sdks/python/croupier/__pycache__/
 sdks/python/examples/__pycache__/
+sdks/cpp/build/
+sdks/cpp/bin/
+sdks/cpp/lib/
+build/
