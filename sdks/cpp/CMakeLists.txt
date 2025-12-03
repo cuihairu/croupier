@@ -118,7 +118,13 @@ if(MSVC)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 else()
     # GCC/Clang settings
-    add_compile_options(-Wall -Wextra -Werror -Wno-error=deprecated-declarations -Wno-error=unused-parameter)
+    add_compile_options(-Wall -Wextra -Werror)
+
+    # Suppress warnings from third-party libraries (protobuf, gRPC)
+    add_compile_options(
+        -Wno-deprecated-declarations    # Suppress protobuf deprecated API warnings
+        -Wno-unused-parameter           # Suppress gRPC unused parameter warnings
+    )
 
     # Enable debug info in release builds for better profiling
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
