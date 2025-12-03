@@ -1,0 +1,79 @@
+{
+    "java.compile.nullAnalysis.mode": "automatic",
+    // 使用 ${workspaceFolder} 变量，支持跨平台
+    "cmake.sourceDirectory": "${workspaceFolder}/sdks/cpp",
+    "java.configuration.updateBuildConfiguration": "automatic",
+
+    // ========== C++ 性能优化配置 ==========
+    // 1. files.exclude - 完全隐藏这些目录（最严格）
+    "files.exclude": {
+        "**/node_modules": true,
+        "**/.git": true,
+        "**/.DS_Store": true,
+        // C++ 构建产物和依赖
+        "**/vcpkg_installed": true,
+        "**/build": true,
+        "**/.cmake": true,
+        "**/.vscode-test": true
+    },
+
+    // 2. search.exclude - 排除搜索（中等级别）
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/bower_components": true,
+        "**/.git": true,
+        "**/bin": true,
+        "**/gen": true,
+        // C++ 相关
+        "**/vcpkg_installed": true,
+        "**/build": true,
+        "**/generated": true,
+        "**/*.pb.h": true,
+        "**/*.pb.cc": true,
+        "**/*.grpc.pb.h": true,
+        "**/*.grpc.pb.cc": true
+    },
+
+    // 3. C_Cpp.files.exclude - C++ 扩展专用排除（针对性优化）
+    "C_Cpp.files.exclude": {
+        // 构建目录
+        "**/build/**": true,
+        "**/vcpkg_installed/**": true,
+        "**/.cmake/**": true,
+        "**/CMakeFiles/**": true,
+
+        // 生成的 protobuf 代码（只需要索引，不需要 IntelliSense）
+        "**/generated/**/*.pb.h": true,
+        "**/generated/**/*.pb.cc": true,
+        "**/generated/**/*.grpc.pb.h": true,
+        "**/generated/**/*.grpc.pb.cc": true,
+
+        // Node.js 相关
+        "**/node_modules/**": true,
+        "**/dashboard/node_modules/**": true,
+        "**/docs/node_modules/**": true,
+
+        // 其他构建产物
+        "**/bin/**": true,
+        "**/gen/**": true,
+        "**/*.o": true,
+        "**/*.a": true,
+        "**/*.so": true,
+        "**/*.dylib": true
+    },
+
+    // C++ IntelliSense 配置优化
+    "C_Cpp.intelliSenseEngine": "default",
+    "C_Cpp.intelliSenseEngineFallback": "enabled",
+    "C_Cpp.autocomplete": "default",
+    "C_Cpp.errorSquiggles": "enabled",
+
+    // 减少 CPU 使用 - 使用相对路径变量
+    "C_Cpp.intelliSenseCachePath": "${workspaceFolder}/.vscode/.intellisense-cache",
+    "C_Cpp.intelliSenseCacheSize": 2048,
+    "C_Cpp.workspaceParsingPriority": "medium",
+
+    // 禁用不需要的功能
+    "C_Cpp.experimentalFeatures": "disabled",
+    "C_Cpp.enhancedColorization": "disabled"
+}

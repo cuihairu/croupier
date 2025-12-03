@@ -41,7 +41,10 @@ logs/
 .DS_Store
 .bufcache
 .claude
-.vscode/settings.json
+# 允许团队共享的 VSCode 配置（使用 ${workspaceFolder} 变量）
+# .vscode/settings.json  # 已注释，允许提交
+.vscode/settings.local.json  # 个人配置放这里
+.vscode/.intellisense-cache
 node_modules/
 
 # Local binaries (root)
