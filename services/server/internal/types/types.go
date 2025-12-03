@@ -2158,6 +2158,43 @@ type RealtimeSeriesResponse struct {
 	Series interface{} `json:"series"`
 }
 
+type RegistryAgent struct {
+	AgentID      string `json:"AgentID"`
+	GameID       string `json:"GameID,omitempty"`
+	Env          string `json:"Env,omitempty"`
+	RpcAddr      string `json:"RpcAddr,omitempty"`
+	Functions    int    `json:"Functions"`
+	Healthy      bool   `json:"Healthy"`
+	ExpiresInSec int    `json:"ExpiresInSec"`
+}
+
+type RegistryCoverage struct {
+	GameEnv   string                          `json:"game_env"`
+	Functions map[string]RegistryCoverageStat `json:"functions"`
+	Uncovered []string                        `json:"uncovered,optional"`
+}
+
+type RegistryCoverageStat struct {
+	Healthy int `json:"healthy"`
+	Total   int `json:"total"`
+}
+
+type RegistryFunction struct {
+	GameID string   `json:"GameID,omitempty"`
+	ID     string   `json:"ID"`
+	Agents []string `json:"Agents,omitempty"`
+}
+
+type RegistryRequest struct {
+}
+
+type RegistryResponse struct {
+	Agents      []RegistryAgent     `json:"agents"`
+	Functions   []RegistryFunction  `json:"functions"`
+	Assignments map[string][]string `json:"assignments"`
+	Coverage    []RegistryCoverage  `json:"coverage"`
+}
+
 type RetentionCohort struct {
 	Cohort    string    `json:"cohort"`
 	Users     int       `json:"users"`

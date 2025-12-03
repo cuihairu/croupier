@@ -49,6 +49,7 @@ import "modules/feedback.api" // 拆分自 support.api
 // === 系统级模块 ===
 import "modules/monitoring.api"
 import "modules/audit.api"
+import "modules/registry.api"
 import "modules/message.api"
 import "modules/approval.api"
 import "modules/certificate.api"
