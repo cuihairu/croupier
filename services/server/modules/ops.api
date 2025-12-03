@@ -28,7 +28,7 @@ type OpsAlertSilenceResponse {
 
 type OpsAlertsRequest {}
 
-type OpsAlert struct {
+type OpsAlert {
 	Severity    string                 `json:"severity,omitempty"`
 	Service     string                 `json:"service,omitempty"`
 	Instance    string                 `json:"instance,omitempty"`
@@ -377,3 +377,4 @@ service server {
 	@handler OpsSilencesHandler
 	get /silences (OpsSilencesRequest) returns (OpsSilencesResponse)
 }
+
