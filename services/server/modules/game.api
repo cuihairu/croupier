@@ -23,6 +23,7 @@ type GameInfo {
 	Status      string        `json:"status"`
 	GameType    string        `json:"gameType,optional"`
 	GenreCode   string        `json:"genreCode,optional"`
+	Color       string        `json:"color,optional"`
 	Envs        []GameEnvItem `json:"envs,optional"`
 	CreatedAt   string        `json:"createdAt,optional"`
 	UpdatedAt   string        `json:"updatedAt,optional"`

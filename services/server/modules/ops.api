@@ -4,6 +4,47 @@
 // ============================================================================
 // 类型定义
 // ============================================================================
+// 健康检查项
+type OpsHealthCheck {
+	ID          string `json:"id"`
+	Name        string `json:"name,optional"`
+	Enabled     bool   `json:"enabled"`
+	Type        string `json:"type,optional"`
+	Kind        string `json:"kind,optional"`
+	Target      string `json:"target,optional"`
+	Expect      string `json:"expect,optional"`
+	Region      string `json:"region,optional"`
+	Interval    int    `json:"interval,optional"`
+	IntervalSec int    `json:"intervalSec,optional"`
+	TimeoutMs   int    `json:"timeoutMs,optional"`
+}
+
+// 通知渠道
+type OpsNotificationChannel {
+	ID     string `json:"id"`
+	Type   string `json:"type"`
+	URL    string `json:"url"`
+	Secret string `json:"secret,optional"`
+}
+
+// 通知规则
+type OpsNotificationRule {
+	Event         string   `json:"event"`
+	Channels      []string `json:"channels"`
+	ThresholdDays int      `json:"thresholdDays,optional"`
+}
+
+// 维护窗口
+type OpsMaintenanceWindow {
+	ID          string `json:"id,optional"`
+	GameID      string `json:"gameId,optional"`
+	Env         string `json:"env,optional"`
+	Start       string `json:"start"`
+	End         string `json:"end"`
+	Message     string `json:"message,optional"`
+	BlockWrites bool   `json:"blockWrites,optional"`
+}
+
 type OpsAgentMetaUpdateRequest {
 	AgentID string      `json:"agentId"`
 	Meta    interface{} `json:"meta"`
@@ -110,7 +151,9 @@ type OpsHealthGetResponse {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-type OpsHealthRunRequest {}
+type OpsHealthRunRequest {
+	ID string `json:"id,optional"`
+}
 
 type OpsHealthRunResponse {
 	Code    int         `json:"code"`
@@ -119,7 +162,8 @@ type OpsHealthRunResponse {
 }
 
 type OpsHealthUpdateRequest {
-	Enabled bool `json:"enabled"`
+	Enabled bool              `json:"enabled"`
+	Checks  []OpsHealthCheck  `json:"checks,optional"`
 }
 
 type OpsHealthUpdateResponse {
@@ -137,8 +181,9 @@ type OpsMaintenanceGetResponse {
 }
 
 type OpsMaintenanceUpdateRequest {
-	Enabled bool   `json:"enabled"`
-	Message string `json:"message,optional"`
+	Enabled bool                    `json:"enabled"`
+	Message string                  `json:"message,optional"`
+	Windows []OpsMaintenanceWindow  `json:"windows,optional"`
 }
 
 type OpsMaintenanceUpdateResponse {
@@ -225,8 +270,9 @@ type OpsNotificationsGetResponse {
 }
 
 type OpsNotificationsUpdateRequest {
-	Enabled  bool     `json:"enabled"`
-	Channels []string `json:"channels,optional"`
+	Enabled  bool                      `json:"enabled"`
+	Channels []OpsNotificationChannel  `json:"channels,optional"`
+	Rules    []OpsNotificationRule     `json:"rules,optional"`
 }
 
 type OpsNotificationsUpdateResponse {

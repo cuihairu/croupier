@@ -10,13 +10,15 @@ type PacksExportRequest {
 }
 
 type PacksExportResponse {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Filename    string `json:"filename,omitempty"`
+	ContentType string `json:"contentType,omitempty"`
+	Content     []byte `json:"content,omitempty"`
 }
 
 // --- Pack 导入 ---
-type PacksImportRequest {}
+type PacksImportRequest {
+	Archive string `json:"archive"`
+}
 
 type PacksImportResponse {
 	Code    int         `json:"code"`
@@ -31,18 +33,19 @@ type PacksListRequest {
 }
 
 type PacksListResponse {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Manifest           interface{} `json:"manifest,omitempty"`
+	Packs              interface{} `json:"packs,omitempty"`
+	Counts             interface{} `json:"counts,omitempty"`
+	ETag               string      `json:"etag,omitempty"`
+	ExportAuthRequired bool        `json:"exportAuthRequired,omitempty"`
 }
 
 // --- Pack 重载 ---
 type PacksReloadRequest {}
 
 type PacksReloadResponse {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	OK        bool   `json:"ok"`
+	UpdatedAt string `json:"updatedAt,optional"`
 }
 
 // ============================================================================
