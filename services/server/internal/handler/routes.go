@@ -38,7 +38,6 @@ import (
 	profile "github.com/cuihairu/croupier/services/server/internal/handler/profile"
 	provider "github.com/cuihairu/croupier/services/server/internal/handler/provider"
 	rate_limit "github.com/cuihairu/croupier/services/server/internal/handler/rate_limit"
-	registry "github.com/cuihairu/croupier/services/server/internal/handler/registry"
 	role "github.com/cuihairu/croupier/services/server/internal/handler/role"
 	schema "github.com/cuihairu/croupier/services/server/internal/handler/schema"
 	storage "github.com/cuihairu/croupier/services/server/internal/handler/storage"
@@ -52,8 +51,8 @@ import (
 )
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
+	// 创建认证中间件
 	authMiddleware := middleware.NewAuthMiddleware(serverCtx)
-	server.Use(authMiddleware.Handle)
 	server.AddRoutes(
 		[]rest.Route{
 			{
@@ -525,43 +524,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
-				// 列出配置
-				Method:  http.MethodGet,
-				Path:    "/",
-				Handler: config.ConfigsListHandler(serverCtx),
-			},
-			{
-				// 读取配置详情
-				Method:  http.MethodGet,
-				Path:    "/:id",
-				Handler: config.ConfigDetailHandler(serverCtx),
-			},
-			{
-				// 保存配置
-				Method:  http.MethodPost,
-				Path:    "/:id",
-				Handler: config.ConfigSaveHandler(serverCtx),
-			},
-			{
-				// 校验配置
-				Method:  http.MethodPost,
-				Path:    "/:id/validate",
-				Handler: config.ConfigValidateHandler(serverCtx),
-			},
-			{
-				// 配置历史版本
-				Method:  http.MethodGet,
-				Path:    "/:id/versions",
-				Handler: config.ConfigItemVersionsHandler(serverCtx),
-			},
-			{
-				// 配置指定版本详情
-				Method:  http.MethodGet,
-				Path:    "/:id/versions/:version",
-				Handler: config.ConfigItemVersionDetailHandler(serverCtx),
-			},
-			{
-				// 创建或更新配置(兼容旧接口)
+				// 创建或更新配置
 				Method:  http.MethodPost,
 				Path:    "/",
 				Handler: config.ConfigUpsertHandler(serverCtx),
@@ -927,18 +890,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
-				// 获取注册表信息
-				Method:  http.MethodGet,
-				Path:    "/",
-				Handler: registry.RegistryHandler(serverCtx),
-			},
-		},
-		rest.WithPrefix("/api/v1/registry"),
-	)
-
-	server.AddRoutes(
-		[]rest.Route{
-			{
 				// 根路径 - API 信息和版本
 				Method:  http.MethodGet,
 				Path:    "/",
@@ -1284,31 +1235,31 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				// 获取当前用户资料
 				Method:  http.MethodGet,
 				Path:    "/",
-				Handler: profile.ProfileGetHandler(serverCtx),
+				Handler: authMiddleware.Handle(profile.ProfileGetHandler(serverCtx)),
 			},
 			{
 				// 更新当前用户资料
 				Method:  http.MethodPut,
 				Path:    "/",
-				Handler: profile.ProfileUpdateHandler(serverCtx),
+				Handler: authMiddleware.Handle(profile.ProfileUpdateHandler(serverCtx)),
 			},
 			{
 				// 获取我的游戏
 				Method:  http.MethodGet,
 				Path:    "/games",
-				Handler: profile.ProfileGamesHandler(serverCtx),
+				Handler: authMiddleware.Handle(profile.ProfileGamesHandler(serverCtx)),
 			},
 			{
 				// 修改密码
 				Method:  http.MethodPut,
 				Path:    "/password",
-				Handler: profile.ProfilePasswordHandler(serverCtx),
+				Handler: authMiddleware.Handle(profile.ProfilePasswordHandler(serverCtx)),
 			},
 			{
 				// 获取当前用户权限
 				Method:  http.MethodGet,
 				Path:    "/permissions",
-				Handler: profile.ProfilePermissionsHandler(serverCtx),
+				Handler: authMiddleware.Handle(profile.ProfilePermissionsHandler(serverCtx)),
 			},
 		},
 		rest.WithPrefix("/api/v1/profile"),

@@ -62,10 +62,12 @@ type ProfileGamesRequest {
 }
 
 type ProfileGame {
-	GameId      string   `json:"gameId"`
-	GameName    string   `json:"gameName"`
-	Envs        []string `json:"envs"`
-	Permissions []string `json:"permissions"`
+	GameId      string      `json:"gameId"`
+	GameName    string      `json:"gameName"`
+	Color       string      `json:"color,optional"`
+	Envs        []string    `json:"envs"`
+	EnvMeta     interface{} `json:"envMeta,optional"`
+	Permissions []string    `json:"permissions"`
 }
 
 type ProfileGamesResponse {
