@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Croupier C++ SDK for Virtual Object Registration and gRPC Integration",
   "homepage": "https://github.com/cuihairu/croupier",
-  "builtin-baseline": "a11dd074dac3fa168aa8efb992cbb0220a3dc481",
+  "builtin-baseline": "4c4abc2e8727221ede31021349386dac674309b0",
   "supports": "windows & linux & osx",
   "dependencies": [
     {
