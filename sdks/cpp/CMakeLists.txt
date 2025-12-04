@@ -1,5 +1,23 @@
 cmake_minimum_required(VERSION 3.20)
 
+# Check for required build tools
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    # Ensure make is available on Linux
+    find_program(MAKE_PROGRAM make REQUIRED)
+    if(NOT MAKE_PROGRAM)
+        message(FATAL_ERROR "make is required but not found. Please install build-essential package.")
+    endif()
+    set(CMAKE_MAKE_PROGRAM ${MAKE_PROGRAM})
+endif()
+
+# Check for C++ compiler
+if(NOT CMAKE_CXX_COMPILER)
+    find_program(CMAKE_CXX_COMPILER NAMES g++ clang++ c++)
+    if(NOT CMAKE_CXX_COMPILER)
+        message(FATAL_ERROR "C++ compiler is required but not found. Please install g++ or clang++.")
+    endif()
+endif()
+
 project(croupier-cpp-sdk
     VERSION 0.1.0
     DESCRIPTION "Croupier C++ SDK for Game Function Registration"
