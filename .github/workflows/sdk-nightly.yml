@@ -85,7 +85,7 @@ jobs:
         run: |
           set -euxo pipefail
           VCPKG_ROOT="$PWD/.vcpkg"
-          git clone --depth 1 https://github.com/microsoft/vcpkg "$VCPKG_ROOT"
+          git clone https://github.com/microsoft/vcpkg "$VCPKG_ROOT"
           # Cache vcpkg downloads to speed up subsequent runs
           echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
           # Build only Release binaries for ports to halve build time
@@ -167,7 +167,7 @@ jobs:
             Remove-Item $env:VCPKG_ROOT -Recurse -Force
           }
           if ($needsClone) {
-            git clone --depth 1 https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
+            git clone https://github.com/microsoft/vcpkg $env:VCPKG_ROOT
           }
           # Build only Release binaries for ports to halve build time
           echo "VCPKG_BUILD_TYPE=release" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
