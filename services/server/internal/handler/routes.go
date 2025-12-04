@@ -38,21 +38,19 @@ import (
 	profile "github.com/cuihairu/croupier/services/server/internal/handler/profile"
 	provider "github.com/cuihairu/croupier/services/server/internal/handler/provider"
 	rate_limit "github.com/cuihairu/croupier/services/server/internal/handler/rate_limit"
+	registry "github.com/cuihairu/croupier/services/server/internal/handler/registry"
 	role "github.com/cuihairu/croupier/services/server/internal/handler/role"
 	schema "github.com/cuihairu/croupier/services/server/internal/handler/schema"
 	storage "github.com/cuihairu/croupier/services/server/internal/handler/storage"
 	ticket "github.com/cuihairu/croupier/services/server/internal/handler/ticket"
 	xrender "github.com/cuihairu/croupier/services/server/internal/handler/xrender"
 	xrender_schema "github.com/cuihairu/croupier/services/server/internal/handler/xrender_schema"
-	"github.com/cuihairu/croupier/services/server/internal/middleware"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
 )
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
-	// 创建认证中间件
-	authMiddleware := middleware.NewAuthMiddleware(serverCtx)
 	server.AddRoutes(
 		[]rest.Route{
 			{
@@ -1235,31 +1233,31 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				// 获取当前用户资料
 				Method:  http.MethodGet,
 				Path:    "/",
-				Handler: authMiddleware.Handle(profile.ProfileGetHandler(serverCtx)),
+				Handler: profile.ProfileGetHandler(serverCtx),
 			},
 			{
 				// 更新当前用户资料
 				Method:  http.MethodPut,
 				Path:    "/",
-				Handler: authMiddleware.Handle(profile.ProfileUpdateHandler(serverCtx)),
+				Handler: profile.ProfileUpdateHandler(serverCtx),
 			},
 			{
 				// 获取我的游戏
 				Method:  http.MethodGet,
 				Path:    "/games",
-				Handler: authMiddleware.Handle(profile.ProfileGamesHandler(serverCtx)),
+				Handler: profile.ProfileGamesHandler(serverCtx),
 			},
 			{
 				// 修改密码
 				Method:  http.MethodPut,
 				Path:    "/password",
-				Handler: authMiddleware.Handle(profile.ProfilePasswordHandler(serverCtx)),
+				Handler: profile.ProfilePasswordHandler(serverCtx),
 			},
 			{
 				// 获取当前用户权限
 				Method:  http.MethodGet,
 				Path:    "/permissions",
-				Handler: authMiddleware.Handle(profile.ProfilePermissionsHandler(serverCtx)),
+				Handler: profile.ProfilePermissionsHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/profile"),
@@ -1347,6 +1345,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/rate-limits"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取注册表信息
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: registry.RegistryHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/registry"),
 	)
 
 	server.AddRoutes(
