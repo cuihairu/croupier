@@ -46,12 +46,52 @@ jobs:
         uses: bufbuild/buf-setup-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install protobuf and grpc tools
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          # 使用固定版本的protoc (33.1)
+          PROTOC_VERSION="33.1"
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            OS_ARCH="linux-x86_64"
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            # 检测Mac架构
+            if [ "$(uname -m)" = "arm64" ]; then
+              OS_ARCH="osx-aarch_64"
+            else
+              OS_ARCH="osx-x86_64"
+            fi
+          fi
+
+          PROTOC_ZIP="protoc-${PROTOC_VERSION}-${OS_ARCH}.zip"
+          wget "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/${PROTOC_ZIP}"
+          unzip -o "$PROTOC_ZIP" -d "$HOME/protoc"
+          rm "$PROTOC_ZIP"
+          echo "$HOME/protoc/bin" >> $GITHUB_PATH
+
+          # 安装grpc插件
+          if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update -y
+            sudo apt-get install -y libgrpc++-dev protobuf-compiler-grpc
+          elif command -v brew >/dev/null 2>&1; then
+            brew update || true
+            brew install grpc || true
+          fi
+
+          # 安装Go protoc插件（固定版本）
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+
+          # 验证版本
+          "$HOME/protoc/bin/protoc" --version
       - name: Build protoc-gen-croupier
         if: runner.os != 'Windows'
         run: make croupier-plugin
       - name: Generate proto
         if: runner.os != 'Windows'
-        run: buf generate
+        run: |
+          export PATH="$HOME/go/bin:$PATH"
+          buf generate
       - name: Go mod download
         run: go mod download
       - name: Build (Linux/Mac)

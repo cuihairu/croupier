@@ -4,12 +4,12 @@ managed:
   go_package_prefix:
     default: github.com/cuihairu/croupier/pkg/pb
 plugins:
-  # Go plugins for new SDK structure
-  - plugin: buf.build/protocolbuffers/go
+  # Go plugins for new SDK structure - using local protoc-gen-go (from PATH)
+  - name: go
     out: pkg/pb
     opt:
       - paths=source_relative
-  - plugin: buf.build/grpc/go
+  - name: go-grpc
     out: pkg/pb
     opt:
       - paths=source_relative
@@ -22,35 +22,44 @@ plugins:
     opt:
       - emit_pack=true
 
-  # Generate C++ code for SDK
-  - plugin: buf.build/protocolbuffers/cpp
+  # Generate C++ code for SDK using local protoc
+  - name: cpp
     out: sdks/cpp/generated
+    strategy: all
 
-  # Generate Java code for SDK
+  # Generate C++ gRPC code using grpc_cpp_plugin
+  - name: grpc-cpp
+    path: grpc_cpp_plugin
+    out: sdks/cpp/generated
+    strategy: all
+
+  # Generate Java code for SDK - keep remote plugin (no local java plugin)
   - plugin: buf.build/protocolbuffers/java
     out: sdks/java/generated
 
-  # Java gRPC plugin
+  # Java gRPC plugin - keep remote plugin (no local java plugin)
   - plugin: buf.build/grpc/java
     out: sdks/java/generated
 
-  # Generate Go code for SDK
-  - plugin: buf.build/protocolbuffers/go
+  # Generate Go code for SDK - using local protoc-gen-go (from PATH)
+  - name: go
     out: sdks/go/generated
     opt:
       - paths=source_relative
-  - plugin: buf.build/grpc/go
+  - name: go-grpc
     out: sdks/go/generated
     opt:
       - paths=source_relative
 
-  # Generate Python code for SDK
-  - plugin: buf.build/protocolbuffers/python
+  # Generate Python code for SDK - using local protoc
+  - name: python
     out: sdks/python/generated
-  - plugin: buf.build/grpc/python
+  # Generate Python gRPC code using grpc_python_plugin
+  - name: grpc-python
+    path: grpc_python_plugin
     out: sdks/python/generated
 
-  # Generate JavaScript/TypeScript code for SDK (modern approach)
+  # Generate JavaScript/TypeScript code for SDK - keep remote plugin (specialized)
   - plugin: buf.build/bufbuild/es
     out: sdks/js/generated
     opt:

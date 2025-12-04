@@ -50,6 +50,97 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Go (for buf generate)
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install protobuf and grpc tools (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          # 使用固定版本的protoc (33.1)
+          PROTOC_VERSION="33.1"
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            OS_ARCH="linux-x86_64"
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            # 检测Mac架构
+            if [ "$(uname -m)" = "arm64" ]; then
+              OS_ARCH="osx-aarch_64"
+            else
+              OS_ARCH="osx-x86_64"
+            fi
+          fi
+
+          PROTOC_ZIP="protoc-${PROTOC_VERSION}-${OS_ARCH}.zip"
+          wget "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/${PROTOC_ZIP}"
+          unzip -o "$PROTOC_ZIP" -d "$HOME/protoc"
+          rm "$PROTOC_ZIP"
+          echo "$HOME/protoc/bin" >> $GITHUB_PATH
+
+          # 安装grpc工具
+          if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update -y
+            sudo apt-get install -y libgrpc++-dev protobuf-compiler-grpc
+          elif command -v brew >/dev/null 2>&1; then
+            brew update || true
+            brew install grpc || true
+          fi
+
+          # 安装Go protoc插件（固定版本）
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+
+          # 验证安装
+          "$HOME/protoc/bin/protoc" --version
+          which grpc_cpp_plugin || echo "grpc_cpp_plugin not found in PATH"
+
+      - name: Install protobuf and grpc tools (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # 使用固定版本的protoc (33.1)
+          $PROTOC_VERSION = "33.1"
+          $PROTOC_ZIP = "protoc-$PROTOC_VERSION-win64.zip"
+          $PROTOC_URL = "https://github.com/protocolbuffers/protobuf/releases/download/v$PROTOC_VERSION/$PROTOC_ZIP"
+
+          # 下载并解压protoc
+          Invoke-WebRequest -Uri $PROTOC_URL -OutFile $PROTOC_ZIP
+          Expand-Archive -Path $PROTOC_ZIP -DestinationPath "$HOME\protoc" -Force
+          Remove-Item $PROTOC_ZIP
+
+          # 添加到PATH
+          echo "$HOME\protoc\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+          # 安装Go protoc插件（固定版本）
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+
+          # 验证版本
+          & "$HOME\protoc\bin\protoc.exe" --version
+
+      - name: Build protoc-gen-croupier
+        shell: bash
+        run: |
+          make croupier-plugin
+          ls -la bin/protoc-gen-croupier
+
+      - name: Generate protobuf code
+        shell: bash
+        run: |
+          # Ensure Go bin is in PATH for protoc-gen-go plugins
+          export PATH="$HOME/go/bin:$PATH"
+          buf generate
+          # Verify C++ code was generated
+          ls -la sdks/cpp/generated/croupier/agent/local/v1/ || echo "Generated code not found"
+
       - name: Setup CMake
         uses: lukka/get-cmake@latest
 
