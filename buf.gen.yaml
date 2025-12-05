@@ -34,12 +34,13 @@ plugins:
     out: sdks/cpp/generated
     strategy: all
 
-  # Generate Java code for SDK - keep remote plugin (no local java plugin)
-  - plugin: buf.build/protocolbuffers/java
+  # Generate Java code for SDK - using local protoc-gen-java (from PATH)
+  - name: java
     out: sdks/java/generated
 
-  # Java gRPC plugin - keep remote plugin (no local java plugin)
-  - plugin: buf.build/grpc/java
+  # Java gRPC plugin - using local grpc_java_plugin (from PATH)
+  - name: grpc-java
+    path: protoc-gen-grpc-java
     out: sdks/java/generated
 
   # Generate Go code for SDK - using local protoc-gen-go (from PATH)
@@ -60,12 +61,14 @@ plugins:
     path: grpc_python_plugin
     out: sdks/python/generated
 
-  # Generate JavaScript/TypeScript code for SDK - keep remote plugin (specialized)
-  - plugin: buf.build/bufbuild/es
+  # Generate JavaScript/TypeScript code for SDK - using local protoc-gen-es (from PATH)
+  - name: es
+    path: protoc-gen-es
     out: sdks/js/generated
     opt:
-      - target=ts  # 生成 TypeScript
-  - plugin: buf.build/connectrpc/es
+      - target=ts
+  - name: connect-es
+    path: protoc-gen-connect-es
     out: sdks/js/generated
     opt:
-      - target=ts  # 生成 Connect RPC TypeScript
+      - target=ts

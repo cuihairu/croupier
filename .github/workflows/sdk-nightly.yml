@@ -66,8 +66,8 @@ jobs:
         run: |
           set -euxo pipefail
 
-          # 使用固定版本的protoc (33.1)
-          PROTOC_VERSION="33.1"
+          # 使用固定版本的protoc (28.3) - 兼容 vcpkg protobuf 5.28.x
+          PROTOC_VERSION="28.3"
           if [ "$RUNNER_OS" = "Linux" ]; then
             OS_ARCH="linux-x86_64"
           elif [ "$RUNNER_OS" = "macOS" ]; then
@@ -98,16 +98,41 @@ jobs:
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
 
+          # 安装Java gRPC插件
+          GRPC_JAVA_VERSION="1.68.1"
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            GRPC_JAVA_ARCH="linux-x86_64"
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            if [ "$(uname -m)" = "arm64" ]; then
+              GRPC_JAVA_ARCH="osx-aarch_64"
+            else
+              GRPC_JAVA_ARCH="osx-x86_64"
+            fi
+          fi
+          wget "https://repo1.maven.org/maven2/io/grpc/protoc-gen-grpc-java/${GRPC_JAVA_VERSION}/protoc-gen-grpc-java-${GRPC_JAVA_VERSION}-${GRPC_JAVA_ARCH}.exe" -O "$HOME/protoc/bin/protoc-gen-grpc-java"
+          chmod +x "$HOME/protoc/bin/protoc-gen-grpc-java"
+
           # 验证安装
           "$HOME/protoc/bin/protoc" --version
           which grpc_cpp_plugin || echo "grpc_cpp_plugin not found in PATH"
+
+      - name: Install JS/TS protoc plugins (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          # 安装 protoc-gen-es 和 protoc-gen-connect-es
+          npm install -g @bufbuild/protoc-gen-es @connectrpc/protoc-gen-connect-es
+          # 验证安装
+          which protoc-gen-es || echo "protoc-gen-es not found"
+          which protoc-gen-connect-es || echo "protoc-gen-connect-es not found"
 
       - name: Install protobuf and grpc tools (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          # 使用固定版本的protoc (33.1)
-          $PROTOC_VERSION = "33.1"
+          # 使用固定版本的protoc (28.3) - 兼容 vcpkg protobuf 5.28.x
+          $PROTOC_VERSION = "28.3"
           $PROTOC_ZIP = "protoc-$PROTOC_VERSION-win64.zip"
           $PROTOC_URL = "https://github.com/protocolbuffers/protobuf/releases/download/v$PROTOC_VERSION/$PROTOC_ZIP"
 
@@ -123,8 +148,20 @@ jobs:
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
 
+          # 安装Java gRPC插件
+          $GRPC_JAVA_VERSION = "1.68.1"
+          $GRPC_JAVA_URL = "https://repo1.maven.org/maven2/io/grpc/protoc-gen-grpc-java/$GRPC_JAVA_VERSION/protoc-gen-grpc-java-$GRPC_JAVA_VERSION-windows-x86_64.exe"
+          Invoke-WebRequest -Uri $GRPC_JAVA_URL -OutFile "$HOME\protoc\bin\protoc-gen-grpc-java.exe"
+
           # 验证版本
           & "$HOME\protoc\bin\protoc.exe" --version
+
+      - name: Install JS/TS protoc plugins (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # 安装 protoc-gen-es 和 protoc-gen-connect-es
+          npm install -g @bufbuild/protoc-gen-es @connectrpc/protoc-gen-connect-es
 
       - name: Build protoc-gen-croupier
         shell: bash

@@ -21,8 +21,8 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install protobuf and grpc tools
         run: |
-          # 使用固定版本的protoc (33.1)
-          PROTOC_VERSION="33.1"
+          # 使用固定版本的protoc (28.3) - 兼容 vcpkg protobuf 5.28.x
+          PROTOC_VERSION="28.3"
           PROTOC_ZIP="protoc-${PROTOC_VERSION}-linux-x86_64.zip"
           wget "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/${PROTOC_ZIP}"
           unzip -o "$PROTOC_ZIP" -d "$HOME/protoc"
@@ -36,6 +36,14 @@ jobs:
           # 安装Go protoc插件（固定版本）
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+
+          # 安装Java gRPC插件
+          GRPC_JAVA_VERSION="1.68.1"
+          wget "https://repo1.maven.org/maven2/io/grpc/protoc-gen-grpc-java/${GRPC_JAVA_VERSION}/protoc-gen-grpc-java-${GRPC_JAVA_VERSION}-linux-x86_64.exe" -O "$HOME/protoc/bin/protoc-gen-grpc-java"
+          chmod +x "$HOME/protoc/bin/protoc-gen-grpc-java"
+
+          # 安装 JS/TS protoc 插件
+          npm install -g @bufbuild/protoc-gen-es @connectrpc/protoc-gen-connect-es
 
           # 验证安装
           "$HOME/protoc/bin/protoc" --version
@@ -79,8 +87,8 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install protobuf and grpc tools
         run: |
-          # 使用固定版本的protoc (33.1)
-          PROTOC_VERSION="33.1"
+          # 使用固定版本的protoc (28.3) - 兼容 vcpkg protobuf 5.28.x
+          PROTOC_VERSION="28.3"
           PROTOC_ZIP="protoc-${PROTOC_VERSION}-linux-x86_64.zip"
           wget "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/${PROTOC_ZIP}"
           unzip -o "$PROTOC_ZIP" -d "$HOME/protoc"
@@ -94,6 +102,14 @@ jobs:
           # 安装Go protoc插件（固定版本）
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+
+          # 安装Java gRPC插件
+          GRPC_JAVA_VERSION="1.68.1"
+          wget "https://repo1.maven.org/maven2/io/grpc/protoc-gen-grpc-java/${GRPC_JAVA_VERSION}/protoc-gen-grpc-java-${GRPC_JAVA_VERSION}-linux-x86_64.exe" -O "$HOME/protoc/bin/protoc-gen-grpc-java"
+          chmod +x "$HOME/protoc/bin/protoc-gen-grpc-java"
+
+          # 安装 JS/TS protoc 插件
+          npm install -g @bufbuild/protoc-gen-es @connectrpc/protoc-gen-connect-es
 
           # 验证版本
           "$HOME/protoc/bin/protoc" --version
