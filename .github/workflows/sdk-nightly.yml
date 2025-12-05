@@ -135,8 +135,8 @@ jobs:
       - name: Generate protobuf code
         shell: bash
         run: |
-          # Ensure Go bin is in PATH for protoc-gen-go plugins
-          export PATH="$HOME/go/bin:$PATH"
+          # Ensure Go bin and local bin directory are in PATH for protoc plugins
+          export PATH="$HOME/go/bin:$PWD/bin:$PATH"
           buf generate
           # Verify C++ code was generated
           ls -la sdks/cpp/generated/croupier/agent/local/v1/ || echo "Generated code not found"

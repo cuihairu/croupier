@@ -16,7 +16,8 @@ plugins:
 
   # Local custom plugin: protoc-gen-croupier (must be on PATH)
   - name: croupier
-    path: bin/protoc-gen-croupier
+    # Remove path field to let buf find protoc-gen-croupier in PATH
+    # plugin: protoc-gen-croupier will be searched in PATH
     strategy: all
     out: gen/croupier
     opt:

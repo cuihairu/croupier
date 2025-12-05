@@ -46,7 +46,7 @@ jobs:
         run: make croupier-plugin
       - name: Generate proto
         run: |
-          export PATH="$HOME/go/bin:$PATH"
+          export PATH="$HOME/go/bin:$PWD/bin:$PATH"
           buf generate
       - name: Go mod download
         run: go mod download
@@ -101,7 +101,7 @@ jobs:
         run: make croupier-plugin
       - name: Generate proto
         run: |
-          export PATH="$HOME/go/bin:$PATH"
+          export PATH="$HOME/go/bin:$PWD/bin:$PATH"
           buf generate
       - name: Go mod download
         run: go mod download
