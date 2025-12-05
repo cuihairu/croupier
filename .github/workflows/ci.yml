@@ -21,8 +21,8 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install protobuf and grpc tools
         run: |
-          # 使用固定版本的protoc (28.3) - 兼容 vcpkg protobuf 5.28.x
-          PROTOC_VERSION="28.3"
+          # 使用固定版本的protoc (29.5) - 兼容 vcpkg protobuf 5.29.x
+          PROTOC_VERSION="29.5"
           PROTOC_ZIP="protoc-${PROTOC_VERSION}-linux-x86_64.zip"
           wget "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/${PROTOC_ZIP}"
           unzip -o "$PROTOC_ZIP" -d "$HOME/protoc"
@@ -87,8 +87,8 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install protobuf and grpc tools
         run: |
-          # 使用固定版本的protoc (28.3) - 兼容 vcpkg protobuf 5.28.x
-          PROTOC_VERSION="28.3"
+          # 使用固定版本的protoc (29.5) - 兼容 vcpkg protobuf 5.29.x
+          PROTOC_VERSION="29.5"
           PROTOC_ZIP="protoc-${PROTOC_VERSION}-linux-x86_64.zip"
           wget "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/${PROTOC_ZIP}"
           unzip -o "$PROTOC_ZIP" -d "$HOME/protoc"

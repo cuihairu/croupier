@@ -50,8 +50,8 @@ jobs:
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          # 使用固定版本的protoc (28.3) - 兼容 vcpkg protobuf 5.28.x
-          PROTOC_VERSION="28.3"
+          # 使用固定版本的protoc (29.5) - 兼容 vcpkg protobuf 5.29.x
+          PROTOC_VERSION="29.5"
           if [ "$RUNNER_OS" = "Linux" ]; then
             OS_ARCH="linux-x86_64"
           elif [ "$RUNNER_OS" = "macOS" ]; then
