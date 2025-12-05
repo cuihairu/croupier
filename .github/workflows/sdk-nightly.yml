@@ -379,6 +379,116 @@ jobs:
           test -f sdks/cpp/vcpkg.json || (echo "vcpkg.json not found" && exit 1)
           echo "vcpkg environment verified successfully"
 
+      - name: Regenerate C++ proto with vcpkg protoc (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          # Find vcpkg-installed protoc and grpc_cpp_plugin
+          VCPKG_INSTALLED="sdks/cpp/vcpkg_installed/${{ matrix.triplet }}"
+          if [ ! -d "$VCPKG_INSTALLED" ]; then
+            # Fallback: find in build directory
+            VCPKG_INSTALLED="build/vcpkg_installed/${{ matrix.triplet }}"
+          fi
+
+          PROTOC="$VCPKG_INSTALLED/tools/protobuf/protoc"
+          GRPC_PLUGIN="$VCPKG_INSTALLED/tools/grpc/grpc_cpp_plugin"
+
+          if [ ! -x "$PROTOC" ]; then
+            echo "vcpkg protoc not found at $PROTOC, searching..."
+            PROTOC=$(find . -name "protoc" -type f -executable 2>/dev/null | grep vcpkg | head -1 || true)
+          fi
+          if [ ! -x "$GRPC_PLUGIN" ]; then
+            echo "vcpkg grpc_cpp_plugin not found at $GRPC_PLUGIN, searching..."
+            GRPC_PLUGIN=$(find . -name "grpc_cpp_plugin" -type f -executable 2>/dev/null | grep vcpkg | head -1 || true)
+          fi
+
+          if [ -z "$PROTOC" ] || [ ! -x "$PROTOC" ]; then
+            echo "WARNING: vcpkg protoc not found, skipping C++ proto regeneration"
+            echo "Will use pre-generated files from buf generate"
+            exit 0
+          fi
+
+          echo "Using vcpkg protoc: $PROTOC"
+          "$PROTOC" --version
+
+          # Clear old generated files
+          rm -rf sdks/cpp/generated/*
+
+          # Find all proto files
+          PROTO_FILES=$(find proto -name "*.proto" -type f)
+          PROTO_INCLUDE="-Iproto"
+
+          # Add google protobuf includes from vcpkg
+          if [ -d "$VCPKG_INSTALLED/include/google/protobuf" ]; then
+            PROTO_INCLUDE="$PROTO_INCLUDE -I$VCPKG_INSTALLED/include"
+          fi
+
+          mkdir -p sdks/cpp/generated
+
+          # Generate C++ code
+          for proto in $PROTO_FILES; do
+            echo "Generating C++ for: $proto"
+            "$PROTOC" $PROTO_INCLUDE \
+              --cpp_out=sdks/cpp/generated \
+              "$proto" || true
+
+            # Generate gRPC code if plugin available
+            if [ -n "$GRPC_PLUGIN" ] && [ -x "$GRPC_PLUGIN" ]; then
+              "$PROTOC" $PROTO_INCLUDE \
+                --grpc_out=sdks/cpp/generated \
+                --plugin=protoc-gen-grpc="$GRPC_PLUGIN" \
+                "$proto" || true
+            fi
+          done
+
+          echo "C++ proto regeneration completed"
+          ls -la sdks/cpp/generated/ || true
+
+      - name: Regenerate C++ proto with vcpkg protoc (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $VCPKG_INSTALLED = "sdks\cpp\vcpkg_installed\${{ matrix.triplet }}"
+          if (-not (Test-Path $VCPKG_INSTALLED)) {
+            $VCPKG_INSTALLED = "build\vcpkg_installed\${{ matrix.triplet }}"
+          }
+
+          $PROTOC = Join-Path $VCPKG_INSTALLED "tools\protobuf\protoc.exe"
+          $GRPC_PLUGIN = Join-Path $VCPKG_INSTALLED "tools\grpc\grpc_cpp_plugin.exe"
+
+          if (-not (Test-Path $PROTOC)) {
+            Write-Host "WARNING: vcpkg protoc not found, skipping C++ proto regeneration"
+            exit 0
+          }
+
+          Write-Host "Using vcpkg protoc: $PROTOC"
+          & $PROTOC --version
+
+          # Clear old generated files
+          Remove-Item -Recurse -Force sdks\cpp\generated\* -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Force -Path sdks\cpp\generated | Out-Null
+
+          # Find all proto files
+          $protoFiles = Get-ChildItem -Path proto -Filter "*.proto" -Recurse
+
+          foreach ($proto in $protoFiles) {
+            Write-Host "Generating C++ for: $($proto.FullName)"
+            & $PROTOC -Iproto "-I$VCPKG_INSTALLED\include" `
+              --cpp_out=sdks\cpp\generated `
+              $proto.FullName
+
+            if (Test-Path $GRPC_PLUGIN) {
+              & $PROTOC -Iproto "-I$VCPKG_INSTALLED\include" `
+                --grpc_out=sdks\cpp\generated `
+                "--plugin=protoc-gen-grpc=$GRPC_PLUGIN" `
+                $proto.FullName
+            }
+          }
+
+          Write-Host "C++ proto regeneration completed"
+          Get-ChildItem sdks\cpp\generated -Recurse | Select-Object FullName
+
       - name: Configure (Release, static)
         shell: bash
         run: |
