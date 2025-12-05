@@ -245,18 +245,39 @@ jobs:
         working-directory: sdks/cpp
         run: |
           set -euxo pipefail
+          # Install required build tools including cmake and ninja
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config git
+          sudo apt-get install -y build-essential pkg-config git cmake ninja-build
+
+          # Verify build tools are available
+          echo "Verifying build tools..."
+          which cmake && cmake --version
+          which ninja && ninja --version
+          which g++ && g++ --version
+          which make && make --version
+
+          # Setup vcpkg
           VCPKG_ROOT="$PWD/.vcpkg"
           if [ ! -f "$VCPKG_ROOT/bootstrap-vcpkg.sh" ]; then
             rm -rf "$VCPKG_ROOT"
             git clone --depth 1 https://github.com/microsoft/vcpkg "$VCPKG_ROOT"
           fi
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+
+          # Set environment variables for vcpkg
           export VCPKG_DEFAULT_TRIPLET=x64-linux
+          export VCPKG_BUILD_TYPE=release
+          export CC=$(which gcc)
+          export CXX=$(which g++)
+
+          # Configure with Ninja generator and explicit compiler paths
           cmake -S . -B build \
+            -G "Ninja" \
             -DCMAKE_BUILD_TYPE=Release \
             -DENABLE_GRPC=ON \
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_CXX_COMPILER="$CXX" \
+            -DCMAKE_MAKE_PROGRAM="$(which ninja)" \
             -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_TARGET_TRIPLET=x64-linux \
             -DVCPKG_MANIFEST_MODE=ON \
