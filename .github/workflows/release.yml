@@ -287,6 +287,48 @@ jobs:
           export CC=$(which gcc)
           export CXX=$(which g++)
 
+          # Pre-install vcpkg packages to get protoc and grpc_cpp_plugin
+          echo "Installing vcpkg packages..."
+          "$VCPKG_ROOT/vcpkg" install --triplet=x64-linux
+
+          # Find vcpkg-installed protoc and grpc_cpp_plugin
+          VCPKG_INSTALLED="$PWD/vcpkg_installed/x64-linux"
+          PROTOC="$VCPKG_INSTALLED/tools/protobuf/protoc"
+          GRPC_PLUGIN="$VCPKG_INSTALLED/tools/grpc/grpc_cpp_plugin"
+
+          # Verify protoc version matches vcpkg runtime
+          echo "Using vcpkg protoc:"
+          "$PROTOC" --version
+
+          # Clear old generated files and regenerate with vcpkg protoc
+          echo "Regenerating C++ proto files with vcpkg protoc..."
+          rm -rf generated/*
+          mkdir -p generated
+
+          # Find all proto files in the main proto directory
+          PROTO_DIR="../../proto"
+          PROTO_INCLUDE="-I$PROTO_DIR -I$VCPKG_INSTALLED/include"
+
+          # Generate C++ code for each proto file
+          find "$PROTO_DIR" -name "*.proto" -type f | while read proto; do
+            echo "Generating C++ for: $proto"
+            "$PROTOC" $PROTO_INCLUDE \
+              --cpp_out=generated \
+              "$proto" || true
+
+            # Generate gRPC code if plugin available
+            if [ -x "$GRPC_PLUGIN" ]; then
+              "$PROTOC" $PROTO_INCLUDE \
+                --grpc_out=generated \
+                --plugin=protoc-gen-grpc="$GRPC_PLUGIN" \
+                "$proto" || true
+            fi
+          done
+
+          echo "C++ proto regeneration completed"
+          ls -la generated/ || true
+          find generated -name "*.pb.h" | head -5 | xargs -I {} head -5 {} || true
+
           # Configure with Ninja generator and explicit compiler paths
           cmake -S . -B build \
             -G "Ninja" \

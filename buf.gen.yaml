@@ -23,16 +23,9 @@ plugins:
     opt:
       - emit_pack=true
 
-  # Generate C++ code for SDK using local protoc
-  - name: cpp
-    out: sdks/cpp/generated
-    strategy: all
-
-  # Generate C++ gRPC code using grpc_cpp_plugin
-  - name: grpc-cpp
-    path: grpc_cpp_plugin
-    out: sdks/cpp/generated
-    strategy: all
+  # C++ code is NOT generated here - it must be generated using vcpkg's protoc
+  # in CI to match the vcpkg protobuf runtime version.
+  # See: release.yml and sdk-nightly.yml for C++ proto generation.
 
   # Generate Java code for SDK - using local protoc-gen-java (from PATH)
   - name: java
