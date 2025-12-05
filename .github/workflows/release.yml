@@ -277,7 +277,7 @@ jobs:
           VCPKG_ROOT="$PWD/.vcpkg"
           if [ ! -f "$VCPKG_ROOT/bootstrap-vcpkg.sh" ]; then
             rm -rf "$VCPKG_ROOT"
-            git clone --depth 1 https://github.com/microsoft/vcpkg "$VCPKG_ROOT"
+            git clone https://github.com/microsoft/vcpkg "$VCPKG_ROOT"
           fi
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
 
