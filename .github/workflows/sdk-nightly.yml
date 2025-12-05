@@ -50,133 +50,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Go (for buf generate)
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.25'
-
-      - name: Install buf
-        uses: bufbuild/buf-setup-action@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Install protobuf and grpc tools (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          set -euxo pipefail
-
-          # 使用固定版本的protoc (29.5) - 兼容 vcpkg protobuf 5.29.x
-          PROTOC_VERSION="29.5"
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            OS_ARCH="linux-x86_64"
-          elif [ "$RUNNER_OS" = "macOS" ]; then
-            # 检测Mac架构
-            if [ "$(uname -m)" = "arm64" ]; then
-              OS_ARCH="osx-aarch_64"
-            else
-              OS_ARCH="osx-x86_64"
-            fi
-          fi
-
-          PROTOC_ZIP="protoc-${PROTOC_VERSION}-${OS_ARCH}.zip"
-          wget "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/${PROTOC_ZIP}"
-          unzip -o "$PROTOC_ZIP" -d "$HOME/protoc"
-          rm "$PROTOC_ZIP"
-          echo "$HOME/protoc/bin" >> $GITHUB_PATH
-
-          # 安装grpc工具
-          if command -v apt-get >/dev/null 2>&1; then
-            sudo apt-get update -y
-            sudo apt-get install -y libgrpc++-dev protobuf-compiler-grpc
-          elif command -v brew >/dev/null 2>&1; then
-            brew update || true
-            brew install grpc || true
-          fi
-
-          # 安装Go protoc插件（固定版本）
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
-
-          # 安装Java gRPC插件
-          GRPC_JAVA_VERSION="1.68.1"
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            GRPC_JAVA_ARCH="linux-x86_64"
-          elif [ "$RUNNER_OS" = "macOS" ]; then
-            if [ "$(uname -m)" = "arm64" ]; then
-              GRPC_JAVA_ARCH="osx-aarch_64"
-            else
-              GRPC_JAVA_ARCH="osx-x86_64"
-            fi
-          fi
-          wget "https://repo1.maven.org/maven2/io/grpc/protoc-gen-grpc-java/${GRPC_JAVA_VERSION}/protoc-gen-grpc-java-${GRPC_JAVA_VERSION}-${GRPC_JAVA_ARCH}.exe" -O "$HOME/protoc/bin/protoc-gen-grpc-java"
-          chmod +x "$HOME/protoc/bin/protoc-gen-grpc-java"
-
-          # 验证安装
-          "$HOME/protoc/bin/protoc" --version
-          which grpc_cpp_plugin || echo "grpc_cpp_plugin not found in PATH"
-
-      - name: Install JS/TS protoc plugins (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          set -euxo pipefail
-          # 安装 protoc-gen-es 和 protoc-gen-connect-es
-          npm install -g @bufbuild/protoc-gen-es @connectrpc/protoc-gen-connect-es
-          # 验证安装
-          which protoc-gen-es || echo "protoc-gen-es not found"
-          which protoc-gen-connect-es || echo "protoc-gen-connect-es not found"
-
-      - name: Install protobuf and grpc tools (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          # 使用固定版本的protoc (29.5) - 兼容 vcpkg protobuf 5.29.x
-          $PROTOC_VERSION = "29.5"
-          $PROTOC_ZIP = "protoc-$PROTOC_VERSION-win64.zip"
-          $PROTOC_URL = "https://github.com/protocolbuffers/protobuf/releases/download/v$PROTOC_VERSION/$PROTOC_ZIP"
-
-          # 下载并解压protoc
-          Invoke-WebRequest -Uri $PROTOC_URL -OutFile $PROTOC_ZIP
-          Expand-Archive -Path $PROTOC_ZIP -DestinationPath "$HOME\protoc" -Force
-          Remove-Item $PROTOC_ZIP
-
-          # 添加到PATH
-          echo "$HOME\protoc\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-
-          # 安装Go protoc插件（固定版本）
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.10
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
-
-          # 安装Java gRPC插件
-          $GRPC_JAVA_VERSION = "1.68.1"
-          $GRPC_JAVA_URL = "https://repo1.maven.org/maven2/io/grpc/protoc-gen-grpc-java/$GRPC_JAVA_VERSION/protoc-gen-grpc-java-$GRPC_JAVA_VERSION-windows-x86_64.exe"
-          Invoke-WebRequest -Uri $GRPC_JAVA_URL -OutFile "$HOME\protoc\bin\protoc-gen-grpc-java.exe"
-
-          # 验证版本
-          & "$HOME\protoc\bin\protoc.exe" --version
-
-      - name: Install JS/TS protoc plugins (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          # 安装 protoc-gen-es 和 protoc-gen-connect-es
-          npm install -g @bufbuild/protoc-gen-es @connectrpc/protoc-gen-connect-es
-
-      - name: Build protoc-gen-croupier
-        shell: bash
-        run: |
-          make croupier-plugin
-          ls -la bin/protoc-gen-croupier
-
-      - name: Generate protobuf code
-        shell: bash
-        run: |
-          # Ensure Go bin and local bin directory are in PATH for protoc plugins
-          export PATH="$HOME/go/bin:$PWD/bin:$PATH"
-          buf generate
-          # Verify C++ code was generated
-          ls -la sdks/cpp/generated/croupier/agent/local/v1/ || echo "Generated code not found"
+      # Note: C++ proto code is generated using vcpkg's protoc (see "Regenerate C++ proto" step)
+      # to ensure version compatibility with vcpkg protobuf runtime.
+      # We don't need buf generate for C++ SDK.
 
       - name: Install basic build tools (Unix)
         if: runner.os != 'Windows'
@@ -436,9 +312,9 @@ jobs:
           fi
 
           if [ -z "$PROTOC" ] || [ ! -x "$PROTOC" ]; then
-            echo "WARNING: vcpkg protoc not found, skipping C++ proto regeneration"
-            echo "Will use pre-generated files from buf generate"
-            exit 0
+            echo "ERROR: vcpkg protoc not found - cannot generate C++ proto code"
+            echo "Please ensure vcpkg packages are installed correctly"
+            exit 1
           fi
 
           echo "Using vcpkg protoc: $PROTOC"
@@ -490,8 +366,9 @@ jobs:
           $GRPC_PLUGIN = Join-Path $VCPKG_INSTALLED "tools\grpc\grpc_cpp_plugin.exe"
 
           if (-not (Test-Path $PROTOC)) {
-            Write-Host "WARNING: vcpkg protoc not found, skipping C++ proto regeneration"
-            exit 0
+            Write-Host "ERROR: vcpkg protoc not found - cannot generate C++ proto code"
+            Write-Host "Please ensure vcpkg packages are installed correctly"
+            exit 1
           }
 
           Write-Host "Using vcpkg protoc: $PROTOC"
