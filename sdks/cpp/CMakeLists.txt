@@ -7,12 +7,17 @@ project(croupier-cpp-sdk
 )
 
 # Verify build tools are available after project setup
+# Note: Changed to WARNING to support vcpkg toolchain initialization
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     if(NOT CMAKE_MAKE_PROGRAM)
-        message(FATAL_ERROR "CMAKE_MAKE_PROGRAM is not set. Please install build-essential package: sudo apt-get install build-essential")
+        message(WARNING "CMAKE_MAKE_PROGRAM is not set. Build may fail if build tools are not installed.")
+    else()
+        message(STATUS "Make program: ${CMAKE_MAKE_PROGRAM}")
     endif()
     if(NOT CMAKE_CXX_COMPILER)
-        message(FATAL_ERROR "C++ compiler is not available. Please install g++: sudo apt-get install build-essential")
+        message(WARNING "C++ compiler is not available. Build may fail if g++ is not installed.")
+    else()
+        message(STATUS "C++ compiler: ${CMAKE_CXX_COMPILER}")
     endif()
 endif()
 
