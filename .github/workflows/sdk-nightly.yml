@@ -141,9 +141,6 @@ jobs:
           # Verify C++ code was generated
           ls -la sdks/cpp/generated/croupier/agent/local/v1/ || echo "Generated code not found"
 
-      - name: Setup CMake
-        uses: lukka/get-cmake@latest
-
       - name: Install basic build tools (Unix)
         if: runner.os != 'Windows'
         shell: bash
@@ -157,18 +154,19 @@ jobs:
             brew install cmake ninja || true
           fi
 
-      - name: Install Ninja (Unix)
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Verify build tools (Unix)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           set -euxo pipefail
-          if command -v apt-get >/dev/null 2>&1; then
-            # ninja already installed in previous step
-            echo "ninja-build already installed"
-          elif command -v brew >/dev/null 2>&1; then
-            # ninja already installed in previous step
-            echo "ninja already installed"
-          fi
+          echo "Verifying build tools are available..."
+          which cmake && cmake --version
+          which ninja || which ninja-build && (which ninja && ninja --version || which ninja-build && ninja-build --version)
+          which g++ && g++ --version
+          which make && make --version
 
       - name: Install vcpkg (Unix)
         if: runner.os != 'Windows'
@@ -237,7 +235,9 @@ jobs:
           # Preinstall via manifest to warm cache.
           # In manifest mode, avoid positional package args; set default triplet via env.
           export VCPKG_DEFAULT_TRIPLET=${{ matrix.triplet }}
-          (cd sdks/cpp && "$VCPKG_ROOT/vcpkg" install) || true
+          echo "Starting vcpkg manifest preinstall..."
+          (cd sdks/cpp && "$VCPKG_ROOT/vcpkg" install --debug)
+          echo "vcpkg manifest preinstall completed successfully"
           echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
 
       - name: Install vcpkg (Windows)
@@ -359,9 +359,24 @@ jobs:
           popd
           echo "VCPKG_ROOT=$env:VCPKG_ROOT" >> $env:GITHUB_ENV
 
+      - name: Verify vcpkg environment
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo "Verifying vcpkg environment..."
+          echo "VCPKG_ROOT: $VCPKG_ROOT"
+          test -n "$VCPKG_ROOT" || (echo "VCPKG_ROOT not set" && exit 1)
+          test -d "$VCPKG_ROOT" || (echo "VCPKG_ROOT directory not found" && exit 1)
+          test -x "$VCPKG_ROOT/vcpkg" || (echo "vcpkg executable not found" && exit 1)
+          "$VCPKG_ROOT/vcpkg" version
+          test -f sdks/cpp/vcpkg.json || (echo "vcpkg.json not found" && exit 1)
+          echo "vcpkg environment verified successfully"
+
       - name: Configure (Release, static)
         shell: bash
         run: |
+          set -euxo pipefail
+          echo "Starting CMake configuration..."
           cmake -S sdks/cpp -B build \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -369,7 +384,8 @@ jobs:
             -DVCPKG_TARGET_TRIPLET=${{ matrix.triplet }} \
             -DVCPKG_MANIFEST_MODE=ON \
             -DVCPKG_FEATURE_FLAGS=manifests,binarycaching \
-            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            -DCMAKE_VERBOSE_MAKEFILE=ON
 
       - name: Cache vcpkg_installed (manifest)
         uses: actions/cache@v4
