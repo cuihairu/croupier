@@ -62,10 +62,10 @@ jobs:
           df -h
           echo ""
           echo "=== Large directories in / ==="
-          sudo du -sh /* 2>/dev/null | sort -hr | head -20
+          sudo du -sh /* 2>/dev/null | sort -hr | head -20 || true
           echo ""
           echo "=== Large directories in /usr ==="
-          sudo du -sh /usr/* 2>/dev/null | sort -hr | head -10
+          sudo du -sh /usr/* 2>/dev/null | sort -hr | head -10 || true
           echo ""
           echo "=== Cleaning up... ==="
           # Remove unnecessary large packages
