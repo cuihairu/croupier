@@ -300,6 +300,31 @@ jobs:
           du -sh "$VCPKG_ROOT" || true
           du -sh sdks/cpp/vcpkg_installed || true
 
+          # Additional aggressive cleanup to free more space
+          echo "=== Additional disk cleanup ==="
+          # Remove vcpkg temporary files
+          rm -rf "$VCPKG_ROOT/buildtrees" || true
+          rm -rf "$VCPKG_ROOT/packages" || true
+          rm -rf "$VCPKG_ROOT/downloads" || true
+          # Clean up any leftover build files
+          rm -rf build 2>/dev/null || true
+          rm -rf sdks/cpp/build 2>/dev/null || true
+          # Clean up go mod cache if exists
+          go clean -modcache 2>/dev/null || true
+          # Clean up npm cache if exists
+          rm -rf ~/.npm 2>/dev/null || true
+          # Clean up pip cache
+          rm -rf ~/.cache/pip 2>/dev/null || true
+          # Clear temporary directories
+          sudo rm -rf /tmp/* 2>/dev/null || true
+          sudo rm -rf /var/tmp/* 2>/dev/null || true
+
+          echo "=== Final disk space after all cleanup ==="
+          df -h
+          # Show available space in MB
+          AVAILABLE_SPACE=$(df . | awk 'NR==2 {print int($4/1024)}')
+          echo "Available disk space: ${AVAILABLE_SPACE} MB"
+
       - name: Install vcpkg (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -655,22 +680,69 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          # Check disk space before build
+          echo "=========================================="
+          echo "BEFORE BUILD - Disk Space Check"
+          echo "=========================================="
+          df -h
+          AVAILABLE_KB=$(df . | awk 'NR==2 {print $4}')
+          AVAILABLE_MB=$((AVAILABLE_KB / 1024))
+          AVAILABLE_GB=$((AVAILABLE_MB / 1024))
+          echo "Available disk space: ${AVAILABLE_GB}GB (${AVAILABLE_MB}MB)"
+
+          # Warning thresholds
+          if [ "$AVAILABLE_MB" -lt 1024 ]; then
+            echo "⚠️  CRITICAL: Less than 1GB available!"
+            echo "This build will likely fail due to insufficient disk space."
+          elif [ "$AVAILABLE_MB" -lt 5120 ]; then
+            echo "⚠️  WARNING: Less than 5GB available!"
+            echo "Build may fail, proceeding with minimal resources."
+          elif [ "$AVAILABLE_MB" -lt 10240 ]; then
+            echo "⚠️  CAUTION: Less than 10GB available"
+            echo "Consider freeing up more disk space."
+          else
+            echo "✓ Sufficient disk space available for build"
+          fi
+          echo "=========================================="
+
           # Use max available cores (default to 2 if not detected)
           CORES="${VCPKG_MAX_CONCURRENCY:-}"
           if [ -z "$CORES" ]; then
             CORES="$( (command -v nproc >/dev/null 2>&1 && nproc) || (command -v sysctl >/dev/null 2>&1 && sysctl -n hw.ncpu) || echo 2 )"
           fi
-          echo "Starting build with $CORES cores..."
-          echo "Available disk space:"
-          df -h .
-          # Build with single thread to reduce memory/disk pressure if space is tight
-          AVAILABLE_SPACE=$(df . | awk 'NR==2 {print $4}')
-          if [ "$AVAILABLE_SPACE" -lt 5242880 ]; then  # Less than 5GB
-            echo "Low disk space detected, building with single thread..."
+
+          # Adjust build parameters based on available space
+          if [ "$AVAILABLE_MB" -lt 2048 ]; then
+            echo "Extremely low disk space, using single core build..."
             CORES=1
+            # Use minimal build options
+            export CMAKE_BUILD_PARALLEL_LEVEL=1
+          elif [ "$AVAILABLE_MB" -lt 5120 ]; then
+            echo "Low disk space, limiting parallelism..."
+            CORES=1
+          elif [ "$AVAILABLE_MB" -lt 10240 ]; then
+            echo "Moderate disk space, limiting parallelism to 2 cores..."
+            CORES=2
           fi
-          cmake --build build --config Release --target croupier-sdk-static -j "$CORES"
-          echo "Build completed successfully"
+
+          echo "Starting build with $CORES cores..."
+
+          # Monitor disk space during build
+          echo "Starting build at $(date)"
+          cmake --build build --config Release --target croupier-sdk-static -j "$CORES" 2>&1 | while IFS= read -r line; do
+            echo "$line"
+            # Check disk space every 50 lines of output
+            if [[ $((++line_count)) % 50 -eq 0 ]]; then
+              CURRENT_KB=$(df . | awk 'NR==2 {print $4}')
+              CURRENT_MB=$((CURRENT_KB / 1024))
+              echo "[INFO] Current disk space: ${CURRENT_MB}MB (was ${AVAILABLE_MB}MB)"
+            fi
+          done
+
+          echo "Build completed at $(date)"
+          echo "Final disk space check:"
+          df -h
 
       - name: Collect artifacts
         shell: bash
