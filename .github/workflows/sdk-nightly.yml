@@ -54,6 +54,21 @@ jobs:
       # to ensure version compatibility with vcpkg protobuf runtime.
       # We don't need buf generate for C++ SDK.
 
+      - name: Free disk space (Ubuntu)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          echo "Before cleanup:"
+          df -h
+          # Remove unnecessary large packages
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+          echo "After cleanup:"
+          df -h
+
       - name: Install basic build tools (Unix)
         if: runner.os != 'Windows'
         shell: bash
@@ -156,6 +171,11 @@ jobs:
           (cd sdks/cpp && "$VCPKG_ROOT/vcpkg" install --debug)
           echo "vcpkg manifest preinstall completed successfully"
           echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
+          # Clean up vcpkg buildtrees to free disk space
+          echo "Cleaning up vcpkg buildtrees..."
+          rm -rf "$VCPKG_ROOT/buildtrees" || true
+          rm -rf "$VCPKG_ROOT/downloads" || true
+          df -h
 
       - name: Install vcpkg (Windows)
         if: runner.os == 'Windows'
