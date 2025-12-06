@@ -58,15 +58,30 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          echo "Before cleanup:"
+          echo "=== Initial disk usage ==="
           df -h
+          echo ""
+          echo "=== Large directories in / ==="
+          sudo du -sh /* 2>/dev/null | sort -hr | head -20
+          echo ""
+          echo "=== Large directories in /usr ==="
+          sudo du -sh /usr/* 2>/dev/null | sort -hr | head -10
+          echo ""
+          echo "=== Cleaning up... ==="
           # Remove unnecessary large packages
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /opt/ghc
           sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /opt/hostedtoolcache/go
+          sudo rm -rf /opt/hostedtoolcache/node
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf /usr/local/.ghcup
           sudo docker image prune --all --force || true
-          echo "After cleanup:"
+          sudo apt-get clean || true
+          echo ""
+          echo "=== After cleanup ==="
           df -h
 
       - name: Install basic build tools (Unix)
@@ -162,6 +177,8 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
+          echo "=== Disk space before vcpkg install ==="
+          df -h
           VCPKG_ROOT="$PWD/.vcpkg"
           "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
           # Preinstall via manifest to warm cache.
@@ -172,10 +189,15 @@ jobs:
           echo "vcpkg manifest preinstall completed successfully"
           echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
           # Clean up vcpkg buildtrees to free disk space
-          echo "Cleaning up vcpkg buildtrees..."
+          echo "=== Cleaning up vcpkg buildtrees ==="
           rm -rf "$VCPKG_ROOT/buildtrees" || true
           rm -rf "$VCPKG_ROOT/downloads" || true
+          rm -rf "$VCPKG_ROOT/packages" || true
+          echo "=== Disk space after vcpkg cleanup ==="
           df -h
+          echo "=== vcpkg directory size ==="
+          du -sh "$VCPKG_ROOT" || true
+          du -sh sdks/cpp/vcpkg_installed || true
 
       - name: Install vcpkg (Windows)
         if: runner.os == 'Windows'
