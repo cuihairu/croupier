@@ -84,6 +84,40 @@ jobs:
           echo "=== After cleanup ==="
           df -h
 
+      - name: Free disk space (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host "=== Initial disk usage ==="
+          Get-PSDrive -PSProvider FileSystem | Select-Object Name, @{N='Used(GB)';E={[math]::Round($_.Used/1GB,2)}}, @{N='Free(GB)';E={[math]::Round($_.Free/1GB,2)}}
+          Write-Host ""
+          Write-Host "=== Cleaning up... ==="
+          # Remove unnecessary large directories
+          $dirsToRemove = @(
+            "C:\Program Files\dotnet\sdk",
+            "C:\Program Files\dotnet\shared",
+            "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\CommonExtensions\Microsoft\CMake",
+            "C:\hostedtoolcache\windows\go",
+            "C:\hostedtoolcache\windows\node",
+            "C:\hostedtoolcache\windows\Python"
+          )
+          foreach ($dir in $dirsToRemove) {
+            if (Test-Path $dir) {
+              Write-Host "Removing $dir..."
+              Remove-Item -Recurse -Force $dir -ErrorAction SilentlyContinue
+            }
+          }
+          # Clean temp directories
+          Remove-Item -Recurse -Force "$env:TEMP\*" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "C:\Windows\Temp\*" -ErrorAction SilentlyContinue
+          # Clean npm/nuget caches
+          if (Test-Path "$env:LOCALAPPDATA\npm-cache") {
+            Remove-Item -Recurse -Force "$env:LOCALAPPDATA\npm-cache" -ErrorAction SilentlyContinue
+          }
+          Write-Host ""
+          Write-Host "=== After cleanup ==="
+          Get-PSDrive -PSProvider FileSystem | Select-Object Name, @{N='Used(GB)';E={[math]::Round($_.Used/1GB,2)}}, @{N='Free(GB)';E={[math]::Round($_.Free/1GB,2)}}
+
       - name: Install basic build tools (Unix)
         if: runner.os != 'Windows'
         shell: bash
