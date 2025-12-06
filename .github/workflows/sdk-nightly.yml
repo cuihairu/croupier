@@ -78,6 +78,20 @@ jobs:
           sudo rm -rf /usr/local/share/boost
           sudo rm -rf /usr/share/swift
           sudo rm -rf /usr/local/.ghcup
+          # Additional cleanup for more space
+          sudo rm -rf /opt/hostedtoolcache/Python
+          sudo rm -rf /opt/hostedtoolcache/Ruby
+          sudo rm -rf /opt/hostedtoolcache/Java*
+          sudo rm -rf /opt/az
+          sudo rm -rf /opt/microsoft
+          sudo rm -rf /usr/local/graalvm
+          sudo rm -rf /usr/local/julia*
+          sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /usr/share/miniconda
+          sudo rm -rf /usr/share/az_*
+          sudo rm -rf /usr/share/gradle-*
+          sudo rm -rf /usr/share/sbt
           sudo docker image prune --all --force || true
           sudo apt-get clean || true
           echo ""
