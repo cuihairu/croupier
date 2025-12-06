@@ -378,24 +378,46 @@ jobs:
           Remove-Item -Recurse -Force sdks\cpp\generated\* -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path sdks\cpp\generated | Out-Null
 
-          # Find all proto files
+          # Get proto directory absolute path for -I flag
+          $PROTO_DIR = Resolve-Path "proto"
+          $VCPKG_INCLUDE = Join-Path (Resolve-Path $VCPKG_INSTALLED) "include"
+
+          # Find all proto files and use relative paths
           $protoFiles = Get-ChildItem -Path proto -Filter "*.proto" -Recurse
 
           foreach ($proto in $protoFiles) {
-            Write-Host "Generating C++ for: $($proto.FullName)"
-            & $PROTOC -Iproto "-I$VCPKG_INSTALLED\include" `
+            # Get relative path from proto directory
+            $relativePath = $proto.FullName.Substring($PROTO_DIR.Path.Length + 1)
+            Write-Host "Generating C++ for: $relativePath"
+
+            & $PROTOC "-I$PROTO_DIR" "-I$VCPKG_INCLUDE" `
               --cpp_out=sdks\cpp\generated `
-              $proto.FullName
+              $relativePath
+
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host "Warning: cpp generation failed for $relativePath"
+            }
 
             if (Test-Path $GRPC_PLUGIN) {
-              & $PROTOC -Iproto "-I$VCPKG_INSTALLED\include" `
+              & $PROTOC "-I$PROTO_DIR" "-I$VCPKG_INCLUDE" `
                 --grpc_out=sdks\cpp\generated `
                 "--plugin=protoc-gen-grpc=$GRPC_PLUGIN" `
-                $proto.FullName
+                $relativePath
+
+              if ($LASTEXITCODE -ne 0) {
+                Write-Host "Warning: grpc generation failed for $relativePath"
+              }
             }
           }
 
-          Write-Host "C++ proto regeneration completed"
+          # Verify generated files
+          $generatedFiles = Get-ChildItem sdks\cpp\generated -Recurse -Filter "*.pb.*" -ErrorAction SilentlyContinue
+          if ($generatedFiles.Count -eq 0) {
+            Write-Host "ERROR: No proto files were generated"
+            exit 1
+          }
+
+          Write-Host "C++ proto regeneration completed - $($generatedFiles.Count) files generated"
           Get-ChildItem sdks\cpp\generated -Recurse | Select-Object FullName
 
       - name: Configure (Release, static)
