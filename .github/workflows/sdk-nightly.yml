@@ -97,6 +97,34 @@ jobs:
           echo ""
           echo "=== After cleanup ==="
           df -h
+          # Additional aggressive cleanup
+          echo "=== Additional aggressive cleanup ==="
+          # Remove large unnecessary packages and caches
+          sudo apt-get autoremove -y || true
+          sudo apt-get autoclean || true
+          # Remove pip cache
+          rm -rf ~/.cache/pip || true
+          # Remove npm cache if exists
+          rm -rf ~/.npm || true
+          # Clean yarn cache if exists
+          rm -rf ~/.cache/yarn || true
+          # Remove docker images and containers completely
+          sudo docker system prune -a --force --volumes || true
+          # Remove Android SDK completely if present
+          sudo rm -rf /usr/local/lib/android* || true
+          # Remove Haskell/Stack
+          sudo rm -rf ~/.stack || true
+          # Remove Rust toolchain and cargo
+          sudo rm -rf ~/.cargo || true
+          # Remove Go cache
+          sudo rm -rf ~/go/pkg || true
+          # Remove .cache directories
+          find ~ -maxdepth 2 -name ".cache" -type d -exec rm -rf {} + 2>/dev/null || true
+          # Remove temporary files
+          sudo find /tmp -type f -mtime +1 -delete 2>/dev/null || true
+          sudo find /var/tmp -type f -mtime +1 -delete 2>/dev/null || true
+          echo "=== Final disk usage ==="
+          df -h
 
       - name: Free disk space (Windows)
         if: runner.os == 'Windows'
@@ -130,6 +158,26 @@ jobs:
           }
           Write-Host ""
           Write-Host "=== After cleanup ==="
+          Get-PSDrive -PSProvider FileSystem | Select-Object Name, @{N='Used(GB)';E={[math]::Round($_.Used/1GB,2)}}, @{N='Free(GB)';E={[math]::Round($_.Free/1GB,2)}}
+          # Additional aggressive cleanup for Windows
+          Write-Host "=== Additional aggressive cleanup ==="
+          # Clean NuGet cache
+          if (Test-Path "$env:LOCALAPPDATA\NuGet\Cache") {
+            Remove-Item -Recurse -Force "$env:LOCALAPPDATA\NuGet\Cache" -ErrorAction SilentlyContinue
+          }
+          # Clean package caches
+          if (Test-Path "$env:USERPROFILE\.nuget\packages") {
+            Get-ChildItem -Path "$env:USERPROFILE\.nuget\packages" -Recurse -Filter "*.nupkg" | Remove-Item -Force -ErrorAction SilentlyContinue
+          }
+          # Clean MSBuild cache
+          if (Test-Path "$env:LOCALAPPDATA\Microsoft\MSBuild") {
+            Get-ChildItem -Path "$env:LOCALAPPDATA\Microsoft\MSBuild" -Recurse -Filter "*.cache" | Remove-Item -Force -ErrorAction SilentlyContinue
+          }
+          # Clean CMake cache
+          if (Test-Path "$env:LOCALAPPDATA\CMake") {
+            Remove-Item -Recurse -Force "$env:LOCALAPPDATA\CMake" -ErrorAction SilentlyContinue
+          }
+          Write-Host "=== Final disk usage ==="
           Get-PSDrive -PSProvider FileSystem | Select-Object Name, @{N='Used(GB)';E={[math]::Round($_.Used/1GB,2)}}, @{N='Free(GB)';E={[math]::Round($_.Free/1GB,2)}}
 
       - name: Install basic build tools (Unix)
@@ -241,6 +289,11 @@ jobs:
           rm -rf "$VCPKG_ROOT/buildtrees" || true
           rm -rf "$VCPKG_ROOT/downloads" || true
           rm -rf "$VCPKG_ROOT/packages" || true
+          # Also clean any other large vcpkg directories
+          rm -rf "$VCPKG_ROOT/buildtrees-*" || true
+          # Clean up package build artifacts in vcpkg_installed
+          find "$VCPKG_ROOT" -name "debug" -type d -exec rm -rf {} + 2>/dev/null || true
+          find "$VCPKG_ROOT" -name "share" -path "*/man" -type d -exec rm -rf {} + 2>/dev/null || true
           echo "=== Disk space after vcpkg cleanup ==="
           df -h
           echo "=== vcpkg directory size ==="
@@ -579,15 +632,45 @@ jobs:
           restore-keys: |
             vcpkg-installed-${{ runner.os }}-${{ matrix.triplet }}-
 
+      - name: Pre-build disk cleanup and check
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== Disk usage before build ==="
+          df -h
+          echo ""
+          echo "=== Large directories check ==="
+          du -sh * 2>/dev/null | sort -hr | head -10 || true
+          echo ""
+          # Clean up any leftover build artifacts
+          rm -rf build/CMakeFiles/*.o 2>/dev/null || true
+          # Clear any temporary files
+          rm -rf /tmp/* 2>/dev/null || true
+          # Clean up any caches that might have been created
+          rm -rf ~/.cache/* 2>/dev/null || true
+          echo "=== Final disk usage before build ==="
+          df -h
+
       - name: Build static library
         shell: bash
         run: |
+          set -euo pipefail
           # Use max available cores (default to 2 if not detected)
           CORES="${VCPKG_MAX_CONCURRENCY:-}"
           if [ -z "$CORES" ]; then
             CORES="$( (command -v nproc >/dev/null 2>&1 && nproc) || (command -v sysctl >/dev/null 2>&1 && sysctl -n hw.ncpu) || echo 2 )"
           fi
+          echo "Starting build with $CORES cores..."
+          echo "Available disk space:"
+          df -h .
+          # Build with single thread to reduce memory/disk pressure if space is tight
+          AVAILABLE_SPACE=$(df . | awk 'NR==2 {print $4}')
+          if [ "$AVAILABLE_SPACE" -lt 5242880 ]; then  # Less than 5GB
+            echo "Low disk space detected, building with single thread..."
+            CORES=1
+          fi
           cmake --build build --config Release --target croupier-sdk-static -j "$CORES"
+          echo "Build completed successfully"
 
       - name: Collect artifacts
         shell: bash
@@ -794,10 +877,12 @@ jobs:
             tar_file="${checksum_file%.sha256}"
             if [ -f "$tar_file" ]; then
               echo "Verifying $tar_file..."
+              # Update checksum file to handle nested paths
+              sed "s|out/||g" "$checksum_file" > /tmp/checksum.tmp
               if command -v sha256sum >/dev/null 2>&1; then
-                sha256sum -c "$checksum_file"
+                (cd "$(dirname "$tar_file")" && sha256sum -c /tmp/checksum.tmp)
               elif command -v shasum >/dev/null 2>&1; then
-                shasum -a 256 -c "$checksum_file"
+                (cd "$(dirname "$tar_file")" && shasum -a 256 -c /tmp/checksum.tmp)
               else
                 echo "Checksum verification not available, skipping..."
               fi
@@ -814,25 +899,68 @@ jobs:
       - name: Verify expected artifacts
         run: |
           set -euo pipefail
-          shopt -s globstar nullglob
           missing=0
-          check() {
-            local pattern="$1"
-            if compgen -G "artifacts/**/${pattern}" >/dev/null; then
-              echo "Found ${pattern}"
-            else
-              echo "::error::Missing artifact matching ${pattern}"
-              missing=1
-            fi
-          }
-          check "croupier-cpp-sdk-linux-x86_64-static-*.tar.gz"
-          check "croupier-cpp-sdk-macos-x64-x86_64-static-*.tar.gz"
-          check "croupier-cpp-sdk-macos-arm64-arm64-static-*.tar.gz"
-          check "croupier-cpp-sdk-windows-x86_64-static-*.tar.gz"
-          check "java-sdk-*.jar"
-          check "go-sdk-*.tar.gz"
-          check "js-sdk-*.tgz"
-          check "python-sdk-*.whl"
+          # Check for nested tar.gz files in artifact directories using find
+          echo "Checking for C++ SDK artifacts..."
+
+          if find artifacts -name "*.tar.gz" | grep "croupier-cpp-sdk-linux-x86_64-static" | grep -q .; then
+            echo "✓ Found Linux x86_64 static SDK"
+          else
+            echo "::error::Missing Linux x86_64 static SDK"
+            missing=1
+          fi
+
+          if find artifacts -name "*.tar.gz" | grep "croupier-cpp-sdk-macos-x64-x86_64-static" | grep -q .; then
+            echo "✓ Found macOS x64 static SDK"
+          else
+            echo "::error::Missing macOS x64 static SDK"
+            missing=1
+          fi
+
+          if find artifacts -name "*.tar.gz" | grep "croupier-cpp-sdk-macos-arm64-arm64-static" | grep -q .; then
+            echo "✓ Found macOS ARM64 static SDK"
+          else
+            echo "::error::Missing macOS ARM64 static SDK"
+            missing=1
+          fi
+
+          if find artifacts -name "*.tar.gz" | grep "croupier-cpp-sdk-windows-x86_64-static" | grep -q .; then
+            echo "✓ Found Windows x86_64 static SDK"
+          else
+            echo "::error::Missing Windows x86_64 static SDK"
+            missing=1
+          fi
+
+          # Check for other SDK artifacts
+          echo "Checking for other SDK artifacts..."
+          if find artifacts -name "croupier-java-sdk.jar" -type f | grep -q .; then
+            echo "✓ Found Java SDK"
+          else
+            echo "::error::Missing Java SDK"
+            missing=1
+          fi
+
+          if find artifacts -name "croupier-go-sdk.tar.gz" -type f | grep -q .; then
+            echo "✓ Found Go SDK"
+          else
+            echo "::error::Missing Go SDK"
+            missing=1
+          fi
+
+          if find artifacts -name "croupier-js-sdk-*.tgz" -type f | grep -q .; then
+            echo "✓ Found JavaScript SDK"
+          else
+            echo "::error::Missing JavaScript SDK"
+            missing=1
+          fi
+
+          if find artifacts -name "*.whl" | grep -q .; then
+            echo "✓ Found Python SDK"
+          else
+            echo "::error::Missing Python SDK"
+            missing=1
+          fi
+
           if [ "$missing" -ne 0 ]; then
             echo "One or more artifacts missing; aborting release upload."
             exit 1
