@@ -287,7 +287,7 @@ void ClientConfigLoader::ApplyEnvironmentOverrides(ClientConfig& config, const s
     if (!timeout_env.empty()) {
         try {
             config.timeout_seconds = std::stoi(timeout_env);
-        } catch (const std::exception& e) {
+        } catch (const std::exception& /* e */) {
             std::cerr << "Invalid timeout value in environment: " << timeout_env << std::endl;
         }
     }

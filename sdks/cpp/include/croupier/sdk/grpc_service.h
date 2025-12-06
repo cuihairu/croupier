@@ -10,6 +10,15 @@
 #include <unordered_map>
 #include <deque>
 
+// Windows macro conflict resolution: ERROR is defined in Windows SDK headers
+// We need to undefine it before our enum definition and restore it after
+#ifdef _WIN32
+#ifdef ERROR
+#define CROUPIER_SAVED_ERROR_MACRO ERROR
+#undef ERROR
+#endif
+#endif
+
 // Only include gRPC headers when gRPC is enabled
 #ifdef CROUPIER_SDK_ENABLE_GRPC
 #include <grpcpp/grpcpp.h>
@@ -23,12 +32,13 @@ namespace sdk {
 namespace grpc_service {
 
 // Connection state enum (available regardless of gRPC)
+// Note: Using FAILED instead of ERROR to avoid Windows macro conflicts
 enum class ConnectionState {
     DISCONNECTED,
     CONNECTING,
     CONNECTED,
     RECONNECTING,
-    ERROR
+    FAILED  // Renamed from ERROR to avoid Windows macro conflict
 };
 
 #ifdef CROUPIER_SDK_ENABLE_GRPC
@@ -432,3 +442,11 @@ struct GrpcConnectionOptions {
 } // namespace grpc_service
 } // namespace sdk
 } // namespace croupier
+
+// Restore Windows ERROR macro if it was saved
+#ifdef _WIN32
+#ifdef CROUPIER_SAVED_ERROR_MACRO
+#define ERROR CROUPIER_SAVED_ERROR_MACRO
+#undef CROUPIER_SAVED_ERROR_MACRO
+#endif
+#endif

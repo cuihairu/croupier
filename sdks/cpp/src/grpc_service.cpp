@@ -96,7 +96,7 @@ bool GrpcClientManager::Connect() {
 
     } catch (const std::exception& e) {
         HandleError("Connection failed: " + std::string(e.what()));
-        state_ = ConnectionState::ERROR;
+        state_ = ConnectionState::FAILED;
         return false;
     }
 }
