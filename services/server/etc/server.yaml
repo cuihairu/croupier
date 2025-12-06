@@ -22,7 +22,7 @@ Registry:
 
 # Authentication configuration
 Auth:
-  JWTSecret: "dev-secret"
+  JWTSecret: "localdevsecret-change-me"
   RBACConfig: "configs/rbac.json"
   UsersConfig: "configs/users.json"
   GamesConfig: "configs/games.json"
@@ -52,6 +52,14 @@ Packs:
 Storage:
   Driver: "file"
   BaseDir: "data/uploads"
+
+# Cache configuration
+Cache:
+  Enabled: true
+  Type: "local"          # local | redis
+  TTL: "5m"             # Default TTL
+  EvictTTL: "10m"       # Cleanup interval
+  MaxItems: 10000       # Max items for local cache
 
 # Logging configuration
 CroupierLog:

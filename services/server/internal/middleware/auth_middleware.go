@@ -99,10 +99,16 @@ func (m *AuthMiddleware) authenticate(ctx context.Context, token string) (string
 		return "", nil, 0, errors.New("token subject missing")
 	}
 
-	lookupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// 增加超时时间
+	lookupCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	admin, err := m.svcCtx.AdminModel.FindByUsername(lookupCtx, username)
 	if err != nil {
+		// 记录更详细的错误信息
+		logx.Errorf("Failed to query admin %s: %v", username, err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			return "", nil, 0, fmt.Errorf("数据库查询超时，请检查数据库连接: %w", err)
+		}
 		return "", nil, 0, fmt.Errorf("查询管理员失败: %w", err)
 	}
 	if admin == nil {

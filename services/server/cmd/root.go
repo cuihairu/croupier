@@ -9,6 +9,7 @@ import (
 
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/handler"
+	"github.com/cuihairu/croupier/services/server/internal/middleware"
 	"github.com/cuihairu/croupier/services/server/internal/runtime"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/spf13/cobra"
@@ -135,8 +136,21 @@ func runServer() error {
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
 
-	// 创建服务上下文并注册路由
+	// 创建服务上下文
 	ctx := svc.NewServiceContext(c)
+
+	// 检查数据库连接
+	dbHealth := middleware.NewDBHealth(ctx)
+	if err := dbHealth.Ping(); err != nil {
+		fmt.Printf("警告: 数据库连接失败: %v\n", err)
+		fmt.Println("某些功能可能无法正常工作，请检查数据库配置")
+	}
+
+	// 添加认证中间件
+	authMiddleware := middleware.NewAuthMiddleware(ctx)
+	server.Use(authMiddleware.Handle)
+
+	// 注册路由
 	handler.RegisterHandlers(server, ctx)
 
 	fmt.Printf("Starting Croupier Server at %s:%d (mode: %s, debug: %v)...\n",

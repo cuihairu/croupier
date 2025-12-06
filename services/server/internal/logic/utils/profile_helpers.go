@@ -37,6 +37,7 @@ func LoadCurrentAdmin(ctx context.Context, svcCtx *svc.ServiceContext) (*model.A
 		return nil, nil, err
 	}
 
+	// 使用缓存查询管理员信息
 	admin, err := svcCtx.GetAdminByUsernameCached(ctx, username)
 	if err != nil {
 		return nil, nil, fmt.Errorf("查询管理员失败: %w", err)
@@ -45,6 +46,7 @@ func LoadCurrentAdmin(ctx context.Context, svcCtx *svc.ServiceContext) (*model.A
 		return nil, nil, fmt.Errorf("查询管理员失败: %s 不存在", username)
 	}
 
+	// 使用缓存查询角色信息
 	roles, err := svcCtx.GetAdminRolesCached(ctx, admin.ID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("查询管理员角色失败: %w", err)
