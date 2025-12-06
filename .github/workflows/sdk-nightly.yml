@@ -382,11 +382,11 @@ jobs:
             $VCPKG_INSTALLED = "build\vcpkg_installed\${{ matrix.triplet }}"
           }
 
-          $PROTOC = Join-Path $VCPKG_INSTALLED "tools\protobuf\protoc.exe"
-          $GRPC_PLUGIN = Join-Path $VCPKG_INSTALLED "tools\grpc\grpc_cpp_plugin.exe"
+          $PROTOC = Join-Path (Get-Location) $VCPKG_INSTALLED "tools\protobuf\protoc.exe"
+          $GRPC_PLUGIN = Join-Path (Get-Location) $VCPKG_INSTALLED "tools\grpc\grpc_cpp_plugin.exe"
 
           if (-not (Test-Path $PROTOC)) {
-            Write-Host "ERROR: vcpkg protoc not found - cannot generate C++ proto code"
+            Write-Host "ERROR: vcpkg protoc not found at $PROTOC"
             Write-Host "Please ensure vcpkg packages are installed correctly"
             exit 1
           }
@@ -398,34 +398,39 @@ jobs:
           Remove-Item -Recurse -Force sdks\cpp\generated\* -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Force -Path sdks\cpp\generated | Out-Null
 
-          # Get proto directory absolute path for -I flag
-          $PROTO_DIR = Resolve-Path "proto"
-          $VCPKG_INCLUDE = Join-Path (Resolve-Path $VCPKG_INSTALLED) "include"
+          # Get absolute paths
+          $PROTO_DIR = (Resolve-Path "proto").Path
+          $VCPKG_INCLUDE = Join-Path (Resolve-Path $VCPKG_INSTALLED).Path "include"
+          $OUTPUT_DIR = (Resolve-Path "sdks\cpp\generated").Path
 
-          # Find all proto files and use relative paths
+          Write-Host "Proto directory: $PROTO_DIR"
+          Write-Host "Vcpkg include: $VCPKG_INCLUDE"
+          Write-Host "Output directory: $OUTPUT_DIR"
+
+          # Find all proto files
           $protoFiles = Get-ChildItem -Path proto -Filter "*.proto" -Recurse
 
           foreach ($proto in $protoFiles) {
-            # Get relative path from proto directory
-            $relativePath = $proto.FullName.Substring($PROTO_DIR.Path.Length + 1)
-            Write-Host "Generating C++ for: $relativePath"
+            $protoFullPath = $proto.FullName
+            Write-Host "Generating C++ for: $protoFullPath"
 
+            # Use full path for proto file with -I pointing to proto directory
             & $PROTOC "-I$PROTO_DIR" "-I$VCPKG_INCLUDE" `
-              --cpp_out=sdks\cpp\generated `
-              $relativePath
+              "--cpp_out=$OUTPUT_DIR" `
+              "$protoFullPath"
 
             if ($LASTEXITCODE -ne 0) {
-              Write-Host "Warning: cpp generation failed for $relativePath"
+              Write-Host "Warning: cpp generation failed for $protoFullPath (exit code: $LASTEXITCODE)"
             }
 
             if (Test-Path $GRPC_PLUGIN) {
               & $PROTOC "-I$PROTO_DIR" "-I$VCPKG_INCLUDE" `
-                --grpc_out=sdks\cpp\generated `
+                "--grpc_out=$OUTPUT_DIR" `
                 "--plugin=protoc-gen-grpc=$GRPC_PLUGIN" `
-                $relativePath
+                "$protoFullPath"
 
               if ($LASTEXITCODE -ne 0) {
-                Write-Host "Warning: grpc generation failed for $relativePath"
+                Write-Host "Warning: grpc generation failed for $protoFullPath (exit code: $LASTEXITCODE)"
               }
             }
           }
