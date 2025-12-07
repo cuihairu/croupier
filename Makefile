@@ -14,12 +14,10 @@ LDFLAGS := -X main.version=$(FULL_VERSION) -X main.buildTime=$(BUILD_TIME) -X ma
 # Build all components (server + sdks + web)
 all: build build-sdks build-web
 
-# ========== Legacy Submodule Support (Removed) ==========
-# Note: Submodules have been migrated to monorepo structure
-# SDKs are now in sdks/ directory as source code
+# ========== Submodule Support ==========
 submodules:
-	@echo "⚠️  Submodules have been migrated to monorepo structure"
-	@echo "✅ SDKs are now directly available in sdks/ directory"
+	@echo "[git] ensuring submodules are initialized..."
+	@git submodule update --init --recursive
 
 # Ensure local protoc plugin exists before running buf
 proto: croupier-plugin
@@ -168,7 +166,7 @@ build-sdks-python:
 # ========== Web & Docs Build Targets ==========
 build-web: build-dashboard build-docs
 
-build-dashboard:
+build-dashboard: submodules
 	@echo "[web] building dashboard..."
 	@cd dashboard && npm ci && npm run build
 
@@ -177,7 +175,7 @@ build-docs:
 	@cd docs && npm ci && npm run build
 
 # ========== Development Targets ==========
-dev-dashboard:
+dev-dashboard: submodules
 	@echo "[web] starting dashboard development server..."
 	@cd dashboard && npm ci && npm run dev
 
