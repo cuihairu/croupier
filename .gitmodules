@@ -1,3 +1,21 @@
 [submodule "dashboard"]
 	path = dashboard
 	url = git@github.com:cuihairu/croupier-dashboard.git
+[submodule "sdks/cpp"]
+	path = sdks/cpp
+	url = git@github.com:cuihairu/croupier-sdk-cpp.git
+[submodule "proto"]
+	path = proto
+	url = git@github.com:cuihairu/croupier-proto.git
+[submodule "sdks/go"]
+	path = sdks/go
+	url = git@github.com:cuihairu/croupier-sdk-go.git
+[submodule "sdks/java"]
+	path = sdks/java
+	url = git@github.com:cuihairu/croupier-sdk-java.git
+[submodule "sdks/js"]
+	path = sdks/js
+	url = git@github.com:cuihairu/croupier-sdk-js.git
+[submodule "sdks/python"]
+	path = sdks/python
+	url = git@github.com:cuihairu/croupier-sdk-python.git
