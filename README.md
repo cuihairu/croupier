@@ -1,5 +1,7 @@
 # Croupier Platform
 
+[![CI](https://github.com/cuihairu/croupier/actions/workflows/ci.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci.yml)
+[![Docker Build](https://github.com/cuihairu/croupier/actions/workflows/docker.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/docker.yml)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Go Version](https://img.shields.io/badge/go-1.25+-green.svg)
 ![Status](https://img.shields.io/badge/status-in%20development-yellow.svg)
