@@ -89,6 +89,15 @@ type FunctionActionRequest {
 	ID string `path:"id"`
 }
 
+type FunctionCopyRequest {
+	ID string `path:"id"`
+}
+
+type FunctionCopyResponse {
+	FunctionId string `json:"function_id"`
+	NewId      string `json:"new_id"`
+}
+
 // --- 函数调用 ---
 type FunctionInvokeRequest {
 	ID     string      `path:"id"`
@@ -163,6 +172,36 @@ type FunctionsPendingResponse {
 	Items []PendingFunction `json:"items"`
 }
 
+// --- 批量操作 ---
+type BatchUpdateFunctionsRequest {
+	FunctionIds []string `json:"function_ids"`
+	Enabled     bool     `json:"enabled"`
+}
+
+type BatchUpdateFunctionsResponse {
+	Updated int      `json:"updated"`
+	Failed  []string `json:"failed"`
+}
+
+type BatchCopyFunctionsRequest {
+	FunctionIds []string `json:"function_ids"`
+}
+
+type BatchCopyFunctionsResponse {
+	Updated int      `json:"updated"`
+	Failed  []string `json:"failed"`
+	Copied  []string `json:"copied"` // 新复制的函数ID列表
+}
+
+type BatchDeleteFunctionsRequest {
+	FunctionIds []string `json:"function_ids"`
+}
+
+type BatchDeleteFunctionsResponse {
+	Updated int      `json:"updated"`
+	Failed  []string `json:"failed"`
+}
+
 // ============================================================================
 // 服务定义
 // ============================================================================
@@ -188,6 +227,14 @@ service server {
 	@doc "禁用函数"
 	@handler FunctionDisableHandler
 	post /:id/disable (FunctionActionRequest)
+
+	@doc "复制函数"
+	@handler FunctionCopyHandler
+	post /:id/copy (FunctionCopyRequest) returns (FunctionCopyResponse)
+
+	@doc "删除函数"
+	@handler FunctionDeleteHandler
+	delete /:id (FunctionActionRequest)
 
 	@doc "调用函数"
 	@handler FunctionInvokeHandler
@@ -229,4 +276,17 @@ service server {
 	@doc "获取待处理函数"
 	@handler FunctionsPendingHandler
 	get /pending (FunctionsPendingRequest) returns (FunctionsPendingResponse)
+
+	// === 批量操作 ===
+	@doc "批量更新函数状态"
+	@handler BatchUpdateFunctionsHandler
+	post /batch-update (BatchUpdateFunctionsRequest) returns (BatchUpdateFunctionsResponse)
+
+	@doc "批量复制函数"
+	@handler BatchCopyFunctionsHandler
+	post /batch-copy (BatchCopyFunctionsRequest) returns (BatchCopyFunctionsResponse)
+
+	@doc "批量删除函数"
+	@handler BatchDeleteFunctionsHandler
+	post /batch-delete (BatchDeleteFunctionsRequest) returns (BatchDeleteFunctionsResponse)
 }

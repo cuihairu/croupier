@@ -262,6 +262,35 @@ type BackupsListResponse struct {
 	Size  int      `json:"pageSize"`
 }
 
+type BatchCopyFunctionsRequest struct {
+	FunctionIds []string `json:"function_ids"`
+}
+
+type BatchCopyFunctionsResponse struct {
+	Updated int      `json:"updated"`
+	Failed  []string `json:"failed"`
+	Copied  []string `json:"copied"` // 新复制的函数ID列表
+}
+
+type BatchDeleteFunctionsRequest struct {
+	FunctionIds []string `json:"function_ids"`
+}
+
+type BatchDeleteFunctionsResponse struct {
+	Updated int      `json:"updated"`
+	Failed  []string `json:"failed"`
+}
+
+type BatchUpdateFunctionsRequest struct {
+	FunctionIds []string `json:"function_ids"`
+	Enabled     bool     `json:"enabled"`
+}
+
+type BatchUpdateFunctionsResponse struct {
+	Updated int      `json:"updated"`
+	Failed  []string `json:"failed"`
+}
+
 type BehaviorAdoptionBreakdownRequest struct {
 	GameId    string `form:"gameId,optional"`
 	Env       string `form:"env,optional"`
@@ -839,6 +868,15 @@ type Function struct {
 
 type FunctionActionRequest struct {
 	ID string `path:"id"`
+}
+
+type FunctionCopyRequest struct {
+	ID string `path:"id"`
+}
+
+type FunctionCopyResponse struct {
+	FunctionId string `json:"function_id"`
+	NewId      string `json:"new_id"`
 }
 
 type FunctionDescriptor struct {
