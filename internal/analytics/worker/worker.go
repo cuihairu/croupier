@@ -25,6 +25,15 @@ func envOrDefault(key, def string) string {
 const (
 	insertEventsSQL   = "INSERT INTO analytics.events (event_time, game_id, env, user_id, session_id, event, channel, platform, country, app_version, event_id, props_json)"
 	insertPaymentsSQL = "INSERT INTO analytics.payments (time, game_id, env, user_id, order_id, amount_cents, currency, status, channel, platform, country, region, city, product_id, reason)"
+
+	// Dead letter streams
+	deadEventsStream   = "analytics:events:dead"
+	deadPaymentsStream = "analytics:payments:dead"
+
+	// Pending recovery settings
+	pendingReclaimInterval = 30 * time.Second
+	pendingIdleTimeout     = 5 * time.Minute
+	maxPendingRetries      = 3
 )
 
 type Worker struct {
@@ -47,6 +56,9 @@ type Worker struct {
 	// checkpoints
 	checkpointPrefix string
 	lastIDs          map[string]string
+	// dead letter handling
+	deadEventsStream   string
+	deadPaymentsStream string
 }
 
 func NewWorker() (*Worker, error) {
@@ -98,19 +110,25 @@ func NewWorker() (*Worker, error) {
 			batchSize = n
 		}
 	}
+	// Dead letter streams (can be overridden via env)
+	deadEvents := envOrDefault("ANALYTICS_DEAD_EVENTS_STREAM", deadEventsStream)
+	deadPayments := envOrDefault("ANALYTICS_DEAD_PAYMENTS_STREAM", deadPaymentsStream)
+
 	return &Worker{
-		rdb:              rdb,
-		ch:               ch,
-		streamEvents:     se,
-		streamPayments:   sp,
-		group:            grp,
-		consumer:         cons,
-		touchedMinutes:   map[string]struct{}{},
-		touchedDays:      map[string]struct{}{},
-		revAgg:           map[string]*revRow{},
-		clickBatchSize:   batchSize,
-		checkpointPrefix: strings.TrimSuffix(envOrDefault("ANALYTICS_CHECKPOINT_PREFIX", "analytics:checkpoint"), ":"),
-		lastIDs:          map[string]string{},
+		rdb:                rdb,
+		ch:                 ch,
+		streamEvents:       se,
+		streamPayments:     sp,
+		group:              grp,
+		consumer:           cons,
+		touchedMinutes:     map[string]struct{}{},
+		touchedDays:        map[string]struct{}{},
+		revAgg:             map[string]*revRow{},
+		clickBatchSize:     batchSize,
+		checkpointPrefix:   strings.TrimSuffix(envOrDefault("ANALYTICS_CHECKPOINT_PREFIX", "analytics:checkpoint"), ":"),
+		lastIDs:            map[string]string{},
+		deadEventsStream:   deadEvents,
+		deadPaymentsStream: deadPayments,
 	}, nil
 }
 
@@ -126,6 +144,10 @@ func (w *Worker) Run(ctx context.Context) error {
 	defer func() {
 		_ = w.flushBatches(context.Background())
 	}()
+
+	// Start pending recovery goroutine
+	go w.reclaimPendingMessages(ctx)
+
 	// periodic flush
 	go func() {
 		tk := time.NewTicker(15 * time.Second)
@@ -149,31 +171,9 @@ func (w *Worker) Run(ctx context.Context) error {
 		}
 		for _, str := range res {
 			for _, msg := range str.Messages {
-				data := string(fmtAny(msg.Values["data"]))
-				if data == "" {
-					_ = w.rdb.XAck(ctx, str.Stream, w.group, msg.ID).Err()
-					continue
+				if err := w.processMessage(ctx, str.Stream, msg); err != nil {
+					slog.Warn("process message", "stream", str.Stream, "id", msg.ID, "err", err)
 				}
-				var m map[string]any
-				if err := json.Unmarshal([]byte(data), &m); err != nil {
-					_ = w.rdb.XAck(ctx, str.Stream, w.group, msg.ID).Err()
-					continue
-				}
-				if str.Stream == w.streamEvents {
-					// Update Redis HLL for minute online, DAU/new_users
-					w.touchAgg(ctx, m)
-					if err := w.insertEvent(ctx, m); err != nil {
-						slog.Warn("insert event", "err", err)
-					}
-				} else if str.Stream == w.streamPayments {
-					w.touchRevenue(ctx, m)
-					if err := w.insertPayment(ctx, m); err != nil {
-						slog.Warn("insert payment", "err", err)
-					}
-				}
-				_ = w.rdb.XAck(ctx, str.Stream, w.group, msg.ID).Err()
-				w.lastIDs[str.Stream] = msg.ID
-				w.persistCheckpoint(ctx, str.Stream, msg.ID)
 			}
 		}
 	}
@@ -550,5 +550,189 @@ func (w *Worker) persistCheckpoint(ctx context.Context, stream, id string) {
 	key := fmt.Sprintf("%s:%s", w.checkpointPrefix, stream)
 	if err := w.rdb.Set(ctx, key, id, 0).Err(); err != nil {
 		slog.Warn("checkpoint set", "stream", stream, "err", err)
+	}
+}
+
+// processMessage handles a single message with error handling and dead letter queue
+func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XMessage) error {
+	data := string(fmtAny(msg.Values["data"]))
+	if data == "" {
+		// Empty data, just acknowledge
+		return w.rdb.XAck(ctx, stream, w.group, msg.ID).Err()
+	}
+
+	var m map[string]any
+	if err := json.Unmarshal([]byte(data), &m); err != nil {
+		// Invalid JSON, move to dead letter
+		w.sendToDeadLetter(ctx, stream, msg, "invalid_json", err.Error())
+		return w.rdb.XAck(ctx, stream, w.group, msg.ID).Err()
+	}
+
+	// Add retry count if not present
+	if m["retry_count"] == nil {
+		m["retry_count"] = 0
+	}
+
+	var err error
+	if stream == w.streamEvents {
+		// Update Redis HLL for minute online, DAU/new_users
+		w.touchAgg(ctx, m)
+		err = w.insertEvent(ctx, m)
+	} else if stream == w.streamPayments {
+		w.touchRevenue(ctx, m)
+		err = w.insertPayment(ctx, m)
+	}
+
+	if err != nil {
+		retries := int(m["retry_count"].(float64))
+		if retries >= maxPendingRetries {
+			// Max retries exceeded, move to dead letter
+			w.sendToDeadLetter(ctx, stream, msg, "max_retries_exceeded", err.Error())
+			return w.rdb.XAck(ctx, stream, w.group, msg.ID).Err()
+		}
+		// Increment retry count and re-queue
+		m["retry_count"] = retries + 1
+		retryData, _ := json.Marshal(m)
+		w.rdb.XAdd(ctx, &redis.XAddArgs{
+			Stream: stream,
+			MaxLen: 1000, // Keep retry queue bounded
+			Approx: true,
+			ID:     "*",
+			Values: map[string]interface{}{"data": string(retryData)},
+		})
+		slog.Warn("message processing failed, re-queued", "stream", stream, "id", msg.ID, "retries", retries+1, "err", err)
+	}
+
+	// Acknowledge successful processing
+	if ackErr := w.rdb.XAck(ctx, stream, w.group, msg.ID).Err(); ackErr != nil {
+		slog.Warn("ack failed", "stream", stream, "id", msg.ID, "err", ackErr)
+		return ackErr
+	}
+
+	w.lastIDs[stream] = msg.ID
+	w.persistCheckpoint(ctx, stream, msg.ID)
+	return nil
+}
+
+// sendToDeadLetter sends a message to the dead letter stream
+func (w *Worker) sendToDeadLetter(ctx context.Context, stream string, msg redis.XMessage, reason, details string) {
+	deadStream := w.deadEventsStream
+	if stream == w.streamPayments {
+		deadStream = w.deadPaymentsStream
+	}
+
+	deadEntry := map[string]interface{}{
+		"original_stream": stream,
+		"original_id":     msg.ID,
+		"reason":          reason,
+		"details":         details,
+		"failed_at":       time.Now().Unix(),
+		"retry_count":     msg.Values["retry_count"],
+		"original_data":   msg.Values["data"],
+	}
+
+	if err := w.rdb.XAdd(ctx, &redis.XAddArgs{
+		Stream: deadStream,
+		MaxLen: 10000, // Keep dead letter queue bounded
+		Approx: true,
+		ID:     "*",
+		Values: deadEntry,
+	}).Err(); err != nil {
+		slog.Error("failed to send to dead letter", "stream", deadStream, "original_id", msg.ID, "err", err)
+	} else {
+		slog.Warn("message sent to dead letter", "stream", deadStream, "original_stream", stream, "original_id", msg.ID, "reason", reason)
+	}
+}
+
+// reclaimPendingMessages periodically reclaims pending messages that have been idle too long
+func (w *Worker) reclaimPendingMessages(ctx context.Context) {
+	ticker := time.NewTicker(pendingReclaimInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			w.reclaimPendingFromStream(ctx, w.streamEvents)
+			w.reclaimPendingFromStream(ctx, w.streamPayments)
+		}
+	}
+}
+
+// reclaimPendingFromStream reclaims pending messages from a specific stream
+func (w *Worker) reclaimPendingFromStream(ctx context.Context, stream string) {
+	// Get list of consumers in the group
+	consumers, err := w.rdb.XInfoConsumers(ctx, stream, w.group).Result()
+	if err != nil {
+		slog.Warn("failed to get consumers", "stream", stream, "err", err)
+		return
+	}
+
+	// Check each consumer for pending messages
+	for _, consumer := range consumers {
+		// Get pending messages for this consumer
+		pending, err := w.rdb.XPendingExt(ctx, &redis.XPendingExtArgs{
+			Stream:   stream,
+			Group:    w.group,
+			Consumer: consumer.Name,
+			Start:    "-",
+			End:      "+",
+			Count:    100,
+		}).Result()
+		if err != nil {
+			slog.Warn("failed to get pending", "stream", stream, "consumer", consumer.Name, "err", err)
+			continue
+		}
+
+		now := time.Now()
+		for _, p := range pending {
+			// Check if message has been idle too long
+			idleTime := now.Sub(p.Time)
+			if idleTime >= pendingIdleTimeout {
+				// Try to claim the message
+				claimed, err := w.rdb.XAutoClaim(ctx, &redis.XAutoClaimArgs{
+					Stream:   stream,
+					Group:    w.group,
+					Consumer: w.consumer,
+					MinIdle:  pendingIdleTimeout,
+					Start:    p.ID,
+					Count:    100,
+				}).Result()
+				if err != nil && err != redis.Nil {
+					slog.Warn("failed to auto-claim", "stream", stream, "id", p.ID, "err", err)
+					continue
+				}
+
+				// Process claimed messages
+				for _, msg := range claimed.Messages {
+					slog.Info("reclaimed pending message", "stream", stream, "id", msg.ID, "idle_time", idleTime)
+					if err := w.processMessage(ctx, stream, msg); err != nil {
+						slog.Warn("failed to process reclaimed message", "stream", stream, "id", msg.ID, "err", err)
+					}
+				}
+			}
+		}
+	}
+
+	// Also check for any orphaned messages (no consumer)
+	orphaned, err := w.rdb.XAutoClaim(ctx, &redis.XAutoClaimArgs{
+		Stream:   stream,
+		Group:    w.group,
+		Consumer: w.consumer,
+		MinIdle:  pendingIdleTimeout,
+		Start:    "0-0",
+		Count:    100,
+	}).Result()
+	if err != nil && err != redis.Nil {
+		slog.Warn("failed to claim orphaned", "stream", stream, "err", err)
+		return
+	}
+
+	for _, msg := range orphaned.Messages {
+		slog.Info("reclaimed orphaned message", "stream", stream, "id", msg.ID)
+		if err := w.processMessage(ctx, stream, msg); err != nil {
+			slog.Warn("failed to process orphaned message", "stream", stream, "id", msg.ID, "err", err)
+		}
 	}
 }
