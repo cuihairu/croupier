@@ -1,0 +1,15 @@
+version: v1
+managed:
+  enabled: true
+  go_package_prefix:
+    default: github.com/cuihairu/croupier/pkg/pb
+plugins:
+  # Only generate Go code for the main package
+  - name: go
+    out: pkg/pb
+    opt:
+      - paths=source_relative
+  - name: go-grpc
+    out: pkg/pb
+    opt:
+      - paths=source_relative
