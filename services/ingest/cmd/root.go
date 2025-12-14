@@ -35,9 +35,9 @@ type server struct {
 	dedupTTL  time.Duration
 
 	// Rate limiting
-	limiter     *rate.Limiter
-	rateLimit   int // requests per second
-	rateBurst   int // burst size
+	limiter   *rate.Limiter
+	rateLimit int // requests per second
+	rateBurst int // burst size
 
 	// Metrics
 	requestsTotal   int64
@@ -46,26 +46,26 @@ type server struct {
 	requestsDropped int64
 
 	// Detailed metrics
-	eventsProcessed  int64
+	eventsProcessed   int64
 	paymentsProcessed int64
-	validationErrors int64
-	queueErrors     int64
-	authErrors      int64
+	validationErrors  int64
+	queueErrors       int64
+	authErrors        int64
 
 	// Latency metrics (microseconds)
-	latencySum    int64
-	latencyCount  int64
+	latencySum   int64
+	latencyCount int64
 
 	// Queue metrics
-	queueLastCheck    time.Time
-	eventsPending     int64
-	paymentsPending   int64
+	queueLastCheck  time.Time
+	eventsPending   int64
+	paymentsPending int64
 
 	// Configuration
-	maxBodySize int64 // maximum body size in bytes
-	readTimeout time.Duration
+	maxBodySize  int64 // maximum body size in bytes
+	readTimeout  time.Duration
 	writeTimeout time.Duration
-	idleTimeout time.Duration
+	idleTimeout  time.Duration
 
 	// Metrics collection
 	mu sync.RWMutex
@@ -82,7 +82,7 @@ var (
 
 	// Rate limiting
 	rateLimitRPS int
-	rateBurst   int
+	rateBurst    int
 
 	// HTTP timeouts
 	readTimeoutSec  int
@@ -197,29 +197,29 @@ func runIngest() error {
 		runtime.ReadMemStats(&m)
 
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"status": "ok",
-			"version": Version,
+			"status":    "ok",
+			"version":   Version,
 			"timestamp": time.Now().Unix(),
 			"metrics": map[string]interface{}{
-				"requests_total":       atomic.LoadInt64(&s.requestsTotal),
-				"requests_success":     atomic.LoadInt64(&s.requestsSuccess),
-				"requests_error":       atomic.LoadInt64(&s.requestsError),
-				"requests_dropped":     atomic.LoadInt64(&s.requestsDropped),
-				"events_processed":     atomic.LoadInt64(&s.eventsProcessed),
-				"payments_processed":   atomic.LoadInt64(&s.paymentsProcessed),
-				"validation_errors":    atomic.LoadInt64(&s.validationErrors),
-				"queue_errors":         atomic.LoadInt64(&s.queueErrors),
-				"auth_errors":          atomic.LoadInt64(&s.authErrors),
-				"avg_latency_ms":       avgLatencyMs,
-				"events_pending":       eventsPending,
-				"payments_pending":     paymentsPending,
+				"requests_total":     atomic.LoadInt64(&s.requestsTotal),
+				"requests_success":   atomic.LoadInt64(&s.requestsSuccess),
+				"requests_error":     atomic.LoadInt64(&s.requestsError),
+				"requests_dropped":   atomic.LoadInt64(&s.requestsDropped),
+				"events_processed":   atomic.LoadInt64(&s.eventsProcessed),
+				"payments_processed": atomic.LoadInt64(&s.paymentsProcessed),
+				"validation_errors":  atomic.LoadInt64(&s.validationErrors),
+				"queue_errors":       atomic.LoadInt64(&s.queueErrors),
+				"auth_errors":        atomic.LoadInt64(&s.authErrors),
+				"avg_latency_ms":     avgLatencyMs,
+				"events_pending":     eventsPending,
+				"payments_pending":   paymentsPending,
 			},
 			"system": map[string]interface{}{
-				"goroutines": runtime.NumGoroutine(),
+				"goroutines":   runtime.NumGoroutine(),
 				"mem_alloc_mb": m.Alloc / 1024 / 1024,
 				"mem_total_mb": m.TotalAlloc / 1024 / 1024,
-				"mem_sys_mb": m.Sys / 1024 / 1024,
-				"gc_cycles": m.NumGC,
+				"mem_sys_mb":   m.Sys / 1024 / 1024,
+				"gc_cycles":    m.NumGC,
 			},
 			"config": map[string]interface{}{
 				"rate_limit_rps":   rateLimitRPS,
@@ -336,8 +336,8 @@ func (s *server) rateLimitMiddleware(next http.Handler) http.Handler {
 		if !s.limiter.Allow() {
 			atomic.AddInt64(&s.requestsDropped, 1)
 			respondJSON(w, http.StatusTooManyRequests, map[string]string{
-				"error": "rate_limit_exceeded",
-				"limit":  fmt.Sprintf("%d_rps", s.rateLimit),
+				"error":       "rate_limit_exceeded",
+				"limit":       fmt.Sprintf("%d_rps", s.rateLimit),
 				"retry_after": "1s",
 			})
 			return
@@ -352,52 +352,52 @@ func (s *server) metricsMiddleware(next http.Handler) http.Handler {
 		start := time.Now()
 		atomic.AddInt64(&s.requestsTotal, 1)
 
-	// Create a response writer to capture status code
-	rw := &responseWriter{ResponseWriter: w}
+		// Create a response writer to capture status code
+		rw := &responseWriter{ResponseWriter: w}
 
-	// Limit body size before reading
-	// Note: We limit after auth to ensure we can track metrics
-	// In production, you might want to use http.MaxBytesReader
-	if r.ContentLength > 0 && r.ContentLength > s.maxBodySize {
+		// Limit body size before reading
+		// Note: We limit after auth to ensure we can track metrics
+		// In production, you might want to use http.MaxBytesReader
+		if r.ContentLength > 0 && r.ContentLength > s.maxBodySize {
 			atomic.AddInt64(&s.requestsError, 1)
 			respondJSON(rw, http.StatusRequestEntityTooLarge, map[string]string{
-				"error":      "body_too_large",
+				"error":       "body_too_large",
 				"max_size_mb": fmt.Sprintf("%d", maxBodySizeMB),
-				"actual_size":  fmt.Sprintf("%d", r.ContentLength/1024/1024),
+				"actual_size": fmt.Sprintf("%d", r.ContentLength/1024/1024),
 			})
 			return
 		}
 
-	// Serve the request
-	// Note: In a real implementation, you might want to replace r.Body with a limited reader
-	// For now, we'll read the body and check size in the handlers
-	next.ServeHTTP(rw, r)
+		// Serve the request
+		// Note: In a real implementation, you might want to replace r.Body with a limited reader
+		// For now, we'll read the body and check size in the handlers
+		next.ServeHTTP(rw, r)
 
-	// Record latency in microseconds
-	duration := time.Since(start)
-	durationMicros := duration.Microseconds()
-	atomic.AddInt64(&s.latencySum, durationMicros)
-	atomic.AddInt64(&s.latencyCount, 1)
+		// Record latency in microseconds
+		duration := time.Since(start)
+		durationMicros := duration.Microseconds()
+		atomic.AddInt64(&s.latencySum, durationMicros)
+		atomic.AddInt64(&s.latencyCount, 1)
 
-	// Record metrics based on status code
-	if rw.status >= 200 && rw.status < 400 {
-		atomic.AddInt64(&s.requestsSuccess, 1)
-	} else {
-		atomic.AddInt64(&s.requestsError, 1)
-		// Track specific error types
-		if rw.status == 400 {
-			atomic.AddInt64(&s.validationErrors, 1)
-		} else if rw.status == 401 || rw.status == 403 {
-			atomic.AddInt64(&s.authErrors, 1)
-		} else if rw.status >= 500 {
-			atomic.AddInt64(&s.queueErrors, 1)
+		// Record metrics based on status code
+		if rw.status >= 200 && rw.status < 400 {
+			atomic.AddInt64(&s.requestsSuccess, 1)
+		} else {
+			atomic.AddInt64(&s.requestsError, 1)
+			// Track specific error types
+			if rw.status == 400 {
+				atomic.AddInt64(&s.validationErrors, 1)
+			} else if rw.status == 401 || rw.status == 403 {
+				atomic.AddInt64(&s.authErrors, 1)
+			} else if rw.status >= 500 {
+				atomic.AddInt64(&s.queueErrors, 1)
+			}
 		}
-	}
 
-	// Log slow requests
-	if duration > time.Second {
-		log.Printf("[ingest] slow request: %s %s took %v (status: %d)", r.Method, r.URL.Path, duration, rw.status)
-	}
+		// Log slow requests
+		if duration > time.Second {
+			log.Printf("[ingest] slow request: %s %s took %v (status: %d)", r.Method, r.URL.Path, duration, rw.status)
+		}
 	})
 }
 
@@ -411,7 +411,6 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.status = code
 	rw.ResponseWriter.WriteHeader(code)
 }
-
 
 // ingestEvents 接收通用事件数组，写入 MQ: analytics:events
 func (s *server) ingestEvents(w http.ResponseWriter, r *http.Request) {
@@ -427,7 +426,7 @@ func (s *server) ingestEvents(w http.ResponseWriter, r *http.Request) {
 		// Check if it's a size error
 		if err.Error() == "http: request body too large" {
 			respondJSON(w, http.StatusRequestEntityTooLarge, map[string]string{
-				"error":      "body_too_large",
+				"error":       "body_too_large",
 				"max_size_mb": fmt.Sprintf("%d", maxBodySizeMB),
 			})
 			return
@@ -464,7 +463,7 @@ func (s *server) ingestPayments(w http.ResponseWriter, r *http.Request) {
 		// Check if it's a size error
 		if err.Error() == "http: request body too large" {
 			respondJSON(w, http.StatusRequestEntityTooLarge, map[string]string{
-				"error":      "body_too_large",
+				"error":       "body_too_large",
 				"max_size_mb": fmt.Sprintf("%d", maxBodySizeMB),
 			})
 			return

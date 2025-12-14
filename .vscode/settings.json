@@ -75,5 +75,20 @@
 
     // 禁用不需要的功能
     "C_Cpp.experimentalFeatures": "disabled",
-    "C_Cpp.enhancedColorization": "disabled"
+    "C_Cpp.enhancedColorization": "disabled",
+
+    // ========== Go 格式化配置 ==========
+    "go.useLanguageServer": true,
+    "go.formatTool": "gofmt",
+    "go.formatOnSave": "languageServer",
+    "go.lintOnSave": "workspace",
+    "go.lintTool": "golangci-lint",
+    "go.vetOnSave": "workspace",
+    "go.buildOnSave": "workspace",
+    "go.testOnSave": false,
+    "go.coverOnSave": false,
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": true
+    }
 }

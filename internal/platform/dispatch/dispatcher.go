@@ -312,7 +312,6 @@ func (d *Dispatcher) dial(addr string) (*grpc.ClientConn, functionv1.FunctionSer
 	return conn, functionv1.NewFunctionServiceClient(conn), nil
 }
 
-
 // RegisterJob registers a job routing (exported method)
 func (d *Dispatcher) RegisterJob(jobID, addr string) {
 	d.registerJob(jobID, addr)

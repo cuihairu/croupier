@@ -22,7 +22,7 @@ import (
 // Server implements the ControlService and exposes a registry store for other components.
 type Server struct {
 	serverv1.UnimplementedControlServiceServer
-	reg        *reg.Store
+	reg          *reg.Store
 	schemaLoader *gojsonschema.Schema // 缓存 Provider Manifest JSON Schema
 }
 

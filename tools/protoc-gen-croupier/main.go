@@ -185,19 +185,19 @@ func main() {
 					desc["permissions"] = fo.Permissions
 				}
 				// JSON schema for input + UI schema (with field-level UI options if any) - only emit if manifest requested
-			if emitManifest {
-				if inMsg := msgIndex[m.GetInputType()]; inMsg != nil {
-					uiHints := collectUIFieldHints(inMsg)
-					schema := buildJSONSchema(pkg, msgIndex, enumIndex, inMsg)
-					uiSchema := buildUISchema(schema, uiHints)
-					// Attach sensitive fields into descriptor (for audit masking)
-					if len(uiHints.Sensitive) > 0 {
-						desc["ui"] = map[string]any{"sensitive": uiHints.Sensitive}
+				if emitManifest {
+					if inMsg := msgIndex[m.GetInputType()]; inMsg != nil {
+						uiHints := collectUIFieldHints(inMsg)
+						schema := buildJSONSchema(pkg, msgIndex, enumIndex, inMsg)
+						uiSchema := buildUISchema(schema, uiHints)
+						// Attach sensitive fields into descriptor (for audit masking)
+						if len(uiHints.Sensitive) > 0 {
+							desc["ui"] = map[string]any{"sensitive": uiHints.Sensitive}
+						}
+						addJSON(resp, &generatedFiles, filepath.Join("ui", sanitize(funID)+".schema.json"), schema)
+						addJSON(resp, &generatedFiles, filepath.Join("ui", sanitize(funID)+".uischema.json"), uiSchema)
 					}
-					addJSON(resp, &generatedFiles, filepath.Join("ui", sanitize(funID)+".schema.json"), schema)
-					addJSON(resp, &generatedFiles, filepath.Join("ui", sanitize(funID)+".uischema.json"), uiSchema)
 				}
-			}
 				addJSON(resp, &generatedFiles, filepath.Join("descriptors", sanitize(funID)+".json"), desc)
 
 				manifest.Functions = append(manifest.Functions, FunctionSpec{ID: funID, Version: version, Category: category, Labels: fo.Labels})

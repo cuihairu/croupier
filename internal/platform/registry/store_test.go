@@ -9,10 +9,10 @@ import (
 
 func TestBuildFunctionIndex(t *testing.T) {
 	tests := []struct {
-		name           string
-		providers      []registry.ProviderCaps
-		expectedIndex  map[string]map[string]interface{}
-		expectedOrder  []string // 验证覆盖顺序
+		name          string
+		providers     []registry.ProviderCaps
+		expectedIndex map[string]map[string]interface{}
+		expectedOrder []string // 验证覆盖顺序
 	}{
 		{
 			name: "single provider",
@@ -23,16 +23,16 @@ func TestBuildFunctionIndex(t *testing.T) {
 					Manifest: mustParseJSON(t, map[string]interface{}{
 						"functions": []map[string]interface{}{
 							{
-								"id":          "function1",
+								"id":           "function1",
 								"display_name": map[string]string{"en": "Function 1"},
-								"summary":     map[string]string{"en": "Summary 1"},
-								"tags":        []string{"tag1", "tag2"},
+								"summary":      map[string]string{"en": "Summary 1"},
+								"tags":         []string{"tag1", "tag2"},
 							},
 							{
-								"id":          "function2",
+								"id":           "function2",
 								"display_name": map[string]string{"en": "Function 2"},
-								"summary":     map[string]string{"en": "Summary 2"},
-								"tags":        []string{"tag3"},
+								"summary":      map[string]string{"en": "Summary 2"},
+								"tags":         []string{"tag3"},
 							},
 						},
 					}),
@@ -60,9 +60,9 @@ func TestBuildFunctionIndex(t *testing.T) {
 					Manifest: mustParseJSON(t, map[string]interface{}{
 						"functions": []map[string]interface{}{
 							{
-								"id":          "function1",
+								"id":           "function1",
 								"display_name": map[string]string{"en": "Function 1"},
-								"summary":     map[string]string{"en": "Summary 1"},
+								"summary":      map[string]string{"en": "Summary 1"},
 							},
 						},
 					}),
@@ -73,9 +73,9 @@ func TestBuildFunctionIndex(t *testing.T) {
 					Manifest: mustParseJSON(t, map[string]interface{}{
 						"functions": []map[string]interface{}{
 							{
-								"id":          "function2",
+								"id":           "function2",
 								"display_name": map[string]string{"en": "Function 2"},
-								"summary":     map[string]string{"en": "Summary 2"},
+								"summary":      map[string]string{"en": "Summary 2"},
 							},
 						},
 					}),
@@ -169,8 +169,8 @@ func TestBuildFunctionIndex(t *testing.T) {
 			name: "provider with invalid manifest",
 			providers: []registry.ProviderCaps{
 				{
-					ID:      "provider1",
-					Version: "1.0.0",
+					ID:       "provider1",
+					Version:  "1.0.0",
 					Manifest: []byte("invalid json"),
 				},
 				{

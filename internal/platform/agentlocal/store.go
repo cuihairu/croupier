@@ -30,12 +30,12 @@ type LocalStore struct {
 
 // JobResult stores the result of a job
 type JobResult struct {
-	JobID      string
-	State      string // pending, running, completed, failed, cancelled
-	Payload    []byte
-	Error      string
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	JobID     string
+	State     string // pending, running, completed, failed, cancelled
+	Payload   []byte
+	Error     string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func NewLocalStore() *LocalStore {

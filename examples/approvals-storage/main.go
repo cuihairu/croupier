@@ -72,16 +72,16 @@ func demonstrateStore(store approvals.Store) {
 
 	// 1. 创建一个待审批的请求
 	approval := &approvals.Approval{
-		ID:         uuid.New().String(),
-		State:      "pending",
-		FunctionID: "player.ban",
-		GameID:     "game-001",
-		Env:        "production",
-		Actor:      "admin-001",
-		Mode:       "invoke",
+		ID:             uuid.New().String(),
+		State:          "pending",
+		FunctionID:     "player.ban",
+		GameID:         "game-001",
+		Env:            "production",
+		Actor:          "admin-001",
+		Mode:           "invoke",
 		IdempotencyKey: uuid.New().String(),
-		Route:      "/api/v1/functions/player.ban",
-		Payload:    []byte(`{"playerId": "player123", "reason": "违规操作", "duration": 3600}`),
+		Route:          "/api/v1/functions/player.ban",
+		Payload:        []byte(`{"playerId": "player123", "reason": "违规操作", "duration": 3600}`),
 	}
 
 	fmt.Printf("\n1. 创建审批请求: %s\n", approval.ID)
