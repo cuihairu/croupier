@@ -185,7 +185,8 @@ func main() {
 					desc["permissions"] = fo.Permissions
 				}
 				// JSON schema for input + UI schema (with field-level UI options if any) - only emit if manifest requested
-				if emitManifest && inMsg := msgIndex[m.GetInputType()]; inMsg != nil {
+			if emitManifest {
+				if inMsg := msgIndex[m.GetInputType()]; inMsg != nil {
 					uiHints := collectUIFieldHints(inMsg)
 					schema := buildJSONSchema(pkg, msgIndex, enumIndex, inMsg)
 					uiSchema := buildUISchema(schema, uiHints)
@@ -196,6 +197,7 @@ func main() {
 					addJSON(resp, &generatedFiles, filepath.Join("ui", sanitize(funID)+".schema.json"), schema)
 					addJSON(resp, &generatedFiles, filepath.Join("ui", sanitize(funID)+".uischema.json"), uiSchema)
 				}
+			}
 				addJSON(resp, &generatedFiles, filepath.Join("descriptors", sanitize(funID)+".json"), desc)
 
 				manifest.Functions = append(manifest.Functions, FunctionSpec{ID: funID, Version: version, Category: category, Labels: fo.Labels})
