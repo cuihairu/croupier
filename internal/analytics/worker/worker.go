@@ -691,11 +691,10 @@ func (w *Worker) reclaimPendingFromStream(ctx context.Context, stream string) {
 			continue
 		}
 
-		now := time.Now()
 		for _, p := range pending {
 			// Check if message has been idle too long
-			idleTime := now.Sub(time.Unix(p.DeliveredAt, 0))
-			if idleTime >= pendingIdleTimeout {
+			// p.Idle is time.Duration representing how long the message has been idle
+			if p.Idle >= pendingIdleTimeout {
 				// Try to claim the message
 				cmd := w.rdb.XAutoClaim(ctx, &redis.XAutoClaimArgs{
 					Stream:   stream,
@@ -705,15 +704,15 @@ func (w *Worker) reclaimPendingFromStream(ctx context.Context, stream string) {
 					Start:    p.ID,
 					Count:    100,
 				})
-				claimed, err := cmd.Result()
+				claimed, _, err := cmd.Result()
 				if err != nil && err != redis.Nil {
 					slog.Warn("failed to auto-claim", "stream", stream, "id", p.ID, "err", err)
 					continue
 				}
 
-				// Process claimed messages
-				for _, msg := range claimed.Messages {
-					slog.Info("reclaimed pending message", "stream", stream, "id", msg.ID, "idle_time", idleTime)
+				// Process claimed messages - claimed is []redis.XMessage
+				for _, msg := range claimed {
+					slog.Info("reclaimed pending message", "stream", stream, "id", msg.ID, "idle_time", p.Idle)
 					if err := w.processMessage(ctx, stream, msg); err != nil {
 						slog.Warn("failed to process reclaimed message", "stream", stream, "id", msg.ID, "err", err)
 					}
@@ -731,13 +730,13 @@ func (w *Worker) reclaimPendingFromStream(ctx context.Context, stream string) {
 		Start:    "0-0",
 		Count:    100,
 	})
-	orphaned, err := cmd.Result()
+	orphaned, _, err := cmd.Result()
 	if err != nil && err != redis.Nil {
 		slog.Warn("failed to claim orphaned", "stream", stream, "err", err)
 		return
 	}
 
-	for _, msg := range orphaned.Messages {
+	for _, msg := range orphaned {
 		slog.Info("reclaimed orphaned message", "stream", stream, "id", msg.ID)
 		if err := w.processMessage(ctx, stream, msg); err != nil {
 			slog.Warn("failed to process orphaned message", "stream", stream, "id", msg.ID, "err", err)
