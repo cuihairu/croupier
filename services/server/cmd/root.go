@@ -3,10 +3,13 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/cuihairu/croupier/internal/platform/control"
+	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/handler"
 	"github.com/cuihairu/croupier/services/server/internal/middleware"
@@ -15,6 +18,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/rest"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 )
 
 var (
@@ -132,10 +138,6 @@ func runServer() error {
 
 	applyRuntimeDefaults(&c)
 
-	// 创建服务器
-	server := rest.MustNewServer(c.RestConf)
-	defer server.Stop()
-
 	// 创建服务上下文
 	ctx := svc.NewServiceContext(c)
 
@@ -145,6 +147,13 @@ func runServer() error {
 		fmt.Printf("警告: 数据库连接失败: %v\n", err)
 		fmt.Println("某些功能可能无法正常工作，请检查数据库配置")
 	}
+
+	// 启动 gRPC 服务器
+	go startGRPCServer(&c, ctx)
+
+	// 创建 REST 服务器
+	server := rest.MustNewServer(c.RestConf)
+	defer server.Stop()
 
 	// 添加认证中间件
 	authMiddleware := middleware.NewAuthMiddleware(ctx)
@@ -158,6 +167,57 @@ func runServer() error {
 
 	server.Start()
 	return nil
+}
+
+// startGRPCServer 启动 gRPC 服务器
+func startGRPCServer(c *config.Config, ctx *svc.ServiceContext) {
+	// 解析 gRPC 地址
+	addr := c.Server.Addr
+	if addr == "" {
+		addr = ":18443" // 默认地址
+	}
+	if addr[0] == ':' {
+		addr = "0.0.0.0" + addr
+	}
+
+	// 创建监听器
+	lis, err := net.Listen("tcp", addr)
+	if err != nil {
+		fmt.Printf("Failed to listen on gRPC address %s: %v\n", addr, err)
+		return
+	}
+
+	// 创建 gRPC 服务器选项
+	var opts []grpc.ServerOption
+
+	// 配置 TLS
+	if c.Server.Cert != "" && c.Server.Key != "" {
+		// 使用提供的证书
+		creds, err := tlsutil.ServerTLS(c.Server.Cert, c.Server.Key, c.Server.CA, false)
+		if err != nil {
+			fmt.Printf("Failed to create TLS credentials: %v\n", err)
+			return
+		}
+		opts = append(opts, grpc.Creds(creds))
+		fmt.Printf("gRPC server with TLS enabled\n")
+	} else {
+		// 不使用 TLS (仅用于开发环境)
+		opts = append(opts, grpc.Creds(insecure.NewCredentials()))
+		fmt.Printf("Warning: gRPC server running without TLS (development mode only)\n")
+	}
+
+	// 创建 gRPC 服务器
+	grpcServer := grpc.NewServer(opts...)
+
+	// 创建并注册 ControlService
+	controlServer := control.NewServer(ctx.RegistryStore)
+	serverv1.RegisterControlServiceServer(grpcServer, controlServer)
+
+	// 启动 gRPC 服务器
+	fmt.Printf("Starting gRPC ControlService on %s...\n", addr)
+	if err := grpcServer.Serve(lis); err != nil {
+		fmt.Printf("Failed to start gRPC server: %v\n", err)
+	}
 }
 
 func applyRuntimeDefaults(c *config.Config) {
