@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
@@ -413,26 +412,6 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
-// reportMetrics periodically logs metrics
-func (s *server) reportMetrics() {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			total := atomic.LoadInt64(&s.requestsTotal)
-			success := atomic.LoadInt64(&s.requestsSuccess)
-			error := atomic.LoadInt64(&s.requestsError)
-			dropped := atomic.LoadInt64(&s.requestsDropped)
-
-			log.Printf("[ingest] metrics - total: %d, success: %d, error: %d, dropped: %d",
-				total, success, error, dropped)
-
-			// TODO: Send metrics to monitoring system (Prometheus, etc.)
-		}
-	}
-}
 
 // ingestEvents 接收通用事件数组，写入 MQ: analytics:events
 func (s *server) ingestEvents(w http.ResponseWriter, r *http.Request) {
@@ -442,7 +421,7 @@ func (s *server) ingestEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Read body with size limit
-	limitedReader := http.MaxBytesReader(r.Body, int64(s.maxBodySize))
+	limitedReader := http.MaxBytesReader(w, r.Body, int64(s.maxBodySize))
 	var arr []map[string]any
 	if err := json.NewDecoder(limitedReader).Decode(&arr); err != nil {
 		// Check if it's a size error
@@ -479,7 +458,7 @@ func (s *server) ingestPayments(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Read body with size limit
-	limitedReader := http.MaxBytesReader(r.Body, int64(s.maxBodySize))
+	limitedReader := http.MaxBytesReader(w, r.Body, int64(s.maxBodySize))
 	var arr []map[string]any
 	if err := json.NewDecoder(limitedReader).Decode(&arr); err != nil {
 		// Check if it's a size error

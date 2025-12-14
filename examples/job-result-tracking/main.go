@@ -85,16 +85,17 @@ func main() {
 	time.Sleep(1 * time.Second)
 
 	completions := []struct {
-		jobID   string
-		state   string
-		payload []byte
+		jobID    string
+		state    string
+		payload  []byte
+		errorMsg string
 	}{
 		{"job-001", "completed", []byte(`{"result": "success", "value": 42}`), ""},
 		{"job-002", "completed", []byte(`{"result": "success", "value": 100}`), ""},
 	}
 
 	for _, comp := range completions {
-		store.SetJobResult(comp.jobID, comp.state, comp.payload, "")
+		store.SetJobResult(comp.jobID, comp.state, comp.payload, comp.errorMsg)
 		fmt.Printf("   Completed job %s\n", comp.jobID)
 	}
 

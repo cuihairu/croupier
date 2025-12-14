@@ -164,7 +164,13 @@ func (w *Worker) Run(ctx context.Context) error {
 	}()
 	for {
 		sel := []string{w.streamEvents, w.streamPayments}
-		res, err := w.rdb.XReadGroup(ctx, &redis.XReadGroupArgs{Group: w.group, Consumer: w.consumer, Streams: append([]string{}, append([]string{}, sel...)...), Count: 200, Block: 2 * time.Second}).Result()
+		res, err := w.rdb.XReadGroup(ctx, &redis.XReadGroupArgs{
+			Group:    w.group,
+			Consumer: w.consumer,
+			Streams:  append([]string{}, sel...),
+			Count:    200,
+			Block:    2 * time.Second,
+		}).Result()
 		if err != nil && err != redis.Nil {
 			slog.Warn("xreadgroup", "err", err)
 			continue
@@ -688,17 +694,18 @@ func (w *Worker) reclaimPendingFromStream(ctx context.Context, stream string) {
 		now := time.Now()
 		for _, p := range pending {
 			// Check if message has been idle too long
-			idleTime := now.Sub(p.Time)
+			idleTime := now.Sub(time.Unix(p.DeliveredAt, 0))
 			if idleTime >= pendingIdleTimeout {
 				// Try to claim the message
-				claimed, err := w.rdb.XAutoClaim(ctx, &redis.XAutoClaimArgs{
+				cmd := w.rdb.XAutoClaim(ctx, &redis.XAutoClaimArgs{
 					Stream:   stream,
 					Group:    w.group,
 					Consumer: w.consumer,
 					MinIdle:  pendingIdleTimeout,
 					Start:    p.ID,
 					Count:    100,
-				}).Result()
+				})
+				claimed, err := cmd.Result()
 				if err != nil && err != redis.Nil {
 					slog.Warn("failed to auto-claim", "stream", stream, "id", p.ID, "err", err)
 					continue
@@ -716,14 +723,15 @@ func (w *Worker) reclaimPendingFromStream(ctx context.Context, stream string) {
 	}
 
 	// Also check for any orphaned messages (no consumer)
-	orphaned, err := w.rdb.XAutoClaim(ctx, &redis.XAutoClaimArgs{
+	cmd := w.rdb.XAutoClaim(ctx, &redis.XAutoClaimArgs{
 		Stream:   stream,
 		Group:    w.group,
 		Consumer: w.consumer,
 		MinIdle:  pendingIdleTimeout,
 		Start:    "0-0",
 		Count:    100,
-	}).Result()
+	})
+	orphaned, err := cmd.Result()
 	if err != nil && err != redis.Nil {
 		slog.Warn("failed to claim orphaned", "stream", stream, "err", err)
 		return

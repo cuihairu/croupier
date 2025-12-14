@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"errors"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -194,4 +195,87 @@ func (m *FunctionModel) ListPending(ctx context.Context) ([]PendingFunction, err
 		Order("updated_at DESC").
 		Find(&pending).Error
 	return pending, err
+}
+
+// DeleteFunction deletes a function by function_id
+func (m *FunctionModel) DeleteFunction(ctx context.Context, functionID string) error {
+	return m.db.WithContext(ctx).
+		Where("function_id = ?", functionID).
+		Delete(&Function{}).Error
+}
+
+// CopyFunction creates a copy of a function with a new ID
+func (m *FunctionModel) CopyFunction(ctx context.Context, functionID string) (string, error) {
+	// Find the original function
+	var fn Function
+	if err := m.db.WithContext(ctx).Where("function_id = ?", functionID).First(&fn).Error; err != nil {
+		return "", err
+	}
+
+	// Create new function with suffixed ID
+	newID := functionID + "_copy_" + time.Now().Format("20060102150405")
+	fn.FunctionID = newID
+	fn.ID = 0 // Reset ID to let DB generate new one
+
+	if err := m.Create(ctx, &fn); err != nil {
+		return "", err
+	}
+
+	return newID, nil
+}
+
+// BatchUpdateStatus updates status for multiple functions
+func (m *FunctionModel) BatchUpdateStatus(ctx context.Context, functionIDs []string, enabled bool) (int, []string, error) {
+	if len(functionIDs) == 0 {
+		return 0, nil, nil
+	}
+
+	result := m.db.WithContext(ctx).
+		Model(&Function{}).
+		Where("function_id IN ?", functionIDs).
+		Updates(map[string]interface{}{"enabled": enabled})
+
+	if result.Error != nil {
+		return 0, nil, result.Error
+	}
+
+	return int(result.RowsAffected), nil, nil
+}
+
+// BatchDeleteFunctions deletes multiple functions
+func (m *FunctionModel) BatchDeleteFunctions(ctx context.Context, functionIDs []string) (int, []string, error) {
+	if len(functionIDs) == 0 {
+		return 0, nil, nil
+	}
+
+	result := m.db.WithContext(ctx).
+		Where("function_id IN ?", functionIDs).
+		Delete(&Function{})
+
+	if result.Error != nil {
+		return 0, nil, result.Error
+	}
+
+	return int(result.RowsAffected), nil, nil
+}
+
+// BatchCopyFunctions copies multiple functions
+func (m *FunctionModel) BatchCopyFunctions(ctx context.Context, functionIDs []string) (int, []string, []string, error) {
+	if len(functionIDs) == 0 {
+		return 0, nil, nil, nil
+	}
+
+	var copiedIDs []string
+	var failedIDs []string
+
+	for _, id := range functionIDs {
+		newID, err := m.CopyFunction(ctx, id)
+		if err != nil {
+			failedIDs = append(failedIDs, id)
+		} else {
+			copiedIDs = append(copiedIDs, newID)
+		}
+	}
+
+	return len(copiedIDs), failedIDs, copiedIDs, nil
 }

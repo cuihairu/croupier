@@ -18,6 +18,7 @@ import (
 	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
@@ -241,6 +242,8 @@ func main() {
 	// Create gRPC server with optional TLS
 	var lis net.Listener
 	var gs *grpc.Server
+	var creds credentials.TransportCredentials
+	var err error
 
 	// Check if TLS is enabled for the gRPC server
 	serverCertFile := os.Getenv("SERVER_CERT_FILE")
@@ -250,7 +253,7 @@ func main() {
 
 	if serverCertFile != "" && serverKeyFile != "" {
 		// Use TLS for server
-		creds, err := tlsutil.ServerTLS(serverCertFile, serverKeyFile, caFile, requireClientCert)
+		creds, err = tlsutil.ServerTLS(serverCertFile, serverKeyFile, caFile, requireClientCert)
 		if err != nil {
 			log.Fatalf("Failed to create server TLS credentials: %v", err)
 		}
