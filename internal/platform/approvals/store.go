@@ -6,6 +6,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	gsqlite "gorm.io/driver/sqlite"
+	gpostgres "gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 // Approval represents a two-person rule approval record.
@@ -48,6 +52,8 @@ type Store interface {
 	Get(id string) (*Approval, error)
 	Approve(id string) (*Approval, error)
 	Reject(id, reason string) (*Approval, error)
+	Create(approval *Approval) (*Approval, error)
+	Update(approval *Approval) (*Approval, error)
 }
 
 // MemStore is an in-memory approval store for tests/dev.
@@ -137,8 +143,80 @@ func (s *MemStore) Reject(id, reason string) (*Approval, error) {
 	return a, nil
 }
 
-// NewPGStore / NewSQLiteStore placeholders: not implemented in this repo snapshot.
-func NewPGStore(_ string) (*MemStore, error) { return nil, errors.New("pg store not available") }
-func NewSQLiteStore(_ string) (*MemStore, error) {
-	return nil, errors.New("sqlite store not available")
+func (s *MemStore) Create(approval *Approval) (*Approval, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if approval == nil {
+		return nil, errors.New("approval is required")
+	}
+	if approval.ID == "" {
+		return nil, errors.New("approval ID is required")
+	}
+	// Check if already exists
+	if _, exists := s.data[approval.ID]; exists {
+		return nil, errors.New("approval already exists")
+	}
+	// Create a copy
+	newApproval := *approval
+	newApproval.CreatedAt = time.Now()
+	newApproval.UpdatedAt = time.Now()
+	s.data[approval.ID] = &newApproval
+	return &newApproval, nil
+}
+
+func (s *MemStore) Update(approval *Approval) (*Approval, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if approval == nil {
+		return nil, errors.New("approval is required")
+	}
+	if approval.ID == "" {
+		return nil, errors.New("approval ID is required")
+	}
+	if _, exists := s.data[approval.ID]; !exists {
+		return nil, errors.New("not found")
+	}
+	// Create a copy with updated timestamp
+	newApproval := *approval
+	newApproval.UpdatedAt = time.Now()
+	s.data[approval.ID] = &newApproval
+	return &newApproval, nil
+}
+
+// NewPGStore creates a PostgreSQL-backed approval store
+func NewPGStore(dsn string) (Store, error) {
+	if dsn == "" {
+		return nil, errors.New("PostgreSQL DSN is required")
+	}
+
+	db, err := openDB(dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewSQLStore(db)
+}
+
+// NewSQLiteStore creates a SQLite-backed approval store
+func NewSQLiteStore(dsn string) (Store, error) {
+	if dsn == "" {
+		dsn = "data/croupier.db"
+	}
+
+	db, err := openDB(dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewSQLStore(db)
+}
+
+// openDB opens a database connection using GORM
+func openDB(dsn string) (*gorm.DB, error) {
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		return gorm.Open(gpostgres.Open(dsn), &gorm.Config{})
+	}
+
+	// Default to SQLite - just use the DSN as is for gorm.io/driver/sqlite
+	return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 }

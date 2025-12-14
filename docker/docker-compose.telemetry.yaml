@@ -139,3 +139,4 @@ networks:
 # - ../configs/otel-collector-config.yaml
 # - ../configs/prometheus.yml
 # - ../configs/grafana/
+# 注意：服务配置文件位于 services/*/etc/*.yaml

@@ -8,25 +8,73 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	commonv1 "github.com/cuihairu/croupier/pkg/pb/croupier/common/v1"
 	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
+	"github.com/xeipuuv/gojsonschema"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // Server implements the ControlService and exposes a registry store for other components.
 type Server struct {
 	serverv1.UnimplementedControlServiceServer
-	reg *reg.Store
+	reg        *reg.Store
+	schemaLoader *gojsonschema.Schema // 缓存 Provider Manifest JSON Schema
 }
 
 func NewServer(registry *reg.Store) *Server {
 	if registry == nil {
 		registry = reg.NewStore()
 	}
-	return &Server{reg: registry}
+	s := &Server{reg: registry}
+
+	// 加载 Provider Manifest JSON Schema
+	if err := s.loadProviderSchema(); err != nil {
+		// Schema 加载失败不应该阻止服务启动，但应该记录日志
+		// 这里使用 fmt.Printf 因为 logx 可能还未初始化
+		fmt.Printf("Warning: Failed to load provider manifest schema: %v\n", err)
+	}
+
+	return s
+}
+
+// loadProviderSchema 加载 Provider Manifest JSON Schema
+func (s *Server) loadProviderSchema() error {
+	// 尝试从多个路径查找 schema 文件
+	schemaPaths := []string{
+		"docs/providers-manifest.schema.json",
+		"../docs/providers-manifest.schema.json",
+		"../../docs/providers-manifest.schema.json",
+	}
+
+	var schemaData []byte
+	var schemaPath string
+	for _, path := range schemaPaths {
+		if absPath, err := filepath.Abs(path); err == nil {
+			if data, err := os.ReadFile(absPath); err == nil {
+				schemaData = data
+				schemaPath = absPath
+				break
+			}
+		}
+	}
+
+	if len(schemaData) == 0 {
+		return fmt.Errorf("provider manifest schema not found")
+	}
+
+	schemaLoader, err := gojsonschema.NewSchema(gojsonschema.NewBytesLoader(schemaData))
+	if err != nil {
+		return fmt.Errorf("failed to parse provider manifest schema: %w", err)
+	}
+
+	s.schemaLoader = schemaLoader
+	fmt.Printf("Provider manifest schema loaded from: %s\n", schemaPath)
+	return nil
 }
 
 // Store returns the underlying registry Store (for function server / HTTP handlers).
@@ -88,6 +136,16 @@ func (s *Server) RegisterCapabilities(ctx context.Context, in *serverv1.Register
 	manifestData, err := s.decompressManifest(in.GetManifestJsonGz())
 	if err != nil {
 		return &serverv1.RegisterCapabilitiesResponse{}, fmt.Errorf("failed to decompress manifest: %w", err)
+	}
+
+	// Validate manifest against JSON Schema if schema is available
+	if s.schemaLoader != nil {
+		if err := s.validateManifest(manifestData); err != nil {
+			// Return structured error for schema validation failures
+			return &serverv1.RegisterCapabilitiesResponse{}, fmt.Errorf("manifest validation failed: %w", err)
+		}
+	} else {
+		fmt.Printf("Warning: Provider manifest schema not loaded, skipping validation\n")
 	}
 
 	// Store the provider capabilities in registry
@@ -368,4 +426,59 @@ func toFloat(v interface{}) (float64, bool) {
 		return float64(t), true
 	}
 	return 0, false
+}
+
+// validateManifest validates the manifest data against the loaded JSON Schema
+func (s *Server) validateManifest(manifestData []byte) error {
+	// Parse manifest data as JSON interface
+	var manifest interface{}
+	if err := json.Unmarshal(manifestData, &manifest); err != nil {
+		return fmt.Errorf("invalid JSON: %w", err)
+	}
+
+	// Create document loader for the manifest
+	documentLoader := gojsonschema.NewGoLoader(manifest)
+
+	// Validate against schema
+	result, err := s.schemaLoader.Validate(documentLoader)
+	if err != nil {
+		return fmt.Errorf("validation error: %w", err)
+	}
+
+	// Check validation result
+	if !result.Valid() {
+		// Build detailed error message with context
+		var errorMsg strings.Builder
+		errorMsg.WriteString("provider manifest validation failed:\n")
+
+		// Group errors by field for better readability
+		fieldErrors := make(map[string][]string)
+		for _, desc := range result.Errors() {
+			// Extract field name from description (format: "field: error message")
+			parts := strings.SplitN(desc.String(), ":", 2)
+			if len(parts) == 2 {
+				field := strings.TrimSpace(parts[0])
+				errMsg := strings.TrimSpace(parts[1])
+				fieldErrors[field] = append(fieldErrors[field], errMsg)
+			} else {
+				fieldErrors["general"] = append(fieldErrors["general"], desc.String())
+			}
+		}
+
+		// Print errors grouped by field
+		for field, errors := range fieldErrors {
+			if len(errors) == 1 {
+				errorMsg.WriteString(fmt.Sprintf("  - %s: %s\n", field, errors[0]))
+			} else {
+				errorMsg.WriteString(fmt.Sprintf("  - %s:\n", field))
+				for _, errMsg := range errors {
+					errorMsg.WriteString(fmt.Sprintf("    * %s\n", errMsg))
+				}
+			}
+		}
+
+		return fmt.Errorf("%s", errorMsg.String())
+	}
+
+	return nil
 }

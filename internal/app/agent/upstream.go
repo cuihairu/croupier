@@ -8,6 +8,7 @@ import (
 	"time"
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
+	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -24,6 +25,12 @@ type UpstreamClient struct {
 	env        string
 	version    string
 	rpcAddr    string
+	// TLS configuration
+	tlsEnabled bool
+	certFile   string
+	keyFile    string
+	caFile     string
+	serverName string
 }
 
 // NewUpstreamClient creates a new upstream client.
@@ -47,6 +54,14 @@ func NewUpstreamClient(serverAddr, agentID string, store *agentlocal.LocalStore,
 		client.version = meta.Version
 		client.rpcAddr = meta.RPCAddr
 	}
+
+	// Read TLS configuration from environment
+	client.tlsEnabled = os.Getenv("CROUPIER_SERVER_TLS_ENABLED") == "true"
+	client.certFile = os.Getenv("CROUPIER_CLIENT_CERT_FILE")
+	client.keyFile = os.Getenv("CROUPIER_CLIENT_KEY_FILE")
+	client.caFile = os.Getenv("CROUPIER_CA_FILE")
+	client.serverName = os.Getenv("CROUPIER_SERVER_NAME")
+
 	return client
 }
 
@@ -73,12 +88,28 @@ func (c *UpstreamClient) Start(ctx context.Context) error {
 		return nil
 	}
 
-	slog.Info("connecting to upstream server", "addr", c.serverAddr)
-	conn, err := grpc.Dial(c.serverAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	slog.Info("connecting to upstream server", "addr", c.serverAddr, "tls", c.tlsEnabled)
+
+	var dialOpts []grpc.DialOption
+	if c.tlsEnabled {
+		// Use TLS
+		creds, err := tlsutil.ClientTLS(c.certFile, c.keyFile, c.caFile, c.serverName)
+		if err != nil {
+			return fmt.Errorf("failed to create TLS credentials: %w", err)
+		}
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
+	} else {
+		// Use insecure connection
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
+	// Add common options
+	dialOpts = append(dialOpts,
 		grpc.WithBlock(),
 		grpc.WithTimeout(5*time.Second),
 	)
+
+	conn, err := grpc.Dial(c.serverAddr, dialOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to connect to upstream server: %w", err)
 	}

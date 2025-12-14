@@ -12,9 +12,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
 	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 // prom-adapter implements FunctionService with function_id "prom.query_range".
@@ -94,8 +98,9 @@ func (s *server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*fu
 }
 
 func (s *server) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {
-	// Not implemented for prom adapter
-	return &functionv1.StartJobResponse{JobId: ""}, nil
+	// Prom adapter is synchronous by nature, doesn't support asynchronous jobs
+	// Return explicit error to make it clear this operation is not supported
+	return nil, status.Error(codes.Unimplemented, "Prom adapter does not support asynchronous jobs. Use Invoke instead.")
 }
 
 func main() {
@@ -120,22 +125,65 @@ func main() {
 		version = "1.0.0"
 	}
 
-	// start FunctionService server
+	// Create gRPC server with optional TLS
+	var lis net.Listener
+	var gs *grpc.Server
+
+	// Check if TLS is enabled for the gRPC server
+	serverCertFile := os.Getenv("SERVER_CERT_FILE")
+	serverKeyFile := os.Getenv("SERVER_KEY_FILE")
+	caFile := os.Getenv("CA_FILE")
+	requireClientCert := os.Getenv("REQUIRE_CLIENT_CERT") == "true"
+
+	if serverCertFile != "" && serverKeyFile != "" {
+		// Use TLS for server
+		creds, err := tlsutil.ServerTLS(serverCertFile, serverKeyFile, caFile, requireClientCert)
+		if err != nil {
+			log.Fatalf("Failed to create server TLS credentials: %v", err)
+		}
+		gs = grpc.NewServer(grpc.Creds(creds))
+		log.Printf("prom-adapter listening on %s with TLS", listen)
+	} else {
+		// Use insecure server
+		gs = grpc.NewServer()
+		log.Printf("prom-adapter listening on %s (insecure)", listen)
+	}
+
 	lis, err := net.Listen("tcp", listen)
 	if err != nil {
 		log.Fatal(err)
 	}
-	gs := grpc.NewServer()
+
 	functionv1.RegisterFunctionServiceServer(gs, &server{prom: prom})
 	go func() {
-		log.Printf("prom-adapter listening on %s", listen)
 		if err := gs.Serve(lis); err != nil {
 			log.Fatal(err)
 		}
 	}()
 
-	// register to agent local control
-	cc, err := grpc.Dial(agent, grpc.WithInsecure())
+	// Create connection to agent with optional TLS
+	var dialOpts []grpc.DialOption
+	agentTLS := os.Getenv("AGENT_TLS_ENABLED") == "true"
+	if agentTLS {
+		// Use TLS for agent connection
+		clientCertFile := os.Getenv("CLIENT_CERT_FILE")
+		clientKeyFile := os.Getenv("CLIENT_KEY_FILE")
+		agentCAFile := os.Getenv("AGENT_CA_FILE")
+		serverName := os.Getenv("AGENT_SERVER_NAME")
+
+		creds, err := tlsutil.ClientTLS(clientCertFile, clientKeyFile, agentCAFile, serverName)
+		if err != nil {
+			log.Fatalf("Failed to create client TLS credentials: %v", err)
+		}
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
+		log.Printf("connecting to agent %s with TLS", agent)
+	} else {
+		// Use insecure connection
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		log.Printf("connecting to agent %s (insecure)", agent)
+	}
+
+	cc, err := grpc.Dial(agent, dialOpts...)
 	if err != nil {
 		log.Fatal(err)
 	}

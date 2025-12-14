@@ -33,6 +33,7 @@ func main() {
 	// Defaults and params
 	params := parseParams(req.GetParameter())
 	emitPack := params["emit_pack"] == "true" || params["pack"] == "true"
+	emitManifest := params["emit_manifest"] == "true" || params["manifest"] == "true"
 
 	resp := &pluginpb.CodeGeneratorResponse{}
 
@@ -183,8 +184,8 @@ func main() {
 				if len(fo.Permissions) > 0 {
 					desc["permissions"] = fo.Permissions
 				}
-				// JSON schema for input + UI schema (with field-level UI options if any)
-				if inMsg := msgIndex[m.GetInputType()]; inMsg != nil {
+				// JSON schema for input + UI schema (with field-level UI options if any) - only emit if manifest requested
+				if emitManifest && inMsg := msgIndex[m.GetInputType()]; inMsg != nil {
 					uiHints := collectUIFieldHints(inMsg)
 					schema := buildJSONSchema(pkg, msgIndex, enumIndex, inMsg)
 					uiSchema := buildUISchema(schema, uiHints)

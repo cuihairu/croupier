@@ -79,3 +79,29 @@ func (q *redisQueue) PublishPayment(pay map[string]any) error {
 	defer cancel()
 	return q.xadd(ctx, q.streamPayments, pay)
 }
+
+// PendingEvents returns the number of pending events in the stream
+func (q *redisQueue) PendingEvents() (int64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	// Get stream length as a simple approximation of pending messages
+	length, err := q.cli.XLen(ctx, q.streamEvents).Result()
+	if err != nil {
+		return 0, err
+	}
+	return length, nil
+}
+
+// PendingPayments returns the number of pending payments in the stream
+func (q *redisQueue) PendingPayments() (int64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	// Get stream length as a simple approximation of pending messages
+	length, err := q.cli.XLen(ctx, q.streamPayments).Result()
+	if err != nil {
+		return 0, err
+	}
+	return length, nil
+}

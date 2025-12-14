@@ -1,7 +1,7 @@
 package agentlocal
 
 import (
-	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -21,14 +21,27 @@ type LocalStore struct {
 	data map[string][]Instance
 	// function_id -> service_id -> function version
 	funcVersions map[string]map[string]string
+	// job_id -> job result
+	jobResults map[string]*JobResult
 	// callback for updates
 	onUpdate func()
+}
+
+// JobResult stores the result of a job
+type JobResult struct {
+	JobID      string
+	State      string // pending, running, completed, failed, cancelled
+	Payload    []byte
+	Error      string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 func NewLocalStore() *LocalStore {
 	return &LocalStore{
 		data:         map[string][]Instance{},
 		funcVersions: map[string]map[string]string{},
+		jobResults:   map[string]*JobResult{},
 	}
 }
 
@@ -36,7 +49,7 @@ func NewLocalStore() *LocalStore {
 func (s *LocalStore) OnUpdate(fn func()) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	fmt.Println("DEBUG: OnUpdate callback set")
+	log.Println("[agentlocal] DEBUG: OnUpdate callback set")
 	s.onUpdate = fn
 }
 
@@ -44,7 +57,7 @@ func (s *LocalStore) OnUpdate(fn func()) {
 func (s *LocalStore) Register(serviceID, addr, version string, funcs []*localv1.LocalFunctionDescriptor) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	fmt.Printf("DEBUG: Register called for %s with %d functions\n", serviceID, len(funcs))
+	log.Printf("[agentlocal] DEBUG: Register called for %s with %d functions", serviceID, len(funcs))
 	now := time.Now()
 	// remove prior instances from this serviceID for all functions
 	for fid, arr := range s.data {
@@ -156,4 +169,63 @@ func (s *LocalStore) FunctionVersions() map[string]map[string]string {
 		out[fid] = cp
 	}
 	return out
+}
+
+// SetJobResult stores or updates a job result
+func (s *LocalStore) SetJobResult(jobID, state string, payload []byte, errorMsg string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now()
+	if result, exists := s.jobResults[jobID]; exists {
+		result.State = state
+		result.Payload = payload
+		result.Error = errorMsg
+		result.UpdatedAt = now
+	} else {
+		result := &JobResult{
+			JobID:     jobID,
+			State:     state,
+			Payload:   payload,
+			Error:     errorMsg,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+		s.jobResults[jobID] = result
+	}
+}
+
+// GetJobResult retrieves a job result
+func (s *LocalStore) GetJobResult(jobID string) (*JobResult, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	result, exists := s.jobResults[jobID]
+	return result, exists
+}
+
+// RemoveJobResult removes a job result
+func (s *LocalStore) RemoveJobResult(jobID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	delete(s.jobResults, jobID)
+}
+
+// CleanupOldJobResults removes job results older than maxAge
+func (s *LocalStore) CleanupOldJobResults(maxAge time.Duration) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now()
+	removed := 0
+
+	for jobID, result := range s.jobResults {
+		if now.Sub(result.UpdatedAt) > maxAge {
+			delete(s.jobResults, jobID)
+			removed++
+		}
+	}
+
+	return removed
 }

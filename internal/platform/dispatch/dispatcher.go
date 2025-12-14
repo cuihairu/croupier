@@ -4,11 +4,14 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -18,21 +21,52 @@ import (
 type Dispatcher struct {
 	store         *reg.Store
 	mu            sync.RWMutex
-	jobRouting    map[string]string // jobID -> agent rpc addr
+	jobRouting    map[string]string // jobID -> agent rpc addr (in-memory cache)
+	jobStore      JobRoutingStore   // persistent storage for job routing
 	dialTimeout   time.Duration
 	invokeTimeout time.Duration
+	// TLS configuration
+	tlsEnabled bool
+	certFile   string
+	keyFile    string
+	caFile     string
+	serverName string
 }
 
 func NewDispatcher(store *reg.Store) *Dispatcher {
+	return NewDispatcherWithJobStore(store, nil)
+}
+
+// NewDispatcherWithJobStore creates a new Dispatcher with optional job routing store
+func NewDispatcherWithJobStore(store *reg.Store, jobStore JobRoutingStore) *Dispatcher {
 	if store == nil {
 		store = reg.NewStore()
 	}
-	return &Dispatcher{
+
+	// Default to memory store if none provided
+	if jobStore == nil {
+		jobStore = NewMemoryJobRoutingStore()
+	}
+
+	d := &Dispatcher{
 		store:         store,
 		jobRouting:    map[string]string{},
+		jobStore:      jobStore,
 		dialTimeout:   5 * time.Second,
 		invokeTimeout: 15 * time.Second,
 	}
+
+	// Read TLS configuration from environment
+	d.tlsEnabled = os.Getenv("CROUPIER_AGENT_TLS_ENABLED") == "true"
+	d.certFile = os.Getenv("CROUPIER_CLIENT_CERT_FILE")
+	d.keyFile = os.Getenv("CROUPIER_CLIENT_KEY_FILE")
+	d.caFile = os.Getenv("CROUPIER_CA_FILE")
+	d.serverName = os.Getenv("CROUPIER_SERVER_NAME")
+
+	// Load existing job routing from persistent store
+	d.loadJobRouting()
+
+	return d
 }
 
 func (d *Dispatcher) Store() *reg.Store {
@@ -254,25 +288,39 @@ func (d *Dispatcher) dial(addr string) (*grpc.ClientConn, functionv1.FunctionSer
 	if addr == "" {
 		return nil, nil, fmt.Errorf("agent rpc address missing")
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), d.dialTimeout)
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
+	var dialOpts []grpc.DialOption
+	if d.tlsEnabled {
+		// Use TLS
+		creds, err := tlsutil.ClientTLS(d.certFile, d.keyFile, d.caFile, d.serverName)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create TLS credentials: %w", err)
+		}
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
+	} else {
+		// Use insecure connection
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
+	conn, err := grpc.DialContext(ctx, addr, dialOpts...)
 	if err != nil {
 		return nil, nil, err
 	}
 	return conn, functionv1.NewFunctionServiceClient(conn), nil
 }
 
-func (d *Dispatcher) registerJob(jobID, addr string) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.jobRouting[jobID] = addr
+
+// RegisterJob registers a job routing (exported method)
+func (d *Dispatcher) RegisterJob(jobID, addr string) {
+	d.registerJob(jobID, addr)
 }
 
-func (d *Dispatcher) unregisterJob(jobID string) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	delete(d.jobRouting, jobID)
+// UnregisterJob unregisters a job routing (exported method)
+func (d *Dispatcher) UnregisterJob(jobID string) {
+	d.unregisterJob(jobID)
 }
 
 func (d *Dispatcher) jobAddr(jobID string) (string, error) {
@@ -287,9 +335,75 @@ func (d *Dispatcher) jobAddr(jobID string) (string, error) {
 
 func isTerminalEvent(evt *functionv1.JobEvent) bool {
 	switch strings.ToLower(evt.GetType()) {
-	case "done", "completed", "error":
+	case "done", "completed", "error", "failed", "cancelled", "canceled", "succeeded", "success":
 		return true
 	default:
 		return false
 	}
+}
+
+// loadJobRouting loads job routing from persistent store
+func (d *Dispatcher) loadJobRouting() {
+	routings, err := d.jobStore.List()
+	if err != nil {
+		// Log error but continue with empty cache
+		log.Printf("[dispatch] Warning: failed to load job routing from store: %v", err)
+		return
+	}
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	// Build in-memory cache
+	for _, routing := range routings {
+		d.jobRouting[routing.JobID] = routing.AgentAddr
+	}
+}
+
+// registerJob registers job routing to both memory cache and persistent store
+func (d *Dispatcher) registerJob(jobID, addr string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	// Update memory cache
+	d.jobRouting[jobID] = addr
+
+	// Update persistent store
+	if err := d.jobStore.Set(jobID, addr); err != nil {
+		// Log error but continue
+		log.Printf("[dispatch] Warning: failed to persist job routing: %v", err)
+	}
+}
+
+// unregisterJob removes job routing from both memory cache and persistent store
+func (d *Dispatcher) unregisterJob(jobID string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	// Remove from memory cache
+	delete(d.jobRouting, jobID)
+
+	// Remove from persistent store
+	if err := d.jobStore.Delete(jobID); err != nil {
+		// Log error but continue
+		log.Printf("[dispatch] Warning: failed to delete job routing: %v", err)
+	}
+}
+
+// CleanupOldJobs removes old job routing entries
+func (d *Dispatcher) CleanupOldJobs(ttl time.Duration) error {
+	// Cleanup persistent store
+	if err := d.jobStore.Cleanup(ttl); err != nil {
+		return err
+	}
+
+	// Reload cache to sync with persistent store
+	d.loadJobRouting()
+
+	return nil
+}
+
+// Close closes the dispatcher and its resources
+func (d *Dispatcher) Close() error {
+	return d.jobStore.Close()
 }

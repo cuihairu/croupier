@@ -32,7 +32,7 @@ Proxy:
 
 # Load balancer configuration
 LoadBalancer:
-  Strategy: "round_robin" // round_robin, least_conn, ip_hash
+  Strategy: "round_robin" # round_robin, least_conn, ip_hash
   HealthCheck: true
   HealthInterval: 30
   HealthTimeout: 5000

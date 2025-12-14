@@ -2,7 +2,7 @@ package agentlocal
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"time"
 
 	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
@@ -22,7 +22,7 @@ func NewServer(store *LocalStore) *Server {
 }
 
 func (s *Server) RegisterLocal(ctx context.Context, in *localv1.RegisterLocalRequest) (*localv1.RegisterLocalResponse, error) {
-	fmt.Printf("DEBUG: RegisterLocal RPC received from %s\n", in.GetServiceId())
+	log.Printf("[agentlocal] DEBUG: RegisterLocal RPC received from %s", in.GetServiceId())
 	s.store.Register(in.GetServiceId(), in.GetRpcAddr(), in.GetVersion(), in.GetFunctions())
 	return &localv1.RegisterLocalResponse{SessionId: in.GetServiceId() + ":" + time.Now().Format("150405")}, nil
 }
@@ -43,4 +43,27 @@ func (s *Server) ListLocal(ctx context.Context, in *localv1.ListLocalRequest) (*
 		out.Functions = append(out.Functions, fn)
 	}
 	return out, nil
+}
+
+func (s *Server) GetJobResult(ctx context.Context, in *localv1.GetJobResultRequest) (*localv1.GetJobResultResponse, error) {
+	if in == nil || in.GetJobId() == "" {
+		return &localv1.GetJobResultResponse{
+			State: "failed",
+			Error: "job_id is required",
+		}, nil
+	}
+
+	result, exists := s.store.GetJobResult(in.GetJobId())
+	if !exists {
+		return &localv1.GetJobResultResponse{
+			State: "not_found",
+			Error: "job not found",
+		}, nil
+	}
+
+	return &localv1.GetJobResultResponse{
+		State:   result.State,
+		Payload: result.Payload,
+		Error:   result.Error,
+	}, nil
 }
