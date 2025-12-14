@@ -64,9 +64,9 @@ jobs:
         run: |
           export PATH="$HOME/go/bin:$PWD/bin:$HOME/protoc/bin:$PATH"
           # 首先生成核心的Go proto代码
-          buf generate --path proto --template buf.gen.simple.yaml
+          buf generate proto --template buf.gen.simple.yaml
           # 然后尝试生成所有SDK代码（如果有错误则忽略）
-          buf generate --path proto || echo "Some SDK plugins failed to generate, continuing..."
+          buf generate proto || echo "Some SDK plugins failed to generate, continuing..."
       - name: Go mod download
         run: go mod download
       - name: Check gofmt
@@ -138,9 +138,9 @@ jobs:
         run: |
           export PATH="$HOME/go/bin:$PWD/bin:$HOME/protoc/bin:$PATH"
           # 首先生成核心的Go proto代码
-          buf generate --path proto --template buf.gen.simple.yaml
+          buf generate proto --template buf.gen.simple.yaml
           # 然后尝试生成所有SDK代码（如果有错误则忽略）
-          buf generate --path proto || echo "Some SDK plugins failed to generate, continuing..."
+          buf generate proto || echo "Some SDK plugins failed to generate, continuing..."
       - name: Go mod download
         run: go mod download
       - name: Prepare storage directory
