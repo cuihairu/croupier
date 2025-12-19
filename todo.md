@@ -43,7 +43,7 @@
 - Dashboard Telemetry：Traces 去掉 mock，接入真实 traces 查询/跳转 Grafana Explore/Jaeger `dashboard/src/pages/Telemetry/Traces.tsx:40`
 - Dashboard：Pack plugins 机制目前为 placeholder；明确插件加载策略并实现或移除 `dashboard/src/plugin/registry.tsx:89`
 - Jobs：完善终态事件判定（包含 canceled/failed），避免 jobRouting 不清理 `internal/platform/dispatch/dispatcher.go:187`
-- TLS：Agent↔Server、Dispatcher↔Agent、Edge/Agentd gRPC server 打通 TLS/mTLS（统一配置→证书加载→拨号）`internal/app/agent/upstream.go:73`
+- TLS：Agent↔Server、Dispatcher↔Agent、Edge gRPC server 打通 TLS/mTLS（统一配置→证书加载→拨号）`internal/app/agent/upstream.go:73`
 - Analytics：Attribution/Payments 的筛选下拉 options 为空，接入字典/枚举 API 或改为可搜索输入 `dashboard/src/pages/Analytics/Payments/index.tsx:47`
 - Docker/Compose：web 目录与 flags/entrypoint 明显不一致，修复 compose 能一键拉起 `docker/docker-compose.yml:142`
 
@@ -74,7 +74,7 @@
 
 - Dashboard/UX：鉴权跳转、Jobs 统计、导出、Traces、筛选字典、插件加载、mock 回退策略
 - 控制面/Jobs：终态事件判定、job 路由持久化/探测策略、StreamJob/StartJob 一致性、状态命名统一
-- 安全/TLS：Agent↔Server、Dispatcher↔Agent、Edge/Agentd、adapters、SDK 的 TLS/mTLS 全链路打通
+- 安全/TLS：Agent↔Server、Dispatcher↔Agent、Edge、adapters、SDK 的 TLS/mTLS 全链路打通
 - 工程化/Docker：`web/` vs `dashboard/` 目录不一致、compose flags/entrypoint 对齐、demo Dockerfile 修复
 - 文档：大量 checklist 未闭环（见下方“文档 checklist（详细）”汇总表）
 
@@ -149,8 +149,7 @@
 - [ ] Edge：gRPC server 目前未配置 TLS（直接 `grpc.NewServer()`），需要根据 `services/edge/internal/config` 启用 TLS/mTLS `services/edge/cmd/root.go:99`
 - [ ] Edge 配置语义：`Server.InternalAddr` 当前被当作“gRPC 监听地址”使用（net.Listen），但字段命名像“上游地址”；明确 listen/upstream 拆分并更新配置/代码 `services/edge/cmd/root.go:95`
 - [ ] Server：`services/server/etc/server.yaml` 声明有 gRPC(mTLS) 地址，但当前 server 进程未启动 gRPC ControlService；补齐 gRPC 启动与注册（至少 ControlService.Register/Heartbeat/RegisterCapabilities/ListFunctionsSummary）`services/server/cmd/root.go:96`
-- [ ] Server/Agentd/Edge：目前存在两套“Agent 注册/ControlService”实现（go-zero HTTP 的 server vs internal/app/edge 的 gRPC 控制面），需要明确哪套是主路径并收敛（避免 registry/dispatcher 分叉）`internal/app/edge/app.go:24`
-- [ ] Agentd：agentd gRPC server 未启用 TLS/mTLS（直接 `grpc.NewServer()`），需要支持 mTLS 并与 dev certs/配置对齐 `cmd/agentd/main.go:62`
+- [ ] Server/Agent/Edge：目前存在两套“Agent 注册/ControlService”实现（go-zero HTTP 的 server vs internal/app/edge 的 gRPC 控制面），需要明确哪套是主路径并收敛（避免 registry/dispatcher 分叉）`internal/app/edge/app.go:24`
 - [ ] Edge：Edge gRPC server 未启用 TLS/mTLS（直接 `grpc.NewServer()`），需要支持 mTLS 并与配置/证书对齐 `services/edge/cmd/root.go:99`
 - [ ] Agentlocal：LocalStore 的 `Prune` 从未调用，实例/函数可能永久残留；增加定时清理与 maxAge 配置 `internal/platform/agentlocal/store.go:130`
 - [ ] Agent Upstream：store.OnUpdate 回调当前每次变更都触发 sync（且使用 `context.Background()`），需要 debounce/合并并增加超时/重试策略 `internal/app/agent/upstream.go:71`

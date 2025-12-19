@@ -1,7 +1,8 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Go monorepo: `cmd/{server,agent,edge,analytics-worker}` (binaries), core in `internal/`, shared libs in `pkg/`.
+- Go monorepo: `cmd/{server,analytics-worker,...}` (binaries), core in `internal/`, shared libs in `pkg/`.
+- Agent 进程以 `services/agent` 为入口（HTTP facade + 内嵌 gRPC core）。
 - Go-zero services under `services/<name>` manage their own `internal/{config,handler,logic,model,svc}`; treat each as an independent process.
 - Frontend UI: `web/` (Umi Max + Ant Design 5).
 - Configs & assets: `configs/` (RBAC, users, dev certs), `packs/`, `scripts/`, `docs/`, ephemeral data in `data/`.
