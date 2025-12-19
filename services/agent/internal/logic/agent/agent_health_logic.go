@@ -34,36 +34,35 @@ func (l *AgentHealthLogic) AgentHealth(req *types.AgentHealthRequest) (*types.Ag
 		return nil, errors.New("agent_id 不能为空")
 	}
 
-	state := l.svcCtx.AgentState
-	state.Mu.RLock()
-	info := state.Agents[req.AgentId]
-	activeJobs := 0
-	for _, job := range state.Jobs {
-		if job.Status == "running" {
-			activeJobs++
-		}
+	agentID := strings.TrimSpace(req.AgentId)
+	configuredID := strings.TrimSpace(l.svcCtx.Config.Agent.ID)
+	if configuredID != "" && agentID != configuredID {
+		return nil, errors.New("agent_id mismatch")
 	}
-	state.Mu.RUnlock()
 
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 
-	uptime := int64(state.Uptime().Seconds())
-	functions := int64(0)
-	status := "unknown"
-	if info != nil {
-		functions = info.Functions
-		status = info.Status
-	}
+	uptime := int64(l.svcCtx.Uptime().Seconds())
 	if uptime < 0 {
 		uptime = 0
+	}
+
+	functionCount := int64(0)
+	if l.svcCtx.Core != nil && l.svcCtx.Core.Store() != nil {
+		functionCount = int64(len(l.svcCtx.Core.Store().List()))
+	}
+
+	status := "running"
+	if l.svcCtx.Core == nil {
+		status = "stopped"
 	}
 
 	return &types.AgentHealthResponse{
 		Status:    status,
 		Uptime:    uptime,
-		Jobs:      int64(activeJobs),
-		Functions: functions,
+		Jobs:      0,
+		Functions: functionCount,
 		Memory:    int64(mem.Alloc),
 		Cpu:       0,
 	}, nil

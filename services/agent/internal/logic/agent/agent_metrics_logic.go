@@ -33,36 +33,37 @@ func (l *AgentMetricsLogic) AgentMetrics(req *types.AgentMetricsRequest) (*types
 		return nil, errors.New("agent_id 不能为空")
 	}
 
-	state := l.svcCtx.AgentState
-	state.Mu.RLock()
-	info := state.Agents[req.AgentId]
-	totalJobs := len(state.Jobs)
-	running := 0
-	for _, job := range state.Jobs {
-		if job.Status == "running" {
-			running++
+	agentID := strings.TrimSpace(req.AgentId)
+	configuredID := strings.TrimSpace(l.svcCtx.Config.Agent.ID)
+	if configuredID != "" && agentID != configuredID {
+		return nil, errors.New("agent_id mismatch")
+	}
+
+	functionCount := 0
+	instanceCount := 0
+	if l.svcCtx.Core != nil && l.svcCtx.Core.Store() != nil {
+		snap := l.svcCtx.Core.Store().List()
+		functionCount = len(snap)
+		for _, arr := range snap {
+			instanceCount += len(arr)
 		}
 	}
-	state.Mu.RUnlock()
 
 	metrics := map[string]interface{}{
-		"agentId":        req.AgentId,
-		"uptime_sec":     int64(state.Uptime().Seconds()),
-		"jobs_total":     totalJobs,
-		"jobs_running":   running,
-		"functions":      int64(0),
-		"last_heartbeat": "",
+		"agentId":        agentID,
+		"uptime_sec":     int64(l.svcCtx.Uptime().Seconds()),
+		"functions":      int64(functionCount),
+		"instances":      int64(instanceCount),
+		"grpc_addr":      l.svcCtx.LocalGRPCAddr,
+		"upstream_addr":  strings.TrimSpace(l.svcCtx.Config.Server.Addr),
+		"heartbeat_sec":  l.svcCtx.Config.Upstream.HeartbeatInterval,
 		"registered_at":  "",
+		"last_heartbeat": "",
 	}
-
-	if info != nil {
-		metrics["status"] = info.Status
-		metrics["functions"] = info.Functions
-		metrics["metadata"] = info.Metadata
-		metrics["last_heartbeat"] = formatTime(info.LastHeartbeat)
-		metrics["registered_at"] = formatTime(info.RegisteredAt)
+	if l.svcCtx.Core == nil {
+		metrics["status"] = "stopped"
 	} else {
-		metrics["status"] = "unknown"
+		metrics["status"] = "running"
 	}
 
 	return &types.AgentMetricsResponse{

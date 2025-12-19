@@ -5,15 +5,19 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
 
+	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	"github.com/cuihairu/croupier/services/agent/internal/svc"
 	"github.com/cuihairu/croupier/services/agent/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type JobExecuteLogic struct {
@@ -34,35 +38,59 @@ func (l *JobExecuteLogic) JobExecute(req *types.JobExecuteRequest) (*types.JobEx
 	if req == nil {
 		return nil, errors.New("missing request payload")
 	}
+	if l.svcCtx.Core == nil {
+		return nil, errors.New("agent core is not running")
+	}
 
 	jobID := strings.TrimSpace(req.JobId)
 	if jobID == "" {
 		jobID = fmt.Sprintf("job-%d", time.Now().UnixNano())
 	}
 
-	now := time.Now()
-	result := map[string]interface{}{
-		"echo":    svc.CloneInterfaceMap(req.Inputs),
+	functionID := strings.TrimSpace(req.FunctionId)
+	if functionID == "" {
+		return nil, errors.New("function_id 不能为空")
+	}
+	if strings.TrimSpace(l.svcCtx.LocalGRPCAddr) == "" {
+		return nil, errors.New("local gRPC core address not configured")
+	}
+
+	payload, err := json.Marshal(map[string]interface{}{
+		"inputs":  svc.CloneInterfaceMap(req.Inputs),
 		"options": svc.CloneInterfaceMap(req.Options),
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	state := l.svcCtx.AgentState
-	state.Mu.Lock()
-	state.Jobs[jobID] = &svc.JobRecord{
-		ID:         jobID,
-		FunctionID: strings.TrimSpace(req.FunctionId),
-		GameID:     strings.TrimSpace(req.GameId),
-		Env:        strings.TrimSpace(req.Env),
-		Status:     "completed",
-		Result:     result,
-		StartTime:  now,
-		EndTime:    func() *time.Time { t := now; return &t }(),
-	}
-	state.Mu.Unlock()
+	dialCtx, cancel := context.WithTimeout(l.ctx, 3*time.Second)
+	defer cancel()
 
-	return &types.JobExecuteResponse{
-		Success: true,
-		JobId:   jobID,
-		Status:  "completed",
-	}, nil
+	cc, err := grpc.DialContext(dialCtx, l.svcCtx.LocalGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		l.svcCtx.Core.Store().SetJobResult(jobID, "failed", nil, err.Error())
+		return &types.JobExecuteResponse{Success: false, JobId: jobID, Status: "failed"}, nil
+	}
+	defer cc.Close()
+
+	callCtx, callCancel := context.WithTimeout(l.ctx, 10*time.Second)
+	defer callCancel()
+
+	cli := functionv1.NewFunctionServiceClient(cc)
+	resp, err := cli.Invoke(callCtx, &functionv1.InvokeRequest{
+		FunctionId:     functionID,
+		IdempotencyKey: jobID,
+		Payload:        payload,
+		Metadata: map[string]string{
+			"game_id": strings.TrimSpace(req.GameId),
+			"env":     strings.TrimSpace(req.Env),
+		},
+	})
+	if err != nil {
+		l.svcCtx.Core.Store().SetJobResult(jobID, "failed", nil, err.Error())
+		return &types.JobExecuteResponse{Success: false, JobId: jobID, Status: "failed"}, nil
+	}
+
+	l.svcCtx.Core.Store().SetJobResult(jobID, "completed", resp.GetPayload(), "")
+	return &types.JobExecuteResponse{Success: true, JobId: jobID, Status: "completed"}, nil
 }

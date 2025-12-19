@@ -6,9 +6,10 @@ package agent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
-	"time"
 
+	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
 	"github.com/cuihairu/croupier/services/agent/internal/svc"
 	"github.com/cuihairu/croupier/services/agent/internal/types"
 
@@ -38,21 +39,60 @@ func (l *FunctionRegisterLogic) FunctionRegister(req *types.FunctionRegisterRequ
 		return nil, errors.New("function_id 不能为空")
 	}
 
-	state := l.svcCtx.AgentState
-	state.Mu.Lock()
-	state.Functions[functionID] = &svc.FunctionRecord{
-		ID:         functionID,
-		GameID:     strings.TrimSpace(req.GameId),
-		Env:        strings.TrimSpace(req.Env),
-		Descriptor: svc.CloneInterfaceMap(req.Descriptor),
-		Schema:     svc.CloneInterfaceMap(req.Schema),
-		Metadata:   svc.CloneInterfaceMap(req.Metadata),
-		Registered: time.Now(),
+	if l.svcCtx.Core != nil && l.svcCtx.Core.Store() != nil {
+		rpcAddr := strings.TrimSpace(anyString(req.Metadata["rpc_addr"]))
+		if rpcAddr != "" {
+			serviceID := strings.TrimSpace(anyString(req.Metadata["service_id"]))
+			if serviceID == "" {
+				serviceID = "http-" + sanitizeServiceID(functionID)
+			}
+			serviceVer := strings.TrimSpace(anyString(req.Metadata["service_version"]))
+			funcVer := strings.TrimSpace(anyString(req.Metadata["function_version"]))
+			if funcVer == "" {
+				funcVer = strings.TrimSpace(anyString(req.Descriptor["version"]))
+			}
+
+			l.svcCtx.Core.Store().Register(serviceID, rpcAddr, serviceVer, []*localv1.LocalFunctionDescriptor{
+				{Id: functionID, Version: funcVer},
+			})
+			return &types.FunctionRegisterResponse{Success: true, Message: "function registered (core store updated)"}, nil
+		}
 	}
-	state.Mu.Unlock()
 
 	return &types.FunctionRegisterResponse{
 		Success: true,
-		Message: "function registered",
+		Message: "function registered (no rpc_addr provided; core store unchanged)",
 	}, nil
+}
+
+func anyString(v interface{}) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case fmt.Stringer:
+		return t.String()
+	default:
+		return ""
+	}
+}
+
+func sanitizeServiceID(s string) string {
+	if s == "" {
+		return "unknown"
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z':
+			b.WriteRune(r)
+		case r >= 'A' && r <= 'Z':
+			b.WriteRune(r + ('a' - 'A'))
+		case r >= '0' && r <= '9':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('-')
+		}
+	}
+	return strings.Trim(b.String(), "-")
 }

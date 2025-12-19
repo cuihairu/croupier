@@ -1,15 +1,24 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
+	"net"
 	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
 
+	agentcore "github.com/cuihairu/croupier/internal/app/agent"
 	"github.com/cuihairu/croupier/services/agent/internal/config"
 	"github.com/cuihairu/croupier/services/agent/internal/handler"
 	"github.com/cuihairu/croupier/services/agent/internal/svc"
 	"github.com/spf13/cobra"
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/rest"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -53,6 +62,13 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&host, "host", "", "覆盖监听主机")
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "启用调试模式")
 
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "agent",
+		Short: "Run agent (alias)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runAgent()
+		},
+	})
 	rootCmd.AddCommand(versionCmd)
 }
 
@@ -85,16 +101,43 @@ func runAgent() error {
 		c.RestConf.Mode = "dev"
 	}
 
-	server := rest.MustNewServer(c.RestConf)
-	defer server.Stop()
+	runCtx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
 
-	ctx := svc.NewServiceContext(c)
-	handler.RegisterHandlers(server, ctx)
+	core, grpcServer, grpcListener, err := startGRPCCore(runCtx, &c)
+	if err != nil {
+		return err
+	}
+
+	server := rest.MustNewServer(c.RestConf)
+	defer func() {
+		server.Stop()
+		if grpcServer != nil {
+			grpcServer.GracefulStop()
+		}
+		if core != nil {
+			core.Stop()
+		}
+	}()
+
+	localGRPCAddr := ""
+	if grpcListener != nil {
+		localGRPCAddr = grpcListener.Addr().String()
+	}
+	svcCtx := svc.NewServiceContext(c, core, localGRPCAddr)
+	handler.RegisterHandlers(server, svcCtx)
 
 	fmt.Printf("Starting Croupier Agent at %s:%d (mode: %s, debug: %v)...\n",
 		c.RestConf.Host, c.RestConf.Port, c.RestConf.Mode, debug)
 
-	server.Start()
+	go server.Start()
+
+	slog.Info("agent http server started", "addr", fmt.Sprintf("%s:%d", c.RestConf.Host, c.RestConf.Port))
+	if grpcListener != nil {
+		slog.Info("agent grpc core started", "listen", grpcListener.Addr().String())
+	}
+
+	<-runCtx.Done()
 	return nil
 }
 
@@ -107,4 +150,59 @@ func shortVersion() string {
 	default:
 		return fmt.Sprintf("%s (%s, built %s)", Version, GitCommit, BuildTime)
 	}
+}
+
+func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, *grpc.Server, net.Listener, error) {
+	if c == nil {
+		return nil, nil, nil, fmt.Errorf("missing config")
+	}
+	addr := fmt.Sprintf("%s:%d", strings.TrimSpace(c.GRPC.Host), c.GRPC.Port)
+	if strings.TrimSpace(c.GRPC.Host) == "" || c.GRPC.Port == 0 {
+		return nil, nil, nil, fmt.Errorf("grpc host/port not configured")
+	}
+
+	lis, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to listen on %s: %w", addr, err)
+	}
+
+	agentID := strings.TrimSpace(c.Agent.ID)
+	if agentID == "" {
+		host, _ := os.Hostname()
+		if host == "" {
+			host = "agent"
+		}
+		agentID = fmt.Sprintf("%s-%d", host, time.Now().Unix())
+		c.Agent.ID = agentID
+	}
+
+	rpcAddr := strings.TrimSpace(c.Agent.LocalAddr)
+	if rpcAddr == "" {
+		rpcAddr = lis.Addr().String()
+	}
+
+	core := agentcore.New(strings.TrimSpace(c.Server.Addr), agentID)
+	core.WithUpstreamMetadata(agentcore.UpstreamMetadata{
+		GameID:  strings.TrimSpace(c.Agent.GameID),
+		Env:     strings.TrimSpace(c.Agent.Env),
+		Version: Version,
+		RPCAddr: rpcAddr,
+	})
+
+	grpcServer := grpc.NewServer()
+	core.RegisterGRPC(grpcServer)
+
+	go func() {
+		if err := core.Run(ctx); err != nil && ctx.Err() == nil {
+			slog.Error("agent upstream sync failed", "error", err)
+		}
+	}()
+
+	go func() {
+		if err := grpcServer.Serve(lis); err != nil && ctx.Err() == nil {
+			slog.Error("agent grpc serve failed", "error", err)
+		}
+	}()
+
+	return core, grpcServer, lis, nil
 }

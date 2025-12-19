@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	agentcore "github.com/cuihairu/croupier/internal/app/agent"
 	"github.com/cuihairu/croupier/services/agent/internal/svc"
 	"github.com/cuihairu/croupier/services/agent/internal/types"
 
@@ -35,27 +36,34 @@ func (l *AgentRegisterLogic) AgentRegister(req *types.AgentRegisterRequest) (*ty
 		return nil, errors.New("missing request payload")
 	}
 
+	if l.svcCtx.Core == nil {
+		return nil, errors.New("agent core is not running")
+	}
+
+	configuredID := strings.TrimSpace(l.svcCtx.Config.Agent.ID)
 	agentID := strings.TrimSpace(req.AgentId)
+	if agentID == "" {
+		agentID = configuredID
+	}
 	if agentID == "" {
 		return nil, errors.New("agent_id 不能为空")
 	}
+	if configuredID != "" && agentID != configuredID {
+		return nil, errors.New("agent_id mismatch")
+	}
 
-	state := l.svcCtx.AgentState
-	state.Mu.Lock()
-	defer state.Mu.Unlock()
+	meta := agentcore.UpstreamMetadata{
+		GameID:  defaultString(strings.TrimSpace(req.GameId), strings.TrimSpace(l.svcCtx.Config.Agent.GameID)),
+		Env:     defaultString(strings.TrimSpace(req.Env), strings.TrimSpace(l.svcCtx.Config.Agent.Env)),
+		Version: defaultString(strings.TrimSpace(req.Version), ""),
+		RPCAddr: defaultString(strings.TrimSpace(req.RpcAddr), strings.TrimSpace(l.svcCtx.Config.Agent.LocalAddr)),
+	}
+	l.svcCtx.Core.WithUpstreamMetadata(meta)
 
-	state.Agents[agentID] = &svc.AgentRecord{
-		ID:            agentID,
-		GameID:        strings.TrimSpace(req.GameId),
-		Env:           strings.TrimSpace(req.Env),
-		Type:          strings.TrimSpace(req.Type),
-		Version:       strings.TrimSpace(req.Version),
-		RPCAddr:       strings.TrimSpace(req.RpcAddr),
-		Status:        "registered",
-		Functions:     req.Functions,
-		Metadata:      svc.CloneStringMap(req.Metadata),
-		RegisteredAt:  time.Now(),
-		LastHeartbeat: time.Now(),
+	syncCtx, cancel := context.WithTimeout(l.ctx, 5*time.Second)
+	defer cancel()
+	if err := l.svcCtx.Core.SyncUpstream(syncCtx); err != nil {
+		l.Errorf("upstream sync skipped/failed: %v", err)
 	}
 
 	token := fmt.Sprintf("%s:%d", agentID, time.Now().Unix())

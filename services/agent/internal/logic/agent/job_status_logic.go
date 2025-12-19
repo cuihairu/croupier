@@ -5,6 +5,8 @@ package agent
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"strings"
 
@@ -32,28 +34,43 @@ func (l *JobStatusLogic) JobStatus(req *types.JobStatusRequest) (*types.JobStatu
 	if req == nil || strings.TrimSpace(req.JobId) == "" {
 		return nil, errors.New("job_id 不能为空")
 	}
+	if l.svcCtx.Core == nil || l.svcCtx.Core.Store() == nil {
+		return nil, errors.New("agent core is not running")
+	}
 
-	state := l.svcCtx.AgentState
-	state.Mu.RLock()
-	record := state.Jobs[req.JobId]
-	state.Mu.RUnlock()
-
-	if record == nil {
+	jobID := strings.TrimSpace(req.JobId)
+	result, ok := l.svcCtx.Core.Store().GetJobResult(jobID)
+	if !ok || result == nil {
 		return nil, errors.New("job not found")
 	}
 
-	var end string
-	if record.EndTime != nil {
-		end = formatTime(*record.EndTime)
+	out := map[string]interface{}{}
+	if len(result.Payload) > 0 {
+		var any interface{}
+		if err := json.Unmarshal(result.Payload, &any); err == nil {
+			out["payload"] = any
+		} else {
+			out["payload_base64"] = base64.StdEncoding.EncodeToString(result.Payload)
+		}
+	}
+
+	progress := int64(0)
+	switch strings.ToLower(result.State) {
+	case "pending":
+		progress = 0
+	case "running":
+		progress = 50
+	default:
+		progress = 100
 	}
 
 	return &types.JobStatusResponse{
-		JobId:     record.ID,
-		Status:    record.Status,
-		Result:    record.Result,
-		Error:     record.Error,
-		Progress:  100,
-		StartTime: formatTime(record.StartTime),
-		EndTime:   end,
+		JobId:     result.JobID,
+		Status:    result.State,
+		Result:    out,
+		Error:     result.Error,
+		Progress:  progress,
+		StartTime: formatTime(result.CreatedAt),
+		EndTime:   formatTime(result.UpdatedAt),
 	}, nil
 }

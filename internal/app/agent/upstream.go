@@ -33,6 +33,10 @@ type UpstreamClient struct {
 	serverName string
 }
 
+func (c *UpstreamClient) Connected() bool {
+	return c != nil && c.client != nil && c.conn != nil
+}
+
 // NewUpstreamClient creates a new upstream client.
 func NewUpstreamClient(serverAddr, agentID string, store *agentlocal.LocalStore, meta *UpstreamMetadata) *UpstreamClient {
 	if meta == nil {
@@ -183,6 +187,29 @@ func (c *UpstreamClient) sync(ctx context.Context) error {
 	}
 	slog.Info("synced with upstream server", "functions", len(funcs))
 	return nil
+}
+
+// Sync forces a best-effort Register call to the control server.
+func (c *UpstreamClient) Sync(ctx context.Context) error {
+	if c == nil {
+		return fmt.Errorf("upstream client is nil")
+	}
+	if c.client == nil {
+		return fmt.Errorf("upstream client not connected")
+	}
+	return c.sync(ctx)
+}
+
+// Heartbeat sends a single heartbeat to the control server.
+func (c *UpstreamClient) Heartbeat(ctx context.Context) error {
+	if c == nil {
+		return fmt.Errorf("upstream client is nil")
+	}
+	if c.client == nil {
+		return fmt.Errorf("upstream client not connected")
+	}
+	_, err := c.client.Heartbeat(ctx, &serverv1.HeartbeatRequest{AgentId: c.agentID})
+	return err
 }
 
 func (c *UpstreamClient) Stop() {

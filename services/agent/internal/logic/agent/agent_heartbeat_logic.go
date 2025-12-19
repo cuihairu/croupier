@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"time"
 
 	"github.com/cuihairu/croupier/services/agent/internal/svc"
 	"github.com/cuihairu/croupier/services/agent/internal/types"
@@ -38,25 +37,16 @@ func (l *AgentHeartbeatLogic) AgentHeartbeat(req *types.AgentHeartbeatRequest) (
 		return nil, errors.New("agent_id 不能为空")
 	}
 
-	state := l.svcCtx.AgentState
-	state.Mu.Lock()
-	defer state.Mu.Unlock()
-
-	record := state.Agents[agentID]
-	if record == nil {
-		record = &svc.AgentRecord{
-			ID:           agentID,
-			GameID:       strings.TrimSpace(req.GameId),
-			Env:          strings.TrimSpace(req.Env),
-			RegisteredAt: time.Now(),
-		}
-		state.Agents[agentID] = record
+	configuredID := strings.TrimSpace(l.svcCtx.Config.Agent.ID)
+	if configuredID != "" && agentID != configuredID {
+		return nil, errors.New("agent_id mismatch")
 	}
 
-	record.Status = defaultString(req.Status, "healthy")
-	record.Functions = req.Functions
-	record.Metadata = svc.CloneStringMap(req.Metadata)
-	record.LastHeartbeat = time.Now()
+	if l.svcCtx.Core != nil {
+		if err := l.svcCtx.Core.HeartbeatUpstream(l.ctx); err != nil {
+			l.Errorf("upstream heartbeat skipped/failed: %v", err)
+		}
+	}
 
 	next := l.svcCtx.Config.Upstream.HeartbeatInterval
 	if next <= 0 {
