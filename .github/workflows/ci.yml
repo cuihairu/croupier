@@ -20,6 +20,7 @@ jobs:
       - name: Install buf
         uses: bufbuild/buf-setup-action@v1
         with:
+          version: '1.47.2'
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install protobuf and grpc tools
         run: |
@@ -57,7 +58,7 @@ jobs:
           which protoc-gen-es || echo "protoc-gen-es not found"
           which protoc-gen-connect-es || echo "protoc-gen-connect-es not found"
       - name: Lint proto
-        run: buf lint
+        run: buf lint proto
       - name: Build protoc-gen-croupier
         run: make croupier-plugin
       - name: Generate proto
@@ -97,6 +98,7 @@ jobs:
       - name: Install buf
         uses: bufbuild/buf-setup-action@v1
         with:
+          version: '1.47.2'
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install protobuf and grpc tools
         run: |
