@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 )
@@ -34,10 +35,17 @@ type Store struct {
 	agents map[string]*AgentSession // agent_id -> session
 	// provider capabilities (language-agnostic manifest uploaded via HTTP or Control)
 	provCaps map[string]ProviderCaps // provider_id -> caps (latest)
+	// provider update sequence ensures deterministic ordering for merges.
+	provCapsSeq map[string]uint64 // provider_id -> last update seq
+	nextProvSeq uint64
 }
 
 func NewStore() *Store {
-	return &Store{agents: map[string]*AgentSession{}, provCaps: map[string]ProviderCaps{}}
+	return &Store{
+		agents:      map[string]*AgentSession{},
+		provCaps:    map[string]ProviderCaps{},
+		provCapsSeq: map[string]uint64{},
+	}
 }
 
 // Mu exposes the lock for read/update operations when callers need batch views.
@@ -90,6 +98,8 @@ func (s *Store) UpsertProviderCaps(c ProviderCaps) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	c.UpdatedAt = time.Now()
+	s.nextProvSeq++
+	s.provCapsSeq[c.ID] = s.nextProvSeq
 	s.provCaps[c.ID] = c
 }
 
@@ -97,11 +107,7 @@ func (s *Store) UpsertProviderCaps(c ProviderCaps) {
 func (s *Store) ListProviderCaps() []ProviderCaps {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	out := make([]ProviderCaps, 0, len(s.provCaps))
-	for _, v := range s.provCaps {
-		out = append(out, v)
-	}
-	return out
+	return s.sortedProviderCapsLocked()
 }
 
 // GetProviderCaps returns capabilities for a single provider.
@@ -126,7 +132,24 @@ func (s *Store) DeleteProviderCaps(id string) bool {
 		return false
 	}
 	delete(s.provCaps, id)
+	delete(s.provCapsSeq, id)
 	return true
+}
+
+func (s *Store) sortedProviderCapsLocked() []ProviderCaps {
+	out := make([]ProviderCaps, 0, len(s.provCaps))
+	for _, v := range s.provCaps {
+		out = append(out, v)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		ai, aj := out[i], out[j]
+		si, sj := s.provCapsSeq[ai.ID], s.provCapsSeq[aj.ID]
+		if si != sj {
+			return si < sj
+		}
+		return ai.ID < aj.ID
+	})
+	return out
 }
 
 // BuildUnifiedDescriptors merges all provider manifests into a unified descriptor structure
@@ -141,11 +164,12 @@ func (s *Store) BuildUnifiedDescriptors() map[string]interface{} {
 		"operations": make([]interface{}, 0),
 	}
 
-	for providerID, provCaps := range s.provCaps {
+	for _, provCaps := range s.sortedProviderCapsLocked() {
 		if len(provCaps.Manifest) == 0 {
 			continue
 		}
 
+		providerID := provCaps.ID
 		// Parse the manifest JSON
 		var manifest map[string]interface{}
 		if err := json.Unmarshal(provCaps.Manifest, &manifest); err != nil {
@@ -221,7 +245,7 @@ func (s *Store) BuildFunctionIndex() map[string]map[string]interface{} {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	idx := map[string]map[string]interface{}{}
-	for _, pc := range s.provCaps {
+	for _, pc := range s.sortedProviderCapsLocked() {
 		if len(pc.Manifest) == 0 {
 			continue
 		}
