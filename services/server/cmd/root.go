@@ -92,7 +92,8 @@ func runServer() error {
 
 	// 加载配置文件
 	if cfgFile != "" {
-		conf.MustLoad(cfgFile, &c)
+		// Allow ${VAR} expansion in YAML via environment variables.
+		conf.MustLoad(cfgFile, &c, conf.UseEnv())
 	} else {
 		return fmt.Errorf("配置文件是必需的")
 	}

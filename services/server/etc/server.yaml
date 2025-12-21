@@ -10,9 +10,9 @@ Server:
   Cert: ""                # TLS cert (empty to auto-generate)
   Key: ""                 # TLS key (empty to auto-generate)
   CA: ""                  # TLS CA (empty to auto-generate)
-  Database:
-    DataSource: "data/croupier.db"
-    Driver: "sqlite"
+  db:
+    datasource: "data/croupier.db"
+    driver: "sqlite"
 
 # Registry configuration
 Registry:

@@ -1,13 +1,30 @@
 # Configuration (YAML, Includes, Profiles)
 
-Croupier uses Cobra+Viper for configuration. You can combine flags, environment variables and YAML files. This document summarizes precedence and patterns.
+This repo contains multiple Go entrypoints. For go-zero services under `services/*` (including `services/server`), configuration is loaded via `github.com/zeromicro/go-zero/core/conf` from a YAML file passed by `-f/--config`.
 
-Precedence (low → high)
-- Base YAML: --config base.yaml
-- Include YAMLs: --config-include a.yaml --config-include b.yaml (later overrides earlier)
-- Section select: server:/agent:/edge: (subtree of the merged YAML)
-- Profile overlay: --profile `<name>` (applied from section.profiles.`<name>`)
-- Environment: CROUPIER_SERVER_* / CROUPIER_AGENT_* / CROUPIER_EDGE_* (dots and dashes become underscores)
+Best practice in this repo:
+- Put **non-secret defaults** in YAML (ports, feature toggles, relative paths).
+- Put **secrets / per-environment DSNs** in environment variables and either:
+  - set them directly (e.g. `DATABASE_URL=...`), or
+  - reference them from YAML using `${VAR}` (env expansion is enabled for `services/server`).
+
+Notes for `services/server`:
+- DB config keys are `Server.db.driver` and `Server.db.datasource` in YAML (not `Server.Database.*`).
+- `DB_DRIVER` and `DATABASE_URL` (if set) override the YAML DB values at runtime.
+- Relative paths like `data/...`, `configs/...`, `packs/...` are resolved from the process working directory; when developing locally, run with `cwd=server/` (see `server/.vscode/launch.json`).
+
+`services/server` load order (low → high)
+- YAML file: `-f services/server/etc/server.yaml`
+- YAML `${VAR}` expansion (env expansion)
+- Explicit env overrides: `DB_DRIVER`, `DATABASE_URL`
+- Flags (e.g. `--port`, `--host`)
+
+Legacy CLI precedence (low → high)
+- Base YAML: `--config base.yaml`
+- Include YAMLs: `--config-include a.yaml --config-include b.yaml` (later overrides earlier)
+- Section select: `server:/agent:/edge:` (subtree of the merged YAML)
+- Profile overlay: `--profile <name>` (applied from section.profiles.`<name>`)
+- Environment: `CROUPIER_SERVER_* / CROUPIER_AGENT_* / CROUPIER_EDGE_*` (dots and dashes become underscores)
 - Flags: highest precedence
 
 Examples
@@ -19,7 +36,7 @@ server:
   # Database (YAML preferred; flags/env can override per-env)
   db:
     driver: auto      # postgres | mysql | sqlite | auto
-    dsn: ""          # DSN/URL. Examples:
+    datasource: ""   # DSN/URL. Examples:
     # Postgres: postgres://user:pass@host:5432/croupier?sslmode=disable
     # MySQL (URL): mysql://user:pass@host:3306/croupier?charset=utf8mb4
     # MySQL (DSN):  user:pass@tcp(host:3306)/croupier?parseTime=true&charset=utf8mb4
@@ -86,18 +103,25 @@ server:
 - 如果使用 MinIO，请将 `endpoint` 指向 MinIO 地址（如 `http://minio:9000`），并保留 `force_path_style: true`。
 ```
 
-Start with overlay files and profile:
+`services/server` quickstart:
 ```bash
-./croupier server \
-  --config configs/server.example.yaml \
-  --config-include configs/overrides.yaml \
-  --profile prod
+cd server
+
+# SQLite (default)
+go run ./services/server -f services/server/etc/server.yaml
+
+# Postgres
+DB_DRIVER=postgres DATABASE_URL="postgres://croupier:croupier_dev_password@localhost:5432/croupier?sslmode=disable" \
+  go run ./services/server -f services/server/etc/server.yaml
 ```
 
-Environment overrides
-- Server: CROUPIER_SERVER_ADDR, CROUPIER_SERVER_HTTP_ADDR, CROUPIER_SERVER_LOG_LEVEL, ...
-- DB selection (server): DB_DRIVER=postgres|mysql|sqlite|auto, DATABASE_URL=`<dsn>`  (derived automatically from server.db.* when YAML is present)
-- Agent:  CROUPIER_AGENT_SERVER_ADDR, CROUPIER_AGENT_LOCAL_ADDR, ...
+Environment overrides (`services/server`)
+- `DB_DRIVER`: `postgres|mysql|sqlite|sqlserver|auto` (default `auto`)
+- `DATABASE_URL`: DSN/URL, e.g. `postgres://...` or `file:data/croupier.db?...`
+
+Environment overrides (legacy CLI)
+- Server: `CROUPIER_SERVER_ADDR`, `CROUPIER_SERVER_HTTP_ADDR`, `CROUPIER_SERVER_LOG_LEVEL`, ...
+- Agent:  `CROUPIER_AGENT_SERVER_ADDR`, `CROUPIER_AGENT_LOCAL_ADDR`, ...
 
 Metrics env toggles (server)
 - METRICS_PER_FUNCTION=true|false to enable per-function latency histogram and counters.
@@ -143,7 +167,7 @@ Assignments audit
 - POST `/api/assignments` 会写入审计事件（kind=`assignments.update`，target=`<game>|<env>`，meta 包含 `functions` 和 `unknown`）。可通过 `/api/audit?kind=assignments.update` 查看。
 
 Effective config snapshot
-- Validate and print merged config (strict):
+- (Legacy CLI only) Validate and print merged config (strict):
 ```bash
 ./croupier config test --config configs/server.example.yaml --section server --profile prod
 ```

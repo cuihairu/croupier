@@ -7,12 +7,12 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/services/server",
-      "args": ["-f", "etc/server.yaml"],
+      "args": ["-f", "services/server/etc/server.yaml"],
       "env": {
         "CROUPIER_DEV_SEED": "1"
       },
       "buildFlags": ["-tags=pg sqlite"],
-      "cwd": "${workspaceFolder}/services/server"
+      "cwd": "${workspaceFolder}"
     },
     {
       "name": "Server (postgres)",
@@ -20,7 +20,7 @@
       "request": "launch",
       "mode": "auto",
       "program": "${workspaceFolder}/services/server",
-      "args": ["-f", "etc/server.yaml"],
+      "args": ["-f", "services/server/etc/server.yaml"],
       "env": {
         "DB_DRIVER": "postgres",
         "DATABASE_URL": "postgres://croupier:croupier_dev_password@localhost:5432/croupier?sslmode=disable",
@@ -28,7 +28,7 @@
         "CLICKHOUSE_DSN": "clickhouse://localhost:9000/analytics"
       },
       "buildFlags": ["-tags=pg sqlite"],
-      "cwd": "${workspaceFolder}/services/server"
+      "cwd": "${workspaceFolder}"
     },
     {
       "name": "Edge (dev)",
