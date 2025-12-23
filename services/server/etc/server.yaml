@@ -20,6 +20,11 @@ Registry:
   AnalyticsFiltersPath: "packs/ui/analytics_filters.json"
   RateLimitsPath: "data/rate_limits.json"
 
+# Dispatch configuration
+Dispatch:
+  JobRoutingDir: "data"
+  JobRoutingTTL: "" # e.g. "24h"; empty disables cleanup
+
 # Authentication configuration
 Auth:
   JWTSecret: "localdevsecret-change-me"

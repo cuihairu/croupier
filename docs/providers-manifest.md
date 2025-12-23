@@ -11,6 +11,12 @@ Provider Manifest（语言无关）— 设计说明
 - entity（实体/虚拟对象）：业务对象类型（可“虚拟”，仅有上下文/生命周期），含对象 schema 及一组操作（create/get/update/delete/custom…）。每个操作独立声明参数、权限、目标定位方式（如何找到某个对象实例）。
 - context（隐式）：`game_id`、`env`、`actor`、`trace_id`、headers 等由网关注入，不进入 payload schema。
 
+可选扩展（用于 UI/RBAC 生成）
+- `function.display_name`/`function.summary`：I18n 文本（en/zh）
+- `function.menu`：前端菜单元数据（section/group/path/order/icon/badge/hidden）
+- `function.permissions`：权限规范（verbs/scopes/defaults/i18n_zh）
+- `function.labels`/`function.tags`：自定义标签/检索字段（不影响调用协议）
+
 Manifest 文件
 - JSON 文档（建议用 `docs/providers-manifest.schema.json` 校验）。
 - 请求/响应可引用 JSON‑Schema（推荐）或 Proto FQN。

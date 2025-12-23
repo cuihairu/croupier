@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	ctrl "github.com/cuihairu/croupier/internal/platform/control"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
@@ -28,14 +29,32 @@ type App struct {
 }
 
 func New(registry *reg.Store) *App {
+	return NewWithJobStore(registry, nil)
+}
+
+func NewWithJobStore(registry *reg.Store, jobStore dispatch.JobRoutingStore) *App {
 	if registry == nil {
 		registry = reg.NewStore()
 	}
 	return &App{
 		ctrl:        ctrl.NewServer(registry),
-		dispatcher:  dispatch.NewDispatcher(registry),
+		dispatcher:  dispatch.NewDispatcherWithJobStore(registry, jobStore),
 		tunnelStats: map[string]int64{},
 	}
+}
+
+func (a *App) Dispatcher() *dispatch.Dispatcher {
+	if a == nil {
+		return nil
+	}
+	return a.dispatcher
+}
+
+func (a *App) CleanupOldJobs(ttl time.Duration) error {
+	if a == nil || a.dispatcher == nil {
+		return nil
+	}
+	return a.dispatcher.CleanupOldJobs(ttl)
 }
 
 // RegisterGRPC registers gRPC services on the given server.

@@ -28,7 +28,6 @@ func NewBatchUpdateFunctionsLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *BatchUpdateFunctionsLogic) BatchUpdateFunctions(req *types.BatchUpdateFunctionsRequest) (*types.BatchUpdateFunctionsResponse, error) {
-	// TODO: implement batch update logic
 	// 1. Validate request
 	if len(req.FunctionIds) == 0 {
 		return &types.BatchUpdateFunctionsResponse{

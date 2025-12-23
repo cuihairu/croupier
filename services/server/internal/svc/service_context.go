@@ -200,7 +200,27 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		ctx.RegistryStore = reg.NewStore()
 	}
 	if ctx.Dispatcher == nil {
-		ctx.Dispatcher = dispatch.NewDispatcher(ctx.RegistryStore)
+		var jobStore dispatch.JobRoutingStore
+		jobRoutingDir := resolveJobRoutingDir(ctx.Config)
+		if jobRoutingDir != "" {
+			store, err := dispatch.NewFileJobRoutingStore(jobRoutingDir)
+			if err != nil {
+				logx.Errorf("failed to init job routing store (dir=%s): %v", jobRoutingDir, err)
+			} else {
+				jobStore = store
+			}
+		}
+		ctx.Dispatcher = dispatch.NewDispatcherWithJobStore(ctx.RegistryStore, jobStore)
+
+		if ttlStr := strings.TrimSpace(ctx.Config.Dispatch.JobRoutingTTL); ttlStr != "" {
+			if ttl, err := time.ParseDuration(ttlStr); err != nil {
+				logx.Errorf("invalid dispatch.job_routing_ttl=%q: %v", ttlStr, err)
+			} else if ttl > 0 {
+				if err := ctx.Dispatcher.CleanupOldJobs(ttl); err != nil {
+					logx.Errorf("failed to cleanup old jobs: %v", err)
+				}
+			}
+		}
 	}
 
 	if err := seedBootstrapPermissions(ctx); err != nil {
@@ -248,6 +268,18 @@ func resolveBootstrapBaseDir(c config.Config) string {
 	}
 
 	return runtime.DefaultBootstrapDataDir()
+}
+
+func resolveJobRoutingDir(c config.Config) string {
+	if dir := strings.TrimSpace(c.Dispatch.JobRoutingDir); dir != "" {
+		return toAbs(dir)
+	}
+
+	if dir := strings.TrimSpace(c.Components.DataDir); dir != "" {
+		return toAbs(dir)
+	}
+
+	return "data"
 }
 
 func toAbs(p string) string {

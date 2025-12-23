@@ -42,11 +42,11 @@ service PlayerService {
       // 权限配置
       permissions: {
         verbs: ["read"];                   // 所需操作权限
-        scopes: ["player:read"];            // 所需权限范围
-        default_grants: {                  // 默认角色权限授予
-          admin: ["read"],
-          operator: ["read"]
-        };
+        scopes: ["game", "env", "function_id"]; // 支持的 ABAC scopes（示例）
+        defaults: [                        // 默认角色 → verbs
+          { role: "admin", verbs: ["read"] },
+          { role: "operator", verbs: ["read"] }
+        ];
       };
     };
   }
@@ -60,39 +60,23 @@ service PlayerService {
 ```protobuf
 message GetPlayerRequest {
   uint64 player_id = 1 [(croupier.options.v1.ui) = {
-    label: "玩家ID",                       // 字段标签
-    widget: "number",                     // UI 组件类型
-    required: true,                       // 是否必填
-    minimum: 1,                           // 最小值（数字类型）
-    maximum: 999999,                      // 最大值（数字类型）
-    placeholder: "请输入玩家ID",            // 占位符
-    help_text: "必须是正整数",              // 帮助文本
-    readonly: false,                      // 是否只读
-    default: "100",                       // 默认值（字符串）
-    widget_options: {                     // 组件特定选项
-      step: 1
-    }
+    label: "玩家ID",
+    widget: "input",
+    placeholder: "请输入玩家ID"
   }];
 
-  PlayerStatus status = 2 [(croupier.options.v1.ui) = {
+  string status = 2 [(croupier.options.v1.ui) = {
     label: "状态",
-    widget: "select",                     // 下拉选择
-    required: true,
-    options: [                             // 选项列表
-      { value: "ACTIVE", label: "正常", icon: "check-circle" },
-      { value: "BANNED", label: "封禁", icon: "stop", color: "red" },
-      { value: "SUSPENDED", label: "暂停", icon: "pause" }
-    ],
-    default: "ACTIVE"
+    widget: "select",
+    enum_map: { key: "ACTIVE", value: "正常" }
+    enum_map: { key: "BANNED", value: "封禁" }
   }];
 
   string reason = 3 [(croupier.options.v1.ui) = {
     label: "原因",
-    widget: "textarea",                   // 多行文本
-    min_length: 5,                         // 最小长度
-    max_length: 500,                       // 最大长度
-    rows: 4,                               // 行数
-    placeholder: "请输入详细原因"
+    widget: "textarea",
+    placeholder: "请输入详细原因",
+    sensitive: true
   }];
 }
 ```

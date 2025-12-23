@@ -1,31 +1,32 @@
 # syntax=docker/dockerfile:1
 ARG GO_IMAGE=golang:1.24
 ARG RUNTIME_IMAGE=gcr.io/distroless/static:nonroot
-ARG BUILD_TAGS="pg sqlite ip2location"
 ARG GOPROXY_URL=https://goproxy.cn,direct
+ARG BUILD_TAGS="pg ip2location"
+
 FROM ${GO_IMAGE} AS build
 WORKDIR /src
+
 ARG GOPROXY_URL
 ARG BUILD_TAGS
 ENV GOPROXY=${GOPROXY_URL} \
     GOFLAGS=-modcacherw
+
 COPY go.mod go.sum ./
 # To satisfy local replace (./sdks/go), copy its go.mod/go.sum before download for better caching
 COPY sdks/go/go.mod sdks/go/go.sum sdks/go/
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
+
 COPY . .
-RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -tags "$BUILD_TAGS" -o /out/croupier-server ./services/server
-# Create empty runtime dirs that may be missing from repo checkout
+RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -tags "${BUILD_TAGS}" -o /out/croupier-server ./services/server
 RUN mkdir -p /out/logs
 
 FROM ${RUNTIME_IMAGE}
 WORKDIR /app
 COPY --from=build /out/croupier-server /app/
-# Copy runtime assets from build context to ensure presence
 COPY --from=build --chown=nonroot:nonroot /src/configs /app/configs
-COPY --from=build --chown=nonroot:nonroot /src/descriptors /app/descriptors
-# Ensure logs directory exists even if absent in repo
 COPY --from=build --chown=nonroot:nonroot /out/logs /app/logs
-EXPOSE 8443 8080
+
+EXPOSE 8080 18443
 USER nonroot
 ENTRYPOINT ["/app/croupier-server"]

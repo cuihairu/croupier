@@ -28,7 +28,6 @@ func NewBatchDeleteFunctionsLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *BatchDeleteFunctionsLogic) BatchDeleteFunctions(req *types.BatchDeleteFunctionsRequest) (*types.BatchDeleteFunctionsResponse, error) {
-	// TODO: implement batch delete logic
 	// 1. Validate request
 	if len(req.FunctionIds) == 0 {
 		return &types.BatchDeleteFunctionsResponse{

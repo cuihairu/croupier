@@ -56,3 +56,7 @@ TLS:
   KeyFile: ""
   CAFile: ""
   InsecureSkipVerify: false
+
+Dispatch:
+  JobRoutingDir: "data"
+  JobRoutingTTL: "" # e.g. "24h"; empty disables cleanup

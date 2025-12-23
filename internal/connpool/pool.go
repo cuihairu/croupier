@@ -9,7 +9,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 // ConnectionPool manages gRPC connections with pooling and health checks
@@ -241,7 +240,7 @@ func (p *DefaultConnectionPool) createConnection(ctx context.Context, target str
 		creds := credentials.NewTLS(p.config.TLSConfig)
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
 	} else if p.config.InsecureSkipVerify {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})))
 	} else {
 		// Use system's root CAs
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(nil)))

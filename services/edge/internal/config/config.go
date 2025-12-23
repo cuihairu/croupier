@@ -61,4 +61,9 @@ type Config struct {
 		CAFile             string `json:",optional"`
 		InsecureSkipVerify bool   `json:",default=false"`
 	} `json:",optional"`
+
+	Dispatch struct {
+		JobRoutingDir string `json:",default=data"`
+		JobRoutingTTL string `json:",optional"`
+	} `json:",optional"`
 }

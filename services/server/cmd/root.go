@@ -85,6 +85,14 @@ func init() {
 	rootCmd.AddCommand(healthCmd)
 	rootCmd.AddCommand(completionCmd)
 	rootCmd.AddCommand(versionCmd)
+
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "server",
+		Short: "Run server (alias)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runServer()
+		},
+	})
 }
 
 func runServer() error {
@@ -194,13 +202,18 @@ func startGRPCServer(c *config.Config, ctx *svc.ServiceContext) {
 	// 配置 TLS
 	if c.Server.Cert != "" && c.Server.Key != "" {
 		// 使用提供的证书
-		creds, err := tlsutil.ServerTLS(c.Server.Cert, c.Server.Key, c.Server.CA, false)
+		requireClient := strings.TrimSpace(c.Server.CA) != ""
+		creds, err := tlsutil.ServerTLS(c.Server.Cert, c.Server.Key, c.Server.CA, requireClient)
 		if err != nil {
 			fmt.Printf("Failed to create TLS credentials: %v\n", err)
 			return
 		}
 		opts = append(opts, grpc.Creds(creds))
-		fmt.Printf("gRPC server with TLS enabled\n")
+		if requireClient {
+			fmt.Printf("gRPC server with mTLS enabled\n")
+		} else {
+			fmt.Printf("gRPC server with TLS enabled\n")
+		}
 	} else {
 		// 不使用 TLS (仅用于开发环境)
 		opts = append(opts, grpc.Creds(insecure.NewCredentials()))

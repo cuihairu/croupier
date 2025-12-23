@@ -30,6 +30,7 @@ type OpsState struct {
 type OpsConfigState struct {
 	AlertmanagerURL   string    `json:"alertmanager_url,omitempty"`
 	GrafanaExploreURL string    `json:"grafana_explore_url,omitempty"`
+	JaegerURL         string    `json:"jaeger_url,omitempty"`
 	UpdatedAt         time.Time `json:"updated_at,omitempty"`
 }
 
@@ -177,6 +178,7 @@ func defaultOpsState() OpsState {
 		Config: OpsConfigState{
 			AlertmanagerURL:   os.Getenv("CROUPIER_ALERTMANAGER_URL"),
 			GrafanaExploreURL: os.Getenv("CROUPIER_GRAFANA_EXPLORE_URL"),
+			JaegerURL:         os.Getenv("CROUPIER_JAEGER_URL"),
 			UpdatedAt:         now,
 		},
 		MQ: OpsMQState{

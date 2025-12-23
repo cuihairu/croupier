@@ -4,12 +4,15 @@
 package svc
 
 import (
+	"strings"
 	"sync"
 	"time"
 
 	edgeapp "github.com/cuihairu/croupier/internal/app/edge"
+	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/services/edge/internal/config"
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type ServiceContext struct {
@@ -20,9 +23,33 @@ type ServiceContext struct {
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
+	registry := reg.NewStore()
+
+	var jobStore dispatch.JobRoutingStore
+	jobRoutingDir := strings.TrimSpace(c.Dispatch.JobRoutingDir)
+	if jobRoutingDir != "" {
+		store, err := dispatch.NewFileJobRoutingStore(jobRoutingDir)
+		if err != nil {
+			logx.Errorf("failed to init job routing store (dir=%s): %v", jobRoutingDir, err)
+		} else {
+			jobStore = store
+		}
+	}
+
+	app := edgeapp.NewWithJobStore(registry, jobStore)
+	if ttlStr := strings.TrimSpace(c.Dispatch.JobRoutingTTL); ttlStr != "" {
+		if ttl, err := time.ParseDuration(ttlStr); err != nil {
+			logx.Errorf("invalid dispatch.job_routing_ttl=%q: %v", ttlStr, err)
+		} else if ttl > 0 {
+			if err := app.CleanupOldJobs(ttl); err != nil {
+				logx.Errorf("failed to cleanup old jobs: %v", err)
+			}
+		}
+	}
+
 	ctx := &ServiceContext{
 		Config:    c,
-		EdgeApp:   edgeapp.New(reg.NewStore()),
+		EdgeApp:   app,
 		startTime: time.Now(),
 		State:     newStateStore(),
 	}

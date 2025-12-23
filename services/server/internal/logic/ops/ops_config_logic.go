@@ -34,6 +34,7 @@ func (l *OpsConfigLogic) OpsConfig(req *types.OpsConfigRequest) (*types.OpsConfi
 	data := map[string]interface{}{
 		"alertmanager_url":    state.Config.AlertmanagerURL,
 		"grafana_explore_url": state.Config.GrafanaExploreURL,
+		"jaeger_url":          state.Config.JaegerURL,
 		"maintenance": map[string]interface{}{
 			"windows":   state.Maintenance.Windows,
 			"updatedAt": utils.FormatTimestamp(state.Maintenance.UpdatedAt),

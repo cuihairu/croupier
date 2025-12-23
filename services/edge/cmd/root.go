@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
+	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"github.com/cuihairu/croupier/services/edge/internal/config"
 	"github.com/cuihairu/croupier/services/edge/internal/handler"
 	"github.com/cuihairu/croupier/services/edge/internal/svc"
@@ -54,6 +56,13 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&host, "host", "", "覆盖监听主机")
 	rootCmd.PersistentFlags().BoolVarP(&debug, "debug", "d", false, "启用调试模式")
 
+	rootCmd.AddCommand(&cobra.Command{
+		Use:   "edge",
+		Short: "Run edge (alias)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runEdge()
+		},
+	})
 	rootCmd.AddCommand(versionCmd)
 }
 
@@ -96,7 +105,30 @@ func runEdge() error {
 	if grpcAddr == "" {
 		grpcAddr = ":18888"
 	}
-	grpcServer := grpc.NewServer()
+
+	var grpcOpts []grpc.ServerOption
+	if c.TLS.Enabled {
+		certFile := strings.TrimSpace(c.TLS.CertFile)
+		keyFile := strings.TrimSpace(c.TLS.KeyFile)
+		caFile := strings.TrimSpace(c.TLS.CAFile)
+		if certFile == "" {
+			certFile = strings.TrimSpace(c.Server.TLSCertFile)
+		}
+		if keyFile == "" {
+			keyFile = strings.TrimSpace(c.Server.TLSKeyFile)
+		}
+		if certFile == "" || keyFile == "" {
+			return fmt.Errorf("TLS enabled but missing cert/key (TLS.CertFile/TLS.KeyFile)")
+		}
+
+		creds, err := tlsutil.ServerTLS(certFile, keyFile, caFile, caFile != "")
+		if err != nil {
+			return fmt.Errorf("failed to create gRPC TLS credentials: %w", err)
+		}
+		grpcOpts = append(grpcOpts, grpc.Creds(creds))
+	}
+
+	grpcServer := grpc.NewServer(grpcOpts...)
 	ctx.EdgeApp.RegisterGRPC(grpcServer)
 	go func() {
 		lis, err := net.Listen("tcp", grpcAddr)

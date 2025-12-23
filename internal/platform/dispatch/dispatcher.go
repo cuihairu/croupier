@@ -327,6 +327,15 @@ func (d *Dispatcher) jobAddr(jobID string) (string, error) {
 	addr, ok := d.jobRouting[jobID]
 	d.mu.RUnlock()
 	if !ok {
+		if d.jobStore != nil {
+			routing, err := d.jobStore.Get(jobID)
+			if err == nil && routing != nil && routing.AgentAddr != "" {
+				d.mu.Lock()
+				d.jobRouting[jobID] = routing.AgentAddr
+				d.mu.Unlock()
+				return routing.AgentAddr, nil
+			}
+		}
 		return "", fmt.Errorf("job %s not tracked", jobID)
 	}
 	return addr, nil

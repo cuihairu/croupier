@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"errors"
+	"os"
+	"time"
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
@@ -35,7 +37,49 @@ func (a *App) RegisterGRPC(s *grpc.Server) {
 
 // Run starts the agent's background processes (upstream sync).
 func (a *App) Run(ctx context.Context) error {
+	a.startMaintenance(ctx)
 	return a.upstream.Start(ctx)
+}
+
+func (a *App) startMaintenance(ctx context.Context) {
+	if a == nil || a.store == nil {
+		return
+	}
+
+	pruneInterval := parseDurationEnv("CROUPIER_AGENTLOCAL_PRUNE_INTERVAL", 30*time.Second)
+	maxAge := parseDurationEnv("CROUPIER_AGENTLOCAL_MAX_AGE", 2*time.Minute)
+	jobResultMaxAge := parseDurationEnv("CROUPIER_AGENTLOCAL_JOBRESULT_MAX_AGE", 10*time.Minute)
+	if pruneInterval <= 0 || maxAge <= 0 {
+		return
+	}
+
+	go func() {
+		ticker := time.NewTicker(pruneInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				a.store.Prune(maxAge)
+				if jobResultMaxAge > 0 {
+					a.store.CleanupOldJobResults(jobResultMaxAge)
+				}
+			}
+		}
+	}()
+}
+
+func parseDurationEnv(key string, def time.Duration) time.Duration {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return def
+	}
+	return d
 }
 
 // Stop shuts down background upstream connection.

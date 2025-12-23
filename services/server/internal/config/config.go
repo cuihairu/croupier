@@ -11,6 +11,7 @@ type Config struct {
 	rest.RestConf
 	Server        ServerConfig             `json:"server" yaml:"server"`
 	Registry      RegistryConfig           `json:"registry" yaml:"registry"`
+	Dispatch      DispatchConfig           `json:"dispatch" yaml:"dispatch"`
 	Auth          AuthConfig               `json:"auth" yaml:"auth"`
 	BootstrapData BootstrapDataConfig      `json:"bootstrap_data" yaml:"bootstrap_data"`
 	Descriptors   DescriptorConfig         `json:"descriptors" yaml:"descriptors"`
@@ -42,6 +43,11 @@ type RegistryConfig struct {
 	AssignmentsPath      string `json:"assignments_path,optional" yaml:"assignments_path,optional"`
 	AnalyticsFiltersPath string `json:"analytics_filters_path,optional" yaml:"analytics_filters_path,optional"`
 	RateLimitsPath       string `json:"rate_limits_path,optional" yaml:"rate_limits_path,optional"`
+}
+
+type DispatchConfig struct {
+	JobRoutingDir string `json:"job_routing_dir,optional" yaml:"job_routing_dir,optional"`
+	JobRoutingTTL string `json:"job_routing_ttl,optional" yaml:"job_routing_ttl,optional"`
 }
 
 type AuthConfig struct {

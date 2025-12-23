@@ -254,16 +254,18 @@ components/
 - `POST /api/components/:id/enable` - 启用组件
 - `POST /api/components/:id/disable` - 禁用组件
 
-### 实体管理 (规划中)
-- `GET /api/entities` - 获取实体列表
-- `POST /api/entities` - 创建新实体
-- `PUT /api/entities/:id` - 更新实体定义
-- `DELETE /api/entities/:id` - 删除实体
-- `POST /api/entities/preview` - 预览实体 UI
+### 实体管理（已提供基础能力，待增强）
+- `GET /api/v1/entities` - 获取实体列表
+- `POST /api/v1/entities` - 创建新实体
+- `GET /api/v1/entities/:id` - 获取实体详情
+- `PUT /api/v1/entities/:id` - 更新实体定义
+- `DELETE /api/v1/entities/:id` - 删除实体
+- `GET /api/v1/entities/:id/preview` - 预览实体 UI
+- `POST /api/v1/entities/validate` - 校验实体定义（JSON Schema）
 
 ### 函数调用
 - `POST /api/invoke` - 调用函数
-- `GET /api/descriptors` - 获取函数描述符
+- `GET /api/v1/providers/descriptors` - 获取 Provider Manifest/统一描述符视图
 - `GET /api/ui_schema` - 获取 UI Schema
 
 ## 🚀 实现状态
@@ -299,7 +301,7 @@ components/
    - 预览功能
 
 ### 📋 待实现
-详见下方 TODO List
+详见 `server/todo.md`（按 P0/P1… 分级的未完成项汇总）。
 
 ## 🎯 长期目标
 

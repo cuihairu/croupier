@@ -1176,6 +1176,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: pack.PacksListHandler(serverCtx),
 			},
 			{
+				// 获取 pack web plugin（前端动态加载）
+				Method:  http.MethodGet,
+				Path:    "/plugin",
+				Handler: pack.PacksPluginHandler(serverCtx),
+			},
+			{
 				// 导出功能包
 				Method:  http.MethodGet,
 				Path:    "/export",

@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,8 +16,14 @@ import (
 	commonv1 "github.com/cuihairu/croupier/pkg/pb/croupier/common/v1"
 	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 	"github.com/xeipuuv/gojsonschema"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+//go:embed providers-manifest.schema.json
+var embeddedProviderManifestSchema []byte
 
 // Server implements the ControlService and exposes a registry store for other components.
 type Server struct {
@@ -35,7 +41,7 @@ func NewServer(registry *reg.Store) *Server {
 	// 加载 Provider Manifest JSON Schema
 	if err := s.loadProviderSchema(); err != nil {
 		// Schema 加载失败不应该阻止服务启动，但应该记录日志
-		// 这里使用 fmt.Printf 因为 logx 可能还未初始化
+		// 这里使用 fmt.Printf 因为 logx 可能还未初始化；若需禁用可用 CROUPIER_PROVIDER_MANIFEST_SCHEMA=off
 		fmt.Printf("Warning: Failed to load provider manifest schema: %v\n", err)
 	}
 
@@ -44,27 +50,27 @@ func NewServer(registry *reg.Store) *Server {
 
 // loadProviderSchema 加载 Provider Manifest JSON Schema
 func (s *Server) loadProviderSchema() error {
-	// 尝试从多个路径查找 schema 文件
-	schemaPaths := []string{
-		"docs/providers-manifest.schema.json",
-		"../docs/providers-manifest.schema.json",
-		"../../docs/providers-manifest.schema.json",
-	}
-
-	var schemaData []byte
-	var schemaPath string
-	for _, path := range schemaPaths {
-		if absPath, err := filepath.Abs(path); err == nil {
-			if data, err := os.ReadFile(absPath); err == nil {
-				schemaData = data
-				schemaPath = absPath
-				break
-			}
+	if schemaPath := os.Getenv("CROUPIER_PROVIDER_MANIFEST_SCHEMA"); strings.TrimSpace(schemaPath) != "" {
+		if strings.EqualFold(strings.TrimSpace(schemaPath), "off") {
+			s.schemaLoader = nil
+			return nil
 		}
+		schemaData, err := os.ReadFile(schemaPath)
+		if err != nil {
+			return fmt.Errorf("failed to read provider manifest schema from %q: %w", schemaPath, err)
+		}
+		schemaLoader, err := gojsonschema.NewSchema(gojsonschema.NewBytesLoader(schemaData))
+		if err != nil {
+			return fmt.Errorf("failed to parse provider manifest schema from %q: %w", schemaPath, err)
+		}
+		s.schemaLoader = schemaLoader
+		return nil
 	}
 
-	if len(schemaData) == 0 {
-		return fmt.Errorf("provider manifest schema not found")
+	// Dev fallback: allow overriding embedded schema with repo docs file when running from repo root.
+	schemaData, err := os.ReadFile("docs/providers-manifest.schema.json")
+	if err != nil {
+		schemaData = embeddedProviderManifestSchema
 	}
 
 	schemaLoader, err := gojsonschema.NewSchema(gojsonschema.NewBytesLoader(schemaData))
@@ -73,7 +79,6 @@ func (s *Server) loadProviderSchema() error {
 	}
 
 	s.schemaLoader = schemaLoader
-	fmt.Printf("Provider manifest schema loaded from: %s\n", schemaPath)
 	return nil
 }
 
@@ -124,28 +129,25 @@ func (s *Server) Heartbeat(ctx context.Context, in *serverv1.HeartbeatRequest) (
 // RegisterCapabilities handles provider manifest registration with language-agnostic declaration.
 func (s *Server) RegisterCapabilities(ctx context.Context, in *serverv1.RegisterCapabilitiesRequest) (*serverv1.RegisterCapabilitiesResponse, error) {
 	if in == nil {
-		return &serverv1.RegisterCapabilitiesResponse{}, fmt.Errorf("request cannot be nil")
+		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
 	}
 
 	provider := in.GetProvider()
 	if provider == nil || provider.GetId() == "" {
-		return &serverv1.RegisterCapabilitiesResponse{}, fmt.Errorf("provider metadata is required")
+		return nil, status.Error(codes.InvalidArgument, "provider metadata is required")
 	}
 
 	// Decompress the manifest JSON
 	manifestData, err := s.decompressManifest(in.GetManifestJsonGz())
 	if err != nil {
-		return &serverv1.RegisterCapabilitiesResponse{}, fmt.Errorf("failed to decompress manifest: %w", err)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid manifest (gzip): %v", err)
 	}
 
 	// Validate manifest against JSON Schema if schema is available
 	if s.schemaLoader != nil {
 		if err := s.validateManifest(manifestData); err != nil {
-			// Return structured error for schema validation failures
-			return &serverv1.RegisterCapabilitiesResponse{}, fmt.Errorf("manifest validation failed: %w", err)
+			return nil, err
 		}
-	} else {
-		fmt.Printf("Warning: Provider manifest schema not loaded, skipping validation\n")
 	}
 
 	// Store the provider capabilities in registry
@@ -433,7 +435,18 @@ func (s *Server) validateManifest(manifestData []byte) error {
 	// Parse manifest data as JSON interface
 	var manifest interface{}
 	if err := json.Unmarshal(manifestData, &manifest); err != nil {
-		return fmt.Errorf("invalid JSON: %w", err)
+		st := status.New(codes.InvalidArgument, "manifest is not valid JSON")
+		br := &errdetails.BadRequest{
+			FieldViolations: []*errdetails.BadRequest_FieldViolation{{
+				Field:       "manifest",
+				Description: err.Error(),
+			}},
+		}
+		st, _ = st.WithDetails(
+			br,
+			&errdetails.ErrorInfo{Reason: "PROVIDER_MANIFEST_INVALID_JSON", Domain: "croupier.server"},
+		)
+		return st.Err()
 	}
 
 	// Create document loader for the manifest
@@ -442,42 +455,36 @@ func (s *Server) validateManifest(manifestData []byte) error {
 	// Validate against schema
 	result, err := s.schemaLoader.Validate(documentLoader)
 	if err != nil {
-		return fmt.Errorf("validation error: %w", err)
+		return status.Errorf(codes.Internal, "manifest schema validation error: %v", err)
 	}
 
 	// Check validation result
 	if !result.Valid() {
-		// Build detailed error message with context
-		var errorMsg strings.Builder
-		errorMsg.WriteString("provider manifest validation failed:\n")
-
-		// Group errors by field for better readability
-		fieldErrors := make(map[string][]string)
-		for _, desc := range result.Errors() {
-			// Extract field name from description (format: "field: error message")
-			parts := strings.SplitN(desc.String(), ":", 2)
-			if len(parts) == 2 {
-				field := strings.TrimSpace(parts[0])
-				errMsg := strings.TrimSpace(parts[1])
-				fieldErrors[field] = append(fieldErrors[field], errMsg)
-			} else {
-				fieldErrors["general"] = append(fieldErrors["general"], desc.String())
+		fieldViolations := make([]*errdetails.BadRequest_FieldViolation, 0, len(result.Errors()))
+		for _, schemaErr := range result.Errors() {
+			field := strings.TrimSpace(schemaErr.Field())
+			field = strings.TrimPrefix(field, "(root)")
+			field = strings.TrimPrefix(field, ".")
+			if field == "" {
+				field = "manifest"
 			}
+			desc := strings.TrimSpace(schemaErr.Description())
+			if desc == "" {
+				desc = strings.TrimSpace(schemaErr.String())
+			}
+			fieldViolations = append(fieldViolations, &errdetails.BadRequest_FieldViolation{
+				Field:       field,
+				Description: desc,
+			})
 		}
 
-		// Print errors grouped by field
-		for field, errors := range fieldErrors {
-			if len(errors) == 1 {
-				errorMsg.WriteString(fmt.Sprintf("  - %s: %s\n", field, errors[0]))
-			} else {
-				errorMsg.WriteString(fmt.Sprintf("  - %s:\n", field))
-				for _, errMsg := range errors {
-					errorMsg.WriteString(fmt.Sprintf("    * %s\n", errMsg))
-				}
-			}
-		}
-
-		return fmt.Errorf("%s", errorMsg.String())
+		st := status.New(codes.InvalidArgument, "manifest does not match provider manifest schema")
+		br := &errdetails.BadRequest{FieldViolations: fieldViolations}
+		st, _ = st.WithDetails(
+			br,
+			&errdetails.ErrorInfo{Reason: "PROVIDER_MANIFEST_SCHEMA_VIOLATION", Domain: "croupier.server"},
+		)
+		return st.Err()
 	}
 
 	return nil

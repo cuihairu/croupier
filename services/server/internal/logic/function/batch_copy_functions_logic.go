@@ -28,7 +28,6 @@ func NewBatchCopyFunctionsLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 }
 
 func (l *BatchCopyFunctionsLogic) BatchCopyFunctions(req *types.BatchCopyFunctionsRequest) (*types.BatchCopyFunctionsResponse, error) {
-	// TODO: implement batch copy logic
 	// 1. Validate request
 	if len(req.FunctionIds) == 0 {
 		return &types.BatchCopyFunctionsResponse{

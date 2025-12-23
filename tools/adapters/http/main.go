@@ -309,6 +309,7 @@ func main() {
 		Functions: []*localv1.LocalFunctionDescriptor{
 			{Id: "http.generic_invoke", Version: version},
 			{Id: "alertmanager.list_alerts", Version: version},
+			{Id: "grafana.search_dashboards", Version: version},
 		},
 	}
 	if _, err := lc.RegisterLocal(context.Background(), req); err != nil {

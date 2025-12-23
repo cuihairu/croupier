@@ -7,26 +7,26 @@
 
 | 分类 | 未完成 | 已完成 | 完成率 |
 | --- | ---: | ---: | ---: |
-| P0 | 15 | 0 | 0.0% |
-| P1 | 38 | 0 | 0.0% |
+| P0 | 0 | 15 | 100.0% |
+| P1 | 11 | 26 | 70.3% |
 | P2 | 18 | 0 | 0.0% |
 | P3 | 12 | 0 | 0.0% |
 | P3b | 6 | 0 | 0.0% |
-| P4 | 200 | 0 | 0.0% |
-| 总计 | 289 | 27 | 8.5% |
+| P4 | 200 | 27 | 11.9% |
+| 总计 | 247 | 68 | 21.6% |
 
 | 范围 | 未完成 |
 | --- | ---: |
-| Docs | 147 |
-| Dashboard | 37 |
-| SDKs | 28 |
-| Internal | 21 |
+| Docs | 136 |
+| Dashboard | 23 |
+| SDKs | 27 |
+| Internal | 9 |
 | SpecWorkflow | 18 |
-| Services | 11 |
-| Tools | 8 |
+| Services | 8 |
+| Tools | 0 |
 | Docker | 6 |
-| Other | 6 |
-| Cmd | 2 |
+| Other | 14 |
+| Cmd | 1 |
 | Configs | 2 |
 | Scripts | 2 |
 | Proto | 1 |
@@ -36,16 +36,12 @@
 
 ## 下一步（建议顺序）
 
-- Dashboard：补齐鉴权失败/无权限时的重定向与提示链路（`ErrorShowType.REDIRECT`）`dashboard/src/requestErrorConfig.ts:106`
-- Dashboard：组件统计的 `runningJobs` 从 `/api/v1/jobs` 拉取，避免长期为 0 `dashboard/src/pages/ComponentManagement/index.tsx:127`
-- Dashboard：`exportToXLSX` 依赖 `window.XLSX`，改为显式依赖/按需 import 或降级 CSV `dashboard/src/utils/export.ts:1`
-- Agent：FunctionServer 无实例/拨号失败时返回明确 gRPC 状态码（NotFound/Unavailable 等）`internal/app/agent/function_server.go:43`
-- Dashboard Telemetry：Traces 去掉 mock，接入真实 traces 查询/跳转 Grafana Explore/Jaeger `dashboard/src/pages/Telemetry/Traces.tsx:40`
-- Dashboard：Pack plugins 机制目前为 placeholder；明确插件加载策略并实现或移除 `dashboard/src/plugin/registry.tsx:89`
-- Jobs：完善终态事件判定（包含 canceled/failed），避免 jobRouting 不清理 `internal/platform/dispatch/dispatcher.go:187`
-- TLS：Agent↔Server、Dispatcher↔Agent、Edge gRPC server 打通 TLS/mTLS（统一配置→证书加载→拨号）`internal/app/agent/upstream.go:73`
-- Analytics：Attribution/Payments 的筛选下拉 options 为空，接入字典/枚举 API 或改为可搜索输入 `dashboard/src/pages/Analytics/Payments/index.tsx:47`
-- Docker/Compose：web 目录与 flags/entrypoint 明显不一致，修复 compose 能一键拉起 `docker/docker-compose.yml:142`
+- Proto-First：完善 `protoc-gen-croupier` 对自定义 options 的映射（auth/semantics/ui/labels 等）`tools/protoc-gen-croupier/main.go:72`
+- Proto-First：支持 `emit_manifest=true`（生成 `manifest.json`、`schema/*.json`、可选 `.desc`）`docs/providers-manifest.md:99`
+- TLS：打通配置→证书加载→拨号/监听（Agent/Dispatcher/Edge/Server 统一路径）`services/agent/etc/agent.yaml:1`
+- Server：启动 gRPC ControlService（mTLS）并与 go-zero HTTP 控制面收敛 `services/server/cmd/root.go:96`
+- Jobs：job 路由持久化/重启恢复策略（避免 Server/Edge 重启后无法查询）`internal/platform/dispatch/dispatcher.go:18`
+- Dashboard：Entities 的 JSON Schema 编辑体验增强（编辑器/预览/校验联动）`dashboard/src/pages/Entities/index.tsx:140`
 
 ## 使用方式
 
@@ -91,21 +87,21 @@
 - Analytics filters（Attribution/Payments）：短期改为 tags 输入/可搜索；长期接入后端字典/枚举接口
 - `VirtualObjectManager mock fallback`：接口失败时不要静默回退到 mockEntities，改为 toast+空态+重试
 
-- [ ] Dashboard：组件统计里的 `runningJobs` 改为从 Job API 拉取（例如 `/api/v1/jobs?status=running`）`dashboard/src/pages/ComponentManagement/index.tsx:127`
-- [ ] Dashboard：实现 `ErrorShowType.REDIRECT` 的跳转逻辑（未登录/无权限等场景）`dashboard/src/requestErrorConfig.ts:106`
-- [ ] Dashboard：表单渲染支持 `ui:layout.type=tabs` 的分组布局（当前为空分支）`dashboard/src/components/FunctionFormRenderer/index.tsx:163`
-- [ ] Dashboard：Pack plugins 加载机制目前是 placeholder（明确插件加载方式/配置，并实现或移除）`dashboard/src/plugin/registry.tsx:89`
-- [ ] Analytics Retention：留存页面目前为占位表格；补齐后端查询接口并接入 cohort 数据（d1/d7/d30）`dashboard/src/pages/Analytics/Retention/index.tsx:25`
-- [ ] Analytics：`ComingSoon` 占位页只为路由构建；明确哪些看板/分析页尚未交付并替换为真实页面或移除占位 `dashboard/src/pages/Analytics/ComingSoon.tsx:37`
-- [ ] Analytics Attribution：渠道下拉 options 为空，需接入后端枚举/字典 API 或改为可搜索输入 `dashboard/src/pages/Analytics/Attribution/index.tsx:32`
-- [ ] Analytics Payments：筛选项（渠道/平台/国家/区域/城市）下拉 options 为空，需接入后端枚举/字典 API 或改为输入+联想 `dashboard/src/pages/Analytics/Payments/index.tsx:47`
-- [ ] Ops Notifications：通知渠道列表包含 `SMS(占位)`；实现短信渠道或从 UI 中移除避免误导 `dashboard/src/pages/Ops/Notifications/index.tsx:100`
-- [ ] 导出：`exportToXLSX` 依赖 `window.XLSX`（未在 dashboard 依赖中声明），需改为内置依赖/按需 import 或明确只支持 CSV `dashboard/src/utils/export.ts:1`
-- [ ] Agent：FunctionServer 在无实例/拨号失败时返回空结果且无错误码，调用方难以区分“未找到/不可用/真实空返回”；改为返回明确 gRPC 状态码 `internal/app/agent/function_server.go:43`
-- [ ] Dashboard Telemetry：Traces 页面目前是 mock 数据；需要接入真实 Jaeger/OTel 查询接口或明确移除/标注 demo-only `dashboard/src/pages/Telemetry/Traces.tsx:1`
-- [ ] Dashboard Telemetry：Traces 使用硬编码 `mockTraces/mockTraceDetail`（点击刷新也只是回填 mock）；接入真实 traces 查询（或清晰标注 demo-only 并隐藏入口）`dashboard/src/pages/Telemetry/Traces.tsx:40`
-- [ ] Dashboard ComponentManagement：VirtualObjectManager 在接口失败时回退到 mockEntities，可能掩盖真实后端问题；改为显式提示/权限处理而非静默模拟 `dashboard/src/pages/ComponentManagement/components/VirtualObjectManager.tsx:113`
-- [ ] Dashboard Telemetry：目前缺少 traces 查询 API（dashboard services 未提供、后端也未暴露）；需要新增后端接口或接入 Jaeger/Grafana Explore URL `dashboard/src/services/croupier/ops.ts:83`
+- [x] Dashboard：组件统计里的 `runningJobs` 改为从 Job API 拉取（例如 `/api/v1/jobs?status=running`）`dashboard/src/pages/ComponentManagement/index.tsx:114`
+- [x] Dashboard：实现 `ErrorShowType.REDIRECT` 的跳转逻辑（未登录/无权限等场景）`dashboard/src/requestErrorConfig.ts:61`
+- [x] Dashboard：表单渲染支持 `ui:layout.type=tabs` 的分组布局 `dashboard/src/components/FunctionFormRenderer/index.tsx:162`
+- [x] Dashboard：Pack plugins 支持从 `/api/v1/packs` 读取 `web_plugins` 并动态加载 `dashboard/src/plugin/registry.tsx:94`
+- [x] Analytics Retention：留存页面已接入 `/api/v1/analytics/retention`（cohort 表格 + 导出）`dashboard/src/pages/Analytics/Retention/index.tsx:1`
+- [x] Analytics：未交付页面不展示在菜单（例如 Segments 占位页已隐藏）`dashboard/config/routes.ts:28`
+- [x] Analytics Attribution：后端接口未实现，页面从菜单隐藏并增加明确提示 `dashboard/config/routes.ts:27`
+- [x] Analytics Payments：筛选项支持“输入+联想”（AutoComplete），后端无字典时也可直接输入 `dashboard/src/pages/Analytics/Payments/index.tsx:126`
+- [x] Ops Notifications：移除/不展示 `SMS(占位)` 等误导选项 `dashboard/src/pages/Ops/Notifications/index.tsx:100`
+- [x] 导出：`exportToXLSX` 不再依赖 `window.XLSX`（多 sheet 将下载多个 CSV）`dashboard/src/utils/export.ts:1`
+- [x] Agent：FunctionServer 在无实例/拨号失败时返回明确 gRPC 状态码 `internal/app/agent/function_server.go:31`
+- [x] Dashboard Telemetry：Traces 页面移除 mock 数据，改为跳转 Grafana/Jaeger `dashboard/src/pages/Telemetry/Traces.tsx:1`
+- [x] Dashboard Telemetry：通过 `/api/ops/config` 下发 `grafana_explore_url/jaeger_url` 供跳转使用 `dashboard/src/services/croupier/ops.ts:100`
+- [x] Dashboard ComponentManagement：VirtualObjectManager 接口失败不再静默回退 mock，改为提示+空态 `dashboard/src/pages/ComponentManagement/components/VirtualObjectManager.tsx:113`
+- [x] Build：修复 `make server` 产物为 `ar archive`（当前在 `services/server` 下构建 `./cmd` 非 `main` 包）；应改为构建 `services/server`（`package main`）并验证生成的 `bin/croupier-server` 可执行 `Makefile:71`
 
 ## P1 - 核心能力（控制面/描述符/低代码）
 
@@ -117,43 +113,43 @@
 - TLS：优先统一“配置→证书加载→拨号/监听”的单一路径（避免各处各自实现）
 - 文档对齐：先修最影响运行/入门的（config/README/docker/compose），再处理历史评审类文档
 
-- [ ] Provider Manifest：`RegisterCapabilities` 接收到的 manifest 做 JSON Schema 校验（`docs/providers-manifest.schema.json`），失败返回结构化错误 `internal/platform/control/server.go:77`
-- [ ] Provider Manifest：补齐“合并为统一 descriptors 并暴露”的验收用例/测试（provider/descriptor 聚合、覆盖优先级、冲突处理）`internal/platform/control/server.go:112`
-- [ ] Proto-First 生成：完善 `protoc-gen-croupier` 对自定义 options 的映射（auth/semantics/ui/labels 等），并补齐文档/示例 proto `tools/protoc-gen-croupier/main.go:71`
-- [ ] Proto-First 生成：支持 `emit_manifest=true` 开关，并生成 `schema/*.json`（JSON Schema）与可选 `.desc`（FDS），与 Provider Manifest 设计对齐 `docs/providers-manifest.md:99`
+- [x] Provider Manifest：`RegisterCapabilities` 接收到的 manifest 做 JSON Schema 校验（`docs/providers-manifest.schema.json`），失败返回结构化错误 `internal/platform/control/server.go:77`
+- [x] Provider Manifest：补齐“合并为统一 descriptors 并暴露”的验收用例/测试（provider/descriptor 聚合、覆盖优先级、冲突处理）`internal/platform/control/server.go:112`
+- [x] Proto-First 生成：完善 `protoc-gen-croupier` 对自定义 options 的映射（auth/semantics/ui/labels 等），并补齐文档/示例 proto `tools/protoc-gen-croupier/main.go:72`
+- [x] Proto-First 生成：支持 `emit_manifest=true` 开关，并生成 `schema/*.json`（JSON Schema）与可选 `.desc`（FDS），与 Provider Manifest 设计对齐 `docs/providers-manifest.md:99`
 - [ ] Entity 管理界面：增强 Schema 编辑体验（完整 JSON Schema 编辑器、UI 配置工具等）`dashboard/src/pages/Entities/index.tsx:140`
 - [ ] 函数管理 UX：补齐搜索/分类/批量操作/版本管理等（文档列出的缺口）`docs/FUNCTION_MANAGEMENT_ARCHITECTURE_ANALYSIS.md:57`
 - [ ] 函数管理：落地“统一函数管理菜单 + 5 个专注页面 + 重定向兼容”（阶段 1 交付物）`docs/FUNCTION_MANAGEMENT_EXECUTIVE_SUMMARY.md:246`
 - [ ] 函数管理：新增/补齐调用历史（数据模型 + API + UI 展示 + rerun）`docs/FUNCTION_MANAGEMENT_EXECUTIVE_SUMMARY.md:246`
 - [ ] 函数管理：新增 Agents/覆盖率分析相关 API（agents 列表、agent functions、coverage analysis）`docs/FUNCTION_MANAGEMENT_EXECUTIVE_SUMMARY.md:246`
 - [ ] Packs：新增包内容详情/版本历史/灰度发布（canary）API 与 UI `docs/FUNCTION_MANAGEMENT_EXECUTIVE_SUMMARY.md:246`
-- [ ] 文档自洽：`docs/ARCHITECTURE.md` 引用“TODO List”但正文缺失；补 TODO 列表或删引用 `docs/ARCHITECTURE.md:302`
-- [ ] 文档自洽：`docs/ARCHITECTURE.md` 中“实体管理(规划中)”与当前 Dashboard 已有 Entities 页面不一致；更新描述/标注现状 `docs/ARCHITECTURE.md:257`
-- [ ] Approvals 存储：补齐 PG/SQLite 的 Store 实现（或删除/替换 placeholder 接口），避免运行期只能用内存 `internal/platform/approvals/store.go:140`
-- [ ] Prom adapter：补齐 StartJob（或在 descriptors/UI 中禁用异步能力并清晰返回 NotImplemented）`tools/adapters/prom/main.go:97`
-- [ ] HTTP adapter：`StartJob` 目前返回空 jobId；实现异步作业或明确返回 NotImplemented（并补齐 Cancel/Stream 行为）`tools/adapters/http/main.go:213`
-- [ ] HTTP adapter：注册到 Agent 时仍使用 `grpc.WithInsecure()`；按 Agent mTLS 配置打通 TLS/mTLS `tools/adapters/http/main.go:248`
-- [ ] HTTP adapter：实现了 `grafana.search_dashboards` 但注册到 Agent 的 functions 列表未包含该 id；补齐注册或移除实现避免“存在但不可发现” `tools/adapters/http/main.go:254`
-- [ ] HTTP adapter：本地 gRPC server 直接 `grpc.NewServer()`（无 TLS）；按本地接入/零信任要求启用 TLS/mTLS（并与 Agent 注册配置对齐）`tools/adapters/http/main.go:239`
-- [ ] Prom adapter：注册到 Agent 时仍使用 `grpc.WithInsecure()`；按 Agent mTLS 配置打通 TLS/mTLS `tools/adapters/prom/main.go:138`
-- [ ] Prom adapter：本地 gRPC server 直接 `grpc.NewServer()`（无 TLS）；按本地接入/零信任要求启用 TLS/mTLS（并与 Agent 注册配置对齐）`tools/adapters/prom/main.go:128`
-- [ ] Agent FunctionService：实现 `StreamJob`（当前 agent 侧未实现，会影响 job 实时流式能力）`internal/app/agent/function_server.go:1`
-- [ ] Jobs：完善终态事件判定（至少包含 canceled/failed），避免 `StreamJob` 不收敛导致 jobRouting 不清理 `internal/platform/dispatch/dispatcher.go:187`
-- [ ] Jobs：统一 job event/type 命名与状态映射（例如 canceled vs cancelled、completed vs succeeded），避免 Edge/SDK/UI 展示与终态判断不一致 `sdks/go/pkg/croupier/function_server.go:97`
-- [ ] Jobs：job 路由当前仅存内存（`jobID -> agent addr`），Server/Edge 重启后无法查询历史 job；需要持久化或实现“全量探测/回退策略” `internal/platform/dispatch/dispatcher.go:18`
+- [x] 文档自洽：`docs/ARCHITECTURE.md` 引用“TODO List”但正文缺失；补 TODO 列表或删引用 `docs/ARCHITECTURE.md:302`
+- [x] 文档自洽：`docs/ARCHITECTURE.md` 中“实体管理(规划中)”与当前 Dashboard 已有 Entities 页面不一致；更新描述/标注现状 `docs/ARCHITECTURE.md:257`
+- [x] Approvals 存储：补齐 PG/SQLite 的 Store 实现（或删除/替换 placeholder 接口），避免运行期只能用内存 `internal/platform/approvals/store.go:140`
+- [x] Prom adapter：补齐 StartJob（或在 descriptors/UI 中禁用异步能力并清晰返回 NotImplemented）`tools/adapters/prom/main.go:97`
+- [x] HTTP adapter：`StartJob` 目前返回空 jobId；实现异步作业或明确返回 NotImplemented（并补齐 Cancel/Stream 行为）`tools/adapters/http/main.go:213`
+- [x] HTTP adapter：注册到 Agent 时仍使用 `grpc.WithInsecure()`；按 Agent mTLS 配置打通 TLS/mTLS `tools/adapters/http/main.go:248`
+- [x] HTTP adapter：实现了 `grafana.search_dashboards` 但注册到 Agent 的 functions 列表未包含该 id；补齐注册或移除实现避免“存在但不可发现” `tools/adapters/http/main.go:254`
+- [x] HTTP adapter：本地 gRPC server 直接 `grpc.NewServer()`（无 TLS）；按本地接入/零信任要求启用 TLS/mTLS（并与 Agent 注册配置对齐）`tools/adapters/http/main.go:239`
+- [x] Prom adapter：注册到 Agent 时仍使用 `grpc.WithInsecure()`；按 Agent mTLS 配置打通 TLS/mTLS `tools/adapters/prom/main.go:138`
+- [x] Prom adapter：本地 gRPC server 直接 `grpc.NewServer()`（无 TLS）；按本地接入/零信任要求启用 TLS/mTLS（并与 Agent 注册配置对齐）`tools/adapters/prom/main.go:128`
+- [x] Agent FunctionService：实现 `StreamJob`（当前 agent 侧未实现，会影响 job 实时流式能力）`internal/app/agent/function_server.go:1`
+- [x] Jobs：完善终态事件判定（至少包含 canceled/failed），避免 `StreamJob` 不收敛导致 jobRouting 不清理 `internal/platform/dispatch/dispatcher.go:187`
+- [x] Jobs：统一 job event/type 命名与状态映射（例如 canceled vs cancelled、completed vs succeeded），避免 Edge/SDK/UI 展示与终态判断不一致 `sdks/go/pkg/croupier/function_server.go:97`
+- [x] Jobs：job 路由当前仅存内存（`jobID -> agent addr`），Server/Edge 重启后无法查询历史 job；需要持久化或实现“全量探测/回退策略” `internal/platform/dispatch/dispatcher.go:18`
 - [ ] Agent↔Server：当前使用 insecure gRPC（无 mTLS），与“零信任/mTLS”设计不一致；补齐 TLS 配置与证书加载 `internal/app/agent/upstream.go:73`
 - [ ] Dispatcher↔Agent：dispatcher 侧也使用 insecure gRPC 直连 agent；补齐 TLS/mTLS dial（可复用 `internal/platform/tlsutil`）`internal/platform/dispatch/dispatcher.go:259`
-- [ ] ConnPool：`InsecureSkipVerify` 配置语义不正确（当前会直接使用明文 insecure credentials）；应改为 `credentials.NewTLS(&tls.Config{InsecureSkipVerify:true})` 或更名为 `InsecurePlaintext` `internal/connpool/pool.go:243`
+- [x] ConnPool：`InsecureSkipVerify` 配置语义不正确（当前会直接使用明文 insecure credentials）；应改为 `credentials.NewTLS(&tls.Config{InsecureSkipVerify:true})` 或更名为 `InsecurePlaintext` `internal/connpool/pool.go:243`
 - [ ] TLS 配置落地：虽然 `services/agent/etc/agent.yaml` 与 `services/edge/etc/edge.yaml` 有 TLS/CA/Insecure 配置，但 `internal/app/agent/*`、dispatcher 等路径未实际使用；打通配置→拨号→证书加载链路 `services/agent/etc/agent.yaml:1`
-- [ ] Agent Upstream：使用了已废弃/不推荐的 `grpc.WithTimeout`；改为 `DialContext` + ctx 超时，并与 TLS 配置统一 `internal/app/agent/upstream.go:80`
-- [ ] Edge：gRPC server 目前未配置 TLS（直接 `grpc.NewServer()`），需要根据 `services/edge/internal/config` 启用 TLS/mTLS `services/edge/cmd/root.go:99`
+- [x] Agent Upstream：使用了已废弃/不推荐的 `grpc.WithTimeout`；改为 `DialContext` + ctx 超时，并与 TLS 配置统一 `internal/app/agent/upstream.go:80`
+- [x] Edge：gRPC server 目前未配置 TLS（直接 `grpc.NewServer()`），需要根据 `services/edge/internal/config` 启用 TLS/mTLS `services/edge/cmd/root.go:99`
 - [ ] Edge 配置语义：`Server.InternalAddr` 当前被当作“gRPC 监听地址”使用（net.Listen），但字段命名像“上游地址”；明确 listen/upstream 拆分并更新配置/代码 `services/edge/cmd/root.go:95`
-- [ ] Server：`services/server/etc/server.yaml` 声明有 gRPC(mTLS) 地址，但当前 server 进程未启动 gRPC ControlService；补齐 gRPC 启动与注册（至少 ControlService.Register/Heartbeat/RegisterCapabilities/ListFunctionsSummary）`services/server/cmd/root.go:96`
+- [x] Server：启动 gRPC ControlService（支持 mTLS：配置 CA 则要求客户端证书；未配证书时 dev 模式仍允许明文）`services/server/cmd/root.go:96`
 - [ ] Server/Agent/Edge：目前存在两套“Agent 注册/ControlService”实现（go-zero HTTP 的 server vs internal/app/edge 的 gRPC 控制面），需要明确哪套是主路径并收敛（避免 registry/dispatcher 分叉）`internal/app/edge/app.go:24`
-- [ ] Edge：Edge gRPC server 未启用 TLS/mTLS（直接 `grpc.NewServer()`），需要支持 mTLS 并与配置/证书对齐 `services/edge/cmd/root.go:99`
-- [ ] Agentlocal：LocalStore 的 `Prune` 从未调用，实例/函数可能永久残留；增加定时清理与 maxAge 配置 `internal/platform/agentlocal/store.go:130`
-- [ ] Agent Upstream：store.OnUpdate 回调当前每次变更都触发 sync（且使用 `context.Background()`），需要 debounce/合并并增加超时/重试策略 `internal/app/agent/upstream.go:71`
-- [ ] Agentlocal：LocalControlService proto 含 `GetJobResult`，但 server 未实现；补齐实现或从 proto/调用链中移除 `internal/platform/agentlocal/local_control.go:1`
+- [x] Edge：Edge gRPC server 未启用 TLS/mTLS（直接 `grpc.NewServer()`），需要支持 mTLS 并与配置/证书对齐 `services/edge/cmd/root.go:99`
+- [x] Agentlocal：LocalStore 的 `Prune` 从未调用，实例/函数可能永久残留；增加定时清理与 maxAge 配置 `internal/platform/agentlocal/store.go:130`
+- [x] Agent Upstream：store.OnUpdate 回调当前每次变更都触发 sync（且使用 `context.Background()`），需要 debounce/合并并增加超时/重试策略 `internal/app/agent/upstream.go:71`
+- [x] Agentlocal：LocalControlService proto 含 `GetJobResult`，但 server 未实现；补齐实现或从 proto/调用链中移除 `internal/platform/agentlocal/local_control.go:1`
 
 ## P2 - SDK（以 C++ 为主）
 

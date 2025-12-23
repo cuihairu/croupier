@@ -2,8 +2,8 @@
 
 This plugin turns your .proto into Croupier "packs": descriptors, UI schema, a manifest and an fds.pb. It can also bundle them into `pack.tgz`.
 
-Status: initial skeleton. It derives defaults when no custom options are present. Custom option parsing will be added next.
-Update: basic custom options parsing implemented via UninterpretedOption aggregate parsing.
+Status: initial skeleton. It derives defaults when no custom options are present.
+Update: custom options are supported via typed protobuf extensions (with a fallback parser for legacy descriptors).
 
 ## Install/Build
 
@@ -29,6 +29,25 @@ Artifacts go to `gen/croupier/`:
 - `ui/*.schema.json` and `ui/*.uischema.json`: JSON Schema and UI Schema for requests
 - `fds.pb`: FileDescriptorSet (types)
 - `pack.tgz`: all the above bundled (if `emit_pack=true`)
+
+## Provider manifest (emit_manifest)
+
+When `emit_manifest=true`, the plugin additionally generates:
+- `manifest.json` with a top-level `provider` block + richer `functions[]` entries (request/response schema refs)
+- `schema/*.json`: JSON Schema files for request/response messages when resolvable
+- `descriptors.fds`: FileDescriptorSet in `.fds` form (same content as `fds.pb`)
+
+Suggested params:
+`provider_id`, `provider_version`, `provider_lang`, `provider_sdk`, `provider_description`
+
+Example:
+
+```
+PATH="$PWD/bin:$PATH" \
+protoc -I proto \
+  --croupier_out=emit_pack=true,emit_manifest=true,provider_id=player,provider_version=1.0.0:gen/croupier \
+  proto/examples/games/player/v1/player.proto
+```
 
 ## Inspect & Validate packs
 
@@ -81,15 +100,15 @@ Note: remote plugins in `buf.gen.yaml` may require network. You can remove them 
 - Pack signature and validation
 
 ## Supported custom options (current)
-- Method option `(croupier.options.function)` fields parsed:
+- Method option `(croupier.options.v1.function)`:
   - `function_id`, `version`, `category`, `risk`, `route`, `timeout`, `two_person_rule`, `placement`, `mode`, `idempotency_key`
-- Field option `(croupier.options.ui)` fields parsed:
+- Field option `(croupier.options.v1.ui)`:
   - `widget`, `label`, `placeholder`, `sensitive`, `show_if`, `required_if`, `enum_map`
 
 Example:
 ```
 rpc Ban(BanRequest) returns (BanResponse) {
-  option (croupier.options.function) = {
+  option (croupier.options.v1.function) = {
     function_id: "player.ban" version: "1.2.0" risk: "high"
     route: "lb" timeout: "30s" two_person_rule: true placement: "agent"
     mode: "command" idempotency_key: true
@@ -97,8 +116,8 @@ rpc Ban(BanRequest) returns (BanResponse) {
 }
 
 message BanRequest {
-  string player_id = 1 [(croupier.options.ui) = { label: "玩家ID", widget: "input" }];
-  string reason    = 2 [(croupier.options.ui) = { widget: "textarea", placeholder: "原因" }];
+  string player_id = 1 [(croupier.options.v1.ui) = { label: "玩家ID", widget: "input" }];
+  string reason    = 2 [(croupier.options.v1.ui) = { widget: "textarea", placeholder: "原因" }];
 }
 ```
 - Pack signature and validation

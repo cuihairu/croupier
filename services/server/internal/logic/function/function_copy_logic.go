@@ -29,7 +29,6 @@ func NewFunctionCopyLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Func
 }
 
 func (l *FunctionCopyLogic) FunctionCopy(req *types.FunctionCopyRequest) (*types.FunctionCopyResponse, error) {
-	// TODO: implement function copy logic
 	// 1. Validate request
 	if req.ID == "" {
 		return nil, errors.New("function id is required")

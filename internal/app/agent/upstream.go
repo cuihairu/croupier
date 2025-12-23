@@ -21,6 +21,7 @@ type UpstreamClient struct {
 	store      *agentlocal.LocalStore
 	client     serverv1.ControlServiceClient
 	conn       *grpc.ClientConn
+	updateCh   chan struct{}
 	gameID     string
 	env        string
 	version    string
@@ -107,13 +108,11 @@ func (c *UpstreamClient) Start(ctx context.Context) error {
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	// Add common options
-	dialOpts = append(dialOpts,
-		grpc.WithBlock(),
-		grpc.WithTimeout(5*time.Second),
-	)
+	dialOpts = append(dialOpts, grpc.WithBlock())
 
-	conn, err := grpc.Dial(c.serverAddr, dialOpts...)
+	dialCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	conn, err := grpc.DialContext(dialCtx, c.serverAddr, dialOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to connect to upstream server: %w", err)
 	}
@@ -121,23 +120,62 @@ func (c *UpstreamClient) Start(ctx context.Context) error {
 	c.client = serverv1.NewControlServiceClient(conn)
 
 	// Initial sync
-	if err := c.sync(ctx); err != nil {
+	if err := c.syncWithRetry(ctx, 3); err != nil {
 		slog.Error("initial sync failed", "error", err)
 	}
 
 	// Register update callback
+	c.updateCh = make(chan struct{}, 1)
 	c.store.OnUpdate(func() {
-		// Debounce updates slightly? For now, just sync.
-		// Use a detached context or the background context since the callback might be async
-		if err := c.sync(context.Background()); err != nil {
-			slog.Error("sync failed", "error", err)
+		select {
+		case c.updateCh <- struct{}{}:
+		default:
 		}
 	})
+	go c.updateLoop(ctx, 500*time.Millisecond)
 
 	// Heartbeat loop
 	go c.heartbeatLoop(ctx)
 
 	return nil
+}
+
+func (c *UpstreamClient) updateLoop(ctx context.Context, debounce time.Duration) {
+	var timer *time.Timer
+	defer func() {
+		if timer != nil {
+			timer.Stop()
+		}
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-c.updateCh:
+			if timer == nil {
+				timer = time.NewTimer(debounce)
+			} else {
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+				timer.Reset(debounce)
+			}
+		case <-func() <-chan time.Time {
+			if timer == nil {
+				return nil
+			}
+			return timer.C
+		}():
+			timer = nil
+			if err := c.syncWithRetry(ctx, 3); err != nil {
+				slog.Error("sync failed", "error", err)
+			}
+		}
+	}
 }
 
 func (c *UpstreamClient) heartbeatLoop(ctx context.Context) {
@@ -156,7 +194,38 @@ func (c *UpstreamClient) heartbeatLoop(ctx context.Context) {
 	}
 }
 
-func (c *UpstreamClient) sync(ctx context.Context) error {
+func (c *UpstreamClient) syncWithRetry(ctx context.Context, attempts int) error {
+	if attempts <= 0 {
+		attempts = 1
+	}
+	var lastErr error
+	backoff := 200 * time.Millisecond
+	for i := 0; i < attempts; i++ {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		syncCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		err := c.syncOnce(syncCtx)
+		cancel()
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		timer := time.NewTimer(backoff)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+		if backoff < 2*time.Second {
+			backoff *= 2
+		}
+	}
+	return lastErr
+}
+
+func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 	// Snapshot local store
 	localData := c.store.List()
 	versionSnapshot := c.store.FunctionVersions()
@@ -197,7 +266,7 @@ func (c *UpstreamClient) Sync(ctx context.Context) error {
 	if c.client == nil {
 		return fmt.Errorf("upstream client not connected")
 	}
-	return c.sync(ctx)
+	return c.syncWithRetry(ctx, 3)
 }
 
 // Heartbeat sends a single heartbeat to the control server.

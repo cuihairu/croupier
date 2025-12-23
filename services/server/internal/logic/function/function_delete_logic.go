@@ -29,7 +29,6 @@ func NewFunctionDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Fu
 }
 
 func (l *FunctionDeleteLogic) FunctionDelete(req *types.FunctionActionRequest) error {
-	// TODO: implement function delete logic
 	// 1. Validate request
 	if req.ID == "" {
 		return errors.New("function id is required")

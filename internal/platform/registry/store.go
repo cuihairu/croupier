@@ -157,12 +157,11 @@ func (s *Store) BuildUnifiedDescriptors() map[string]interface{} {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	unified := map[string]interface{}{
-		"providers":  make(map[string]interface{}),
-		"functions":  make([]interface{}, 0),
-		"entities":   make([]interface{}, 0),
-		"operations": make([]interface{}, 0),
-	}
+	unified := map[string]interface{}{"providers": map[string]interface{}{}}
+
+	functionsByID := map[string]interface{}{}
+	entitiesByID := map[string]interface{}{}
+	operationsByKey := map[string]interface{}{}
 
 	for _, provCaps := range s.sortedProviderCapsLocked() {
 		if len(provCaps.Manifest) == 0 {
@@ -177,24 +176,42 @@ func (s *Store) BuildUnifiedDescriptors() map[string]interface{} {
 		}
 
 		// Add provider info
-		if providers, ok := unified["providers"].(map[string]interface{}); ok {
-			providers[providerID] = map[string]interface{}{
-				"id":         provCaps.ID,
-				"version":    provCaps.Version,
-				"lang":       provCaps.Lang,
-				"sdk":        provCaps.SDK,
-				"updated_at": provCaps.UpdatedAt,
-			}
-			if provider, exists := manifest["provider"]; exists {
-				providers[providerID] = provider
+		providers, _ := unified["providers"].(map[string]interface{})
+		prov := map[string]interface{}{}
+		if raw, ok := manifest["provider"].(map[string]interface{}); ok {
+			for k, v := range raw {
+				prov[k] = v
 			}
 		}
+		if prov["id"] == nil || prov["id"] == "" {
+			prov["id"] = provCaps.ID
+		}
+		if prov["version"] == nil || prov["version"] == "" {
+			prov["version"] = provCaps.Version
+		}
+		if prov["lang"] == nil || prov["lang"] == "" {
+			prov["lang"] = provCaps.Lang
+		}
+		if prov["sdk"] == nil || prov["sdk"] == "" {
+			prov["sdk"] = provCaps.SDK
+		}
+		prov["updated_at"] = provCaps.UpdatedAt
+		providers[providerID] = prov
 
 		// Merge functions
 		if functions, exists := manifest["functions"]; exists {
 			if funcList, ok := functions.([]interface{}); ok {
-				if unifiedFunctions, ok := unified["functions"].([]interface{}); ok {
-					unified["functions"] = append(unifiedFunctions, funcList...)
+				for _, it := range funcList {
+					fn, ok := it.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					id, _ := fn["id"].(string)
+					if id == "" {
+						continue
+					}
+					// later provider wins (iteration order is by update sequence)
+					functionsByID[id] = fn
 				}
 			}
 		}
@@ -202,23 +219,67 @@ func (s *Store) BuildUnifiedDescriptors() map[string]interface{} {
 		// Merge entities
 		if entities, exists := manifest["entities"]; exists {
 			if entityList, ok := entities.([]interface{}); ok {
-				if unifiedEntities, ok := unified["entities"].([]interface{}); ok {
-					unified["entities"] = append(unifiedEntities, entityList...)
+				for _, it := range entityList {
+					ent, ok := it.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					id, _ := ent["id"].(string)
+					if id == "" {
+						continue
+					}
+					entitiesByID[id] = ent
 				}
 			}
 		}
 
-		// Merge operations
+		// Merge operations (legacy/compat): optional top-level "operations" list
 		if operations, exists := manifest["operations"]; exists {
 			if opList, ok := operations.([]interface{}); ok {
-				if unifiedOperations, ok := unified["operations"].([]interface{}); ok {
-					unified["operations"] = append(unifiedOperations, opList...)
+				for _, it := range opList {
+					op, ok := it.(map[string]interface{})
+					if !ok {
+						continue
+					}
+					key, _ := op["id"].(string)
+					if key == "" {
+						// fall back to op/op_id if present
+						if v, ok := op["op"].(string); ok && v != "" {
+							key = v
+						} else if v, ok := op["op_id"].(string); ok && v != "" {
+							key = v
+						}
+					}
+					if key == "" {
+						continue
+					}
+					operationsByKey[key] = op
 				}
 			}
 		}
 	}
 
+	unified["functions"] = sortedValues(functionsByID)
+	unified["entities"] = sortedValues(entitiesByID)
+	unified["operations"] = sortedValues(operationsByKey)
+
 	return unified
+}
+
+func sortedValues(m map[string]interface{}) []interface{} {
+	if len(m) == 0 {
+		return []interface{}{}
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := make([]interface{}, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, m[k])
+	}
+	return out
 }
 
 // BuildFunctionIndex parses provider manifests and builds an index of function metadata by id.
