@@ -113,11 +113,11 @@ func (p *CasbinPolicy) parsePermission(permission string) (string, string) {
 		return "*", "*"
 	}
 
-	// Convert permission like "roles:read" to object="/api/roles" and action="GET"
+	// Convert permission like "roles:read" to object="/api/v1/roles" and action="GET"
 	parts := strings.Split(permission, ":")
 	if len(parts) != 2 {
 		// Fallback: treat as object with GET action
-		return "/api/" + permission, "GET"
+		return "/api/v1/" + permission, "GET"
 	}
 
 	resource := parts[0]
@@ -127,32 +127,32 @@ func (p *CasbinPolicy) parsePermission(permission string) (string, string) {
 	var path string
 	switch resource {
 	case "roles":
-		path = "/api/roles"
+		path = "/api/v1/roles"
 	case "games":
-		path = "/api/games"
+		path = "/api/v1/games"
 	case "users":
-		path = "/api/users"
+		path = "/api/v1/users"
 	case "entities":
-		path = "/api/entities"
+		path = "/api/v1/entities"
 	case "functions":
-		path = "/api/functions"
+		path = "/api/v1/functions"
 	case "assignments":
-		path = "/api/assignments"
+		path = "/api/v1/assignments"
 	case "registry":
-		path = "/api/registry"
+		path = "/api/v1/registry"
 	case "approvals":
-		path = "/api/approvals"
+		path = "/api/v1/approvals"
 	case "messages":
-		path = "/api/messages"
+		path = "/api/v1/messages"
 	case "certificates":
-		path = "/api/certificates"
+		path = "/api/v1/certificates"
 	case "components":
-		path = "/api/components"
+		path = "/api/v1/components"
 	case "uploads", "upload":
-		// our API path is singular: /api/upload
-		path = "/api/upload"
+		// storage endpoints live under /api/v1/storage
+		path = "/api/v1/storage"
 	default:
-		path = "/api/" + resource
+		path = "/api/v1/" + resource
 	}
 
 	// Map action to HTTP method

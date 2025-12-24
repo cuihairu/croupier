@@ -261,8 +261,8 @@
 - [x] 文档对齐：`docs/README.md` 中的组件路径仍指向 `internal/server|agent|edge`，但当前入口在 `services/*` 与 `internal/app/*`，需要更新 `docs/README.md:34`
 - [x] 文档对齐：`services/README.md` 的 go-zero 服务规划与仓库当前实际目录不一致（例如 services/api 未落地）`services/README.md:1`
 - [x] 文档对齐：`architecture_review.md` 的“无法编译/目录不存在”结论可能已过期；更新为当前状态或标注历史背景 `architecture_review.md:1`
-- [ ] 权限策略对齐：`configs/rbac_policy.csv` 中的 HTTP 路径与当前 API 前缀（`/api/v1/...`）可能不一致；需要统一或兼容路由 `configs/rbac_policy.csv:1`
-- [ ] RBAC 注释对齐：economy_manager “REST endpoints not implemented” 是否仍成立；若已实现则补授权，若未实现则补实现或移除相关角色/文档 `configs/rbac_policy.csv:44`
+- [x] 权限策略对齐：`configs/rbac_policy.csv` 中的 HTTP 路径与当前 API 前缀（`/api/v1/...`）可能不一致；需要统一或兼容路由 `configs/rbac_policy.csv:1`
+- [x] RBAC 注释对齐：economy_manager “REST endpoints not implemented” 是否仍成立；若已实现则补授权，若未实现则补实现或移除相关角色/文档 `configs/rbac_policy.csv:44`
 - [ ] Demo 服务：metrics endpoint 目前为 placeholder；明确用途并实现或移除 `services/demo/main.go:132`
 - [ ] 默认种子数据：`Bootstrap placeholder game` 这类默认数据需明确是否仅用于 dev（生产环境禁用/可配置）`services/server/internal/svc/game_seed.go:157`
 - [ ] 脚本安全：`scripts/test-ci.sh` 会直接 push/force-push，风险较高；改为“本地校验/提示用户手动操作”或移除 `scripts/test-ci.sh:1`
