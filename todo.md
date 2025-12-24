@@ -259,15 +259,15 @@
 - [ ] CLI：文档里存在 `croupier config test`（合并 include/profile 并校验配置）等命令，但仓库缺少对应二进制/入口；实现统一 CLI（复用 `internal/cli/common`）或删改文档 `docs/config.md:146`
 - [ ] DB 迁移：存在 `cmd/server/migrate_wip.go.txt` 草稿但未落地到可用命令；决定实现迁移子命令或移除草稿避免误导 `cmd/server/migrate_wip.go.txt:1`
 - [x] 文档对齐：`docs/README.md` 中的组件路径仍指向 `internal/server|agent|edge`，但当前入口在 `services/*` 与 `internal/app/*`，需要更新 `docs/README.md:34`
-- [ ] 文档对齐：`services/README.md` 的 go-zero 服务规划与仓库当前实际目录不一致（例如 services/api 未落地）`services/README.md:1`
-- [ ] 文档对齐：`architecture_review.md` 的“无法编译/目录不存在”结论可能已过期；更新为当前状态或标注历史背景 `architecture_review.md:1`
+- [x] 文档对齐：`services/README.md` 的 go-zero 服务规划与仓库当前实际目录不一致（例如 services/api 未落地）`services/README.md:1`
+- [x] 文档对齐：`architecture_review.md` 的“无法编译/目录不存在”结论可能已过期；更新为当前状态或标注历史背景 `architecture_review.md:1`
 - [ ] 权限策略对齐：`configs/rbac_policy.csv` 中的 HTTP 路径与当前 API 前缀（`/api/v1/...`）可能不一致；需要统一或兼容路由 `configs/rbac_policy.csv:1`
 - [ ] RBAC 注释对齐：economy_manager “REST endpoints not implemented” 是否仍成立；若已实现则补授权，若未实现则补实现或移除相关角色/文档 `configs/rbac_policy.csv:44`
 - [ ] Demo 服务：metrics endpoint 目前为 placeholder；明确用途并实现或移除 `services/demo/main.go:132`
 - [ ] 默认种子数据：`Bootstrap placeholder game` 这类默认数据需明确是否仅用于 dev（生产环境禁用/可配置）`services/server/internal/svc/game_seed.go:157`
 - [ ] 脚本安全：`scripts/test-ci.sh` 会直接 push/force-push，风险较高；改为“本地校验/提示用户手动操作”或移除 `scripts/test-ci.sh:1`
 - [ ] 脚本安全：`scripts/sync-sdk-generated.sh` 会在脚本内提示后执行 `git push`（对子模块/多仓库场景风险较高）；考虑增加 `--dry-run`、默认不推送或在 CI 里禁止推送 `scripts/sync-sdk-generated.sh:175`
-- [ ] 配置文件有效性：`services/edge/etc/edge.yaml` 使用 `//` 注释（非 YAML 语法），会导致解析失败；改为 `#` 或移除 `services/edge/etc/edge.yaml:35`
+- [x] 配置文件有效性：`services/edge/etc/edge.yaml` 使用 `//` 注释（非 YAML 语法），会导致解析失败；改为 `#` 或移除 `services/edge/etc/edge.yaml:35`
 - [ ] 日志与噪音：移除/替换 agentlocal 的 `fmt.Printf("DEBUG: ...")`（改为可控的结构化日志或仅在 debug level 输出）`internal/platform/agentlocal/store.go:37`
 - [ ] 日志与噪音：移除/替换 LocalControlService 的 `fmt.Printf("DEBUG: RegisterLocal...")` `internal/platform/agentlocal/local_control.go:25`
 - [ ] Telemetry：OTLP exporter 默认 `WithInsecure()`，需要根据配置显式区分 dev/prod，支持 TLS（至少提供开关与 CA 配置）`internal/telemetry/provider.go:96`

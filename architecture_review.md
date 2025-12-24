@@ -1,4 +1,4 @@
-# Croupier 架构审查与建议
+# Croupier 架构审查与建议（历史审查 + 当前状态）
 
 ## 1. 当前架构分析
 
@@ -6,24 +6,23 @@
 
 本项目采用了基于 `go-zero` 的 **模块化单体 (Modular Monolith)** 模式。
 
-- **入口点**: `services/server/modules/server.go`
-- **API 定义**: `services/server/modules/*.api` (汇总于 `server.api`)
+> 注：本文件最初用于记录 go-zero 迁移早期的目录问题；部分结论已过期。当前可运行入口在 `services/server/server.go` + `services/server/cmd/*`。
+
+- **入口点**: `services/server/server.go`（CLI 入口：`services/server/cmd/root.go`）
+- **API 定义**: `services/server/server.api` + `services/server/modules/*.api`（模块拆分）
 - **业务逻辑**: `services/server/internal/logic`
-- **生成代码**: 混乱分散在 `services/server/internal` 和 `services/server/modules/internal` 之间。
+- **生成代码**: 主要集中在 `services/server/internal/{handler,logic,svc,types,config}`
 
 ### 关键问题
 
-1.  **目录不匹配**:
+1.  **（历史）目录不匹配**:
 
-    - `server.go` (位于 `modules`) 引用了 `github.com/cuihairu/croupier/services/server/modules/internal/handler`。
-    - **但是** 该目录实际上不存在。真正的 handlers 位于 `services/server/internal/handler`。
-    - 这导致项目在当前状态下无法编译或运行。
+    - 早期存在 `services/server/modules/server.go` 引用不存在目录的情况，导致无法编译。
+    - 当前版本已修复：可执行入口位于 `services/server/server.go`，`modules/` 主要用于 `.api` 定义拆分。
 
-2.  **Internal 分裂**:
+2.  **Internal 分裂（仍需关注）**:
 
-    - `services/server/modules/internal` 包含 `config` 和 `svc`。
-    - `services/server/internal` 包含 `config`, `svc`, `handler`, `logic`, `types`。
-    - 这种重复和分裂非常令人困惑，可能是由于在不同目录下运行 `goctl` 命令或使用了不同的目标目录导致的。
+    - 若未来继续使用 goctl/模板生成，需要确保生成目标目录一致，避免重复 `internal` 树。
 
 3.  **逻辑为空**:
     - 逻辑文件 (例如 `agent_meta_logic.go`) 目前只是空的脚手架代码。
@@ -32,7 +31,7 @@
 
 ### 方案 A: 标准单体结构 (推荐)
 
-简化结构为标准的 go-zero 布局。消除 `modules` 和 `server` 之间的混淆。
+简化结构为标准的 go-zero 布局。保持 `modules/*.api` 作为 API 拆分文件是可行的，但建议统一入口与生成目录。
 
 **建议结构:**
 
