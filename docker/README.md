@@ -35,7 +35,7 @@ docker-compose up -d
 - Server 服务 (端口 8443/18080)
 - Agent 服务 (端口 19090/19091)
 - Web UI (端口 8000)
-- Analytics Ingestion (端口 18080)
+- Analytics Ingestion (端口 18081)
 
 ### 启动遥测监控栈
 
@@ -64,6 +64,7 @@ docker-compose -f docker-compose.telemetry.yaml up -d
 | Server gRPC | localhost:8443 | gRPC 服务 |
 | Edge gRPC | localhost:9443 | Edge 代理 |
 | Agent | localhost:19090 | 本地 Agent |
+| Analytics Ingestion | http://localhost:18081 | 公网/DMZ 摄取入口（开发） |
 
 ### 数据库
 
@@ -88,9 +89,9 @@ docker-compose --profile tools up -d
 
 | 服务 | 访问地址 | 凭据 |
 |-----|---------|------|
-| Grafana | http://localhost:3000 | admin/admin |
-| Prometheus | http://localhost:9090 | 无需认证 |
-| Jaeger | http://localhost:16686 | 无需认证 |
+| Grafana | http://localhost:13000 | admin/admin |
+| Prometheus | http://localhost:19092 | 无需认证 |
+| Jaeger | http://localhost:17686 | 无需认证 |
 
 ## 常用命令
 

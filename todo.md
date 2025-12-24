@@ -246,13 +246,13 @@
 - [x] 文档：C++ SDK README 补齐 Troubleshooting/FAQ（文档评估里标注缺失）`docs/sdks/cpp/README.md:1`
 - [x] 文档发布：`docs/README.md` 标注“函数管理系统章节为草稿，稍后发布”，需要补齐/发布到 docs 站点或移除占位描述 `docs/README.md:104`
 - [x] 构建跨平台：`make analytics-spec` 依赖 PowerShell 脚本，补齐 macOS/Linux 可运行的替代实现（或改为 Node/Go 工具）`Makefile:130`
-- [ ] 仓库结构文档对齐：AGENTS/README 中提到 `web/`（Umi Max）但当前仓库实际使用 `dashboard/`（子模块）且无 `web/` 目录 `AGENTS.md:1`
-- [ ] Docker：`docker/Dockerfile.web` 依赖 `web/` 目录，但仓库实际无 `web/`（当前是 `dashboard/`）；需要更新 Dockerfile/compose 或补齐 web 目录 `docker/Dockerfile.web:1`
-- [ ] Docker Compose：`docker/docker-compose.yml` 的 `web` service 依赖 Dockerfile.web + `web/` 目录；当前无法构建/启动，需要同步修复 `docker/docker-compose.yml:142`
-- [ ] Docker Compose：server/edge/agent 的 command 使用 `--addr/--http_addr/--cert/--key/--ca` 等 flags，但 go-zero 版本的 `services/*/cmd` 可能不支持这些 flags（只支持 `--config` 等）；需要对齐镜像 entrypoint 与参数 `docker/docker-compose.yml:87`
-- [ ] Docker 文档对齐：`docker/README.md` 的 quickstart/端口/服务列表基于旧 CLI flags 与旧 web 目录，需与当前实现（go-zero + dashboard 子模块）一致 `docker/README.md:1`
-- [ ] Dockerfile：`docker/Dockerfile.demo` 构建路径指向 `./cmd/demo/main.go`，但仓库无该文件（实际 demo 在 `services/demo/main.go`）；修正构建入口 `docker/Dockerfile.demo:1`
-- [ ] Docker Compose Telemetry：`docker-compose.telemetry.yaml` 依赖 `Dockerfile.demo`，当前无法构建 demo；修复后验证 compose 可拉起 demo `docker/docker-compose.telemetry.yaml:100`
+- [x] 仓库结构文档对齐：AGENTS/README 中提到 `web/`（Umi Max）但当前仓库实际使用 `dashboard/`（子模块）且无 `web/` 目录 `AGENTS.md:1`
+- [x] Docker：`docker/Dockerfile.web` 依赖 `web/` 目录，但仓库实际无 `web/`（当前是 `dashboard/`）；需要更新 Dockerfile/compose 或补齐 web 目录 `docker/Dockerfile.web:1`
+- [x] Docker Compose：`docker/docker-compose.yml` 的 `web` service 依赖 Dockerfile.web + `web/` 目录；当前无法构建/启动，需要同步修复 `docker/docker-compose.yml:142`
+- [x] Docker Compose：server/edge/agent 的 command 使用 `--addr/--http_addr/--cert/--key/--ca` 等 flags，但 go-zero 版本的 `services/*/cmd` 可能不支持这些 flags（只支持 `--config` 等）；需要对齐镜像 entrypoint 与参数 `docker/docker-compose.yml:87`
+- [x] Docker 文档对齐：`docker/README.md` 的 quickstart/端口/服务列表基于旧 CLI flags 与旧 web 目录，需与当前实现（go-zero + dashboard 子模块）一致 `docker/README.md:1`
+- [x] Dockerfile：`docker/Dockerfile.demo` 构建路径指向 `./cmd/demo/main.go`，但仓库无该文件（实际 demo 在 `services/demo/main.go`）；修正构建入口 `docker/Dockerfile.demo:1`
+- [x] Docker Compose Telemetry：`docker-compose.telemetry.yaml` 依赖 `Dockerfile.demo`，当前无法构建 demo；修复后验证 compose 可拉起 demo `docker/docker-compose.telemetry.yaml:100`
 - [ ] 文档/命令对齐：`docs/analytics/README.md` 的 quickstart 仍引用旧 `./bin/croupier server --config ...` 命令，和当前实际二进制/参数体系不一致；更新示例 `docs/analytics/README.md:119`
 - [ ] 文档/命令对齐：多处文档引用 `./bin/croupier ...`（assignments/packs 等 CLI），但仓库当前没有该统一 CLI 二进制；需要实现 CLI（或改文档为现有工具 `schema-validator`/`pack-builder`）`docs/assignments.md:22`
 - [ ] 配置/文档对齐：`docs/config.md` 描述的 Cobra+Viper 多文件 include/profile 体系与当前 go-zero `conf.MustLoad` 不一致；需要统一实现或更新文档 `docs/config.md:1`

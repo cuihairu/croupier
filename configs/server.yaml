@@ -1,0 +1,75 @@
+# Docker/dev config for croupier-server (used by docker/docker-compose.yml)
+Name: croupier-server
+Host: 0.0.0.0
+Port: 8080
+
+Server:
+  # gRPC ControlService (plain by default; set cert/key/ca for TLS/mTLS)
+  Addr: ":8443"
+  HttpAddr: ":8080"
+  Cert: ""
+  Key: ""
+  CA: ""
+  db:
+    # Prefer env override in docker-compose:
+    # - DB_DRIVER
+    # - DATABASE_URL (e.g. postgres://...)
+    driver: "auto"
+    datasource: ""
+
+Registry:
+  AssignmentsPath: "data/assignments.json"
+  AnalyticsFiltersPath: "packs/ui/analytics_filters.json"
+  RateLimitsPath: "data/rate_limits.json"
+
+Dispatch:
+  JobRoutingDir: "data"
+  JobRoutingTTL: "" # e.g. "24h"; empty disables cleanup
+
+Auth:
+  JWTSecret: "localdevsecret-change-me"
+  RBACConfig: "configs/rbac.json"
+  UsersConfig: "configs/users.json"
+  GamesConfig: "configs/games.json"
+
+BootstrapData:
+  BaseDir: "configs"
+
+Descriptors:
+  Dir: "packs"
+
+Components:
+  DataDir: "data"
+  StagingDir: "data/components/staging"
+
+Schemas:
+  Dir: "packs/ui"
+
+Packs:
+  Dir: "packs"
+
+Storage:
+  Driver: "file"
+  BaseDir: "data/uploads"
+
+Cache:
+  Enabled: true
+  Type: "redis"
+  # Default to docker-compose service name; override via env if needed.
+  Addr: "redis:6379"
+  Password: ""
+  DB: 0
+  PoolSize: 50
+  TTL: "5m"
+  EvictTTL: "10m"
+  MaxItems: 10000
+
+CroupierLog:
+  Level: "info"
+  Format: "console"
+  Output: "stdout"
+
+Metrics:
+  PerFunction: true
+  PerGameDenies: false
+

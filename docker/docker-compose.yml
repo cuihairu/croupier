@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   # ================================
   # 数据库服务
@@ -141,7 +139,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.web
       args:
-        NODE_IMAGE: ${NODE_IMAGE:-node:20-alpine}
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
         NGINX_IMAGE: ${NGINX_IMAGE:-nginx:alpine}
         # Optional domestic registry for npm (e.g. https://registry.npmmirror.com)
         NPM_REGISTRY: ${NPM_REGISTRY:-}
@@ -260,7 +258,7 @@ services:
       ANALYTICS_REDIS_STREAM_PAYMENTS: ${ANALYTICS_REDIS_STREAM_PAYMENTS:-analytics:payments}
       ANALYTICS_INGEST_SKEW: ${ANALYTICS_INGEST_SKEW:-300}
     ports:
-      - "18080:8088"
+      - "18081:8088"
     depends_on:
       redis:
         condition: service_healthy

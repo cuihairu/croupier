@@ -13,12 +13,13 @@ COPY sdks/go/go.mod sdks/go/go.sum sdks/go/
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/croupier-agent ./services/agent
-RUN mkdir -p /out/logs
+RUN mkdir -p /out/logs /out/data
 
 FROM ${RUNTIME_IMAGE}
 WORKDIR /app
 COPY --from=build /out/croupier-agent /app/
 COPY --from=build --chown=nonroot:nonroot /src/configs /app/configs
+COPY --from=build --chown=nonroot:nonroot /out/data /app/data
 COPY --from=build --chown=nonroot:nonroot /out/logs /app/logs
 EXPOSE 19090 19091
 USER nonroot

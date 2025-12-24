@@ -1,6 +1,6 @@
 ## Multi-stage build for the Dashboard UI (Umi Max)
 # Global build args must be declared before any FROM
-ARG NODE_IMAGE=node:20-alpine
+ARG NODE_IMAGE=node:22-alpine
 ARG NGINX_IMAGE=nginx:alpine
 
 # Build stage
@@ -11,14 +11,13 @@ WORKDIR /dashboard
 ARG NPM_REGISTRY=
 RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi
 
-# Install deps
+# Install deps (pnpm)
 COPY dashboard/package.json dashboard/pnpm-lock.yaml ./
-# Use npm (no package-lock.json present). For reproducibility, consider pnpm later.
-RUN npm i
+RUN corepack enable && corepack prepare pnpm@9 --activate && pnpm install --frozen-lockfile
 
 # Build
 COPY dashboard/ .
-RUN npm run build
+RUN pnpm run build
 
 # Runtime stage
 FROM ${NGINX_IMAGE} AS runtime

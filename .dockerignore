@@ -1,0 +1,24 @@
+.git
+.gocache
+bin
+data
+generated
+
+**/.DS_Store
+
+# Node
+**/node_modules
+**/.umi
+**/.cache
+**/dist
+**/build
+
+# Go
+**/*.test
+**/*.out
+**/coverage*.out
+
+# SDK build artifacts
+sdks/cpp/build
+sdks/java/build
+sdks/js/dist
