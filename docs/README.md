@@ -46,9 +46,9 @@ graph TB
 
 ### 组件架构
 
-- **Server** (`internal/server/`) - 中央控制平面，gRPC(8443) + HTTP REST(8080)
-- **Agent** (`internal/agent/`) - 分布式代理，部署在游戏网络中
-- **Edge** (`internal/edge/`) - DMZ 代理，桥接内外网络
+- **Server** (`services/server/`) - 中央控制平面（HTTP + gRPC 控制面）
+- **Agent** (`services/agent/` + `internal/app/agent/`) - 分布式代理进程（HTTP facade + 内嵌 gRPC core）
+- **Edge** (`services/edge/` + `internal/app/edge/`) - DMZ/边缘代理
 - **Dashboard** (`dashboard/`) - Web 管理界面
 - **SDKs** (`sdks/`) - 多语言客户端 SDK
 

@@ -258,7 +258,7 @@
 - [ ] 配置/文档对齐：`docs/config.md` 描述的 Cobra+Viper 多文件 include/profile 体系与当前 go-zero `conf.MustLoad` 不一致；需要统一实现或更新文档 `docs/config.md:1`
 - [ ] CLI：文档里存在 `croupier config test`（合并 include/profile 并校验配置）等命令，但仓库缺少对应二进制/入口；实现统一 CLI（复用 `internal/cli/common`）或删改文档 `docs/config.md:146`
 - [ ] DB 迁移：存在 `cmd/server/migrate_wip.go.txt` 草稿但未落地到可用命令；决定实现迁移子命令或移除草稿避免误导 `cmd/server/migrate_wip.go.txt:1`
-- [ ] 文档对齐：`docs/README.md` 中的组件路径仍指向 `internal/server|agent|edge`，但当前入口在 `services/*` 与 `internal/app/*`，需要更新 `docs/README.md:34`
+- [x] 文档对齐：`docs/README.md` 中的组件路径仍指向 `internal/server|agent|edge`，但当前入口在 `services/*` 与 `internal/app/*`，需要更新 `docs/README.md:34`
 - [ ] 文档对齐：`services/README.md` 的 go-zero 服务规划与仓库当前实际目录不一致（例如 services/api 未落地）`services/README.md:1`
 - [ ] 文档对齐：`architecture_review.md` 的“无法编译/目录不存在”结论可能已过期；更新为当前状态或标注历史背景 `architecture_review.md:1`
 - [ ] 权限策略对齐：`configs/rbac_policy.csv` 中的 HTTP 路径与当前 API 前缀（`/api/v1/...`）可能不一致；需要统一或兼容路由 `configs/rbac_policy.csv:1`
