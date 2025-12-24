@@ -238,14 +238,14 @@
 - [ ] 清理/完成仓库内文档 checklist：C++ SDK Docs Index 剩余 7 项（文档索引缺口）`docs/CPP_SDK_DOCS_INDEX.md:1`
 - [ ] 清理/完成仓库内文档 checklist：Dashboard 前端分析剩余 6 项（前端缺口跟进）`dashboard/FRONTEND_ANALYSIS.md:1`
 - [ ] 清理/完成仓库内文档 checklist：虚拟对象 Quick Reference 剩余 4 项（对齐 TODO 引用/落地）`docs/VIRTUAL_OBJECT_QUICK_REFERENCE.md:1`
-- [ ] 统一文档元信息：`docs/README.md` 的 License/Go 版本与仓库实际不一致（LICENSE=Apache-2.0；go.mod=go1.24）`docs/README.md:4`
-- [ ] Node 版本对齐：`docs/README.md` 要求 Node.js 18+，但 `dashboard/package.json` engines 要求 `>=22` `docs/README.md:59`
-- [ ] Go 版本对齐：README/CI/go.mod 的 Go 版本声明不一致（README=1.25+；go.mod=1.24；CI=1.25）`README.md:1`
-- [ ] Go 工具链对齐：CI 使用 Go 1.25，但 `go.mod` 为 1.24；确认是否升级 go.mod 到 1.25 或降低 CI `go-version` `go.mod:3`
-- [ ] 安全：补齐 CodeQL/SAST 工作流（仓库已有文档提及但 CI 未集成）`docs/CPP_SDK_ANALYSIS_SUMMARY.md:105`
-- [ ] 文档：C++ SDK README 补齐 Troubleshooting/FAQ（文档评估里标注缺失）`docs/CPP_SDK_ANALYSIS_SUMMARY.md:138`
-- [ ] 文档发布：`docs/README.md` 标注“函数管理系统章节为草稿，稍后发布”，需要补齐/发布到 docs 站点或移除占位描述 `docs/README.md:104`
-- [ ] 构建跨平台：`make analytics-spec` 依赖 PowerShell 脚本，补齐 macOS/Linux 可运行的替代实现（或改为 Node/Go 工具）`Makefile:140`
+- [x] 统一文档元信息：`docs/README.md` 的 License/Go 版本与仓库实际不一致（LICENSE=Apache-2.0；go.mod=go1.25）`docs/README.md:4`
+- [x] Node 版本对齐：`docs/README.md` 要求 Node.js 18+，但 `dashboard/package.json` engines 要求 `>=22` `docs/README.md:59`
+- [x] Go 版本对齐：README/CI/go.mod 的 Go 版本声明不一致（README=1.25+；go.mod=1.25；CI=1.25）`README.md:1`
+- [x] Go 工具链对齐：CI 使用 Go 1.25，但 `go.mod` 为 1.25；确认是否升级 go.mod 到 1.25 或降低 CI `go-version` `go.mod:3`
+- [x] 安全：补齐 CodeQL/SAST 工作流（仓库已有文档提及但 CI 未集成）`.github/workflows/codeql.yml:1`
+- [x] 文档：C++ SDK README 补齐 Troubleshooting/FAQ（文档评估里标注缺失）`docs/sdks/cpp/README.md:1`
+- [x] 文档发布：`docs/README.md` 标注“函数管理系统章节为草稿，稍后发布”，需要补齐/发布到 docs 站点或移除占位描述 `docs/README.md:104`
+- [x] 构建跨平台：`make analytics-spec` 依赖 PowerShell 脚本，补齐 macOS/Linux 可运行的替代实现（或改为 Node/Go 工具）`Makefile:130`
 - [ ] 仓库结构文档对齐：AGENTS/README 中提到 `web/`（Umi Max）但当前仓库实际使用 `dashboard/`（子模块）且无 `web/` 目录 `AGENTS.md:1`
 - [ ] Docker：`docker/Dockerfile.web` 依赖 `web/` 目录，但仓库实际无 `web/`（当前是 `dashboard/`）；需要更新 Dockerfile/compose 或补齐 web 目录 `docker/Dockerfile.web:1`
 - [ ] Docker Compose：`docker/docker-compose.yml` 的 `web` service 依赖 Dockerfile.web + `web/` 目录；当前无法构建/启动，需要同步修复 `docker/docker-compose.yml:142`

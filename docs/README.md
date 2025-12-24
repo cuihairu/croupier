@@ -1,8 +1,8 @@
 # Croupier 文档首页
 
 [![GitHub](https://img.shields.io/badge/GitHub-cuihairu%2Fcroupier-blue)](https://github.com/cuihairu/croupier)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/cuihairu/croupier/blob/main/LICENSE)
-[![Go](https://img.shields.io/badge/Go-1.21+-blue.svg)](https://golang.org/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/cuihairu/croupier/blob/main/LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.25+-blue.svg)](https://golang.org/)
 
 欢迎来到 **Croupier** - 新一代分布式游戏管理系统！
 
@@ -56,8 +56,8 @@ graph TB
 
 ### 环境要求
 
-- Go 1.21+
-- Node.js 18+
+- Go 1.25+
+- Node.js 22+
 - Docker (可选)
 - CMake 3.20+ (C++ SDK)
 
@@ -101,7 +101,9 @@ make build-docs     # 构建 Docusaurus 文档
 
 - [系统架构概览](ARCHITECTURE.md) - 整体架构设计
 - [虚拟对象设计](VIRTUAL_OBJECT_DESIGN.md) - 四层对象模型
-- 函数管理系统（此章节当前为草稿，稍后发布）
+- [函数管理系统文档索引](FUNCTION_MANAGEMENT_README.md) - 菜单/页面/API/权限的完整分析与改进方案
+  - [函数管理 Quick Reference](FUNCTION_MANAGEMENT_QUICK_REFERENCE.md) - 关键要点与实施路线图
+  - [函数管理 Executive Summary](FUNCTION_MANAGEMENT_EXECUTIVE_SUMMARY.md) - 完整方案与分阶段交付
 
 ### SDK 开发
 

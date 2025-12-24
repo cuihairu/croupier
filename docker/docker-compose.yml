@@ -82,7 +82,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.edge
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.24}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.25}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     command: ["edge", "--config", "/app/configs/edge.yaml"]
     ports: ["9443:9443", "9080:9080"]
@@ -94,7 +94,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.server
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.24}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.25}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
         # Optional: include sqlite support by setting BUILD_TAGS to "pg sqlite"
         BUILD_TAGS: ${SERVER_BUILD_TAGS:-"pg ip2location"}
@@ -127,7 +127,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.agent
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.24}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.25}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     command: ["agent", "--config", "/app/configs/agent.yaml"]
     ports: ["19090:19090", "19091:19091"]
@@ -227,7 +227,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.analytics-worker
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.24}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.25}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -251,7 +251,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.ingest
       args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.24}
+        GO_IMAGE: ${GO_IMAGE:-golang:1.25}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     environment:
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}

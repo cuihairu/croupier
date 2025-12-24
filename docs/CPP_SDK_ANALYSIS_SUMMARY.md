@@ -135,7 +135,7 @@ gRPC Service (LocalService ↔ Agent)
 
 | 文档 | 完整性 | 质量 | 备注 |
 |------|--------|------|------|
-| README.md | 85% | ⭐⭐⭐⭐ | 缺少故障排除 |
+| README.md | 90% | ⭐⭐⭐⭐ | 已补齐 Troubleshooting/FAQ |
 | CONFIG_GUIDE.md | 80% | ⭐⭐⭐⭐ | 完整配置说明 |
 | PLUGIN_GUIDE.md | 75% | ⭐⭐⭐ | 插件开发指南 |
 | VIRTUAL_OBJECT_REGISTRATION.md | 70% | ⭐⭐⭐ | 虚拟对象详解 |
@@ -263,4 +263,3 @@ scripts/sync-sdk-generated.sh  # 预生成 Proto 文件
 **分析完成时间：** 2025-11-15 20:52 UTC
 **分析范围：** 完整代码审查 + 构建流程分析 + 文档评估
 **报告质量：** ⭐⭐⭐⭐⭐ 企业级详细分析
-

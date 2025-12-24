@@ -41,7 +41,7 @@ func ensureDir(p string) error {
 func main() {
 	var (
 		dir = flag.String("configs", "configs/analytics", "path to analytics configs dir")
-		out = flag.String("out", "web/public/analytics-spec.json", "output JSON file")
+		out = flag.String("out", "dashboard/public/analytics-spec.json", "output JSON file")
 	)
 	flag.Parse()
 

@@ -1,7 +1,7 @@
 # Croupier C++ SDK：虚拟对象注册系统
 
 [![Build Status](https://github.com/cuihairu/croupier-sdk-cpp/actions/workflows/cpp-sdk-build.yml/badge.svg)](https://github.com/cuihairu/croupier-sdk-cpp/actions/workflows/cpp-sdk-build.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/cuihairu/croupier-sdk-cpp/blob/main/LICENSE)
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://en.cppreference.com/w/cpp/17)
 
 高性能的C++ SDK，支持虚拟对象注册、gRPC通信、多平台构建。采用**ID引用模式**解决对象参数传递性能问题，通过**四层组件化架构**实现优雅的函数和对象管理。
@@ -537,6 +537,44 @@ try {
 }
 ```
 
+## 🧰 Troubleshooting / FAQ
+
+### 常见构建问题
+
+#### 1) vcpkg / 依赖安装失败
+
+- 确认子模块完整：`git submodule update --init --recursive`
+- 清理并重试（尤其是切换分支/升级依赖后）：删除 `build/` 目录重新配置
+- 确认 vcpkg 可用：`vcpkg --version`（或先运行 bootstrap 脚本）
+
+#### 2) CMake 找不到 gRPC/Protobuf（`Could NOT find ...`）
+
+- 典型原因是没有正确启用 vcpkg toolchain：
+  - `-DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake`
+  - 确认 `VCPKG_ROOT` 指向你实际的 vcpkg 路径
+
+#### 3) Windows 上链接错误 / triplet 不一致
+
+- 确认 triplet 与编译器/运行库一致（例如 `x64-windows` vs `x64-windows-static`）
+- 建议固定 triplet 并清理构建缓存后重试（删除 `build/`）
+
+#### 4) macOS 上 `ld: library not found ...`
+
+- 常见于依赖未安装完成或架构不匹配（x64/arm64 混用）
+- 建议确认使用同一套工具链（同一架构的 CMake/Clang/vcpkg），然后清理 `build/` 重配
+
+### 常见问题（FAQ）
+
+#### Q: 我只想跑最小可用示例，应该从哪里开始？
+
+- 先跑基础示例（`example.cpp` / `complete_example.cpp`），再切换到配置驱动示例（`config_example.cpp`）。
+
+#### Q: gRPC 连接失败（连接被拒绝/握手失败）怎么排查？
+
+- 确认目标地址/端口正确、Server/Agent 已启动且可达
+- 如果启用了 TLS/mTLS，确认 CA/证书/私钥路径与 ServerName 配置一致
+- 打开更详细日志（如果你的示例/集成支持日志级别配置）
+
 ## 🤝 贡献指南
 
 1. **Fork** 项目
@@ -554,7 +592,7 @@ try {
 
 ## 📄 License
 
-本项目采用 [MIT License](https://github.com/cuihairu/croupier/blob/main/LICENSE) 开源协议。
+本项目采用 [Apache License 2.0](https://github.com/cuihairu/croupier-sdk-cpp/blob/main/LICENSE) 开源协议。
 
 ## 🔗 相关链接
 

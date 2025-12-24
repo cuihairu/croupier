@@ -129,9 +129,8 @@ ingest:
 
 .PHONY: analytics-spec
 analytics-spec:
-	@echo "[analytics] exporting analytics spec JSON to web/dashboard/public/analytics-spec.json"
-	@mkdir -p web/dashboard/public
-	@powershell -NoProfile -ExecutionPolicy Bypass -File scripts/export-analytics-spec.ps1
+	@echo "[analytics] exporting analytics spec JSON to dashboard/public/analytics-spec.json"
+	@GOFLAGS=-mod=mod go run ./cmd/analytics-export --configs configs/analytics --out dashboard/public/analytics-spec.json
 
 # ========== SDK Build Targets ==========
 build-sdks: build-sdks-cpp build-sdks-go

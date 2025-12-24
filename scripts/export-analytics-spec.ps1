@@ -1,6 +1,6 @@
 ﻿param(
   [string]$Configs = "configs/analytics",
-  [string]$Out = "web/public/analytics-spec.json"
+  [string]$Out = "dashboard/public/analytics-spec.json"
 )
 
 $env:GOFLAGS = "-mod=mod"
