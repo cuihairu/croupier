@@ -35,19 +35,26 @@ func BuildOpsAgentSnapshot(sess *reg.AgentSession) map[string]interface{} {
 	}
 
 	snapshot := map[string]interface{}{
-		"id":             agentID,
-		"agent_id":       agentID,
-		"game_id":        sess.GameID,
-		"env":            sess.Env,
-		"type":           firstNonEmpty(sess.Labels["type"], "agent"),
-		"addr":           sess.RPCAddr,
-		"rpc_addr":       sess.RPCAddr,
-		"ip":             guessAgentIP(sess.RPCAddr),
-		"version":        sess.Version,
-		"region":         sess.Region,
-		"zone":           sess.Zone,
-		"labels":         sess.Labels,
-		"functions":      CountEnabledFunctions(sess.Functions),
+		"id":        agentID,
+		"agent_id":  agentID,
+		"game_id":   sess.GameID,
+		"env":       sess.Env,
+		"type":      firstNonEmpty(sess.Labels["type"], "agent"),
+		"addr":      sess.RPCAddr,
+		"rpc_addr":  sess.RPCAddr,
+		"ip":        guessAgentIP(sess.RPCAddr),
+		"version":   sess.Version,
+		"region":    sess.Region,
+		"zone":      sess.Zone,
+		"labels":    sess.Labels,
+		"functions": CountEnabledFunctions(sess.Functions),
+		"processes": buildProcesses(sess.Processes),
+		"processes_count": func() int {
+			if sess.Processes == nil {
+				return 0
+			}
+			return len(sess.Processes)
+		}(),
 		"healthy":        healthy,
 		"expires_in_sec": ttl,
 		"last_seen":      guessAgentLastSeen(sess.ExpireAt),
@@ -56,6 +63,32 @@ func BuildOpsAgentSnapshot(sess *reg.AgentSession) map[string]interface{} {
 	injectMetrics(snapshot, sess.Labels)
 	ensureMetricDefaults(snapshot)
 	return snapshot
+}
+
+func buildProcesses(processes []reg.ProcessSession) []map[string]interface{} {
+	if len(processes) == 0 {
+		return nil
+	}
+	out := make([]map[string]interface{}, 0, len(processes))
+	for _, p := range processes {
+		sid := strings.TrimSpace(p.ServiceID)
+		if sid == "" {
+			continue
+		}
+		fnCount := 0
+		if p.FunctionIDs != nil {
+			fnCount = len(p.FunctionIDs)
+		}
+		out = append(out, map[string]interface{}{
+			"service_id":     sid,
+			"addr":           strings.TrimSpace(p.Addr),
+			"version":        strings.TrimSpace(p.Version),
+			"last_seen_unix": p.LastSeenUnix,
+			"function_ids":   p.FunctionIDs,
+			"functions":      fnCount,
+		})
+	}
+	return out
 }
 
 // CountEnabledFunctions returns the number of enabled functions registered on the agent.

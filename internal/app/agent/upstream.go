@@ -251,6 +251,8 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 		funcs = append(funcs, desc)
 	}
 
+	processes := buildProcesses(localData, versionSnapshot)
+
 	req := &serverv1.RegisterRequest{
 		AgentId:   c.agentID,
 		Version:   c.version,
@@ -258,6 +260,7 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 		GameId:    c.gameID,
 		Env:       c.env,
 		Functions: funcs,
+		Processes: processes,
 	}
 
 	_, err := c.client.Register(ctx, req)
@@ -266,6 +269,65 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 	}
 	slog.Info("synced with upstream server", "functions", len(funcs))
 	return nil
+}
+
+func buildProcesses(localData map[string][]agentlocal.Instance, versionSnapshot map[string]map[string]string) []*serverv1.AgentProcess {
+	byServiceID := map[string]*serverv1.AgentProcess{}
+	fnSeen := map[string]map[string]struct{}{} // service_id -> function_id set
+
+	for fid, instances := range localData {
+		fid = strings.TrimSpace(fid)
+		if fid == "" {
+			continue
+		}
+		for _, inst := range instances {
+			sid := strings.TrimSpace(inst.ServiceID)
+			if sid == "" {
+				continue
+			}
+			p := byServiceID[sid]
+			if p == nil {
+				p = &serverv1.AgentProcess{
+					ServiceId: sid,
+					Addr:      strings.TrimSpace(inst.Addr),
+					Version:   strings.TrimSpace(inst.Version),
+				}
+				byServiceID[sid] = p
+				fnSeen[sid] = map[string]struct{}{}
+			}
+
+			// best-effort: keep the freshest addr/version/last_seen.
+			if p.Addr == "" && inst.Addr != "" {
+				p.Addr = strings.TrimSpace(inst.Addr)
+			}
+			if p.Version == "" && inst.Version != "" {
+				p.Version = strings.TrimSpace(inst.Version)
+			}
+			seenUnix := inst.LastSeen.Unix()
+			if seenUnix > p.LastSeenUnix {
+				p.LastSeenUnix = seenUnix
+			}
+
+			if _, ok := fnSeen[sid][fid]; ok {
+				continue
+			}
+			fnSeen[sid][fid] = struct{}{}
+			p.FunctionIds = append(p.FunctionIds, fid)
+
+			// If service version isn't set, try function-version snapshot as fallback.
+			if strings.TrimSpace(p.Version) == "" {
+				if ver := pickVersion(versionSnapshot[fid]); ver != "" {
+					p.Version = ver
+				}
+			}
+		}
+	}
+
+	out := make([]*serverv1.AgentProcess, 0, len(byServiceID))
+	for _, p := range byServiceID {
+		out = append(out, p)
+	}
+	return out
 }
 
 // Sync forces a best-effort Register call to the control server.

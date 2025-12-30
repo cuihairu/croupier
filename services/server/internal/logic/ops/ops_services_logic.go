@@ -29,12 +29,34 @@ func NewOpsServicesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *OpsSe
 }
 
 func (l *OpsServicesLogic) OpsServices(req *types.OpsServicesRequest) (*types.OpsServicesResponse, error) {
-	agents := make([]map[string]interface{}, 0)
+	services := make([]map[string]interface{}, 0)
 	if store := l.svcCtx.RegistryStore; store != nil {
 		store.Mu().RLock()
 		for _, sess := range store.AgentsUnsafe() {
 			if snapshot := utils.BuildOpsAgentSnapshot(sess); snapshot != nil {
-				agents = append(agents, snapshot)
+				status := "expired"
+				if healthy, _ := snapshot["healthy"].(bool); healthy {
+					status = "healthy"
+				}
+				services = append(services, map[string]interface{}{
+					"id":             snapshot["agent_id"],
+					"name":           snapshot["agent_id"],
+					"type":           "agent",
+					"status":         status,
+					"address":        snapshot["rpc_addr"],
+					"gameId":         snapshot["game_id"],
+					"env":            snapshot["env"],
+					"version":        snapshot["version"],
+					"region":         snapshot["region"],
+					"zone":           snapshot["zone"],
+					"labels":         snapshot["labels"],
+					"functionsCount": snapshot["functions"],
+					"lastSeen":       snapshot["last_seen"],
+					"metadata": map[string]interface{}{
+						"processes":      snapshot["processes"],
+						"processesCount": snapshot["processes_count"],
+					},
+				})
 			}
 		}
 		store.Mu().RUnlock()
@@ -44,7 +66,8 @@ func (l *OpsServicesLogic) OpsServices(req *types.OpsServicesRequest) (*types.Op
 		Code:    0,
 		Message: "OK",
 		Data: map[string]interface{}{
-			"agents": agents,
+			"services": services,
+			"total":    len(services),
 		},
 	}, nil
 }

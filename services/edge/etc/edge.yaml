@@ -10,6 +10,16 @@ Server:
   TLSCertFile:  ""
   TLSKeyFile:   ""
 
+# Upstream control plane (optional). When configured, Edge will proxy agent Register/Heartbeat to this address.
+Upstream:
+  Addr: ""
+  Insecure: true
+  TLSCertFile: ""
+  TLSKeyFile: ""
+  CAFile: ""
+  ServerName: ""
+  InsecureSkipVerify: false
+
 # Edge configuration
 Edge:
   Region: ""

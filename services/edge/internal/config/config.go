@@ -15,6 +15,16 @@ type Config struct {
 		TLSKeyFile   string `json:",optional"`
 	} `json:",optional"`
 
+	Upstream struct {
+		Addr               string `json:",optional"`
+		Insecure           bool   `json:",default=true"`
+		TLSCertFile        string `json:",optional"`
+		TLSKeyFile         string `json:",optional"`
+		CAFile             string `json:",optional"`
+		ServerName         string `json:",optional"`
+		InsecureSkipVerify bool   `json:",default=false"`
+	} `json:",optional"`
+
 	Edge struct {
 		Region string            `json:",optional"`
 		Zone   string            `json:",optional"`

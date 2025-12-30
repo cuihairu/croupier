@@ -4,6 +4,7 @@
 package svc
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"time"
@@ -12,8 +13,11 @@ import (
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 	"github.com/cuihairu/croupier/services/edge/internal/config"
 	"github.com/zeromicro/go-zero/core/logx"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type ServiceContext struct {
@@ -21,6 +25,7 @@ type ServiceContext struct {
 	EdgeApp   *edgeapp.App
 	startTime time.Time
 	State     *StateStore
+	Upstream  *grpc.ClientConn
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -48,6 +53,18 @@ func NewServiceContext(c config.Config) *ServiceContext {
 			InsecureSkipVerify: c.Dispatch.AgentTLS.InsecureSkipVerify,
 		})
 	}
+
+	var upstreamConn *grpc.ClientConn
+	if addr := strings.TrimSpace(c.Upstream.Addr); addr != "" {
+		conn, err := dialUpstreamControl(c)
+		if err != nil {
+			logx.Errorf("failed to dial upstream control %q: %v", addr, err)
+		} else {
+			upstreamConn = conn
+			app.SetUpstreamControlClient(serverv1.NewControlServiceClient(conn))
+			logx.Infof("edge control proxy enabled (upstream=%s)", addr)
+		}
+	}
 	if ttlStr := strings.TrimSpace(c.Dispatch.JobRoutingTTL); ttlStr != "" {
 		if ttl, err := time.ParseDuration(ttlStr); err != nil {
 			logx.Errorf("invalid dispatch.job_routing_ttl=%q: %v", ttlStr, err)
@@ -63,6 +80,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		EdgeApp:   app,
 		startTime: time.Now(),
 		State:     newStateStore(),
+		Upstream:  upstreamConn,
 	}
 	return ctx
 }
@@ -119,4 +137,33 @@ func CloneMap(m map[string]interface{}) map[string]interface{} {
 		cp[k] = v
 	}
 	return cp
+}
+
+func dialUpstreamControl(c config.Config) (*grpc.ClientConn, error) {
+	addr := strings.TrimSpace(c.Upstream.Addr)
+	if addr == "" {
+		return nil, nil
+	}
+
+	var dialOpt grpc.DialOption
+	if c.Upstream.Insecure {
+		dialOpt = grpc.WithTransportCredentials(insecure.NewCredentials())
+	} else {
+		creds, err := tlsutil.ClientTLSFromConfig(tlsutil.ClientTLSConfig{
+			CertFile:           strings.TrimSpace(c.Upstream.TLSCertFile),
+			KeyFile:            strings.TrimSpace(c.Upstream.TLSKeyFile),
+			CAFile:             strings.TrimSpace(c.Upstream.CAFile),
+			ServerName:         strings.TrimSpace(c.Upstream.ServerName),
+			InsecureSkipVerify: c.Upstream.InsecureSkipVerify,
+		})
+		if err != nil {
+			return nil, err
+		}
+		dialOpt = grpc.WithTransportCredentials(creds)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	return grpc.DialContext(ctx, addr, dialOpt, grpc.WithBlock())
 }

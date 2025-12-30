@@ -30,6 +30,7 @@ type Server struct {
 	serverv1.UnimplementedControlServiceServer
 	reg          *reg.Store
 	schemaLoader *gojsonschema.Schema // 缓存 Provider Manifest JSON Schema
+	upstream     serverv1.ControlServiceClient
 }
 
 func NewServer(registry *reg.Store) *Server {
@@ -46,6 +47,12 @@ func NewServer(registry *reg.Store) *Server {
 	}
 
 	return s
+}
+
+// SetUpstreamClient configures an optional upstream ControlService client.
+// When set (typically in Edge), Register/Heartbeat/Capabilities can be forwarded to the central Server.
+func (s *Server) SetUpstreamClient(cli serverv1.ControlServiceClient) {
+	s.upstream = cli
 }
 
 // loadProviderSchema 加载 Provider Manifest JSON Schema
@@ -90,6 +97,16 @@ func (s *Server) Register(ctx context.Context, in *serverv1.RegisterRequest) (*s
 	if in == nil {
 		return &serverv1.RegisterResponse{}, nil
 	}
+
+	var upstreamResp *serverv1.RegisterResponse
+	if s.upstream != nil {
+		resp, err := s.upstream.Register(ctx, in)
+		if err != nil {
+			return nil, err
+		}
+		upstreamResp = resp
+	}
+
 	sess := &reg.AgentSession{
 		AgentID: in.GetAgentId(),
 		GameID:  in.GetGameId(),
@@ -109,7 +126,34 @@ func (s *Server) Register(ctx context.Context, in *serverv1.RegisterRequest) (*s
 			sess.Functions[f.GetId()] = reg.FunctionMeta{Enabled: f.GetEnabled()}
 		}
 	}
+
+	if in.Processes != nil {
+		processes := make([]reg.ProcessSession, 0, len(in.Processes))
+		for _, p := range in.Processes {
+			if p == nil || strings.TrimSpace(p.GetServiceId()) == "" {
+				continue
+			}
+			functionIDs := make([]string, 0, len(p.GetFunctionIds()))
+			for _, fid := range p.GetFunctionIds() {
+				fid = strings.TrimSpace(fid)
+				if fid != "" {
+					functionIDs = append(functionIDs, fid)
+				}
+			}
+			processes = append(processes, reg.ProcessSession{
+				ServiceID:    strings.TrimSpace(p.GetServiceId()),
+				Addr:         strings.TrimSpace(p.GetAddr()),
+				Version:      strings.TrimSpace(p.GetVersion()),
+				LastSeenUnix: p.GetLastSeenUnix(),
+				FunctionIDs:  functionIDs,
+			})
+		}
+		sess.Processes = processes
+	}
 	s.reg.UpsertAgent(sess)
+	if upstreamResp != nil {
+		return upstreamResp, nil
+	}
 	return &serverv1.RegisterResponse{}, nil
 }
 
@@ -118,11 +162,24 @@ func (s *Server) Heartbeat(ctx context.Context, in *serverv1.HeartbeatRequest) (
 	if in == nil || in.GetAgentId() == "" {
 		return &serverv1.HeartbeatResponse{}, nil
 	}
+
+	var upstreamResp *serverv1.HeartbeatResponse
+	if s.upstream != nil {
+		resp, err := s.upstream.Heartbeat(ctx, in)
+		if err != nil {
+			return nil, err
+		}
+		upstreamResp = resp
+	}
+
 	s.reg.Mu().Lock()
 	if a := s.reg.AgentsUnsafe()[in.GetAgentId()]; a != nil {
 		a.ExpireAt = time.Now().Add(60 * time.Second)
 	}
 	s.reg.Mu().Unlock()
+	if upstreamResp != nil {
+		return upstreamResp, nil
+	}
 	return &serverv1.HeartbeatResponse{}, nil
 }
 
@@ -135,6 +192,15 @@ func (s *Server) RegisterCapabilities(ctx context.Context, in *serverv1.Register
 	provider := in.GetProvider()
 	if provider == nil || provider.GetId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "provider metadata is required")
+	}
+
+	var upstreamResp *serverv1.RegisterCapabilitiesResponse
+	if s.upstream != nil {
+		resp, err := s.upstream.RegisterCapabilities(ctx, in)
+		if err != nil {
+			return nil, err
+		}
+		upstreamResp = resp
 	}
 
 	// Decompress the manifest JSON
@@ -162,6 +228,9 @@ func (s *Server) RegisterCapabilities(ctx context.Context, in *serverv1.Register
 
 	s.reg.UpsertProviderCaps(providerCaps)
 
+	if upstreamResp != nil {
+		return upstreamResp, nil
+	}
 	return &serverv1.RegisterCapabilitiesResponse{}, nil
 }
 
@@ -169,6 +238,9 @@ func (s *Server) RegisterCapabilities(ctx context.Context, in *serverv1.Register
 // a summarized descriptor list for dashboard consumption. This is a minimal baseline that
 // can be enriched with UI/RBAC metadata sourced from proto options or provider manifests.
 func (s *Server) ListFunctionsSummary(ctx context.Context, _ *emptypb.Empty) (*serverv1.ListFunctionsSummaryResponse, error) {
+	if s.upstream != nil {
+		return s.upstream.ListFunctionsSummary(ctx, &emptypb.Empty{})
+	}
 	out := &serverv1.ListFunctionsSummaryResponse{}
 	seen := map[string]struct{}{}
 	enabledMap := map[string]bool{}

@@ -50,6 +50,13 @@ func (a *App) Dispatcher() *dispatch.Dispatcher {
 	return a.dispatcher
 }
 
+func (a *App) SetUpstreamControlClient(cli serverv1.ControlServiceClient) {
+	if a == nil || a.ctrl == nil {
+		return
+	}
+	a.ctrl.SetUpstreamClient(cli)
+}
+
 func (a *App) CleanupOldJobs(ttl time.Duration) error {
 	if a == nil || a.dispatcher == nil {
 		return nil
