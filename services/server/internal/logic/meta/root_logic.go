@@ -56,8 +56,8 @@ func (l *RootLogic) Root(req *types.RootRequest) (resp *types.RootResponse, err 
 		"profiles": profiles,
 		"links": map[string]string{
 			"docs":   "https://github.com/cuihairu/croupier",
-			"status": "/api/ops/config",
-			"health": "/api/ops/health",
+			"status": "/api/v1/ops/config",
+			"health": "/api/v1/ops/health",
 		},
 	}
 
