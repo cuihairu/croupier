@@ -8,11 +8,13 @@ type Config struct {
 	rest.RestConf
 
 	Server struct {
-		Addr        string `json:",default=localhost:8443"`
-		Insecure    bool   `json:",default=false"`
-		TLSCertFile string `json:",optional"`
-		TLSKeyFile  string `json:",optional"`
-		CAFile      string `json:",optional"`
+		Addr               string `json:",default=localhost:8443"`
+		Insecure           bool   `json:",default=false"`
+		TLSCertFile        string `json:",optional"`
+		TLSKeyFile         string `json:",optional"`
+		CAFile             string `json:",optional"`
+		ServerName         string `json:",optional"`
+		InsecureSkipVerify bool   `json:",default=false"`
 	} `json:",optional"`
 
 	Agent struct {
@@ -56,6 +58,15 @@ type Config struct {
 		CertFile           string `json:",optional"`
 		KeyFile            string `json:",optional"`
 		CAFile             string `json:",optional"`
+		InsecureSkipVerify bool   `json:",default=false"`
+	} `json:",optional"`
+
+	OutboundTLS struct {
+		Enabled            bool   `json:",default=false"`
+		CertFile           string `json:",optional"`
+		KeyFile            string `json:",optional"`
+		CAFile             string `json:",optional"`
+		ServerName         string `json:",optional"`
 		InsecureSkipVerify bool   `json:",default=false"`
 	} `json:",optional"`
 }

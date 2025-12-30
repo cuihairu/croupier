@@ -11,6 +11,7 @@ import (
 	edgeapp "github.com/cuihairu/croupier/internal/app/edge"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"github.com/cuihairu/croupier/services/edge/internal/config"
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -37,6 +38,16 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	}
 
 	app := edgeapp.NewWithJobStore(registry, jobStore)
+
+	if app != nil && app.Dispatcher() != nil && c.Dispatch.AgentTLS.Enabled {
+		app.Dispatcher().SetTLSConfig(&tlsutil.ClientTLSConfig{
+			CertFile:           strings.TrimSpace(c.Dispatch.AgentTLS.CertFile),
+			KeyFile:            strings.TrimSpace(c.Dispatch.AgentTLS.KeyFile),
+			CAFile:             strings.TrimSpace(c.Dispatch.AgentTLS.CAFile),
+			ServerName:         strings.TrimSpace(c.Dispatch.AgentTLS.ServerName),
+			InsecureSkipVerify: c.Dispatch.AgentTLS.InsecureSkipVerify,
+		})
+	}
 	if ttlStr := strings.TrimSpace(c.Dispatch.JobRoutingTTL); ttlStr != "" {
 		if ttl, err := time.ParseDuration(ttlStr); err != nil {
 			logx.Errorf("invalid dispatch.job_routing_ttl=%q: %v", ttlStr, err)

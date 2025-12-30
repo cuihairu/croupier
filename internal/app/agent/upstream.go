@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
+	"strings"
 	"time"
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
@@ -26,12 +28,7 @@ type UpstreamClient struct {
 	env        string
 	version    string
 	rpcAddr    string
-	// TLS configuration
-	tlsEnabled bool
-	certFile   string
-	keyFile    string
-	caFile     string
-	serverName string
+	tlsCfg     *tlsutil.ClientTLSConfig
 }
 
 func (c *UpstreamClient) Connected() bool {
@@ -60,14 +57,11 @@ func NewUpstreamClient(serverAddr, agentID string, store *agentlocal.LocalStore,
 		client.rpcAddr = meta.RPCAddr
 	}
 
-	// Read TLS configuration from environment
-	client.tlsEnabled = os.Getenv("CROUPIER_SERVER_TLS_ENABLED") == "true"
-	client.certFile = os.Getenv("CROUPIER_CLIENT_CERT_FILE")
-	client.keyFile = os.Getenv("CROUPIER_CLIENT_KEY_FILE")
-	client.caFile = os.Getenv("CROUPIER_CA_FILE")
-	client.serverName = os.Getenv("CROUPIER_SERVER_NAME")
-
 	return client
+}
+
+func (c *UpstreamClient) SetTLSConfig(cfg *tlsutil.ClientTLSConfig) {
+	c.tlsCfg = cfg
 }
 
 // UpstreamMetadata captures optional metadata for registering with server.
@@ -93,12 +87,15 @@ func (c *UpstreamClient) Start(ctx context.Context) error {
 		return nil
 	}
 
-	slog.Info("connecting to upstream server", "addr", c.serverAddr, "tls", c.tlsEnabled)
+	slog.Info("connecting to upstream server", "addr", c.serverAddr, "tls", c.tlsCfg != nil)
 
 	var dialOpts []grpc.DialOption
-	if c.tlsEnabled {
-		// Use TLS
-		creds, err := tlsutil.ClientTLS(c.certFile, c.keyFile, c.caFile, c.serverName)
+	if c.tlsCfg != nil {
+		cfg := *c.tlsCfg
+		if strings.TrimSpace(cfg.ServerName) == "" {
+			cfg.ServerName = hostFromTarget(c.serverAddr)
+		}
+		creds, err := tlsutil.ClientTLSFromConfig(cfg)
 		if err != nil {
 			return fmt.Errorf("failed to create TLS credentials: %w", err)
 		}
@@ -138,6 +135,19 @@ func (c *UpstreamClient) Start(ctx context.Context) error {
 	go c.heartbeatLoop(ctx)
 
 	return nil
+}
+
+func hostFromTarget(target string) string {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return ""
+	}
+	host, _, err := net.SplitHostPort(target)
+	if err == nil {
+		return strings.Trim(host, "[]")
+	}
+	// best-effort: handle "host" or "[ipv6]" without port
+	return strings.Trim(strings.TrimPrefix(target, "["), "]")
 }
 
 func (c *UpstreamClient) updateLoop(ctx context.Context, debounce time.Duration) {

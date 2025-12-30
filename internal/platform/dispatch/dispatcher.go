@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"os"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -25,12 +25,7 @@ type Dispatcher struct {
 	jobStore      JobRoutingStore   // persistent storage for job routing
 	dialTimeout   time.Duration
 	invokeTimeout time.Duration
-	// TLS configuration
-	tlsEnabled bool
-	certFile   string
-	keyFile    string
-	caFile     string
-	serverName string
+	tlsCfg        *tlsutil.ClientTLSConfig
 }
 
 func NewDispatcher(store *reg.Store) *Dispatcher {
@@ -56,17 +51,14 @@ func NewDispatcherWithJobStore(store *reg.Store, jobStore JobRoutingStore) *Disp
 		invokeTimeout: 15 * time.Second,
 	}
 
-	// Read TLS configuration from environment
-	d.tlsEnabled = os.Getenv("CROUPIER_AGENT_TLS_ENABLED") == "true"
-	d.certFile = os.Getenv("CROUPIER_CLIENT_CERT_FILE")
-	d.keyFile = os.Getenv("CROUPIER_CLIENT_KEY_FILE")
-	d.caFile = os.Getenv("CROUPIER_CA_FILE")
-	d.serverName = os.Getenv("CROUPIER_SERVER_NAME")
-
 	// Load existing job routing from persistent store
 	d.loadJobRouting()
 
 	return d
+}
+
+func (d *Dispatcher) SetTLSConfig(cfg *tlsutil.ClientTLSConfig) {
+	d.tlsCfg = cfg
 }
 
 func (d *Dispatcher) Store() *reg.Store {
@@ -293,9 +285,12 @@ func (d *Dispatcher) dial(addr string) (*grpc.ClientConn, functionv1.FunctionSer
 	defer cancel()
 
 	var dialOpts []grpc.DialOption
-	if d.tlsEnabled {
-		// Use TLS
-		creds, err := tlsutil.ClientTLS(d.certFile, d.keyFile, d.caFile, d.serverName)
+	if d.tlsCfg != nil {
+		cfg := *d.tlsCfg
+		if strings.TrimSpace(cfg.ServerName) == "" {
+			cfg.ServerName = hostFromAddr(addr)
+		}
+		creds, err := tlsutil.ClientTLSFromConfig(cfg)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create TLS credentials: %w", err)
 		}
@@ -310,6 +305,18 @@ func (d *Dispatcher) dial(addr string) (*grpc.ClientConn, functionv1.FunctionSer
 		return nil, nil, err
 	}
 	return conn, functionv1.NewFunctionServiceClient(conn), nil
+}
+
+func hostFromAddr(addr string) string {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return ""
+	}
+	host, _, err := net.SplitHostPort(addr)
+	if err == nil {
+		return strings.Trim(host, "[]")
+	}
+	return strings.Trim(strings.TrimPrefix(addr, "["), "]")
 }
 
 // RegisterJob registers a job routing (exported method)

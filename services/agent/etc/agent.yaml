@@ -9,6 +9,8 @@ Server:
   TLSCertFile: ""
   TLSKeyFile: ""
   CAFile: ""
+  ServerName: ""
+  InsecureSkipVerify: false
 
 # Agent configuration
 Agent:
@@ -52,4 +54,13 @@ TLS:
   CertFile: ""
   KeyFile: ""
   CAFile: ""
+  InsecureSkipVerify: false
+
+# Outbound TLS for connecting to game servers (FunctionService)
+OutboundTLS:
+  Enabled: false
+  CertFile: ""
+  KeyFile: ""
+  CAFile: ""
+  ServerName: ""
   InsecureSkipVerify: false

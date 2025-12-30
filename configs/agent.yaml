@@ -7,6 +7,8 @@ Server:
   # Upstream control plane gRPC (docker-compose service name)
   Addr: "server:8443"
   Insecure: true
+  ServerName: ""
+  InsecureSkipVerify: false
 
 Agent:
   # ID is optional; when empty, agent will auto-generate one at runtime.
@@ -46,3 +48,10 @@ TLS:
   CAFile: ""
   InsecureSkipVerify: false
 
+OutboundTLS:
+  Enabled: false
+  CertFile: ""
+  KeyFile: ""
+  CAFile: ""
+  ServerName: ""
+  InsecureSkipVerify: false

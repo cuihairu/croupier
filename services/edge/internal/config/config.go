@@ -63,7 +63,17 @@ type Config struct {
 	} `json:",optional"`
 
 	Dispatch struct {
-		JobRoutingDir string `json:",default=data"`
-		JobRoutingTTL string `json:",optional"`
+		JobRoutingDir string          `json:",default=data"`
+		JobRoutingTTL string          `json:",optional"`
+		AgentTLS      TLSClientConfig `json:",optional"`
 	} `json:",optional"`
+}
+
+type TLSClientConfig struct {
+	Enabled            bool   `json:",default=false"`
+	CertFile           string `json:",optional"`
+	KeyFile            string `json:",optional"`
+	CAFile             string `json:",optional"`
+	ServerName         string `json:",optional"`
+	InsecureSkipVerify bool   `json:",default=false"`
 }

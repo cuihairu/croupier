@@ -2,47 +2,66 @@
 
 本指南介绍如何为 Croupier 系统配置 TLS/mTLS 加密通信。
 
-## 环境变量配置
+## 迁移说明
 
-### Agent 连接 Server
+旧版 `CROUPIER_*TLS_ENABLED` 环境变量直读方式已移除；请通过各服务的 YAML 配置（并可配合 `conf.UseEnv()` 做环境变量覆盖）进行设置。
 
-```bash
-# 启用 TLS（mTLS 需要 client cert/key）
-CROUPIER_SERVER_TLS_ENABLED=true
+## 配置文件（YAML）配置（推荐）
 
-# 客户端证书（用于 mTLS）
-CROUPIER_CLIENT_CERT_FILE=/path/to/client.crt
-CROUPIER_CLIENT_KEY_FILE=/path/to/client.key
-CROUPIER_CA_FILE=/path/to/ca.crt
+### Agent 连接 Server（ControlService 上行）
 
-# 服务器名称验证（SNI）
-CROUPIER_SERVER_NAME=croupier-server.example.com
+`services/agent/etc/agent.yaml`：
+
+```yaml
+Server:
+  Addr: "server:8443"
+  Insecure: false
+  TLSCertFile: "/path/to/client.crt"
+  TLSKeyFile: "/path/to/client.key"
+  CAFile: "/path/to/ca.crt"
+  ServerName: "croupier-server.example.com"
+  InsecureSkipVerify: false
 ```
 
-### Dispatcher 连接 Agent
+### Agent gRPC core（下行：Server/Edge -> Agent）
 
-```bash
-# 启用 TLS（可选，取决于 agent 配置）
-CROUPIER_AGENT_TLS_ENABLED=true
+`services/agent/etc/agent.yaml`：
 
-# 客户端证书（用于 mTLS）
-CROUPIER_CLIENT_CERT_FILE=/path/to/client.crt
-CROUPIER_CLIENT_KEY_FILE=/path/to/client.key
-CROUPIER_CA_FILE=/path/to/ca.crt
-CROUPIER_SERVER_NAME=agent.example.com
+```yaml
+TLS:
+  Enabled: true
+  CertFile: "/path/to/agent-server.crt"
+  KeyFile: "/path/to/agent-server.key"
+  CAFile: "/path/to/ca.crt" # 非空则要求 client cert（mTLS）
 ```
 
-### Agent 连接 Game Server
+### Dispatcher 连接 Agent（Server/Edge -> Agent）
 
-```bash
-# 启用出站 TLS（到 game servers）
-CROUPIER_OUTBOUND_TLS_ENABLED=true
+`services/server/etc/server.yaml` / `services/edge/etc/edge.yaml`：
 
-# 客户端证书
-CROUPIER_CLIENT_CERT_FILE=/path/to/client.crt
-CROUPIER_CLIENT_KEY_FILE=/path/to/client.key
-CROUPIER_CA_FILE=/path/to/ca.crt
-CROUPIER_SERVER_NAME=gameserver.example.com
+```yaml
+Dispatch:
+  AgentTLS:
+    Enabled: true
+    CertFile: "/path/to/client.crt"
+    KeyFile: "/path/to/client.key"
+    CAFile: "/path/to/ca.crt"
+    ServerName: "agent.example.com"
+    InsecureSkipVerify: false
+```
+
+### Agent 连接 Game Server（出站：Agent -> Game）
+
+`services/agent/etc/agent.yaml`：
+
+```yaml
+OutboundTLS:
+  Enabled: true
+  CertFile: "/path/to/client.crt"
+  KeyFile: "/path/to/client.key"
+  CAFile: "/path/to/ca.crt"
+  ServerName: "gameserver.example.com"
+  InsecureSkipVerify: false
 ```
 
 ## 证书生成示例
@@ -110,12 +129,7 @@ openssl x509 -req -days 365 -in client.csr -CA ca.crt -CAkey ca.key \
 # 生成开发证书
 ./scripts/dev-certs.sh
 
-# 使用证书
-export CROUPIER_SERVER_TLS_ENABLED=true
-export CROUPIER_CLIENT_CERT_FILE=./certs/client.crt
-export CROUPIER_CLIENT_KEY_FILE=./certs/client.key
-export CROUPIER_CA_FILE=./certs/ca.crt
-export CROUPIER_SERVER_NAME=localhost
+# 然后把 ./certs/{client.crt,client.key,ca.crt} 写入对应服务的 YAML（见上方示例块）
 ```
 
 ### 测试环境
@@ -123,12 +137,7 @@ export CROUPIER_SERVER_NAME=localhost
 使用内部 CA：
 
 ```bash
-# 使用测试 CA 签发的证书
-export CROUPIER_SERVER_TLS_ENABLED=true
-export CROUPIER_CLIENT_CERT_FILE=/etc/croupier/certs/client.crt
-export CROUPIER_CLIENT_KEY_FILE=/etc/croupier/certs/client.key
-export CROUPIER_CA_FILE=/etc/croupier/certs/ca.crt
-export CROUPIER_SERVER_NAME=croupier-test.internal
+# 使用测试 CA 签发的证书，并将路径写入对应服务的 YAML（见上方示例块）
 ```
 
 ### 生产环境
@@ -136,12 +145,7 @@ export CROUPIER_SERVER_NAME=croupier-test.internal
 使用公共 CA 证书：
 
 ```bash
-# 使用 Lets Encrypt 或其他公共 CA
-export CROUPIER_SERVER_TLS_ENABLED=true
-export CROUPIER_CLIENT_CERT_FILE=/etc/ssl/certs/croupier-client.crt
-export CROUPIER_CLIENT_KEY_FILE=/etc/ssl/private/croupier-client.key
-export CROUPIER_CA_FILE=/etc/ssl/certs/ca-bundle.crt
-export CROUPIER_SERVER_NAME=croupier.production.com
+# 使用 Lets Encrypt 或其他公共 CA，并将路径写入对应服务的 YAML（见上方示例块）
 ```
 
 ## 验证配置

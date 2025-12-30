@@ -18,6 +18,7 @@ import (
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"github.com/cuihairu/croupier/services/server/internal/cache"
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/model"
@@ -220,6 +221,18 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 					logx.Errorf("failed to cleanup old jobs: %v", err)
 				}
 			}
+		}
+
+		if ctx.Config.Dispatch.AgentTLS.Enabled {
+			ctx.Dispatcher.SetTLSConfig(&tlsutil.ClientTLSConfig{
+				CertFile:           strings.TrimSpace(ctx.Config.Dispatch.AgentTLS.CertFile),
+				KeyFile:            strings.TrimSpace(ctx.Config.Dispatch.AgentTLS.KeyFile),
+				CAFile:             strings.TrimSpace(ctx.Config.Dispatch.AgentTLS.CAFile),
+				ServerName:         strings.TrimSpace(ctx.Config.Dispatch.AgentTLS.ServerName),
+				InsecureSkipVerify: ctx.Config.Dispatch.AgentTLS.InsecureSkipVerify,
+			})
+		} else {
+			ctx.Dispatcher.SetTLSConfig(nil)
 		}
 	}
 

@@ -46,8 +46,18 @@ type RegistryConfig struct {
 }
 
 type DispatchConfig struct {
-	JobRoutingDir string `json:"job_routing_dir,optional" yaml:"job_routing_dir,optional"`
-	JobRoutingTTL string `json:"job_routing_ttl,optional" yaml:"job_routing_ttl,optional"`
+	JobRoutingDir string          `json:"job_routing_dir,optional" yaml:"job_routing_dir,optional"`
+	JobRoutingTTL string          `json:"job_routing_ttl,optional" yaml:"job_routing_ttl,optional"`
+	AgentTLS      TLSClientConfig `json:"agent_tls,optional" yaml:"agent_tls,optional"`
+}
+
+type TLSClientConfig struct {
+	Enabled            bool   `json:"enabled,optional" yaml:"enabled,optional"`
+	CertFile           string `json:"cert_file,optional" yaml:"cert_file,optional"`
+	KeyFile            string `json:"key_file,optional" yaml:"key_file,optional"`
+	CAFile             string `json:"ca_file,optional" yaml:"ca_file,optional"`
+	ServerName         string `json:"server_name,optional" yaml:"server_name,optional"`
+	InsecureSkipVerify bool   `json:"insecure_skip_verify,optional" yaml:"insecure_skip_verify,optional"`
 }
 
 type AuthConfig struct {

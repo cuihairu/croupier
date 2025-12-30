@@ -11,6 +11,7 @@ import (
 	"time"
 
 	agentcore "github.com/cuihairu/croupier/internal/app/agent"
+	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"github.com/cuihairu/croupier/services/agent/internal/config"
 	"github.com/cuihairu/croupier/services/agent/internal/handler"
 	"github.com/cuihairu/croupier/services/agent/internal/svc"
@@ -177,6 +178,45 @@ func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, strin
 		RPCAddr: rpcAddr,
 	})
 
+	if !c.Server.Insecure {
+		core.WithUpstreamTLSConfig(&tlsutil.ClientTLSConfig{
+			CertFile:           strings.TrimSpace(c.Server.TLSCertFile),
+			KeyFile:            strings.TrimSpace(c.Server.TLSKeyFile),
+			CAFile:             strings.TrimSpace(c.Server.CAFile),
+			ServerName:         strings.TrimSpace(c.Server.ServerName),
+			InsecureSkipVerify: c.Server.InsecureSkipVerify,
+		})
+	} else {
+		core.WithUpstreamTLSConfig(nil)
+	}
+
+	if c.OutboundTLS.Enabled {
+		core.WithOutboundTLSConfig(&tlsutil.ClientTLSConfig{
+			CertFile:           strings.TrimSpace(c.OutboundTLS.CertFile),
+			KeyFile:            strings.TrimSpace(c.OutboundTLS.KeyFile),
+			CAFile:             strings.TrimSpace(c.OutboundTLS.CAFile),
+			ServerName:         strings.TrimSpace(c.OutboundTLS.ServerName),
+			InsecureSkipVerify: c.OutboundTLS.InsecureSkipVerify,
+		})
+	} else {
+		core.WithOutboundTLSConfig(nil)
+	}
+
+	var grpcOpts []grpc.ServerOption
+	if c.TLS.Enabled {
+		certFile := strings.TrimSpace(c.TLS.CertFile)
+		keyFile := strings.TrimSpace(c.TLS.KeyFile)
+		caFile := strings.TrimSpace(c.TLS.CAFile)
+		if certFile == "" || keyFile == "" {
+			return nil, "", fmt.Errorf("TLS enabled but missing cert/key (TLS.CertFile/TLS.KeyFile)")
+		}
+		creds, err := tlsutil.ServerTLS(certFile, keyFile, caFile, caFile != "")
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to create gRPC TLS credentials: %w", err)
+		}
+		grpcOpts = append(grpcOpts, grpc.Creds(creds))
+	}
+
 	rpcConf := zrpc.RpcServerConf{
 		ListenOn: addr,
 	}
@@ -184,6 +224,7 @@ func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, strin
 	grpcServer := zrpc.MustNewServer(rpcConf, func(s *grpc.Server) {
 		core.RegisterGRPC(s)
 	})
+	grpcServer.AddOptions(grpcOpts...)
 
 	go func() {
 		if err := core.Run(ctx); err != nil && ctx.Err() == nil {

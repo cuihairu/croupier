@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
+	"net"
 	"strings"
 	"time"
 
@@ -20,8 +20,9 @@ import (
 // FunctionServer forwards protobuf calls to local game servers that expose FunctionService.
 type FunctionServer struct {
 	functionv1.UnimplementedFunctionServiceServer
-	store *agentlocal.LocalStore
-	jobs  *jobIndex
+	store  *agentlocal.LocalStore
+	jobs   *jobIndex
+	tlsCfg *tlsutil.ClientTLSConfig
 }
 
 // pickInstance returns the first available instance for a function id.
@@ -78,16 +79,12 @@ func (s *FunctionServer) dial(addr string) (*grpc.ClientConn, functionv1.Functio
 
 	var dialOpts []grpc.DialOption
 
-	// Check if TLS is enabled for outbound connections
-	tlsEnabled := os.Getenv("CROUPIER_OUTBOUND_TLS_ENABLED") == "true"
-	if tlsEnabled {
-		// Use TLS for outbound connections
-		certFile := os.Getenv("CROUPIER_CLIENT_CERT_FILE")
-		keyFile := os.Getenv("CROUPIER_CLIENT_KEY_FILE")
-		caFile := os.Getenv("CROUPIER_CA_FILE")
-		serverName := os.Getenv("CROUPIER_SERVER_NAME")
-
-		creds, err := tlsutil.ClientTLS(certFile, keyFile, caFile, serverName)
+	if s.tlsCfg != nil {
+		cfg := *s.tlsCfg
+		if strings.TrimSpace(cfg.ServerName) == "" {
+			cfg.ServerName = hostFromAddr(addr)
+		}
+		creds, err := tlsutil.ClientTLSFromConfig(cfg)
 		if err != nil {
 			return nil, nil, status.Errorf(codes.Internal, "failed to create TLS credentials: %v", err)
 		}
@@ -123,6 +120,18 @@ func (s *FunctionServer) dial(addr string) (*grpc.ClientConn, functionv1.Functio
 			"failed to connect to function instance at %s: %v", addr, err)
 	}
 	return cc, functionv1.NewFunctionServiceClient(cc), nil
+}
+
+func hostFromAddr(addr string) string {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return ""
+	}
+	host, _, err := net.SplitHostPort(addr)
+	if err == nil {
+		return strings.Trim(host, "[]")
+	}
+	return strings.Trim(strings.TrimPrefix(addr, "["), "]")
 }
 
 func (s *FunctionServer) Invoke(ctx context.Context, in *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {

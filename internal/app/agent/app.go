@@ -7,6 +7,7 @@ import (
 	"time"
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
+	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
 	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	"google.golang.org/grpc"
@@ -17,6 +18,7 @@ type App struct {
 	store    *agentlocal.LocalStore
 	jobs     *jobIndex
 	upstream *UpstreamClient
+	outTLS   *tlsutil.ClientTLSConfig
 }
 
 func New(serverAddr, agentID string) *App {
@@ -30,7 +32,7 @@ func New(serverAddr, agentID string) *App {
 
 func (a *App) RegisterGRPC(s *grpc.Server) {
 	// Function service (local-forwarding implementation over protobuf)
-	functionv1.RegisterFunctionServiceServer(s, &FunctionServer{store: a.store, jobs: a.jobs})
+	functionv1.RegisterFunctionServiceServer(s, &FunctionServer{store: a.store, jobs: a.jobs, tlsCfg: a.outTLS})
 	// Local registration service provides RegisterLocal/Heartbeat/ListLocal
 	localv1.RegisterLocalControlServiceServer(s, agentlocal.NewServer(a.store))
 }
@@ -96,6 +98,20 @@ func (a *App) WithUpstreamMetadata(meta UpstreamMetadata) {
 		return
 	}
 	a.upstream.WithMetadata(meta)
+}
+
+func (a *App) WithUpstreamTLSConfig(cfg *tlsutil.ClientTLSConfig) {
+	if a == nil || a.upstream == nil {
+		return
+	}
+	a.upstream.SetTLSConfig(cfg)
+}
+
+func (a *App) WithOutboundTLSConfig(cfg *tlsutil.ClientTLSConfig) {
+	if a == nil {
+		return
+	}
+	a.outTLS = cfg
 }
 
 // Store exposes the local instance registry.

@@ -24,6 +24,13 @@ Registry:
 Dispatch:
   JobRoutingDir: "data"
   JobRoutingTTL: "" # e.g. "24h"; empty disables cleanup
+  AgentTLS:
+    Enabled: false
+    CertFile: ""
+    KeyFile: ""
+    CAFile: ""
+    ServerName: ""
+    InsecureSkipVerify: false
 
 # Authentication configuration
 Auth:
