@@ -362,7 +362,8 @@ func (d *Dispatcher) loadJobRouting() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	// Build in-memory cache
+	// Rebuild in-memory cache (clear removed jobs too).
+	d.jobRouting = make(map[string]string, len(routings))
 	for _, routing := range routings {
 		d.jobRouting[routing.JobID] = routing.AgentAddr
 	}

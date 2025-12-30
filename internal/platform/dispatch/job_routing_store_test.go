@@ -72,3 +72,24 @@ func TestDispatcher_LoadsJobRoutingFromStore(t *testing.T) {
 		t.Fatalf("JobAddr(job-2)=(%q,%v) want (%q,true)", got, ok, "127.0.0.1:9002")
 	}
 }
+
+func TestDispatcher_CleanupOldJobsClearsMemoryCache(t *testing.T) {
+	dataDir := t.TempDir()
+	store, err := NewFileJobRoutingStore(dataDir)
+	if err != nil {
+		t.Fatalf("NewFileJobRoutingStore: %v", err)
+	}
+
+	d := NewDispatcherWithJobStore(nil, store)
+
+	d.RegisterJob("job-old", "127.0.0.1:9009")
+	time.Sleep(10 * time.Millisecond)
+
+	if err := d.CleanupOldJobs(1 * time.Millisecond); err != nil {
+		t.Fatalf("CleanupOldJobs: %v", err)
+	}
+
+	if addr, ok := d.JobAddr("job-old"); ok {
+		t.Fatalf("JobAddr(job-old)=(%q,%v) want (_,false)", addr, ok)
+	}
+}
