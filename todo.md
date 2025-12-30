@@ -130,9 +130,9 @@
 - [x] HTTP adapter：`StartJob` 目前返回空 jobId；实现异步作业或明确返回 NotImplemented（并补齐 Cancel/Stream 行为）`tools/adapters/http/main.go:213`
 - [x] HTTP adapter：注册到 Agent 时仍使用 `grpc.WithInsecure()`；按 Agent mTLS 配置打通 TLS/mTLS `tools/adapters/http/main.go:248`
 - [x] HTTP adapter：实现了 `grafana.search_dashboards` 但注册到 Agent 的 functions 列表未包含该 id；补齐注册或移除实现避免“存在但不可发现” `tools/adapters/http/main.go:254`
-- [x] HTTP adapter：本地 gRPC server 直接 `grpc.NewServer()`（无 TLS）；按本地接入/零信任要求启用 TLS/mTLS（并与 Agent 注册配置对齐）`tools/adapters/http/main.go:239`
+- [x] HTTP adapter：本地 gRPC server 使用 go-zero `zrpc`（支持 TLS/mTLS），并与 Agent 注册配置对齐 `tools/adapters/http/main.go:239`
 - [x] Prom adapter：注册到 Agent 时仍使用 `grpc.WithInsecure()`；按 Agent mTLS 配置打通 TLS/mTLS `tools/adapters/prom/main.go:138`
-- [x] Prom adapter：本地 gRPC server 直接 `grpc.NewServer()`（无 TLS）；按本地接入/零信任要求启用 TLS/mTLS（并与 Agent 注册配置对齐）`tools/adapters/prom/main.go:128`
+- [x] Prom adapter：本地 gRPC server 使用 go-zero `zrpc`（支持 TLS/mTLS），并与 Agent 注册配置对齐 `tools/adapters/prom/main.go:128`
 - [x] Agent FunctionService：实现 `StreamJob`（当前 agent 侧未实现，会影响 job 实时流式能力）`internal/app/agent/function_server.go:1`
 - [x] Jobs：完善终态事件判定（至少包含 canceled/failed），避免 `StreamJob` 不收敛导致 jobRouting 不清理 `internal/platform/dispatch/dispatcher.go:187`
 - [x] Jobs：统一 job event/type 命名与状态映射（例如 canceled vs cancelled、completed vs succeeded），避免 Edge/SDK/UI 展示与终态判断不一致 `sdks/go/pkg/croupier/function_server.go:97`
@@ -142,11 +142,11 @@
 - [x] ConnPool：`InsecureSkipVerify` 配置语义不正确（当前会直接使用明文 insecure credentials）；应改为 `credentials.NewTLS(&tls.Config{InsecureSkipVerify:true})` 或更名为 `InsecurePlaintext` `internal/connpool/pool.go:243`
 - [ ] TLS 配置落地：虽然 `services/agent/etc/agent.yaml` 与 `services/edge/etc/edge.yaml` 有 TLS/CA/Insecure 配置，但 `internal/app/agent/*`、dispatcher 等路径未实际使用；打通配置→拨号→证书加载链路 `services/agent/etc/agent.yaml:1`
 - [x] Agent Upstream：使用了已废弃/不推荐的 `grpc.WithTimeout`；改为 `DialContext` + ctx 超时，并与 TLS 配置统一 `internal/app/agent/upstream.go:80`
-- [x] Edge：gRPC server 目前未配置 TLS（直接 `grpc.NewServer()`），需要根据 `services/edge/internal/config` 启用 TLS/mTLS `services/edge/cmd/root.go:99`
+- [x] Edge：gRPC server 使用 go-zero `zrpc`，并根据 `services/edge/internal/config` 启用 TLS/mTLS `services/edge/cmd/root.go:99`
 - [ ] Edge 配置语义：`Server.InternalAddr` 当前被当作“gRPC 监听地址”使用（net.Listen），但字段命名像“上游地址”；明确 listen/upstream 拆分并更新配置/代码 `services/edge/cmd/root.go:95`
 - [x] Server：启动 gRPC ControlService（支持 mTLS：配置 CA 则要求客户端证书；未配证书时 dev 模式仍允许明文）`services/server/cmd/root.go:96`
 - [ ] Server/Agent/Edge：目前存在两套“Agent 注册/ControlService”实现（go-zero HTTP 的 server vs internal/app/edge 的 gRPC 控制面），需要明确哪套是主路径并收敛（避免 registry/dispatcher 分叉）`internal/app/edge/app.go:24`
-- [x] Edge：Edge gRPC server 未启用 TLS/mTLS（直接 `grpc.NewServer()`），需要支持 mTLS 并与配置/证书对齐 `services/edge/cmd/root.go:99`
+- [x] Edge：gRPC server 已支持 TLS/mTLS（基于 go-zero `zrpc`），并与配置/证书对齐 `services/edge/cmd/root.go:99`
 - [x] Agentlocal：LocalStore 的 `Prune` 从未调用，实例/函数可能永久残留；增加定时清理与 maxAge 配置 `internal/platform/agentlocal/store.go:130`
 - [x] Agent Upstream：store.OnUpdate 回调当前每次变更都触发 sync（且使用 `context.Background()`），需要 debounce/合并并增加超时/重试策略 `internal/app/agent/upstream.go:71`
 - [x] Agentlocal：LocalControlService proto 含 `GetJobResult`，但 server 未实现；补齐实现或从 proto/调用链中移除 `internal/platform/agentlocal/local_control.go:1`

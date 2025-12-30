@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"net"
 	"os"
 	"os/signal"
 	"strings"
@@ -17,7 +16,9 @@ import (
 	"github.com/cuihairu/croupier/services/agent/internal/svc"
 	"github.com/spf13/cobra"
 	"github.com/zeromicro/go-zero/core/conf"
+	"github.com/zeromicro/go-zero/core/proc"
 	"github.com/zeromicro/go-zero/rest"
+	"github.com/zeromicro/go-zero/zrpc"
 	"google.golang.org/grpc"
 )
 
@@ -104,7 +105,7 @@ func runAgent() error {
 	runCtx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	core, grpcServer, grpcListener, err := startGRPCCore(runCtx, &c)
+	core, localGRPCAddr, err := startGRPCCore(runCtx, &c)
 	if err != nil {
 		return err
 	}
@@ -112,18 +113,11 @@ func runAgent() error {
 	server := rest.MustNewServer(c.RestConf)
 	defer func() {
 		server.Stop()
-		if grpcServer != nil {
-			grpcServer.GracefulStop()
-		}
 		if core != nil {
 			core.Stop()
 		}
 	}()
 
-	localGRPCAddr := ""
-	if grpcListener != nil {
-		localGRPCAddr = grpcListener.Addr().String()
-	}
 	svcCtx := svc.NewServiceContext(c, core, localGRPCAddr)
 	handler.RegisterHandlers(server, svcCtx)
 
@@ -133,11 +127,10 @@ func runAgent() error {
 	go server.Start()
 
 	slog.Info("agent http server started", "addr", fmt.Sprintf("%s:%d", c.RestConf.Host, c.RestConf.Port))
-	if grpcListener != nil {
-		slog.Info("agent grpc core started", "listen", grpcListener.Addr().String())
-	}
+	slog.Info("agent grpc core started", "listen", localGRPCAddr)
 
 	<-runCtx.Done()
+	proc.Shutdown()
 	return nil
 }
 
@@ -152,18 +145,13 @@ func shortVersion() string {
 	}
 }
 
-func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, *grpc.Server, net.Listener, error) {
+func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, string, error) {
 	if c == nil {
-		return nil, nil, nil, fmt.Errorf("missing config")
+		return nil, "", fmt.Errorf("missing config")
 	}
 	addr := fmt.Sprintf("%s:%d", strings.TrimSpace(c.GRPC.Host), c.GRPC.Port)
 	if strings.TrimSpace(c.GRPC.Host) == "" || c.GRPC.Port == 0 {
-		return nil, nil, nil, fmt.Errorf("grpc host/port not configured")
-	}
-
-	lis, err := net.Listen("tcp", addr)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to listen on %s: %w", addr, err)
+		return nil, "", fmt.Errorf("grpc host/port not configured")
 	}
 
 	agentID := strings.TrimSpace(c.Agent.ID)
@@ -178,7 +166,7 @@ func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, *grpc
 
 	rpcAddr := strings.TrimSpace(c.Agent.LocalAddr)
 	if rpcAddr == "" {
-		rpcAddr = lis.Addr().String()
+		rpcAddr = addr
 	}
 
 	core := agentcore.New(strings.TrimSpace(c.Server.Addr), agentID)
@@ -189,8 +177,13 @@ func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, *grpc
 		RPCAddr: rpcAddr,
 	})
 
-	grpcServer := grpc.NewServer()
-	core.RegisterGRPC(grpcServer)
+	rpcConf := zrpc.RpcServerConf{
+		ListenOn: addr,
+	}
+	rpcConf.Name = "croupier-agent-grpc"
+	grpcServer := zrpc.MustNewServer(rpcConf, func(s *grpc.Server) {
+		core.RegisterGRPC(s)
+	})
 
 	go func() {
 		if err := core.Run(ctx); err != nil && ctx.Err() == nil {
@@ -199,10 +192,8 @@ func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, *grpc
 	}()
 
 	go func() {
-		if err := grpcServer.Serve(lis); err != nil && ctx.Err() == nil {
-			slog.Error("agent grpc serve failed", "error", err)
-		}
+		grpcServer.Start()
 	}()
 
-	return core, grpcServer, lis, nil
+	return core, addr, nil
 }

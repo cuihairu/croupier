@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/telemetry"
+	"github.com/zeromicro/go-zero/rest"
 )
 
 func main() {
@@ -26,120 +27,143 @@ func main() {
 	}
 	defer telemetryService.Shutdown(context.Background())
 
-	// 创建HTTP应用
-	mux := http.NewServeMux()
+	restConf := rest.RestConf{
+		Host: "0.0.0.0",
+		Port: 8080,
+	}
+	restConf.Mode = "dev"
+	server := rest.MustNewServer(restConf)
+	defer server.Stop()
 
 	// 模拟游戏API端点
-	mux.HandleFunc("/api/session/start", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
+	server.AddRoutes([]rest.Route{{
+		Method: http.MethodPost,
+		Path:   "/api/session/start",
+		Handler: func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
 
-		// 模拟会话开始
-		req := telemetry.SessionStartRequest{
-			UserID:     "user123",
-			SessionID:  "session456",
-			Platform:   "ios",
-			Region:     "us-east",
-			GameType:   "tower_defense",
-			GenreCode:  "strategy",
-			AppVersion: "1.0.0",
-			EntryPoint: "main_menu",
-		}
+			// 模拟会话开始
+			req := telemetry.SessionStartRequest{
+				UserID:     "user123",
+				SessionID:  "session456",
+				Platform:   "ios",
+				Region:     "us-east",
+				GameType:   "tower_defense",
+				GenreCode:  "strategy",
+				AppVersion: "1.0.0",
+				EntryPoint: "main_menu",
+			}
 
-		ctx, span := telemetryService.StartUserSession(ctx, req)
-		defer span.End()
+			ctx, span := telemetryService.StartUserSession(ctx, req)
+			defer span.End()
 
-		respondJSON(w, http.StatusOK, map[string]any{"status": "session started", "session_id": req.SessionID})
-	})
+			respondJSON(w, http.StatusOK, map[string]any{"status": "session started", "session_id": req.SessionID})
+		}}})
 
-	mux.HandleFunc("/api/session/end", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
+	server.AddRoutes([]rest.Route{{
+		Method: http.MethodPost,
+		Path:   "/api/session/end",
+		Handler: func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
 
-		// 模拟会话结束
-		req := telemetry.SessionEndRequest{
-			UserID:     "user123",
-			SessionID:  "session456",
-			DurationMs: int64(rand.Intn(300000) + 60000), // 1-5分钟
-			CauseOfEnd: "normal",
-		}
+			// 模拟会话结束
+			req := telemetry.SessionEndRequest{
+				UserID:     "user123",
+				SessionID:  "session456",
+				DurationMs: int64(rand.Intn(300000) + 60000), // 1-5分钟
+				CauseOfEnd: "normal",
+			}
 
-		telemetryService.EndUserSession(ctx, req)
+			telemetryService.EndUserSession(ctx, req)
 
-		respondJSON(w, http.StatusOK, map[string]any{"status": "session ended"})
-	})
+			respondJSON(w, http.StatusOK, map[string]any{"status": "session ended"})
+		}}})
 
-	mux.HandleFunc("/api/level/complete", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
+	server.AddRoutes([]rest.Route{{
+		Method: http.MethodPost,
+		Path:   "/api/level/complete",
+		Handler: func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
 
-		// 模拟关卡完成
-		req := telemetry.LevelCompleteRequest{
-			LevelID:         "level_1",
-			DurationMs:      int64(rand.Intn(120000) + 30000), // 30秒-2分钟
-			Stars:           rand.Intn(3) + 1,                 // 1-3星
-			Retries:         rand.Intn(3),                     // 0-2次重试
-			WaveIndex:       rand.Intn(10) + 1,                // 第1-10波
-			HeartsRemaining: rand.Intn(3),                     // 剩余生命
-			Difficulty:      "normal",
-		}
+			// 模拟关卡完成
+			req := telemetry.LevelCompleteRequest{
+				LevelID:         "level_1",
+				DurationMs:      int64(rand.Intn(120000) + 30000), // 30秒-2分钟
+				Stars:           rand.Intn(3) + 1,                 // 1-3星
+				Retries:         rand.Intn(3),                     // 0-2次重试
+				WaveIndex:       rand.Intn(10) + 1,                // 第1-10波
+				HeartsRemaining: rand.Intn(3),                     // 剩余生命
+				Difficulty:      "normal",
+			}
 
-		telemetryService.CompleteLevelPlaythrough(ctx, req)
+			telemetryService.CompleteLevelPlaythrough(ctx, req)
 
-		respondJSON(w, http.StatusOK, map[string]any{
-			"status":   "level completed",
-			"level_id": req.LevelID,
-			"stars":    req.Stars,
-		})
-	})
+			respondJSON(w, http.StatusOK, map[string]any{
+				"status":   "level completed",
+				"level_id": req.LevelID,
+				"stars":    req.Stars,
+			})
+		}}})
 
-	mux.HandleFunc("/api/economy/transaction", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
+	server.AddRoutes([]rest.Route{{
+		Method: http.MethodPost,
+		Path:   "/api/economy/transaction",
+		Handler: func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
 
-		// 模拟经济交易
-		transaction := telemetry.EconomyTransaction{
-			UserID:       "user123",
-			Currency:     "coins",
-			CurrencyKind: "soft",
-			Amount:       float64(rand.Intn(1000) + 100),
-			Type:         "earn",
-			Source:       "level_completion",
-			BalanceAfter: float64(rand.Intn(10000) + 1000),
-		}
+			// 模拟经济交易
+			transaction := telemetry.EconomyTransaction{
+				UserID:       "user123",
+				Currency:     "coins",
+				CurrencyKind: "soft",
+				Amount:       float64(rand.Intn(1000) + 100),
+				Type:         "earn",
+				Source:       "level_completion",
+				BalanceAfter: float64(rand.Intn(10000) + 1000),
+			}
 
-		telemetryService.TrackEconomyTransaction(ctx, transaction)
+			telemetryService.TrackEconomyTransaction(ctx, transaction)
 
-		respondJSON(w, http.StatusOK, map[string]any{
-			"status":   "transaction recorded",
-			"amount":   transaction.Amount,
-			"currency": transaction.Currency,
-		})
-	})
+			respondJSON(w, http.StatusOK, map[string]any{
+				"status":   "transaction recorded",
+				"amount":   transaction.Amount,
+				"currency": transaction.Currency,
+			})
+		}}})
 
 	// 健康检查端点
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
+	server.AddRoutes([]rest.Route{{
+		Method: http.MethodGet,
+		Path:   "/health",
+		Handler: func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
 
-		err := telemetryService.Health(ctx)
-		if err != nil {
-			respondJSON(w, http.StatusServiceUnavailable, map[string]any{"status": "unhealthy", "error": err.Error()})
-			return
-		}
+			err := telemetryService.Health(ctx)
+			if err != nil {
+				respondJSON(w, http.StatusServiceUnavailable, map[string]any{"status": "unhealthy", "error": err.Error()})
+				return
+			}
 
-		respondJSON(w, http.StatusOK, map[string]any{"status": "healthy"})
-	})
+			respondJSON(w, http.StatusOK, map[string]any{"status": "healthy"})
+		}}})
 
 	// 指标端点（用于Prometheus）
-	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("# Prometheus metrics endpoint (placeholder)"))
-	})
+	server.AddRoutes([]rest.Route{{
+		Method: http.MethodGet,
+		Path:   "/metrics",
+		Handler: func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("# Prometheus metrics endpoint (placeholder)"))
+		}}})
 
 	// 添加OpenTelemetry中间件
-	handler := telemetryService.HTTPMiddleware(mux)
+	server.Use(rest.ToMiddleware(telemetryService.HTTPMiddleware))
 
 	// 启动自动事件生成器（演示用）
 	go generateDemoEvents(telemetryService)
 
 	logger.Info("Starting Croupier Demo Server", "port", 8080)
-	log.Fatal(http.ListenAndServe(":8080", handler))
+	server.Start()
 }
 
 // generateDemoEvents 生成演示事件

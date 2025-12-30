@@ -3,7 +3,6 @@ package cmd
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/rest"
+	"github.com/zeromicro/go-zero/zrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -189,13 +189,6 @@ func startGRPCServer(c *config.Config, ctx *svc.ServiceContext) {
 		addr = "0.0.0.0" + addr
 	}
 
-	// 创建监听器
-	lis, err := net.Listen("tcp", addr)
-	if err != nil {
-		fmt.Printf("Failed to listen on gRPC address %s: %v\n", addr, err)
-		return
-	}
-
 	// 创建 gRPC 服务器选项
 	var opts []grpc.ServerOption
 
@@ -220,18 +213,19 @@ func startGRPCServer(c *config.Config, ctx *svc.ServiceContext) {
 		fmt.Printf("Warning: gRPC server running without TLS (development mode only)\n")
 	}
 
-	// 创建 gRPC 服务器
-	grpcServer := grpc.NewServer(opts...)
-
-	// 创建并注册 ControlService
-	controlServer := control.NewServer(ctx.RegistryStore)
-	serverv1.RegisterControlServiceServer(grpcServer, controlServer)
-
-	// 启动 gRPC 服务器
-	fmt.Printf("Starting gRPC ControlService on %s...\n", addr)
-	if err := grpcServer.Serve(lis); err != nil {
-		fmt.Printf("Failed to start gRPC server: %v\n", err)
+	rpcConf := zrpc.RpcServerConf{
+		ListenOn: addr,
 	}
+	rpcConf.Name = "croupier-server-grpc"
+
+	grpcServer := zrpc.MustNewServer(rpcConf, func(s *grpc.Server) {
+		controlServer := control.NewServer(ctx.RegistryStore)
+		serverv1.RegisterControlServiceServer(s, controlServer)
+	})
+	grpcServer.AddOptions(opts...)
+
+	fmt.Printf("Starting gRPC ControlService on %s...\n", addr)
+	grpcServer.Start()
 }
 
 func applyRuntimeDefaults(c *config.Config) {

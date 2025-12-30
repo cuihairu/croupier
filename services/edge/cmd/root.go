@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"strings"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/rest"
+	"github.com/zeromicro/go-zero/zrpc"
 	"google.golang.org/grpc"
 )
 
@@ -128,20 +128,18 @@ func runEdge() error {
 		grpcOpts = append(grpcOpts, grpc.Creds(creds))
 	}
 
-	grpcServer := grpc.NewServer(grpcOpts...)
-	ctx.EdgeApp.RegisterGRPC(grpcServer)
+	rpcConf := zrpc.RpcServerConf{
+		ListenOn: grpcAddr,
+	}
+	rpcConf.Name = "croupier-edge-grpc"
+	rpcServer := zrpc.MustNewServer(rpcConf, func(s *grpc.Server) {
+		ctx.EdgeApp.RegisterGRPC(s)
+	})
+	rpcServer.AddOptions(grpcOpts...)
 	go func() {
-		lis, err := net.Listen("tcp", grpcAddr)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to listen for grpc: %v\n", err)
-			return
-		}
 		fmt.Printf("Edge gRPC listening at %s\n", grpcAddr)
-		if err := grpcServer.Serve(lis); err != nil {
-			fmt.Fprintf(os.Stderr, "grpc server exited: %v\n", err)
-		}
+		rpcServer.Start()
 	}()
-	defer grpcServer.GracefulStop()
 
 	fmt.Printf("Starting Croupier Edge at %s:%d (mode: %s, debug: %v)...\n",
 		c.RestConf.Host, c.RestConf.Port, c.RestConf.Mode, debug)

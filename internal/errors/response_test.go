@@ -7,14 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestResponseBuilder_Success(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
 	builder := NewResponseBuilder[string]()
 	response := builder.Success("test-data").Build()
 
@@ -25,8 +22,6 @@ func TestResponseBuilder_Success(t *testing.T) {
 }
 
 func TestResponseBuilder_Error(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
 	factory := NewErrorFactory("test-service")
 	appErr := factory.New(ErrCodeGameNotFound, "test-operation", nil)
 
@@ -41,8 +36,6 @@ func TestResponseBuilder_Error(t *testing.T) {
 }
 
 func TestResponseBuilder_WithMetadata(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
 	metadata := &Metadata{
 		Version:   "1.0.0",
 		Duration:  100 * time.Millisecond,
@@ -58,8 +51,6 @@ func TestResponseBuilder_WithMetadata(t *testing.T) {
 }
 
 func TestResponseBuilder_WithPagination(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
 	pagination := &Pagination{
 		Page:       1,
 		PageSize:   10,
@@ -80,8 +71,6 @@ func TestResponseBuilder_WithPagination(t *testing.T) {
 }
 
 func TestResponseBuilder_WithPerformance(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
 	performance := &Performance{
 		DatabaseQueries: 5,
 		DatabaseTime:    50 * time.Millisecond,
@@ -101,16 +90,12 @@ func TestResponseBuilder_WithPerformance(t *testing.T) {
 }
 
 func TestResponseBuilder_WriteJSON(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	// 创建Gin上下文
 	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", nil)
 
 	// 测试成功响应
 	builder := NewResponseBuilder[string]()
-	builder.Success("test-data").WriteJSON(c)
+	builder.Success("test-data").WriteJSON(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
@@ -125,12 +110,8 @@ func TestResponseBuilder_WriteJSON(t *testing.T) {
 }
 
 func TestResponseBuilder_WriteJSONError(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	// 创建Gin上下文
 	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest("GET", "/test", nil)
+	req := httptest.NewRequest("GET", "/test", nil)
 
 	// 创建AppError
 	factory := NewErrorFactory("test-service")
@@ -138,7 +119,7 @@ func TestResponseBuilder_WriteJSONError(t *testing.T) {
 
 	// 测试错误响应
 	builder := NewResponseBuilder[any]()
-	builder.Error(appErr).WriteJSON(c)
+	builder.Error(appErr).WriteJSON(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 	assert.Equal(t, "application/json; charset=utf-8", w.Header().Get("Content-Type"))
@@ -172,79 +153,68 @@ func TestConvenienceFunctions(t *testing.T) {
 }
 
 func TestSendFunctions(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
 	t.Run("SendSuccess", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
+		req := httptest.NewRequest("GET", "/test", nil)
 
-		SendSuccess(c, "test-data")
+		SendSuccess(w, req, "test-data")
 
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
 	t.Run("SendError", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
+		req := httptest.NewRequest("GET", "/test", nil)
 
 		factory := NewErrorFactory("test-service")
 		appErr := factory.New(ErrCodeGameNotFound, "test-op", nil)
 
-		SendError(c, appErr)
+		SendError(w, req, appErr)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
 	})
 
 	t.Run("SendPaginated", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("GET", "/test", nil)
+		req := httptest.NewRequest("GET", "/test", nil)
 
 		pagination := &Pagination{Page: 1, PageSize: 10, Total: 100}
-		SendPaginated(c, []string{"item1"}, pagination)
+		SendPaginated(w, req, []string{"item1"}, pagination)
 
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 }
 
 func TestResponseMiddleware(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	// 创建Gin引擎
-	router := gin.New()
-	router.Use(ResponseMiddleware())
-	router.GET("/test", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "test"})
-	})
+	h := ResponseMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"message":"test"}`))
+	}))
 
 	// 测试请求
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/test", nil)
 	req.Header.Set("X-Request-ID", "test-request-id")
 
-	router.ServeHTTP(w, req)
+	h.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "test-request-id", w.Header().Get("X-Request-ID"))
 }
 
 func TestResponseMiddleware_GenerateRequestID(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	// 创建Gin引擎
-	router := gin.New()
-	router.Use(ResponseMiddleware())
-	router.GET("/test", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "test"})
-	})
+	h := ResponseMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"message":"test"}`))
+	}))
 
 	// 测试请求（不提供X-Request-ID）
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/test", nil)
 
-	router.ServeHTTP(w, req)
+	h.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.NotEmpty(t, w.Header().Get("X-Request-ID"))

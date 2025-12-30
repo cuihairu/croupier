@@ -1,0 +1,7 @@
+comment: false
+
+ignore:
+  - "proto/**"
+  - "pkg/pb/**"
+  - "gen/**"
+  - "dashboard/**"

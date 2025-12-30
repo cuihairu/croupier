@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	ctxmanager "github.com/cuihairu/croupier/internal/context"
 	"github.com/cuihairu/croupier/internal/database"
 	"github.com/cuihairu/croupier/internal/errors"
-	"github.com/gin-gonic/gin"
+	"github.com/zeromicro/go-zero/rest"
+	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 // IntegratedConfigManager 集成配置管理器
@@ -19,7 +21,7 @@ type IntegratedConfigManager struct {
 	dbManager    *database.Manager
 	errorFactory *errors.ErrorFactory
 	contextMgr   *ctxmanager.Manager
-	httpServer   *http.Server
+	apiServer    *rest.Server
 }
 
 // NewIntegratedConfigManager 创建集成配置管理器
@@ -142,71 +144,53 @@ func (icm *IntegratedConfigManager) initializeDatabase(ctx context.Context) erro
 func (icm *IntegratedConfigManager) startConfigurationAPI(ctx context.Context) error {
 	networkConfig := icm.GetNetworkConfig()
 
-	// 创建Gin路由器
-	router := gin.New()
-	router.Use(gin.Logger())
-	router.Use(gin.Recovery())
-
-	// 配置API路由
-	icm.setupConfigurationRoutes(router)
-
-	// 创建HTTP服务器
-	icm.httpServer = &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", networkConfig.Server.Host, networkConfig.Server.HTTPPort),
-		Handler:      router,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  120 * time.Second,
+	host := strings.TrimSpace(networkConfig.Server.Host)
+	restConf := rest.RestConf{
+		Host: host,
+		Port: networkConfig.Server.HTTPPort,
 	}
+	restConf.Mode = "dev"
+	restConf.Timeout = 30 * 1000 // ms
+	server := rest.MustNewServer(restConf)
+	icm.setupConfigurationRoutes(server)
+	icm.apiServer = server
 
-	// 启动服务器
 	go func() {
-		log.Printf("配置API服务器启动在: %s:%d",
-			networkConfig.Server.Host, networkConfig.Server.HTTPPort)
-
-		if err := icm.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("配置API服务器启动失败: %v", err)
+		addr := fmt.Sprintf("%s:%d", host, networkConfig.Server.HTTPPort)
+		if host == "" {
+			addr = fmt.Sprintf(":%d", networkConfig.Server.HTTPPort)
 		}
+		log.Printf("配置API服务器启动在: %s", addr)
+		server.Start()
 	}()
 
 	return nil
 }
 
 // setupConfigurationRoutes 设置配置API路由
-func (icm *IntegratedConfigManager) setupConfigurationRoutes(router *gin.Engine) {
-	configGroup := router.Group("/api/v1/config")
-	{
-		// 获取当前配置
-		configGroup.GET("/", icm.handleGetCurrentConfig)
-
-		// 获取配置源信息
-		configGroup.GET("/sources", icm.handleGetConfigSources)
-
-		// 重新加载配置
-		configGroup.POST("/reload", icm.handleReloadConfig)
-
-		// 验证配置
-		configGroup.POST("/validate", icm.handleValidateConfig)
-
-		// 获取环境变量信息
-		configGroup.GET("/env", icm.handleGetEnvInfo)
-
-		// 导出配置
-		configGroup.GET("/export/:format", icm.handleExportConfig)
-
-		// 配置健康检查
-		configGroup.GET("/health", icm.handleHealthCheck)
-	}
+func (icm *IntegratedConfigManager) setupConfigurationRoutes(server *rest.Server) {
+	server.AddRoutes(
+		[]rest.Route{
+			{Method: http.MethodGet, Path: "/", Handler: icm.handleGetCurrentConfig},
+			{Method: http.MethodGet, Path: "/sources", Handler: icm.handleGetConfigSources},
+			{Method: http.MethodPost, Path: "/reload", Handler: icm.handleReloadConfig},
+			{Method: http.MethodPost, Path: "/validate", Handler: icm.handleValidateConfig},
+			{Method: http.MethodGet, Path: "/env", Handler: icm.handleGetEnvInfo},
+			{Method: http.MethodGet, Path: "/export/:format", Handler: icm.handleExportConfig},
+			{Method: http.MethodGet, Path: "/health", Handler: icm.handleHealthCheck},
+		},
+		rest.WithPrefix("/api/v1/config"),
+	)
 }
 
 // handleGetCurrentConfig 获取当前配置
-func (icm *IntegratedConfigManager) handleGetCurrentConfig(c *gin.Context) {
+func (icm *IntegratedConfigManager) handleGetCurrentConfig(w http.ResponseWriter, r *http.Request) {
 	config := icm.GetConfig()
 
 	// 移除敏感信息
 	safeConfig := icm.sanitizeConfig(config)
 
-	c.JSON(http.StatusOK, gin.H{
+	httpx.WriteJson(w, http.StatusOK, map[string]any{
 		"success":   true,
 		"data":      safeConfig,
 		"timestamp": time.Now(),
@@ -214,10 +198,10 @@ func (icm *IntegratedConfigManager) handleGetCurrentConfig(c *gin.Context) {
 }
 
 // handleGetConfigSources 获取配置源信息
-func (icm *IntegratedConfigManager) handleGetConfigSources(c *gin.Context) {
+func (icm *IntegratedConfigManager) handleGetConfigSources(w http.ResponseWriter, r *http.Request) {
 	sources := icm.GetConfigSources()
 
-	c.JSON(http.StatusOK, gin.H{
+	httpx.WriteJson(w, http.StatusOK, map[string]any{
 		"success":   true,
 		"data":      sources,
 		"timestamp": time.Now(),
@@ -225,14 +209,14 @@ func (icm *IntegratedConfigManager) handleGetConfigSources(c *gin.Context) {
 }
 
 // handleReloadConfig 重新加载配置
-func (icm *IntegratedConfigManager) handleReloadConfig(c *gin.Context) {
+func (icm *IntegratedConfigManager) handleReloadConfig(w http.ResponseWriter, r *http.Request) {
 	err := icm.Reload()
 	if err != nil {
-		icm.SendError(c, icm.errorFactory.InternalError("reload_config", err))
+		icm.SendError(w, r, icm.errorFactory.InternalError("reload_config", err))
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	httpx.WriteJson(w, http.StatusOK, map[string]any{
 		"success":   true,
 		"message":   "配置重新加载成功",
 		"timestamp": time.Now(),
@@ -240,13 +224,13 @@ func (icm *IntegratedConfigManager) handleReloadConfig(c *gin.Context) {
 }
 
 // handleValidateConfig 验证配置
-func (icm *IntegratedConfigManager) handleValidateConfig(c *gin.Context) {
+func (icm *IntegratedConfigManager) handleValidateConfig(w http.ResponseWriter, r *http.Request) {
 	config := icm.GetConfig()
 	validator := NewDefaultValidator()
 
 	err := validator.Validate(config)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		httpx.WriteJson(w, http.StatusBadRequest, map[string]any{
 			"success":   false,
 			"error":     err.Error(),
 			"timestamp": time.Now(),
@@ -254,7 +238,7 @@ func (icm *IntegratedConfigManager) handleValidateConfig(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	httpx.WriteJson(w, http.StatusOK, map[string]any{
 		"success":   true,
 		"message":   "配置验证通过",
 		"timestamp": time.Now(),
@@ -262,11 +246,11 @@ func (icm *IntegratedConfigManager) handleValidateConfig(c *gin.Context) {
 }
 
 // handleGetEnvInfo 获取环境变量信息
-func (icm *IntegratedConfigManager) handleGetEnvInfo(c *gin.Context) {
+func (icm *IntegratedConfigManager) handleGetEnvInfo(w http.ResponseWriter, r *http.Request) {
 	envManager := NewEnvManager("CROUPIER_")
 	envInfo := envManager.GetEnvInfo()
 
-	c.JSON(http.StatusOK, gin.H{
+	httpx.WriteJson(w, http.StatusOK, map[string]any{
 		"success":   true,
 		"data":      envInfo,
 		"timestamp": time.Now(),
@@ -274,12 +258,12 @@ func (icm *IntegratedConfigManager) handleGetEnvInfo(c *gin.Context) {
 }
 
 // handleExportConfig 导出配置
-func (icm *IntegratedConfigManager) handleExportConfig(c *gin.Context) {
-	format := c.Param("format")
+func (icm *IntegratedConfigManager) handleExportConfig(w http.ResponseWriter, r *http.Request) {
+	format := r.PathValue("format")
 
 	data, err := icm.Export(format)
 	if err != nil {
-		icm.SendError(c, icm.errorFactory.InvalidInputError("export_config", "format", format, err))
+		icm.SendError(w, r, icm.errorFactory.InvalidInputError("export_config", "format", format, err))
 		return
 	}
 
@@ -288,13 +272,14 @@ func (icm *IntegratedConfigManager) handleExportConfig(c *gin.Context) {
 		contentType = "application/json"
 	}
 
-	c.Header("Content-Type", contentType)
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=config.%s", format))
-	c.Data(http.StatusOK, contentType, data)
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=config.%s", format))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
 }
 
 // handleHealthCheck 配置健康检查
-func (icm *IntegratedConfigManager) handleHealthCheck(c *gin.Context) {
+func (icm *IntegratedConfigManager) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	status := map[string]interface{}{
 		"config_loaded":      true,
 		"database_connected": false,
@@ -303,7 +288,7 @@ func (icm *IntegratedConfigManager) handleHealthCheck(c *gin.Context) {
 
 	// 检查数据库连接
 	if icm.dbManager != nil {
-		ctx, cancel := icm.contextMgr.ForDatabase(c.Request.Context())
+		ctx, cancel := icm.contextMgr.ForDatabase(r.Context())
 		defer cancel()
 
 		if err := icm.dbManager.Ping(ctx); err == nil {
@@ -311,7 +296,7 @@ func (icm *IntegratedConfigManager) handleHealthCheck(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	httpx.WriteJson(w, http.StatusOK, map[string]any{
 		"status":    "healthy",
 		"details":   status,
 		"timestamp": time.Now(),
@@ -364,11 +349,17 @@ func (icm *IntegratedConfigManager) startConfigurationWatcher(ctx context.Contex
 }
 
 // SendError 发送错误响应
-func (icm *IntegratedConfigManager) SendError(c *gin.Context, err error) {
+func (icm *IntegratedConfigManager) SendError(w http.ResponseWriter, r *http.Request, err error) {
 	if appErr, ok := err.(*errors.AppError); ok {
-		c.JSON(int(appErr.HTTPStatusCode), gin.H{
+		for k, v := range appErr.HTTPHeaders {
+			if strings.TrimSpace(k) == "" {
+				continue
+			}
+			w.Header().Set(k, v)
+		}
+		httpx.WriteJson(w, int(appErr.HTTPStatusCode), map[string]any{
 			"success": false,
-			"error": gin.H{
+			"error": map[string]any{
 				"code":    appErr.Code,
 				"message": appErr.Message,
 				"details": appErr.Details,
@@ -378,9 +369,9 @@ func (icm *IntegratedConfigManager) SendError(c *gin.Context, err error) {
 		return
 	}
 
-	c.JSON(http.StatusInternalServerError, gin.H{
+	httpx.WriteJson(w, http.StatusInternalServerError, map[string]any{
 		"success": false,
-		"error": gin.H{
+		"error": map[string]any{
 			"code":    "INTERNAL_ERROR",
 			"message": err.Error(),
 		},
@@ -393,13 +384,8 @@ func (icm *IntegratedConfigManager) Shutdown(ctx context.Context) error {
 	log.Println("正在关闭集成配置管理器...")
 
 	// 关闭HTTP服务器
-	if icm.httpServer != nil {
-		shutdownCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-		defer cancel()
-
-		if err := icm.httpServer.Shutdown(shutdownCtx); err != nil {
-			log.Printf("关闭HTTP服务器失败: %v", err)
-		}
+	if icm.apiServer != nil {
+		icm.apiServer.Stop()
 	}
 
 	// 关闭数据库连接

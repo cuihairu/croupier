@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"runtime"
@@ -22,6 +23,8 @@ import (
 	"github.com/cuihairu/croupier/internal/analytics/mq"
 	redis "github.com/redis/go-redis/v9"
 	"github.com/spf13/cobra"
+	"github.com/zeromicro/go-zero/rest"
+	"github.com/zeromicro/go-zero/rest/httpx"
 	"golang.org/x/time/rate"
 )
 
@@ -173,86 +176,95 @@ func runIngest() error {
 		idleTimeout:  time.Duration(idleTimeoutSec) * time.Second,
 	}
 
-	mux := http.NewServeMux()
+	host, port, err := parseListenAddr(strings.TrimSpace(listenAddr), 8088)
+	if err != nil {
+		return fmt.Errorf("invalid listen addr %q: %w", listenAddr, err)
+	}
 
-	// Add metrics endpoint
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+	restConf := rest.RestConf{
+		Host:     host,
+		Port:     port,
+		MaxBytes: s.maxBodySize,
+	}
+	restConf.Mode = "dev"
+	restConf.Timeout = int64(max(readTimeoutSec, writeTimeoutSec)) * 1000
 
-		s.mu.RLock()
-		eventsPending := atomic.LoadInt64(&s.eventsPending)
-		paymentsPending := atomic.LoadInt64(&s.paymentsPending)
-		s.mu.RUnlock()
-
-		// Calculate average latency
-		latencySum := atomic.LoadInt64(&s.latencySum)
-		latencyCount := atomic.LoadInt64(&s.latencyCount)
-		avgLatencyMs := float64(0)
-		if latencyCount > 0 {
-			avgLatencyMs = float64(latencySum) / float64(latencyCount) / 1000 // Convert to milliseconds
-		}
-
-		// Get memory stats
-		var m runtime.MemStats
-		runtime.ReadMemStats(&m)
-
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"status":    "ok",
-			"version":   Version,
-			"timestamp": time.Now().Unix(),
-			"metrics": map[string]interface{}{
-				"requests_total":     atomic.LoadInt64(&s.requestsTotal),
-				"requests_success":   atomic.LoadInt64(&s.requestsSuccess),
-				"requests_error":     atomic.LoadInt64(&s.requestsError),
-				"requests_dropped":   atomic.LoadInt64(&s.requestsDropped),
-				"events_processed":   atomic.LoadInt64(&s.eventsProcessed),
-				"payments_processed": atomic.LoadInt64(&s.paymentsProcessed),
-				"validation_errors":  atomic.LoadInt64(&s.validationErrors),
-				"queue_errors":       atomic.LoadInt64(&s.queueErrors),
-				"auth_errors":        atomic.LoadInt64(&s.authErrors),
-				"avg_latency_ms":     avgLatencyMs,
-				"events_pending":     eventsPending,
-				"payments_pending":   paymentsPending,
-			},
-			"system": map[string]interface{}{
-				"goroutines":   runtime.NumGoroutine(),
-				"mem_alloc_mb": m.Alloc / 1024 / 1024,
-				"mem_total_mb": m.TotalAlloc / 1024 / 1024,
-				"mem_sys_mb":   m.Sys / 1024 / 1024,
-				"gc_cycles":    m.NumGC,
-			},
-			"config": map[string]interface{}{
-				"rate_limit_rps":   rateLimitRPS,
-				"rate_burst":       rateBurst,
-				"max_body_size_mb": maxBodySizeMB,
-				"read_timeout_s":   readTimeoutSec,
-				"write_timeout_s":  writeTimeoutSec,
-				"idle_timeout_s":   idleTimeoutSec,
-			},
-		})
-	})
+	svr := rest.MustNewServer(restConf)
+	defer svr.Stop()
 
 	// Apply middleware chain
 	eventsHandler := s.metricsMiddleware(s.rateLimitMiddleware(http.HandlerFunc(s.ingestEvents)))
 	paymentsHandler := s.metricsMiddleware(s.rateLimitMiddleware(http.HandlerFunc(s.ingestPayments)))
 
-	mux.Handle("/api/ingest/events", s.authMiddleware(eventsHandler))
-	mux.Handle("/api/ingest/payments", s.authMiddleware(paymentsHandler))
+	svr.AddRoutes([]rest.Route{
+		{
+			Method: http.MethodGet,
+			Path:   "/healthz",
+			Handler: func(w http.ResponseWriter, r *http.Request) {
+				s.mu.RLock()
+				eventsPending := atomic.LoadInt64(&s.eventsPending)
+				paymentsPending := atomic.LoadInt64(&s.paymentsPending)
+				s.mu.RUnlock()
 
-	// Configure HTTP server with timeouts
-	server := &http.Server{
-		Addr:         strings.TrimSpace(listenAddr),
-		Handler:      mux,
-		ReadTimeout:  s.readTimeout,
-		WriteTimeout: s.writeTimeout,
-		IdleTimeout:  s.idleTimeout,
-	}
+				latencySum := atomic.LoadInt64(&s.latencySum)
+				latencyCount := atomic.LoadInt64(&s.latencyCount)
+				avgLatencyMs := float64(0)
+				if latencyCount > 0 {
+					avgLatencyMs = float64(latencySum) / float64(latencyCount) / 1000
+				}
 
-	addr := server.Addr
-	if addr == "" {
-		addr = ":8088"
-	}
+				var m runtime.MemStats
+				runtime.ReadMemStats(&m)
 
+				httpx.OkJson(w, map[string]any{
+					"status":    "ok",
+					"version":   Version,
+					"timestamp": time.Now().Unix(),
+					"metrics": map[string]interface{}{
+						"requests_total":     atomic.LoadInt64(&s.requestsTotal),
+						"requests_success":   atomic.LoadInt64(&s.requestsSuccess),
+						"requests_error":     atomic.LoadInt64(&s.requestsError),
+						"requests_dropped":   atomic.LoadInt64(&s.requestsDropped),
+						"events_processed":   atomic.LoadInt64(&s.eventsProcessed),
+						"payments_processed": atomic.LoadInt64(&s.paymentsProcessed),
+						"validation_errors":  atomic.LoadInt64(&s.validationErrors),
+						"queue_errors":       atomic.LoadInt64(&s.queueErrors),
+						"auth_errors":        atomic.LoadInt64(&s.authErrors),
+						"avg_latency_ms":     avgLatencyMs,
+						"events_pending":     eventsPending,
+						"payments_pending":   paymentsPending,
+					},
+					"system": map[string]interface{}{
+						"goroutines":   runtime.NumGoroutine(),
+						"mem_alloc_mb": m.Alloc / 1024 / 1024,
+						"mem_total_mb": m.TotalAlloc / 1024 / 1024,
+						"mem_sys_mb":   m.Sys / 1024 / 1024,
+						"gc_cycles":    m.NumGC,
+					},
+					"config": map[string]interface{}{
+						"rate_limit_rps":   rateLimitRPS,
+						"rate_burst":       rateBurst,
+						"max_body_size_mb": maxBodySizeMB,
+						"read_timeout_s":   readTimeoutSec,
+						"write_timeout_s":  writeTimeoutSec,
+						"idle_timeout_s":   idleTimeoutSec,
+					},
+				})
+			},
+		},
+		{
+			Method:  http.MethodPost,
+			Path:    "/api/ingest/events",
+			Handler: wrapHTTPHandler(s.authMiddleware(eventsHandler)),
+		},
+		{
+			Method:  http.MethodPost,
+			Path:    "/api/ingest/payments",
+			Handler: wrapHTTPHandler(s.authMiddleware(paymentsHandler)),
+		},
+	})
+
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
 	log.Printf("[ingest] listening on %s (rate: %d rps, burst: %d, max body: %d MB)",
 		addr, rateLimitRPS, rateBurst, maxBodySizeMB)
 
@@ -262,10 +274,48 @@ func runIngest() error {
 	// Start queue monitoring
 	go s.monitorQueueBacklog()
 
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		return fmt.Errorf("run: %w", err)
-	}
+	svr.Start()
 	return nil
+}
+
+func wrapHTTPHandler(h http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		h.ServeHTTP(w, r)
+	}
+}
+
+func parseListenAddr(addr string, defaultPort int) (string, int, error) {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return "0.0.0.0", defaultPort, nil
+	}
+
+	if _, _, err := net.SplitHostPort(addr); err != nil {
+		// Accept bare port like "8088".
+		if n, convErr := strconv.Atoi(addr); convErr == nil && n > 0 {
+			return "0.0.0.0", n, nil
+		}
+	}
+
+	host, portStr, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "", 0, err
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil || port <= 0 {
+		return "", 0, fmt.Errorf("invalid port: %q", portStr)
+	}
+	if strings.TrimSpace(host) == "" {
+		host = "0.0.0.0"
+	}
+	return host, port, nil
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // authMiddleware 校验时间戳/nonce/签名，防止重放。签名: base64(HMAC_SHA256(secret, ts + "\n" + nonce + "\n" + sha256(body))).

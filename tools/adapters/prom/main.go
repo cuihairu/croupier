@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
 	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
+	"github.com/zeromicro/go-zero/zrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -126,8 +126,7 @@ func main() {
 	}
 
 	// Create gRPC server with optional TLS
-	var lis net.Listener
-	var gs *grpc.Server
+	var serverOpts []grpc.ServerOption
 
 	// Check if TLS is enabled for the gRPC server
 	serverCertFile := os.Getenv("SERVER_CERT_FILE")
@@ -141,25 +140,20 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to create server TLS credentials: %v", err)
 		}
-		gs = grpc.NewServer(grpc.Creds(creds))
+		serverOpts = append(serverOpts, grpc.Creds(creds))
 		log.Printf("prom-adapter listening on %s with TLS", listen)
 	} else {
 		// Use insecure server
-		gs = grpc.NewServer()
 		log.Printf("prom-adapter listening on %s (insecure)", listen)
 	}
 
-	lis, err := net.Listen("tcp", listen)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	functionv1.RegisterFunctionServiceServer(gs, &server{prom: prom})
-	go func() {
-		if err := gs.Serve(lis); err != nil {
-			log.Fatal(err)
-		}
-	}()
+	rpcConf := zrpc.RpcServerConf{ListenOn: listen}
+	rpcConf.Name = serviceID
+	gs := zrpc.MustNewServer(rpcConf, func(s *grpc.Server) {
+		functionv1.RegisterFunctionServiceServer(s, &server{prom: prom})
+	})
+	gs.AddOptions(serverOpts...)
+	go gs.Start()
 
 	// Create connection to agent with optional TLS
 	var dialOpts []grpc.DialOption

@@ -1,10 +1,10 @@
 package errors
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
 // ResponseType 响应类型
@@ -185,26 +185,26 @@ func (rb *ResponseBuilder[T]) Build() *APIResponse[T] {
 	return rb.response
 }
 
-// WriteJSON 写入JSON响应到Gin上下文
-func (rb *ResponseBuilder[T]) WriteJSON(c *gin.Context) {
+// WriteJSON writes JSON response to an HTTP ResponseWriter.
+func (rb *ResponseBuilder[T]) WriteJSON(w http.ResponseWriter, r *http.Request) {
 	response := rb.Build()
 
 	// 设置状态码
+	status := http.StatusOK
 	if !response.Success && response.Error != nil {
-		c.Status(GetHTTPStatusCode(response.Error.Code))
-	} else {
-		c.Status(http.StatusOK)
+		status = GetHTTPStatusCode(response.Error.Code)
 	}
 
 	// 设置请求ID到响应头
 	if response.RequestID != "" {
-		c.Header("X-Request-ID", response.RequestID)
+		w.Header().Set("X-Request-ID", response.RequestID)
 	}
 
 	// 设置内容类型
-	c.Header("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
-	c.JSON(c.Writer.Status(), response)
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // generateRequestID 生成请求ID
@@ -243,84 +243,51 @@ func PaginatedResponse[T any](data T, pagination *Pagination) *APIResponse[T] {
 // HTTP handler helpers
 
 // SendSuccess 发送成功响应
-func SendSuccess(c *gin.Context, data interface{}) {
-	NewResponseBuilder[any]().Success(data).WriteJSON(c)
+func SendSuccess(w http.ResponseWriter, r *http.Request, data interface{}) {
+	NewResponseBuilder[any]().Success(data).WriteJSON(w, r)
 }
 
 // SendError 发送错误响应
-func SendError(c *gin.Context, err error) {
-	NewResponseBuilder[any]().Error(err).WriteJSON(c)
+func SendError(w http.ResponseWriter, r *http.Request, err error) {
+	NewResponseBuilder[any]().Error(err).WriteJSON(w, r)
 }
 
 // SendPaginated 发送分页响应
-func SendPaginated(c *gin.Context, data interface{}, pagination *Pagination) {
+func SendPaginated(w http.ResponseWriter, r *http.Request, data interface{}, pagination *Pagination) {
 	NewResponseBuilder[any]().
 		Success(data).
 		WithPagination(pagination).
-		WriteJSON(c)
+		WriteJSON(w, r)
 }
 
 // SendPaginatedWithMetadata 发送带元数据的分页响应
-func SendPaginatedWithMetadata(c *gin.Context, data interface{}, pagination *Pagination, metadata *Metadata) {
+func SendPaginatedWithMetadata(w http.ResponseWriter, r *http.Request, data interface{}, pagination *Pagination, metadata *Metadata) {
 	NewResponseBuilder[any]().
 		Success(data).
 		WithPagination(pagination).
 		WithMetadata(metadata).
-		WriteJSON(c)
+		WriteJSON(w, r)
 }
 
-// 响应中间件
-func ResponseMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// 设置请求ID
-		requestID := c.GetHeader("X-Request-ID")
+type contextKey string
+
+const (
+	requestIDKey contextKey = "request_id"
+	startTimeKey contextKey = "start_time"
+)
+
+// ResponseMiddleware injects request id and start time into context and response headers.
+func ResponseMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestID := r.Header.Get("X-Request-ID")
 		if requestID == "" {
 			requestID = generateRequestID()
 		}
+		w.Header().Set("X-Request-ID", requestID)
 
-		c.Set("request_id", requestID)
-		c.Header("X-Request-ID", requestID)
+		ctx := context.WithValue(r.Context(), requestIDKey, requestID)
+		ctx = context.WithValue(ctx, startTimeKey, time.Now())
 
-		// 记录开始时间
-		c.Set("start_time", time.Now())
-
-		// 处理请求
-		c.Next()
-
-		// 如果还没有响应且发生了错误，自动发送错误响应
-		if c.Writer.Status() == 0 && c.Errors.Last() != nil {
-			SendError(c, c.Errors.Last().Err)
-			c.Abort()
-		}
-	}
-}
-
-// 错误处理中间件
-func ErrorMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Next()
-
-		// 处理错误
-		for _, err := range c.Errors {
-			// 如果是AppError，已经处理过了
-			if _, ok := err.Err.(*AppError); ok {
-				continue
-			}
-
-			// 转换为AppError
-			appErr := Wrap(err.Err, c.Request.URL.Path)
-			if c.Writer.Status() == 0 {
-				SendError(c, appErr)
-			}
-		}
-	}
-}
-
-// 全局错误处理函数
-func GlobalErrorHandler(c *gin.Context) {
-	if c.Writer.Status() == 0 {
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"error": "Internal server error",
-		})
-	}
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
