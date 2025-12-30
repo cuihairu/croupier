@@ -81,7 +81,7 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *functionv1.InvokeRe
 	if req == nil || req.GetFunctionId() == "" {
 		return nil, fmt.Errorf("function id is required")
 	}
-	agent, err := d.pickAgent(req.GetFunctionId())
+	agent, err := d.pickAgentWithRouting(req.GetFunctionId(), req.Metadata)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (d *Dispatcher) StartJobRequest(ctx context.Context, req *functionv1.Invoke
 	if req == nil || req.GetFunctionId() == "" {
 		return nil, fmt.Errorf("function id is required")
 	}
-	agent, err := d.pickAgent(req.GetFunctionId())
+	agent, err := d.pickAgentWithRouting(req.GetFunctionId(), req.Metadata)
 	if err != nil {
 		return nil, err
 	}
@@ -239,6 +239,48 @@ func (d *Dispatcher) ListFunctionAgents(functionID string) []string {
 	return ids
 }
 
+func agentHasService(agent *reg.AgentSession, serviceID, functionID string) bool {
+	if agent == nil || serviceID == "" {
+		return false
+	}
+	for _, p := range agent.Processes {
+		if p.ServiceID != serviceID {
+			continue
+		}
+		if functionID == "" {
+			return true
+		}
+		for _, fid := range p.FunctionIDs {
+			if fid == functionID {
+				return true
+			}
+		}
+		return false
+	}
+	return false
+}
+
+func pickAgentByHash(candidates []*reg.AgentSession, key string) *reg.AgentSession {
+	if len(candidates) == 0 {
+		return nil
+	}
+	if len(candidates) == 1 {
+		return candidates[0]
+	}
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return candidates[0]
+	}
+	// FNV-1a
+	var h uint32 = 2166136261
+	for i := 0; i < len(key); i++ {
+		h ^= uint32(key[i])
+		h *= 16777619
+	}
+	idx := int(h % uint32(len(candidates)))
+	return candidates[idx]
+}
+
 // JobAddr exposes tracked job routing addresses (primarily for diagnostics).
 func (d *Dispatcher) JobAddr(jobID string) (string, bool) {
 	d.mu.RLock()
@@ -274,6 +316,58 @@ func (d *Dispatcher) pickAgent(functionID string) (*reg.AgentSession, error) {
 		return nil, fmt.Errorf("no live agent for function %s", functionID)
 	}
 	return chosen, nil
+}
+
+func (d *Dispatcher) pickAgentWithRouting(functionID string, metadata map[string]string) (*reg.AgentSession, error) {
+	if metadata == nil {
+		return d.pickAgent(functionID)
+	}
+
+	serviceID := strings.TrimSpace(metadata["target_service_id"])
+	hashKey := strings.TrimSpace(metadata["hash_key"])
+
+	now := time.Now()
+	d.store.Mu().RLock()
+	defer d.store.Mu().RUnlock()
+
+	// Targeted: choose the agent that owns the service_id.
+	if serviceID != "" {
+		for _, agent := range d.store.AgentsUnsafe() {
+			if agent == nil || agent.RPCAddr == "" || !agent.ExpireAt.After(now) {
+				continue
+			}
+			meta, ok := agent.Functions[functionID]
+			if !ok || !meta.Enabled {
+				continue
+			}
+			if agentHasService(agent, serviceID, functionID) {
+				return agent, nil
+			}
+		}
+		return nil, fmt.Errorf("no live agent for function %s with service_id %s", functionID, serviceID)
+	}
+
+	// Hash: choose a stable agent among all candidates.
+	if hashKey != "" {
+		cands := make([]*reg.AgentSession, 0)
+		for _, agent := range d.store.AgentsUnsafe() {
+			if agent == nil || agent.RPCAddr == "" || !agent.ExpireAt.After(now) {
+				continue
+			}
+			meta, ok := agent.Functions[functionID]
+			if !ok || !meta.Enabled {
+				continue
+			}
+			cands = append(cands, agent)
+		}
+		chosen := pickAgentByHash(cands, hashKey)
+		if chosen == nil {
+			return nil, fmt.Errorf("no live agent for function %s", functionID)
+		}
+		return chosen, nil
+	}
+
+	return d.pickAgent(functionID)
 }
 
 func (d *Dispatcher) dial(addr string) (*grpc.ClientConn, functionv1.FunctionServiceClient, error) {

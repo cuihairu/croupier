@@ -13,6 +13,7 @@ import (
 // FunctionMeta describes a function capability on an agent.
 type FunctionMeta struct {
 	Enabled bool
+	Version string
 }
 
 // ProcessSession represents a single process/service registered to an agent (via SDK->Agent local registry).

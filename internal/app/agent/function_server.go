@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sort"
 	"strings"
 	"time"
 
@@ -27,7 +28,7 @@ type FunctionServer struct {
 
 // pickInstance returns the first available instance for a function id.
 // Returns (addr, nil) on success, ("", error) on failure with appropriate gRPC status.
-func (s *FunctionServer) pickInstance(fid string) (string, error) {
+func (s *FunctionServer) pickInstance(fid string, metadata map[string]string) (string, error) {
 	if s.store == nil {
 		return "", status.Error(codes.Internal, "instance store not initialized")
 	}
@@ -58,13 +59,59 @@ func (s *FunctionServer) pickInstance(fid string) (string, error) {
 		}
 	}
 
+	targetServiceID := strings.TrimSpace(metadata["target_service_id"])
+	hashKey := strings.TrimSpace(metadata["hash_key"])
+
+	// Filter by target service_id when requested.
+	if targetServiceID != "" {
+		now := time.Now()
+		for _, inst := range arr {
+			if inst.ServiceID != targetServiceID {
+				continue
+			}
+			if now.Sub(inst.LastSeen) < 30*time.Second {
+				return inst.Addr, nil
+			}
+			return inst.Addr, status.Error(codes.Unavailable,
+				fmt.Sprintf("target service '%s' for function '%s' is stale (last seen > 30s ago)", targetServiceID, fid))
+		}
+		return "", status.Error(codes.NotFound,
+			fmt.Sprintf("target service '%s' for function '%s' not found", targetServiceID, fid))
+	}
+
 	// Check if instances are healthy (not too old)
 	now := time.Now()
 	for _, inst := range arr {
 		// Consider instance unhealthy if not seen for more than 30 seconds
 		if now.Sub(inst.LastSeen) < 30*time.Second {
-			return inst.Addr, nil
+			if hashKey == "" {
+				return inst.Addr, nil
+			}
+			break
 		}
+	}
+
+	// Hash routing across healthy instances if requested.
+	if hashKey != "" {
+		healthy := make([]agentlocal.Instance, 0, len(arr))
+		now := time.Now()
+		for _, inst := range arr {
+			if now.Sub(inst.LastSeen) < 30*time.Second {
+				healthy = append(healthy, inst)
+			}
+		}
+		if len(healthy) == 0 {
+			return arr[0].Addr, status.Error(codes.Unavailable,
+				fmt.Sprintf("function '%s' instances are stale (last seen > 30s ago)", fid))
+		}
+		sort.Slice(healthy, func(i, j int) bool {
+			if healthy[i].ServiceID == healthy[j].ServiceID {
+				return healthy[i].Addr < healthy[j].Addr
+			}
+			return healthy[i].ServiceID < healthy[j].ServiceID
+		})
+		idx := fnvIndex(hashKey, len(healthy))
+		return healthy[idx].Addr, nil
 	}
 
 	// All instances are stale but return the first one with a warning
@@ -122,6 +169,18 @@ func (s *FunctionServer) dial(addr string) (*grpc.ClientConn, functionv1.Functio
 	return cc, functionv1.NewFunctionServiceClient(cc), nil
 }
 
+func fnvIndex(key string, mod int) int {
+	if mod <= 1 {
+		return 0
+	}
+	var h uint32 = 2166136261
+	for i := 0; i < len(key); i++ {
+		h ^= uint32(key[i])
+		h *= 16777619
+	}
+	return int(h % uint32(mod))
+}
+
 func hostFromAddr(addr string) string {
 	addr = strings.TrimSpace(addr)
 	if addr == "" {
@@ -135,7 +194,7 @@ func hostFromAddr(addr string) string {
 }
 
 func (s *FunctionServer) Invoke(ctx context.Context, in *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
-	addr, err := s.pickInstance(in.GetFunctionId())
+	addr, err := s.pickInstance(in.GetFunctionId(), in.GetMetadata())
 	if err != nil {
 		// Error already has proper gRPC status
 		return nil, err
@@ -151,7 +210,7 @@ func (s *FunctionServer) Invoke(ctx context.Context, in *functionv1.InvokeReques
 }
 
 func (s *FunctionServer) StartJob(ctx context.Context, in *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {
-	addr, err := s.pickInstance(in.GetFunctionId())
+	addr, err := s.pickInstance(in.GetFunctionId(), in.GetMetadata())
 	if err != nil {
 		return nil, err
 	}

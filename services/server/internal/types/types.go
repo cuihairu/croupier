@@ -910,12 +910,19 @@ type FunctionInstancesResponse struct {
 }
 
 type FunctionInvokeRequest struct {
-	ID     string      `path:"id"`
+	ID              string      `path:"id"`
+	Mode            string      `form:"mode,optional"`
+	Route           string      `json:"route,optional"`
+	Payload         interface{} `json:"payload,optional"`
+	TargetServiceId string      `json:"target_service_id,optional"`
+	HashKey         string      `json:"hash_key,optional"`
+	// Backward compatibility for older clients.
 	Params interface{} `json:"params,optional"`
 }
 
 type FunctionInvokeResponse struct {
-	JobId  string      `json:"jobId"`
+	JobId  string      `json:"jobId,omitempty"`
+	JobID  string      `json:"job_id,omitempty"`
 	Result interface{} `json:"result,omitempty"`
 }
 

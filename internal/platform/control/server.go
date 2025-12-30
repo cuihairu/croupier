@@ -123,7 +123,7 @@ func (s *Server) Register(ctx context.Context, in *serverv1.RegisterRequest) (*s
 			if f == nil || f.GetId() == "" {
 				continue
 			}
-			sess.Functions[f.GetId()] = reg.FunctionMeta{Enabled: f.GetEnabled()}
+			sess.Functions[f.GetId()] = reg.FunctionMeta{Enabled: f.GetEnabled(), Version: strings.TrimSpace(f.GetVersion())}
 		}
 	}
 

@@ -5,6 +5,8 @@ package function
 
 import (
 	"context"
+	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
@@ -28,18 +30,50 @@ func NewFunctionInstancesLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 	}
 }
 
-func (l *FunctionInstancesLogic) FunctionInstances(req *types.FunctionInstancesRequest) (*types.FunctionInstancesResponse, error) {
+func (l *FunctionInstancesLogic) FunctionInstances(req *types.FunctionInstancesRequest) (map[string]interface{}, error) {
 	functionID, err := utils.ValidateFunctionID(req.ID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Prefer runtime registry (SDK->Agent registrations) to power dashboard targeted routing.
+	// Fallback to DB-backed instances if registry is not available.
+	if store := l.svcCtx.RegistryStore; store != nil {
+		now := time.Now().Unix()
+		out := make([]map[string]interface{}, 0)
+		store.Mu().RLock()
+		for _, sess := range store.AgentsUnsafe() {
+			if sess == nil || strings.TrimSpace(sess.AgentID) == "" {
+				continue
+			}
+			for _, p := range sess.Processes {
+				has := false
+				for _, fid := range p.FunctionIDs {
+					if fid == functionID {
+						has = true
+						break
+					}
+				}
+				if !has {
+					continue
+				}
+				out = append(out, map[string]interface{}{
+					"agent_id":   sess.AgentID,
+					"service_id": p.ServiceID,
+					"addr":       p.Addr,
+					"version":    p.Version,
+					"last_seen":  time.Unix(p.LastSeenUnix, 0).Format(time.RFC3339),
+					"healthy":    p.LastSeenUnix > 0 && now-p.LastSeenUnix <= 60,
+				})
+			}
+		}
+		store.Mu().RUnlock()
+		return map[string]interface{}{"instances": out}, nil
 	}
 
 	instances, err := l.svcCtx.FunctionModel.ListInstances(l.ctx, functionID)
 	if err != nil {
 		return nil, err
 	}
-
-	return &types.FunctionInstancesResponse{
-		Items: utils.BuildFunctionInstances(instances),
-	}, nil
+	return map[string]interface{}{"items": utils.BuildFunctionInstances(instances)}, nil
 }
