@@ -308,23 +308,21 @@ type ComponentManifest struct {
 
 ### 4.2 HTTP API 实现
 
-#### 📝 Entity 管理 API（`internal/app/server/http/server.go`）
-
-**第4060-4400行：Entity Management APIs**
+#### 📝 Entity 管理 API（go-zero `services/server/internal/handler/entity/*`）
 
 | 端点 | 方法 | 权限 | 功能 |
 |------|------|------|------|
-| `/api/entities` | GET | `entities:read` | 获取所有entity定义 |
-| `/api/entities` | POST | `entities:create` | 创建新entity |
-| `/api/entities/:id` | GET | `entities:read` | 获取特定entity |
-| `/api/entities/:id` | PUT | `entities:update` | 更新entity定义 |
-| `/api/entities/:id` | DELETE | `entities:delete` | 删除entity |
-| `/api/entities/:id/validate` | POST | `entities:read` | 验证entity |
-| `/api/entities/:id/preview` | GET | `entities:read` | 预览entity UI |
+| `/api/v1/entities` | GET | `entities:read` | 获取所有 entity 定义 |
+| `/api/v1/entities` | POST | `entities:create` | 创建新 entity |
+| `/api/v1/entities/:id` | GET | `entities:read` | 获取特定 entity |
+| `/api/v1/entities/:id` | PUT | `entities:update` | 更新 entity 定义 |
+| `/api/v1/entities/:id` | DELETE | `entities:delete` | 删除 entity |
+| `/api/v1/entities/validate` | POST | `entities:read` | 验证 entity |
+| `/api/v1/entities/:id/preview` | GET | `entities:read` | 预览 entity UI |
 
 实现细节：
 ```go
-// GET /api/entities 扫描所有components目录
+// GET /api/v1/entities 扫描所有components目录
 for _, entry := range entries {  // 遍历components
     descriptorsDir := filepath.Join(componentsDir, entry.Name(), "descriptors")
     for _, file := range descriptorFiles {
@@ -335,25 +333,27 @@ for _, entry := range entries {  // 遍历components
     }
 }
 
-// POST /api/entities 保存到指定component
+// POST /api/v1/entities 保存到指定component
 componentDir := filepath.Join("components", component)
 descriptorsDir := filepath.Join(componentDir, "descriptors")
 entityFile := filepath.Join(descriptorsDir, id+".entity.json")
 os.WriteFile(entityFile, entityData, 0644)
 ```
 
-#### 📝 Descriptor API（第3034-3098行）
+#### 📝 Descriptor API（go-zero rest 示例）
+
+> 说明：当前服务已从 Gin 迁移到 go-zero（`rest` + `httpx`）。以下为示例写法与现有路由风格一致。
 
 ```go
-r.GET("/api/descriptors", func(c *gin.Context) {
-    // 返回合并后的descriptors（包括legacy和provider）
-    // detailed参数控制返回格式
-})
+// GET /api/v1/functions/descriptors
+server.AddRoutes([]rest.Route{
+	{Method: http.MethodGet, Path: "/descriptors", Handler: function.DescriptorsHandler(serverCtx)},
+}, rest.WithPrefix("/api/v1/functions"))
 
-r.GET("/api/providers/entities", func(c *gin.Context) {
-    // 从provider manifest中提取entities
-    // 用于UI渲染
-})
+// GET /api/v1/providers/:id/entities（id 可为 "*" 聚合全部）
+server.AddRoutes([]rest.Route{
+	{Method: http.MethodGet, Path: "/:id/entities", Handler: provider.ProvidersEntitiesHandler(serverCtx)},
+}, rest.WithPrefix("/api/v1/providers"))
 ```
 
 ---
@@ -650,80 +650,32 @@ components/
 ```
 Provider Process
     ↓
-POST /api/providers/capabilities {
-    provider: {id, version, lang, sdk},
-    manifest_json: <compressed manifest>
-}
+GET /api/v1/providers/capabilities
+    ↓
+POST /api/v1/providers/:id/reload（按需刷新）
     ↓
 Server Registry
     ├── 验证manifest JSON
     ├── 保存到registry
     ├── 合并provider functions到descriptors
-    └── 暴露 /api/descriptors
+    ├── 暴露 /api/v1/functions/descriptors
+    └── 暴露 /api/v1/providers/descriptors
 ```
 
-#### 实现代码（第3057-3076行）
+#### 实现说明（go-zero 现状）
 
-```go
-r.POST("/api/providers/capabilities", func(c *gin.Context) {
-    var in struct {
-        Provider struct{
-            ID      string `json:"id"`
-            Version string `json:"version"`
-            Lang    string `json:"lang"`
-            SDK     string `json:"sdk"`
-        } `json:"provider"`
-        Manifest json.RawMessage `json:"manifest_json"`
-    }
-    
-    // 验证manifest JSON
-    if err := validateManifestJSON(in.Manifest); err != nil {
-        // 返回验证错误
-    }
-    
-    // 保存到registry
-    s.reg.UpsertProviderCaps(registry.ProviderCaps{
-        ID: in.Provider.ID,
-        Version: in.Provider.Version,
-        Lang: in.Provider.Lang,
-        SDK: in.Provider.SDK,
-        Manifest: in.Manifest,
-    })
-    
-    // 合并provider functions
-    _ = s.addProviderFunctionsFromManifest(in.Manifest)
-})
-```
+- 当前对外能力以查询为主：`GET /api/v1/providers/capabilities` 返回 Registry 中已加载的 Provider 能力列表
+- Provider 刷新：`POST /api/v1/providers/:id/reload`（触发重新加载/重建 Registry）
 
 ### 6.2 Unified Descriptors 构建
 
-#### API 端点
+#### API 端点（go-zero 现状）
 
-```go
-r.GET("/api/descriptors", func(c *gin.Context) {
-    if detailed := c.Query("detailed"); detailed == "true" {
-        // 返回详细格式：合并legacy和provider descriptors
-        combined := map[string]interface{}{
-            "legacy_descriptors": s.descs,
-            "provider_manifests": s.reg.BuildUnifiedDescriptors(),
-        }
-        s.JSON(c, 200, combined)
-    } else {
-        // 返回legacy descriptors用于向后兼容
-        s.JSON(c, 200, s.descs)
-    }
-})
-
-r.GET("/api/providers/descriptors", func(c *gin.Context) {
-    // 返回所有provider的capabilities
-    caps := s.reg.ListProviderCaps()
-    // 构建返回结构
-})
-
-r.GET("/api/providers/entities", func(c *gin.Context) {
-    // 聚合所有provider的entities
-    // 用于UI渲染
-})
+```text
+GET /api/v1/functions/descriptors      # 函数描述符模板列表（用于 UI 选择/渲染）
+GET /api/v1/providers/capabilities     # Provider 能力列表
+GET /api/v1/providers/descriptors      # Provider manifest 聚合后的 descriptors
+GET /api/v1/providers/:id/entities     # Provider entities（id="*" 聚合全部）
 ```
 
 ### 6.3 Entity 与 Operation 的关系
@@ -799,8 +751,9 @@ Entity (player.entity)
 #### UI 自动生成流程
 
 ```typescript
-// 1. 从 /api/descriptors 获取entity和resource定义
-const resourceDef = await fetch('/api/descriptors?id=player.resource')
+// 1. 从 /api/v1/providers/descriptors 获取 entity/resource 定义（聚合后的 provider manifests）
+//    具体取值按 resourceId/entityId 在返回的 descriptors 中查找
+const descriptors = await fetch('/api/v1/providers/descriptors').then(r => r.json())
 
 // 2. 基于 Resource Definition 生成 ProTable
 <ResourceTable
@@ -848,17 +801,9 @@ provider.tgz (或目录)
 
 ### 8.3 Pack Import/Export API
 
-```go
-r.POST("/api/packs/import", func(c *gin.Context) {
-    // 上传pack文件
-    // 验证manifest
-    // 导入到系统
-})
-
-r.GET("/api/packs/export", func(c *gin.Context) {
-    // 导出pack
-    // 包含descriptors、schemas、configs
-})
+```text
+POST /api/v1/packs/import  # 导入 pack
+GET  /api/v1/packs/export  # 导出 pack（包含 descriptors/schemas/configs 等）
 ```
 
 ---
@@ -895,11 +840,11 @@ r.GET("/api/packs/export", func(c *gin.Context) {
    - schema.validate 函数
 
 ✅ **后端 API**
-- `/api/entities` - Entity CRUD
-- `/api/descriptors` - 获取全部descriptors
-- `/api/providers/capabilities` - Provider注册
-- `/api/providers/descriptors` - 获取provider descriptors
-- `/api/providers/entities` - 聚合provider entities
+- `/api/v1/entities` - Entity CRUD
+- `/api/v1/functions/descriptors` - 函数描述符模板列表
+- `/api/v1/providers/capabilities` - Provider 能力列表（来自 Registry）
+- `/api/v1/providers/descriptors` - Provider manifests 聚合 descriptors
+- `/api/v1/providers/:id/entities` - Provider entities（id="*" 聚合全部）
 
 ✅ **验证机制**
 - Entity Definition 验证 (internal/validation/entity.go)
@@ -1111,4 +1056,3 @@ Resource.operations.create → {
    - Entity Composition（组合实体）
    - Workflow Orchestration（工作流）
    - Dynamic Entity 生成
-
