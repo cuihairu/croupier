@@ -32,43 +32,72 @@ func NewProfilePermissionsLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 }
 
 func (l *ProfilePermissionsLogic) ProfilePermissions(req *types.ProfilePermissionsRequest) (resp *types.ProfilePermissionsResponse, err error) {
-	admin, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
+	_, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
 	if err != nil {
 		return nil, err
 	}
 
-	if l.svcCtx.ProfileModel == nil {
-		return nil, errors.New("ProfileModel 未初始化")
+	if l.svcCtx.PermissionModel == nil || l.svcCtx.RoleModel == nil {
+		return nil, errors.New("PermissionModel/RoleModel 未初始化")
 	}
 
-	perms, err := l.svcCtx.ProfileModel.ListPermissions(l.ctx, admin.ID)
+	permissionIDs, err := utils.PermissionIDsFromRoles(l.ctx, l.svcCtx, roles)
 	if err != nil {
 		return nil, fmt.Errorf("获取权限列表失败: %w", err)
 	}
 
 	gameID := strings.TrimSpace(req.GameId)
 	env := strings.TrimSpace(req.Env)
-	respPerms := make([]types.ProfilePermission, 0, len(perms))
-	for i := range perms {
-		record := perms[i]
-		if gameID != "" && !strings.EqualFold(record.GameID, gameID) {
+	_ = gameID
+	_ = env
+
+	// Build resource->actions view for convenience (derived from permission records).
+	byRes := make(map[string]map[string]struct{})
+	for _, pid := range permissionIDs {
+		perm, err := l.svcCtx.GetPermissionCached(l.ctx, pid)
+		if err != nil || perm == nil {
 			continue
 		}
-		if env != "" && !strings.EqualFold(record.Env, env) {
-			continue
+		res := strings.TrimSpace(perm.Resource)
+		act := strings.TrimSpace(perm.Action)
+		if res == "" {
+			res = "global"
+		}
+		if act == "" {
+			act = "*"
+		}
+		actSet := byRes[res]
+		if actSet == nil {
+			actSet = map[string]struct{}{}
+			byRes[res] = actSet
+		}
+		actSet[act] = struct{}{}
+	}
+
+	respPerms := make([]types.ProfilePermission, 0, len(byRes))
+	for res, acts := range byRes {
+		list := make([]string, 0, len(acts))
+		for a := range acts {
+			list = append(list, a)
 		}
 		respPerms = append(respPerms, types.ProfilePermission{
-			Resource: record.Resource,
-			Actions:  utils.DecodeStringSlice(record.Actions),
-			GameId:   record.GameID,
-			Env:      record.Env,
+			Resource: res,
+			Actions:  list,
 		})
 	}
 
 	roleNames := utils.RoleNamesFromModels(roles)
+	isAdmin := utils.HasAdminRole(roleNames)
+
+	// For UIs that still rely on "*" semantics.
+	if isAdmin && !utils.HasPermissionID(permissionIDs, "*") {
+		permissionIDs = append(permissionIDs, "*")
+	}
 	return &types.ProfilePermissionsResponse{
-		Permissions: respPerms,
-		Admin:       utils.HasAdminRole(roleNames),
-		Roles:       roleNames,
+		Permissions:   respPerms,
+		Admin:         isAdmin,
+		Roles:         roleNames,
+		PermissionIds: permissionIDs,
+		PermissionIDs: permissionIDs,
 	}, nil
 }

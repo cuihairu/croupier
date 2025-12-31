@@ -39,7 +39,11 @@ func (l *DescriptorsLogic) Descriptors(req *types.DescriptorsRequest) ([]map[str
 		return nil, err
 	}
 	roleNames := utils.RoleNamesFromModels(roles)
-	if !utils.HasAdminRole(roleNames) && !utils.HasRole(roleNames, "functions:read") && !utils.HasRole(roleNames, "functions:manage") {
+	permIDs, err := utils.PermissionIDsFromRoles(l.ctx, l.svcCtx, roles)
+	if err != nil {
+		return nil, err
+	}
+	if !utils.HasAdminRole(roleNames) && !utils.HasPermissionID(permIDs, "functions:read") && !utils.HasPermissionID(permIDs, "*") {
 		return nil, errorx.NewForbidden("无权访问函数目录")
 	}
 

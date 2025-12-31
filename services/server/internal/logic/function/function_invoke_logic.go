@@ -38,11 +38,15 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *types.FunctionInvokeRequest) (
 		return nil, err
 	}
 
-	admin, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
+	_, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
 	if err != nil {
 		return nil, err
 	}
 	roleNames := utils.RoleNamesFromModels(roles)
+	permIDs, err := utils.PermissionIDsFromRoles(l.ctx, l.svcCtx, roles)
+	if err != nil {
+		return nil, err
+	}
 
 	payloadObj := req.Payload
 	if payloadObj == nil {
@@ -86,7 +90,7 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *types.FunctionInvokeRequest) (
 	}
 
 	if mode == "job" || mode == "start_job" || mode == "async" {
-		if err := l.enforceInvokePermission(admin.ID, roleNames, functionID); err != nil {
+		if err := l.enforceInvokePermission(roleNames, permIDs, functionID); err != nil {
 			return nil, err
 		}
 		jobResp, err := l.svcCtx.Dispatcher.StartJobRequest(l.ctx, utils.BuildInvokeRequest(functionID, payload, metadata))
@@ -98,7 +102,7 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *types.FunctionInvokeRequest) (
 	}
 
 	// Default: synchronous invoke.
-	if err := l.enforceInvokePermission(admin.ID, roleNames, functionID); err != nil {
+	if err := l.enforceInvokePermission(roleNames, permIDs, functionID); err != nil {
 		return nil, err
 	}
 	resp, err := l.svcCtx.Dispatcher.InvokeRequest(l.ctx, utils.BuildInvokeRequest(functionID, payload, metadata))
@@ -117,7 +121,7 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *types.FunctionInvokeRequest) (
 	return out, nil
 }
 
-func (l *FunctionInvokeLogic) enforceInvokePermission(_ uint, roleNames []string, functionID string) error {
+func (l *FunctionInvokeLogic) enforceInvokePermission(roleNames []string, permIDs []string, functionID string) error {
 	if utils.HasAdminRole(roleNames) {
 		return nil
 	}
@@ -137,9 +141,9 @@ func (l *FunctionInvokeLogic) enforceInvokePermission(_ uint, roleNames []string
 		return errorx.NewForbidden("无权调用该函数")
 	}
 
-	// Default policy: only functions:manage can invoke when no per-function rule exists.
-	if utils.HasRole(roleNames, "functions:manage") {
+	// Default policy: function:invoke can invoke when no per-function rule exists.
+	if utils.HasPermissionID(permIDs, "*") || utils.HasPermissionID(permIDs, "function:invoke") {
 		return nil
 	}
-	return errorx.NewForbidden("无权调用该函数（需要 functions:manage 或配置函数权限）")
+	return errorx.NewForbidden("无权调用该函数（需要 function:invoke 或配置函数权限）")
 }

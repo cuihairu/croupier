@@ -2046,9 +2046,11 @@ type ProfilePermissionsRequest struct {
 }
 
 type ProfilePermissionsResponse struct {
-	Permissions []ProfilePermission `json:"permissions"`
-	Admin       bool                `json:"admin"`
-	Roles       []string            `json:"roles"`
+	Permissions   []ProfilePermission `json:"permissions"`
+	Admin         bool                `json:"admin"`
+	Roles         []string            `json:"roles"`
+	PermissionIds []string            `json:"permissionIds,omitempty"`
+	PermissionIDs []string            `json:"permission_ids,omitempty"`
 }
 
 type ProfileUpdateRequest struct {

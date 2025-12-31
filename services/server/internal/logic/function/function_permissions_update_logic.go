@@ -40,7 +40,11 @@ func (l *FunctionPermissionsUpdateLogic) FunctionPermissionsUpdate(req *types.Fu
 		return nil, err
 	}
 	roleNames := utils.RoleNamesFromModels(roles)
-	if !utils.HasAdminRole(roleNames) && !utils.HasRole(roleNames, "functions:manage") {
+	permIDs, err := utils.PermissionIDsFromRoles(l.ctx, l.svcCtx, roles)
+	if err != nil {
+		return nil, err
+	}
+	if !utils.HasAdminRole(roleNames) && !utils.HasPermissionID(permIDs, "permission:write") && !utils.HasPermissionID(permIDs, "roles:manage") && !utils.HasPermissionID(permIDs, "*") {
 		return nil, errorx.NewForbidden("无权更新函数权限")
 	}
 
