@@ -342,7 +342,7 @@ os.WriteFile(entityFile, entityData, 0644)
 
 #### 📝 Descriptor API（go-zero rest 示例）
 
-> 说明：当前服务已从 Gin 迁移到 go-zero（`rest` + `httpx`）。以下为示例写法与现有路由风格一致。
+> 说明：当前服务基于 go-zero（`rest` + `httpx`）。以下为示例写法与现有路由风格一致。
 
 ```go
 // GET /api/v1/functions/descriptors
