@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/cuihairu/croupier/internal/pack"
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -29,6 +30,10 @@ func NewComponentsListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Co
 }
 
 func (l *ComponentsListLogic) ComponentsList(req *types.ComponentsListRequest) (resp *types.ComponentsListResponse, err error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权查看组件列表", "admin:all", "components:read", "components:manage"); err != nil {
+		return nil, err
+	}
+
 	page := 1
 	if req != nil && req.Page > 0 {
 		page = req.Page

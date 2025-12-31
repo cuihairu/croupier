@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -30,6 +31,10 @@ func NewGameEnvUpdateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Gam
 }
 
 func (l *GameEnvUpdateLogic) GameEnvUpdate(req *types.GameEnvUpdateRequest) (*types.GameEnvUpdateResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权更新游戏环境", "admin:all", "games:manage"); err != nil {
+		return nil, err
+	}
+
 	id, err := parseGameID(req.ID)
 	if err != nil {
 		return nil, err

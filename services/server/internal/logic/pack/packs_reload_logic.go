@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -29,6 +30,10 @@ func NewPacksReloadLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Packs
 }
 
 func (l *PacksReloadLogic) PacksReload(_ *types.PacksReloadRequest) (*types.PacksReloadResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权重新加载功能包", "admin:all", "packs:reload"); err != nil {
+		return nil, err
+	}
+
 	packsDir := resolvePacksDir(l.svcCtx.Config)
 	_, err := loadPackSummaries(packsDir)
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -30,6 +31,10 @@ func NewGameCreateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GameCr
 }
 
 func (l *GameCreateLogic) GameCreate(req *types.GameCreateRequest) (*types.GameCreateResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权创建游戏", "admin:all", "games:manage"); err != nil {
+		return nil, err
+	}
+
 	name, err := sanitizeGameName(req.Name)
 	if err != nil {
 		return nil, err

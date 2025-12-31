@@ -34,6 +34,10 @@ func NewRegistryLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Registry
 }
 
 func (l *RegistryLogic) Registry(_ *types.RegistryRequest) (*types.RegistryResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权查看注册表", "admin:all", "registry:read", "registry:manage"); err != nil {
+		return nil, err
+	}
+
 	agents := make([]types.RegistryAgent, 0)
 	functionMap := make(map[string]*types.RegistryFunction)
 	coverage := make(map[string]*types.RegistryCoverage)

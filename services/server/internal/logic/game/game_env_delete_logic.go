@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -29,6 +30,10 @@ func NewGameEnvDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Gam
 }
 
 func (l *GameEnvDeleteLogic) GameEnvDelete(req *types.GameEnvDeleteRequest) (*types.GameEnvDeleteResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权删除游戏环境", "admin:all", "games:manage"); err != nil {
+		return nil, err
+	}
+
 	id, err := parseGameID(req.ID)
 	if err != nil {
 		return nil, err

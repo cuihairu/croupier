@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/pack"
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -32,6 +33,10 @@ func NewComponentsEnableLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *ComponentsEnableLogic) ComponentsEnable(req *types.ComponentActionRequest) (resp *types.ComponentsEnableResponse, err error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权启用组件", "admin:all", "components:manage"); err != nil {
+		return nil, err
+	}
+
 	if req == nil || strings.TrimSpace(req.ID) == "" {
 		return nil, errors.New("组件ID不能为空")
 	}

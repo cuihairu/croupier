@@ -6,6 +6,7 @@ package pack
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -28,6 +29,10 @@ func NewPacksExportLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Packs
 }
 
 func (l *PacksExportLogic) PacksExport(_ *types.PacksExportRequest) (*types.PacksExportResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权导出功能包", "admin:all", "packs:read", "packs:list", "packs:reload"); err != nil {
+		return nil, err
+	}
+
 	packsDir := resolvePacksDir(l.svcCtx.Config)
 	filename, data, err := buildPacksArchive(packsDir)
 	if err != nil {

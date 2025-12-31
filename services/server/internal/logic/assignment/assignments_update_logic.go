@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -31,6 +32,10 @@ func NewAssignmentsUpdateLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 }
 
 func (l *AssignmentsUpdateLogic) AssignmentsUpdate(req *types.AssignmentsUpdateRequest) (resp *types.AssignmentsUpdateResponse, err error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权更新分配", "admin:all", "assignments:write"); err != nil {
+		return nil, err
+	}
+
 	gameID := strings.TrimSpace(req.GameId)
 	if gameID == "" {
 		return nil, errors.New("game_id不能为空")

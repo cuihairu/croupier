@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -31,6 +32,10 @@ func NewGameEnvAddLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GameEn
 }
 
 func (l *GameEnvAddLogic) GameEnvAdd(req *types.GameEnvAddRequest) (*types.GameEnvAddResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权添加游戏环境", "admin:all", "games:manage"); err != nil {
+		return nil, err
+	}
+
 	id, err := parseGameID(req.ID)
 	if err != nil {
 		return nil, err

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -30,6 +31,10 @@ func NewAssignmentsListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *A
 }
 
 func (l *AssignmentsListLogic) AssignmentsList(req *types.AssignmentsListRequest) (resp *types.AssignmentsListResponse, err error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权查看分配列表", "admin:all", "assignments:read", "assignments:write"); err != nil {
+		return nil, err
+	}
+
 	path := assignmentsPath(l.svcCtx)
 	assignments, err := loadAssignments(path)
 	if err != nil {

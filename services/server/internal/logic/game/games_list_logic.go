@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -30,6 +31,10 @@ func NewGamesListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GamesLi
 }
 
 func (l *GamesListLogic) GamesList(req *types.GamesListRequest) (*types.GamesListResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权查看游戏列表", "admin:all", "games:read", "games:manage"); err != nil {
+		return nil, err
+	}
+
 	opts := model.ListGamesOptions{
 		Page:     req.Page,
 		PageSize: req.PageSize,

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -31,6 +32,10 @@ func NewPacksListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PacksLi
 }
 
 func (l *PacksListLogic) PacksList(_ *types.PacksListRequest) (*types.PacksListResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权查看功能包列表", "admin:all", "packs:list", "packs:read", "packs:reload"); err != nil {
+		return nil, err
+	}
+
 	packsDir := resolvePacksDir(l.svcCtx.Config)
 	summaries, err := loadPackSummaries(packsDir)
 	if err != nil {

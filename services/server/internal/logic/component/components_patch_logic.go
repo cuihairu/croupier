@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/pack"
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -33,6 +34,10 @@ func NewComponentsPatchLogic(ctx context.Context, svcCtx *svc.ServiceContext) *C
 }
 
 func (l *ComponentsPatchLogic) ComponentsPatch(req *types.ComponentPatchRequest) (resp *types.ComponentsPatchResponse, err error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权更新组件配置", "admin:all", "components:manage"); err != nil {
+		return nil, err
+	}
+
 	if req == nil || strings.TrimSpace(req.ID) == "" {
 		return nil, errors.New("组件ID不能为空")
 	}
