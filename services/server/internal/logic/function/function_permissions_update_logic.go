@@ -6,6 +6,7 @@ package function
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -34,6 +35,18 @@ func (l *FunctionPermissionsUpdateLogic) FunctionPermissionsUpdate(req *types.Fu
 		return nil, err
 	}
 
+	_, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
+	if err != nil {
+		return nil, err
+	}
+	roleNames := utils.RoleNamesFromModels(roles)
+	if !utils.HasAdminRole(roleNames) && !utils.HasRole(roleNames, "functions:manage") {
+		return nil, errorx.NewForbidden("无权更新函数权限")
+	}
+
+	if l.svcCtx.FunctionModel == nil {
+		return nil, errorx.NewInternalError("FunctionModel 未初始化")
+	}
 	records, err := utils.ConvertFunctionPermissions(functionID, req.Permissions)
 	if err != nil {
 		return nil, err

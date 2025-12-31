@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -36,6 +37,12 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *types.FunctionInvokeRequest) (
 	if err != nil {
 		return nil, err
 	}
+
+	admin, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
+	if err != nil {
+		return nil, err
+	}
+	roleNames := utils.RoleNamesFromModels(roles)
 
 	payloadObj := req.Payload
 	if payloadObj == nil {
@@ -79,6 +86,9 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *types.FunctionInvokeRequest) (
 	}
 
 	if mode == "job" || mode == "start_job" || mode == "async" {
+		if err := l.enforceInvokePermission(admin.ID, roleNames, functionID); err != nil {
+			return nil, err
+		}
 		jobResp, err := l.svcCtx.Dispatcher.StartJobRequest(l.ctx, utils.BuildInvokeRequest(functionID, payload, metadata))
 		if err != nil {
 			return nil, err
@@ -88,6 +98,9 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *types.FunctionInvokeRequest) (
 	}
 
 	// Default: synchronous invoke.
+	if err := l.enforceInvokePermission(admin.ID, roleNames, functionID); err != nil {
+		return nil, err
+	}
 	resp, err := l.svcCtx.Dispatcher.InvokeRequest(l.ctx, utils.BuildInvokeRequest(functionID, payload, metadata))
 	if err != nil {
 		return nil, err
@@ -102,4 +115,31 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *types.FunctionInvokeRequest) (
 		}
 	}
 	return out, nil
+}
+
+func (l *FunctionInvokeLogic) enforceInvokePermission(_ uint, roleNames []string, functionID string) error {
+	if utils.HasAdminRole(roleNames) {
+		return nil
+	}
+
+	// Prefer per-function permissions if configured.
+	if l.svcCtx.FunctionModel == nil {
+		return errorx.NewForbidden("无权调用该函数（函数权限模型未初始化）")
+	}
+	perms, err := l.svcCtx.FunctionModel.ListPermissions(l.ctx, functionID)
+	if err != nil {
+		return err
+	}
+	if allowed, hasRule := utils.FunctionActionAllowed(roleNames, perms, "invoke"); hasRule {
+		if allowed {
+			return nil
+		}
+		return errorx.NewForbidden("无权调用该函数")
+	}
+
+	// Default policy: only functions:manage can invoke when no per-function rule exists.
+	if utils.HasRole(roleNames, "functions:manage") {
+		return nil
+	}
+	return errorx.NewForbidden("无权调用该函数（需要 functions:manage 或配置函数权限）")
 }

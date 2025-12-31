@@ -57,3 +57,17 @@ func RoleNamesFromModels(roles []model.Role) []string {
 	}
 	return names
 }
+
+// HasRole reports whether roleNames includes the given role (case-insensitive).
+func HasRole(roleNames []string, role string) bool {
+	want := strings.ToLower(strings.TrimSpace(role))
+	if want == "" {
+		return false
+	}
+	for _, r := range roleNames {
+		if strings.ToLower(strings.TrimSpace(r)) == want {
+			return true
+		}
+	}
+	return false
+}

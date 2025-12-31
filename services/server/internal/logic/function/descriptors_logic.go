@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -31,6 +33,15 @@ func NewDescriptorsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Descr
 
 func (l *DescriptorsLogic) Descriptors(req *types.DescriptorsRequest) ([]map[string]interface{}, error) {
 	category := strings.TrimSpace(req.Type)
+
+	_, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
+	if err != nil {
+		return nil, err
+	}
+	roleNames := utils.RoleNamesFromModels(roles)
+	if !utils.HasAdminRole(roleNames) && !utils.HasRole(roleNames, "functions:read") && !utils.HasRole(roleNames, "functions:manage") {
+		return nil, errorx.NewForbidden("无权访问函数目录")
+	}
 
 	// 1) DB descriptor templates (may include params schema)
 	templates, err := l.svcCtx.FunctionModel.ListDescriptorTemplates(l.ctx, category)
