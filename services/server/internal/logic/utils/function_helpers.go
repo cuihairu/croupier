@@ -58,6 +58,8 @@ func BuildFunctionPermissions(perms []model.FunctionPermission) []types.Function
 			Resource: perm.Resource,
 			Actions:  DecodeStringSlice(perm.Actions),
 			Roles:    DecodeStringSlice(perm.Roles),
+			GameId:   strings.TrimSpace(perm.GameID),
+			Env:      strings.TrimSpace(perm.Env),
 		})
 	}
 	return items
@@ -81,8 +83,14 @@ func ConvertFunctionPermissions(functionID string, perms []types.FunctionPermiss
 		if strings.TrimSpace(perm.Resource) == "" {
 			return nil, fmt.Errorf("权限资源名称不能为空")
 		}
+		gameID := strings.TrimSpace(perm.GameId)
+		if gameID == "" {
+			gameID = strings.TrimSpace(perm.GameID)
+		}
 		result = append(result, model.FunctionPermission{
 			FunctionID: functionID,
+			GameID:     gameID,
+			Env:        strings.TrimSpace(perm.Env),
 			Resource:   strings.TrimSpace(perm.Resource),
 			Actions:    EncodeStringSlice(perm.Actions),
 			Roles:      EncodeStringSlice(perm.Roles),

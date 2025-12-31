@@ -78,6 +78,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: admin.AdminUpdateHandler(serverCtx),
 			},
 			{
+				// 获取管理员游戏范围
+				Method:  http.MethodGet,
+				Path:    "/:id/games",
+				Handler: admin.AdminGamesHandler(serverCtx),
+			},
+			{
+				// 更新管理员游戏范围
+				Method:  http.MethodPut,
+				Path:    "/:id/games",
+				Handler: admin.AdminGamesUpdateHandler(serverCtx),
+			},
+			{
 				// 删除管理员
 				Method:  http.MethodDelete,
 				Path:    "/:id",

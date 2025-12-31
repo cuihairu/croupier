@@ -912,6 +912,9 @@ type FunctionInstancesResponse struct {
 type FunctionInvokeRequest struct {
 	ID              string      `path:"id"`
 	Mode            string      `form:"mode,optional"`
+	GameId          string      `json:"gameId,optional"`
+	GameID          string      `json:"game_id,optional"`
+	Env             string      `json:"env,optional"`
 	Route           string      `json:"route,optional"`
 	Payload         interface{} `json:"payload,optional"`
 	TargetServiceId string      `json:"target_service_id,optional"`
@@ -930,6 +933,9 @@ type FunctionPermission struct {
 	Resource string   `json:"resource"`
 	Actions  []string `json:"actions"`
 	Roles    []string `json:"roles"`
+	GameId   string   `json:"gameId,omitempty"`
+	GameID   string   `json:"game_id,omitempty"`
+	Env      string   `json:"env,omitempty"`
 }
 
 type FunctionPermissionsRequest struct {

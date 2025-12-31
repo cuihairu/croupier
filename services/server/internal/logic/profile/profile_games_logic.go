@@ -41,18 +41,24 @@ func (l *ProfileGamesLogic) ProfileGames(req *types.ProfileGamesRequest) (resp *
 	roleNames := utils.RoleNamesFromModels(roles)
 	isAdmin := utils.HasAdminRole(roleNames)
 
-	var scopedRecords []model.ProfileGame
-	if l.svcCtx.ProfileModel == nil {
-		return nil, errors.New("ProfileModel 未初始化")
-	}
-
-	scopedRecords, err = l.svcCtx.ProfileModel.ListGames(l.ctx, admin.ID)
-	if err != nil {
-		return nil, fmt.Errorf("获取游戏列表失败: %w", err)
-	}
-
 	catalog := l.loadGameCatalog()
-	respGames := enrichProfileGames(scopedRecords, catalog)
+
+	respGames := []types.ProfileGame(nil)
+	if l.svcCtx.ProfileModel != nil {
+		scopedRecords, err := l.svcCtx.ProfileModel.ListGames(l.ctx, admin.ID)
+		if err != nil {
+			return nil, fmt.Errorf("获取游戏列表失败: %w", err)
+		}
+		respGames = enrichProfileGames(scopedRecords, catalog)
+	}
+
+	// Fallback: derive from admin_game_scopes tables.
+	if len(respGames) == 0 && !isAdmin {
+		respGames, err = l.deriveGamesFromScopes(admin.ID, catalog)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	if len(respGames) == 0 && isAdmin {
 		respGames = buildGamesFromCatalog(catalog)
@@ -61,6 +67,115 @@ func (l *ProfileGamesLogic) ProfileGames(req *types.ProfileGamesRequest) (resp *
 	return &types.ProfileGamesResponse{
 		Games: respGames,
 	}, nil
+}
+
+func (l *ProfileGamesLogic) deriveGamesFromScopes(adminID uint, catalog []model.Game) ([]types.ProfileGame, error) {
+	if l.svcCtx == nil || l.svcCtx.DB == nil || l.svcCtx.GameModel == nil {
+		return nil, errors.New("DB/GameModel 未初始化")
+	}
+
+	lookup := buildGameLookup(catalog)
+	type envRow struct {
+		GameID   uint
+		GameName string
+		Alias    string
+		Env      string
+	}
+	var rows []envRow
+	if err := l.svcCtx.DB.WithContext(l.ctx).
+		Table("admin_game_env_scopes").
+		Select("admin_game_env_scopes.game_id as game_id, games.name as game_name, games.alias_name as alias, admin_game_env_scopes.env as env").
+		Joins("INNER JOIN games ON games.id = admin_game_env_scopes.game_id").
+		Where("admin_game_env_scopes.admin_id = ?", adminID).
+		Find(&rows).Error; err != nil {
+		return nil, fmt.Errorf("获取游戏范围失败: %w", err)
+	}
+
+	envsByName := make(map[string][]string)
+	nameByName := make(map[string]string)
+	for _, r := range rows {
+		gameID := strings.TrimSpace(r.GameName)
+		if gameID == "" {
+			continue
+		}
+		env := strings.TrimSpace(r.Env)
+		if env != "" {
+			envsByName[gameID] = append(envsByName[gameID], env)
+		}
+		display := strings.TrimSpace(r.Alias)
+		if display == "" {
+			display = gameID
+		}
+		nameByName[gameID] = display
+	}
+
+	// Include game-only scopes (all envs).
+	var gameScopes []model.AdminGameScope
+	if err := l.svcCtx.DB.WithContext(l.ctx).Where("admin_id = ?", adminID).Find(&gameScopes).Error; err != nil {
+		return nil, fmt.Errorf("获取游戏范围失败: %w", err)
+	}
+	for _, scope := range gameScopes {
+		game, err := l.svcCtx.GameModel.FindOne(l.ctx, scope.GameID)
+		if err != nil || game == nil {
+			continue
+		}
+		if _, ok := envsByName[game.Name]; ok {
+			continue
+		}
+		envsByName[game.Name] = []string{}
+		if _, ok := nameByName[game.Name]; !ok {
+			nameByName[game.Name] = strings.TrimSpace(game.AliasName)
+		}
+	}
+
+	if len(envsByName) == 0 {
+		return nil, nil
+	}
+
+	resp := make([]types.ProfileGame, 0, len(envsByName))
+	for gameID, envs := range envsByName {
+		display := strings.TrimSpace(nameByName[gameID])
+		if display == "" {
+			display = gameID
+		}
+		// If envs are not specified, fall back to all envs in catalog metadata when possible.
+		if len(envs) == 0 {
+			if game, ok := lookup[strings.ToLower(gameID)]; ok {
+				meta, names := buildEnvMeta(game, nil)
+				envs = names
+				resp = append(resp, types.ProfileGame{
+					GameId:      gameID,
+					GameName:    display,
+					Color:       game.Color,
+					Envs:        envs,
+					EnvMeta:     meta,
+					Permissions: []string{},
+				})
+				continue
+			}
+		}
+
+		if game, ok := lookup[strings.ToLower(gameID)]; ok {
+			meta, names := buildEnvMeta(game, envs)
+			resp = append(resp, types.ProfileGame{
+				GameId:      gameID,
+				GameName:    display,
+				Color:       game.Color,
+				Envs:        names,
+				EnvMeta:     meta,
+				Permissions: []string{},
+			})
+		} else {
+			resp = append(resp, types.ProfileGame{
+				GameId:      gameID,
+				GameName:    display,
+				Envs:        envs,
+				EnvMeta:     buildFallbackEnvMeta(envs),
+				Permissions: []string{},
+			})
+		}
+	}
+	return resp, nil
 }
 
 func (l *ProfileGamesLogic) loadGameCatalog() []model.Game {

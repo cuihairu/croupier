@@ -59,6 +59,8 @@ type FunctionInstance struct {
 type FunctionPermission struct {
 	gorm.Model
 	FunctionID string         `gorm:"size:64;index"`
+	GameID     string         `gorm:"size:64;index"`
+	Env        string         `gorm:"size:64;index"`
 	Resource   string         `gorm:"size:64"`
 	Actions    datatypes.JSON `gorm:"type:json"`
 	Roles      datatypes.JSON `gorm:"type:json"`

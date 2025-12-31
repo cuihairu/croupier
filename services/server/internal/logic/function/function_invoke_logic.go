@@ -38,7 +38,7 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *types.FunctionInvokeRequest) (
 		return nil, err
 	}
 
-	_, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
+	admin, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -47,6 +47,12 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *types.FunctionInvokeRequest) (
 	if err != nil {
 		return nil, err
 	}
+
+	gameID := strings.TrimSpace(req.GameId)
+	if gameID == "" {
+		gameID = strings.TrimSpace(req.GameID)
+	}
+	env := strings.TrimSpace(req.Env)
 
 	payloadObj := req.Payload
 	if payloadObj == nil {
@@ -68,6 +74,12 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *types.FunctionInvokeRequest) (
 	}
 
 	metadata := map[string]string{}
+	if gameID != "" {
+		metadata["game_id"] = gameID
+	}
+	if env != "" {
+		metadata["env"] = env
+	}
 	switch route {
 	case "lb":
 		// no-op
@@ -90,7 +102,10 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *types.FunctionInvokeRequest) (
 	}
 
 	if mode == "job" || mode == "start_job" || mode == "async" {
-		if err := l.enforceInvokePermission(roleNames, permIDs, functionID); err != nil {
+		if err := utils.RequireGameEnvScope(l.ctx, l.svcCtx, admin.ID, roleNames, gameID, env); err != nil {
+			return nil, err
+		}
+		if err := l.enforceInvokePermission(roleNames, permIDs, functionID, gameID, env); err != nil {
 			return nil, err
 		}
 		jobResp, err := l.svcCtx.Dispatcher.StartJobRequest(l.ctx, utils.BuildInvokeRequest(functionID, payload, metadata))
@@ -102,7 +117,10 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *types.FunctionInvokeRequest) (
 	}
 
 	// Default: synchronous invoke.
-	if err := l.enforceInvokePermission(roleNames, permIDs, functionID); err != nil {
+	if err := utils.RequireGameEnvScope(l.ctx, l.svcCtx, admin.ID, roleNames, gameID, env); err != nil {
+		return nil, err
+	}
+	if err := l.enforceInvokePermission(roleNames, permIDs, functionID, gameID, env); err != nil {
 		return nil, err
 	}
 	resp, err := l.svcCtx.Dispatcher.InvokeRequest(l.ctx, utils.BuildInvokeRequest(functionID, payload, metadata))
@@ -121,7 +139,7 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *types.FunctionInvokeRequest) (
 	return out, nil
 }
 
-func (l *FunctionInvokeLogic) enforceInvokePermission(roleNames []string, permIDs []string, functionID string) error {
+func (l *FunctionInvokeLogic) enforceInvokePermission(roleNames []string, permIDs []string, functionID string, gameID string, env string) error {
 	if utils.HasAdminRole(roleNames) {
 		return nil
 	}
@@ -134,7 +152,7 @@ func (l *FunctionInvokeLogic) enforceInvokePermission(roleNames []string, permID
 	if err != nil {
 		return err
 	}
-	if allowed, hasRule := utils.FunctionActionAllowed(roleNames, perms, "invoke"); hasRule {
+	if allowed, hasRule := utils.FunctionActionAllowed(roleNames, perms, "invoke", gameID, env); hasRule {
 		if allowed {
 			return nil
 		}
