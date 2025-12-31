@@ -34,6 +34,10 @@ func NewAdminCreateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Admin
 }
 
 func (l *AdminCreateLogic) AdminCreate(req *types.AdminCreateRequest) (*types.AdminCreateResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权创建管理员", "admin:all", "user:write"); err != nil {
+		return nil, err
+	}
+
 	username := strings.TrimSpace(req.Username)
 	if username == "" {
 		return nil, errors.New("用户名不能为空")

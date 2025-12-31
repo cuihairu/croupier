@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -29,6 +30,10 @@ func NewAdminDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Admin
 }
 
 func (l *AdminDetailLogic) AdminDetail(req *types.AdminDetailRequest) (*types.AdminDetailResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权查看管理员", "admin:all", "user:read", "user:write"); err != nil {
+		return nil, err
+	}
+
 	adminID, err := parseAdminID(req.ID)
 	if err != nil {
 		return nil, err

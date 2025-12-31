@@ -31,6 +31,10 @@ func NewPermissionsListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *P
 }
 
 func (l *PermissionsListLogic) PermissionsList(req *types.PermissionsListRequest) (*types.PermissionsListResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权查看权限列表", "admin:all", "permission:read", "permission:write"); err != nil {
+		return nil, err
+	}
+
 	opts := model.ListPermissionsOptions{
 		Page:     req.Page,
 		PageSize: req.PageSize,

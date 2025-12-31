@@ -31,6 +31,10 @@ func NewRolesListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *RolesLi
 }
 
 func (l *RolesListLogic) RolesList(req *types.RolesListRequest) (*types.RolesListResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权查看角色列表", "admin:all", "roles:read", "role:read", "roles:manage", "role:write"); err != nil {
+		return nil, err
+	}
+
 	opts := model.ListRolesOptions{
 		Page:     req.Page,
 		PageSize: req.PageSize,

@@ -29,6 +29,10 @@ func NewRoleDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *RoleDe
 }
 
 func (l *RoleDetailLogic) RoleDetail(req *types.RoleDetailRequest) (*types.RoleDetailResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权查看角色", "admin:all", "roles:read", "role:read", "roles:manage", "role:write"); err != nil {
+		return nil, err
+	}
+
 	roleID, err := utils.ParseRoleID(req.ID)
 	if err != nil {
 		return nil, err

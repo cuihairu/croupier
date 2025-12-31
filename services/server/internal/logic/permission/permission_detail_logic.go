@@ -29,6 +29,10 @@ func NewPermissionDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *PermissionDetailLogic) PermissionDetail(req *types.PermissionDetailRequest) (*types.PermissionDetailResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权查看权限详情", "admin:all", "permission:read", "permission:write"); err != nil {
+		return nil, err
+	}
+
 	id, err := utils.ValidatePermissionID(req.ID)
 	if err != nil {
 		return nil, err

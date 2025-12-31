@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -32,6 +33,10 @@ func NewAdminUpdateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Admin
 }
 
 func (l *AdminUpdateLogic) AdminUpdate(req *types.AdminUpdateRequest) (*types.AdminUpdateResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权更新管理员", "admin:all", "user:write"); err != nil {
+		return nil, err
+	}
+
 	adminID, err := parseAdminID(req.ID)
 	if err != nil {
 		return nil, err

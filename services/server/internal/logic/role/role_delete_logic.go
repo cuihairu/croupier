@@ -32,6 +32,10 @@ func NewRoleDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *RoleDe
 }
 
 func (l *RoleDeleteLogic) RoleDelete(req *types.RoleDeleteRequest) error {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权删除角色", "admin:all", "roles:manage", "role:write"); err != nil {
+		return err
+	}
+
 	roleID, err := utils.ParseRoleID(req.ID)
 	if err != nil {
 		return err

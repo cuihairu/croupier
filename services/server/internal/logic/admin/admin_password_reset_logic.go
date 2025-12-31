@@ -29,6 +29,10 @@ func NewAdminPasswordResetLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 }
 
 func (l *AdminPasswordResetLogic) AdminPasswordReset(req *types.AdminPasswordResetRequest) error {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权重置管理员密码", "admin:all", "user:write"); err != nil {
+		return err
+	}
+
 	adminID, err := parseAdminID(req.ID)
 	if err != nil {
 		return err

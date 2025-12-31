@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -31,6 +32,10 @@ func NewAdminsListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Admins
 }
 
 func (l *AdminsListLogic) AdminsList(req *types.AdminsListRequest) (*types.AdminsListResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权查看管理员列表", "admin:all", "user:read", "user:write"); err != nil {
+		return nil, err
+	}
+
 	opts := model.ListAdminsOptions{
 		Page:     req.Page,
 		PageSize: req.PageSize,

@@ -32,6 +32,10 @@ func NewRoleUpdateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *RoleUp
 }
 
 func (l *RoleUpdateLogic) RoleUpdate(req *types.RoleUpdateRequest) (*types.RoleUpdateResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权更新角色", "admin:all", "roles:manage", "role:write"); err != nil {
+		return nil, err
+	}
+
 	roleID, err := utils.ParseRoleID(req.ID)
 	if err != nil {
 		return nil, err

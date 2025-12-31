@@ -33,6 +33,10 @@ func NewRoleCreateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *RoleCr
 }
 
 func (l *RoleCreateLogic) RoleCreate(req *types.RoleCreateRequest) (*types.RoleCreateResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权创建角色", "admin:all", "roles:manage", "role:write"); err != nil {
+		return nil, err
+	}
+
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return nil, errors.New("角色名称不能为空")
