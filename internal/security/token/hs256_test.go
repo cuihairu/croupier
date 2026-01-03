@@ -190,31 +190,31 @@ func TestManager_RoundTrip(t *testing.T) {
 	manager := NewManager("test-secret")
 
 	tests := []struct {
-		name    string
+		name     string
 		username string
 		roles    []string
-		ttl     time.Duration
+		ttl      time.Duration
 	}{
 		{
-			name:    "基本用户",
+			name:     "基本用户",
 			username: "alice",
 			roles:    []string{"user"},
 			ttl:      1 * time.Hour,
 		},
 		{
-			name:    "管理员",
+			name:     "管理员",
 			username: "admin",
 			roles:    []string{"admin", "user", "moderator"},
 			ttl:      24 * time.Hour,
 		},
 		{
-			name:    "无角色",
+			name:     "无角色",
 			username: "guest",
 			roles:    []string{},
 			ttl:      30 * time.Minute,
 		},
 		{
-			name:    "短 TTL",
+			name:     "短 TTL",
 			username: "temp",
 			roles:    []string{"temp"},
 			ttl:      1 * time.Minute,
@@ -284,7 +284,7 @@ func TestManager_Sign_DifferentTTLs(t *testing.T) {
 // TestB64EncDec 测试 Base64 编码解码
 func TestB64EncDec(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		input string
 	}{
 		{"空字符串", ""},

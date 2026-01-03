@@ -264,9 +264,9 @@ func TestOpen_MultipleEmptyDSN(t *testing.T) {
 // TestOpen_SQLitePrefixConversion 测试 SQLite 前缀转换
 func TestOpen_SQLitePrefixConversion(t *testing.T) {
 	tests := []struct {
-		name        string
-		input       string
-		shouldWork  bool
+		name       string
+		input      string
+		shouldWork bool
 	}{
 		{
 			name:       "sqlite:/// 转换",

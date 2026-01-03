@@ -8,26 +8,26 @@
 | 分类 | 未完成 | 已完成 | 完成率 |
 | --- | ---: | ---: | ---: |
 | P0 | 0 | 15 | 100.0% |
-| P1 | 11 | 26 | 70.3% |
+| P1 | 10 | 27 | 73.0% |
 | P2 | 18 | 0 | 0.0% |
 | P3 | 12 | 0 | 0.0% |
 | P3b | 6 | 0 | 0.0% |
-| P4 | 200 | 27 | 11.9% |
-| 总计 | 247 | 68 | 21.6% |
+| P4 | 179 | 48 | 21.1% |
+| 总计 | 225 | 90 | 28.6% |
 
 | 范围 | 未完成 |
 | --- | ---: |
-| Docs | 136 |
-| Dashboard | 23 |
+| Docs | 138 |
+| Dashboard | 22 |
 | SDKs | 27 |
 | Internal | 9 |
 | SpecWorkflow | 18 |
-| Services | 8 |
+| Services | 6 |
 | Tools | 0 |
-| Docker | 6 |
-| Other | 14 |
+| Docker | 0 |
+| Other | 1 |
 | Cmd | 1 |
-| Configs | 2 |
+| Configs | 0 |
 | Scripts | 2 |
 | Proto | 1 |
 <!-- progress-summary:end -->
@@ -117,7 +117,7 @@
 - [x] Provider Manifest：补齐“合并为统一 descriptors 并暴露”的验收用例/测试（provider/descriptor 聚合、覆盖优先级、冲突处理）`internal/platform/control/server.go:112`
 - [x] Proto-First 生成：完善 `protoc-gen-croupier` 对自定义 options 的映射（auth/semantics/ui/labels 等），并补齐文档/示例 proto `tools/protoc-gen-croupier/main.go:72`
 - [x] Proto-First 生成：支持 `emit_manifest=true` 开关，并生成 `schema/*.json`（JSON Schema）与可选 `.desc`（FDS），与 Provider Manifest 设计对齐 `docs/providers-manifest.md:99`
-- [ ] Entity 管理界面：增强 Schema 编辑体验（完整 JSON Schema 编辑器、UI 配置工具等）`dashboard/src/pages/Entities/index.tsx:140`
+- [x] Entity 管理界面：增强 Schema 编辑体验（完整 JSON Schema 编辑器、UI 配置工具等）`dashboard/src/pages/Entities/index.tsx:140`
 - [ ] 函数管理 UX：补齐搜索/分类/批量操作/版本管理等（文档列出的缺口）`docs/FUNCTION_MANAGEMENT_ARCHITECTURE_ANALYSIS.md:57`
 - [ ] 函数管理：落地“统一函数管理菜单 + 5 个专注页面 + 重定向兼容”（阶段 1 交付物）`docs/FUNCTION_MANAGEMENT_EXECUTIVE_SUMMARY.md:246`
 - [ ] 函数管理：新增/补齐调用历史（数据模型 + API + UI 展示 + rerun）`docs/FUNCTION_MANAGEMENT_EXECUTIVE_SUMMARY.md:246`

@@ -206,7 +206,7 @@ func TestFormatTime_EdgeCases(t *testing.T) {
 		check func(t *testing.T, result string)
 	}{
 		{
-			name: "大时间值（9999年）",
+			name:  "大时间值（9999年）",
 			input: time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
 			check: func(t *testing.T, result string) {
 				if result == "" {
@@ -215,7 +215,7 @@ func TestFormatTime_EdgeCases(t *testing.T) {
 			},
 		},
 		{
-			name: "最小时间",
+			name:  "最小时间",
 			input: time.Unix(-62135596801, 0), // 0001-01-01 00:00:00 UTC
 			check: func(t *testing.T, result string) {
 				if result == "" {
@@ -224,7 +224,7 @@ func TestFormatTime_EdgeCases(t *testing.T) {
 			},
 		},
 		{
-			name: "毫秒精度",
+			name:  "毫秒精度",
 			input: time.Date(2024, 1, 15, 12, 30, 45, 123456789, time.UTC),
 			check: func(t *testing.T, result string) {
 				// RFC3339 格式应该包含纳秒或毫秒
@@ -310,10 +310,10 @@ func TestFormatTime_Nanoseconds(t *testing.T) {
 	}{
 		{0},
 		{1},
-		{1000},        // 1 微秒
-		{1000000},     // 1 毫秒
-		{123456789},   // 123.456789 毫秒
-		{999999999},   // 最大纳秒
+		{1000},      // 1 微秒
+		{1000000},   // 1 毫秒
+		{123456789}, // 123.456789 毫秒
+		{999999999}, // 最大纳秒
 	}
 
 	for _, tc := range testCases {

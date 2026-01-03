@@ -155,7 +155,7 @@ func TestNullCache_DifferentTTL(t *testing.T) {
 		time.Minute,
 		time.Hour,
 		24 * time.Hour,
-		0, // 无过期时间
+		0,                // 无过期时间
 		-1 * time.Second, // 负数
 	}
 

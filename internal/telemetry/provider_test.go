@@ -130,7 +130,7 @@ func TestParseFloatOrDefault(t *testing.T) {
 		{"1.0", "1.0", 1.0},
 		{"0.1", "0.1", 0.1},
 		{"无效值", "invalid", 1.0}, // 默认值
-		{"空字符串", "", 1.0},      // 默认值
+		{"空字符串", "", 1.0},       // 默认值
 	}
 
 	for _, tt := range tests {

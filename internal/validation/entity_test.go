@@ -20,7 +20,7 @@ func TestValidateEntityDefinition(t *testing.T) {
 				"type":   "entity",
 				"schema": map[string]any{"type": "object", "properties": map[string]any{}},
 			},
-			wantErr:  false,
+			wantErr: false,
 		},
 		{
 			name:     "缺少 id",
@@ -138,9 +138,9 @@ func TestValidateSchemaProperties(t *testing.T) {
 		errCount int
 	}{
 		{
-			name:     "空属性",
-			props:    map[string]any{},
-			wantErr:  false,
+			name:    "空属性",
+			props:   map[string]any{},
+			wantErr: false,
 		},
 		{
 			name: "有效的字符串属性",
@@ -218,9 +218,9 @@ func TestValidateSchemaProperties(t *testing.T) {
 			name: "有效的字符串约束",
 			props: map[string]any{
 				"name": map[string]any{
-					"type":       "string",
-					"minLength":  float64(1),
-					"maxLength":  float64(100),
+					"type":      "string",
+					"minLength": float64(1),
+					"maxLength": float64(100),
 				},
 			},
 			wantErr: false,
@@ -229,8 +229,8 @@ func TestValidateSchemaProperties(t *testing.T) {
 			name: "负的 minLength",
 			props: map[string]any{
 				"name": map[string]any{
-					"type":       "string",
-					"minLength":  float64(-1),
+					"type":      "string",
+					"minLength": float64(-1),
 				},
 			},
 			wantErr:  true,
@@ -271,9 +271,9 @@ func TestValidateOperations(t *testing.T) {
 		errCount int
 	}{
 		{
-			name:     "空操作",
-			ops:      map[string]any{},
-			wantErr:  false,
+			name:    "空操作",
+			ops:     map[string]any{},
+			wantErr: false,
 		},
 		{
 			name: "有效的单个操作",
@@ -359,10 +359,10 @@ func TestValidateUIConfig(t *testing.T) {
 		{
 			name: "有效的多个 UI 字段",
 			ui: map[string]any{
-				"display_field":   "name",
-				"title_template":  "{name}",
-				"icon_field":      "icon",
-				"status_field":    "status",
+				"display_field":  "name",
+				"title_template": "{name}",
+				"icon_field":     "icon",
+				"status_field":   "status",
 			},
 			wantErr: false,
 		},
@@ -393,15 +393,15 @@ func TestValidateUIConfig(t *testing.T) {
 // TestValidateEntityDefinition_Complex 测试复杂实体定义
 func TestValidateEntityDefinition_Complex(t *testing.T) {
 	entity := map[string]any{
-		"id":     "user",
-		"type":   "entity",
+		"id":   "user",
+		"type": "entity",
 		"schema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"name": map[string]any{
-					"type":       "string",
-					"minLength":  float64(1),
-					"maxLength":  float64(100),
+					"type":      "string",
+					"minLength": float64(1),
+					"maxLength": float64(100),
 				},
 				"age": map[string]any{
 					"type":    "integer",
@@ -599,8 +599,8 @@ func BenchmarkValidateJSON(b *testing.B) {
 // BenchmarkValidateEntityDefinition 性能基准测试
 func BenchmarkValidateEntityDefinition(b *testing.B) {
 	entity := map[string]any{
-		"id":     "test",
-		"type":   "entity",
+		"id":   "test",
+		"type": "entity",
 		"schema": map[string]any{
 			"type":       "object",
 			"properties": map[string]any{},

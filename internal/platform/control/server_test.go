@@ -327,8 +327,8 @@ func TestListFunctionsSummary_WithAgents(t *testing.T) {
 // TestParseI18n 测试解析 I18N 文本
 func TestParseI18n(t *testing.T) {
 	tests := []struct {
-		name  string
-		input interface{}
+		name   string
+		input  interface{}
 		wantEn string
 		wantZh string
 	}{

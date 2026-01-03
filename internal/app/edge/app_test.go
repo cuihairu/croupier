@@ -6,8 +6,8 @@ import (
 	"time"
 
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
-	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	jobv1 "github.com/cuihairu/croupier/pkg/pb/croupier/edge/job/v1"
+	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

@@ -390,7 +390,7 @@ export const selectCoverage = (gameId: string, env: string) => (state) => ...;
 
 本次分析生成了以下文档：
 - `FUNCTION_MANAGEMENT_ARCHITECTURE_ANALYSIS.md` - 详细分析报告
-- `FUNCTION_MANAGEMENT_COMPARISON.txt` - 现状 vs 改进对比图
+- `FUNCTION_MANAGEMENT_COMPARISON.md` - 现状 vs 改进对比图
 
 建议将这些文档纳入项目的设计决策历史，为后续维护和扩展提供参考。
 

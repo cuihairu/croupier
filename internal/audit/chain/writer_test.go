@@ -282,7 +282,7 @@ func TestFilepathDir(t *testing.T) {
 		{"/path/to/file.txt", "/path/to"},
 		{"./relative/path/file.txt", "./relative/path"},
 		{"file.txt", "."},
-		{"", "."},               // 空字符串返回 "."
+		{"", "."}, // 空字符串返回 "."
 		{"/a/b/c/d/e/file.txt", "/a/b/c/d/e"},
 	}
 

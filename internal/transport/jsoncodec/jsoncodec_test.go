@@ -115,8 +115,8 @@ func TestCodec_Unmarshal(t *testing.T) {
 
 	// 先序列化一些测试数据
 	testData := map[string]interface{}{
-		"name":  "John Doe",
-		"age":   30,
+		"name":   "John Doe",
+		"age":    30,
 		"active": true,
 	}
 	marshaled, _ := json.Marshal(testData)

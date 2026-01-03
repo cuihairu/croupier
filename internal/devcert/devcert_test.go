@@ -82,7 +82,7 @@ func TestWriteFile_CreateDirectory(t *testing.T) {
 		if info, err := os.Stat(dir); err != nil {
 			t.Errorf("Directory %s should exist: %v", dir, err)
 		} else if !info.IsDir() {
-					t.Errorf("%s should be a directory", dir)
+			t.Errorf("%s should be a directory", dir)
 		}
 	}
 }
@@ -476,10 +476,10 @@ func TestWriteFile_Permissions(t *testing.T) {
 	tempDir := t.TempDir()
 
 	tests := []struct {
-		name     string
-		path     string
-		data     []byte
-		mode     os.FileMode
+		name string
+		path string
+		data []byte
+		mode os.FileMode
 	}{
 		{
 			name: "读写文件",

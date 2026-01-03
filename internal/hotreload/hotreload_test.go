@@ -71,13 +71,13 @@ func TestNewHotReloader(t *testing.T) {
 
 	// 使用自定义配置
 	config := &Config{
-		WatchDirs:      []string{"./test"},
-		WatchExts:      []string{".json"},
-		PollInterval:   time.Second,
-		DebounceTime:   100 * time.Millisecond,
-		EnableRemote:   false,
-		AutoReload:     false,
-		BackupEnabled:  false,
+		WatchDirs:     []string{"./test"},
+		WatchExts:     []string{".json"},
+		PollInterval:  time.Second,
+		DebounceTime:  100 * time.Millisecond,
+		EnableRemote:  false,
+		AutoReload:    false,
+		BackupEnabled: false,
 	}
 
 	hr, err = NewHotReloader(config, logger)

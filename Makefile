@@ -165,7 +165,7 @@ build-dashboard: submodules
 
 build-docs:
 	@echo "[docs] building documentation..."
-	@cd docs && npm ci && npm run build
+	@cd docs && pnpm install --frozen-lockfile && pnpm run build
 
 # ========== Development Targets ==========
 dev-dashboard: submodules
@@ -173,8 +173,8 @@ dev-dashboard: submodules
 	@cd dashboard && npm ci && npm run dev
 
 dev-docs:
-	@echo "[docs] starting Docusaurus documentation dev server..."
-	@cd docs && npm ci && npm run dev
+	@echo "[docs] starting VuePress documentation dev server..."
+	@cd docs && pnpm install --frozen-lockfile && pnpm run dev
 
 # ========== Clean Targets ==========
 clean: clean-sdks clean-web
@@ -190,7 +190,7 @@ clean-sdks:
 clean-web:
 	@echo "[clean] cleaning web and docs build artifacts..."
 	@rm -rf dashboard/dist dashboard/node_modules
-	@rm -rf docs/.vuepress/dist docs/build docs/.docusaurus docs/node_modules
+	@rm -rf docs/.vuepress/dist docs/.vuepress/.cache docs/.vuepress/.temp docs/node_modules
 
 # ========== Version Management ==========
 .PHONY: version version-sync
@@ -236,7 +236,7 @@ help:
 	@echo "Web & Docs Targets:"
 	@echo "  build-web        - Build web and docs components"
 	@echo "  build-dashboard  - Build management dashboard"
-	@echo "  build-docs       - Build Docusaurus documentation"
+	@echo "  build-docs       - Build VuePress documentation"
 	@echo "  dev-dashboard    - Start dashboard dev server"
 	@echo "  dev-docs         - Start docs dev server"
 	@echo ""

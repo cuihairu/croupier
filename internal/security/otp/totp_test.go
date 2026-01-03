@@ -76,12 +76,12 @@ func TestVerifyTOTP_CodeLength(t *testing.T) {
 		code     string
 		expected bool
 	}{
-		{"12345", false},    // 5位 - 太短
-		{"123456", true},    // 6位 - 有效（但不匹配）
-		{"1234567", true},   // 7位 - 有效（但不匹配）
-		{"12345678", true},  // 8位 - 有效（但不匹配）
+		{"12345", false},     // 5位 - 太短
+		{"123456", true},     // 6位 - 有效（但不匹配）
+		{"1234567", true},    // 7位 - 有效（但不匹配）
+		{"12345678", true},   // 8位 - 有效（但不匹配）
 		{"123456789", false}, // 9位 - 太长
-		{"", false},         // 空
+		{"", false},          // 空
 	}
 
 	for _, tc := range testCases {
@@ -94,10 +94,10 @@ func TestVerifyTOTP_CodeLength(t *testing.T) {
 // TestVerifyTOTP_InvalidSecret 测试无效的密钥
 func TestVerifyTOTP_InvalidSecret(t *testing.T) {
 	invalidSecrets := []string{
-		"",                    // 空密钥
-		"!!!",                 // 无效的 base32
-		"invalid@base32!",     // 无效字符
-		"\x00\x01\x02",        // 二进制数据
+		"",                // 空密钥
+		"!!!",             // 无效的 base32
+		"invalid@base32!", // 无效字符
+		"\x00\x01\x02",    // 二进制数据
 		"very long invalid base32 string that will not decode!!!",
 	}
 

@@ -165,9 +165,9 @@ func TestConnectionPool_Put(t *testing.T) {
 // TestPoolErrors 测试错误变量
 func TestPoolErrors(t *testing.T) {
 	tests := []struct {
-		name  string
-		err   error
-		want  string
+		name string
+		err  error
+		want string
 	}{
 		{"ErrPoolClosed", ErrPoolClosed, "connection pool is closed"},
 		{"ErrTooManyConnections", ErrTooManyConnections, "too many connections for target"},
@@ -275,7 +275,7 @@ func TestConnectionPool_CloseWithBackgroundGoroutines(t *testing.T) {
 func TestPoolConfig_DialOptions(t *testing.T) {
 	opts := []grpc.DialOption{
 		grpc.WithBlock(),
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1024*1024)),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1024 * 1024)),
 	}
 
 	config := &PoolConfig{
@@ -405,11 +405,11 @@ func TestConnectionInfo_Concurrency(t *testing.T) {
 // TestPoolStats 测试 PoolStats 结构
 func TestPoolStats(t *testing.T) {
 	stats := &PoolStats{
-		TotalConnections:      10,
-		IdleConnections:       3,
-		HealthyConnections:    8,
-		UnhealthyConnections:  2,
-		ConnectionsPerTarget:  map[string]int{"target1": 5, "target2": 5},
+		TotalConnections:     10,
+		IdleConnections:      3,
+		HealthyConnections:   8,
+		UnhealthyConnections: 2,
+		ConnectionsPerTarget: map[string]int{"target1": 5, "target2": 5},
 	}
 
 	if stats.TotalConnections != 10 {

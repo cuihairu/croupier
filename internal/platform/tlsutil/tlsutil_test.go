@@ -115,12 +115,12 @@ func TestClientTLS(t *testing.T) {
 // TestServerTLS 测试服务器 TLS 创建
 func TestServerTLS(t *testing.T) {
 	tests := []struct {
-		name           string
-		certFile       string
-		keyFile        string
+		name          string
+		certFile      string
+		keyFile       string
 		caFile        string
-		requireClient  bool
-		wantErr        bool
+		requireClient bool
+		wantErr       bool
 	}{
 		{
 			name:          "基本服务器证书",
@@ -231,19 +231,19 @@ func TestClientTLS_MissingCertOrKey(t *testing.T) {
 			name:     "有证书无密钥",
 			certFile: "cert.pem",
 			keyFile:  "",
-			caFile:  "ca.pem",
+			caFile:   "ca.pem",
 		},
 		{
 			name:     "无证书有密钥",
 			certFile: "",
 			keyFile:  "key.pem",
-			caFile:  "ca.pem",
+			caFile:   "ca.pem",
 		},
 		{
 			name:     "两者都为空",
 			certFile: "",
 			keyFile:  "",
-			caFile:  "ca.pem",
+			caFile:   "ca.pem",
 		},
 	}
 
@@ -269,13 +269,13 @@ func TestServerTLS_InvalidPaths(t *testing.T) {
 			name:     "无效证书路径",
 			certFile: "/nonexistent/cert.pem",
 			keyFile:  "/nonexistent/key.pem",
-			caFile:  "",
+			caFile:   "",
 		},
 		{
 			name:     "无效密钥路径",
 			certFile: "/nonexistent/cert.pem",
 			keyFile:  "/nonexistent/key.pem",
-			caFile:  "/nonexistent/ca.pem",
+			caFile:   "/nonexistent/ca.pem",
 		},
 	}
 
@@ -313,8 +313,8 @@ func BenchmarkServerTLS(b *testing.B) {
 // TestClientTLS_ConfigVariations 测试不同配置组合
 func TestClientTLS_ConfigVariations(t *testing.T) {
 	configs := []struct {
-		name    string
-		cfg     ClientTLSConfig
+		name     string
+		cfg      ClientTLSConfig
 		checkErr bool
 	}{
 		{

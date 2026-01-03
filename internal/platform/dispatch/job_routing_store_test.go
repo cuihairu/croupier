@@ -460,9 +460,9 @@ func TestHostFromAddr(t *testing.T) {
 // TestIsTerminalEvent 测试判断事件是否为终止事件
 func TestIsTerminalEvent(t *testing.T) {
 	tests := []struct {
-		name     string
+		name      string
 		eventType string
-		expected bool
+		expected  bool
 	}{
 		{"done", "done", true},
 		{"completed", "completed", true},
@@ -523,4 +523,3 @@ func BenchmarkPickAgentByHash(b *testing.B) {
 		_ = pickAgentByHash(agents, "test-key")
 	}
 }
-

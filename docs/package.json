@@ -1,33 +1,40 @@
 {
   "name": "croupier-docs",
   "version": "1.0.0",
-  "description": "Croupier Project Documentation (Docusaurus)",
+  "description": "Croupier Project Documentation (VuePress)",
   "private": true,
   "scripts": {
-    "dev": "docusaurus start .",
-    "start": "docusaurus start .",
-    "build": "docusaurus build .",
-    "serve": "docusaurus serve .",
-    "clean": "rimraf build .docusaurus"
+    "dev": "vuepress dev .",
+    "build": "vuepress build .",
+    "serve": "vuepress dev . --host 0.0.0.0 --port 8080",
+    "clean": "rimraf .vuepress/dist .vuepress/.cache .vuepress/.temp"
   },
-  "dependencies": {
-    "@docusaurus/core": "^3.9.2",
-    "@docusaurus/preset-classic": "^3.9.2",
-    "@docusaurus/theme-classic": "^3.9.2",
-    "@docusaurus/theme-mermaid": "^3.9.2",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "rimraf": "^5.0.5"
+  "devDependencies": {
+    "@vuepress/bundler-vite": "2.0.0-rc.26",
+    "@vuepress/plugin-markdown-chart": "2.0.0-rc.121",
+    "@vuepress/plugin-search": "2.0.0-rc.121",
+    "@vuepress/theme-default": "2.0.0-rc.121",
+    "@vue/compiler-sfc": "^3.5.26",
+    "mermaid": "^11.12.0",
+    "rimraf": "^5.0.5",
+    "sass-embedded": "^1.92.1",
+    "vue": "^3.5.26",
+    "vuepress": "2.0.0-rc.26"
   },
   "keywords": [
     "croupier",
     "documentation",
-    "docusaurus",
-    "react"
+    "vuepress",
+    "vue"
   ],
   "license": "MIT",
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
-  "packageManager": "pnpm@8.15.8"
+  "packageManager": "pnpm@10.22.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
 }

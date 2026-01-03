@@ -202,7 +202,7 @@ func TestComponentManager_checkDependencies(t *testing.T) {
 	cm := NewComponentManager(dataDir)
 
 	manifest := &ComponentManifest{
-		ID: "test-comp",
+		ID:           "test-comp",
 		Dependencies: []string{"dep1", "dep2"},
 	}
 
@@ -230,17 +230,17 @@ func TestComponentManager_checkReverseDependencies(t *testing.T) {
 	cm := NewComponentManager(dataDir)
 
 	tests := []struct {
-		name          string
-		componentID   string
-		installed     map[string]*ComponentManifest
-		shouldFail    bool
+		name        string
+		componentID string
+		installed   map[string]*ComponentManifest
+		shouldFail  bool
 	}{
 		{
 			name:        "有反向依赖",
 			componentID: "test-comp",
 			installed: map[string]*ComponentManifest{
 				"dependent1": {
-					ID: "dependent1",
+					ID:           "dependent1",
 					Dependencies: []string{"test-comp"},
 				},
 			},
@@ -251,11 +251,11 @@ func TestComponentManager_checkReverseDependencies(t *testing.T) {
 			componentID: "standalone",
 			installed: map[string]*ComponentManifest{
 				"dependent1": {
-					ID: "dependent1",
+					ID:           "dependent1",
 					Dependencies: []string{"other"},
 				},
 				"dependent2": {
-					ID: "dependent2",
+					ID:           "dependent2",
 					Dependencies: []string{},
 				},
 			},
@@ -265,7 +265,7 @@ func TestComponentManager_checkReverseDependencies(t *testing.T) {
 			name:        "空安装列表",
 			componentID: "nonexistent",
 			installed:   map[string]*ComponentManifest{},
-			shouldFail: false,
+			shouldFail:  false,
 		},
 	}
 
@@ -443,14 +443,14 @@ func TestComponentManager_loadManifest_InvalidJSON(t *testing.T) {
 // TestComponentManifest 测试组件清单结构
 func TestComponentManifest(t *testing.T) {
 	manifest := ComponentManifest{
-		ID:          "test-id",
-		Name:        "Test Component",
-		Version:     "1.0.0",
-		Description: "Test Description",
-		Category:    "test",
+		ID:           "test-id",
+		Name:         "Test Component",
+		Version:      "1.0.0",
+		Description:  "Test Description",
+		Category:     "test",
 		Dependencies: []string{"dep1", "dep2"},
-		Author:      "Test Author",
-		License:     "MIT",
+		Author:       "Test Author",
+		License:      "MIT",
 		Functions: []ComponentFunction{
 			{
 				ID:          "func1",
