@@ -25,7 +25,6 @@ export default defineUserConfig({
     contributors: false,
     navbar: [
       { text: '文档', link: '/' },
-      { text: 'GitHub', link: 'https://github.com/cuihairu/croupier' },
     ],
     sidebar: {
       '/': [
