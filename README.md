@@ -1,4 +1,6 @@
-![Croupier Logo](docs/.vuepress/public/logo.png)
+<p align="center">
+  <img src="docs/.vuepress/public/logo.png" alt="Croupier Logo" width="64"/>
+</p>
 
 # Croupier Platform
 
