@@ -6,10 +6,10 @@ heroText: Croupier
 tagline: 分布式游戏管理系统 - 统一的游戏运营控制面
 actions:
   - text: 快速开始 →
-    link: /guide/quick-start.html
+    link: /guide/quick-start/
     type: primary
   - text: 项目架构
-    link: /architecture/README.html
+    link: /architecture/
     type: secondary
 features:
   - title: 🔐 零信任安全
@@ -139,31 +139,29 @@ graph TB
 
 ### 入门指南
 
-- [快速开始](/guide/quick-start.html) - 快速搭建开发环境
-- [安装指南](/guide/installation.html) - 详细的安装说明
-- [配置管理](/guide/configuration.html) - 系统配置详解
-- [部署指南](/guide/deployment.html) - 生产环境部署
+- [快速开始](/guide/quick-start/) - 快速搭建开发环境
+- [安装指南](/guide/installation/) - 详细的安装说明
+- [配置管理](/guide/configuration/) - 系统配置详解
+- [部署指南](/guide/deployment/) - 生产环境部署
 
 ### 核心概念
 
-- [系统概览](/guide/concepts/overview.html) - 系统设计理念
-- [虚拟对象系统](/guide/concepts/virtual-objects.html) - 四层对象模型
-- [函数管理](/guide/concepts/function-management.html) - 函数注册与调用
-- [权限控制](/guide/concepts/permissions.html) - RBAC/ABAC 权限模型
+- [系统概览](/guide/concepts/overview/) - 系统设计理念
+- [虚拟对象系统](/guide/concepts/virtual-objects/) - 四层对象模型
+- [函数管理](/guide/concepts/function-management/) - 函数注册与调用
+- [权限控制](/guide/concepts/permissions/) - RBAC/ABAC 权限模型
 
 ### 架构设计
 
-- [系统架构](/architecture/README.html) - 整体架构设计
-- [分层设计](/architecture/layers.html) - 三层架构详解
-- [组件说明](/architecture/components.html) - 各组件职责
-- [数据流](/architecture/data-flow.html) - 调用与数据流
+- [系统架构](/architecture/) - 整体架构设计
+- [分层设计](/architecture/layers/) - 三层架构详解
+- [数据流](/architecture/data-flow/) - 调用与数据流
 
 ### API 参考
 
-- [API 概览](/api/README.html) - API 总览
-- [gRPC API](/api/grpc.html) - gRPC 服务定义
-- [REST API](/api/rest.html) - HTTP REST 接口
-- [Proto 选项](/api/proto-options.html) - Protobuf 扩展选项
+- [API 概览](/api/) - API 总览
+- [gRPC API](/api/grpc/) - gRPC 服务定义
+- [REST API](/api/rest/) - HTTP REST 接口
 
 ### SDK 文档
 
@@ -175,9 +173,8 @@ graph TB
 
 ### 分析系统
 
-- [分析系统概览](/analytics/README.html) - 游戏分析系统
-- [快速开始](/analytics/quick-start.html) - 分析系统入门
-- [指标字典](/analytics/metrics-dictionary.html) - 预定义指标
+- [分析系统概览](/analytics/) - 游戏分析系统
+- [快速开始](/analytics/quick-start/) - 分析系统入门
 
 ## 核心特性
 
