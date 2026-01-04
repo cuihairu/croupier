@@ -162,7 +162,7 @@ sequenceDiagram
    cd croupier
    git submodule update --init --recursive
    ```
-2. **安装工具链**：Go 1.25+、pnpm、buf、protoc（详见 [AGENTS.md](AGENTS.md)）。
+2. **安装工具链**：Go 1.25+、pnpm、buf、protoc（详见 [CLAUDE.md](CLAUDE.md)）。
 3. **一键构建**：`make dev` 会生成协议、构建 server/agent/edge。
 4. **运行服务**：
    ```bash
@@ -180,7 +180,7 @@ sequenceDiagram
 ---
 
 ## 📚 文档入口
-- [AGENTS.md](AGENTS.md)：本仓库编码规范、目录结构、CI 说明。
+- [CLAUDE.md](CLAUDE.md)：Claude Code 开发指引。
 - [docs/](docs/) & [configs/](configs/)：架构详解、配置样例、部署建议。
 - [proto/](proto/)：IDL + `buf` 配置，可运行 `buf lint` / `buf generate`。
 - [dashboard/README.md](dashboard/README.md)：Web Console、X-Render 用法。
@@ -189,7 +189,6 @@ sequenceDiagram
 ---
 
 ## 🤝 社区与贡献
-- 提交 PR 前请阅读 [AGENTS.md](AGENTS.md)。
 - Server/Agent 变更请附 `make lint` + `make test` 结果；Dashboard/SDK 改动在对应仓库提 PR。
 - Issues / Discussions 可按组件在各仓库发起，我们欢迎任何反馈。
 
