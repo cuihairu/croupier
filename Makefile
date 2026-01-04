@@ -7,6 +7,7 @@ FULL_VERSION := $(VERSION)$(GIT_DIRTY)
 LDFLAGS := -X main.version=$(FULL_VERSION) -X main.buildTime=$(BUILD_TIME) -X main.gitCommit=$(GIT_COMMIT) -s -w
 
 .PHONY: proto api build server agent edge cli clean dev tidy test lint help all tools schema-validator pack-builder
+.PHONY: test test-coverage test-coverage-html test-race test-integration test-all
 .PHONY: build-sdks build-sdks-cpp build-sdks-go build-sdks-java build-sdks-js build-sdks-python
 .PHONY: build-web build-dashboard build-website dev-dashboard dev-website
 .PHONY: version version-sync
@@ -253,3 +254,61 @@ help:
 proto-docs:
 	@echo "[proto] generating docs..."
 	buf generate --template buf.gen.docs.yaml
+
+# ========== Test Targets ==========
+# Run all tests
+test:
+	@echo "[test] running unit tests..."
+	go test -v -short ./...
+
+# Run tests with race detection
+test-race:
+	@echo "[test] running tests with race detection..."
+	go test -v -race -short ./...
+
+# Run tests with coverage report
+test-coverage:
+	@echo "[test] running tests with coverage..."
+	go test -coverprofile=coverage.out -covermode=atomic ./...
+	@echo ""
+	@echo "Coverage by package:"
+	@go tool cover -func=coverage.out | grep -E "^github.com/cuihairu/croupier" | \
+		awk '{print $$2 " " $$NF}' | sort -t' ' -k2 -n
+
+# Generate HTML coverage report
+test-coverage-html: test-coverage
+	@echo "[test] generating HTML coverage report..."
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
+# Run integration tests (requires external dependencies)
+test-integration:
+	@echo "[test] running integration tests..."
+	go test -v -tags=integration ./...
+
+# Run all tests including integration
+test-all: test test-integration
+	@echo "[test] all tests completed"
+
+# Check test coverage against threshold (80%)
+test-coverage-check:
+	@echo "[test] checking coverage threshold (80%)..."
+	@go test -coverprofile=coverage.out -covermode=atomic ./... > /dev/null 2>&1
+	@total=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
+	if [ $$(echo "$$total < 80.0" | bc) -eq 1 ]; then \
+		echo "❌ Coverage $$total% is below 80% threshold"; \
+		exit 1; \
+	else \
+		echo "✅ Coverage $$total% meets 80% threshold"; \
+	fi
+
+# Run tests for specific package
+test-package:
+	@echo "[test] running tests for package $(PACKAGE)..."
+	go test -v -coverprofile=$(PACKAGE)_coverage.out -covermode=atomic ./$(PACKAGE)...
+
+# Run tests and generate coverage report for CI/CD
+test-ci:
+	@echo "[test] running CI tests..."
+	go test -v -race -coverprofile=coverage.out -covermode=atomic -json ./... > test-report.json 2>&1
+	@go tool cover -func=coverage.out | tail -1

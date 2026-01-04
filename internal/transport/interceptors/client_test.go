@@ -372,3 +372,118 @@ func TestContextWithoutDeadline(t *testing.T) {
 		t.Error("Background context should not have deadline")
 	}
 }
+
+// TestBackoff_Math 测试退避计算的数学正确性
+func TestBackoff_Math(t *testing.T) {
+	tests := []struct {
+		base     time.Duration
+		attempt  int
+		expected time.Duration
+	}{
+		{100 * time.Millisecond, 1, 100 * time.Millisecond},  // 100 * 2^0 = 100
+		{100 * time.Millisecond, 2, 200 * time.Millisecond},  // 100 * 2^1 = 200
+		{100 * time.Millisecond, 3, 400 * time.Millisecond},  // 100 * 2^2 = 400
+		{100 * time.Millisecond, 4, 800 * time.Millisecond},  // 100 * 2^3 = 800
+		{100 * time.Millisecond, 5, 1600 * time.Millisecond}, // 100 * 2^4 = 1600
+		{50 * time.Millisecond, 3, 200 * time.Millisecond},   // 50 * 2^2 = 200
+		{1 * time.Millisecond, 10, 512 * time.Millisecond},   // 1 * 2^9 = 512
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			result := backoff(tt.base, tt.attempt)
+			if result != tt.expected {
+				t.Errorf("backoff(%v, %d) = %v, want %v", tt.base, tt.attempt, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestConfig_StructFields 测试配置结构字段
+func TestConfig_StructFields(t *testing.T) {
+	cfg := Config{
+		Timeout:     30 * time.Second,
+		MaxAttempts: 5,
+		BackoffBase: 200 * time.Millisecond,
+	}
+
+	if cfg.Timeout != 30*time.Second {
+		t.Errorf("Timeout = %v, want 30s", cfg.Timeout)
+	}
+	if cfg.MaxAttempts != 5 {
+		t.Errorf("MaxAttempts = %d, want 5", cfg.MaxAttempts)
+	}
+	if cfg.BackoffBase != 200*time.Millisecond {
+		t.Errorf("BackoffBase = %v, want 200ms", cfg.BackoffBase)
+	}
+}
+
+// TestChain_DialOptionsType 测试返回的 DialOptions 类型
+func TestChain_DialOptionsType(t *testing.T) {
+	opts := Chain(nil)
+
+	if len(opts) != 2 {
+		t.Fatalf("Expected 2 options, got %d", len(opts))
+	}
+
+	// 验证是 grpc.DialOption 类型
+	for i, opt := range opts {
+		if opt == nil {
+			t.Errorf("Option %d is nil", i)
+		}
+	}
+}
+
+// TestBackoff_Overflow 测试大数值溢出处理
+func TestBackoff_Overflow(t *testing.T) {
+	// 测试大数值不会导致 panic，但可能会溢出
+	base := time.Duration(1 << 62) // 使用较小的值避免完全溢出
+	result := backoff(base, 2)
+	// 结果可能因溢出而不准确，但不应该 panic
+	if result == 0 {
+		t.Logf("backoff(%v, 2) = %v (may overflow)", base, result)
+	}
+}
+
+// TestConfig_Copy 测试配置值拷贝
+func TestConfig_Copy(t *testing.T) {
+	original := &Config{
+		Timeout:     10 * time.Second,
+		MaxAttempts: 5,
+		BackoffBase: 200 * time.Millisecond,
+	}
+
+	opts := Chain(original)
+
+	// 修改原始配置
+	original.Timeout = 20 * time.Second
+
+	// 再次调用 Chain 应该使用新的值
+	opts2 := Chain(original)
+
+	if len(opts) != len(opts2) {
+		t.Errorf("Chain should return consistent number of options")
+	}
+}
+
+// TestChain_Concurrency 测试并发调用 Chain
+func TestChain_Concurrency(t *testing.T) {
+	cfg := &Config{
+		Timeout:     5 * time.Second,
+		MaxAttempts: 3,
+		BackoffBase: 100 * time.Millisecond,
+	}
+
+	// 并发调用 Chain 不应该产生 data race
+	done := make(chan bool)
+	for i := 0; i < 10; i++ {
+		go func() {
+			_ = Chain(cfg)
+			done <- true
+		}()
+	}
+
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+}

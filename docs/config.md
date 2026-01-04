@@ -178,9 +178,13 @@ Assignments audit
 - POST `/api/assignments` 会写入审计事件（kind=`assignments.update`，target=`<game>|<env>`，meta 包含 `functions` 和 `unknown`）。可通过 `/api/audit?kind=assignments.update` 查看。
 
 Effective config snapshot
-- (Legacy CLI only) Validate and print merged config (strict):
+- Validate configuration (go-zero services):
 ```bash
-./croupier config test --config configs/server.example.yaml --section server --profile prod
+# Validate server config
+./bin/croupier-server -f services/server/etc/server.yaml --mode test
+
+# Or use the built-in validate command
+./bin/croupier-server -f services/server/etc/server.yaml validate
 ```
 
 Notes

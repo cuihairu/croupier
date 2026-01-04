@@ -57,23 +57,23 @@ export default defineUserConfig({
         children: [
           {
             text: 'C++ SDK',
-            link: '/sdk/cpp/',
+            link: 'https://github.com/cuihairu/croupier-sdk-cpp',
           },
           {
             text: 'Go SDK',
-            link: '/sdk/go/',
+            link: 'https://github.com/cuihairu/croupier-sdk-go',
           },
           {
             text: 'Java SDK',
-            link: '/sdk/java/',
+            link: 'https://github.com/cuihairu/croupier-sdk-java',
           },
           {
             text: 'JavaScript SDK',
-            link: '/sdk/js/',
+            link: 'https://github.com/cuihairu/croupier-sdk-js',
           },
           {
             text: 'Python SDK',
-            link: '/sdk/python/',
+            link: 'https://github.com/cuihairu/croupier-sdk-python',
           },
         ],
       },
@@ -88,12 +88,15 @@ export default defineUserConfig({
       '/guide/': [
         {
           text: '入门指南',
+          collapsable: false,
           children: [
             '/guide/README.md',
+            '/guide/tutorial.md',
             '/guide/quick-start.md',
             '/guide/installation.md',
             '/guide/configuration.md',
             '/guide/deployment.md',
+            '/guide/faq.md',
           ],
         },
         {
@@ -110,6 +113,7 @@ export default defineUserConfig({
           children: [
             '/guide/operations/monitoring.md',
             '/guide/operations/security.md',
+            '/guide/operations/troubleshooting.md',
           ],
         },
       ],

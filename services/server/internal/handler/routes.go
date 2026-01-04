@@ -8,6 +8,7 @@ import (
 
 	admin "github.com/cuihairu/croupier/services/server/internal/handler/admin"
 	agent "github.com/cuihairu/croupier/services/server/internal/handler/agent"
+	agents "github.com/cuihairu/croupier/services/server/internal/handler/agents"
 	alert "github.com/cuihairu/croupier/services/server/internal/handler/alert"
 	analytics_behavior "github.com/cuihairu/croupier/services/server/internal/handler/analytics_behavior"
 	analytics_overview "github.com/cuihairu/croupier/services/server/internal/handler/analytics_overview"
@@ -25,6 +26,7 @@ import (
 	faq "github.com/cuihairu/croupier/services/server/internal/handler/faq"
 	feedback "github.com/cuihairu/croupier/services/server/internal/handler/feedback"
 	function "github.com/cuihairu/croupier/services/server/internal/handler/function"
+	function_calls "github.com/cuihairu/croupier/services/server/internal/handler/function_calls"
 	game "github.com/cuihairu/croupier/services/server/internal/handler/game"
 	job "github.com/cuihairu/croupier/services/server/internal/handler/job"
 	message "github.com/cuihairu/croupier/services/server/internal/handler/message"
@@ -121,6 +123,36 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/agent"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取 Agent 列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: agents.AgentsListHandler(serverCtx),
+			},
+			{
+				// 获取 Agent 详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: agents.AgentDetailHandler(serverCtx),
+			},
+			{
+				// 获取 Agent 上的函数列表
+				Method:  http.MethodGet,
+				Path:    "/:id/functions",
+				Handler: agents.AgentFunctionsHandler(serverCtx),
+			},
+			{
+				// 获取覆盖率分析
+				Method:  http.MethodGet,
+				Path:    "/coverage",
+				Handler: agents.CoverageAnalysisHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/agents"),
 	)
 
 	server.AddRoutes(
@@ -785,6 +817,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/pending",
 				Handler: function.FunctionsPendingHandler(serverCtx),
 			},
+			{
+				// 获取函数分类列表
+				Method:  http.MethodGet,
+				Path:    "/categories",
+				Handler: function.FunctionCategoriesHandler(serverCtx),
+			},
+			{
+				// 高级搜索函数
+				Method:  http.MethodPost,
+				Path:    "/search",
+				Handler: function.FunctionSearchHandler(serverCtx),
+			},
 		},
 		rest.WithPrefix("/api/v1/functions"),
 	)
@@ -883,6 +927,36 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/jobs"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取函数调用历史列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: function_calls.FunctionCallsListHandler(serverCtx),
+			},
+			{
+				// 获取调用统计
+				Method:  http.MethodGet,
+				Path:    "/stats",
+				Handler: function_calls.FunctionCallStatsHandler(serverCtx),
+			},
+			{
+				// 获取单条调用历史详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: function_calls.FunctionCallDetailHandler(serverCtx),
+			},
+			{
+				// 重新执行失败的调用
+				Method:  http.MethodPost,
+				Path:    "/:id/rerun",
+				Handler: function_calls.FunctionCallRerunHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/function-calls"),
 	)
 
 	server.AddRoutes(
@@ -1210,6 +1284,24 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPost,
 				Path:    "/reload",
 				Handler: pack.PacksReloadHandler(serverCtx),
+			},
+			{
+				// 获取功能包详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: pack.PackDetailHandler(serverCtx),
+			},
+			{
+				// 获取功能包内容列表
+				Method:  http.MethodGet,
+				Path:    "/:id/contents",
+				Handler: pack.PackContentsHandler(serverCtx),
+			},
+			{
+				// 获取功能包版本历史
+				Method:  http.MethodGet,
+				Path:    "/:id/versions",
+				Handler: pack.PackVersionsHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/packs"),

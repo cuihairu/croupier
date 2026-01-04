@@ -244,24 +244,24 @@ config_b.cert_file = "/etc/croupier/client.crt";
 ```cpp
 bool Connect() {
     if (connected_) return true;
-    
+
     std::cout << "Connecting to agent at: " << config_.agent_addr << std::endl;
-    
-    // TODO: Implement actual gRPC connection to agent
-    // 当前为模拟实现，真实应该：
+
+    // NOTE: 当前为模拟实现，真实 gRPC 连接待实现
+    // 预期实现：
     // 1. 建立 gRPC stub 到 LocalControlService
     // 2. 调用 RegisterLocal RPC
     // 3. 接收 session_id
-    
+
     // Start local gRPC server
     if (!StartLocalServer()) {
         std::cerr << "Failed to start local server" << std::endl;
         return false;
     }
-    
-    // TODO: Register with agent via gRPC
+
+    // NOTE: Agent 注册功能待实现
     std::cout << "Registered " << handlers_.size() << " functions with agent" << std::endl;
-    
+
     connected_ = true;
     return true;
 }

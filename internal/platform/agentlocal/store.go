@@ -2,7 +2,7 @@ package agentlocal
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -50,7 +50,7 @@ func NewLocalStore() *LocalStore {
 func (s *LocalStore) OnUpdate(fn func()) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	log.Println("[agentlocal] DEBUG: OnUpdate callback set")
+	slog.Debug("[agentlocal] OnUpdate callback set")
 	s.onUpdate = fn
 }
 
@@ -58,7 +58,7 @@ func (s *LocalStore) OnUpdate(fn func()) {
 func (s *LocalStore) Register(serviceID, addr, version string, funcs []*localv1.LocalFunctionDescriptor) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	log.Printf("[agentlocal] DEBUG: Register called for %s with %d functions", serviceID, len(funcs))
+	slog.Debug("[agentlocal] Register called", "service_id", serviceID, "function_count", len(funcs))
 	now := time.Now()
 	// remove prior instances from this serviceID for all functions
 	for fid, arr := range s.data {

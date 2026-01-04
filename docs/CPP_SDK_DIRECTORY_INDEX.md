@@ -251,12 +251,12 @@ if (config_.env != "development" && config_.env != "staging" && config_.env != "
 bool Connect() {
     // 连接到 agent_addr (127.0.0.1:19090)
     // 调用 LocalControlService::RegisterLocal()
-    
+
     // 步骤2：启动本地服务器
     if (!StartLocalServer()) { /* ... */ }
-    
+
     // 步骤3：注册会话
-    // TODO: Register with agent via gRPC
+    // NOTE: Agent gRPC 注册功能待实现
 }
 
 // 步骤2：本地服务器 (line 377)

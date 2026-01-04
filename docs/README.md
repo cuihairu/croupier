@@ -167,11 +167,11 @@ graph TB
 
 ### SDK 文档
 
-- [C++ SDK](/sdk/cpp/README.html) - C++ 客户端开发
-- [Go SDK](/sdk/go/README.html) - Go 客户端开发
-- [Java SDK](/sdk/java/README.html) - Java 客户端开发
-- [JavaScript SDK](/sdk/js/README.html) - JS/TS 客户端开发
-- [Python SDK](/sdk/python/README.html) - Python 客户端开发
+- [C++ SDK](https://github.com/cuihairu/croupier-sdk-cpp) - C++ 客户端开发
+- [Go SDK](https://github.com/cuihairu/croupier-sdk-go) - Go 客户端开发
+- [Java SDK](https://github.com/cuihairu/croupier-sdk-java) - Java 客户端开发
+- [JavaScript SDK](https://github.com/cuihairu/croupier-sdk-js) - JS/TS 客户端开发
+- [Python SDK](https://github.com/cuihairu/croupier-sdk-python) - Python 客户端开发
 
 ### 分析系统
 

@@ -70,6 +70,7 @@ type ServiceContext struct {
 	MessageModel       *model.MessageModel
 	CertificateModel   *model.CertificateModel
 	ConfigVersionModel *model.ConfigVersionModel
+	JobHistoryModel    *model.JobHistoryModel
 }
 
 func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
@@ -110,6 +111,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	messageModel := model.NewMessageModel(db)
 	certificateModel := model.NewCertificateModel(db)
 	configVersionModel := model.NewConfigVersionModel(db)
+	jobHistoryModel := model.NewJobHistoryModel(db)
 
 	// 创建管理员管理器（基于JSON文件）
 	configDir := resolveBootstrapAuthDir(c)
@@ -182,6 +184,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		MessageModel:       messageModel,
 		CertificateModel:   certificateModel,
 		ConfigVersionModel: configVersionModel,
+		JobHistoryModel:    jobHistoryModel,
 
 		ComponentManager:     componentManager,
 		ComponentLock:        &sync.RWMutex{},

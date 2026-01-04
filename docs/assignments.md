@@ -16,19 +16,20 @@ Server APIs
   - Overwrites the mapping for the given key; persists to `assignments.json`.
   - Response: `{ ok: true, unknown: ["fnX", ...] }` where `unknown` lists function ids that are not present in the current descriptors and were ignored.
 
-CLI
-- List assignments:
+CLI (Current: use HTTP API or edit JSON directly)
+- List assignments via HTTP API:
 ```
-./bin/croupier assignments list --api http://localhost:8080
-./bin/croupier assignments list --game_id mygame --env prod --api http://localhost:8080
+curl http://localhost:8080/api/v1/assignments?game_id=mygame&env=prod
 ```
-- Set assignments:
+- Set assignments via HTTP API:
 ```
-./bin/croupier assignments set \
-  --game_id mygame --env prod \
-  --functions prom.query,prom.query_range \
-  --api http://localhost:8080
+curl -X POST http://localhost:8080/api/v1/assignments \
+  -H "Content-Type: application/json" \
+  -d '{"game_id": "mygame", "env": "prod", "functions": ["prom.query", "prom.query_range"]}'
 ```
+- Alternative: Edit `configs/assignments.json` directly (server will reload on change)
+
+Note: A unified `croupier` CLI tool is planned for future releases to simplify these operations.
 
 Web UI
 - Configure via GM → Assignments: choose game/env and select function ids (empty means allow all). Save to persist on the server.

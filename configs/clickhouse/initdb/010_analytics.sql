@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS analytics.events (
   props_json String
 ) ENGINE = MergeTree
 PARTITION BY toYYYYMM(event_time)
-ORDER BY (game_id, env, event, user_id, event_time);
+ORDER BY (game_id, env, event, user_id, event_time)
+TTL event_time + INTERVAL 6 MONTH;
 
 CREATE TABLE IF NOT EXISTS analytics.payments (
   time DateTime DEFAULT now(),
@@ -34,7 +35,8 @@ CREATE TABLE IF NOT EXISTS analytics.payments (
   reason String
 ) ENGINE = MergeTree
 PARTITION BY toYYYYMM(time)
-ORDER BY (game_id, env, time, order_id);
+ORDER BY (game_id, env, time, order_id)
+TTL time + INTERVAL 12 MONTH;
 
 -- Minute online (write-once per minute)
 CREATE TABLE IF NOT EXISTS analytics.minute_online (

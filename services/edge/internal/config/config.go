@@ -8,7 +8,8 @@ type Config struct {
 	rest.RestConf
 
 	Server struct {
-		InternalAddr string `json:",default=localhost:8443"`
+		ListenAddr   string `json:",default=localhost:8443"` // gRPC listen address
+		InternalAddr string `json:",optional"`               // deprecated: kept for backward compatibility
 		PublicAddr   string `json:",default=edge.example.com"`
 		Insecure     bool   `json:",default=false"`
 		TLSCertFile  string `json:",optional"`

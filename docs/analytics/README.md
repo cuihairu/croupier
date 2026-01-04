@@ -147,9 +147,17 @@ graph TB
 
 2. **启动分析服务**
    ```bash
-   # 编译并启动
-   make build
-   ./bin/croupier server --config configs/server.yaml
+   # 编译并启动 server (go-zero)
+   make server
+   ./bin/croupier-server -f services/server/etc/server.yaml
+
+   # 启动 Analytics Ingest 服务 (事件采集)
+   make ingest
+   ./bin/croupier-ingest -f services/ingest/etc/ingest.yaml
+
+   # 启动 Analytics Worker (消费处理)
+   make worker
+   ./bin/croupier-worker
    ```
 
 3. **查看分析面板**

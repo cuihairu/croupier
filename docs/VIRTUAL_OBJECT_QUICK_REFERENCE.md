@@ -434,5 +434,5 @@ curl http://localhost:8080/api/descriptors?id=player.entity
 - **完整分析**: `docs/VIRTUAL_OBJECT_DESIGN.md`
 - **Manifest标准**: `docs/providers-manifest.md`
 - **架构文档**: `ARCHITECTURE.md`
-- **TODO任务**: `TODO.md` (Provider Manifest部分)
+- **TODO任务**: `todo.md` (函数管理与 Provider Manifest 部分)
 

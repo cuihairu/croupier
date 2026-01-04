@@ -4,7 +4,7 @@ Port: 8889
 
 # Server configuration
 Server:
-  InternalAddr: "localhost:8443"
+  ListenAddr: "localhost:8443"
   PublicAddr:   "edge.example.com"
   Insecure:     false
   TLSCertFile:  ""

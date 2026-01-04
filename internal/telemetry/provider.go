@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -27,6 +28,10 @@ type TelemetryConfig struct {
 	EnableTracing  bool    `yaml:"enable_tracing"`
 	EnableMetrics  bool    `yaml:"enable_metrics"`
 	SamplingRatio  float64 `yaml:"sampling_ratio"`
+
+	// TLS配置
+	UseTLS  bool   `yaml:"use_tls"` // 是否使用TLS连接到Collector
+	Headers string `yaml:"headers"` // 自定义HTTP头（如Authorization）
 
 	// Analytics桥接配置
 	Analytics AnalyticsBridgeConfig `yaml:"analytics"`
@@ -102,12 +107,22 @@ func NewProvider(ctx context.Context, config TelemetryConfig, logger *slog.Logge
 
 // initTracing 初始化链路追踪
 func initTracing(ctx context.Context, res *resource.Resource, config TelemetryConfig) (*trace.TracerProvider, error) {
-	// OTLP HTTP导出器
-	traceExporter, err := otlptracehttp.New(ctx,
+	// 构建OTLP HTTP导出器选项
+	opts := []otlptracehttp.Option{
 		otlptracehttp.WithEndpoint(config.CollectorURL),
 		otlptracehttp.WithURLPath("/v1/traces"),
-		otlptracehttp.WithInsecure(), // 开发环境使用，生产环境应启用TLS
-	)
+	}
+
+	// 根据配置决定是否使用TLS
+	if config.UseTLS {
+		// 生产环境使用HTTPS（默认不带WithInsecure就是HTTPS）
+		// 不需要添加额外选项，因为otlptracehttp默认就是secure的
+	} else {
+		// 开发环境使用HTTP
+		opts = append(opts, otlptracehttp.WithInsecure())
+	}
+
+	traceExporter, err := otlptracehttp.New(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -127,12 +142,21 @@ func initTracing(ctx context.Context, res *resource.Resource, config TelemetryCo
 
 // initMetrics 初始化指标收集
 func initMetrics(ctx context.Context, res *resource.Resource, config TelemetryConfig) (*metric.MeterProvider, error) {
-	// OTLP HTTP导出器
-	metricExporter, err := otlpmetrichttp.New(ctx,
+	// 构建OTLP HTTP导出器选项
+	opts := []otlpmetrichttp.Option{
 		otlpmetrichttp.WithEndpoint(config.CollectorURL),
 		otlpmetrichttp.WithURLPath("/v1/metrics"),
-		otlpmetrichttp.WithInsecure(),
-	)
+	}
+
+	// 根据配置决定是否使用TLS
+	if config.UseTLS {
+		// 生产环境使用HTTPS（默认就是secure的）
+	} else {
+		// 开发环境使用HTTP
+		opts = append(opts, otlpmetrichttp.WithInsecure())
+	}
+
+	metricExporter, err := otlpmetrichttp.New(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -215,48 +239,26 @@ func getEnvOrDefault(key, defaultValue string) string {
 }
 
 func parseFloatOrDefault(s string) float64 {
-	if f, err := parseFloat(s); err == nil {
-		return f
+	if f, err := strconv.ParseFloat(s, 64); err == nil {
+		if f >= 0 && f <= 1 {
+			return f
+		}
 	}
 	return 1.0 // 默认100%采样
 }
 
-// parseFloat 简单的浮点数解析
-func parseFloat(s string) (float64, error) {
-	// 这里可以使用 strconv.ParseFloat，简化示例
-	if s == "1.0" {
-		return 1.0, nil
-	}
-	if s == "0.1" {
-		return 0.1, nil
-	}
-	return 1.0, nil
-}
-
-// parseIntOrDefault 简单的整数解析
+// parseIntOrDefault 整数解析，失败返回默认值
 func parseIntOrDefault(s string) int {
-	switch s {
-	case "0":
-		return 0
-	case "100":
-		return 100
-	case "168":
-		return 168
-	default:
-		return 0
+	if i, err := strconv.Atoi(s); err == nil && i >= 0 {
+		return i
 	}
+	return 0
 }
 
-// parseDurationOrDefault 简单的时间间隔解析
+// parseDurationOrDefault 时间间隔解析，失败返回默认值
 func parseDurationOrDefault(s string) time.Duration {
-	switch s {
-	case "30s":
-		return 30 * time.Second
-	case "60s":
-		return 60 * time.Second
-	case "5m":
-		return 5 * time.Minute
-	default:
-		return 30 * time.Second
+	if d, err := time.ParseDuration(s); err == nil {
+		return d
 	}
+	return 30 * time.Second // 默认30秒
 }

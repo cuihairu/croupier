@@ -4,7 +4,7 @@ Host: 0.0.0.0
 Port: 9080
 
 Server:
-  InternalAddr: "0.0.0.0:9443"
+  ListenAddr: "0.0.0.0:9443"
   PublicAddr: "edge.local"
   Insecure: true
   TLSCertFile: ""

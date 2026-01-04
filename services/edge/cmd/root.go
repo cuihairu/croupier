@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -101,7 +102,13 @@ func runEdge() error {
 	ctx := svc.NewServiceContext(c)
 	handler.RegisterHandlers(server, ctx)
 
-	grpcAddr := c.Server.InternalAddr
+	grpcAddr := strings.TrimSpace(c.Server.ListenAddr)
+	if grpcAddr == "" {
+		if legacy := strings.TrimSpace(c.Server.InternalAddr); legacy != "" {
+			slog.Warn("Server.InternalAddr is deprecated; use Server.ListenAddr instead")
+			grpcAddr = legacy
+		}
+	}
 	if grpcAddr == "" {
 		grpcAddr = ":18888"
 	}

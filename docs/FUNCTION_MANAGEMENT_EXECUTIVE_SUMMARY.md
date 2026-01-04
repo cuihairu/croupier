@@ -245,18 +245,18 @@ POST /api/packs/{pack_id}/canary?env=...&percentage=10
 
 ## 实施路线图
 
-### 第一阶段（2-3 周）- 基础设施
-1. 新增菜单配置和路由结构
-2. 创建函数目录页面（基础功能）
-3. 分离实例管理页面（从 Registry）
-4. 增强权限检查和错误提示
-5. 创建后向兼容重定向
+### 第一阶段（2-3 周）- 基础设施 ✅（已完成，见 `dashboard/config/routes.ts` 等）
+1. ✅ 新增菜单配置和路由结构（`/game/functions/{catalog,invoke,instances,assignments,packs}` + 顶层 `/functions` 菜单）
+2. ✅ 创建函数目录页面（`dashboard/src/pages/Functions/Directory`：表格视图、标签/分类过滤、快捷跳转）
+3. ✅ 分离实例管理页面（`dashboard/src/pages/Functions/Instances`：覆盖率统计 + Agent 列表）
+4. ✅ 增强权限检查和错误提示（各子路由统一 `access` 守卫 + requestErrorConfig 的 redirect 分支）
+5. ✅ 创建后向兼容重定向（`/gm/*`、`/game/functions` 旧地址跳转至新菜单）
 
 **交付物：**
-- 新菜单结构上线
-- 基础函数目录页面
-- 实例管理页面
-- 旧链接重定向
+- 新菜单结构上线（包含 Function Catalog/Invoke/Instances/Assignments/Packs 各自页面）
+- 基础函数目录页面：可视化函数描述符、快速查看详情/调用
+- 实例管理页面：集中展示 Agent 覆盖数据
+- 旧链接重定向：保留 `/gm/*`、`/game/functions` 入口的兼容跳转提示
 
 ### 第二阶段（3-4 周）- 核心功能增强
 1. 重构函数调用页面（UI 分离）

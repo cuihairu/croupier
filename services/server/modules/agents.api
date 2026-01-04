@@ -1,0 +1,116 @@
+// ============================================================================
+// AGENTS 模块 API 定义
+// ============================================================================
+// Agents 管理和查询 API
+// ============================================================================
+
+// ============================================================================
+// 类型定义
+// ============================================================================
+
+type AgentsListRequest {
+	GameID string `form:"game_id,optional"`
+	Env    string `form:"env,optional"`
+	Status string `form:"status,optional"`
+	Page   int    `form:"page,optional,default=1"`
+	Size   int    `form:"size,optional,default=20"`
+}
+
+type AgentsListResponse {
+	Agents []AgentItem `json:"agents"`
+	Total  int64       `json:"total"`
+	Page   int         `json:"page"`
+	Size   int         `json:"size"`
+}
+
+type AgentItem {
+	AgentID      string `json:"agent_id"`
+	GameID       string `json:"game_id"`
+	Env          string `json:"env"`
+	RPCAddr      string `json:"rpc_addr"`
+	Functions    int    `json:"functions"`
+	Healthy      bool   `json:"healthy"`
+	ExpiresInSec int    `json:"expires_in_sec"`
+	LastSeen     string `json:"last_seen"`
+	Version      string `json:"version,omitempty"`
+}
+
+type AgentDetailRequest {
+	ID string `path:"id"`
+}
+
+type AgentDetailResponse {
+	AgentItem
+	Functions []AgentFunction `json:"functions"`
+	Processes []AgentProcess  `json:"processes"`
+}
+
+type AgentFunction struct {
+	FunctionID string `json:"function_id"`
+	Version    string `json:"version,omitempty"`
+	Enabled    bool   `json:"enabled"`
+}
+
+type AgentProcess struct {
+	ServiceID   string   `json:"service_id"`
+	Addr        string   `json:"addr"`
+	Version     string   `json:"version"`
+	FunctionIDs []string `json:"function_ids"`
+	LastSeen    string   `json:"last_seen"`
+	Healthy     bool     `json:"healthy"`
+}
+
+type AgentFunctionsRequest {
+	ID string `path:"id"`
+}
+
+type AgentFunctionsResponse {
+	Functions []AgentFunction `json:"functions"`
+}
+
+type CoverageAnalysisRequest {
+	GameID string `form:"game_id,optional"`
+	Env    string `form:"env,optional"`
+}
+
+type CoverageAnalysisResponse {
+	TotalFunctions   int                    `json:"total_functions"`
+	CoveredFunctions int                    `json:"covered_functions"`
+	CoveragePercentage float64              `json:"coverage_percentage"`
+	FunctionsByCategory map[string]int      `json:"functions_by_category"`
+	AgentsByGame      map[string]int        `json:"agents_by_game"`
+	CoverageDetails   []CoverageDetailItem  `json:"coverage_details"`
+}
+
+type CoverageDetailItem {
+	FunctionID string   `json:"function_id"`
+	Category   string   `json:"category,omitempty"`
+	Agents     []string `json:"agents"`
+	Status     string   `json:"status"` // covered, partial, uncovered
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+
+@server (
+	prefix: /api/v1/agents
+	group:  agents
+)
+service server {
+	@doc "获取 Agent 列表"
+	@handler AgentsListHandler
+	get / (AgentsListRequest) returns (AgentsListResponse)
+
+	@doc "获取 Agent 详情"
+	@handler AgentDetailHandler
+	get /:id (AgentDetailRequest) returns (AgentDetailResponse)
+
+	@doc "获取 Agent 上的函数列表"
+	@handler AgentFunctionsHandler
+	get /:id/functions (AgentFunctionsRequest) returns (AgentFunctionsResponse)
+
+	@doc "获取覆盖率分析"
+	@handler CoverageAnalysisHandler
+	get /coverage (CoverageAnalysisRequest) returns (CoverageAnalysisResponse)
+}

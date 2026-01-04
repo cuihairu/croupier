@@ -2,7 +2,7 @@ package agentlocal
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
@@ -22,7 +22,7 @@ func NewServer(store *LocalStore) *Server {
 }
 
 func (s *Server) RegisterLocal(ctx context.Context, in *localv1.RegisterLocalRequest) (*localv1.RegisterLocalResponse, error) {
-	log.Printf("[agentlocal] DEBUG: RegisterLocal RPC received from %s", in.GetServiceId())
+	slog.Debug("[agentlocal] RegisterLocal RPC received", "service_id", in.GetServiceId())
 	s.store.Register(in.GetServiceId(), in.GetRpcAddr(), in.GetVersion(), in.GetFunctions())
 	return &localv1.RegisterLocalResponse{SessionId: in.GetServiceId() + ":" + time.Now().Format("150405")}, nil
 }

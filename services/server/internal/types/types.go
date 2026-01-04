@@ -999,6 +999,37 @@ type FunctionsPendingResponse struct {
 	Items []PendingFunction `json:"items"`
 }
 
+type FunctionCategoriesRequest struct {
+	GameID string `form:"game_id,optional"`
+}
+
+type FunctionCategoriesResponse struct {
+	Categories []FunctionCategoryItem `json:"categories"`
+}
+
+type FunctionCategoryItem struct {
+	Category string `json:"category"`
+	Count    int    `json:"count"`
+}
+
+type FunctionSearchRequest struct {
+	Query    string   `form:"query,optional"`
+	GameID   string   `form:"game_id,optional"`
+	Category string   `form:"category,optional"`
+	Status   int      `form:"status,optional"`
+	Statuses []int    `form:"statuses,optional"`
+	Tags     []string `form:"tags,optional"`
+	Page     int      `form:"page,optional,default=1"`
+	PageSize int      `form:"page_size,optional,default=20"`
+}
+
+type FunctionSearchResponse struct {
+	Items []Function `json:"items"`
+	Total int64      `json:"total"`
+	Page  int        `json:"page"`
+	Size  int        `json:"size"`
+}
+
 type FunnelStep struct {
 	Step           string  `json:"step"`
 	Users          int     `json:"users"`
@@ -2631,4 +2662,205 @@ type XRenderTemplatesResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
+}
+
+// Function Calls types
+type FunctionCallsListRequest struct {
+	FunctionID string `form:"function_id,optional"`
+	GameID     string `form:"game_id,optional"`
+	Env        string `form:"env,optional"`
+	Status     string `form:"status,optional"`
+	ActorID    string `form:"actor_id,optional"`
+	AgentID    string `form:"agent_id,optional"`
+	StartTime  string `form:"start_time,optional"`
+	EndTime    string `form:"end_time,optional"`
+	Page       int    `form:"page,optional,default=1"`
+	PageSize   int    `form:"page_size,optional,default=20"`
+}
+
+type FunctionCallsListResponse struct {
+	Calls    []FunctionCallItem `json:"calls"`
+	Total    int64              `json:"total"`
+	Page     int                `json:"page"`
+	PageSize int                `json:"page_size"`
+}
+
+type FunctionCallItem struct {
+	ID         int64       `json:"id"`
+	JobID      string      `json:"job_id"`
+	FunctionID string      `json:"function_id"`
+	GameID     string      `json:"game_id,omitempty"`
+	Env        string      `json:"env,omitempty"`
+	ActorID    string      `json:"actor_id,omitempty"`
+	ActorType  string      `json:"actor_type,omitempty"`
+	Status     string      `json:"status"`
+	AgentID    string      `json:"agent_id,omitempty"`
+	ServiceID  string      `json:"service_id,omitempty"`
+	StartedAt  string      `json:"started_at,omitempty"`
+	FinishedAt string      `json:"finished_at,omitempty"`
+	DurationMs int64       `json:"duration_ms,omitempty"`
+	Payload    interface{} `json:"payload,omitempty"`
+	Result     interface{} `json:"result,omitempty"`
+	ErrorMsg   string      `json:"error_msg,omitempty"`
+	RetryCount int         `json:"retry_count,omitempty"`
+	CreatedAt  string      `json:"created_at"`
+}
+
+type FunctionCallDetailRequest struct {
+	ID string `path:"id"`
+}
+
+type FunctionCallDetailResponse struct {
+	FunctionCallItem
+}
+
+type FunctionCallRerunRequest struct {
+	ID      string      `path:"id"`
+	Payload interface{} `json:"payload,optional"`
+}
+
+type FunctionCallRerunResponse struct {
+	JobID string `json:"job_id"`
+}
+
+type FunctionCallStatsRequest struct {
+	FunctionID string `form:"function_id,optional"`
+	GameID     string `form:"game_id,optional"`
+	Env        string `form:"env,optional"`
+	ActorID    string `form:"actor_id,optional"`
+	StartTime  string `form:"start_time,optional"`
+	EndTime    string `form:"end_time,optional"`
+}
+
+type FunctionCallStatsResponse struct {
+	Total         int64 `json:"total"`
+	Succeeded     int64 `json:"succeeded"`
+	Failed        int64 `json:"failed"`
+	Running       int64 `json:"running"`
+	Cancelled     int64 `json:"cancelled"`
+	Timeout       int64 `json:"timeout"`
+	Other         int64 `json:"other"`
+	AvgDurationMs int64 `json:"avg_duration_ms"`
+}
+
+// Agents types
+type AgentsListRequest struct {
+	GameID string `form:"game_id,optional"`
+	Env    string `form:"env,optional"`
+	Status string `form:"status,optional"`
+	Page   int    `form:"page,optional,default=1"`
+	Size   int    `form:"size,optional,default=20"`
+}
+
+type AgentsListResponse struct {
+	Agents []AgentItem `json:"agents"`
+	Total  int64       `json:"total"`
+	Page   int         `json:"page"`
+	Size   int         `json:"size"`
+}
+
+type AgentItem struct {
+	AgentID      string `json:"agent_id"`
+	GameID       string `json:"game_id"`
+	Env          string `json:"env"`
+	RPCAddr      string `json:"rpc_addr"`
+	Functions    int    `json:"functions"`
+	Healthy      bool   `json:"healthy"`
+	ExpiresInSec int    `json:"expires_in_sec"`
+	LastSeen     string `json:"last_seen"`
+	Version      string `json:"version,omitempty"`
+}
+
+type AgentDetailRequest struct {
+	ID string `path:"id"`
+}
+
+type AgentDetailResponse struct {
+	AgentItem
+	Functions []AgentFunction `json:"functions"`
+	Processes []AgentProcess  `json:"processes"`
+}
+
+type AgentFunction struct {
+	FunctionID string `json:"function_id"`
+	Version    string `json:"version,omitempty"`
+	Enabled    bool   `json:"enabled"`
+}
+
+type AgentProcess struct {
+	ServiceID   string   `json:"service_id"`
+	Addr        string   `json:"addr"`
+	Version     string   `json:"version"`
+	FunctionIDs []string `json:"function_ids"`
+	LastSeen    string   `json:"last_seen"`
+	Healthy     bool     `json:"healthy"`
+}
+
+type AgentFunctionsRequest struct {
+	ID string `path:"id"`
+}
+
+type AgentFunctionsResponse struct {
+	Functions []AgentFunction `json:"functions"`
+}
+
+type CoverageAnalysisRequest struct {
+	GameID string `form:"game_id,optional"`
+	Env    string `form:"env,optional"`
+}
+
+type CoverageAnalysisResponse struct {
+	TotalFunctions      int64                `json:"total_functions"`
+	CoveredFunctions    int                  `json:"covered_functions"`
+	CoveragePercentage  float64              `json:"coverage_percentage"`
+	FunctionsByCategory map[string]int       `json:"functions_by_category"`
+	AgentsByGame        map[string]int       `json:"agents_by_game"`
+	CoverageDetails     []CoverageDetailItem `json:"coverage_details"`
+}
+
+type CoverageDetailItem struct {
+	FunctionID string   `json:"function_id"`
+	Category   string   `json:"category,omitempty"`
+	Agents     []string `json:"agents"`
+	Status     string   `json:"status"` // covered, partial, uncovered
+}
+
+// Pack detail types
+type PackDetailRequest struct {
+	ID string `path:"id"`
+}
+
+type PackDetailResponse struct {
+	Pack map[string]interface{} `json:"pack"`
+}
+
+type PackContentsRequest struct {
+	ID string `path:"id"`
+}
+
+type PackContentsResponse struct {
+	ID       string            `json:"id"`
+	Contents []PackContentItem `json:"contents"`
+}
+
+type PackContentItem struct {
+	Path     string `json:"path"`
+	Type     string `json:"type"`
+	Size     int64  `json:"size"`
+	Modified string `json:"modified"`
+}
+
+type PackVersionsRequest struct {
+	ID string `path:"id"`
+}
+
+type PackVersionsResponse struct {
+	ID       string            `json:"id"`
+	Versions []PackVersionItem `json:"versions"`
+}
+
+type PackVersionItem struct {
+	Version   string `json:"version"`
+	CreatedAt string `json:"created_at"`
+	IsActive  bool   `json:"is_active"`
 }
