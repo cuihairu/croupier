@@ -100,13 +100,21 @@ type FunctionCopyResponse {
 
 // --- 函数调用 ---
 type FunctionInvokeRequest {
-	ID     string      `path:"id"`
-	Params interface{} `json:"params,optional"`
+	ID              string      `path:"id"`
+	Params          interface{} `json:"params,optional"`
+	Payload         interface{} `json:"payload,optional"`
+	GameID          string      `json:"gameId,optional"`
+	Env             string      `json:"env,optional"`
+	Mode            string      `json:"mode,optional"`
+	Route           string      `json:"route,optional"`
+	TargetServiceID string      `json:"target_service_id,optional"`
+	HashKey         string      `json:"hash_key,optional"`
 }
 
 type FunctionInvokeResponse {
-	JobId  string      `json:"jobId"`
-	Result interface{} `json:"result,omitempty"`
+	JobId   string      `json:"jobId"`
+	JobID   string      `json:"jobID,omitempty"`
+	Result  interface{} `json:"result,omitempty"`
 }
 
 // --- 函数权限 ---

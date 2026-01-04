@@ -84,7 +84,6 @@ func autoMigrateModels(db *gorm.DB) error {
 		&Certificate{},
 		&CertificateAlert{},
 		&ConfigVersion{},
-		&JobHistory{},
 	)
 }
 

@@ -97,7 +97,6 @@ func (l *ProfilePermissionsLogic) ProfilePermissions(req *types.ProfilePermissio
 		Permissions:   respPerms,
 		Admin:         isAdmin,
 		Roles:         roleNames,
-		PermissionIds: permissionIDs,
 		PermissionIDs: permissionIDs,
 	}, nil
 }

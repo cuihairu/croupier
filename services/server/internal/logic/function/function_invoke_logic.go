@@ -48,10 +48,7 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *types.FunctionInvokeRequest) (
 		return nil, err
 	}
 
-	gameID := strings.TrimSpace(req.GameId)
-	if gameID == "" {
-		gameID = strings.TrimSpace(req.GameID)
-	}
+	gameID := strings.TrimSpace(req.GameID)
 	env := strings.TrimSpace(req.Env)
 
 	payloadObj := req.Payload
@@ -84,7 +81,7 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *types.FunctionInvokeRequest) (
 	case "lb":
 		// no-op
 	case "targeted":
-		sid := strings.TrimSpace(req.TargetServiceId)
+		sid := strings.TrimSpace(req.TargetServiceID)
 		if sid == "" {
 			return nil, fmt.Errorf("target_service_id is required for route=targeted")
 		}
