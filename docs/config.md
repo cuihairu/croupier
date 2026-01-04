@@ -1,3 +1,14 @@
+---
+title: 配置管理
+icon: gears
+order: 4
+category:
+  - 入门指南
+tag:
+  - 配置
+  - YAML
+---
+
 # Configuration (YAML, Includes, Profiles)
 
 This repo contains multiple Go entrypoints. For go-zero services under `services/*` (including `services/server`), configuration is loaded via `github.com/zeromicro/go-zero/core/conf` from a YAML file passed by `-f/--config`.

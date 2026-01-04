@@ -1,3 +1,13 @@
+---
+title: 函数管理系统分析
+icon: code
+order: 3
+category:
+  - 函数管理
+tag:
+  - 函数管理
+  - 架构分析
+---
 
 # Croupier 函数管理系统分析文档
 

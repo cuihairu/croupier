@@ -1,3 +1,14 @@
+---
+title: 部署指南
+icon: rocket
+order: 5
+category:
+  - 入门指南
+tag:
+  - 部署
+  - 运维
+---
+
 # Deployment
 
 - Server runs in DMZ/public with mTLS on :443 (configurable via --config or env CROUPIER_SERVER_*)

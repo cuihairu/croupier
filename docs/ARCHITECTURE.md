@@ -1,3 +1,14 @@
+---
+title: 架构设计
+icon: sitemap
+order: 1
+category:
+  - 架构设计
+tag:
+  - 架构
+  - 对象驱动
+---
+
 # Croupier 对象驱动的组件化后台管理系统
 
 ## 📋 概述

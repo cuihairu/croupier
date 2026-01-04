@@ -1,3 +1,5 @@
+![Croupier Logo](docs/.vuepress/public/logo.png)
+
 # Croupier Platform
 
 [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci.yml)

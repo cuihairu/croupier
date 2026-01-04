@@ -1,3 +1,14 @@
+---
+title: 目录结构
+icon: folder-tree
+order: 2
+category:
+  - 入门指南
+tag:
+  - 项目结构
+  - go-zero
+---
+
 # Directory Structure (Go-Zero Multi-Process)
 
 The repository now standardizes on [go-zero](https://go-zero.dev/) across all backend services. Each process (server, agent, edge, analytics-worker, …) manages its own generated code, GORM models, and migrations under `services/<name>/`. This document captures the conventions to keep those services consistent.

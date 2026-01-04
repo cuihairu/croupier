@@ -1,3 +1,14 @@
+---
+title: 安全配置
+icon: shield
+order: 6
+category:
+  - 入门指南
+tag:
+  - 安全
+  - 权限
+---
+
 # Security
 
 - mTLS for Server/Agent

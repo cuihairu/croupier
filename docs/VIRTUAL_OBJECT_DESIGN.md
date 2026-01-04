@@ -1,3 +1,14 @@
+---
+title: 虚拟对象设计
+icon: cubes
+order: 2
+category:
+  - 架构设计
+tag:
+  - 虚拟对象
+  - 架构
+---
+
 # Croupier 虚拟对象(Virtual Object)架构完整分析
 
 ## 📚 执行摘要

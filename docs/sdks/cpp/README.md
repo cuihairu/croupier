@@ -1,3 +1,14 @@
+---
+title: C++ SDK
+icon: file-code
+order: 1
+category:
+  - SDK 文档
+tag:
+  - C++
+  - SDK
+---
+
 # Croupier C++ SDK：虚拟对象注册系统
 
 [![Build Status](https://github.com/cuihairu/croupier-sdk-cpp/actions/workflows/cpp-sdk-build.yml/badge.svg)](https://github.com/cuihairu/croupier-sdk-cpp/actions/workflows/cpp-sdk-build.yml)
