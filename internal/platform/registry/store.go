@@ -2,6 +2,7 @@ package registry
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -443,4 +444,525 @@ func expandIfDir(p string) []string {
 		return files
 	}
 	return []string{p}
+}
+
+// ========== Deep Merge Strategy for Descriptors ==========
+
+// MergeStrategy defines how to handle conflicts when merging descriptor fields.
+type MergeStrategy int
+
+const (
+	// MergeOverwrite: later value completely replaces earlier value
+	MergeOverwrite MergeStrategy = iota
+	// MergeDeep: recursively merge nested objects
+	MergeDeep
+	// MergeAppend: append arrays (for list fields)
+	MergeAppend
+	// MergeSkip: keep first value, ignore later values
+	MergeSkip
+	// MergeError: report conflict as error
+	MergeError
+)
+
+// MergeConfig defines merge behavior for specific descriptor fields.
+type MergeConfig struct {
+	// FieldPath is dot-separated path (e.g., "permissions.verbs")
+	FieldPath string
+	// Strategy defines how to merge this field
+	Strategy MergeStrategy
+	// Priority sources in order (lowest to highest)
+	// Valid sources: "provider", "component", "server", "override"
+	Priority []string
+}
+
+// DefaultMergeConfig returns the default merge configuration for descriptor fields.
+func DefaultMergeConfig() []MergeConfig {
+	return []MergeConfig{
+		// Scalar fields: overwrite with higher priority
+		{FieldPath: "id", Strategy: MergeSkip}, // id never changes
+		{FieldPath: "version", Strategy: MergeOverwrite, Priority: []string{"provider", "component", "server"}},
+		{FieldPath: "name", Strategy: MergeDeep, Priority: []string{"provider", "component", "server"}},
+		{FieldPath: "description", Strategy: MergeOverwrite, Priority: []string{"provider", "component", "server"}},
+
+		// i18n fields: deep merge (combine languages from all sources)
+		{FieldPath: "display_name", Strategy: MergeDeep, Priority: []string{"provider", "component", "server", "override"}},
+		{FieldPath: "summary", Strategy: MergeDeep, Priority: []string{"provider", "component", "server", "override"}},
+
+		// Tags: append (union of all tags from all sources)
+		{FieldPath: "tags", Strategy: MergeAppend, Priority: []string{"provider", "component", "server", "override"}},
+
+		// Menu: server override wins (for hiding/customizing UI)
+		{FieldPath: "menu", Strategy: MergeDeep, Priority: []string{"provider", "component", "server", "override"}},
+
+		// Permissions: deep merge with conflict detection
+		{FieldPath: "permissions", Strategy: MergeDeep, Priority: []string{"provider", "component", "server", "override"}},
+
+		// Schema: provider defines, server can extend but not remove required fields
+		{FieldPath: "schema", Strategy: MergeDeep, Priority: []string{"provider", "component"}},
+		{FieldPath: "schema.required", Strategy: MergeAppend, Priority: []string{"provider", "component"}},
+		{FieldPath: "schema.properties", Strategy: MergeDeep, Priority: []string{"provider", "component"}},
+
+		// Entity operations: merge (union of all operations)
+		{FieldPath: "operations", Strategy: MergeDeep, Priority: []string{"provider", "component"}},
+
+		// Entity UI: server can override display fields
+		{FieldPath: "ui", Strategy: MergeDeep, Priority: []string{"provider", "component", "server", "override"}},
+
+		// Auth/Risk: server override wins (security context)
+		{FieldPath: "auth", Strategy: MergeDeep, Priority: []string{"provider", "server", "override"}},
+		{FieldPath: "risk", Strategy: MergeOverwrite, Priority: []string{"provider", "server", "override"}},
+	}
+}
+
+// DescriptorSource identifies where a descriptor value came from.
+type DescriptorSource string
+
+const (
+	SourceProvider  DescriptorSource = "provider"
+	SourceComponent DescriptorSource = "component"
+	SourceServer    DescriptorSource = "server"
+	SourceOverride  DescriptorSource = "override"
+)
+
+// DescriptorWithSource wraps a descriptor with its source for merge tracking.
+type DescriptorWithSource struct {
+	Data    map[string]interface{}
+	Source  DescriptorSource
+	Version string
+}
+
+// MergeDescriptors merges multiple descriptors according to the configured strategy.
+// Returns the merged descriptor and any conflicts encountered.
+func (s *Store) MergeDescriptors(descriptors []DescriptorWithSource) (map[string]interface{}, []MergeConflict, error) {
+	if len(descriptors) == 0 {
+		return nil, nil, nil
+	}
+
+	config := DefaultMergeConfig()
+	result := map[string]interface{}{}
+	conflicts := []MergeConflict{}
+
+	// Sort descriptors by priority (lowest first)
+	sortedDescs := sortDescriptorsByPriority(descriptors, config)
+
+	// Build priority map for quick lookup
+	priorityMap := buildPriorityMap(config)
+
+	// Merge each descriptor in priority order
+	for _, desc := range sortedDescs {
+		result = mergeMaps(result, desc.Data, config, desc.Source, &conflicts)
+	}
+
+	return result, conflicts, nil
+}
+
+// MergeConflict represents a merge conflict that was detected.
+type MergeConflict struct {
+	Field    string
+	Source1  DescriptorSource
+	Value1   interface{}
+	Source2  DescriptorSource
+	Value2   interface{}
+	Resolved bool
+}
+
+// mergeMaps recursively merges two maps according to the merge configuration.
+func mergeMaps(base, override map[string]interface{}, config []MergeConfig, source DescriptorSource, conflicts *[]MergeConflict) map[string]interface{} {
+	if base == nil {
+		base = map[string]interface{}{}
+	}
+	if override == nil {
+		return base
+	}
+
+	result := map[string]interface{}{}
+
+	// Copy all base fields
+	for k, v := range base {
+		result[k] = v
+	}
+
+	// Apply override fields according to strategy
+	for key, overrideVal := range override {
+		fieldPath := key // For top-level fields
+
+		// Find the merge strategy for this field
+		strategy := findMergeStrategy(config, fieldPath)
+
+		switch strategy {
+		case MergeOverwrite:
+			result[key] = overrideVal
+
+		case MergeSkip:
+			// Keep base value if exists
+			if _, exists := result[key]; !exists {
+				result[key] = overrideVal
+			}
+
+		case MergeDeep:
+			if baseVal, exists := base[key]; exists {
+				// Both exist - try deep merge
+				if baseMap, ok := baseVal.(map[string]interface{}); ok {
+					if overrideMap, ok := overrideVal.(map[string]interface{}); ok {
+						// Recursively merge nested maps
+						result[key] = mergeNestedMaps(baseMap, overrideMap, config, source, conflicts, fieldPath)
+						continue
+					}
+				}
+				// Types don't match or not maps - overwrite
+				result[key] = overrideVal
+			} else {
+				result[key] = overrideVal
+			}
+
+		case MergeAppend:
+			if baseVal, exists := base[key]; exists {
+				// Append arrays
+				result[key] = appendSlices(baseVal, overrideVal)
+			} else {
+				result[key] = overrideVal
+			}
+
+		default:
+			// Default to overwrite
+			result[key] = overrideVal
+		}
+	}
+
+	return result
+}
+
+// mergeNestedMaps handles nested map merging with conflict tracking.
+func mergeNestedMaps(base, override map[string]interface{}, config []MergeConfig, source DescriptorSource, conflicts *[]MergeConflict, parentPath string) map[string]interface{} {
+	result := map[string]interface{}{}
+
+	// Copy base
+	for k, v := range base {
+		result[k] = v
+	}
+
+	// Apply override
+	for key, overrideVal := range override {
+		fieldPath := parentPath + "." + key
+
+		if baseVal, exists := base[key]; exists {
+			// Check for specific field strategies (e.g., permissions.verbs)
+			strategy := findMergeStrategy(config, fieldPath)
+
+			if strategy == MergeAppend {
+				result[key] = appendSlices(baseVal, overrideVal)
+				continue
+			}
+
+			// Try recursive merge for nested maps
+			if baseMap, ok := baseVal.(map[string]interface{}); ok {
+				if overrideMap, ok := overrideVal.(map[string]interface{}); ok {
+					result[key] = mergeNestedMaps(baseMap, overrideMap, config, source, conflicts, fieldPath)
+					continue
+				}
+			}
+
+			// Overwrite if not both maps
+			result[key] = overrideVal
+		} else {
+			result[key] = overrideVal
+		}
+	}
+
+	return result
+}
+
+// appendSlices appends two values (handling both []interface{} and []string).
+func appendSlices(a, b interface{}) interface{} {
+	aSlice, aOk := toInterfaceSlice(a)
+	bSlice, bOk := toInterfaceSlice(b)
+
+	if !aOk && !bOk {
+		return b // b replaces a if neither are slices
+	}
+	if !aOk {
+		return b
+	}
+	if !bOk {
+		return a
+	}
+
+	// Deduplicate while preserving order
+	seen := make(map[string]bool)
+	result := make([]interface{}, 0, len(aSlice)+len(bSlice))
+
+	for _, v := range aSlice {
+		key := fmt.Sprint(v)
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, v)
+		}
+	}
+	for _, v := range bSlice {
+		key := fmt.Sprint(v)
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, v)
+		}
+	}
+
+	return result
+}
+
+// toInterfaceSlice converts a slice to []interface{}.
+func toInterfaceSlice(v interface{}) ([]interface{}, bool) {
+	if v == nil {
+		return nil, false
+	}
+
+	switch slice := v.(type) {
+	case []interface{}:
+		return slice, true
+	case []string:
+		result := make([]interface{}, len(slice))
+		for i, s := range slice {
+			result[i] = s
+		}
+		return result, true
+	case []map[string]interface{}:
+		result := make([]interface{}, len(slice))
+		for i, m := range slice {
+			result[i] = m
+		}
+		return result, true
+	default:
+		return nil, false
+	}
+}
+
+// findMergeStrategy finds the merge strategy for a given field path.
+func findMergeStrategy(config []MergeConfig, fieldPath string) MergeStrategy {
+	for _, cfg := range config {
+		if cfg.FieldPath == fieldPath {
+			return cfg.Strategy
+		}
+	}
+	return MergeOverwrite // Default strategy
+}
+
+// sortDescriptorsByPriority sorts descriptors by their source priority.
+func sortDescriptorsByPriority(descriptors []DescriptorWithSource, config []MergeConfig) []DescriptorWithSource {
+	// Build a priority map: source -> rank (lower = lower priority)
+	priorityMap := buildPriorityMap(config)
+
+	result := make([]DescriptorWithSource, len(descriptors))
+	copy(result, descriptors)
+
+	sort.Slice(result, func(i, j int) bool {
+		rank1 := priorityMap[string(result[i].Source)]
+		rank2 := priorityMap[string(result[j].Source)]
+		return rank1 < rank2 // Lower rank (lower priority) comes first
+	})
+
+	return result
+}
+
+// buildPriorityMap creates a map from source name to priority rank.
+func buildPriorityMap(config []MergeConfig) map[string]int {
+	// Collect all unique sources in priority order
+	priorityMap := map[string]int{}
+	maxRank := 0
+
+	// Default priorities
+	defaultOrder := []DescriptorSource{SourceProvider, SourceComponent, SourceServer, SourceOverride}
+	for i, src := range defaultOrder {
+		priorityMap[string(src)] = i
+		maxRank = i + 1
+	}
+
+	// Extend with any custom priorities from config
+	for _, cfg := range config {
+		for i, src := range cfg.Priority {
+			if _, exists := priorityMap[src]; !exists {
+				priorityMap[src] = maxRank + i
+			}
+		}
+	}
+
+	return priorityMap
+}
+
+// MergeProviderDescriptors is a convenience method that merges all registered provider descriptors.
+func (s *Store) MergeProviderDescriptors() (map[string]interface{}, []MergeConflict, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	descriptors := []DescriptorWithSource{}
+
+	// Collect descriptors from all providers
+	for _, pc := range s.sortedProviderCapsLocked() {
+		if len(pc.Manifest) == 0 {
+			continue
+		}
+
+		var manifest map[string]interface{}
+		if err := json.Unmarshal(pc.Manifest, &manifest); err != nil {
+			continue
+		}
+
+		// Add functions as descriptors
+		if functions, ok := manifest["functions"].([]interface{}); ok {
+			for _, fn := range functions {
+				if fnMap, ok := fn.(map[string]interface{}); ok {
+					descriptors = append(descriptors, DescriptorWithSource{
+						Data:    fnMap,
+						Source:  SourceProvider,
+						Version: pc.Version,
+					})
+				}
+			}
+		}
+
+		// Add entities as descriptors
+		if entities, ok := manifest["entities"].([]interface{}); ok {
+			for _, ent := range entities {
+				if entMap, ok := ent.(map[string]interface{}); ok {
+					descriptors = append(descriptors, DescriptorWithSource{
+						Data:    entMap,
+						Source:  SourceProvider,
+						Version: pc.Version,
+					})
+				}
+			}
+		}
+	}
+
+	// Load component descriptors from components directory
+	componentDescs := s.loadComponentDescriptors()
+	descriptors = append(descriptors, componentDescs...)
+
+	// Load server overrides
+	serverOverrides := s.loadServerOverrides()
+	for _, override := range serverOverrides {
+		descriptors = append(descriptors, DescriptorWithSource{
+			Data:   override,
+			Source: SourceServer,
+		})
+	}
+
+	// Group descriptors by ID and merge within each group
+	grouped := groupDescriptorsByID(descriptors)
+	mergedResult := map[string]interface{}{}
+	allConflicts := []MergeConflict{}
+
+	for id, group := range grouped {
+		merged, conflicts, err := s.MergeDescriptors(group)
+		if err != nil {
+			continue
+		}
+		mergedResult[id] = merged
+		allConflicts = append(allConflicts, conflicts...)
+	}
+
+	return mergedResult, allConflicts, nil
+}
+
+// groupDescriptorsByID groups descriptors by their "id" field.
+func groupDescriptorsByID(descriptors []DescriptorWithSource) map[string][]DescriptorWithSource {
+	grouped := map[string][]DescriptorWithSource{}
+	for _, desc := range descriptors {
+		id, _ := desc.Data["id"].(string)
+		if id == "" {
+			continue
+		}
+		grouped[id] = append(grouped[id], desc)
+	}
+	return grouped
+}
+
+// loadComponentDescriptors loads descriptors from the components directory.
+func (s *Store) loadComponentDescriptors() []DescriptorWithSource {
+	descriptors := []DescriptorWithSource{}
+
+	componentDirs := []string{
+		"components",
+		"/usr/local/lib/croupier/components",
+	}
+
+	for _, dir := range componentDirs {
+		if _, err := os.Stat(dir); err != nil {
+			continue
+		}
+
+		// Find all manifest.json files
+		_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
+			}
+
+			if d.Name() == "manifest.json" {
+				b, err := os.ReadFile(path)
+				if err != nil {
+					return nil
+				}
+
+				var manifest map[string]interface{}
+				if err := json.Unmarshal(b, &manifest); err != nil {
+					return nil
+				}
+
+				// Extract descriptors from manifest
+				if functions, ok := manifest["functions"].([]interface{}); ok {
+					for _, fn := range functions {
+						if fnMap, ok := fn.(map[string]interface{}); ok {
+							descriptors = append(descriptors, DescriptorWithSource{
+								Data:   fnMap,
+								Source: SourceComponent,
+							})
+						}
+					}
+				}
+
+				if entities, ok := manifest["entities"].([]interface{}); ok {
+					for _, ent := range entities {
+						if entMap, ok := ent.(map[string]interface{}); ok {
+							descriptors = append(descriptors, DescriptorWithSource{
+								Data:   entMap,
+								Source: SourceComponent,
+							})
+						}
+					}
+				}
+			}
+
+			return nil
+		})
+	}
+
+	return descriptors
+}
+
+// loadServerOverrides loads server-side override descriptors.
+func (s *Store) loadServerOverrides() []map[string]interface{} {
+	overrides := []map[string]interface{}{}
+
+	// Load from configured paths
+	paths := []string{
+		"configs/ui/functions.override.json",
+		"configs/ui/entities.override.json",
+		"configs/ui/descriptors.override.json",
+	}
+
+	for _, path := range paths {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+
+		var overrideMap map[string]map[string]interface{}
+		if err := json.Unmarshal(b, &overrideMap); err != nil {
+			continue
+		}
+
+		for _, desc := range overrideMap {
+			overrides = append(overrides, desc)
+		}
+	}
+
+	return overrides
 }

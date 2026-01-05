@@ -4,7 +4,7 @@ managed:
   go_package_prefix:
     default: github.com/cuihairu/croupier/pkg/pb
 plugins:
-  # Go plugins for new SDK structure - using local protoc-gen-go (from PATH)
+  # Go plugins for main package
   - name: go
     out: pkg/pb
     opt:
@@ -13,55 +13,3 @@ plugins:
     out: pkg/pb
     opt:
       - paths=source_relative
-
-  # Local custom plugin: protoc-gen-croupier (must be on PATH)
-  - name: croupier
-    # Remove path field to let buf find protoc-gen-croupier in PATH
-    # plugin: protoc-gen-croupier will be searched in PATH
-    strategy: all
-    out: gen/croupier
-    opt:
-      - emit_pack=true
-
-  # C++ code is NOT generated here - it must be generated using vcpkg's protoc
-  # in CI to match the vcpkg protobuf runtime version.
-  # See: release.yml and sdk-nightly.yml for C++ proto generation.
-
-  # Generate Java code for SDK - using local protoc-gen-java (from PATH)
-  - name: java
-    out: sdks/java/generated
-
-  # Java gRPC plugin - using local grpc_java_plugin (from PATH)
-  - name: grpc-java
-    path: protoc-gen-grpc-java
-    out: sdks/java/generated
-
-  # Generate Go code for SDK - using local protoc-gen-go (from PATH)
-  - name: go
-    out: sdks/go/generated
-    opt:
-      - paths=source_relative
-  - name: go-grpc
-    out: sdks/go/generated
-    opt:
-      - paths=source_relative
-
-  # Generate Python code for SDK - using local protoc
-  - name: python
-    out: sdks/python/generated
-  # Generate Python gRPC code using grpc_python_plugin
-  - name: grpc-python
-    path: grpc_python_plugin
-    out: sdks/python/generated
-
-  # Generate JavaScript/TypeScript code for SDK - using local protoc-gen-es (from PATH)
-  - name: es
-    path: protoc-gen-es
-    out: sdks/js/generated
-    opt:
-      - target=ts
-  - name: connect-es
-    path: protoc-gen-connect-es
-    out: sdks/js/generated
-    opt:
-      - target=ts

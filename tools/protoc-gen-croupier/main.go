@@ -79,8 +79,20 @@ func main() {
 		Menu        map[string]any    `json:"menu,omitempty"`
 		Permissions map[string]any    `json:"permissions,omitempty"`
 	}
+
+	type EntitySpec struct {
+		ID          string            `json:"id"`
+		Version     string            `json:"version,omitempty"`
+		Name        string            `json:"name,omitempty"`
+		Description string            `json:"description,omitempty"`
+		Category    string            `json:"category,omitempty"`
+		DisplayName map[string]string `json:"display_name,omitempty"`
+		Summary     map[string]string `json:"summary,omitempty"`
+	}
+
 	manifest := map[string]any{}
 	manifestFunctions := make([]FunctionSpec, 0)
+	manifestEntities := make([]EntitySpec, 0)
 
 	var generatedFiles []generatedFile
 	emittedSchemas := map[string]bool{}
@@ -262,11 +274,101 @@ func main() {
 				manifestFunctions = append(manifestFunctions, fnSpec)
 			}
 		}
+
+		// ========== Process entities (messages with (croupier.options.entity) option) ==========
+		for _, msg := range fd.GetMessageType() {
+			eo := parseEntityOptions(msg.GetOptions())
+			if eo.EntityID == "" && !hasEntityExtension(msg.GetOptions()) {
+				continue
+			}
+
+			// Default entity ID
+			entityID := eo.EntityID
+			if entityID == "" {
+				entityID = defaultEntityID(pkg, msg.GetName())
+			}
+			version := eo.Version
+			if version == "" {
+				version = "1.0.0"
+			}
+			category := eo.Category
+			if category == "" {
+				category = defaultCategory(pkg)
+			}
+			name := eo.Name
+			if name == "" {
+				name = msg.GetName()
+			}
+			description := eo.Description
+			if description == "" {
+				description = fmt.Sprintf("%s entity definition", name)
+			}
+
+			// Build JSON Schema for the entity
+			entitySchema := buildJSONSchema(pkg, globalMsgIndex, globalEnumIndex, msg)
+
+			// Add entity-specific annotations to schema (primary_key, searchable, etc.)
+			addEntityHintsToSchema(entitySchema, msg, eo)
+
+			// Build entity descriptor
+			entityDesc := map[string]any{
+				"id":          entityID,
+				"version":     version,
+				"name":        name,
+				"description": description,
+				"type":        "entity",
+				"category":    category,
+				"schema":      entitySchema,
+				"operations":  buildEntityOperations(eo),
+				"ui":          buildEntityUI(eo),
+			}
+
+			// Add i18n display info
+			if len(eo.DisplayName) > 0 {
+				entityDesc["display_name"] = eo.DisplayName
+			}
+			if len(eo.Summary) > 0 {
+				entityDesc["summary"] = eo.Summary
+			}
+
+			// Emit entity descriptor file
+			addJSON(resp, &generatedFiles, filepath.Join("descriptors", sanitize(entityID)+".entity.json"), entityDesc)
+
+			// Emit schema file separately for reuse
+			schemaFile := schemaFileForFQN("." + pkg + "." + msg.GetName())
+			if !emittedSchemas[schemaFile] {
+				addJSON(resp, &generatedFiles, schemaFile, entitySchema)
+				emittedSchemas[schemaFile] = true
+			}
+
+			// Add to manifest
+			entSpec := EntitySpec{
+				ID:          entityID,
+				Version:     version,
+				Name:        name,
+				Description: description,
+				Category:    category,
+			}
+			if len(eo.DisplayName) > 0 {
+				entSpec.DisplayName = eo.DisplayName
+			}
+			if len(eo.Summary) > 0 {
+				entSpec.Summary = eo.Summary
+			}
+			manifestEntities = append(manifestEntities, entSpec)
+		}
 	}
 
 	// Emit manifest.json (pack manifest always includes functions; provider meta is optional)
 	sort.Slice(manifestFunctions, func(i, j int) bool { return manifestFunctions[i].ID < manifestFunctions[j].ID })
 	manifest["functions"] = manifestFunctions
+
+	// Add entities to manifest if any were generated
+	if len(manifestEntities) > 0 {
+		sort.Slice(manifestEntities, func(i, j int) bool { return manifestEntities[i].ID < manifestEntities[j].ID })
+		manifest["entities"] = manifestEntities
+	}
+
 	if emitManifest {
 		manifest["provider"] = map[string]any{
 			"id":          firstNonEmpty(params["provider_id"], params["provider"], params["id"], "provider"),
@@ -1254,4 +1356,229 @@ func buildPackTarGz(files []generatedFile) ([]byte, error) {
 func fatalf(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, format+"\n", a...)
 	os.Exit(1)
+}
+
+// ========== Entity helpers ==========
+
+// entityOptions holds parsed entity options from proto extensions
+type entityOptions struct {
+	EntityID         string
+	Version          string
+	Name             string
+	Description      string
+	Category         string
+	PrimaryKey       string
+	DisplayField     string
+	TitleTemplate    string
+	AvatarField      string
+	StatusField      string
+	CreateFunctions  []string
+	ReadFunctions    []string
+	UpdateFunctions  []string
+	DeleteFunctions  []string
+	ListFunctions    []string
+	CustomOperations map[string]string
+	DisplayName      map[string]string
+	Summary          map[string]string
+}
+
+// parseEntityOptions parses entity options from message options
+func parseEntityOptions(mo *descriptorpb.MessageOptions) entityOptions {
+	var out entityOptions
+
+	if mo == nil {
+		return out
+	}
+
+	// For now, only parse from UninterpretedOption (proto-first workflow)
+	// After the EntityOptions extension is generated and available in optionsv1,
+	// we can add a check using proto.HasExtension(mo, optionsv1.E_Entity)
+	for _, u := range mo.GetUninterpretedOption() {
+		name := joinOptionName(u)
+		if name != "croupier.options.v1.entity" {
+			continue
+		}
+		raw := u.GetAggregateValue()
+		kv := parseAggregateKV(raw)
+		if v := kv["entity_id"]; v != "" {
+			out.EntityID = trimQuotes(v)
+		}
+		if v := kv["version"]; v != "" {
+			out.Version = trimQuotes(v)
+		}
+		if v := kv["name"]; v != "" {
+			out.Name = trimQuotes(v)
+		}
+		if v := kv["description"]; v != "" {
+			out.Description = trimQuotes(v)
+		}
+		if v := kv["category"]; v != "" {
+			out.Category = trimQuotes(v)
+		}
+		if v := kv["primary_key"]; v != "" {
+			out.PrimaryKey = trimQuotes(v)
+		}
+		if v := kv["display_field"]; v != "" {
+			out.DisplayField = trimQuotes(v)
+		}
+		if v := kv["title_template"]; v != "" {
+			out.TitleTemplate = trimQuotes(v)
+		}
+		if v := kv["avatar_field"]; v != "" {
+			out.AvatarField = trimQuotes(v)
+		}
+		if v := kv["status_field"]; v != "" {
+			out.StatusField = trimQuotes(v)
+		}
+		// Parse function arrays
+		if arr := parseOptionArray(raw, "create_functions"); len(arr) > 0 {
+			out.CreateFunctions = arr
+		}
+		if arr := parseOptionArray(raw, "read_functions"); len(arr) > 0 {
+			out.ReadFunctions = arr
+		}
+		if arr := parseOptionArray(raw, "update_functions"); len(arr) > 0 {
+			out.UpdateFunctions = arr
+		}
+		if arr := parseOptionArray(raw, "delete_functions"); len(arr) > 0 {
+			out.DeleteFunctions = arr
+		}
+		if arr := parseOptionArray(raw, "list_functions"); len(arr) > 0 {
+			out.ListFunctions = arr
+		}
+		if m := parseOptionObjectMap(raw, "custom_operations"); len(m) > 0 {
+			out.CustomOperations = m
+		}
+	}
+
+	return out
+}
+
+// hasEntityExtension checks if message has entity extension
+func hasEntityExtension(mo *descriptorpb.MessageOptions) bool {
+	if mo == nil {
+		return false
+	}
+	// Check uninterpreted options for entity extension
+	for _, u := range mo.GetUninterpretedOption() {
+		if joinOptionName(u) == "croupier.options.v1.entity" {
+			return true
+		}
+	}
+	return false
+}
+
+// defaultEntityID generates default entity ID from package and message name
+func defaultEntityID(pkg, msg string) string {
+	id := pkg + "." + msg
+	id = strings.ReplaceAll(id, " ", "")
+	return strings.ToLower(id)
+}
+
+// addEntityHintsToSchema adds entity-specific hints to JSON Schema
+func addEntityHintsToSchema(schema map[string]any, msg *descriptorpb.DescriptorProto, eo entityOptions) {
+	props, ok := schema["properties"].(map[string]any)
+	if !ok {
+		return
+	}
+
+	// Determine primary key
+	primaryKey := eo.PrimaryKey
+	if primaryKey == "" {
+		// Default to first string field
+		for _, f := range msg.GetField() {
+			if f.GetType() == descriptorpb.FieldDescriptorProto_TYPE_STRING {
+				primaryKey = f.GetJsonName()
+				if primaryKey == "" {
+					primaryKey = f.GetName()
+				}
+				break
+			}
+		}
+	}
+
+	// Add hints to each property
+	for _, f := range msg.GetField() {
+		name := f.GetJsonName()
+		if name == "" {
+			name = f.GetName()
+		}
+		prop, ok := props[name]
+		if !ok {
+			continue
+		}
+		propMap, ok := prop.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		// Mark primary key
+		if name == primaryKey {
+			propMap["primary_key"] = true
+		}
+
+		// Check for field-level entity hints via custom options
+		if fo := f.GetOptions(); fo != nil {
+			// Check UI hints for searchable/filterable/sortable
+			if proto.HasExtension(fo, optionsv1.E_Ui) {
+				ext := proto.GetExtension(fo, optionsv1.E_Ui)
+				if ui, ok := ext.(*optionsv1.UIFieldOptions); ok && ui != nil {
+					// These can be added as custom annotations
+					if strings.TrimSpace(ui.GetPlaceholder()) != "" {
+						propMap["placeholder"] = strings.TrimSpace(ui.GetPlaceholder())
+					}
+				}
+			}
+		}
+	}
+}
+
+// buildEntityOperations builds operations mapping from entity options
+func buildEntityOperations(eo entityOptions) map[string]any {
+	ops := map[string]any{}
+
+	if len(eo.CreateFunctions) > 0 {
+		ops["create"] = eo.CreateFunctions
+	}
+	if len(eo.ReadFunctions) > 0 {
+		ops["read"] = eo.ReadFunctions
+	}
+	if len(eo.UpdateFunctions) > 0 {
+		ops["update"] = eo.UpdateFunctions
+	}
+	if len(eo.DeleteFunctions) > 0 {
+		ops["delete"] = eo.DeleteFunctions
+	}
+	if len(eo.ListFunctions) > 0 {
+		ops["list"] = eo.ListFunctions
+	}
+
+	// Add custom operations
+	for k, v := range eo.CustomOperations {
+		if v != "" {
+			ops[k] = []string{v}
+		}
+	}
+
+	return ops
+}
+
+// buildEntityUI builds UI configuration from entity options
+func buildEntityUI(eo entityOptions) map[string]any {
+	ui := map[string]any{}
+
+	if eo.DisplayField != "" {
+		ui["display_field"] = eo.DisplayField
+	}
+	if eo.TitleTemplate != "" {
+		ui["title_template"] = eo.TitleTemplate
+	}
+	if eo.AvatarField != "" {
+		ui["avatar_field"] = eo.AvatarField
+	}
+	if eo.StatusField != "" {
+		ui["status_field"] = eo.StatusField
+	}
+
+	return ui
 }

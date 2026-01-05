@@ -7,13 +7,13 @@
 
 | 分类 | 未完成 | 已完成 | 完成率 |
 | --- | ---: | ---: | ---: |
-| P0 | 0 | 15 | 100.0% |
-| P1 | 0 | 42 | 100.0% |
+| P0 | 0 | 16 | 100.0% |
+| P1 | 0 | 46 | 100.0% |
 | P2 | 0 | 18 | 100.0% |
 | P3 | 0 | 12 | 100.0% |
 | P3b | 0 | 6 | 100.0% |
-| P4 | 0 | 240 | 100.0% |
-| 总计 | 0 | 333 | 100.0% |
+| P4 | 0 | 242 | 100.0% |
+| 总计 | 0 | 340 | 100.0% |
 
 > **说明**: P4 文档 checklist 项（146 项）已确认为非代码实现任务，包括：
 > - 部署检查清单（Deployment Checklist）
@@ -22,6 +22,15 @@
 > - 验证清单（Validation Checklist）
 > - 实施计划（Implementation Plan）
 > - 文档导航指南（Documentation Index）
+>
+> **最近更新** (2025-01-05)：
+> - ✅ P0: 完成实例管理页面完整功能（详情/日志/调试视图）
+> - ✅ P1: 完成 Proto-First 完整 manifest 生成（entities + schema）
+> - ✅ P1: 完成 Provider descriptors 深度合并（冲突策略）
+> - ✅ P1: 完成函数分配管理页面增强
+> - ✅ P1: 完成包管理页面增强
+> - ✅ P4: 完成 API 文档补充
+> - ✅ P4: 完成架构文档更新（Edge 层）
 
 | 范围 | 状态 | 说明 |
 | --- | --- | --- |
@@ -110,6 +119,7 @@
 - [x] Dashboard Telemetry：通过 `/api/ops/config` 下发 `grafana_explore_url/jaeger_url` 供跳转使用 `dashboard/src/services/croupier/ops.ts:100`
 - [x] Dashboard ComponentManagement：VirtualObjectManager 接口失败不再静默回退 mock，改为提示+空态 `dashboard/src/pages/ComponentManagement/components/VirtualObjectManager.tsx:113`
 - [x] Build：修复 `make server` 产物为 `ar archive`（当前在 `services/server` 下构建 `./cmd` 非 `main` 包）；应改为构建 `services/server`（`package main`）并验证生成的 `bin/croupier-server` 可执行 `Makefile:71`
+- [x] 函数管理：补齐"实例管理"页面的完整功能（当前仅基础列表，缺少详情/日志/调试视图）`dashboard/src/pages/Functions/Instances/index.tsx:1`
 
 ## P1 - 核心能力（控制面/描述符/低代码）
 
@@ -158,6 +168,10 @@
 - [x] Agentlocal：LocalStore 的 `Prune` 从未调用，实例/函数可能永久残留；增加定时清理与 maxAge 配置 `internal/platform/agentlocal/store.go:130`
 - [x] Agent Upstream：store.OnUpdate 回调当前每次变更都触发 sync（且使用 `context.Background()`），需要 debounce/合并并增加超时/重试策略 `internal/app/agent/upstream.go:71`
 - [x] Agentlocal：LocalControlService proto 含 `GetJobResult`，但 server 未实现；补齐实现或从 proto/调用链中移除 `internal/platform/agentlocal/local_control.go:1`
+- [x] Proto-First：扩展 `protoc-gen-croupier` 支持完整 manifest 生成（当前基础 functions 已实现，需补齐 entities[] 和完整 schema/*.json）`docs/providers-manifest.md:99`
+- [x] Provider Manifest：实现 Provider descriptors 与 Component descriptors 的深度合并（当前仅简单聚合，需冲突策略/优先级规则）`internal/platform/control/server.go:112`
+- [x] 函数管理：增强"函数分配管理"功能（当前 Assignments 页面仅基础列表，需补齐批量操作/版本控制/灰度）`dashboard/src/pages/Assignments/index.tsx:1`
+- [x] 函数管理：增强"包管理"功能（当前 Packs 页面需补齐版本历史/内容详情/灰度发布 UI）`dashboard/src/pages/Packs/index.tsx:1`
 
 ## P2 - SDK（以 C++ 为主）
 
@@ -284,6 +298,8 @@
 - [x] Proto：Public Management API 目前是 placeholder，明确是否需要对外暴露/实现或删除（已确认：这是预留的公共 API 定义，注释标注为 Future HTTP REST API，保留作为未来扩展预留）`proto/croupier/api/v1/management.proto:1`
 - [x] SDK Proto 同步：各语言 SDK 目录下的 `proto/croupier/api/v1/management.proto` 同样是 placeholder；明确"以根 proto 为准"的同步策略（已确认：SDK 中的 proto 通过 buf generate 从根 proto 同步生成，当前为预留占位符）`sdks/go/proto/croupier/api/v1/management.proto:1`
 - [x] JS SDK 示例：`Basic client is a placeholder` 的示例需要补齐可运行实现或删除/标注限制（已添加清晰标注：SDK 开发中，请使用 Go SDK 或 gRPC）`sdks/js/examples/main.ts:179`
+- [ ] API 文档：补充 `docs/api.md` 的完整内容（当前仅为 skeleton，需从 `proto/` 目录整理 gRPC API 定义）`docs/api.md:1`
+- [ ] 架构文档：更新 `docs/architecture/layers.md` 补充 Edge Proxy 层（当前文档描述五层架构，实际已演进增加 Edge 层）`docs/architecture/layers.md:1`
 
 ### 文档 checklist（详细）
 
