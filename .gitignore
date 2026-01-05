@@ -24,6 +24,7 @@ go.work.sum
 # Local build and generated code
 bin/
 gen/
+protoc-gen-croupier/
 
 # Local module/build caches
 .gocache/
