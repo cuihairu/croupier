@@ -1,16 +1,11 @@
-// 增加内容容器宽度
-// 使用更具体的选择器和更高优先级
+// VuePress 2.x 默认主题内容宽度控制
 
-.vuepress-theme .page-content,
-.theme-default-content {
-  @media (min-width: 1280px) {
-    max-width: 1280px !important;
-  }
+// 覆盖 CSS 变量
+.theme-default-container {
+  --content-width: 1280px !important;
 }
 
-// 同时覆盖主容器
-div.page-content {
-  @media (min-width: 1280px) {
-    max-width: 1280px !important;
-  }
+// 或者直接覆盖内容类
+.theme-default-content {
+  max-width: 1280px !important;
 }
