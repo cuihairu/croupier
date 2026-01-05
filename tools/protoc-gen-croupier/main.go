@@ -88,6 +88,8 @@ func main() {
 		Category    string            `json:"category,omitempty"`
 		DisplayName map[string]string `json:"display_name,omitempty"`
 		Summary     map[string]string `json:"summary,omitempty"`
+		Tags        []string          `json:"tags,omitempty"`
+		Menu        map[string]any    `json:"menu,omitempty"`
 	}
 
 	manifest := map[string]any{}
@@ -330,6 +332,12 @@ func main() {
 			if len(eo.Summary) > 0 {
 				entityDesc["summary"] = eo.Summary
 			}
+			if len(eo.Tags) > 0 {
+				entityDesc["tags"] = eo.Tags
+			}
+			if len(eo.Menu) > 0 {
+				entityDesc["menu"] = eo.Menu
+			}
 
 			// Emit entity descriptor file
 			addJSON(resp, &generatedFiles, filepath.Join("descriptors", sanitize(entityID)+".entity.json"), entityDesc)
@@ -354,6 +362,12 @@ func main() {
 			}
 			if len(eo.Summary) > 0 {
 				entSpec.Summary = eo.Summary
+			}
+			if len(eo.Tags) > 0 {
+				entSpec.Tags = eo.Tags
+			}
+			if len(eo.Menu) > 0 {
+				entSpec.Menu = eo.Menu
 			}
 			manifestEntities = append(manifestEntities, entSpec)
 		}
@@ -1314,6 +1328,147 @@ func trimQuotes(s string) string {
 	return strings.Trim(s, "\"")
 }
 
+// parseOptionI18n extracts an i18n message field like display_name { en: "xxx" zh: "xxx" }
+func parseOptionI18n(s, field string) map[string]string {
+	out := map[string]string{}
+	if s == "" || field == "" {
+		return out
+	}
+	fieldIdx := strings.Index(s, field+":")
+	if fieldIdx < 0 {
+		return out
+	}
+	i := fieldIdx + len(field)
+	// skip spaces
+	for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
+		i++
+	}
+	if i >= len(s) || s[i] != ':' {
+		return out
+	}
+	i++ // skip colon
+	// skip spaces
+	for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n') {
+		i++
+	}
+	if i >= len(s) || s[i] != '{' {
+		return out
+	}
+	i++ // skip {
+	// Find matching }
+	depth := 1
+	start := i
+	for i < len(s) && depth > 0 {
+		if s[i] == '{' {
+			depth++
+		} else if s[i] == '}' {
+			depth--
+			if depth == 0 {
+				break
+			}
+		}
+		i++
+	}
+	inside := s[start:i]
+	// Parse key: value pairs
+	for _, line := range strings.Split(inside, "\n") {
+		parts := strings.SplitN(strings.TrimSpace(line), ":", 2)
+		if len(parts) == 2 {
+			key := strings.TrimSpace(parts[0])
+			val := strings.TrimSpace(strings.Trim(parts[1], "\"'"))
+			if key != "" && val != "" {
+				out[key] = val
+			}
+		}
+	}
+	if len(out) > 0 {
+		return out
+	}
+	return out
+}
+
+// parseOptionMenu extracts a menu nested message like menu { section: "xxx" group: "yyy" hidden: true }
+func parseOptionMenu(s string) map[string]any {
+	out := map[string]any{}
+	if s == "" {
+		return out
+	}
+	menuIdx := strings.Index(s, "menu:")
+	if menuIdx < 0 {
+		return out
+	}
+	i := menuIdx + len("menu")
+	// skip spaces
+	for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
+		i++
+	}
+	if i >= len(s) || s[i] != ':' {
+		return out
+	}
+	i++ // skip colon
+	// skip spaces
+	for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n') {
+		i++
+	}
+	if i >= len(s) || s[i] != '{' {
+		return out
+	}
+	i++ // skip {
+	// Find matching }
+	depth := 1
+	start := i
+	for i < len(s) && depth > 0 {
+		if s[i] == '{' {
+			depth++
+		} else if s[i] == '}' {
+			depth--
+			if depth == 0 {
+				break
+			}
+		}
+		i++
+	}
+	inside := s[start:i]
+	// Parse key: value pairs
+	kv := parseAggregateKV(inside)
+	if v, ok := kv["section"]; ok && v != "" {
+		out["section"] = trimQuotes(v)
+	}
+	if v, ok := kv["group"]; ok && v != "" {
+		out["group"] = trimQuotes(v)
+	}
+	if v, ok := kv["path"]; ok && v != "" {
+		out["path"] = trimQuotes(v)
+	}
+	if v, ok := kv["icon"]; ok && v != "" {
+		out["icon"] = trimQuotes(v)
+	}
+	if v, ok := kv["badge"]; ok && v != "" {
+		out["badge"] = trimQuotes(v)
+	}
+	if v, ok := kv["order"]; ok && v != "" {
+		// Try to parse as int
+		if order, err := parseOrderInt(v); err == nil {
+			out["order"] = order
+		}
+	}
+	if v, ok := kv["hidden"]; ok && v != "" {
+		out["hidden"] = parseBool(v)
+	}
+	if len(out) > 0 {
+		return out
+	}
+	return out
+}
+
+// parseOrderInt tries to parse order value as int
+func parseOrderInt(s string) (int, error) {
+	s = strings.TrimSpace(trimQuotes(s))
+	var order int
+	_, err := fmt.Sscanf(s, "%d", &order)
+	return order, err
+}
+
 func parseBool(s string) bool {
 	s = strings.ToLower(strings.TrimSpace(trimQuotes(s)))
 	return s == "true" || s == "1" || s == "yes"
@@ -1380,6 +1535,8 @@ type entityOptions struct {
 	CustomOperations map[string]string
 	DisplayName      map[string]string
 	Summary          map[string]string
+	Tags             []string
+	Menu             map[string]any
 }
 
 // parseEntityOptions parses entity options from message options
@@ -1448,6 +1605,21 @@ func parseEntityOptions(mo *descriptorpb.MessageOptions) entityOptions {
 		}
 		if m := parseOptionObjectMap(raw, "custom_operations"); len(m) > 0 {
 			out.CustomOperations = m
+		}
+		// Parse tags array
+		if arr := parseOptionArray(raw, "tags"); len(arr) > 0 {
+			out.Tags = arr
+		}
+		// Parse menu nested message
+		if m := parseOptionMenu(raw); len(m) > 0 {
+			out.Menu = m
+		}
+		// Parse display_name and summary (i18n)
+		if dm := parseOptionI18n(raw, "display_name"); len(dm) > 0 {
+			out.DisplayName = dm
+		}
+		if sm := parseOptionI18n(raw, "summary"); len(sm) > 0 {
+			out.Summary = sm
 		}
 	}
 
