@@ -57,7 +57,7 @@ graph TB
 
     subgraph "处理层（可组合）"
         D --> E[OTel Collector<br/>OTLP/gRPC|HTTP]
-        I --> R[MQ: Redis/Kafka]
+        I --> R[MQ - Redis/Kafka]
         E --> R
         R --> W[Analytics Worker<br/>清洗/聚合/入库]
     end
