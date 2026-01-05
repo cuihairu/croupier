@@ -57,23 +57,23 @@ export default defineUserConfig({
         children: [
           {
             text: 'C++ SDK',
-            link: 'https://github.com/cuihairu/croupier-sdk-cpp',
+            link: 'https://cuihairu.github.io/croupier-sdk-cpp/',
           },
           {
             text: 'Go SDK',
-            link: 'https://github.com/cuihairu/croupier-sdk-go',
+            link: 'https://cuihairu.github.io/croupier-sdk-go/',
           },
           {
             text: 'Java SDK',
-            link: 'https://github.com/cuihairu/croupier-sdk-java',
+            link: 'https://cuihairu.github.io/croupier-sdk-java/',
           },
           {
             text: 'JavaScript SDK',
-            link: 'https://github.com/cuihairu/croupier-sdk-js',
+            link: 'https://cuihairu.github.io/croupier-sdk-js/',
           },
           {
             text: 'Python SDK',
-            link: 'https://github.com/cuihairu/croupier-sdk-python',
+            link: 'https://cuihairu.github.io/croupier-sdk-python/',
           },
         ],
       },
