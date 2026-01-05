@@ -1,17 +1,16 @@
 // 增加内容容器宽度
-// VuePress 2.x 默认主题使用 .page-content 类
-@media (min-width: 1440px) {
-  .page {
-    padding-left: 20rem !important; /* 调整侧边栏位置 */
-  }
+// 使用更具体的选择器和更高优先级
 
-  .page-content {
+.vuepress-theme .page-content,
+.theme-default-content {
+  @media (min-width: 1280px) {
     max-width: 1280px !important;
   }
 }
 
-@media (min-width: 1280px) and (max-width: 1439px) {
-  .page-content {
-    max-width: 1100px !important;
+// 同时覆盖主容器
+div.page-content {
+  @media (min-width: 1280px) {
+    max-width: 1280px !important;
   }
 }
