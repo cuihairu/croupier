@@ -545,9 +545,6 @@ func (s *Store) MergeDescriptors(descriptors []DescriptorWithSource) (map[string
 	// Sort descriptors by priority (lowest first)
 	sortedDescs := sortDescriptorsByPriority(descriptors, config)
 
-	// Build priority map for quick lookup
-	priorityMap := buildPriorityMap(config)
-
 	// Merge each descriptor in priority order
 	for _, desc := range sortedDescs {
 		result = mergeMaps(result, desc.Data, config, desc.Source, &conflicts)
