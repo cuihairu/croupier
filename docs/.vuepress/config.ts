@@ -37,7 +37,6 @@ export default defineUserConfig({
     lastUpdatedText: '最后更新',
     contributors: false,
     logo: '/logo.png',
-    containerWidth: 1400,
 
     // 主导航
     navbar: [
