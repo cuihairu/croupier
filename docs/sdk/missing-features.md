@@ -411,7 +411,7 @@ invoker.close();
 
 **位置:** `sdks/cpp/`
 
-> ✅ **更新:** 自动重连已于 2025-01-06 完成实现
+> ✅ **更新:** 可配置日志已于 2025-01-06 完成实现
 
 ### 已实现功能
 
@@ -423,13 +423,14 @@ invoker.close();
 | **作业取消** | ✅ | 支持 `CancelJob()` 方法 |
 | **Schema 设置** | ✅ | 支持 `SetSchema()` 方法 |
 | **自动重连** | ✅ | 指数退避 + 抖动重连策略 |
+| **重试机制** | ✅ | `RetryConfig` + `SetRetryConfig()` |
+| **可配置日志** | ✅ | `disable_logging`/`debug_logging` 配置 |
 
 ### 缺失功能
 
 | 功能 | 优先级 | 说明 |
 |------|--------|------|
-| **重试机制** | 低 | 调用失败无重试 |
-| **文件传输功能** | 低 | 虽有基础设施，但未实现 |
+| **文件传输功能** | 低 | 虽有基础设施，但未实现（所有 SDK 都未实现） |
 
 ### 需要改进
 
@@ -439,10 +440,10 @@ invoker.close();
 | 构建系统 | CMake | 已完善 |
 | 示例代码 | 丰富 | 已完善 |
 
-### 代码示例 - 自动重连配置
+### 代码示例 - 重试机制
 
 ```cpp
-// 自动重连已实现
+// 重试机制已实现
 #include "croupier/sdk/croupier_client.h"
 
 using namespace croupier::sdk;
@@ -450,20 +451,39 @@ using namespace croupier::sdk;
 // 创建 Invoker
 CroupierInvoker invoker(config);
 
-// 配置重连策略
-ReconnectConfig reconnect_config;
-reconnect_config.enabled = true;
-reconnect_config.max_attempts = 0;        // 0 = 无限重试
-reconnect_config.initial_delay_ms = 1000; // 初始延迟 1 秒
-reconnect_config.max_delay_ms = 30000;    // 最大延迟 30 秒
-reconnect_config.backoff_multiplier = 2.0;
-reconnect_config.jitter_factor = 0.2;
+// 配置重试策略
+RetryConfig retry_config;
+retry_config.enabled = true;
+retry_config.max_attempts = 3;           // 最多重试 3 次
+retry_config.initial_delay_ms = 100;     // 初始延迟 100ms
+retry_config.max_delay_ms = 5000;        // 最大延迟 5 秒
+retry_config.backoff_multiplier = 2.0;   // 指数退避
+retry_config.jitter_factor = 0.1;        // 抖动因子
 
-invoker.SetReconnectConfig(reconnect_config);
+invoker.SetRetryConfig(retry_config);
 
-// 连接
-invoker.Connect();
-// 连接断开会自动重连
+// Invoke 会在失败时自动重试
+std::string result = invoker.Invoke("player.ban", payload);
+```
+
+### 代码示例 - 可配置日志
+
+```cpp
+// 可配置日志已实现
+#include "croupier/sdk/croupier_client.h"
+
+using namespace croupier::sdk;
+
+ClientConfig config;
+config.agent_addr = "127.0.0.1:19090";
+
+// 禁用日志
+config.disable_logging = true;
+
+// 或启用调试日志
+config.debug_logging = true;
+
+CroupierClient client(config);
 ```
 
 ### 优势功能
@@ -475,6 +495,7 @@ C++ SDK 独有的高级功能（其他 SDK 可参考）：
 | **虚拟对象系统** | `VirtualObjectDescriptor` 支持对象关系 |
 | **组件系统** | `ComponentDescriptor` 支持组件依赖管理 |
 | **模板生成** | 支持从模板生成描述符 |
+| **工具函数库** | `utils` 命名空间提供丰富的辅助函数 |
 
 ---
 
