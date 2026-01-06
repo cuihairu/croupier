@@ -411,7 +411,7 @@ invoker.close();
 
 **位置:** `sdks/cpp/`
 
-> ✅ **更新:** 可配置日志已于 2025-01-06 完成实现
+> ✅ **更新:** Token 脱敏已于 2025-01-06 完成实现
 
 ### 已实现功能
 
@@ -423,8 +423,9 @@ invoker.close();
 | **作业取消** | ✅ | 支持 `CancelJob()` 方法 |
 | **Schema 设置** | ✅ | 支持 `SetSchema()` 方法 |
 | **自动重连** | ✅ | 指数退避 + 抖动重连策略 |
-| **重试机制** | ✅ | `RetryConfig` + `SetRetryConfig()` |
+| **重试机制** | ✅ | `RetryConfig` + `SetRetryConfig()` + 指数退避 |
 | **可配置日志** | ✅ | `disable_logging`/`debug_logging` 配置 |
+| **Token 脱敏** | ✅ | `MaskSensitive()` + `LogMasked()` |
 
 ### 缺失功能
 
