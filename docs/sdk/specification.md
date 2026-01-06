@@ -206,6 +206,28 @@
    - 重连期间，`isConnected()` 返回 `false`
    - 重连成功后，**必须**重新注册函数
 
+### 重试机制（指数退避）
+
+**所有 SDK 应该实现可配置的重试机制**
+
+1. **重试配置**
+   - `enabled`: 是否启用重试（默认 true）
+   - `maxAttempts`: 最大重试次数（默认 3）
+   - `initialDelayMs`: 初始重试延迟（默认 100ms）
+   - `maxDelayMs`: 最大重试延迟（默认 5000ms）
+   - `backoffMultiplier`: 指数退避倍数（默认 2.0）
+   - `jitterFactor`: 抖动因子，避免雷群效应（默认 0.1）
+
+2. **重试行为**
+   - 仅对可重试的错误码进行重试（如网络错误、超时）
+   - 使用指数退避计算延迟：`delay = min(initialDelay * multiplier^attempt, maxDelay)`
+   - 添加随机抖动：`finalDelay = delay * (1 ± jitterFactor)`
+   - 达到最大重试次数后停止并返回最后错误
+
+3. **可重试错误示例**
+   - gRPC: `UNAVAILABLE` (14), `INTERNAL` (13), `UNKNOWN` (2)
+   - HTTP: 503 Service Unavailable, 502 Bad Gateway
+
 ### 超时处理
 
 | 操作 | 默认超时 | 行为 |
@@ -237,10 +259,23 @@
 
 1. **日志脱敏**
    - 日志中**禁止**输出密码、密钥
-   - Token **应该**部分遮蔽（如 `abc...xyz`）
+   - Token **必须**部分遮蔽（如 `abc...xyz`，显示前 3 和后 3 个字符）
+   - API Key **必须**部分遮蔽
+   - 敏感头信息（如 `Authorization`）**必须**脱敏
 
-2. **错误信息**
+2. **脱敏格式要求**
+   - 推荐格式：`前3位...后3位`，如 `eyJ0...iOiJ`
+   - 如果值长度 ≤ 6 位，全部替换为 `*`：`******`
+   - 日志输出示例：`Using auth token: eyJ0...iOiJ`
+
+3. **SDK 实现要求**
+   - **必须**提供 `MaskSensitive(value)` 工具函数
+   - **必须**在所有日志输出中自动应用脱敏
+   - **应该**提供 `MaskJsonSensitive()` 用于 JSON 负载脱敏
+
+4. **错误信息**
    - 错误响应**禁止**包含内部路径或堆栈
+   - **禁止**在错误消息中泄露敏感配置
 
 ---
 
