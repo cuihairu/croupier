@@ -1,0 +1,35 @@
+# Third-Party Platform Configuration
+# This file defines which third-party operation platforms are enabled and their settings.
+
+platforms:
+  # QuickSDK - Game operation data platform
+  # See: https://www.quicksdk.com/doc-1133.html
+  quicksdk:
+    enabled: false  # Set to true to enable QuickSDK integration
+    type: quicksdk
+    config:
+      # Get these from QuickSDK Backend -> Account Management -> Data Interface API
+      open_id: "${QUICKSDK_OPEN_ID}"
+      open_key: "${QUICKSDK_OPEN_KEY}"
+      api_base_url: "https://www.quicksdk.com"
+      timeout: 30s
+      retry_count: 3
+      enable_cache: true
+      cache_duration: 300s
+      requests_per_minute: 1000  # QuickSDK limit: 1000/min, 10000/hour
+
+  # Future platforms can be added here
+  # Example:
+  # thinkingdata:
+  #   enabled: false
+  #   type: thinkingdata
+  #   config:
+  #     app_id: "${TD_APP_ID}"
+  #     app_key: "${TD_APP_KEY}"
+  #     server_url: "${TD_SERVER_URL}"
+
+  # appsflyer:
+  #   enabled: false
+  #   type: appsflyer
+  #   config:
+  #     api_key: "${APPSFLYER_API_KEY}"

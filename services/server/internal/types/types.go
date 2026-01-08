@@ -374,6 +374,18 @@ type BehaviorResponse struct {
 	HeatMap    interface{} `json:"heatMap"`
 }
 
+type CallPlatformRequest struct {
+	Platform string `json:"platform"` // 平台名称，如 "quicksdk"
+	Method   string `json:"method"`   // API 方法名
+	Request  string `json:"request"`  // 请求参数（JSON 字符串格式）
+}
+
+type CallPlatformResponse struct {
+	Code     int         `json:"code"`
+	Message  string      `json:"message"`
+	Response interface{} `json:"response,omitempty"` // 平台返回的响应
+}
+
 type CertificateAddRequest struct {
 	Domain      string `json:"domain"`
 	Certificate string `json:"certificate,optional"`
@@ -1261,6 +1273,18 @@ type LevelsResponse struct {
 	Levels []LevelMetrics `json:"levels"`
 }
 
+type ListPlatformMethodsResponse struct {
+	Code    int      `json:"code"`
+	Message string   `json:"message"`
+	Methods []string `json:"methods,omitempty"`
+}
+
+type ListPlatformsResponse struct {
+	Code      int            `json:"code"`
+	Message   string         `json:"message"`
+	Platforms []PlatformInfo `json:"platforms,omitempty"`
+}
+
 type LoginRequest struct {
 	Username string `json:"username"` // 用户名
 	Password string `json:"password"` // 密码
@@ -1905,6 +1929,12 @@ type PermissionsListResponse struct {
 	Size  int          `json:"pageSize"`
 }
 
+type PlatformInfo struct {
+	Name    string   `json:"name"`    // 平台名称
+	Enabled bool     `json:"enabled"` // 是否启用
+	Methods []string `json:"methods"` // 支持的方法列表
+}
+
 type Player struct {
 	Id        int64  `json:"id"`
 	Username  string `json:"username"`
@@ -2240,6 +2270,12 @@ type RegistryResponse struct {
 	Functions   []RegistryFunction  `json:"functions"`
 	Assignments map[string][]string `json:"assignments"`
 	Coverage    []RegistryCoverage  `json:"coverage"`
+}
+
+type ReloadPlatformConfigResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Success bool   `json:"success,omitempty"`
 }
 
 type RetentionCohort struct {

@@ -22,6 +22,7 @@ type Config struct {
 	Cache         CacheConfig              `json:"cache" yaml:"cache"`
 	CroupierLog   CroupierLogConfig        `json:"croupier_log" yaml:"croupier_log"`
 	Metrics       MetricsConfig            `json:"metrics" yaml:"metrics"`
+	Platforms     PlatformConfig           `json:"platforms" yaml:"platforms"`
 	Profiles      map[string]ProfileConfig `json:"profiles" yaml:"profiles"`
 }
 
@@ -132,4 +133,9 @@ type CacheConfig struct {
 	TTL      string `json:"ttl,optional" yaml:"ttl,optional"`             // 默认过期时间 (例如: "5m", "1h")
 	MaxItems int    `json:"max_items,optional" yaml:"max_items,optional"` // 本地缓存最大条目数
 	EvictTTL string `json:"evict_ttl,optional" yaml:"evict_ttl,optional"` // 本地缓存清理间隔
+}
+
+type PlatformConfig struct {
+	ConfigFile string `json:"config_file,optional" yaml:"config_file,optional"` // 配置文件路径
+	Enabled    bool   `json:"enabled,optional" yaml:"enabled,optional"`         // 是否启用平台集成
 }

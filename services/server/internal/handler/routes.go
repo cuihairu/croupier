@@ -34,6 +34,7 @@ import (
 	ops "github.com/cuihairu/croupier/services/server/internal/handler/ops"
 	pack "github.com/cuihairu/croupier/services/server/internal/handler/pack"
 	permission "github.com/cuihairu/croupier/services/server/internal/handler/permission"
+	platform "github.com/cuihairu/croupier/services/server/internal/handler/platform"
 	player "github.com/cuihairu/croupier/services/server/internal/handler/player"
 	profile "github.com/cuihairu/croupier/services/server/internal/handler/profile"
 	provider "github.com/cuihairu/croupier/services/server/internal/handler/provider"
@@ -1213,6 +1214,36 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/permissions"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取所有可用的第三方平台列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: platform.ListPlatformsHandler(serverCtx),
+			},
+			{
+				// 获取指定平台支持的方法列表
+				Method:  http.MethodGet,
+				Path:    "/:platform/methods",
+				Handler: platform.ListPlatformMethodsHandler(serverCtx),
+			},
+			{
+				// 调用第三方平台 API
+				Method:  http.MethodPost,
+				Path:    "/call",
+				Handler: platform.CallPlatformHandler(serverCtx),
+			},
+			{
+				// 重新加载平台配置
+				Method:  http.MethodPost,
+				Path:    "/reload",
+				Handler: platform.ReloadPlatformConfigHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/platforms"),
 	)
 
 	server.AddRoutes(

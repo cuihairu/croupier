@@ -79,3 +79,7 @@ CroupierLog:
 Metrics:
   PerFunction: true
   PerGameDenies: false
+
+Platforms:
+  Enabled: false  # Set to true to enable third-party platform integration
+  ConfigFile: "configs/platforms.yaml"

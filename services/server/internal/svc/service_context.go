@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/pack"
+	plat "github.com/cuihairu/croupier/internal/platform"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
@@ -47,6 +48,8 @@ type ServiceContext struct {
 	ApprovalsStore approvals.Store
 
 	ObjectStore objstore.Store
+
+	PlatformLoader *plat.Loader
 
 	AdminModel         *model.AdminModel
 	AlertModel         *model.AlertModel
@@ -143,6 +146,9 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 	approvalsStore := approvals.NewMemStore()
 
+	// 初始化平台加载器
+	platformLoader := initPlatformLoader(c)
+
 	// 初始化缓存
 	cacheStore, err := cache.NewCacheStore(c.Cache)
 	if err != nil {
@@ -189,6 +195,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 		ObjectStore:    objectStore,
 		ApprovalsStore: approvalsStore,
+		PlatformLoader: platformLoader,
 	}
 
 	for _, opt := range opts {
@@ -587,6 +594,33 @@ func ResolveComponentStagingDir(c config.Config) string {
 		return filepath.Join(base, "components", "staging")
 	}
 	return toAbs(dir)
+}
+
+// initPlatformLoader initializes the third-party platform loader
+func initPlatformLoader(c config.Config) *plat.Loader {
+	// Default platform config path
+	configFile := "configs/platforms.yaml"
+	if c.Platforms.ConfigFile != "" {
+		configFile = c.Platforms.ConfigFile
+	}
+
+	// If platform integration is explicitly disabled, return nil
+	if !c.Platforms.Enabled {
+		logx.Info("Third-party platform integration is disabled")
+		return nil
+	}
+
+	loader := plat.NewLoader(configFile, nil)
+
+	// Load platform configurations
+	if err := loader.Load(context.Background()); err != nil {
+		logx.Errorf("Failed to load platform configurations: %v", err)
+		// Return loader anyway so it can be used for runtime reload
+		return loader
+	}
+
+	logx.Info("Third-party platform loader initialized", "config", configFile)
+	return loader
 }
 
 func initObjectStore(ctx context.Context, cfg config.StorageConfig) (objstore.Store, error) {
