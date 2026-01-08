@@ -75,6 +75,14 @@ export default defineUserConfig({
             text: 'Python SDK',
             link: 'https://cuihairu.github.io/croupier-sdk-python/',
           },
+          {
+            text: 'C# SDK',
+            link: 'https://github.com/cuihairu/croupier-sdk-csharp',
+          },
+          {
+            text: 'Lua SDK',
+            link: 'https://github.com/cuihairu/croupier-sdk-cpp/blob/main/skynet/service/croupier_service.lua',
+          },
         ],
       },
       {
