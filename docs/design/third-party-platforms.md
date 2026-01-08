@@ -2,19 +2,22 @@
 
 ## 概述
 
-本文档描述 Croupier Server 中可扩展的第三方运营平台接入架构，支持动态配置和启用多个运营平台。
+本文档描述 Croupier 中可扩展的第三方运营平台接入架构，支持动态配置和启用多个运营平台。
 
-### 已支持的 Provider
+### 架构演进
 
-| Provider | 类型 | 说明 | 状态 |
-|----------|------|------|------|
-| **QuickSDK** | 专用 | 游戏运营数据平台，20+ API | ✅ 已实现 |
-| **OpenAPI** | 通用 | 任意 HTTP API，配置驱动 | ✅ 已实现 |
+**重要架构变更**：OpenAPI Provider 现已支持 **Agent 侧部署**，以访问内网游戏服务器 API。
+
+| Provider | 类型 | 部署位置 | 说明 | 状态 |
+|----------|------|----------|------|------|
+| **QuickSDK** | 专用 | Server | 游戏运营数据平台，20+ API | ✅ 已实现 |
+| **OpenAPI** | 通用 | Agent | 任意 HTTP API，配置驱动 | ✅ 已实现 |
 
 ### 快速选择
 
 - **有 SDK 的第三方平台** → 编写专用 Provider（如 QuickSDK）
-- **只有 HTTP API 的服务器** → 使用 OpenAPI Provider，无需编码
+- **只有 HTTP API 的内网游戏服务器** → 使用 OpenAPI Provider 部署在 Agent 侧
+- **只有 HTTP API 的公网服务** → 可以使用 OpenAPI Provider 部署在 Agent 侧（通过 Agent 出网）
 
 ## 架构设计
 
@@ -23,25 +26,70 @@
 ```
 server/
 ├── internal/
-│   └── platform/
-│       ├── provider/           # Provider 接口定义
-│       │   ├── provider.go     # Provider 接口
-│       │   ├── registry.go     # Provider 注册表
-│       ├── quicksdk/           # QuickSDK 实现
-│       │   ├── client.go       # HTTP 客户端
-│       │   ├── sign.go         # 签名算法
-│       │   ├── api.go          # 20个 API 实现
-│       │   └── provider.go     # QuickSDK Provider 实现
-│       ├── openapi/            # OpenAPI 通用 Provider
-│       │   └── provider.go     # OpenAPI Provider 实现
-│       ├── ratelimit/          # 速率限制工具
-│       │   └── tokenbucket.go  # 令牌桶实现
-│       ├── loader.go           # 配置加载器
-│       └── server.go           # Platform gRPC 服务
+│   ├── platform/
+│   │   ├── provider/           # Provider 接口定义
+│   │   │   ├── provider.go     # Provider 接口
+│   │   │   └── registry.go     # Provider 注册表（Server 侧）
+│   │   ├── quicksdk/           # QuickSDK 实现（Server 侧）
+│   │   │   ├── client.go       # HTTP 客户端
+│   │   │   ├── sign.go         # 签名算法
+│   │   │   ├── api.go          # 20个 API 实现
+│   │   │   └── provider.go     # QuickSDK Provider 实现
+│   │   ├── openapi/            # OpenAPI 通用 Provider
+│   │   │   └── provider.go     # OpenAPI Provider 实现（Agent 侧使用）
+│   │   ├── ratelimit/          # 速率限制工具
+│   │   │   └── tokenbucket.go  # 令牌桶实现
+│   │   ├── loader.go           # Server 侧配置加载器
+│   │   └── server.go           # Platform gRPC 服务
+│   └── app/agent/
+│       ├── platform.go         # Agent 侧 PlatformManager
+│       ├── app.go              # 集成 PlatformManager
+│       └── function_server.go  # 支持平台调用
 ├── configs/
-│   └── platforms.yaml          # 平台配置文件
+│   └── platforms.yaml          # Agent 侧平台配置文件
 └── pkg/pb/platform/v1/         # gRPC 生成代码
 ```
+
+### 1.1 Agent 侧 Platform 架构
+
+Agent 侧的 Platform 架构复用了现有的 SDK 注册机制：
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Croupier Agent                          │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌──────────────────┐    ┌─────────────────────────────────┐   │
+│  │ PlatformManager  │    │       LocalStore                │   │
+│  │                  │    │  (function_id -> Instance[])    │   │
+│  │ - Load YAML      │    │                                 │   │
+│  │ - Init Providers │◄───┤  game_server.get_role           │   │
+│  │ - Register()     │    │  game_server.ban_user           │   │
+│  └────────┬─────────┘    └──────────────┬──────────────────┘   │
+│           │                             │                         │
+│           ▼                             ▼                         │
+│  ┌─────────────────────────────────────────────────────────┐    │
+│  │              FunctionServer.Invoke()                     │    │
+│  │  ┌─────────────────┐    ┌─────────────────────────┐    │    │
+│  │  │ Platform Call?  │ NO │  gRPC Forward           │    │    │
+│  │  │ (prefix check)  │───►│  to game SDK            │    │    │
+│  │  └────┬─────▲──────┘    └──────────────────────────┘    │    │
+│  │       │     │YES                                              │
+│  │       │     └──► Provider.Call() → HTTP to Game Server       │
+│  └─────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+           │                                       │
+           ▼                                       ▼
+    ┌─────────────┐                        ┌──────────────┐
+    │ Upstream    │                        │ Game Server  │
+    │ Register    │                        │ HTTP API     │
+    └─────────────┘                        └──────────────┘
+```
+
+**关键设计点：**
+1. **复用注册机制**：Platform 方法注册为 Function，与 SDK 完全一致
+2. **ServiceID 标识**：Platform 函数使用 `platform:<name>` 作为 ServiceID
+3. **请求拦截**：FunctionServer.Invoke 检测平台函数，直接调用 Provider
+4. **代码复用**：`internal/platform/openapi/provider.go` 在 Agent 和 Server 共享
 
 ### 2. 核心 API 设计
 
@@ -263,18 +311,24 @@ POST /api/v1/platform/call
 - [x] HTTP API 端点
 - [x] 前端 UI 支持
 
-### Phase 4: OpenAPI 通用 Provider (1-2 人日)
+### Phase 4: Agent 侧 OpenAPI 支持 (1-2 人日)
+- [x] Agent PlatformManager 实现
+- [x] FunctionServer 平台调用拦截
+- [x] Agent 侧 YAML 配置加载
+- [x] 复用 openapi.Provider 代码
+
+### Phase 5: OpenAPI 通用 Provider 完善 (1-2 人日)
 - [x] OpenAPI Provider 实现
 - [x] 配置示例
 - [x] 设计文档更新
 - [ ] OpenAPI 规范自动发现完善
 
-### Phase 5: 测试与文档 (1-2 人日)
+### Phase 6: 测试与文档 (1-2 人日)
 - [ ] 单元测试
 - [ ] 集成测试
 - [ ] 使用文档
 
-**已完成: Phase 1, Phase 2, Phase 3, Phase 4 (部分)**
+**已完成: Phase 1, Phase 2, Phase 3, Phase 4**
 
 ## 已实现的 Provider
 

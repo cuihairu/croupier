@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"path"
 	"strings"
 	"sync"
 	"time"
@@ -94,11 +93,19 @@ type APIKeyAuth struct {
 }
 
 // APIMethod defines a single API method that can be called.
+// It closely follows OpenAPI 3.0 operation object structure.
 type APIMethod struct {
 	// Name is the method name used for calling (e.g., "get_role", "ban_user")
+	// Falls back to operationId or generated from path if not set
 	Name string `yaml:"name" json:"name"`
 
-	// Description of what this method does
+	// OperationId from OpenAPI spec (unique identifier for the operation)
+	OperationID string `yaml:"operation_id" json:"operation_id"`
+
+	// Summary is a short summary of what the operation does (from OpenAPI)
+	Summary string `yaml:"summary" json:"summary"`
+
+	// Description is a verbose explanation of the operation behavior (from OpenAPI)
 	Description string `yaml:"description" json:"description"`
 
 	// Path is the API path (e.g., "/api/role/{role_id}")
@@ -106,6 +113,10 @@ type APIMethod struct {
 
 	// Method is the HTTP method (GET, POST, PUT, DELETE, etc.)
 	Method string `yaml:"method" json:"method"`
+
+	// Tags for categorization (from OpenAPI tags)
+	// Operations may be grouped by tags for UI organization
+	Tags []string `yaml:"tags" json:"tags"`
 
 	// Parameters defines how to map request parameters
 	Parameters []ParameterMapping `yaml:"parameters" json:"parameters"`
@@ -115,25 +126,44 @@ type APIMethod struct {
 
 	// ResponseMapping defines how to transform the response
 	ResponseMapping *ResponseMapping `yaml:"response_mapping" json:"response_mapping"`
+
+	// Deprecated marks this operation as deprecated (from OpenAPI)
+	Deprecated bool `yaml:"deprecated" json:"deprecated"`
 }
 
 // ParameterMapping defines how to map a parameter.
+// Follows OpenAPI 3.0 parameter object structure.
 type ParameterMapping struct {
 	// Name is the parameter name in the API request
 	Name string `yaml:"name" json:"name"`
 
-	// In specifies where the parameter goes: "path", "query", "header"
+	// In specifies where the parameter goes: "path", "query", "header", "cookie"
 	In string `yaml:"in" json:"in"`
+
+	// Description of the parameter (from OpenAPI)
+	Description string `yaml:"description" json:"description"`
 
 	// From specifies the field name in the input JSON (e.g., "role_id")
 	// If empty, uses Name
 	From string `yaml:"from" json:"from"`
 
-	// Required indicates if this parameter is required
+	// Required indicates if this parameter is required (from OpenAPI)
 	Required bool `yaml:"required" json:"required"`
 
-	// Default value if not provided
+	// Deprecated marks this parameter as deprecated (from OpenAPI)
+	Deprecated bool `yaml:"deprecated" json:"deprecated"`
+
+	// Default value if not provided (from OpenAPI)
 	Default interface{} `yaml:"default" json:"default"`
+
+	// Type of the parameter: "string", "number", "integer", "boolean", "array", "object"
+	Type string `yaml:"type" json:"type"`
+
+	// Format of the parameter type: e.g., "int32", "int64", "float", "double", "date-time"
+	Format string `yaml:"format" json:"format"`
+
+	// Enum allowed values for this parameter (from OpenAPI)
+	Enum []interface{} `yaml:"enum" json:"enum"`
 }
 
 // RequestBodyMapping defines how to map the request body.
@@ -177,6 +207,18 @@ type TransformConfig struct {
 
 	// ErrorField specifies the field containing error message
 	ErrorField string `yaml:"error_field" json:"error_field"`
+}
+
+// MethodDetails contains the metadata for a method extracted from OpenAPI.
+// This is used when registering functions to the LocalStore.
+type MethodDetails struct {
+	Name        string
+	OperationID string
+	Summary     string
+	Description string
+	Tags        []string
+	Deprecated  bool
+	Parameters  []ParameterMapping
 }
 
 // NewProvider creates a new OpenAPI provider.
@@ -344,12 +386,28 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 				desc = desc
 			}
 
+			// Extract tags
+			tags := p.extractTags(methodObj)
+
+			// Extract operationId
+			operationID, _ := methodObj["operationId"].(string)
+
+			// Extract summary (prefer summary over description for short text)
+			summary, _ := methodObj["summary"].(string)
+
+			// Extract deprecated flag
+			deprecated, _ := methodObj["deprecated"].(bool)
+
 			// Create APIMethod
 			apiMethod := &APIMethod{
 				Name:        methodName,
+				OperationID: operationID,
+				Summary:     summary,
 				Description: desc,
 				Path:        apiPath,
 				Method:      httpMethod,
+				Tags:        tags,
+				Deprecated:  deprecated,
 				Parameters:  p.extractParameters(methodObj),
 			}
 
@@ -361,6 +419,21 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 	return nil
 }
 
+// extractTags extracts tags from OpenAPI method definition.
+func (p *Provider) extractTags(methodObj map[string]interface{}) []string {
+	tagList, ok := methodObj["tags"].([]interface{})
+	if !ok {
+		return nil
+	}
+	tags := make([]string, 0, len(tagList))
+	for _, t := range tagList {
+		if tag, ok := t.(string); ok {
+			tags = append(tags, tag)
+		}
+	}
+	return tags
+}
+
 // extractParameters extracts parameters from OpenAPI method definition.
 func (p *Provider) extractParameters(methodObj map[string]interface{}) []ParameterMapping {
 	params := make([]ParameterMapping, 0)
@@ -370,22 +443,49 @@ func (p *Provider) extractParameters(methodObj map[string]interface{}) []Paramet
 		return params
 	}
 
-	for _, p := range paramList {
-		param, ok := p.(map[string]interface{})
+	for _, param := range paramList {
+		pObj, ok := param.(map[string]interface{})
 		if !ok {
 			continue
 		}
 
-		name, _ := param["name"].(string)
-		in, _ := param["in"].(string) // "path", "query", "header"
-		required, _ := param["required"].(bool)
+		// Extract basic parameter info
+		name, _ := pObj["name"].(string)
+		in, _ := pObj["in"].(string) // "path", "query", "header", "cookie"
+		required, _ := pObj["required"].(bool)
+		desc, _ := pObj["description"].(string)
+		deprecated, _ := pObj["deprecated"].(bool)
 
-		params = append(params, ParameterMapping{
-			Name:     name,
-			In:       in,
-			From:     name,
-			Required: required,
-		})
+		// Build parameter mapping
+		paramMapping := ParameterMapping{
+			Name:        name,
+			In:          in,
+			Description: desc,
+			From:        name, // Default to using same name
+			Required:    required,
+			Deprecated:  deprecated,
+		}
+
+		// Extract default value
+		if defaultValue, ok := pObj["default"]; ok {
+			paramMapping.Default = defaultValue
+		}
+
+		// Extract schema information (type, format, enum)
+		// In OpenAPI 3.0, parameter schema is in the "schema" field
+		if schema, ok := pObj["schema"].(map[string]interface{}); ok {
+			if typ, ok := schema["type"].(string); ok {
+				paramMapping.Type = typ
+			}
+			if format, ok := schema["format"].(string); ok {
+				paramMapping.Format = format
+			}
+			if enum, ok := schema["enum"].([]interface{}); ok {
+				paramMapping.Enum = enum
+			}
+		}
+
+		params = append(params, paramMapping)
 	}
 
 	return params
@@ -433,6 +533,27 @@ func (p *Provider) SupportedMethods() []string {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.methods
+}
+
+// GetMethodDetails returns the complete details for all methods.
+// This is used by Agent to register functions with full metadata.
+func (p *Provider) GetMethodDetails() map[string]*MethodDetails {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	result := make(map[string]*MethodDetails, len(p.methodMap))
+	for name, method := range p.methodMap {
+		result[name] = &MethodDetails{
+			Name:        name,
+			OperationID: method.OperationID,
+			Summary:     method.Summary,
+			Description: method.Description,
+			Tags:        method.Tags,
+			Deprecated:  method.Deprecated,
+			Parameters:  method.Parameters,
+		}
+	}
+	return result
 }
 
 // Call invokes an API method.

@@ -19,11 +19,13 @@ import (
 )
 
 // FunctionServer forwards protobuf calls to local game servers that expose FunctionService.
+// It also handles platform function calls (OpenAPI) by routing to PlatformManager.
 type FunctionServer struct {
 	functionv1.UnimplementedFunctionServiceServer
-	store  *agentlocal.LocalStore
-	jobs   *jobIndex
-	tlsCfg *tlsutil.ClientTLSConfig
+	store           *agentlocal.LocalStore
+	jobs            *jobIndex
+	tlsCfg          *tlsutil.ClientTLSConfig
+	platformManager *PlatformManager
 }
 
 // pickInstance returns the first available instance for a function id.
@@ -56,6 +58,15 @@ func (s *FunctionServer) pickInstance(fid string, metadata map[string]string) (s
 			// Function is not registered at all
 			return "", status.Error(codes.NotFound,
 				fmt.Sprintf("function '%s' is not registered", fid))
+		}
+	}
+
+	// Check if this is a platform function (ServiceID starts with "platform:")
+	// Platform functions are handled in Invoke(), not via gRPC forwarding
+	for _, inst := range arr {
+		if strings.HasPrefix(inst.ServiceID, "platform:") {
+			return "", status.Error(codes.Internal,
+				fmt.Sprintf("function '%s' is a platform function and should be handled by PlatformManager", fid))
 		}
 	}
 
@@ -194,7 +205,15 @@ func hostFromAddr(addr string) string {
 }
 
 func (s *FunctionServer) Invoke(ctx context.Context, in *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
-	addr, err := s.pickInstance(in.GetFunctionId(), in.GetMetadata())
+	functionID := in.GetFunctionId()
+
+	// Check if this is a platform function call
+	if s.platformManager != nil && s.platformManager.IsPlatformFunction(functionID) {
+		return s.invokePlatform(ctx, functionID, in)
+	}
+
+	// Regular gRPC function forwarding
+	addr, err := s.pickInstance(functionID, in.GetMetadata())
 	if err != nil {
 		// Error already has proper gRPC status
 		return nil, err
@@ -207,6 +226,22 @@ func (s *FunctionServer) Invoke(ctx context.Context, in *functionv1.InvokeReques
 	c2, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	return cli.Invoke(c2, in)
+}
+
+// invokePlatform handles platform function calls (OpenAPI, etc.)
+func (s *FunctionServer) invokePlatform(ctx context.Context, functionID string, in *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
+	// Get request payload
+	request := in.GetPayload()
+
+	// Call platform provider
+	response, err := s.platformManager.Call(ctx, functionID, request)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "platform call failed: %v", err)
+	}
+
+	return &functionv1.InvokeResponse{
+		Payload: response,
+	}, nil
 }
 
 func (s *FunctionServer) StartJob(ctx context.Context, in *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {

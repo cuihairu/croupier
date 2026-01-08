@@ -21,15 +21,51 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// FunctionDescriptor describes a function registered by an Agent.
+// Designed to be compatible with OpenAPI 3.0 operation object structure.
+// See: https://spec.openapis.org/oas/v3.0.3.html#operation-object
 type FunctionDescriptor struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`               // function id, e.g. "player.ban"
-	Version       string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`     // semver, e.g. "1.2.0"
-	Category      string                 `protobuf:"bytes,3,opt,name=category,proto3" json:"category,omitempty"`   // grouping
-	Risk          string                 `protobuf:"bytes,4,opt,name=risk,proto3" json:"risk,omitempty"`           // "low"|"medium"|"high"
-	Entity        string                 `protobuf:"bytes,5,opt,name=entity,proto3" json:"entity,omitempty"`       // entity type, e.g. "item", "player"
-	Operation     string                 `protobuf:"bytes,6,opt,name=operation,proto3" json:"operation,omitempty"` // operation type, e.g. "create", "read", "update", "delete"
-	Enabled       bool                   `protobuf:"varint,7,opt,name=enabled,proto3" json:"enabled,omitempty"`    // whether this function is currently enabled
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Unique identifier for this function (e.g., "player.ban", "game_server.get_role")
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Version of this function (semver, e.g. "1.2.0")
+	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	// Tags for categorization and UI grouping (e.g., ["player", "combat", "admin"])
+	// Corresponds to OpenAPI 3.0 'tags' field
+	Tags []string `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`
+	// Short summary of what this function does
+	// Corresponds to OpenAPI 3.0 'summary' field
+	Summary string `protobuf:"bytes,4,opt,name=summary,proto3" json:"summary,omitempty"`
+	// Detailed description of the function behavior
+	// Corresponds to OpenAPI 3.0 'description' field
+	// Supports CommonMark markdown syntax for rich text representation
+	Description string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	// Whether this function is deprecated
+	// Corresponds to OpenAPI 3.0 'deprecated' field
+	Deprecated bool `protobuf:"varint,6,opt,name=deprecated,proto3" json:"deprecated,omitempty"`
+	// Operation ID from OpenAPI spec (unique identifier for the operation)
+	// Corresponds to OpenAPI 3.0 'operationId' field
+	OperationId string `protobuf:"bytes,7,opt,name=operation_id,json=operationId,proto3" json:"operation_id,omitempty"`
+	// External documentation for this function
+	// Corresponds to OpenAPI 3.0 'externalDocs' field
+	ExternalDocs *ExternalDocumentation `protobuf:"bytes,8,opt,name=external_docs,json=externalDocs,proto3" json:"external_docs,omitempty"`
+	// Parameters applicable to this function
+	// Corresponds to OpenAPI 3.0 'parameters' field
+	Parameters []*ParameterDescriptor `protobuf:"bytes,9,rep,name=parameters,proto3" json:"parameters,omitempty"`
+	// Request body schema for this function
+	// Corresponds to OpenAPI 3.0 'requestBody' field
+	RequestBody *RequestBodyDescriptor `protobuf:"bytes,10,opt,name=request_body,json=requestBody,proto3" json:"request_body,omitempty"`
+	// Expected responses from this function
+	// Corresponds to OpenAPI 3.0 'responses' field
+	// Simplified: only describes success response schema
+	Response *ResponseDescriptor `protobuf:"bytes,11,opt,name=response,proto3" json:"response,omitempty"`
+	// Whether this function is currently enabled
+	Enabled bool `protobuf:"varint,12,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Legacy fields for backward compatibility (deprecated, use tags instead)
+	Category      string `protobuf:"bytes,13,opt,name=category,proto3" json:"category,omitempty"`   // DEPRECATED: Use tags[0]
+	Risk          string `protobuf:"bytes,14,opt,name=risk,proto3" json:"risk,omitempty"`           // DEPRECATED: Use tags to indicate risk level
+	Entity        string `protobuf:"bytes,15,opt,name=entity,proto3" json:"entity,omitempty"`       // DEPRECATED: Use tags to indicate entity type
+	Operation     string `protobuf:"bytes,16,opt,name=operation,proto3" json:"operation,omitempty"` // DEPRECATED: Use operation_id or tags
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -78,6 +114,76 @@ func (x *FunctionDescriptor) GetVersion() string {
 	return ""
 }
 
+func (x *FunctionDescriptor) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *FunctionDescriptor) GetSummary() string {
+	if x != nil {
+		return x.Summary
+	}
+	return ""
+}
+
+func (x *FunctionDescriptor) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *FunctionDescriptor) GetDeprecated() bool {
+	if x != nil {
+		return x.Deprecated
+	}
+	return false
+}
+
+func (x *FunctionDescriptor) GetOperationId() string {
+	if x != nil {
+		return x.OperationId
+	}
+	return ""
+}
+
+func (x *FunctionDescriptor) GetExternalDocs() *ExternalDocumentation {
+	if x != nil {
+		return x.ExternalDocs
+	}
+	return nil
+}
+
+func (x *FunctionDescriptor) GetParameters() []*ParameterDescriptor {
+	if x != nil {
+		return x.Parameters
+	}
+	return nil
+}
+
+func (x *FunctionDescriptor) GetRequestBody() *RequestBodyDescriptor {
+	if x != nil {
+		return x.RequestBody
+	}
+	return nil
+}
+
+func (x *FunctionDescriptor) GetResponse() *ResponseDescriptor {
+	if x != nil {
+		return x.Response
+	}
+	return nil
+}
+
+func (x *FunctionDescriptor) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
 func (x *FunctionDescriptor) GetCategory() string {
 	if x != nil {
 		return x.Category
@@ -106,11 +212,318 @@ func (x *FunctionDescriptor) GetOperation() string {
 	return ""
 }
 
-func (x *FunctionDescriptor) GetEnabled() bool {
+// ExternalDocumentation corresponds to OpenAPI 3.0 External Documentation Object
+type ExternalDocumentation struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// A short description of the target documentation
+	Description string `protobuf:"bytes,1,opt,name=description,proto3" json:"description,omitempty"`
+	// The URL for the target documentation
+	Url           string `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ExternalDocumentation) Reset() {
+	*x = ExternalDocumentation{}
+	mi := &file_croupier_control_v1_control_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExternalDocumentation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExternalDocumentation) ProtoMessage() {}
+
+func (x *ExternalDocumentation) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_control_v1_control_proto_msgTypes[1]
 	if x != nil {
-		return x.Enabled
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ExternalDocumentation.ProtoReflect.Descriptor instead.
+func (*ExternalDocumentation) Descriptor() ([]byte, []int) {
+	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ExternalDocumentation) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *ExternalDocumentation) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+// ParameterDescriptor describes a parameter for a function.
+// Corresponds to OpenAPI 3.0 parameter object.
+type ParameterDescriptor struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Parameter name
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Parameter location: "query", "path", "header", "cookie"
+	In string `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
+	// Parameter description
+	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	// Whether this parameter is required
+	Required bool `protobuf:"varint,4,opt,name=required,proto3" json:"required,omitempty"`
+	// Whether this parameter is deprecated
+	Deprecated bool `protobuf:"varint,5,opt,name=deprecated,proto3" json:"deprecated,omitempty"`
+	// Parameter type: "string", "number", "integer", "boolean", "array", "object"
+	Type string `protobuf:"bytes,6,opt,name=type,proto3" json:"type,omitempty"`
+	// Type format: e.g., "int32", "int64", "float", "double", "date-time"
+	Format string `protobuf:"bytes,7,opt,name=format,proto3" json:"format,omitempty"`
+	// Default value (as JSON string)
+	Default string `protobuf:"bytes,8,opt,name=default,proto3" json:"default,omitempty"`
+	// Enum allowed values (as JSON array string)
+	Enum string `protobuf:"bytes,9,opt,name=enum,proto3" json:"enum,omitempty"`
+	// JSON schema for the parameter (for complex types)
+	Schema        string `protobuf:"bytes,10,opt,name=schema,proto3" json:"schema,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ParameterDescriptor) Reset() {
+	*x = ParameterDescriptor{}
+	mi := &file_croupier_control_v1_control_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ParameterDescriptor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ParameterDescriptor) ProtoMessage() {}
+
+func (x *ParameterDescriptor) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_control_v1_control_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ParameterDescriptor.ProtoReflect.Descriptor instead.
+func (*ParameterDescriptor) Descriptor() ([]byte, []int) {
+	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ParameterDescriptor) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ParameterDescriptor) GetIn() string {
+	if x != nil {
+		return x.In
+	}
+	return ""
+}
+
+func (x *ParameterDescriptor) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *ParameterDescriptor) GetRequired() bool {
+	if x != nil {
+		return x.Required
 	}
 	return false
+}
+
+func (x *ParameterDescriptor) GetDeprecated() bool {
+	if x != nil {
+		return x.Deprecated
+	}
+	return false
+}
+
+func (x *ParameterDescriptor) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *ParameterDescriptor) GetFormat() string {
+	if x != nil {
+		return x.Format
+	}
+	return ""
+}
+
+func (x *ParameterDescriptor) GetDefault() string {
+	if x != nil {
+		return x.Default
+	}
+	return ""
+}
+
+func (x *ParameterDescriptor) GetEnum() string {
+	if x != nil {
+		return x.Enum
+	}
+	return ""
+}
+
+func (x *ParameterDescriptor) GetSchema() string {
+	if x != nil {
+		return x.Schema
+	}
+	return ""
+}
+
+// RequestBodyDescriptor corresponds to OpenAPI 3.0 Request Body Object
+// Describes a single request body for a function
+type RequestBodyDescriptor struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// A brief description of the request body
+	Description string `protobuf:"bytes,1,opt,name=description,proto3" json:"description,omitempty"`
+	// Whether the request body is required
+	Required bool `protobuf:"varint,2,opt,name=required,proto3" json:"required,omitempty"`
+	// The content of the request body (content_type -> schema mapping)
+	// For simplicity, we support JSON schema as string
+	Content       map[string]string `protobuf:"bytes,3,rep,name=content,proto3" json:"content,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // e.g., "application/json" -> schema JSON
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RequestBodyDescriptor) Reset() {
+	*x = RequestBodyDescriptor{}
+	mi := &file_croupier_control_v1_control_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RequestBodyDescriptor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestBodyDescriptor) ProtoMessage() {}
+
+func (x *RequestBodyDescriptor) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_control_v1_control_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestBodyDescriptor.ProtoReflect.Descriptor instead.
+func (*RequestBodyDescriptor) Descriptor() ([]byte, []int) {
+	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *RequestBodyDescriptor) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *RequestBodyDescriptor) GetRequired() bool {
+	if x != nil {
+		return x.Required
+	}
+	return false
+}
+
+func (x *RequestBodyDescriptor) GetContent() map[string]string {
+	if x != nil {
+		return x.Content
+	}
+	return nil
+}
+
+// ResponseDescriptor corresponds to OpenAPI 3.0 Response Object
+// Describes a single response from a function
+type ResponseDescriptor struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// A short description of the response (REQUIRED in OpenAPI)
+	Description string `protobuf:"bytes,1,opt,name=description,proto3" json:"description,omitempty"`
+	// Maps content type to schema
+	Content map[string]string `protobuf:"bytes,2,rep,name=content,proto3" json:"content,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // e.g., "application/json" -> schema JSON
+	// HTTP status code this response describes (for reference only)
+	StatusCode    string `protobuf:"bytes,3,opt,name=status_code,json=statusCode,proto3" json:"status_code,omitempty"` // e.g., "200", "201", "2XX"
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResponseDescriptor) Reset() {
+	*x = ResponseDescriptor{}
+	mi := &file_croupier_control_v1_control_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResponseDescriptor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResponseDescriptor) ProtoMessage() {}
+
+func (x *ResponseDescriptor) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_control_v1_control_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResponseDescriptor.ProtoReflect.Descriptor instead.
+func (*ResponseDescriptor) Descriptor() ([]byte, []int) {
+	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ResponseDescriptor) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *ResponseDescriptor) GetContent() map[string]string {
+	if x != nil {
+		return x.Content
+	}
+	return nil
+}
+
+func (x *ResponseDescriptor) GetStatusCode() string {
+	if x != nil {
+		return x.StatusCode
+	}
+	return ""
 }
 
 type RegisterRequest struct {
@@ -127,7 +540,7 @@ type RegisterRequest struct {
 
 func (x *RegisterRequest) Reset() {
 	*x = RegisterRequest{}
-	mi := &file_croupier_control_v1_control_proto_msgTypes[1]
+	mi := &file_croupier_control_v1_control_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -139,7 +552,7 @@ func (x *RegisterRequest) String() string {
 func (*RegisterRequest) ProtoMessage() {}
 
 func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_control_v1_control_proto_msgTypes[1]
+	mi := &file_croupier_control_v1_control_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -152,7 +565,7 @@ func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterRequest.ProtoReflect.Descriptor instead.
 func (*RegisterRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{1}
+	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RegisterRequest) GetAgentId() string {
@@ -207,7 +620,7 @@ type RegisterResponse struct {
 
 func (x *RegisterResponse) Reset() {
 	*x = RegisterResponse{}
-	mi := &file_croupier_control_v1_control_proto_msgTypes[2]
+	mi := &file_croupier_control_v1_control_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -219,7 +632,7 @@ func (x *RegisterResponse) String() string {
 func (*RegisterResponse) ProtoMessage() {}
 
 func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_control_v1_control_proto_msgTypes[2]
+	mi := &file_croupier_control_v1_control_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -232,7 +645,7 @@ func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterResponse.ProtoReflect.Descriptor instead.
 func (*RegisterResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{2}
+	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RegisterResponse) GetSessionId() string {
@@ -259,7 +672,7 @@ type HeartbeatRequest struct {
 
 func (x *HeartbeatRequest) Reset() {
 	*x = HeartbeatRequest{}
-	mi := &file_croupier_control_v1_control_proto_msgTypes[3]
+	mi := &file_croupier_control_v1_control_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -271,7 +684,7 @@ func (x *HeartbeatRequest) String() string {
 func (*HeartbeatRequest) ProtoMessage() {}
 
 func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_control_v1_control_proto_msgTypes[3]
+	mi := &file_croupier_control_v1_control_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -284,7 +697,7 @@ func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatRequest.ProtoReflect.Descriptor instead.
 func (*HeartbeatRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{3}
+	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *HeartbeatRequest) GetAgentId() string {
@@ -309,7 +722,7 @@ type HeartbeatResponse struct {
 
 func (x *HeartbeatResponse) Reset() {
 	*x = HeartbeatResponse{}
-	mi := &file_croupier_control_v1_control_proto_msgTypes[4]
+	mi := &file_croupier_control_v1_control_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -321,7 +734,7 @@ func (x *HeartbeatResponse) String() string {
 func (*HeartbeatResponse) ProtoMessage() {}
 
 func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_control_v1_control_proto_msgTypes[4]
+	mi := &file_croupier_control_v1_control_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -334,7 +747,7 @@ func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatResponse.ProtoReflect.Descriptor instead.
 func (*HeartbeatResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{4}
+	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{8}
 }
 
 // Provider capabilities (manifest) — language-agnostic declaration
@@ -350,7 +763,7 @@ type ProviderMeta struct {
 
 func (x *ProviderMeta) Reset() {
 	*x = ProviderMeta{}
-	mi := &file_croupier_control_v1_control_proto_msgTypes[5]
+	mi := &file_croupier_control_v1_control_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -362,7 +775,7 @@ func (x *ProviderMeta) String() string {
 func (*ProviderMeta) ProtoMessage() {}
 
 func (x *ProviderMeta) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_control_v1_control_proto_msgTypes[5]
+	mi := &file_croupier_control_v1_control_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -375,7 +788,7 @@ func (x *ProviderMeta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProviderMeta.ProtoReflect.Descriptor instead.
 func (*ProviderMeta) Descriptor() ([]byte, []int) {
-	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{5}
+	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ProviderMeta) GetId() string {
@@ -416,7 +829,7 @@ type RegisterCapabilitiesRequest struct {
 
 func (x *RegisterCapabilitiesRequest) Reset() {
 	*x = RegisterCapabilitiesRequest{}
-	mi := &file_croupier_control_v1_control_proto_msgTypes[6]
+	mi := &file_croupier_control_v1_control_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -428,7 +841,7 @@ func (x *RegisterCapabilitiesRequest) String() string {
 func (*RegisterCapabilitiesRequest) ProtoMessage() {}
 
 func (x *RegisterCapabilitiesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_control_v1_control_proto_msgTypes[6]
+	mi := &file_croupier_control_v1_control_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -441,7 +854,7 @@ func (x *RegisterCapabilitiesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterCapabilitiesRequest.ProtoReflect.Descriptor instead.
 func (*RegisterCapabilitiesRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{6}
+	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *RegisterCapabilitiesRequest) GetProvider() *ProviderMeta {
@@ -466,7 +879,7 @@ type RegisterCapabilitiesResponse struct {
 
 func (x *RegisterCapabilitiesResponse) Reset() {
 	*x = RegisterCapabilitiesResponse{}
-	mi := &file_croupier_control_v1_control_proto_msgTypes[7]
+	mi := &file_croupier_control_v1_control_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -478,7 +891,7 @@ func (x *RegisterCapabilitiesResponse) String() string {
 func (*RegisterCapabilitiesResponse) ProtoMessage() {}
 
 func (x *RegisterCapabilitiesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_control_v1_control_proto_msgTypes[7]
+	mi := &file_croupier_control_v1_control_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -491,22 +904,68 @@ func (x *RegisterCapabilitiesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterCapabilitiesResponse.ProtoReflect.Descriptor instead.
 func (*RegisterCapabilitiesResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{7}
+	return file_croupier_control_v1_control_proto_rawDescGZIP(), []int{11}
 }
 
 var File_croupier_control_v1_control_proto protoreflect.FileDescriptor
 
 const file_croupier_control_v1_control_proto_rawDesc = "" +
 	"\n" +
-	"!croupier/control/v1/control.proto\x12\x13croupier.control.v1\"\xbe\x01\n" +
+	"!croupier/control/v1/control.proto\x12\x13croupier.control.v1\"\x80\x05\n" +
 	"\x12FunctionDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
-	"\aversion\x18\x02 \x01(\tR\aversion\x12\x1a\n" +
-	"\bcategory\x18\x03 \x01(\tR\bcategory\x12\x12\n" +
-	"\x04risk\x18\x04 \x01(\tR\x04risk\x12\x16\n" +
-	"\x06entity\x18\x05 \x01(\tR\x06entity\x12\x1c\n" +
-	"\toperation\x18\x06 \x01(\tR\toperation\x12\x18\n" +
-	"\aenabled\x18\a \x01(\bR\aenabled\"\xd3\x01\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion\x12\x12\n" +
+	"\x04tags\x18\x03 \x03(\tR\x04tags\x12\x18\n" +
+	"\asummary\x18\x04 \x01(\tR\asummary\x12 \n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x1e\n" +
+	"\n" +
+	"deprecated\x18\x06 \x01(\bR\n" +
+	"deprecated\x12!\n" +
+	"\foperation_id\x18\a \x01(\tR\voperationId\x12O\n" +
+	"\rexternal_docs\x18\b \x01(\v2*.croupier.control.v1.ExternalDocumentationR\fexternalDocs\x12H\n" +
+	"\n" +
+	"parameters\x18\t \x03(\v2(.croupier.control.v1.ParameterDescriptorR\n" +
+	"parameters\x12M\n" +
+	"\frequest_body\x18\n" +
+	" \x01(\v2*.croupier.control.v1.RequestBodyDescriptorR\vrequestBody\x12C\n" +
+	"\bresponse\x18\v \x01(\v2'.croupier.control.v1.ResponseDescriptorR\bresponse\x12\x18\n" +
+	"\aenabled\x18\f \x01(\bR\aenabled\x12\x1a\n" +
+	"\bcategory\x18\r \x01(\tR\bcategory\x12\x12\n" +
+	"\x04risk\x18\x0e \x01(\tR\x04risk\x12\x16\n" +
+	"\x06entity\x18\x0f \x01(\tR\x06entity\x12\x1c\n" +
+	"\toperation\x18\x10 \x01(\tR\toperation\"K\n" +
+	"\x15ExternalDocumentation\x12 \n" +
+	"\vdescription\x18\x01 \x01(\tR\vdescription\x12\x10\n" +
+	"\x03url\x18\x02 \x01(\tR\x03url\"\x89\x02\n" +
+	"\x13ParameterDescriptor\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x0e\n" +
+	"\x02in\x18\x02 \x01(\tR\x02in\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1a\n" +
+	"\brequired\x18\x04 \x01(\bR\brequired\x12\x1e\n" +
+	"\n" +
+	"deprecated\x18\x05 \x01(\bR\n" +
+	"deprecated\x12\x12\n" +
+	"\x04type\x18\x06 \x01(\tR\x04type\x12\x16\n" +
+	"\x06format\x18\a \x01(\tR\x06format\x12\x18\n" +
+	"\adefault\x18\b \x01(\tR\adefault\x12\x12\n" +
+	"\x04enum\x18\t \x01(\tR\x04enum\x12\x16\n" +
+	"\x06schema\x18\n" +
+	" \x01(\tR\x06schema\"\xe4\x01\n" +
+	"\x15RequestBodyDescriptor\x12 \n" +
+	"\vdescription\x18\x01 \x01(\tR\vdescription\x12\x1a\n" +
+	"\brequired\x18\x02 \x01(\bR\brequired\x12Q\n" +
+	"\acontent\x18\x03 \x03(\v27.croupier.control.v1.RequestBodyDescriptor.ContentEntryR\acontent\x1a:\n" +
+	"\fContentEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xe3\x01\n" +
+	"\x12ResponseDescriptor\x12 \n" +
+	"\vdescription\x18\x01 \x01(\tR\vdescription\x12N\n" +
+	"\acontent\x18\x02 \x03(\v24.croupier.control.v1.ResponseDescriptor.ContentEntryR\acontent\x12\x1f\n" +
+	"\vstatus_code\x18\x03 \x01(\tR\n" +
+	"statusCode\x1a:\n" +
+	"\fContentEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xd3\x01\n" +
 	"\x0fRegisterRequest\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12E\n" +
@@ -550,31 +1009,43 @@ func file_croupier_control_v1_control_proto_rawDescGZIP() []byte {
 	return file_croupier_control_v1_control_proto_rawDescData
 }
 
-var file_croupier_control_v1_control_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_croupier_control_v1_control_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_croupier_control_v1_control_proto_goTypes = []any{
 	(*FunctionDescriptor)(nil),           // 0: croupier.control.v1.FunctionDescriptor
-	(*RegisterRequest)(nil),              // 1: croupier.control.v1.RegisterRequest
-	(*RegisterResponse)(nil),             // 2: croupier.control.v1.RegisterResponse
-	(*HeartbeatRequest)(nil),             // 3: croupier.control.v1.HeartbeatRequest
-	(*HeartbeatResponse)(nil),            // 4: croupier.control.v1.HeartbeatResponse
-	(*ProviderMeta)(nil),                 // 5: croupier.control.v1.ProviderMeta
-	(*RegisterCapabilitiesRequest)(nil),  // 6: croupier.control.v1.RegisterCapabilitiesRequest
-	(*RegisterCapabilitiesResponse)(nil), // 7: croupier.control.v1.RegisterCapabilitiesResponse
+	(*ExternalDocumentation)(nil),        // 1: croupier.control.v1.ExternalDocumentation
+	(*ParameterDescriptor)(nil),          // 2: croupier.control.v1.ParameterDescriptor
+	(*RequestBodyDescriptor)(nil),        // 3: croupier.control.v1.RequestBodyDescriptor
+	(*ResponseDescriptor)(nil),           // 4: croupier.control.v1.ResponseDescriptor
+	(*RegisterRequest)(nil),              // 5: croupier.control.v1.RegisterRequest
+	(*RegisterResponse)(nil),             // 6: croupier.control.v1.RegisterResponse
+	(*HeartbeatRequest)(nil),             // 7: croupier.control.v1.HeartbeatRequest
+	(*HeartbeatResponse)(nil),            // 8: croupier.control.v1.HeartbeatResponse
+	(*ProviderMeta)(nil),                 // 9: croupier.control.v1.ProviderMeta
+	(*RegisterCapabilitiesRequest)(nil),  // 10: croupier.control.v1.RegisterCapabilitiesRequest
+	(*RegisterCapabilitiesResponse)(nil), // 11: croupier.control.v1.RegisterCapabilitiesResponse
+	nil,                                  // 12: croupier.control.v1.RequestBodyDescriptor.ContentEntry
+	nil,                                  // 13: croupier.control.v1.ResponseDescriptor.ContentEntry
 }
 var file_croupier_control_v1_control_proto_depIdxs = []int32{
-	0, // 0: croupier.control.v1.RegisterRequest.functions:type_name -> croupier.control.v1.FunctionDescriptor
-	5, // 1: croupier.control.v1.RegisterCapabilitiesRequest.provider:type_name -> croupier.control.v1.ProviderMeta
-	1, // 2: croupier.control.v1.ControlService.Register:input_type -> croupier.control.v1.RegisterRequest
-	3, // 3: croupier.control.v1.ControlService.Heartbeat:input_type -> croupier.control.v1.HeartbeatRequest
-	6, // 4: croupier.control.v1.ControlService.RegisterCapabilities:input_type -> croupier.control.v1.RegisterCapabilitiesRequest
-	2, // 5: croupier.control.v1.ControlService.Register:output_type -> croupier.control.v1.RegisterResponse
-	4, // 6: croupier.control.v1.ControlService.Heartbeat:output_type -> croupier.control.v1.HeartbeatResponse
-	7, // 7: croupier.control.v1.ControlService.RegisterCapabilities:output_type -> croupier.control.v1.RegisterCapabilitiesResponse
-	5, // [5:8] is the sub-list for method output_type
-	2, // [2:5] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	1,  // 0: croupier.control.v1.FunctionDescriptor.external_docs:type_name -> croupier.control.v1.ExternalDocumentation
+	2,  // 1: croupier.control.v1.FunctionDescriptor.parameters:type_name -> croupier.control.v1.ParameterDescriptor
+	3,  // 2: croupier.control.v1.FunctionDescriptor.request_body:type_name -> croupier.control.v1.RequestBodyDescriptor
+	4,  // 3: croupier.control.v1.FunctionDescriptor.response:type_name -> croupier.control.v1.ResponseDescriptor
+	12, // 4: croupier.control.v1.RequestBodyDescriptor.content:type_name -> croupier.control.v1.RequestBodyDescriptor.ContentEntry
+	13, // 5: croupier.control.v1.ResponseDescriptor.content:type_name -> croupier.control.v1.ResponseDescriptor.ContentEntry
+	0,  // 6: croupier.control.v1.RegisterRequest.functions:type_name -> croupier.control.v1.FunctionDescriptor
+	9,  // 7: croupier.control.v1.RegisterCapabilitiesRequest.provider:type_name -> croupier.control.v1.ProviderMeta
+	5,  // 8: croupier.control.v1.ControlService.Register:input_type -> croupier.control.v1.RegisterRequest
+	7,  // 9: croupier.control.v1.ControlService.Heartbeat:input_type -> croupier.control.v1.HeartbeatRequest
+	10, // 10: croupier.control.v1.ControlService.RegisterCapabilities:input_type -> croupier.control.v1.RegisterCapabilitiesRequest
+	6,  // 11: croupier.control.v1.ControlService.Register:output_type -> croupier.control.v1.RegisterResponse
+	8,  // 12: croupier.control.v1.ControlService.Heartbeat:output_type -> croupier.control.v1.HeartbeatResponse
+	11, // 13: croupier.control.v1.ControlService.RegisterCapabilities:output_type -> croupier.control.v1.RegisterCapabilitiesResponse
+	11, // [11:14] is the sub-list for method output_type
+	8,  // [8:11] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_croupier_control_v1_control_proto_init() }
@@ -588,7 +1059,7 @@ func file_croupier_control_v1_control_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_control_v1_control_proto_rawDesc), len(file_croupier_control_v1_control_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

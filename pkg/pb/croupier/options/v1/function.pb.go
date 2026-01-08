@@ -241,8 +241,12 @@ type EntityOptions struct {
 	// 自定义操作（key: 操作名, value: 函数ID列表）
 	CustomOperations map[string]string `protobuf:"bytes,16,rep,name=custom_operations,json=customOperations,proto3" json:"custom_operations,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	// 实体展示配置（i18n）
-	DisplayName   *v1.I18NText `protobuf:"bytes,17,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	Summary       *v1.I18NText `protobuf:"bytes,18,opt,name=summary,proto3" json:"summary,omitempty"`
+	DisplayName *v1.I18NText `protobuf:"bytes,17,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Summary     *v1.I18NText `protobuf:"bytes,18,opt,name=summary,proto3" json:"summary,omitempty"`
+	// 标签
+	Tags []string `protobuf:"bytes,19,rep,name=tags,proto3" json:"tags,omitempty"`
+	// 菜单元数据（用于构建前端菜单）
+	Menu          *v1.Menu `protobuf:"bytes,20,opt,name=menu,proto3" json:"menu,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -403,6 +407,20 @@ func (x *EntityOptions) GetSummary() *v1.I18NText {
 	return nil
 }
 
+func (x *EntityOptions) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *EntityOptions) GetMenu() *v1.Menu {
+	if x != nil {
+		return x.Menu
+	}
+	return nil
+}
+
 var file_croupier_options_v1_function_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*descriptorpb.MethodOptions)(nil),
@@ -460,7 +478,7 @@ const file_croupier_options_v1_function_proto_rawDesc = "" +
 	"\vpermissions\x18\x10 \x01(\v2\".croupier.common.v1.PermissionSpecR\vpermissions\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xbf\x06\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x81\a\n" +
 	"\rEntityOptions\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x12\n" +
@@ -481,7 +499,9 @@ const file_croupier_options_v1_function_proto_rawDesc = "" +
 	"\x0elist_functions\x18\x0f \x03(\tR\rlistFunctions\x12e\n" +
 	"\x11custom_operations\x18\x10 \x03(\v28.croupier.options.v1.EntityOptions.CustomOperationsEntryR\x10customOperations\x12?\n" +
 	"\fdisplay_name\x18\x11 \x01(\v2\x1c.croupier.common.v1.I18nTextR\vdisplayName\x126\n" +
-	"\asummary\x18\x12 \x01(\v2\x1c.croupier.common.v1.I18nTextR\asummary\x1aC\n" +
+	"\asummary\x18\x12 \x01(\v2\x1c.croupier.common.v1.I18nTextR\asummary\x12\x12\n" +
+	"\x04tags\x18\x13 \x03(\tR\x04tags\x12,\n" +
+	"\x04menu\x18\x14 \x01(\v2\x18.croupier.common.v1.MenuR\x04menu\x1aC\n" +
 	"\x15CustomOperationsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01:b\n" +
@@ -522,15 +542,16 @@ var file_croupier_options_v1_function_proto_depIdxs = []int32{
 	3,  // 5: croupier.options.v1.EntityOptions.custom_operations:type_name -> croupier.options.v1.EntityOptions.CustomOperationsEntry
 	4,  // 6: croupier.options.v1.EntityOptions.display_name:type_name -> croupier.common.v1.I18nText
 	4,  // 7: croupier.options.v1.EntityOptions.summary:type_name -> croupier.common.v1.I18nText
-	7,  // 8: croupier.options.v1.function:extendee -> google.protobuf.MethodOptions
-	8,  // 9: croupier.options.v1.entity:extendee -> google.protobuf.MessageOptions
-	0,  // 10: croupier.options.v1.function:type_name -> croupier.options.v1.FunctionOptions
-	1,  // 11: croupier.options.v1.entity:type_name -> croupier.options.v1.EntityOptions
-	12, // [12:12] is the sub-list for method output_type
-	12, // [12:12] is the sub-list for method input_type
-	10, // [10:12] is the sub-list for extension type_name
-	8,  // [8:10] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	5,  // 8: croupier.options.v1.EntityOptions.menu:type_name -> croupier.common.v1.Menu
+	7,  // 9: croupier.options.v1.function:extendee -> google.protobuf.MethodOptions
+	8,  // 10: croupier.options.v1.entity:extendee -> google.protobuf.MessageOptions
+	0,  // 11: croupier.options.v1.function:type_name -> croupier.options.v1.FunctionOptions
+	1,  // 12: croupier.options.v1.entity:type_name -> croupier.options.v1.EntityOptions
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	11, // [11:13] is the sub-list for extension type_name
+	9,  // [9:11] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_croupier_options_v1_function_proto_init() }

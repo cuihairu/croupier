@@ -15,30 +15,67 @@ import (
 
 // App assembles minimal gRPC services for Agent process.
 type App struct {
-	store    *agentlocal.LocalStore
-	jobs     *jobIndex
-	upstream *UpstreamClient
-	outTLS   *tlsutil.ClientTLSConfig
+	store           *agentlocal.LocalStore
+	jobs            *jobIndex
+	upstream        *UpstreamClient
+	outTLS          *tlsutil.ClientTLSConfig
+	platformManager *PlatformManager
+	configDir       string
 }
 
 func New(serverAddr, agentID string) *App {
 	store := agentlocal.NewLocalStore()
 	return &App{
-		store:    store,
-		jobs:     newJobIndex(),
-		upstream: NewUpstreamClient(serverAddr, agentID, store, nil),
+		store:     store,
+		jobs:      newJobIndex(),
+		upstream:  NewUpstreamClient(serverAddr, agentID, store, nil),
+		configDir: getConfigDir(),
 	}
 }
 
+func NewWithConfigDir(serverAddr, agentID, configDir string) *App {
+	store := agentlocal.NewLocalStore()
+	return &App{
+		store:     store,
+		jobs:      newJobIndex(),
+		upstream:  NewUpstreamClient(serverAddr, agentID, store, nil),
+		configDir: configDir,
+	}
+}
+
+func getConfigDir() string {
+	// Check CROUPIER_CONFIG_DIR first
+	if dir := os.Getenv("CROUPIER_CONFIG_DIR"); dir != "" {
+		return dir
+	}
+	// Default to ./configs relative to working directory
+	return "./configs"
+}
+
 func (a *App) RegisterGRPC(s *grpc.Server) {
+	// Initialize platform manager
+	a.platformManager = NewPlatformManager(a.store, a.configDir, nil)
+
 	// Function service (local-forwarding implementation over protobuf)
-	functionv1.RegisterFunctionServiceServer(s, &FunctionServer{store: a.store, jobs: a.jobs, tlsCfg: a.outTLS})
+	functionv1.RegisterFunctionServiceServer(s, &FunctionServer{
+		store:           a.store,
+		jobs:            a.jobs,
+		tlsCfg:          a.outTLS,
+		platformManager: a.platformManager,
+	})
 	// Local registration service provides RegisterLocal/Heartbeat/ListLocal
 	localv1.RegisterLocalControlServiceServer(s, agentlocal.NewServer(a.store))
 }
 
 // Run starts the agent's background processes (upstream sync).
 func (a *App) Run(ctx context.Context) error {
+	// Load platforms before starting upstream
+	if a.platformManager != nil {
+		if err := a.platformManager.Load(ctx); err != nil {
+			return err
+		}
+	}
+
 	a.startMaintenance(ctx)
 	return a.upstream.Start(ctx)
 }
