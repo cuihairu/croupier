@@ -77,7 +77,7 @@ export default defineUserConfig({
           },
           {
             text: 'C# SDK',
-            link: 'https://github.com/cuihairu/croupier-sdk-csharp',
+            link: 'https://cuihairu.github.io/croupier-sdk-csharp/',
           },
           {
             text: 'Lua SDK',
