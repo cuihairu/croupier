@@ -33,3 +33,122 @@ platforms:
   #   type: appsflyer
   #   config:
   #     api_key: "${APPSFLYER_API_KEY}"
+
+  # OpenAPI Provider - Generic HTTP API integration
+  # Use this to quickly integrate any HTTP service with OpenAPI/Swagger documentation
+  # Example: Integrating a game server's admin API
+  game_server:
+    enabled: false  # Set to true to enable
+    type: openapi
+    config:
+      # Base URL of the API service
+      base_url: "http://43.166.253.121:8081"
+
+      # OpenAPI specification URL (optional - for auto-discovery)
+      # If provided, methods will be automatically discovered
+      openapi_spec: "http://43.166.253.121:8081/openapi.json"
+
+      # Authentication configuration
+      auth:
+        type: bearer  # Options: none, bearer, basic, api_key, custom
+        token: "${GAME_SERVER_TOKEN}"
+
+        # For basic auth:
+        # type: basic
+        # username: "admin"
+        # password: "${API_PASSWORD}"
+
+        # For API key:
+        # type: api_key
+        # api_key:
+        #   name: "X-API-Key"
+        #   value: "${API_KEY}"
+        #   in: "header"  # or "query"
+
+        # For custom headers:
+        # type: custom
+        # custom_headers:
+        #   X-Custom-Header: "value"
+
+      # Request timeout
+      timeout: 30s
+
+      # Number of retries on failure
+      retry_count: 3
+
+      # Default headers for all requests
+      headers:
+        User-Agent: "Croupier/1.0"
+
+      # Response transformation (optional)
+      transform:
+        success_field: "code"    # Field indicating success
+        success_value: 0         # Value indicating success
+        data_field: "data"       # Field containing actual data
+        error_field: "message"   # Field containing error message
+
+      # Method definitions (optional - can use openapi_spec for auto-discovery)
+      methods:
+        # Example: Get role info
+        - name: get_role
+          description: "Get role information by ID"
+          path: "/api/role/get"
+          method: POST
+          parameters:
+            - name: user_id
+              in: query
+              from: user_id
+              required: true
+          request_body:
+            type: json
+            fields:
+              user_id: user_id
+          response_mapping:
+            extract_path: "data"
+            wrap: true
+
+        # Example: Ban user
+        - name: ban_user
+          description: "Ban a user"
+          path: "/api/user/ban"
+          method: POST
+          request_body:
+            type: json
+            fields:
+              user_id: user_id
+              reason: reason
+              duration: duration
+
+        # Example: Send mail
+        - name: send_mail
+          description: "Send in-game mail to players"
+          path: "/api/mail/send"
+          method: POST
+          request_body:
+            type: json
+            template: '{"user_ids": {{ .user_ids }}, "title": "{{ .title }}", "content": "{{ .content }}", "items": {{ .items }}}'
+
+    rate_limit:
+      requests_per_minute: 60
+      burst_size: 10
+
+  # Multiple game servers example
+  game_server_us:
+    enabled: false
+    type: openapi
+    config:
+      base_url: "https://us-api.example.com"
+      auth:
+        type: api_key
+        api_key:
+          name: "Authorization"
+          value: "${US_API_KEY}"
+          in: "header"
+      timeout: 10s
+      retry_count: 2
+      # Auto-discover methods from OpenAPI spec
+      openapi_spec: "https://us-api.example.com/docs/openapi.json"
+    rate_limit:
+      requests_per_minute: 120
+      burst_size: 20
+

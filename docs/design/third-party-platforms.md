@@ -249,18 +249,26 @@ POST /api/v1/platform/call
 ### Phase 3: 集成 (2-3 人日)
 - [x] 集成到 Server
 - [x] HTTP API 端点
-- [ ] 前端 UI 支持
+- [x] 前端 UI 支持
 
-### Phase 4: 测试与文档 (1-2 人日)
+### Phase 4: OpenAPI 通用 Provider (1-2 人日)
+- [x] OpenAPI Provider 实现
+- [x] 配置示例
+- [x] 设计文档更新
+- [ ] OpenAPI 规范自动发现完善
+
+### Phase 5: 测试与文档 (1-2 人日)
 - [ ] 单元测试
 - [ ] 集成测试
 - [ ] 使用文档
 
-**已完成: Phase 1, Phase 2, Phase 3 (部分)**
+**已完成: Phase 1, Phase 2, Phase 3, Phase 4 (部分)**
 
 ## 未来扩展
 
-添加新平台只需：
+### 专用 Provider
+
+添加新的专用平台 Provider（如 QuickSDK）需要：
 
 1. 实现 `Provider` 接口
 2. 在配置文件中添加配置
@@ -283,4 +291,126 @@ platforms:
       app_id: "xxx"
       app_key: "xxx"
       server_url: "https://xxx.thinkingdata.cn"
+```
+
+### OpenAPI 通用 Provider
+
+对于不提供 SDK 但有 HTTP API 的服务器，可以使用 **OpenAPI Provider** 快速接入，无需编写代码。
+
+#### 使用场景
+
+- 游戏服管理 API
+- 内部管理后台
+- 第三方 OpenAPI/Swagger 服务
+- 快速原型验证
+
+#### 配置示例
+
+```yaml
+platforms:
+  # 方式1：手动定义方法
+  game_server:
+    enabled: true
+    type: openapi
+    config:
+      base_url: "http://game-server.example.com:8081"
+      auth:
+        type: bearer
+        token: "${GAME_SERVER_TOKEN}"
+      timeout: 30s
+      retry_count: 3
+      methods:
+        - name: get_role
+          path: "/api/role/get"
+          method: POST
+          request_body:
+            type: json
+            fields:
+              user_id: user_id
+        - name: ban_user
+          path: "/api/user/ban"
+          method: POST
+    rate_limit:
+      requests_per_minute: 60
+      burst_size: 10
+
+  # 方式2：自动发现（从 OpenAPI/Swagger 文档）
+  game_server_auto:
+    enabled: true
+    type: openapi
+    config:
+      base_url: "http://game-server.example.com:8081"
+      openapi_spec: "http://game-server.example.com:8081/openapi.json"
+      auth:
+        type: api_key
+        api_key:
+          name: "X-API-Key"
+          value: "${API_KEY}"
+          in: "header"
+```
+
+#### 支持的认证方式
+
+| 类型 | 说明 | 配置示例 |
+|------|------|----------|
+| `none` | 无认证 | `type: none` |
+| `bearer` | Bearer Token | `type: bearer; token: "xxx"` |
+| `basic` | HTTP Basic | `type: basic; username: "xxx"; password: "xxx"` |
+| `api_key` | API Key | `type: api_key; api_key: {name: "X-Key", value: "xxx", in: "header"}` |
+| `custom` | 自定义 Header | `type: custom; custom_headers: {X-Token: "xxx"}` |
+
+#### 方法映射配置
+
+```yaml
+methods:
+  - name: send_mail
+    description: "发送游戏内邮件"
+    path: "/api/mail/send"
+    method: POST
+    # 路径参数
+    parameters:
+      - name: user_id
+        in: path    # path, query, header
+        from: user_id
+        required: true
+      - name: server_id
+        in: query
+        from: server_id
+    # 请求体映射
+    request_body:
+      type: json              # json, form, text
+      template: '{"to": "{{ .user_id }}", "title": "{{ .title }}"}'
+      # 或使用 fields 映射
+      fields:
+        to: user_id
+        title: title
+        content: content
+    # 响应转换
+    response_mapping:
+      extract_path: "data.items"
+      wrap: true
+```
+
+#### 调用示例
+
+```bash
+# 调用游戏服 API
+curl -X POST http://croupier-server/api/v1/platform/call \
+  -H "Content-Type: application/json" \
+  -d '{
+    "platform": "game_server",
+    "method": "get_role",
+    "request": {
+      "user_id": "12345"
+    }
+  }'
+```
+
+#### OpenAPI Provider 目录结构
+
+```
+internal/platform/openapi/
+├── provider.go       # OpenAPI Provider 实现
+├── parser.go         # OpenAPI/Swagger 规范解析器
+└── transformer.go    # 请求/响应转换器
 ```

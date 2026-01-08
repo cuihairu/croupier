@@ -8,6 +8,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/cuihairu/croupier/internal/platform/openapi"
 	"github.com/cuihairu/croupier/internal/platform/provider"
 	"github.com/cuihairu/croupier/internal/platform/quicksdk"
 	"gopkg.in/yaml.v3"
@@ -80,6 +81,8 @@ func (l *Loader) Load(ctx context.Context) error {
 		switch entry.Type {
 		case "quicksdk":
 			p = quicksdk.NewProvider(l.logger)
+		case "openapi":
+			p = openapi.NewProvider()
 		default:
 			l.logger.Warn("unknown provider type", "name", name, "type", entry.Type)
 			continue
