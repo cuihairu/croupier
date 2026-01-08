@@ -16,6 +16,15 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
+const (
+	// maxPageSize limits the number of audit entries returned per page to
+	// avoid overflow and excessive memory allocations.
+	maxPageSize = 1000
+	// maxPage is a very large upper bound on the page number to ensure that
+	// (page-1)*size cannot overflow an int when size is bounded by maxPageSize.
+	maxPage = 1_000_000_000
+)
+
 type AuditLogic struct {
 	logx.Logger
 	ctx    context.Context
@@ -42,10 +51,15 @@ func (l *AuditLogic) Audit(req *types.AuditRequest) (resp *types.AuditResponse, 
 	page := req.Page
 	if page <= 0 {
 		page = 1
+	} else if page > maxPage {
+		page = maxPage
 	}
 	size := req.PageSize
 	if size <= 0 {
 		size = 20
+	}
+	if size > maxPageSize {
+		size = maxPageSize
 	}
 
 	actionFilter := strings.TrimSpace(req.Action)
