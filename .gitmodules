@@ -19,3 +19,6 @@
 [submodule "sdks/python"]
 	path = sdks/python
 	url = git@github.com:cuihairu/croupier-sdk-python.git
+[submodule "sdks/csharp"]
+	path = sdks/csharp
+	url = git@github.com:cuihairu/croupier-sdk-csharp.git
