@@ -382,8 +382,8 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 			desc := ""
 			if summary, ok := methodObj["summary"].(string); ok {
 				desc = summary
-			} else if desc, ok = methodObj["description"].(string); ok {
-				desc = desc
+			} else if description, ok := methodObj["description"].(string); ok {
+				desc = description
 			}
 
 			// Extract tags
