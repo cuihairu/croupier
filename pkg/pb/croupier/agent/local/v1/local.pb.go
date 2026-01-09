@@ -21,44 +21,18 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// LocalFunctionDescriptor describes a function that can be called.
-// Designed to be compatible with OpenAPI 3.0 operation object structure.
-// See: https://spec.openapis.org/oas/v3.0.3.html#operation-object
+// Local function registration from game servers to Agent
+// Based on OpenAPI 3.0.3 Operation Object fields
 type LocalFunctionDescriptor struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Unique identifier for this function (e.g., "player.ban", "game_server.get_role")
-	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	// Version of this function (semver, e.g., "1.2.0")
-	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
-	// Tags for categorization and UI grouping (e.g., ["player", "combat", "admin"])
-	// Corresponds to OpenAPI 3.0 'tags' field
-	Tags []string `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`
-	// Short summary of what this function does
-	// Corresponds to OpenAPI 3.0 'summary' field
-	Summary string `protobuf:"bytes,4,opt,name=summary,proto3" json:"summary,omitempty"`
-	// Detailed description of the function behavior
-	// Corresponds to OpenAPI 3.0 'description' field
-	// Supports CommonMark markdown syntax for rich text representation
-	Description string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
-	// Whether this function is deprecated
-	// Corresponds to OpenAPI 3.0 'deprecated' field
-	Deprecated bool `protobuf:"varint,6,opt,name=deprecated,proto3" json:"deprecated,omitempty"`
-	// Operation ID from OpenAPI spec (unique identifier for the operation)
-	// Corresponds to OpenAPI 3.0 'operationId' field
-	OperationId string `protobuf:"bytes,7,opt,name=operation_id,json=operationId,proto3" json:"operation_id,omitempty"`
-	// External documentation for this function
-	// Corresponds to OpenAPI 3.0 'externalDocs' field
-	ExternalDocs *ExternalDocumentation `protobuf:"bytes,8,opt,name=external_docs,json=externalDocs,proto3" json:"external_docs,omitempty"`
-	// Parameters applicable to this function
-	// Corresponds to OpenAPI 3.0 'parameters' field
-	Parameters []*ParameterDescriptor `protobuf:"bytes,9,rep,name=parameters,proto3" json:"parameters,omitempty"`
-	// Request body schema for this function
-	// Corresponds to OpenAPI 3.0 'requestBody' field
-	RequestBody *RequestBodyDescriptor `protobuf:"bytes,10,opt,name=request_body,json=requestBody,proto3" json:"request_body,omitempty"`
-	// Expected responses from this function
-	// Corresponds to OpenAPI 3.0 'responses' field
-	// Simplified: only describes success response schema
-	Response      *ResponseDescriptor `protobuf:"bytes,11,opt,name=response,proto3" json:"response,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Id      string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`           // Unique function identifier
+	Version string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"` // Function version
+	// OpenAPI 3.0.3 Operation Object fields
+	Tags          []string `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`                                  // Tags for grouping operations
+	Summary       string   `protobuf:"bytes,4,opt,name=summary,proto3" json:"summary,omitempty"`                            // Short summary
+	Description   string   `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`                    // Detailed description (supports markdown)
+	OperationId   string   `protobuf:"bytes,6,opt,name=operation_id,json=operationId,proto3" json:"operation_id,omitempty"` // Unique operation ID
+	Deprecated    bool     `protobuf:"varint,7,opt,name=deprecated,proto3" json:"deprecated,omitempty"`                     // Deprecation status
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -128,13 +102,6 @@ func (x *LocalFunctionDescriptor) GetDescription() string {
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetDeprecated() bool {
-	if x != nil {
-		return x.Deprecated
-	}
-	return false
-}
-
 func (x *LocalFunctionDescriptor) GetOperationId() string {
 	if x != nil {
 		return x.OperationId
@@ -142,444 +109,26 @@ func (x *LocalFunctionDescriptor) GetOperationId() string {
 	return ""
 }
 
-func (x *LocalFunctionDescriptor) GetExternalDocs() *ExternalDocumentation {
-	if x != nil {
-		return x.ExternalDocs
-	}
-	return nil
-}
-
-func (x *LocalFunctionDescriptor) GetParameters() []*ParameterDescriptor {
-	if x != nil {
-		return x.Parameters
-	}
-	return nil
-}
-
-func (x *LocalFunctionDescriptor) GetRequestBody() *RequestBodyDescriptor {
-	if x != nil {
-		return x.RequestBody
-	}
-	return nil
-}
-
-func (x *LocalFunctionDescriptor) GetResponse() *ResponseDescriptor {
-	if x != nil {
-		return x.Response
-	}
-	return nil
-}
-
-// ExternalDocumentation corresponds to OpenAPI 3.0 External Documentation Object
-type ExternalDocumentation struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// A short description of the target documentation
-	Description string `protobuf:"bytes,1,opt,name=description,proto3" json:"description,omitempty"`
-	// The URL for the target documentation
-	Url           string `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ExternalDocumentation) Reset() {
-	*x = ExternalDocumentation{}
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ExternalDocumentation) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ExternalDocumentation) ProtoMessage() {}
-
-func (x *ExternalDocumentation) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ExternalDocumentation.ProtoReflect.Descriptor instead.
-func (*ExternalDocumentation) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *ExternalDocumentation) GetDescription() string {
-	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
-func (x *ExternalDocumentation) GetUrl() string {
-	if x != nil {
-		return x.Url
-	}
-	return ""
-}
-
-// RequestBodyDescriptor corresponds to OpenAPI 3.0 Request Body Object
-// Describes a single request body for a function
-type RequestBodyDescriptor struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// A brief description of the request body
-	Description string `protobuf:"bytes,1,opt,name=description,proto3" json:"description,omitempty"`
-	// Whether the request body is required
-	Required bool `protobuf:"varint,2,opt,name=required,proto3" json:"required,omitempty"`
-	// The content of the request body (content_type -> schema mapping)
-	// For simplicity, we support JSON schema as string
-	Content       map[string]string `protobuf:"bytes,3,rep,name=content,proto3" json:"content,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // e.g., "application/json" -> schema JSON
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RequestBodyDescriptor) Reset() {
-	*x = RequestBodyDescriptor{}
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RequestBodyDescriptor) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RequestBodyDescriptor) ProtoMessage() {}
-
-func (x *RequestBodyDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RequestBodyDescriptor.ProtoReflect.Descriptor instead.
-func (*RequestBodyDescriptor) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *RequestBodyDescriptor) GetDescription() string {
-	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
-func (x *RequestBodyDescriptor) GetRequired() bool {
-	if x != nil {
-		return x.Required
-	}
-	return false
-}
-
-func (x *RequestBodyDescriptor) GetContent() map[string]string {
-	if x != nil {
-		return x.Content
-	}
-	return nil
-}
-
-// ResponseDescriptor corresponds to OpenAPI 3.0 Response Object
-// Describes a single response from a function
-type ResponseDescriptor struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// A short description of the response (REQUIRED in OpenAPI)
-	Description string `protobuf:"bytes,1,opt,name=description,proto3" json:"description,omitempty"`
-	// Maps content type to schema
-	Content map[string]string `protobuf:"bytes,2,rep,name=content,proto3" json:"content,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // e.g., "application/json" -> schema JSON
-	// HTTP status code this response describes (for reference only)
-	StatusCode    string `protobuf:"bytes,3,opt,name=status_code,json=statusCode,proto3" json:"status_code,omitempty"` // e.g., "200", "201", "2XX"
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ResponseDescriptor) Reset() {
-	*x = ResponseDescriptor{}
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ResponseDescriptor) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ResponseDescriptor) ProtoMessage() {}
-
-func (x *ResponseDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ResponseDescriptor.ProtoReflect.Descriptor instead.
-func (*ResponseDescriptor) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *ResponseDescriptor) GetDescription() string {
-	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
-func (x *ResponseDescriptor) GetContent() map[string]string {
-	if x != nil {
-		return x.Content
-	}
-	return nil
-}
-
-func (x *ResponseDescriptor) GetStatusCode() string {
-	if x != nil {
-		return x.StatusCode
-	}
-	return ""
-}
-
-// ParameterDescriptor describes a parameter for a function.
-// Corresponds to OpenAPI 3.0 parameter object.
-type ParameterDescriptor struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Parameter name
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Parameter location: "query", "path", "header", "cookie"
-	In string `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
-	// Parameter description
-	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	// Whether this parameter is required
-	Required bool `protobuf:"varint,4,opt,name=required,proto3" json:"required,omitempty"`
-	// Whether this parameter is deprecated
-	Deprecated bool `protobuf:"varint,5,opt,name=deprecated,proto3" json:"deprecated,omitempty"`
-	// Parameter type: "string", "number", "integer", "boolean", "array", "object"
-	Type string `protobuf:"bytes,6,opt,name=type,proto3" json:"type,omitempty"`
-	// Type format: e.g., "int32", "int64", "float", "double", "date-time"
-	Format string `protobuf:"bytes,7,opt,name=format,proto3" json:"format,omitempty"`
-	// Default value (as JSON string)
-	Default string `protobuf:"bytes,8,opt,name=default,proto3" json:"default,omitempty"`
-	// Enum allowed values (as JSON array string)
-	Enum string `protobuf:"bytes,9,opt,name=enum,proto3" json:"enum,omitempty"`
-	// JSON schema for the parameter (for complex types)
-	Schema        string `protobuf:"bytes,10,opt,name=schema,proto3" json:"schema,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ParameterDescriptor) Reset() {
-	*x = ParameterDescriptor{}
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ParameterDescriptor) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ParameterDescriptor) ProtoMessage() {}
-
-func (x *ParameterDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ParameterDescriptor.ProtoReflect.Descriptor instead.
-func (*ParameterDescriptor) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *ParameterDescriptor) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *ParameterDescriptor) GetIn() string {
-	if x != nil {
-		return x.In
-	}
-	return ""
-}
-
-func (x *ParameterDescriptor) GetDescription() string {
-	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
-func (x *ParameterDescriptor) GetRequired() bool {
-	if x != nil {
-		return x.Required
-	}
-	return false
-}
-
-func (x *ParameterDescriptor) GetDeprecated() bool {
+func (x *LocalFunctionDescriptor) GetDeprecated() bool {
 	if x != nil {
 		return x.Deprecated
 	}
 	return false
 }
 
-func (x *ParameterDescriptor) GetType() string {
-	if x != nil {
-		return x.Type
-	}
-	return ""
-}
-
-func (x *ParameterDescriptor) GetFormat() string {
-	if x != nil {
-		return x.Format
-	}
-	return ""
-}
-
-func (x *ParameterDescriptor) GetDefault() string {
-	if x != nil {
-		return x.Default
-	}
-	return ""
-}
-
-func (x *ParameterDescriptor) GetEnum() string {
-	if x != nil {
-		return x.Enum
-	}
-	return ""
-}
-
-func (x *ParameterDescriptor) GetSchema() string {
-	if x != nil {
-		return x.Schema
-	}
-	return ""
-}
-
-// MessageDescriptor describes a request or response message structure.
-// Used for validation and UI generation.
-type MessageDescriptor struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Content type: "application/json", "application/x-protobuf", etc.
-	ContentType string `protobuf:"bytes,1,opt,name=content_type,json=contentType,proto3" json:"content_type,omitempty"`
-	// JSON schema for the message body
-	Schema string `protobuf:"bytes,2,opt,name=schema,proto3" json:"schema,omitempty"`
-	// Whether this is required
-	Required bool `protobuf:"varint,3,opt,name=required,proto3" json:"required,omitempty"`
-	// Description of the message
-	Description   string `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+type RegisterLocalRequest struct {
+	state         protoimpl.MessageState     `protogen:"open.v1"`
+	ServiceId     string                     `protobuf:"bytes,1,opt,name=service_id,json=serviceId,proto3" json:"service_id,omitempty"`
+	Version       string                     `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	RpcAddr       string                     `protobuf:"bytes,3,opt,name=rpc_addr,json=rpcAddr,proto3" json:"rpc_addr,omitempty"`
+	Functions     []*LocalFunctionDescriptor `protobuf:"bytes,4,rep,name=functions,proto3" json:"functions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *MessageDescriptor) Reset() {
-	*x = MessageDescriptor{}
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MessageDescriptor) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MessageDescriptor) ProtoMessage() {}
-
-func (x *MessageDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MessageDescriptor.ProtoReflect.Descriptor instead.
-func (*MessageDescriptor) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *MessageDescriptor) GetContentType() string {
-	if x != nil {
-		return x.ContentType
-	}
-	return ""
-}
-
-func (x *MessageDescriptor) GetSchema() string {
-	if x != nil {
-		return x.Schema
-	}
-	return ""
-}
-
-func (x *MessageDescriptor) GetRequired() bool {
-	if x != nil {
-		return x.Required
-	}
-	return false
-}
-
-func (x *MessageDescriptor) GetDescription() string {
-	if x != nil {
-		return x.Description
-	}
-	return ""
-}
-
-// RegisterLocalRequest registers functions from a game server to the Agent.
-type RegisterLocalRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Service identifier (e.g., game server name)
-	ServiceId string `protobuf:"bytes,1,opt,name=service_id,json=serviceId,proto3" json:"service_id,omitempty"`
-	// Service version
-	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
-	// RPC address where this service can be reached
-	RpcAddr string `protobuf:"bytes,3,opt,name=rpc_addr,json=rpcAddr,proto3" json:"rpc_addr,omitempty"`
-	// Functions to register
-	Functions []*LocalFunctionDescriptor `protobuf:"bytes,4,rep,name=functions,proto3" json:"functions,omitempty"`
-	// Request message schema (for validation)
-	RequestSchema *MessageDescriptor `protobuf:"bytes,5,opt,name=request_schema,json=requestSchema,proto3" json:"request_schema,omitempty"`
-	// Response message schema (for validation)
-	ResponseSchema *MessageDescriptor `protobuf:"bytes,6,opt,name=response_schema,json=responseSchema,proto3" json:"response_schema,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
-}
-
 func (x *RegisterLocalRequest) Reset() {
 	*x = RegisterLocalRequest{}
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[6]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -591,7 +140,7 @@ func (x *RegisterLocalRequest) String() string {
 func (*RegisterLocalRequest) ProtoMessage() {}
 
 func (x *RegisterLocalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[6]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -604,7 +153,7 @@ func (x *RegisterLocalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterLocalRequest.ProtoReflect.Descriptor instead.
 func (*RegisterLocalRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{6}
+	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *RegisterLocalRequest) GetServiceId() string {
@@ -635,20 +184,6 @@ func (x *RegisterLocalRequest) GetFunctions() []*LocalFunctionDescriptor {
 	return nil
 }
 
-func (x *RegisterLocalRequest) GetRequestSchema() *MessageDescriptor {
-	if x != nil {
-		return x.RequestSchema
-	}
-	return nil
-}
-
-func (x *RegisterLocalRequest) GetResponseSchema() *MessageDescriptor {
-	if x != nil {
-		return x.ResponseSchema
-	}
-	return nil
-}
-
 type RegisterLocalResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
@@ -658,7 +193,7 @@ type RegisterLocalResponse struct {
 
 func (x *RegisterLocalResponse) Reset() {
 	*x = RegisterLocalResponse{}
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[7]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -670,7 +205,7 @@ func (x *RegisterLocalResponse) String() string {
 func (*RegisterLocalResponse) ProtoMessage() {}
 
 func (x *RegisterLocalResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[7]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -683,7 +218,7 @@ func (x *RegisterLocalResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterLocalResponse.ProtoReflect.Descriptor instead.
 func (*RegisterLocalResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{7}
+	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *RegisterLocalResponse) GetSessionId() string {
@@ -703,7 +238,7 @@ type HeartbeatRequest struct {
 
 func (x *HeartbeatRequest) Reset() {
 	*x = HeartbeatRequest{}
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[8]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -715,7 +250,7 @@ func (x *HeartbeatRequest) String() string {
 func (*HeartbeatRequest) ProtoMessage() {}
 
 func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[8]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -728,7 +263,7 @@ func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatRequest.ProtoReflect.Descriptor instead.
 func (*HeartbeatRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{8}
+	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *HeartbeatRequest) GetServiceId() string {
@@ -753,7 +288,7 @@ type HeartbeatResponse struct {
 
 func (x *HeartbeatResponse) Reset() {
 	*x = HeartbeatResponse{}
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[9]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -765,7 +300,7 @@ func (x *HeartbeatResponse) String() string {
 func (*HeartbeatResponse) ProtoMessage() {}
 
 func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[9]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -778,7 +313,7 @@ func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatResponse.ProtoReflect.Descriptor instead.
 func (*HeartbeatResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{9}
+	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{4}
 }
 
 // Query local registered instances
@@ -794,7 +329,7 @@ type LocalInstance struct {
 
 func (x *LocalInstance) Reset() {
 	*x = LocalInstance{}
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[10]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -806,7 +341,7 @@ func (x *LocalInstance) String() string {
 func (*LocalInstance) ProtoMessage() {}
 
 func (x *LocalInstance) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[10]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -819,7 +354,7 @@ func (x *LocalInstance) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalInstance.ProtoReflect.Descriptor instead.
 func (*LocalInstance) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{10}
+	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *LocalInstance) GetServiceId() string {
@@ -860,7 +395,7 @@ type LocalFunction struct {
 
 func (x *LocalFunction) Reset() {
 	*x = LocalFunction{}
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[11]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -872,7 +407,7 @@ func (x *LocalFunction) String() string {
 func (*LocalFunction) ProtoMessage() {}
 
 func (x *LocalFunction) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[11]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -885,7 +420,7 @@ func (x *LocalFunction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalFunction.ProtoReflect.Descriptor instead.
 func (*LocalFunction) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{11}
+	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *LocalFunction) GetId() string {
@@ -910,7 +445,7 @@ type ListLocalRequest struct {
 
 func (x *ListLocalRequest) Reset() {
 	*x = ListLocalRequest{}
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[12]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -922,7 +457,7 @@ func (x *ListLocalRequest) String() string {
 func (*ListLocalRequest) ProtoMessage() {}
 
 func (x *ListLocalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[12]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -935,7 +470,7 @@ func (x *ListLocalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLocalRequest.ProtoReflect.Descriptor instead.
 func (*ListLocalRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{12}
+	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{7}
 }
 
 type ListLocalResponse struct {
@@ -947,7 +482,7 @@ type ListLocalResponse struct {
 
 func (x *ListLocalResponse) Reset() {
 	*x = ListLocalResponse{}
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[13]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -959,7 +494,7 @@ func (x *ListLocalResponse) String() string {
 func (*ListLocalResponse) ProtoMessage() {}
 
 func (x *ListLocalResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[13]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -972,7 +507,7 @@ func (x *ListLocalResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLocalResponse.ProtoReflect.Descriptor instead.
 func (*ListLocalResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{13}
+	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ListLocalResponse) GetFunctions() []*LocalFunction {
@@ -992,7 +527,7 @@ type GetJobResultRequest struct {
 
 func (x *GetJobResultRequest) Reset() {
 	*x = GetJobResultRequest{}
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[14]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1004,7 +539,7 @@ func (x *GetJobResultRequest) String() string {
 func (*GetJobResultRequest) ProtoMessage() {}
 
 func (x *GetJobResultRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[14]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1017,7 +552,7 @@ func (x *GetJobResultRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetJobResultRequest.ProtoReflect.Descriptor instead.
 func (*GetJobResultRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{14}
+	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetJobResultRequest) GetJobId() string {
@@ -1038,7 +573,7 @@ type GetJobResultResponse struct {
 
 func (x *GetJobResultResponse) Reset() {
 	*x = GetJobResultResponse{}
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[15]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1050,7 +585,7 @@ func (x *GetJobResultResponse) String() string {
 func (*GetJobResultResponse) ProtoMessage() {}
 
 func (x *GetJobResultResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[15]
+	mi := &file_croupier_agent_local_v1_local_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1063,7 +598,7 @@ func (x *GetJobResultResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetJobResultResponse.ProtoReflect.Descriptor instead.
 func (*GetJobResultResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{15}
+	return file_croupier_agent_local_v1_local_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetJobResultResponse) GetState() string {
@@ -1091,69 +626,23 @@ var File_croupier_agent_local_v1_local_proto protoreflect.FileDescriptor
 
 const file_croupier_agent_local_v1_local_proto_rawDesc = "" +
 	"\n" +
-	"#croupier/agent/local/v1/local.proto\x12\x17croupier.agent.local.v1\"\x95\x04\n" +
+	"#croupier/agent/local/v1/local.proto\x12\x17croupier.agent.local.v1\"\xd6\x01\n" +
 	"\x17LocalFunctionDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x12\n" +
 	"\x04tags\x18\x03 \x03(\tR\x04tags\x12\x18\n" +
 	"\asummary\x18\x04 \x01(\tR\asummary\x12 \n" +
-	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x1e\n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12!\n" +
+	"\foperation_id\x18\x06 \x01(\tR\voperationId\x12\x1e\n" +
 	"\n" +
-	"deprecated\x18\x06 \x01(\bR\n" +
-	"deprecated\x12!\n" +
-	"\foperation_id\x18\a \x01(\tR\voperationId\x12S\n" +
-	"\rexternal_docs\x18\b \x01(\v2..croupier.agent.local.v1.ExternalDocumentationR\fexternalDocs\x12L\n" +
-	"\n" +
-	"parameters\x18\t \x03(\v2,.croupier.agent.local.v1.ParameterDescriptorR\n" +
-	"parameters\x12Q\n" +
-	"\frequest_body\x18\n" +
-	" \x01(\v2..croupier.agent.local.v1.RequestBodyDescriptorR\vrequestBody\x12G\n" +
-	"\bresponse\x18\v \x01(\v2+.croupier.agent.local.v1.ResponseDescriptorR\bresponse\"K\n" +
-	"\x15ExternalDocumentation\x12 \n" +
-	"\vdescription\x18\x01 \x01(\tR\vdescription\x12\x10\n" +
-	"\x03url\x18\x02 \x01(\tR\x03url\"\xe8\x01\n" +
-	"\x15RequestBodyDescriptor\x12 \n" +
-	"\vdescription\x18\x01 \x01(\tR\vdescription\x12\x1a\n" +
-	"\brequired\x18\x02 \x01(\bR\brequired\x12U\n" +
-	"\acontent\x18\x03 \x03(\v2;.croupier.agent.local.v1.RequestBodyDescriptor.ContentEntryR\acontent\x1a:\n" +
-	"\fContentEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xe7\x01\n" +
-	"\x12ResponseDescriptor\x12 \n" +
-	"\vdescription\x18\x01 \x01(\tR\vdescription\x12R\n" +
-	"\acontent\x18\x02 \x03(\v28.croupier.agent.local.v1.ResponseDescriptor.ContentEntryR\acontent\x12\x1f\n" +
-	"\vstatus_code\x18\x03 \x01(\tR\n" +
-	"statusCode\x1a:\n" +
-	"\fContentEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x89\x02\n" +
-	"\x13ParameterDescriptor\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12\x0e\n" +
-	"\x02in\x18\x02 \x01(\tR\x02in\x12 \n" +
-	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x1a\n" +
-	"\brequired\x18\x04 \x01(\bR\brequired\x12\x1e\n" +
-	"\n" +
-	"deprecated\x18\x05 \x01(\bR\n" +
-	"deprecated\x12\x12\n" +
-	"\x04type\x18\x06 \x01(\tR\x04type\x12\x16\n" +
-	"\x06format\x18\a \x01(\tR\x06format\x12\x18\n" +
-	"\adefault\x18\b \x01(\tR\adefault\x12\x12\n" +
-	"\x04enum\x18\t \x01(\tR\x04enum\x12\x16\n" +
-	"\x06schema\x18\n" +
-	" \x01(\tR\x06schema\"\x8c\x01\n" +
-	"\x11MessageDescriptor\x12!\n" +
-	"\fcontent_type\x18\x01 \x01(\tR\vcontentType\x12\x16\n" +
-	"\x06schema\x18\x02 \x01(\tR\x06schema\x12\x1a\n" +
-	"\brequired\x18\x03 \x01(\bR\brequired\x12 \n" +
-	"\vdescription\x18\x04 \x01(\tR\vdescription\"\xe2\x02\n" +
+	"deprecated\x18\a \x01(\bR\n" +
+	"deprecated\"\xba\x01\n" +
 	"\x14RegisterLocalRequest\x12\x1d\n" +
 	"\n" +
 	"service_id\x18\x01 \x01(\tR\tserviceId\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x19\n" +
 	"\brpc_addr\x18\x03 \x01(\tR\arpcAddr\x12N\n" +
-	"\tfunctions\x18\x04 \x03(\v20.croupier.agent.local.v1.LocalFunctionDescriptorR\tfunctions\x12Q\n" +
-	"\x0erequest_schema\x18\x05 \x01(\v2*.croupier.agent.local.v1.MessageDescriptorR\rrequestSchema\x12S\n" +
-	"\x0fresponse_schema\x18\x06 \x01(\v2*.croupier.agent.local.v1.MessageDescriptorR\x0eresponseSchema\"6\n" +
+	"\tfunctions\x18\x04 \x03(\v20.croupier.agent.local.v1.LocalFunctionDescriptorR\tfunctions\"6\n" +
 	"\x15RegisterLocalResponse\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\"P\n" +
@@ -1201,52 +690,37 @@ func file_croupier_agent_local_v1_local_proto_rawDescGZIP() []byte {
 	return file_croupier_agent_local_v1_local_proto_rawDescData
 }
 
-var file_croupier_agent_local_v1_local_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_croupier_agent_local_v1_local_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_croupier_agent_local_v1_local_proto_goTypes = []any{
 	(*LocalFunctionDescriptor)(nil), // 0: croupier.agent.local.v1.LocalFunctionDescriptor
-	(*ExternalDocumentation)(nil),   // 1: croupier.agent.local.v1.ExternalDocumentation
-	(*RequestBodyDescriptor)(nil),   // 2: croupier.agent.local.v1.RequestBodyDescriptor
-	(*ResponseDescriptor)(nil),      // 3: croupier.agent.local.v1.ResponseDescriptor
-	(*ParameterDescriptor)(nil),     // 4: croupier.agent.local.v1.ParameterDescriptor
-	(*MessageDescriptor)(nil),       // 5: croupier.agent.local.v1.MessageDescriptor
-	(*RegisterLocalRequest)(nil),    // 6: croupier.agent.local.v1.RegisterLocalRequest
-	(*RegisterLocalResponse)(nil),   // 7: croupier.agent.local.v1.RegisterLocalResponse
-	(*HeartbeatRequest)(nil),        // 8: croupier.agent.local.v1.HeartbeatRequest
-	(*HeartbeatResponse)(nil),       // 9: croupier.agent.local.v1.HeartbeatResponse
-	(*LocalInstance)(nil),           // 10: croupier.agent.local.v1.LocalInstance
-	(*LocalFunction)(nil),           // 11: croupier.agent.local.v1.LocalFunction
-	(*ListLocalRequest)(nil),        // 12: croupier.agent.local.v1.ListLocalRequest
-	(*ListLocalResponse)(nil),       // 13: croupier.agent.local.v1.ListLocalResponse
-	(*GetJobResultRequest)(nil),     // 14: croupier.agent.local.v1.GetJobResultRequest
-	(*GetJobResultResponse)(nil),    // 15: croupier.agent.local.v1.GetJobResultResponse
-	nil,                             // 16: croupier.agent.local.v1.RequestBodyDescriptor.ContentEntry
-	nil,                             // 17: croupier.agent.local.v1.ResponseDescriptor.ContentEntry
+	(*RegisterLocalRequest)(nil),    // 1: croupier.agent.local.v1.RegisterLocalRequest
+	(*RegisterLocalResponse)(nil),   // 2: croupier.agent.local.v1.RegisterLocalResponse
+	(*HeartbeatRequest)(nil),        // 3: croupier.agent.local.v1.HeartbeatRequest
+	(*HeartbeatResponse)(nil),       // 4: croupier.agent.local.v1.HeartbeatResponse
+	(*LocalInstance)(nil),           // 5: croupier.agent.local.v1.LocalInstance
+	(*LocalFunction)(nil),           // 6: croupier.agent.local.v1.LocalFunction
+	(*ListLocalRequest)(nil),        // 7: croupier.agent.local.v1.ListLocalRequest
+	(*ListLocalResponse)(nil),       // 8: croupier.agent.local.v1.ListLocalResponse
+	(*GetJobResultRequest)(nil),     // 9: croupier.agent.local.v1.GetJobResultRequest
+	(*GetJobResultResponse)(nil),    // 10: croupier.agent.local.v1.GetJobResultResponse
 }
 var file_croupier_agent_local_v1_local_proto_depIdxs = []int32{
-	1,  // 0: croupier.agent.local.v1.LocalFunctionDescriptor.external_docs:type_name -> croupier.agent.local.v1.ExternalDocumentation
-	4,  // 1: croupier.agent.local.v1.LocalFunctionDescriptor.parameters:type_name -> croupier.agent.local.v1.ParameterDescriptor
-	2,  // 2: croupier.agent.local.v1.LocalFunctionDescriptor.request_body:type_name -> croupier.agent.local.v1.RequestBodyDescriptor
-	3,  // 3: croupier.agent.local.v1.LocalFunctionDescriptor.response:type_name -> croupier.agent.local.v1.ResponseDescriptor
-	16, // 4: croupier.agent.local.v1.RequestBodyDescriptor.content:type_name -> croupier.agent.local.v1.RequestBodyDescriptor.ContentEntry
-	17, // 5: croupier.agent.local.v1.ResponseDescriptor.content:type_name -> croupier.agent.local.v1.ResponseDescriptor.ContentEntry
-	0,  // 6: croupier.agent.local.v1.RegisterLocalRequest.functions:type_name -> croupier.agent.local.v1.LocalFunctionDescriptor
-	5,  // 7: croupier.agent.local.v1.RegisterLocalRequest.request_schema:type_name -> croupier.agent.local.v1.MessageDescriptor
-	5,  // 8: croupier.agent.local.v1.RegisterLocalRequest.response_schema:type_name -> croupier.agent.local.v1.MessageDescriptor
-	10, // 9: croupier.agent.local.v1.LocalFunction.instances:type_name -> croupier.agent.local.v1.LocalInstance
-	11, // 10: croupier.agent.local.v1.ListLocalResponse.functions:type_name -> croupier.agent.local.v1.LocalFunction
-	6,  // 11: croupier.agent.local.v1.LocalControlService.RegisterLocal:input_type -> croupier.agent.local.v1.RegisterLocalRequest
-	8,  // 12: croupier.agent.local.v1.LocalControlService.Heartbeat:input_type -> croupier.agent.local.v1.HeartbeatRequest
-	12, // 13: croupier.agent.local.v1.LocalControlService.ListLocal:input_type -> croupier.agent.local.v1.ListLocalRequest
-	14, // 14: croupier.agent.local.v1.LocalControlService.GetJobResult:input_type -> croupier.agent.local.v1.GetJobResultRequest
-	7,  // 15: croupier.agent.local.v1.LocalControlService.RegisterLocal:output_type -> croupier.agent.local.v1.RegisterLocalResponse
-	9,  // 16: croupier.agent.local.v1.LocalControlService.Heartbeat:output_type -> croupier.agent.local.v1.HeartbeatResponse
-	13, // 17: croupier.agent.local.v1.LocalControlService.ListLocal:output_type -> croupier.agent.local.v1.ListLocalResponse
-	15, // 18: croupier.agent.local.v1.LocalControlService.GetJobResult:output_type -> croupier.agent.local.v1.GetJobResultResponse
-	15, // [15:19] is the sub-list for method output_type
-	11, // [11:15] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	0,  // 0: croupier.agent.local.v1.RegisterLocalRequest.functions:type_name -> croupier.agent.local.v1.LocalFunctionDescriptor
+	5,  // 1: croupier.agent.local.v1.LocalFunction.instances:type_name -> croupier.agent.local.v1.LocalInstance
+	6,  // 2: croupier.agent.local.v1.ListLocalResponse.functions:type_name -> croupier.agent.local.v1.LocalFunction
+	1,  // 3: croupier.agent.local.v1.LocalControlService.RegisterLocal:input_type -> croupier.agent.local.v1.RegisterLocalRequest
+	3,  // 4: croupier.agent.local.v1.LocalControlService.Heartbeat:input_type -> croupier.agent.local.v1.HeartbeatRequest
+	7,  // 5: croupier.agent.local.v1.LocalControlService.ListLocal:input_type -> croupier.agent.local.v1.ListLocalRequest
+	9,  // 6: croupier.agent.local.v1.LocalControlService.GetJobResult:input_type -> croupier.agent.local.v1.GetJobResultRequest
+	2,  // 7: croupier.agent.local.v1.LocalControlService.RegisterLocal:output_type -> croupier.agent.local.v1.RegisterLocalResponse
+	4,  // 8: croupier.agent.local.v1.LocalControlService.Heartbeat:output_type -> croupier.agent.local.v1.HeartbeatResponse
+	8,  // 9: croupier.agent.local.v1.LocalControlService.ListLocal:output_type -> croupier.agent.local.v1.ListLocalResponse
+	10, // 10: croupier.agent.local.v1.LocalControlService.GetJobResult:output_type -> croupier.agent.local.v1.GetJobResultResponse
+	7,  // [7:11] is the sub-list for method output_type
+	3,  // [3:7] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_croupier_agent_local_v1_local_proto_init() }
@@ -1260,7 +734,7 @@ func file_croupier_agent_local_v1_local_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_agent_local_v1_local_proto_rawDesc), len(file_croupier_agent_local_v1_local_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   18,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
