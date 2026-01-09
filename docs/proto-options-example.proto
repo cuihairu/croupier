@@ -3,7 +3,7 @@ syntax = "proto3";
 package examples.player.v1;
 
 import "google/protobuf/descriptor.proto";
-import "croupier/options/v1/function.proto";
+import "croupier/options/v1/function_options.proto";
 import "croupier/common/v1/ui.proto";
 
 // 玩家服务示例
