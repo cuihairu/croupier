@@ -28,8 +28,8 @@
 | 组件 | 仓库 | 在本仓库中的位置 | 说明 |
 | --- | --- | --- | --- |
 | Server / Agent / Edge | 本仓库 | 根目录 | 控制面、代理、审批、审计与示例 |
-| Dashboard | [cuihairu/croupier-dashboard](https://github.com/cuihairu/croupier-dashboard) | `dashboard/` | Umi Max + Ant Design + X-Render，已纳入子模块 |
-| Proto 定义 | [cuihairu/croupier-proto](https://github.com/cuihairu/croupier-proto) | `proto/` | 所有 gRPC/HTTP IDL，Server 与 SDK 共享 |
+| Dashboard | [croupier-dashboard](https://github.com/cuihairu/croupier-dashboard) | `dashboard/` | Umi Max + Ant Design + X-Render，已纳入子模块 |
+| Proto 定义 | [croupier-proto](https://github.com/cuihairu/croupier-proto) | `proto/` | 所有 gRPC/HTTP IDL，Server 与 SDK 共享 |
 | Analytics Worker | 本仓库 | `services/analytics-worker` | 事件消费、指标写入、ClickHouse 入库 |
 | 示例 / 工具 | 本仓库 | `examples/`, `tools/`, `packs/` | Demo 游戏、Telemetry、打包脚本等 |
 
@@ -182,7 +182,6 @@ sequenceDiagram
 ---
 
 ## 📚 文档入口
-- [CLAUDE.md](CLAUDE.md)：Claude Code 开发指引。
 - [docs/](docs/) & [configs/](configs/)：架构详解、配置样例、部署建议。
 - [proto/](proto/)：IDL + `buf` 配置，可运行 `buf lint` / `buf generate`。
 - [dashboard/README.md](dashboard/README.md)：Web Console、X-Render 用法。
