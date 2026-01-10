@@ -57,6 +57,9 @@ jobs:
           which protoc-gen-grpc-java || echo "protoc-gen-grpc-java not found"
           which protoc-gen-es || echo "protoc-gen-es not found"
           which protoc-gen-connect-es || echo "protoc-gen-connect-es not found"
+      - name: Clone proto repository
+        run: |
+          git clone --depth 1 https://github.com/cuihairu/croupier-proto.git proto
       - name: Lint proto
         run: buf lint proto
       - name: Build protoc-gen-croupier
