@@ -49,7 +49,7 @@ clone-all: clone-sdks clone-dashboard
 # Ensure local protoc plugin exists before running buf
 proto: croupier-plugin
 	@echo "[proto] generating code via buf..."
-	buf generate
+	buf generate proto --template buf.gen.yaml --clean
 
 # Generate API code from .api files
 api:

@@ -118,4 +118,5 @@ sdks/python/examples/__pycache__/
 sdks/cpp/build/
 sdks/cpp/bin/
 sdks/cpp/lib/
-build/
+build/*/proto/
+/proto/

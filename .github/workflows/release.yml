@@ -110,7 +110,7 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           export PATH="$HOME/go/bin:$PWD/bin:$PATH"
-          buf generate
+          buf generate --clean
       - name: Go mod download
         run: go mod download
       - name: Build (Linux/Mac)
