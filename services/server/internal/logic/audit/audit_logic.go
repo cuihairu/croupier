@@ -97,7 +97,7 @@ func (l *AuditLogic) Audit(req *types.AuditRequest) (resp *types.AuditResponse, 
 			},
 		}, nil
 	}
-
+  
 	// Use int64 for pagination arithmetic and validate before converting back to int
 	total64 := int64(total)
 	page64 := int64(page)
