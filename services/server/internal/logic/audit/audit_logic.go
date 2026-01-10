@@ -89,7 +89,10 @@ func (l *AuditLogic) Audit(req *types.AuditRequest) (resp *types.AuditResponse, 
 		start = total
 	}
 	end := start + size
-	if end > total {
+	// Prevent overflow: check if adding size to start wrapped around
+	if end < start {
+		end = total
+	} else if end > total {
 		end = total
 	}
 
