@@ -8,8 +8,6 @@ ARG GOPROXY_URL
 ENV GOPROXY=${GOPROXY_URL} \
     GOFLAGS=-modcacherw
 COPY go.mod go.sum ./
-# To satisfy local replace (./sdks/go), copy its go.mod/go.sum before download for better caching
-COPY sdks/go/go.mod sdks/go/go.sum sdks/go/
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/croupier-edge ./services/edge

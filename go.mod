@@ -199,6 +199,3 @@ require (
 	google.golang.org/protobuf v1.36.10
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
-
-// 移除了子模块依赖以便OpenTelemetry集成完成
-replace github.com/cuihairu/croupier-sdk-go => ./sdks/go
