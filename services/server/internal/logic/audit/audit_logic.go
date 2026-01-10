@@ -6,6 +6,7 @@ package audit
 import (
 	"context"
 	"errors"
+	"math"
 	"sort"
 	"strings"
 
@@ -84,17 +85,54 @@ func (l *AuditLogic) Audit(req *types.AuditRequest) (resp *types.AuditResponse, 
 	})
 
 	total := len(filtered)
-	start := (page - 1) * size
-	if start > total {
-		start = total
+	if total == 0 {
+		return &types.AuditResponse{
+			Code:    0,
+			Message: "OK",
+			Data: map[string]interface{}{
+				"items": []map[string]interface{}{},
+				"total": 0,
+				"page":  page,
+				"size":  size,
+			},
+		}, nil
 	}
-	end := start + size
-	// Prevent overflow: check if adding size to start wrapped around
-	if end < start {
-		end = total
-	} else if end > total {
-		end = total
+  
+	// Use int64 for pagination arithmetic and validate before converting back to int
+	total64 := int64(total)
+	page64 := int64(page)
+	size64 := int64(size)
+
+	if page64 < 1 {
+		page64 = 1
 	}
+
+	start64 := (page64 - 1) * size64
+	if start64 > total64 {
+		start64 = total64
+	}
+
+	end64 := start64 + size64
+	if end64 > total64 {
+		end64 = total64
+	}
+
+	// Ensure values are within int range before converting
+	if start64 < 0 {
+		start64 = 0
+	}
+	if end64 < start64 {
+		end64 = start64
+	}
+	if start64 > int64(math.MaxInt) {
+		start64 = int64(math.MaxInt)
+	}
+	if end64 > int64(math.MaxInt) {
+		end64 = int64(math.MaxInt)
+	}
+
+	start := int(start64)
+	end := int(end64)
 
 	items := make([]map[string]interface{}, 0, end-start)
 	for _, entry := range filtered[start:end] {
