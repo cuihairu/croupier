@@ -10,6 +10,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
 	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"google.golang.org/grpc"
 )
 
@@ -21,6 +22,12 @@ type App struct {
 	outTLS          *tlsutil.ClientTLSConfig
 	platformManager *PlatformManager
 	configDir       string
+
+	// Ops module (optional)
+	opsConfig *OpsConfig
+	opsServer *OpsServer
+	agentID   string
+	version   string
 }
 
 func New(serverAddr, agentID string) *App {
@@ -30,6 +37,7 @@ func New(serverAddr, agentID string) *App {
 		jobs:      newJobIndex(),
 		upstream:  NewUpstreamClient(serverAddr, agentID, store, nil),
 		configDir: getConfigDir(),
+		agentID:   agentID,
 	}
 }
 
@@ -40,6 +48,7 @@ func NewWithConfigDir(serverAddr, agentID, configDir string) *App {
 		jobs:      newJobIndex(),
 		upstream:  NewUpstreamClient(serverAddr, agentID, store, nil),
 		configDir: configDir,
+		agentID:   agentID,
 	}
 }
 
@@ -65,6 +74,14 @@ func (a *App) RegisterGRPC(s *grpc.Server) {
 	})
 	// Local registration service provides RegisterLocal/Heartbeat/ListLocal
 	localv1.RegisterLocalControlServiceServer(s, agentlocal.NewServer(a.store))
+
+	// Ops service - always registered (metrics/sysinfo don't require special permissions)
+	// Process management and command execution require ops.enabled=true
+	if a.opsConfig == nil {
+		a.opsConfig = DefaultOpsConfig()
+	}
+	a.opsServer = NewOpsServer(a.opsConfig, a.agentID, a.version, nil)
+	opsv1.RegisterOpsServiceServer(s, a.opsServer)
 }
 
 // Run starts the agent's background processes (upstream sync).
@@ -173,6 +190,39 @@ func (a *App) HeartbeatUpstream(ctx context.Context) error {
 		return errors.New("agent upstream not initialized")
 	}
 	return a.upstream.Heartbeat(ctx)
+}
+
+// WithOpsConfig sets the ops module configuration.
+// Call this before RegisterGRPC to configure ops capabilities.
+func (a *App) WithOpsConfig(cfg *OpsConfig) {
+	if a == nil {
+		return
+	}
+	a.opsConfig = cfg
+}
+
+// WithVersion sets the agent version for reporting.
+func (a *App) WithVersion(version string) {
+	if a == nil {
+		return
+	}
+	a.version = version
+}
+
+// OpsServer returns the ops server instance (for testing or direct access).
+func (a *App) OpsServer() *OpsServer {
+	if a == nil {
+		return nil
+	}
+	return a.opsServer
+}
+
+// MetricsCollector returns a new metrics collector for this agent.
+func (a *App) MetricsCollector() *MetricsCollector {
+	if a == nil {
+		return nil
+	}
+	return NewMetricsCollector(a.agentID)
 }
 
 // FunctionServer implemented in function_server.go
