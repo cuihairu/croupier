@@ -71,6 +71,8 @@ jobs:
           buf generate proto --template buf.gen.simple.yaml --clean
           # 然后尝试生成所有SDK代码（如果有错误则忽略）
           buf generate proto --clean || echo "Some SDK plugins failed to generate, continuing..."
+          # 生成主仓库独有的 proto（如 platform/）
+          buf generate . --clean
       - name: Go mod download
         run: go mod download
       - name: Check gofmt
