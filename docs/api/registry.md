@@ -1,3 +1,5 @@
+# 注册表 API
+
 ### 1. "获取注册表信息"
 
 1. route definition
