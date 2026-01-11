@@ -60,7 +60,7 @@ server/
 │       └── function_server.go  # 支持平台调用
 ├── configs/
 │   └── platforms.yaml          # Agent 侧平台配置文件
-└── pkg/pb/platform/v1/         # gRPC 生成代码
+└── pkg/pb/croupier/platform/v1/ # gRPC 生成代码
 ```
 
 ### 1.1 Agent 侧 Platform 架构

@@ -6,6 +6,7 @@ import (
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -30,6 +31,18 @@ func (f *fakeControlClient) Heartbeat(ctx context.Context, in *serverv1.Heartbea
 
 func (f *fakeControlClient) RegisterCapabilities(ctx context.Context, in *serverv1.RegisterCapabilitiesRequest, opts ...grpc.CallOption) (*serverv1.RegisterCapabilitiesResponse, error) {
 	return &serverv1.RegisterCapabilitiesResponse{}, nil
+}
+
+func (f *fakeControlClient) GetAgentSystemInfo(ctx context.Context, in *serverv1.GetAgentSystemInfoRequest, opts ...grpc.CallOption) (*opsv1.SystemInfo, error) {
+	return &opsv1.SystemInfo{}, nil
+}
+
+func (f *fakeControlClient) ListAgentProcesses(ctx context.Context, in *serverv1.ListAgentProcessesRequest, opts ...grpc.CallOption) (*opsv1.ListProcessesResponse, error) {
+	return &opsv1.ListProcessesResponse{}, nil
+}
+
+func (f *fakeControlClient) QueryMetrics(ctx context.Context, in *serverv1.QueryMetricsRequest, opts ...grpc.CallOption) (*serverv1.QueryMetricsResponse, error) {
+	return &serverv1.QueryMetricsResponse{}, nil
 }
 
 func TestUpstreamClient_SyncBuildsRequestFromStore(t *testing.T) {

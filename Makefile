@@ -291,7 +291,7 @@ help:
 .PHONY: proto-docs
 proto-docs:
 	@echo "[proto] generating docs..."
-	buf generate --template buf.gen.docs.yaml
+	buf generate proto --template buf.gen.docs.yaml
 
 # ========== Test Targets ==========
 # Run all tests

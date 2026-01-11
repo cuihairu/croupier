@@ -12,8 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: false
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
@@ -22,24 +20,11 @@ jobs:
         with:
           version: '1.47.2'
           github_token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install additional build tools
-        run: |
-          # 安装 protoc-gen-croupier (自定义插件)
-          make croupier-plugin
       - name: Clone proto repository
         run: |
           git clone --depth 1 https://github.com/cuihairu/croupier-proto.git proto
       - name: Lint proto
         run: buf lint proto
-      - name: Generate proto
-        run: |
-          export PATH="$HOME/go/bin:$PATH"
-          # 首先生成核心的Go proto代码（--clean 会删除之前生成但现已不存在的文件）
-          buf generate proto --template buf.gen.simple.yaml --clean
-          # 然后尝试生成所有SDK代码（如果有错误则忽略）
-          buf generate proto --clean || echo "Some SDK plugins failed to generate, continuing..."
-          # 生成主仓库独有的 proto（如 platform/）
-          buf generate . --clean
       - name: Go mod download
         run: go mod download
       - name: Check gofmt
@@ -62,30 +47,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: false
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
-      - name: Install buf
-        uses: bufbuild/buf-setup-action@v1
-        with:
-          version: '1.47.2'
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Install additional build tools
-        run: |
-          # 安装 protoc-gen-croupier (自定义插件)
-          make croupier-plugin
-      - name: Clone proto repository
-        run: |
-          git clone --depth 1 https://github.com/cuihairu/croupier-proto.git proto
-      - name: Generate proto
-        run: |
-          export PATH="$HOME/go/bin:$PATH"
-          # 首先生成核心的Go proto代码（--clean 会删除之前生成但现已不存在的文件）
-          buf generate proto --template buf.gen.simple.yaml --clean
-          # 然后尝试生成所有SDK代码（如果有错误则忽略）
-          buf generate proto --clean || echo "Some SDK plugins failed to generate, continuing..."
+      # Proto 代码由 croupier-proto 的 sync-sdks workflow 同步，无需本地生成
       - name: Go mod download
         run: go mod download
       - name: Prepare storage directory
