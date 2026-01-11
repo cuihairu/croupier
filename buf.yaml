@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://buf.build/docs/configuration/v2/buf-yaml
+version: v2
+modules:
+  - path: .
+deps:
+  # 固定 protobuf 到 29.x LTS 版本 (对应 protobuf 5.29.x)，确保 C++ 编译兼容性
+  - buf.build/protocolbuffers/wellknowntypes:v29.3
