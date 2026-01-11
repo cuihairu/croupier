@@ -1,0 +1,381 @@
+### 1. "获取运维配置"
+
+1. route definition
+
+- Url: /api/v1/ops/config
+- Method: GET
+- Request: `OpsConfigRequest`
+- Response: `OpsConfigResponse`
+
+2. request definition
+
+
+
+```golang
+type OpsConfigRequest struct {
+}
+```
+
+
+3. response definition
+
+
+
+```golang
+type OpsConfigResponse struct {
+	MaintenanceMode bool `json:"maintenanceMode"`
+	HealthCheck interface{} `json:"healthCheck"`
+	Notifications interface{} `json:"notifications"`
+}
+
+type OpsConfig struct {
+	MaintenanceMode bool `json:"maintenanceMode"`
+	HealthCheck interface{} `json:"healthCheck"`
+	Notifications interface{} `json:"notifications"`
+}
+```
+
+### 2. "获取函数列表"
+
+1. route definition
+
+- Url: /api/v1/ops/functions
+- Method: GET
+- Request: `OpsFunctionsRequest`
+- Response: `OpsFunctionsResponse`
+
+2. request definition
+
+
+
+```golang
+type OpsFunctionsRequest struct {
+	GameId string `form:"gameId,optional"`
+}
+```
+
+
+3. response definition
+
+
+
+```golang
+type OpsFunctionsResponse struct {
+	Items []OpsFunction `json:"items"`
+}
+```
+
+### 3. "获取健康状态"
+
+1. route definition
+
+- Url: /api/v1/ops/health
+- Method: GET
+- Request: `OpsHealthGetRequest`
+- Response: `OpsHealthResponse`
+
+2. request definition
+
+
+
+```golang
+type OpsHealthGetRequest struct {
+}
+```
+
+
+3. response definition
+
+
+
+```golang
+type OpsHealthResponse struct {
+	Status string `json:"status"`
+	Checks interface{} `json:"checks"`
+}
+```
+
+### 4. "更新健康检查配置"
+
+1. route definition
+
+- Url: /api/v1/ops/health
+- Method: PUT
+- Request: `OpsHealthUpdateRequest`
+- Response: `OpsHealthResponse`
+
+2. request definition
+
+
+
+```golang
+type OpsHealthUpdateRequest struct {
+	Config interface{} `json:"config"`
+}
+```
+
+
+3. response definition
+
+
+
+```golang
+type OpsHealthResponse struct {
+	Status string `json:"status"`
+	Checks interface{} `json:"checks"`
+}
+```
+
+### 5. "运行健康检查"
+
+1. route definition
+
+- Url: /api/v1/ops/health/run
+- Method: POST
+- Request: `OpsHealthRunRequest`
+- Response: `OpsHealthResponse`
+
+2. request definition
+
+
+
+```golang
+type OpsHealthRunRequest struct {
+}
+```
+
+
+3. response definition
+
+
+
+```golang
+type OpsHealthResponse struct {
+	Status string `json:"status"`
+	Checks interface{} `json:"checks"`
+}
+```
+
+### 6. "获取维护模式状态"
+
+1. route definition
+
+- Url: /api/v1/ops/maintenance
+- Method: GET
+- Request: `OpsMaintenanceGetRequest`
+- Response: `OpsMaintenanceResponse`
+
+2. request definition
+
+
+
+```golang
+type OpsMaintenanceGetRequest struct {
+}
+```
+
+
+3. response definition
+
+
+
+```golang
+type OpsMaintenanceResponse struct {
+	Enabled bool `json:"enabled"`
+	Reason string `json:"reason"`
+	StartAt string `json:"startAt"`
+	EndAt string `json:"endAt"`
+}
+```
+
+### 7. "更新维护模式"
+
+1. route definition
+
+- Url: /api/v1/ops/maintenance
+- Method: PUT
+- Request: `OpsMaintenanceUpdateRequest`
+- Response: `OpsMaintenanceResponse`
+
+2. request definition
+
+
+
+```golang
+type OpsMaintenanceUpdateRequest struct {
+	Enabled bool `json:"enabled"`
+	Reason string `json:"reason,optional"`
+	EndAt string `json:"endAt,optional"`
+}
+```
+
+
+3. response definition
+
+
+
+```golang
+type OpsMaintenanceResponse struct {
+	Enabled bool `json:"enabled"`
+	Reason string `json:"reason"`
+	StartAt string `json:"startAt"`
+	EndAt string `json:"endAt"`
+}
+```
+
+### 8. "获取系统指标"
+
+1. route definition
+
+- Url: /api/v1/ops/metrics
+- Method: GET
+- Request: `OpsMetricsRequest`
+- Response: `OpsMetricsResponse`
+
+2. request definition
+
+
+
+```golang
+type OpsMetricsRequest struct {
+	From string `form:"from,optional"`
+	To string `form:"to,optional"`
+}
+```
+
+
+3. response definition
+
+
+
+```golang
+type OpsMetricsResponse struct {
+	CPU interface{} `json:"cpu"`
+	Memory interface{} `json:"memory"`
+	QPS interface{} `json:"qps"`
+}
+```
+
+### 9. "获取消息队列状态"
+
+1. route definition
+
+- Url: /api/v1/ops/mq
+- Method: GET
+- Request: `OpsMQRequest`
+- Response: `OpsMQResponse`
+
+2. request definition
+
+
+
+```golang
+type OpsMQRequest struct {
+}
+```
+
+
+3. response definition
+
+
+
+```golang
+type OpsMQResponse struct {
+	Status interface{} `json:"status"`
+}
+```
+
+### 10. "获取通知配置"
+
+1. route definition
+
+- Url: /api/v1/ops/notifications
+- Method: GET
+- Request: `OpsNotificationsGetRequest`
+- Response: `OpsNotificationsResponse`
+
+2. request definition
+
+
+
+```golang
+type OpsNotificationsGetRequest struct {
+}
+```
+
+
+3. response definition
+
+
+
+```golang
+type OpsNotificationsResponse struct {
+	Email interface{} `json:"email"`
+	Webhook interface{} `json:"webhook"`
+	Slack interface{} `json:"slack"`
+}
+```
+
+### 11. "更新通知配置"
+
+1. route definition
+
+- Url: /api/v1/ops/notifications
+- Method: PUT
+- Request: `OpsNotificationsUpdateRequest`
+- Response: `OpsNotificationsResponse`
+
+2. request definition
+
+
+
+```golang
+type OpsNotificationsUpdateRequest struct {
+	Email interface{} `json:"email,optional"`
+	Webhook interface{} `json:"webhook,optional"`
+	Slack interface{} `json:"slack,optional"`
+}
+```
+
+
+3. response definition
+
+
+
+```golang
+type OpsNotificationsResponse struct {
+	Email interface{} `json:"email"`
+	Webhook interface{} `json:"webhook"`
+	Slack interface{} `json:"slack"`
+}
+```
+
+### 12. "获取服务列表"
+
+1. route definition
+
+- Url: /api/v1/ops/services
+- Method: GET
+- Request: `OpsServicesRequest`
+- Response: `OpsServicesResponse`
+
+2. request definition
+
+
+
+```golang
+type OpsServicesRequest struct {
+}
+```
+
+
+3. response definition
+
+
+
+```golang
+type OpsServicesResponse struct {
+	Items []OpsService `json:"items"`
+}
+```
+

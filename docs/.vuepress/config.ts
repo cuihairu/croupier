@@ -109,6 +109,7 @@ export default defineUserConfig({
         },
         {
           text: '核心概念',
+          collapsable: true,
           children: [
             '/guide/concepts/overview.md',
             '/guide/concepts/virtual-objects.md',
@@ -117,7 +118,16 @@ export default defineUserConfig({
           ],
         },
         {
+          text: '第三方集成',
+          collapsable: true,
+          children: [
+            '/guide/integrations/third-party-platforms.md',
+            '/guide/integrations/openapi-registration.md',
+          ],
+        },
+        {
           text: '运维指南',
+          collapsable: true,
           children: [
             '/guide/operations/monitoring.md',
             '/guide/operations/security.md',
@@ -140,10 +150,101 @@ export default defineUserConfig({
       '/api/': [
         {
           text: 'API 参考',
+          collapsable: false,
           children: [
             '/api/README.md',
             '/api/grpc.md',
             '/api/rest.md',
+          ],
+        },
+        {
+          text: '运维管理',
+          collapsable: true,
+          children: [
+            '/api/ops.md',
+            '/api/ops_core.md',
+            '/api/ops-simple.md',
+            '/api/admin.md',
+            '/api/backup.md',
+            '/api/config.md',
+            '/api/migrate.md',
+            '/api/monitoring.md',
+            '/api/node.md',
+          ],
+        },
+        {
+          text: 'Agent & 函数',
+          collapsable: true,
+          children: [
+            '/api/agent.md',
+            '/api/function.md',
+            '/api/job.md',
+            '/api/pack.md',
+            '/api/schema.md',
+          ],
+        },
+        {
+          text: '认证与权限',
+          collapsable: true,
+          children: [
+            '/api/auth.md',
+            '/api/approval.md',
+            '/api/audit.md',
+            '/api/rate_limit.md',
+          ],
+        },
+        {
+          text: '游戏管理',
+          collapsable: true,
+          children: [
+            '/api/game.md',
+            '/api/player.md',
+            '/api/entity.md',
+            '/api/component.md',
+            '/api/registry.md',
+          ],
+        },
+        {
+          text: '消息通知',
+          collapsable: true,
+          children: [
+            '/api/message.md',
+            '/api/alert.md',
+            '/api/support.md',
+            '/api/ticket.md',
+            '/api/feedback.md',
+          ],
+        },
+        {
+          text: '平台与集成',
+          collapsable: true,
+          children: [
+            '/api/platform.md',
+            '/api/provider.md',
+            '/api/certificate.md',
+            '/api/storage.md',
+          ],
+        },
+        {
+          text: '数据分析',
+          collapsable: true,
+          children: [
+            '/api/analytics.md',
+            '/api/analytics_behavior.md',
+            '/api/analytics_overview.md',
+            '/api/analytics_payments.md',
+            '/api/analytics_retention.md',
+          ],
+        },
+        {
+          text: '其他',
+          collapsable: true,
+          children: [
+            '/api/assignment.md',
+            '/api/faq.md',
+            '/api/meta.md',
+            '/api/profile.md',
+            '/api/xrender.md',
           ],
         },
       ],
