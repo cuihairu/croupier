@@ -1009,6 +1009,54 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: ops.OpsAgentMetaHandler(serverCtx),
 			},
 			{
+				// 获取 Agent 列表
+				Method:  http.MethodGet,
+				Path:    "/agents",
+				Handler: ops.OpsAgentsListHandler(serverCtx),
+			},
+			{
+				// 在 Agent 上执行命令（高风险）
+				Method:  http.MethodPost,
+				Path:    "/agents/:agentId/exec",
+				Handler: ops.OpsAgentExecCommandHandler(serverCtx),
+			},
+			{
+				// 获取 Agent 进程列表
+				Method:  http.MethodGet,
+				Path:    "/agents/:agentId/processes",
+				Handler: ops.OpsAgentProcessesHandler(serverCtx),
+			},
+			{
+				// 重启 Agent 进程
+				Method:  http.MethodPost,
+				Path:    "/agents/:agentId/processes/:name/restart",
+				Handler: ops.OpsAgentProcessRestartHandler(serverCtx),
+			},
+			{
+				// 启动 Agent 进程
+				Method:  http.MethodPost,
+				Path:    "/agents/:agentId/processes/:name/start",
+				Handler: ops.OpsAgentProcessStartHandler(serverCtx),
+			},
+			{
+				// 停止 Agent 进程
+				Method:  http.MethodPost,
+				Path:    "/agents/:agentId/processes/:name/stop",
+				Handler: ops.OpsAgentProcessStopHandler(serverCtx),
+			},
+			{
+				// 获取 Agent 系统信息
+				Method:  http.MethodGet,
+				Path:    "/agents/:agentId/system-info",
+				Handler: ops.OpsAgentSystemInfoHandler(serverCtx),
+			},
+			{
+				// 获取 Agent 指标
+				Method:  http.MethodGet,
+				Path:    "/agents/metrics",
+				Handler: ops.OpsAgentMetricsHandler(serverCtx),
+			},
+			{
 				// 获取告警列表
 				Method:  http.MethodGet,
 				Path:    "/alerts",

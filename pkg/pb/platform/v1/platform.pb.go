@@ -452,8 +452,8 @@ const file_platform_v1_platform_proto_rawDesc = "" +
 	"\fCallPlatform\x12).croupier.platform.v1.CallPlatformRequest\x1a*.croupier.platform.v1.CallPlatformResponse\x12h\n" +
 	"\rListPlatforms\x12*.croupier.platform.v1.ListPlatformsRequest\x1a+.croupier.platform.v1.ListPlatformsResponse\x12z\n" +
 	"\x13ListPlatformMethods\x120.croupier.platform.v1.ListPlatformMethodsRequest\x1a1.croupier.platform.v1.ListPlatformMethodsResponse\x12b\n" +
-	"\x14ReloadPlatformConfig\x12\x16.google.protobuf.Empty\x1a2.croupier.platform.v1.ReloadPlatformConfigResponseBg\n" +
-	"'io.github.cuihairu.croupier.platform.v1P\x01Z:github.com/cuihairu/croupier/pkg/pb/platform/v1;platformv1b\x06proto3"
+	"\x14ReloadPlatformConfig\x12\x16.google.protobuf.Empty\x1a2.croupier.platform.v1.ReloadPlatformConfigResponseB\xd7\x01\n" +
+	"\x18com.croupier.platform.v1B\rPlatformProtoP\x01Z:github.com/cuihairu/croupier/pkg/pb/platform/v1;platformv1\xa2\x02\x03CPX\xaa\x02\x14Croupier.Platform.V1\xca\x02\x14Croupier\\Platform\\V1\xe2\x02 Croupier\\Platform\\V1\\GPBMetadata\xea\x02\x16Croupier::Platform::V1b\x06proto3"
 
 var (
 	file_platform_v1_platform_proto_rawDescOnce sync.Once

@@ -1426,6 +1426,19 @@ type NodesListResponse struct {
 	Items []Node `json:"items"`
 }
 
+type OpsAgentInfo struct {
+	AgentID   string            `json:"agentId"`
+	GameID    string            `json:"gameId"`
+	Env       string            `json:"env"`
+	Version   string            `json:"version"`
+	RPCAddr   string            `json:"rpcAddr"`
+	Connected bool              `json:"connected"`
+	LastSeen  string            `json:"lastSeen"`
+	Functions []string          `json:"functions"`
+	Processes []string          `json:"processes"`
+	Labels    map[string]string `json:"labels"`
+}
+
 type OpsAgentMetaResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
@@ -1435,6 +1448,59 @@ type OpsAgentMetaResponse struct {
 type OpsAgentMetaUpdateRequest struct {
 	AgentID string      `json:"agentId"`
 	Meta    interface{} `json:"meta"`
+}
+
+type OpsAgentMetricsRequest struct {
+	AgentID string `form:"agentId,optional"`
+	Since   string `form:"since,optional"`
+	Limit   int    `form:"limit,optional"`
+}
+
+type OpsAgentMetricsResponse struct {
+	Code    int              `json:"code"`
+	Message string           `json:"message"`
+	Data    []OpsMetricsData `json:"data,omitempty"`
+}
+
+type OpsAgentProcessesRequest struct {
+	AgentID string `path:"agentId"`
+}
+
+type OpsAgentProcessesResponse struct {
+	Code    int                 `json:"code"`
+	Message string              `json:"message"`
+	Data    []OpsManagedProcess `json:"data,omitempty"`
+}
+
+type OpsAgentSystemInfo struct {
+	Hostname      string `json:"hostname"`
+	OS            string `json:"os"`
+	OSVersion     string `json:"osVersion"`
+	KernelVersion string `json:"kernelVersion"`
+	Arch          string `json:"arch"`
+	CPUCores      int32  `json:"cpuCores"`
+	TotalMemory   uint64 `json:"totalMemory"`
+	BootTime      string `json:"bootTime"`
+	AgentVersion  string `json:"agentVersion"`
+}
+
+type OpsAgentSystemInfoRequest struct {
+	AgentID string `path:"agentId"`
+}
+
+type OpsAgentSystemInfoResponse struct {
+	Code    int                `json:"code"`
+	Message string             `json:"message"`
+	Data    OpsAgentSystemInfo `json:"data,omitempty"`
+}
+
+type OpsAgentsListRequest struct {
+}
+
+type OpsAgentsListResponse struct {
+	Code    int            `json:"code"`
+	Message string         `json:"message"`
+	Data    []OpsAgentInfo `json:"data,omitempty"`
 }
 
 type OpsAlert struct {
@@ -1520,6 +1586,45 @@ type OpsConfigResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsCpuMetrics struct {
+	UsagePercent float64   `json:"usagePercent"`
+	Cores        int32     `json:"cores"`
+	PerCore      []float64 `json:"perCore,omitempty"`
+	Load1M       float64   `json:"load1m"`
+	Load5M       float64   `json:"load5m"`
+	Load15M      float64   `json:"load15m"`
+}
+
+type OpsDiskMetrics struct {
+	MountPoint     string  `json:"mountPoint"`
+	Device         string  `json:"device"`
+	FsType         string  `json:"fsType"`
+	TotalBytes     uint64  `json:"totalBytes"`
+	UsedBytes      uint64  `json:"usedBytes"`
+	AvailableBytes uint64  `json:"availableBytes"`
+	UsagePercent   float64 `json:"usagePercent"`
+}
+
+type OpsExecCommandRequest struct {
+	AgentID string   `path:"agentId"`
+	Command string   `json:"command"`
+	Args    []string `json:"args,optional"`
+	Timeout int32    `json:"timeout,optional"`
+}
+
+type OpsExecCommandResponse struct {
+	Code    int                  `json:"code"`
+	Message string               `json:"message"`
+	Data    OpsExecCommandResult `json:"data,omitempty"`
+}
+
+type OpsExecCommandResult struct {
+	Success  bool   `json:"success"`
+	ExitCode int32  `json:"exitCode"`
+	Stdout   string `json:"stdout"`
+	Stderr   string `json:"stderr"`
 }
 
 type OpsFunctionsRequest struct {
@@ -1615,6 +1720,34 @@ type OpsMaintenanceWindow struct {
 	BlockWrites bool   `json:"blockWrites,optional"`
 }
 
+type OpsManagedProcess struct {
+	Name         string `json:"name"`
+	Command      string `json:"command"`
+	WorkingDir   string `json:"workingDir"`
+	State        string `json:"state"`
+	Pid          int32  `json:"pid"`
+	RestartCount int32  `json:"restartCount"`
+	LastStart    string `json:"lastStart,omitempty"`
+}
+
+type OpsMemoryMetrics struct {
+	TotalBytes     uint64  `json:"totalBytes"`
+	UsedBytes      uint64  `json:"usedBytes"`
+	AvailableBytes uint64  `json:"availableBytes"`
+	UsagePercent   float64 `json:"usagePercent"`
+	SwapTotal      uint64  `json:"swapTotal"`
+	SwapUsed       uint64  `json:"swapUsed"`
+}
+
+type OpsMetricsData struct {
+	AgentID   string              `json:"agentId"`
+	Timestamp string              `json:"timestamp"`
+	CPU       OpsCpuMetrics       `json:"cpu"`
+	Memory    OpsMemoryMetrics    `json:"memory"`
+	Disks     []OpsDiskMetrics    `json:"disks,omitempty"`
+	Networks  []OpsNetworkMetrics `json:"networks,omitempty"`
+}
+
 type OpsMetricsQuery struct {
 	Start string `form:"start,optional"`
 	End   string `form:"end,optional"`
@@ -1624,6 +1757,14 @@ type OpsMetricsResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsNetworkMetrics struct {
+	Interface   string `json:"interface"`
+	BytesSent   uint64 `json:"bytesSent"`
+	BytesRecv   uint64 `json:"bytesRecv"`
+	PacketsSent uint64 `json:"packetsSent"`
+	PacketsRecv uint64 `json:"packetsRecv"`
 }
 
 type OpsNodeActionRequest struct {
@@ -1709,6 +1850,29 @@ type OpsNotificationsUpdateResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
+}
+
+type OpsProcessActionRequest struct {
+	AgentID string `path:"agentId"`
+	Name    string `path:"name"`
+	Force   bool   `json:"force,optional"`
+}
+
+type OpsProcessActionResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    int32  `json:"pid,omitempty"`
+}
+
+type OpsProcessStartRequest struct {
+	AgentID string `path:"agentId"`
+	Name    string `path:"name"`
+}
+
+type OpsProcessStartResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    int32  `json:"pid,omitempty"`
 }
 
 type OpsServicesRequest struct {

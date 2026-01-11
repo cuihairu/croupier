@@ -51,6 +51,10 @@ type ServiceContext struct {
 
 	PlatformLoader *plat.Loader
 
+	// Agent Ops support
+	MetricsStore    *reg.MetricsStore
+	SystemInfoCache *reg.SystemInfoCache
+
 	AdminModel         *model.AdminModel
 	AlertModel         *model.AlertModel
 	BehaviorModel      *model.BehaviorModel
@@ -254,6 +258,14 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	}
 	if err := seedBootstrapGames(ctx); err != nil {
 		logx.Errorf("failed to seed bootstrap games: %v", err)
+	}
+
+	// Initialize agent ops stores
+	if ctx.MetricsStore == nil {
+		ctx.MetricsStore = reg.NewMetricsStore()
+	}
+	if ctx.SystemInfoCache == nil {
+		ctx.SystemInfoCache = reg.NewSystemInfoCache()
 	}
 
 	return ctx

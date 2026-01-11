@@ -6,7 +6,6 @@ package ops
 import (
 	"context"
 
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -28,25 +27,8 @@ func NewOpsHealthGetLogic(ctx context.Context, svcCtx *svc.ServiceContext) *OpsH
 	}
 }
 
-func (l *OpsHealthGetLogic) OpsHealthGet(req *types.OpsHealthGetRequest) (*types.OpsHealthGetResponse, error) {
-	state := snapshotOpsState(l.svcCtx)
-	status := make([]interface{}, 0, len(state.Health.Status))
-	for _, st := range state.Health.Status {
-		status = append(status, map[string]interface{}{
-			"id":         st.ID,
-			"ok":         st.OK,
-			"latency_ms": st.LatencyMS,
-			"error":      st.Error,
-			"checked_at": utils.FormatTimestamp(st.CheckedAt),
-		})
-	}
+func (l *OpsHealthGetLogic) OpsHealthGet(req *types.OpsHealthGetRequest) (resp *types.OpsHealthGetResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	return &types.OpsHealthGetResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"checks": state.Health.Checks,
-			"status": status,
-		},
-	}, nil
+	return
 }

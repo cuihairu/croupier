@@ -12,6 +12,7 @@ import (
 	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/handler"
+	"github.com/cuihairu/croupier/services/server/internal/logic/ops"
 	"github.com/cuihairu/croupier/services/server/internal/middleware"
 	"github.com/cuihairu/croupier/services/server/internal/runtime"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
@@ -149,6 +150,9 @@ func runServer() error {
 
 	// 创建服务上下文
 	ctx := svc.NewServiceContext(c)
+
+	// 初始化 Agent Ops 客户端
+	ops.InitAgentOpsClient(ctx.RegistryStore)
 
 	// 检查数据库连接
 	dbHealth := middleware.NewDBHealth(ctx)

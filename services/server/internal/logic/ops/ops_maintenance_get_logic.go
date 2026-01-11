@@ -6,7 +6,6 @@ package ops
 import (
 	"context"
 
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -28,14 +27,8 @@ func NewOpsMaintenanceGetLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 	}
 }
 
-func (l *OpsMaintenanceGetLogic) OpsMaintenanceGet(req *types.OpsMaintenanceGetRequest) (*types.OpsMaintenanceGetResponse, error) {
-	state := snapshotOpsState(l.svcCtx)
-	return &types.OpsMaintenanceGetResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"windows":   state.Maintenance.Windows,
-			"updatedAt": utils.FormatTimestamp(state.Maintenance.UpdatedAt),
-		},
-	}, nil
+func (l *OpsMaintenanceGetLogic) OpsMaintenanceGet(req *types.OpsMaintenanceGetRequest) (resp *types.OpsMaintenanceGetResponse, err error) {
+	// todo: add your logic here and delete this line
+
+	return
 }

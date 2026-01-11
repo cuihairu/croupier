@@ -1,0 +1,86 @@
+// Code scaffolded by goctl. Safe to edit.
+// goctl 1.9.2
+
+package ops
+
+import (
+	"context"
+	"time"
+
+	"github.com/cuihairu/croupier/services/server/internal/svc"
+	"github.com/cuihairu/croupier/services/server/internal/types"
+
+	"github.com/zeromicro/go-zero/core/logx"
+)
+
+type OpsAgentsListLogic struct {
+	logx.Logger
+	ctx    context.Context
+	svcCtx *svc.ServiceContext
+}
+
+// 获取 Agent 列表
+func NewOpsAgentsListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *OpsAgentsListLogic {
+	return &OpsAgentsListLogic{
+		Logger: logx.WithContext(ctx),
+		ctx:    ctx,
+		svcCtx: svcCtx,
+	}
+}
+
+func (l *OpsAgentsListLogic) OpsAgentsList(req *types.OpsAgentsListRequest) (*types.OpsAgentsListResponse, error) {
+	agents := make([]types.OpsAgentInfo, 0)
+
+	store := l.svcCtx.RegistryStore
+	if store == nil {
+		return &types.OpsAgentsListResponse{
+			Code:    0,
+			Message: "OK",
+			Data:    agents,
+		}, nil
+	}
+
+	store.Mu().RLock()
+	defer store.Mu().RUnlock()
+
+	now := time.Now()
+	for agentID, sess := range store.AgentsUnsafe() {
+		if sess == nil {
+			continue
+		}
+
+		// Check if agent is connected (session not expired)
+		connected := sess.ExpireAt.After(now)
+
+		// Collect function IDs
+		functions := make([]string, 0, len(sess.Functions))
+		for fid := range sess.Functions {
+			functions = append(functions, fid)
+		}
+
+		// Collect process service IDs
+		processes := make([]string, 0, len(sess.Processes))
+		for _, p := range sess.Processes {
+			processes = append(processes, p.ServiceID)
+		}
+
+		agents = append(agents, types.OpsAgentInfo{
+			AgentID:   agentID,
+			GameID:    sess.GameID,
+			Env:       sess.Env,
+			Version:   sess.Version,
+			RPCAddr:   sess.RPCAddr,
+			Connected: connected,
+			LastSeen:  sess.ExpireAt.Format(time.RFC3339),
+			Functions: functions,
+			Processes: processes,
+			Labels:    sess.Labels,
+		})
+	}
+
+	return &types.OpsAgentsListResponse{
+		Code:    0,
+		Message: "OK",
+		Data:    agents,
+	}, nil
+}

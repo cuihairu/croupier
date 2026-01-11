@@ -27,8 +27,8 @@ func NewOpsAlertsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *OpsAler
 	}
 }
 
-func (l *OpsAlertsLogic) OpsAlerts(_ *types.OpsAlertsRequest) (*types.OpsAlertsResponse, error) {
-	return &types.OpsAlertsResponse{
-		Alerts: []types.OpsAlert{},
-	}, nil
+func (l *OpsAlertsLogic) OpsAlerts(req *types.OpsAlertsRequest) (resp *types.OpsAlertsResponse, err error) {
+	// todo: add your logic here and delete this line
+
+	return
 }

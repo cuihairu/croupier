@@ -938,8 +938,8 @@ const file_croupier_server_v1_server_tunnel_proto_rawDesc = "" +
 	"\x05start\x18\v \x01(\v2!.croupier.server.v1.StartJobFrameR\x05start\x12:\n" +
 	"\x06cancel\x18\f \x01(\v2\".croupier.server.v1.CancelJobFrameR\x06cancel2a\n" +
 	"\rTunnelService\x12P\n" +
-	"\x04Open\x12!.croupier.server.v1.TunnelMessage\x1a!.croupier.server.v1.TunnelMessage(\x010\x01Bj\n" +
-	"%io.github.cuihairu.croupier.server.v1P\x01Z?github.com/cuihairu/croupier/pkg/pb/croupier/server/v1;serverv1b\x06proto3"
+	"\x04Open\x12!.croupier.server.v1.TunnelMessage\x1a!.croupier.server.v1.TunnelMessage(\x010\x01B\xd6\x01\n" +
+	"\x16com.croupier.server.v1B\x11ServerTunnelProtoP\x01Z?github.com/cuihairu/croupier/pkg/pb/croupier/server/v1;serverv1\xa2\x02\x03CSX\xaa\x02\x12Croupier.Server.V1\xca\x02\x12Croupier\\Server\\V1\xe2\x02\x1eCroupier\\Server\\V1\\GPBMetadata\xea\x02\x14Croupier::Server::V1b\x06proto3"
 
 var (
 	file_croupier_server_v1_server_tunnel_proto_rawDescOnce sync.Once

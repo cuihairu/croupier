@@ -6,7 +6,6 @@ package ops
 import (
 	"context"
 
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -28,44 +27,8 @@ func NewOpsNodeMetaLogic(ctx context.Context, svcCtx *svc.ServiceContext) *OpsNo
 	}
 }
 
-func (l *OpsNodeMetaLogic) OpsNodeMeta(req *types.OpsNodeMetaRequest) (*types.OpsNodeMetaResponse, error) {
-	nodeID, err := utils.ValidateNodeID(req.NodeID)
-	if err != nil {
-		return nil, err
-	}
+func (l *OpsNodeMetaLogic) OpsNodeMeta(req *types.OpsNodeMetaRequest) (resp *types.OpsNodeMetaResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	node, err := l.svcCtx.NodeModel.FindByNodeID(l.ctx, nodeID)
-	if err != nil {
-		return nil, err
-	}
-
-	nodeData := map[string]interface{}{
-		"id":        node.NodeID,
-		"name":      node.Name,
-		"type":      node.Type,
-		"status":    node.Status,
-		"ip":        node.IP,
-		"port":      node.Port,
-		"resources": node.Resources,
-		"meta":      node.Meta,
-		"updatedAt": utils.FormatTimestamp(node.UpdatedAt),
-	}
-
-	data := map[string]interface{}{
-		"node": nodeData,
-	}
-
-	if store := l.svcCtx.RegistryStore; store != nil {
-		store.Mu().RLock()
-		if snapshot := utils.BuildOpsAgentSnapshot(store.AgentsUnsafe()[nodeID]); snapshot != nil {
-			data["runtime"] = snapshot
-		}
-		store.Mu().RUnlock()
-	}
-
-	return &types.OpsNodeMetaResponse{
-		Code:    0,
-		Message: "OK",
-		Data:    data,
-	}, nil
+	return
 }

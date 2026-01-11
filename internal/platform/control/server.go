@@ -8,18 +8,23 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	commonv1 "github.com/cuihairu/croupier/pkg/pb/croupier/common/v1"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 	"github.com/xeipuuv/gojsonschema"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 //go:embed providers-manifest.schema.json
@@ -31,13 +36,26 @@ type Server struct {
 	reg          *reg.Store
 	schemaLoader *gojsonschema.Schema // 缓存 Provider Manifest JSON Schema
 	upstream     serverv1.ControlServiceClient
+
+	// Ops/metrics support
+	metricsStore    *reg.MetricsStore
+	systemInfoCache *reg.SystemInfoCache
+	agentClients    map[string]opsv1.OpsServiceClient // agent_id -> ops client
+	agentClientsMu  sync.RWMutex
+	logger          *slog.Logger
 }
 
 func NewServer(registry *reg.Store) *Server {
 	if registry == nil {
 		registry = reg.NewStore()
 	}
-	s := &Server{reg: registry}
+	s := &Server{
+		reg:             registry,
+		metricsStore:    reg.NewMetricsStore(),
+		systemInfoCache: reg.NewSystemInfoCache(),
+		agentClients:    make(map[string]opsv1.OpsServiceClient),
+		logger:          slog.Default(),
+	}
 
 	// 加载 Provider Manifest JSON Schema
 	if err := s.loadProviderSchema(); err != nil {
@@ -45,6 +63,9 @@ func NewServer(registry *reg.Store) *Server {
 		// 这里使用 fmt.Printf 因为 logx 可能还未初始化；若需禁用可用 CROUPIER_PROVIDER_MANIFEST_SCHEMA=off
 		fmt.Printf("Warning: Failed to load provider manifest schema: %v\n", err)
 	}
+
+	// Start periodic pruning of old metrics
+	go s.pruneOldMetrics(context.Background())
 
 	return s
 }
@@ -560,4 +581,183 @@ func (s *Server) validateManifest(manifestData []byte) error {
 	}
 
 	return nil
+}
+
+// ReportMetrics receives and stores metrics reports from agents.
+func (s *Server) ReportMetrics(ctx context.Context, in *opsv1.MetricsReport) (*emptypb.Empty, error) {
+	if in == nil || in.GetAgentId() == "" {
+		return &emptypb.Empty{}, nil
+	}
+
+	s.logger.Debug("received metrics report",
+		"agent_id", in.GetAgentId(),
+		"cpu_usage", in.GetCpu().GetUsagePercent(),
+		"memory_usage", in.GetMemory().GetUsagePercent(),
+	)
+
+	// Store metrics
+	s.metricsStore.Add(in.GetAgentId(), in)
+
+	// Forward to upstream if configured
+	if s.upstream != nil {
+		// Note: upstream.ControlServiceClient doesn't have ReportMetrics
+		// This is intentional - central server is the endpoint for metrics
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
+// GetAgentSystemInfo retrieves system info for a specific agent.
+// It returns cached info if available, otherwise queries the agent directly.
+func (s *Server) GetAgentSystemInfo(ctx context.Context, in *serverv1.GetAgentSystemInfoRequest) (*opsv1.SystemInfo, error) {
+	agentID := in.GetAgentId()
+	if agentID == "" {
+		return nil, status.Error(codes.InvalidArgument, "agent_id is required")
+	}
+
+	// Try cache first
+	if info, ok := s.systemInfoCache.Get(agentID); ok {
+		return info, nil
+	}
+
+	// Query agent directly
+	client, err := s.getAgentOpsClient(ctx, agentID)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "agent %q not reachable: %v", agentID, err)
+	}
+
+	info, err := client.GetSystemInfo(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get system info from agent: %v", err)
+	}
+
+	// Cache the result
+	s.systemInfoCache.Set(agentID, info)
+
+	return info, nil
+}
+
+// ListAgentProcesses lists processes on a specific agent.
+func (s *Server) ListAgentProcesses(ctx context.Context, in *serverv1.ListAgentProcessesRequest) (*opsv1.ListProcessesResponse, error) {
+	agentID := in.GetAgentId()
+	if agentID == "" {
+		return nil, status.Error(codes.InvalidArgument, "agent_id is required")
+	}
+
+	client, err := s.getAgentOpsClient(ctx, agentID)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "agent %q not reachable: %v", agentID, err)
+	}
+
+	resp, err := client.ListProcesses(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to list processes: %v", err)
+	}
+
+	return resp, nil
+}
+
+// QueryMetrics queries stored metrics from agents.
+func (s *Server) QueryMetrics(ctx context.Context, in *serverv1.QueryMetricsRequest) (*serverv1.QueryMetricsResponse, error) {
+	agentIDs := in.GetAgentIds()
+	since := in.GetSince()
+	limit := int(in.GetLimit())
+	if limit <= 0 {
+		limit = 100
+	}
+
+	var entries []reg.MetricsEntry
+
+	if len(agentIDs) == 0 {
+		// Query all agents
+		entries = s.metricsStore.GetAllMetrics(since.AsTime(), limit)
+	} else {
+		// Query specific agents
+		entries = make([]reg.MetricsEntry, 0)
+		for _, agentID := range agentIDs {
+			agentEntries := s.metricsStore.GetAgentMetrics(agentID, limit)
+			entries = append(entries, agentEntries...)
+		}
+	}
+
+	resp := &serverv1.QueryMetricsResponse{}
+	for _, entry := range entries {
+		// Filter by since time
+		if !since.AsTime().IsZero() && entry.Received.Before(since.AsTime()) {
+			continue
+		}
+
+		resp.Entries = append(resp.Entries, &serverv1.AgentMetricsEntry{
+			AgentId:   entry.AgentID,
+			Timestamp: timestamppb.New(entry.Received),
+			Metrics:   entry.Report,
+		})
+	}
+
+	return resp, nil
+}
+
+// getAgentOpsClient gets or creates an OpsService client for the agent.
+func (s *Server) getAgentOpsClient(ctx context.Context, agentID string) (opsv1.OpsServiceClient, error) {
+	s.agentClientsMu.RLock()
+	client, ok := s.agentClients[agentID]
+	s.agentClientsMu.RUnlock()
+
+	if ok {
+		return client, nil
+	}
+
+	// Need to create new client - get agent address from registry
+	s.reg.Mu().RLock()
+	agent := s.reg.AgentsUnsafe()[agentID]
+	s.reg.Mu().RUnlock()
+
+	if agent == nil {
+		return nil, fmt.Errorf("agent not found in registry")
+	}
+
+	if agent.RPCAddr == "" {
+		return nil, fmt.Errorf("agent has no RPC address configured")
+	}
+
+	// Create gRPC connection
+	conn, err := grpc.DialContext(ctx, agent.RPCAddr, grpc.WithInsecure())
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to agent: %w", err)
+	}
+
+	client = opsv1.NewOpsServiceClient(conn)
+
+	s.agentClientsMu.Lock()
+	s.agentClients[agentID] = client
+	s.agentClientsMu.Unlock()
+
+	return client, nil
+}
+
+// pruneOldMetrics periodically prunes old metrics entries.
+func (s *Server) pruneOldMetrics(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			// Prune metrics older than 1 hour
+			s.metricsStore.Prune(time.Hour)
+			s.systemInfoCache.Prune(time.Hour)
+		}
+	}
+}
+
+// MetricsStore returns the metrics store (for HTTP handlers).
+func (s *Server) MetricsStore() *reg.MetricsStore {
+	return s.metricsStore
+}
+
+// SystemInfoCache returns the system info cache (for HTTP handlers).
+func (s *Server) SystemInfoCache() *reg.SystemInfoCache {
+	return s.systemInfoCache
 }

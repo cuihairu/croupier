@@ -8,9 +8,11 @@ package serverv1
 
 import (
 	v1 "github.com/cuihairu/croupier/pkg/pb/croupier/common/v1"
+	v11 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -629,6 +631,261 @@ func (*RegisterCapabilitiesResponse) Descriptor() ([]byte, []int) {
 	return file_croupier_server_v1_server_control_proto_rawDescGZIP(), []int{8}
 }
 
+// GetAgentSystemInfoRequest requests system info from an agent
+type GetAgentSystemInfoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"` // Agent to query
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAgentSystemInfoRequest) Reset() {
+	*x = GetAgentSystemInfoRequest{}
+	mi := &file_croupier_server_v1_server_control_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAgentSystemInfoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAgentSystemInfoRequest) ProtoMessage() {}
+
+func (x *GetAgentSystemInfoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_server_v1_server_control_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAgentSystemInfoRequest.ProtoReflect.Descriptor instead.
+func (*GetAgentSystemInfoRequest) Descriptor() ([]byte, []int) {
+	return file_croupier_server_v1_server_control_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *GetAgentSystemInfoRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+// ListAgentProcessesRequest requests process list from an agent
+type ListAgentProcessesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"` // Agent to query
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAgentProcessesRequest) Reset() {
+	*x = ListAgentProcessesRequest{}
+	mi := &file_croupier_server_v1_server_control_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAgentProcessesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAgentProcessesRequest) ProtoMessage() {}
+
+func (x *ListAgentProcessesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_server_v1_server_control_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAgentProcessesRequest.ProtoReflect.Descriptor instead.
+func (*ListAgentProcessesRequest) Descriptor() ([]byte, []int) {
+	return file_croupier_server_v1_server_control_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ListAgentProcessesRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+// QueryMetricsRequest queries metrics from one or more agents
+type QueryMetricsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentIds      []string               `protobuf:"bytes,1,rep,name=agent_ids,json=agentIds,proto3" json:"agent_ids,omitempty"` // Specific agents (empty = all)
+	Since         *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=since,proto3" json:"since,omitempty"`                       // Only metrics after this time
+	Limit         int64                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`                      // Maximum number of records per agent (default: 100)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryMetricsRequest) Reset() {
+	*x = QueryMetricsRequest{}
+	mi := &file_croupier_server_v1_server_control_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryMetricsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryMetricsRequest) ProtoMessage() {}
+
+func (x *QueryMetricsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_server_v1_server_control_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryMetricsRequest.ProtoReflect.Descriptor instead.
+func (*QueryMetricsRequest) Descriptor() ([]byte, []int) {
+	return file_croupier_server_v1_server_control_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *QueryMetricsRequest) GetAgentIds() []string {
+	if x != nil {
+		return x.AgentIds
+	}
+	return nil
+}
+
+func (x *QueryMetricsRequest) GetSince() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Since
+	}
+	return nil
+}
+
+func (x *QueryMetricsRequest) GetLimit() int64 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type QueryMetricsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Entries       []*AgentMetricsEntry   `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryMetricsResponse) Reset() {
+	*x = QueryMetricsResponse{}
+	mi := &file_croupier_server_v1_server_control_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryMetricsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryMetricsResponse) ProtoMessage() {}
+
+func (x *QueryMetricsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_server_v1_server_control_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryMetricsResponse.ProtoReflect.Descriptor instead.
+func (*QueryMetricsResponse) Descriptor() ([]byte, []int) {
+	return file_croupier_server_v1_server_control_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *QueryMetricsResponse) GetEntries() []*AgentMetricsEntry {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+type AgentMetricsEntry struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	Timestamp     *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	Metrics       *v11.MetricsReport     `protobuf:"bytes,3,opt,name=metrics,proto3" json:"metrics,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AgentMetricsEntry) Reset() {
+	*x = AgentMetricsEntry{}
+	mi := &file_croupier_server_v1_server_control_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentMetricsEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentMetricsEntry) ProtoMessage() {}
+
+func (x *AgentMetricsEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_server_v1_server_control_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AgentMetricsEntry.ProtoReflect.Descriptor instead.
+func (*AgentMetricsEntry) Descriptor() ([]byte, []int) {
+	return file_croupier_server_v1_server_control_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *AgentMetricsEntry) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *AgentMetricsEntry) GetTimestamp() *timestamppb.Timestamp {
+	if x != nil {
+		return x.Timestamp
+	}
+	return nil
+}
+
+func (x *AgentMetricsEntry) GetMetrics() *v11.MetricsReport {
+	if x != nil {
+		return x.Metrics
+	}
+	return nil
+}
+
 type ListFunctionsSummaryResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Functions     []*FunctionDescriptor  `protobuf:"bytes,1,rep,name=functions,proto3" json:"functions,omitempty"`
@@ -638,7 +895,7 @@ type ListFunctionsSummaryResponse struct {
 
 func (x *ListFunctionsSummaryResponse) Reset() {
 	*x = ListFunctionsSummaryResponse{}
-	mi := &file_croupier_server_v1_server_control_proto_msgTypes[9]
+	mi := &file_croupier_server_v1_server_control_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -650,7 +907,7 @@ func (x *ListFunctionsSummaryResponse) String() string {
 func (*ListFunctionsSummaryResponse) ProtoMessage() {}
 
 func (x *ListFunctionsSummaryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_server_v1_server_control_proto_msgTypes[9]
+	mi := &file_croupier_server_v1_server_control_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -663,7 +920,7 @@ func (x *ListFunctionsSummaryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListFunctionsSummaryResponse.ProtoReflect.Descriptor instead.
 func (*ListFunctionsSummaryResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_server_v1_server_control_proto_rawDescGZIP(), []int{9}
+	return file_croupier_server_v1_server_control_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListFunctionsSummaryResponse) GetFunctions() []*FunctionDescriptor {
@@ -677,7 +934,7 @@ var File_croupier_server_v1_server_control_proto protoreflect.FileDescriptor
 
 const file_croupier_server_v1_server_control_proto_rawDesc = "" +
 	"\n" +
-	"'croupier/server/v1/server_control.proto\x12\x12croupier.server.v1\x1a\x1bcroupier/common/v1/ui.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xbf\x03\n" +
+	"'croupier/server/v1/server_control.proto\x12\x12croupier.server.v1\x1a\x1bcroupier/common/v1/ui.proto\x1a\x19croupier/ops/v1/ops.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbf\x03\n" +
 	"\x12FunctionDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x1a\n" +
@@ -723,15 +980,33 @@ const file_croupier_server_v1_server_control_proto_rawDesc = "" +
 	"\x1bRegisterCapabilitiesRequest\x12<\n" +
 	"\bprovider\x18\x01 \x01(\v2 .croupier.server.v1.ProviderMetaR\bprovider\x12(\n" +
 	"\x10manifest_json_gz\x18\x02 \x01(\fR\x0emanifestJsonGz\"\x1e\n" +
-	"\x1cRegisterCapabilitiesResponse\"d\n" +
+	"\x1cRegisterCapabilitiesResponse\"6\n" +
+	"\x19GetAgentSystemInfoRequest\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\"6\n" +
+	"\x19ListAgentProcessesRequest\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\"z\n" +
+	"\x13QueryMetricsRequest\x12\x1b\n" +
+	"\tagent_ids\x18\x01 \x03(\tR\bagentIds\x120\n" +
+	"\x05since\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x05since\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\x03R\x05limit\"W\n" +
+	"\x14QueryMetricsResponse\x12?\n" +
+	"\aentries\x18\x01 \x03(\v2%.croupier.server.v1.AgentMetricsEntryR\aentries\"\xa2\x01\n" +
+	"\x11AgentMetricsEntry\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x128\n" +
+	"\ttimestamp\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x128\n" +
+	"\ametrics\x18\x03 \x01(\v2\x1e.croupier.ops.v1.MetricsReportR\ametrics\"d\n" +
 	"\x1cListFunctionsSummaryResponse\x12D\n" +
-	"\tfunctions\x18\x01 \x03(\v2&.croupier.server.v1.FunctionDescriptorR\tfunctions2\x9e\x03\n" +
+	"\tfunctions\x18\x01 \x03(\v2&.croupier.server.v1.FunctionDescriptorR\tfunctions2\x99\x06\n" +
 	"\x0eControlService\x12`\n" +
 	"\x14ListFunctionsSummary\x12\x16.google.protobuf.Empty\x1a0.croupier.server.v1.ListFunctionsSummaryResponse\x12U\n" +
 	"\bRegister\x12#.croupier.server.v1.RegisterRequest\x1a$.croupier.server.v1.RegisterResponse\x12X\n" +
 	"\tHeartbeat\x12$.croupier.server.v1.HeartbeatRequest\x1a%.croupier.server.v1.HeartbeatResponse\x12y\n" +
-	"\x14RegisterCapabilities\x12/.croupier.server.v1.RegisterCapabilitiesRequest\x1a0.croupier.server.v1.RegisterCapabilitiesResponseBj\n" +
-	"%io.github.cuihairu.croupier.server.v1P\x01Z?github.com/cuihairu/croupier/pkg/pb/croupier/server/v1;serverv1b\x06proto3"
+	"\x14RegisterCapabilities\x12/.croupier.server.v1.RegisterCapabilitiesRequest\x1a0.croupier.server.v1.RegisterCapabilitiesResponse\x12G\n" +
+	"\rReportMetrics\x12\x1e.croupier.ops.v1.MetricsReport\x1a\x16.google.protobuf.Empty\x12`\n" +
+	"\x12GetAgentSystemInfo\x12-.croupier.server.v1.GetAgentSystemInfoRequest\x1a\x1b.croupier.ops.v1.SystemInfo\x12k\n" +
+	"\x12ListAgentProcesses\x12-.croupier.server.v1.ListAgentProcessesRequest\x1a&.croupier.ops.v1.ListProcessesResponse\x12a\n" +
+	"\fQueryMetrics\x12'.croupier.server.v1.QueryMetricsRequest\x1a(.croupier.server.v1.QueryMetricsResponseB\xd7\x01\n" +
+	"\x16com.croupier.server.v1B\x12ServerControlProtoP\x01Z?github.com/cuihairu/croupier/pkg/pb/croupier/server/v1;serverv1\xa2\x02\x03CSX\xaa\x02\x12Croupier.Server.V1\xca\x02\x12Croupier\\Server\\V1\xe2\x02\x1eCroupier\\Server\\V1\\GPBMetadata\xea\x02\x14Croupier::Server::V1b\x06proto3"
 
 var (
 	file_croupier_server_v1_server_control_proto_rawDescOnce sync.Once
@@ -745,7 +1020,7 @@ func file_croupier_server_v1_server_control_proto_rawDescGZIP() []byte {
 	return file_croupier_server_v1_server_control_proto_rawDescData
 }
 
-var file_croupier_server_v1_server_control_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_croupier_server_v1_server_control_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_croupier_server_v1_server_control_proto_goTypes = []any{
 	(*FunctionDescriptor)(nil),           // 0: croupier.server.v1.FunctionDescriptor
 	(*AgentProcess)(nil),                 // 1: croupier.server.v1.AgentProcess
@@ -756,34 +1031,55 @@ var file_croupier_server_v1_server_control_proto_goTypes = []any{
 	(*ProviderMeta)(nil),                 // 6: croupier.server.v1.ProviderMeta
 	(*RegisterCapabilitiesRequest)(nil),  // 7: croupier.server.v1.RegisterCapabilitiesRequest
 	(*RegisterCapabilitiesResponse)(nil), // 8: croupier.server.v1.RegisterCapabilitiesResponse
-	(*ListFunctionsSummaryResponse)(nil), // 9: croupier.server.v1.ListFunctionsSummaryResponse
-	(*v1.I18NText)(nil),                  // 10: croupier.common.v1.I18nText
-	(*v1.Menu)(nil),                      // 11: croupier.common.v1.Menu
-	(*v1.PermissionSpec)(nil),            // 12: croupier.common.v1.PermissionSpec
-	(*emptypb.Empty)(nil),                // 13: google.protobuf.Empty
+	(*GetAgentSystemInfoRequest)(nil),    // 9: croupier.server.v1.GetAgentSystemInfoRequest
+	(*ListAgentProcessesRequest)(nil),    // 10: croupier.server.v1.ListAgentProcessesRequest
+	(*QueryMetricsRequest)(nil),          // 11: croupier.server.v1.QueryMetricsRequest
+	(*QueryMetricsResponse)(nil),         // 12: croupier.server.v1.QueryMetricsResponse
+	(*AgentMetricsEntry)(nil),            // 13: croupier.server.v1.AgentMetricsEntry
+	(*ListFunctionsSummaryResponse)(nil), // 14: croupier.server.v1.ListFunctionsSummaryResponse
+	(*v1.I18NText)(nil),                  // 15: croupier.common.v1.I18nText
+	(*v1.Menu)(nil),                      // 16: croupier.common.v1.Menu
+	(*v1.PermissionSpec)(nil),            // 17: croupier.common.v1.PermissionSpec
+	(*timestamppb.Timestamp)(nil),        // 18: google.protobuf.Timestamp
+	(*v11.MetricsReport)(nil),            // 19: croupier.ops.v1.MetricsReport
+	(*emptypb.Empty)(nil),                // 20: google.protobuf.Empty
+	(*v11.SystemInfo)(nil),               // 21: croupier.ops.v1.SystemInfo
+	(*v11.ListProcessesResponse)(nil),    // 22: croupier.ops.v1.ListProcessesResponse
 }
 var file_croupier_server_v1_server_control_proto_depIdxs = []int32{
-	10, // 0: croupier.server.v1.FunctionDescriptor.display_name:type_name -> croupier.common.v1.I18nText
-	10, // 1: croupier.server.v1.FunctionDescriptor.summary:type_name -> croupier.common.v1.I18nText
-	11, // 2: croupier.server.v1.FunctionDescriptor.menu:type_name -> croupier.common.v1.Menu
-	12, // 3: croupier.server.v1.FunctionDescriptor.permissions:type_name -> croupier.common.v1.PermissionSpec
+	15, // 0: croupier.server.v1.FunctionDescriptor.display_name:type_name -> croupier.common.v1.I18nText
+	15, // 1: croupier.server.v1.FunctionDescriptor.summary:type_name -> croupier.common.v1.I18nText
+	16, // 2: croupier.server.v1.FunctionDescriptor.menu:type_name -> croupier.common.v1.Menu
+	17, // 3: croupier.server.v1.FunctionDescriptor.permissions:type_name -> croupier.common.v1.PermissionSpec
 	0,  // 4: croupier.server.v1.RegisterRequest.functions:type_name -> croupier.server.v1.FunctionDescriptor
 	1,  // 5: croupier.server.v1.RegisterRequest.processes:type_name -> croupier.server.v1.AgentProcess
 	6,  // 6: croupier.server.v1.RegisterCapabilitiesRequest.provider:type_name -> croupier.server.v1.ProviderMeta
-	0,  // 7: croupier.server.v1.ListFunctionsSummaryResponse.functions:type_name -> croupier.server.v1.FunctionDescriptor
-	13, // 8: croupier.server.v1.ControlService.ListFunctionsSummary:input_type -> google.protobuf.Empty
-	2,  // 9: croupier.server.v1.ControlService.Register:input_type -> croupier.server.v1.RegisterRequest
-	4,  // 10: croupier.server.v1.ControlService.Heartbeat:input_type -> croupier.server.v1.HeartbeatRequest
-	7,  // 11: croupier.server.v1.ControlService.RegisterCapabilities:input_type -> croupier.server.v1.RegisterCapabilitiesRequest
-	9,  // 12: croupier.server.v1.ControlService.ListFunctionsSummary:output_type -> croupier.server.v1.ListFunctionsSummaryResponse
-	3,  // 13: croupier.server.v1.ControlService.Register:output_type -> croupier.server.v1.RegisterResponse
-	5,  // 14: croupier.server.v1.ControlService.Heartbeat:output_type -> croupier.server.v1.HeartbeatResponse
-	8,  // 15: croupier.server.v1.ControlService.RegisterCapabilities:output_type -> croupier.server.v1.RegisterCapabilitiesResponse
-	12, // [12:16] is the sub-list for method output_type
-	8,  // [8:12] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	18, // 7: croupier.server.v1.QueryMetricsRequest.since:type_name -> google.protobuf.Timestamp
+	13, // 8: croupier.server.v1.QueryMetricsResponse.entries:type_name -> croupier.server.v1.AgentMetricsEntry
+	18, // 9: croupier.server.v1.AgentMetricsEntry.timestamp:type_name -> google.protobuf.Timestamp
+	19, // 10: croupier.server.v1.AgentMetricsEntry.metrics:type_name -> croupier.ops.v1.MetricsReport
+	0,  // 11: croupier.server.v1.ListFunctionsSummaryResponse.functions:type_name -> croupier.server.v1.FunctionDescriptor
+	20, // 12: croupier.server.v1.ControlService.ListFunctionsSummary:input_type -> google.protobuf.Empty
+	2,  // 13: croupier.server.v1.ControlService.Register:input_type -> croupier.server.v1.RegisterRequest
+	4,  // 14: croupier.server.v1.ControlService.Heartbeat:input_type -> croupier.server.v1.HeartbeatRequest
+	7,  // 15: croupier.server.v1.ControlService.RegisterCapabilities:input_type -> croupier.server.v1.RegisterCapabilitiesRequest
+	19, // 16: croupier.server.v1.ControlService.ReportMetrics:input_type -> croupier.ops.v1.MetricsReport
+	9,  // 17: croupier.server.v1.ControlService.GetAgentSystemInfo:input_type -> croupier.server.v1.GetAgentSystemInfoRequest
+	10, // 18: croupier.server.v1.ControlService.ListAgentProcesses:input_type -> croupier.server.v1.ListAgentProcessesRequest
+	11, // 19: croupier.server.v1.ControlService.QueryMetrics:input_type -> croupier.server.v1.QueryMetricsRequest
+	14, // 20: croupier.server.v1.ControlService.ListFunctionsSummary:output_type -> croupier.server.v1.ListFunctionsSummaryResponse
+	3,  // 21: croupier.server.v1.ControlService.Register:output_type -> croupier.server.v1.RegisterResponse
+	5,  // 22: croupier.server.v1.ControlService.Heartbeat:output_type -> croupier.server.v1.HeartbeatResponse
+	8,  // 23: croupier.server.v1.ControlService.RegisterCapabilities:output_type -> croupier.server.v1.RegisterCapabilitiesResponse
+	20, // 24: croupier.server.v1.ControlService.ReportMetrics:output_type -> google.protobuf.Empty
+	21, // 25: croupier.server.v1.ControlService.GetAgentSystemInfo:output_type -> croupier.ops.v1.SystemInfo
+	22, // 26: croupier.server.v1.ControlService.ListAgentProcesses:output_type -> croupier.ops.v1.ListProcessesResponse
+	12, // 27: croupier.server.v1.ControlService.QueryMetrics:output_type -> croupier.server.v1.QueryMetricsResponse
+	20, // [20:28] is the sub-list for method output_type
+	12, // [12:20] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_croupier_server_v1_server_control_proto_init() }
@@ -797,7 +1093,7 @@ func file_croupier_server_v1_server_control_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_server_v1_server_control_proto_rawDesc), len(file_croupier_server_v1_server_control_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

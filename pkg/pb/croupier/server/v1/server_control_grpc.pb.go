@@ -8,6 +8,7 @@ package serverv1
 
 import (
 	context "context"
+	v1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -24,6 +25,10 @@ const (
 	ControlService_Register_FullMethodName             = "/croupier.server.v1.ControlService/Register"
 	ControlService_Heartbeat_FullMethodName            = "/croupier.server.v1.ControlService/Heartbeat"
 	ControlService_RegisterCapabilities_FullMethodName = "/croupier.server.v1.ControlService/RegisterCapabilities"
+	ControlService_ReportMetrics_FullMethodName        = "/croupier.server.v1.ControlService/ReportMetrics"
+	ControlService_GetAgentSystemInfo_FullMethodName   = "/croupier.server.v1.ControlService/GetAgentSystemInfo"
+	ControlService_ListAgentProcesses_FullMethodName   = "/croupier.server.v1.ControlService/ListAgentProcesses"
+	ControlService_QueryMetrics_FullMethodName         = "/croupier.server.v1.ControlService/QueryMetrics"
 )
 
 // ControlServiceClient is the client API for ControlService service.
@@ -40,6 +45,14 @@ type ControlServiceClient interface {
 	Heartbeat(ctx context.Context, in *HeartbeatRequest, opts ...grpc.CallOption) (*HeartbeatResponse, error)
 	// Provider capabilities registration
 	RegisterCapabilities(ctx context.Context, in *RegisterCapabilitiesRequest, opts ...grpc.CallOption) (*RegisterCapabilitiesResponse, error)
+	// Agent metrics reporting (for monitoring and observability)
+	ReportMetrics(ctx context.Context, in *v1.MetricsReport, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Get system info from a specific agent
+	GetAgentSystemInfo(ctx context.Context, in *GetAgentSystemInfoRequest, opts ...grpc.CallOption) (*v1.SystemInfo, error)
+	// List processes on a specific agent
+	ListAgentProcesses(ctx context.Context, in *ListAgentProcessesRequest, opts ...grpc.CallOption) (*v1.ListProcessesResponse, error)
+	// Query metrics from agents
+	QueryMetrics(ctx context.Context, in *QueryMetricsRequest, opts ...grpc.CallOption) (*QueryMetricsResponse, error)
 }
 
 type controlServiceClient struct {
@@ -90,6 +103,46 @@ func (c *controlServiceClient) RegisterCapabilities(ctx context.Context, in *Reg
 	return out, nil
 }
 
+func (c *controlServiceClient) ReportMetrics(ctx context.Context, in *v1.MetricsReport, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, ControlService_ReportMetrics_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlServiceClient) GetAgentSystemInfo(ctx context.Context, in *GetAgentSystemInfoRequest, opts ...grpc.CallOption) (*v1.SystemInfo, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(v1.SystemInfo)
+	err := c.cc.Invoke(ctx, ControlService_GetAgentSystemInfo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlServiceClient) ListAgentProcesses(ctx context.Context, in *ListAgentProcessesRequest, opts ...grpc.CallOption) (*v1.ListProcessesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(v1.ListProcessesResponse)
+	err := c.cc.Invoke(ctx, ControlService_ListAgentProcesses_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlServiceClient) QueryMetrics(ctx context.Context, in *QueryMetricsRequest, opts ...grpc.CallOption) (*QueryMetricsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryMetricsResponse)
+	err := c.cc.Invoke(ctx, ControlService_QueryMetrics_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControlServiceServer is the server API for ControlService service.
 // All implementations must embed UnimplementedControlServiceServer
 // for forward compatibility.
@@ -104,6 +157,14 @@ type ControlServiceServer interface {
 	Heartbeat(context.Context, *HeartbeatRequest) (*HeartbeatResponse, error)
 	// Provider capabilities registration
 	RegisterCapabilities(context.Context, *RegisterCapabilitiesRequest) (*RegisterCapabilitiesResponse, error)
+	// Agent metrics reporting (for monitoring and observability)
+	ReportMetrics(context.Context, *v1.MetricsReport) (*emptypb.Empty, error)
+	// Get system info from a specific agent
+	GetAgentSystemInfo(context.Context, *GetAgentSystemInfoRequest) (*v1.SystemInfo, error)
+	// List processes on a specific agent
+	ListAgentProcesses(context.Context, *ListAgentProcessesRequest) (*v1.ListProcessesResponse, error)
+	// Query metrics from agents
+	QueryMetrics(context.Context, *QueryMetricsRequest) (*QueryMetricsResponse, error)
 	mustEmbedUnimplementedControlServiceServer()
 }
 
@@ -125,6 +186,18 @@ func (UnimplementedControlServiceServer) Heartbeat(context.Context, *HeartbeatRe
 }
 func (UnimplementedControlServiceServer) RegisterCapabilities(context.Context, *RegisterCapabilitiesRequest) (*RegisterCapabilitiesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterCapabilities not implemented")
+}
+func (UnimplementedControlServiceServer) ReportMetrics(context.Context, *v1.MetricsReport) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReportMetrics not implemented")
+}
+func (UnimplementedControlServiceServer) GetAgentSystemInfo(context.Context, *GetAgentSystemInfoRequest) (*v1.SystemInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAgentSystemInfo not implemented")
+}
+func (UnimplementedControlServiceServer) ListAgentProcesses(context.Context, *ListAgentProcessesRequest) (*v1.ListProcessesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListAgentProcesses not implemented")
+}
+func (UnimplementedControlServiceServer) QueryMetrics(context.Context, *QueryMetricsRequest) (*QueryMetricsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method QueryMetrics not implemented")
 }
 func (UnimplementedControlServiceServer) mustEmbedUnimplementedControlServiceServer() {}
 func (UnimplementedControlServiceServer) testEmbeddedByValue()                        {}
@@ -219,6 +292,78 @@ func _ControlService_RegisterCapabilities_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlService_ReportMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(v1.MetricsReport)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).ReportMetrics(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_ReportMetrics_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).ReportMetrics(ctx, req.(*v1.MetricsReport))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlService_GetAgentSystemInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAgentSystemInfoRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).GetAgentSystemInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_GetAgentSystemInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).GetAgentSystemInfo(ctx, req.(*GetAgentSystemInfoRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlService_ListAgentProcesses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAgentProcessesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).ListAgentProcesses(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_ListAgentProcesses_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).ListAgentProcesses(ctx, req.(*ListAgentProcessesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlService_QueryMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryMetricsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).QueryMetrics(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_QueryMetrics_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).QueryMetrics(ctx, req.(*QueryMetricsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ControlService_ServiceDesc is the grpc.ServiceDesc for ControlService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -241,6 +386,22 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RegisterCapabilities",
 			Handler:    _ControlService_RegisterCapabilities_Handler,
+		},
+		{
+			MethodName: "ReportMetrics",
+			Handler:    _ControlService_ReportMetrics_Handler,
+		},
+		{
+			MethodName: "GetAgentSystemInfo",
+			Handler:    _ControlService_GetAgentSystemInfo_Handler,
+		},
+		{
+			MethodName: "ListAgentProcesses",
+			Handler:    _ControlService_ListAgentProcesses_Handler,
+		},
+		{
+			MethodName: "QueryMetrics",
+			Handler:    _ControlService_QueryMetrics_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

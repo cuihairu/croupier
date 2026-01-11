@@ -138,8 +138,8 @@ const file_croupier_edge_job_v1_job_proto_rawDesc = "" +
 	"\x05error\x18\x03 \x01(\tR\x05error2s\n" +
 	"\n" +
 	"JobService\x12e\n" +
-	"\fGetJobResult\x12).croupier.edge.job.v1.GetJobResultRequest\x1a*.croupier.edge.job.v1.GetJobResultResponseBk\n" +
-	"'io.github.cuihairu.croupier.edge.job.v1P\x01Z>github.com/cuihairu/croupier/pkg/pb/croupier/edge/job/v1;jobv1b\x06proto3"
+	"\fGetJobResult\x12).croupier.edge.job.v1.GetJobResultRequest\x1a*.croupier.edge.job.v1.GetJobResultResponseB\xd7\x01\n" +
+	"\x18com.croupier.edge.job.v1B\bJobProtoP\x01Z>github.com/cuihairu/croupier/pkg/pb/croupier/edge/job/v1;jobv1\xa2\x02\x03CEJ\xaa\x02\x14Croupier.Edge.Job.V1\xca\x02\x14Croupier\\Edge\\Job\\V1\xe2\x02 Croupier\\Edge\\Job\\V1\\GPBMetadata\xea\x02\x17Croupier::Edge::Job::V1b\x06proto3"
 
 var (
 	file_croupier_edge_job_v1_job_proto_rawDescOnce sync.Once

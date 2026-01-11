@@ -1,3 +1,6 @@
+// Code scaffolded by goctl. Safe to edit.
+// goctl 1.9.2
+
 package ops
 
 import (
@@ -9,6 +12,7 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+// 获取告警列表
 func OpsAlertsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.OpsAlertsRequest

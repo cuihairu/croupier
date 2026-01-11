@@ -6,7 +6,6 @@ package ops
 import (
 	"context"
 
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -28,43 +27,8 @@ func NewOpsConfigLogic(ctx context.Context, svcCtx *svc.ServiceContext) *OpsConf
 	}
 }
 
-func (l *OpsConfigLogic) OpsConfig(req *types.OpsConfigRequest) (*types.OpsConfigResponse, error) {
-	state := snapshotOpsState(l.svcCtx)
+func (l *OpsConfigLogic) OpsConfig(req *types.OpsConfigRequest) (resp *types.OpsConfigResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	data := map[string]interface{}{
-		"alertmanager_url":    state.Config.AlertmanagerURL,
-		"grafana_explore_url": state.Config.GrafanaExploreURL,
-		"jaeger_url":          state.Config.JaegerURL,
-		"maintenance": map[string]interface{}{
-			"windows":   state.Maintenance.Windows,
-			"updatedAt": utils.FormatTimestamp(state.Maintenance.UpdatedAt),
-		},
-		"notifications": map[string]interface{}{
-			"channels":  state.Notifications.Channels,
-			"rules":     state.Notifications.Rules,
-			"updatedAt": utils.FormatTimestamp(state.Notifications.UpdatedAt),
-		},
-		"alerts": map[string]interface{}{
-			"silences":  state.Alerts.Silences,
-			"updatedAt": utils.FormatTimestamp(state.Alerts.UpdatedAt),
-		},
-		"health": map[string]interface{}{
-			"checks": state.Health.Checks,
-			"status": state.Health.Status,
-		},
-		"mq": map[string]interface{}{
-			"type":      state.MQ.Type,
-			"redis":     state.MQ.Redis,
-			"kafka":     state.MQ.Kafka,
-			"lengths":   state.MQ.Lengths,
-			"groups":    state.MQ.Groups,
-			"updatedAt": utils.FormatTimestamp(state.MQ.UpdatedAt),
-		},
-	}
-
-	return &types.OpsConfigResponse{
-		Code:    0,
-		Message: "OK",
-		Data:    data,
-	}, nil
+	return
 }

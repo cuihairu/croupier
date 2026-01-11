@@ -55,3 +55,37 @@ OutboundTLS:
   CAFile: ""
   ServerName: ""
   InsecureSkipVerify: false
+
+# Ops module configuration for system monitoring and process management
+Ops:
+  # Master switch for ops functionality
+  Enabled: false
+
+  # Enable metrics reporting to server (recommended: true)
+  MetricsEnabled: true
+  # Metrics reporting interval (default: 30s)
+  MetricsInterval: 30s
+
+  # Allow process management (restart/stop/start) - requires ops.enabled=true
+  AllowRestart: false
+
+  # Allow arbitrary command execution - HIGH RISK, use with extreme caution
+  AllowExec: false
+
+  # Commands whitelist when allow_exec=true (empty = all commands allowed)
+  ExecAllowedCommands: []
+  # Maximum execution time for commands (default: 60s, max: 300s)
+  ExecTimeout: 60s
+
+  # Managed processes that can be controlled
+  ManagedProcesses: {}
+  # Example:
+  #   game-server:
+  #     command: /usr/local/bin/game-server
+  #     args: ["--config", "/etc/game-server/config.yaml"]
+  #     working_dir: /opt/game-server
+  #     env:
+  #       GAME_ENV: "production"
+  #     graceful_timeout: 30s
+  #     restart_delay: 5s
+  #     auto_restart: false

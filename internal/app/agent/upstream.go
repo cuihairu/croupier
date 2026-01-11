@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
@@ -29,6 +30,13 @@ type UpstreamClient struct {
 	version    string
 	rpcAddr    string
 	tlsCfg     *tlsutil.ClientTLSConfig
+
+	// Metrics reporting
+	metricsCollector *MetricsCollector
+	metricsInterval  time.Duration
+	metricsEnabled   bool
+	metricsMu        sync.Mutex
+	metricsOnce      sync.Once
 }
 
 func (c *UpstreamClient) Connected() bool {
@@ -133,6 +141,15 @@ func (c *UpstreamClient) Start(ctx context.Context) error {
 
 	// Heartbeat loop
 	go c.heartbeatLoop(ctx)
+
+	// Metrics reporting loop (if enabled)
+	c.metricsMu.Lock()
+	if c.metricsEnabled {
+		c.metricsMu.Unlock()
+		go c.metricsLoop(ctx)
+	} else {
+		c.metricsMu.Unlock()
+	}
 
 	return nil
 }
@@ -379,4 +396,79 @@ func pickVersion(versions map[string]string) string {
 		}
 	}
 	return best
+}
+
+// metricsLoop periodically reports metrics to the upstream server.
+func (c *UpstreamClient) metricsLoop(ctx context.Context) {
+	interval := c.metricsInterval
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	// Report immediately on start
+	c.reportMetrics(ctx)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			c.reportMetrics(ctx)
+		}
+	}
+}
+
+// reportMetrics sends a single metrics report to the upstream server.
+func (c *UpstreamClient) reportMetrics(ctx context.Context) {
+	if c.client == nil {
+		return
+	}
+
+	c.metricsOnce.Do(func() {
+		if c.metricsCollector == nil {
+			c.metricsCollector = NewMetricsCollector(c.agentID)
+		}
+	})
+
+	report := c.metricsCollector.Collect(ctx)
+
+	if _, err := c.client.ReportMetrics(ctx, report); err != nil {
+		slog.Debug("failed to report metrics", "error", err)
+	}
+}
+
+// WithMetricsReporting enables and configures periodic metrics reporting.
+// interval: reporting interval (default 30s if 0)
+func (c *UpstreamClient) WithMetricsReporting(interval time.Duration) {
+	if c == nil {
+		return
+	}
+	c.metricsMu.Lock()
+	defer c.metricsMu.Unlock()
+
+	c.metricsEnabled = true
+	c.metricsInterval = interval
+	if c.metricsCollector == nil {
+		c.metricsCollector = NewMetricsCollector(c.agentID)
+	}
+}
+
+// ReportMetricsOnce sends a single metrics report (for manual trigger).
+func (c *UpstreamClient) ReportMetricsOnce(ctx context.Context) error {
+	if c == nil || c.client == nil {
+		return fmt.Errorf("upstream client not connected")
+	}
+
+	c.metricsOnce.Do(func() {
+		if c.metricsCollector == nil {
+			c.metricsCollector = NewMetricsCollector(c.agentID)
+		}
+	})
+
+	report := c.metricsCollector.Collect(ctx)
+	_, err := c.client.ReportMetrics(ctx, report)
+	return err
 }

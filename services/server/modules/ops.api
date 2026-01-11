@@ -162,8 +162,8 @@ type OpsHealthRunResponse {
 }
 
 type OpsHealthUpdateRequest {
-	Enabled bool              `json:"enabled"`
-	Checks  []OpsHealthCheck  `json:"checks,optional"`
+	Enabled bool             `json:"enabled"`
+	Checks  []OpsHealthCheck `json:"checks,optional"`
 }
 
 type OpsHealthUpdateResponse {
@@ -181,9 +181,9 @@ type OpsMaintenanceGetResponse {
 }
 
 type OpsMaintenanceUpdateRequest {
-	Enabled bool                    `json:"enabled"`
-	Message string                  `json:"message,optional"`
-	Windows []OpsMaintenanceWindow  `json:"windows,optional"`
+	Enabled bool                   `json:"enabled"`
+	Message string                 `json:"message,optional"`
+	Windows []OpsMaintenanceWindow `json:"windows,optional"`
 }
 
 type OpsMaintenanceUpdateResponse {
@@ -270,9 +270,9 @@ type OpsNotificationsGetResponse {
 }
 
 type OpsNotificationsUpdateRequest {
-	Enabled  bool                      `json:"enabled"`
-	Channels []OpsNotificationChannel  `json:"channels,optional"`
-	Rules    []OpsNotificationRule     `json:"rules,optional"`
+	Enabled  bool                     `json:"enabled"`
+	Channels []OpsNotificationChannel `json:"channels,optional"`
+	Rules    []OpsNotificationRule    `json:"rules,optional"`
 }
 
 type OpsNotificationsUpdateResponse {
@@ -305,6 +305,172 @@ type OpsSilencesResponse {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
+}
+
+// ============================================================================
+// Agent Ops 相关类型定义
+// ============================================================================
+type OpsAgentsListRequest {}
+
+type OpsAgentInfo {
+	AgentID   string            `json:"agentId"`
+	GameID    string            `json:"gameId"`
+	Env       string            `json:"env"`
+	Version   string            `json:"version"`
+	RPCAddr   string            `json:"rpcAddr"`
+	Connected bool              `json:"connected"`
+	LastSeen  string            `json:"lastSeen"`
+	Functions []string          `json:"functions"`
+	Processes []string          `json:"processes"`
+	Labels    map[string]string `json:"labels"`
+}
+
+type OpsAgentsListResponse {
+	Code    int            `json:"code"`
+	Message string         `json:"message"`
+	Data    []OpsAgentInfo `json:"data,omitempty"`
+}
+
+type OpsAgentMetricsRequest {
+	AgentID string `form:"agentId,optional"`
+	Since   string `form:"since,optional"`
+	Limit   int    `form:"limit,optional"`
+}
+
+type OpsCpuMetrics {
+	UsagePercent float64   `json:"usagePercent"`
+	Cores        int32     `json:"cores"`
+	PerCore      []float64 `json:"perCore,omitempty"`
+	Load1M       float64   `json:"load1m"`
+	Load5M       float64   `json:"load5m"`
+	Load15M      float64   `json:"load15m"`
+}
+
+type OpsMemoryMetrics {
+	TotalBytes     uint64  `json:"totalBytes"`
+	UsedBytes      uint64  `json:"usedBytes"`
+	AvailableBytes uint64  `json:"availableBytes"`
+	UsagePercent   float64 `json:"usagePercent"`
+	SwapTotal      uint64  `json:"swapTotal"`
+	SwapUsed       uint64  `json:"swapUsed"`
+}
+
+type OpsDiskMetrics {
+	MountPoint     string  `json:"mountPoint"`
+	Device         string  `json:"device"`
+	FsType         string  `json:"fsType"`
+	TotalBytes     uint64  `json:"totalBytes"`
+	UsedBytes      uint64  `json:"usedBytes"`
+	AvailableBytes uint64  `json:"availableBytes"`
+	UsagePercent   float64 `json:"usagePercent"`
+}
+
+type OpsNetworkMetrics {
+	Interface   string `json:"interface"`
+	BytesSent   uint64 `json:"bytesSent"`
+	BytesRecv   uint64 `json:"bytesRecv"`
+	PacketsSent uint64 `json:"packetsSent"`
+	PacketsRecv uint64 `json:"packetsRecv"`
+}
+
+type OpsMetricsData {
+	AgentID   string              `json:"agentId"`
+	Timestamp string              `json:"timestamp"`
+	CPU       OpsCpuMetrics       `json:"cpu"`
+	Memory    OpsMemoryMetrics    `json:"memory"`
+	Disks     []OpsDiskMetrics    `json:"disks,omitempty"`
+	Networks  []OpsNetworkMetrics `json:"networks,omitempty"`
+}
+
+type OpsAgentMetricsResponse {
+	Code    int              `json:"code"`
+	Message string           `json:"message"`
+	Data    []OpsMetricsData `json:"data,omitempty"`
+}
+
+type OpsAgentSystemInfoRequest {
+	AgentID string `path:"agentId"`
+}
+
+type OpsAgentSystemInfo {
+	Hostname      string `json:"hostname"`
+	OS            string `json:"os"`
+	OSVersion     string `json:"osVersion"`
+	KernelVersion string `json:"kernelVersion"`
+	Arch          string `json:"arch"`
+	CPUCores      int32  `json:"cpuCores"`
+	TotalMemory   uint64 `json:"totalMemory"`
+	BootTime      string `json:"bootTime"`
+	AgentVersion  string `json:"agentVersion"`
+}
+
+type OpsAgentSystemInfoResponse {
+	Code    int                `json:"code"`
+	Message string             `json:"message"`
+	Data    OpsAgentSystemInfo `json:"data,omitempty"`
+}
+
+type OpsAgentProcessesRequest {
+	AgentID string `path:"agentId"`
+}
+
+type OpsManagedProcess {
+	Name         string `json:"name"`
+	Command      string `json:"command"`
+	WorkingDir   string `json:"workingDir"`
+	State        string `json:"state"`
+	Pid          int32  `json:"pid"`
+	RestartCount int32  `json:"restartCount"`
+	LastStart    string `json:"lastStart,omitempty"`
+}
+
+type OpsAgentProcessesResponse {
+	Code    int                 `json:"code"`
+	Message string              `json:"message"`
+	Data    []OpsManagedProcess `json:"data,omitempty"`
+}
+
+type OpsProcessActionRequest {
+	AgentID string `path:"agentId"`
+	Name    string `path:"name"`
+	Force   bool   `json:"force,optional"`
+}
+
+type OpsProcessActionResponse {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    int32  `json:"pid,omitempty"`
+}
+
+type OpsProcessStartRequest {
+	AgentID string `path:"agentId"`
+	Name    string `path:"name"`
+}
+
+type OpsProcessStartResponse {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    int32  `json:"pid,omitempty"`
+}
+
+type OpsExecCommandRequest {
+	AgentID string   `path:"agentId"`
+	Command string   `json:"command"`
+	Args    []string `json:"args,optional"`
+	Timeout int32    `json:"timeout,optional"`
+}
+
+type OpsExecCommandResult {
+	Success  bool   `json:"success"`
+	ExitCode int32  `json:"exitCode"`
+	Stdout   string `json:"stdout"`
+	Stderr   string `json:"stderr"`
+}
+
+type OpsExecCommandResponse {
+	Code    int                  `json:"code"`
+	Message string               `json:"message"`
+	Data    OpsExecCommandResult `json:"data,omitempty"`
 }
 
 // ============================================================================
@@ -422,5 +588,40 @@ service server {
 	@doc "获取静默规则列表"
 	@handler OpsSilencesHandler
 	get /silences (OpsSilencesRequest) returns (OpsSilencesResponse)
+
+	// ============================================================================
+	// Agent Ops 相关路由
+	// ============================================================================
+	@doc "获取 Agent 列表"
+	@handler OpsAgentsListHandler
+	get /agents (OpsAgentsListRequest) returns (OpsAgentsListResponse)
+
+	@doc "获取 Agent 指标"
+	@handler OpsAgentMetricsHandler
+	get /agents/metrics (OpsAgentMetricsRequest) returns (OpsAgentMetricsResponse)
+
+	@doc "获取 Agent 系统信息"
+	@handler OpsAgentSystemInfoHandler
+	get /agents/:agentId/system-info (OpsAgentSystemInfoRequest) returns (OpsAgentSystemInfoResponse)
+
+	@doc "获取 Agent 进程列表"
+	@handler OpsAgentProcessesHandler
+	get /agents/:agentId/processes (OpsAgentProcessesRequest) returns (OpsAgentProcessesResponse)
+
+	@doc "重启 Agent 进程"
+	@handler OpsAgentProcessRestartHandler
+	post /agents/:agentId/processes/:name/restart (OpsProcessActionRequest) returns (OpsProcessActionResponse)
+
+	@doc "停止 Agent 进程"
+	@handler OpsAgentProcessStopHandler
+	post /agents/:agentId/processes/:name/stop (OpsProcessActionRequest) returns (OpsProcessActionResponse)
+
+	@doc "启动 Agent 进程"
+	@handler OpsAgentProcessStartHandler
+	post /agents/:agentId/processes/:name/start (OpsProcessStartRequest) returns (OpsProcessStartResponse)
+
+	@doc "在 Agent 上执行命令（高风险）"
+	@handler OpsAgentExecCommandHandler
+	post /agents/:agentId/exec (OpsExecCommandRequest) returns (OpsExecCommandResponse)
 }
 

@@ -199,6 +199,11 @@ func (a *App) WithOpsConfig(cfg *OpsConfig) {
 		return
 	}
 	a.opsConfig = cfg
+
+	// Enable metrics reporting if ops is configured
+	if cfg != nil && cfg.MetricsEnabled {
+		a.upstream.WithMetricsReporting(cfg.MetricsInterval)
+	}
 }
 
 // WithVersion sets the agent version for reporting.

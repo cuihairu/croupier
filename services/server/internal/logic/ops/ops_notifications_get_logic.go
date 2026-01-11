@@ -6,7 +6,6 @@ package ops
 import (
 	"context"
 
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -28,15 +27,8 @@ func NewOpsNotificationsGetLogic(ctx context.Context, svcCtx *svc.ServiceContext
 	}
 }
 
-func (l *OpsNotificationsGetLogic) OpsNotificationsGet(req *types.OpsNotificationsGetRequest) (*types.OpsNotificationsGetResponse, error) {
-	state := snapshotOpsState(l.svcCtx)
-	return &types.OpsNotificationsGetResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"channels":  state.Notifications.Channels,
-			"rules":     state.Notifications.Rules,
-			"updatedAt": utils.FormatTimestamp(state.Notifications.UpdatedAt),
-		},
-	}, nil
+func (l *OpsNotificationsGetLogic) OpsNotificationsGet(req *types.OpsNotificationsGetRequest) (resp *types.OpsNotificationsGetResponse, err error) {
+	// todo: add your logic here and delete this line
+
+	return
 }

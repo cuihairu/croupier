@@ -6,7 +6,6 @@ package ops
 import (
 	"context"
 
-	backuplogic "github.com/cuihairu/croupier/services/server/internal/logic/backup"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -28,14 +27,8 @@ func NewOpsBackupDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *O
 	}
 }
 
-func (l *OpsBackupDeleteLogic) OpsBackupDelete(req *types.OpsBackupDeleteRequest) (*types.OpsBackupDeleteResponse, error) {
-	deleteReq := &types.BackupDeleteRequest{ID: req.ID}
-	if err := backuplogic.NewBackupDeleteLogic(l.ctx, l.svcCtx).BackupDelete(deleteReq); err != nil {
-		return nil, err
-	}
+func (l *OpsBackupDeleteLogic) OpsBackupDelete(req *types.OpsBackupDeleteRequest) (resp *types.OpsBackupDeleteResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	return &types.OpsBackupDeleteResponse{
-		Code:    0,
-		Message: "OK",
-	}, nil
+	return
 }
