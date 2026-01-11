@@ -1,15 +1,15 @@
-version: v1
+version: v2
 managed:
   enabled: true
-  go_package_prefix:
-    default: github.com/cuihairu/croupier/pkg/pb
+  override:
+    - file_option: go_package_prefix
+      value: github.com/cuihairu/croupier/pkg/pb
 plugins:
-  # Go plugins for main package
-  - name: go
+  - local: protoc-gen-go
     out: pkg/pb
     opt:
       - paths=source_relative
-  - name: go-grpc
+  - local: protoc-gen-go-grpc
     out: pkg/pb
     opt:
       - paths=source_relative
