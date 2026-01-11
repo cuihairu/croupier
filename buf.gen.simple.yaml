@@ -1,15 +1,13 @@
-version: v1
-managed:
-  enabled: true
-  go_package_prefix:
-    default: github.com/cuihairu/croupier/pkg/pb
+version: v2
 plugins:
-  # Only generate Go code for the main package
-  - name: go
+  # 使用远程 Go 插件
+  - remote: buf.build/protocolbuffers/go:v1.36.0
     out: pkg/pb
     opt:
       - paths=source_relative
-  - name: go-grpc
+  # 使用远程 gRPC-Go 插件
+  - remote: buf.build/grpc/go:v1.5.1
     out: pkg/pb
     opt:
       - paths=source_relative
+      - require_unimplemented_servers=false

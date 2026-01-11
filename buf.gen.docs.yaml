@@ -1,12 +1,12 @@
-version: v1
+version: v2
 plugins:
-  - name: doc
-    path: protoc-gen-doc
+  # 生成 Markdown 文档
+  - local: protoc-gen-doc
     out: docs
     opt:
       - markdown,proto-api.md
-  - name: doc
-    path: protoc-gen-doc
+  # 生成 HTML 文档
+  - local: protoc-gen-doc
     out: docs
     opt:
       - html,proto-api.html
