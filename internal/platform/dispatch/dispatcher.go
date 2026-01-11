@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	functionv1 "github.com/cuihairu/croupier/generated/croupier/function/v1"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	serverv1 "github.com/cuihairu/croupier/generated/croupier/server/v1"
 	edgeapp "github.com/cuihairu/croupier/internal/app/edge"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 	"github.com/cuihairu/croupier/services/edge/internal/config"
 	"github.com/zeromicro/go-zero/core/logx"
 	"google.golang.org/grpc"

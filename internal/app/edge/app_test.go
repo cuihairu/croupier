@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	jobv1 "github.com/cuihairu/croupier/generated/croupier/edge/job/v1"
-	functionv1 "github.com/cuihairu/croupier/generated/croupier/function/v1"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	jobv1 "github.com/cuihairu/croupier/pkg/pb/croupier/edge/job/v1"
+	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

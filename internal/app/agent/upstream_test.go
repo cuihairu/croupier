@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	localv1 "github.com/cuihairu/croupier/generated/croupier/agent/local/v1"
-	serverv1 "github.com/cuihairu/croupier/generated/croupier/server/v1"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
+	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
+	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

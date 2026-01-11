@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	serverv1 "github.com/cuihairu/croupier/generated/croupier/server/v1"
 	"github.com/cuihairu/croupier/internal/platform/control"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/handler"
 	"github.com/cuihairu/croupier/services/server/internal/middleware"

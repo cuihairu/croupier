@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	functionv1 "github.com/cuihairu/croupier/generated/croupier/function/v1"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"

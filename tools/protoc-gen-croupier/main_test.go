@@ -3,8 +3,8 @@ package main
 import (
 	"testing"
 
-	commonv1 "github.com/cuihairu/croupier/generated/croupier/common/v1"
-	optionsv1 "github.com/cuihairu/croupier/generated/croupier/options/v1"
+	commonv1 "github.com/cuihairu/croupier/pkg/pb/croupier/common/v1"
+	optionsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/options/v1"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	descriptorpb "google.golang.org/protobuf/types/descriptorpb"

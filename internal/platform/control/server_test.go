@@ -6,8 +6,8 @@ import (
 	"context"
 	"testing"
 
-	commonv1 "github.com/cuihairu/croupier/generated/croupier/common/v1"
-	"github.com/cuihairu/croupier/generated/croupier/server/v1"
+	commonv1 "github.com/cuihairu/croupier/pkg/pb/croupier/common/v1"
+	"github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"

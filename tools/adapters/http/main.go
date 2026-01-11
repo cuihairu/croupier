@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	localv1 "github.com/cuihairu/croupier/generated/croupier/agent/local/v1"
-	functionv1 "github.com/cuihairu/croupier/generated/croupier/function/v1"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
+	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	"github.com/zeromicro/go-zero/zrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

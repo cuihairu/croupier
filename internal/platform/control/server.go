@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	commonv1 "github.com/cuihairu/croupier/generated/croupier/common/v1"
-	serverv1 "github.com/cuihairu/croupier/generated/croupier/server/v1"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	commonv1 "github.com/cuihairu/croupier/pkg/pb/croupier/common/v1"
+	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 	"github.com/xeipuuv/gojsonschema"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"

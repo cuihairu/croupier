@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"log/slog"
 
-	platformv1 "github.com/cuihairu/croupier/generated/platform/v1"
 	"github.com/cuihairu/croupier/internal/platform/provider"
+	platformv1 "github.com/cuihairu/croupier/pkg/pb/platform/v1"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

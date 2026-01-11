@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	functionv1 "github.com/cuihairu/croupier/generated/croupier/function/v1"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 )
 
 func TestFileJobRoutingStore_PersistsAcrossInstances(t *testing.T) {
