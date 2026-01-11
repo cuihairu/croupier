@@ -12,6 +12,7 @@ import (
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -23,6 +24,7 @@ type UpstreamClient struct {
 	agentID    string
 	store      *agentlocal.LocalStore
 	client     serverv1.ControlServiceClient
+	opsClient  opsv1.OpsServiceClient
 	conn       *grpc.ClientConn
 	updateCh   chan struct{}
 	gameID     string
@@ -123,6 +125,7 @@ func (c *UpstreamClient) Start(ctx context.Context) error {
 	}
 	c.conn = conn
 	c.client = serverv1.NewControlServiceClient(conn)
+	c.opsClient = opsv1.NewOpsServiceClient(conn)
 
 	// Initial sync
 	if err := c.syncWithRetry(ctx, 3); err != nil {
@@ -423,7 +426,7 @@ func (c *UpstreamClient) metricsLoop(ctx context.Context) {
 
 // reportMetrics sends a single metrics report to the upstream server.
 func (c *UpstreamClient) reportMetrics(ctx context.Context) {
-	if c.client == nil {
+	if c.opsClient == nil {
 		return
 	}
 
@@ -435,7 +438,7 @@ func (c *UpstreamClient) reportMetrics(ctx context.Context) {
 
 	report := c.metricsCollector.Collect(ctx)
 
-	if _, err := c.client.ReportMetrics(ctx, report); err != nil {
+	if _, err := c.opsClient.ReportMetrics(ctx, report); err != nil {
 		slog.Debug("failed to report metrics", "error", err)
 	}
 }
@@ -458,7 +461,7 @@ func (c *UpstreamClient) WithMetricsReporting(interval time.Duration) {
 
 // ReportMetricsOnce sends a single metrics report (for manual trigger).
 func (c *UpstreamClient) ReportMetricsOnce(ctx context.Context) error {
-	if c == nil || c.client == nil {
+	if c == nil || c.opsClient == nil {
 		return fmt.Errorf("upstream client not connected")
 	}
 
@@ -469,6 +472,6 @@ func (c *UpstreamClient) ReportMetricsOnce(ctx context.Context) error {
 	})
 
 	report := c.metricsCollector.Collect(ctx)
-	_, err := c.client.ReportMetrics(ctx, report)
+	_, err := c.opsClient.ReportMetrics(ctx, report)
 	return err
 }
