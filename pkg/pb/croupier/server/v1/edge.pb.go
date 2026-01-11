@@ -140,7 +140,7 @@ const file_croupier_server_v1_edge_proto_rawDesc = "" +
 	"\x05error\x18\x03 \x01(\tR\x05error2p\n" +
 	"\vEdgeService\x12a\n" +
 	"\fGetJobResult\x12'.croupier.server.v1.GetJobResultRequest\x1a(.croupier.server.v1.GetJobResultResponseB\xce\x01\n" +
-	"\x16com.croupier.server.v1B\tEdgeProtoP\x01Z?github.com/cuihairu/croupier/pkg/pb/croupier/server/v1;serverv1\xa2\x02\x03CSX\xaa\x02\x12Croupier.Server.V1\xca\x02\x12Croupier\\Server\\V1\xe2\x02\x1eCroupier\\Server\\V1\\GPBMetadata\xea\x02\x14Croupier::Server::V1b\x06proto3"
+	"\x16com.croupier.server.v1B\tEdgeProtoP\x01Z?github.com/cuihairu/croupier/generated/croupier/server/v1;serverv1\xa2\x02\x03CSX\xaa\x02\x12Croupier.Server.V1\xca\x02\x12Croupier\\Server\\V1\xe2\x02\x1eCroupier\\Server\\V1\\GPBMetadata\xea\x02\x14Croupier::Server::V1b\x06proto3"
 
 var (
 	file_croupier_server_v1_edge_proto_rawDescOnce sync.Once

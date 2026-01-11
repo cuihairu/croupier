@@ -320,7 +320,7 @@ const file_croupier_common_v1_ui_proto_rawDesc = "" +
 	"\vI18nZhEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\xcc\x01\n" +
-	"\x16com.croupier.common.v1B\aUiProtoP\x01Z?github.com/cuihairu/croupier/pkg/pb/croupier/common/v1;commonv1\xa2\x02\x03CCX\xaa\x02\x12Croupier.Common.V1\xca\x02\x12Croupier\\Common\\V1\xe2\x02\x1eCroupier\\Common\\V1\\GPBMetadata\xea\x02\x14Croupier::Common::V1b\x06proto3"
+	"\x16com.croupier.common.v1B\aUiProtoP\x01Z?github.com/cuihairu/croupier/generated/croupier/common/v1;commonv1\xa2\x02\x03CCX\xaa\x02\x12Croupier.Common.V1\xca\x02\x12Croupier\\Common\\V1\xe2\x02\x1eCroupier\\Common\\V1\\GPBMetadata\xea\x02\x14Croupier::Common::V1b\x06proto3"
 
 var (
 	file_croupier_common_v1_ui_proto_rawDescOnce sync.Once

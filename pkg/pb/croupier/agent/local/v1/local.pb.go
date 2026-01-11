@@ -676,7 +676,7 @@ const file_croupier_agent_local_v1_local_proto_rawDesc = "" +
 	"\tListLocal\x12).croupier.agent.local.v1.ListLocalRequest\x1a*.croupier.agent.local.v1.ListLocalResponse\x12k\n" +
 	"\fGetJobResult\x12,.croupier.agent.local.v1.GetJobResultRequest\x1a-.croupier.agent.local.v1.GetJobResultResponseB\xed\x01\n" +
 	"\x1bcom.croupier.agent.local.v1B\n" +
-	"LocalProtoP\x01ZCgithub.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1;localv1\xa2\x02\x03CAL\xaa\x02\x17Croupier.Agent.Local.V1\xca\x02\x17Croupier\\Agent\\Local\\V1\xe2\x02#Croupier\\Agent\\Local\\V1\\GPBMetadata\xea\x02\x1aCroupier::Agent::Local::V1b\x06proto3"
+	"LocalProtoP\x01ZCgithub.com/cuihairu/croupier/generated/croupier/agent/local/v1;localv1\xa2\x02\x03CAL\xaa\x02\x17Croupier.Agent.Local.V1\xca\x02\x17Croupier\\Agent\\Local\\V1\xe2\x02#Croupier\\Agent\\Local\\V1\\GPBMetadata\xea\x02\x1aCroupier::Agent::Local::V1b\x06proto3"
 
 var (
 	file_croupier_agent_local_v1_local_proto_rawDescOnce sync.Once

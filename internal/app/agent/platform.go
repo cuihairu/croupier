@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"sync"
 
+	localv1 "github.com/cuihairu/croupier/generated/croupier/agent/local/v1"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/openapi"
 	"github.com/cuihairu/croupier/internal/platform/provider"
-	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
 	"gopkg.in/yaml.v3"
 )
 

@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
+	localv1 "github.com/cuihairu/croupier/generated/croupier/agent/local/v1"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
-	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
 )
 
 func main() {

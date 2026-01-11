@@ -156,7 +156,7 @@ const file_croupier_options_v1_ui_options_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01:T\n" +
 	"\x02ui\x12\x1d.google.protobuf.FieldOptions\x18\xa1\x96\x03 \x01(\v2#.croupier.options.v1.UIFieldOptionsR\x02uiB\xda\x01\n" +
-	"\x17com.croupier.options.v1B\x0eUiOptionsProtoP\x01ZAgithub.com/cuihairu/croupier/pkg/pb/croupier/options/v1;optionsv1\xa2\x02\x03COX\xaa\x02\x13Croupier.Options.V1\xca\x02\x13Croupier\\Options\\V1\xe2\x02\x1fCroupier\\Options\\V1\\GPBMetadata\xea\x02\x15Croupier::Options::V1b\x06proto3"
+	"\x17com.croupier.options.v1B\x0eUiOptionsProtoP\x01ZAgithub.com/cuihairu/croupier/generated/croupier/options/v1;optionsv1\xa2\x02\x03COX\xaa\x02\x13Croupier.Options.V1\xca\x02\x13Croupier\\Options\\V1\xe2\x02\x1fCroupier\\Options\\V1\\GPBMetadata\xea\x02\x15Croupier::Options::V1b\x06proto3"
 
 var (
 	file_croupier_options_v1_ui_options_proto_rawDescOnce sync.Once

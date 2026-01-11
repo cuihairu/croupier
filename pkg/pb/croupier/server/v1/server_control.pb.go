@@ -7,7 +7,7 @@
 package serverv1
 
 import (
-	v1 "github.com/cuihairu/croupier/pkg/pb/croupier/common/v1"
+	v1 "github.com/cuihairu/croupier/generated/croupier/common/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -731,7 +731,7 @@ const file_croupier_server_v1_server_control_proto_rawDesc = "" +
 	"\bRegister\x12#.croupier.server.v1.RegisterRequest\x1a$.croupier.server.v1.RegisterResponse\x12X\n" +
 	"\tHeartbeat\x12$.croupier.server.v1.HeartbeatRequest\x1a%.croupier.server.v1.HeartbeatResponse\x12y\n" +
 	"\x14RegisterCapabilities\x12/.croupier.server.v1.RegisterCapabilitiesRequest\x1a0.croupier.server.v1.RegisterCapabilitiesResponseB\xd7\x01\n" +
-	"\x16com.croupier.server.v1B\x12ServerControlProtoP\x01Z?github.com/cuihairu/croupier/pkg/pb/croupier/server/v1;serverv1\xa2\x02\x03CSX\xaa\x02\x12Croupier.Server.V1\xca\x02\x12Croupier\\Server\\V1\xe2\x02\x1eCroupier\\Server\\V1\\GPBMetadata\xea\x02\x14Croupier::Server::V1b\x06proto3"
+	"\x16com.croupier.server.v1B\x12ServerControlProtoP\x01Z?github.com/cuihairu/croupier/generated/croupier/server/v1;serverv1\xa2\x02\x03CSX\xaa\x02\x12Croupier.Server.V1\xca\x02\x12Croupier\\Server\\V1\xe2\x02\x1eCroupier\\Server\\V1\\GPBMetadata\xea\x02\x14Croupier::Server::V1b\x06proto3"
 
 var (
 	file_croupier_server_v1_server_control_proto_rawDescOnce sync.Once

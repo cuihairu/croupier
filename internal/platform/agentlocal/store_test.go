@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
+	localv1 "github.com/cuihairu/croupier/generated/croupier/agent/local/v1"
 )
 
 func TestLocalStore_RegisterAndList(t *testing.T) {

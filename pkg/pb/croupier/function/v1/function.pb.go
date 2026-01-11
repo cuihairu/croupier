@@ -366,7 +366,7 @@ const file_croupier_function_v1_function_proto_rawDesc = "" +
 	"\bStartJob\x12#.croupier.function.v1.InvokeRequest\x1a&.croupier.function.v1.StartJobResponse\x12U\n" +
 	"\tStreamJob\x12&.croupier.function.v1.JobStreamRequest\x1a\x1e.croupier.function.v1.JobEvent0\x01\x12[\n" +
 	"\tCancelJob\x12&.croupier.function.v1.CancelJobRequest\x1a&.croupier.function.v1.StartJobResponseB\xe2\x01\n" +
-	"\x18com.croupier.function.v1B\rFunctionProtoP\x01ZCgithub.com/cuihairu/croupier/pkg/pb/croupier/function/v1;functionv1\xa2\x02\x03CFX\xaa\x02\x14Croupier.Function.V1\xca\x02\x15Croupier\\Function_\\V1\xe2\x02!Croupier\\Function_\\V1\\GPBMetadata\xea\x02\x16Croupier::Function::V1b\x06proto3"
+	"\x18com.croupier.function.v1B\rFunctionProtoP\x01ZCgithub.com/cuihairu/croupier/generated/croupier/function/v1;functionv1\xa2\x02\x03CFX\xaa\x02\x14Croupier.Function.V1\xca\x02\x15Croupier\\Function_\\V1\xe2\x02!Croupier\\Function_\\V1\\GPBMetadata\xea\x02\x16Croupier::Function::V1b\x06proto3"
 
 var (
 	file_croupier_function_v1_function_proto_rawDescOnce sync.Once

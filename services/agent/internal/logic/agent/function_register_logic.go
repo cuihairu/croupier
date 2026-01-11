@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strings"
 
-	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
+	localv1 "github.com/cuihairu/croupier/generated/croupier/agent/local/v1"
 	"github.com/cuihairu/croupier/services/agent/internal/svc"
 	"github.com/cuihairu/croupier/services/agent/internal/types"
 

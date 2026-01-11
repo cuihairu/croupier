@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
+	functionv1 "github.com/cuihairu/croupier/generated/croupier/function/v1"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"

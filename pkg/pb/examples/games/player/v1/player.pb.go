@@ -7,7 +7,7 @@
 package playerv1
 
 import (
-	_ "github.com/cuihairu/croupier/pkg/pb/croupier/options/v1"
+	_ "github.com/cuihairu/croupier/generated/croupier/options/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -135,7 +135,7 @@ const file_examples_games_player_v1_player_proto_rawDesc = "" +
 	"\x03Ban\x12$.examples.games.player.v1.BanRequest\x1a%.examples.games.player.v1.BanResponse\"B\xca\xf3\x18>\n" +
 	"\n" +
 	"player.ban\x12\x051.2.0\x1a\x06player\"\x04high*\x02lb2\x0330s8\x01B\x05agentR\acommandX\x01B\xf5\x01\n" +
-	"\x1ccom.examples.games.player.v1B\vPlayerProtoP\x01ZEgithub.com/cuihairu/croupier/pkg/pb/examples/games/player/v1;playerv1\xa2\x02\x03EGP\xaa\x02\x18Examples.Games.Player.V1\xca\x02\x18Examples\\Games\\Player\\V1\xe2\x02$Examples\\Games\\Player\\V1\\GPBMetadata\xea\x02\x1bExamples::Games::Player::V1b\x06proto3"
+	"\x1ccom.examples.games.player.v1B\vPlayerProtoP\x01ZEgithub.com/cuihairu/croupier/generated/examples/games/player/v1;playerv1\xa2\x02\x03EGP\xaa\x02\x18Examples.Games.Player.V1\xca\x02\x18Examples\\Games\\Player\\V1\xe2\x02$Examples\\Games\\Player\\V1\\GPBMetadata\xea\x02\x1bExamples::Games::Player::V1b\x06proto3"
 
 var (
 	file_examples_games_player_v1_player_proto_rawDescOnce sync.Once

@@ -460,7 +460,7 @@ const file_croupier_sdk_v1_types_proto_rawDesc = "" +
 	"\x11JOB_STATUS_FAILED\x10\x04\x12\x18\n" +
 	"\x14JOB_STATUS_CANCELLED\x10\x05B\xba\x01\n" +
 	"\x13com.croupier.sdk.v1B\n" +
-	"TypesProtoP\x01Z9github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1\xa2\x02\x03CSX\xaa\x02\x0fCroupier.Sdk.V1\xca\x02\x0fCroupier\\Sdk\\V1\xe2\x02\x1bCroupier\\Sdk\\V1\\GPBMetadata\xea\x02\x11Croupier::Sdk::V1b\x06proto3"
+	"TypesProtoP\x01Z9github.com/cuihairu/croupier/generated/croupier/sdk/v1;sdkv1\xa2\x02\x03CSX\xaa\x02\x0fCroupier.Sdk.V1\xca\x02\x0fCroupier\\Sdk\\V1\xe2\x02\x1bCroupier\\Sdk\\V1\\GPBMetadata\xea\x02\x11Croupier::Sdk::V1b\x06proto3"
 
 var (
 	file_croupier_sdk_v1_types_proto_rawDescOnce sync.Once

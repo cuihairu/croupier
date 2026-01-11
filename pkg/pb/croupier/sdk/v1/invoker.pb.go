@@ -365,13 +365,13 @@ const file_croupier_sdk_v1_invoker_proto_rawDesc = "" +
 	"\bprogress\x18\x03 \x01(\x05R\bprogress\x12\x18\n" +
 	"\apayload\x18\x04 \x01(\fR\apayload\")\n" +
 	"\x10CancelJobRequest\x12\x15\n" +
-	"\x06job_id\x18\x01 \x01(\tR\x05jobId2\xcb\x02\n" +
-	"\x0fFunctionService\x12I\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId2\xca\x02\n" +
+	"\x0eInvokerService\x12I\n" +
 	"\x06Invoke\x12\x1e.croupier.sdk.v1.InvokeRequest\x1a\x1f.croupier.sdk.v1.InvokeResponse\x12M\n" +
 	"\bStartJob\x12\x1e.croupier.sdk.v1.InvokeRequest\x1a!.croupier.sdk.v1.StartJobResponse\x12K\n" +
 	"\tStreamJob\x12!.croupier.sdk.v1.JobStreamRequest\x1a\x19.croupier.sdk.v1.JobEvent0\x01\x12Q\n" +
 	"\tCancelJob\x12!.croupier.sdk.v1.CancelJobRequest\x1a!.croupier.sdk.v1.StartJobResponseB\xbc\x01\n" +
-	"\x13com.croupier.sdk.v1B\fInvokerProtoP\x01Z9github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1\xa2\x02\x03CSX\xaa\x02\x0fCroupier.Sdk.V1\xca\x02\x0fCroupier\\Sdk\\V1\xe2\x02\x1bCroupier\\Sdk\\V1\\GPBMetadata\xea\x02\x11Croupier::Sdk::V1b\x06proto3"
+	"\x13com.croupier.sdk.v1B\fInvokerProtoP\x01Z9github.com/cuihairu/croupier/generated/croupier/sdk/v1;sdkv1\xa2\x02\x03CSX\xaa\x02\x0fCroupier.Sdk.V1\xca\x02\x0fCroupier\\Sdk\\V1\xe2\x02\x1bCroupier\\Sdk\\V1\\GPBMetadata\xea\x02\x11Croupier::Sdk::V1b\x06proto3"
 
 var (
 	file_croupier_sdk_v1_invoker_proto_rawDescOnce sync.Once
@@ -397,14 +397,14 @@ var file_croupier_sdk_v1_invoker_proto_goTypes = []any{
 }
 var file_croupier_sdk_v1_invoker_proto_depIdxs = []int32{
 	6, // 0: croupier.sdk.v1.InvokeRequest.metadata:type_name -> croupier.sdk.v1.InvokeRequest.MetadataEntry
-	0, // 1: croupier.sdk.v1.FunctionService.Invoke:input_type -> croupier.sdk.v1.InvokeRequest
-	0, // 2: croupier.sdk.v1.FunctionService.StartJob:input_type -> croupier.sdk.v1.InvokeRequest
-	3, // 3: croupier.sdk.v1.FunctionService.StreamJob:input_type -> croupier.sdk.v1.JobStreamRequest
-	5, // 4: croupier.sdk.v1.FunctionService.CancelJob:input_type -> croupier.sdk.v1.CancelJobRequest
-	1, // 5: croupier.sdk.v1.FunctionService.Invoke:output_type -> croupier.sdk.v1.InvokeResponse
-	2, // 6: croupier.sdk.v1.FunctionService.StartJob:output_type -> croupier.sdk.v1.StartJobResponse
-	4, // 7: croupier.sdk.v1.FunctionService.StreamJob:output_type -> croupier.sdk.v1.JobEvent
-	2, // 8: croupier.sdk.v1.FunctionService.CancelJob:output_type -> croupier.sdk.v1.StartJobResponse
+	0, // 1: croupier.sdk.v1.InvokerService.Invoke:input_type -> croupier.sdk.v1.InvokeRequest
+	0, // 2: croupier.sdk.v1.InvokerService.StartJob:input_type -> croupier.sdk.v1.InvokeRequest
+	3, // 3: croupier.sdk.v1.InvokerService.StreamJob:input_type -> croupier.sdk.v1.JobStreamRequest
+	5, // 4: croupier.sdk.v1.InvokerService.CancelJob:input_type -> croupier.sdk.v1.CancelJobRequest
+	1, // 5: croupier.sdk.v1.InvokerService.Invoke:output_type -> croupier.sdk.v1.InvokeResponse
+	2, // 6: croupier.sdk.v1.InvokerService.StartJob:output_type -> croupier.sdk.v1.StartJobResponse
+	4, // 7: croupier.sdk.v1.InvokerService.StreamJob:output_type -> croupier.sdk.v1.JobEvent
+	2, // 8: croupier.sdk.v1.InvokerService.CancelJob:output_type -> croupier.sdk.v1.StartJobResponse
 	5, // [5:9] is the sub-list for method output_type
 	1, // [1:5] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name

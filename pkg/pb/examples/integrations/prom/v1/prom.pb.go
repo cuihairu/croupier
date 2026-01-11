@@ -7,7 +7,7 @@
 package promv1
 
 import (
-	_ "github.com/cuihairu/croupier/pkg/pb/croupier/options/v1"
+	_ "github.com/cuihairu/croupier/generated/croupier/options/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -267,7 +267,7 @@ const file_examples_integrations_prom_v1_prom_proto_rawDesc = "" +
 	"\n" +
 	"QueryRange\x120.examples.integrations.prom.v1.QueryRangeRequest\x1a1.examples.integrations.prom.v1.QueryRangeResponse\"3\xca\xf3\x18/\n" +
 	"\x10prom.query_range\x12\x051.0.0\x1a\x04prom*\x02lb2\x0330sB\x05agentB\x8f\x02\n" +
-	"!com.examples.integrations.prom.v1B\tPromProtoP\x01ZHgithub.com/cuihairu/croupier/pkg/pb/examples/integrations/prom/v1;promv1\xa2\x02\x03EIP\xaa\x02\x1dExamples.Integrations.Prom.V1\xca\x02\x1dExamples\\Integrations\\Prom\\V1\xe2\x02)Examples\\Integrations\\Prom\\V1\\GPBMetadata\xea\x02 Examples::Integrations::Prom::V1b\x06proto3"
+	"!com.examples.integrations.prom.v1B\tPromProtoP\x01ZHgithub.com/cuihairu/croupier/generated/examples/integrations/prom/v1;promv1\xa2\x02\x03EIP\xaa\x02\x1dExamples.Integrations.Prom.V1\xca\x02\x1dExamples\\Integrations\\Prom\\V1\xe2\x02)Examples\\Integrations\\Prom\\V1\\GPBMetadata\xea\x02 Examples::Integrations::Prom::V1b\x06proto3"
 
 var (
 	file_examples_integrations_prom_v1_prom_proto_rawDescOnce sync.Once

@@ -7,7 +7,7 @@
 package optionsv1
 
 import (
-	v1 "github.com/cuihairu/croupier/pkg/pb/croupier/common/v1"
+	v1 "github.com/cuihairu/croupier/generated/croupier/common/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
@@ -507,7 +507,7 @@ const file_croupier_options_v1_function_options_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01:b\n" +
 	"\bfunction\x12\x1e.google.protobuf.MethodOptions\x18\xb9\x8e\x03 \x01(\v2$.croupier.options.v1.FunctionOptionsR\bfunction:]\n" +
 	"\x06entity\x12\x1f.google.protobuf.MessageOptions\x18\xba\x8e\x03 \x01(\v2\".croupier.options.v1.EntityOptionsR\x06entityB\xe0\x01\n" +
-	"\x17com.croupier.options.v1B\x14FunctionOptionsProtoP\x01ZAgithub.com/cuihairu/croupier/pkg/pb/croupier/options/v1;optionsv1\xa2\x02\x03COX\xaa\x02\x13Croupier.Options.V1\xca\x02\x13Croupier\\Options\\V1\xe2\x02\x1fCroupier\\Options\\V1\\GPBMetadata\xea\x02\x15Croupier::Options::V1b\x06proto3"
+	"\x17com.croupier.options.v1B\x14FunctionOptionsProtoP\x01ZAgithub.com/cuihairu/croupier/generated/croupier/options/v1;optionsv1\xa2\x02\x03COX\xaa\x02\x13Croupier.Options.V1\xca\x02\x13Croupier\\Options\\V1\xe2\x02\x1fCroupier\\Options\\V1\\GPBMetadata\xea\x02\x15Croupier::Options::V1b\x06proto3"
 
 var (
 	file_croupier_options_v1_function_options_proto_rawDescOnce sync.Once

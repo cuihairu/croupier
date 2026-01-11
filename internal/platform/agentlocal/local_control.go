@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
+	localv1 "github.com/cuihairu/croupier/generated/croupier/agent/local/v1"
 )
 
 // Server implements LocalControlService for local game servers to register with Agent.

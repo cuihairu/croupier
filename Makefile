@@ -6,7 +6,7 @@ BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 FULL_VERSION := $(VERSION)$(GIT_DIRTY)
 LDFLAGS := -X main.version=$(FULL_VERSION) -X main.buildTime=$(BUILD_TIME) -X main.gitCommit=$(GIT_COMMIT) -s -w
 
-.PHONY: proto api build server agent edge cli clean dev tidy test lint help all tools schema-validator pack-builder
+.PHONY: proto sync-proto api build server agent edge cli clean dev tidy test lint help all tools schema-validator pack-builder
 .PHONY: test test-coverage test-coverage-html test-race test-integration test-all
 .PHONY: build-sdks build-sdks-cpp build-sdks-go build-sdks-java build-sdks-js build-sdks-python
 .PHONY: build-web build-dashboard build-website dev-dashboard dev-website
@@ -45,6 +45,17 @@ clone-dashboard:
 # Clone all external dependencies
 clone-all: clone-sdks clone-dashboard
 	@echo "[done] all dependencies cloned"
+
+# Sync proto files from croupier-proto
+sync-proto:
+	@echo "[sync] updating proto/ from croupier-proto..."
+	@cd proto && git fetch origin && \
+		if git rev-parse --abbrev-ref HEAD > /dev/null 2>&1; then \
+			git pull origin $$(git rev-parse --abbrev-ref HEAD); \
+		else \
+			git checkout main && git pull origin main; \
+		fi
+	@echo "[sync] proto files updated"
 
 # Ensure local protoc plugin exists before running buf
 proto: croupier-plugin
@@ -245,6 +256,7 @@ help:
 	@echo "Core Targets:"
 	@echo "  all              - Build server, SDKs, and web components"
 	@echo "  build            - Build server components (server, agent, edge)"
+	@echo "  sync-proto       - Sync proto files from croupier-proto"
 	@echo "  proto            - Generate protobuf code"
 	@echo ""
 	@echo "Server Targets:"

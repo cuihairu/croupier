@@ -634,7 +634,7 @@ const file_croupier_sdk_v1_client_proto_rawDesc = "" +
 	"\tHeartbeat\x12!.croupier.sdk.v1.HeartbeatRequest\x1a\".croupier.sdk.v1.HeartbeatResponse\x12X\n" +
 	"\vListClients\x12#.croupier.sdk.v1.ListClientsRequest\x1a$.croupier.sdk.v1.ListClientsResponse\x12[\n" +
 	"\fGetJobResult\x12$.croupier.sdk.v1.GetJobResultRequest\x1a%.croupier.sdk.v1.GetJobResultResponseB\xbb\x01\n" +
-	"\x13com.croupier.sdk.v1B\vClientProtoP\x01Z9github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1\xa2\x02\x03CSX\xaa\x02\x0fCroupier.Sdk.V1\xca\x02\x0fCroupier\\Sdk\\V1\xe2\x02\x1bCroupier\\Sdk\\V1\\GPBMetadata\xea\x02\x11Croupier::Sdk::V1b\x06proto3"
+	"\x13com.croupier.sdk.v1B\vClientProtoP\x01Z9github.com/cuihairu/croupier/generated/croupier/sdk/v1;sdkv1\xa2\x02\x03CSX\xaa\x02\x0fCroupier.Sdk.V1\xca\x02\x0fCroupier\\Sdk\\V1\xe2\x02\x1bCroupier\\Sdk\\V1\\GPBMetadata\xea\x02\x11Croupier::Sdk::V1b\x06proto3"
 
 var (
 	file_croupier_sdk_v1_client_proto_rawDescOnce sync.Once

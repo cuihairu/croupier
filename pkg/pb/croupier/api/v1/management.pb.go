@@ -145,7 +145,7 @@ const file_croupier_api_v1_management_proto_rawDesc = "" +
 	"\x05error\x18\x02 \x01(\tR\x05error2f\n" +
 	"\x11ManagementService\x12Q\n" +
 	"\x06Manage\x12\".croupier.api.v1.ManagementRequest\x1a#.croupier.api.v1.ManagementResponseB\xbf\x01\n" +
-	"\x13com.croupier.api.v1B\x0fManagementProtoP\x01Z9github.com/cuihairu/croupier/pkg/pb/croupier/api/v1;apiv1\xa2\x02\x03CAX\xaa\x02\x0fCroupier.Api.V1\xca\x02\x0fCroupier\\Api\\V1\xe2\x02\x1bCroupier\\Api\\V1\\GPBMetadata\xea\x02\x11Croupier::Api::V1b\x06proto3"
+	"\x13com.croupier.api.v1B\x0fManagementProtoP\x01Z9github.com/cuihairu/croupier/generated/croupier/api/v1;apiv1\xa2\x02\x03CAX\xaa\x02\x0fCroupier.Api.V1\xca\x02\x0fCroupier\\Api\\V1\xe2\x02\x1bCroupier\\Api\\V1\\GPBMetadata\xea\x02\x11Croupier::Api::V1b\x06proto3"
 
 var (
 	file_croupier_api_v1_management_proto_rawDescOnce sync.Once
