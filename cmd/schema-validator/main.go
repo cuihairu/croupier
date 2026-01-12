@@ -278,26 +278,31 @@ func extractTarGz(src, dest string) error {
 		}
 
 		target := filepath.Join(destAbs, hdr.Name)
-		if !strings.HasPrefix(target, destAbs+string(os.PathSeparator)) && target != destAbs {
+		target = filepath.Clean(target)
+		targetAbs, err := filepath.Abs(target)
+		if err != nil {
+			return fmt.Errorf("cannot resolve target path %s: %w", hdr.Name, err)
+		}
+		if !strings.HasPrefix(targetAbs, destAbs+string(os.PathSeparator)) && targetAbs != destAbs {
 			return fmt.Errorf("invalid path in archive: %s", hdr.Name)
 		}
 
 		switch hdr.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(target, os.FileMode(hdr.Mode)); err != nil {
-				return fmt.Errorf("failed to create dir %s: %w", target, err)
+			if err := os.MkdirAll(targetAbs, os.FileMode(hdr.Mode)); err != nil {
+				return fmt.Errorf("failed to create dir %s: %w", targetAbs, err)
 			}
 		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-				return fmt.Errorf("failed to create parent dir for %s: %w", target, err)
+			if err := os.MkdirAll(filepath.Dir(targetAbs), 0o755); err != nil {
+				return fmt.Errorf("failed to create parent dir for %s: %w", targetAbs, err)
 			}
-			out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(hdr.Mode))
+			out, err := os.OpenFile(targetAbs, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(hdr.Mode))
 			if err != nil {
-				return fmt.Errorf("failed to create file %s: %w", target, err)
+				return fmt.Errorf("failed to create file %s: %w", targetAbs, err)
 			}
 			if _, err := io.Copy(out, tr); err != nil {
 				out.Close()
-				return fmt.Errorf("failed to extract %s: %w", target, err)
+				return fmt.Errorf("failed to extract %s: %w", targetAbs, err)
 			}
 			out.Close()
 		case tar.TypeSymlink, tar.TypeLink:
