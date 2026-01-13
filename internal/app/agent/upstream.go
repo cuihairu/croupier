@@ -259,6 +259,7 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 	// Snapshot local store
 	localData := c.store.List()
 	versionSnapshot := c.store.FunctionVersions()
+	metaSnapshot := c.store.FunctionMetadata()
 
 	// Convert to FunctionDescriptors
 	var funcs []*serverv1.FunctionDescriptor
@@ -267,6 +268,11 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 			Id:      fid,
 			Enabled: len(instances) > 0,
 			Version: pickVersion(versionSnapshot[fid]),
+		}
+		// Copy schema fields from metadata if available
+		if meta := metaSnapshot[fid]; meta != nil {
+			desc.InputSchema = meta.InputSchema
+			desc.OutputSchema = meta.OutputSchema
 		}
 		funcs = append(funcs, desc)
 	}

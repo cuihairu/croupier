@@ -16,12 +16,27 @@ type Instance struct {
 	LastSeen  time.Time
 }
 
+// FunctionMeta stores metadata for a function including OpenAPI schema fields.
+type FunctionMeta struct {
+	ID           string
+	Version      string
+	Tags         []string
+	Summary      string
+	Description  string
+	OperationID  string
+	Deprecated   bool
+	InputSchema  string // JSON Schema for request body
+	OutputSchema string // JSON Schema for response body
+}
+
 type LocalStore struct {
 	mu sync.RWMutex
 	// function_id -> instances
 	data map[string][]Instance
 	// function_id -> service_id -> function version
 	funcVersions map[string]map[string]string
+	// function_id -> FunctionMeta (stores the latest metadata for each function)
+	funcMeta map[string]*FunctionMeta
 	// job_id -> job result
 	jobResults map[string]*JobResult
 	// callback for updates
@@ -42,6 +57,7 @@ func NewLocalStore() *LocalStore {
 	return &LocalStore{
 		data:         map[string][]Instance{},
 		funcVersions: map[string]map[string]string{},
+		funcMeta:     map[string]*FunctionMeta{},
 		jobResults:   map[string]*JobResult{},
 	}
 }
@@ -92,6 +108,18 @@ func (s *LocalStore) Register(serviceID, addr, version string, funcs []*localv1.
 				s.funcVersions[fid] = map[string]string{}
 			}
 			s.funcVersions[fid][serviceID] = fn.GetVersion()
+		}
+		// Store function metadata including OpenAPI schema
+		s.funcMeta[fid] = &FunctionMeta{
+			ID:           fid,
+			Version:      fn.GetVersion(),
+			Tags:         fn.GetTags(),
+			Summary:      fn.GetSummary(),
+			Description:  fn.GetDescription(),
+			OperationID:  fn.GetOperationId(),
+			Deprecated:   fn.GetDeprecated(),
+			InputSchema:  fn.GetInputSchema(),
+			OutputSchema: fn.GetOutputSchema(),
 		}
 	}
 	if s.onUpdate != nil {
@@ -166,6 +194,32 @@ func (s *LocalStore) FunctionVersions() map[string]map[string]string {
 		cp := make(map[string]string, len(svcVersions))
 		for sid, ver := range svcVersions {
 			cp[sid] = ver
+		}
+		out[fid] = cp
+	}
+	return out
+}
+
+// FunctionMetadata returns snapshot of function metadata including schema.
+func (s *LocalStore) FunctionMetadata() map[string]*FunctionMeta {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make(map[string]*FunctionMeta, len(s.funcMeta))
+	for fid, meta := range s.funcMeta {
+		if meta == nil {
+			continue
+		}
+		// Copy to avoid data races
+		cp := &FunctionMeta{
+			ID:           meta.ID,
+			Version:      meta.Version,
+			Tags:         append([]string(nil), meta.Tags...),
+			Summary:      meta.Summary,
+			Description:  meta.Description,
+			OperationID:  meta.OperationID,
+			Deprecated:   meta.Deprecated,
+			InputSchema:  meta.InputSchema,
+			OutputSchema: meta.OutputSchema,
 		}
 		out[fid] = cp
 	}
