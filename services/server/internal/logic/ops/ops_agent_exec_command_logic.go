@@ -60,8 +60,8 @@ func (l *OpsAgentExecCommandLogic) OpsAgentExecCommand(req *types.OpsExecCommand
 		Data: types.OpsExecCommandResult{
 			Success:  resp.Success,
 			ExitCode: resp.ExitCode,
-			Stdout:   resp.Stdout,
-			Stderr:   resp.Stderr,
+			Stdout:   resp.StdOut,
+			Stderr:   resp.StdErr,
 		},
 	}, nil
 }

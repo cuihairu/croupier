@@ -406,8 +406,8 @@ func (s *OpsServer) ExecuteCommand(ctx context.Context, req *opsv1.ExecuteComman
 	err := cmd.Run()
 
 	resp := &opsv1.ExecuteCommandResponse{
-		Stdout: strings.TrimSpace(stdout.String()),
-		Stderr: strings.TrimSpace(stderr.String()),
+		StdOut: strings.TrimSpace(stdout.String()),
+		StdErr: strings.TrimSpace(stderr.String()),
 	}
 
 	if err != nil {
