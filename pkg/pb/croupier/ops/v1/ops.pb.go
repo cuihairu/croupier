@@ -1392,9 +1392,9 @@ type ExecuteCommandResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
 	ExitCode      int32                  `protobuf:"varint,2,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
-	Stdout        string                 `protobuf:"bytes,3,opt,name=stdout,proto3" json:"stdout,omitempty"`
-	Stderr        string                 `protobuf:"bytes,4,opt,name=stderr,proto3" json:"stderr,omitempty"`
-	Error         string                 `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"` // Error message if execution failed
+	StdOut        string                 `protobuf:"bytes,3,opt,name=std_out,json=stdOut,proto3" json:"std_out,omitempty"` // Renamed from 'stdout' to avoid Windows CRT macro conflict
+	StdErr        string                 `protobuf:"bytes,4,opt,name=std_err,json=stdErr,proto3" json:"std_err,omitempty"` // Renamed from 'stderr' to avoid Windows CRT macro conflict
+	Error         string                 `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`                 // Error message if execution failed
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1443,16 +1443,16 @@ func (x *ExecuteCommandResponse) GetExitCode() int32 {
 	return 0
 }
 
-func (x *ExecuteCommandResponse) GetStdout() string {
+func (x *ExecuteCommandResponse) GetStdOut() string {
 	if x != nil {
-		return x.Stdout
+		return x.StdOut
 	}
 	return ""
 }
 
-func (x *ExecuteCommandResponse) GetStderr() string {
+func (x *ExecuteCommandResponse) GetStdErr() string {
 	if x != nil {
-		return x.Stderr
+		return x.StdErr
 	}
 	return ""
 }
@@ -1598,12 +1598,12 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\x0ftimeout_seconds\x18\x05 \x01(\x05R\x0etimeoutSeconds\x1a6\n" +
 	"\bEnvEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x95\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x97\x01\n" +
 	"\x16ExecuteCommandResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x1b\n" +
-	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12\x16\n" +
-	"\x06stdout\x18\x03 \x01(\tR\x06stdout\x12\x16\n" +
-	"\x06stderr\x18\x04 \x01(\tR\x06stderr\x12\x14\n" +
+	"\texit_code\x18\x02 \x01(\x05R\bexitCode\x12\x17\n" +
+	"\astd_out\x18\x03 \x01(\tR\x06stdOut\x12\x17\n" +
+	"\astd_err\x18\x04 \x01(\tR\x06stdErr\x12\x14\n" +
 	"\x05error\x18\x05 \x01(\tR\x05error*\xb5\x01\n" +
 	"\fProcessState\x12\x1d\n" +
 	"\x19PROCESS_STATE_UNSPECIFIED\x10\x00\x12\x19\n" +
