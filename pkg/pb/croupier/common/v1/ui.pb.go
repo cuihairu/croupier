@@ -293,6 +293,285 @@ func (x *PermissionSpec) GetI18NZh() map[string]string {
 	return nil
 }
 
+// XRender widget configuration for a field.
+type XRenderWidget struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Widget        string                 `protobuf:"bytes,1,opt,name=widget,proto3" json:"widget,omitempty"`                                                                         // Widget type: input/textarea/number/select/checkbox/radio/switch/date/time/json-editor/file
+	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`                                                                           // Display label (supports i18n key)
+	Placeholder   string                 `protobuf:"bytes,3,opt,name=placeholder,proto3" json:"placeholder,omitempty"`                                                               // Placeholder text
+	Disabled      bool                   `protobuf:"varint,4,opt,name=disabled,proto3" json:"disabled,omitempty"`                                                                    // Whether the field is disabled
+	ReadOnly      bool                   `protobuf:"varint,5,opt,name=read_only,json=readOnly,proto3" json:"read_only,omitempty"`                                                    // Whether the field is read-only
+	Hidden        bool                   `protobuf:"varint,6,opt,name=hidden,proto3" json:"hidden,omitempty"`                                                                        // Whether the field is hidden
+	Span          int32                  `protobuf:"varint,7,opt,name=span,proto3" json:"span,omitempty"`                                                                            // Grid span (1-24)
+	Props         map[string]string      `protobuf:"bytes,8,rep,name=props,proto3" json:"props,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Additional widget properties
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *XRenderWidget) Reset() {
+	*x = XRenderWidget{}
+	mi := &file_croupier_common_v1_ui_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *XRenderWidget) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*XRenderWidget) ProtoMessage() {}
+
+func (x *XRenderWidget) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_common_v1_ui_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use XRenderWidget.ProtoReflect.Descriptor instead.
+func (*XRenderWidget) Descriptor() ([]byte, []int) {
+	return file_croupier_common_v1_ui_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *XRenderWidget) GetWidget() string {
+	if x != nil {
+		return x.Widget
+	}
+	return ""
+}
+
+func (x *XRenderWidget) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *XRenderWidget) GetPlaceholder() string {
+	if x != nil {
+		return x.Placeholder
+	}
+	return ""
+}
+
+func (x *XRenderWidget) GetDisabled() bool {
+	if x != nil {
+		return x.Disabled
+	}
+	return false
+}
+
+func (x *XRenderWidget) GetReadOnly() bool {
+	if x != nil {
+		return x.ReadOnly
+	}
+	return false
+}
+
+func (x *XRenderWidget) GetHidden() bool {
+	if x != nil {
+		return x.Hidden
+	}
+	return false
+}
+
+func (x *XRenderWidget) GetSpan() int32 {
+	if x != nil {
+		return x.Span
+	}
+	return 0
+}
+
+func (x *XRenderWidget) GetProps() map[string]string {
+	if x != nil {
+		return x.Props
+	}
+	return nil
+}
+
+// XRender form configuration.
+type XRenderFormConfig struct {
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	LayoutType    string                    `protobuf:"bytes,1,opt,name=layout_type,json=layoutType,proto3" json:"layout_type,omitempty"`                                                   // Layout: default/inline/flex
+	Column        int32                     `protobuf:"varint,2,opt,name=column,proto3" json:"column,omitempty"`                                                                            // Column count for grid layout
+	LabelAlign    string                    `protobuf:"bytes,3,opt,name=label_align,json=labelAlign,proto3" json:"label_align,omitempty"`                                                   // Label alignment: left/right/top
+	LabelWidth    int32                     `protobuf:"varint,4,opt,name=label_width,json=labelWidth,proto3" json:"label_width,omitempty"`                                                  // Label width in pixels
+	Colon         bool                      `protobuf:"varint,5,opt,name=colon,proto3" json:"colon,omitempty"`                                                                              // Show colon after label
+	Widgets       map[string]*XRenderWidget `protobuf:"bytes,6,rep,name=widgets,proto3" json:"widgets,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // Field-specific widget configs (key: field path)
+	DisplayOrder  []string                  `protobuf:"bytes,7,rep,name=display_order,json=displayOrder,proto3" json:"display_order,omitempty"`                                             // Field display order
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *XRenderFormConfig) Reset() {
+	*x = XRenderFormConfig{}
+	mi := &file_croupier_common_v1_ui_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *XRenderFormConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*XRenderFormConfig) ProtoMessage() {}
+
+func (x *XRenderFormConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_common_v1_ui_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use XRenderFormConfig.ProtoReflect.Descriptor instead.
+func (*XRenderFormConfig) Descriptor() ([]byte, []int) {
+	return file_croupier_common_v1_ui_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *XRenderFormConfig) GetLayoutType() string {
+	if x != nil {
+		return x.LayoutType
+	}
+	return ""
+}
+
+func (x *XRenderFormConfig) GetColumn() int32 {
+	if x != nil {
+		return x.Column
+	}
+	return 0
+}
+
+func (x *XRenderFormConfig) GetLabelAlign() string {
+	if x != nil {
+		return x.LabelAlign
+	}
+	return ""
+}
+
+func (x *XRenderFormConfig) GetLabelWidth() int32 {
+	if x != nil {
+		return x.LabelWidth
+	}
+	return 0
+}
+
+func (x *XRenderFormConfig) GetColon() bool {
+	if x != nil {
+		return x.Colon
+	}
+	return false
+}
+
+func (x *XRenderFormConfig) GetWidgets() map[string]*XRenderWidget {
+	if x != nil {
+		return x.Widgets
+	}
+	return nil
+}
+
+func (x *XRenderFormConfig) GetDisplayOrder() []string {
+	if x != nil {
+		return x.DisplayOrder
+	}
+	return nil
+}
+
+// Route-specific display configuration for functions.
+type RouteDisplayConfig struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	RoutePattern     string                 `protobuf:"bytes,1,opt,name=route_pattern,json=routePattern,proto3" json:"route_pattern,omitempty"`               // Route pattern (e.g., "/functions/*", "/quick-actions")
+	FormConfig       *XRenderFormConfig     `protobuf:"bytes,2,opt,name=form_config,json=formConfig,proto3" json:"form_config,omitempty"`                     // Form configuration for this route
+	HiddenFields     []string               `protobuf:"bytes,3,rep,name=hidden_fields,json=hiddenFields,proto3" json:"hidden_fields,omitempty"`               // Fields to hide in this route
+	RequiredFields   []string               `protobuf:"bytes,4,rep,name=required_fields,json=requiredFields,proto3" json:"required_fields,omitempty"`         // Fields required in this route
+	SubmitButtonText string                 `protobuf:"bytes,5,opt,name=submit_button_text,json=submitButtonText,proto3" json:"submit_button_text,omitempty"` // Custom submit button text
+	CompactMode      bool                   `protobuf:"varint,6,opt,name=compact_mode,json=compactMode,proto3" json:"compact_mode,omitempty"`                 // Use compact display mode
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *RouteDisplayConfig) Reset() {
+	*x = RouteDisplayConfig{}
+	mi := &file_croupier_common_v1_ui_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RouteDisplayConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RouteDisplayConfig) ProtoMessage() {}
+
+func (x *RouteDisplayConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_common_v1_ui_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RouteDisplayConfig.ProtoReflect.Descriptor instead.
+func (*RouteDisplayConfig) Descriptor() ([]byte, []int) {
+	return file_croupier_common_v1_ui_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *RouteDisplayConfig) GetRoutePattern() string {
+	if x != nil {
+		return x.RoutePattern
+	}
+	return ""
+}
+
+func (x *RouteDisplayConfig) GetFormConfig() *XRenderFormConfig {
+	if x != nil {
+		return x.FormConfig
+	}
+	return nil
+}
+
+func (x *RouteDisplayConfig) GetHiddenFields() []string {
+	if x != nil {
+		return x.HiddenFields
+	}
+	return nil
+}
+
+func (x *RouteDisplayConfig) GetRequiredFields() []string {
+	if x != nil {
+		return x.RequiredFields
+	}
+	return nil
+}
+
+func (x *RouteDisplayConfig) GetSubmitButtonText() string {
+	if x != nil {
+		return x.SubmitButtonText
+	}
+	return ""
+}
+
+func (x *RouteDisplayConfig) GetCompactMode() bool {
+	if x != nil {
+		return x.CompactMode
+	}
+	return false
+}
+
 var File_croupier_common_v1_ui_proto protoreflect.FileDescriptor
 
 const file_croupier_common_v1_ui_proto_rawDesc = "" +
@@ -319,7 +598,42 @@ const file_croupier_common_v1_ui_proto_rawDesc = "" +
 	"\ai18n_zh\x18\x04 \x03(\v2..croupier.common.v1.PermissionSpec.I18nZhEntryR\x06i18nZh\x1a9\n" +
 	"\vI18nZhEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01Bj\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc2\x02\n" +
+	"\rXRenderWidget\x12\x16\n" +
+	"\x06widget\x18\x01 \x01(\tR\x06widget\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\x12 \n" +
+	"\vplaceholder\x18\x03 \x01(\tR\vplaceholder\x12\x1a\n" +
+	"\bdisabled\x18\x04 \x01(\bR\bdisabled\x12\x1b\n" +
+	"\tread_only\x18\x05 \x01(\bR\breadOnly\x12\x16\n" +
+	"\x06hidden\x18\x06 \x01(\bR\x06hidden\x12\x12\n" +
+	"\x04span\x18\a \x01(\x05R\x04span\x12B\n" +
+	"\x05props\x18\b \x03(\v2,.croupier.common.v1.XRenderWidget.PropsEntryR\x05props\x1a8\n" +
+	"\n" +
+	"PropsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xf6\x02\n" +
+	"\x11XRenderFormConfig\x12\x1f\n" +
+	"\vlayout_type\x18\x01 \x01(\tR\n" +
+	"layoutType\x12\x16\n" +
+	"\x06column\x18\x02 \x01(\x05R\x06column\x12\x1f\n" +
+	"\vlabel_align\x18\x03 \x01(\tR\n" +
+	"labelAlign\x12\x1f\n" +
+	"\vlabel_width\x18\x04 \x01(\x05R\n" +
+	"labelWidth\x12\x14\n" +
+	"\x05colon\x18\x05 \x01(\bR\x05colon\x12L\n" +
+	"\awidgets\x18\x06 \x03(\v22.croupier.common.v1.XRenderFormConfig.WidgetsEntryR\awidgets\x12#\n" +
+	"\rdisplay_order\x18\a \x03(\tR\fdisplayOrder\x1a]\n" +
+	"\fWidgetsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x127\n" +
+	"\x05value\x18\x02 \x01(\v2!.croupier.common.v1.XRenderWidgetR\x05value:\x028\x01\"\xa0\x02\n" +
+	"\x12RouteDisplayConfig\x12#\n" +
+	"\rroute_pattern\x18\x01 \x01(\tR\froutePattern\x12F\n" +
+	"\vform_config\x18\x02 \x01(\v2%.croupier.common.v1.XRenderFormConfigR\n" +
+	"formConfig\x12#\n" +
+	"\rhidden_fields\x18\x03 \x03(\tR\fhiddenFields\x12'\n" +
+	"\x0frequired_fields\x18\x04 \x03(\tR\x0erequiredFields\x12,\n" +
+	"\x12submit_button_text\x18\x05 \x01(\tR\x10submitButtonText\x12!\n" +
+	"\fcompact_mode\x18\x06 \x01(\bR\vcompactModeBj\n" +
 	"%io.github.cuihairu.croupier.common.v1P\x01Z?github.com/cuihairu/croupier/pkg/pb/croupier/common/v1;commonv1b\x06proto3"
 
 var (
@@ -334,22 +648,31 @@ func file_croupier_common_v1_ui_proto_rawDescGZIP() []byte {
 	return file_croupier_common_v1_ui_proto_rawDescData
 }
 
-var file_croupier_common_v1_ui_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_croupier_common_v1_ui_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_croupier_common_v1_ui_proto_goTypes = []any{
-	(*I18NText)(nil),       // 0: croupier.common.v1.I18nText
-	(*Menu)(nil),           // 1: croupier.common.v1.Menu
-	(*RoleBinding)(nil),    // 2: croupier.common.v1.RoleBinding
-	(*PermissionSpec)(nil), // 3: croupier.common.v1.PermissionSpec
-	nil,                    // 4: croupier.common.v1.PermissionSpec.I18nZhEntry
+	(*I18NText)(nil),           // 0: croupier.common.v1.I18nText
+	(*Menu)(nil),               // 1: croupier.common.v1.Menu
+	(*RoleBinding)(nil),        // 2: croupier.common.v1.RoleBinding
+	(*PermissionSpec)(nil),     // 3: croupier.common.v1.PermissionSpec
+	(*XRenderWidget)(nil),      // 4: croupier.common.v1.XRenderWidget
+	(*XRenderFormConfig)(nil),  // 5: croupier.common.v1.XRenderFormConfig
+	(*RouteDisplayConfig)(nil), // 6: croupier.common.v1.RouteDisplayConfig
+	nil,                        // 7: croupier.common.v1.PermissionSpec.I18nZhEntry
+	nil,                        // 8: croupier.common.v1.XRenderWidget.PropsEntry
+	nil,                        // 9: croupier.common.v1.XRenderFormConfig.WidgetsEntry
 }
 var file_croupier_common_v1_ui_proto_depIdxs = []int32{
 	2, // 0: croupier.common.v1.PermissionSpec.defaults:type_name -> croupier.common.v1.RoleBinding
-	4, // 1: croupier.common.v1.PermissionSpec.i18n_zh:type_name -> croupier.common.v1.PermissionSpec.I18nZhEntry
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	7, // 1: croupier.common.v1.PermissionSpec.i18n_zh:type_name -> croupier.common.v1.PermissionSpec.I18nZhEntry
+	8, // 2: croupier.common.v1.XRenderWidget.props:type_name -> croupier.common.v1.XRenderWidget.PropsEntry
+	9, // 3: croupier.common.v1.XRenderFormConfig.widgets:type_name -> croupier.common.v1.XRenderFormConfig.WidgetsEntry
+	5, // 4: croupier.common.v1.RouteDisplayConfig.form_config:type_name -> croupier.common.v1.XRenderFormConfig
+	4, // 5: croupier.common.v1.XRenderFormConfig.WidgetsEntry.value:type_name -> croupier.common.v1.XRenderWidget
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_croupier_common_v1_ui_proto_init() }
@@ -363,7 +686,7 @@ func file_croupier_common_v1_ui_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_common_v1_ui_proto_rawDesc), len(file_croupier_common_v1_ui_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

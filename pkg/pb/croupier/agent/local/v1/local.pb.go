@@ -28,13 +28,19 @@ type LocalFunctionDescriptor struct {
 	Id      string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`           // Unique function identifier
 	Version string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"` // Function version
 	// OpenAPI 3.0.3 Operation Object fields
-	Tags          []string `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`                                  // Tags for grouping operations
-	Summary       string   `protobuf:"bytes,4,opt,name=summary,proto3" json:"summary,omitempty"`                            // Short summary
-	Description   string   `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`                    // Detailed description (supports markdown)
-	OperationId   string   `protobuf:"bytes,6,opt,name=operation_id,json=operationId,proto3" json:"operation_id,omitempty"` // Unique operation ID
-	Deprecated    bool     `protobuf:"varint,7,opt,name=deprecated,proto3" json:"deprecated,omitempty"`                     // Deprecation status
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Tags        []string `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`                                  // Tags for grouping operations
+	Summary     string   `protobuf:"bytes,4,opt,name=summary,proto3" json:"summary,omitempty"`                            // Short summary
+	Description string   `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`                    // Detailed description (supports markdown)
+	OperationId string   `protobuf:"bytes,6,opt,name=operation_id,json=operationId,proto3" json:"operation_id,omitempty"` // Unique operation ID
+	Deprecated  bool     `protobuf:"varint,7,opt,name=deprecated,proto3" json:"deprecated,omitempty"`                     // Deprecation status
+	// OpenAPI 3.0.3 Schema fields (JSON Schema format)
+	InputSchema  string `protobuf:"bytes,8,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`    // JSON Schema for request body (requestBody.content.application/json.schema)
+	OutputSchema string `protobuf:"bytes,9,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"` // JSON Schema for response body (responses.200.content.application/json.schema)
+	// x-render extension for UI control
+	XRenderSchema   string `protobuf:"bytes,10,opt,name=x_render_schema,json=xRenderSchema,proto3" json:"x_render_schema,omitempty"`         // XRender form schema (JSON string)
+	XRenderUiSchema string `protobuf:"bytes,11,opt,name=x_render_ui_schema,json=xRenderUiSchema,proto3" json:"x_render_ui_schema,omitempty"` // XRender UI schema for widget configuration (JSON string)
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *LocalFunctionDescriptor) Reset() {
@@ -114,6 +120,34 @@ func (x *LocalFunctionDescriptor) GetDeprecated() bool {
 		return x.Deprecated
 	}
 	return false
+}
+
+func (x *LocalFunctionDescriptor) GetInputSchema() string {
+	if x != nil {
+		return x.InputSchema
+	}
+	return ""
+}
+
+func (x *LocalFunctionDescriptor) GetOutputSchema() string {
+	if x != nil {
+		return x.OutputSchema
+	}
+	return ""
+}
+
+func (x *LocalFunctionDescriptor) GetXRenderSchema() string {
+	if x != nil {
+		return x.XRenderSchema
+	}
+	return ""
+}
+
+func (x *LocalFunctionDescriptor) GetXRenderUiSchema() string {
+	if x != nil {
+		return x.XRenderUiSchema
+	}
+	return ""
 }
 
 type RegisterLocalRequest struct {
@@ -626,7 +660,7 @@ var File_croupier_agent_local_v1_local_proto protoreflect.FileDescriptor
 
 const file_croupier_agent_local_v1_local_proto_rawDesc = "" +
 	"\n" +
-	"#croupier/agent/local/v1/local.proto\x12\x17croupier.agent.local.v1\"\xd6\x01\n" +
+	"#croupier/agent/local/v1/local.proto\x12\x17croupier.agent.local.v1\"\xf3\x02\n" +
 	"\x17LocalFunctionDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x12\n" +
@@ -636,7 +670,12 @@ const file_croupier_agent_local_v1_local_proto_rawDesc = "" +
 	"\foperation_id\x18\x06 \x01(\tR\voperationId\x12\x1e\n" +
 	"\n" +
 	"deprecated\x18\a \x01(\bR\n" +
-	"deprecated\"\xba\x01\n" +
+	"deprecated\x12!\n" +
+	"\finput_schema\x18\b \x01(\tR\vinputSchema\x12#\n" +
+	"\routput_schema\x18\t \x01(\tR\foutputSchema\x12&\n" +
+	"\x0fx_render_schema\x18\n" +
+	" \x01(\tR\rxRenderSchema\x12+\n" +
+	"\x12x_render_ui_schema\x18\v \x01(\tR\x0fxRenderUiSchema\"\xba\x01\n" +
 	"\x14RegisterLocalRequest\x12\x1d\n" +
 	"\n" +
 	"service_id\x18\x01 \x01(\tR\tserviceId\x12\x18\n" +
