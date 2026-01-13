@@ -34,13 +34,10 @@ type LocalFunctionDescriptor struct {
 	OperationId string   `protobuf:"bytes,6,opt,name=operation_id,json=operationId,proto3" json:"operation_id,omitempty"` // Unique operation ID
 	Deprecated  bool     `protobuf:"varint,7,opt,name=deprecated,proto3" json:"deprecated,omitempty"`                     // Deprecation status
 	// OpenAPI 3.0.3 Schema fields (JSON Schema format)
-	InputSchema  string `protobuf:"bytes,8,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`    // JSON Schema for request body (requestBody.content.application/json.schema)
-	OutputSchema string `protobuf:"bytes,9,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"` // JSON Schema for response body (responses.200.content.application/json.schema)
-	// x-render extension for UI control
-	XRenderSchema   string `protobuf:"bytes,10,opt,name=x_render_schema,json=xRenderSchema,proto3" json:"x_render_schema,omitempty"`         // XRender form schema (JSON string)
-	XRenderUiSchema string `protobuf:"bytes,11,opt,name=x_render_ui_schema,json=xRenderUiSchema,proto3" json:"x_render_ui_schema,omitempty"` // XRender UI schema for widget configuration (JSON string)
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	InputSchema   string `protobuf:"bytes,8,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`    // JSON Schema for request body (requestBody.content.application/json.schema)
+	OutputSchema  string `protobuf:"bytes,9,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"` // JSON Schema for response body (responses.200.content.application/json.schema)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *LocalFunctionDescriptor) Reset() {
@@ -132,20 +129,6 @@ func (x *LocalFunctionDescriptor) GetInputSchema() string {
 func (x *LocalFunctionDescriptor) GetOutputSchema() string {
 	if x != nil {
 		return x.OutputSchema
-	}
-	return ""
-}
-
-func (x *LocalFunctionDescriptor) GetXRenderSchema() string {
-	if x != nil {
-		return x.XRenderSchema
-	}
-	return ""
-}
-
-func (x *LocalFunctionDescriptor) GetXRenderUiSchema() string {
-	if x != nil {
-		return x.XRenderUiSchema
 	}
 	return ""
 }
@@ -660,7 +643,7 @@ var File_croupier_agent_local_v1_local_proto protoreflect.FileDescriptor
 
 const file_croupier_agent_local_v1_local_proto_rawDesc = "" +
 	"\n" +
-	"#croupier/agent/local/v1/local.proto\x12\x17croupier.agent.local.v1\"\xf3\x02\n" +
+	"#croupier/agent/local/v1/local.proto\x12\x17croupier.agent.local.v1\"\x9e\x02\n" +
 	"\x17LocalFunctionDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x12\n" +
@@ -672,10 +655,7 @@ const file_croupier_agent_local_v1_local_proto_rawDesc = "" +
 	"deprecated\x18\a \x01(\bR\n" +
 	"deprecated\x12!\n" +
 	"\finput_schema\x18\b \x01(\tR\vinputSchema\x12#\n" +
-	"\routput_schema\x18\t \x01(\tR\foutputSchema\x12&\n" +
-	"\x0fx_render_schema\x18\n" +
-	" \x01(\tR\rxRenderSchema\x12+\n" +
-	"\x12x_render_ui_schema\x18\v \x01(\tR\x0fxRenderUiSchema\"\xba\x01\n" +
+	"\routput_schema\x18\t \x01(\tR\foutputSchema\"\xba\x01\n" +
 	"\x14RegisterLocalRequest\x12\x1d\n" +
 	"\n" +
 	"service_id\x18\x01 \x01(\tR\tserviceId\x12\x18\n" +

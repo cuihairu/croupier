@@ -42,16 +42,10 @@ type FunctionDescriptor struct {
 	Menu        *v1.Menu           `protobuf:"bytes,23,opt,name=menu,proto3" json:"menu,omitempty"`
 	Permissions *v1.PermissionSpec `protobuf:"bytes,24,opt,name=permissions,proto3" json:"permissions,omitempty"`
 	// OpenAPI 3.0.3 Schema fields (JSON Schema format)
-	InputSchema  string `protobuf:"bytes,30,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`    // JSON Schema for request body
-	OutputSchema string `protobuf:"bytes,31,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"` // JSON Schema for response body
-	// x-render extension for UI control
-	XRenderSchema   string `protobuf:"bytes,32,opt,name=x_render_schema,json=xRenderSchema,proto3" json:"x_render_schema,omitempty"`         // XRender form schema (JSON string, for SDK simplicity)
-	XRenderUiSchema string `protobuf:"bytes,33,opt,name=x_render_ui_schema,json=xRenderUiSchema,proto3" json:"x_render_ui_schema,omitempty"` // XRender UI schema for widget configuration (JSON string)
-	// Route-specific display configurations (structured, for Server processing)
-	DefaultFormConfig *v1.XRenderFormConfig    `protobuf:"bytes,34,opt,name=default_form_config,json=defaultFormConfig,proto3" json:"default_form_config,omitempty"` // Default form configuration
-	RouteDisplays     []*v1.RouteDisplayConfig `protobuf:"bytes,35,rep,name=route_displays,json=routeDisplays,proto3" json:"route_displays,omitempty"`               // Route-specific overrides
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	InputSchema   string `protobuf:"bytes,30,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`    // JSON Schema for request body
+	OutputSchema  string `protobuf:"bytes,31,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"` // JSON Schema for response body
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *FunctionDescriptor) Reset() {
@@ -180,34 +174,6 @@ func (x *FunctionDescriptor) GetOutputSchema() string {
 		return x.OutputSchema
 	}
 	return ""
-}
-
-func (x *FunctionDescriptor) GetXRenderSchema() string {
-	if x != nil {
-		return x.XRenderSchema
-	}
-	return ""
-}
-
-func (x *FunctionDescriptor) GetXRenderUiSchema() string {
-	if x != nil {
-		return x.XRenderUiSchema
-	}
-	return ""
-}
-
-func (x *FunctionDescriptor) GetDefaultFormConfig() *v1.XRenderFormConfig {
-	if x != nil {
-		return x.DefaultFormConfig
-	}
-	return nil
-}
-
-func (x *FunctionDescriptor) GetRouteDisplays() []*v1.RouteDisplayConfig {
-	if x != nil {
-		return x.RouteDisplays
-	}
-	return nil
 }
 
 // Process/service instance registered to an agent (e.g. a game server process).
@@ -987,7 +953,7 @@ var File_croupier_server_v1_server_control_proto protoreflect.FileDescriptor
 
 const file_croupier_server_v1_server_control_proto_rawDesc = "" +
 	"\n" +
-	"'croupier/server/v1/server_control.proto\x12\x12croupier.server.v1\x1a\x1bcroupier/common/v1/ui.proto\x1a\x19croupier/ops/v1/ops.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x82\x06\n" +
+	"'croupier/server/v1/server_control.proto\x12\x12croupier.server.v1\x1a\x1bcroupier/common/v1/ui.proto\x1a\x19croupier/ops/v1/ops.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x87\x04\n" +
 	"\x12FunctionDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x1a\n" +
@@ -1002,11 +968,7 @@ const file_croupier_server_v1_server_control_proto_rawDesc = "" +
 	"\x04menu\x18\x17 \x01(\v2\x18.croupier.common.v1.MenuR\x04menu\x12D\n" +
 	"\vpermissions\x18\x18 \x01(\v2\".croupier.common.v1.PermissionSpecR\vpermissions\x12!\n" +
 	"\finput_schema\x18\x1e \x01(\tR\vinputSchema\x12#\n" +
-	"\routput_schema\x18\x1f \x01(\tR\foutputSchema\x12&\n" +
-	"\x0fx_render_schema\x18  \x01(\tR\rxRenderSchema\x12+\n" +
-	"\x12x_render_ui_schema\x18! \x01(\tR\x0fxRenderUiSchema\x12U\n" +
-	"\x13default_form_config\x18\" \x01(\v2%.croupier.common.v1.XRenderFormConfigR\x11defaultFormConfig\x12M\n" +
-	"\x0eroute_displays\x18# \x03(\v2&.croupier.common.v1.RouteDisplayConfigR\rrouteDisplays\"\xa4\x01\n" +
+	"\routput_schema\x18\x1f \x01(\tR\foutputSchema\"\xa4\x01\n" +
 	"\fAgentProcess\x12\x1d\n" +
 	"\n" +
 	"service_id\x18\x01 \x01(\tR\tserviceId\x12\x12\n" +
@@ -1098,48 +1060,44 @@ var file_croupier_server_v1_server_control_proto_goTypes = []any{
 	(*v1.I18NText)(nil),                  // 15: croupier.common.v1.I18nText
 	(*v1.Menu)(nil),                      // 16: croupier.common.v1.Menu
 	(*v1.PermissionSpec)(nil),            // 17: croupier.common.v1.PermissionSpec
-	(*v1.XRenderFormConfig)(nil),         // 18: croupier.common.v1.XRenderFormConfig
-	(*v1.RouteDisplayConfig)(nil),        // 19: croupier.common.v1.RouteDisplayConfig
-	(*timestamppb.Timestamp)(nil),        // 20: google.protobuf.Timestamp
-	(*v11.MetricsReport)(nil),            // 21: croupier.ops.v1.MetricsReport
-	(*emptypb.Empty)(nil),                // 22: google.protobuf.Empty
-	(*v11.SystemInfo)(nil),               // 23: croupier.ops.v1.SystemInfo
-	(*v11.ListProcessesResponse)(nil),    // 24: croupier.ops.v1.ListProcessesResponse
+	(*timestamppb.Timestamp)(nil),        // 18: google.protobuf.Timestamp
+	(*v11.MetricsReport)(nil),            // 19: croupier.ops.v1.MetricsReport
+	(*emptypb.Empty)(nil),                // 20: google.protobuf.Empty
+	(*v11.SystemInfo)(nil),               // 21: croupier.ops.v1.SystemInfo
+	(*v11.ListProcessesResponse)(nil),    // 22: croupier.ops.v1.ListProcessesResponse
 }
 var file_croupier_server_v1_server_control_proto_depIdxs = []int32{
 	15, // 0: croupier.server.v1.FunctionDescriptor.display_name:type_name -> croupier.common.v1.I18nText
 	15, // 1: croupier.server.v1.FunctionDescriptor.summary:type_name -> croupier.common.v1.I18nText
 	16, // 2: croupier.server.v1.FunctionDescriptor.menu:type_name -> croupier.common.v1.Menu
 	17, // 3: croupier.server.v1.FunctionDescriptor.permissions:type_name -> croupier.common.v1.PermissionSpec
-	18, // 4: croupier.server.v1.FunctionDescriptor.default_form_config:type_name -> croupier.common.v1.XRenderFormConfig
-	19, // 5: croupier.server.v1.FunctionDescriptor.route_displays:type_name -> croupier.common.v1.RouteDisplayConfig
-	0,  // 6: croupier.server.v1.RegisterRequest.functions:type_name -> croupier.server.v1.FunctionDescriptor
-	1,  // 7: croupier.server.v1.RegisterRequest.processes:type_name -> croupier.server.v1.AgentProcess
-	6,  // 8: croupier.server.v1.RegisterCapabilitiesRequest.provider:type_name -> croupier.server.v1.ProviderMeta
-	0,  // 9: croupier.server.v1.ListFunctionsSummaryResponse.functions:type_name -> croupier.server.v1.FunctionDescriptor
-	20, // 10: croupier.server.v1.QueryMetricsRequest.since:type_name -> google.protobuf.Timestamp
-	14, // 11: croupier.server.v1.QueryMetricsResponse.entries:type_name -> croupier.server.v1.AgentMetricsEntry
-	20, // 12: croupier.server.v1.AgentMetricsEntry.timestamp:type_name -> google.protobuf.Timestamp
-	21, // 13: croupier.server.v1.AgentMetricsEntry.metrics:type_name -> croupier.ops.v1.MetricsReport
-	22, // 14: croupier.server.v1.ControlService.ListFunctionsSummary:input_type -> google.protobuf.Empty
-	2,  // 15: croupier.server.v1.ControlService.Register:input_type -> croupier.server.v1.RegisterRequest
-	4,  // 16: croupier.server.v1.ControlService.Heartbeat:input_type -> croupier.server.v1.HeartbeatRequest
-	7,  // 17: croupier.server.v1.ControlService.RegisterCapabilities:input_type -> croupier.server.v1.RegisterCapabilitiesRequest
-	10, // 18: croupier.server.v1.ControlService.GetAgentSystemInfo:input_type -> croupier.server.v1.GetAgentSystemInfoRequest
-	11, // 19: croupier.server.v1.ControlService.ListAgentProcesses:input_type -> croupier.server.v1.ListAgentProcessesRequest
-	12, // 20: croupier.server.v1.ControlService.QueryMetrics:input_type -> croupier.server.v1.QueryMetricsRequest
-	9,  // 21: croupier.server.v1.ControlService.ListFunctionsSummary:output_type -> croupier.server.v1.ListFunctionsSummaryResponse
-	3,  // 22: croupier.server.v1.ControlService.Register:output_type -> croupier.server.v1.RegisterResponse
-	5,  // 23: croupier.server.v1.ControlService.Heartbeat:output_type -> croupier.server.v1.HeartbeatResponse
-	8,  // 24: croupier.server.v1.ControlService.RegisterCapabilities:output_type -> croupier.server.v1.RegisterCapabilitiesResponse
-	23, // 25: croupier.server.v1.ControlService.GetAgentSystemInfo:output_type -> croupier.ops.v1.SystemInfo
-	24, // 26: croupier.server.v1.ControlService.ListAgentProcesses:output_type -> croupier.ops.v1.ListProcessesResponse
-	13, // 27: croupier.server.v1.ControlService.QueryMetrics:output_type -> croupier.server.v1.QueryMetricsResponse
-	21, // [21:28] is the sub-list for method output_type
-	14, // [14:21] is the sub-list for method input_type
-	14, // [14:14] is the sub-list for extension type_name
-	14, // [14:14] is the sub-list for extension extendee
-	0,  // [0:14] is the sub-list for field type_name
+	0,  // 4: croupier.server.v1.RegisterRequest.functions:type_name -> croupier.server.v1.FunctionDescriptor
+	1,  // 5: croupier.server.v1.RegisterRequest.processes:type_name -> croupier.server.v1.AgentProcess
+	6,  // 6: croupier.server.v1.RegisterCapabilitiesRequest.provider:type_name -> croupier.server.v1.ProviderMeta
+	0,  // 7: croupier.server.v1.ListFunctionsSummaryResponse.functions:type_name -> croupier.server.v1.FunctionDescriptor
+	18, // 8: croupier.server.v1.QueryMetricsRequest.since:type_name -> google.protobuf.Timestamp
+	14, // 9: croupier.server.v1.QueryMetricsResponse.entries:type_name -> croupier.server.v1.AgentMetricsEntry
+	18, // 10: croupier.server.v1.AgentMetricsEntry.timestamp:type_name -> google.protobuf.Timestamp
+	19, // 11: croupier.server.v1.AgentMetricsEntry.metrics:type_name -> croupier.ops.v1.MetricsReport
+	20, // 12: croupier.server.v1.ControlService.ListFunctionsSummary:input_type -> google.protobuf.Empty
+	2,  // 13: croupier.server.v1.ControlService.Register:input_type -> croupier.server.v1.RegisterRequest
+	4,  // 14: croupier.server.v1.ControlService.Heartbeat:input_type -> croupier.server.v1.HeartbeatRequest
+	7,  // 15: croupier.server.v1.ControlService.RegisterCapabilities:input_type -> croupier.server.v1.RegisterCapabilitiesRequest
+	10, // 16: croupier.server.v1.ControlService.GetAgentSystemInfo:input_type -> croupier.server.v1.GetAgentSystemInfoRequest
+	11, // 17: croupier.server.v1.ControlService.ListAgentProcesses:input_type -> croupier.server.v1.ListAgentProcessesRequest
+	12, // 18: croupier.server.v1.ControlService.QueryMetrics:input_type -> croupier.server.v1.QueryMetricsRequest
+	9,  // 19: croupier.server.v1.ControlService.ListFunctionsSummary:output_type -> croupier.server.v1.ListFunctionsSummaryResponse
+	3,  // 20: croupier.server.v1.ControlService.Register:output_type -> croupier.server.v1.RegisterResponse
+	5,  // 21: croupier.server.v1.ControlService.Heartbeat:output_type -> croupier.server.v1.HeartbeatResponse
+	8,  // 22: croupier.server.v1.ControlService.RegisterCapabilities:output_type -> croupier.server.v1.RegisterCapabilitiesResponse
+	21, // 23: croupier.server.v1.ControlService.GetAgentSystemInfo:output_type -> croupier.ops.v1.SystemInfo
+	22, // 24: croupier.server.v1.ControlService.ListAgentProcesses:output_type -> croupier.ops.v1.ListProcessesResponse
+	13, // 25: croupier.server.v1.ControlService.QueryMetrics:output_type -> croupier.server.v1.QueryMetricsResponse
+	19, // [19:26] is the sub-list for method output_type
+	12, // [12:19] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_croupier_server_v1_server_control_proto_init() }
