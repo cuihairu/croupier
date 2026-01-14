@@ -66,8 +66,10 @@ func PacksPluginHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
-		sep := string(os.PathSeparator)
-		if fullAbs != packRootAbs && !strings.HasPrefix(fullAbs, packRootAbs+sep) {
+		packRootNorm := filepath.ToSlash(packRootAbs)
+		fullNorm := filepath.ToSlash(fullAbs)
+		sep := "/"
+		if fullNorm != packRootNorm && !strings.HasPrefix(fullNorm, packRootNorm+sep) {
 			httpx.ErrorCtx(r.Context(), w, fmt.Errorf("invalid plugin path"))
 			return
 		}
