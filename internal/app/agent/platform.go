@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
@@ -182,10 +183,12 @@ func (m *PlatformManager) Call(ctx context.Context, functionID string, request [
 	defer m.mu.RUnlock()
 
 	// Parse functionID: "platform_name.method_name"
-	var platformName, methodName string
-	if n, err := fmt.Sscanf(functionID, "%[^.].%s", &platformName, &methodName); n != 2 || err != nil {
+	idx := strings.Index(functionID, ".")
+	if idx <= 0 || idx >= len(functionID)-1 {
 		return nil, fmt.Errorf("invalid platform function ID: %s", functionID)
 	}
+	platformName := functionID[:idx]
+	methodName := functionID[idx+1:]
 
 	p, exists := m.providers[platformName]
 	if !exists {
@@ -200,10 +203,12 @@ func (m *PlatformManager) IsPlatformFunction(functionID string) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	var platformName, methodName string
-	if _, err := fmt.Sscanf(functionID, "%[^.].%s", &platformName, &methodName); err != nil {
+	// Parse functionID: "platform_name.method_name"
+	idx := strings.Index(functionID, ".")
+	if idx <= 0 || idx >= len(functionID)-1 {
 		return false
 	}
+	platformName := functionID[:idx]
 
 	_, exists := m.providers[platformName]
 	return exists
