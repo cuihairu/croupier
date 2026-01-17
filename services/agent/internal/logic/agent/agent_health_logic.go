@@ -8,12 +8,24 @@ import (
 	"errors"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/services/agent/internal/svc"
 	"github.com/cuihairu/croupier/services/agent/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
+
+// cpuUsageTracker tracks CPU usage over time
+var cpuUsageTracker = &cpuTracker{}
+
+type cpuTracker struct {
+	lastTotal     uint64
+	lastIdle      uint64
+	lastCPUTime   time.Time
+	lastCPUUsage  float64
+	lastGCPauseNs uint64
+}
 
 type AgentHealthLogic struct {
 	logx.Logger
@@ -49,8 +61,13 @@ func (l *AgentHealthLogic) AgentHealth(req *types.AgentHealthRequest) (*types.Ag
 	}
 
 	functionCount := int64(0)
-	if l.svcCtx.Core != nil && l.svcCtx.Core.Store() != nil {
-		functionCount = int64(len(l.svcCtx.Core.Store().List()))
+	activeJobs := int64(0)
+	if l.svcCtx.Core != nil {
+		if l.svcCtx.Core.Store() != nil {
+			functionCount = int64(len(l.svcCtx.Core.Store().List()))
+		}
+		// Get active job count from the core
+		activeJobs = int64(l.svcCtx.Core.ActiveJobCount())
 	}
 
 	status := "running"
@@ -58,12 +75,65 @@ func (l *AgentHealthLogic) AgentHealth(req *types.AgentHealthRequest) (*types.Ag
 		status = "stopped"
 	}
 
+	// Calculate CPU usage based on Go runtime metrics
+	cpuUsage := calculateCPUUsage(&mem)
+
 	return &types.AgentHealthResponse{
 		Status:    status,
 		Uptime:    uptime,
-		Jobs:      0,
+		Jobs:      activeJobs,
 		Functions: functionCount,
 		Memory:    int64(mem.Alloc),
-		Cpu:       0,
+		Cpu:       cpuUsage,
 	}, nil
+}
+
+// calculateCPUUsage estimates CPU usage based on Go runtime metrics.
+// This uses GC pause time and goroutine scheduling as proxies for CPU activity.
+func calculateCPUUsage(mem *runtime.MemStats) float64 {
+	now := time.Now()
+
+	// Calculate time since last measurement
+	elapsed := now.Sub(cpuUsageTracker.lastCPUTime)
+	if elapsed < 100*time.Millisecond {
+		// Return cached value if called too frequently
+		return cpuUsageTracker.lastCPUUsage
+	}
+
+	// Use GC pause time as a proxy for CPU activity
+	// This is an approximation - real CPU usage would require platform-specific code
+	var cpuUsage float64
+
+	if cpuUsageTracker.lastGCPauseNs > 0 && mem.PauseTotalNs > cpuUsageTracker.lastGCPauseNs {
+		// Calculate GC CPU time percentage
+		gcTime := float64(mem.PauseTotalNs - cpuUsageTracker.lastGCPauseNs)
+		elapsedNs := float64(elapsed.Nanoseconds())
+		if elapsedNs > 0 {
+			// GC time as percentage, scaled by number of CPUs
+			cpuUsage = (gcTime / elapsedNs) * 100 * float64(runtime.NumCPU())
+		}
+	}
+
+	// Add a base load estimation based on goroutine count
+	numGoroutines := runtime.NumGoroutine()
+	numCPU := runtime.NumCPU()
+	if numGoroutines > numCPU {
+		// Estimate some base CPU usage when goroutines exceed CPUs
+		cpuUsage += float64(numGoroutines-numCPU) * 0.5
+	}
+
+	// Clamp to reasonable range
+	if cpuUsage > 100 {
+		cpuUsage = 100
+	}
+	if cpuUsage < 0 {
+		cpuUsage = 0
+	}
+
+	// Update tracker
+	cpuUsageTracker.lastCPUTime = now
+	cpuUsageTracker.lastGCPauseNs = mem.PauseTotalNs
+	cpuUsageTracker.lastCPUUsage = cpuUsage
+
+	return cpuUsage
 }

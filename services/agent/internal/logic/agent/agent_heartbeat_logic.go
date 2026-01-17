@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/services/agent/internal/svc"
 	"github.com/cuihairu/croupier/services/agent/internal/types"
@@ -47,6 +48,9 @@ func (l *AgentHeartbeatLogic) AgentHeartbeat(req *types.AgentHeartbeatRequest) (
 			l.Errorf("upstream heartbeat skipped/failed: %v", err)
 		}
 	}
+
+	// Update last heartbeat timestamp
+	l.svcCtx.SetLastHeartbeat(time.Now())
 
 	next := l.svcCtx.Config.Upstream.HeartbeatInterval
 	if next <= 0 {

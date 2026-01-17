@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/services/agent/internal/svc"
 	"github.com/cuihairu/croupier/services/agent/internal/types"
@@ -41,12 +42,30 @@ func (l *AgentMetricsLogic) AgentMetrics(req *types.AgentMetricsRequest) (*types
 
 	functionCount := 0
 	instanceCount := 0
-	if l.svcCtx.Core != nil && l.svcCtx.Core.Store() != nil {
-		snap := l.svcCtx.Core.Store().List()
-		functionCount = len(snap)
-		for _, arr := range snap {
-			instanceCount += len(arr)
+	activeJobs := 0
+	if l.svcCtx.Core != nil {
+		if l.svcCtx.Core.Store() != nil {
+			snap := l.svcCtx.Core.Store().List()
+			functionCount = len(snap)
+			for _, arr := range snap {
+				instanceCount += len(arr)
+			}
 		}
+		activeJobs = l.svcCtx.Core.ActiveJobCount()
+	}
+
+	// Get timestamps
+	registeredAt := l.svcCtx.GetRegisteredAt()
+	lastHeartbeat := l.svcCtx.GetLastHeartbeat()
+
+	registeredAtStr := ""
+	if !registeredAt.IsZero() {
+		registeredAtStr = registeredAt.UTC().Format(time.RFC3339)
+	}
+
+	lastHeartbeatStr := ""
+	if !lastHeartbeat.IsZero() {
+		lastHeartbeatStr = lastHeartbeat.UTC().Format(time.RFC3339)
 	}
 
 	metrics := map[string]interface{}{
@@ -54,11 +73,12 @@ func (l *AgentMetricsLogic) AgentMetrics(req *types.AgentMetricsRequest) (*types
 		"uptime_sec":     int64(l.svcCtx.Uptime().Seconds()),
 		"functions":      int64(functionCount),
 		"instances":      int64(instanceCount),
+		"active_jobs":    int64(activeJobs),
 		"grpc_addr":      l.svcCtx.LocalGRPCAddr,
 		"upstream_addr":  strings.TrimSpace(l.svcCtx.Config.Server.Addr),
 		"heartbeat_sec":  l.svcCtx.Config.Upstream.HeartbeatInterval,
-		"registered_at":  "",
-		"last_heartbeat": "",
+		"registered_at":  registeredAtStr,
+		"last_heartbeat": lastHeartbeatStr,
 	}
 	if l.svcCtx.Core == nil {
 		metrics["status"] = "stopped"

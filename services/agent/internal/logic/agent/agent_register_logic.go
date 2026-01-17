@@ -69,6 +69,9 @@ func (l *AgentRegisterLogic) AgentRegister(req *types.AgentRegisterRequest) (*ty
 	token := fmt.Sprintf("%s:%d", agentID, time.Now().Unix())
 	l.Infof("注册代理成功: %s (%s/%s)", agentID, req.GameId, req.Env)
 
+	// Set registration timestamp
+	l.svcCtx.SetRegisteredAt(time.Now())
+
 	return &types.AgentRegisterResponse{
 		Success: true,
 		Message: "agent registered",

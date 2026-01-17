@@ -230,4 +230,20 @@ func (a *App) MetricsCollector() *MetricsCollector {
 	return NewMetricsCollector(a.agentID)
 }
 
+// Jobs returns the job index for tracking active jobs.
+func (a *App) Jobs() *jobIndex {
+	if a == nil {
+		return nil
+	}
+	return a.jobs
+}
+
+// ActiveJobCount returns the number of currently active jobs.
+func (a *App) ActiveJobCount() int {
+	if a == nil || a.jobs == nil {
+		return 0
+	}
+	return a.jobs.Len()
+}
+
 // FunctionServer implemented in function_server.go
