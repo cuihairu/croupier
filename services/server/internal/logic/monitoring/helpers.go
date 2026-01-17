@@ -17,7 +17,7 @@ func checkDatabaseHealth(ctx context.Context, svcCtx *svc.ServiceContext) map[st
 		"driver": "",
 	}
 	if svcCtx != nil {
-		status["driver"] = svcCtx.Config.Server.Database.Driver
+		status["driver"] = svcCtx.Config.Database.Driver
 	}
 	if svcCtx == nil || svcCtx.DB == nil {
 		status["error"] = "database not initialized"

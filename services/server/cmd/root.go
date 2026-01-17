@@ -185,7 +185,7 @@ func runServer() error {
 // startGRPCServer 启动 gRPC 服务器
 func startGRPCServer(c *config.Config, ctx *svc.ServiceContext) {
 	// 解析 gRPC 地址
-	addr := c.Server.Addr
+	addr := c.GRPC.Addr
 	if addr == "" {
 		addr = ":18443" // 默认地址
 	}
@@ -197,10 +197,10 @@ func startGRPCServer(c *config.Config, ctx *svc.ServiceContext) {
 	var opts []grpc.ServerOption
 
 	// 配置 TLS
-	if c.Server.Cert != "" && c.Server.Key != "" {
+	if c.GRPC.Cert != "" && c.GRPC.Key != "" {
 		// 使用提供的证书
-		requireClient := strings.TrimSpace(c.Server.CA) != ""
-		creds, err := tlsutil.ServerTLS(c.Server.Cert, c.Server.Key, c.Server.CA, requireClient)
+		requireClient := strings.TrimSpace(c.GRPC.CA) != ""
+		creds, err := tlsutil.ServerTLS(c.GRPC.Cert, c.GRPC.Key, c.GRPC.CA, requireClient)
 		if err != nil {
 			fmt.Printf("Failed to create TLS credentials: %v\n", err)
 			return

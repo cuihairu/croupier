@@ -37,8 +37,8 @@ var healthCmd = &cobra.Command{
 		fmt.Println("✓ 服务上下文初始化成功")
 
 		// 检查数据库连接（如果有配置）
-		if c.Server.Database.DataSource != "" {
-			fmt.Printf("✓ 数据库配置: %s\n", c.Server.Database.Driver)
+		if c.Database.DataSource != "" {
+			fmt.Printf("✓ 数据库配置: %s\n", c.Database.Driver)
 		} else {
 			fmt.Println("⚠ 数据库未配置")
 		}

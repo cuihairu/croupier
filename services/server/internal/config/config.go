@@ -9,7 +9,8 @@ import (
 
 type Config struct {
 	rest.RestConf
-	Server        ServerConfig             `json:"server" yaml:"server"`
+	Database      DatabaseConfig           `json:"database" yaml:"database"`
+	GRPC          GRPCConfig               `json:"grpc" yaml:"grpc"`
 	Registry      RegistryConfig           `json:"registry" yaml:"registry"`
 	Dispatch      DispatchConfig           `json:"dispatch" yaml:"dispatch"`
 	Auth          AuthConfig               `json:"auth" yaml:"auth"`
@@ -26,14 +27,15 @@ type Config struct {
 	Profiles      map[string]ProfileConfig `json:"profiles" yaml:"profiles"`
 }
 
-type ServerConfig struct {
-	Addr     string         `json:"addr" yaml:"addr"`
-	Cert     string         `json:"cert,optional" yaml:"cert,optional"`
-	Key      string         `json:"key,optional" yaml:"key,optional"`
-	CA       string         `json:"ca,optional" yaml:"ca,optional"`
-	Database DatabaseConfig `json:"db" yaml:"db"`
+// GRPCConfig 配置 gRPC 服务器（控制平面）
+type GRPCConfig struct {
+	Addr string `json:"addr" yaml:"addr"`
+	Cert string `json:"cert,optional" yaml:"cert,optional"`
+	Key  string `json:"key,optional" yaml:"key,optional"`
+	CA   string `json:"ca,optional" yaml:"ca,optional"`
 }
 
+// DatabaseConfig 配置数据库连接
 type DatabaseConfig struct {
 	Driver     string `json:"driver,optional" yaml:"driver,optional"`
 	DataSource string `json:"datasource,optional" yaml:"datasource,optional"`

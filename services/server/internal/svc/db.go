@@ -15,8 +15,8 @@ import (
 )
 
 func openDatabase(cfg config.Config) (*gorm.DB, error) {
-	driver := strings.ToLower(strings.TrimSpace(cfg.Server.Database.Driver))
-	dsn := strings.TrimSpace(cfg.Server.Database.DataSource)
+	driver := strings.ToLower(strings.TrimSpace(cfg.Database.Driver))
+	dsn := strings.TrimSpace(cfg.Database.DataSource)
 
 	// Allow env to override config for dev/CI.
 	// See docs: DB_DRIVER, DATABASE_URL.

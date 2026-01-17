@@ -26,7 +26,7 @@ var validateCmd = &cobra.Command{
 		fmt.Printf("✓ 配置文件验证通过: %s\n", cfgFile)
 		fmt.Printf("  - 服务地址: %s:%d\n", c.RestConf.Host, c.RestConf.Port)
 		fmt.Printf("  - 运行模式: %s\n", c.RestConf.Mode)
-		fmt.Printf("  - 数据库: %s\n", c.Server.Database.Driver)
+		fmt.Printf("  - 数据库: %s\n", c.Database.Driver)
 		fmt.Printf("  - JWT密钥: %s\n", maskIfSet(c.Auth.JWTSecret))
 
 		return nil

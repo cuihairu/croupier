@@ -3,15 +3,17 @@ Name: croupier-api
 Host: 0.0.0.0
 Port: 18780
 
-# Server configuration
-Server:
+# Database configuration
+Database:
+  Driver: sqlite
+  DataSource: data/croupier.db
+
+# gRPC server configuration (control plane)
+GRPC:
   Addr: ":18443"          # gRPC (mTLS)
   Cert: ""                # TLS cert (empty to auto-generate)
   Key: ""                 # TLS key (empty to auto-generate)
   CA: ""                  # TLS CA (empty to auto-generate)
-  db:
-    datasource: "data/croupier.db"
-    driver: "sqlite"
 
 # Registry configuration
 Registry:

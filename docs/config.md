@@ -20,7 +20,7 @@ Best practice in this repo:
   - reference them from YAML using `${VAR}` (env expansion is enabled for `services/server`).
 
 Notes for `services/server`:
-- DB config keys are `Server.db.driver` and `Server.db.datasource` in YAML (not `Server.Database.*`).
+- DB config keys are `Database.Driver` and `Database.DataSource` in YAML.
 - `DB_DRIVER` and `DATABASE_URL` (if set) override the YAML DB values at runtime.
 - Relative paths like `data/...`, `configs/...`, `packs/...` are resolved from the process working directory; when developing locally, run with `cwd=server/` (see `server/.vscode/launch.json`).
 
@@ -41,77 +41,89 @@ Legacy CLI precedence (low → high)
 Examples
 ```yaml
 # server.example.yaml
-server:
-  addr: ":8443"
-  http_addr: ":8080"
-  # Database (YAML preferred; flags/env can override per-env)
-  db:
-    driver: auto      # postgres | mysql | sqlite | auto
-    datasource: ""   # DSN/URL. Examples:
-    # Postgres: postgres://user:pass@host:5432/croupier?sslmode=disable
-    # MySQL (URL): mysql://user:pass@host:3306/croupier?charset=utf8mb4
-    # MySQL (DSN):  user:pass@tcp(host:3306)/croupier?parseTime=true&charset=utf8mb4
-    # SQLite:       file:data/croupier.db  (defaults to data/croupier.db if empty)
-  log: { level: debug, format: console }
-  metrics:
-    per_function: true
-    per_game_denies: false
-  profiles:
-    prod:
-      log: { level: info, format: json, file: logs/server.log }
-      metrics: { per_function: true }
+# HTTP REST API (go-zero RestConf)
+Name: croupier-api
+Host: 0.0.0.0
+Port: 18780
+
+# Database configuration
+Database:
+  Driver: auto      # postgres | mysql | sqlite | auto
+  DataSource: ""    # DSN/URL. Examples:
+  # Postgres: postgres://user:pass@host:5432/croupier?sslmode=disable
+  # MySQL (URL): mysql://user:pass@host:3306/croupier?charset=utf8mb4
+  # MySQL (DSN):  user:pass@tcp(host:3306)/croupier?parseTime=true&charset=utf8mb4
+  # SQLite:       file:data/croupier.db  (defaults to data/croupier.db if empty)
+
+# gRPC server configuration (control plane)
+GRPC:
+  Addr: ":18443"
+  Cert: ""
+  Key: ""
+  CA: ""
+
+CroupierLog:
+  Level: debug
+  Format: console
+
+Metrics:
+  PerFunction: true
+  PerGameDenies: false
+
+Profiles:
+  prod:
+    log: { level: info, format: json, file: logs/server.log }
+    metrics: { per_function: true }
+```
 
 Object Storage (uploads)
 ```yaml
-server:
-  storage:
-    driver: s3     # s3 | cos | oss | file
-    bucket: my-bucket
-    region: ap-shanghai
-    endpoint: https://cos.ap-shanghai.myqcloud.com   # s3/minio/cos endpoint (optional)
-    access_key: ${STORAGE_AK}
-    secret_key: ${STORAGE_SK}
-    force_path_style: true
-    signed_url_ttl: 15m
-    # dev local:
-    # driver: file
-    # base_dir: data/uploads
+Storage:
+  Driver: s3     # s3 | cos | oss | file
+  Bucket: my-bucket
+  Region: ap-shanghai
+  Endpoint: https://cos.ap-shanghai.myqcloud.com   # s3/minio/cos endpoint (optional)
+  AccessKey: ${STORAGE_AK}
+  SecretKey: ${STORAGE_SK}
+  ForcePathStyle: true
+  SignedURLTTL: 15m
+  # dev local:
+  # Driver: file
+  # BaseDir: data/uploads
 ```
 
 Notes:
-- s3 覆盖 AWS/MinIO/腾讯 COS（S3 兼容模式）。COS 建议设置 `force_path_style=true`，并指定正确的 `region` 与 `endpoint`。
-- 腾讯 COS 也提供官方 SDK 驱动（`driver: cos`），在 S3 兼容遇到边角不兼容时使用。
-- 阿里云 OSS 使用官方 SDK 驱动（`driver: oss`）；Go Cloud 无原生 OSS 驱动。
-- file 驱动仅用于本地开发，静态路径 `/uploads/` 会映射到 `base_dir`。
+- s3 覆盖 AWS/MinIO/腾讯 COS（S3 兼容模式）。COS 建议设置 `ForcePathStyle=true`，并指定正确的 `Region` 与 `Endpoint`。
+- 腾讯 COS 也提供官方 SDK 驱动（`Driver: cos`），在 S3 兼容遇到边角不兼容时使用。
+- 阿里云 OSS 使用官方 SDK 驱动（`Driver: oss`）；Go Cloud 无原生 OSS 驱动。
+- file 驱动仅用于本地开发，静态路径 `/uploads/` 会映射到 `BaseDir`。
 
 Tencent COS（两种方式）
 ```yaml
-server:
-  storage:
-    driver: s3  # 方式一：S3 兼容
-    bucket: your-bucket
-    region: ap-shanghai
-    endpoint: https://cos.ap-shanghai.myqcloud.com
-    access_key: ${TENCENT_SECRET_ID}
-    secret_key: ${TENCENT_SECRET_KEY}
-    force_path_style: true
-    signed_url_ttl: 15m
+Storage:
+  Driver: s3  # 方式一：S3 兼容
+  Bucket: your-bucket
+  Region: ap-shanghai
+  Endpoint: https://cos.ap-shanghai.myqcloud.com
+  AccessKey: ${TENCENT_SECRET_ID}
+  SecretKey: ${TENCENT_SECRET_KEY}
+  ForcePathStyle: true
+  SignedURLTTL: 15m
 
 # 或者使用官方 SDK 驱动：
-server:
-  storage:
-    driver: cos  # 方式二：官方 SDK
-    bucket: your-bucket-APPID
-    region: ap-shanghai
-    # endpoint 可选： https://cos.ap-shanghai.myqcloud.com
-    access_key: ${TENCENT_SECRET_ID}
-    secret_key: ${TENCENT_SECRET_KEY}
-    signed_url_ttl: 15m
+Storage:
+  Driver: cos  # 方式二：官方 SDK
+  Bucket: your-bucket-APPID
+  Region: ap-shanghai
+  # Endpoint 可选： https://cos.ap-shanghai.myqcloud.com
+  AccessKey: ${TENCENT_SECRET_ID}
+  SecretKey: ${TENCENT_SECRET_KEY}
+  SignedURLTTL: 15m
 ```
 说明：
-- 使用 `force_path_style: true` 避免虚拟主机名路由导致的兼容问题。
-- `region` 需与 COS 控制台一致，否则签名可能失败。
-- 如果使用 MinIO，请将 `endpoint` 指向 MinIO 地址（如 `http://minio:9000`），并保留 `force_path_style: true`。
+- 使用 `ForcePathStyle: true` 避免虚拟主机名路由导致的兼容问题。
+- `Region` 需与 COS 控制台一致，否则签名可能失败。
+- 如果使用 MinIO，请将 `Endpoint` 指向 MinIO 地址（如 `http://minio:9000`），并保留 `ForcePathStyle: true`。
 ```
 
 `services/server` quickstart:

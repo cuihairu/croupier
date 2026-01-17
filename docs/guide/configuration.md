@@ -39,88 +39,72 @@ Croupier 使用 YAML 配置文件管理系统行为。本文档详细说明配�
 
 ```yaml
 # server.yaml
-server:
-  # gRPC 监听地址
-  addr: ":8443"
+# HTTP REST API (go-zero RestConf)
+Name: croupier-api
+Host: 0.0.0.0
+Port: 18780
 
-  # HTTP REST API 监听地址
-  http_addr: ":8080"
+# 数据库配置
+Database:
+  Driver: auto  # auto | postgres | mysql | sqlite
+  DataSource: ""  # DSN/URL
+  # Postgres: postgres://user:pass@host:5432/croupier?sslmode=disable
+  # MySQL: mysql://user:pass@host:3306/croupier?charset=utf8mb4
+  # SQLite: file:data/croupier.db
 
-  # TLS 配置
-  tls:
-    enabled: true
-    cert_file: "data/server.crt"
-    key_file: "data/server.key"
-    ca_file: "data/ca.crt"  # 用于验证客户端证书
-    min_version: "TLS1.2"
-    max_version: "TLS1.3"
+# gRPC 服务器配置（控制平面）
+GRPC:
+  Addr: ":18443"
+  Cert: "data/server.crt"
+  Key: "data/server.key"
+  CA: "data/ca.crt"  # 用于验证客户端证书
 
-  # 数据库配置
-  db:
-    driver: auto  # auto | postgres | mysql | sqlite
-    datasource: ""  # DSN/URL
-    # Postgres: postgres://user:pass@host:5432/croupier?sslmode=disable
-    # MySQL: mysql://user:pass@host:3306/croupier?charset=utf8mb4
-    # SQLite: file:data/croupier.db
+# 对象存储配置
+Storage:
+  Driver: s3  # s3 | cos | oss | file
+  Bucket: "my-bucket"
+  Region: "ap-shanghai"
+  Endpoint: "https://cos.ap-shanghai.myqcloud.com"
+  AccessKey: "${STORAGE_AK}"
+  SecretKey: "${STORAGE_SK}"
+  ForcePathStyle: true
+  SignedURLTTL: "15m"
 
-  # 对象存储配置
-  storage:
-    driver: s3  # s3 | cos | oss | file
-    bucket: "my-bucket"
-    region: "ap-shanghai"
-    endpoint: "https://cos.ap-shanghai.myqcloud.com"
-    access_key: "${STORAGE_AK}"
-    secret_key: "${STORAGE_SK}"
-    force_path_style: true
-    signed_url_ttl: "15m"
+# 日志配置
+CroupierLog:
+  Level: "info"  # debug | info | warn | error
+  Format: "console"  # console | json
+  File: ""  # 日志文件路径
+  MaxSize: 100  # MB
+  MaxBackups: 3
+  MaxAge: 7  # days
+  Compress: true
 
-  # 日志配置
-  log:
-    level: "info"  # debug | info | warn | error
-    format: "console"  # console | json
-    file: ""  # 日志文件路径
-    max_size: 100  # MB
-    max_backups: 3
-    max_age: 7  # days
+# 指标配置
+Metrics:
+  PerFunction: true
+  PerGameDenies: false
 
-  # 指标配置
-  metrics:
-    per_function: true
-    per_game_denies: false
-    enable_prometheus: true
-    prometheus_addr: ":9090"
+# 认证配置
+Auth:
+  JWTSecret: "${JWT_SECRET}"
+  RBACConfig: "configs/rbac.json"
+  UsersConfig: "configs/users.json"
+  GamesConfig: "configs/games.json"
 
-  # 审计配置
-  audit:
-    enabled: true
-    sensitive_fields:
-      - "password"
-      - "token"
-      - "secret"
-
-  # 认证配置
-  auth:
-    jwt_secret: "${JWT_SECRET}"
-    jwt_expiry: "24h"
-    oidc:
-      enabled: false
-      issuer: "https://accounts.example.com"
-      client_id: "${OIDC_CLIENT_ID}"
-      client_secret: "${OIDC_CLIENT_SECRET}"
-
-  # 环境配置（profiles）
-  profiles:
-    dev:
-      log:
-        level: "debug"
-      db:
-        driver: "sqlite"
-        datasource: "file:data/dev.db"
-    prod:
-      log:
-        level: "info"
-        format: "json"
-        file: "logs/server.log"
+# 环境配置（profiles）
+Profiles:
+  dev:
+    Log:
+      Level: "debug"
+    Database:
+      Driver: "sqlite"
+      DataSource: "file:data/dev.db"
+  prod:
+    Log:
+      Level: "info"
+      Format: "json"
+      File: "logs/server.log"
 ```
 
 ### 环境变量覆盖
@@ -130,12 +114,12 @@ server:
 export DB_DRIVER=postgres
 export DATABASE_URL="postgres://user:pass@localhost:5432/croupier?sslmode=disable"
 
-# 覆盖监听地址
-export CROUPIER_SERVER_ADDR=":9443"
-export CROUPIER_SERVER_HTTP_ADDR=":9080"
+# 覆盖 HTTP 监听地址
+export CROUPIER_API_HOST="0.0.0.0"
+export CROUPIER_API_PORT="18780"
 
-# 覆盖日志级别
-export CROUPIER_SERVER_LOG_LEVEL="debug"
+# 覆盖 gRPC 监听地址
+export CROUPIER_GRPC_ADDR=":18443"
 ```
 
 ## Agent 配置
@@ -230,9 +214,9 @@ edge:
 
 # 输出示例
 # ✓ Configuration is valid
-# - server.addr: :8443
-# - server.http_addr: :8080
-# - server.db.driver: postgres
+# - Port: 18780
+# - GRPC.Addr: :18443
+# - Database.Driver: postgres
 ```
 
 ### 常见配置错误
@@ -250,14 +234,14 @@ edge:
 
 ```yaml
 # 不推荐：直接写入配置
-storage:
-  access_key: "AKIDxxxxxxxx"
-  secret_key: "xxxxxxxxxxxx"
+Storage:
+  AccessKey: "AKIDxxxxxxxx"
+  SecretKey: "xxxxxxxxxxxx"
 
 # 推荐：使用环境变量
-storage:
-  access_key: "${STORAGE_AK}"
-  secret_key: "${STORAGE_SK}"
+Storage:
+  AccessKey: "${STORAGE_AK}"
+  SecretKey: "${STORAGE_SK}"
 ```
 
 ### 环境变量展开
@@ -284,26 +268,35 @@ export CROUPIER_SERVER_PROFILE=prod
 ### Profile 配置示例
 
 ```yaml
-server:
-  log:
-    level: "info"
-  profiles:
-    dev:
-      log:
-        level: "debug"
-      db:
-        driver: "sqlite"
-    staging:
-      log:
-        level: "info"
-      db:
-        driver: "postgres"
-    prod:
-      log:
-        level: "warn"
-        format: "json"
-      db:
-        driver: "postgres"
+# HTTP REST API (go-zero RestConf)
+Name: croupier-api
+Host: 0.0.0.0
+Port: 18780
+
+CroupierLog:
+  Level: "info"
+
+Database:
+  Driver: "auto"
+
+Profiles:
+  dev:
+    CroupierLog:
+      Level: "debug"
+    Database:
+      Driver: "sqlite"
+      DataSource: "file:data/dev.db"
+  staging:
+    CroupierLog:
+      Level: "info"
+    Database:
+      Driver: "postgres"
+  prod:
+    CroupierLog:
+      Level: "warn"
+      Format: "json"
+    Database:
+      Driver: "postgres"
 ```
 
 ## 对象存储配置
@@ -311,50 +304,46 @@ server:
 ### S3 兼容存储
 
 ```yaml
-server:
-  storage:
-    driver: s3
-    bucket: "my-bucket"
-    region: "us-east-1"
-    endpoint: "https://s3.amazonaws.com"
-    access_key: "${AWS_ACCESS_KEY_ID}"
-    secret_key: "${AWS_SECRET_ACCESS_KEY}"
+Storage:
+  Driver: s3
+  Bucket: "my-bucket"
+  Region: "us-east-1"
+  Endpoint: "https://s3.amazonaws.com"
+  AccessKey: "${AWS_ACCESS_KEY_ID}"
+  SecretKey: "${AWS_SECRET_ACCESS_KEY}"
 ```
 
 ### MinIO
 
 ```yaml
-server:
-  storage:
-    driver: s3
-    bucket: "croupier"
-    endpoint: "http://minio:9000"
-    access_key: "${MINIO_ROOT_USER}"
-    secret_key: "${MINIO_ROOT_PASSWORD}"
-    force_path_style: true
+Storage:
+  Driver: s3
+  Bucket: "croupier"
+  Endpoint: "http://minio:9000"
+  AccessKey: "${MINIO_ROOT_USER}"
+  SecretKey: "${MINIO_ROOT_PASSWORD}"
+  ForcePathStyle: true
 ```
 
 ### 腾讯云 COS
 
 ```yaml
-server:
-  storage:
-    driver: s3  # 或 cos
-    bucket: "bucket-APPID"
-    region: "ap-shanghai"
-    endpoint: "https://cos.ap-shanghai.myqcloud.com"
-    access_key: "${TENCENT_SECRET_ID}"
-    secret_key: "${TENCENT_SECRET_KEY}"
-    force_path_style: true
+Storage:
+  Driver: s3  # 或 cos
+  Bucket: "bucket-APPID"
+  Region: "ap-shanghai"
+  Endpoint: "https://cos.ap-shanghai.myqcloud.com"
+  AccessKey: "${TENCENT_SECRET_ID}"
+  SecretKey: "${TENCENT_SECRET_KEY}"
+  ForcePathStyle: true
 ```
 
 ### 本地文件存储
 
 ```yaml
-server:
-  storage:
-    driver: file
-    base_dir: "data/uploads"
+Storage:
+  Driver: file
+  BaseDir: "data/uploads"
 ```
 
 ## 最佳实践
@@ -383,15 +372,21 @@ STORAGE_SK=your-secret-key
 
 ```yaml
 # server.example.yaml
-server:
-  addr: ":8443"
-  http_addr: ":8080"
-  tls:
-    cert_file: "data/server.crt"
-    key_file: "data/server.key"
-  db:
-    driver: "postgres"
-    datasource: "${DATABASE_URL}"
+# HTTP REST API (go-zero RestConf)
+Name: croupier-api
+Host: 0.0.0.0
+Port: 18780
+
+# 数据库配置
+Database:
+  Driver: "postgres"
+  DataSource: "${DATABASE_URL}"
+
+# gRPC 服务器配置（控制平面）
+GRPC:
+  Addr: ":18443"
+  Cert: "data/server.crt"
+  Key: "data/server.key"
 ```
 
 ### 4. 配置验证
