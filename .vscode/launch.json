@@ -62,58 +62,6 @@
       },
       "buildFlags": ["-tags=pg sqlite"],
       "cwd": "${workspaceFolder}"
-    },
-    {
-      "name": "Dashboard (pnpm start)",
-      "type": "pwa-node",
-      "request": "launch",
-      "cwd": "${workspaceFolder}/dashboard",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["start"],
-      "env": { "UMI_ENV": "dev", "REACT_APP_ENV": "dev", "MOCK": "none" },
-      "console": "integratedTerminal"
-    },
-    {
-      "name": "Go SDK Example (basic)",
-      "type": "go",
-      "request": "launch",
-      "mode": "auto",
-      "program": "${workspaceFolder}/sdks/go/examples/basic",
-      "cwd": "${workspaceFolder}/sdks/go/examples/basic"
-    },
-    {
-      "name": "Go SDK Example (comprehensive)",
-      "type": "go",
-      "request": "launch",
-      "mode": "auto",
-      "program": "${workspaceFolder}/sdks/go/examples/comprehensive",
-      "cwd": "${workspaceFolder}/sdks/go/examples/comprehensive"
-    },
-    {
-      "name": "C++ SDK Example (croupier-example)",
-      "type": "cppdbg",
-      "request": "launch",
-      "program": "${workspaceFolder}/sdks/cpp/build/examples/croupier-example",
-      "cwd": "${workspaceFolder}/sdks/cpp",
-      "stopAtEntry": false,
-      "MIMode": "lldb",
-      "externalConsole": false
-    },
-    {
-      "name": "C++ SDK Example (virtual-object)",
-      "type": "cppdbg",
-      "request": "launch",
-      "program": "${workspaceFolder}/sdks/cpp/build/examples/croupier-virtual-object-demo",
-      "cwd": "${workspaceFolder}/sdks/cpp",
-      "stopAtEntry": false,
-      "MIMode": "lldb",
-      "externalConsole": false
-    }
-  ],
-  "compounds": [
-    {
-      "name": "Server + Dashboard",
-      "configurations": ["Server (dev sqlite)", "Dashboard (pnpm start)"]
     }
   ]
 }
