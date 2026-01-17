@@ -82,7 +82,7 @@ func TestProviderInit(t *testing.T) {
 				Type:    "openapi",
 				Config: map[string]interface{}{
 					"base_url": "http://example.com",
-					"timeout":  10000000000, // 10 seconds in nanoseconds
+					"timeout":  "10s", // Human-readable duration string
 					"methods": []interface{}{
 						map[string]interface{}{
 							"name":   "test",

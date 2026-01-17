@@ -17,6 +17,45 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/ratelimit"
 )
 
+// Duration is a custom duration type that supports parsing from both
+// human-readable strings (like "10s", "1m", "500ms") and integers (nanoseconds).
+type Duration time.Duration
+
+// UnmarshalJSON implements json.Unmarshaler for Duration.
+func (d *Duration) UnmarshalJSON(data []byte) error {
+	// Try string first (e.g., "10s", "1m", "500ms")
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		parsed, err := time.ParseDuration(str)
+		if err != nil {
+			return fmt.Errorf("invalid duration string %q: %w", str, err)
+		}
+		*d = Duration(parsed)
+		return nil
+	}
+
+	// Try integer (nanoseconds)
+	var ns int64
+	if err := json.Unmarshal(data, &ns); err == nil {
+		*d = Duration(ns)
+		return nil
+	}
+
+	// Try float (seconds, for convenience)
+	var secs float64
+	if err := json.Unmarshal(data, &secs); err == nil {
+		*d = Duration(time.Duration(secs * float64(time.Second)))
+		return nil
+	}
+
+	return fmt.Errorf("duration must be a string (e.g., \"10s\") or number, got: %s", string(data))
+}
+
+// Duration returns the time.Duration value.
+func (d Duration) Duration() time.Duration {
+	return time.Duration(d)
+}
+
 // Provider implements the provider.Provider interface for OpenAPI based services.
 // It provides a generic way to call any HTTP API with configurable authentication,
 // parameter mapping, and response transformation.
@@ -46,8 +85,8 @@ type Config struct {
 	// If provided, the provider will auto-discover available methods
 	OpenAPISpec string `yaml:"openapi_spec" json:"openapi_spec"`
 
-	// Timeout for HTTP requests
-	Timeout time.Duration `yaml:"timeout" json:"timeout"`
+	// Timeout for HTTP requests (supports "10s", "1m", "500ms" or seconds as number)
+	Timeout Duration `yaml:"timeout" json:"timeout"`
 
 	// RetryCount specifies how many times to retry on failure
 	RetryCount int `yaml:"retry_count" json:"retry_count"`
@@ -244,7 +283,7 @@ func (p *Provider) Init(ctx context.Context, config provider.ProviderConfig) err
 	}
 
 	// Initialize HTTP client
-	timeout := p.openapiConfig.Timeout
+	timeout := p.openapiConfig.Timeout.Duration()
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}
