@@ -6,7 +6,6 @@ Port: 18780
 # Server configuration
 Server:
   Addr: ":18443"          # gRPC (mTLS)
-  HttpAddr: ":18780"      # HTTP API/UI
   Cert: ""                # TLS cert (empty to auto-generate)
   Key: ""                 # TLS key (empty to auto-generate)
   CA: ""                  # TLS CA (empty to auto-generate)

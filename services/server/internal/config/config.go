@@ -28,7 +28,6 @@ type Config struct {
 
 type ServerConfig struct {
 	Addr     string         `json:"addr" yaml:"addr"`
-	HttpAddr string         `json:"http_addr,optional" yaml:"http_addr,optional"`
 	Cert     string         `json:"cert,optional" yaml:"cert,optional"`
 	Key      string         `json:"key,optional" yaml:"key,optional"`
 	CA       string         `json:"ca,optional" yaml:"ca,optional"`
