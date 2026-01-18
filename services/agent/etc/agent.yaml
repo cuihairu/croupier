@@ -5,7 +5,7 @@ Port: 18888
 # Server configuration
 Server:
   Addr: localhost:18443
-  Insecure: false
+  Insecure: true  # Use insecure connection (server runs without TLS when Cert/Key are empty)
   TLSCertFile: ""
   TLSKeyFile: ""
   CAFile: ""
