@@ -13,12 +13,12 @@ Server:
 # Upstream control plane (optional). When configured, Edge will proxy agent Register/Heartbeat to this address.
 Upstream:
   Addr: ""
-  Insecure: true
+  Insecure: true                # Use insecure connection for local dev
   TLSCertFile: ""
   TLSKeyFile: ""
   CAFile: ""
   ServerName: ""
-  InsecureSkipVerify: false
+  InsecureSkipVerify: true     # Skip cert verification for local dev
 
 # Edge configuration
 Edge:
