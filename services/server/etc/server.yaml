@@ -21,17 +21,17 @@ Registry:
   AnalyticsFiltersPath: "packs/ui/analytics_filters.json"
   RateLimitsPath: "data/rate_limits.json"
 
-# Dispatch configuration
-Dispatch:
+# AgentDispatch configuration (Server → Agent)
+AgentDispatch:
   JobRoutingDir: "data"
   JobRoutingTTL: "" # e.g. "24h"; empty disables cleanup
-  AgentTLS:
+  ToAgentTLS:
     Enabled: false
     CertFile: ""
     KeyFile: ""
     CAFile: ""
     ServerName: ""
-    InsecureSkipVerify: false
+    InsecureSkipVerify: true
 
 # Authentication configuration
 Auth:

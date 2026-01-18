@@ -224,7 +224,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		}
 		ctx.Dispatcher = dispatch.NewDispatcherWithJobStore(ctx.RegistryStore, jobStore)
 
-		if ttlStr := strings.TrimSpace(ctx.Config.Dispatch.JobRoutingTTL); ttlStr != "" {
+		if ttlStr := strings.TrimSpace(ctx.Config.AgentDispatch.JobRoutingTTL); ttlStr != "" {
 			if ttl, err := time.ParseDuration(ttlStr); err != nil {
 				logx.Errorf("invalid dispatch.job_routing_ttl=%q: %v", ttlStr, err)
 			} else if ttl > 0 {
@@ -234,13 +234,13 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 			}
 		}
 
-		if ctx.Config.Dispatch.AgentTLS.Enabled {
+		if ctx.Config.AgentDispatch.ToAgentTLS.Enabled {
 			ctx.Dispatcher.SetTLSConfig(&tlsutil.ClientTLSConfig{
-				CertFile:           strings.TrimSpace(ctx.Config.Dispatch.AgentTLS.CertFile),
-				KeyFile:            strings.TrimSpace(ctx.Config.Dispatch.AgentTLS.KeyFile),
-				CAFile:             strings.TrimSpace(ctx.Config.Dispatch.AgentTLS.CAFile),
-				ServerName:         strings.TrimSpace(ctx.Config.Dispatch.AgentTLS.ServerName),
-				InsecureSkipVerify: ctx.Config.Dispatch.AgentTLS.InsecureSkipVerify,
+				CertFile:           strings.TrimSpace(ctx.Config.AgentDispatch.ToAgentTLS.CertFile),
+				KeyFile:            strings.TrimSpace(ctx.Config.AgentDispatch.ToAgentTLS.KeyFile),
+				CAFile:             strings.TrimSpace(ctx.Config.AgentDispatch.ToAgentTLS.CAFile),
+				ServerName:         strings.TrimSpace(ctx.Config.AgentDispatch.ToAgentTLS.ServerName),
+				InsecureSkipVerify: ctx.Config.AgentDispatch.ToAgentTLS.InsecureSkipVerify,
 			})
 		} else {
 			ctx.Dispatcher.SetTLSConfig(nil)
@@ -303,7 +303,7 @@ func resolveBootstrapBaseDir(c config.Config) string {
 }
 
 func resolveJobRoutingDir(c config.Config) string {
-	if dir := strings.TrimSpace(c.Dispatch.JobRoutingDir); dir != "" {
+	if dir := strings.TrimSpace(c.AgentDispatch.JobRoutingDir); dir != "" {
 		return toAbs(dir)
 	}
 

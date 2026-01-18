@@ -12,7 +12,7 @@ type Config struct {
 	Database      DatabaseConfig           `json:"database" yaml:"database"`
 	GRPC          GRPCConfig               `json:"grpc" yaml:"grpc"`
 	Registry      RegistryConfig           `json:"registry" yaml:"registry"`
-	Dispatch      DispatchConfig           `json:"dispatch" yaml:"dispatch"`
+	AgentDispatch AgentDispatchConfig      `json:"agent_dispatch" yaml:"agent_dispatch"`
 	Auth          AuthConfig               `json:"auth" yaml:"auth"`
 	BootstrapData BootstrapDataConfig      `json:"bootstrap_data" yaml:"bootstrap_data"`
 	Descriptors   DescriptorConfig         `json:"descriptors" yaml:"descriptors"`
@@ -47,10 +47,10 @@ type RegistryConfig struct {
 	RateLimitsPath       string `json:"rate_limits_path,optional" yaml:"rate_limits_path,optional"`
 }
 
-type DispatchConfig struct {
+type AgentDispatchConfig struct {
 	JobRoutingDir string          `json:"job_routing_dir,optional" yaml:"job_routing_dir,optional"`
-	JobRoutingTTL string          `json:"job_routing_ttl,optional" yaml:"job_routing_ttl,optional"`
-	AgentTLS      TLSClientConfig `json:"agent_tls,optional" yaml:"agent_tls,optional"`
+	JobRoutingTTL string          `json:"job_routing_ttl,optional" yaml:"job_routing_ttls,optional"`
+	ToAgentTLS    TLSClientConfig `json:"to_agent_tls,optional" yaml:"to_agent_tls,optional"` // Server → Agent TLS
 }
 
 type TLSClientConfig struct {
