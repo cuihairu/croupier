@@ -6,11 +6,13 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
 	agentcore "github.com/cuihairu/croupier/internal/app/agent"
+	"github.com/cuihairu/croupier/internal/devcert"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"github.com/cuihairu/croupier/services/agent/internal/config"
 	"github.com/cuihairu/croupier/services/agent/internal/handler"
@@ -180,6 +182,20 @@ func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, strin
 		RequestTimeout:    time.Duration(c.Upstream.Timeout) * time.Millisecond,
 		HeartbeatInterval: time.Duration(c.Upstream.HeartbeatInterval) * time.Second,
 	})
+
+	// 确保 CA 证书存在（如果需要验证 Server 证书）
+	// Server 和 Agent 共享同一套开发证书，谁先启动就先生成
+	if !c.Server.Insecure && strings.TrimSpace(c.Server.CAFile) != "" {
+		caFile := strings.TrimSpace(c.Server.CAFile)
+		if _, err := os.Stat(caFile); os.IsNotExist(err) {
+			certDir := filepath.Join(filepath.Dir(cfgFile), "certs")
+			fmt.Printf("CA cert not found, auto-generating dev certs in %s...\n", certDir)
+			if _, _, err := devcert.EnsureDevCA(certDir); err != nil {
+				return nil, "", fmt.Errorf("failed to generate CA cert: %w", err)
+			}
+			fmt.Printf("  CA: %s\n", filepath.Join(certDir, "ca.crt"))
+		}
+	}
 
 	if !c.Server.Insecure {
 		core.WithUpstreamTLSConfig(&tlsutil.ClientTLSConfig{
