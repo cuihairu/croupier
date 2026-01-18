@@ -172,10 +172,13 @@ func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, strin
 
 	core := agentcore.New(strings.TrimSpace(c.Server.Addr), agentID)
 	core.WithUpstreamMetadata(agentcore.UpstreamMetadata{
-		GameID:  strings.TrimSpace(c.Agent.GameID),
-		Env:     strings.TrimSpace(c.Agent.Env),
-		Version: Version,
-		RPCAddr: rpcAddr,
+		GameID:            strings.TrimSpace(c.Agent.GameID),
+		Env:               strings.TrimSpace(c.Agent.Env),
+		Version:           Version,
+		RPCAddr:           rpcAddr,
+		DialTimeout:       time.Duration(c.Upstream.Timeout) * time.Millisecond,
+		RequestTimeout:    time.Duration(c.Upstream.Timeout) * time.Millisecond,
+		HeartbeatInterval: time.Duration(c.Upstream.HeartbeatInterval) * time.Second,
 	})
 
 	if !c.Server.Insecure {

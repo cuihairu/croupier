@@ -33,6 +33,11 @@ type UpstreamClient struct {
 	rpcAddr    string
 	tlsCfg     *tlsutil.ClientTLSConfig
 
+	// Timeouts (from config, with defaults)
+	dialTimeout       time.Duration
+	requestTimeout    time.Duration
+	heartbeatInterval time.Duration
+
 	// Metrics reporting
 	metricsCollector *MetricsCollector
 	metricsInterval  time.Duration
@@ -76,10 +81,13 @@ func (c *UpstreamClient) SetTLSConfig(cfg *tlsutil.ClientTLSConfig) {
 
 // UpstreamMetadata captures optional metadata for registering with server.
 type UpstreamMetadata struct {
-	GameID  string
-	Env     string
-	Version string
-	RPCAddr string
+	GameID            string
+	Env               string
+	Version           string
+	RPCAddr           string
+	DialTimeout       time.Duration // Connection timeout (default 10s)
+	RequestTimeout    time.Duration // Request timeout (default 10s)
+	HeartbeatInterval time.Duration // Heartbeat interval (default 30s)
 }
 
 // WithMetadata applies metadata updates for the next sync.
@@ -88,6 +96,15 @@ func (c *UpstreamClient) WithMetadata(meta UpstreamMetadata) {
 	c.env = meta.Env
 	c.version = meta.Version
 	c.rpcAddr = meta.RPCAddr
+	if meta.DialTimeout > 0 {
+		c.dialTimeout = meta.DialTimeout
+	}
+	if meta.RequestTimeout > 0 {
+		c.requestTimeout = meta.RequestTimeout
+	}
+	if meta.HeartbeatInterval > 0 {
+		c.heartbeatInterval = meta.HeartbeatInterval
+	}
 }
 
 // Start begins the upstream synchronization process.
@@ -117,7 +134,11 @@ func (c *UpstreamClient) Start(ctx context.Context) error {
 
 	dialOpts = append(dialOpts, grpc.WithBlock())
 
-	dialCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	dialTimeout := c.dialTimeout
+	if dialTimeout <= 0 {
+		dialTimeout = 10 * time.Second
+	}
+	dialCtx, cancel := context.WithTimeout(ctx, dialTimeout)
 	defer cancel()
 	conn, err := grpc.DialContext(dialCtx, c.serverAddr, dialOpts...)
 	if err != nil {
@@ -209,7 +230,11 @@ func (c *UpstreamClient) updateLoop(ctx context.Context, debounce time.Duration)
 }
 
 func (c *UpstreamClient) heartbeatLoop(ctx context.Context) {
-	ticker := time.NewTicker(30 * time.Second)
+	interval := c.heartbeatInterval
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
@@ -234,7 +259,11 @@ func (c *UpstreamClient) syncWithRetry(ctx context.Context, attempts int) error 
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		syncCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		requestTimeout := c.requestTimeout
+		if requestTimeout <= 0 {
+			requestTimeout = 10 * time.Second
+		}
+		syncCtx, cancel := context.WithTimeout(ctx, requestTimeout)
 		err := c.syncOnce(syncCtx)
 		cancel()
 		if err == nil {
