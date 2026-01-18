@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cuihairu/croupier/internal/devcert"
 	"github.com/cuihairu/croupier/internal/platform/control"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
@@ -196,49 +195,20 @@ func startGRPCServer(c *config.Config, ctx *svc.ServiceContext) {
 	// 创建 gRPC 服务器选项
 	var opts []grpc.ServerOption
 
-	// 配置 TLS
-	if c.GRPC.Cert != "" && c.GRPC.Key != "" {
-		// 使用提供的证书
-		requireClient := strings.TrimSpace(c.GRPC.CA) != ""
-		creds, err := tlsutil.ServerTLS(c.GRPC.Cert, c.GRPC.Key, c.GRPC.CA, requireClient)
-		if err != nil {
-			fmt.Printf("Failed to create TLS credentials: %v\n", err)
-			return
-		}
-		opts = append(opts, grpc.Creds(creds))
-		if requireClient {
-			fmt.Printf("gRPC server with mTLS enabled\n")
-		} else {
-			fmt.Printf("gRPC server with TLS enabled\n")
-		}
-	} else {
-		// 证书为空，自动生成开发证书到配置文件所在目录的 certs 子目录
-		certDir := filepath.Join(filepath.Dir(cfgFile), "certs")
-		if certDir == "." || certDir == "/certs" {
-			certDir = "data/certs"
-		}
-		fmt.Printf("No TLS certificate configured, auto-generating dev certs in %s...\n", certDir)
-
-		caCrt, caKey, err := devcert.EnsureDevCA(certDir)
-		if err != nil {
-			fmt.Printf("Failed to ensure dev CA: %v\n", err)
-			return
-		}
-		serverCrt, serverKey, err := devcert.EnsureServerCert(certDir, caCrt, caKey, []string{"localhost", "127.0.0.1"})
-		if err != nil {
-			fmt.Printf("Failed to ensure server cert: %v\n", err)
-			return
-		}
-
-		creds, err := tlsutil.ServerTLS(serverCrt, serverKey, "", false)
-		if err != nil {
-			fmt.Printf("Failed to create TLS credentials: %v\n", err)
-			return
-		}
-		opts = append(opts, grpc.Creds(creds))
-		fmt.Printf("gRPC server with auto-generated TLS enabled\n")
-		fmt.Printf("  CA: %s\n", caCrt)
-		fmt.Printf("  Cert: %s\n", serverCrt)
+	// 配置 TLS (自动生成或使用配置的证书)
+	tlsOpt, err := tlsutil.EnsureServerTLSCredentials(tlsutil.ServerTLSConfig{
+		CertFile:  strings.TrimSpace(c.GRPC.Cert),
+		KeyFile:   strings.TrimSpace(c.GRPC.Key),
+		CAFile:    strings.TrimSpace(c.GRPC.CA),
+		AutoGen:   true, // 自动生成开发证书
+		ConfigDir: cfgFile,
+	})
+	if err != nil {
+		fmt.Printf("Failed to setup TLS: %v\n", err)
+		return
+	}
+	if tlsOpt != nil {
+		opts = append(opts, tlsOpt)
 	}
 
 	rpcConf := zrpc.RpcServerConf{

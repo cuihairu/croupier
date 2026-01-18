@@ -114,25 +114,29 @@ func runEdge() error {
 	}
 
 	var grpcOpts []grpc.ServerOption
-	if c.TLS.Enabled {
-		certFile := strings.TrimSpace(c.TLS.CertFile)
-		keyFile := strings.TrimSpace(c.TLS.KeyFile)
-		caFile := strings.TrimSpace(c.TLS.CAFile)
-		if certFile == "" {
-			certFile = strings.TrimSpace(c.Server.TLSCertFile)
-		}
-		if keyFile == "" {
-			keyFile = strings.TrimSpace(c.Server.TLSKeyFile)
-		}
-		if certFile == "" || keyFile == "" {
-			return fmt.Errorf("TLS enabled but missing cert/key (TLS.CertFile/TLS.KeyFile)")
-		}
+	// 配置 TLS (自动生成或使用配置的证书)
+	certFile := strings.TrimSpace(c.TLS.CertFile)
+	if certFile == "" {
+		certFile = strings.TrimSpace(c.Server.TLSCertFile)
+	}
+	keyFile := strings.TrimSpace(c.TLS.KeyFile)
+	if keyFile == "" {
+		keyFile = strings.TrimSpace(c.Server.TLSKeyFile)
+	}
+	caFile := strings.TrimSpace(c.TLS.CAFile)
 
-		creds, err := tlsutil.ServerTLS(certFile, keyFile, caFile, caFile != "")
-		if err != nil {
-			return fmt.Errorf("failed to create gRPC TLS credentials: %w", err)
-		}
-		grpcOpts = append(grpcOpts, grpc.Creds(creds))
+	tlsOpt, err := tlsutil.EnsureServerTLSCredentials(tlsutil.ServerTLSConfig{
+		CertFile:  certFile,
+		KeyFile:   keyFile,
+		CAFile:    caFile,
+		AutoGen:   c.TLS.Enabled,
+		ConfigDir: cfgFile,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to setup TLS: %w", err)
+	}
+	if tlsOpt != nil {
+		grpcOpts = append(grpcOpts, tlsOpt)
 	}
 
 	rpcConf := zrpc.RpcServerConf{

@@ -206,18 +206,19 @@ func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, strin
 	}
 
 	var grpcOpts []grpc.ServerOption
-	if c.TLS.Enabled {
-		certFile := strings.TrimSpace(c.TLS.CertFile)
-		keyFile := strings.TrimSpace(c.TLS.KeyFile)
-		caFile := strings.TrimSpace(c.TLS.CAFile)
-		if certFile == "" || keyFile == "" {
-			return nil, "", fmt.Errorf("TLS enabled but missing cert/key (TLS.CertFile/TLS.KeyFile)")
-		}
-		creds, err := tlsutil.ServerTLS(certFile, keyFile, caFile, caFile != "")
-		if err != nil {
-			return nil, "", fmt.Errorf("failed to create gRPC TLS credentials: %w", err)
-		}
-		grpcOpts = append(grpcOpts, grpc.Creds(creds))
+	// 配置 TLS (自动生成或使用配置的证书)
+	tlsOpt, err := tlsutil.EnsureServerTLSCredentials(tlsutil.ServerTLSConfig{
+		CertFile:  strings.TrimSpace(c.TLS.CertFile),
+		KeyFile:   strings.TrimSpace(c.TLS.KeyFile),
+		CAFile:    strings.TrimSpace(c.TLS.CAFile),
+		AutoGen:   c.TLS.Enabled, // 当 TLS 启用时，如果证书为空则自动生成
+		ConfigDir: cfgFile,
+	})
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to setup TLS: %w", err)
+	}
+	if tlsOpt != nil {
+		grpcOpts = append(grpcOpts, tlsOpt)
 	}
 
 	rpcConf := zrpc.RpcServerConf{

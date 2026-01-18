@@ -4,8 +4,12 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"google.golang.org/grpc/credentials"
 	"os"
+	"path/filepath"
+
+	"github.com/cuihairu/croupier/internal/devcert"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 type ClientTLSConfig struct {
@@ -91,4 +95,65 @@ func ServerTLS(certFile, keyFile, caFile string, requireClient bool) (credential
 		cfg.ClientAuth = tls.RequireAndVerifyClientCert
 	}
 	return credentials.NewTLS(cfg), nil
+}
+
+// ServerTLSConfig holds server TLS configuration.
+type ServerTLSConfig struct {
+	CertFile  string
+	KeyFile   string
+	CAFile    string // If non-empty, enables mTLS
+	AutoGen   bool   // If true, auto-generate certs when CertFile/KeyFile are empty
+	ConfigDir string // Directory containing config file (for auto-generated cert location)
+}
+
+// EnsureServerTLSCredentials creates TransportCredentials for a gRPC server.
+//   - If CertFile/KeyFile are provided, they are used.
+//   - If AutoGen is true and CertFile/KeyFile are empty, dev certs are auto-generated
+//     to <ConfigDir>/certs/ (e.g., "etc/certs/" when config is "etc/server.yaml").
+//   - If CAFile is provided, mTLS is enabled.
+func EnsureServerTLSCredentials(cfg ServerTLSConfig) (grpc.ServerOption, error) {
+	var certFile, keyFile, caFile string
+
+	// Use provided certs if available
+	if cfg.CertFile != "" && cfg.KeyFile != "" {
+		certFile = cfg.CertFile
+		keyFile = cfg.KeyFile
+		caFile = cfg.CAFile
+	} else if cfg.AutoGen {
+		// Auto-generate dev certs
+		certDir := filepath.Join(filepath.Dir(cfg.ConfigDir), "certs")
+		if certDir == "." || certDir == "/certs" {
+			certDir = "etc/certs"
+		}
+		fmt.Printf("No TLS certificate configured, auto-generating dev certs in %s...\n", certDir)
+
+		caCrt, caKey, err := devcert.EnsureDevCA(certDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to ensure dev CA: %w", err)
+		}
+		certFile, keyFile, err = devcert.EnsureServerCert(certDir, caCrt, caKey, []string{"localhost", "127.0.0.1"})
+		if err != nil {
+			return nil, fmt.Errorf("failed to ensure server cert: %w", err)
+		}
+
+		fmt.Printf("  CA: %s\n", caCrt)
+		fmt.Printf("  Cert: %s\n", certFile)
+	} else {
+		// No TLS
+		return nil, nil
+	}
+
+	requireClient := caFile != ""
+	creds, err := ServerTLS(certFile, keyFile, caFile, requireClient)
+	if err != nil {
+		return nil, err
+	}
+
+	opt := grpc.Creds(creds)
+	if requireClient {
+		fmt.Printf("gRPC server with mTLS enabled\n")
+	} else {
+		fmt.Printf("gRPC server with TLS enabled\n")
+	}
+	return opt, nil
 }
