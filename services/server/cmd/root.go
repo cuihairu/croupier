@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cuihairu/croupier/internal/devcert"
 	"github.com/cuihairu/croupier/internal/platform/control"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
@@ -21,7 +22,6 @@ import (
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/zrpc"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 var (
@@ -212,9 +212,33 @@ func startGRPCServer(c *config.Config, ctx *svc.ServiceContext) {
 			fmt.Printf("gRPC server with TLS enabled\n")
 		}
 	} else {
-		// 不使用 TLS (仅用于开发环境)
-		opts = append(opts, grpc.Creds(insecure.NewCredentials()))
-		fmt.Printf("Warning: gRPC server running without TLS (development mode only)\n")
+		// 证书为空，自动生成开发证书到配置文件所在目录的 certs 子目录
+		certDir := filepath.Join(filepath.Dir(cfgFile), "certs")
+		if certDir == "." || certDir == "/certs" {
+			certDir = "data/certs"
+		}
+		fmt.Printf("No TLS certificate configured, auto-generating dev certs in %s...\n", certDir)
+
+		caCrt, caKey, err := devcert.EnsureDevCA(certDir)
+		if err != nil {
+			fmt.Printf("Failed to ensure dev CA: %v\n", err)
+			return
+		}
+		serverCrt, serverKey, err := devcert.EnsureServerCert(certDir, caCrt, caKey, []string{"localhost", "127.0.0.1"})
+		if err != nil {
+			fmt.Printf("Failed to ensure server cert: %v\n", err)
+			return
+		}
+
+		creds, err := tlsutil.ServerTLS(serverCrt, serverKey, "", false)
+		if err != nil {
+			fmt.Printf("Failed to create TLS credentials: %v\n", err)
+			return
+		}
+		opts = append(opts, grpc.Creds(creds))
+		fmt.Printf("gRPC server with auto-generated TLS enabled\n")
+		fmt.Printf("  CA: %s\n", caCrt)
+		fmt.Printf("  Cert: %s\n", serverCrt)
 	}
 
 	rpcConf := zrpc.RpcServerConf{
