@@ -29,13 +29,19 @@ func writeFile(path string, data []byte, mode os.FileMode) error {
 }
 
 // EnsureDevCA ensures a development CA exists under dir and returns paths.
+// If the CA cert exists but is expired, it will be regenerated.
 func EnsureDevCA(dir string) (caCrt, caKey string, err error) {
 	caCrt = filepath.Join(dir, "ca.crt")
 	caKey = filepath.Join(dir, "ca.key")
-	// If both exist, assume OK
+
+	// Check if files exist and cert is not expired
 	if _, e1 := os.Stat(caCrt); e1 == nil {
 		if _, e2 := os.Stat(caKey); e2 == nil {
-			return caCrt, caKey, nil
+			// Check expiration
+			if !isCertExpired(caCrt) {
+				return caCrt, caKey, nil
+			}
+			fmt.Printf("CA cert expired, regenerating...\n")
 		}
 	}
 
@@ -198,4 +204,24 @@ func EnsureAgentCert(dir, caCrtPath, caKeyPath, commonName string) (crtPath, key
 		return "", "", err
 	}
 	return crtPath, keyPath, nil
+}
+
+// isCertExpired checks if a certificate file is expired.
+// Returns true if the cert is expired or will expire within 30 days.
+func isCertExpired(certFile string) bool {
+	certPEM, err := os.ReadFile(certFile)
+	if err != nil {
+		return true
+	}
+	pemBlock, _ := pem.Decode(certPEM)
+	if pemBlock == nil {
+		return true
+	}
+	cert, err := x509.ParseCertificate(pemBlock.Bytes)
+	if err != nil {
+		return true
+	}
+	// Check if cert is expired or will expire within 30 days
+	checkTime := time.Now().Add(30 * 24 * time.Hour)
+	return cert.NotAfter.Before(checkTime)
 }
