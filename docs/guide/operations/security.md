@@ -50,19 +50,26 @@ graph TB
 
 ## TLS/mTLS 配置
 
-### 证书结构
+### 证书结构（统一使用一个 CA）
 
 ```
                             Root CA (ca.crt)
                                  |
                 +----------------+----------------+
                 |                                 |
-        Server CA                         Agent CA
-                |                                 |
-        +-------+-------+                 +-------+-------+
+        Server ← ← ← ← ← ← ← ← Agent ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ←
         |               |                 |               |
    Server.crt     Edge.crt         Agent1.crt     Agent2.crt
 ```
+
+**本地开发环境（自动生成证书）**：
+- 证书目录：`etc/certs/`
+- Server 和 Agent 共享同一个 CA：`ca.crt`
+- 自动生成时检查证书是否过期，过期则重新生成
+
+**生产环境**：
+- 使用 Let's Encrypt 或手动签名的证书
+- 配置文件中指定证书路径
 
 ### 生成 CA
 
@@ -109,23 +116,53 @@ openssl x509 -req -days 365 \
 
 ### Server 配置
 
+**本地开发（自动生成证书）**：
+
 ```yaml
-server:
-  tls:
-    enabled: true
-    cert_file: "data/server.crt"
-    key_file: "data/server.key"
-    ca_file: "data/ca.crt"  # 用于验证客户端证书
-    min_version: "TLS1.2"
-    max_version: "TLS1.3"
-    cipher_suites:
-      - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
-      - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
-    client_auth:
-      mode: "require_and_verify"  # 要求并验证客户端证书
-      ca_files:
-        - "data/agent-ca.crt"
+# server.yaml
+GRPC:
+  Addr: ":18443"
+  Cert: ""      # 空=自动生成证书
+  Key: ""       # 空=自动生成密钥
+  CA: ""        # 空=不要求客户端证书（启用 mTLS 时设置 CA 路径）
 ```
+
+**生产环境（手动配置证书）**：
+
+```yaml
+# server.yaml
+GRPC:
+  Addr: ":18443"
+  Cert: "/path/to/server.crt"     # 手动配置证书
+  Key: "/path/to/server.key"      # 手动配置密钥
+  CA: "/path/to/ca.crt"          # 配置 CA 时启用 mTLS
+```
+
+### Agent 配置
+
+**本地开发（跳过证书验证）**：
+
+```yaml
+# agent.yaml
+Server:
+  Addr: localhost:18443
+  Insecure: false               # 使用 TLS
+  CAFile: "etc/certs/ca.crt"    # CA 证书
+  InsecureSkipVerify: true       # 跳过验证（本地开发）
+```
+
+**生产环境（严格 mTLS）**：
+
+```yaml
+# agent.yaml
+Server:
+  Addr: server.example.com:18443
+  Insecure: false
+  CAFile: "/path/to/ca.crt"      # CA 证书
+  TLSCertFile: "/path/to/agent.crt"  # 客户端证书
+  TLSKeyFile: "/path/to/agent.key"    # 客户端密钥
+  ServerName: "server.example.com"  # Server SNI
+  InsecureSkipVerify: false      # 严格验证
 
 ### Agent 配置
 

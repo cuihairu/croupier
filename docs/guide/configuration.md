@@ -55,9 +55,21 @@ Database:
 # gRPC 服务器配置（控制平面）
 GRPC:
   Addr: ":18443"
-  Cert: "data/server.crt"
-  Key: "data/server.key"
-  CA: "data/ca.crt"  # 用于验证客户端证书
+  Cert: ""      # TLS 服务端证书（空则自动生成）
+  Key:       ""       # TLS 私钥（空则自动生成）
+  CA: ""        # CA 证书（配置此项将启用 mTLS）
+
+# Agent 调度配置（Server → Agent）
+AgentDispatch:
+  JobRoutingDir: "data"        # 任务路由目录
+  JobRoutingTTL: ""              # 任务清理间隔（空=不清理）
+  ToAgentTLS:                  # Server → Agent 连接的 TLS 配置
+    Enabled: false             # 启用 TLS（false=明文，true=TLS+跳过验证）
+    CertFile: ""              # 客户端证书（mTLS 时需要）
+    KeyFile: ""               # 客户端密钥（mTLS 时需要）
+    CAFile: ""                 # CA 证书（验证 Server 证书）
+    ServerName: ""             # Server 证书的 SNI
+    InsecureSkipVerify: true   # 跳过证书验证（本地开发推荐）
 
 # 对象存储配置
 Storage:
@@ -128,28 +140,49 @@ export CROUPIER_GRPC_ADDR=":18443"
 
 ```yaml
 # agent.yaml
-agent:
-  # Server 连接配置
-  server_addr: "localhost:8443"
-  server_name: "croupier.server"
+# Agent 配置
+Name: croupier-agent
+Host: 0.0.0.0
+Port: 18888
 
-  # 本地监听地址
-  local_addr: ":19090"
+# Agent 连接 Server 的配置
+Server:
+  Addr: localhost:18443              # Server 地址
+  Insecure: false                  # 使用 TLS 加密
+  CAFile: "etc/certs/ca.crt"       # CA 证书（用于验证 Server）
+  InsecureSkipVerify: true        # 跳过证书验证（本地开发推荐）
 
-  # 游戏标识
-  game_id: "my-game"
-  env: "dev"  # dev | staging | prod
+# Agent 本地监听配置
+Agent:
+  ID: ""                          # Agent ID（空则自动生成）
+  GameID: ""                     # 游戏 ID
+  Env: ""                        # 环境
+  LocalAddr: "127.0.0.1:19090"    # 本地 gRPC 监听地址
+  HTTPAddr: "127.0.1:19091"       # 本地 HTTP 监听地址
 
-  # TLS 配置
-  tls:
-    ca_file: "data/ca.crt"
-    cert_file: "data/agent.crt"
-    key_file: "data/agent.key"
-    server_name: "croupier.server"
+# 心跳配置
+Upstream:
+  HeartbeatInterval: 30          # 心跳间隔（秒）
+  RetryInterval: 5               # 重试间隔（秒）
+  MaxRetries: 3                  # 最大重试次数
+  Timeout: 10000                # 超时（毫秒）
 
-  # 心跳配置
-  heartbeat_interval: "30s"
-  heartbeat_timeout: "5m"
+# 本地 gRPC 监听配置
+GRPC:
+  Host: 127.0.0.1
+  Port: 19090
+  Timeout: 30000                  # gRPC 超时（毫秒）
+
+# 日志配置
+CroupierLog:
+  Level: "info"
+  Format: "console"
+
+# 指标配置
+Metrics:
+  Enabled: true
+  Port: 9090
+  Path: /metrics
 
   # 分配配置
   assignments_api: "http://localhost:8080"
