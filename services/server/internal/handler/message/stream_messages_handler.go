@@ -94,7 +94,7 @@ func handleMessagesSSE(w http.ResponseWriter, r *http.Request, svcCtx *svc.Servi
 	sendUnreadCount()
 	sendMessagesSnapshot()
 
-	updateTicker := time.NewTicker(15 * time.Second)
+	updateTicker := time.NewTicker(60 * time.Second)
 	defer updateTicker.Stop()
 	keepAliveTicker := time.NewTicker(60 * time.Second)
 	defer keepAliveTicker.Stop()

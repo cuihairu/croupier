@@ -1875,13 +1875,28 @@ type OpsProcessStartResponse struct {
 	Data    int32  `json:"pid,omitempty"`
 }
 
+type OpsServiceItem struct {
+	ID             string            `json:"id"`
+	Name           string            `json:"name"`
+	Type           string            `json:"type"`
+	Status         string            `json:"status"`
+	Address        string            `json:"address,optional"`
+	GameID         string            `json:"gameId,optional"`
+	Env            string            `json:"env,optional"`
+	Version        string            `json:"version,optional"`
+	Region         string            `json:"region,optional"`
+	Zone           string            `json:"zone,optional"`
+	Labels         map[string]string `json:"labels,optional"`
+	FunctionsCount int               `json:"functionsCount,optional"`
+	LastSeen       string            `json:"lastSeen,optional"`
+}
+
 type OpsServicesRequest struct {
 }
 
 type OpsServicesResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Services []OpsServiceItem `json:"services"`
+	Total    int              `json:"total"`
 }
 
 type OpsSilenceDeleteResponse struct {
@@ -1949,6 +1964,15 @@ type PacksListResponse struct {
 	Counts             interface{} `json:"counts,omitempty"`
 	ETag               string      `json:"etag,omitempty"`
 	ExportAuthRequired bool        `json:"exportAuthRequired,omitempty"`
+}
+
+type PacksPluginRequest struct {
+	Pack string `form:"pack"`
+	Path string `form:"path"`
+}
+
+type PacksPluginResponse struct {
+	Content string `json:"content,omitempty"`
 }
 
 type PacksReloadRequest struct {

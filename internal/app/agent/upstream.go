@@ -151,6 +151,23 @@ func (c *UpstreamClient) Start(ctx context.Context) error {
 	// Initial sync
 	if err := c.syncWithRetry(ctx, 3); err != nil {
 		slog.Error("initial sync failed", "error", err)
+		// 启动后台重连 goroutine，持续重试直到成功
+		go func() {
+			for {
+				if ctx.Err() != nil {
+					slog.Info("upstream sync cancelled, exiting retry loop")
+					return
+				}
+				slog.Info("upstream retrying...")
+				if err := c.syncWithRetry(ctx, 1); err != nil {
+					slog.Error("upstream retry failed", "error", err)
+					time.Sleep(5 * time.Second)
+				} else {
+					slog.Info("✅ upstream reconnected successfully")
+					return
+				}
+			}
+		}()
 	}
 
 	// Register update callback
@@ -232,18 +249,41 @@ func (c *UpstreamClient) updateLoop(ctx context.Context, debounce time.Duration)
 func (c *UpstreamClient) heartbeatLoop(ctx context.Context) {
 	interval := c.heartbeatInterval
 	if interval <= 0 {
-		interval = 30 * time.Second
+		interval = 3 * time.Second // 默认 3 秒
 	}
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+
+	// 断线重连：连续心跳失败次数阈值（达到阈值时尝试重新注册）
+	const maxHeartbeatFailures = 2 // 连续失败 2 次就重连（约 6 秒）
+	consecutiveFailures := 0
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if _, err := c.client.Heartbeat(ctx, &serverv1.HeartbeatRequest{AgentId: c.agentID}); err != nil {
-				slog.Error("heartbeat failed", "error", err)
+			_, err := c.client.Heartbeat(ctx, &serverv1.HeartbeatRequest{AgentId: c.agentID})
+			if err != nil {
+				consecutiveFailures++
+				slog.Error("heartbeat failed", "error", err, "consecutive_failures", consecutiveFailures)
+				// 连续失败达到阈值，尝试重新注册
+				if consecutiveFailures >= maxHeartbeatFailures {
+					slog.Warn("❌ heartbeat failed, attempting re-register...", "failures", consecutiveFailures)
+					if syncErr := c.syncWithRetry(ctx, 1); syncErr != nil {
+						slog.Error("re-register failed", "error", syncErr)
+						// 继续尝试，保持心跳
+					} else {
+						slog.Info("✅ re-registered successfully")
+						consecutiveFailures = 0 // 重置计数器
+					}
+				}
+			} else {
+				// 心跳成功，重置计数器
+				if consecutiveFailures > 0 {
+					slog.Info("heartbeat recovered", "previous_failures", consecutiveFailures)
+					consecutiveFailures = 0
+				}
 			}
 		}
 	}

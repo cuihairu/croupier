@@ -48,6 +48,16 @@ type PacksReloadResponse {
 	UpdatedAt string `json:"updatedAt,optional"`
 }
 
+// --- Pack 插件 ---
+type PacksPluginRequest {
+	Pack string `form:"pack"`
+	Path string `form:"path"`
+}
+
+type PacksPluginResponse {
+	Content string `json:"content,omitempty"`
+}
+
 // ============================================================================
 // 服务定义
 // ============================================================================
@@ -71,5 +81,9 @@ service server {
 	@doc "重新加载功能包"
 	@handler PacksReloadHandler
 	post /reload (PacksReloadRequest) returns (PacksReloadResponse)
+
+	@doc "获取 pack web 插件"
+	@handler PacksPluginHandler
+	get /plugin (PacksPluginRequest) returns (PacksPluginResponse)
 }
 

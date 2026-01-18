@@ -77,6 +77,11 @@ type ServiceContext struct {
 	MessageModel       *model.MessageModel
 	CertificateModel   *model.CertificateModel
 	ConfigVersionModel *model.ConfigVersionModel
+
+	// 版本信息（由 build 脚本通过 ldflags 注入）
+	ServerVersion   string
+	ServerGitCommit string
+	ServerBuildTime string
 }
 
 func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
@@ -192,6 +197,11 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		MessageModel:       messageModel,
 		CertificateModel:   certificateModel,
 		ConfigVersionModel: configVersionModel,
+
+		// 版本信息（从 version.go 读取，ldflags 注入后会更新）
+		ServerVersion:   ServerVersion,
+		ServerGitCommit: ServerGitCommit,
+		ServerBuildTime: ServerBuildTime,
 
 		ComponentManager:     componentManager,
 		ComponentLock:        &sync.RWMutex{},

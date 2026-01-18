@@ -106,7 +106,7 @@ packs-build:
 server: api
 	@echo "[build] server (pg+sqlite)"
 	@mkdir -p $(BINDIR)
-	cd services/server && GOFLAGS=-mod=mod go build -tags "pg sqlite" -ldflags "-X github.com/cuihairu/croupier/services/server/cmd.Version=$(FULL_VERSION) -X github.com/cuihairu/croupier/services/server/cmd.GitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/services/server/cmd.BuildTime=$(BUILD_TIME) -s -w" -o ../../$(BINDIR)/croupier-server .
+	cd services/server && GOFLAGS=-mod=mod go build -tags "pg sqlite" -ldflags "-X github.com/cuihairu/croupier/services/server/cmd.Version=$(FULL_VERSION) -X github.com/cuihairu/croupier/services/server/cmd.GitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/services/server/cmd.BuildTime=$(BUILD_TIME) -X github.com/cuihairu/croupier/services/server/internal/svc.ServerVersion=$(FULL_VERSION) -X github.com/cuihairu/croupier/services/server/internal/svc.ServerGitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/services/server/internal/svc.ServerBuildTime=$(BUILD_TIME) -s -w" -o ../../$(BINDIR)/croupier-server .
 
 .PHONY: server-sqlite
 server-sqlite:

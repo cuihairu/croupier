@@ -1237,6 +1237,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: pack.PacksImportHandler(serverCtx),
 			},
 			{
+				// 获取 pack web 插件
+				Method:  http.MethodGet,
+				Path:    "/plugin",
+				Handler: pack.PacksPluginHandler(serverCtx),
+			},
+			{
 				// 重新加载功能包
 				Method:  http.MethodPost,
 				Path:    "/reload",
