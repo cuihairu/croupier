@@ -10,7 +10,7 @@ Server:
   TLSKeyFile: ""
   CAFile: ""
   ServerName: ""
-  InsecureSkipVerify: false
+  InsecureSkipVerify: true  # Skip TLS verification for local dev (server uses auto-generated cert)
 
 # Agent configuration
 Agent:

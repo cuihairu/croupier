@@ -117,7 +117,7 @@ func (c *UpstreamClient) Start(ctx context.Context) error {
 
 	dialOpts = append(dialOpts, grpc.WithBlock())
 
-	dialCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	dialCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	conn, err := grpc.DialContext(dialCtx, c.serverAddr, dialOpts...)
 	if err != nil {
@@ -234,7 +234,7 @@ func (c *UpstreamClient) syncWithRetry(ctx context.Context, attempts int) error 
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		syncCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		syncCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		err := c.syncOnce(syncCtx)
 		cancel()
 		if err == nil {
