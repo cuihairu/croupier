@@ -73,17 +73,16 @@ func (c *controlServiceClient) RegisterCapabilities(ctx context.Context, in *Reg
 }
 
 // ControlServiceServer is the server API for ControlService service.
-// All implementations must embed UnimplementedControlServiceServer
+// All implementations should embed UnimplementedControlServiceServer
 // for forward compatibility.
 type ControlServiceServer interface {
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
 	Heartbeat(context.Context, *HeartbeatRequest) (*HeartbeatResponse, error)
 	// New in capabilities: provider manifest upload (language-agnostic declaration)
 	RegisterCapabilities(context.Context, *RegisterCapabilitiesRequest) (*RegisterCapabilitiesResponse, error)
-	mustEmbedUnimplementedControlServiceServer()
 }
 
-// UnimplementedControlServiceServer must be embedded to have
+// UnimplementedControlServiceServer should be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
@@ -99,8 +98,7 @@ func (UnimplementedControlServiceServer) Heartbeat(context.Context, *HeartbeatRe
 func (UnimplementedControlServiceServer) RegisterCapabilities(context.Context, *RegisterCapabilitiesRequest) (*RegisterCapabilitiesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterCapabilities not implemented")
 }
-func (UnimplementedControlServiceServer) mustEmbedUnimplementedControlServiceServer() {}
-func (UnimplementedControlServiceServer) testEmbeddedByValue()                        {}
+func (UnimplementedControlServiceServer) testEmbeddedByValue() {}
 
 // UnsafeControlServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to ControlServiceServer will
