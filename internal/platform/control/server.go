@@ -30,6 +30,11 @@ import (
 //go:embed providers-manifest.schema.json
 var embeddedProviderManifestSchema []byte
 
+const (
+	// DefaultSessionTTL is the default agent session TTL
+	DefaultSessionTTL = 5 * time.Minute // 默认 5 分钟
+)
+
 // Server implements the ControlService and exposes a registry store for other components.
 type Server struct {
 	serverv1.UnimplementedControlServiceServer
@@ -43,6 +48,9 @@ type Server struct {
 	agentClients    map[string]opsv1.OpsServiceClient // agent_id -> ops client
 	agentClientsMu  sync.RWMutex
 	logger          *slog.Logger
+
+	// Session management
+	defaultSessionTTL time.Duration // 默认 session TTL，可配置
 }
 
 func NewServer(registry *reg.Store) *Server {
@@ -50,11 +58,12 @@ func NewServer(registry *reg.Store) *Server {
 		registry = reg.NewStore()
 	}
 	s := &Server{
-		reg:             registry,
-		metricsStore:    reg.NewMetricsStore(),
-		systemInfoCache: reg.NewSystemInfoCache(),
-		agentClients:    make(map[string]opsv1.OpsServiceClient),
-		logger:          slog.Default(),
+		reg:               registry,
+		metricsStore:      reg.NewMetricsStore(),
+		systemInfoCache:   reg.NewSystemInfoCache(),
+		agentClients:      make(map[string]opsv1.OpsServiceClient),
+		logger:            slog.Default(),
+		defaultSessionTTL: DefaultSessionTTL,
 	}
 
 	// 加载 Provider Manifest JSON Schema
@@ -74,6 +83,13 @@ func NewServer(registry *reg.Store) *Server {
 // When set (typically in Edge), Register/Heartbeat/Capabilities can be forwarded to the central Server.
 func (s *Server) SetUpstreamClient(cli serverv1.ControlServiceClient) {
 	s.upstream = cli
+}
+
+// SetDefaultSessionTTL sets the default session TTL for agent registrations.
+func (s *Server) SetDefaultSessionTTL(ttl time.Duration) {
+	if ttl > 0 {
+		s.defaultSessionTTL = ttl
+	}
 }
 
 // loadProviderSchema 加载 Provider Manifest JSON Schema
@@ -128,6 +144,12 @@ func (s *Server) Register(ctx context.Context, in *serverv1.RegisterRequest) (*s
 		upstreamResp = resp
 	}
 
+	// 计算 TTL：优先使用请求中的 TTL，否则使用默认值
+	ttl := s.defaultSessionTTL
+	if in.GetTtlSeconds() > 0 {
+		ttl = time.Duration(in.GetTtlSeconds()) * time.Second
+	}
+
 	sess := &reg.AgentSession{
 		AgentID: in.GetAgentId(),
 		GameID:  in.GetGameId(),
@@ -135,7 +157,7 @@ func (s *Server) Register(ctx context.Context, in *serverv1.RegisterRequest) (*s
 		RPCAddr: in.GetRpcAddr(),
 		Version: in.GetVersion(),
 		// Region/Zone/Labels are not present in current proto; leave empty
-		ExpireAt:  time.Now().Add(60 * time.Second),
+		ExpireAt:  time.Now().Add(ttl),
 		Functions: map[string]reg.FunctionMeta{},
 	}
 	// Populate functions from request descriptors (id -> enabled)
@@ -195,7 +217,7 @@ func (s *Server) Heartbeat(ctx context.Context, in *serverv1.HeartbeatRequest) (
 
 	s.reg.Mu().Lock()
 	if a := s.reg.AgentsUnsafe()[in.GetAgentId()]; a != nil {
-		a.ExpireAt = time.Now().Add(60 * time.Second)
+		a.ExpireAt = time.Now().Add(s.defaultSessionTTL)
 	}
 	s.reg.Mu().Unlock()
 	if upstreamResp != nil {

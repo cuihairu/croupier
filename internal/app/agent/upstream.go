@@ -163,36 +163,21 @@ func (c *UpstreamClient) Start(ctx context.Context) error {
 
 	slog.Info("connecting to upstream server", "addr", c.serverAddr, "tls", c.tlsCfg != nil)
 
-	if err := c.dialServer(ctx); err != nil {
-		return err
-	}
-
-	// Initial sync
-	if err := c.syncWithRetry(ctx, 3); err != nil {
-		slog.Error("initial sync failed", "error", err)
-		// 启动后台重连 goroutine，持续重试直到成功
-		go func() {
-			for {
-				if ctx.Err() != nil {
-					slog.Info("upstream sync cancelled, exiting retry loop")
-					return
-				}
-				slog.Info("upstream retrying...")
-				// 先重新建立连接，再同步
-				if dialErr := c.dialServer(ctx); dialErr != nil {
-					slog.Error("upstream dial failed", "error", dialErr)
-					time.Sleep(5 * time.Second)
-					continue
-				}
-				if err := c.syncWithRetry(ctx, 1); err != nil {
-					slog.Error("upstream retry sync failed", "error", err)
-					time.Sleep(5 * time.Second)
-				} else {
-					slog.Info("✅ upstream reconnected successfully")
-					return
-				}
-			}
-		}()
+	// 初始连接尝试
+	initialDialErr := c.dialServer(ctx)
+	if initialDialErr != nil {
+		slog.Warn("⚠️  failed to connect to upstream server, will keep retrying in background...", "addr", c.serverAddr, "error", initialDialErr)
+		// 启动后台重连 goroutine
+		go c.reconnectLoop(ctx, true)
+	} else {
+		// dial 成功，尝试同步
+		if err := c.syncWithRetry(ctx, 3); err != nil {
+			slog.Error("initial sync failed", "error", err)
+			// 启动后台重连 goroutine
+			go c.reconnectLoop(ctx, false)
+		} else {
+			slog.Info("✅ upstream connected and synced successfully")
+		}
 	}
 
 	// Register update callback
@@ -231,6 +216,45 @@ func hostFromTarget(target string) string {
 	}
 	// best-effort: handle "host" or "[ipv6]" without port
 	return strings.Trim(strings.TrimPrefix(target, "["), "]")
+}
+
+// reconnectLoop 持续重试连接上游服务器，直到成功或上下文取消
+// needDial 为 true 表示需要先建立连接
+func (c *UpstreamClient) reconnectLoop(ctx context.Context, needDial bool) {
+	const retryInterval = 5 * time.Second
+	var attemptCount int
+
+	for {
+		if ctx.Err() != nil {
+			slog.Info("upstream reconnect cancelled, exiting retry loop")
+			return
+		}
+
+		// 先建立连接（如果需要）
+		if needDial {
+			attemptCount++
+			slog.Info("⏳ waiting for upstream server to be ready...", "attempt", attemptCount, "addr", c.serverAddr)
+
+			if dialErr := c.dialServer(ctx); dialErr != nil {
+				slog.Debug("upstream dial attempt failed", "attempt", attemptCount, "error", dialErr)
+				time.Sleep(retryInterval)
+				continue
+			}
+			slog.Info("upstream server connected, attempting sync...")
+		}
+
+		// 连接建立后，尝试同步
+		if err := c.syncWithRetry(ctx, 1); err != nil {
+			slog.Error("upstream sync failed", "error", err)
+			// 同步失败，下次需要重新建立连接
+			needDial = true
+			time.Sleep(retryInterval)
+			continue
+		}
+
+		slog.Info("✅ upstream reconnected successfully", "attempt", attemptCount)
+		return
+	}
 }
 
 func (c *UpstreamClient) updateLoop(ctx context.Context, debounce time.Duration) {
@@ -288,7 +312,15 @@ func (c *UpstreamClient) heartbeatLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_, err := c.client.Heartbeat(ctx, &serverv1.HeartbeatRequest{AgentId: c.agentID})
+			// 检查客户端是否可用，未连接时跳过本次心跳
+			if c.client == nil {
+				slog.Debug("heartbeat skipped: client not connected")
+				continue
+			}
+			// 心跳调用设置超时，避免 server 关闭后一直阻塞
+			hbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			_, err := c.client.Heartbeat(hbCtx, &serverv1.HeartbeatRequest{AgentId: c.agentID})
+			cancel()
 			if err != nil {
 				consecutiveFailures++
 				slog.Error("heartbeat failed", "error", err, "consecutive_failures", consecutiveFailures)
@@ -313,7 +345,13 @@ func (c *UpstreamClient) heartbeatLoop(ctx context.Context) {
 			} else {
 				// 心跳成功，重置计数器
 				if consecutiveFailures > 0 {
-					slog.Info("heartbeat recovered", "previous_failures", consecutiveFailures)
+					slog.Info("heartbeat recovered, re-registering to ensure session is active...", "previous_failures", consecutiveFailures)
+					// 立即重新注册，确保注册信息是最新的
+					if syncErr := c.syncWithRetry(ctx, 1); syncErr != nil {
+						slog.Warn("re-register after recovery failed", "error", syncErr)
+					} else {
+						slog.Info("✅ re-registered successfully after recovery")
+					}
 					consecutiveFailures = 0
 				}
 			}

@@ -93,17 +93,16 @@ func (c *functionServiceClient) CancelJob(ctx context.Context, in *CancelJobRequ
 }
 
 // FunctionServiceServer is the server API for FunctionService service.
-// All implementations must embed UnimplementedFunctionServiceServer
+// All implementations should embed UnimplementedFunctionServiceServer
 // for forward compatibility.
 type FunctionServiceServer interface {
 	Invoke(context.Context, *InvokeRequest) (*InvokeResponse, error)
 	StartJob(context.Context, *InvokeRequest) (*StartJobResponse, error)
 	StreamJob(*JobStreamRequest, grpc.ServerStreamingServer[JobEvent]) error
 	CancelJob(context.Context, *CancelJobRequest) (*StartJobResponse, error)
-	mustEmbedUnimplementedFunctionServiceServer()
 }
 
-// UnimplementedFunctionServiceServer must be embedded to have
+// UnimplementedFunctionServiceServer should be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
@@ -122,8 +121,7 @@ func (UnimplementedFunctionServiceServer) StreamJob(*JobStreamRequest, grpc.Serv
 func (UnimplementedFunctionServiceServer) CancelJob(context.Context, *CancelJobRequest) (*StartJobResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelJob not implemented")
 }
-func (UnimplementedFunctionServiceServer) mustEmbedUnimplementedFunctionServiceServer() {}
-func (UnimplementedFunctionServiceServer) testEmbeddedByValue()                         {}
+func (UnimplementedFunctionServiceServer) testEmbeddedByValue() {}
 
 // UnsafeFunctionServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to FunctionServiceServer will
