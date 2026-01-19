@@ -5,11 +5,11 @@
 # Croupier Platform
 
 [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/cuihairu/croupier)](https://github.com/cuihairu/croupier/releases)
 [![codecov](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg)](https://codecov.io/gh/cuihairu/croupier)
 [![Docker Build](https://github.com/cuihairu/croupier/actions/workflows/docker.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/docker.yml)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 ![Go Version](https://img.shields.io/badge/go-1.25+-green.svg)
-![Status](https://img.shields.io/badge/status-in%20development-yellow.svg)
 
 统一的游戏运营控制面：Server / Agent / Edge 服务负责安全合规与函数路由，Dashboard 由 X‑Render 驱动自动生成 UI，SDK 覆盖多语言并保持 Nightly 构建。这个仓库承载主进程、示例与公共配置，其余组件拆分为独立仓库并通过子模块引用。
 

@@ -82,6 +82,9 @@ type ServiceContext struct {
 	ServerVersion   string
 	ServerGitCommit string
 	ServerBuildTime string
+
+	// StartTime 记录服务器启动时间
+	StartTime time.Time
 }
 
 func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
@@ -202,6 +205,9 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		ServerVersion:   ServerVersion,
 		ServerGitCommit: ServerGitCommit,
 		ServerBuildTime: ServerBuildTime,
+
+		// 记录启动时间
+		StartTime: time.Now(),
 
 		ComponentManager:     componentManager,
 		ComponentLock:        &sync.RWMutex{},

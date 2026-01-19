@@ -45,13 +45,14 @@ func (l *OpsServicesLogic) OpsServices(_ *types.OpsServicesRequest) (*types.OpsS
 		serverAddr = fmt.Sprintf("localhost:%d", l.svcCtx.Config.Port)
 	}
 	services = append(services, types.OpsServiceItem{
-		ID:      "server",
-		Name:    "croupier-server",
-		Type:    "server",
-		Status:  "running",
-		Address: serverAddr,
-		Version: l.svcCtx.ServerVersion,
-		Labels:  map[string]string{},
+		ID:       "server",
+		Name:     "croupier-server",
+		Type:     "server",
+		Status:   "running",
+		Address:  serverAddr,
+		Version:  l.svcCtx.ServerVersion,
+		Labels:   map[string]string{},
+		LastSeen: l.svcCtx.StartTime.Format(time.RFC3339),
 	})
 
 	// Add agents from registry

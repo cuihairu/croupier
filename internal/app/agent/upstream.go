@@ -107,14 +107,16 @@ func (c *UpstreamClient) WithMetadata(meta UpstreamMetadata) {
 	}
 }
 
-// Start begins the upstream synchronization process.
-func (c *UpstreamClient) Start(ctx context.Context) error {
-	if c.serverAddr == "" {
-		slog.Info("upstream server address not configured, skipping upstream connection")
-		return nil
+// dialServer establishes a new gRPC connection to the upstream server.
+// It closes any existing connection before establishing a new one.
+func (c *UpstreamClient) dialServer(ctx context.Context) error {
+	// Close existing connection if any
+	if c.conn != nil {
+		c.conn.Close()
+		c.conn = nil
+		c.client = nil
+		c.opsClient = nil
 	}
-
-	slog.Info("connecting to upstream server", "addr", c.serverAddr, "tls", c.tlsCfg != nil)
 
 	var dialOpts []grpc.DialOption
 	if c.tlsCfg != nil {
@@ -140,13 +142,30 @@ func (c *UpstreamClient) Start(ctx context.Context) error {
 	}
 	dialCtx, cancel := context.WithTimeout(ctx, dialTimeout)
 	defer cancel()
+
 	conn, err := grpc.DialContext(dialCtx, c.serverAddr, dialOpts...)
 	if err != nil {
 		return fmt.Errorf("failed to connect to upstream server: %w", err)
 	}
+
 	c.conn = conn
 	c.client = serverv1.NewControlServiceClient(conn)
 	c.opsClient = opsv1.NewOpsServiceClient(conn)
+	return nil
+}
+
+// Start begins the upstream synchronization process.
+func (c *UpstreamClient) Start(ctx context.Context) error {
+	if c.serverAddr == "" {
+		slog.Info("upstream server address not configured, skipping upstream connection")
+		return nil
+	}
+
+	slog.Info("connecting to upstream server", "addr", c.serverAddr, "tls", c.tlsCfg != nil)
+
+	if err := c.dialServer(ctx); err != nil {
+		return err
+	}
 
 	// Initial sync
 	if err := c.syncWithRetry(ctx, 3); err != nil {
@@ -159,8 +178,14 @@ func (c *UpstreamClient) Start(ctx context.Context) error {
 					return
 				}
 				slog.Info("upstream retrying...")
+				// 先重新建立连接，再同步
+				if dialErr := c.dialServer(ctx); dialErr != nil {
+					slog.Error("upstream dial failed", "error", dialErr)
+					time.Sleep(5 * time.Second)
+					continue
+				}
 				if err := c.syncWithRetry(ctx, 1); err != nil {
-					slog.Error("upstream retry failed", "error", err)
+					slog.Error("upstream retry sync failed", "error", err)
 					time.Sleep(5 * time.Second)
 				} else {
 					slog.Info("✅ upstream reconnected successfully")
@@ -267,14 +292,21 @@ func (c *UpstreamClient) heartbeatLoop(ctx context.Context) {
 			if err != nil {
 				consecutiveFailures++
 				slog.Error("heartbeat failed", "error", err, "consecutive_failures", consecutiveFailures)
-				// 连续失败达到阈值，尝试重新注册
+				// 连续失败达到阈值，尝试重新连接并注册
 				if consecutiveFailures >= maxHeartbeatFailures {
-					slog.Warn("❌ heartbeat failed, attempting re-register...", "failures", consecutiveFailures)
+					slog.Warn("❌ heartbeat failed, attempting re-connect and register...", "failures", consecutiveFailures)
+					// 先重新建立连接
+					if dialErr := c.dialServer(ctx); dialErr != nil {
+						slog.Error("re-connect dial failed", "error", dialErr)
+						// 连接失败，继续尝试心跳
+						continue
+					}
+					// 连接成功后重新注册
 					if syncErr := c.syncWithRetry(ctx, 1); syncErr != nil {
 						slog.Error("re-register failed", "error", syncErr)
 						// 继续尝试，保持心跳
 					} else {
-						slog.Info("✅ re-registered successfully")
+						slog.Info("✅ re-connected and registered successfully")
 						consecutiveFailures = 0 // 重置计数器
 					}
 				}
