@@ -348,9 +348,194 @@ spec:
 
 ## 二进制部署
 
-### 系统服务配置
+### 自动化安装脚本
+
+项目提供了自动化服务安装脚本，支持 Linux (systemd) 和 Windows 服务。
+
+#### Linux systemd 安装
+
+使用 `install-systemd.sh` 脚本快速部署 systemd 服务：
+
+```bash
+# 从发布包或编译产物安装
+sudo ./scripts/install-systemd.sh install
+
+# 指定二进制源路径
+sudo CROUPIER_BIN_SRC=/tmp/croupier-server ./scripts/install-systemd.sh install
+
+# 启用并启动服务
+sudo ./scripts/install-systemd.sh enable
+sudo ./scripts/install-systemd.sh start
+
+# 查看服务状态
+sudo ./scripts/install-systemd.sh status
+
+# 查看日志
+sudo journalctl -u croupier-server -f
+```
+
+脚本支持以下命令：
+
+| 命令 | 说明 |
+|------|------|
+| `install` | 安装服务（创建用户、目录、配置文件） |
+| `uninstall` | 卸载服务（保留用户和数据目录） |
+| `reinstall` | 重装服务 |
+| `enable` | 启用服务（开机自启） |
+| `disable` | 禁用服务 |
+| `start` | 启动服务 |
+| `stop` | 停止服务 |
+| `restart` | 重启服务 |
+| `status` | 查看服务状态 |
+
+可配置环境变量：
+
+```bash
+# 运行用户（默认: croupier）
+export CROUPIER_USER="croupier"
+
+# 安装目录（默认: /opt/croupier）
+export CROUPIER_HOME="/opt/croupier"
+
+# 配置目录（默认: /etc/croupier）
+export CROUPIER_CONFIG_DIR="/etc/croupier"
+
+# 数据目录（默认: /var/lib/croupier）
+export CROUPIER_DATA_DIR="/var/lib/croupier"
+
+# 日志目录（默认: /var/log/croupier）
+export CROUPIER_LOG_DIR="/var/log/croupier"
+```
+
+#### macOS launchd 安装
+
+使用 `install-launchd.sh` 脚本在 macOS 上部署 launchd 服务：
+
+```bash
+# 安装服务
+sudo ./scripts/install-launchd.sh install
+
+# 加载服务到 launchd
+sudo ./scripts/install-launchd.sh load
+
+# 启动服务
+sudo ./scripts/install-launchd.sh start
+
+# 查看服务状态
+./scripts/install-launchd.sh status
+
+# 查看日志
+tail -f /usr/local/var/log/croupier/croupier-server.log
+
+# 停止服务
+sudo ./scripts/install-launchd.sh stop
+
+# 卸载服务
+sudo ./scripts/install-launchd.sh unload
+sudo ./scripts/install-launchd.sh uninstall
+```
+
+脚本支持以下命令：
+
+| 命令 | 说明 |
+|------|------|
+| `install` | 安装服务（创建用户、目录、配置、LaunchDaemon） |
+| `uninstall` | 卸载服务（保留用户和数据目录） |
+| `reinstall` | 重装服务 |
+| `load` | 加载 LaunchDaemon（注册到系统） |
+| `unload` | 卸载 LaunchDaemon |
+| `start` | 启动服务 |
+| `stop` | 停止服务 |
+| `restart` | 重启服务 |
+| `status` | 查看服务状态 |
+
+可配置环境变量：
+
+```bash
+# 运行用户（默认: croupier）
+export CROUPIER_USER="croupier"
+
+# 安装目录（默认: /usr/local/croupier）
+export CROUPIER_HOME="/usr/local/croupier"
+
+# 配置目录（默认: /usr/local/etc/croupier）
+export CROUPIER_CONFIG_DIR="/usr/local/etc/croupier"
+
+# 数据目录（默认: /usr/local/var/croupier）
+export CROUPIER_DATA_DIR="/usr/local/var/croupier"
+
+# 日志目录（默认: /usr/local/var/log/croupier）
+export CROUPIER_LOG_DIR="/usr/local/var/log/croupier"
+```
+
+LaunchDaemon 特性：
+- 服务文件位置：`/Library/LaunchDaemons/com.github.cuihairu.croupier.server.plist`
+- 服务随系统自动启动（`RunAtLoad = true`）
+- 服务崩溃后自动重启（`KeepAlive = true`）
+- 日志输出到标准文件，方便排查问题
+
+#### Windows 服务安装
+
+使用 PowerShell 脚本安装 Windows 服务：
+
+```powershell
+# 以管理员身份运行 PowerShell
+# 安装服务
+.\scripts\install-windows-service.ps1 Install
+
+# 启动服务
+.\scripts\install-windows-service.ps1 Start
+
+# 查看服务状态
+.\scripts\install-windows-service.ps1 Status
+
+# 停止服务
+.\scripts\install-windows-service.ps1 Stop
+
+# 卸载服务
+.\scripts\install-windows-service.ps1 Uninstall
+```
+
+脚本支持以下命令：
+
+| 命令 | 说明 |
+|------|------|
+| `Install` | 安装服务 |
+| `Uninstall` | 卸载服务 |
+| `Reinstall` | 重装服务 |
+| `Start` | 启动服务 |
+| `Stop` | 停止服务 |
+| `Restart` | 重启服务 |
+| `Enable` | 启用服务（开机自启） |
+| `Disable` | 禁用服务 |
+| `Status` | 查看服务状态 |
+
+可配置环境变量：
+
+```powershell
+# 服务名称（默认: CroupierServer）
+$env:CROUPIER_SERVICE_NAME = "CroupierServer"
+
+# 安装目录（默认: C:\Program Files\Croupier）
+$env:CROUPIER_INSTALL_DIR = "C:\Program Files\Croupier"
+
+# 配置目录（默认: C:\ProgramData\Croupier\config）
+$env:CROUPIER_CONFIG_DIR = "C:\ProgramData\Croupier\config"
+
+# 数据目录（默认: C:\ProgramData\Croupier）
+$env:CROUPIER_DATA_DIR = "C:\ProgramData\Croupier"
+
+# 日志目录（默认: C:\ProgramData\Croupier\logs）
+$env:CROUPIER_LOG_DIR = "C:\ProgramData\Croupier\logs"
+```
+
+### 手动配置
+
+如果需要手动配置服务，可以参考以下配置。
 
 #### systemd (Linux)
+
+创建服务文件：
 
 ```ini
 # /etc/systemd/system/croupier-server.service
@@ -383,6 +568,20 @@ WantedBy=multi-user.target
 启动服务：
 
 ```bash
+# 创建用户
+sudo useradd --system --home /opt/croupier --create-home croupier
+
+# 创建目录
+sudo mkdir -p /opt/croupier/bin /etc/croupier /var/log/croupier /var/lib/croupier
+
+# 安装二进制
+sudo cp croupier-server /opt/croupier/bin/
+sudo chmod +x /opt/croupier/bin/croupier-server
+
+# 安装配置
+sudo cp configs/server.example.yaml /etc/croupier/server.yaml
+sudo editor /etc/croupier/server.yaml  # 修改配置
+
 # 重载配置
 sudo systemctl daemon-reload
 
