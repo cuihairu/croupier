@@ -1,0 +1,51 @@
+# Croupier Server systemd service unit
+# 安装位置: /etc/systemd/system/croupier-server.service
+# 使用 scripts/install-systemd.sh 进行安装
+
+[Unit]
+Description=Croupier Server - Game Operations Control Plane
+Documentation=https://github.com/cuihairu/croupier
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=croupier
+Group=croupier
+
+# 工作目录和二进制路径
+WorkingDirectory=/opt/croupier
+ExecStart=/opt/croupier/bin/croupier-server --config /etc/croupier/server.yaml
+
+# 自动重启配置
+Restart=always
+RestartSec=5
+StartLimitInterval=60
+StartLimitBurst=3
+
+# 进程管理
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# 环境变量 (可通过 EnvironmentFile 覆盖)
+EnvironmentFile=-/etc/croupier/croupier.conf
+
+# 安全加固
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/croupier /var/lib/croupier /tmp
+
+# 资源限制
+LimitNOFILE=65536
+LimitNPROC=8192
+
+# 日志
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=croupier-server
+
+[Install]
+WantedBy=multi-user.target
