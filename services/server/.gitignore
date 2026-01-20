@@ -2,3 +2,4 @@
 data/
 *.db
 __debug_bin*
+internal/types/.backup/
