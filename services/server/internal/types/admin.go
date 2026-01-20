@@ -37,6 +37,21 @@ type AdminDetailRequest struct {
 type AdminDetailResponse struct {
 	Admin
 }
+type AdminGame struct {
+	GameId   string   `json:"gameId"`
+	GameName string   `json:"gameName,optional"`
+	Envs     []string `json:"envs"`
+}
+type AdminGamesRequest struct {
+	ID string `path:"id"`
+}
+type AdminGamesResponse struct {
+	Games []AdminGame `json:"games"`
+}
+type AdminGamesUpdateRequest struct {
+	ID    string      `path:"id"`
+	Games []AdminGame `json:"games"`
+}
 type AdminPasswordResetRequest struct {
 	ID          string `path:"id"`
 	NewPassword string `json:"newPassword"`

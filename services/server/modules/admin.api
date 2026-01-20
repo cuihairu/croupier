@@ -275,3 +275,43 @@ service server {
 	get /:id (PermissionDetailRequest) returns (PermissionDetailResponse)
 }
 
+// ============================================================================
+// 管理员游戏权限管理 API
+// ============================================================================
+// --- 管理员游戏权限定义 ---
+type AdminGame {
+	GameId   string   `json:"gameId"`
+	GameName string   `json:"gameName,optional"`
+	Envs     []string `json:"envs"`
+}
+
+// --- 获取管理员游戏权限 ---
+type AdminGamesRequest {
+	ID string `path:"id"`
+}
+
+type AdminGamesResponse {
+	Games []AdminGame `json:"games"`
+}
+
+// --- 更新管理员游戏权限 ---
+type AdminGamesUpdateRequest {
+	ID    string      `path:"id"`
+	Games []AdminGame `json:"games"`
+}
+
+@server (
+	prefix: /api/v1/admin
+	group:  adminGames
+)
+service server {
+	// === 管理员游戏权限管理 ===
+	@doc "获取管理员的游戏访问权限"
+	@handler AdminGamesHandler
+	get /:id/games (AdminGamesRequest) returns (AdminGamesResponse)
+
+	@doc "更新管理员的游戏访问权限"
+	@handler AdminGamesUpdateHandler
+	put /:id/games (AdminGamesUpdateRequest)
+}
+
