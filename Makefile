@@ -66,9 +66,10 @@ proto: croupier-plugin
 api:
 	@echo "[api] generating API code via goctl..."
 	@PATH=$$PATH:~/go/bin which goctl > /dev/null || (echo "Error: goctl not found. Please install goctl: go install github.com/zeromicro/go-zero/tools/goctl@latest" && exit 1)
-	@cd services/server && PATH=$$PATH:~/go/bin goctl api go -api server.api -dir . -style go_zero
-	@cd services/agent && PATH=$$PATH:~/go/bin goctl api go -api agent.api -dir . -style go_zero
-	@cd services/edge && PATH=$$PATH:~/go/bin goctl api go -api edge.api -dir . -style go_zero
+	@cd services/server && PATH=$$PATH:~/go/bin goctl api go -api server.api -dir . -style go_zero --home ./templates
+	@cd services/server && ./scripts/split-types.sh
+	@cd services/agent && PATH=$$PATH:~/go/bin goctl api go -api agent.api -dir . -style go_zero --home ../templates
+	@cd services/edge && PATH=$$PATH:~/go/bin goctl api go -api edge.api -dir . -style go_zero --home ../templates
 	@echo "[api] code generation complete"
 
 # Build local protoc plugin for pack generation
