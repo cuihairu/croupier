@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	admin "github.com/cuihairu/croupier/services/server/internal/handler/admin"
+	adminGames "github.com/cuihairu/croupier/services/server/internal/handler/adminGames"
 	agent "github.com/cuihairu/croupier/services/server/internal/handler/agent"
 	alert "github.com/cuihairu/croupier/services/server/internal/handler/alert"
 	analytics_behavior "github.com/cuihairu/croupier/services/server/internal/handler/analytics_behavior"
@@ -89,6 +90,24 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPost,
 				Path:    "/:id/password-reset",
 				Handler: admin.AdminPasswordResetHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/admin"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取管理员的游戏访问权限
+				Method:  http.MethodGet,
+				Path:    "/:id/games",
+				Handler: adminGames.AdminGamesHandler(serverCtx),
+			},
+			{
+				// 更新管理员的游戏访问权限
+				Method:  http.MethodPut,
+				Path:    "/:id/games",
+				Handler: adminGames.AdminGamesUpdateHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/admin"),
