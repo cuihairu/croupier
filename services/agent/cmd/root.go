@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -172,12 +174,22 @@ func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, strin
 		rpcAddr = addr
 	}
 
+	// 收集系统标签
+	labels := collectSystemLabels()
+	// 合并配置中的 labels（系统信息优先级最高）
+	for k, v := range c.Agent.Labels {
+		labels[k] = v
+	}
+
 	core := agentcore.New(strings.TrimSpace(c.Server.Addr), agentID)
 	core.WithUpstreamMetadata(agentcore.UpstreamMetadata{
 		GameID:            strings.TrimSpace(c.Agent.GameID),
 		Env:               strings.TrimSpace(c.Agent.Env),
 		Version:           Version,
 		RPCAddr:           rpcAddr,
+		Region:            strings.TrimSpace(c.Agent.Region),
+		Zone:              strings.TrimSpace(c.Agent.Zone),
+		Labels:            labels,
 		DialTimeout:       time.Duration(c.Upstream.Timeout) * time.Millisecond,
 		RequestTimeout:    time.Duration(c.Upstream.Timeout) * time.Millisecond,
 		HeartbeatInterval: time.Duration(c.Upstream.HeartbeatInterval) * time.Second,
@@ -257,4 +269,39 @@ func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, strin
 	}()
 
 	return core, addr, nil
+}
+
+// collectSystemLabels 收集系统信息作为标签
+func collectSystemLabels() map[string]string {
+	labels := make(map[string]string)
+
+	// 操作系统
+	labels["os"] = runtime.GOOS
+	// CPU 架构
+	labels["arch"] = runtime.GOARCH
+
+	// 主机名
+	if hostname, err := os.Hostname(); err == nil {
+		labels["hostname"] = hostname
+	}
+
+	// 获取第一个非回环 IP 地址
+	if addrs, err := net.InterfaceAddrs(); err == nil {
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+				if ipnet.IP.To4() != nil {
+					labels["ip"] = ipnet.IP.String()
+					break
+				}
+			}
+		}
+	}
+
+	// CPU 核心数
+	labels["cpu_count"] = fmt.Sprintf("%d", runtime.NumCPU())
+
+	// Go 版本
+	labels["go_version"] = runtime.Version()
+
+	return labels
 }

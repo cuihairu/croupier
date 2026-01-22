@@ -6,6 +6,9 @@ package ops
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -44,15 +47,27 @@ func (l *OpsServicesLogic) OpsServices(_ *types.OpsServicesRequest) (*types.OpsS
 	if l.svcCtx.Config.Host == "0.0.0.0" {
 		serverAddr = fmt.Sprintf("localhost:%d", l.svcCtx.Config.Port)
 	}
+
+	// 收集系统标签并合并配置中的 labels
+	labels := collectServerLabels()
+	for k, v := range l.svcCtx.Config.Labels {
+		labels[k] = v
+	}
+
 	services = append(services, types.OpsServiceItem{
 		ID:       "server",
 		Name:     "croupier-server",
 		Type:     "server",
 		Status:   "running",
 		Address:  serverAddr,
+		GameID:   "",
+		Env:      "",
 		Version:  l.svcCtx.ServerVersion,
-		Labels:   map[string]string{},
+		Region:   l.svcCtx.Config.Region,
+		Zone:     l.svcCtx.Config.Zone,
+		Labels:   labels,
 		LastSeen: l.svcCtx.StartTime.Format(time.RFC3339),
+		TTL:      -1, // server 不适用 TTL
 	})
 
 	// Add agents from registry
@@ -76,6 +91,26 @@ func (l *OpsServicesLogic) OpsServices(_ *types.OpsServicesRequest) (*types.OpsS
 				labels = make(map[string]string)
 			}
 
+			// 转换进程信息
+			var metadata *types.OpsServiceMetadata
+			if len(sess.Processes) > 0 {
+				processes := make([]types.OpsServiceProcess, 0, len(sess.Processes))
+				for _, p := range sess.Processes {
+					processes = append(processes, types.OpsServiceProcess{
+						ServiceID:    p.ServiceID,
+						Addr:         p.Addr,
+						Version:      p.Version,
+						LastSeenUnix: p.LastSeenUnix,
+						FunctionIDs:  p.FunctionIDs,
+						Functions:    len(p.FunctionIDs),
+					})
+				}
+				metadata = &types.OpsServiceMetadata{
+					Processes:      processes,
+					ProcessesCount: len(processes),
+				}
+			}
+
 			services = append(services, types.OpsServiceItem{
 				ID:             sess.AgentID,
 				Name:           sess.AgentID,
@@ -89,7 +124,9 @@ func (l *OpsServicesLogic) OpsServices(_ *types.OpsServicesRequest) (*types.OpsS
 				Zone:           sess.Zone,
 				Labels:         labels,
 				FunctionsCount: utils.CountEnabledFunctions(sess.Functions),
-				LastSeen:       sess.ExpireAt.Add(-time.Second * 30).Format(time.RFC3339),
+				LastSeen:       formatLastSeen(sess.LastSeen, sess.ExpireAt),
+				TTL:            ttl,
+				Metadata:       metadata,
 			})
 		}
 		store.Mu().RUnlock()
@@ -101,6 +138,15 @@ func (l *OpsServicesLogic) OpsServices(_ *types.OpsServicesRequest) (*types.OpsS
 	}, nil
 }
 
+// formatLastSeen 格式化最后活跃时间，优先使用 LastSeen，为零值时回退到 ExpireAt
+func formatLastSeen(lastSeen, expireAt time.Time) string {
+	if !lastSeen.IsZero() {
+		return lastSeen.Format(time.RFC3339)
+	}
+	// 兼容旧数据：如果没有 LastSeen，使用 ExpireAt - 30秒
+	return expireAt.Add(-time.Second * 30).Format(time.RFC3339)
+}
+
 func ttlAndHealth(sess *registry.AgentSession) (int, bool) {
 	if sess == nil || sess.ExpireAt.IsZero() {
 		return 0, false
@@ -110,4 +156,39 @@ func ttlAndHealth(sess *registry.AgentSession) (int, bool) {
 		ttl = 0
 	}
 	return ttl, ttl > 0
+}
+
+// collectServerLabels 收集 Server 系统信息作为标签
+func collectServerLabels() map[string]string {
+	labels := make(map[string]string)
+
+	// 操作系统
+	labels["os"] = runtime.GOOS
+	// CPU 架构
+	labels["arch"] = runtime.GOARCH
+
+	// 主机名
+	if hostname, err := os.Hostname(); err == nil {
+		labels["hostname"] = hostname
+	}
+
+	// 获取第一个非回环 IP 地址
+	if addrs, err := net.InterfaceAddrs(); err == nil {
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+				if ipnet.IP.To4() != nil {
+					labels["ip"] = ipnet.IP.String()
+					break
+				}
+			}
+		}
+	}
+
+	// CPU 核心数
+	labels["cpu_count"] = fmt.Sprintf("%d", runtime.NumCPU())
+
+	// Go 版本
+	labels["go_version"] = runtime.Version()
+
+	return labels
 }

@@ -283,20 +283,37 @@ type OpsNotificationsUpdateResponse {
 
 type OpsServicesRequest {}
 
+// OpsServiceProcess represents a process registered to an agent
+type OpsServiceProcess {
+	ServiceID    string   `json:"service_id"`
+	Addr         string   `json:"addr,optional"`
+	Version      string   `json:"version,optional"`
+	LastSeenUnix int64    `json:"last_seen_unix,optional"`
+	FunctionIDs  []string `json:"function_ids,optional"`
+	Functions    int      `json:"functions,optional"`
+}
+
+// OpsServiceMetadata holds additional metadata for a service
+type OpsServiceMetadata {
+	Processes      []OpsServiceProcess `json:"processes,optional"`
+	ProcessesCount int                 `json:"processesCount,optional"`
+}
+
 type OpsServiceItem {
-	ID             string            `json:"id"`
-	Name           string            `json:"name"`
-	Type           string            `json:"type"`
-	Status         string            `json:"status"`
-	Address        string            `json:"address,optional"`
-	GameID         string            `json:"gameId,optional"`
-	Env            string            `json:"env,optional"`
-	Version        string            `json:"version,optional"`
-	Region         string            `json:"region,optional"`
-	Zone           string            `json:"zone,optional"`
-	Labels         map[string]string `json:"labels,optional"`
-	FunctionsCount int               `json:"functionsCount,optional"`
-	LastSeen       string            `json:"lastSeen,optional"`
+	ID             string              `json:"id"`
+	Name           string              `json:"name"`
+	Type           string              `json:"type"`
+	Status         string              `json:"status"`
+	Address        string              `json:"address,optional"`
+	GameID         string              `json:"gameId,optional"`
+	Env            string              `json:"env,optional"`
+	Version        string              `json:"version,optional"`
+	Region         string              `json:"region,optional"`
+	Zone           string              `json:"zone,optional"`
+	Labels         map[string]string   `json:"labels,optional"`
+	FunctionsCount int                 `json:"functionsCount,optional"`
+	LastSeen       string              `json:"lastSeen,optional"`
+	Metadata       *OpsServiceMetadata `json:"metadata,optional"`
 }
 
 type OpsServicesResponse {

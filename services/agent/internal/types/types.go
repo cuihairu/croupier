@@ -49,6 +49,8 @@ type AgentRegisterRequest struct {
 	Type      string            `json:"type"`
 	Version   string            `json:"version"`
 	Functions int64             `json:"functions"`
+	Region    string            `json:"region,optional"`
+	Zone      string            `json:"zone,optional"`
 	Metadata  map[string]string `json:"metadata,optional"`
 }
 

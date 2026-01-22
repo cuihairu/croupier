@@ -144,20 +144,23 @@ func (s *Server) Register(ctx context.Context, in *serverv1.RegisterRequest) (*s
 		upstreamResp = resp
 	}
 
-	// 计算 TTL：优先使用请求中的 TTL，否则使用默认值
-	ttl := s.defaultSessionTTL
+	// 计算 TTL：0 表示使用 1 天，否则使用请求中的值
+	ttl := 24 * time.Hour // 默认 1 天
 	if in.GetTtlSeconds() > 0 {
 		ttl = time.Duration(in.GetTtlSeconds()) * time.Second
 	}
 
 	sess := &reg.AgentSession{
-		AgentID: in.GetAgentId(),
-		GameID:  in.GetGameId(),
-		Env:     in.GetEnv(),
-		RPCAddr: in.GetRpcAddr(),
-		Version: in.GetVersion(),
-		// Region/Zone/Labels are not present in current proto; leave empty
+		AgentID:   in.GetAgentId(),
+		GameID:    in.GetGameId(),
+		Env:       in.GetEnv(),
+		RPCAddr:   in.GetRpcAddr(),
+		Version:   in.GetVersion(),
+		Region:    in.GetRegion(),
+		Zone:      in.GetZone(),
+		Labels:    in.GetLabels(),
 		ExpireAt:  time.Now().Add(ttl),
+		LastSeen:  time.Now(),
 		Functions: map[string]reg.FunctionMeta{},
 	}
 	// Populate functions from request descriptors (id -> enabled)
@@ -218,6 +221,7 @@ func (s *Server) Heartbeat(ctx context.Context, in *serverv1.HeartbeatRequest) (
 	s.reg.Mu().Lock()
 	if a := s.reg.AgentsUnsafe()[in.GetAgentId()]; a != nil {
 		a.ExpireAt = time.Now().Add(s.defaultSessionTTL)
+		a.LastSeen = time.Now()
 	}
 	s.reg.Mu().Unlock()
 	if upstreamResp != nil {
