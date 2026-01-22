@@ -254,15 +254,19 @@ func (x *AgentProcess) GetFunctionIds() []string {
 
 // Agent Registration Request
 type RegisterRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`           // agent unique id
-	Version       string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`                          // agent version
-	Functions     []*FunctionDescriptor  `protobuf:"bytes,3,rep,name=functions,proto3" json:"functions,omitempty"`                      // summarized function list
-	RpcAddr       string                 `protobuf:"bytes,4,opt,name=rpc_addr,json=rpcAddr,proto3" json:"rpc_addr,omitempty"`           // agent's reachable gRPC address (DEV ONLY)
-	GameId        string                 `protobuf:"bytes,5,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`              // game scope (required for multi-game)
-	Env           string                 `protobuf:"bytes,6,opt,name=env,proto3" json:"env,omitempty"`                                  // environment (optional: prod/stage/test)
-	Processes     []*AgentProcess        `protobuf:"bytes,7,rep,name=processes,proto3" json:"processes,omitempty"`                      // registered processes (sdk->agent)
-	TtlSeconds    uint32                 `protobuf:"varint,8,opt,name=ttl_seconds,json=ttlSeconds,proto3" json:"ttl_seconds,omitempty"` // session TTL (default 300s = 5min)
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	AgentId    string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`           // agent unique id
+	Version    string                 `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`                          // agent version
+	Functions  []*FunctionDescriptor  `protobuf:"bytes,3,rep,name=functions,proto3" json:"functions,omitempty"`                      // summarized function list
+	RpcAddr    string                 `protobuf:"bytes,4,opt,name=rpc_addr,json=rpcAddr,proto3" json:"rpc_addr,omitempty"`           // agent's reachable gRPC address (DEV ONLY)
+	GameId     string                 `protobuf:"bytes,5,opt,name=game_id,json=gameId,proto3" json:"game_id,omitempty"`              // game scope (required for multi-game)
+	Env        string                 `protobuf:"bytes,6,opt,name=env,proto3" json:"env,omitempty"`                                  // environment (optional: prod/stage/test)
+	Processes  []*AgentProcess        `protobuf:"bytes,7,rep,name=processes,proto3" json:"processes,omitempty"`                      // registered processes (sdk->agent)
+	TtlSeconds uint32                 `protobuf:"varint,8,opt,name=ttl_seconds,json=ttlSeconds,proto3" json:"ttl_seconds,omitempty"` // session TTL (default 300s = 5min)
+	// 新增：位置和标签信息
+	Region        string            `protobuf:"bytes,10,opt,name=region,proto3" json:"region,omitempty"`                                                                           // region/zone info (e.g. "us-west-1")
+	Zone          string            `protobuf:"bytes,11,opt,name=zone,proto3" json:"zone,omitempty"`                                                                               // availability zone (e.g. "us-west-1a")
+	Labels        map[string]string `protobuf:"bytes,12,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // system metadata labels (os, arch, hostname, etc.)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -351,6 +355,27 @@ func (x *RegisterRequest) GetTtlSeconds() uint32 {
 		return x.TtlSeconds
 	}
 	return 0
+}
+
+func (x *RegisterRequest) GetRegion() string {
+	if x != nil {
+		return x.Region
+	}
+	return ""
+}
+
+func (x *RegisterRequest) GetZone() string {
+	if x != nil {
+		return x.Zone
+	}
+	return ""
+}
+
+func (x *RegisterRequest) GetLabels() map[string]string {
+	if x != nil {
+		return x.Labels
+	}
+	return nil
 }
 
 // Agent Registration Response
@@ -1013,7 +1038,7 @@ var file_croupier_server_v1_server_control_proto_rawDesc = []byte{
 	0x01, 0x28, 0x03, 0x52, 0x0c, 0x6c, 0x61, 0x73, 0x74, 0x53, 0x65, 0x65, 0x6e, 0x55, 0x6e, 0x69,
 	0x78, 0x12, 0x21, 0x0a, 0x0c, 0x66, 0x75, 0x6e, 0x63, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64,
 	0x73, 0x18, 0x05, 0x20, 0x03, 0x28, 0x09, 0x52, 0x0b, 0x66, 0x75, 0x6e, 0x63, 0x74, 0x69, 0x6f,
-	0x6e, 0x49, 0x64, 0x73, 0x22, 0xb3, 0x02, 0x0a, 0x0f, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x65,
+	0x6e, 0x49, 0x64, 0x73, 0x22, 0xe3, 0x03, 0x0a, 0x0f, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x65,
 	0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x19, 0x0a, 0x08, 0x61, 0x67, 0x65, 0x6e,
 	0x74, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x61, 0x67, 0x65, 0x6e,
 	0x74, 0x49, 0x64, 0x12, 0x18, 0x0a, 0x07, 0x76, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e, 0x18, 0x02,
@@ -1032,7 +1057,18 @@ var file_croupier_server_v1_server_control_proto_rawDesc = []byte{
 	0x31, 0x2e, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x52, 0x09,
 	0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x65, 0x73, 0x12, 0x1f, 0x0a, 0x0b, 0x74, 0x74, 0x6c,
 	0x5f, 0x73, 0x65, 0x63, 0x6f, 0x6e, 0x64, 0x73, 0x18, 0x08, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x0a,
-	0x74, 0x74, 0x6c, 0x53, 0x65, 0x63, 0x6f, 0x6e, 0x64, 0x73, 0x22, 0x4e, 0x0a, 0x10, 0x52, 0x65,
+	0x74, 0x74, 0x6c, 0x53, 0x65, 0x63, 0x6f, 0x6e, 0x64, 0x73, 0x12, 0x16, 0x0a, 0x06, 0x72, 0x65,
+	0x67, 0x69, 0x6f, 0x6e, 0x18, 0x0a, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06, 0x72, 0x65, 0x67, 0x69,
+	0x6f, 0x6e, 0x12, 0x12, 0x0a, 0x04, 0x7a, 0x6f, 0x6e, 0x65, 0x18, 0x0b, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x04, 0x7a, 0x6f, 0x6e, 0x65, 0x12, 0x47, 0x0a, 0x06, 0x6c, 0x61, 0x62, 0x65, 0x6c, 0x73,
+	0x18, 0x0c, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x2f, 0x2e, 0x63, 0x72, 0x6f, 0x75, 0x70, 0x69, 0x65,
+	0x72, 0x2e, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x2e, 0x76, 0x31, 0x2e, 0x52, 0x65, 0x67, 0x69,
+	0x73, 0x74, 0x65, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2e, 0x4c, 0x61, 0x62, 0x65,
+	0x6c, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x52, 0x06, 0x6c, 0x61, 0x62, 0x65, 0x6c, 0x73, 0x1a,
+	0x39, 0x0a, 0x0b, 0x4c, 0x61, 0x62, 0x65, 0x6c, 0x73, 0x45, 0x6e, 0x74, 0x72, 0x79, 0x12, 0x10,
+	0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79,
+	0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x3a, 0x02, 0x38, 0x01, 0x22, 0x4e, 0x0a, 0x10, 0x52, 0x65,
 	0x67, 0x69, 0x73, 0x74, 0x65, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1d,
 	0x0a, 0x0a, 0x73, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01,
 	0x28, 0x09, 0x52, 0x09, 0x73, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x49, 0x64, 0x12, 0x1b, 0x0a,
@@ -1164,7 +1200,7 @@ func file_croupier_server_v1_server_control_proto_rawDescGZIP() []byte {
 	return file_croupier_server_v1_server_control_proto_rawDescData
 }
 
-var file_croupier_server_v1_server_control_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_croupier_server_v1_server_control_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_croupier_server_v1_server_control_proto_goTypes = []any{
 	(*FunctionDescriptor)(nil),           // 0: croupier.server.v1.FunctionDescriptor
 	(*AgentProcess)(nil),                 // 1: croupier.server.v1.AgentProcess
@@ -1181,47 +1217,49 @@ var file_croupier_server_v1_server_control_proto_goTypes = []any{
 	(*QueryMetricsRequest)(nil),          // 12: croupier.server.v1.QueryMetricsRequest
 	(*QueryMetricsResponse)(nil),         // 13: croupier.server.v1.QueryMetricsResponse
 	(*AgentMetricsEntry)(nil),            // 14: croupier.server.v1.AgentMetricsEntry
-	(*v1.I18NText)(nil),                  // 15: croupier.common.v1.I18nText
-	(*v1.Menu)(nil),                      // 16: croupier.common.v1.Menu
-	(*v1.PermissionSpec)(nil),            // 17: croupier.common.v1.PermissionSpec
-	(*timestamppb.Timestamp)(nil),        // 18: google.protobuf.Timestamp
-	(*v11.MetricsReport)(nil),            // 19: croupier.ops.v1.MetricsReport
-	(*emptypb.Empty)(nil),                // 20: google.protobuf.Empty
-	(*v11.SystemInfo)(nil),               // 21: croupier.ops.v1.SystemInfo
-	(*v11.ListProcessesResponse)(nil),    // 22: croupier.ops.v1.ListProcessesResponse
+	nil,                                  // 15: croupier.server.v1.RegisterRequest.LabelsEntry
+	(*v1.I18NText)(nil),                  // 16: croupier.common.v1.I18nText
+	(*v1.Menu)(nil),                      // 17: croupier.common.v1.Menu
+	(*v1.PermissionSpec)(nil),            // 18: croupier.common.v1.PermissionSpec
+	(*timestamppb.Timestamp)(nil),        // 19: google.protobuf.Timestamp
+	(*v11.MetricsReport)(nil),            // 20: croupier.ops.v1.MetricsReport
+	(*emptypb.Empty)(nil),                // 21: google.protobuf.Empty
+	(*v11.SystemInfo)(nil),               // 22: croupier.ops.v1.SystemInfo
+	(*v11.ListProcessesResponse)(nil),    // 23: croupier.ops.v1.ListProcessesResponse
 }
 var file_croupier_server_v1_server_control_proto_depIdxs = []int32{
-	15, // 0: croupier.server.v1.FunctionDescriptor.display_name:type_name -> croupier.common.v1.I18nText
-	15, // 1: croupier.server.v1.FunctionDescriptor.summary:type_name -> croupier.common.v1.I18nText
-	16, // 2: croupier.server.v1.FunctionDescriptor.menu:type_name -> croupier.common.v1.Menu
-	17, // 3: croupier.server.v1.FunctionDescriptor.permissions:type_name -> croupier.common.v1.PermissionSpec
+	16, // 0: croupier.server.v1.FunctionDescriptor.display_name:type_name -> croupier.common.v1.I18nText
+	16, // 1: croupier.server.v1.FunctionDescriptor.summary:type_name -> croupier.common.v1.I18nText
+	17, // 2: croupier.server.v1.FunctionDescriptor.menu:type_name -> croupier.common.v1.Menu
+	18, // 3: croupier.server.v1.FunctionDescriptor.permissions:type_name -> croupier.common.v1.PermissionSpec
 	0,  // 4: croupier.server.v1.RegisterRequest.functions:type_name -> croupier.server.v1.FunctionDescriptor
 	1,  // 5: croupier.server.v1.RegisterRequest.processes:type_name -> croupier.server.v1.AgentProcess
-	6,  // 6: croupier.server.v1.RegisterCapabilitiesRequest.provider:type_name -> croupier.server.v1.ProviderMeta
-	0,  // 7: croupier.server.v1.ListFunctionsSummaryResponse.functions:type_name -> croupier.server.v1.FunctionDescriptor
-	18, // 8: croupier.server.v1.QueryMetricsRequest.since:type_name -> google.protobuf.Timestamp
-	14, // 9: croupier.server.v1.QueryMetricsResponse.entries:type_name -> croupier.server.v1.AgentMetricsEntry
-	18, // 10: croupier.server.v1.AgentMetricsEntry.timestamp:type_name -> google.protobuf.Timestamp
-	19, // 11: croupier.server.v1.AgentMetricsEntry.metrics:type_name -> croupier.ops.v1.MetricsReport
-	20, // 12: croupier.server.v1.ControlService.ListFunctionsSummary:input_type -> google.protobuf.Empty
-	2,  // 13: croupier.server.v1.ControlService.Register:input_type -> croupier.server.v1.RegisterRequest
-	4,  // 14: croupier.server.v1.ControlService.Heartbeat:input_type -> croupier.server.v1.HeartbeatRequest
-	7,  // 15: croupier.server.v1.ControlService.RegisterCapabilities:input_type -> croupier.server.v1.RegisterCapabilitiesRequest
-	10, // 16: croupier.server.v1.ControlService.GetAgentSystemInfo:input_type -> croupier.server.v1.GetAgentSystemInfoRequest
-	11, // 17: croupier.server.v1.ControlService.ListAgentProcesses:input_type -> croupier.server.v1.ListAgentProcessesRequest
-	12, // 18: croupier.server.v1.ControlService.QueryMetrics:input_type -> croupier.server.v1.QueryMetricsRequest
-	9,  // 19: croupier.server.v1.ControlService.ListFunctionsSummary:output_type -> croupier.server.v1.ListFunctionsSummaryResponse
-	3,  // 20: croupier.server.v1.ControlService.Register:output_type -> croupier.server.v1.RegisterResponse
-	5,  // 21: croupier.server.v1.ControlService.Heartbeat:output_type -> croupier.server.v1.HeartbeatResponse
-	8,  // 22: croupier.server.v1.ControlService.RegisterCapabilities:output_type -> croupier.server.v1.RegisterCapabilitiesResponse
-	21, // 23: croupier.server.v1.ControlService.GetAgentSystemInfo:output_type -> croupier.ops.v1.SystemInfo
-	22, // 24: croupier.server.v1.ControlService.ListAgentProcesses:output_type -> croupier.ops.v1.ListProcessesResponse
-	13, // 25: croupier.server.v1.ControlService.QueryMetrics:output_type -> croupier.server.v1.QueryMetricsResponse
-	19, // [19:26] is the sub-list for method output_type
-	12, // [12:19] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	15, // 6: croupier.server.v1.RegisterRequest.labels:type_name -> croupier.server.v1.RegisterRequest.LabelsEntry
+	6,  // 7: croupier.server.v1.RegisterCapabilitiesRequest.provider:type_name -> croupier.server.v1.ProviderMeta
+	0,  // 8: croupier.server.v1.ListFunctionsSummaryResponse.functions:type_name -> croupier.server.v1.FunctionDescriptor
+	19, // 9: croupier.server.v1.QueryMetricsRequest.since:type_name -> google.protobuf.Timestamp
+	14, // 10: croupier.server.v1.QueryMetricsResponse.entries:type_name -> croupier.server.v1.AgentMetricsEntry
+	19, // 11: croupier.server.v1.AgentMetricsEntry.timestamp:type_name -> google.protobuf.Timestamp
+	20, // 12: croupier.server.v1.AgentMetricsEntry.metrics:type_name -> croupier.ops.v1.MetricsReport
+	21, // 13: croupier.server.v1.ControlService.ListFunctionsSummary:input_type -> google.protobuf.Empty
+	2,  // 14: croupier.server.v1.ControlService.Register:input_type -> croupier.server.v1.RegisterRequest
+	4,  // 15: croupier.server.v1.ControlService.Heartbeat:input_type -> croupier.server.v1.HeartbeatRequest
+	7,  // 16: croupier.server.v1.ControlService.RegisterCapabilities:input_type -> croupier.server.v1.RegisterCapabilitiesRequest
+	10, // 17: croupier.server.v1.ControlService.GetAgentSystemInfo:input_type -> croupier.server.v1.GetAgentSystemInfoRequest
+	11, // 18: croupier.server.v1.ControlService.ListAgentProcesses:input_type -> croupier.server.v1.ListAgentProcessesRequest
+	12, // 19: croupier.server.v1.ControlService.QueryMetrics:input_type -> croupier.server.v1.QueryMetricsRequest
+	9,  // 20: croupier.server.v1.ControlService.ListFunctionsSummary:output_type -> croupier.server.v1.ListFunctionsSummaryResponse
+	3,  // 21: croupier.server.v1.ControlService.Register:output_type -> croupier.server.v1.RegisterResponse
+	5,  // 22: croupier.server.v1.ControlService.Heartbeat:output_type -> croupier.server.v1.HeartbeatResponse
+	8,  // 23: croupier.server.v1.ControlService.RegisterCapabilities:output_type -> croupier.server.v1.RegisterCapabilitiesResponse
+	22, // 24: croupier.server.v1.ControlService.GetAgentSystemInfo:output_type -> croupier.ops.v1.SystemInfo
+	23, // 25: croupier.server.v1.ControlService.ListAgentProcesses:output_type -> croupier.ops.v1.ListProcessesResponse
+	13, // 26: croupier.server.v1.ControlService.QueryMetrics:output_type -> croupier.server.v1.QueryMetricsResponse
+	20, // [20:27] is the sub-list for method output_type
+	13, // [13:20] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_croupier_server_v1_server_control_proto_init() }
@@ -1235,7 +1273,7 @@ func file_croupier_server_v1_server_control_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_croupier_server_v1_server_control_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

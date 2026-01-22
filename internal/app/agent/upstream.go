@@ -31,6 +31,9 @@ type UpstreamClient struct {
 	env        string
 	version    string
 	rpcAddr    string
+	region     string
+	zone       string
+	labels     map[string]string
 	tlsCfg     *tlsutil.ClientTLSConfig
 
 	// Timeouts (from config, with defaults)
@@ -85,9 +88,12 @@ type UpstreamMetadata struct {
 	Env               string
 	Version           string
 	RPCAddr           string
-	DialTimeout       time.Duration // Connection timeout (default 10s)
-	RequestTimeout    time.Duration // Request timeout (default 10s)
-	HeartbeatInterval time.Duration // Heartbeat interval (default 30s)
+	Region            string            // region/zone info (e.g. "us-west-1")
+	Zone              string            // availability zone (e.g. "us-west-1a")
+	Labels            map[string]string // system metadata (os, arch, hostname, etc.)
+	DialTimeout       time.Duration     // Connection timeout (default 10s)
+	RequestTimeout    time.Duration     // Request timeout (default 10s)
+	HeartbeatInterval time.Duration     // Heartbeat interval (default 30s)
 }
 
 // WithMetadata applies metadata updates for the next sync.
@@ -96,6 +102,11 @@ func (c *UpstreamClient) WithMetadata(meta UpstreamMetadata) {
 	c.env = meta.Env
 	c.version = meta.Version
 	c.rpcAddr = meta.RPCAddr
+	c.region = meta.Region
+	c.zone = meta.Zone
+	if meta.Labels != nil {
+		c.labels = meta.Labels
+	}
 	if meta.DialTimeout > 0 {
 		c.dialTimeout = meta.DialTimeout
 	}
@@ -424,6 +435,9 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 		RpcAddr:   c.rpcAddr,
 		GameId:    c.gameID,
 		Env:       c.env,
+		Region:    c.region,
+		Zone:      c.zone,
+		Labels:    c.labels,
 		Functions: funcs,
 		Processes: processes,
 	}

@@ -39,6 +39,7 @@ type AgentSession struct {
 	Functions map[string]FunctionMeta
 	Processes []ProcessSession
 	ExpireAt  time.Time
+	LastSeen  time.Time // 最后活跃时间
 }
 
 // Store keeps lightweight agent registry state in-memory.
@@ -81,8 +82,14 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 	// merge minimal fields
 	cur.GameID, cur.Env, cur.RPCAddr, cur.Version = a.GameID, a.Env, a.RPCAddr, a.Version
 	cur.Region, cur.Zone = a.Region, a.Zone
+	// merge labels: new labels replace old ones
 	if a.Labels != nil {
-		cur.Labels = a.Labels
+		if cur.Labels == nil {
+			cur.Labels = make(map[string]string)
+		}
+		for k, v := range a.Labels {
+			cur.Labels[k] = v
+		}
 	}
 	if a.Functions != nil {
 		cur.Functions = a.Functions
@@ -92,6 +99,9 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 	}
 	if !a.ExpireAt.IsZero() {
 		cur.ExpireAt = a.ExpireAt
+	}
+	if !a.LastSeen.IsZero() {
+		cur.LastSeen = a.LastSeen
 	}
 }
 

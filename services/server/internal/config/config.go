@@ -25,6 +25,10 @@ type Config struct {
 	Metrics       MetricsConfig            `json:"metrics" yaml:"metrics"`
 	Platforms     PlatformConfig           `json:"platforms" yaml:"platforms"`
 	Profiles      map[string]ProfileConfig `json:"profiles" yaml:"profiles"`
+	// Server metadata for registration
+	Region string            `json:"region,optional" yaml:"region,optional"`
+	Zone   string            `json:"zone,optional" yaml:"zone,optional"`
+	Labels map[string]string `json:"labels,optional" yaml:"labels,optional"`
 }
 
 // GRPCConfig 配置 gRPC 服务器（控制平面）
