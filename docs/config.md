@@ -85,7 +85,7 @@ Profiles:
 Object Storage (uploads)
 ```yaml
 Storage:
-  Driver: s3     # s3 | cos | oss | file
+  Driver: s3     # s3 | cos | oss | obs | file
   Bucket: my-bucket
   Region: ap-shanghai
   Endpoint: https://cos.ap-shanghai.myqcloud.com   # s3/minio/cos endpoint (optional)
@@ -99,10 +99,11 @@ Storage:
 ```
 
 Notes:
-- s3 覆盖 AWS/MinIO/腾讯 COS（S3 兼容模式）。COS 建议设置 `ForcePathStyle=true`，并指定正确的 `Region` 与 `Endpoint`。
-- 腾讯 COS 也提供官方 SDK 驱动（`Driver: cos`），在 S3 兼容遇到边角不兼容时使用。
-- 阿里云 OSS 使用官方 SDK 驱动（`Driver: oss`）；Go Cloud 无原生 OSS 驱动。
-- file 驱动仅用于本地开发，静态路径 `/uploads/` 会映射到 `BaseDir`。
+- **s3**: AWS S3 / MinIO / 腾讯 COS（S3 兼容模式）。COS 建议设置 `ForcePathStyle=true`，并指定正确的 `Region` 与 `Endpoint`。
+- **cos**: 腾讯云 COS 官方 SDK 驱动，在 S3 兼容遇到边角不兼容时使用。需要 `Region` 或 `Endpoint`。
+- **oss**: 阿里云 OSS 官方 SDK 驱动。需要 `Endpoint`、`AccessKey`、`SecretKey`。
+- **obs**: 华为云 OBS 官方 SDK 驱动。需要 `Endpoint`、`AccessKey`、`SecretKey`。
+- **file**: 本地文件系统，仅用于本地开发，静态路径 `/uploads/` 会映射到 `BaseDir`。
 
 Tencent COS（两种方式）
 ```yaml
@@ -130,6 +131,17 @@ Storage:
 - 使用 `ForcePathStyle: true` 避免虚拟主机名路由导致的兼容问题。
 - `Region` 需与 COS 控制台一致，否则签名可能失败。
 - 如果使用 MinIO，请将 `Endpoint` 指向 MinIO 地址（如 `http://minio:9000`），并保留 `ForcePathStyle: true`。
+```
+
+华为云 OBS
+```yaml
+Storage:
+  Driver: obs
+  Bucket: your-bucket
+  Endpoint: https://obs.cn-north-1.myhuaweicloud.com
+  AccessKey: ${HUAWEI_ACCESS_KEY}
+  SecretKey: ${HUAWEI_SECRET_KEY}
+  SignedURLTTL: 15m
 ```
 
 `services/server` quickstart:

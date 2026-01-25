@@ -300,6 +300,21 @@ type BatchDeleteFunctionsResponse struct {
 	Failed  []string `json:"failed"`
 }
 
+type BatchDeleteObjectsData struct {
+	Deleted []string `json:"deleted"`
+	Failed  []string `json:"failed,optional"`
+}
+
+type BatchDeleteObjectsRequest struct {
+	Keys []string `json:"keys"`
+}
+
+type BatchDeleteObjectsResponse struct {
+	Code    int                    `json:"code"`
+	Message string                 `json:"message"`
+	Data    BatchDeleteObjectsData `json:"data"`
+}
+
 type BatchUpdateFunctionsRequest struct {
 	FunctionIds []string `json:"function_ids"`
 	Enabled     bool     `json:"enabled"`
@@ -621,6 +636,24 @@ type ConfigVersionsResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
+}
+
+type CreateDirectoryRequest struct {
+	Prefix string `json:"prefix"`
+}
+
+type CreateDirectoryResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+type DeleteObjectRequest struct {
+	Key string `form:"key"`
+}
+
+type DeleteObjectResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
 }
 
 type Descriptor struct {
@@ -1292,6 +1325,19 @@ type LevelsResponse struct {
 	Levels []LevelMetrics `json:"levels"`
 }
 
+type ListObjectsRequest struct {
+	Prefix    string `form:"prefix,optional"`
+	Marker    string `form:"marker,optional"`
+	Limit     int    `form:"limit,optional"`
+	Delimiter string `form:"delimiter,optional"`
+}
+
+type ListObjectsResponse struct {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    ObjectsData `json:"data"`
+}
+
 type ListPlatformMethodsResponse struct {
 	Code    int      `json:"code"`
 	Message string   `json:"message"`
@@ -1443,6 +1489,21 @@ type NodesListRequest struct {
 
 type NodesListResponse struct {
 	Items []Node `json:"items"`
+}
+
+type ObjectInfo struct {
+	Key          string `json:"key"`
+	Size         int64  `json:"size"`
+	LastModified string `json:"last_modified"`
+	ETag         string `json:"etag"`
+	StorageClass string `json:"storage_class,optional"`
+}
+
+type ObjectsData struct {
+	Objects     []ObjectInfo `json:"objects"`
+	Prefixes    []string     `json:"prefixes,optional"`
+	IsTruncated bool         `json:"is_truncated"`
+	NextMarker  string       `json:"next_marker,optional"`
 }
 
 type OpsAgentInfo struct {
@@ -1908,7 +1969,6 @@ type OpsServiceItem struct {
 	Labels         map[string]string   `json:"labels,optional"`
 	FunctionsCount int                 `json:"functionsCount,optional"`
 	LastSeen       string              `json:"lastSeen,optional"`
-	TTL            int                 `json:"ttl,optional"` // 会话剩余秒数
 	Metadata       *OpsServiceMetadata `json:"metadata,optional"`
 }
 
@@ -2501,6 +2561,16 @@ type ReloadPlatformConfigResponse struct {
 	Success bool   `json:"success,omitempty"`
 }
 
+type RenameDirectoryRequest struct {
+	OldPrefix string `json:"old_prefix"`
+	NewPrefix string `json:"new_prefix"`
+}
+
+type RenameDirectoryResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
 type RetentionCohort struct {
 	Cohort    string    `json:"cohort"`
 	Users     int       `json:"users"`
@@ -2838,6 +2908,20 @@ type UISchemaResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
+}
+
+type UploadObjectData struct {
+	Key string `json:"key"`
+	URL string `json:"url"`
+}
+
+type UploadObjectRequest struct {
+}
+
+type UploadObjectResponse struct {
+	Code    int              `json:"code"`
+	Message string           `json:"message"`
+	Data    UploadObjectData `json:"data"`
 }
 
 type UserInfo struct {

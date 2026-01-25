@@ -67,7 +67,6 @@ func (l *OpsServicesLogic) OpsServices(_ *types.OpsServicesRequest) (*types.OpsS
 		Zone:     l.svcCtx.Config.Zone,
 		Labels:   labels,
 		LastSeen: l.svcCtx.StartTime.Format(time.RFC3339),
-		TTL:      -1, // server 不适用 TTL
 	})
 
 	// Add agents from registry
@@ -125,7 +124,6 @@ func (l *OpsServicesLogic) OpsServices(_ *types.OpsServicesRequest) (*types.OpsS
 				Labels:         labels,
 				FunctionsCount: utils.CountEnabledFunctions(sess.Functions),
 				LastSeen:       formatLastSeen(sess.LastSeen, sess.ExpireAt),
-				TTL:            ttl,
 				Metadata:       metadata,
 			})
 		}
