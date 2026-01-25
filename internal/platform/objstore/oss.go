@@ -87,6 +87,29 @@ func (s *ossStore) SignedURL(_ context.Context, key string, method string, expir
 
 func (s *ossStore) Delete(_ context.Context, key string) error {
 	key = sanitizeKey(key)
+
+	// 如果是文件夹（以 / 结尾），需要递归删除所有对象
+	if strings.HasSuffix(key, "/") {
+		// 列出所有以该前缀开头的对象
+		lor, err := s.bk.ListObjects(oss.Prefix(key), oss.MaxKeys(1000))
+		if err != nil {
+			return err
+		}
+
+		// 删除所有对象
+		for _, obj := range lor.Objects {
+			// 跳过文件夹标记本身
+			if obj.Key == key {
+				continue
+			}
+
+			if err := s.bk.DeleteObject(obj.Key); err != nil {
+				return err
+			}
+		}
+	}
+
+	// 删除文件夹标记本身或单个文件
 	return s.bk.DeleteObject(key)
 }
 

@@ -113,6 +113,32 @@ func (s *cosStore) SignedURL(ctx context.Context, key string, method string, exp
 
 func (s *cosStore) Delete(ctx context.Context, key string) error {
 	key = sanitizeKey(key)
+
+	// 如果是文件夹（以 / 结尾），需要递归删除所有对象
+	if strings.HasSuffix(key, "/") {
+		// 列出所有以该前缀开头的对象
+		resp, _, err := s.cli.Bucket.Get(ctx, &cos.BucketGetOptions{
+			Prefix:  key,
+			MaxKeys: 1000,
+		})
+		if err != nil {
+			return err
+		}
+
+		// 删除所有对象
+		for _, obj := range resp.Contents {
+			// 跳过文件夹标记本身
+			if obj.Key == key {
+				continue
+			}
+
+			if _, err := s.cli.Object.Delete(ctx, obj.Key); err != nil {
+				return err
+			}
+		}
+	}
+
+	// 删除文件夹标记本身或单个文件
 	_, err := s.cli.Object.Delete(ctx, key)
 	return err
 }
