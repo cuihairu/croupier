@@ -81,6 +81,36 @@ func (s *s3Store) SignedURL(ctx context.Context, key string, method string, expi
 
 func (s *s3Store) Delete(ctx context.Context, key string) error {
 	key = sanitizeKey(key)
+
+	// 如果是文件夹（以 / 结尾），需要递归删除所有对象
+	if strings.HasSuffix(key, "/") {
+		// 列出所有以该前缀开头的对象
+		iter := s.bk.List(&blob.ListOptions{
+			Prefix: key,
+		})
+
+		// 删除所有对象
+		for {
+			obj, err := iter.Next(ctx)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return err
+			}
+
+			// 跳过文件夹标记本身
+			if obj.Key == key {
+				continue
+			}
+
+			if err := s.bk.Delete(ctx, obj.Key); err != nil {
+				return err
+			}
+		}
+	}
+
+	// 删除文件夹标记本身或单个文件
 	return s.bk.Delete(ctx, key)
 }
 

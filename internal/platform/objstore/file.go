@@ -75,6 +75,14 @@ func (s *fileStore) SignedURL(_ context.Context, key string, method string, _ ti
 
 func (s *fileStore) Delete(_ context.Context, key string) error {
 	key = sanitizeKey(key)
+
+	// 如果是文件夹（以 / 结尾），需要递归删除
+	if strings.HasSuffix(key, "/") {
+		path := filepath.Join(s.base, filepath.FromSlash(key))
+		return os.RemoveAll(path)
+	}
+
+	// 否则删除单个文件
 	path := filepath.Join(s.base, filepath.FromSlash(key))
 	return os.Remove(path)
 }
