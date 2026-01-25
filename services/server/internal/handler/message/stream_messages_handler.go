@@ -48,12 +48,53 @@ func isEventStreamRequest(r *http.Request) bool {
 }
 
 func handleMessagesSSE(w http.ResponseWriter, r *http.Request, svcCtx *svc.ServiceContext) {
+	ctx := r.Context()
+	username, err := utils.CurrentUsername(ctx)
+	if err != nil {
+		// fall back to broadcasting messages if username missing
+		username = ""
+	}
+
+	// ✅ Phase 1: Complete all database operations BEFORE writing headers
+	// This prevents "superfluous response.WriteHeader call" errors
+	var initialMessages interface{}
+	var initialUnreadCount int64
+	var initErr error
+
+	// Load initial messages
+	l := message.NewStreamMessagesLogic(ctx, svcCtx)
+	resp, err := l.StreamMessages(&types.StreamMessagesRequest{})
+	if err != nil {
+		initErr = fmt.Errorf("failed to load recent messages: %w", err)
+		logx.WithContext(ctx).Errorf("failed to load recent messages: %v", err)
+	} else if resp != nil {
+		initialMessages = resp.Data
+	}
+
+	// Load unread count
+	count, err := svcCtx.MessageModel.CountUnread(ctx, username)
+	if err != nil {
+		initErr = fmt.Errorf("failed to load unread count: %w", err)
+		logx.WithContext(ctx).Errorf("failed to load unread count: %v", err)
+	} else {
+		initialUnreadCount = count
+	}
+
+	// ✅ Check if streaming is supported
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
 		return
 	}
 
+	// ✅ If database operations failed, return error BEFORE writing headers
+	if initErr != nil {
+		logx.WithContext(ctx).Errorf("SSE initialization failed: %v", initErr)
+		http.Error(w, "failed to initialize message stream", http.StatusServiceUnavailable)
+		return
+	}
+
+	// ✅ Phase 2: Now it's safe to write headers
 	headers := w.Header()
 	headers.Set("Content-Type", "text/event-stream")
 	headers.Set("Cache-Control", "no-cache")
@@ -62,13 +103,13 @@ func handleMessagesSSE(w http.ResponseWriter, r *http.Request, svcCtx *svc.Servi
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
-	ctx := r.Context()
-	username, err := utils.CurrentUsername(ctx)
-	if err != nil {
-		// fall back to broadcasting messages if username missing
-		username = ""
+	// ✅ Phase 3: Send initial data (already validated)
+	if initialMessages != nil {
+		writeSSE(w, flusher, "messages", initialMessages)
 	}
+	writeSSE(w, flusher, "unread", map[string]interface{}{"count": initialUnreadCount})
 
+	// Helper functions for periodic updates
 	sendMessagesSnapshot := func() {
 		l := message.NewStreamMessagesLogic(ctx, svcCtx)
 		resp, err := l.StreamMessages(&types.StreamMessagesRequest{})
@@ -90,18 +131,29 @@ func handleMessagesSSE(w http.ResponseWriter, r *http.Request, svcCtx *svc.Servi
 		writeSSE(w, flusher, "unread", map[string]interface{}{"count": count})
 	}
 
-	// send initial payloads
-	sendUnreadCount()
-	sendMessagesSnapshot()
+	// 从配置读取 SSE 间隔，使用默认值
+	updateInterval := 2 * time.Second     // 默认 2 秒
+	keepAliveInterval := 30 * time.Second // 默认 30 秒
 
-	updateTicker := time.NewTicker(60 * time.Second)
+	if svcCtx.Config.SSE.UpdateInterval > 0 {
+		updateInterval = time.Duration(svcCtx.Config.SSE.UpdateInterval) * time.Second
+	}
+	if svcCtx.Config.SSE.KeepAliveInterval > 0 {
+		keepAliveInterval = time.Duration(svcCtx.Config.SSE.KeepAliveInterval) * time.Second
+	}
+
+	// 推送间隔：每 N 秒推送一次消息更新
+	updateTicker := time.NewTicker(updateInterval)
 	defer updateTicker.Stop()
-	keepAliveTicker := time.NewTicker(60 * time.Second)
+
+	// Keep-alive 间隔：每 N 秒发送 ping 保持连接
+	keepAliveTicker := time.NewTicker(keepAliveInterval)
 	defer keepAliveTicker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
+			logx.WithContext(ctx).Infof("SSE connection closed: %v", ctx.Err())
 			return
 		case <-updateTicker.C:
 			sendUnreadCount()

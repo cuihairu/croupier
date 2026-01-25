@@ -2,6 +2,12 @@
 Name: croupier-api
 Host: 0.0.0.0
 Port: 18780
+Timeout: 600000  # 10 minutes (in milliseconds) - for SSE and long-lived connections
+
+# SSE (Server-Sent Events) configuration
+SSE:
+  UpdateInterval: 2       # 消息更新间隔（秒），默认 2
+  KeepAliveInterval: 30   # Keep-alive 间隔（秒），默认 30
 
 # Database configuration
 Database:

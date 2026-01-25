@@ -45,6 +45,7 @@ Examples
 Name: croupier-api
 Host: 0.0.0.0
 Port: 18780
+Timeout: 600000  # 10 minutes (in milliseconds) - for SSE and long-lived connections
 
 # Database configuration
 Database:
@@ -69,6 +70,11 @@ CroupierLog:
 Metrics:
   PerFunction: true
   PerGameDenies: false
+
+# SSE (Server-Sent Events) configuration
+SSE:
+  UpdateInterval: 2       # 消息更新间隔（秒），默认 2
+  KeepAliveInterval: 30   # Keep-alive 间隔（秒），默认 30
 
 Profiles:
   prod:
@@ -203,3 +209,111 @@ Notes
 - Flags always win; prefer YAML + env for deploy, flags for local dev tweaks.
 - The server binary reads `server.*` section. In CLI mode (`croupier server`), the same section applies.
 - You can keep secrets (JWT, TLS paths) in environment or external secret managers; YAML supports file paths, not secret storage.
+
+## SSE (Server-Sent Events) Configuration
+
+SSE is used for real-time message streaming and requires special timeout configuration to prevent premature disconnection.
+
+### Key Configuration Parameters
+
+**Timeout** (go-zero RestConf)
+- Purpose: HTTP request timeout in milliseconds
+- Default: 3000ms (3 seconds) - **too short for SSE**
+- Recommended: `600000` (10 minutes) for SSE endpoints
+- Location: Top-level `Timeout` field (inherited from `rest.RestConf`)
+
+**SSE.UpdateInterval**
+- Purpose: Interval between message snapshot updates (push to client)
+- Default: `2` seconds
+- Unit: seconds
+- Typical range: 1-10 seconds depending on real-time requirements
+
+**SSE.KeepAliveInterval**
+- Purpose: Interval between `: ping` keep-alive messages
+- Default: `30` seconds
+- Unit: seconds
+- Recommended range: 20-60 seconds
+
+### Critical Timeout Relationship
+
+⚠️ **Important**: `Timeout` MUST be significantly larger than `SSE.KeepAliveInterval` to avoid `context deadline exceeded` errors.
+
+**Minimum Safe Timeout:**
+```
+Timeout ≥ SSE.KeepAliveInterval × 3
+```
+
+**Example Calculation:**
+- KeepAliveInterval: 30 seconds
+- Minimum Timeout: 30 × 3 = 90 seconds
+- Recommended Timeout: 600 seconds (10 minutes) for safety margin
+
+### Automatic Timeout Validation
+
+The server automatically validates the timeout relationship at startup and will:
+
+1. **Check if** `Timeout < KeepAliveInterval × 3`
+2. **Auto-adjust** the timeout to safe minimum if needed
+3. **Display warning** if adjustment was made:
+   ```
+   ⚠️  警告: go-zero Timeout (3秒) 小于 SSE KeepAliveInterval (30秒) 的 3 倍
+      自动调整 Timeout 为 90 秒以防止 SSE 连接过早断开
+   ```
+4. **Show configuration info** on successful validation:
+   ```
+   ✅ SSE 配置验证通过:
+      - go-zero Timeout: 600 秒
+      - SSE UpdateInterval: 2 秒
+      - SSE KeepAliveInterval: 30 秒
+      - 安全系数: 20.0x (超时 / KeepAlive)
+   ```
+
+### Configuration Example
+
+```yaml
+# services/server/etc/server.yaml
+Name: croupier-api
+Host: 0.0.0.0
+Port: 18780
+Timeout: 600000  # 10 minutes - MUST be > 3x KeepAliveInterval
+
+SSE:
+  UpdateInterval: 2       # Push messages every 2 seconds
+  KeepAliveInterval: 30   # Send :ping every 30 seconds
+```
+
+### Troubleshooting
+
+**Error: `context deadline exceeded` after 3 seconds**
+- Cause: Default go-zero timeout (3000ms) is too short
+- Fix: Set explicit `Timeout: 600000` in server.yaml
+
+**Error: `superfluous response.WriteHeader call`**
+- Cause: Database operations failing after headers written due to timeout
+- Fix: Same as above - increase Timeout
+
+**SSE connection drops intermittently**
+- Check: Timeout ≥ 3 × KeepAliveInterval
+- Verify: No intermediate proxies with shorter timeouts (nginx, load balancers)
+- Monitor: Client-side reconnection logic
+
+### Client-Side Considerations
+
+When connecting to SSE endpoints:
+1. **Set appropriate Accept header**: `Accept: text/event-stream`
+2. **Handle reconnection**: Implement exponential backoff
+3. **Monitor keep-alive**: Expect `: ping` messages every `KeepAliveInterval` seconds
+4. **Parse event types**: Watch for `event: messages` and `event: unread`
+
+Example endpoint: `GET /api/v1/messages/stream`
+```javascript
+const eventSource = new EventSource('/api/v1/messages/stream');
+eventSource.addEventListener('messages', (e) => {
+  const data = JSON.parse(e.data);
+  // Handle message updates
+});
+eventSource.addEventListener('unread', (e) => {
+  const { count } = JSON.parse(e.data);
+  // Handle unread count
+});
+```

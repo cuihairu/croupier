@@ -237,6 +237,9 @@ func applyRuntimeDefaults(c *config.Config) {
 		c.RestConf.Timeout = 600000
 	}
 
+	// ✅ Auto-adjust timeout based on SSE configuration to prevent premature disconnection
+	validateAndAdjustTimeout(c)
+
 	if strings.TrimSpace(c.Components.DataDir) == "" {
 		c.Components.DataDir = "data"
 	}
@@ -245,5 +248,41 @@ func applyRuntimeDefaults(c *config.Config) {
 		if strings.TrimSpace(c.Storage.BaseDir) == "" {
 			c.Storage.BaseDir = filepath.Join("data", "uploads")
 		}
+	}
+}
+
+// validateAndAdjustTimeout 确保 go-zero timeout > SSE intervals
+func validateAndAdjustTimeout(c *config.Config) {
+	// SSE 配置默认值（秒）
+	updateInterval := 2     // 默认 2 秒
+	keepAliveInterval := 30 // 默认 30 秒
+
+	// 读取配置值
+	if c.SSE.UpdateInterval > 0 {
+		updateInterval = c.SSE.UpdateInterval
+	}
+	if c.SSE.KeepAliveInterval > 0 {
+		keepAliveInterval = c.SSE.KeepAliveInterval
+	}
+
+	// 计算最小安全超时：至少 3 倍的 keep-alive 间隔
+	// 这样允许至少 2 次 keep-alive + 容错余量
+	minSafeTimeout := keepAliveInterval * 3
+	currentTimeoutSec := c.RestConf.Timeout / 1000 // 毫秒转秒
+
+	// 如果当前超时小于安全值，自动调整并警告
+	if currentTimeoutSec < int64(minSafeTimeout) {
+		fmt.Printf("⚠️  警告: go-zero Timeout (%d秒) 小于 SSE KeepAliveInterval (%d秒) 的 3 倍\n",
+			currentTimeoutSec, keepAliveInterval)
+		fmt.Printf("   自动调整 Timeout 为 %d 秒以防止 SSE 连接过早断开\n", minSafeTimeout)
+
+		c.RestConf.Timeout = int64(minSafeTimeout) * 1000 // 秒转毫秒
+	} else {
+		// 验证通过，显示配置信息
+		fmt.Printf("✅ SSE 配置验证通过:\n")
+		fmt.Printf("   - go-zero Timeout: %d 秒\n", currentTimeoutSec)
+		fmt.Printf("   - SSE UpdateInterval: %d 秒\n", updateInterval)
+		fmt.Printf("   - SSE KeepAliveInterval: %d 秒\n", keepAliveInterval)
+		fmt.Printf("   - 安全系数: %.1fx (超时 / KeepAlive)\n", float64(currentTimeoutSec)/float64(keepAliveInterval))
 	}
 }
