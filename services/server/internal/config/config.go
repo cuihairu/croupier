@@ -25,6 +25,7 @@ type Config struct {
 	Metrics       MetricsConfig            `json:"metrics" yaml:"metrics"`
 	Platforms     PlatformConfig           `json:"platforms" yaml:"platforms"`
 	Profiles      map[string]ProfileConfig `json:"profiles" yaml:"profiles"`
+	SSE           SSEConfig                `json:"sse" yaml:"sse"`
 	// Server metadata for registration
 	Region string            `json:"region,optional" yaml:"region,optional"`
 	Zone   string            `json:"zone,optional" yaml:"zone,optional"`
@@ -143,4 +144,10 @@ type CacheConfig struct {
 type PlatformConfig struct {
 	ConfigFile string `json:"config_file,optional" yaml:"config_file,optional"` // 配置文件路径
 	Enabled    bool   `json:"enabled,optional" yaml:"enabled,optional"`         // 是否启用平台集成
+}
+
+// SSEConfig 配置 Server-Sent Events (SSE) 推送
+type SSEConfig struct {
+	UpdateInterval    int `json:"update_interval,optional" yaml:"update_interval,optional"`         // 消息更新间隔（秒），默认 2
+	KeepAliveInterval int `json:"keep_alive_interval,optional" yaml:"keep_alive_interval,optional"` // Keep-alive 间隔（秒），默认 30
 }
