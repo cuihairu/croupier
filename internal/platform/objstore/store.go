@@ -15,6 +15,26 @@ type Store interface {
 	Put(ctx context.Context, key string, r ReadSeeker, size int64, contentType string) error
 	SignedURL(ctx context.Context, key string, method string, expiry time.Duration) (string, error)
 	Delete(ctx context.Context, key string) error
+	List(ctx context.Context, prefix, marker, delimiter string, limit int) (ListResult, error)
+	CreatePrefix(ctx context.Context, prefix string) error
+	RenamePrefix(ctx context.Context, oldPrefix, newPrefix string) error
+}
+
+// ObjectInfo 表示对象元数据
+type ObjectInfo struct {
+	Key          string
+	Size         int64
+	LastModified time.Time
+	ETag         string
+	StorageClass string
+}
+
+// ListResult 是 List 操作的返回结果
+type ListResult struct {
+	Objects     []ObjectInfo
+	Prefixes    []string
+	IsTruncated bool
+	NextMarker  string
 }
 
 // ReadSeeker abstracts the subset we need to stream into drivers.
@@ -33,6 +53,7 @@ type Config struct {
 	ForcePathStyle bool
 	BaseDir        string
 	SignedURLTTL   time.Duration
+	PublicURL      string // 公共访问 URL 前缀,如 https://cdn.example.com 或 https://example.com/uploads
 }
 
 func FromEnv() Config {
@@ -44,6 +65,7 @@ func FromEnv() Config {
 		AccessKey: os.Getenv("STORAGE_ACCESS_KEY"),
 		SecretKey: os.Getenv("STORAGE_SECRET_KEY"),
 		BaseDir:   os.Getenv("STORAGE_BASE_DIR"),
+		PublicURL: os.Getenv("STORAGE_PUBLIC_URL"),
 	}
 	if v := strings.ToLower(os.Getenv("STORAGE_FORCE_PATH_STYLE")); v == "true" || v == "1" || v == "yes" {
 		c.ForcePathStyle = true

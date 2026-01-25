@@ -1592,6 +1592,42 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
+				// 创建目录
+				Method:  http.MethodPost,
+				Path:    "/directories",
+				Handler: storage.CreateDirectoryHandler(serverCtx),
+			},
+			{
+				// 重命名/移动目录
+				Method:  http.MethodPost,
+				Path:    "/directories/rename",
+				Handler: storage.RenameDirectoryHandler(serverCtx),
+			},
+			{
+				// 列出对象
+				Method:  http.MethodGet,
+				Path:    "/objects",
+				Handler: storage.ListObjectsHandler(serverCtx),
+			},
+			{
+				// 上传对象
+				Method:  http.MethodPost,
+				Path:    "/objects",
+				Handler: storage.UploadObjectHandler(serverCtx),
+			},
+			{
+				// 删除对象
+				Method:  http.MethodDelete,
+				Path:    "/objects",
+				Handler: storage.DeleteObjectHandler(serverCtx),
+			},
+			{
+				// 批量删除对象
+				Method:  http.MethodPost,
+				Path:    "/objects/batch-delete",
+				Handler: storage.BatchDeleteObjectsHandler(serverCtx),
+			},
+			{
 				// 获取签名URL
 				Method:  http.MethodGet,
 				Path:    "/signed-url",

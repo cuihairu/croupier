@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 	obs "github.com/huaweicloud/huaweicloud-sdk-go-obs/obs"
+	"strings"
 	"time"
 )
 
 type obsStore struct {
-	cli *obs.ObsClient
-	bkt string
-	ttl time.Duration
+	cli       *obs.ObsClient
+	bkt       string
+	ttl       time.Duration
+	publicURL string // 公共访问 URL 前缀
 }
 
 func OpenOBS(_ context.Context, c Config) (Store, error) {
@@ -35,14 +37,32 @@ func OpenOBS(_ context.Context, c Config) (Store, error) {
 	}
 
 	return &obsStore{
-		cli: cli,
-		bkt: c.Bucket,
-		ttl: ttl,
+		cli:       cli,
+		bkt:       c.Bucket,
+		ttl:       ttl,
+		publicURL: c.PublicURL,
 	}, nil
 }
 
 func (s *obsStore) Put(ctx context.Context, key string, r ReadSeeker, size int64, contentType string) error {
 	key = sanitizeKey(key)
+
+	// 如果key包含路径，确保所有父目录都被创建（用于在List中正确显示）
+	if strings.Contains(key, "/") {
+		dir := key[:strings.LastIndex(key, "/")]
+		if dir != "" {
+			// 为每个目录级别创建标记对象
+			parts := strings.Split(dir, "/")
+			for i := range parts {
+				prefix := strings.Join(parts[:i+1], "/") + "/"
+				// 尝试创建目录标记（如果已存在会忽略错误）
+				input := &obs.PutObjectInput{}
+				input.Bucket = s.bkt
+				input.Key = prefix
+				s.cli.PutObject(input)
+			}
+		}
+	}
 
 	input := &obs.PutObjectInput{}
 	input.Bucket = s.bkt
@@ -64,6 +84,13 @@ func (s *obsStore) Put(ctx context.Context, key string, r ReadSeeker, size int64
 
 func (s *obsStore) SignedURL(_ context.Context, key string, method string, expiry time.Duration) (string, error) {
 	key = sanitizeKey(key)
+
+	// 如果配置了 PublicURL,返回公共访问 URL (不签名)
+	if s.publicURL != "" {
+		return strings.TrimRight(s.publicURL, "/") + "/" + key, nil
+	}
+
+	// 否则返回签名 URL
 	if expiry <= 0 {
 		expiry = s.ttl
 	}
@@ -106,6 +133,104 @@ func (s *obsStore) Delete(_ context.Context, key string) error {
 	_, err := s.cli.DeleteObject(input)
 	if err != nil {
 		return fmt.Errorf("failed to delete object: %w", err)
+	}
+
+	return nil
+}
+
+func (s *obsStore) List(_ context.Context, prefix, marker, delimiter string, limit int) (ListResult, error) {
+	result := ListResult{
+		Objects:  make([]ObjectInfo, 0),
+		Prefixes: make([]string, 0),
+	}
+
+	// 构建 List 选项
+	input := &obs.ListObjectsInput{}
+	input.Bucket = s.bkt
+	input.Prefix = prefix
+	input.Marker = marker
+	input.MaxKeys = limit
+	input.Delimiter = delimiter
+
+	// 调用 OBS ListObjects
+	output, err := s.cli.ListObjects(input)
+	if err != nil {
+		return ListResult{}, fmt.Errorf("failed to list objects: %w", err)
+	}
+
+	// 处理前缀（目录）
+	for _, prefix := range output.CommonPrefixes {
+		result.Prefixes = append(result.Prefixes, prefix)
+	}
+
+	// 处理对象
+	for _, obj := range output.Contents {
+		result.Objects = append(result.Objects, ObjectInfo{
+			Key:          obj.Key,
+			Size:         obj.Size,
+			LastModified: obj.LastModified,
+			ETag:         obj.ETag,
+		})
+	}
+
+	// 设置分页信息
+	result.IsTruncated = output.IsTruncated
+	result.NextMarker = output.NextMarker
+
+	return result, nil
+}
+
+func (s *obsStore) CreatePrefix(_ context.Context, prefix string) error {
+	prefix = sanitizeKey(prefix)
+	if !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
+	}
+	// OBS 通过创建一个以 / 结尾的空对象来表示目录
+	input := &obs.PutObjectInput{}
+	input.Bucket = s.bkt
+	input.Key = prefix
+	_, err := s.cli.PutObject(input)
+	return err
+}
+
+func (s *obsStore) RenamePrefix(_ context.Context, oldPrefix, newPrefix string) error {
+	oldPrefix = sanitizeKey(oldPrefix)
+	newPrefix = sanitizeKey(newPrefix)
+
+	if !strings.HasSuffix(oldPrefix, "/") {
+		oldPrefix += "/"
+	}
+	if !strings.HasSuffix(newPrefix, "/") {
+		newPrefix += "/"
+	}
+
+	// 列出所有需要重命名的对象
+	result, err := s.List(context.Background(), oldPrefix, "", "", 0)
+	if err != nil {
+		return fmt.Errorf("failed to list objects: %w", err)
+	}
+
+	// 复制所有对象到新前缀
+	for _, obj := range result.Objects {
+		oldKey := obj.Key
+		newKey := strings.Replace(oldKey, oldPrefix, newPrefix, 1)
+
+		// 使用 OBS 的 CopyObject 方法
+		input := &obs.CopyObjectInput{}
+		input.Bucket = s.bkt
+		input.Key = newKey
+		input.CopySourceBucket = s.bkt
+		input.CopySourceKey = oldKey
+
+		_, err := s.cli.CopyObject(input)
+		if err != nil {
+			return fmt.Errorf("failed to copy object %s to %s: %w", oldKey, newKey, err)
+		}
+
+		// 删除旧对象
+		if err := s.Delete(context.Background(), oldKey); err != nil {
+			return fmt.Errorf("failed to delete old object %s: %w", oldKey, err)
+		}
 	}
 
 	return nil
