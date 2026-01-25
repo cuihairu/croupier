@@ -83,6 +83,16 @@ func Validate(c Config) error {
 		if c.AccessKey == "" || c.SecretKey == "" {
 			return errors.New("access_key/secret_key required for cos driver")
 		}
+	case "obs":
+		if c.Bucket == "" {
+			return errors.New("bucket required for obs driver")
+		}
+		if c.Endpoint == "" {
+			return errors.New("endpoint required for obs driver")
+		}
+		if c.AccessKey == "" || c.SecretKey == "" {
+			return errors.New("access_key/secret_key required for obs driver")
+		}
 	case "file":
 		if c.BaseDir == "" {
 			return errors.New("base_dir required for file driver")
