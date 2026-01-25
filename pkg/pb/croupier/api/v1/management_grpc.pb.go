@@ -51,16 +51,17 @@ func (c *managementServiceClient) Manage(ctx context.Context, in *ManagementRequ
 }
 
 // ManagementServiceServer is the server API for ManagementService service.
-// All implementations should embed UnimplementedManagementServiceServer
+// All implementations must embed UnimplementedManagementServiceServer
 // for forward compatibility.
 //
 // Public Management Service (placeholder)
 type ManagementServiceServer interface {
 	// Future: HTTP REST API management endpoint
 	Manage(context.Context, *ManagementRequest) (*ManagementResponse, error)
+	mustEmbedUnimplementedManagementServiceServer()
 }
 
-// UnimplementedManagementServiceServer should be embedded to have
+// UnimplementedManagementServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
@@ -70,7 +71,8 @@ type UnimplementedManagementServiceServer struct{}
 func (UnimplementedManagementServiceServer) Manage(context.Context, *ManagementRequest) (*ManagementResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Manage not implemented")
 }
-func (UnimplementedManagementServiceServer) testEmbeddedByValue() {}
+func (UnimplementedManagementServiceServer) mustEmbedUnimplementedManagementServiceServer() {}
+func (UnimplementedManagementServiceServer) testEmbeddedByValue()                           {}
 
 // UnsafeManagementServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to ManagementServiceServer will
