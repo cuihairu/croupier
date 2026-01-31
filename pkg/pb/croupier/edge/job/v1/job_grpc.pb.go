@@ -48,13 +48,14 @@ func (c *jobServiceClient) GetJobResult(ctx context.Context, in *GetJobResultReq
 }
 
 // JobServiceServer is the server API for JobService service.
-// All implementations should embed UnimplementedJobServiceServer
+// All implementations must embed UnimplementedJobServiceServer
 // for forward compatibility.
 type JobServiceServer interface {
 	GetJobResult(context.Context, *GetJobResultRequest) (*GetJobResultResponse, error)
+	mustEmbedUnimplementedJobServiceServer()
 }
 
-// UnimplementedJobServiceServer should be embedded to have
+// UnimplementedJobServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
@@ -64,7 +65,8 @@ type UnimplementedJobServiceServer struct{}
 func (UnimplementedJobServiceServer) GetJobResult(context.Context, *GetJobResultRequest) (*GetJobResultResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetJobResult not implemented")
 }
-func (UnimplementedJobServiceServer) testEmbeddedByValue() {}
+func (UnimplementedJobServiceServer) mustEmbedUnimplementedJobServiceServer() {}
+func (UnimplementedJobServiceServer) testEmbeddedByValue()                    {}
 
 // UnsafeJobServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to JobServiceServer will
