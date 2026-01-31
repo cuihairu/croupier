@@ -1,11 +1,10 @@
 version: v2
 plugins:
-  # 使用远程 Go 插件
-  - remote: buf.build/protocolbuffers/go:v1.36.0
+  # Go plugins for main package (使用固定版本 v1.36.11 对应 protobuf 4.25.x)
+  - remote: buf.build/protocolbuffers/go:v1.36.11
     out: pkg/pb
     opt:
       - paths=source_relative
-  # 使用远程 gRPC-Go 插件
   - remote: buf.build/grpc/go:v1.5.1
     out: pkg/pb
     opt:
