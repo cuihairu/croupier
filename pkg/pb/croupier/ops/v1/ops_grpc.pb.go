@@ -153,7 +153,7 @@ func (c *opsServiceClient) ExecuteCommand(ctx context.Context, in *ExecuteComman
 }
 
 // OpsServiceServer is the server API for OpsService service.
-// All implementations must embed UnimplementedOpsServiceServer
+// All implementations should embed UnimplementedOpsServiceServer
 // for forward compatibility.
 //
 // OpsService provides server operations and monitoring capabilities.
@@ -181,10 +181,9 @@ type OpsServiceServer interface {
 	// Requires ops.allow_exec = true in agent config.
 	// WARNING: This is a high-risk operation. Use with extreme caution.
 	ExecuteCommand(context.Context, *ExecuteCommandRequest) (*ExecuteCommandResponse, error)
-	mustEmbedUnimplementedOpsServiceServer()
 }
 
-// UnimplementedOpsServiceServer must be embedded to have
+// UnimplementedOpsServiceServer should be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
@@ -215,8 +214,7 @@ func (UnimplementedOpsServiceServer) ListProcesses(context.Context, *emptypb.Emp
 func (UnimplementedOpsServiceServer) ExecuteCommand(context.Context, *ExecuteCommandRequest) (*ExecuteCommandResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecuteCommand not implemented")
 }
-func (UnimplementedOpsServiceServer) mustEmbedUnimplementedOpsServiceServer() {}
-func (UnimplementedOpsServiceServer) testEmbeddedByValue()                    {}
+func (UnimplementedOpsServiceServer) testEmbeddedByValue() {}
 
 // UnsafeOpsServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to OpsServiceServer will

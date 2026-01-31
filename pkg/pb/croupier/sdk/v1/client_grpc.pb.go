@@ -91,7 +91,7 @@ func (c *clientServiceClient) GetJobResult(ctx context.Context, in *GetJobResult
 }
 
 // ClientServiceServer is the server API for ClientService service.
-// All implementations must embed UnimplementedClientServiceServer
+// All implementations should embed UnimplementedClientServiceServer
 // for forward compatibility.
 //
 // SDK Client Service - Interface for registering game functions with Agent
@@ -105,10 +105,9 @@ type ClientServiceServer interface {
 	ListClients(context.Context, *ListClientsRequest) (*ListClientsResponse, error)
 	// Get job result (best-effort)
 	GetJobResult(context.Context, *GetJobResultRequest) (*GetJobResultResponse, error)
-	mustEmbedUnimplementedClientServiceServer()
 }
 
-// UnimplementedClientServiceServer must be embedded to have
+// UnimplementedClientServiceServer should be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
@@ -127,8 +126,7 @@ func (UnimplementedClientServiceServer) ListClients(context.Context, *ListClient
 func (UnimplementedClientServiceServer) GetJobResult(context.Context, *GetJobResultRequest) (*GetJobResultResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetJobResult not implemented")
 }
-func (UnimplementedClientServiceServer) mustEmbedUnimplementedClientServiceServer() {}
-func (UnimplementedClientServiceServer) testEmbeddedByValue()                       {}
+func (UnimplementedClientServiceServer) testEmbeddedByValue() {}
 
 // UnsafeClientServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to ClientServiceServer will
