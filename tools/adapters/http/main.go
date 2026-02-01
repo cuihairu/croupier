@@ -14,7 +14,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
-	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/zeromicro/go-zero/zrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -26,10 +26,10 @@ import (
 // Request JSON: { method, url, headers: {..}, body }
 
 type server struct {
-	functionv1.UnimplementedFunctionServiceServer
+	sdkv1.UnimplementedInvokerServiceServer
 }
 
-func (s *server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
+func (s *server) Invoke(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.InvokeResponse, error) {
 	httpClient := &http.Client{Timeout: 15 * time.Second}
 	switch req.GetFunctionId() {
 	case "alertmanager.list_alerts":
@@ -90,12 +90,12 @@ func (s *server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*fu
 		b, _ := io.ReadAll(resp.Body)
 		if resp.StatusCode/100 != 2 {
 			if json.Valid(b) {
-				return &functionv1.InvokeResponse{Payload: b}, nil
+				return &sdkv1.InvokeResponse{Payload: b}, nil
 			}
 			out, _ := json.Marshal(map[string]any{"status": resp.StatusCode, "body": string(b)})
-			return &functionv1.InvokeResponse{Payload: out}, nil
+			return &sdkv1.InvokeResponse{Payload: out}, nil
 		}
-		return &functionv1.InvokeResponse{Payload: b}, nil
+		return &sdkv1.InvokeResponse{Payload: b}, nil
 	case "grafana.search_dashboards":
 		// Map params to GET {base}/api/search?query=...&type=dash-db
 		var in struct {
@@ -153,12 +153,12 @@ func (s *server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*fu
 		b, _ := io.ReadAll(resp.Body)
 		if resp.StatusCode/100 != 2 {
 			if json.Valid(b) {
-				return &functionv1.InvokeResponse{Payload: b}, nil
+				return &sdkv1.InvokeResponse{Payload: b}, nil
 			}
 			out, _ := json.Marshal(map[string]any{"status": resp.StatusCode, "body": string(b)})
-			return &functionv1.InvokeResponse{Payload: out}, nil
+			return &sdkv1.InvokeResponse{Payload: out}, nil
 		}
-		return &functionv1.InvokeResponse{Payload: b}, nil
+		return &sdkv1.InvokeResponse{Payload: b}, nil
 	default:
 		// generic http.generic_invoke path
 		var in struct {
@@ -207,14 +207,14 @@ func (s *server) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*fu
 		defer resp.Body.Close()
 		b, _ := io.ReadAll(resp.Body)
 		if json.Valid(b) {
-			return &functionv1.InvokeResponse{Payload: b}, nil
+			return &sdkv1.InvokeResponse{Payload: b}, nil
 		}
 		out, _ := json.Marshal(map[string]any{"status": resp.StatusCode, "body": string(b)})
-		return &functionv1.InvokeResponse{Payload: out}, nil
+		return &sdkv1.InvokeResponse{Payload: out}, nil
 	}
 }
 
-func (s *server) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {
+func (s *server) StartJob(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartJobResponse, error) {
 	// HTTP adapter is synchronous by nature, doesn't support asynchronous jobs
 	// Return explicit error to make it clear this operation is not supported
 	return nil, status.Error(codes.Unimplemented, "HTTP adapter does not support asynchronous jobs. Use Invoke instead.")
@@ -263,7 +263,7 @@ func main() {
 	rpcConf := zrpc.RpcServerConf{ListenOn: listen}
 	rpcConf.Name = serviceID
 	gs := zrpc.MustNewServer(rpcConf, func(s *grpc.Server) {
-		functionv1.RegisterFunctionServiceServer(s, &server{})
+		sdkv1.RegisterInvokerServiceServer(s, &server{})
 	})
 	gs.AddOptions(serverOpts...)
 	go gs.Start()

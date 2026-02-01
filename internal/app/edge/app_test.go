@@ -7,7 +7,7 @@ import (
 
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	jobv1 "github.com/cuihairu/croupier/pkg/pb/croupier/edge/job/v1"
-	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -158,7 +158,7 @@ func TestFunctionServer_Invoke(t *testing.T) {
 	server := &FunctionServer{dispatcher: app.dispatcher}
 
 	ctx := context.Background()
-	req := &functionv1.InvokeRequest{
+	req := &sdkv1.InvokeRequest{
 		FunctionId: "test-func",
 		Payload:    []byte("test payload"),
 	}
@@ -179,7 +179,7 @@ func TestFunctionServer_Invoke_NilDispatcher(t *testing.T) {
 	server := &FunctionServer{dispatcher: nil}
 
 	ctx := context.Background()
-	req := &functionv1.InvokeRequest{}
+	req := &sdkv1.InvokeRequest{}
 
 	_, err := server.Invoke(ctx, req)
 
@@ -200,7 +200,7 @@ func TestFunctionServer_StartJob(t *testing.T) {
 	server := &FunctionServer{dispatcher: app.dispatcher}
 
 	ctx := context.Background()
-	req := &functionv1.InvokeRequest{
+	req := &sdkv1.InvokeRequest{
 		FunctionId: "test-func",
 		Payload:    []byte("test payload"),
 	}
@@ -220,7 +220,7 @@ func TestFunctionServer_CancelJob(t *testing.T) {
 	server := &FunctionServer{dispatcher: app.dispatcher}
 
 	ctx := context.Background()
-	req := &functionv1.CancelJobRequest{
+	req := &sdkv1.CancelJobRequest{
 		JobId: "nonexistent-job",
 	}
 
@@ -278,11 +278,11 @@ func TestJobServer_GetJobResult_NilDispatcher(t *testing.T) {
 func TestCloneInvokeRequest(t *testing.T) {
 	tests := []struct {
 		name string
-		req  *functionv1.InvokeRequest
+		req  *sdkv1.InvokeRequest
 	}{
 		{
 			name: "完整请求",
-			req: &functionv1.InvokeRequest{
+			req: &sdkv1.InvokeRequest{
 				FunctionId:     "test-func",
 				IdempotencyKey: "key-123",
 				Payload:        []byte("payload"),
@@ -291,7 +291,7 @@ func TestCloneInvokeRequest(t *testing.T) {
 		},
 		{
 			name: "空请求",
-			req:  &functionv1.InvokeRequest{},
+			req:  &sdkv1.InvokeRequest{},
 		},
 		{
 			name: "nil 请求",
@@ -320,25 +320,25 @@ func TestCloneInvokeRequest(t *testing.T) {
 func TestJobState(t *testing.T) {
 	tests := []struct {
 		name     string
-		events   []*functionv1.JobEvent
+		events   []*sdkv1.JobEvent
 		done     bool
 		expected string
 	}{
 		{
 			name:     "运行中",
-			events:   []*functionv1.JobEvent{},
+			events:   []*sdkv1.JobEvent{},
 			done:     false,
 			expected: "running",
 		},
 		{
 			name:     "已完成",
-			events:   []*functionv1.JobEvent{},
+			events:   []*sdkv1.JobEvent{},
 			done:     true,
 			expected: "completed",
 		},
 		{
 			name: "成功状态",
-			events: []*functionv1.JobEvent{
+			events: []*sdkv1.JobEvent{
 				{Type: "DONE"},
 			},
 			done:     true,
@@ -346,7 +346,7 @@ func TestJobState(t *testing.T) {
 		},
 		{
 			name: "错误状态",
-			events: []*functionv1.JobEvent{
+			events: []*sdkv1.JobEvent{
 				{Type: "ERROR"},
 			},
 			done:     true,
@@ -368,17 +368,17 @@ func TestJobState(t *testing.T) {
 func TestLastPayload(t *testing.T) {
 	tests := []struct {
 		name     string
-		events   []*functionv1.JobEvent
+		events   []*sdkv1.JobEvent
 		expected []byte
 	}{
 		{
 			name:     "空事件",
-			events:   []*functionv1.JobEvent{},
+			events:   []*sdkv1.JobEvent{},
 			expected: nil,
 		},
 		{
 			name: "有 payload",
-			events: []*functionv1.JobEvent{
+			events: []*sdkv1.JobEvent{
 				{Payload: []byte("first")},
 				{Payload: []byte("last")},
 			},
@@ -386,7 +386,7 @@ func TestLastPayload(t *testing.T) {
 		},
 		{
 			name: "中间空 payload",
-			events: []*functionv1.JobEvent{
+			events: []*sdkv1.JobEvent{
 				{Payload: []byte("first")},
 				{Payload: nil},
 				{Payload: []byte("last")},
@@ -395,7 +395,7 @@ func TestLastPayload(t *testing.T) {
 		},
 		{
 			name: "只有空 payload",
-			events: []*functionv1.JobEvent{
+			events: []*sdkv1.JobEvent{
 				{Payload: nil},
 				{Payload: []byte{}},
 			},
@@ -418,12 +418,12 @@ func TestToJobFrame(t *testing.T) {
 	tests := []struct {
 		name  string
 		jobID string
-		evt   *functionv1.JobEvent
+		evt   *sdkv1.JobEvent
 	}{
 		{
 			name:  "完整事件",
 			jobID: "job-123",
-			evt: &functionv1.JobEvent{
+			evt: &sdkv1.JobEvent{
 				Type:     "PROGRESS",
 				Message:  "processing",
 				Progress: 50,
@@ -484,7 +484,7 @@ func BenchmarkMetricsMap(b *testing.B) {
 
 // BenchmarkCloneInvokeRequest 性能基准测试
 func BenchmarkCloneInvokeRequest(b *testing.B) {
-	req := &functionv1.InvokeRequest{
+	req := &sdkv1.InvokeRequest{
 		FunctionId:     "test-func",
 		IdempotencyKey: "key-123",
 		Payload:        make([]byte, 1024),

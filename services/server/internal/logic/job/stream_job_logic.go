@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -38,7 +38,7 @@ func (l *StreamJobLogic) StreamJob(req *types.StreamJobRequest) (*types.StreamJo
 	}
 
 	result := make([]map[string]interface{}, 0)
-	done, err := l.svcCtx.Dispatcher.StreamJobRealtime(l.ctx, jobID, func(evt *functionv1.JobEvent) bool {
+	done, err := l.svcCtx.Dispatcher.StreamJobRealtime(l.ctx, jobID, func(evt *sdkv1.JobEvent) bool {
 		if evt == nil {
 			return true
 		}

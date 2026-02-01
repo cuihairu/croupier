@@ -11,7 +11,7 @@ import (
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	jobv1 "github.com/cuihairu/croupier/pkg/pb/croupier/edge/job/v1"
-	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 	tunnelv1 "github.com/cuihairu/croupier/pkg/pb/croupier/tunnel/v1"
 	"google.golang.org/grpc"
@@ -68,7 +68,7 @@ func (a *App) CleanupOldJobs(ttl time.Duration) error {
 func (a *App) RegisterGRPC(s *grpc.Server) {
 	serverv1.RegisterControlServiceServer(s, a.ctrl)
 	tunnelv1.RegisterTunnelServiceServer(s, &TunnelServer{dispatcher: a.dispatcher, metrics: a})
-	functionv1.RegisterFunctionServiceServer(s, &FunctionServer{dispatcher: a.dispatcher})
+	sdkv1.RegisterInvokerServiceServer(s, &FunctionServer{dispatcher: a.dispatcher})
 	jobv1.RegisterJobServiceServer(s, &JobServer{dispatcher: a.dispatcher})
 }
 
@@ -88,39 +88,39 @@ func (a *App) MetricsMap() map[string]any {
 
 // FunctionServer proxies requests to live agents via dispatcher.
 type FunctionServer struct {
-	functionv1.UnimplementedFunctionServiceServer
+	sdkv1.UnimplementedInvokerServiceServer
 	dispatcher *dispatch.Dispatcher
 }
 
-func (s *FunctionServer) Invoke(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
+func (s *FunctionServer) Invoke(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.InvokeResponse, error) {
 	if s.dispatcher == nil {
 		return nil, status.Error(codes.Unavailable, "dispatcher not ready")
 	}
 	return s.dispatcher.InvokeRequest(ctx, cloneInvokeRequest(req))
 }
 
-func (s *FunctionServer) StartJob(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {
+func (s *FunctionServer) StartJob(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartJobResponse, error) {
 	if s.dispatcher == nil {
 		return nil, status.Error(codes.Unavailable, "dispatcher not ready")
 	}
 	return s.dispatcher.StartJobRequest(ctx, cloneInvokeRequest(req))
 }
 
-func (s *FunctionServer) CancelJob(ctx context.Context, req *functionv1.CancelJobRequest) (*functionv1.StartJobResponse, error) {
+func (s *FunctionServer) CancelJob(ctx context.Context, req *sdkv1.CancelJobRequest) (*sdkv1.StartJobResponse, error) {
 	if s.dispatcher == nil {
 		return nil, status.Error(codes.Unavailable, "dispatcher not ready")
 	}
 	if err := s.dispatcher.CancelJob(ctx, req.GetJobId()); err != nil {
 		return nil, err
 	}
-	return &functionv1.StartJobResponse{JobId: req.GetJobId()}, nil
+	return &sdkv1.StartJobResponse{JobId: req.GetJobId()}, nil
 }
 
-func (s *FunctionServer) StreamJob(req *functionv1.JobStreamRequest, stream functionv1.FunctionService_StreamJobServer) error {
+func (s *FunctionServer) StreamJob(req *sdkv1.JobStreamRequest, stream sdkv1.InvokerService_StreamJobServer) error {
 	if s.dispatcher == nil {
 		return status.Error(codes.Unavailable, "dispatcher not ready")
 	}
-	_, err := s.dispatcher.StreamJobRealtime(stream.Context(), req.GetJobId(), func(evt *functionv1.JobEvent) bool {
+	_, err := s.dispatcher.StreamJobRealtime(stream.Context(), req.GetJobId(), func(evt *sdkv1.JobEvent) bool {
 		_ = stream.Send(evt)
 		return true
 	})
@@ -178,7 +178,7 @@ func (s *TunnelServer) Open(stream tunnelv1.TunnelService_OpenServer) error {
 			s.bumpMetric("reconnects")
 		case msg.GetInvoke() != nil:
 			frame := msg.GetInvoke()
-			resp, err := s.dispatcher.InvokeRequest(ctx, &functionv1.InvokeRequest{
+			resp, err := s.dispatcher.InvokeRequest(ctx, &sdkv1.InvokeRequest{
 				FunctionId:     frame.GetFunctionId(),
 				IdempotencyKey: frame.GetIdempotencyKey(),
 				Payload:        frame.GetPayload(),
@@ -201,7 +201,7 @@ func (s *TunnelServer) Open(stream tunnelv1.TunnelService_OpenServer) error {
 			}
 		case msg.GetStart() != nil:
 			frame := msg.GetStart()
-			resp, err := s.dispatcher.StartJobRequest(ctx, &functionv1.InvokeRequest{
+			resp, err := s.dispatcher.StartJobRequest(ctx, &sdkv1.InvokeRequest{
 				FunctionId:     frame.GetFunctionId(),
 				IdempotencyKey: frame.GetIdempotencyKey(),
 				Payload:        frame.GetPayload(),
@@ -305,7 +305,7 @@ func (s *TunnelServer) streamJobEvents(ctx context.Context, stream tunnelv1.Tunn
 	if jobID == "" {
 		return
 	}
-	_, _ = s.dispatcher.StreamJobRealtime(ctx, jobID, func(evt *functionv1.JobEvent) bool {
+	_, _ = s.dispatcher.StreamJobRealtime(ctx, jobID, func(evt *sdkv1.JobEvent) bool {
 		_ = stream.Send(&tunnelv1.TunnelMessage{
 			Type:   "job_event",
 			JobEvt: toJobFrame(jobID, evt),
@@ -314,17 +314,17 @@ func (s *TunnelServer) streamJobEvents(ctx context.Context, stream tunnelv1.Tunn
 	})
 }
 
-func cloneInvokeRequest(req *functionv1.InvokeRequest) *functionv1.InvokeRequest {
+func cloneInvokeRequest(req *sdkv1.InvokeRequest) *sdkv1.InvokeRequest {
 	if req == nil {
-		return &functionv1.InvokeRequest{}
+		return &sdkv1.InvokeRequest{}
 	}
-	if cloned, ok := proto.Clone(req).(*functionv1.InvokeRequest); ok {
+	if cloned, ok := proto.Clone(req).(*sdkv1.InvokeRequest); ok {
 		return cloned
 	}
-	return &functionv1.InvokeRequest{}
+	return &sdkv1.InvokeRequest{}
 }
 
-func jobState(events []*functionv1.JobEvent, done bool) string {
+func jobState(events []*sdkv1.JobEvent, done bool) string {
 	if !done {
 		return "running"
 	}
@@ -334,7 +334,7 @@ func jobState(events []*functionv1.JobEvent, done bool) string {
 	return strings.ToLower(events[len(events)-1].GetType())
 }
 
-func lastPayload(events []*functionv1.JobEvent) []byte {
+func lastPayload(events []*sdkv1.JobEvent) []byte {
 	for i := len(events) - 1; i >= 0; i-- {
 		if evt := events[i]; evt != nil && len(evt.GetPayload()) > 0 {
 			return evt.GetPayload()
@@ -343,7 +343,7 @@ func lastPayload(events []*functionv1.JobEvent) []byte {
 	return nil
 }
 
-func toJobFrame(jobID string, evt *functionv1.JobEvent) *tunnelv1.JobEventFrame {
+func toJobFrame(jobID string, evt *sdkv1.JobEvent) *tunnelv1.JobEventFrame {
 	if evt == nil {
 		return nil
 	}

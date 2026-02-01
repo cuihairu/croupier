@@ -12,7 +12,7 @@ import (
 
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
-	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -66,7 +66,7 @@ func (d *Dispatcher) Store() *reg.Store {
 }
 
 func (d *Dispatcher) Invoke(ctx context.Context, functionID string, payload []byte) ([]byte, error) {
-	resp, err := d.InvokeRequest(ctx, &functionv1.InvokeRequest{
+	resp, err := d.InvokeRequest(ctx, &sdkv1.InvokeRequest{
 		FunctionId: functionID,
 		Payload:    payload,
 	})
@@ -77,7 +77,7 @@ func (d *Dispatcher) Invoke(ctx context.Context, functionID string, payload []by
 }
 
 // InvokeRequest forwards a fully populated InvokeRequest to a live agent.
-func (d *Dispatcher) InvokeRequest(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
+func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.InvokeResponse, error) {
 	if req == nil || req.GetFunctionId() == "" {
 		return nil, fmt.Errorf("function id is required")
 	}
@@ -103,7 +103,7 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *functionv1.InvokeRe
 }
 
 func (d *Dispatcher) StartJob(ctx context.Context, functionID string, payload []byte) (string, error) {
-	resp, err := d.StartJobRequest(ctx, &functionv1.InvokeRequest{
+	resp, err := d.StartJobRequest(ctx, &sdkv1.InvokeRequest{
 		FunctionId: functionID,
 		Payload:    payload,
 	})
@@ -114,7 +114,7 @@ func (d *Dispatcher) StartJob(ctx context.Context, functionID string, payload []
 }
 
 // StartJobRequest forwards a structured InvokeRequest to the agent StartJob RPC.
-func (d *Dispatcher) StartJobRequest(ctx context.Context, req *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {
+func (d *Dispatcher) StartJobRequest(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartJobResponse, error) {
 	if req == nil || req.GetFunctionId() == "" {
 		return nil, fmt.Errorf("function id is required")
 	}
@@ -159,16 +159,16 @@ func (d *Dispatcher) CancelJob(ctx context.Context, jobID string) error {
 
 	callCtx, cancel := context.WithTimeout(ctx, d.invokeTimeout)
 	defer cancel()
-	_, err = client.CancelJob(callCtx, &functionv1.CancelJobRequest{JobId: jobID})
+	_, err = client.CancelJob(callCtx, &sdkv1.CancelJobRequest{JobId: jobID})
 	if err == nil {
 		d.unregisterJob(jobID)
 	}
 	return err
 }
 
-func (d *Dispatcher) StreamJob(ctx context.Context, jobID string) ([]*functionv1.JobEvent, bool, error) {
-	var events []*functionv1.JobEvent
-	done, err := d.StreamJobRealtime(ctx, jobID, func(evt *functionv1.JobEvent) bool {
+func (d *Dispatcher) StreamJob(ctx context.Context, jobID string) ([]*sdkv1.JobEvent, bool, error) {
+	var events []*sdkv1.JobEvent
+	done, err := d.StreamJobRealtime(ctx, jobID, func(evt *sdkv1.JobEvent) bool {
 		events = append(events, evt)
 		return true
 	})
@@ -176,7 +176,7 @@ func (d *Dispatcher) StreamJob(ctx context.Context, jobID string) ([]*functionv1
 }
 
 // StreamJobRealtime forwards job events to the provided callback.
-func (d *Dispatcher) StreamJobRealtime(ctx context.Context, jobID string, fn func(*functionv1.JobEvent) bool) (bool, error) {
+func (d *Dispatcher) StreamJobRealtime(ctx context.Context, jobID string, fn func(*sdkv1.JobEvent) bool) (bool, error) {
 	if jobID == "" {
 		return false, fmt.Errorf("job id is required")
 	}
@@ -191,7 +191,7 @@ func (d *Dispatcher) StreamJobRealtime(ctx context.Context, jobID string, fn fun
 	}
 	defer conn.Close()
 
-	stream, err := client.StreamJob(ctx, &functionv1.JobStreamRequest{JobId: jobID})
+	stream, err := client.StreamJob(ctx, &sdkv1.JobStreamRequest{JobId: jobID})
 	if err != nil {
 		return false, err
 	}
@@ -370,7 +370,7 @@ func (d *Dispatcher) pickAgentWithRouting(functionID string, metadata map[string
 	return d.pickAgent(functionID)
 }
 
-func (d *Dispatcher) dial(addr string) (*grpc.ClientConn, functionv1.FunctionServiceClient, error) {
+func (d *Dispatcher) dial(addr string) (*grpc.ClientConn, sdkv1.InvokerServiceClient, error) {
 	if addr == "" {
 		return nil, nil, fmt.Errorf("agent rpc address missing")
 	}
@@ -398,7 +398,7 @@ func (d *Dispatcher) dial(addr string) (*grpc.ClientConn, functionv1.FunctionSer
 	if err != nil {
 		return nil, nil, err
 	}
-	return conn, functionv1.NewFunctionServiceClient(conn), nil
+	return conn, sdkv1.NewInvokerServiceClient(conn), nil
 }
 
 func hostFromAddr(addr string) string {
@@ -442,7 +442,7 @@ func (d *Dispatcher) jobAddr(jobID string) (string, error) {
 	return addr, nil
 }
 
-func isTerminalEvent(evt *functionv1.JobEvent) bool {
+func isTerminalEvent(evt *sdkv1.JobEvent) bool {
 	switch strings.ToLower(evt.GetType()) {
 	case "done", "completed", "error", "failed", "cancelled", "canceled", "succeeded", "success":
 		return true

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
-	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 )
 
 func TestFileJobRoutingStore_PersistsAcrossInstances(t *testing.T) {
@@ -480,7 +480,7 @@ func TestIsTerminalEvent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			evt := &functionv1.JobEvent{Type: tt.eventType}
+			evt := &sdkv1.JobEvent{Type: tt.eventType}
 			result := isTerminalEvent(evt)
 			if result != tt.expected {
 				t.Errorf("isTerminalEvent(%q) = %v, want %v", tt.eventType, result, tt.expected)

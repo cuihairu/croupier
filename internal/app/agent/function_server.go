@@ -11,7 +11,7 @@ import (
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
-	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -21,7 +21,7 @@ import (
 // FunctionServer forwards protobuf calls to local game servers that expose FunctionService.
 // It also handles platform function calls (OpenAPI) by routing to PlatformManager.
 type FunctionServer struct {
-	functionv1.UnimplementedFunctionServiceServer
+	sdkv1.UnimplementedInvokerServiceServer
 	store           *agentlocal.LocalStore
 	jobs            *jobIndex
 	tlsCfg          *tlsutil.ClientTLSConfig
@@ -130,7 +130,7 @@ func (s *FunctionServer) pickInstance(fid string, metadata map[string]string) (s
 		fmt.Sprintf("function '%s' instances are stale (last seen > 30s ago)", fid))
 }
 
-func (s *FunctionServer) dial(addr string) (*grpc.ClientConn, functionv1.FunctionServiceClient, error) {
+func (s *FunctionServer) dial(addr string) (*grpc.ClientConn, sdkv1.InvokerServiceClient, error) {
 	if addr == "" {
 		return nil, nil, status.Error(codes.Internal, "empty address provided")
 	}
@@ -177,7 +177,7 @@ func (s *FunctionServer) dial(addr string) (*grpc.ClientConn, functionv1.Functio
 		return nil, nil, status.Errorf(codes.Unavailable,
 			"failed to connect to function instance at %s: %v", addr, err)
 	}
-	return cc, functionv1.NewFunctionServiceClient(cc), nil
+	return cc, sdkv1.NewInvokerServiceClient(cc), nil
 }
 
 func fnvIndex(key string, mod int) int {
@@ -204,7 +204,7 @@ func hostFromAddr(addr string) string {
 	return strings.Trim(strings.TrimPrefix(addr, "["), "]")
 }
 
-func (s *FunctionServer) Invoke(ctx context.Context, in *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
+func (s *FunctionServer) Invoke(ctx context.Context, in *sdkv1.InvokeRequest) (*sdkv1.InvokeResponse, error) {
 	functionID := in.GetFunctionId()
 
 	// Check if this is a platform function call
@@ -229,7 +229,7 @@ func (s *FunctionServer) Invoke(ctx context.Context, in *functionv1.InvokeReques
 }
 
 // invokePlatform handles platform function calls (OpenAPI, etc.)
-func (s *FunctionServer) invokePlatform(ctx context.Context, functionID string, in *functionv1.InvokeRequest) (*functionv1.InvokeResponse, error) {
+func (s *FunctionServer) invokePlatform(ctx context.Context, functionID string, in *sdkv1.InvokeRequest) (*sdkv1.InvokeResponse, error) {
 	// Get request payload
 	request := in.GetPayload()
 
@@ -239,12 +239,12 @@ func (s *FunctionServer) invokePlatform(ctx context.Context, functionID string, 
 		return nil, status.Errorf(codes.Internal, "platform call failed: %v", err)
 	}
 
-	return &functionv1.InvokeResponse{
+	return &sdkv1.InvokeResponse{
 		Payload: response,
 	}, nil
 }
 
-func (s *FunctionServer) StartJob(ctx context.Context, in *functionv1.InvokeRequest) (*functionv1.StartJobResponse, error) {
+func (s *FunctionServer) StartJob(ctx context.Context, in *sdkv1.InvokeRequest) (*sdkv1.StartJobResponse, error) {
 	addr, err := s.pickInstance(in.GetFunctionId(), in.GetMetadata())
 	if err != nil {
 		return nil, err
@@ -263,7 +263,7 @@ func (s *FunctionServer) StartJob(ctx context.Context, in *functionv1.InvokeRequ
 	return resp, err
 }
 
-func (s *FunctionServer) CancelJob(ctx context.Context, in *functionv1.CancelJobRequest) (*functionv1.StartJobResponse, error) {
+func (s *FunctionServer) CancelJob(ctx context.Context, in *sdkv1.CancelJobRequest) (*sdkv1.StartJobResponse, error) {
 	if in == nil || in.GetJobId() == "" {
 		return nil, status.Error(codes.InvalidArgument, "job ID is required")
 	}
@@ -291,7 +291,7 @@ func (s *FunctionServer) CancelJob(ctx context.Context, in *functionv1.CancelJob
 }
 
 // StreamJob implements streaming for long-running jobs
-func (s *FunctionServer) StreamJob(in *functionv1.JobStreamRequest, stream functionv1.FunctionService_StreamJobServer) error {
+func (s *FunctionServer) StreamJob(in *sdkv1.JobStreamRequest, stream sdkv1.InvokerService_StreamJobServer) error {
 	if in == nil || in.GetJobId() == "" {
 		return status.Error(codes.InvalidArgument, "job ID is required")
 	}
@@ -365,7 +365,7 @@ func (s *FunctionServer) StreamJob(in *functionv1.JobStreamRequest, stream funct
 }
 
 // isTerminalEvent checks if the event type indicates job completion
-func isTerminalEvent(evt *functionv1.JobEvent) bool {
+func isTerminalEvent(evt *sdkv1.JobEvent) bool {
 	if evt == nil || evt.GetType() == "" {
 		return false
 	}

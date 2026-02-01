@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 )
@@ -63,8 +63,8 @@ func BuildFunctionPermissions(perms []model.FunctionPermission) []types.Function
 	return items
 }
 
-func BuildInvokeRequest(functionID string, payload []byte, metadata map[string]string) *functionv1.InvokeRequest {
-	req := &functionv1.InvokeRequest{
+func BuildInvokeRequest(functionID string, payload []byte, metadata map[string]string) *sdkv1.InvokeRequest {
+	req := &sdkv1.InvokeRequest{
 		FunctionId: strings.TrimSpace(functionID),
 		Payload:    payload,
 	}

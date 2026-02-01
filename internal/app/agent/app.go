@@ -9,8 +9,8 @@ import (
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
-	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"google.golang.org/grpc"
 )
 
@@ -66,7 +66,7 @@ func (a *App) RegisterGRPC(s *grpc.Server) {
 	a.platformManager = NewPlatformManager(a.store, a.configDir, nil)
 
 	// Function service (local-forwarding implementation over protobuf)
-	functionv1.RegisterFunctionServiceServer(s, &FunctionServer{
+	sdkv1.RegisterInvokerServiceServer(s, &FunctionServer{
 		store:           a.store,
 		jobs:            a.jobs,
 		tlsCfg:          a.outTLS,

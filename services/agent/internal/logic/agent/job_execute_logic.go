@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/services/agent/internal/svc"
 	"github.com/cuihairu/croupier/services/agent/internal/types"
 
@@ -76,8 +76,8 @@ func (l *JobExecuteLogic) JobExecute(req *types.JobExecuteRequest) (*types.JobEx
 	callCtx, callCancel := context.WithTimeout(l.ctx, 10*time.Second)
 	defer callCancel()
 
-	cli := functionv1.NewFunctionServiceClient(cc)
-	resp, err := cli.Invoke(callCtx, &functionv1.InvokeRequest{
+	cli := sdkv1.NewInvokerServiceClient(cc)
+	resp, err := cli.Invoke(callCtx, &sdkv1.InvokeRequest{
 		FunctionId:     functionID,
 		IdempotencyKey: jobID,
 		Payload:        payload,
