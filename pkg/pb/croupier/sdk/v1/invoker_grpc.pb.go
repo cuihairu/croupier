@@ -100,7 +100,7 @@ func (c *invokerServiceClient) CancelJob(ctx context.Context, in *CancelJobReque
 }
 
 // InvokerServiceServer is the server API for InvokerService service.
-// All implementations should embed UnimplementedInvokerServiceServer
+// All implementations must embed UnimplementedInvokerServiceServer
 // for forward compatibility.
 //
 // SDK Invoker Service - Main interface for invoking functions
@@ -114,9 +114,10 @@ type InvokerServiceServer interface {
 	StreamJob(*JobStreamRequest, grpc.ServerStreamingServer[JobEvent]) error
 	// Cancel a running job
 	CancelJob(context.Context, *CancelJobRequest) (*StartJobResponse, error)
+	mustEmbedUnimplementedInvokerServiceServer()
 }
 
-// UnimplementedInvokerServiceServer should be embedded to have
+// UnimplementedInvokerServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
@@ -135,7 +136,8 @@ func (UnimplementedInvokerServiceServer) StreamJob(*JobStreamRequest, grpc.Serve
 func (UnimplementedInvokerServiceServer) CancelJob(context.Context, *CancelJobRequest) (*StartJobResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelJob not implemented")
 }
-func (UnimplementedInvokerServiceServer) testEmbeddedByValue() {}
+func (UnimplementedInvokerServiceServer) mustEmbedUnimplementedInvokerServiceServer() {}
+func (UnimplementedInvokerServiceServer) testEmbeddedByValue()                        {}
 
 // UnsafeInvokerServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to InvokerServiceServer will
