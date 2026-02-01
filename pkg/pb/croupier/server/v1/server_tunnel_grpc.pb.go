@@ -54,17 +54,16 @@ func (c *tunnelServiceClient) Open(ctx context.Context, opts ...grpc.CallOption)
 type TunnelService_OpenClient = grpc.BidiStreamingClient[TunnelMessage, TunnelMessage]
 
 // TunnelServiceServer is the server API for TunnelService service.
-// All implementations must embed UnimplementedTunnelServiceServer
+// All implementations should embed UnimplementedTunnelServiceServer
 // for forward compatibility.
 //
 // Server Tunnel Service - Internal interface for bidirectional communication
 type TunnelServiceServer interface {
 	// Open a bidirectional tunnel between server and agent
 	Open(grpc.BidiStreamingServer[TunnelMessage, TunnelMessage]) error
-	mustEmbedUnimplementedTunnelServiceServer()
 }
 
-// UnimplementedTunnelServiceServer must be embedded to have
+// UnimplementedTunnelServiceServer should be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
@@ -74,8 +73,7 @@ type UnimplementedTunnelServiceServer struct{}
 func (UnimplementedTunnelServiceServer) Open(grpc.BidiStreamingServer[TunnelMessage, TunnelMessage]) error {
 	return status.Errorf(codes.Unimplemented, "method Open not implemented")
 }
-func (UnimplementedTunnelServiceServer) mustEmbedUnimplementedTunnelServiceServer() {}
-func (UnimplementedTunnelServiceServer) testEmbeddedByValue()                       {}
+func (UnimplementedTunnelServiceServer) testEmbeddedByValue() {}
 
 // UnsafeTunnelServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to TunnelServiceServer will
