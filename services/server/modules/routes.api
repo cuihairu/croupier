@@ -1,0 +1,37 @@
+syntax = "v1"
+
+// ============================================================================
+// ROUTES 模块 API 定义 - 动态路由配置
+// ============================================================================
+
+// ============================================================================
+// 类型定义
+// ============================================================================
+type RouteItem {
+	Path       string                 `json:"path"`
+	Name       string                 `json:"name"`
+	Icon       string                 `json:"icon,optional"`
+	Component  string                 `json:"component,optional"`
+	Meta       map[string]interface{} `json:"meta,optional"`
+	Routes     []RouteItem            `json:"routes,optional"`
+	HideInMenu bool                   `json:"hideInMenu,optional"`
+}
+
+type GetRoutesResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    []RouteItem `json:"data"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1
+	group:  routes
+)
+service server {
+	@doc "获取动态路由配置"
+	@handler GetRoutesHandler
+	get /routes returns (GetRoutesResponse)
+}

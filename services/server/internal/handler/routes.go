@@ -42,6 +42,7 @@ import (
 	rate_limit "github.com/cuihairu/croupier/services/server/internal/handler/rate_limit"
 	registry "github.com/cuihairu/croupier/services/server/internal/handler/registry"
 	role "github.com/cuihairu/croupier/services/server/internal/handler/role"
+	routes "github.com/cuihairu/croupier/services/server/internal/handler/routes"
 	schema "github.com/cuihairu/croupier/services/server/internal/handler/schema"
 	storage "github.com/cuihairu/croupier/services/server/internal/handler/storage"
 	ticket "github.com/cuihairu/croupier/services/server/internal/handler/ticket"
@@ -1527,6 +1528,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/roles"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取动态路由配置
+				Method:  http.MethodGet,
+				Path:    "/routes",
+				Handler: routes.GetRoutesHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1"),
 	)
 
 	server.AddRoutes(

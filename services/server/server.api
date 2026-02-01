@@ -21,6 +21,7 @@ import "modules/game.api"
 import "modules/entity.api"
 // === 函数管理模块 ===
 import "modules/function.api" // 合并了 function + permission + ui
+import "modules/routes.api" // 动态路由配置
 // === 运行时模块 ===
 import "modules/job.api"
 import "modules/agent.api"

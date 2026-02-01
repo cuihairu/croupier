@@ -1,0 +1,30 @@
+{
+  "ui:layout": {
+    "type": "grid",
+    "cols": 2
+  },
+  "ui:groups": [
+    {
+      "title": "基础信息",
+      "fields": ["player_id"]
+    },
+    {
+      "title": "高级选项",
+      "fields": ["include_assets"]
+    }
+  ],
+  "ui:fields": {
+    "player_id": {
+      "widget": "input",
+      "placeholder": "请输入玩家ID",
+      "rules": [
+        { "required": true, "message": "玩家ID不能为空" },
+        { "min": 6, "message": "玩家ID至少6个字符" }
+      ]
+    },
+    "include_assets": {
+      "widget": "switch",
+      "valuePropName": "checked"
+    }
+  }
+}

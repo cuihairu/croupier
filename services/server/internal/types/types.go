@@ -1201,6 +1201,12 @@ type GamesListResponse struct {
 	Data    GamesData `json:"data,omitempty"`
 }
 
+type GetRoutesResponse struct {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    []RouteItem `json:"data"`
+}
+
 type HealthzRequest struct {
 }
 
@@ -2655,6 +2661,16 @@ type RootResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
+}
+
+type RouteItem struct {
+	Path       string                 `json:"path"`
+	Name       string                 `json:"name"`
+	Icon       string                 `json:"icon,optional"`
+	Component  string                 `json:"component,optional"`
+	Meta       map[string]interface{} `json:"meta,optional"`
+	Routes     []RouteItem            `json:"routes,optional"`
+	HideInMenu bool                   `json:"hideInMenu,optional"`
 }
 
 type SchemaCreateRequest struct {

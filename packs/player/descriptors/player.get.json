@@ -1,0 +1,67 @@
+{
+  "id": "player.get",
+  "version": "1.0.0",
+  "category": "player",
+  "display_name": {
+    "zh": "获取玩家信息",
+    "en": "Get Player Info"
+  },
+  "summary": {
+    "zh": "根据玩家ID获取玩家详细信息",
+    "en": "Get player details by player ID"
+  },
+  "description": {
+    "zh": "查询玩家基本信息、等级、资产等数据",
+    "en": "Query player basic info, level, assets and other data"
+  },
+  "tags": ["玩家", "查询", "基础"],
+  "risk": "low",
+  "auth": {
+    "permission": "player.get",
+    "roles": ["admin", "gm", "operator"]
+  },
+  "params": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "player_id": {
+        "type": "string",
+        "title": "玩家ID",
+        "description": "要查询的玩家唯一标识"
+      },
+      "include_assets": {
+        "type": "boolean",
+        "title": "包含资产信息",
+        "default": false,
+        "description": "是否同时返回玩家的资产数据"
+      }
+    },
+    "required": ["player_id"]
+  },
+  "semantics": {
+    "mode": "query",
+    "route": "lb",
+    "timeout": "30s"
+  },
+  "outputs": {
+    "views": [
+      {
+        "id": "json",
+        "type": "json",
+        "renderer": "json.view"
+      },
+      {
+        "id": "table",
+        "type": "table",
+        "renderer": "table.basic"
+      }
+    ]
+  },
+  "menu": {
+    "section": "玩家管理",
+    "group": "基础功能",
+    "path": "/game/player/get",
+    "order": 10,
+    "hidden": false
+  }
+}
