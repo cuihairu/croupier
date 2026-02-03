@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/cuihairu/croupier/internal/nng"
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/handler"
@@ -135,6 +136,23 @@ func runServer() error {
 			c.CroupierLog.Level = logLevel
 		}
 	}
+
+	// 初始化日志系统
+	if c.CroupierLog.Level == "" {
+		c.CroupierLog.Level = "info"
+	}
+	if c.CroupierLog.Format == "" {
+		c.CroupierLog.Format = "console"
+	}
+	common.SetupLoggerWithFile(
+		c.CroupierLog.Level,
+		c.CroupierLog.Format,
+		c.CroupierLog.Output,
+		c.CroupierLog.MaxSize,
+		c.CroupierLog.MaxBackups,
+		c.CroupierLog.MaxAge,
+		c.CroupierLog.Compress,
+	)
 
 	// 引导数据目录
 	if bootstrapDataDir != "" {
