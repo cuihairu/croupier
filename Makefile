@@ -103,15 +103,14 @@ packs-build:
 	@echo "done: packs/dist/*.pack.tgz"
 
 server: api
-	@echo "[build] server (pg+sqlite)"
+	@echo "[build] server (all database drivers)"
 	@mkdir -p $(BINDIR)
-	cd services/server && GOFLAGS=-mod=mod go build -tags "pg sqlite" -ldflags "-X github.com/cuihairu/croupier/services/server/cmd.Version=$(FULL_VERSION) -X github.com/cuihairu/croupier/services/server/cmd.GitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/services/server/cmd.BuildTime=$(BUILD_TIME) -X github.com/cuihairu/croupier/services/server/internal/svc.ServerVersion=$(FULL_VERSION) -X github.com/cuihairu/croupier/services/server/internal/svc.ServerGitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/services/server/internal/svc.ServerBuildTime=$(BUILD_TIME) -s -w" -o ../../$(BINDIR)/croupier-server .
+	cd services/server && GOFLAGS=-mod=mod go build -ldflags "-X github.com/cuihairu/croupier/services/server/cmd.Version=$(FULL_VERSION) -X github.com/cuihairu/croupier/services/server/cmd.GitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/services/server/cmd.BuildTime=$(BUILD_TIME) -X github.com/cuihairu/croupier/services/server/internal/svc.ServerVersion=$(FULL_VERSION) -X github.com/cuihairu/croupier/services/server/internal/svc.ServerGitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/services/server/internal/svc.ServerBuildTime=$(BUILD_TIME) -s -w" -o ../../$(BINDIR)/croupier-server .
 
 .PHONY: server-sqlite
 server-sqlite:
-	@echo "[build] server (+sqlite)"
-	@mkdir -p $(BINDIR)
-	GOFLAGS=-mod=mod go build -tags "pg sqlite" -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-server ./services/server
+	@echo "[deprecated] server-sqlite: all database drivers are now included; building regular server"
+	$(MAKE) server
 
 .PHONY: server-ip2loc
 server-ip2loc:
