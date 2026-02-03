@@ -11,7 +11,6 @@
       "env": {
         "CROUPIER_DEV_SEED": "1"
       },
-      "buildFlags": ["-tags=pg sqlite"],
       "cwd": "${workspaceFolder}"
     },
     {
@@ -27,18 +26,22 @@
         "REDIS_URL": "redis://localhost:6379/0",
         "CLICKHOUSE_DSN": "clickhouse://localhost:9000/analytics"
       },
-      "buildFlags": ["-tags=pg sqlite"],
       "cwd": "${workspaceFolder}"
     },
     {
-      "name": "Edge (dev)",
+      "name": "Server (mysql)",
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}/services/edge",
-      "args": ["-f", "etc/edge.yaml"],
-      "buildFlags": ["-tags=pg sqlite"],
-      "cwd": "${workspaceFolder}/services/edge"
+      "program": "${workspaceFolder}/services/server",
+      "args": ["-f", "services/server/etc/server.yaml"],
+      "env": {
+        "DB_DRIVER": "mysql",
+        "DATABASE_URL": "croupier:croupier_dev_password@tcp(localhost:3306)/croupier?charset=utf8mb4&parseTime=True&loc=Local",
+        "REDIS_URL": "redis://localhost:6379/0",
+        "CLICKHOUSE_DSN": "clickhouse://localhost:9000/analytics"
+      },
+      "cwd": "${workspaceFolder}"
     },
     {
       "name": "Agent (dev)",
@@ -60,7 +63,6 @@
         "REDIS_URL": "redis://localhost:6379/0",
         "CLICKHOUSE_DSN": "clickhouse://localhost:9000/analytics"
       },
-      "buildFlags": ["-tags=pg sqlite"],
       "cwd": "${workspaceFolder}"
     }
   ]
