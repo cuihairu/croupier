@@ -205,38 +205,6 @@ Metrics:
     format: "console"
 ```
 
-## Edge 配置
-
-### 完整配置示例
-
-```yaml
-# edge.yaml
-edge:
-  # 监听地址
-  addr: ":8443"
-
-  # Server 连接配置
-  server_addr: "internal.server:8443"
-
-  # TLS 配置
-  tls:
-    cert_file: "data/edge.crt"
-    key_file: "data/edge.key"
-    ca_file: "data/ca.crt"
-    server_name: "croupier.server"
-
-  # 隧道配置
-  tunnel:
-    max_connections: 100
-    idle_timeout: "5m"
-    keepalive_interval: "30s"
-
-  # 日志配置
-  log:
-    level: "info"
-    format: "console"
-```
-
 ## 配置验证
 
 ### 验证配置文件

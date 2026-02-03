@@ -6,7 +6,7 @@ BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 FULL_VERSION := $(VERSION)$(GIT_DIRTY)
 LDFLAGS := -X main.version=$(FULL_VERSION) -X main.buildTime=$(BUILD_TIME) -X main.gitCommit=$(GIT_COMMIT) -s -w
 
-.PHONY: proto sync-proto api build server agent edge cli clean dev tidy test lint help all tools schema-validator pack-builder
+.PHONY: proto sync-proto api build server agent cli clean dev tidy test lint help all tools schema-validator pack-builder
 .PHONY: test test-coverage test-coverage-html test-race test-integration test-all
 .PHONY: build-sdks build-sdks-cpp build-sdks-go build-sdks-java build-sdks-js build-sdks-python
 .PHONY: build-web build-dashboard build-website dev-dashboard dev-website
@@ -68,7 +68,6 @@ api:
 	@PATH=$$PATH:~/go/bin which goctl > /dev/null || (echo "Error: goctl not found. Please install goctl: goctl: go install github.com/zeromicro/go-zero/tools/goctl@latest" && exit 1)
 	@cd services/server && PATH=$$PATH:~/go/bin goctl api go -api server.api -dir . -style go_zero --home ../templates
 	@cd services/agent && PATH=$$PATH:~/go/bin goctl api go -api agent.api -dir . -style go_zero --home ../templates
-	@cd services/edge && PATH=$$PATH:~/go/bin goctl api go -api edge.api -dir . -style go_zero --home ../templates
 	@echo "[api] code generation complete"
 
 # Build local protoc plugin for pack generation
@@ -129,12 +128,7 @@ agent: api
 	@mkdir -p $(BINDIR)
 	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-agent ./services/agent
 
-edge: api
-	@echo "[build] edge"
-	@mkdir -p $(BINDIR)
-	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-edge ./services/edge
-
-build: server agent edge worker ingest tools
+build: server agent worker ingest tools
 
 .PHONY: build-ip2loc
 build-ip2loc:
@@ -255,14 +249,13 @@ help:
 	@echo ""
 	@echo "Core Targets:"
 	@echo "  all              - Build server, SDKs, and web components"
-	@echo "  build            - Build server components (server, agent, edge)"
+	@echo "  build            - Build server components (server, agent, worker, ingest)"
 	@echo "  sync-proto       - Sync proto files from croupier-proto"
 	@echo "  proto            - Generate protobuf code"
 	@echo ""
 	@echo "Server Targets:"
 	@echo "  server           - Build croupier-server"
 	@echo "  agent            - Build croupier-agent (http+grpc core)"
-	@echo "  edge             - Build croupier-edge"
 	@echo ""
 	@echo "SDK Targets:"
 	@echo "  build-sdks       - Build all SDKs (C++, Go)"

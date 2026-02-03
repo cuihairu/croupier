@@ -26,7 +26,6 @@ tag:
 graph TB
     subgraph "DMZ / 公网区"
         LB[负载均衡器<br/>Nginx/ALB]
-        Edge[Edge Proxy<br/>可选]
     end
 
     subgraph "内网 - 管理区"
@@ -41,8 +40,6 @@ graph TB
         Agent3[Agent 3<br/>游戏服务器 C]
     end
 
-    LB --> Edge
-    Edge --> ServerHA
     LB --> ServerHA
     ServerHA --> DB
     ServerHA --> Redis
@@ -75,7 +72,7 @@ graph TB
 
 ### 多机房部署
 
-适用于跨区域部署，需要 Edge 组件。
+适用于跨区域部署。
 
 ```
 ┌──────────────┐       ┌──────────────┐
@@ -90,7 +87,7 @@ graph TB
        └───────────┬───────────┘
                    │
               ┌─────────┐
-              │  Edge   │
+              │  负载均衡  │
               │  (DMZ)  │
               └─────────┘
 ```

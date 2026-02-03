@@ -73,15 +73,6 @@ Croupier 是一个现代化的**三层分布式 GM 后台系统**，专为游戏
   - 执行异步作业
   - 支持双向隧道
 
-### Edge（边缘代理）
-
-可选的 DMZ/边缘组件，用于公网场景。
-
-- **职责**:
-  - 桥接内网 Server 和公网 Agent
-  - 隧道切换与连接复用
-  - 流量转发与负载均衡
-
 ### Dashboard（管理界面）
 
 基于 React + Ant Design 的 Web 管理界面。
@@ -112,26 +103,6 @@ sequenceDiagram
   GS-->>Agent: 响应
   Agent-->>Server: 响应
   Server->>Server: 审计记录
-  Server-->>UI: 结果
-```
-
-### 隧道模式（经 Edge）
-
-```mermaid
-sequenceDiagram
-  participant UI as Web UI
-  participant Server as Server
-  participant Edge as Edge
-  participant Agent as Agent
-  participant GS as Game Server
-
-  UI->>Server: POST /api/invoke
-  Server->>Edge: 转发请求
-  Edge->>Agent: 隧道传输
-  Agent->>GS: 本地调用
-  GS-->>Agent: 响应
-  Agent-->>Edge: 响应
-  Edge-->>Server: 响应
   Server-->>UI: 结果
 ```
 

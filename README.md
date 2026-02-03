@@ -11,7 +11,7 @@
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 ![Go Version](https://img.shields.io/badge/go-1.25+-green.svg)
 
-统一的游戏运营控制面：Server / Agent / Edge 服务负责安全合规与函数路由，Dashboard 由 X‑Render 驱动自动生成 UI，SDK 覆盖多语言并保持 Nightly 构建。这个仓库承载主进程、示例与公共配置，其余组件拆分为独立仓库并通过子模块引用。
+统一的游戏运营控制面：Server / Agent 服务负责安全合规与函数路由，Dashboard 由 X‑Render 驱动自动生成 UI，SDK 覆盖多语言并保持 Nightly 构建。这个仓库承载主进程、示例与公共配置，其余组件拆分为独立仓库并通过子模块引用。
 
 ---
 
@@ -27,7 +27,7 @@
 ## 📦 仓库导航
 | 组件 | 仓库 | 在本仓库中的位置 | 说明 |
 | --- | --- | --- | --- |
-| Server / Agent / Edge | 本仓库 | 根目录 | 控制面、代理、审批、审计与示例 |
+| Server / Agent | 本仓库 | 根目录 | 控制面、代理、审批、审计与示例 |
 | Dashboard | [croupier-dashboard](https://github.com/cuihairu/croupier-dashboard) | `dashboard/` | Umi Max + Ant Design + X-Render，已纳入子模块 |
 | Proto 定义 | [croupier-proto](https://github.com/cuihairu/croupier-proto) | `proto/` | 所有 gRPC/HTTP IDL，Server 与 SDK 共享 |
 | Analytics Worker | 本仓库 | `services/analytics-worker` | 事件消费、指标写入、ClickHouse 入库 |
@@ -68,7 +68,6 @@ graph TB
   end
 
   subgraph "DMZ/公网"
-    Edge[Edge（可选）<br/>控制面转发]
     Ingest[Analytics Ingestion<br/>HTTP/OTLP · CDN/WAF/限流]
     OtelColPub[OTel Collector<br/>公共/DMZ接入 可选]
   end
@@ -100,9 +99,6 @@ graph TB
   UI -->|HTTP REST| Server
   Server -->|gRPC mTLS| A1
   Server -->|gRPC mTLS| A2
-  Server -->|可选| Edge
-  Edge -->|gRPC mTLS| A1
-  Edge -->|gRPC mTLS| A2
   Client -->|HTTPS| Ingest
   GS1 -->|SDK 事件| Redis
   GS2 -->|OTLP/HTTP| OtelColPub
@@ -130,7 +126,7 @@ graph TB
   class GS1,GS2,GS3,GS4 game
   class Redis,Worker data
   class ClickHouse,Jaeger,Prometheus,Grafana storage
-  class Edge,Ingest,OtelColPub dmz
+  class Ingest,OtelColPub dmz
 ```
 
 #### 调用与数据流
@@ -138,17 +134,11 @@ graph TB
 sequenceDiagram
   participant UI as Web UI
   participant Server as Server
-  participant Edge as Edge
   participant Agent as Agent
   participant GS as Game Server
 
   UI->>Server: POST /api/invoke {function_id, payload, X-Game-ID}
-  alt Server 直连
-    Server->>Agent: FunctionService.Invoke
-  else 经 Edge 转发
-    Server->>Edge: Forward Invoke
-    Edge->>Agent: Tunnel Invoke (bidi)
-  end
+  Server->>Agent: FunctionService.Invoke (gRPC mTLS)
   Agent->>GS: local gRPC Invoke
   GS-->>Agent: response
   Agent-->>Server: response
@@ -165,7 +155,7 @@ sequenceDiagram
    git submodule update --init --recursive
    ```
 2. **安装工具链**：Go 1.25+、pnpm、buf、protoc（详见 [CLAUDE.md](CLAUDE.md)）。
-3. **一键构建**：`make dev` 会生成协议、构建 server/agent/edge。
+3. **一键构建**：`make dev` 会生成协议、构建 server/agent/worker/ingest。
 4. **运行服务**：
    ```bash
    ./bin/croupier-server --config configs/server.example.yaml

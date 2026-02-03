@@ -75,7 +75,7 @@ make build
 
 # 5. 验证构建产物
 ls -la bin/
-# 应该看到：croupier-server、croupier-agent、croupier-edge
+# 应该看到：croupier-server、croupier-agent、analytics-worker、ingest
 ```
 
 ## 第三步：生成证书

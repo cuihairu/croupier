@@ -36,7 +36,6 @@ croupier/
 ├── internal/            # 内部实现
 │   ├── server/          # 服务端核心逻辑
 │   ├── agent/           # 代理实现
-│   ├── edge/            # 边缘代理实现
 │   ├── auth/            # 认证授权
 │   ├── function/        # 函数管理
 │   ├── jobs/            # 作业系统
@@ -99,10 +98,6 @@ graph TB
     Server[Croupier Server<br/>控制面/权限/查询]
   end
 
-  subgraph "DMZ/公网"
-    Edge[Edge（可选）<br/>控制面转发]
-  end
-
   subgraph "分布式代理层（游戏内网）"
     A1[Croupier Agent 1]
     A2[Croupier Agent 2]
@@ -115,8 +110,7 @@ graph TB
 
   UI -->|HTTP REST| Server
   Server -->|gRPC mTLS| A1
-  Server -->|可选| Edge
-  Edge -->|gRPC mTLS| A2
+  Server -->|gRPC mTLS| A2
   A1 --> GS1
   A2 --> GS2
   Client --> GS1
@@ -126,13 +120,11 @@ graph TB
   classDef server fill:#f6ffed,stroke:#52c41a
   classDef agent fill:#fff7e6,stroke:#fa8c16
   classDef game fill:#f0f9e6,stroke:#52c41a
-  classDef dmz fill:#fffbe6,stroke:#faad14
 
   class UI ui
   class Server server
   class A1,A2 agent
   class GS1,GS2 game
-  class Edge dmz
 ```
 
 ## 核心文档

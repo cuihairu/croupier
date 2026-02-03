@@ -33,8 +33,7 @@ graph TB
     end
 
     subgraph "通信层"
-        mTLS1[Server ↔ Agent<br/>mTLS]
-        mTLS2[Server ↔ Edge<br/>mTLS]
+        mTLS[Server ↔ Agent<br/>mTLS]
     end
 
     subgraph "数据层"
@@ -44,8 +43,7 @@ graph TB
     UI -->|HTTPS| TLS
     TLS --> Auth
     Auth --> Audit
-    TLS --> mTLS1
-    TLS --> mTLS2
+    TLS --> mTLS
 ```
 
 ## TLS/mTLS 配置
@@ -59,7 +57,7 @@ graph TB
                 |                                 |
         Server ← ← ← ← ← ← ← ← Agent ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ←
         |               |                 |               |
-   Server.crt     Edge.crt         Agent1.crt     Agent2.crt
+   Server.crt         Agent1.crt       Agent2.crt       Agent3.crt
 ```
 
 **本地开发环境（自动生成证书）**：

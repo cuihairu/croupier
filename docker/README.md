@@ -11,7 +11,6 @@ docker/
 ├── docker-compose.telemetry.yaml      # 遥测监控栈配置
 ├── Dockerfile.server                  # Server 服务镜像
 ├── Dockerfile.agent                   # Agent 服务镜像
-├── Dockerfile.edge                    # Edge 服务镜像
 ├── Dockerfile.web                     # Web UI 镜像
 ├── Dockerfile.analytics-worker        # 分析工作器镜像
 ├── Dockerfile.ingest                  # 数据摄取服务镜像
@@ -31,7 +30,6 @@ docker-compose up -d
 - PostgreSQL (端口 5432)
 - Redis (端口 6379)
 - ClickHouse (端口 8123/9000)
-- Edge 服务 (端口 9443/9080)
 - Server 服务 (端口 8443/18080)
 - Agent 服务 (端口 19090/19091)
 - Web UI (端口 8000)
@@ -62,7 +60,6 @@ docker-compose -f docker-compose.telemetry.yaml up -d
 | Web UI | http://localhost:8000 | 管理控制台 |
 | Server HTTP API | http://localhost:18080 | REST API |
 | Server gRPC | localhost:8443 | gRPC 服务 |
-| Edge gRPC | localhost:9443 | Edge 代理 |
 | Agent | localhost:19090 | 本地 Agent |
 | Analytics Ingestion | http://localhost:18081 | 公网/DMZ 摄取入口（开发） |
 
