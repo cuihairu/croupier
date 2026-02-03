@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/zeromicro/go-zero/rest"
 )
 
@@ -70,17 +71,5 @@ type Config struct {
 		InsecureSkipVerify bool   `json:",default=false"`
 	} `json:",optional"`
 
-	CroupierLog CroupierLogConfig `json:",optional"`
-}
-
-// CroupierLogConfig 日志配置
-type CroupierLogConfig struct {
-	Level      string `json:",optional"` // debug|info|warn|error
-	Format     string `json:",optional"` // console|json
-	Output     string `json:",optional"` // stdout|stderr
-	File       string `json:",optional"` // 日志文件路径
-	MaxSize    int    `json:",optional"` // 单个日志文件最大大小（MB）
-	MaxBackups int    `json:",optional"` // 保留的旧日志文件最大数量
-	MaxAge     int    `json:",optional"` // 保留旧日志文件的最大天数
-	Compress   bool   `json:",optional"` // 是否压缩旧日志文件
+	CroupierLog common.LogConfig `json:",optional"`
 }

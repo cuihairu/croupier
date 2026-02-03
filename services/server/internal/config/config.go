@@ -4,6 +4,7 @@
 package config
 
 import (
+	"github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/zeromicro/go-zero/rest"
 )
 
@@ -21,7 +22,7 @@ type Config struct {
 	Packs         PacksConfig              `json:"packs" yaml:"packs"`
 	Storage       StorageConfig            `json:"storage" yaml:"storage"`
 	Cache         CacheConfig              `json:"cache" yaml:"cache"`
-	CroupierLog   CroupierLogConfig        `json:"croupier_log" yaml:"croupier_log"`
+	CroupierLog   common.LogConfig         `json:"croupier_log" yaml:"croupier_log"`
 	Metrics       MetricsConfig            `json:"metrics" yaml:"metrics"`
 	Platforms     PlatformConfig           `json:"platforms" yaml:"platforms"`
 	Profiles      map[string]ProfileConfig `json:"profiles" yaml:"profiles"`
@@ -108,17 +109,6 @@ type StorageConfig struct {
 	ForcePathStyle bool   `json:"force_path_style,optional" yaml:"force_path_style,optional"`
 	SignedURLTTL   string `json:"signed_url_ttl,optional" yaml:"signed_url_ttl,optional"`
 	BaseDir        string `json:"base_dir,optional" yaml:"base_dir,optional"`
-}
-
-type CroupierLogConfig struct {
-	Level      string `json:"level,optional" yaml:"level,optional"`
-	Format     string `json:"format,optional" yaml:"format,optional"`
-	Output     string `json:"output,optional" yaml:"output,optional"`
-	File       string `json:"file,optional" yaml:"file,optional"`
-	MaxSize    int    `json:"max_size,optional" yaml:"max_size,optional"`
-	MaxBackups int    `json:"max_backups,optional" yaml:"max_backups,optional"`
-	MaxAge     int    `json:"max_age,optional" yaml:"max_age,optional"`
-	Compress   bool   `json:"compress,optional" yaml:"compress,optional"`
 }
 
 type MetricsConfig struct {
