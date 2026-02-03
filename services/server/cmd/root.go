@@ -7,9 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cuihairu/croupier/internal/platform/control"
-	"github.com/cuihairu/croupier/internal/platform/tlsutil"
-	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
+	"github.com/cuihairu/croupier/internal/nng"
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/handler"
 	"github.com/cuihairu/croupier/services/server/internal/logic/ops"
@@ -19,8 +17,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/rest"
-	"github.com/zeromicro/go-zero/zrpc"
-	"google.golang.org/grpc"
 )
 
 var (
@@ -160,8 +156,8 @@ func runServer() error {
 		fmt.Println("某些功能可能无法正常工作，请检查数据库配置")
 	}
 
-	// 启动 gRPC 服务器
-	go startGRPCServer(&c, ctx)
+	// 启动 NNG 控制服务器（替代 gRPC）
+	go startNNGControlServer(&c, ctx)
 
 	// 创建 REST 服务器
 	server := rest.MustNewServer(c.RestConf)
@@ -181,49 +177,29 @@ func runServer() error {
 	return nil
 }
 
-// startGRPCServer 启动 gRPC 服务器
-func startGRPCServer(c *config.Config, ctx *svc.ServiceContext) {
-	// 解析 gRPC 地址
+// startNNGControlServer 启动 NNG 控制服务器（替代 gRPC）
+func startNNGControlServer(c *config.Config, svcCtx *svc.ServiceContext) {
+	// 解析 NNG 监听地址
 	addr := c.GRPC.Addr
 	if addr == "" {
-		addr = ":18443" // 默认地址
+		addr = ":19090" // 默认 NNG ControlService 端口（与 SDK 保持一致）
 	}
 	if addr[0] == ':' {
 		addr = "0.0.0.0" + addr
 	}
 
-	// 创建 gRPC 服务器选项
-	var opts []grpc.ServerOption
+	// 创建 NNG 控制服务器
+	nngServer := nng.NewServer(addr, svcCtx.RegistryStore)
 
-	// 配置 TLS (自动生成或使用配置的证书)
-	tlsOpt, err := tlsutil.EnsureServerTLSCredentials(tlsutil.ServerTLSConfig{
-		CertFile:  strings.TrimSpace(c.GRPC.Cert),
-		KeyFile:   strings.TrimSpace(c.GRPC.Key),
-		CAFile:    strings.TrimSpace(c.GRPC.CA),
-		AutoGen:   true, // 自动生成开发证书
-		ConfigDir: cfgFile,
-	})
-	if err != nil {
-		fmt.Printf("Failed to setup TLS: %v\n", err)
+	// 启动服务器
+	if err := nngServer.Start(); err != nil {
+		fmt.Printf("Failed to start NNG Control server: %v\n", err)
 		return
 	}
-	if tlsOpt != nil {
-		opts = append(opts, tlsOpt)
-	}
 
-	rpcConf := zrpc.RpcServerConf{
-		ListenOn: addr,
-	}
-	rpcConf.Name = "croupier-server-grpc"
-
-	grpcServer := zrpc.MustNewServer(rpcConf, func(s *grpc.Server) {
-		controlServer := control.NewServer(ctx.RegistryStore)
-		serverv1.RegisterControlServiceServer(s, controlServer)
-	})
-	grpcServer.AddOptions(opts...)
-
-	fmt.Printf("Starting gRPC ControlService on %s...\n", addr)
-	grpcServer.Start()
+	// 获取实际监听地址
+	localAddr, _ := nngServer.GetLocalAddr()
+	fmt.Printf("Starting NNG ControlService on %s (SDK/Agent registration)...\n", localAddr)
 }
 
 func applyRuntimeDefaults(c *config.Config) {

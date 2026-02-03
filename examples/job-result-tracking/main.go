@@ -1,21 +1,17 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"log"
 	"time"
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
-	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
 )
 
 func main() {
 	fmt.Println("=== Job Result Tracking Demo ===")
 
-	// Create local store and server
+	// Create local store
 	store := agentlocal.NewLocalStore()
-	server := agentlocal.NewServer(store)
 
 	// Simulate job execution
 	fmt.Println("\n1. Simulating job execution...")
@@ -60,13 +56,11 @@ func main() {
 
 	// Query job results
 	fmt.Println("\n3. Querying job results...")
-	ctx := context.Background()
 
 	for _, job := range jobs {
-		req := &localv1.GetJobResultRequest{JobId: job.jobID}
-		resp, err := server.GetJobResult(ctx, req)
-		if err != nil {
-			log.Printf("Error getting job %s: %v", job.jobID, err)
+		resp, ok := store.GetJobResult(job.jobID)
+		if !ok {
+			fmt.Printf("   Job %s: not found\n", job.jobID)
 			continue
 		}
 
@@ -102,10 +96,9 @@ func main() {
 	// Final status check
 	fmt.Println("\n5. Final status check...")
 	for _, job := range jobs {
-		req := &localv1.GetJobResultRequest{JobId: job.jobID}
-		resp, err := server.GetJobResult(ctx, req)
-		if err != nil {
-			log.Printf("Error getting job %s: %v", job.jobID, err)
+		resp, ok := store.GetJobResult(job.jobID)
+		if !ok {
+			fmt.Printf("   Job %s: not found\n", job.jobID)
 			continue
 		}
 

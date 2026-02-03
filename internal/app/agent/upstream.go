@@ -12,10 +12,8 @@ import (
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
-	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
+	"github.com/cuihairu/croupier/internal/nng"
 	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 // UpstreamClient manages the connection to the central Croupier Server.
@@ -23,9 +21,7 @@ type UpstreamClient struct {
 	serverAddr string
 	agentID    string
 	store      *agentlocal.LocalStore
-	client     serverv1.ControlServiceClient
-	opsClient  opsv1.OpsServiceClient
-	conn       *grpc.ClientConn
+	nngClient  *nng.Client
 	updateCh   chan struct{}
 	gameID     string
 	env        string
@@ -50,7 +46,7 @@ type UpstreamClient struct {
 }
 
 func (c *UpstreamClient) Connected() bool {
-	return c != nil && c.client != nil && c.conn != nil
+	return c != nil && c.nngClient != nil && c.nngClient.Connected()
 }
 
 // NewUpstreamClient creates a new upstream client.
@@ -118,50 +114,24 @@ func (c *UpstreamClient) WithMetadata(meta UpstreamMetadata) {
 	}
 }
 
-// dialServer establishes a new gRPC connection to the upstream server.
+// dialServer establishes a new NNG connection to the upstream server.
 // It closes any existing connection before establishing a new one.
 func (c *UpstreamClient) dialServer(ctx context.Context) error {
-	// Close existing connection if any
-	if c.conn != nil {
-		c.conn.Close()
-		c.conn = nil
-		c.client = nil
-		c.opsClient = nil
+	// Close existing NNG connection if any
+	if c.nngClient != nil {
+		c.nngClient.Close()
+		c.nngClient = nil
 	}
 
-	var dialOpts []grpc.DialOption
-	if c.tlsCfg != nil {
-		cfg := *c.tlsCfg
-		if strings.TrimSpace(cfg.ServerName) == "" {
-			cfg.ServerName = hostFromTarget(c.serverAddr)
-		}
-		creds, err := tlsutil.ClientTLSFromConfig(cfg)
-		if err != nil {
-			return fmt.Errorf("failed to create TLS credentials: %w", err)
-		}
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
-	} else {
-		// Use insecure connection
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// Create and connect NNG client
+	c.nngClient = nng.NewClient(c.serverAddr)
+	c.nngClient.SetLogger(slog.Default())
+
+	if err := c.nngClient.Dial(); err != nil {
+		c.nngClient = nil
+		return fmt.Errorf("failed to connect to upstream server via NNG: %w", err)
 	}
 
-	dialOpts = append(dialOpts, grpc.WithBlock())
-
-	dialTimeout := c.dialTimeout
-	if dialTimeout <= 0 {
-		dialTimeout = 10 * time.Second
-	}
-	dialCtx, cancel := context.WithTimeout(ctx, dialTimeout)
-	defer cancel()
-
-	conn, err := grpc.DialContext(dialCtx, c.serverAddr, dialOpts...)
-	if err != nil {
-		return fmt.Errorf("failed to connect to upstream server: %w", err)
-	}
-
-	c.conn = conn
-	c.client = serverv1.NewControlServiceClient(conn)
-	c.opsClient = opsv1.NewOpsServiceClient(conn)
 	return nil
 }
 
@@ -324,13 +294,13 @@ func (c *UpstreamClient) heartbeatLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			// 检查客户端是否可用，未连接时跳过本次心跳
-			if c.client == nil {
+			if c.nngClient == nil || !c.nngClient.Connected() {
 				slog.Debug("heartbeat skipped: client not connected")
 				continue
 			}
 			// 心跳调用设置超时，避免 server 关闭后一直阻塞
 			hbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-			_, err := c.client.Heartbeat(hbCtx, &serverv1.HeartbeatRequest{AgentId: c.agentID})
+			_, err := c.nngClient.Heartbeat(hbCtx, &serverv1.HeartbeatRequest{AgentId: c.agentID})
 			cancel()
 			if err != nil {
 				consecutiveFailures++
@@ -406,6 +376,10 @@ func (c *UpstreamClient) syncWithRetry(ctx context.Context, attempts int) error 
 }
 
 func (c *UpstreamClient) syncOnce(ctx context.Context) error {
+	if c.nngClient == nil || !c.nngClient.Connected() {
+		return fmt.Errorf("NNG client not connected")
+	}
+
 	// Snapshot local store
 	localData := c.store.List()
 	versionSnapshot := c.store.FunctionVersions()
@@ -442,11 +416,11 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 		Processes: processes,
 	}
 
-	_, err := c.client.Register(ctx, req)
+	_, err := c.nngClient.Register(ctx, req)
 	if err != nil {
 		return err
 	}
-	slog.Info("synced with upstream server", "functions", len(funcs))
+	slog.Info("synced with upstream server via NNG", "functions", len(funcs))
 	return nil
 }
 
@@ -514,7 +488,7 @@ func (c *UpstreamClient) Sync(ctx context.Context) error {
 	if c == nil {
 		return fmt.Errorf("upstream client is nil")
 	}
-	if c.client == nil {
+	if c.nngClient == nil || !c.nngClient.Connected() {
 		return fmt.Errorf("upstream client not connected")
 	}
 	return c.syncWithRetry(ctx, 3)
@@ -525,16 +499,16 @@ func (c *UpstreamClient) Heartbeat(ctx context.Context) error {
 	if c == nil {
 		return fmt.Errorf("upstream client is nil")
 	}
-	if c.client == nil {
+	if c.nngClient == nil || !c.nngClient.Connected() {
 		return fmt.Errorf("upstream client not connected")
 	}
-	_, err := c.client.Heartbeat(ctx, &serverv1.HeartbeatRequest{AgentId: c.agentID})
+	_, err := c.nngClient.Heartbeat(ctx, &serverv1.HeartbeatRequest{AgentId: c.agentID})
 	return err
 }
 
 func (c *UpstreamClient) Stop() {
-	if c.conn != nil {
-		c.conn.Close()
+	if c.nngClient != nil {
+		c.nngClient.Close()
 	}
 }
 
@@ -584,22 +558,17 @@ func (c *UpstreamClient) metricsLoop(ctx context.Context) {
 }
 
 // reportMetrics sends a single metrics report to the upstream server.
+// Note: Metrics reporting via NNG is not yet implemented.
+// This method collects metrics but does not send them.
 func (c *UpstreamClient) reportMetrics(ctx context.Context) {
-	if c.opsClient == nil {
-		return
-	}
-
 	c.metricsOnce.Do(func() {
 		if c.metricsCollector == nil {
 			c.metricsCollector = NewMetricsCollector(c.agentID)
 		}
 	})
 
-	report := c.metricsCollector.Collect(ctx)
-
-	if _, err := c.opsClient.ReportMetrics(ctx, report); err != nil {
-		slog.Debug("failed to report metrics", "error", err)
-	}
+	// Collect metrics (logging for now)
+	_ = c.metricsCollector.Collect(ctx)
 }
 
 // WithMetricsReporting enables and configures periodic metrics reporting.
@@ -619,9 +588,10 @@ func (c *UpstreamClient) WithMetricsReporting(interval time.Duration) {
 }
 
 // ReportMetricsOnce sends a single metrics report (for manual trigger).
+// Note: Metrics reporting via NNG is not yet implemented.
 func (c *UpstreamClient) ReportMetricsOnce(ctx context.Context) error {
-	if c == nil || c.opsClient == nil {
-		return fmt.Errorf("upstream client not connected")
+	if c == nil {
+		return fmt.Errorf("upstream client is nil")
 	}
 
 	c.metricsOnce.Do(func() {
@@ -630,7 +600,7 @@ func (c *UpstreamClient) ReportMetricsOnce(ctx context.Context) error {
 		}
 	})
 
-	report := c.metricsCollector.Collect(ctx)
-	_, err := c.opsClient.ReportMetrics(ctx, report)
-	return err
+	// Collect metrics (not implemented for NNG yet)
+	_ = c.metricsCollector.Collect(ctx)
+	return fmt.Errorf("metrics reporting via NNG not yet implemented")
 }

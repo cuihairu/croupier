@@ -3,18 +3,18 @@ package agent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/nng"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
-	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
-	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
-	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// App assembles minimal gRPC services for Agent process.
+// App assembles NNG-based services for Agent process.
 type App struct {
 	store           *agentlocal.LocalStore
 	jobs            *jobIndex
@@ -22,6 +22,10 @@ type App struct {
 	outTLS          *tlsutil.ClientTLSConfig
 	platformManager *PlatformManager
 	configDir       string
+
+	// NNG server (replaces gRPC)
+	nngServer *nng.AgentServer
+	nngAddr   string
 
 	// Ops module (optional)
 	opsConfig *OpsConfig
@@ -38,6 +42,7 @@ func New(serverAddr, agentID string) *App {
 		upstream:  NewUpstreamClient(serverAddr, agentID, store, nil),
 		configDir: getConfigDir(),
 		agentID:   agentID,
+		nngAddr:   ":19091", // Default NNG Agent local service port
 	}
 }
 
@@ -49,6 +54,7 @@ func NewWithConfigDir(serverAddr, agentID, configDir string) *App {
 		upstream:  NewUpstreamClient(serverAddr, agentID, store, nil),
 		configDir: configDir,
 		agentID:   agentID,
+		nngAddr:   ":19091", // Default NNG Agent local service port
 	}
 }
 
@@ -61,31 +67,65 @@ func getConfigDir() string {
 	return "./configs"
 }
 
-func (a *App) RegisterGRPC(s *grpc.Server) {
+// StartNNGServer starts the NNG server for local services.
+// Replaces RegisterGRPC for NNG-based communication.
+func (a *App) StartNNGServer() error {
 	// Initialize platform manager
 	a.platformManager = NewPlatformManager(a.store, a.configDir, nil)
 
-	// Function service (local-forwarding implementation over protobuf)
-	sdkv1.RegisterInvokerServiceServer(s, &FunctionServer{
-		store:           a.store,
-		jobs:            a.jobs,
-		tlsCfg:          a.outTLS,
-		platformManager: a.platformManager,
-	})
-	// Local registration service provides RegisterLocal/Heartbeat/ListLocal
-	localv1.RegisterLocalControlServiceServer(s, agentlocal.NewServer(a.store))
+	// Create NNG server
+	a.nngServer = nng.NewAgentServer(a.nngAddr, a.store)
 
-	// Ops service - always registered (metrics/sysinfo don't require special permissions)
-	// Process management and command execution require ops.enabled=true
+	// Set platform manager - wrap it to implement the interface
+	pmWrapper := &platformManagerWrapper{pm: a.platformManager}
+	a.nngServer.SetPlatformManager(pmWrapper)
+
+	// Set TLS config for outbound connections
+	if a.outTLS != nil {
+		a.nngServer.SetTLSConfig(a.outTLS)
+	}
+
+	// Initialize and set ops server wrapper
 	if a.opsConfig == nil {
 		a.opsConfig = DefaultOpsConfig()
 	}
 	a.opsServer = NewOpsServer(a.opsConfig, a.agentID, a.version, nil)
-	opsv1.RegisterOpsServiceServer(s, a.opsServer)
+
+	// Wrap ops server for NNG
+	opsWrapper := &opsServerWrapper{ops: a.opsServer}
+	a.nngServer.SetOpsServer(opsWrapper)
+
+	// Start NNG server
+	if err := a.nngServer.Start(); err != nil {
+		return fmt.Errorf("failed to start NNG server: %w", err)
+	}
+
+	return nil
 }
 
-// Run starts the agent's background processes (upstream sync).
+// GetNNGServerAddr returns the NNG server address
+func (a *App) GetNNGServerAddr() string {
+	if a == nil || a.nngServer == nil {
+		return ""
+	}
+	return a.nngServer.GetAddr()
+}
+
+// SetNNGAddr sets the NNG server address
+func (a *App) SetNNGAddr(addr string) {
+	if a == nil {
+		return
+	}
+	a.nngAddr = addr
+}
+
+// Run starts the agent's background processes (upstream sync and NNG server).
 func (a *App) Run(ctx context.Context) error {
+	// Start NNG server for local services
+	if err := a.StartNNGServer(); err != nil {
+		return fmt.Errorf("failed to start NNG server: %w", err)
+	}
+
 	// Load platforms before starting upstream
 	if a.platformManager != nil {
 		if err := a.platformManager.Load(ctx); err != nil {
@@ -138,12 +178,19 @@ func parseDurationEnv(key string, def time.Duration) time.Duration {
 	return d
 }
 
-// Stop shuts down background upstream connection.
+// Stop shuts down background upstream connection and NNG server.
 func (a *App) Stop() {
-	if a == nil || a.upstream == nil {
+	if a == nil {
 		return
 	}
-	a.upstream.Stop()
+	// Stop NNG server
+	if a.nngServer != nil {
+		a.nngServer.Stop()
+	}
+	// Stop upstream connection
+	if a.upstream != nil {
+		a.upstream.Stop()
+	}
 }
 
 // WithUpstreamMetadata updates metadata fields propagated to the control server.
@@ -246,4 +293,48 @@ func (a *App) ActiveJobCount() int {
 	return a.jobs.Len()
 }
 
-// FunctionServer implemented in function_server.go
+// opsServerWrapper wraps OpsServer to implement nng.OpsServerWrapper interface
+type opsServerWrapper struct {
+	ops *OpsServer
+}
+
+func (w *opsServerWrapper) GetSystemInfo(ctx context.Context, req *emptypb.Empty) (*opsv1.SystemInfo, error) {
+	return w.ops.GetSystemInfo(ctx, req)
+}
+
+func (w *opsServerWrapper) ListProcesses(ctx context.Context, req *emptypb.Empty) (*opsv1.ListProcessesResponse, error) {
+	return w.ops.ListProcesses(ctx, req)
+}
+
+func (w *opsServerWrapper) ReportMetrics(ctx context.Context, req *opsv1.MetricsReport) (*emptypb.Empty, error) {
+	return w.ops.ReportMetrics(ctx, req)
+}
+
+func (w *opsServerWrapper) RestartProcess(ctx context.Context, req *opsv1.RestartProcessRequest) (*opsv1.RestartProcessResponse, error) {
+	return w.ops.RestartProcess(ctx, req)
+}
+
+func (w *opsServerWrapper) StopProcess(ctx context.Context, req *opsv1.StopProcessRequest) (*opsv1.StopProcessResponse, error) {
+	return w.ops.StopProcess(ctx, req)
+}
+
+func (w *opsServerWrapper) StartProcess(ctx context.Context, req *opsv1.StartProcessRequest) (*opsv1.StartProcessResponse, error) {
+	return w.ops.StartProcess(ctx, req)
+}
+
+func (w *opsServerWrapper) ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error) {
+	return w.ops.ExecuteCommand(ctx, req)
+}
+
+// platformManagerWrapper wraps PlatformManager to implement nng.PlatformManager interface
+type platformManagerWrapper struct {
+	pm *PlatformManager
+}
+
+func (w *platformManagerWrapper) IsPlatformFunction(functionID string) bool {
+	return w.pm.IsPlatformFunction(functionID)
+}
+
+func (w *platformManagerWrapper) Call(ctx context.Context, functionID string, request []byte) ([]byte, error) {
+	return w.pm.Call(ctx, functionID, request)
+}

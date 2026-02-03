@@ -11,7 +11,6 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
-	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -67,7 +66,7 @@ func (l *OpsAgentSystemInfoLogic) OpsAgentSystemInfo(req *types.OpsAgentSystemIn
 		}, nil
 	}
 
-	info, err := client.GetSystemInfo(l.ctx, &emptypb.Empty{})
+	info, err := client.GetSystemInfo(l.ctx)
 	if err != nil {
 		return &types.OpsAgentSystemInfoResponse{
 			Code:    500,

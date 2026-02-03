@@ -1,388 +1,238 @@
+// Package agent provides Ops server implementation for NNG communication.
+// This replaces the gRPC-based Ops server with a lightweight implementation
+// that can be wrapped for NNG AgentServer.
 package agent
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/exec"
-	"slices"
-	"strings"
 	"sync"
 	"time"
 
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// OpsServer implements the OpsService gRPC server.
+// OpsServer implements ops functionality for the agent.
+// It provides system info, process management, and command execution capabilities.
 type OpsServer struct {
-	opsv1.UnimplementedOpsServiceServer
+	mu       sync.RWMutex
+	config   *OpsConfig
+	agentID  string
+	version  string
 
-	config       *OpsConfig
-	agentID      string
-	agentVersion string
-	logger       *slog.Logger
-
-	// Process management
-	processMu sync.RWMutex
+	// Managed process tracking
 	processes map[string]*managedProcess
 }
 
+// managedProcess represents a managed process state
 type managedProcess struct {
-	config       ManagedProcessConfig
-	cmd          *exec.Cmd
-	state        opsv1.ProcessState
-	pid          int
-	restartCount int
-	lastStart    time.Time
-	mu           sync.Mutex
+	name     string
+	cmd      *exec.Cmd
+	state    opsv1.ProcessState
+	pid      int32
+	restarts int32
+	lastStart *timestamppb.Timestamp
+	config   ManagedProcessConfig
+	stopCh   chan struct{}
+	mu       sync.RWMutex
 }
 
-// NewOpsServer creates a new OpsServer.
-func NewOpsServer(config *OpsConfig, agentID, agentVersion string, logger *slog.Logger) *OpsServer {
+// NewOpsServer creates a new Ops server instance.
+func NewOpsServer(config *OpsConfig, agentID, version string, _ interface{}) *OpsServer {
 	if config == nil {
 		config = DefaultOpsConfig()
 	}
-	if logger == nil {
-		logger = slog.Default()
-	}
-
-	s := &OpsServer{
-		config:       config,
-		agentID:      agentID,
-		agentVersion: agentVersion,
-		logger:       logger.With("component", "ops"),
-		processes:    make(map[string]*managedProcess),
-	}
-
-	// Initialize managed processes from config
-	for name, cfg := range config.ManagedProcesses {
-		s.processes[name] = &managedProcess{
-			config: cfg,
-			state:  opsv1.ProcessState_PROCESS_STATE_STOPPED,
-		}
-	}
-
-	return s
-}
-
-// ReportMetrics receives metrics from client (not typically used - agent reports to server).
-// Note: This method does NOT require ops.enabled - metrics are always allowed.
-func (s *OpsServer) ReportMetrics(ctx context.Context, req *opsv1.MetricsReport) (*emptypb.Empty, error) {
-	s.logger.Info("received metrics report",
-		"agent_id", req.AgentId,
-		"cpu_usage", req.GetCpu().GetUsagePercent(),
-		"memory_usage", req.GetMemory().GetUsagePercent(),
-	)
-
-	return &emptypb.Empty{}, nil
-}
-
-// StreamMetrics receives streaming metrics.
-// Note: This method does NOT require ops.enabled - metrics are always allowed.
-func (s *OpsServer) StreamMetrics(stream opsv1.OpsService_StreamMetricsServer) error {
-	for {
-		req, err := stream.Recv()
-		if err != nil {
-			return err
-		}
-
-		s.logger.Debug("received streaming metrics",
-			"agent_id", req.AgentId,
-			"cpu_usage", req.GetCpu().GetUsagePercent(),
-		)
+	return &OpsServer{
+		config:    config,
+		agentID:   agentID,
+		version:   version,
+		processes: make(map[string]*managedProcess),
 	}
 }
 
 // GetSystemInfo returns system information.
-// Note: This method does NOT require ops.enabled - system info is always allowed.
 func (s *OpsServer) GetSystemInfo(ctx context.Context, _ *emptypb.Empty) (*opsv1.SystemInfo, error) {
-	return GetSystemInfo(s.agentID, s.agentVersion, s.config), nil
+	return GetSystemInfo(s.agentID, s.version, s.config), nil
+}
+
+// ListProcesses returns the list of managed processes.
+func (s *OpsServer) ListProcesses(ctx context.Context, _ *emptypb.Empty) (*opsv1.ListProcessesResponse, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	resp := &opsv1.ListProcessesResponse{
+		Processes: make([]*opsv1.ManagedProcess, 0, len(s.processes)),
+	}
+
+	for _, p := range s.processes {
+		p.mu.RLock()
+		mp := &opsv1.ManagedProcess{
+			Name:         p.name,
+			Command:      p.config.Command,
+			WorkingDir:   p.config.WorkingDir,
+			State:        p.state,
+			Pid:          p.pid,
+			RestartCount: p.restarts,
+			LastStart:    p.lastStart,
+		}
+		p.mu.RUnlock()
+		resp.Processes = append(resp.Processes, mp)
+	}
+
+	return resp, nil
+}
+
+// ReportMetrics handles metrics reporting (just acknowledges).
+func (s *OpsServer) ReportMetrics(ctx context.Context, req *opsv1.MetricsReport) (*emptypb.Empty, error) {
+	// Metrics are handled by the MetricsCollector in upstream.go
+	// This is just an acknowledgment for NNG protocol
+	return &emptypb.Empty{}, nil
 }
 
 // RestartProcess restarts a managed process.
 func (s *OpsServer) RestartProcess(ctx context.Context, req *opsv1.RestartProcessRequest) (*opsv1.RestartProcessResponse, error) {
-	if !s.config.Enabled {
-		return nil, status.Error(codes.Unavailable, "ops module is disabled")
-	}
-	if !s.config.AllowRestart {
-		return nil, status.Error(codes.PermissionDenied, "restart operations are not allowed")
+	if !s.config.Enabled || !s.config.AllowRestart {
+		return nil, fmt.Errorf("ops restart is not enabled")
 	}
 
-	s.logger.Warn("restart process requested",
-		"process", req.ProcessName,
-		"force", req.Force,
-	)
+	s.mu.Lock()
+	p, ok := s.processes[req.ProcessName]
+	s.mu.Unlock()
 
-	s.processMu.RLock()
-	proc, exists := s.processes[req.ProcessName]
-	s.processMu.RUnlock()
-
-	if !exists {
-		return &opsv1.RestartProcessResponse{
-			Success: false,
-			Message: fmt.Sprintf("process %q not found in managed processes", req.ProcessName),
-		}, nil
+	if !ok {
+		return nil, fmt.Errorf("process '%s' not found", req.ProcessName)
 	}
 
-	proc.mu.Lock()
-	defer proc.mu.Unlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
-	// Stop existing process if running
-	if proc.cmd != nil && proc.cmd.Process != nil {
-		timeout := time.Duration(req.TimeoutSeconds) * time.Second
-		if timeout <= 0 {
-			timeout = proc.config.GracefulTimeout
-		}
-		if timeout <= 0 {
-			timeout = 30 * time.Second
-		}
+	// Stop the process
+	s.stopProcess(p)
 
-		if req.Force {
-			proc.cmd.Process.Kill()
-		} else {
-			proc.cmd.Process.Signal(os.Interrupt)
-			done := make(chan error, 1)
-			go func() { done <- proc.cmd.Wait() }()
-			select {
-			case <-done:
-			case <-time.After(timeout):
-				proc.cmd.Process.Kill()
-			}
-		}
+	// Start it again
+	if err := s.startProcess(p); err != nil {
+		return nil, fmt.Errorf("failed to restart process: %w", err)
 	}
 
-	// Start new process
-	cmd := exec.CommandContext(ctx, proc.config.Command, proc.config.Args...)
-	if proc.config.WorkingDir != "" {
-		cmd.Dir = proc.config.WorkingDir
-	}
-	for k, v := range proc.config.Env {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
-	}
-
-	if err := cmd.Start(); err != nil {
-		return &opsv1.RestartProcessResponse{
-			Success: false,
-			Message: fmt.Sprintf("failed to start process: %v", err),
-		}, nil
-	}
-
-	proc.cmd = cmd
-	proc.pid = cmd.Process.Pid
-	proc.state = opsv1.ProcessState_PROCESS_STATE_RUNNING
-	proc.restartCount++
-	proc.lastStart = time.Now()
-
-	s.logger.Info("process restarted",
-		"process", req.ProcessName,
-		"pid", proc.pid,
-		"restart_count", proc.restartCount,
-	)
+	p.restarts++
+	p.lastStart = timestamppb.Now()
+	p.state = opsv1.ProcessState_PROCESS_STATE_RUNNING
 
 	return &opsv1.RestartProcessResponse{
 		Success: true,
-		Message: "process restarted successfully",
-		NewPid:  int32(proc.pid),
+		Message: fmt.Sprintf("Process '%s' restarted", req.ProcessName),
 	}, nil
 }
 
 // StopProcess stops a managed process.
 func (s *OpsServer) StopProcess(ctx context.Context, req *opsv1.StopProcessRequest) (*opsv1.StopProcessResponse, error) {
-	if !s.config.Enabled {
-		return nil, status.Error(codes.Unavailable, "ops module is disabled")
-	}
-	if !s.config.AllowRestart {
-		return nil, status.Error(codes.PermissionDenied, "stop operations are not allowed")
+	if !s.config.Enabled || !s.config.AllowRestart {
+		return nil, fmt.Errorf("ops restart is not enabled")
 	}
 
-	s.logger.Warn("stop process requested",
-		"process", req.ProcessName,
-		"force", req.Force,
-	)
+	s.mu.Lock()
+	p, ok := s.processes[req.ProcessName]
+	s.mu.Unlock()
 
-	s.processMu.RLock()
-	proc, exists := s.processes[req.ProcessName]
-	s.processMu.RUnlock()
-
-	if !exists {
-		return &opsv1.StopProcessResponse{
-			Success: false,
-			Message: fmt.Sprintf("process %q not found", req.ProcessName),
-		}, nil
+	if !ok {
+		return nil, fmt.Errorf("process '%s' not found", req.ProcessName)
 	}
 
-	proc.mu.Lock()
-	defer proc.mu.Unlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
-	if proc.cmd == nil || proc.cmd.Process == nil {
-		return &opsv1.StopProcessResponse{
-			Success: true,
-			Message: "process is not running",
-		}, nil
-	}
-
-	timeout := time.Duration(req.TimeoutSeconds) * time.Second
-	if timeout <= 0 {
-		timeout = proc.config.GracefulTimeout
-	}
-	if timeout <= 0 {
-		timeout = 30 * time.Second
-	}
-
-	if req.Force {
-		proc.cmd.Process.Kill()
-	} else {
-		proc.cmd.Process.Signal(os.Interrupt)
-		done := make(chan error, 1)
-		go func() { done <- proc.cmd.Wait() }()
-		select {
-		case <-done:
-		case <-time.After(timeout):
-			proc.cmd.Process.Kill()
-		}
-	}
-
-	proc.state = opsv1.ProcessState_PROCESS_STATE_STOPPED
-	proc.pid = 0
-
-	s.logger.Info("process stopped", "process", req.ProcessName)
+	s.stopProcess(p)
+	p.state = opsv1.ProcessState_PROCESS_STATE_STOPPED
 
 	return &opsv1.StopProcessResponse{
 		Success: true,
-		Message: "process stopped",
+		Message: fmt.Sprintf("Process '%s' stopped", req.ProcessName),
 	}, nil
 }
 
 // StartProcess starts a managed process.
 func (s *OpsServer) StartProcess(ctx context.Context, req *opsv1.StartProcessRequest) (*opsv1.StartProcessResponse, error) {
-	if !s.config.Enabled {
-		return nil, status.Error(codes.Unavailable, "ops module is disabled")
-	}
-	if !s.config.AllowRestart {
-		return nil, status.Error(codes.PermissionDenied, "start operations are not allowed")
+	if !s.config.Enabled || !s.config.AllowRestart {
+		return nil, fmt.Errorf("ops restart is not enabled")
 	}
 
-	s.logger.Info("start process requested", "process", req.ProcessName)
+	s.mu.Lock()
+	p, ok := s.processes[req.ProcessName]
+	s.mu.Unlock()
 
-	s.processMu.RLock()
-	proc, exists := s.processes[req.ProcessName]
-	s.processMu.RUnlock()
+	if !ok {
+		// Check if we have a config for this process
+		s.mu.RLock()
+		cfg, hasCfg := s.config.ManagedProcesses[req.ProcessName]
+		s.mu.RUnlock()
 
-	if !exists {
-		return &opsv1.StartProcessResponse{
-			Success: false,
-			Message: fmt.Sprintf("process %q not found", req.ProcessName),
-		}, nil
-	}
-
-	proc.mu.Lock()
-	defer proc.mu.Unlock()
-
-	if proc.cmd != nil && proc.cmd.Process != nil {
-		// Check if still running
-		if proc.cmd.ProcessState == nil || !proc.cmd.ProcessState.Exited() {
-			return &opsv1.StartProcessResponse{
-				Success: false,
-				Message: "process is already running",
-				Pid:     int32(proc.pid),
-			}, nil
+		if !hasCfg {
+			return nil, fmt.Errorf("process '%s' not configured", req.ProcessName)
 		}
+
+		// Create new managed process
+		p = &managedProcess{
+			name:       req.ProcessName,
+			config:     cfg,
+			state:      opsv1.ProcessState_PROCESS_STATE_STOPPED,
+			stopCh:     make(chan struct{}),
+		}
+
+		s.mu.Lock()
+		s.processes[req.ProcessName] = p
+		s.mu.Unlock()
 	}
 
-	cmd := exec.CommandContext(ctx, proc.config.Command, proc.config.Args...)
-	if proc.config.WorkingDir != "" {
-		cmd.Dir = proc.config.WorkingDir
-	}
-	for k, v := range proc.config.Env {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
-	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
-	if err := cmd.Start(); err != nil {
-		return &opsv1.StartProcessResponse{
-			Success: false,
-			Message: fmt.Sprintf("failed to start: %v", err),
-		}, nil
+	if p.state == opsv1.ProcessState_PROCESS_STATE_RUNNING {
+		return nil, fmt.Errorf("process '%s' is already running", req.ProcessName)
 	}
 
-	proc.cmd = cmd
-	proc.pid = cmd.Process.Pid
-	proc.state = opsv1.ProcessState_PROCESS_STATE_RUNNING
-	proc.lastStart = time.Now()
+	if err := s.startProcess(p); err != nil {
+		return nil, fmt.Errorf("failed to start process: %w", err)
+	}
 
-	s.logger.Info("process started",
-		"process", req.ProcessName,
-		"pid", proc.pid,
-	)
+	p.restarts++
+	p.lastStart = timestamppb.Now()
+	p.state = opsv1.ProcessState_PROCESS_STATE_RUNNING
 
 	return &opsv1.StartProcessResponse{
 		Success: true,
-		Message: "process started",
-		Pid:     int32(proc.pid),
+		Message: fmt.Sprintf("Process '%s' started", req.ProcessName),
+		Pid:     p.pid,
 	}, nil
 }
 
-// ListProcesses lists all managed processes.
-func (s *OpsServer) ListProcesses(ctx context.Context, _ *emptypb.Empty) (*opsv1.ListProcessesResponse, error) {
-	if !s.config.Enabled {
-		return nil, status.Error(codes.Unavailable, "ops module is disabled")
-	}
-
-	s.processMu.RLock()
-	defer s.processMu.RUnlock()
-
-	procs := make([]*opsv1.ManagedProcess, 0, len(s.processes))
-	for name, proc := range s.processes {
-		proc.mu.Lock()
-		mp := &opsv1.ManagedProcess{
-			Name:         name,
-			Command:      proc.config.Command,
-			WorkingDir:   proc.config.WorkingDir,
-			State:        proc.state,
-			Pid:          int32(proc.pid),
-			RestartCount: int32(proc.restartCount),
-		}
-		if !proc.lastStart.IsZero() {
-			mp.LastStart = timestamppb.New(proc.lastStart)
-		}
-		proc.mu.Unlock()
-		procs = append(procs, mp)
-	}
-
-	return &opsv1.ListProcessesResponse{Processes: procs}, nil
-}
-
-// ExecuteCommand executes a shell command.
-// WARNING: This is a high-risk operation.
+// ExecuteCommand executes a command on the agent.
 func (s *OpsServer) ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error) {
-	if !s.config.Enabled {
-		return nil, status.Error(codes.Unavailable, "ops module is disabled")
-	}
-	if !s.config.AllowExec {
-		return nil, status.Error(codes.PermissionDenied, "command execution is not allowed")
+	if !s.config.Enabled || !s.config.AllowExec {
+		return nil, fmt.Errorf("ops exec is not enabled")
 	}
 
-	// Check allowed commands if configured
+	// Check if command is allowed
 	if len(s.config.ExecAllowedCommands) > 0 {
-		if !slices.Contains(s.config.ExecAllowedCommands, req.Command) {
-			return nil, status.Errorf(codes.PermissionDenied, "command %q is not in allowed list", req.Command)
+		allowed := false
+		for _, cmd := range s.config.ExecAllowedCommands {
+			if cmd == req.Command {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return nil, fmt.Errorf("command '%s' is not allowed", req.Command)
 		}
 	}
 
-	s.logger.Warn("executing command",
-		"command", req.Command,
-		"args", req.Args,
-		"working_dir", req.WorkingDir,
-	)
-
-	timeout := time.Duration(req.TimeoutSeconds) * time.Second
-	if timeout <= 0 {
-		timeout = s.config.ExecTimeout
+	// Create command with timeout
+	timeout := s.config.ExecTimeout
+	if req.TimeoutSeconds > 0 {
+		timeout = time.Duration(req.TimeoutSeconds) * time.Second
 	}
 	if timeout > 300*time.Second {
 		timeout = 300 * time.Second
@@ -395,40 +245,156 @@ func (s *OpsServer) ExecuteCommand(ctx context.Context, req *opsv1.ExecuteComman
 	if req.WorkingDir != "" {
 		cmd.Dir = req.WorkingDir
 	}
-	for k, v := range req.Env {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
-	}
 
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-
-	resp := &opsv1.ExecuteCommandResponse{
-		StdOut: strings.TrimSpace(stdout.String()),
-		StdErr: strings.TrimSpace(stderr.String()),
-	}
-
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			resp.Success = false
-			resp.ExitCode = int32(exitErr.ExitCode())
-		} else {
-			resp.Success = false
-			resp.Error = err.Error()
-			resp.ExitCode = -1
+	// Set environment variables if provided
+	if len(req.Env) > 0 {
+		env := os.Environ()
+		for k, v := range req.Env {
+			env = append(env, k+"="+v)
 		}
-	} else {
-		resp.Success = true
-		resp.ExitCode = 0
+		cmd.Env = env
 	}
 
-	s.logger.Info("command executed",
-		"command", req.Command,
-		"success", resp.Success,
-		"exit_code", resp.ExitCode,
-	)
+	output, err := cmd.CombinedOutput()
 
-	return resp, nil
+	exitCode := int32(0)
+	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			exitCode = int32(exitError.ExitCode())
+		} else {
+			exitCode = -1
+		}
+	}
+
+	return &opsv1.ExecuteCommandResponse{
+		ExitCode: exitCode,
+		StdOut:   string(output),
+		StdErr:   "", // Combined in stdout
+	}, nil
+}
+
+// startProcess starts a managed process
+func (s *OpsServer) startProcess(p *managedProcess) error {
+	cmd := exec.Command(p.config.Command, p.config.Args...)
+	if p.config.WorkingDir != "" {
+		cmd.Dir = p.config.WorkingDir
+	}
+
+	// Set environment variables
+	env := os.Environ()
+	for k, v := range p.config.Env {
+		env = append(env, k+"="+v)
+	}
+	cmd.Env = env
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start command: %w", err)
+	}
+
+	p.cmd = cmd
+	p.pid = int32(cmd.Process.Pid)
+
+	// Start goroutine to monitor process
+	go s.monitorProcess(p)
+
+	return nil
+}
+
+// stopProcess stops a managed process
+func (s *OpsServer) stopProcess(p *managedProcess) {
+	if p.stopCh != nil {
+		select {
+		case <-p.stopCh:
+			// Already closed
+		default:
+			close(p.stopCh)
+		}
+	}
+
+	if p.cmd != nil && p.cmd.Process != nil {
+		p.cmd.Process.Kill()
+		p.cmd.Wait()
+	}
+}
+
+// monitorProcess monitors a managed process and restarts if needed
+func (s *OpsServer) monitorProcess(p *managedProcess) {
+	if p.cmd == nil || p.cmd.Process == nil {
+		return
+	}
+
+	err := p.cmd.Wait()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.state != opsv1.ProcessState_PROCESS_STATE_STOPPED {
+		if p.config.AutoRestart && err != nil {
+			// Restart the process
+			delay := p.config.RestartDelay
+			if delay <= 0 {
+				delay = 5 * time.Second
+			}
+			time.Sleep(delay)
+			if s.startProcess(p) == nil {
+				p.restarts++
+				p.lastStart = timestamppb.Now()
+			}
+		} else {
+			p.state = opsv1.ProcessState_PROCESS_STATE_FAILED
+		}
+	}
+}
+
+// Start starts all configured managed processes.
+func (s *OpsServer) Start() error {
+	if !s.config.Enabled {
+		return nil
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for name, cfg := range s.config.ManagedProcesses {
+		if !cfg.AutoRestart {
+			continue
+		}
+
+		p := &managedProcess{
+			name:   name,
+			config: cfg,
+			state:  opsv1.ProcessState_PROCESS_STATE_STOPPED,
+			stopCh: make(chan struct{}),
+		}
+
+		if err := s.startProcess(p); err != nil {
+			// Log but don't fail
+			continue
+		}
+
+		p.restarts = 1
+		p.lastStart = timestamppb.Now()
+		p.state = opsv1.ProcessState_PROCESS_STATE_RUNNING
+		s.processes[name] = p
+	}
+
+	return nil
+}
+
+// Stop stops all managed processes.
+func (s *OpsServer) Stop() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, p := range s.processes {
+		p.mu.Lock()
+		s.stopProcess(p)
+		p.state = opsv1.ProcessState_PROCESS_STATE_STOPPED
+		p.mu.RUnlock()
+	}
+}
+
+// Close stops the Ops server.
+func (s *OpsServer) Close() error {
+	s.Stop()
+	return nil
 }
