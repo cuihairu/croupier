@@ -54,7 +54,7 @@ Database:
 
 # gRPC 服务器配置（控制平面）
 GRPC:
-  Addr: ":18443"
+  Addr: ":19090"
   Cert: ""      # TLS 服务端证书（空则自动生成）
   Key:       ""       # TLS 私钥（空则自动生成）
   CA: ""        # CA 证书（配置此项将启用 mTLS）
@@ -131,7 +131,7 @@ export CROUPIER_API_HOST="0.0.0.0"
 export CROUPIER_API_PORT="18780"
 
 # 覆盖 gRPC 监听地址
-export CROUPIER_GRPC_ADDR=":18443"
+export CROUPIER_GRPC_ADDR=":19090"
 ```
 
 ## Agent 配置
@@ -147,7 +147,7 @@ Port: 18888
 
 # Agent 连接 Server 的配置
 Server:
-  Addr: localhost:18443              # Server 地址
+  Addr: localhost:19090              # Server 地址
   Insecure: false                  # 使用 TLS 加密
   CAFile: "etc/certs/ca.crt"       # CA 证书（用于验证 Server）
   InsecureSkipVerify: true        # 跳过证书验证（本地开发推荐）
@@ -216,7 +216,7 @@ Metrics:
 # 输出示例
 # ✓ Configuration is valid
 # - Port: 18780
-# - GRPC.Addr: :18443
+# - GRPC.Addr: :19090
 # - Database.Driver: postgres
 ```
 
@@ -385,7 +385,7 @@ Database:
 
 # gRPC 服务器配置（控制平面）
 GRPC:
-  Addr: ":18443"
+  Addr: ":19090"
   Cert: "data/server.crt"
   Key: "data/server.key"
 ```

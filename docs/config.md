@@ -58,7 +58,7 @@ Database:
 
 # gRPC server configuration (control plane)
 GRPC:
-  Addr: ":18443"
+  Addr: ":19090"
   Cert: ""
   Key: ""
   CA: ""

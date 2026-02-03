@@ -14,9 +14,9 @@ Database:
   Driver: sqlite
   DataSource: data/croupier.db
 
-# gRPC server configuration (control plane)
+# NNG ControlService configuration (control plane)
 GRPC:
-  Addr: ":18443"          # gRPC (mTLS)
+  Addr: ":19090"          # NNG ControlService (SDK/Agent registration)
   Cert: ""                # TLS cert (empty to auto-generate)
   Key: ""                 # TLS key (empty to auto-generate)
   CA: ""                  # TLS CA (empty to auto-generate)
