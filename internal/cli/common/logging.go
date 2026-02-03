@@ -7,12 +7,93 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"sync/atomic"
 
 	"github.com/spf13/viper"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 	"path/filepath"
-	"sync/atomic"
 )
+
+// ANSI 颜色代码
+const (
+	colorReset  = "\033[0m"
+	colorRed    = "\033[31m"
+	colorYellow = "\033[33m"
+	colorGreen  = "\033[32m"
+	colorGray   = "\033[90m"
+)
+
+// coloredTextHandler 是一个带颜色的文本处理器
+type coloredTextHandler struct {
+	slog.Handler
+	w io.Writer
+}
+
+// newColoredTextHandler 创建一个新的彩色文本处理器
+func newColoredTextHandler(w io.Writer, opts *slog.HandlerOptions) *coloredTextHandler {
+	if opts == nil {
+		opts = &slog.HandlerOptions{}
+	}
+	return &coloredTextHandler{
+		Handler: slog.NewTextHandler(w, opts),
+		w:       w,
+	}
+}
+
+// Handle 处理日志记录并添加颜色
+func (h *coloredTextHandler) Handle(ctx context.Context, r slog.Record) error {
+	// 检查是否是终端输出
+	if f, ok := h.w.(*os.File); ok && !isTerminal(f) {
+		return h.Handler.Handle(ctx, r)
+	}
+
+	// 创建带颜色的 Writer
+	var color string
+	switch r.Level {
+	case slog.LevelDebug:
+		color = colorGray
+	case slog.LevelInfo:
+		color = colorGreen // INFO 使用绿色而不是红色
+	case slog.LevelWarn:
+		color = colorYellow
+	case slog.LevelError:
+		color = colorRed
+	default:
+		color = ""
+	}
+
+	colorWriter := &colorWriter{
+		w:     h.w,
+		color: color,
+	}
+
+	// 使用带颜色的 writer 创建临时 TextHandler
+	tmpHandler := slog.NewTextHandler(colorWriter, nil)
+	return tmpHandler.Handle(ctx, r)
+}
+
+// colorWriter 包装 writer 并添加颜色
+type colorWriter struct {
+	w     io.Writer
+	color string
+}
+
+func (cw *colorWriter) Write(p []byte) (n int, err error) {
+	if cw.color == "" {
+		return cw.w.Write(p)
+	}
+	// 在 level=INFO 这一行添加颜色
+	// 简单实现：在输出前添加颜色代码，在行尾重置
+	cw.w.Write([]byte(cw.color))
+	defer cw.w.Write([]byte(colorReset))
+	return cw.w.Write(p)
+}
+
+// isTerminal 检查文件是否是终端
+func isTerminal(f *os.File) bool {
+	fileInfo, _ := f.Stat()
+	return (fileInfo.Mode() & os.ModeCharDevice) != 0
+}
 
 // SetupLoggerWithFile configures both std log and slog default logger.
 // format: console|json; level: debug|info|warn|error.
@@ -60,7 +141,8 @@ func SetupLoggerWithFile(level, format, filePath string, maxSizeMB, maxBackups, 
 	if strings.ToLower(format) == "json" {
 		h = slog.NewJSONHandler(w, opts)
 	} else {
-		h = slog.NewTextHandler(w, opts)
+		// 使用自定义的彩色文本处理器
+		h = newColoredTextHandler(w, opts)
 	}
 	// wrap with counting handler
 	h = &countHandler{next: h}
