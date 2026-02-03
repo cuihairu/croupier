@@ -47,46 +47,47 @@ func (h *coloredTextHandler) Handle(ctx context.Context, r slog.Record) error {
 		return h.Handler.Handle(ctx, r)
 	}
 
-	// 创建带颜色的 Writer
-	var color string
-	switch r.Level {
-	case slog.LevelDebug:
-		color = colorGray
-	case slog.LevelInfo:
-		color = colorGreen // INFO 使用绿色而不是红色
-	case slog.LevelWarn:
-		color = colorYellow
-	case slog.LevelError:
-		color = colorRed
-	default:
-		color = ""
+	// 先构建完整的日志消息
+	var buf []byte
+	if r.Level >= slog.LevelError {
+		buf = append(buf, colorRed...)
+	} else if r.Level >= slog.LevelWarn {
+		buf = append(buf, colorYellow...)
+	} else if r.Level >= slog.LevelInfo {
+		buf = append(buf, colorGreen...)
+	} else {
+		buf = append(buf, colorGray...)
 	}
 
-	colorWriter := &colorWriter{
-		w:     h.w,
-		color: color,
+	// 添加级别
+	buf = append(buf, r.Level.String()...)
+	buf = append(buf, colorReset...)
+
+	// 添加时间
+	if !r.Time.IsZero() {
+		buf = append(buf, ' ')
+		buf = r.Time.AppendFormat(buf, "15:04:05.000")
 	}
 
-	// 使用带颜色的 writer 创建临时 TextHandler
-	tmpHandler := slog.NewTextHandler(colorWriter, nil)
-	return tmpHandler.Handle(ctx, r)
-}
+	// 添加消息
+	buf = append(buf, ' ')
+	msg := r.Message
+	buf = append(buf, msg...)
 
-// colorWriter 包装 writer 并添加颜色
-type colorWriter struct {
-	w     io.Writer
-	color string
-}
+	// 添加属性
+	r.Attrs(func(a slog.Attr) bool {
+		buf = append(buf, ' ')
+		buf = append(buf, a.Key...)
+		buf = append(buf, '=')
+		buf = append(buf, a.Value.String()...)
+		return true
+	})
 
-func (cw *colorWriter) Write(p []byte) (n int, err error) {
-	if cw.color == "" {
-		return cw.w.Write(p)
-	}
-	// 在 level=INFO 这一行添加颜色
-	// 简单实现：在输出前添加颜色代码，在行尾重置
-	cw.w.Write([]byte(cw.color))
-	defer cw.w.Write([]byte(colorReset))
-	return cw.w.Write(p)
+	buf = append(buf, '\n')
+
+	// 写入输出
+	_, err := h.w.Write(buf)
+	return err
 }
 
 // isTerminal 检查文件是否是终端
