@@ -12,22 +12,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	"github.com/cuihairu/croupier/internal/nng"
+	"github.com/cuihairu/croupier/pkg/protocol"
 	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
-	"github.com/zeromicro/go-zero/zrpc"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 // http-adapter implements a generic HTTP invoker function: http.generic_invoke
 // Request JSON: { method, url, headers: {..}, body }
 
-type server struct {
-	sdkv1.UnimplementedInvokerServiceServer
-}
+type server struct{}
 
 func (s *server) Invoke(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.InvokeResponse, error) {
 	httpClient := &http.Client{Timeout: 15 * time.Second}
@@ -214,16 +209,10 @@ func (s *server) Invoke(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.I
 	}
 }
 
-func (s *server) StartJob(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartJobResponse, error) {
-	// HTTP adapter is synchronous by nature, doesn't support asynchronous jobs
-	// Return explicit error to make it clear this operation is not supported
-	return nil, status.Error(codes.Unimplemented, "HTTP adapter does not support asynchronous jobs. Use Invoke instead.")
-}
-
 func main() {
 	agent := os.Getenv("AGENT_ADDR")
 	if agent == "" {
-		agent = "127.0.0.1:19090"
+		agent = "127.0.0.1:19091" // NNG port
 	}
 	listen := os.Getenv("RPC_ADDR")
 	if listen == "" {
@@ -238,76 +227,46 @@ func main() {
 		version = "1.0.0"
 	}
 
-	// Create gRPC server with optional TLS
-	var serverOpts []grpc.ServerOption
+	log.Printf("http-adapter listening on %s (HTTP)", listen)
+	log.Printf("connecting to agent %s (NNG)", agent)
 
-	// Check if TLS is enabled for the gRPC server
-	serverCertFile := os.Getenv("SERVER_CERT_FILE")
-	serverKeyFile := os.Getenv("SERVER_KEY_FILE")
-	caFile := os.Getenv("CA_FILE")
-	requireClientCert := os.Getenv("REQUIRE_CLIENT_CERT") == "true"
-
-	if serverCertFile != "" && serverKeyFile != "" {
-		// Use TLS for server
-		creds, err := tlsutil.ServerTLS(serverCertFile, serverKeyFile, caFile, requireClientCert)
-		if err != nil {
-			log.Fatalf("Failed to create server TLS credentials: %v", err)
-		}
-		serverOpts = append(serverOpts, grpc.Creds(creds))
-		log.Printf("http-adapter listening on %s with TLS", listen)
-	} else {
-		// Use insecure server
-		log.Printf("http-adapter listening on %s (insecure)", listen)
+	// Create NNG client for agent communication
+	nngClient := nng.NewClient(agent)
+	if err := nngClient.Dial(); err != nil {
+		log.Fatalf("Failed to connect to agent via NNG: %v", err)
 	}
+	defer nngClient.Close()
 
-	rpcConf := zrpc.RpcServerConf{ListenOn: listen}
-	rpcConf.Name = serviceID
-	gs := zrpc.MustNewServer(rpcConf, func(s *grpc.Server) {
-		sdkv1.RegisterInvokerServiceServer(s, &server{})
-	})
-	gs.AddOptions(serverOpts...)
-	go gs.Start()
-
-	// Create connection to agent with optional TLS
-	var dialOpts []grpc.DialOption
-	agentTLS := os.Getenv("AGENT_TLS_ENABLED") == "true"
-	if agentTLS {
-		// Use TLS for agent connection
-		clientCertFile := os.Getenv("CLIENT_CERT_FILE")
-		clientKeyFile := os.Getenv("CLIENT_KEY_FILE")
-		agentCAFile := os.Getenv("AGENT_CA_FILE")
-		serverName := os.Getenv("AGENT_SERVER_NAME")
-
-		creds, err := tlsutil.ClientTLS(clientCertFile, clientKeyFile, agentCAFile, serverName)
-		if err != nil {
-			log.Fatalf("Failed to create client TLS credentials: %v", err)
-		}
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
-		log.Printf("connecting to agent %s with TLS", agent)
-	} else {
-		// Use insecure connection
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-		log.Printf("connecting to agent %s (insecure)", agent)
-	}
-
-	cc, err := grpc.Dial(agent, dialOpts...)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer cc.Close()
-	lc := localv1.NewLocalControlServiceClient(cc)
-	req := &localv1.RegisterLocalRequest{ServiceId: serviceID, Version: version, RpcAddr: listen,
+	// Register with agent
+	regReq := &localv1.RegisterLocalRequest{
+		ServiceId: serviceID,
+		RpcAddr:   listen,
+		Version:   version,
 		Functions: []*localv1.LocalFunctionDescriptor{
 			{Id: "http.generic_invoke", Version: version},
 			{Id: "alertmanager.list_alerts", Version: version},
 			{Id: "grafana.search_dashboards", Version: version},
 		},
 	}
-	if _, err := lc.RegisterLocal(context.Background(), req); err != nil {
-		log.Fatal(err)
+	regData, err := proto.Marshal(regReq)
+	if err != nil {
+		log.Fatalf("Failed to marshal register request: %v", err)
 	}
+
+	ctx := context.Background()
+	_, err = nngClient.Call(ctx, protocol.MsgRegisterLocalRequest, regData)
+	if err != nil {
+		log.Fatalf("Failed to register with agent: %v", err)
+	}
+	log.Printf("Registered with agent as service %s", serviceID)
+
+	// keep heartbeating
 	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	hbReq := &localv1.HeartbeatRequest{ServiceId: serviceID}
 	for range ticker.C {
-		_, _ = lc.Heartbeat(context.Background(), &localv1.HeartbeatRequest{ServiceId: serviceID})
+		hbData, _ := proto.Marshal(hbReq)
+		_, _ = nngClient.Call(ctx, protocol.MsgHeartbeatLocalRequest, hbData)
 	}
 }

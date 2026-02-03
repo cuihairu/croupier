@@ -10,7 +10,6 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type OpsAgentProcessesLogic struct {
@@ -38,7 +37,7 @@ func (l *OpsAgentProcessesLogic) OpsAgentProcesses(req *types.OpsAgentProcessesR
 		}, nil
 	}
 
-	resp, err := client.ListProcesses(l.ctx, &emptypb.Empty{})
+	resp, err := client.ListProcesses(l.ctx)
 	if err != nil {
 		return &types.OpsAgentProcessesResponse{
 			Code:    500,

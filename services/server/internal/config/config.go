@@ -32,9 +32,12 @@ type Config struct {
 	Labels map[string]string `json:"labels,optional" yaml:"labels,optional"`
 }
 
-// GRPCConfig 配置 gRPC 服务器（控制平面）
+// GRPCConfig 配置 NNG 控制服务器（控制平面）
 type GRPCConfig struct {
+	// NNG ControlService 监听地址（默认 :19090，用于 SDK/Agent 连接）
 	Addr string `json:"addr" yaml:"addr"`
+
+	// TLS 证书配置（保留用于未来 NNG TLS 支持）
 	Cert string `json:"cert,optional" yaml:"cert,optional"`
 	Key  string `json:"key,optional" yaml:"key,optional"`
 	CA   string `json:"ca,optional" yaml:"ca,optional"`

@@ -23,8 +23,6 @@ import (
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/proc"
 	"github.com/zeromicro/go-zero/rest"
-	"github.com/zeromicro/go-zero/zrpc"
-	"google.golang.org/grpc"
 )
 
 var (
@@ -110,7 +108,7 @@ func runAgent() error {
 	runCtx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	core, localGRPCAddr, err := startGRPCCore(runCtx, &c)
+	core, nngAddr, err := startAgentCore(runCtx, &c)
 	if err != nil {
 		return err
 	}
@@ -123,7 +121,7 @@ func runAgent() error {
 		}
 	}()
 
-	svcCtx := svc.NewServiceContext(c, core, localGRPCAddr)
+	svcCtx := svc.NewServiceContext(c, core, nngAddr)
 	handler.RegisterHandlers(server, svcCtx)
 
 	fmt.Printf("Starting Croupier Agent at %s:%d (mode: %s, debug: %v)...\n",
@@ -132,7 +130,7 @@ func runAgent() error {
 	go server.Start()
 
 	slog.Info("agent http server started", "addr", fmt.Sprintf("%s:%d", c.RestConf.Host, c.RestConf.Port))
-	slog.Info("agent grpc core started", "listen", localGRPCAddr)
+	slog.Info("agent nng core started", "listen", nngAddr)
 
 	<-runCtx.Done()
 	proc.Shutdown()
@@ -150,14 +148,21 @@ func shortVersion() string {
 	}
 }
 
-func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, string, error) {
+func startAgentCore(ctx context.Context, c *config.Config) (*agentcore.App, string, error) {
 	if c == nil {
 		return nil, "", fmt.Errorf("missing config")
 	}
-	addr := fmt.Sprintf("%s:%d", strings.TrimSpace(c.GRPC.Host), c.GRPC.Port)
-	if strings.TrimSpace(c.GRPC.Host) == "" || c.GRPC.Port == 0 {
-		return nil, "", fmt.Errorf("grpc host/port not configured")
+
+	// NNG local service address (for SDK→Agent communication)
+	nngHost := strings.TrimSpace(c.GRPC.Host)
+	if nngHost == "" {
+		nngHost = "0.0.0.0"
 	}
+	nngPort := c.GRPC.Port
+	if nngPort == 0 {
+		nngPort = 19091 // Default NNG Agent port
+	}
+	nngAddr := fmt.Sprintf("%s:%d", nngHost, nngPort)
 
 	agentID := strings.TrimSpace(c.Agent.ID)
 	if agentID == "" {
@@ -171,7 +176,7 @@ func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, strin
 
 	rpcAddr := strings.TrimSpace(c.Agent.LocalAddr)
 	if rpcAddr == "" {
-		rpcAddr = addr
+		rpcAddr = nngAddr
 	}
 
 	// 收集系统标签
@@ -182,6 +187,7 @@ func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, strin
 	}
 
 	core := agentcore.New(strings.TrimSpace(c.Server.Addr), agentID)
+	core.SetNNGAddr(nngAddr)
 	core.WithUpstreamMetadata(agentcore.UpstreamMetadata{
 		GameID:            strings.TrimSpace(c.Agent.GameID),
 		Env:               strings.TrimSpace(c.Agent.Env),
@@ -195,8 +201,7 @@ func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, strin
 		HeartbeatInterval: time.Duration(c.Upstream.HeartbeatInterval) * time.Second,
 	})
 
-	// 确保 CA 证书存在（如果需要验证 Server 证书）
-	// Server 和 Agent 共享同一套开发证书，谁先启动就先生成
+	// Ensure CA cert exists (if needed for Server certificate verification)
 	if !c.Server.Insecure && strings.TrimSpace(c.Server.CAFile) != "" {
 		caFile := strings.TrimSpace(c.Server.CAFile)
 		if _, err := os.Stat(caFile); os.IsNotExist(err) {
@@ -233,42 +238,14 @@ func startGRPCCore(ctx context.Context, c *config.Config) (*agentcore.App, strin
 		core.WithOutboundTLSConfig(nil)
 	}
 
-	var grpcOpts []grpc.ServerOption
-	// 配置 TLS (自动生成或使用配置的证书)
-	tlsOpt, err := tlsutil.EnsureServerTLSCredentials(tlsutil.ServerTLSConfig{
-		CertFile:  strings.TrimSpace(c.TLS.CertFile),
-		KeyFile:   strings.TrimSpace(c.TLS.KeyFile),
-		CAFile:    strings.TrimSpace(c.TLS.CAFile),
-		AutoGen:   c.TLS.Enabled, // 当 TLS 启用时，如果证书为空则自动生成
-		ConfigDir: cfgFile,
-	})
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to setup TLS: %w", err)
-	}
-	if tlsOpt != nil {
-		grpcOpts = append(grpcOpts, tlsOpt)
-	}
-
-	rpcConf := zrpc.RpcServerConf{
-		ListenOn: addr,
-	}
-	rpcConf.Name = "croupier-agent-grpc"
-	grpcServer := zrpc.MustNewServer(rpcConf, func(s *grpc.Server) {
-		core.RegisterGRPC(s)
-	})
-	grpcServer.AddOptions(grpcOpts...)
-
+	// Start the agent (which now starts NNG server internally)
 	go func() {
 		if err := core.Run(ctx); err != nil && ctx.Err() == nil {
-			slog.Error("agent upstream sync failed", "error", err)
+			slog.Error("agent run failed", "error", err)
 		}
 	}()
 
-	go func() {
-		grpcServer.Start()
-	}()
-
-	return core, addr, nil
+	return core, nngAddr, nil
 }
 
 // collectSystemLabels 收集系统信息作为标签

@@ -1,143 +1,235 @@
-// Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
-
+// Package ops provides Agent Ops client for Server to communicate with Agents via NNG
 package ops
 
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 
-	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	"github.com/cuihairu/croupier/internal/nng"
+	"github.com/cuihairu/croupier/pkg/protocol"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 )
+
+// AgentOpsClient manages NNG connections to multiple Agents
+type AgentOpsClient struct {
+	agents map[string]*nng.Client // agentID -> NNG client
+	mu     sync.RWMutex
+}
 
 var (
 	globalAgentOpsClient *AgentOpsClient
-	globalAgentOpsOnce   sync.Once
+	agentOpsClientOnce   sync.Once
 )
 
-// InitAgentOpsClient initializes the global agent ops client.
-func InitAgentOpsClient(registry *reg.Store) {
-	globalAgentOpsOnce.Do(func() {
-		globalAgentOpsClient = NewAgentOpsClient(registry)
+// InitAgentOpsClient initializes the global AgentOpsClient with a registry store
+func InitAgentOpsClient(store interface{}) {
+	agentOpsClientOnce.Do(func() {
+		globalAgentOpsClient = &AgentOpsClient{
+			agents: make(map[string]*nng.Client),
+		}
+		slog.Info("Global AgentOpsClient initialized")
 	})
 }
 
-// GetAgentOpsClient returns the global agent ops client.
+// GetAgentOpsClient returns the global AgentOpsClient
 func GetAgentOpsClient() *AgentOpsClient {
+	if globalAgentOpsClient == nil {
+		// Initialize with empty store if not initialized
+		InitAgentOpsClient(nil)
+	}
 	return globalAgentOpsClient
 }
 
-// AgentOpsClient manages gRPC connections to agent OpsService.
-type AgentOpsClient struct {
-	mu       sync.RWMutex
-	clients  map[string]opsv1.OpsServiceClient // agent_id -> client
-	conns    map[string]*grpc.ClientConn       // agent_id -> connection
-	registry *reg.Store
+// GetClient returns an Ops client wrapper for the specified agentID
+func (c *AgentOpsClient) GetClient(ctx context.Context, agentID string) (*OpsClientWrapper, error) {
+	c.mu.RLock()
+	client, ok := c.agents[agentID]
+	c.mu.RUnlock()
+
+	if ok && client.IsRunning() {
+		return &OpsClientWrapper{client: client}, nil
+	}
+
+	// Need to get agent address from registry
+	// For now, return error - the agent should be connected via heartbeat
+	return nil, fmt.Errorf("agent %s not connected or found", agentID)
 }
 
-// NewAgentOpsClient creates a new agent ops client manager.
-func NewAgentOpsClient(registry *reg.Store) *AgentOpsClient {
-	return &AgentOpsClient{
-		clients:  make(map[string]opsv1.OpsServiceClient),
-		conns:    make(map[string]*grpc.ClientConn),
-		registry: registry,
+// RegisterClient registers an NNG client for an agent
+func (c *AgentOpsClient) RegisterClient(agentID, addr string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Close existing client if any
+	if existing, ok := c.agents[agentID]; ok && existing.IsRunning() {
+		existing.Close()
+	}
+
+	client := nng.NewClient(addr)
+	if err := client.Dial(); err != nil {
+		return fmt.Errorf("failed to dial agent %s at %s: %w", agentID, addr, err)
+	}
+
+	c.agents[agentID] = client
+	slog.Info("Registered Agent Ops client", "agent_id", agentID, "addr", addr)
+	return nil
+}
+
+// UnregisterClient removes an agent's client
+func (c *AgentOpsClient) UnregisterClient(agentID string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if client, ok := c.agents[agentID]; ok {
+		client.Close()
+		delete(c.agents, agentID)
+		slog.Info("Unregistered Agent Ops client", "agent_id", agentID)
 	}
 }
 
-// GetClient returns an OpsService client for the specified agent.
-// It creates a new connection if one doesn't exist.
-func (m *AgentOpsClient) GetClient(ctx context.Context, agentID string) (opsv1.OpsServiceClient, error) {
-	m.mu.RLock()
-	client, ok := m.clients[agentID]
-	m.mu.RUnlock()
+// Close closes all agent connections
+func (c *AgentOpsClient) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	if ok {
-		return client, nil
+	for _, client := range c.agents {
+		client.Close()
 	}
+	c.agents = make(map[string]*nng.Client)
 
-	// Need to create new connection
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	return nil
+}
 
-	// Double-check after acquiring write lock
-	if client, ok := m.clients[agentID]; ok {
-		return client, nil
-	}
+// OpsClientWrapper wraps NNG client to implement Ops-like methods
+type OpsClientWrapper struct {
+	client *nng.Client
+}
 
-	// Get agent address from registry
-	if m.registry == nil {
-		return nil, fmt.Errorf("registry not available")
-	}
-
-	m.registry.Mu().RLock()
-	agent := m.registry.AgentsUnsafe()[agentID]
-	m.registry.Mu().RUnlock()
-
-	if agent == nil {
-		return nil, fmt.Errorf("agent %q not found", agentID)
-	}
-
-	if agent.RPCAddr == "" {
-		return nil, fmt.Errorf("agent %q has no RPC address", agentID)
-	}
-
-	// Create gRPC connection with timeout
-	conn, err := grpc.DialContext(ctx, agent.RPCAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
+// GetSystemInfo gets system info from the agent
+func (w *OpsClientWrapper) GetSystemInfo(ctx context.Context) (*opsv1.SystemInfo, error) {
+	data, err := w.client.Call(ctx, protocol.MsgGetSystemInfoRequest, []byte{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to agent %q: %w", agentID, err)
+		return nil, err
 	}
 
-	client = opsv1.NewOpsServiceClient(conn)
-	m.clients[agentID] = client
-	m.conns[agentID] = conn
-
-	return client, nil
-}
-
-// Close closes the connection for a specific agent.
-func (m *AgentOpsClient) Close(agentID string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	conn, ok := m.conns[agentID]
-	if !ok {
-		return nil
+	resp := &opsv1.SystemInfo{}
+	if err := proto.Unmarshal(data, resp); err != nil {
+		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
 
-	delete(m.clients, agentID)
-	delete(m.conns, agentID)
-
-	return conn.Close()
+	return resp, nil
 }
 
-// CloseAll closes all agent connections.
-func (m *AgentOpsClient) CloseAll() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	var firstErr error
-	for agentID, conn := range m.conns {
-		if err := conn.Close(); err != nil && firstErr == nil {
-			firstErr = err
-		}
-		delete(m.clients, agentID)
-		delete(m.conns, agentID)
+// ListProcesses lists processes on the agent
+func (w *OpsClientWrapper) ListProcesses(ctx context.Context) (*opsv1.ListProcessesResponse, error) {
+	data, err := w.client.Call(ctx, protocol.MsgListProcessesRequest, []byte{})
+	if err != nil {
+		return nil, err
 	}
 
-	return firstErr
+	resp := &opsv1.ListProcessesResponse{}
+	if err := proto.Unmarshal(data, resp); err != nil {
+		return nil, fmt.Errorf("unmarshal: %w", err)
+	}
+
+	return resp, nil
 }
 
-// Remove removes a client from the cache (e.g., after agent disconnects).
-func (m *AgentOpsClient) Remove(agentID string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+// ReportMetrics sends metrics report to the agent
+func (w *OpsClientWrapper) ReportMetrics(ctx context.Context, req *opsv1.MetricsReport) (*opsv1.MetricsReport, error) {
+	data, err := proto.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal: %w", err)
+	}
 
-	delete(m.clients, agentID)
-	delete(m.conns, agentID)
+	_, err = w.client.Call(ctx, protocol.MsgReportMetricsRequest, data)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return the request (no response body for metrics)
+	return req, nil
+}
+
+// RestartProcess restarts a process on the agent
+func (w *OpsClientWrapper) RestartProcess(ctx context.Context, req *opsv1.RestartProcessRequest) (*opsv1.RestartProcessResponse, error) {
+	data, err := proto.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal: %w", err)
+	}
+
+	respData, err := w.client.Call(ctx, protocol.MsgRestartProcessRequest, data)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &opsv1.RestartProcessResponse{}
+	if err := proto.Unmarshal(respData, resp); err != nil {
+		return nil, fmt.Errorf("unmarshal: %w", err)
+	}
+
+	return resp, nil
+}
+
+// StopProcess stops a process on the agent
+func (w *OpsClientWrapper) StopProcess(ctx context.Context, req *opsv1.StopProcessRequest) (*opsv1.StopProcessResponse, error) {
+	data, err := proto.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal: %w", err)
+	}
+
+	respData, err := w.client.Call(ctx, protocol.MsgStopProcessRequest, data)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &opsv1.StopProcessResponse{}
+	if err := proto.Unmarshal(respData, resp); err != nil {
+		return nil, fmt.Errorf("unmarshal: %w", err)
+	}
+
+	return resp, nil
+}
+
+// StartProcess starts a process on the agent
+func (w *OpsClientWrapper) StartProcess(ctx context.Context, req *opsv1.StartProcessRequest) (*opsv1.StartProcessResponse, error) {
+	data, err := proto.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal: %w", err)
+	}
+
+	respData, err := w.client.Call(ctx, protocol.MsgStartProcessRequest, data)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &opsv1.StartProcessResponse{}
+	if err := proto.Unmarshal(respData, resp); err != nil {
+		return nil, fmt.Errorf("unmarshal: %w", err)
+	}
+
+	return resp, nil
+}
+
+// ExecuteCommand executes a command on the agent
+func (w *OpsClientWrapper) ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error) {
+	data, err := proto.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal: %w", err)
+	}
+
+	respData, err := w.client.Call(ctx, protocol.MsgExecuteCommandRequest, data)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &opsv1.ExecuteCommandResponse{}
+	if err := proto.Unmarshal(respData, resp); err != nil {
+		return nil, fmt.Errorf("unmarshal: %w", err)
+	}
+
+	return resp, nil
 }

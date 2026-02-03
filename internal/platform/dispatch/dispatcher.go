@@ -3,7 +3,6 @@ package dispatch
 import (
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"strings"
@@ -12,12 +11,14 @@ import (
 
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	"github.com/cuihairu/croupier/internal/nng"
+	"github.com/cuihairu/croupier/pkg/protocol"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 )
 
 // Dispatcher routes function invocations to live agents discovered via registry store.
+// Now uses NNG instead of gRPC for Agent communication.
 type Dispatcher struct {
 	store         *reg.Store
 	mu            sync.RWMutex
@@ -26,6 +27,8 @@ type Dispatcher struct {
 	dialTimeout   time.Duration
 	invokeTimeout time.Duration
 	tlsCfg        *tlsutil.ClientTLSConfig
+	nngClients    map[string]*nng.Client // cached NNG clients
+	clientsMu     sync.RWMutex
 }
 
 func NewDispatcher(store *reg.Store) *Dispatcher {
@@ -47,6 +50,7 @@ func NewDispatcherWithJobStore(store *reg.Store, jobStore JobRoutingStore) *Disp
 		store:         store,
 		jobRouting:    map[string]string{},
 		jobStore:      jobStore,
+		nngClients:    make(map[string]*nng.Client),
 		dialTimeout:   5 * time.Second,
 		invokeTimeout: 15 * time.Second,
 	}
@@ -85,11 +89,11 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 	if err != nil {
 		return nil, err
 	}
-	conn, client, err := d.dial(agent.RPCAddr)
+
+	client, err := d.getNNGClient(agent.RPCAddr)
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
 
 	callCtx, cancel := context.WithTimeout(ctx, d.invokeTimeout)
 	defer cancel()
@@ -99,7 +103,24 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 	}
 	req.Metadata["agent_id"] = agent.AgentID
 
-	return client.Invoke(callCtx, req)
+	// Marshal request
+	reqBytes, err := proto.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	// Send via NNG
+	respBytes, err := client.Call(callCtx, protocol.MsgInvokeRequest, reqBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &sdkv1.InvokeResponse{}
+	if err := proto.Unmarshal(respBytes, resp); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return resp, nil
 }
 
 func (d *Dispatcher) StartJob(ctx context.Context, functionID string, payload []byte) (string, error) {
@@ -122,11 +143,11 @@ func (d *Dispatcher) StartJobRequest(ctx context.Context, req *sdkv1.InvokeReque
 	if err != nil {
 		return nil, err
 	}
-	conn, client, err := d.dial(agent.RPCAddr)
+
+	client, err := d.getNNGClient(agent.RPCAddr)
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
 
 	callCtx, cancel := context.WithTimeout(ctx, d.invokeTimeout)
 	defer cancel()
@@ -136,13 +157,27 @@ func (d *Dispatcher) StartJobRequest(ctx context.Context, req *sdkv1.InvokeReque
 	}
 	req.Metadata["agent_id"] = agent.AgentID
 
-	resp, err := client.StartJob(callCtx, req)
+	// Marshal request
+	reqBytes, err := proto.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	// Send via NNG
+	respBytes, err := client.Call(callCtx, protocol.MsgStartJobRequest, reqBytes)
 	if err != nil {
 		return nil, err
 	}
+
+	resp := &sdkv1.StartJobResponse{}
+	if err := proto.Unmarshal(respBytes, resp); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
 	if jobID := resp.GetJobId(); jobID != "" {
 		d.registerJob(jobID, agent.RPCAddr)
 	}
+
 	return resp, nil
 }
 
@@ -151,72 +186,41 @@ func (d *Dispatcher) CancelJob(ctx context.Context, jobID string) error {
 	if err != nil {
 		return err
 	}
-	conn, client, err := d.dial(addr)
+
+	client, err := d.getNNGClient(addr)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
 
 	callCtx, cancel := context.WithTimeout(ctx, d.invokeTimeout)
 	defer cancel()
-	_, err = client.CancelJob(callCtx, &sdkv1.CancelJobRequest{JobId: jobID})
+
+	// Marshal request
+	req := &sdkv1.CancelJobRequest{JobId: jobID}
+	reqBytes, err := proto.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("marshal request: %w", err)
+	}
+
+	_, err = client.Call(callCtx, protocol.MsgCancelJobRequest, reqBytes)
 	if err == nil {
 		d.unregisterJob(jobID)
 	}
+
 	return err
 }
 
 func (d *Dispatcher) StreamJob(ctx context.Context, jobID string) ([]*sdkv1.JobEvent, bool, error) {
-	var events []*sdkv1.JobEvent
-	done, err := d.StreamJobRealtime(ctx, jobID, func(evt *sdkv1.JobEvent) bool {
-		events = append(events, evt)
-		return true
-	})
-	return events, done, err
+	// Note: Streaming with NNG would require Pair protocol
+	// For now, return a simplified response
+	return nil, false, fmt.Errorf("streaming not yet implemented for NNG")
 }
 
 // StreamJobRealtime forwards job events to the provided callback.
 func (d *Dispatcher) StreamJobRealtime(ctx context.Context, jobID string, fn func(*sdkv1.JobEvent) bool) (bool, error) {
-	if jobID == "" {
-		return false, fmt.Errorf("job id is required")
-	}
-	addr, err := d.jobAddr(jobID)
-	if err != nil {
-		return false, err
-	}
-
-	conn, client, err := d.dial(addr)
-	if err != nil {
-		return false, err
-	}
-	defer conn.Close()
-
-	stream, err := client.StreamJob(ctx, &sdkv1.JobStreamRequest{JobId: jobID})
-	if err != nil {
-		return false, err
-	}
-
-	done := false
-	for {
-		ev, err := stream.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return done, err
-		}
-		if fn != nil {
-			if cont := fn(ev); !cont {
-				return done, nil
-			}
-		}
-		if isTerminalEvent(ev) {
-			done = true
-			d.unregisterJob(jobID)
-			break
-		}
-	}
-	return done, nil
+	// Note: Streaming with NNG would require Pair protocol
+	// For now, return a simplified response
+	return false, fmt.Errorf("streaming not yet implemented for NNG")
 }
 
 // ListFunctionAgents returns agent IDs that currently expose the function.
@@ -370,35 +374,42 @@ func (d *Dispatcher) pickAgentWithRouting(functionID string, metadata map[string
 	return d.pickAgent(functionID)
 }
 
-func (d *Dispatcher) dial(addr string) (*grpc.ClientConn, sdkv1.InvokerServiceClient, error) {
+// getNNGClient gets or creates an NNG client for the given address
+func (d *Dispatcher) getNNGClient(addr string) (*nng.Client, error) {
+	d.clientsMu.RLock()
+	client, ok := d.nngClients[addr]
+	d.clientsMu.RUnlock()
+
+	if ok && client.IsRunning() {
+		return client, nil
+	}
+
+	d.clientsMu.Lock()
+	defer d.clientsMu.Unlock()
+
+	// Double-check after acquiring write lock
+	if client, ok := d.nngClients[addr]; ok && client.IsRunning() {
+		return client, nil
+	}
+
+	// Create new client
 	if addr == "" {
-		return nil, nil, fmt.Errorf("agent rpc address missing")
+		return nil, fmt.Errorf("agent address missing")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), d.dialTimeout)
-	defer cancel()
-
-	var dialOpts []grpc.DialOption
-	if d.tlsCfg != nil {
-		cfg := *d.tlsCfg
-		if strings.TrimSpace(cfg.ServerName) == "" {
-			cfg.ServerName = hostFromAddr(addr)
-		}
-		creds, err := tlsutil.ClientTLSFromConfig(cfg)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create TLS credentials: %w", err)
-		}
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(creds))
-	} else {
-		// Use insecure connection
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// Build NNG address
+	nngAddr := addr
+	if !strings.Contains(nngAddr, ":") {
+		nngAddr = net.JoinHostPort(nngAddr, "19091") // Default Agent NNG port
 	}
 
-	conn, err := grpc.DialContext(ctx, addr, dialOpts...)
-	if err != nil {
-		return nil, nil, err
+	client = nng.NewClient(nngAddr)
+	if err := client.Dial(); err != nil {
+		return nil, fmt.Errorf("failed to dial NNG: %w", err)
 	}
-	return conn, sdkv1.NewInvokerServiceClient(conn), nil
+
+	d.nngClients[addr] = client
+	return client, nil
 }
 
 func hostFromAddr(addr string) string {
@@ -515,5 +526,13 @@ func (d *Dispatcher) CleanupOldJobs(ttl time.Duration) error {
 
 // Close closes the dispatcher and its resources
 func (d *Dispatcher) Close() error {
+	// Close all NNG clients
+	d.clientsMu.Lock()
+	for _, client := range d.nngClients {
+		client.Close()
+	}
+	d.nngClients = make(map[string]*nng.Client)
+	d.clientsMu.Unlock()
+
 	return d.jobStore.Close()
 }

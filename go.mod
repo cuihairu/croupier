@@ -22,7 +22,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.39.0
 	gocloud.dev v0.44.0
 	golang.org/x/crypto v0.47.0
-	google.golang.org/grpc v1.74.2
+	// Removed gRPC - now using NNG (mangos)
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/datatypes v1.2.7
 	gorm.io/driver/mysql v1.6.0
@@ -43,8 +43,10 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	github.com/zeromicro/go-zero v1.9.4
+	go.nanomsg.org/mangos/v3 v3.4.2
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.64.0
 	golang.org/x/time v0.14.0
+	google.golang.org/grpc v1.74.2
 )
 
 require (
@@ -214,7 +216,7 @@ require (
 	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/text v0.33.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260122232226-8e98ce8d340d
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260122232226-8e98ce8d340d // indirect
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
