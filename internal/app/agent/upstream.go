@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/nng"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
-	"github.com/cuihairu/croupier/internal/nng"
 	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 )
 
@@ -69,6 +69,14 @@ func NewUpstreamClient(serverAddr, agentID string, store *agentlocal.LocalStore,
 		client.env = meta.Env
 		client.version = meta.Version
 		client.rpcAddr = meta.RPCAddr
+		client.region = meta.Region
+		client.zone = meta.Zone
+		if meta.Labels != nil {
+			client.labels = make(map[string]string, len(meta.Labels))
+			for k, v := range meta.Labels {
+				client.labels[k] = v
+			}
+		}
 	}
 
 	return client

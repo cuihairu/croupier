@@ -19,10 +19,10 @@ import (
 // OpsServer implements ops functionality for the agent.
 // It provides system info, process management, and command execution capabilities.
 type OpsServer struct {
-	mu       sync.RWMutex
-	config   *OpsConfig
-	agentID  string
-	version  string
+	mu      sync.RWMutex
+	config  *OpsConfig
+	agentID string
+	version string
 
 	// Managed process tracking
 	processes map[string]*managedProcess
@@ -30,15 +30,15 @@ type OpsServer struct {
 
 // managedProcess represents a managed process state
 type managedProcess struct {
-	name     string
-	cmd      *exec.Cmd
-	state    opsv1.ProcessState
-	pid      int32
-	restarts int32
+	name      string
+	cmd       *exec.Cmd
+	state     opsv1.ProcessState
+	pid       int32
+	restarts  int32
 	lastStart *timestamppb.Timestamp
-	config   ManagedProcessConfig
-	stopCh   chan struct{}
-	mu       sync.RWMutex
+	config    ManagedProcessConfig
+	stopCh    chan struct{}
+	mu        sync.RWMutex
 }
 
 // NewOpsServer creates a new Ops server instance.
@@ -176,10 +176,10 @@ func (s *OpsServer) StartProcess(ctx context.Context, req *opsv1.StartProcessReq
 
 		// Create new managed process
 		p = &managedProcess{
-			name:       req.ProcessName,
-			config:     cfg,
-			state:      opsv1.ProcessState_PROCESS_STATE_STOPPED,
-			stopCh:     make(chan struct{}),
+			name:   req.ProcessName,
+			config: cfg,
+			state:  opsv1.ProcessState_PROCESS_STATE_STOPPED,
+			stopCh: make(chan struct{}),
 		}
 
 		s.mu.Lock()

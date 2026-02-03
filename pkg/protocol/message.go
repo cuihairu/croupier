@@ -33,11 +33,11 @@ const (
 // Message type constants (24 bits).
 const (
 	// ControlService (0x01xx)
-	MsgRegisterRequest         = 0x010101
-	MsgRegisterResponse        = 0x010102
-	MsgHeartbeatRequest        = 0x010103
-	MsgHeartbeatResponse       = 0x010104
-	MsgRegisterCapabilitiesReq = 0x010105
+	MsgRegisterRequest          = 0x010101
+	MsgRegisterResponse         = 0x010102
+	MsgHeartbeatRequest         = 0x010103
+	MsgHeartbeatResponse        = 0x010104
+	MsgRegisterCapabilitiesReq  = 0x010105
 	MsgRegisterCapabilitiesResp = 0x010106
 
 	// ClientService (0x02xx)
@@ -61,20 +61,20 @@ const (
 	MsgCancelJobResponse = 0x030108
 
 	// OpsService (0x04xx)
-	MsgGetSystemInfoRequest  = 0x040101
-	MsgGetSystemInfoResponse = 0x040102
-	MsgListProcessesRequest  = 0x040103
-	MsgListProcessesResponse = 0x040104
-	MsgReportMetricsRequest  = 0x040105
-	MsgReportMetricsResponse = 0x040106
-	MsgStreamMetricsRequest  = 0x040107
-	MsgMetricEvent           = 0x040108 // Stream event
-	MsgRestartProcessRequest = 0x040109
+	MsgGetSystemInfoRequest   = 0x040101
+	MsgGetSystemInfoResponse  = 0x040102
+	MsgListProcessesRequest   = 0x040103
+	MsgListProcessesResponse  = 0x040104
+	MsgReportMetricsRequest   = 0x040105
+	MsgReportMetricsResponse  = 0x040106
+	MsgStreamMetricsRequest   = 0x040107
+	MsgMetricEvent            = 0x040108 // Stream event
+	MsgRestartProcessRequest  = 0x040109
 	MsgRestartProcessResponse = 0x04010A
-	MsgStopProcessRequest    = 0x04010B
-	MsgStopProcessResponse   = 0x04010C
-	MsgStartProcessRequest   = 0x04010D
-	MsgStartProcessResponse  = 0x04010E
+	MsgStopProcessRequest     = 0x04010B
+	MsgStopProcessResponse    = 0x04010C
+	MsgStartProcessRequest    = 0x04010D
+	MsgStartProcessResponse   = 0x04010E
 	MsgExecuteCommandRequest  = 0x04010F
 	MsgExecuteCommandResponse = 0x040110
 

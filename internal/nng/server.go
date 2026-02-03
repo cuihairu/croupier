@@ -37,7 +37,7 @@ type Server struct {
 	upstream Handler
 
 	// State
-	mu     sync.RWMutex
+	mu      sync.RWMutex
 	running bool
 	ctx     context.Context
 	cancel  context.CancelFunc
@@ -67,14 +67,14 @@ func NewServer(addr string, registry *reg.Store) *Server {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Server{
-		addr:             addr,
-		registry:         registry,
-		metricsStore:     reg.NewMetricsStore(),
-		systemInfoCache:  reg.NewSystemInfoCache(),
+		addr:              addr,
+		registry:          registry,
+		metricsStore:      reg.NewMetricsStore(),
+		systemInfoCache:   reg.NewSystemInfoCache(),
 		defaultSessionTTL: 5 * time.Minute,
-		ctx:              ctx,
-		cancel:           cancel,
-		logger:           slog.Default(),
+		ctx:               ctx,
+		cancel:            cancel,
+		logger:            slog.Default(),
 	}
 }
 

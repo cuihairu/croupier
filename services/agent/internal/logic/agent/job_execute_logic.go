@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/nng"
-	"github.com/cuihairu/croupier/pkg/protocol"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
+	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/cuihairu/croupier/services/agent/internal/svc"
 	"github.com/cuihairu/croupier/services/agent/internal/types"
 

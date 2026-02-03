@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/nng"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
-	"github.com/cuihairu/croupier/internal/nng"
-	"github.com/cuihairu/croupier/pkg/protocol"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
+	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
 )
 

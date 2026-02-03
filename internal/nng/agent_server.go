@@ -26,8 +26,8 @@ import (
 // AgentServer implements an NNG-based agent server for local services.
 // It replaces the gRPC InvokerService, OpsService, and LocalControlService.
 type AgentServer struct {
-	addr     string
-	sock     mangos.Socket
+	addr string
+	sock mangos.Socket
 
 	// Dependencies
 	store           *agentlocal.LocalStore
@@ -67,12 +67,12 @@ type OpsServerWrapper interface {
 func NewAgentServer(addr string, store *agentlocal.LocalStore) *AgentServer {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &AgentServer{
-		addr:     addr,
-		store:    store,
-		jobs:     newJobIndex(),
-		ctx:      ctx,
-		cancel:   cancel,
-		logger:   slog.Default(),
+		addr:   addr,
+		store:  store,
+		jobs:   newJobIndex(),
+		ctx:    ctx,
+		cancel: cancel,
+		logger: slog.Default(),
 	}
 }
 
