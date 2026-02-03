@@ -16,7 +16,7 @@
 ---
 
 ## ✨ Highlights
-- **零信任安全**：gRPC+mTLS、细粒度 RBAC/ABAC、操作审批与审计日志。
+- **零信任安全**：NNG+mTLS、细粒度 RBAC/ABAC、操作审批与审计日志。
 - **函数注册控制**：游戏服务器通过 Agent 注册函数，控制面统一调用、可视化进度与日志。
 - **Schema 驱动 UI**：X-Render + JSON Schema 自动生成表单、风控提示、参数校验。
 - **可观测性解耦**：控制面与遥测面分离，Analytics Worker 通过 Redis Streams / ClickHouse 处理实时事件。
@@ -29,7 +29,7 @@
 | --- | --- | --- | --- |
 | Server / Agent | 本仓库 | 根目录 | 控制面、代理、审批、审计与示例 |
 | Dashboard | [croupier-dashboard](https://github.com/cuihairu/croupier-dashboard) | `dashboard/` | Umi Max + Ant Design + X-Render，已纳入子模块 |
-| Proto 定义 | [croupier-proto](https://github.com/cuihairu/croupier-proto) | `proto/` | 所有 gRPC/HTTP IDL，Server 与 SDK 共享 |
+| Proto 定义 | [croupier-proto](https://github.com/cuihairu/croupier-proto) | `proto/` | Protocol Buffers 定义，用于序列化和接口描述 |
 | Analytics Worker | 本仓库 | `services/analytics-worker` | 事件消费、指标写入、ClickHouse 入库 |
 | 示例 / 工具 | 本仓库 | `examples/`, `tools/`, `packs/` | Demo 游戏、Telemetry、打包脚本等 |
 
@@ -97,8 +97,8 @@ graph TB
   end
 
   UI -->|HTTP REST| Server
-  Server -->|gRPC mTLS| A1
-  Server -->|gRPC mTLS| A2
+  Server -->|NNG mTLS| A1
+  Server -->|NNG mTLS| A2
   Client -->|HTTPS| Ingest
   GS1 -->|SDK 事件| Redis
   GS2 -->|OTLP/HTTP| OtelColPub
@@ -138,8 +138,8 @@ sequenceDiagram
   participant GS as Game Server
 
   UI->>Server: POST /api/invoke {function_id, payload, X-Game-ID}
-  Server->>Agent: FunctionService.Invoke (gRPC mTLS)
-  Agent->>GS: local gRPC Invoke
+  Server->>Agent: Function Invoke (NNG mTLS)
+  Agent->>GS: local RPC Invoke
   GS-->>Agent: response
   Agent-->>Server: response
   Server-->>UI: result

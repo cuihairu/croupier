@@ -53,7 +53,7 @@ Croupier 是一个现代化的**三层分布式 GM 后台系统**，专为游戏
 
 中央控制平面，负责权限控制、函数路由和协调。
 
-- **端口**: gRPC 8443 (mTLS), HTTP 8080 (REST)
+- **端口**: NNG 8443 (mTLS), HTTP 8080 (REST)
 - **职责**:
   - Agent 注册与连接管理
   - 函数调用路由与负载均衡
@@ -65,7 +65,7 @@ Croupier 是一个现代化的**三层分布式 GM 后台系统**，专为游戏
 
 部署在游戏内网的代理进程，负责游戏服务器与控制平面的通信。
 
-- **端口**: gRPC 19090 (本地监听)
+- **端口**: NNG 19090 (本地监听)
 - **职责**:
   - 连接 Server 并保持长连接
   - 注册游戏服务器函数
@@ -98,8 +98,8 @@ sequenceDiagram
   UI->>Server: POST /api/invoke
   Server->>Server: RBAC 鉴权
   Server->>Server: 审批检查
-  Server->>Agent: gRPC Invoke
-  Agent->>GS: 本地 gRPC 调用
+  Server->>Agent: NNG Invoke
+  Agent->>GS: 本地 RPC 调用
   GS-->>Agent: 响应
   Agent-->>Server: 响应
   Server->>Server: 审计记录

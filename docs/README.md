@@ -109,8 +109,8 @@ graph TB
   end
 
   UI -->|HTTP REST| Server
-  Server -->|gRPC mTLS| A1
-  Server -->|gRPC mTLS| A2
+  Server -->|NNG mTLS| A1
+  Server -->|NNG mTLS| A2
   A1 --> GS1
   A2 --> GS2
   Client --> GS1
@@ -152,8 +152,8 @@ graph TB
 ### API 参考
 
 - [API 概览](/api/) - API 总览
-- [gRPC API](/api/grpc/) - gRPC 服务定义
 - [REST API](/api/rest/) - HTTP REST 接口
+- [消息协议](/api/protocol/) - NNG 消息协议定义
 
 ### SDK 文档
 
@@ -172,7 +172,7 @@ graph TB
 
 | 特性 | 说明 |
 |------|------|
-| **零信任安全** | gRPC+mTLS、细粒度 RBAC/ABAC、操作审批与审计日志 |
+| **零信任安全** | NNG+mTLS、细粒度 RBAC/ABAC、操作审批与审计日志 |
 | **函数注册驱动** | 游戏服务器通过 Agent 注册函数，控制面统一管理 |
 | **Schema 驱动 UI** | X-Render + JSON Schema 自动生成表单和界面 |
 | **可观测性解耦** | 控制面与遥测面分离，支持实时事件处理 |
@@ -183,9 +183,9 @@ graph TB
 
 | 组件 | 仓库 | 说明 |
 |------|------|------|
-| Server / Agent / Edge | [cuihairu/croupier](https://github.com/cuihairu/croupier) | 主仓库 |
+| Server / Agent | [cuihairu/croupier](https://github.com/cuihairu/croupier) | 主仓库 |
 | Dashboard | [cuihairu/croupier-dashboard](https://github.com/cuihairu/croupier-dashboard) | Web 管理界面 |
-| Proto 定义 | [cuihairu/croupier-proto](https://github.com/cuihairu/croupier-proto) | gRPC/HTTP IDL |
+| Proto 定义 | [cuihairu/croupier-proto](https://github.com/cuihairu/croupier-proto) | Protocol Buffers 定义 |
 | Go SDK | [cuihairu/croupier-sdk-go](https://github.com/cuihairu/croupier-sdk-go) | Go 客户端 |
 | C++ SDK | [cuihairu/croupier-sdk-cpp](https://github.com/cuihairu/croupier-sdk-cpp) | C++ 客户端 |
 | Java SDK | [cuihairu/croupier-sdk-java](https://github.com/cuihairu/croupier-sdk-java) | Java 客户端 |
