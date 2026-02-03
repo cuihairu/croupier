@@ -19,10 +19,10 @@ const (
 // Message type IDs (24-bit, aligned with SDK)
 const (
 	// ControlService messages (0x01xx)
-	MsgRegisterRequest         = 0x010101
-	MsgRegisterResponse        = 0x010102
-	MsgHeartbeatRequest        = 0x010103
-	MsgHeartbeatResponse       = 0x010104
+	MsgRegisterRequest   = 0x010101
+	MsgRegisterResponse  = 0x010102
+	MsgHeartbeatRequest  = 0x010103
+	MsgHeartbeatResponse = 0x010104
 
 	// ClientService messages (0x02xx)
 	MsgRegisterClientRequest   = 0x020101
@@ -31,12 +31,12 @@ const (
 	MsgClientHeartbeatResponse = 0x020104
 
 	// InvokerService messages (0x03xx)
-	MsgInvokeRequest    = 0x030101
-	MsgInvokeResponse   = 0x030102
-	MsgStartJobRequest  = 0x030103
-	MsgStartJobResponse = 0x030104
-	MsgStreamJobRequest = 0x030105
-	MsgJobEvent         = 0x030106
+	MsgInvokeRequest     = 0x030101
+	MsgInvokeResponse    = 0x030102
+	MsgStartJobRequest   = 0x030103
+	MsgStartJobResponse  = 0x030104
+	MsgStreamJobRequest  = 0x030105
+	MsgJobEvent          = 0x030106
 	MsgCancelJobRequest  = 0x030107
 	MsgCancelJobResponse = 0x030108
 )

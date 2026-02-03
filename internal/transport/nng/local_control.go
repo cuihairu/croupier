@@ -11,8 +11,8 @@ import (
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/cuihairu/croupier/internal/transport/nng/protocol"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
+	"github.com/cuihairu/croupier/internal/transport/nng/protocol"
 )
 
 // LocalControlServer handles NNG-based SDK registration and function invocation.
