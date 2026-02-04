@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,14 +18,62 @@ import (
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol/rep"
+	_ "go.nanomsg.org/mangos/v3/transport/ipc"
 	_ "go.nanomsg.org/mangos/v3/transport/tcp"
 	"google.golang.org/protobuf/proto"
 )
 
+// ListenAddr represents a single listen address with transport type
+type ListenAddr struct {
+	Addr      string // Raw address (e.g., ":19090", "ipc://croupier-server")
+	Transport string // Transport type: "tcp", "ipc", etc.
+	URL       string // Full URL for NNG (e.g., "tcp://:19090", "ipc://croupier-server")
+}
+
+// ParseListenAddr parses a string address into a ListenAddr
+func ParseListenAddr(addr string) ListenAddr {
+	// If already has transport prefix, use as-is
+	if strings.Contains(addr, "://") {
+		parts := strings.SplitN(addr, "://", 2)
+		return ListenAddr{
+			Addr:      parts[1],
+			Transport: parts[0],
+			URL:       addr,
+		}
+	}
+
+	// Default to TCP
+	return ListenAddr{
+		Addr:      addr,
+		Transport: "tcp",
+		URL:       "tcp://" + addr,
+	}
+}
+
+// IsLocalTCP checks if an address is a local TCP address
+func IsLocalTCP(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		// Might be just a host, try parsing as-is
+		host = addr
+	}
+
+	// Remove brackets from IPv6 addresses
+	host = strings.Trim(host, "[]")
+
+	// Check for localhost variants
+	switch strings.ToLower(host) {
+	case "", "localhost", "127.0.0.1", "::1":
+		return true
+	}
+	return false
+}
+
 // Server implements an NNG-based control server (replaces gRPC ControlService)
 type Server struct {
-	addr     string
+	addrs    []ListenAddr // Multiple listen addresses
 	sock     mangos.Socket
+	sockets  []mangos.Socket // Multiple sockets for multi-listener
 	registry *reg.Store
 
 	// Session management
@@ -59,6 +109,8 @@ type Handler interface {
 }
 
 // NewServer creates a new NNG control server
+// addr can be a single address or comma-separated multiple addresses
+// Examples: ":19090" or ":19090,ipc://croupier-server"
 func NewServer(addr string, registry *reg.Store) *Server {
 	if registry == nil {
 		registry = reg.NewStore()
@@ -66,8 +118,50 @@ func NewServer(addr string, registry *reg.Store) *Server {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// Parse addresses
+	var addrs []ListenAddr
+	if addr != "" {
+		parts := strings.Split(addr, ",")
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				addrs = append(addrs, ParseListenAddr(part))
+			}
+		}
+	}
+
+	// Default if none specified
+	if len(addrs) == 0 {
+		addrs = []ListenAddr{ParseListenAddr(":19090")}
+	}
+
 	return &Server{
-		addr:              addr,
+		addrs:             addrs,
+		registry:          registry,
+		metricsStore:      reg.NewMetricsStore(),
+		systemInfoCache:   reg.NewSystemInfoCache(),
+		defaultSessionTTL: 5 * time.Minute,
+		ctx:               ctx,
+		cancel:            cancel,
+		logger:            slog.Default(),
+	}
+}
+
+// NewServerWithAddrs creates a new NNG control server with explicit listen addresses
+func NewServerWithAddrs(addrs []ListenAddr, registry *reg.Store) *Server {
+	if registry == nil {
+		registry = reg.NewStore()
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Default if none specified
+	if len(addrs) == 0 {
+		addrs = []ListenAddr{ParseListenAddr(":19090")}
+	}
+
+	return &Server{
+		addrs:             addrs,
 		registry:          registry,
 		metricsStore:      reg.NewMetricsStore(),
 		systemInfoCache:   reg.NewSystemInfoCache(),
@@ -124,27 +218,44 @@ func (s *Server) Start() error {
 	s.running = true
 	s.mu.Unlock()
 
-	// Create REP socket
-	sock, err := rep.NewSocket()
-	if err != nil {
-		return fmt.Errorf("failed to create socket: %w", err)
+	// Create a socket for each listen address
+	sockets := make([]mangos.Socket, 0, len(s.addrs))
+
+	for _, la := range s.addrs {
+		// Create REP socket
+		sock, err := rep.NewSocket()
+		if err != nil {
+			// Close any already created sockets
+			for _, s := range sockets {
+				s.Close()
+			}
+			return fmt.Errorf("failed to create socket for %s: %w", la.URL, err)
+		}
+
+		// Configure options
+		if err := sock.SetOption(mangos.OptionRecvDeadline, time.Second); err != nil {
+			sock.Close()
+			for _, s := range sockets {
+				s.Close()
+			}
+			return fmt.Errorf("failed to set recv deadline for %s: %w", la.URL, err)
+		}
+
+		// Listen on the address
+		if err := sock.Listen(la.URL); err != nil {
+			sock.Close()
+			for _, s := range sockets {
+				s.Close()
+			}
+			return fmt.Errorf("failed to listen on %s: %w", la.URL, err)
+		}
+
+		sockets = append(sockets, sock)
+		s.logger.Info("NNG Control server listening", "addr", la.URL, "transport", la.Transport)
 	}
 
-	// Configure options
-	if err := sock.SetOption(mangos.OptionRecvDeadline, time.Second); err != nil {
-		sock.Close()
-		return fmt.Errorf("failed to set recv deadline: %w", err)
-	}
-
-	// Listen (TCP transport is enabled via import side-effect)
-	listenAddr := "tcp://" + s.addr
-	if err := sock.Listen(listenAddr); err != nil {
-		sock.Close()
-		return fmt.Errorf("failed to listen on %s: %w", s.addr, err)
-	}
-
-	s.sock = sock
-	s.logger.Info("NNG Control server started", "addr", s.addr)
+	s.sockets = sockets
+	s.sock = sockets[0] // Primary socket for serving
 
 	// Start serving
 	go s.serve()
@@ -167,12 +278,16 @@ func (s *Server) Stop() error {
 
 	s.cancel()
 
-	if s.sock != nil {
-		if err := s.sock.Close(); err != nil {
-			s.logger.Error("failed to close socket", "error", err)
+	// Close all sockets
+	for _, sock := range s.sockets {
+		if sock != nil {
+			if err := sock.Close(); err != nil {
+				s.logger.Error("failed to close socket", "error", err)
+			}
 		}
-		s.sock = nil
 	}
+	s.sockets = nil
+	s.sock = nil
 
 	s.logger.Info("NNG Control server stopped")
 	return nil
@@ -456,24 +571,44 @@ func (s *Server) pruneOldMetrics() {
 // GetStats returns server statistics
 func (s *Server) GetStats() map[string]interface{} {
 	s.registry.Mu().RLock()
-	defer s.registry.Mu().RLock()
+	defer s.registry.Mu().RUnlock()
 
 	agents := s.registry.AgentsUnsafe()
 
+	// Build list of listen URLs
+	urls := make([]string, 0, len(s.addrs))
+	for _, la := range s.addrs {
+		urls = append(urls, la.URL)
+	}
+
 	return map[string]interface{}{
 		"agent_count": len(agents),
-		"address":     s.addr,
+		"addresses":   urls,
 		"running":     s.running,
 		"session_ttl": s.defaultSessionTTL.String(),
 	}
 }
 
-// GetLocalAddr returns the configured listening address
+// GetLocalAddr returns the primary configured listening address
 func (s *Server) GetLocalAddr() (string, error) {
-	if s.addr == "" {
+	if len(s.addrs) == 0 {
 		return "", fmt.Errorf("address not configured")
 	}
-	return s.addr, nil
+	return s.addrs[0].URL, nil
+}
+
+// GetAddrs returns all configured listen addresses
+func (s *Server) GetAddrs() []ListenAddr {
+	return s.addrs
+}
+
+// GetLocalAddrs returns all configured listen URLs
+func (s *Server) GetLocalAddrs() []string {
+	urls := make([]string, 0, len(s.addrs))
+	for _, la := range s.addrs {
+		urls = append(urls, la.URL)
+	}
+	return urls
 }
 
 // ControlHandler wraps Server to implement Handler interface

@@ -4,6 +4,7 @@ package nng
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,14 +13,16 @@ import (
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol/req"
+	_ "go.nanomsg.org/mangos/v3/transport/ipc"
 	_ "go.nanomsg.org/mangos/v3/transport/tcp"
 	"google.golang.org/protobuf/proto"
 )
 
 // Client implements an NNG-based control client (replaces gRPC ControlServiceClient)
 type Client struct {
-	addr string
-	sock mangos.Socket
+	addrs []string // Multiple addresses to try (in order)
+	addr  string   // Primary address (for backward compatibility)
+	sock  mangos.Socket
 
 	// Request/response matching
 	pending   map[uint32]chan *mangos.Message
@@ -53,10 +56,71 @@ func (defaultLogger) Warn(msg string, args ...any)  {}
 func (defaultLogger) Error(msg string, args ...any) {}
 
 // NewClient creates a new NNG control client
+// addr can be a single address or comma-separated multiple addresses
+// The client will try to connect to each address in order
+// Examples: "localhost:19090" or "ipc://croupier-server,localhost:19090"
 func NewClient(addr string) *Client {
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// Parse addresses
+	var addrs []string
+	if addr != "" {
+		parts := strings.Split(addr, ",")
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				// Add transport prefix if not present
+				if !strings.Contains(part, "://") {
+					// Default to TCP
+					addrs = append(addrs, "tcp://"+part)
+				} else {
+					addrs = append(addrs, part)
+				}
+			}
+		}
+	}
+
+	// Default if none specified
+	if len(addrs) == 0 {
+		addrs = []string{"tcp://:19090"}
+	}
+
 	return &Client{
-		addr:      addr,
+		addrs:     addrs,
+		addr:      addr, // Keep for backward compatibility
+		pending:   make(map[uint32]chan *mangos.Message),
+		nextReqID: 1,
+		ctx:       ctx,
+		cancel:    cancel,
+		logger:    defaultLogger{},
+	}
+}
+
+// NewClientWithAddrs creates a new NNG control client with explicit addresses
+func NewClientWithAddrs(addrs []string) *Client {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Ensure all addresses have transport prefix
+	urls := make([]string, 0, len(addrs))
+	for _, addr := range addrs {
+		addr = strings.TrimSpace(addr)
+		if addr == "" {
+			continue
+		}
+		if !strings.Contains(addr, "://") {
+			urls = append(urls, "tcp://"+addr)
+		} else {
+			urls = append(urls, addr)
+		}
+	}
+
+	// Default if none specified
+	if len(urls) == 0 {
+		urls = []string{"tcp://:19090"}
+	}
+
+	return &Client{
+		addrs:     urls,
 		pending:   make(map[uint32]chan *mangos.Message),
 		nextReqID: 1,
 		ctx:       ctx,
@@ -73,6 +137,7 @@ func (c *Client) SetLogger(logger Logger) {
 }
 
 // Dial connects to the NNG server
+// It will try each address in order until one succeeds
 func (c *Client) Dial() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -103,21 +168,28 @@ func (c *Client) Dial() error {
 		return fmt.Errorf("failed to set reconnect time: %w", err)
 	}
 
-	// Dial
-	dialAddr := "tcp://" + c.addr
-	if err := sock.Dial(dialAddr); err != nil {
-		sock.Close()
-		return fmt.Errorf("failed to dial %s: %w", c.addr, err)
+	// Try each address in order
+	var lastErr error
+	for _, dialAddr := range c.addrs {
+		if err := sock.Dial(dialAddr); err != nil {
+			lastErr = err
+			c.logger.Debug("failed to dial address, trying next", "addr", dialAddr, "error", err)
+			continue
+		}
+		// Successfully connected
+		c.sock = sock
+		c.running = true
+
+		// Start receive loop
+		go c.receiveLoop()
+
+		c.logger.Info("NNG Control client connected", "addr", dialAddr)
+		return nil
 	}
 
-	c.sock = sock
-	c.running = true
-
-	// Start receive loop
-	go c.receiveLoop()
-
-	c.logger.Info("NNG Control client connected", "addr", c.addr)
-	return nil
+	// All addresses failed
+	sock.Close()
+	return fmt.Errorf("failed to dial any address (last error: %w)", lastErr)
 }
 
 // Close closes the client connection

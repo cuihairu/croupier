@@ -36,7 +36,15 @@ type Config struct {
 // GRPCConfig 配置 NNG 控制服务器（控制平面）
 type GRPCConfig struct {
 	// NNG ControlService 监听地址（默认 :19090，用于 SDK/Agent 连接）
+	// 支持多传输层，可以使用逗号分隔多个地址
+	// 例如: ":19090" 或 ":19090,ipc://croupier-server"
+	// 支持的传输协议: tcp://, ipc:// (Windows Named Pipes / Unix Domain Socket)
 	Addr string `json:"addr" yaml:"addr"`
+
+	// IPC 地址（可选），用于本地高性能通信
+	// Windows: ipc://croupier-server
+	// Linux/Unix: ipc:///tmp/croupier-server.sock 或 ipc://@croupier-server (abstract)
+	IPCAddr string `json:"ipc_addr,optional" yaml:"ipc_addr,optional"`
 
 	// TLS 证书配置（保留用于未来 NNG TLS 支持）
 	Cert string `json:"cert,optional" yaml:"cert,optional"`
