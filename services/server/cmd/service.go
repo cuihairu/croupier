@@ -232,7 +232,7 @@ func runServerServiceInstall(cmd *cobra.Command, args []string) error {
 
 	status, err := svc.Status()
 	if err == nil && status != service.StatusUnknown {
-		return fmt.Errorf("服务 '%s' 已存在 (状态: %s)", serviceName, status)
+		return fmt.Errorf("服务 '%s' 已存在 (状态: %d)", serviceName, status)
 	}
 
 	fmt.Printf("正在安装服务 '%s'...\n", serviceName)

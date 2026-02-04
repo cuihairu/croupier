@@ -241,7 +241,7 @@ func runServiceInstall(cmd *cobra.Command, args []string) error {
 	// 检查服务是否已存在
 	status, err := svc.Status()
 	if err == nil && status != service.StatusUnknown {
-		return fmt.Errorf("服务 '%s' 已存在 (状态: %s)", serviceName, status)
+		return fmt.Errorf("服务 '%s' 已存在 (状态: %d)", serviceName, status)
 	}
 
 	// 安装服务
