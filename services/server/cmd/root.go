@@ -90,6 +90,9 @@ func init() {
 			return runServer()
 		},
 	})
+
+	// 初始化服务管理命令
+	initServiceCommand()
 }
 
 func runServer() error {
