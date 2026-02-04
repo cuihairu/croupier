@@ -458,8 +458,8 @@ const file_croupier_sdk_v1_types_proto_rawDesc = "" +
 	"\x12JOB_STATUS_RUNNING\x10\x02\x12\x18\n" +
 	"\x14JOB_STATUS_COMPLETED\x10\x03\x12\x15\n" +
 	"\x11JOB_STATUS_FAILED\x10\x04\x12\x18\n" +
-	"\x14JOB_STATUS_CANCELLED\x10\x05Ba\n" +
-	"\"io.github.cuihairu.croupier.sdk.v1P\x01Z9github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1b\x06proto3"
+	"\x14JOB_STATUS_CANCELLED\x10\x05Bi\n" +
+	"\"io.github.cuihairu.croupier.sdk.v1P\x01ZAgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/sdk/v1;sdkv1b\x06proto3"
 
 var (
 	file_croupier_sdk_v1_types_proto_rawDescOnce sync.Once

@@ -535,8 +535,8 @@ const file_croupier_control_v1_control_proto_rawDesc = "" +
 	"\x0eControlService\x12W\n" +
 	"\bRegister\x12$.croupier.control.v1.RegisterRequest\x1a%.croupier.control.v1.RegisterResponse\x12Z\n" +
 	"\tHeartbeat\x12%.croupier.control.v1.HeartbeatRequest\x1a&.croupier.control.v1.HeartbeatResponse\x12{\n" +
-	"\x14RegisterCapabilities\x120.croupier.control.v1.RegisterCapabilitiesRequest\x1a1.croupier.control.v1.RegisterCapabilitiesResponseBm\n" +
-	"&io.github.cuihairu.croupier.control.v1P\x01ZAgithub.com/cuihairu/croupier/pkg/pb/croupier/control/v1;controlv1b\x06proto3"
+	"\x14RegisterCapabilities\x120.croupier.control.v1.RegisterCapabilitiesRequest\x1a1.croupier.control.v1.RegisterCapabilitiesResponseBu\n" +
+	"&io.github.cuihairu.croupier.control.v1P\x01ZIgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/control/v1;controlv1b\x06proto3"
 
 var (
 	file_croupier_control_v1_control_proto_rawDescOnce sync.Once
