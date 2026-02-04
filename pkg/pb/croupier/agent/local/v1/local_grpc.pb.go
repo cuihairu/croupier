@@ -84,16 +84,17 @@ func (c *localControlServiceClient) GetJobResult(ctx context.Context, in *GetJob
 }
 
 // LocalControlServiceServer is the server API for LocalControlService service.
-// All implementations should embed UnimplementedLocalControlServiceServer
+// All implementations must embed UnimplementedLocalControlServiceServer
 // for forward compatibility.
 type LocalControlServiceServer interface {
 	RegisterLocal(context.Context, *RegisterLocalRequest) (*RegisterLocalResponse, error)
 	Heartbeat(context.Context, *HeartbeatRequest) (*HeartbeatResponse, error)
 	ListLocal(context.Context, *ListLocalRequest) (*ListLocalResponse, error)
 	GetJobResult(context.Context, *GetJobResultRequest) (*GetJobResultResponse, error)
+	mustEmbedUnimplementedLocalControlServiceServer()
 }
 
-// UnimplementedLocalControlServiceServer should be embedded to have
+// UnimplementedLocalControlServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
@@ -112,7 +113,8 @@ func (UnimplementedLocalControlServiceServer) ListLocal(context.Context, *ListLo
 func (UnimplementedLocalControlServiceServer) GetJobResult(context.Context, *GetJobResultRequest) (*GetJobResultResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetJobResult not implemented")
 }
-func (UnimplementedLocalControlServiceServer) testEmbeddedByValue() {}
+func (UnimplementedLocalControlServiceServer) mustEmbedUnimplementedLocalControlServiceServer() {}
+func (UnimplementedLocalControlServiceServer) testEmbeddedByValue()                             {}
 
 // UnsafeLocalControlServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to LocalControlServiceServer will

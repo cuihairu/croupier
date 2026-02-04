@@ -92,7 +92,7 @@ func (c *platformServiceClient) ReloadPlatformConfig(ctx context.Context, in *em
 }
 
 // PlatformServiceServer is the server API for PlatformService service.
-// All implementations should embed UnimplementedPlatformServiceServer
+// All implementations must embed UnimplementedPlatformServiceServer
 // for forward compatibility.
 //
 // PlatformService provides a unified interface for calling third-party platform APIs.
@@ -106,9 +106,10 @@ type PlatformServiceServer interface {
 	ListPlatformMethods(context.Context, *ListPlatformMethodsRequest) (*ListPlatformMethodsResponse, error)
 	// ReloadPlatformConfig reloads the platform configuration.
 	ReloadPlatformConfig(context.Context, *emptypb.Empty) (*ReloadPlatformConfigResponse, error)
+	mustEmbedUnimplementedPlatformServiceServer()
 }
 
-// UnimplementedPlatformServiceServer should be embedded to have
+// UnimplementedPlatformServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
@@ -127,7 +128,8 @@ func (UnimplementedPlatformServiceServer) ListPlatformMethods(context.Context, *
 func (UnimplementedPlatformServiceServer) ReloadPlatformConfig(context.Context, *emptypb.Empty) (*ReloadPlatformConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReloadPlatformConfig not implemented")
 }
-func (UnimplementedPlatformServiceServer) testEmbeddedByValue() {}
+func (UnimplementedPlatformServiceServer) mustEmbedUnimplementedPlatformServiceServer() {}
+func (UnimplementedPlatformServiceServer) testEmbeddedByValue()                         {}
 
 // UnsafePlatformServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to PlatformServiceServer will

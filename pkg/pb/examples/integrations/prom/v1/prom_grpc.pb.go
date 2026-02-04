@@ -48,13 +48,14 @@ func (c *promGmServiceClient) QueryRange(ctx context.Context, in *QueryRangeRequ
 }
 
 // PromGmServiceServer is the server API for PromGmService service.
-// All implementations should embed UnimplementedPromGmServiceServer
+// All implementations must embed UnimplementedPromGmServiceServer
 // for forward compatibility.
 type PromGmServiceServer interface {
 	QueryRange(context.Context, *QueryRangeRequest) (*QueryRangeResponse, error)
+	mustEmbedUnimplementedPromGmServiceServer()
 }
 
-// UnimplementedPromGmServiceServer should be embedded to have
+// UnimplementedPromGmServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
@@ -64,7 +65,8 @@ type UnimplementedPromGmServiceServer struct{}
 func (UnimplementedPromGmServiceServer) QueryRange(context.Context, *QueryRangeRequest) (*QueryRangeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method QueryRange not implemented")
 }
-func (UnimplementedPromGmServiceServer) testEmbeddedByValue() {}
+func (UnimplementedPromGmServiceServer) mustEmbedUnimplementedPromGmServiceServer() {}
+func (UnimplementedPromGmServiceServer) testEmbeddedByValue()                       {}
 
 // UnsafePromGmServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to PromGmServiceServer will
