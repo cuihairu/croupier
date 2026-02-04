@@ -123,15 +123,31 @@ func newServerService(cfgFile string) *croupierServerService {
 
 // Start 由服务管理器调用
 func (s *croupierServerService) Start(svc service.Service) error {
-	// 设置全局配置文件
+	s.logger("info", "=== Croupier Server 服务启动 ===")
+	s.logger("info", fmt.Sprintf("配置文件: %s", s.cfgFile))
+	s.logger("info", fmt.Sprintf("工作目录: %s", wd()))
+	s.logger("info", fmt.Sprintf("可执行文件: %s", exePath()))
+
+	// 检查配置文件是否存在
 	if s.cfgFile != "" {
+		if _, err := os.Stat(s.cfgFile); os.IsNotExist(err) {
+			s.logger("error", fmt.Sprintf("配置文件不存在: %s", s.cfgFile))
+			return fmt.Errorf("配置文件不存在: %s", s.cfgFile)
+		}
+		// 设置全局配置文件
 		cfgFile = s.cfgFile
 	}
 
-	s.logger("info", "Croupier Server 服务启动中...")
-
 	// 启动 server
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				s.logger("error", fmt.Sprintf("Server panic: %v", r))
+				svc.Stop()
+			}
+		}()
+
+		s.logger("info", "正在调用 runServer()...")
 		if err := runServer(); err != nil {
 			s.logger("error", fmt.Sprintf("Server 启动失败: %v", err))
 			// 启动失败，停止服务
@@ -144,6 +160,7 @@ func (s *croupierServerService) Start(svc service.Service) error {
 	// 等待上下文取消
 	go func() {
 		<-s.ctx.Done()
+		s.logger("info", "收到停止信号")
 		svc.Stop()
 	}()
 
@@ -159,7 +176,37 @@ func (s *croupierServerService) Stop(svc service.Service) error {
 
 func (s *croupierServerService) logger(level, msg string) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	fmt.Printf("[%s] [%s] %s\n", timestamp, level, msg)
+	logMsg := fmt.Sprintf("[%s] [%s] %s\n", timestamp, level, msg)
+	fmt.Print(logMsg)
+
+	// 同时写入日志文件（Windows 服务模式下标准输出不可见）
+	s.writeToLogFile(logMsg)
+}
+
+// writeToLogFile 将日志写入文件
+func (s *croupierServerService) writeToLogFile(msg string) {
+	// 获取日志目录
+	logDir := os.Getenv("CROUPIER_LOG_DIR")
+	if logDir == "" {
+		if service.Platform() == "windows" {
+			logDir = `C:\ProgramData\Croupier\logs`
+		} else {
+			logDir = "/var/log/croupier"
+		}
+	}
+
+	// 确保目录存在
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return
+	}
+
+	logFile := filepath.Join(logDir, "server-service.log")
+	f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	f.WriteString(msg)
 }
 
 // 创建服务对象
@@ -483,4 +530,20 @@ func getServerFlagValue(name string) string {
 		}
 	}
 	return ""
+}
+
+// wd 返回当前工作目录
+func wd() string {
+	if dir, err := os.Getwd(); err == nil {
+		return dir
+	}
+	return "unknown"
+}
+
+// exePath 返回可执行文件路径
+func exePath() string {
+	if path, err := os.Executable(); err == nil {
+		return path
+	}
+	return "unknown"
 }

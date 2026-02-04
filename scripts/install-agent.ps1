@@ -34,7 +34,7 @@ param(
 )
 
 # Default configuration
-$DefaultVersion = "v0.1.2"
+$DefaultVersion = "v0.1.4"
 $DefaultServerAddr = "localhost:8443"
 $DefaultEnv = "dev"
 
