@@ -11,7 +11,7 @@ type ServiceInfo struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"display_name"`
 	Status      string `json:"status"`     // running, stopped, paused
-	StartType   string `json:"start_type"`  // auto, manual, disabled
+	StartType   string `json:"start_type"` // auto, manual, disabled
 	ProcessID   uint32 `json:"process_id,omitempty"`
 }
 
@@ -28,11 +28,11 @@ type ServiceStatusDetail struct {
 
 // CronJob represents a cron job entry.
 type CronJob struct {
-	 Schedule   string `json:"schedule"`   // cron expression
-	Command    string `json:"command"`    // command to execute
-	User       string `json:"user"`       // user who runs the job
+	Schedule   string `json:"schedule"`    // cron expression
+	Command    string `json:"command"`     // command to execute
+	User       string `json:"user"`        // user who runs the job
 	SourceFile string `json:"source_file"` // file where this job is defined
-	Enabled    bool   `json:"enabled"`    // whether the job is active
+	Enabled    bool   `json:"enabled"`     // whether the job is active
 }
 
 // ListServices returns system services based on the platform.

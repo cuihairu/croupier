@@ -78,9 +78,9 @@ const (
 	MsgExecuteCommandRequest  = 0x04010F
 	MsgExecuteCommandResponse = 0x040110
 	// System services (platform-specific)
-	MsgListServicesRequest    = 0x040111
-	MsgListServicesResponse   = 0x040112
-	MsgGetServiceStatusRequest = 0x040113
+	MsgListServicesRequest      = 0x040111
+	MsgListServicesResponse     = 0x040112
+	MsgGetServiceStatusRequest  = 0x040113
 	MsgGetServiceStatusResponse = 0x040114
 
 	// LocalControlService (0x05xx) - Agent local function registration

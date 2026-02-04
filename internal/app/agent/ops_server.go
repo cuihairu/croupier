@@ -467,7 +467,7 @@ func (s *OpsServer) ListCronJobsJSON(ctx context.Context) ([]byte, error) {
 	// Return JSON response
 	resp := struct {
 		Jobs  []*CronJob `json:"jobs"`
-		Total int32       `json:"total"`
+		Total int32      `json:"total"`
 	}{
 		Jobs:  make([]*CronJob, len(jobs)),
 		Total: int32(len(jobs)),
@@ -513,7 +513,7 @@ type GetServiceStatusResponse struct {
 // ListCronJobsResponse contains the list of cron jobs.
 type ListCronJobsResponse struct {
 	Jobs  []*CronJob `json:"jobs"`
-	Total int32       `json:"total"`
+	Total int32      `json:"total"`
 }
 
 // ListServices returns system services.

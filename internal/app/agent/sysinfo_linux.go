@@ -233,7 +233,7 @@ func parseSystemdList(output, state, namePattern string, limit int) ([]ServiceIn
 
 		name := strings.TrimSpace(fields[0])
 		activeState := fields[2]
-		subState := fields[3]
+		_ = fields[3] // subState - available for future use
 
 		// Apply name pattern filter
 		if namePattern != "" && !strings.Contains(strings.ToLower(name), strings.ToLower(namePattern)) {
