@@ -13,16 +13,16 @@ type Config struct {
 	Database      DatabaseConfig           `json:"database" yaml:"database"`
 	GRPC          GRPCConfig               `json:"grpc" yaml:"grpc"`
 	Registry      RegistryConfig           `json:"registry" yaml:"registry"`
-	AgentDispatch AgentDispatchConfig      `json:"agent_dispatch" yaml:"agent_dispatch"`
+	AgentDispatch AgentDispatchConfig      `json:"AgentDispatch" yaml:"AgentDispatch"`
 	Auth          AuthConfig               `json:"auth" yaml:"auth"`
-	BootstrapData BootstrapDataConfig      `json:"bootstrap_data" yaml:"bootstrap_data"`
+	BootstrapData BootstrapDataConfig      `json:"BootstrapData" yaml:"BootstrapData"`
 	Descriptors   DescriptorConfig         `json:"descriptors" yaml:"descriptors"`
 	Components    ComponentsConfig         `json:"components" yaml:"components"`
 	Schemas       SchemasConfig            `json:"schemas" yaml:"schemas"`
 	Packs         PacksConfig              `json:"packs" yaml:"packs"`
 	Storage       StorageConfig            `json:"storage" yaml:"storage"`
 	Cache         CacheConfig              `json:"cache" yaml:"cache"`
-	CroupierLog   common.LogConfig         `json:"croupier_log" yaml:"croupier_log"`
+	CroupierLog   common.LogConfig         `json:"CroupierLog" yaml:"CroupierLog"`
 	Metrics       MetricsConfig            `json:"metrics" yaml:"metrics"`
 	Platforms     PlatformConfig           `json:"platforms" yaml:"platforms"`
 	Profiles      map[string]ProfileConfig `json:"profiles" yaml:"profiles"`
@@ -44,7 +44,7 @@ type GRPCConfig struct {
 	// IPC 地址（可选），用于本地高性能通信
 	// Windows: ipc://croupier-server
 	// Linux/Unix: ipc:///tmp/croupier-server.sock 或 ipc://@croupier-server (abstract)
-	IPCAddr string `json:"ipc_addr,optional" yaml:"ipc_addr,optional"`
+	IPCAddr string `json:"IPCAddr,optional" yaml:"IPCAddr,optional"`
 
 	// TLS 证书配置（保留用于未来 NNG TLS 支持）
 	Cert string `json:"cert,optional" yaml:"cert,optional"`
@@ -59,35 +59,35 @@ type DatabaseConfig struct {
 }
 
 type RegistryConfig struct {
-	AssignmentsPath      string `json:"assignments_path,optional" yaml:"assignments_path,optional"`
-	AnalyticsFiltersPath string `json:"analytics_filters_path,optional" yaml:"analytics_filters_path,optional"`
-	RateLimitsPath       string `json:"rate_limits_path,optional" yaml:"rate_limits_path,optional"`
+	AssignmentsPath      string `json:"AssignmentsPath,optional" yaml:"AssignmentsPath,optional"`
+	AnalyticsFiltersPath string `json:"AnalyticsFiltersPath,optional" yaml:"AnalyticsFiltersPath,optional"`
+	RateLimitsPath       string `json:"RateLimitsPath,optional" yaml:"RateLimitsPath,optional"`
 }
 
 type AgentDispatchConfig struct {
-	JobRoutingDir string          `json:"job_routing_dir,optional" yaml:"job_routing_dir,optional"`
-	JobRoutingTTL string          `json:"job_routing_ttl,optional" yaml:"job_routing_ttls,optional"`
-	ToAgentTLS    TLSClientConfig `json:"to_agent_tls,optional" yaml:"to_agent_tls,optional"` // Server → Agent TLS
+	JobRoutingDir string          `json:"JobRoutingDir,optional" yaml:"JobRoutingDir,optional"`
+	JobRoutingTTL string          `json:"JobRoutingTTL,optional" yaml:"JobRoutingTTL,optional"`
+	ToAgentTLS    TLSClientConfig `json:"ToAgentTLS,optional" yaml:"ToAgentTLS,optional"` // Server → Agent TLS
 }
 
 type TLSClientConfig struct {
 	Enabled            bool   `json:"enabled,optional" yaml:"enabled,optional"`
-	CertFile           string `json:"cert_file,optional" yaml:"cert_file,optional"`
-	KeyFile            string `json:"key_file,optional" yaml:"key_file,optional"`
-	CAFile             string `json:"ca_file,optional" yaml:"ca_file,optional"`
-	ServerName         string `json:"server_name,optional" yaml:"server_name,optional"`
-	InsecureSkipVerify bool   `json:"insecure_skip_verify,optional" yaml:"insecure_skip_verify,optional"`
+	CertFile           string `json:"CertFile,optional" yaml:"CertFile,optional"`
+	KeyFile            string `json:"KeyFile,optional" yaml:"KeyFile,optional"`
+	CAFile             string `json:"CAFile,optional" yaml:"CAFile,optional"`
+	ServerName         string `json:"ServerName,optional" yaml:"ServerName,optional"`
+	InsecureSkipVerify bool   `json:"InsecureSkipVerify,optional" yaml:"InsecureSkipVerify,optional"`
 }
 
 type AuthConfig struct {
-	JWTSecret   string `json:"jwt_secret,optional" yaml:"jwt_secret,optional"`
-	RBACConfig  string `json:"rbac_config,optional" yaml:"rbac_config,optional"`
-	UsersConfig string `json:"users_config,optional" yaml:"users_config,optional"`
-	GamesConfig string `json:"games_config,optional" yaml:"games_config,optional"`
+	JWTSecret   string `json:"JWTSecret,optional" yaml:"JWTSecret,optional"`
+	RBACConfig  string `json:"RBACConfig,optional" yaml:"RBACConfig,optional"`
+	UsersConfig string `json:"UsersConfig,optional" yaml:"UsersConfig,optional"`
+	GamesConfig string `json:"GamesConfig,optional" yaml:"GamesConfig,optional"`
 }
 
 type BootstrapDataConfig struct {
-	BaseDir string `json:"base_dir,optional" yaml:"base_dir,optional"`
+	BaseDir string `json:"BaseDir,optional" yaml:"BaseDir,optional"`
 }
 
 type DescriptorConfig struct {
@@ -95,8 +95,8 @@ type DescriptorConfig struct {
 }
 
 type ComponentsConfig struct {
-	DataDir    string `json:"data_dir,optional" yaml:"data_dir,optional"`
-	StagingDir string `json:"staging_dir,optional" yaml:"staging_dir,optional"`
+	DataDir    string `json:"DataDir,optional" yaml:"DataDir,optional"`
+	StagingDir string `json:"StagingDir,optional" yaml:"StagingDir,optional"`
 }
 
 type SchemasConfig struct {
@@ -112,16 +112,16 @@ type StorageConfig struct {
 	Bucket         string `json:"bucket,optional" yaml:"bucket,optional"`
 	Region         string `json:"region,optional" yaml:"region,optional"`
 	Endpoint       string `json:"endpoint,optional" yaml:"endpoint,optional"`
-	AccessKey      string `json:"access_key,optional" yaml:"access_key,optional"`
-	SecretKey      string `json:"secret_key,optional" yaml:"secret_key,optional"`
-	ForcePathStyle bool   `json:"force_path_style,optional" yaml:"force_path_style,optional"`
-	SignedURLTTL   string `json:"signed_url_ttl,optional" yaml:"signed_url_ttl,optional"`
-	BaseDir        string `json:"base_dir,optional" yaml:"base_dir,optional"`
+	AccessKey      string `json:"AccessKey,optional" yaml:"AccessKey,optional"`
+	SecretKey      string `json:"SecretKey,optional" yaml:"SecretKey,optional"`
+	ForcePathStyle bool   `json:"ForcePathStyle,optional" yaml:"ForcePathStyle,optional"`
+	SignedURLTTL   string `json:"SignedURLTTL,optional" yaml:"SignedURLTTL,optional"`
+	BaseDir        string `json:"BaseDir,optional" yaml:"BaseDir,optional"`
 }
 
 type MetricsConfig struct {
-	PerFunction   bool `json:"per_function,optional" yaml:"per_function,optional"`
-	PerGameDenies bool `json:"per_game_denies,optional" yaml:"per_game_denies,optional"`
+	PerFunction   bool `json:"PerFunction,optional" yaml:"PerFunction,optional"`
+	PerGameDenies bool `json:"PerGameDenies,optional" yaml:"PerGameDenies,optional"`
 }
 
 type ProfileConfig struct {
@@ -131,24 +131,24 @@ type ProfileConfig struct {
 }
 
 type CacheConfig struct {
-	Enabled  bool   `json:"enabled,optional" yaml:"enabled,optional"`     // 是否启用缓存
-	Type     string `json:"type,optional" yaml:"type,optional"`           // 缓存类型: redis, local
-	Addr     string `json:"addr,optional" yaml:"addr,optional"`           // Redis 地址 (host:port)
-	Password string `json:"password,optional" yaml:"password,optional"`   // Redis 密码
-	DB       int    `json:"db,optional" yaml:"db,optional"`               // Redis 数据库编号
-	PoolSize int    `json:"pool_size,optional" yaml:"pool_size,optional"` // Redis 连接池大小
-	TTL      string `json:"ttl,optional" yaml:"ttl,optional"`             // 默认过期时间 (例如: "5m", "1h")
-	MaxItems int    `json:"max_items,optional" yaml:"max_items,optional"` // 本地缓存最大条目数
-	EvictTTL string `json:"evict_ttl,optional" yaml:"evict_ttl,optional"` // 本地缓存清理间隔
+	Enabled  bool   `json:"Enabled,optional" yaml:"Enabled,optional"`   // 是否启用缓存
+	Type     string `json:"Type,optional" yaml:"Type,optional"`         // 缓存类型: redis, local
+	Addr     string `json:"Addr,optional" yaml:"Addr,optional"`         // Redis 地址 (host:port)
+	Password string `json:"Password,optional" yaml:"Password,optional"` // Redis 密码
+	DB       int    `json:"DB,optional" yaml:"DB,optional"`             // Redis 数据库编号
+	PoolSize int    `json:"PoolSize,optional" yaml:"PoolSize,optional"` // Redis 连接池大小
+	TTL      string `json:"TTL,optional" yaml:"TTL,optional"`           // 默认过期时间 (例如: "5m", "1h")
+	MaxItems int    `json:"MaxItems,optional" yaml:"MaxItems,optional"` // 本地缓存最大条目数
+	EvictTTL string `json:"EvictTTL,optional" yaml:"EvictTTL,optional"` // 本地缓存清理间隔
 }
 
 type PlatformConfig struct {
-	ConfigFile string `json:"config_file,optional" yaml:"config_file,optional"` // 配置文件路径
-	Enabled    bool   `json:"enabled,optional" yaml:"enabled,optional"`         // 是否启用平台集成
+	ConfigFile string `json:"ConfigFile,optional" yaml:"ConfigFile,optional"` // 配置文件路径
+	Enabled    bool   `json:"Enabled,optional" yaml:"Enabled,optional"`       // 是否启用平台集成
 }
 
 // SSEConfig 配置 Server-Sent Events (SSE) 推送
 type SSEConfig struct {
-	UpdateInterval    int `json:"update_interval,optional" yaml:"update_interval,optional"`         // 消息更新间隔（秒），默认 2
-	KeepAliveInterval int `json:"keep_alive_interval,optional" yaml:"keep_alive_interval,optional"` // Keep-alive 间隔（秒），默认 30
+	UpdateInterval    int `json:"UpdateInterval,optional" yaml:"UpdateInterval,optional"`       // 消息更新间隔（秒），默认 2
+	KeepAliveInterval int `json:"KeepAliveInterval,optional" yaml:"KeepAliveInterval,optional"` // Keep-alive 间隔（秒），默认 30
 }

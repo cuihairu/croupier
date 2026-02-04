@@ -1,92 +1,179 @@
-# go-zero server configuration
-Name: croupier-api
-Host: 0.0.0.0
-Port: 18780
-Timeout: 600000  # 10 minutes (in milliseconds) - for SSE and long-lived connections
+# ============================================
+# Croupier Server 配置文件
+# ============================================
+# 这是服务的主配置文件示例，包含所有可配置项及其默认值
+# 实际部署时可以根据需要调整配置值
 
-# SSE (Server-Sent Events) configuration
+# ============================================
+# 服务基本配置 (go-zero RestConf)
+# ============================================
+Name: croupier-server           # 服务名称
+Host: 0.0.0.0                   # 监听地址 (0.0.0.0 表示监听所有网卡)
+Port: 8080                      # HTTP REST API 端口
+Timeout: 600000                 # 超时时间(毫秒)，默认 10 分钟，用于 SSE 和长连接
+MaxConns: 10000                 # 最大连接数
+Mode: console                   # 运行模式: console|prod|test
+
+# ============================================
+# SSE (Server-Sent Events) 配置
+# ============================================
 SSE:
-  UpdateInterval: 2       # 消息更新间隔（秒），默认 2
-  KeepAliveInterval: 30   # Keep-alive 间隔（秒），默认 30
+  UpdateInterval: 2             # 消息更新间隔（秒），默认 2
+  KeepAliveInterval: 30         # Keep-alive 间隔（秒），默认 30
 
-# Database configuration
+# ============================================
+# 数据库配置
+# ============================================
 Database:
-  Driver: sqlite
-  DataSource: data/croupier.db
+  Driver: sqlite                 # 数据库驱动: sqlite|postgres|mysql
+  DataSource: data/croupier.db  # 数据源 (SQLite 文件路径 或 连接字符串)
 
-# NNG ControlService configuration (control plane)
+# ============================================
+# NNG ControlService 配置 (控制平面)
+# ============================================
+# 用于 SDK/Agent 注册和通信
 GRPC:
-  Addr: ":19090"          # NNG ControlService (SDK/Agent registration)
-  Cert: ""                # TLS cert (empty to auto-generate)
-  Key: ""                 # TLS key (empty to auto-generate)
-  CA: ""                  # TLS CA (empty to auto-generate)
+  Addr: ":19090"                # NNG 监听地址，默认 :19090
+  IPCAddr: ""                   # IPC 地址(可选)，用于本地高性能通信
+                                # Windows: ipc://croupier-server
+                                # Linux: ipc:///tmp/croupier-server.sock
+  Cert: ""                      # TLS 证书文件路径 (空字符串表示不使用 TLS)
+  Key: ""                       # TLS 私钥文件路径
+  CA: ""                        # TLS CA 证书文件路径
 
-# Registry configuration
+# ============================================
+# Registry (注册中心) 配置
+# ============================================
+# 存储游戏函数注册、分析过滤器、速率限制等数据
 Registry:
-  AssignmentsPath: "data/assignments.json"
-  AnalyticsFiltersPath: "packs/ui/analytics_filters.json"
-  RateLimitsPath: "data/rate_limits.json"
+  AssignmentsPath: "data/assignments.json"      # 游戏函数分配配置路径
+  AnalyticsFiltersPath: "packs/ui/analytics_filters.json"  # 分析过滤器路径
+  RateLimitsPath: "data/rate_limits.json"       # 速率限制配置路径
 
-# AgentDispatch configuration (Server → Agent)
+# ============================================
+# AgentDispatch (代理调度) 配置
+# ============================================
+# Server → Agent 通信配置
 AgentDispatch:
-  JobRoutingDir: "data"
-  JobRoutingTTL: "" # e.g. "24h"; empty disables cleanup
-  ToAgentTLS:
-    Enabled: false
-    CertFile: ""
-    KeyFile: ""
-    CAFile: ""
-    ServerName: ""
-    InsecureSkipVerify: true
+  JobRoutingDir: "data"        # 任务路由存储目录
+  JobRoutingTTL: ""             # 任务路由数据过期时间 (如 "24h")，空表示不过期
+  ToAgentTLS:                   # Server 连接 Agent 时的 TLS 配置
+    Enabled: false              # 是否启用 mTLS
+    CertFile: ""                # 客户端证书文件
+    KeyFile: ""                 # 客户端私钥文件
+    CAFile: ""                  # CA 证书文件
+    ServerName: ""              # 期望的服务器名称 (SNI)
+    InsecureSkipVerify: false   # 是否跳过证书验证 (仅测试用)
 
-# Authentication configuration
+# ============================================
+# Auth (认证授权) 配置
+# ============================================
 Auth:
-  JWTSecret: "localdevsecret-change-me"
-  RBACConfig: "configs/rbac.json"
-  UsersConfig: "configs/users.json"
-  GamesConfig: "configs/games.json"
+  JWTSecret: "localdevsecret-change-me"  # JWT 签名密钥 (生产环境请修改)
+  RBACConfig: "configs/rbac.json"       # RBAC 权限配置文件路径
+  UsersConfig: "configs/users.json"     # 用户配置文件路径
+  GamesConfig: "configs/games.json"     # 游戏配置文件路径
 
-# Bootstrap data (default JSON seeds)
+# ============================================
+# BootstrapData (引导数据) 配置
+# ============================================
+# 服务启动时加载的默认数据
 BootstrapData:
-  BaseDir: "configs"
+  BaseDir: "configs"            # 引导数据基础目录
 
-# Descriptors configuration
+# ============================================
+# Descriptors (描述符) 配置
+# ============================================
+# 游戏函数描述符存储位置
 Descriptors:
-  Dir: "packs"
+  Dir: "packs"                  # 描述符目录
 
-# Components configuration
+# ============================================
+# Components (组件) 配置
+# ============================================
+# UI 组件存储位置
 Components:
-  DataDir: "data"
-  StagingDir: "data/components/staging"
+  DataDir: "data"               # 组件数据目录
+  StagingDir: "data/components/staging"  # 组件暂存目录
 
-# Schemas configuration
+# ============================================
+# Schemas (Schema) 配置
+# ============================================
+# JSON Schema 验证规则存储位置
 Schemas:
-  Dir: "packs/ui"
+  Dir: "packs/ui"               # Schema 文件目录
 
-# Packs configuration
+# ============================================
+# Packs (函数包) 配置
+# ============================================
+# 游戏函数包存储位置
 Packs:
-  Dir: "packs"
+  Dir: "packs"                  # 函数包目录
 
-# Storage configuration
+# ============================================
+# Storage (存储) 配置
+# ============================================
+# 文件上传和对象存储配置
 Storage:
-  Driver: "file"
-  BaseDir: "data/uploads"
+  Driver: "file"                # 存储驱动: file|s3|minio|aliyun
+  BaseDir: "data/uploads"       # 本地文件存储目录
+  Bucket: ""                    # 对象存储桶名称
+  Region: ""                    # 对象存储区域
+  Endpoint: ""                  # 对象存储端点
+  AccessKey: ""                 # 访问密钥
+  SecretKey: ""                 # 秘密密钥
+  ForcePathStyle: false         # 是否强制路径风格 (S3 兼容性)
+  SignedURLTTL: ""              # 预签名 URL 有效期 (如 "1h")
 
-# Cache configuration
+# ============================================
+# Cache (缓存) 配置
+# ============================================
 Cache:
-  Enabled: true
-  Type: "local"          # local | redis
-  TTL: "5m"             # Default TTL
-  EvictTTL: "10m"       # Cleanup interval
-  MaxItems: 10000       # Max items for local cache
+  Enabled: true                 # 是否启用缓存
+  Type: "local"                 # 缓存类型: local|redis
+  Addr: ""                      # Redis 地址 (Type=redis 时必需, 如 "redis:6379")
+  Password: ""                  # Redis 密码
+  DB: 0                         # Redis 数据库编号
+  PoolSize: 50                  # Redis 连接池大小
+  TTL: "5m"                     # 默认过期时间
+  MaxItems: 10000               # 本地缓存最大条目数 (Type=local)
+  EvictTTL: "10m"               # 本地缓存清理间隔 (Type=local)
 
-# Logging configuration
+# ============================================
+# Logging (日志) 配置
+# ============================================
 CroupierLog:
-  Level: "info"
-  Format: "console"
-  Output: "stdout"
+  Level: "info"                 # 日志级别: debug|info|warn|error
+  Format: "console"             # 日志格式: console|json
+  Output: "stdout"              # 输出位置: stdout|stderr
+  File: ""                      # 日志文件路径 (留空则不写文件，如 "./logs/server.log")
+  MaxSize: 100                  # 单个日志文件最大大小 (MB)
+  MaxBackups: 3                 # 保留的旧日志文件数量
+  MaxAge: 7                     # 保留旧日志文件的最大天数
+  Compress: true                # 是否压缩旧日志文件
 
-# Metrics configuration
+# ============================================
+# Metrics (指标) 配置
+# ============================================
 Metrics:
-  PerFunction: true
-  PerGameDenies: false
+  PerFunction: true             # 是否记录每个函数的调用指标
+  PerGameDenies: false          # 是否记录每个游戏的拒绝详情
+
+# ============================================
+# Platforms (第三方平台) 配置
+# ============================================
+Platforms:
+  Enabled: false                # 是否启用第三方平台集成
+  ConfigFile: "configs/platforms.yaml"  # 平台配置文件路径
+
+# ============================================
+# Profiles (环境配置) 配置
+# ============================================
+# 不同环境的覆盖配置
+# Profiles:
+#   dev:
+#     Log:
+#       Level: "debug"
+#   prod:
+#     Log:
+#       Level: "error"
