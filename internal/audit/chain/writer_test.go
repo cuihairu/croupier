@@ -273,29 +273,6 @@ func TestWriter_EmptyMeta(t *testing.T) {
 	}
 }
 
-// TestFilepathDir 测试 filepathDir 辅助函数
-func TestFilepathDir(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"/path/to/file.txt", "/path/to"},
-		{"./relative/path/file.txt", "./relative/path"},
-		{"file.txt", "."},
-		{"", "."}, // 空字符串返回 "."
-		{"/a/b/c/d/e/file.txt", "/a/b/c/d/e"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			result := filepathDir(tt.input)
-			if result != tt.expected {
-				t.Errorf("filepathDir(%q) = %q, want %q", tt.input, result, tt.expected)
-			}
-		})
-	}
-}
-
 // TestWriter_Close 测试关闭 Writer
 func TestWriter_Close(t *testing.T) {
 	tmpDir := t.TempDir()

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	gpostgres "gorm.io/driver/postgres"
-	gsqlite "gorm.io/driver/sqlite"
+	gsqlite "github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 

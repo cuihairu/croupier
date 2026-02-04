@@ -24,12 +24,11 @@ require (
 	golang.org/x/crypto v0.47.0
 	// Removed gRPC - now using NNG (mangos)
 	gopkg.in/yaml.v3 v3.0.1
-	gorm.io/datatypes v1.2.7
+	gorm.io/datatypes v1.0.5
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/postgres v1.6.0
-	gorm.io/driver/sqlite v1.6.0
 	gorm.io/driver/sqlserver v1.6.3
-	gorm.io/gorm v1.31.1
+	gorm.io/gorm v1.30.5
 )
 
 require (
@@ -113,7 +112,7 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20251013123823-9fd1530e3ec3 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-sqlite3 v1.14.33 // indirect
+	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 	github.com/microsoft/go-mssqldb v1.9.6 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mozillazg/go-httpheader v0.4.0 // indirect
@@ -158,6 +157,7 @@ require (
 	google.golang.org/api v0.264.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260202165425-ce8ad4cf556b // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gorm.io/driver/sqlite v1.6.0 // indirect
 	k8s.io/utils v0.0.0-20260108192941-914a6e750570 // indirect
 	modernc.org/libc v1.67.7 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
@@ -175,3 +175,8 @@ require (
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
+
+// Exclude CGO-based sqlite3 driver, use glebarez/sqlite instead
+exclude github.com/mattn/go-sqlite3 v1.14.22
+
+exclude github.com/mattn/go-sqlite3 v1.14.33

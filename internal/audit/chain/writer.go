@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
@@ -16,7 +17,7 @@ type Writer struct {
 }
 
 func NewWriter(path string) (*Writer, error) {
-	if err := os.MkdirAll(filepathDir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
@@ -51,13 +52,4 @@ func (w *Writer) Log(kind, actor, target string, meta map[string]string) error {
 	}
 	copy(w.prev, h[:])
 	return nil
-}
-
-func filepathDir(p string) string {
-	for i := len(p) - 1; i >= 0; i-- {
-		if p[i] == '/' {
-			return p[:i]
-		}
-	}
-	return "."
 }

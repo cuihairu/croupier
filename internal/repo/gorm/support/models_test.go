@@ -4,14 +4,14 @@ import (
 	"testing"
 	"time"
 
-	"gorm.io/driver/sqlite"
+	gsqlite "github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 
 // setupTestDB 创建测试数据库
 func setupTestDB(t *testing.T) *gorm.DB {
 	dsn := "file:" + t.Name() + "?mode=memory&cache=shared"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
@@ -21,7 +21,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 // TestAutoMigrate 测试自动迁移
 func TestAutoMigrate(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:autotest?mode=memory"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open("file:autotest?mode=memory"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
@@ -410,7 +410,7 @@ func TestTicket_PriorityLevels(t *testing.T) {
 // BenchmarkCreateTicket 性能基准测试
 func BenchmarkCreateTicket(b *testing.B) {
 	dsn := "file:bench?mode=memory&cache=shared"
-	db, _ := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, _ := gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 	_ = AutoMigrate(db)
 
 	b.ResetTimer()
@@ -428,7 +428,7 @@ func BenchmarkCreateTicket(b *testing.B) {
 // BenchmarkQueryTicket 性能基准测试
 func BenchmarkQueryTicket(b *testing.B) {
 	dsn := "file:benchquery?mode=memory&cache=shared"
-	db, _ := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, _ := gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 	_ = AutoMigrate(db)
 
 	// 创建100条工单

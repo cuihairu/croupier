@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"gorm.io/driver/sqlite"
+	gsqlite "github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -13,7 +13,7 @@ import (
 func setupTestDB(t *testing.T) *gorm.DB {
 	// 使用唯一的 DSN 避免测试间共享数据
 	dsn := "file:" + t.Name() + "?mode=memory&cache=shared"
-	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestNewBroadcastRepo(t *testing.T) {
 
 // TestAutoMigrate 测试自动迁移
 func TestAutoMigrate(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
@@ -529,7 +529,7 @@ func TestRepo_Broadcast(t *testing.T) {
 
 // BenchmarkCreate 性能基准测试
 func BenchmarkCreate(b *testing.B) {
-	db, _ := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, _ := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	_ = AutoMigrate(db)
 	repo := NewRepo(db)
 	ctx := context.Background()
@@ -552,7 +552,7 @@ func BenchmarkCreate(b *testing.B) {
 
 // BenchmarkList 性能基准测试
 func BenchmarkList(b *testing.B) {
-	db, _ := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, _ := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	_ = AutoMigrate(db)
 	repo := NewRepo(db)
 	ctx := context.Background()

@@ -3,13 +3,13 @@ package assignments
 import (
 	"testing"
 
-	"gorm.io/driver/sqlite"
+	gsqlite "github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 
 // setupTestDB 创建一个内存 SQLite 数据库用于测试
 func setupTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("Failed to open test database: %v", err)
 	}
@@ -297,7 +297,7 @@ func TestStore_Delete_Nonexistent(t *testing.T) {
 
 // BenchmarkNewStore 性能基准测试
 func BenchmarkNewStore(b *testing.B) {
-	db, _ := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, _ := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		NewStore(db)
@@ -306,7 +306,7 @@ func BenchmarkNewStore(b *testing.B) {
 
 // BenchmarkSetAndGet 性能基准测试
 func BenchmarkSetAndGet(b *testing.B) {
-	db, _ := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, _ := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	store := NewStore(db)
 	_ = store.AutoMigrate()
 
