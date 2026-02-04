@@ -11,7 +11,7 @@ import (
 type Config struct {
 	rest.RestConf
 	Database      DatabaseConfig           `json:"database" yaml:"database"`
-	GRPC          GRPCConfig               `json:"grpc" yaml:"grpc"`
+	Control       ControlConfig            `json:"Control" yaml:"Control"`
 	Registry      RegistryConfig           `json:"registry" yaml:"registry"`
 	AgentDispatch AgentDispatchConfig      `json:"AgentDispatch" yaml:"AgentDispatch"`
 	Auth          AuthConfig               `json:"auth" yaml:"auth"`
@@ -22,7 +22,7 @@ type Config struct {
 	Packs         PacksConfig              `json:"packs" yaml:"packs"`
 	Storage       StorageConfig            `json:"storage" yaml:"storage"`
 	Cache         CacheConfig              `json:"cache" yaml:"cache"`
-	CroupierLog   common.LogConfig         `json:"CroupierLog" yaml:"CroupierLog"`
+	Log           common.LogConfig         `json:"Log" yaml:"Log"`
 	Metrics       MetricsConfig            `json:"metrics" yaml:"metrics"`
 	Platforms     PlatformConfig           `json:"platforms" yaml:"platforms"`
 	Profiles      map[string]ProfileConfig `json:"profiles" yaml:"profiles"`
@@ -33,13 +33,13 @@ type Config struct {
 	Labels map[string]string `json:"labels,optional" yaml:"labels,optional"`
 }
 
-// GRPCConfig 配置 NNG 控制服务器（控制平面）
-type GRPCConfig struct {
+// ControlConfig 配置 NNG 控制服务器（控制平面）
+type ControlConfig struct {
 	// NNG ControlService 监听地址（默认 :19090，用于 SDK/Agent 连接）
 	// 支持多传输层，可以使用逗号分隔多个地址
 	// 例如: ":19090" 或 ":19090,ipc://croupier-server"
 	// 支持的传输协议: tcp://, ipc:// (Windows Named Pipes / Unix Domain Socket)
-	Addr string `json:"addr" yaml:"addr"`
+	Addr string `json:"Addr" yaml:"Addr"`
 
 	// IPC 地址（可选），用于本地高性能通信
 	// Windows: ipc://croupier-server
@@ -47,9 +47,9 @@ type GRPCConfig struct {
 	IPCAddr string `json:"IPCAddr,optional" yaml:"IPCAddr,optional"`
 
 	// TLS 证书配置（保留用于未来 NNG TLS 支持）
-	Cert string `json:"cert,optional" yaml:"cert,optional"`
-	Key  string `json:"key,optional" yaml:"key,optional"`
-	CA   string `json:"ca,optional" yaml:"ca,optional"`
+	Cert string `json:"Cert,optional" yaml:"Cert,optional"`
+	Key  string `json:"Key,optional" yaml:"Key,optional"`
+	CA   string `json:"CA,optional" yaml:"CA,optional"`
 }
 
 // DatabaseConfig 配置数据库连接

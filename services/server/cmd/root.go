@@ -135,26 +135,26 @@ func runServer() error {
 
 	// 日志级别设置
 	if logLevel != "" {
-		if c.CroupierLog.Level == "" {
-			c.CroupierLog.Level = logLevel
+		if c.Log.Level == "" {
+			c.Log.Level = logLevel
 		}
 	}
 
 	// 初始化日志系统
-	if c.CroupierLog.Level == "" {
-		c.CroupierLog.Level = "info"
+	if c.Log.Level == "" {
+		c.Log.Level = "info"
 	}
-	if c.CroupierLog.Format == "" {
-		c.CroupierLog.Format = "console"
+	if c.Log.Format == "" {
+		c.Log.Format = "console"
 	}
 	common.SetupLoggerWithFile(
-		c.CroupierLog.Level,
-		c.CroupierLog.Format,
-		c.CroupierLog.Output,
-		c.CroupierLog.MaxSize,
-		c.CroupierLog.MaxBackups,
-		c.CroupierLog.MaxAge,
-		c.CroupierLog.Compress,
+		c.Log.Level,
+		c.Log.Format,
+		c.Log.Output,
+		c.Log.MaxSize,
+		c.Log.MaxBackups,
+		c.Log.MaxAge,
+		c.Log.Compress,
 	)
 
 	// 引导数据目录
@@ -201,7 +201,7 @@ func runServer() error {
 // startNNGControlServer 启动 NNG 控制服务器（替代 gRPC）
 func startNNGControlServer(c *config.Config, svcCtx *svc.ServiceContext) {
 	// 解析 NNG 监听地址
-	addr := c.GRPC.Addr
+	addr := c.Control.Addr
 	if addr == "" {
 		addr = ":19090" // 默认 NNG ControlService 端口（与 SDK 保持一致）
 	}

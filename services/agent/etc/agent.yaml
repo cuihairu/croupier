@@ -23,8 +23,8 @@ Agent:
   Zone: ""
   Labels: {}
 
-# gRPC configuration
-GRPC:
+# ServerControl configuration (NNG ControlService)
+ServerControl:
   Host: 127.0.0.1
   Port: 19090
   Timeout: 30000

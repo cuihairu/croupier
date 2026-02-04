@@ -32,7 +32,7 @@ Database:
 # NNG ControlService 配置 (控制平面)
 # ============================================
 # 用于 SDK/Agent 注册和通信
-GRPC:
+Control:
   Addr: ":19090"                # NNG 监听地址，默认 :19090
   IPCAddr: ""                   # IPC 地址(可选)，用于本地高性能通信
                                 # Windows: ipc://croupier-server
@@ -142,7 +142,7 @@ Cache:
 # ============================================
 # Logging (日志) 配置
 # ============================================
-CroupierLog:
+Log:
   Level: "info"                 # 日志级别: debug|info|warn|error
   Format: "console"             # 日志格式: console|json
   Output: "stdout"              # 输出位置: stdout|stderr

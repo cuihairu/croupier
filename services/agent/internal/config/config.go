@@ -29,7 +29,8 @@ type Config struct {
 		Labels    map[string]string `json:",optional"`
 	} `json:",optional"`
 
-	GRPC struct {
+	// ServerControl 配置连接到 Server 的 NNG 控制服务
+	ServerControl struct {
 		Host    string `json:",default=127.0.0.1"`
 		Port    int    `json:",default=19090"`
 		Timeout int64  `json:",default=30000"`
@@ -80,5 +81,5 @@ type Config struct {
 		InsecureSkipVerify bool   `json:",default=false"`
 	} `json:",optional"`
 
-	CroupierLog common.LogConfig `json:",optional"`
+	Log common.LogConfig `json:",optional"`
 }

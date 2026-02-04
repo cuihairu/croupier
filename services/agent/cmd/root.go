@@ -107,20 +107,20 @@ func runAgent() error {
 	}
 
 	// 初始化日志系统
-	if c.CroupierLog.Level == "" {
-		c.CroupierLog.Level = "info"
+	if c.Log.Level == "" {
+		c.Log.Level = "info"
 	}
-	if c.CroupierLog.Format == "" {
-		c.CroupierLog.Format = "console"
+	if c.Log.Format == "" {
+		c.Log.Format = "console"
 	}
 	common.SetupLoggerWithFile(
-		c.CroupierLog.Level,
-		c.CroupierLog.Format,
-		c.CroupierLog.File,
-		c.CroupierLog.MaxSize,
-		c.CroupierLog.MaxBackups,
-		c.CroupierLog.MaxAge,
-		c.CroupierLog.Compress,
+		c.Log.Level,
+		c.Log.Format,
+		c.Log.File,
+		c.Log.MaxSize,
+		c.Log.MaxBackups,
+		c.Log.MaxAge,
+		c.Log.Compress,
 	)
 
 	runCtx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -172,11 +172,11 @@ func startAgentCore(ctx context.Context, c *config.Config) (*agentcore.App, stri
 	}
 
 	// NNG local service address (for SDK→Agent communication)
-	nngHost := strings.TrimSpace(c.GRPC.Host)
+	nngHost := strings.TrimSpace(c.ServerControl.Host)
 	if nngHost == "" {
 		nngHost = "0.0.0.0"
 	}
-	nngPort := c.GRPC.Port
+	nngPort := c.ServerControl.Port
 	if nngPort == 0 {
 		nngPort = 19091 // Default NNG Agent port
 	}
