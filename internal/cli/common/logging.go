@@ -7,12 +7,106 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"sync/atomic"
 
 	"github.com/spf13/viper"
 	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 	"path/filepath"
-	"sync/atomic"
 )
+
+// ANSI 颜色代码
+const (
+	colorReset  = "\033[0m"
+	colorRed    = "\033[31m"
+	colorYellow = "\033[33m"
+	colorGreen  = "\033[32m"
+	colorGray   = "\033[90m"
+)
+
+// LogConfig 日志配置（通用结构，供所有服务使用）
+type LogConfig struct {
+	Level      string `json:",optional" yaml:",optional"` // debug|info|warn|error
+	Format     string `json:",optional" yaml:",optional"` // console|json
+	Output     string `json:",optional" yaml:",optional"` // stdout|stderr
+	File       string `json:",optional" yaml:",optional"` // 日志文件路径
+	MaxSize    int    `json:",optional" yaml:",optional"` // 单个日志文件最大大小（MB）
+	MaxBackups int    `json:",optional" yaml:",optional"` // 保留的旧日志文件最大数量
+	MaxAge     int    `json:",optional" yaml:",optional"` // 保留旧日志文件的最大天数
+	Compress   bool   `json:",optional" yaml:",optional"` // 是否压缩旧日志文件
+}
+
+// coloredTextHandler 是一个带颜色的文本处理器
+type coloredTextHandler struct {
+	slog.Handler
+	w io.Writer
+}
+
+// newColoredTextHandler 创建一个新的彩色文本处理器
+func newColoredTextHandler(w io.Writer, opts *slog.HandlerOptions) *coloredTextHandler {
+	if opts == nil {
+		opts = &slog.HandlerOptions{}
+	}
+	return &coloredTextHandler{
+		Handler: slog.NewTextHandler(w, opts),
+		w:       w,
+	}
+}
+
+// Handle 处理日志记录并添加颜色
+func (h *coloredTextHandler) Handle(ctx context.Context, r slog.Record) error {
+	// 检查是否是终端输出
+	if f, ok := h.w.(*os.File); ok && !isTerminal(f) {
+		return h.Handler.Handle(ctx, r)
+	}
+
+	// 先构建完整的日志消息
+	var buf []byte
+	if r.Level >= slog.LevelError {
+		buf = append(buf, colorRed...)
+	} else if r.Level >= slog.LevelWarn {
+		buf = append(buf, colorYellow...)
+	} else if r.Level >= slog.LevelInfo {
+		buf = append(buf, colorGreen...)
+	} else {
+		buf = append(buf, colorGray...)
+	}
+
+	// 添加级别
+	buf = append(buf, r.Level.String()...)
+	buf = append(buf, colorReset...)
+
+	// 添加时间
+	if !r.Time.IsZero() {
+		buf = append(buf, ' ')
+		buf = r.Time.AppendFormat(buf, "15:04:05.000")
+	}
+
+	// 添加消息
+	buf = append(buf, ' ')
+	msg := r.Message
+	buf = append(buf, msg...)
+
+	// 添加属性
+	r.Attrs(func(a slog.Attr) bool {
+		buf = append(buf, ' ')
+		buf = append(buf, a.Key...)
+		buf = append(buf, '=')
+		buf = append(buf, a.Value.String()...)
+		return true
+	})
+
+	buf = append(buf, '\n')
+
+	// 写入输出
+	_, err := h.w.Write(buf)
+	return err
+}
+
+// isTerminal 检查文件是否是终端
+func isTerminal(f *os.File) bool {
+	fileInfo, _ := f.Stat()
+	return (fileInfo.Mode() & os.ModeCharDevice) != 0
+}
 
 // SetupLoggerWithFile configures both std log and slog default logger.
 // format: console|json; level: debug|info|warn|error.
@@ -60,7 +154,8 @@ func SetupLoggerWithFile(level, format, filePath string, maxSizeMB, maxBackups, 
 	if strings.ToLower(format) == "json" {
 		h = slog.NewJSONHandler(w, opts)
 	} else {
-		h = slog.NewTextHandler(w, opts)
+		// 使用自定义的彩色文本处理器
+		h = newColoredTextHandler(w, opts)
 	}
 	// wrap with counting handler
 	h = &countHandler{next: h}

@@ -9,7 +9,6 @@
 - [核心服务](#核心服务)
   - [ControlService](#controlservice) - Agent 注册与管理
   - [FunctionService](#functionservice) - 函数调用
-  - [EdgeService](#edgeservice) - Edge 代理
   - [LocalControlService](#localcontrolservice) - 本地控制
 - [HTTP REST API](#http-rest-api)
 - [数据模型](#数据模型)
@@ -179,34 +178,6 @@ for {
 
 ---
 
-### EdgeService
-
-**包**: `croupier.server.v1`
-
-**功能**: Edge 代理作业查询
-
-#### 方法
-
-| 方法 | 请求 | 响应 | 描述 |
-|------|------|------|------|
-| `GetJobResult` | `GetJobResultRequest` | `GetJobResultResponse` | 查询作业结果 |
-
-#### 消息定义
-
-```protobuf
-message GetJobResultRequest {
-  string job_id = 1;
-}
-
-message GetJobResultResponse {
-  string state = 1;      // 作业状态
-  bytes payload = 2;     // 结果载荷
-  string error = 3;      // 错误信息
-}
-```
-
----
-
 ### LocalControlService
 
 **包**: `croupier.agent.local.v1`
@@ -334,7 +305,7 @@ message PermissionSpec {
 
 ### mTLS
 
-所有服务间通信 (Server ↔ Agent ↔ Edge) 强制使用 mTLS。
+所有服务间通信 (Server ↔ Agent) 强制使用 mTLS。
 
 配置示例:
 ```yaml

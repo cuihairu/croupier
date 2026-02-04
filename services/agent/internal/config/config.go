@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/zeromicro/go-zero/rest"
 )
 
@@ -69,4 +70,6 @@ type Config struct {
 		ServerName         string `json:",optional"`
 		InsecureSkipVerify bool   `json:",default=false"`
 	} `json:",optional"`
+
+	CroupierLog common.LogConfig `json:",optional"`
 }

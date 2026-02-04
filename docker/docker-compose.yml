@@ -75,18 +75,6 @@ services:
   # Croupier 服务
   # ================================
 
-  edge:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.edge
-      args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.25}
-        RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
-    command: ["edge", "--config", "/app/configs/edge.yaml"]
-    ports: ["9443:9443", "9080:9080"]
-    networks:
-      - croupier-network
-
   server:
     build:
       context: ..
@@ -109,8 +97,6 @@ services:
     command: ["server", "--config", "/app/configs/server.yaml"]
     ports: ["8443:8443", "18080:8080"]
     depends_on:
-      edge:
-        condition: service_started
       postgres:
         condition: service_healthy
       redis:
@@ -129,7 +115,6 @@ services:
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/static:nonroot}
     command: ["agent", "--config", "/app/configs/agent.yaml"]
     ports: ["19090:19090", "19091:19091"]
-    depends_on: [edge]
     networks:
       - croupier-network
 

@@ -92,7 +92,8 @@ make build
 # 构建特定组件
 make build-server
 make build-agent
-make build-edge
+make build-worker
+make build-ingest
 ```
 
 构建产物将输出到 `/bin` 目录：
@@ -101,7 +102,8 @@ make build-edge
 bin/
 ├── croupier-server
 ├── croupier-agent
-└── croupier-edge
+├── analytics-worker
+└── ingest
 ```
 
 ## 运行服务

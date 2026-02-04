@@ -127,7 +127,6 @@ graph TB
 |------|------|------|
 | Server | 中央控制平面（HTTP + gRPC） | [cuihairu/croupier](https://github.com/cuihairu/croupier) |
 | Agent | 分布式代理进程 | [cuihairu/croupier](https://github.com/cuihairu/croupier) |
-| Edge | DMZ/边缘代理 | [cuihairu/croupier](https://github.com/cuihairu/croupier) |
 | Dashboard | Web 管理界面 | [cuihairu/croupier-dashboard](https://github.com/cuihairu/croupier-dashboard) |
 
 ## 相关链接

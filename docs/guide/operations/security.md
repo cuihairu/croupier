@@ -33,8 +33,7 @@ graph TB
     end
 
     subgraph "通信层"
-        mTLS1[Server ↔ Agent<br/>mTLS]
-        mTLS2[Server ↔ Edge<br/>mTLS]
+        mTLS[Server ↔ Agent<br/>mTLS]
     end
 
     subgraph "数据层"
@@ -44,8 +43,7 @@ graph TB
     UI -->|HTTPS| TLS
     TLS --> Auth
     Auth --> Audit
-    TLS --> mTLS1
-    TLS --> mTLS2
+    TLS --> mTLS
 ```
 
 ## TLS/mTLS 配置
@@ -59,7 +57,7 @@ graph TB
                 |                                 |
         Server ← ← ← ← ← ← ← ← Agent ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ←
         |               |                 |               |
-   Server.crt     Edge.crt         Agent1.crt     Agent2.crt
+   Server.crt         Agent1.crt       Agent2.crt       Agent3.crt
 ```
 
 **本地开发环境（自动生成证书）**：
@@ -121,7 +119,7 @@ openssl x509 -req -days 365 \
 ```yaml
 # server.yaml
 GRPC:
-  Addr: ":18443"
+  Addr: ":19090"
   Cert: ""      # 空=自动生成证书
   Key: ""       # 空=自动生成密钥
   CA: ""        # 空=不要求客户端证书（启用 mTLS 时设置 CA 路径）
@@ -132,7 +130,7 @@ GRPC:
 ```yaml
 # server.yaml
 GRPC:
-  Addr: ":18443"
+  Addr: ":19090"
   Cert: "/path/to/server.crt"     # 手动配置证书
   Key: "/path/to/server.key"      # 手动配置密钥
   CA: "/path/to/ca.crt"          # 配置 CA 时启用 mTLS
@@ -145,7 +143,7 @@ GRPC:
 ```yaml
 # agent.yaml
 Server:
-  Addr: localhost:18443
+  Addr: localhost:19090
   Insecure: false               # 使用 TLS
   CAFile: "etc/certs/ca.crt"    # CA 证书
   InsecureSkipVerify: true       # 跳过验证（本地开发）
@@ -156,7 +154,7 @@ Server:
 ```yaml
 # agent.yaml
 Server:
-  Addr: server.example.com:18443
+  Addr: server.example.com:19090
   Insecure: false
   CAFile: "/path/to/ca.crt"      # CA 证书
   TLSCertFile: "/path/to/agent.crt"  # 客户端证书

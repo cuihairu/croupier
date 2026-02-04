@@ -14,6 +14,7 @@ import (
 	"time"
 
 	agentcore "github.com/cuihairu/croupier/internal/app/agent"
+	"github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/cuihairu/croupier/internal/devcert"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	"github.com/cuihairu/croupier/services/agent/internal/config"
@@ -104,6 +105,23 @@ func runAgent() error {
 		fmt.Println("Debug mode enabled")
 		c.RestConf.Mode = "dev"
 	}
+
+	// 初始化日志系统
+	if c.CroupierLog.Level == "" {
+		c.CroupierLog.Level = "info"
+	}
+	if c.CroupierLog.Format == "" {
+		c.CroupierLog.Format = "console"
+	}
+	common.SetupLoggerWithFile(
+		c.CroupierLog.Level,
+		c.CroupierLog.Format,
+		c.CroupierLog.File,
+		c.CroupierLog.MaxSize,
+		c.CroupierLog.MaxBackups,
+		c.CroupierLog.MaxAge,
+		c.CroupierLog.Compress,
+	)
 
 	runCtx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()

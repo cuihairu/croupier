@@ -11,12 +11,12 @@ tag:
 
 # Directory Structure (Go-Zero Multi-Process)
 
-The repository now standardizes on [go-zero](https://go-zero.dev/) across all backend services. Each process (server, agent, edge, analytics-worker, …) manages its own generated code, GORM models, and migrations under `services/<name>/`. This document captures the conventions to keep those services consistent.
+The repository now standardizes on [go-zero](https://go-zero.dev/) across all backend services. Each process (server, agent, analytics-worker, ingest, …) manages its own generated code, GORM models, and migrations under `services/<name>/`. This document captures the conventions to keep those services consistent.
 
 ## Top-Level Layout
 
 - `cmd/`            Legacy entrypoints and helper binaries.
-- `services/`       Go-zero applications (`server`, `agent`, `edge`, `ingest`, …).
+- `services/`       Go-zero applications (`server`, `agent`, `worker`, `ingest`, …).
 - `internal/`       Shared libraries (auth, db helpers, schedulers, etc.).
 - `pkg/`            Exported helper packages (rare; only for stable APIs).
 - `configs/`        Global YAML, RBAC, bootstrap data.

@@ -53,7 +53,7 @@ Croupier 是一个现代化的**三层分布式 GM 后台系统**，专为游戏
 
 中央控制平面，负责权限控制、函数路由和协调。
 
-- **端口**: gRPC 8443 (mTLS), HTTP 8080 (REST)
+- **端口**: NNG 8443 (mTLS), HTTP 8080 (REST)
 - **职责**:
   - Agent 注册与连接管理
   - 函数调用路由与负载均衡
@@ -65,22 +65,13 @@ Croupier 是一个现代化的**三层分布式 GM 后台系统**，专为游戏
 
 部署在游戏内网的代理进程，负责游戏服务器与控制平面的通信。
 
-- **端口**: gRPC 19090 (本地监听)
+- **端口**: NNG 19090 (本地监听)
 - **职责**:
   - 连接 Server 并保持长连接
   - 注册游戏服务器函数
   - 转发函数调用请求
   - 执行异步作业
   - 支持双向隧道
-
-### Edge（边缘代理）
-
-可选的 DMZ/边缘组件，用于公网场景。
-
-- **职责**:
-  - 桥接内网 Server 和公网 Agent
-  - 隧道切换与连接复用
-  - 流量转发与负载均衡
 
 ### Dashboard（管理界面）
 
@@ -107,31 +98,11 @@ sequenceDiagram
   UI->>Server: POST /api/invoke
   Server->>Server: RBAC 鉴权
   Server->>Server: 审批检查
-  Server->>Agent: gRPC Invoke
-  Agent->>GS: 本地 gRPC 调用
+  Server->>Agent: NNG Invoke
+  Agent->>GS: 本地 RPC 调用
   GS-->>Agent: 响应
   Agent-->>Server: 响应
   Server->>Server: 审计记录
-  Server-->>UI: 结果
-```
-
-### 隧道模式（经 Edge）
-
-```mermaid
-sequenceDiagram
-  participant UI as Web UI
-  participant Server as Server
-  participant Edge as Edge
-  participant Agent as Agent
-  participant GS as Game Server
-
-  UI->>Server: POST /api/invoke
-  Server->>Edge: 转发请求
-  Edge->>Agent: 隧道传输
-  Agent->>GS: 本地调用
-  GS-->>Agent: 响应
-  Agent-->>Edge: 响应
-  Edge-->>Server: 响应
   Server-->>UI: 结果
 ```
 

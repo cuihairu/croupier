@@ -2,9 +2,9 @@ Name: croupier-agent
 Host: 0.0.0.0
 Port: 18888
 
-# Server configuration
+# Server configuration (NNG ControlService)
 Server:
-  Addr: localhost:18443
+  Addr: localhost:19090
   Insecure: false              # Use TLS (encryption)
   TLSCertFile: ""              # Client cert (for mTLS, not needed for local dev)
   TLSKeyFile: ""               # Client key (for mTLS, not needed for local dev)
