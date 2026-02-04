@@ -385,18 +385,33 @@ func newRateLimiter(requestsPerMinute int) *rateLimiter {
 		requestsPerMinute = 1000 // QuickSDK default
 	}
 	interval := time.Minute / time.Duration(requestsPerMinute)
-	return &rateLimiter{
-		tokens:   make(chan struct{}, requestsPerMinute),
+	burstSize := max(1, requestsPerMinute/60) // Allow 1 second burst
+
+	rl := &rateLimiter{
+		tokens:   make(chan struct{}, burstSize),
 		interval: interval,
 	}
+
+	// Fill initial tokens
+	for i := 0; i < burstSize; i++ {
+		rl.tokens <- struct{}{}
+	}
+
+	// Start refill goroutine
+	go rl.refill()
+
+	return rl
 }
 
-func (rl *rateLimiter) start() {
-	for {
-		time.Sleep(rl.interval)
+func (rl *rateLimiter) refill() {
+	ticker := time.NewTicker(rl.interval)
+	defer ticker.Stop()
+
+	for range ticker.C {
 		select {
 		case rl.tokens <- struct{}{}:
 		default:
+			// Bucket is full, discard token
 		}
 	}
 }
