@@ -106,8 +106,8 @@ func init() {
 
 // croupierAgentService 实现 service.Interface
 type croupierAgentService struct {
-	ctx    context.Context
-	cancel context.CancelFunc
+	ctx     context.Context
+	cancel  context.CancelFunc
 	cfgFile string
 }
 
