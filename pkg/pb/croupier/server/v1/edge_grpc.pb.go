@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: server/v1/edge.proto
+// source: croupier/server/v1/edge.proto
 
 package serverv1
 
@@ -51,16 +51,17 @@ func (c *edgeServiceClient) GetJobResult(ctx context.Context, in *GetJobResultRe
 }
 
 // EdgeServiceServer is the server API for EdgeService service.
-// All implementations should embed UnimplementedEdgeServiceServer
+// All implementations must embed UnimplementedEdgeServiceServer
 // for forward compatibility.
 //
 // Server Edge Service - Internal interface for edge proxy job queries
 type EdgeServiceServer interface {
 	// Get job result through edge proxy
 	GetJobResult(context.Context, *GetJobResultRequest) (*GetJobResultResponse, error)
+	mustEmbedUnimplementedEdgeServiceServer()
 }
 
-// UnimplementedEdgeServiceServer should be embedded to have
+// UnimplementedEdgeServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
@@ -70,7 +71,8 @@ type UnimplementedEdgeServiceServer struct{}
 func (UnimplementedEdgeServiceServer) GetJobResult(context.Context, *GetJobResultRequest) (*GetJobResultResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetJobResult not implemented")
 }
-func (UnimplementedEdgeServiceServer) testEmbeddedByValue() {}
+func (UnimplementedEdgeServiceServer) mustEmbedUnimplementedEdgeServiceServer() {}
+func (UnimplementedEdgeServiceServer) testEmbeddedByValue()                     {}
 
 // UnsafeEdgeServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to EdgeServiceServer will
@@ -121,5 +123,5 @@ var EdgeService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "server/v1/edge.proto",
+	Metadata: "croupier/server/v1/edge.proto",
 }

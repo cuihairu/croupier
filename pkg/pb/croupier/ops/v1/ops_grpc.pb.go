@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: ops/v1/ops.proto
+// source: croupier/ops/v1/ops.proto
 
 package opsv1
 
@@ -195,7 +195,7 @@ func (c *opsServiceClient) ListCronJobs(ctx context.Context, in *emptypb.Empty, 
 }
 
 // OpsServiceServer is the server API for OpsService service.
-// All implementations should embed UnimplementedOpsServiceServer
+// All implementations must embed UnimplementedOpsServiceServer
 // for forward compatibility.
 //
 // OpsService provides server operations and monitoring capabilities.
@@ -232,9 +232,10 @@ type OpsServiceServer interface {
 	// ListCronJobs lists cron jobs on Linux systems.
 	// This operation does not require admin privileges.
 	ListCronJobs(context.Context, *emptypb.Empty) (*ListCronJobsResponse, error)
+	mustEmbedUnimplementedOpsServiceServer()
 }
 
-// UnimplementedOpsServiceServer should be embedded to have
+// UnimplementedOpsServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
@@ -274,7 +275,8 @@ func (UnimplementedOpsServiceServer) GetServiceStatus(context.Context, *GetServi
 func (UnimplementedOpsServiceServer) ListCronJobs(context.Context, *emptypb.Empty) (*ListCronJobsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListCronJobs not implemented")
 }
-func (UnimplementedOpsServiceServer) testEmbeddedByValue() {}
+func (UnimplementedOpsServiceServer) mustEmbedUnimplementedOpsServiceServer() {}
+func (UnimplementedOpsServiceServer) testEmbeddedByValue()                    {}
 
 // UnsafeOpsServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to OpsServiceServer will
@@ -536,5 +538,5 @@ var OpsService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "ops/v1/ops.proto",
+	Metadata: "croupier/ops/v1/ops.proto",
 }

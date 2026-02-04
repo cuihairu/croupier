@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: api/v1/management.proto
+// source: croupier/api/v1/management.proto
 
 package apiv1
 
@@ -32,7 +32,7 @@ type ManagementRequest struct {
 
 func (x *ManagementRequest) Reset() {
 	*x = ManagementRequest{}
-	mi := &file_api_v1_management_proto_msgTypes[0]
+	mi := &file_croupier_api_v1_management_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -44,7 +44,7 @@ func (x *ManagementRequest) String() string {
 func (*ManagementRequest) ProtoMessage() {}
 
 func (x *ManagementRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_management_proto_msgTypes[0]
+	mi := &file_croupier_api_v1_management_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +57,7 @@ func (x *ManagementRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ManagementRequest.ProtoReflect.Descriptor instead.
 func (*ManagementRequest) Descriptor() ([]byte, []int) {
-	return file_api_v1_management_proto_rawDescGZIP(), []int{0}
+	return file_croupier_api_v1_management_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *ManagementRequest) GetOperation() string {
@@ -85,7 +85,7 @@ type ManagementResponse struct {
 
 func (x *ManagementResponse) Reset() {
 	*x = ManagementResponse{}
-	mi := &file_api_v1_management_proto_msgTypes[1]
+	mi := &file_croupier_api_v1_management_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -97,7 +97,7 @@ func (x *ManagementResponse) String() string {
 func (*ManagementResponse) ProtoMessage() {}
 
 func (x *ManagementResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_v1_management_proto_msgTypes[1]
+	mi := &file_croupier_api_v1_management_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -110,7 +110,7 @@ func (x *ManagementResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ManagementResponse.ProtoReflect.Descriptor instead.
 func (*ManagementResponse) Descriptor() ([]byte, []int) {
-	return file_api_v1_management_proto_rawDescGZIP(), []int{1}
+	return file_croupier_api_v1_management_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ManagementResponse) GetResult() string {
@@ -127,11 +127,11 @@ func (x *ManagementResponse) GetError() string {
 	return ""
 }
 
-var File_api_v1_management_proto protoreflect.FileDescriptor
+var File_croupier_api_v1_management_proto protoreflect.FileDescriptor
 
-const file_api_v1_management_proto_rawDesc = "" +
+const file_croupier_api_v1_management_proto_rawDesc = "" +
 	"\n" +
-	"\x17api/v1/management.proto\x12\x0fcroupier.api.v1\"\xc4\x01\n" +
+	" croupier/api/v1/management.proto\x12\x0fcroupier.api.v1\"\xc4\x01\n" +
 	"\x11ManagementRequest\x12\x1c\n" +
 	"\toperation\x18\x01 \x01(\tR\toperation\x12R\n" +
 	"\n" +
@@ -144,28 +144,28 @@ const file_api_v1_management_proto_rawDesc = "" +
 	"\x06result\x18\x01 \x01(\tR\x06result\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error2f\n" +
 	"\x11ManagementService\x12Q\n" +
-	"\x06Manage\x12\".croupier.api.v1.ManagementRequest\x1a#.croupier.api.v1.ManagementResponseBX\n" +
-	"\"io.github.cuihairu.croupier.api.v1P\x01Z0github.com/cuihairu/croupier/pkg/pb/api/v1;apiv1b\x06proto3"
+	"\x06Manage\x12\".croupier.api.v1.ManagementRequest\x1a#.croupier.api.v1.ManagementResponseBa\n" +
+	"\"io.github.cuihairu.croupier.api.v1P\x01Z9github.com/cuihairu/croupier/pkg/pb/croupier/api/v1;apiv1b\x06proto3"
 
 var (
-	file_api_v1_management_proto_rawDescOnce sync.Once
-	file_api_v1_management_proto_rawDescData []byte
+	file_croupier_api_v1_management_proto_rawDescOnce sync.Once
+	file_croupier_api_v1_management_proto_rawDescData []byte
 )
 
-func file_api_v1_management_proto_rawDescGZIP() []byte {
-	file_api_v1_management_proto_rawDescOnce.Do(func() {
-		file_api_v1_management_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_api_v1_management_proto_rawDesc), len(file_api_v1_management_proto_rawDesc)))
+func file_croupier_api_v1_management_proto_rawDescGZIP() []byte {
+	file_croupier_api_v1_management_proto_rawDescOnce.Do(func() {
+		file_croupier_api_v1_management_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_croupier_api_v1_management_proto_rawDesc), len(file_croupier_api_v1_management_proto_rawDesc)))
 	})
-	return file_api_v1_management_proto_rawDescData
+	return file_croupier_api_v1_management_proto_rawDescData
 }
 
-var file_api_v1_management_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_api_v1_management_proto_goTypes = []any{
+var file_croupier_api_v1_management_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_croupier_api_v1_management_proto_goTypes = []any{
 	(*ManagementRequest)(nil),  // 0: croupier.api.v1.ManagementRequest
 	(*ManagementResponse)(nil), // 1: croupier.api.v1.ManagementResponse
 	nil,                        // 2: croupier.api.v1.ManagementRequest.ParametersEntry
 }
-var file_api_v1_management_proto_depIdxs = []int32{
+var file_croupier_api_v1_management_proto_depIdxs = []int32{
 	2, // 0: croupier.api.v1.ManagementRequest.parameters:type_name -> croupier.api.v1.ManagementRequest.ParametersEntry
 	0, // 1: croupier.api.v1.ManagementService.Manage:input_type -> croupier.api.v1.ManagementRequest
 	1, // 2: croupier.api.v1.ManagementService.Manage:output_type -> croupier.api.v1.ManagementResponse
@@ -176,26 +176,26 @@ var file_api_v1_management_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_api_v1_management_proto_init() }
-func file_api_v1_management_proto_init() {
-	if File_api_v1_management_proto != nil {
+func init() { file_croupier_api_v1_management_proto_init() }
+func file_croupier_api_v1_management_proto_init() {
+	if File_croupier_api_v1_management_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1_management_proto_rawDesc), len(file_api_v1_management_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_api_v1_management_proto_rawDesc), len(file_croupier_api_v1_management_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_api_v1_management_proto_goTypes,
-		DependencyIndexes: file_api_v1_management_proto_depIdxs,
-		MessageInfos:      file_api_v1_management_proto_msgTypes,
+		GoTypes:           file_croupier_api_v1_management_proto_goTypes,
+		DependencyIndexes: file_croupier_api_v1_management_proto_depIdxs,
+		MessageInfos:      file_croupier_api_v1_management_proto_msgTypes,
 	}.Build()
-	File_api_v1_management_proto = out.File
-	file_api_v1_management_proto_goTypes = nil
-	file_api_v1_management_proto_depIdxs = nil
+	File_croupier_api_v1_management_proto = out.File
+	file_croupier_api_v1_management_proto_goTypes = nil
+	file_croupier_api_v1_management_proto_depIdxs = nil
 }

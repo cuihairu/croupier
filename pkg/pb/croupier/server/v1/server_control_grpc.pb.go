@@ -2,13 +2,13 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: server/v1/server_control.proto
+// source: croupier/server/v1/server_control.proto
 
 package serverv1
 
 import (
 	context "context"
-	v1 "github.com/cuihairu/croupier/pkg/pb/ops/v1"
+	v1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -131,7 +131,7 @@ func (c *controlServiceClient) QueryMetrics(ctx context.Context, in *QueryMetric
 }
 
 // ControlServiceServer is the server API for ControlService service.
-// All implementations should embed UnimplementedControlServiceServer
+// All implementations must embed UnimplementedControlServiceServer
 // for forward compatibility.
 //
 // Server Control Service - Internal interface for agent registration and management
@@ -150,9 +150,10 @@ type ControlServiceServer interface {
 	ListAgentProcesses(context.Context, *ListAgentProcessesRequest) (*v1.ListProcessesResponse, error)
 	// QueryMetrics queries stored metrics from agents.
 	QueryMetrics(context.Context, *QueryMetricsRequest) (*QueryMetricsResponse, error)
+	mustEmbedUnimplementedControlServiceServer()
 }
 
-// UnimplementedControlServiceServer should be embedded to have
+// UnimplementedControlServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
@@ -180,7 +181,8 @@ func (UnimplementedControlServiceServer) ListAgentProcesses(context.Context, *Li
 func (UnimplementedControlServiceServer) QueryMetrics(context.Context, *QueryMetricsRequest) (*QueryMetricsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method QueryMetrics not implemented")
 }
-func (UnimplementedControlServiceServer) testEmbeddedByValue() {}
+func (UnimplementedControlServiceServer) mustEmbedUnimplementedControlServiceServer() {}
+func (UnimplementedControlServiceServer) testEmbeddedByValue()                        {}
 
 // UnsafeControlServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to ControlServiceServer will
@@ -363,5 +365,5 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "server/v1/server_control.proto",
+	Metadata: "croupier/server/v1/server_control.proto",
 }
