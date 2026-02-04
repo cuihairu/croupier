@@ -61,6 +61,41 @@ type OpsServerWrapper interface {
 	StopProcess(ctx context.Context, req *opsv1.StopProcessRequest) (*opsv1.StopProcessResponse, error)
 	StartProcess(ctx context.Context, req *opsv1.StartProcessRequest) (*opsv1.StartProcessResponse, error)
 	ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error)
+
+	// System services (platform-specific, read-only)
+	// These use JSON request/response to avoid circular dependencies
+	ListServicesJSON(ctx context.Context, jsonReq []byte) ([]byte, error)
+	GetServiceStatusJSON(ctx context.Context, jsonReq []byte) ([]byte, error)
+	ListCronJobsJSON(ctx context.Context) ([]byte, error)
+}
+
+// ServiceInfo contains information about a system service (for JSON encoding)
+type ServiceInfo struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Status      string `json:"status"`
+	StartType   string `json:"start_type"`
+	ProcessID   uint32 `json:"process_id"`
+}
+
+// ServiceStatusDetail contains detailed service status (for JSON encoding)
+type ServiceStatusDetail struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Status      string `json:"status"`
+	StartType   string `json:"start_type"`
+	ProcessID   uint32 `json:"process_id"`
+	BinaryPath  string `json:"binary_path"`
+	Description string `json:"description"`
+}
+
+// CronJob represents a cron job (for JSON encoding)
+type CronJob struct {
+	Schedule   string `json:"schedule"`
+	Command    string `json:"command"`
+	User       string `json:"user"`
+	SourceFile string `json:"source_file"`
+	Enabled    bool   `json:"enabled"`
 }
 
 // NewAgentServer creates a new NNG agent server
@@ -249,6 +284,10 @@ func (s *AgentServer) handleRequest(ctx context.Context, msgID uint32, data []by
 		return s.handleStartProcess(ctx, data)
 	case protocol.MsgExecuteCommandRequest:
 		return s.handleExecuteCommand(ctx, data)
+	case protocol.MsgListServicesRequest:
+		return s.handleListServices(ctx, data)
+	case protocol.MsgGetServiceStatusRequest:
+		return s.handleGetServiceStatus(ctx, data)
 
 	// LocalControlService
 	case protocol.MsgRegisterLocalRequest:
@@ -588,6 +627,26 @@ func (s *AgentServer) handleListLocal(ctx context.Context, data []byte) ([]byte,
 		Functions: functions,
 	}
 	return proto.Marshal(resp)
+}
+
+// handleListServices handles ListServicesRequest
+func (s *AgentServer) handleListServices(ctx context.Context, data []byte) ([]byte, error) {
+	if s.opsServer == nil {
+		return nil, fmt.Errorf("ops server not configured")
+	}
+
+	// Use JSON to avoid circular dependency
+	return s.opsServer.ListServicesJSON(ctx, data)
+}
+
+// handleGetServiceStatus handles GetServiceStatusRequest
+func (s *AgentServer) handleGetServiceStatus(ctx context.Context, data []byte) ([]byte, error) {
+	if s.opsServer == nil {
+		return nil, fmt.Errorf("ops server not configured")
+	}
+
+	// Use JSON to avoid circular dependency
+	return s.opsServer.GetServiceStatusJSON(ctx, data)
 }
 
 // createErrorResponse creates an error response

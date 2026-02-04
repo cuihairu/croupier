@@ -326,6 +326,18 @@ func (w *opsServerWrapper) ExecuteCommand(ctx context.Context, req *opsv1.Execut
 	return w.ops.ExecuteCommand(ctx, req)
 }
 
+func (w *opsServerWrapper) ListServicesJSON(ctx context.Context, jsonReq []byte) ([]byte, error) {
+	return w.ops.ListServicesJSON(ctx, jsonReq)
+}
+
+func (w *opsServerWrapper) GetServiceStatusJSON(ctx context.Context, jsonReq []byte) ([]byte, error) {
+	return w.ops.GetServiceStatusJSON(ctx, jsonReq)
+}
+
+func (w *opsServerWrapper) ListCronJobsJSON(ctx context.Context) ([]byte, error) {
+	return w.ops.ListCronJobsJSON(ctx)
+}
+
 // platformManagerWrapper wraps PlatformManager to implement nng.PlatformManager interface
 type platformManagerWrapper struct {
 	pm *PlatformManager

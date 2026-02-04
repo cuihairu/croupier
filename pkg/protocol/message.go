@@ -77,6 +77,11 @@ const (
 	MsgStartProcessResponse   = 0x04010E
 	MsgExecuteCommandRequest  = 0x04010F
 	MsgExecuteCommandResponse = 0x040110
+	// System services (platform-specific)
+	MsgListServicesRequest      = 0x040111
+	MsgListServicesResponse     = 0x040112
+	MsgGetServiceStatusRequest  = 0x040113
+	MsgGetServiceStatusResponse = 0x040114
 
 	// LocalControlService (0x05xx) - Agent local function registration
 	MsgRegisterLocalRequest   = 0x050101
@@ -280,6 +285,14 @@ func MsgIDString(msgID uint32) string {
 		return "ExecuteCommandRequest"
 	case MsgExecuteCommandResponse:
 		return "ExecuteCommandResponse"
+	case MsgListServicesRequest:
+		return "ListServicesRequest"
+	case MsgListServicesResponse:
+		return "ListServicesResponse"
+	case MsgGetServiceStatusRequest:
+		return "GetServiceStatusRequest"
+	case MsgGetServiceStatusResponse:
+		return "GetServiceStatusResponse"
 	case MsgRegisterLocalRequest:
 		return "RegisterLocalRequest"
 	case MsgRegisterLocalResponse:
