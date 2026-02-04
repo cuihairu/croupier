@@ -185,14 +185,12 @@ func (s *croupierServerService) logger(level, msg string) {
 
 // writeToLogFile 将日志写入文件
 func (s *croupierServerService) writeToLogFile(msg string) {
-	// 获取日志目录
-	logDir := os.Getenv("CROUPIER_LOG_DIR")
-	if logDir == "" {
-		if service.Platform() == "windows" {
-			logDir = `C:\ProgramData\Croupier\logs`
-		} else {
-			logDir = "/var/log/croupier"
-		}
+	// 默认日志目录：当前工作目录下的 logs
+	logDir := "logs"
+
+	// 优先从环境变量读取
+	if envDir := os.Getenv("CROUPIER_LOG_DIR"); envDir != "" {
+		logDir = envDir
 	}
 
 	// 确保目录存在
