@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
-	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
+	localv1 "github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/agent/local/v1"
 )
 
 // TestUpstreamClient_NewUpstreamClient tests client creation

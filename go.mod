@@ -32,6 +32,7 @@ require (
 )
 
 require (
+	github.com/cuihairu/croupier/sdks/go v0.0.0-00010101000000-000000000000
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
@@ -182,3 +183,6 @@ require (
 exclude github.com/mattn/go-sqlite3 v1.14.22
 
 exclude github.com/mattn/go-sqlite3 v1.14.33
+
+// Local replace for SDK proto packages
+replace github.com/cuihairu/croupier/sdks/go => ../croupier-sdk-go

@@ -48,14 +48,13 @@ func (c *playerGmServiceClient) Ban(ctx context.Context, in *BanRequest, opts ..
 }
 
 // PlayerGmServiceServer is the server API for PlayerGmService service.
-// All implementations must embed UnimplementedPlayerGmServiceServer
+// All implementations should embed UnimplementedPlayerGmServiceServer
 // for forward compatibility.
 type PlayerGmServiceServer interface {
 	Ban(context.Context, *BanRequest) (*BanResponse, error)
-	mustEmbedUnimplementedPlayerGmServiceServer()
 }
 
-// UnimplementedPlayerGmServiceServer must be embedded to have
+// UnimplementedPlayerGmServiceServer should be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
@@ -65,8 +64,7 @@ type UnimplementedPlayerGmServiceServer struct{}
 func (UnimplementedPlayerGmServiceServer) Ban(context.Context, *BanRequest) (*BanResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ban not implemented")
 }
-func (UnimplementedPlayerGmServiceServer) mustEmbedUnimplementedPlayerGmServiceServer() {}
-func (UnimplementedPlayerGmServiceServer) testEmbeddedByValue()                         {}
+func (UnimplementedPlayerGmServiceServer) testEmbeddedByValue() {}
 
 // UnsafePlayerGmServiceServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to PlayerGmServiceServer will

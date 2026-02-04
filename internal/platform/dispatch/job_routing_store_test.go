@@ -7,7 +7,7 @@ import (
 	"time"
 
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
-	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
+	sdkv1 "github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/sdk/v1"
 )
 
 func TestFileJobRoutingStore_PersistsAcrossInstances(t *testing.T) {
