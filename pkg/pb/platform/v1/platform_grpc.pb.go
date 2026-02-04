@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: croupier/platform/v1/platform.proto
+// source: platform/v1/platform.proto
 
 package platformv1
 
@@ -244,5 +244,5 @@ var PlatformService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "croupier/platform/v1/platform.proto",
+	Metadata: "platform/v1/platform.proto",
 }

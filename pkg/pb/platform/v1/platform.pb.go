@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: croupier/platform/v1/platform.proto
+// source: platform/v1/platform.proto
 
 package platformv1
 
@@ -34,7 +34,7 @@ type CallPlatformRequest struct {
 
 func (x *CallPlatformRequest) Reset() {
 	*x = CallPlatformRequest{}
-	mi := &file_croupier_platform_v1_platform_proto_msgTypes[0]
+	mi := &file_platform_v1_platform_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -46,7 +46,7 @@ func (x *CallPlatformRequest) String() string {
 func (*CallPlatformRequest) ProtoMessage() {}
 
 func (x *CallPlatformRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_platform_v1_platform_proto_msgTypes[0]
+	mi := &file_platform_v1_platform_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -59,7 +59,7 @@ func (x *CallPlatformRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CallPlatformRequest.ProtoReflect.Descriptor instead.
 func (*CallPlatformRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_platform_v1_platform_proto_rawDescGZIP(), []int{0}
+	return file_platform_v1_platform_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *CallPlatformRequest) GetPlatform() string {
@@ -94,7 +94,7 @@ type CallPlatformResponse struct {
 
 func (x *CallPlatformResponse) Reset() {
 	*x = CallPlatformResponse{}
-	mi := &file_croupier_platform_v1_platform_proto_msgTypes[1]
+	mi := &file_platform_v1_platform_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -106,7 +106,7 @@ func (x *CallPlatformResponse) String() string {
 func (*CallPlatformResponse) ProtoMessage() {}
 
 func (x *CallPlatformResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_platform_v1_platform_proto_msgTypes[1]
+	mi := &file_platform_v1_platform_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -119,7 +119,7 @@ func (x *CallPlatformResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CallPlatformResponse.ProtoReflect.Descriptor instead.
 func (*CallPlatformResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_platform_v1_platform_proto_rawDescGZIP(), []int{1}
+	return file_platform_v1_platform_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CallPlatformResponse) GetResponse() []byte {
@@ -145,7 +145,7 @@ type ListPlatformsRequest struct {
 
 func (x *ListPlatformsRequest) Reset() {
 	*x = ListPlatformsRequest{}
-	mi := &file_croupier_platform_v1_platform_proto_msgTypes[2]
+	mi := &file_platform_v1_platform_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -157,7 +157,7 @@ func (x *ListPlatformsRequest) String() string {
 func (*ListPlatformsRequest) ProtoMessage() {}
 
 func (x *ListPlatformsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_platform_v1_platform_proto_msgTypes[2]
+	mi := &file_platform_v1_platform_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -170,7 +170,7 @@ func (x *ListPlatformsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPlatformsRequest.ProtoReflect.Descriptor instead.
 func (*ListPlatformsRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_platform_v1_platform_proto_rawDescGZIP(), []int{2}
+	return file_platform_v1_platform_proto_rawDescGZIP(), []int{2}
 }
 
 // PlatformInfo represents information about a platform.
@@ -185,7 +185,7 @@ type PlatformInfo struct {
 
 func (x *PlatformInfo) Reset() {
 	*x = PlatformInfo{}
-	mi := &file_croupier_platform_v1_platform_proto_msgTypes[3]
+	mi := &file_platform_v1_platform_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -197,7 +197,7 @@ func (x *PlatformInfo) String() string {
 func (*PlatformInfo) ProtoMessage() {}
 
 func (x *PlatformInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_platform_v1_platform_proto_msgTypes[3]
+	mi := &file_platform_v1_platform_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -210,7 +210,7 @@ func (x *PlatformInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlatformInfo.ProtoReflect.Descriptor instead.
 func (*PlatformInfo) Descriptor() ([]byte, []int) {
-	return file_croupier_platform_v1_platform_proto_rawDescGZIP(), []int{3}
+	return file_platform_v1_platform_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *PlatformInfo) GetName() string {
@@ -244,7 +244,7 @@ type ListPlatformsResponse struct {
 
 func (x *ListPlatformsResponse) Reset() {
 	*x = ListPlatformsResponse{}
-	mi := &file_croupier_platform_v1_platform_proto_msgTypes[4]
+	mi := &file_platform_v1_platform_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -256,7 +256,7 @@ func (x *ListPlatformsResponse) String() string {
 func (*ListPlatformsResponse) ProtoMessage() {}
 
 func (x *ListPlatformsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_platform_v1_platform_proto_msgTypes[4]
+	mi := &file_platform_v1_platform_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -269,7 +269,7 @@ func (x *ListPlatformsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPlatformsResponse.ProtoReflect.Descriptor instead.
 func (*ListPlatformsResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_platform_v1_platform_proto_rawDescGZIP(), []int{4}
+	return file_platform_v1_platform_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ListPlatformsResponse) GetPlatforms() []*PlatformInfo {
@@ -289,7 +289,7 @@ type ListPlatformMethodsRequest struct {
 
 func (x *ListPlatformMethodsRequest) Reset() {
 	*x = ListPlatformMethodsRequest{}
-	mi := &file_croupier_platform_v1_platform_proto_msgTypes[5]
+	mi := &file_platform_v1_platform_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -301,7 +301,7 @@ func (x *ListPlatformMethodsRequest) String() string {
 func (*ListPlatformMethodsRequest) ProtoMessage() {}
 
 func (x *ListPlatformMethodsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_platform_v1_platform_proto_msgTypes[5]
+	mi := &file_platform_v1_platform_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -314,7 +314,7 @@ func (x *ListPlatformMethodsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPlatformMethodsRequest.ProtoReflect.Descriptor instead.
 func (*ListPlatformMethodsRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_platform_v1_platform_proto_rawDescGZIP(), []int{5}
+	return file_platform_v1_platform_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ListPlatformMethodsRequest) GetPlatform() string {
@@ -334,7 +334,7 @@ type ListPlatformMethodsResponse struct {
 
 func (x *ListPlatformMethodsResponse) Reset() {
 	*x = ListPlatformMethodsResponse{}
-	mi := &file_croupier_platform_v1_platform_proto_msgTypes[6]
+	mi := &file_platform_v1_platform_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -346,7 +346,7 @@ func (x *ListPlatformMethodsResponse) String() string {
 func (*ListPlatformMethodsResponse) ProtoMessage() {}
 
 func (x *ListPlatformMethodsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_platform_v1_platform_proto_msgTypes[6]
+	mi := &file_platform_v1_platform_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -359,7 +359,7 @@ func (x *ListPlatformMethodsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListPlatformMethodsResponse.ProtoReflect.Descriptor instead.
 func (*ListPlatformMethodsResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_platform_v1_platform_proto_rawDescGZIP(), []int{6}
+	return file_platform_v1_platform_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ListPlatformMethodsResponse) GetMethods() []string {
@@ -380,7 +380,7 @@ type ReloadPlatformConfigResponse struct {
 
 func (x *ReloadPlatformConfigResponse) Reset() {
 	*x = ReloadPlatformConfigResponse{}
-	mi := &file_croupier_platform_v1_platform_proto_msgTypes[7]
+	mi := &file_platform_v1_platform_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -392,7 +392,7 @@ func (x *ReloadPlatformConfigResponse) String() string {
 func (*ReloadPlatformConfigResponse) ProtoMessage() {}
 
 func (x *ReloadPlatformConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_platform_v1_platform_proto_msgTypes[7]
+	mi := &file_platform_v1_platform_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -405,7 +405,7 @@ func (x *ReloadPlatformConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReloadPlatformConfigResponse.ProtoReflect.Descriptor instead.
 func (*ReloadPlatformConfigResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_platform_v1_platform_proto_rawDescGZIP(), []int{7}
+	return file_platform_v1_platform_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ReloadPlatformConfigResponse) GetSuccess() bool {
@@ -422,11 +422,11 @@ func (x *ReloadPlatformConfigResponse) GetMessage() string {
 	return ""
 }
 
-var File_croupier_platform_v1_platform_proto protoreflect.FileDescriptor
+var File_platform_v1_platform_proto protoreflect.FileDescriptor
 
-const file_croupier_platform_v1_platform_proto_rawDesc = "" +
+const file_platform_v1_platform_proto_rawDesc = "" +
 	"\n" +
-	"#croupier/platform/v1/platform.proto\x12\x14croupier.platform.v1\x1a\x1bgoogle/protobuf/empty.proto\"c\n" +
+	"\x1aplatform/v1/platform.proto\x12\x14croupier.platform.v1\x1a\x1bgoogle/protobuf/empty.proto\"c\n" +
 	"\x13CallPlatformRequest\x12\x1a\n" +
 	"\bplatform\x18\x01 \x01(\tR\bplatform\x12\x16\n" +
 	"\x06method\x18\x02 \x01(\tR\x06method\x12\x18\n" +
@@ -452,23 +452,23 @@ const file_croupier_platform_v1_platform_proto_rawDesc = "" +
 	"\fCallPlatform\x12).croupier.platform.v1.CallPlatformRequest\x1a*.croupier.platform.v1.CallPlatformResponse\x12h\n" +
 	"\rListPlatforms\x12*.croupier.platform.v1.ListPlatformsRequest\x1a+.croupier.platform.v1.ListPlatformsResponse\x12z\n" +
 	"\x13ListPlatformMethods\x120.croupier.platform.v1.ListPlatformMethodsRequest\x1a1.croupier.platform.v1.ListPlatformMethodsResponse\x12b\n" +
-	"\x14ReloadPlatformConfig\x12\x16.google.protobuf.Empty\x1a2.croupier.platform.v1.ReloadPlatformConfigResponseB\x87\x01\n" +
-	"'io.github.cuihairu.croupier.platform.v1P\x01ZCgithub.com/cuihairu/croupier/pkg/pb/croupier/platform/v1;platformv1\xaa\x02\x14Croupier.Platform.V1b\x06proto3"
+	"\x14ReloadPlatformConfig\x12\x16.google.protobuf.Empty\x1a2.croupier.platform.v1.ReloadPlatformConfigResponseB~\n" +
+	"'io.github.cuihairu.croupier.platform.v1P\x01Z:github.com/cuihairu/croupier/pkg/pb/platform/v1;platformv1\xaa\x02\x14Croupier.Platform.V1b\x06proto3"
 
 var (
-	file_croupier_platform_v1_platform_proto_rawDescOnce sync.Once
-	file_croupier_platform_v1_platform_proto_rawDescData []byte
+	file_platform_v1_platform_proto_rawDescOnce sync.Once
+	file_platform_v1_platform_proto_rawDescData []byte
 )
 
-func file_croupier_platform_v1_platform_proto_rawDescGZIP() []byte {
-	file_croupier_platform_v1_platform_proto_rawDescOnce.Do(func() {
-		file_croupier_platform_v1_platform_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_croupier_platform_v1_platform_proto_rawDesc), len(file_croupier_platform_v1_platform_proto_rawDesc)))
+func file_platform_v1_platform_proto_rawDescGZIP() []byte {
+	file_platform_v1_platform_proto_rawDescOnce.Do(func() {
+		file_platform_v1_platform_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_platform_v1_platform_proto_rawDesc), len(file_platform_v1_platform_proto_rawDesc)))
 	})
-	return file_croupier_platform_v1_platform_proto_rawDescData
+	return file_platform_v1_platform_proto_rawDescData
 }
 
-var file_croupier_platform_v1_platform_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
-var file_croupier_platform_v1_platform_proto_goTypes = []any{
+var file_platform_v1_platform_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_platform_v1_platform_proto_goTypes = []any{
 	(*CallPlatformRequest)(nil),          // 0: croupier.platform.v1.CallPlatformRequest
 	(*CallPlatformResponse)(nil),         // 1: croupier.platform.v1.CallPlatformResponse
 	(*ListPlatformsRequest)(nil),         // 2: croupier.platform.v1.ListPlatformsRequest
@@ -479,7 +479,7 @@ var file_croupier_platform_v1_platform_proto_goTypes = []any{
 	(*ReloadPlatformConfigResponse)(nil), // 7: croupier.platform.v1.ReloadPlatformConfigResponse
 	(*emptypb.Empty)(nil),                // 8: google.protobuf.Empty
 }
-var file_croupier_platform_v1_platform_proto_depIdxs = []int32{
+var file_platform_v1_platform_proto_depIdxs = []int32{
 	3, // 0: croupier.platform.v1.ListPlatformsResponse.platforms:type_name -> croupier.platform.v1.PlatformInfo
 	0, // 1: croupier.platform.v1.PlatformService.CallPlatform:input_type -> croupier.platform.v1.CallPlatformRequest
 	2, // 2: croupier.platform.v1.PlatformService.ListPlatforms:input_type -> croupier.platform.v1.ListPlatformsRequest
@@ -496,26 +496,26 @@ var file_croupier_platform_v1_platform_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_croupier_platform_v1_platform_proto_init() }
-func file_croupier_platform_v1_platform_proto_init() {
-	if File_croupier_platform_v1_platform_proto != nil {
+func init() { file_platform_v1_platform_proto_init() }
+func file_platform_v1_platform_proto_init() {
+	if File_platform_v1_platform_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_platform_v1_platform_proto_rawDesc), len(file_croupier_platform_v1_platform_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_platform_v1_platform_proto_rawDesc), len(file_platform_v1_platform_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_croupier_platform_v1_platform_proto_goTypes,
-		DependencyIndexes: file_croupier_platform_v1_platform_proto_depIdxs,
-		MessageInfos:      file_croupier_platform_v1_platform_proto_msgTypes,
+		GoTypes:           file_platform_v1_platform_proto_goTypes,
+		DependencyIndexes: file_platform_v1_platform_proto_depIdxs,
+		MessageInfos:      file_platform_v1_platform_proto_msgTypes,
 	}.Build()
-	File_croupier_platform_v1_platform_proto = out.File
-	file_croupier_platform_v1_platform_proto_goTypes = nil
-	file_croupier_platform_v1_platform_proto_depIdxs = nil
+	File_platform_v1_platform_proto = out.File
+	file_platform_v1_platform_proto_goTypes = nil
+	file_platform_v1_platform_proto_depIdxs = nil
 }

@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: croupier/ops/v1/ops.proto
+// source: ops/v1/ops.proto
 
 package opsv1
 
@@ -536,5 +536,5 @@ var OpsService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "croupier/ops/v1/ops.proto",
+	Metadata: "ops/v1/ops.proto",
 }

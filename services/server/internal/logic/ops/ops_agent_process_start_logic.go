@@ -9,7 +9,7 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/ops/v1"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 

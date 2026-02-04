@@ -2,13 +2,13 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: croupier/server/v1/server_control.proto
+// source: server/v1/server_control.proto
 
 package serverv1
 
 import (
 	context "context"
-	v1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
+	v1 "github.com/cuihairu/croupier/pkg/pb/ops/v1"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -363,5 +363,5 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "croupier/server/v1/server_control.proto",
+	Metadata: "server/v1/server_control.proto",
 }

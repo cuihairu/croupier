@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: croupier/server/v1/server_tunnel.proto
+// source: server/v1/server_tunnel.proto
 
 package serverv1
 
@@ -33,7 +33,7 @@ type Hello struct {
 
 func (x *Hello) Reset() {
 	*x = Hello{}
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[0]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -45,7 +45,7 @@ func (x *Hello) String() string {
 func (*Hello) ProtoMessage() {}
 
 func (x *Hello) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[0]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -58,7 +58,7 @@ func (x *Hello) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Hello.ProtoReflect.Descriptor instead.
 func (*Hello) Descriptor() ([]byte, []int) {
-	return file_croupier_server_v1_server_tunnel_proto_rawDescGZIP(), []int{0}
+	return file_server_v1_server_tunnel_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Hello) GetAgentId() string {
@@ -96,7 +96,7 @@ type InvokeFrame struct {
 
 func (x *InvokeFrame) Reset() {
 	*x = InvokeFrame{}
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[1]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -108,7 +108,7 @@ func (x *InvokeFrame) String() string {
 func (*InvokeFrame) ProtoMessage() {}
 
 func (x *InvokeFrame) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[1]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -121,7 +121,7 @@ func (x *InvokeFrame) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InvokeFrame.ProtoReflect.Descriptor instead.
 func (*InvokeFrame) Descriptor() ([]byte, []int) {
-	return file_croupier_server_v1_server_tunnel_proto_rawDescGZIP(), []int{1}
+	return file_server_v1_server_tunnel_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *InvokeFrame) GetRequestId() string {
@@ -172,7 +172,7 @@ type StartJobFrame struct {
 
 func (x *StartJobFrame) Reset() {
 	*x = StartJobFrame{}
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[2]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -184,7 +184,7 @@ func (x *StartJobFrame) String() string {
 func (*StartJobFrame) ProtoMessage() {}
 
 func (x *StartJobFrame) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[2]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -197,7 +197,7 @@ func (x *StartJobFrame) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartJobFrame.ProtoReflect.Descriptor instead.
 func (*StartJobFrame) Descriptor() ([]byte, []int) {
-	return file_croupier_server_v1_server_tunnel_proto_rawDescGZIP(), []int{2}
+	return file_server_v1_server_tunnel_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *StartJobFrame) GetRequestId() string {
@@ -244,7 +244,7 @@ type CancelJobFrame struct {
 
 func (x *CancelJobFrame) Reset() {
 	*x = CancelJobFrame{}
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[3]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -256,7 +256,7 @@ func (x *CancelJobFrame) String() string {
 func (*CancelJobFrame) ProtoMessage() {}
 
 func (x *CancelJobFrame) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[3]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -269,7 +269,7 @@ func (x *CancelJobFrame) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelJobFrame.ProtoReflect.Descriptor instead.
 func (*CancelJobFrame) Descriptor() ([]byte, []int) {
-	return file_croupier_server_v1_server_tunnel_proto_rawDescGZIP(), []int{3}
+	return file_server_v1_server_tunnel_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *CancelJobFrame) GetJobId() string {
@@ -291,7 +291,7 @@ type ResultFrame struct {
 
 func (x *ResultFrame) Reset() {
 	*x = ResultFrame{}
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[4]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -303,7 +303,7 @@ func (x *ResultFrame) String() string {
 func (*ResultFrame) ProtoMessage() {}
 
 func (x *ResultFrame) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[4]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -316,7 +316,7 @@ func (x *ResultFrame) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResultFrame.ProtoReflect.Descriptor instead.
 func (*ResultFrame) Descriptor() ([]byte, []int) {
-	return file_croupier_server_v1_server_tunnel_proto_rawDescGZIP(), []int{4}
+	return file_server_v1_server_tunnel_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ResultFrame) GetRequestId() string {
@@ -351,7 +351,7 @@ type StartJobResult struct {
 
 func (x *StartJobResult) Reset() {
 	*x = StartJobResult{}
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[5]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -363,7 +363,7 @@ func (x *StartJobResult) String() string {
 func (*StartJobResult) ProtoMessage() {}
 
 func (x *StartJobResult) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[5]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -376,7 +376,7 @@ func (x *StartJobResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartJobResult.ProtoReflect.Descriptor instead.
 func (*StartJobResult) Descriptor() ([]byte, []int) {
-	return file_croupier_server_v1_server_tunnel_proto_rawDescGZIP(), []int{5}
+	return file_server_v1_server_tunnel_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *StartJobResult) GetRequestId() string {
@@ -413,7 +413,7 @@ type JobEventFrame struct {
 
 func (x *JobEventFrame) Reset() {
 	*x = JobEventFrame{}
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[6]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -425,7 +425,7 @@ func (x *JobEventFrame) String() string {
 func (*JobEventFrame) ProtoMessage() {}
 
 func (x *JobEventFrame) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[6]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -438,7 +438,7 @@ func (x *JobEventFrame) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobEventFrame.ProtoReflect.Descriptor instead.
 func (*JobEventFrame) Descriptor() ([]byte, []int) {
-	return file_croupier_server_v1_server_tunnel_proto_rawDescGZIP(), []int{6}
+	return file_server_v1_server_tunnel_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *JobEventFrame) GetJobId() string {
@@ -487,7 +487,7 @@ type ListLocalRequest struct {
 
 func (x *ListLocalRequest) Reset() {
 	*x = ListLocalRequest{}
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[7]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -499,7 +499,7 @@ func (x *ListLocalRequest) String() string {
 func (*ListLocalRequest) ProtoMessage() {}
 
 func (x *ListLocalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[7]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -512,7 +512,7 @@ func (x *ListLocalRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLocalRequest.ProtoReflect.Descriptor instead.
 func (*ListLocalRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_server_v1_server_tunnel_proto_rawDescGZIP(), []int{7}
+	return file_server_v1_server_tunnel_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ListLocalRequest) GetRequestId() string {
@@ -541,7 +541,7 @@ type ListLocalResponse struct {
 
 func (x *ListLocalResponse) Reset() {
 	*x = ListLocalResponse{}
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[8]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -553,7 +553,7 @@ func (x *ListLocalResponse) String() string {
 func (*ListLocalResponse) ProtoMessage() {}
 
 func (x *ListLocalResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[8]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -566,7 +566,7 @@ func (x *ListLocalResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListLocalResponse.ProtoReflect.Descriptor instead.
 func (*ListLocalResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_server_v1_server_tunnel_proto_rawDescGZIP(), []int{8}
+	return file_server_v1_server_tunnel_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ListLocalResponse) GetRequestId() string {
@@ -608,7 +608,7 @@ type TunnelJobResultRequest struct {
 
 func (x *TunnelJobResultRequest) Reset() {
 	*x = TunnelJobResultRequest{}
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[9]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -620,7 +620,7 @@ func (x *TunnelJobResultRequest) String() string {
 func (*TunnelJobResultRequest) ProtoMessage() {}
 
 func (x *TunnelJobResultRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[9]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -633,7 +633,7 @@ func (x *TunnelJobResultRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TunnelJobResultRequest.ProtoReflect.Descriptor instead.
 func (*TunnelJobResultRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_server_v1_server_tunnel_proto_rawDescGZIP(), []int{9}
+	return file_server_v1_server_tunnel_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *TunnelJobResultRequest) GetRequestId() string {
@@ -662,7 +662,7 @@ type TunnelJobResultResponse struct {
 
 func (x *TunnelJobResultResponse) Reset() {
 	*x = TunnelJobResultResponse{}
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[10]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -674,7 +674,7 @@ func (x *TunnelJobResultResponse) String() string {
 func (*TunnelJobResultResponse) ProtoMessage() {}
 
 func (x *TunnelJobResultResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[10]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -687,7 +687,7 @@ func (x *TunnelJobResultResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TunnelJobResultResponse.ProtoReflect.Descriptor instead.
 func (*TunnelJobResultResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_server_v1_server_tunnel_proto_rawDescGZIP(), []int{10}
+	return file_server_v1_server_tunnel_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *TunnelJobResultResponse) GetRequestId() string {
@@ -739,7 +739,7 @@ type TunnelMessage struct {
 
 func (x *TunnelMessage) Reset() {
 	*x = TunnelMessage{}
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[11]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -751,7 +751,7 @@ func (x *TunnelMessage) String() string {
 func (*TunnelMessage) ProtoMessage() {}
 
 func (x *TunnelMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_server_v1_server_tunnel_proto_msgTypes[11]
+	mi := &file_server_v1_server_tunnel_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -764,7 +764,7 @@ func (x *TunnelMessage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TunnelMessage.ProtoReflect.Descriptor instead.
 func (*TunnelMessage) Descriptor() ([]byte, []int) {
-	return file_croupier_server_v1_server_tunnel_proto_rawDescGZIP(), []int{11}
+	return file_server_v1_server_tunnel_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *TunnelMessage) GetType() string {
@@ -851,11 +851,11 @@ func (x *TunnelMessage) GetCancel() *CancelJobFrame {
 	return nil
 }
 
-var File_croupier_server_v1_server_tunnel_proto protoreflect.FileDescriptor
+var File_server_v1_server_tunnel_proto protoreflect.FileDescriptor
 
-const file_croupier_server_v1_server_tunnel_proto_rawDesc = "" +
+const file_server_v1_server_tunnel_proto_rawDesc = "" +
 	"\n" +
-	"&croupier/server/v1/server_tunnel.proto\x12\x12croupier.server.v1\"M\n" +
+	"\x1dserver/v1/server_tunnel.proto\x12\x12croupier.server.v1\"M\n" +
 	"\x05Hello\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x17\n" +
 	"\agame_id\x18\x02 \x01(\tR\x06gameId\x12\x10\n" +
@@ -938,23 +938,23 @@ const file_croupier_server_v1_server_tunnel_proto_rawDesc = "" +
 	"\x05start\x18\v \x01(\v2!.croupier.server.v1.StartJobFrameR\x05start\x12:\n" +
 	"\x06cancel\x18\f \x01(\v2\".croupier.server.v1.CancelJobFrameR\x06cancel2a\n" +
 	"\rTunnelService\x12P\n" +
-	"\x04Open\x12!.croupier.server.v1.TunnelMessage\x1a!.croupier.server.v1.TunnelMessage(\x010\x01Bj\n" +
-	"%io.github.cuihairu.croupier.server.v1P\x01Z?github.com/cuihairu/croupier/pkg/pb/croupier/server/v1;serverv1b\x06proto3"
+	"\x04Open\x12!.croupier.server.v1.TunnelMessage\x1a!.croupier.server.v1.TunnelMessage(\x010\x01Ba\n" +
+	"%io.github.cuihairu.croupier.server.v1P\x01Z6github.com/cuihairu/croupier/pkg/pb/server/v1;serverv1b\x06proto3"
 
 var (
-	file_croupier_server_v1_server_tunnel_proto_rawDescOnce sync.Once
-	file_croupier_server_v1_server_tunnel_proto_rawDescData []byte
+	file_server_v1_server_tunnel_proto_rawDescOnce sync.Once
+	file_server_v1_server_tunnel_proto_rawDescData []byte
 )
 
-func file_croupier_server_v1_server_tunnel_proto_rawDescGZIP() []byte {
-	file_croupier_server_v1_server_tunnel_proto_rawDescOnce.Do(func() {
-		file_croupier_server_v1_server_tunnel_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_croupier_server_v1_server_tunnel_proto_rawDesc), len(file_croupier_server_v1_server_tunnel_proto_rawDesc)))
+func file_server_v1_server_tunnel_proto_rawDescGZIP() []byte {
+	file_server_v1_server_tunnel_proto_rawDescOnce.Do(func() {
+		file_server_v1_server_tunnel_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_server_v1_server_tunnel_proto_rawDesc), len(file_server_v1_server_tunnel_proto_rawDesc)))
 	})
-	return file_croupier_server_v1_server_tunnel_proto_rawDescData
+	return file_server_v1_server_tunnel_proto_rawDescData
 }
 
-var file_croupier_server_v1_server_tunnel_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
-var file_croupier_server_v1_server_tunnel_proto_goTypes = []any{
+var file_server_v1_server_tunnel_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_server_v1_server_tunnel_proto_goTypes = []any{
 	(*Hello)(nil),                   // 0: croupier.server.v1.Hello
 	(*InvokeFrame)(nil),             // 1: croupier.server.v1.InvokeFrame
 	(*StartJobFrame)(nil),           // 2: croupier.server.v1.StartJobFrame
@@ -970,7 +970,7 @@ var file_croupier_server_v1_server_tunnel_proto_goTypes = []any{
 	nil,                             // 12: croupier.server.v1.InvokeFrame.MetadataEntry
 	nil,                             // 13: croupier.server.v1.StartJobFrame.MetadataEntry
 }
-var file_croupier_server_v1_server_tunnel_proto_depIdxs = []int32{
+var file_server_v1_server_tunnel_proto_depIdxs = []int32{
 	12, // 0: croupier.server.v1.InvokeFrame.metadata:type_name -> croupier.server.v1.InvokeFrame.MetadataEntry
 	13, // 1: croupier.server.v1.StartJobFrame.metadata:type_name -> croupier.server.v1.StartJobFrame.MetadataEntry
 	0,  // 2: croupier.server.v1.TunnelMessage.hello:type_name -> croupier.server.v1.Hello
@@ -993,26 +993,26 @@ var file_croupier_server_v1_server_tunnel_proto_depIdxs = []int32{
 	0,  // [0:13] is the sub-list for field type_name
 }
 
-func init() { file_croupier_server_v1_server_tunnel_proto_init() }
-func file_croupier_server_v1_server_tunnel_proto_init() {
-	if File_croupier_server_v1_server_tunnel_proto != nil {
+func init() { file_server_v1_server_tunnel_proto_init() }
+func file_server_v1_server_tunnel_proto_init() {
+	if File_server_v1_server_tunnel_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_server_v1_server_tunnel_proto_rawDesc), len(file_croupier_server_v1_server_tunnel_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_server_v1_server_tunnel_proto_rawDesc), len(file_server_v1_server_tunnel_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_croupier_server_v1_server_tunnel_proto_goTypes,
-		DependencyIndexes: file_croupier_server_v1_server_tunnel_proto_depIdxs,
-		MessageInfos:      file_croupier_server_v1_server_tunnel_proto_msgTypes,
+		GoTypes:           file_server_v1_server_tunnel_proto_goTypes,
+		DependencyIndexes: file_server_v1_server_tunnel_proto_depIdxs,
+		MessageInfos:      file_server_v1_server_tunnel_proto_msgTypes,
 	}.Build()
-	File_croupier_server_v1_server_tunnel_proto = out.File
-	file_croupier_server_v1_server_tunnel_proto_goTypes = nil
-	file_croupier_server_v1_server_tunnel_proto_depIdxs = nil
+	File_server_v1_server_tunnel_proto = out.File
+	file_server_v1_server_tunnel_proto_goTypes = nil
+	file_server_v1_server_tunnel_proto_depIdxs = nil
 }

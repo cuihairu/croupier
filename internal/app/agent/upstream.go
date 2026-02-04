@@ -13,7 +13,7 @@ import (
 	"github.com/cuihairu/croupier/internal/nng"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
-	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
+	serverv1 "github.com/cuihairu/croupier/pkg/pb/server/v1"
 )
 
 // UpstreamClient manages the connection to the central Croupier Server.
