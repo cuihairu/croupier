@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/config"
+	gsqlite "github.com/glebarez/sqlite"
 	gmysql "gorm.io/driver/mysql"
 	gpostgres "gorm.io/driver/postgres"
-	gsqlite "github.com/glebarez/sqlite"
 	gsqlserver "gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
 )
