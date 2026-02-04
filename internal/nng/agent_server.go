@@ -18,6 +18,7 @@ import (
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol/rep"
+	_ "go.nanomsg.org/mangos/v3/transport/ipc"
 	_ "go.nanomsg.org/mangos/v3/transport/tcp"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -26,8 +27,10 @@ import (
 // AgentServer implements an NNG-based agent server for local services.
 // It replaces the gRPC InvokerService, OpsService, and LocalControlService.
 type AgentServer struct {
-	addr string
-	sock mangos.Socket
+	addrs   []ListenAddr // Multiple listen addresses
+	addr    string       // Primary address (for backward compatibility)
+	sock    mangos.Socket
+	sockets []mangos.Socket // Multiple sockets for multi-listener
 
 	// Dependencies
 	store           *agentlocal.LocalStore
@@ -99,10 +102,50 @@ type CronJob struct {
 }
 
 // NewAgentServer creates a new NNG agent server
+// addr can be a single address or comma-separated multiple addresses
+// Examples: ":19090" or ":19090,ipc://croupier-agent"
 func NewAgentServer(addr string, store *agentlocal.LocalStore) *AgentServer {
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// Parse addresses
+	var addrs []ListenAddr
+	if addr != "" {
+		parts := strings.Split(addr, ",")
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				addrs = append(addrs, ParseListenAddr(part))
+			}
+		}
+	}
+
+	// Default if none specified
+	if len(addrs) == 0 {
+		addrs = []ListenAddr{ParseListenAddr(":19090")}
+	}
+
 	return &AgentServer{
-		addr:   addr,
+		addrs:  addrs,
+		addr:   addr, // Keep for backward compatibility
+		store:  store,
+		jobs:   newJobIndex(),
+		ctx:    ctx,
+		cancel: cancel,
+		logger: slog.Default(),
+	}
+}
+
+// NewAgentServerWithAddrs creates a new NNG agent server with explicit listen addresses
+func NewAgentServerWithAddrs(addrs []ListenAddr, store *agentlocal.LocalStore) *AgentServer {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Default if none specified
+	if len(addrs) == 0 {
+		addrs = []ListenAddr{ParseListenAddr(":19090")}
+	}
+
+	return &AgentServer{
+		addrs:  addrs,
 		store:  store,
 		jobs:   newJobIndex(),
 		ctx:    ctx,
@@ -149,27 +192,44 @@ func (s *AgentServer) Start() error {
 	s.running = true
 	s.mu.Unlock()
 
-	// Create REP socket
-	sock, err := rep.NewSocket()
-	if err != nil {
-		return fmt.Errorf("failed to create socket: %w", err)
+	// Create a socket for each listen address
+	sockets := make([]mangos.Socket, 0, len(s.addrs))
+
+	for _, la := range s.addrs {
+		// Create REP socket
+		sock, err := rep.NewSocket()
+		if err != nil {
+			// Close any already created sockets
+			for _, s := range sockets {
+				s.Close()
+			}
+			return fmt.Errorf("failed to create socket for %s: %w", la.URL, err)
+		}
+
+		// Configure options
+		if err := sock.SetOption(mangos.OptionRecvDeadline, time.Second); err != nil {
+			sock.Close()
+			for _, s := range sockets {
+				s.Close()
+			}
+			return fmt.Errorf("failed to set recv deadline for %s: %w", la.URL, err)
+		}
+
+		// Listen on the address
+		if err := sock.Listen(la.URL); err != nil {
+			sock.Close()
+			for _, s := range sockets {
+				s.Close()
+			}
+			return fmt.Errorf("failed to listen on %s: %w", la.URL, err)
+		}
+
+		sockets = append(sockets, sock)
+		s.logger.Info("NNG Agent server listening", "addr", la.URL, "transport", la.Transport)
 	}
 
-	// Configure options
-	if err := sock.SetOption(mangos.OptionRecvDeadline, time.Second); err != nil {
-		sock.Close()
-		return fmt.Errorf("failed to set recv deadline: %w", err)
-	}
-
-	// Listen
-	listenAddr := "tcp://" + s.addr
-	if err := sock.Listen(listenAddr); err != nil {
-		sock.Close()
-		return fmt.Errorf("failed to listen on %s: %w", s.addr, err)
-	}
-
-	s.sock = sock
-	s.logger.Info("NNG Agent server started", "addr", s.addr)
+	s.sockets = sockets
+	s.sock = sockets[0] // Primary socket for serving
 
 	// Start serving
 	go s.serve()
@@ -189,20 +249,38 @@ func (s *AgentServer) Stop() error {
 
 	s.cancel()
 
-	if s.sock != nil {
-		if err := s.sock.Close(); err != nil {
-			s.logger.Error("failed to close socket", "error", err)
+	// Close all sockets
+	for _, sock := range s.sockets {
+		if sock != nil {
+			if err := sock.Close(); err != nil {
+				s.logger.Error("failed to close socket", "error", err)
+			}
 		}
-		s.sock = nil
 	}
+	s.sockets = nil
+	s.sock = nil
 
 	s.logger.Info("NNG Agent server stopped")
 	return nil
 }
 
-// GetAddr returns the server address
+// GetAddr returns the server address (backward compatibility)
 func (s *AgentServer) GetAddr() string {
 	return s.addr
+}
+
+// GetAddrs returns all configured listen addresses
+func (s *AgentServer) GetAddrs() []ListenAddr {
+	return s.addrs
+}
+
+// GetLocalAddrs returns all configured listen URLs
+func (s *AgentServer) GetLocalAddrs() []string {
+	urls := make([]string, len(s.addrs))
+	for i, la := range s.addrs {
+		urls[i] = la.URL
+	}
+	return urls
 }
 
 // serve handles incoming requests

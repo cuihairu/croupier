@@ -33,6 +33,15 @@ type Config struct {
 		Host    string `json:",default=127.0.0.1"`
 		Port    int    `json:",default=19090"`
 		Timeout int64  `json:",default=30000"`
+		// IPC 地址（可选），用于本地高性能通信到 Server
+		// 例如: "ipc://croupier-server"
+		IPCAddr string `json:",optional"`
+	} `json:",optional"`
+
+	// LocalNNG 配置本地 NNG 服务器监听地址（用于 SDK 连接）
+	LocalNNG struct {
+		Addr    string `json:",default=:19090"` // 例如: ":19090" 或 ":19090,ipc://croupier-agent"
+		IPCAddr string `json:",optional"`       // 例如: "ipc://croupier-agent"
 	} `json:",optional"`
 
 	Upstream struct {
