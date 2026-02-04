@@ -20,14 +20,17 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	OpsService_ReportMetrics_FullMethodName  = "/croupier.ops.v1.OpsService/ReportMetrics"
-	OpsService_StreamMetrics_FullMethodName  = "/croupier.ops.v1.OpsService/StreamMetrics"
-	OpsService_GetSystemInfo_FullMethodName  = "/croupier.ops.v1.OpsService/GetSystemInfo"
-	OpsService_RestartProcess_FullMethodName = "/croupier.ops.v1.OpsService/RestartProcess"
-	OpsService_StopProcess_FullMethodName    = "/croupier.ops.v1.OpsService/StopProcess"
-	OpsService_StartProcess_FullMethodName   = "/croupier.ops.v1.OpsService/StartProcess"
-	OpsService_ListProcesses_FullMethodName  = "/croupier.ops.v1.OpsService/ListProcesses"
-	OpsService_ExecuteCommand_FullMethodName = "/croupier.ops.v1.OpsService/ExecuteCommand"
+	OpsService_ReportMetrics_FullMethodName    = "/croupier.ops.v1.OpsService/ReportMetrics"
+	OpsService_StreamMetrics_FullMethodName    = "/croupier.ops.v1.OpsService/StreamMetrics"
+	OpsService_GetSystemInfo_FullMethodName    = "/croupier.ops.v1.OpsService/GetSystemInfo"
+	OpsService_RestartProcess_FullMethodName   = "/croupier.ops.v1.OpsService/RestartProcess"
+	OpsService_StopProcess_FullMethodName      = "/croupier.ops.v1.OpsService/StopProcess"
+	OpsService_StartProcess_FullMethodName     = "/croupier.ops.v1.OpsService/StartProcess"
+	OpsService_ListProcesses_FullMethodName    = "/croupier.ops.v1.OpsService/ListProcesses"
+	OpsService_ExecuteCommand_FullMethodName   = "/croupier.ops.v1.OpsService/ExecuteCommand"
+	OpsService_ListServices_FullMethodName     = "/croupier.ops.v1.OpsService/ListServices"
+	OpsService_GetServiceStatus_FullMethodName = "/croupier.ops.v1.OpsService/GetServiceStatus"
+	OpsService_ListCronJobs_FullMethodName     = "/croupier.ops.v1.OpsService/ListCronJobs"
 )
 
 // OpsServiceClient is the client API for OpsService service.
@@ -59,6 +62,15 @@ type OpsServiceClient interface {
 	// Requires ops.allow_exec = true in agent config.
 	// WARNING: This is a high-risk operation. Use with extreme caution.
 	ExecuteCommand(ctx context.Context, in *ExecuteCommandRequest, opts ...grpc.CallOption) (*ExecuteCommandResponse, error)
+	// ListServices lists system services (Windows, Linux systemd, etc.).
+	// This operation does not require admin privileges on most platforms.
+	ListServices(ctx context.Context, in *ListServicesRequest, opts ...grpc.CallOption) (*ListServicesResponse, error)
+	// GetServiceStatus returns detailed status of a specific system service.
+	// This operation does not require admin privileges on most platforms.
+	GetServiceStatus(ctx context.Context, in *GetServiceStatusRequest, opts ...grpc.CallOption) (*GetServiceStatusResponse, error)
+	// ListCronJobs lists cron jobs on Linux systems.
+	// This operation does not require admin privileges.
+	ListCronJobs(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListCronJobsResponse, error)
 }
 
 type opsServiceClient struct {
@@ -152,6 +164,36 @@ func (c *opsServiceClient) ExecuteCommand(ctx context.Context, in *ExecuteComman
 	return out, nil
 }
 
+func (c *opsServiceClient) ListServices(ctx context.Context, in *ListServicesRequest, opts ...grpc.CallOption) (*ListServicesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListServicesResponse)
+	err := c.cc.Invoke(ctx, OpsService_ListServices_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *opsServiceClient) GetServiceStatus(ctx context.Context, in *GetServiceStatusRequest, opts ...grpc.CallOption) (*GetServiceStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetServiceStatusResponse)
+	err := c.cc.Invoke(ctx, OpsService_GetServiceStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *opsServiceClient) ListCronJobs(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*ListCronJobsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListCronJobsResponse)
+	err := c.cc.Invoke(ctx, OpsService_ListCronJobs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // OpsServiceServer is the server API for OpsService service.
 // All implementations must embed UnimplementedOpsServiceServer
 // for forward compatibility.
@@ -181,6 +223,15 @@ type OpsServiceServer interface {
 	// Requires ops.allow_exec = true in agent config.
 	// WARNING: This is a high-risk operation. Use with extreme caution.
 	ExecuteCommand(context.Context, *ExecuteCommandRequest) (*ExecuteCommandResponse, error)
+	// ListServices lists system services (Windows, Linux systemd, etc.).
+	// This operation does not require admin privileges on most platforms.
+	ListServices(context.Context, *ListServicesRequest) (*ListServicesResponse, error)
+	// GetServiceStatus returns detailed status of a specific system service.
+	// This operation does not require admin privileges on most platforms.
+	GetServiceStatus(context.Context, *GetServiceStatusRequest) (*GetServiceStatusResponse, error)
+	// ListCronJobs lists cron jobs on Linux systems.
+	// This operation does not require admin privileges.
+	ListCronJobs(context.Context, *emptypb.Empty) (*ListCronJobsResponse, error)
 	mustEmbedUnimplementedOpsServiceServer()
 }
 
@@ -214,6 +265,15 @@ func (UnimplementedOpsServiceServer) ListProcesses(context.Context, *emptypb.Emp
 }
 func (UnimplementedOpsServiceServer) ExecuteCommand(context.Context, *ExecuteCommandRequest) (*ExecuteCommandResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecuteCommand not implemented")
+}
+func (UnimplementedOpsServiceServer) ListServices(context.Context, *ListServicesRequest) (*ListServicesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListServices not implemented")
+}
+func (UnimplementedOpsServiceServer) GetServiceStatus(context.Context, *GetServiceStatusRequest) (*GetServiceStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetServiceStatus not implemented")
+}
+func (UnimplementedOpsServiceServer) ListCronJobs(context.Context, *emptypb.Empty) (*ListCronJobsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListCronJobs not implemented")
 }
 func (UnimplementedOpsServiceServer) mustEmbedUnimplementedOpsServiceServer() {}
 func (UnimplementedOpsServiceServer) testEmbeddedByValue()                    {}
@@ -369,6 +429,60 @@ func _OpsService_ExecuteCommand_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _OpsService_ListServices_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListServicesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OpsServiceServer).ListServices(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OpsService_ListServices_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OpsServiceServer).ListServices(ctx, req.(*ListServicesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OpsService_GetServiceStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetServiceStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OpsServiceServer).GetServiceStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OpsService_GetServiceStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OpsServiceServer).GetServiceStatus(ctx, req.(*GetServiceStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OpsService_ListCronJobs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(emptypb.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OpsServiceServer).ListCronJobs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OpsService_ListCronJobs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OpsServiceServer).ListCronJobs(ctx, req.(*emptypb.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // OpsService_ServiceDesc is the grpc.ServiceDesc for OpsService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -403,6 +517,18 @@ var OpsService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExecuteCommand",
 			Handler:    _OpsService_ExecuteCommand_Handler,
+		},
+		{
+			MethodName: "ListServices",
+			Handler:    _OpsService_ListServices_Handler,
+		},
+		{
+			MethodName: "GetServiceStatus",
+			Handler:    _OpsService_GetServiceStatus_Handler,
+		},
+		{
+			MethodName: "ListCronJobs",
+			Handler:    _OpsService_ListCronJobs_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
