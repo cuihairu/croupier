@@ -4,6 +4,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -129,15 +130,15 @@ func (s *croupierServerService) Start(svc service.Service) error {
 	// 从配置文件初始化日志系统
 	s.initLoggingFromConfig()
 
-	s.logger("info", "=== Croupier Server 服务启动 ===")
-	s.logger("info", fmt.Sprintf("配置文件: %s", s.cfgFile))
-	s.logger("info", fmt.Sprintf("工作目录: %s", wd()))
-	s.logger("info", fmt.Sprintf("可执行文件: %s", exePath()))
+	slog.Info("=== Croupier Server 服务启动 ===",
+		"config_file", s.cfgFile,
+		"working_dir", wd(),
+		"executable", exePath())
 
 	// 检查配置文件是否存在
 	if s.cfgFile != "" {
 		if _, err := os.Stat(s.cfgFile); os.IsNotExist(err) {
-			s.logger("error", fmt.Sprintf("配置文件不存在: %s", s.cfgFile))
+			slog.Error("配置文件不存在", "file", s.cfgFile)
 			return fmt.Errorf("配置文件不存在: %s", s.cfgFile)
 		}
 		// 设置全局配置文件
@@ -148,25 +149,25 @@ func (s *croupierServerService) Start(svc service.Service) error {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				s.logger("error", fmt.Sprintf("Server panic: %v", r))
+				slog.Error("Server panic", "error", r)
 				svc.Stop()
 			}
 		}()
 
-		s.logger("info", "正在调用 runServer()...")
+		slog.Info("正在调用 runServer()...")
 		if err := runServer(); err != nil {
-			s.logger("error", fmt.Sprintf("Server 启动失败: %v", err))
+			slog.Error("Server 启动失败", "error", err)
 			// 启动失败，停止服务
 			svc.Stop()
 		} else {
-			s.logger("info", "Croupier Server 服务已启动")
+			slog.Info("Croupier Server 服务已启动")
 		}
 	}()
 
 	// 等待上下文取消
 	go func() {
 		<-s.ctx.Done()
-		s.logger("info", "收到停止信号")
+		slog.Info("收到停止信号")
 		svc.Stop()
 	}()
 
@@ -175,14 +176,9 @@ func (s *croupierServerService) Start(svc service.Service) error {
 
 // Stop 由服务管理器调用
 func (s *croupierServerService) Stop(svc service.Service) error {
-	s.logger("info", "Croupier Server 服务停止中...")
+	slog.Info("Croupier Server 服务停止中...")
 	s.cancel()
 	return nil
-}
-
-func (s *croupierServerService) logger(level, msg string) {
-	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	fmt.Printf("[%s] [%s] %s\n", timestamp, level, msg)
 }
 
 // initLoggingFromConfig 从配置文件初始化日志系统
