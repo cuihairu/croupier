@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package croupier.platform.v1;
+
+option go_package = "github.com/cuihairu/croupier/pkg/pb/platform/v1;platformv1";
+option java_package = "io.github.cuihairu.croupier.platform.v1";
+option java_multiple_files = true;
+option csharp_namespace = "Croupier.Platform.V1";
+
+import "google/protobuf/empty.proto";
+
+// PlatformService provides a unified interface for calling third-party platform APIs.
+service PlatformService {
+  // CallPlatform invokes a method on a third-party platform.
+  // The request and response are JSON encoded bytes.
+  rpc CallPlatform(CallPlatformRequest) returns (CallPlatformResponse);
+
+  // ListPlatforms returns all available platforms.
+  rpc ListPlatforms(ListPlatformsRequest) returns (ListPlatformsResponse);
+
+  // ListPlatformMethods returns the methods supported by a platform.
+  rpc ListPlatformMethods(ListPlatformMethodsRequest) returns (ListPlatformMethodsResponse);
+
+  // ReloadPlatformConfig reloads the platform configuration.
+  rpc ReloadPlatformConfig(google.protobuf.Empty) returns (ReloadPlatformConfigResponse);
+}
+
+// CallPlatformRequest represents a request to call a platform method.
+message CallPlatformRequest {
+  string platform = 1; // Platform name (e.g., "quicksdk")
+  string method = 2;   // Method name (e.g., "day_report")
+  bytes request = 3;   // Request parameters (JSON)
+}
+
+// CallPlatformResponse represents the response from a platform method call.
+message CallPlatformResponse {
+  bytes response = 1; // Response data (JSON)
+  string error = 2;   // Error message if the call failed
+}
+
+// ListPlatformsRequest represents a request to list platforms.
+message ListPlatformsRequest {}
+
+// PlatformInfo represents information about a platform.
+message PlatformInfo {
+  string name = 1;        // Platform name
+  bool enabled = 2;       // Whether the platform is enabled
+  repeated string methods = 3; // Supported methods
+}
+
+// ListPlatformsResponse represents the response with platform list.
+message ListPlatformsResponse {
+  repeated PlatformInfo platforms = 1;
+}
+
+// ListPlatformMethodsRequest represents a request to list platform methods.
+message ListPlatformMethodsRequest {
+  string platform = 1; // Platform name
+}
+
+// ListPlatformMethodsResponse represents the response with method list.
+message ListPlatformMethodsResponse {
+  repeated string methods = 1;
+}
+
+// ReloadPlatformConfigResponse represents the response after reloading config.
+message ReloadPlatformConfigResponse {
+  bool success = 1;
+  string message = 2;
+}

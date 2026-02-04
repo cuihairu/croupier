@@ -119,7 +119,6 @@ sdks/cpp/build/
 sdks/cpp/bin/
 sdks/cpp/lib/
 build/*/proto/
-/proto/
 *.crt
 *.key
 certs/

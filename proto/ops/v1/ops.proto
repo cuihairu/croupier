@@ -1,0 +1,289 @@
+syntax = "proto3";
+
+package croupier.ops.v1;
+
+option go_package = "github.com/cuihairu/croupier/pkg/pb/ops/v1;opsv1";
+option java_package = "io.github.cuihairu.croupier.ops.v1";
+option java_multiple_files = true;
+option csharp_namespace = "Croupier.Ops.V1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// OpsService provides server operations and monitoring capabilities.
+// WARNING: This service can execute privileged operations. Enable with caution.
+// See operations documentation for security implications.
+service OpsService {
+  // ReportMetrics reports system metrics from agent to server.
+  rpc ReportMetrics(MetricsReport) returns (google.protobuf.Empty);
+  
+  // StreamMetrics establishes a streaming connection for continuous metrics reporting.
+  rpc StreamMetrics(stream MetricsReport) returns (google.protobuf.Empty);
+  
+  // GetSystemInfo returns detailed system information.
+  rpc GetSystemInfo(google.protobuf.Empty) returns (SystemInfo);
+  
+  // RestartProcess restarts a managed process.
+  // Requires ops.allow_restart = true in agent config.
+  rpc RestartProcess(RestartProcessRequest) returns (RestartProcessResponse);
+  
+  // StopProcess stops a managed process.
+  // Requires ops.allow_restart = true in agent config.
+  rpc StopProcess(StopProcessRequest) returns (StopProcessResponse);
+  
+  // StartProcess starts a managed process.
+  // Requires ops.allow_restart = true in agent config.
+  rpc StartProcess(StartProcessRequest) returns (StartProcessResponse);
+  
+  // ListProcesses lists all managed processes.
+  rpc ListProcesses(google.protobuf.Empty) returns (ListProcessesResponse);
+  
+  // ExecuteCommand executes a shell command.
+  // Requires ops.allow_exec = true in agent config.
+  // WARNING: This is a high-risk operation. Use with extreme caution.
+  rpc ExecuteCommand(ExecuteCommandRequest) returns (ExecuteCommandResponse);
+
+  // ListServices lists system services (Windows, Linux systemd, etc.).
+  // This operation does not require admin privileges on most platforms.
+  rpc ListServices(ListServicesRequest) returns (ListServicesResponse);
+
+  // GetServiceStatus returns detailed status of a specific system service.
+  // This operation does not require admin privileges on most platforms.
+  rpc GetServiceStatus(GetServiceStatusRequest) returns (GetServiceStatusResponse);
+
+  // ListCronJobs lists cron jobs on Linux systems.
+  // This operation does not require admin privileges.
+  rpc ListCronJobs(google.protobuf.Empty) returns (ListCronJobsResponse);
+}
+
+// MetricsReport contains system metrics from an agent.
+message MetricsReport {
+  string agent_id = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  
+  // CPU metrics
+  CpuMetrics cpu = 3;
+  
+  // Memory metrics
+  MemoryMetrics memory = 4;
+  
+  // Disk metrics
+  repeated DiskMetrics disks = 5;
+  
+  // Network metrics
+  repeated NetworkMetrics networks = 6;
+  
+  // Process metrics
+  repeated ProcessMetrics processes = 7;
+  
+  // Custom metrics (key-value pairs)
+  map<string, double> custom = 8;
+}
+
+message CpuMetrics {
+  double usage_percent = 1;      // Overall CPU usage percentage (0-100)
+  int32 cores = 2;               // Number of CPU cores
+  repeated double per_core = 3;  // Per-core usage percentage
+  double load_1m = 4;            // 1-minute load average
+  double load_5m = 5;            // 5-minute load average
+  double load_15m = 6;           // 15-minute load average
+}
+
+message MemoryMetrics {
+  uint64 total_bytes = 1;        // Total memory in bytes
+  uint64 used_bytes = 2;         // Used memory in bytes
+  uint64 available_bytes = 3;    // Available memory in bytes
+  double usage_percent = 4;      // Memory usage percentage
+  uint64 swap_total = 5;         // Swap total in bytes
+  uint64 swap_used = 6;          // Swap used in bytes
+}
+
+message DiskMetrics {
+  string mount_point = 1;        // Mount point path
+  string device = 2;             // Device name
+  string fs_type = 3;            // Filesystem type
+  uint64 total_bytes = 4;        // Total disk space
+  uint64 used_bytes = 5;         // Used disk space
+  uint64 available_bytes = 6;    // Available disk space
+  double usage_percent = 7;      // Disk usage percentage
+  uint64 inode_total = 8;        // Total inodes
+  uint64 inode_used = 9;         // Used inodes
+}
+
+message NetworkMetrics {
+  string interface = 1;          // Network interface name
+  uint64 bytes_sent = 2;         // Total bytes sent
+  uint64 bytes_recv = 3;         // Total bytes received
+  uint64 packets_sent = 4;       // Total packets sent
+  uint64 packets_recv = 5;       // Total packets received
+  uint64 errors_in = 6;          // Input errors
+  uint64 errors_out = 7;         // Output errors
+}
+
+message ProcessMetrics {
+  int32 pid = 1;                 // Process ID
+  string name = 2;               // Process name
+  string status = 3;             // Process status
+  double cpu_percent = 4;        // CPU usage percentage
+  uint64 memory_bytes = 5;       // Memory usage in bytes
+  int32 threads = 6;             // Number of threads
+  google.protobuf.Timestamp start_time = 7;  // Process start time
+}
+
+// SystemInfo contains detailed system information.
+message SystemInfo {
+  string hostname = 1;
+  string os = 2;                 // Operating system (linux, windows, darwin)
+  string os_version = 3;         // OS version
+  string kernel_version = 4;     // Kernel version
+  string arch = 5;               // Architecture (amd64, arm64, etc.)
+  int32 cpu_cores = 6;           // Number of CPU cores
+  uint64 total_memory = 7;       // Total memory in bytes
+  google.protobuf.Timestamp boot_time = 8;  // System boot time
+  string agent_version = 9;      // Croupier agent version
+  
+  // Ops module status
+  OpsStatus ops_status = 10;
+}
+
+message OpsStatus {
+  bool enabled = 1;              // Whether ops module is enabled
+  bool allow_restart = 2;        // Whether restart operations are allowed
+  bool allow_exec = 3;           // Whether command execution is allowed
+  repeated string managed_processes = 4;  // List of managed process names
+}
+
+// RestartProcessRequest requests a process restart.
+message RestartProcessRequest {
+  string process_name = 1;       // Name of the process to restart
+  bool force = 2;                // Force restart (kill if not responding)
+  int32 timeout_seconds = 3;     // Timeout for graceful shutdown (default: 30)
+}
+
+message RestartProcessResponse {
+  bool success = 1;
+  string message = 2;
+  int32 new_pid = 3;             // New process ID after restart
+}
+
+// StopProcessRequest requests a process stop.
+message StopProcessRequest {
+  string process_name = 1;       // Name of the process to stop
+  bool force = 2;                // Force stop (SIGKILL instead of SIGTERM)
+  int32 timeout_seconds = 3;     // Timeout for graceful shutdown
+}
+
+message StopProcessResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// StartProcessRequest requests a process start.
+message StartProcessRequest {
+  string process_name = 1;       // Name of the process to start
+}
+
+message StartProcessResponse {
+  bool success = 1;
+  string message = 2;
+  int32 pid = 3;                 // Process ID
+}
+
+// ListProcessesResponse contains the list of managed processes.
+message ListProcessesResponse {
+  repeated ManagedProcess processes = 1;
+}
+
+message ManagedProcess {
+  string name = 1;               // Process name (as configured)
+  string command = 2;            // Command to start the process
+  string working_dir = 3;        // Working directory
+  ProcessState state = 4;        // Current state
+  int32 pid = 5;                 // Current PID (0 if not running)
+  int32 restart_count = 6;       // Number of restarts
+  google.protobuf.Timestamp last_start = 7;  // Last start time
+}
+
+enum ProcessState {
+  PROCESS_STATE_UNSPECIFIED = 0;
+  PROCESS_STATE_RUNNING = 1;
+  PROCESS_STATE_STOPPED = 2;
+  PROCESS_STATE_FAILED = 3;
+  PROCESS_STATE_STARTING = 4;
+  PROCESS_STATE_STOPPING = 5;
+}
+
+// ExecuteCommandRequest requests command execution.
+// WARNING: This is a high-risk operation.
+message ExecuteCommandRequest {
+  string command = 1;            // Command to execute
+  repeated string args = 2;      // Command arguments
+  string working_dir = 3;        // Working directory (optional)
+  map<string, string> env = 4;   // Environment variables (optional)
+  int32 timeout_seconds = 5;     // Execution timeout (default: 60, max: 300)
+}
+
+message ExecuteCommandResponse {
+  bool success = 1;
+  int32 exit_code = 2;
+  string std_out = 3;            // Renamed from 'stdout' to avoid Windows CRT macro conflict
+  string std_err = 4;            // Renamed from 'stderr' to avoid Windows CRT macro conflict
+  string error = 5;              // Error message if execution failed
+}
+
+// ========== System Services ==========
+
+// ListServicesRequest requests a list of system services.
+message ListServicesRequest {
+  string state = 1;              // Filter by state: "running", "stopped", "paused" (optional)
+  string name_pattern = 2;       // Filter by service name pattern (optional)
+  int32 limit = 3;               // Maximum number of results (default: 100)
+}
+
+// ListServicesResponse contains the list of system services.
+message ListServicesResponse {
+  repeated ServiceInfo services = 1;
+  int32 total = 2;
+}
+
+// ServiceInfo contains information about a system service.
+message ServiceInfo {
+  string name = 1;               // Service name
+  string display_name = 2;       // Display name
+  string status = 3;             // Status: "running", "stopped", "paused"
+  string start_type = 4;         // Start type: "auto", "manual", "disabled"
+  uint32 process_id = 5;         // Process ID (0 if not running)
+}
+
+// GetServiceStatusRequest requests detailed status of a specific service.
+message GetServiceStatusRequest {
+  string name = 1;               // Service name
+}
+
+// GetServiceStatusResponse contains detailed service status.
+message GetServiceStatusResponse {
+  string name = 1;               // Service name
+  string display_name = 2;       // Display name
+  string status = 3;             // Status
+  string start_type = 4;         // Start type
+  uint32 process_id = 5;         // Process ID (0 if not running)
+  string binary_path = 6;        // Path to service binary
+  string description = 7;        // Service description
+}
+
+// ========== Cron Jobs (Linux) ==========
+
+// ListCronJobsResponse contains the list of cron jobs.
+message ListCronJobsResponse {
+  repeated CronJob jobs = 1;
+  int32 total = 2;
+}
+
+// CronJob represents a cron job entry.
+message CronJob {
+  string schedule = 1;           // Cron expression or @keyword
+  string command = 2;            // Command to execute
+  string user = 3;               // User who runs the job
+  string source_file = 4;        // File where this job is defined
+  bool enabled = 5;              // Whether the job is active
+}
