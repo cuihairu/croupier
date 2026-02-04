@@ -693,8 +693,8 @@ const file_croupier_agent_local_v1_local_proto_rawDesc = "" +
 	"\rRegisterLocal\x12-.croupier.agent.local.v1.RegisterLocalRequest\x1a..croupier.agent.local.v1.RegisterLocalResponse\x12b\n" +
 	"\tHeartbeat\x12).croupier.agent.local.v1.HeartbeatRequest\x1a*.croupier.agent.local.v1.HeartbeatResponse\x12b\n" +
 	"\tListLocal\x12).croupier.agent.local.v1.ListLocalRequest\x1a*.croupier.agent.local.v1.ListLocalResponse\x12k\n" +
-	"\fGetJobResult\x12,.croupier.agent.local.v1.GetJobResultRequest\x1a-.croupier.agent.local.v1.GetJobResultResponseBs\n" +
-	"*io.github.cuihairu.croupier.agent.local.v1P\x01ZCgithub.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1;localv1b\x06proto3"
+	"\fGetJobResult\x12,.croupier.agent.local.v1.GetJobResultRequest\x1a-.croupier.agent.local.v1.GetJobResultResponseB{\n" +
+	"*io.github.cuihairu.croupier.agent.local.v1P\x01ZKgithub.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/agent/local/v1;localv1b\x06proto3"
 
 var (
 	file_croupier_agent_local_v1_local_proto_rawDescOnce sync.Once

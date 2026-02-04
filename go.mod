@@ -185,4 +185,3 @@ exclude github.com/mattn/go-sqlite3 v1.14.22
 exclude github.com/mattn/go-sqlite3 v1.14.33
 
 // Local replace for SDK proto packages
-replace github.com/cuihairu/croupier/sdks/go => ../croupier-sdk-go

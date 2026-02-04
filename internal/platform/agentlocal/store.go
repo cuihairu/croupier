@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	localv1 "github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/agent/local/v1"
+	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
 )
 
 type Instance struct {

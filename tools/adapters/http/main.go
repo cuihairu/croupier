@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/nng"
+	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
-	localv1 "github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/agent/local/v1"
-	sdkv1 "github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/sdk/v1"
 	"google.golang.org/protobuf/proto"
 )
 
