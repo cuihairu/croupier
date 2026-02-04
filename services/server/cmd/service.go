@@ -9,8 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/cli/common"
+	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/kardianos/service"
 	"github.com/spf13/cobra"
+	"github.com/zeromicro/go-zero/core/conf"
 )
 
 var (
@@ -123,6 +126,9 @@ func newServerService(cfgFile string) *croupierServerService {
 
 // Start 由服务管理器调用
 func (s *croupierServerService) Start(svc service.Service) error {
+	// 从配置文件初始化日志系统
+	s.initLoggingFromConfig()
+
 	s.logger("info", "=== Croupier Server 服务启动 ===")
 	s.logger("info", fmt.Sprintf("配置文件: %s", s.cfgFile))
 	s.logger("info", fmt.Sprintf("工作目录: %s", wd()))
@@ -176,35 +182,39 @@ func (s *croupierServerService) Stop(svc service.Service) error {
 
 func (s *croupierServerService) logger(level, msg string) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
-	logMsg := fmt.Sprintf("[%s] [%s] %s\n", timestamp, level, msg)
-	fmt.Print(logMsg)
-
-	// 同时写入日志文件（Windows 服务模式下标准输出不可见）
-	s.writeToLogFile(logMsg)
+	fmt.Printf("[%s] [%s] %s\n", timestamp, level, msg)
 }
 
-// writeToLogFile 将日志写入文件
-func (s *croupierServerService) writeToLogFile(msg string) {
-	// 默认日志目录：当前工作目录下的 logs
-	logDir := "logs"
-
-	// 优先从环境变量读取
-	if envDir := os.Getenv("CROUPIER_LOG_DIR"); envDir != "" {
-		logDir = envDir
-	}
-
-	// 确保目录存在
-	if err := os.MkdirAll(logDir, 0755); err != nil {
+// initLoggingFromConfig 从配置文件初始化日志系统
+func (s *croupierServerService) initLoggingFromConfig() {
+	if s.cfgFile == "" {
 		return
 	}
 
-	logFile := filepath.Join(logDir, "server-service.log")
-	f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
+	var cfg config.Config
+	if err := conf.LoadConfig(s.cfgFile, &cfg); err != nil {
+		// 配置加载失败，使用默认日志配置
+		common.SetupLoggerWithFile("info", "console", "", 0, 0, 0, false)
 		return
 	}
-	defer f.Close()
-	f.WriteString(msg)
+
+	// 使用配置中的日志设置
+	logCfg := cfg.CroupierLog
+	if logCfg.Level == "" {
+		logCfg.Level = "info"
+	}
+	if logCfg.Format == "" {
+		logCfg.Format = "console"
+	}
+	common.SetupLoggerWithFile(
+		logCfg.Level,
+		logCfg.Format,
+		logCfg.File,
+		logCfg.MaxSize,
+		logCfg.MaxBackups,
+		logCfg.MaxAge,
+		logCfg.Compress,
+	)
 }
 
 // 创建服务对象
