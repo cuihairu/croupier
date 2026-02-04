@@ -5,6 +5,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -397,4 +398,181 @@ func (s *OpsServer) Stop() {
 func (s *OpsServer) Close() error {
 	s.Stop()
 	return nil
+}
+
+// ========== System Services (JSON methods to avoid circular dependency) ==========
+
+// ListServicesJSON handles ListServicesRequest via JSON
+func (s *OpsServer) ListServicesJSON(ctx context.Context, jsonReq []byte) ([]byte, error) {
+	var req ListServicesRequest
+	if len(jsonReq) > 0 {
+		if err := json.Unmarshal(jsonReq, &req); err != nil {
+			return nil, err
+		}
+	}
+
+	services, err := ListServices(req.State, req.NamePattern, int(req.Limit))
+	if err != nil {
+		return nil, err
+	}
+
+	// Return JSON response
+	resp := struct {
+		Services []*ServiceInfo `json:"services"`
+		Total    int32          `json:"total"`
+	}{
+		Services: make([]*ServiceInfo, len(services)),
+		Total:    int32(len(services)),
+	}
+	for i := range services {
+		resp.Services[i] = &services[i]
+	}
+
+	return json.Marshal(resp)
+}
+
+// GetServiceStatusJSON handles GetServiceStatusRequest via JSON
+func (s *OpsServer) GetServiceStatusJSON(ctx context.Context, jsonReq []byte) ([]byte, error) {
+	var req GetServiceStatusRequest
+	if err := json.Unmarshal(jsonReq, &req); err != nil {
+		return nil, err
+	}
+
+	status, err := GetServiceStatus(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	// Return JSON response
+	resp := &ServiceStatusDetail{
+		Name:        status.Name,
+		DisplayName: status.DisplayName,
+		Status:      status.Status,
+		StartType:   status.StartType,
+		ProcessID:   status.ProcessID,
+		BinaryPath:  status.BinaryPath,
+		Description: status.Description,
+	}
+
+	return json.Marshal(resp)
+}
+
+// ListCronJobsJSON handles ListCronJobsRequest via JSON
+func (s *OpsServer) ListCronJobsJSON(ctx context.Context) ([]byte, error) {
+	jobs, err := ListCronJobs()
+	if err != nil {
+		return nil, err
+	}
+
+	// Return JSON response
+	resp := struct {
+		Jobs  []*CronJob `json:"jobs"`
+		Total int32       `json:"total"`
+	}{
+		Jobs:  make([]*CronJob, len(jobs)),
+		Total: int32(len(jobs)),
+	}
+	for i := range jobs {
+		resp.Jobs[i] = &jobs[i]
+	}
+
+	return json.Marshal(resp)
+}
+
+// ========== System Services ==========
+
+// ListServicesRequest requests a list of system services.
+type ListServicesRequest struct {
+	State       string `json:"state"`
+	NamePattern string `json:"name_pattern"`
+	Limit       int32  `json:"limit"`
+}
+
+// ListServicesResponse contains the list of system services.
+type ListServicesResponse struct {
+	Services []*ServiceInfo `json:"services"`
+	Total    int32          `json:"total"`
+}
+
+// GetServiceStatusRequest requests detailed status of a specific service.
+type GetServiceStatusRequest struct {
+	Name string `json:"name"`
+}
+
+// GetServiceStatusResponse contains detailed service status.
+type GetServiceStatusResponse struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Status      string `json:"status"`
+	StartType   string `json:"start_type"`
+	ProcessID   uint32 `json:"process_id"`
+	BinaryPath  string `json:"binary_path"`
+	Description string `json:"description"`
+}
+
+// ListCronJobsResponse contains the list of cron jobs.
+type ListCronJobsResponse struct {
+	Jobs  []*CronJob `json:"jobs"`
+	Total int32       `json:"total"`
+}
+
+// ListServices returns system services.
+func (s *OpsServer) ListServices(ctx context.Context, req *ListServicesRequest) (*ListServicesResponse, error) {
+	limit := int(req.Limit)
+	if limit <= 0 {
+		limit = 100
+	}
+
+	services, err := ListServices(req.State, req.NamePattern, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to pointers
+	servicePtrs := make([]*ServiceInfo, len(services))
+	for i := range services {
+		servicePtrs[i] = &services[i]
+	}
+
+	return &ListServicesResponse{
+		Services: servicePtrs,
+		Total:    int32(len(services)),
+	}, nil
+}
+
+// GetServiceStatus returns detailed service status.
+func (s *OpsServer) GetServiceStatus(ctx context.Context, req *GetServiceStatusRequest) (*GetServiceStatusResponse, error) {
+	status, err := GetServiceStatus(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &GetServiceStatusResponse{
+		Name:        status.Name,
+		DisplayName: status.DisplayName,
+		Status:      status.Status,
+		StartType:   status.StartType,
+		ProcessID:   status.ProcessID,
+		BinaryPath:  status.BinaryPath,
+		Description: status.Description,
+	}, nil
+}
+
+// ListCronJobs returns cron jobs on Linux systems.
+func (s *OpsServer) ListCronJobs(ctx context.Context) (*ListCronJobsResponse, error) {
+	jobs, err := ListCronJobs()
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to pointers
+	jobPtrs := make([]*CronJob, len(jobs))
+	for i := range jobs {
+		jobPtrs[i] = &jobs[i]
+	}
+
+	return &ListCronJobsResponse{
+		Jobs:  jobPtrs,
+		Total: int32(len(jobs)),
+	}, nil
 }
