@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strings"
 
-	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/services/agent/internal/svc"
 	"github.com/cuihairu/croupier/services/agent/internal/types"
 
@@ -52,7 +52,7 @@ func (l *FunctionRegisterLogic) FunctionRegister(req *types.FunctionRegisterRequ
 				funcVer = strings.TrimSpace(anyString(req.Descriptor["version"]))
 			}
 
-			l.svcCtx.Core.Store().Register(serviceID, rpcAddr, serviceVer, []*localv1.LocalFunctionDescriptor{
+			l.svcCtx.Core.Store().Register(serviceID, rpcAddr, serviceVer, []*sdkv1.LocalFunctionDescriptor{
 				{Id: functionID, Version: funcVer},
 			})
 			return &types.FunctionRegisterResponse{Success: true, Message: "function registered (core store updated)"}, nil

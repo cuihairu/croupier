@@ -9,7 +9,6 @@ package opsv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
@@ -1927,7 +1926,7 @@ var File_croupier_ops_v1_ops_proto protoreflect.FileDescriptor
 
 const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\n" +
-	"\x19croupier/ops/v1/ops.proto\x12\x0fcroupier.ops.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xfa\x03\n" +
+	"\x19croupier/ops/v1/ops.proto\x12\x0fcroupier.ops.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfa\x03\n" +
 	"\rMetricsReport\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x128\n" +
 	"\ttimestamp\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12-\n" +
@@ -2108,20 +2107,7 @@ const file_croupier_ops_v1_ops_proto_rawDesc = "" +
 	"\x15PROCESS_STATE_STOPPED\x10\x02\x12\x18\n" +
 	"\x14PROCESS_STATE_FAILED\x10\x03\x12\x1a\n" +
 	"\x16PROCESS_STATE_STARTING\x10\x04\x12\x1a\n" +
-	"\x16PROCESS_STATE_STOPPING\x10\x052\xc9\a\n" +
-	"\n" +
-	"OpsService\x12G\n" +
-	"\rReportMetrics\x12\x1e.croupier.ops.v1.MetricsReport\x1a\x16.google.protobuf.Empty\x12I\n" +
-	"\rStreamMetrics\x12\x1e.croupier.ops.v1.MetricsReport\x1a\x16.google.protobuf.Empty(\x01\x12D\n" +
-	"\rGetSystemInfo\x12\x16.google.protobuf.Empty\x1a\x1b.croupier.ops.v1.SystemInfo\x12a\n" +
-	"\x0eRestartProcess\x12&.croupier.ops.v1.RestartProcessRequest\x1a'.croupier.ops.v1.RestartProcessResponse\x12X\n" +
-	"\vStopProcess\x12#.croupier.ops.v1.StopProcessRequest\x1a$.croupier.ops.v1.StopProcessResponse\x12[\n" +
-	"\fStartProcess\x12$.croupier.ops.v1.StartProcessRequest\x1a%.croupier.ops.v1.StartProcessResponse\x12O\n" +
-	"\rListProcesses\x12\x16.google.protobuf.Empty\x1a&.croupier.ops.v1.ListProcessesResponse\x12a\n" +
-	"\x0eExecuteCommand\x12&.croupier.ops.v1.ExecuteCommandRequest\x1a'.croupier.ops.v1.ExecuteCommandResponse\x12[\n" +
-	"\fListServices\x12$.croupier.ops.v1.ListServicesRequest\x1a%.croupier.ops.v1.ListServicesResponse\x12g\n" +
-	"\x10GetServiceStatus\x12(.croupier.ops.v1.GetServiceStatusRequest\x1a).croupier.ops.v1.GetServiceStatusResponse\x12M\n" +
-	"\fListCronJobs\x12\x16.google.protobuf.Empty\x1a%.croupier.ops.v1.ListCronJobsResponseBj\n" +
+	"\x16PROCESS_STATE_STOPPING\x10\x05Bj\n" +
 	"\"io.github.cuihairu.croupier.ops.v1P\x01Z0github.com/cuihairu/croupier/pkg/pb/ops/v1;opsv1\xaa\x02\x0fCroupier.Ops.V1b\x06proto3"
 
 var (
@@ -2168,7 +2154,6 @@ var file_croupier_ops_v1_ops_proto_goTypes = []any{
 	nil,                              // 26: croupier.ops.v1.MetricsReport.CustomEntry
 	nil,                              // 27: croupier.ops.v1.ExecuteCommandRequest.EnvEntry
 	(*timestamppb.Timestamp)(nil),    // 28: google.protobuf.Timestamp
-	(*emptypb.Empty)(nil),            // 29: google.protobuf.Empty
 }
 var file_croupier_ops_v1_ops_proto_depIdxs = []int32{
 	28, // 0: croupier.ops.v1.MetricsReport.timestamp:type_name -> google.protobuf.Timestamp
@@ -2187,30 +2172,8 @@ var file_croupier_ops_v1_ops_proto_depIdxs = []int32{
 	27, // 13: croupier.ops.v1.ExecuteCommandRequest.env:type_name -> croupier.ops.v1.ExecuteCommandRequest.EnvEntry
 	21, // 14: croupier.ops.v1.ListServicesResponse.services:type_name -> croupier.ops.v1.ServiceInfo
 	25, // 15: croupier.ops.v1.ListCronJobsResponse.jobs:type_name -> croupier.ops.v1.CronJob
-	1,  // 16: croupier.ops.v1.OpsService.ReportMetrics:input_type -> croupier.ops.v1.MetricsReport
-	1,  // 17: croupier.ops.v1.OpsService.StreamMetrics:input_type -> croupier.ops.v1.MetricsReport
-	29, // 18: croupier.ops.v1.OpsService.GetSystemInfo:input_type -> google.protobuf.Empty
-	9,  // 19: croupier.ops.v1.OpsService.RestartProcess:input_type -> croupier.ops.v1.RestartProcessRequest
-	11, // 20: croupier.ops.v1.OpsService.StopProcess:input_type -> croupier.ops.v1.StopProcessRequest
-	13, // 21: croupier.ops.v1.OpsService.StartProcess:input_type -> croupier.ops.v1.StartProcessRequest
-	29, // 22: croupier.ops.v1.OpsService.ListProcesses:input_type -> google.protobuf.Empty
-	17, // 23: croupier.ops.v1.OpsService.ExecuteCommand:input_type -> croupier.ops.v1.ExecuteCommandRequest
-	19, // 24: croupier.ops.v1.OpsService.ListServices:input_type -> croupier.ops.v1.ListServicesRequest
-	22, // 25: croupier.ops.v1.OpsService.GetServiceStatus:input_type -> croupier.ops.v1.GetServiceStatusRequest
-	29, // 26: croupier.ops.v1.OpsService.ListCronJobs:input_type -> google.protobuf.Empty
-	29, // 27: croupier.ops.v1.OpsService.ReportMetrics:output_type -> google.protobuf.Empty
-	29, // 28: croupier.ops.v1.OpsService.StreamMetrics:output_type -> google.protobuf.Empty
-	7,  // 29: croupier.ops.v1.OpsService.GetSystemInfo:output_type -> croupier.ops.v1.SystemInfo
-	10, // 30: croupier.ops.v1.OpsService.RestartProcess:output_type -> croupier.ops.v1.RestartProcessResponse
-	12, // 31: croupier.ops.v1.OpsService.StopProcess:output_type -> croupier.ops.v1.StopProcessResponse
-	14, // 32: croupier.ops.v1.OpsService.StartProcess:output_type -> croupier.ops.v1.StartProcessResponse
-	15, // 33: croupier.ops.v1.OpsService.ListProcesses:output_type -> croupier.ops.v1.ListProcessesResponse
-	18, // 34: croupier.ops.v1.OpsService.ExecuteCommand:output_type -> croupier.ops.v1.ExecuteCommandResponse
-	20, // 35: croupier.ops.v1.OpsService.ListServices:output_type -> croupier.ops.v1.ListServicesResponse
-	23, // 36: croupier.ops.v1.OpsService.GetServiceStatus:output_type -> croupier.ops.v1.GetServiceStatusResponse
-	24, // 37: croupier.ops.v1.OpsService.ListCronJobs:output_type -> croupier.ops.v1.ListCronJobsResponse
-	27, // [27:38] is the sub-list for method output_type
-	16, // [16:27] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
 	16, // [16:16] is the sub-list for extension type_name
 	16, // [16:16] is the sub-list for extension extendee
 	0,  // [0:16] is the sub-list for field type_name
@@ -2229,7 +2192,7 @@ func file_croupier_ops_v1_ops_proto_init() {
 			NumEnums:      1,
 			NumMessages:   27,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   0,
 		},
 		GoTypes:           file_croupier_ops_v1_ops_proto_goTypes,
 		DependencyIndexes: file_croupier_ops_v1_ops_proto_depIdxs,

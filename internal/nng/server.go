@@ -14,7 +14,7 @@ import (
 	"time"
 
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
-	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
+	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol/rep"
@@ -99,13 +99,13 @@ type Server struct {
 // Handler handles control service requests
 type Handler interface {
 	// HandleRegister handles agent registration
-	HandleRegister(ctx context.Context, req *serverv1.RegisterRequest) (*serverv1.RegisterResponse, error)
+	HandleRegister(ctx context.Context, req *agentv1.RegisterRequest) (*agentv1.RegisterResponse, error)
 
 	// HandleHeartbeat handles agent heartbeat
-	HandleHeartbeat(ctx context.Context, req *serverv1.HeartbeatRequest) (*serverv1.HeartbeatResponse, error)
+	HandleHeartbeat(ctx context.Context, req *agentv1.HeartbeatRequest) (*agentv1.HeartbeatResponse, error)
 
 	// HandleRegisterCapabilities handles provider capabilities registration
-	HandleRegisterCapabilities(ctx context.Context, req *serverv1.RegisterCapabilitiesRequest) (*serverv1.RegisterCapabilitiesResponse, error)
+	HandleRegisterCapabilities(ctx context.Context, req *agentv1.RegisterCapabilitiesRequest) (*agentv1.RegisterCapabilitiesResponse, error)
 }
 
 // NewServer creates a new NNG control server
@@ -364,7 +364,7 @@ func (s *Server) handleRequest(ctx context.Context, msgID uint32, data []byte) (
 
 // handleRegister handles RegisterRequest
 func (s *Server) handleRegister(ctx context.Context, data []byte) ([]byte, error) {
-	req := &serverv1.RegisterRequest{}
+	req := &agentv1.RegisterRequest{}
 	if err := proto.Unmarshal(data, req); err != nil {
 		return nil, fmt.Errorf("unmarshal RegisterRequest: %w", err)
 	}
@@ -379,7 +379,7 @@ func (s *Server) handleRegister(ctx context.Context, data []byte) ([]byte, error
 
 // handleHeartbeat handles HeartbeatRequest
 func (s *Server) handleHeartbeat(ctx context.Context, data []byte) ([]byte, error) {
-	req := &serverv1.HeartbeatRequest{}
+	req := &agentv1.HeartbeatRequest{}
 	if err := proto.Unmarshal(data, req); err != nil {
 		return nil, fmt.Errorf("unmarshal HeartbeatRequest: %w", err)
 	}
@@ -394,7 +394,7 @@ func (s *Server) handleHeartbeat(ctx context.Context, data []byte) ([]byte, erro
 
 // handleRegisterCapabilities handles RegisterCapabilitiesRequest
 func (s *Server) handleRegisterCapabilities(ctx context.Context, data []byte) ([]byte, error) {
-	req := &serverv1.RegisterCapabilitiesRequest{}
+	req := &agentv1.RegisterCapabilitiesRequest{}
 	if err := proto.Unmarshal(data, req); err != nil {
 		return nil, fmt.Errorf("unmarshal RegisterCapabilitiesRequest: %w", err)
 	}
@@ -408,7 +408,7 @@ func (s *Server) handleRegisterCapabilities(ctx context.Context, data []byte) ([
 }
 
 // handleRegisterRequest implements the actual Register logic
-func (s *Server) handleRegisterRequest(ctx context.Context, req *serverv1.RegisterRequest) (*serverv1.RegisterResponse, error) {
+func (s *Server) handleRegisterRequest(ctx context.Context, req *agentv1.RegisterRequest) (*agentv1.RegisterResponse, error) {
 	// Forward to upstream if configured
 	if s.upstream != nil {
 		return s.upstream.HandleRegister(ctx, req)
@@ -467,18 +467,18 @@ func (s *Server) handleRegisterRequest(ctx context.Context, req *serverv1.Regist
 
 	s.logger.Info("Agent registered via NNG", "agent_id", req.AgentId, "game_id", req.GameId)
 
-	return &serverv1.RegisterResponse{}, nil
+	return &agentv1.RegisterResponse{}, nil
 }
 
 // handleHeartbeatRequest implements the actual Heartbeat logic
-func (s *Server) handleHeartbeatRequest(ctx context.Context, req *serverv1.HeartbeatRequest) (*serverv1.HeartbeatResponse, error) {
+func (s *Server) handleHeartbeatRequest(ctx context.Context, req *agentv1.HeartbeatRequest) (*agentv1.HeartbeatResponse, error) {
 	// Forward to upstream if configured
 	if s.upstream != nil {
 		return s.upstream.HandleHeartbeat(ctx, req)
 	}
 
 	if req.AgentId == "" {
-		return &serverv1.HeartbeatResponse{}, nil
+		return &agentv1.HeartbeatResponse{}, nil
 	}
 
 	s.registry.Mu().Lock()
@@ -489,11 +489,11 @@ func (s *Server) handleHeartbeatRequest(ctx context.Context, req *serverv1.Heart
 	}
 	s.registry.Mu().Unlock()
 
-	return &serverv1.HeartbeatResponse{}, nil
+	return &agentv1.HeartbeatResponse{}, nil
 }
 
 // handleRegisterCapabilitiesRequest implements the actual RegisterCapabilities logic
-func (s *Server) handleRegisterCapabilitiesRequest(ctx context.Context, req *serverv1.RegisterCapabilitiesRequest) (*serverv1.RegisterCapabilitiesResponse, error) {
+func (s *Server) handleRegisterCapabilitiesRequest(ctx context.Context, req *agentv1.RegisterCapabilitiesRequest) (*agentv1.RegisterCapabilitiesResponse, error) {
 	// Forward to upstream if configured
 	if s.upstream != nil {
 		return s.upstream.HandleRegisterCapabilities(ctx, req)
@@ -523,7 +523,7 @@ func (s *Server) handleRegisterCapabilitiesRequest(ctx context.Context, req *ser
 
 	s.logger.Info("Provider capabilities registered via NNG", "provider_id", req.Provider.Id)
 
-	return &serverv1.RegisterCapabilitiesResponse{}, nil
+	return &agentv1.RegisterCapabilitiesResponse{}, nil
 }
 
 // decompressManifest decompresses gzipped manifest data
@@ -545,7 +545,7 @@ func (s *Server) decompressManifest(data []byte) ([]byte, error) {
 func (s *Server) createErrorResponse(err error) []byte {
 	// For now, return a simple error message
 	// In production, this should be a proper protobuf error response
-	resp := &serverv1.RegisterResponse{}
+	resp := &agentv1.RegisterResponse{}
 	// Can't directly add error to RegisterResponse, so we log it
 	s.logger.Error("Request error", "error", err)
 	data, _ := proto.Marshal(resp)
@@ -621,14 +621,14 @@ func NewControlHandler(server *Server) *ControlHandler {
 	return &ControlHandler{server: server}
 }
 
-func (h *ControlHandler) HandleRegister(ctx context.Context, req *serverv1.RegisterRequest) (*serverv1.RegisterResponse, error) {
+func (h *ControlHandler) HandleRegister(ctx context.Context, req *agentv1.RegisterRequest) (*agentv1.RegisterResponse, error) {
 	return h.server.handleRegisterRequest(ctx, req)
 }
 
-func (h *ControlHandler) HandleHeartbeat(ctx context.Context, req *serverv1.HeartbeatRequest) (*serverv1.HeartbeatResponse, error) {
+func (h *ControlHandler) HandleHeartbeat(ctx context.Context, req *agentv1.HeartbeatRequest) (*agentv1.HeartbeatResponse, error) {
 	return h.server.handleHeartbeatRequest(ctx, req)
 }
 
-func (h *ControlHandler) HandleRegisterCapabilities(ctx context.Context, req *serverv1.RegisterCapabilitiesRequest) (*serverv1.RegisterCapabilitiesResponse, error) {
+func (h *ControlHandler) HandleRegisterCapabilities(ctx context.Context, req *agentv1.RegisterCapabilitiesRequest) (*agentv1.RegisterCapabilitiesResponse, error) {
 	return h.server.handleRegisterCapabilitiesRequest(ctx, req)
 }

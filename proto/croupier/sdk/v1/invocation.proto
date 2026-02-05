@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package croupier.sdk.v1;
+option java_package = "io.github.cuihairu.croupier.sdk.v1";
+option java_multiple_files = true;
+
+option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1";
+
+// SDK Function Invocation Request
+message InvokeRequest {
+  string function_id = 1;           // e.g. "player.ban"
+  string idempotency_key = 2;       // client-supplied idempotency key
+  bytes payload = 3;                // serialized request (JSON/Proto)
+  map<string, string> metadata = 4; // optional k/v metadata
+}
+
+// SDK Function Invocation Response
+message InvokeResponse {
+  bytes payload = 1; // serialized response body
+}
+
+// SDK Job Start Response
+message StartJobResponse {
+  string job_id = 1;
+}
+
+// SDK Job Stream Request
+message JobStreamRequest {
+  string job_id = 1;
+}
+
+// SDK Job Event
+message JobEvent {
+  string type = 1;      // "progress" | "log" | "done" | "error"
+  string message = 2;   // free text for log/error
+  int32 progress = 3;   // 0..100 when type == progress
+  bytes payload = 4;    // optional final result
+}
+
+// SDK Job Cancellation Request
+message CancelJobRequest {
+  string job_id = 1;
+}

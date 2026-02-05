@@ -7,7 +7,7 @@
 package playerv1
 
 import (
-	_ "github.com/cuihairu/croupier/pkg/pb/croupier/options/v1"
+	_ "github.com/cuihairu/croupier/pkg/pb/croupier/component/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -122,7 +122,7 @@ var File_examples_games_player_v1_player_proto protoreflect.FileDescriptor
 
 const file_examples_games_player_v1_player_proto_rawDesc = "" +
 	"\n" +
-	"%examples/games/player/v1/player.proto\x12\x18examples.games.player.v1\x1a*croupier/options/v1/function_options.proto\x1a$croupier/options/v1/ui_options.proto\"p\n" +
+	"%examples/games/player/v1/player.proto\x12\x18examples.games.player.v1\x1a,croupier/component/v1/function_options.proto\x1a&croupier/component/v1/ui_options.proto\"p\n" +
 	"\n" +
 	"BanRequest\x122\n" +
 	"\tplayer_id\x18\x01 \x01(\tB\x15\x8a\xb2\x19\x11\n" +

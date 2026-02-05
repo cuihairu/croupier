@@ -12,8 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	commonv1 "github.com/cuihairu/croupier/pkg/pb/croupier/common/v1"
-	optionsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/options/v1"
+	ui "github.com/cuihairu/croupier/pkg/pb/croupier/component/v1"
 	"google.golang.org/protobuf/proto"
 	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
 	pluginpb "google.golang.org/protobuf/types/pluginpb"
@@ -725,9 +724,9 @@ func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
 		return out
 	}
 
-	if proto.HasExtension(mo, optionsv1.E_Function) {
-		ext := proto.GetExtension(mo, optionsv1.E_Function)
-		if fn, ok := ext.(*optionsv1.FunctionOptions); ok && fn != nil {
+	if proto.HasExtension(mo, ui.E_Function) {
+		ext := proto.GetExtension(mo, ui.E_Function)
+		if fn, ok := ext.(*ui.FunctionOptions); ok && fn != nil {
 			out.FunctionID = strings.TrimSpace(fn.GetFunctionId())
 			out.Version = strings.TrimSpace(fn.GetVersion())
 			out.Category = strings.TrimSpace(fn.GetCategory())
@@ -820,9 +819,9 @@ func collectUIFieldHints(msg *descriptorpb.DescriptorProto) uiFieldHints {
 		var fieldCfg map[string]any
 		cfg := map[string]any{}
 		if fo := f.GetOptions(); fo != nil {
-			if proto.HasExtension(fo, optionsv1.E_Ui) {
-				ext := proto.GetExtension(fo, optionsv1.E_Ui)
-				if ui, ok := ext.(*optionsv1.UIFieldOptions); ok && ui != nil {
+			if proto.HasExtension(fo, ui.E_Ui) {
+				ext := proto.GetExtension(fo, ui.E_Ui)
+				if ui, ok := ext.(*ui.UIFieldOptions); ok && ui != nil {
 					if v := strings.TrimSpace(ui.GetWidget()); v != "" {
 						cfg["widget"] = v
 					}
@@ -908,7 +907,7 @@ func collectUIFieldHints(msg *descriptorpb.DescriptorProto) uiFieldHints {
 	return hints
 }
 
-func i18nToMap(t *commonv1.I18NText) map[string]string {
+func i18nToMap(t *ui.I18NText) map[string]string {
 	if t == nil {
 		return nil
 	}
@@ -922,7 +921,7 @@ func i18nToMap(t *commonv1.I18NText) map[string]string {
 	return out
 }
 
-func menuToMap(m *commonv1.Menu) map[string]any {
+func menuToMap(m *ui.Menu) map[string]any {
 	if m == nil {
 		return nil
 	}
@@ -951,7 +950,7 @@ func menuToMap(m *commonv1.Menu) map[string]any {
 	return out
 }
 
-func permissionToMap(p *commonv1.PermissionSpec) map[string]any {
+func permissionToMap(p *ui.PermissionSpec) map[string]any {
 	if p == nil {
 		return nil
 	}
@@ -1549,7 +1548,7 @@ func parseEntityOptions(mo *descriptorpb.MessageOptions) entityOptions {
 
 	// For now, only parse from UninterpretedOption (proto-first workflow)
 	// After the EntityOptions extension is generated and available in optionsv1,
-	// we can add a check using proto.HasExtension(mo, optionsv1.E_Entity)
+	// we can add a check using proto.HasExtension(mo, ui.E_Entity)
 	for _, u := range mo.GetUninterpretedOption() {
 		name := joinOptionName(u)
 		if name != "croupier.options.v1.entity" {
@@ -1692,9 +1691,9 @@ func addEntityHintsToSchema(schema map[string]any, msg *descriptorpb.DescriptorP
 		// Check for field-level entity hints via custom options
 		if fo := f.GetOptions(); fo != nil {
 			// Check UI hints for searchable/filterable/sortable
-			if proto.HasExtension(fo, optionsv1.E_Ui) {
-				ext := proto.GetExtension(fo, optionsv1.E_Ui)
-				if ui, ok := ext.(*optionsv1.UIFieldOptions); ok && ui != nil {
+			if proto.HasExtension(fo, ui.E_Ui) {
+				ext := proto.GetExtension(fo, ui.E_Ui)
+				if ui, ok := ext.(*ui.UIFieldOptions); ok && ui != nil {
 					// These can be added as custom annotations
 					if strings.TrimSpace(ui.GetPlaceholder()) != "" {
 						propMap["placeholder"] = strings.TrimSpace(ui.GetPlaceholder())

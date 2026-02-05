@@ -13,7 +13,7 @@ import (
 	"github.com/cuihairu/croupier/internal/nng"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
-	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
+	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 )
 
 // UpstreamClient manages the connection to the central Croupier Server.
@@ -308,7 +308,7 @@ func (c *UpstreamClient) heartbeatLoop(ctx context.Context) {
 			}
 			// 心跳调用设置超时，避免 server 关闭后一直阻塞
 			hbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-			_, err := c.nngClient.Heartbeat(hbCtx, &serverv1.HeartbeatRequest{AgentId: c.agentID})
+			_, err := c.nngClient.Heartbeat(hbCtx, &agentv1.HeartbeatRequest{AgentId: c.agentID})
 			cancel()
 			if err != nil {
 				consecutiveFailures++
@@ -394,9 +394,9 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 	metaSnapshot := c.store.FunctionMetadata()
 
 	// Convert to FunctionDescriptors
-	var funcs []*serverv1.FunctionDescriptor
+	var funcs []*agentv1.FunctionDescriptor
 	for fid, instances := range localData {
-		desc := &serverv1.FunctionDescriptor{
+		desc := &agentv1.FunctionDescriptor{
 			Id:      fid,
 			Enabled: len(instances) > 0,
 			Version: pickVersion(versionSnapshot[fid]),
@@ -411,7 +411,7 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 
 	processes := buildProcesses(localData, versionSnapshot)
 
-	req := &serverv1.RegisterRequest{
+	req := &agentv1.RegisterRequest{
 		AgentId:   c.agentID,
 		Version:   c.version,
 		RpcAddr:   c.rpcAddr,
@@ -432,8 +432,8 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 	return nil
 }
 
-func buildProcesses(localData map[string][]agentlocal.Instance, versionSnapshot map[string]map[string]string) []*serverv1.AgentProcess {
-	byServiceID := map[string]*serverv1.AgentProcess{}
+func buildProcesses(localData map[string][]agentlocal.Instance, versionSnapshot map[string]map[string]string) []*agentv1.AgentProcess {
+	byServiceID := map[string]*agentv1.AgentProcess{}
 	fnSeen := map[string]map[string]struct{}{} // service_id -> function_id set
 
 	for fid, instances := range localData {
@@ -448,7 +448,7 @@ func buildProcesses(localData map[string][]agentlocal.Instance, versionSnapshot 
 			}
 			p := byServiceID[sid]
 			if p == nil {
-				p = &serverv1.AgentProcess{
+				p = &agentv1.AgentProcess{
 					ServiceId: sid,
 					Addr:      strings.TrimSpace(inst.Addr),
 					Version:   strings.TrimSpace(inst.Version),
@@ -484,7 +484,7 @@ func buildProcesses(localData map[string][]agentlocal.Instance, versionSnapshot 
 		}
 	}
 
-	out := make([]*serverv1.AgentProcess, 0, len(byServiceID))
+	out := make([]*agentv1.AgentProcess, 0, len(byServiceID))
 	for _, p := range byServiceID {
 		out = append(out, p)
 	}
@@ -510,7 +510,7 @@ func (c *UpstreamClient) Heartbeat(ctx context.Context) error {
 	if c.nngClient == nil || !c.nngClient.Connected() {
 		return fmt.Errorf("upstream client not connected")
 	}
-	_, err := c.nngClient.Heartbeat(ctx, &serverv1.HeartbeatRequest{AgentId: c.agentID})
+	_, err := c.nngClient.Heartbeat(ctx, &agentv1.HeartbeatRequest{AgentId: c.agentID})
 	return err
 }
 
