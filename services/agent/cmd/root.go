@@ -107,20 +107,20 @@ func runAgent() error {
 	}
 
 	// 初始化日志系统
-	if c.Log.Level == "" {
-		c.Log.Level = "info"
+	if c.Logging.Level == "" {
+		c.Logging.Level = "info"
 	}
-	if c.Log.Format == "" {
-		c.Log.Format = "console"
+	if c.Logging.Format == "" {
+		c.Logging.Format = "console"
 	}
 	common.SetupLoggerWithFile(
-		c.Log.Level,
-		c.Log.Format,
-		c.Log.File,
-		c.Log.MaxSize,
-		c.Log.MaxBackups,
-		c.Log.MaxAge,
-		c.Log.Compress,
+		c.Logging.Level,
+		c.Logging.Format,
+		c.Logging.Output,
+		c.Logging.MaxSize,
+		c.Logging.MaxBackups,
+		c.Logging.MaxAge,
+		c.Logging.Compress,
 	)
 
 	runCtx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

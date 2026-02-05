@@ -195,7 +195,7 @@ func (s *croupierServerService) initLoggingFromConfig() {
 	}
 
 	// 使用配置中的日志设置
-	logCfg := cfg.Log
+	logCfg := cfg.Logging
 	if logCfg.Level == "" {
 		logCfg.Level = "info"
 	}
@@ -205,7 +205,7 @@ func (s *croupierServerService) initLoggingFromConfig() {
 	common.SetupLoggerWithFile(
 		logCfg.Level,
 		logCfg.Format,
-		logCfg.File,
+		logCfg.Output,
 		logCfg.MaxSize,
 		logCfg.MaxBackups,
 		logCfg.MaxAge,

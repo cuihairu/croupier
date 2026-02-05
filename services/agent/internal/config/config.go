@@ -81,5 +81,5 @@ type Config struct {
 		InsecureSkipVerify bool   `json:",default=false"`
 	} `json:",optional"`
 
-	Log common.LogConfig `json:",optional"`
+	Logging common.LogConfig `json:",optional" yaml:"Log"`
 }

@@ -22,7 +22,7 @@ type Config struct {
 	Packs         PacksConfig              `json:"packs" yaml:"packs"`
 	Storage       StorageConfig            `json:"storage" yaml:"storage"`
 	Cache         CacheConfig              `json:"cache" yaml:"cache"`
-	Log           common.LogConfig         `json:"Log" yaml:"Log"`
+	Logging       common.LogConfig         `json:",optional" yaml:"Log"`
 	Metrics       MetricsConfig            `json:"metrics" yaml:"metrics"`
 	Platforms     PlatformConfig           `json:"platforms" yaml:"platforms"`
 	Profiles      map[string]ProfileConfig `json:"profiles" yaml:"profiles"`

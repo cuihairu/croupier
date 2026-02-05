@@ -9,10 +9,10 @@
 # ============================================
 Name: croupier-server           # 服务名称
 Host: 0.0.0.0                   # 监听地址 (0.0.0.0 表示监听所有网卡)
-Port: 8080                      # HTTP REST API 端口
+Port: 18780                     # HTTP REST API 端口
 Timeout: 600000                 # 超时时间(毫秒)，默认 10 分钟，用于 SSE 和长连接
 MaxConns: 10000                 # 最大连接数
-Mode: console                   # 运行模式: console|prod|test
+Mode: dev                       # 运行模式: dev|test|rt|pre|pro
 
 # ============================================
 # SSE (Server-Sent Events) 配置
