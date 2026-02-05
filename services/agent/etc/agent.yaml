@@ -29,8 +29,8 @@ Server:
 # ============================================
 Agent:
   ID: ""                         # Agent ID (留空自动生成)
-  GameID: ""                     # 游戏 ID
-  Env: ""                        # 环境标识 (dev/test/prod)
+  GameID: "tower_defense"        # 游戏 ID
+  Env: "development"             # 环境标识 (dev/test/prod)
   LocalAddr: "127.0.0.1:19090"   # 本地 NNG 监听地址 (SDK 连接用)
   HTTPAddr: "127.0.0.1:19091"    # 本地 HTTP 管理地址
   Region: ""                     # 区域
