@@ -105,6 +105,15 @@ foreach ($sdkId in $TargetSdks) {
     # 复制 proto 文件
     Copy-Item -Path "$RepoRoot\proto\croupier" -Destination "$($sdk.ProtoDir)\" -Recurse
 
+    # Go SDK: 修改 proto 文件中的 go_package
+    if ($sdkId -eq "go") {
+        Get-ChildItem -Path "$($sdk.ProtoDir)\croupier" -Filter "*.proto" -Recurse | ForEach-Object {
+            $content = Get-Content $_.FullName -Raw
+            $content = $content -replace 'option go_package = "github.com/cuihairu/croupier/pkg/pb/', 'option go_package = "github.com/cuihairu/croupier/sdks/go/pkg/pb/'
+            Set-Content -Path $_.FullName -Value $content -NoNewline
+        }
+    }
+
     # 复制 buf.yaml (如果存在)
     if (Test-Path "$RepoRoot\proto\buf.yaml") {
         Copy-Item -Path "$RepoRoot\proto\buf.yaml" -Destination "$($sdk.ProtoDir)\buf.yaml" -Force
@@ -114,20 +123,6 @@ foreach ($sdkId in $TargetSdks) {
     Push-Location $sdk.ProtoDir
     buf generate
     Pop-Location
-
-    # Go SDK 特殊处理: 修复 import 路径
-    if ($sdkId -eq "go") {
-        Get-ChildItem -Path "pkg\pb" -Filter "*.pb.go" -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-            $content = Get-Content $_.FullName -Raw
-            $content = $content -replace 'github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/', 'github.com/cuihairu/croupier/sdks/go/pkg/pb/'
-            Set-Content -Path $_.FullName -Value $content -NoNewline
-        }
-        Get-ChildItem -Path "pkg" -Filter "*.go" -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notlike "*\pb\*" } | ForEach-Object {
-            $content = Get-Content $_.FullName -Raw
-            $content = $content -replace 'github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/', 'github.com/cuihairu/croupier/sdks/go/pkg/pb/'
-            Set-Content -Path $_.FullName -Value $content -NoNewline
-        }
-    }
 
     Pop-Location
     Log-Success "$($sdk.Name) SDK 同步完成"
