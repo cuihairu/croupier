@@ -12,7 +12,6 @@ import (
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
-	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
@@ -629,7 +628,7 @@ func (s *AgentServer) handleExecuteCommand(ctx context.Context, data []byte) ([]
 
 // handleRegisterLocal handles RegisterLocalRequest
 func (s *AgentServer) handleRegisterLocal(ctx context.Context, data []byte) ([]byte, error) {
-	req := &localv1.RegisterLocalRequest{}
+	req := &sdkv1.RegisterLocalRequest{}
 	if err := proto.Unmarshal(data, req); err != nil {
 		return nil, fmt.Errorf("unmarshal RegisterLocalRequest: %w", err)
 	}
@@ -641,13 +640,13 @@ func (s *AgentServer) handleRegisterLocal(ctx context.Context, data []byte) ([]b
 	// Use the Register method which takes service_id, addr, version, and functions
 	s.store.Register(req.ServiceId, req.RpcAddr, req.Version, req.Functions)
 
-	resp := &localv1.RegisterLocalResponse{}
+	resp := &sdkv1.RegisterLocalResponse{}
 	return proto.Marshal(resp)
 }
 
 // handleHeartbeatLocal handles HeartbeatLocalRequest
 func (s *AgentServer) handleHeartbeatLocal(ctx context.Context, data []byte) ([]byte, error) {
-	req := &localv1.HeartbeatRequest{}
+	req := &sdkv1.HeartbeatRequest{}
 	if err := proto.Unmarshal(data, req); err != nil {
 		return nil, fmt.Errorf("unmarshal HeartbeatRequest: %w", err)
 	}
@@ -667,13 +666,13 @@ func (s *AgentServer) handleHeartbeatLocal(ctx context.Context, data []byte) ([]
 		}
 	}
 
-	resp := &localv1.HeartbeatResponse{}
+	resp := &sdkv1.HeartbeatResponse{}
 	return proto.Marshal(resp)
 }
 
 // handleListLocal handles ListLocalRequest
 func (s *AgentServer) handleListLocal(ctx context.Context, data []byte) ([]byte, error) {
-	req := &localv1.ListLocalRequest{}
+	req := &sdkv1.ListLocalRequest{}
 	if err := proto.Unmarshal(data, req); err != nil {
 		return nil, fmt.Errorf("unmarshal ListLocalRequest: %w", err)
 	}
@@ -683,25 +682,25 @@ func (s *AgentServer) handleListLocal(ctx context.Context, data []byte) ([]byte,
 	}
 
 	snap := s.store.List()
-	functions := make([]*localv1.LocalFunction, 0, len(snap))
+	functions := make([]*sdkv1.LocalFunction, 0, len(snap))
 
 	for fid, instances := range snap {
-		localInsts := make([]*localv1.LocalInstance, 0, len(instances))
+		localInsts := make([]*sdkv1.LocalInstance, 0, len(instances))
 		for _, inst := range instances {
-			localInsts = append(localInsts, &localv1.LocalInstance{
+			localInsts = append(localInsts, &sdkv1.LocalInstance{
 				ServiceId: inst.ServiceID,
 				Addr:      inst.Addr,
 				Version:   inst.Version,
 			})
 		}
 
-		functions = append(functions, &localv1.LocalFunction{
+		functions = append(functions, &sdkv1.LocalFunction{
 			Id:        fid,
 			Instances: localInsts,
 		})
 	}
 
-	resp := &localv1.ListLocalResponse{
+	resp := &sdkv1.ListLocalResponse{
 		Functions: functions,
 	}
 	return proto.Marshal(resp)

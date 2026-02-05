@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/nng"
-	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
@@ -238,11 +237,11 @@ func main() {
 	defer nngClient.Close()
 
 	// Register with agent
-	regReq := &localv1.RegisterLocalRequest{
+	regReq := &sdkv1.RegisterLocalRequest{
 		ServiceId: serviceID,
 		RpcAddr:   listen,
 		Version:   version,
-		Functions: []*localv1.LocalFunctionDescriptor{
+		Functions: []*sdkv1.LocalFunctionDescriptor{
 			{Id: "http.generic_invoke", Version: version},
 			{Id: "alertmanager.list_alerts", Version: version},
 			{Id: "grafana.search_dashboards", Version: version},
@@ -264,7 +263,7 @@ func main() {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
-	hbReq := &localv1.HeartbeatRequest{ServiceId: serviceID}
+	hbReq := &sdkv1.HeartbeatRequest{ServiceId: serviceID}
 	for range ticker.C {
 		hbData, _ := proto.Marshal(hbReq)
 		_, _ = nngClient.Call(ctx, protocol.MsgHeartbeatLocalRequest, hbData)

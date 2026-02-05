@@ -8,53 +8,8 @@ option java_multiple_files = true;
 option csharp_namespace = "Croupier.Ops.V1";
 
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/empty.proto";
 
-// OpsService provides server operations and monitoring capabilities.
-// WARNING: This service can execute privileged operations. Enable with caution.
-// See operations documentation for security implications.
-service OpsService {
-  // ReportMetrics reports system metrics from agent to server.
-  rpc ReportMetrics(MetricsReport) returns (google.protobuf.Empty);
-  
-  // StreamMetrics establishes a streaming connection for continuous metrics reporting.
-  rpc StreamMetrics(stream MetricsReport) returns (google.protobuf.Empty);
-  
-  // GetSystemInfo returns detailed system information.
-  rpc GetSystemInfo(google.protobuf.Empty) returns (SystemInfo);
-  
-  // RestartProcess restarts a managed process.
-  // Requires ops.allow_restart = true in agent config.
-  rpc RestartProcess(RestartProcessRequest) returns (RestartProcessResponse);
-  
-  // StopProcess stops a managed process.
-  // Requires ops.allow_restart = true in agent config.
-  rpc StopProcess(StopProcessRequest) returns (StopProcessResponse);
-  
-  // StartProcess starts a managed process.
-  // Requires ops.allow_restart = true in agent config.
-  rpc StartProcess(StartProcessRequest) returns (StartProcessResponse);
-  
-  // ListProcesses lists all managed processes.
-  rpc ListProcesses(google.protobuf.Empty) returns (ListProcessesResponse);
-  
-  // ExecuteCommand executes a shell command.
-  // Requires ops.allow_exec = true in agent config.
-  // WARNING: This is a high-risk operation. Use with extreme caution.
-  rpc ExecuteCommand(ExecuteCommandRequest) returns (ExecuteCommandResponse);
-
-  // ListServices lists system services (Windows, Linux systemd, etc.).
-  // This operation does not require admin privileges on most platforms.
-  rpc ListServices(ListServicesRequest) returns (ListServicesResponse);
-
-  // GetServiceStatus returns detailed status of a specific system service.
-  // This operation does not require admin privileges on most platforms.
-  rpc GetServiceStatus(GetServiceStatusRequest) returns (GetServiceStatusResponse);
-
-  // ListCronJobs lists cron jobs on Linux systems.
-  // This operation does not require admin privileges.
-  rpc ListCronJobs(google.protobuf.Empty) returns (ListCronJobsResponse);
-}
+// Ops message types for Agent → Server operations communication.
 
 // MetricsReport contains system metrics from an agent.
 message MetricsReport {

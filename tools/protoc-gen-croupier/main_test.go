@@ -3,8 +3,8 @@ package main
 import (
 	"testing"
 
-	commonv1 "github.com/cuihairu/croupier/pkg/pb/croupier/common/v1"
-	optionsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/options/v1"
+	commonv1 "github.com/cuihairu/croupier/pkg/pb/croupier/component/v1"
+	optionsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/component/v1"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
@@ -12,7 +12,7 @@ import (
 
 func TestParseFunctionOptions_Extension(t *testing.T) {
 	mo := &descriptorpb.MethodOptions{}
-	proto.SetExtension(mo, optionsv1.E_Function, &optionsv1.FunctionOptions{
+	proto.SetExtension(mo, componentv1.E_Function, &componentv1.FunctionOptions{
 		FunctionId:     "player.ban",
 		Version:        "1.2.0",
 		Category:       "player",
@@ -24,11 +24,11 @@ func TestParseFunctionOptions_Extension(t *testing.T) {
 		Mode:           "command",
 		IdempotencyKey: true,
 		Labels:         map[string]string{"team": "gm"},
-		DisplayName:    &commonv1.I18NText{Zh: "封禁玩家", En: "Ban Player"},
-		Summary:        &commonv1.I18NText{Zh: "封禁指定玩家", En: "Ban a player"},
+		DisplayName:    &componentv1.I18NText{Zh: "封禁玩家", En: "Ban Player"},
+		Summary:        &componentv1.I18NText{Zh: "封禁指定玩家", En: "Ban a player"},
 		Tags:           []string{"player", "moderation"},
-		Menu:           &commonv1.Menu{Section: "Function Management", Group: "Player", Path: "/functions/invoke", Order: 10, Icon: "StopOutlined", Badge: "beta", Hidden: false},
-		Permissions:    &commonv1.PermissionSpec{Verbs: []string{"read", "invoke"}, Scopes: []string{"game", "env", "function_id"}, Defaults: []*commonv1.RoleBinding{{Role: "operator", Verbs: []string{"invoke"}}}},
+		Menu:           &componentv1.Menu{Section: "Function Management", Group: "Player", Path: "/functions/invoke", Order: 10, Icon: "StopOutlined", Badge: "beta", Hidden: false},
+		Permissions:    &componentv1.PermissionSpec{Verbs: []string{"read", "invoke"}, Scopes: []string{"game", "env", "function_id"}, Defaults: []*componentv1.RoleBinding{{Role: "operator", Verbs: []string{"invoke"}}}},
 	})
 
 	out := parseFunctionOptions(mo)
@@ -54,7 +54,7 @@ func TestParseFunctionOptions_Extension(t *testing.T) {
 
 func TestCollectUIFieldHints_Extension(t *testing.T) {
 	fo := &descriptorpb.FieldOptions{}
-	proto.SetExtension(fo, optionsv1.E_Ui, &optionsv1.UIFieldOptions{
+	proto.SetExtension(fo, componentv1.E_Ui, &componentv1.UIFieldOptions{
 		Widget:      "input",
 		Label:       "玩家ID",
 		Placeholder: "请输入玩家ID",

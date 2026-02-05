@@ -13,7 +13,7 @@ import (
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/openapi"
 	"github.com/cuihairu/croupier/internal/platform/provider"
-	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"gopkg.in/yaml.v3"
 )
 
@@ -104,7 +104,7 @@ func (m *PlatformManager) initProvider(ctx context.Context, name string, entry P
 
 	// Register methods as functions in LocalStore
 	methods := p.SupportedMethods()
-	funcs := make([]*localv1.LocalFunctionDescriptor, 0, len(methods))
+	funcs := make([]*sdkv1.LocalFunctionDescriptor, 0, len(methods))
 
 	// Try to get method details from OpenAPI provider (if available)
 	var methodDetails map[string]*openapi.MethodDetails
@@ -117,7 +117,7 @@ func (m *PlatformManager) initProvider(ctx context.Context, name string, entry P
 		funcID := fmt.Sprintf("%s.%s", name, method)
 
 		// Create LocalFunctionDescriptor with OpenAPI-compatible fields
-		desc := &localv1.LocalFunctionDescriptor{
+		desc := &sdkv1.LocalFunctionDescriptor{
 			Id:      funcID,
 			Version: "1.0.0",
 		}

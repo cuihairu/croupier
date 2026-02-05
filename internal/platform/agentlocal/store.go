@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 )
 
 type Instance struct {
@@ -71,7 +71,7 @@ func (s *LocalStore) OnUpdate(fn func()) {
 }
 
 // Register replaces instances for the provided function ids for a service.
-func (s *LocalStore) Register(serviceID, addr, version string, funcs []*localv1.LocalFunctionDescriptor) {
+func (s *LocalStore) Register(serviceID, addr, version string, funcs []*sdkv1.LocalFunctionDescriptor) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	slog.Debug("[agentlocal] Register called", "service_id", serviceID, "function_count", len(funcs))

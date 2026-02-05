@@ -7,7 +7,7 @@
 package promv1
 
 import (
-	_ "github.com/cuihairu/croupier/pkg/pb/croupier/options/v1"
+	_ "github.com/cuihairu/croupier/pkg/pb/croupier/component/v1"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -242,7 +242,7 @@ var File_examples_integrations_prom_v1_prom_proto protoreflect.FileDescriptor
 
 const file_examples_integrations_prom_v1_prom_proto_rawDesc = "" +
 	"\n" +
-	"(examples/integrations/prom/v1/prom.proto\x12\x1dexamples.integrations.prom.v1\x1a*croupier/options/v1/function_options.proto\x1a$croupier/options/v1/ui_options.proto\"\xe1\x01\n" +
+	"(examples/integrations/prom/v1/prom.proto\x12\x1dexamples.integrations.prom.v1\x1a,croupier/component/v1/function_options.proto\x1a&croupier/component/v1/ui_options.proto\"\xe1\x01\n" +
 	"\x11QueryRangeRequest\x12I\n" +
 	"\x04expr\x18\x01 \x01(\tB5\x8a\xb2\x191\n" +
 	"\btextarea\x12\x06PromQL\x1a\x1drate(http_requests_total[5m])R\x04expr\x12.\n" +

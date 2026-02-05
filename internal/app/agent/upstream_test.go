@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
-	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
+	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 )
 
 // TestUpstreamClient_NewUpstreamClient tests client creation
@@ -157,7 +157,7 @@ func TestUpstreamClient_StoreDataCollection(t *testing.T) {
 	t.Parallel()
 
 	store := agentlocal.NewLocalStore()
-	store.Register("svc-1", "127.0.0.1:10001", "v1", []*localv1.LocalFunctionDescriptor{
+	store.Register("svc-1", "127.0.0.1:10001", "v1", []*sdkv1.LocalFunctionDescriptor{
 		{Id: "f1", Version: "1.0.0"},
 		{Id: "f2", Version: "2.0.0"},
 	})

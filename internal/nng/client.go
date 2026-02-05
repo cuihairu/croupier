@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
+	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol/req"
@@ -231,7 +231,7 @@ func (c *Client) Connected() bool {
 }
 
 // Register sends a RegisterRequest to the server
-func (c *Client) Register(ctx context.Context, req *serverv1.RegisterRequest) (*serverv1.RegisterResponse, error) {
+func (c *Client) Register(ctx context.Context, req *agentv1.RegisterRequest) (*agentv1.RegisterResponse, error) {
 	data, err := proto.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("marshal RegisterRequest: %w", err)
@@ -242,7 +242,7 @@ func (c *Client) Register(ctx context.Context, req *serverv1.RegisterRequest) (*
 		return nil, err
 	}
 
-	resp := &serverv1.RegisterResponse{}
+	resp := &agentv1.RegisterResponse{}
 	if err := proto.Unmarshal(respData, resp); err != nil {
 		return nil, fmt.Errorf("unmarshal RegisterResponse: %w", err)
 	}
@@ -251,7 +251,7 @@ func (c *Client) Register(ctx context.Context, req *serverv1.RegisterRequest) (*
 }
 
 // Heartbeat sends a HeartbeatRequest to the server
-func (c *Client) Heartbeat(ctx context.Context, req *serverv1.HeartbeatRequest) (*serverv1.HeartbeatResponse, error) {
+func (c *Client) Heartbeat(ctx context.Context, req *agentv1.HeartbeatRequest) (*agentv1.HeartbeatResponse, error) {
 	data, err := proto.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("marshal HeartbeatRequest: %w", err)
@@ -262,7 +262,7 @@ func (c *Client) Heartbeat(ctx context.Context, req *serverv1.HeartbeatRequest) 
 		return nil, err
 	}
 
-	resp := &serverv1.HeartbeatResponse{}
+	resp := &agentv1.HeartbeatResponse{}
 	if err := proto.Unmarshal(respData, resp); err != nil {
 		return nil, fmt.Errorf("unmarshal HeartbeatResponse: %w", err)
 	}
@@ -271,7 +271,7 @@ func (c *Client) Heartbeat(ctx context.Context, req *serverv1.HeartbeatRequest) 
 }
 
 // RegisterCapabilities sends a RegisterCapabilitiesRequest to the server
-func (c *Client) RegisterCapabilities(ctx context.Context, req *serverv1.RegisterCapabilitiesRequest) (*serverv1.RegisterCapabilitiesResponse, error) {
+func (c *Client) RegisterCapabilities(ctx context.Context, req *agentv1.RegisterCapabilitiesRequest) (*agentv1.RegisterCapabilitiesResponse, error) {
 	data, err := proto.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("marshal RegisterCapabilitiesRequest: %w", err)
@@ -282,7 +282,7 @@ func (c *Client) RegisterCapabilities(ctx context.Context, req *serverv1.Registe
 		return nil, err
 	}
 
-	resp := &serverv1.RegisterCapabilitiesResponse{}
+	resp := &agentv1.RegisterCapabilitiesResponse{}
 	if err := proto.Unmarshal(respData, resp); err != nil {
 		return nil, fmt.Errorf("unmarshal RegisterCapabilitiesResponse: %w", err)
 	}

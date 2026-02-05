@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"google.golang.org/protobuf/proto"
 
@@ -30,7 +29,7 @@ type SessionInfo struct {
 	ServiceID     string
 	Version       string
 	RPCAddr       string
-	Functions     []*localv1.LocalFunctionDescriptor
+	Functions     []*sdkv1.LocalFunctionDescriptor
 	LastHeartbeat time.Time
 }
 
@@ -68,7 +67,7 @@ func (s *LocalControlServer) Handle(ctx context.Context, msgID uint32, reqID uin
 
 // handleRegister handles SDK registration requests.
 func (s *LocalControlServer) handleRegister(ctx context.Context, reqID uint32, body []byte) ([]byte, error) {
-	req := &localv1.RegisterLocalRequest{}
+	req := &sdkv1.RegisterLocalRequest{}
 	if err := proto.Unmarshal(body, req); err != nil {
 		return nil, fmt.Errorf("unmarshal request: %w", err)
 	}
@@ -92,7 +91,7 @@ func (s *LocalControlServer) handleRegister(ctx context.Context, reqID uint32, b
 	s.store.Register(req.ServiceId, req.RpcAddr, req.Version, req.Functions)
 
 	// Build response
-	resp := &localv1.RegisterLocalResponse{
+	resp := &sdkv1.RegisterLocalResponse{
 		SessionId: sessionID,
 	}
 	return proto.Marshal(resp)
@@ -100,7 +99,7 @@ func (s *LocalControlServer) handleRegister(ctx context.Context, reqID uint32, b
 
 // handleHeartbeat handles heartbeat requests.
 func (s *LocalControlServer) handleHeartbeat(ctx context.Context, reqID uint32, body []byte) ([]byte, error) {
-	req := &localv1.HeartbeatRequest{}
+	req := &sdkv1.HeartbeatRequest{}
 	if err := proto.Unmarshal(body, req); err != nil {
 		return nil, fmt.Errorf("unmarshal request: %w", err)
 	}
@@ -111,7 +110,7 @@ func (s *LocalControlServer) handleHeartbeat(ctx context.Context, reqID uint32, 
 	}
 	s.mu.Unlock()
 
-	resp := &localv1.HeartbeatResponse{}
+	resp := &sdkv1.HeartbeatResponse{}
 	return proto.Marshal(resp)
 }
 
