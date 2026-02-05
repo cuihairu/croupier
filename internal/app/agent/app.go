@@ -208,6 +208,22 @@ func (a *App) WithUpstreamTLSConfig(cfg *tlsutil.ClientTLSConfig) {
 	a.upstream.SetTLSConfig(cfg)
 }
 
+// OnConnected sets a callback to be invoked when the agent successfully connects to the server.
+// The callback is called after successful registration.
+func (a *App) OnConnected(callback func()) {
+	if a != nil && a.upstream != nil {
+		a.upstream.OnConnected(callback)
+	}
+}
+
+// OnDisconnected sets a callback to be invoked when the agent disconnects from the server.
+// The callback is called with the error that caused the disconnection.
+func (a *App) OnDisconnected(callback func(error)) {
+	if a != nil && a.upstream != nil {
+		a.upstream.OnDisconnected(callback)
+	}
+}
+
 func (a *App) WithOutboundTLSConfig(cfg *tlsutil.ClientTLSConfig) {
 	if a == nil {
 		return

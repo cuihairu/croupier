@@ -43,6 +43,10 @@ type UpstreamClient struct {
 	metricsEnabled   bool
 	metricsMu        sync.Mutex
 	metricsOnce      sync.Once
+
+	// Connection callbacks
+	onConnected    func()      // Called when successfully connected to server
+	onDisconnected func(error) // Called when disconnected from server
 }
 
 func (c *UpstreamClient) Connected() bool {
@@ -122,8 +126,21 @@ func (c *UpstreamClient) WithMetadata(meta UpstreamMetadata) {
 	}
 }
 
-// dialServer establishes a new NNG connection to the upstream server.
+// OnConnected sets a callback function to be called when successfully connected to server.
+// The callback is invoked after successful registration with the server.
+func (c *UpstreamClient) OnConnected(callback func()) {
+	c.onConnected = callback
+}
+
+// OnDisconnected sets a callback function to be called when disconnected from server.
+// The callback is invoked with the error that caused the disconnection.
+func (c *UpstreamClient) OnDisconnected(callback func(error)) {
+	c.onDisconnected = callback
+}
+
+// dialServer establishes a new NNG connection to the upstream server and registers.
 // It closes any existing connection before establishing a new one.
+// On successful connection, it automatically calls register.
 func (c *UpstreamClient) dialServer(ctx context.Context) error {
 	// Close existing NNG connection if any
 	if c.nngClient != nil {
@@ -140,6 +157,13 @@ func (c *UpstreamClient) dialServer(ctx context.Context) error {
 		return fmt.Errorf("failed to connect to upstream server via NNG: %w", err)
 	}
 
+	// 连接成功后立即注册
+	if err := c.syncOnce(ctx); err != nil {
+		c.nngClient.Close()
+		c.nngClient = nil
+		return fmt.Errorf("failed to register after connection: %w", err)
+	}
+
 	return nil
 }
 
@@ -152,20 +176,16 @@ func (c *UpstreamClient) Start(ctx context.Context) error {
 
 	slog.Info("connecting to upstream server", "addr", c.serverAddr, "tls", c.tlsCfg != nil)
 
-	// 初始连接尝试
-	initialDialErr := c.dialServer(ctx)
-	if initialDialErr != nil {
-		slog.Warn("⚠️  failed to connect to upstream server, will keep retrying in background...", "addr", c.serverAddr, "error", initialDialErr)
+	// 初始连接尝试（dialServer 内部会自动注册）
+	if err := c.dialServer(ctx); err != nil {
+		slog.Warn("⚠️  failed to connect to upstream server, will keep retrying in background...", "addr", c.serverAddr, "error", err)
 		// 启动后台重连 goroutine
 		go c.reconnectLoop(ctx, true)
 	} else {
-		// dial 成功，尝试同步
-		if err := c.syncWithRetry(ctx, 3); err != nil {
-			slog.Error("initial sync failed", "error", err)
-			// 启动后台重连 goroutine
-			go c.reconnectLoop(ctx, false)
-		} else {
-			slog.Info("✅ upstream connected and synced successfully")
+		slog.Info("✅ upstream connected and registered successfully")
+		// Call connection callback if set
+		if c.onConnected != nil {
+			c.onConnected()
 		}
 	}
 
@@ -208,7 +228,7 @@ func hostFromTarget(target string) string {
 }
 
 // reconnectLoop 持续重试连接上游服务器，直到成功或上下文取消
-// needDial 为 true 表示需要先建立连接
+// needDial 为 true 表示需要先建立连接（内部会自动注册）
 func (c *UpstreamClient) reconnectLoop(ctx context.Context, needDial bool) {
 	const retryInterval = 5 * time.Second
 	var attemptCount int
@@ -219,30 +239,27 @@ func (c *UpstreamClient) reconnectLoop(ctx context.Context, needDial bool) {
 			return
 		}
 
-		// 先建立连接（如果需要）
+		// 建立连接（dialServer 内部会自动注册）
 		if needDial {
 			attemptCount++
 			slog.Info("⏳ waiting for upstream server to be ready...", "attempt", attemptCount, "addr", c.serverAddr)
 
-			if dialErr := c.dialServer(ctx); dialErr != nil {
-				slog.Debug("upstream dial attempt failed", "attempt", attemptCount, "error", dialErr)
+			if err := c.dialServer(ctx); err != nil {
+				slog.Debug("upstream dial attempt failed", "attempt", attemptCount, "error", err)
 				time.Sleep(retryInterval)
 				continue
 			}
-			slog.Info("upstream server connected, attempting sync...")
-		}
 
-		// 连接建立后，尝试同步
-		if err := c.syncWithRetry(ctx, 1); err != nil {
-			slog.Error("upstream sync failed", "error", err)
-			// 同步失败，下次需要重新建立连接
-			needDial = true
-			time.Sleep(retryInterval)
-			continue
-		}
+			// dialServer 成功 = 连接并注册成功
+			slog.Info("✅ upstream reconnected and registered successfully", "attempt", attemptCount)
 
-		slog.Info("✅ upstream reconnected successfully", "attempt", attemptCount)
-		return
+			// Call connection callback if set
+			if c.onConnected != nil {
+				c.onConnected()
+			}
+
+			return
+		}
 	}
 }
 
@@ -313,23 +330,18 @@ func (c *UpstreamClient) heartbeatLoop(ctx context.Context) {
 			if err != nil {
 				consecutiveFailures++
 				slog.Error("heartbeat failed", "error", err, "consecutive_failures", consecutiveFailures)
-				// 连续失败达到阈值，尝试重新连接并注册
+				// 连续失败达到阈值，尝试重新连接（内部会自动注册）
 				if consecutiveFailures >= maxHeartbeatFailures {
 					slog.Warn("❌ heartbeat failed, attempting re-connect and register...", "failures", consecutiveFailures)
-					// 先重新建立连接
+					// 重新建立连接（dialServer 内部会自动注册）
 					if dialErr := c.dialServer(ctx); dialErr != nil {
 						slog.Error("re-connect dial failed", "error", dialErr)
 						// 连接失败，继续尝试心跳
 						continue
 					}
-					// 连接成功后重新注册
-					if syncErr := c.syncWithRetry(ctx, 1); syncErr != nil {
-						slog.Error("re-register failed", "error", syncErr)
-						// 继续尝试，保持心跳
-					} else {
-						slog.Info("✅ re-connected and registered successfully")
-						consecutiveFailures = 0 // 重置计数器
-					}
+					// dialServer 成功 = 连接并注册成功
+					slog.Info("✅ re-connected and registered successfully")
+					consecutiveFailures = 0 // 重置计数器
 				}
 			} else {
 				// 心跳成功，重置计数器
@@ -429,6 +441,12 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 		return err
 	}
 	slog.Info("synced with upstream server via NNG", "functions", len(funcs))
+
+	// Call connection callback if set
+	if c.onConnected != nil {
+		c.onConnected()
+	}
+
 	return nil
 }
 
