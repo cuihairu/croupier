@@ -31,14 +31,26 @@ func NewFunctionsListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Fun
 }
 
 func (l *FunctionsListLogic) FunctionsList(req *types.FunctionsListRequest) (*types.FunctionsListResponse, error) {
+	// 获取当前用户角色，判断是否为管理员
+	_, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
+	isAdmin := false
+	if err == nil && utils.HasAdminRole(ExtractRoleNames(roles)) {
+		isAdmin = true
+	}
+
 	opts := model.ListFunctionsOptions{
 		PaginationOptions: model.PaginationOptions{
 			Page:     req.Page,
 			PageSize: req.PageSize,
 		},
-		GameID:   strings.TrimSpace(req.GameId),
 		Category: strings.TrimSpace(req.Category),
 	}
+
+	// 只有非管理员才需要按 GameID 过滤
+	if !isAdmin && req.GameId != "" {
+		opts.GameID = strings.TrimSpace(req.GameId)
+	}
+
 	if req.Status != 0 {
 		status := req.Status
 		opts.Status = &status
@@ -62,4 +74,13 @@ func (l *FunctionsListLogic) FunctionsList(req *types.FunctionsListRequest) (*ty
 		Page:  opts.Page,
 		Size:  opts.PageSize,
 	}, nil
+}
+
+// ExtractRoleNames 从角色列表中提取角色名称
+func ExtractRoleNames(roles []model.Role) []string {
+	names := make([]string, 0, len(roles))
+	for _, r := range roles {
+		names = append(names, r.Name)
+	}
+	return names
 }
