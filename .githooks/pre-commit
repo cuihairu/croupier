@@ -1,0 +1,34 @@
+#!/bin/bash
+# Pre-commit hook for Go project
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Check gofmt
+echo -e "${YELLOW}Running gofmt...${NC}"
+UNFORMATTED=$(gofmt -l . 2>/dev/null || true)
+if [ -n "$UNFORMATTED" ]; then
+    echo -e "${RED}The following files need gofmt:${NC}"
+    echo "$UNFORMATTED"
+    echo -e "${YELLOW}Run 'gofmt -w .' to fix${NC}"
+    exit 1
+fi
+
+# Check goimports if available
+if command -v goimports &> /dev/null; then
+    echo -e "${YELLOW}Running goimports...${NC}"
+    UNIMPORTS=$(goimports -l . 2>/dev/null || true)
+    if [ -n "$UNIMPORTS" ]; then
+        echo -e "${RED}The following files need goimports:${NC}"
+        echo "$UNIMPORTS"
+        echo -e "${YELLOW}Run 'goimports -w .' to fix${NC}"
+        exit 1
+    fi
+fi
+
+echo -e "${GREEN}Pre-commit checks passed!${NC}"
