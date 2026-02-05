@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: api/v1/management.proto
+// source: croupier/api/v1/management.proto
 
 package apiv1
 
@@ -121,5 +121,5 @@ var ManagementService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "api/v1/management.proto",
+	Metadata: "croupier/api/v1/management.proto",
 }

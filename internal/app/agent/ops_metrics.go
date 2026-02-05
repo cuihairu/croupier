@@ -12,7 +12,7 @@ import (
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/shirou/gopsutil/v4/net"
 
-	opsv1 "github.com/cuihairu/croupier/pkg/pb/ops/v1"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

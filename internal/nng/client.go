@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	serverv1 "github.com/cuihairu/croupier/pkg/pb/server/v1"
+	serverv1 "github.com/cuihairu/croupier/pkg/pb/croupier/server/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol/req"

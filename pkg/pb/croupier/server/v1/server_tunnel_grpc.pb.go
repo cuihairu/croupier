@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: server/v1/server_tunnel.proto
+// source: croupier/server/v1/server_tunnel.proto
 
 package serverv1
 
@@ -115,5 +115,5 @@ var TunnelService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "server/v1/server_tunnel.proto",
+	Metadata: "croupier/server/v1/server_tunnel.proto",
 }

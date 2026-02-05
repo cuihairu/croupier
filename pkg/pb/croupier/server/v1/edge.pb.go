@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: server/v1/edge.proto
+// source: croupier/server/v1/edge.proto
 
 package serverv1
 
@@ -31,7 +31,7 @@ type GetJobResultRequest struct {
 
 func (x *GetJobResultRequest) Reset() {
 	*x = GetJobResultRequest{}
-	mi := &file_server_v1_edge_proto_msgTypes[0]
+	mi := &file_croupier_server_v1_edge_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -43,7 +43,7 @@ func (x *GetJobResultRequest) String() string {
 func (*GetJobResultRequest) ProtoMessage() {}
 
 func (x *GetJobResultRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_server_v1_edge_proto_msgTypes[0]
+	mi := &file_croupier_server_v1_edge_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -56,7 +56,7 @@ func (x *GetJobResultRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetJobResultRequest.ProtoReflect.Descriptor instead.
 func (*GetJobResultRequest) Descriptor() ([]byte, []int) {
-	return file_server_v1_edge_proto_rawDescGZIP(), []int{0}
+	return file_croupier_server_v1_edge_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *GetJobResultRequest) GetJobId() string {
@@ -78,7 +78,7 @@ type GetJobResultResponse struct {
 
 func (x *GetJobResultResponse) Reset() {
 	*x = GetJobResultResponse{}
-	mi := &file_server_v1_edge_proto_msgTypes[1]
+	mi := &file_croupier_server_v1_edge_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -90,7 +90,7 @@ func (x *GetJobResultResponse) String() string {
 func (*GetJobResultResponse) ProtoMessage() {}
 
 func (x *GetJobResultResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_server_v1_edge_proto_msgTypes[1]
+	mi := &file_croupier_server_v1_edge_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -103,7 +103,7 @@ func (x *GetJobResultResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetJobResultResponse.ProtoReflect.Descriptor instead.
 func (*GetJobResultResponse) Descriptor() ([]byte, []int) {
-	return file_server_v1_edge_proto_rawDescGZIP(), []int{1}
+	return file_croupier_server_v1_edge_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *GetJobResultResponse) GetState() string {
@@ -127,11 +127,11 @@ func (x *GetJobResultResponse) GetError() string {
 	return ""
 }
 
-var File_server_v1_edge_proto protoreflect.FileDescriptor
+var File_croupier_server_v1_edge_proto protoreflect.FileDescriptor
 
-const file_server_v1_edge_proto_rawDesc = "" +
+const file_croupier_server_v1_edge_proto_rawDesc = "" +
 	"\n" +
-	"\x14server/v1/edge.proto\x12\x12croupier.server.v1\",\n" +
+	"\x1dcroupier/server/v1/edge.proto\x12\x12croupier.server.v1\",\n" +
 	"\x13GetJobResultRequest\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"\\\n" +
 	"\x14GetJobResultResponse\x12\x14\n" +
@@ -143,23 +143,23 @@ const file_server_v1_edge_proto_rawDesc = "" +
 	"%io.github.cuihairu.croupier.server.v1P\x01Z6github.com/cuihairu/croupier/pkg/pb/server/v1;serverv1b\x06proto3"
 
 var (
-	file_server_v1_edge_proto_rawDescOnce sync.Once
-	file_server_v1_edge_proto_rawDescData []byte
+	file_croupier_server_v1_edge_proto_rawDescOnce sync.Once
+	file_croupier_server_v1_edge_proto_rawDescData []byte
 )
 
-func file_server_v1_edge_proto_rawDescGZIP() []byte {
-	file_server_v1_edge_proto_rawDescOnce.Do(func() {
-		file_server_v1_edge_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_server_v1_edge_proto_rawDesc), len(file_server_v1_edge_proto_rawDesc)))
+func file_croupier_server_v1_edge_proto_rawDescGZIP() []byte {
+	file_croupier_server_v1_edge_proto_rawDescOnce.Do(func() {
+		file_croupier_server_v1_edge_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_croupier_server_v1_edge_proto_rawDesc), len(file_croupier_server_v1_edge_proto_rawDesc)))
 	})
-	return file_server_v1_edge_proto_rawDescData
+	return file_croupier_server_v1_edge_proto_rawDescData
 }
 
-var file_server_v1_edge_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
-var file_server_v1_edge_proto_goTypes = []any{
+var file_croupier_server_v1_edge_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_croupier_server_v1_edge_proto_goTypes = []any{
 	(*GetJobResultRequest)(nil),  // 0: croupier.server.v1.GetJobResultRequest
 	(*GetJobResultResponse)(nil), // 1: croupier.server.v1.GetJobResultResponse
 }
-var file_server_v1_edge_proto_depIdxs = []int32{
+var file_croupier_server_v1_edge_proto_depIdxs = []int32{
 	0, // 0: croupier.server.v1.EdgeService.GetJobResult:input_type -> croupier.server.v1.GetJobResultRequest
 	1, // 1: croupier.server.v1.EdgeService.GetJobResult:output_type -> croupier.server.v1.GetJobResultResponse
 	1, // [1:2] is the sub-list for method output_type
@@ -169,26 +169,26 @@ var file_server_v1_edge_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_server_v1_edge_proto_init() }
-func file_server_v1_edge_proto_init() {
-	if File_server_v1_edge_proto != nil {
+func init() { file_croupier_server_v1_edge_proto_init() }
+func file_croupier_server_v1_edge_proto_init() {
+	if File_croupier_server_v1_edge_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_server_v1_edge_proto_rawDesc), len(file_server_v1_edge_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_server_v1_edge_proto_rawDesc), len(file_croupier_server_v1_edge_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_server_v1_edge_proto_goTypes,
-		DependencyIndexes: file_server_v1_edge_proto_depIdxs,
-		MessageInfos:      file_server_v1_edge_proto_msgTypes,
+		GoTypes:           file_croupier_server_v1_edge_proto_goTypes,
+		DependencyIndexes: file_croupier_server_v1_edge_proto_depIdxs,
+		MessageInfos:      file_croupier_server_v1_edge_proto_msgTypes,
 	}.Build()
-	File_server_v1_edge_proto = out.File
-	file_server_v1_edge_proto_goTypes = nil
-	file_server_v1_edge_proto_depIdxs = nil
+	File_croupier_server_v1_edge_proto = out.File
+	file_croupier_server_v1_edge_proto_goTypes = nil
+	file_croupier_server_v1_edge_proto_depIdxs = nil
 }

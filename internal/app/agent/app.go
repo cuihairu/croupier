@@ -10,7 +10,7 @@ import (
 	"github.com/cuihairu/croupier/internal/nng"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
-	opsv1 "github.com/cuihairu/croupier/pkg/pb/ops/v1"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

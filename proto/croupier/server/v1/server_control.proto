@@ -7,7 +7,7 @@ option java_multiple_files = true;
 option go_package = "github.com/cuihairu/croupier/pkg/pb/server/v1;serverv1";
 
 import "croupier/common/v1/ui.proto";
-import "ops/v1/ops.proto";
+import "croupier/ops/v1/ops.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 

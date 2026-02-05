@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             (unknown)
-// source: server/v1/edge.proto
+// source: croupier/server/v1/edge.proto
 
 package serverv1
 
@@ -121,5 +121,5 @@ var EdgeService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "server/v1/edge.proto",
+	Metadata: "croupier/server/v1/edge.proto",
 }

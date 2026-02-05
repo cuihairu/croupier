@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	opsv1 "github.com/cuihairu/croupier/pkg/pb/ops/v1"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 )
 
 // MetricsEntry stores a single metrics report from an agent.
