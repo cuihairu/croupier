@@ -4,7 +4,6 @@ package examples.games.player.v1;
 option java_package = "io.github.cuihairu.croupier.examples.games.player.v1";
 option java_multiple_files = true;
 
-import "croupier/component/v1/function_options.proto";
 import "croupier/component/v1/ui_options.proto";
 
 option go_package = "github.com/cuihairu/croupier/pkg/pb/examples/games/player/v1;playerv1";
