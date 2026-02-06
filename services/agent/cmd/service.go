@@ -479,13 +479,24 @@ func runServiceRun(cmd *cobra.Command, args []string) error {
 }
 
 // defaultConfigDir 返回默认配置目录
+// 优先级: 环境变量 > 可执行文件目录/etc > 系统配置目录
 func defaultConfigDir() string {
-	// 检查环境变量
+	// 1. 环境变量优先
 	if dir := os.Getenv("CROUPIER_CONFIG_DIR"); dir != "" {
 		return dir
 	}
 
-	// 根据平台返回默认目录
+	// 2. 使用可执行文件所在目录下的 etc 目录
+	if execPath, err := os.Executable(); err == nil {
+		execDir := filepath.Dir(execPath)
+		etcDir := filepath.Join(execDir, "etc")
+		// 检查 etc 目录是否存在
+		if info, err := os.Stat(etcDir); err == nil && info.IsDir() {
+			return etcDir
+		}
+	}
+
+	// 3. 回退到系统配置目录
 	switch service.Platform() {
 	case "windows":
 		return "C:\\ProgramData\\Croupier\\config"
