@@ -32,10 +32,18 @@ func NewFunctionsListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Fun
 
 func (l *FunctionsListLogic) FunctionsList(req *types.FunctionsListRequest) (*types.FunctionsListResponse, error) {
 	// 获取当前用户角色，判断是否为管理员
-	_, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
+	admin, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
 	isAdmin := false
 	if err == nil && utils.HasAdminRole(ExtractRoleNames(roles)) {
 		isAdmin = true
+	}
+
+	// 调试日志：记录当前用户和管理员状态
+	if admin != nil {
+		logx.Infof("FunctionsList: user=%s, isAdmin=%v, roles=%v, req.GameId=%q",
+			admin.Username, isAdmin, ExtractRoleNames(roles), req.GameId)
+	} else {
+		logx.Infof("FunctionsList: admin=nil, err=%v", err)
 	}
 
 	opts := model.ListFunctionsOptions{
