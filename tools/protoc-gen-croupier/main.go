@@ -1143,6 +1143,81 @@ func addEntityHintsToSchema(schema map[string]any, msg *descriptorpb.DescriptorP
 	}
 }
 
+// UIFieldHints collects UI field configuration hints from a DescriptorProto
+type UIFieldHints struct {
+	Fields map[string]map[string]any `json:"fields"`
+}
+
+// collectUIFieldHints extracts UI field options from all fields in a message descriptor
+func collectUIFieldHints(msg *descriptorpb.DescriptorProto) *UIFieldHints {
+	hints := &UIFieldHints{
+		Fields: make(map[string]map[string]any),
+	}
+
+	if msg == nil || len(msg.Field) == 0 {
+		return hints
+	}
+
+	for _, field := range msg.Field {
+		if field.Options == nil {
+			continue
+		}
+
+		// Try to get the UI extension
+		var uiOpts *ui.UIFieldOptions
+		if proto.HasExtension(field.Options, ui.E_Ui) {
+			ext := proto.GetExtension(field.Options, ui.E_Ui)
+			if opt, ok := ext.(*ui.UIFieldOptions); ok && opt != nil {
+				uiOpts = opt
+			}
+		}
+
+		if uiOpts == nil {
+			continue
+		}
+
+		// Build field config map
+		fieldName := field.GetName()
+		jsonName := field.GetJsonName()
+		if jsonName != "" {
+			fieldName = jsonName
+		}
+		fieldCfg := make(map[string]any)
+
+		if uiOpts.Widget != "" {
+			fieldCfg["widget"] = uiOpts.Widget
+		}
+		if uiOpts.Label != "" {
+			fieldCfg["label"] = uiOpts.Label
+		}
+		if uiOpts.Placeholder != "" {
+			fieldCfg["placeholder"] = uiOpts.Placeholder
+		}
+		if uiOpts.Sensitive {
+			fieldCfg["sensitive"] = true
+		}
+		if uiOpts.ShowIf != "" {
+			fieldCfg["show_if"] = uiOpts.ShowIf
+		}
+		if uiOpts.RequiredIf != "" {
+			fieldCfg["required_if"] = uiOpts.RequiredIf
+		}
+		if len(uiOpts.EnumMap) > 0 {
+			// EnumMap keys are the enum values, values are display labels
+			// For JSON schema, we need the enum values (keys)
+			enumValues := make([]string, 0, len(uiOpts.EnumMap))
+			for k := range uiOpts.EnumMap {
+				enumValues = append(enumValues, k)
+			}
+			fieldCfg["enum"] = enumValues
+		}
+
+		hints.Fields[fieldName] = fieldCfg
+	}
+
+	return hints
+}
+
 func fatalf(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, format+"\n", a...)
 	os.Exit(1)
