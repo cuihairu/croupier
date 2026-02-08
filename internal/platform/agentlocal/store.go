@@ -1,6 +1,7 @@
 package agentlocal
 
 import (
+	"encoding/json"
 	"log/slog"
 	"sync"
 	"time"
@@ -13,6 +14,18 @@ type Instance struct {
 	Addr      string
 	Version   string
 	LastSeen  time.Time
+}
+
+// ProviderSession represents a registered provider (one OpenAPI file)
+type ProviderSession struct {
+	ProviderID   string          // Provider unique identifier
+	GameID       string          // Game ID for multi-game scoping
+	Env          string          // Environment (prod/dev/staging)
+	Addr         string          // Provider address
+	Version      string          // Provider version
+	LastSeenUnix int64           // Last seen timestamp (Unix)
+	FunctionIDs  []string        // List of function IDs provided
+	OpenAPIDoc   json.RawMessage // Complete OpenAPI 3.0.3 document
 }
 
 // FunctionMeta stores metadata for a function including OpenAPI schema fields.
@@ -79,17 +92,17 @@ func (s *LocalStore) OnUpdate(fn func()) {
 	s.onUpdate = fn
 }
 
-// Register replaces instances for the provided function ids for a service.
-func (s *LocalStore) Register(serviceID, addr, version string, funcs []*sdkv1.LocalFunctionDescriptor) {
+// Register replaces instances for the provided function ids for a provider.
+func (s *LocalStore) Register(providerID, addr, version string, funcs []*sdkv1.LocalFunctionDescriptor) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	slog.Debug("[agentlocal] Register called", "service_id", serviceID, "function_count", len(funcs))
+	slog.Debug("[agentlocal] Register called", "provider_id", providerID, "function_count", len(funcs))
 	now := time.Now()
-	// remove prior instances from this serviceID for all functions
+	// remove prior instances from this providerID for all functions
 	for fid, arr := range s.data {
 		next := arr[:0]
 		for _, it := range arr {
-			if it.ServiceID != serviceID {
+			if it.ServiceID != providerID {
 				next = append(next, it)
 			}
 		}
@@ -100,12 +113,12 @@ func (s *LocalStore) Register(serviceID, addr, version string, funcs []*sdkv1.Lo
 		}
 	}
 	for fid, svc := range s.funcVersions {
-		delete(svc, serviceID)
+		delete(svc, providerID)
 		if len(svc) == 0 {
 			delete(s.funcVersions, fid)
 		}
 	}
-	inst := Instance{ServiceID: serviceID, Addr: addr, Version: version, LastSeen: now}
+	inst := Instance{ServiceID: providerID, Addr: addr, Version: version, LastSeen: now}
 	for _, fn := range funcs {
 		if fn == nil || fn.GetId() == "" {
 			continue
@@ -116,7 +129,7 @@ func (s *LocalStore) Register(serviceID, addr, version string, funcs []*sdkv1.Lo
 			if s.funcVersions[fid] == nil {
 				s.funcVersions[fid] = map[string]string{}
 			}
-			s.funcVersions[fid][serviceID] = fn.GetVersion()
+			s.funcVersions[fid][providerID] = fn.GetVersion()
 		}
 		// Store function metadata including OpenAPI schema
 		s.funcMeta[fid] = &FunctionMeta{
