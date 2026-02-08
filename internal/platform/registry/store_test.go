@@ -1,268 +1,210 @@
-package registry_test
+package registry
 
 import (
-	"encoding/json"
 	"testing"
 
-	"github.com/cuihairu/croupier/internal/platform/registry"
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestBuildFunctionIndex(t *testing.T) {
-	tests := []struct {
-		name          string
-		providers     []registry.ProviderCaps
-		expectedIndex map[string]map[string]interface{}
-		expectedOrder []string // 验证覆盖顺序
-	}{
-		{
-			name: "single provider",
-			providers: []registry.ProviderCaps{
-				{
-					ID:      "provider1",
-					Version: "1.0.0",
-					Manifest: mustParseJSON(t, map[string]interface{}{
-						"functions": []map[string]interface{}{
-							{
-								"id":           "function1",
-								"display_name": map[string]string{"en": "Function 1"},
-								"summary":      map[string]string{"en": "Summary 1"},
-								"tags":         []string{"tag1", "tag2"},
-							},
-							{
-								"id":           "function2",
-								"display_name": map[string]string{"en": "Function 2"},
-								"summary":      map[string]string{"en": "Summary 2"},
-								"tags":         []string{"tag3"},
-							},
-						},
-					}),
-				},
-			},
-			expectedIndex: map[string]map[string]interface{}{
-				"function1": {
-					"display_name": map[string]string{"en": "Function 1"},
-					"summary":      map[string]string{"en": "Summary 1"},
-					"tags":         []interface{}{"tag1", "tag2"},
-				},
-				"function2": {
-					"display_name": map[string]string{"en": "Function 2"},
-					"summary":      map[string]string{"en": "Summary 2"},
-					"tags":         []interface{}{"tag3"},
-				},
-			},
-		},
-		{
-			name: "multiple providers - no conflicts",
-			providers: []registry.ProviderCaps{
-				{
-					ID:      "provider1",
-					Version: "1.0.0",
-					Manifest: mustParseJSON(t, map[string]interface{}{
-						"functions": []map[string]interface{}{
-							{
-								"id":           "function1",
-								"display_name": map[string]string{"en": "Function 1"},
-								"summary":      map[string]string{"en": "Summary 1"},
-							},
-						},
-					}),
-				},
-				{
-					ID:      "provider2",
-					Version: "1.0.0",
-					Manifest: mustParseJSON(t, map[string]interface{}{
-						"functions": []map[string]interface{}{
-							{
-								"id":           "function2",
-								"display_name": map[string]string{"en": "Function 2"},
-								"summary":      map[string]string{"en": "Summary 2"},
-							},
-						},
-					}),
-				},
-			},
-			expectedIndex: map[string]map[string]interface{}{
-				"function1": {
-					"display_name": map[string]string{"en": "Function 1"},
-					"summary":      map[string]string{"en": "Summary 1"},
-				},
-				"function2": {
-					"display_name": map[string]string{"en": "Function 2"},
-					"summary":      map[string]string{"en": "Summary 2"},
-				},
-			},
-		},
-		{
-			name: "multiple providers - with conflicts (last wins)",
-			providers: []registry.ProviderCaps{
-				{
-					ID:      "provider1",
-					Version: "1.0.0",
-					Manifest: mustParseJSON(t, map[string]interface{}{
-						"functions": []map[string]interface{}{
-							{
-								"id":           "function1",
-								"display_name": map[string]string{"en": "Function 1"},
-								"summary":      map[string]string{"en": "Summary 1"},
-								"tags":         []string{"tag1", "old"},
-								"permissions": map[string]interface{}{
-									"verbs": []string{"read", "invoke"},
-								},
-							},
-						},
-					}),
-				},
-				{
-					ID:      "provider2",
-					Version: "2.0.0",
-					Manifest: mustParseJSON(t, map[string]interface{}{
-						"functions": []map[string]interface{}{
-							{
-								"id":           "function1",
-								"display_name": map[string]string{"en": "Updated Function 1"},
-								"summary":      map[string]string{"en": "Updated Summary 1"},
-								"tags":         []string{"tag1", "new"},
-								"menu": map[string]interface{}{
-									"section": "Updated Section",
-									"order":   999,
-								},
-							},
-						},
-					}),
-				},
-			},
-			expectedIndex: map[string]map[string]interface{}{
-				"function1": {
-					"display_name": map[string]string{"en": "Updated Function 1"},
-					"summary":      map[string]string{"en": "Updated Summary 1"},
-					"tags":         []interface{}{"tag1", "new"},
-					"menu": map[string]interface{}{
-						"section": "Updated Section",
-						"order":   float64(999),
-					},
-				},
-			},
-		},
-		{
-			name: "provider with empty manifest",
-			providers: []registry.ProviderCaps{
-				{
-					ID:       "provider1",
-					Version:  "1.0.0",
-					Manifest: []byte{},
-				},
-				{
-					ID:      "provider2",
-					Version: "1.0.0",
-					Manifest: mustParseJSON(t, map[string]interface{}{
-						"functions": []map[string]interface{}{
-							{
-								"id": "function1",
-							},
-						},
-					}),
-				},
-			},
-			expectedIndex: map[string]map[string]interface{}{},
-		},
-		{
-			name: "provider with invalid manifest",
-			providers: []registry.ProviderCaps{
-				{
-					ID:       "provider1",
-					Version:  "1.0.0",
-					Manifest: []byte("invalid json"),
-				},
-				{
-					ID:      "provider2",
-					Version: "1.0.0",
-					Manifest: mustParseJSON(t, map[string]interface{}{
-						"functions": []map[string]interface{}{
-							{
-								"id": "function1",
-							},
-						},
-					}),
-				},
-			},
-			expectedIndex: map[string]map[string]interface{}{},
-		},
-		{
-			name: "provider with no functions field",
-			providers: []registry.ProviderCaps{
-				{
-					ID:      "provider1",
-					Version: "1.0.0",
-					Manifest: mustParseJSON(t, map[string]interface{}{
-						"entities": []map[string]interface{}{},
-					}),
-				},
-			},
-			expectedIndex: map[string]map[string]interface{}{},
-		},
-	}
+func TestStore_UpsertAgent(t *testing.T) {
+	store := NewStore()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			store := registry.NewStore()
-
-			// Insert all providers
-			for _, provider := range tt.providers {
-				store.UpsertProviderCaps(provider)
-			}
-
-			// Build index
-			index := store.BuildFunctionIndex()
-
-			// Compare indexes
-			if !equalMaps(t, index, tt.expectedIndex) {
-				t.Errorf("BuildFunctionIndex() mismatch")
-			}
-		})
-	}
-}
-
-// Helper function to parse JSON into bytes
-func mustParseJSON(t *testing.T, data interface{}) []byte {
-	result, err := json.Marshal(data)
-	if err != nil {
-		t.Fatalf("Failed to marshal JSON: %v", err)
-	}
-	return result
-}
-
-// Helper function to compare two maps deeply
-func equalMaps(t *testing.T, a, b map[string]map[string]interface{}) bool {
-	if len(a) != len(b) {
-		t.Logf("Length mismatch: %d vs %d", len(a), len(b))
-		return false
-	}
-
-	for k, v := range a {
-		bv, ok := b[k]
-		if !ok {
-			t.Logf("Key %s missing in second map", k)
-			return false
+	t.Run("insert new agent", func(t *testing.T) {
+		agent := &AgentSession{
+			AgentID: "agent-1",
+			GameID:  "game-1",
+			Env:     "prod",
+			RPCAddr: "localhost:19090",
+			Version: "1.0.0",
 		}
 
-		if !equalInterface(t, v, bv) {
-			t.Logf("Value mismatch for key %s: %+v vs %+v", k, v, bv)
-			return false
-		}
-	}
+		store.UpsertAgent(agent)
 
-	return true
+		retrieved := store.AgentsUnsafe()["agent-1"]
+		assert.NotNil(t, retrieved)
+		assert.Equal(t, "agent-1", retrieved.AgentID)
+		assert.Equal(t, "game-1", retrieved.GameID)
+	})
+
+	t.Run("update existing agent", func(t *testing.T) {
+		agent := &AgentSession{
+			AgentID: "agent-2",
+			GameID:  "game-2",
+			Env:     "dev",
+		}
+
+		store.UpsertAgent(agent)
+
+		// Update with new version
+		agent.Version = "2.0.0"
+		agent.Region = "us-west"
+		store.UpsertAgent(agent)
+
+		retrieved := store.AgentsUnsafe()["agent-2"]
+		assert.Equal(t, "2.0.0", retrieved.Version)
+		assert.Equal(t, "us-west", retrieved.Region)
+	})
 }
 
-// Helper function to compare two interface{} values deeply
-func equalInterface(t *testing.T, a, b interface{}) bool {
-	aJSON, err1 := json.Marshal(a)
-	bJSON, err2 := json.Marshal(b)
+func TestStore_OpenAPIOperations(t *testing.T) {
+	store := NewStore()
 
-	if err1 != nil || err2 != nil {
-		t.Logf("Marshal error: %v, %v", err1, err2)
-		return false
-	}
+	t.Run("upsert and get OpenAPI operation", func(t *testing.T) {
+		operation := &openapi3.Operation{
+			OperationID: "player.ban",
+			Summary:     "Ban a player",
+		}
 
-	return string(aJSON) == string(bJSON)
+		err := store.UpsertOpenAPI("player.ban", operation)
+		require.NoError(t, err)
+
+		retrieved, err := store.GetOpenAPI("player.ban")
+		require.NoError(t, err)
+		assert.Equal(t, "player.ban", retrieved.OperationID)
+	})
+
+	t.Run("get non-existent operation", func(t *testing.T) {
+		_, err := store.GetOpenAPI("nonexistent")
+		assert.Error(t, err)
+	})
+
+	t.Run("list all operations", func(t *testing.T) {
+		op1 := &openapi3.Operation{OperationID: "op1"}
+		op2 := &openapi3.Operation{OperationID: "op2"}
+
+		store.UpsertOpenAPI("op1", op1)
+		store.UpsertOpenAPI("op2", op2)
+
+		operations := store.ListOpenAPIOperations()
+		assert.Contains(t, operations, "op1")
+		assert.Contains(t, operations, "op2")
+	})
+
+	t.Run("delete operation", func(t *testing.T) {
+		op := &openapi3.Operation{OperationID: "to_delete"}
+		store.UpsertOpenAPI("to_delete", op)
+
+		err := store.DeleteOpenAPI("to_delete")
+		require.NoError(t, err)
+
+		_, err = store.GetOpenAPI("to_delete")
+		assert.Error(t, err)
+	})
+}
+
+func TestStore_OpenAPIProviders(t *testing.T) {
+	store := NewStore()
+
+	t.Run("upsert and get provider", func(t *testing.T) {
+		caps := OpenAPIProviderCaps{
+			ID:      "provider-test-1",
+			Version: "1.0.0",
+			Lang:    "go",
+			SDK:     "croupier-go-sdk",
+		}
+
+		err := store.UpsertOpenAPIProvider(caps)
+		require.NoError(t, err)
+
+		retrieved, err := store.GetOpenAPIProvider("provider-test-1")
+		require.NoError(t, err)
+		assert.Equal(t, "provider-test-1", retrieved.ID)
+		assert.Equal(t, "go", retrieved.Lang)
+	})
+
+	t.Run("get non-existent provider", func(t *testing.T) {
+		_, err := store.GetOpenAPIProvider("nonexistent")
+		assert.Error(t, err)
+	})
+
+	t.Run("list all providers", func(t *testing.T) {
+		caps1 := OpenAPIProviderCaps{ID: "prov-test-1", Lang: "go"}
+		caps2 := OpenAPIProviderCaps{ID: "prov-test-2", Lang: "java"}
+
+		store.UpsertOpenAPIProvider(caps1)
+		store.UpsertOpenAPIProvider(caps2)
+
+		providers := store.ListOpenAPIProviders()
+
+		// Count only our test providers
+		testProviderCount := 0
+		for _, p := range providers {
+			if p.ID == "prov-test-1" || p.ID == "prov-test-2" {
+				testProviderCount++
+			}
+		}
+		assert.Equal(t, 2, testProviderCount)
+	})
+
+	t.Run("delete provider", func(t *testing.T) {
+		caps := OpenAPIProviderCaps{ID: "provider-to-delete"}
+		store.UpsertOpenAPIProvider(caps)
+
+		err := store.DeleteOpenAPIProvider("provider-to-delete")
+		require.NoError(t, err)
+
+		_, err = store.GetOpenAPIProvider("provider-to-delete")
+		assert.Error(t, err)
+	})
+}
+
+func TestStore_BuildOpenAPISpec(t *testing.T) {
+	store := NewStore()
+
+	t.Run("build spec with operations", func(t *testing.T) {
+		op1 := &openapi3.Operation{
+			OperationID: "player.ban",
+			Summary:     "Ban player",
+		}
+		op2 := &openapi3.Operation{
+			OperationID: "player.kick",
+			Summary:     "Kick player",
+		}
+
+		store.UpsertOpenAPI("player.ban", op1)
+		store.UpsertOpenAPI("player.kick", op2)
+
+		spec, err := store.BuildOpenAPISpec()
+		require.NoError(t, err)
+
+		assert.Equal(t, "3.0.3", spec.OpenAPI)
+		assert.Equal(t, "Croupier Functions", spec.Info.Title)
+
+		// Check paths using Paths.Map() method
+		pathsMap := spec.Paths.Map()
+		assert.Contains(t, pathsMap, "/functions/player.ban")
+		assert.Contains(t, pathsMap, "/functions/player.kick")
+	})
+
+	t.Run("build empty spec", func(t *testing.T) {
+		emptyStore := NewStore()
+		spec, err := emptyStore.BuildOpenAPISpec()
+		require.NoError(t, err)
+
+		assert.Equal(t, "3.0.3", spec.OpenAPI)
+		// Check that paths map is empty
+		pathsMap := spec.Paths.Map()
+		assert.Empty(t, pathsMap)
+	})
+}
+
+func TestStore_Errors(t *testing.T) {
+	store := NewStore()
+
+	t.Run("upsert OpenAPI with empty function ID", func(t *testing.T) {
+		err := store.UpsertOpenAPI("", &openapi3.Operation{})
+		assert.Error(t, err)
+	})
+
+	t.Run("upsert OpenAPI with nil operation", func(t *testing.T) {
+		err := store.UpsertOpenAPI("test.id", nil)
+		assert.Error(t, err)
+	})
+
+	t.Run("upsert provider with empty ID", func(t *testing.T) {
+		err := store.UpsertOpenAPIProvider(OpenAPIProviderCaps{})
+		assert.Error(t, err)
+	})
 }
