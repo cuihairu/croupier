@@ -32,6 +32,7 @@ import (
 	meta "github.com/cuihairu/croupier/services/server/internal/handler/meta"
 	monitoring "github.com/cuihairu/croupier/services/server/internal/handler/monitoring"
 	node "github.com/cuihairu/croupier/services/server/internal/handler/node"
+	openapi "github.com/cuihairu/croupier/services/server/internal/handler/openapi"
 	ops "github.com/cuihairu/croupier/services/server/internal/handler/ops"
 	pack "github.com/cuihairu/croupier/services/server/internal/handler/pack"
 	permission "github.com/cuihairu/croupier/services/server/internal/handler/permission"
@@ -1018,6 +1019,30 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/nodes"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取实体关联的函数列表
+				Method:  http.MethodGet,
+				Path:    "/entities/:id/functions",
+				Handler: openapi.EntityFunctionsHandler(serverCtx),
+			},
+			{
+				// 获取函数的 OpenAPI spec
+				Method:  http.MethodGet,
+				Path:    "/functions/:id/openapi",
+				Handler: openapi.FunctionOpenAPISpecHandler(serverCtx),
+			},
+			{
+				// 导入 OpenAPI spec
+				Method:  http.MethodPost,
+				Path:    "/functions/_import",
+				Handler: openapi.OpenAPIImportHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1"),
 	)
 
 	server.AddRoutes(

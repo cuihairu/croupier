@@ -248,42 +248,6 @@ POST /api/approvals/{id}/reject
 }
 ```
 
-## 隧道模式（经 Edge）
-
-### 隧道调用流程
-
-```mermaid
-sequenceDiagram
-    participant UI as Dashboard
-    participant Server as Server (内网)
-    participant Edge as Edge (DMZ)
-    participant Agent as Agent (游戏内网)
-    participant Game as Game Server
-
-    UI->>Server: HTTPS POST /api/invoke
-    Server->>Server: 路由决策 (需要经 Edge)
-    Server->>Edge: gRPC ForwardInvoke
-    Edge->>Agent: 隧道传输 InvokeFunction
-    Agent->>Game: 本地调用
-    Game-->>Agent: 结果
-    Agent-->>Edge: 隧道传输结果
-    Edge-->>Server: 返回结果
-    Server-->>UI: 返回结果
-```
-
-### 隧道复用
-
-```
-单一隧道连接复用多个请求：
-
-Server <---> Edge
-    |
-    +-- Tunnel 1 --> Agent 1 --> Game Server A
-    |                       +--> Game Server B
-    |
-    +-- Tunnel 2 --> Agent 2 --> Game Server C
-```
-
 ## 广播模式
 
 ### 广播调用流程

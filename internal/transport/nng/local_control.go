@@ -26,7 +26,7 @@ type LocalControlServer struct {
 // SessionInfo holds session information for a registered SDK.
 type SessionInfo struct {
 	SessionID     string
-	ServiceID     string
+	ProviderID    string
 	Version       string
 	RPCAddr       string
 	Functions     []*sdkv1.LocalFunctionDescriptor
@@ -79,7 +79,7 @@ func (s *LocalControlServer) handleRegister(ctx context.Context, reqID uint32, b
 	s.mu.Lock()
 	s.sessions[sessionID] = &SessionInfo{
 		SessionID:     sessionID,
-		ServiceID:     req.ServiceId,
+		ProviderID:    req.ServiceId,
 		Version:       req.Version,
 		RPCAddr:       req.RpcAddr,
 		Functions:     req.Functions,
@@ -121,23 +121,23 @@ func (s *LocalControlServer) handleInvoke(ctx context.Context, reqID uint32, bod
 		return nil, fmt.Errorf("unmarshal request: %w", err)
 	}
 
-	// Find the session and service for this function
-	var serviceID string
+	// Find the session and provider for this function
+	var providerID string
 	s.mu.RLock()
 	for _, session := range s.sessions {
 		for _, fn := range session.Functions {
 			if fn.Id == req.FunctionId {
-				serviceID = session.ServiceID
+				providerID = session.ProviderID
 				break
 			}
 		}
-		if serviceID != "" {
+		if providerID != "" {
 			break
 		}
 	}
 	s.mu.RUnlock()
 
-	if serviceID == "" {
+	if providerID == "" {
 		return nil, fmt.Errorf("function not found: %s", req.FunctionId)
 	}
 
@@ -146,7 +146,7 @@ func (s *LocalControlServer) handleInvoke(ctx context.Context, reqID uint32, bod
 		return nil, fmt.Errorf("function handler not configured")
 	}
 
-	result, err := s.functionHandler.Invoke(ctx, serviceID, req.FunctionId, req.Payload)
+	result, err := s.functionHandler.Invoke(ctx, providerID, req.FunctionId, req.Payload)
 	if err != nil {
 		return nil, fmt.Errorf("invoke failed: %w", err)
 	}

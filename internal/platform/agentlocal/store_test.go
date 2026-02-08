@@ -20,7 +20,7 @@ func TestLocalStore_RegisterAndList(t *testing.T) {
 	if len(list) != 2 {
 		t.Fatalf("expected 2 functions, got %d", len(list))
 	}
-	if got := list["f1"]; len(got) != 1 || got[0].ServiceID != "svc-1" {
+	if got := list["f1"]; len(got) != 1 || got[0].ProviderID != "svc-1" {
 		t.Fatalf("unexpected f1 instances: %+v", got)
 	}
 

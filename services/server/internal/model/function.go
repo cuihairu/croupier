@@ -20,8 +20,10 @@ type Function struct {
 	Instances   int               `gorm:"default:0"`
 	Runtime     string            `gorm:"size:64"`
 	Entry       string            `gorm:"size:128"`
-	Schema      datatypes.JSONMap `gorm:"type:json"`
-	Metadata    datatypes.JSONMap `gorm:"type:json"`
+	Schema      datatypes.JSONMap `gorm:"type:json"`     // Legacy descriptor format (deprecated)
+	Metadata    datatypes.JSONMap `gorm:"type:json"`     // Additional metadata
+	SpecFormat  string            `gorm:"size:32;index"` // Format: "legacy", "openapi3.0.3"
+	OpenAPISpec datatypes.JSONMap `gorm:"type:json"`     // OpenAPI 3.0.3 Operation object
 }
 
 // FunctionDescriptor stores detailed descriptor versions.

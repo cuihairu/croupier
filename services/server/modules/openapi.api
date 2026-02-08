@@ -1,0 +1,61 @@
+// ============================================================================
+// OPENAPI 模块 API 定义 - OpenAPI 3.0.3 统一接口
+// ============================================================================
+// ============================================================================
+// 类型定义
+// ============================================================================
+// --- OpenAPI Spec 查询 ---
+type OpenAPISpecRequest {
+	ID string `path:"id"`
+}
+
+type OpenAPISpecResponse {
+	Spec interface{} `json:"spec"` // OpenAPI 3.0.3 Operation Object
+}
+
+// --- OpenAPI 导入 ---
+type OpenAPIImportRequest {
+	Spec interface{} `json:"spec"` // OpenAPI 3.0.3 Document
+}
+
+type OpenAPIImportResponse {
+	Imported int      `json:"imported"`
+	Failed   []string `json:"failed"`
+}
+
+// --- Entity 函数查询 ---
+type EntityFunctionsRequest {
+	ID string `path:"id"`
+}
+
+type EntityFunction {
+	Id        string `json:"id"`
+	Operation string `json:"operation"` // create/read/update/delete/custom
+	Name      string `json:"name"`
+}
+
+type EntityFunctionsResponse {
+	Items []EntityFunction `json:"items"`
+}
+
+// ============================================================================
+// 服务定义
+// ============================================================================
+@server (
+	prefix: /api/v1
+	group:  openapi
+)
+service server {
+	@doc "获取函数的 OpenAPI spec"
+	@handler FunctionOpenAPISpecHandler
+	get /functions/:id/openapi (OpenAPISpecRequest) returns (OpenAPISpecResponse)
+
+	@doc "导入 OpenAPI spec"
+	@handler OpenAPIImportHandler
+	post /functions/_import (OpenAPIImportRequest) returns (OpenAPIImportResponse)
+
+	@doc "获取实体关联的函数列表"
+	@handler EntityFunctionsHandler
+	get /entities/:id/functions (EntityFunctionsRequest) returns (EntityFunctionsResponse)
+}
+

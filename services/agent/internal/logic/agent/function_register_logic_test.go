@@ -60,7 +60,7 @@ func TestFunctionRegisterLogic_FunctionRegister(t *testing.T) {
 		if len(instances) != 1 {
 			t.Fatalf("expected 1 instance, got %d", len(instances))
 		}
-		if instances[0].ServiceID != "service-1" || instances[0].Addr != "127.0.0.1:19090" || instances[0].Version != "sv1" {
+		if instances[0].ProviderID != "service-1" || instances[0].Addr != "127.0.0.1:19090" || instances[0].Version != "sv1" {
 			t.Fatalf("unexpected instance: %+v", instances[0])
 		}
 

@@ -55,8 +55,8 @@ server/
 │   │   ├── loader.go           # Server 侧配置加载器
 │   │   └── server.go           # Platform gRPC 服务
 │   └── app/agent/
-│       ├── platform.go         # Agent 侧 PlatformManager
-│       ├── app.go              # 集成 PlatformManager
+│       ├── provider.go         # Agent 侧 ProviderManager
+│       ├── app.go              # 集成 ProviderManager
 │       └── function_server.go  # 支持平台调用
 ├── configs/
 │   └── platforms.yaml          # Agent 侧平台配置文件
@@ -72,7 +72,7 @@ Agent 侧的 Platform 架构复用了现有的 SDK 注册机制：
 │                         Croupier Agent                          │
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌──────────────────┐    ┌─────────────────────────────────┐   │
-│  │ PlatformManager  │    │       LocalStore                │   │
+│  │ ProviderManager  │    │       LocalStore                │   │
 │  │                  │    │  (function_id -> Instance[])    │   │
 │  │ - Load YAML      │    │                                 │   │
 │  │ - Init Providers │◄───┤  game_server.get_role           │   │
@@ -325,7 +325,7 @@ POST /api/v1/platform/call
 - [x] 前端 UI 支持
 
 ### Phase 4: Agent 侧 OpenAPI 支持 (1-2 人日)
-- [x] Agent PlatformManager 实现
+- [x] Agent ProviderManager 实现
 - [x] FunctionServer 平台调用拦截
 - [x] Agent 侧 YAML 配置加载
 - [x] 复用 openapi.Provider 代码

@@ -1,7 +1,7 @@
 package agentlocal
 
 import (
-	"fmt"
+	"encoding/json"
 	"log/slog"
 	"sync"
 	"time"
@@ -10,13 +10,26 @@ import (
 )
 
 type Instance struct {
-	ServiceID string
-	Addr      string
-	Version   string
-	LastSeen  time.Time
+	ProviderID string
+	Addr       string
+	Version    string
+	LastSeen   time.Time
+}
+
+// ProviderSession represents a registered provider (one OpenAPI file)
+type ProviderSession struct {
+	ProviderID   string          // Provider unique identifier
+	GameID       string          // Game ID for multi-game scoping
+	Env          string          // Environment (prod/dev/staging)
+	Addr         string          // Provider address
+	Version      string          // Provider version
+	LastSeenUnix int64           // Last seen timestamp (Unix)
+	FunctionIDs  []string        // List of function IDs provided
+	OpenAPIDoc   json.RawMessage // Complete OpenAPI 3.0.3 document
 }
 
 // FunctionMeta stores metadata for a function including OpenAPI schema fields.
+// Based on OpenAPI 3.0.3 Operation Object
 type FunctionMeta struct {
 	ID           string
 	Version      string
@@ -25,8 +38,17 @@ type FunctionMeta struct {
 	Description  string
 	OperationID  string
 	Deprecated   bool
-	InputSchema  string // JSON Schema for request body
-	OutputSchema string // JSON Schema for response body
+	InputSchema  string // JSON Schema for request body (OpenAPI 3.0.3)
+	OutputSchema string // JSON Schema for response body (OpenAPI 3.0.3)
+
+	// Additional OpenAPI fields
+	Category  string // x-category extension
+	Risk      string // x-risk extension
+	Entity    string // x-entity extension
+	Operation string // x-operation extension (create/read/update/delete/custom)
+
+	// Full OpenAPI operation as JSON (optional, for advanced use cases)
+	OpenAPIOperation string // Complete OpenAPI 3.0.3 Operation object as JSON string
 }
 
 type LocalStore struct {
@@ -70,17 +92,17 @@ func (s *LocalStore) OnUpdate(fn func()) {
 	s.onUpdate = fn
 }
 
-// Register replaces instances for the provided function ids for a service.
-func (s *LocalStore) Register(serviceID, addr, version string, funcs []*sdkv1.LocalFunctionDescriptor) {
+// Register replaces instances for the provided function ids for a provider.
+func (s *LocalStore) Register(providerID, addr, version string, funcs []*sdkv1.LocalFunctionDescriptor) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	slog.Debug("[agentlocal] Register called", "service_id", serviceID, "function_count", len(funcs))
+	slog.Debug("[agentlocal] Register called", "provider_id", providerID, "function_count", len(funcs))
 	now := time.Now()
-	// remove prior instances from this serviceID for all functions
+	// remove prior instances from this providerID for all functions
 	for fid, arr := range s.data {
 		next := arr[:0]
 		for _, it := range arr {
-			if it.ServiceID != serviceID {
+			if it.ProviderID != providerID {
 				next = append(next, it)
 			}
 		}
@@ -91,12 +113,12 @@ func (s *LocalStore) Register(serviceID, addr, version string, funcs []*sdkv1.Lo
 		}
 	}
 	for fid, svc := range s.funcVersions {
-		delete(svc, serviceID)
+		delete(svc, providerID)
 		if len(svc) == 0 {
 			delete(s.funcVersions, fid)
 		}
 	}
-	inst := Instance{ServiceID: serviceID, Addr: addr, Version: version, LastSeen: now}
+	inst := Instance{ProviderID: providerID, Addr: addr, Version: version, LastSeen: now}
 	for _, fn := range funcs {
 		if fn == nil || fn.GetId() == "" {
 			continue
@@ -107,7 +129,7 @@ func (s *LocalStore) Register(serviceID, addr, version string, funcs []*sdkv1.Lo
 			if s.funcVersions[fid] == nil {
 				s.funcVersions[fid] = map[string]string{}
 			}
-			s.funcVersions[fid][serviceID] = fn.GetVersion()
+			s.funcVersions[fid][providerID] = fn.GetVersion()
 		}
 		// Store function metadata including OpenAPI schema
 		s.funcMeta[fid] = &FunctionMeta{
@@ -120,24 +142,29 @@ func (s *LocalStore) Register(serviceID, addr, version string, funcs []*sdkv1.Lo
 			Deprecated:   fn.GetDeprecated(),
 			InputSchema:  fn.GetInputSchema(),
 			OutputSchema: fn.GetOutputSchema(),
+			Category:     fn.GetCategory(),
+			Risk:         fn.GetRisk(),
+			Entity:       fn.GetEntity(),
+			Operation:    fn.GetOperation(),
 		}
 	}
+	slog.Info("[agentlocal] Registered functions", "provider_id", providerID, "count", len(funcs), "store_size", len(s.data))
 	if s.onUpdate != nil {
-		fmt.Println("DEBUG: Triggering OnUpdate")
+		slog.Debug("[agentlocal] Triggering OnUpdate callback")
 		go s.onUpdate()
 	} else {
-		fmt.Println("DEBUG: OnUpdate is nil")
+		slog.Debug("[agentlocal] OnUpdate callback is nil, skipping")
 	}
 }
 
-// Heartbeat updates last seen for a service across all functions.
-func (s *LocalStore) Heartbeat(serviceID string) {
+// Heartbeat updates last seen for a provider across all functions.
+func (s *LocalStore) Heartbeat(providerID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := time.Now()
 	for fid, arr := range s.data {
 		for i := range arr {
-			if arr[i].ServiceID == serviceID {
+			if arr[i].ProviderID == providerID {
 				arr[i].LastSeen = now
 			}
 		}
@@ -211,15 +238,20 @@ func (s *LocalStore) FunctionMetadata() map[string]*FunctionMeta {
 		}
 		// Copy to avoid data races
 		cp := &FunctionMeta{
-			ID:           meta.ID,
-			Version:      meta.Version,
-			Tags:         append([]string(nil), meta.Tags...),
-			Summary:      meta.Summary,
-			Description:  meta.Description,
-			OperationID:  meta.OperationID,
-			Deprecated:   meta.Deprecated,
-			InputSchema:  meta.InputSchema,
-			OutputSchema: meta.OutputSchema,
+			ID:               meta.ID,
+			Version:          meta.Version,
+			Tags:             append([]string(nil), meta.Tags...),
+			Summary:          meta.Summary,
+			Description:      meta.Description,
+			OperationID:      meta.OperationID,
+			Deprecated:       meta.Deprecated,
+			InputSchema:      meta.InputSchema,
+			OutputSchema:     meta.OutputSchema,
+			Category:         meta.Category,
+			Risk:             meta.Risk,
+			Entity:           meta.Entity,
+			Operation:        meta.Operation,
+			OpenAPIOperation: meta.OpenAPIOperation,
 		}
 		out[fid] = cp
 	}

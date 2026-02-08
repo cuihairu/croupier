@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/platform/provider"
 	"github.com/cuihairu/croupier/internal/platform/ratelimit"
+	"gopkg.in/yaml.v3"
 )
 
 // Duration is a custom duration type that supports parsing from both
@@ -66,6 +68,7 @@ type Provider struct {
 	rateLimiter   ratelimit.Limiter
 	methods       []string
 	methodMap     map[string]*APIMethod // method name -> API definition
+	openapiDoc    json.RawMessage       // Raw OpenAPI document JSON
 	mu            sync.RWMutex
 }
 
@@ -81,9 +84,14 @@ type Config struct {
 	// If empty, will attempt to discover from OpenAPI spec
 	Methods []APIMethod `yaml:"methods" json:"methods"`
 
-	// OpenAPISpec is the URL or local path to the OpenAPI/Swagger specification
+	// OpenAPISpec is the URL or local path to a single OpenAPI/Swagger specification
 	// If provided, the provider will auto-discover available methods
 	OpenAPISpec string `yaml:"openapi_spec" json:"openapi_spec"`
+
+	// OpenAPISpecs is a list of URLs or local paths to multiple OpenAPI specifications
+	// If provided, the provider will merge all specs and auto-discover methods
+	// Takes precedence over OpenAPISpec if both are set
+	OpenAPISpecs []string `yaml:"openapi_specs" json:"openapi_specs"`
 
 	// Timeout for HTTP requests (supports "10s", "1m", "500ms" or seconds as number)
 	Timeout Duration `yaml:"timeout" json:"timeout"`
@@ -168,6 +176,12 @@ type APIMethod struct {
 
 	// Deprecated marks this operation as deprecated (from OpenAPI)
 	Deprecated bool `yaml:"deprecated" json:"deprecated"`
+
+	// OpenAPI 3.0.3 Extension fields (x-*)
+	Category  string `yaml:"x-category" json:"x-category"`   // x-category: function category
+	Risk      string `yaml:"x-risk" json:"x-risk"`           // x-risk: risk level
+	Entity    string `yaml:"x-entity" json:"x-entity"`       // x-entity: associated entity type
+	Operation string `yaml:"x-operation" json:"x-operation"` // x-operation: CRUD operation type
 }
 
 // ParameterMapping defines how to map a parameter.
@@ -258,6 +272,12 @@ type MethodDetails struct {
 	Tags        []string
 	Deprecated  bool
 	Parameters  []ParameterMapping
+
+	// OpenAPI 3.0.3 Extension fields (x-*)
+	Category  string // x-category
+	Risk      string // x-risk
+	Entity    string // x-entity
+	Operation string // x-operation
 }
 
 // NewProvider creates a new OpenAPI provider.
@@ -304,10 +324,20 @@ func (p *Provider) Init(ctx context.Context, config provider.ProviderConfig) err
 		return fmt.Errorf("failed to build method map: %w", err)
 	}
 
-	// Auto-discover methods if OpenAPI spec is provided
-	if p.openapiConfig.OpenAPISpec != "" && len(p.openapiConfig.Methods) == 0 {
-		if err := p.discoverMethods(ctx); err != nil {
-			return fmt.Errorf("failed to discover methods: %w", err)
+	// Auto-discover methods if OpenAPI spec(s) are provided
+	if len(p.openapiConfig.Methods) == 0 {
+		// Use multiple specs if available
+		if len(p.openapiConfig.OpenAPISpecs) > 0 {
+			for _, specURL := range p.openapiConfig.OpenAPISpecs {
+				if err := p.discoverMethodsFromSpec(ctx, specURL); err != nil {
+					return fmt.Errorf("failed to discover methods from %s: %w", specURL, err)
+				}
+			}
+		} else if p.openapiConfig.OpenAPISpec != "" {
+			// Fallback to single spec for backward compatibility
+			if err := p.discoverMethodsFromSpec(ctx, p.openapiConfig.OpenAPISpec); err != nil {
+				return fmt.Errorf("failed to discover methods: %w", err)
+			}
 		}
 	}
 
@@ -341,41 +371,103 @@ func (p *Provider) buildMethodMap() error {
 	return nil
 }
 
-// discoverMethods auto-discovers methods from OpenAPI specification.
-func (p *Provider) discoverMethods(ctx context.Context) error {
-	// Fetch OpenAPI spec
-	specURL := p.openapiConfig.OpenAPISpec
-	if !strings.HasPrefix(specURL, "http") {
-		// Local file path - for now skip
-		return nil
-	}
+// discoverMethodsFromSpec auto-discovers methods from a single OpenAPI specification.
+// Supports both HTTP URLs and local file paths (YAML or JSON format).
+func (p *Provider) discoverMethodsFromSpec(ctx context.Context, specURL string) error {
+	var spec []byte
+	var err error
 
-	req, err := http.NewRequestWithContext(ctx, "GET", specURL, nil)
-	if err != nil {
-		return err
-	}
+	if strings.HasPrefix(specURL, "http://") || strings.HasPrefix(specURL, "https://") {
+		// HTTP URL
+		req, err := http.NewRequestWithContext(ctx, "GET", specURL, nil)
+		if err != nil {
+			return err
+		}
 
-	resp, err := p.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
+		resp, err := p.httpClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to fetch OpenAPI spec: %s", resp.Status)
-	}
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("failed to fetch OpenAPI spec: %s", resp.Status)
+		}
 
-	spec, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
+		spec, err = io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+	} else {
+		// Local file path (supports both JSON and YAML)
+		spec, err = os.ReadFile(specURL)
+		if err != nil {
+			return fmt.Errorf("failed to read OpenAPI spec file: %w", err)
+		}
+
+		// Convert YAML to JSON if needed
+		if !looksLikeJSON(spec) {
+			spec, err = yamlToJSON(spec)
+			if err != nil {
+				return fmt.Errorf("failed to convert YAML to JSON: %w", err)
+			}
+		}
 	}
 
 	// Parse OpenAPI spec and generate method definitions
 	return p.parseOpenAPISpec(spec)
 }
 
+// looksLikeJSON checks if the data appears to be JSON format.
+func looksLikeJSON(data []byte) bool {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 {
+		return false
+	}
+	return trimmed[0] == '{' || trimmed[0] == '['
+}
+
+// yamlToJSON converts YAML bytes to JSON bytes.
+func yamlToJSON(yamlData []byte) ([]byte, error) {
+	var yamlObj interface{}
+	if err := yaml.Unmarshal(yamlData, &yamlObj); err != nil {
+		return nil, err
+	}
+	return json.Marshal(yamlObj)
+}
+
 // parseOpenAPISpec parses OpenAPI/Swagger specification.
 func (p *Provider) parseOpenAPISpec(spec []byte) error {
+	// Store raw OpenAPI document for later retrieval
+	if p.openapiDoc == nil {
+		p.openapiDoc = spec
+	} else {
+		// Merge with existing doc (if multiple specs)
+		var existing map[string]interface{}
+		var newDoc map[string]interface{}
+		if err := json.Unmarshal(p.openapiDoc, &existing); err != nil {
+			return err
+		}
+		if err := json.Unmarshal(spec, &newDoc); err != nil {
+			return err
+		}
+
+		// Merge paths
+		if existingPaths, ok := existing["paths"].(map[string]interface{}); ok {
+			if newPaths, ok := newDoc["paths"].(map[string]interface{}); ok {
+				for k, v := range newPaths {
+					existingPaths[k] = v
+				}
+			}
+		}
+
+		merged, err := json.Marshal(existing)
+		if err != nil {
+			return err
+		}
+		p.openapiDoc = merged
+	}
+
 	var openapi map[string]interface{}
 	if err := json.Unmarshal(spec, &openapi); err != nil {
 		return err
@@ -437,6 +529,12 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 			// Extract deprecated flag
 			deprecated, _ := methodObj["deprecated"].(bool)
 
+			// Extract OpenAPI extension fields (x-*)
+			category, _ := methodObj["x-category"].(string)
+			risk, _ := methodObj["x-risk"].(string)
+			entity, _ := methodObj["x-entity"].(string)
+			operation, _ := methodObj["x-operation"].(string)
+
 			// Create APIMethod
 			apiMethod := &APIMethod{
 				Name:        methodName,
@@ -448,6 +546,10 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 				Tags:        tags,
 				Deprecated:  deprecated,
 				Parameters:  p.extractParameters(methodObj),
+				Category:    category,
+				Risk:        risk,
+				Entity:      entity,
+				Operation:   operation,
 			}
 
 			p.methodMap[methodName] = apiMethod
@@ -590,9 +692,21 @@ func (p *Provider) GetMethodDetails() map[string]*MethodDetails {
 			Tags:        method.Tags,
 			Deprecated:  method.Deprecated,
 			Parameters:  method.Parameters,
+			Category:    method.Category,
+			Risk:        method.Risk,
+			Entity:      method.Entity,
+			Operation:   method.Operation,
 		}
 	}
 	return result
+}
+
+// GetOpenAPIDoc returns the raw OpenAPI document JSON.
+// This can be used to store the complete OpenAPI specification for later retrieval.
+func (p *Provider) GetOpenAPIDoc() json.RawMessage {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.openapiDoc
 }
 
 // Call invokes an API method.

@@ -1,6 +1,0 @@
-{
-  "functions": [
-    { "id": "grafana.search_dashboards", "version": "1.0.0", "category": "grafana" }
-  ]
-}
-

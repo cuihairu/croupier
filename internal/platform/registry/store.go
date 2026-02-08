@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -9,6 +10,11 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/zeromicro/go-zero/core/logx"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // FunctionMeta describes a function capability on an agent.
@@ -17,13 +23,16 @@ type FunctionMeta struct {
 	Version string
 }
 
-// ProcessSession represents a single process/service registered to an agent (via SDK->Agent local registry).
-type ProcessSession struct {
-	ServiceID    string
+// ProviderSession represents a single provider registered to an agent (via SDK->Agent local registry).
+type ProviderSession struct {
+	ProviderID   string
+	GameID       string
+	Env          string
 	Addr         string
 	Version      string
 	LastSeenUnix int64
 	FunctionIDs  []string
+	OpenAPIDoc   json.RawMessage
 }
 
 // AgentSession represents a registered agent instance in the registry.
@@ -37,7 +46,7 @@ type AgentSession struct {
 	Zone      string
 	Labels    map[string]string
 	Functions map[string]FunctionMeta
-	Processes []ProcessSession
+	Providers []ProviderSession
 	ExpireAt  time.Time
 	LastSeen  time.Time // 最后活跃时间
 }
@@ -51,13 +60,44 @@ type Store struct {
 	// provider update sequence ensures deterministic ordering for merges.
 	provCapsSeq map[string]uint64 // provider_id -> last update seq
 	nextProvSeq uint64
+	// OpenAPI operations storage (replaces legacy manifest)
+	openapiOperations map[string]*openapi3.Operation  // function_id -> OpenAPI operation
+	openapiProviders  map[string]*OpenAPIProviderCaps // provider_id -> OpenAPI caps
+	// Optional database for dual-write persistence
+	db *gorm.DB
+}
+
+// OpenAPIProviderCaps represents provider capabilities in OpenAPI format.
+type OpenAPIProviderCaps struct {
+	ID        string
+	Version   string
+	Lang      string
+	SDK       string
+	UpdatedAt time.Time
+	// OpenAPI 3.0.3 document as JSON
+	OpenAPIDoc []byte
 }
 
 func NewStore() *Store {
 	return &Store{
-		agents:      map[string]*AgentSession{},
-		provCaps:    map[string]ProviderCaps{},
-		provCapsSeq: map[string]uint64{},
+		agents:            map[string]*AgentSession{},
+		provCaps:          map[string]ProviderCaps{},
+		provCapsSeq:       map[string]uint64{},
+		openapiOperations: make(map[string]*openapi3.Operation),
+		openapiProviders:  make(map[string]*OpenAPIProviderCaps),
+		db:                nil,
+	}
+}
+
+// NewStoreWithDB creates a new Store with database dual-write enabled.
+func NewStoreWithDB(db *gorm.DB) *Store {
+	return &Store{
+		agents:            map[string]*AgentSession{},
+		provCaps:          map[string]ProviderCaps{},
+		provCapsSeq:       map[string]uint64{},
+		openapiOperations: make(map[string]*openapi3.Operation),
+		openapiProviders:  make(map[string]*OpenAPIProviderCaps),
+		db:                db,
 	}
 }
 
@@ -68,10 +108,22 @@ func (s *Store) Mu() *sync.RWMutex { return &s.mu }
 func (s *Store) AgentsUnsafe() map[string]*AgentSession { return s.agents }
 
 // UpsertAgent inserts or updates an agent session by AgentID.
+// Implements dual-write pattern: writes to database first (if enabled), then to memory.
+// Database failures are logged but don't block memory operations.
 func (s *Store) UpsertAgent(a *AgentSession) {
 	if a == nil || a.AgentID == "" {
 		return
 	}
+
+	// Dual-write: database first (if enabled)
+	if s.db != nil {
+		if err := s.writeToDB(context.Background(), a); err != nil {
+			// Log error but continue - memory store is the primary source
+			logx.Errorf("failed to write agent session to database (agent_id=%s): %v", a.AgentID, err)
+		}
+	}
+
+	// Always write to memory (primary store)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	cur := s.agents[a.AgentID]
@@ -94,8 +146,8 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 	if a.Functions != nil {
 		cur.Functions = a.Functions
 	}
-	if a.Processes != nil {
-		cur.Processes = a.Processes
+	if a.Providers != nil {
+		cur.Providers = a.Providers
 	}
 	if !a.ExpireAt.IsZero() {
 		cur.ExpireAt = a.ExpireAt
@@ -103,6 +155,64 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 	if !a.LastSeen.IsZero() {
 		cur.LastSeen = a.LastSeen
 	}
+}
+
+// writeToDB writes agent session to database using GORM.
+// This method should be called before acquiring the mutex to avoid deadlock.
+func (s *Store) writeToDB(ctx context.Context, a *AgentSession) error {
+	if s.db == nil {
+		return nil // Database not configured
+	}
+
+	// Use GORM's Clauses for upsert
+	type DBSession struct {
+		AgentID   string    `gorm:"column:agent_id;size:64"`
+		GameID    string    `gorm:"column:game_id;size:64"`
+		Env       string    `gorm:"column:env;size:32"`
+		RPCAddr   string    `gorm:"column:rpc_addr;size:255"`
+		Version   string    `gorm:"column:version;size:32"`
+		Region    string    `gorm:"column:region;size:64"`
+		Zone      string    `gorm:"column:zone;size:64"`
+		Labels    string    `gorm:"column:labels;type:json"`
+		Providers string    `gorm:"column:providers;type:json"`
+		ExpireAt  time.Time `gorm:"column:expire_at"`
+		LastSeen  time.Time `gorm:"column:last_seen"`
+	}
+
+	dbSess := DBSession{
+		AgentID:  a.AgentID,
+		GameID:   a.GameID,
+		Env:      a.Env,
+		RPCAddr:  a.RPCAddr,
+		Version:  a.Version,
+		Region:   a.Region,
+		Zone:     a.Zone,
+		ExpireAt: a.ExpireAt,
+		LastSeen: a.LastSeen,
+	}
+
+	// Marshal Labels to JSON
+	if a.Labels != nil {
+		if labelsJSON, err := json.Marshal(a.Labels); err == nil {
+			dbSess.Labels = string(labelsJSON)
+		}
+	}
+
+	// Marshal Providers to JSON
+	if a.Providers != nil {
+		if providersJSON, err := json.Marshal(a.Providers); err == nil {
+			dbSess.Providers = string(providersJSON)
+		}
+	}
+
+	// Perform upsert using GORM
+	return s.db.WithContext(ctx).
+		Table("agent_sessions").
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "agent_id"}},
+			UpdateAll: true,
+		}).
+		Create(&dbSess).Error
 }
 
 // ProviderCaps represents a provider manifest snapshot registered at runtime.
@@ -972,4 +1082,208 @@ func (s *Store) loadServerOverrides() []map[string]interface{} {
 	}
 
 	return overrides
+}
+
+// ========== OpenAPI 3.0.3 Support (New, Replaces Legacy Manifest) ==========
+
+// UpsertOpenAPI inserts or updates an OpenAPI operation by function ID.
+func (s *Store) UpsertOpenAPI(functionID string, operation *openapi3.Operation) error {
+	if functionID == "" {
+		return fmt.Errorf("function ID cannot be empty")
+	}
+	if operation == nil {
+		return fmt.Errorf("operation cannot be nil")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.openapiOperations[functionID] = operation
+	return nil
+}
+
+// GetOpenAPI retrieves an OpenAPI operation by function ID.
+func (s *Store) GetOpenAPI(functionID string) (*openapi3.Operation, error) {
+	if functionID == "" {
+		return nil, fmt.Errorf("function ID cannot be empty")
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	op, exists := s.openapiOperations[functionID]
+	if !exists {
+		return nil, fmt.Errorf("function %s not found", functionID)
+	}
+	return op, nil
+}
+
+// ListOpenAPIOperations returns all OpenAPI operations.
+func (s *Store) ListOpenAPIOperations() map[string]*openapi3.Operation {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Return a copy to avoid race conditions
+	result := make(map[string]*openapi3.Operation, len(s.openapiOperations))
+	for k, v := range s.openapiOperations {
+		result[k] = v
+	}
+	return result
+}
+
+// UpsertOpenAPIProvider inserts or updates OpenAPI provider capabilities.
+func (s *Store) UpsertOpenAPIProvider(caps OpenAPIProviderCaps) error {
+	if caps.ID == "" {
+		return fmt.Errorf("provider ID cannot be empty")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	caps.UpdatedAt = time.Now()
+	s.openapiProviders[caps.ID] = &caps
+	return nil
+}
+
+// GetOpenAPIProvider retrieves OpenAPI provider capabilities by provider ID.
+func (s *Store) GetOpenAPIProvider(providerID string) (*OpenAPIProviderCaps, error) {
+	if providerID == "" {
+		return nil, fmt.Errorf("provider ID cannot be empty")
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	caps, exists := s.openapiProviders[providerID]
+	if !exists {
+		return nil, fmt.Errorf("provider %s not found", providerID)
+	}
+	return caps, nil
+}
+
+// ListOpenAPIProviders returns all OpenAPI provider capabilities.
+func (s *Store) ListOpenAPIProviders() []*OpenAPIProviderCaps {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	result := make([]*OpenAPIProviderCaps, 0, len(s.openapiProviders))
+	for _, caps := range s.openapiProviders {
+		result = append(result, caps)
+	}
+	return result
+}
+
+// BuildOpenAPISpec builds a complete OpenAPI 3.0.3 spec from all registered operations.
+func (s *Store) BuildOpenAPISpec() (*openapi3.T, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	doc := &openapi3.T{
+		OpenAPI: "3.0.3",
+		Info: &openapi3.Info{
+			Title:       "Croupier Functions",
+			Description: "Auto-generated OpenAPI specification from registered functions",
+			Version:     "1.0.0",
+		},
+		Paths: openapi3.NewPaths(),
+		Components: &openapi3.Components{
+			Schemas:       make(map[string]*openapi3.SchemaRef),
+			Parameters:    make(map[string]*openapi3.ParameterRef),
+			Responses:     make(map[string]*openapi3.ResponseRef),
+			RequestBodies: make(map[string]*openapi3.RequestBodyRef),
+		},
+	}
+
+	// Add all operations to paths
+	for funcID, op := range s.openapiOperations {
+		// Create a path for each function
+		// Using pattern: /functions/{functionID}
+		path := fmt.Sprintf("/functions/%s", funcID)
+
+		// Create path item with POST operation
+		pathItem := &openapi3.PathItem{
+			Post: op,
+		}
+		op.OperationID = funcID
+
+		// Add to paths
+		doc.Paths.Set(path, pathItem)
+	}
+
+	return doc, nil
+}
+
+// DeleteOpenAPI removes an OpenAPI operation by function ID.
+func (s *Store) DeleteOpenAPI(functionID string) error {
+	if functionID == "" {
+		return fmt.Errorf("function ID cannot be empty")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, exists := s.openapiOperations[functionID]; !exists {
+		return fmt.Errorf("function %s not found", functionID)
+	}
+
+	delete(s.openapiOperations, functionID)
+	return nil
+}
+
+// DeleteOpenAPIProvider removes OpenAPI provider capabilities by provider ID.
+func (s *Store) DeleteOpenAPIProvider(providerID string) error {
+	if providerID == "" {
+		return fmt.Errorf("provider ID cannot be empty")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, exists := s.openapiProviders[providerID]; !exists {
+		return fmt.Errorf("provider %s not found", providerID)
+	}
+
+	delete(s.openapiProviders, providerID)
+	return nil
+}
+
+// ========== Database Dual-Write Support ==========
+
+// AgentSessionLoader defines the interface for loading agent sessions from a database.
+// This allows the Store to be decoupled from specific database implementations.
+type AgentSessionLoader interface {
+	LoadActiveSessions(ctx context.Context) ([]*AgentSession, error)
+}
+
+// LoadFromDB loads active agent sessions from the database and populates the in-memory store.
+// This method is typically called during system startup to restore registry state.
+// The loader parameter must implement the AgentSessionLoader interface.
+//
+// Note: Sessions loaded via this method are inserted into memory only (no double-write to DB).
+func (s *Store) LoadFromDB(ctx context.Context, loader AgentSessionLoader) error {
+	if s.db == nil {
+		return fmt.Errorf("database not configured: cannot load from DB")
+	}
+	if loader == nil {
+		return fmt.Errorf("loader cannot be nil")
+	}
+
+	sessions, err := loader.LoadActiveSessions(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load active sessions: %w", err)
+	}
+
+	// Insert each session into memory without triggering database write
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, sess := range sessions {
+		if sess == nil || sess.AgentID == "" {
+			continue
+		}
+		s.agents[sess.AgentID] = sess
+	}
+
+	logx.Infof("loaded %d active agent sessions from database", len(sessions))
+	return nil
 }

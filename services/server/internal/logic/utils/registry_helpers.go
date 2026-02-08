@@ -48,12 +48,12 @@ func BuildOpsAgentSnapshot(sess *reg.AgentSession) map[string]interface{} {
 		"zone":      sess.Zone,
 		"labels":    sess.Labels,
 		"functions": CountEnabledFunctions(sess.Functions),
-		"processes": buildProcesses(sess.Processes),
-		"processes_count": func() int {
-			if sess.Processes == nil {
+		"providers": buildProviders(sess.Providers),
+		"providers_count": func() int {
+			if sess.Providers == nil {
 				return 0
 			}
-			return len(sess.Processes)
+			return len(sess.Providers)
 		}(),
 		"healthy":        healthy,
 		"expires_in_sec": ttl,
@@ -65,14 +65,14 @@ func BuildOpsAgentSnapshot(sess *reg.AgentSession) map[string]interface{} {
 	return snapshot
 }
 
-func buildProcesses(processes []reg.ProcessSession) []map[string]interface{} {
-	if len(processes) == 0 {
+func buildProviders(providers []reg.ProviderSession) []map[string]interface{} {
+	if len(providers) == 0 {
 		return nil
 	}
-	out := make([]map[string]interface{}, 0, len(processes))
-	for _, p := range processes {
-		sid := strings.TrimSpace(p.ServiceID)
-		if sid == "" {
+	out := make([]map[string]interface{}, 0, len(providers))
+	for _, p := range providers {
+		pid := strings.TrimSpace(p.ProviderID)
+		if pid == "" {
 			continue
 		}
 		fnCount := 0
@@ -80,7 +80,9 @@ func buildProcesses(processes []reg.ProcessSession) []map[string]interface{} {
 			fnCount = len(p.FunctionIDs)
 		}
 		out = append(out, map[string]interface{}{
-			"service_id":     sid,
+			"provider_id":    pid,
+			"game_id":        strings.TrimSpace(p.GameID),
+			"env":            strings.TrimSpace(p.Env),
 			"addr":           strings.TrimSpace(p.Addr),
 			"version":        strings.TrimSpace(p.Version),
 			"last_seen_unix": p.LastSeenUnix,

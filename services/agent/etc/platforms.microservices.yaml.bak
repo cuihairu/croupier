@@ -1,0 +1,181 @@
+# ============================================================================
+# Croupier Agent - 微服务架构配置
+# ============================================================================
+# 此配置演示如何为多个不同的后端服务注册 OpenAPI 函数
+# 每个 service 指向不同的端口
+# ============================================================================
+
+platforms:
+  # ========================================================================
+  # 玩家服务 (端口 8081)
+  # ========================================================================
+  player_service:
+    enabled: true
+    type: openapi
+    config:
+      openapi_specs:
+        - ./etc/openapi.example.yaml  # 使用示例中的玩家相关函数
+      base_url: http://localhost:8081
+      timeout: 30s
+      retry_count: 3
+      auth:
+        type: bearer
+        token: "${PLAYER_SERVICE_TOKEN}"
+      rate_limit:
+        requests_per_minute: 100
+        burst_size: 20
+
+  # ========================================================================
+  # 物品服务 (端口 8082)
+  # ========================================================================
+  inventory_service:
+    enabled: true
+    type: openapi
+    config:
+      openapi_specs:
+        - ../../packs/http/openapi.yaml  # HTTP pack 作为物品服务
+      base_url: http://localhost:8082
+      timeout: 30s
+      retry_count: 3
+      auth:
+        type: bearer
+        token: "${INVENTORY_SERVICE_TOKEN}"
+      rate_limit:
+        requests_per_minute: 150
+        burst_size: 30
+
+  # ========================================================================
+  # 聊天服务 (端口 8083)
+  # ========================================================================
+  chat_service:
+    enabled: true
+    type: openapi
+    config:
+      openapi_specs:
+        - ../../packs/player/openapi.yaml  # Player pack 中的封禁作为聊天管理
+      base_url: http://localhost:8083
+      timeout: 10s  # 聊天需要更快响应
+      retry_count: 1
+      auth:
+        type: bearer
+        token: "${CHAT_SERVICE_TOKEN}"
+      rate_limit:
+        requests_per_minute: 300
+        burst_size: 50
+
+  # ========================================================================
+  # 监控服务 (端口 9090 - Prometheus)
+  # ========================================================================
+  monitoring_service:
+    enabled: true
+    type: openapi
+    config:
+      openapi_specs:
+        - ../../packs/prom/openapi.yaml
+      base_url: http://localhost:9090
+      timeout: 10s
+      retry_count: 2
+      auth:
+        type: basic
+        username: "${PROM_USER}"
+        password: "${PROM_PASSWORD}"
+
+  # ========================================================================
+  # 告警服务 (端口 9093 - Alertmanager)
+  # ========================================================================
+  alerting_service:
+    enabled: true
+    type: openapi
+    config:
+      openapi_specs:
+        - ../../packs/alertmanager/openapi.yaml
+      base_url: http://localhost:9093
+      timeout: 30s
+      retry_count: 2
+
+# ============================================================================
+# 说明
+# ============================================================================
+#
+# 此配置为微服务架构，每个服务监听不同端口：
+#
+# 1. player_service (8081):
+#    - player_service.player.create
+#    - player_service.player.get
+#    - player_service.player.delete
+#    - ... (所有示例中的玩家函数)
+#
+# 2. inventory_service (8082):
+#    - inventory_service.http.generic_invoke
+#
+# 3. chat_service (8083):
+#    - chat_service.player.ban
+#
+# 4. monitoring_service (9090):
+#    - monitoring_service.prom.query
+#    - monitoring_service.prom.query_range
+#
+# 5. alerting_service (9093):
+#    - alerting_service.alertmanager.list_alerts
+#
+# ============================================================================
+# 环境变量
+# ============================================================================
+#
+# 启动前需要设置以下环境变量（或在 launch.json 中配置）：
+#
+# export PLAYER_SERVICE_TOKEN="dev-token-player"
+# export INVENTORY_SERVICE_TOKEN="dev-token-inventory"
+# export CHAT_SERVICE_TOKEN="dev-token-chat"
+# export PROM_USER="prometheus"
+# export PROM_PASSWORD="prometheus"
+#
+# ============================================================================
+# VS Code 启动
+# ============================================================================
+#
+# 在 VS Code 中按 F5，选择 "Agent (微服务架构)" 启动
+#
+# 环境变量会自动从 launch.json 中注入
+#
+# ============================================================================
+# 服务依赖
+# ============================================================================
+#
+# ⚠️ 启动前需要确保以下服务正在运行：
+#
+# - 玩家服务:   http://localhost:8081
+# - 物品服务:   http://localhost:8082
+# - 聊天服务:   http://localhost:8083
+# - Prometheus: http://localhost:9090
+# - Alertmanager: http://localhost:9093
+#
+# 如果服务未运行，函数调用会失败（connection refused）
+#
+# ============================================================================
+# 测试函数调用
+# ============================================================================
+#
+# 测试玩家服务：
+# curl -X POST http://localhost:8080/api/v1/functions/invoke \
+#   -H "Content-Type: application/json" \
+#   -d '{
+#     "function_id": "player_service.player.create",
+#     "payload": {
+#       "username": "testplayer",
+#       "email": "test@example.com",
+#       "region": "us-east"
+#     }
+#   }'
+#
+# 测试监控服务：
+# curl -X POST http://localhost:8080/api/v1/functions/invoke \
+#   -H "Content-Type: application/json" \
+#   -d '{
+#     "function_id": "monitoring_service.prom.query",
+#     "payload": {
+#       "query": "up"
+#     }
+#   }'
+#
+# ============================================================================

@@ -20,7 +20,7 @@ type App struct {
 	jobs            *jobIndex
 	upstream        *UpstreamClient
 	outTLS          *tlsutil.ClientTLSConfig
-	platformManager *PlatformManager
+	providerManager *ProviderManager
 	configDir       string
 
 	// NNG server (replaces gRPC)
@@ -70,15 +70,15 @@ func getConfigDir() string {
 // StartNNGServer starts the NNG server for local services.
 // Replaces RegisterGRPC for NNG-based communication.
 func (a *App) StartNNGServer() error {
-	// Initialize platform manager
-	a.platformManager = NewPlatformManager(a.store, a.configDir, nil)
+	// Initialize provider manager
+	a.providerManager = NewProviderManager(a.store, a.configDir, nil)
 
 	// Create NNG server
 	a.nngServer = nng.NewAgentServer(a.nngAddr, a.store)
 
-	// Set platform manager - wrap it to implement the interface
-	pmWrapper := &platformManagerWrapper{pm: a.platformManager}
-	a.nngServer.SetPlatformManager(pmWrapper)
+	// Set provider manager - wrap it to implement the interface
+	pmWrapper := &providerManagerWrapper{pm: a.providerManager}
+	a.nngServer.SetProviderManager(pmWrapper)
 
 	// Set TLS config for outbound connections
 	if a.outTLS != nil {
@@ -126,9 +126,9 @@ func (a *App) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to start NNG server: %w", err)
 	}
 
-	// Load platforms before starting upstream
-	if a.platformManager != nil {
-		if err := a.platformManager.Load(ctx); err != nil {
+	// Load providers before starting upstream
+	if a.providerManager != nil {
+		if err := a.providerManager.Load(ctx); err != nil {
 			return err
 		}
 	}
@@ -354,15 +354,15 @@ func (w *opsServerWrapper) ListCronJobsJSON(ctx context.Context) ([]byte, error)
 	return w.ops.ListCronJobsJSON(ctx)
 }
 
-// platformManagerWrapper wraps PlatformManager to implement nng.PlatformManager interface
-type platformManagerWrapper struct {
-	pm *PlatformManager
+// providerManagerWrapper wraps ProviderManager to implement nng.ProviderManager interface
+type providerManagerWrapper struct {
+	pm *ProviderManager
 }
 
-func (w *platformManagerWrapper) IsPlatformFunction(functionID string) bool {
+func (w *providerManagerWrapper) IsPlatformFunction(functionID string) bool {
 	return w.pm.IsPlatformFunction(functionID)
 }
 
-func (w *platformManagerWrapper) Call(ctx context.Context, functionID string, request []byte) ([]byte, error) {
+func (w *providerManagerWrapper) Call(ctx context.Context, functionID string, request []byte) ([]byte, error) {
 	return w.pm.Call(ctx, functionID, request)
 }

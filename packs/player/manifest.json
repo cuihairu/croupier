@@ -1,6 +1,0 @@
-{
-  "functions": [
-    { "id": "player.ban", "version": "1.2.0", "category": "player" }
-  ]
-}
-

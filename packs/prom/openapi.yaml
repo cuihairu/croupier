@@ -1,0 +1,103 @@
+openapi: 3.0.3
+info:
+  title: Prometheus Functions Pack
+  description: Prometheus query functions for Croupier
+  version: 1.0.0
+  x-category: prom
+paths:
+  /prom/query:
+    post:
+      operationId: prom.query
+      summary: Prometheus Instant Query
+      description: Execute an instant query against Prometheus
+      x-category: prom
+      x-risk: low
+      x-entity: prom
+      x-operation: read
+      tags:
+        - prometheus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  description: PromQL instant query
+                time:
+                  type: string
+                  description: Evaluation timestamp (RFC3339 or Unix timestamp)
+              required:
+                - query
+      responses:
+        '200':
+          description: Query result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      resultType:
+                        type: string
+                      result:
+                        type: array
+  /prom/query_range:
+    post:
+      operationId: prom.query_range
+      summary: Prometheus Range Query
+      description: Execute a range query against Prometheus
+      x-category: prom
+      x-risk: low
+      x-entity: prom
+      x-operation: read
+      tags:
+        - prometheus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  description: PromQL range query
+                start:
+                  type: string
+                  description: Start timestamp (RFC3339 or Unix timestamp)
+                end:
+                  type: string
+                  description: End timestamp (RFC3339 or Unix timestamp)
+                step:
+                  type: string
+                  description: Query resolution step width in duration format (e.g., "15s", "1m")
+              required:
+                - query
+                - start
+                - end
+                - step
+      responses:
+        '200':
+          description: Range query result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      resultType:
+                        type: string
+                      result:
+                        type: array
+components: {}

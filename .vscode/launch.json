@@ -54,6 +54,63 @@
       "cwd": "${workspaceFolder}/services/agent"
     },
     {
+      "name": "Agent (多文件示例)",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/services/agent",
+      "args": ["-f", "etc/agent.yaml"],
+      "env": {
+        "PROVIDER_CONFIG": "etc/providers.yaml"
+      },
+      "cwd": "${workspaceFolder}/services/agent",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Agent (加载所有 Packs)",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/services/agent",
+      "args": ["-f", "etc/agent.yaml"],
+      "env": {
+        "GAME_ID": "dev-game",
+        "ENV": "dev"
+      },
+      "cwd": "${workspaceFolder}/services/agent",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Agent (调试模式)",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/services/agent",
+      "args": ["-f", "etc/agent.yaml", "-log.level", "debug"],
+      "env": {
+        "CROUPIER_DEV": "1"
+      },
+      "cwd": "${workspaceFolder}/services/agent",
+      "console": "integratedTerminal",
+      "showLog": true
+    },
+    {
+      "name": "Agent (微服务架构)",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/services/agent",
+      "args": ["-f", "etc/agent.yaml"],
+      "env": {
+        "PLAYER_SERVICE_TOKEN": "dev-token-player",
+        "INVENTORY_SERVICE_TOKEN": "dev-token-inventory",
+        "CHAT_SERVICE_TOKEN": "dev-token-chat",
+        "MATCH_SERVICE_TOKEN": "dev-token-match"
+      },
+      "cwd": "${workspaceFolder}/services/agent",
+      "console": "integratedTerminal"
+    },
+    {
       "name": "Analytics Worker",
       "type": "go",
       "request": "launch",

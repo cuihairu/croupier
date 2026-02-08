@@ -1,0 +1,56 @@
+openapi: 3.0.3
+info:
+  title: Grafana Functions Pack
+  description: Grafana dashboard management functions for Croupier
+  version: 1.0.0
+  x-category: grafana
+paths:
+  /grafana/search_dashboards:
+    post:
+      operationId: grafana.search_dashboards
+      summary: Search Dashboards
+      description: Search for dashboards in Grafana
+      x-category: grafana
+      x-risk: low
+      x-entity: dashboard
+      x-operation: read
+      tags:
+        - grafana
+        - dashboard
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  description: Search query string
+                tag:
+                  type: string
+                  description: Filter by tag
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        title:
+                          type: string
+                        uid:
+                          type: string
+                        tags:
+                          type: array
+                          items:
+                            type: string
+components: {}

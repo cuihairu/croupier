@@ -22,6 +22,12 @@ message LocalFunctionDescriptor {
   // OpenAPI 3.0.3 Schema fields (JSON Schema format)
   string input_schema = 8;                // JSON Schema for request body
   string output_schema = 9;               // JSON Schema for response body
+
+  // OpenAPI 3.0.3 Extension fields (x-* prefix)
+  string category = 10;                   // x-category: function category (e.g., "game", "system", "player")
+  string risk = 11;                       // x-risk: risk level (e.g., "safe", "danger", "warning")
+  string entity = 12;                     // x-entity: associated entity type (e.g., "Player", "Item", "Guild")
+  string operation = 13;                  // x-operation: CRUD operation type (e.g., "create", "read", "update", "delete", "custom")
 }
 
 message RegisterLocalRequest {

@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Build System (Makefile-driven):**
 ```bash
 make dev          # Clean build from scratch: proto + build
-make build        # Build all binaries (server, agent, edge) to /bin
+make build        # Build all binaries (server, agent) to /bin
 make proto        # Generate gRPC code using Buf (buf generate)
 make pack         # Generate pack artifacts via protoc-gen-croupier
 make test         # Run unit tests with race detection
@@ -51,15 +51,9 @@ Croupier implements a **three-tier distributed GM backend system**:
 - Bidirectional tunnel support for request/response multiplexing
 - Job execution with async streaming, idempotency, cancellation
 
-**Edge** (`internal/edge/`)
-- DMZ proxy bridging Server (internal) and Agent (outbound)
-- Tunnel switchboard for multiplexed connections
-
 ### Data Flow Pattern
 ```
 Web UI → Server (HTTP) → Load Balancer → Agent → Game Server
-                ↓
-            Edge (optional tunnel)
 ```
 
 ## Key Development Patterns
@@ -92,7 +86,7 @@ Web UI → Server (HTTP) → Load Balancer → Agent → Game Server
 ## Project Structure Essentials
 
 ```
-cmd/                      # Binary entry points (server, agent, edge, unified CLI)
+cmd/                      # Binary entry points (server, agent, unified CLI)
 proto/                    # Protobuf definitions (Buf workspace)
 internal/server/          # Server business logic (control, function, http, registry)
 internal/agent/           # Agent logic (tunnel, local server, jobs)

@@ -45,7 +45,6 @@ tag:
 |------|----------|----------|------|
 | **Server** | DMZ/公网 | 被动监听 | 中央控制面，提供 API 和 Agent 注册 |
 | **Agent** | 游戏内网 | 主动出站 | 本地代理，连接 Server 并注册游戏函数 |
-| **Edge** (可选) | DMZ/中转区 | 双向代理 | 中继 Server 与 Agent 之间的连接 |
 
 ## 目录
 
@@ -59,7 +58,7 @@ tag:
    ```bash
    make build
    # 二进制文件位于 bin/ 目录
-   ls bin/  # croupier-server, croupier-agent, croupier-edge
+   ls bin/  # croupier-server, croupier-agent
    ```
 
 2. **准备配置文件**：参考 [安装指南](./guide/installation.md) 中的配置说明

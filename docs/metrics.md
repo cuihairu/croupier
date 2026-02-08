@@ -1,16 +1,14 @@
 # Metrics & Observability
 
-This doc lists the built-in metrics endpoints and exported series for Server/Agent/Edge.
+This doc lists the built-in metrics endpoints and exported series for Server/Agent.
 
 Endpoints
 - JSON metrics
   - Server: GET /metrics
   - Agent:  GET /metrics
-  - Edge:   GET /metrics
 - Prometheus text format
   - Server: GET /metrics.prom
   - Agent:  GET /metrics.prom
-  - Edge:   GET /metrics.prom
 
 Server JSON (/metrics)
 - uptime_sec
@@ -48,12 +46,6 @@ Agent Prometheus (/metrics.prom)
 - `croupier_tunnel_reconnects`
 - `croupier_logs_total{level}`
 
-Edge JSON (/metrics)
-- tunnel metrics map + logs
-
-Edge Prometheus (/metrics.prom)
-- `croupier_logs_total{level}`
-
 Notes
 - Histogram buckets follow Prometheus defaults (0.005 .. 10 seconds). Values are best-effort for HTTP path and meant for dashboards/alerts.
 - Series cardinality: per-function metrics may increase cardinality; keep function ids bounded.
@@ -68,9 +60,6 @@ scrape_configs:
   - job_name: 'croupier-agent'
     metrics_path: /metrics.prom
     static_configs: [ { targets: ['localhost:19091'] } ]
-  - job_name: 'croupier-edge'
-    metrics_path: /metrics.prom
-    static_configs: [ { targets: ['localhost:9080'] } ]
 ```
 
 Grafana quick panel ideas

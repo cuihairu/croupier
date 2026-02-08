@@ -34,8 +34,13 @@ type LocalFunctionDescriptor struct {
 	OperationId string   `protobuf:"bytes,6,opt,name=operation_id,json=operationId,proto3" json:"operation_id,omitempty"` // Unique operation ID
 	Deprecated  bool     `protobuf:"varint,7,opt,name=deprecated,proto3" json:"deprecated,omitempty"`                     // Deprecation status
 	// OpenAPI 3.0.3 Schema fields (JSON Schema format)
-	InputSchema   string `protobuf:"bytes,8,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`    // JSON Schema for request body
-	OutputSchema  string `protobuf:"bytes,9,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"` // JSON Schema for response body
+	InputSchema  string `protobuf:"bytes,8,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`    // JSON Schema for request body
+	OutputSchema string `protobuf:"bytes,9,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"` // JSON Schema for response body
+	// OpenAPI 3.0.3 Extension fields (x-* prefix)
+	Category      string `protobuf:"bytes,10,opt,name=category,proto3" json:"category,omitempty"`   // x-category: function category (e.g., "game", "system", "player")
+	Risk          string `protobuf:"bytes,11,opt,name=risk,proto3" json:"risk,omitempty"`           // x-risk: risk level (e.g., "safe", "danger", "warning")
+	Entity        string `protobuf:"bytes,12,opt,name=entity,proto3" json:"entity,omitempty"`       // x-entity: associated entity type (e.g., "Player", "Item", "Guild")
+	Operation     string `protobuf:"bytes,13,opt,name=operation,proto3" json:"operation,omitempty"` // x-operation: CRUD operation type (e.g., "create", "read", "update", "delete", "custom")
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -129,6 +134,34 @@ func (x *LocalFunctionDescriptor) GetInputSchema() string {
 func (x *LocalFunctionDescriptor) GetOutputSchema() string {
 	if x != nil {
 		return x.OutputSchema
+	}
+	return ""
+}
+
+func (x *LocalFunctionDescriptor) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *LocalFunctionDescriptor) GetRisk() string {
+	if x != nil {
+		return x.Risk
+	}
+	return ""
+}
+
+func (x *LocalFunctionDescriptor) GetEntity() string {
+	if x != nil {
+		return x.Entity
+	}
+	return ""
+}
+
+func (x *LocalFunctionDescriptor) GetOperation() string {
+	if x != nil {
+		return x.Operation
 	}
 	return ""
 }
@@ -643,7 +676,7 @@ var File_croupier_sdk_v1_provider_proto protoreflect.FileDescriptor
 
 const file_croupier_sdk_v1_provider_proto_rawDesc = "" +
 	"\n" +
-	"\x1ecroupier/sdk/v1/provider.proto\x12\x0fcroupier.sdk.v1\"\x9e\x02\n" +
+	"\x1ecroupier/sdk/v1/provider.proto\x12\x0fcroupier.sdk.v1\"\x84\x03\n" +
 	"\x17LocalFunctionDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x12\n" +
@@ -655,7 +688,12 @@ const file_croupier_sdk_v1_provider_proto_rawDesc = "" +
 	"deprecated\x18\a \x01(\bR\n" +
 	"deprecated\x12!\n" +
 	"\finput_schema\x18\b \x01(\tR\vinputSchema\x12#\n" +
-	"\routput_schema\x18\t \x01(\tR\foutputSchema\"\xb2\x01\n" +
+	"\routput_schema\x18\t \x01(\tR\foutputSchema\x12\x1a\n" +
+	"\bcategory\x18\n" +
+	" \x01(\tR\bcategory\x12\x12\n" +
+	"\x04risk\x18\v \x01(\tR\x04risk\x12\x16\n" +
+	"\x06entity\x18\f \x01(\tR\x06entity\x12\x1c\n" +
+	"\toperation\x18\r \x01(\tR\toperation\"\xb2\x01\n" +
 	"\x14RegisterLocalRequest\x12\x1d\n" +
 	"\n" +
 	"service_id\x18\x01 \x01(\tR\tserviceId\x12\x18\n" +

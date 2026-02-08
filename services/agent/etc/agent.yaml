@@ -31,8 +31,8 @@ Agent:
   ID: ""                         # Agent ID (留空自动生成)
   GameID: "tower_defense"        # 游戏 ID
   Env: "development"             # 环境标识 (dev/test/prod)
-  LocalAddr: "127.0.0.1:19090"   # 本地 NNG 监听地址 (SDK 连接用)
-  HTTPAddr: "127.0.0.1:19091"    # 本地 HTTP 管理地址
+  LocalAddr: "127.0.0.1:19091"   # 本地 NNG 监听地址 (SDK 连接用) - 修改为 19091 避免与 Server 端口 19090 冲突
+  HTTPAddr: "127.0.0.1:19092"    # 本地 HTTP 管理地址 - 相应调整为 19092
   Region: ""                     # 区域
   Zone: ""                       # 可用区
   Labels: {}                     # 自定义标签
@@ -52,7 +52,7 @@ ServerControl:
 # LocalNNG 配置 (本地 NNG 服务器，供 SDK 连接)
 # ============================================
 LocalNNG:
-  Addr: ":19090"                 # 监听地址，如 ":19090" 或 ":19090,ipc://croupier-agent"
+  Addr: ":19091"                 # 监听地址 - 修改为 19091 避免与 Server 端口 19090 冲突
   IPCAddr: ""                    # IPC 地址，如 "ipc://croupier-agent"
 
 # ============================================
