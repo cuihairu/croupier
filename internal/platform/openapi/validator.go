@@ -1,8 +1,9 @@
+// Package openapi provides OpenAPI 3.0.3 specification validation and management
 package openapi
 
 import (
+	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 )
@@ -12,7 +13,7 @@ type Validator struct {
 	loader *openapi3.Loader
 }
 
-// NewValidator creates a new OpenAPI validator
+// NewValidator creates a new OpenAPI validator instance
 func NewValidator() *Validator {
 	return &Validator{
 		loader: openapi3.NewLoader(),
@@ -26,66 +27,144 @@ func (v *Validator) ValidateSpec(data []byte) (*openapi3.T, error) {
 		return nil, fmt.Errorf("failed to load OpenAPI spec: %w", err)
 	}
 
-	// Validate OpenAPI version
-	if doc.OpenAPI == "" {
-		return nil, fmt.Errorf("missing openapi version field")
-	}
-
-	if !strings.HasPrefix(doc.OpenAPI, "3.0.") {
-		return nil, fmt.Errorf("unsupported OpenAPI version: %s (required 3.0.x)", doc.OpenAPI)
-	}
-
-	// Basic validation
-	if doc.Info == nil {
-		return nil, fmt.Errorf("missing info field")
-	}
-
-	if doc.Info.Title == "" {
-		return nil, fmt.Errorf("missing info.title field")
-	}
-
-	if doc.Paths == nil || len(doc.Paths.Map()) == 0 {
-		return nil, fmt.Errorf("no paths defined in spec")
+	// Validate the document
+	if err := doc.Validate(v.loader.Context); err != nil {
+		return nil, fmt.Errorf("OpenAPI validation failed: %w", err)
 	}
 
 	return doc, nil
 }
 
-// ValidateOperation validates a single OpenAPI operation
-func (v *Validator) ValidateOperation(op *openapi3.Operation) error {
-	if op == nil {
-		return fmt.Errorf("operation is nil")
+// ValidateOperation validates a single OpenAPI 3.0.3 operation
+func (v *Validator) ValidateOperation(operation *openapi3.Operation) error {
+	if operation == nil {
+		return errors.New("operation is nil")
 	}
 
-	if op.OperationID == "" {
-		return fmt.Errorf("operationId is required")
+	// Check required fields
+	if operation.OperationID == "" {
+		return errors.New("operation_id is required")
 	}
 
 	// Validate request body
-	if op.RequestBody != nil {
-		reqBody := op.RequestBody.Value
-		if reqBody == nil {
-			return fmt.Errorf("request body value is nil")
-		}
-
-		if len(reqBody.Content) == 0 {
-			return fmt.Errorf("request body must have at least one content type")
-		}
-
-		// Check for JSON content type
-		if _, ok := reqBody.Content["application/json"]; !ok {
-			return fmt.Errorf("request body must support application/json")
+	if operation.RequestBody != nil && operation.RequestBody.Value != nil {
+		if err := v.validateRequestBody(operation.RequestBody.Value); err != nil {
+			return fmt.Errorf("invalid request body: %w", err)
 		}
 	}
 
 	// Validate responses
-	if op.Responses == nil || len(op.Responses.Map()) == 0 {
-		return fmt.Errorf("operation must have at least one response")
+	if operation.Responses == nil || len(operation.Responses.Map()) == 0 {
+		return errors.New("at least one response is required")
 	}
 
-	// Check for 200 response
-	if response200 := op.Responses.Value("200"); response200 == nil {
-		return fmt.Errorf("operation must have a 200 response")
+	for statusCode, responseRef := range operation.Responses.Map() {
+		if responseRef == nil || responseRef.Value == nil {
+			continue
+		}
+		if err := v.validateResponse(responseRef.Value); err != nil {
+			return fmt.Errorf("invalid response %s: %w", statusCode, err)
+		}
+	}
+
+	return nil
+}
+
+// validateRequestBody validates an OpenAPI request body
+func (v *Validator) validateRequestBody(body *openapi3.RequestBody) error {
+	if len(body.Content) == 0 {
+		return errors.New("request body must have at least one content type")
+	}
+
+	// Check for JSON schema
+	if jsonContent, exists := body.Content["application/json"]; exists {
+		if jsonContent.Schema == nil || jsonContent.Schema.Value == nil {
+			return errors.New("application/json content must have a schema")
+		}
+		if err := v.validateSchema(jsonContent.Schema.Value); err != nil {
+			return fmt.Errorf("invalid JSON schema: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// validateResponse validates an OpenAPI response
+func (v *Validator) validateResponse(response *openapi3.Response) error {
+	if response.Description == nil || *response.Description == "" {
+		return errors.New("response description is required")
+	}
+
+	if len(response.Content) > 0 {
+		// Check for JSON schema
+		if jsonContent, exists := response.Content["application/json"]; exists {
+			if jsonContent.Schema != nil && jsonContent.Schema.Value != nil {
+				if err := v.validateSchema(jsonContent.Schema.Value); err != nil {
+					return fmt.Errorf("invalid JSON schema: %w", err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// validateSchema validates an OpenAPI schema
+func (v *Validator) validateSchema(schema *openapi3.Schema) error {
+	if schema == nil {
+		return nil
+	}
+
+	// If type is specified, validate it
+	if schema.Type != nil {
+		switch (*schema.Type)[0] {
+		case "object":
+			if len(schema.Properties) == 0 && schema.AdditionalProperties.Schema == nil {
+				// Empty object is allowed, but warn
+			}
+		case "array":
+			if schema.Items == nil || schema.Items.Value == nil {
+				return errors.New("array type must have items defined")
+			}
+		}
+	}
+
+	return nil
+}
+
+// ValidateExtensionFields validates Croupier-specific extension fields
+func (v *Validator) ValidateExtensionFields(extensions map[string]interface{}) error {
+	if extensions == nil {
+		return nil
+	}
+
+	// Validate x-risk if present
+	if risk, exists := extensions["x-risk"]; exists {
+		riskStr, ok := risk.(string)
+		if !ok {
+			return errors.New("x-risk must be a string")
+		}
+		if riskStr != "safe" && riskStr != "warning" && riskStr != "danger" {
+			return fmt.Errorf("invalid x-risk value: %s (must be safe, warning, or danger)", riskStr)
+		}
+	}
+
+	// Validate x-operation if present
+	if operation, exists := extensions["x-operation"]; exists {
+		operationStr, ok := operation.(string)
+		if !ok {
+			return errors.New("x-operation must be a string")
+		}
+		validOps := map[string]bool{
+			"create": true,
+			"read":   true,
+			"update": true,
+			"delete": true,
+			"custom": true,
+		}
+		if !validOps[operationStr] {
+			return fmt.Errorf("invalid x-operation value: %s (must be create, read, update, delete, or custom)", operationStr)
+		}
 	}
 
 	return nil

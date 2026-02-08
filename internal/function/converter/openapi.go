@@ -1,12 +1,13 @@
+// Package converter provides utilities for converting between different function descriptor formats
 package converter
 
 import (
-	"fmt"
+	"encoding/json"
 
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
-// OpenAPIConverter provides helper functions for OpenAPI 3.0.3 conversions
+// OpenAPIConverter handles OpenAPI 3.0.3 to JSON Schema conversions
 type OpenAPIConverter struct{}
 
 // NewOpenAPIConverter creates a new OpenAPI converter instance
@@ -14,22 +15,15 @@ func NewOpenAPIConverter() *OpenAPIConverter {
 	return &OpenAPIConverter{}
 }
 
-// ToJSONSchema converts an OpenAPI Schema to JSON Schema format
+// ToJSONSchema converts an OpenAPI 3.0.3 Schema to JSON Schema format
 func (c *OpenAPIConverter) ToJSONSchema(schema *openapi3.Schema) (map[string]interface{}, error) {
-	if schema == nil {
-		return nil, nil
-	}
-
 	result := make(map[string]interface{})
 
 	// Type
 	if schema.Type != nil {
-		result["type"] = schema.Type
-	}
-
-	// Format
-	if schema.Format != "" {
-		result["format"] = schema.Format
+		if len(*schema.Type) > 0 {
+			result["type"] = (*schema.Type)[0]
+		}
 	}
 
 	// Description
@@ -42,9 +36,9 @@ func (c *OpenAPIConverter) ToJSONSchema(schema *openapi3.Schema) (map[string]int
 		result["title"] = schema.Title
 	}
 
-	// Default value
-	if schema.Default != nil {
-		result["default"] = schema.Default
+	// Format
+	if schema.Format != "" {
+		result["format"] = schema.Format
 	}
 
 	// Enum
@@ -52,148 +46,281 @@ func (c *OpenAPIConverter) ToJSONSchema(schema *openapi3.Schema) (map[string]int
 		result["enum"] = schema.Enum
 	}
 
-	// Multiple of (for numbers)
-	if schema.MultipleOf != nil {
-		result["multipleOf"] = *schema.MultipleOf
+	// Constraints
+	// MinLength is uint64, MaxLength is *uint64
+	if schema.MinLength > 0 {
+		result["minLength"] = schema.MinLength
 	}
-
-	// Minimum / Maximum
+	if schema.MaxLength != nil && *schema.MaxLength > 0 {
+		result["maxLength"] = *schema.MaxLength
+	}
 	if schema.Min != nil {
 		result["minimum"] = *schema.Min
 	}
 	if schema.Max != nil {
 		result["maximum"] = *schema.Max
 	}
-
-	// Exclusive Minimum / Maximum
 	if schema.ExclusiveMin {
 		result["exclusiveMinimum"] = true
 	}
 	if schema.ExclusiveMax {
 		result["exclusiveMaximum"] = true
 	}
-
-	// MinLength / MaxLength (for strings)
-	if schema.MinLength > 0 {
-		result["minLength"] = schema.MinLength
+	if schema.MultipleOf != nil {
+		result["multipleOf"] = *schema.MultipleOf
 	}
-	if schema.MaxLength != nil {
-		result["maxLength"] = *schema.MaxLength
-	}
-
-	// Pattern (for strings)
 	if schema.Pattern != "" {
 		result["pattern"] = schema.Pattern
 	}
-
-	// MinItems / MaxItems (for arrays)
+	// MinItems is uint64, MaxItems is *uint64
 	if schema.MinItems > 0 {
 		result["minItems"] = schema.MinItems
 	}
-	if schema.MaxItems != nil {
+	if schema.MaxItems != nil && *schema.MaxItems > 0 {
 		result["maxItems"] = *schema.MaxItems
 	}
-
-	// UniqueItems (for arrays)
 	if schema.UniqueItems {
 		result["uniqueItems"] = true
 	}
 
-	// Required fields (for objects)
+	// Required
 	if len(schema.Required) > 0 {
 		result["required"] = schema.Required
 	}
 
-	// Properties (for objects)
+	// Properties
 	if len(schema.Properties) > 0 {
 		properties := make(map[string]interface{})
 		for name, propRef := range schema.Properties {
-			propSchema := propRef.Value
-			if propSchema != nil {
-				propJSON, err := c.ToJSONSchema(propSchema)
+			if propRef != nil && propRef.Value != nil {
+				propSchema, err := c.ToJSONSchema(propRef.Value)
 				if err != nil {
-					return nil, fmt.Errorf("failed to convert property %s: %w", name, err)
+					return nil, err
 				}
-				properties[name] = propJSON
+				properties[name] = propSchema
 			}
 		}
 		result["properties"] = properties
 	}
 
 	// Items (for arrays)
-	if schema.Items != nil {
-		itemsJSON, err := c.ToJSONSchema(schema.Items.Value)
+	if schema.Items != nil && schema.Items.Value != nil {
+		itemsSchema, err := c.ToJSONSchema(schema.Items.Value)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert items: %w", err)
+			return nil, err
 		}
-		result["items"] = itemsJSON
+		result["items"] = itemsSchema
+	}
+
+	// AdditionalProperties - check if it has a Schema
+	// AdditionalProperties is a struct, not a pointer
+	if schema.AdditionalProperties.Schema != nil {
+		additionalSchema, err := c.ToJSONSchema(schema.AdditionalProperties.Schema.Value)
+		if err != nil {
+			return nil, err
+		}
+		result["additionalProperties"] = additionalSchema
 	}
 
 	// AllOf, AnyOf, OneOf
 	if len(schema.AllOf) > 0 {
-		allOf := make([]interface{}, len(schema.AllOf))
-		for i, subRef := range schema.AllOf {
-			subSchema := subRef.Value
-			if subSchema != nil {
-				subJSON, err := c.ToJSONSchema(subSchema)
+		allOf := make([]interface{}, 0, len(schema.AllOf))
+		for _, ref := range schema.AllOf {
+			if ref != nil && ref.Value != nil {
+				s, err := c.ToJSONSchema(ref.Value)
 				if err != nil {
-					return nil, fmt.Errorf("failed to convert allOf[%d]: %w", i, err)
+					return nil, err
 				}
-				allOf[i] = subJSON
+				allOf = append(allOf, s)
 			}
 		}
 		result["allOf"] = allOf
 	}
-
 	if len(schema.AnyOf) > 0 {
-		anyOf := make([]interface{}, len(schema.AnyOf))
-		for i, subRef := range schema.AnyOf {
-			subSchema := subRef.Value
-			if subSchema != nil {
-				subJSON, err := c.ToJSONSchema(subSchema)
+		anyOf := make([]interface{}, 0, len(schema.AnyOf))
+		for _, ref := range schema.AnyOf {
+			if ref != nil && ref.Value != nil {
+				s, err := c.ToJSONSchema(ref.Value)
 				if err != nil {
-					return nil, fmt.Errorf("failed to convert anyOf[%d]: %w", i, err)
+					return nil, err
 				}
-				anyOf[i] = subJSON
+				anyOf = append(anyOf, s)
 			}
 		}
 		result["anyOf"] = anyOf
 	}
-
 	if len(schema.OneOf) > 0 {
-		oneOf := make([]interface{}, len(schema.OneOf))
-		for i, subRef := range schema.OneOf {
-			subSchema := subRef.Value
-			if subSchema != nil {
-				subJSON, err := c.ToJSONSchema(subSchema)
+		oneOf := make([]interface{}, 0, len(schema.OneOf))
+		for _, ref := range schema.OneOf {
+			if ref != nil && ref.Value != nil {
+				s, err := c.ToJSONSchema(ref.Value)
 				if err != nil {
-					return nil, fmt.Errorf("failed to convert oneOf[%d]: %w", i, err)
+					return nil, err
 				}
-				oneOf[i] = subJSON
+				oneOf = append(oneOf, s)
 			}
 		}
 		result["oneOf"] = oneOf
 	}
 
-	// Custom extensions (x-*)
-	for key, value := range schema.Extensions {
-		keyStr := fmt.Sprintf("%v", key)
-		if len(keyStr) > 2 && keyStr[0:2] == "x-" {
-			result[keyStr] = value
+	// Default
+	if schema.Default != nil {
+		result["default"] = schema.Default
+	}
+
+	// Extensions (x-* fields)
+	if len(schema.Extensions) > 0 {
+		for key, value := range schema.Extensions {
+			result[key] = value
 		}
+	}
+
+	// Nullable
+	if schema.Nullable {
+		result["nullable"] = true
+	}
+
+	// ReadOnly & WriteOnly
+	if schema.ReadOnly {
+		result["readOnly"] = true
+	}
+	if schema.WriteOnly {
+		result["writeOnly"] = true
 	}
 
 	return result, nil
 }
 
-// ExtractExtension extracts a custom extension value from an OpenAPI object
+// ToOpenAPIOperation converts a LocalFunctionDescriptor to an OpenAPI 3.0.3 Operation object
+func ToOpenAPIOperation(descriptor LocalFunctionDescriptorDesc) (*openapi3.Operation, error) {
+	op := &openapi3.Operation{
+		OperationID: descriptor.OperationID,
+		Summary:     descriptor.Summary,
+		Description: descriptor.Description,
+		Tags:        descriptor.Tags,
+		Deprecated:  descriptor.Deprecated,
+	}
+
+	// Parse and set request body
+	if descriptor.InputSchema != "" {
+		var schemaBody json.RawMessage
+		if err := json.Unmarshal([]byte(descriptor.InputSchema), &schemaBody); err != nil {
+			return nil, err
+		}
+
+		requestSchema := &openapi3.SchemaRef{
+			Value: &openapi3.Schema{},
+		}
+		if err := requestSchema.Value.UnmarshalJSON(schemaBody); err != nil {
+			return nil, err
+		}
+
+		op.RequestBody = &openapi3.RequestBodyRef{
+			Value: &openapi3.RequestBody{
+				Content: openapi3.Content{
+					"application/json": &openapi3.MediaType{
+						Schema: requestSchema,
+					},
+				},
+			},
+		}
+	}
+
+	// Parse and set response body
+	if descriptor.OutputSchema != "" {
+		var schemaBody json.RawMessage
+		if err := json.Unmarshal([]byte(descriptor.OutputSchema), &schemaBody); err != nil {
+			return nil, err
+		}
+
+		responseSchema := &openapi3.SchemaRef{
+			Value: &openapi3.Schema{},
+		}
+		if err := responseSchema.Value.UnmarshalJSON(schemaBody); err != nil {
+			return nil, err
+		}
+
+		if op.Responses == nil {
+			op.Responses = openapi3.NewResponses()
+		}
+
+		desc := "Success"
+		op.Responses.Set("200", &openapi3.ResponseRef{
+			Value: &openapi3.Response{
+				Description: &desc,
+				Content: openapi3.Content{
+					"application/json": &openapi3.MediaType{
+						Schema: responseSchema,
+					},
+				},
+			},
+		})
+	}
+
+	// Set OpenAPI extensions (x-* fields)
+	if descriptor.Category != "" {
+		if op.Extensions == nil {
+			op.Extensions = make(map[string]interface{})
+		}
+		op.Extensions["x-category"] = descriptor.Category
+	}
+	if descriptor.Risk != "" {
+		if op.Extensions == nil {
+			op.Extensions = make(map[string]interface{})
+		}
+		op.Extensions["x-risk"] = descriptor.Risk
+	}
+	if descriptor.Entity != "" {
+		if op.Extensions == nil {
+			op.Extensions = make(map[string]interface{})
+		}
+		op.Extensions["x-entity"] = descriptor.Entity
+	}
+	if descriptor.Operation != "" {
+		if op.Extensions == nil {
+			op.Extensions = make(map[string]interface{})
+		}
+		op.Extensions["x-operation"] = descriptor.Operation
+	}
+
+	return op, nil
+}
+
+// LocalFunctionDescriptorDesc represents a LocalFunctionDescriptor for conversion
+type LocalFunctionDescriptorDesc struct {
+	ID           string
+	Version      string
+	Tags         []string
+	Summary      string
+	Description  string
+	OperationID  string
+	Deprecated   bool
+	InputSchema  string
+	OutputSchema string
+	Category     string
+	Risk         string
+	Entity       string
+	Operation    string
+}
+
+// ExtractExtension extracts an extension value without the x- prefix
 func ExtractExtension(extensions map[string]interface{}, key string) (interface{}, bool) {
 	if extensions == nil {
 		return nil, false
 	}
+
+	// Try with x- prefix first
 	fullKey := "x-" + key
-	value, exists := extensions[fullKey]
-	return value, exists
+	if value, exists := extensions[fullKey]; exists {
+		return value, true
+	}
+
+	// Try without prefix
+	if value, exists := extensions[key]; exists {
+		return value, true
+	}
+
+	return nil, false
 }
 
 // GetStringExtension extracts a string extension value
@@ -202,9 +329,11 @@ func GetStringExtension(extensions map[string]interface{}, key string) (string, 
 	if !exists {
 		return "", false
 	}
+
 	if str, ok := value.(string); ok {
 		return str, true
 	}
+
 	return "", false
 }
 
@@ -214,8 +343,10 @@ func GetBoolExtension(extensions map[string]interface{}, key string) (bool, bool
 	if !exists {
 		return false, false
 	}
+
 	if b, ok := value.(bool); ok {
 		return b, true
 	}
+
 	return false, false
 }

@@ -1,7 +1,6 @@
 package openapi
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -10,38 +9,53 @@ import (
 // EntityManager manages entity definitions and their operations
 type EntityManager struct {
 	mu       sync.RWMutex
-	entities map[string]*Entity // entity_id -> Entity
+	entities map[string]*Entity
 }
 
-// Entity represents a business entity with operations
+// Entity represents a business entity with its operations
 type Entity struct {
-	ID          string                         `json:"id"`
-	Name        string                         `json:"name"`
-	Description string                         `json:"description"`
-	Operations  map[string]*openapi3.Operation `json:"operations"` // operation_id -> operation
+	ID          string
+	Name        string
+	Description string
+	Operations  map[string]*openapi3.Operation
 }
 
-// NewEntityManager creates a new Entity manager
+// NewEntityManager creates a new entity manager
 func NewEntityManager() *EntityManager {
 	return &EntityManager{
 		entities: make(map[string]*Entity),
 	}
 }
 
-// RegisterEntity registers a new entity
+// RegisterEntity registers or updates an entity definition
 func (m *EntityManager) RegisterEntity(entity *Entity) error {
 	if entity == nil {
-		return fmt.Errorf("entity is nil")
-	}
-
-	if entity.ID == "" {
-		return fmt.Errorf("entity ID is required")
+		return nil
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.entities[entity.ID] = entity
+	if m.entities[entity.ID] == nil {
+		m.entities[entity.ID] = &Entity{
+			ID:         entity.ID,
+			Operations: make(map[string]*openapi3.Operation),
+		}
+	}
+
+	// Update entity metadata
+	if entity.Name != "" {
+		m.entities[entity.ID].Name = entity.Name
+	}
+	if entity.Description != "" {
+		m.entities[entity.ID].Description = entity.Description
+	}
+
+	// Add operations
+	for opID, op := range entity.Operations {
+		m.entities[entity.ID].Operations[opID] = op
+	}
+
 	return nil
 }
 
@@ -51,7 +65,23 @@ func (m *EntityManager) GetEntity(id string) (*Entity, bool) {
 	defer m.mu.RUnlock()
 
 	entity, exists := m.entities[id]
-	return entity, exists
+	if !exists {
+		return nil, false
+	}
+
+	// Return a copy to avoid concurrent modifications
+	copy := &Entity{
+		ID:          entity.ID,
+		Name:        entity.Name,
+		Description: entity.Description,
+		Operations:  make(map[string]*openapi3.Operation),
+	}
+
+	for opID, op := range entity.Operations {
+		copy.Operations[opID] = op
+	}
+
+	return copy, true
 }
 
 // ListEntities returns all registered entities
@@ -59,93 +89,32 @@ func (m *EntityManager) ListEntities() []*Entity {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	entities := make([]*Entity, 0, len(m.entities))
+	result := make([]*Entity, 0, len(m.entities))
 	for _, entity := range m.entities {
-		entities = append(entities, entity)
-	}
-	return entities
-}
-
-// AddOperationToEntity adds an operation to an entity
-func (m *EntityManager) AddOperationToEntity(entityID string, operationID string, op *openapi3.Operation) error {
-	if operationID == "" {
-		return fmt.Errorf("operation ID is required")
+		result = append(result, entity)
 	}
 
-	if op == nil {
-		return fmt.Errorf("operation is nil")
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	entity, exists := m.entities[entityID]
-	if !exists {
-		return fmt.Errorf("entity not found: %s", entityID)
-	}
-
-	if entity.Operations == nil {
-		entity.Operations = make(map[string]*openapi3.Operation)
-	}
-
-	entity.Operations[operationID] = op
-	return nil
-}
-
-// GetEntityOperation retrieves a specific operation from an entity
-func (m *EntityManager) GetEntityOperation(entityID, operationID string) (*openapi3.Operation, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	entity, exists := m.entities[entityID]
-	if !exists {
-		return nil, fmt.Errorf("entity not found: %s", entityID)
-	}
-
-	if entity.Operations == nil {
-		return nil, fmt.Errorf("entity has no operations")
-	}
-
-	op, exists := entity.Operations[operationID]
-	if !exists {
-		return nil, fmt.Errorf("operation not found: %s", operationID)
-	}
-
-	return op, nil
-}
-
-// ListEntityOperations returns all operations for an entity
-func (m *EntityManager) ListEntityOperations(entityID string) (map[string]*openapi3.Operation, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	entity, exists := m.entities[entityID]
-	if !exists {
-		return nil, fmt.Errorf("entity not found: %s", entityID)
-	}
-
-	if entity.Operations == nil {
-		return make(map[string]*openapi3.Operation), nil
-	}
-
-	// Return a copy to avoid race conditions
-	ops := make(map[string]*openapi3.Operation, len(entity.Operations))
-	for k, v := range entity.Operations {
-		ops[k] = v
-	}
-
-	return ops, nil
+	return result
 }
 
 // DeleteEntity removes an entity
-func (m *EntityManager) DeleteEntity(id string) error {
+func (m *EntityManager) DeleteEntity(id string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if _, exists := m.entities[id]; !exists {
-		return fmt.Errorf("entity not found: %s", id)
+	delete(m.entities, id)
+}
+
+// GetEntityOperation retrieves a specific operation from an entity
+func (m *EntityManager) GetEntityOperation(entityID, operationID string) (*openapi3.Operation, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	entity, exists := m.entities[entityID]
+	if !exists {
+		return nil, false
 	}
 
-	delete(m.entities, id)
-	return nil
+	op, exists := entity.Operations[operationID]
+	return op, exists
 }
