@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/getkin/kin-openapi/openapi3"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 func ensureRegistryStore(store *reg.Store) (*reg.Store, error) {

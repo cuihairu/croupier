@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/getkin/kin-openapi/openapi3"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 // TestEnsureRegistryStore tests the ensureRegistryStore helper
@@ -235,7 +235,7 @@ func TestOpenAPIDocEntities(t *testing.T) {
 	t.Run("entities are extracted from x-entity extensions", func(t *testing.T) {
 		doc := &openapi3.T{
 			OpenAPI: "3.0.3",
-			Paths: openapi3.NewPaths(),
+			Paths:   openapi3.NewPaths(),
 		}
 		doc.Paths.Set("/test", &openapi3.PathItem{
 			Post: &openapi3.Operation{

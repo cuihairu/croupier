@@ -53,7 +53,7 @@ func (l *ProvidersDescriptorsLogic) ProvidersDescriptors(req *types.ProvidersDes
 			"functions": len(openAPIDocFunctions(doc)),
 			"entities":  len(openAPIDocEntities(doc)),
 			// Full OpenAPI doc
-			"openapi":   doc,
+			"openapi": doc,
 		}
 	}
 
