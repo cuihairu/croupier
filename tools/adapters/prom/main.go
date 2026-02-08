@@ -124,14 +124,103 @@ func main() {
 	}
 	defer nngClient.Close()
 
-	// Register with agent
+	// Define JSON Schemas for function parameters
+	queryInputSchema := `{
+		"type": "object",
+		"required": ["expr"],
+		"properties": {
+			"expr": {
+				"type": "string",
+				"description": "PromQL expression to query"
+			},
+			"time": {
+				"type": "string",
+				"description": "Evaluation timestamp (RFC3339 or Unix timestamp)"
+			}
+		}
+	}`
+
+	queryRangeInputSchema := `{
+		"type": "object",
+		"required": ["expr", "start", "end"],
+		"properties": {
+			"expr": {
+				"type": "string",
+				"description": "PromQL expression to query"
+			},
+			"start": {
+				"type": "string",
+				"description": "Start timestamp (RFC3339 or Unix timestamp)"
+			},
+			"end": {
+				"type": "string",
+				"description": "End timestamp (RFC3339 or Unix timestamp)"
+			},
+			"step": {
+				"type": "string",
+				"description": "Query resolution step width (e.g., '15s', '1m')",
+				"default": "15s"
+			}
+		}
+	}`
+
+	promResponseSchema := `{
+		"type": "object",
+		"description": "Prometheus query response",
+		"properties": {
+			"status": {
+				"type": "string",
+				"enum": ["success", "error"]
+			},
+			"data": {
+				"type": "object",
+				"description": "Query result data"
+			},
+			"errorType": {
+				"type": "string",
+				"description": "Error type (if status is 'error')"
+			},
+			"error": {
+				"type": "string",
+				"description": "Error message (if status is 'error')"
+			}
+		}
+	}`
+
+	// Register with agent using OpenAPI 3.0.3 compatible descriptors
 	regReq := &sdkv1.RegisterLocalRequest{
 		ServiceId: serviceID,
 		RpcAddr:   listen,
 		Version:   version,
 		Functions: []*sdkv1.LocalFunctionDescriptor{
-			{Id: "prom.query", Version: version},
-			{Id: "prom.query_range", Version: version},
+			{
+				Id:           "prom.query",
+				Version:      version,
+				Tags:         []string{"prometheus", "monitoring", "metrics"},
+				Summary:      "Execute instant PromQL query",
+				Description:  "Evaluate a PromQL expression at a single timestamp or now",
+				OperationId:  "promQuery",
+				InputSchema:  queryInputSchema,
+				OutputSchema: promResponseSchema,
+				Category:     "monitoring",
+				Risk:         "safe",
+				Entity:       "",
+				Operation:    "read",
+			},
+			{
+				Id:           "prom.query_range",
+				Version:      version,
+				Tags:         []string{"prometheus", "monitoring", "metrics", "timeseries"},
+				Summary:      "Execute PromQL range query",
+				Description:  "Evaluate a PromQL expression over a time range",
+				OperationId:  "promQueryRange",
+				InputSchema:  queryRangeInputSchema,
+				OutputSchema: promResponseSchema,
+				Category:     "monitoring",
+				Risk:         "safe",
+				Entity:       "",
+				Operation:    "read",
+			},
 		},
 	}
 	regData, err := proto.Marshal(regReq)
