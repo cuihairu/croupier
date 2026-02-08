@@ -1,0 +1,58 @@
+openapi: 3.0.3
+info:
+  title: Player Functions Pack
+  description: Player management functions for Croupier
+  version: 1.2.0
+  x-category: player
+paths:
+  /player/ban:
+    post:
+      operationId: player.ban
+      summary: Ban Player
+      description: Permanently ban a player from the game
+      x-category: player
+      x-risk: high
+      x-entity: player
+      x-operation: delete
+      tags:
+        - player
+        - moderation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                playerId:
+                  type: string
+                  description: Player ID to ban
+                reason:
+                  type: string
+                  description: Reason for banning
+                duration:
+                  type: string
+                  description: Ban duration (e.g., "permanent", "1d", "1w")
+                  default: permanent
+                moderator:
+                  type: string
+                  description: Moderator ID performing the ban
+              required:
+                - playerId
+                - reason
+      responses:
+        '200':
+          description: Ban successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  playerId:
+                    type: string
+                  bannedAt:
+                    type: string
+                    format: date-time
+components: {}

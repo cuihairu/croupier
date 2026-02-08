@@ -1,4 +1,4 @@
-// Package agent provides platform integration for Agent.
+// Package agent provides provider integration for Agent.
 package agent
 
 import (
@@ -14,12 +14,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestNewPlatformManager(t *testing.T) {
+func TestNewProviderManager(t *testing.T) {
 	store := agentlocal.NewLocalStore()
-	pm := NewPlatformManager(store, "/tmp", nil)
+	pm := NewProviderManager(store, "/tmp", nil)
 
 	if pm == nil {
-		t.Fatal("NewPlatformManager() returned nil")
+		t.Fatal("NewProviderManager() returned nil")
 	}
 	if pm.providers == nil {
 		t.Error("providers map should be initialized")
@@ -35,9 +35,9 @@ func TestNewPlatformManager(t *testing.T) {
 	}
 }
 
-func TestPlatformManagerLoadNoConfig(t *testing.T) {
+func TestProviderManagerLoadNoConfig(t *testing.T) {
 	store := agentlocal.NewLocalStore()
-	pm := NewPlatformManager(store, "/nonexistent/path", nil)
+	pm := NewProviderManager(store, "/nonexistent/path", nil)
 
 	err := pm.Load(context.Background())
 	if err != nil {
@@ -45,7 +45,7 @@ func TestPlatformManagerLoadNoConfig(t *testing.T) {
 	}
 }
 
-func TestPlatformManagerLoadWithConfig(t *testing.T) {
+func TestProviderManagerLoadWithConfig(t *testing.T) {
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -64,7 +64,7 @@ func TestPlatformManagerLoadWithConfig(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	configContent := `
-platforms:
+providers:
   test_server:
     enabled: true
     type: openapi
@@ -78,13 +78,13 @@ platforms:
           path: /api/user
           method: POST
 `
-	configPath := filepath.Join(tmpDir, "platforms.yaml")
+	configPath := filepath.Join(tmpDir, "providers.yaml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
 	store := agentlocal.NewLocalStore()
-	pm := NewPlatformManager(store, tmpDir, nil)
+	pm := NewProviderManager(store, tmpDir, nil)
 
 	if err := pm.Load(context.Background()); err != nil {
 		t.Fatalf("Load() error = %v", err)
@@ -100,7 +100,7 @@ platforms:
 	}
 }
 
-func TestPlatformManagerLoadDisabledPlatform(t *testing.T) {
+func TestProviderManagerLoadDisabledPlatform(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "platform-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
@@ -108,7 +108,7 @@ func TestPlatformManagerLoadDisabledPlatform(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	configContent := `
-platforms:
+providers:
   disabled_server:
     enabled: false
     type: openapi
@@ -119,13 +119,13 @@ platforms:
           path: /test
           method: GET
 `
-	configPath := filepath.Join(tmpDir, "platforms.yaml")
+	configPath := filepath.Join(tmpDir, "providers.yaml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
 	store := agentlocal.NewLocalStore()
-	pm := NewPlatformManager(store, tmpDir, nil)
+	pm := NewProviderManager(store, tmpDir, nil)
 
 	if err := pm.Load(context.Background()); err != nil {
 		t.Fatalf("Load() error = %v", err)
@@ -136,7 +136,7 @@ platforms:
 	}
 }
 
-func TestPlatformManagerCall(t *testing.T) {
+func TestProviderManagerCall(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -153,7 +153,7 @@ func TestPlatformManagerCall(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	configContent := `
-platforms:
+providers:
   game_server:
     enabled: true
     type: openapi
@@ -164,13 +164,13 @@ platforms:
           path: /api/player
           method: GET
 `
-	configPath := filepath.Join(tmpDir, "platforms.yaml")
+	configPath := filepath.Join(tmpDir, "providers.yaml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
 	store := agentlocal.NewLocalStore()
-	pm := NewPlatformManager(store, tmpDir, nil)
+	pm := NewProviderManager(store, tmpDir, nil)
 
 	if err := pm.Load(context.Background()); err != nil {
 		t.Fatalf("Load() error = %v", err)
@@ -192,19 +192,19 @@ platforms:
 	}
 }
 
-func TestPlatformManagerCallNotFound(t *testing.T) {
+func TestProviderManagerCallNotFound(t *testing.T) {
 	store := agentlocal.NewLocalStore()
-	pm := NewPlatformManager(store, "/tmp", nil)
+	pm := NewProviderManager(store, "/tmp", nil)
 
 	_, err := pm.Call(context.Background(), "nonexistent.method", nil)
 	if err == nil {
-		t.Error("Call() should return error for nonexistent platform")
+		t.Error("Call() should return error for nonexistent provider")
 	}
 }
 
-func TestPlatformManagerCallInvalidFunctionID(t *testing.T) {
+func TestProviderManagerCallInvalidFunctionID(t *testing.T) {
 	store := agentlocal.NewLocalStore()
-	pm := NewPlatformManager(store, "/tmp", nil)
+	pm := NewProviderManager(store, "/tmp", nil)
 
 	tests := []string{
 		"invalid",
@@ -220,7 +220,7 @@ func TestPlatformManagerCallInvalidFunctionID(t *testing.T) {
 	}
 }
 
-func TestPlatformManagerIsPlatformFunction(t *testing.T) {
+func TestProviderManagerIsPlatformFunction(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
@@ -234,7 +234,7 @@ func TestPlatformManagerIsPlatformFunction(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	configContent := `
-platforms:
+providers:
   game_server:
     enabled: true
     type: openapi
@@ -245,13 +245,13 @@ platforms:
           path: /test
           method: GET
 `
-	configPath := filepath.Join(tmpDir, "platforms.yaml")
+	configPath := filepath.Join(tmpDir, "providers.yaml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
 	store := agentlocal.NewLocalStore()
-	pm := NewPlatformManager(store, tmpDir, nil)
+	pm := NewProviderManager(store, tmpDir, nil)
 
 	if err := pm.Load(context.Background()); err != nil {
 		t.Fatalf("Load() error = %v", err)
@@ -262,7 +262,7 @@ platforms:
 		want       bool
 	}{
 		{"game_server.test", true},
-		{"game_server.other", true}, // Platform exists, even if method doesn't
+		{"game_server.other", true}, // Provider exists, even if method doesn't
 		{"other_platform.test", false},
 		{"invalid", false},
 		{"", false},
@@ -278,7 +278,7 @@ platforms:
 	}
 }
 
-func TestPlatformManagerClose(t *testing.T) {
+func TestProviderManagerClose(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
@@ -292,7 +292,7 @@ func TestPlatformManagerClose(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	configContent := `
-platforms:
+providers:
   test1:
     enabled: true
     type: openapi
@@ -312,13 +312,13 @@ platforms:
           path: /m2
           method: GET
 `
-	configPath := filepath.Join(tmpDir, "platforms.yaml")
+	configPath := filepath.Join(tmpDir, "providers.yaml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
 	store := agentlocal.NewLocalStore()
-	pm := NewPlatformManager(store, tmpDir, nil)
+	pm := NewProviderManager(store, tmpDir, nil)
 
 	if err := pm.Load(context.Background()); err != nil {
 		t.Fatalf("Load() error = %v", err)
@@ -339,7 +339,7 @@ platforms:
 
 func TestExpandEnvVars(t *testing.T) {
 	store := agentlocal.NewLocalStore()
-	pm := NewPlatformManager(store, "/tmp", nil)
+	pm := NewProviderManager(store, "/tmp", nil)
 
 	// Set test env var
 	os.Setenv("TEST_TOKEN", "secret-token-123")
@@ -433,7 +433,7 @@ func TestExpandEnvVars(t *testing.T) {
 
 func TestExpandEnvString(t *testing.T) {
 	store := agentlocal.NewLocalStore()
-	pm := NewPlatformManager(store, "/tmp", nil)
+	pm := NewProviderManager(store, "/tmp", nil)
 
 	os.Setenv("TEST_VAR", "test-value")
 	defer os.Unsetenv("TEST_VAR")
@@ -459,7 +459,7 @@ func TestExpandEnvString(t *testing.T) {
 	}
 }
 
-func TestPlatformManagerLoadInvalidYAML(t *testing.T) {
+func TestProviderManagerLoadInvalidYAML(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "platform-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
@@ -467,13 +467,13 @@ func TestPlatformManagerLoadInvalidYAML(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	configContent := `invalid: yaml: content: [[[`
-	configPath := filepath.Join(tmpDir, "platforms.yaml")
+	configPath := filepath.Join(tmpDir, "providers.yaml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
 	store := agentlocal.NewLocalStore()
-	pm := NewPlatformManager(store, tmpDir, nil)
+	pm := NewProviderManager(store, tmpDir, nil)
 
 	err = pm.Load(context.Background())
 	if err == nil {
@@ -481,7 +481,7 @@ func TestPlatformManagerLoadInvalidYAML(t *testing.T) {
 	}
 }
 
-func TestPlatformManagerLoadUnsupportedType(t *testing.T) {
+func TestProviderManagerLoadUnsupportedType(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "platform-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
@@ -489,20 +489,20 @@ func TestPlatformManagerLoadUnsupportedType(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	configContent := `
-platforms:
+providers:
   unsupported:
     enabled: true
     type: unknown_type
     config:
       base_url: "http://example.com"
 `
-	configPath := filepath.Join(tmpDir, "platforms.yaml")
+	configPath := filepath.Join(tmpDir, "providers.yaml")
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("failed to write config: %v", err)
 	}
 
 	store := agentlocal.NewLocalStore()
-	pm := NewPlatformManager(store, tmpDir, nil)
+	pm := NewProviderManager(store, tmpDir, nil)
 
 	// Should not return error, just log warning for unsupported type
 	err = pm.Load(context.Background())
@@ -518,7 +518,7 @@ platforms:
 
 func TestConfigParsing(t *testing.T) {
 	configYAML := `
-platforms:
+providers:
   server1:
     enabled: true
     type: openapi
@@ -536,19 +536,19 @@ platforms:
 		t.Fatalf("failed to parse config: %v", err)
 	}
 
-	if len(config.Platforms) != 2 {
-		t.Errorf("expected 2 platforms, got %d", len(config.Platforms))
+	if len(config.Providers) != 2 {
+		t.Errorf("expected 2 providers, got %d", len(config.Providers))
 	}
 
-	if !config.Platforms["server1"].Enabled {
+	if !config.Providers["server1"].Enabled {
 		t.Error("server1 should be enabled")
 	}
 
-	if config.Platforms["server2"].Enabled {
+	if config.Providers["server2"].Enabled {
 		t.Error("server2 should be disabled")
 	}
 
-	if config.Platforms["server1"].Type != "openapi" {
-		t.Errorf("server1.Type = %q, want 'openapi'", config.Platforms["server1"].Type)
+	if config.Providers["server1"].Type != "openapi" {
+		t.Errorf("server1.Type = %q, want 'openapi'", config.Providers["server1"].Type)
 	}
 }

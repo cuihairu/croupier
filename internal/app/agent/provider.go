@@ -1,4 +1,4 @@
-// Package agent provides platform integration for Agent.
+// Package agent provides provider integration for Agent.
 package agent
 
 import (
@@ -17,22 +17,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// PlatformManager manages platform providers for the Agent.
-// It loads platform configurations and registers their methods as Functions.
-type PlatformManager struct {
+// ProviderManager manages platform providers for the Agent.
+// It loads provider configurations and registers their methods as Functions.
+type ProviderManager struct {
 	mu        sync.RWMutex
-	providers map[string]provider.Provider // platform name -> Provider
+	providers map[string]provider.Provider // provider name -> Provider
 	store     *agentlocal.LocalStore
 	logger    *slog.Logger
 	configDir string
 }
 
-// NewPlatformManager creates a new platform manager.
-func NewPlatformManager(store *agentlocal.LocalStore, configDir string, logger *slog.Logger) *PlatformManager {
+// NewProviderManager creates a new provider manager.
+func NewProviderManager(store *agentlocal.LocalStore, configDir string, logger *slog.Logger) *ProviderManager {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &PlatformManager{
+	return &ProviderManager{
 		providers: make(map[string]provider.Provider),
 		store:     store,
 		logger:    logger,
@@ -40,36 +40,36 @@ func NewPlatformManager(store *agentlocal.LocalStore, configDir string, logger *
 	}
 }
 
-// Load loads and initializes platform providers from configuration.
-func (m *PlatformManager) Load(ctx context.Context) error {
+// Load loads and initializes provider from configuration.
+func (m *ProviderManager) Load(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	configPath := filepath.Join(m.configDir, "platforms.yaml")
+	configPath := filepath.Join(m.configDir, "providers.yaml")
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		m.logger.Debug("platform config not found, skipping", "path", configPath)
+		m.logger.Debug("provider config not found, skipping", "path", configPath)
 		return nil
 	}
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return fmt.Errorf("failed to read platform config: %w", err)
+		return fmt.Errorf("failed to read provider config: %w", err)
 	}
 
 	var config Config
 	if err := yaml.Unmarshal(data, &config); err != nil {
-		return fmt.Errorf("failed to parse platform config: %w", err)
+		return fmt.Errorf("failed to parse provider config: %w", err)
 	}
 
 	// Initialize enabled providers
-	for name, entry := range config.Platforms {
+	for name, entry := range config.Providers {
 		if !entry.Enabled {
-			m.logger.Debug("platform disabled", "name", name)
+			m.logger.Debug("provider disabled", "name", name)
 			continue
 		}
 
 		if err := m.initProvider(ctx, name, entry); err != nil {
-			m.logger.Error("failed to init platform", "name", name, "error", err)
+			m.logger.Error("failed to init provider", "name", name, "error", err)
 			continue
 		}
 	}
@@ -77,8 +77,8 @@ func (m *PlatformManager) Load(ctx context.Context) error {
 	return nil
 }
 
-// initProvider initializes a single platform provider.
-func (m *PlatformManager) initProvider(ctx context.Context, name string, entry ProviderEntry) error {
+// initProvider initializes a single provider.
+func (m *ProviderManager) initProvider(ctx context.Context, name string, entry ProviderEntry) error {
 	var p provider.Provider
 
 	switch entry.Type {
@@ -113,7 +113,7 @@ func (m *PlatformManager) initProvider(ctx context.Context, name string, entry P
 	}
 
 	for _, method := range methods {
-		// Create function ID: platform.method
+		// Create function ID: provider.method
 		funcID := fmt.Sprintf("%s.%s", name, method)
 
 		// Create LocalFunctionDescriptor with OpenAPI-compatible fields
@@ -134,20 +134,20 @@ func (m *PlatformManager) initProvider(ctx context.Context, name string, entry P
 		}
 
 		funcs = append(funcs, desc)
-		m.logger.Debug("registering platform method", "function", funcID, "tags", desc.Tags, "summary", desc.Summary)
+		m.logger.Debug("registering provider method", "function", funcID, "tags", desc.Tags, "summary", desc.Summary)
 	}
 
-	// Register all methods for this platform
-	// Use "platform:" prefix in serviceID to identify platform functions
-	serviceID := "platform:" + name
+	// Register all methods for this provider
+	// Use "provider:" prefix in serviceID to identify provider functions
+	serviceID := "provider:" + name
 	m.store.Register(serviceID, "", "1.0.0", funcs)
 
-	m.logger.Info("platform loaded", "name", name, "methods", len(methods))
+	m.logger.Info("provider loaded", "name", name, "methods", len(methods))
 	return nil
 }
 
 // expandEnvVars expands environment variables in config values.
-func (m *PlatformManager) expandEnvVars(config map[string]interface{}) map[string]interface{} {
+func (m *ProviderManager) expandEnvVars(config map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
 	for k, v := range config {
 		switch val := v.(type) {
@@ -166,7 +166,7 @@ func (m *PlatformManager) expandEnvVars(config map[string]interface{}) map[strin
 }
 
 // expandEnvString expands ${VAR} style environment variables.
-func (m *PlatformManager) expandEnvString(s string) string {
+func (m *ProviderManager) expandEnvString(s string) string {
 	if len(s) > 4 && s[0:2] == "${" && s[len(s)-1] == '}' {
 		envVar := s[2 : len(s)-1]
 		if val := os.Getenv(envVar); val != "" {
@@ -176,53 +176,53 @@ func (m *PlatformManager) expandEnvString(s string) string {
 	return os.ExpandEnv(s)
 }
 
-// Call invokes a platform method.
-// The functionID should be in format "platform_name.method_name".
-func (m *PlatformManager) Call(ctx context.Context, functionID string, request []byte) ([]byte, error) {
+// Call invokes a provider method.
+// The functionID should be in format "provider_name.method_name".
+func (m *ProviderManager) Call(ctx context.Context, functionID string, request []byte) ([]byte, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	// Parse functionID: "platform_name.method_name"
+	// Parse functionID: "provider_name.method_name"
 	idx := strings.Index(functionID, ".")
 	if idx <= 0 || idx >= len(functionID)-1 {
-		return nil, fmt.Errorf("invalid platform function ID: %s", functionID)
+		return nil, fmt.Errorf("invalid provider function ID: %s", functionID)
 	}
-	platformName := functionID[:idx]
+	providerName := functionID[:idx]
 	methodName := functionID[idx+1:]
 
-	p, exists := m.providers[platformName]
+	p, exists := m.providers[providerName]
 	if !exists {
-		return nil, fmt.Errorf("platform not found: %s", platformName)
+		return nil, fmt.Errorf("provider not found: %s", providerName)
 	}
 
 	return p.Call(ctx, methodName, request)
 }
 
-// IsPlatformFunction checks if a function ID is a platform function.
-func (m *PlatformManager) IsPlatformFunction(functionID string) bool {
+// IsPlatformFunction checks if a function ID is a provider function.
+func (m *ProviderManager) IsPlatformFunction(functionID string) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	// Parse functionID: "platform_name.method_name"
+	// Parse functionID: "provider_name.method_name"
 	idx := strings.Index(functionID, ".")
 	if idx <= 0 || idx >= len(functionID)-1 {
 		return false
 	}
-	platformName := functionID[:idx]
+	providerName := functionID[:idx]
 
-	_, exists := m.providers[platformName]
+	_, exists := m.providers[providerName]
 	return exists
 }
 
-// Close closes all platform providers.
-func (m *PlatformManager) Close() error {
+// Close closes all provider.
+func (m *ProviderManager) Close() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	var lastErr error
 	for name, p := range m.providers {
 		if err := p.Close(); err != nil {
-			m.logger.Error("failed to close platform", "name", name, "error", err)
+			m.logger.Error("failed to close provider", "name", name, "error", err)
 			lastErr = err
 		}
 	}
@@ -230,9 +230,9 @@ func (m *PlatformManager) Close() error {
 	return lastErr
 }
 
-// Config represents the platforms configuration file structure.
+// Config represents the providers configuration file structure.
 type Config struct {
-	Platforms map[string]ProviderEntry `yaml:"platforms"`
+	Providers map[string]ProviderEntry `yaml:"providers"`
 }
 
 // ProviderEntry represents a single provider entry in the config.

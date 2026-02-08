@@ -82,7 +82,7 @@ func runAgent() error {
 		return fmt.Errorf("配置文件是必需的")
 	}
 
-	// 获取配置文件所在目录（用于 platforms.yaml 等辅助配置）
+	// 获取配置文件所在目录（用于 providers.yaml 等辅助配置）
 	configDir := filepath.Dir(cfgFile)
 
 	var c config.Config
@@ -209,7 +209,7 @@ func startAgentCore(ctx context.Context, c *config.Config, configDir string) (*a
 		labels[k] = v
 	}
 
-	// 使用 NewWithConfigDir 以确保 platforms.yaml 能从正确的目录加载
+	// 使用 NewWithConfigDir 以确保 providers.yaml 能从正确的目录加载
 	core := agentcore.NewWithConfigDir(strings.TrimSpace(c.Server.Addr), agentID, configDir)
 	core.SetNNGAddr(nngAddr)
 	core.WithUpstreamMetadata(agentcore.UpstreamMetadata{

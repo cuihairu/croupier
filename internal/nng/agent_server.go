@@ -34,7 +34,7 @@ type AgentServer struct {
 	// Dependencies
 	store           *agentlocal.LocalStore
 	jobs            *jobIndex
-	platformManager PlatformManager
+	providerManager ProviderManager
 	opsServer       OpsServerWrapper
 	tlsCfg          *tlsutil.ClientTLSConfig
 
@@ -48,8 +48,8 @@ type AgentServer struct {
 	logger *slog.Logger
 }
 
-// PlatformManager is the interface for platform function calls
-type PlatformManager interface {
+// ProviderManager is the interface for provider function calls
+type ProviderManager interface {
 	IsPlatformFunction(functionID string) bool
 	Call(ctx context.Context, functionID string, request []byte) ([]byte, error)
 }
@@ -153,11 +153,11 @@ func NewAgentServerWithAddrs(addrs []ListenAddr, store *agentlocal.LocalStore) *
 	}
 }
 
-// SetPlatformManager sets the platform manager
-func (s *AgentServer) SetPlatformManager(pm PlatformManager) {
+// SetProviderManager sets the provider manager
+func (s *AgentServer) SetProviderManager(pm ProviderManager) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.platformManager = pm
+	s.providerManager = pm
 }
 
 // SetOpsServer sets the ops server wrapper
@@ -388,8 +388,8 @@ func (s *AgentServer) handleInvoke(ctx context.Context, data []byte) ([]byte, er
 
 	functionID := req.GetFunctionId()
 
-	// Check if this is a platform function call
-	if s.platformManager != nil && s.platformManager.IsPlatformFunction(functionID) {
+	// Check if this is a provider function call
+	if s.providerManager != nil && s.providerManager.IsPlatformFunction(functionID) {
 		return s.invokePlatform(ctx, functionID, req)
 	}
 
@@ -406,13 +406,13 @@ func (s *AgentServer) handleInvoke(ctx context.Context, data []byte) ([]byte, er
 	return nil, fmt.Errorf("game server forwarding not yet implemented for function %s at %s", functionID, addr)
 }
 
-// invokePlatform handles platform function calls
+// invokePlatform handles provider function calls
 func (s *AgentServer) invokePlatform(ctx context.Context, functionID string, req *sdkv1.InvokeRequest) ([]byte, error) {
 	request := req.GetPayload()
 
-	response, err := s.platformManager.Call(ctx, functionID, request)
+	response, err := s.providerManager.Call(ctx, functionID, request)
 	if err != nil {
-		return nil, fmt.Errorf("platform call failed: %w", err)
+		return nil, fmt.Errorf("provider call failed: %w", err)
 	}
 
 	resp := &sdkv1.InvokeResponse{

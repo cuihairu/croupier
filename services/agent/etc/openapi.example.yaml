@@ -1,0 +1,1320 @@
+# ============================================================================
+# Croupier OpenAPI 3.0.3 示例文件
+# ============================================================================
+# 此文件演示了在 Croupier 中定义函数时可能遇到的各种场景
+# 包括：多种操作类型、风险级别、实体类型、请求/响应格式、扩展字段等
+# ============================================================================
+
+openapi: 3.0.3
+
+info:
+  title: Croupier Function Examples
+  description: |
+    这是一个完整的 OpenAPI 3.0.3 示例，展示了在 Croupier 中定义函数时的各种场景。
+
+    ## 主要演示内容：
+    - 多种操作类型（create, read, update, delete, custom）
+    - 多种风险级别（low, medium, high）
+    - 复杂的 Schema 定义（嵌套对象、数组、枚举、引用）
+    - 多种参数类型（路径、查询、请求头）
+    - 文件上传、分页、批量操作
+    - 错误处理和响应码
+    - 扩展字段使用（x-category, x-risk, x-entity, x-operation）
+    - Components 复用和引用
+  version: 1.0.0
+  contact:
+    name: Croupier Team
+    email: support@croupier.example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  x-category: examples
+  x-documentation: https://docs.croupier.example.com
+
+# ============================================================================
+# 服务器配置
+# ============================================================================
+servers:
+  - url: https://api.croupier.example.com/v1
+    description: 生产环境
+  - url: https://staging-api.croupier.example.com/v1
+    description: 测试环境
+  - url: http://localhost:8080/v1
+    description: 本地开发环境
+
+# ============================================================================
+# 标签定义（用于函数分组）
+# ============================================================================
+tags:
+  - name: player
+    description: 玩家管理相关函数
+  - name: game
+    description: 游戏管理相关函数
+  - name: inventory
+    description: 物品和背包管理
+  - name: chat
+    description: 聊天和消息系统
+  - name: config
+    description: 配置管理
+  - name: analytics
+    description: 数据分析和统计
+  - name: moderation
+    description: 内容审核和封禁
+  - name: batch
+    description: 批量操作
+
+# ============================================================================
+# 路径定义（函数定义）
+# ============================================================================
+paths:
+
+  # ==========================================================================
+  # 场景 1: 简单的创建操作（低风险）
+  # ==========================================================================
+  /player/create:
+    post:
+      operationId: player.create
+      summary: 创建玩家账号
+      description: 创建一个新的玩家账号，包含基本信息和初始属性
+      x-category: player
+      x-risk: low
+      x-entity: player
+      x-operation: create
+      tags:
+        - player
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlayerCreateRequest'
+            examples:
+              basic:
+                summary: 基础玩家
+                value:
+                  username: player123
+                  email: player@example.com
+                  region: us-east
+              premium:
+                summary: 高级玩家
+                value:
+                  username: vip_player
+                  email: vip@example.com
+                  region: eu-west
+                  premium: true
+      responses:
+        '201':
+          description: 玩家创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Player'
+              examples:
+                success:
+                  summary: 创建成功
+                  value:
+                    playerId: ply_1234567890
+                    username: player123
+                    email: player@example.com
+                    level: 1
+                    createdAt: '2024-02-07T10:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: 用户名或邮箱已存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ==========================================================================
+  # 场景 2: 读取操作（带路径参数和查询参数）
+  # ==========================================================================
+  /player/{playerId}:
+    get:
+      operationId: player.get
+      summary: 获取玩家信息
+      description: 根据玩家 ID 获取详细信息，支持包含敏感字段选项
+      x-category: player
+      x-risk: low
+      x-entity: player
+      x-operation: read
+      tags:
+        - player
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          description: 玩家唯一标识符
+          schema:
+            type: string
+            pattern: '^ply_[a-zA-Z0-9]{10}$'
+            example: ply_1234567890
+        - name: include
+          in: query
+          description: 额外包含的字段（逗号分隔）
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [stats, inventory, friends, achievements]
+          style: form
+          explode: false
+          example: stats,inventory
+        - name: locale
+          in: query
+          description: 返回数据的语言
+          schema:
+            type: string
+            enum: [en, zh, es, fr, ja]
+            default: en
+      responses:
+        '200':
+          description: 成功获取玩家信息
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Player'
+                  - $ref: '#/components/schemas/PlayerWithDetails'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==========================================================================
+  # 场景 3: 更新操作（中等风险，部分更新）
+  # ==========================================================================
+  /player/{playerId}/profile:
+    patch:
+      operationId: player.update_profile
+      summary: 更新玩家资料
+      description: 部分更新玩家资料信息，只更新提供的字段
+      x-category: player
+      x-risk: medium
+      x-entity: player
+      x-operation: update
+      tags:
+        - player
+      parameters:
+        - $ref: '#/components/parameters/PlayerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: string
+                  minLength: 2
+                  maxLength: 32
+                avatar:
+                  type: string
+                  format: uri
+                bio:
+                  type: string
+                  maxLength: 500
+                preferences:
+                  type: object
+                  properties:
+                    language:
+                      type: string
+                    notifications:
+                      type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Player'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  # ==========================================================================
+  # 场景 4: 删除操作（高风险，需要确认）
+  # ==========================================================================
+  /player/{playerId}/delete:
+    post:
+      operationId: player.delete
+      summary: 删除玩家账号
+      description: |
+        永久删除玩家账号和所有相关数据。
+
+        ⚠️ **高风险操作**：
+        - 删除后无法恢复
+        - 需要二次确认
+        - 需要管理员权限
+        - 记录完整审计日志
+      x-category: player
+      x-risk: high
+      x-entity: player
+      x-operation: delete
+      tags:
+        - player
+        - moderation
+      parameters:
+        - $ref: '#/components/parameters/PlayerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason, confirmed]
+              properties:
+                reason:
+                  type: string
+                  description: 删除原因
+                  minLength: 10
+                  maxLength: 500
+                confirmed:
+                  type: boolean
+                  description: 确认删除（必须为 true）
+                deleteReason:
+                  type: string
+                  enum: [user_request, violation, inactive, other]
+                  description: 删除原因分类
+                moderator:
+                  type: string
+                  description: 执行删除的管理员 ID
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  playerId:
+                    type: string
+                  deletedAt:
+                    type: string
+                    format: date-time
+                  recovered:
+                    type: boolean
+                    description: 是否可以恢复
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  # ==========================================================================
+  # 场景 5: 批量操作（使用数组）
+  # ==========================================================================
+  /player/ban:
+    post:
+      operationId: player.ban_batch
+      summary: 批量封禁玩家
+      description: 批量封禁多个玩家账号
+      x-category: player
+      x-risk: high
+      x-entity: player
+      x-operation: delete
+      tags:
+        - player
+        - batch
+        - moderation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchBanRequest'
+      responses:
+        '200':
+          description: 批量操作完成
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchBanResponse'
+
+  # ==========================================================================
+  # 场景 6: 复杂嵌套对象（背包系统）
+  # ==========================================================================
+  /inventory/{playerId}:
+    get:
+      operationId: inventory.get
+      summary: 获取玩家背包
+      description: 获取玩家背包中的所有物品，包括装备、消耗品、材料等
+      x-category: inventory
+      x-risk: low
+      x-entity: inventory
+      x-operation: read
+      tags:
+        - inventory
+      parameters:
+        - $ref: '#/components/parameters/PlayerId'
+        - name: category
+          in: query
+          description: 筛选物品类别
+          schema:
+            $ref: '#/components/schemas/ItemCategory'
+        - name: page
+          in: query
+          description: 页码
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          description: 每页数量
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: 成功获取背包
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInventory'
+
+  # ==========================================================================
+  # 场景 7: 文件上传（头像上传）
+  # ==========================================================================
+  /player/{playerId}/avatar:
+    post:
+      operationId: player.upload_avatar
+      summary: 上传玩家头像
+      description: 上传并设置玩家头像图片
+      x-category: player
+      x-risk: low
+      x-entity: player
+      x-operation: update
+      tags:
+        - player
+      parameters:
+        - $ref: '#/components/parameters/PlayerId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 图片文件（支持 JPG, PNG, GIF，最大 5MB）
+                crop:
+                  type: boolean
+                  description: 是否自动裁剪为正方形
+                  default: false
+      responses:
+        '200':
+          description: 上传成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  avatarUrl:
+                    type: string
+                    format: uri
+                  size:
+                    type: integer
+                    description: 文件大小（字节）
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '413':
+          description: 文件过大
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ==========================================================================
+  # 场景 8: 分页列表（带排序和筛选）
+  # ==========================================================================
+  /players/list:
+    get:
+      operationId: player.list
+      summary: 获取玩家列表
+      description: 分页获取玩家列表，支持多种筛选和排序条件
+      x-category: player
+      x-risk: low
+      x-entity: player
+      x-operation: read
+      tags:
+        - player
+      parameters:
+        - name: levelMin
+          in: query
+          description: 最低等级
+          schema:
+            type: integer
+            minimum: 1
+        - name: levelMax
+          in: query
+          description: 最高等级
+          schema:
+            type: integer
+        - name: region
+          in: query
+          description: 区域筛选
+          schema:
+            type: string
+            enum: [us-east, us-west, eu-west, eu-central, ap-southeast]
+        - name: status
+          in: query
+          description: 状态筛选
+          schema:
+            type: string
+            enum: [active, inactive, banned, suspended]
+        - name: sortBy
+          in: query
+          description: 排序字段
+          schema:
+            type: string
+            enum: [level, createdAt, lastLogin, username]
+            default: createdAt
+        - name: sortOrder
+          in: query
+          description: 排序方向
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: 成功获取列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedPlayerList'
+
+  # ==========================================================================
+  # 场景 9: 聊天消息（复杂对象 + 数组）
+  # ==========================================================================
+  /chat/send:
+    post:
+      operationId: chat.send_message
+      summary: 发送聊天消息
+      description: 发送聊天消息到频道或私聊
+      x-category: chat
+      x-risk: low
+      x-entity: message
+      x-operation: create
+      tags:
+        - chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessage'
+      responses:
+        '201':
+          description: 消息发送成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessageResponse'
+
+  # ==========================================================================
+  # 场景 10: 自定义操作（游戏逻辑）
+  # ==========================================================================
+  /game/{gameId}/event:
+    post:
+      operationId: game.trigger_event
+      summary: 触发游戏事件
+      description: |
+        触发游戏内的自定义事件，用于游戏逻辑控制。
+
+        ## 示例事件：
+        - `daily_reward` - 领取每日奖励
+        - `level_up` - 玩家升级
+        - `achievement_unlock` - 解锁成就
+        - `tournament_start` - 开始锦标赛
+      x-category: game
+      x-risk: medium
+      x-entity: game_event
+      x-operation: custom
+      tags:
+        - game
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: async
+          in: query
+          description: 是否异步执行
+          schema:
+            type: boolean
+            default: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [eventType]
+              properties:
+                eventType:
+                  type: string
+                  description: 事件类型标识符
+                  pattern: '^[a-z_]+$'
+                  example: daily_reward
+                payload:
+                  type: object
+                  description: 事件相关数据（任意 JSON 对象）
+                  additionalProperties: true
+                priority:
+                  type: integer
+                  description: 事件优先级（1-10）
+                  minimum: 1
+                  maximum: 10
+                  default: 5
+                scheduledAt:
+                  type: string
+                  format: date-time
+                  description: 定时执行时间
+      responses:
+        '200':
+          description: 事件触发成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  eventId:
+                    type: string
+                  status:
+                    type: string
+                    enum: [executed, scheduled, pending]
+                  result:
+                    type: object
+                    description: 事件执行结果（异步时为空）
+
+  # ==========================================================================
+  # 场景 11: 配置管理（使用 any 类型）
+  # ==========================================================================
+  /config/set:
+    put:
+      operationId: config.set
+      summary: 设置配置项
+      description: |
+        设置游戏配置项，支持任意 JSON 值。
+
+        ## 常用配置路径：
+        - `game.rates.exp` - 经验倍率
+        - `game.rates.drop` - 掉落倍率
+        - `features.pvp.enabled` - PVP 开关
+        - `limits.daily.login` - 每日登录限制
+      x-category: config
+      x-risk: medium
+      x-entity: config
+      x-operation: update
+      tags:
+        - config
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigSetRequest'
+      responses:
+        '200':
+          description: 配置设置成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Config'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  # ==========================================================================
+  # 场景 12: 统计分析（复杂响应结构）
+  # ==========================================================================
+  /analytics/player/retention:
+    get:
+      operationId: analytics.player_retention
+      summary: 玩家留存分析
+      description: 获取玩家留存率统计数据
+      x-category: analytics
+      x-risk: low
+      x-entity: analytics
+      x-operation: custom
+      tags:
+        - analytics
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+            description: 开始日期 (YYYY-MM-DD)
+            example: '2024-01-01'
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+            description: 结束日期 (YYYY-MM-DD)
+            example: '2024-01-31'
+        - name: cohort
+          in: query
+          description: 分组类型
+          schema:
+            type: string
+            enum: [day, week, month]
+            default: day
+        - name: region
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功获取统计数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetentionAnalytics'
+
+  # ==========================================================================
+  # 场景 13: 废弃操作（deprecated 标记）
+  # ==========================================================================
+  /player/{playerId}/stats/legacy:
+    get:
+      operationId: player.get_stats_legacy
+      summary: 获取玩家统计（旧版）
+      description: |
+        ⚠️ **已废弃**：请使用 `player.get_stats_v2` 代替。
+
+        此接口将在 2024-06-01 后停止服务。
+      deprecated: true
+      x-category: player
+      x-risk: low
+      x-entity: player
+      x-operation: read
+      x-deprecated-at: '2024-01-01'
+      x-deprecated-reason: Replaced by v2 API
+      x-alternative: player.get_stats_v2
+      x-sunset-date: '2024-06-01'
+      tags:
+        - player
+      parameters:
+        - $ref: '#/components/parameters/PlayerId'
+      responses:
+        '200':
+          description: 成功（已废弃）
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  warning:
+                    type: string
+                    example: This API is deprecated. Use player.get_stats_v2 instead.
+                  stats:
+                    type: object
+
+# ============================================================================
+# Components（可复用的定义）
+# ============================================================================
+components:
+
+  # ==========================================================================
+  # 参数定义
+  # ==========================================================================
+  parameters:
+    PlayerId:
+      name: playerId
+      in: path
+      required: true
+      description: 玩家唯一标识符
+      schema:
+        type: string
+        pattern: '^ply_[a-zA-Z0-9]{10}$'
+      example: ply_1234567890
+
+  # ==========================================================================
+  # Schema 定义
+  # ==========================================================================
+  schemas:
+
+    # ------------------------------------------------------------
+    # 基础类型
+    # ------------------------------------------------------------
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: 错误代码
+          example: INVALID_PARAMETER
+        message:
+          type: string
+          description: 错误信息
+          example: The parameter 'playerId' is invalid
+        details:
+          type: object
+          description: 额外的错误详情
+          additionalProperties: true
+
+    # ------------------------------------------------------------
+    # 玩家相关 Schema
+    # ------------------------------------------------------------
+    PlayerCreateRequest:
+      type: object
+      required: [username, email, region]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 20
+          pattern: '^[a-zA-Z0-9_]+$'
+          description: 用户名（字母、数字、下划线）
+        email:
+          type: string
+          format: email
+          description: 邮箱地址
+        region:
+          type: string
+          enum: [us-east, us-west, eu-west, eu-central, ap-southeast]
+          description: 服务器区域
+        premium:
+          type: boolean
+          default: false
+          description: 是否为高级用户
+
+    Player:
+      type: object
+      required: [playerId, username, email, level, createdAt]
+      properties:
+        playerId:
+          type: string
+          pattern: '^ply_[a-zA-Z0-9]{10}$'
+          description: 玩家唯一 ID
+        username:
+          type: string
+          description: 用户名
+        email:
+          type: string
+          format: email
+          description: 邮箱
+        level:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: 等级
+        experience:
+          type: integer
+          minimum: 0
+          description: 经验值
+        region:
+          type: string
+          description: 所属区域
+        status:
+          type: string
+          enum: [active, inactive, banned, suspended]
+          description: 账号状态
+        createdAt:
+          type: string
+          format: date-time
+          description: 创建时间
+        lastLoginAt:
+          type: string
+          format: date-time
+          description: 最后登录时间
+
+    PlayerWithDetails:
+      allOf:
+        - $ref: '#/components/schemas/Player'
+        - type: object
+          properties:
+            stats:
+              $ref: '#/components/schemas/PlayerStats'
+            inventory:
+              type: array
+              items:
+                $ref: '#/components/schemas/Item'
+            friends:
+              type: array
+              items:
+                type: string
+                description: 好友的玩家 ID
+            achievements:
+              type: array
+              items:
+                $ref: '#/components/schemas/Achievement'
+
+    PlayerStats:
+      type: object
+      properties:
+        totalPlayTime:
+          type: integer
+          description: 总游戏时长（秒）
+        matchesPlayed:
+          type: integer
+          description: 参与比赛数
+        matchesWon:
+          type: integer
+          description: 获胜比赛数
+        kills:
+          type: integer
+          description: 击杀数
+        deaths:
+          type: integer
+          description: 死亡数
+        rank:
+          type: integer
+          description: 排名
+
+    # ------------------------------------------------------------
+    # 物品系统 Schema
+    # ------------------------------------------------------------
+    ItemCategory:
+      type: string
+      enum: [weapon, armor, consumable, material, quest, treasure]
+      description: 物品类别
+
+    Item:
+      type: object
+      required: [itemId, name, category, quantity]
+      properties:
+        itemId:
+          type: string
+          description: 物品唯一 ID
+        name:
+          type: string
+          description: 物品名称
+        category:
+          $ref: '#/components/schemas/ItemCategory'
+        quantity:
+          type: integer
+          minimum: 0
+          description: 数量
+        quality:
+          type: string
+          enum: [common, uncommon, rare, epic, legendary]
+          description: 品质
+        stats:
+          type: object
+          description: 物品属性
+          additionalProperties:
+            type: number
+        expiresAt:
+          type: string
+          format: date-time
+          description: 过期时间
+          nullable: true
+
+    Inventory:
+      type: object
+      required: [items, total, capacity]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Item'
+        total:
+          type: integer
+          description: 当前物品总数
+        capacity:
+          type: integer
+          description: 背包容量
+        lastUpdated:
+          type: string
+          format: date-time
+
+    # ------------------------------------------------------------
+    # 批量操作 Schema
+    # ------------------------------------------------------------
+    BatchBanRequest:
+      type: object
+      required: [playerIds, reason, duration]
+      properties:
+        playerIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: string
+            pattern: '^ply_[a-zA-Z0-9]{10}$'
+          description: 要封禁的玩家 ID 列表
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+          description: 封禁原因
+        duration:
+          type: string
+          description: 封禁时长（permanent, 1d, 1w, 1m, etc.）
+          example: 7d
+        notify:
+          type: boolean
+          default: true
+          description: 是否发送通知
+        moderator:
+          type: string
+          description: 执行封禁的管理员 ID
+
+    BatchBanResponse:
+      type: object
+      required: [total, succeeded, failed]
+      properties:
+        total:
+          type: integer
+          description: 总数
+        succeeded:
+          type: integer
+          description: 成功数量
+        failed:
+          type: integer
+          description: 失败数量
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              playerId:
+                type: string
+              success:
+                type: boolean
+              error:
+                type: string
+                description: 错误信息（如果失败）
+
+    # ------------------------------------------------------------
+    # 聊天系统 Schema
+    # ------------------------------------------------------------
+    ChatMessage:
+      type: object
+      required: [channel, sender, content]
+      properties:
+        channel:
+          type: string
+          description: 频道 ID 或 'private:playerId'
+        sender:
+          type: string
+          description: 发送者玩家 ID
+        content:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: 消息内容
+        type:
+          type: string
+          enum: [text, emoji, system, command]
+          default: text
+        metadata:
+          type: object
+          description: 额外的元数据
+          additionalProperties: true
+
+    ChatMessageResponse:
+      type: object
+      required: [messageId, timestamp]
+      properties:
+        messageId:
+          type: string
+          description: 消息唯一 ID
+        timestamp:
+          type: string
+          format: date-time
+        delivered:
+          type: integer
+          description: 已送达人数
+
+    # ------------------------------------------------------------
+    # 分页 Schema
+    # ------------------------------------------------------------
+    PaginatedInventory:
+      type: object
+      required: [items, pagination]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Item'
+        pagination:
+          type: object
+          required: [page, pageSize, total, totalPages]
+          properties:
+            page:
+              type: integer
+              description: 当前页码
+            pageSize:
+              type: integer
+              description: 每页数量
+            total:
+              type: integer
+              description: 总记录数
+            totalPages:
+              type: integer
+              description: 总页数
+            hasNext:
+              type: boolean
+              description: 是否有下一页
+            hasPrevious:
+              type: boolean
+              description: 是否有上一页
+
+    PaginatedPlayerList:
+      type: object
+      required: [items, pagination]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Player'
+        pagination:
+          type: object
+          required: [page, pageSize, total, totalPages]
+          properties:
+            page:
+              type: integer
+            pageSize:
+              type: integer
+            total:
+              type: integer
+            totalPages:
+              type: integer
+
+    # ------------------------------------------------------------
+    # 配置管理 Schema
+    # ------------------------------------------------------------
+    ConfigSetRequest:
+      type: object
+      required: [key, value]
+      properties:
+        key:
+          type: string
+          description: 配置键（支持点分隔的路径）
+          pattern: '^[a-z._]+$'
+          example: game.rates.exp
+        value:
+          description: 配置值（任意 JSON 类型）
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+            - type: object
+            - type: array
+        scope:
+          type: string
+          enum: [global, game, player]
+          default: global
+          description: 配置作用域
+        ttl:
+          type: integer
+          description: 过期时间（秒），0 表示永久
+          minimum: 0
+          default: 0
+
+    Config:
+      type: object
+      required: [key, value, updatedAt]
+      properties:
+        key:
+          type: string
+        value:
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
+            - type: object
+            - type: array
+        scope:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    # ------------------------------------------------------------
+    # 成就系统 Schema
+    # ------------------------------------------------------------
+    Achievement:
+      type: object
+      required: [achievementId, name, unlockedAt]
+      properties:
+        achievementId:
+          type: string
+          description: 成就 ID
+        name:
+          type: string
+          description: 成就名称
+        description:
+          type: string
+          description: 成就描述
+        icon:
+          type: string
+          format: uri
+          description: 图标 URL
+        rarity:
+          type: string
+          enum: [common, rare, epic, legendary]
+          description: 稀有度
+        progress:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: 完成进度（0-1）
+        unlockedAt:
+          type: string
+          format: date-time
+          description: 解锁时间
+
+    # ------------------------------------------------------------
+    # 分析统计 Schema
+    # ------------------------------------------------------------
+    RetentionAnalytics:
+      type: object
+      required: [period, cohorts]
+      properties:
+        period:
+          type: object
+          required: [startDate, endDate]
+          properties:
+            startDate:
+              type: string
+              format: date
+            endDate:
+              type: string
+              format: date
+        summary:
+          type: object
+          properties:
+            totalUsers:
+              type: integer
+            day1Retention:
+              type: number
+              format: float
+            day7Retention:
+              type: number
+              format: float
+            day30Retention:
+              type: number
+              format: float
+        cohorts:
+          type: array
+          items:
+            type: object
+            required: [cohort, users, retention]
+            properties:
+              cohort:
+                type: string
+                description: 队列标识
+              users:
+                type: integer
+                description: 该队列用户数
+              retention:
+                type: object
+                description: 留存率数据
+                additionalProperties:
+                  type: number
+                  format: float
+
+  # ==========================================================================
+  # 响应模板
+  # ==========================================================================
+  responses:
+    BadRequest:
+      description: 请求参数错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: INVALID_PARAMETER
+            message: The parameter 'playerId' is invalid
+            details:
+              field: playerId
+              reason: Does not match pattern '^ply_[a-zA-Z0-9]{10}$'
+
+    NotFound:
+      description: 资源未找到
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: NOT_FOUND
+            message: Player not found
+            details:
+              playerId: ply_1234567890
+
+    Forbidden:
+      description: 权限不足
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: PERMISSION_DENIED
+            message: You don't have permission to perform this action
+            details:
+              required: admin
+              actual: user
+
+    Unauthorized:
+      description: 未授权
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: UNAUTHORIZED
+            message: Authentication required
+
+    InternalError:
+      description: 内部服务器错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: INTERNAL_ERROR
+            message: An unexpected error occurred
+
+  # ==========================================================================
+  # 安全方案
+  # ==========================================================================
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT 认证令牌
+
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API 密钥认证
+
+# ============================================================================
+# 全局安全要求
+# ============================================================================
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
