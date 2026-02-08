@@ -121,16 +121,43 @@ func (l *DescriptorsLogic) Descriptors(req *types.DescriptorsRequest) ([]map[str
 		}
 		store.Mu().RUnlock()
 
-		// 3) UI metadata overlays from provider manifests / configs
-		metaIdx := store.BuildFunctionIndex()
-		overrides := store.LoadUIOverrides("configs/ui/functions.json", "configs/ui", "configs/ui/functions.override.json")
+		// 3) Extract metadata from OpenAPI operations
+		operations := store.ListOpenAPIOperations()
 		for fid, d := range byID {
-			if m, ok := metaIdx[fid]; ok {
-				mergeShallow(d, m)
+			// Merge OpenAPI operation metadata
+			if op, ok := operations[fid]; ok {
+				// Extract x-category, x-risk, x-entity, x-operation from extensions
+				if op.Extensions != nil {
+					if cat, exists := op.Extensions["x-category"]; exists {
+						if catStr, ok := cat.(string); ok && catStr != "" {
+							d["category"] = catStr
+						}
+					}
+					if risk, exists := op.Extensions["x-risk"]; exists {
+						if riskStr, ok := risk.(string); ok {
+							d["risk"] = riskStr
+						}
+					}
+					if entity, exists := op.Extensions["x-entity"]; exists {
+						if entityStr, ok := entity.(string); ok {
+							d["entity"] = entityStr
+						}
+					}
+					if operation, exists := op.Extensions["x-operation"]; exists {
+						if opStr, ok := operation.(string); ok {
+							d["operation"] = opStr
+						}
+					}
+				}
+				// Merge summary and description
+				if op.Summary != "" {
+					d["description"] = op.Summary
+				}
+				if op.Description != "" {
+					d["description"] = op.Description
+				}
 			}
-			if m, ok := overrides[fid]; ok {
-				mergeShallow(d, m)
-			}
+			// TODO: Load UI overrides from configs/ui/functions.json (removed in Stage 2)
 			if _, ok := d["menu"]; !ok {
 				d["menu"] = defaultMenu()
 			}

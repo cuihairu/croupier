@@ -34,7 +34,7 @@ func (l *ProvidersReloadLogic) ProvidersReload(req *types.ProviderActionRequest)
 		return nil, err
 	}
 
-	if _, err := decodeManifest(caps.Manifest); err != nil {
+	if _, err := decodeOpenAPIDoc(caps.OpenAPIDoc); err != nil {
 		return nil, err
 	}
 

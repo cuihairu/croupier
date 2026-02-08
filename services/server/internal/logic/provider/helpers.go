@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 )
@@ -17,18 +18,19 @@ func ensureRegistryStore(store *reg.Store) (*reg.Store, error) {
 	return store, nil
 }
 
-func getProviderCaps(store *reg.Store, id string) (reg.ProviderCaps, error) {
+func getProviderCaps(store *reg.Store, id string) (reg.OpenAPIProviderCaps, error) {
 	store, err := ensureRegistryStore(store)
 	if err != nil {
-		return reg.ProviderCaps{}, err
+		return reg.OpenAPIProviderCaps{}, err
 	}
 	if strings.TrimSpace(id) == "" {
-		return reg.ProviderCaps{}, fmt.Errorf("provider ID 不能为空")
+		return reg.OpenAPIProviderCaps{}, fmt.Errorf("provider ID 不能为空")
 	}
-	if caps, ok := store.GetProviderCaps(strings.TrimSpace(id)); ok {
-		return caps, nil
+	caps, err := store.GetOpenAPIProvider(strings.TrimSpace(id))
+	if err != nil {
+		return reg.OpenAPIProviderCaps{}, fmt.Errorf("provider %s 不存在", id)
 	}
-	return reg.ProviderCaps{}, fmt.Errorf("provider %s 不存在", id)
+	return *caps, nil
 }
 
 func deleteProviderCaps(store *reg.Store, id string) error {
@@ -36,64 +38,114 @@ func deleteProviderCaps(store *reg.Store, id string) error {
 	if err != nil {
 		return err
 	}
-	if !store.DeleteProviderCaps(strings.TrimSpace(id)) {
-		return fmt.Errorf("provider %s 不存在", id)
+	if err := store.DeleteOpenAPIProvider(strings.TrimSpace(id)); err != nil {
+		return fmt.Errorf("删除provider失败: %w", err)
 	}
 	return nil
 }
 
-func decodeManifest(manifest []byte) (map[string]interface{}, error) {
-	if len(manifest) == 0 {
-		return map[string]interface{}{}, nil
+func decodeOpenAPIDoc(doc []byte) (*openapi3.T, error) {
+	if len(doc) == 0 {
+		return nil, nil
 	}
-	var out map[string]interface{}
-	if err := json.Unmarshal(manifest, &out); err != nil {
-		return nil, fmt.Errorf("解析manifest失败: %w", err)
+	var out openapi3.T
+	if err := json.Unmarshal(doc, &out); err != nil {
+		return nil, fmt.Errorf("解析OpenAPI文档失败: %w", err)
 	}
-	return out, nil
+	return &out, nil
 }
 
-func manifestArray(man map[string]interface{}, key string) []interface{} {
-	if man == nil {
+func openAPIDocEntities(doc *openapi3.T) []map[string]interface{} {
+	if doc == nil {
 		return nil
 	}
-	raw, ok := man[key]
-	if !ok {
-		return nil
-	}
-	arr, _ := raw.([]interface{})
-	return arr
-}
 
-func manifestEntities(man map[string]interface{}) []map[string]interface{} {
-	raw := manifestArray(man, "entities")
-	if len(raw) == 0 {
-		return nil
-	}
-	out := make([]map[string]interface{}, 0, len(raw))
-	for _, item := range raw {
-		if entity, ok := item.(map[string]interface{}); ok {
-			out = append(out, entity)
+	// Extract entities from OpenAPI extensions
+	entities := make([]map[string]interface{}, 0)
+
+	// Check if OpenAPI doc has x-entities extension
+	if doc.Extensions != nil {
+		if entitiesExt, exists := doc.Extensions["x-entities"]; exists {
+			if entitiesArr, ok := entitiesExt.([]interface{}); ok {
+				for _, item := range entitiesArr {
+					if entity, ok := item.(map[string]interface{}); ok {
+						entities = append(entities, entity)
+					}
+				}
+			}
 		}
 	}
-	return out
-}
 
-func manifestFunctions(man map[string]interface{}) []map[string]interface{} {
-	raw := manifestArray(man, "functions")
-	if len(raw) == 0 {
-		return nil
-	}
-	out := make([]map[string]interface{}, 0, len(raw))
-	for _, item := range raw {
-		if fn, ok := item.(map[string]interface{}); ok {
-			out = append(out, fn)
+	// Also extract entities from operation extensions (x-entity)
+	entitySet := make(map[string]map[string]interface{})
+	for _, pathItem := range doc.Paths.Map() {
+		for _, op := range pathItem.Operations() {
+			if op.Extensions != nil {
+				if entityExt, exists := op.Extensions["x-entity"]; exists {
+					if entityName, ok := entityExt.(string); ok && entityName != "" {
+						if _, exists := entitySet[entityName]; !exists {
+							entitySet[entityName] = map[string]interface{}{
+								"name": entityName,
+							}
+						}
+					}
+				}
+			}
 		}
 	}
-	return out
+
+	// Merge unique entities
+	for _, entity := range entitySet {
+		entities = append(entities, entity)
+	}
+
+	return entities
 }
 
-func buildProviderMeta(caps reg.ProviderCaps, includeManifest bool) map[string]interface{} {
+func openAPIDocFunctions(doc *openapi3.T) []map[string]interface{} {
+	if doc == nil {
+		return nil
+	}
+
+	functions := make([]map[string]interface{}, 0)
+
+	for path, pathItem := range doc.Paths.Map() {
+		for method, op := range pathItem.Operations() {
+			if op == nil {
+				continue
+			}
+
+			fn := map[string]interface{}{
+				"operationId": op.OperationID,
+				"method":      strings.ToUpper(method),
+				"path":        path,
+				"summary":     op.Summary,
+			}
+
+			// Extract extensions
+			if op.Extensions != nil {
+				if cat, exists := op.Extensions["x-category"]; exists {
+					fn["category"] = cat
+				}
+				if risk, exists := op.Extensions["x-risk"]; exists {
+					fn["risk"] = risk
+				}
+				if entity, exists := op.Extensions["x-entity"]; exists {
+					fn["entity"] = entity
+				}
+				if operation, exists := op.Extensions["x-operation"]; exists {
+					fn["operation"] = operation
+				}
+			}
+
+			functions = append(functions, fn)
+		}
+	}
+
+	return functions
+}
+
+func buildProviderMeta(caps reg.OpenAPIProviderCaps, includeDoc bool) map[string]interface{} {
 	meta := map[string]interface{}{
 		"id":        caps.ID,
 		"version":   caps.Version,
@@ -101,17 +153,17 @@ func buildProviderMeta(caps reg.ProviderCaps, includeManifest bool) map[string]i
 		"sdk":       caps.SDK,
 		"updatedAt": utils.FormatTimestamp(caps.UpdatedAt),
 	}
-	manifest, err := decodeManifest(caps.Manifest)
+	doc, err := decodeOpenAPIDoc(caps.OpenAPIDoc)
 	if err == nil {
-		functions := manifestFunctions(manifest)
-		entities := manifestEntities(manifest)
+		functions := openAPIDocFunctions(doc)
+		entities := openAPIDocEntities(doc)
 		meta["functions"] = len(functions)
 		meta["entities"] = len(entities)
-		if includeManifest {
-			meta["manifest"] = manifest
+		if includeDoc {
+			meta["openapi"] = doc
 		}
-	} else if includeManifest {
-		meta["manifestError"] = err.Error()
+	} else if includeDoc {
+		meta["docError"] = err.Error()
 	}
 	return meta
 }
@@ -120,14 +172,14 @@ func aggregateEntities(store *reg.Store) []map[string]interface{} {
 	if store == nil {
 		return nil
 	}
-	caps := store.ListProviderCaps()
+	providers := store.ListOpenAPIProviders()
 	out := make([]map[string]interface{}, 0)
-	for _, item := range caps {
-		manifest, err := decodeManifest(item.Manifest)
+	for _, item := range providers {
+		doc, err := decodeOpenAPIDoc(item.OpenAPIDoc)
 		if err != nil {
 			continue
 		}
-		if entities := manifestEntities(manifest); len(entities) > 0 {
+		if entities := openAPIDocEntities(doc); len(entities) > 0 {
 			for _, entity := range entities {
 				entityCopy := map[string]interface{}{
 					"provider_id": item.ID,
@@ -147,11 +199,11 @@ func aggregateEntitiesForProvider(store *reg.Store, id string) ([]map[string]int
 	if err != nil {
 		return nil, err
 	}
-	manifest, err := decodeManifest(caps.Manifest)
+	doc, err := decodeOpenAPIDoc(caps.OpenAPIDoc)
 	if err != nil {
 		return nil, err
 	}
-	entities := manifestEntities(manifest)
+	entities := openAPIDocEntities(doc)
 	result := make([]map[string]interface{}, 0, len(entities))
 	for _, entity := range entities {
 		entry := map[string]interface{}{
@@ -165,10 +217,10 @@ func aggregateEntitiesForProvider(store *reg.Store, id string) ([]map[string]int
 	return result, nil
 }
 
-func refreshProviderTimestamp(store *reg.Store, caps reg.ProviderCaps) {
+func refreshProviderTimestamp(store *reg.Store, caps reg.OpenAPIProviderCaps) {
 	if store == nil {
 		return
 	}
 	caps.UpdatedAt = time.Now()
-	store.UpsertProviderCaps(caps)
+	store.UpsertOpenAPIProvider(caps)
 }

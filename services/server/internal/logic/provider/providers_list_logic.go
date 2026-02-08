@@ -33,10 +33,10 @@ func (l *ProvidersListLogic) ProvidersList(req *types.ProvidersListRequest) (res
 		return nil, err
 	}
 
-	caps := store.ListProviderCaps()
-	items := make([]map[string]interface{}, 0, len(caps))
-	for _, cap := range caps {
-		items = append(items, buildProviderMeta(cap, false))
+	providers := store.ListOpenAPIProviders()
+	items := make([]map[string]interface{}, 0, len(providers))
+	for _, provider := range providers {
+		items = append(items, buildProviderMeta(*provider, false))
 	}
 
 	return &types.ProvidersListResponse{

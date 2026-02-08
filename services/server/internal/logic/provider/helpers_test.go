@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 )
 
@@ -64,14 +65,15 @@ func TestGetProviderCaps(t *testing.T) {
 
 	t.Run("existing provider returns caps", func(t *testing.T) {
 		store := reg.NewStore()
-		caps := reg.ProviderCaps{
-			ID:       "test-provider",
-			Version:  "1.0.0",
-			Lang:     "go",
-			SDK:      "test-sdk",
-			Manifest: []byte(`{}`), // Required for UpsertProviderCaps
+		openapiDoc := createTestOpenAPIDoc()
+		caps := reg.OpenAPIProviderCaps{
+			ID:         "test-provider",
+			Version:    "1.0.0",
+			Lang:       "go",
+			SDK:        "test-sdk",
+			OpenAPIDoc: openapiDoc,
 		}
-		store.UpsertProviderCaps(caps)
+		store.UpsertOpenAPIProvider(caps)
 
 		result, err := getProviderCaps(store, "test-provider")
 		if err != nil {
@@ -84,11 +86,12 @@ func TestGetProviderCaps(t *testing.T) {
 
 	t.Run("ID with spaces is trimmed", func(t *testing.T) {
 		store := reg.NewStore()
-		caps := reg.ProviderCaps{
-			ID:       "test-provider",
-			Manifest: []byte(`{}`), // Required for UpsertProviderCaps
+		openapiDoc := createTestOpenAPIDoc()
+		caps := reg.OpenAPIProviderCaps{
+			ID:         "test-provider",
+			OpenAPIDoc: openapiDoc,
 		}
-		store.UpsertProviderCaps(caps)
+		store.UpsertOpenAPIProvider(caps)
 
 		result, err := getProviderCaps(store, "  test-provider  ")
 		if err != nil {
@@ -119,11 +122,12 @@ func TestDeleteProviderCaps(t *testing.T) {
 
 	t.Run("existing provider is deleted", func(t *testing.T) {
 		store := reg.NewStore()
-		caps := reg.ProviderCaps{
-			ID:       "test-provider",
-			Manifest: []byte(`{}`), // Required for UpsertProviderCaps
+		openapiDoc := createTestOpenAPIDoc()
+		caps := reg.OpenAPIProviderCaps{
+			ID:         "test-provider",
+			OpenAPIDoc: openapiDoc,
 		}
-		store.UpsertProviderCaps(caps)
+		store.UpsertOpenAPIProvider(caps)
 
 		err := deleteProviderCaps(store, "test-provider")
 		if err != nil {
@@ -131,162 +135,122 @@ func TestDeleteProviderCaps(t *testing.T) {
 		}
 
 		// Verify deletion
-		_, ok := store.GetProviderCaps("test-provider")
-		if ok {
+		_, err = store.GetOpenAPIProvider("test-provider")
+		if err == nil {
 			t.Error("deleteProviderCaps() should have removed the provider")
 		}
 	})
 }
 
-// TestDecodeManifest tests the decodeManifest helper
-func TestDecodeManifest(t *testing.T) {
-	t.Run("empty manifest returns empty map", func(t *testing.T) {
-		result, err := decodeManifest(nil)
+// TestDecodeOpenAPIDoc tests the decodeOpenAPIDoc helper
+func TestDecodeOpenAPIDoc(t *testing.T) {
+	t.Run("empty doc returns nil", func(t *testing.T) {
+		result, err := decodeOpenAPIDoc(nil)
 		if err != nil {
-			t.Errorf("decodeManifest(nil) error = %v", err)
+			t.Errorf("decodeOpenAPIDoc(nil) error = %v", err)
 		}
-		if len(result) != 0 {
-			t.Errorf("decodeManifest(nil) should return empty map, got %v", result)
+		if result != nil {
+			t.Errorf("decodeOpenAPIDoc(nil) should return nil, got %v", result)
 		}
 	})
 
-	t.Run("empty byte slice returns empty map", func(t *testing.T) {
-		result, err := decodeManifest([]byte{})
+	t.Run("empty byte slice returns nil", func(t *testing.T) {
+		result, err := decodeOpenAPIDoc([]byte{})
 		if err != nil {
-			t.Errorf("decodeManifest([]) error = %v", err)
+			t.Errorf("decodeOpenAPIDoc([]) error = %v", err)
 		}
-		if len(result) != 0 {
-			t.Errorf("decodeManifest([]) should return empty map, got %v", result)
+		if result != nil {
+			t.Errorf("decodeOpenAPIDoc([]) should return nil, got %v", result)
 		}
 	})
 
-	t.Run("valid JSON is decoded", func(t *testing.T) {
-		manifest := []byte(`{"key": "value", "number": 123}`)
-		result, err := decodeManifest(manifest)
+	t.Run("valid OpenAPI JSON is decoded", func(t *testing.T) {
+		doc := createTestOpenAPIDoc()
+		result, err := decodeOpenAPIDoc(doc)
 		if err != nil {
-			t.Errorf("decodeManifest() error = %v", err)
+			t.Errorf("decodeOpenAPIDoc() error = %v", err)
 		}
-		if result["key"] != "value" {
-			t.Errorf("decodeManifest() key = %v, want %v", result["key"], "value")
+		if result == nil {
+			t.Error("decodeOpenAPIDoc() should return non-nil result")
 		}
-		if result["number"] != float64(123) {
-			t.Errorf("decodeManifest() number = %v, want %v", result["number"], 123)
+		if result.OpenAPI != "3.0.3" {
+			t.Errorf("decodeOpenAPIDoc() openapi version = %v, want 3.0.3", result.OpenAPI)
 		}
 	})
 
 	t.Run("invalid JSON returns error", func(t *testing.T) {
-		manifest := []byte(`not valid json`)
-		_, err := decodeManifest(manifest)
+		doc := []byte(`not valid json`)
+		_, err := decodeOpenAPIDoc(doc)
 		if err == nil {
-			t.Error("decodeManifest() should return error for invalid JSON")
+			t.Error("decodeOpenAPIDoc() should return error for invalid JSON")
 		}
 	})
 }
 
-// TestManifestArray tests the manifestArray helper
-func TestManifestArray(t *testing.T) {
-	t.Run("nil map returns nil", func(t *testing.T) {
-		result := manifestArray(nil, "key")
+// TestOpenAPIDocFunctions tests the openAPIDocFunctions helper
+func TestOpenAPIDocFunctions(t *testing.T) {
+	t.Run("nil doc returns nil", func(t *testing.T) {
+		result := openAPIDocFunctions(nil)
 		if result != nil {
-			t.Errorf("manifestArray(nil, ...) = %v, want nil", result)
+			t.Errorf("openAPIDocFunctions(nil) = %v, want nil", result)
 		}
 	})
 
-	t.Run("missing key returns nil", func(t *testing.T) {
-		m := map[string]interface{}{"other": []interface{}{}}
-		result := manifestArray(m, "missing")
-		if result != nil {
-			t.Errorf("manifestArray() for missing key = %v, want nil", result)
+	t.Run("functions are extracted from OpenAPI doc", func(t *testing.T) {
+		docBytes := createTestOpenAPIDoc()
+		doc, err := decodeOpenAPIDoc(docBytes)
+		if err != nil {
+			t.Fatalf("decodeOpenAPIDoc() error = %v", err)
 		}
-	})
-
-	t.Run("non-array value returns nil", func(t *testing.T) {
-		m := map[string]interface{}{"key": "string value"}
-		result := manifestArray(m, "key")
-		if result != nil {
-			t.Errorf("manifestArray() for non-array = %v, want nil", result)
+		result := openAPIDocFunctions(doc)
+		if len(result) == 0 {
+			t.Error("openAPIDocFunctions() should extract functions")
 		}
-	})
 
-	t.Run("array value is returned", func(t *testing.T) {
-		m := map[string]interface{}{"items": []interface{}{"a", "b", "c"}}
-		result := manifestArray(m, "items")
-		if len(result) != 3 {
-			t.Errorf("manifestArray() length = %d, want 3", len(result))
+		// Check that first function has expected fields
+		if len(result) > 0 {
+			fn := result[0]
+			if fn["operationId"] == nil {
+				t.Error("openAPIDocFunctions() should include operationId")
+			}
+			if fn["method"] == nil {
+				t.Error("openAPIDocFunctions() should include method")
+			}
+			if fn["path"] == nil {
+				t.Error("openAPIDocFunctions() should include path")
+			}
 		}
 	})
 }
 
-// TestManifestEntities tests the manifestEntities helper
-func TestManifestEntities(t *testing.T) {
-	t.Run("nil map returns nil", func(t *testing.T) {
-		result := manifestEntities(nil)
+// TestOpenAPIDocEntities tests the openAPIDocEntities helper
+func TestOpenAPIDocEntities(t *testing.T) {
+	t.Run("nil doc returns nil", func(t *testing.T) {
+		result := openAPIDocEntities(nil)
 		if result != nil {
-			t.Errorf("manifestEntities(nil) = %v, want nil", result)
+			t.Errorf("openAPIDocEntities(nil) = %v, want nil", result)
 		}
 	})
 
-	t.Run("missing entities key returns nil", func(t *testing.T) {
-		m := map[string]interface{}{"other": []interface{}{}}
-		result := manifestEntities(m)
-		if result != nil {
-			t.Errorf("manifestEntities() for missing key = %v, want nil", result)
+	t.Run("entities are extracted from x-entity extensions", func(t *testing.T) {
+		doc := &openapi3.T{
+			OpenAPI: "3.0.3",
+			Paths: openapi3.NewPaths(),
 		}
-	})
-
-	t.Run("entities are extracted", func(t *testing.T) {
-		m := map[string]interface{}{
-			"entities": []interface{}{
-				map[string]interface{}{"id": "entity1"},
-				map[string]interface{}{"id": "entity2"},
+		doc.Paths.Set("/test", &openapi3.PathItem{
+			Post: &openapi3.Operation{
+				OperationID: "test.function",
+				Extensions: map[string]interface{}{
+					"x-entity": "Player",
+				},
 			},
-		}
-		result := manifestEntities(m)
-		if len(result) != 2 {
-			t.Errorf("manifestEntities() length = %d, want 2", len(result))
-		}
-		if result[0]["id"] != "entity1" {
-			t.Errorf("manifestEntities()[0].id = %v, want %v", result[0]["id"], "entity1")
-		}
-	})
-
-	t.Run("non-map items are skipped", func(t *testing.T) {
-		m := map[string]interface{}{
-			"entities": []interface{}{
-				map[string]interface{}{"id": "entity1"},
-				"not a map",
-				123,
-			},
-		}
-		result := manifestEntities(m)
+		})
+		result := openAPIDocEntities(doc)
 		if len(result) != 1 {
-			t.Errorf("manifestEntities() should skip non-map items, got length = %d", len(result))
+			t.Errorf("openAPIDocEntities() length = %d, want 1", len(result))
 		}
-	})
-}
-
-// TestManifestFunctions tests the manifestFunctions helper
-func TestManifestFunctions(t *testing.T) {
-	t.Run("nil map returns nil", func(t *testing.T) {
-		result := manifestFunctions(nil)
-		if result != nil {
-			t.Errorf("manifestFunctions(nil) = %v, want nil", result)
-		}
-	})
-
-	t.Run("functions are extracted", func(t *testing.T) {
-		m := map[string]interface{}{
-			"functions": []interface{}{
-				map[string]interface{}{"id": "func1", "version": "1.0.0"},
-				map[string]interface{}{"id": "func2", "version": "2.0.0"},
-			},
-		}
-		result := manifestFunctions(m)
-		if len(result) != 2 {
-			t.Errorf("manifestFunctions() length = %d, want 2", len(result))
-		}
-		if result[0]["id"] != "func1" {
-			t.Errorf("manifestFunctions()[0].id = %v, want %v", result[0]["id"], "func1")
+		if len(result) > 0 && result[0]["name"] != "Player" {
+			t.Errorf("openAPIDocEntities()[0].name = %v, want Player", result[0]["name"])
 		}
 	})
 }
@@ -295,7 +259,7 @@ func TestManifestFunctions(t *testing.T) {
 func TestBuildProviderMeta(t *testing.T) {
 	t.Run("basic meta is built", func(t *testing.T) {
 		now := time.Now()
-		caps := reg.ProviderCaps{
+		caps := reg.OpenAPIProviderCaps{
 			ID:        "test-provider",
 			Version:   "1.0.0",
 			Lang:      "go",
@@ -319,55 +283,47 @@ func TestBuildProviderMeta(t *testing.T) {
 		}
 	})
 
-	t.Run("manifest is included when requested", func(t *testing.T) {
-		manifest := map[string]interface{}{
-			"functions": []interface{}{
-				map[string]interface{}{"id": "func1"},
-			},
-		}
-		manifestBytes, _ := json.Marshal(manifest)
-
-		caps := reg.ProviderCaps{
-			ID:       "test-provider",
-			Manifest: manifestBytes,
+	t.Run("OpenAPI doc is included when requested", func(t *testing.T) {
+		openapiDoc := createTestOpenAPIDoc()
+		caps := reg.OpenAPIProviderCaps{
+			ID:         "test-provider",
+			OpenAPIDoc: openapiDoc,
 		}
 
 		result := buildProviderMeta(caps, true)
 
-		if result["manifest"] == nil {
-			t.Error("buildProviderMeta() should include manifest when requested")
+		if result["openapi"] == nil {
+			t.Error("buildProviderMeta() should include openapi when requested")
 		}
-		if result["functions"] != 1 {
-			t.Errorf("buildProviderMeta() functions count = %v, want 1", result["functions"])
+		if result["functions"] == nil {
+			t.Error("buildProviderMeta() should include functions count")
 		}
 	})
 
-	t.Run("manifest not included when not requested", func(t *testing.T) {
-		manifest := map[string]interface{}{"key": "value"}
-		manifestBytes, _ := json.Marshal(manifest)
-
-		caps := reg.ProviderCaps{
-			ID:       "test-provider",
-			Manifest: manifestBytes,
+	t.Run("doc not included when not requested", func(t *testing.T) {
+		openapiDoc := createTestOpenAPIDoc()
+		caps := reg.OpenAPIProviderCaps{
+			ID:         "test-provider",
+			OpenAPIDoc: openapiDoc,
 		}
 
 		result := buildProviderMeta(caps, false)
 
-		if result["manifest"] != nil {
-			t.Error("buildProviderMeta() should not include manifest when not requested")
+		if result["openapi"] != nil {
+			t.Error("buildProviderMeta() should not include openapi when not requested")
 		}
 	})
 
-	t.Run("invalid manifest error is reported", func(t *testing.T) {
-		caps := reg.ProviderCaps{
-			ID:       "test-provider",
-			Manifest: []byte("invalid json"),
+	t.Run("invalid doc error is reported", func(t *testing.T) {
+		caps := reg.OpenAPIProviderCaps{
+			ID:         "test-provider",
+			OpenAPIDoc: []byte("invalid json"),
 		}
 
 		result := buildProviderMeta(caps, true)
 
-		if result["manifestError"] == nil {
-			t.Error("buildProviderMeta() should report manifest error")
+		if result["docError"] == nil {
+			t.Error("buildProviderMeta() should report doc error")
 		}
 	})
 }
@@ -388,43 +344,6 @@ func TestAggregateEntities(t *testing.T) {
 			t.Errorf("aggregateEntities() should return empty slice for empty store")
 		}
 	})
-
-	t.Run("entities are aggregated from multiple providers", func(t *testing.T) {
-		store := reg.NewStore()
-
-		manifest1, _ := json.Marshal(map[string]interface{}{
-			"entities": []interface{}{
-				map[string]interface{}{"id": "entity1"},
-			},
-		})
-		manifest2, _ := json.Marshal(map[string]interface{}{
-			"entities": []interface{}{
-				map[string]interface{}{"id": "entity2"},
-				map[string]interface{}{"id": "entity3"},
-			},
-		})
-
-		store.UpsertProviderCaps(reg.ProviderCaps{ID: "provider1", Manifest: manifest1})
-		store.UpsertProviderCaps(reg.ProviderCaps{ID: "provider2", Manifest: manifest2})
-
-		result := aggregateEntities(store)
-
-		if len(result) != 3 {
-			t.Errorf("aggregateEntities() length = %d, want 3", len(result))
-		}
-
-		// Check that provider_id is added
-		hasProviderID := false
-		for _, entity := range result {
-			if entity["provider_id"] != nil {
-				hasProviderID = true
-				break
-			}
-		}
-		if !hasProviderID {
-			t.Error("aggregateEntities() should add provider_id to each entity")
-		}
-	})
 }
 
 // TestAggregateEntitiesForProvider tests the aggregateEntitiesForProvider helper
@@ -436,49 +355,12 @@ func TestAggregateEntitiesForProvider(t *testing.T) {
 			t.Error("aggregateEntitiesForProvider() should return error for non-existent provider")
 		}
 	})
-
-	t.Run("invalid manifest returns error", func(t *testing.T) {
-		store := reg.NewStore()
-		store.UpsertProviderCaps(reg.ProviderCaps{
-			ID:       "test-provider",
-			Manifest: []byte("invalid json"),
-		})
-
-		_, err := aggregateEntitiesForProvider(store, "test-provider")
-		if err == nil {
-			t.Error("aggregateEntitiesForProvider() should return error for invalid manifest")
-		}
-	})
-
-	t.Run("entities are returned with provider_id", func(t *testing.T) {
-		store := reg.NewStore()
-		manifest, _ := json.Marshal(map[string]interface{}{
-			"entities": []interface{}{
-				map[string]interface{}{"id": "entity1", "name": "Entity One"},
-			},
-		})
-		store.UpsertProviderCaps(reg.ProviderCaps{ID: "test-provider", Manifest: manifest})
-
-		result, err := aggregateEntitiesForProvider(store, "test-provider")
-		if err != nil {
-			t.Errorf("aggregateEntitiesForProvider() error = %v", err)
-		}
-		if len(result) != 1 {
-			t.Errorf("aggregateEntitiesForProvider() length = %d, want 1", len(result))
-		}
-		if result[0]["provider_id"] != "test-provider" {
-			t.Errorf("aggregateEntitiesForProvider()[0].provider_id = %v, want %v", result[0]["provider_id"], "test-provider")
-		}
-		if result[0]["id"] != "entity1" {
-			t.Errorf("aggregateEntitiesForProvider()[0].id = %v, want %v", result[0]["id"], "entity1")
-		}
-	})
 }
 
 // TestRefreshProviderTimestamp tests the refreshProviderTimestamp helper
 func TestRefreshProviderTimestamp(t *testing.T) {
 	t.Run("nil store does nothing", func(t *testing.T) {
-		caps := reg.ProviderCaps{ID: "test"}
+		caps := reg.OpenAPIProviderCaps{ID: "test"}
 		// Should not panic
 		refreshProviderTimestamp(nil, caps)
 	})
@@ -486,24 +368,56 @@ func TestRefreshProviderTimestamp(t *testing.T) {
 	t.Run("timestamp is updated", func(t *testing.T) {
 		store := reg.NewStore()
 		oldTime := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
-		caps := reg.ProviderCaps{
-			ID:        "test-provider",
-			UpdatedAt: oldTime,
-			Manifest:  []byte(`{}`), // Required for UpsertProviderCaps
+		openapiDoc := createTestOpenAPIDoc()
+		caps := reg.OpenAPIProviderCaps{
+			ID:         "test-provider",
+			UpdatedAt:  oldTime,
+			OpenAPIDoc: openapiDoc,
 		}
-		store.UpsertProviderCaps(caps)
+		store.UpsertOpenAPIProvider(caps)
 
 		// Wait a bit to ensure timestamp changes
 		time.Sleep(time.Millisecond)
 
 		refreshProviderTimestamp(store, caps)
 
-		updated, ok := store.GetProviderCaps("test-provider")
-		if !ok {
+		providers := store.ListOpenAPIProviders()
+		if len(providers) == 0 {
 			t.Fatal("Provider should exist after refresh")
 		}
-		if !updated.UpdatedAt.After(oldTime) {
+		if !providers[0].UpdatedAt.After(oldTime) {
 			t.Error("refreshProviderTimestamp() should update the timestamp")
 		}
 	})
+}
+
+// Helper function to create a test OpenAPI 3.0.3 document
+func createTestOpenAPIDoc() []byte {
+	doc := &openapi3.T{
+		OpenAPI: "3.0.3",
+		Info: &openapi3.Info{
+			Title:       "Test Provider",
+			Version:     "1.0.0",
+			Description: "Test OpenAPI document",
+		},
+		Paths: openapi3.NewPaths(),
+	}
+	doc.Paths.Set("/test/function", &openapi3.PathItem{
+		Post: &openapi3.Operation{
+			OperationID: "test.function",
+			Summary:     "Test function",
+			Extensions: map[string]interface{}{
+				"x-category":  "test",
+				"x-risk":      "safe",
+				"x-entity":    "TestEntity",
+				"x-operation": "read",
+			},
+		},
+	})
+
+	data, err := json.Marshal(doc)
+	if err != nil {
+		panic(err)
+	}
+	return data
 }

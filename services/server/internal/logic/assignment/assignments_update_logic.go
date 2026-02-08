@@ -73,12 +73,12 @@ func collectKnownFunctions(ctx *svc.ServiceContext) map[string]struct{} {
 	if ctx == nil || ctx.RegistryStore == nil {
 		return nil
 	}
-	idx := ctx.RegistryStore.BuildFunctionIndex()
-	if len(idx) == 0 {
+	operations := ctx.RegistryStore.ListOpenAPIOperations()
+	if len(operations) == 0 {
 		return nil
 	}
-	known := make(map[string]struct{}, len(idx))
-	for id := range idx {
+	known := make(map[string]struct{}, len(operations))
+	for id := range operations {
 		known[id] = struct{}{}
 	}
 	return known

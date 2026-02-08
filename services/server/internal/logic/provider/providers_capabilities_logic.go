@@ -32,11 +32,11 @@ func (l *ProvidersCapabilitiesLogic) ProvidersCapabilities(req *types.ProvidersC
 	if err != nil {
 		return nil, err
 	}
-	caps := store.ListProviderCaps()
+	providers := store.ListOpenAPIProviders()
 
-	items := make([]map[string]interface{}, 0, len(caps))
-	for _, cap := range caps {
-		items = append(items, buildProviderMeta(cap, true))
+	items := make([]map[string]interface{}, 0, len(providers))
+	for _, provider := range providers {
+		items = append(items, buildProviderMeta(*provider, true))
 	}
 
 	return &types.ProvidersCapabilitiesResponse{
