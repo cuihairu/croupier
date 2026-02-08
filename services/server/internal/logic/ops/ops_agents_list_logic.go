@@ -58,10 +58,10 @@ func (l *OpsAgentsListLogic) OpsAgentsList(req *types.OpsAgentsListRequest) (*ty
 			functions = append(functions, fid)
 		}
 
-		// Collect process service IDs
-		processes := make([]string, 0, len(sess.Processes))
-		for _, p := range sess.Processes {
-			processes = append(processes, p.ServiceID)
+		// Collect provider IDs
+		providers := make([]string, 0, len(sess.Providers))
+		for _, p := range sess.Providers {
+			providers = append(providers, p.ProviderID)
 		}
 
 		agents = append(agents, types.OpsAgentInfo{
@@ -73,7 +73,7 @@ func (l *OpsAgentsListLogic) OpsAgentsList(req *types.OpsAgentsListRequest) (*ty
 			Connected: connected,
 			LastSeen:  sess.ExpireAt.Format(time.RFC3339),
 			Functions: functions,
-			Processes: processes,
+			Processes: providers,
 			Labels:    sess.Labels,
 		})
 	}

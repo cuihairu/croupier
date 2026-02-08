@@ -19,13 +19,16 @@ type FunctionMeta struct {
 	Version string
 }
 
-// ProcessSession represents a single process/service registered to an agent (via SDK->Agent local registry).
-type ProcessSession struct {
-	ServiceID    string
+// ProviderSession represents a single provider registered to an agent (via SDK->Agent local registry).
+type ProviderSession struct {
+	ProviderID   string
+	GameID       string
+	Env          string
 	Addr         string
 	Version      string
 	LastSeenUnix int64
 	FunctionIDs  []string
+	OpenAPIDoc   json.RawMessage
 }
 
 // AgentSession represents a registered agent instance in the registry.
@@ -39,7 +42,7 @@ type AgentSession struct {
 	Zone      string
 	Labels    map[string]string
 	Functions map[string]FunctionMeta
-	Processes []ProcessSession
+	Providers []ProviderSession
 	ExpireAt  time.Time
 	LastSeen  time.Time // 最后活跃时间
 }
@@ -112,8 +115,8 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 	if a.Functions != nil {
 		cur.Functions = a.Functions
 	}
-	if a.Processes != nil {
-		cur.Processes = a.Processes
+	if a.Providers != nil {
+		cur.Providers = a.Providers
 	}
 	if !a.ExpireAt.IsZero() {
 		cur.ExpireAt = a.ExpireAt

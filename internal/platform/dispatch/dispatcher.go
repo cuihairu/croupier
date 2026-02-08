@@ -243,12 +243,12 @@ func (d *Dispatcher) ListFunctionAgents(functionID string) []string {
 	return ids
 }
 
-func agentHasService(agent *reg.AgentSession, serviceID, functionID string) bool {
-	if agent == nil || serviceID == "" {
+func agentHasService(agent *reg.AgentSession, providerID, functionID string) bool {
+	if agent == nil || providerID == "" {
 		return false
 	}
-	for _, p := range agent.Processes {
-		if p.ServiceID != serviceID {
+	for _, p := range agent.Providers {
+		if p.ProviderID != providerID {
 			continue
 		}
 		if functionID == "" {

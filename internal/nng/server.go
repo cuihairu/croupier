@@ -445,22 +445,24 @@ func (s *Server) handleRegisterRequest(ctx context.Context, req *agentv1.Registe
 		}
 	}
 
-	// Populate processes from request
+	// Populate providers from request
 	if len(req.Processes) > 0 {
-		processes := make([]reg.ProcessSession, 0, len(req.Processes))
+		providers := make([]reg.ProviderSession, 0, len(req.Processes))
 		for _, p := range req.Processes {
 			if p == nil || p.ServiceId == "" {
 				continue
 			}
-			processes = append(processes, reg.ProcessSession{
-				ServiceID:    p.ServiceId,
+			providers = append(providers, reg.ProviderSession{
+				ProviderID:   p.ServiceId,
+				GameID:       req.GameId,
+				Env:          req.Env,
 				Addr:         p.Addr,
 				Version:      p.Version,
 				LastSeenUnix: p.LastSeenUnix,
 				FunctionIDs:  p.FunctionIds,
 			})
 		}
-		sess.Processes = processes
+		sess.Providers = providers
 	}
 
 	s.registry.UpsertAgent(sess)

@@ -460,7 +460,7 @@ func buildProcesses(localData map[string][]agentlocal.Instance, versionSnapshot 
 			continue
 		}
 		for _, inst := range instances {
-			sid := strings.TrimSpace(inst.ServiceID)
+			sid := strings.TrimSpace(inst.ProviderID)
 			if sid == "" {
 				continue
 			}

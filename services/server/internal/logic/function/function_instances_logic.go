@@ -46,7 +46,7 @@ func (l *FunctionInstancesLogic) FunctionInstances(req *types.FunctionInstancesR
 			if sess == nil || strings.TrimSpace(sess.AgentID) == "" {
 				continue
 			}
-			for _, p := range sess.Processes {
+			for _, p := range sess.Providers {
 				has := false
 				for _, fid := range p.FunctionIDs {
 					if fid == functionID {
@@ -58,12 +58,12 @@ func (l *FunctionInstancesLogic) FunctionInstances(req *types.FunctionInstancesR
 					continue
 				}
 				out = append(out, map[string]interface{}{
-					"agent_id":   sess.AgentID,
-					"service_id": p.ServiceID,
-					"addr":       p.Addr,
-					"version":    p.Version,
-					"last_seen":  time.Unix(p.LastSeenUnix, 0).Format(time.RFC3339),
-					"healthy":    p.LastSeenUnix > 0 && now-p.LastSeenUnix <= 60,
+					"agent_id":    sess.AgentID,
+					"provider_id": p.ProviderID,
+					"addr":        p.Addr,
+					"version":     p.Version,
+					"last_seen":   time.Unix(p.LastSeenUnix, 0).Format(time.RFC3339),
+					"healthy":     p.LastSeenUnix > 0 && now-p.LastSeenUnix <= 60,
 				})
 			}
 		}

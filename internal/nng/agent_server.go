@@ -655,13 +655,13 @@ func (s *AgentServer) handleHeartbeatLocal(ctx context.Context, data []byte) ([]
 		return nil, fmt.Errorf("store not initialized")
 	}
 
-	// Get current snapshot and update LastSeen for the service
+	// Get current snapshot and update LastSeen for the provider
 	snap := s.store.List()
 	for _, instances := range snap {
 		for _, inst := range instances {
-			if inst.ServiceID == req.ServiceId {
+			if inst.ProviderID == req.ServiceId {
 				// Update LastSeen by re-registering
-				s.store.Register(inst.ServiceID, inst.Addr, inst.Version, nil)
+				s.store.Register(inst.ProviderID, inst.Addr, inst.Version, nil)
 			}
 		}
 	}
@@ -688,7 +688,7 @@ func (s *AgentServer) handleListLocal(ctx context.Context, data []byte) ([]byte,
 		localInsts := make([]*sdkv1.LocalInstance, 0, len(instances))
 		for _, inst := range instances {
 			localInsts = append(localInsts, &sdkv1.LocalInstance{
-				ServiceId: inst.ServiceID,
+				ServiceId: inst.ProviderID,
 				Addr:      inst.Addr,
 				Version:   inst.Version,
 			})

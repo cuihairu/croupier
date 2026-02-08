@@ -10,10 +10,10 @@ import (
 )
 
 type Instance struct {
-	ServiceID string
-	Addr      string
-	Version   string
-	LastSeen  time.Time
+	ProviderID string
+	Addr       string
+	Version    string
+	LastSeen   time.Time
 }
 
 // ProviderSession represents a registered provider (one OpenAPI file)
@@ -102,7 +102,7 @@ func (s *LocalStore) Register(providerID, addr, version string, funcs []*sdkv1.L
 	for fid, arr := range s.data {
 		next := arr[:0]
 		for _, it := range arr {
-			if it.ServiceID != providerID {
+			if it.ProviderID != providerID {
 				next = append(next, it)
 			}
 		}
@@ -118,7 +118,7 @@ func (s *LocalStore) Register(providerID, addr, version string, funcs []*sdkv1.L
 			delete(s.funcVersions, fid)
 		}
 	}
-	inst := Instance{ServiceID: providerID, Addr: addr, Version: version, LastSeen: now}
+	inst := Instance{ProviderID: providerID, Addr: addr, Version: version, LastSeen: now}
 	for _, fn := range funcs {
 		if fn == nil || fn.GetId() == "" {
 			continue
@@ -152,14 +152,14 @@ func (s *LocalStore) Register(providerID, addr, version string, funcs []*sdkv1.L
 	}
 }
 
-// Heartbeat updates last seen for a service across all functions.
-func (s *LocalStore) Heartbeat(serviceID string) {
+// Heartbeat updates last seen for a provider across all functions.
+func (s *LocalStore) Heartbeat(providerID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := time.Now()
 	for fid, arr := range s.data {
 		for i := range arr {
-			if arr[i].ServiceID == serviceID {
+			if arr[i].ProviderID == providerID {
 				arr[i].LastSeen = now
 			}
 		}

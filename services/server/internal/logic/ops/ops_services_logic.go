@@ -92,11 +92,11 @@ func (l *OpsServicesLogic) OpsServices(_ *types.OpsServicesRequest) (*types.OpsS
 
 			// 转换进程信息
 			var metadata *types.OpsServiceMetadata
-			if len(sess.Processes) > 0 {
-				processes := make([]types.OpsServiceProcess, 0, len(sess.Processes))
-				for _, p := range sess.Processes {
+			if len(sess.Providers) > 0 {
+				processes := make([]types.OpsServiceProcess, 0, len(sess.Providers))
+				for _, p := range sess.Providers {
 					processes = append(processes, types.OpsServiceProcess{
-						ServiceID:    p.ServiceID,
+						ServiceID:    p.ProviderID,
 						Addr:         p.Addr,
 						Version:      p.Version,
 						LastSeenUnix: p.LastSeenUnix,
