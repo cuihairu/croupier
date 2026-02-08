@@ -130,6 +130,10 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 				desc.Tags = details.Tags
 				desc.Deprecated = details.Deprecated
 				desc.OperationId = details.OperationID
+				desc.Category = details.Category
+				desc.Risk = details.Risk
+				desc.Entity = details.Entity
+				desc.Operation = details.Operation
 			}
 		}
 
@@ -140,6 +144,22 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 	// Register all methods for this provider
 	// Use "provider:" prefix in serviceID to identify provider functions
 	serviceID := "provider:" + name
+
+	// Collect function IDs for logging
+	functionIDs := make([]string, 0, len(funcs))
+	for _, fn := range funcs {
+		if fn != nil && fn.Id != "" {
+			functionIDs = append(functionIDs, fn.Id)
+		}
+	}
+
+	// Log provider session info (for debugging)
+	m.logger.Debug("provider session",
+		"provider_id", serviceID,
+		"game_id", entry.GameID,
+		"env", entry.Env,
+		"functions", len(functionIDs))
+
 	m.store.Register(serviceID, "", "1.0.0", funcs)
 
 	m.logger.Info("provider loaded", "name", name, "methods", len(methods))
@@ -239,5 +259,7 @@ type Config struct {
 type ProviderEntry struct {
 	Enabled bool                   `yaml:"enabled"`
 	Type    string                 `yaml:"type"`
+	GameID  string                 `yaml:"game_id"` // Game ID for multi-game scoping
+	Env     string                 `yaml:"env"`     // Environment (prod/dev/staging)
 	Config  map[string]interface{} `yaml:"config"`
 }

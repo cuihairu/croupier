@@ -69,12 +69,21 @@ func IsLocalTCP(addr string) bool {
 	return false
 }
 
+// AgentSessionLoader defines the interface for loading and managing agent sessions from a database.
+// This allows the Server to be decoupled from specific database implementations.
+type AgentSessionLoader interface {
+	LoadActiveSessions(ctx context.Context) ([]*reg.AgentSession, error)
+	Upsert(ctx context.Context, sess *reg.AgentSession) error
+	DeleteExpired(ctx context.Context) (int64, error)
+}
+
 // Server implements an NNG-based control server (replaces gRPC ControlService)
 type Server struct {
-	addrs    []ListenAddr // Multiple listen addresses
-	sock     mangos.Socket
-	sockets  []mangos.Socket // Multiple sockets for multi-listener
-	registry *reg.Store
+	addrs              []ListenAddr // Multiple listen addresses
+	sock               mangos.Socket
+	sockets            []mangos.Socket // Multiple sockets for multi-listener
+	registry           *reg.Store
+	agentSessionLoader AgentSessionLoader // Interface for database operations
 
 	// Session management
 	defaultSessionTTL time.Duration
@@ -172,6 +181,35 @@ func NewServerWithAddrs(addrs []ListenAddr, registry *reg.Store) *Server {
 	}
 }
 
+// NewServerWithDB creates a new NNG control server with database persistence
+func NewServerWithDB(addrs []ListenAddr, registry *reg.Store, loader AgentSessionLoader) *Server {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Default if none specified
+	if len(addrs) == 0 {
+		addrs = []ListenAddr{ParseListenAddr(":19090")}
+	}
+
+	// Use provided registry or create new one
+	if registry == nil {
+		registry = reg.NewStore()
+	}
+
+	server := &Server{
+		addrs:              addrs,
+		registry:           registry,
+		agentSessionLoader: loader,
+		metricsStore:       reg.NewMetricsStore(),
+		systemInfoCache:    reg.NewSystemInfoCache(),
+		defaultSessionTTL:  5 * time.Minute,
+		ctx:                ctx,
+		cancel:             cancel,
+		logger:             slog.Default(),
+	}
+
+	return server
+}
+
 // SetDefaultSessionTTL sets the default session TTL
 func (s *Server) SetDefaultSessionTTL(ttl time.Duration) {
 	s.mu.Lock()
@@ -257,11 +295,22 @@ func (s *Server) Start() error {
 	s.sockets = sockets
 	s.sock = sockets[0] // Primary socket for serving
 
+	// Load agent sessions from database if configured
+	if err := s.LoadAgentSessions(); err != nil {
+		s.logger.Error("failed to load agent sessions from database", "error", err)
+		// Don't fail startup if database load fails
+	}
+
 	// Start serving
 	go s.serve()
 
 	// Start metrics pruning
 	go s.pruneOldMetrics()
+
+	// Start database cleanup loop if configured
+	if s.agentSessionLoader != nil {
+		go s.cleanupLoop()
+	}
 
 	return nil
 }
@@ -465,6 +514,14 @@ func (s *Server) handleRegisterRequest(ctx context.Context, req *agentv1.Registe
 		sess.Providers = providers
 	}
 
+	// Dual-write to database if configured
+	if s.agentSessionLoader != nil {
+		if err := s.agentSessionLoader.Upsert(ctx, sess); err != nil {
+			s.logger.Error("failed to write agent session to database", "agent_id", req.AgentId, "error", err)
+			// Don't block registration if database write fails
+		}
+	}
+
 	s.registry.UpsertAgent(sess)
 
 	s.logger.Info("Agent registered via NNG", "agent_id", req.AgentId, "game_id", req.GameId)
@@ -488,6 +545,17 @@ func (s *Server) handleHeartbeatRequest(ctx context.Context, req *agentv1.Heartb
 	if agent != nil {
 		agent.ExpireAt = time.Now().Add(s.defaultSessionTTL)
 		agent.LastSeen = time.Now()
+
+		// Async dual-write to database if configured
+		if s.agentSessionLoader != nil {
+			// Capture the agent reference for the goroutine
+			agentToUpdate := agent
+			go func() {
+				if err := s.agentSessionLoader.Upsert(context.Background(), agentToUpdate); err != nil {
+					s.logger.Error("failed to update agent session in database", "agent_id", req.AgentId, "error", err)
+				}
+			}()
+		}
 	}
 	s.registry.Mu().Unlock()
 
@@ -633,4 +701,44 @@ func (h *ControlHandler) HandleHeartbeat(ctx context.Context, req *agentv1.Heart
 
 func (h *ControlHandler) HandleRegisterCapabilities(ctx context.Context, req *agentv1.RegisterCapabilitiesRequest) (*agentv1.RegisterCapabilitiesResponse, error) {
 	return h.server.handleRegisterCapabilitiesRequest(ctx, req)
+}
+
+// LoadAgentSessions loads active agent sessions from the database into memory
+func (s *Server) LoadAgentSessions() error {
+	if s.agentSessionLoader == nil {
+		return nil // No database configured
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Load sessions into registry
+	if err := s.registry.LoadFromDB(ctx, s.agentSessionLoader); err != nil {
+		return fmt.Errorf("failed to load agent sessions: %w", err)
+	}
+
+	return nil
+}
+
+// cleanupLoop periodically deletes expired sessions from the database
+func (s *Server) cleanupLoop() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ticker.C:
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			deleted, err := s.agentSessionLoader.DeleteExpired(ctx)
+			cancel()
+
+			if err != nil {
+				s.logger.Error("failed to delete expired sessions", "error", err)
+			} else if deleted > 0 {
+				s.logger.Info("deleted expired sessions from database", "count", deleted)
+			}
+		}
+	}
 }

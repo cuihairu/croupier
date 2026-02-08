@@ -1,6 +1,7 @@
 package registry
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -11,6 +12,9 @@ import (
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/zeromicro/go-zero/core/logx"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // FunctionMeta describes a function capability on an agent.
@@ -59,6 +63,8 @@ type Store struct {
 	// OpenAPI operations storage (replaces legacy manifest)
 	openapiOperations map[string]*openapi3.Operation  // function_id -> OpenAPI operation
 	openapiProviders  map[string]*OpenAPIProviderCaps // provider_id -> OpenAPI caps
+	// Optional database for dual-write persistence
+	db *gorm.DB
 }
 
 // OpenAPIProviderCaps represents provider capabilities in OpenAPI format.
@@ -79,6 +85,19 @@ func NewStore() *Store {
 		provCapsSeq:       map[string]uint64{},
 		openapiOperations: make(map[string]*openapi3.Operation),
 		openapiProviders:  make(map[string]*OpenAPIProviderCaps),
+		db:                nil,
+	}
+}
+
+// NewStoreWithDB creates a new Store with database dual-write enabled.
+func NewStoreWithDB(db *gorm.DB) *Store {
+	return &Store{
+		agents:            map[string]*AgentSession{},
+		provCaps:          map[string]ProviderCaps{},
+		provCapsSeq:       map[string]uint64{},
+		openapiOperations: make(map[string]*openapi3.Operation),
+		openapiProviders:  make(map[string]*OpenAPIProviderCaps),
+		db:                db,
 	}
 }
 
@@ -89,10 +108,22 @@ func (s *Store) Mu() *sync.RWMutex { return &s.mu }
 func (s *Store) AgentsUnsafe() map[string]*AgentSession { return s.agents }
 
 // UpsertAgent inserts or updates an agent session by AgentID.
+// Implements dual-write pattern: writes to database first (if enabled), then to memory.
+// Database failures are logged but don't block memory operations.
 func (s *Store) UpsertAgent(a *AgentSession) {
 	if a == nil || a.AgentID == "" {
 		return
 	}
+
+	// Dual-write: database first (if enabled)
+	if s.db != nil {
+		if err := s.writeToDB(context.Background(), a); err != nil {
+			// Log error but continue - memory store is the primary source
+			logx.Errorf("failed to write agent session to database (agent_id=%s): %v", a.AgentID, err)
+		}
+	}
+
+	// Always write to memory (primary store)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	cur := s.agents[a.AgentID]
@@ -124,6 +155,64 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 	if !a.LastSeen.IsZero() {
 		cur.LastSeen = a.LastSeen
 	}
+}
+
+// writeToDB writes agent session to database using GORM.
+// This method should be called before acquiring the mutex to avoid deadlock.
+func (s *Store) writeToDB(ctx context.Context, a *AgentSession) error {
+	if s.db == nil {
+		return nil // Database not configured
+	}
+
+	// Use GORM's Clauses for upsert
+	type DBSession struct {
+		AgentID   string    `gorm:"column:agent_id;size:64"`
+		GameID    string    `gorm:"column:game_id;size:64"`
+		Env       string    `gorm:"column:env;size:32"`
+		RPCAddr   string    `gorm:"column:rpc_addr;size:255"`
+		Version   string    `gorm:"column:version;size:32"`
+		Region    string    `gorm:"column:region;size:64"`
+		Zone      string    `gorm:"column:zone;size:64"`
+		Labels    string    `gorm:"column:labels;type:json"`
+		Providers string    `gorm:"column:providers;type:json"`
+		ExpireAt  time.Time `gorm:"column:expire_at"`
+		LastSeen  time.Time `gorm:"column:last_seen"`
+	}
+
+	dbSess := DBSession{
+		AgentID:  a.AgentID,
+		GameID:   a.GameID,
+		Env:      a.Env,
+		RPCAddr:  a.RPCAddr,
+		Version:  a.Version,
+		Region:   a.Region,
+		Zone:     a.Zone,
+		ExpireAt: a.ExpireAt,
+		LastSeen: a.LastSeen,
+	}
+
+	// Marshal Labels to JSON
+	if a.Labels != nil {
+		if labelsJSON, err := json.Marshal(a.Labels); err == nil {
+			dbSess.Labels = string(labelsJSON)
+		}
+	}
+
+	// Marshal Providers to JSON
+	if a.Providers != nil {
+		if providersJSON, err := json.Marshal(a.Providers); err == nil {
+			dbSess.Providers = string(providersJSON)
+		}
+	}
+
+	// Perform upsert using GORM
+	return s.db.WithContext(ctx).
+		Table("agent_sessions").
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "agent_id"}},
+			UpdateAll: true,
+		}).
+		Create(&dbSess).Error
 }
 
 // ProviderCaps represents a provider manifest snapshot registered at runtime.
@@ -1155,5 +1244,46 @@ func (s *Store) DeleteOpenAPIProvider(providerID string) error {
 	}
 
 	delete(s.openapiProviders, providerID)
+	return nil
+}
+
+// ========== Database Dual-Write Support ==========
+
+// AgentSessionLoader defines the interface for loading agent sessions from a database.
+// This allows the Store to be decoupled from specific database implementations.
+type AgentSessionLoader interface {
+	LoadActiveSessions(ctx context.Context) ([]*AgentSession, error)
+}
+
+// LoadFromDB loads active agent sessions from the database and populates the in-memory store.
+// This method is typically called during system startup to restore registry state.
+// The loader parameter must implement the AgentSessionLoader interface.
+//
+// Note: Sessions loaded via this method are inserted into memory only (no double-write to DB).
+func (s *Store) LoadFromDB(ctx context.Context, loader AgentSessionLoader) error {
+	if s.db == nil {
+		return fmt.Errorf("database not configured: cannot load from DB")
+	}
+	if loader == nil {
+		return fmt.Errorf("loader cannot be nil")
+	}
+
+	sessions, err := loader.LoadActiveSessions(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load active sessions: %w", err)
+	}
+
+	// Insert each session into memory without triggering database write
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, sess := range sessions {
+		if sess == nil || sess.AgentID == "" {
+			continue
+		}
+		s.agents[sess.AgentID] = sess
+	}
+
+	logx.Infof("loaded %d active agent sessions from database", len(sessions))
 	return nil
 }

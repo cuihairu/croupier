@@ -78,6 +78,9 @@ type ServiceContext struct {
 	CertificateModel   *model.CertificateModel
 	ConfigVersionModel *model.ConfigVersionModel
 
+	// Agent Session 持久化
+	AgentSessionModel *reg.AgentSessionModel
+
 	// 版本信息（由 build 脚本通过 ldflags 注入）
 	ServerVersion   string
 	ServerGitCommit string
@@ -125,6 +128,9 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	messageModel := model.NewMessageModel(db)
 	certificateModel := model.NewCertificateModel(db)
 	configVersionModel := model.NewConfigVersionModel(db)
+
+	// Agent Session Model for database persistence
+	agentSessionModel := reg.NewAgentSessionModel(db)
 
 	// 创建管理员管理器（基于JSON文件）
 	configDir := resolveBootstrapAuthDir(c)
@@ -200,6 +206,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		MessageModel:       messageModel,
 		CertificateModel:   certificateModel,
 		ConfigVersionModel: configVersionModel,
+		AgentSessionModel:  agentSessionModel,
 
 		// 版本信息（从 version.go 读取，ldflags 注入后会更新）
 		ServerVersion:   ServerVersion,
@@ -294,7 +301,11 @@ func autoMigrate(db *gorm.DB) error {
 		return fmt.Errorf("failed to migrate server models: %w", err)
 	}
 
-	// Add other model migrations here when they are created
+	// Migrate Agent Session model
+	if err := reg.MigrateAgentSessions(db); err != nil {
+		return fmt.Errorf("failed to migrate agent sessions: %w", err)
+	}
+
 	return nil
 }
 

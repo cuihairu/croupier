@@ -142,8 +142,13 @@ func (s *LocalStore) Register(providerID, addr, version string, funcs []*sdkv1.L
 			Deprecated:   fn.GetDeprecated(),
 			InputSchema:  fn.GetInputSchema(),
 			OutputSchema: fn.GetOutputSchema(),
+			Category:     fn.GetCategory(),
+			Risk:         fn.GetRisk(),
+			Entity:       fn.GetEntity(),
+			Operation:    fn.GetOperation(),
 		}
 	}
+	slog.Info("[agentlocal] Registered functions", "provider_id", providerID, "count", len(funcs), "store_size", len(s.data))
 	if s.onUpdate != nil {
 		slog.Debug("[agentlocal] Triggering OnUpdate callback")
 		go s.onUpdate()

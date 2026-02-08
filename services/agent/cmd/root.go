@@ -177,15 +177,17 @@ func startAgentCore(ctx context.Context, c *config.Config, configDir string) (*a
 	slog.Info("loading agent config", "config_file", cfgFile, "config_dir", configDir)
 
 	// NNG local service address (for SDK→Agent communication)
-	nngHost := strings.TrimSpace(c.ServerControl.Host)
-	if nngHost == "" {
-		nngHost = "0.0.0.0"
+	// Use LocalNNG.Addr instead of ServerControl.Port to avoid port conflicts
+	nngAddrStr := strings.TrimSpace(c.LocalNNG.Addr)
+	if nngAddrStr == "" {
+		nngAddrStr = ":19091" // Default NNG Agent port
 	}
-	nngPort := c.ServerControl.Port
-	if nngPort == 0 {
-		nngPort = 19091 // Default NNG Agent port
+	// Remove leading colon if present for display
+	nngDisplayAddr := nngAddrStr
+	if strings.HasPrefix(nngAddrStr, ":") {
+		nngDisplayAddr = "0.0.0.0" + nngAddrStr
 	}
-	nngAddr := fmt.Sprintf("%s:%d", nngHost, nngPort)
+	nngAddr := nngDisplayAddr
 
 	agentID := strings.TrimSpace(c.Agent.ID)
 	if agentID == "" {

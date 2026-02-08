@@ -14,6 +14,7 @@ import (
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
+	componentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/component/v1"
 )
 
 // UpstreamClient manages the connection to the central Croupier Server.
@@ -405,23 +406,71 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 	versionSnapshot := c.store.FunctionVersions()
 	metaSnapshot := c.store.FunctionMetadata()
 
-	// Convert to FunctionDescriptors
+	slog.Info("[upstream] syncing functions", "function_count", len(localData), "agent_id", c.agentID)
+
+	// Convert to FunctionDescriptors with complete information
 	var funcs []*agentv1.FunctionDescriptor
 	for fid, instances := range localData {
+		meta := metaSnapshot[fid]
 		desc := &agentv1.FunctionDescriptor{
 			Id:      fid,
 			Enabled: len(instances) > 0,
 			Version: pickVersion(versionSnapshot[fid]),
 		}
-		// Copy schema fields from metadata if available
-		if meta := metaSnapshot[fid]; meta != nil {
+		// Copy all metadata fields if available
+		if meta != nil {
+			desc.Category = meta.Category
+			desc.Risk = meta.Risk
+			desc.Entity = meta.Entity
+			desc.Operation = meta.Operation
 			desc.InputSchema = meta.InputSchema
 			desc.OutputSchema = meta.OutputSchema
+			desc.Tags = meta.Tags
+
+			// Set display_name and summary from metadata
+			if meta.Summary != "" {
+				desc.DisplayName = &componentv1.I18NText{
+					En: meta.Summary,
+					Zh: meta.Summary, // TODO: add proper i18n support
+				}
+			}
+			if meta.Description != "" {
+				desc.Summary = &componentv1.I18NText{
+					En: meta.Description,
+					Zh: meta.Description, // TODO: add proper i18n support
+				}
+			}
+
+			// Generate menu metadata from category/entity
+			if meta.Category != "" {
+				desc.Menu = &componentv1.Menu{
+					Section: "Functions",
+					Group:   toTitle(meta.Category),
+					Path:    "/functions/" + fid,
+					Order:   100,
+					Hidden:  false,
+				}
+				if meta.Entity != "" {
+					desc.Menu.Group = toTitle(meta.Entity)
+				}
+			}
+
+			// Generate permissions from operation type
+			if meta.Operation != "" {
+				desc.Permissions = &componentv1.PermissionSpec{
+					Verbs:  operationToVerbs(meta.Operation),
+					Scopes: []string{"game", "env", "function_id"},
+					Defaults: []*componentv1.RoleBinding{
+						{Role: "admin", Verbs: []string{"*"}},
+						{Role: "operator", Verbs: operationToVerbs(meta.Operation)},
+					},
+				}
+			}
 		}
 		funcs = append(funcs, desc)
 	}
 
-	processes := buildProcesses(localData, versionSnapshot)
+	providers := buildProviders(localData, versionSnapshot)
 
 	req := &agentv1.RegisterRequest{
 		AgentId:   c.agentID,
@@ -433,7 +482,7 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 		Zone:      c.zone,
 		Labels:    c.labels,
 		Functions: funcs,
-		Processes: processes,
+		Processes: providers,
 	}
 
 	_, err := c.nngClient.Register(ctx, req)
@@ -450,7 +499,7 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 	return nil
 }
 
-func buildProcesses(localData map[string][]agentlocal.Instance, versionSnapshot map[string]map[string]string) []*agentv1.AgentProcess {
+func buildProviders(localData map[string][]agentlocal.Instance, versionSnapshot map[string]map[string]string) []*agentv1.AgentProcess {
 	byServiceID := map[string]*agentv1.AgentProcess{}
 	fnSeen := map[string]map[string]struct{}{} // service_id -> function_id set
 
@@ -629,4 +678,32 @@ func (c *UpstreamClient) ReportMetricsOnce(ctx context.Context) error {
 	// Collect metrics (not implemented for NNG yet)
 	_ = c.metricsCollector.Collect(ctx)
 	return fmt.Errorf("metrics reporting via NNG not yet implemented")
+}
+
+// toTitle converts a string to title case (first letter uppercase)
+func toTitle(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// operationToVerbs converts an operation type to permission verbs
+func operationToVerbs(operation string) []string {
+	switch operation {
+	case "create":
+		return []string{"create", "write"}
+	case "read", "get", "list":
+		return []string{"read", "view"}
+	case "update", "edit":
+		return []string{"update", "edit", "write"}
+	case "delete", "remove":
+		return []string{"delete", "remove"}
+	case "invoke", "execute":
+		return []string{"invoke", "execute"}
+	case "custom":
+		return []string{"invoke"}
+	default:
+		return []string{"invoke"}
+	}
 }

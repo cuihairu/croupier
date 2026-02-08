@@ -209,8 +209,11 @@ func startNNGControlServer(c *config.Config, svcCtx *svc.ServiceContext) {
 		addr = "0.0.0.0" + addr
 	}
 
-	// 创建 NNG 控制服务器
-	nngServer := nng.NewServer(addr, svcCtx.RegistryStore)
+	// 解析地址为 ListenAddr 数组
+	addrs := []nng.ListenAddr{nng.ParseListenAddr(addr)}
+
+	// 创建 NNG 控制服务器（带数据库持久化）
+	nngServer := nng.NewServerWithDB(addrs, svcCtx.RegistryStore, svcCtx.AgentSessionModel)
 
 	// 启动服务器
 	if err := nngServer.Start(); err != nil {
@@ -220,7 +223,7 @@ func startNNGControlServer(c *config.Config, svcCtx *svc.ServiceContext) {
 
 	// 获取实际监听地址
 	localAddr, _ := nngServer.GetLocalAddr()
-	fmt.Printf("Starting NNG ControlService on %s (SDK/Agent registration)...\n", localAddr)
+	fmt.Printf("Starting NNG ControlService on %s (SDK/Agent registration with DB persistence)...\n", localAddr)
 }
 
 func applyRuntimeDefaults(c *config.Config) {

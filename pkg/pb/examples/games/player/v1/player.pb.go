@@ -122,7 +122,7 @@ var File_examples_games_player_v1_player_proto protoreflect.FileDescriptor
 
 const file_examples_games_player_v1_player_proto_rawDesc = "" +
 	"\n" +
-	"%examples/games/player/v1/player.proto\x12\x18examples.games.player.v1\x1a,croupier/component/v1/function_options.proto\x1a&croupier/component/v1/ui_options.proto\"p\n" +
+	"%examples/games/player/v1/player.proto\x12\x18examples.games.player.v1\x1a&croupier/component/v1/ui_options.proto\"p\n" +
 	"\n" +
 	"BanRequest\x122\n" +
 	"\tplayer_id\x18\x01 \x01(\tB\x15\x8a\xb2\x19\x11\n" +
@@ -130,11 +130,7 @@ const file_examples_games_player_v1_player_proto_rawDesc = "" +
 	"\x06reason\x18\x02 \x01(\tB\x16\x8a\xb2\x19\x12\n" +
 	"\btextarea\x1a\x06原因R\x06reason\"%\n" +
 	"\vBanResponse\x12\x16\n" +
-	"\x06result\x18\x01 \x01(\tR\x06result2\xaa\x01\n" +
-	"\x0fPlayerGmService\x12\x96\x01\n" +
-	"\x03Ban\x12$.examples.games.player.v1.BanRequest\x1a%.examples.games.player.v1.BanResponse\"B\xca\xf3\x18>\n" +
-	"\n" +
-	"player.ban\x12\x051.2.0\x1a\x06player\"\x04high*\x02lb2\x0330s8\x01B\x05agentR\acommandX\x01B\x7f\n" +
+	"\x06result\x18\x01 \x01(\tR\x06resultB\x7f\n" +
 	"4io.github.cuihairu.croupier.examples.games.player.v1P\x01ZEgithub.com/cuihairu/croupier/pkg/pb/examples/games/player/v1;playerv1b\x06proto3"
 
 var (
@@ -155,10 +151,8 @@ var file_examples_games_player_v1_player_proto_goTypes = []any{
 	(*BanResponse)(nil), // 1: examples.games.player.v1.BanResponse
 }
 var file_examples_games_player_v1_player_proto_depIdxs = []int32{
-	0, // 0: examples.games.player.v1.PlayerGmService.Ban:input_type -> examples.games.player.v1.BanRequest
-	1, // 1: examples.games.player.v1.PlayerGmService.Ban:output_type -> examples.games.player.v1.BanResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
+	0, // [0:0] is the sub-list for method output_type
+	0, // [0:0] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -177,7 +171,7 @@ func file_examples_games_player_v1_player_proto_init() {
 			NumEnums:      0,
 			NumMessages:   2,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   0,
 		},
 		GoTypes:           file_examples_games_player_v1_player_proto_goTypes,
 		DependencyIndexes: file_examples_games_player_v1_player_proto_depIdxs,
