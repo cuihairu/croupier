@@ -1,9 +1,0 @@
-{
-  "functions": [
-    { "id": "prom.query", "version": "1.0.0", "category": "prom" },
-    { "id": "prom.query_range", "version": "1.0.0", "category": "prom" }
-  ],
-  "web_plugins": [
-    "web-plugin/echarts_plugin.js"
-  ]
-}

@@ -11,7 +11,7 @@ tag:
 
 # 系统架构
 
-Croupier 采用**三层分布式架构**，实现权限控制、函数路由和 UI 展示的完全分离。
+Croupier 采用**四层分布式架构**，实现权限控制、函数路由和 UI 展示的完全分离。
 
 ## 架构图
 
@@ -31,16 +31,12 @@ graph TB
     Approval[审批工作流]
   end
 
-  subgraph "接入层 - Edge (可选)"
-    Edge[Edge Proxy<br/>隧道复用]
-  end
-
   subgraph "代理层 - Agent"
     Agent1[Agent 1<br/>游戏内网 A]
     Agent2[Agent 2<br/>游戏内网 B]
   end
 
-  subgraph "游戏服务层"
+  subgraph "业务层 - Service"
     GS1[Game Server A<br/>+ SDK]
     GS2[Game Server B<br/>+ SDK]
     GS3[Game Server C<br/>+ SDK]
@@ -51,8 +47,7 @@ graph TB
   RBAC --> Control
   RBAC --> Function
   Control --> Agent1
-  Control --> Edge
-  Edge --> Agent2
+  Control --> Agent2
   Function --> Agent1
   Function --> Agent2
   Agent1 --> GS1
@@ -65,14 +60,12 @@ graph TB
   classDef ui fill:#e8f5ff,stroke:#1890ff
   classDef server fill:#f6ffed,stroke:#52c41a
   classDef agent fill:#fff7e6,stroke:#fa8c16
-  classDef game fill:#f0f9e6,stroke:#52c41a
-  classDef edge fill:#fffbe6,stroke:#faad14
+  classDef service fill:#f0f9e6,stroke:#52c41a
 
   class Dashboard,Mobile ui
   class API,Control,Function,RBAC,Audit,Approval server
-  class Edge edge
   class Agent1,Agent2 agent
-  class GS1,GS2,GS3 game
+  class GS1,GS2,GS3 service
 ```
 
 ## 分层说明
@@ -109,19 +102,7 @@ graph TB
 - 双人强制规则
 - 敏感字段脱敏
 
-### 3. 接入层
-
-**职责**: 公网接入、隧道转发
-
-**组件**:
-- **Edge Proxy**: DMZ 部署的边缘代理
-
-**特性**:
-- 双向隧道支持
-- 连接复用
-- 流量转发
-
-### 4. 代理层
+### 3. 代理层
 
 **职责**: 游戏内网代理、函数注册、调用转发
 
@@ -135,7 +116,7 @@ graph TB
 - 异步作业执行
 - 作业取消与进度流
 
-### 5. 游戏服务层
+### 4. 业务层
 
 **职责**: 业务逻辑实现
 
@@ -209,8 +190,6 @@ message JobEvent {
 |------|------|----------|
 | Dashboard → Server | HTTPS | TLS |
 | Server → Agent | gRPC | mTLS |
-| Server → Edge | gRPC | mTLS |
-| Edge → Agent | gRPC | mTLS |
 | Agent → Game Server | gRPC | 可选 mTLS |
 
 ### 权限模型
@@ -272,10 +251,6 @@ message JobEvent {
 │  │         │                       │   │
 │  │    Agent (游戏服务器旁)         │   │
 │  └─────────────────────────────────┘   │
-│  ┌─────────────────────────────────┐   │
-│  │  DMZ 网段                        │   │
-│  │  Edge (可选)                    │   │
-│  └─────────────────────────────────┘   │
 └─────────────────────────────────────────┘
 ```
 
@@ -290,13 +265,6 @@ message JobEvent {
 │  │           │       │  │           │
 │  Game Server │       │  Game Server │
 └──────────────┘       └──────────────┘
-       │                       │
-       └───────────┬───────────┘
-                   │
-              ┌─────────┐
-              │  Edge   │
-              │  (DMZ)  │
-              └─────────┘
 ```
 
 ## 相关文档

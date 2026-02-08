@@ -203,6 +203,62 @@ Server 同时暴露 HTTP REST API (端口 8080)，用于 Dashboard 和 Web 客�
 http://server:8080/api/v1
 ```
 
+### API 端点概览
+
+**统计信息**：
+- **总计**: 320 个 API 端点
+- **GET**: 195 个（61%）
+- **POST**: 100 个（31.25%）
+- **PUT**: 24 个（7.5%）
+- **DELETE**: 25 个（7.8%）
+- **PATCH**: 1 个（0.3%）
+
+### 主要 API 模块
+
+| 模块 | 端点数量 | 功能描述 |
+|------|----------|----------|
+| analytics | ~30 | 数据分析与统计 |
+| player | ~15 | 玩家管理 |
+| game | ~12 | 游戏管理 |
+| function | ~10 | 函数管理 |
+| admin | ~20 | 管理员操作 |
+| agent | ~8 | Agent 管理 |
+| job | ~10 | 作业管理 |
+| auth | ~8 | 认证授权 |
+| audit | ~6 | 审计日志 |
+| approval | ~8 | 审批流程 |
+| ... | ... | 其他模块 |
+
+> **完整 API 列表**: 详见各模块 `.api` 文件定义（位于 `services/server/modules/`）
+
+### 核心端点示例
+
+#### 函数管理 (function.api)
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| GET | `/functions` | 获取函数列表 |
+| GET | `/functions/:id` | 获取函数详情 |
+| POST | `/functions` | 创建函数 |
+| PUT | `/functions/:id` | 更新函数 |
+| DELETE | `/functions/:id` | 删除函数 |
+
+#### Agent 管理 (agent.api)
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| GET | `/agents` | 获取 Agent 列表 |
+| GET | `/agents/:id` | 获取 Agent 详情 |
+| POST | `/agents/:id/heartbeat` | Agent 心跳 |
+| DELETE | `/agents/:id` | 注销 Agent |
+
+#### 玩家管理 (player.api)
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| GET | `/players` | 获取玩家列表 |
+| GET | `/players/:id` | 获取玩家详情 |
+| POST | `/players` | 创建玩家 |
+| PUT | `/players/:id` | 更新玩家信息 |
+| DELETE | `/players/:id` | 删除玩家 |
+
 ### 公共端点
 
 | 方法 | 路径 | 描述 |

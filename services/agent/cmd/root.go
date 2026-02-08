@@ -82,6 +82,9 @@ func runAgent() error {
 		return fmt.Errorf("配置文件是必需的")
 	}
 
+	// 获取配置文件所在目录（用于 platforms.yaml 等辅助配置）
+	configDir := filepath.Dir(cfgFile)
+
 	var c config.Config
 	conf.MustLoad(cfgFile, &c, conf.UseEnv())
 
@@ -126,7 +129,7 @@ func runAgent() error {
 	runCtx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	core, nngAddr, err := startAgentCore(runCtx, &c)
+	core, nngAddr, err := startAgentCore(runCtx, &c, configDir)
 	if err != nil {
 		return err
 	}
@@ -166,10 +169,12 @@ func shortVersion() string {
 	}
 }
 
-func startAgentCore(ctx context.Context, c *config.Config) (*agentcore.App, string, error) {
+func startAgentCore(ctx context.Context, c *config.Config, configDir string) (*agentcore.App, string, error) {
 	if c == nil {
 		return nil, "", fmt.Errorf("missing config")
 	}
+
+	slog.Info("loading agent config", "config_file", cfgFile, "config_dir", configDir)
 
 	// NNG local service address (for SDK→Agent communication)
 	nngHost := strings.TrimSpace(c.ServerControl.Host)
@@ -204,7 +209,8 @@ func startAgentCore(ctx context.Context, c *config.Config) (*agentcore.App, stri
 		labels[k] = v
 	}
 
-	core := agentcore.New(strings.TrimSpace(c.Server.Addr), agentID)
+	// 使用 NewWithConfigDir 以确保 platforms.yaml 能从正确的目录加载
+	core := agentcore.NewWithConfigDir(strings.TrimSpace(c.Server.Addr), agentID, configDir)
 	core.SetNNGAddr(nngAddr)
 	core.WithUpstreamMetadata(agentcore.UpstreamMetadata{
 		GameID:            strings.TrimSpace(c.Agent.GameID),

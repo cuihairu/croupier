@@ -26,7 +26,7 @@ Manifest 文件
 - Provider 进程加载 manifest 后，通过 ControlService 上报能力（可新增 RPC，或给现有 Register 扩展字段）：
   - 上报 `provider` 元信息、`functions[]`、`entities[]`，以及内嵌或外链的 JSON‑Schema（也可用内容哈希 + 上传端点）。
 - Server 接收后合并为统一 descriptors，暴露在 `/api/descriptors`，供 UI/RBAC/校验使用。
-- 调用链路使用 FunctionService（gRPC）；载荷默认 JSON；指定 `transport.proto` 时，Server/Edge 可用 FDS 做 JSON↔Proto 转换。
+- 调用链路使用 FunctionService（gRPC）；载荷默认 JSON；指定 `transport.proto` 时，Server 可用 FDS 做 JSON↔Proto 转换。
 
 参数定义与校验
 - 首选 JSON‑Schema：
@@ -45,7 +45,7 @@ Manifest 文件
 
 错误模型
 - Provider 处理器需返回带类型的错误：`invalid_argument`、`not_found`、`already_exists`、`precondition_failed`、`rate_limited`、`deadline_exceeded`、`unavailable`、`unauthorized`、`forbidden`、`internal`。
-- Server/Edge 将其映射为 HTTP 状态码与“是否可重试”建议。
+- Server 将其映射为 HTTP 状态码与"是否可重试"建议。
 
 路由与语义
 - `semantics.rate_limit`：如 `100/s`、`1000/m`，或对象 `{ value: 100, window: "1s" }`。

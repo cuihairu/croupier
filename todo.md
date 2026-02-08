@@ -12,8 +12,8 @@
 | P2 | 0 | 18 | 100.0% |
 | P3 | 0 | 12 | 100.0% |
 | P3b | 0 | 6 | 100.0% |
-| P4 | 0 | 242 | 100.0% |
-| 总计 | 0 | 340 | 100.0% |
+| P4 | 2 | 240 | 99.2% |
+| 总计 | 2 | 338 | 99.4% |
 
 > **说明**: P4 文档 checklist 项（146 项）已确认为非代码实现任务，包括：
 > - 部署检查清单（Deployment Checklist）
@@ -23,14 +23,17 @@
 > - 实施计划（Implementation Plan）
 > - 文档导航指南（Documentation Index）
 >
-> **最近更新** (2025-01-05)：
+> **最近更新** (2026-02-06)：
+> - ✅ P0-P3b: 全部完成
+> - ⏳ P4: 剩余 2 个文档任务（API 文档、Edge 层架构文档）
+> - 📋 OpenAPI 统一设计方案：规划中（P1 优先级，预计 10 周）
+>
+> **历史更新** (2025-01-05)：
 > - ✅ P0: 完成实例管理页面完整功能（详情/日志/调试视图）
 > - ✅ P1: 完成 Proto-First 完整 manifest 生成（entities + schema）
 > - ✅ P1: 完成 Provider descriptors 深度合并（冲突策略）
 > - ✅ P1: 完成函数分配管理页面增强
 > - ✅ P1: 完成包管理页面增强
-> - ✅ P4: 完成 API 文档补充
-> - ✅ P4: 完成架构文档更新（Edge 层）
 
 | 范围 | 状态 | 说明 |
 | --- | --- | --- |
@@ -59,6 +62,39 @@
 - [x] Server：启动 gRPC ControlService（mTLS）并与 go-zero HTTP 控制面收敛（已实现：startGRPCServer 函数使用 tlsutil.ServerTLS，支持 mTLS，与 HTTP 服务在同一进程中运行）`services/server/cmd/root.go:96`
 - [x] Jobs：job 路由持久化/重启恢复策略（避免 Server/Edge 重启后无法查询）（已实现：JobRoutingStore 接口、FileJobRoutingStore 文件持久化、loadJobRouting 启动加载）`internal/platform/dispatch/dispatcher.go:18`
 - [x] Dashboard：Entities 的 JSON Schema 编辑体验增强（编辑器/预览/校验联动）（已实现：XEntityForm 集成 JSONSchemaEditor/UISchemaEditor，FormRender 预览，校验联动）`dashboard/src/pages/Entities/index.tsx:140`
+
+## 建议的下一步（2026-02 评估）
+
+> **评估背景**: 基于代码结构分析（114K 行 Go 代码，872 个源文件）和 TODO 完成状态，按投入产出比排序。
+
+### 🔴 短期（1 周内）
+
+| 任务 | 预估 | 说明 |
+|-----|------|------|
+| 补充 `docs/api.md` | 2-3 天 | 从 `proto/` + `services/server/modules/*.api` 整理完整 API 文档 |
+| 更新 `docs/architecture/layers.md` | 1 天 | 补充 Edge Proxy 层，从"五层"更新为"六层"架构 |
+
+### 🟡 中期（1-2 月）
+
+| 任务 | 预估 | 说明 |
+|-----|------|------|
+| OpenAPI 统一设计（阶段 A） | 4 周 | 基础设施 + 转换器，不改变现有行为（详见下方设计方案） |
+| 清理 `internal/config/` 旧代码 | 1 天 | 移除未使用的配置模型（已迁移到 go-zero） |
+| 增加 NNG 集成测试 | 3-5 天 | 覆盖 Agent↔Server 通信链路的端到端测试 |
+
+### 🟢 长期（季度规划）
+
+| 任务 | 预估 | 说明 |
+|-----|------|------|
+| OpenAPI 统一设计（阶段 B） | 6 周 | 完整迁移 + 前端适配 |
+| 测试覆盖率提升 | 持续 | 当前 57 个测试文件覆盖 44 个包，建议增加集成测试 |
+| SDK 同步机制优化 | 2 周 | 考虑 Go Workspace 或 Buf 管理的 proto 同步 |
+
+### 代码质量建议
+
+- [ ] 全局搜索确认 `fmt.Printf("DEBUG: ...")` 已全部清理
+- [ ] 统一使用 `internal/errors` 的结构化错误（替代 `fmt.Errorf`）
+- [ ] 移除 `internal/config/types.go` 等未使用的旧配置代码
 
 ## 使用方式
 
@@ -234,6 +270,435 @@
 - [x] 进阶特性：Dynamic Entity 生成（规划中路线图，当前多租户已实现）`docs/VIRTUAL_OBJECT_DESIGN.md:925`
 - [x] 多租户：租户级别的组件/数据/权限隔离（已实现：CheckGameEnvScope、game_id/env 字段隔离、Redis 键隔离）`docs/ARCHITECTURE.md:304`
 - [x] 插件生态：第三方组件市场/模板库/社区贡献机制（规划中路线图，当前基础插件系统已实现）`docs/ARCHITECTURE.md:304`
+
+## OpenAPI 统一设计方案（规划中）
+
+> **说明**: 此方案将 Croupier 的函数注册机制统一为 OpenAPI 3.0.3 标准，同时保留 Entity 组织和 UI 覆盖能力。
+
+### 设计文档
+
+- 📘 **完整设计方案**: 见下方详细设计
+- 📅 **建议实施时间**: Q2 2025（10周计划）
+- 🎯 **优先级**: P1（核心能力增强）
+- 💡 **设计原则**:
+  - OpenAPI 3.0.3 为唯一标准
+  - 使用 `x-*` 扩展字段保留 Croupier 特定功能
+  - Schema 不可变（数据契约），UI 可覆盖
+  - 向后兼容现有函数
+
+### 一、核心设计变更
+
+#### 1.1 统一的 FunctionDescriptor（Proto 定义）
+
+**文件**: `proto/croupier/agent/v1/register.proto`
+
+```protobuf
+message FunctionDescriptor {
+  // === OpenAPI 3.0.3 Operation 标准字段 ===
+  string operation_id = 1;
+  string summary = 2;
+  string description = 3;
+  repeated string tags = 4;
+  bool deprecated = 5;
+
+  // === OpenAPI 3.0.3 Schema 字段 ===
+  string request_schema = 10;   // JSON 序列化的 OpenAPI Request Schema
+  string response_schema = 11;  // JSON 序列化的 OpenAPI Response Schema
+
+  // === Croupier 扩展字段 (x-* 前缀) ===
+  string x_category = 20;
+  string x_risk = 21;
+  string x_entity = 22;
+  string x_operation = 23;
+  bool x_enabled = 24;
+  string x_version = 25;
+
+  // UI/RBAC 字段
+  croupier.component.v1.I18nText x_display_name = 30;
+  croupier.component.v1.I18nText x_summary = 31;
+  croupier.component.v1.Menu x_menu = 32;
+  croupier.component.v1.PermissionSpec x_permissions = 33;
+
+  // 运行时配置 (JSON 序列化)
+  string x_semantics = 40;
+  string x_auth = 41;
+  string x_transport = 42;
+  string x_ui = 43;
+  string x_outputs = 44;
+}
+```
+
+#### 1.2 字段映射规则
+
+| 旧字段 | OpenAPI 标准字段 | 说明 |
+|--------|----------------|------|
+| `params` | `requestBody.content['application/json'].schema` | Pack 转换 |
+| `input_schema` | `requestBody.content['application/json'].schema` | 已是标准 |
+| `output_schema` | `responses.200.content['application/json'].schema` | 已是标准 |
+| `category` | `x-category` | 扩展字段 |
+| `risk` | `x-risk` | 扩展字段 |
+| `entity` | `x-entity` | 扩展字段 |
+| `operation` | `x-operation` | 扩展字段 |
+
+### 二、Entity 组织方式（OpenAPI 扩展）
+
+#### 2.1 全局 Entity 定义
+
+```yaml
+openapi: 3.0.3
+info:
+  title: Croupier Functions
+  version: 1.0.0
+
+# ========== Croupier 扩展：定义实体 ==========
+x-entities:
+  player:
+    $ref: '#/x-entity-definitions/player'
+  item:
+    $ref: '#/x-entity-definitions/item'
+
+x-entity-definitions:
+  player:
+    name: 玩家
+    description: 玩家实体
+    primary_key: player_id
+    display_field: nickname
+    title_template: '{{.nickname}} (Lv{{.level}})'
+
+    schema:
+      $schema: 'https://json-schema.org/draft/2020-12/schema'
+      type: object
+      properties:
+        player_id:
+          type: string
+          x-primary-key: true
+        nickname:
+          type: string
+          x-display-field: true
+        level:
+          type: integer
+
+    operations:
+      create: [player.create]
+      read: [player.get, player.list]
+      update: [player.update, player.ban]
+      delete: [player.delete]
+      custom:
+        ban: player.ban
+        unban: player.unban
+
+    ui:
+      display_name:
+        zh: 玩家
+        en: Player
+      icon: UserOutlined
+      menu:
+        section: game
+        group: 玩家管理
+```
+
+#### 2.2 函数关联 Entity
+
+```yaml
+paths:
+  /functions/player.ban:
+    post:
+      operationId: player.ban
+      tags: [Player]
+
+      # 关联到实体
+      x-entity: player
+      x-crud-operation: update
+      x-custom-operation: ban
+
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/x-entity-definitions/player/schema'
+```
+
+### 三、UI 覆盖机制（Schema 不可变，UI 可覆盖）
+
+#### 3.1 分层结构
+
+```
+┌─────────────────────────────────────────┐
+│     OpenAPI Operation Object            │
+├─────────────────────────────────────────┤
+│  Request Schema  (❌ 不可覆盖)         │
+│  - type, properties, required          │
+├─────────────────────────────────────────┤
+│  Response Schema (❌ 不可覆盖)         │
+├─────────────────────────────────────────┤
+│  x-ui Schema     (✅ 可覆盖)           │
+│  - display_name, layout, widget        │
+└─────────────────────────────────────────┘
+```
+
+#### 3.2 覆盖优先级
+
+```go
+// 字段合并策略
+func OpenAPIMergeConfig() []MergeConfig {
+    return []MergeConfig{
+        // ========== 不可覆盖：数据契约 ==========
+        {FieldPath: "requestBody.content.*.schema",
+         Priority: []string{"provider", "component"}}, // ❌ 没有 override
+
+        {FieldPath: "responses.*.content.*.schema",
+         Priority: []string{"provider", "component"}}, // ❌ 没有 override
+
+        // ========== 可覆盖：UI 配置 ==========
+        {FieldPath: "x-ui.display_name",
+         Priority: []string{"provider", "component", "server", "override"}}, // ✅ 有 override
+
+        {FieldPath: "x-ui.layout",
+         Priority: []string{"provider", "component", "server", "override"}}, // ✅ 有 override
+
+        {FieldPath: "x-ui.fields",
+         Priority: []string{"provider", "component", "server", "override"}}, // ✅ 有 override
+    }
+}
+```
+
+#### 3.3 配置示例
+
+**Provider 默认配置** (`configs/ui/player.ban.yaml`):
+```yaml
+player.ban:
+  x-ui:
+    display_name:
+      zh: 封禁玩家
+      en: Ban Player
+    layout:
+      type: grid
+      cols: 2
+    fields:
+      player_id:
+        x-ui-widget: input
+      reason:
+        x-ui-widget: textarea
+```
+
+**Server 端覆盖** (`configs/ui/player.ban.override.yaml`):
+```yaml
+player.ban:
+  x-ui:
+    display_name:
+      zh: 账号封禁  # ✅ 覆盖
+      en: Account Ban
+    layout:
+      type: vertical  # ✅ 覆盖布局
+    fields:
+      reason:
+        x-ui-widget: select  # ✅ 覆盖组件类型
+        x-ui-options:
+          - {label: 作弊, value: cheating}
+          - {label: 违规, value: violation}
+```
+
+### 四、实施路径（10周）
+
+#### 阶段一：基础设施（Week 1-2）
+
+- [ ] 创建转换器模块
+  - [ ] `internal/function/converter/pack.go` - Pack to OpenAPI
+  - [ ] `internal/function/converter/proto.go` - Proto to OpenAPI
+  - [ ] `internal/platform/openapi/converter.go` - OpenAPI Provider
+  - [ ] 单元测试覆盖
+
+- [ ] 修改 `protoc-gen-croupier`
+  - [ ] 生成完整的 OpenAPI Operation Object
+  - [ ] 保持向后兼容（同时生成旧格式）
+  - [ ] 文档和示例
+
+- [ ] 扩展 Validation
+  - [ ] 支持 OpenAPI 3.0.3 Schema 验证
+  - [ ] 验证 `x-*` 扩展字段
+  - [ ] 错误提示优化
+
+#### 阶段二：Server 端改造（Week 3-4）
+
+- [ ] 修改 Server Registry
+  - [ ] 存储完整的 OpenAPI Operation
+  - [ ] 支持 Schema 查询 API
+  - [ ] 数据库迁移脚本
+
+- [ ] 修改 HTTP API
+  - [ ] `GET /api/v1/functions` - 返回 OpenAPI 格式
+  - [ ] `GET /api/v1/functions/{id}/openapi` - 完整 OpenAPI spec
+  - [ ] `POST /api/v1/functions/_import` - 导入 OpenAPI spec
+  - [ ] `GET /api/v1/entities` - 查询实体列表
+  - [ ] `GET /api/v1/entities/{id}/functions` - 查询实体函数
+
+- [ ] 实现覆盖配置管理
+  - [ ] `PUT /api/v1/functions/{id}/ui` - 更新 UI 配置
+  - [ ] `GET /api/v1/functions/{id}/ui` - 查看 UI 来源
+  - [ ] 配置文件加载逻辑
+
+#### 阶段三：Agent 端改造（Week 5-6）
+
+- [ ] 修改 LocalStore
+  - [ ] 存储完整的 OpenAPI Operation
+  - [ ] 转换逻辑集成
+
+- [ ] 修改 Upstream Sync
+  - [ ] 同步完整的 OpenAPI Schema 到 Server
+
+- [ ] Platform 集成
+  - [ ] OpenAPI Provider 生成标准格式
+  - [ ] 其他 Provider 适配器
+
+#### 阶段四：Pack 迁移（Week 7-8）
+
+- [ ] Pack 工具升级
+  - [ ] `pack build` 生成 OpenAPI 格式
+  - [ ] `pack validate` 验证 OpenAPI 规范
+  - [ ] 自动转换脚本
+
+- [ ] 现有 Pack 迁移
+  - [ ] http pack
+  - [ ] prom pack
+  - [ ] player pack
+  - [ ] grafana pack
+
+#### 阶段五：前端适配（Week 9-10）
+
+- [ ] 前端 API 调整
+  - [ ] 使用 OpenAPI Schema 生成表单
+  - [ ] 利用 `x-ui` 扩展优化 UI
+
+- [ ] Entity 管理界面
+  - [ ] 基于实体生成 CRUD 界面
+  - [ ] 实体操作可视化
+
+- [ ] 文档生成
+  - [ ] 自动生成 OpenAPI 文档
+  - [ ] Swagger UI 集成
+
+### 五、关键文件清单
+
+#### 新增文件
+
+```
+internal/function/converter/
+├── pack.go              # Pack to OpenAPI converter
+├── proto.go             # Proto to OpenAPI converter
+├── openapi.go           # OpenAPI utilities
+└── converter_test.go    # Unit tests
+
+internal/platform/openapi/
+├── converter.go         # OpenAPI Provider converter
+├── validator.go         # OpenAPI Schema validator
+└── entities.go          # Entity management
+
+configs/ui/
+├── functions/           # Provider default UI
+├── functions.override/  # Server overrides
+└── merge-policy.yaml    # Merge strategy config
+```
+
+#### 修改文件
+
+```
+proto/croupier/agent/v1/register.proto  # FunctionDescriptor 更新
+tools/protoc-gen-croupier/main.go        # 生成 OpenAPI 格式
+services/server/internal/svc/servicecontext.go  # Registry 扩展
+services/server/internal/logic/function/descriptors_logic.go  # API 调整
+internal/platform/registry/store.go      # Merge config 更新
+internal/app/agent/upstream.go           # Sync OpenAPI Schema
+```
+
+### 六、测试策略
+
+#### 单元测试
+
+- [ ] Pack converter 测试
+- [ ] Proto converter 测试
+- [ ] OpenAPI validator 测试
+- [ ] Merge strategy 测试
+- [ ] Field override 测试
+
+#### 集成测试
+
+- [ ] Proto → OpenAPI → Server → API 端到端
+- [ ] Pack → OpenAPI → Server → API 端到端
+- [ ] OpenAPI Provider → Server → API 端到端
+- [ ] UI 覆盖配置端到端
+
+#### 兼容性测试
+
+- [ ] 旧 Pack 函数仍可正常调用
+- [ ] 新 OpenAPI 函数功能正常
+- [ ] Schema 不可变验证
+- [ ] UI 覆盖生效验证
+
+### 七、迁移检查清单
+
+#### 数据迁移
+
+- [ ] 备份现有 functions 表
+- [ ] 执行数据库迁移（添加 request_schema/response_schema 字段）
+- [ ] 迁移现有 Pack 数据（params → request_schema）
+- [ ] 验证迁移结果
+
+#### 配置迁移
+
+- [ ] 转换现有 UI 配置到新格式
+- [ ] 验证覆盖配置加载
+- [ ] 测试合并策略
+- [ ] 回滚方案准备
+
+#### API 兼容性
+
+- [ ] 旧 API 继续工作
+- [ ] 新 API 返回 OpenAPI 格式
+- [ ] 文档更新
+- [ ] 客户端迁移指南
+
+### 八、成功指标
+
+#### 技术指标
+
+- ✅ 所有函数使用 OpenAPI 3.0.3 格式
+- ✅ 100% 向后兼容现有函数
+- ✅ OpenAPI Validator 通过率 100%
+- ✅ 单元测试覆盖率 > 80%
+
+#### 功能指标
+
+- ✅ 支持按 Entity 查询函数
+- ✅ UI 覆盖配置生效
+- ✅ Schema 不可变强制执行
+- ✅ 前端基于 OpenAPI 生成表单
+
+#### 工程指标
+
+- ✅ 代码重复减少 > 30%
+- ✅ 函数注册代码简化 > 40%
+- ✅ 文档生成自动化
+- ✅ 工具链集成（Swagger/OpenAPI Generator）
+
+### 九、风险与缓解
+
+| 风险 | 影响 | 缓解措施 |
+|------|------|---------|
+| 迁移成本高 | 中 | 渐进式迁移，双模式存储 |
+| 性能下降 | 低 | Schema 缓存，按需加载 |
+| 兼容性问题 | 中 | 完整测试覆盖，回滚方案 |
+| 学习成本 | 低 | OpenAPI 是行业标准 |
+| 工具不兼容 | 低 | 充分测试，备用方案 |
+
+### 十、参考资源
+
+- **OpenAPI 3.0.3 规范**: https://swagger.io/specification/
+- **JSON Schema**: https://json-schema.org/
+- **现有实现**: `internal/platform/registry/store.go:388` (LoadUIOverrides)
+- **Entity 定义**: `tools/protoc-gen-croupier/main.go:1515` (Entity helpers)
+- **合并策略**: `internal/platform/registry/store.go:490` (DefaultMergeConfig)
+
+---
 
 ## P4 - 工程化与一致性（持续项）
 

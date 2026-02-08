@@ -1,9 +1,6 @@
 package main
 
 import (
-	"archive/tar"
-	"bytes"
-	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,9 +13,31 @@ import (
 	"google.golang.org/protobuf/proto"
 	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
 	pluginpb "google.golang.org/protobuf/types/pluginpb"
+	"gopkg.in/yaml.v3"
 )
 
-// CodeGeneratorRequest/Response are in descriptorpb since protoc >= v3.20 uses them via plugin proto.
+// OpenAPI types for specification generation
+type OpenAPIOperation struct {
+	ID          string            `json:"operationId"`
+	Summary     map[string]string `json:"summary,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Category    string            `json:"x-category,omitempty"`
+	Risk        string            `json:"x-risk,omitempty"`
+	Entity      string            `json:"x-entity,omitempty"`
+	Operation   string            `json:"x-operation,omitempty"`
+	Labels      map[string]string `json:"x-labels,omitempty"`
+	Request     map[string]any    `json:"request,omitempty"`
+	Response    map[string]any    `json:"response,omitempty"`
+}
+
+type OpenAPIEntity struct {
+	ID          string            `json:"id"`
+	Name        string            `json:"name,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Category    string            `json:"x-category,omitempty"`
+	DisplayName map[string]string `json:"display_name,omitempty"`
+	Summary     map[string]string `json:"summary,omitempty"`
+}
 
 func main() {
 	// Read request from stdin
@@ -33,15 +52,11 @@ func main() {
 
 	// Defaults and params
 	params := parseParams(req.GetParameter())
-	emitPack := params["emit_pack"] == "true" || params["pack"] == "true"
-	emitManifest := params["emit_manifest"] == "true" || params["manifest"] == "true"
-	emitFDS := params["emit_fds"] == "true" || params["fds"] == "true" || params["emit_fds"] == ""
-	emitUI := params["emit_ui"] != "false" && params["ui"] != "false"
+	emitSchemas := params["emit_schemas"] == "true" || params["schemas"] == "true"
 
 	resp := &pluginpb.CodeGeneratorResponse{}
 
 	// Build a lookup for message types and services in files to generate
-	fds := &descriptorpb.FileDescriptorSet{File: req.ProtoFile}
 	filesToGen := make(map[string]bool)
 	for _, f := range req.GetFileToGenerate() {
 		filesToGen[f] = true
@@ -59,41 +74,9 @@ func main() {
 		}
 	}
 
-	// Manifest and output collections
-	type FunctionSpec struct {
-		ID          string            `json:"id"`
-		Version     string            `json:"version,omitempty"`
-		Category    string            `json:"category,omitempty"`
-		Labels      map[string]string `json:"labels,omitempty"`
-		Request     map[string]any    `json:"request,omitempty"`
-		Response    map[string]any    `json:"response,omitempty"`
-		Auth        map[string]any    `json:"auth,omitempty"`
-		Semantics   map[string]any    `json:"semantics,omitempty"`
-		Transport   map[string]any    `json:"transport,omitempty"`
-		Routing     map[string]any    `json:"routing,omitempty"`
-		UI          map[string]any    `json:"ui,omitempty"`
-		DisplayName map[string]string `json:"display_name,omitempty"`
-		Summary     map[string]string `json:"summary,omitempty"`
-		Tags        []string          `json:"tags,omitempty"`
-		Menu        map[string]any    `json:"menu,omitempty"`
-		Permissions map[string]any    `json:"permissions,omitempty"`
-	}
-
-	type EntitySpec struct {
-		ID          string            `json:"id"`
-		Version     string            `json:"version,omitempty"`
-		Name        string            `json:"name,omitempty"`
-		Description string            `json:"description,omitempty"`
-		Category    string            `json:"category,omitempty"`
-		DisplayName map[string]string `json:"display_name,omitempty"`
-		Summary     map[string]string `json:"summary,omitempty"`
-		Tags        []string          `json:"tags,omitempty"`
-		Menu        map[string]any    `json:"menu,omitempty"`
-	}
-
-	manifest := map[string]any{}
-	manifestFunctions := make([]FunctionSpec, 0)
-	manifestEntities := make([]EntitySpec, 0)
+	// OpenAPI output collection
+	openapiOps := make([]OpenAPIOperation, 0)
+	openapiEntities := make([]OpenAPIEntity, 0)
 
 	var generatedFiles []generatedFile
 	emittedSchemas := map[string]bool{}
@@ -110,7 +93,6 @@ func main() {
 				// Derive function spec (basic defaults; custom options TODO)
 				funID := defaultFunctionID(pkg, svc.GetName(), m.GetName())
 				category := defaultCategory(pkg)
-				version := "1.0.0"
 
 				// Transport info
 				inType := strings.TrimPrefix(m.GetInputType(), ".")
@@ -119,160 +101,60 @@ func main() {
 				// Parse method-level custom options
 				fo := parseFunctionOptions(m.GetOptions())
 
-				// Make descriptor JSON (apply defaults, then override by options)
-				desc := map[string]any{
-					"id":       funID,
-					"version":  version,
-					"category": category,
-					"transport": map[string]any{
-						"request_type": "proto",
-						"proto": map[string]any{
-							"request_fqn":  inType,
-							"response_fqn": outType,
-							"encoding":     "pb-json",
-						},
-					},
-					"semantics": map[string]any{
-						"mode":            "query",
-						"idempotency_key": false,
-						"timeout":         "30s",
-						"route":           "lb",
-					},
-					"auth": map[string]any{
-						"permission":      funID,
-						"two_person_rule": false,
-					},
-					"placement": "agent",
-					"outputs": map[string]any{
-						"views": []any{
-							map[string]any{
-								"id":       "json",
-								"type":     "json",
-								"renderer": "json.view",
-							},
-						},
-					},
+				// Build OpenAPI operation
+				op := OpenAPIOperation{
+					ID:          funID,
+					Description: fmt.Sprintf("gRPC method: %s.%s/%s", pkg, svc.GetName(), m.GetName()),
+					Category:    category,
 				}
 
 				// Apply overrides from function options
 				if fo.FunctionID != "" {
-					desc["id"] = fo.FunctionID
+					op.ID = fo.FunctionID
 					funID = fo.FunctionID
 				}
-				if fo.Version != "" {
-					desc["version"] = fo.Version
-					version = fo.Version
-				}
 				if fo.Category != "" {
-					desc["category"] = fo.Category
-				}
-				if fo.Timeout != "" {
-					desc["semantics"].(map[string]any)["timeout"] = fo.Timeout
-				}
-				if fo.Route != "" {
-					desc["semantics"].(map[string]any)["route"] = strings.ToLower(fo.Route)
-				}
-				if fo.TwoPersonRuleSet {
-					desc["auth"].(map[string]any)["two_person_rule"] = fo.TwoPersonRule
-				}
-				if fo.Placement != "" {
-					desc["placement"] = strings.ToLower(fo.Placement)
+					op.Category = fo.Category
 				}
 				if fo.Risk != "" {
-					desc["risk"] = strings.ToLower(fo.Risk)
+					op.Risk = strings.ToLower(fo.Risk)
 				}
-				if fo.Mode != "" {
-					desc["semantics"].(map[string]any)["mode"] = strings.ToLower(fo.Mode)
+				if len(fo.DisplayName) > 0 {
+					op.Summary = fo.DisplayName
 				}
-				if fo.IdempotencyKeySet {
-					desc["semantics"].(map[string]any)["idempotency_key"] = fo.IdempotencyKey
+				if len(fo.Summary) > 0 {
+					op.Summary = fo.Summary
 				}
 				if len(fo.Labels) > 0 {
-					desc["labels"] = fo.Labels
-				}
-				// --- UI/RBAC bridging from proto options into manifest ---
-				if len(fo.DisplayName) > 0 {
-					desc["display_name"] = fo.DisplayName
-				}
-				if len(fo.Summary) > 0 {
-					desc["summary"] = fo.Summary
-				}
-				if len(fo.Tags) > 0 {
-					desc["tags"] = fo.Tags
-				}
-				if len(fo.Menu) > 0 {
-					desc["menu"] = fo.Menu
-				}
-				if len(fo.Permissions) > 0 {
-					desc["permissions"] = fo.Permissions
+					op.Labels = fo.Labels
 				}
 
-				// UI schema for input (with field-level UI options if any)
-				if emitUI {
+				// Add request/response schema references
+				op.Request = map[string]any{"proto_fqn": inType}
+				op.Response = map[string]any{"proto_fqn": outType}
+
+				// Optionally emit JSON schemas
+				if emitSchemas {
 					if inMsg := globalMsgIndex[m.GetInputType()]; inMsg != nil {
-						uiHints := collectUIFieldHints(inMsg)
 						schema := buildJSONSchema(pkg, globalMsgIndex, globalEnumIndex, inMsg)
-						uiSchema := buildUISchema(schema, uiHints)
-						// Attach sensitive fields into descriptor (for audit masking)
-						if len(uiHints.Sensitive) > 0 {
-							desc["ui"] = map[string]any{"sensitive": uiHints.Sensitive}
-						}
-						addJSON(resp, &generatedFiles, filepath.Join("ui", sanitize(funID)+".schema.json"), schema)
-						addJSON(resp, &generatedFiles, filepath.Join("ui", sanitize(funID)+".uischema.json"), uiSchema)
-					}
-				}
-				addJSON(resp, &generatedFiles, filepath.Join("descriptors", sanitize(funID)+".json"), desc)
-
-				fnSpec := FunctionSpec{ID: funID, Version: version, Category: category, Labels: fo.Labels}
-				if len(fo.DisplayName) > 0 {
-					fnSpec.DisplayName = fo.DisplayName
-				}
-				if len(fo.Summary) > 0 {
-					fnSpec.Summary = fo.Summary
-				}
-				if len(fo.Tags) > 0 {
-					fnSpec.Tags = fo.Tags
-				}
-				if len(fo.Menu) > 0 {
-					fnSpec.Menu = fo.Menu
-				}
-				if len(fo.Permissions) > 0 {
-					fnSpec.Permissions = fo.Permissions
-				}
-
-				if emitManifest {
-					reqSchema := schemaFileForFQN(inType)
-					respSchema := schemaFileForFQN(outType)
-					fnSpec.Request = map[string]any{"proto_fqn": inType}
-					fnSpec.Response = map[string]any{"proto_fqn": outType}
-					fnSpec.Transport = map[string]any{"proto": map[string]any{"request_fqn": inType, "response_fqn": outType}}
-					fnSpec.Semantics = map[string]any{"idempotent": fo.IdempotencyKey}
-					fnSpec.Auth = map[string]any{"require": []string{funID}}
-					fnSpec.UI = map[string]any{"category": category}
-					if fo.Risk != "" {
-						fnSpec.UI["risk"] = strings.ToLower(fo.Risk)
-					}
-					if len(fo.Tags) > 0 {
-						fnSpec.UI["tags"] = fo.Tags
-					}
-					// Emit JSON schema files for request/response types when available; otherwise fall back to proto_fqn.
-					if inMsg := globalMsgIndex[m.GetInputType()]; inMsg != nil {
-						fnSpec.Request = map[string]any{"json_schema": reqSchema}
-						if !emittedSchemas[reqSchema] {
-							addJSON(resp, &generatedFiles, reqSchema, buildJSONSchema(pkg, globalMsgIndex, globalEnumIndex, inMsg))
-							emittedSchemas[reqSchema] = true
+						schemaFile := schemaFileForFQN(m.GetInputType())
+						if !emittedSchemas[schemaFile] {
+							addJSON(resp, &generatedFiles, schemaFile, schema)
+							emittedSchemas[schemaFile] = true
 						}
 					}
+
 					if outMsg := globalMsgIndex[m.GetOutputType()]; outMsg != nil {
-						fnSpec.Response = map[string]any{"json_schema": respSchema}
-						if !emittedSchemas[respSchema] {
-							addJSON(resp, &generatedFiles, respSchema, buildJSONSchema(pkg, globalMsgIndex, globalEnumIndex, outMsg))
-							emittedSchemas[respSchema] = true
+						schema := buildJSONSchema(pkg, globalMsgIndex, globalEnumIndex, outMsg)
+						schemaFile := schemaFileForFQN(m.GetOutputType())
+						if !emittedSchemas[schemaFile] {
+							addJSON(resp, &generatedFiles, schemaFile, schema)
+							emittedSchemas[schemaFile] = true
 						}
 					}
 				}
 
-				manifestFunctions = append(manifestFunctions, fnSpec)
+				openapiOps = append(openapiOps, op)
 			}
 		}
 
@@ -287,10 +169,6 @@ func main() {
 			entityID := eo.EntityID
 			if entityID == "" {
 				entityID = defaultEntityID(pkg, msg.GetName())
-			}
-			version := eo.Version
-			if version == "" {
-				version = "1.0.0"
 			}
 			category := eo.Category
 			if category == "" {
@@ -311,114 +189,34 @@ func main() {
 			// Add entity-specific annotations to schema (primary_key, searchable, etc.)
 			addEntityHintsToSchema(entitySchema, msg, eo)
 
-			// Build entity descriptor
-			entityDesc := map[string]any{
-				"id":          entityID,
-				"version":     version,
-				"name":        name,
-				"description": description,
-				"type":        "entity",
-				"category":    category,
-				"schema":      entitySchema,
-				"operations":  buildEntityOperations(eo),
-				"ui":          buildEntityUI(eo),
-			}
-
-			// Add i18n display info
-			if len(eo.DisplayName) > 0 {
-				entityDesc["display_name"] = eo.DisplayName
-			}
-			if len(eo.Summary) > 0 {
-				entityDesc["summary"] = eo.Summary
-			}
-			if len(eo.Tags) > 0 {
-				entityDesc["tags"] = eo.Tags
-			}
-			if len(eo.Menu) > 0 {
-				entityDesc["menu"] = eo.Menu
-			}
-
-			// Emit entity descriptor file
-			addJSON(resp, &generatedFiles, filepath.Join("descriptors", sanitize(entityID)+".entity.json"), entityDesc)
-
-			// Emit schema file separately for reuse
+			// Emit schema file
 			schemaFile := schemaFileForFQN("." + pkg + "." + msg.GetName())
 			if !emittedSchemas[schemaFile] {
 				addJSON(resp, &generatedFiles, schemaFile, entitySchema)
 				emittedSchemas[schemaFile] = true
 			}
 
-			// Add to manifest
-			entSpec := EntitySpec{
+			// Add to OpenAPI entities
+			ent := OpenAPIEntity{
 				ID:          entityID,
-				Version:     version,
 				Name:        name,
 				Description: description,
 				Category:    category,
 			}
 			if len(eo.DisplayName) > 0 {
-				entSpec.DisplayName = eo.DisplayName
+				ent.DisplayName = eo.DisplayName
 			}
 			if len(eo.Summary) > 0 {
-				entSpec.Summary = eo.Summary
+				ent.Summary = eo.Summary
 			}
-			if len(eo.Tags) > 0 {
-				entSpec.Tags = eo.Tags
-			}
-			if len(eo.Menu) > 0 {
-				entSpec.Menu = eo.Menu
-			}
-			manifestEntities = append(manifestEntities, entSpec)
+			openapiEntities = append(openapiEntities, ent)
 		}
 	}
 
-	// Emit manifest.json (pack manifest always includes functions; provider meta is optional)
-	sort.Slice(manifestFunctions, func(i, j int) bool { return manifestFunctions[i].ID < manifestFunctions[j].ID })
-	manifest["functions"] = manifestFunctions
-
-	// Add entities to manifest if any were generated
-	if len(manifestEntities) > 0 {
-		sort.Slice(manifestEntities, func(i, j int) bool { return manifestEntities[i].ID < manifestEntities[j].ID })
-		manifest["entities"] = manifestEntities
-	}
-
-	if emitManifest {
-		manifest["provider"] = map[string]any{
-			"id":          firstNonEmpty(params["provider_id"], params["provider"], params["id"], "provider"),
-			"version":     firstNonEmpty(params["provider_version"], params["provider_ver"], params["version"], "1.0.0"),
-			"lang":        firstNonEmpty(params["provider_lang"], params["lang"]),
-			"sdk":         firstNonEmpty(params["provider_sdk"], params["sdk"]),
-			"description": firstNonEmpty(params["provider_description"], params["description"]),
-		}
-	}
-	addJSON(resp, &generatedFiles, "manifest.json", manifest)
-
-	// Emit fds.pb (only filesToGen subset, but include deps to be safe -> full set)
-	fdsBytes, _ := proto.Marshal(fds)
-	resp.File = append(resp.File, &pluginpb.CodeGeneratorResponse_File{
-		Name:    proto.String("fds.pb"),
-		Content: proto.String(string(fdsBytes)),
-	})
-	generatedFiles = append(generatedFiles, generatedFile{Name: "fds.pb", Data: fdsBytes})
-
-	if emitManifest && emitFDS {
-		resp.File = append(resp.File, &pluginpb.CodeGeneratorResponse_File{
-			Name:    proto.String("descriptors.fds"),
-			Content: proto.String(string(fdsBytes)),
-		})
-		generatedFiles = append(generatedFiles, generatedFile{Name: "descriptors.fds", Data: fdsBytes})
-	}
-
-	// Optionally emit pack.tgz
-	if emitPack {
-		pack, err := buildPackTarGz(generatedFiles)
-		if err != nil {
-			fatalf("build pack: %v", err)
-		}
-		resp.File = append(resp.File, &pluginpb.CodeGeneratorResponse_File{
-			Name:    proto.String("pack.tgz"),
-			Content: proto.String(string(pack)),
-		})
+	// Generate OpenAPI 3.0.3 spec
+	if len(openapiOps) > 0 || len(openapiEntities) > 0 {
+		openapiDoc := buildOpenAPIDoc(openapiOps, openapiEntities, params)
+		addYAML(resp, &generatedFiles, "openapi.yaml", openapiDoc)
 	}
 
 	// Write response
@@ -442,6 +240,114 @@ func addJSON(resp *pluginpb.CodeGeneratorResponse, files *[]generatedFile, name 
 	b, _ := json.MarshalIndent(v, "", "  ")
 	resp.File = append(resp.File, &pluginpb.CodeGeneratorResponse_File{Name: proto.String(name), Content: proto.String(string(b))})
 	*files = append(*files, generatedFile{Name: name, Data: b})
+}
+
+func addYAML(resp *pluginpb.CodeGeneratorResponse, files *[]generatedFile, name string, v any) {
+	b, _ := yaml.Marshal(v)
+	resp.File = append(resp.File, &pluginpb.CodeGeneratorResponse_File{Name: proto.String(name), Content: proto.String(string(b))})
+	*files = append(*files, generatedFile{Name: name, Data: b})
+}
+
+func buildOpenAPIDoc(ops []OpenAPIOperation, entities []OpenAPIEntity, params map[string]string) map[string]any {
+	doc := map[string]any{
+		"openapi": "3.0.3",
+		"info": map[string]any{
+			"title":       firstNonEmpty(params["title"], params["name"], "Croupier Functions"),
+			"description": firstNonEmpty(params["description"], "Auto-generated OpenAPI specification from protobuf definitions"),
+			"version":     firstNonEmpty(params["version"], params["provider_version"], "1.0.0"),
+		},
+		"paths": map[string]any{},
+	}
+
+	// Add paths from operations
+	paths := doc["paths"].(map[string]any)
+	for _, op := range ops {
+		path := fmt.Sprintf("/%s", op.ID)
+		pathItem := map[string]any{
+			"post": map[string]any{
+				"operationId": op.ID,
+				"summary":     getFirstLocalizedString(op.Summary, op.ID),
+				"description": op.Description,
+				"requestBody": map[string]any{
+					"content": map[string]any{
+						"application/json": map[string]any{
+							"schema": map[string]any{
+								"type":                 "object",
+								"additionalProperties": true,
+							},
+						},
+					},
+				},
+				"responses": map[string]any{
+					"200": map[string]any{
+						"description": "Success",
+						"content": map[string]any{
+							"application/json": map[string]any{
+								"schema": map[string]any{
+									"type":                 "object",
+									"additionalProperties": true,
+								},
+							},
+						},
+					},
+				},
+				"x-category": op.Category,
+				"x-request":  op.Request,
+				"x-response": op.Response,
+			},
+		}
+
+		// Add optional extensions
+		if op.Risk != "" {
+			pathItem["post"].(map[string]any)["x-risk"] = op.Risk
+		}
+		if op.Entity != "" {
+			pathItem["post"].(map[string]any)["x-entity"] = op.Entity
+		}
+		if op.Operation != "" {
+			pathItem["post"].(map[string]any)["x-operation"] = op.Operation
+		}
+		if len(op.Labels) > 0 {
+			pathItem["post"].(map[string]any)["x-labels"] = op.Labels
+		}
+
+		paths[path] = pathItem
+	}
+
+	// Add components for entities if any
+	if len(entities) > 0 {
+		doc["components"] = map[string]any{
+			"x-entities": map[string]any{},
+		}
+		entitiesMap := doc["components"].(map[string]any)["x-entities"].(map[string]any)
+		for _, ent := range entities {
+			entitiesMap[ent.ID] = map[string]any{
+				"id":          ent.ID,
+				"name":        ent.Name,
+				"description": ent.Description,
+				"x-category":  ent.Category,
+			}
+			if len(ent.DisplayName) > 0 {
+				entitiesMap[ent.ID].(map[string]any)["display_name"] = ent.DisplayName
+			}
+			if len(ent.Summary) > 0 {
+				entitiesMap[ent.ID].(map[string]any)["summary"] = ent.Summary
+			}
+		}
+	}
+
+	return doc
+}
+
+func getFirstLocalizedString(m map[string]string, defaultVal string) string {
+	if len(m) == 0 {
+		return defaultVal
+	}
+	// Return first value or default
+	for _, v := range m {
+		return v
+	}
+	return defaultVal
 }
 
 func parseParams(p string) map[string]string {
@@ -609,7 +515,6 @@ func fieldToJSONSchema(pkg string, msgIdx map[string]*descriptorpb.DescriptorPro
 			if valType != nil {
 				sch["additionalProperties"] = valType
 			}
-			// optional: propertyNames constraints for key type not added (JSON Schema limitation)
 			return sch, required
 		}
 		// Repeated message as array
@@ -631,32 +536,6 @@ func fieldToJSONSchema(pkg string, msgIdx map[string]*descriptorpb.DescriptorPro
 	}
 }
 
-type uiFieldHints struct {
-	Fields    map[string]map[string]any // per-field ui config
-	Sensitive []string
-}
-
-func buildUISchema(schema map[string]any, hints uiFieldHints) map[string]any {
-	// Minimal UI schema with grid layout inferred from properties order
-	props, _ := schema["properties"].(map[string]any)
-	names := make([]string, 0, len(props))
-	for k := range props {
-		names = append(names, k)
-	}
-	sort.Strings(names)
-	groups := []map[string]any{
-		{"title": "基本", "fields": names},
-	}
-	ui := map[string]any{
-		"ui:layout": map[string]any{"type": "grid", "cols": 2},
-		"ui:groups": groups,
-	}
-	if len(hints.Fields) > 0 {
-		ui["ui:fields"] = hints.Fields
-	}
-	return ui
-}
-
 func defaultFunctionID(pkg, svc, method string) string {
 	// default: <pkg>.<service>.<method> in lower snake for method
 	id := pkg + "." + svc + "." + method
@@ -676,6 +555,44 @@ func defaultCategory(pkg string) string {
 	return "general"
 }
 
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		v = strings.TrimSpace(v)
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func joinOptionName(u *descriptorpb.UninterpretedOption) string {
+	if u == nil {
+		return ""
+	}
+	parts := make([]string, 0, len(u.GetName()))
+	for _, np := range u.GetName() {
+		s := np.GetNamePart()
+		// extension parts may come as "croupier.options.function" or "(croupier.options.function)"
+		s = strings.TrimPrefix(s, "(")
+		s = strings.TrimSuffix(s, ")")
+		parts = append(parts, s)
+	}
+	// For extension options usually it's a single part with fully-qualified path
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	return strings.Join(parts, ".")
+}
+
+func schemaFileForFQN(fqn string) string {
+	fqn = strings.TrimPrefix(strings.TrimSpace(fqn), ".")
+	if fqn == "" {
+		return "schema/unknown.json"
+	}
+	// Lowercase to keep filenames stable; caller must use the same when referencing.
+	return filepath.ToSlash(filepath.Join("schema", sanitize(strings.ToLower(fqn))+".json"))
+}
+
 func sanitize(id string) string {
 	// replace non-filename chars
 	out := strings.Map(func(r rune) rune {
@@ -693,7 +610,16 @@ func sanitize(id string) string {
 	return out
 }
 
-// --- Options parsing (from UninterpretedOption.aggregate_value) ---
+func trimQuotes(s string) string {
+	return strings.Trim(s, "\"")
+}
+
+func parseBool(s string) bool {
+	s = strings.ToLower(strings.TrimSpace(trimQuotes(s)))
+	return s == "true" || s == "1" || s == "yes"
+}
+
+// ========== Options parsing ==========
 
 type funcOpts struct {
 	FunctionID        string
@@ -709,12 +635,11 @@ type funcOpts struct {
 	IdempotencyKey    bool
 	IdempotencyKeySet bool
 	Labels            map[string]string
-	// Extended UI/RBAC
-	DisplayName map[string]string
-	Summary     map[string]string
-	Tags        []string
-	Menu        map[string]any
-	Permissions map[string]any
+	DisplayName       map[string]string
+	Summary           map[string]string
+	Tags              []string
+	Menu              map[string]any
+	Permissions       map[string]any
 }
 
 func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
@@ -784,127 +709,14 @@ func parseFunctionOptions(mo *descriptorpb.MethodOptions) funcOpts {
 		if v := kv["risk"]; v != "" {
 			out.Risk = trimQuotes(v)
 		}
-		if v := kv["route"]; v != "" {
-			out.Route = trimQuotes(v)
-		}
-		if v := kv["timeout"]; v != "" {
-			out.Timeout = trimQuotes(v)
-		}
 		if v := kv["two_person_rule"]; v != "" {
 			out.TwoPersonRule, out.TwoPersonRuleSet = parseBool(v), true
-		}
-		if v := kv["placement"]; v != "" {
-			out.Placement = trimQuotes(v)
-		}
-		if v := kv["mode"]; v != "" {
-			out.Mode = trimQuotes(v)
-		}
-		if v := kv["idempotency_key"]; v != "" {
-			out.IdempotencyKey, out.IdempotencyKeySet = parseBool(v), true
 		}
 		if m := parseOptionObjectMap(raw, "labels"); len(m) > 0 {
 			out.Labels = m
 		}
 	}
 	return out
-}
-
-func collectUIFieldHints(msg *descriptorpb.DescriptorProto) uiFieldHints {
-	hints := uiFieldHints{Fields: map[string]map[string]any{}, Sensitive: []string{}}
-	for _, f := range msg.GetField() {
-		name := f.GetJsonName()
-		if name == "" {
-			name = f.GetName()
-		}
-		var fieldCfg map[string]any
-		cfg := map[string]any{}
-		if fo := f.GetOptions(); fo != nil {
-			if proto.HasExtension(fo, ui.E_Ui) {
-				ext := proto.GetExtension(fo, ui.E_Ui)
-				if ui, ok := ext.(*ui.UIFieldOptions); ok && ui != nil {
-					if v := strings.TrimSpace(ui.GetWidget()); v != "" {
-						cfg["widget"] = v
-					}
-					if v := strings.TrimSpace(ui.GetLabel()); v != "" {
-						cfg["label"] = v
-					}
-					if v := strings.TrimSpace(ui.GetPlaceholder()); v != "" {
-						cfg["placeholder"] = v
-					}
-					if v := strings.TrimSpace(ui.GetShowIf()); v != "" {
-						cfg["show_if"] = v
-					}
-					if v := strings.TrimSpace(ui.GetRequiredIf()); v != "" {
-						cfg["required_if"] = v
-					}
-					cfg["sensitive"] = ui.GetSensitive()
-					if ui.GetSensitive() {
-						hints.Sensitive = append(hints.Sensitive, name)
-					}
-					if len(ui.GetEnumMap()) > 0 {
-						values := make([]string, 0, len(ui.GetEnumMap()))
-						labels := map[string]string{}
-						for k, v := range ui.GetEnumMap() {
-							values = append(values, k)
-							labels[k] = v
-						}
-						sort.Strings(values)
-						cfg["enum"] = values
-						cfg["x-enum-labels"] = labels
-					}
-				}
-			} else {
-				// Fallback: parse from UninterpretedOption aggregate_value
-				for _, u := range fo.GetUninterpretedOption() {
-					if joinOptionName(u) != "croupier.options.v1.ui" {
-						continue
-					}
-					raw := u.GetAggregateValue()
-					kv := parseAggregateKV(raw)
-					if v := kv["widget"]; v != "" {
-						cfg["widget"] = trimQuotes(v)
-					}
-					if v := kv["label"]; v != "" {
-						cfg["label"] = trimQuotes(v)
-					}
-					if v := kv["placeholder"]; v != "" {
-						cfg["placeholder"] = trimQuotes(v)
-					}
-					if v := kv["show_if"]; v != "" {
-						cfg["show_if"] = trimQuotes(v)
-					}
-					if v := kv["required_if"]; v != "" {
-						cfg["required_if"] = trimQuotes(v)
-					}
-					if v := kv["sensitive"]; v != "" {
-						b := parseBool(v)
-						cfg["sensitive"] = b
-						if b {
-							hints.Sensitive = append(hints.Sensitive, name)
-						}
-					}
-					if m := parseOptionObjectMap(raw, "enum_map"); len(m) > 0 {
-						values := make([]string, 0, len(m))
-						labels := map[string]string{}
-						for k, v := range m {
-							values = append(values, k)
-							labels[k] = v
-						}
-						sort.Strings(values)
-						cfg["enum"] = values
-						cfg["x-enum-labels"] = labels
-					}
-				}
-			}
-		}
-		if len(cfg) > 0 {
-			fieldCfg = cfg
-		}
-		if fieldCfg != nil {
-			hints.Fields[name] = fieldCfg
-		}
-	}
-	return hints
 }
 
 func i18nToMap(t *ui.I18NText) map[string]string {
@@ -981,44 +793,6 @@ func permissionToMap(p *ui.PermissionSpec) map[string]any {
 		out["i18n_zh"] = m
 	}
 	return out
-}
-
-func schemaFileForFQN(fqn string) string {
-	fqn = strings.TrimPrefix(strings.TrimSpace(fqn), ".")
-	if fqn == "" {
-		return "schema/unknown.json"
-	}
-	// Lowercase to keep filenames stable; caller must use the same when referencing.
-	return filepath.ToSlash(filepath.Join("schema", sanitize(strings.ToLower(fqn))+".json"))
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		v = strings.TrimSpace(v)
-		if v != "" {
-			return v
-		}
-	}
-	return ""
-}
-
-func joinOptionName(u *descriptorpb.UninterpretedOption) string {
-	if u == nil {
-		return ""
-	}
-	parts := make([]string, 0, len(u.GetName()))
-	for _, np := range u.GetName() {
-		s := np.GetNamePart()
-		// extension parts may come as "croupier.options.function" or "(croupier.options.function)"
-		s = strings.TrimPrefix(s, "(")
-		s = strings.TrimSuffix(s, ")")
-		parts = append(parts, s)
-	}
-	// For extension options usually it's a single part with fully-qualified path
-	if len(parts) == 1 {
-		return parts[0]
-	}
-	return strings.Join(parts, ".")
 }
 
 func parseAggregateKV(s string) map[string]string {
@@ -1121,8 +895,6 @@ func parseAggregateKV(s string) map[string]string {
 	return res
 }
 
-// parseOptionObjectMap extracts a simple object map for a given field name inside an aggregate_value string.
-// Example: fieldName: { k1: "v1", k2: "v2" }
 func parseOptionObjectMap(s, fieldName string) map[string]string {
 	res := map[string]string{}
 	if s == "" || fieldName == "" {
@@ -1234,287 +1006,8 @@ func parseOptionObjectMap(s, fieldName string) map[string]string {
 	return res
 }
 
-// parseOptionArray extracts a simple string array for "field: [a,b,c]" or "field: \"a,b,c\"" into []string
-func parseOptionArray(s, field string) []string {
-	out := []string{}
-	if s == "" || field == "" {
-		return out
-	}
-	i := 0
-	for i < len(s) {
-		idx := strings.Index(s[i:], field)
-		if idx < 0 {
-			break
-		}
-		i += idx + len(field)
-		// skip spaces
-		for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n') {
-			i++
-		}
-		if i >= len(s) || s[i] != ':' {
-			continue
-		}
-		i++ // skip colon
-		for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n') {
-			i++
-		}
-		if i >= len(s) {
-			break
-		}
-		if s[i] == '[' {
-			// parse until matching ]
-			i++
-			start := i
-			depth := 1
-			for i < len(s) && depth > 0 {
-				if s[i] == '[' {
-					depth++
-				} else if s[i] == ']' {
-					depth--
-					if depth == 0 {
-						break
-					}
-				}
-				i++
-			}
-			end := i
-			if end > start {
-				inside := s[start:end]
-				parts := strings.Split(inside, ",")
-				for _, p := range parts {
-					p = strings.TrimSpace(strings.Trim(p, "\"'"))
-					if p != "" {
-						out = append(out, p)
-					}
-				}
-			}
-			break
-		} else if s[i] == '"' {
-			// quoted csv
-			i++
-			start := i
-			for i < len(s) && s[i] != '"' {
-				i++
-			}
-			if i > start {
-				inside := s[start:i]
-				parts := strings.Split(inside, ",")
-				for _, p := range parts {
-					p = strings.TrimSpace(p)
-					if p != "" {
-						out = append(out, p)
-					}
-				}
-			}
-			break
-		} else {
-			// plain token or csv until comma/newline/}
-			start := i
-			for i < len(s) && s[i] != ',' && s[i] != '\n' && s[i] != '}' {
-				i++
-			}
-			token := strings.TrimSpace(s[start:i])
-			if token != "" {
-				out = append(out, token)
-			}
-			break
-		}
-	}
-	return out
-}
-
-func trimQuotes(s string) string {
-	return strings.Trim(s, "\"")
-}
-
-// parseOptionI18n extracts an i18n message field like display_name { en: "xxx" zh: "xxx" }
-func parseOptionI18n(s, field string) map[string]string {
-	out := map[string]string{}
-	if s == "" || field == "" {
-		return out
-	}
-	fieldIdx := strings.Index(s, field+":")
-	if fieldIdx < 0 {
-		return out
-	}
-	i := fieldIdx + len(field)
-	// skip spaces
-	for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
-		i++
-	}
-	if i >= len(s) || s[i] != ':' {
-		return out
-	}
-	i++ // skip colon
-	// skip spaces
-	for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n') {
-		i++
-	}
-	if i >= len(s) || s[i] != '{' {
-		return out
-	}
-	i++ // skip {
-	// Find matching }
-	depth := 1
-	start := i
-	for i < len(s) && depth > 0 {
-		if s[i] == '{' {
-			depth++
-		} else if s[i] == '}' {
-			depth--
-			if depth == 0 {
-				break
-			}
-		}
-		i++
-	}
-	inside := s[start:i]
-	// Parse key: value pairs
-	for _, line := range strings.Split(inside, "\n") {
-		parts := strings.SplitN(strings.TrimSpace(line), ":", 2)
-		if len(parts) == 2 {
-			key := strings.TrimSpace(parts[0])
-			val := strings.TrimSpace(strings.Trim(parts[1], "\"'"))
-			if key != "" && val != "" {
-				out[key] = val
-			}
-		}
-	}
-	if len(out) > 0 {
-		return out
-	}
-	return out
-}
-
-// parseOptionMenu extracts a menu nested message like menu { section: "xxx" group: "yyy" hidden: true }
-func parseOptionMenu(s string) map[string]any {
-	out := map[string]any{}
-	if s == "" {
-		return out
-	}
-	menuIdx := strings.Index(s, "menu:")
-	if menuIdx < 0 {
-		return out
-	}
-	i := menuIdx + len("menu")
-	// skip spaces
-	for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
-		i++
-	}
-	if i >= len(s) || s[i] != ':' {
-		return out
-	}
-	i++ // skip colon
-	// skip spaces
-	for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n') {
-		i++
-	}
-	if i >= len(s) || s[i] != '{' {
-		return out
-	}
-	i++ // skip {
-	// Find matching }
-	depth := 1
-	start := i
-	for i < len(s) && depth > 0 {
-		if s[i] == '{' {
-			depth++
-		} else if s[i] == '}' {
-			depth--
-			if depth == 0 {
-				break
-			}
-		}
-		i++
-	}
-	inside := s[start:i]
-	// Parse key: value pairs
-	kv := parseAggregateKV(inside)
-	if v, ok := kv["section"]; ok && v != "" {
-		out["section"] = trimQuotes(v)
-	}
-	if v, ok := kv["group"]; ok && v != "" {
-		out["group"] = trimQuotes(v)
-	}
-	if v, ok := kv["path"]; ok && v != "" {
-		out["path"] = trimQuotes(v)
-	}
-	if v, ok := kv["icon"]; ok && v != "" {
-		out["icon"] = trimQuotes(v)
-	}
-	if v, ok := kv["badge"]; ok && v != "" {
-		out["badge"] = trimQuotes(v)
-	}
-	if v, ok := kv["order"]; ok && v != "" {
-		// Try to parse as int
-		if order, err := parseOrderInt(v); err == nil {
-			out["order"] = order
-		}
-	}
-	if v, ok := kv["hidden"]; ok && v != "" {
-		out["hidden"] = parseBool(v)
-	}
-	if len(out) > 0 {
-		return out
-	}
-	return out
-}
-
-// parseOrderInt tries to parse order value as int
-func parseOrderInt(s string) (int, error) {
-	s = strings.TrimSpace(trimQuotes(s))
-	var order int
-	_, err := fmt.Sscanf(s, "%d", &order)
-	return order, err
-}
-
-func parseBool(s string) bool {
-	s = strings.ToLower(strings.TrimSpace(trimQuotes(s)))
-	return s == "true" || s == "1" || s == "yes"
-}
-
-func parseIntMaybe(s string) int {
-	ss := strings.TrimSpace(trimQuotes(s))
-	n := 0
-	for i := 0; i < len(ss); i++ {
-		if ss[i] < '0' || ss[i] > '9' {
-			return 0
-		}
-		n = n*10 + int(ss[i]-'0')
-	}
-	return n
-}
-
-func buildPackTarGz(files []generatedFile) ([]byte, error) {
-	var buf bytes.Buffer
-	gz := gzip.NewWriter(&buf)
-	tw := tar.NewWriter(gz)
-	for _, f := range files {
-		hdr := &tar.Header{Name: filepath.ToSlash(f.Name), Mode: 0644, Size: int64(len(f.Data))}
-		if err := tw.WriteHeader(hdr); err != nil {
-			return nil, err
-		}
-		if _, err := tw.Write(f.Data); err != nil {
-			return nil, err
-		}
-	}
-	if err := tw.Close(); err != nil {
-		return nil, err
-	}
-	if err := gz.Close(); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func fatalf(format string, a ...any) {
-	fmt.Fprintf(os.Stderr, format+"\n", a...)
-	os.Exit(1)
-}
-
 // ========== Entity helpers ==========
 
-// entityOptions holds parsed entity options from proto extensions
 type entityOptions struct {
 	EntityID         string
 	Version          string
@@ -1538,7 +1031,6 @@ type entityOptions struct {
 	Menu             map[string]any
 }
 
-// parseEntityOptions parses entity options from message options
 func parseEntityOptions(mo *descriptorpb.MessageOptions) entityOptions {
 	var out entityOptions
 
@@ -1547,8 +1039,6 @@ func parseEntityOptions(mo *descriptorpb.MessageOptions) entityOptions {
 	}
 
 	// For now, only parse from UninterpretedOption (proto-first workflow)
-	// After the EntityOptions extension is generated and available in optionsv1,
-	// we can add a check using proto.HasExtension(mo, ui.E_Entity)
 	for _, u := range mo.GetUninterpretedOption() {
 		name := joinOptionName(u)
 		if name != "croupier.options.v1.entity" {
@@ -1586,46 +1076,11 @@ func parseEntityOptions(mo *descriptorpb.MessageOptions) entityOptions {
 		if v := kv["status_field"]; v != "" {
 			out.StatusField = trimQuotes(v)
 		}
-		// Parse function arrays
-		if arr := parseOptionArray(raw, "create_functions"); len(arr) > 0 {
-			out.CreateFunctions = arr
-		}
-		if arr := parseOptionArray(raw, "read_functions"); len(arr) > 0 {
-			out.ReadFunctions = arr
-		}
-		if arr := parseOptionArray(raw, "update_functions"); len(arr) > 0 {
-			out.UpdateFunctions = arr
-		}
-		if arr := parseOptionArray(raw, "delete_functions"); len(arr) > 0 {
-			out.DeleteFunctions = arr
-		}
-		if arr := parseOptionArray(raw, "list_functions"); len(arr) > 0 {
-			out.ListFunctions = arr
-		}
-		if m := parseOptionObjectMap(raw, "custom_operations"); len(m) > 0 {
-			out.CustomOperations = m
-		}
-		// Parse tags array
-		if arr := parseOptionArray(raw, "tags"); len(arr) > 0 {
-			out.Tags = arr
-		}
-		// Parse menu nested message
-		if m := parseOptionMenu(raw); len(m) > 0 {
-			out.Menu = m
-		}
-		// Parse display_name and summary (i18n)
-		if dm := parseOptionI18n(raw, "display_name"); len(dm) > 0 {
-			out.DisplayName = dm
-		}
-		if sm := parseOptionI18n(raw, "summary"); len(sm) > 0 {
-			out.Summary = sm
-		}
 	}
 
 	return out
 }
 
-// hasEntityExtension checks if message has entity extension
 func hasEntityExtension(mo *descriptorpb.MessageOptions) bool {
 	if mo == nil {
 		return false
@@ -1639,14 +1094,12 @@ func hasEntityExtension(mo *descriptorpb.MessageOptions) bool {
 	return false
 }
 
-// defaultEntityID generates default entity ID from package and message name
 func defaultEntityID(pkg, msg string) string {
 	id := pkg + "." + msg
 	id = strings.ReplaceAll(id, " ", "")
 	return strings.ToLower(id)
 }
 
-// addEntityHintsToSchema adds entity-specific hints to JSON Schema
 func addEntityHintsToSchema(schema map[string]any, msg *descriptorpb.DescriptorProto, eo entityOptions) {
 	props, ok := schema["properties"].(map[string]any)
 	if !ok {
@@ -1687,69 +1140,10 @@ func addEntityHintsToSchema(schema map[string]any, msg *descriptorpb.DescriptorP
 		if name == primaryKey {
 			propMap["primary_key"] = true
 		}
-
-		// Check for field-level entity hints via custom options
-		if fo := f.GetOptions(); fo != nil {
-			// Check UI hints for searchable/filterable/sortable
-			if proto.HasExtension(fo, ui.E_Ui) {
-				ext := proto.GetExtension(fo, ui.E_Ui)
-				if ui, ok := ext.(*ui.UIFieldOptions); ok && ui != nil {
-					// These can be added as custom annotations
-					if strings.TrimSpace(ui.GetPlaceholder()) != "" {
-						propMap["placeholder"] = strings.TrimSpace(ui.GetPlaceholder())
-					}
-				}
-			}
-		}
 	}
 }
 
-// buildEntityOperations builds operations mapping from entity options
-func buildEntityOperations(eo entityOptions) map[string]any {
-	ops := map[string]any{}
-
-	if len(eo.CreateFunctions) > 0 {
-		ops["create"] = eo.CreateFunctions
-	}
-	if len(eo.ReadFunctions) > 0 {
-		ops["read"] = eo.ReadFunctions
-	}
-	if len(eo.UpdateFunctions) > 0 {
-		ops["update"] = eo.UpdateFunctions
-	}
-	if len(eo.DeleteFunctions) > 0 {
-		ops["delete"] = eo.DeleteFunctions
-	}
-	if len(eo.ListFunctions) > 0 {
-		ops["list"] = eo.ListFunctions
-	}
-
-	// Add custom operations
-	for k, v := range eo.CustomOperations {
-		if v != "" {
-			ops[k] = []string{v}
-		}
-	}
-
-	return ops
-}
-
-// buildEntityUI builds UI configuration from entity options
-func buildEntityUI(eo entityOptions) map[string]any {
-	ui := map[string]any{}
-
-	if eo.DisplayField != "" {
-		ui["display_field"] = eo.DisplayField
-	}
-	if eo.TitleTemplate != "" {
-		ui["title_template"] = eo.TitleTemplate
-	}
-	if eo.AvatarField != "" {
-		ui["avatar_field"] = eo.AvatarField
-	}
-	if eo.StatusField != "" {
-		ui["status_field"] = eo.StatusField
-	}
-
-	return ui
+func fatalf(format string, a ...any) {
+	fmt.Fprintf(os.Stderr, format+"\n", a...)
+	os.Exit(1)
 }

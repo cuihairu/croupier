@@ -1,7 +1,6 @@
 package agentlocal
 
 import (
-	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -17,6 +16,7 @@ type Instance struct {
 }
 
 // FunctionMeta stores metadata for a function including OpenAPI schema fields.
+// Based on OpenAPI 3.0.3 Operation Object
 type FunctionMeta struct {
 	ID           string
 	Version      string
@@ -25,8 +25,17 @@ type FunctionMeta struct {
 	Description  string
 	OperationID  string
 	Deprecated   bool
-	InputSchema  string // JSON Schema for request body
-	OutputSchema string // JSON Schema for response body
+	InputSchema  string // JSON Schema for request body (OpenAPI 3.0.3)
+	OutputSchema string // JSON Schema for response body (OpenAPI 3.0.3)
+
+	// Additional OpenAPI fields
+	Category  string // x-category extension
+	Risk      string // x-risk extension
+	Entity    string // x-entity extension
+	Operation string // x-operation extension (create/read/update/delete/custom)
+
+	// Full OpenAPI operation as JSON (optional, for advanced use cases)
+	OpenAPIOperation string // Complete OpenAPI 3.0.3 Operation object as JSON string
 }
 
 type LocalStore struct {
@@ -123,10 +132,10 @@ func (s *LocalStore) Register(serviceID, addr, version string, funcs []*sdkv1.Lo
 		}
 	}
 	if s.onUpdate != nil {
-		fmt.Println("DEBUG: Triggering OnUpdate")
+		slog.Debug("[agentlocal] Triggering OnUpdate callback")
 		go s.onUpdate()
 	} else {
-		fmt.Println("DEBUG: OnUpdate is nil")
+		slog.Debug("[agentlocal] OnUpdate callback is nil, skipping")
 	}
 }
 
@@ -211,15 +220,20 @@ func (s *LocalStore) FunctionMetadata() map[string]*FunctionMeta {
 		}
 		// Copy to avoid data races
 		cp := &FunctionMeta{
-			ID:           meta.ID,
-			Version:      meta.Version,
-			Tags:         append([]string(nil), meta.Tags...),
-			Summary:      meta.Summary,
-			Description:  meta.Description,
-			OperationID:  meta.OperationID,
-			Deprecated:   meta.Deprecated,
-			InputSchema:  meta.InputSchema,
-			OutputSchema: meta.OutputSchema,
+			ID:               meta.ID,
+			Version:          meta.Version,
+			Tags:             append([]string(nil), meta.Tags...),
+			Summary:          meta.Summary,
+			Description:      meta.Description,
+			OperationID:      meta.OperationID,
+			Deprecated:       meta.Deprecated,
+			InputSchema:      meta.InputSchema,
+			OutputSchema:     meta.OutputSchema,
+			Category:         meta.Category,
+			Risk:             meta.Risk,
+			Entity:           meta.Entity,
+			Operation:        meta.Operation,
+			OpenAPIOperation: meta.OpenAPIOperation,
 		}
 		out[fid] = cp
 	}

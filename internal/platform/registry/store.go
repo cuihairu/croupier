@@ -9,6 +9,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 // FunctionMeta describes a function capability on an agent.
@@ -51,13 +53,29 @@ type Store struct {
 	// provider update sequence ensures deterministic ordering for merges.
 	provCapsSeq map[string]uint64 // provider_id -> last update seq
 	nextProvSeq uint64
+	// OpenAPI operations storage (replaces legacy manifest)
+	openapiOperations map[string]*openapi3.Operation  // function_id -> OpenAPI operation
+	openapiProviders  map[string]*OpenAPIProviderCaps // provider_id -> OpenAPI caps
+}
+
+// OpenAPIProviderCaps represents provider capabilities in OpenAPI format.
+type OpenAPIProviderCaps struct {
+	ID        string
+	Version   string
+	Lang      string
+	SDK       string
+	UpdatedAt time.Time
+	// OpenAPI 3.0.3 document as JSON
+	OpenAPIDoc []byte
 }
 
 func NewStore() *Store {
 	return &Store{
-		agents:      map[string]*AgentSession{},
-		provCaps:    map[string]ProviderCaps{},
-		provCapsSeq: map[string]uint64{},
+		agents:            map[string]*AgentSession{},
+		provCaps:          map[string]ProviderCaps{},
+		provCapsSeq:       map[string]uint64{},
+		openapiOperations: make(map[string]*openapi3.Operation),
+		openapiProviders:  make(map[string]*OpenAPIProviderCaps),
 	}
 }
 
@@ -972,4 +990,167 @@ func (s *Store) loadServerOverrides() []map[string]interface{} {
 	}
 
 	return overrides
+}
+
+// ========== OpenAPI 3.0.3 Support (New, Replaces Legacy Manifest) ==========
+
+// UpsertOpenAPI inserts or updates an OpenAPI operation by function ID.
+func (s *Store) UpsertOpenAPI(functionID string, operation *openapi3.Operation) error {
+	if functionID == "" {
+		return fmt.Errorf("function ID cannot be empty")
+	}
+	if operation == nil {
+		return fmt.Errorf("operation cannot be nil")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.openapiOperations[functionID] = operation
+	return nil
+}
+
+// GetOpenAPI retrieves an OpenAPI operation by function ID.
+func (s *Store) GetOpenAPI(functionID string) (*openapi3.Operation, error) {
+	if functionID == "" {
+		return nil, fmt.Errorf("function ID cannot be empty")
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	op, exists := s.openapiOperations[functionID]
+	if !exists {
+		return nil, fmt.Errorf("function %s not found", functionID)
+	}
+	return op, nil
+}
+
+// ListOpenAPIOperations returns all OpenAPI operations.
+func (s *Store) ListOpenAPIOperations() map[string]*openapi3.Operation {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Return a copy to avoid race conditions
+	result := make(map[string]*openapi3.Operation, len(s.openapiOperations))
+	for k, v := range s.openapiOperations {
+		result[k] = v
+	}
+	return result
+}
+
+// UpsertOpenAPIProvider inserts or updates OpenAPI provider capabilities.
+func (s *Store) UpsertOpenAPIProvider(caps OpenAPIProviderCaps) error {
+	if caps.ID == "" {
+		return fmt.Errorf("provider ID cannot be empty")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	caps.UpdatedAt = time.Now()
+	s.openapiProviders[caps.ID] = &caps
+	return nil
+}
+
+// GetOpenAPIProvider retrieves OpenAPI provider capabilities by provider ID.
+func (s *Store) GetOpenAPIProvider(providerID string) (*OpenAPIProviderCaps, error) {
+	if providerID == "" {
+		return nil, fmt.Errorf("provider ID cannot be empty")
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	caps, exists := s.openapiProviders[providerID]
+	if !exists {
+		return nil, fmt.Errorf("provider %s not found", providerID)
+	}
+	return caps, nil
+}
+
+// ListOpenAPIProviders returns all OpenAPI provider capabilities.
+func (s *Store) ListOpenAPIProviders() []*OpenAPIProviderCaps {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	result := make([]*OpenAPIProviderCaps, 0, len(s.openapiProviders))
+	for _, caps := range s.openapiProviders {
+		result = append(result, caps)
+	}
+	return result
+}
+
+// BuildOpenAPISpec builds a complete OpenAPI 3.0.3 spec from all registered operations.
+func (s *Store) BuildOpenAPISpec() (*openapi3.T, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	doc := &openapi3.T{
+		OpenAPI: "3.0.3",
+		Info: &openapi3.Info{
+			Title:       "Croupier Functions",
+			Description: "Auto-generated OpenAPI specification from registered functions",
+			Version:     "1.0.0",
+		},
+		Paths: openapi3.NewPaths(),
+		Components: &openapi3.Components{
+			Schemas:       make(map[string]*openapi3.SchemaRef),
+			Parameters:    make(map[string]*openapi3.ParameterRef),
+			Responses:     make(map[string]*openapi3.ResponseRef),
+			RequestBodies: make(map[string]*openapi3.RequestBodyRef),
+		},
+	}
+
+	// Add all operations to paths
+	for funcID, op := range s.openapiOperations {
+		// Create a path for each function
+		// Using pattern: /functions/{functionID}
+		path := fmt.Sprintf("/functions/%s", funcID)
+
+		// Create path item with POST operation
+		pathItem := &openapi3.PathItem{
+			Post: op,
+		}
+		op.OperationID = funcID
+
+		// Add to paths
+		doc.Paths.Set(path, pathItem)
+	}
+
+	return doc, nil
+}
+
+// DeleteOpenAPI removes an OpenAPI operation by function ID.
+func (s *Store) DeleteOpenAPI(functionID string) error {
+	if functionID == "" {
+		return fmt.Errorf("function ID cannot be empty")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, exists := s.openapiOperations[functionID]; !exists {
+		return fmt.Errorf("function %s not found", functionID)
+	}
+
+	delete(s.openapiOperations, functionID)
+	return nil
+}
+
+// DeleteOpenAPIProvider removes OpenAPI provider capabilities by provider ID.
+func (s *Store) DeleteOpenAPIProvider(providerID string) error {
+	if providerID == "" {
+		return fmt.Errorf("provider ID cannot be empty")
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, exists := s.openapiProviders[providerID]; !exists {
+		return fmt.Errorf("provider %s not found", providerID)
+	}
+
+	delete(s.openapiProviders, providerID)
+	return nil
 }

@@ -716,6 +716,20 @@ type EntityDetailResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+type EntityFunction struct {
+	Id        string `json:"id"`
+	Operation string `json:"operation"` // create/read/update/delete/custom
+	Name      string `json:"name"`
+}
+
+type EntityFunctionsRequest struct {
+	ID string `path:"id"`
+}
+
+type EntityFunctionsResponse struct {
+	Items []EntityFunction `json:"items"`
+}
+
 type EntityPreviewRequest struct {
 	ID string `path:"id"`
 }
@@ -1510,6 +1524,23 @@ type ObjectsData struct {
 	Prefixes    []string     `json:"prefixes,optional"`
 	IsTruncated bool         `json:"is_truncated"`
 	NextMarker  string       `json:"next_marker,optional"`
+}
+
+type OpenAPIImportRequest struct {
+	Spec interface{} `json:"spec"` // OpenAPI 3.0.3 Document
+}
+
+type OpenAPIImportResponse struct {
+	Imported int      `json:"imported"`
+	Failed   []string `json:"failed"`
+}
+
+type OpenAPISpecRequest struct {
+	ID string `path:"id"`
+}
+
+type OpenAPISpecResponse struct {
+	Spec interface{} `json:"spec"` // OpenAPI 3.0.3 Operation Object
 }
 
 type OpsAgentInfo struct {

@@ -29,7 +29,7 @@ Croupier 使用 YAML 配置文件管理系统行为。本文档详细说明配�
 
 ### 环境变量语法
 
-- 环境变量前缀：`CROUPIER_SERVER_*`、`CROUPIER_AGENT_*`、`CROUPIER_EDGE_*`
+- 环境变量前缀：`CROUPIER_SERVER_*`、`CROUPIER_AGENT_*`
 - 点号和连字符转换为下划线
 - 示例：`CROUPIER_SERVER_ADDR`、`CROUPIER_SERVER_HTTP_ADDR`
 

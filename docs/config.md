@@ -33,9 +33,9 @@ Notes for `services/server`:
 Legacy CLI precedence (low → high)
 - Base YAML: `--config base.yaml`
 - Include YAMLs: `--config-include a.yaml --config-include b.yaml` (later overrides earlier)
-- Section select: `server:/agent:/edge:` (subtree of the merged YAML)
+- Section select: `server:/agent:` (subtree of the merged YAML)
 - Profile overlay: `--profile <name>` (applied from section.profiles.`<name>`)
-- Environment: `CROUPIER_SERVER_* / CROUPIER_AGENT_* / CROUPIER_EDGE_*` (dots and dashes become underscores)
+- Environment: `CROUPIER_SERVER_* / CROUPIER_AGENT_*` (dots and dashes become underscores)
 - Flags: highest precedence
 
 Examples

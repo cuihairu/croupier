@@ -1,122 +1,129 @@
-# VSCode 配置说明
+# VS Code 配置文件
 
-## 配置文件结构
+本目录包含 Croupier 项目的 VS Code 配置。
 
-```
-.vscode/
-├── settings.json              # 团队共享配置（已纳入版本控制）
-├── settings.local.json        # 个人配置（已忽略，不提交）
-├── .intellisense-cache/       # C++ 智能感知缓存（已忽略）
-└── README.md                  # 本文档
-```
+## 📁 文件说明
 
-## 配置优先级
+| 文件 | 用途 |
+|------|------|
+| `launch.json` | 调试启动配置 |
+| `settings.json` | 项目设置 |
+| `tasks.json` | 任务配置 |
+| `extensions.json` | 推荐扩展 |
+| `AGENT-DEBUG-GUIDE.md` | Agent 调试指南 |
 
-VSCode 会按以下顺序合并配置（后者覆盖前者）：
+## 🚀 快速开始
 
-1. **settings.json** - 团队共享配置（提交到 Git）
-2. **settings.local.json** - 个人本地配置（不提交）
-3. 用户全局设置
+### 1. 安装推荐扩展
 
-## 团队共享配置 (settings.json)
+VS Code 会自动提示安装 `.vscode/extensions.json` 中的推荐扩展。
 
-已配置以下团队通用设置：
+主要包括：
+- Go (golang.go)
+- YAML (redhat.vscode-yaml)
+- GitLens (eamodio.gitlens)
 
-### C++ 性能优化
-- ✅ 排除 `vcpkg_installed/` (623MB)
-- ✅ 排除 `build/` (254MB)
-- ✅ 排除生成的 protobuf 代码
-- ✅ 智能感知缓存限制为 2GB
-- ✅ 使用 `${workspaceFolder}` 变量，跨平台兼容
+### 2. 配置调试
 
-### Java 配置
-- 自动空值分析
-- 自动更新构建配置
+按 `F5` 或点击调试面板，选择以下配置之一：
 
-### CMake 配置
-- 源码目录: `${workspaceFolder}/sdks/cpp`
+#### Server 配置
+- **Server (dev sqlite)** - 使用 SQLite 数据库
+- **Server (postgres)** - 使用 PostgreSQL
+- **Server (mysql)** - 使用 MySQL
 
-## 个人配置 (settings.local.json)
+#### Agent 配置
+- **Agent (多文件示例)** ⭐ - 加载多个 OpenAPI 文件
+- **Agent (加载所有 Packs)** - 加载所有 Packs
+- **Agent (调试模式)** - Debug 模式，可设置断点
+- **Agent (微服务架构)** 🎯 - 多服务配置
 
-如果你需要覆盖团队配置，创建 `settings.local.json`：
+详细说明请查看 [AGENT-DEBUG-GUIDE.md](./AGENT-DEBUG-GUIDE.md)
+
+### 3. 运行任务
+
+按 `Cmd+Shift+P` (Mac) 或 `Ctrl+Shift+P` (Windows/Linux)，输入 "Tasks: Run Task"，选择要运行的任务。
+
+可用任务：
+- `make: build` - 构建项目
+- `make: test` - 运行测试
+- `make: proto` - 生成 proto 代码
+- `make: pack` - 生成 pack 文件
+
+## 📝 项目设置
+
+`settings.json` 包含以下配置：
 
 ```json
 {
-  // 示例：修改 CMake 构建类型
-  "cmake.buildType": "Debug",
+  // Go 配置
+  "go.useLanguageServer": true,
+  "go.toolsManagement.autoUpdate": true,
 
-  // 示例：启用 C++ 彩色高亮（如果你的电脑性能好）
-  "C_Cpp.enhancedColorization": "enabled",
+  // YAML 配置
+  "yaml.format.enable": true,
+  "yaml.validate": true,
 
-  // 示例：个人偏好的编辑器设置
-  "editor.fontSize": 14,
-  "editor.tabSize": 4
-}
-```
+  // 文件配置
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
 
-## 变量说明
-
-配置中使用了 VSCode 内置变量，确保跨平台兼容：
-
-| 变量 | 说明 | 示例值 |
-|------|------|--------|
-| `${workspaceFolder}` | 项目根目录绝对路径 | `/Users/cui/Workspaces/croupier` (macOS)<br>`C:\Users\cui\Workspaces\croupier` (Windows) |
-| `${workspaceFolder}/sdks/cpp` | C++ SDK 目录 | 自动适配路径分隔符 |
-
-## 性能优化效果
-
-应用这些配置后：
-
-- 🚀 **启动速度**: 提升 3-5 倍
-- 💾 **内存占用**: 减少约 500MB
-- ⚡ **搜索速度**: 提升 10 倍以上
-- 🔋 **CPU 占用**: 降低 60-80%
-
-## 故障排查
-
-### 问题1: CMake 找不到源码目录
-
-**症状**: CMake 扩展报错 "Source directory not found"
-
-**解决方案**:
-```bash
-# 检查目录是否存在
-ls sdks/cpp/CMakeLists.txt
-
-# 重新加载窗口
-Cmd+Shift+P → Developer: Reload Window
-```
-
-### 问题2: C++ IntelliSense 仍然很慢
-
-**解决方案**:
-```bash
-# 1. 清理缓存
-rm -rf .vscode/.intellisense-cache
-
-# 2. 重新加载窗口
-Cmd+Shift+P → Developer: Reload Window
-
-# 3. 手动重建索引
-Cmd+Shift+P → C/C++: Rescan Workspace
-```
-
-### 问题3: 找不到某些 C++ 文件
-
-**原因**: 可能被 `C_Cpp.files.exclude` 排除了
-
-**解决方案**: 在 `settings.local.json` 中覆盖特定规则：
-```json
-{
-  "C_Cpp.files.exclude": {
-    // 重新启用某个目录
-    "**/generated/特定目录/**": false
+  // 代码格式化
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
   }
 }
 ```
 
-## 参考资料
+## 🔍 调试技巧
 
-- [VSCode C++ 配置优化官方指南](https://github.com/microsoft/vscode-cpptools/wiki/Optimizing-your-configuration)
-- [VSCode 变量参考](https://code.visualstudio.com/docs/editor/variables-reference)
-- [VSCode 设置优先级](https://code.visualstudio.com/docs/getstarted/settings#_settings-precedence)
+### 1. 设置断点
+
+在任何 `.go` 文件中点击行号左侧设置断点。
+
+### 2. 查看变量
+
+调试时将鼠标悬停在变量上查看其值。
+
+### 3. 调用栈
+
+在调试左侧面板查看调用栈。
+
+### 4. 日志输出
+
+在 "DEBUG CONSOLE" 中查看程序输出。
+
+## 🎯 常用操作
+
+### 启动 Server + Agent
+
+1. 先启动 Server：
+   - 按 F5 → 选择 "Server (dev sqlite)"
+
+2. 再启动 Agent：
+   - 按 F5 → 选择 "Agent (多文件示例)"
+
+### 调试 OpenAPI 解析
+
+1. 在 `internal/platform/openapi/provider.go` 设置断点
+2. 按 F5 → 选择 "Agent (调试模式)"
+3. 触发 OpenAPI 加载
+
+### 测试微服务架构
+
+1. 启动各个微服务（8081, 8082, 8083...）
+2. 按 F5 → 选择 "Agent (微服务架构)"
+3. 测试函数调用
+
+## 📚 更多文档
+
+- [Agent 调试指南](./AGENT-DEBUG-GUIDE.md)
+- [快速开始](../services/agent/etc/QUICKSTART.md)
+- [完整指南](../services/agent/etc/README-OPENAPI.md)
+- [多服务配置](../services/agent/etc/MULTI-SERVICE-GUIDE.md)
+
+---
+
+**最后更新**: 2024-02-07

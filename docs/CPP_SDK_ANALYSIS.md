@@ -34,7 +34,6 @@ sdks/cpp/
 │   │   ├── agent/local/v1/         # LocalService gRPC
 │   │   ├── function/v1/            # Function Service
 │   │   ├── server/v1/              # Server Service
-│   │   ├── edge/job/v1/            # Job Service
 │   │   └── options/                # Protobuf options
 │   └── examples/                   # 示例 Proto 定义
 ├── include/                        # 公共头文件
@@ -166,7 +165,6 @@ function(download_proto_files PROTO_SOURCE_DIR PROTO_DEST_DIR)
     # - croupier/agent/local/v1/local.proto
     # - croupier/control/v1/control.proto
     # - croupier/function/v1/function.proto
-    # - croupier/edge/job/v1/job.proto
     # - croupier/tunnel/v1/tunnel.proto
     # - croupier/options/ui.proto
     # - croupier/options/function.proto
