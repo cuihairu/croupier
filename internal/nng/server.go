@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/platform/registry"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
@@ -580,16 +581,16 @@ func (s *Server) handleRegisterCapabilitiesRequest(ctx context.Context, req *age
 	}
 
 	// Store provider capabilities
-	providerCaps := reg.ProviderCaps{
-		ID:        req.Provider.Id,
-		Version:   req.Provider.Version,
-		Lang:      req.Provider.Lang,
-		SDK:       req.Provider.Sdk,
-		Manifest:  manifestData,
-		UpdatedAt: time.Now(),
+	providerCaps := registry.OpenAPIProviderCaps{
+		ID:         req.Provider.Id,
+		Version:    req.Provider.Version,
+		Lang:       req.Provider.Lang,
+		SDK:        req.Provider.Sdk,
+		OpenAPIDoc: manifestData,
+		UpdatedAt:  time.Now(),
 	}
 
-	s.registry.UpsertProviderCaps(providerCaps)
+	s.registry.UpsertOpenAPIProvider(providerCaps)
 
 	s.logger.Info("Provider capabilities registered via NNG", "provider_id", req.Provider.Id)
 
