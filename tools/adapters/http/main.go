@@ -236,15 +236,143 @@ func main() {
 	}
 	defer nngClient.Close()
 
-	// Register with agent
+	// Define JSON Schemas for function parameters
+	genericInvokeInputSchema := `{
+		"type": "object",
+		"required": ["url"],
+		"properties": {
+			"method": {
+				"type": "string",
+				"enum": ["GET", "POST", "PUT", "DELETE", "PATCH"],
+				"default": "GET",
+				"description": "HTTP method"
+			},
+			"url": {
+				"type": "string",
+				"format": "uri",
+				"description": "Target URL"
+			},
+			"headers": {
+				"type": "object",
+				"description": "HTTP headers"
+			},
+			"body": {
+				"type": "string",
+				"description": "Request body"
+			}
+		}
+	}`
+
+	alertmanagerListAlertsInputSchema := `{
+		"type": "object",
+		"required": ["base_url"],
+		"properties": {
+			"base_url": {
+				"type": "string",
+				"format": "uri",
+				"description": "AlertManager base URL"
+			},
+			"silenced": {
+				"type": "boolean",
+				"description": "Filter by silenced status"
+			},
+			"inhibited": {
+				"type": "boolean",
+				"description": "Filter by inhibited status"
+			},
+			"active": {
+				"type": "boolean",
+				"description": "Filter by active status"
+			}
+		}
+	}`
+
+	grafanaSearchDashboardsInputSchema := `{
+		"type": "object",
+		"required": ["base_url"],
+		"properties": {
+			"base_url": {
+				"type": "string",
+				"format": "uri",
+				"description": "Grafana base URL"
+			},
+			"query": {
+				"type": "string",
+				"description": "Search query"
+			},
+			"type": {
+				"type": "string",
+				"enum": ["dash-db", "dash-folder"],
+				"default": "dash-db",
+				"description": "Dashboard type"
+			}
+		}
+	}`
+
+	httpResponseSchema := `{
+		"type": "object",
+		"description": "HTTP response",
+		"properties": {
+			"status": {
+				"type": "integer",
+				"description": "HTTP status code"
+			},
+			"body": {
+				"type": "string",
+				"description": "Response body"
+			}
+		}
+	}`
+
+	// Register with agent using OpenAPI 3.0.3 compatible descriptors
 	regReq := &sdkv1.RegisterLocalRequest{
 		ServiceId: serviceID,
 		RpcAddr:   listen,
 		Version:   version,
 		Functions: []*sdkv1.LocalFunctionDescriptor{
-			{Id: "http.generic_invoke", Version: version},
-			{Id: "alertmanager.list_alerts", Version: version},
-			{Id: "grafana.search_dashboards", Version: version},
+			{
+				Id:           "http.generic_invoke",
+				Version:      version,
+				Tags:         []string{"http", "network", "generic"},
+				Summary:      "Generic HTTP request invoker",
+				Description:  "Execute arbitrary HTTP requests with configurable method, headers, and body",
+				OperationId:  "httpGenericInvoke",
+				InputSchema:  genericInvokeInputSchema,
+				OutputSchema: httpResponseSchema,
+				Category:     "integration",
+				Risk:         "danger",
+				Entity:       "",
+				Operation:    "custom",
+				Deprecated:   false,
+			},
+			{
+				Id:           "alertmanager.list_alerts",
+				Version:      version,
+				Tags:         []string{"alertmanager", "monitoring", "alerts"},
+				Summary:      "List AlertManager alerts",
+				Description:  "Query AlertManager for alerts with optional filters",
+				OperationId:  "alertmanagerListAlerts",
+				InputSchema:  alertmanagerListAlertsInputSchema,
+				OutputSchema: httpResponseSchema,
+				Category:     "monitoring",
+				Risk:         "safe",
+				Entity:       "Alert",
+				Operation:    "read",
+			},
+			{
+				Id:           "grafana.search_dashboards",
+				Version:      version,
+				Tags:         []string{"grafana", "monitoring", "visualization"},
+				Summary:      "Search Grafana dashboards",
+				Description:  "Search for dashboards in Grafana",
+				OperationId:  "grafanaSearchDashboards",
+				InputSchema:  grafanaSearchDashboardsInputSchema,
+				OutputSchema: httpResponseSchema,
+				Category:     "monitoring",
+				Risk:         "safe",
+				Entity:       "Dashboard",
+				Operation:    "read",
+			},
 		},
 	}
 	regData, err := proto.Marshal(regReq)

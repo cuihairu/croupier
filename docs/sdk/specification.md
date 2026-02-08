@@ -47,6 +47,60 @@
    - `registerFunction()` 必须线程安全
    - `connect()`/`stop()` 必须与函数调用并发安全
 
+#### LocalFunctionDescriptor 规范
+
+所有 SDK **必须**使用 `LocalFunctionDescriptor` 作为函数描述符，该结构遵循 **OpenAPI 3.0.3 Operation Object** 规范。
+
+**标准字段：**
+
+| 字段名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| `id` | string | ✅ | 唯一函数标识符（如 "player.ban"） |
+| `version` | string | ✅ | 函数版本（语义化版本，如 "1.0.0"） |
+| `tags` | string[] | ❌ | 用于分组操作的标签 |
+| `summary` | string | ❌ | 简短摘要（1-2句话） |
+| `description` | string | ❌ | 详细描述（支持 Markdown） |
+| `operation_id` | string | ❌ | 唯一操作 ID（用于 OpenAPI 文档生成） |
+| `deprecated` | boolean | ❌ | 是否已弃用 |
+| `input_schema` | string | ❌ | **JSON Schema**（请求体验证） |
+| `output_schema` | string | ❌ | **JSON Schema**（响应体验证） |
+
+**OpenAPI 扩展字段（x-* 前缀）：**
+
+| 字段名 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| `category` | string | ❌ | 函数分类（如 "game", "system", "player", "monitoring"） |
+| `risk` | string | ❌ | 风险级别（"safe", "warning", "danger"） |
+| `entity` | string | ❌ | 关联实体类型（如 "Player", "Item", "Guild"） |
+| `operation` | string | ❌ | CRUD 操作类型（"create", "read", "update", "delete", "custom"） |
+
+**JSON Schema 格式要求：**
+
+- `input_schema` 和 `output_schema` **必须**是有效的 JSON Schema 字符串
+- 支持 Draft 7 或更高版本
+- **推荐**使用 JSON Schema 进行参数验证
+- SDK **应该**在调用前验证 `input_schema`
+
+**函数描述符示例（完整）：**
+
+```json
+{
+  "id": "player.ban",
+  "version": "1.0.0",
+  "tags": ["player", "moderation"],
+  "summary": "Ban a player",
+  "description": "Permanently bans a player from the game",
+  "operation_id": "playerBan",
+  "deprecated": false,
+  "input_schema": "{\n  \"type\": \"object\",\n  \"required\": [\"player_id\"],\n  \"properties\": {\n    \"player_id\": {\"type\": \"string\"},\n    \"reason\": {\"type\": \"string\"}\n  }\n}",
+  "output_schema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"success\": {\"type\": \"boolean\"}\n  }\n}",
+  "category": "game",
+  "risk": "danger",
+  "entity": "Player",
+  "operation": "update"
+}
+```
+
 ### 2. Invoker 接口
 
 所有 SDK **必须**实现 `Invoker` 接口，用于调用远程注册的函数。
@@ -417,9 +471,32 @@ config = ClientConfig{
 // 2. 创建客户端
 client = createClient(config)
 
-// 3. 注册函数
+// 3. 注册函数（使用 OpenAPI 3.0.3 兼容的 LocalFunctionDescriptor）
 client.registerFunction(
-    FunctionDescriptor{id = "func1", version = "1.0.0"},
+    LocalFunctionDescriptor{
+        id = "func1",
+        version = "1.0.0",
+        summary = "Function summary",
+        description = "Detailed description",
+        tags = ["category", "feature"],
+        input_schema = JSON.stringify({
+            type: "object",
+            required: ["param1"],
+            properties: {
+                param1: {type: "string"}
+            }
+        }),
+        output_schema = JSON.stringify({
+            type: "object",
+            properties: {
+                result: {type: "string"}
+            }
+        }),
+        category = "game",
+        risk = "safe",
+        entity = "Player",
+        operation = "read"
+    },
     handler
 )
 
