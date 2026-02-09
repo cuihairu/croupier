@@ -42,19 +42,21 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *types.FunctionUIUpdateRequ
 	}
 
 	updates := make(map[string]interface{})
-	if req.Schema != nil {
-		updates["schema"] = req.Schema
-		fn.Schema = datatypes.JSONMap{}
-		if schemaMap, ok := req.Schema.(map[string]interface{}); ok {
-			fn.Schema = datatypes.JSONMap(schemaMap)
-		}
+	meta := fn.Metadata
+	if meta == nil {
+		meta = datatypes.JSONMap{}
 	}
 
+	// 更新 Schema（支持三种来源）
+	if req.Schema != nil {
+		// 存储到 Metadata["ui"] 作为自定义 UI
+		meta["ui"] = req.Schema
+		updates["metadata"] = meta
+		fn.Metadata = meta
+	}
+
+	// 更新 Layout 和 Components
 	if req.Layout != nil || req.Components != nil {
-		meta := fn.Metadata
-		if meta == nil {
-			meta = datatypes.JSONMap{}
-		}
 		if req.Layout != nil {
 			meta["layout"] = req.Layout
 		}
@@ -71,6 +73,23 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *types.FunctionUIUpdateRequ
 		}
 	}
 
+	// 读取并返回合并后的 UI
+	var customUI, defaultUI, legacyUI interface{}
+	customUI = fn.Metadata["ui"]
+
+	if customUI == nil && fn.OpenAPISpec != nil {
+		defaultUI = fn.OpenAPISpec["x-ui"]
+	}
+	legacyUI = fn.Schema
+
+	resultUI := customUI
+	if resultUI == nil {
+		resultUI = defaultUI
+	}
+	if resultUI == nil {
+		resultUI = legacyUI
+	}
+
 	var layout interface{}
 	var components interface{}
 	if fn.Metadata != nil {
@@ -79,7 +98,7 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *types.FunctionUIUpdateRequ
 	}
 
 	return &types.FunctionUIResponse{
-		Schema:     fn.Schema,
+		Schema:     resultUI,
 		Layout:     layout,
 		Components: components,
 	}, nil

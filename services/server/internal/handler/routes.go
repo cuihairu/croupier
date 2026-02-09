@@ -6,7 +6,45 @@ package handler
 import (
 	"net/http"
 
-	openapi "github.com/cuihairu/croupier/services/server/internal/handler/openapi"
+	admin "github.com/cuihairu/croupier/services/server/internal/handler/admin"
+	agent "github.com/cuihairu/croupier/services/server/internal/handler/agent"
+	alert "github.com/cuihairu/croupier/services/server/internal/handler/alert"
+	analytics_behavior "github.com/cuihairu/croupier/services/server/internal/handler/analytics_behavior"
+	analytics_overview "github.com/cuihairu/croupier/services/server/internal/handler/analytics_overview"
+	analytics_payments "github.com/cuihairu/croupier/services/server/internal/handler/analytics_payments"
+	analytics_retention "github.com/cuihairu/croupier/services/server/internal/handler/analytics_retention"
+	approval "github.com/cuihairu/croupier/services/server/internal/handler/approval"
+	assignment "github.com/cuihairu/croupier/services/server/internal/handler/assignment"
+	audit "github.com/cuihairu/croupier/services/server/internal/handler/audit"
+	auth "github.com/cuihairu/croupier/services/server/internal/handler/auth"
+	backup "github.com/cuihairu/croupier/services/server/internal/handler/backup"
+	certificate "github.com/cuihairu/croupier/services/server/internal/handler/certificate"
+	component "github.com/cuihairu/croupier/services/server/internal/handler/component"
+	config "github.com/cuihairu/croupier/services/server/internal/handler/config"
+	entity "github.com/cuihairu/croupier/services/server/internal/handler/entity"
+	faq "github.com/cuihairu/croupier/services/server/internal/handler/faq"
+	feedback "github.com/cuihairu/croupier/services/server/internal/handler/feedback"
+	function "github.com/cuihairu/croupier/services/server/internal/handler/function"
+	game "github.com/cuihairu/croupier/services/server/internal/handler/game"
+	job "github.com/cuihairu/croupier/services/server/internal/handler/job"
+	message "github.com/cuihairu/croupier/services/server/internal/handler/message"
+	meta "github.com/cuihairu/croupier/services/server/internal/handler/meta"
+	monitoring "github.com/cuihairu/croupier/services/server/internal/handler/monitoring"
+	node "github.com/cuihairu/croupier/services/server/internal/handler/node"
+	ops "github.com/cuihairu/croupier/services/server/internal/handler/ops"
+	pack "github.com/cuihairu/croupier/services/server/internal/handler/pack"
+	permission "github.com/cuihairu/croupier/services/server/internal/handler/permission"
+	player "github.com/cuihairu/croupier/services/server/internal/handler/player"
+	profile "github.com/cuihairu/croupier/services/server/internal/handler/profile"
+	provider "github.com/cuihairu/croupier/services/server/internal/handler/provider"
+	rate_limit "github.com/cuihairu/croupier/services/server/internal/handler/rate_limit"
+	registry "github.com/cuihairu/croupier/services/server/internal/handler/registry"
+	role "github.com/cuihairu/croupier/services/server/internal/handler/role"
+	schema "github.com/cuihairu/croupier/services/server/internal/handler/schema"
+	storage "github.com/cuihairu/croupier/services/server/internal/handler/storage"
+	ticket "github.com/cuihairu/croupier/services/server/internal/handler/ticket"
+	xrender "github.com/cuihairu/croupier/services/server/internal/handler/xrender"
+	xrender_schema "github.com/cuihairu/croupier/services/server/internal/handler/xrender_schema"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
@@ -16,24 +54,1512 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
-				// 获取实体关联的函数列表
+				// 获取管理员列表
 				Method:  http.MethodGet,
-				Path:    "/entities/:id/functions",
-				Handler: openapi.EntityFunctionsHandler(serverCtx),
+				Path:    "/",
+				Handler: admin.AdminsListHandler(serverCtx),
 			},
 			{
-				// 获取函数的 OpenAPI spec
-				Method:  http.MethodGet,
-				Path:    "/functions/:id/openapi",
-				Handler: openapi.FunctionOpenAPISpecHandler(serverCtx),
-			},
-			{
-				// 导入 OpenAPI spec
+				// 创建管理员
 				Method:  http.MethodPost,
-				Path:    "/functions/_import",
-				Handler: openapi.OpenAPIImportHandler(serverCtx),
+				Path:    "/",
+				Handler: admin.AdminCreateHandler(serverCtx),
+			},
+			{
+				// 获取管理员详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: admin.AdminDetailHandler(serverCtx),
+			},
+			{
+				// 更新管理员
+				Method:  http.MethodPut,
+				Path:    "/:id",
+				Handler: admin.AdminUpdateHandler(serverCtx),
+			},
+			{
+				// 删除管理员
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: admin.AdminDeleteHandler(serverCtx),
+			},
+			{
+				// 重置管理员密码
+				Method:  http.MethodPost,
+				Path:    "/:id/password-reset",
+				Handler: admin.AdminPasswordResetHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/admin"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取分析过滤器
+				Method:  http.MethodGet,
+				Path:    "/analytics-filters",
+				Handler: agent.AgentAnalyticsFiltersHandler(serverCtx),
+			},
+			{
+				// 上报代理元数据
+				Method:  http.MethodPost,
+				Path:    "/meta",
+				Handler: agent.AgentMetaHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/agent"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取告警列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: alert.AlertsListHandler(serverCtx),
+			},
+			{
+				// 静默告警
+				Method:  http.MethodPost,
+				Path:    "/:id/silence",
+				Handler: alert.AlertSilenceHandler(serverCtx),
+			},
+			{
+				// 获取静默规则列表
+				Method:  http.MethodGet,
+				Path:    "/silences",
+				Handler: alert.SilencesListHandler(serverCtx),
+			},
+			{
+				// 删除静默规则
+				Method:  http.MethodDelete,
+				Path:    "/silences/:id",
+				Handler: alert.SilenceDeleteHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/alerts"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取行为分析
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: analytics_behavior.BehaviorHandler(serverCtx),
+			},
+			{
+				// 获取功能采用率
+				Method:  http.MethodGet,
+				Path:    "/adoption",
+				Handler: analytics_behavior.BehaviorAdoptionHandler(serverCtx),
+			},
+			{
+				// 获取采用率明细
+				Method:  http.MethodGet,
+				Path:    "/adoption/breakdown",
+				Handler: analytics_behavior.BehaviorAdoptionBreakdownHandler(serverCtx),
+			},
+			{
+				// 获取行为事件
+				Method:  http.MethodGet,
+				Path:    "/events",
+				Handler: analytics_behavior.BehaviorEventsHandler(serverCtx),
+			},
+			{
+				// 获取行为漏斗
+				Method:  http.MethodPost,
+				Path:    "/funnel",
+				Handler: analytics_behavior.BehaviorFunnelHandler(serverCtx),
+			},
+			{
+				// 获取行为路径
+				Method:  http.MethodGet,
+				Path:    "/paths",
+				Handler: analytics_behavior.BehaviorPathsHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/analytics/behavior"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取分析过滤器
+				Method:  http.MethodGet,
+				Path:    "/filters",
+				Handler: analytics_overview.FiltersGetHandler(serverCtx),
+			},
+			{
+				// 更新分析过滤器
+				Method:  http.MethodPut,
+				Path:    "/filters",
+				Handler: analytics_overview.FiltersUpdateHandler(serverCtx),
+			},
+			{
+				// 采集分析数据
+				Method:  http.MethodPost,
+				Path:    "/ingest",
+				Handler: analytics_overview.IngestHandler(serverCtx),
+			},
+			{
+				// 获取分析概览
+				Method:  http.MethodGet,
+				Path:    "/overview",
+				Handler: analytics_overview.OverviewHandler(serverCtx),
+			},
+			{
+				// 获取实时数据
+				Method:  http.MethodGet,
+				Path:    "/realtime",
+				Handler: analytics_overview.RealtimeHandler(serverCtx),
+			},
+			{
+				// 获取实时序列数据
+				Method:  http.MethodGet,
+				Path:    "/realtime/series",
+				Handler: analytics_overview.RealtimeSeriesHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/analytics"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取支付分析
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: analytics_payments.PaymentsHandler(serverCtx),
+			},
+			{
+				// 采集支付数据
+				Method:  http.MethodPost,
+				Path:    "/ingest",
+				Handler: analytics_payments.PaymentsIngestHandler(serverCtx),
+			},
+			{
+				// 获取产品趋势
+				Method:  http.MethodGet,
+				Path:    "/product-trend",
+				Handler: analytics_payments.PaymentsProductTrendHandler(serverCtx),
+			},
+			{
+				// 获取支付摘要
+				Method:  http.MethodGet,
+				Path:    "/summary",
+				Handler: analytics_payments.PaymentsSummaryHandler(serverCtx),
+			},
+			{
+				// 获取支付交易列表
+				Method:  http.MethodGet,
+				Path:    "/transactions",
+				Handler: analytics_payments.PaymentsTransactionsHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/analytics/payments"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取关卡分析
+				Method:  http.MethodGet,
+				Path:    "/levels",
+				Handler: analytics_retention.LevelsHandler(serverCtx),
+			},
+			{
+				// 获取章节分析
+				Method:  http.MethodGet,
+				Path:    "/levels/episodes",
+				Handler: analytics_retention.LevelsEpisodesHandler(serverCtx),
+			},
+			{
+				// 获取地图分析
+				Method:  http.MethodGet,
+				Path:    "/levels/maps",
+				Handler: analytics_retention.LevelsMapsHandler(serverCtx),
+			},
+			{
+				// 获取留存分析
+				Method:  http.MethodGet,
+				Path:    "/retention",
+				Handler: analytics_retention.RetentionHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/analytics"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取审批列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: approval.ApprovalsListHandler(serverCtx),
+			},
+			{
+				// 获取审批详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: approval.ApprovalGetHandler(serverCtx),
+			},
+			{
+				// 通过审批
+				Method:  http.MethodPost,
+				Path:    "/:id/approve",
+				Handler: approval.ApprovalApproveHandler(serverCtx),
+			},
+			{
+				// 拒绝审批
+				Method:  http.MethodPost,
+				Path:    "/:id/reject",
+				Handler: approval.ApprovalRejectHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/approvals"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取分配列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: assignment.AssignmentsListHandler(serverCtx),
+			},
+			{
+				// 更新分配
+				Method:  http.MethodPut,
+				Path:    "/",
+				Handler: assignment.AssignmentsUpdateHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/assignments"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取审计日志
+				Method:  http.MethodGet,
+				Path:    "/audit",
+				Handler: audit.AuditHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 用户登录
+				Method:  http.MethodPost,
+				Path:    "/login",
+				Handler: auth.LoginHandler(serverCtx),
+			},
+			{
+				// 用户登出
+				Method:  http.MethodPost,
+				Path:    "/logout",
+				Handler: auth.LogoutHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/auth"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取备份列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: backup.BackupsListHandler(serverCtx),
+			},
+			{
+				// 创建备份
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: backup.BackupCreateHandler(serverCtx),
+			},
+			{
+				// 删除备份
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: backup.BackupDeleteHandler(serverCtx),
+			},
+			{
+				// 下载备份
+				Method:  http.MethodGet,
+				Path:    "/:id/download",
+				Handler: backup.BackupDownloadHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/backups"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取证书列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: certificate.CertificatesListHandler(serverCtx),
+			},
+			{
+				// 添加证书
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: certificate.CertificateAddHandler(serverCtx),
+			},
+			{
+				// 获取证书详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: certificate.CertificateDetailHandler(serverCtx),
+			},
+			{
+				// 删除证书
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: certificate.CertificateDeleteHandler(serverCtx),
+			},
+			{
+				// 检查证书状态
+				Method:  http.MethodPost,
+				Path:    "/:id/check",
+				Handler: certificate.CertificateCheckHandler(serverCtx),
+			},
+			{
+				// 添加证书告警
+				Method:  http.MethodPost,
+				Path:    "/alerts",
+				Handler: certificate.CertificateAlertAddHandler(serverCtx),
+			},
+			{
+				// 获取证书告警列表
+				Method:  http.MethodGet,
+				Path:    "/alerts",
+				Handler: certificate.CertificateAlertsListHandler(serverCtx),
+			},
+			{
+				// 检查所有证书
+				Method:  http.MethodPost,
+				Path:    "/check-all",
+				Handler: certificate.CertificateCheckAllHandler(serverCtx),
+			},
+			{
+				// 获取域名证书信息
+				Method:  http.MethodGet,
+				Path:    "/domain-info",
+				Handler: certificate.CertificateDomainInfoHandler(serverCtx),
+			},
+			{
+				// 获取即将过期的证书
+				Method:  http.MethodGet,
+				Path:    "/expiring",
+				Handler: certificate.CertificateExpiringHandler(serverCtx),
+			},
+			{
+				// 获取证书统计
+				Method:  http.MethodGet,
+				Path:    "/stats",
+				Handler: certificate.CertificateStatsHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/certificates"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取组件列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: component.ComponentsListHandler(serverCtx),
+			},
+			{
+				// 获取组件详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: component.ComponentsDetailHandler(serverCtx),
+			},
+			{
+				// 删除组件
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: component.ComponentsDeleteHandler(serverCtx),
+			},
+			{
+				// 更新组件配置
+				Method:  http.MethodPatch,
+				Path:    "/:id",
+				Handler: component.ComponentsPatchHandler(serverCtx),
+			},
+			{
+				// 禁用组件
+				Method:  http.MethodPost,
+				Path:    "/:id/disable",
+				Handler: component.ComponentsDisableHandler(serverCtx),
+			},
+			{
+				// 启用组件
+				Method:  http.MethodPost,
+				Path:    "/:id/enable",
+				Handler: component.ComponentsEnableHandler(serverCtx),
+			},
+			{
+				// 安装组件
+				Method:  http.MethodPost,
+				Path:    "/install",
+				Handler: component.ComponentsInstallHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/components"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 创建或更新配置
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: config.ConfigUpsertHandler(serverCtx),
+			},
+			{
+				// 获取配置版本详情
+				Method:  http.MethodGet,
+				Path:    "/version",
+				Handler: config.ConfigVersionDetailHandler(serverCtx),
+			},
+			{
+				// 获取配置版本列表
+				Method:  http.MethodGet,
+				Path:    "/versions",
+				Handler: config.ConfigVersionsHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/configs"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取实体列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: entity.EntitiesListHandler(serverCtx),
+			},
+			{
+				// 创建实体
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: entity.EntityCreateHandler(serverCtx),
+			},
+			{
+				// 获取实体详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: entity.EntityDetailHandler(serverCtx),
+			},
+			{
+				// 更新实体
+				Method:  http.MethodPut,
+				Path:    "/:id",
+				Handler: entity.EntityUpdateHandler(serverCtx),
+			},
+			{
+				// 删除实体
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: entity.EntityDeleteHandler(serverCtx),
+			},
+			{
+				// 预览实体
+				Method:  http.MethodGet,
+				Path:    "/:id/preview",
+				Handler: entity.EntityPreviewHandler(serverCtx),
+			},
+			{
+				// 验证实体
+				Method:  http.MethodPost,
+				Path:    "/validate",
+				Handler: entity.EntityValidateHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/entities"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取FAQ列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: faq.FAQListHandler(serverCtx),
+			},
+			{
+				// 创建FAQ
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: faq.FAQCreateHandler(serverCtx),
+			},
+			{
+				// 更新FAQ
+				Method:  http.MethodPut,
+				Path:    "/:id",
+				Handler: faq.FAQUpdateHandler(serverCtx),
+			},
+			{
+				// 删除FAQ
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: faq.FAQDeleteHandler(serverCtx),
+			},
+			{
+				// 获取FAQ分类
+				Method:  http.MethodGet,
+				Path:    "/categories",
+				Handler: faq.FAQCategoriesHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/faqs"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取反馈列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: feedback.FeedbackListHandler(serverCtx),
+			},
+			{
+				// 创建反馈
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: feedback.FeedbackCreateHandler(serverCtx),
+			},
+			{
+				// 更新反馈
+				Method:  http.MethodPut,
+				Path:    "/:id",
+				Handler: feedback.FeedbackUpdateHandler(serverCtx),
+			},
+			{
+				// 删除反馈
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: feedback.FeedbackDeleteHandler(serverCtx),
+			},
+			{
+				// 获取反馈统计
+				Method:  http.MethodGet,
+				Path:    "/stats",
+				Handler: feedback.FeedbackStatsHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/feedback"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取函数列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: function.FunctionsListHandler(serverCtx),
+			},
+			{
+				// 获取函数详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: function.FunctionDetailHandler(serverCtx),
+			},
+			{
+				// 禁用函数
+				Method:  http.MethodPost,
+				Path:    "/:id/disable",
+				Handler: function.FunctionDisableHandler(serverCtx),
+			},
+			{
+				// 启用函数
+				Method:  http.MethodPost,
+				Path:    "/:id/enable",
+				Handler: function.FunctionEnableHandler(serverCtx),
+			},
+			{
+				// 获取函数实例
+				Method:  http.MethodGet,
+				Path:    "/:id/instances",
+				Handler: function.FunctionInstancesHandler(serverCtx),
+			},
+			{
+				// 调用函数
+				Method:  http.MethodPost,
+				Path:    "/:id/invoke",
+				Handler: function.FunctionInvokeHandler(serverCtx),
+			},
+			{
+				// 获取函数权限
+				Method:  http.MethodGet,
+				Path:    "/:id/permissions",
+				Handler: function.FunctionPermissionsHandler(serverCtx),
+			},
+			{
+				// 更新函数权限
+				Method:  http.MethodPut,
+				Path:    "/:id/permissions",
+				Handler: function.FunctionPermissionsUpdateHandler(serverCtx),
+			},
+			{
+				// 发布函数
+				Method:  http.MethodPost,
+				Path:    "/:id/publish",
+				Handler: function.FunctionPublishHandler(serverCtx),
+			},
+			{
+				// 获取函数UI配置
+				Method:  http.MethodGet,
+				Path:    "/:id/ui",
+				Handler: function.FunctionUIHandler(serverCtx),
+			},
+			{
+				// 更新函数UI配置
+				Method:  http.MethodPut,
+				Path:    "/:id/ui",
+				Handler: function.FunctionUIUpdateHandler(serverCtx),
+			},
+			{
+				// 获取函数描述符列表
+				Method:  http.MethodGet,
+				Path:    "/descriptors",
+				Handler: function.DescriptorsHandler(serverCtx),
+			},
+			{
+				// 获取待处理函数
+				Method:  http.MethodGet,
+				Path:    "/pending",
+				Handler: function.FunctionsPendingHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/functions"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取游戏列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: game.GamesListHandler(serverCtx),
+			},
+			{
+				// 创建游戏
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: game.GameCreateHandler(serverCtx),
+			},
+			{
+				// 获取游戏详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: game.GameDetailHandler(serverCtx),
+			},
+			{
+				// 更新游戏
+				Method:  http.MethodPut,
+				Path:    "/:id",
+				Handler: game.GameUpdateHandler(serverCtx),
+			},
+			{
+				// 删除游戏
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: game.GameDeleteHandler(serverCtx),
+			},
+			{
+				// 获取游戏环境列表
+				Method:  http.MethodGet,
+				Path:    "/:id/envs",
+				Handler: game.GameEnvsListHandler(serverCtx),
+			},
+			{
+				// 添加游戏环境
+				Method:  http.MethodPost,
+				Path:    "/:id/envs",
+				Handler: game.GameEnvAddHandler(serverCtx),
+			},
+			{
+				// 更新游戏环境
+				Method:  http.MethodPut,
+				Path:    "/:id/envs/:envId",
+				Handler: game.GameEnvUpdateHandler(serverCtx),
+			},
+			{
+				// 删除游戏环境
+				Method:  http.MethodDelete,
+				Path:    "/:id/envs/:envId",
+				Handler: game.GameEnvDeleteHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/games"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 任务列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: job.JobListHandler(serverCtx),
+			},
+			{
+				// 启动任务
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: job.JobStartHandler(serverCtx),
+			},
+			{
+				// 取消任务
+				Method:  http.MethodPost,
+				Path:    "/:id/cancel",
+				Handler: job.JobCancelHandler(serverCtx),
+			},
+			{
+				// 获取任务结果
+				Method:  http.MethodGet,
+				Path:    "/:id/result",
+				Handler: job.JobResultHandler(serverCtx),
+			},
+			{
+				// 任务流（实时状态和日志）
+				Method:  http.MethodGet,
+				Path:    "/:jobId/stream",
+				Handler: job.StreamJobHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/jobs"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取消息列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: message.MessagesListHandler(serverCtx),
+			},
+			{
+				// 发送消息
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: message.MessageSendHandler(serverCtx),
+			},
+			{
+				// 获取消息详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: message.MessageDetailHandler(serverCtx),
+			},
+			{
+				// 标记消息已读
+				Method:  http.MethodPost,
+				Path:    "/:id/read",
+				Handler: message.MessageReadHandler(serverCtx),
+			},
+			{
+				// 消息流（实时推送）
+				Method:  http.MethodGet,
+				Path:    "/stream",
+				Handler: message.StreamMessagesHandler(serverCtx),
+			},
+			{
+				// 获取未读消息数量
+				Method:  http.MethodGet,
+				Path:    "/unread-count",
+				Handler: message.MessagesUnreadCountHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/messages"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 根路径 - API 信息和版本
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: meta.RootHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 健康检查
+				Method:  http.MethodGet,
+				Path:    "/healthz",
+				Handler: monitoring.HealthzHandler(serverCtx),
+			},
+			{
+				// 获取系统指标
+				Method:  http.MethodGet,
+				Path:    "/metrics",
+				Handler: monitoring.MetricsHandler(serverCtx),
+			},
+			{
+				// 获取系统状态
+				Method:  http.MethodGet,
+				Path:    "/status",
+				Handler: monitoring.StatusHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取节点列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: node.NodesListHandler(serverCtx),
+			},
+			{
+				// 排空节点
+				Method:  http.MethodPost,
+				Path:    "/:id/drain",
+				Handler: node.NodeDrainHandler(serverCtx),
+			},
+			{
+				// 获取节点元数据
+				Method:  http.MethodGet,
+				Path:    "/:id/meta",
+				Handler: node.NodeMetaHandler(serverCtx),
+			},
+			{
+				// 更新节点元数据
+				Method:  http.MethodPut,
+				Path:    "/:id/meta",
+				Handler: node.NodeMetaUpdateHandler(serverCtx),
+			},
+			{
+				// 重启节点
+				Method:  http.MethodPost,
+				Path:    "/:id/restart",
+				Handler: node.NodeRestartHandler(serverCtx),
+			},
+			{
+				// 取消排空节点
+				Method:  http.MethodPost,
+				Path:    "/:id/undrain",
+				Handler: node.NodeUndrainHandler(serverCtx),
+			},
+			{
+				// 获取节点命令
+				Method:  http.MethodGet,
+				Path:    "/commands",
+				Handler: node.NodeCommandsHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/nodes"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 更新代理元数据
+				Method:  http.MethodPut,
+				Path:    "/agent-meta",
+				Handler: ops.OpsAgentMetaHandler(serverCtx),
+			},
+			{
+				// 获取告警列表
+				Method:  http.MethodGet,
+				Path:    "/alerts",
+				Handler: ops.OpsAlertsHandler(serverCtx),
+			},
+			{
+				// 静默告警
+				Method:  http.MethodPost,
+				Path:    "/alerts/silence",
+				Handler: ops.OpsAlertSilenceHandler(serverCtx),
+			},
+			{
+				// 创建备份
+				Method:  http.MethodPost,
+				Path:    "/backups",
+				Handler: ops.OpsBackupCreateHandler(serverCtx),
+			},
+			{
+				// 获取备份列表
+				Method:  http.MethodGet,
+				Path:    "/backups",
+				Handler: ops.OpsBackupsListHandler(serverCtx),
+			},
+			{
+				// 删除备份
+				Method:  http.MethodDelete,
+				Path:    "/backups/:id",
+				Handler: ops.OpsBackupDeleteHandler(serverCtx),
+			},
+			{
+				// 下载备份
+				Method:  http.MethodGet,
+				Path:    "/backups/:id/download",
+				Handler: ops.OpsBackupDownloadHandler(serverCtx),
+			},
+			{
+				// 获取运维配置
+				Method:  http.MethodGet,
+				Path:    "/config",
+				Handler: ops.OpsConfigHandler(serverCtx),
+			},
+			{
+				// 获取函数列表
+				Method:  http.MethodGet,
+				Path:    "/functions",
+				Handler: ops.OpsFunctionsHandler(serverCtx),
+			},
+			{
+				// 获取健康状态
+				Method:  http.MethodGet,
+				Path:    "/health",
+				Handler: ops.OpsHealthGetHandler(serverCtx),
+			},
+			{
+				// 更新健康检查配置
+				Method:  http.MethodPut,
+				Path:    "/health",
+				Handler: ops.OpsHealthUpdateHandler(serverCtx),
+			},
+			{
+				// 运行健康检查
+				Method:  http.MethodPost,
+				Path:    "/health/run",
+				Handler: ops.OpsHealthRunHandler(serverCtx),
+			},
+			{
+				// 获取维护模式状态
+				Method:  http.MethodGet,
+				Path:    "/maintenance",
+				Handler: ops.OpsMaintenanceGetHandler(serverCtx),
+			},
+			{
+				// 更新维护模式
+				Method:  http.MethodPut,
+				Path:    "/maintenance",
+				Handler: ops.OpsMaintenanceUpdateHandler(serverCtx),
+			},
+			{
+				// 获取指标
+				Method:  http.MethodGet,
+				Path:    "/metrics",
+				Handler: ops.OpsMetricsHandler(serverCtx),
+			},
+			{
+				// 获取消息队列状态
+				Method:  http.MethodGet,
+				Path:    "/mq",
+				Handler: ops.OpsMQHandler(serverCtx),
+			},
+			{
+				// 获取节点列表
+				Method:  http.MethodGet,
+				Path:    "/nodes",
+				Handler: ops.OpsNodesHandler(serverCtx),
+			},
+			{
+				// 排空节点
+				Method:  http.MethodPost,
+				Path:    "/nodes/:nodeId/drain",
+				Handler: ops.OpsNodeDrainHandler(serverCtx),
+			},
+			{
+				// 获取节点元数据
+				Method:  http.MethodGet,
+				Path:    "/nodes/:nodeId/meta",
+				Handler: ops.OpsNodeMetaHandler(serverCtx),
+			},
+			{
+				// 重启节点
+				Method:  http.MethodPost,
+				Path:    "/nodes/:nodeId/restart",
+				Handler: ops.OpsNodeRestartHandler(serverCtx),
+			},
+			{
+				// 取消排空节点
+				Method:  http.MethodPost,
+				Path:    "/nodes/:nodeId/undrain",
+				Handler: ops.OpsNodeUndrainHandler(serverCtx),
+			},
+			{
+				// 获取节点命令
+				Method:  http.MethodGet,
+				Path:    "/nodes/commands",
+				Handler: ops.OpsNodeCommandsHandler(serverCtx),
+			},
+			{
+				// 获取通知配置
+				Method:  http.MethodGet,
+				Path:    "/notifications",
+				Handler: ops.OpsNotificationsGetHandler(serverCtx),
+			},
+			{
+				// 更新通知配置
+				Method:  http.MethodPut,
+				Path:    "/notifications",
+				Handler: ops.OpsNotificationsUpdateHandler(serverCtx),
+			},
+			{
+				// 获取服务列表
+				Method:  http.MethodGet,
+				Path:    "/services",
+				Handler: ops.OpsServicesHandler(serverCtx),
+			},
+			{
+				// 获取静默规则列表
+				Method:  http.MethodGet,
+				Path:    "/silences",
+				Handler: ops.OpsSilencesHandler(serverCtx),
+			},
+			{
+				// 删除静默规则
+				Method:  http.MethodDelete,
+				Path:    "/silences/:id",
+				Handler: ops.OpsSilenceDeleteHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/ops"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取功能包列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: pack.PacksListHandler(serverCtx),
+			},
+			{
+				// 导出功能包
+				Method:  http.MethodGet,
+				Path:    "/export",
+				Handler: pack.PacksExportHandler(serverCtx),
+			},
+			{
+				// 导入功能包
+				Method:  http.MethodPost,
+				Path:    "/import",
+				Handler: pack.PacksImportHandler(serverCtx),
+			},
+			{
+				// 重新加载功能包
+				Method:  http.MethodPost,
+				Path:    "/reload",
+				Handler: pack.PacksReloadHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/packs"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取权限列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: permission.PermissionsListHandler(serverCtx),
+			},
+			{
+				// 获取权限详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: permission.PermissionDetailHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/permissions"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取玩家列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: player.PlayersListHandler(serverCtx),
+			},
+			{
+				// 创建玩家
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: player.PlayerCreateHandler(serverCtx),
+			},
+			{
+				// 获取玩家详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: player.PlayerDetailHandler(serverCtx),
+			},
+			{
+				// 更新玩家信息
+				Method:  http.MethodPut,
+				Path:    "/:id",
+				Handler: player.PlayerUpdateHandler(serverCtx),
+			},
+			{
+				// 删除玩家
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: player.PlayerDeleteHandler(serverCtx),
+			},
+			{
+				// 调整玩家余额
+				Method:  http.MethodPost,
+				Path:    "/:id/balance",
+				Handler: player.PlayerBalanceHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/players"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取当前用户资料
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: profile.ProfileGetHandler(serverCtx),
+			},
+			{
+				// 更新当前用户资料
+				Method:  http.MethodPut,
+				Path:    "/",
+				Handler: profile.ProfileUpdateHandler(serverCtx),
+			},
+			{
+				// 获取我的游戏
+				Method:  http.MethodGet,
+				Path:    "/games",
+				Handler: profile.ProfileGamesHandler(serverCtx),
+			},
+			{
+				// 修改密码
+				Method:  http.MethodPut,
+				Path:    "/password",
+				Handler: profile.ProfilePasswordHandler(serverCtx),
+			},
+			{
+				// 获取当前用户权限
+				Method:  http.MethodGet,
+				Path:    "/permissions",
+				Handler: profile.ProfilePermissionsHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/profile"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取提供者列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: provider.ProvidersListHandler(serverCtx),
+			},
+			{
+				// 获取提供者详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: provider.ProvidersDetailHandler(serverCtx),
+			},
+			{
+				// 删除提供者
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: provider.ProvidersDeleteHandler(serverCtx),
+			},
+			{
+				// 获取提供者实体
+				Method:  http.MethodGet,
+				Path:    "/:id/entities",
+				Handler: provider.ProvidersEntitiesHandler(serverCtx),
+			},
+			{
+				// 重新加载提供者
+				Method:  http.MethodPost,
+				Path:    "/:id/reload",
+				Handler: provider.ProvidersReloadHandler(serverCtx),
+			},
+			{
+				// 获取提供者能力
+				Method:  http.MethodGet,
+				Path:    "/capabilities",
+				Handler: provider.ProvidersCapabilitiesHandler(serverCtx),
+			},
+			{
+				// 获取提供者描述符
+				Method:  http.MethodGet,
+				Path:    "/descriptors",
+				Handler: provider.ProvidersDescriptorsHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/providers"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取限流规则列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: rate_limit.RateLimitsListHandler(serverCtx),
+			},
+			{
+				// 创建/更新限流规则
+				Method:  http.MethodPut,
+				Path:    "/",
+				Handler: rate_limit.RateLimitUpsertHandler(serverCtx),
+			},
+			{
+				// 获取限流规则
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: rate_limit.RateLimitGetHandler(serverCtx),
+			},
+			{
+				// 删除限流规则
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: rate_limit.RateLimitDeleteHandler(serverCtx),
+			},
+			{
+				// 预览限流规则
+				Method:  http.MethodPost,
+				Path:    "/preview",
+				Handler: rate_limit.RateLimitPreviewHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/rate-limits"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取注册表信息
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: registry.RegistryHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/registry"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取角色列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: role.RolesListHandler(serverCtx),
+			},
+			{
+				// 创建角色
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: role.RoleCreateHandler(serverCtx),
+			},
+			{
+				// 获取角色详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: role.RoleDetailHandler(serverCtx),
+			},
+			{
+				// 更新角色
+				Method:  http.MethodPut,
+				Path:    "/:id",
+				Handler: role.RoleUpdateHandler(serverCtx),
+			},
+			{
+				// 删除角色
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: role.RoleDeleteHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/roles"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取模式列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: schema.SchemasListHandler(serverCtx),
+			},
+			{
+				// 创建模式
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: schema.SchemaCreateHandler(serverCtx),
+			},
+			{
+				// 获取模式详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: schema.SchemaDetailHandler(serverCtx),
+			},
+			{
+				// 更新模式
+				Method:  http.MethodPut,
+				Path:    "/:id",
+				Handler: schema.SchemaUpdateHandler(serverCtx),
+			},
+			{
+				// 删除模式
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: schema.SchemaDeleteHandler(serverCtx),
+			},
+			{
+				// 获取模式UI配置
+				Method:  http.MethodGet,
+				Path:    "/:id/ui-config",
+				Handler: schema.SchemaUiConfigHandler(serverCtx),
+			},
+			{
+				// 更新模式UI配置
+				Method:  http.MethodPut,
+				Path:    "/:id/ui-config",
+				Handler: schema.SchemaUiConfigUpdateHandler(serverCtx),
+			},
+			{
+				// 验证模式数据
+				Method:  http.MethodPost,
+				Path:    "/:id/validate",
+				Handler: schema.SchemaValidateHandler(serverCtx),
+			},
+			{
+				// 原始模式验证
+				Method:  http.MethodPost,
+				Path:    "/raw-validate",
+				Handler: schema.SchemaRawValidateHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/schemas"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取签名URL
+				Method:  http.MethodGet,
+				Path:    "/signed-url",
+				Handler: storage.SignedUrlHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/storage"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取工单列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: ticket.TicketsListHandler(serverCtx),
+			},
+			{
+				// 创建工单
+				Method:  http.MethodPost,
+				Path:    "/",
+				Handler: ticket.TicketCreateHandler(serverCtx),
+			},
+			{
+				// 获取工单详情
+				Method:  http.MethodGet,
+				Path:    "/:id",
+				Handler: ticket.TicketDetailHandler(serverCtx),
+			},
+			{
+				// 更新工单
+				Method:  http.MethodPut,
+				Path:    "/:id",
+				Handler: ticket.TicketUpdateHandler(serverCtx),
+			},
+			{
+				// 删除工单
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: ticket.TicketDeleteHandler(serverCtx),
+			},
+			{
+				// 工单状态转换
+				Method:  http.MethodPost,
+				Path:    "/:id/transition",
+				Handler: ticket.TicketTransitionHandler(serverCtx),
+			},
+			{
+				// 获取工单评论
+				Method:  http.MethodGet,
+				Path:    "/:ticketId/comments",
+				Handler: ticket.TicketCommentsHandler(serverCtx),
+			},
+			{
+				// 创建工单评论
+				Method:  http.MethodPost,
+				Path:    "/:ticketId/comments",
+				Handler: ticket.TicketCommentCreateHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/tickets"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取XRender组件
+				Method:  http.MethodGet,
+				Path:    "/components",
+				Handler: xrender.XRenderComponentsHandler(serverCtx),
+			},
+			{
+				// 生成XRender模式
+				Method:  http.MethodPost,
+				Path:    "/generate",
+				Handler: xrender.XRenderGenerateSchemaHandler(serverCtx),
+			},
+			{
+				// 预览XRender模式
+				Method:  http.MethodPost,
+				Path:    "/preview",
+				Handler: xrender.XRenderPreviewSchemaHandler(serverCtx),
+			},
+			{
+				// 获取XRender模板
+				Method:  http.MethodGet,
+				Path:    "/templates",
+				Handler: xrender.XRenderTemplatesHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/xrender"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取UI模式
+				Method:  http.MethodGet,
+				Path:    "/ui-schema",
+				Handler: xrender_schema.UiSchemaHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/xrender/schema"),
 	)
 }
