@@ -10,6 +10,7 @@ import (
 
 	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
+	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -34,18 +35,31 @@ func NewDescriptorsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Descr
 func (l *DescriptorsLogic) Descriptors(req *types.DescriptorsRequest) ([]map[string]interface{}, error) {
 	category := strings.TrimSpace(req.Type)
 
-	_, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
-	if err != nil {
-		return nil, err
+	// Try to load current user (may be empty for public access)
+	username, _ := utils.CurrentUsername(l.ctx)
+	var roles []model.Role
+	var permIDs []string
+	var hasPermission bool
+
+	if username != "" {
+		// Authenticated request: check permissions
+		_, rolesFromDB, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
+		if err != nil {
+			return nil, err
+		}
+		roles = rolesFromDB
+		roleNames := utils.RoleNamesFromModels(roles)
+		permIDsFromDB, err := utils.PermissionIDsFromRoles(l.ctx, l.svcCtx, roles)
+		if err != nil {
+			return nil, err
+		}
+		permIDs = permIDsFromDB
+		hasPermission = utils.HasAdminRole(roleNames) || utils.HasPermissionID(permIDs, "functions:read") || utils.HasPermissionID(permIDs, "*")
+		if !hasPermission {
+			return nil, errorx.NewForbidden("无权访问函数目录")
+		}
 	}
-	roleNames := utils.RoleNamesFromModels(roles)
-	permIDs, err := utils.PermissionIDsFromRoles(l.ctx, l.svcCtx, roles)
-	if err != nil {
-		return nil, err
-	}
-	if !utils.HasAdminRole(roleNames) && !utils.HasPermissionID(permIDs, "functions:read") && !utils.HasPermissionID(permIDs, "*") {
-		return nil, errorx.NewForbidden("无权访问函数目录")
-	}
+	// Unauthenticated request: skip permission check (public read access)
 
 	// 1) DB descriptor templates (may include params schema)
 	templates, err := l.svcCtx.FunctionModel.ListDescriptorTemplates(l.ctx, category)
