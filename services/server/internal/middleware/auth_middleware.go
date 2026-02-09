@@ -34,6 +34,7 @@ func NewAuthMiddleware(svcCtx *svc.ServiceContext) *AuthMiddleware {
 		},
 		publicReadPrefixes: []string{
 			"/api/v1/configs",
+			"/api/v1/registry",              // 公开访问：注册中心（agents、functions）
 			"/api/v1/functions/descriptors", // 公开访问：函数描述符列表
 			"/api/v1/functions",             // 公开访问：函数列表（只读）
 		},
