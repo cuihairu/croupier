@@ -29,7 +29,7 @@
 | --- | --- | --- | --- |
 | Server / Agent | 本仓库 | 根目录 | 控制面、代理、审批、审计与示例 |
 | Dashboard | [croupier-dashboard](https://github.com/cuihairu/croupier-dashboard) | `dashboard/` | Umi Max + Ant Design + X-Render，已纳入子模块 |
-| Proto 定义 | [croupier-proto](https://github.com/cuihairu/croupier-proto) | `proto/` | Protocol Buffers 定义，用于序列化和接口描述 |
+| Proto 定义 | 本仓库 | `proto/` | Protocol Buffers 定义，用于序列化和接口描述 |
 | Analytics Worker | 本仓库 | `services/analytics-worker` | 事件消费、指标写入、ClickHouse 入库 |
 | 示例 / 工具 | 本仓库 | `examples/`, `tools/`, `packs/` | Demo 游戏、Telemetry、打包脚本等 |
 
