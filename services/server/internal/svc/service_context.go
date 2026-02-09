@@ -232,7 +232,8 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	}
 
 	if ctx.RegistryStore == nil {
-		ctx.RegistryStore = reg.NewStore()
+		// Use NewStoreWithDB to enable database dual-write and recovery
+		ctx.RegistryStore = reg.NewStoreWithDB(ctx.DB)
 	}
 	if ctx.Dispatcher == nil {
 		var jobStore dispatch.JobRoutingStore
