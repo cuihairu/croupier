@@ -34,9 +34,15 @@ func NewRegistryLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Registry
 }
 
 func (l *RegistryLogic) Registry(_ *types.RegistryRequest) (*types.RegistryResponse, error) {
-	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权查看注册表", "admin:all", "registry:read", "registry:manage"); err != nil {
-		return nil, err
+	// Allow public read access to agents and functions (for function catalog browsing)
+	// Only require permission for sensitive operations
+	username, _ := utils.CurrentUsername(l.ctx)
+	if username != "" {
+		if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权查看注册表", "admin:all", "registry:read", "registry:manage"); err != nil {
+			return nil, err
+		}
 	}
+	// Unauthenticated request: allow read-only access to agents and functions
 
 	agents := make([]types.RegistryAgent, 0)
 	functionMap := make(map[string]*types.RegistryFunction)
