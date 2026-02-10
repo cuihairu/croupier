@@ -2,10 +2,12 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/cuihairu/croupier/internal/nng"
@@ -180,6 +182,9 @@ func runServer() error {
 	// 启动 NNG 控制服务器（替代 gRPC）
 	go startNNGControlServer(&c, ctx)
 
+	// 启动 Registry 清理任务（定期删除过期的 AgentSession）
+	go startRegistryCleanup(ctx)
+
 	// 创建 REST 服务器
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
@@ -224,6 +229,22 @@ func startNNGControlServer(c *config.Config, svcCtx *svc.ServiceContext) {
 	// 获取实际监听地址
 	localAddr, _ := nngServer.GetLocalAddr()
 	fmt.Printf("Starting NNG ControlService on %s (SDK/Agent registration with DB persistence)...\n", localAddr)
+}
+
+// startRegistryCleanup 启动后台清理任务，定期删除过期的 AgentSession
+func startRegistryCleanup(svcCtx *svc.ServiceContext) {
+	store := svcCtx.RegistryStore
+	if store == nil {
+		fmt.Println("RegistryStore is nil, skipping cleanup routine")
+		return
+	}
+
+	// 创建可取消的 context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// 启动清理任务，默认每分钟执行一次
+	store.StartCleanupRoutine(ctx, 1*time.Minute)
 }
 
 func applyRuntimeDefaults(c *config.Config) {

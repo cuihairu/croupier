@@ -382,3 +382,57 @@ func (s *Store) LoadFromDB(ctx context.Context, loader AgentSessionLoader) error
 	logx.Infof("loaded %d agent sessions from database", len(sessions))
 	return nil
 }
+
+// StartCleanupRoutine 启动后台清理过期 Session 的 goroutine
+// 定期从内存中删除过期的 AgentSession，保持内存数据有效
+func (s *Store) StartCleanupRoutine(ctx context.Context, interval time.Duration) {
+	if interval <= 0 {
+		interval = 1 * time.Minute // 默认每分钟清理一次
+	}
+
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				logx.Info("Registry cleanup routine stopped")
+				return
+			case <-ticker.C:
+				s.cleanupExpiredSessions()
+			}
+		}
+	}()
+
+	logx.Infof("Started registry cleanup routine (interval: %v)", interval)
+}
+
+// cleanupExpiredSessions 清理过期的 AgentSession
+func (s *Store) cleanupExpiredSessions() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	now := time.Now()
+	expiredCount := 0
+
+	for agentID, sess := range s.agents {
+		if sess == nil {
+			continue
+		}
+
+		// 检查是否过期
+		if sess.ExpireAt.Before(now) {
+			delete(s.agents, agentID)
+			expiredCount++
+
+			logx.Debugf("Cleaned up expired agent session: %s (expired at %v)",
+				agentID, sess.ExpireAt.Format(time.RFC3339))
+		}
+	}
+
+	if expiredCount > 0 {
+		logx.Infof("Cleaned up %d expired agent sessions (remaining: %d)",
+			expiredCount, len(s.agents))
+	}
+}
