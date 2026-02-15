@@ -308,11 +308,14 @@ sync_js_sdk() {
     # 确保 PATH 包含 node_modules/.bin
     export PATH="$PWD/node_modules/.bin:$PATH"
 
+    # 完全删除旧的 proto 目录（而不是 rm -rf proto && mkdir，确保删除多余的旧文件）
     rm -rf proto
     mkdir -p proto
 
+    # 只复制主仓库的 proto 文件
     cp -r "$REPO_ROOT/proto/croupier" proto/
 
+    # 删除旧的生成代码
     rm -rf src/gen
 
     cat > proto/buf.gen.yaml << 'EOF'
