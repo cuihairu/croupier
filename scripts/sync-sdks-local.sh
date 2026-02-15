@@ -142,6 +142,18 @@ sync_go_sdk() {
         return
     fi
 
+    # 备份 SDK 中的 buf 配置文件
+    local backup_buf_gen=""
+    local backup_buf_yaml=""
+    if [ -f "buf.gen.yaml" ]; then
+        backup_buf_gen=$(cat buf.gen.yaml)
+        log_info "保留 SDK 中的 buf.gen.yaml"
+    fi
+    if [ -f "buf.yaml" ]; then
+        backup_buf_yaml=$(cat buf.yaml)
+        log_info "保留 SDK 中的 buf.yaml"
+    fi
+
     # 删除旧的 proto 目录
     rm -rf proto
     mkdir -p proto
@@ -150,39 +162,19 @@ sync_go_sdk() {
     cp -r "$REPO_ROOT/proto/croupier" proto/
 
     # 删除旧的生成代码
-    rm -rf pkg/pb proto/pkg
+    rm -rf pkg/pb
 
-    # 创建 buf.gen.yaml
-    cat > proto/buf.gen.yaml << 'EOF'
-version: v2
-plugins:
-  - remote: buf.build/protocolbuffers/go:v1.36.11
-    out: pkg/pb
-    opt:
-      - paths=source_relative
-EOF
-
-    # 创建 buf.yaml
-    cat > proto/buf.yaml << 'EOF'
-version: v2
-modules:
-  - path: .
-deps:
-  - buf.build/protocolbuffers/wellknowntypes:v25.1
-EOF
+    # 恢复 SDK 中的 buf 配置文件（如果有的话）
+    if [ -n "$backup_buf_gen" ]; then
+        echo "$backup_buf_gen" > buf.gen.yaml
+    fi
+    if [ -n "$backup_buf_yaml" ]; then
+        echo "$backup_buf_yaml" > buf.yaml
+    fi
 
     if [ "$SKIP_GENERATE" = false ]; then
-        # 生成代码
-        cd proto && buf generate && cd ..
-        # 将生成的代码移动到正确的位置
-        if [ -d "proto/pkg/pb" ]; then
-            mv proto/pkg/pb/* pkg/pb/
-            rm -rf proto/pkg
-        fi
-        # 修复生成代码中的 import 路径
-        find pkg/pb -name "*.pb.go" -exec sed -i 's|github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/|github.com/cuihairu/croupier/sdks/go/pkg/pb/|g' {} \;
-        # 修复 SDK 代码中的 import 路径
-        find pkg -name "*.go" -not -path "*/pb/*" -exec sed -i 's|github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/|github.com/cuihairu/croupier/sdks/go/pkg/pb/|g' {} \;
+        # 使用 SDK 中的 buf 配置生成代码
+        buf generate
         log_success "生成的 Go 文件:"
         find pkg/pb -name "*.pb.go" 2>/dev/null | wc -l
     else
@@ -202,6 +194,18 @@ sync_python_sdk() {
         return
     fi
 
+    # 备份 SDK 中的 buf 配置文件
+    local backup_buf_gen=""
+    local backup_buf_yaml=""
+    if [ -f "buf.gen.yaml" ]; then
+        backup_buf_gen=$(cat buf.gen.yaml)
+        log_info "保留 SDK 中的 buf.gen.yaml"
+    fi
+    if [ -f "buf.yaml" ]; then
+        backup_buf_yaml=$(cat buf.yaml)
+        log_info "保留 SDK 中的 buf.yaml"
+    fi
+
     rm -rf proto
     mkdir -p proto
 
@@ -209,31 +213,16 @@ sync_python_sdk() {
 
     rm -rf generated
 
-    cat > proto/buf.gen.yaml << 'EOF'
-version: v2
-plugins:
-  - remote: buf.build/protocolbuffers/python:v25.1
-    out: generated
-EOF
-
-    cat > proto/buf.yaml << 'EOF'
-version: v2
-modules:
-  - path: .
-deps:
-  - buf.build/protocolbuffers/wellknowntypes:v25.1
-EOF
+    # 恢复 SDK 中的 buf 配置文件（如果有的话）
+    if [ -n "$backup_buf_gen" ]; then
+        echo "$backup_buf_gen" > buf.gen.yaml
+    fi
+    if [ -n "$backup_buf_yaml" ]; then
+        echo "$backup_buf_yaml" > buf.yaml
+    fi
 
     if [ "$SKIP_GENERATE" = false ]; then
-        cd proto && buf generate && cd ..
-        # 将生成的代码移动到正确的位置
-        if [ -d "proto/generated" ]; then
-            # 合并 proto/generated 到 generated
-            if [ -d "generated" ]; then
-                rm -rf generated
-            fi
-            mv proto/generated generated
-        fi
+        buf generate
         # 创建 __init__.py
         [ -d "generated" ] && find generated -type d -exec touch {}/__init__.py \;
         log_success "生成的 Python 文件:"
@@ -255,6 +244,18 @@ sync_cpp_sdk() {
         return
     fi
 
+    # 备份 SDK 中的 buf 配置文件
+    local backup_buf_gen=""
+    local backup_buf_yaml=""
+    if [ -f "buf.gen.yaml" ]; then
+        backup_buf_gen=$(cat buf.gen.yaml)
+        log_info "保留 SDK 中的 buf.gen.yaml"
+    fi
+    if [ -f "buf.yaml" ]; then
+        backup_buf_yaml=$(cat buf.yaml)
+        log_info "保留 SDK 中的 buf.yaml"
+    fi
+
     rm -rf proto
     mkdir -p proto
 
@@ -262,29 +263,19 @@ sync_cpp_sdk() {
 
     rm -rf generated
 
-    cat > proto/buf.gen.yaml << 'EOF'
-version: v2
-plugins:
-  - remote: buf.build/protocolbuffers/cpp:v25.1
-    out: generated
-EOF
-
-    cat > proto/buf.yaml << 'EOF'
-version: v2
-modules:
-  - path: .
-deps:
-  - buf.build/protocolbuffers/wellknowntypes:v25.1
-EOF
+    # 恢复 SDK 中的 buf 配置文件（如果有的话）
+    if [ -n "$backup_buf_gen" ]; then
+        echo "$backup_buf_gen" > buf.gen.yaml
+    fi
+    if [ -n "$backup_buf_yaml" ]; then
+        echo "$backup_buf_yaml" > buf.yaml
+    fi
 
     if [ "$SKIP_GENERATE" = false ]; then
-        cd proto && buf generate && cd ..
-        # 将生成的代码移动到正确的位置
-        if [ -d "proto/generated" ]; then
-            if [ -d "generated" ]; then
-                rm -rf generated
-            fi
-            mv proto/generated generated
+        if [ -f "buf.gen.yaml" ]; then
+            buf generate
+        else
+            log_warn "没有 buf.gen.yaml，跳过生成"
         fi
         log_success "生成的 C++ 文件:"
         find generated -name "*.pb.*" 2>/dev/null | wc -l || echo "0"
@@ -308,39 +299,21 @@ sync_js_sdk() {
     # 确保 PATH 包含 node_modules/.bin
     export PATH="$PWD/node_modules/.bin:$PATH"
 
-    # 完全删除旧的 proto 目录（而不是 rm -rf proto && mkdir，确保删除多余的旧文件）
     rm -rf proto
     mkdir -p proto
 
-    # 只复制主仓库的 proto 文件
     cp -r "$REPO_ROOT/proto/croupier" proto/
 
-    # 删除旧的生成代码
     rm -rf src/gen
 
-    cat > proto/buf.gen.yaml << 'EOF'
-version: v2
-plugins:
-  - local: protoc-gen-es
-    out: src/gen
-    opt:
-      - target=ts
-EOF
-
-    cat > proto/buf.yaml << 'EOF'
-version: v2
-modules:
-  - path: .
-deps:
-  - buf.build/protocolbuffers/wellknowntypes:v25.1
-EOF
-
     if [ "$SKIP_GENERATE" = false ]; then
-        # 确保 PATH 包含 node_modules/.bin
-        export PATH="$PWD/node_modules/.bin:$PATH"
-        cd proto && buf generate && cd .. || {
-            log_warn "buf generate 失败 (可能需要先安装 protoc-gen-es: npm install)"
-        }
+        if [ -f "buf.gen.yaml" ]; then
+            buf generate || {
+                log_warn "buf generate 失败 (可能需要先安装依赖: npm install)"
+            }
+        else
+            log_warn "没有 buf.gen.yaml，跳过生成"
+        fi
         log_success "生成的 TypeScript 文件:"
         find src/gen -name "*.ts" 2>/dev/null | wc -l || echo "0"
     else
@@ -360,6 +333,18 @@ sync_csharp_sdk() {
         return
     fi
 
+    # 备份 SDK 中的 buf 配置文件
+    local backup_buf_gen=""
+    local backup_buf_yaml=""
+    if [ -f "buf.gen.yaml" ]; then
+        backup_buf_gen=$(cat buf.gen.yaml)
+        log_info "保留 SDK 中的 buf.gen.yaml"
+    fi
+    if [ -f "buf.yaml" ]; then
+        backup_buf_yaml=$(cat buf.yaml)
+        log_info "保留 SDK 中的 buf.yaml"
+    fi
+
     rm -rf proto
     mkdir -p proto
 
@@ -367,29 +352,19 @@ sync_csharp_sdk() {
 
     rm -rf generated
 
-    cat > proto/buf.gen.yaml << 'EOF'
-version: v2
-plugins:
-  - remote: buf.build/protocolbuffers/csharp:v25.1
-    out: generated
-EOF
-
-    cat > proto/buf.yaml << 'EOF'
-version: v2
-modules:
-  - path: .
-deps:
-  - buf.build/protocolbuffers/wellknowntypes:v25.1
-EOF
+    # 恢复 SDK 中的 buf 配置文件（如果有的话）
+    if [ -n "$backup_buf_gen" ]; then
+        echo "$backup_buf_gen" > buf.gen.yaml
+    fi
+    if [ -n "$backup_buf_yaml" ]; then
+        echo "$backup_buf_yaml" > buf.yaml
+    fi
 
     if [ "$SKIP_GENERATE" = false ]; then
-        cd proto && buf generate && cd ..
-        # 将生成的代码移动到正确的位置
-        if [ -d "proto/generated" ]; then
-            if [ -d "generated" ]; then
-                rm -rf generated
-            fi
-            mv proto/generated generated
+        if [ -f "buf.gen.yaml" ]; then
+            buf generate
+        else
+            log_warn "没有 buf.gen.yaml，跳过生成"
         fi
         log_success "生成的 C# 文件:"
         find generated -name "*.cs" 2>/dev/null | wc -l || echo "0"
