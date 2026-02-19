@@ -183,9 +183,9 @@ graph TB
 
 | 组件 | 仓库 | 说明 |
 |------|------|------|
-| Server / Agent | [cuihairu/croupier](https://github.com/cuihairu/croupier) | 主仓库 |
+| Server / Agent | [cuihairu/croupier](https://github.com/cuihairu/croupier) | 主仓库（包含 Proto 定义） |
 | Dashboard | [cuihairu/croupier-dashboard](https://github.com/cuihairu/croupier-dashboard) | Web 管理界面 |
-| Proto 定义 | [cuihairu/croupier-proto](https://github.com/cuihairu/croupier-proto) | Protocol Buffers 定义 |
+| Proto 定义 | [proto/](https://github.com/cuihairu/croupier/tree/main/proto) | Protocol Buffers 定义 |
 | Go SDK | [cuihairu/croupier-sdk-go](https://github.com/cuihairu/croupier-sdk-go) | Go 客户端 |
 | C++ SDK | [cuihairu/croupier-sdk-cpp](https://github.com/cuihairu/croupier-sdk-cpp) | C++ 客户端 |
 | Java SDK | [cuihairu/croupier-sdk-java](https://github.com/cuihairu/croupier-sdk-java) | Java 客户端 |
