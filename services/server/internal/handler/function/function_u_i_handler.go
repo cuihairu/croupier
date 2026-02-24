@@ -21,7 +21,7 @@ func FunctionUIHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			return
 		}
 
-		l := function.NewFunctionUILogic(r.Context(), svcCtx)
+		l := function.NewFunctionUILogicV2(r.Context(), svcCtx)
 		resp, err := l.FunctionUI(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)

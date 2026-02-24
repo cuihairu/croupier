@@ -1041,6 +1041,8 @@ type FunctionUIResponse struct {
 	Schema     interface{} `json:"schema"`
 	Layout     interface{} `json:"layout"`
 	Components interface{} `json:"components"`
+	Custom     bool        `json:"custom"`
+	HasDefault bool        `json:"hasDefault"`
 }
 
 type FunctionUIUpdateRequest struct {

@@ -42,19 +42,19 @@ func (l *FunctionUILogicV2) FunctionUI(req *types.FunctionUIRequest) (*types.Fun
 	// ========== 优先级合并逻辑 ==========
 	// 优先级 1: 用户自定义的 UI（Metadata["ui"]）
 	var customUI, defaultUI, legacyUI interface{}
-
 	if fn.Metadata != nil {
 		customUI = fn.Metadata["ui"]
 	}
 
 	// 优先级 2: OpenAPI Spec 中的 x-ui 扩展
-	if customUI == nil && fn.OpenAPISpec != nil {
-		// OpenAPISpec 是 datatypes.JSONMap 类型（即 map[string]interface{}）
+	if fn.OpenAPISpec != nil {
 		defaultUI = fn.OpenAPISpec["x-ui"]
 	}
 
 	// 优先级 3: 旧格式的 Schema（兼容性）
 	legacyUI = fn.Schema
+	hasCustom := customUI != nil
+	hasDefault := defaultUI != nil || legacyUI != nil
 
 	// 合并 UI（自定义覆盖默认）
 	resultUI := customUI
@@ -77,5 +77,7 @@ func (l *FunctionUILogicV2) FunctionUI(req *types.FunctionUIRequest) (*types.Fun
 		Schema:     resultUI,
 		Layout:     layout,
 		Components: components,
+		Custom:     hasCustom,
+		HasDefault: hasDefault,
 	}, nil
 }

@@ -49,8 +49,17 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *types.FunctionUIUpdateRequ
 
 	// 更新 Schema（支持三种来源）
 	if req.Schema != nil {
-		// 存储到 Metadata["ui"] 作为自定义 UI
-		meta["ui"] = req.Schema
+		if m, ok := req.Schema.(map[string]interface{}); ok {
+			// 保留一个显式清理标记，解决 interface{} 无法区分 null 与未传字段的问题。
+			if clearFlag, ok := m["__clear_custom_ui"].(bool); ok && clearFlag {
+				delete(meta, "ui")
+			} else {
+				meta["ui"] = req.Schema
+			}
+		} else {
+			// 存储到 Metadata["ui"] 作为自定义 UI
+			meta["ui"] = req.Schema
+		}
 		updates["metadata"] = meta
 		fn.Metadata = meta
 	}
@@ -77,10 +86,12 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *types.FunctionUIUpdateRequ
 	var customUI, defaultUI, legacyUI interface{}
 	customUI = fn.Metadata["ui"]
 
-	if customUI == nil && fn.OpenAPISpec != nil {
+	if fn.OpenAPISpec != nil {
 		defaultUI = fn.OpenAPISpec["x-ui"]
 	}
 	legacyUI = fn.Schema
+	hasCustom := customUI != nil
+	hasDefault := defaultUI != nil || legacyUI != nil
 
 	resultUI := customUI
 	if resultUI == nil {
@@ -101,5 +112,7 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *types.FunctionUIUpdateRequ
 		Schema:     resultUI,
 		Layout:     layout,
 		Components: components,
+		Custom:     hasCustom,
+		HasDefault: hasDefault,
 	}, nil
 }
