@@ -678,6 +678,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: function.FunctionDetailHandler(serverCtx),
 			},
 			{
+				// 复制函数
+				Method:  http.MethodPost,
+				Path:    "/:id/copy",
+				Handler: function.FunctionCopyHandler(serverCtx),
+			},
+			{
+				// 删除函数
+				Method:  http.MethodDelete,
+				Path:    "/:id",
+				Handler: function.FunctionDeleteHandler(serverCtx),
+			},
+			{
 				// 禁用函数
 				Method:  http.MethodPost,
 				Path:    "/:id/disable",
@@ -742,6 +754,24 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodGet,
 				Path:    "/pending",
 				Handler: function.FunctionsPendingHandler(serverCtx),
+			},
+			{
+				// 批量复制函数
+				Method:  http.MethodPost,
+				Path:    "/batch-copy",
+				Handler: function.BatchCopyFunctionsHandler(serverCtx),
+			},
+			{
+				// 批量删除函数
+				Method:  http.MethodPost,
+				Path:    "/batch-delete",
+				Handler: function.BatchDeleteFunctionsHandler(serverCtx),
+			},
+			{
+				// 批量更新函数状态
+				Method:  http.MethodPost,
+				Path:    "/batch-update",
+				Handler: function.BatchUpdateFunctionsHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/functions"),
