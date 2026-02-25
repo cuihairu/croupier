@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/openapi"
@@ -22,9 +23,11 @@ import (
 type ProviderManager struct {
 	mu        sync.RWMutex
 	providers map[string]provider.Provider // provider name -> Provider
+	providerIDs map[string]struct{}
 	store     *agentlocal.LocalStore
 	logger    *slog.Logger
 	configDir string
+	heartbeatStarted bool
 }
 
 // NewProviderManager creates a new provider manager.
@@ -33,10 +36,11 @@ func NewProviderManager(store *agentlocal.LocalStore, configDir string, logger *
 		logger = slog.Default()
 	}
 	return &ProviderManager{
-		providers: make(map[string]provider.Provider),
-		store:     store,
-		logger:    logger,
-		configDir: configDir,
+		providers:  make(map[string]provider.Provider),
+		providerIDs: make(map[string]struct{}),
+		store:      store,
+		logger:     logger,
+		configDir:  configDir,
 	}
 }
 
@@ -74,6 +78,7 @@ func (m *ProviderManager) Load(ctx context.Context) error {
 		}
 	}
 
+	m.startProviderHeartbeat(ctx)
 	return nil
 }
 
@@ -144,6 +149,9 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 	// Register all methods for this provider
 	// Use "provider:" prefix in serviceID to identify provider functions
 	serviceID := "provider:" + name
+	if m.providerIDs != nil {
+		m.providerIDs[serviceID] = struct{}{}
+	}
 
 	// Collect function IDs for logging
 	functionIDs := make([]string, 0, len(funcs))
@@ -164,6 +172,31 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 
 	m.logger.Info("provider loaded", "name", name, "methods", len(methods))
 	return nil
+}
+
+func (m *ProviderManager) startProviderHeartbeat(ctx context.Context) {
+	if m == nil || m.store == nil || m.heartbeatStarted || len(m.providerIDs) == 0 {
+		return
+	}
+	m.heartbeatStarted = true
+	interval := parseDurationEnv("CROUPIER_AGENTLOCAL_PROVIDER_HEARTBEAT", 30*time.Second)
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				for id := range m.providerIDs {
+					m.store.Heartbeat(id)
+				}
+			}
+		}
+	}()
 }
 
 // expandEnvVars expands environment variables in config values.

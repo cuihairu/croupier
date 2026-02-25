@@ -708,6 +708,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: function.FunctionInstancesHandler(serverCtx),
 			},
 			{
+				Method:  http.MethodGet,
+				Path:    "/instances",
+				Handler: function.FunctionInstancesAllHandler(serverCtx),
+			},
+			{
 				// 调用函数
 				Method:  http.MethodPost,
 				Path:    "/:id/invoke",

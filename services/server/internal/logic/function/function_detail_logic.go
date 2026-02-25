@@ -5,12 +5,14 @@ package function
 
 import (
 	"context"
+	"errors"
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"gorm.io/gorm"
 )
 
 type FunctionDetailLogic struct {
@@ -36,6 +38,42 @@ func (l *FunctionDetailLogic) FunctionDetail(req *types.FunctionDetailRequest) (
 
 	fn, err := l.svcCtx.FunctionModel.FindByFunctionID(l.ctx, functionID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Fallback to runtime registry when DB record is missing.
+			if store := l.svcCtx.RegistryStore; store != nil {
+				store.Mu().RLock()
+				defer store.Mu().RUnlock()
+				var version string
+				var gameID string
+				instances := 0
+				for _, sess := range store.AgentsUnsafe() {
+					if sess == nil {
+						continue
+					}
+					if meta, ok := sess.Functions[functionID]; ok {
+						instances++
+						if version == "" && meta.Version != "" {
+							version = meta.Version
+						}
+						if gameID == "" && sess.GameID != "" {
+							gameID = sess.GameID
+						}
+					}
+				}
+				return &types.FunctionDetailResponse{
+					Function: types.Function{
+						Id:        functionID,
+						Name:      functionID,
+						Category:  "",
+						GameId:    gameID,
+						Status:    1,
+						Version:   version,
+						Instances: instances,
+					},
+					Descriptor: types.FunctionDescriptor{},
+				}, nil
+			}
+		}
 		return nil, err
 	}
 

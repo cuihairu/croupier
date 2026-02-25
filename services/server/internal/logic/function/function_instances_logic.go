@@ -39,12 +39,17 @@ func (l *FunctionInstancesLogic) FunctionInstances(req *types.FunctionInstancesR
 	// Prefer runtime registry (SDK->Agent registrations) to power dashboard targeted routing.
 	// Fallback to DB-backed instances if registry is not available.
 	if store := l.svcCtx.RegistryStore; store != nil {
-		now := time.Now().Unix()
 		out := make([]map[string]interface{}, 0)
 		store.Mu().RLock()
 		for _, sess := range store.AgentsUnsafe() {
 			if sess == nil || strings.TrimSpace(sess.AgentID) == "" {
 				continue
+			}
+			// Agent session TTL drives liveness; provider last_seen may not be updated on heartbeat.
+			agentHealthy := time.Until(sess.ExpireAt) > 0
+			agentLastSeen := sess.LastSeen
+			if agentLastSeen.IsZero() && !sess.ExpireAt.IsZero() {
+				agentLastSeen = sess.ExpireAt.Add(-30 * time.Second)
 			}
 			for _, p := range sess.Providers {
 				has := false
@@ -58,12 +63,13 @@ func (l *FunctionInstancesLogic) FunctionInstances(req *types.FunctionInstancesR
 					continue
 				}
 				out = append(out, map[string]interface{}{
+					"function_id": functionID,
 					"agent_id":    sess.AgentID,
 					"provider_id": p.ProviderID,
 					"addr":        p.Addr,
 					"version":     p.Version,
-					"last_seen":   time.Unix(p.LastSeenUnix, 0).Format(time.RFC3339),
-					"healthy":     p.LastSeenUnix > 0 && now-p.LastSeenUnix <= 60,
+					"last_seen":   agentLastSeen.Format(time.RFC3339),
+					"healthy":     agentHealthy,
 				})
 			}
 		}

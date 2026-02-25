@@ -30,7 +30,6 @@ providers:
     env: "prod"
     config:
       openapi_specs:
-        - ../../packs/http/openapi.yaml
         - ../../packs/prom/openapi.yaml
         - ../../packs/player/openapi.yaml
         - ../../packs/grafana/openapi.yaml

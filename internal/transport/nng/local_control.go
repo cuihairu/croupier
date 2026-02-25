@@ -107,6 +107,10 @@ func (s *LocalControlServer) handleHeartbeat(ctx context.Context, reqID uint32, 
 	s.mu.Lock()
 	if session, ok := s.sessions[req.SessionId]; ok {
 		session.LastHeartbeat = time.Now()
+		// Keep agentlocal registry entries fresh to avoid prune cleanup.
+		if s.store != nil {
+			s.store.Heartbeat(session.ProviderID)
+		}
 	}
 	s.mu.Unlock()
 

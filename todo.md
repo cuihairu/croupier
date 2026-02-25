@@ -63,6 +63,30 @@
 - [x] Jobs：job 路由持久化/重启恢复策略（避免 Server/Edge 重启后无法查询）（已实现：JobRoutingStore 接口、FileJobRoutingStore 文件持久化、loadJobRouting 启动加载）`internal/platform/dispatch/dispatcher.go:18`
 - [x] Dashboard：Entities 的 JSON Schema 编辑体验增强（编辑器/预览/校验联动）（已实现：XEntityForm 集成 JSONSchemaEditor/UISchemaEditor，FormRender 预览，校验联动）`dashboard/src/pages/Entities/index.tsx:140`
 
+## Dashboard Formily 迁移（函数配置/设计器）
+
+### 目标与约束
+- Ant Design v5
+- 替换原 XRender 方案：函数编辑与 UI 配置相关页面全部迁移
+- Schema 按 Formily 标准重整
+- 设计器最佳实践：独立路由；详情页仅预览入口
+- 存储策略：后端持久化为主 + 本地草稿
+
+### 里程碑与 TODO
+- [x] M1 基线与骨架：接入 Formily 运行时与基础封装（Provider/Renderer/Schema types）
+- [x] M1 入口：详情页 UI 子页改为预览模式，编辑跳转到独立设计器路由
+- [x] M1 存取层：新增 schema 服务（读取/保存/发布），支持本地草稿 fallback
+- [x] M2 Schema 标准化：定义 FormilySchemaV1 规范与版本策略
+- [x] M2 转换器：旧 schema -> Formily schema 的兼容转换
+- [x] M2 校验器：渲染前 schema 校验与错误提示
+- [x] M3 设计器雏形：可编辑/保存/预览/回放（MVP）
+- [x] M3 运行时替换：函数配置 UI 渲染器替换为 Formily
+- [x] M4 深度集成：上下文注入（game/env/权限/函数元信息）
+- [x] M4 深度集成：字段级权限（readonly/hidden/disabled）
+- [x] M4 深度集成：异步联动与动态字段
+- [x] M5 灰度与回滚：feature flag + fallback 到旧渲染器
+- [x] M5 埋点与质量：加载/保存成功率与错误日志
+
 ## 建议的下一步（2026-02 评估）
 
 > **评估背景**: 基于代码结构分析（114K 行 Go 代码，872 个源文件）和 TODO 完成状态，按投入产出比排序。

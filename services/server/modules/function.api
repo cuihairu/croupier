@@ -73,6 +73,9 @@ type FunctionInstancesRequest {
 	ID string `path:"id"`
 }
 
+type FunctionInstancesAllRequest {
+}
+
 type FunctionInstance {
 	AgentId   string `json:"agentId"`
 	AgentName string `json:"agentName"`
@@ -82,6 +85,10 @@ type FunctionInstance {
 
 type FunctionInstancesResponse {
 	Items []FunctionInstance `json:"items"`
+}
+
+type FunctionInstancesAllResponse {
+	Instances []map[string]interface{} `json:"instances"`
 }
 
 // --- 函数操作 ---
@@ -258,6 +265,10 @@ service server {
 	@doc "获取函数实例"
 	@handler FunctionInstancesHandler
 	get /:id/instances (FunctionInstancesRequest) returns (FunctionInstancesResponse)
+
+	@doc "获取所有函数实例"
+	@handler FunctionInstancesAllHandler
+	get /instances (FunctionInstancesAllRequest) returns (FunctionInstancesAllResponse)
 
 	// === 权限管理 ===
 	@doc "获取函数权限"
