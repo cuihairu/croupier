@@ -18,7 +18,7 @@ Croupier 采用**四层分布式架构**，实现权限控制、函数路由和 
 ```mermaid
 graph TB
   subgraph "展示层 - 可观测"
-    Dashboard[Web Dashboard<br/>Ant Design + X-Render]
+    Dashboard[Web Dashboard<br/>Ant Design + Formily]
     Mobile[移动端<br/>未来支持]
   end
 
@@ -79,7 +79,7 @@ graph TB
 - **未来**: 移动端支持
 
 **特性**:
-- X-Render 驱动的表单自动生成
+- Formily 驱动的表单自动生成
 - 实时日志流式展示
 - 审批流程可视化
 - 响应式设计
@@ -151,7 +151,7 @@ service FunctionService {
 
 ### 2. 描述符驱动 UI
 
-基于 JSON Schema 自动生成 UI：
+基于 JSON Schema + UI Schema 自动生成 UI（Formily）：
 
 ```json
 {

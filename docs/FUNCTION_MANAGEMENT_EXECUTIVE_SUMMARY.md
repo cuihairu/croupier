@@ -235,7 +235,7 @@ POST /api/packs/{pack_id}/canary?env=...&percentage=10
 
 | 组件 | 功能 | 使用场景 |
 |-----|------|---------|
-| **FunctionFormRenderer** | JSONSchema 表单渲染（简化/高级模式） | Invoke, Assignments, Approvals |
+| **FunctionFormRenderer** | Formily + JSON Schema 表单渲染（简化/高级模式） | Invoke, Assignments, Approvals |
 | **FunctionListTable** | 搜索、排序、过滤、批量操作 | Catalog, Assignments, Approvals |
 | **RegistryViewer** | Agent 表格、覆盖率分析、CSV 导出 | Instances, Dashboard, Reports |
 | **FunctionCallHistory** | 时间线、参数对比、重新运行 | Invoke, Detail, Dashboard |

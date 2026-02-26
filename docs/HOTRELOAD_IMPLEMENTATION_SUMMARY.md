@@ -110,7 +110,7 @@ await client.graceful_shutdown(timeout=30.0)
 ## 🚀 接下来可以...
 
 1. **扩展更多语言**：Java（Spring DevTools/JRebel）、C#（.NET Hot Reload）
-2. **Web 管理界面**：创建基于 X-Render 的热重载管理界面
+2. **Web 管理界面**：创建基于 Formily 的热重载管理界面
 3. **IDE 插件**：VS Code、JetBrains IDE 的热重载插件
 4. **监控仪表板**：Grafana 仪表板模板和 Prometheus 告警规则
 

@@ -74,7 +74,7 @@ services/agent/etc/providers.yaml       ✅ 配置文件重命名
 ### 删除文件（1 个）
 
 ```
-configs/edge.yaml                       ❌ Edge 已废弃
+configs/edge.yaml                       ❌ Edge 已移除
 ```
 
 ---

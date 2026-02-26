@@ -4,14 +4,14 @@ import (
 	"testing"
 
 	"gorm.io/datatypes"
-	"gorm.io/driver/sqlite"
+	gsqlite "github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 
 // TestFunctionMigration tests the migration of Function model
 // to support OpenAPI 3.0.3 format.
 func TestFunctionMigration(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestFunctionMigration(t *testing.T) {
 
 // TestFunctionIndexBySpecFormat tests querying functions by spec format
 func TestFunctionIndexBySpecFormat(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}

@@ -172,7 +172,7 @@ func (s *Server) cleanupLoop() {
 
 | 文件路径 | 原因 |
 |---------|------|
-| `configs/edge.yaml` | Edge 已废弃 |
+| `configs/edge.yaml` | Edge 已移除 |
 
 ---
 

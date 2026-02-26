@@ -6,6 +6,7 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 func TestSchemaNormalizer_NormalizeSchema(t *testing.T) {
@@ -30,13 +31,23 @@ func TestSchemaNormalizer_NormalizeSchema(t *testing.T) {
 	})
 
 	t.Run("normalize proto schema", func(t *testing.T) {
-		protoSchema := "test" // Just a placeholder
+		nameFieldType := descriptorpb.FieldDescriptorProto_TYPE_STRING
+		protoSchema := &descriptorpb.DescriptorProto{
+			Name: protoString("TestMessage"),
+			Field: []*descriptorpb.FieldDescriptorProto{
+				{
+					Name: protoString("name"),
+					Type: &nameFieldType,
+				},
+			},
+		}
 
 		schema, err := normalizer.NormalizeSchema(SourceProto, protoSchema)
 		require.NoError(t, err)
 
 		objectType := openapi3.Types{"object"}
 		assert.Equal(t, &objectType, schema.Type)
+		assert.Contains(t, schema.Properties, "name")
 	})
 
 	t.Run("normalize openapi schema", func(t *testing.T) {
@@ -60,6 +71,10 @@ func TestSchemaNormalizer_NormalizeSchema(t *testing.T) {
 		_, err := normalizer.NormalizeSchema(99, map[string]interface{}{})
 		assert.Error(t, err)
 	})
+}
+
+func protoString(value string) *string {
+	return &value
 }
 
 func TestSchemaNormalizer_MergeSchemas(t *testing.T) {

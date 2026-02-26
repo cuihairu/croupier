@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-ARG GO_IMAGE=golang:1.25.7
+ARG GO_IMAGE=golang:1.26.0
 ARG RUNTIME_IMAGE=gcr.io/distroless/static:nonroot
 ARG GOPROXY_URL=https://goproxy.cn,direct
 ARG BUILD_TAGS="pg ip2location"

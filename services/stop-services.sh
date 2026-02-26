@@ -32,6 +32,4 @@ stop_service() {
 # Stop all services
 stop_service "server"
 stop_service "agent"
-stop_service "edge"
-
 echo "All services stopped successfully!"

@@ -24,7 +24,7 @@ Croupier 采用**四层分布式架构**，实现权限控制、函数路由和 
 │                   第一层：展示层 (Display Layer)             │
 │  ┌──────────────────────────────────────────────────────┐ │
 │  │  Web Dashboard (React + Ant Design + ProComponents)│ │
-│  │  - OpenAPI 驱动 UI 自动生成                         │ │
+│  │  - Schema 驱动 UI 自动生成 (Formily)                │ │
 │  │  - 实时进度与日志流式展示                            │ │
 │  │  - 审批流程可视化                                    │ │
 │  └──────────────────────────────────────────────────────┘ │
@@ -101,13 +101,13 @@ Dashboard ──HTTPS──> Server ──mTLS──> Agent ──gRPC──> Ga
 | 组件 | 技术栈 | 职责 |
 |------|--------|------|
 | **Dashboard** | React + Ant Design | Web 管理界面 |
-| **X-Render** | FormRender | 表单自动生成 |
+| **Formily** | Schema Renderer | 表单自动生成 |
 | **ProTable** | Ant Design Pro | 列表自动生成 |
 
-### 描述符驱动 UI
+### Schema 驱动 UI
 
 ```json
-// 函数描述符 → 自动生成 UI
+// Schema + UI Schema → 自动生成 UI (Formily)
 {
   "id": "player.ban",
   "params": {
@@ -115,6 +115,13 @@ Dashboard ──HTTPS──> Server ──mTLS──> Agent ──gRPC──> Ga
     "properties": {
       "player_id": {"type": "string", "title": "玩家ID"},
       "duration": {"type": "integer", "title": "封禁时长"}
+    }
+  },
+  "ui": {
+    "layout": {"type": "grid", "cols": 2},
+    "fields": {
+      "player_id": {"x-ui-widget": "input"},
+      "duration": {"x-ui-widget": "number"}
     }
   }
 }

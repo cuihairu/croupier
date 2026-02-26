@@ -220,10 +220,16 @@ func TestOpen_DataDirectoryCreation(t *testing.T) {
 		os.RemoveAll("data")
 	}
 
-	_, err = Open("")
+	db, err := Open("")
 	if err != nil {
 		t.Fatalf("Open() error = %v", err)
 	}
+	defer func() {
+		sqlDB, _ := db.DB()
+		if sqlDB != nil {
+			sqlDB.Close()
+		}
+	}()
 
 	// 验证目录被创建
 	info, err := os.Stat("data")

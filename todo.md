@@ -12,8 +12,8 @@
 | P2 | 0 | 18 | 100.0% |
 | P3 | 0 | 12 | 100.0% |
 | P3b | 0 | 6 | 100.0% |
-| P4 | 2 | 240 | 99.2% |
-| 总计 | 2 | 338 | 99.4% |
+| P4 | 0 | 242 | 100.0% |
+| 总计 | 0 | 340 | 100.0% |
 
 > **说明**: P4 文档 checklist 项（146 项）已确认为非代码实现任务，包括：
 > - 部署检查清单（Deployment Checklist）
@@ -23,9 +23,9 @@
 > - 实施计划（Implementation Plan）
 > - 文档导航指南（Documentation Index）
 >
-> **最近更新** (2026-02-06)：
+> **最近更新** (2026-02-26)：
 > - ✅ P0-P3b: 全部完成
-> - ⏳ P4: 剩余 2 个文档任务（API 文档、Edge 层架构文档）
+> - ✅ P4: 文档任务完成（API 文档、架构/表单文档对齐）
 > - 📋 OpenAPI 统一设计方案：规划中（P1 优先级，预计 10 周）
 >
 > **历史更新** (2025-01-05)：
@@ -58,16 +58,16 @@
 
 - [x] Proto-First：完善 `protoc-gen-croupier` 对自定义 options 的映射（auth/semantics/ui/labels 等）（已完整实现：FunctionOptions、UIFieldOptions、Menu、Permissions、i18n 等）`tools/protoc-gen-croupier/main.go:72`
 - [x] Proto-First：支持 `emit_manifest=true`（生成 `manifest.json`、`schema/*.json`、可选 `.desc`）（已实现：生成 manifest.json、schema 文件、fds.pb、pack.tgz）`docs/providers-manifest.md:99`
-- [x] TLS：打通配置→证书加载→拨号/监听（Agent/Dispatcher/Edge/Server 统一路径）（已实现：tlsutil.ClientTLSFromConfig/ServerTLS，在 Agent Upstream、FunctionServer、Adapters、Dispatcher 中使用）`services/agent/etc/agent.yaml:1`
+- [x] TLS：打通配置→证书加载→拨号/监听（Agent/Dispatcher/Server 统一路径）（已实现：tlsutil.ClientTLSFromConfig/ServerTLS，在 Agent Upstream、FunctionServer、Adapters、Dispatcher 中使用）`services/agent/etc/agent.yaml:1`
 - [x] Server：启动 gRPC ControlService（mTLS）并与 go-zero HTTP 控制面收敛（已实现：startGRPCServer 函数使用 tlsutil.ServerTLS，支持 mTLS，与 HTTP 服务在同一进程中运行）`services/server/cmd/root.go:96`
-- [x] Jobs：job 路由持久化/重启恢复策略（避免 Server/Edge 重启后无法查询）（已实现：JobRoutingStore 接口、FileJobRoutingStore 文件持久化、loadJobRouting 启动加载）`internal/platform/dispatch/dispatcher.go:18`
+- [x] Jobs：job 路由持久化/重启恢复策略（避免 Server 重启后无法查询）（已实现：JobRoutingStore 接口、FileJobRoutingStore 文件持久化、loadJobRouting 启动加载）`internal/platform/dispatch/dispatcher.go:18`
 - [x] Dashboard：Entities 的 JSON Schema 编辑体验增强（编辑器/预览/校验联动）（已实现：XEntityForm 集成 JSONSchemaEditor/UISchemaEditor，FormRender 预览，校验联动）`dashboard/src/pages/Entities/index.tsx:140`
 
 ## Dashboard Formily 迁移（函数配置/设计器）
 
 ### 目标与约束
 - Ant Design v5
-- 替换原 XRender 方案：函数编辑与 UI 配置相关页面全部迁移
+- 替换原 XRender 方案：函数编辑与 UI 配置相关页面全部迁移（已完成）
 - Schema 按 Formily 标准重整
 - 设计器最佳实践：独立路由；详情页仅预览入口
 - 存储策略：后端持久化为主 + 本地草稿
@@ -95,8 +95,8 @@
 
 | 任务 | 预估 | 说明 |
 |-----|------|------|
-| 补充 `docs/api.md` | 2-3 天 | 从 `proto/` + `services/server/modules/*.api` 整理完整 API 文档 |
-| 更新 `docs/architecture/layers.md` | 1 天 | 补充 Edge Proxy 层，从"五层"更新为"六层"架构 |
+| 补充 `docs/api.md` | 2-3 天 | 已完成：从 `services/server/modules/*.api` 整理完整 API 文档 |
+| 更新 `docs/architecture/layers.md` | 1 天 | 已完成：移除 Edge 描述，更新 X-Render → Formily |
 
 ### 🟡 中期（1-2 月）
 
@@ -147,7 +147,7 @@
 
 - Dashboard/UX：鉴权跳转、Jobs 统计、导出、Traces、筛选字典、插件加载、mock 回退策略
 - 控制面/Jobs：终态事件判定、job 路由持久化/探测策略、StreamJob/StartJob 一致性、状态命名统一
-- 安全/TLS：Agent↔Server、Dispatcher↔Agent、Edge、adapters、SDK 的 TLS/mTLS 全链路打通
+- 安全/TLS：Agent↔Server、Dispatcher↔Agent、adapters、SDK 的 TLS/mTLS 全链路打通
 - 工程化/Docker：`web/` vs `dashboard/` 目录不一致、compose flags/entrypoint 对齐、demo Dockerfile 修复
 - 文档：大量 checklist 未闭环（见下方“文档 checklist（详细）”汇总表）
 
@@ -213,18 +213,18 @@
 - [x] Prom adapter：本地 gRPC server 使用 go-zero `zrpc`（支持 TLS/mTLS），并与 Agent 注册配置对齐 `tools/adapters/prom/main.go:128`
 - [x] Agent FunctionService：实现 `StreamJob`（当前 agent 侧未实现，会影响 job 实时流式能力）`internal/app/agent/function_server.go:1`
 - [x] Jobs：完善终态事件判定（至少包含 canceled/failed），避免 `StreamJob` 不收敛导致 jobRouting 不清理 `internal/platform/dispatch/dispatcher.go:187`
-- [x] Jobs：统一 job event/type 命名与状态映射（例如 canceled vs cancelled、completed vs succeeded），避免 Edge/SDK/UI 展示与终态判断不一致 `sdks/go/pkg/croupier/function_server.go:97`
-- [x] Jobs：job 路由当前仅存内存（`jobID -> agent addr`），Server/Edge 重启后无法查询历史 job；需要持久化或实现“全量探测/回退策略” `internal/platform/dispatch/dispatcher.go:18`
+- [x] Jobs：统一 job event/type 命名与状态映射（例如 canceled vs cancelled、completed vs succeeded），避免 SDK/UI 展示与终态判断不一致 `sdks/go/pkg/croupier/function_server.go:97`
+- [x] Jobs：job 路由当前仅存内存（`jobID -> agent addr`），Server 重启后无法查询历史 job；需要持久化或实现“全量探测/回退策略” `internal/platform/dispatch/dispatcher.go:18`
 - [x] Agent↔Server：当前使用 insecure gRPC（无 mTLS），与"零信任/mTLS"设计不一致；补齐 TLS 配置与证书加载 `internal/app/agent/upstream.go:73`
 - [x] Dispatcher↔Agent：dispatcher 侧也使用 insecure gRPC 直连 agent；补齐 TLS/mTLS dial（可复用 `internal/platform/tlsutil`）`internal/platform/dispatch/dispatcher.go:259`
 - [x] ConnPool：`InsecureSkipVerify` 配置语义不正确（当前会直接使用明文 insecure credentials）；应改为 `credentials.NewTLS(&tls.Config{InsecureSkipVerify:true})` 或更名为 `InsecurePlaintext` `internal/connpool/pool.go:243`
-- [x] TLS 配置落地：虽然 `services/agent/etc/agent.yaml` 与 `services/edge/etc/edge.yaml` 有 TLS/CA/Insecure 配置，但 `internal/app/agent/*`、dispatcher 等路径未实际使用；打通配置→拨号→证书加载链路 `services/agent/etc/agent.yaml:1`
+- [x] TLS 配置落地：虽然 `services/agent/etc/agent.yaml` 与 `services/edge/etc/edge.yaml` 有 TLS/CA/Insecure 配置，但 `internal/app/agent/*`、dispatcher 等路径未实际使用；打通配置→拨号→证书加载链路 `services/agent/etc/agent.yaml:1`（Edge 已移除，历史记录保留）
 - [x] Agent Upstream：使用了已废弃/不推荐的 `grpc.WithTimeout`；改为 `DialContext` + ctx 超时，并与 TLS 配置统一 `internal/app/agent/upstream.go:80`
-- [x] Edge：gRPC server 使用 go-zero `zrpc`，并根据 `services/edge/internal/config` 启用 TLS/mTLS `services/edge/cmd/root.go:99`
-- [x] Edge 配置语义：`Server.InternalAddr` 当前被当作"gRPC 监听地址"使用（net.Listen），但字段命名像"上游地址"；明确 listen/upstream 拆分并更新配置/代码（新增 `Server.ListenAddr`，保留 `InternalAddr` 兼容提示）`services/edge/cmd/root.go:95`
+- [x] Edge：gRPC server 使用 go-zero `zrpc`，并根据 `services/edge/internal/config` 启用 TLS/mTLS（已移除，历史记录保留）
+- [x] Edge 配置语义：`Server.InternalAddr` 当前被当作"gRPC 监听地址"使用（net.Listen），但字段命名像"上游地址"；明确 listen/upstream 拆分并更新配置/代码（新增 `Server.ListenAddr`，保留 `InternalAddr` 兼容提示）（已移除，历史记录保留）
 - [x] Server：启动 gRPC ControlService（支持 mTLS：配置 CA 则要求客户端证书；未配证书时 dev 模式仍允许明文）`services/server/cmd/root.go:96`
-- [x] Server/Agent/Edge：目前存在两套"Agent 注册/ControlService"实现（go-zero HTTP 的 server vs internal/app/edge 的 gRPC 控制面），需要明确哪套是主路径并收敛（避免 registry/dispatcher 分叉）`internal/app/edge/app.go:24`
-- [x] Edge：gRPC server 已支持 TLS/mTLS（基于 go-zero `zrpc`），并与配置/证书对齐 `services/edge/cmd/root.go:99`
+- [x] Server/Agent/Edge：目前存在两套"Agent 注册/ControlService"实现（go-zero HTTP 的 server vs internal/app/edge 的 gRPC 控制面），需要明确哪套是主路径并收敛（避免 registry/dispatcher 分叉）（已移除，历史记录保留）
+- [x] Edge：gRPC server 已支持 TLS/mTLS（基于 go-zero `zrpc`），并与配置/证书对齐（已移除，历史记录保留）
 - [x] Agentlocal：LocalStore 的 `Prune` 从未调用，实例/函数可能永久残留；增加定时清理与 maxAge 配置 `internal/platform/agentlocal/store.go:130`
 - [x] Agent Upstream：store.OnUpdate 回调当前每次变更都触发 sync（且使用 `context.Background()`），需要 debounce/合并并增加超时/重试策略 `internal/app/agent/upstream.go:71`
 - [x] Agentlocal：LocalControlService proto 含 `GetJobResult`，但 server 未实现；补齐实现或从 proto/调用链中移除 `internal/platform/agentlocal/local_control.go:1`
@@ -778,7 +778,7 @@ internal/app/agent/upstream.go           # Sync OpenAPI Schema
 - [x] 默认种子数据：`Bootstrap placeholder game` 这类默认数据需明确是否仅用于 dev（生产环境禁用/可配置）（已实现：仅在数据库为空时加载，可通过 GamesConfig 配置，状态标记为 dev）`services/server/internal/svc/game_seed.go:157`
 - [x] 脚本安全：`scripts/test-ci.sh` 会直接 push/force-push，风险较高；改为"本地校验/提示用户手动操作"或移除（已添加用户确认提示，说明风险和操作内容）`scripts/test-ci.sh:1`
 - [x] 脚本安全：`scripts/sync-sdk-generated.sh` 会在脚本内提示后执行 `git push`（对子模块/多仓库场景风险较高）；考虑增加 `--dry-run`、默认不推送或在 CI 里禁止推送（已实现交互式确认，默认不推送）`scripts/sync-sdk-generated.sh:175`
-- [x] 配置文件有效性：`services/edge/etc/edge.yaml` 使用 `//` 注释（非 YAML 语法），会导致解析失败；改为 `#` 或移除 `services/edge/etc/edge.yaml:35`
+- [x] 配置文件有效性：`services/edge/etc/edge.yaml` 使用 `//` 注释（非 YAML 语法），会导致解析失败；改为 `#` 或移除（已移除，历史记录保留）
 - [x] 日志与噪音：移除/替换 agentlocal 的 `fmt.Printf("DEBUG: ...")`（改为可控的结构化日志或仅在 debug level 输出）`internal/platform/agentlocal/store.go:37`
 - [x] 日志与噪音：移除/替换 LocalControlService 的 `fmt.Printf("DEBUG: RegisterLocal...")` `internal/platform/agentlocal/local_control.go:25`
 - [x] Telemetry：OTLP exporter 默认 `WithInsecure()`，需要根据配置显式区分 dev/prod，支持 TLS（至少提供开关与 CA 配置）（已添加 UseTLS 配置字段，根据配置动态选择 HTTP/HTTPS）`internal/telemetry/provider.go:96`
@@ -787,8 +787,8 @@ internal/app/agent/upstream.go           # Sync OpenAPI Schema
 - [x] Proto：Public Management API 目前是 placeholder，明确是否需要对外暴露/实现或删除（已确认：这是预留的公共 API 定义，注释标注为 Future HTTP REST API，保留作为未来扩展预留）`proto/croupier/api/v1/management.proto:1`
 - [x] SDK Proto 同步：各语言 SDK 目录下的 `proto/croupier/api/v1/management.proto` 同样是 placeholder；明确"以根 proto 为准"的同步策略（已确认：SDK 中的 proto 通过 buf generate 从根 proto 同步生成，当前为预留占位符）`sdks/go/proto/croupier/api/v1/management.proto:1`
 - [x] JS SDK 示例：`Basic client is a placeholder` 的示例需要补齐可运行实现或删除/标注限制（已添加清晰标注：SDK 开发中，请使用 Go SDK 或 gRPC）`sdks/js/examples/main.ts:179`
-- [ ] API 文档：补充 `docs/api.md` 的完整内容（当前仅为 skeleton，需从 `proto/` 目录整理 gRPC API 定义）`docs/api.md:1`
-- [ ] 架构文档：更新 `docs/architecture/layers.md` 补充 Edge Proxy 层（当前文档描述五层架构，实际已演进增加 Edge 层）`docs/architecture/layers.md:1`
+- [x] API 文档：补充 `docs/api.md` 的完整内容（已完成：从 `services/server/modules/*.api` 生成完整 REST 端点清单）`docs/api.md:1`
+- [x] 架构文档：更新 `docs/architecture/layers.md` 移除 Edge 描述并对齐 Formily（已完成）`docs/architecture/layers.md:1`
 
 ### 文档 checklist（详细）
 

@@ -133,7 +133,7 @@ tag:
 
 | 组件 | 功能 | 使用场景 |
 |-----|------|---------|
-| FunctionFormRenderer | JSONSchema 表单 | Invoke, Assignments, Approvals |
+| FunctionFormRenderer | Formily + JSON Schema 表单 | Invoke, Assignments, Approvals |
 | FunctionListTable | 搜索排序过滤 | Catalog, Assignments, Approvals |
 | RegistryViewer | 注册表展示 | Instances, Dashboard, Reports |
 | FunctionCallHistory | 历史时间线 | Invoke, Detail, Dashboard |

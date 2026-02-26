@@ -1462,7 +1462,7 @@ type MetricsResponse struct {
 type Node struct {
 	Id        string      `json:"id"`
 	Name      string      `json:"name"`
-	Type      string      `json:"type"` // server, agent, edge
+	Type      string      `json:"type"` // server, agent
 	Status    string      `json:"status"`
 	IP        string      `json:"ip"`
 	Port      int         `json:"port"`
@@ -2981,40 +2981,3 @@ type UserInfo struct {
 	Phone    string   `json:"phone,omitempty"`
 }
 
-type XRenderComponentsRequest struct {
-}
-
-type XRenderComponentsResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type XRenderGenerateRequest struct {
-	Schema interface{} `json:"schema"`
-}
-
-type XRenderGenerateSchemaResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type XRenderPreviewRequest struct {
-	Schema interface{} `json:"schema"`
-}
-
-type XRenderPreviewSchemaResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type XRenderTemplatesRequest struct {
-}
-
-type XRenderTemplatesResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}

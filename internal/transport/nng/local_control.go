@@ -21,6 +21,7 @@ type LocalControlServer struct {
 
 	mu       sync.RWMutex
 	sessions map[string]*SessionInfo
+	jobs     map[string]*localJob
 }
 
 // SessionInfo holds session information for a registered SDK.
@@ -44,6 +45,7 @@ func NewLocalControlServer(store *agentlocal.LocalStore, functionHandler Functio
 		store:           store,
 		functionHandler: functionHandler,
 		sessions:        make(map[string]*SessionInfo),
+		jobs:            make(map[string]*localJob),
 	}
 }
 
@@ -125,21 +127,7 @@ func (s *LocalControlServer) handleInvoke(ctx context.Context, reqID uint32, bod
 		return nil, fmt.Errorf("unmarshal request: %w", err)
 	}
 
-	// Find the session and provider for this function
-	var providerID string
-	s.mu.RLock()
-	for _, session := range s.sessions {
-		for _, fn := range session.Functions {
-			if fn.Id == req.FunctionId {
-				providerID = session.ProviderID
-				break
-			}
-		}
-		if providerID != "" {
-			break
-		}
-	}
-	s.mu.RUnlock()
+	providerID := s.findProviderForFunction(req.FunctionId)
 
 	if providerID == "" {
 		return nil, fmt.Errorf("function not found: %s", req.FunctionId)
@@ -163,14 +151,88 @@ func (s *LocalControlServer) handleInvoke(ctx context.Context, reqID uint32, bod
 
 // handleStartJob handles async job start requests.
 func (s *LocalControlServer) handleStartJob(ctx context.Context, reqID uint32, body []byte) ([]byte, error) {
-	// TODO: Implement async job support
-	return nil, fmt.Errorf("StartJob not yet implemented")
+	req := &sdkv1.InvokeRequest{}
+	if err := proto.Unmarshal(body, req); err != nil {
+		return nil, fmt.Errorf("unmarshal InvokeRequest for StartJob: %w", err)
+	}
+
+	providerID := s.findProviderForFunction(req.FunctionId)
+	if providerID == "" {
+		return nil, fmt.Errorf("function not found: %s", req.FunctionId)
+	}
+
+	if s.functionHandler == nil {
+		return nil, fmt.Errorf("function handler not configured")
+	}
+
+	jobID := fmt.Sprintf("job-%d", time.Now().UnixNano())
+	jobCtx, cancel := context.WithCancel(context.Background())
+
+	s.mu.Lock()
+	s.jobs[jobID] = &localJob{
+		cancel:    cancel,
+		createdAt: time.Now(),
+	}
+	s.mu.Unlock()
+
+	go func() {
+		result, err := s.functionHandler.Invoke(jobCtx, providerID, req.FunctionId, req.Payload)
+		s.mu.Lock()
+		job, ok := s.jobs[jobID]
+		if ok {
+			job.done = true
+			job.result = result
+			job.err = err
+		}
+		s.mu.Unlock()
+	}()
+
+	resp := &sdkv1.StartJobResponse{
+		JobId: jobID,
+	}
+	return proto.Marshal(resp)
 }
 
 // handleCancelJob handles job cancellation requests.
 func (s *LocalControlServer) handleCancelJob(ctx context.Context, reqID uint32, body []byte) ([]byte, error) {
-	// TODO: Implement job cancellation
-	return nil, fmt.Errorf("CancelJob not yet implemented")
+	req := &sdkv1.CancelJobRequest{}
+	if err := proto.Unmarshal(body, req); err != nil {
+		return nil, fmt.Errorf("unmarshal CancelJobRequest: %w", err)
+	}
+
+	s.mu.Lock()
+	if job, ok := s.jobs[req.GetJobId()]; ok {
+		if job.cancel != nil {
+			job.cancel()
+		}
+		delete(s.jobs, req.GetJobId())
+	}
+	s.mu.Unlock()
+
+	resp := &sdkv1.StartJobResponse{}
+	return proto.Marshal(resp)
+}
+
+func (s *LocalControlServer) findProviderForFunction(functionID string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, session := range s.sessions {
+		for _, fn := range session.Functions {
+			if fn.Id == functionID {
+				return session.ProviderID
+			}
+		}
+	}
+	return ""
+}
+
+type localJob struct {
+	cancel    context.CancelFunc
+	createdAt time.Time
+	done      bool
+	result    []byte
+	err       error
 }
 
 // GetSession returns session info by session ID.

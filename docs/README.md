@@ -17,7 +17,7 @@ features:
   - title: 🎮 函数注册驱动
     details: 游戏服务器通过 Agent 注册函数，控制面统一调用、可视化进度与日志。
   - title: 📊 Schema 驱动 UI
-    details: X-Render + JSON Schema 自动生成表单、风控提示、参数校验。
+    details: Formily + JSON Schema 自动生成表单、风控提示、参数校验。
   - title: 🔄 可观测性解耦
     details: 控制面与遥测面分离，Analytics Worker 通过 Redis Streams / ClickHouse 处理实时事件。
   - title: 📦 多语言 SDK
@@ -174,7 +174,7 @@ graph TB
 |------|------|
 | **零信任安全** | NNG+mTLS、细粒度 RBAC/ABAC、操作审批与审计日志 |
 | **函数注册驱动** | 游戏服务器通过 Agent 注册函数，控制面统一管理 |
-| **Schema 驱动 UI** | X-Render + JSON Schema 自动生成表单和界面 |
+| **Schema 驱动 UI** | Formily + JSON Schema 自动生成表单和界面 |
 | **可观测性解耦** | 控制面与遥测面分离，支持实时事件处理 |
 | **多语言 SDK** | Go / C++ / Java / JS / Python 全覆盖 |
 | **协议优先** | 所有 API 通过 Protocol Buffers 定义 |

@@ -57,7 +57,6 @@ import "modules/approval.api"
 import "modules/certificate.api"
 import "modules/storage.api"
 // === UI 相关模块 ===
-import "modules/xrender.api"
 import "modules/meta.api"
 // === 第三方平台集成模块 ===
 import "modules/platform.api"

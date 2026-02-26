@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cuihairu/croupier/internal/function/converter"
 	"github.com/getkin/kin-openapi/openapi3"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 // SchemaSource identifies where a schema originated from.
@@ -60,15 +62,30 @@ func (n *SchemaNormalizer) normalizePackSchema(schema interface{}) (*openapi3.Sc
 
 // normalizeProtoSchema converts Proto descriptor to OpenAPI 3.0.3.
 func (n *SchemaNormalizer) normalizeProtoSchema(schema interface{}) (*openapi3.Schema, error) {
-	// Proto descriptors need more complex conversion
-	// For now, return a basic object schema
-	objectType := openapi3.Types{"object"}
-	result := &openapi3.Schema{
-		Type: &objectType,
-	}
+	converter := converter.NewProtoConverter()
 
-	// TODO: Implement full proto-to-openapi conversion using FileDescriptorSet
-	return result, nil
+	switch s := schema.(type) {
+	case *descriptorpb.DescriptorProto:
+		return converter.ProtoSchemaToOpenAPISchema(s)
+	case *descriptorpb.FileDescriptorProto:
+		if len(s.MessageType) != 1 {
+			return nil, fmt.Errorf("proto schema requires exactly one top-level message, got %d", len(s.MessageType))
+		}
+		return converter.ProtoSchemaToOpenAPISchema(s.MessageType[0])
+	case *descriptorpb.FileDescriptorSet:
+		var messages []*descriptorpb.DescriptorProto
+		for _, file := range s.File {
+			for _, msg := range file.MessageType {
+				messages = append(messages, msg)
+			}
+		}
+		if len(messages) != 1 {
+			return nil, fmt.Errorf("proto schema requires exactly one top-level message, got %d", len(messages))
+		}
+		return converter.ProtoSchemaToOpenAPISchema(messages[0])
+	default:
+		return nil, fmt.Errorf("unsupported proto schema type: %T", schema)
+	}
 }
 
 // normalizeOpenAPISchema validates and returns OpenAPI schema.

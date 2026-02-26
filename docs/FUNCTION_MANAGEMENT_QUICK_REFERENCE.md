@@ -115,7 +115,7 @@ Agent 列表 → 实例分布 → 覆盖率分析
 
 | 组件 | 功能 | 依赖 |
 |-----|------|------|
-| **FunctionFormRenderer** | JSONSchema 表单 | Ant Design Form |
+| **FunctionFormRenderer** | Formily + JSON Schema 表单 | Ant Design Form |
 | **FunctionListTable** | 表格 + 搜索 + 排序 | Ant Design Table |
 | **RegistryViewer** | 注册表展示 | 自定义 |
 | **FunctionCallHistory** | 历史时间线 | 自定义 |

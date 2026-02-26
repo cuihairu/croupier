@@ -9,12 +9,12 @@
 - Protocol/IDL: `proto/` (+ `buf.gen.yaml`), generated code under `gen/`.
 
 ## Build, Test, and Development Commands
-- Build all: `make dev` (proto + binaries to `bin/`). Targets: `make server`/`agent`/`edge`.
+- Build all: `make dev` (proto + binaries to `bin/`). Targets: `make server`/`agent`.
 - Backend tests: `make test` (Go), lint: `make lint`.
 - Web dev: `cd dashboard && pnpm install && pnpm run start` (or `npm run start`), build: `pnpm run build`.
 - Docker Compose quickstart:
   - Core DBs only: `docker compose up -d redis clickhouse`.
-  - Full stack (server/edge/web + DBs): `docker compose up -d`.
+  - Full stack (server/dashboard + DBs): `docker compose up -d`.
   - Optional profiles: tools (`--profile tools`), stream (`--profile stream`).
 
 ## Coding Style & Naming Conventions

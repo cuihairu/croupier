@@ -32,18 +32,15 @@ start_service() {
 }
 
 # Create bin directories
-mkdir -p server/bin agent/bin edge/bin
+mkdir -p server/bin agent/bin
 
 # Start services
 start_service "server" "server"
 start_service "agent" "agent"
-start_service "edge" "edge"
-
 echo "All services started successfully!"
 echo ""
 echo "Service Status:"
 echo "- Server Service: http://localhost:8888"
 echo "- Agent Service:  http://localhost:8889"
-echo "- Edge Service:   http://localhost:8890"
 echo ""
 echo "To stop services, run: ./stop-services.sh"

@@ -140,11 +140,6 @@ cat > "$OUTPUT_DIR/croupier-api-environments.json" << 'EOF'
           "description": "Agent服务地址 - 本地开发"
         },
         {
-          "key": "edgeUrl",
-          "value": "http://localhost:8890",
-          "description": "Edge服务地址 - 本地开发"
-        },
-        {
           "key": "token",
           "value": "",
           "description": "认证token，登录后自动获取"
@@ -176,11 +171,6 @@ cat > "$OUTPUT_DIR/croupier-api-environments.json" << 'EOF'
           "description": "Agent服务地址 - 测试环境"
         },
         {
-          "key": "edgeUrl",
-          "value": "http://test-edge.croupier.com:8890",
-          "description": "Edge服务地址 - 测试环境"
-        },
-        {
           "key": "token",
           "value": "",
           "description": "认证token"
@@ -210,11 +200,6 @@ cat > "$OUTPUT_DIR/croupier-api-environments.json" << 'EOF'
           "key": "agentUrl",
           "value": "https://agent.croupier.com",
           "description": "Agent服务地址 - 生产环境"
-        },
-        {
-          "key": "edgeUrl",
-          "value": "https://edge.croupier.com",
-          "description": "Edge服务地址 - 生产环境"
         },
         {
           "key": "token",
@@ -450,7 +435,6 @@ redoc-cli build croupier-api.json
 ### 开发环境 (本地)
 - API 服务: http://localhost:8888
 - Agent 服务: http://localhost:8889
-- Edge 服务: http://localhost:8890
 
 ### 认证方式
 1. 首先调用 `POST /api/auth/sessions` 登录获取 token
@@ -463,12 +447,12 @@ redoc-cli build croupier-api.json
 │   前端 UI   │───▶│  API 服务   │───▶│  游戏服务   │
 │             │    │  (8888)     │    │             │
 └─────────────┘    └─────────────┘    └─────────────┘
-                          │                   │
-                          ▼                   ▼
-                   ┌─────────────┐    ┌─────────────┐
-                   │ Agent 服务  │    │ Edge 服务   │
-                   │  (8889)     │    │  (8890)     │
-                   └─────────────┘    └─────────────┘
+                      │
+                      ▼
+               ┌─────────────┐
+               │ Agent 服务  │
+               │  (8889)     │
+               └─────────────┘
 ```
 
 ## ✅ 快速验证

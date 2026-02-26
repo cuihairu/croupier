@@ -1,160 +1,86 @@
-# XRender API
+# Formily Schema API（替代 XRender）
 
-### 1. "获取XRender组件"
+> 说明：Dashboard 已迁移至 Formily。原 `/api/v1/xrender/*` 系列接口已移除，
+> 请使用 Schema 与 UI 配置接口。
 
-1. route definition
+## Schema 管理（Formily）
 
-- Url: /api/v1/xrender/components
+基础路径：
+
+```
+/api/v1/schemas
+```
+
+### 1. 获取 Schema 列表
+- Url: `/api/v1/schemas/`
 - Method: GET
-- Request: `XRenderComponentsRequest`
-- Response: `XRenderComponentsResponse`
+- Request: `SchemasListRequest`
+- Response: `SchemasListResponse`
 
-2. request definition
-
-
-
-```golang
-type XRenderComponentsRequest struct {
-}
-```
-
-
-3. response definition
-
-
-
-```golang
-type XRenderComponentsResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
-```
-
-### 2. "生成XRender模式"
-
-1. route definition
-
-- Url: /api/v1/xrender/generate
+### 2. 创建 Schema
+- Url: `/api/v1/schemas/`
 - Method: POST
-- Request: `XRenderGenerateRequest`
-- Response: `XRenderGenerateSchemaResponse`
+- Request: `SchemaCreateRequest`
+- Response: `SchemaCreateResponse`
 
-2. request definition
+### 3. 获取 Schema 详情
+- Url: `/api/v1/schemas/:id`
+- Method: GET
+- Request: `SchemaDetailRequest`
+- Response: `SchemaDetailResponse`
 
+### 4. 更新 Schema
+- Url: `/api/v1/schemas/:id`
+- Method: PUT
+- Request: `SchemaUpdateRequest`
+- Response: `SchemaUpdateResponse`
 
+### 5. 删除 Schema
+- Url: `/api/v1/schemas/:id`
+- Method: DELETE
+- Request: `SchemaDeleteRequest`
+- Response: `SchemaDeleteResponse`
 
-```golang
-type XRenderGenerateRequest struct {
-	Schema interface{} `json:"schema"`
-}
-```
-
-
-3. response definition
-
-
-
-```golang
-type XRenderGenerateSchemaResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
-```
-
-### 3. "预览XRender模式"
-
-1. route definition
-
-- Url: /api/v1/xrender/preview
+### 6. 验证 Schema 数据
+- Url: `/api/v1/schemas/:id/validate`
 - Method: POST
-- Request: `XRenderPreviewRequest`
-- Response: `XRenderPreviewSchemaResponse`
+- Request: `SchemaValidateRequest`
+- Response: `SchemaValidateResponse`
 
-2. request definition
+### 7. 原始 Schema 验证
+- Url: `/api/v1/schemas/raw-validate`
+- Method: POST
+- Request: `SchemaRawValidateRequest`
+- Response: `SchemaRawValidateResponse`
 
-
-
-```golang
-type XRenderPreviewRequest struct {
-	Schema interface{} `json:"schema"`
-}
-```
-
-
-3. response definition
-
-
-
-```golang
-type XRenderPreviewSchemaResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
-```
-
-### 4. "获取XRender模板"
-
-1. route definition
-
-- Url: /api/v1/xrender/templates
+### 8. 获取 UI 配置
+- Url: `/api/v1/schemas/:id/ui-config`
 - Method: GET
-- Request: `XRenderTemplatesRequest`
-- Response: `XRenderTemplatesResponse`
+- Request: `SchemaUIConfigRequest`
+- Response: `SchemaUIConfigResponse`
 
-2. request definition
+### 9. 更新 UI 配置
+- Url: `/api/v1/schemas/:id/ui-config`
+- Method: PUT
+- Request: `SchemaUIConfigUpdateRequest`
+- Response: `SchemaUIConfigUpdateResponse`
 
+## 函数 UI 配置（Formily）
 
+用于覆盖函数级别的 UI 配置（与 Schema UI 配置并行）。
 
-```golang
-type XRenderTemplatesRequest struct {
-}
-```
-
-
-3. response definition
-
-
-
-```golang
-type XRenderTemplatesResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
-```
-
-### 5. "获取UI模式"
-
-1. route definition
-
-- Url: /api/v1/xrender/schema/ui-schema
+### 1. 获取函数 UI 配置
+- Url: `/api/v1/functions/:id/ui`
 - Method: GET
-- Request: `UISchemaRequest`
-- Response: `UISchemaResponse`
+- Request: `FunctionUIRequest`
+- Response: `FunctionUIResponse`
 
-2. request definition
+### 2. 更新函数 UI 配置
+- Url: `/api/v1/functions/:id/ui`
+- Method: PUT
+- Request: `FunctionUIUpdateRequest`
+- Response: `FunctionUIResponse`
 
+## 旧版 XRender 接口（已移除）
 
-
-```golang
-type UISchemaRequest struct {
-	Type string `form:"type"`
-}
-```
-
-
-3. response definition
-
-
-
-```golang
-type UISchemaResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
-```
-
+旧版 `/api/v1/xrender/*` 接口已从服务端移除。如需兼容历史数据，请迁移到 Schema 与 UI 配置接口。

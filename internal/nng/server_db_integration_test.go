@@ -7,14 +7,14 @@ import (
 
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
-	"gorm.io/driver/sqlite"
+	gsqlite "github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 
 // TestServerWithDB tests the NNG server with database persistence
 func TestServerWithDB(t *testing.T) {
 	// Create in-memory SQLite database
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestServerWithDB(t *testing.T) {
 // TestHandleRegisterWithDB tests agent registration with database persistence
 func TestHandleRegisterWithDB(t *testing.T) {
 	// Create in-memory SQLite database
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}
@@ -150,7 +150,7 @@ func TestHandleRegisterWithDB(t *testing.T) {
 // TestHandleHeartbeatWithDB tests heartbeat with database update
 func TestHandleHeartbeatWithDB(t *testing.T) {
 	// Create in-memory SQLite database
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}
@@ -230,7 +230,7 @@ func TestHandleHeartbeatWithDB(t *testing.T) {
 // TestLoadAgentSessionsFromDB tests loading sessions from database
 func TestLoadAgentSessionsFromDB(t *testing.T) {
 	// Create in-memory SQLite database
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}
@@ -310,7 +310,7 @@ func TestLoadAgentSessionsFromDB(t *testing.T) {
 // TestDeleteExpiredSessions tests deletion of expired sessions
 func TestDeleteExpiredSessions(t *testing.T) {
 	// Create in-memory SQLite database
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("failed to open database: %v", err)
 	}

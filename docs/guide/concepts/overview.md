@@ -42,7 +42,7 @@ Croupier 是一个现代化的**三层分布式 GM 后台系统**，专为游戏
 |------|------|
 | **零信任安全** | gRPC+mTLS、细粒度 RBAC/ABAC、操作审批与审计日志 |
 | **函数注册驱动** | 游戏服务器通过 Agent 注册函数，控制面统一管理 |
-| **Schema 驱动 UI** | X-Render + JSON Schema 自动生成表单和界面 |
+| **Schema 驱动 UI** | Formily + JSON Schema 自动生成表单和界面 |
 | **可观测性解耦** | 控制面与遥测面分离，支持实时事件处理 |
 | **多语言 SDK** | Go / C++ / Java / JS / Python 全覆盖 |
 | **协议优先** | 所有 API 通过 Protocol Buffers 定义 |
@@ -77,7 +77,7 @@ Croupier 是一个现代化的**三层分布式 GM 后台系统**，专为游戏
 
 基于 React + Ant Design 的 Web 管理界面。
 
-- **技术栈**: Umi Max + Ant Design + X-Render
+- **技术栈**: Umi Max + Ant Design + Formily
 - **职责**:
   - 函数调用可视化
   - 审批流程管理

@@ -17,7 +17,7 @@ features:
   - title: 🎮 函数注册控制
     details: 游戏服务器通过 Agent 注册函数，控制面统一调用、可视化进度与日志。
   - title: 📊 Schema 驱动 UI
-    details: X-Render + JSON Schema 自动生成表单、风控提示、参数校验。
+    details: Formily + JSON Schema 自动生成表单、风控提示、参数校验。
   - title: 🔄 可观测性解耦
     details: 控制面与遥测面分离，支持实时事件处理与多维度监控。
   - title: 📦 多语言 SDK

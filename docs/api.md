@@ -203,105 +203,453 @@ Server 同时暴露 HTTP REST API (端口 8080)，用于 Dashboard 和 Web 客�
 http://server:8080/api/v1
 ```
 
-### API 端点概览
+### 模块与端点（来自 `services/server/modules/*.api`）
 
-**统计信息**：
-- **总计**: 320 个 API 端点
-- **GET**: 195 个（61%）
-- **POST**: 100 个（31.25%）
-- **PUT**: 24 个（7.5%）
-- **DELETE**: 25 个（7.8%）
-- **PATCH**: 1 个（0.3%）
+#### admin
 
-### 主要 API 模块
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/admin/ |
+| POST | /api/v1/admin/ |
+| GET | /api/v1/admin/:id |
+| PUT | /api/v1/admin/:id |
+| DELETE | /api/v1/admin/:id |
+| POST | /api/v1/admin/:id/password-reset |
+| GET | /api/v1/roles/ |
+| POST | /api/v1/roles/ |
+| GET | /api/v1/roles/:id |
+| PUT | /api/v1/roles/:id |
+| DELETE | /api/v1/roles/:id |
+| GET | /api/v1/permissions/ |
+| GET | /api/v1/permissions/:id |
+| GET | /api/v1/admin/:id/games |
+| PUT | /api/v1/admin/:id/games |
 
-| 模块 | 端点数量 | 功能描述 |
-|------|----------|----------|
-| analytics | ~30 | 数据分析与统计 |
-| player | ~15 | 玩家管理 |
-| game | ~12 | 游戏管理 |
-| function | ~10 | 函数管理 |
-| admin | ~20 | 管理员操作 |
-| agent | ~8 | Agent 管理 |
-| job | ~10 | 作业管理 |
-| auth | ~8 | 认证授权 |
-| audit | ~6 | 审计日志 |
-| approval | ~8 | 审批流程 |
-| ... | ... | 其他模块 |
+#### agent
 
-> **完整 API 列表**: 详见各模块 `.api` 文件定义（位于 `services/server/modules/`）
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/agent/analytics-filters |
+| POST | /api/v1/agent/meta |
 
-### 核心端点示例
+#### alert
 
-#### 函数管理 (function.api)
-| 方法 | 路径 | 描述 |
-|------|------|------|
-| GET | `/functions` | 获取函数列表 |
-| GET | `/functions/:id` | 获取函数详情 |
-| POST | `/functions` | 创建函数 |
-| PUT | `/functions/:id` | 更新函数 |
-| DELETE | `/functions/:id` | 删除函数 |
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/alerts/ |
+| POST | /api/v1/alerts/:id/silence |
+| GET | /api/v1/alerts/silences |
+| DELETE | /api/v1/alerts/silences/:id |
 
-#### Agent 管理 (agent.api)
-| 方法 | 路径 | 描述 |
-|------|------|------|
-| GET | `/agents` | 获取 Agent 列表 |
-| GET | `/agents/:id` | 获取 Agent 详情 |
-| POST | `/agents/:id/heartbeat` | Agent 心跳 |
-| DELETE | `/agents/:id` | 注销 Agent |
+#### analytics
 
-#### 玩家管理 (player.api)
-| 方法 | 路径 | 描述 |
-|------|------|------|
-| GET | `/players` | 获取玩家列表 |
-| GET | `/players/:id` | 获取玩家详情 |
-| POST | `/players` | 创建玩家 |
-| PUT | `/players/:id` | 更新玩家信息 |
-| DELETE | `/players/:id` | 删除玩家 |
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/analytics/overview |
+| GET | /api/v1/analytics/realtime |
+| GET | /api/v1/analytics/realtime/series |
+| GET | /api/v1/analytics/behavior |
+| GET | /api/v1/analytics/behavior/events |
+| GET | /api/v1/analytics/behavior/funnel |
+| GET | /api/v1/analytics/behavior/paths |
+| GET | /api/v1/analytics/behavior/adoption |
+| GET | /api/v1/analytics/behavior/adoption/breakdown |
+| GET | /api/v1/analytics/payments |
+| GET | /api/v1/analytics/payments/summary |
+| GET | /api/v1/analytics/payments/transactions |
+| GET | /api/v1/analytics/payments/product-trend |
+| GET | /api/v1/analytics/levels |
+| GET | /api/v1/analytics/levels/episodes |
+| GET | /api/v1/analytics/levels/maps |
+| GET | /api/v1/analytics/retention |
+| POST | /api/v1/analytics/ingest |
+| POST | /api/v1/analytics/payments/ingest |
+| GET | /api/v1/analytics/filters |
+| PUT | /api/v1/analytics/filters |
 
-### 公共端点
+#### approval
 
-| 方法 | 路径 | 描述 |
-|------|------|------|
-| GET | `/functions/descriptors` | 获取所有函数描述符 |
-| GET | `/functions/descriptors/:id` | 获取单个函数描述符 |
-| GET | `/functions/instances` | 获取函数实例列表 |
-| POST | `/functions/validate` | 验证函数调用请求 |
-| GET | `/providers/capabilities` | 获取 Provider 能力 |
-| GET | `/providers/descriptors` | 获取 Provider 描述符 |
-| GET | `/packs` | 获取函数包列表 |
-| POST | `/packs/reload` | 重新加载函数包 |
-| GET | `/packs/export` | 导出函数包 |
+| 方法 | 路径 |
+|------|------|
+| POST | /api/v1/approvals/:id/approve |
+| GET | /api/v1/approvals/:id |
+| POST | /api/v1/approvals/:id/reject |
+| GET | /api/v1/approvals/ |
 
-### 请求头
+#### assignment
 
-```
-X-Game-ID: mygame       # 游戏 ID (多租户必需)
-X-Env: prod             # 环境 (可选)
-Authorization: Bearer <token>  # 认证令牌
-```
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/assignments/ |
+| PUT | /api/v1/assignments/ |
 
-### 响应格式
+#### audit
 
-成功响应:
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": { ... }
-}
-```
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/audit |
 
-错误响应:
-```json
-{
-  "code": 10001,
-  "message": "function not found",
-  "details": { ... }
-}
-```
+#### auth
 
----
+| 方法 | 路径 |
+|------|------|
+| POST | /api/v1/auth/login |
+| POST | /api/v1/auth/logout |
+
+#### backup
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/backups/ |
+| POST | /api/v1/backups/ |
+| DELETE | /api/v1/backups/:id |
+| GET | /api/v1/backups/:id/download |
+
+#### certificate
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/certificates/ |
+| POST | /api/v1/certificates/ |
+| GET | /api/v1/certificates/:id |
+| POST | /api/v1/certificates/:id/check |
+| DELETE | /api/v1/certificates/:id |
+| GET | /api/v1/certificates/stats |
+| POST | /api/v1/certificates/alerts |
+| GET | /api/v1/certificates/alerts |
+| POST | /api/v1/certificates/check-all |
+| GET | /api/v1/certificates/domain-info |
+| GET | /api/v1/certificates/expiring |
+
+#### component
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/components/ |
+| POST | /api/v1/components/install |
+| GET | /api/v1/components/:id |
+| POST | /api/v1/components/:id/enable |
+| POST | /api/v1/components/:id/disable |
+| DELETE | /api/v1/components/:id |
+| PATCH | /api/v1/components/:id |
+
+#### config
+
+| 方法 | 路径 |
+|------|------|
+| POST | /api/v1/configs/ |
+| GET | /api/v1/configs/version |
+| GET | /api/v1/configs/versions |
+
+#### entity
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/entities/ |
+| POST | /api/v1/entities/ |
+| GET | /api/v1/entities/:id |
+| PUT | /api/v1/entities/:id |
+| DELETE | /api/v1/entities/:id |
+| GET | /api/v1/entities/:id/preview |
+| POST | /api/v1/entities/validate |
+
+#### faq
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/faqs/ |
+| POST | /api/v1/faqs/ |
+| PUT | /api/v1/faqs/:id |
+| DELETE | /api/v1/faqs/:id |
+| GET | /api/v1/faqs/categories |
+
+#### feedback
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/feedback/ |
+| POST | /api/v1/feedback/ |
+| PUT | /api/v1/feedback/:id |
+| DELETE | /api/v1/feedback/:id |
+| GET | /api/v1/feedback/stats |
+
+#### function
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/functions/ |
+| GET | /api/v1/functions/:id |
+| POST | /api/v1/functions/:id/enable |
+| POST | /api/v1/functions/:id/disable |
+| POST | /api/v1/functions/:id/copy |
+| DELETE | /api/v1/functions/:id |
+| POST | /api/v1/functions/:id/invoke |
+| POST | /api/v1/functions/:id/publish |
+| GET | /api/v1/functions/:id/instances |
+| GET | /api/v1/functions/instances |
+| GET | /api/v1/functions/:id/permissions |
+| PUT | /api/v1/functions/:id/permissions |
+| GET | /api/v1/functions/:id/ui |
+| PUT | /api/v1/functions/:id/ui |
+| GET | /api/v1/functions/descriptors |
+| GET | /api/v1/functions/pending |
+| POST | /api/v1/functions/batch-update |
+| POST | /api/v1/functions/batch-copy |
+| POST | /api/v1/functions/batch-delete |
+
+#### game
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/games/ |
+| POST | /api/v1/games/ |
+| GET | /api/v1/games/:id |
+| PUT | /api/v1/games/:id |
+| DELETE | /api/v1/games/:id |
+| GET | /api/v1/games/:id/envs |
+| POST | /api/v1/games/:id/envs |
+| PUT | /api/v1/games/:id/envs/:envId |
+| DELETE | /api/v1/games/:id/envs/:envId |
+
+#### job
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/jobs/ |
+| POST | /api/v1/jobs/ |
+| POST | /api/v1/jobs/:id/cancel |
+| GET | /api/v1/jobs/:id/result |
+| GET | /api/v1/jobs/:jobId/stream |
+
+#### message
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/messages/ |
+| POST | /api/v1/messages/ |
+| GET | /api/v1/messages/:id |
+| POST | /api/v1/messages/:id/read |
+| GET | /api/v1/messages/unread-count |
+| GET | /api/v1/messages/stream |
+
+#### meta
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/ |
+
+#### migrate
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/migrate/status |
+| GET | /api/v1/migrate/history |
+| POST | /api/v1/migrate/up |
+| POST | /api/v1/migrate/down |
+
+#### monitoring
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/healthz |
+| GET | /api/v1/status |
+| GET | /api/v1/metrics |
+
+#### node
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/nodes/ |
+| GET | /api/v1/nodes/:id/meta |
+| PUT | /api/v1/nodes/:id/meta |
+| POST | /api/v1/nodes/:id/drain |
+| POST | /api/v1/nodes/:id/undrain |
+| POST | /api/v1/nodes/:id/restart |
+| GET | /api/v1/nodes/commands |
+
+#### openapi
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/functions/:id/openapi |
+| POST | /api/v1/functions/_import |
+| GET | /api/v1/entities/:id/functions |
+
+#### ops
+
+| 方法 | 路径 |
+|------|------|
+| PUT | /api/v1/ops/agent-meta |
+| GET | /api/v1/ops/alerts |
+| POST | /api/v1/ops/alerts/silence |
+| POST | /api/v1/ops/backups |
+| DELETE | /api/v1/ops/backups/:id |
+| GET | /api/v1/ops/backups/:id/download |
+| GET | /api/v1/ops/backups |
+| GET | /api/v1/ops/config |
+| GET | /api/v1/ops/functions |
+| GET | /api/v1/ops/health |
+| POST | /api/v1/ops/health/run |
+| PUT | /api/v1/ops/health |
+| GET | /api/v1/ops/maintenance |
+| PUT | /api/v1/ops/maintenance |
+| GET | /api/v1/ops/metrics |
+| GET | /api/v1/ops/mq |
+| GET | /api/v1/ops/nodes/commands |
+| POST | /api/v1/ops/nodes/:nodeId/drain |
+| GET | /api/v1/ops/nodes/:nodeId/meta |
+| POST | /api/v1/ops/nodes/:nodeId/restart |
+| GET | /api/v1/ops/nodes |
+| POST | /api/v1/ops/nodes/:nodeId/undrain |
+| GET | /api/v1/ops/notifications |
+| PUT | /api/v1/ops/notifications |
+| GET | /api/v1/ops/services |
+| DELETE | /api/v1/ops/silences/:id |
+| GET | /api/v1/ops/silences |
+| GET | /api/v1/ops/agents |
+| GET | /api/v1/ops/agents/metrics |
+| GET | /api/v1/ops/agents/:agentId/system-info |
+| GET | /api/v1/ops/agents/:agentId/processes |
+| POST | /api/v1/ops/agents/:agentId/processes/:name/restart |
+| POST | /api/v1/ops/agents/:agentId/processes/:name/stop |
+| POST | /api/v1/ops/agents/:agentId/processes/:name/start |
+| POST | /api/v1/ops/agents/:agentId/exec |
+
+#### pack
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/packs/export |
+| POST | /api/v1/packs/import |
+| GET | /api/v1/packs/ |
+| POST | /api/v1/packs/reload |
+| GET | /api/v1/packs/plugin |
+
+#### platform
+
+| 方法 | 路径 |
+|------|------|
+| POST | /api/v1/platforms/call |
+| GET | /api/v1/platforms/ |
+| GET | /api/v1/platforms/:platform/methods |
+| POST | /api/v1/platforms/reload |
+
+#### player
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/players/ |
+| POST | /api/v1/players/ |
+| GET | /api/v1/players/:id |
+| PUT | /api/v1/players/:id |
+| DELETE | /api/v1/players/:id |
+| POST | /api/v1/players/:id/balance |
+
+#### profile
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/profile/ |
+| PUT | /api/v1/profile/ |
+| PUT | /api/v1/profile/password |
+| GET | /api/v1/profile/permissions |
+| GET | /api/v1/profile/games |
+
+#### provider
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/providers/ |
+| GET | /api/v1/providers/capabilities |
+| GET | /api/v1/providers/descriptors |
+| GET | /api/v1/providers/:id |
+| GET | /api/v1/providers/:id/entities |
+| DELETE | /api/v1/providers/:id |
+| POST | /api/v1/providers/:id/reload |
+
+#### rate_limit
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/rate-limits/ |
+| GET | /api/v1/rate-limits/:id |
+| PUT | /api/v1/rate-limits/ |
+| DELETE | /api/v1/rate-limits/:id |
+| POST | /api/v1/rate-limits/preview |
+
+#### registry
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/registry/ |
+
+#### routes
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/routes |
+
+#### schema
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/schemas/ |
+| POST | /api/v1/schemas/ |
+| GET | /api/v1/schemas/:id |
+| PUT | /api/v1/schemas/:id |
+| DELETE | /api/v1/schemas/:id |
+| POST | /api/v1/schemas/:id/validate |
+| POST | /api/v1/schemas/raw-validate |
+| GET | /api/v1/schemas/:id/ui-config |
+| PUT | /api/v1/schemas/:id/ui-config |
+
+#### storage
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/storage/signed-url |
+| GET | /api/v1/storage/objects |
+| POST | /api/v1/storage/objects |
+| DELETE | /api/v1/storage/objects |
+| POST | /api/v1/storage/objects/batch-delete |
+| POST | /api/v1/storage/directories |
+| POST | /api/v1/storage/directories/rename |
+
+#### support
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/support/tickets |
+| POST | /api/v1/support/tickets |
+| GET | /api/v1/support/tickets/:id |
+| PUT | /api/v1/support/tickets/:id |
+| DELETE | /api/v1/support/tickets/:id |
+| POST | /api/v1/support/tickets/:id/transition |
+| GET | /api/v1/support/tickets/:ticketId/comments |
+| POST | /api/v1/support/tickets/:ticketId/comments |
+| GET | /api/v1/support/faq |
+| POST | /api/v1/support/faq |
+| PUT | /api/v1/support/faq/:id |
+| DELETE | /api/v1/support/faq/:id |
+| GET | /api/v1/support/feedback |
+| POST | /api/v1/support/feedback |
+| PUT | /api/v1/support/feedback/:id |
+| DELETE | /api/v1/support/feedback/:id |
+
+#### ticket
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/tickets/ |
+| POST | /api/v1/tickets/ |
+| GET | /api/v1/tickets/:id |
+| PUT | /api/v1/tickets/:id |
+| DELETE | /api/v1/tickets/:id |
+| POST | /api/v1/tickets/:id/transition |
+| GET | /api/v1/tickets/:ticketId/comments |
+| POST | /api/v1/tickets/:ticketId/comments |
+
+
 
 ## 数据模型
 
@@ -394,3 +742,5 @@ curl http://server:8080/api/v1/functions/descriptors \
 - **服务实现**: `services/server/`, `services/agent/`
 - **HTTP 路由**: `services/server/internal/handler/routes.go`
 - **客户端 SDK**: `sdks/go/`, `sdks/cpp/`, `sdks/java/`
+
+
