@@ -31,10 +31,13 @@ jobs:
       - name: Normalize Go toolchain env
         shell: bash
         run: |
-          echo "GOROOT=$(go env GOROOT)" >> "$GITHUB_ENV"
-          echo "GOTOOLDIR=$(go env GOTOOLDIR)" >> "$GITHUB_ENV"
+          GO_BIN="$(command -v go)"
+          GO_ROOT="$(cd "$(dirname "$GO_BIN")/.." && pwd)"
+          echo "GOROOT=$GO_ROOT" >> "$GITHUB_ENV"
+          echo "GOTOOLDIR=$GO_ROOT/pkg/tool/$(go env GOOS)_$(go env GOARCH)" >> "$GITHUB_ENV"
+          echo "GOCACHE=$RUNNER_TEMP/go-build-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"
           go version
-          go env GOROOT GOTOOLDIR GOVERSION
+          go env GOROOT GOTOOLDIR GOVERSION GOOS GOARCH
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
