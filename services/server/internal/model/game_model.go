@@ -55,6 +55,20 @@ func (m *GameModel) FindByName(ctx context.Context, name string) (*Game, error) 
 	return &game, nil
 }
 
+// ExistsByNameIgnoreCase checks whether a game name already exists.
+func (m *GameModel) ExistsByNameIgnoreCase(ctx context.Context, name string, excludeID ...uint) (bool, error) {
+	query := m.db.WithContext(ctx).Model(&Game{}).Where("LOWER(name) = LOWER(?)", name)
+	if len(excludeID) > 0 && excludeID[0] > 0 {
+		query = query.Where("id <> ?", excludeID[0])
+	}
+
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // Update 更新游戏
 func (m *GameModel) Update(ctx context.Context, id uint, updates map[string]interface{}) error {
 	return m.db.WithContext(ctx).Model(&Game{}).Where("id = ?", id).Updates(updates).Error

@@ -42,7 +42,21 @@ func (l *GameUpdateLogic) GameUpdate(req *types.GameUpdateRequest) (*types.GameU
 
 	updates := make(map[string]interface{})
 	if v := strings.TrimSpace(req.Name); v != "" {
-		updates["name"] = v
+		name, err := sanitizeGameName(v)
+		if err != nil {
+			return nil, err
+		}
+		exists, err := l.svcCtx.GameModel.ExistsByNameIgnoreCase(l.ctx, name, id)
+		if err != nil {
+			return nil, err
+		}
+		if exists {
+			return nil, fmt.Errorf("game_id 已存在: %s", name)
+		}
+		updates["name"] = name
+	}
+	if v := strings.TrimSpace(req.AliasName); v != "" {
+		updates["alias_name"] = v
 	}
 	if v := strings.TrimSpace(req.Description); v != "" {
 		updates["description"] = v

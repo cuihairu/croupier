@@ -1085,6 +1085,7 @@ type FunnelStep struct {
 
 type GameCreateRequest struct {
 	Name        string `json:"name"`
+	AliasName   string `json:"aliasName,optional"`
 	Description string `json:"description,optional"`
 	Config      string `json:"config,optional"`
 }
@@ -1191,6 +1192,7 @@ type GameInfo struct {
 type GameUpdateRequest struct {
 	ID          string `path:"id"`
 	Name        string `json:"name,optional"`
+	AliasName   string `json:"aliasName,optional"`
 	Description string `json:"description,optional"`
 	Config      string `json:"config,optional"`
 	Status      string `json:"status,optional"`

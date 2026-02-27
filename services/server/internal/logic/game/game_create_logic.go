@@ -5,6 +5,7 @@ package game
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
@@ -39,9 +40,17 @@ func (l *GameCreateLogic) GameCreate(req *types.GameCreateRequest) (*types.GameC
 	if err != nil {
 		return nil, err
 	}
+	exists, err := l.svcCtx.GameModel.ExistsByNameIgnoreCase(l.ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return nil, fmt.Errorf("game_id 已存在: %s", name)
+	}
 
 	game := &model.Game{
 		Name:        name,
+		AliasName:   strings.TrimSpace(req.AliasName),
 		Description: strings.TrimSpace(req.Description),
 		Config:      strings.TrimSpace(req.Config),
 		Status:      "dev",

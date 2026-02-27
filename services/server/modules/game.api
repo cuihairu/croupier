@@ -51,6 +51,7 @@ type GamesListResponse {
 // --- 游戏创建 ---
 type GameCreateRequest {
 	Name        string `json:"name"`
+	AliasName   string `json:"aliasName,optional"`
 	Description string `json:"description,optional"`
 	Config      string `json:"config,optional"`
 }
@@ -76,6 +77,7 @@ type GameDetailResponse {
 type GameUpdateRequest {
 	ID          string `path:"id"`
 	Name        string `json:"name,optional"`
+	AliasName   string `json:"aliasName,optional"`
 	Description string `json:"description,optional"`
 	Config      string `json:"config,optional"`
 	Status      string `json:"status,optional"`

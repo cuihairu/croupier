@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
@@ -17,6 +18,8 @@ var allowedGameStatuses = map[string]struct{}{
 	"offline":     {},
 	"maintenance": {},
 }
+
+var gameNamePattern = regexp.MustCompile(`^[A-Za-z0-9_@-]+$`)
 
 func parseGameID(id string) (uint, error) {
 	return utils.ParseUintID(id, "游戏ID")
@@ -62,6 +65,9 @@ func sanitizeGameName(name string) (string, error) {
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" {
 		return "", fmt.Errorf("游戏名称不能为空")
+	}
+	if !gameNamePattern.MatchString(trimmed) {
+		return "", fmt.Errorf("游戏名称仅支持字母、数字和 _ - @")
 	}
 	return trimmed, nil
 }
