@@ -2980,4 +2980,3 @@ type UserInfo struct {
 	Email    string   `json:"email,omitempty"`
 	Phone    string   `json:"phone,omitempty"`
 }
-

@@ -21,12 +21,12 @@ import (
 // ProviderManager manages platform providers for the Agent.
 // It loads provider configurations and registers their methods as Functions.
 type ProviderManager struct {
-	mu        sync.RWMutex
-	providers map[string]provider.Provider // provider name -> Provider
-	providerIDs map[string]struct{}
-	store     *agentlocal.LocalStore
-	logger    *slog.Logger
-	configDir string
+	mu               sync.RWMutex
+	providers        map[string]provider.Provider // provider name -> Provider
+	providerIDs      map[string]struct{}
+	store            *agentlocal.LocalStore
+	logger           *slog.Logger
+	configDir        string
 	heartbeatStarted bool
 }
 
@@ -36,11 +36,11 @@ func NewProviderManager(store *agentlocal.LocalStore, configDir string, logger *
 		logger = slog.Default()
 	}
 	return &ProviderManager{
-		providers:  make(map[string]provider.Provider),
+		providers:   make(map[string]provider.Provider),
 		providerIDs: make(map[string]struct{}),
-		store:      store,
-		logger:     logger,
-		configDir:  configDir,
+		store:       store,
+		logger:      logger,
+		configDir:   configDir,
 	}
 }
 

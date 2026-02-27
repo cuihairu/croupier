@@ -3,8 +3,8 @@ package model
 import (
 	"testing"
 
-	"gorm.io/datatypes"
 	gsqlite "github.com/glebarez/sqlite"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
