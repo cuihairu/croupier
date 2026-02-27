@@ -116,7 +116,7 @@
 
 ### 代码质量建议
 
-- [ ] 全局搜索确认 `fmt.Printf("DEBUG: ...")` 已全部清理
+- [x] 全局搜索确认 `fmt.Printf("DEBUG: ...")` 已全部清理（2026-02-27：`rg "DEBUG:"` 仅命中文档项）
 - [ ] 统一使用 `internal/errors` 的结构化错误（替代 `fmt.Errorf`）
 - [ ] 移除 `internal/config/types.go` 等未使用的旧配置代码
 

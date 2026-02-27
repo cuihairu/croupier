@@ -28,6 +28,13 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.25'
+      - name: Normalize Go toolchain env
+        shell: bash
+        run: |
+          echo "GOROOT=$(go env GOROOT)" >> "$GITHUB_ENV"
+          echo "GOTOOLDIR=$(go env GOTOOLDIR)" >> "$GITHUB_ENV"
+          go version
+          go env GOROOT GOTOOLDIR GOVERSION
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
