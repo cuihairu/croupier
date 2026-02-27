@@ -1038,11 +1038,13 @@ type FunctionUIRequest struct {
 }
 
 type FunctionUIResponse struct {
-	Schema     interface{} `json:"schema"`
-	Layout     interface{} `json:"layout"`
-	Components interface{} `json:"components"`
-	Custom     bool        `json:"custom"`
-	HasDefault bool        `json:"hasDefault"`
+	Schema         interface{} `json:"schema"`
+	Layout         interface{} `json:"layout"`
+	Components     interface{} `json:"components"`
+	Custom         bool        `json:"custom"`
+	HasDefault     bool        `json:"hasDefault"`
+	UISource       string      `json:"uiSource,omitempty"`       // custom_metadata/openapi_x_ui/legacy_schema/none
+	UISourceDetail string      `json:"uiSourceDetail,omitempty"` // human-readable source description
 }
 
 type FunctionUIUpdateRequest struct {

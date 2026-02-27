@@ -558,7 +558,7 @@ player.ban:
 
 - [ ] 实现覆盖配置管理
   - [ ] `PUT /api/v1/functions/{id}/ui` - 更新 UI 配置
-  - [ ] `GET /api/v1/functions/{id}/ui` - 查看 UI 来源
+  - [x] `GET /api/v1/functions/{id}/ui` - 查看 UI 来源（新增 `uiSource/uiSourceDetail`）`services/server/internal/logic/function/function_u_i_logic_v2.go:59` `src/components/FunctionUIManager/index.tsx:56`
   - [ ] 配置文件加载逻辑
 
 #### 阶段三：Agent 端改造（Week 5-6）

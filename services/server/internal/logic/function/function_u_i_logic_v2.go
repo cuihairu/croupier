@@ -65,6 +65,20 @@ func (l *FunctionUILogicV2) FunctionUI(req *types.FunctionUIRequest) (*types.Fun
 		resultUI = legacyUI
 	}
 
+	uiSource := "none"
+	uiSourceDetail := "no ui schema configured"
+	switch {
+	case customUI != nil:
+		uiSource = "custom_metadata"
+		uiSourceDetail = "metadata.ui (custom override)"
+	case defaultUI != nil:
+		uiSource = "openapi_x_ui"
+		uiSourceDetail = "openapi_spec.x-ui (provider default)"
+	case legacyUI != nil:
+		uiSource = "legacy_schema"
+		uiSourceDetail = "legacy function.schema fallback"
+	}
+
 	// Layout 和 Components 仍从 Metadata 读取
 	var layout interface{}
 	var components interface{}
@@ -74,10 +88,12 @@ func (l *FunctionUILogicV2) FunctionUI(req *types.FunctionUIRequest) (*types.Fun
 	}
 
 	return &types.FunctionUIResponse{
-		Schema:     resultUI,
-		Layout:     layout,
-		Components: components,
-		Custom:     hasCustom,
-		HasDefault: hasDefault,
+		Schema:         resultUI,
+		Layout:         layout,
+		Components:     components,
+		Custom:         hasCustom,
+		HasDefault:     hasDefault,
+		UISource:       uiSource,
+		UISourceDetail: uiSourceDetail,
 	}, nil
 }
