@@ -747,6 +747,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: function.FunctionUIUpdateHandler(serverCtx),
 			},
 			{
+				// 获取函数路由配置
+				Method:  http.MethodGet,
+				Path:    "/:id/route",
+				Handler: function.FunctionRouteHandler(serverCtx),
+			},
+			{
+				// 更新函数路由配置
+				Method:  http.MethodPut,
+				Path:    "/:id/route",
+				Handler: function.FunctionRouteUpdateHandler(serverCtx),
+			},
+			{
 				// 获取函数描述符列表
 				Method:  http.MethodGet,
 				Path:    "/descriptors",

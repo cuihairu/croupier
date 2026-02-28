@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -60,6 +61,34 @@ func (m *FunctionModel) FindByFunctionID(ctx context.Context, functionID string)
 		return nil, err
 	}
 	return &fn, nil
+}
+
+// ListFunctionMenus returns function_id -> metadata.menu map.
+func (m *FunctionModel) ListFunctionMenus(ctx context.Context) (map[string]map[string]interface{}, error) {
+	type row struct {
+		FunctionID string
+		Metadata   datatypes.JSONMap
+	}
+	var rows []row
+	if err := m.db.WithContext(ctx).Model(&Function{}).Select("function_id", "metadata").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make(map[string]map[string]interface{}, len(rows))
+	for _, r := range rows {
+		if r.FunctionID == "" || r.Metadata == nil {
+			continue
+		}
+		raw, ok := r.Metadata["menu"]
+		if !ok {
+			continue
+		}
+		mm, ok := raw.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		out[r.FunctionID] = mm
+	}
+	return out, nil
 }
 
 // List returns paginated functions.

@@ -23,6 +23,9 @@ func AutoMigrate(db *gorm.DB) error {
 		var lastErr error
 		for range 5 {
 			if err := autoMigrateModels(db); err == nil {
+				if err := migrateFunctionOpenAPIColumns(db); err != nil {
+					return err
+				}
 				return nil
 			} else if tryFixPostgresMissingConstraint(db, err) {
 				lastErr = err
@@ -34,10 +37,16 @@ func AutoMigrate(db *gorm.DB) error {
 		if lastErr != nil {
 			return lastErr
 		}
-		return autoMigrateModels(db)
+		if err := autoMigrateModels(db); err != nil {
+			return err
+		}
+		return migrateFunctionOpenAPIColumns(db)
 	}
 
-	return autoMigrateModels(db)
+	if err := autoMigrateModels(db); err != nil {
+		return err
+	}
+	return migrateFunctionOpenAPIColumns(db)
 }
 
 func autoMigrateModels(db *gorm.DB) error {
@@ -230,5 +239,48 @@ func renameLegacyTables(db *gorm.DB) error {
 			}
 		}
 	}
+	return nil
+}
+
+// migrateFunctionOpenAPIColumns backfills OpenAPI columns from older migration variants.
+func migrateFunctionOpenAPIColumns(db *gorm.DB) error {
+	if db == nil || !db.Migrator().HasTable(&Function{}) {
+		return nil
+	}
+
+	hasSpecFormat := db.Migrator().HasColumn(&Function{}, "spec_format")
+	hasOpenAPISpec := db.Migrator().HasColumn(&Function{}, "open_api_spec")
+	hasLegacyOperation := db.Migrator().HasColumn(&Function{}, "openapi_operation")
+
+	if hasOpenAPISpec && hasLegacyOperation {
+		if err := db.Exec(`
+			UPDATE functions
+			SET open_api_spec = COALESCE(open_api_spec, openapi_operation)
+			WHERE openapi_operation IS NOT NULL
+		`).Error; err != nil {
+			return fmt.Errorf("backfill open_api_spec from openapi_operation: %w", err)
+		}
+	}
+
+	if hasSpecFormat {
+		if hasOpenAPISpec {
+			if err := db.Exec(`
+				UPDATE functions
+				SET spec_format = 'openapi3.0.3'
+				WHERE (spec_format IS NULL OR spec_format = '')
+				  AND open_api_spec IS NOT NULL
+			`).Error; err != nil {
+				return fmt.Errorf("set spec_format for openapi rows: %w", err)
+			}
+		}
+		if err := db.Exec(`
+			UPDATE functions
+			SET spec_format = 'legacy'
+			WHERE spec_format IS NULL OR spec_format = ''
+		`).Error; err != nil {
+			return fmt.Errorf("set legacy spec_format default: %w", err)
+		}
+	}
+
 	return nil
 }

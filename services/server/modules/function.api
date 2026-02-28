@@ -168,6 +168,33 @@ type FunctionUIUpdateRequest {
 	Components interface{} `json:"components,optional"`
 }
 
+// --- 函数路由配置 ---
+type FunctionRouteRequest {
+	ID string `path:"id"`
+}
+
+type FunctionRouteConfig {
+	Section string `json:"section"`
+	Group   string `json:"group"`
+	Path    string `json:"path"`
+	Order   int    `json:"order"`
+	Hidden  bool   `json:"hidden"`
+}
+
+type FunctionRouteResponse {
+	Menu   FunctionRouteConfig `json:"menu"`
+	Source string              `json:"source,optional"`
+}
+
+type FunctionRouteUpdateRequest {
+	ID      string `path:"id"`
+	Section string `json:"section,optional"`
+	Group   string `json:"group,optional"`
+	Path    string `json:"path,optional"`
+	Order   int    `json:"order,optional"`
+	Hidden  bool   `json:"hidden,optional"`
+}
+
 // --- 函数发布 ---
 type FunctionPublishRequest {
 	ID string `path:"id"`
@@ -291,6 +318,14 @@ service server {
 	@doc "更新函数UI配置"
 	@handler FunctionUIUpdateHandler
 	put /:id/ui (FunctionUIUpdateRequest) returns (FunctionUIResponse)
+
+	@doc "获取函数路由配置"
+	@handler FunctionRouteHandler
+	get /:id/route (FunctionRouteRequest) returns (FunctionRouteResponse)
+
+	@doc "更新函数路由配置"
+	@handler FunctionRouteUpdateHandler
+	put /:id/route (FunctionRouteUpdateRequest) returns (FunctionRouteResponse)
 
 	// === 描述符 ===
 	@doc "获取函数描述符列表"

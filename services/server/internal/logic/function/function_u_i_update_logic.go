@@ -82,37 +82,15 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *types.FunctionUIUpdateRequ
 		}
 	}
 
-	// 读取并返回合并后的 UI
-	var customUI, defaultUI, legacyUI interface{}
-	customUI = fn.Metadata["ui"]
-
-	if fn.OpenAPISpec != nil {
-		defaultUI = fn.OpenAPISpec["x-ui"]
-	}
-	legacyUI = fn.Schema
-	hasCustom := customUI != nil
-	hasDefault := defaultUI != nil || legacyUI != nil
-
-	resultUI := customUI
-	if resultUI == nil {
-		resultUI = defaultUI
-	}
-	if resultUI == nil {
-		resultUI = legacyUI
-	}
-
-	var layout interface{}
-	var components interface{}
-	if fn.Metadata != nil {
-		layout = fn.Metadata["layout"]
-		components = fn.Metadata["components"]
-	}
+	resolved := resolveFunctionUI(l.svcCtx.Config, fn)
 
 	return &types.FunctionUIResponse{
-		Schema:     resultUI,
-		Layout:     layout,
-		Components: components,
-		Custom:     hasCustom,
-		HasDefault: hasDefault,
+		Schema:         resolved.Schema,
+		Layout:         resolved.Layout,
+		Components:     resolved.Components,
+		Custom:         resolved.Custom,
+		HasDefault:     resolved.HasDefault,
+		UISource:       resolved.UISource,
+		UISourceDetail: resolved.UISourceDetail,
 	}, nil
 }

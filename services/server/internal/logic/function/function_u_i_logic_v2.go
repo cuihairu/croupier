@@ -38,62 +38,15 @@ func (l *FunctionUILogicV2) FunctionUI(req *types.FunctionUIRequest) (*types.Fun
 	if err != nil {
 		return nil, err
 	}
-
-	// ========== 优先级合并逻辑 ==========
-	// 优先级 1: 用户自定义的 UI（Metadata["ui"]）
-	var customUI, defaultUI, legacyUI interface{}
-	if fn.Metadata != nil {
-		customUI = fn.Metadata["ui"]
-	}
-
-	// 优先级 2: OpenAPI Spec 中的 x-ui 扩展
-	if fn.OpenAPISpec != nil {
-		defaultUI = fn.OpenAPISpec["x-ui"]
-	}
-
-	// 优先级 3: 旧格式的 Schema（兼容性）
-	legacyUI = fn.Schema
-	hasCustom := customUI != nil
-	hasDefault := defaultUI != nil || legacyUI != nil
-
-	// 合并 UI（自定义覆盖默认）
-	resultUI := customUI
-	if resultUI == nil {
-		resultUI = defaultUI
-	}
-	if resultUI == nil {
-		resultUI = legacyUI
-	}
-
-	uiSource := "none"
-	uiSourceDetail := "no ui schema configured"
-	switch {
-	case customUI != nil:
-		uiSource = "custom_metadata"
-		uiSourceDetail = "metadata.ui (custom override)"
-	case defaultUI != nil:
-		uiSource = "openapi_x_ui"
-		uiSourceDetail = "openapi_spec.x-ui (provider default)"
-	case legacyUI != nil:
-		uiSource = "legacy_schema"
-		uiSourceDetail = "legacy function.schema fallback"
-	}
-
-	// Layout 和 Components 仍从 Metadata 读取
-	var layout interface{}
-	var components interface{}
-	if fn.Metadata != nil {
-		layout = fn.Metadata["layout"]
-		components = fn.Metadata["components"]
-	}
+	resolved := resolveFunctionUI(l.svcCtx.Config, fn)
 
 	return &types.FunctionUIResponse{
-		Schema:         resultUI,
-		Layout:         layout,
-		Components:     components,
-		Custom:         hasCustom,
-		HasDefault:     hasDefault,
-		UISource:       uiSource,
-		UISourceDetail: uiSourceDetail,
+		Schema:         resolved.Schema,
+		Layout:         resolved.Layout,
+		Components:     resolved.Components,
+		Custom:         resolved.Custom,
+		HasDefault:     resolved.HasDefault,
+		UISource:       resolved.UISource,
+		UISourceDetail: resolved.UISourceDetail,
 	}, nil
 }

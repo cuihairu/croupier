@@ -95,6 +95,7 @@ func (l *DescriptorsLogic) Descriptors(req *types.DescriptorsRequest) ([]map[str
 			"description": strings.TrimSpace(t.Description),
 			"params":      params,
 			"outputs":     nil,
+			"menuSource":  "default",
 		}
 	}
 
@@ -113,11 +114,12 @@ func (l *DescriptorsLogic) Descriptors(req *types.DescriptorsRequest) ([]map[str
 				d := byID[fid]
 				if d == nil {
 					d = map[string]interface{}{
-						"id":       fid,
-						"version":  "",
-						"category": inferCategory(fid),
-						"params":   defaultParamsSchema(),
-						"outputs":  nil,
+						"id":         fid,
+						"version":    "",
+						"category":   inferCategory(fid),
+						"params":     defaultParamsSchema(),
+						"outputs":    nil,
+						"menuSource": "default",
 					}
 					byID[fid] = d
 				}
@@ -171,11 +173,46 @@ func (l *DescriptorsLogic) Descriptors(req *types.DescriptorsRequest) ([]map[str
 					d["description"] = op.Description
 				}
 			}
-			// TODO: Load UI overrides from configs/ui/functions.json (removed in Stage 2)
-			if _, ok := d["menu"]; !ok {
-				d["menu"] = defaultMenu()
-			}
 		}
+	}
+
+	// 4) Merge persisted per-function menu overrides from DB metadata.
+	menus, err := l.svcCtx.FunctionModel.ListFunctionMenus(l.ctx)
+	if err != nil {
+		return nil, err
+	}
+	for fid, menu := range menus {
+		d := byID[fid]
+		if d == nil {
+			d = map[string]interface{}{
+				"id":         fid,
+				"version":    "",
+				"category":   inferCategory(fid),
+				"params":     defaultParamsSchema(),
+				"outputs":    nil,
+				"menuSource": "default",
+			}
+			byID[fid] = d
+		}
+		base := defaultMenu()
+		mergeShallow(base, menu)
+		d["menu"] = base
+		d["menuSource"] = "metadata"
+	}
+
+	// 5) Ensure every descriptor has menu defaults.
+	for _, d := range byID {
+		if m, ok := d["menu"].(map[string]interface{}); ok && m != nil {
+			base := defaultMenu()
+			mergeShallow(base, m)
+			d["menu"] = base
+			if _, ok2 := d["menuSource"]; !ok2 {
+				d["menuSource"] = "default"
+			}
+			continue
+		}
+		d["menu"] = defaultMenu()
+		d["menuSource"] = "default"
 	}
 
 	out := make([]map[string]interface{}, 0, len(byID))

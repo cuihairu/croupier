@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"testing"
 
 	gsqlite "github.com/glebarez/sqlite"
@@ -100,6 +101,54 @@ func TestFunctionMigration(t *testing.T) {
 
 	if count != 2 {
 		t.Errorf("expected 2 functions, got %d", count)
+	}
+}
+
+func TestAutoMigrate_BackfillsLegacyOpenAPIOperation(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+
+	// Simulate an old schema variant from SQL migrations.
+	if err := db.Exec(`
+		CREATE TABLE functions (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			function_id TEXT,
+			name TEXT,
+			openapi_operation TEXT,
+			spec_format TEXT
+		)
+	`).Error; err != nil {
+		t.Fatalf("failed to create legacy functions table: %v", err)
+	}
+	if err := db.Exec(`
+		INSERT INTO functions (function_id, name, openapi_operation, spec_format)
+		VALUES ('legacy.openapi', 'Legacy OpenAPI', '{"operationId":"legacy.openapi"}', '')
+	`).Error; err != nil {
+		t.Fatalf("failed to seed legacy row: %v", err)
+	}
+
+	if err := AutoMigrate(db); err != nil {
+		t.Fatalf("AutoMigrate failed: %v", err)
+	}
+
+	var got Function
+	if err := db.Where("function_id = ?", "legacy.openapi").First(&got).Error; err != nil {
+		t.Fatalf("failed to query migrated row: %v", err)
+	}
+	if got.SpecFormat != "openapi3.0.3" {
+		t.Fatalf("expected spec_format=openapi3.0.3, got %q", got.SpecFormat)
+	}
+	if got.OpenAPISpec == nil {
+		t.Fatalf("expected open_api_spec to be backfilled")
+	}
+	raw, err := json.Marshal(got.OpenAPISpec)
+	if err != nil {
+		t.Fatalf("marshal open_api_spec: %v", err)
+	}
+	if string(raw) == "null" || string(raw) == "{}" {
+		t.Fatalf("expected non-empty open_api_spec, got %s", string(raw))
 	}
 }
 

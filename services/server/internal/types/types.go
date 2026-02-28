@@ -1056,6 +1056,32 @@ type FunctionUIUpdateRequest struct {
 	Components interface{} `json:"components,optional"`
 }
 
+type FunctionRouteRequest struct {
+	ID string `path:"id"`
+}
+
+type FunctionRouteConfig struct {
+	Section string `json:"section"`
+	Group   string `json:"group"`
+	Path    string `json:"path"`
+	Order   int    `json:"order"`
+	Hidden  bool   `json:"hidden"`
+}
+
+type FunctionRouteResponse struct {
+	Menu   FunctionRouteConfig `json:"menu"`
+	Source string              `json:"source,omitempty"` // metadata/default
+}
+
+type FunctionRouteUpdateRequest struct {
+	ID      string `path:"id"`
+	Section string `json:"section,optional"`
+	Group   string `json:"group,optional"`
+	Path    string `json:"path,optional"`
+	Order   int    `json:"order,optional"`
+	Hidden  bool   `json:"hidden,optional"`
+}
+
 type FunctionsListRequest struct {
 	Page     int    `form:"page,optional,default=1"`
 	PageSize int    `form:"pageSize,optional,default=20"`

@@ -547,7 +547,7 @@ player.ban:
 - [ ] 修改 Server Registry
   - [x] 存储完整的 OpenAPI Operation（`internal/platform/registry/store.go`）
   - [x] 支持 Schema 查询 API（`/api/v1/functions/{id}/openapi` + `internal/logic/openapi/*`）
-  - [ ] 数据库迁移脚本
+  - [x] 数据库迁移脚本（`migrations/002_function_openapi_backfill.sql` + `services/server/internal/model/migration.go` 自动回填）
 
 - [x] 修改 HTTP API（2026-02-28：OpenAPI/Entity 相关接口已接入）
   - [x] `GET /api/v1/functions` - 返回 OpenAPI 关键字段（`specFormat/openapiSpec`）
@@ -556,10 +556,10 @@ player.ban:
   - [x] `GET /api/v1/entities` - 查询实体列表
   - [x] `GET /api/v1/entities/{id}/functions` - 查询实体函数
 
-- [ ] 实现覆盖配置管理
+- [x] 实现覆盖配置管理
   - [x] `PUT /api/v1/functions/{id}/ui` - 更新 UI 配置（`services/server/internal/logic/function/function_u_i_update_logic.go`）
   - [x] `GET /api/v1/functions/{id}/ui` - 查看 UI 来源（新增 `uiSource/uiSourceDetail`）`services/server/internal/logic/function/function_u_i_logic_v2.go:59` `src/components/FunctionUIManager/index.tsx:56`
-  - [ ] 配置文件加载逻辑
+  - [x] 配置文件加载逻辑（支持 `configs/ui/functions` + `configs/ui/functions.override`，并纳入 UI 优先级合并）
 
 #### 阶段三：Agent 端改造（Week 5-6）
 
@@ -641,8 +641,8 @@ internal/app/agent/upstream.go           # Sync OpenAPI Schema
 - [x] Pack converter 测试（`internal/function/converter/converter_test.go`）
 - [x] Proto converter 测试（`internal/function/converter/converter_test.go`）
 - [x] OpenAPI validator 测试（`internal/platform/openapi/validator_test.go`）
-- [ ] Merge strategy 测试
-- [ ] Field override 测试
+- [x] Merge strategy 测试（`internal/platform/registry/schema_normalizer_test.go` + `services/server/internal/logic/function/ui_resolver_test.go`）
+- [x] Field override 测试（`services/server/internal/logic/function/ui_resolver_test.go`）
 
 #### 集成测试
 
@@ -663,15 +663,15 @@ internal/app/agent/upstream.go           # Sync OpenAPI Schema
 #### 数据迁移
 
 - [ ] 备份现有 functions 表
-- [ ] 执行数据库迁移（添加 request_schema/response_schema 字段）
+- [x] 执行数据库迁移脚本（OpenAPI 字段回填：`openapi_operation` -> `open_api_spec`，规范化 `spec_format`）
 - [ ] 迁移现有 Pack 数据（params → request_schema）
 - [ ] 验证迁移结果
 
 #### 配置迁移
 
 - [ ] 转换现有 UI 配置到新格式
-- [ ] 验证覆盖配置加载
-- [ ] 测试合并策略
+- [x] 验证覆盖配置加载（`services/server/internal/logic/function/ui_resolver_test.go`）
+- [x] 测试合并策略（`services/server/internal/logic/function/ui_resolver_test.go`）
 - [ ] 回滚方案准备
 
 #### API 兼容性
