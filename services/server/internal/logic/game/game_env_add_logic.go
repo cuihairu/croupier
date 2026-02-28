@@ -5,9 +5,9 @@ package game
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
@@ -56,7 +56,7 @@ func (l *GameEnvAddLogic) GameEnvAdd(req *types.GameEnvAddRequest) (*types.GameE
 		return nil, err
 	}
 	if findEnvIndex(envs, newEnv) >= 0 {
-		return nil, fmt.Errorf("环境 %s 已存在", newEnv)
+		return nil, errorx.NewConflict("环境 " + newEnv + " 已存在")
 	}
 
 	envs = append(envs, model.GameEnv{

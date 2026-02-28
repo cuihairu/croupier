@@ -117,8 +117,8 @@
 ### 代码质量建议
 
 - [x] 全局搜索确认 `fmt.Printf("DEBUG: ...")` 已全部清理（2026-02-27：`rg "DEBUG:"` 仅命中文档项）
-- [ ] 统一使用 `internal/errors` 的结构化错误（替代 `fmt.Errorf`）
-- [ ] 移除 `internal/config/types.go` 等未使用的旧配置代码
+- [ ] 统一使用 `internal/errors` 的结构化错误（替代 `fmt.Errorf`，2026-02-28 已先完成 game 模块迁移：`services/server/internal/logic/game/*.go`）
+- [x] 移除 `internal/config/types.go` 等未使用的旧配置代码（2026-02-28：已删除 `internal/config/` 旧配置包）
 
 ## 使用方式
 
@@ -526,21 +526,21 @@ player.ban:
 
 #### 阶段一：基础设施（Week 1-2）
 
-- [ ] 创建转换器模块
-  - [ ] `internal/function/converter/pack.go` - Pack to OpenAPI
-  - [ ] `internal/function/converter/proto.go` - Proto to OpenAPI
-  - [ ] `internal/platform/openapi/converter.go` - OpenAPI Provider
-  - [ ] 单元测试覆盖
+- [x] 创建转换器模块（2026-02-28：已落地转换器与单测）
+  - [x] `internal/function/converter/pack.go` - Pack to OpenAPI
+  - [x] `internal/function/converter/proto.go` - Proto to OpenAPI
+  - [x] `internal/platform/openapi/converter.go` - OpenAPI Provider
+  - [x] 单元测试覆盖（`internal/function/converter/converter_test.go`）
 
-- [ ] 修改 `protoc-gen-croupier`
-  - [ ] 生成完整的 OpenAPI Operation Object
-  - [ ] 保持向后兼容（同时生成旧格式）
-  - [ ] 文档和示例
+- [x] 修改 `protoc-gen-croupier`（2026-02-28：已支持 OpenAPI Operation 生成并保持兼容）
+  - [x] 生成完整的 OpenAPI Operation Object
+  - [x] 保持向后兼容（同时生成旧格式）
+  - [x] 文档和示例
 
-- [ ] 扩展 Validation
-  - [ ] 支持 OpenAPI 3.0.3 Schema 验证
-  - [ ] 验证 `x-*` 扩展字段
-  - [ ] 错误提示优化
+- [x] 扩展 Validation（`internal/platform/openapi/validator.go` + `validator_test.go`）
+  - [x] 支持 OpenAPI 3.0.3 Schema 验证
+  - [x] 验证 `x-*` 扩展字段
+  - [x] 错误提示优化
 
 #### 阶段二：Server 端改造（Week 3-4）
 
@@ -549,15 +549,15 @@ player.ban:
   - [ ] 支持 Schema 查询 API
   - [ ] 数据库迁移脚本
 
-- [ ] 修改 HTTP API
+- [ ] 修改 HTTP API（2026-02-28：OpenAPI/Entity 相关接口已部分接入）
   - [ ] `GET /api/v1/functions` - 返回 OpenAPI 格式
-  - [ ] `GET /api/v1/functions/{id}/openapi` - 完整 OpenAPI spec
-  - [ ] `POST /api/v1/functions/_import` - 导入 OpenAPI spec
-  - [ ] `GET /api/v1/entities` - 查询实体列表
-  - [ ] `GET /api/v1/entities/{id}/functions` - 查询实体函数
+  - [x] `GET /api/v1/functions/{id}/openapi` - 完整 OpenAPI spec
+  - [x] `POST /api/v1/functions/_import` - 导入 OpenAPI spec
+  - [x] `GET /api/v1/entities` - 查询实体列表
+  - [x] `GET /api/v1/entities/{id}/functions` - 查询实体函数
 
 - [ ] 实现覆盖配置管理
-  - [ ] `PUT /api/v1/functions/{id}/ui` - 更新 UI 配置
+  - [x] `PUT /api/v1/functions/{id}/ui` - 更新 UI 配置（`services/server/internal/logic/function/function_u_i_update_logic.go`）
   - [x] `GET /api/v1/functions/{id}/ui` - 查看 UI 来源（新增 `uiSource/uiSourceDetail`）`services/server/internal/logic/function/function_u_i_logic_v2.go:59` `src/components/FunctionUIManager/index.tsx:56`
   - [ ] 配置文件加载逻辑
 
@@ -638,9 +638,9 @@ internal/app/agent/upstream.go           # Sync OpenAPI Schema
 
 #### 单元测试
 
-- [ ] Pack converter 测试
-- [ ] Proto converter 测试
-- [ ] OpenAPI validator 测试
+- [x] Pack converter 测试（`internal/function/converter/converter_test.go`）
+- [x] Proto converter 测试（`internal/function/converter/converter_test.go`）
+- [x] OpenAPI validator 测试（`internal/platform/openapi/validator_test.go`）
 - [ ] Merge strategy 测试
 - [ ] Field override 测试
 

@@ -5,9 +5,9 @@ package game
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -51,7 +51,7 @@ func (l *GameUpdateLogic) GameUpdate(req *types.GameUpdateRequest) (*types.GameU
 			return nil, err
 		}
 		if exists {
-			return nil, fmt.Errorf("game_id 已存在: %s", name)
+			return nil, errorx.NewConflict("game_id 已存在: " + name)
 		}
 		updates["name"] = name
 	}
@@ -71,7 +71,7 @@ func (l *GameUpdateLogic) GameUpdate(req *types.GameUpdateRequest) (*types.GameU
 	}
 
 	if len(updates) == 0 {
-		return nil, fmt.Errorf("请提供需要更新的字段")
+		return nil, errorx.NewBadRequest("请提供需要更新的字段")
 	}
 
 	if err := l.svcCtx.GameModel.Update(l.ctx, id, updates); err != nil {

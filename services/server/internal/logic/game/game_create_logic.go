@@ -5,9 +5,9 @@ package game
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
@@ -45,7 +45,7 @@ func (l *GameCreateLogic) GameCreate(req *types.GameCreateRequest) (*types.GameC
 		return nil, err
 	}
 	if exists {
-		return nil, fmt.Errorf("game_id 已存在: %s", name)
+		return nil, errorx.NewConflict("game_id 已存在: " + name)
 	}
 
 	game := &model.Game{

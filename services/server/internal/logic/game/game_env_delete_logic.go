@@ -5,8 +5,8 @@ package game
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -51,7 +51,7 @@ func (l *GameEnvDeleteLogic) GameEnvDelete(req *types.GameEnvDeleteRequest) (*ty
 
 	idx := findEnvIndex(envs, req.EnvID)
 	if idx < 0 {
-		return nil, fmt.Errorf("环境 %s 不存在", req.EnvID)
+		return nil, errorx.NewNotFound("环境 " + req.EnvID + " 不存在")
 	}
 
 	envs = append(envs[:idx], envs[idx+1:]...)

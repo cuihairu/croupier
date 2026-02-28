@@ -5,9 +5,9 @@ package game
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -52,13 +52,13 @@ func (l *GameEnvUpdateLogic) GameEnvUpdate(req *types.GameEnvUpdateRequest) (*ty
 
 	idx := findEnvIndex(envs, req.EnvID)
 	if idx < 0 {
-		return nil, fmt.Errorf("环境 %s 不存在", req.EnvID)
+		return nil, errorx.NewNotFound("环境 " + req.EnvID + " 不存在")
 	}
 
 	target := envs[idx]
 	if newName := strings.TrimSpace(req.Name); newName != "" {
 		if other := findEnvIndex(envs, newName); other >= 0 && other != idx {
-			return nil, fmt.Errorf("环境 %s 已存在", newName)
+			return nil, errorx.NewConflict("环境 " + newName + " 已存在")
 		}
 		target.Env = newName
 	}

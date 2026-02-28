@@ -1,10 +1,10 @@
 package game
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -64,10 +64,10 @@ func convertGameEnvs(envs []model.GameEnv) []types.GameEnvItem {
 func sanitizeGameName(name string) (string, error) {
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" {
-		return "", fmt.Errorf("游戏名称不能为空")
+		return "", errorx.NewBadRequest("游戏名称不能为空")
 	}
 	if !gameNamePattern.MatchString(trimmed) {
-		return "", fmt.Errorf("游戏名称仅支持字母、数字和 _ - @")
+		return "", errorx.NewBadRequest("游戏名称仅支持字母、数字和 _ - @")
 	}
 	return trimmed, nil
 }
@@ -81,7 +81,7 @@ func sanitizeStatus(status string) (string, error) {
 		return "", nil
 	}
 	if _, ok := allowedGameStatuses[val]; !ok {
-		return "", fmt.Errorf("无效的游戏状态: %s", val)
+		return "", errorx.NewBadRequest("无效的游戏状态: " + val)
 	}
 	return val, nil
 }
@@ -98,7 +98,7 @@ func findEnvIndex(envs []model.GameEnv, env string) int {
 func ensureEnvName(name string) (string, error) {
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" {
-		return "", fmt.Errorf("环境名称不能为空")
+		return "", errorx.NewBadRequest("环境名称不能为空")
 	}
 	return trimmed, nil
 }
