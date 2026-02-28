@@ -68,6 +68,7 @@ func TestBuildFunctionDTO(t *testing.T) {
 		Status:      1,
 		Version:     "1.0.0",
 		Instances:   3,
+		SpecFormat:  "openapi3.0.3",
 	}
 
 	result := BuildFunctionDTO(fn)
@@ -83,6 +84,9 @@ func TestBuildFunctionDTO(t *testing.T) {
 	}
 	if result.Instances != 3 {
 		t.Errorf("BuildFunctionDTO() Instances = %v, want %v", result.Instances, 3)
+	}
+	if result.SpecFormat != "openapi3.0.3" {
+		t.Errorf("BuildFunctionDTO() SpecFormat = %v, want %v", result.SpecFormat, "openapi3.0.3")
 	}
 }
 

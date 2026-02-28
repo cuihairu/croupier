@@ -545,12 +545,12 @@ player.ban:
 #### 阶段二：Server 端改造（Week 3-4）
 
 - [ ] 修改 Server Registry
-  - [ ] 存储完整的 OpenAPI Operation
-  - [ ] 支持 Schema 查询 API
+  - [x] 存储完整的 OpenAPI Operation（`internal/platform/registry/store.go`）
+  - [x] 支持 Schema 查询 API（`/api/v1/functions/{id}/openapi` + `internal/logic/openapi/*`）
   - [ ] 数据库迁移脚本
 
-- [ ] 修改 HTTP API（2026-02-28：OpenAPI/Entity 相关接口已部分接入）
-  - [ ] `GET /api/v1/functions` - 返回 OpenAPI 格式
+- [x] 修改 HTTP API（2026-02-28：OpenAPI/Entity 相关接口已接入）
+  - [x] `GET /api/v1/functions` - 返回 OpenAPI 关键字段（`specFormat/openapiSpec`）
   - [x] `GET /api/v1/functions/{id}/openapi` - 完整 OpenAPI spec
   - [x] `POST /api/v1/functions/_import` - 导入 OpenAPI spec
   - [x] `GET /api/v1/entities` - 查询实体列表

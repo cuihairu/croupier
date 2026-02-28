@@ -14,6 +14,8 @@ type Function {
 	Status      int         `json:"status"`
 	Version     string      `json:"version"`
 	Instances   int         `json:"instances"`
+	SpecFormat  string      `json:"specFormat,optional"`
+	OpenAPISpec interface{} `json:"openapiSpec,optional"`
 	CreatedAt   string      `json:"createdAt"`
 	UpdatedAt   string      `json:"updatedAt"`
 }

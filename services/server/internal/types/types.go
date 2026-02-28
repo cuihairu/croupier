@@ -940,6 +940,8 @@ type Function struct {
 	Status      int    `json:"status"`
 	Version     string `json:"version"`
 	Instances   int    `json:"instances"`
+	SpecFormat  string `json:"specFormat,optional"`
+	OpenAPISpec any    `json:"openapiSpec,optional"`
 	CreatedAt   string `json:"createdAt"`
 	UpdatedAt   string `json:"updatedAt"`
 }

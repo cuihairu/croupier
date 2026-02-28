@@ -1,10 +1,10 @@
 package utils
 
 import (
-	"fmt"
 	"strings"
 
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 )
@@ -13,7 +13,7 @@ import (
 func ValidateFunctionID(id string) (string, error) {
 	trimmed := strings.TrimSpace(id)
 	if trimmed == "" {
-		return "", fmt.Errorf("函数ID不能为空")
+		return "", errorx.NewBadRequest("函数ID不能为空")
 	}
 	return trimmed, nil
 }
@@ -29,6 +29,8 @@ func BuildFunctionDTO(fn *model.Function) types.Function {
 		Status:      fn.Status,
 		Version:     fn.Version,
 		Instances:   fn.Instances,
+		SpecFormat:  fn.SpecFormat,
+		OpenAPISpec: fn.OpenAPISpec,
 		CreatedAt:   FormatTimestamp(fn.CreatedAt),
 		UpdatedAt:   FormatTimestamp(fn.UpdatedAt),
 	}
@@ -79,7 +81,7 @@ func ConvertFunctionPermissions(functionID string, perms []types.FunctionPermiss
 	result := make([]model.FunctionPermission, 0, len(perms))
 	for _, perm := range perms {
 		if strings.TrimSpace(perm.Resource) == "" {
-			return nil, fmt.Errorf("权限资源名称不能为空")
+			return nil, errorx.NewBadRequest("权限资源名称不能为空")
 		}
 		result = append(result, model.FunctionPermission{
 			FunctionID: functionID,
