@@ -1071,6 +1071,34 @@ type FunctionUIUpdateRequest struct {
 	Components interface{} `json:"components,optional"`
 }
 
+type FunctionUIHistoryRequest struct {
+	ID string `path:"id"`
+}
+
+type FunctionUIHistoryItem struct {
+	Version    int         `json:"version"`
+	Schema     interface{} `json:"schema,omitempty"`
+	Layout     interface{} `json:"layout,omitempty"`
+	Components interface{} `json:"components,omitempty"`
+	Message    string      `json:"message,omitempty"`
+	CreatedBy  string      `json:"createdBy,omitempty"`
+	CreatedAt  string      `json:"createdAt,omitempty"`
+}
+
+type FunctionUIHistoryResponse struct {
+	Items []FunctionUIHistoryItem `json:"items"`
+}
+
+type FunctionUIRollbackRequest struct {
+	ID      string `path:"id"`
+	Version int    `json:"version"`
+}
+
+type FunctionUIRollbackResponse struct {
+	AppliedVersion int                 `json:"appliedVersion"`
+	Current        *FunctionUIResponse `json:"current"`
+}
+
 type FunctionRouteRequest struct {
 	ID string `path:"id"`
 }

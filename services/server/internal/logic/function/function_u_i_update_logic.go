@@ -80,6 +80,9 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *types.FunctionUIUpdateRequ
 		if err := l.svcCtx.FunctionModel.Update(l.ctx, fn.ID, updates); err != nil {
 			return nil, err
 		}
+		if err := persistFunctionUIVersion(l.ctx, l.svcCtx, fn, "update ui config"); err != nil {
+			return nil, err
+		}
 	}
 
 	resolved := resolveFunctionUI(l.svcCtx.Config, fn)

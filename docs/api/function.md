@@ -425,7 +425,59 @@ type FunctionUIResponse struct {
 }
 ```
 
-### 14. "批量复制函数"
+### 14. "获取函数UI配置历史"
+
+1. route definition
+
+- Url: /api/v1/functions/:id/ui/history
+- Method: GET
+- Request: `FunctionUIHistoryRequest`
+- Response: `FunctionUIHistoryResponse`
+
+2. request definition
+
+```golang
+type FunctionUIHistoryRequest struct {
+	ID string `path:"id"`
+}
+```
+
+3. response definition
+
+```golang
+type FunctionUIHistoryResponse struct {
+	Items []FunctionUIHistoryItem `json:"items"`
+}
+```
+
+### 15. "回滚函数UI配置"
+
+1. route definition
+
+- Url: /api/v1/functions/:id/ui/rollback
+- Method: POST
+- Request: `FunctionUIRollbackRequest`
+- Response: `FunctionUIRollbackResponse`
+
+2. request definition
+
+```golang
+type FunctionUIRollbackRequest struct {
+	ID      string `path:"id"`
+	Version int    `json:"version"`
+}
+```
+
+3. response definition
+
+```golang
+type FunctionUIRollbackResponse struct {
+	AppliedVersion int                 `json:"appliedVersion"`
+	Current        *FunctionUIResponse `json:"current"`
+}
+```
+
+### 16. "批量复制函数"
 
 1. route definition
 
@@ -457,7 +509,7 @@ type BatchCopyFunctionsResponse struct {
 }
 ```
 
-### 15. "批量删除函数"
+### 17. "批量删除函数"
 
 1. route definition
 
@@ -488,7 +540,7 @@ type BatchDeleteFunctionsResponse struct {
 }
 ```
 
-### 16. "批量更新函数状态"
+### 18. "批量更新函数状态"
 
 1. route definition
 
@@ -520,7 +572,7 @@ type BatchUpdateFunctionsResponse struct {
 }
 ```
 
-### 17. "获取函数描述符列表"
+### 19. "获取函数描述符列表"
 
 1. route definition
 
@@ -551,7 +603,7 @@ type DescriptorsResponse struct {
 }
 ```
 
-### 18. "获取待处理函数"
+### 20. "获取待处理函数"
 
 1. route definition
 

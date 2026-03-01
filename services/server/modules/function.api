@@ -168,6 +168,34 @@ type FunctionUIUpdateRequest {
 	Components interface{} `json:"components,optional"`
 }
 
+type FunctionUIHistoryRequest {
+	ID string `path:"id"`
+}
+
+type FunctionUIHistoryItem {
+	Version    int         `json:"version"`
+	Schema     interface{} `json:"schema,optional"`
+	Layout     interface{} `json:"layout,optional"`
+	Components interface{} `json:"components,optional"`
+	Message    string      `json:"message,optional"`
+	CreatedBy  string      `json:"createdBy,optional"`
+	CreatedAt  string      `json:"createdAt,optional"`
+}
+
+type FunctionUIHistoryResponse {
+	Items []FunctionUIHistoryItem `json:"items"`
+}
+
+type FunctionUIRollbackRequest {
+	ID      string `path:"id"`
+	Version int    `json:"version"`
+}
+
+type FunctionUIRollbackResponse {
+	AppliedVersion int                 `json:"appliedVersion"`
+	Current        *FunctionUIResponse `json:"current"`
+}
+
 // --- 函数路由配置 ---
 type FunctionRouteRequest {
 	ID string `path:"id"`
@@ -318,6 +346,14 @@ service server {
 	@doc "更新函数UI配置"
 	@handler FunctionUIUpdateHandler
 	put /:id/ui (FunctionUIUpdateRequest) returns (FunctionUIResponse)
+
+	@doc "获取函数UI配置历史"
+	@handler FunctionUIHistoryHandler
+	get /:id/ui/history (FunctionUIHistoryRequest) returns (FunctionUIHistoryResponse)
+
+	@doc "回滚函数UI配置"
+	@handler FunctionUIRollbackHandler
+	post /:id/ui/rollback (FunctionUIRollbackRequest) returns (FunctionUIRollbackResponse)
 
 	@doc "获取函数路由配置"
 	@handler FunctionRouteHandler

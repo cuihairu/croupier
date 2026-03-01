@@ -145,6 +145,16 @@ sequenceDiagram
   Server-->>UI: result
 ```
 
+### 函数注册到 Dashboard 展示（当前实现）
+1. **SDK -> Agent 注册函数**：函数能力与描述由 SDK 上报到 Agent。
+2. **Agent -> Server 注册/同步**：Server 接收注册并写入 Registry，函数 OpenAPI Operation 同步到服务端。
+3. **Dashboard 拉取目录**：前端通过 `GET /api/v1/functions/descriptors` 获取函数列表、分类、菜单元信息。
+4. **动态菜单展示**：Dashboard 按 descriptor 的 `category/menu` 生成“Registered”菜单分组并展示函数入口。
+5. **调用表单渲染**：函数详情/调用页通过 `GET /api/v1/functions/{id}/openapi` + `x-ui` 生成 Formily 表单。
+6. **UI 配置编辑**：通过 `GET/PUT /api/v1/functions/{id}/ui` 读取与保存函数 UI 配置（支持自定义覆盖）。
+7. **UI 历史与回滚**：通过 `GET /api/v1/functions/{id}/ui/history` 查看版本历史，`POST /api/v1/functions/{id}/ui/rollback` 回滚。
+8. **菜单路由编辑**：通过 `GET/PUT /api/v1/functions/{id}/route` 调整 section/group/path/order/hidden 并实时影响前端展示。
+
 ---
 
 ## 🚀 快速起步

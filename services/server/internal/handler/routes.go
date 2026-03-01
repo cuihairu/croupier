@@ -782,6 +782,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: function.FunctionUIUpdateHandler(serverCtx),
 			},
 			{
+				// 获取函数UI历史
+				Method:  http.MethodGet,
+				Path:    "/:id/ui/history",
+				Handler: function.FunctionUIHistoryHandler(serverCtx),
+			},
+			{
+				// 回滚函数UI配置
+				Method:  http.MethodPost,
+				Path:    "/:id/ui/rollback",
+				Handler: function.FunctionUIRollbackHandler(serverCtx),
+			},
+			{
 				// 获取函数路由配置
 				Method:  http.MethodGet,
 				Path:    "/:id/route",
