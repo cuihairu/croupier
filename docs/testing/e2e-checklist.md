@@ -502,3 +502,570 @@ cd croupier-dashboard && pnpm tsc
 1. 确认至少进行过一次 UI 配置更新
 2. 检查数据库连接是否正常
 3. 查看后台 UI 版本服务日志
+
+---
+
+## 自动化测试脚本
+
+### 一键健康检查脚本
+
+```bash
+#!/bin/bash
+# scripts/e2e/health-check.sh
+
+set -euo pipefail
+
+# 配置
+SERVER_URL="${SERVER_URL:-http://localhost:8080}"
+DASHBOARD_URL="${DASHBOARD_URL:-http://localhost:8000}"
+GAME_ID="${GAME_ID:-test-game}"
+
+# 颜色输出
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# 测试结果统计
+PASSED=0
+FAILED=0
+
+# 测试函数
+test_service() {
+    local name="$1"
+    local url="$2"
+    local expected_code="${3:-200}"
+
+    echo -n "Testing $name... "
+    code=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+
+    if [ "$code" = "$expected_code" ]; then
+        echo -e "${GREEN}PASS${NC} ($code)"
+        ((PASSED++))
+        return 0
+    else
+        echo -e "${RED}FAIL${NC} (expected $expected_code, got $code)"
+        ((FAILED++))
+        return 1
+    fi
+}
+
+echo "=== Croupier E2E Health Check ==="
+echo "Server: $SERVER_URL"
+echo "Dashboard: $DASHBOARD_URL"
+echo "Game ID: $GAME_ID"
+echo ""
+
+# 服务健康检查
+test_service "Server Health" "$SERVER_URL/healthz"
+test_service "Agent Status" "$SERVER_URL/api/v1/agents"
+test_service "Function Descriptors" "$SERVER_URL/api/v1/functions/descriptors"
+test_service "Dashboard" "$DASHBOARD_URL"
+
+# API 端点检查
+test_service "Function List" "$SERVER_URL/api/v1/functions"
+test_service "Games List" "$SERVER_URL/api/v1/games"
+
+echo ""
+echo "=== Results ==="
+echo -e "Passed: ${GREEN}$PASSED${NC}"
+echo -e "Failed: ${RED}$FAILED${NC}"
+
+if [ $FAILED -eq 0 ]; then
+    echo -e "\n${GREEN}All tests passed!${NC}"
+    exit 0
+else
+    echo -e "\n${RED}Some tests failed!${NC}"
+    exit 1
+fi
+```
+
+### 函数注册链路测试脚本
+
+```bash
+#!/bin/bash
+# scripts/e2e/test-function-registration.sh
+
+set -euo pipefail
+
+SERVER_URL="${SERVER_URL:-http://localhost:8080}"
+FUNCTION_ID="test.e2e.function.$(date +%s)"
+
+echo "=== Testing Function Registration Flow ==="
+echo "Function ID: $FUNCTION_ID"
+
+# 1. 检查函数是否已注册
+echo ""
+echo "Step 1: Check if function exists in registry"
+code=$(curl -s -o /dev/null -w "%{http_code}" \
+    "$SERVER_URL/api/v1/functions/$FUNCTION_ID")
+echo "HTTP Status: $code"
+
+# 2. 获取函数 OpenAPI
+echo ""
+echo "Step 2: Get function OpenAPI spec"
+openapi=$(curl -s "$SERVER_URL/api/v1/functions/$FUNCTION_ID/openapi")
+echo "$openapi" | jq .
+
+# 3. 获取函数描述
+echo ""
+echo "Step 3: Get function descriptor"
+descriptor=$(curl -s "$SERVER_URL/api/v1/functions/descriptors" \
+    | jq ".descriptors[] | select(.id == \"$FUNCTION_ID\")")
+echo "$descriptor"
+
+# 4. 测试 UI 配置读取
+echo ""
+echo "Step 4: Get UI configuration"
+ui_config=$(curl -s "$SERVER_URL/api/v1/functions/$FUNCTION_ID/ui")
+echo "$ui_config" | jq .
+
+# 5. 测试路由配置读取
+echo ""
+echo "Step 5: Get route configuration"
+route_config=$(curl -s "$SERVER_URL/api/v1/functions/$FUNCTION_ID/route")
+echo "$route_config" | jq .
+
+echo ""
+echo "=== Registration Flow Test Complete ==="
+```
+
+### UI 配置测试脚本
+
+```bash
+#!/bin/bash
+# scripts/e2e/test-ui-configuration.sh
+
+set -euo pipefail
+
+SERVER_URL="${SERVER_URL:-http://localhost:8080}"
+FUNCTION_ID="${FUNCTION_ID:-test.e2e.function}"
+
+echo "=== Testing UI Configuration Flow ==="
+
+# 1. 读取当前 UI 配置
+echo ""
+echo "Step 1: Read current UI config"
+current_ui=$(curl -s "$SERVER_URL/api/v1/functions/$FUNCTION_ID/ui")
+echo "$current_ui" | jq .
+current_version=$(echo "$current_ui" | jq -r '.version')
+
+# 2. 更新 UI 配置
+echo ""
+echo "Step 2: Update UI configuration"
+new_ui='{
+  "layout": "horizontal",
+  "labelWidth": 160,
+  "size": "large"
+}'
+update_result=$(curl -s -X PUT "$SERVER_URL/api/v1/functions/$FUNCTION_ID/ui" \
+    -H "Content-Type: application/json" \
+    -d "$new_ui")
+echo "$update_result" | jq .
+new_version=$(echo "$update_result" | jq -r '.version')
+
+# 3. 验证配置已更新
+echo ""
+echo "Step 3: Verify configuration updated"
+updated_ui=$(curl -s "$SERVER_URL/api/v1/functions/$FUNCTION_ID/ui")
+echo "$updated_ui" | jq .
+
+# 4. 查看历史记录
+echo ""
+echo "Step 4: View UI history"
+history=$(curl -s "$SERVER_URL/api/v1/functions/$FUNCTION_ID/ui/history")
+echo "$history" | jq .
+
+# 5. 回滚到之前版本
+if [ -n "$current_version" ] && [ "$current_version" != "null" ]; then
+    echo ""
+    echo "Step 5: Rollback to version $current_version"
+    rollback_result=$(curl -s -X POST \
+        "$SERVER_URL/api/v1/functions/$FUNCTION_ID/ui/rollback" \
+        -H "Content-Type: application/json" \
+        -d "{\"version\": $current_version}")
+    echo "$rollback_result" | jq .
+fi
+
+echo ""
+echo "=== UI Configuration Test Complete ==="
+```
+
+---
+
+## 测试数据模板
+
+### 标准测试函数
+
+```json
+{
+  "id": "test.player.addCurrency",
+  "name": "添加玩家货币",
+  "category": "player",
+  "description": "给指定玩家添加指定数量的游戏货币",
+  "tags": ["player", "currency", "test"],
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "player_id": {
+        "type": "string",
+        "title": "玩家ID",
+        "description": "玩家的唯一标识符",
+        "minLength": 1,
+        "maxLength": 64
+      },
+      "currency_type": {
+        "type": "string",
+        "title": "货币类型",
+        "description": "货币类型：gold, diamond, coupon",
+        "enum": ["gold", "diamond", "coupon"],
+        "default": "gold"
+      },
+      "amount": {
+        "type": "integer",
+        "title": "数量",
+        "description": "添加的货币数量",
+        "minimum": 1,
+        "maximum": 1000000,
+        "default": 100
+      },
+      "reason": {
+        "type": "string",
+        "title": "原因",
+        "description": "添加原因",
+        "maxLength": 256
+      }
+    },
+    "required": ["player_id", "amount"]
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "success": {"type": "boolean"},
+      "new_balance": {"type": "integer"},
+      "previous_balance": {"type": "integer"}
+    }
+  }
+}
+```
+
+### UI 配置模板
+
+```json
+{
+  "layout": "vertical",
+  "labelWidth": 120,
+  "size": "middle",
+  "colon": true,
+  "feedbackLayout": "loose",
+  "wrapperWidth": "100%",
+  "components": {
+    "player_id": {
+      "x-component": "Input",
+      "x-component-props": {
+        "placeholder": "请输入玩家ID",
+        "allowClear": true
+      },
+      "x-decorator": "Required"
+    },
+    "currency_type": {
+      "x-component": "Select",
+      "x-component-props": {
+        "placeholder": "选择货币类型",
+        "allowClear": true
+      }
+    },
+    "amount": {
+      "x-component": "InputNumber",
+      "x-component-props": {
+        "min": 1,
+        "max": 1000000,
+        "precision": 0,
+        "style": { "width": "100%" }
+      },
+      "x-decorator": "Required"
+    },
+    "reason": {
+      "x-component": "TextArea",
+      "x-component-props": {
+        "placeholder": "请输入添加原因",
+        "rows": 3,
+        "maxLength": 256,
+        "showCount": true
+      }
+    }
+  }
+}
+```
+
+---
+
+## 边界测试用例
+
+### 空值与异常输入测试
+
+| 测试场景 | 输入 | 预期结果 |
+|----------|------|----------|
+| 空 player_id | `player_id: ""` | 校验失败，提示必填 |
+| 超长 player_id | 65 字符字符串 | 校验失败，提示超长 |
+| 负数金额 | `amount: -100` | 校验失败，提示最小值 |
+| 零金额 | `amount: 0` | 校验失败，提示最小值 |
+| 超大金额 | `amount: 1000001` | 校验失败，提示最大值 |
+| 无效枚举值 | `currency_type: "invalid"` | 校验失败，提示无效值 |
+| 特殊字符注入 | `player_id: "<script>"` | 正常处理或转义 |
+
+### 并发测试
+
+```bash
+#!/bin/bash
+# scripts/e2e/test-concurrent.sh
+
+# 并发调用测试 - 模拟多个管理员同时操作
+FUNCTION_ID="${FUNCTION_ID:-test.player.addCurrency}"
+CONCURRENT=10
+SERVER_URL="${SERVER_URL:-http://localhost:8080}"
+
+echo "=== Concurrent Function Invocation Test ==="
+echo "Concurrent requests: $CONCURRENT"
+
+for i in $(seq 1 $CONCURRENT); do
+    (
+        curl -s -X POST "$SERVER_URL/api/v1/functions/$FUNCTION_ID/invoke" \
+            -H "Content-Type: application/json" \
+            -H "X-Game-ID: test-game" \
+            -d "{\"player_id\": \"player_$i\", \"amount\": 100}" \
+            -o "/tmp/result_$i.json" \
+            -w "%{http_code}\n"
+    ) &
+done
+
+wait
+
+echo ""
+echo "=== Results ==="
+success=0
+for i in $(seq 1 $CONCURRENT); do
+    if [ -f "/tmp/result_$i.json" ]; then
+        code=$(head -1 "/tmp/result_$i.json")
+        if [ "$code" = "200" ]; then
+            ((success++))
+        fi
+        rm -f "/tmp/result_$i.json"
+    fi
+done
+
+echo "Successful: $success/$CONCURRENT"
+```
+
+---
+
+## 性能测试脚本
+
+### API 响应时间测试
+
+```bash
+#!/bin/bash
+# scripts/e2e/test-performance.sh
+
+set -euo pipefail
+
+SERVER_URL="${SERVER_URL:-http://localhost:8080}"
+
+# 测试函数列表响应时间
+echo "=== Performance Test: API Response Times ==="
+
+test_endpoint() {
+    local name="$1"
+    local url="$2"
+
+    echo -n "$name: "
+
+    # 执行 10 次取平均
+    total=0
+    for i in $(seq 1 10); do
+        time=$(curl -s -o /dev/null -w "%{time_total}" "$url")
+        total=$(echo "$total + $time" | bc)
+    done
+
+    avg=$(echo "scale=3; $total / 10" | bc)
+
+    # 判断性能
+    if (( $(echo "$avg < 0.1" | bc -l) )); then
+        echo -e "${GREEN}$avg s${NC} (Excellent)"
+    elif (( $(echo "$avg < 0.5" | bc -l) )); then
+        echo -e "${GREEN}$avg s${NC} (Good)"
+    elif (( $(echo "$avg < 1.0" | bc -l) )); then
+        echo -e "${YELLOW}$avg s${NC} (Acceptable)"
+    else
+        echo -e "${RED}$avg s${NC} (Slow)"
+    fi
+}
+
+test_endpoint "Health Check" "$SERVER_URL/healthz"
+test_endpoint "Function Descriptors" "$SERVER_URL/api/v1/functions/descriptors"
+test_endpoint "Function List" "$SERVER_URL/api/v1/functions"
+test_endpoint "Agents Status" "$SERVER_URL/api/v1/agents"
+test_endpoint "Games List" "$SERVER_URL/api/v1/games"
+
+echo ""
+echo "=== Performance Test Complete ==="
+```
+
+### Dashboard 加载性能测试
+
+```bash
+#!/bin/bash
+# scripts/e2e/test-dashboard-performance.sh
+
+# 使用 Puppeteer/Playwright 进行前端性能测试
+# 需要先安装：npm install -g @playwright/test
+
+cat > /tmp/dashboard-perf.spec.js << 'EOF'
+const { test, expect } = require('@playwright/test');
+
+test('Dashboard load performance', async ({ page }) => {
+  const startTime = Date.now();
+
+  await page.goto('http://localhost:8000');
+  await page.waitForLoadState('networkidle');
+
+  const loadTime = Date.now() - startTime;
+  console.log(`Page load time: ${loadTime}ms`);
+
+  expect(loadTime).toBeLessThan(3000);
+});
+
+test('Function menu render performance', async ({ page }) => {
+  await page.goto('http://localhost:8000');
+  await page.waitForSelector('.ant-menu');
+
+  const startTime = Date.now();
+  await page.click('text=Game');
+  await page.waitForSelector('text=Registered');
+
+  const renderTime = Date.now() - startTime;
+  console.log(`Menu render time: ${renderTime}ms`);
+
+  expect(renderTime).toBeLessThan(500);
+});
+EOF
+
+# 运行测试
+playwright test /tmp/dashboard-perf.spec.js
+```
+
+---
+
+## 测试报告模板
+
+### 验收测试报告
+
+```markdown
+# 函数注册到 Dashboard 展示 - 验收测试报告
+
+**测试日期**: YYYY-MM-DD
+**测试人员**: [姓名]
+**测试环境**: [环境信息]
+
+---
+
+## 1. 测试概览
+
+| 测试项 | 用例数 | 通过 | 失败 | 跳过 |
+|--------|--------|------|------|------|
+| SDK → Agent 注册 | 5 | 5 | 0 | 0 |
+| Agent → Server 同步 | 8 | 8 | 0 | 0 |
+| Dashboard 展示 | 10 | 9 | 1 | 0 |
+| UI 配置编辑 | 12 | 12 | 0 | 0 |
+| 菜单路由编辑 | 6 | 6 | 0 | 0 |
+| 函数调用 | 7 | 7 | 0 | 0 |
+| **合计** | **48** | **47** | **1** | **0** |
+
+**通过率**: 97.9%
+
+---
+
+## 2. 失败用例详情
+
+| 用例 ID | 用例名称 | 失败原因 | 严重程度 | 状态 |
+|---------|----------|----------|----------|------|
+| TC-DASH-004 | 函数详情页加载 | 响应超时 > 3s | 中 | 待修复 |
+
+---
+
+## 3. 性能测试结果
+
+| API 端点 | 平均响应时间 | P95 响应时间 | 状态 |
+|----------|-------------|-------------|------|
+| /healthz | 15ms | 20ms | ✅ |
+| /functions/descriptors | 120ms | 180ms | ✅ |
+| /functions | 80ms | 150ms | ✅ |
+| /functions/{id}/ui | 45ms | 80ms | ✅ |
+
+---
+
+## 4. 问题汇总
+
+| 问题 ID | 描述 | 优先级 | 责任人 | 状态 |
+|---------|------|--------|--------|------|
+| BUG-001 | 函数详情页偶尔加载超时 | 高 | [姓名] | 待修复 |
+
+---
+
+## 5. 验收结论
+
+- [ ] 所有关键用例通过
+- [ ] 性能指标达标
+- [ ] 无阻塞性问题
+
+**验收结论**: [通过 / 不通过 / 附带条件通过]
+
+**签字**: ____________    **日期**: ____________
+```
+
+---
+
+## 快速验收命令
+
+### 完整验收（一键运行）
+
+```bash
+#!/bin/bash
+# scripts/e2e/full-acceptance-test.sh
+
+set -euo pipefail
+
+echo "=========================================="
+echo "  Croupier E2E Acceptance Test Suite"
+echo "=========================================="
+echo ""
+
+# 阶段 1: 环境检查
+echo ">>> Stage 1: Environment Check"
+./scripts/e2e/health-check.sh || exit 1
+
+# 阶段 2: 函数注册测试
+echo ""
+echo ">>> Stage 2: Function Registration"
+./scripts/e2e/test-function-registration.sh || exit 1
+
+# 阶段 3: UI 配置测试
+echo ""
+echo ">>> Stage 3: UI Configuration"
+./scripts/e2e/test-ui-configuration.sh || exit 1
+
+# 阶段 4: 性能测试
+echo ""
+echo ">>> Stage 4: Performance"
+./scripts/e2e/test-performance.sh || exit 1
+
+# 阶段 5: 并发测试
+echo ""
+echo ">>> Stage 5: Concurrent"
+./scripts/e2e/test-concurrent.sh || exit 1
+
+echo ""
+echo "=========================================="
+echo "  All Acceptance Tests PASSED!"
+echo "=========================================="
+```
