@@ -15,10 +15,11 @@ import (
 )
 
 type AuthMiddleware struct {
-	svcCtx             *svc.ServiceContext
-	allowPaths         map[string]struct{}
-	allowPref          []string
-	publicReadPrefixes []string
+	svcCtx               *svc.ServiceContext
+	allowPaths           map[string]struct{}
+	allowPref            []string
+	publicReadPrefixes   []string
+	publicReadExactPaths map[string]struct{}
 }
 
 func NewAuthMiddleware(svcCtx *svc.ServiceContext) *AuthMiddleware {
@@ -36,7 +37,9 @@ func NewAuthMiddleware(svcCtx *svc.ServiceContext) *AuthMiddleware {
 			"/api/v1/configs",
 			"/api/v1/registry",              // 公开访问：注册中心（agents、functions）
 			"/api/v1/functions/descriptors", // 公开访问：函数描述符列表
-			"/api/v1/functions",             // 公开访问：函数列表（只读）
+		},
+		publicReadExactPaths: map[string]struct{}{
+			"/api/v1/functions": {}, // 公开访问：函数列表（精确匹配，子路径需认证）
 		},
 	}
 }
@@ -143,6 +146,11 @@ func (m *AuthMiddleware) shouldBypass(r *http.Request) bool {
 		}
 	}
 	if r.Method == http.MethodGet {
+		// 精确路径匹配
+		if _, ok := m.publicReadExactPaths[path]; ok {
+			return true
+		}
+		// 前缀匹配
 		for _, prefix := range m.publicReadPrefixes {
 			if strings.HasPrefix(path, prefix) {
 				return true
