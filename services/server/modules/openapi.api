@@ -13,6 +13,14 @@ type OpenAPISpecResponse {
 	Spec interface{} `json:"spec"` // OpenAPI 3.0.3 Operation Object
 }
 
+// --- OpenAPI 文档导出 ---
+type OpenAPIDocumentRequest {
+}
+
+type OpenAPIDocumentResponse {
+	Spec interface{} `json:"spec"` // OpenAPI 3.0.3 Document
+}
+
 // --- OpenAPI 导入 ---
 type OpenAPIImportRequest {
 	Spec interface{} `json:"spec"` // OpenAPI 3.0.3 Document
@@ -57,5 +65,9 @@ service server {
 	@doc "获取实体关联的函数列表"
 	@handler EntityFunctionsHandler
 	get /entities/:id/functions (EntityFunctionsRequest) returns (EntityFunctionsResponse)
+
+	@doc "导出聚合 OpenAPI 文档"
+	@handler OpenAPIDocumentHandler
+	get /openapi/spec (OpenAPIDocumentRequest) returns (OpenAPIDocumentResponse)
 }
 

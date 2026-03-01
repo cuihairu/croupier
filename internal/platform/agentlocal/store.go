@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/function/converter"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 )
 
@@ -132,7 +133,7 @@ func (s *LocalStore) Register(providerID, addr, version string, funcs []*sdkv1.L
 			s.funcVersions[fid][providerID] = fn.GetVersion()
 		}
 		// Store function metadata including OpenAPI schema
-		s.funcMeta[fid] = &FunctionMeta{
+		meta := &FunctionMeta{
 			ID:           fid,
 			Version:      fn.GetVersion(),
 			Tags:         fn.GetTags(),
@@ -147,6 +148,28 @@ func (s *LocalStore) Register(providerID, addr, version string, funcs []*sdkv1.L
 			Entity:       fn.GetEntity(),
 			Operation:    fn.GetOperation(),
 		}
+		if op, err := converter.ToOpenAPIOperation(converter.LocalFunctionDescriptorDesc{
+			ID:           meta.ID,
+			Version:      meta.Version,
+			Tags:         meta.Tags,
+			Summary:      meta.Summary,
+			Description:  meta.Description,
+			OperationID:  meta.OperationID,
+			Deprecated:   meta.Deprecated,
+			InputSchema:  meta.InputSchema,
+			OutputSchema: meta.OutputSchema,
+			Category:     meta.Category,
+			Risk:         meta.Risk,
+			Entity:       meta.Entity,
+			Operation:    meta.Operation,
+		}); err == nil {
+			if opJSON, marshalErr := json.Marshal(op); marshalErr == nil {
+				meta.OpenAPIOperation = string(opJSON)
+			}
+		} else {
+			slog.Warn("[agentlocal] failed to convert function metadata to openapi operation", "function_id", fid, "error", err)
+		}
+		s.funcMeta[fid] = meta
 	}
 	slog.Info("[agentlocal] Registered functions", "provider_id", providerID, "count", len(funcs), "store_size", len(s.data))
 	if s.onUpdate != nil {

@@ -68,7 +68,7 @@ func TestResolveFunctionUI_SourcePriority(t *testing.T) {
 		OpenAPISpec: datatypes.JSONMap{
 			"x-ui": map[string]interface{}{"from": "openapi"},
 		},
-		Schema: datatypes.JSONMap{"from": "legacy"},
+		Schema: datatypes.JSONMap{"from": "historical"},
 	}
 
 	resolved := resolveFunctionUI(cfg, fn)
@@ -81,5 +81,24 @@ func TestResolveFunctionUI_SourcePriority(t *testing.T) {
 	}
 	if resolved.UISource != "custom_metadata" {
 		t.Fatalf("expected source custom_metadata, got %s", resolved.UISource)
+	}
+}
+
+func TestResolveFunctionUI_NoLegacySchemaFallback(t *testing.T) {
+	cfg := config.Config{}
+	fn := &model.Function{
+		FunctionID: "player.ban",
+		Schema:     datatypes.JSONMap{"from": "historical"},
+	}
+
+	resolved := resolveFunctionUI(cfg, fn)
+	if resolved.Schema != nil {
+		t.Fatalf("expected schema to be nil without openapi/custom ui, got %#v", resolved.Schema)
+	}
+	if resolved.HasDefault {
+		t.Fatalf("expected hasDefault=false when only historical schema exists")
+	}
+	if resolved.UISource != "none" {
+		t.Fatalf("expected uiSource=none, got %s", resolved.UISource)
 	}
 }

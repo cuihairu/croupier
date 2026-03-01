@@ -5,6 +5,7 @@ package function
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
+	"github.com/getkin/kin-openapi/openapi3"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -61,7 +63,7 @@ func (l *DescriptorsLogic) Descriptors(req *types.DescriptorsRequest) ([]map[str
 	}
 	// Unauthenticated request: skip permission check (public read access)
 
-	// 1) DB descriptor templates (may include params schema)
+	// 1) DB descriptor templates
 	templates, err := l.svcCtx.FunctionModel.ListDescriptorTemplates(l.ctx, category)
 	if err != nil {
 		return nil, err
@@ -74,16 +76,6 @@ func (l *DescriptorsLogic) Descriptors(req *types.DescriptorsRequest) ([]map[str
 			continue
 		}
 		params := any(t.Schema)
-		// If template schema wraps params, unwrap common shapes.
-		if m, ok := params.(map[string]interface{}); ok {
-			if v, ok := m["params"]; ok {
-				params = v
-			} else if v, ok := m["input"]; ok {
-				params = v
-			} else if v, ok := m["schema"]; ok {
-				params = v
-			}
-		}
 		if params == nil {
 			params = defaultParamsSchema()
 		}
@@ -137,41 +129,55 @@ func (l *DescriptorsLogic) Descriptors(req *types.DescriptorsRequest) ([]map[str
 		}
 		store.Mu().RUnlock()
 
-		// 3) Extract metadata from OpenAPI operations
+		// 3) OpenAPI operations are the primary descriptor source.
 		operations := store.ListOpenAPIOperations()
-		for fid, d := range byID {
-			// Merge OpenAPI operation metadata
-			if op, ok := operations[fid]; ok {
-				// Extract x-category, x-risk, x-entity, x-operation from extensions
-				if op.Extensions != nil {
-					if cat, exists := op.Extensions["x-category"]; exists {
-						if catStr, ok := cat.(string); ok && catStr != "" {
-							d["category"] = catStr
-						}
-					}
-					if risk, exists := op.Extensions["x-risk"]; exists {
-						if riskStr, ok := risk.(string); ok {
-							d["risk"] = riskStr
-						}
-					}
-					if entity, exists := op.Extensions["x-entity"]; exists {
-						if entityStr, ok := entity.(string); ok {
-							d["entity"] = entityStr
-						}
-					}
-					if operation, exists := op.Extensions["x-operation"]; exists {
-						if opStr, ok := operation.(string); ok {
-							d["operation"] = opStr
-						}
+		for fid, op := range operations {
+			fid = strings.TrimSpace(fid)
+			if fid == "" {
+				continue
+			}
+			d := byID[fid]
+			if d == nil {
+				d = map[string]interface{}{
+					"id":         fid,
+					"version":    "",
+					"category":   inferCategory(fid),
+					"params":     defaultParamsSchema(),
+					"outputs":    nil,
+					"menuSource": "default",
+				}
+				byID[fid] = d
+			}
+			if schema := extractOperationRequestSchema(op); schema != nil {
+				d["params"] = schema
+			}
+			if op.Extensions != nil {
+				if cat, exists := op.Extensions["x-category"]; exists {
+					if catStr, ok := cat.(string); ok && catStr != "" {
+						d["category"] = catStr
 					}
 				}
-				// Merge summary and description
-				if op.Summary != "" {
-					d["description"] = op.Summary
+				if risk, exists := op.Extensions["x-risk"]; exists {
+					if riskStr, ok := risk.(string); ok {
+						d["risk"] = riskStr
+					}
 				}
-				if op.Description != "" {
-					d["description"] = op.Description
+				if entity, exists := op.Extensions["x-entity"]; exists {
+					if entityStr, ok := entity.(string); ok {
+						d["entity"] = entityStr
+					}
 				}
+				if operation, exists := op.Extensions["x-operation"]; exists {
+					if opStr, ok := operation.(string); ok {
+						d["operation"] = opStr
+					}
+				}
+			}
+			if op.Summary != "" {
+				d["description"] = op.Summary
+			}
+			if op.Description != "" {
+				d["description"] = op.Description
 			}
 		}
 	}
@@ -264,6 +270,46 @@ func mergeShallow(dst map[string]interface{}, src map[string]interface{}) {
 	for k, v := range src {
 		dst[k] = v
 	}
+}
+
+func extractOperationRequestSchema(op *openapi3.Operation) map[string]interface{} {
+	if op == nil || op.RequestBody == nil || op.RequestBody.Value == nil {
+		return nil
+	}
+	content := op.RequestBody.Value.Content
+	if len(content) == 0 {
+		return nil
+	}
+
+	var media *openapi3.MediaType
+	if mt, ok := content["application/json"]; ok && mt != nil {
+		media = mt
+	} else {
+		for _, mt := range content {
+			if mt != nil {
+				media = mt
+				break
+			}
+		}
+	}
+	if media == nil || media.Schema == nil {
+		return nil
+	}
+	if media.Schema.Value != nil {
+		var out map[string]interface{}
+		b, err := json.Marshal(media.Schema.Value)
+		if err != nil {
+			return nil
+		}
+		if err := json.Unmarshal(b, &out); err != nil {
+			return nil
+		}
+		return out
+	}
+	if strings.TrimSpace(media.Schema.Ref) != "" {
+		return map[string]interface{}{"$ref": media.Schema.Ref}
+	}
+	return nil
 }
 
 func firstNonEmpty(values ...string) string {

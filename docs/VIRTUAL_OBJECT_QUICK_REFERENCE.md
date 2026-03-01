@@ -311,10 +311,10 @@ components/
 
 | 端点 | 方法 | 说明 |
 |------|------|------|
-| `/api/descriptors` | GET | 获取所有descriptor |
-| `/api/descriptors?detailed=true` | GET | 获取详细descriptor + provider manifest |
+| `/api/v1/functions/descriptors` | GET | 获取所有 descriptor |
+| `/api/v1/functions/descriptors` | GET | 获取详细 descriptor（含 OpenAPI 扩展字段） |
 | `/api/providers/capabilities` | POST | 注册provider能力 |
-| `/api/providers/descriptors` | GET | 获取所有provider的descriptors |
+| `/api/v1/providers/descriptors` | GET | 获取所有 provider 的 descriptors |
 | `/api/providers/entities` | GET | 聚合所有provider的entities |
 
 ---
@@ -418,7 +418,7 @@ curl -X POST http://localhost:8080/api/entities/:id/validate
 curl http://localhost:8080/api/entities
 
 # 检查descriptor
-curl http://localhost:8080/api/descriptors?id=player.entity
+curl http://localhost:8080/api/v1/functions/descriptors?type=player
 ```
 
 ### 查看实现源码

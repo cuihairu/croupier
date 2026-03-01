@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	admin "github.com/cuihairu/croupier/services/server/internal/handler/admin"
+	adminGames "github.com/cuihairu/croupier/services/server/internal/handler/adminGames"
 	agent "github.com/cuihairu/croupier/services/server/internal/handler/agent"
 	alert "github.com/cuihairu/croupier/services/server/internal/handler/alert"
 	analytics_behavior "github.com/cuihairu/croupier/services/server/internal/handler/analytics_behavior"
@@ -29,17 +30,21 @@ import (
 	job "github.com/cuihairu/croupier/services/server/internal/handler/job"
 	message "github.com/cuihairu/croupier/services/server/internal/handler/message"
 	meta "github.com/cuihairu/croupier/services/server/internal/handler/meta"
+	migrate "github.com/cuihairu/croupier/services/server/internal/handler/migrate"
 	monitoring "github.com/cuihairu/croupier/services/server/internal/handler/monitoring"
 	node "github.com/cuihairu/croupier/services/server/internal/handler/node"
+	openapi "github.com/cuihairu/croupier/services/server/internal/handler/openapi"
 	ops "github.com/cuihairu/croupier/services/server/internal/handler/ops"
 	pack "github.com/cuihairu/croupier/services/server/internal/handler/pack"
 	permission "github.com/cuihairu/croupier/services/server/internal/handler/permission"
+	platform "github.com/cuihairu/croupier/services/server/internal/handler/platform"
 	player "github.com/cuihairu/croupier/services/server/internal/handler/player"
 	profile "github.com/cuihairu/croupier/services/server/internal/handler/profile"
 	provider "github.com/cuihairu/croupier/services/server/internal/handler/provider"
 	rate_limit "github.com/cuihairu/croupier/services/server/internal/handler/rate_limit"
 	registry "github.com/cuihairu/croupier/services/server/internal/handler/registry"
 	role "github.com/cuihairu/croupier/services/server/internal/handler/role"
+	routesApi "github.com/cuihairu/croupier/services/server/internal/handler/routes"
 	schema "github.com/cuihairu/croupier/services/server/internal/handler/schema"
 	storage "github.com/cuihairu/croupier/services/server/internal/handler/storage"
 	ticket "github.com/cuihairu/croupier/services/server/internal/handler/ticket"
@@ -86,6 +91,24 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPost,
 				Path:    "/:id/password-reset",
 				Handler: admin.AdminPasswordResetHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/admin"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取管理员游戏权限
+				Method:  http.MethodGet,
+				Path:    "/:id/games",
+				Handler: adminGames.AdminGamesHandler(serverCtx),
+			},
+			{
+				// 更新管理员游戏权限
+				Method:  http.MethodPut,
+				Path:    "/:id/games",
+				Handler: adminGames.AdminGamesUpdateHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/admin"),
@@ -168,6 +191,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				// 获取行为漏斗
 				Method:  http.MethodPost,
+				Path:    "/funnel",
+				Handler: analytics_behavior.BehaviorFunnelHandler(serverCtx),
+			},
+			{
+				// 获取行为漏斗（GET 兼容）
+				Method:  http.MethodGet,
 				Path:    "/funnel",
 				Handler: analytics_behavior.BehaviorFunnelHandler(serverCtx),
 			},
@@ -326,6 +355,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodGet,
 				Path:    "/",
 				Handler: assignment.AssignmentsListHandler(serverCtx),
+			},
+			{
+				// 获取分配历史
+				Method:  http.MethodGet,
+				Path:    "/history",
+				Handler: assignment.AssignmentsHistoryHandler(serverCtx),
 			},
 			{
 				// 更新分配
@@ -795,6 +830,36 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
+				// 获取函数 OpenAPI 规范
+				Method:  http.MethodGet,
+				Path:    "/functions/:id/openapi",
+				Handler: openapi.FunctionOpenAPISpecHandler(serverCtx),
+			},
+			{
+				// 导入 OpenAPI 文档
+				Method:  http.MethodPost,
+				Path:    "/functions/_import",
+				Handler: openapi.OpenAPIImportHandler(serverCtx),
+			},
+			{
+				// 获取实体函数列表
+				Method:  http.MethodGet,
+				Path:    "/entities/:id/functions",
+				Handler: openapi.EntityFunctionsHandler(serverCtx),
+			},
+			{
+				// 导出聚合 OpenAPI 文档
+				Method:  http.MethodGet,
+				Path:    "/openapi/spec",
+				Handler: openapi.OpenAPIDocumentHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
 				// 获取游戏列表
 				Method:  http.MethodGet,
 				Path:    "/",
@@ -886,6 +951,36 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/jobs"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取迁移状态
+				Method:  http.MethodGet,
+				Path:    "/status",
+				Handler: migrate.MigrateStatusHandler(serverCtx),
+			},
+			{
+				// 获取迁移历史
+				Method:  http.MethodGet,
+				Path:    "/history",
+				Handler: migrate.MigrateHistoryHandler(serverCtx),
+			},
+			{
+				// 执行向上迁移
+				Method:  http.MethodPost,
+				Path:    "/up",
+				Handler: migrate.MigrateUpHandler(serverCtx),
+			},
+			{
+				// 执行向下迁移
+				Method:  http.MethodPost,
+				Path:    "/down",
+				Handler: migrate.MigrateDownHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/migrate"),
 	)
 
 	server.AddRoutes(
@@ -1065,6 +1160,54 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: ops.OpsConfigHandler(serverCtx),
 			},
 			{
+				// 获取 Agent 列表
+				Method:  http.MethodGet,
+				Path:    "/agents",
+				Handler: ops.OpsAgentsListHandler(serverCtx),
+			},
+			{
+				// 获取 Agent 指标
+				Method:  http.MethodGet,
+				Path:    "/agents/metrics",
+				Handler: ops.OpsAgentMetricsHandler(serverCtx),
+			},
+			{
+				// 获取 Agent 系统信息
+				Method:  http.MethodGet,
+				Path:    "/agents/:agentId/system-info",
+				Handler: ops.OpsAgentSystemInfoHandler(serverCtx),
+			},
+			{
+				// 获取 Agent 进程列表
+				Method:  http.MethodGet,
+				Path:    "/agents/:agentId/processes",
+				Handler: ops.OpsAgentProcessesHandler(serverCtx),
+			},
+			{
+				// 重启 Agent 进程
+				Method:  http.MethodPost,
+				Path:    "/agents/:agentId/processes/:name/restart",
+				Handler: ops.OpsAgentProcessRestartHandler(serverCtx),
+			},
+			{
+				// 停止 Agent 进程
+				Method:  http.MethodPost,
+				Path:    "/agents/:agentId/processes/:name/stop",
+				Handler: ops.OpsAgentProcessStopHandler(serverCtx),
+			},
+			{
+				// 启动 Agent 进程
+				Method:  http.MethodPost,
+				Path:    "/agents/:agentId/processes/:name/start",
+				Handler: ops.OpsAgentProcessStartHandler(serverCtx),
+			},
+			{
+				// 执行 Agent 命令
+				Method:  http.MethodPost,
+				Path:    "/agents/:agentId/exec",
+				Handler: ops.OpsAgentExecCommandHandler(serverCtx),
+			},
+			{
 				// 获取函数列表
 				Method:  http.MethodGet,
 				Path:    "/functions",
@@ -1208,6 +1351,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/reload",
 				Handler: pack.PacksReloadHandler(serverCtx),
 			},
+			{
+				// 获取 pack web 插件
+				Method:  http.MethodGet,
+				Path:    "/plugin",
+				Handler: pack.PacksPluginHandler(serverCtx),
+			},
 		},
 		rest.WithPrefix("/api/v1/packs"),
 	)
@@ -1270,6 +1419,36 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/players"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 调用第三方平台 API
+				Method:  http.MethodPost,
+				Path:    "/call",
+				Handler: platform.CallPlatformHandler(serverCtx),
+			},
+			{
+				// 获取平台列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: platform.ListPlatformsHandler(serverCtx),
+			},
+			{
+				// 获取平台方法列表
+				Method:  http.MethodGet,
+				Path:    "/:platform/methods",
+				Handler: platform.ListPlatformMethodsHandler(serverCtx),
+			},
+			{
+				// 重载平台配置
+				Method:  http.MethodPost,
+				Path:    "/reload",
+				Handler: platform.ReloadPlatformConfigHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/platforms"),
 	)
 
 	server.AddRoutes(
@@ -1443,6 +1622,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
+				// 获取动态路由配置
+				Method:  http.MethodGet,
+				Path:    "/routes",
+				Handler: routesApi.GetRoutesHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
 				// 获取模式列表
 				Method:  http.MethodGet,
 				Path:    "/",
@@ -1508,6 +1699,42 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/signed-url",
 				Handler: storage.SignedUrlHandler(serverCtx),
 			},
+			{
+				// 列出对象
+				Method:  http.MethodGet,
+				Path:    "/objects",
+				Handler: storage.ListObjectsHandler(serverCtx),
+			},
+			{
+				// 上传对象
+				Method:  http.MethodPost,
+				Path:    "/objects",
+				Handler: storage.UploadObjectHandler(serverCtx),
+			},
+			{
+				// 删除对象
+				Method:  http.MethodDelete,
+				Path:    "/objects",
+				Handler: storage.DeleteObjectHandler(serverCtx),
+			},
+			{
+				// 批量删除对象
+				Method:  http.MethodPost,
+				Path:    "/objects/batch-delete",
+				Handler: storage.BatchDeleteObjectsHandler(serverCtx),
+			},
+			{
+				// 创建目录
+				Method:  http.MethodPost,
+				Path:    "/directories",
+				Handler: storage.CreateDirectoryHandler(serverCtx),
+			},
+			{
+				// 重命名目录
+				Method:  http.MethodPost,
+				Path:    "/directories/rename",
+				Handler: storage.RenameDirectoryHandler(serverCtx),
+			},
 		},
 		rest.WithPrefix("/api/v1/storage"),
 	)
@@ -1564,6 +1791,108 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/tickets"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// FAQ 列表
+				Method:  http.MethodGet,
+				Path:    "/faq",
+				Handler: faq.FAQListHandler(serverCtx),
+			},
+			{
+				// FAQ 创建
+				Method:  http.MethodPost,
+				Path:    "/faq",
+				Handler: faq.FAQCreateHandler(serverCtx),
+			},
+			{
+				// FAQ 更新
+				Method:  http.MethodPut,
+				Path:    "/faq/:id",
+				Handler: faq.FAQUpdateHandler(serverCtx),
+			},
+			{
+				// FAQ 删除
+				Method:  http.MethodDelete,
+				Path:    "/faq/:id",
+				Handler: faq.FAQDeleteHandler(serverCtx),
+			},
+			{
+				// 反馈列表
+				Method:  http.MethodGet,
+				Path:    "/feedback",
+				Handler: feedback.FeedbackListHandler(serverCtx),
+			},
+			{
+				// 反馈创建
+				Method:  http.MethodPost,
+				Path:    "/feedback",
+				Handler: feedback.FeedbackCreateHandler(serverCtx),
+			},
+			{
+				// 反馈更新
+				Method:  http.MethodPut,
+				Path:    "/feedback/:id",
+				Handler: feedback.FeedbackUpdateHandler(serverCtx),
+			},
+			{
+				// 反馈删除
+				Method:  http.MethodDelete,
+				Path:    "/feedback/:id",
+				Handler: feedback.FeedbackDeleteHandler(serverCtx),
+			},
+			{
+				// 工单列表
+				Method:  http.MethodGet,
+				Path:    "/tickets",
+				Handler: ticket.TicketsListHandler(serverCtx),
+			},
+			{
+				// 工单创建
+				Method:  http.MethodPost,
+				Path:    "/tickets",
+				Handler: ticket.TicketCreateHandler(serverCtx),
+			},
+			{
+				// 工单详情
+				Method:  http.MethodGet,
+				Path:    "/tickets/:id",
+				Handler: ticket.TicketDetailHandler(serverCtx),
+			},
+			{
+				// 工单更新
+				Method:  http.MethodPut,
+				Path:    "/tickets/:id",
+				Handler: ticket.TicketUpdateHandler(serverCtx),
+			},
+			{
+				// 工单删除
+				Method:  http.MethodDelete,
+				Path:    "/tickets/:id",
+				Handler: ticket.TicketDeleteHandler(serverCtx),
+			},
+			{
+				// 工单状态流转
+				Method:  http.MethodPost,
+				Path:    "/tickets/:id/transition",
+				Handler: ticket.TicketTransitionHandler(serverCtx),
+			},
+			{
+				// 工单评论列表
+				Method:  http.MethodGet,
+				Path:    "/tickets/:ticketId/comments",
+				Handler: ticket.TicketCommentsHandler(serverCtx),
+			},
+			{
+				// 工单评论创建
+				Method:  http.MethodPost,
+				Path:    "/tickets/:ticketId/comments",
+				Handler: ticket.TicketCommentCreateHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/support"),
 	)
 
 }

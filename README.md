@@ -11,14 +11,14 @@
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 ![Go Version](https://img.shields.io/badge/go-1.25+-green.svg)
 
-统一的游戏运营控制面：Server / Agent 服务负责安全合规与函数路由，Dashboard 由 X‑Render 驱动自动生成 UI，SDK 覆盖多语言并保持 Nightly 构建。这个仓库承载主进程、示例与公共配置，其余组件拆分为独立仓库并通过子模块引用。
+统一的游戏运营控制面：Server / Agent 服务负责安全合规与函数路由，Dashboard 由 Formily + JSON Schema 驱动自动生成 UI，SDK 覆盖多语言并保持 Nightly 构建。这个仓库承载主进程、示例与公共配置，其余组件拆分为独立仓库并通过子模块引用。
 
 ---
 
 ## ✨ Highlights
 - **零信任安全**：NNG+mTLS、细粒度 RBAC/ABAC、操作审批与审计日志。
 - **函数注册控制**：游戏服务器通过 Agent 注册函数，控制面统一调用、可视化进度与日志。
-- **Schema 驱动 UI**：X-Render + JSON Schema 自动生成表单、风控提示、参数校验。
+- **Schema 驱动 UI**：Formily + JSON Schema 自动生成表单、风控提示、参数校验。
 - **可观测性解耦**：控制面与遥测面分离，Analytics Worker 通过 Redis Streams / ClickHouse 处理实时事件。
 - **多语言 SDK**：Go / C++ / Java / JS / Python / C# 设有独立仓库与 Nightly 构建；Lua 通过 C++ SDK 提供。
 
@@ -28,7 +28,7 @@
 | 组件 | 仓库 | 在本仓库中的位置 | 说明 |
 | --- | --- | --- | --- |
 | Server / Agent | 本仓库 | 根目录 | 控制面、代理、审批、审计与示例 |
-| Dashboard | [croupier-dashboard](https://github.com/cuihairu/croupier-dashboard) | `dashboard/` | Umi Max + Ant Design + X-Render，已纳入子模块 |
+| Dashboard | [croupier-dashboard](https://github.com/cuihairu/croupier-dashboard) | `dashboard/` | Umi Max + Ant Design + Formily，已纳入子模块 |
 | Proto 定义 | 本仓库 | `proto/` | Protocol Buffers 定义，用于序列化和接口描述 |
 | Analytics Worker | 本仓库 | `services/analytics-worker` | 事件消费、指标写入、ClickHouse 入库 |
 | 示例 / 工具 | 本仓库 | `examples/`, `tools/`, `packs/` | Demo 游戏、Telemetry、打包脚本等 |
@@ -53,7 +53,7 @@
 ### 分层理念
 1. **权限控制层（安全基座）**：独立的 RBAC/ABAC 模型，统一的审批、审计与风控策略。
 2. **函数控制层（函数注册驱动）**：游戏服务器通过 Agent 注册函数，控制面统一管理、路由与幂等处理。
-3. **动态展示层（X-Render）**：基于 JSON Schema 自动生成 UI，包含风险提示、敏感字段脱敏及进度追踪。
+3. **动态展示层（Formily）**：基于 JSON Schema 自动生成 UI，包含风险提示、敏感字段脱敏及进度追踪。
 
 ### 系统架构（控制面 & 采集面）
 ```mermaid
@@ -174,7 +174,7 @@ sequenceDiagram
 ## 📚 文档入口
 - [docs/](docs/) & [configs/](configs/)：架构详解、配置样例、部署建议。
 - [proto/](proto/)：IDL + `buf` 配置，可运行 `buf lint` / `buf generate`。
-- [dashboard/README.md](dashboard/README.md)：Web Console、X-Render 用法。
+- [dashboard/README.md](dashboard/README.md)：Web Console、Formily 用法。
 - 各 SDK README：语言特定的安装与示例。
 
 ---

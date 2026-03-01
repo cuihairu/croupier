@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/function/converter"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
@@ -492,6 +493,35 @@ func (s *Server) handleRegisterRequest(ctx context.Context, req *agentv1.Registe
 		sess.Functions[f.Id] = reg.FunctionMeta{
 			Enabled: f.Enabled,
 			Version: f.Version,
+		}
+		displayName := ""
+		if v := f.GetDisplayName(); v != nil {
+			displayName = v.GetEn()
+		}
+		description := ""
+		if v := f.GetSummary(); v != nil {
+			description = v.GetEn()
+		}
+		if op, err := converter.ToOpenAPIOperation(converter.LocalFunctionDescriptorDesc{
+			ID:           f.Id,
+			Version:      f.Version,
+			Tags:         f.Tags,
+			Summary:      displayName,
+			Description:  description,
+			OperationID:  f.Id,
+			Deprecated:   false,
+			InputSchema:  f.GetInputSchema(),
+			OutputSchema: f.GetOutputSchema(),
+			Category:     f.GetCategory(),
+			Risk:         f.GetRisk(),
+			Entity:       f.GetEntity(),
+			Operation:    f.GetOperation(),
+		}); err == nil {
+			if err := s.registry.UpsertOpenAPI(f.Id, op); err != nil {
+				s.logger.Warn("failed to upsert openapi operation from register request", "function_id", f.Id, "error", err)
+			}
+		} else {
+			s.logger.Warn("failed to convert function descriptor to openapi operation", "function_id", f.Id, "error", err)
 		}
 	}
 

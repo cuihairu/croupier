@@ -100,8 +100,8 @@ Croupier 的函数管理系统采用了**分布式、描述符驱动**的架构�
 
 | 端点 | 方法 | 功能 | 返回值 |
 |-----|-----|------|--------|
-| `/api/descriptors` | GET | 获取函数描述符列表 | `FunctionDescriptor[]` |
-| `/api/descriptors?detailed=true` | GET | 获取详细信息（包含 provider manifests） | 组合对象 |
+| `/api/v1/functions/descriptors` | GET | 获取函数描述符列表 | `FunctionDescriptor[]` |
+| `/api/v1/functions/descriptors` | GET | 获取函数详细信息（由 OpenAPI extensions 补充） | 组合对象 |
 | `/api/invoke` | POST | 同步调用函数 | 函数返回值 |
 | `/api/start_job` | POST | 异步启动任务 | `{ job_id }` |
 | `/api/cancel_job` | POST | 取消任务 | - |
@@ -142,7 +142,7 @@ Croupier 的函数管理系统采用了**分布式、描述符驱动**的架构�
    (存储 Agent -> Function 映射)
    ↓
 4. Web UI 查询
-   GET /api/descriptors
+   GET /api/v1/functions/descriptors
    GET /api/registry
    GET /api/assignments
 ```

@@ -22,7 +22,7 @@ type uiResolveResult struct {
 }
 
 func resolveFunctionUI(c config.Config, fn *model.Function) uiResolveResult {
-	var customUI, fileUI, defaultUI, legacyUI interface{}
+	var customUI, fileUI, defaultUI interface{}
 	if fn.Metadata != nil {
 		customUI = fn.Metadata["ui"]
 	}
@@ -30,7 +30,6 @@ func resolveFunctionUI(c config.Config, fn *model.Function) uiResolveResult {
 	if fn.OpenAPISpec != nil {
 		defaultUI = fn.OpenAPISpec["x-ui"]
 	}
-	legacyUI = fn.Schema
 
 	resultUI := customUI
 	if resultUI == nil {
@@ -38,9 +37,6 @@ func resolveFunctionUI(c config.Config, fn *model.Function) uiResolveResult {
 	}
 	if resultUI == nil {
 		resultUI = defaultUI
-	}
-	if resultUI == nil {
-		resultUI = legacyUI
 	}
 
 	uiSource := "none"
@@ -55,9 +51,6 @@ func resolveFunctionUI(c config.Config, fn *model.Function) uiResolveResult {
 	case defaultUI != nil:
 		uiSource = "openapi_x_ui"
 		uiSourceDetail = "openapi_spec.x-ui (provider default)"
-	case legacyUI != nil:
-		uiSource = "legacy_schema"
-		uiSourceDetail = "legacy function.schema fallback"
 	}
 
 	var layout interface{}
@@ -72,7 +65,7 @@ func resolveFunctionUI(c config.Config, fn *model.Function) uiResolveResult {
 		Layout:         layout,
 		Components:     components,
 		Custom:         customUI != nil,
-		HasDefault:     fileUI != nil || defaultUI != nil || legacyUI != nil,
+		HasDefault:     fileUI != nil || defaultUI != nil,
 		UISource:       uiSource,
 		UISourceDetail: uiSourceDetail,
 	}

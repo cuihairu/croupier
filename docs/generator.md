@@ -63,6 +63,23 @@ Use the unified CLI to inspect or validate a generated pack:
 ./bin/croupier packs validate gen/croupier
 ```
 
+## OpenAPI pack build/validate (pack-builder)
+
+For OpenAPI-first packs (for example `packs/prom/openapi.yaml`), use `pack-builder`:
+
+```
+# validate only (OpenAPI 3.0.3 schema + semantic checks)
+go run ./cmd/pack-builder -mode validate -input packs/prom -name prom -version 1.0.0
+
+# build pack.tgz
+go run ./cmd/pack-builder -mode build -input packs/prom -name prom -version 1.0.0 -output packs/dist/prom.pack.tgz
+```
+
+`pack-builder` supports:
+- auto discovery of `openapi.yaml|yml|json`
+- strict OpenAPI validation in `-mode validate`
+- `-auto-convert` to generate `openapi/*.json` from legacy descriptor JSON when no OpenAPI file exists
+
 If you prefer a one-liner with checks, use:
 
 ```

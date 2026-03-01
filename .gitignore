@@ -27,7 +27,7 @@ gen/
 
 # Generated binaries (files)
 protoc-gen-croupier
-http
+/http
 
 # Local module/build caches
 .gocache/

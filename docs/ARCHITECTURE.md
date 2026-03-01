@@ -241,7 +241,7 @@ components/
 ```typescript
 <ResourceTable
   resourceId="player.resource"
-  // 自动读取 /api/descriptors?id=player.resource
+  // 自动读取 /api/v1/functions/descriptors?type=player
   // 根据 operations 和 ui 配置生成界面
 />
 ```

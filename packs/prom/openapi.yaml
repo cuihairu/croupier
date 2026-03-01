@@ -48,6 +48,8 @@ paths:
                         type: string
                       result:
                         type: array
+                        items:
+                          type: object
   /prom/query_range:
     post:
       operationId: prom.query_range
@@ -100,4 +102,6 @@ paths:
                         type: string
                       result:
                         type: array
+                        items:
+                          type: object
 components: {}

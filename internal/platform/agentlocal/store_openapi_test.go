@@ -1,6 +1,7 @@
 package agentlocal
 
 import (
+	"encoding/json"
 	"testing"
 
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
@@ -65,6 +66,37 @@ func TestFunctionMetaOpenAPIFields(t *testing.T) {
 	// Verify tags
 	if len(functionMeta.Tags) != 2 {
 		t.Errorf("expected 2 tags, got %d", len(functionMeta.Tags))
+	}
+
+	if functionMeta.OpenAPIOperation == "" {
+		t.Fatal("OpenAPIOperation should not be empty")
+	}
+	var operation map[string]interface{}
+	if err := json.Unmarshal([]byte(functionMeta.OpenAPIOperation), &operation); err != nil {
+		t.Fatalf("OpenAPIOperation should be valid JSON: %v", err)
+	}
+	if operation["operationId"] != "banPlayer" {
+		t.Fatalf("unexpected operationId in OpenAPIOperation: %v", operation["operationId"])
+	}
+}
+
+func TestFunctionMetaOpenAPIOperationInvalidSchemaFallback(t *testing.T) {
+	store := NewLocalStore()
+	funcs := []*sdkv1.LocalFunctionDescriptor{
+		{
+			Id:          "bad.schema.func",
+			Version:     "1.0.0",
+			Summary:     "Bad Schema",
+			InputSchema: `{"type":"object","properties":{"x":{"type":"string"}`,
+		},
+	}
+	store.Register("service-1", "localhost:8080", "1.0.0", funcs)
+	meta := store.FunctionMetadata()
+	if meta["bad.schema.func"] == nil {
+		t.Fatal("function metadata not found")
+	}
+	if meta["bad.schema.func"].OpenAPIOperation != "" {
+		t.Fatal("OpenAPIOperation should remain empty when schema is invalid")
 	}
 }
 

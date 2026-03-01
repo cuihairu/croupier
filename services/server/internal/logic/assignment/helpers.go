@@ -6,7 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 )
@@ -25,6 +27,24 @@ func assignmentsPath(ctx *svc.ServiceContext) string {
 		}
 	}
 	return filepath.Clean(path)
+}
+
+type assignmentHistoryEntry struct {
+	ID         string                 `json:"id"`
+	GameID     string                 `json:"game_id"`
+	Env        string                 `json:"env"`
+	FunctionID string                 `json:"function_id"`
+	Action     string                 `json:"action"`
+	Count      int                    `json:"count"`
+	OperatedBy string                 `json:"operated_by"`
+	OperatedAt string                 `json:"operated_at"`
+	Details    map[string]interface{} `json:"details,omitempty"`
+}
+
+func assignmentHistoryPath(ctx *svc.ServiceContext) string {
+	path := assignmentsPath(ctx)
+	dir := filepath.Dir(path)
+	return filepath.Join(dir, "assignments_history.json")
 }
 
 func loadAssignments(path string) (map[string][]string, error) {
@@ -57,6 +77,57 @@ func saveAssignments(path string, data map[string][]string) error {
 		return err
 	}
 	return os.WriteFile(path, bytes, 0o644)
+}
+
+func loadAssignmentHistory(path string) ([]assignmentHistoryEntry, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []assignmentHistoryEntry{}, nil
+		}
+		return nil, err
+	}
+	if len(data) == 0 {
+		return []assignmentHistoryEntry{}, nil
+	}
+	var entries []assignmentHistoryEntry
+	if err := json.Unmarshal(data, &entries); err != nil {
+		return nil, err
+	}
+	if entries == nil {
+		return []assignmentHistoryEntry{}, nil
+	}
+	return entries, nil
+}
+
+func saveAssignmentHistory(path string, entries []assignmentHistoryEntry) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(entries, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
+func appendAssignmentHistory(ctx *svc.ServiceContext, entry assignmentHistoryEntry) error {
+	path := assignmentHistoryPath(ctx)
+	entries, err := loadAssignmentHistory(path)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(entry.ID) == "" {
+		entry.ID = strconv.FormatInt(time.Now().UnixNano(), 10)
+	}
+	if strings.TrimSpace(entry.OperatedAt) == "" {
+		entry.OperatedAt = time.Now().UTC().Format(time.RFC3339)
+	}
+	entries = append([]assignmentHistoryEntry{entry}, entries...)
+	if len(entries) > 500 {
+		entries = entries[:500]
+	}
+	return saveAssignmentHistory(path, entries)
 }
 
 func filterAssignments(data map[string][]string, gameID, env string) map[string][]string {

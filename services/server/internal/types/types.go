@@ -220,10 +220,25 @@ type AssignmentsListResponse struct {
 type AssignmentsUpdateRequest struct {
 	GameId    string   `json:"game_id"`
 	Env       string   `json:"env,optional"`
+	Action    string   `json:"action,optional"` // assign/clone/remove
 	Functions []string `json:"functions"`
 }
 
 type AssignmentsUpdateResponse struct {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+type AssignmentsHistoryRequest struct {
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"pageSize,optional"`
+	GameId   string `form:"game_id,optional"`
+	Env      string `form:"env,optional"`
+	Action   string `form:"action,optional"`
+}
+
+type AssignmentsHistoryResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
@@ -1045,7 +1060,7 @@ type FunctionUIResponse struct {
 	Components     interface{} `json:"components"`
 	Custom         bool        `json:"custom"`
 	HasDefault     bool        `json:"hasDefault"`
-	UISource       string      `json:"uiSource,omitempty"`       // custom_metadata/openapi_x_ui/legacy_schema/none
+	UISource       string      `json:"uiSource,omitempty"`       // custom_metadata/config_file_override/openapi_x_ui/none
 	UISourceDetail string      `json:"uiSourceDetail,omitempty"` // human-readable source description
 }
 
@@ -1460,6 +1475,60 @@ type MessageSendResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+type MigrationResult struct {
+	MigrationName string `json:"migrationName"`
+	Direction     string `json:"direction"` // up, down
+	Status        string `json:"status"`    // pending, success, failed
+	Duration      string `json:"duration"`
+	SQL           string `json:"sql"`
+	DryRun        bool   `json:"dryRun"`
+	Error         string `json:"error,omitempty"`
+}
+
+type MigrateDownRequest struct {
+	Target string `json:"target,optional"`
+	Force  bool   `json:"force,optional"`
+}
+
+type MigrateDownResponse struct {
+	Success bool              `json:"success"`
+	Message string            `json:"message"`
+	Results []MigrationResult `json:"results,omitempty"`
+}
+
+type MigrationHistoryRequest struct {
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"pageSize,optional,default=20"`
+	Status   string `form:"status,optional"`
+}
+
+type MigrationHistoryResponse struct {
+	Items []MigrationResult `json:"items"`
+	Total int64             `json:"total"`
+	Page  int               `json:"page"`
+	Size  int               `json:"pageSize"`
+}
+
+type MigrationStatusRequest struct {
+}
+
+type MigrationStatusResponse struct {
+	LatestVersion string            `json:"latestVersion"`
+	PendingCount  int               `json:"pendingCount"`
+	HistoryItems  []MigrationResult `json:"historyItems,omitempty"`
+}
+
+type MigrateUpRequest struct {
+	Force bool `json:"force,optional"`
+	Step  int  `json:"step,optional"`
+}
+
+type MigrateUpResponse struct {
+	Success bool              `json:"success"`
+	Message string            `json:"message"`
+	Results []MigrationResult `json:"results,omitempty"`
+}
+
 type MessagesListRequest struct {
 	Page     int    `form:"page,optional"`
 	PageSize int    `form:"pageSize,optional"`
@@ -1575,6 +1644,13 @@ type OpenAPISpecRequest struct {
 
 type OpenAPISpecResponse struct {
 	Spec interface{} `json:"spec"` // OpenAPI 3.0.3 Operation Object
+}
+
+type OpenAPIDocumentRequest struct {
+}
+
+type OpenAPIDocumentResponse struct {
+	Spec interface{} `json:"spec"` // OpenAPI 3.0.3 Document
 }
 
 type OpsAgentInfo struct {

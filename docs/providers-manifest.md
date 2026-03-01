@@ -25,7 +25,7 @@ Manifest 文件
 注册流程（语言无关 SPI）
 - Provider 进程加载 manifest 后，通过 ControlService 上报能力（可新增 RPC，或给现有 Register 扩展字段）：
   - 上报 `provider` 元信息、`functions[]`、`entities[]`，以及内嵌或外链的 JSON‑Schema（也可用内容哈希 + 上传端点）。
-- Server 接收后合并为统一 descriptors，暴露在 `/api/descriptors`，供 UI/RBAC/校验使用。
+- Server 接收后合并为统一 descriptors，暴露在 `/api/v1/functions/descriptors`，供 UI/RBAC/校验使用。
 - 调用链路使用 FunctionService（gRPC）；载荷默认 JSON；指定 `transport.proto` 时，Server 可用 FDS 做 JSON↔Proto 转换。
 
 参数定义与校验
@@ -109,7 +109,7 @@ Proto‑First 生成
 
 控制面集成
 - 扩展 ControlService（新增 RPC 或字段）以接收 Provider 能力载荷（压缩后的 manifest JSON + 可选嵌入的 schema/fds）。
-- Server 合并为统一 descriptors 并暴露 `/api/descriptors`，供 UI 与校验使用。
+- Server 合并为统一 descriptors 并暴露 `/api/v1/functions/descriptors`，供 UI 与校验使用。
 
 注意
 - JSON 文件尽量使用 ASCII；颜色按 `#1677ff` 六位十六进制。

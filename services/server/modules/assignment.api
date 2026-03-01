@@ -22,10 +22,26 @@ type AssignmentsListResponse {
 type AssignmentsUpdateRequest {
 	GameId    string   `json:"game_id"`
 	Env       string   `json:"env,optional"`
+	Action    string   `json:"action,optional"` // assign/clone/remove
 	Functions []string `json:"functions"`
 }
 
 type AssignmentsUpdateResponse {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// --- 分配历史 ---
+type AssignmentsHistoryRequest {
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"pageSize,optional"`
+	GameId   string `form:"game_id,optional"`
+	Env      string `form:"env,optional"`
+	Action   string `form:"action,optional"`
+}
+
+type AssignmentsHistoryResponse {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
@@ -42,6 +58,10 @@ service server {
 	@doc "获取分配列表"
 	@handler AssignmentsListHandler
 	get / (AssignmentsListRequest) returns (AssignmentsListResponse)
+
+	@doc "获取分配历史"
+	@handler AssignmentsHistoryHandler
+	get /history (AssignmentsHistoryRequest) returns (AssignmentsHistoryResponse)
 
 	@doc "更新分配"
 	@handler AssignmentsUpdateHandler

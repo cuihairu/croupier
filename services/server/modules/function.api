@@ -157,7 +157,7 @@ type FunctionUIResponse {
 	Components interface{} `json:"components"`
 	Custom     bool        `json:"custom"`
 	HasDefault bool        `json:"hasDefault"`
-	UISource       string `json:"uiSource,optional"`       // custom_metadata/openapi_x_ui/legacy_schema/none
+	UISource       string `json:"uiSource,optional"`       // custom_metadata/config_file_override/openapi_x_ui/none
 	UISourceDetail string `json:"uiSourceDetail,optional"` // human-readable source description
 }
 

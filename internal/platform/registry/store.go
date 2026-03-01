@@ -211,10 +211,14 @@ func (s *Store) UpsertOpenAPI(functionID string, operation *openapi3.Operation) 
 	if functionID == "" || operation == nil {
 		return fmt.Errorf("function ID and operation are required")
 	}
+	clone, err := cloneOpenAPIOperation(operation)
+	if err != nil {
+		return fmt.Errorf("clone operation failed: %w", err)
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.openapiOperations[functionID] = operation
+	s.openapiOperations[functionID] = clone
 	return nil
 }
 
@@ -232,7 +236,7 @@ func (s *Store) GetOpenAPI(functionID string) (*openapi3.Operation, error) {
 		return nil, fmt.Errorf("operation not found: %s", functionID)
 	}
 
-	return op, nil
+	return cloneOpenAPIOperation(op)
 }
 
 // ListOpenAPIOperations returns all OpenAPI operations.
@@ -242,10 +246,29 @@ func (s *Store) ListOpenAPIOperations() map[string]*openapi3.Operation {
 
 	result := make(map[string]*openapi3.Operation, len(s.openapiOperations))
 	for id, op := range s.openapiOperations {
-		result[id] = op
+		clone, err := cloneOpenAPIOperation(op)
+		if err != nil {
+			continue
+		}
+		result[id] = clone
 	}
 
 	return result
+}
+
+func cloneOpenAPIOperation(op *openapi3.Operation) (*openapi3.Operation, error) {
+	if op == nil {
+		return nil, fmt.Errorf("operation is nil")
+	}
+	b, err := op.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	var clone openapi3.Operation
+	if err := clone.UnmarshalJSON(b); err != nil {
+		return nil, err
+	}
+	return &clone, nil
 }
 
 // UpsertOpenAPIProvider inserts or updates provider capabilities in OpenAPI format.

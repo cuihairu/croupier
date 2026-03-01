@@ -31,7 +31,7 @@ service ControlService {
 
 2) 向后兼容
 - 现有 `Register`/`Heartbeat` 保持不变（仅 functions 列表 + agent 基本信息），旧版 Agent 不受影响。
-- 新版 Provider SDK 调用 `RegisterCapabilities` 上报 Manifest；Server 解析 manifest，合并为 descriptors 并暴露 `/api/descriptors`。
+- 新版 Provider SDK 调用 `RegisterCapabilities` 上报 Manifest；Server 解析 manifest，合并为 descriptors 并暴露 `/api/v1/functions/descriptors`。
 
 Server 端处理
 - 解压 `manifest_json_gz`，校验符合 `docs/providers-manifest.schema.json`。

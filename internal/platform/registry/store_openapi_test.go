@@ -220,3 +220,41 @@ func TestOpenAPIValidation(t *testing.T) {
 		t.Error("Expected error for empty provider ID, got nil")
 	}
 }
+
+func TestOpenAPIOperationImmutability(t *testing.T) {
+	store := NewStore()
+	err := store.UpsertOpenAPI("immut.func", &openapi3.Operation{
+		Summary: "Original",
+		Responses: openapi3.NewResponses(
+			openapi3.WithName("200", openapi3.NewResponse()),
+		),
+	})
+	if err != nil {
+		t.Fatalf("UpsertOpenAPI failed: %v", err)
+	}
+
+	// Mutating returned object must not affect store.
+	op1, err := store.GetOpenAPI("immut.func")
+	if err != nil {
+		t.Fatalf("GetOpenAPI failed: %v", err)
+	}
+	op1.Summary = "Mutated"
+
+	op2, err := store.GetOpenAPI("immut.func")
+	if err != nil {
+		t.Fatalf("GetOpenAPI failed: %v", err)
+	}
+	if op2.Summary != "Original" {
+		t.Fatalf("store operation should be immutable, got summary=%s", op2.Summary)
+	}
+
+	ops := store.ListOpenAPIOperations()
+	ops["immut.func"].Summary = "MutatedFromList"
+	op3, err := store.GetOpenAPI("immut.func")
+	if err != nil {
+		t.Fatalf("GetOpenAPI failed: %v", err)
+	}
+	if op3.Summary != "Original" {
+		t.Fatalf("list result should be immutable copy, got summary=%s", op3.Summary)
+	}
+}

@@ -5,9 +5,9 @@ package assignment
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -38,7 +38,7 @@ func (l *AssignmentsListLogic) AssignmentsList(req *types.AssignmentsListRequest
 	path := assignmentsPath(l.svcCtx)
 	assignments, err := loadAssignments(path)
 	if err != nil {
-		return nil, fmt.Errorf("读取分配数据失败: %w", err)
+		return nil, errorx.NewInternalError("读取分配数据失败")
 	}
 
 	filtered := filterAssignments(assignments, strings.TrimSpace(req.GameId), strings.TrimSpace(req.Env))
