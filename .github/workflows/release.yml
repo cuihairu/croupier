@@ -38,7 +38,7 @@ jobs:
           submodules: false
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25.7'
+          go-version: '1.26.0'
       - name: Normalize Go toolchain env
         shell: bash
         run: |
