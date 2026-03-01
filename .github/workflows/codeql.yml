@@ -28,6 +28,13 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.25.7'
+      - name: Clear Go build cache
+        shell: bash
+        run: |
+          echo "Clearing all Go caches..."
+          rm -rf ~/.cache/go-build
+          rm -rf ~/go/pkg/mod
+          go clean -cache -modcache -testcache -i -r || true
       - name: Normalize Go toolchain env
         shell: bash
         run: |
@@ -35,6 +42,7 @@ jobs:
           go env -u GOTOOLDIR || true
           go env -u GOTOOLCHAIN || true
           echo "GOCACHE=$RUNNER_TEMP/go-build-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod-${{ github.run_id }}" >> "$GITHUB_ENV"
           go version
           go env GOROOT GOTOOLDIR GOVERSION GOOS GOARCH
 
