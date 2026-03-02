@@ -23,7 +23,7 @@ providers:
       # openapi_spec: /path/to/openapi.yaml
 
       # Base URL（如果需要调用实际的后端服务）
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
 
       # 超时设置
       timeout: 30s
@@ -53,7 +53,7 @@ providers:
         - ../../packs/prom/openapi.yaml          # Prometheus 查询包
         - ../../packs/grafana/openapi.yaml       # Grafana 集成包
 
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
       timeout: 30s
       retry_count: 3
 
@@ -95,7 +95,7 @@ providers:
     game_id: "game-A"
     env: "prod"
     config:
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
       timeout: 30s
 
       # 方式 4: 手动定义 API 方法（完全控制）
@@ -150,7 +150,7 @@ providers:
     config:
       # 先从 OpenAPI 文件自动发现
       openapi_spec: ./etc/openapi.example.yaml
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
 
       # 然后添加手动定义的方法（会与自动发现的方法合并）
       methods:
@@ -190,7 +190,7 @@ providers:
     env: "prod"
     config:
       openapi_spec: ./etc/openapi.example.yaml
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
 
       # 速率限制（每分钟请求数）
       rate_limit:

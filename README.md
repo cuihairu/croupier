@@ -168,7 +168,7 @@ sequenceDiagram
 3. **一键构建**：`make dev` 会生成协议、构建 server/agent/worker/ingest。
 4. **运行服务**：
    ```bash
-   ./bin/croupier-server --config configs/server.example.yaml
+   ./bin/croupier-server --config services/server/etc/server.yaml
    ./bin/croupier-agent  --config configs/agent.example.yaml
    ```
 5. **Dashboard**：

@@ -23,7 +23,7 @@ Croupier 提供 HTTP REST API，供 Dashboard 和外部系统调用。
 ### Base URL
 
 ```
-开发环境: http://localhost:8080
+开发环境: http://localhost:18780
 生产环境: https://croupier.example.com
 ```
 
@@ -574,7 +574,7 @@ X-RateLimit-Reset: 1701427200
 ### cURL
 
 ```bash
-curl -X POST http://localhost:8080/api/invoke \
+curl -X POST http://localhost:18780/api/invoke \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
@@ -589,7 +589,7 @@ curl -X POST http://localhost:8080/api/invoke \
 ### JavaScript
 
 ```javascript
-const response = await fetch('http://localhost:8080/api/invoke', {
+const response = await fetch('http://localhost:18780/api/invoke', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -613,7 +613,7 @@ const result = await response.json();
 import requests
 
 response = requests.post(
-    'http://localhost:8080/api/invoke',
+    'http://localhost:18780/api/invoke',
     headers={
         'Content-Type': 'application/json',
         'Authorization': f'Bearer {token}',

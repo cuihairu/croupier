@@ -156,7 +156,7 @@ providers:
     type: openapi
     config:
       openapi_spec: ./etc/openapi.example.yaml
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
 ```
 
 ### 配置字段

@@ -30,7 +30,7 @@ docker-compose up -d
 - PostgreSQL (端口 5432)
 - Redis (端口 6379)
 - ClickHouse (端口 8123/9000)
-- Server 服务 (端口 8443/18080)
+- Server 服务 (端口 8443/18780)
 - Agent 服务 (端口 19090/19091)
 - Web UI (端口 8000)
 - Analytics Ingestion (端口 18081)
@@ -58,7 +58,7 @@ docker-compose -f docker-compose.telemetry.yaml up -d
 | 服务 | 访问地址 | 说明 |
 |-----|---------|------|
 | Web UI | http://localhost:8000 | 管理控制台 |
-| Server HTTP API | http://localhost:18080 | REST API |
+| Server HTTP API | http://localhost:18780 | REST API |
 | Server gRPC | localhost:8443 | gRPC 服务 |
 | Agent | localhost:19090 | 本地 Agent |
 | Analytics Ingestion | http://localhost:18081 | 公网/DMZ 摄取入口（开发） |

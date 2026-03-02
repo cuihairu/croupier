@@ -19,11 +19,11 @@ Server APIs
 CLI (Current: use HTTP API or edit JSON directly)
 - List assignments via HTTP API:
 ```
-curl http://localhost:8080/api/v1/assignments?game_id=mygame&env=prod
+curl http://localhost:18780/api/v1/assignments?game_id=mygame&env=prod
 ```
 - Set assignments via HTTP API:
 ```
-curl -X POST http://localhost:8080/api/v1/assignments \
+curl -X POST http://localhost:18780/api/v1/assignments \
   -H "Content-Type: application/json" \
   -d '{"game_id": "mygame", "env": "prod", "functions": ["prom.query", "prom.query_range"]}'
 ```

@@ -17,7 +17,7 @@ func TestConnectionPool_Put_Concurrent(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			target := "localhost:8080"
+			target := "localhost:18780"
 			pool.Put(target, nil)
 		}(i)
 	}
@@ -79,7 +79,7 @@ func TestConnectionPool_Get_ContextCanceled(t *testing.T) {
 	cancel() // 立即取消
 
 	// Get 尝试创建连接，但由于上下文已取消或没有服务器会失败
-	_, err := pool.Get(ctx, "localhost:8080")
+	_, err := pool.Get(ctx, "localhost:18780")
 	// 不论是哪种错误都接受（可能是连接错误、上下文取消等）
 	if err == nil {
 		t.Skip("Skipping: connection succeeded unexpectedly in test environment")
@@ -99,7 +99,7 @@ func TestConnectionPool_Get_ContextTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 	defer cancel()
 
-	_, err := pool.Get(ctx, "localhost:8080")
+	_, err := pool.Get(ctx, "localhost:18780")
 	// 不论是哪种错误都接受
 	if err == nil {
 		t.Skip("Skipping: connection succeeded unexpectedly in test environment")
@@ -272,7 +272,7 @@ func TestConnectionPool_ConcurrentGetAndRemove(t *testing.T) {
 	defer pool.Close()
 
 	var wg sync.WaitGroup
-	target := "localhost:8080"
+	target := "localhost:18780"
 
 	// 并发 Get
 	for i := 0; i < 5; i++ {

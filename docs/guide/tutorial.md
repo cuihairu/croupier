@@ -93,13 +93,13 @@ ls -la data/dev-certs/
 
 ```bash
 # 1. 复制配置文件
-cp configs/server.example.yaml configs/server.yaml
+cp services/server/etc/server.yaml configs/server.yaml
 
 # 2. 启动 Server（新终端窗口）
 ./bin/croupier-server --config configs/server.yaml
 
 # 3. 验证 Server 运行
-curl http://localhost:8080/healthz
+curl http://localhost:18780/healthz
 # 预期输出：{"status":"ok"}
 ```
 
@@ -217,12 +217,12 @@ func toProtoStruct(m map[string]interface{}) *proto.Struct {
 # 通过 Server 默认创建的管理员账号
 
 # 2. 获取 Token
-curl -X POST http://localhost:8080/api/auth/login \
+curl -X POST http://localhost:18780/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin123"}'
 
 # 3. 调用函数
-curl -X POST http://localhost:8080/api/invoke \
+curl -X POST http://localhost:18780/api/invoke \
   -H "Content-Type: application/json" \
   -H "X-Game-ID: test-game" \
   -H "X-Env: dev" \
@@ -254,7 +254,7 @@ pnpm dev
 ### 创建角色
 
 ```bash
-curl -X POST http://localhost:8080/api/roles \
+curl -X POST http://localhost:18780/api/roles \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
@@ -286,7 +286,7 @@ descriptor := &proto.FunctionDescriptor{
 
 ```bash
 # 查询最近的操作日志
-curl -X POST http://localhost:8080/api/audit/query \
+curl -X POST http://localhost:18780/api/audit/query \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
@@ -354,7 +354,7 @@ lsof -i :8080
 
 ```bash
 # 1. 确认 Server 正在运行
-curl http://localhost:8080/healthz
+curl http://localhost:18780/healthz
 
 # 2. 检查配置文件中的 server_addr
 # agent.yaml
@@ -370,7 +370,7 @@ tail -f logs/server.log
 tail -f logs/agent.log
 
 # 检查函数是否注册成功
-curl http://localhost:8080/api/functions?game_id=test-game&env=dev
+curl http://localhost:18780/api/functions?game_id=test-game&env=dev
 ```
 
 ## 清理环境

@@ -56,7 +56,7 @@ Prometheus scrape example
 scrape_configs:
   - job_name: 'croupier-server'
     metrics_path: /metrics.prom
-    static_configs: [ { targets: ['localhost:8080'] } ]
+    static_configs: [ { targets: ['localhost:18780'] } ]
   - job_name: 'croupier-agent'
     metrics_path: /metrics.prom
     static_configs: [ { targets: ['localhost:19091'] } ]

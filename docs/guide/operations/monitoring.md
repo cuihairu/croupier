@@ -348,10 +348,10 @@ func (s *Server) InvokeFunction(ctx context.Context, req *Request) (*Response, e
 
 ```bash
 # 健康检查
-curl http://localhost:8080/healthz
+curl http://localhost:18780/healthz
 
 # 就绪检查
-curl http://localhost:8080/readyz
+curl http://localhost:18780/readyz
 ```
 
 ### 响应示例

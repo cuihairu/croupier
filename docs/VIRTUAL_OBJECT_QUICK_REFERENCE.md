@@ -412,13 +412,13 @@ components/
 
 ```bash
 # Entity验证
-curl -X POST http://localhost:8080/api/entities/:id/validate
+curl -X POST http://localhost:18780/api/entities/:id/validate
 
 # 获取所有entity
-curl http://localhost:8080/api/entities
+curl http://localhost:18780/api/entities
 
 # 检查descriptor
-curl http://localhost:8080/api/v1/functions/descriptors?type=player
+curl http://localhost:18780/api/v1/functions/descriptors?type=player
 ```
 
 ### 查看实现源码

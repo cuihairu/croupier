@@ -25,7 +25,7 @@ cd /Users/cui/Workspaces/croupier/croupier/packs/player
 ### 2. 导入到系统
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/functions/_import \
+curl -X POST http://localhost:18780/api/v1/functions/_import \
   -H "Content-Type: application/json" \
   -H "X-Game-ID: your-game-id" \
   -d @openapi.yaml
@@ -34,7 +34,7 @@ curl -X POST http://localhost:8080/api/v1/functions/_import \
 或通过 Pack API：
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/packs/import \
+curl -X POST http://localhost:18780/api/v1/packs/import \
   -F "pack=@player.pack.tgz" \
   -H "X-Game-ID: your-game-id"
 ```
@@ -131,13 +131,13 @@ docker run --rm -v $(pwd):/spec openapitools/swagger-cli validate openapi.yaml
 ### 查看已导入的函数
 
 ```bash
-curl http://localhost:8080/api/v1/functions
+curl http://localhost:18780/api/v1/functions
 ```
 
 ### 获取函数的 OpenAPI spec
 
 ```bash
-curl http://localhost:8080/api/v1/functions/player.get/openapi
+curl http://localhost:18780/api/v1/functions/player.get/openapi
 ```
 
 ## 📚 相关文档

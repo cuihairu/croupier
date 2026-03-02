@@ -16,7 +16,7 @@ providers:
     env: "prod"
     config:
       openapi_spec: ./etc/openapi.example.yaml
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
       timeout: 30s
       retry_count: 3
 
@@ -34,7 +34,7 @@ providers:
         - ../../packs/player/openapi.yaml
         - ../../packs/grafana/openapi.yaml
         - ../../packs/alertmanager/openapi.yaml
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
       timeout: 30s
       retry_count: 3
       rate_limit:

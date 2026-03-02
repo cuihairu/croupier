@@ -151,28 +151,33 @@ install_config() {
     log_info "安装配置文件"
 
     if [[ ! -f "${CROUPIER_CONFIG_DIR}/server.yaml" ]]; then
-        if [[ -f "${SCRIPT_DIR}/../configs/server.example.yaml" ]]; then
-            cp "${SCRIPT_DIR}/../configs/server.example.yaml" "${CROUPIER_CONFIG_DIR}/server.yaml"
+        if [[ -f "${SCRIPT_DIR}/../services/server/etc/server.yaml" ]]; then
+            cp "${SCRIPT_DIR}/../services/server/etc/server.yaml" "${CROUPIER_CONFIG_DIR}/server.yaml"
             log_info "配置文件已创建，请编辑: ${CROUPIER_CONFIG_DIR}/server.yaml"
         else
             cat > "${CROUPIER_CONFIG_DIR}/server.yaml" << 'EOF'
 # Croupier Server 配置文件
 # 请根据实际环境修改
 
-server:
-  addr: ":8443"
-  http_addr: ":8080"
+Name: croupier-server
+Host: 0.0.0.0
+Port: 18780
+Mode: prod
 
-database:
-  driver: postgres
-  dsn: "postgres://croupier:password@localhost:5432/croupier?sslmode=disable"
+Database:
+  Driver: postgres
+  DataSource: "postgres://croupier:password@localhost:5432/croupier?sslmode=disable"
 
-jwt:
-  secret: "change-me-to-random-string"
+Control:
+  Addr: ":19090"
 
-log:
-  level: info
-  format: json
+Auth:
+  JWTSecret: "change-me-to-random-string"
+
+Log:
+  Level: info
+  Format: json
+  Output: stdout
 EOF
             log_info "默认配置文件已创建，请编辑: ${CROUPIER_CONFIG_DIR}/server.yaml"
         fi

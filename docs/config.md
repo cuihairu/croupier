@@ -40,7 +40,7 @@ Legacy CLI precedence (low → high)
 
 Examples
 ```yaml
-# server.example.yaml
+# services/server/etc/server.yaml
 # HTTP REST API (go-zero RestConf)
 Name: croupier-api
 Host: 0.0.0.0
@@ -171,7 +171,7 @@ Metrics env toggles (server)
 Agent Assignments & Downlink (dev)
 ```yaml
 agent:
-  assignments_api: http://localhost:8080   # poll assignments and pack export from this server
+  assignments_api: http://localhost:18780   # poll assignments and pack export from this server
   assignments_poll_sec: 30                 # polling interval seconds
   downlink_dir: ./packs/downlink           # save/export current pack here on updates
   # optional adapter process demo (dev-only)

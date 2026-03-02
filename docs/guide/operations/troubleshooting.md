@@ -331,7 +331,7 @@ docker run -m 2g croupier-server
 top -p $(pgrep croupier-server)
 
 # 生成 CPU profile
-curl http://localhost:8080/debug/pprof/profile > cpu.prof
+curl http://localhost:18780/debug/pprof/profile > cpu.prof
 ```
 
 #### 解决方法

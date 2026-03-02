@@ -19,15 +19,12 @@ if [[ -f "$IPV4_BIN" ]]; then export IP2LOCATION_BIN_PATH="$IPV4_BIN"; fi
 if [[ -f "$IPV6_BIN" ]]; then export IP2LOCATION_BIN_PATH_V6="$IPV6_BIN"; fi
 export GEOIP_TIMEOUT_MS="800"
 
-mkdir -p "$ROOT_DIR/logs" "$ROOT_DIR/configs/dev"
+mkdir -p "$ROOT_DIR/logs"
+CONFIG_FILE="${ROOT_DIR}/services/server/etc/server.yaml"
 
-exec "$BIN" \
-  --addr ":8443" \
-  --http_addr ":8080" \
-  --rbac_config "$ROOT_DIR/configs/rbac.json" \
-  --games_config "$ROOT_DIR/configs/games.json" \
-  --users_config "$ROOT_DIR/configs/users.json" \
-  --jwt_secret "dev-secret" \
-  --cert "$ROOT_DIR/configs/dev/server.crt" \
-  --key "$ROOT_DIR/configs/dev/server.key" \
-  --ca "$ROOT_DIR/configs/dev/ca.crt"
+if [[ ! -f "$CONFIG_FILE" ]]; then
+  echo "[dev-run] config file not found: $CONFIG_FILE"
+  exit 1
+fi
+
+exec "$BIN" --config "$CONFIG_FILE"

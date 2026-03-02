@@ -79,7 +79,7 @@ make build
 
 ```bash
 # 启动 Server
-./bin/croupier-server --config configs/server.example.yaml
+./bin/croupier-server --config services/server/etc/server.yaml
 
 # 启动 Agent
 ./bin/croupier-agent --config configs/agent.example.yaml

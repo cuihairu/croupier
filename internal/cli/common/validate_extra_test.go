@@ -164,7 +164,7 @@ func TestValidateAddr(t *testing.T) {
 	}{
 		{
 			name:    "有效地址 - localhost",
-			addr:    "localhost:8080",
+			addr:    "localhost:18780",
 			wantErr: false,
 		},
 		{
@@ -238,7 +238,7 @@ func TestValidateServerConfig(t *testing.T) {
 			name: "有效配置 - 非 strict",
 			setup: func(v *viper.Viper) {
 				v.Set("server.addr", "localhost:8443")
-				v.Set("server.http_addr", "localhost:8080")
+				v.Set("server.http_addr", "localhost:18780")
 				v.Set("server.cert", "")
 				v.Set("server.key", "")
 				v.Set("server.ca", "")
@@ -250,7 +250,7 @@ func TestValidateServerConfig(t *testing.T) {
 			name: "有效配置 - strict 模式",
 			setup: func(v *viper.Viper) {
 				v.Set("server.addr", "localhost:8443")
-				v.Set("server.http_addr", "localhost:8080")
+				v.Set("server.http_addr", "localhost:18780")
 				v.Set("server.cert", certFile)
 				v.Set("server.key", keyFile)
 				v.Set("server.ca", caFile)
@@ -265,7 +265,7 @@ func TestValidateServerConfig(t *testing.T) {
 			name: "无效 addr",
 			setup: func(v *viper.Viper) {
 				v.Set("server.addr", "")
-				v.Set("server.http_addr", "localhost:8080")
+				v.Set("server.http_addr", "localhost:18780")
 			},
 			strict:  false,
 			wantErr: true,
@@ -283,7 +283,7 @@ func TestValidateServerConfig(t *testing.T) {
 			name: "无效 edge_addr",
 			setup: func(v *viper.Viper) {
 				v.Set("server.addr", "localhost:8443")
-				v.Set("server.http_addr", "localhost:8080")
+				v.Set("server.http_addr", "localhost:18780")
 				v.Set("server.edge_addr", "invalid")
 			},
 			strict:  false,
@@ -293,7 +293,7 @@ func TestValidateServerConfig(t *testing.T) {
 			name: "strict 模式缺少 rbac_config",
 			setup: func(v *viper.Viper) {
 				v.Set("server.addr", "localhost:8443")
-				v.Set("server.http_addr", "localhost:8080")
+				v.Set("server.http_addr", "localhost:18780")
 				v.Set("server.cert", certFile)
 				v.Set("server.key", keyFile)
 				v.Set("server.ca", caFile)
@@ -305,7 +305,7 @@ func TestValidateServerConfig(t *testing.T) {
 			name: "使用 server section",
 			setup: func(v *viper.Viper) {
 				v.Set("addr", "localhost:8443")
-				v.Set("http_addr", "localhost:8080")
+				v.Set("http_addr", "localhost:18780")
 			},
 			strict:  false,
 			wantErr: false,
@@ -346,7 +346,7 @@ func TestValidateAgentConfig(t *testing.T) {
 			setup: func(v *viper.Viper) {
 				v.Set("agent.local_addr", "localhost:19090")
 				v.Set("agent.server_addr", "localhost:8443")
-				v.Set("agent.http_addr", "localhost:8080")
+				v.Set("agent.http_addr", "localhost:18780")
 			},
 			strict:  false,
 			wantErr: false,
@@ -356,7 +356,7 @@ func TestValidateAgentConfig(t *testing.T) {
 			setup: func(v *viper.Viper) {
 				v.Set("agent.local_addr", "localhost:19090")
 				v.Set("agent.server_addr", "localhost:8443")
-				v.Set("agent.http_addr", "localhost:8080")
+				v.Set("agent.http_addr", "localhost:18780")
 				v.Set("agent.cert", certFile)
 				v.Set("agent.key", keyFile)
 				v.Set("agent.ca", caFile)
@@ -369,7 +369,7 @@ func TestValidateAgentConfig(t *testing.T) {
 			setup: func(v *viper.Viper) {
 				v.Set("agent.local_addr", "localhost:19090")
 				v.Set("agent.core_addr", "localhost:8443")
-				v.Set("agent.http_addr", "localhost:8080")
+				v.Set("agent.http_addr", "localhost:18780")
 			},
 			strict:  false,
 			wantErr: false,
@@ -380,7 +380,7 @@ func TestValidateAgentConfig(t *testing.T) {
 				v.Set("agent.local_addr", "localhost:19090")
 				v.Set("agent.server_addr", "localhost:8443")
 				v.Set("agent.core_addr", "localhost:9999")
-				v.Set("agent.http_addr", "localhost:8080")
+				v.Set("agent.http_addr", "localhost:18780")
 			},
 			strict:  false,
 			wantErr: false,
@@ -389,7 +389,7 @@ func TestValidateAgentConfig(t *testing.T) {
 			name: "缺少 server_addr 和 core_addr",
 			setup: func(v *viper.Viper) {
 				v.Set("agent.local_addr", "localhost:19090")
-				v.Set("agent.http_addr", "localhost:8080")
+				v.Set("agent.http_addr", "localhost:18780")
 			},
 			strict:  false,
 			wantErr: true,
@@ -399,7 +399,7 @@ func TestValidateAgentConfig(t *testing.T) {
 			setup: func(v *viper.Viper) {
 				v.Set("agent.local_addr", "")
 				v.Set("agent.server_addr", "localhost:8443")
-				v.Set("agent.http_addr", "localhost:8080")
+				v.Set("agent.http_addr", "localhost:18780")
 			},
 			strict:  false,
 			wantErr: true,
@@ -409,7 +409,7 @@ func TestValidateAgentConfig(t *testing.T) {
 			setup: func(v *viper.Viper) {
 				v.Set("local_addr", "localhost:19090")
 				v.Set("server_addr", "localhost:8443")
-				v.Set("http_addr", "localhost:8080")
+				v.Set("http_addr", "localhost:18780")
 			},
 			strict:  false,
 			wantErr: false,

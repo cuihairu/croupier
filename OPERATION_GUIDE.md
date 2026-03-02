@@ -20,14 +20,14 @@ cd /Users/cui/Workspaces/croupier/croupier/services/server
 
 # 编译并启动
 make build
-./bin/server -f configs/server.yaml
+./bin/croupier-server --config services/server/etc/server.yaml
 
 # 或者直接运行
-go run server.go -f configs/server.yaml
+go run ./services/server --config services/server/etc/server.yaml
 ```
 
 **后端地址**:
-- HTTP API: `http://localhost:8080`
+- HTTP API: `http://localhost:18780`
 - gRPC: `localhost:8443`
 
 ### 前端服务（React）
@@ -96,7 +96,7 @@ cd /Users/cui/Workspaces/croupier/croupier/packs/player
 ./pack.sh
 
 # 2. 通过 curl 上传
-curl -X POST http://localhost:8080/api/v1/packs/import \
+curl -X POST http://localhost:18780/api/v1/packs/import \
   -F "pack=@player.tgz" \
   -H "X-Game-ID: your-game-id"
 
@@ -274,10 +274,10 @@ cd /Users/cui/Workspaces/croupier/croupier/packs/player
 **通过 API 动态修改**:
 ```bash
 # 查看权限
-curl http://localhost:8080/api/v1/functions/player.get/permissions
+curl http://localhost:18780/api/v1/functions/player.get/permissions
 
 # 更新权限
-curl -X PUT http://localhost:8080/api/v1/functions/player.get/permissions \
+curl -X PUT http://localhost:18780/api/v1/functions/player.get/permissions \
   -H "Content-Type: application/json" \
   -d '{
     "permissions": [
@@ -323,12 +323,12 @@ cat /Users/cui/Workspaces/croupier/croupier-dashboard/.env
 
 # 确认代理配置
 # .env
-# BASH_API_URL=http://localhost:8080
+# BASH_API_URL=http://localhost:18780
 ```
 
 **测试后端 API**:
 ```bash
-curl http://localhost:8080/healthz
+curl http://localhost:18780/healthz
 ```
 
 ### Q3: 导入 Pack 后看不到函数？
@@ -342,10 +342,10 @@ curl http://localhost:8080/healthz
 **API 调试**:
 ```bash
 # 查看已导入的 descriptors
-curl http://localhost:8080/api/v1/functions/descriptors
+curl http://localhost:18780/api/v1/functions/descriptors
 
 # 查看特定函数
-curl http://localhost:8080/api/v1/functions/player.get
+curl http://localhost:18780/api/v1/functions/player.get
 ```
 
 ### Q4: UI Schema 没有生效？
@@ -353,7 +353,7 @@ curl http://localhost:8080/api/v1/functions/player.get
 **检查 UI Schema**:
 ```bash
 # 查看函数的 UI 配置
-curl http://localhost:8080/api/v1/functions/player.get/ui
+curl http://localhost:18780/api/v1/functions/player.get/ui
 ```
 
 **确认 UI Schema 文件名**:
@@ -384,12 +384,12 @@ cd /Users/cui/Workspaces/croupier/croupier/packs/player
 **方法 B：通过 API 直接修改**
 ```bash
 # 修改 UI 配置
-curl -X PUT http://localhost:8080/api/v1/functions/player.get/ui \
+curl -X PUT http://localhost:18780/api/v1/functions/player.get/ui \
   -H "Content-Type: application/json" \
   -d @ui_schema.json
 
 # 修改权限
-curl -X PUT http://localhost:8080/api/v1/functions/player.get/permissions \
+curl -X PUT http://localhost:18780/api/v1/functions/player.get/permissions \
   -H "Content-Type: application/json" \
   -d '{
     "permissions": [...]
@@ -412,7 +412,7 @@ tail -f /var/log/croupier/server.log | grep "player.get"
 
 **使用 API 直接测试**:
 ```bash
-curl -X POST http://localhost:8080/api/v1/functions/player.get/invoke \
+curl -X POST http://localhost:18780/api/v1/functions/player.get/invoke \
   -H "Content-Type: application/json" \
   -H "X-Game-ID: your-game-id" \
   -d '{
@@ -466,7 +466,7 @@ curl -X POST http://localhost:8080/api/v1/functions/player.get/invoke \
 
 - **函数 Pack 配置**: `/Users/cui/Workspaces/croupier/croupier/packs/player/README.md`
 - **系统架构**: `/Users/cui/Workspaces/croupier/croupier/CLAUDE.md`
-- **API 文档**: http://localhost:8080/swagger (如果启用了)
+- **API 文档**: http://localhost:18780/swagger (如果启用了)
 
 ---
 

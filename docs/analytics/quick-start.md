@@ -20,7 +20,7 @@ docker compose up -d clickhouse redis
 make dev   # 生成到 bin/
 
 # 启动服务（示意参数，按需调整）
-bin/server --http_addr :8080
+bin/croupier-server --config services/server/etc/server.yaml
 bin/ingest --http_addr :18080 --redis_url redis://localhost:6379/0 --secret your-secret
 bin/analytics-worker --redis_url redis://localhost:6379/0 --clickhouse_url http://localhost:8123
 ```

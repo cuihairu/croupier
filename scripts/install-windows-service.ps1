@@ -133,22 +133,26 @@ function Install-Service {
 # Croupier Server 配置文件
 # 请根据实际环境修改
 
-server:
-  addr: ":8443"
-  http_addr: ":8080"
+Name: croupier-server
+Host: 0.0.0.0
+Port: 18780
+Mode: prod
 
-database:
-  driver: postgres
-  dsn: "postgres://croupier:password@localhost:5432/croupier?sslmode=disable"
+Database:
+  Driver: postgres
+  DataSource: "postgres://croupier:password@localhost:5432/croupier?sslmode=disable"
 
-jwt:
-  secret: "change-me-to-random-string"
+Control:
+  Addr: ":19090"
 
-log:
-  level: info
-  format: json
-  output: "file"
-  file_path: "$logDir\croupier.log"
+Auth:
+  JWTSecret: "change-me-to-random-string"
+
+Log:
+  Level: info
+  Format: json
+  Output: file
+  File: "$logDir\croupier.log"
 "@
         $exampleConfig | Out-File -FilePath $configPath -Encoding UTF8
     }

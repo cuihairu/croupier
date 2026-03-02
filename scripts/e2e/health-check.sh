@@ -5,8 +5,8 @@
 set -euo pipefail
 
 # Configuration
-SERVER_URL="${SERVER_URL:-http://localhost:8080}"
-DASHBOARD_URL="${DASHBOARD_URL:-http://localhost:8000}"
+SERVER_URL="${SERVER_URL:-http://localhost:18780}"
+DASHBOARD_URL="${DASHBOARD_URL:-}"
 GAME_ID="${GAME_ID:-test-game}"
 
 # Colors
@@ -43,7 +43,11 @@ echo "=========================================="
 echo "  Croupier E2E Health Check"
 echo "=========================================="
 echo "Server:    $SERVER_URL"
-echo "Dashboard: $DASHBOARD_URL"
+if [ -n "$DASHBOARD_URL" ]; then
+    echo "Dashboard: $DASHBOARD_URL"
+else
+    echo "Dashboard: (skip)"
+fi
 echo "Game ID:   $GAME_ID"
 echo ""
 
@@ -52,7 +56,9 @@ echo "--- Service Health ---"
 test_service "Server Health" "$SERVER_URL/healthz"
 test_service "Agent Status" "$SERVER_URL/api/v1/agents"
 test_service "Function Descriptors" "$SERVER_URL/api/v1/functions/descriptors"
-test_service "Dashboard" "$DASHBOARD_URL"
+if [ -n "$DASHBOARD_URL" ]; then
+    test_service "Dashboard" "$DASHBOARD_URL"
+fi
 
 # API endpoint checks
 echo ""

@@ -18,7 +18,7 @@ scrape_configs:
   # Croupier Server指标
   - job_name: 'croupier-server'
     static_configs:
-      - targets: ['host.docker.internal:8080']
+      - targets: ['host.docker.internal:18780']
     scrape_interval: 30s
     metrics_path: '/metrics'
     relabel_configs:

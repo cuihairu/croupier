@@ -162,7 +162,7 @@ graph TB
 
 3. **查看分析面板**
    ```
-   打开浏览器访问: http://localhost:8080/analytics
+   打开浏览器访问: http://localhost:18780/analytics
    ```
 
 ## 📞 获取支持

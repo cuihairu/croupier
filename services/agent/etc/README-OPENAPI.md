@@ -38,7 +38,7 @@ platforms:
     type: openapi
     config:
       openapi_spec: ./etc/my-functions.yaml
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
       timeout: 30s
 ```
 
@@ -87,7 +87,7 @@ platforms:
       methods: [...]                       # 方式 3: 手动定义
 
       # HTTP 配置
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
       timeout: 30s
       retry_count: 3
       headers:
@@ -132,7 +132,7 @@ platforms:
       # 或 HTTP URL
       # openapi_spec: https://example.com/openapi.yaml
 
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
 ```
 
 ### 支持的文件格式
@@ -167,7 +167,7 @@ platforms:
         - ../packs/http/openapi.yaml      # 支持相对路径
         - ../packs/player/openapi.yaml
 
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
 ```
 
 ### 函数合并规则
@@ -191,7 +191,7 @@ platforms:
         - ../packs/grafana/openapi.yaml
         - ../packs/alertmanager/openapi.yaml
 
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
       timeout: 30s
       rate_limit:
         requests_per_minute: 100
@@ -212,7 +212,7 @@ platforms:
     type: openapi
     config:
       openapi_spec: ./etc/openapi.example.yaml
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
       timeout: 30s
       retry_count: 3
 ```
@@ -348,10 +348,10 @@ ERROR failed to init platform name=game_packs error="failed to read OpenAPI spec
 
 ```bash
 # 查询所有函数
-curl http://localhost:8080/api/v1/functions/descriptors
+curl http://localhost:18780/api/v1/functions/descriptors
 
 # 查询特定平台的函数
-curl http://localhost:8080/api/v1/functions/descriptors | jq '.[] | select(.id | startswith("game_packs"))'
+curl http://localhost:18780/api/v1/functions/descriptors | jq '.[] | select(.id | startswith("game_packs"))'
 ```
 
 ### 5. 常见问题

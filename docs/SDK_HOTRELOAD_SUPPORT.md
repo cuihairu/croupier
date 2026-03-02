@@ -483,11 +483,11 @@ clean_on_exit = true
 # 自定义命令
 [[build.pre_build_cmd]]
 name = "notify-croupier-sdk"
-cmd = "curl -X POST http://localhost:8080/api/dev/prepare-reload"
+cmd = "curl -X POST http://localhost:18780/api/dev/prepare-reload"
 
 [[build.post_build_cmd]]
 name = "health-check"
-cmd = "curl http://localhost:8080/health || true"
+cmd = "curl http://localhost:18780/health || true"
 ```
 
 ```json
@@ -528,7 +528,7 @@ echo 'package main; func newFunction() { return "updated" }' >> functions.go
 sleep 3
 
 # 验证函数是否重新注册
-curl -s "http://localhost:8080/api/functions" | jq '.functions[].id'
+curl -s "http://localhost:18780/api/functions" | jq '.functions[].id'
 
 # 2. 测试Nodemon集成
 echo "2. 测试Nodemon集成..."
@@ -541,7 +541,7 @@ echo 'exports.newFunction = () => "updated";' >> functions.js
 sleep 3
 
 # 验证重载
-curl -s "http://localhost:8080/api/functions" | jq '.functions[].id'
+curl -s "http://localhost:18780/api/functions" | jq '.functions[].id'
 
 echo "✅ 热更新集成测试完成！"
 ```

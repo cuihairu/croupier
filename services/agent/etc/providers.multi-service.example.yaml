@@ -203,7 +203,7 @@ providers:
       openapi_specs:
         - ./etc/openapi.example.yaml
 
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
 
       timeout: 30s
       retry_count: 3
@@ -293,14 +293,14 @@ providers:
 # ============================================================================
 #
 # 调用玩家服务的函数：
-# curl -X POST http://localhost:8080/api/v1/functions/invoke \
+# curl -X POST http://localhost:18780/api/v1/functions/invoke \
 #   -d '{
 #     "function_id": "player_service.player.create",
 #     "payload": {...}
 #   }'
 #
 # 调用物品服务的函数：
-# curl -X POST http://localhost:8080/api/v1/functions/invoke \
+# curl -X POST http://localhost:18780/api/v1/functions/invoke \
 #   -d '{
 #     "function_id": "inventory_service.item.add",
 #     "payload": {...}

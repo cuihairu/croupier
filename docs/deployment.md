@@ -435,7 +435,7 @@ docker run -d \
 
 ```bash
 # HTTP 健康检查
-curl http://localhost:8080/healthz
+curl http://localhost:18780/healthz
 
 # 预期输出
 {"status":"ok"}

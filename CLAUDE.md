@@ -27,7 +27,7 @@ make build               # Build binaries
 ```bash
 make test                 # All tests with race detection
 go test ./internal/...    # Subset testing
-./croupier config test --config configs/server.example.yaml  # Config validation
+./croupier config test --config services/server/etc/server.yaml  # Config validation
 ```
 
 ## Architecture Overview
@@ -41,7 +41,7 @@ Croupier implements a **three-tier distributed GM backend system**:
 ### Core Components
 
 **Server** (`internal/server/`)
-- Central control plane with gRPC (8443) + HTTP REST (8080)
+- Central control plane with gRPC (8443) + HTTP REST (18780)
 - Two main services: `ControlService` (agent registration) and `FunctionService` (invocation routing)
 - Features: load balancing, RBAC, audit chain, approval workflows, multi-game scoping
 

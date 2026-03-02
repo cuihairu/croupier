@@ -13,10 +13,10 @@
 ### 验证服务可用性
 ```bash
 # 检查 Server
-curl http://localhost:8080/healthz
+curl http://localhost:18780/healthz
 
 # 检查 Agent 连接状态
-curl http://localhost:8080/api/v1/agents
+curl http://localhost:18780/api/v1/agents
 
 # 检查 Dashboard
 curl http://localhost:8000
@@ -82,7 +82,7 @@ grpcurl -plaintext localhost:19090 list.FunctionRegistry/ListFunctions
 **验证命令：**
 ```bash
 # 查询 Server 上的函数列表
-curl http://localhost:8080/api/v1/functions
+curl http://localhost:18780/api/v1/functions
 
 # 预期响应包含：
 # {
@@ -97,7 +97,7 @@ curl http://localhost:8080/api/v1/functions
 # }
 
 # 查询函数 OpenAPI
-curl http://localhost:8080/api/v1/functions/test.function.v1/openapi
+curl http://localhost:18780/api/v1/functions/test.function.v1/openapi
 ```
 
 ### 2.2 Descriptor 生成
@@ -115,7 +115,7 @@ curl http://localhost:8080/api/v1/functions/test.function.v1/openapi
 **验证命令：**
 ```bash
 # 查询函数 Descriptors
-curl http://localhost:8080/api/v1/functions/descriptors
+curl http://localhost:18780/api/v1/functions/descriptors
 
 # 预期响应包含：
 # {
@@ -194,7 +194,7 @@ curl http://localhost:8080/api/v1/functions/descriptors
 **验证命令：**
 ```bash
 # 获取函数 UI 配置
-curl http://localhost:8080/api/v1/functions/test.function.v1/ui
+curl http://localhost:18780/api/v1/functions/test.function.v1/ui
 
 # 预期响应包含：
 # {
@@ -223,7 +223,7 @@ curl http://localhost:8080/api/v1/functions/test.function.v1/ui
 **验证命令：**
 ```bash
 # 更新 UI 配置
-curl -X PUT http://localhost:8080/api/v1/functions/test.function.v1/ui \
+curl -X PUT http://localhost:18780/api/v1/functions/test.function.v1/ui \
   -H "Content-Type: application/json" \
   -d '{
     "layout": "horizontal",
@@ -252,7 +252,7 @@ curl -X PUT http://localhost:8080/api/v1/functions/test.function.v1/ui \
 **验证命令：**
 ```bash
 # 获取 UI 历史记录
-curl http://localhost:8080/api/v1/functions/test.function.v1/ui/history
+curl http://localhost:18780/api/v1/functions/test.function.v1/ui/history
 
 # 预期响应包含：
 # {
@@ -287,7 +287,7 @@ curl http://localhost:8080/api/v1/functions/test.function.v1/ui/history
 **验证命令：**
 ```bash
 # 回滚到指定版本
-curl -X POST http://localhost:8080/api/v1/functions/test.function.v1/ui/rollback \
+curl -X POST http://localhost:18780/api/v1/functions/test.function.v1/ui/rollback \
   -H "Content-Type: application/json" \
   -d '{ "version": 1 }'
 
@@ -315,7 +315,7 @@ curl -X POST http://localhost:8080/api/v1/functions/test.function.v1/ui/rollback
 **验证命令：**
 ```bash
 # 获取路由配置
-curl http://localhost:8080/api/v1/functions/test.function.v1/route
+curl http://localhost:18780/api/v1/functions/test.function.v1/route
 
 # 预期响应包含：
 # {
@@ -344,7 +344,7 @@ curl http://localhost:8080/api/v1/functions/test.function.v1/route
 **验证命令：**
 ```bash
 # 更新路由配置
-curl -X PUT http://localhost:8080/api/v1/functions/test.function.v1/route \
+curl -X PUT http://localhost:18780/api/v1/functions/test.function.v1/route \
   -H "Content-Type: application/json" \
   -d '{
     "group": "Favorites",
@@ -411,7 +411,7 @@ curl -X PUT http://localhost:8080/api/v1/functions/test.function.v1/route \
 **验证命令：**
 ```bash
 # 调用函数
-curl -X POST http://localhost:8080/api/v1/functions/test.function.v1/invoke \
+curl -X POST http://localhost:18780/api/v1/functions/test.function.v1/invoke \
   -H "Content-Type: application/json" \
   -H "X-Game-ID: test-game" \
   -d '{
@@ -470,8 +470,8 @@ done
 make test
 
 # 2. API 端点测试
-curl http://localhost:8080/api/v1/health
-curl http://localhost:8080/api/v1/functions/descriptors
+curl http://localhost:18780/api/v1/health
+curl http://localhost:18780/api/v1/functions/descriptors
 
 # 3. 前端类型检查
 cd croupier-dashboard && pnpm tsc
@@ -516,7 +516,7 @@ cd croupier-dashboard && pnpm tsc
 set -euo pipefail
 
 # 配置
-SERVER_URL="${SERVER_URL:-http://localhost:8080}"
+SERVER_URL="${SERVER_URL:-http://localhost:18780}"
 DASHBOARD_URL="${DASHBOARD_URL:-http://localhost:8000}"
 GAME_ID="${GAME_ID:-test-game}"
 
@@ -588,7 +588,7 @@ fi
 
 set -euo pipefail
 
-SERVER_URL="${SERVER_URL:-http://localhost:8080}"
+SERVER_URL="${SERVER_URL:-http://localhost:18780}"
 FUNCTION_ID="test.e2e.function.$(date +%s)"
 
 echo "=== Testing Function Registration Flow ==="
@@ -638,7 +638,7 @@ echo "=== Registration Flow Test Complete ==="
 
 set -euo pipefail
 
-SERVER_URL="${SERVER_URL:-http://localhost:8080}"
+SERVER_URL="${SERVER_URL:-http://localhost:18780}"
 FUNCTION_ID="${FUNCTION_ID:-test.e2e.function}"
 
 echo "=== Testing UI Configuration Flow ==="
@@ -823,7 +823,7 @@ echo "=== UI Configuration Test Complete ==="
 # 并发调用测试 - 模拟多个管理员同时操作
 FUNCTION_ID="${FUNCTION_ID:-test.player.addCurrency}"
 CONCURRENT=10
-SERVER_URL="${SERVER_URL:-http://localhost:8080}"
+SERVER_URL="${SERVER_URL:-http://localhost:18780}"
 
 echo "=== Concurrent Function Invocation Test ==="
 echo "Concurrent requests: $CONCURRENT"
@@ -869,7 +869,7 @@ echo "Successful: $success/$CONCURRENT"
 
 set -euo pipefail
 
-SERVER_URL="${SERVER_URL:-http://localhost:8080}"
+SERVER_URL="${SERVER_URL:-http://localhost:18780}"
 
 # 测试函数列表响应时间
 echo "=== Performance Test: API Response Times ==="

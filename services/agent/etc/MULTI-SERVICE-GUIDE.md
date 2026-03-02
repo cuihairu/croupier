@@ -19,25 +19,25 @@ providers:
         - ./etc/chat-functions.yaml
 
       # ⭐ 单一服务端口
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
 ```
 
 **注册的函数**：
-- `game_functions.player.create` → http://localhost:8080/player/create
-- `game_functions.inventory.get` → http://localhost:8080/inventory/get
-- `game_functions.chat.send` → http://localhost:8080/chat/send
+- `game_functions.player.create` → http://localhost:18780/player/create
+- `game_functions.inventory.get` → http://localhost:18780/inventory/get
+- `game_functions.chat.send` → http://localhost:18780/chat/send
 
 **架构图**：
 ```
 Agent
-  └─ game_functions (base_url: localhost:8080)
+  └─ game_functions (base_url: localhost:18780)
        ├─ player functions
        ├─ inventory functions
        └─ chat functions
 
          ↓
 
-Server (localhost:8080)
+Server (localhost:18780)
   ├─ /player/*
   ├─ /inventory/*
   └─ /chat/*
@@ -246,7 +246,7 @@ providers:
         - ./etc/player.yaml
         - ./etc/inventory.yaml
         - ./etc/chat.yaml
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
 
   # 外部监控服务（独立配置）
   prometheus:
@@ -440,7 +440,7 @@ providers:
 
 ```bash
 # 测试 Player Service
-curl -X POST http://localhost:8080/api/v1/functions/invoke \
+curl -X POST http://localhost:18780/api/v1/functions/invoke \
   -H "Content-Type: application/json" \
   -d '{
     "function_id": "player_service.player.get",
@@ -454,15 +454,15 @@ curl -X POST http://localhost:8080/api/v1/functions/invoke \
 
 ```bash
 # Player Service (8081)
-curl -X POST http://localhost:8080/api/v1/functions/invoke \
+curl -X POST http://localhost:18780/api/v1/functions/invoke \
   -d '{"function_id": "player_service.player.get", ...}'
 
 # Inventory Service (8082)
-curl -X POST http://localhost:8080/api/v1/functions/invoke \
+curl -X POST http://localhost:18780/api/v1/functions/invoke \
   -d '{"function_id": "inventory_service.item.get", ...}'
 
 # Chat Service (8083)
-curl -X POST http://localhost:8080/api/v1/functions/invoke \
+curl -X POST http://localhost:18780/api/v1/functions/invoke \
   -d '{"function_id": "chat_service.message.send", ...}'
 ```
 

@@ -4,7 +4,8 @@
 
 set -euo pipefail
 
-SERVER_URL="${SERVER_URL:-http://localhost:8080}"
+SERVER_URL="${SERVER_URL:-http://localhost:18780}"
+DASHBOARD_URL="${DASHBOARD_URL:-}"
 
 echo "=========================================="
 echo "  API Performance Test"
@@ -67,8 +68,10 @@ test_endpoint "Function UI Config" "$SERVER_URL/api/v1/functions/test.player.add
 test_endpoint "Function Route Config" "$SERVER_URL/api/v1/functions/test.player.addCurrency/route" 0.1 0.3
 
 echo ""
-echo "--- Dashboard Pages ---"
-test_endpoint "Dashboard Home" "http://localhost:8000" 1.0 3.0
+if [ -n "$DASHBOARD_URL" ]; then
+    echo "--- Dashboard Pages ---"
+    test_endpoint "Dashboard Home" "$DASHBOARD_URL" 1.0 3.0
+fi
 
 echo ""
 echo "=========================================="

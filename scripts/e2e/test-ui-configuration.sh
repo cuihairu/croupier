@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SERVER_URL="${SERVER_URL:-http://localhost:8080}"
+SERVER_URL="${SERVER_URL:-http://localhost:18780}"
 FUNCTION_ID="${FUNCTION_ID:-test.player.addCurrency}"
 
 echo "=========================================="

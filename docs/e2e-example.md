@@ -19,7 +19,7 @@ Prerequisites
 ```
 # Server (+sqlite approvals support optional)
 make server-sqlite
-./bin/croupier-server --config configs/server.example.yaml
+./bin/croupier-server --config services/server/etc/server.yaml
 
 # Agent
 make agent

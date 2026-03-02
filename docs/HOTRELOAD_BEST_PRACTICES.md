@@ -176,7 +176,7 @@ pm2 reload croupier-game
 
 # 3. 验证服务状态
 pm2 status
-curl http://localhost:8080/health
+curl http://localhost:18780/health
 ```
 
 ## 📊 监控和观测最佳实践

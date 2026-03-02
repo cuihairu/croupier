@@ -1,31 +1,37 @@
 # Docker/dev config for croupier-server (used by docker/docker-compose.yml)
 Name: croupier-server
 Host: 0.0.0.0
-Port: 8080
+Port: 18780
+Timeout: 600000
+Mode: dev
 
-Server:
-  # gRPC ControlService (plain by default; set cert/key/ca for TLS/mTLS)
-  Addr: ":8443"
-  HttpAddr: ":8080"
+SSE:
+  UpdateInterval: 2
+  KeepAliveInterval: 30
+
+Database:
+  # Prefer env override in docker-compose:
+  # - DB_DRIVER
+  # - DATABASE_URL (e.g. postgres://...)
+  Driver: "auto"
+  DataSource: ""
+
+Control:
+  Addr: ":19090"
+  IPCAddr: ""
   Cert: ""
   Key: ""
   CA: ""
-  db:
-    # Prefer env override in docker-compose:
-    # - DB_DRIVER
-    # - DATABASE_URL (e.g. postgres://...)
-    driver: "auto"
-    datasource: ""
 
 Registry:
   AssignmentsPath: "data/assignments.json"
   AnalyticsFiltersPath: "packs/ui/analytics_filters.json"
   RateLimitsPath: "data/rate_limits.json"
 
-Dispatch:
+AgentDispatch:
   JobRoutingDir: "data"
-  JobRoutingTTL: "" # e.g. "24h"; empty disables cleanup
-  AgentTLS:
+  JobRoutingTTL: ""
+  ToAgentTLS:
     Enabled: false
     CertFile: ""
     KeyFile: ""
@@ -71,7 +77,7 @@ Cache:
   EvictTTL: "10m"
   MaxItems: 10000
 
-CroupierLog:
+Log:
   Level: "info"
   Format: "console"
   Output: "stdout"
@@ -81,5 +87,5 @@ Metrics:
   PerGameDenies: false
 
 Platforms:
-  Enabled: false  # Set to true to enable third-party platform integration
+  Enabled: false
   ConfigFile: "configs/platforms.yaml"

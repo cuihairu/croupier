@@ -164,12 +164,12 @@ jobs:
         run: |
           go build -o bin/croupier-server ./services/server
           mkdir -p data/uploads
-          ./bin/croupier-server --config configs/server.example.yaml &
+          ./bin/croupier-server --config services/server/etc/server.yaml &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
           # Wait for server to be ready
           for i in {1..30}; do
-            if curl -s http://localhost:8080/healthz > /dev/null; then
+            if curl -s http://localhost:18780/healthz > /dev/null; then
               echo "Server is ready"
               break
             fi
@@ -178,8 +178,7 @@ jobs:
           done
       - name: Run E2E tests
         env:
-          SERVER_URL: http://localhost:8080
-          DASHBOARD_URL: http://localhost:8080
+          SERVER_URL: http://localhost:18780
         run: |
           bash scripts/e2e/health-check.sh
           bash scripts/e2e/test-performance.sh

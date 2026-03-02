@@ -14,8 +14,10 @@ NC='\033[0m'
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SERVER_URL="${SERVER_URL:-http://localhost:8080}"
+SERVER_URL="${SERVER_URL:-http://localhost:18780}"
 DASHBOARD_URL="${DASHBOARD_URL:-http://localhost:8000}"
+export SERVER_URL
+export DASHBOARD_URL
 
 # Test results
 declare -A RESULTS

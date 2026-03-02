@@ -31,7 +31,7 @@ providers:
     type: openapi
     config:
       openapi_spec: ./etc/openapi.example.yaml  # 你的 OpenAPI 文件
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
       timeout: 30s
 ```
 
@@ -74,7 +74,7 @@ providers:
     type: openapi
     config:
       openapi_spec: ./my-functions.yaml
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
 ```
 
 ### 方式 2️⃣: 多个文件（推荐）
@@ -89,7 +89,7 @@ providers:
         - ./player-functions.yaml
         - ./inventory-functions.yaml
         - ./chat-functions.yaml
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
 ```
 
 ### 方式 3️⃣: 手动定义
@@ -100,7 +100,7 @@ providers:
     enabled: true
     type: openapi
     config:
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
       methods:
         - name: my_function
           path: /api/v1/my
@@ -121,7 +121,7 @@ providers:
     type: openapi
     config:
       openapi_spec: ./etc/openapi.example.yaml
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
 ```
 
 **注册 13 个示例函数**：
@@ -146,7 +146,7 @@ providers:
         - ../packs/player/openapi.yaml
         - ../packs/grafana/openapi.yaml
         - ../packs/alertmanager/openapi.yaml
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
 ```
 
 ### 场景 C: 本地 + 远程
@@ -160,7 +160,7 @@ providers:
       openapi_specs:
         - ./etc/local-functions.yaml      # 本地文件
         - https://api.example.com/openapi.yaml  # 远程 URL
-      base_url: http://localhost:8080
+      base_url: http://localhost:18780
       timeout: 30s
 ```
 
@@ -208,10 +208,10 @@ python3 -c "import yaml; yaml.safe_load(open('services/agent/etc/providers.yaml'
 swagger-cli validate services/agent/etc/openapi.example.yaml
 
 # 3. 查询已注册函数
-curl http://localhost:8080/api/v1/functions/descriptors | jq .
+curl http://localhost:18780/api/v1/functions/descriptors | jq .
 
 # 4. 查看特定平台函数
-curl http://localhost:8080/api/v1/functions/descriptors | \
+curl http://localhost:18780/api/v1/functions/descriptors | \
   jq '.[] | select(.id | startswith("examples"))'
 
 # 5. 查看日志

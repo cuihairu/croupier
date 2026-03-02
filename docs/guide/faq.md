@@ -59,10 +59,10 @@ git clone --recursive https://github.com/cuihairu/croupier.git
 cd croupier
 
 # 2. 一键启动（开发模式）
-make dev && ./bin/croupier-server --config configs/server.example.yaml
+make dev && ./bin/croupier-server --config services/server/etc/server.yaml
 
 # 3. 访问管理界面
-# 浏览器打开 http://localhost:8080
+# 浏览器打开 http://localhost:18780
 ```
 
 ### 必须使用子模块吗？
@@ -96,7 +96,7 @@ git submodule update --init --recursive
 | 组件 | 端口 | 协议 |
 |------|------|------|
 | Server gRPC | 8443 | gRPC + mTLS |
-| Server HTTP | 8080 | REST API |
+| Server HTTP | 18780 | REST API |
 | Server Metrics | 9090 | Prometheus |
 | Agent Local | 19090 | gRPC |
 | Agent Metrics | 9091 | Prometheus |
@@ -107,9 +107,9 @@ git submodule update --init --recursive
 
 ```yaml
 # server.yaml
-server:
-  addr: ":9443"        # 修改 gRPC 端口
-  http_addr: ":9080"   # 修改 HTTP 端口
+Control:
+  Addr: ":19091"  # 修改 Control 端口
+Port: 19080       # 修改 HTTP 端口
 ```
 
 ### 必须配置 TLS 证书吗？

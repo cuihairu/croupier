@@ -22,14 +22,14 @@ echo ""
 
 # 1. 检查后端服务
 echo -e "${YELLOW}[1/4] 检查后端服务...${NC}"
-if curl -s http://localhost:8080/healthz > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ 后端服务已运行 (http://localhost:8080)${NC}"
+if curl -s http://localhost:18780/healthz > /dev/null 2>&1; then
+    echo -e "${GREEN}✅ 后端服务已运行 (http://localhost:18780)${NC}"
 else
     echo -e "${RED}❌ 后端服务未运行${NC}"
     echo -e "${YELLOW}请先启动后端服务:${NC}"
     echo "  cd ${PROJECT_ROOT}/services/server"
     echo "  make build"
-    echo "  ./bin/server -f configs/server.yaml"
+    echo "  ./bin/croupier-server --config services/server/etc/server.yaml"
     echo ""
     read -p "按回车键继续（假设您会手动启动后端）..."
 fi
@@ -96,8 +96,8 @@ echo "   ${PROJECT_ROOT}/OPERATION_GUIDE.md"
 echo "   ${PACK_DIR}/README.md"
 echo ""
 echo -e "${YELLOW}🔧 常用命令:${NC}"
-echo "   查看已导入函数: curl http://localhost:8080/api/v1/functions/descriptors"
-echo "   查看UI配置: curl http://localhost:8080/api/v1/functions/player.get/ui"
-echo "   查看权限: curl http://localhost:8080/api/v1/functions/player.get/permissions"
+echo "   查看已导入函数: curl http://localhost:18780/api/v1/functions/descriptors"
+echo "   查看UI配置: curl http://localhost:18780/api/v1/functions/player.get/ui"
+echo "   查看权限: curl http://localhost:18780/api/v1/functions/player.get/permissions"
 echo ""
 echo -e "${BLUE}========================================${NC}"

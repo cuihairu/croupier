@@ -39,7 +39,7 @@ servers:
     description: 生产环境
   - url: https://staging-api.croupier.example.com/v1
     description: 测试环境
-  - url: http://localhost:8080/v1
+  - url: http://localhost:18780/v1
     description: 本地开发环境
 
 # ============================================================================

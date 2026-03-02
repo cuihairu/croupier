@@ -163,28 +163,28 @@ test_telemetry_functionality() {
     log_info "测试游戏API端点..."
 
     # 测试会话开始
-    if curl -sf http://localhost:8080/api/session/start > /dev/null; then
+    if curl -sf http://localhost:18780/api/session/start > /dev/null; then
         log_success "✓ 会话开始API正常"
     else
         log_warning "✗ 会话开始API异常"
     fi
 
     # 测试关卡完成
-    if curl -sf http://localhost:8080/api/level/complete > /dev/null; then
+    if curl -sf http://localhost:18780/api/level/complete > /dev/null; then
         log_success "✓ 关卡完成API正常"
     else
         log_warning "✗ 关卡完成API异常"
     fi
 
     # 测试经济交易
-    if curl -sf http://localhost:8080/api/economy/transaction > /dev/null; then
+    if curl -sf http://localhost:18780/api/economy/transaction > /dev/null; then
         log_success "✓ 经济交易API正常"
     else
         log_warning "✗ 经济交易API异常"
     fi
 
     # 测试健康检查
-    if curl -sf http://localhost:8080/health > /dev/null; then
+    if curl -sf http://localhost:18780/health > /dev/null; then
         log_success "✓ 健康检查API正常"
     else
         log_warning "✗ 健康检查API异常"
@@ -250,7 +250,7 @@ OpenTelemetry游戏监控系统测试报告
 - Redis: $(docker exec croupier-redis redis-cli ping 2>/dev/null | grep -q PONG && echo "✓ 健康" || echo "✗ 异常")
 
 功能测试:
-- 游戏API端点: $(curl -sf http://localhost:8080/health >/dev/null && echo "✓ 正常" || echo "✗ 异常")
+- 游戏API端点: $(curl -sf http://localhost:18780/health >/dev/null && echo "✓ 正常" || echo "✗ 异常")
 - 遥测数据传输: 已验证
 - Analytics事件收集: 已验证
 
@@ -258,7 +258,7 @@ OpenTelemetry游戏监控系统测试报告
 - Jaeger UI: http://localhost:16686
 - Prometheus: http://localhost:9090
 - Grafana: http://localhost:3000 (admin/admin)
-- 演示应用: http://localhost:8080
+- 演示应用: http://localhost:18780
 
 下一步操作:
 1. 访问Jaeger UI查看链路追踪数据

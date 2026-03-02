@@ -122,7 +122,7 @@ bin/
 
 ```bash
 # Server 配置
-cp configs/server.example.yaml configs/server.yaml
+cp services/server/etc/server.yaml configs/server.yaml
 
 # Agent 配置
 cp configs/agent.example.yaml configs/agent.yaml
@@ -136,7 +136,7 @@ cp configs/agent.example.yaml configs/agent.yaml
 
 Server 默认监听：
 - **gRPC**: `8443` (mTLS)
-- **HTTP**: `8080` (REST API)
+- **HTTP**: `18780` (REST API)
 
 ### 4. 启动 Agent
 
@@ -162,7 +162,7 @@ pnpm dev
 
 ```bash
 # 检查 Server HTTP 端点
-curl http://localhost:8080/healthz
+curl http://localhost:18780/healthz
 
 # 预期输出
 # {"status":"ok"}
@@ -195,9 +195,9 @@ tail -f logs/agent.log
 
 ```yaml
 # server.yaml
-server:
-  addr: ":8443"        # gRPC 端口
-  http_addr: ":8080"   # HTTP 端口
+Control:
+  Addr: ":19090"  # Control 端口
+Port: 18780       # HTTP 端口
 ```
 
 ### TLS 证书错误

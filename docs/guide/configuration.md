@@ -185,7 +185,7 @@ Metrics:
   Path: /metrics
 
   # 分配配置
-  assignments_api: "http://localhost:8080"
+  assignments_api: "http://localhost:18780"
   assignments_poll_sec: 30
   downlink_dir: "./packs/downlink"
 
@@ -372,7 +372,7 @@ STORAGE_SK=your-secret-key
 ### 3. 配置文件模板
 
 ```yaml
-# server.example.yaml
+# services/server/etc/server.yaml
 # HTTP REST API (go-zero RestConf)
 Name: croupier-api
 Host: 0.0.0.0

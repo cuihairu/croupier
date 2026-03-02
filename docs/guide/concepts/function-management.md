@@ -225,7 +225,7 @@ int main() {
 ### 同步调用
 
 ```bash
-curl -X POST http://localhost:8080/api/invoke \
+curl -X POST http://localhost:18780/api/invoke \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -H "X-Game-ID: my-game" \
@@ -243,7 +243,7 @@ curl -X POST http://localhost:8080/api/invoke \
 ### 异步调用（作业）
 
 ```bash
-curl -X POST http://localhost:8080/api/jobs \
+curl -X POST http://localhost:18780/api/jobs \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{
@@ -256,10 +256,10 @@ curl -X POST http://localhost:8080/api/jobs \
 
 ```bash
 # 获取作业状态
-curl http://localhost:8080/api/jobs/{job_id}
+curl http://localhost:18780/api/jobs/{job_id}
 
 # 流式获取事件
-curl http://localhost:8080/api/jobs/{job_id}/events
+curl http://localhost:18780/api/jobs/{job_id}/events
 ```
 
 ## 函数路由
@@ -345,11 +345,11 @@ player-management-1.0.0.tgz
 
 ```bash
 # 导出函数包
-curl -X POST http://localhost:8080/api/packs/export \
+curl -X POST http://localhost:18780/api/packs/export \
   -d '{"functions": ["player.*"]}'
 
 # 导入函数包
-curl -X POST http://localhost:8080/api/packs/import \
+curl -X POST http://localhost:18780/api/packs/import \
   -F "pack=@player-management-1.0.0.tgz"
 ```
 

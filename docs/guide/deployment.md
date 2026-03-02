@@ -123,11 +123,10 @@ services:
     image: croupier-server:latest
     ports:
       - "8443:8443"
-      - "8080:8080"
+      - "18780:18780"
     environment:
       - DATABASE_URL=postgres://croupier:${POSTGRES_PASSWORD}@postgres:5432/croupier?sslmode=disable
       - CROUPIER_SERVER_ADDR=:8443
-      - CROUPIER_SERVER_HTTP_ADDR=:8080
     volumes:
       - ./configs:/app/configs
       - ./data:/app/data
@@ -149,7 +148,7 @@ docker build -t croupier-server:latest -f docker/Dockerfile.server .
 docker run -d \
   --name croupier-server \
   -p 8443:8443 \
-  -p 8080:8080 \
+  -p 18780:18780 \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/configs:/app/configs \
   -e DATABASE_URL="postgres://croupier:password@postgres:5432/croupier" \
@@ -193,14 +192,16 @@ metadata:
   namespace: croupier
 data:
   server.yaml: |
-    server:
-      addr: ":8443"
-      http_addr: ":8080"
-      db:
-        driver: postgres
-      log:
-        level: info
-        format: json
+    Name: croupier-server
+    Host: 0.0.0.0
+    Port: 18780
+    Control:
+      Addr: ":19090"
+    Database:
+      Driver: postgres
+    Log:
+      Level: info
+      Format: json
 ```
 
 ### Secret
@@ -243,7 +244,7 @@ spec:
         ports:
         - containerPort: 8443
           name: grpc
-        - containerPort: 8080
+        - containerPort: 18780
           name: http
         env:
         - name: DATABASE_URL
@@ -576,7 +577,7 @@ sudo cp croupier-server /opt/croupier/bin/
 sudo chmod +x /opt/croupier/bin/croupier-server
 
 # 安装配置
-sudo cp configs/server.example.yaml /etc/croupier/server.yaml
+sudo cp services/server/etc/server.yaml /etc/croupier/server.yaml
 sudo editor /etc/croupier/server.yaml  # 修改配置
 
 # 重载配置
@@ -764,16 +765,16 @@ ufw allow out 8443/tcp
 
 ```bash
 # HTTP 健康检查
-curl http://localhost:8080/healthz
+curl http://localhost:18780/healthz
 
 # 预期输出
 # {"status":"ok"}
 
 # 就绪检查
-curl http://localhost:8080/readyz
+curl http://localhost:18780/readyz
 
 # 版本信息
-curl http://localhost:8080/version
+curl http://localhost:18780/version
 ```
 
 ## 故障排查

@@ -134,7 +134,7 @@ docker build -t croupier-server:latest -f docker/Dockerfile.server .
 docker run -d \
   --name croupier-server \
   -p 8443:8443 \
-  -p 8080:8080 \
+  -p 18780:18780 \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/configs:/app/configs \
   croupier-server:latest
@@ -216,18 +216,17 @@ pip install croupier-sdk-python
 ### Server 配置
 
 ```yaml
-server:
-  addr: ":8443"              # gRPC 监听地址
-  http_addr: ":8080"         # HTTP 监听地址
-  tls:
-    cert_file: "data/server.crt"
-    key_file: "data/server.key"
-  db:
-    driver: postgres
-    datasource: "postgres://user:pass@localhost:5432/croupier"
-  log:
-    level: info
-    format: json
+Name: croupier-server
+Host: 0.0.0.0
+Port: 18780                  # HTTP 监听地址
+Control:
+  Addr: ":19090"             # Control 监听地址
+Database:
+  Driver: postgres
+  DataSource: "postgres://user:pass@localhost:5432/croupier"
+Log:
+  Level: info
+  Format: json
 ```
 
 ### Agent 配置
@@ -250,7 +249,7 @@ agent:
 
 ```bash
 # Server 健康检查
-curl http://localhost:8080/healthz
+curl http://localhost:18780/healthz
 
 # 预期输出
 {"status":"ok"}
@@ -304,9 +303,9 @@ export PATH=$PATH:$(go env GOPATH)/bin
 
 修改配置文件中的端口：
 ```yaml
-server:
-  addr: ":9443"      # 修改为其他端口
-  http_addr: ":9080"
+Control:
+  Addr: ":19091"
+Port: 19080
 ```
 </details>
 
