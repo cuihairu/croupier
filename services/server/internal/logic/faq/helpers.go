@@ -2,11 +2,11 @@ package faq
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"gorm.io/datatypes"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -68,15 +68,15 @@ func normalizeTags(tags []string) []string {
 func sanitizeFAQInput(question, answer, category string) (string, string, string, error) {
 	q := strings.TrimSpace(question)
 	if q == "" {
-		return "", "", "", fmt.Errorf("问题不能为空")
+		return "", "", "", errorx.NewBadRequest("问题不能为空")
 	}
 	a := strings.TrimSpace(answer)
 	if a == "" {
-		return "", "", "", fmt.Errorf("答案不能为空")
+		return "", "", "", errorx.NewBadRequest("答案不能为空")
 	}
 	c := strings.TrimSpace(category)
 	if c == "" {
-		return "", "", "", fmt.Errorf("分类不能为空")
+		return "", "", "", errorx.NewBadRequest("分类不能为空")
 	}
 	return q, a, c, nil
 }

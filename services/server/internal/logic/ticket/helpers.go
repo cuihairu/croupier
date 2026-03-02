@@ -3,11 +3,11 @@ package ticket
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"gorm.io/datatypes"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -27,11 +27,11 @@ func parseTicketID(id string) (uint, error) {
 func sanitizeTicketStatus(status string) (string, error) {
 	s := strings.TrimSpace(status)
 	if s == "" {
-		return "", fmt.Errorf("工单状态不能为空")
+		return "", errorx.NewBadRequest("工单状态不能为空")
 	}
 	s = strings.ToLower(s)
 	if _, ok := allowedTicketStatuses[s]; !ok {
-		return "", fmt.Errorf("工单状态无效: %s", status)
+		return "", errorx.NewBadRequest("工单状态无效: " + status)
 	}
 	return s, nil
 }
@@ -139,13 +139,13 @@ func sanitizeTicketFields(req *types.TicketCreateRequest) (*model.Ticket, error)
 	category := strings.TrimSpace(req.Category)
 
 	if title == "" {
-		return nil, fmt.Errorf("工单标题不能为空")
+		return nil, errorx.NewBadRequest("工单标题不能为空")
 	}
 	if content == "" {
-		return nil, fmt.Errorf("工单内容不能为空")
+		return nil, errorx.NewBadRequest("工单内容不能为空")
 	}
 	if category == "" {
-		return nil, fmt.Errorf("工单分类不能为空")
+		return nil, errorx.NewBadRequest("工单分类不能为空")
 	}
 
 	return &model.Ticket{

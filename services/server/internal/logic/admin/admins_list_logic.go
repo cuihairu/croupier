@@ -5,9 +5,9 @@ package admin
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
@@ -100,7 +100,7 @@ func (l *AdminsListLogic) loadAdminRoleNames(ctx context.Context, adminIDs []uin
 		Where("admin_roles.admin_id IN ?", adminIDs).
 		Order("admin_roles.admin_id").
 		Scan(&rows).Error; err != nil {
-		return nil, fmt.Errorf("查询管理员角色失败: %w", err)
+		return nil, errorx.NewInternalError("查询管理员角色失败")
 	}
 
 	roleMap := make(map[uint][]string, len(adminIDs))

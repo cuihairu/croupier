@@ -94,6 +94,7 @@ func autoMigrateModels(db *gorm.DB) error {
 		&CertificateAlert{},
 		&ConfigVersion{},
 		&AgentSessionDB{},
+		&TermDictionary{},
 	)
 }
 

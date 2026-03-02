@@ -6,10 +6,10 @@ package component
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/pack"
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -51,13 +51,13 @@ func (l *ComponentsDeleteLogic) ComponentsDelete(req *types.ComponentActionReque
 
 		if entry.Status == componentStatusInstalled {
 			if err := cm.UninstallComponent(req.ID); err != nil {
-				return fmt.Errorf("卸载组件失败: %w", err)
+				return errorx.NewInternalError("卸载组件失败")
 			}
 			return nil
 		}
 
 		if err := removeDisabledComponent(cm, l.svcCtx.Config, *entry); err != nil {
-			return fmt.Errorf("删除禁用组件失败: %w", err)
+			return errorx.NewInternalError("删除禁用组件失败")
 		}
 		return nil
 	}); err != nil {

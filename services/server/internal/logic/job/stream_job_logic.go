@@ -5,11 +5,11 @@ package job
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -34,7 +34,7 @@ func NewStreamJobLogic(ctx context.Context, svcCtx *svc.ServiceContext) *StreamJ
 func (l *StreamJobLogic) StreamJob(req *types.StreamJobRequest) (*types.StreamJobResponse, error) {
 	jobID := strings.TrimSpace(req.JobID)
 	if jobID == "" {
-		return nil, fmt.Errorf("任务ID不能为空")
+		return nil, errorx.NewBadRequest("任务ID不能为空")
 	}
 
 	result := make([]map[string]interface{}, 0)

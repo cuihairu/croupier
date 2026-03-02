@@ -1,9 +1,9 @@
 package utils
 
 import (
-	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 )
@@ -12,7 +12,7 @@ import (
 func ValidateNodeID(id string) (string, error) {
 	trimmed := strings.TrimSpace(id)
 	if trimmed == "" {
-		return "", fmt.Errorf("节点ID不能为空")
+		return "", errorx.NewBadRequest("节点ID不能为空")
 	}
 	return trimmed, nil
 }

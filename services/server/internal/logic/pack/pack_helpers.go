@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 )
@@ -226,7 +227,7 @@ func extractArchive(data []byte, destDir string) error {
 		}
 		targetPath := filepath.Join(destDir, header.Name)
 		if !strings.HasPrefix(filepath.Clean(targetPath), filepath.Clean(destDir)) {
-			return fmt.Errorf("invalid path in archive: %s", header.Name)
+			return errorx.NewBadRequest("invalid path in archive: " + header.Name)
 		}
 		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 			return err

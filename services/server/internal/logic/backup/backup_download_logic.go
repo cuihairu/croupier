@@ -6,13 +6,13 @@ package backup
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -53,14 +53,14 @@ func (l *BackupDownloadLogic) BackupDownload(req *types.BackupDownloadRequest) (
 	record, err := l.svcCtx.BackupModel.FindByBackupID(l.ctx, backupID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("备份 %s 不存在", backupID)
+			return nil, errorx.NewNotFound("备份不存在: " + backupID)
 		}
 		return nil, err
 	}
 
 	location := strings.TrimSpace(record.Location)
 	if location == "" {
-		return nil, fmt.Errorf("备份 %s 尚未生成可下载文件", backupID)
+		return nil, errorx.NewBadRequest("备份尚未生成可下载文件: " + backupID)
 	}
 
 	if payload, ok := l.tryRemoteDownload(location); ok {
@@ -74,13 +74,13 @@ func (l *BackupDownloadLogic) BackupDownload(req *types.BackupDownloadRequest) (
 
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("无法打开备份文件: %w", err)
+		return nil, errorx.NewInternalError("无法打开备份文件")
 	}
 
 	info, err := file.Stat()
 	if err != nil {
 		file.Close()
-		return nil, fmt.Errorf("读取备份文件信息失败: %w", err)
+		return nil, errorx.NewInternalError("读取备份文件信息失败")
 	}
 
 	return &DownloadPayload{
@@ -104,7 +104,7 @@ func resolveBackupPath(location string) (string, error) {
 	if strings.HasPrefix(location, "file://") {
 		u, err := url.Parse(location)
 		if err != nil {
-			return "", fmt.Errorf("解析下载路径失败: %w", err)
+			return "", errorx.NewBadRequest("解析下载路径失败")
 		}
 		return u.Path, nil
 	}
@@ -113,7 +113,7 @@ func resolveBackupPath(location string) (string, error) {
 	}
 	abs, err := filepath.Abs(location)
 	if err != nil {
-		return "", fmt.Errorf("解析备份路径失败: %w", err)
+		return "", errorx.NewBadRequest("解析备份路径失败")
 	}
 	return abs, nil
 }

@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -29,26 +30,26 @@ func PacksPluginHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		packID := strings.TrimSpace(r.URL.Query().Get("pack"))
 		relPath := strings.TrimSpace(r.URL.Query().Get("path"))
 		if packID == "" || relPath == "" {
-			httpx.ErrorCtx(r.Context(), w, fmt.Errorf("missing pack/path"))
+			httpx.ErrorCtx(r.Context(), w, errorx.NewBadRequest("missing pack/path"))
 			return
 		}
 		if !packIDPattern.MatchString(packID) {
-			httpx.ErrorCtx(r.Context(), w, fmt.Errorf("invalid pack id"))
+			httpx.ErrorCtx(r.Context(), w, errorx.NewBadRequest("invalid pack id"))
 			return
 		}
 
 		relPath = filepath.ToSlash(relPath)
 		if strings.HasPrefix(relPath, "/") || strings.Contains(relPath, "\x00") {
-			httpx.ErrorCtx(r.Context(), w, fmt.Errorf("invalid plugin path"))
+			httpx.ErrorCtx(r.Context(), w, errorx.NewBadRequest("invalid plugin path"))
 			return
 		}
 		clean := filepath.Clean(relPath)
 		if clean == "." || strings.HasPrefix(clean, "..") {
-			httpx.ErrorCtx(r.Context(), w, fmt.Errorf("invalid plugin path"))
+			httpx.ErrorCtx(r.Context(), w, errorx.NewBadRequest("invalid plugin path"))
 			return
 		}
 		if !strings.HasPrefix(filepath.ToSlash(clean), "web-plugin/") {
-			httpx.ErrorCtx(r.Context(), w, fmt.Errorf("plugin must be under web-plugin/"))
+			httpx.ErrorCtx(r.Context(), w, errorx.NewBadRequest("plugin must be under web-plugin/"))
 			return
 		}
 
@@ -70,7 +71,7 @@ func PacksPluginHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		fullNorm := filepath.ToSlash(fullAbs)
 		sep := "/"
 		if fullNorm != packRootNorm && !strings.HasPrefix(fullNorm, packRootNorm+sep) {
-			httpx.ErrorCtx(r.Context(), w, fmt.Errorf("invalid plugin path"))
+			httpx.ErrorCtx(r.Context(), w, errorx.NewBadRequest("invalid plugin path"))
 			return
 		}
 

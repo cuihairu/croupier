@@ -8,6 +8,7 @@ import (
 
 	"gorm.io/datatypes"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -35,8 +36,11 @@ func (l *FunctionUIUpdateLogic) FunctionUIUpdate(req *types.FunctionUIUpdateRequ
 	if err != nil {
 		return nil, err
 	}
+	if req.Schema == nil && req.Layout == nil && req.Components == nil {
+		return nil, errorx.NewBadRequest("empty ui payload: schema/layout/components are all missing")
+	}
 
-	fn, err := l.svcCtx.FunctionModel.FindByFunctionID(l.ctx, functionID)
+	fn, err := getOrCreateFunctionRecord(l.ctx, l.svcCtx, functionID)
 	if err != nil {
 		return nil, err
 	}

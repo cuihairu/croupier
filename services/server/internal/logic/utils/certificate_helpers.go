@@ -3,10 +3,10 @@ package utils
 import (
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 )
 
@@ -14,11 +14,11 @@ import (
 func ParseCertificatePEM(pemData string) (*x509.Certificate, error) {
 	block, _ := pem.Decode([]byte(pemData))
 	if block == nil {
-		return nil, fmt.Errorf("无效的证书内容")
+		return nil, errorx.NewBadRequest("无效的证书内容")
 	}
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return nil, fmt.Errorf("解析证书失败: %w", err)
+		return nil, errorx.NewBadRequest("解析证书失败")
 	}
 	return cert, nil
 }
@@ -42,7 +42,7 @@ func BuildCertificateDTO(cert *model.Certificate) map[string]interface{} {
 func ValidateDomain(domain string) (string, error) {
 	d := strings.TrimSpace(domain)
 	if d == "" {
-		return "", fmt.Errorf("域名不能为空")
+		return "", errorx.NewBadRequest("域名不能为空")
 	}
 	return d, nil
 }

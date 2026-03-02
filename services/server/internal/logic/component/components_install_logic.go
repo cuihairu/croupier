@@ -6,10 +6,10 @@ package component
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/pack"
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -49,19 +49,19 @@ func (l *ComponentsInstallLogic) ComponentsInstall(req *types.ComponentsInstallR
 		}
 		manifest, err := readComponentManifest(source)
 		if err != nil {
-			return fmt.Errorf("读取组件定义失败: %w", err)
+			return errorx.NewBadRequest("读取组件定义失败")
 		}
 		if strings.TrimSpace(manifest.ID) == "" {
 			return errors.New("组件 manifest 缺少 ID")
 		}
 		if _, exists := cm.ListInstalled()[manifest.ID]; exists {
-			return fmt.Errorf("组件 %s 已安装", manifest.ID)
+			return errorx.NewConflict("组件已安装: " + manifest.ID)
 		}
 		if _, exists := cm.ListDisabled()[manifest.ID]; exists {
-			return fmt.Errorf("组件 %s 当前处于禁用状态，请先删除或启用", manifest.ID)
+			return errorx.NewConflict("组件当前处于禁用状态，请先删除或启用: " + manifest.ID)
 		}
 		if err := cm.InstallComponent(source); err != nil {
-			return fmt.Errorf("安装组件失败: %w", err)
+			return errorx.NewInternalError("安装组件失败")
 		}
 		entry, err := findComponentEntry(cm, manifest.ID)
 		if err != nil {

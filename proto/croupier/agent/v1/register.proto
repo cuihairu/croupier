@@ -60,6 +60,7 @@ message RegisterRequest {
 message RegisterResponse {
   string session_id = 1;
   int64 expire_at = 2; // epoch seconds
+  repeated string warnings = 3;
 }
 
 // Agent Heartbeat Request

@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/backup"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -38,7 +39,7 @@ func BackupDownloadHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		if payload.Reader == nil {
-			httpx.ErrorCtx(r.Context(), w, fmt.Errorf("备份文件不可用"))
+			httpx.ErrorCtx(r.Context(), w, errorx.NewInternalError("备份文件不可用"))
 			return
 		}
 		defer payload.Reader.Close()

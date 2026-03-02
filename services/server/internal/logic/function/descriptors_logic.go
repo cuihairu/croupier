@@ -6,6 +6,7 @@ package function
 import (
 	"context"
 	"encoding/json"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -25,6 +26,8 @@ type DescriptorsLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
+var nodeSeparatorDupRE = regexp.MustCompile(`[_\-.]{2,}`)
+
 // 获取函数描述符列表
 func NewDescriptorsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *DescriptorsLogic {
 	return &DescriptorsLogic{
@@ -36,6 +39,16 @@ func NewDescriptorsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Descr
 
 func (l *DescriptorsLogic) Descriptors(req *types.DescriptorsRequest) ([]map[string]interface{}, error) {
 	category := strings.TrimSpace(req.Type)
+	termAliasMap := map[string]map[string]string{}
+	termDisplayMap := map[string]map[string]map[string]string{}
+	if l.svcCtx.TermDictModel != nil {
+		if aliases, err := l.svcCtx.TermDictModel.AliasMap(l.ctx); err == nil {
+			termAliasMap = aliases
+		}
+		if displays, err := loadTermDisplayMap(l.ctx, l.svcCtx.TermDictModel); err == nil {
+			termDisplayMap = displays
+		}
+	}
 
 	// Try to load current user (may be empty for public access)
 	username, _ := utils.CurrentUsername(l.ctx)
@@ -164,12 +177,37 @@ func (l *DescriptorsLogic) Descriptors(req *types.DescriptorsRequest) ([]map[str
 				}
 				if entity, exists := op.Extensions["x-entity"]; exists {
 					if entityStr, ok := entity.(string); ok {
-						d["entity"] = entityStr
+						entityKey := normalizeTerm(termAliasMap, "entity", entityStr)
+						d["entity"] = entityKey
+						if disp := termDisplay(termDisplayMap, "entity", entityKey); len(disp) > 0 {
+							d["entity_display"] = disp
+						}
 					}
 				}
 				if operation, exists := op.Extensions["x-operation"]; exists {
 					if opStr, ok := operation.(string); ok {
-						d["operation"] = opStr
+						operationKey := normalizeTerm(termAliasMap, "operation", opStr)
+						d["operation"] = operationKey
+						if disp := termDisplay(termDisplayMap, "operation", operationKey); len(disp) > 0 {
+							d["operation_display"] = disp
+						}
+					}
+				}
+			}
+			if _, ok := d["entity"].(string); !ok {
+				entity, operation := inferEntityOperationFromID(fid)
+				if entity != "" {
+					entityKey := normalizeTerm(termAliasMap, "entity", entity)
+					d["entity"] = entityKey
+					if disp := termDisplay(termDisplayMap, "entity", entityKey); len(disp) > 0 {
+						d["entity_display"] = disp
+					}
+				}
+				if operation != "" {
+					operationKey := normalizeTerm(termAliasMap, "operation", operation)
+					d["operation"] = operationKey
+					if disp := termDisplay(termDisplayMap, "operation", operationKey); len(disp) > 0 {
+						d["operation_display"] = disp
 					}
 				}
 			}
@@ -208,16 +246,23 @@ func (l *DescriptorsLogic) Descriptors(req *types.DescriptorsRequest) ([]map[str
 
 	// 5) Ensure every descriptor has menu defaults.
 	for _, d := range byID {
+		entity, _ := d["entity"].(string)
+		category, _ := d["category"].(string)
+		fid, _ := d["id"].(string)
 		if m, ok := d["menu"].(map[string]interface{}); ok && m != nil {
 			base := defaultMenu()
+			applyEntityMenuDefaults(base, category, entity, fid)
 			mergeShallow(base, m)
+			applyEntityMenuDefaults(base, category, entity, fid)
 			d["menu"] = base
 			if _, ok2 := d["menuSource"]; !ok2 {
 				d["menuSource"] = "default"
 			}
 			continue
 		}
-		d["menu"] = defaultMenu()
+		base := defaultMenu()
+		applyEntityMenuDefaults(base, category, entity, fid)
+		d["menu"] = base
 		d["menuSource"] = "default"
 	}
 
@@ -255,11 +300,10 @@ func defaultParamsSchema() map[string]interface{} {
 
 func defaultMenu() map[string]interface{} {
 	return map[string]interface{}{
-		"section": "Game",
-		"group":   "Functions",
-		"path":    "/game/functions/invoke",
-		"order":   100,
-		"hidden":  false,
+		"nodes":  []string{},
+		"path":   "",
+		"order":  100,
+		"hidden": false,
 	}
 }
 
@@ -319,4 +363,213 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func sanitizeNodeKey(raw string) string {
+	raw = strings.TrimSpace(strings.ToLower(raw))
+	if raw == "" {
+		return ""
+	}
+	var b strings.Builder
+	for _, r := range raw {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-' || r == '.' {
+			b.WriteRune(r)
+			continue
+		}
+		if r == ' ' || r == '/' || r == ':' {
+			b.WriteRune('_')
+		}
+	}
+	s := b.String()
+	s = strings.Trim(s, "._-")
+	s = nodeSeparatorDupRE.ReplaceAllString(s, "_")
+	return s
+}
+
+func inferMenuNodes(category, entity, fid string) []string {
+	nodes := make([]string, 0, 2)
+	cat := sanitizeNodeKey(category)
+	ent := sanitizeNodeKey(entity)
+	if cat == "" {
+		cat = sanitizeNodeKey(inferCategory(fid))
+	}
+	if ent == "" {
+		inferredEntity, _ := inferEntityOperationFromID(fid)
+		ent = sanitizeNodeKey(inferredEntity)
+	}
+	if cat != "" {
+		nodes = append(nodes, cat)
+	}
+	if ent != "" {
+		nodes = append(nodes, ent)
+	}
+	if len(nodes) == 0 {
+		fallback := sanitizeNodeKey(fid)
+		if fallback != "" {
+			nodes = append(nodes, fallback)
+		}
+	}
+	if len(nodes) == 0 {
+		nodes = append(nodes, "general")
+	}
+	return nodes
+}
+
+func defaultFunctionPath(entity, fid string) string {
+	entity = sanitizeNodeKey(entity)
+	if entity == "" {
+		inferredEntity, _ := inferEntityOperationFromID(fid)
+		entity = sanitizeNodeKey(inferredEntity)
+	}
+	if entity != "" {
+		return "/game/entities/" + entity
+	}
+	return "/game/functions/invoke?fid=" + fid
+}
+
+func applyEntityMenuDefaults(menu map[string]interface{}, category, entity, fid string) {
+	if menu == nil {
+		return
+	}
+	if rawNodes, ok := menu["nodes"]; ok {
+		if arr, ok := rawNodes.([]string); ok {
+			clean := make([]string, 0, len(arr))
+			for _, n := range arr {
+				if s := sanitizeNodeKey(n); s != "" {
+					clean = append(clean, s)
+				}
+			}
+			if len(clean) > 0 {
+				menu["nodes"] = clean
+			}
+		}
+		if arr, ok := rawNodes.([]interface{}); ok {
+			clean := make([]string, 0, len(arr))
+			for _, n := range arr {
+				if s, ok := n.(string); ok {
+					if normalized := sanitizeNodeKey(s); normalized != "" {
+						clean = append(clean, normalized)
+					}
+				}
+			}
+			if len(clean) > 0 {
+				menu["nodes"] = clean
+			}
+		}
+	}
+	nodes, _ := menu["nodes"].([]string)
+	if len(nodes) == 0 {
+		menu["nodes"] = inferMenuNodes(category, entity, fid)
+	}
+	if path, _ := menu["path"].(string); strings.TrimSpace(path) == "" {
+		menu["path"] = defaultFunctionPath(entity, fid)
+	}
+}
+
+func normalizeTerm(aliasMap map[string]map[string]string, domain, raw string) string {
+	domain = strings.TrimSpace(strings.ToLower(domain))
+	value := strings.TrimSpace(strings.ToLower(raw))
+	if domain == "" || value == "" {
+		return value
+	}
+	if m, ok := aliasMap[domain]; ok {
+		if canonical, ok := m[value]; ok && canonical != "" {
+			return canonical
+		}
+	}
+	return value
+}
+
+func inferEntityOperationFromID(fid string) (string, string) {
+	fid = strings.TrimSpace(strings.ToLower(fid))
+	if fid == "" {
+		return "", ""
+	}
+	parts := strings.FieldsFunc(fid, func(r rune) bool { return r == '.' || r == '_' || r == '-' || r == '/' })
+	if len(parts) == 0 {
+		return "", ""
+	}
+	actionSet := map[string]struct{}{
+		"create": {}, "add": {}, "new": {}, "get": {}, "list": {}, "query": {}, "search": {}, "read": {}, "detail": {},
+		"update": {}, "edit": {}, "modify": {}, "patch": {}, "delete": {}, "remove": {}, "ban": {}, "unban": {}, "mute": {},
+		"invoke": {}, "execute": {}, "run": {},
+	}
+	operation := ""
+	for i := len(parts) - 1; i >= 0; i-- {
+		if _, ok := actionSet[parts[i]]; ok {
+			operation = parts[i]
+			break
+		}
+	}
+	entity := ""
+	stopwords := map[string]struct{}{
+		"packs": {}, "pack": {}, "functions": {}, "function": {}, "examples": {}, "api": {}, "ops": {}, "gm": {},
+	}
+	for i := len(parts) - 1; i >= 0; i-- {
+		p := parts[i]
+		if p == operation {
+			continue
+		}
+		if _, ok := actionSet[p]; ok {
+			continue
+		}
+		if _, ok := stopwords[p]; ok {
+			continue
+		}
+		entity = p
+		break
+	}
+	return entity, operation
+}
+
+func loadTermDisplayMap(ctx context.Context, termModel *model.TermDictionaryModel) (map[string]map[string]map[string]string, error) {
+	items, err := termModel.List(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]map[string]map[string]string{}
+	for _, it := range items {
+		domain := strings.TrimSpace(strings.ToLower(it.Domain))
+		key := strings.TrimSpace(strings.ToLower(it.TermKey))
+		if domain == "" || key == "" {
+			continue
+		}
+		if _, ok := out[domain]; !ok {
+			out[domain] = map[string]map[string]string{}
+		}
+		if _, ok := out[domain][key]; !ok {
+			out[domain][key] = map[string]string{}
+		}
+		if zh := strings.TrimSpace(it.DisplayZh); zh != "" {
+			out[domain][key]["zh"] = zh
+		}
+		if en := strings.TrimSpace(it.DisplayEn); en != "" {
+			out[domain][key]["en"] = en
+		}
+	}
+	return out, nil
+}
+
+func termDisplay(displayMap map[string]map[string]map[string]string, domain, key string) map[string]string {
+	domain = strings.TrimSpace(strings.ToLower(domain))
+	key = strings.TrimSpace(strings.ToLower(key))
+	if domain == "" || key == "" {
+		return nil
+	}
+	dm, ok := displayMap[domain]
+	if !ok {
+		return nil
+	}
+	disp, ok := dm[key]
+	if !ok || len(disp) == 0 {
+		return nil
+	}
+	out := map[string]string{}
+	if zh := strings.TrimSpace(disp["zh"]); zh != "" {
+		out["zh"] = zh
+	}
+	if en := strings.TrimSpace(disp["en"]); en != "" {
+		out["en"] = en
+	}
+	return out
 }

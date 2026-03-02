@@ -9,6 +9,8 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +26,18 @@ import (
 	_ "go.nanomsg.org/mangos/v3/transport/tcp"
 	"google.golang.org/protobuf/proto"
 )
+
+var (
+	functionIDPattern = regexp.MustCompile(`^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\.[a-z0-9]+(?:[._-][a-z0-9]+)*)+$`)
+	semverPattern     = regexp.MustCompile(`^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)
+)
+
+type registerWarning struct {
+	Code       string
+	FunctionID string
+	Version    string
+	Message    string
+}
 
 // ListenAddr represents a single listen address with transport type
 type ListenAddr struct {
@@ -471,6 +485,20 @@ func (s *Server) handleRegisterRequest(ctx context.Context, req *agentv1.Registe
 		ttl = time.Duration(req.TtlSeconds) * time.Second
 	}
 
+	functions, warnings := validateAndNormalizeFunctions(req.GetFunctions())
+	warningTexts := make([]string, 0, len(warnings))
+	for _, warnMsg := range warnings {
+		warningTexts = append(warningTexts, warnMsg.Message)
+		s.logger.Warn("register validation warning", "agent_id", req.AgentId, "warning", warnMsg.Message, "code", warnMsg.Code, "function_id", warnMsg.FunctionID, "version", warnMsg.Version)
+		s.registry.UpsertRegistrationWarning(reg.FunctionRegistrationWarning{
+			AgentID:    req.AgentId,
+			FunctionID: warnMsg.FunctionID,
+			Version:    warnMsg.Version,
+			Code:       warnMsg.Code,
+			Message:    warnMsg.Message,
+		})
+	}
+
 	sess := &reg.AgentSession{
 		AgentID:   req.AgentId,
 		GameID:    req.GameId,
@@ -486,7 +514,7 @@ func (s *Server) handleRegisterRequest(ctx context.Context, req *agentv1.Registe
 	}
 
 	// Populate functions from request
-	for _, f := range req.Functions {
+	for _, f := range functions {
 		if f == nil || f.Id == "" {
 			continue
 		}
@@ -555,9 +583,91 @@ func (s *Server) handleRegisterRequest(ctx context.Context, req *agentv1.Registe
 
 	s.registry.UpsertAgent(sess)
 
-	s.logger.Info("Agent registered via NNG", "agent_id", req.AgentId, "game_id", req.GameId)
+	s.logger.Info("Agent registered via NNG", "agent_id", req.AgentId, "game_id", req.GameId, "functions", len(functions), "warnings", len(warnings))
 
-	return &agentv1.RegisterResponse{}, nil
+	return &agentv1.RegisterResponse{
+		Warnings: warningTexts,
+	}, nil
+}
+
+func validateAndNormalizeFunctions(items []*agentv1.FunctionDescriptor) ([]*agentv1.FunctionDescriptor, []registerWarning) {
+	if len(items) == 0 {
+		return nil, nil
+	}
+	byID := make(map[string]*agentv1.FunctionDescriptor, len(items))
+	warnings := make([]registerWarning, 0)
+	for idx, f := range items {
+		if f == nil {
+			warnings = append(warnings, registerWarning{Code: "nil_function", Message: fmt.Sprintf("functions[%d] is nil and skipped", idx)})
+			continue
+		}
+		fid := strings.TrimSpace(strings.ToLower(f.GetId()))
+		if fid == "" {
+			warnings = append(warnings, registerWarning{Code: "empty_function_id", Message: fmt.Sprintf("functions[%d] has empty function_id and skipped", idx)})
+			continue
+		}
+		if !functionIDPattern.MatchString(fid) {
+			warnings = append(warnings, registerWarning{Code: "invalid_function_id", FunctionID: fid, Version: f.GetVersion(), Message: fmt.Sprintf("function_id=%s invalid format (expected lowercase dotted id) and skipped", fid)})
+			continue
+		}
+		version := strings.TrimSpace(f.GetVersion())
+		if !isValidSemver(version) {
+			warnings = append(warnings, registerWarning{Code: "invalid_version", FunctionID: fid, Version: version, Message: fmt.Sprintf("function_id=%s version=%s invalid semver and skipped", fid, version)})
+			continue
+		}
+		f.Id = fid
+
+		if prev, ok := byID[fid]; ok {
+			compare := compareSemver(f.GetVersion(), prev.GetVersion())
+			if compare > 0 {
+				warnings = append(warnings, registerWarning{Code: "duplicate_function_id", FunctionID: fid, Version: f.GetVersion(), Message: fmt.Sprintf("duplicate function_id=%s detected; keep higher version %s over %s", fid, f.GetVersion(), prev.GetVersion())})
+				byID[fid] = f
+			} else {
+				warnings = append(warnings, registerWarning{Code: "duplicate_function_id", FunctionID: fid, Version: prev.GetVersion(), Message: fmt.Sprintf("duplicate function_id=%s detected; keep higher version %s over %s", fid, prev.GetVersion(), f.GetVersion())})
+			}
+			continue
+		}
+		byID[fid] = f
+	}
+
+	out := make([]*agentv1.FunctionDescriptor, 0, len(byID))
+	for _, f := range byID {
+		out = append(out, f)
+	}
+	return out, warnings
+}
+
+func isValidSemver(v string) bool {
+	return semverPattern.MatchString(strings.TrimSpace(v))
+}
+
+func compareSemver(a, b string) int {
+	parse := func(raw string) [3]int {
+		s := strings.TrimPrefix(strings.TrimSpace(raw), "v")
+		parts := strings.SplitN(s, "-", 2)
+		num := parts[0]
+		p := strings.Split(num, ".")
+		out := [3]int{0, 0, 0}
+		for i := 0; i < len(p) && i < 3; i++ {
+			n, err := strconv.Atoi(p[i])
+			if err != nil {
+				return out
+			}
+			out[i] = n
+		}
+		return out
+	}
+	va := parse(a)
+	vb := parse(b)
+	for i := 0; i < 3; i++ {
+		if va[i] > vb[i] {
+			return 1
+		}
+		if va[i] < vb[i] {
+			return -1
+		}
+	}
+	return 0
 }
 
 // handleHeartbeatRequest implements the actual Heartbeat logic

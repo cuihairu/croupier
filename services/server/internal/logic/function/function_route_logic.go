@@ -34,7 +34,9 @@ func (l *FunctionRouteLogic) FunctionRoute(req *types.FunctionRouteRequest) (*ty
 	fn, err := l.svcCtx.FunctionModel.FindByFunctionID(l.ctx, functionID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			cfg := normalizeMenuConfig(defaultMenu())
+			base := defaultMenu()
+			applyEntityMenuDefaults(base, "", "", functionID)
+			cfg := normalizeMenuConfig(base)
 			return &types.FunctionRouteResponse{
 				Menu:   cfg,
 				Source: "default",
@@ -51,6 +53,7 @@ func (l *FunctionRouteLogic) FunctionRoute(req *types.FunctionRouteRequest) (*ty
 			source = "metadata"
 		}
 	}
+	applyEntityMenuDefaults(menu, "", "", functionID)
 	return &types.FunctionRouteResponse{
 		Menu:   normalizeMenuConfig(menu),
 		Source: source,
@@ -59,20 +62,25 @@ func (l *FunctionRouteLogic) FunctionRoute(req *types.FunctionRouteRequest) (*ty
 
 func normalizeMenuConfig(menu map[string]interface{}) types.FunctionRouteConfig {
 	cfg := types.FunctionRouteConfig{
-		Section: "",
-		Group:   "",
-		Path:    "",
-		Order:   100,
-		Hidden:  false,
+		Nodes:  []string{},
+		Path:   "",
+		Order:  100,
+		Hidden: false,
 	}
 	if menu == nil {
 		return cfg
 	}
-	if v, ok := menu["section"].(string); ok {
-		cfg.Section = v
+	if nodes, ok := menu["nodes"].([]string); ok {
+		cfg.Nodes = append(cfg.Nodes, nodes...)
 	}
-	if v, ok := menu["group"].(string); ok {
-		cfg.Group = v
+	if arr, ok := menu["nodes"].([]interface{}); ok {
+		for _, item := range arr {
+			if s, ok := item.(string); ok {
+				if normalized := sanitizeNodeKey(s); normalized != "" {
+					cfg.Nodes = append(cfg.Nodes, normalized)
+				}
+			}
+		}
 	}
 	if v, ok := menu["path"].(string); ok {
 		cfg.Path = v
@@ -85,6 +93,9 @@ func normalizeMenuConfig(menu map[string]interface{}) types.FunctionRouteConfig 
 	}
 	if v, ok := menu["hidden"].(bool); ok {
 		cfg.Hidden = v
+	}
+	if len(cfg.Nodes) == 0 {
+		cfg.Nodes = inferMenuNodes("", "", "")
 	}
 	return cfg
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/xeipuuv/gojsonschema"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 )
@@ -82,13 +83,13 @@ func saveSchema(cfg config.Config, doc *schemaDocument) error {
 
 func loadSchema(cfg config.Config, id string) (*schemaDocument, error) {
 	if strings.TrimSpace(id) == "" {
-		return nil, fmt.Errorf("schema ID 不能为空")
+		return nil, errorx.NewBadRequest("schema ID 不能为空")
 	}
 	path := schemaFilePath(cfg, id)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("schema %s 不存在", id)
+			return nil, errorx.NewNotFound("schema 不存在: " + id)
 		}
 		return nil, err
 	}
@@ -101,12 +102,12 @@ func loadSchema(cfg config.Config, id string) (*schemaDocument, error) {
 
 func deleteSchema(cfg config.Config, id string) error {
 	if strings.TrimSpace(id) == "" {
-		return fmt.Errorf("schema ID 不能为空")
+		return errorx.NewBadRequest("schema ID 不能为空")
 	}
 	path := schemaFilePath(cfg, id)
 	if err := os.Remove(path); err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("schema %s 不存在", id)
+			return errorx.NewNotFound("schema 不存在: " + id)
 		}
 		return err
 	}
@@ -199,18 +200,18 @@ func ensureUniqueSchemaID(cfg config.Config, name string) string {
 		if _, err := os.Stat(schemaFilePath(cfg, id)); os.IsNotExist(err) {
 			return id
 		}
-		id = fmt.Sprintf("%s-%s", id, uuid.NewString()[:8])
+		id = id + "-" + uuid.NewString()[:8]
 	}
 }
 
 func validateSchemaDefinition(schema interface{}) error {
 	data, err := json.Marshal(schema)
 	if err != nil {
-		return fmt.Errorf("schema 不是有效的 JSON: %w", err)
+		return errorx.NewBadRequest("schema 不是有效的 JSON")
 	}
 	loader := gojsonschema.NewBytesLoader(data)
 	if _, err := gojsonschema.NewSchema(loader); err != nil {
-		return fmt.Errorf("schema 校验失败: %w", err)
+		return errorx.NewBadRequest("schema 校验失败")
 	}
 	return nil
 }
@@ -218,11 +219,11 @@ func validateSchemaDefinition(schema interface{}) error {
 func validatePayloadAgainst(schema interface{}, payload interface{}) (bool, []string, error) {
 	schemaBytes, err := json.Marshal(schema)
 	if err != nil {
-		return false, nil, fmt.Errorf("schema JSON 无效: %w", err)
+		return false, nil, errorx.NewBadRequest("schema JSON 无效")
 	}
 	dataBytes, err := json.Marshal(payload)
 	if err != nil {
-		return false, nil, fmt.Errorf("数据 JSON 无效: %w", err)
+		return false, nil, errorx.NewBadRequest("数据 JSON 无效")
 	}
 	schemaLoader := gojsonschema.NewBytesLoader(schemaBytes)
 	payloadLoader := gojsonschema.NewBytesLoader(dataBytes)

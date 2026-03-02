@@ -2,11 +2,11 @@ package admin
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 	"gorm.io/gorm"
@@ -14,16 +14,16 @@ import (
 
 func parseAdminID(id string) (uint, error) {
 	if strings.TrimSpace(id) == "" {
-		return 0, fmt.Errorf("管理员ID不能为空")
+		return 0, errorx.NewBadRequest("管理员ID不能为空")
 	}
 
 	value, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("无效的管理员ID: %w", err)
+		return 0, errorx.NewBadRequest("无效的管理员ID")
 	}
 
 	if value == 0 {
-		return 0, fmt.Errorf("管理员ID必须大于0")
+		return 0, errorx.NewBadRequest("管理员ID必须大于0")
 	}
 
 	return uint(value), nil
@@ -72,11 +72,11 @@ func fetchRolesByNames(ctx context.Context, db *gorm.DB, names []string) ([]mode
 	if err := db.WithContext(ctx).
 		Where("LOWER(name) IN ?", lowered).
 		Find(&roles).Error; err != nil {
-		return nil, fmt.Errorf("查询角色失败: %w", err)
+		return nil, errorx.NewInternalError("查询角色失败")
 	}
 
 	if len(roles) == 0 {
-		return nil, fmt.Errorf("角色不存在: %s", strings.Join(ordered, ", "))
+		return nil, errorx.NewBadRequest("角色不存在: " + strings.Join(ordered, ", "))
 	}
 
 	found := make(map[string]model.Role, len(roles))
@@ -92,7 +92,7 @@ func fetchRolesByNames(ctx context.Context, db *gorm.DB, names []string) ([]mode
 	}
 
 	if len(missing) > 0 {
-		return nil, fmt.Errorf("角色不存在: %s", strings.Join(missing, ", "))
+		return nil, errorx.NewBadRequest("角色不存在: " + strings.Join(missing, ", "))
 	}
 
 	orderedRoles := make([]model.Role, 0, len(ordered))

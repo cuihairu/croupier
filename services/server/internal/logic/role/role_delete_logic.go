@@ -5,8 +5,8 @@ package role
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
@@ -50,7 +50,7 @@ func (l *RoleDeleteLogic) RoleDelete(req *types.RoleDeleteRequest) error {
 		if err := tx.WithContext(l.ctx).
 			Where("role_id = ?", roleID).
 			Delete(&model.RolePermission{}).Error; err != nil {
-			return fmt.Errorf("删除角色权限失败: %w", err)
+			return errorx.NewInternalError("删除角色权限失败")
 		}
 
 		return roleModel.Delete(l.ctx, roleID)

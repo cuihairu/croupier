@@ -5,8 +5,8 @@ package admin
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -46,7 +46,7 @@ func (l *AdminDetailLogic) AdminDetail(req *types.AdminDetailRequest) (*types.Ad
 
 	roles, err := l.svcCtx.GetAdminRolesCached(l.ctx, admin.ID)
 	if err != nil {
-		return nil, fmt.Errorf("获取管理员角色失败: %w", err)
+		return nil, errorx.NewInternalError("获取管理员角色失败")
 	}
 
 	return &types.AdminDetailResponse{

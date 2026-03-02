@@ -3,9 +3,9 @@ package middleware
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -25,7 +25,7 @@ func NewDBHealth(svcCtx *svc.ServiceContext) *DBHealth {
 // Check 检查数据库连接
 func (h *DBHealth) Check(ctx context.Context) error {
 	if h.svcCtx == nil || h.svcCtx.AdminModel == nil {
-		return fmt.Errorf("数据库模型未初始化")
+		return errorx.NewInternalError("数据库模型未初始化")
 	}
 
 	// 执行简单的查询来检查数据库连接
@@ -36,7 +36,7 @@ func (h *DBHealth) Check(ctx context.Context) error {
 	_, err := h.svcCtx.AdminModel.FindOne(queryCtx, 1)
 	if err != nil && err != sql.ErrNoRows {
 		logx.Errorf("Database health check failed: %v", err)
-		return fmt.Errorf("数据库连接检查失败: %w", err)
+		return errorx.NewInternalError("数据库连接检查失败")
 	}
 
 	return nil

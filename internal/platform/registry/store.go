@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -52,10 +53,30 @@ type Store struct {
 	mu     sync.RWMutex
 	agents map[string]*AgentSession // agent_id -> session
 	// OpenAPI operations storage (replaces legacy manifest)
-	openapiOperations map[string]*openapi3.Operation  // function_id -> OpenAPI operation
-	openapiProviders  map[string]*OpenAPIProviderCaps // provider_id -> OpenAPI caps
+	openapiOperations    map[string]*openapi3.Operation  // function_id -> OpenAPI operation
+	openapiProviders     map[string]*OpenAPIProviderCaps // provider_id -> OpenAPI caps
+	registrationWarnings map[string]*FunctionRegistrationWarning
 	// Optional database for dual-write persistence
 	db *gorm.DB
+}
+
+type FunctionRegistrationWarning struct {
+	Key        string
+	AgentID    string
+	FunctionID string
+	Version    string
+	Code       string
+	Message    string
+	Count      int
+	FirstSeen  time.Time
+	LastSeen   time.Time
+}
+
+type RegistrationWarningFilter struct {
+	AgentID    string
+	FunctionID string
+	Code       string
+	Limit      int
 }
 
 // OpenAPIProviderCaps represents provider capabilities in OpenAPI format.
@@ -71,20 +92,22 @@ type OpenAPIProviderCaps struct {
 
 func NewStore() *Store {
 	return &Store{
-		agents:            map[string]*AgentSession{},
-		openapiOperations: make(map[string]*openapi3.Operation),
-		openapiProviders:  make(map[string]*OpenAPIProviderCaps),
-		db:                nil,
+		agents:               map[string]*AgentSession{},
+		openapiOperations:    make(map[string]*openapi3.Operation),
+		openapiProviders:     make(map[string]*OpenAPIProviderCaps),
+		registrationWarnings: make(map[string]*FunctionRegistrationWarning),
+		db:                   nil,
 	}
 }
 
 // NewStoreWithDB creates a new Store with database dual-write enabled.
 func NewStoreWithDB(db *gorm.DB) *Store {
 	return &Store{
-		agents:            map[string]*AgentSession{},
-		openapiOperations: make(map[string]*openapi3.Operation),
-		openapiProviders:  make(map[string]*OpenAPIProviderCaps),
-		db:                db,
+		agents:               map[string]*AgentSession{},
+		openapiOperations:    make(map[string]*openapi3.Operation),
+		openapiProviders:     make(map[string]*OpenAPIProviderCaps),
+		registrationWarnings: make(map[string]*FunctionRegistrationWarning),
+		db:                   db,
 	}
 }
 
@@ -377,6 +400,80 @@ func (s *Store) DeleteOpenAPIProvider(providerID string) error {
 
 	delete(s.openapiProviders, providerID)
 	return nil
+}
+
+func (s *Store) UpsertRegistrationWarning(item FunctionRegistrationWarning) {
+	if item.Message == "" {
+		return
+	}
+	key := item.Key
+	if key == "" {
+		key = fmt.Sprintf("%s|%s|%s|%s", item.AgentID, item.FunctionID, item.Code, item.Message)
+	}
+	now := time.Now()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.registrationWarnings == nil {
+		s.registrationWarnings = make(map[string]*FunctionRegistrationWarning)
+	}
+	existing, ok := s.registrationWarnings[key]
+	if !ok || existing == nil {
+		cp := item
+		cp.Key = key
+		if cp.FirstSeen.IsZero() {
+			cp.FirstSeen = now
+		}
+		if cp.LastSeen.IsZero() {
+			cp.LastSeen = cp.FirstSeen
+		}
+		if cp.Count <= 0 {
+			cp.Count = 1
+		}
+		s.registrationWarnings[key] = &cp
+		return
+	}
+	existing.Count++
+	existing.LastSeen = now
+	if existing.Version == "" && item.Version != "" {
+		existing.Version = item.Version
+	}
+	if existing.AgentID == "" && item.AgentID != "" {
+		existing.AgentID = item.AgentID
+	}
+	if existing.FunctionID == "" && item.FunctionID != "" {
+		existing.FunctionID = item.FunctionID
+	}
+}
+
+func (s *Store) ListRegistrationWarnings(filter RegistrationWarningFilter) []FunctionRegistrationWarning {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]FunctionRegistrationWarning, 0, len(s.registrationWarnings))
+	for _, item := range s.registrationWarnings {
+		if item == nil {
+			continue
+		}
+		if filter.AgentID != "" && item.AgentID != filter.AgentID {
+			continue
+		}
+		if filter.FunctionID != "" && item.FunctionID != filter.FunctionID {
+			continue
+		}
+		if filter.Code != "" && item.Code != filter.Code {
+			continue
+		}
+		out = append(out, *item)
+	}
+	// Sort by most recent warnings first.
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].LastSeen.After(out[j].LastSeen)
+	})
+	if filter.Limit > 0 && len(out) > filter.Limit {
+		out = out[:filter.Limit]
+	}
+	return out
 }
 
 // AgentSessionLoader defines the interface for loading agent sessions from database.

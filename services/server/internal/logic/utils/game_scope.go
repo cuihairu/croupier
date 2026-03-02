@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
@@ -39,7 +38,7 @@ func RequireGameEnvScope(ctx context.Context, svcCtx *svc.ServiceContext, adminI
 		Table("admin_game_env_scopes").
 		Where("admin_id = ? AND game_id = ?", adminID, game.ID).
 		Count(&envScopeCount).Error; err != nil {
-		return fmt.Errorf("check env scope: %w", err)
+		return errorx.NewInternalError("check env scope failed")
 	}
 
 	if envScopeCount > 0 {

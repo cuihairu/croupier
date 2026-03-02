@@ -6,7 +6,6 @@ package function
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
@@ -83,19 +82,19 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *types.FunctionInvokeRequest) (
 	case "targeted":
 		sid := strings.TrimSpace(req.TargetServiceID)
 		if sid == "" {
-			return nil, fmt.Errorf("target_service_id is required for route=targeted")
+			return nil, errorx.NewBadRequest("target_service_id is required for route=targeted")
 		}
 		metadata["target_service_id"] = sid
 	case "hash":
 		key := strings.TrimSpace(req.HashKey)
 		if key == "" {
-			return nil, fmt.Errorf("hash_key is required for route=hash")
+			return nil, errorx.NewBadRequest("hash_key is required for route=hash")
 		}
 		metadata["hash_key"] = key
 	case "broadcast":
-		return nil, fmt.Errorf("route=broadcast not implemented")
+		return nil, errorx.NewBadRequest("route=broadcast not implemented")
 	default:
-		return nil, fmt.Errorf("invalid route %q", route)
+		return nil, errorx.NewBadRequest("invalid route " + route)
 	}
 
 	if mode == "job" || mode == "start_job" || mode == "async" {

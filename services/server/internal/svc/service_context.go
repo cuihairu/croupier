@@ -68,6 +68,7 @@ type ServiceContext struct {
 	PlayerModel        *model.PlayerModel
 	ProfileModel       *model.ProfileModel
 	FunctionModel      *model.FunctionModel
+	TermDictModel      *model.TermDictionaryModel
 	RoleModel          *model.RoleModel
 	NodeModel          *model.NodeModel
 	PermissionModel    *model.PermissionModel
@@ -119,6 +120,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	playerModel := model.NewPlayerModel(db)
 	profileModel := model.NewProfileModel(db)
 	functionModel := model.NewFunctionModel(db)
+	termDictModel := model.NewTermDictionaryModel(db)
 	roleModel := model.NewRoleModel(db)
 	nodeModel := model.NewNodeModel(db)
 	permissionModel := model.NewPermissionModel(db)
@@ -197,6 +199,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		PlayerModel:        playerModel,
 		ProfileModel:       profileModel,
 		FunctionModel:      functionModel,
+		TermDictModel:      termDictModel,
 		RoleModel:          roleModel,
 		NodeModel:          nodeModel,
 		PermissionModel:    permissionModel,
@@ -282,6 +285,9 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	}
 	if err := seedBootstrapGames(ctx); err != nil {
 		logx.Errorf("failed to seed bootstrap games: %v", err)
+	}
+	if err := seedBootstrapTermDictionary(ctx); err != nil {
+		logx.Errorf("failed to seed term dictionary: %v", err)
 	}
 
 	// Initialize agent ops stores

@@ -381,6 +381,7 @@ type RegisterResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	ExpireAt      int64                  `protobuf:"varint,2,opt,name=expire_at,json=expireAt,proto3" json:"expire_at,omitempty"` // epoch seconds
+	Warnings      []string               `protobuf:"bytes,3,rep,name=warnings,proto3" json:"warnings,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -427,6 +428,13 @@ func (x *RegisterResponse) GetExpireAt() int64 {
 		return x.ExpireAt
 	}
 	return 0
+}
+
+func (x *RegisterResponse) GetWarnings() []string {
+	if x != nil {
+		return x.Warnings
+	}
+	return nil
 }
 
 // Agent Heartbeat Request
@@ -721,11 +729,12 @@ const file_croupier_agent_v1_register_proto_rawDesc = "" +
 	"\x06labels\x18\f \x03(\v2..croupier.agent.v1.RegisterRequest.LabelsEntryR\x06labels\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"N\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"j\n" +
 	"\x10RegisterResponse\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1b\n" +
-	"\texpire_at\x18\x02 \x01(\x03R\bexpireAt\"L\n" +
+	"\texpire_at\x18\x02 \x01(\x03R\bexpireAt\x12\x1a\n" +
+	"\bwarnings\x18\x03 \x03(\tR\bwarnings\"L\n" +
 	"\x10HeartbeatRequest\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x1d\n" +
 	"\n" +

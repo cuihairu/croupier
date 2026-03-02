@@ -6,8 +6,8 @@ package profile
 import (
 	"context"
 	"errors"
-	"fmt"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -39,12 +39,12 @@ func (l *ProfilePasswordLogic) ProfilePassword(req *types.ProfilePasswordRequest
 
 	oldPassword, err := utils.ValidatePassword(req.OldPassword)
 	if err != nil {
-		return fmt.Errorf("原密码无效: %w", err)
+		return errorx.NewBadRequest("原密码无效: " + err.Error())
 	}
 
 	newPassword, err := utils.ValidatePassword(req.NewPassword)
 	if err != nil {
-		return fmt.Errorf("新密码无效: %w", err)
+		return errorx.NewBadRequest("新密码无效: " + err.Error())
 	}
 
 	if oldPassword == newPassword {
@@ -56,7 +56,7 @@ func (l *ProfilePasswordLogic) ProfilePassword(req *types.ProfilePasswordRequest
 	}
 
 	if err := l.svcCtx.AdminModel.UpdatePassword(l.ctx, admin.ID, newPassword); err != nil {
-		return fmt.Errorf("更新密码失败: %w", err)
+		return errorx.NewInternalError("更新密码失败")
 	}
 
 	l.svcCtx.InvalidateAdminCache(l.ctx, admin.ID, admin.Username)

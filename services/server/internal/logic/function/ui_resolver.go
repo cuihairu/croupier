@@ -59,6 +59,15 @@ func resolveFunctionUI(c config.Config, fn *model.Function) uiResolveResult {
 		layout = fn.Metadata["layout"]
 		components = fn.Metadata["components"]
 	}
+	if layout == nil {
+		layout = map[string]interface{}{
+			"type": "grid",
+			"cols": 2,
+		}
+	}
+	if components == nil {
+		components = map[string]interface{}{}
+	}
 
 	return uiResolveResult{
 		Schema:         resultUI,

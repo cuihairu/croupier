@@ -5,6 +5,7 @@ package function
 
 import (
 	"context"
+	"sort"
 	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
@@ -64,17 +65,51 @@ func (l *FunctionsListLogic) FunctionsList(req *types.FunctionsListRequest) (*ty
 		opts.Status = &status
 	}
 
-	functions, total, err := l.svcCtx.FunctionModel.List(l.ctx, opts)
+	functions, err := l.dbFunctions(opts)
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]types.Function, 0, len(functions))
+	index := make(map[string]types.Function, len(functions))
 	for i := range functions {
-		items = append(items, utils.BuildFunctionDTO(&functions[i]))
+		dto := utils.BuildFunctionDTO(&functions[i])
+		index[dto.Id] = dto
 	}
 
+	for _, rt := range l.runtimeFunctions(req) {
+		if existing, ok := index[rt.Id]; ok {
+			if rt.Version != "" && rt.Version > existing.Version {
+				existing.Version = rt.Version
+			}
+			if rt.Instances > existing.Instances {
+				existing.Instances = rt.Instances
+			}
+			if existing.GameId == "" && rt.GameId != "" {
+				existing.GameId = rt.GameId
+			}
+			index[rt.Id] = existing
+			continue
+		}
+		index[rt.Id] = rt
+	}
+
+	items := make([]types.Function, 0, len(index))
+	for _, v := range index {
+		items = append(items, v)
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].Id < items[j].Id })
+
 	opts.PaginationOptions.Normalize()
+	total := int64(len(items))
+	start := opts.Offset()
+	if start > len(items) {
+		start = len(items)
+	}
+	end := start + opts.PageSize
+	if end > len(items) {
+		end = len(items)
+	}
+	items = items[start:end]
 
 	return &types.FunctionsListResponse{
 		Items: items,
@@ -82,6 +117,70 @@ func (l *FunctionsListLogic) FunctionsList(req *types.FunctionsListRequest) (*ty
 		Page:  opts.Page,
 		Size:  opts.PageSize,
 	}, nil
+}
+
+func (l *FunctionsListLogic) runtimeFunctions(req *types.FunctionsListRequest) []types.Function {
+	store := l.svcCtx.RegistryStore
+	if store == nil {
+		return nil
+	}
+
+	gameIDFilter := strings.TrimSpace(req.GameId)
+	index := make(map[string]types.Function)
+
+	store.Mu().RLock()
+	defer store.Mu().RUnlock()
+	for _, sess := range store.AgentsUnsafe() {
+		if sess == nil {
+			continue
+		}
+		if gameIDFilter != "" && !strings.EqualFold(strings.TrimSpace(sess.GameID), gameIDFilter) {
+			continue
+		}
+		for fid, meta := range sess.Functions {
+			fid = strings.TrimSpace(fid)
+			if fid == "" {
+				continue
+			}
+			item := index[fid]
+			if item.Id == "" {
+				item = types.Function{
+					Id:       fid,
+					Name:     fid,
+					GameId:   sess.GameID,
+					Status:   1,
+					Version:  meta.Version,
+					Category: inferCategory(fid),
+				}
+			}
+			if req.Status != 0 && item.Status != req.Status {
+				continue
+			}
+			if strings.TrimSpace(req.Category) != "" && !strings.EqualFold(item.Category, strings.TrimSpace(req.Category)) {
+				continue
+			}
+			if meta.Version != "" && meta.Version > item.Version {
+				item.Version = meta.Version
+			}
+			item.Instances++
+			index[fid] = item
+		}
+	}
+
+	out := make([]types.Function, 0, len(index))
+	for _, fn := range index {
+		out = append(out, fn)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Id < out[j].Id })
+	return out
+}
+
+func (l *FunctionsListLogic) dbFunctions(opts model.ListFunctionsOptions) ([]model.Function, error) {
+	allOpts := opts
+	allOpts.Page = 1
+	allOpts.PageSize = 10000
+	items, _, err := l.svcCtx.FunctionModel.List(l.ctx, allOpts)
+	return items, err
 }
 
 // ExtractRoleNames 从角色列表中提取角色名称

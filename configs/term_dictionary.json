@@ -1,0 +1,100 @@
+{
+  "items": [
+    {
+      "domain": "entity",
+      "key": "player",
+      "aliases": ["players", "user", "users", "role"],
+      "display_zh": "玩家",
+      "display_en": "Player",
+      "order": 10
+    },
+    {
+      "domain": "entity",
+      "key": "guild",
+      "aliases": ["clan", "alliance"],
+      "display_zh": "公会",
+      "display_en": "Guild",
+      "order": 20
+    },
+    {
+      "domain": "entity",
+      "key": "item",
+      "aliases": ["bag", "inventory"],
+      "display_zh": "道具",
+      "display_en": "Item",
+      "order": 30
+    },
+    {
+      "domain": "entity",
+      "key": "mail",
+      "aliases": ["message", "messages"],
+      "display_zh": "邮件",
+      "display_en": "Mail",
+      "order": 40
+    },
+    {
+      "domain": "entity",
+      "key": "order",
+      "aliases": ["payment", "payments", "transaction"],
+      "display_zh": "订单",
+      "display_en": "Order",
+      "order": 50
+    },
+    {
+      "domain": "entity",
+      "key": "match",
+      "aliases": ["battle", "arena"],
+      "display_zh": "对局",
+      "display_en": "Match",
+      "order": 60
+    },
+    {
+      "domain": "operation",
+      "key": "create",
+      "aliases": ["add", "new"],
+      "display_zh": "创建",
+      "display_en": "Create",
+      "order": 10
+    },
+    {
+      "domain": "operation",
+      "key": "read",
+      "aliases": ["get", "list", "query", "search", "detail"],
+      "display_zh": "查询",
+      "display_en": "Query",
+      "order": 20
+    },
+    {
+      "domain": "operation",
+      "key": "update",
+      "aliases": ["edit", "patch", "modify"],
+      "display_zh": "更新",
+      "display_en": "Update",
+      "order": 30
+    },
+    {
+      "domain": "operation",
+      "key": "delete",
+      "aliases": ["remove"],
+      "display_zh": "删除",
+      "display_en": "Delete",
+      "order": 40
+    },
+    {
+      "domain": "operation",
+      "key": "ban",
+      "aliases": ["mute", "unban", "unmute"],
+      "display_zh": "风控",
+      "display_en": "Risk Control",
+      "order": 50
+    },
+    {
+      "domain": "operation",
+      "key": "execute",
+      "aliases": ["invoke", "run"],
+      "display_zh": "执行",
+      "display_en": "Execute",
+      "order": 60
+    }
+  ]
+}

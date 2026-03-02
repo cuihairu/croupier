@@ -6,9 +6,9 @@ package profile
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
@@ -47,7 +47,7 @@ func (l *ProfileGamesLogic) ProfileGames(req *types.ProfileGamesRequest) (resp *
 	if l.svcCtx.ProfileModel != nil {
 		scopedRecords, err := l.svcCtx.ProfileModel.ListGames(l.ctx, admin.ID)
 		if err != nil {
-			return nil, fmt.Errorf("获取游戏列表失败: %w", err)
+			return nil, errorx.NewInternalError("获取游戏列表失败")
 		}
 		respGames = enrichProfileGames(scopedRecords, catalog)
 	}
@@ -88,7 +88,7 @@ func (l *ProfileGamesLogic) deriveGamesFromScopes(adminID uint, catalog []model.
 		Joins("INNER JOIN games ON games.id = admin_game_env_scopes.game_id").
 		Where("admin_game_env_scopes.admin_id = ?", adminID).
 		Find(&rows).Error; err != nil {
-		return nil, fmt.Errorf("获取游戏范围失败: %w", err)
+		return nil, errorx.NewInternalError("获取游戏范围失败")
 	}
 
 	envsByName := make(map[string][]string)
@@ -112,7 +112,7 @@ func (l *ProfileGamesLogic) deriveGamesFromScopes(adminID uint, catalog []model.
 	// Include game-only scopes (all envs).
 	var gameScopes []model.AdminGameScope
 	if err := l.svcCtx.DB.WithContext(l.ctx).Where("admin_id = ?", adminID).Find(&gameScopes).Error; err != nil {
-		return nil, fmt.Errorf("获取游戏范围失败: %w", err)
+		return nil, errorx.NewInternalError("获取游戏范围失败")
 	}
 	for _, scope := range gameScopes {
 		game, err := l.svcCtx.GameModel.FindOne(l.ctx, scope.GameID)

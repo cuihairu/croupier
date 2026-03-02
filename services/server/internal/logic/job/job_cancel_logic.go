@@ -5,9 +5,9 @@ package job
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -32,7 +32,7 @@ func NewJobCancelLogic(ctx context.Context, svcCtx *svc.ServiceContext) *JobCanc
 func (l *JobCancelLogic) JobCancel(req *types.JobCancelRequest) (*types.JobCancelResponse, error) {
 	jobID := strings.TrimSpace(req.ID)
 	if jobID == "" {
-		return nil, fmt.Errorf("任务ID不能为空")
+		return nil, errorx.NewBadRequest("任务ID不能为空")
 	}
 
 	if err := l.svcCtx.Dispatcher.CancelJob(l.ctx, jobID); err != nil {

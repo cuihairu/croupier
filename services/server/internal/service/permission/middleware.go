@@ -3,13 +3,13 @@ package permission
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	tokenmgr "github.com/cuihairu/croupier/internal/security/token"
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest/httpx"
@@ -41,7 +41,7 @@ func PermissionMiddleware(permissionService *PermissionService, jwtSecret string
 			adminID, err := extractAdminID(ctx, r, tokenManager, permissionService)
 			if err != nil {
 				logx.Error("Failed to extract admin ID", logx.Field("error", err))
-				httpx.ErrorCtx(ctx, w, errors.New("unauthorized"))
+				writePermissionError(ctx, w, err)
 				return
 			}
 
@@ -49,14 +49,14 @@ func PermissionMiddleware(permissionService *PermissionService, jwtSecret string
 			hasPermission, err := permissionService.CheckPermission(ctx, adminID, config.Resource, config.Action)
 			if err != nil {
 				logx.Error("Permission check failed", logx.Field("error", err))
-				httpx.ErrorCtx(ctx, w, err)
+				writePermissionError(ctx, w, err)
 				return
 			}
 
 			if !hasPermission {
 				logx.Infof("Permission denied admin=%d resource=%s action=%s",
 					adminID, config.Resource, config.Action)
-				httpx.ErrorCtx(ctx, w, ErrPermissionDenied)
+				writePermissionError(ctx, w, ErrPermissionDenied)
 				return
 			}
 
@@ -65,20 +65,20 @@ func PermissionMiddleware(permissionService *PermissionService, jwtSecret string
 				gameID, err := extractGameID(r)
 				if err != nil {
 					logx.Error("Failed to extract game ID", logx.Field("error", err))
-					httpx.ErrorCtx(ctx, w, errors.New("game ID required"))
+					writePermissionError(ctx, w, err)
 					return
 				}
 
 				hasGameScope, err := permissionService.CheckGameScope(ctx, adminID, gameID)
 				if err != nil {
 					logx.Error("Game scope check failed", logx.Field("error", err))
-					httpx.ErrorCtx(ctx, w, err)
+					writePermissionError(ctx, w, err)
 					return
 				}
 
 				if !hasGameScope {
 					logx.Infof("Game scope permission denied admin=%d game=%d", adminID, gameID)
-					httpx.ErrorCtx(ctx, w, ErrPermissionDenied)
+					writePermissionError(ctx, w, ErrPermissionDenied)
 					return
 				}
 			}
@@ -87,26 +87,26 @@ func PermissionMiddleware(permissionService *PermissionService, jwtSecret string
 			if config.CheckEnvScope {
 				gameID, err := extractGameID(r)
 				if err != nil {
-					httpx.ErrorCtx(ctx, w, errors.New("game ID required"))
+					writePermissionError(ctx, w, err)
 					return
 				}
 
 				env, err := extractEnv(r)
 				if err != nil {
-					httpx.ErrorCtx(ctx, w, errors.New("env required"))
+					writePermissionError(ctx, w, err)
 					return
 				}
 
 				hasEnvScope, err := permissionService.CheckGameEnvScope(ctx, adminID, gameID, env)
 				if err != nil {
 					logx.Error("Env scope check failed", logx.Field("error", err))
-					httpx.ErrorCtx(ctx, w, err)
+					writePermissionError(ctx, w, err)
 					return
 				}
 
 				if !hasEnvScope {
 					logx.Infof("Env scope permission denied admin=%d game=%d env=%s", adminID, gameID, env)
-					httpx.ErrorCtx(ctx, w, ErrPermissionDenied)
+					writePermissionError(ctx, w, ErrPermissionDenied)
 					return
 				}
 			}
@@ -141,10 +141,10 @@ func extractAdminID(ctx context.Context, r *http.Request, tokenManager *tokenmgr
 		if len(tokenParts) == 2 && strings.EqualFold(tokenParts[0], "Bearer") {
 			subject, _, err := tokenManager.Verify(tokenParts[1])
 			if err != nil {
-				return 0, fmt.Errorf("invalid token: %w", err)
+				return 0, errorx.NewUnauthorized("invalid token")
 			}
 			if subject == "" {
-				return 0, errors.New("token subject missing")
+				return 0, errorx.NewUnauthorized("token subject missing")
 			}
 
 			admin, err := permSvc.lookupAdminByUsername(subject)
@@ -158,12 +158,12 @@ func extractAdminID(ctx context.Context, r *http.Request, tokenManager *tokenmgr
 	// Try to get from cookie or session header
 	adminIDStr := r.Header.Get("X-Admin-ID")
 	if adminIDStr == "" {
-		return 0, errors.New("admin ID not found in request")
+		return 0, errorx.NewUnauthorized("admin ID not found in request")
 	}
 
 	adminID, err := strconv.ParseUint(adminIDStr, 10, 32)
 	if err != nil {
-		return 0, errors.New("invalid admin ID format")
+		return 0, errorx.NewBadRequest("invalid admin ID format")
 	}
 
 	return uint(adminID), nil
@@ -171,7 +171,7 @@ func extractAdminID(ctx context.Context, r *http.Request, tokenManager *tokenmgr
 
 func (s *PermissionService) lookupAdminByUsername(username string) (*model.Admin, error) {
 	if strings.TrimSpace(username) == "" {
-		return nil, errors.New("username missing")
+		return nil, errorx.NewUnauthorized("token subject missing")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -179,9 +179,9 @@ func (s *PermissionService) lookupAdminByUsername(username string) (*model.Admin
 	var admin model.Admin
 	if err := s.db.WithContext(ctx).Where("username = ?", username).First(&admin).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrAdminNotFound
+			return nil, errorx.NewUnauthorized("admin not found")
 		}
-		return nil, fmt.Errorf("failed to lookup admin: %w", err)
+		return nil, errorx.NewInternalError("failed to lookup admin")
 	}
 	return &admin, nil
 }
@@ -221,7 +221,7 @@ func extractGameID(r *http.Request) (uint, error) {
 		}
 	}
 
-	return 0, errors.New("game ID not found in request")
+	return 0, errorx.NewBadRequest("game ID required")
 }
 
 func extractEnv(r *http.Request) (string, error) {
@@ -237,7 +237,29 @@ func extractEnv(r *http.Request) (string, error) {
 		return env, nil
 	}
 
-	return "", errors.New("env not found in request")
+	return "", errorx.NewBadRequest("env required")
+}
+
+func writePermissionError(ctx context.Context, w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, ErrPermissionDenied):
+		httpx.ErrorCtx(ctx, w, errorx.NewForbidden("permission denied"))
+		return
+	case errors.Is(err, ErrAdminNotFound):
+		httpx.ErrorCtx(ctx, w, errorx.NewUnauthorized("admin not found"))
+		return
+	case errors.Is(err, ErrInvalidResource):
+		httpx.ErrorCtx(ctx, w, errorx.NewBadRequest("invalid resource"))
+		return
+	case errors.Is(err, ErrInvalidAction):
+		httpx.ErrorCtx(ctx, w, errorx.NewBadRequest("invalid action"))
+		return
+	}
+	if _, ok := errors.AsType[*errorx.CodeError](err); ok {
+		httpx.ErrorCtx(ctx, w, err)
+		return
+	}
+	httpx.ErrorCtx(ctx, w, errorx.NewInternalError("permission check failed"))
 }
 
 // Predefined permission configurations for common use cases

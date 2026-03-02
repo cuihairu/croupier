@@ -3,8 +3,8 @@ package openapi
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -26,7 +26,7 @@ func NewOpenAPIDocumentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *O
 
 func (l *OpenAPIDocumentLogic) OpenAPIDocument(_ *types.OpenAPIDocumentRequest) (*types.OpenAPIDocumentResponse, error) {
 	if l.svcCtx == nil || l.svcCtx.RegistryStore == nil {
-		return nil, fmt.Errorf("registry store is not ready")
+		return nil, errorx.NewInternalError("registry store is not ready")
 	}
 
 	doc, err := l.svcCtx.RegistryStore.BuildOpenAPISpec()

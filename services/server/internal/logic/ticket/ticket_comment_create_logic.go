@@ -5,9 +5,9 @@ package ticket
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -36,7 +36,7 @@ func (l *TicketCommentCreateLogic) TicketCommentCreate(req *types.TicketCommentC
 	}
 	content := strings.TrimSpace(req.Content)
 	if content == "" {
-		return nil, fmt.Errorf("评论内容不能为空")
+		return nil, errorx.NewBadRequest("评论内容不能为空")
 	}
 
 	if _, err := l.svcCtx.TicketModel.FindOne(l.ctx, id); err != nil {

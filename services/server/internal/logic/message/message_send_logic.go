@@ -6,9 +6,9 @@ package message
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
@@ -50,7 +50,7 @@ func (l *MessageSendLogic) MessageSend(req *types.MessageSendRequest) (*types.Me
 
 	dataJSON, err := model.EncodeData(req.Data)
 	if err != nil {
-		return nil, fmt.Errorf("序列化消息数据失败: %w", err)
+		return nil, errorx.NewBadRequest("序列化消息数据失败")
 	}
 
 	msg := &model.Message{

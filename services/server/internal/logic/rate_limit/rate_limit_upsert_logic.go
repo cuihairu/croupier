@@ -6,11 +6,11 @@ package rate_limit
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"gorm.io/datatypes"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -55,7 +55,7 @@ func (l *RateLimitUpsertLogic) RateLimitUpsert(req *types.RateLimitUpsertRequest
 	switch action {
 	case "reject", "throttle":
 	default:
-		return nil, fmt.Errorf("Action 无效，只能是 reject 或 throttle")
+		return nil, errorx.NewBadRequest("Action 无效，只能是 reject 或 throttle")
 	}
 
 	rulesMap, err := normalizeRules(req.Rules)
@@ -78,7 +78,7 @@ func (l *RateLimitUpsertLogic) RateLimitUpsert(req *types.RateLimitUpsertRequest
 	}
 
 	if err := l.svcCtx.RateLimitModel.Upsert(l.ctx, limit); err != nil {
-		return nil, fmt.Errorf("保存限流规则失败: %w", err)
+		return nil, errorx.NewInternalError("保存限流规则失败")
 	}
 
 	updated, err := l.svcCtx.RateLimitModel.FindByKey(l.ctx, limit.RateLimitID)

@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
@@ -73,7 +72,7 @@ func (l *AdminGamesUpdateLogic) AdminGamesUpdate(req *types.AdminGamesUpdateRequ
 			}
 			game, err := l.svcCtx.GameModel.FindByName(l.ctx, gameName)
 			if err != nil || game == nil {
-				return fmt.Errorf("game not found: %s", gameName)
+				return errorx.NewNotFound("game not found: " + gameName)
 			}
 
 			// Always insert game scope entry for quick allow (envs empty means all env).

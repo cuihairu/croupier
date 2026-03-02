@@ -47,6 +47,7 @@ import (
 	routesApi "github.com/cuihairu/croupier/services/server/internal/handler/routes"
 	schema "github.com/cuihairu/croupier/services/server/internal/handler/schema"
 	storage "github.com/cuihairu/croupier/services/server/internal/handler/storage"
+	term "github.com/cuihairu/croupier/services/server/internal/handler/term"
 	ticket "github.com/cuihairu/croupier/services/server/internal/handler/ticket"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 
@@ -705,6 +706,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: function.FunctionsListHandler(serverCtx),
 			},
 			{
+				// 查询函数注册告警
+				Method:  http.MethodGet,
+				Path:    "/warnings",
+				Handler: function.FunctionWarningsHandler(serverCtx),
+			},
+			{
 				// 获取函数详情
 				Method:  http.MethodGet,
 				Path:    "/:id",
@@ -756,6 +763,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodGet,
 				Path:    "/:id/permissions",
 				Handler: function.FunctionPermissionsHandler(serverCtx),
+			},
+			{
+				// 获取函数调用历史
+				Method:  http.MethodGet,
+				Path:    "/:id/history",
+				Handler: function.FunctionHistoryHandler(serverCtx),
+			},
+			{
+				// 获取函数统计信息
+				Method:  http.MethodGet,
+				Path:    "/:id/analytics",
+				Handler: function.FunctionAnalyticsHandler(serverCtx),
 			},
 			{
 				// 更新函数权限
@@ -1749,6 +1768,27 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/storage"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: term.TermsListHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodPut,
+				Path:    "/",
+				Handler: term.TermUpsertHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodDelete,
+				Path:    "/",
+				Handler: term.TermDeleteHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/terms"),
 	)
 
 	server.AddRoutes(

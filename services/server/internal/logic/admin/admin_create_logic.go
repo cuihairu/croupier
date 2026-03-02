@@ -5,10 +5,9 @@ package admin
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
@@ -40,7 +39,7 @@ func (l *AdminCreateLogic) AdminCreate(req *types.AdminCreateRequest) (*types.Ad
 
 	username := strings.TrimSpace(req.Username)
 	if username == "" {
-		return nil, errors.New("用户名不能为空")
+		return nil, errorx.NewBadRequest("用户名不能为空")
 	}
 	password, err := utils.ValidatePassword(req.Password)
 	if err != nil {
@@ -71,7 +70,7 @@ func (l *AdminCreateLogic) AdminCreate(req *types.AdminCreateRequest) (*types.Ad
 			}
 			for _, role := range roles {
 				if err := adminModel.AssignRole(l.ctx, admin.ID, role.ID); err != nil {
-					return fmt.Errorf("绑定角色失败: %w", err)
+					return errorx.NewInternalError("绑定角色失败")
 				}
 			}
 			assignedRoles = roles

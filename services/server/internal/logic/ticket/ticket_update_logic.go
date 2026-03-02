@@ -5,9 +5,9 @@ package ticket
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -56,7 +56,7 @@ func (l *TicketUpdateLogic) TicketUpdate(req *types.TicketUpdateRequest) (*types
 	}
 
 	if len(updates) == 0 {
-		return nil, fmt.Errorf("请提供需要更新的字段")
+		return nil, errorx.NewBadRequest("请提供需要更新的字段")
 	}
 
 	if err := l.svcCtx.TicketModel.Update(l.ctx, id, updates); err != nil {

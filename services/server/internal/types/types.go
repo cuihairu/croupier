@@ -315,6 +315,29 @@ type BatchDeleteFunctionsResponse struct {
 	Failed  []string `json:"failed"`
 }
 
+type FunctionWarningsRequest struct {
+	FunctionID string `form:"function_id,optional"`
+	AgentID    string `form:"agent_id,optional"`
+	Code       string `form:"code,optional"`
+	Limit      int    `form:"limit,optional,default=100"`
+}
+
+type FunctionWarningItem struct {
+	Key        string `json:"key"`
+	AgentID    string `json:"agent_id"`
+	FunctionID string `json:"function_id"`
+	Version    string `json:"version"`
+	Code       string `json:"code"`
+	Message    string `json:"message"`
+	Count      int    `json:"count"`
+	FirstSeen  string `json:"first_seen"`
+	LastSeen   string `json:"last_seen"`
+}
+
+type FunctionWarningsResponse struct {
+	Items []FunctionWarningItem `json:"items"`
+}
+
 type BatchDeleteObjectsData struct {
 	Deleted []string `json:"deleted"`
 	Failed  []string `json:"failed,optional"`
@@ -1104,11 +1127,10 @@ type FunctionRouteRequest struct {
 }
 
 type FunctionRouteConfig struct {
-	Section string `json:"section"`
-	Group   string `json:"group"`
-	Path    string `json:"path"`
-	Order   int    `json:"order"`
-	Hidden  bool   `json:"hidden"`
+	Nodes  []string `json:"nodes"`
+	Path   string   `json:"path"`
+	Order  int      `json:"order"`
+	Hidden bool     `json:"hidden"`
 }
 
 type FunctionRouteResponse struct {
@@ -1117,12 +1139,36 @@ type FunctionRouteResponse struct {
 }
 
 type FunctionRouteUpdateRequest struct {
-	ID      string `path:"id"`
-	Section string `json:"section,optional"`
-	Group   string `json:"group,optional"`
-	Path    string `json:"path,optional"`
-	Order   int    `json:"order,optional"`
-	Hidden  bool   `json:"hidden,optional"`
+	ID     string   `path:"id"`
+	Nodes  []string `json:"nodes,optional"`
+	Path   string   `json:"path,optional"`
+	Order  int      `json:"order,optional"`
+	Hidden bool     `json:"hidden,optional"`
+}
+
+type FunctionHistoryRequest struct {
+	ID string `path:"id"`
+}
+
+type FunctionHistoryItem struct {
+	ID        string      `json:"id"`
+	Action    string      `json:"action"`
+	Operator  string      `json:"operator,omitempty"`
+	Timestamp string      `json:"timestamp"`
+	Details   interface{} `json:"details,omitempty"`
+}
+
+type FunctionAnalyticsRequest struct {
+	ID string `path:"id"`
+}
+
+type FunctionAnalyticsResponse struct {
+	TotalCalls     int64   `json:"totalCalls"`
+	SuccessRate    float64 `json:"successRate"`
+	AvgLatency     float64 `json:"avgLatency"`
+	CallsToday     int64   `json:"callsToday"`
+	CallsThisWeek  int64   `json:"callsThisWeek"`
+	CallsThisMonth int64   `json:"callsThisMonth"`
 }
 
 type FunctionsListRequest struct {

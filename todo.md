@@ -117,7 +117,7 @@
 ### 代码质量建议
 
 - [x] 全局搜索确认 `fmt.Printf("DEBUG: ...")` 已全部清理（2026-02-27：`rg "DEBUG:"` 仅命中文档项）
-- [ ] 统一使用 `internal/errors` 的结构化错误（替代 `fmt.Errorf`，2026-02-28 已先完成 game 模块迁移：`services/server/internal/logic/game/*.go`）
+- [ ] 统一使用 `internal/errors` 的结构化错误（替代 `fmt.Errorf`，2026-02-28 已先完成 game 模块迁移：`services/server/internal/logic/game/*.go`；2026-03-01 已补函数调用路由与鉴权链路：`services/server/internal/logic/function/function_invoke_logic.go`、`services/server/internal/logic/utils/game_scope.go`、`services/server/internal/middleware/auth_middleware.go`，并补 OpenAPI 与 Job 逻辑：`services/server/internal/logic/openapi/*.go`、`services/server/internal/logic/job/*.go`）
 - [x] 移除 `internal/config/types.go` 等未使用的旧配置代码（2026-02-28：已删除 `internal/config/` 旧配置包）
 
 ## 使用方式

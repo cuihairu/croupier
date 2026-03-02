@@ -3,11 +3,11 @@ package middleware
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -61,14 +61,14 @@ func (m *AuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 			}
 		}
 		if authHeader == "" {
-			httpx.ErrorCtx(r.Context(), w, errors.New("missing authorization header"))
+			writeCodeError(w, r, errorx.NewUnauthorized("missing authorization header"))
 			return
 		}
 
 		// 解析 Bearer token
 		tokenParts := strings.SplitN(authHeader, " ", 2)
 		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
-			httpx.ErrorCtx(r.Context(), w, errors.New("invalid authorization header format"))
+			writeCodeError(w, r, errorx.NewUnauthorized("invalid authorization header format"))
 			return
 		}
 
@@ -78,7 +78,7 @@ func (m *AuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 		username, roles, adminID, err := m.authenticate(r.Context(), token)
 		if err != nil {
 			logx.Errorf("authentication failed: %v", err)
-			httpx.ErrorCtx(r.Context(), w, err)
+			writeCodeError(w, r, err)
 			return
 		}
 
@@ -98,11 +98,11 @@ func (m *AuthMiddleware) authenticate(ctx context.Context, token string) (string
 
 	claims, err := jwtutil.Parse(token, secret)
 	if err != nil {
-		return "", nil, 0, fmt.Errorf("invalid token: %w", err)
+		return "", nil, 0, errorx.NewUnauthorized("invalid token")
 	}
 	username := claims.Subject
 	if strings.TrimSpace(username) == "" {
-		return "", nil, 0, errors.New("token subject missing")
+		return "", nil, 0, errorx.NewUnauthorized("token subject missing")
 	}
 
 	// 增加超时时间
@@ -113,18 +113,18 @@ func (m *AuthMiddleware) authenticate(ctx context.Context, token string) (string
 		// 记录更详细的错误信息
 		logx.Errorf("Failed to query admin %s: %v", username, err)
 		if errors.Is(err, context.DeadlineExceeded) {
-			return "", nil, 0, fmt.Errorf("数据库查询超时，请检查数据库连接: %w", err)
+			return "", nil, 0, errorx.NewInternalError("数据库查询超时，请检查数据库连接")
 		}
-		return "", nil, 0, fmt.Errorf("查询管理员失败: %w", err)
+		return "", nil, 0, errorx.NewInternalError("查询管理员失败")
 	}
 	if admin == nil {
-		return "", nil, 0, errors.New("admin not found")
+		return "", nil, 0, errorx.NewUnauthorized("admin not found")
 	}
 	if admin.LastLoginAt != nil && claims.IssuedAt != nil {
 		issuedAt := normalizeToSecond(claims.IssuedAt.Time)
 		lastLogin := normalizeToSecond(*admin.LastLoginAt)
 		if issuedAt.Before(lastLogin) {
-			return "", nil, 0, errors.New("token has been invalidated by a later login")
+			return "", nil, 0, errorx.NewUnauthorized("token has been invalidated by a later login")
 		}
 	}
 
@@ -199,4 +199,15 @@ func GetRolesFromContext(ctx context.Context) []string {
 		return roles
 	}
 	return nil
+}
+
+func writeCodeError(w http.ResponseWriter, r *http.Request, err error) {
+	if codeErr, ok := errors.AsType[*errorx.CodeError](err); ok {
+		httpx.WriteJsonCtx(r.Context(), w, codeErr.Code, map[string]interface{}{
+			"error":   codeErr.ErrorCode(),
+			"message": codeErr.Message,
+		})
+		return
+	}
+	httpx.ErrorCtx(r.Context(), w, err)
 }

@@ -442,17 +442,18 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 			}
 
 			// Generate menu metadata from category/entity
-			if meta.Category != "" {
-				desc.Menu = &componentv1.Menu{
-					Section: "Functions",
-					Group:   toTitle(meta.Category),
-					Path:    "/functions/" + fid,
-					Order:   100,
-					Hidden:  false,
-				}
-				if meta.Entity != "" {
-					desc.Menu.Group = toTitle(meta.Entity)
-				}
+			nodes := make([]string, 0, 2)
+			if n := sanitizeNodeKey(meta.Category); n != "" {
+				nodes = append(nodes, n)
+			}
+			if n := sanitizeNodeKey(meta.Entity); n != "" {
+				nodes = append(nodes, n)
+			}
+			desc.Menu = &componentv1.Menu{
+				Nodes:  nodes,
+				Path:   defaultAgentMenuPath(fid, meta.Entity),
+				Order:  100,
+				Hidden: false,
 			}
 
 			// Generate permissions from operation type
@@ -681,11 +682,27 @@ func (c *UpstreamClient) ReportMetricsOnce(ctx context.Context) error {
 }
 
 // toTitle converts a string to title case (first letter uppercase)
-func toTitle(s string) string {
+func sanitizeNodeKey(s string) string {
+	s = strings.TrimSpace(strings.ToLower(s))
 	if s == "" {
-		return s
+		return ""
 	}
-	return strings.ToUpper(s[:1]) + s[1:]
+	s = strings.ReplaceAll(s, " ", "_")
+	s = strings.ReplaceAll(s, "/", "_")
+	out := make([]rune, 0, len(s))
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' || r == '-' || r == '.' {
+			out = append(out, r)
+		}
+	}
+	return strings.Trim(string(out), "._-")
+}
+
+func defaultAgentMenuPath(fid, entity string) string {
+	if e := sanitizeNodeKey(entity); e != "" {
+		return "/game/entities/" + e
+	}
+	return "/game/functions/invoke?fid=" + fid
 }
 
 // operationToVerbs converts an operation type to permission verbs

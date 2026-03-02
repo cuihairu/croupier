@@ -1,9 +1,9 @@
 package utils
 
 import (
-	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 )
@@ -26,7 +26,7 @@ func BuildPermission(perm *model.Permission) types.Permission {
 func ValidatePermissionID(id string) (string, error) {
 	trimmed := strings.TrimSpace(id)
 	if trimmed == "" {
-		return "", fmt.Errorf("权限ID不能为空")
+		return "", errorx.NewBadRequest("权限ID不能为空")
 	}
 	return trimmed, nil
 }

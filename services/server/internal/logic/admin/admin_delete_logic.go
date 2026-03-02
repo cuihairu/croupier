@@ -5,8 +5,8 @@ package admin
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
@@ -54,19 +54,19 @@ func (l *AdminDeleteLogic) AdminDelete(req *types.AdminDeleteRequest) error {
 		if err := tx.WithContext(l.ctx).
 			Where("admin_id = ?", adminID).
 			Delete(&model.AdminRole{}).Error; err != nil {
-			return fmt.Errorf("删除角色绑定失败: %w", err)
+			return errorx.NewInternalError("删除角色绑定失败")
 		}
 
 		if err := tx.WithContext(l.ctx).
 			Where("admin_id = ?", adminID).
 			Delete(&model.AdminGameScope{}).Error; err != nil {
-			return fmt.Errorf("删除游戏范围失败: %w", err)
+			return errorx.NewInternalError("删除游戏范围失败")
 		}
 
 		if err := tx.WithContext(l.ctx).
 			Where("admin_id = ?", adminID).
 			Delete(&model.AdminGameEnvScope{}).Error; err != nil {
-			return fmt.Errorf("删除环境范围失败: %w", err)
+			return errorx.NewInternalError("删除环境范围失败")
 		}
 
 		return adminModel.Delete(l.ctx, adminID)

@@ -70,3 +70,30 @@ func TestFunctionUI_EndToEndOverride(t *testing.T) {
 		t.Fatalf("expected uiSource=custom_metadata after update, got %s", updateResp.UISource)
 	}
 }
+
+func TestFunctionUI_RuntimeOnlyFunctionFallback(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite failed: %v", err)
+	}
+	if err := db.AutoMigrate(&model.Function{}); err != nil {
+		t.Fatalf("auto migrate failed: %v", err)
+	}
+
+	svcCtx := &svc.ServiceContext{
+		Config:        config.Config{},
+		FunctionModel: model.NewFunctionModel(db),
+	}
+
+	logic := NewFunctionUILogicV2(context.Background(), svcCtx)
+	resp, err := logic.FunctionUI(&types.FunctionUIRequest{ID: "examples.analytics.player_retention"})
+	if err != nil {
+		t.Fatalf("FunctionUI fallback failed: %v", err)
+	}
+	if resp == nil {
+		t.Fatalf("expected response, got nil")
+	}
+	if resp.UISource != "none" {
+		t.Fatalf("expected uiSource=none for runtime-only function, got %s", resp.UISource)
+	}
+}

@@ -202,8 +202,7 @@ type FunctionRouteRequest {
 }
 
 type FunctionRouteConfig {
-	Section string `json:"section"`
-	Group   string `json:"group"`
+	Nodes  []string `json:"nodes"`
 	Path    string `json:"path"`
 	Order   int    `json:"order"`
 	Hidden  bool   `json:"hidden"`
@@ -215,12 +214,11 @@ type FunctionRouteResponse {
 }
 
 type FunctionRouteUpdateRequest {
-	ID      string `path:"id"`
-	Section string `json:"section,optional"`
-	Group   string `json:"group,optional"`
-	Path    string `json:"path,optional"`
-	Order   int    `json:"order,optional"`
-	Hidden  bool   `json:"hidden,optional"`
+	ID     string   `path:"id"`
+	Nodes  []string `json:"nodes,optional"`
+	Path   string   `json:"path,optional"`
+	Order  int      `json:"order,optional"`
+	Hidden bool     `json:"hidden,optional"`
 }
 
 // --- 函数发布 ---
@@ -276,6 +274,30 @@ type BatchDeleteFunctionsRequest {
 type BatchDeleteFunctionsResponse {
 	Updated int      `json:"updated"`
 	Failed  []string `json:"failed"`
+}
+
+// --- 注册告警 ---
+type FunctionWarningsRequest {
+	FunctionID string `form:"function_id,optional"`
+	AgentID    string `form:"agent_id,optional"`
+	Code       string `form:"code,optional"`
+	Limit      int    `form:"limit,optional,default=100"`
+}
+
+type FunctionWarningItem {
+	Key        string `json:"key"`
+	AgentID    string `json:"agent_id"`
+	FunctionID string `json:"function_id"`
+	Version    string `json:"version"`
+	Code       string `json:"code"`
+	Message    string `json:"message"`
+	Count      int    `json:"count"`
+	FirstSeen  string `json:"first_seen"`
+	LastSeen   string `json:"last_seen"`
+}
+
+type FunctionWarningsResponse {
+	Items []FunctionWarningItem `json:"items"`
 }
 
 // ============================================================================
@@ -385,4 +407,8 @@ service server {
 	@doc "批量删除函数"
 	@handler BatchDeleteFunctionsHandler
 	post /batch-delete (BatchDeleteFunctionsRequest) returns (BatchDeleteFunctionsResponse)
+
+	@doc "查询函数注册告警"
+	@handler FunctionWarningsHandler
+	get /warnings (FunctionWarningsRequest) returns (FunctionWarningsResponse)
 }

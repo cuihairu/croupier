@@ -6,11 +6,11 @@ package auth
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/security/jwtutil"
@@ -83,7 +83,7 @@ func (l *LoginLogic) authenticateDBUser(username, password string) (*model.Admin
 
 	roleModels, err := l.svcCtx.AdminModel.GetAdminRoles(l.ctx, admin.ID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("获取管理员角色失败: %w", err)
+		return nil, nil, errorx.NewInternalError("获取管理员角色失败")
 	}
 
 	return admin, utils.RoleNamesFromModels(roleModels), nil

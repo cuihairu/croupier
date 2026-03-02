@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/pack"
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 )
@@ -152,7 +153,7 @@ func findComponentEntry(cm *pack.ComponentManager, id string) (*componentEntry, 
 	if manifest, ok := cm.ListDisabled()[componentID]; ok {
 		return &componentEntry{Manifest: manifest, Status: componentStatusDisabled}, nil
 	}
-	return nil, fmt.Errorf("组件 %s 不存在", componentID)
+	return nil, errorx.NewNotFound("组件不存在: " + componentID)
 }
 
 func locateComponentSource(cfg config.Config, name, version string) (string, error) {
@@ -221,7 +222,7 @@ func locateComponentSource(cfg config.Config, name, version string) (string, err
 		}
 	}
 
-	return "", fmt.Errorf("未找到组件 %s 的安装源", componentName)
+	return "", errorx.NewNotFound("未找到组件安装源: " + componentName)
 }
 
 func readComponentManifest(dir string) (*pack.ComponentManifest, error) {
@@ -267,49 +268,49 @@ func applyComponentPatch(manifest *pack.ComponentManifest, patch map[string]inte
 			if str, err := toString(value); err == nil {
 				manifest.Name = str
 			} else {
-				return false, fmt.Errorf("name 无效: %w", err)
+				return false, errorx.NewBadRequest("name 无效")
 			}
 		case "description":
 			if str, err := toString(value); err == nil {
 				manifest.Description = str
 			} else {
-				return false, fmt.Errorf("description 无效: %w", err)
+				return false, errorx.NewBadRequest("description 无效")
 			}
 		case "version":
 			if str, err := toString(value); err == nil {
 				manifest.Version = str
 			} else {
-				return false, fmt.Errorf("version 无效: %w", err)
+				return false, errorx.NewBadRequest("version 无效")
 			}
 		case "category":
 			if str, err := toString(value); err == nil {
 				manifest.Category = str
 			} else {
-				return false, fmt.Errorf("category 无效: %w", err)
+				return false, errorx.NewBadRequest("category 无效")
 			}
 		case "dependencies":
 			deps, err := toStringSlice(value)
 			if err != nil {
-				return false, fmt.Errorf("dependencies 无效: %w", err)
+				return false, errorx.NewBadRequest("dependencies 无效")
 			}
 			manifest.Dependencies = deps
 		case "functions":
 			funcs, err := toComponentFunctions(value)
 			if err != nil {
-				return false, fmt.Errorf("functions 无效: %w", err)
+				return false, errorx.NewBadRequest("functions 无效")
 			}
 			manifest.Functions = funcs
 		case "author":
 			if str, err := toString(value); err == nil {
 				manifest.Author = str
 			} else {
-				return false, fmt.Errorf("author 无效: %w", err)
+				return false, errorx.NewBadRequest("author 无效")
 			}
 		case "license":
 			if str, err := toString(value); err == nil {
 				manifest.License = str
 			} else {
-				return false, fmt.Errorf("license 无效: %w", err)
+				return false, errorx.NewBadRequest("license 无效")
 			}
 		default:
 			// ignore unknown keys
@@ -412,7 +413,7 @@ func moveComponentCategory(cfg config.Config, entry componentEntry, oldCategory 
 	}
 	base := strings.TrimSpace(svc.ResolveComponentDataDir(cfg))
 	if base == "" {
-		return fmt.Errorf("组件目录未配置")
+		return errorx.NewInternalError("组件目录未配置")
 	}
 	statusDir := "installed"
 	if entry.Status == componentStatusDisabled {
@@ -434,7 +435,7 @@ func moveComponentCategory(cfg config.Config, entry componentEntry, oldCategory 
 
 func removeDisabledComponent(cm *pack.ComponentManager, cfg config.Config, entry componentEntry) error {
 	if entry.Manifest == nil {
-		return fmt.Errorf("组件定义不存在")
+		return errorx.NewNotFound("组件定义不存在")
 	}
 	path := componentDir(cfg, entry)
 	if path != "" {

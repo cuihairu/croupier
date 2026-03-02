@@ -6,9 +6,9 @@ package profile
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -43,7 +43,7 @@ func (l *ProfilePermissionsLogic) ProfilePermissions(req *types.ProfilePermissio
 
 	permissionIDs, err := utils.PermissionIDsFromRoles(l.ctx, l.svcCtx, roles)
 	if err != nil {
-		return nil, fmt.Errorf("获取权限列表失败: %w", err)
+		return nil, errorx.NewInternalError("获取权限列表失败")
 	}
 
 	gameID := strings.TrimSpace(req.GameId)

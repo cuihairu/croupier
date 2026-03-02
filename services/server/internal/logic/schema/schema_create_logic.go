@@ -5,10 +5,10 @@ package schema
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -33,7 +33,7 @@ func NewSchemaCreateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Sche
 func (l *SchemaCreateLogic) SchemaCreate(req *types.SchemaCreateRequest) (*types.SchemaCreateResponse, error) {
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
-		return nil, fmt.Errorf("Schema 名称不能为空")
+		return nil, errorx.NewBadRequest("Schema 名称不能为空")
 	}
 
 	if err := validateSchemaDefinition(req.Schema); err != nil {

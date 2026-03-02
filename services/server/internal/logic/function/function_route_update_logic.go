@@ -32,20 +32,26 @@ func (l *FunctionRouteUpdateLogic) FunctionRouteUpdate(req *types.FunctionRouteU
 		return nil, err
 	}
 
-	fn, err := l.svcCtx.FunctionModel.FindByFunctionID(l.ctx, functionID)
+	fn, err := getOrCreateFunctionRecord(l.ctx, l.svcCtx, functionID)
 	if err != nil {
 		return nil, err
 	}
+	nodes := make([]string, 0, len(req.Nodes))
+	for _, n := range req.Nodes {
+		if normalized := sanitizeNodeKey(n); normalized != "" {
+			nodes = append(nodes, normalized)
+		}
+	}
 
 	menu := map[string]interface{}{
-		"section": strings.TrimSpace(req.Section),
-		"group":   strings.TrimSpace(req.Group),
-		"path":    strings.TrimSpace(req.Path),
-		"order":   req.Order,
-		"hidden":  req.Hidden,
+		"nodes":  nodes,
+		"path":   strings.TrimSpace(req.Path),
+		"order":  req.Order,
+		"hidden": req.Hidden,
 	}
 	base := defaultMenu()
 	mergeShallow(base, menu)
+	applyEntityMenuDefaults(base, "", "", functionID)
 
 	meta := fn.Metadata
 	if meta == nil {
@@ -53,6 +59,9 @@ func (l *FunctionRouteUpdateLogic) FunctionRouteUpdate(req *types.FunctionRouteU
 	}
 	meta["menu"] = base
 	if err := l.svcCtx.FunctionModel.Update(l.ctx, fn.ID, map[string]interface{}{"metadata": meta}); err != nil {
+		return nil, err
+	}
+	if err := persistFunctionRouteVersion(l.ctx, l.svcCtx, fn.FunctionID, base, "update route config"); err != nil {
 		return nil, err
 	}
 

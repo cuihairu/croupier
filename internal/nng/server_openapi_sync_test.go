@@ -70,3 +70,60 @@ func TestHandleRegisterRequest_InvalidSchemaDoesNotFailRegistration(t *testing.T
 		t.Fatal("expected no openapi operation for invalid schema")
 	}
 }
+
+func TestHandleRegisterRequest_DedupByHigherVersion(t *testing.T) {
+	server := NewServer(":0", nil)
+	req := &agentv1.RegisterRequest{
+		AgentId: "agent-1",
+		GameId:  "game-1",
+		Env:     "dev",
+		Functions: []*agentv1.FunctionDescriptor{
+			{Id: "examples.analytics.player_retention", Version: "1.0.0"},
+			{Id: "examples.analytics.player_retention", Version: "1.2.0"},
+		},
+	}
+
+	if _, err := server.handleRegisterRequest(context.Background(), req); err != nil {
+		t.Fatalf("handleRegisterRequest failed: %v", err)
+	}
+	store := server.Store()
+	store.Mu().RLock()
+	agent, ok := store.AgentsUnsafe()["agent-1"]
+	store.Mu().RUnlock()
+	if !ok || agent == nil {
+		t.Fatalf("expected registered agent")
+	}
+	meta, ok := agent.Functions["examples.analytics.player_retention"]
+	if !ok {
+		t.Fatalf("expected function retained after dedup")
+	}
+	if meta.Version != "1.2.0" {
+		t.Fatalf("expected higher version kept, got %s", meta.Version)
+	}
+}
+
+func TestHandleRegisterRequest_InvalidVersionSkipped(t *testing.T) {
+	server := NewServer(":0", nil)
+	req := &agentv1.RegisterRequest{
+		AgentId: "agent-1",
+		GameId:  "game-1",
+		Env:     "dev",
+		Functions: []*agentv1.FunctionDescriptor{
+			{Id: "examples.analytics.player_retention", Version: "1.0"},
+		},
+	}
+
+	if _, err := server.handleRegisterRequest(context.Background(), req); err != nil {
+		t.Fatalf("handleRegisterRequest failed: %v", err)
+	}
+	store := server.Store()
+	store.Mu().RLock()
+	agent, ok := store.AgentsUnsafe()["agent-1"]
+	store.Mu().RUnlock()
+	if !ok || agent == nil {
+		t.Fatalf("expected registered agent")
+	}
+	if _, ok := agent.Functions["examples.analytics.player_retention"]; ok {
+		t.Fatal("expected invalid semver function skipped")
+	}
+}

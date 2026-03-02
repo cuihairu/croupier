@@ -76,14 +76,16 @@ func (x *I18NText) GetZh() string {
 
 // Menu metadata for building dynamic navigation in the UI.
 type Menu struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Section       string                 `protobuf:"bytes,1,opt,name=section,proto3" json:"section,omitempty"` // Top-level section: e.g. "Function Management" | "Operations" | "Analytics"
-	Group         string                 `protobuf:"bytes,2,opt,name=group,proto3" json:"group,omitempty"`     // Group within section: e.g. "Moderation" | "Player"
-	Path          string                 `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`       // Preferred landing path: e.g. "/functions/invoke"
-	Order         int32                  `protobuf:"varint,4,opt,name=order,proto3" json:"order,omitempty"`    // Ordering weight (ascending)
-	Icon          string                 `protobuf:"bytes,5,opt,name=icon,proto3" json:"icon,omitempty"`       // Icon id (frontend mapping)
-	Badge         string                 `protobuf:"bytes,6,opt,name=badge,proto3" json:"badge,omitempty"`     // "beta" | "new" | custom
-	Hidden        bool                   `protobuf:"varint,7,opt,name=hidden,proto3" json:"hidden,omitempty"`  // true → do not show in menu
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Dynamic menu tree nodes (english keys only), e.g. ["game","player"].
+	// Optional: server may infer from category/entity/function_id when empty.
+	Nodes []string `protobuf:"bytes,1,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	// Optional landing path. If empty, server generates default path by entity/function id.
+	Path          string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+	Order         int32  `protobuf:"varint,3,opt,name=order,proto3" json:"order,omitempty"`   // Ordering weight (ascending)
+	Icon          string `protobuf:"bytes,4,opt,name=icon,proto3" json:"icon,omitempty"`      // Icon id (frontend mapping)
+	Badge         string `protobuf:"bytes,5,opt,name=badge,proto3" json:"badge,omitempty"`    // "beta" | "new" | custom
+	Hidden        bool   `protobuf:"varint,6,opt,name=hidden,proto3" json:"hidden,omitempty"` // true → do not show in menu
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -118,18 +120,11 @@ func (*Menu) Descriptor() ([]byte, []int) {
 	return file_croupier_component_v1_dashboard_ui_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *Menu) GetSection() string {
+func (x *Menu) GetNodes() []string {
 	if x != nil {
-		return x.Section
+		return x.Nodes
 	}
-	return ""
-}
-
-func (x *Menu) GetGroup() string {
-	if x != nil {
-		return x.Group
-	}
-	return ""
+	return nil
 }
 
 func (x *Menu) GetPath() string {
@@ -300,15 +295,14 @@ const file_croupier_component_v1_dashboard_ui_proto_rawDesc = "" +
 	"(croupier/component/v1/dashboard_ui.proto\x12\x15croupier.component.v1\"*\n" +
 	"\bI18nText\x12\x0e\n" +
 	"\x02en\x18\x01 \x01(\tR\x02en\x12\x0e\n" +
-	"\x02zh\x18\x02 \x01(\tR\x02zh\"\xa2\x01\n" +
-	"\x04Menu\x12\x18\n" +
-	"\asection\x18\x01 \x01(\tR\asection\x12\x14\n" +
-	"\x05group\x18\x02 \x01(\tR\x05group\x12\x12\n" +
-	"\x04path\x18\x03 \x01(\tR\x04path\x12\x14\n" +
-	"\x05order\x18\x04 \x01(\x05R\x05order\x12\x12\n" +
-	"\x04icon\x18\x05 \x01(\tR\x04icon\x12\x14\n" +
-	"\x05badge\x18\x06 \x01(\tR\x05badge\x12\x16\n" +
-	"\x06hidden\x18\a \x01(\bR\x06hidden\"7\n" +
+	"\x02zh\x18\x02 \x01(\tR\x02zh\"\x88\x01\n" +
+	"\x04Menu\x12\x14\n" +
+	"\x05nodes\x18\x01 \x03(\tR\x05nodes\x12\x12\n" +
+	"\x04path\x18\x02 \x01(\tR\x04path\x12\x14\n" +
+	"\x05order\x18\x03 \x01(\x05R\x05order\x12\x12\n" +
+	"\x04icon\x18\x04 \x01(\tR\x04icon\x12\x14\n" +
+	"\x05badge\x18\x05 \x01(\tR\x05badge\x12\x16\n" +
+	"\x06hidden\x18\x06 \x01(\bR\x06hidden\"7\n" +
 	"\vRoleBinding\x12\x12\n" +
 	"\x04role\x18\x01 \x01(\tR\x04role\x12\x14\n" +
 	"\x05verbs\x18\x02 \x03(\tR\x05verbs\"\x85\x02\n" +

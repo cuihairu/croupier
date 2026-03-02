@@ -3,13 +3,13 @@ package ops
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"sync"
 
 	"github.com/cuihairu/croupier/internal/nng"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -55,7 +55,7 @@ func (c *AgentOpsClient) GetClient(ctx context.Context, agentID string) (*OpsCli
 
 	// Need to get agent address from registry
 	// For now, return error - the agent should be connected via heartbeat
-	return nil, fmt.Errorf("agent %s not connected or found", agentID)
+	return nil, errorx.NewNotFound("agent not connected or found: " + agentID)
 }
 
 // RegisterClient registers an NNG client for an agent
@@ -70,7 +70,7 @@ func (c *AgentOpsClient) RegisterClient(agentID, addr string) error {
 
 	client := nng.NewClient(addr)
 	if err := client.Dial(); err != nil {
-		return fmt.Errorf("failed to dial agent %s at %s: %w", agentID, addr, err)
+		return errorx.NewInternalError("failed to dial agent")
 	}
 
 	c.agents[agentID] = client
@@ -117,7 +117,7 @@ func (w *OpsClientWrapper) GetSystemInfo(ctx context.Context) (*opsv1.SystemInfo
 
 	resp := &opsv1.SystemInfo{}
 	if err := proto.Unmarshal(data, resp); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
+		return nil, errorx.NewInternalError("unmarshal system info failed")
 	}
 
 	return resp, nil
@@ -132,7 +132,7 @@ func (w *OpsClientWrapper) ListProcesses(ctx context.Context) (*opsv1.ListProces
 
 	resp := &opsv1.ListProcessesResponse{}
 	if err := proto.Unmarshal(data, resp); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
+		return nil, errorx.NewInternalError("unmarshal process list failed")
 	}
 
 	return resp, nil
@@ -142,7 +142,7 @@ func (w *OpsClientWrapper) ListProcesses(ctx context.Context) (*opsv1.ListProces
 func (w *OpsClientWrapper) ReportMetrics(ctx context.Context, req *opsv1.MetricsReport) (*opsv1.MetricsReport, error) {
 	data, err := proto.Marshal(req)
 	if err != nil {
-		return nil, fmt.Errorf("marshal: %w", err)
+		return nil, errorx.NewInternalError("marshal metrics report failed")
 	}
 
 	_, err = w.client.Call(ctx, protocol.MsgReportMetricsRequest, data)
@@ -158,7 +158,7 @@ func (w *OpsClientWrapper) ReportMetrics(ctx context.Context, req *opsv1.Metrics
 func (w *OpsClientWrapper) RestartProcess(ctx context.Context, req *opsv1.RestartProcessRequest) (*opsv1.RestartProcessResponse, error) {
 	data, err := proto.Marshal(req)
 	if err != nil {
-		return nil, fmt.Errorf("marshal: %w", err)
+		return nil, errorx.NewInternalError("marshal restart request failed")
 	}
 
 	respData, err := w.client.Call(ctx, protocol.MsgRestartProcessRequest, data)
@@ -168,7 +168,7 @@ func (w *OpsClientWrapper) RestartProcess(ctx context.Context, req *opsv1.Restar
 
 	resp := &opsv1.RestartProcessResponse{}
 	if err := proto.Unmarshal(respData, resp); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
+		return nil, errorx.NewInternalError("unmarshal restart response failed")
 	}
 
 	return resp, nil
@@ -178,7 +178,7 @@ func (w *OpsClientWrapper) RestartProcess(ctx context.Context, req *opsv1.Restar
 func (w *OpsClientWrapper) StopProcess(ctx context.Context, req *opsv1.StopProcessRequest) (*opsv1.StopProcessResponse, error) {
 	data, err := proto.Marshal(req)
 	if err != nil {
-		return nil, fmt.Errorf("marshal: %w", err)
+		return nil, errorx.NewInternalError("marshal stop request failed")
 	}
 
 	respData, err := w.client.Call(ctx, protocol.MsgStopProcessRequest, data)
@@ -188,7 +188,7 @@ func (w *OpsClientWrapper) StopProcess(ctx context.Context, req *opsv1.StopProce
 
 	resp := &opsv1.StopProcessResponse{}
 	if err := proto.Unmarshal(respData, resp); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
+		return nil, errorx.NewInternalError("unmarshal stop response failed")
 	}
 
 	return resp, nil
@@ -198,7 +198,7 @@ func (w *OpsClientWrapper) StopProcess(ctx context.Context, req *opsv1.StopProce
 func (w *OpsClientWrapper) StartProcess(ctx context.Context, req *opsv1.StartProcessRequest) (*opsv1.StartProcessResponse, error) {
 	data, err := proto.Marshal(req)
 	if err != nil {
-		return nil, fmt.Errorf("marshal: %w", err)
+		return nil, errorx.NewInternalError("marshal start request failed")
 	}
 
 	respData, err := w.client.Call(ctx, protocol.MsgStartProcessRequest, data)
@@ -208,7 +208,7 @@ func (w *OpsClientWrapper) StartProcess(ctx context.Context, req *opsv1.StartPro
 
 	resp := &opsv1.StartProcessResponse{}
 	if err := proto.Unmarshal(respData, resp); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
+		return nil, errorx.NewInternalError("unmarshal start response failed")
 	}
 
 	return resp, nil
@@ -218,7 +218,7 @@ func (w *OpsClientWrapper) StartProcess(ctx context.Context, req *opsv1.StartPro
 func (w *OpsClientWrapper) ExecuteCommand(ctx context.Context, req *opsv1.ExecuteCommandRequest) (*opsv1.ExecuteCommandResponse, error) {
 	data, err := proto.Marshal(req)
 	if err != nil {
-		return nil, fmt.Errorf("marshal: %w", err)
+		return nil, errorx.NewInternalError("marshal execute request failed")
 	}
 
 	respData, err := w.client.Call(ctx, protocol.MsgExecuteCommandRequest, data)
@@ -228,7 +228,7 @@ func (w *OpsClientWrapper) ExecuteCommand(ctx context.Context, req *opsv1.Execut
 
 	resp := &opsv1.ExecuteCommandResponse{}
 	if err := proto.Unmarshal(respData, resp); err != nil {
-		return nil, fmt.Errorf("unmarshal: %w", err)
+		return nil, errorx.NewInternalError("unmarshal execute response failed")
 	}
 
 	return resp, nil

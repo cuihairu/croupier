@@ -2,7 +2,6 @@ package rate_limit
 
 import (
 	"encoding/json"
-	"fmt"
 	"sort"
 	"strings"
 	"unicode"
@@ -10,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -18,7 +18,7 @@ import (
 func parseRateLimitID(id string) (string, error) {
 	trimmed := strings.TrimSpace(id)
 	if trimmed == "" {
-		return "", fmt.Errorf("限流规则ID不能为空")
+		return "", errorx.NewBadRequest("限流规则ID不能为空")
 	}
 	return trimmed, nil
 }
@@ -34,11 +34,11 @@ func normalizeRules(payload interface{}) (map[string]interface{}, error) {
 
 	bytes, err := json.Marshal(payload)
 	if err != nil {
-		return nil, fmt.Errorf("解析规则失败: %w", err)
+		return nil, errorx.NewBadRequest("解析规则失败")
 	}
 	var rules map[string]interface{}
 	if err := json.Unmarshal(bytes, &rules); err != nil {
-		return nil, fmt.Errorf("规则必须为对象: %w", err)
+		return nil, errorx.NewBadRequest("规则必须为对象")
 	}
 	return rules, nil
 }

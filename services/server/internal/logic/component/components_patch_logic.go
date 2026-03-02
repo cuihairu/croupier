@@ -6,11 +6,11 @@ package component
 import (
 	"context"
 	"errors"
-	"fmt"
 	"path/filepath"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/pack"
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -44,7 +44,7 @@ func (l *ComponentsPatchLogic) ComponentsPatch(req *types.ComponentPatchRequest)
 
 	patchMap, err := normalizePatchMap(req.Patch)
 	if err != nil {
-		return nil, fmt.Errorf("解析 patch 数据失败: %w", err)
+		return nil, errorx.NewBadRequest("解析 patch 数据失败")
 	}
 
 	if len(patchMap) == 0 {
@@ -69,16 +69,16 @@ func (l *ComponentsPatchLogic) ComponentsPatch(req *types.ComponentPatchRequest)
 
 		if categoryChanged {
 			if err := moveComponentCategory(l.svcCtx.Config, *entry, oldCategory); err != nil {
-				return fmt.Errorf("移动组件目录失败: %w", err)
+				return errorx.NewInternalError("移动组件目录失败")
 			}
 		}
 
 		manifestPath := filepath.Join(componentDir(l.svcCtx.Config, *entry), "manifest.json")
 		if err := writeComponentManifest(manifestPath, entry.Manifest); err != nil {
-			return fmt.Errorf("写入组件 manifest 失败: %w", err)
+			return errorx.NewInternalError("写入组件 manifest 失败")
 		}
 		if err := cm.SaveRegistry(); err != nil {
-			return fmt.Errorf("保存组件注册表失败: %w", err)
+			return errorx.NewInternalError("保存组件注册表失败")
 		}
 
 		dto = componentEntryToDTO(l.svcCtx.Config, *entry)

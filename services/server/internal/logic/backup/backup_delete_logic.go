@@ -6,9 +6,9 @@ package backup
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -39,7 +39,7 @@ func (l *BackupDeleteLogic) BackupDelete(req *types.BackupDeleteRequest) error {
 
 	if _, err := l.svcCtx.BackupModel.FindByBackupID(l.ctx, backupID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return fmt.Errorf("备份 %s 不存在", backupID)
+			return errorx.NewNotFound("备份不存在: " + backupID)
 		}
 		return err
 	}

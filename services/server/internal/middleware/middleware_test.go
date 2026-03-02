@@ -350,8 +350,8 @@ func TestAuthMiddleware_Handle_MissingAuth(t *testing.T) {
 	r := httptest.NewRequest("GET", "/api/v1/admin/users", nil)
 	handler(w, r)
 
-	if w.Code != http.StatusBadRequest && w.Code != http.StatusUnauthorized {
-		// Error response might be 400 or 401 depending on implementation
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("Handle() status = %d, want %d", w.Code, http.StatusUnauthorized)
 	}
 }
 
@@ -370,7 +370,7 @@ func TestAuthMiddleware_Handle_InvalidAuthHeader(t *testing.T) {
 	r.Header.Set("Authorization", "InvalidFormat token123")
 	handler(w, r)
 
-	if w.Code == http.StatusOK {
-		t.Error("Handle() should return error for invalid auth header")
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("Handle() status = %d, want %d", w.Code, http.StatusUnauthorized)
 	}
 }

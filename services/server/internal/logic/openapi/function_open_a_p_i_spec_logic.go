@@ -6,8 +6,8 @@ package openapi
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -32,7 +32,7 @@ func NewFunctionOpenAPISpecLogic(ctx context.Context, svcCtx *svc.ServiceContext
 func (l *FunctionOpenAPISpecLogic) FunctionOpenAPISpec(req *types.OpenAPISpecRequest) (resp *types.OpenAPISpecResponse, err error) {
 	// 参数验证
 	if req.ID == "" {
-		return nil, fmt.Errorf("function ID is required")
+		return nil, errorx.NewBadRequest("function ID is required")
 	}
 
 	// 从 registry store 获取 OpenAPI operation

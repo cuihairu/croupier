@@ -15,13 +15,15 @@ message I18nText {
 
 // Menu metadata for building dynamic navigation in the UI.
 message Menu {
-  string section = 1;  // Top-level section: e.g. "Function Management" | "Operations" | "Analytics"
-  string group   = 2;  // Group within section: e.g. "Moderation" | "Player"
-  string path    = 3;  // Preferred landing path: e.g. "/functions/invoke"
-  int32  order   = 4;  // Ordering weight (ascending)
-  string icon    = 5;  // Icon id (frontend mapping)
-  string badge   = 6;  // "beta" | "new" | custom
-  bool   hidden  = 7;  // true → do not show in menu
+  // Dynamic menu tree nodes (english keys only), e.g. ["game","player"].
+  // Optional: server may infer from category/entity/function_id when empty.
+  repeated string nodes = 1;
+  // Optional landing path. If empty, server generates default path by entity/function id.
+  string path    = 2;
+  int32  order   = 3;  // Ordering weight (ascending)
+  string icon    = 4;  // Icon id (frontend mapping)
+  string badge   = 5;  // "beta" | "new" | custom
+  bool   hidden  = 6;  // true → do not show in menu
 }
 
 // Role binding: which roles should be granted which verbs by default.

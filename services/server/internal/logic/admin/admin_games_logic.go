@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -66,7 +65,7 @@ func (l *AdminGamesLogic) AdminGames(req *types.AdminGamesRequest) (*types.Admin
 		Where("admin_game_env_scopes.admin_id = ?", adminID).
 		Find(&rows).Error
 	if err != nil {
-		return nil, fmt.Errorf("query env scopes: %w", err)
+		return nil, errorx.NewInternalError("query env scopes failed")
 	}
 
 	envByGame := make(map[uint][]string)
@@ -93,7 +92,7 @@ func (l *AdminGamesLogic) AdminGames(req *types.AdminGamesRequest) (*types.Admin
 	// Also include game-only scopes (all envs).
 	var gameScopes []model.AdminGameScope
 	if err := l.svcCtx.DB.WithContext(l.ctx).Where("admin_id = ?", adminID).Find(&gameScopes).Error; err != nil {
-		return nil, fmt.Errorf("query game scopes: %w", err)
+		return nil, errorx.NewInternalError("query game scopes failed")
 	}
 	for _, s := range gameScopes {
 		if _, ok := gameMeta[s.GameID]; ok {

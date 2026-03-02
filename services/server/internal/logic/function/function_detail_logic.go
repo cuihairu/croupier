@@ -46,6 +46,7 @@ func (l *FunctionDetailLogic) FunctionDetail(req *types.FunctionDetailRequest) (
 				var version string
 				var gameID string
 				instances := 0
+				desc := types.FunctionDescriptor{}
 				for _, sess := range store.AgentsUnsafe() {
 					if sess == nil {
 						continue
@@ -60,6 +61,15 @@ func (l *FunctionDetailLogic) FunctionDetail(req *types.FunctionDetailRequest) (
 						}
 					}
 				}
+				if op, opErr := store.GetOpenAPI(functionID); opErr == nil && op != nil {
+					desc.Schema = extractOperationRequestSchema(op)
+					if op.RequestBody != nil && op.RequestBody.Value != nil {
+						desc.Input = op.RequestBody.Value
+					}
+					if op.Responses != nil {
+						desc.Output = op.Responses
+					}
+				}
 				return &types.FunctionDetailResponse{
 					Function: types.Function{
 						Id:        functionID,
@@ -70,7 +80,7 @@ func (l *FunctionDetailLogic) FunctionDetail(req *types.FunctionDetailRequest) (
 						Version:   version,
 						Instances: instances,
 					},
-					Descriptor: types.FunctionDescriptor{},
+					Descriptor: desc,
 				}, nil
 			}
 		}
@@ -84,6 +94,17 @@ func (l *FunctionDetailLogic) FunctionDetail(req *types.FunctionDetailRequest) (
 			Input:  descs[0].Input,
 			Output: descs[0].Output,
 			Schema: descs[0].Schema,
+		}
+	} else if l.svcCtx.RegistryStore != nil {
+		// Fallback to runtime OpenAPI descriptor when DB descriptors are absent.
+		if op, opErr := l.svcCtx.RegistryStore.GetOpenAPI(functionID); opErr == nil && op != nil {
+			desc.Schema = extractOperationRequestSchema(op)
+			if op.RequestBody != nil && op.RequestBody.Value != nil {
+				desc.Input = op.RequestBody.Value
+			}
+			if op.Responses != nil {
+				desc.Output = op.Responses
+			}
 		}
 	}
 

@@ -2,8 +2,8 @@ package utils
 
 import (
 	"encoding/json"
-	"fmt"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 )
 
@@ -32,7 +32,7 @@ func BuildMessageDTO(msg *model.Message) map[string]interface{} {
 // ValidateMessageType optionally ensures type is present.
 func ValidateMessageType(messageType string) (string, error) {
 	if messageType == "" {
-		return "", fmt.Errorf("消息类型不能为空")
+		return "", errorx.NewBadRequest("消息类型不能为空")
 	}
 	return messageType, nil
 }

@@ -5,8 +5,8 @@ package openapi
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -31,7 +31,7 @@ func NewEntityFunctionsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *E
 func (l *EntityFunctionsLogic) EntityFunctions(req *types.EntityFunctionsRequest) (resp *types.EntityFunctionsResponse, err error) {
 	// 参数验证
 	if req.ID == "" {
-		return nil, fmt.Errorf("entity ID is required")
+		return nil, errorx.NewBadRequest("entity ID is required")
 	}
 
 	// TODO: 从 Entity Manager 获取实体关联的函数

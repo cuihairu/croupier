@@ -10,9 +10,9 @@ option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/component/v1;c
 
 // 方法级元信息（可选）。插件未识别时将使用默认推断。
 message FunctionOptions {
-  // 全局唯一函数ID（默认：<package>.<service>.<method> 转小写）
+  // 全局唯一函数ID（规范：<domain>.<entity>.<action>，小写，允许 [a-z0-9._-]）
   string function_id = 1;
-  // 版本（默认 1.0.0）
+  // 版本（规范：SemVer，如 1.0.0 / 1.2.3-beta.1）
   string version = 2;
   // 类目（默认取 package 里的第二级，如 games.player.v1 → player）
   string category = 3;

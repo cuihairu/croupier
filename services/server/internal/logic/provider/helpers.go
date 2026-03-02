@@ -2,18 +2,18 @@ package provider
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
 func ensureRegistryStore(store *reg.Store) (*reg.Store, error) {
 	if store == nil {
-		return nil, fmt.Errorf("registry store unavailable")
+		return nil, errorx.NewInternalError("registry store unavailable")
 	}
 	return store, nil
 }
@@ -24,11 +24,11 @@ func getProviderCaps(store *reg.Store, id string) (reg.OpenAPIProviderCaps, erro
 		return reg.OpenAPIProviderCaps{}, err
 	}
 	if strings.TrimSpace(id) == "" {
-		return reg.OpenAPIProviderCaps{}, fmt.Errorf("provider ID 不能为空")
+		return reg.OpenAPIProviderCaps{}, errorx.NewBadRequest("provider ID 不能为空")
 	}
 	caps, err := store.GetOpenAPIProvider(strings.TrimSpace(id))
 	if err != nil {
-		return reg.OpenAPIProviderCaps{}, fmt.Errorf("provider %s 不存在", id)
+		return reg.OpenAPIProviderCaps{}, errorx.NewNotFound("provider 不存在: " + id)
 	}
 	return *caps, nil
 }
@@ -39,7 +39,7 @@ func deleteProviderCaps(store *reg.Store, id string) error {
 		return err
 	}
 	if err := store.DeleteOpenAPIProvider(strings.TrimSpace(id)); err != nil {
-		return fmt.Errorf("删除provider失败: %w", err)
+		return errorx.NewInternalError("删除provider失败")
 	}
 	return nil
 }
@@ -50,7 +50,7 @@ func decodeOpenAPIDoc(doc []byte) (*openapi3.T, error) {
 	}
 	var out openapi3.T
 	if err := json.Unmarshal(doc, &out); err != nil {
-		return nil, fmt.Errorf("解析OpenAPI文档失败: %w", err)
+		return nil, errorx.NewBadRequest("解析OpenAPI文档失败")
 	}
 	return &out, nil
 }

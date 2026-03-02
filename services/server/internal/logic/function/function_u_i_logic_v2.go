@@ -34,7 +34,7 @@ func (l *FunctionUILogicV2) FunctionUI(req *types.FunctionUIRequest) (*types.Fun
 		return nil, err
 	}
 
-	fn, err := l.svcCtx.FunctionModel.FindByFunctionID(l.ctx, functionID)
+	fn, err := getOrCreateFunctionRecord(l.ctx, l.svcCtx, functionID)
 	if err != nil {
 		return nil, err
 	}

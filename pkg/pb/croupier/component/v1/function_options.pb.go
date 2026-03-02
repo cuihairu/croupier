@@ -25,9 +25,9 @@ const (
 // 方法级元信息（可选）。插件未识别时将使用默认推断。
 type FunctionOptions struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// 全局唯一函数ID（默认：<package>.<service>.<method> 转小写）
+	// 全局唯一函数ID（规范：<domain>.<entity>.<action>，小写，允许 [a-z0-9._-]）
 	FunctionId string `protobuf:"bytes,1,opt,name=function_id,json=functionId,proto3" json:"function_id,omitempty"`
-	// 版本（默认 1.0.0）
+	// 版本（规范：SemVer，如 1.0.0 / 1.2.3-beta.1）
 	Version string `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
 	// 类目（默认取 package 里的第二级，如 games.player.v1 → player）
 	Category string `protobuf:"bytes,3,opt,name=category,proto3" json:"category,omitempty"`

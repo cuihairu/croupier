@@ -6,8 +6,8 @@ package openapi
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/zeromicro/go-zero/core/logx"
 
@@ -33,7 +33,7 @@ func NewOpenAPIImportLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Ope
 func (l *OpenAPIImportLogic) OpenAPIImport(req *types.OpenAPIImportRequest) (resp *types.OpenAPIImportResponse, err error) {
 	// 参数验证
 	if req.Spec == nil {
-		return nil, fmt.Errorf("spec is required")
+		return nil, errorx.NewBadRequest("spec is required")
 	}
 
 	// 将 interface{} 转换为 OpenAPI 文档

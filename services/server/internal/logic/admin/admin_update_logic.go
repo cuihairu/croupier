@@ -5,9 +5,9 @@ package admin
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
@@ -76,7 +76,7 @@ func (l *AdminUpdateLogic) AdminUpdate(req *types.AdminUpdateRequest) (*types.Ad
 			if err := tx.WithContext(l.ctx).
 				Where("admin_id = ?", adminID).
 				Delete(&model.AdminRole{}).Error; err != nil {
-				return fmt.Errorf("清理旧角色失败: %w", err)
+				return errorx.NewInternalError("清理旧角色失败")
 			}
 
 			if len(req.Roles) > 0 {
@@ -86,7 +86,7 @@ func (l *AdminUpdateLogic) AdminUpdate(req *types.AdminUpdateRequest) (*types.Ad
 				}
 				for _, role := range roles {
 					if err := adminModel.AssignRole(l.ctx, adminID, role.ID); err != nil {
-						return fmt.Errorf("分配角色失败: %w", err)
+						return errorx.NewInternalError("分配角色失败")
 					}
 				}
 			}
@@ -111,7 +111,7 @@ func (l *AdminUpdateLogic) AdminUpdate(req *types.AdminUpdateRequest) (*types.Ad
 
 	roles, err := l.svcCtx.GetAdminRolesCached(l.ctx, adminID)
 	if err != nil {
-		return nil, fmt.Errorf("获取管理员角色失败: %w", err)
+		return nil, errorx.NewInternalError("获取管理员角色失败")
 	}
 
 	return &types.AdminUpdateResponse{

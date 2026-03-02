@@ -2,10 +2,10 @@ package utils
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 )
@@ -13,14 +13,14 @@ import (
 // ParseRoleID converts a path param into uint ID.
 func ParseRoleID(id string) (uint, error) {
 	if strings.TrimSpace(id) == "" {
-		return 0, fmt.Errorf("角色ID不能为空")
+		return 0, errorx.NewBadRequest("角色ID不能为空")
 	}
 	value, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("无效的角色ID: %w", err)
+		return 0, errorx.NewBadRequest("无效的角色ID")
 	}
 	if value == 0 {
-		return 0, fmt.Errorf("角色ID必须大于0")
+		return 0, errorx.NewBadRequest("角色ID必须大于0")
 	}
 	return uint(value), nil
 }
@@ -41,7 +41,7 @@ func BuildRole(role *model.Role, permissionIDs []string) types.Role {
 // EnsurePermissionIDs validates provided permission IDs via RoleModel.
 func EnsurePermissionIDs(ctx context.Context, roleModel *model.RoleModel, permissionIDs []string) ([]string, error) {
 	if roleModel == nil {
-		return nil, fmt.Errorf("role model is not initialized")
+		return nil, errorx.NewInternalError("role model is not initialized")
 	}
 	return roleModel.ValidatePermissionIDs(ctx, permissionIDs)
 }

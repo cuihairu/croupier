@@ -4,11 +4,11 @@
 package storage
 
 import (
-	"fmt"
 	"mime"
 	"net/http"
 	"path/filepath"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/logic/storage"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 
@@ -21,13 +21,13 @@ func UploadObjectHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		// 解析 multipart/form-data
 		err := r.ParseMultipartForm(32 << 20) // 32MB max memory
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, fmt.Errorf("解析 multipart 表单失败: %w", err))
+			httpx.ErrorCtx(r.Context(), w, errorx.NewBadRequest("解析 multipart 表单失败"))
 			return
 		}
 
 		file, header, err := r.FormFile("file")
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, fmt.Errorf("获取上传文件失败: %w", err))
+			httpx.ErrorCtx(r.Context(), w, errorx.NewBadRequest("获取上传文件失败"))
 			return
 		}
 		defer file.Close()

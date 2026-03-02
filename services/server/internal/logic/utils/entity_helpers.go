@@ -2,8 +2,8 @@ package utils
 
 import (
 	"encoding/json"
-	"fmt"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/model"
 )
 
@@ -29,7 +29,7 @@ func BuildEntityDTO(entity *model.Entity) map[string]interface{} {
 // ValidateEntityType checks entity type string.
 func ValidateEntityType(entityType string) (string, error) {
 	if entityType == "" {
-		return "", fmt.Errorf("实体类型不能为空")
+		return "", errorx.NewBadRequest("实体类型不能为空")
 	}
 	return entityType, nil
 }
