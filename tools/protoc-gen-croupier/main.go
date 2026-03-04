@@ -738,11 +738,16 @@ func menuToMap(m *ui.Menu) map[string]any {
 		return nil
 	}
 	out := map[string]any{}
-	if v := strings.TrimSpace(m.GetSection()); v != "" {
-		out["section"] = v
-	}
-	if v := strings.TrimSpace(m.GetGroup()); v != "" {
-		out["group"] = v
+	if nodes := m.GetNodes(); len(nodes) > 0 {
+		copied := make([]string, 0, len(nodes))
+		for _, node := range nodes {
+			if v := strings.TrimSpace(node); v != "" {
+				copied = append(copied, v)
+			}
+		}
+		if len(copied) > 0 {
+			out["nodes"] = copied
+		}
 	}
 	if v := strings.TrimSpace(m.GetPath()); v != "" {
 		out["path"] = v

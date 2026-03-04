@@ -26,7 +26,7 @@ func TestParseFunctionOptions_Extension(t *testing.T) {
 		DisplayName:    &componentv1.I18NText{Zh: "封禁玩家", En: "Ban Player"},
 		Summary:        &componentv1.I18NText{Zh: "封禁指定玩家", En: "Ban a player"},
 		Tags:           []string{"player", "moderation"},
-		Menu:           &componentv1.Menu{Section: "Function Management", Group: "Player", Path: "/functions/invoke", Order: 10, Icon: "StopOutlined", Badge: "beta", Hidden: false},
+		Menu:           &componentv1.Menu{Nodes: []string{"Function Management", "Player"}, Path: "/functions/invoke", Order: 10, Icon: "StopOutlined", Badge: "beta", Hidden: false},
 		Permissions:    &componentv1.PermissionSpec{Verbs: []string{"read", "invoke"}, Scopes: []string{"game", "env", "function_id"}, Defaults: []*componentv1.RoleBinding{{Role: "operator", Verbs: []string{"invoke"}}}},
 	})
 
@@ -47,7 +47,7 @@ func TestParseFunctionOptions_Extension(t *testing.T) {
 	require.Equal(t, map[string]string{"zh": "封禁玩家", "en": "Ban Player"}, out.DisplayName)
 	require.Equal(t, map[string]string{"zh": "封禁指定玩家", "en": "Ban a player"}, out.Summary)
 	require.Equal(t, []string{"player", "moderation"}, out.Tags)
-	require.Equal(t, "Function Management", out.Menu["section"])
+	require.Equal(t, []string{"Function Management", "Player"}, out.Menu["nodes"])
 	require.Equal(t, []string{"read", "invoke"}, out.Permissions["verbs"])
 }
 
