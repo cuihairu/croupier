@@ -221,6 +221,33 @@ type FunctionRouteUpdateRequest {
 	Hidden bool     `json:"hidden,optional"`
 }
 
+// --- 函数历史 ---
+type FunctionHistoryRequest {
+	ID string `path:"id"`
+}
+
+type FunctionHistoryItem {
+	ID        string      `json:"id"`
+	Action    string      `json:"action"`
+	Operator  string      `json:"operator,optional"`
+	Timestamp string      `json:"timestamp"`
+	Details   interface{} `json:"details,optional"`
+}
+
+// --- 函数分析 ---
+type FunctionAnalyticsRequest {
+	ID string `path:"id"`
+}
+
+type FunctionAnalyticsResponse {
+	TotalCalls     int64   `json:"totalCalls"`
+	SuccessRate    float64 `json:"successRate"`
+	AvgLatency     float64 `json:"avgLatency"`
+	CallsToday     int64   `json:"callsToday"`
+	CallsThisWeek  int64   `json:"callsThisWeek"`
+	CallsThisMonth int64   `json:"callsThisMonth"`
+}
+
 // --- 函数发布 ---
 type FunctionPublishRequest {
 	ID string `path:"id"`
@@ -384,6 +411,14 @@ service server {
 	@doc "更新函数路由配置"
 	@handler FunctionRouteUpdateHandler
 	put /:id/route (FunctionRouteUpdateRequest) returns (FunctionRouteResponse)
+
+	@doc "获取函数变更历史"
+	@handler FunctionHistoryHandler
+	get /:id/history (FunctionHistoryRequest) returns ([]FunctionHistoryItem)
+
+	@doc "获取函数分析数据"
+	@handler FunctionAnalyticsHandler
+	get /:id/analytics (FunctionAnalyticsRequest) returns (FunctionAnalyticsResponse)
 
 	// === 描述符 ===
 	@doc "获取函数描述符列表"
