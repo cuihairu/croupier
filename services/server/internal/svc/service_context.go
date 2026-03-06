@@ -77,7 +77,8 @@ type ServiceContext struct {
 	TicketModel        *model.TicketModel
 	MessageModel       *model.MessageModel
 	CertificateModel   *model.CertificateModel
-	ConfigVersionModel *model.ConfigVersionModel
+	ConfigVersionModel    *model.ConfigVersionModel
+	WorkspaceConfigModel  *model.WorkspaceConfigModel
 
 	// Agent Session 持久化
 	AgentSessionModel *reg.AgentSessionModel
@@ -130,6 +131,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	messageModel := model.NewMessageModel(db)
 	certificateModel := model.NewCertificateModel(db)
 	configVersionModel := model.NewConfigVersionModel(db)
+	workspaceConfigModel := model.NewWorkspaceConfigModel(db)
 
 	// Agent Session Model for database persistence
 	agentSessionModel := reg.NewAgentSessionModel(db)
@@ -208,8 +210,9 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		TicketModel:        ticketModel,
 		MessageModel:       messageModel,
 		CertificateModel:   certificateModel,
-		ConfigVersionModel: configVersionModel,
-		AgentSessionModel:  agentSessionModel,
+		ConfigVersionModel:   configVersionModel,
+		WorkspaceConfigModel: workspaceConfigModel,
+		AgentSessionModel:    agentSessionModel,
 
 		// 版本信息（从 version.go 读取，ldflags 注入后会更新）
 		ServerVersion:   ServerVersion,

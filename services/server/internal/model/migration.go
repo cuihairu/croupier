@@ -95,6 +95,7 @@ func autoMigrateModels(db *gorm.DB) error {
 		&ConfigVersion{},
 		&AgentSessionDB{},
 		&TermDictionary{},
+		&WorkspaceConfig{},
 	)
 }
 
