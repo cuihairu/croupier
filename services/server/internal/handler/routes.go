@@ -30,7 +30,6 @@ import (
 	job "github.com/cuihairu/croupier/services/server/internal/handler/job"
 	message "github.com/cuihairu/croupier/services/server/internal/handler/message"
 	meta "github.com/cuihairu/croupier/services/server/internal/handler/meta"
-	migrate "github.com/cuihairu/croupier/services/server/internal/handler/migrate"
 	monitoring "github.com/cuihairu/croupier/services/server/internal/handler/monitoring"
 	node "github.com/cuihairu/croupier/services/server/internal/handler/node"
 	openapi "github.com/cuihairu/croupier/services/server/internal/handler/openapi"
@@ -44,11 +43,11 @@ import (
 	rate_limit "github.com/cuihairu/croupier/services/server/internal/handler/rate_limit"
 	registry "github.com/cuihairu/croupier/services/server/internal/handler/registry"
 	role "github.com/cuihairu/croupier/services/server/internal/handler/role"
-	routesApi "github.com/cuihairu/croupier/services/server/internal/handler/routes"
+	routes "github.com/cuihairu/croupier/services/server/internal/handler/routes"
 	schema "github.com/cuihairu/croupier/services/server/internal/handler/schema"
 	storage "github.com/cuihairu/croupier/services/server/internal/handler/storage"
-	term "github.com/cuihairu/croupier/services/server/internal/handler/term"
 	ticket "github.com/cuihairu/croupier/services/server/internal/handler/ticket"
+	workspace "github.com/cuihairu/croupier/services/server/internal/handler/workspace"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
@@ -100,13 +99,13 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
-				// 获取管理员游戏权限
+				// 获取管理员的游戏访问权限
 				Method:  http.MethodGet,
 				Path:    "/:id/games",
 				Handler: adminGames.AdminGamesHandler(serverCtx),
 			},
 			{
-				// 更新管理员游戏权限
+				// 更新管理员的游戏访问权限
 				Method:  http.MethodPut,
 				Path:    "/:id/games",
 				Handler: adminGames.AdminGamesUpdateHandler(serverCtx),
@@ -192,12 +191,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				// 获取行为漏斗
 				Method:  http.MethodPost,
-				Path:    "/funnel",
-				Handler: analytics_behavior.BehaviorFunnelHandler(serverCtx),
-			},
-			{
-				// 获取行为漏斗（GET 兼容）
-				Method:  http.MethodGet,
 				Path:    "/funnel",
 				Handler: analytics_behavior.BehaviorFunnelHandler(serverCtx),
 			},
@@ -358,16 +351,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: assignment.AssignmentsListHandler(serverCtx),
 			},
 			{
-				// 获取分配历史
-				Method:  http.MethodGet,
-				Path:    "/history",
-				Handler: assignment.AssignmentsHistoryHandler(serverCtx),
-			},
-			{
 				// 更新分配
 				Method:  http.MethodPut,
 				Path:    "/",
 				Handler: assignment.AssignmentsUpdateHandler(serverCtx),
+			},
+			{
+				// 获取分配历史
+				Method:  http.MethodGet,
+				Path:    "/history",
+				Handler: assignment.AssignmentsHistoryHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/assignments"),
@@ -706,28 +699,28 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: function.FunctionsListHandler(serverCtx),
 			},
 			{
-				// 查询函数注册告警
-				Method:  http.MethodGet,
-				Path:    "/warnings",
-				Handler: function.FunctionWarningsHandler(serverCtx),
-			},
-			{
 				// 获取函数详情
 				Method:  http.MethodGet,
 				Path:    "/:id",
 				Handler: function.FunctionDetailHandler(serverCtx),
 			},
 			{
-				// 复制函数
-				Method:  http.MethodPost,
-				Path:    "/:id/copy",
-				Handler: function.FunctionCopyHandler(serverCtx),
-			},
-			{
 				// 删除函数
 				Method:  http.MethodDelete,
 				Path:    "/:id",
 				Handler: function.FunctionDeleteHandler(serverCtx),
+			},
+			{
+				// 获取函数分析数据
+				Method:  http.MethodGet,
+				Path:    "/:id/analytics",
+				Handler: function.FunctionAnalyticsHandler(serverCtx),
+			},
+			{
+				// 复制函数
+				Method:  http.MethodPost,
+				Path:    "/:id/copy",
+				Handler: function.FunctionCopyHandler(serverCtx),
 			},
 			{
 				// 禁用函数
@@ -742,15 +735,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: function.FunctionEnableHandler(serverCtx),
 			},
 			{
+				// 获取函数变更历史
+				Method:  http.MethodGet,
+				Path:    "/:id/history",
+				Handler: function.FunctionHistoryHandler(serverCtx),
+			},
+			{
 				// 获取函数实例
 				Method:  http.MethodGet,
 				Path:    "/:id/instances",
 				Handler: function.FunctionInstancesHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/instances",
-				Handler: function.FunctionInstancesAllHandler(serverCtx),
 			},
 			{
 				// 调用函数
@@ -765,18 +759,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: function.FunctionPermissionsHandler(serverCtx),
 			},
 			{
-				// 获取函数调用历史
-				Method:  http.MethodGet,
-				Path:    "/:id/history",
-				Handler: function.FunctionHistoryHandler(serverCtx),
-			},
-			{
-				// 获取函数统计信息
-				Method:  http.MethodGet,
-				Path:    "/:id/analytics",
-				Handler: function.FunctionAnalyticsHandler(serverCtx),
-			},
-			{
 				// 更新函数权限
 				Method:  http.MethodPut,
 				Path:    "/:id/permissions",
@@ -787,30 +769,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPost,
 				Path:    "/:id/publish",
 				Handler: function.FunctionPublishHandler(serverCtx),
-			},
-			{
-				// 获取函数UI配置
-				Method:  http.MethodGet,
-				Path:    "/:id/ui",
-				Handler: function.FunctionUIHandler(serverCtx),
-			},
-			{
-				// 更新函数UI配置
-				Method:  http.MethodPut,
-				Path:    "/:id/ui",
-				Handler: function.FunctionUIUpdateHandler(serverCtx),
-			},
-			{
-				// 获取函数UI历史
-				Method:  http.MethodGet,
-				Path:    "/:id/ui/history",
-				Handler: function.FunctionUIHistoryHandler(serverCtx),
-			},
-			{
-				// 回滚函数UI配置
-				Method:  http.MethodPost,
-				Path:    "/:id/ui/rollback",
-				Handler: function.FunctionUIRollbackHandler(serverCtx),
 			},
 			{
 				// 获取函数路由配置
@@ -825,16 +783,28 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: function.FunctionRouteUpdateHandler(serverCtx),
 			},
 			{
-				// 获取函数描述符列表
+				// 获取函数UI配置
 				Method:  http.MethodGet,
-				Path:    "/descriptors",
-				Handler: function.DescriptorsHandler(serverCtx),
+				Path:    "/:id/ui",
+				Handler: function.FunctionUIHandler(serverCtx),
 			},
 			{
-				// 获取待处理函数
+				// 更新函数UI配置
+				Method:  http.MethodPut,
+				Path:    "/:id/ui",
+				Handler: function.FunctionUIUpdateHandler(serverCtx),
+			},
+			{
+				// 获取函数UI配置历史
 				Method:  http.MethodGet,
-				Path:    "/pending",
-				Handler: function.FunctionsPendingHandler(serverCtx),
+				Path:    "/:id/ui/history",
+				Handler: function.FunctionUIHistoryHandler(serverCtx),
+			},
+			{
+				// 回滚函数UI配置
+				Method:  http.MethodPost,
+				Path:    "/:id/ui/rollback",
+				Handler: function.FunctionUIRollbackHandler(serverCtx),
 			},
 			{
 				// 批量复制函数
@@ -854,38 +824,32 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/batch-update",
 				Handler: function.BatchUpdateFunctionsHandler(serverCtx),
 			},
+			{
+				// 获取函数描述符列表
+				Method:  http.MethodGet,
+				Path:    "/descriptors",
+				Handler: function.DescriptorsHandler(serverCtx),
+			},
+			{
+				// 获取所有函数实例
+				Method:  http.MethodGet,
+				Path:    "/instances",
+				Handler: function.FunctionInstancesAllHandler(serverCtx),
+			},
+			{
+				// 获取待处理函数
+				Method:  http.MethodGet,
+				Path:    "/pending",
+				Handler: function.FunctionsPendingHandler(serverCtx),
+			},
+			{
+				// 查询函数注册告警
+				Method:  http.MethodGet,
+				Path:    "/warnings",
+				Handler: function.FunctionWarningsHandler(serverCtx),
+			},
 		},
 		rest.WithPrefix("/api/v1/functions"),
-	)
-
-	server.AddRoutes(
-		[]rest.Route{
-			{
-				// 获取函数 OpenAPI 规范
-				Method:  http.MethodGet,
-				Path:    "/functions/:id/openapi",
-				Handler: openapi.FunctionOpenAPISpecHandler(serverCtx),
-			},
-			{
-				// 导入 OpenAPI 文档
-				Method:  http.MethodPost,
-				Path:    "/functions/_import",
-				Handler: openapi.OpenAPIImportHandler(serverCtx),
-			},
-			{
-				// 获取实体函数列表
-				Method:  http.MethodGet,
-				Path:    "/entities/:id/functions",
-				Handler: openapi.EntityFunctionsHandler(serverCtx),
-			},
-			{
-				// 导出聚合 OpenAPI 文档
-				Method:  http.MethodGet,
-				Path:    "/openapi/spec",
-				Handler: openapi.OpenAPIDocumentHandler(serverCtx),
-			},
-		},
-		rest.WithPrefix("/api/v1"),
 	)
 
 	server.AddRoutes(
@@ -982,36 +946,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/jobs"),
-	)
-
-	server.AddRoutes(
-		[]rest.Route{
-			{
-				// 获取迁移状态
-				Method:  http.MethodGet,
-				Path:    "/status",
-				Handler: migrate.MigrateStatusHandler(serverCtx),
-			},
-			{
-				// 获取迁移历史
-				Method:  http.MethodGet,
-				Path:    "/history",
-				Handler: migrate.MigrateHistoryHandler(serverCtx),
-			},
-			{
-				// 执行向上迁移
-				Method:  http.MethodPost,
-				Path:    "/up",
-				Handler: migrate.MigrateUpHandler(serverCtx),
-			},
-			{
-				// 执行向下迁移
-				Method:  http.MethodPost,
-				Path:    "/down",
-				Handler: migrate.MigrateDownHandler(serverCtx),
-			},
-		},
-		rest.WithPrefix("/api/v1/migrate"),
 	)
 
 	server.AddRoutes(
@@ -1143,10 +1077,88 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
+				// 获取实体关联的函数列表
+				Method:  http.MethodGet,
+				Path:    "/entities/:id/functions",
+				Handler: openapi.EntityFunctionsHandler(serverCtx),
+			},
+			{
+				// 获取函数的 OpenAPI spec
+				Method:  http.MethodGet,
+				Path:    "/functions/:id/openapi",
+				Handler: openapi.FunctionOpenAPISpecHandler(serverCtx),
+			},
+			{
+				// 导入 OpenAPI spec
+				Method:  http.MethodPost,
+				Path:    "/functions/_import",
+				Handler: openapi.OpenAPIImportHandler(serverCtx),
+			},
+			{
+				// 导出聚合 OpenAPI 文档
+				Method:  http.MethodGet,
+				Path:    "/openapi/spec",
+				Handler: openapi.OpenAPIDocumentHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
 				// 更新代理元数据
 				Method:  http.MethodPut,
 				Path:    "/agent-meta",
 				Handler: ops.OpsAgentMetaHandler(serverCtx),
+			},
+			{
+				// 获取 Agent 列表
+				Method:  http.MethodGet,
+				Path:    "/agents",
+				Handler: ops.OpsAgentsListHandler(serverCtx),
+			},
+			{
+				// 在 Agent 上执行命令（高风险）
+				Method:  http.MethodPost,
+				Path:    "/agents/:agentId/exec",
+				Handler: ops.OpsAgentExecCommandHandler(serverCtx),
+			},
+			{
+				// 获取 Agent 进程列表
+				Method:  http.MethodGet,
+				Path:    "/agents/:agentId/processes",
+				Handler: ops.OpsAgentProcessesHandler(serverCtx),
+			},
+			{
+				// 重启 Agent 进程
+				Method:  http.MethodPost,
+				Path:    "/agents/:agentId/processes/:name/restart",
+				Handler: ops.OpsAgentProcessRestartHandler(serverCtx),
+			},
+			{
+				// 启动 Agent 进程
+				Method:  http.MethodPost,
+				Path:    "/agents/:agentId/processes/:name/start",
+				Handler: ops.OpsAgentProcessStartHandler(serverCtx),
+			},
+			{
+				// 停止 Agent 进程
+				Method:  http.MethodPost,
+				Path:    "/agents/:agentId/processes/:name/stop",
+				Handler: ops.OpsAgentProcessStopHandler(serverCtx),
+			},
+			{
+				// 获取 Agent 系统信息
+				Method:  http.MethodGet,
+				Path:    "/agents/:agentId/system-info",
+				Handler: ops.OpsAgentSystemInfoHandler(serverCtx),
+			},
+			{
+				// 获取 Agent 指标
+				Method:  http.MethodGet,
+				Path:    "/agents/metrics",
+				Handler: ops.OpsAgentMetricsHandler(serverCtx),
 			},
 			{
 				// 获取告警列表
@@ -1189,54 +1201,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodGet,
 				Path:    "/config",
 				Handler: ops.OpsConfigHandler(serverCtx),
-			},
-			{
-				// 获取 Agent 列表
-				Method:  http.MethodGet,
-				Path:    "/agents",
-				Handler: ops.OpsAgentsListHandler(serverCtx),
-			},
-			{
-				// 获取 Agent 指标
-				Method:  http.MethodGet,
-				Path:    "/agents/metrics",
-				Handler: ops.OpsAgentMetricsHandler(serverCtx),
-			},
-			{
-				// 获取 Agent 系统信息
-				Method:  http.MethodGet,
-				Path:    "/agents/:agentId/system-info",
-				Handler: ops.OpsAgentSystemInfoHandler(serverCtx),
-			},
-			{
-				// 获取 Agent 进程列表
-				Method:  http.MethodGet,
-				Path:    "/agents/:agentId/processes",
-				Handler: ops.OpsAgentProcessesHandler(serverCtx),
-			},
-			{
-				// 重启 Agent 进程
-				Method:  http.MethodPost,
-				Path:    "/agents/:agentId/processes/:name/restart",
-				Handler: ops.OpsAgentProcessRestartHandler(serverCtx),
-			},
-			{
-				// 停止 Agent 进程
-				Method:  http.MethodPost,
-				Path:    "/agents/:agentId/processes/:name/stop",
-				Handler: ops.OpsAgentProcessStopHandler(serverCtx),
-			},
-			{
-				// 启动 Agent 进程
-				Method:  http.MethodPost,
-				Path:    "/agents/:agentId/processes/:name/start",
-				Handler: ops.OpsAgentProcessStartHandler(serverCtx),
-			},
-			{
-				// 执行 Agent 命令
-				Method:  http.MethodPost,
-				Path:    "/agents/:agentId/exec",
-				Handler: ops.OpsAgentExecCommandHandler(serverCtx),
 			},
 			{
 				// 获取函数列表
@@ -1377,16 +1341,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: pack.PacksImportHandler(serverCtx),
 			},
 			{
-				// 重新加载功能包
-				Method:  http.MethodPost,
-				Path:    "/reload",
-				Handler: pack.PacksReloadHandler(serverCtx),
-			},
-			{
 				// 获取 pack web 插件
 				Method:  http.MethodGet,
 				Path:    "/plugin",
 				Handler: pack.PacksPluginHandler(serverCtx),
+			},
+			{
+				// 重新加载功能包
+				Method:  http.MethodPost,
+				Path:    "/reload",
+				Handler: pack.PacksReloadHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/packs"),
@@ -1408,6 +1372,36 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/permissions"),
+	)
+
+	server.AddRoutes(
+		[]rest.Route{
+			{
+				// 获取所有可用的第三方平台列表
+				Method:  http.MethodGet,
+				Path:    "/",
+				Handler: platform.ListPlatformsHandler(serverCtx),
+			},
+			{
+				// 获取指定平台支持的方法列表
+				Method:  http.MethodGet,
+				Path:    "/:platform/methods",
+				Handler: platform.ListPlatformMethodsHandler(serverCtx),
+			},
+			{
+				// 调用第三方平台 API
+				Method:  http.MethodPost,
+				Path:    "/call",
+				Handler: platform.CallPlatformHandler(serverCtx),
+			},
+			{
+				// 重新加载平台配置
+				Method:  http.MethodPost,
+				Path:    "/reload",
+				Handler: platform.ReloadPlatformConfigHandler(serverCtx),
+			},
+		},
+		rest.WithPrefix("/api/v1/platforms"),
 	)
 
 	server.AddRoutes(
@@ -1450,36 +1444,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			},
 		},
 		rest.WithPrefix("/api/v1/players"),
-	)
-
-	server.AddRoutes(
-		[]rest.Route{
-			{
-				// 调用第三方平台 API
-				Method:  http.MethodPost,
-				Path:    "/call",
-				Handler: platform.CallPlatformHandler(serverCtx),
-			},
-			{
-				// 获取平台列表
-				Method:  http.MethodGet,
-				Path:    "/",
-				Handler: platform.ListPlatformsHandler(serverCtx),
-			},
-			{
-				// 获取平台方法列表
-				Method:  http.MethodGet,
-				Path:    "/:platform/methods",
-				Handler: platform.ListPlatformMethodsHandler(serverCtx),
-			},
-			{
-				// 重载平台配置
-				Method:  http.MethodPost,
-				Path:    "/reload",
-				Handler: platform.ReloadPlatformConfigHandler(serverCtx),
-			},
-		},
-		rest.WithPrefix("/api/v1/platforms"),
 	)
 
 	server.AddRoutes(
@@ -1656,7 +1620,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				// 获取动态路由配置
 				Method:  http.MethodGet,
 				Path:    "/routes",
-				Handler: routesApi.GetRoutesHandler(serverCtx),
+				Handler: routes.GetRoutesHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1"),
@@ -1725,10 +1689,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
-				// 获取签名URL
-				Method:  http.MethodGet,
-				Path:    "/signed-url",
-				Handler: storage.SignedUrlHandler(serverCtx),
+				// 创建目录
+				Method:  http.MethodPost,
+				Path:    "/directories",
+				Handler: storage.CreateDirectoryHandler(serverCtx),
+			},
+			{
+				// 重命名/移动目录
+				Method:  http.MethodPost,
+				Path:    "/directories/rename",
+				Handler: storage.RenameDirectoryHandler(serverCtx),
 			},
 			{
 				// 列出对象
@@ -1755,40 +1725,13 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: storage.BatchDeleteObjectsHandler(serverCtx),
 			},
 			{
-				// 创建目录
-				Method:  http.MethodPost,
-				Path:    "/directories",
-				Handler: storage.CreateDirectoryHandler(serverCtx),
-			},
-			{
-				// 重命名目录
-				Method:  http.MethodPost,
-				Path:    "/directories/rename",
-				Handler: storage.RenameDirectoryHandler(serverCtx),
+				// 获取签名URL
+				Method:  http.MethodGet,
+				Path:    "/signed-url",
+				Handler: storage.SignedUrlHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/storage"),
-	)
-
-	server.AddRoutes(
-		[]rest.Route{
-			{
-				Method:  http.MethodGet,
-				Path:    "/",
-				Handler: term.TermsListHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodPut,
-				Path:    "/",
-				Handler: term.TermUpsertHandler(serverCtx),
-			},
-			{
-				Method:  http.MethodDelete,
-				Path:    "/",
-				Handler: term.TermDeleteHandler(serverCtx),
-			},
-		},
-		rest.WithPrefix("/api/v1/terms"),
 	)
 
 	server.AddRoutes(
@@ -1848,103 +1791,48 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	server.AddRoutes(
 		[]rest.Route{
 			{
-				// FAQ 列表
+				// 获取单个 Workspace 配置
 				Method:  http.MethodGet,
-				Path:    "/faq",
-				Handler: faq.FAQListHandler(serverCtx),
+				Path:    "/:objectKey/config",
+				Handler: workspace.WorkspaceConfigGetHandler(serverCtx),
 			},
 			{
-				// FAQ 创建
-				Method:  http.MethodPost,
-				Path:    "/faq",
-				Handler: faq.FAQCreateHandler(serverCtx),
-			},
-			{
-				// FAQ 更新
+				// 保存 Workspace 配置（创建或更新）
 				Method:  http.MethodPut,
-				Path:    "/faq/:id",
-				Handler: faq.FAQUpdateHandler(serverCtx),
+				Path:    "/:objectKey/config",
+				Handler: workspace.WorkspaceConfigSaveHandler(serverCtx),
 			},
 			{
-				// FAQ 删除
+				// 删除 Workspace 配置
 				Method:  http.MethodDelete,
-				Path:    "/faq/:id",
-				Handler: faq.FAQDeleteHandler(serverCtx),
+				Path:    "/:objectKey/config",
+				Handler: workspace.WorkspaceConfigDeleteHandler(serverCtx),
 			},
 			{
-				// 反馈列表
-				Method:  http.MethodGet,
-				Path:    "/feedback",
-				Handler: feedback.FeedbackListHandler(serverCtx),
-			},
-			{
-				// 反馈创建
+				// 发布 Workspace 配置
 				Method:  http.MethodPost,
-				Path:    "/feedback",
-				Handler: feedback.FeedbackCreateHandler(serverCtx),
+				Path:    "/:objectKey/publish",
+				Handler: workspace.WorkspacePublishHandler(serverCtx),
 			},
 			{
-				// 反馈更新
-				Method:  http.MethodPut,
-				Path:    "/feedback/:id",
-				Handler: feedback.FeedbackUpdateHandler(serverCtx),
-			},
-			{
-				// 反馈删除
-				Method:  http.MethodDelete,
-				Path:    "/feedback/:id",
-				Handler: feedback.FeedbackDeleteHandler(serverCtx),
-			},
-			{
-				// 工单列表
-				Method:  http.MethodGet,
-				Path:    "/tickets",
-				Handler: ticket.TicketsListHandler(serverCtx),
-			},
-			{
-				// 工单创建
+				// 取消发布 Workspace 配置
 				Method:  http.MethodPost,
-				Path:    "/tickets",
-				Handler: ticket.TicketCreateHandler(serverCtx),
+				Path:    "/:objectKey/unpublish",
+				Handler: workspace.WorkspaceUnpublishHandler(serverCtx),
 			},
 			{
-				// 工单详情
+				// 获取所有 Workspace 配置列表
 				Method:  http.MethodGet,
-				Path:    "/tickets/:id",
-				Handler: ticket.TicketDetailHandler(serverCtx),
+				Path:    "/configs",
+				Handler: workspace.WorkspaceConfigsListHandler(serverCtx),
 			},
 			{
-				// 工单更新
-				Method:  http.MethodPut,
-				Path:    "/tickets/:id",
-				Handler: ticket.TicketUpdateHandler(serverCtx),
-			},
-			{
-				// 工单删除
-				Method:  http.MethodDelete,
-				Path:    "/tickets/:id",
-				Handler: ticket.TicketDeleteHandler(serverCtx),
-			},
-			{
-				// 工单状态流转
-				Method:  http.MethodPost,
-				Path:    "/tickets/:id/transition",
-				Handler: ticket.TicketTransitionHandler(serverCtx),
-			},
-			{
-				// 工单评论列表
+				// 获取已发布的 Workspace 配置列表
 				Method:  http.MethodGet,
-				Path:    "/tickets/:ticketId/comments",
-				Handler: ticket.TicketCommentsHandler(serverCtx),
-			},
-			{
-				// 工单评论创建
-				Method:  http.MethodPost,
-				Path:    "/tickets/:ticketId/comments",
-				Handler: ticket.TicketCommentCreateHandler(serverCtx),
+				Path:    "/published",
+				Handler: workspace.WorkspacePublishedListHandler(serverCtx),
 			},
 		},
-		rest.WithPrefix("/api/v1/support"),
+		rest.WithPrefix("/api/v1/workspaces"),
 	)
-
 }

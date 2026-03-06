@@ -204,6 +204,20 @@ type ApprovalsListResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+type AssignmentsHistoryRequest struct {
+	Page     int    `form:"page,optional"`
+	PageSize int    `form:"pageSize,optional"`
+	GameId   string `form:"game_id,optional"`
+	Env      string `form:"env,optional"`
+	Action   string `form:"action,optional"`
+}
+
+type AssignmentsHistoryResponse struct {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
 type AssignmentsListRequest struct {
 	Page     int    `form:"page,optional"`
 	PageSize int    `form:"pageSize,optional"`
@@ -225,20 +239,6 @@ type AssignmentsUpdateRequest struct {
 }
 
 type AssignmentsUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type AssignmentsHistoryRequest struct {
-	Page     int    `form:"page,optional"`
-	PageSize int    `form:"pageSize,optional"`
-	GameId   string `form:"game_id,optional"`
-	Env      string `form:"env,optional"`
-	Action   string `form:"action,optional"`
-}
-
-type AssignmentsHistoryResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
@@ -313,29 +313,6 @@ type BatchDeleteFunctionsRequest struct {
 type BatchDeleteFunctionsResponse struct {
 	Updated int      `json:"updated"`
 	Failed  []string `json:"failed"`
-}
-
-type FunctionWarningsRequest struct {
-	FunctionID string `form:"function_id,optional"`
-	AgentID    string `form:"agent_id,optional"`
-	Code       string `form:"code,optional"`
-	Limit      int    `form:"limit,optional,default=100"`
-}
-
-type FunctionWarningItem struct {
-	Key        string `json:"key"`
-	AgentID    string `json:"agent_id"`
-	FunctionID string `json:"function_id"`
-	Version    string `json:"version"`
-	Code       string `json:"code"`
-	Message    string `json:"message"`
-	Count      int    `json:"count"`
-	FirstSeen  string `json:"first_seen"`
-	LastSeen   string `json:"last_seen"`
-}
-
-type FunctionWarningsResponse struct {
-	Items []FunctionWarningItem `json:"items"`
 }
 
 type BatchDeleteObjectsData struct {
@@ -970,22 +947,35 @@ type FiltersUpdateRequest struct {
 }
 
 type Function struct {
-	Id          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Category    string `json:"category"`
-	GameId      string `json:"gameId"`
-	Status      int    `json:"status"`
-	Version     string `json:"version"`
-	Instances   int    `json:"instances"`
-	SpecFormat  string `json:"specFormat,optional"`
-	OpenAPISpec any    `json:"openapiSpec,optional"`
-	CreatedAt   string `json:"createdAt"`
-	UpdatedAt   string `json:"updatedAt"`
+	Id          string      `json:"id"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	Category    string      `json:"category"`
+	GameId      string      `json:"gameId"`
+	Status      int         `json:"status"`
+	Version     string      `json:"version"`
+	Instances   int         `json:"instances"`
+	SpecFormat  string      `json:"specFormat,optional"`
+	OpenAPISpec interface{} `json:"openapiSpec,optional"`
+	CreatedAt   string      `json:"createdAt"`
+	UpdatedAt   string      `json:"updatedAt"`
 }
 
 type FunctionActionRequest struct {
 	ID string `path:"id"`
+}
+
+type FunctionAnalyticsRequest struct {
+	ID string `path:"id"`
+}
+
+type FunctionAnalyticsResponse struct {
+	TotalCalls     int64   `json:"totalCalls"`
+	SuccessRate    float64 `json:"successRate"`
+	AvgLatency     float64 `json:"avgLatency"`
+	CallsToday     int64   `json:"callsToday"`
+	CallsThisWeek  int64   `json:"callsThisWeek"`
+	CallsThisMonth int64   `json:"callsThisMonth"`
 }
 
 type FunctionCopyRequest struct {
@@ -1012,11 +1002,30 @@ type FunctionDetailResponse struct {
 	Descriptor FunctionDescriptor `json:"descriptor"`
 }
 
+type FunctionHistoryItem struct {
+	ID        string      `json:"id"`
+	Action    string      `json:"action"`
+	Operator  string      `json:"operator,optional"`
+	Timestamp string      `json:"timestamp"`
+	Details   interface{} `json:"details,optional"`
+}
+
+type FunctionHistoryRequest struct {
+	ID string `path:"id"`
+}
+
 type FunctionInstance struct {
 	AgentId   string `json:"agentId"`
 	AgentName string `json:"agentName"`
 	Status    string `json:"status"`
 	UpdatedAt string `json:"updatedAt"`
+}
+
+type FunctionInstancesAllRequest struct {
+}
+
+type FunctionInstancesAllResponse struct {
+	Instances []map[string]interface{} `json:"instances"`
 }
 
 type FunctionInstancesRequest struct {
@@ -1073,6 +1082,48 @@ type FunctionPublishResponse struct {
 	Published  bool   `json:"published"`
 }
 
+type FunctionRouteConfig struct {
+	Nodes  []string `json:"nodes"`
+	Path   string   `json:"path"`
+	Order  int      `json:"order"`
+	Hidden bool     `json:"hidden"`
+}
+
+type FunctionRouteRequest struct {
+	ID string `path:"id"`
+}
+
+type FunctionRouteResponse struct {
+	Menu   FunctionRouteConfig `json:"menu"`
+	Source string              `json:"source,optional"`
+}
+
+type FunctionRouteUpdateRequest struct {
+	ID     string   `path:"id"`
+	Nodes  []string `json:"nodes,optional"`
+	Path   string   `json:"path,optional"`
+	Order  int      `json:"order,optional"`
+	Hidden bool     `json:"hidden,optional"`
+}
+
+type FunctionUIHistoryItem struct {
+	Version    int         `json:"version"`
+	Schema     interface{} `json:"schema,optional"`
+	Layout     interface{} `json:"layout,optional"`
+	Components interface{} `json:"components,optional"`
+	Message    string      `json:"message,optional"`
+	CreatedBy  string      `json:"createdBy,optional"`
+	CreatedAt  string      `json:"createdAt,optional"`
+}
+
+type FunctionUIHistoryRequest struct {
+	ID string `path:"id"`
+}
+
+type FunctionUIHistoryResponse struct {
+	Items []FunctionUIHistoryItem `json:"items"`
+}
+
 type FunctionUIRequest struct {
 	ID string `path:"id"`
 }
@@ -1083,33 +1134,8 @@ type FunctionUIResponse struct {
 	Components     interface{} `json:"components"`
 	Custom         bool        `json:"custom"`
 	HasDefault     bool        `json:"hasDefault"`
-	UISource       string      `json:"uiSource,omitempty"`       // custom_metadata/config_file_override/openapi_x_ui/none
-	UISourceDetail string      `json:"uiSourceDetail,omitempty"` // human-readable source description
-}
-
-type FunctionUIUpdateRequest struct {
-	ID         string      `path:"id"`
-	Schema     interface{} `json:"schema,optional"`
-	Layout     interface{} `json:"layout,optional"`
-	Components interface{} `json:"components,optional"`
-}
-
-type FunctionUIHistoryRequest struct {
-	ID string `path:"id"`
-}
-
-type FunctionUIHistoryItem struct {
-	Version    int         `json:"version"`
-	Schema     interface{} `json:"schema,omitempty"`
-	Layout     interface{} `json:"layout,omitempty"`
-	Components interface{} `json:"components,omitempty"`
-	Message    string      `json:"message,omitempty"`
-	CreatedBy  string      `json:"createdBy,omitempty"`
-	CreatedAt  string      `json:"createdAt,omitempty"`
-}
-
-type FunctionUIHistoryResponse struct {
-	Items []FunctionUIHistoryItem `json:"items"`
+	UISource       string      `json:"uiSource,optional"`       // custom_metadata/config_file_override/openapi_x_ui/none
+	UISourceDetail string      `json:"uiSourceDetail,optional"` // human-readable source description
 }
 
 type FunctionUIRollbackRequest struct {
@@ -1122,53 +1148,34 @@ type FunctionUIRollbackResponse struct {
 	Current        *FunctionUIResponse `json:"current"`
 }
 
-type FunctionRouteRequest struct {
-	ID string `path:"id"`
+type FunctionUIUpdateRequest struct {
+	ID         string      `path:"id"`
+	Schema     interface{} `json:"schema,optional"`
+	Layout     interface{} `json:"layout,optional"`
+	Components interface{} `json:"components,optional"`
 }
 
-type FunctionRouteConfig struct {
-	Nodes  []string `json:"nodes"`
-	Path   string   `json:"path"`
-	Order  int      `json:"order"`
-	Hidden bool     `json:"hidden"`
+type FunctionWarningItem struct {
+	Key        string `json:"key"`
+	AgentID    string `json:"agent_id"`
+	FunctionID string `json:"function_id"`
+	Version    string `json:"version"`
+	Code       string `json:"code"`
+	Message    string `json:"message"`
+	Count      int    `json:"count"`
+	FirstSeen  string `json:"first_seen"`
+	LastSeen   string `json:"last_seen"`
 }
 
-type FunctionRouteResponse struct {
-	Menu   FunctionRouteConfig `json:"menu"`
-	Source string              `json:"source,omitempty"` // metadata/default
+type FunctionWarningsRequest struct {
+	FunctionID string `form:"function_id,optional"`
+	AgentID    string `form:"agent_id,optional"`
+	Code       string `form:"code,optional"`
+	Limit      int    `form:"limit,optional,default=100"`
 }
 
-type FunctionRouteUpdateRequest struct {
-	ID     string   `path:"id"`
-	Nodes  []string `json:"nodes,optional"`
-	Path   string   `json:"path,optional"`
-	Order  int      `json:"order,optional"`
-	Hidden bool     `json:"hidden,optional"`
-}
-
-type FunctionHistoryRequest struct {
-	ID string `path:"id"`
-}
-
-type FunctionHistoryItem struct {
-	ID        string      `json:"id"`
-	Action    string      `json:"action"`
-	Operator  string      `json:"operator,omitempty"`
-	Timestamp string      `json:"timestamp"`
-	Details   interface{} `json:"details,omitempty"`
-}
-
-type FunctionAnalyticsRequest struct {
-	ID string `path:"id"`
-}
-
-type FunctionAnalyticsResponse struct {
-	TotalCalls     int64   `json:"totalCalls"`
-	SuccessRate    float64 `json:"successRate"`
-	AvgLatency     float64 `json:"avgLatency"`
-	CallsToday     int64   `json:"callsToday"`
-	CallsThisWeek  int64   `json:"callsThisWeek"`
-	CallsThisMonth int64   `json:"callsThisMonth"`
+type FunctionWarningsResponse struct {
+	Items []FunctionWarningItem `json:"items"`
 }
 
 type FunctionsListRequest struct {
@@ -1549,60 +1556,6 @@ type MessageSendResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-type MigrationResult struct {
-	MigrationName string `json:"migrationName"`
-	Direction     string `json:"direction"` // up, down
-	Status        string `json:"status"`    // pending, success, failed
-	Duration      string `json:"duration"`
-	SQL           string `json:"sql"`
-	DryRun        bool   `json:"dryRun"`
-	Error         string `json:"error,omitempty"`
-}
-
-type MigrateDownRequest struct {
-	Target string `json:"target,optional"`
-	Force  bool   `json:"force,optional"`
-}
-
-type MigrateDownResponse struct {
-	Success bool              `json:"success"`
-	Message string            `json:"message"`
-	Results []MigrationResult `json:"results,omitempty"`
-}
-
-type MigrationHistoryRequest struct {
-	Page     int    `form:"page,optional,default=1"`
-	PageSize int    `form:"pageSize,optional,default=20"`
-	Status   string `form:"status,optional"`
-}
-
-type MigrationHistoryResponse struct {
-	Items []MigrationResult `json:"items"`
-	Total int64             `json:"total"`
-	Page  int               `json:"page"`
-	Size  int               `json:"pageSize"`
-}
-
-type MigrationStatusRequest struct {
-}
-
-type MigrationStatusResponse struct {
-	LatestVersion string            `json:"latestVersion"`
-	PendingCount  int               `json:"pendingCount"`
-	HistoryItems  []MigrationResult `json:"historyItems,omitempty"`
-}
-
-type MigrateUpRequest struct {
-	Force bool `json:"force,optional"`
-	Step  int  `json:"step,optional"`
-}
-
-type MigrateUpResponse struct {
-	Success bool              `json:"success"`
-	Message string            `json:"message"`
-	Results []MigrationResult `json:"results,omitempty"`
-}
-
 type MessagesListRequest struct {
 	Page     int    `form:"page,optional"`
 	PageSize int    `form:"pageSize,optional"`
@@ -1703,6 +1656,13 @@ type ObjectsData struct {
 	NextMarker  string       `json:"next_marker,optional"`
 }
 
+type OpenAPIDocumentRequest struct {
+}
+
+type OpenAPIDocumentResponse struct {
+	Spec interface{} `json:"spec"` // OpenAPI 3.0.3 Document
+}
+
 type OpenAPIImportRequest struct {
 	Spec interface{} `json:"spec"` // OpenAPI 3.0.3 Document
 }
@@ -1718,13 +1678,6 @@ type OpenAPISpecRequest struct {
 
 type OpenAPISpecResponse struct {
 	Spec interface{} `json:"spec"` // OpenAPI 3.0.3 Operation Object
-}
-
-type OpenAPIDocumentRequest struct {
-}
-
-type OpenAPIDocumentResponse struct {
-	Spec interface{} `json:"spec"` // OpenAPI 3.0.3 Document
 }
 
 type OpsAgentInfo struct {
@@ -3131,16 +3084,6 @@ type TicketsListResponse struct {
 	Size  int      `json:"pageSize"`
 }
 
-type UISchemaRequest struct {
-	Type string `form:"type"`
-}
-
-type UISchemaResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
 type UploadObjectData struct {
 	Key string `json:"key"`
 	URL string `json:"url"`
@@ -3161,4 +3104,80 @@ type UserInfo struct {
 	Nickname string   `json:"nickname,omitempty"`
 	Email    string   `json:"email,omitempty"`
 	Phone    string   `json:"phone,omitempty"`
+}
+
+type WorkspaceConfig struct {
+	ObjectKey   string              `json:"objectKey"`
+	Title       string              `json:"title,omitempty"`
+	Layout      interface{}         `json:"layout,omitempty"`
+	Published   bool                `json:"published"`
+	PublishedAt string              `json:"publishedAt,omitempty"`
+	PublishedBy string              `json:"publishedBy,omitempty"`
+	MenuOrder   int                 `json:"menuOrder"`
+	Meta        WorkspaceConfigMeta `json:"meta,omitempty"`
+}
+
+type WorkspaceConfigDeleteRequest struct {
+	ObjectKey string `path:"objectKey"`
+}
+
+type WorkspaceConfigDeleteResponse struct {
+	Message string `json:"message"`
+}
+
+type WorkspaceConfigGetRequest struct {
+	ObjectKey string `path:"objectKey"`
+}
+
+type WorkspaceConfigGetResponse struct {
+	WorkspaceConfig
+}
+
+type WorkspaceConfigMeta struct {
+	CreatedAt string `json:"createdAt,omitempty"`
+	UpdatedAt string `json:"updatedAt,omitempty"`
+}
+
+type WorkspaceConfigSaveRequest struct {
+	ObjectKey string      `path:"objectKey"`
+	Title     string      `json:"title,omitempty"`
+	Layout    interface{} `json:"layout,omitempty"`
+	MenuOrder int         `json:"menuOrder,optional"`
+}
+
+type WorkspaceConfigSaveResponse struct {
+	WorkspaceConfig
+}
+
+type WorkspaceConfigsListRequest struct {
+}
+
+type WorkspaceConfigsListResponse struct {
+	Items []WorkspaceConfig `json:"items"`
+}
+
+type WorkspacePublishRequest struct {
+	ObjectKey   string `path:"objectKey"`
+	PublishedBy string `json:"publishedBy,optional"`
+}
+
+type WorkspacePublishResponse struct {
+	Published bool   `json:"published"`
+	ObjectKey string `json:"objectKey"`
+}
+
+type WorkspacePublishedListRequest struct {
+}
+
+type WorkspacePublishedListResponse struct {
+	Items []WorkspaceConfig `json:"items"`
+}
+
+type WorkspaceUnpublishRequest struct {
+	ObjectKey string `path:"objectKey"`
+}
+
+type WorkspaceUnpublishResponse struct {
+	Published bool   `json:"published"`
+	ObjectKey string `json:"objectKey"`
 }
