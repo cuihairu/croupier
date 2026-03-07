@@ -1839,6 +1839,12 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: workspace.WorkspaceVersionsHandler(serverCtx),
 			},
 			{
+				// 获取 Workspace 单个版本详情
+				Method:  http.MethodGet,
+				Path:    "/:objectKey/versions/:versionId",
+				Handler: workspace.WorkspaceVersionDetailHandler(serverCtx),
+			},
+			{
 				// 回滚 Workspace 到指定版本
 				Method:  http.MethodPost,
 				Path:    "/:objectKey/rollback",

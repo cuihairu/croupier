@@ -20,8 +20,16 @@ tag:
 - `DELETE /api/v1/workspaces/:objectKey/config`：删除工作台配置
 - `POST /api/v1/workspaces/:objectKey/publish`：发布工作台
 - `POST /api/v1/workspaces/:objectKey/unpublish`：取消发布
-- `GET /api/v1/workspaces/:objectKey/versions`：版本列表
+- `GET /api/v1/workspaces/:objectKey/versions`：版本列表（支持 `from` / `to` RFC3339 时间过滤）
+- `GET /api/v1/workspaces/:objectKey/versions/:versionId`：单版本详情
 - `POST /api/v1/workspaces/:objectKey/rollback`：版本回滚
+
+版本列表响应补充语义字段：
+
+- `currentDraftVersion`：当前草稿对应的版本号（最新版本）
+- `currentPublishedVersion`：最近一次发布版本号（若尚未发布则为 `0`）
+- `items[].isCurrentDraft`：当前记录是否为当前草稿
+- `items[].isCurrentPublished`：当前记录是否为当前发布版本
 
 ## 状态机约定（V1）
 
@@ -43,6 +51,30 @@ tag:
 
 - 同一 `objectKey` 仅维护一份当前配置记录（含 `published` 标记）
 - 每次保存/发布/取消发布/回滚都会落版本快照，用于回溯
+
+## 版本存储结构（V1）
+
+`workspace` 版本快照统一存储在 `config_versions`，采用如下语义：
+
+- `key`：`workspace:{objectKey}`
+- `version`：同一 `key` 下单调递增
+- `value`：`WorkspaceConfig` JSON 快照
+- `message`：动作摘要（如 `save workspace config` / `publish workspace config` / `rollback to vN`）
+- `created_by` / `created_at`：操作者与时间
+
+状态定位规则：
+
+- 当前草稿版本：`config_versions` 中该 `key` 的最新版本（`MAX(version)`）
+- 当前发布版本：按 `version DESC` 扫描首个 `config.published=true`（或归一状态为 `published`）的版本
+- 历史版本：除当前草稿/发布外的其余快照
+
+接口映射：
+
+- `GET /workspaces/:objectKey/versions` 返回
+  - `currentDraftVersion`
+  - `currentPublishedVersion`
+  - `items[].isCurrentDraft`
+  - `items[].isCurrentPublished`
 
 ## 能力边界（V1）
 

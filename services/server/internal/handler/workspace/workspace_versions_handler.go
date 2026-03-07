@@ -10,6 +10,8 @@ import (
 
 type workspaceVersionsRequest struct {
 	ObjectKey string `path:"objectKey"`
+	From      string `form:"from,optional"`
+	To        string `form:"to,optional"`
 }
 
 func WorkspaceVersionsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
@@ -25,13 +27,28 @@ func WorkspaceVersionsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		l := workspace.NewWorkspaceVersionsLogic(r.Context(), svcCtx)
-		items, err := l.List(req.ObjectKey)
+		items, err := l.List(req.ObjectKey, req.From, req.To)
 		if err != nil {
 			writeWorkspaceError(w, r, err, "versions_list")
 			return
 		}
 		httpx.OkJsonCtx(r.Context(), w, map[string]interface{}{
-			"items": items,
+			"items":                   items,
+			"currentDraftVersion":     resolveCurrentVersion(items, "isCurrentDraft"),
+			"currentPublishedVersion": resolveCurrentVersion(items, "isCurrentPublished"),
 		})
 	}
+}
+
+func resolveCurrentVersion(items []map[string]interface{}, flagKey string) int {
+	for i := range items {
+		flag, ok := items[i][flagKey].(bool)
+		if !ok || !flag {
+			continue
+		}
+		if version, ok := items[i]["version"].(int); ok {
+			return version
+		}
+	}
+	return 0
 }

@@ -3191,11 +3191,11 @@ type WorkspaceUnpublishResponse struct {
 
 type MigrationResult struct {
 	MigrationName string `json:"migrationName"`
-	Direction     string `json:"direction"`  // up, down
-	Status        string `json:"status"`     // pending, success, failed
-	Duration      string `json:"duration"`   // execution time in ms
-	SQL           string `json:"sql"`        // executed SQL
-	DryRun        bool   `json:"dryRun"`     // whether this was a dry run
+	Direction     string `json:"direction"` // up, down
+	Status        string `json:"status"`    // pending, success, failed
+	Duration      string `json:"duration"`  // execution time in ms
+	SQL           string `json:"sql"`       // executed SQL
+	DryRun        bool   `json:"dryRun"`    // whether this was a dry run
 	Error         string `json:"error,omitempty"`
 }
 
@@ -3212,8 +3212,8 @@ type MigrateUpRequest struct {
 }
 
 type MigrateUpResponse struct {
-	Success bool             `json:"success"`
-	Message string           `json:"message"`
+	Success bool              `json:"success"`
+	Message string            `json:"message"`
 	Results []MigrationResult `json:"results,omitempty"`
 }
 

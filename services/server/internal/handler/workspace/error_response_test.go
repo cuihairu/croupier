@@ -21,6 +21,13 @@ func TestMapWorkspaceErrorCode(t *testing.T) {
 			expected:  "workspace_version_not_found",
 		},
 		{
+			name:      "versions detail not found",
+			status:    http.StatusNotFound,
+			rawCode:   "not_found",
+			operation: "versions_detail",
+			expected:  "workspace_version_not_found",
+		},
+		{
 			name:      "publish internal error",
 			status:    http.StatusInternalServerError,
 			rawCode:   "internal_error",

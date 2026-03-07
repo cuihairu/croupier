@@ -36,7 +36,7 @@ func writeWorkspaceError(w http.ResponseWriter, r *http.Request, err error, oper
 }
 
 func mapWorkspaceErrorCode(status int, rawCode, operation string) string {
-	if operation == "rollback" {
+	if operation == "rollback" || operation == "versions_detail" {
 		if status == http.StatusNotFound || status == http.StatusBadRequest || status == http.StatusUnprocessableEntity {
 			return "workspace_version_not_found"
 		}

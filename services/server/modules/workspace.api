@@ -98,6 +98,8 @@ type WorkspacePublishedListResponse {
 // --- Workspace 版本列表 ---
 type WorkspaceVersionsRequest {
 	ObjectKey string `path:"objectKey"`
+	From      string `form:"from,optional"`
+	To        string `form:"to,optional"`
 }
 
 type WorkspaceVersionRecord {
@@ -105,6 +107,8 @@ type WorkspaceVersionRecord {
 	ObjectKey string      `json:"objectKey"`
 	Version   int         `json:"version"`
 	Config    interface{} `json:"config"`
+	IsCurrentDraft    bool        `json:"isCurrentDraft,optional"`
+	IsCurrentPublished bool       `json:"isCurrentPublished,optional"`
 	CreatedAt string      `json:"createdAt,omitempty"`
 	CreatedBy string      `json:"createdBy,omitempty"`
 	Comment   string      `json:"comment,omitempty"`
@@ -112,6 +116,18 @@ type WorkspaceVersionRecord {
 
 type WorkspaceVersionsResponse {
 	Items []WorkspaceVersionRecord `json:"items"`
+	CurrentDraftVersion int        `json:"currentDraftVersion,optional"`
+	CurrentPublishedVersion int    `json:"currentPublishedVersion,optional"`
+}
+
+// --- Workspace 单版本详情 ---
+type WorkspaceVersionDetailRequest {
+	ObjectKey string `path:"objectKey"`
+	VersionId string `path:"versionId"`
+}
+
+type WorkspaceVersionDetailResponse {
+	WorkspaceVersionRecord
 }
 
 // --- 回滚 ---
@@ -164,6 +180,10 @@ service server {
 	@doc "获取 Workspace 版本列表"
 	@handler WorkspaceVersionsHandler
 	get /:objectKey/versions (WorkspaceVersionsRequest) returns (WorkspaceVersionsResponse)
+
+	@doc "获取 Workspace 单个版本详情"
+	@handler WorkspaceVersionDetailHandler
+	get /:objectKey/versions/:versionId (WorkspaceVersionDetailRequest) returns (WorkspaceVersionDetailResponse)
 
 	@doc "回滚 Workspace 到指定版本"
 	@handler WorkspaceRollbackHandler

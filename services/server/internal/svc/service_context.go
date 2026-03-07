@@ -5,6 +5,7 @@ package svc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -55,30 +56,30 @@ type ServiceContext struct {
 	MetricsStore    *reg.MetricsStore
 	SystemInfoCache *reg.SystemInfoCache
 
-	AdminModel         *model.AdminModel
-	AlertModel         *model.AlertModel
-	BehaviorModel      *model.BehaviorModel
-	RetentionModel     *model.RetentionModel
-	PaymentsModel      *model.PaymentsModel
-	BackupModel        *model.BackupModel
-	FAQModel           *model.FAQModel
-	FeedbackModel      *model.FeedbackModel
-	EntityModel        *model.EntityModel
-	GameModel          *model.GameModel
-	PlayerModel        *model.PlayerModel
-	ProfileModel       *model.ProfileModel
-	FunctionModel      *model.FunctionModel
-	TermDictModel      *model.TermDictionaryModel
-	RoleModel          *model.RoleModel
-	NodeModel          *model.NodeModel
-	PermissionModel    *model.PermissionModel
-	RateLimitModel     *model.RateLimitModel
-	SupportModel       *model.SupportModel
-	TicketModel        *model.TicketModel
-	MessageModel       *model.MessageModel
-	CertificateModel   *model.CertificateModel
-	ConfigVersionModel    *model.ConfigVersionModel
-	WorkspaceConfigModel  *model.WorkspaceConfigModel
+	AdminModel           *model.AdminModel
+	AlertModel           *model.AlertModel
+	BehaviorModel        *model.BehaviorModel
+	RetentionModel       *model.RetentionModel
+	PaymentsModel        *model.PaymentsModel
+	BackupModel          *model.BackupModel
+	FAQModel             *model.FAQModel
+	FeedbackModel        *model.FeedbackModel
+	EntityModel          *model.EntityModel
+	GameModel            *model.GameModel
+	PlayerModel          *model.PlayerModel
+	ProfileModel         *model.ProfileModel
+	FunctionModel        *model.FunctionModel
+	TermDictModel        *model.TermDictionaryModel
+	RoleModel            *model.RoleModel
+	NodeModel            *model.NodeModel
+	PermissionModel      *model.PermissionModel
+	RateLimitModel       *model.RateLimitModel
+	SupportModel         *model.SupportModel
+	TicketModel          *model.TicketModel
+	MessageModel         *model.MessageModel
+	CertificateModel     *model.CertificateModel
+	ConfigVersionModel   *model.ConfigVersionModel
+	WorkspaceConfigModel *model.WorkspaceConfigModel
 
 	// Agent Session 持久化
 	AgentSessionModel *reg.AgentSessionModel
@@ -188,28 +189,28 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		Cache:             cacheStore,
 		CacheHelper:       cacheHelper,
 
-		AdminModel:         adminModel,
-		AlertModel:         alertModel,
-		BehaviorModel:      behaviorModel,
-		RetentionModel:     retentionModel,
-		PaymentsModel:      paymentsModel,
-		BackupModel:        backupModel,
-		FAQModel:           faqModel,
-		FeedbackModel:      feedbackModel,
-		EntityModel:        entityModel,
-		GameModel:          gameModel,
-		PlayerModel:        playerModel,
-		ProfileModel:       profileModel,
-		FunctionModel:      functionModel,
-		TermDictModel:      termDictModel,
-		RoleModel:          roleModel,
-		NodeModel:          nodeModel,
-		PermissionModel:    permissionModel,
-		RateLimitModel:     rateLimitModel,
-		SupportModel:       supportModel,
-		TicketModel:        ticketModel,
-		MessageModel:       messageModel,
-		CertificateModel:   certificateModel,
+		AdminModel:           adminModel,
+		AlertModel:           alertModel,
+		BehaviorModel:        behaviorModel,
+		RetentionModel:       retentionModel,
+		PaymentsModel:        paymentsModel,
+		BackupModel:          backupModel,
+		FAQModel:             faqModel,
+		FeedbackModel:        feedbackModel,
+		EntityModel:          entityModel,
+		GameModel:            gameModel,
+		PlayerModel:          playerModel,
+		ProfileModel:         profileModel,
+		FunctionModel:        functionModel,
+		TermDictModel:        termDictModel,
+		RoleModel:            roleModel,
+		NodeModel:            nodeModel,
+		PermissionModel:      permissionModel,
+		RateLimitModel:       rateLimitModel,
+		SupportModel:         supportModel,
+		TicketModel:          ticketModel,
+		MessageModel:         messageModel,
+		CertificateModel:     certificateModel,
 		ConfigVersionModel:   configVersionModel,
 		WorkspaceConfigModel: workspaceConfigModel,
 		AgentSessionModel:    agentSessionModel,
@@ -291,6 +292,9 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	}
 	if err := seedBootstrapTermDictionary(ctx); err != nil {
 		logx.Errorf("failed to seed term dictionary: %v", err)
+	}
+	if err := seedBootstrapWorkspaces(ctx); err != nil {
+		logx.Errorf("failed to seed bootstrap workspaces: %v", err)
 	}
 
 	// Initialize agent ops stores
@@ -712,4 +716,134 @@ func initObjectStore(ctx context.Context, cfg config.StorageConfig) (objstore.St
 	default:
 		return nil, fmt.Errorf("unsupported storage driver: %s", driver)
 	}
+}
+
+// seedBootstrapWorkspaces creates default workspace configurations for registered functions.
+// It groups functions by their prefix (e.g., "examples.player", "packs.prom") and creates
+// a workspace for each group.
+func seedBootstrapWorkspaces(ctx *ServiceContext) error {
+	if ctx == nil || ctx.FunctionModel == nil || ctx.WorkspaceConfigModel == nil {
+		return nil
+	}
+
+	bg := context.Background()
+
+	// Get all registered functions
+	functions, _, err := ctx.FunctionModel.List(bg, model.ListFunctionsOptions{
+		PaginationOptions: model.PaginationOptions{
+			Page:     1,
+			PageSize: 1000,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list functions: %w", err)
+	}
+
+	if len(functions) == 0 {
+		return nil
+	}
+
+	// Group functions by prefix (e.g., "examples.player" -> ["examples.player.get", "examples.player.create"])
+	groups := make(map[string][]string)
+	for _, fn := range functions {
+		parts := strings.SplitN(fn.FunctionID, ".", 3)
+		if len(parts) < 2 {
+			continue
+		}
+		prefix := parts[0] + "." + parts[1]
+		groups[prefix] = append(groups[prefix], fn.FunctionID)
+	}
+
+	// Create workspace for each group
+	menuOrder := 0
+	for prefix, functionIDs := range groups {
+		// Check if workspace already exists
+		_, err := ctx.WorkspaceConfigModel.FindByObjectKey(bg, prefix)
+		if err == nil {
+			continue // Already exists
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			logx.Errorf("failed to check workspace %s: %v", prefix, err)
+			continue
+		}
+
+		// Create workspace config JSON
+		layout := buildDefaultWorkspaceLayout(prefix, functionIDs)
+		configJSON, err := json.Marshal(layout)
+		if err != nil {
+			logx.Errorf("failed to marshal workspace config for %s: %v", prefix, err)
+			continue
+		}
+
+		// Extract title from prefix (e.g., "examples.player" -> "Player")
+		titleParts := strings.Split(prefix, ".")
+		title := titleParts[len(titleParts)-1]
+		title = strings.ToUpper(string(title[0])) + title[1:] // Capitalize first letter
+
+		workspace := &model.WorkspaceConfig{
+			ObjectKey: prefix,
+			Title:     title,
+			Published: false,
+			MenuOrder: menuOrder,
+			Config:    configJSON,
+		}
+
+		if err := ctx.WorkspaceConfigModel.Upsert(bg, workspace); err != nil {
+			logx.Errorf("failed to create workspace %s: %v", prefix, err)
+			continue
+		}
+
+		logx.Infof("created default workspace: %s with %d functions", prefix, len(functionIDs))
+		menuOrder++
+	}
+
+	return nil
+}
+
+// buildDefaultWorkspaceLayout creates a default layout for a workspace
+func buildDefaultWorkspaceLayout(objectKey string, functionIDs []string) map[string]interface{} {
+	// Create tabs layout with one tab per function (up to 10)
+	tabs := make([]map[string]interface{}, 0, min(len(functionIDs), 10))
+
+	for i, fnID := range functionIDs {
+		if i >= 10 {
+			break
+		}
+
+		// Extract function name from ID (e.g., "examples.player.get" -> "get")
+		parts := strings.Split(fnID, ".")
+		fnName := parts[len(parts)-1]
+
+		tab := map[string]interface{}{
+			"key":       fnID,
+			"title":     fnName,
+			"functions": []string{fnID}, // 添加 functions 字段
+			"layout": map[string]interface{}{
+				"type": "single",
+				"component": map[string]interface{}{
+					"type":       "function",
+					"functionId": fnID,
+				},
+			},
+		}
+		tabs = append(tabs, tab)
+	}
+
+	return map[string]interface{}{
+		"objectKey": objectKey,
+		"title":     objectKey,
+		"layout": map[string]interface{}{
+			"type": "tabs",
+			"tabs": tabs,
+		},
+		"published": false,
+		"menuOrder": 0,
+	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
