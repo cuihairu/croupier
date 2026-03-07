@@ -29,12 +29,12 @@ type Metric struct {
 
 // MetricDefinition defines a metric
 type MetricDefinition struct {
-	Name        string            `json:"name"`
-	Type        MetricType        `json:"type"`
-	Help        string            `json:"help"`
-	Labels      []string          `json:"labels,omitempty"`
-	Buckets     []float64         `json:"buckets,omitempty"`     // For histograms
-	Objectives  map[float64]float64 `json:"objectives,omitempty"` // For summaries
+	Name       string              `json:"name"`
+	Type       MetricType          `json:"type"`
+	Help       string              `json:"help"`
+	Labels     []string            `json:"labels,omitempty"`
+	Buckets    []float64           `json:"buckets,omitempty"`    // For histograms
+	Objectives map[float64]float64 `json:"objectives,omitempty"` // For summaries
 }
 
 // MetricCollector interface for collecting metrics
@@ -45,11 +45,11 @@ type MetricCollector interface {
 
 // MetricsRegistry holds all registered metrics
 type MetricsRegistry struct {
-	mu         sync.RWMutex
-	counters   map[string]*Counter
-	gauges     map[string]*Gauge
-	histograms map[string]*Histogram
-	summaries  map[string]*Summary
+	mu          sync.RWMutex
+	counters    map[string]*Counter
+	gauges      map[string]*Gauge
+	histograms  map[string]*Histogram
+	summaries   map[string]*Summary
 	definitions map[string]MetricDefinition
 }
 
@@ -516,16 +516,16 @@ func (s *Summary) Collect(timestamp time.Time) []Metric {
 
 // Tracing support
 type Span struct {
-	TraceID    string            `json:"trace_id"`
-	SpanID     string            `json:"span_id"`
-	ParentID   string            `json:"parent_id,omitempty"`
-	Name       string            `json:"name"`
-	StartTime  time.Time         `json:"start_time"`
-	EndTime    *time.Time        `json:"end_time,omitempty"`
-	Duration   time.Duration     `json:"duration,omitempty"`
-	Status     string            `json:"status"`
+	TraceID    string                 `json:"trace_id"`
+	SpanID     string                 `json:"span_id"`
+	ParentID   string                 `json:"parent_id,omitempty"`
+	Name       string                 `json:"name"`
+	StartTime  time.Time              `json:"start_time"`
+	EndTime    *time.Time             `json:"end_time,omitempty"`
+	Duration   time.Duration          `json:"duration,omitempty"`
+	Status     string                 `json:"status"`
 	Attributes map[string]interface{} `json:"attributes,omitempty"`
-	Events     []SpanEvent       `json:"events,omitempty"`
+	Events     []SpanEvent            `json:"events,omitempty"`
 }
 
 type SpanEvent struct {

@@ -16,26 +16,26 @@ import (
 
 // AuditModel is the GORM model for audit records
 type AuditModel struct {
-	ID           uint                   `gorm:"primaryKey;autoIncrement" json:"id"`
-	AuditID      string                 `gorm:"uniqueIndex;type:varchar(255)" json:"audit_id"`
-	Timestamp    time.Time              `gorm:"not null;index" json:"timestamp"`
-	EventType    string                 `gorm:"type:varchar(100);not null;index" json:"event_type"`
-	Category     string                 `gorm:"type:varchar(50);not null;index" json:"category"`
-	Severity     string                 `gorm:"type:varchar(20);not null;index" json:"severity"`
-	ActorJSON    []byte                 `gorm:"type:json" json:"actor_json"`
-	Action       string                 `gorm:"type:varchar(255)" json:"action"`
-	ResourceJSON []byte                 `gorm:"type:json" json:"resource_json"`
-	DetailsJSON  []byte                 `gorm:"type:json" json:"details_json"`
-	ChangesJSON  []byte                 `gorm:"type:json" json:"changes_json"`
-	ContextJSON  []byte                 `gorm:"type:json" json:"context_json"`
-	Outcome      string                 `gorm:"type:varchar(50);not null;index" json:"outcome"`
-	ErrorMessage string                 `gorm:"type:text" json:"error_message"`
-	ChainHash    string                 `gorm:"type:varchar(64);not null;index" json:"chain_hash"`
-	ChainPrevHash string                `gorm:"type:varchar(64)" json:"chain_prev_hash"`
-	ChainSequence int64                 `gorm:"not null;uniqueIndex" json:"chain_sequence"`
-	ChainSignerID string                `gorm:"type:varchar(255)" json:"chain_signer_id"`
-	ChainSignature string               `gorm:"type:text" json:"chain_signature"`
-	CreatedAt    time.Time              `gorm:"not null" json:"created_at"`
+	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	AuditID        string    `gorm:"uniqueIndex;type:varchar(255)" json:"audit_id"`
+	Timestamp      time.Time `gorm:"not null;index" json:"timestamp"`
+	EventType      string    `gorm:"type:varchar(100);not null;index" json:"event_type"`
+	Category       string    `gorm:"type:varchar(50);not null;index" json:"category"`
+	Severity       string    `gorm:"type:varchar(20);not null;index" json:"severity"`
+	ActorJSON      []byte    `gorm:"type:json" json:"actor_json"`
+	Action         string    `gorm:"type:varchar(255)" json:"action"`
+	ResourceJSON   []byte    `gorm:"type:json" json:"resource_json"`
+	DetailsJSON    []byte    `gorm:"type:json" json:"details_json"`
+	ChangesJSON    []byte    `gorm:"type:json" json:"changes_json"`
+	ContextJSON    []byte    `gorm:"type:json" json:"context_json"`
+	Outcome        string    `gorm:"type:varchar(50);not null;index" json:"outcome"`
+	ErrorMessage   string    `gorm:"type:text" json:"error_message"`
+	ChainHash      string    `gorm:"type:varchar(64);not null;index" json:"chain_hash"`
+	ChainPrevHash  string    `gorm:"type:varchar(64)" json:"chain_prev_hash"`
+	ChainSequence  int64     `gorm:"not null;uniqueIndex" json:"chain_sequence"`
+	ChainSignerID  string    `gorm:"type:varchar(255)" json:"chain_signer_id"`
+	ChainSignature string    `gorm:"type:text" json:"chain_signature"`
+	CreatedAt      time.Time `gorm:"not null" json:"created_at"`
 }
 
 // TableName returns the table name
@@ -99,20 +99,20 @@ func (m *AuditModel) ToRecord() (*AuditRecord, error) {
 // FromRecord creates model from domain type
 func FromRecord(r *AuditRecord) (*AuditModel, error) {
 	model := &AuditModel{
-		AuditID:       r.ID,
-		Timestamp:     r.Timestamp,
-		EventType:     string(r.EventType),
-		Category:      string(r.Category),
-		Severity:      string(r.Severity),
-		Action:        r.Action,
-		Outcome:       r.Outcome,
-		ErrorMessage:  r.ErrorMessage,
-		ChainHash:     r.ChainInfo.Hash,
-		ChainPrevHash: r.ChainInfo.PrevHash,
-		ChainSequence: r.ChainInfo.Sequence,
-		ChainSignerID: r.ChainInfo.SignerID,
+		AuditID:        r.ID,
+		Timestamp:      r.Timestamp,
+		EventType:      string(r.EventType),
+		Category:       string(r.Category),
+		Severity:       string(r.Severity),
+		Action:         r.Action,
+		Outcome:        r.Outcome,
+		ErrorMessage:   r.ErrorMessage,
+		ChainHash:      r.ChainInfo.Hash,
+		ChainPrevHash:  r.ChainInfo.PrevHash,
+		ChainSequence:  r.ChainInfo.Sequence,
+		ChainSignerID:  r.ChainInfo.SignerID,
 		ChainSignature: r.ChainInfo.Signature,
-		CreatedAt:     time.Now(),
+		CreatedAt:      time.Now(),
 	}
 
 	if r.Actor.ID != "" {
@@ -819,12 +819,12 @@ func (s *InMemoryAuditStore) GetStats(startTime, endTime time.Time) (*AuditStats
 	defer s.mu.RUnlock()
 
 	stats := &AuditStats{
-		TotalRecords:  int64(len(s.records)),
-		ByEventType:   make(map[AuditEventType]int),
-		ByCategory:    make(map[AuditCategory]int),
-		BySeverity:    make(map[AuditSeverity]int),
-		ByActor:       make(map[string]int),
-		TopActors:     []ActorStat{},
+		TotalRecords: int64(len(s.records)),
+		ByEventType:  make(map[AuditEventType]int),
+		ByCategory:   make(map[AuditCategory]int),
+		BySeverity:   make(map[AuditSeverity]int),
+		ByActor:      make(map[string]int),
+		TopActors:    []ActorStat{},
 	}
 
 	var failureCount int64
@@ -885,10 +885,10 @@ func (s *InMemoryAuditStore) Export(filter AuditFilter, format string) ([]byte, 
 
 // AuditWriter wraps io.Writer for audit logging
 type AuditWriter struct {
-	w      io.Writer
-	prev   []byte
-	mu     sync.Mutex
-	seq    int64
+	w    io.Writer
+	prev []byte
+	mu   sync.Mutex
+	seq  int64
 }
 
 // NewAuditWriter creates a new audit writer

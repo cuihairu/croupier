@@ -12,15 +12,15 @@ import (
 
 // WorkflowDefinitionModel is the GORM model for workflow definitions
 type WorkflowDefinitionModel struct {
-	ID          string         `gorm:"primaryKey;type:varchar(255)" json:"id"`
-	Name        string         `gorm:"type:varchar(255);not null" json:"name"`
-	Description string         `gorm:"type:text" json:"description"`
-	Version     string         `gorm:"type:varchar(50);not null" json:"version"`
-	Active      bool           `gorm:"default:true" json:"active"`
-	StepsJSON   []byte         `gorm:"type:json;not null" json:"steps_json"`
-	CreatedAt   time.Time      `gorm:"not null" json:"created_at"`
-	UpdatedAt   time.Time      `gorm:"not null" json:"updated_at"`
-	CreatedBy   string         `gorm:"type:varchar(255);not null" json:"created_by"`
+	ID          string    `gorm:"primaryKey;type:varchar(255)" json:"id"`
+	Name        string    `gorm:"type:varchar(255);not null" json:"name"`
+	Description string    `gorm:"type:text" json:"description"`
+	Version     string    `gorm:"type:varchar(50);not null" json:"version"`
+	Active      bool      `gorm:"default:true" json:"active"`
+	StepsJSON   []byte    `gorm:"type:json;not null" json:"steps_json"`
+	CreatedAt   time.Time `gorm:"not null" json:"created_at"`
+	UpdatedAt   time.Time `gorm:"not null" json:"updated_at"`
+	CreatedBy   string    `gorm:"type:varchar(255);not null" json:"created_by"`
 }
 
 // TableName returns the table name
@@ -70,19 +70,19 @@ func FromDefinition(d *WorkflowDefinition) (*WorkflowDefinitionModel, error) {
 
 // WorkflowInstanceModel is the GORM model for workflow instances
 type WorkflowInstanceModel struct {
-	ID            string         `gorm:"primaryKey;type:varchar(255)" json:"id"`
-	DefinitionID  string         `gorm:"type:varchar(255);not null;index" json:"definition_id"`
-	State         string         `gorm:"type:varchar(50);not null;index" json:"state"`
-	CurrentStep   int            `gorm:"not null" json:"current_step"`
-	ContextJSON   []byte         `gorm:"type:json" json:"context_json"`
-	ApprovalID    string         `gorm:"type:varchar(255);not null;index" json:"approval_id"`
-	Initiator     string         `gorm:"type:varchar(255);not null;index" json:"initiator"`
-	StartedAt     time.Time      `gorm:"not null;index" json:"started_at"`
-	CompletedAt   *time.Time     `json:"completed_at"`
-	ExpiresAt     *time.Time     `json:"expires_at"`
-	HistoryJSON   []byte         `gorm:"type:json" json:"history_json"`
-	CreatedAt     time.Time      `gorm:"not null" json:"created_at"`
-	UpdatedAt     time.Time      `gorm:"not null" json:"updated_at"`
+	ID           string     `gorm:"primaryKey;type:varchar(255)" json:"id"`
+	DefinitionID string     `gorm:"type:varchar(255);not null;index" json:"definition_id"`
+	State        string     `gorm:"type:varchar(50);not null;index" json:"state"`
+	CurrentStep  int        `gorm:"not null" json:"current_step"`
+	ContextJSON  []byte     `gorm:"type:json" json:"context_json"`
+	ApprovalID   string     `gorm:"type:varchar(255);not null;index" json:"approval_id"`
+	Initiator    string     `gorm:"type:varchar(255);not null;index" json:"initiator"`
+	StartedAt    time.Time  `gorm:"not null;index" json:"started_at"`
+	CompletedAt  *time.Time `json:"completed_at"`
+	ExpiresAt    *time.Time `json:"expires_at"`
+	HistoryJSON  []byte     `gorm:"type:json" json:"history_json"`
+	CreatedAt    time.Time  `gorm:"not null" json:"created_at"`
+	UpdatedAt    time.Time  `gorm:"not null" json:"updated_at"`
 }
 
 // TableName returns the table name
@@ -233,24 +233,24 @@ func (m *DelegationModel) ToDelegation() (*Delegation, error) {
 	}
 
 	return &Delegation{
-		ID:             m.ID,
-		Delegator:      m.Delegator,
-		Delegate:       m.Delegate,
-		Scope:          DelegationScope(m.Scope),
-		ScopeValue:     m.ScopeValue,
-		Permissions:    permissions,
-		State:          DelegationState(m.State),
-		Reason:         m.Reason,
-		StartAt:        m.StartAt,
-		EndAt:          m.EndAt,
-		MaxUsages:      m.MaxUsages,
-		UsageCount:     m.UsageCount,
-		Constraints:    constraints,
-		RevokedAt:      m.RevokedAt,
-		RevokedBy:      m.RevokedBy,
-		RevokedReason:  m.RevokedReason,
-		CreatedAt:      m.CreatedAt,
-		UpdatedAt:      m.UpdatedAt,
+		ID:            m.ID,
+		Delegator:     m.Delegator,
+		Delegate:      m.Delegate,
+		Scope:         DelegationScope(m.Scope),
+		ScopeValue:    m.ScopeValue,
+		Permissions:   permissions,
+		State:         DelegationState(m.State),
+		Reason:        m.Reason,
+		StartAt:       m.StartAt,
+		EndAt:         m.EndAt,
+		MaxUsages:     m.MaxUsages,
+		UsageCount:    m.UsageCount,
+		Constraints:   constraints,
+		RevokedAt:     m.RevokedAt,
+		RevokedBy:     m.RevokedBy,
+		RevokedReason: m.RevokedReason,
+		CreatedAt:     m.CreatedAt,
+		UpdatedAt:     m.UpdatedAt,
 	}, nil
 }
 
@@ -270,36 +270,36 @@ func FromDelegation(d *Delegation) (*DelegationModel, error) {
 	}
 
 	return &DelegationModel{
-		ID:             d.ID,
-		Delegator:      d.Delegator,
-		Delegate:       d.Delegate,
-		Scope:          string(d.Scope),
-		ScopeValue:     d.ScopeValue,
-		Permissions:    permissions,
-		State:          string(d.State),
-		Reason:         d.Reason,
-		StartAt:        d.StartAt,
-		EndAt:          d.EndAt,
-		MaxUsages:      d.MaxUsages,
-		UsageCount:     d.UsageCount,
-		Constraints:    constraints,
-		RevokedAt:      d.RevokedAt,
-		RevokedBy:      d.RevokedBy,
-		RevokedReason:  d.RevokedReason,
-		CreatedAt:      d.CreatedAt,
-		UpdatedAt:      d.UpdatedAt,
+		ID:            d.ID,
+		Delegator:     d.Delegator,
+		Delegate:      d.Delegate,
+		Scope:         string(d.Scope),
+		ScopeValue:    d.ScopeValue,
+		Permissions:   permissions,
+		State:         string(d.State),
+		Reason:        d.Reason,
+		StartAt:       d.StartAt,
+		EndAt:         d.EndAt,
+		MaxUsages:     d.MaxUsages,
+		UsageCount:    d.UsageCount,
+		Constraints:   constraints,
+		RevokedAt:     d.RevokedAt,
+		RevokedBy:     d.RevokedBy,
+		RevokedReason: d.RevokedReason,
+		CreatedAt:     d.CreatedAt,
+		UpdatedAt:     d.UpdatedAt,
 	}, nil
 }
 
 // NotificationModel is the GORM model for notifications
 type NotificationModel struct {
-	ID         uint                `gorm:"primaryKey;autoIncrement" json:"id"`
-	Recipient  string              `gorm:"type:varchar(255);not null;index" json:"recipient"`
-	Channel    string              `gorm:"type:varchar(50);not null;index" json:"channel"`
-	EventJSON  []byte              `gorm:"type:json;not null" json:"event_json"`
-	Read       bool                `gorm:"default:false;index" json:"read"`
-	ReadAt     *time.Time          `json:"read_at"`
-	CreatedAt  time.Time           `gorm:"not null;index" json:"created_at"`
+	ID        uint       `gorm:"primaryKey;autoIncrement" json:"id"`
+	Recipient string     `gorm:"type:varchar(255);not null;index" json:"recipient"`
+	Channel   string     `gorm:"type:varchar(50);not null;index" json:"channel"`
+	EventJSON []byte     `gorm:"type:json;not null" json:"event_json"`
+	Read      bool       `gorm:"default:false;index" json:"read"`
+	ReadAt    *time.Time `json:"read_at"`
+	CreatedAt time.Time  `gorm:"not null;index" json:"created_at"`
 }
 
 // TableName returns the table name
@@ -697,7 +697,7 @@ func (s *SQLDelegationStore) IncrementUsage(id string) error {
 // SQLNotificationStore implements NotificationStore using SQL
 type SQLNotificationStore struct {
 	db *gorm.DB
-	mu  sync.Mutex
+	mu sync.Mutex
 }
 
 // NewSQLNotificationStore creates a new SQL notification store

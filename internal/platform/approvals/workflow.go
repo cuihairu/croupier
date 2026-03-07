@@ -44,9 +44,9 @@ const (
 type ConditionOperator string
 
 const (
-	CondOpEquals    ConditionOperator = "equals"
-	CondOpNotEquals ConditionOperator = "not_equals"
-	CondOpContains  ConditionOperator = "contains"
+	CondOpEquals      ConditionOperator = "equals"
+	CondOpNotEquals   ConditionOperator = "not_equals"
+	CondOpContains    ConditionOperator = "contains"
 	CondOpGreaterThan ConditionOperator = "greater_than"
 	CondOpLessThan    ConditionOperator = "less_than"
 	CondOpIn          ConditionOperator = "in"
@@ -86,44 +86,44 @@ type ApprovalStep struct {
 
 // WorkflowDefinition defines an approval workflow template
 type WorkflowDefinition struct {
-	ID          string          `json:"id"`
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Version     string          `json:"version"`
-	Active      bool            `json:"active"`
-	Steps       []ApprovalStep  `json:"steps"`
-	CreatedAt   time.Time       `json:"created_at"`
-	UpdatedAt   time.Time       `json:"updated_at"`
-	CreatedBy   string          `json:"created_by"`
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Version     string         `json:"version"`
+	Active      bool           `json:"active"`
+	Steps       []ApprovalStep `json:"steps"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	CreatedBy   string         `json:"created_by"`
 }
 
 // WorkflowInstance represents a running workflow instance
 type WorkflowInstance struct {
-	ID             string                 `json:"id"`
-	DefinitionID   string                 `json:"definition_id"`
-	Definition     *WorkflowDefinition    `json:"definition,omitempty"`
-	State          WorkflowState          `json:"state"`
-	CurrentStep    int                    `json:"current_step"`
-	Context        map[string]interface{} `json:"context"` // Workflow context data
-	ApprovalID     string                 `json:"approval_id"` // Reference to original approval
-	Initiator      string                 `json:"initiator"`
-	StartedAt      time.Time              `json:"started_at"`
-	CompletedAt    *time.Time             `json:"completed_at,omitempty"`
-	ExpiresAt      *time.Time             `json:"expires_at,omitempty"`
-	StepApprovals  []StepApproval         `json:"step_approvals"`
-	History        []WorkflowHistoryEntry `json:"history"`
+	ID            string                 `json:"id"`
+	DefinitionID  string                 `json:"definition_id"`
+	Definition    *WorkflowDefinition    `json:"definition,omitempty"`
+	State         WorkflowState          `json:"state"`
+	CurrentStep   int                    `json:"current_step"`
+	Context       map[string]interface{} `json:"context"`     // Workflow context data
+	ApprovalID    string                 `json:"approval_id"` // Reference to original approval
+	Initiator     string                 `json:"initiator"`
+	StartedAt     time.Time              `json:"started_at"`
+	CompletedAt   *time.Time             `json:"completed_at,omitempty"`
+	ExpiresAt     *time.Time             `json:"expires_at,omitempty"`
+	StepApprovals []StepApproval         `json:"step_approvals"`
+	History       []WorkflowHistoryEntry `json:"history"`
 }
 
 // StepApproval represents an approval at a specific step
 type StepApproval struct {
-	StepID       string     `json:"step_id"`
-	Approver     string     `json:"approver"`
-	DelegatedBy  string     `json:"delegated_by,omitempty"`
-	Decision     string     `json:"decision"` // "approved", "rejected"
-	Comment      string     `json:"comment,omitempty"`
-	DecidedAt    time.Time  `json:"decided_at"`
-	IPAddress    string     `json:"ip_address,omitempty"`
-	UserAgent    string     `json:"user_agent,omitempty"`
+	StepID      string    `json:"step_id"`
+	Approver    string    `json:"approver"`
+	DelegatedBy string    `json:"delegated_by,omitempty"`
+	Decision    string    `json:"decision"` // "approved", "rejected"
+	Comment     string    `json:"comment,omitempty"`
+	DecidedAt   time.Time `json:"decided_at"`
+	IPAddress   string    `json:"ip_address,omitempty"`
+	UserAgent   string    `json:"user_agent,omitempty"`
 }
 
 // WorkflowHistoryEntry represents a history entry for workflow state changes
@@ -423,11 +423,11 @@ func (e *WorkflowEngine) ApproveStep(ctx context.Context, instanceID, approver, 
 			// Notify initiator
 			if e.notifier != nil {
 				e.notifier.Notify(ctx, []string{instance.Initiator}, NotificationEvent{
-					Type:        "workflow_approved",
-					Title:       "Workflow Approved",
-					Message:     fmt.Sprintf("Your approval request has been approved"),
-					InstanceID:  instance.ID,
-					ApprovalID:  instance.ApprovalID,
+					Type:       "workflow_approved",
+					Title:      "Workflow Approved",
+					Message:    fmt.Sprintf("Your approval request has been approved"),
+					InstanceID: instance.ID,
+					ApprovalID: instance.ApprovalID,
 				})
 			}
 		}
@@ -499,11 +499,11 @@ func (e *WorkflowEngine) RejectStep(ctx context.Context, instanceID, approver, r
 	// Notify initiator
 	if e.notifier != nil {
 		e.notifier.Notify(ctx, []string{instance.Initiator}, NotificationEvent{
-			Type:        "workflow_rejected",
-			Title:       "Workflow Rejected",
-			Message:     fmt.Sprintf("Your approval request has been rejected: %s", reason),
-			InstanceID:  instance.ID,
-			ApprovalID:  instance.ApprovalID,
+			Type:       "workflow_rejected",
+			Title:      "Workflow Rejected",
+			Message:    fmt.Sprintf("Your approval request has been rejected: %s", reason),
+			InstanceID: instance.ID,
+			ApprovalID: instance.ApprovalID,
 		})
 	}
 
@@ -828,17 +828,17 @@ func (e *WorkflowEngine) notifyApprovers(ctx context.Context, instance *Workflow
 
 func approvalToMap(a *Approval) map[string]interface{} {
 	return map[string]interface{}{
-		"id":               a.ID,
-		"state":            a.State,
-		"function_id":      a.FunctionID,
-		"game_id":          a.GameID,
-		"env":              a.Env,
-		"actor":            a.Actor,
-		"mode":             a.Mode,
-		"idempotency_key":  a.IdempotencyKey,
-		"route":            a.Route,
+		"id":                a.ID,
+		"state":             a.State,
+		"function_id":       a.FunctionID,
+		"game_id":           a.GameID,
+		"env":               a.Env,
+		"actor":             a.Actor,
+		"mode":              a.Mode,
+		"idempotency_key":   a.IdempotencyKey,
+		"route":             a.Route,
 		"target_service_id": a.TargetServiceID,
-		"reason":           a.Reason,
+		"reason":            a.Reason,
 	}
 }
 

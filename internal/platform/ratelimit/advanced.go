@@ -37,11 +37,11 @@ type RateLimitConfig struct {
 
 // RateLimitResult holds rate limit check result
 type RateLimitResult struct {
-	Allowed     bool      `json:"allowed"`
-	Remaining   int       `json:"remaining"`
-	ResetAt     time.Time `json:"reset_at"`
-	RetryAfter  time.Duration `json:"retry_after"`
-	Limit       int       `json:"limit"`
+	Allowed    bool          `json:"allowed"`
+	Remaining  int           `json:"remaining"`
+	ResetAt    time.Time     `json:"reset_at"`
+	RetryAfter time.Duration `json:"retry_after"`
+	Limit      int           `json:"limit"`
 }
 
 // AdvancedLimiter provides advanced rate limiting capabilities
@@ -56,22 +56,22 @@ type AdvancedLimiter interface {
 
 // RateLimitStats holds rate limit statistics
 type RateLimitStats struct {
-	Key           string        `json:"key"`
-	TotalRequests int64         `json:"total_requests"`
-	AllowedRequests int64       `json:"allowed_requests"`
-	DeniedRequests int64        `json:"denied_requests"`
-	CurrentTokens int           `json:"current_tokens"`
-	LastRequest   time.Time     `json:"last_request"`
+	Key             string    `json:"key"`
+	TotalRequests   int64     `json:"total_requests"`
+	AllowedRequests int64     `json:"allowed_requests"`
+	DeniedRequests  int64     `json:"denied_requests"`
+	CurrentTokens   int       `json:"current_tokens"`
+	LastRequest     time.Time `json:"last_request"`
 }
 
 // SlidingWindowLimiter implements sliding window rate limiting
 type SlidingWindowLimiter struct {
-	mu           sync.RWMutex
-	windows      map[string]*windowState
-	maxRequests  int
-	windowSize   time.Duration
+	mu              sync.RWMutex
+	windows         map[string]*windowState
+	maxRequests     int
+	windowSize      time.Duration
 	cleanupInterval time.Duration
-	closed       bool
+	closed          bool
 }
 
 type windowState struct {
@@ -278,9 +278,9 @@ func (sw *SlidingWindowLimiter) Close() error {
 
 // DistributedRateLimiter provides rate limiting across multiple instances
 type DistributedRateLimiter struct {
-	local      AdvancedLimiter
-	store      RateLimitStore
-	keyPrefix  string
+	local        AdvancedLimiter
+	store        RateLimitStore
+	keyPrefix    string
 	replicaCount int
 }
 
@@ -295,8 +295,8 @@ type RateLimitStore interface {
 // NewDistributedRateLimiter creates a new distributed rate limiter
 func NewDistributedRateLimiter(store RateLimitStore, maxRequests int, windowSize time.Duration) *DistributedRateLimiter {
 	return &DistributedRateLimiter{
-		local:     NewSlidingWindowLimiter(maxRequests, windowSize),
-		store:     store,
+		local: NewSlidingWindowLimiter(maxRequests, windowSize),
+		store: store,
 	}
 }
 
@@ -366,23 +366,23 @@ func (d *DistributedRateLimiter) GetStats(key string) *RateLimitStats {
 
 // MultiTierRateLimiter provides multi-tier rate limiting
 type MultiTierRateLimiter struct {
-	limiters map[string]AdvancedLimiter
+	limiters       map[string]AdvancedLimiter
 	defaultLimiter AdvancedLimiter
-	mu       sync.RWMutex
+	mu             sync.RWMutex
 }
 
 // TierConfig holds configuration for a rate limit tier
 type TierConfig struct {
-	Name          string
-	MaxRequests   int
-	WindowSize    time.Duration
-	BurstSize     int
+	Name        string
+	MaxRequests int
+	WindowSize  time.Duration
+	BurstSize   int
 }
 
 // NewMultiTierRateLimiter creates a new multi-tier rate limiter
 func NewMultiTierRateLimiter(defaultConfig TierConfig, tiers []TierConfig) *MultiTierRateLimiter {
 	mt := &MultiTierRateLimiter{
-		limiters: make(map[string]AdvancedLimiter),
+		limiters:       make(map[string]AdvancedLimiter),
 		defaultLimiter: NewSlidingWindowLimiter(defaultConfig.MaxRequests, defaultConfig.WindowSize),
 	}
 
@@ -491,22 +491,22 @@ func (mt *MultiTierRateLimiter) buildKey(tier, key string) string {
 
 // AdaptiveRateLimiter adjusts rate limits based on system health
 type AdaptiveRateLimiter struct {
-	base        AdvancedLimiter
-	mu          sync.RWMutex
-	currentLimit int
-	maxLimit    int
-	minLimit    int
+	base             AdvancedLimiter
+	mu               sync.RWMutex
+	currentLimit     int
+	maxLimit         int
+	minLimit         int
 	adjustmentFactor float64
-	healthCheck func() float64 // Returns health score 0-1
+	healthCheck      func() float64 // Returns health score 0-1
 }
 
 // NewAdaptiveRateLimiter creates a new adaptive rate limiter
 func NewAdaptiveRateLimiter(base AdvancedLimiter, maxLimit, minLimit int) *AdaptiveRateLimiter {
 	return &AdaptiveRateLimiter{
-		base:         base,
-		currentLimit: maxLimit,
-		maxLimit:     maxLimit,
-		minLimit:     minLimit,
+		base:             base,
+		currentLimit:     maxLimit,
+		maxLimit:         maxLimit,
+		minLimit:         minLimit,
 		adjustmentFactor: 0.1,
 	}
 }
@@ -566,6 +566,6 @@ func (a *AdaptiveRateLimiter) adjustLimit() {
 	}
 
 	// Gradual adjustment
-	delta := float64(targetLimit - a.currentLimit) * a.adjustmentFactor
+	delta := float64(targetLimit-a.currentLimit) * a.adjustmentFactor
 	a.currentLimit += int(delta)
 }

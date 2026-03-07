@@ -10,27 +10,27 @@ import (
 
 // NotificationEvent represents a notification event
 type NotificationEvent struct {
-	Type        string                 `json:"type"`
-	Title       string                 `json:"title"`
-	Message     string                 `json:"message"`
-	InstanceID  string                 `json:"instance_id,omitempty"`
-	ApprovalID  string                 `json:"approval_id,omitempty"`
-	Data        map[string]interface{} `json:"data,omitempty"`
-	Priority    string                 `json:"priority"` // low, normal, high, urgent
+	Type       string                 `json:"type"`
+	Title      string                 `json:"title"`
+	Message    string                 `json:"message"`
+	InstanceID string                 `json:"instance_id,omitempty"`
+	ApprovalID string                 `json:"approval_id,omitempty"`
+	Data       map[string]interface{} `json:"data,omitempty"`
+	Priority   string                 `json:"priority"` // low, normal, high, urgent
 }
 
 // NotificationChannel represents a notification delivery channel
 type NotificationChannel string
 
 const (
-	ChannelEmail    NotificationChannel = "email"
-	ChannelSMS      NotificationChannel = "sms"
-	ChannelWebhook  NotificationChannel = "webhook"
+	ChannelEmail     NotificationChannel = "email"
+	ChannelSMS       NotificationChannel = "sms"
+	ChannelWebhook   NotificationChannel = "webhook"
 	ChannelWebSocket NotificationChannel = "websocket"
-	ChannelDingTalk NotificationChannel = "dingtalk"
-	ChannelWeChat   NotificationChannel = "wechat"
-	ChannelSlack    NotificationChannel = "slack"
-	ChannelInApp    NotificationChannel = "in_app"
+	ChannelDingTalk  NotificationChannel = "dingtalk"
+	ChannelWeChat    NotificationChannel = "wechat"
+	ChannelSlack     NotificationChannel = "slack"
+	ChannelInApp     NotificationChannel = "in_app"
 )
 
 // NotificationConfig represents configuration for a notification channel
@@ -55,10 +55,10 @@ type NotificationSender interface {
 
 // MultiChannelNotifier implements Notifier with multiple channels
 type MultiChannelNotifier struct {
-	senders  map[NotificationChannel]NotificationSender
-	configs  map[NotificationChannel]*NotificationConfig
-	store    NotificationStore
-	mu       sync.RWMutex
+	senders map[NotificationChannel]NotificationSender
+	configs map[NotificationChannel]*NotificationConfig
+	store   NotificationStore
+	mu      sync.RWMutex
 }
 
 // NewMultiChannelNotifier creates a new multi-channel notifier
@@ -159,19 +159,19 @@ type NotificationStore interface {
 
 // NotificationRecord represents a stored notification
 type NotificationRecord struct {
-	ID         string              `json:"id"`
-	Recipient  string              `json:"recipient"`
-	Channel    NotificationChannel `json:"channel"`
-	Event      NotificationEvent   `json:"event"`
-	Read       bool                `json:"read"`
-	ReadAt     *time.Time          `json:"read_at,omitempty"`
-	CreatedAt  time.Time           `json:"created_at"`
+	ID        string              `json:"id"`
+	Recipient string              `json:"recipient"`
+	Channel   NotificationChannel `json:"channel"`
+	Event     NotificationEvent   `json:"event"`
+	Read      bool                `json:"read"`
+	ReadAt    *time.Time          `json:"read_at,omitempty"`
+	CreatedAt time.Time           `json:"created_at"`
 }
 
 // InAppNotifier manages in-app notifications
 type InAppNotifier struct {
-	store   NotificationStore
-	hub     *WebSocketHub
+	store NotificationStore
+	hub   *WebSocketHub
 }
 
 // NewInAppNotifier creates a new in-app notifier
@@ -203,10 +203,10 @@ func (n *InAppNotifier) Send(ctx context.Context, recipient string, event Notifi
 	// Push via WebSocket if connected
 	if n.hub != nil {
 		n.hub.SendToUser(recipient, map[string]interface{}{
-			"type":        "notification",
-			"id":          record.ID,
-			"event":       event,
-			"created_at":  record.CreatedAt,
+			"type":       "notification",
+			"id":         record.ID,
+			"event":      event,
+			"created_at": record.CreatedAt,
 		})
 	}
 
@@ -335,16 +335,16 @@ func (e *EmailSender) Send(ctx context.Context, recipient string, event Notifica
 	// Email sending logic would be implemented here
 	// This is a placeholder that would use net/smtp or a library
 	/*
-	subject := event.Title
-	body := fmt.Sprintf(`
-	<html>
-	<body>
-	<h2>%s</h2>
-	<p>%s</p>
-	%s
-	</body>
-	</html>
-	`, event.Title, event.Message, e.formatData(event.Data))
+		subject := event.Title
+		body := fmt.Sprintf(`
+		<html>
+		<body>
+		<h2>%s</h2>
+		<p>%s</p>
+		%s
+		</body>
+		</html>
+		`, event.Title, event.Message, e.formatData(event.Data))
 	*/
 	return nil
 }
@@ -391,9 +391,9 @@ func (d *DingTalkSender) Channel() NotificationChannel {
 
 // WebhookSender sends webhook notifications
 type WebhookSender struct {
-	url       string
-	secret    string
-	audience  string
+	url      string
+	secret   string
+	audience string
 }
 
 // NewWebhookSender creates a new webhook sender
@@ -425,13 +425,13 @@ func (w *WebhookSender) Channel() NotificationChannel {
 
 // NotificationTemplate represents a notification template
 type NotificationTemplate struct {
-	ID        string                 `json:"id"`
-	Name      string                 `json:"name"`
-	Type      string                 `json:"type"`
-	Subject   string                 `json:"subject"`
-	Body      string                 `json:"body"`
-	Variables []string               `json:"variables"`
-	Channels  []NotificationChannel  `json:"channels"`
+	ID        string                `json:"id"`
+	Name      string                `json:"name"`
+	Type      string                `json:"type"`
+	Subject   string                `json:"subject"`
+	Body      string                `json:"body"`
+	Variables []string              `json:"variables"`
+	Channels  []NotificationChannel `json:"channels"`
 }
 
 // TemplateRenderer renders notification templates
@@ -469,9 +469,9 @@ func (r *TemplateRenderer) Render(templateID string, variables map[string]string
 	}
 
 	return &NotificationEvent{
-		Type:     template.Type,
-		Title:    subject,
-		Message:  body,
+		Type:    template.Type,
+		Title:   subject,
+		Message: body,
 	}, nil
 }
 

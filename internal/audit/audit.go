@@ -12,11 +12,11 @@ import (
 
 // Audit related errors
 var (
-	ErrAuditNotFound      = errors.New("audit record not found")
-	ErrInvalidChain       = errors.New("audit chain validation failed")
-	ErrChainBroken        = errors.New("audit chain is broken")
-	ErrExportFailed       = errors.New("audit export failed")
-	ErrInvalidTimeRange   = errors.New("invalid time range")
+	ErrAuditNotFound    = errors.New("audit record not found")
+	ErrInvalidChain     = errors.New("audit chain validation failed")
+	ErrChainBroken      = errors.New("audit chain is broken")
+	ErrExportFailed     = errors.New("audit export failed")
+	ErrInvalidTimeRange = errors.New("invalid time range")
 )
 
 // AuditEventType defines the type of audit event
@@ -24,26 +24,26 @@ type AuditEventType string
 
 const (
 	// Authentication events
-	EventLogin         AuditEventType = "auth.login"
-	EventLogout        AuditEventType = "auth.logout"
-	EventLoginFailed   AuditEventType = "auth.login_failed"
+	EventLogin          AuditEventType = "auth.login"
+	EventLogout         AuditEventType = "auth.logout"
+	EventLoginFailed    AuditEventType = "auth.login_failed"
 	EventPasswordChange AuditEventType = "auth.password_change"
-	EventMFAEnabled    AuditEventType = "auth.mfa_enabled"
-	EventMFADisabled   AuditEventType = "auth.mfa_disabled"
+	EventMFAEnabled     AuditEventType = "auth.mfa_enabled"
+	EventMFADisabled    AuditEventType = "auth.mfa_disabled"
 
 	// Authorization events
-	EventAccessGranted  AuditEventType = "authz.access_granted"
-	EventAccessDenied   AuditEventType = "authz.access_denied"
-	EventRoleAssigned   AuditEventType = "authz.role_assigned"
-	EventRoleRevoked    AuditEventType = "authz.role_revoked"
+	EventAccessGranted   AuditEventType = "authz.access_granted"
+	EventAccessDenied    AuditEventType = "authz.access_denied"
+	EventRoleAssigned    AuditEventType = "authz.role_assigned"
+	EventRoleRevoked     AuditEventType = "authz.role_revoked"
 	EventPermissionGrant AuditEventType = "authz.permission_grant"
 
 	// Approval events
-	EventApprovalCreated  AuditEventType = "approval.created"
-	EventApprovalApproved AuditEventType = "approval.approved"
-	EventApprovalRejected AuditEventType = "approval.rejected"
+	EventApprovalCreated   AuditEventType = "approval.created"
+	EventApprovalApproved  AuditEventType = "approval.approved"
+	EventApprovalRejected  AuditEventType = "approval.rejected"
 	EventApprovalCancelled AuditEventType = "approval.cancelled"
-	EventApprovalExpired  AuditEventType = "approval.expired"
+	EventApprovalExpired   AuditEventType = "approval.expired"
 
 	// Workflow events
 	EventWorkflowStarted   AuditEventType = "workflow.started"
@@ -55,10 +55,10 @@ const (
 	EventDelegationRevoked AuditEventType = "workflow.delegation_revoked"
 
 	// Function events
-	EventFunctionInvoke    AuditEventType = "function.invoke"
-	EventFunctionRegister  AuditEventType = "function.register"
+	EventFunctionInvoke     AuditEventType = "function.invoke"
+	EventFunctionRegister   AuditEventType = "function.register"
 	EventFunctionUnregister AuditEventType = "function.unregister"
-	EventFunctionUpdate    AuditEventType = "function.update"
+	EventFunctionUpdate     AuditEventType = "function.update"
 
 	// Configuration events
 	EventConfigCreate AuditEventType = "config.create"
@@ -66,10 +66,10 @@ const (
 	EventConfigDelete AuditEventType = "config.delete"
 
 	// Data events
-	EventDataAccess  AuditEventType = "data.access"
-	EventDataExport  AuditEventType = "data.export"
-	EventDataImport  AuditEventType = "data.import"
-	EventDataDelete  AuditEventType = "data.delete"
+	EventDataAccess AuditEventType = "data.access"
+	EventDataExport AuditEventType = "data.export"
+	EventDataImport AuditEventType = "data.import"
+	EventDataDelete AuditEventType = "data.delete"
 
 	// System events
 	EventSystemStart   AuditEventType = "system.start"
@@ -127,17 +127,17 @@ type AuditRecord struct {
 
 // ActorInfo contains information about the actor performing the action
 type ActorInfo struct {
-	ID           string            `json:"id"`
-	Type         string            `json:"type"` // user, service, system
-	Name         string            `json:"name,omitempty"`
-	Email        string            `json:"email,omitempty"`
-	Roles        []string          `json:"roles,omitempty"`
-	IPAddress    string            `json:"ip_address,omitempty"`
-	UserAgent    string            `json:"user_agent,omitempty"`
-	SessionID    string            `json:"session_id,omitempty"`
-	MFAUsed      bool              `json:"mfa_used,omitempty"`
-	DelegatedBy  string            `json:"delegated_by,omitempty"`
-	Metadata     map[string]string `json:"metadata,omitempty"`
+	ID          string            `json:"id"`
+	Type        string            `json:"type"` // user, service, system
+	Name        string            `json:"name,omitempty"`
+	Email       string            `json:"email,omitempty"`
+	Roles       []string          `json:"roles,omitempty"`
+	IPAddress   string            `json:"ip_address,omitempty"`
+	UserAgent   string            `json:"user_agent,omitempty"`
+	SessionID   string            `json:"session_id,omitempty"`
+	MFAUsed     bool              `json:"mfa_used,omitempty"`
+	DelegatedBy string            `json:"delegated_by,omitempty"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
 // ResourceInfo contains information about the affected resource
@@ -159,39 +159,39 @@ type ChangeInfo struct {
 
 // AuditContext contains contextual information about the audit
 type AuditContext struct {
-	RequestID    string            `json:"request_id,omitempty"`
-	TraceID      string            `json:"trace_id,omitempty"`
-	CorrelationID string           `json:"correlation_id,omitempty"`
-	Service      string            `json:"service,omitempty"`
-	Version      string            `json:"version,omitempty"`
-	Environment  string            `json:"environment,omitempty"`
-	Tags         map[string]string `json:"tags,omitempty"`
+	RequestID     string            `json:"request_id,omitempty"`
+	TraceID       string            `json:"trace_id,omitempty"`
+	CorrelationID string            `json:"correlation_id,omitempty"`
+	Service       string            `json:"service,omitempty"`
+	Version       string            `json:"version,omitempty"`
+	Environment   string            `json:"environment,omitempty"`
+	Tags          map[string]string `json:"tags,omitempty"`
 }
 
 // ChainInfo contains blockchain-like chain information for integrity
 type ChainInfo struct {
-	Hash       string `json:"hash"`
-	PrevHash   string `json:"prev_hash"`
-	Sequence   int64  `json:"sequence"`
-	SignerID   string `json:"signer_id,omitempty"`
-	Signature  string `json:"signature,omitempty"`
+	Hash      string `json:"hash"`
+	PrevHash  string `json:"prev_hash"`
+	Sequence  int64  `json:"sequence"`
+	SignerID  string `json:"signer_id,omitempty"`
+	Signature string `json:"signature,omitempty"`
 }
 
 // AuditFilter for filtering audit records
 type AuditFilter struct {
-	EventType   []AuditEventType
-	Category    []AuditCategory
-	Severity    []AuditSeverity
-	ActorID     string
-	ResourceID  string
+	EventType    []AuditEventType
+	Category     []AuditCategory
+	Severity     []AuditSeverity
+	ActorID      string
+	ResourceID   string
 	ResourceType string
-	GameID      string
-	Environment string
-	Outcome     string
-	StartTime   *time.Time
-	EndTime     *time.Time
-	SearchText  string
-	Tags        map[string]string
+	GameID       string
+	Environment  string
+	Outcome      string
+	StartTime    *time.Time
+	EndTime      *time.Time
+	SearchText   string
+	Tags         map[string]string
 }
 
 // AuditPage for pagination
@@ -244,17 +244,17 @@ type AuditStore interface {
 
 // AuditService provides audit logging functionality
 type AuditService struct {
-	store       AuditStore
-	signer      AuditSigner
+	store           AuditStore
+	signer          AuditSigner
 	sensitiveFields []string
-	mu          sync.RWMutex
-	notifier    AuditNotifier
+	mu              sync.RWMutex
+	notifier        AuditNotifier
 }
 
 // NewAuditService creates a new audit service
 func NewAuditService(store AuditStore, signer AuditSigner) *AuditService {
 	return &AuditService{
-		store: store,
+		store:  store,
 		signer: signer,
 		sensitiveFields: []string{
 			"password", "secret", "token", "key", "credential",
@@ -562,9 +562,9 @@ func (s *AuditService) ValidateChain(startSeq, endSeq int64) (*ChainValidationRe
 	}
 
 	result := &ChainValidationResult{
-		Valid:      true,
+		Valid:        true,
 		TotalRecords: len(records),
-		Errors:     []ChainError{},
+		Errors:       []ChainError{},
 	}
 
 	for i, record := range records {

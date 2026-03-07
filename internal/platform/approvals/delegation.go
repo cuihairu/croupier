@@ -10,11 +10,11 @@ import (
 
 // Delegation related errors
 var (
-	ErrDelegationNotFound    = errors.New("delegation not found")
-	ErrDelegationExpired     = errors.New("delegation has expired")
-	ErrDelegationNotActive   = errors.New("delegation is not active")
-	ErrCannotDelegateToSelf  = errors.New("cannot delegate to yourself")
-	ErrCircularDelegation    = errors.New("circular delegation detected")
+	ErrDelegationNotFound     = errors.New("delegation not found")
+	ErrDelegationExpired      = errors.New("delegation has expired")
+	ErrDelegationNotActive    = errors.New("delegation is not active")
+	ErrCannotDelegateToSelf   = errors.New("cannot delegate to yourself")
+	ErrCircularDelegation     = errors.New("circular delegation detected")
 	ErrDelegationNotPermitted = errors.New("delegation not permitted for this approval")
 )
 
@@ -22,9 +22,9 @@ var (
 type DelegationState string
 
 const (
-	DelegationStateActive   DelegationState = "active"
-	DelegationStateRevoked  DelegationState = "revoked"
-	DelegationStateExpired  DelegationState = "expired"
+	DelegationStateActive    DelegationState = "active"
+	DelegationStateRevoked   DelegationState = "revoked"
+	DelegationStateExpired   DelegationState = "expired"
 	DelegationStateCompleted DelegationState = "completed"
 )
 
@@ -32,44 +32,44 @@ const (
 type DelegationScope string
 
 const (
-	ScopeAll         DelegationScope = "all"          // All approvals
-	ScopeFunction    DelegationScope = "function"     // Specific function
-	ScopeGame        DelegationScope = "game"         // Specific game
-	ScopeEnv         DelegationScope = "environment"  // Specific environment
-	ScopeWorkflow    DelegationScope = "workflow"     // Specific workflow type
-	ScopeAmount      DelegationScope = "amount"       // Up to certain amount/limit
+	ScopeAll      DelegationScope = "all"         // All approvals
+	ScopeFunction DelegationScope = "function"    // Specific function
+	ScopeGame     DelegationScope = "game"        // Specific game
+	ScopeEnv      DelegationScope = "environment" // Specific environment
+	ScopeWorkflow DelegationScope = "workflow"    // Specific workflow type
+	ScopeAmount   DelegationScope = "amount"      // Up to certain amount/limit
 )
 
 // DelegationPermission defines what actions a delegate can perform
 type DelegationPermission string
 
 const (
-	PermApprove    DelegationPermission = "approve"
-	PermReject     DelegationPermission = "reject"
-	PermView       DelegationPermission = "view"
-	PermDelegate   DelegationPermission = "delegate" // Can further delegate
+	PermApprove  DelegationPermission = "approve"
+	PermReject   DelegationPermission = "reject"
+	PermView     DelegationPermission = "view"
+	PermDelegate DelegationPermission = "delegate" // Can further delegate
 )
 
 // Delegation represents an approval delegation from one user to another
 type Delegation struct {
-	ID           string                `json:"id"`
-	Delegator    string                `json:"delegator"`     // User who delegates
-	Delegate     string                `json:"delegate"`      // User who receives delegation
-	Scope        DelegationScope       `json:"scope"`
-	ScopeValue   string                `json:"scope_value"`   // Value for the scope (e.g., function_id, game_id)
-	Permissions  []DelegationPermission `json:"permissions"`
-	State        DelegationState       `json:"state"`
-	Reason       string                `json:"reason"`
-	StartAt      time.Time             `json:"start_at"`
-	EndAt        *time.Time            `json:"end_at,omitempty"`
-	CreatedAt    time.Time             `json:"created_at"`
-	UpdatedAt    time.Time             `json:"updated_at"`
-	RevokedAt    *time.Time            `json:"revoked_at,omitempty"`
-	RevokedBy    string                `json:"revoked_by,omitempty"`
-	RevokedReason string                `json:"revoked_reason,omitempty"`
-	MaxUsages    int                   `json:"max_usages"`     // Maximum number of times this can be used (0 = unlimited)
-	UsageCount   int                   `json:"usage_count"`    // Current usage count
-	Constraints  []DelegationConstraint `json:"constraints,omitempty"`
+	ID            string                 `json:"id"`
+	Delegator     string                 `json:"delegator"` // User who delegates
+	Delegate      string                 `json:"delegate"`  // User who receives delegation
+	Scope         DelegationScope        `json:"scope"`
+	ScopeValue    string                 `json:"scope_value"` // Value for the scope (e.g., function_id, game_id)
+	Permissions   []DelegationPermission `json:"permissions"`
+	State         DelegationState        `json:"state"`
+	Reason        string                 `json:"reason"`
+	StartAt       time.Time              `json:"start_at"`
+	EndAt         *time.Time             `json:"end_at,omitempty"`
+	CreatedAt     time.Time              `json:"created_at"`
+	UpdatedAt     time.Time              `json:"updated_at"`
+	RevokedAt     *time.Time             `json:"revoked_at,omitempty"`
+	RevokedBy     string                 `json:"revoked_by,omitempty"`
+	RevokedReason string                 `json:"revoked_reason,omitempty"`
+	MaxUsages     int                    `json:"max_usages"`  // Maximum number of times this can be used (0 = unlimited)
+	UsageCount    int                    `json:"usage_count"` // Current usage count
+	Constraints   []DelegationConstraint `json:"constraints,omitempty"`
 }
 
 // DelegationConstraint defines additional constraints on delegations
@@ -81,7 +81,7 @@ type DelegationConstraint struct {
 
 // TimeRestrictionConstraint value for time-based restrictions
 type TimeRestrictionConstraint struct {
-	AllowedDays  []int `json:"allowed_days"`  // 0=Sunday, 1=Monday, etc.
+	AllowedDays  []int  `json:"allowed_days"`  // 0=Sunday, 1=Monday, etc.
 	AllowedStart string `json:"allowed_start"` // e.g., "09:00"
 	AllowedEnd   string `json:"allowed_end"`   // e.g., "17:00"
 	Timezone     string `json:"timezone"`
@@ -89,22 +89,22 @@ type TimeRestrictionConstraint struct {
 
 // AmountLimitConstraint value for amount-based restrictions
 type AmountLimitConstraint struct {
-	MaxAmount   float64 `json:"max_amount"`
-	Currency    string  `json:"currency"`
-	PeriodDays  int     `json:"period_days"` // Rolling period in days
+	MaxAmount  float64 `json:"max_amount"`
+	Currency   string  `json:"currency"`
+	PeriodDays int     `json:"period_days"` // Rolling period in days
 }
 
 // DelegationRequest represents a request to create a delegation
 type DelegationRequest struct {
-	Delegator    string                 `json:"delegator"`
-	Delegate     string                 `json:"delegate"`
-	Scope        DelegationScope        `json:"scope"`
-	ScopeValue   string                 `json:"scope_value"`
-	Permissions  []DelegationPermission `json:"permissions"`
-	Reason       string                 `json:"reason"`
-	Duration     time.Duration          `json:"duration"`
-	MaxUsages    int                    `json:"max_usages"`
-	Constraints  []DelegationConstraint `json:"constraints"`
+	Delegator   string                 `json:"delegator"`
+	Delegate    string                 `json:"delegate"`
+	Scope       DelegationScope        `json:"scope"`
+	ScopeValue  string                 `json:"scope_value"`
+	Permissions []DelegationPermission `json:"permissions"`
+	Reason      string                 `json:"reason"`
+	Duration    time.Duration          `json:"duration"`
+	MaxUsages   int                    `json:"max_usages"`
+	Constraints []DelegationConstraint `json:"constraints"`
 }
 
 // DelegationFilter for filtering delegations
@@ -466,7 +466,7 @@ func (s *DelegationService) checkConstraints(d *Delegation, now time.Time) bool 
 			if !s.checkTimeRestriction(c.Value, now) {
 				return false
 			}
-		// Add more constraint types as needed
+			// Add more constraint types as needed
 		}
 	}
 	return true
@@ -562,10 +562,10 @@ func (s *DelegationService) CleanupExpiredDelegations(ctx context.Context) (int,
 
 // DelegationChain represents a chain of delegations
 type DelegationChain struct {
-	OriginalDelegator string            `json:"original_delegator"`
-	CurrentDelegate   string            `json:"current_delegate"`
-	Chain             []DelegationLink  `json:"chain"`
-	TotalDepth        int               `json:"total_depth"`
+	OriginalDelegator string           `json:"original_delegator"`
+	CurrentDelegate   string           `json:"current_delegate"`
+	Chain             []DelegationLink `json:"chain"`
+	TotalDepth        int              `json:"total_depth"`
 }
 
 // DelegationLink represents a link in the delegation chain

@@ -49,10 +49,10 @@ const (
 type KeyPurpose string
 
 const (
-	PurposeEncryption  KeyPurpose = "encryption"
-	PurposeSigning     KeyPurpose = "signing"
+	PurposeEncryption   KeyPurpose = "encryption"
+	PurposeSigning      KeyPurpose = "signing"
 	PurposeVerification KeyPurpose = "verification"
-	PurposeDerivation  KeyPurpose = "derivation"
+	PurposeDerivation   KeyPurpose = "derivation"
 )
 
 // KeyMetadata contains metadata about a key
@@ -543,11 +543,11 @@ func (km *KeyManager) decryptAES(key, ciphertext []byte) ([]byte, error) {
 
 // RotationJob handles automatic key rotation
 type RotationJob struct {
-	km        *KeyManager
-	interval  time.Duration
-	stopChan  chan struct{}
-	running   bool
-	mu        sync.Mutex
+	km       *KeyManager
+	interval time.Duration
+	stopChan chan struct{}
+	running  bool
+	mu       sync.Mutex
 }
 
 // StartRotation starts the automatic key rotation job

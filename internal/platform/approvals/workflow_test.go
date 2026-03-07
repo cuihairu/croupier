@@ -246,8 +246,8 @@ func TestWorkflowEngine_CreateDefinition_Invalid(t *testing.T) {
 		{
 			name: "empty ID",
 			def: &WorkflowDefinition{
-				Name:    "Test",
-				Steps:   []ApprovalStep{{ID: "s1"}},
+				Name:  "Test",
+				Steps: []ApprovalStep{{ID: "s1"}},
 			},
 			wantErr: true,
 		},
@@ -362,10 +362,10 @@ func TestWorkflowEngine_ApproveStep(t *testing.T) {
 
 	// Create workflow definition with single step
 	def := &WorkflowDefinition{
-		ID:          "wf-1",
-		Name:        "Single Approval",
-		Version:     "1.0",
-		Active:      true,
+		ID:      "wf-1",
+		Name:    "Single Approval",
+		Version: "1.0",
+		Active:  true,
 		Steps: []ApprovalStep{
 			{
 				ID:        "step-1",
@@ -426,10 +426,10 @@ func TestWorkflowEngine_RejectStep(t *testing.T) {
 
 	// Create workflow definition
 	def := &WorkflowDefinition{
-		ID:          "wf-1",
-		Name:        "Single Approval",
-		Version:     "1.0",
-		Active:      true,
+		ID:      "wf-1",
+		Name:    "Single Approval",
+		Version: "1.0",
+		Active:  true,
 		Steps: []ApprovalStep{
 			{
 				ID:        "step-1",
@@ -490,10 +490,10 @@ func TestWorkflowEngine_MultiStepApproval(t *testing.T) {
 
 	// Create workflow with 2 steps
 	def := &WorkflowDefinition{
-		ID:          "wf-1",
-		Name:        "Two-Step Approval",
-		Version:     "1.0",
-		Active:      true,
+		ID:      "wf-1",
+		Name:    "Two-Step Approval",
+		Version: "1.0",
+		Active:  true,
 		Steps: []ApprovalStep{
 			{
 				ID:        "step-1",
@@ -569,10 +569,10 @@ func TestWorkflowEngine_UnauthorizedApprover(t *testing.T) {
 
 	// Create workflow
 	def := &WorkflowDefinition{
-		ID:          "wf-1",
-		Name:        "Approval",
-		Version:     "1.0",
-		Active:      true,
+		ID:      "wf-1",
+		Name:    "Approval",
+		Version: "1.0",
+		Active:  true,
 		Steps: []ApprovalStep{
 			{
 				ID:        "step-1",
@@ -613,10 +613,10 @@ func TestWorkflowEngine_ParallelApproval(t *testing.T) {
 
 	// Create workflow with parallel approval (all must approve)
 	def := &WorkflowDefinition{
-		ID:          "wf-1",
-		Name:        "Parallel Approval",
-		Version:     "1.0",
-		Active:      true,
+		ID:      "wf-1",
+		Name:    "Parallel Approval",
+		Version: "1.0",
+		Active:  true,
 		Steps: []ApprovalStep{
 			{
 				ID:        "step-1",
@@ -681,17 +681,17 @@ func TestWorkflowEngine_Timeout(t *testing.T) {
 
 	// Create workflow with timeout
 	def := &WorkflowDefinition{
-		ID:          "wf-1",
-		Name:        "Timeout Approval",
-		Version:     "1.0",
-		Active:      true,
+		ID:      "wf-1",
+		Name:    "Timeout Approval",
+		Version: "1.0",
+		Active:  true,
 		Steps: []ApprovalStep{
 			{
-				ID:           "step-1",
-				Name:         "Approval",
-				Type:         StepTypeAny,
-				Approvers:    []string{"approver1"},
-				Timeout:      time.Hour,
+				ID:            "step-1",
+				Name:          "Approval",
+				Type:          StepTypeAny,
+				Approvers:     []string{"approver1"},
+				Timeout:       time.Hour,
 				TimeoutAction: "reject",
 			},
 		},
@@ -749,10 +749,10 @@ func TestWorkflowEngine_ConditionalWorkflow(t *testing.T) {
 
 	// Create workflow with conditions
 	def := &WorkflowDefinition{
-		ID:          "wf-1",
-		Name:        "Conditional Approval",
-		Version:     "1.0",
-		Active:      true,
+		ID:      "wf-1",
+		Name:    "Conditional Approval",
+		Version: "1.0",
+		Active:  true,
 		Steps: []ApprovalStep{
 			{
 				ID:        "step-1",
@@ -819,10 +819,10 @@ func TestWorkflowEngine_CancelWorkflow(t *testing.T) {
 
 	// Create workflow
 	def := &WorkflowDefinition{
-		ID:          "wf-1",
-		Name:        "Approval",
-		Version:     "1.0",
-		Active:      true,
+		ID:      "wf-1",
+		Name:    "Approval",
+		Version: "1.0",
+		Active:  true,
 		Steps: []ApprovalStep{
 			{
 				ID:        "step-1",

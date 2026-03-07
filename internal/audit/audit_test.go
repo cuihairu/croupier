@@ -331,7 +331,7 @@ func TestAuditService_CategoryInference(t *testing.T) {
 	ctx := context.Background()
 
 	tests := []struct {
-		eventType     AuditEventType
+		eventType        AuditEventType
 		expectedCategory AuditCategory
 	}{
 		{EventLogin, CategorySecurity},
