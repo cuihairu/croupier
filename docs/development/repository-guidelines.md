@@ -1,3 +1,7 @@
+---
+title: 仓库规范
+---
+
 # Repository Guidelines
 
 ## Project Structure & Module Organization

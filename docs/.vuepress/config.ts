@@ -53,6 +53,10 @@ export default defineUserConfig({
         link: '/api/',
       },
       {
+        text: '开发',
+        link: '/development/',
+      },
+      {
         text: 'SDK',
         children: [
           {
@@ -132,6 +136,7 @@ export default defineUserConfig({
             '/guide/operations/monitoring',
             '/guide/operations/security',
             '/guide/operations/troubleshooting',
+            '/guide/operations/operation-guide',
           ],
         },
       ],
@@ -263,7 +268,21 @@ export default defineUserConfig({
         },
       ],
 
-      // 兼容旧文档路径
+      // 开发文档
+      '/development/': [
+        {
+          text: '开发指南',
+          collapsible: false,
+          children: [
+            '/development/',
+            '/development/vscode-setup',
+            '/development/troubleshooting',
+            '/development/repository-guidelines',
+          ],
+        },
+      ],
+
+      // 根目录兼容
       '/': [
         {
           text: '概览',
@@ -281,33 +300,12 @@ export default defineUserConfig({
           collapsible: false,
           children: [
             '/ARCHITECTURE',
-            '/VIRTUAL_OBJECT_DESIGN',
-            '/VIRTUAL_OBJECT_QUICK_REFERENCE',
-          ],
-        },
-        {
-          text: '函数管理',
-          collapsible: false,
-          children: [
-            '/FUNCTION_MANAGEMENT_README',
-            '/FUNCTION_MANAGEMENT_QUICK_REFERENCE',
-            '/FUNCTION_MANAGEMENT_COMPARISON',
-          ],
-        },
-        {
-          text: 'SDK 文档',
-          collapsible: false,
-          children: [
-            '/sdk-development',
-            '/CPP_SDK_DOCS_INDEX',
-            '/CPP_SDK_QUICK_REFERENCE',
           ],
         },
         {
           text: '生成器与协议',
           collapsible: false,
           children: [
-            '/generator',
             '/PROTO_OPTIONS_GUIDE',
             '/api',
           ],

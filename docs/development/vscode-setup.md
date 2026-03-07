@@ -1,3 +1,7 @@
+---
+title: VSCode 开发环境设置
+---
+
 # VSCode 开发环境设置指南
 
 本文档说明了Croupier项目中VSCode的推荐插件和设置配置。
