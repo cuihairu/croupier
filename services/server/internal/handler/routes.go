@@ -1832,6 +1832,18 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/published",
 				Handler: workspace.WorkspacePublishedListHandler(serverCtx),
 			},
+			{
+				// 获取 Workspace 版本列表
+				Method:  http.MethodGet,
+				Path:    "/:objectKey/versions",
+				Handler: workspace.WorkspaceVersionsHandler(serverCtx),
+			},
+			{
+				// 回滚 Workspace 到指定版本
+				Method:  http.MethodPost,
+				Path:    "/:objectKey/rollback",
+				Handler: workspace.WorkspaceRollbackHandler(serverCtx),
+			},
 		},
 		rest.WithPrefix("/api/v1/workspaces"),
 	)

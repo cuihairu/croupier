@@ -35,6 +35,12 @@ func (l *WorkspaceConfigSaveLogic) WorkspaceConfigSave(req *types.WorkspaceConfi
 	if req.ObjectKey == "" {
 		return nil, errorx.NewBadRequest("objectKey is required")
 	}
+	if req.Title == "" {
+		return nil, errorx.NewBadRequest("title is required")
+	}
+	if req.Layout == nil {
+		return nil, errorx.NewBadRequest("layout is required")
+	}
 
 	now := time.Now()
 
@@ -59,17 +65,22 @@ func (l *WorkspaceConfigSaveLogic) WorkspaceConfigSave(req *types.WorkspaceConfi
 		UpdatedAt: now.UTC().Format(time.RFC3339),
 	}
 	dto := types.WorkspaceConfig{
-		ObjectKey: req.ObjectKey,
-		Title:     req.Title,
-		Layout:    req.Layout,
-		Published: published,
-		MenuOrder: req.MenuOrder,
-		Meta:      meta,
+		ObjectKey:   req.ObjectKey,
+		Title:       req.Title,
+		Description: req.Description,
+		Layout:      req.Layout,
+		Published:   published,
+		MenuOrder:   req.MenuOrder,
+		Meta:        meta,
 	}
 	if publishedAt != nil {
 		dto.PublishedAt = publishedAt.UTC().Format(time.RFC3339)
 	}
 	dto.PublishedBy = publishedBy
+	if req.Status != "" {
+		dto.Status = req.Status
+	}
+	dto.Status = resolveWorkspaceStatus(&dto)
 
 	configJSON, err := json.Marshal(dto)
 	if err != nil {
@@ -89,6 +100,21 @@ func (l *WorkspaceConfigSaveLogic) WorkspaceConfigSave(req *types.WorkspaceConfi
 	if err := l.svcCtx.WorkspaceConfigModel.Upsert(l.ctx, record); err != nil {
 		return nil, err
 	}
+	actor := workspaceActorFromCtx(l.ctx)
+	if version, versionErr := persistWorkspaceVersion(
+		l.ctx,
+		l.svcCtx,
+		dto,
+		actor,
+		"save workspace config",
+	); versionErr == nil {
+		dto.Version = version
+	}
+	appendWorkspaceAudit(l.ctx, l.svcCtx, "workspace.save", req.ObjectKey, "success", map[string]interface{}{
+		"title":     req.Title,
+		"status":    dto.Status,
+		"menuOrder": req.MenuOrder,
+	})
 
 	return &types.WorkspaceConfigSaveResponse{WorkspaceConfig: dto}, nil
 }

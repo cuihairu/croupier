@@ -15,11 +15,14 @@ type WorkspaceConfigMeta {
 type WorkspaceConfig {
 	ObjectKey   string              `json:"objectKey"`
 	Title       string              `json:"title,omitempty"`
+	Description string              `json:"description,omitempty"`
 	Layout      interface{}         `json:"layout,omitempty"`
 	Published   bool                `json:"published"`
+	Status      string              `json:"status,omitempty"`
 	PublishedAt string              `json:"publishedAt,omitempty"`
 	PublishedBy string              `json:"publishedBy,omitempty"`
 	MenuOrder   int                 `json:"menuOrder"`
+	Version    int                 `json:"version,omitempty"`
 	Meta        WorkspaceConfigMeta `json:"meta,omitempty"`
 }
 
@@ -44,7 +47,9 @@ type WorkspaceConfigGetResponse {
 type WorkspaceConfigSaveRequest {
 	ObjectKey string      `path:"objectKey"`
 	Title     string      `json:"title,omitempty"`
+	Description string      `json:"description,omitempty"`
 	Layout    interface{} `json:"layout,omitempty"`
+	Status    string      `json:"status,optional"`
 	MenuOrder int         `json:"menuOrder,optional"`
 }
 
@@ -90,6 +95,36 @@ type WorkspacePublishedListResponse {
 	Items []WorkspaceConfig `json:"items"`
 }
 
+// --- Workspace 版本列表 ---
+type WorkspaceVersionsRequest {
+	ObjectKey string `path:"objectKey"`
+}
+
+type WorkspaceVersionRecord {
+	Id        string      `json:"id"`
+	ObjectKey string      `json:"objectKey"`
+	Version   int         `json:"version"`
+	Config    interface{} `json:"config"`
+	CreatedAt string      `json:"createdAt,omitempty"`
+	CreatedBy string      `json:"createdBy,omitempty"`
+	Comment   string      `json:"comment,omitempty"`
+}
+
+type WorkspaceVersionsResponse {
+	Items []WorkspaceVersionRecord `json:"items"`
+}
+
+// --- 回滚 ---
+type WorkspaceRollbackRequest {
+	ObjectKey string `path:"objectKey"`
+	VersionId string `json:"versionId"`
+}
+
+type WorkspaceRollbackResponse {
+	ObjectKey string `json:"objectKey"`
+	Version   int    `json:"version"`
+}
+
 // ============================================================================
 // 服务定义
 // ============================================================================
@@ -125,4 +160,12 @@ service server {
 	@doc "取消发布 Workspace 配置"
 	@handler WorkspaceUnpublishHandler
 	post /:objectKey/unpublish (WorkspaceUnpublishRequest) returns (WorkspaceUnpublishResponse)
+
+	@doc "获取 Workspace 版本列表"
+	@handler WorkspaceVersionsHandler
+	get /:objectKey/versions (WorkspaceVersionsRequest) returns (WorkspaceVersionsResponse)
+
+	@doc "回滚 Workspace 到指定版本"
+	@handler WorkspaceRollbackHandler
+	post /:objectKey/rollback (WorkspaceRollbackRequest) returns (WorkspaceRollbackResponse)
 }

@@ -3109,11 +3109,14 @@ type UserInfo struct {
 type WorkspaceConfig struct {
 	ObjectKey   string              `json:"objectKey"`
 	Title       string              `json:"title,omitempty"`
+	Description string              `json:"description,omitempty"`
 	Layout      interface{}         `json:"layout,omitempty"`
 	Published   bool                `json:"published"`
+	Status      string              `json:"status,omitempty"`
 	PublishedAt string              `json:"publishedAt,omitempty"`
 	PublishedBy string              `json:"publishedBy,omitempty"`
 	MenuOrder   int                 `json:"menuOrder"`
+	Version     int                 `json:"version,omitempty"`
 	Meta        WorkspaceConfigMeta `json:"meta,omitempty"`
 }
 
@@ -3139,10 +3142,12 @@ type WorkspaceConfigMeta struct {
 }
 
 type WorkspaceConfigSaveRequest struct {
-	ObjectKey string      `path:"objectKey"`
-	Title     string      `json:"title,omitempty"`
-	Layout    interface{} `json:"layout,omitempty"`
-	MenuOrder int         `json:"menuOrder,optional"`
+	ObjectKey   string      `path:"objectKey"`
+	Title       string      `json:"title,omitempty"`
+	Description string      `json:"description,omitempty"`
+	Layout      interface{} `json:"layout,omitempty"`
+	Status      string      `json:"status,optional"`
+	MenuOrder   int         `json:"menuOrder,optional"`
 }
 
 type WorkspaceConfigSaveResponse struct {

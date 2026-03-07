@@ -16,10 +16,14 @@ import (
 func WorkspaceConfigsListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.WorkspaceConfigsListRequest
+		if err := requireWorkspacePermission(r.Context(), svcCtx, "read"); err != nil {
+			writeWorkspaceError(w, r, err, "list")
+			return
+		}
 		l := workspace.NewWorkspaceConfigLogic(r.Context(), svcCtx)
 		resp, err := l.ListConfigs(&req)
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			writeWorkspaceError(w, r, err, "list")
 		} else {
 			httpx.OkJsonCtx(r.Context(), w, resp)
 		}

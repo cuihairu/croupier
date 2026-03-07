@@ -16,15 +16,19 @@ import (
 func WorkspaceConfigGetHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.WorkspaceConfigGetRequest
+		if err := requireWorkspacePermission(r.Context(), svcCtx, "read"); err != nil {
+			writeWorkspaceError(w, r, err, "get")
+			return
+		}
 		if err := httpx.Parse(r, &req); err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			writeWorkspaceError(w, r, err, "get")
 			return
 		}
 
 		l := workspace.NewWorkspaceConfigLogic(r.Context(), svcCtx)
 		resp, err := l.GetConfig(&req)
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			writeWorkspaceError(w, r, err, "get")
 		} else {
 			httpx.OkJsonCtx(r.Context(), w, resp)
 		}

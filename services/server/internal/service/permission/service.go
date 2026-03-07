@@ -167,6 +167,7 @@ func isValidResource(resource string) bool {
 		"function", "component", "certificate", "backup",
 		"analytics", "audit", "message", "ticket",
 		"config", "schema", "provider", "pack",
+		"workspace", "workspaces",
 	}
 
 	for _, valid := range validResources {
@@ -179,9 +180,9 @@ func isValidResource(resource string) bool {
 
 func isValidAction(action string) bool {
 	validActions := []string{
-		"create", "read", "update", "delete", "execute",
+		"create", "read", "update", "edit", "delete", "execute",
 		"publish", "install", "uninstall", "enable", "disable",
-		"start", "stop", "restart", "approve", "reject",
+		"start", "stop", "restart", "approve", "reject", "rollback",
 	}
 
 	for _, valid := range validActions {

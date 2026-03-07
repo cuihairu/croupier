@@ -16,15 +16,20 @@ import (
 func WorkspaceConfigSaveHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.WorkspaceConfigSaveRequest
+		if err := requireWorkspacePermission(r.Context(), svcCtx, "edit"); err != nil {
+			writeWorkspaceError(w, r, err, "save")
+			return
+		}
 		if err := httpx.Parse(r, &req); err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			writeWorkspaceError(w, r, err, "save")
 			return
 		}
 
-		l := workspace.NewWorkspaceConfigSaveLogic(r.Context(), svcCtx)
+		ctx := withWorkspaceRequestID(r.Context(), resolveRequestIDFromRequest(r))
+		l := workspace.NewWorkspaceConfigSaveLogic(ctx, svcCtx)
 		resp, err := l.WorkspaceConfigSave(&req)
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			writeWorkspaceError(w, r, err, "save")
 		} else {
 			httpx.OkJsonCtx(r.Context(), w, resp)
 		}

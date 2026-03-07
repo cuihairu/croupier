@@ -16,15 +16,20 @@ import (
 func WorkspacePublishHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.WorkspacePublishRequest
+		if err := requireWorkspacePermission(r.Context(), svcCtx, "publish"); err != nil {
+			writeWorkspaceError(w, r, err, "publish")
+			return
+		}
 		if err := httpx.Parse(r, &req); err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			writeWorkspaceError(w, r, err, "publish")
 			return
 		}
 
-		l := workspace.NewWorkspacePublishLogic(r.Context(), svcCtx)
+		ctx := withWorkspaceRequestID(r.Context(), resolveRequestIDFromRequest(r))
+		l := workspace.NewWorkspacePublishLogic(ctx, svcCtx)
 		resp, err := l.WorkspacePublish(&req)
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			writeWorkspaceError(w, r, err, "publish")
 		} else {
 			httpx.OkJsonCtx(r.Context(), w, resp)
 		}

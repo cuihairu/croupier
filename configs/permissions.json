@@ -292,5 +292,40 @@
     "description": "读取函数描述符",
     "category": "function",
     "module": "gm"
+  },
+  {
+    "code": "workspace:read",
+    "name": "工作台查看",
+    "description": "查看对象工作台配置与版本",
+    "category": "workspace",
+    "module": "workspace"
+  },
+  {
+    "code": "workspace:edit",
+    "name": "工作台编辑",
+    "description": "保存对象工作台草稿",
+    "category": "workspace",
+    "module": "workspace"
+  },
+  {
+    "code": "workspace:publish",
+    "name": "工作台发布",
+    "description": "发布或取消发布对象工作台",
+    "category": "workspace",
+    "module": "workspace"
+  },
+  {
+    "code": "workspace:rollback",
+    "name": "工作台回滚",
+    "description": "回滚对象工作台到历史版本",
+    "category": "workspace",
+    "module": "workspace"
+  },
+  {
+    "code": "workspace:delete",
+    "name": "工作台删除",
+    "description": "删除对象工作台配置",
+    "category": "workspace",
+    "module": "workspace"
   }
 ]

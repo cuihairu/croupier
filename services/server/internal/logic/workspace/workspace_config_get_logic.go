@@ -42,5 +42,6 @@ func (l *WorkspaceConfigGetLogic) WorkspaceConfigGet(req *types.WorkspaceConfigG
 		return nil, err
 	}
 	dto := toDTO(cfg)
+	_ = enrichWorkspaceVersion(l.ctx, l.svcCtx, &dto)
 	return &types.WorkspaceConfigGetResponse{WorkspaceConfig: dto}, nil
 }

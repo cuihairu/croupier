@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
@@ -39,7 +40,9 @@ func (l *WorkspaceConfigLogic) ListConfigs(_ *types.WorkspaceConfigsListRequest)
 	}
 	dtos := make([]types.WorkspaceConfig, 0, len(items))
 	for i := range items {
-		dtos = append(dtos, toDTO(&items[i]))
+		dto := toDTO(&items[i])
+		_ = enrichWorkspaceVersion(l.ctx, l.svcCtx, &dto)
+		dtos = append(dtos, dto)
 	}
 	return &types.WorkspaceConfigsListResponse{Items: dtos}, nil
 }
@@ -57,6 +60,7 @@ func (l *WorkspaceConfigLogic) GetConfig(req *types.WorkspaceConfigGetRequest) (
 		return nil, err
 	}
 	dto := toDTO(cfg)
+	_ = enrichWorkspaceVersion(l.ctx, l.svcCtx, &dto)
 	return &types.WorkspaceConfigGetResponse{WorkspaceConfig: dto}, nil
 }
 
@@ -91,6 +95,7 @@ func (l *WorkspaceConfigLogic) SaveConfig(req *types.WorkspaceConfigSaveRequest)
 	dto := types.WorkspaceConfig{
 		ObjectKey:   req.ObjectKey,
 		Title:       req.Title,
+		Description: req.Description,
 		Layout:      req.Layout,
 		Published:   published,
 		MenuOrder:   req.MenuOrder,
@@ -100,6 +105,10 @@ func (l *WorkspaceConfigLogic) SaveConfig(req *types.WorkspaceConfigSaveRequest)
 		dto.PublishedAt = publishedAt.UTC().Format(time.RFC3339)
 	}
 	dto.PublishedBy = publishedBy
+	if req.Status != "" {
+		dto.Status = req.Status
+	}
+	dto.Status = resolveWorkspaceStatus(&dto)
 
 	configJSON, err := json.Marshal(dto)
 	if err != nil {
@@ -185,7 +194,9 @@ func (l *WorkspaceConfigLogic) ListPublished(_ *types.WorkspacePublishedListRequ
 	}
 	dtos := make([]types.WorkspaceConfig, 0, len(items))
 	for i := range items {
-		dtos = append(dtos, toDTO(&items[i]))
+		dto := toDTO(&items[i])
+		_ = enrichWorkspaceVersion(l.ctx, l.svcCtx, &dto)
+		dtos = append(dtos, dto)
 	}
 	return &types.WorkspacePublishedListResponse{Items: dtos}, nil
 }
@@ -212,7 +223,12 @@ func toDTO(m *model.WorkspaceConfig) types.WorkspaceConfig {
 		var full types.WorkspaceConfig
 		if err := json.Unmarshal(m.Config, &full); err == nil {
 			dto.Layout = full.Layout
+			dto.Description = full.Description
+			if strings.TrimSpace(full.Status) != "" {
+				dto.Status = strings.TrimSpace(full.Status)
+			}
 		}
 	}
+	dto.Status = resolveWorkspaceStatus(&dto)
 	return dto
 }

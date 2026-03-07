@@ -6,6 +6,7 @@ package workspace
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
@@ -43,6 +44,17 @@ func (l *WorkspacePublishLogic) WorkspacePublish(req *types.WorkspacePublishRequ
 	}
 	if err := l.svcCtx.WorkspaceConfigModel.SetPublished(l.ctx, req.ObjectKey, true, req.PublishedBy); err != nil {
 		return nil, err
+	}
+	appendWorkspaceAudit(l.ctx, l.svcCtx, "workspace.publish", req.ObjectKey, "success", map[string]interface{}{
+		"publishedBy": strings.TrimSpace(req.PublishedBy),
+	})
+	if current, findErr := l.svcCtx.WorkspaceConfigModel.FindByObjectKey(l.ctx, req.ObjectKey); findErr == nil {
+		dto := toDTO(current)
+		actor := strings.TrimSpace(req.PublishedBy)
+		if actor == "" {
+			actor = workspaceActorFromCtx(l.ctx)
+		}
+		_, _ = persistWorkspaceVersion(l.ctx, l.svcCtx, dto, actor, "publish workspace config")
 	}
 	return &types.WorkspacePublishResponse{Published: true, ObjectKey: req.ObjectKey}, nil
 }

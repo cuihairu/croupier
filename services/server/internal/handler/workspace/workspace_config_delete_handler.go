@@ -16,15 +16,20 @@ import (
 func WorkspaceConfigDeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.WorkspaceConfigDeleteRequest
+		if err := requireWorkspacePermission(r.Context(), svcCtx, "delete"); err != nil {
+			writeWorkspaceError(w, r, err, "delete")
+			return
+		}
 		if err := httpx.Parse(r, &req); err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			writeWorkspaceError(w, r, err, "delete")
 			return
 		}
 
-		l := workspace.NewWorkspaceConfigDeleteLogic(r.Context(), svcCtx)
+		ctx := withWorkspaceRequestID(r.Context(), resolveRequestIDFromRequest(r))
+		l := workspace.NewWorkspaceConfigDeleteLogic(ctx, svcCtx)
 		resp, err := l.WorkspaceConfigDelete(&req)
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			writeWorkspaceError(w, r, err, "delete")
 		} else {
 			httpx.OkJsonCtx(r.Context(), w, resp)
 		}

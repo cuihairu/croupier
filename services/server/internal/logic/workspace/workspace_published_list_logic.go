@@ -34,7 +34,9 @@ func (l *WorkspacePublishedListLogic) WorkspacePublishedList(req *types.Workspac
 	}
 	dtos := make([]types.WorkspaceConfig, 0, len(items))
 	for i := range items {
-		dtos = append(dtos, toDTO(&items[i]))
+		dto := toDTO(&items[i])
+		_ = enrichWorkspaceVersion(l.ctx, l.svcCtx, &dto)
+		dtos = append(dtos, dto)
 	}
 	return &types.WorkspacePublishedListResponse{Items: dtos}, nil
 }

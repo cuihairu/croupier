@@ -44,5 +44,11 @@ func (l *WorkspaceUnpublishLogic) WorkspaceUnpublish(req *types.WorkspaceUnpubli
 	if err := l.svcCtx.WorkspaceConfigModel.SetPublished(l.ctx, req.ObjectKey, false, ""); err != nil {
 		return nil, err
 	}
+	appendWorkspaceAudit(l.ctx, l.svcCtx, "workspace.unpublish", req.ObjectKey, "success", nil)
+	if current, findErr := l.svcCtx.WorkspaceConfigModel.FindByObjectKey(l.ctx, req.ObjectKey); findErr == nil {
+		dto := toDTO(current)
+		actor := workspaceActorFromCtx(l.ctx)
+		_, _ = persistWorkspaceVersion(l.ctx, l.svcCtx, dto, actor, "unpublish workspace config")
+	}
 	return &types.WorkspaceUnpublishResponse{Published: false, ObjectKey: req.ObjectKey}, nil
 }

@@ -44,5 +44,6 @@ func (l *WorkspaceConfigDeleteLogic) WorkspaceConfigDelete(req *types.WorkspaceC
 	if err := l.svcCtx.WorkspaceConfigModel.Delete(l.ctx, req.ObjectKey); err != nil {
 		return nil, err
 	}
+	appendWorkspaceAudit(l.ctx, l.svcCtx, "workspace.delete", req.ObjectKey, "success", nil)
 	return &types.WorkspaceConfigDeleteResponse{Message: "deleted"}, nil
 }

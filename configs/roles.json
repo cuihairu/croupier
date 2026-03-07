@@ -11,7 +11,12 @@
       "packs:read",
       "packs:list",
       "entities:read",
-      "functions:read"
+      "functions:read",
+      "workspace:read",
+      "workspace:edit",
+      "workspace:publish",
+      "workspace:rollback",
+      "workspace:delete"
     ]
   },
   {
@@ -26,7 +31,12 @@
       "packs:read",
       "packs:list",
       "entities:read",
-      "functions:read"
+      "functions:read",
+      "workspace:read",
+      "workspace:edit",
+      "workspace:publish",
+      "workspace:rollback",
+      "workspace:delete"
     ]
   },
   {
@@ -43,7 +53,9 @@
       "packs:read",
       "packs:list",
       "entities:read",
-      "functions:read"
+      "functions:read",
+      "workspace:read",
+      "workspace:edit"
     ]
   },
   {
@@ -60,7 +72,9 @@
       "packs:read",
       "packs:list",
       "entities:read",
-      "functions:read"
+      "functions:read",
+      "workspace:read",
+      "workspace:edit"
     ]
   },
   {
@@ -84,7 +98,12 @@
       "packs:read",
       "packs:list",
       "entities:read",
-      "functions:read"
+      "functions:read",
+      "workspace:read",
+      "workspace:edit",
+      "workspace:publish",
+      "workspace:rollback",
+      "workspace:delete"
     ]
   },
   {
@@ -108,7 +127,12 @@
       "packs:read",
       "packs:list",
       "entities:read",
-      "functions:read"
+      "functions:read",
+      "workspace:read",
+      "workspace:edit",
+      "workspace:publish",
+      "workspace:rollback",
+      "workspace:delete"
     ]
   },
   {
@@ -258,7 +282,9 @@
       "packs:read",
       "packs:list",
       "entities:read",
-      "functions:read"
+      "functions:read",
+      "workspace:read",
+      "workspace:edit"
     ]
   },
   {
@@ -275,7 +301,9 @@
       "packs:read",
       "packs:list",
       "entities:read",
-      "functions:read"
+      "functions:read",
+      "workspace:read",
+      "workspace:edit"
     ]
   },
   {
@@ -293,7 +321,8 @@
       "packs:read",
       "packs:list",
       "entities:read",
-      "functions:read"
+      "functions:read",
+      "workspace:read"
     ]
   },
   {
@@ -718,7 +747,8 @@
       "packs:read",
       "packs:list",
       "entities:read",
-      "functions:read"
+      "functions:read",
+      "workspace:read"
     ]
   }
 ]
