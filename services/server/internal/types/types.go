@@ -3181,3 +3181,66 @@ type WorkspaceUnpublishResponse struct {
 	Published bool   `json:"published"`
 	ObjectKey string `json:"objectKey"`
 }
+
+// Migration types
+
+type MigrationResult struct {
+	MigrationName string `json:"migrationName"`
+	Direction     string `json:"direction"`  // up, down
+	Status        string `json:"status"`     // pending, success, failed
+	Duration      string `json:"duration"`   // execution time in ms
+	SQL           string `json:"sql"`        // executed SQL
+	DryRun        bool   `json:"dryRun"`     // whether this was a dry run
+	Error         string `json:"error,omitempty"`
+}
+
+type MigrationHistory struct {
+	Items []MigrationResult `json:"items"`
+	Total int64             `json:"total"`
+	Page  int               `json:"page"`
+	Size  int               `json:"pageSize"`
+}
+
+type MigrateUpRequest struct {
+	Force bool `json:"force,optional"` // force run even if already applied
+	Step  int  `json:"step,optional"`  // specific step to run (-1 for all)
+}
+
+type MigrateUpResponse struct {
+	Success bool             `json:"success"`
+	Message string           `json:"message"`
+	Results []MigrationResult `json:"results,omitempty"`
+}
+
+type MigrateDownRequest struct {
+	Target string `json:"target,optional"` // specific version to migrate to
+	Force  bool   `json:"force,optional"`  // force run even if already applied
+}
+
+type MigrateDownResponse struct {
+	Success bool              `json:"success"`
+	Message string            `json:"message"`
+	Results []MigrationResult `json:"results,omitempty"`
+}
+
+type MigrationHistoryRequest struct {
+	Page     int    `form:"page,optional,default=1"`
+	PageSize int    `form:"pageSize,optional,default=20"`
+	Status   string `form:"status,optional"`
+}
+
+type MigrationHistoryResponse struct {
+	Items []MigrationResult `json:"items"`
+	Total int64             `json:"total"`
+	Page  int               `json:"page"`
+	Size  int               `json:"pageSize"`
+}
+
+type MigrationStatusRequest struct {
+}
+
+type MigrationStatusResponse struct {
+	LatestVersion string            `json:"latestVersion"`
+	PendingCount  int               `json:"pendingCount"`
+	HistoryItems  []MigrationResult `json:"historyItems,omitempty"`
+}
