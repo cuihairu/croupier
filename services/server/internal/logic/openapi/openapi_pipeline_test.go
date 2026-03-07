@@ -142,3 +142,44 @@ func TestPipeline_OpenAPIProviderToServerAPI(t *testing.T) {
 		t.Fatalf("unexpected operationId: %v", spec["operationId"])
 	}
 }
+
+func TestPipeline_OpenAPIImport_AutoFillMissingResponseDescription(t *testing.T) {
+	logic := NewOpenAPIImportLogic(context.Background(), &svc.ServiceContext{RegistryStore: registry.NewStore()})
+	importResp, err := logic.OpenAPIImport(&types.OpenAPIImportRequest{
+		Spec: map[string]interface{}{
+			"openapi": "3.0.3",
+			"info": map[string]interface{}{
+				"title":   "Test API",
+				"version": "1.0.0",
+			},
+			"paths": map[string]interface{}{
+				"/players": map[string]interface{}{
+					"get": map[string]interface{}{
+						"operationId": "getPlayer",
+						"summary":     "Get Player",
+						"responses": map[string]interface{}{
+							"200": map[string]interface{}{
+								"content": map[string]interface{}{
+									"application/json": map[string]interface{}{
+										"schema": map[string]interface{}{
+											"type": "object",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("OpenAPIImport returned error: %v", err)
+	}
+	if importResp.Imported != 1 {
+		t.Fatalf("expected 1 imported operation, got %d, failed=%v", importResp.Imported, importResp.Failed)
+	}
+	if len(importResp.Failed) > 0 {
+		t.Fatalf("unexpected failed items: %v", importResp.Failed)
+	}
+}

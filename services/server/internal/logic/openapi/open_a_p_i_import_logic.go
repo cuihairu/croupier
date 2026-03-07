@@ -6,6 +6,8 @@ package openapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -55,6 +57,7 @@ func (l *OpenAPIImportLogic) OpenAPIImport(req *types.OpenAPIImportRequest) (res
 	}
 
 	// 验证文档
+	normalizeOpenAPIDoc(doc)
 	if err := doc.Validate(loader.Context); err != nil {
 		l.Errorf("invalid OpenAPI spec: %v", err)
 		return &types.OpenAPIImportResponse{
@@ -105,4 +108,44 @@ func (l *OpenAPIImportLogic) OpenAPIImport(req *types.OpenAPIImportRequest) (res
 		Imported: imported,
 		Failed:   failed,
 	}, nil
+}
+
+// normalizeOpenAPIDoc patches common non-critical gaps from external OpenAPI docs
+// so import stays resilient (e.g. response description omitted by third-party generators).
+func normalizeOpenAPIDoc(doc *openapi3.T) {
+	if doc == nil || doc.Paths == nil {
+		return
+	}
+	for _, pathItem := range doc.Paths.Map() {
+		if pathItem == nil {
+			continue
+		}
+		operations := []*openapi3.Operation{
+			pathItem.Get,
+			pathItem.Post,
+			pathItem.Put,
+			pathItem.Patch,
+			pathItem.Delete,
+			pathItem.Options,
+			pathItem.Head,
+			pathItem.Trace,
+		}
+		for _, op := range operations {
+			if op == nil || op.Responses == nil {
+				continue
+			}
+			for statusCode, responseRef := range op.Responses.Map() {
+				if responseRef == nil {
+					continue
+				}
+				if responseRef.Value == nil {
+					responseRef.Value = &openapi3.Response{}
+				}
+				if responseRef.Value.Description == nil || strings.TrimSpace(*responseRef.Value.Description) == "" {
+					desc := fmt.Sprintf("Auto-generated response description for status %s", statusCode)
+					responseRef.Value.Description = &desc
+				}
+			}
+		}
+	}
 }
