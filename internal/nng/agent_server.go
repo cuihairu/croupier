@@ -12,6 +12,7 @@ import (
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
@@ -365,6 +366,8 @@ func (s *AgentServer) handleRequest(ctx context.Context, msgID uint32, data []by
 		return s.handleListServices(ctx, data)
 	case protocol.MsgGetServiceStatusRequest:
 		return s.handleGetServiceStatus(ctx, data)
+	case protocol.MsgRegisterCapabilitiesReq:
+		return s.handleRegisterCapabilities(ctx, data)
 
 	// LocalControlService
 	case protocol.MsgRegisterLocalRequest:
@@ -399,11 +402,31 @@ func (s *AgentServer) handleInvoke(ctx context.Context, data []byte) ([]byte, er
 		return nil, err
 	}
 
-	// For now, return an error indicating we need to implement game server forwarding
-	// This would require either:
-	// 1. The game server to also speak NNG
-	// 2. A gRPC→NNG bridge
-	return nil, fmt.Errorf("game server forwarding not yet implemented for function %s at %s", functionID, addr)
+	client := NewClient(addr)
+	if err := client.Dial(); err != nil {
+		return nil, fmt.Errorf("dial local provider %s: %w", addr, err)
+	}
+	defer client.Close()
+
+	callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	reqBytes, err := proto.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal InvokeRequest: %w", err)
+	}
+
+	respBytes, err := client.Call(callCtx, protocol.MsgInvokeRequest, reqBytes)
+	if err != nil {
+		return nil, fmt.Errorf("invoke local provider at %s: %w", addr, err)
+	}
+
+	resp := &sdkv1.InvokeResponse{}
+	if err := proto.Unmarshal(respBytes, resp); err != nil {
+		return nil, fmt.Errorf("unmarshal InvokeResponse: %w", err)
+	}
+
+	return proto.Marshal(resp)
 }
 
 // invokePlatform handles provider function calls
@@ -445,7 +468,8 @@ func (s *AgentServer) pickInstance(functionID string, metadata map[string]string
 	}
 
 	// All instances are stale but return the first one
-	return arr[0].Addr, fmt.Errorf("function '%s' instances are stale", functionID)
+	s.logger.Warn("function instances are stale, routing to first instance anyway", "function_id", functionID, "addr", arr[0].Addr)
+	return arr[0].Addr, nil
 }
 
 // handleStartJob handles StartJobRequest
@@ -655,16 +679,8 @@ func (s *AgentServer) handleHeartbeatLocal(ctx context.Context, data []byte) ([]
 		return nil, fmt.Errorf("store not initialized")
 	}
 
-	// Get current snapshot and update LastSeen for the provider
-	snap := s.store.List()
-	for _, instances := range snap {
-		for _, inst := range instances {
-			if inst.ProviderID == req.ServiceId {
-				// Update LastSeen by re-registering
-				s.store.Register(inst.ProviderID, inst.Addr, inst.Version, nil)
-			}
-		}
-	}
+	// Update provider heartbeat only; do not mutate function registrations.
+	s.store.Heartbeat(req.ServiceId)
 
 	resp := &sdkv1.HeartbeatResponse{}
 	return proto.Marshal(resp)
@@ -724,6 +740,17 @@ func (s *AgentServer) handleGetServiceStatus(ctx context.Context, data []byte) (
 
 	// Use JSON to avoid circular dependency
 	return s.opsServer.GetServiceStatusJSON(ctx, data)
+}
+
+// handleRegisterCapabilities accepts provider capability registration from local SDK clients.
+// Capabilities are currently handled by the upstream control service path; local agent treats this as no-op ack.
+func (s *AgentServer) handleRegisterCapabilities(ctx context.Context, data []byte) ([]byte, error) {
+	req := &agentv1.RegisterCapabilitiesRequest{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal RegisterCapabilitiesRequest: %w", err)
+	}
+	resp := &agentv1.RegisterCapabilitiesResponse{}
+	return proto.Marshal(resp)
 }
 
 // createErrorResponse creates an error response

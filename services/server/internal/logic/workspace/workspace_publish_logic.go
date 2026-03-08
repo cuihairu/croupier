@@ -35,11 +35,15 @@ func (l *WorkspacePublishLogic) WorkspacePublish(req *types.WorkspacePublishRequ
 	if req.ObjectKey == "" {
 		return nil, errorx.NewBadRequest("objectKey is required")
 	}
-	_, err = l.svcCtx.WorkspaceConfigModel.FindByObjectKey(l.ctx, req.ObjectKey)
+	current, err := l.svcCtx.WorkspaceConfigModel.FindByObjectKey(l.ctx, req.ObjectKey)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.NewNotFound("workspace config not found")
 		}
+		return nil, err
+	}
+	dto := toDTO(current)
+	if err := validateWorkspaceForPublish(dto); err != nil {
 		return nil, err
 	}
 	if err := l.svcCtx.WorkspaceConfigModel.SetPublished(l.ctx, req.ObjectKey, true, req.PublishedBy); err != nil {

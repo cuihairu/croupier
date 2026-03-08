@@ -727,31 +727,23 @@ func seedBootstrapWorkspaces(ctx *ServiceContext) error {
 	}
 
 	bg := context.Background()
-
-	// Get all registered functions
-	functions, _, err := ctx.FunctionModel.List(bg, model.ListFunctionsOptions{
-		PaginationOptions: model.PaginationOptions{
-			Page:     1,
-			PageSize: 1000,
-		},
-	})
+	functionIDs, err := collectWorkspaceBootstrapFunctionIDs(ctx, bg)
 	if err != nil {
-		return fmt.Errorf("failed to list functions: %w", err)
+		return err
 	}
-
-	if len(functions) == 0 {
+	if len(functionIDs) == 0 {
 		return nil
 	}
 
 	// Group functions by prefix (e.g., "examples.player" -> ["examples.player.get", "examples.player.create"])
 	groups := make(map[string][]string)
-	for _, fn := range functions {
-		parts := strings.SplitN(fn.FunctionID, ".", 3)
+	for _, functionID := range functionIDs {
+		parts := strings.SplitN(functionID, ".", 3)
 		if len(parts) < 2 {
 			continue
 		}
 		prefix := parts[0] + "." + parts[1]
-		groups[prefix] = append(groups[prefix], fn.FunctionID)
+		groups[prefix] = append(groups[prefix], functionID)
 	}
 
 	// Create workspace for each group
@@ -800,6 +792,57 @@ func seedBootstrapWorkspaces(ctx *ServiceContext) error {
 	return nil
 }
 
+// EnsureWorkspaceSeeded ensures bootstrap workspace configs exist based on current function catalog.
+func (ctx *ServiceContext) EnsureWorkspaceSeeded() error {
+	return seedBootstrapWorkspaces(ctx)
+}
+
+func collectWorkspaceBootstrapFunctionIDs(ctx *ServiceContext, bg context.Context) ([]string, error) {
+	ids := make(map[string]struct{})
+
+	// 1) Database-backed function catalog.
+	functions, _, err := ctx.FunctionModel.List(bg, model.ListFunctionsOptions{
+		PaginationOptions: model.PaginationOptions{
+			Page:     1,
+			PageSize: 10000,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list functions: %w", err)
+	}
+	for _, fn := range functions {
+		fid := strings.TrimSpace(fn.FunctionID)
+		if fid == "" {
+			continue
+		}
+		ids[fid] = struct{}{}
+	}
+
+	// 2) Runtime registry functions (covers agent-registered functions not yet persisted in DB).
+	if ctx.RegistryStore != nil {
+		ctx.RegistryStore.Mu().RLock()
+		for _, sess := range ctx.RegistryStore.AgentsUnsafe() {
+			if sess == nil {
+				continue
+			}
+			for fid := range sess.Functions {
+				fid = strings.TrimSpace(fid)
+				if fid == "" {
+					continue
+				}
+				ids[fid] = struct{}{}
+			}
+		}
+		ctx.RegistryStore.Mu().RUnlock()
+	}
+
+	out := make([]string, 0, len(ids))
+	for fid := range ids {
+		out = append(out, fid)
+	}
+	return out, nil
+}
+
 // buildDefaultWorkspaceLayout creates a default layout for a workspace
 func buildDefaultWorkspaceLayout(objectKey string, functionIDs []string) map[string]interface{} {
 	// Create tabs layout with one tab per function (up to 10)
@@ -819,11 +862,9 @@ func buildDefaultWorkspaceLayout(objectKey string, functionIDs []string) map[str
 			"title":     fnName,
 			"functions": []string{fnID}, // 添加 functions 字段
 			"layout": map[string]interface{}{
-				"type": "single",
-				"component": map[string]interface{}{
-					"type":       "function",
-					"functionId": fnID,
-				},
+				"type":           "form",
+				"submitFunction": fnID,
+				"fields":         []map[string]interface{}{},
 			},
 		}
 		tabs = append(tabs, tab)

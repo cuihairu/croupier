@@ -3143,8 +3143,8 @@ type WorkspaceConfigMeta struct {
 
 type WorkspaceConfigSaveRequest struct {
 	ObjectKey   string      `path:"objectKey"`
-	Title       string      `json:"title,omitempty"`
-	Description string      `json:"description,omitempty"`
+	Title       string      `json:"title,optional"`
+	Description string      `json:"description,optional"`
 	Layout      interface{} `json:"layout,omitempty"`
 	Status      string      `json:"status,optional"`
 	MenuOrder   int         `json:"menuOrder,optional"`

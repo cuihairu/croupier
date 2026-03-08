@@ -6,6 +6,8 @@ package workspace
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"strings"
 	"time"
 
 	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
@@ -14,6 +16,7 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"gorm.io/gorm"
 )
 
 type WorkspaceConfigSaveLogic struct {
@@ -35,51 +38,74 @@ func (l *WorkspaceConfigSaveLogic) WorkspaceConfigSave(req *types.WorkspaceConfi
 	if req.ObjectKey == "" {
 		return nil, errorx.NewBadRequest("objectKey is required")
 	}
-	if req.Title == "" {
-		return nil, errorx.NewBadRequest("title is required")
-	}
-	if req.Layout == nil {
-		return nil, errorx.NewBadRequest("layout is required")
-	}
 
 	now := time.Now()
 
-	// Try to load existing to preserve published state and timestamps.
+	// Load existing and merge (partial update semantics): keep untouched fields as-is.
 	existing, err := l.svcCtx.WorkspaceConfigModel.FindByObjectKey(l.ctx, req.ObjectKey)
 	var createdAt time.Time
 	published := false
 	var publishedAt *time.Time
 	publishedBy := ""
-	if err == nil {
+	exists := err == nil
+	if exists {
 		createdAt = existing.CreatedAt
 		published = existing.Published
 		publishedAt = existing.PublishedAt
 		publishedBy = existing.PublishedBy
-	} else {
+	} else if errors.Is(err, gorm.ErrRecordNotFound) {
 		createdAt = now
+	} else {
+		return nil, err
 	}
 
-	// Build the full config JSON blob.
+	var dto types.WorkspaceConfig
+	if exists {
+		dto = toDTO(existing)
+	} else {
+		dto = types.WorkspaceConfig{
+			ObjectKey: req.ObjectKey,
+			Title:     req.ObjectKey,
+			MenuOrder: 0,
+		}
+	}
+
+	// Apply patch-style updates from request.
+	dto.ObjectKey = req.ObjectKey
+	if title := strings.TrimSpace(req.Title); title != "" {
+		dto.Title = title
+	}
+	if desc := strings.TrimSpace(req.Description); desc != "" {
+		dto.Description = desc
+	}
+	if req.Layout != nil {
+		dto.Layout = req.Layout
+	}
+	if req.MenuOrder != 0 || !exists {
+		dto.MenuOrder = req.MenuOrder
+	}
+	if status := strings.TrimSpace(req.Status); status != "" {
+		dto.Status = status
+	}
+
+	// Validate minimal required fields after merge.
+	if strings.TrimSpace(dto.Title) == "" {
+		return nil, errorx.NewBadRequest("title is required")
+	}
+	if dto.Layout == nil {
+		return nil, errorx.NewBadRequest("layout is required")
+	}
+
 	meta := types.WorkspaceConfigMeta{
 		CreatedAt: createdAt.UTC().Format(time.RFC3339),
 		UpdatedAt: now.UTC().Format(time.RFC3339),
 	}
-	dto := types.WorkspaceConfig{
-		ObjectKey:   req.ObjectKey,
-		Title:       req.Title,
-		Description: req.Description,
-		Layout:      req.Layout,
-		Published:   published,
-		MenuOrder:   req.MenuOrder,
-		Meta:        meta,
-	}
+	dto.Published = published
+	dto.Meta = meta
 	if publishedAt != nil {
 		dto.PublishedAt = publishedAt.UTC().Format(time.RFC3339)
 	}
 	dto.PublishedBy = publishedBy
-	if req.Status != "" {
-		dto.Status = req.Status
-	}
 	dto.Status = resolveWorkspaceStatus(&dto)
 
 	configJSON, err := json.Marshal(dto)
@@ -89,11 +115,11 @@ func (l *WorkspaceConfigSaveLogic) WorkspaceConfigSave(req *types.WorkspaceConfi
 
 	record := &model.WorkspaceConfig{
 		ObjectKey:   req.ObjectKey,
-		Title:       req.Title,
+		Title:       dto.Title,
 		Published:   published,
 		PublishedAt: publishedAt,
 		PublishedBy: publishedBy,
-		MenuOrder:   req.MenuOrder,
+		MenuOrder:   dto.MenuOrder,
 		Config:      configJSON,
 	}
 
@@ -111,9 +137,9 @@ func (l *WorkspaceConfigSaveLogic) WorkspaceConfigSave(req *types.WorkspaceConfi
 		dto.Version = version
 	}
 	appendWorkspaceAudit(l.ctx, l.svcCtx, "workspace.save", req.ObjectKey, "success", map[string]interface{}{
-		"title":     req.Title,
+		"title":     dto.Title,
 		"status":    dto.Status,
-		"menuOrder": req.MenuOrder,
+		"menuOrder": dto.MenuOrder,
 	})
 
 	return &types.WorkspaceConfigSaveResponse{WorkspaceConfig: dto}, nil

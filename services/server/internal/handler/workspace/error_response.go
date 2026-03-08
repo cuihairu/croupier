@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
+	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
@@ -26,6 +27,29 @@ func writeWorkspaceError(w http.ResponseWriter, r *http.Request, err error, oper
 
 	code := mapWorkspaceErrorCode(status, errorCode, operation)
 	requestID := resolveRequestID(r)
+	if err != nil {
+		if status >= http.StatusInternalServerError {
+			logx.WithContext(r.Context()).Errorw("workspace request failed",
+				logx.Field("operation", operation),
+				logx.Field("status", status),
+				logx.Field("code", code),
+				logx.Field("method", r.Method),
+				logx.Field("path", r.URL.Path),
+				logx.Field("request_id", requestID),
+				logx.Field("error", err.Error()),
+			)
+		} else {
+			logx.WithContext(r.Context()).Infow("workspace request rejected",
+				logx.Field("operation", operation),
+				logx.Field("status", status),
+				logx.Field("code", code),
+				logx.Field("method", r.Method),
+				logx.Field("path", r.URL.Path),
+				logx.Field("request_id", requestID),
+				logx.Field("error", err.Error()),
+			)
+		}
+	}
 
 	httpx.WriteJsonCtx(r.Context(), w, status, map[string]interface{}{
 		"code":       code,

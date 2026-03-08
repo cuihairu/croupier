@@ -38,6 +38,18 @@ func (l *WorkspaceConfigLogic) ListConfigs(_ *types.WorkspaceConfigsListRequest)
 	if err != nil {
 		return nil, err
 	}
+	if len(items) == 0 {
+		// Backfill defaults for deployments where functions are available at runtime
+		// but startup bootstrap ran before agents registered.
+		if seedErr := l.svcCtx.EnsureWorkspaceSeeded(); seedErr != nil {
+			logx.Errorf("workspace bootstrap seed failed: %v", seedErr)
+		} else {
+			items, err = l.svcCtx.WorkspaceConfigModel.ListAll(l.ctx)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 	dtos := make([]types.WorkspaceConfig, 0, len(items))
 	for i := range items {
 		dto := toDTO(&items[i])
