@@ -14,7 +14,6 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/handler"
 	"github.com/cuihairu/croupier/services/server/internal/logic/ops"
-	"github.com/cuihairu/croupier/services/server/internal/middleware"
 	"github.com/cuihairu/croupier/services/server/internal/runtime"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/spf13/cobra"
@@ -173,7 +172,7 @@ func runServer() error {
 	ops.InitAgentOpsClient(ctx.RegistryStore)
 
 	// 检查数据库连接
-	dbHealth := middleware.NewDBHealth(ctx)
+	dbHealth := svc.NewDBHealth(ctx)
 	if err := dbHealth.Ping(); err != nil {
 		fmt.Printf("警告: 数据库连接失败: %v\n", err)
 		fmt.Println("某些功能可能无法正常工作，请检查数据库配置")
@@ -190,8 +189,8 @@ func runServer() error {
 	defer server.Stop()
 
 	// 添加认证中间件
-	authMiddleware := middleware.NewAuthMiddleware(ctx)
-	server.Use(authMiddleware.Handle)
+	authMiddleware := svc.NewAuthMiddleware(ctx)
+	server.Use(authMiddleware)
 
 	// 注册路由
 	handler.RegisterHandlers(server, ctx)
