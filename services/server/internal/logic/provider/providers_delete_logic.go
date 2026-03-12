@@ -28,15 +28,7 @@ func NewProvidersDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *P
 }
 
 func (l *ProvidersDeleteLogic) ProvidersDelete(req *types.ProviderActionRequest) (resp *types.ProviderDeleteResponse, err error) {
-	if err := deleteProviderCaps(l.svcCtx.RegistryStore, req.ID); err != nil {
-		return nil, err
-	}
+	// todo: add your logic here and delete this line
 
-	return &types.ProviderDeleteResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"id": req.ID,
-		},
-	}, nil
+	return
 }

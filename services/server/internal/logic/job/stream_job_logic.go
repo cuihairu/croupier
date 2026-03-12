@@ -5,11 +5,7 @@ package job
 
 import (
 	"context"
-	"strings"
 
-	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
-
-	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -31,36 +27,8 @@ func NewStreamJobLogic(ctx context.Context, svcCtx *svc.ServiceContext) *StreamJ
 	}
 }
 
-func (l *StreamJobLogic) StreamJob(req *types.StreamJobRequest) (*types.StreamJobResponse, error) {
-	jobID := strings.TrimSpace(req.JobID)
-	if jobID == "" {
-		return nil, errorx.NewBadRequest("任务ID不能为空")
-	}
+func (l *StreamJobLogic) StreamJob(req *types.StreamJobRequest) (resp *types.StreamJobResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	result := make([]map[string]interface{}, 0)
-	done, err := l.svcCtx.Dispatcher.StreamJobRealtime(l.ctx, jobID, func(evt *sdkv1.JobEvent) bool {
-		if evt == nil {
-			return true
-		}
-		result = append(result, map[string]interface{}{
-			"type":     evt.Type,
-			"message":  evt.Message,
-			"progress": evt.GetProgress(),
-			"payload":  evt.Payload,
-		})
-		return true
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.StreamJobResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"events": result,
-			"done":   done,
-		},
-	}, nil
+	return
 }

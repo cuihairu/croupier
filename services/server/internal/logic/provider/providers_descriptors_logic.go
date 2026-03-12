@@ -28,40 +28,7 @@ func NewProvidersDescriptorsLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *ProvidersDescriptorsLogic) ProvidersDescriptors(req *types.ProvidersDescriptorsRequest) (resp *types.ProvidersDescriptorsResponse, err error) {
-	store, err := ensureRegistryStore(l.svcCtx.RegistryStore)
-	if err != nil {
-		return nil, err
-	}
+	// todo: add your logic here and delete this line
 
-	// Get all OpenAPI providers
-	providers := store.ListOpenAPIProviders()
-	providerManifests := make(map[string]interface{})
-
-	for _, provider := range providers {
-		doc, err := decodeOpenAPIDoc(provider.OpenAPIDoc)
-		if err != nil {
-			continue
-		}
-		// Extract manifest info from OpenAPI doc
-		providerManifests[provider.ID] = map[string]interface{}{
-			"id":        provider.ID,
-			"version":   provider.Version,
-			"lang":      provider.Lang,
-			"sdk":       provider.SDK,
-			"updatedAt": provider.UpdatedAt,
-			// Include functions and entities counts
-			"functions": len(openAPIDocFunctions(doc)),
-			"entities":  len(openAPIDocEntities(doc)),
-			// Full OpenAPI doc
-			"openapi": doc,
-		}
-	}
-
-	return &types.ProvidersDescriptorsResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"provider_manifests": providerManifests,
-		},
-	}, nil
+	return
 }

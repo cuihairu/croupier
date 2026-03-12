@@ -27,22 +27,8 @@ func NewSchemaRawValidateLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 	}
 }
 
-func (l *SchemaRawValidateLogic) SchemaRawValidate(req *types.SchemaRawValidateRequest) (*types.SchemaRawValidateResponse, error) {
-	if err := validateSchemaDefinition(req.Schema); err != nil {
-		return nil, err
-	}
+func (l *SchemaRawValidateLogic) SchemaRawValidate(req *types.SchemaRawValidateRequest) (resp *types.SchemaRawValidateResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	valid, issues, err := validatePayloadAgainst(req.Schema, req.Data)
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.SchemaRawValidateResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"valid":  valid,
-			"errors": issues,
-		},
-	}, nil
+	return
 }

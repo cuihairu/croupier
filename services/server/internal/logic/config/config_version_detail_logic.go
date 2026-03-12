@@ -5,8 +5,6 @@ package config
 
 import (
 	"context"
-	"errors"
-	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -29,26 +27,8 @@ func NewConfigVersionDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext
 	}
 }
 
-func (l *ConfigVersionDetailLogic) ConfigVersionDetail(req *types.ConfigVersionDetailRequest) (*types.ConfigVersionDetailResponse, error) {
-	if req == nil {
-		return nil, errors.New("请求参数不能为空")
-	}
-	key := strings.TrimSpace(req.Key)
-	if key == "" {
-		return nil, errors.New("配置键不能为空")
-	}
-	if req.Version <= 0 {
-		return nil, errors.New("版本号必须大于0")
-	}
+func (l *ConfigVersionDetailLogic) ConfigVersionDetail(req *types.ConfigVersionDetailRequest) (resp *types.ConfigVersionDetailResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	record, err := l.svcCtx.ConfigVersionModel.Find(l.ctx, key, req.Version)
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.ConfigVersionDetailResponse{
-		Code:    0,
-		Message: "OK",
-		Data:    mapConfigVersion(record, true),
-	}, nil
+	return
 }

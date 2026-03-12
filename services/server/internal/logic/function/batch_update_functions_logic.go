@@ -27,24 +27,8 @@ func NewBatchUpdateFunctionsLogic(ctx context.Context, svcCtx *svc.ServiceContex
 	}
 }
 
-func (l *BatchUpdateFunctionsLogic) BatchUpdateFunctions(req *types.BatchUpdateFunctionsRequest) (*types.BatchUpdateFunctionsResponse, error) {
-	// 1. Validate request
-	if len(req.FunctionIds) == 0 {
-		return &types.BatchUpdateFunctionsResponse{
-			Updated: 0,
-			Failed:  []string{"no function ids provided"},
-		}, nil
-	}
+func (l *BatchUpdateFunctionsLogic) BatchUpdateFunctions(req *types.BatchUpdateFunctionsRequest) (resp *types.BatchUpdateFunctionsResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	// 2. Call model layer to batch update
-	updated, failed, err := l.svcCtx.FunctionModel.BatchUpdateStatus(l.ctx, req.FunctionIds, req.Enabled)
-	if err != nil {
-		return nil, err
-	}
-
-	// 3. Return result
-	return &types.BatchUpdateFunctionsResponse{
-		Updated: updated,
-		Failed:  failed,
-	}, nil
+	return
 }

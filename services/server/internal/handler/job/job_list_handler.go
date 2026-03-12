@@ -1,3 +1,6 @@
+// Code scaffolded by goctl. Safe to edit.
+// goctl 1.9.2
+
 package job
 
 import (
@@ -9,6 +12,7 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+// 任务列表
 func JobListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.JobListRequest

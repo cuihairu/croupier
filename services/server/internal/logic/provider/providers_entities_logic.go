@@ -5,7 +5,6 @@ package provider
 
 import (
 	"context"
-	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -29,27 +28,7 @@ func NewProvidersEntitiesLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 }
 
 func (l *ProvidersEntitiesLogic) ProvidersEntities(req *types.ProvidersEntitiesRequest) (resp *types.ProvidersEntitiesResponse, err error) {
-	store, err := ensureRegistryStore(l.svcCtx.RegistryStore)
-	if err != nil {
-		return nil, err
-	}
+	// todo: add your logic here and delete this line
 
-	var entities []map[string]interface{}
-	if strings.TrimSpace(req.ID) == "" || req.ID == "*" {
-		entities = aggregateEntities(store)
-	} else {
-		entities, err = aggregateEntitiesForProvider(store, req.ID)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &types.ProvidersEntitiesResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"items": entities,
-			"total": len(entities),
-		},
-	}, nil
+	return
 }

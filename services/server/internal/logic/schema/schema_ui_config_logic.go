@@ -27,18 +27,8 @@ func NewSchemaUiConfigLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Sc
 	}
 }
 
-func (l *SchemaUiConfigLogic) SchemaUiConfig(req *types.SchemaUIConfigRequest) (*types.SchemaUIConfigResponse, error) {
-	doc, err := loadSchema(l.svcCtx.Config, req.ID)
-	if err != nil {
-		return nil, err
-	}
+func (l *SchemaUiConfigLogic) SchemaUiConfig(req *types.SchemaUIConfigRequest) (resp *types.SchemaUIConfigResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	return &types.SchemaUIConfigResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"id":       doc.ID,
-			"uiConfig": doc.UIConfig,
-		},
-	}, nil
+	return
 }

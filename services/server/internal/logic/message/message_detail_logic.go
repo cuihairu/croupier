@@ -6,7 +6,6 @@ package message
 import (
 	"context"
 
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -28,20 +27,8 @@ func NewMessageDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Mes
 	}
 }
 
-func (l *MessageDetailLogic) MessageDetail(req *types.MessageDetailRequest) (*types.MessageDetailResponse, error) {
-	id, err := utils.ParseUintID(req.ID, "消息ID")
-	if err != nil {
-		return nil, err
-	}
+func (l *MessageDetailLogic) MessageDetail(req *types.MessageDetailRequest) (resp *types.MessageDetailResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	msg, err := l.svcCtx.MessageModel.FindOne(l.ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.MessageDetailResponse{
-		Code:    0,
-		Message: "OK",
-		Data:    utils.BuildMessageDTO(msg),
-	}, nil
+	return
 }

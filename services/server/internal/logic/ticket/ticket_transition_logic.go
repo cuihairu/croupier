@@ -5,8 +5,6 @@ package ticket
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -29,43 +27,8 @@ func NewTicketTransitionLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 	}
 }
 
-func (l *TicketTransitionLogic) TicketTransition(req *types.TicketTransitionRequest) (*types.TicketDetailResponse, error) {
-	id, err := parseTicketID(req.ID)
-	if err != nil {
-		return nil, err
-	}
+func (l *TicketTransitionLogic) TicketTransition(req *types.TicketTransitionRequest) (resp *types.TicketDetailResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	status, err := sanitizeTicketStatus(req.Status)
-	if err != nil {
-		return nil, err
-	}
-
-	updates := map[string]interface{}{
-		"status": status,
-	}
-	if note := strings.TrimSpace(req.Note); note != "" {
-		comment := addComment(commentAuthor(l.ctx), fmt.Sprintf("[状态变更] %s", note), id)
-		if err := l.svcCtx.TicketModel.CreateComment(l.ctx, comment); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := l.svcCtx.TicketModel.Update(l.ctx, id, updates); err != nil {
-		return nil, err
-	}
-
-	ticket, err := l.svcCtx.TicketModel.FindOne(l.ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	comments, err := l.svcCtx.TicketModel.ListComments(l.ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.TicketDetailResponse{
-		Ticket:   buildTicketDTO(ticket),
-		Comments: buildCommentsDTO(comments),
-	}, nil
+	return
 }

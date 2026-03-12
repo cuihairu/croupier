@@ -2,65 +2,62 @@ syntax = "v1"
 
 // 术语管理 API
 // 用于管理实体和操作的中文/英文术语映射
-
 type (
-    // 获取术语列表
-    TermsListRequest {
-        Domain string `json:"domain,optional"` // entity | operation
-    }
-    TermsListResponse {
-        Items []TermItem `json:"items,optional"`
-    }
-
-    // 创建/更新术语
-    TermUpsertRequest {
-        Domain    string `json:"domain"`               // entity | operation
-        TermKey   string `json:"term_key"`             // 原始术语键
-        Alias     string `json:"alias"`                // 别名
-        DisplayZh string `json:"display_zh,optional"` // 中文显示
-        DisplayEn string `json:"display_en,optional"` // 英文显示
-        Order     int64  `json:"order,optional"`       // 排序
-    }
-    TermUpsertResponse {
-        Ok bool `json:"ok"`
-    }
-
-    // 删除术语
-    TermDeleteRequest {
-        Domain string `json:"domain"` // entity | operation
-        Alias  string `json:"alias"`  // 要删除的别名
-    }
-    TermDeleteResponse {
-        Ok bool `json:"ok"`
-    }
-
-    // 术语项
-    TermItem {
-        Id        int64  `json:"id,optional"`
-        Domain    string `json:"domain"`               // entity | operation
-        TermKey   string `json:"term_key"`             // 原始术语键
-        Alias     string `json:"alias"`                // 别名
-        DisplayZh string `json:"display_zh,optional"` // 中文显示
-        DisplayEn string `json:"display_en,optional"` // 英文显示
-        Order     int64  `json:"order,optional"`       // 排序
-    }
+	// 获取术语列表
+	TermsListRequest {
+		Domain string `json:"domain,optional"` // entity | operation
+	}
+	TermsListResponse {
+		Items []TermItem `json:"items,optional"`
+	}
+	// 创建/更新术语
+	TermUpsertRequest {
+		Domain    string `json:"domain"` // entity | operation
+		TermKey   string `json:"term_key"` // 原始术语键
+		Alias     string `json:"alias"` // 别名
+		DisplayZh string `json:"display_zh,optional"` // 中文显示
+		DisplayEn string `json:"display_en,optional"` // 英文显示
+		Order     int64  `json:"order,optional"` // 排序
+	}
+	TermUpsertResponse {
+		Ok bool `json:"ok"`
+	}
+	// 删除术语
+	TermDeleteRequest {
+		Domain string `json:"domain"` // entity | operation
+		Alias  string `json:"alias"` // 要删除的别名
+	}
+	TermDeleteResponse {
+		Ok bool `json:"ok"`
+	}
+	// 术语项
+	TermItem {
+		Id        int64  `json:"id,optional"`
+		Domain    string `json:"domain"` // entity | operation
+		TermKey   string `json:"term_key"` // 原始术语键
+		Alias     string `json:"alias"` // 别名
+		DisplayZh string `json:"display_zh,optional"` // 中文显示
+		DisplayEn string `json:"display_en,optional"` // 英文显示
+		Order     int64  `json:"order,optional"` // 排序
+	}
 )
 
 @server (
-    prefix: /api/v1
-    group: terms
-    middleware: Authority
+	prefix:     /api/v1
+	group:      terms
+	middleware: Authority
 )
 service server {
-    @doc "获取术语列表"
-    @handler termsList
-    get /terms (TermsListRequest) returns (TermsListResponse)
+	@doc "获取术语列表"
+	@handler TermsListHandler
+	get /terms (TermsListRequest) returns (TermsListResponse)
 
-    @doc "创建/更新术语"
-    @handler termUpsert
-    put /terms (TermUpsertRequest) returns (TermUpsertResponse)
+	@doc "创建/更新术语"
+	@handler TermUpsertHandler
+	put /terms (TermUpsertRequest) returns (TermUpsertResponse)
 
-    @doc "删除术语"
-    @handler termDelete
-    delete /terms (TermDeleteRequest) returns (TermDeleteResponse)
+	@doc "删除术语"
+	@handler TermDeleteHandler
+	delete /terms (TermDeleteRequest) returns (TermDeleteResponse)
 }
+

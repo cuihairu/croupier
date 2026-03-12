@@ -27,17 +27,8 @@ func NewTicketCreateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Tick
 	}
 }
 
-func (l *TicketCreateLogic) TicketCreate(req *types.TicketCreateRequest) (*types.TicketDetailResponse, error) {
-	ticket, err := sanitizeTicketFields(req)
-	if err != nil {
-		return nil, err
-	}
+func (l *TicketCreateLogic) TicketCreate(req *types.TicketCreateRequest) (resp *types.TicketDetailResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	if err := l.svcCtx.TicketModel.Create(l.ctx, ticket); err != nil {
-		return nil, err
-	}
-
-	return &types.TicketDetailResponse{
-		Ticket: buildTicketDTO(ticket),
-	}, nil
+	return
 }

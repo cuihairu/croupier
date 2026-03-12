@@ -28,23 +28,7 @@ func NewProvidersCapabilitiesLogic(ctx context.Context, svcCtx *svc.ServiceConte
 }
 
 func (l *ProvidersCapabilitiesLogic) ProvidersCapabilities(req *types.ProvidersCapabilitiesRequest) (resp *types.ProvidersCapabilitiesResponse, err error) {
-	store, err := ensureRegistryStore(l.svcCtx.RegistryStore)
-	if err != nil {
-		return nil, err
-	}
-	providers := store.ListOpenAPIProviders()
+	// todo: add your logic here and delete this line
 
-	items := make([]map[string]interface{}, 0, len(providers))
-	for _, provider := range providers {
-		items = append(items, buildProviderMeta(*provider, true))
-	}
-
-	return &types.ProvidersCapabilitiesResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"items": items,
-			"total": len(items),
-		},
-	}, nil
+	return
 }

@@ -12,23 +12,19 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-// 获取单个 workspace 配置
+// 获取单个 Workspace 配置
 func WorkspaceConfigGetHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.WorkspaceConfigGetRequest
-		if err := requireWorkspacePermission(r.Context(), svcCtx, "read"); err != nil {
-			writeWorkspaceError(w, r, err, "get")
-			return
-		}
 		if err := httpx.Parse(r, &req); err != nil {
-			writeWorkspaceError(w, r, err, "get")
+			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := workspace.NewWorkspaceConfigLogic(r.Context(), svcCtx)
-		resp, err := l.GetConfig(&req)
+		l := workspace.NewWorkspaceConfigGetLogic(r.Context(), svcCtx)
+		resp, err := l.WorkspaceConfigGet(&req)
 		if err != nil {
-			writeWorkspaceError(w, r, err, "get")
+			httpx.ErrorCtx(r.Context(), w, err)
 		} else {
 			httpx.OkJsonCtx(r.Context(), w, resp)
 		}

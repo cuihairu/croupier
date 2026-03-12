@@ -27,23 +27,8 @@ func NewSchemasListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Schem
 	}
 }
 
-func (l *SchemasListLogic) SchemasList(req *types.SchemasListRequest) (*types.SchemasListResponse, error) {
-	docs, err := listSchemas(l.svcCtx.Config)
-	if err != nil {
-		return nil, err
-	}
+func (l *SchemasListLogic) SchemasList(req *types.SchemasListRequest) (resp *types.SchemasListResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	items := make([]map[string]interface{}, 0, len(docs))
-	for _, doc := range docs {
-		items = append(items, doc.toMap())
-	}
-
-	return &types.SchemasListResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"items": items,
-			"total": len(items),
-		},
-	}, nil
+	return
 }

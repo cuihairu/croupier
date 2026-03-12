@@ -6,14 +6,10 @@ package role
 import (
 	"context"
 
-	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
-	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
-	"gorm.io/gorm"
 )
 
 type RoleDeleteLogic struct {
@@ -32,32 +28,7 @@ func NewRoleDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *RoleDe
 }
 
 func (l *RoleDeleteLogic) RoleDelete(req *types.RoleDeleteRequest) error {
-	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权删除角色", "admin:all", "roles:manage", "role:write"); err != nil {
-		return err
-	}
+	// todo: add your logic here and delete this line
 
-	roleID, err := utils.ParseRoleID(req.ID)
-	if err != nil {
-		return err
-	}
-
-	if err := l.svcCtx.DB.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
-		roleModel := model.NewRoleModel(tx)
-		if _, err := roleModel.FindOne(l.ctx, roleID); err != nil {
-			return err
-		}
-
-		if err := tx.WithContext(l.ctx).
-			Where("role_id = ?", roleID).
-			Delete(&model.RolePermission{}).Error; err != nil {
-			return errorx.NewInternalError("删除角色权限失败")
-		}
-
-		return roleModel.Delete(l.ctx, roleID)
-	}); err != nil {
-		return err
-	}
-
-	l.svcCtx.InvalidateRoleCache(l.ctx, roleID)
 	return nil
 }

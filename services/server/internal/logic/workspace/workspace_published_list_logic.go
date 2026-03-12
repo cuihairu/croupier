@@ -28,15 +28,7 @@ func NewWorkspacePublishedListLogic(ctx context.Context, svcCtx *svc.ServiceCont
 }
 
 func (l *WorkspacePublishedListLogic) WorkspacePublishedList(req *types.WorkspacePublishedListRequest) (resp *types.WorkspacePublishedListResponse, err error) {
-	items, err := l.svcCtx.WorkspaceConfigModel.ListPublished(l.ctx)
-	if err != nil {
-		return nil, err
-	}
-	dtos := make([]types.WorkspaceConfig, 0, len(items))
-	for i := range items {
-		dto := toDTO(&items[i])
-		_ = enrichWorkspaceVersion(l.ctx, l.svcCtx, &dto)
-		dtos = append(dtos, dto)
-	}
-	return &types.WorkspacePublishedListResponse{Items: dtos}, nil
+	// todo: add your logic here and delete this line
+
+	return
 }

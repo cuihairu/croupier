@@ -1,3 +1,6 @@
+// Code scaffolded by goctl. Safe to edit.
+// goctl 1.9.2
+
 package function
 
 import (
@@ -9,6 +12,7 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+// 获取函数变更历史
 func FunctionHistoryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.FunctionHistoryRequest
@@ -21,8 +25,8 @@ func FunctionHistoryHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		resp, err := l.FunctionHistory(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
-			return
+		} else {
+			httpx.OkJsonCtx(r.Context(), w, resp)
 		}
-		httpx.OkJsonCtx(r.Context(), w, resp)
 	}
 }

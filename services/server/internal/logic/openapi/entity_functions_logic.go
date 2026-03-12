@@ -6,7 +6,6 @@ package openapi
 import (
 	"context"
 
-	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -29,43 +28,7 @@ func NewEntityFunctionsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *E
 }
 
 func (l *EntityFunctionsLogic) EntityFunctions(req *types.EntityFunctionsRequest) (resp *types.EntityFunctionsResponse, err error) {
-	// 参数验证
-	if req.ID == "" {
-		return nil, errorx.NewBadRequest("entity ID is required")
-	}
+	// todo: add your logic here and delete this line
 
-	// TODO: 从 Entity Manager 获取实体关联的函数
-	// 目前先返回空列表，等 EntityManager 集成完成后实现
-	l.Infof("Getting functions for entity '%s'", req.ID)
-
-	// 临时实现：从 registry store 获取所有操作，然后过滤
-	operations := l.svcCtx.RegistryStore.ListOpenAPIOperations()
-
-	items := []types.EntityFunction{}
-	for funcID, op := range operations {
-		// 检查操作的扩展字段
-		if op.Extensions != nil {
-			if entityID, ok := op.Extensions["x-entity"].(string); ok {
-				if entityID == req.ID {
-					// 提取操作类型
-					operation := "custom"
-					if opType, ok := op.Extensions["x-operation"].(string); ok {
-						operation = opType
-					}
-
-					items = append(items, types.EntityFunction{
-						Id:        funcID,
-						Operation: operation,
-						Name:      op.Summary,
-					})
-				}
-			}
-		}
-	}
-
-	l.Infof("Found %d functions for entity '%s'", len(items), req.ID)
-
-	return &types.EntityFunctionsResponse{
-		Items: items,
-	}, nil
+	return
 }

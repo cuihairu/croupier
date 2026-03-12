@@ -5,16 +5,11 @@ package admin
 
 import (
 	"context"
-	"strings"
 
-	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
-	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
 	"github.com/zeromicro/go-zero/core/logx"
-	"gorm.io/gorm"
 )
 
 type AdminUpdateLogic struct {
@@ -32,89 +27,8 @@ func NewAdminUpdateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Admin
 	}
 }
 
-func (l *AdminUpdateLogic) AdminUpdate(req *types.AdminUpdateRequest) (*types.AdminUpdateResponse, error) {
-	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权更新管理员", "admin:all", "user:write"); err != nil {
-		return nil, err
-	}
+func (l *AdminUpdateLogic) AdminUpdate(req *types.AdminUpdateRequest) (resp *types.AdminUpdateResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	adminID, err := parseAdminID(req.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	var existing *model.Admin
-	err = l.svcCtx.DB.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
-		adminModel := model.NewAdminModel(tx)
-
-		adminRecord, err := adminModel.FindOne(l.ctx, adminID)
-		if err != nil {
-			return err
-		}
-		existing = adminRecord
-
-		updates := make(map[string]interface{})
-		if nickname := strings.TrimSpace(req.Nickname); nickname != "" {
-			updates["nickname"] = nickname
-		}
-		if email := strings.TrimSpace(req.Email); email != "" {
-			updates["email"] = email
-		}
-		if phone := strings.TrimSpace(req.Phone); phone != "" {
-			updates["phone"] = phone
-		}
-		if req.Status != -1 {
-			updates["status"] = req.Status
-		}
-
-		if len(updates) > 0 {
-			if err := adminModel.Update(l.ctx, adminID, updates); err != nil {
-				return err
-			}
-		}
-
-		if req.Roles != nil {
-			if err := tx.WithContext(l.ctx).
-				Where("admin_id = ?", adminID).
-				Delete(&model.AdminRole{}).Error; err != nil {
-				return errorx.NewInternalError("清理旧角色失败")
-			}
-
-			if len(req.Roles) > 0 {
-				roles, err := fetchRolesByNames(l.ctx, tx, req.Roles)
-				if err != nil {
-					return err
-				}
-				for _, role := range roles {
-					if err := adminModel.AssignRole(l.ctx, adminID, role.ID); err != nil {
-						return errorx.NewInternalError("分配角色失败")
-					}
-				}
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	username := ""
-	if existing != nil {
-		username = existing.Username
-	}
-	l.svcCtx.InvalidateAdminCache(l.ctx, adminID, username)
-
-	admin, err := l.svcCtx.GetAdminCached(l.ctx, adminID)
-	if err != nil {
-		return nil, err
-	}
-
-	roles, err := l.svcCtx.GetAdminRolesCached(l.ctx, adminID)
-	if err != nil {
-		return nil, errorx.NewInternalError("获取管理员角色失败")
-	}
-
-	return &types.AdminUpdateResponse{
-		Admin: buildAdminResponse(admin, roleNamesFromModels(roles)),
-	}, nil
+	return
 }

@@ -5,12 +5,7 @@ package component
 
 import (
 	"context"
-	"errors"
-	"strings"
 
-	"github.com/cuihairu/croupier/internal/pack"
-	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -33,40 +28,7 @@ func NewComponentsDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *ComponentsDeleteLogic) ComponentsDelete(req *types.ComponentActionRequest) (resp *types.ComponentsDeleteResponse, err error) {
-	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权删除组件", "admin:all", "components:uninstall", "components:manage"); err != nil {
-		return nil, err
-	}
+	// todo: add your logic here and delete this line
 
-	if req == nil || strings.TrimSpace(req.ID) == "" {
-		return nil, errors.New("组件ID不能为空")
-	}
-
-	var removed componentDTO
-	if err := withComponentManagerWrite(l.svcCtx, func(cm *pack.ComponentManager) error {
-		entry, err := findComponentEntry(cm, req.ID)
-		if err != nil {
-			return err
-		}
-		removed = componentEntryToDTO(l.svcCtx.Config, *entry)
-
-		if entry.Status == componentStatusInstalled {
-			if err := cm.UninstallComponent(req.ID); err != nil {
-				return errorx.NewInternalError("卸载组件失败")
-			}
-			return nil
-		}
-
-		if err := removeDisabledComponent(cm, l.svcCtx.Config, *entry); err != nil {
-			return errorx.NewInternalError("删除禁用组件失败")
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-
-	return &types.ComponentsDeleteResponse{
-		Code:    0,
-		Message: "组件已删除",
-		Data:    removed,
-	}, nil
+	return
 }

@@ -6,7 +6,6 @@ package certificate
 import (
 	"context"
 
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -28,20 +27,8 @@ func NewCertificateDomainInfoLogic(ctx context.Context, svcCtx *svc.ServiceConte
 	}
 }
 
-func (l *CertificateDomainInfoLogic) CertificateDomainInfo(req *types.CertificateDomainInfoRequest) (*types.CertificateDomainInfoResponse, error) {
-	domain, err := utils.ValidateDomain(req.Domain)
-	if err != nil {
-		return nil, err
-	}
+func (l *CertificateDomainInfoLogic) CertificateDomainInfo(req *types.CertificateDomainInfoRequest) (resp *types.CertificateDomainInfoResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	cert, err := l.svcCtx.CertificateModel.FindByDomain(l.ctx, domain)
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.CertificateDomainInfoResponse{
-		Code:    0,
-		Message: "OK",
-		Data:    utils.BuildCertificateDTO(cert),
-	}, nil
+	return
 }

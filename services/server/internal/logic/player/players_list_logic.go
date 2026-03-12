@@ -5,10 +5,7 @@ package player
 
 import (
 	"context"
-	"strings"
 
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
-	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -30,40 +27,8 @@ func NewPlayersListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Playe
 	}
 }
 
-func (l *PlayersListLogic) PlayersList(req *types.PlayersListRequest) (*types.PlayersListResponse, error) {
-	opts := model.ListPlayersOptions{
-		Page:     req.Page,
-		PageSize: req.PageSize,
-		GameID:   strings.TrimSpace(req.GameId),
-		Search:   strings.TrimSpace(req.Search),
-	}
-	if req.Status != 0 {
-		status := req.Status
-		opts.Status = &status
-	}
-	if req.Level != 0 {
-		level := req.Level
-		opts.Level = &level
-	}
-	if req.Vip != 0 {
-		vip := req.Vip
-		opts.VIP = &vip
-	}
+func (l *PlayersListLogic) PlayersList(req *types.PlayersListRequest) (resp *types.PlayersListResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	players, total, err := l.svcCtx.PlayerModel.List(l.ctx, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	items := make([]types.Player, 0, len(players))
-	for i := range players {
-		items = append(items, utils.BuildPlayer(&players[i]))
-	}
-
-	return &types.PlayersListResponse{
-		Items: items,
-		Total: total,
-		Page:  opts.Page,
-		Size:  opts.PageSize,
-	}, nil
+	return
 }

@@ -5,7 +5,6 @@ package function
 
 import (
 	"context"
-	"errors"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -28,21 +27,8 @@ func NewFunctionCopyLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Func
 	}
 }
 
-func (l *FunctionCopyLogic) FunctionCopy(req *types.FunctionCopyRequest) (*types.FunctionCopyResponse, error) {
-	// 1. Validate request
-	if req.ID == "" {
-		return nil, errors.New("function id is required")
-	}
+func (l *FunctionCopyLogic) FunctionCopy(req *types.FunctionCopyRequest) (resp *types.FunctionCopyResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	// 2. Call model layer to copy function
-	newId, err := l.svcCtx.FunctionModel.CopyFunction(l.ctx, req.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	// 3. Return result
-	return &types.FunctionCopyResponse{
-		FunctionId: req.ID,
-		NewId:      newId,
-	}, nil
+	return
 }

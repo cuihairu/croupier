@@ -27,35 +27,8 @@ func NewListPlatformMethodsLogic(ctx context.Context, svcCtx *svc.ServiceContext
 	}
 }
 
-func (l *ListPlatformMethodsLogic) ListPlatformMethods(platformName string) (resp *types.ListPlatformMethodsResponse, err error) {
-	// 检查平台加载器是否初始化
-	if l.svcCtx.PlatformLoader == nil {
-		return &types.ListPlatformMethodsResponse{
-			Code:    503,
-			Message: "Platform integration is not enabled",
-		}, nil
-	}
+func (l *ListPlatformMethodsLogic) ListPlatformMethods() (resp *types.ListPlatformMethodsResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	// 验证平台参数
-	if platformName == "" {
-		return &types.ListPlatformMethodsResponse{
-			Code:    400,
-			Message: "platform is required",
-		}, nil
-	}
-
-	// 获取指定的平台提供者
-	p, exists := l.svcCtx.PlatformLoader.GetProvider(platformName)
-	if !exists {
-		return &types.ListPlatformMethodsResponse{
-			Code:    404,
-			Message: "platform not found",
-		}, nil
-	}
-
-	return &types.ListPlatformMethodsResponse{
-		Code:    200,
-		Message: "success",
-		Methods: p.SupportedMethods(),
-	}, nil
+	return
 }

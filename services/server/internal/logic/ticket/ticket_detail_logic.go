@@ -27,24 +27,8 @@ func NewTicketDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Tick
 	}
 }
 
-func (l *TicketDetailLogic) TicketDetail(req *types.TicketDetailRequest) (*types.TicketDetailResponse, error) {
-	id, err := parseTicketID(req.ID)
-	if err != nil {
-		return nil, err
-	}
+func (l *TicketDetailLogic) TicketDetail(req *types.TicketDetailRequest) (resp *types.TicketDetailResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	ticket, err := l.svcCtx.TicketModel.FindOne(l.ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	comments, err := l.svcCtx.TicketModel.ListComments(l.ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.TicketDetailResponse{
-		Ticket:   buildTicketDTO(ticket),
-		Comments: buildCommentsDTO(comments),
-	}, nil
+	return
 }

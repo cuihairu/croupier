@@ -6,7 +6,6 @@ package certificate
 import (
 	"context"
 
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -28,18 +27,8 @@ func NewCertificateDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 	}
 }
 
-func (l *CertificateDeleteLogic) CertificateDelete(req *types.CertificateDeleteRequest) (*types.CertificateDeleteResponse, error) {
-	id, err := utils.ParseUintID(req.ID, "证书ID")
-	if err != nil {
-		return nil, err
-	}
+func (l *CertificateDeleteLogic) CertificateDelete(req *types.CertificateDeleteRequest) (resp *types.CertificateDeleteResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	if err := l.svcCtx.CertificateModel.Delete(l.ctx, id); err != nil {
-		return nil, err
-	}
-
-	return &types.CertificateDeleteResponse{
-		Code:    0,
-		Message: "OK",
-	}, nil
+	return
 }

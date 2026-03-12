@@ -5,16 +5,11 @@ package openapi
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"strings"
-
-	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
-	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/zeromicro/go-zero/core/logx"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
+
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type OpenAPIImportLogic struct {
@@ -33,119 +28,7 @@ func NewOpenAPIImportLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Ope
 }
 
 func (l *OpenAPIImportLogic) OpenAPIImport(req *types.OpenAPIImportRequest) (resp *types.OpenAPIImportResponse, err error) {
-	// 参数验证
-	if req.Spec == nil {
-		return nil, errorx.NewBadRequest("spec is required")
-	}
+	// todo: add your logic here and delete this line
 
-	// 将 interface{} 转换为 OpenAPI 文档
-	specBytes, err := json.Marshal(req.Spec)
-	if err != nil {
-		l.Errorf("failed to marshal spec: %v", err)
-		return nil, err
-	}
-
-	// 加载 OpenAPI 文档
-	loader := openapi3.NewLoader()
-	doc, err := loader.LoadFromData(specBytes)
-	if err != nil {
-		l.Errorf("failed to load OpenAPI spec: %v", err)
-		return &types.OpenAPIImportResponse{
-			Imported: 0,
-			Failed:   []string{err.Error()},
-		}, nil
-	}
-
-	// 验证文档
-	normalizeOpenAPIDoc(doc)
-	if err := doc.Validate(loader.Context); err != nil {
-		l.Errorf("invalid OpenAPI spec: %v", err)
-		return &types.OpenAPIImportResponse{
-			Imported: 0,
-			Failed:   []string{err.Error()},
-		}, nil
-	}
-
-	// 提取所有 operations 并导入到 registry
-	imported := 0
-	failed := []string{}
-
-	for path, pathItem := range doc.Paths.Map() {
-		if pathItem == nil {
-			continue
-		}
-
-		// 处理所有 HTTP 方法的操作
-		operations := map[string]*openapi3.Operation{
-			"GET":    pathItem.Get,
-			"POST":   pathItem.Post,
-			"PUT":    pathItem.Put,
-			"PATCH":  pathItem.Patch,
-			"DELETE": pathItem.Delete,
-		}
-
-		for method, op := range operations {
-			if op == nil {
-				continue
-			}
-
-			// 生成 function ID: {method}{path} (如 getUsers, createUser)
-			funcID := method + path
-
-			// 存储到 registry
-			if err := l.svcCtx.RegistryStore.UpsertOpenAPI(funcID, op); err != nil {
-				l.Errorf("failed to upsert operation '%s': %v", funcID, err)
-				failed = append(failed, funcID+": "+err.Error())
-			} else {
-				imported++
-			}
-		}
-	}
-
-	l.Infof("OpenAPI import completed: %d imported, %d failed", imported, len(failed))
-
-	return &types.OpenAPIImportResponse{
-		Imported: imported,
-		Failed:   failed,
-	}, nil
-}
-
-// normalizeOpenAPIDoc patches common non-critical gaps from external OpenAPI docs
-// so import stays resilient (e.g. response description omitted by third-party generators).
-func normalizeOpenAPIDoc(doc *openapi3.T) {
-	if doc == nil || doc.Paths == nil {
-		return
-	}
-	for _, pathItem := range doc.Paths.Map() {
-		if pathItem == nil {
-			continue
-		}
-		operations := []*openapi3.Operation{
-			pathItem.Get,
-			pathItem.Post,
-			pathItem.Put,
-			pathItem.Patch,
-			pathItem.Delete,
-			pathItem.Options,
-			pathItem.Head,
-			pathItem.Trace,
-		}
-		for _, op := range operations {
-			if op == nil || op.Responses == nil {
-				continue
-			}
-			for statusCode, responseRef := range op.Responses.Map() {
-				if responseRef == nil {
-					continue
-				}
-				if responseRef.Value == nil {
-					responseRef.Value = &openapi3.Response{}
-				}
-				if responseRef.Value.Description == nil || strings.TrimSpace(*responseRef.Value.Description) == "" {
-					desc := fmt.Sprintf("Auto-generated response description for status %s", statusCode)
-					responseRef.Value.Description = &desc
-				}
-			}
-		}
-	}
+	return
 }

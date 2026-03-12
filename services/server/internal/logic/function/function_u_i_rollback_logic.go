@@ -1,13 +1,14 @@
+// Code scaffolded by goctl. Safe to edit.
+// goctl 1.9.2
+
 package function
 
 import (
 	"context"
-	"encoding/json"
 
-	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
+
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -17,6 +18,7 @@ type FunctionUIRollbackLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
+// 回滚函数UI配置
 func NewFunctionUIRollbackLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FunctionUIRollbackLogic {
 	return &FunctionUIRollbackLogic{
 		Logger: logx.WithContext(ctx),
@@ -25,50 +27,8 @@ func NewFunctionUIRollbackLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 	}
 }
 
-func (l *FunctionUIRollbackLogic) FunctionUIRollback(req *types.FunctionUIRollbackRequest) (*types.FunctionUIRollbackResponse, error) {
-	functionID, err := utils.ValidateFunctionID(req.ID)
-	if err != nil {
-		return nil, err
-	}
-	if req.Version <= 0 {
-		return nil, errorx.NewBadRequest("version must be greater than 0")
-	}
+func (l *FunctionUIRollbackLogic) FunctionUIRollback(req *types.FunctionUIRollbackRequest) (resp *types.FunctionUIRollbackResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	record, err := l.svcCtx.ConfigVersionModel.Find(l.ctx, functionUIHistoryKey(functionID), req.Version)
-	if err != nil {
-		return nil, err
-	}
-
-	fn, err := l.svcCtx.FunctionModel.FindByFunctionID(l.ctx, functionID)
-	if err != nil {
-		return nil, err
-	}
-
-	var cfg map[string]interface{}
-	if err := json.Unmarshal([]byte(record.Value), &cfg); err != nil {
-		return nil, err
-	}
-
-	meta := applyUICustomConfig(fn.Metadata, cfg)
-	if err := l.svcCtx.FunctionModel.Update(l.ctx, fn.ID, map[string]interface{}{"metadata": meta}); err != nil {
-		return nil, err
-	}
-	fn.Metadata = meta
-	if err := persistFunctionUIVersion(l.ctx, l.svcCtx, fn, "rollback to version"); err != nil {
-		return nil, err
-	}
-
-	resolved := resolveFunctionUI(l.svcCtx.Config, fn)
-	return &types.FunctionUIRollbackResponse{
-		AppliedVersion: req.Version,
-		Current: &types.FunctionUIResponse{
-			Schema:         resolved.Schema,
-			Layout:         resolved.Layout,
-			Components:     resolved.Components,
-			Custom:         resolved.Custom,
-			HasDefault:     resolved.HasDefault,
-			UISource:       resolved.UISource,
-			UISourceDetail: resolved.UISourceDetail,
-		},
-	}, nil
+	return
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -28,38 +27,8 @@ func NewOpsAgentProcessRestartLogic(ctx context.Context, svcCtx *svc.ServiceCont
 	}
 }
 
-func (l *OpsAgentProcessRestartLogic) OpsAgentProcessRestart(req *types.OpsProcessActionRequest) (*types.OpsProcessActionResponse, error) {
-	client, err := GetAgentOpsClient().GetClient(l.ctx, req.AgentID)
-	if err != nil {
-		return &types.OpsProcessActionResponse{
-			Code:    404,
-			Message: err.Error(),
-		}, nil
-	}
+func (l *OpsAgentProcessRestartLogic) OpsAgentProcessRestart(req *types.OpsProcessActionRequest) (resp *types.OpsProcessActionResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	restartReq := &opsv1.RestartProcessRequest{
-		ProcessName: req.Name,
-		Force:       req.Force,
-	}
-
-	resp, err := client.RestartProcess(l.ctx, restartReq)
-	if err != nil {
-		return &types.OpsProcessActionResponse{
-			Code:    500,
-			Message: "Failed to restart process: " + err.Error(),
-		}, nil
-	}
-
-	if !resp.Success {
-		return &types.OpsProcessActionResponse{
-			Code:    500,
-			Message: resp.Message,
-		}, nil
-	}
-
-	return &types.OpsProcessActionResponse{
-		Code:    0,
-		Message: "OK",
-		Data:    resp.NewPid,
-	}, nil
+	return
 }

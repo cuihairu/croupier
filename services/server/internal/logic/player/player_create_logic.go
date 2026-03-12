@@ -5,11 +5,7 @@ package player
 
 import (
 	"context"
-	"errors"
-	"strings"
 
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
-	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -31,34 +27,8 @@ func NewPlayerCreateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Play
 	}
 }
 
-func (l *PlayerCreateLogic) PlayerCreate(req *types.PlayerCreateRequest) (*types.PlayerCreateResponse, error) {
-	username := strings.TrimSpace(req.Username)
-	if username == "" {
-		return nil, errors.New("用户名不能为空")
-	}
-	password := strings.TrimSpace(req.Password)
-	if password == "" {
-		return nil, errors.New("密码不能为空")
-	}
-	gameID := strings.TrimSpace(req.GameId)
-	if gameID == "" {
-		return nil, errors.New("Game ID 不能为空")
-	}
+func (l *PlayerCreateLogic) PlayerCreate(req *types.PlayerCreateRequest) (resp *types.PlayerCreateResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	player := &model.Player{
-		Username: username,
-		Nickname: strings.TrimSpace(req.Nickname),
-		Email:    strings.TrimSpace(req.Email),
-		Phone:    strings.TrimSpace(req.Phone),
-		GameID:   gameID,
-		Status:   model.PlayerStatusActive,
-	}
-
-	if err := l.svcCtx.PlayerModel.Create(l.ctx, player, password); err != nil {
-		return nil, err
-	}
-
-	return &types.PlayerCreateResponse{
-		Player: utils.BuildPlayer(player),
-	}, nil
+	return
 }

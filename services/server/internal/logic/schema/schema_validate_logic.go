@@ -27,23 +27,8 @@ func NewSchemaValidateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Sc
 	}
 }
 
-func (l *SchemaValidateLogic) SchemaValidate(req *types.SchemaValidateRequest) (*types.SchemaValidateResponse, error) {
-	doc, err := loadSchema(l.svcCtx.Config, req.ID)
-	if err != nil {
-		return nil, err
-	}
+func (l *SchemaValidateLogic) SchemaValidate(req *types.SchemaValidateRequest) (resp *types.SchemaValidateResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	valid, issues, err := validatePayloadAgainst(doc.Schema, req.Data)
-	if err != nil {
-		return nil, err
-	}
-
-	return &types.SchemaValidateResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"valid":  valid,
-			"errors": issues,
-		},
-	}, nil
+	return
 }

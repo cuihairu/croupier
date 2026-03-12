@@ -5,9 +5,7 @@ package analytics_overview
 
 import (
 	"context"
-	"strings"
 
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -29,47 +27,8 @@ func NewFiltersGetLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Filter
 	}
 }
 
-func (l *FiltersGetLogic) FiltersGet(req *types.FiltersGetRequest) (*types.FiltersGetResponse, error) {
-	gameID := ""
-	if req != nil {
-		gameID = strings.TrimSpace(req.GameId)
-	}
+func (l *FiltersGetLogic) FiltersGet(req *types.FiltersGetRequest) (resp *types.FiltersGetResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	path := utils.ResolveAnalyticsFiltersPath(l.svcCtx.Config)
-
-	var (
-		items []types.AnalyticsFilters
-		err   error
-	)
-
-	if lock := l.svcCtx.AnalyticsFiltersLock; lock != nil {
-		lock.RLock()
-		defer lock.RUnlock()
-		items, err = utils.LoadAnalyticsFilters(path)
-	} else {
-		items, err = utils.LoadAnalyticsFilters(path)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	filtered := filterAnalyticsFilters(items, gameID)
-
-	return &types.FiltersGetResponse{
-		Items: filtered,
-	}, nil
-}
-
-func filterAnalyticsFilters(items []types.AnalyticsFilters, gameID string) []types.AnalyticsFilters {
-	if gameID == "" {
-		return items
-	}
-	filtered := make([]types.AnalyticsFilters, 0, 1)
-	for _, item := range items {
-		if strings.EqualFold(item.GameId, gameID) {
-			filtered = append(filtered, item)
-			break
-		}
-	}
-	return filtered
+	return
 }

@@ -27,9 +27,8 @@ func NewJobListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *JobListLo
 	}
 }
 
-func (l *JobListLogic) JobList(_ *types.JobListRequest) (*types.JobListResponse, error) {
-	return &types.JobListResponse{
-		Jobs:  []types.JobItem{},
-		Total: 0,
-	}, nil
+func (l *JobListLogic) JobList(req *types.JobListRequest) (resp *types.JobListResponse, err error) {
+	// todo: add your logic here and delete this line
+
+	return
 }

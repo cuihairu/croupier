@@ -4,9 +4,7 @@
 package pack
 
 import (
-	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/pack"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
@@ -27,17 +25,8 @@ func PacksExportHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		resp, err := l.PacksExport(&req)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
-			return
+		} else {
+			httpx.OkJsonCtx(r.Context(), w, resp)
 		}
-
-		filename := resp.Filename
-		if filename == "" {
-			filename = "packs-export.tar.gz"
-		}
-		disposition := fmt.Sprintf("attachment; filename=\"%s\"; filename*=UTF-8''%s", filename, url.PathEscape(filename))
-		w.Header().Set("Content-Type", resp.ContentType)
-		w.Header().Set("Content-Disposition", disposition)
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(resp.Content)
 	}
 }

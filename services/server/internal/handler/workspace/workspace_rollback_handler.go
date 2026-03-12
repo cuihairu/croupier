@@ -1,3 +1,6 @@
+// Code scaffolded by goctl. Safe to edit.
+// goctl 1.9.2
+
 package workspace
 
 import (
@@ -5,33 +8,25 @@ import (
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/workspace"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
+	"github.com/cuihairu/croupier/services/server/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-type workspaceRollbackRequest struct {
-	ObjectKey string `path:"objectKey"`
-	VersionID string `json:"versionId"`
-}
-
+// 回滚 Workspace 到指定版本
 func WorkspaceRollbackHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req workspaceRollbackRequest
-		if err := requireWorkspacePermission(r.Context(), svcCtx, "rollback"); err != nil {
-			writeWorkspaceError(w, r, err, "rollback")
-			return
-		}
+		var req types.WorkspaceRollbackRequest
 		if err := httpx.Parse(r, &req); err != nil {
-			writeWorkspaceError(w, r, err, "rollback")
+			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		ctx := withWorkspaceRequestID(r.Context(), resolveRequestIDFromRequest(r))
-		l := workspace.NewWorkspaceRollbackLogic(ctx, svcCtx)
-		resp, err := l.Rollback(req.ObjectKey, req.VersionID)
+		l := workspace.NewWorkspaceRollbackLogic(r.Context(), svcCtx)
+		resp, err := l.WorkspaceRollback(&req)
 		if err != nil {
-			writeWorkspaceError(w, r, err, "rollback")
-			return
+			httpx.ErrorCtx(r.Context(), w, err)
+		} else {
+			httpx.OkJsonCtx(r.Context(), w, resp)
 		}
-		httpx.OkJsonCtx(r.Context(), w, resp)
 	}
 }

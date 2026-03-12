@@ -28,25 +28,7 @@ func NewProvidersListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Pro
 }
 
 func (l *ProvidersListLogic) ProvidersList(req *types.ProvidersListRequest) (resp *types.ProvidersListResponse, err error) {
-	store, err := ensureRegistryStore(l.svcCtx.RegistryStore)
-	if err != nil {
-		return nil, err
-	}
+	// todo: add your logic here and delete this line
 
-	providers := store.ListOpenAPIProviders()
-	items := make([]map[string]interface{}, 0, len(providers))
-	for _, provider := range providers {
-		items = append(items, buildProviderMeta(*provider, false))
-	}
-
-	return &types.ProvidersListResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"items": items,
-			"total": len(items),
-			"page":  req.Page,
-			"size":  req.PageSize,
-		},
-	}, nil
+	return
 }

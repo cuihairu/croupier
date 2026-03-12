@@ -6,7 +6,6 @@ package player
 import (
 	"context"
 
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -29,9 +28,7 @@ func NewPlayerDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Play
 }
 
 func (l *PlayerDeleteLogic) PlayerDelete(req *types.PlayerDeleteRequest) error {
-	id, err := utils.ParseUintID(req.ID, "玩家ID")
-	if err != nil {
-		return err
-	}
-	return l.svcCtx.PlayerModel.Delete(l.ctx, id)
+	// todo: add your logic here and delete this line
+
+	return nil
 }

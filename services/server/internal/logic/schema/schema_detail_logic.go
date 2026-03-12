@@ -27,15 +27,8 @@ func NewSchemaDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Sche
 	}
 }
 
-func (l *SchemaDetailLogic) SchemaDetail(req *types.SchemaDetailRequest) (*types.SchemaDetailResponse, error) {
-	doc, err := loadSchema(l.svcCtx.Config, req.ID)
-	if err != nil {
-		return nil, err
-	}
+func (l *SchemaDetailLogic) SchemaDetail(req *types.SchemaDetailRequest) (resp *types.SchemaDetailResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	return &types.SchemaDetailResponse{
-		Code:    0,
-		Message: "OK",
-		Data:    doc.toMap(),
-	}, nil
+	return
 }

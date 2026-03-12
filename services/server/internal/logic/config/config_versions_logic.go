@@ -5,8 +5,6 @@ package config
 
 import (
 	"context"
-	"errors"
-	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -29,32 +27,8 @@ func NewConfigVersionsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Co
 	}
 }
 
-func (l *ConfigVersionsLogic) ConfigVersions(req *types.ConfigVersionsRequest) (*types.ConfigVersionsResponse, error) {
-	if req == nil {
-		return nil, errors.New("请求体不能为空")
-	}
-	key := strings.TrimSpace(req.Key)
-	if key == "" {
-		return nil, errors.New("配置键不能为空")
-	}
+func (l *ConfigVersionsLogic) ConfigVersions(req *types.ConfigVersionsRequest) (resp *types.ConfigVersionsResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	versions, err := l.svcCtx.ConfigVersionModel.List(l.ctx, key)
-	if err != nil {
-		return nil, err
-	}
-
-	items := make([]map[string]interface{}, 0, len(versions))
-	for i := range versions {
-		items = append(items, mapConfigVersion(&versions[i], true))
-	}
-
-	return &types.ConfigVersionsResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"key":      key,
-			"total":    len(items),
-			"versions": items,
-		},
-	}, nil
+	return
 }

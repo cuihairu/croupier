@@ -6,7 +6,6 @@ package profile
 import (
 	"context"
 
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -29,23 +28,7 @@ func NewProfileGetLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Profil
 }
 
 func (l *ProfileGetLogic) ProfileGet(req *types.ProfileGetRequest) (resp *types.ProfileGetResponse, err error) {
-	admin, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
-	if err != nil {
-		return nil, err
-	}
+	// todo: add your logic here and delete this line
 
-	roleNames := utils.RoleNamesFromModels(roles)
-	return &types.ProfileGetResponse{
-		ProfileInfo: types.ProfileInfo{
-			Id:        int64(admin.ID),
-			Username:  admin.Username,
-			Nickname:  admin.Nickname,
-			Email:     admin.Email,
-			Phone:     admin.Phone,
-			Roles:     roleNames,
-			Avatar:    admin.Avatar,
-			CreatedAt: utils.FormatTimestamp(admin.CreatedAt),
-			UpdatedAt: utils.FormatTimestamp(admin.UpdatedAt),
-		},
-	}, nil
+	return
 }

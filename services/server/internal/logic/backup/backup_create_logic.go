@@ -5,12 +5,7 @@ package backup
 
 import (
 	"context"
-	"fmt"
-	"strings"
-	"time"
 
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
-	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -32,29 +27,8 @@ func NewBackupCreateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Back
 	}
 }
 
-func (l *BackupCreateLogic) BackupCreate(req *types.BackupCreateRequest) (*types.BackupDetailResponse, error) {
-	backupType := strings.ToLower(strings.TrimSpace(req.Type))
-	if backupType == "" {
-		backupType = "full"
-	}
+func (l *BackupCreateLogic) BackupCreate(req *types.BackupCreateRequest) (resp *types.BackupDetailResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	name := strings.TrimSpace(req.Name)
-	if name == "" {
-		name = fmt.Sprintf("%s-%s", backupType, time.Now().UTC().Format("20060102-150405"))
-	}
-
-	backup := &model.Backup{
-		BackupID: utils.GenerateBackupID(),
-		Name:     name,
-		Type:     backupType,
-		Status:   "pending",
-	}
-
-	if err := l.svcCtx.BackupModel.Create(l.ctx, backup); err != nil {
-		return nil, err
-	}
-
-	return &types.BackupDetailResponse{
-		Backup: utils.BuildBackupDTO(backup),
-	}, nil
+	return
 }

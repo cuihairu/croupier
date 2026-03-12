@@ -5,11 +5,7 @@ package certificate
 
 import (
 	"context"
-	"errors"
-	"strings"
 
-	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
-	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
@@ -31,38 +27,8 @@ func NewCertificateAddLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Ce
 	}
 }
 
-func (l *CertificateAddLogic) CertificateAdd(req *types.CertificateAddRequest) (*types.CertificateAddResponse, error) {
-	domain, err := utils.ValidateDomain(req.Domain)
-	if err != nil {
-		return nil, err
-	}
+func (l *CertificateAddLogic) CertificateAdd(req *types.CertificateAddRequest) (resp *types.CertificateAddResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	certPEM := strings.TrimSpace(req.Certificate)
-	if certPEM == "" {
-		return nil, errors.New("证书内容不能为空")
-	}
-
-	parsed, err := utils.ParseCertificatePEM(certPEM)
-	if err != nil {
-		return nil, err
-	}
-
-	certificate := &model.Certificate{
-		Domain:         domain,
-		CertificatePEM: certPEM,
-		PrivateKeyPEM:  strings.TrimSpace(req.PrivateKey),
-		Issuer:         utils.FormatIssuer(parsed),
-		ExpiresAt:      parsed.NotAfter,
-		Status:         model.CertificateStatus(parsed.NotAfter),
-	}
-
-	if err := l.svcCtx.CertificateModel.Create(l.ctx, certificate); err != nil {
-		return nil, err
-	}
-
-	return &types.CertificateAddResponse{
-		Code:    0,
-		Message: "OK",
-		Data:    utils.BuildCertificateDTO(certificate),
-	}, nil
+	return
 }

@@ -27,26 +27,8 @@ func NewBatchCopyFunctionsLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 	}
 }
 
-func (l *BatchCopyFunctionsLogic) BatchCopyFunctions(req *types.BatchCopyFunctionsRequest) (*types.BatchCopyFunctionsResponse, error) {
-	// 1. Validate request
-	if len(req.FunctionIds) == 0 {
-		return &types.BatchCopyFunctionsResponse{
-			Updated: 0,
-			Failed:  []string{"no function ids provided"},
-			Copied:  []string{},
-		}, nil
-	}
+func (l *BatchCopyFunctionsLogic) BatchCopyFunctions(req *types.BatchCopyFunctionsRequest) (resp *types.BatchCopyFunctionsResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	// 2. Call model layer to batch copy
-	updated, failed, copied, err := l.svcCtx.FunctionModel.BatchCopyFunctions(l.ctx, req.FunctionIds)
-	if err != nil {
-		return nil, err
-	}
-
-	// 3. Return result
-	return &types.BatchCopyFunctionsResponse{
-		Updated: updated,
-		Failed:  failed,
-		Copied:  copied,
-	}, nil
+	return
 }

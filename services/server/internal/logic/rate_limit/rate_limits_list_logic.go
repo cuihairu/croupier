@@ -5,7 +5,6 @@ package rate_limit
 
 import (
 	"context"
-	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -29,17 +28,7 @@ func NewRateLimitsListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Ra
 }
 
 func (l *RateLimitsListLogic) RateLimitsList(req *types.RateLimitsListRequest) (resp *types.RateLimitsListResponse, err error) {
-	resource := strings.TrimSpace(req.Resource)
-	limits, err := l.svcCtx.RateLimitModel.List(l.ctx, resource)
-	if err != nil {
-		return nil, err
-	}
+	// todo: add your logic here and delete this line
 
-	resp = &types.RateLimitsListResponse{
-		Items: make([]types.RateLimit, 0, len(limits)),
-	}
-	for i := range limits {
-		resp.Items = append(resp.Items, buildRateLimitResponse(&limits[i]))
-	}
-	return resp, nil
+	return
 }

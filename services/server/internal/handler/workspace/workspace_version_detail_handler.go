@@ -1,3 +1,6 @@
+// Code scaffolded by goctl. Safe to edit.
+// goctl 1.9.2
+
 package workspace
 
 import (
@@ -5,32 +8,25 @@ import (
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/workspace"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
+	"github.com/cuihairu/croupier/services/server/internal/types"
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
-type workspaceVersionDetailRequest struct {
-	ObjectKey string `path:"objectKey"`
-	VersionID string `path:"versionId"`
-}
-
+// 获取 Workspace 单个版本详情
 func WorkspaceVersionDetailHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req workspaceVersionDetailRequest
-		if err := requireWorkspacePermission(r.Context(), svcCtx, "read"); err != nil {
-			writeWorkspaceError(w, r, err, "versions_detail")
-			return
-		}
+		var req types.WorkspaceVersionDetailRequest
 		if err := httpx.Parse(r, &req); err != nil {
-			writeWorkspaceError(w, r, err, "versions_detail")
+			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
 
-		l := workspace.NewWorkspaceVersionsLogic(r.Context(), svcCtx)
-		item, err := l.Detail(req.ObjectKey, req.VersionID)
+		l := workspace.NewWorkspaceVersionDetailLogic(r.Context(), svcCtx)
+		resp, err := l.WorkspaceVersionDetail(&req)
 		if err != nil {
-			writeWorkspaceError(w, r, err, "versions_detail")
-			return
+			httpx.ErrorCtx(r.Context(), w, err)
+		} else {
+			httpx.OkJsonCtx(r.Context(), w, resp)
 		}
-		httpx.OkJsonCtx(r.Context(), w, item)
 	}
 }

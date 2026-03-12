@@ -27,17 +27,8 @@ func NewMessagesUnreadCountLogic(ctx context.Context, svcCtx *svc.ServiceContext
 	}
 }
 
-func (l *MessagesUnreadCountLogic) MessagesUnreadCount(req *types.MessagesUnreadCountRequest) (*types.MessagesUnreadCountResponse, error) {
-	count, err := l.svcCtx.MessageModel.CountUnread(l.ctx, "")
-	if err != nil {
-		return nil, err
-	}
+func (l *MessagesUnreadCountLogic) MessagesUnreadCount(req *types.MessagesUnreadCountRequest) (resp *types.MessagesUnreadCountResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	return &types.MessagesUnreadCountResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"count": count,
-		},
-	}, nil
+	return
 }

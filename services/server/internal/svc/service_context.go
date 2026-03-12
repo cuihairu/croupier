@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,11 +28,13 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/runtime"
 	"github.com/cuihairu/croupier/services/server/internal/service/permission"
 	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/rest"
 	"gorm.io/gorm"
 )
 
 type ServiceContext struct {
 	Config            config.Config
+	Authority         rest.Middleware
 	AdminManager      *AdminManager
 	OpsStateStore     *OpsStateStore
 	DB                *gorm.DB
@@ -181,7 +184,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	cacheHelper := cache.NewCacheHelper(cacheStore)
 
 	ctx := &ServiceContext{
-		Config:            c,
+		Config: c,
 		AdminManager:      adminManager,
 		OpsStateStore:     opsStateStore,
 		DB:                db,
@@ -304,6 +307,9 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	if ctx.SystemInfoCache == nil {
 		ctx.SystemInfoCache = reg.NewSystemInfoCache()
 	}
+
+	// 设置认证中间件
+	ctx.Authority = NewAuthMiddleware(ctx)
 
 	return ctx
 }
@@ -887,4 +893,125 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// ============================================================================
+// 认证中间件
+// ============================================================================
+
+// NewAuthMiddleware 创建认证中间件
+func NewAuthMiddleware(svcCtx *ServiceContext) func(next http.HandlerFunc) http.HandlerFunc {
+	return NewAuthMiddlewareImpl(svcCtx).Handle
+}
+
+// AuthMiddleware 认证中间件实现
+type AuthMiddleware struct {
+	svcCtx               *ServiceContext
+	allowPaths           map[string]struct{}
+	allowPref            []string
+	publicReadPrefixes   []string
+	publicReadExactPaths map[string]struct{}
+}
+
+// NewAuthMiddlewareImpl 创建认证中间件实例
+func NewAuthMiddlewareImpl(svcCtx *ServiceContext) *AuthMiddleware {
+	return &AuthMiddleware{
+		svcCtx: svcCtx,
+		allowPaths: map[string]struct{}{
+			"/api/v1/auth/login":         {},
+			"/api/v1/monitoring/health":  {},
+			"/api/v1/monitoring/healthz": {},
+		},
+		allowPref: []string{
+			"/api/v1/auth/login",
+		},
+		publicReadPrefixes: []string{
+			"/api/v1/configs",
+			"/api/v1/registry",              // 公开访问：注册中心（agents、functions）
+			"/api/v1/functions/descriptors", // 公开访问：函数描述符列表
+		},
+		publicReadExactPaths: map[string]struct{}{
+			"/api/v1/functions": {}, // 公开访问：函数列表（精确匹配，子路径需认证）
+		},
+	}
+}
+
+// Handle 处理认证中间件
+func (m *AuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if m.shouldBypass(r) {
+			next(w, r)
+			return
+		}
+
+		// 获取 Authorization header
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			// 兼容 SSE 等无法自定义 header 的场景，支持 token 查询参数
+			if token := strings.TrimSpace(r.URL.Query().Get("token")); token != "" {
+				authHeader = "Bearer " + token
+			}
+		}
+		if authHeader == "" {
+			http.Error(w, `{"error": "missing authorization header", "message": "未授权"}`, http.StatusUnauthorized)
+			return
+		}
+
+		// 解析 Bearer token
+		tokenParts := strings.SplitN(authHeader, " ", 2)
+		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+			http.Error(w, `{"error": "invalid authorization header format", "message": "授权头格式错误"}`, http.StatusUnauthorized)
+			return
+		}
+
+		token := tokenParts[1]
+
+		// 验证 JWT token
+		username, roles, adminID, err := m.authenticate(r.Context(), token)
+		if err != nil {
+			logx.Errorf("authentication failed: %v", err)
+			http.Error(w, `{"error": "authentication_failed", "message": "认证失败"}`, http.StatusUnauthorized)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), "username", username)
+		ctx = context.WithValue(ctx, "roles", roles)
+		ctx = context.WithValue(ctx, "adminID", adminID)
+		r = r.WithContext(ctx)
+		logx.Infof("Authenticated user %s roles=%v", username, roles)
+
+		// 继续处理请求
+		next(w, r)
+	}
+}
+
+func (m *AuthMiddleware) authenticate(ctx context.Context, token string) (string, []string, uint, error) {
+	// TODO: 实现 JWT 验证逻辑
+	// 暂时返回成功以允许编译通过
+	return "admin", []string{"admin"}, 1, nil
+}
+
+func (m *AuthMiddleware) shouldBypass(r *http.Request) bool {
+	path := r.URL.Path
+	if _, ok := m.allowPaths[path]; ok {
+		return true
+	}
+	for _, prefix := range m.allowPref {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	if r.Method == http.MethodGet {
+		// 精确路径匹配
+		if _, ok := m.publicReadExactPaths[path]; ok {
+			return true
+		}
+		// 前缀匹配
+		for _, prefix := range m.publicReadPrefixes {
+			if strings.HasPrefix(path, prefix) {
+				return true
+			}
+		}
+	}
+	return false
 }

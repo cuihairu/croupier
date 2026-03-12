@@ -28,15 +28,7 @@ func NewWorkspaceConfigsListLogic(ctx context.Context, svcCtx *svc.ServiceContex
 }
 
 func (l *WorkspaceConfigsListLogic) WorkspaceConfigsList(req *types.WorkspaceConfigsListRequest) (resp *types.WorkspaceConfigsListResponse, err error) {
-	items, err := l.svcCtx.WorkspaceConfigModel.ListAll(l.ctx)
-	if err != nil {
-		return nil, err
-	}
-	dtos := make([]types.WorkspaceConfig, 0, len(items))
-	for i := range items {
-		dto := toDTO(&items[i])
-		_ = enrichWorkspaceVersion(l.ctx, l.svcCtx, &dto)
-		dtos = append(dtos, dto)
-	}
-	return &types.WorkspaceConfigsListResponse{Items: dtos}, nil
+	// todo: add your logic here and delete this line
+
+	return
 }

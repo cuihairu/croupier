@@ -5,7 +5,6 @@ package function
 
 import (
 	"context"
-	"errors"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -29,17 +28,7 @@ func NewFunctionDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Fu
 }
 
 func (l *FunctionDeleteLogic) FunctionDelete(req *types.FunctionActionRequest) error {
-	// 1. Validate request
-	if req.ID == "" {
-		return errors.New("function id is required")
-	}
+	// todo: add your logic here and delete this line
 
-	// 2. Call model layer to delete function
-	err := l.svcCtx.FunctionModel.DeleteFunction(l.ctx, req.ID)
-	if err != nil {
-		return err
-	}
-
-	// 3. Return success (no error)
 	return nil
 }

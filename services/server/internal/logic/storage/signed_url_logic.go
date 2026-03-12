@@ -5,9 +5,6 @@ package storage
 
 import (
 	"context"
-	"errors"
-	"strings"
-	"time"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
@@ -30,38 +27,8 @@ func NewSignedUrlLogic(ctx context.Context, svcCtx *svc.ServiceContext) *SignedU
 	}
 }
 
-func (l *SignedUrlLogic) SignedUrl(req *types.SignedUrlRequest) (*types.SignedUrlResponse, error) {
-	if l.svcCtx.ObjectStore == nil {
-		return nil, errors.New("对象存储未配置")
-	}
-	if req == nil {
-		return nil, errors.New("缺少请求参数")
-	}
+func (l *SignedUrlLogic) SignedUrl(req *types.SignedUrlRequest) (resp *types.SignedUrlResponse, err error) {
+	// todo: add your logic here and delete this line
 
-	key := strings.TrimSpace(req.Path)
-	if key == "" {
-		return nil, errors.New("path 参数不能为空")
-	}
-
-	expiry := time.Duration(req.Expire) * time.Second
-	url, err := l.svcCtx.ObjectStore.SignedURL(l.ctx, key, httpMethodGet, expiry)
-	if err != nil {
-		return nil, err
-	}
-
-	data := map[string]interface{}{
-		"path": key,
-		"url":  url,
-	}
-	if req.Expire > 0 {
-		data["expiresIn"] = req.Expire
-	}
-
-	return &types.SignedUrlResponse{
-		Code:    0,
-		Message: "OK",
-		Data:    data,
-	}, nil
+	return
 }
-
-const httpMethodGet = "GET"
