@@ -46,6 +46,7 @@ import (
 	routes "github.com/cuihairu/croupier/services/server/internal/handler/routes"
 	schema "github.com/cuihairu/croupier/services/server/internal/handler/schema"
 	storage "github.com/cuihairu/croupier/services/server/internal/handler/storage"
+	terms "github.com/cuihairu/croupier/services/server/internal/handler/terms"
 	ticket "github.com/cuihairu/croupier/services/server/internal/handler/ticket"
 	workspace "github.com/cuihairu/croupier/services/server/internal/handler/workspace"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
@@ -1735,6 +1736,33 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.Authority},
+			[]rest.Route{
+				{
+					// 获取术语列表
+					Method:  http.MethodGet,
+					Path:    "/terms",
+					Handler: terms.TermsListHandler(serverCtx),
+				},
+				{
+					// 创建/更新术语
+					Method:  http.MethodPut,
+					Path:    "/terms",
+					Handler: terms.TermUpsertHandler(serverCtx),
+				},
+				{
+					// 删除术语
+					Method:  http.MethodDelete,
+					Path:    "/terms",
+					Handler: terms.TermDeleteHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/api/v1"),
+	)
+
+	server.AddRoutes(
 		[]rest.Route{
 			{
 				// 获取工单列表
@@ -1815,22 +1843,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: workspace.WorkspacePublishHandler(serverCtx),
 			},
 			{
+				// 回滚 Workspace 到指定版本
+				Method:  http.MethodPost,
+				Path:    "/:objectKey/rollback",
+				Handler: workspace.WorkspaceRollbackHandler(serverCtx),
+			},
+			{
 				// 取消发布 Workspace 配置
 				Method:  http.MethodPost,
 				Path:    "/:objectKey/unpublish",
 				Handler: workspace.WorkspaceUnpublishHandler(serverCtx),
-			},
-			{
-				// 获取所有 Workspace 配置列表
-				Method:  http.MethodGet,
-				Path:    "/configs",
-				Handler: workspace.WorkspaceConfigsListHandler(serverCtx),
-			},
-			{
-				// 获取已发布的 Workspace 配置列表
-				Method:  http.MethodGet,
-				Path:    "/published",
-				Handler: workspace.WorkspacePublishedListHandler(serverCtx),
 			},
 			{
 				// 获取 Workspace 版本列表
@@ -1845,10 +1867,16 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Handler: workspace.WorkspaceVersionDetailHandler(serverCtx),
 			},
 			{
-				// 回滚 Workspace 到指定版本
-				Method:  http.MethodPost,
-				Path:    "/:objectKey/rollback",
-				Handler: workspace.WorkspaceRollbackHandler(serverCtx),
+				// 获取所有 Workspace 配置列表
+				Method:  http.MethodGet,
+				Path:    "/configs",
+				Handler: workspace.WorkspaceConfigsListHandler(serverCtx),
+			},
+			{
+				// 获取已发布的 Workspace 配置列表
+				Method:  http.MethodGet,
+				Path:    "/published",
+				Handler: workspace.WorkspacePublishedListHandler(serverCtx),
 			},
 		},
 		rest.WithPrefix("/api/v1/workspaces"),

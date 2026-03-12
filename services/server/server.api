@@ -58,6 +58,7 @@ import "modules/certificate.api"
 import "modules/storage.api"
 // === UI 相关模块 ===
 import "modules/meta.api"
+import "modules/terms.api"
 // === Workspace 模块 ===
 import "modules/workspace.api"
 // === 第三方平台集成模块 ===

@@ -2996,6 +2996,46 @@ type StreamMessagesResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+type TermDeleteRequest struct {
+	Domain string `json:"domain"` // entity | operation
+	Alias  string `json:"alias"`  // 要删除的别名
+}
+
+type TermDeleteResponse struct {
+	Ok bool `json:"ok"`
+}
+
+type TermItem struct {
+	Id        int64  `json:"id,optional"`
+	Domain    string `json:"domain"`              // entity | operation
+	TermKey   string `json:"term_key"`            // 原始术语键
+	Alias     string `json:"alias"`               // 别名
+	DisplayZh string `json:"display_zh,optional"` // 中文显示
+	DisplayEn string `json:"display_en,optional"` // 英文显示
+	Order     int64  `json:"order,optional"`      // 排序
+}
+
+type TermUpsertRequest struct {
+	Domain    string `json:"domain"`              // entity | operation
+	TermKey   string `json:"term_key"`            // 原始术语键
+	Alias     string `json:"alias"`               // 别名
+	DisplayZh string `json:"display_zh,optional"` // 中文显示
+	DisplayEn string `json:"display_en,optional"` // 英文显示
+	Order     int64  `json:"order,optional"`      // 排序
+}
+
+type TermUpsertResponse struct {
+	Ok bool `json:"ok"`
+}
+
+type TermsListRequest struct {
+	Domain string `json:"domain,optional"` // entity | operation
+}
+
+type TermsListResponse struct {
+	Items []TermItem `json:"items,optional"`
+}
+
 type Ticket struct {
 	Id        int64    `json:"id"`
 	Title     string   `json:"title"`
@@ -3178,6 +3218,16 @@ type WorkspacePublishedListResponse struct {
 	Items []WorkspaceConfig `json:"items"`
 }
 
+type WorkspaceRollbackRequest struct {
+	ObjectKey string `path:"objectKey"`
+	VersionId string `json:"versionId"`
+}
+
+type WorkspaceRollbackResponse struct {
+	ObjectKey string `json:"objectKey"`
+	Version   int    `json:"version"`
+}
+
 type WorkspaceUnpublishRequest struct {
 	ObjectKey string `path:"objectKey"`
 }
@@ -3187,65 +3237,35 @@ type WorkspaceUnpublishResponse struct {
 	ObjectKey string `json:"objectKey"`
 }
 
-// Migration types
-
-type MigrationResult struct {
-	MigrationName string `json:"migrationName"`
-	Direction     string `json:"direction"` // up, down
-	Status        string `json:"status"`    // pending, success, failed
-	Duration      string `json:"duration"`  // execution time in ms
-	SQL           string `json:"sql"`       // executed SQL
-	DryRun        bool   `json:"dryRun"`    // whether this was a dry run
-	Error         string `json:"error,omitempty"`
+type WorkspaceVersionDetailRequest struct {
+	ObjectKey string `path:"objectKey"`
+	VersionId string `path:"versionId"`
 }
 
-type MigrationHistory struct {
-	Items []MigrationResult `json:"items"`
-	Total int64             `json:"total"`
-	Page  int               `json:"page"`
-	Size  int               `json:"pageSize"`
+type WorkspaceVersionDetailResponse struct {
+	WorkspaceVersionRecord
 }
 
-type MigrateUpRequest struct {
-	Force bool `json:"force,optional"` // force run even if already applied
-	Step  int  `json:"step,optional"`  // specific step to run (-1 for all)
+type WorkspaceVersionRecord struct {
+	Id                 string      `json:"id"`
+	ObjectKey          string      `json:"objectKey"`
+	Version            int         `json:"version"`
+	Config             interface{} `json:"config"`
+	IsCurrentDraft     bool        `json:"isCurrentDraft,optional"`
+	IsCurrentPublished bool        `json:"isCurrentPublished,optional"`
+	CreatedAt          string      `json:"createdAt,omitempty"`
+	CreatedBy          string      `json:"createdBy,omitempty"`
+	Comment            string      `json:"comment,omitempty"`
 }
 
-type MigrateUpResponse struct {
-	Success bool              `json:"success"`
-	Message string            `json:"message"`
-	Results []MigrationResult `json:"results,omitempty"`
+type WorkspaceVersionsRequest struct {
+	ObjectKey string `path:"objectKey"`
+	From      string `form:"from,optional"`
+	To        string `form:"to,optional"`
 }
 
-type MigrateDownRequest struct {
-	Target string `json:"target,optional"` // specific version to migrate to
-	Force  bool   `json:"force,optional"`  // force run even if already applied
-}
-
-type MigrateDownResponse struct {
-	Success bool              `json:"success"`
-	Message string            `json:"message"`
-	Results []MigrationResult `json:"results,omitempty"`
-}
-
-type MigrationHistoryRequest struct {
-	Page     int    `form:"page,optional,default=1"`
-	PageSize int    `form:"pageSize,optional,default=20"`
-	Status   string `form:"status,optional"`
-}
-
-type MigrationHistoryResponse struct {
-	Items []MigrationResult `json:"items"`
-	Total int64             `json:"total"`
-	Page  int               `json:"page"`
-	Size  int               `json:"pageSize"`
-}
-
-type MigrationStatusRequest struct {
-}
-
-type MigrationStatusResponse struct {
-	LatestVersion string            `json:"latestVersion"`
-	PendingCount  int               `json:"pendingCount"`
-	HistoryItems  []MigrationResult `json:"historyItems,omitempty"`
+type WorkspaceVersionsResponse struct {
+	Items                   []WorkspaceVersionRecord `json:"items"`
+	CurrentDraftVersion     int                      `json:"currentDraftVersion,optional"`
+	CurrentPublishedVersion int                      `json:"currentPublishedVersion,optional"`
 }
