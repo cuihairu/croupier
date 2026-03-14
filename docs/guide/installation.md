@@ -23,7 +23,7 @@ tag:
 
 | 组件 | 最低版本 | 推荐版本 |
 |------|----------|----------|
-| Go | 1.25 | 1.25+ |
+| Go | 1.26 | 1.26+ |
 | Node.js | 22 | 22+ |
 | pnpm | 10 | 10.22+ |
 | buf | - | latest |
@@ -55,8 +55,8 @@ go version
 
 ```bash
 # 下载并安装
-wget https://go.dev/dl/go1.25.0.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.25.0.linux-amd64.tar.gz
+wget https://go.dev/dl/go1.26.1.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.26.1.linux-amd64.tar.gz
 
 # 配置 PATH
 echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
@@ -272,7 +272,7 @@ make test-integration
 <details>
 <summary>Go 版本不兼容</summary>
 
-确保 Go 版本为 1.25 或更高：
+确保 Go 版本为 1.26 或更高：
 ```bash
 go version
 ```

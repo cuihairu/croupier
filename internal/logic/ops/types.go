@@ -137,7 +137,7 @@ type OpsExecResult struct {
 type OpsCpuMetrics struct {
 	Usage        float64   `json:"usage"`
 	CoreCount    int32     `json:"cores"`
-	Cores        int32     `json:"cores"`
+	Cores        int32     `json:"-"`
 	UsagePercent float64   `json:"usagePercent"`
 	Load1M       float64   `json:"load1m"`
 	Load5M       float64   `json:"load5m"`
@@ -703,7 +703,7 @@ type OpsManagedProcess struct {
 	CPUPercent   float64 `json:"cpuPercent"`
 	WorkingDir   string  `json:"workingDir"`
 	State        string  `json:"state"`
-	Pid          int32   `json:"pid"`
+	Pid          int32   `json:"-"`
 	RestartCount int32   `json:"restartCount"`
 	LastStart    string  `json:"lastStart"`
 }

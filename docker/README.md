@@ -129,7 +129,7 @@ REDIS_URL=redis://host:6379/0
 CLICKHOUSE_DSN=clickhouse://host:9000/analytics
 
 # 镜像版本
-GO_IMAGE=golang:1.25
+GO_IMAGE=golang:1.26.1
 POSTGRES_IMAGE=postgres:15-alpine
 REDIS_IMAGE=redis:7-alpine
 

@@ -39,6 +39,7 @@ configs/ops_state.json
 
 # Logs
 logs/
+.tmp/
 
 # IDE
 .idea/
