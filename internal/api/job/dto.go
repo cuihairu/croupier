@@ -4,6 +4,10 @@ type JobCancelRequest struct {
 	ID string `uri:"id"` // 任务ID
 }
 
+type JobCancelBodyRequest struct {
+	ID string `json:"id"`
+}
+
 type JobCancelResponse struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`

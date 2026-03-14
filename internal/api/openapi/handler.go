@@ -71,3 +71,18 @@ func (h *Handler) GetDocument(c *gin.Context) {
 	}
 	response.Success(c, resp)
 }
+
+func (h *Handler) BatchGetSpec(c *gin.Context) {
+	var req BatchGetSpecRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	resp, err := h.service.BatchGetSpec(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}

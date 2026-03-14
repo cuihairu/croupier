@@ -295,6 +295,8 @@ http://server:8080/api/v1
 |------|------|
 | POST | /api/v1/auth/login |
 | POST | /api/v1/auth/logout |
+| POST | /api/v1/auth/check |
+| POST | /api/v1/auth/check/batch |
 
 #### backup
 
@@ -396,11 +398,24 @@ http://server:8080/api/v1
 | POST | /api/v1/functions/batch-update |
 | POST | /api/v1/functions/batch-copy |
 | POST | /api/v1/functions/batch-delete |
+| POST | /api/v1/functions/_openapi-batch |
+
+#### function-call
+
+| 方法 | 路径 |
+|------|------|
+| GET | /api/v1/function-calls |
+| GET | /api/v1/function-calls/:id |
+| GET | /api/v1/function-calls/stats |
+| POST | /api/v1/function-calls/:id/rerun |
+| POST | /api/v1/function-calls/:id/cancel |
 
 #### game
 
 | 方法 | 路径 |
 |------|------|
+| GET | /api/v1/games |
+| POST | /api/v1/games |
 | GET | /api/v1/games/ |
 | POST | /api/v1/games/ |
 | GET | /api/v1/games/:id |
@@ -582,6 +597,7 @@ http://server:8080/api/v1
 | 方法 | 路径 |
 |------|------|
 | GET | /api/v1/registry/ |
+| GET | /api/v1/registry/services |
 
 #### routes
 
@@ -733,6 +749,13 @@ curl -X POST http://server:8080/api/v1/auth/login \
 curl http://server:8080/api/v1/functions/descriptors \
   -H "Authorization: Bearer <token>"
 ```
+
+## 兼容性说明
+
+- `/api/v1/games` 与 `/api/v1/games/` 现均可访问，供 Dashboard 兼容调用。
+- `/api/v1/function-calls*` 当前是基于 `jobs` 的兼容视图，优先用于消除 refactor 后的前端 404。
+- `/api/v1/function-calls/:id/rerun` 当前返回“暂不支持从调用历史重跑”，不会伪造重跑结果。
+- `/api/v1/auth/check` 与 `/api/v1/auth/check/batch` 使用当前登录管理员在数据库中的角色与权限进行校验。
 
 ---
 

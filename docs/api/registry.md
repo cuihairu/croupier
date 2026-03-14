@@ -32,3 +32,26 @@ type RegistryResponse struct {
 }
 ```
 
+### 2. "获取注册服务列表"
+
+1. route definition
+
+- Url: /api/v1/registry/services
+- Method: GET
+- Auth: Bearer Token
+- Response: `OpsServicesResponse`
+
+2. response definition
+
+```golang
+type OpsServicesResponse struct {
+	Services []OpsServiceItem `json:"services"`
+	Total    int              `json:"total"`
+}
+```
+
+### 说明
+
+- `/api/v1/registry/services` 是给 Dashboard 使用的兼容快捷路由，当前复用 `ops.Services` 的实现。
+- 若需要完整注册表视图，仍优先使用 `/api/v1/registry`。
+

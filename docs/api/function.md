@@ -632,3 +632,32 @@ type FunctionsPendingResponse struct {
 }
 ```
 
+### 21. "批量获取函数 OpenAPI"
+
+1. route definition
+
+- Url: /api/v1/functions/_openapi-batch
+- Method: POST
+- Request: `BatchGetSpecRequest`
+- Response: `map[string]interface{}`
+
+2. request definition
+
+```golang
+type BatchGetSpecRequest struct {
+	FunctionIDs []string `json:"function_ids"`
+}
+```
+
+3. response definition
+
+```golang
+// key 为 function id，value 为对应的 OpenAPI Operation；未找到时返回 null
+map[string]interface{}
+```
+
+### 说明
+
+- 该接口用于 Dashboard 批量读取函数 OpenAPI，避免逐个请求。
+- 当前返回值直接透传注册表中的 OpenAPI operation 对象。
+

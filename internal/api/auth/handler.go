@@ -43,3 +43,45 @@ func (h *Handler) Logout(c *gin.Context) {
 
 	response.Success(c, resp)
 }
+
+func (h *Handler) Check(c *gin.Context) {
+	username, ok := c.Get("username")
+	if !ok {
+		response.Unauthorized(c, "未授权")
+		return
+	}
+
+	var req CheckRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+
+	resp, err := h.service.Check(c.Request.Context(), username.(string), &req)
+	if err != nil {
+		response.InternalServerError(c, err.Error())
+		return
+	}
+	response.Success(c, resp)
+}
+
+func (h *Handler) BatchCheck(c *gin.Context) {
+	username, ok := c.Get("username")
+	if !ok {
+		response.Unauthorized(c, "未授权")
+		return
+	}
+
+	var req BatchCheckRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+
+	resp, err := h.service.BatchCheck(c.Request.Context(), username.(string), &req)
+	if err != nil {
+		response.InternalServerError(c, err.Error())
+		return
+	}
+	response.Success(c, resp)
+}

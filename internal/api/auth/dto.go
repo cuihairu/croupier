@@ -24,3 +24,23 @@ type LogoutRequest struct{}
 
 // LogoutResponse 登出响应
 type LogoutResponse struct{}
+
+type CheckRequest struct {
+	Resource string `json:"resource" binding:"required"`
+	Action   string `json:"action" binding:"required"`
+	GameID   string `json:"gameId"`
+	Env      string `json:"env"`
+}
+
+type CheckResponse struct {
+	Allowed bool   `json:"allowed"`
+	Reason  string `json:"reason,omitempty"`
+}
+
+type BatchCheckRequest struct {
+	Checks []CheckRequest `json:"checks" binding:"required"`
+}
+
+type BatchCheckResponse struct {
+	Results []CheckResponse `json:"results"`
+}

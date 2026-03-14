@@ -68,3 +68,64 @@ type LogoutResponse struct {
 }
 ```
 
+### 3. "权限校验"
+
+1. route definition
+
+- Url: /api/v1/auth/check
+- Method: POST
+- Auth: Bearer Token
+- Request: `CheckRequest`
+- Response: `CheckResponse`
+
+2. request definition
+
+```golang
+type CheckRequest struct {
+	Resource string `json:"resource"` // 例如 roles、games、functions
+	Action   string `json:"action"`   // 例如 read、write、manage
+	GameID   string `json:"gameId,omitempty"`
+	Env      string `json:"env,omitempty"`
+}
+```
+
+3. response definition
+
+```golang
+type CheckResponse struct {
+	Allowed bool   `json:"allowed"`
+	Reason  string `json:"reason,omitempty"`
+}
+```
+
+### 4. "批量权限校验"
+
+1. route definition
+
+- Url: /api/v1/auth/check/batch
+- Method: POST
+- Auth: Bearer Token
+- Request: `BatchCheckRequest`
+- Response: `BatchCheckResponse`
+
+2. request definition
+
+```golang
+type BatchCheckRequest struct {
+	Checks []CheckRequest `json:"checks"`
+}
+```
+
+3. response definition
+
+```golang
+type BatchCheckResponse struct {
+	Results []CheckResponse `json:"results"`
+}
+```
+
+### 说明
+
+- 校验基于当前登录用户在数据库中的角色和权限，不依赖前端缓存。
+- `gameId` 与 `env` 字段当前保留用于兼容前端请求结构，现阶段权限判断主要按资源和动作执行。
+

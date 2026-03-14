@@ -165,6 +165,23 @@ func (s *Service) GetDocument(ctx context.Context, req *GetDocumentRequest) (*Ge
 	}, nil
 }
 
+func (s *Service) BatchGetSpec(ctx context.Context, req *BatchGetSpecRequest) (BatchGetSpecResponse, error) {
+	resp := make(BatchGetSpecResponse, len(req.FunctionIDs))
+	for _, id := range req.FunctionIDs {
+		functionID := strings.TrimSpace(id)
+		if functionID == "" {
+			continue
+		}
+		spec, err := s.svcCtx.RegistryStore.GetOpenAPI(functionID)
+		if err != nil {
+			resp[functionID] = nil
+			continue
+		}
+		resp[functionID] = spec
+	}
+	return resp, nil
+}
+
 // normalizeOpenAPIDoc patches common non-critical gaps from external OpenAPI docs
 // so import stays resilient (e.g. response description omitted by third-party generators).
 func normalizeOpenAPIDoc(doc *openapi3.T) {

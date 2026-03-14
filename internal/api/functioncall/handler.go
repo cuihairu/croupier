@@ -1,4 +1,4 @@
-package job
+package functioncall
 
 import (
 	"github.com/cuihairu/croupier/internal/common/response"
@@ -13,14 +13,12 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
-// List handles the request to list jobs
 func (h *Handler) List(c *gin.Context) {
-	var req JobListRequest
+	var req ListRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Error(c, err)
 		return
 	}
-
 	resp, err := h.service.List(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
@@ -29,15 +27,13 @@ func (h *Handler) List(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// Start handles the request to start a job
-func (h *Handler) Start(c *gin.Context) {
-	var req JobStartRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+func (h *Handler) Detail(c *gin.Context) {
+	var req DetailRequest
+	if err := c.ShouldBindUri(&req); err != nil {
 		response.Error(c, err)
 		return
 	}
-
-	resp, err := h.service.Start(c.Request.Context(), &req)
+	resp, err := h.service.Detail(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -45,14 +41,12 @@ func (h *Handler) Start(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// Cancel handles the request to cancel a job
 func (h *Handler) Cancel(c *gin.Context) {
-	var req JobCancelRequest
+	var req DetailRequest
 	if err := c.ShouldBindUri(&req); err != nil {
 		response.Error(c, err)
 		return
 	}
-
 	if err := h.service.Cancel(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
 		return
@@ -60,29 +54,13 @@ func (h *Handler) Cancel(c *gin.Context) {
 	response.Success(c, gin.H{"message": "操作成功"})
 }
 
-func (h *Handler) CancelByBody(c *gin.Context) {
-	var req JobCancelBodyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+func (h *Handler) Stats(c *gin.Context) {
+	var req ListRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Error(c, err)
 		return
 	}
-
-	if err := h.service.Cancel(c.Request.Context(), &JobCancelRequest{ID: req.ID}); err != nil {
-		response.Error(c, err)
-		return
-	}
-	response.Success(c, gin.H{"message": "操作成功"})
-}
-
-// Result handles the request to get job result
-func (h *Handler) Result(c *gin.Context) {
-	var req JobResultRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
-
-	resp, err := h.service.Result(c.Request.Context(), &req)
+	resp, err := h.service.Stats(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
 		return
@@ -90,15 +68,17 @@ func (h *Handler) Result(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// Stream handles the request to stream job events
-func (h *Handler) Stream(c *gin.Context) {
-	var req StreamJobRequest
+func (h *Handler) Rerun(c *gin.Context) {
+	var req RerunRequest
 	if err := c.ShouldBindUri(&req); err != nil {
 		response.Error(c, err)
 		return
 	}
-
-	resp, err := h.service.Stream(c.Request.Context(), &req)
+	if err := c.ShouldBindJSON(&req); err != nil && c.Request.ContentLength > 0 {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.Rerun(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
 		return

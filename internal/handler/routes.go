@@ -19,6 +19,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/faq"
 	"github.com/cuihairu/croupier/internal/api/feedback"
 	"github.com/cuihairu/croupier/internal/api/function"
+	"github.com/cuihairu/croupier/internal/api/functioncall"
 	"github.com/cuihairu/croupier/internal/api/game"
 	"github.com/cuihairu/croupier/internal/api/job"
 	"github.com/cuihairu/croupier/internal/api/message"
@@ -27,18 +28,21 @@ import (
 	"github.com/cuihairu/croupier/internal/api/openapi"
 	"github.com/cuihairu/croupier/internal/api/ops"
 	"github.com/cuihairu/croupier/internal/api/pack"
+	"github.com/cuihairu/croupier/internal/api/permission"
 	"github.com/cuihairu/croupier/internal/api/platform"
 	"github.com/cuihairu/croupier/internal/api/player"
 	"github.com/cuihairu/croupier/internal/api/profile"
 	"github.com/cuihairu/croupier/internal/api/provider"
 	"github.com/cuihairu/croupier/internal/api/rate_limit"
 	"github.com/cuihairu/croupier/internal/api/registry"
+	"github.com/cuihairu/croupier/internal/api/role"
 	"github.com/cuihairu/croupier/internal/api/routes"
 	"github.com/cuihairu/croupier/internal/api/schema"
 	"github.com/cuihairu/croupier/internal/api/storage"
 	"github.com/cuihairu/croupier/internal/api/terms"
 	"github.com/cuihairu/croupier/internal/api/ticket"
 	"github.com/cuihairu/croupier/internal/api/workspace"
+	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
 
 	"github.com/gin-gonic/gin"
 )
@@ -59,6 +63,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	{
 		registerAdminRoutes(protected.Group("/admin"), serverCtx)
 		registerFunctionRoutes(protected.Group("/functions"), serverCtx)
+		registerFunctionCallRoutes(protected.Group("/function-calls"), serverCtx)
 		registerGameRoutes(protected.Group("/games"), serverCtx)
 		registerJobRoutes(protected.Group("/jobs"), serverCtx)
 		registerNodeRoutes(protected.Group("/nodes"), serverCtx)
@@ -80,11 +85,13 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerFeedbackRoutes(protected.Group("/feedback"), serverCtx)
 		registerMessageRoutes(protected.Group("/messages"), serverCtx)
 		registerPackRoutes(protected.Group("/packs"), serverCtx)
+		registerPermissionRoutes(protected.Group("/permissions"), serverCtx)
 		registerPlatformRoutes(protected.Group("/platforms"), serverCtx)
 		registerPlayerRoutes(protected.Group("/players"), serverCtx)
 		registerProfileRoutes(protected.Group("/profile"), serverCtx)
 		registerProviderRoutes(protected.Group("/providers"), serverCtx)
 		registerRateLimitRoutes(protected.Group("/rate-limits"), serverCtx)
+		registerRoleRoutes(protected.Group("/roles"), serverCtx)
 		registerSchemaRoutes(protected.Group("/schemas"), serverCtx)
 		registerTermsRoutes(protected.Group("/terms"), serverCtx)
 		registerTicketRoutes(protected.Group("/tickets"), serverCtx)
@@ -92,14 +99,17 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 
 		// 兼容前端的快捷路由
 		registerPermissionsShortcutRoute(protected, serverCtx)
+		registerRegistryShortcutRoutes(protected, serverCtx)
 	}
 }
 
 func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
-	authSvc := auth.NewService(ctx.AdminModel)
+	authSvc := auth.NewService(ctx.AdminModel, permissionservice.NewPermissionService(ctx.DB))
 	authHandler := auth.NewHandler(authSvc)
 	g.POST("/login", authHandler.Login)
 	g.POST("/logout", authHandler.Logout)
+	g.POST("/check", ctx.Authority, authHandler.Check)
+	g.POST("/check/batch", ctx.Authority, authHandler.BatchCheck)
 }
 
 func registerMetaRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
@@ -111,7 +121,9 @@ func registerMetaRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerAdminRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	adminSvc := admin.NewService(ctx)
 	adminHandler := admin.NewHandler(adminSvc)
+	g.GET("", adminHandler.List)
 	g.GET("/", adminHandler.List)
+	g.POST("", adminHandler.Create)
 	g.POST("/", adminHandler.Create)
 	g.GET("/:id", adminHandler.Get)
 	g.PUT("/:id", adminHandler.Update)
@@ -135,6 +147,7 @@ func registerFunctionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	functionHandler := function.NewHandler(functionSvc)
 
 	// 基础 CRUD
+	g.GET("", functionHandler.List)
 	g.GET("/", functionHandler.List)
 	g.GET("/:id", functionHandler.Detail)
 	g.DELETE("/:id", functionHandler.Delete)
@@ -181,6 +194,17 @@ func registerFunctionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/warnings", functionHandler.Warnings)
 }
 
+func registerFunctionCallRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	functionCallSvc := functioncall.NewService(ctx)
+	functionCallHandler := functioncall.NewHandler(functionCallSvc)
+	g.GET("", functionCallHandler.List)
+	g.GET("/", functionCallHandler.List)
+	g.GET("/stats", functionCallHandler.Stats)
+	g.GET("/:id", functionCallHandler.Detail)
+	g.POST("/:id/rerun", functionCallHandler.Rerun)
+	g.POST("/:id/cancel", functionCallHandler.Cancel)
+}
+
 // ============================================================================
 // Game 路由注册
 // ============================================================================
@@ -189,7 +213,9 @@ func registerGameRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	gameHandler := game.NewHandler(gameSvc)
 
 	// 基础 CRUD
+	g.GET("", gameHandler.List)
 	g.GET("/", gameHandler.List)
+	g.POST("", gameHandler.Create)
 	g.POST("/", gameHandler.Create)
 	g.GET("/:id", gameHandler.Detail)
 	g.PUT("/:id", gameHandler.Update)
@@ -208,8 +234,11 @@ func registerGameRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerJobRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	jobSvc := job.NewService(ctx)
 	jobHandler := job.NewHandler(jobSvc)
+	g.GET("", jobHandler.List)
 	g.GET("/", jobHandler.List)
+	g.POST("", jobHandler.Start)
 	g.POST("/", jobHandler.Start)
+	g.POST("/cancel", jobHandler.CancelByBody)
 	g.POST("/:id/cancel", jobHandler.Cancel)
 	g.GET("/:id/result", jobHandler.Result)
 	g.GET("/:id/stream", jobHandler.Stream)
@@ -221,6 +250,7 @@ func registerJobRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerNodeRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	nodeSvc := node.NewService(ctx)
 	nodeHandler := node.NewHandler(nodeSvc)
+	g.GET("", nodeHandler.List)
 	g.GET("/", nodeHandler.List)
 	g.GET("/:id/meta", nodeHandler.GetMeta)
 	g.PUT("/:id/meta", nodeHandler.UpdateMeta)
@@ -324,6 +354,7 @@ func registerOpenAPIRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	openapiSvc := openapi.NewService(ctx)
 	openapiHandler := openapi.NewHandler(openapiSvc)
 	g.GET("/functions/:id/openapi", openapiHandler.GetSpec)
+	g.POST("/functions/_openapi-batch", openapiHandler.BatchGetSpec)
 	g.POST("/functions/_import", openapiHandler.Import)
 	g.GET("/entities/:id/functions", openapiHandler.EntityFunctions)
 	g.GET("/openapi/spec", openapiHandler.GetDocument)
@@ -345,6 +376,7 @@ func registerAgentRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerAlertRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	alertSvc := alert.NewService(ctx)
 	alertHandler := alert.NewHandler(alertSvc)
+	g.GET("", alertHandler.List)
 	g.GET("/", alertHandler.List)
 	g.POST("/:id/silence", alertHandler.Silence)
 	g.GET("/silences", alertHandler.SilencesList)
@@ -412,8 +444,10 @@ func registerApprovalRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerAssignmentRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	assignmentSvc := assignment.NewService(ctx)
 	assignmentHandler := assignment.NewHandler(assignmentSvc)
+	g.GET("", assignmentHandler.List)
 	g.GET("/", assignmentHandler.List)
 	g.GET("/history", assignmentHandler.History)
+	g.PUT("", assignmentHandler.Update)
 	g.PUT("/", assignmentHandler.Update)
 }
 
@@ -423,7 +457,9 @@ func registerAssignmentRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerBackupRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	backupSvc := backup.NewService(ctx)
 	backupHandler := backup.NewHandler(backupSvc)
+	g.GET("", backupHandler.List)
 	g.GET("/", backupHandler.List)
+	g.POST("", backupHandler.Create)
 	g.POST("/", backupHandler.Create)
 	g.DELETE("/:id", backupHandler.Delete)
 	g.GET("/:id/download", backupHandler.Download)
@@ -435,7 +471,9 @@ func registerBackupRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerCertificateRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	certificateSvc := certificate.NewService(ctx)
 	certificateHandler := certificate.NewHandler(certificateSvc)
+	g.GET("", certificateHandler.List)
 	g.GET("/", certificateHandler.List)
+	g.POST("", certificateHandler.Add)
 	g.POST("/", certificateHandler.Add)
 	g.GET("/:id", certificateHandler.Get)
 	g.POST("/:id/check", certificateHandler.Check)
@@ -454,6 +492,7 @@ func registerCertificateRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerComponentRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	componentSvc := component.NewService(ctx)
 	componentHandler := component.NewHandler(componentSvc)
+	g.GET("", componentHandler.List)
 	g.GET("/", componentHandler.List)
 	g.POST("/install", componentHandler.Install)
 	g.GET("/:id", componentHandler.Get)
@@ -469,6 +508,7 @@ func registerComponentRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerConfigRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	configSvc := config.NewService(ctx)
 	configHandler := config.NewHandler(configSvc)
+	g.POST("", configHandler.Upsert)
 	g.POST("/", configHandler.Upsert)
 	g.GET("/version", configHandler.GetVersion)
 	g.GET("/versions", configHandler.ListVersions)
@@ -480,7 +520,9 @@ func registerConfigRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerEntityRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	entitySvc := entity.NewService(ctx)
 	entityHandler := entity.NewHandler(entitySvc)
+	g.GET("", entityHandler.List)
 	g.GET("/", entityHandler.List)
+	g.POST("", entityHandler.Create)
 	g.POST("/", entityHandler.Create)
 	g.GET("/:id", entityHandler.Get)
 	g.PUT("/:id", entityHandler.Update)
@@ -495,7 +537,9 @@ func registerEntityRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerFAQRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	faqSvc := faq.NewService(ctx)
 	faqHandler := faq.NewHandler(faqSvc)
+	g.GET("", faqHandler.List)
 	g.GET("/", faqHandler.List)
+	g.POST("", faqHandler.Create)
 	g.POST("/", faqHandler.Create)
 	g.PUT("/:id", faqHandler.Update)
 	g.DELETE("/:id", faqHandler.Delete)
@@ -508,7 +552,9 @@ func registerFAQRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerFeedbackRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	feedbackSvc := feedback.NewService(ctx)
 	feedbackHandler := feedback.NewHandler(feedbackSvc)
+	g.GET("", feedbackHandler.List)
 	g.GET("/", feedbackHandler.List)
+	g.POST("", feedbackHandler.Create)
 	g.POST("/", feedbackHandler.Create)
 	g.PUT("/:id", feedbackHandler.Update)
 	g.DELETE("/:id", feedbackHandler.Delete)
@@ -521,7 +567,9 @@ func registerFeedbackRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerMessageRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	messageSvc := message.NewService(ctx)
 	messageHandler := message.NewHandler(messageSvc)
+	g.GET("", messageHandler.List)
 	g.GET("/", messageHandler.List)
+	g.POST("", messageHandler.Send)
 	g.POST("/", messageHandler.Send)
 	g.GET("/:id", messageHandler.Get)
 	g.POST("/:id/read", messageHandler.Read)
@@ -543,6 +591,14 @@ func registerPackRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/plugin", packHandler.Plugin)
 }
 
+func registerPermissionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	permissionSvc := permission.NewService(ctx)
+	permissionHandler := permission.NewHandler(permissionSvc)
+	g.GET("", permissionHandler.List)
+	g.GET("/", permissionHandler.List)
+	g.GET("/:id", permissionHandler.Detail)
+}
+
 // ============================================================================
 // Platform 路由注册
 // ============================================================================
@@ -550,6 +606,7 @@ func registerPlatformRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	platformSvc := platform.NewService(ctx)
 	platformHandler := platform.NewHandler(platformSvc)
 	g.POST("/call", platformHandler.Call)
+	g.GET("", platformHandler.List)
 	g.GET("/", platformHandler.List)
 	g.GET("/:platform/methods", platformHandler.Methods)
 	g.POST("/reload", platformHandler.Reload)
@@ -561,7 +618,9 @@ func registerPlatformRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerPlayerRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	playerSvc := player.NewService(ctx)
 	playerHandler := player.NewHandler(playerSvc)
+	g.GET("", playerHandler.List)
 	g.GET("/", playerHandler.List)
+	g.POST("", playerHandler.Create)
 	g.POST("/", playerHandler.Create)
 	g.GET("/:id", playerHandler.Detail)
 	g.PUT("/:id", playerHandler.Update)
@@ -590,6 +649,7 @@ func registerProfileRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerProviderRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	providerSvc := provider.NewService(ctx)
 	providerHandler := provider.NewHandler(providerSvc)
+	g.GET("", providerHandler.List)
 	g.GET("/", providerHandler.List)
 	g.GET("/capabilities", providerHandler.Capabilities)
 	g.GET("/descriptors", providerHandler.Descriptors)
@@ -599,14 +659,29 @@ func registerProviderRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/reload", providerHandler.Reload)
 }
 
+func registerRoleRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	roleSvc := role.NewService(ctx)
+	roleHandler := role.NewHandler(roleSvc)
+	g.GET("", roleHandler.RolesList)
+	g.GET("/", roleHandler.RolesList)
+	g.POST("", roleHandler.RoleCreate)
+	g.POST("/", roleHandler.RoleCreate)
+	g.GET("/:id", roleHandler.RoleDetail)
+	g.PUT("/:id", roleHandler.RoleUpdate)
+	g.DELETE("/:id", roleHandler.RoleDelete)
+	g.PUT("/:id/permissions", roleHandler.RoleUpdate)
+}
+
 // ============================================================================
 // RateLimit 路由注册
 // ============================================================================
 func registerRateLimitRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	rateLimitSvc := rate_limit.NewService(ctx)
 	rateLimitHandler := rate_limit.NewHandler(rateLimitSvc)
+	g.GET("", rateLimitHandler.List)
 	g.GET("/", rateLimitHandler.List)
 	g.GET("/:id", rateLimitHandler.Get)
+	g.PUT("", rateLimitHandler.Upsert)
 	g.PUT("/", rateLimitHandler.Upsert)
 	g.DELETE("/:id", rateLimitHandler.Delete)
 	g.POST("/preview", rateLimitHandler.Preview)
@@ -618,7 +693,9 @@ func registerRateLimitRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerSchemaRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	schemaSvc := schema.NewService(ctx)
 	schemaHandler := schema.NewHandler(schemaSvc)
+	g.GET("", schemaHandler.List)
 	g.GET("/", schemaHandler.List)
+	g.POST("", schemaHandler.Create)
 	g.POST("/", schemaHandler.Create)
 	g.GET("/:id", schemaHandler.Get)
 	g.PUT("/:id", schemaHandler.Update)
@@ -635,8 +712,11 @@ func registerSchemaRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerTermsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	termsSvc := terms.NewService(ctx)
 	termsHandler := terms.NewHandler(termsSvc)
+	g.GET("", termsHandler.List)
 	g.GET("/", termsHandler.List)
+	g.PUT("", termsHandler.Upsert)
 	g.PUT("/", termsHandler.Upsert)
+	g.DELETE("", termsHandler.Delete)
 	g.DELETE("/", termsHandler.Delete)
 }
 
@@ -646,7 +726,9 @@ func registerTermsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerTicketRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	ticketSvc := ticket.NewService(ctx)
 	ticketHandler := ticket.NewHandler(ticketSvc)
+	g.GET("", ticketHandler.List)
 	g.GET("/", ticketHandler.List)
+	g.POST("", ticketHandler.Create)
 	g.POST("/", ticketHandler.Create)
 	g.GET("/:id", ticketHandler.Get)
 	g.PUT("/:id", ticketHandler.Update)
@@ -683,4 +765,10 @@ func registerPermissionsShortcutRoute(g *gin.RouterGroup, ctx *svc.ServiceContex
 	profileSvc := profile.NewService(ctx.AdminModel, ctx.GameModel)
 	profileHandler := profile.NewHandler(profileSvc)
 	g.GET("/permissions", profileHandler.GetPermissions)
+}
+
+func registerRegistryShortcutRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	opsSvc := ops.NewService(ctx)
+	opsHandler := ops.NewHandler(opsSvc)
+	g.GET("/registry/services", opsHandler.Services)
 }

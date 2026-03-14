@@ -7,15 +7,18 @@ import (
 
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/pkg2/jwt"
+	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
 )
 
 type Service struct {
 	adminModel *model.AdminModel
+	permSvc    *permissionservice.PermissionService
 }
 
-func NewService(adminModel *model.AdminModel) *Service {
+func NewService(adminModel *model.AdminModel, permSvc *permissionservice.PermissionService) *Service {
 	return &Service{
 		adminModel: adminModel,
+		permSvc:    permSvc,
 	}
 }
 
@@ -69,4 +72,32 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 func (s *Service) Logout(ctx context.Context, req *LogoutRequest) (*LogoutResponse, error) {
 	// 如果需要实现 token 黑名单，可以在这里添加逻辑
 	return &LogoutResponse{}, nil
+}
+
+func (s *Service) Check(ctx context.Context, username string, req *CheckRequest) (*CheckResponse, error) {
+	admin, err := s.adminModel.FindByUsername(ctx, username)
+	if err != nil {
+		return nil, errors.New("用户不存在")
+	}
+
+	allowed, err := s.permSvc.CheckPermission(ctx, admin.ID, strings.TrimSpace(req.Resource), strings.TrimSpace(req.Action))
+	if err != nil {
+		return &CheckResponse{Allowed: false, Reason: err.Error()}, nil
+	}
+	if !allowed {
+		return &CheckResponse{Allowed: false, Reason: "permission denied"}, nil
+	}
+	return &CheckResponse{Allowed: true}, nil
+}
+
+func (s *Service) BatchCheck(ctx context.Context, username string, req *BatchCheckRequest) (*BatchCheckResponse, error) {
+	results := make([]CheckResponse, 0, len(req.Checks))
+	for _, check := range req.Checks {
+		resp, err := s.Check(ctx, username, &check)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, *resp)
+	}
+	return &BatchCheckResponse{Results: results}, nil
 }

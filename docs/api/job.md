@@ -166,3 +166,9 @@ type StreamJobResponse struct {
 }
 ```
 
+### 兼容说明
+
+- Dashboard 仍会调用 `/api/v1/function-calls*` 读取函数调用历史。
+- 当前服务端提供了一个基于 `jobs` 的兼容层来承接这些请求，详见 [function_call.md](./function_call.md)。
+- 该兼容层的目标是消除重构后的 404，不代表已经恢复完整的调用历史持久化模型。
+

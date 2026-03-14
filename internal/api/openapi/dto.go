@@ -82,6 +82,12 @@ type EntityFunctionsResponse struct {
 	Items []EntityFunction `json:"items"`
 }
 
+type BatchGetSpecRequest struct {
+	FunctionIDs []string `json:"function_ids" binding:"required"`
+}
+
+type BatchGetSpecResponse map[string]interface{}
+
 // GetDocumentRequest is the request to get aggregated OpenAPI document
 // Deprecated: Use OpenAPIDocumentRequest instead
 type GetDocumentRequest = OpenAPIDocumentRequest

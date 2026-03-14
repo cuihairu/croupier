@@ -163,9 +163,9 @@ jobs:
         run: chmod +x scripts/e2e/*.sh
       - name: Start Server
         run: |
-          go build -o bin/croupier-server ./services/server
+          go build -o bin/croupier-server ./cmd/server
           mkdir -p data/uploads
-          ./bin/croupier-server --config services/server/etc/server.yaml &
+          ./bin/croupier-server --config configs/server.yaml &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
           # Wait for server to be ready

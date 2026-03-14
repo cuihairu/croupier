@@ -2,12 +2,14 @@ package function
 
 import (
 	"github.com/cuihairu/croupier/internal/common/response"
+	"github.com/cuihairu/croupier/internal/common/requestbind"
+	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
 	"github.com/gin-gonic/gin"
 )
 
 func bindFunctionRequest(c *gin.Context, req interface{}) error {
 	if c.Request.Method == "GET" {
-		return c.ShouldBindQuery(req)
+		return requestbind.BindQueryCompat(c, req)
 	}
 	return c.ShouldBindJSON(req)
 }
@@ -361,7 +363,10 @@ func (h *Handler) Descriptors(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.Descriptors(c.Request.Context(), &req)
+	logic := logicfunction.NewDescriptorsLogic(c.Request.Context(), h.service.svcCtx)
+	resp, err := logic.Descriptors(&logicfunction.DescriptorsRequest{
+		GameId: req.GameId,
+	})
 	if err != nil {
 		response.Error(c, err)
 		return

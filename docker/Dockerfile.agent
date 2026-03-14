@@ -10,7 +10,7 @@ ENV GOPROXY=${GOPROXY_URL} \
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .
-RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/croupier-agent ./services/agent
+RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/croupier-agent ./cmd/agent
 RUN mkdir -p /out/logs /out/data
 
 FROM ${RUNTIME_IMAGE}

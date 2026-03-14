@@ -16,7 +16,7 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 COPY . .
-RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -tags "${BUILD_TAGS}" -o /out/croupier-server ./services/server
+RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -tags "${BUILD_TAGS}" -o /out/croupier-server ./cmd/server
 RUN mkdir -p /out/logs /out/data/uploads /out/data/components/staging
 
 FROM ${RUNTIME_IMAGE}
