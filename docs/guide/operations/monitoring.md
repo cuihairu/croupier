@@ -443,6 +443,6 @@ server:
 
 ## 相关文档
 
-- [部署指南](../../deployment.md)
+- [部署指南](../deployment.md)
 - [安全配置](./security.md)
 - [故障排查](./troubleshooting.md)

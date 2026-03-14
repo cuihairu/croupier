@@ -29,7 +29,7 @@ export default defineUserConfig({
   theme: defaultTheme({
     repo: 'cuihairu/croupier',
     repoLabel: 'GitHub',
-    docsDir: 'server/docs',
+    docsDir: 'docs',
     docsBranch: 'main',
     docsRepo: 'https://github.com/cuihairu/croupier',
     editLinkText: '在 GitHub 上编辑此页',
@@ -103,12 +103,10 @@ export default defineUserConfig({
           collapsable: false,
           children: [
             '/guide/',
-            '/guide/tutorial',
             '/guide/quick-start',
             '/guide/installation',
             '/guide/configuration',
             '/guide/deployment',
-            '/guide/faq',
           ],
         },
         {
@@ -136,7 +134,6 @@ export default defineUserConfig({
             '/guide/operations/monitoring',
             '/guide/operations/security',
             '/guide/operations/troubleshooting',
-            '/guide/operations/operation-guide',
           ],
         },
       ],
@@ -249,7 +246,7 @@ export default defineUserConfig({
             '/api/faq',
             '/api/meta',
             '/api/profile',
-            '/api/xrender',
+            '/api/workspace',
           ],
         },
       ],
@@ -275,9 +272,8 @@ export default defineUserConfig({
           collapsible: false,
           children: [
             '/development/',
-            '/development/vscode-setup',
-            '/development/troubleshooting',
             '/development/repository-guidelines',
+            '/development/repository-layout',
           ],
         },
       ],
@@ -289,33 +285,11 @@ export default defineUserConfig({
           collapsible: false,
           children: [
             '/',
-            '/directory-structure',
-            '/deployment',
-            '/config',
-            '/security',
-          ],
-        },
-        {
-          text: '架构设计',
-          collapsible: false,
-          children: [
-            '/ARCHITECTURE',
-          ],
-        },
-        {
-          text: '生成器与协议',
-          collapsible: false,
-          children: [
-            '/PROTO_OPTIONS_GUIDE',
-            '/api',
-          ],
-        },
-        {
-          text: '分析系统',
-          collapsible: false,
-          children: [
+            '/guide/',
+            '/architecture/',
+            '/api/',
             '/analytics/',
-            '/analytics/quick-start',
+            '/development/',
           ],
         },
       ],

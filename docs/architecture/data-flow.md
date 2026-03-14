@@ -416,5 +416,5 @@ InvokeFunctionRequest {
 ## 相关文档
 
 - [分层设计](./layers.md)
-- [组件说明](./components.md)
+- [架构概览](./README.md)
 - [API 参考](../api/README.md)

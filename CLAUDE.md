@@ -27,7 +27,7 @@ make build               # Build binaries
 ```bash
 make test                 # All tests with race detection
 go test ./internal/...    # Subset testing
-./croupier config test --config services/server/etc/server.yaml  # Config validation
+./bin/croupier-server --config configs/server.yaml validate      # Config validation
 ```
 
 ## Architecture Overview

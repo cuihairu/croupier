@@ -390,5 +390,5 @@ components/
 ## 相关文档
 
 - [函数管理](./function-management.md)
-- [描述符驱动 UI](./descriptor-driven-ui.md)
+- [函数管理](./function-management.md)
 - [系统架构](../../architecture/README.md)

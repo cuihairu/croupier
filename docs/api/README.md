@@ -319,4 +319,3 @@ GET /api/audit/{audit_id}
 
 - [gRPC API 详情](./grpc.md)
 - [REST API 详情](./rest.md)
-- [Proto 选项指南](./proto-options.md)

@@ -512,5 +512,4 @@ func retryInterceptor(maxRetries int) grpc.UnaryClientInterceptor {
 ## 相关文档
 
 - [REST API](./rest.md)
-- [Proto 选项](./proto-options.md)
 - [API 概览](./README.md)

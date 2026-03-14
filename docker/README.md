@@ -147,8 +147,8 @@ ANALYTICS_MQ_TYPE=redis
 docker-compose up -d postgres redis clickhouse
 
 # 本地运行服务（更快的开发迭代）
-cd ../services/server
-go run . -f etc/croupier-api.yaml
+cd ..
+go run ./cmd/server --config configs/server.yaml
 ```
 
 ## 生产部署建议

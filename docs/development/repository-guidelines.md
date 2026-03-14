@@ -5,38 +5,41 @@ title: 仓库规范
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Go monorepo: `cmd/{server,analytics-worker,...}` (binaries), core in `internal/`, shared libs in `pkg/`.
-- Agent 进程以 `services/agent` 为入口（HTTP facade + 内嵌 gRPC core）。
-- Go-zero services under `services/<name>` manage their own `internal/{config,handler,logic,model,svc}`; treat each as an independent process.
-- Frontend UI: `dashboard/` (Umi Max + Ant Design 5, submodule).
-- Configs & assets: `configs/` (RBAC, users, dev certs), `packs/`, `scripts/`, `docs/`, ephemeral data in `data/`.
-- Protocol/IDL: `proto/` (+ `buf.gen.yaml`), generated code under `gen/`.
+
+- Go monorepo: binaries in `cmd/`, core implementation in `internal/`, stable exported helpers in `pkg/`.
+- Frontend UI: `dashboard/`.
+- Configs & assets: `configs/`, `packs/`, `scripts/`, `docs/`, runtime data in `data/`.
+- Protocol/IDL: `proto/`, generated stubs in `pkg/pb`.
 
 ## Build, Test, and Development Commands
-- Build all: `make dev` (proto + binaries to `bin/`). Targets: `make server`/`agent`.
-- Backend tests: `make test` (Go), lint: `make lint`.
-- Web dev: `cd dashboard && pnpm install && pnpm run start` (or `npm run start`), build: `pnpm run build`.
-- Docker Compose quickstart:
-  - Core DBs only: `docker compose up -d redis clickhouse`.
-  - Full stack (server/dashboard + DBs): `docker compose up -d`.
-  - Optional profiles: tools (`--profile tools`), stream (`--profile stream`).
+
+- Build all server-side binaries: `make build`
+- Build a specific binary: `make server`, `make agent`, `make worker`, `make ingest`
+- Generate protobuf code: `make proto`
+- Run tests: `make test`
+- Build docs: `cd docs && pnpm install && pnpm run build`
+- Build dashboard: `cd dashboard && npm ci && npm run build`
 
 ## Coding Style & Naming Conventions
+
 - Go: `gofmt`/`goimports`; packages lowercase; exported ids `CamelCase`; use `context.Context` first; structured logs.
-- Service-specific GORM models live in that service's `internal/model` package; do not add new code under `internal/repo/gorm`.
-- TypeScript/React: Prettier + ESLint; 2‑space indent; components `PascalCase`; hooks `useX`; pages live in `dashboard/src/pages/*/index.tsx`.
+- New entrypoints go under `cmd/`; do not reintroduce `services/*` layout or stale document references.
+- TypeScript/React: Prettier + ESLint; 2-space indent; components `PascalCase`; hooks `useX`.
 - Commits: Conventional Commits (`feat(scope): ...`, `fix`, `chore`, `docs`).
 
 ## Testing Guidelines
-- Go unit tests co‑locate as `*_test.go`; prefer table‑driven tests; cover auth/routing/validation.
+
+- Go unit tests co-locate as `*_test.go`; prefer table-driven tests.
 - Frontend: `cd dashboard && npm run test` or `npm run test:coverage`.
-- Aim for meaningful assertions and stable snapshots; add tests when touching RBAC, APIs, or analytics logic.
+- Add tests when touching RBAC, APIs, routing, analytics processing, or descriptor resolution.
 
 ## Commit & Pull Request Guidelines
-- PR must include: what/why, test plan, screenshots for UI, and docs/config updates if applicable.
-- When adding APIs/permissions, update `configs/{permissions,roles,rbac}.json` and note any migrations.
-- Keep diffs small and focused; link issues; ensure `make lint && make test && npm -C dashboard run build` pass.
+
+- PR should include: what changed, why, and how it was verified.
+- When adding APIs or permissions, update the matching files under `configs/`.
+- Keep diffs focused; ensure `make test` passes before merge.
 
 ## Security & Configuration Tips
-- Dev mTLS certs in `configs/dev/`; env via flags or YAML; secrets through env vars.
-- Example run: `docker compose up -d redis clickhouse && bin/croupier-server --config configs/server.yaml`.
+
+- Secrets go through environment variables, not hardcoded YAML.
+- Example local run: `./bin/croupier-server --config configs/server.yaml`.

@@ -557,6 +557,6 @@ C++ SDK 独有的高级功能（其他 SDK 可参考）：
 ## 相关文档
 
 - [SDK 行为规范](./specification.md) - 所有 SDK 必须遵守的行为规范
-- [函数注册流程](../../sdks/SDK_REGISTRATION_FLOW.md) - 函数注册的详细流程
+- [SDK 行为规范](./specification.md) - 所有 SDK 的共同行为约束
 - [Go SDK 示例](../../sdks/go/examples/) - Go SDK 使用示例
 - [JS SDK 示例](../../sdks/js/examples/) - JS SDK 使用示例
