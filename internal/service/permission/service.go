@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/security/rbac"
 	"gorm.io/gorm"
 )
 
@@ -41,37 +42,20 @@ func (s *PermissionService) CheckPermission(ctx context.Context, adminID uint, r
 		return false, ErrInvalidAction
 	}
 
-	// Get admin's roles
-	var roles []model.Role
-	err := s.db.Table("roles").
-		Joins("INNER JOIN admin_roles ON roles.id = admin_roles.role_id").
-		Where("admin_roles.admin_id = ?", adminID).
-		Find(&roles).Error
+	roles, permissionIDs, err := s.loadAdminAuthorizationState(ctx, adminID)
 	if err != nil {
-		return false, fmt.Errorf("failed to get admin roles: %w", err)
+		return false, err
 	}
-
 	if len(roles) == 0 {
 		return false, ErrPermissionDenied
 	}
 
-	if hasAdminRole(roles) {
-		return true, nil
-	}
-
-	// Get permissions for these roles
-	var permissions []model.Permission
-	err = s.db.Table("permissions").
-		Joins("INNER JOIN role_permissions ON permissions.id = role_permissions.permission_id").
-		Where("role_permissions.role_id IN ?", s.getRoleIDs(roles)).
-		Where("permissions.resource = ?", resource).
-		Where("permissions.action = ?", action).
-		Find(&permissions).Error
+	candidates := permissionCandidates(resource, action)
+	allowed, err := rbac.EnforceAnyPermission(fmt.Sprintf("admin:%d", adminID), permissionIDs, candidates...)
 	if err != nil {
-		return false, fmt.Errorf("failed to get permissions: %w", err)
+		return false, fmt.Errorf("failed to enforce permission with casbin: %w", err)
 	}
-
-	return len(permissions) > 0, nil
+	return allowed, nil
 }
 
 func hasAdminRole(roles []model.Role) bool {
@@ -191,4 +175,109 @@ func isValidAction(action string) bool {
 		}
 	}
 	return false
+}
+
+func (s *PermissionService) loadAdminAuthorizationState(ctx context.Context, adminID uint) ([]model.Role, []string, error) {
+	roles, err := s.GetAdminRoles(ctx, adminID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get admin roles: %w", err)
+	}
+
+	var permissionIDs []string
+	if len(roles) > 0 {
+		err = s.db.WithContext(ctx).
+			Table("role_permissions").
+			Select("DISTINCT role_permissions.permission_id").
+			Where("role_permissions.role_id IN ?", s.getRoleIDs(roles)).
+			Pluck("role_permissions.permission_id", &permissionIDs).Error
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get admin permission ids: %w", err)
+		}
+	}
+
+	if hasAdminRole(roles) {
+		permissionIDs = appendUniquePermissionIDs(permissionIDs, "admin:all", "*")
+	}
+
+	return roles, permissionIDs, nil
+}
+
+func permissionCandidates(resource, action string) []string {
+	resource = strings.ToLower(strings.TrimSpace(resource))
+	action = strings.ToLower(strings.TrimSpace(action))
+	if resource == "" || action == "" {
+		return nil
+	}
+
+	keys := []string{resource + ":" + action}
+	switch resource {
+	case "admin":
+		switch action {
+		case "read":
+			keys = append(keys, "user:read", "user:write")
+		case "create", "update", "edit", "delete":
+			keys = append(keys, "user:write")
+		}
+	case "role":
+		switch action {
+		case "read":
+			keys = append(keys, "role:read", "roles:read", "role:write", "roles:manage")
+		case "create", "update", "edit", "delete":
+			keys = append(keys, "role:write", "roles:manage")
+		}
+	case "permission":
+		switch action {
+		case "read":
+			keys = append(keys, "permission:read", "permission:write")
+		case "create", "update", "edit", "delete":
+			keys = append(keys, "permission:write")
+		}
+	case "game":
+		switch action {
+		case "read":
+			keys = append(keys, "games:read", "games:manage")
+		case "create", "update", "edit", "delete":
+			keys = append(keys, "games:manage")
+		}
+	case "component":
+		switch action {
+		case "read":
+			keys = append(keys, "components:read", "components:manage")
+		case "create", "update", "edit":
+			keys = append(keys, "components:install", "components:manage")
+		case "delete":
+			keys = append(keys, "components:uninstall", "components:manage")
+		}
+	case "function":
+		if action == "execute" {
+			keys = append(keys, "function:invoke")
+		}
+	}
+
+	return uniqueLowered(keys)
+}
+
+func appendUniquePermissionIDs(permissionIDs []string, values ...string) []string {
+	return uniqueLowered(append(permissionIDs, values...))
+}
+
+func uniqueLowered(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		key := strings.ToLower(strings.TrimSpace(value))
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, key)
+	}
+	return out
 }

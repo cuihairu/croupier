@@ -5,6 +5,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func bindFunctionRequest(c *gin.Context, req interface{}) error {
+	if c.Request.Method == "GET" {
+		return c.ShouldBindQuery(req)
+	}
+	return c.ShouldBindJSON(req)
+}
+
 type Handler struct {
 	service *Service
 }
@@ -17,7 +24,7 @@ func NewHandler(service *Service) *Handler {
 
 func (h *Handler) FunctionsList(c *gin.Context) {
 	var req FunctionsListRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -32,7 +39,7 @@ func (h *Handler) FunctionsList(c *gin.Context) {
 
 func (h *Handler) FunctionsPending(c *gin.Context) {
 	var req FunctionsPendingRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -47,7 +54,7 @@ func (h *Handler) FunctionsPending(c *gin.Context) {
 
 func (h *Handler) FunctionDetail(c *gin.Context) {
 	var req FunctionDetailRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -62,7 +69,7 @@ func (h *Handler) FunctionDetail(c *gin.Context) {
 
 func (h *Handler) FunctionAnalytics(c *gin.Context) {
 	var req FunctionAnalyticsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -77,7 +84,7 @@ func (h *Handler) FunctionAnalytics(c *gin.Context) {
 
 func (h *Handler) FunctionCopy(c *gin.Context) {
 	var req FunctionCopyRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -92,7 +99,7 @@ func (h *Handler) FunctionCopy(c *gin.Context) {
 
 func (h *Handler) FunctionDelete(c *gin.Context) {
 	var req FunctionDeleteRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -106,7 +113,7 @@ func (h *Handler) FunctionDelete(c *gin.Context) {
 
 func (h *Handler) FunctionDisable(c *gin.Context) {
 	var req FunctionDisableRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -120,7 +127,7 @@ func (h *Handler) FunctionDisable(c *gin.Context) {
 
 func (h *Handler) FunctionEnable(c *gin.Context) {
 	var req FunctionEnableRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -134,7 +141,7 @@ func (h *Handler) FunctionEnable(c *gin.Context) {
 
 func (h *Handler) FunctionHistory(c *gin.Context) {
 	var req FunctionHistoryRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -149,7 +156,7 @@ func (h *Handler) FunctionHistory(c *gin.Context) {
 
 func (h *Handler) FunctionInvoke(c *gin.Context) {
 	var req FunctionInvokeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -164,7 +171,7 @@ func (h *Handler) FunctionInvoke(c *gin.Context) {
 
 func (h *Handler) FunctionPublish(c *gin.Context) {
 	var req FunctionPublishRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -179,7 +186,7 @@ func (h *Handler) FunctionPublish(c *gin.Context) {
 
 func (h *Handler) FunctionRoute(c *gin.Context) {
 	var req FunctionRouteRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -194,7 +201,7 @@ func (h *Handler) FunctionRoute(c *gin.Context) {
 
 func (h *Handler) FunctionRouteUpdate(c *gin.Context) {
 	var req FunctionRouteUpdateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -211,7 +218,7 @@ func (h *Handler) FunctionRouteUpdate(c *gin.Context) {
 
 func (h *Handler) FunctionInstances(c *gin.Context) {
 	var req FunctionInstancesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -226,7 +233,7 @@ func (h *Handler) FunctionInstances(c *gin.Context) {
 
 func (h *Handler) FunctionInstancesAll(c *gin.Context) {
 	var req FunctionInstancesAllRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -243,7 +250,7 @@ func (h *Handler) FunctionInstancesAll(c *gin.Context) {
 
 func (h *Handler) FunctionPermissions(c *gin.Context) {
 	var req FunctionPermissionsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -258,7 +265,7 @@ func (h *Handler) FunctionPermissions(c *gin.Context) {
 
 func (h *Handler) FunctionPermissionsUpdate(c *gin.Context) {
 	var req FunctionPermissionsUpdateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -274,7 +281,7 @@ func (h *Handler) FunctionPermissionsUpdate(c *gin.Context) {
 
 func (h *Handler) FunctionUI(c *gin.Context) {
 	var req FunctionUIRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -289,7 +296,7 @@ func (h *Handler) FunctionUI(c *gin.Context) {
 
 func (h *Handler) FunctionUIUpdate(c *gin.Context) {
 	var req FunctionUIUpdateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -303,7 +310,7 @@ func (h *Handler) FunctionUIUpdate(c *gin.Context) {
 
 func (h *Handler) FunctionUIHistory(c *gin.Context) {
 	var req FunctionUIHistoryRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -318,7 +325,7 @@ func (h *Handler) FunctionUIHistory(c *gin.Context) {
 
 func (h *Handler) FunctionUIRollback(c *gin.Context) {
 	var req FunctionUIRollbackRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -332,7 +339,7 @@ func (h *Handler) FunctionUIRollback(c *gin.Context) {
 
 func (h *Handler) FunctionWarnings(c *gin.Context) {
 	var req FunctionWarningsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -349,7 +356,7 @@ func (h *Handler) FunctionWarnings(c *gin.Context) {
 
 func (h *Handler) Descriptors(c *gin.Context) {
 	var req DescriptorsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -366,7 +373,7 @@ func (h *Handler) Descriptors(c *gin.Context) {
 
 func (h *Handler) BatchCopyFunctions(c *gin.Context) {
 	var req BatchCopyFunctionsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -381,7 +388,7 @@ func (h *Handler) BatchCopyFunctions(c *gin.Context) {
 
 func (h *Handler) BatchDeleteFunctions(c *gin.Context) {
 	var req BatchDeleteFunctionsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -396,7 +403,7 @@ func (h *Handler) BatchDeleteFunctions(c *gin.Context) {
 
 func (h *Handler) BatchUpdateFunctions(c *gin.Context) {
 	var req BatchUpdateFunctionsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindFunctionRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}

@@ -5,6 +5,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func bindOpsRequest(c *gin.Context, req interface{}) error {
+	if c.Request.Method == "GET" {
+		return c.ShouldBindQuery(req)
+	}
+	return c.ShouldBindJSON(req)
+}
+
 type Handler struct {
 	service *Service
 }
@@ -17,7 +24,7 @@ func NewHandler(service *Service) *Handler {
 
 func (h *Handler) OpsAgentsList(c *gin.Context) {
 	var req OpsAgentsListRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -32,7 +39,7 @@ func (h *Handler) OpsAgentsList(c *gin.Context) {
 
 func (h *Handler) OpsAgentMeta(c *gin.Context) {
 	var req OpsAgentMetaRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -47,7 +54,7 @@ func (h *Handler) OpsAgentMeta(c *gin.Context) {
 
 func (h *Handler) OpsAgentMetrics(c *gin.Context) {
 	var req OpsAgentMetricsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -62,7 +69,7 @@ func (h *Handler) OpsAgentMetrics(c *gin.Context) {
 
 func (h *Handler) OpsAgentProcesses(c *gin.Context) {
 	var req OpsAgentProcessesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -77,7 +84,7 @@ func (h *Handler) OpsAgentProcesses(c *gin.Context) {
 
 func (h *Handler) OpsAgentSystemInfo(c *gin.Context) {
 	var req OpsAgentSystemInfoRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -92,7 +99,7 @@ func (h *Handler) OpsAgentSystemInfo(c *gin.Context) {
 
 func (h *Handler) OpsAgentExecCommand(c *gin.Context) {
 	var req OpsExecCommandRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -107,7 +114,7 @@ func (h *Handler) OpsAgentExecCommand(c *gin.Context) {
 
 func (h *Handler) OpsAgentProcessStart(c *gin.Context) {
 	var req OpsProcessStartRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -122,7 +129,7 @@ func (h *Handler) OpsAgentProcessStart(c *gin.Context) {
 
 func (h *Handler) OpsAgentProcessStop(c *gin.Context) {
 	var req OpsProcessActionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -137,7 +144,7 @@ func (h *Handler) OpsAgentProcessStop(c *gin.Context) {
 
 func (h *Handler) OpsAgentProcessRestart(c *gin.Context) {
 	var req OpsProcessActionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -154,7 +161,7 @@ func (h *Handler) OpsAgentProcessRestart(c *gin.Context) {
 
 func (h *Handler) OpsBackupsList(c *gin.Context) {
 	var req OpsBackupsListRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -169,7 +176,7 @@ func (h *Handler) OpsBackupsList(c *gin.Context) {
 
 func (h *Handler) OpsBackupCreate(c *gin.Context) {
 	var req OpsBackupCreateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -184,7 +191,7 @@ func (h *Handler) OpsBackupCreate(c *gin.Context) {
 
 func (h *Handler) OpsBackupDelete(c *gin.Context) {
 	var req OpsBackupDeleteRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -199,7 +206,7 @@ func (h *Handler) OpsBackupDelete(c *gin.Context) {
 
 func (h *Handler) OpsBackupDownload(c *gin.Context) {
 	var req OpsBackupDownloadRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -216,7 +223,7 @@ func (h *Handler) OpsBackupDownload(c *gin.Context) {
 
 func (h *Handler) OpsAlerts(c *gin.Context) {
 	var req OpsAlertsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -231,7 +238,7 @@ func (h *Handler) OpsAlerts(c *gin.Context) {
 
 func (h *Handler) OpsAlertSilence(c *gin.Context) {
 	var req OpsAlertSilenceRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -246,7 +253,7 @@ func (h *Handler) OpsAlertSilence(c *gin.Context) {
 
 func (h *Handler) OpsSilenceDelete(c *gin.Context) {
 	var req OpsAlertSilenceRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -261,7 +268,7 @@ func (h *Handler) OpsSilenceDelete(c *gin.Context) {
 
 func (h *Handler) OpsSilences(c *gin.Context) {
 	var req OpsSilencesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -278,7 +285,7 @@ func (h *Handler) OpsSilences(c *gin.Context) {
 
 func (h *Handler) OpsNodes(c *gin.Context) {
 	var req OpsNodesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -293,7 +300,7 @@ func (h *Handler) OpsNodes(c *gin.Context) {
 
 func (h *Handler) OpsNodeCommands(c *gin.Context) {
 	var req OpsNodeCommandsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -308,7 +315,7 @@ func (h *Handler) OpsNodeCommands(c *gin.Context) {
 
 func (h *Handler) OpsNodeDrain(c *gin.Context) {
 	var req OpsNodeCommandsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -323,7 +330,7 @@ func (h *Handler) OpsNodeDrain(c *gin.Context) {
 
 func (h *Handler) OpsNodeMeta(c *gin.Context) {
 	var req OpsNodeMetaRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -338,7 +345,7 @@ func (h *Handler) OpsNodeMeta(c *gin.Context) {
 
 func (h *Handler) OpsNodeRestart(c *gin.Context) {
 	var req OpsNodeCommandsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -353,7 +360,7 @@ func (h *Handler) OpsNodeRestart(c *gin.Context) {
 
 func (h *Handler) OpsNodeUndrain(c *gin.Context) {
 	var req OpsNodeCommandsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -370,7 +377,7 @@ func (h *Handler) OpsNodeUndrain(c *gin.Context) {
 
 func (h *Handler) OpsHealthGet(c *gin.Context) {
 	var req OpsHealthGetRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -385,7 +392,7 @@ func (h *Handler) OpsHealthGet(c *gin.Context) {
 
 func (h *Handler) OpsHealthRun(c *gin.Context) {
 	var req OpsHealthRunRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -400,7 +407,7 @@ func (h *Handler) OpsHealthRun(c *gin.Context) {
 
 func (h *Handler) OpsHealthUpdate(c *gin.Context) {
 	var req OpsHealthUpdateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -415,7 +422,7 @@ func (h *Handler) OpsHealthUpdate(c *gin.Context) {
 
 func (h *Handler) OpsMaintenanceGet(c *gin.Context) {
 	var req OpsMaintenanceGetRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -430,7 +437,7 @@ func (h *Handler) OpsMaintenanceGet(c *gin.Context) {
 
 func (h *Handler) OpsMaintenanceUpdate(c *gin.Context) {
 	var req OpsMaintenanceUpdateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -447,7 +454,7 @@ func (h *Handler) OpsMaintenanceUpdate(c *gin.Context) {
 
 func (h *Handler) OpsMetrics(c *gin.Context) {
 	var req OpsMetricsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -464,7 +471,7 @@ func (h *Handler) OpsMetrics(c *gin.Context) {
 
 func (h *Handler) OpsConfig(c *gin.Context) {
 	var req OpsConfigRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -479,7 +486,7 @@ func (h *Handler) OpsConfig(c *gin.Context) {
 
 func (h *Handler) OpsNotificationsGet(c *gin.Context) {
 	var req OpsNotificationsGetRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -494,7 +501,7 @@ func (h *Handler) OpsNotificationsGet(c *gin.Context) {
 
 func (h *Handler) OpsNotificationsUpdate(c *gin.Context) {
 	var req OpsNotificationsUpdateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -511,7 +518,7 @@ func (h *Handler) OpsNotificationsUpdate(c *gin.Context) {
 
 func (h *Handler) OpsServices(c *gin.Context) {
 	var req OpsServicesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -526,7 +533,7 @@ func (h *Handler) OpsServices(c *gin.Context) {
 
 func (h *Handler) OpsFunctions(c *gin.Context) {
 	var req OpsFunctionsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -543,7 +550,7 @@ func (h *Handler) OpsFunctions(c *gin.Context) {
 
 func (h *Handler) OpsMQ(c *gin.Context) {
 	var req OpsMQRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindOpsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}

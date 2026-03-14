@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/service/permission"
 	gsqlite "github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
@@ -90,5 +91,14 @@ func TestSeedBootstrapAdminsRepairsExistingAdminRoleBindings(t *testing.T) {
 	}
 	if len(permIDs) != 2 {
 		t.Fatalf("expected 2 permissions, got %#v", permIDs)
+	}
+
+	permSvc := permission.NewPermissionService(db)
+	allowed, err := permSvc.CheckPermission(context.Background(), admin.ID, "admin", "read")
+	if err != nil {
+		t.Fatalf("CheckPermission failed: %v", err)
+	}
+	if !allowed {
+		t.Fatal("expected bootstrap admin to pass admin read permission")
 	}
 }

@@ -1,4 +1,3 @@
-
 package svc
 
 import (
@@ -14,19 +13,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/cache"
+	"github.com/cuihairu/croupier/internal/config"
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/pack"
+	"github.com/cuihairu/croupier/internal/pkg2/jwt"
 	plat "github.com/cuihairu/croupier/internal/platform"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
-	"github.com/cuihairu/croupier/internal/cache"
-	"github.com/cuihairu/croupier/internal/config"
-	"github.com/cuihairu/croupier/internal/model"
-	"github.com/cuihairu/croupier/internal/pkg2/jwt"
-	jwtutil2 "github.com/cuihairu/croupier/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/internal/runtime"
+	jwtutil2 "github.com/cuihairu/croupier/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -1027,6 +1026,9 @@ func (m *AuthMiddleware) Handle(c *gin.Context) {
 	ctx = context.WithValue(ctx, "roles", roles)
 	ctx = context.WithValue(ctx, "adminID", adminID)
 	c.Request = c.Request.WithContext(ctx)
+	c.Set("username", username)
+	c.Set("roles", roles)
+	c.Set("adminID", adminID)
 	slog.InfoContext(c.Request.Context(), "Authenticated user", "username", username, "roles", roles)
 
 	c.Next()

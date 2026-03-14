@@ -5,6 +5,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func bindProviderRequest(c *gin.Context, req interface{}) error {
+	if c.Request.Method == "GET" {
+		return c.ShouldBindQuery(req)
+	}
+	return c.ShouldBindJSON(req)
+}
+
 type Handler struct {
 	service *Service
 }
@@ -32,7 +39,7 @@ func (h *Handler) List(c *gin.Context) {
 // Capabilities handles the request to get provider capabilities
 func (h *Handler) Capabilities(c *gin.Context) {
 	var req ProvidersCapabilitiesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindProviderRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -48,7 +55,7 @@ func (h *Handler) Capabilities(c *gin.Context) {
 // Descriptors handles the request to get provider descriptors
 func (h *Handler) Descriptors(c *gin.Context) {
 	var req ProvidersDescriptorsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindProviderRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}

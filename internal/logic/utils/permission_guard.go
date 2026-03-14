@@ -6,6 +6,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/security/rbac"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -13,7 +14,7 @@ import (
 // It loads admin roles from DB (not trusting JWT-embedded roles), expands them into permission IDs,
 // and grants access if the admin has an admin-level role or wildcard permission "*".
 func RequireAnyPermission(ctx context.Context, svcCtx *svc.ServiceContext, message string, required ...string) ([]model.Role, []string, error) {
-	_, roles, err := LoadCurrentAdmin(ctx, svcCtx)
+	admin, roles, err := LoadCurrentAdmin(ctx, svcCtx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -24,18 +25,51 @@ func RequireAnyPermission(ctx context.Context, svcCtx *svc.ServiceContext, messa
 		return roles, nil, err
 	}
 
-	if HasAdminRole(roleNames) || HasPermissionID(permIDs, "*") {
-		return roles, permIDs, nil
+	if HasAdminRole(roleNames) {
+		permIDs = appendPermissionIDs(permIDs, "admin:all", "*")
 	}
-
-	for _, want := range required {
-		if HasPermissionID(permIDs, want) {
-			return roles, permIDs, nil
-		}
+	allowed, err := rbac.EnforceAnyPermission(admin.Username, permIDs, required...)
+	if err != nil {
+		return roles, permIDs, errorx.NewInternalError("权限校验失败")
+	}
+	if allowed {
+		return roles, permIDs, nil
 	}
 
 	if strings.TrimSpace(message) == "" {
 		message = "无权执行该操作"
 	}
 	return roles, permIDs, errorx.NewForbidden(message)
+}
+
+func appendPermissionIDs(permissionIDs []string, values ...string) []string {
+	if len(values) == 0 {
+		return permissionIDs
+	}
+
+	seen := make(map[string]struct{}, len(permissionIDs)+len(values))
+	out := make([]string, 0, len(permissionIDs)+len(values))
+	for _, permissionID := range permissionIDs {
+		key := strings.ToLower(strings.TrimSpace(permissionID))
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, permissionID)
+	}
+	for _, permissionID := range values {
+		key := strings.ToLower(strings.TrimSpace(permissionID))
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, permissionID)
+	}
+	return out
 }

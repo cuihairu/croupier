@@ -2,9 +2,8 @@ package profile
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"strconv"
+	"strings"
 
 	"github.com/cuihairu/croupier/internal/model"
 )
@@ -57,38 +56,69 @@ func (s *Service) GetProfile(ctx context.Context, username string) (*ProfileGetR
 
 // GetUserGames 获取用户的游戏列表
 func (s *Service) GetUserGames(ctx context.Context, username string) (*ProfileGamesResponse, error) {
-	// 查询管理员信息
 	admin, err := s.adminModel.FindByUsername(ctx, username)
 	if err != nil {
 		return nil, errors.New("用户不存在")
 	}
 
-	// 获取管理员的游戏权限
+	roleModels, err := s.adminModel.GetAdminRoles(ctx, admin.ID)
+	if err != nil {
+		return nil, errors.New("获取用户角色失败")
+	}
+
 	adminGames, err := s.adminModel.GetAdminGames(ctx, admin.ID)
 	if err != nil {
 		return nil, errors.New("获取游戏列表失败")
 	}
 
-	games := make([]ProfileGame, 0, len(adminGames))
-	for _, ag := range adminGames {
-		// 查询游戏详情
-		game, err := s.gameModel.FindByGameID(ctx, ag.GameID)
+	var gameModels []model.Game
+	if hasProfileAdminRole(roleModels) || len(adminGames) == 0 {
+		gameModels, err = s.gameModel.ListAll(ctx)
 		if err != nil {
+			return nil, errors.New("获取游戏列表失败")
+		}
+	} else {
+		gameModels = make([]model.Game, 0, len(adminGames))
+		for _, ag := range adminGames {
+			game, err := s.gameModel.FindByGameID(ctx, ag.GameID)
+			if err != nil || game == nil {
+				continue
+			}
+			gameModels = append(gameModels, *game)
+		}
+	}
+
+	games := make([]ProfileGame, 0, len(gameModels))
+	seen := make(map[string]struct{}, len(gameModels))
+	for _, game := range gameModels {
+		gameID := strings.TrimSpace(game.Name)
+		if gameID == "" {
 			continue
 		}
+		if _, ok := seen[gameID]; ok {
+			continue
+		}
+		seen[gameID] = struct{}{}
 
-		// Parse JSON envs
-		var envs []string
-		if len(game.Envs) > 0 {
-			json.Unmarshal(game.Envs, &envs)
+		envMeta, _ := game.GetEnvs()
+		envs := make([]string, 0, len(envMeta))
+		for _, env := range envMeta {
+			if trimmed := strings.TrimSpace(env.Env); trimmed != "" {
+				envs = append(envs, trimmed)
+			}
+		}
+
+		gameName := strings.TrimSpace(game.AliasName)
+		if gameName == "" {
+			gameName = gameID
 		}
 
 		games = append(games, ProfileGame{
-			GameId:      strconv.FormatUint(uint64(game.ID), 10),
-			GameName:    game.Name,
+			GameId:      gameID,
+			GameName:    gameName,
 			Color:       game.Color,
 			Envs:        envs,
-			EnvMeta:     nil,
+			EnvMeta:     envMeta,
 			Permissions: []string{},
 		})
 	}
@@ -96,6 +126,16 @@ func (s *Service) GetUserGames(ctx context.Context, username string) (*ProfileGa
 	return &ProfileGamesResponse{
 		Games: games,
 	}, nil
+}
+
+func hasProfileAdminRole(roles []model.Role) bool {
+	for _, role := range roles {
+		switch strings.ToLower(strings.TrimSpace(role.Name)) {
+		case "admin", "super_admin":
+			return true
+		}
+	}
+	return false
 }
 
 // UpdateProfile 更新个人资料
@@ -188,9 +228,9 @@ func (s *Service) GetPermissions(ctx context.Context, username string) (*Profile
 	}
 
 	return &ProfilePermissionsResponse{
-		Permissions:  permissions,
-		Admin:       isAdmin,
-		Roles:        roles,
+		Permissions:   permissions,
+		Admin:         isAdmin,
+		Roles:         roles,
 		PermissionIDs: permissionIDs,
 	}, nil
 }

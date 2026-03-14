@@ -11,6 +11,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func bindAnalyticsRequest(c *gin.Context, req interface{}) error {
+	if c.Request.Method == "GET" {
+		return c.ShouldBindQuery(req)
+	}
+	return c.ShouldBindJSON(req)
+}
+
 type Handler struct {
 	service *Service
 }
@@ -23,7 +30,7 @@ func NewHandler(service *Service) *Handler {
 
 func (h *Handler) Behavior(c *gin.Context) {
 	var req BehaviorRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindAnalyticsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -38,7 +45,7 @@ func (h *Handler) Behavior(c *gin.Context) {
 
 func (h *Handler) BehaviorEvents(c *gin.Context) {
 	var req BehaviorEventsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindAnalyticsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -53,7 +60,7 @@ func (h *Handler) BehaviorEvents(c *gin.Context) {
 
 func (h *Handler) BehaviorAdoption(c *gin.Context) {
 	var req BehaviorAdoptionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindAnalyticsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -68,7 +75,7 @@ func (h *Handler) BehaviorAdoption(c *gin.Context) {
 
 func (h *Handler) BehaviorAdoptionBreakdown(c *gin.Context) {
 	var req BehaviorAdoptionBreakdownRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindAnalyticsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -83,7 +90,7 @@ func (h *Handler) BehaviorAdoptionBreakdown(c *gin.Context) {
 
 func (h *Handler) BehaviorFunnel(c *gin.Context) {
 	var req BehaviorFunnelRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindAnalyticsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -98,7 +105,7 @@ func (h *Handler) BehaviorFunnel(c *gin.Context) {
 
 func (h *Handler) BehaviorPaths(c *gin.Context) {
 	var req BehaviorPathsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindAnalyticsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -115,7 +122,7 @@ func (h *Handler) BehaviorPaths(c *gin.Context) {
 
 func (h *Handler) Overview(c *gin.Context) {
 	var req OverviewRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindAnalyticsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -202,7 +209,7 @@ func (h *Handler) Realtime(c *gin.Context) {
 
 func (h *Handler) RealtimeSeries(c *gin.Context) {
 	var req RealtimeSeriesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindAnalyticsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -232,7 +239,7 @@ func (h *Handler) Ingest(c *gin.Context) {
 
 func (h *Handler) FiltersGet(c *gin.Context) {
 	var req FiltersGetRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindAnalyticsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -264,7 +271,7 @@ func (h *Handler) FiltersUpdate(c *gin.Context) {
 
 func (h *Handler) Payments(c *gin.Context) {
 	var req PaymentsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindAnalyticsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -294,7 +301,7 @@ func (h *Handler) PaymentsIngest(c *gin.Context) {
 
 func (h *Handler) PaymentsProductTrend(c *gin.Context) {
 	var req PaymentsProductTrendRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindAnalyticsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -309,7 +316,7 @@ func (h *Handler) PaymentsProductTrend(c *gin.Context) {
 
 func (h *Handler) PaymentsSummary(c *gin.Context) {
 	var req PaymentsSummaryRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindAnalyticsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -324,7 +331,7 @@ func (h *Handler) PaymentsSummary(c *gin.Context) {
 
 func (h *Handler) PaymentsTransactions(c *gin.Context) {
 	var req PaymentsTransactionsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindAnalyticsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -341,7 +348,7 @@ func (h *Handler) PaymentsTransactions(c *gin.Context) {
 
 func (h *Handler) Retention(c *gin.Context) {
 	var req RetentionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindAnalyticsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -356,7 +363,7 @@ func (h *Handler) Retention(c *gin.Context) {
 
 func (h *Handler) Levels(c *gin.Context) {
 	var req LevelsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindAnalyticsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -371,7 +378,7 @@ func (h *Handler) Levels(c *gin.Context) {
 
 func (h *Handler) LevelsEpisodes(c *gin.Context) {
 	var req LevelsEpisodesRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindAnalyticsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -386,7 +393,7 @@ func (h *Handler) LevelsEpisodes(c *gin.Context) {
 
 func (h *Handler) LevelsMaps(c *gin.Context) {
 	var req LevelsMapsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindAnalyticsRequest(c, &req); err != nil {
 		response.Error(c, err)
 		return
 	}

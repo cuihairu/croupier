@@ -5,6 +5,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func bindConfigRequest(c *gin.Context, req interface{}) error {
+	if c.Request.Method == "GET" {
+		return c.ShouldBindQuery(req)
+	}
+	return c.ShouldBindJSON(req)
+}
+
 type Handler struct {
 	service *Service
 }
@@ -16,7 +23,7 @@ func NewHandler(service *Service) *Handler {
 // Upsert handles the config create/update request
 func (h *Handler) Upsert(c *gin.Context) {
 	var req UpsertRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindConfigRequest(c, &req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
 	}
@@ -32,7 +39,7 @@ func (h *Handler) Upsert(c *gin.Context) {
 // ListVersions handles the config versions list request
 func (h *Handler) ListVersions(c *gin.Context) {
 	var req ListVersionsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindConfigRequest(c, &req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
 	}
@@ -48,7 +55,7 @@ func (h *Handler) ListVersions(c *gin.Context) {
 // GetVersion handles the config version detail request
 func (h *Handler) GetVersion(c *gin.Context) {
 	var req GetVersionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := bindConfigRequest(c, &req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
 	}
