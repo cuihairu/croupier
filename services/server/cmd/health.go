@@ -2,11 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/spf13/cobra"
-	"github.com/zeromicro/go-zero/core/conf"
+	"gopkg.in/yaml.v3"
 )
 
 // healthCmd represents the health command
@@ -20,7 +21,12 @@ var healthCmd = &cobra.Command{
 		}
 
 		var c config.Config
-		if err := conf.Load(cfgFile, &c); err != nil {
+		data, err := os.ReadFile(cfgFile)
+		if err != nil {
+			return fmt.Errorf("读取配置文件失败: %v", err)
+		}
+		expanded := os.ExpandEnv(string(data))
+		if err := yaml.Unmarshal([]byte(expanded), &c); err != nil {
 			return fmt.Errorf("配置文件解析失败: %v", err)
 		}
 		if bootstrapDataDir != "" {

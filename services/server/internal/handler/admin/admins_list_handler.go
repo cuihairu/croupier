@@ -1,32 +1,29 @@
-// Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
-
 package admin
 
 import (
-	"net/http"
-
+	"github.com/cuihairu/croupier/services/server/internal/common/response"
 	"github.com/cuihairu/croupier/services/server/internal/logic/admin"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-	"github.com/zeromicro/go-zero/rest/httpx"
+	
+"github.com/gin-gonic/gin"
 )
 
 // 获取管理员列表
-func AdminsListHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func AdminsListHandler(svcCtx *svc.ServiceContext) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		var req types.AdminsListRequest
-		if err := httpx.Parse(r, &req); err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+		if err := c.ShouldBindQuery(&req); err != nil {
+			response.Error(c, err)
 			return
 		}
 
-		l := admin.NewAdminsListLogic(r.Context(), svcCtx)
+		l := admin.NewAdminsListLogic(c.Request.Context(), svcCtx)
 		resp, err := l.AdminsList(&req)
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			response.Error(c, err)
 		} else {
-			httpx.OkJsonCtx(r.Context(), w, resp)
+			response.Success(c, resp)
 		}
 	}
 }

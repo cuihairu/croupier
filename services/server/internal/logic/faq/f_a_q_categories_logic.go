@@ -9,11 +9,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type FAQCategoriesLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +19,25 @@ type FAQCategoriesLogic struct {
 // 获取FAQ分类
 func NewFAQCategoriesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FAQCategoriesLogic {
 	return &FAQCategoriesLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
 func (l *FAQCategoriesLogic) FAQCategories(req *types.FAQCategoriesRequest) (resp *types.FAQCategoriesResponse, err error) {
-	// todo: add your logic here and delete this line
+	cats, err := l.svcCtx.FAQModel.ListCategories(l.ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	resp = &types.FAQCategoriesResponse{
+		Items: make([]types.FAQCategory, 0, len(cats)),
+	}
+	for i := range cats {
+		resp.Items = append(resp.Items, types.FAQCategory{
+			Name:  cats[i].Name,
+			Count: cats[i].Count,
+		})
+	}
+	return resp, nil
 }

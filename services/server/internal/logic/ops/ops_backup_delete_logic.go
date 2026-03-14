@@ -6,14 +6,12 @@ package ops
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type OpsBackupDeleteLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +19,11 @@ type OpsBackupDeleteLogic struct {
 // 删除备份
 func NewOpsBackupDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *OpsBackupDeleteLogic {
 	return &OpsBackupDeleteLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
 func (l *OpsBackupDeleteLogic) OpsBackupDelete(req *types.OpsBackupDeleteRequest) (resp *types.OpsBackupDeleteResponse, err error) {
-	// todo: add your logic here and delete this line
-
-	return
+	return nil, errorx.NewNotImplemented("OpsBackupDelete not implemented")
 }

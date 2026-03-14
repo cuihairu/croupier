@@ -6,14 +6,13 @@ package node
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type NodeRestartLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +20,20 @@ type NodeRestartLogic struct {
 // 重启节点
 func NewNodeRestartLogic(ctx context.Context, svcCtx *svc.ServiceContext) *NodeRestartLogic {
 	return &NodeRestartLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
 func (l *NodeRestartLogic) NodeRestart(req *types.NodeActionRequest) error {
-	// todo: add your logic here and delete this line
+	nodeID, err := utils.ValidateNodeID(req.ID)
+	if err != nil {
+		return err
+	}
 
-	return nil
+	if _, err := l.svcCtx.NodeModel.FindByNodeID(l.ctx, nodeID); err != nil {
+		return err
+	}
+
+	return l.svcCtx.NodeModel.UpdateStatus(l.ctx, nodeID, "restarting")
 }

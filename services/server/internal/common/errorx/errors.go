@@ -37,6 +37,7 @@ var errorCodeMap = map[int]string{
 	http.StatusConflict:            "conflict",
 	http.StatusUnprocessableEntity: "validation_failed",
 	http.StatusInternalServerError: "internal_error",
+	http.StatusNotImplemented:      "not_implemented",
 	http.StatusServiceUnavailable:  "service_unavailable",
 }
 
@@ -86,6 +87,13 @@ func NewValidationError(message string) *CodeError {
 func NewInternalError(message string) *CodeError {
 	return &CodeError{
 		Code:    http.StatusInternalServerError,
+		Message: message,
+	}
+}
+
+func NewNotImplemented(message string) *CodeError {
+	return &CodeError{
+		Code:    http.StatusNotImplemented,
 		Message: message,
 	}
 }

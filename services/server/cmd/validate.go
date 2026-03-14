@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/spf13/cobra"
-	"github.com/zeromicro/go-zero/core/conf"
+	"gopkg.in/yaml.v3"
 )
 
 // validateCmd represents the validate command
@@ -19,13 +20,18 @@ var validateCmd = &cobra.Command{
 		}
 
 		var c config.Config
-		if err := conf.Load(cfgFile, &c); err != nil {
-			return fmt.Errorf("配置文件解析失败: %v", err)
+		data, err := os.ReadFile(cfgFile)
+		if err != nil {
+			return fmt.Errorf("读取配置文件失败: %w", err)
+		}
+		expanded := os.ExpandEnv(string(data))
+		if err := yaml.Unmarshal([]byte(expanded), &c); err != nil {
+			return fmt.Errorf("配置文件解析失败: %w", err)
 		}
 
 		fmt.Printf("✓ 配置文件验证通过: %s\n", cfgFile)
-		fmt.Printf("  - 服务地址: %s:%d\n", c.RestConf.Host, c.RestConf.Port)
-		fmt.Printf("  - 运行模式: %s\n", c.RestConf.Mode)
+		fmt.Printf("  - 服务地址: %s:%d\n", c.Server.Host, c.Server.Port)
+		fmt.Printf("  - 运行模式: %s\n", c.Server.Mode)
 		fmt.Printf("  - 数据库: %s\n", c.Database.Driver)
 		fmt.Printf("  - JWT密钥: %s\n", maskIfSet(c.Auth.JWTSecret))
 

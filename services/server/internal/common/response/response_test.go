@@ -7,14 +7,23 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
+	"github.com/gin-gonic/gin"
 )
+
+// setupTestContext creates a gin context for testing
+func setupTestContext() (*gin.Context, *httptest.ResponseRecorder) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	return c, w
+}
 
 // TestSuccess 测试成功响应
 func TestSuccess(t *testing.T) {
-	w := httptest.NewRecorder()
+	c, w := setupTestContext()
 	data := map[string]string{"message": "hello"}
 
-	Success(w, data)
+	Success(c, data)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
@@ -33,9 +42,9 @@ func TestSuccess(t *testing.T) {
 
 // TestSuccess_NilData 测试空数据
 func TestSuccess_NilData(t *testing.T) {
-	w := httptest.NewRecorder()
+	c, w := setupTestContext()
 
-	Success(w, nil)
+	Success(c, nil)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
@@ -44,7 +53,7 @@ func TestSuccess_NilData(t *testing.T) {
 
 // TestSuccess_ComplexData 测试复杂数据
 func TestSuccess_ComplexData(t *testing.T) {
-	w := httptest.NewRecorder()
+	c, w := setupTestContext()
 	data := map[string]interface{}{
 		"id":       123,
 		"name":     "test",
@@ -53,7 +62,7 @@ func TestSuccess_ComplexData(t *testing.T) {
 		"metadata": map[string]string{"key": "value"},
 	}
 
-	Success(w, data)
+	Success(c, data)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
@@ -72,10 +81,10 @@ func TestSuccess_ComplexData(t *testing.T) {
 
 // TestCreated 测试创建成功响应
 func TestCreated(t *testing.T) {
-	w := httptest.NewRecorder()
+	c, w := setupTestContext()
 	data := map[string]string{"id": "123"}
 
-	Created(w, data)
+	Created(c, data)
 
 	if w.Code != http.StatusCreated {
 		t.Errorf("Expected status %d, got %d", http.StatusCreated, w.Code)
@@ -94,9 +103,9 @@ func TestCreated(t *testing.T) {
 
 // TestNoContent 测试无内容响应
 func TestNoContent(t *testing.T) {
-	w := httptest.NewRecorder()
+	c, w := setupTestContext()
 
-	NoContent(w)
+	NoContent(c)
 
 	if w.Code != http.StatusNoContent {
 		t.Errorf("Expected status %d, got %d", http.StatusNoContent, w.Code)
@@ -109,14 +118,12 @@ func TestNoContent(t *testing.T) {
 
 // TestError 测试错误响应
 func TestError(t *testing.T) {
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/test", nil)
+	c, w := setupTestContext()
 	err := errorx.NewBadRequest("invalid input")
 
-	Error(w, r, err)
+	Error(c, err)
 
-	// go-zero 的 httpx.Error 可能返回不同的响应格式
-	// 我们主要验证函数不 panic 并且返回了响应
+	// Verify we got an error response
 	if w.Code == 0 && w.Body.Len() == 0 {
 		t.Error("Error should write some response")
 	}
@@ -124,13 +131,12 @@ func TestError(t *testing.T) {
 
 // TestError_NotFound 测试 404 错误
 func TestError_NotFound(t *testing.T) {
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/test", nil)
+	c, w := setupTestContext()
 	err := errorx.NewNotFound("resource not found")
 
-	Error(w, r, err)
+	Error(c, err)
 
-	// 验证函数调用成功
+	// Verify we got an error response
 	if w.Code == 0 && w.Body.Len() == 0 {
 		t.Error("Error should write some response")
 	}
@@ -138,17 +144,16 @@ func TestError_NotFound(t *testing.T) {
 
 // TestError_Validation 测试验证错误
 func TestError_Validation(t *testing.T) {
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest("POST", "/test", nil)
+	c, w := setupTestContext()
 	details := map[string]string{
 		"email": "invalid format",
 		"age":   "must be positive",
 	}
 	err := errorx.NewValidationErrorWithDetails("validation failed", details)
 
-	Error(w, r, err)
+	Error(c, err)
 
-	// 验证函数调用成功
+	// Verify we got an error response
 	if w.Code == 0 && w.Body.Len() == 0 {
 		t.Error("Error should write some response")
 	}
@@ -156,10 +161,10 @@ func TestError_Validation(t *testing.T) {
 
 // TestSuccessList 测试列表响应
 func TestSuccessList(t *testing.T) {
-	w := httptest.NewRecorder()
+	c, w := setupTestContext()
 	items := []string{"item1", "item2", "item3"}
 
-	SuccessList(w, items, 100, 1, 10)
+	SuccessList(c, items, 100, 1, 10)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
@@ -195,10 +200,10 @@ func TestSuccessList(t *testing.T) {
 
 // TestSuccessList_Empty 测试空列表响应
 func TestSuccessList_Empty(t *testing.T) {
-	w := httptest.NewRecorder()
+	c, w := setupTestContext()
 	items := []string{}
 
-	SuccessList(w, items, 0, 1, 10)
+	SuccessList(c, items, 0, 1, 10)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
@@ -217,9 +222,9 @@ func TestSuccessList_Empty(t *testing.T) {
 
 // TestSuccessList_NilItems 测试 nil items
 func TestSuccessList_NilItems(t *testing.T) {
-	w := httptest.NewRecorder()
+	c, w := setupTestContext()
 
-	SuccessList(w, nil, 0, 1, 10)
+	SuccessList(c, nil, 0, 1, 10)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
@@ -268,17 +273,17 @@ func TestListResponse_JSONFields(t *testing.T) {
 func TestResponseContentType(t *testing.T) {
 	tests := []struct {
 		name     string
-		response func(w http.ResponseWriter)
+		response func(c *gin.Context)
 	}{
-		{"Success", func(w http.ResponseWriter) { Success(w, map[string]string{"test": "data"}) }},
-		{"Created", func(w http.ResponseWriter) { Created(w, map[string]string{"id": "123"}) }},
-		{"SuccessList", func(w http.ResponseWriter) { SuccessList(w, []string{}, 0, 1, 10) }},
+		{"Success", func(c *gin.Context) { Success(c, map[string]string{"test": "data"}) }},
+		{"Created", func(c *gin.Context) { Created(c, map[string]string{"id": "123"}) }},
+		{"SuccessList", func(c *gin.Context) { SuccessList(c, []string{}, 0, 1, 10) }},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			w := httptest.NewRecorder()
-			tt.response(w)
+			c, w := setupTestContext()
+			tt.response(c)
 
 			contentType := w.Header().Get("Content-Type")
 			if contentType == "" {
@@ -290,26 +295,28 @@ func TestResponseContentType(t *testing.T) {
 
 // TestMultipleWrites 测试多次写入
 func TestMultipleWrites(t *testing.T) {
-	w := httptest.NewRecorder()
+	c, w := setupTestContext()
 
 	// 第一次写入
-	Success(w, map[string]string{"first": "response"})
+	Success(c, map[string]string{"first": "response"})
 
 	// 验证第一次写入成功
 	if w.Code != http.StatusOK {
 		t.Errorf("First write: expected status %d, got %d", http.StatusOK, w.Code)
 	}
 
-	// 尝试第二次写入（HTTP ResponseRecorder 允许多次写入）
-	Success(w, map[string]string{"second": "response"})
+	// 尝试第二次写入
+	c2, w2 := setupTestContext()
+	Success(c2, map[string]string{"second": "response"})
 
-	// 第二次写入后的状态取决于 go-zero 的实现
-	// 我们只验证不发生 panic
+	if w2.Code != http.StatusOK {
+		t.Errorf("Second write: expected status %d, got %d", http.StatusOK, w2.Code)
+	}
 }
 
 // TestSuccessWithLargeData 测试大数据响应
 func TestSuccessWithLargeData(t *testing.T) {
-	w := httptest.NewRecorder()
+	c, w := setupTestContext()
 
 	// 创建大型数据集
 	largeData := make([]int, 10000)
@@ -317,7 +324,7 @@ func TestSuccessWithLargeData(t *testing.T) {
 		largeData[i] = i
 	}
 
-	Success(w, largeData)
+	Success(c, largeData)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
@@ -334,8 +341,8 @@ func BenchmarkSuccess(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		w := httptest.NewRecorder()
-		Success(w, data)
+		c, _ := setupTestContext()
+		Success(c, data)
 	}
 }
 
@@ -348,8 +355,8 @@ func BenchmarkSuccessList(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		w := httptest.NewRecorder()
-		SuccessList(w, items, 1000, 1, 100)
+		c, _ := setupTestContext()
+		SuccessList(c, items, 1000, 1, 100)
 	}
 }
 
@@ -359,8 +366,7 @@ func BenchmarkError(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		w := httptest.NewRecorder()
-		r := httptest.NewRequest("GET", "/test", nil)
-		Error(w, r, err)
+		c, _ := setupTestContext()
+		Error(c, err)
 	}
 }

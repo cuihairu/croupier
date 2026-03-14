@@ -5,15 +5,15 @@ package ticket
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type TicketTransitionLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +21,48 @@ type TicketTransitionLogic struct {
 // 工单状态转换
 func NewTicketTransitionLogic(ctx context.Context, svcCtx *svc.ServiceContext) *TicketTransitionLogic {
 	return &TicketTransitionLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *TicketTransitionLogic) TicketTransition(req *types.TicketTransitionRequest) (resp *types.TicketDetailResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *TicketTransitionLogic) TicketTransition(req *types.TicketTransitionRequest) (*types.TicketDetailResponse, error) {
+	id, err := parseTicketID(req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	status, err := sanitizeTicketStatus(req.Status)
+	if err != nil {
+		return nil, err
+	}
+
+	updates := map[string]interface{}{
+		"status": status,
+	}
+	if note := strings.TrimSpace(req.Note); note != "" {
+		comment := addComment(commentAuthor(l.ctx), fmt.Sprintf("[状态变更] %s", note), id)
+		if err := l.svcCtx.TicketModel.CreateComment(l.ctx, comment); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := l.svcCtx.TicketModel.Update(l.ctx, id, updates); err != nil {
+		return nil, err
+	}
+
+	ticket, err := l.svcCtx.TicketModel.FindOne(l.ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	comments, err := l.svcCtx.TicketModel.ListComments(l.ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.TicketDetailResponse{
+		Ticket:   buildTicketDTO(ticket),
+		Comments: buildCommentsDTO(comments),
+	}, nil
 }

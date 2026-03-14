@@ -5,15 +5,14 @@ package schema
 
 import (
 	"context"
+	"time"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type SchemaUpdateLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +20,31 @@ type SchemaUpdateLogic struct {
 // 更新模式
 func NewSchemaUpdateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *SchemaUpdateLogic {
 	return &SchemaUpdateLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *SchemaUpdateLogic) SchemaUpdate(req *types.SchemaUpdateRequest) (resp *types.SchemaUpdateResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *SchemaUpdateLogic) SchemaUpdate(req *types.SchemaUpdateRequest) (*types.SchemaUpdateResponse, error) {
+	if err := validateSchemaDefinition(req.Schema); err != nil {
+		return nil, err
+	}
 
-	return
+	doc, err := loadSchema(l.svcCtx.Config, req.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	doc.Schema = req.Schema
+	doc.UpdatedAt = time.Now()
+
+	if err := saveSchema(l.svcCtx.Config, doc); err != nil {
+		return nil, err
+	}
+
+	return &types.SchemaUpdateResponse{
+		Code:    0,
+		Message: "OK",
+		Data:    doc.toMap(),
+	}, nil
 }

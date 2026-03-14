@@ -6,14 +6,13 @@ package node
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type NodeMetaLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +20,23 @@ type NodeMetaLogic struct {
 // 获取节点元数据
 func NewNodeMetaLogic(ctx context.Context, svcCtx *svc.ServiceContext) *NodeMetaLogic {
 	return &NodeMetaLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *NodeMetaLogic) NodeMeta(req *types.NodeMetaRequest) (resp *types.NodeMetaResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *NodeMetaLogic) NodeMeta(req *types.NodeMetaRequest) (*types.NodeMetaResponse, error) {
+	nodeID, err := utils.ValidateNodeID(req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	node, err := l.svcCtx.NodeModel.FindByNodeID(l.ctx, nodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.NodeMetaResponse{
+		Meta: node.Meta,
+	}, nil
 }

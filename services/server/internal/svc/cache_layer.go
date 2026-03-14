@@ -3,11 +3,11 @@ package svc
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/cache"
 	"github.com/cuihairu/croupier/services/server/internal/model"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 func (s *ServiceContext) cachedFetch(ctx context.Context, key string, dest interface{}, loader func() (interface{}, error)) error {
@@ -89,13 +89,13 @@ func (s *ServiceContext) cacheAdminAliases(ctx context.Context, admin *model.Adm
 
 	if admin.ID != 0 {
 		if err := s.CacheHelper.SetJSON(ctx, cache.AdminIDCacheKey(admin.ID), admin, 0); err != nil {
-			logx.WithContext(ctx).Errorf("failed to cache admin by id: %v", err)
+			slog.ErrorContext(ctx, "failed to cache admin by id", "error", err)
 		}
 	}
 
 	if username := strings.ToLower(strings.TrimSpace(admin.Username)); username != "" {
 		if err := s.CacheHelper.SetJSON(ctx, cache.AdminCacheKey(username), admin, 0); err != nil {
-			logx.WithContext(ctx).Errorf("failed to cache admin by username: %v", err)
+			slog.ErrorContext(ctx, "failed to cache admin by username", "error", err)
 		}
 	}
 }
@@ -194,6 +194,6 @@ func (s *ServiceContext) deleteCacheKey(ctx context.Context, key string) {
 		return
 	}
 	if err := s.Cache.Delete(ctx, key); err != nil {
-		logx.WithContext(ctx).Errorf("failed to delete cache key %s: %v", key, err)
+		slog.ErrorContext(ctx, "failed to delete cache key", "key", key, "error", err)
 	}
 }

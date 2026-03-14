@@ -14,7 +14,7 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/kardianos/service"
 	"github.com/spf13/cobra"
-	"github.com/zeromicro/go-zero/core/conf"
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -188,7 +188,14 @@ func (s *croupierServerService) initLoggingFromConfig() {
 	}
 
 	var cfg config.Config
-	if err := conf.LoadConfig(s.cfgFile, &cfg); err != nil {
+	data, err := os.ReadFile(s.cfgFile)
+	if err != nil {
+		// 配置加载失败，使用默认日志配置
+		common.SetupLoggerWithFile("info", "console", "", 0, 0, 0, false)
+		return
+	}
+	expanded := os.ExpandEnv(string(data))
+	if err := yaml.Unmarshal([]byte(expanded), &cfg); err != nil {
 		// 配置加载失败，使用默认日志配置
 		common.SetupLoggerWithFile("info", "console", "", 0, 0, 0, false)
 		return

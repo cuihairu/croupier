@@ -11,11 +11,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type LevelsLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -32,7 +30,6 @@ type levelStats struct {
 // 获取关卡分析
 func NewLevelsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LevelsLogic {
 	return &LevelsLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}

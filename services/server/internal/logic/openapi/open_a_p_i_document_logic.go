@@ -8,12 +8,9 @@ import (
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type OpenAPIDocumentLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +18,18 @@ type OpenAPIDocumentLogic struct {
 // 导出聚合 OpenAPI 文档
 func NewOpenAPIDocumentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *OpenAPIDocumentLogic {
 	return &OpenAPIDocumentLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
 func (l *OpenAPIDocumentLogic) OpenAPIDocument(req *types.OpenAPIDocumentRequest) (resp *types.OpenAPIDocumentResponse, err error) {
-	// todo: add your logic here and delete this line
-
-	return
+	spec, err := l.svcCtx.RegistryStore.BuildOpenAPISpec()
+	if err != nil {
+		return nil, err
+	}
+	// Convert spec to map[string]interface{} for JSON response
+	return &types.OpenAPIDocumentResponse{
+		Spec: spec,
+	}, nil
 }

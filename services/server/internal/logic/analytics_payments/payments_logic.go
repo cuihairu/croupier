@@ -11,11 +11,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type PaymentsLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -23,7 +21,6 @@ type PaymentsLogic struct {
 // 获取支付分析
 func NewPaymentsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PaymentsLogic {
 	return &PaymentsLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}

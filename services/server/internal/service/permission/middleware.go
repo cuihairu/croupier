@@ -2,7 +2,9 @@ package permission
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,8 +13,6 @@ import (
 	tokenmgr "github.com/cuihairu/croupier/internal/security/token"
 	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/model"
-	"github.com/zeromicro/go-zero/core/logx"
-	"github.com/zeromicro/go-zero/rest/httpx"
 	"gorm.io/gorm"
 )
 
@@ -40,7 +40,7 @@ func PermissionMiddleware(permissionService *PermissionService, jwtSecret string
 			// Get admin ID from context (set by auth middleware) or JWT token
 			adminID, err := extractAdminID(ctx, r, tokenManager, permissionService)
 			if err != nil {
-				logx.Error("Failed to extract admin ID", logx.Field("error", err))
+				slog.ErrorContext(ctx, "Failed to extract admin ID", "error", err)
 				writePermissionError(ctx, w, err)
 				return
 			}
@@ -48,14 +48,14 @@ func PermissionMiddleware(permissionService *PermissionService, jwtSecret string
 			// Check basic permission
 			hasPermission, err := permissionService.CheckPermission(ctx, adminID, config.Resource, config.Action)
 			if err != nil {
-				logx.Error("Permission check failed", logx.Field("error", err))
+				slog.ErrorContext(ctx, "Permission check failed", "error", err)
 				writePermissionError(ctx, w, err)
 				return
 			}
 
 			if !hasPermission {
-				logx.Infof("Permission denied admin=%d resource=%s action=%s",
-					adminID, config.Resource, config.Action)
+				slog.InfoContext(ctx, "Permission denied",
+					"admin", adminID, "resource", config.Resource, "action", config.Action)
 				writePermissionError(ctx, w, ErrPermissionDenied)
 				return
 			}
@@ -64,20 +64,21 @@ func PermissionMiddleware(permissionService *PermissionService, jwtSecret string
 			if config.CheckGameScope {
 				gameID, err := extractGameID(r)
 				if err != nil {
-					logx.Error("Failed to extract game ID", logx.Field("error", err))
+					slog.ErrorContext(ctx, "Failed to extract game ID", "error", err)
 					writePermissionError(ctx, w, err)
 					return
 				}
 
 				hasGameScope, err := permissionService.CheckGameScope(ctx, adminID, gameID)
 				if err != nil {
-					logx.Error("Game scope check failed", logx.Field("error", err))
+					slog.ErrorContext(ctx, "Game scope check failed", "error", err)
 					writePermissionError(ctx, w, err)
 					return
 				}
 
 				if !hasGameScope {
-					logx.Infof("Game scope permission denied admin=%d game=%d", adminID, gameID)
+					slog.InfoContext(ctx, "Game scope permission denied",
+						"admin", adminID, "game", gameID)
 					writePermissionError(ctx, w, ErrPermissionDenied)
 					return
 				}
@@ -99,13 +100,14 @@ func PermissionMiddleware(permissionService *PermissionService, jwtSecret string
 
 				hasEnvScope, err := permissionService.CheckGameEnvScope(ctx, adminID, gameID, env)
 				if err != nil {
-					logx.Error("Env scope check failed", logx.Field("error", err))
+					slog.ErrorContext(ctx, "Env scope check failed", "error", err)
 					writePermissionError(ctx, w, err)
 					return
 				}
 
 				if !hasEnvScope {
-					logx.Infof("Env scope permission denied admin=%d game=%d env=%s", adminID, gameID, env)
+					slog.InfoContext(ctx, "Env scope permission denied",
+						"admin", adminID, "game", gameID, "env", env)
 					writePermissionError(ctx, w, ErrPermissionDenied)
 					return
 				}
@@ -243,23 +245,42 @@ func extractEnv(r *http.Request) (string, error) {
 func writePermissionError(ctx context.Context, w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrPermissionDenied):
-		httpx.ErrorCtx(ctx, w, errorx.NewForbidden("permission denied"))
+		writeJSONError(w, errorx.NewForbidden("permission denied"))
 		return
 	case errors.Is(err, ErrAdminNotFound):
-		httpx.ErrorCtx(ctx, w, errorx.NewUnauthorized("admin not found"))
+		writeJSONError(w, errorx.NewUnauthorized("admin not found"))
 		return
 	case errors.Is(err, ErrInvalidResource):
-		httpx.ErrorCtx(ctx, w, errorx.NewBadRequest("invalid resource"))
+		writeJSONError(w, errorx.NewBadRequest("invalid resource"))
 		return
 	case errors.Is(err, ErrInvalidAction):
-		httpx.ErrorCtx(ctx, w, errorx.NewBadRequest("invalid action"))
+		writeJSONError(w, errorx.NewBadRequest("invalid action"))
 		return
 	}
-	if _, ok := errors.AsType[*errorx.CodeError](err); ok {
-		httpx.ErrorCtx(ctx, w, err)
+	if codeErr, ok := err.(*errorx.CodeError); ok {
+		writeJSONError(w, codeErr)
 		return
 	}
-	httpx.ErrorCtx(ctx, w, errorx.NewInternalError("permission check failed"))
+	writeJSONError(w, errorx.NewInternalError("permission check failed"))
+}
+
+// writeJSONError writes a CodeError as JSON response
+func writeJSONError(w http.ResponseWriter, err error) {
+	var codeErr *errorx.CodeError
+	if errors.As(err, &codeErr) {
+		statusCode, data := codeErr.Data()
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(statusCode)
+		json.NewEncoder(w).Encode(data)
+		return
+	}
+	// Fallback for non-CodeError
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusInternalServerError)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"error":   "internal_error",
+		"message": err.Error(),
+	})
 }
 
 // Predefined permission configurations for common use cases

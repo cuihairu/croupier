@@ -6,14 +6,14 @@ package function
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
+	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type FunctionEnableLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +21,23 @@ type FunctionEnableLogic struct {
 // 启用函数
 func NewFunctionEnableLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FunctionEnableLogic {
 	return &FunctionEnableLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
 func (l *FunctionEnableLogic) FunctionEnable(req *types.FunctionActionRequest) error {
-	// todo: add your logic here and delete this line
+	functionID, err := utils.ValidateFunctionID(req.ID)
+	if err != nil {
+		return err
+	}
 
-	return nil
+	fn, err := l.svcCtx.FunctionModel.FindByFunctionID(l.ctx, functionID)
+	if err != nil {
+		return err
+	}
+
+	return l.svcCtx.FunctionModel.Update(l.ctx, fn.ID, map[string]interface{}{
+		"status": model.StatusEnabled,
+	})
 }

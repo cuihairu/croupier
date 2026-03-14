@@ -5,11 +5,10 @@ package config
 
 import (
 	"github.com/cuihairu/croupier/internal/cli/common"
-	"github.com/zeromicro/go-zero/rest"
 )
 
 type Config struct {
-	rest.RestConf
+	Server        ServerConfig             `json:"Server" yaml:"Server"`
 	Database      DatabaseConfig           `json:"database" yaml:"database"`
 	Control       ControlConfig            `json:"Control" yaml:"Control"`
 	Registry      RegistryConfig           `json:"registry" yaml:"registry"`
@@ -50,6 +49,15 @@ type ControlConfig struct {
 	Cert string `json:"Cert,optional" yaml:"Cert,optional"`
 	Key  string `json:"Key,optional" yaml:"Key,optional"`
 	CA   string `json:"CA,optional" yaml:"CA,optional"`
+}
+
+// ServerConfig HTTP 服务器配置
+type ServerConfig struct {
+	Host         string `json:"Host" yaml:"Host"`
+	Port         int    `json:"Port" yaml:"Port"`
+	Mode         string `json:"Mode" yaml:"Mode"`         // dev | test | prod
+	Timeout      int64  `json:"Timeout" yaml:"Timeout"`   // 毫秒
+	MaxConns     int    `json:"MaxConns" yaml:"MaxConns"`
 }
 
 // DatabaseConfig 配置数据库连接

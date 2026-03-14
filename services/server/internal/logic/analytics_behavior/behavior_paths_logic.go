@@ -14,11 +14,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type BehaviorPathsLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -26,7 +24,6 @@ type BehaviorPathsLogic struct {
 // 获取行为路径
 func NewBehaviorPathsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *BehaviorPathsLogic {
 	return &BehaviorPathsLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}

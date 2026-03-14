@@ -13,11 +13,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type BehaviorEventsLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -25,7 +23,6 @@ type BehaviorEventsLogic struct {
 // 获取行为事件
 func NewBehaviorEventsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *BehaviorEventsLogic {
 	return &BehaviorEventsLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}

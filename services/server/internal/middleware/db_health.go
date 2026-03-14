@@ -3,11 +3,11 @@ package middleware
 import (
 	"context"
 	"database/sql"
+	"log/slog"
 	"time"
 
 	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // DBHealth 数据库健康检查
@@ -35,7 +35,7 @@ func (h *DBHealth) Check(ctx context.Context) error {
 	// 尝试查询一个管理员（不关心结果）
 	_, err := h.svcCtx.AdminModel.FindOne(queryCtx, 1)
 	if err != nil && err != sql.ErrNoRows {
-		logx.Errorf("Database health check failed: %v", err)
+		slog.ErrorContext(queryCtx, "Database health check failed", "error", err)
 		return errorx.NewInternalError("数据库连接检查失败")
 	}
 

@@ -2,12 +2,11 @@ package svc
 
 import (
 	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
-
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // OpsStateStore persists mutable ops configuration (maintenance windows, notifications, health checks, etc.).
@@ -167,7 +166,7 @@ func NewOpsStateStore(baseDir string) *OpsStateStore {
 		state: defaultOpsState(),
 	}
 	if err := store.load(); err != nil {
-		logx.Errorf("failed to load ops_state.json: %v", err)
+		slog.Default().Error("failed to load ops_state.json", "error", err)
 	}
 	return store
 }
@@ -268,12 +267,12 @@ func (s *OpsStateStore) Update(fn func(state *OpsState)) (OpsState, error) {
 func cloneOpsState(st OpsState) OpsState {
 	data, err := json.Marshal(st)
 	if err != nil {
-		logx.Errorf("failed to clone ops state: %v", err)
+		slog.Default().Error("failed to clone ops state", "error", err)
 		return st
 	}
 	var cp OpsState
 	if err := json.Unmarshal(data, &cp); err != nil {
-		logx.Errorf("failed to unmarshal ops state clone: %v", err)
+		slog.Default().Error("failed to unmarshal ops state clone", "error", err)
 		return st
 	}
 	return cp

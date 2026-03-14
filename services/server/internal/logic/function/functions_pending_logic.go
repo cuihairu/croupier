@@ -6,14 +6,13 @@ package function
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type FunctionsPendingLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +20,39 @@ type FunctionsPendingLogic struct {
 // 获取待处理函数
 func NewFunctionsPendingLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FunctionsPendingLogic {
 	return &FunctionsPendingLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *FunctionsPendingLogic) FunctionsPending(req *types.FunctionsPendingRequest) (resp *types.FunctionsPendingResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *FunctionsPendingLogic) FunctionsPending(req *types.FunctionsPendingRequest) (*types.FunctionsPendingResponse, error) {
+	pending, err := l.svcCtx.FunctionModel.ListPending(l.ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	items := make([]types.PendingFunction, 0, len(pending))
+	for _, p := range pending {
+		items = append(items, types.PendingFunction{
+			Id:        p.FunctionID,
+			Name:      toString(p.Payload["name"]),
+			Status:    p.Status,
+			Requester: p.RequestedBy,
+			CreatedAt: utils.FormatTimestamp(p.CreatedAt),
+		})
+	}
+
+	return &types.FunctionsPendingResponse{
+		Items: items,
+	}, nil
+}
+
+func toString(v interface{}) string {
+	if v == nil {
+		return ""
+	}
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return ""
 }

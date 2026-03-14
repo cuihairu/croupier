@@ -208,3 +208,12 @@ func (m *AdminModel) RemoveGameEnvScope(ctx context.Context, adminID, gameID uin
 		Where("admin_id = ? AND game_id = ? AND env = ?", adminID, gameID, env).
 		Delete(&AdminGameEnvScope{}).Error
 }
+
+// GetAdminGames returns all games scoped to an admin.
+func (m *AdminModel) GetAdminGames(ctx context.Context, adminID uint) ([]AdminGameScope, error) {
+	var scopes []AdminGameScope
+	err := m.db.WithContext(ctx).
+		Where("admin_id = ?", adminID).
+		Find(&scopes).Error
+	return scopes, err
+}

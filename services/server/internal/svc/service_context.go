@@ -28,14 +28,14 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/runtime"
 	"github.com/cuihairu/croupier/services/server/internal/service/permission"
-	"github.com/zeromicro/go-zero/core/logx"
-	"github.com/zeromicro/go-zero/rest"
+	"github.com/gin-gonic/gin"
+	"log/slog"
 	"gorm.io/gorm"
 )
 
 type ServiceContext struct {
 	Config            config.Config
-	Authority         rest.Middleware
+	Authority         gin.HandlerFunc
 	AdminManager      *AdminManager
 	OpsStateStore     *OpsStateStore
 	DB                *gorm.DB
@@ -158,11 +158,11 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	}
 	componentManager := pack.NewComponentManager(componentDataDir)
 	if err := componentManager.LoadRegistry(); err != nil {
-		logx.Errorf("failed to load component registry: %v", err)
+		slog.Default().Error("failed to load component registry", "error", err)
 	}
 	if stagingDir := ResolveComponentStagingDir(c); stagingDir != "" {
 		if err := os.MkdirAll(stagingDir, 0o755); err != nil {
-			logx.Errorf("failed to create component staging dir: %v", err)
+			slog.Default().Error("failed to create component staging dir", "error", err)
 		}
 	}
 
@@ -179,7 +179,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	// 初始化缓存
 	cacheStore, err := cache.NewCacheStore(c.Cache)
 	if err != nil {
-		logx.Errorf("Failed to initialize cache, using NullCache: %v", err)
+		slog.Default().Error("Failed to initialize cache, using NullCache", "error", err)
 		cacheStore = cache.NewNullCache()
 	}
 	cacheHelper := cache.NewCacheHelper(cacheStore)
@@ -252,7 +252,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		if jobRoutingDir != "" {
 			store, err := dispatch.NewFileJobRoutingStore(jobRoutingDir)
 			if err != nil {
-				logx.Errorf("failed to init job routing store (dir=%s): %v", jobRoutingDir, err)
+				slog.Default().Error("failed to init job routing store", "dir", jobRoutingDir, "error", err)
 			} else {
 				jobStore = store
 			}
@@ -261,10 +261,10 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 		if ttlStr := strings.TrimSpace(ctx.Config.AgentDispatch.JobRoutingTTL); ttlStr != "" {
 			if ttl, err := time.ParseDuration(ttlStr); err != nil {
-				logx.Errorf("invalid dispatch.job_routing_ttl=%q: %v", ttlStr, err)
+				slog.Default().Error("invalid dispatch.job_routing_ttl", "value", ttlStr, "error", err)
 			} else if ttl > 0 {
 				if err := ctx.Dispatcher.CleanupOldJobs(ttl); err != nil {
-					logx.Errorf("failed to cleanup old jobs: %v", err)
+					slog.Default().Error("failed to cleanup old jobs", "error", err)
 				}
 			}
 		}
@@ -283,22 +283,22 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	}
 
 	if err := seedBootstrapPermissions(ctx); err != nil {
-		logx.Errorf("failed to seed bootstrap permissions: %v", err)
+		slog.Default().Error("failed to seed bootstrap permissions", "error", err)
 	}
 	if err := seedBootstrapRoles(ctx); err != nil {
-		logx.Errorf("failed to seed bootstrap roles: %v", err)
+		slog.Default().Error("failed to seed bootstrap roles", "error", err)
 	}
 	if err := seedBootstrapAdmins(ctx); err != nil {
-		logx.Errorf("failed to seed bootstrap admins: %v", err)
+		slog.Default().Error("failed to seed bootstrap admins", "error", err)
 	}
 	if err := seedBootstrapGames(ctx); err != nil {
-		logx.Errorf("failed to seed bootstrap games: %v", err)
+		slog.Default().Error("failed to seed bootstrap games", "error", err)
 	}
 	if err := seedBootstrapTermDictionary(ctx); err != nil {
-		logx.Errorf("failed to seed term dictionary: %v", err)
+		slog.Default().Error("failed to seed term dictionary", "error", err)
 	}
 	if err := seedBootstrapWorkspaces(ctx); err != nil {
-		logx.Errorf("failed to seed bootstrap workspaces: %v", err)
+		slog.Default().Error("failed to seed bootstrap workspaces", "error", err)
 	}
 
 	// Initialize agent ops stores
@@ -412,14 +412,14 @@ func seedBootstrapAdmins(ctx *ServiceContext) error {
 			}
 
 			if err := ctx.AdminModel.Create(bg, newAdmin, admin.Password); err != nil {
-				logx.Errorf("创建引导管理员 %s 失败: %v", username, err)
+				slog.Default().Error("创建引导管理员失败", "username", username, "error", err)
 				continue
 			}
 
 			dbAdmin = *newAdmin
-			logx.Infof("已创建引导管理员账号: %s", username)
+			slog.Default().Info("已创建引导管理员账号", "username", username)
 		} else if err != nil {
-			logx.Errorf("查询管理员 %s 失败: %v", username, err)
+			slog.Default().Error("查询管理员失败", "username", username, "error", err)
 			continue
 		}
 
@@ -430,7 +430,7 @@ func seedBootstrapAdmins(ctx *ServiceContext) error {
 			}
 			var role model.Role
 			if err := ctx.DB.WithContext(bg).Where("name = ?", trimmed).First(&role).Error; err != nil {
-				logx.Errorf("为管理员 %s 查询角色 %s 失败: %v", username, trimmed, err)
+				slog.Default().Error("为管理员查询角色失败", "username", username, "role", trimmed, "error", err)
 				continue
 			}
 			var relCount int64
@@ -438,14 +438,14 @@ func seedBootstrapAdmins(ctx *ServiceContext) error {
 				Model(&model.AdminRole{}).
 				Where("admin_id = ? AND role_id = ?", dbAdmin.ID, role.ID).
 				Count(&relCount).Error; err != nil {
-				logx.Errorf("检查管理员 %s 是否已分配角色 %s 失败: %v", username, trimmed, err)
+				slog.Default().Error("检查管理员是否已分配角色失败", "username", username, "role", trimmed, "error", err)
 				continue
 			}
 			if relCount > 0 {
 				continue
 			}
 			if err := ctx.AdminModel.AssignRole(bg, dbAdmin.ID, role.ID); err != nil {
-				logx.Errorf("为管理员 %s 分配角色 %s 失败: %v", username, trimmed, err)
+				slog.Default().Error("为管理员分配角色失败", "username", username, "role", trimmed, "error", err)
 			}
 		}
 	}
@@ -484,12 +484,12 @@ func seedBootstrapRoles(ctx *ServiceContext) error {
 				Category:    strings.TrimSpace(role.Name),
 			}
 			if err := ctx.RoleModel.Create(bg, &dbRole); err != nil {
-				logx.Errorf("创建引导角色 %s 失败: %v", code, err)
+				slog.Default().Error("创建引导角色失败", "code", code, "error", err)
 				continue
 			}
-			logx.Infof("已创建引导角色: %s", code)
+			slog.Default().Info("已创建引导角色", "code", code)
 		} else if err != nil {
-			logx.Errorf("检查引导角色 %s 是否存在失败: %v", code, err)
+			slog.Default().Error("检查引导角色是否存在失败", "code", code, "error", err)
 			continue
 		}
 
@@ -498,14 +498,14 @@ func seedBootstrapRoles(ctx *ServiceContext) error {
 		}
 		normalized, err := ctx.RoleModel.ValidatePermissionIDs(bg, role.Permissions)
 		if err != nil {
-			logx.Errorf("校验角色 %s 权限失败: %v", code, err)
+			slog.Default().Error("校验角色权限失败", "code", code, "error", err)
 			continue
 		}
 
 		// 获取现有权限
 		existingPerms, err := ctx.RoleModel.GetRolePermissionIDs(bg, dbRole.ID)
 		if err != nil {
-			logx.Errorf("查询角色 %s 现有权限失败: %v", code, err)
+			slog.Default().Error("查询角色现有权限失败", "code", code, "error", err)
 			continue
 		}
 
@@ -529,7 +529,7 @@ func seedBootstrapRoles(ctx *ServiceContext) error {
 
 		// 使用 ReplacePermissions 更新，它会先删除旧的再插入新的
 		if err := ctx.RoleModel.ReplacePermissions(bg, dbRole.ID, normalized); err != nil {
-			logx.Errorf("更新角色 %s 权限失败: %v", code, err)
+			slog.Default().Error("更新角色权限失败", "code", code, "error", err)
 		}
 	}
 	return nil
@@ -576,12 +576,12 @@ func seedBootstrapPermissions(ctx *ServiceContext) error {
 				Category:    category,
 			}
 			if err := ctx.DB.WithContext(bg).Create(record).Error; err != nil {
-				logx.Errorf("创建引导权限 %s 失败: %v", code, err)
+				slog.Default().Error("创建引导权限失败", "code", code, "error", err)
 			} else {
-				logx.Infof("已创建引导权限: %s", code)
+				slog.Default().Info("已创建引导权限", "code", code)
 			}
 		} else if err != nil {
-			logx.Errorf("检查权限 %s 是否存在失败: %v", code, err)
+			slog.Default().Error("检查权限是否存在失败", "code", code, "error", err)
 		}
 	}
 	return nil
@@ -666,7 +666,7 @@ func initPlatformLoader(c config.Config) *plat.Loader {
 
 	// If platform integration is explicitly disabled, return nil
 	if !c.Platforms.Enabled {
-		logx.Info("Third-party platform integration is disabled")
+		slog.Default().Info("Third-party platform integration is disabled")
 		return nil
 	}
 
@@ -674,12 +674,12 @@ func initPlatformLoader(c config.Config) *plat.Loader {
 
 	// Load platform configurations
 	if err := loader.Load(context.Background()); err != nil {
-		logx.Errorf("Failed to load platform configurations: %v", err)
+		slog.Default().Error("Failed to load platform configurations", "error", err)
 		// Return loader anyway so it can be used for runtime reload
 		return loader
 	}
 
-	logx.Info("Third-party platform loader initialized", "config", configFile)
+	slog.Default().Info("Third-party platform loader initialized", "config", configFile)
 	return loader
 }
 
@@ -762,7 +762,7 @@ func seedBootstrapWorkspaces(ctx *ServiceContext) error {
 			continue // Already exists
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			logx.Errorf("failed to check workspace %s: %v", prefix, err)
+			slog.Default().Error("failed to check workspace", "prefix", prefix, "error", err)
 			continue
 		}
 
@@ -770,7 +770,7 @@ func seedBootstrapWorkspaces(ctx *ServiceContext) error {
 		layout := buildDefaultWorkspaceLayout(prefix, functionIDs)
 		configJSON, err := json.Marshal(layout)
 		if err != nil {
-			logx.Errorf("failed to marshal workspace config for %s: %v", prefix, err)
+			slog.Default().Error("failed to marshal workspace config", "prefix", prefix, "error", err)
 			continue
 		}
 
@@ -788,11 +788,11 @@ func seedBootstrapWorkspaces(ctx *ServiceContext) error {
 		}
 
 		if err := ctx.WorkspaceConfigModel.Upsert(bg, workspace); err != nil {
-			logx.Errorf("failed to create workspace %s: %v", prefix, err)
+			slog.Default().Error("failed to create workspace", "prefix", prefix, "error", err)
 			continue
 		}
 
-		logx.Infof("created default workspace: %s with %d functions", prefix, len(functionIDs))
+		slog.Default().Info("created default workspace", "prefix", prefix, "functions", len(functionIDs))
 		menuOrder++
 	}
 
@@ -901,7 +901,7 @@ func min(a, b int) int {
 // ============================================================================
 
 // NewAuthMiddleware 创建认证中间件
-func NewAuthMiddleware(svcCtx *ServiceContext) func(next http.HandlerFunc) http.HandlerFunc {
+func NewAuthMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 	return NewAuthMiddlewareImpl(svcCtx).Handle
 }
 
@@ -930,7 +930,7 @@ func (h *DBHealth) Check(ctx context.Context) error {
 	// 尝试查询一个管理员（不关心结果）
 	_, err := h.svcCtx.AdminModel.FindOne(queryCtx, 1)
 	if err != nil && err != sql.ErrNoRows {
-		logx.Errorf("Database health check failed: %v", err)
+		slog.ErrorContext(queryCtx, "Database health check failed", "error", err)
 		return fmt.Errorf("数据库连接检查失败")
 	}
 
@@ -976,53 +976,54 @@ func NewAuthMiddlewareImpl(svcCtx *ServiceContext) *AuthMiddleware {
 	}
 }
 
-// Handle 处理认证中间件
-func (m *AuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if m.shouldBypass(r) {
-			next(w, r)
-			return
-		}
-
-		// 获取 Authorization header
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			// 兼容 SSE 等无法自定义 header 的场景，支持 token 查询参数
-			if token := strings.TrimSpace(r.URL.Query().Get("token")); token != "" {
-				authHeader = "Bearer " + token
-			}
-		}
-		if authHeader == "" {
-			http.Error(w, `{"error": "missing authorization header", "message": "未授权"}`, http.StatusUnauthorized)
-			return
-		}
-
-		// 解析 Bearer token
-		tokenParts := strings.SplitN(authHeader, " ", 2)
-		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
-			http.Error(w, `{"error": "invalid authorization header format", "message": "授权头格式错误"}`, http.StatusUnauthorized)
-			return
-		}
-
-		token := tokenParts[1]
-
-		// 验证 JWT token
-		username, roles, adminID, err := m.authenticate(r.Context(), token)
-		if err != nil {
-			logx.Errorf("authentication failed: %v", err)
-			http.Error(w, `{"error": "authentication_failed", "message": "认证失败"}`, http.StatusUnauthorized)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), "username", username)
-		ctx = context.WithValue(ctx, "roles", roles)
-		ctx = context.WithValue(ctx, "adminID", adminID)
-		r = r.WithContext(ctx)
-		logx.Infof("Authenticated user %s roles=%v", username, roles)
-
-		// 继续处理请求
-		next(w, r)
+// Handle 处理认证中间件（Gin 风格）
+func (m *AuthMiddleware) Handle(c *gin.Context) {
+	if m.shouldBypassGin(c) {
+		c.Next()
+		return
 	}
+
+	// 获取 Authorization header
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		// 兼容 SSE 等无法自定义 header 的场景，支持 token 查询参数
+		if token := strings.TrimSpace(c.Query("token")); token != "" {
+			authHeader = "Bearer " + token
+		}
+	}
+	if authHeader == "" {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing authorization header", "message": "未授权"})
+		return
+	}
+
+	// 解析 Bearer token
+	tokenParts := strings.SplitN(authHeader, " ", 2)
+	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization header format", "message": "授权头格式错误"})
+		return
+	}
+
+	token := tokenParts[1]
+
+	// 验证 JWT token
+	username, roles, adminID, err := m.authenticate(c.Request.Context(), token)
+	if err != nil {
+		slog.ErrorContext(c.Request.Context(), "authentication failed", "error", err)
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication_failed", "message": "认证失败"})
+		return
+	}
+
+	ctx := context.WithValue(c.Request.Context(), "username", username)
+	ctx = context.WithValue(ctx, "roles", roles)
+	ctx = context.WithValue(ctx, "adminID", adminID)
+	c.Request = c.Request.WithContext(ctx)
+	slog.InfoContext(c.Request.Context(), "Authenticated user", "username", username, "roles", roles)
+
+	c.Next()
+}
+
+func (m *AuthMiddleware) shouldBypassGin(c *gin.Context) bool {
+	return m.shouldBypass(c.Request)
 }
 
 func (m *AuthMiddleware) authenticate(ctx context.Context, token string) (string, []string, uint, error) {

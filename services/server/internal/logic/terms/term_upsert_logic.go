@@ -6,14 +6,13 @@ package terms
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type TermUpsertLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +20,28 @@ type TermUpsertLogic struct {
 // 创建/更新术语
 func NewTermUpsertLogic(ctx context.Context, svcCtx *svc.ServiceContext) *TermUpsertLogic {
 	return &TermUpsertLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
 func (l *TermUpsertLogic) TermUpsert(req *types.TermUpsertRequest) (resp *types.TermUpsertResponse, err error) {
-	// todo: add your logic here and delete this line
+	// 创建或更新术语
+	term := &model.TermDictionary{
+		Domain:    req.Domain,
+		TermKey:   req.TermKey,
+		Alias:     req.Alias,
+		DisplayZh: req.DisplayZh,
+		DisplayEn: req.DisplayEn,
+		SortOrder: int(req.Order),
+	}
 
-	return
+	err = l.svcCtx.TermDictModel.Upsert(l.ctx, term)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.TermUpsertResponse{
+		Ok: true,
+	}, nil
 }

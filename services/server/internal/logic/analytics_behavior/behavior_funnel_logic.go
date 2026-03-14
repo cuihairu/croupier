@@ -15,11 +15,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type BehaviorFunnelLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -27,7 +25,6 @@ type BehaviorFunnelLogic struct {
 // 获取行为漏斗
 func NewBehaviorFunnelLogic(ctx context.Context, svcCtx *svc.ServiceContext) *BehaviorFunnelLogic {
 	return &BehaviorFunnelLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}

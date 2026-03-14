@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"net/http"
+
 	"github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/cuihairu/croupier/internal/nng"
 	"github.com/cuihairu/croupier/services/server/internal/config"
@@ -16,9 +18,10 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/logic/ops"
 	"github.com/cuihairu/croupier/services/server/internal/runtime"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
-	"github.com/zeromicro/go-zero/core/conf"
-	"github.com/zeromicro/go-zero/rest"
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -100,35 +103,40 @@ func runServer() error {
 	var c config.Config
 
 	// 加载配置文件
-	if cfgFile != "" {
-		// Allow ${VAR} expansion in YAML via environment variables.
-		conf.MustLoad(cfgFile, &c, conf.UseEnv())
-	} else {
+	if cfgFile == "" {
 		return fmt.Errorf("配置文件是必需的")
+	}
+	data, err := os.ReadFile(cfgFile)
+	if err != nil {
+		return fmt.Errorf("读取配置文件失败: %w", err)
+	}
+	expanded := os.ExpandEnv(string(data))
+	if err := yaml.Unmarshal([]byte(expanded), &c); err != nil {
+		return fmt.Errorf("解析配置文件失败: %w", err)
 	}
 
 	// 覆盖配置文件设置
 	if port > 0 {
-		c.RestConf.Port = port
+		c.Server.Port = port
 	}
 	if host != "" {
-		c.RestConf.Host = host
+		c.Server.Host = host
 	}
 
 	// 根据模式调整配置
 	switch mode {
 	case "prod":
-		c.RestConf.Mode = "prod"
+		c.Server.Mode = "prod"
 	case "test":
-		c.RestConf.Mode = "test"
+		c.Server.Mode = "test"
 	default:
-		c.RestConf.Mode = "dev"
+		c.Server.Mode = "dev"
 	}
 
 	// 调试模式设置
 	if debug {
 		fmt.Println("Debug mode enabled")
-		c.RestConf.Mode = "dev"
+		c.Server.Mode = "dev"
 		if logLevel == "" {
 			logLevel = "debug"
 		}
@@ -184,22 +192,42 @@ func runServer() error {
 	// 启动 Registry 清理任务（定期删除过期的 AgentSession）
 	go startRegistryCleanup(ctx)
 
+	// 设置 Gin 模式
+	switch c.Server.Mode {
+	case "prod":
+		gin.SetMode(gin.ReleaseMode)
+	case "test":
+		gin.SetMode(gin.TestMode)
+	default:
+		gin.SetMode(gin.DebugMode)
+	}
+
 	// 创建 REST 服务器
-	server := rest.MustNewServer(c.RestConf)
-	defer server.Stop()
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(cors.Default())
 
 	// 添加认证中间件
 	authMiddleware := svc.NewAuthMiddleware(ctx)
-	server.Use(authMiddleware)
+	r.Use(authMiddleware)
 
 	// 注册路由
-	handler.RegisterHandlers(server, ctx)
+	handler.RegisterHandlers(r, ctx)
 
-	fmt.Printf("Starting Croupier Server at %s:%d (mode: %s, debug: %v)...\n",
-		c.RestConf.Host, c.RestConf.Port, mode, debug)
+	addr := fmt.Sprintf("%s:%d", c.Server.Host, c.Server.Port)
+	fmt.Printf("Starting Croupier Server at %s (mode: %s, debug: %v)...\n",
+		addr, c.Server.Mode, debug)
 
-	server.Start()
-	return nil
+	// 配置 HTTP 服务器（支持 SSE 长连接）
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      r,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Minute,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	return srv.ListenAndServe()
 }
 
 // startNNGControlServer 启动 NNG 控制服务器（替代 gRPC）
@@ -252,9 +280,9 @@ func applyRuntimeDefaults(c *config.Config) {
 	}
 
 	// Allow long-lived connections (SSE, streaming) by keeping HTTP timeout generous.
-	if c.RestConf.Timeout == 0 {
-		// default go-zero timeout is 3s; bump to 10 minutes for streaming endpoints.
-		c.RestConf.Timeout = 600000
+	if c.Server.Timeout == 0 {
+		// default timeout 3s; bump to 10 minutes for streaming endpoints.
+		c.Server.Timeout = 600000
 	}
 
 	// ✅ Auto-adjust timeout based on SSE configuration to prevent premature disconnection
@@ -271,7 +299,7 @@ func applyRuntimeDefaults(c *config.Config) {
 	}
 }
 
-// validateAndAdjustTimeout 确保 go-zero timeout > SSE intervals
+// validateAndAdjustTimeout 确保 Timeout > SSE intervals
 func validateAndAdjustTimeout(c *config.Config) {
 	// SSE 配置默认值（秒）
 	updateInterval := 2     // 默认 2 秒
@@ -288,19 +316,19 @@ func validateAndAdjustTimeout(c *config.Config) {
 	// 计算最小安全超时：至少 3 倍的 keep-alive 间隔
 	// 这样允许至少 2 次 keep-alive + 容错余量
 	minSafeTimeout := keepAliveInterval * 3
-	currentTimeoutSec := c.RestConf.Timeout / 1000 // 毫秒转秒
+	currentTimeoutSec := c.Server.Timeout / 1000 // 毫秒转秒
 
 	// 如果当前超时小于安全值，自动调整并警告
 	if currentTimeoutSec < int64(minSafeTimeout) {
-		fmt.Printf("⚠️  警告: go-zero Timeout (%d秒) 小于 SSE KeepAliveInterval (%d秒) 的 3 倍\n",
+		fmt.Printf("⚠️  警告: Timeout (%d秒) 小于 SSE KeepAliveInterval (%d秒) 的 3 倍\n",
 			currentTimeoutSec, keepAliveInterval)
 		fmt.Printf("   自动调整 Timeout 为 %d 秒以防止 SSE 连接过早断开\n", minSafeTimeout)
 
-		c.RestConf.Timeout = int64(minSafeTimeout) * 1000 // 秒转毫秒
+		c.Server.Timeout = int64(minSafeTimeout) * 1000 // 秒转毫秒
 	} else {
 		// 验证通过，显示配置信息
 		fmt.Printf("✅ SSE 配置验证通过:\n")
-		fmt.Printf("   - go-zero Timeout: %d 秒\n", currentTimeoutSec)
+		fmt.Printf("   - HTTP WriteTimeout: 10 分钟\n")
 		fmt.Printf("   - SSE UpdateInterval: %d 秒\n", updateInterval)
 		fmt.Printf("   - SSE KeepAliveInterval: %d 秒\n", keepAliveInterval)
 		fmt.Printf("   - 安全系数: %.1fx (超时 / KeepAlive)\n", float64(currentTimeoutSec)/float64(keepAliveInterval))

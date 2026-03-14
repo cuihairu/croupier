@@ -5,15 +5,19 @@ package component
 
 import (
 	"context"
+	"errors"
+	"path/filepath"
+	"strings"
 
+	"github.com/cuihairu/croupier/internal/pack"
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type ComponentsPatchLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +25,68 @@ type ComponentsPatchLogic struct {
 // 更新组件配置
 func NewComponentsPatchLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ComponentsPatchLogic {
 	return &ComponentsPatchLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
 func (l *ComponentsPatchLogic) ComponentsPatch(req *types.ComponentPatchRequest) (resp *types.ComponentsPatchResponse, err error) {
-	// todo: add your logic here and delete this line
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权更新组件配置", "admin:all", "components:manage"); err != nil {
+		return nil, err
+	}
 
-	return
+	if req == nil || strings.TrimSpace(req.ID) == "" {
+		return nil, errors.New("组件ID不能为空")
+	}
+
+	patchMap, err := normalizePatchMap(req.Patch)
+	if err != nil {
+		return nil, errorx.NewBadRequest("解析 patch 数据失败")
+	}
+
+	if len(patchMap) == 0 {
+		return &types.ComponentsPatchResponse{
+			Code:    0,
+			Message: "无需更新",
+		}, nil
+	}
+
+	var dto componentDTO
+	if err := withComponentManagerWrite(l.svcCtx, func(cm *pack.ComponentManager) error {
+		entry, err := findComponentEntry(cm, req.ID)
+		if err != nil {
+			return err
+		}
+		oldCategory := entry.Manifest.Category
+
+		categoryChanged, err := applyComponentPatch(entry.Manifest, patchMap)
+		if err != nil {
+			return err
+		}
+
+		if categoryChanged {
+			if err := moveComponentCategory(l.svcCtx.Config, *entry, oldCategory); err != nil {
+				return errorx.NewInternalError("移动组件目录失败")
+			}
+		}
+
+		manifestPath := filepath.Join(componentDir(l.svcCtx.Config, *entry), "manifest.json")
+		if err := writeComponentManifest(manifestPath, entry.Manifest); err != nil {
+			return errorx.NewInternalError("写入组件 manifest 失败")
+		}
+		if err := cm.SaveRegistry(); err != nil {
+			return errorx.NewInternalError("保存组件注册表失败")
+		}
+
+		dto = componentEntryToDTO(l.svcCtx.Config, *entry)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+
+	return &types.ComponentsPatchResponse{
+		Code:    0,
+		Message: "组件已更新",
+		Data:    dto,
+	}, nil
 }

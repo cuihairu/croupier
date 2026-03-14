@@ -3,6 +3,8 @@
 
 package types
 
+import "time"
+
 type Admin struct {
 	Id        int64    `json:"id"`
 	Username  string   `json:"username"`
@@ -18,9 +20,9 @@ type Admin struct {
 type AdminCreateRequest struct {
 	Username string   `json:"username"`
 	Password string   `json:"password"`
-	Nickname string   `json:"nickname,optional"`
-	Email    string   `json:"email,optional"`
-	Phone    string   `json:"phone,optional"`
+	Nickname string   `json:"nickname"`
+	Email    string   `json:"email"`
+	Phone    string   `json:"phone"`
 	Roles    []string `json:"roles"`
 }
 
@@ -29,7 +31,7 @@ type AdminCreateResponse struct {
 }
 
 type AdminDeleteRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type AdminDeleteResponse struct {
@@ -37,7 +39,7 @@ type AdminDeleteResponse struct {
 }
 
 type AdminDetailRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type AdminDetailResponse struct {
@@ -46,12 +48,12 @@ type AdminDetailResponse struct {
 
 type AdminGame struct {
 	GameId   string   `json:"gameId"`
-	GameName string   `json:"gameName,optional"`
+	GameName string   `json:"gameName"`
 	Envs     []string `json:"envs"`
 }
 
 type AdminGamesRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type AdminGamesResponse struct {
@@ -59,12 +61,12 @@ type AdminGamesResponse struct {
 }
 
 type AdminGamesUpdateRequest struct {
-	ID    string      `path:"id"`
+	ID    string      `uri:"id"`
 	Games []AdminGame `json:"games"`
 }
 
 type AdminPasswordResetRequest struct {
-	ID          string `path:"id"`
+	ID          string `uri:"id"`
 	NewPassword string `json:"newPassword"`
 }
 
@@ -73,12 +75,12 @@ type AdminPasswordResetResponse struct {
 }
 
 type AdminUpdateRequest struct {
-	ID       string   `path:"id"`
-	Nickname string   `json:"nickname,optional"`
-	Email    string   `json:"email,optional"`
-	Phone    string   `json:"phone,optional"`
-	Roles    []string `json:"roles,optional"`
-	Status   int      `json:"status,optional"`
+	ID       string   `uri:"id"`
+	Nickname string   `json:"nickname"`
+	Email    string   `json:"email"`
+	Phone    string   `json:"phone"`
+	Roles    []string `json:"roles"`
+	Status   int      `json:"status"`
 }
 
 type AdminUpdateResponse struct {
@@ -88,9 +90,9 @@ type AdminUpdateResponse struct {
 type AdminsListRequest struct {
 	Page     int    `form:"page,optional,default=1"`
 	PageSize int    `form:"pageSize,optional,default=20"`
-	Search   string `form:"search,optional"`
-	Role     string `form:"role,optional"`
-	Status   int    `form:"status,optional"`
+	Search   string `form:"search"`
+	Role     string `form:"role"`
+	Status   int    `form:"status"`
 }
 
 type AdminsListResponse struct {
@@ -127,16 +129,16 @@ type Alert struct {
 }
 
 type AlertSilenceRequest struct {
-	ID       string `path:"id"`
+	ID       string `uri:"id"`
 	Duration int    `json:"duration"` // 分钟
-	Reason   string `json:"reason,optional"`
+	Reason   string `json:"reason"`
 }
 
 type AlertsListRequest struct {
 	Page     int    `form:"page,optional,default=1"`
 	PageSize int    `form:"pageSize,optional,default=20"`
-	Level    string `form:"level,optional"`
-	Status   string `form:"status,optional"`
+	Level    string `form:"level"`
+	Status   string `form:"status"`
 }
 
 type AlertsListResponse struct {
@@ -155,14 +157,14 @@ type AnalyticsFiltersQuery struct {
 }
 
 type AnalyticsQuery struct {
-	GameId    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
+	GameId    string `form:"gameId"`
+	Env       string `form:"env"`
+	StartDate string `form:"startDate"`
+	EndDate   string `form:"endDate"`
 }
 
 type ApprovalApproveRequest struct {
-	ID string `path:"id"` // 审批ID
+	ID string `uri:"id"` // 审批ID
 }
 
 type ApprovalApproveResponse struct {
@@ -172,7 +174,7 @@ type ApprovalApproveResponse struct {
 }
 
 type ApprovalGetRequest struct {
-	ID string `path:"id"` // 审批ID
+	ID string `uri:"id"` // 审批ID
 }
 
 type ApprovalGetResponse struct {
@@ -182,7 +184,7 @@ type ApprovalGetResponse struct {
 }
 
 type ApprovalRejectRequest struct {
-	ID     string `path:"id"`     // 审批ID
+	ID     string `uri:"id"`     // 审批ID
 	Reason string `json:"reason"` // 拒绝原因
 }
 
@@ -193,9 +195,9 @@ type ApprovalRejectResponse struct {
 }
 
 type ApprovalsListRequest struct {
-	Page     int    `form:"page,optional"`     // 页码
-	PageSize int    `form:"pageSize,optional"` // 每页数量
-	Status   string `form:"status,optional"`   // 状态过滤
+	Page     int    `form:"page"`     // 页码
+	PageSize int    `form:"pageSize"` // 每页数量
+	Status   string `form:"status"`   // 状态过滤
 }
 
 type ApprovalsListResponse struct {
@@ -205,11 +207,11 @@ type ApprovalsListResponse struct {
 }
 
 type AssignmentsHistoryRequest struct {
-	Page     int    `form:"page,optional"`
-	PageSize int    `form:"pageSize,optional"`
-	GameId   string `form:"game_id,optional"`
-	Env      string `form:"env,optional"`
-	Action   string `form:"action,optional"`
+	Page     int    `form:"page"`
+	PageSize int    `form:"pageSize"`
+	GameId   string `form:"game_id"`
+	Env      string `form:"env"`
+	Action   string `form:"action"`
 }
 
 type AssignmentsHistoryResponse struct {
@@ -219,10 +221,10 @@ type AssignmentsHistoryResponse struct {
 }
 
 type AssignmentsListRequest struct {
-	Page     int    `form:"page,optional"`
-	PageSize int    `form:"pageSize,optional"`
-	GameId   string `form:"game_id,optional"`
-	Env      string `form:"env,optional"`
+	Page     int    `form:"page"`
+	PageSize int    `form:"pageSize"`
+	GameId   string `form:"game_id"`
+	Env      string `form:"env"`
 }
 
 type AssignmentsListResponse struct {
@@ -233,8 +235,8 @@ type AssignmentsListResponse struct {
 
 type AssignmentsUpdateRequest struct {
 	GameId    string   `json:"game_id"`
-	Env       string   `json:"env,optional"`
-	Action    string   `json:"action,optional"` // assign/clone/remove
+	Env       string   `json:"env"`
+	Action    string   `json:"action"` // assign/clone/remove
 	Functions []string `json:"functions"`
 }
 
@@ -245,10 +247,10 @@ type AssignmentsUpdateResponse struct {
 }
 
 type AuditRequest struct {
-	Page     int    `form:"page,optional"`     // 页码
-	PageSize int    `form:"pageSize,optional"` // 每页数量
-	Action   string `form:"action,optional"`   // 操作类型过滤
-	UserID   string `form:"userId,optional"`   // 用户ID过滤
+	Page     int    `form:"page"`     // 页码
+	PageSize int    `form:"pageSize"` // 每页数量
+	Action   string `form:"action"`   // 操作类型过滤
+	UserID   string `form:"userId"`   // 用户ID过滤
 }
 
 type AuditResponse struct {
@@ -267,12 +269,12 @@ type Backup struct {
 }
 
 type BackupCreateRequest struct {
-	Name string `json:"name,optional"`
-	Type string `json:"type,optional"` // full, incremental
+	Name string `json:"name"`
+	Type string `json:"type"` // full, incremental
 }
 
 type BackupDeleteRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type BackupDetailResponse struct {
@@ -280,13 +282,13 @@ type BackupDetailResponse struct {
 }
 
 type BackupDownloadRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type BackupsListRequest struct {
 	Page     int    `form:"page,optional,default=1"`
 	PageSize int    `form:"pageSize,optional,default=20"`
-	Type     string `form:"type,optional"`
+	Type     string `form:"type"`
 }
 
 type BackupsListResponse struct {
@@ -317,7 +319,7 @@ type BatchDeleteFunctionsResponse struct {
 
 type BatchDeleteObjectsData struct {
 	Deleted []string `json:"deleted"`
-	Failed  []string `json:"failed,optional"`
+	Failed  []string `json:"failed"`
 }
 
 type BatchDeleteObjectsRequest struct {
@@ -341,11 +343,11 @@ type BatchUpdateFunctionsResponse struct {
 }
 
 type BehaviorAdoptionBreakdownRequest struct {
-	GameId    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
+	GameId    string `form:"gameId"`
+	Env       string `form:"env"`
 	Feature   string `form:"feature"`
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
+	StartDate string `form:"startDate"`
+	EndDate   string `form:"endDate"`
 }
 
 type BehaviorAdoptionBreakdownResponse struct {
@@ -354,11 +356,11 @@ type BehaviorAdoptionBreakdownResponse struct {
 }
 
 type BehaviorAdoptionRequest struct {
-	GameId    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	Feature   string `form:"feature,optional"`
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
+	GameId    string `form:"gameId"`
+	Env       string `form:"env"`
+	Feature   string `form:"feature"`
+	StartDate string `form:"startDate"`
+	EndDate   string `form:"endDate"`
 }
 
 type BehaviorAdoptionResponse struct {
@@ -373,11 +375,11 @@ type BehaviorEvent struct {
 }
 
 type BehaviorEventsRequest struct {
-	GameId    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	EventType string `form:"eventType,optional"`
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
+	GameId    string `form:"gameId"`
+	Env       string `form:"env"`
+	EventType string `form:"eventType"`
+	StartDate string `form:"startDate"`
+	EndDate   string `form:"endDate"`
 	Limit     int    `form:"limit,optional,default=100"`
 }
 
@@ -387,11 +389,11 @@ type BehaviorEventsResponse struct {
 }
 
 type BehaviorFunnelRequest struct {
-	GameId    string   `form:"gameId,optional"`
-	Env       string   `form:"env,optional"`
+	GameId    string   `form:"gameId"`
+	Env       string   `form:"env"`
 	Steps     []string `json:"steps"`
-	StartDate string   `form:"startDate,optional"`
-	EndDate   string   `form:"endDate,optional"`
+	StartDate string   `form:"startDate"`
+	EndDate   string   `form:"endDate"`
 }
 
 type BehaviorFunnelResponse struct {
@@ -399,10 +401,10 @@ type BehaviorFunnelResponse struct {
 }
 
 type BehaviorPathsRequest struct {
-	GameId    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
+	GameId    string `form:"gameId"`
+	Env       string `form:"env"`
+	StartDate string `form:"startDate"`
+	EndDate   string `form:"endDate"`
 	Depth     int    `form:"depth,optional,default=5"`
 }
 
@@ -411,10 +413,10 @@ type BehaviorPathsResponse struct {
 }
 
 type BehaviorRequest struct {
-	GameId    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
+	GameId    string `form:"gameId"`
+	Env       string `form:"env"`
+	StartDate string `form:"startDate"`
+	EndDate   string `form:"endDate"`
 }
 
 type BehaviorResponse struct {
@@ -437,8 +439,8 @@ type CallPlatformResponse struct {
 
 type CertificateAddRequest struct {
 	Domain      string `json:"domain"`
-	Certificate string `json:"certificate,optional"`
-	PrivateKey  string `json:"privateKey,optional"`
+	Certificate string `json:"certificate"`
+	PrivateKey  string `json:"privateKey"`
 }
 
 type CertificateAddResponse struct {
@@ -449,7 +451,7 @@ type CertificateAddResponse struct {
 
 type CertificateAlertAddRequest struct {
 	Domain    string `json:"domain"`
-	Threshold int    `json:"threshold,optional"`
+	Threshold int    `json:"threshold"`
 }
 
 type CertificateAlertAddResponse struct {
@@ -459,8 +461,8 @@ type CertificateAlertAddResponse struct {
 }
 
 type CertificateAlertsListRequest struct {
-	Page     int `form:"page,optional"`
-	PageSize int `form:"pageSize,optional"`
+	Page     int `form:"page"`
+	PageSize int `form:"pageSize"`
 }
 
 type CertificateAlertsListResponse struct {
@@ -479,7 +481,7 @@ type CertificateCheckAllResponse struct {
 }
 
 type CertificateCheckRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type CertificateCheckResponse struct {
@@ -489,7 +491,7 @@ type CertificateCheckResponse struct {
 }
 
 type CertificateDeleteRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type CertificateDeleteResponse struct {
@@ -499,7 +501,7 @@ type CertificateDeleteResponse struct {
 }
 
 type CertificateDetailRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type CertificateDetailResponse struct {
@@ -519,7 +521,7 @@ type CertificateDomainInfoResponse struct {
 }
 
 type CertificateExpiringRequest struct {
-	Days int `form:"days,optional"`
+	Days int `form:"days"`
 }
 
 type CertificateExpiringResponse struct {
@@ -538,9 +540,9 @@ type CertificateStatsResponse struct {
 }
 
 type CertificatesListRequest struct {
-	Page     int    `form:"page,optional"`
-	PageSize int    `form:"pageSize,optional"`
-	Status   string `form:"status,optional"`
+	Page     int    `form:"page"`
+	PageSize int    `form:"pageSize"`
+	Status   string `form:"status"`
 }
 
 type CertificatesListResponse struct {
@@ -557,15 +559,15 @@ type Comment struct {
 }
 
 type ComponentActionRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type ComponentDetailRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type ComponentPatchRequest struct {
-	ID    string      `path:"id"`
+	ID    string      `uri:"id"`
 	Patch interface{} `json:"patch"`
 }
 
@@ -595,7 +597,7 @@ type ComponentsEnableResponse struct {
 
 type ComponentsInstallRequest struct {
 	Name    string `json:"name"`
-	Version string `json:"version,optional"`
+	Version string `json:"version"`
 }
 
 type ComponentsInstallResponse struct {
@@ -605,8 +607,8 @@ type ComponentsInstallResponse struct {
 }
 
 type ComponentsListRequest struct {
-	Page     int `form:"page,optional"`
-	PageSize int `form:"pageSize,optional"`
+	Page     int `form:"page"`
+	PageSize int `form:"pageSize"`
 }
 
 type ComponentsListResponse struct {
@@ -680,8 +682,8 @@ type Descriptor struct {
 }
 
 type DescriptorsRequest struct {
-	Type   string `form:"type,optional"`
-	GameId string `form:"gameId,optional"`
+	Type   string `form:"type"`
+	GameId string `form:"gameId"`
 }
 
 type DescriptorsResponse struct {
@@ -689,9 +691,9 @@ type DescriptorsResponse struct {
 }
 
 type EntitiesListRequest struct {
-	Page     int    `form:"page,optional"`
-	PageSize int    `form:"pageSize,optional"`
-	Type     string `form:"type,optional"`
+	Page     int    `form:"page"`
+	PageSize int    `form:"pageSize"`
+	Type     string `form:"type"`
 }
 
 type EntitiesListResponse struct {
@@ -712,7 +714,7 @@ type EntityCreateResponse struct {
 }
 
 type EntityDeleteRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type EntityDeleteResponse struct {
@@ -722,7 +724,7 @@ type EntityDeleteResponse struct {
 }
 
 type EntityDetailRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type EntityDetailResponse struct {
@@ -738,7 +740,7 @@ type EntityFunction struct {
 }
 
 type EntityFunctionsRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type EntityFunctionsResponse struct {
@@ -746,7 +748,7 @@ type EntityFunctionsResponse struct {
 }
 
 type EntityPreviewRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type EntityPreviewResponse struct {
@@ -756,7 +758,7 @@ type EntityPreviewResponse struct {
 }
 
 type EntityUpdateRequest struct {
-	ID   string      `path:"id"`
+	ID   string      `uri:"id"`
 	Data interface{} `json:"data"`
 }
 
@@ -813,13 +815,13 @@ type FAQCreateRequest struct {
 	Question string   `json:"question"`
 	Answer   string   `json:"answer"`
 	Category string   `json:"category"`
-	Tags     []string `json:"tags,optional"`
+	Tags     []string `json:"tags"`
 	Visible  bool     `json:"visible,optional,default=true"`
 	Sort     int      `json:"sort,optional,default=0"`
 }
 
 type FAQDeleteRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type FAQDetailResponse struct {
@@ -829,9 +831,9 @@ type FAQDetailResponse struct {
 type FAQListRequest struct {
 	Page     int    `form:"page,optional,default=1"`
 	PageSize int    `form:"pageSize,optional,default=20"`
-	Category string `form:"category,optional"`
-	Keyword  string `form:"keyword,optional"`
-	Visible  *bool  `form:"visible,optional"`
+	Category string `form:"category"`
+	Keyword  string `form:"keyword"`
+	Visible  *bool  `form:"visible"`
 }
 
 type FAQListResponse struct {
@@ -842,13 +844,13 @@ type FAQListResponse struct {
 }
 
 type FAQUpdateRequest struct {
-	ID       string   `path:"id"`
-	Question string   `json:"question,optional"`
-	Answer   string   `json:"answer,optional"`
-	Category string   `json:"category,optional"`
-	Tags     []string `json:"tags,optional"`
-	Visible  *bool    `json:"visible,optional"`
-	Sort     *int     `json:"sort,optional"`
+	ID       string   `uri:"id"`
+	Question string   `json:"question"`
+	Answer   string   `json:"answer"`
+	Category string   `json:"category"`
+	Tags     []string `json:"tags"`
+	Visible  *bool    `json:"visible"`
+	Sort     *int     `json:"sort"`
 }
 
 type FeatureAdoption struct {
@@ -876,18 +878,18 @@ type Feedback struct {
 }
 
 type FeedbackCreateRequest struct {
-	PlayerId string `json:"playerId,optional"`
+	PlayerId string `json:"playerId"`
 	Contact  string `json:"contact"`
 	Content  string `json:"content"`
 	Category string `json:"category"`
-	Rating   int    `json:"rating,optional"`
-	Attach   string `json:"attach,optional"`
-	GameId   string `json:"gameId,optional"`
-	Env      string `json:"env,optional"`
+	Rating   int    `json:"rating"`
+	Attach   string `json:"attach"`
+	GameId   string `json:"gameId"`
+	Env      string `json:"env"`
 }
 
 type FeedbackDeleteRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type FeedbackDetailResponse struct {
@@ -897,9 +899,9 @@ type FeedbackDetailResponse struct {
 type FeedbackListRequest struct {
 	Page     int    `form:"page,optional,default=1"`
 	PageSize int    `form:"pageSize,optional,default=20"`
-	Status   string `form:"status,optional"`
-	Category string `form:"category,optional"`
-	GameId   string `form:"gameId,optional"`
+	Status   string `form:"status"`
+	Category string `form:"category"`
+	GameId   string `form:"gameId"`
 }
 
 type FeedbackListResponse struct {
@@ -918,7 +920,7 @@ type FeedbackStats struct {
 }
 
 type FeedbackStatsRequest struct {
-	GameId string `form:"gameId,optional"`
+	GameId string `form:"gameId"`
 	Days   int    `form:"days,optional,default=7"`
 }
 
@@ -927,14 +929,14 @@ type FeedbackStatsResponse struct {
 }
 
 type FeedbackUpdateRequest struct {
-	ID       string `path:"id"`
-	Status   string `json:"status,optional"`
-	Priority string `json:"priority,optional"`
-	Reply    string `json:"reply,optional"`
+	ID       string `uri:"id"`
+	Status   string `json:"status"`
+	Priority string `json:"priority"`
+	Reply    string `json:"reply"`
 }
 
 type FiltersGetRequest struct {
-	GameId string `form:"gameId,optional"`
+	GameId string `form:"gameId"`
 }
 
 type FiltersGetResponse struct {
@@ -955,18 +957,18 @@ type Function struct {
 	Status      int         `json:"status"`
 	Version     string      `json:"version"`
 	Instances   int         `json:"instances"`
-	SpecFormat  string      `json:"specFormat,optional"`
-	OpenAPISpec interface{} `json:"openapiSpec,optional"`
+	SpecFormat  string      `json:"specFormat"`
+	OpenAPISpec interface{} `json:"openapiSpec"`
 	CreatedAt   string      `json:"createdAt"`
 	UpdatedAt   string      `json:"updatedAt"`
 }
 
 type FunctionActionRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type FunctionAnalyticsRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type FunctionAnalyticsResponse struct {
@@ -979,7 +981,7 @@ type FunctionAnalyticsResponse struct {
 }
 
 type FunctionCopyRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type FunctionCopyResponse struct {
@@ -994,7 +996,7 @@ type FunctionDescriptor struct {
 }
 
 type FunctionDetailRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type FunctionDetailResponse struct {
@@ -1005,13 +1007,13 @@ type FunctionDetailResponse struct {
 type FunctionHistoryItem struct {
 	ID        string      `json:"id"`
 	Action    string      `json:"action"`
-	Operator  string      `json:"operator,optional"`
+	Operator  string      `json:"operator"`
 	Timestamp string      `json:"timestamp"`
-	Details   interface{} `json:"details,optional"`
+	Details   interface{} `json:"details"`
 }
 
 type FunctionHistoryRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type FunctionInstance struct {
@@ -1029,7 +1031,7 @@ type FunctionInstancesAllResponse struct {
 }
 
 type FunctionInstancesRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type FunctionInstancesResponse struct {
@@ -1037,15 +1039,15 @@ type FunctionInstancesResponse struct {
 }
 
 type FunctionInvokeRequest struct {
-	ID              string      `path:"id"`
-	Params          interface{} `json:"params,optional"`
-	Payload         interface{} `json:"payload,optional"`
-	GameID          string      `json:"gameId,optional"`
-	Env             string      `json:"env,optional"`
-	Mode            string      `json:"mode,optional"`
-	Route           string      `json:"route,optional"`
-	TargetServiceID string      `json:"target_service_id,optional"`
-	HashKey         string      `json:"hash_key,optional"`
+	ID              string      `uri:"id"`
+	Params          interface{} `json:"params"`
+	Payload         interface{} `json:"payload"`
+	GameID          string      `json:"gameId"`
+	Env             string      `json:"env"`
+	Mode            string      `json:"mode"`
+	Route           string      `json:"route"`
+	TargetServiceID string      `json:"target_service_id"`
+	HashKey         string      `json:"hash_key"`
 }
 
 type FunctionInvokeResponse struct {
@@ -1061,7 +1063,7 @@ type FunctionPermission struct {
 }
 
 type FunctionPermissionsRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type FunctionPermissionsResponse struct {
@@ -1069,12 +1071,12 @@ type FunctionPermissionsResponse struct {
 }
 
 type FunctionPermissionsUpdateRequest struct {
-	ID          string               `path:"id"`
+	ID          string               `uri:"id"`
 	Permissions []FunctionPermission `json:"permissions"`
 }
 
 type FunctionPublishRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type FunctionPublishResponse struct {
@@ -1090,34 +1092,34 @@ type FunctionRouteConfig struct {
 }
 
 type FunctionRouteRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type FunctionRouteResponse struct {
 	Menu   FunctionRouteConfig `json:"menu"`
-	Source string              `json:"source,optional"`
+	Source string              `json:"source"`
 }
 
 type FunctionRouteUpdateRequest struct {
-	ID     string   `path:"id"`
-	Nodes  []string `json:"nodes,optional"`
-	Path   string   `json:"path,optional"`
-	Order  int      `json:"order,optional"`
-	Hidden bool     `json:"hidden,optional"`
+	ID     string   `uri:"id"`
+	Nodes  []string `json:"nodes"`
+	Path   string   `json:"path"`
+	Order  int      `json:"order"`
+	Hidden bool     `json:"hidden"`
 }
 
 type FunctionUIHistoryItem struct {
 	Version    int         `json:"version"`
-	Schema     interface{} `json:"schema,optional"`
-	Layout     interface{} `json:"layout,optional"`
-	Components interface{} `json:"components,optional"`
-	Message    string      `json:"message,optional"`
-	CreatedBy  string      `json:"createdBy,optional"`
-	CreatedAt  string      `json:"createdAt,optional"`
+	Schema     interface{} `json:"schema"`
+	Layout     interface{} `json:"layout"`
+	Components interface{} `json:"components"`
+	Message    string      `json:"message"`
+	CreatedBy  string      `json:"createdBy"`
+	CreatedAt  string      `json:"createdAt"`
 }
 
 type FunctionUIHistoryRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type FunctionUIHistoryResponse struct {
@@ -1125,7 +1127,7 @@ type FunctionUIHistoryResponse struct {
 }
 
 type FunctionUIRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type FunctionUIResponse struct {
@@ -1134,12 +1136,12 @@ type FunctionUIResponse struct {
 	Components     interface{} `json:"components"`
 	Custom         bool        `json:"custom"`
 	HasDefault     bool        `json:"hasDefault"`
-	UISource       string      `json:"uiSource,optional"`       // custom_metadata/config_file_override/openapi_x_ui/none
-	UISourceDetail string      `json:"uiSourceDetail,optional"` // human-readable source description
+	UISource       string      `json:"uiSource"`       // custom_metadata/config_file_override/openapi_x_ui/none
+	UISourceDetail string      `json:"uiSourceDetail"` // human-readable source description
 }
 
 type FunctionUIRollbackRequest struct {
-	ID      string `path:"id"`
+	ID      string `uri:"id"`
 	Version int    `json:"version"`
 }
 
@@ -1149,10 +1151,10 @@ type FunctionUIRollbackResponse struct {
 }
 
 type FunctionUIUpdateRequest struct {
-	ID         string      `path:"id"`
-	Schema     interface{} `json:"schema,optional"`
-	Layout     interface{} `json:"layout,optional"`
-	Components interface{} `json:"components,optional"`
+	ID         string      `uri:"id"`
+	Schema     interface{} `json:"schema"`
+	Layout     interface{} `json:"layout"`
+	Components interface{} `json:"components"`
 }
 
 type FunctionWarningItem struct {
@@ -1168,9 +1170,9 @@ type FunctionWarningItem struct {
 }
 
 type FunctionWarningsRequest struct {
-	FunctionID string `form:"function_id,optional"`
-	AgentID    string `form:"agent_id,optional"`
-	Code       string `form:"code,optional"`
+	FunctionID string `form:"function_id"`
+	AgentID    string `form:"agent_id"`
+	Code       string `form:"code"`
 	Limit      int    `form:"limit,optional,default=100"`
 }
 
@@ -1181,9 +1183,9 @@ type FunctionWarningsResponse struct {
 type FunctionsListRequest struct {
 	Page     int    `form:"page,optional,default=1"`
 	PageSize int    `form:"pageSize,optional,default=20"`
-	GameId   string `form:"gameId,optional"`
-	Category string `form:"category,optional"`
-	Status   int    `form:"status,optional"`
+	GameId   string `form:"gameId"`
+	Category string `form:"category"`
+	Status   int    `form:"status"`
 }
 
 type FunctionsListResponse struct {
@@ -1209,9 +1211,9 @@ type FunnelStep struct {
 
 type GameCreateRequest struct {
 	Name        string `json:"name"`
-	AliasName   string `json:"aliasName,optional"`
-	Description string `json:"description,optional"`
-	Config      string `json:"config,optional"`
+	AliasName   string `json:"aliasName"`
+	Description string `json:"description"`
+	Config      string `json:"config"`
 }
 
 type GameCreateResponse struct {
@@ -1221,7 +1223,7 @@ type GameCreateResponse struct {
 }
 
 type GameDeleteRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type GameDeleteResponse struct {
@@ -1231,7 +1233,7 @@ type GameDeleteResponse struct {
 }
 
 type GameDetailRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type GameDetailResponse struct {
@@ -1241,9 +1243,9 @@ type GameDetailResponse struct {
 }
 
 type GameEnvAddRequest struct {
-	ID   string `path:"id"`
+	ID   string `uri:"id"`
 	Name string `json:"name"`
-	Type string `json:"type,optional"`
+	Type string `json:"type"`
 }
 
 type GameEnvAddResponse struct {
@@ -1253,8 +1255,8 @@ type GameEnvAddResponse struct {
 }
 
 type GameEnvDeleteRequest struct {
-	ID    string `path:"id"`
-	EnvID string `path:"envId"`
+	ID    string `uri:"id"`
+	EnvID string `uri:"envId"`
 }
 
 type GameEnvDeleteResponse struct {
@@ -1265,15 +1267,15 @@ type GameEnvDeleteResponse struct {
 
 type GameEnvItem struct {
 	Env         string `json:"env"`
-	Description string `json:"description,optional"`
-	Color       string `json:"color,optional"`
+	Description string `json:"description"`
+	Color       string `json:"color"`
 }
 
 type GameEnvUpdateRequest struct {
-	ID    string `path:"id"`
-	EnvID string `path:"envId"`
-	Name  string `json:"name,optional"`
-	Type  string `json:"type,optional"`
+	ID    string `uri:"id"`
+	EnvID string `uri:"envId"`
+	Name  string `json:"name"`
+	Type  string `json:"type"`
 }
 
 type GameEnvUpdateResponse struct {
@@ -1287,7 +1289,7 @@ type GameEnvsData struct {
 }
 
 type GameEnvsListRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type GameEnvsListResponse struct {
@@ -1299,27 +1301,27 @@ type GameEnvsListResponse struct {
 type GameInfo struct {
 	ID          uint          `json:"id"`
 	Name        string        `json:"name"`
-	Icon        string        `json:"icon,optional"`
-	Description string        `json:"description,optional"`
+	Icon        string        `json:"icon"`
+	Description string        `json:"description"`
 	Enabled     bool          `json:"enabled"`
-	AliasName   string        `json:"aliasName,optional"`
-	Homepage    string        `json:"homepage,optional"`
+	AliasName   string        `json:"aliasName"`
+	Homepage    string        `json:"homepage"`
 	Status      string        `json:"status"`
-	GameType    string        `json:"gameType,optional"`
-	GenreCode   string        `json:"genreCode,optional"`
-	Color       string        `json:"color,optional"`
-	Envs        []GameEnvItem `json:"envs,optional"`
-	CreatedAt   string        `json:"createdAt,optional"`
-	UpdatedAt   string        `json:"updatedAt,optional"`
+	GameType    string        `json:"gameType"`
+	GenreCode   string        `json:"genreCode"`
+	Color       string        `json:"color"`
+	Envs        []GameEnvItem `json:"envs"`
+	CreatedAt   string        `json:"createdAt"`
+	UpdatedAt   string        `json:"updatedAt"`
 }
 
 type GameUpdateRequest struct {
-	ID          string `path:"id"`
-	Name        string `json:"name,optional"`
-	AliasName   string `json:"aliasName,optional"`
-	Description string `json:"description,optional"`
-	Config      string `json:"config,optional"`
-	Status      string `json:"status,optional"`
+	ID          string `uri:"id"`
+	Name        string `json:"name"`
+	AliasName   string `json:"aliasName"`
+	Description string `json:"description"`
+	Config      string `json:"config"`
+	Status      string `json:"status"`
 }
 
 type GameUpdateResponse struct {
@@ -1330,13 +1332,13 @@ type GameUpdateResponse struct {
 
 type GamesData struct {
 	Games []GameInfo `json:"games"`
-	Total int        `json:"total,optional"`
+	Total int        `json:"total"`
 }
 
 type GamesListRequest struct {
-	Page     int    `form:"page,optional"`
-	PageSize int    `form:"pageSize,optional"`
-	Status   string `form:"status,optional"`
+	Page     int    `form:"page"`
+	PageSize int    `form:"pageSize"`
+	Status   string `form:"status"`
 }
 
 type GamesListResponse struct {
@@ -1364,7 +1366,7 @@ type IngestRequest struct {
 	GameId    string      `json:"gameId"`
 	Env       string      `json:"env"`
 	Events    interface{} `json:"events"`
-	Timestamp string      `json:"timestamp,optional"`
+	Timestamp string      `json:"timestamp"`
 }
 
 type IngestResponse struct {
@@ -1374,7 +1376,7 @@ type IngestResponse struct {
 }
 
 type JobCancelRequest struct {
-	ID string `path:"id"` // 任务ID
+	ID string `uri:"id"` // 任务ID
 }
 
 type JobCancelResponse struct {
@@ -1398,11 +1400,11 @@ type JobItem struct {
 }
 
 type JobListRequest struct {
-	Status     string `form:"status,optional"`
-	FunctionID string `form:"function_id,optional"`
-	Actor      string `form:"actor,optional"`
-	GameID     string `form:"game_id,optional"`
-	Env        string `form:"env,optional"`
+	Status     string `form:"status"`
+	FunctionID string `form:"function_id"`
+	Actor      string `form:"actor"`
+	GameID     string `form:"game_id"`
+	Env        string `form:"env"`
 	Page       int    `form:"page,optional,default=1"`
 	Size       int    `form:"size,optional,default=20"`
 }
@@ -1413,7 +1415,7 @@ type JobListResponse struct {
 }
 
 type JobResultRequest struct {
-	ID string `path:"id"` // 任务ID
+	ID string `uri:"id"` // 任务ID
 }
 
 type JobResultResponse struct {
@@ -1424,7 +1426,7 @@ type JobResultResponse struct {
 
 type JobStartRequest struct {
 	FunctionID string      `json:"functionId"` // 函数ID
-	Params     interface{} `json:"params,optional"`
+	Params     interface{} `json:"params"`
 }
 
 type JobStartResponse struct {
@@ -1443,10 +1445,10 @@ type LevelMetrics struct {
 }
 
 type LevelsEpisodesRequest struct {
-	GameId    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
+	GameId    string `form:"gameId"`
+	Env       string `form:"env"`
+	StartDate string `form:"startDate"`
+	EndDate   string `form:"endDate"`
 }
 
 type LevelsEpisodesResponse struct {
@@ -1454,10 +1456,10 @@ type LevelsEpisodesResponse struct {
 }
 
 type LevelsMapsRequest struct {
-	GameId    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
+	GameId    string `form:"gameId"`
+	Env       string `form:"env"`
+	StartDate string `form:"startDate"`
+	EndDate   string `form:"endDate"`
 }
 
 type LevelsMapsResponse struct {
@@ -1465,10 +1467,10 @@ type LevelsMapsResponse struct {
 }
 
 type LevelsRequest struct {
-	GameId    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
+	GameId    string `form:"gameId"`
+	Env       string `form:"env"`
+	StartDate string `form:"startDate"`
+	EndDate   string `form:"endDate"`
 }
 
 type LevelsResponse struct {
@@ -1476,10 +1478,10 @@ type LevelsResponse struct {
 }
 
 type ListObjectsRequest struct {
-	Prefix    string `form:"prefix,optional"`
-	Marker    string `form:"marker,optional"`
-	Limit     int    `form:"limit,optional"`
-	Delimiter string `form:"delimiter,optional"`
+	Prefix    string `form:"prefix"`
+	Marker    string `form:"marker"`
+	Limit     int    `form:"limit"`
+	Delimiter string `form:"delimiter"`
 }
 
 type ListObjectsResponse struct {
@@ -1523,7 +1525,7 @@ type MapMetrics struct {
 }
 
 type MessageDetailRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type MessageDetailResponse struct {
@@ -1533,7 +1535,7 @@ type MessageDetailResponse struct {
 }
 
 type MessageReadRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type MessageReadResponse struct {
@@ -1545,9 +1547,9 @@ type MessageReadResponse struct {
 type MessageSendRequest struct {
 	To      string      `json:"to"`
 	Type    string      `json:"type"`
-	Title   string      `json:"title,optional"`
+	Title   string      `json:"title"`
 	Content string      `json:"content"`
-	Data    interface{} `json:"data,optional"`
+	Data    interface{} `json:"data"`
 }
 
 type MessageSendResponse struct {
@@ -1557,10 +1559,10 @@ type MessageSendResponse struct {
 }
 
 type MessagesListRequest struct {
-	Page     int    `form:"page,optional"`
-	PageSize int    `form:"pageSize,optional"`
-	Type     string `form:"type,optional"`
-	Status   string `form:"status,optional"`
+	Page     int    `form:"page"`
+	PageSize int    `form:"pageSize"`
+	Type     string `form:"type"`
+	Status   string `form:"status"`
 }
 
 type MessagesListResponse struct {
@@ -1599,7 +1601,7 @@ type Node struct {
 }
 
 type NodeActionRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type NodeCommand struct {
@@ -1615,12 +1617,12 @@ type NodeCommandsResponse struct {
 }
 
 type NodeDrainRequest struct {
-	ID      string `path:"id"`
-	Timeout int    `json:"timeout,optional"` // 秒
+	ID      string `uri:"id"`
+	Timeout int    `json:"timeout"` // 秒
 }
 
 type NodeMetaRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type NodeMetaResponse struct {
@@ -1628,13 +1630,13 @@ type NodeMetaResponse struct {
 }
 
 type NodeMetaUpdateRequest struct {
-	ID   string      `path:"id"`
+	ID   string      `uri:"id"`
 	Meta interface{} `json:"meta"`
 }
 
 type NodesListRequest struct {
-	Type   string `form:"type,optional"`
-	Status string `form:"status,optional"`
+	Type   string `form:"type"`
+	Status string `form:"status"`
 }
 
 type NodesListResponse struct {
@@ -1646,14 +1648,14 @@ type ObjectInfo struct {
 	Size         int64  `json:"size"`
 	LastModified string `json:"last_modified"`
 	ETag         string `json:"etag"`
-	StorageClass string `json:"storage_class,optional"`
+	StorageClass string `json:"storage_class"`
 }
 
 type ObjectsData struct {
 	Objects     []ObjectInfo `json:"objects"`
-	Prefixes    []string     `json:"prefixes,optional"`
+	Prefixes    []string     `json:"prefixes"`
 	IsTruncated bool         `json:"is_truncated"`
-	NextMarker  string       `json:"next_marker,optional"`
+	NextMarker  string       `json:"next_marker"`
 }
 
 type OpenAPIDocumentRequest struct {
@@ -1673,7 +1675,7 @@ type OpenAPIImportResponse struct {
 }
 
 type OpenAPISpecRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type OpenAPISpecResponse struct {
@@ -1705,9 +1707,9 @@ type OpsAgentMetaUpdateRequest struct {
 }
 
 type OpsAgentMetricsRequest struct {
-	AgentID string `form:"agentId,optional"`
-	Since   string `form:"since,optional"`
-	Limit   int    `form:"limit,optional"`
+	AgentID string `form:"agentId"`
+	Since   string `form:"since"`
+	Limit   int    `form:"limit"`
 }
 
 type OpsAgentMetricsResponse struct {
@@ -1717,7 +1719,7 @@ type OpsAgentMetricsResponse struct {
 }
 
 type OpsAgentProcessesRequest struct {
-	AgentID string `path:"agentId"`
+	AgentID string `uri:"agentId"`
 }
 
 type OpsAgentProcessesResponse struct {
@@ -1739,7 +1741,7 @@ type OpsAgentSystemInfo struct {
 }
 
 type OpsAgentSystemInfoRequest struct {
-	AgentID string `path:"agentId"`
+	AgentID string `uri:"agentId"`
 }
 
 type OpsAgentSystemInfoResponse struct {
@@ -1771,7 +1773,7 @@ type OpsAlert struct {
 }
 
 type OpsAlertSilenceDeleteRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type OpsAlertSilenceRequest struct {
@@ -1793,7 +1795,7 @@ type OpsAlertsResponse struct {
 }
 
 type OpsBackupCreateRequest struct {
-	Name string `json:"name,optional"`
+	Name string `json:"name"`
 }
 
 type OpsBackupCreateResponse struct {
@@ -1803,7 +1805,7 @@ type OpsBackupCreateResponse struct {
 }
 
 type OpsBackupDeleteRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type OpsBackupDeleteResponse struct {
@@ -1813,7 +1815,7 @@ type OpsBackupDeleteResponse struct {
 }
 
 type OpsBackupDownloadRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type OpsBackupDownloadResponse struct {
@@ -1823,8 +1825,8 @@ type OpsBackupDownloadResponse struct {
 }
 
 type OpsBackupsListRequest struct {
-	Page     int `form:"page,optional"`
-	PageSize int `form:"pageSize,optional"`
+	Page     int `form:"page"`
+	PageSize int `form:"pageSize"`
 }
 
 type OpsBackupsListResponse struct {
@@ -1862,10 +1864,10 @@ type OpsDiskMetrics struct {
 }
 
 type OpsExecCommandRequest struct {
-	AgentID string   `path:"agentId"`
+	AgentID string   `uri:"agentId"`
 	Command string   `json:"command"`
-	Args    []string `json:"args,optional"`
-	Timeout int32    `json:"timeout,optional"`
+	Args    []string `json:"args"`
+	Timeout int32    `json:"timeout"`
 }
 
 type OpsExecCommandResponse struct {
@@ -1892,16 +1894,16 @@ type OpsFunctionsResponse struct {
 
 type OpsHealthCheck struct {
 	ID          string `json:"id"`
-	Name        string `json:"name,optional"`
+	Name        string `json:"name"`
 	Enabled     bool   `json:"enabled"`
-	Type        string `json:"type,optional"`
-	Kind        string `json:"kind,optional"`
-	Target      string `json:"target,optional"`
-	Expect      string `json:"expect,optional"`
-	Region      string `json:"region,optional"`
-	Interval    int    `json:"interval,optional"`
-	IntervalSec int    `json:"intervalSec,optional"`
-	TimeoutMs   int    `json:"timeoutMs,optional"`
+	Type        string `json:"type"`
+	Kind        string `json:"kind"`
+	Target      string `json:"target"`
+	Expect      string `json:"expect"`
+	Region      string `json:"region"`
+	Interval    int    `json:"interval"`
+	IntervalSec int    `json:"intervalSec"`
+	TimeoutMs   int    `json:"timeoutMs"`
 }
 
 type OpsHealthGetRequest struct {
@@ -1914,7 +1916,7 @@ type OpsHealthGetResponse struct {
 }
 
 type OpsHealthRunRequest struct {
-	ID string `json:"id,optional"`
+	ID string `json:"id"`
 }
 
 type OpsHealthRunResponse struct {
@@ -1925,7 +1927,7 @@ type OpsHealthRunResponse struct {
 
 type OpsHealthUpdateRequest struct {
 	Enabled bool             `json:"enabled"`
-	Checks  []OpsHealthCheck `json:"checks,optional"`
+	Checks  []OpsHealthCheck `json:"checks"`
 }
 
 type OpsHealthUpdateResponse struct {
@@ -1954,8 +1956,8 @@ type OpsMaintenanceGetResponse struct {
 
 type OpsMaintenanceUpdateRequest struct {
 	Enabled bool                   `json:"enabled"`
-	Message string                 `json:"message,optional"`
-	Windows []OpsMaintenanceWindow `json:"windows,optional"`
+	Message string                 `json:"message"`
+	Windows []OpsMaintenanceWindow `json:"windows"`
 }
 
 type OpsMaintenanceUpdateResponse struct {
@@ -1965,13 +1967,13 @@ type OpsMaintenanceUpdateResponse struct {
 }
 
 type OpsMaintenanceWindow struct {
-	ID          string `json:"id,optional"`
-	GameID      string `json:"gameId,optional"`
-	Env         string `json:"env,optional"`
+	ID          string `json:"id"`
+	GameID      string `json:"gameId"`
+	Env         string `json:"env"`
 	Start       string `json:"start"`
 	End         string `json:"end"`
-	Message     string `json:"message,optional"`
-	BlockWrites bool   `json:"blockWrites,optional"`
+	Message     string `json:"message"`
+	BlockWrites bool   `json:"blockWrites"`
 }
 
 type OpsManagedProcess struct {
@@ -2003,8 +2005,8 @@ type OpsMetricsData struct {
 }
 
 type OpsMetricsQuery struct {
-	Start string `form:"start,optional"`
-	End   string `form:"end,optional"`
+	Start string `form:"start"`
+	End   string `form:"end"`
 }
 
 type OpsMetricsResponse struct {
@@ -2022,7 +2024,7 @@ type OpsNetworkMetrics struct {
 }
 
 type OpsNodeActionRequest struct {
-	NodeID string `path:"nodeId"`
+	NodeID string `uri:"nodeId"`
 }
 
 type OpsNodeCommandsQuery struct {
@@ -2042,7 +2044,7 @@ type OpsNodeDrainResponse struct {
 }
 
 type OpsNodeMetaRequest struct {
-	NodeID string `path:"nodeId"`
+	NodeID string `uri:"nodeId"`
 }
 
 type OpsNodeMetaResponse struct {
@@ -2076,13 +2078,13 @@ type OpsNotificationChannel struct {
 	ID     string `json:"id"`
 	Type   string `json:"type"`
 	URL    string `json:"url"`
-	Secret string `json:"secret,optional"`
+	Secret string `json:"secret"`
 }
 
 type OpsNotificationRule struct {
 	Event         string   `json:"event"`
 	Channels      []string `json:"channels"`
-	ThresholdDays int      `json:"thresholdDays,optional"`
+	ThresholdDays int      `json:"thresholdDays"`
 }
 
 type OpsNotificationsGetRequest struct {
@@ -2096,8 +2098,8 @@ type OpsNotificationsGetResponse struct {
 
 type OpsNotificationsUpdateRequest struct {
 	Enabled  bool                     `json:"enabled"`
-	Channels []OpsNotificationChannel `json:"channels,optional"`
-	Rules    []OpsNotificationRule    `json:"rules,optional"`
+	Channels []OpsNotificationChannel `json:"channels"`
+	Rules    []OpsNotificationRule    `json:"rules"`
 }
 
 type OpsNotificationsUpdateResponse struct {
@@ -2107,9 +2109,9 @@ type OpsNotificationsUpdateResponse struct {
 }
 
 type OpsProcessActionRequest struct {
-	AgentID string `path:"agentId"`
-	Name    string `path:"name"`
-	Force   bool   `json:"force,optional"`
+	AgentID string `uri:"agentId"`
+	Name    string `uri:"name"`
+	Force   bool   `json:"force"`
 }
 
 type OpsProcessActionResponse struct {
@@ -2119,8 +2121,8 @@ type OpsProcessActionResponse struct {
 }
 
 type OpsProcessStartRequest struct {
-	AgentID string `path:"agentId"`
-	Name    string `path:"name"`
+	AgentID string `uri:"agentId"`
+	Name    string `uri:"name"`
 }
 
 type OpsProcessStartResponse struct {
@@ -2134,30 +2136,30 @@ type OpsServiceItem struct {
 	Name           string              `json:"name"`
 	Type           string              `json:"type"`
 	Status         string              `json:"status"`
-	Address        string              `json:"address,optional"`
-	GameID         string              `json:"gameId,optional"`
-	Env            string              `json:"env,optional"`
-	Version        string              `json:"version,optional"`
-	Region         string              `json:"region,optional"`
-	Zone           string              `json:"zone,optional"`
-	Labels         map[string]string   `json:"labels,optional"`
-	FunctionsCount int                 `json:"functionsCount,optional"`
-	LastSeen       string              `json:"lastSeen,optional"`
-	Metadata       *OpsServiceMetadata `json:"metadata,optional"`
+	Address        string              `json:"address"`
+	GameID         string              `json:"gameId"`
+	Env            string              `json:"env"`
+	Version        string              `json:"version"`
+	Region         string              `json:"region"`
+	Zone           string              `json:"zone"`
+	Labels         map[string]string   `json:"labels"`
+	FunctionsCount int                 `json:"functionsCount"`
+	LastSeen       string              `json:"lastSeen"`
+	Metadata       *OpsServiceMetadata `json:"metadata"`
 }
 
 type OpsServiceMetadata struct {
-	Processes      []OpsServiceProcess `json:"processes,optional"`
-	ProcessesCount int                 `json:"processesCount,optional"`
+	Processes      []OpsServiceProcess `json:"processes"`
+	ProcessesCount int                 `json:"processesCount"`
 }
 
 type OpsServiceProcess struct {
 	ServiceID    string   `json:"service_id"`
-	Addr         string   `json:"addr,optional"`
-	Version      string   `json:"version,optional"`
-	LastSeenUnix int64    `json:"last_seen_unix,optional"`
-	FunctionIDs  []string `json:"function_ids,optional"`
-	Functions    int      `json:"functions,optional"`
+	Addr         string   `json:"addr"`
+	Version      string   `json:"version"`
+	LastSeenUnix int64    `json:"last_seen_unix"`
+	FunctionIDs  []string `json:"function_ids"`
+	Functions    int      `json:"functions"`
 }
 
 type OpsServicesRequest struct {
@@ -2223,8 +2225,8 @@ type PacksImportResponse struct {
 }
 
 type PacksListRequest struct {
-	Page     int `form:"page,optional"`
-	PageSize int `form:"pageSize,optional"`
+	Page     int `form:"page"`
+	PageSize int `form:"pageSize"`
 }
 
 type PacksListResponse struct {
@@ -2249,7 +2251,7 @@ type PacksReloadRequest struct {
 
 type PacksReloadResponse struct {
 	OK        bool   `json:"ok"`
-	UpdatedAt string `json:"updatedAt,optional"`
+	UpdatedAt string `json:"updatedAt"`
 }
 
 type PaymentTransaction struct {
@@ -2267,7 +2269,7 @@ type PaymentsIngestRequest struct {
 	GameId       string      `json:"gameId"`
 	Env          string      `json:"env"`
 	Transactions interface{} `json:"transactions"`
-	Timestamp    string      `json:"timestamp,optional"`
+	Timestamp    string      `json:"timestamp"`
 }
 
 type PaymentsIngestResponse struct {
@@ -2286,10 +2288,10 @@ type PaymentsMetrics struct {
 }
 
 type PaymentsProductTrendRequest struct {
-	GameId    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
+	GameId    string `form:"gameId"`
+	Env       string `form:"env"`
+	StartDate string `form:"startDate"`
+	EndDate   string `form:"endDate"`
 	Limit     int    `form:"limit,optional,default=10"`
 }
 
@@ -2298,10 +2300,10 @@ type PaymentsProductTrendResponse struct {
 }
 
 type PaymentsRequest struct {
-	GameId    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
+	GameId    string `form:"gameId"`
+	Env       string `form:"env"`
+	StartDate string `form:"startDate"`
+	EndDate   string `form:"endDate"`
 }
 
 type PaymentsResponse struct {
@@ -2317,10 +2319,10 @@ type PaymentsSummary struct {
 }
 
 type PaymentsSummaryRequest struct {
-	GameId    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
+	GameId    string `form:"gameId"`
+	Env       string `form:"env"`
+	StartDate string `form:"startDate"`
+	EndDate   string `form:"endDate"`
 	GroupBy   string `form:"groupBy,optional,default=day"` // day, week, month
 }
 
@@ -2331,11 +2333,11 @@ type PaymentsSummaryResponse struct {
 type PaymentsTransactionsRequest struct {
 	Page      int    `form:"page,optional,default=1"`
 	PageSize  int    `form:"pageSize,optional,default=20"`
-	GameId    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	Status    string `form:"status,optional"`
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
+	GameId    string `form:"gameId"`
+	Env       string `form:"env"`
+	Status    string `form:"status"`
+	StartDate string `form:"startDate"`
+	EndDate   string `form:"endDate"`
 }
 
 type PaymentsTransactionsResponse struct {
@@ -2365,7 +2367,7 @@ type Permission struct {
 }
 
 type PermissionDetailRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type PermissionDetailResponse struct {
@@ -2375,8 +2377,8 @@ type PermissionDetailResponse struct {
 type PermissionsListRequest struct {
 	Page     int    `form:"page,optional,default=1"`
 	PageSize int    `form:"pageSize,optional,default=20"`
-	Category string `form:"category,optional"`
-	Resource string `form:"resource,optional"`
+	Category string `form:"category"`
+	Resource string `form:"resource"`
 }
 
 type PermissionsListResponse struct {
@@ -2408,7 +2410,7 @@ type Player struct {
 }
 
 type PlayerBalanceRequest struct {
-	ID     string `path:"id"`
+	ID     string `uri:"id"`
 	Amount int64  `json:"amount"`
 	Reason string `json:"reason"`
 }
@@ -2420,9 +2422,9 @@ type PlayerBalanceResponse struct {
 type PlayerCreateRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
-	Nickname string `json:"nickname,optional"`
-	Email    string `json:"email,optional"`
-	Phone    string `json:"phone,optional"`
+	Nickname string `json:"nickname"`
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
 	GameId   string `json:"gameId"`
 }
 
@@ -2431,11 +2433,11 @@ type PlayerCreateResponse struct {
 }
 
 type PlayerDeleteRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type PlayerDetailRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type PlayerDetailResponse struct {
@@ -2443,13 +2445,13 @@ type PlayerDetailResponse struct {
 }
 
 type PlayerUpdateRequest struct {
-	ID       string `path:"id"`
-	Nickname string `json:"nickname,optional"`
-	Email    string `json:"email,optional"`
-	Phone    string `json:"phone,optional"`
-	Status   int    `json:"status,optional"`
-	Level    int    `json:"level,optional"`
-	Vip      int    `json:"vip,optional"`
+	ID       string `uri:"id"`
+	Nickname string `json:"nickname"`
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
+	Status   int    `json:"status"`
+	Level    int    `json:"level"`
+	Vip      int    `json:"vip"`
 }
 
 type PlayerUpdateResponse struct {
@@ -2459,11 +2461,11 @@ type PlayerUpdateResponse struct {
 type PlayersListRequest struct {
 	Page     int    `form:"page,optional,default=1"`
 	PageSize int    `form:"pageSize,optional,default=20"`
-	GameId   string `form:"gameId,optional"`
-	Search   string `form:"search,optional"`
-	Status   int    `form:"status,optional"`
-	Level    int    `form:"level,optional"`
-	Vip      int    `form:"vip,optional"`
+	GameId   string `form:"gameId"`
+	Search   string `form:"search"`
+	Status   int    `form:"status"`
+	Level    int    `form:"level"`
+	Vip      int    `form:"vip"`
 }
 
 type PlayersListResponse struct {
@@ -2484,9 +2486,9 @@ type ProductTrend struct {
 type ProfileGame struct {
 	GameId      string      `json:"gameId"`
 	GameName    string      `json:"gameName"`
-	Color       string      `json:"color,optional"`
+	Color       string      `json:"color"`
 	Envs        []string    `json:"envs"`
-	EnvMeta     interface{} `json:"envMeta,optional"`
+	EnvMeta     interface{} `json:"envMeta"`
 	Permissions []string    `json:"permissions"`
 }
 
@@ -2529,8 +2531,8 @@ type ProfilePermission struct {
 }
 
 type ProfilePermissionsRequest struct {
-	GameId string `form:"gameId,optional"`
-	Env    string `form:"env,optional"`
+	GameId string `form:"gameId"`
+	Env    string `form:"env"`
 }
 
 type ProfilePermissionsResponse struct {
@@ -2541,14 +2543,14 @@ type ProfilePermissionsResponse struct {
 }
 
 type ProfileUpdateRequest struct {
-	Nickname string `json:"nickname,optional"`
-	Email    string `json:"email,optional"`
-	Phone    string `json:"phone,optional"`
-	Avatar   string `json:"avatar,optional"`
+	Nickname string `json:"nickname"`
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
+	Avatar   string `json:"avatar"`
 }
 
 type ProviderActionRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type ProviderDeleteResponse struct {
@@ -2558,7 +2560,7 @@ type ProviderDeleteResponse struct {
 }
 
 type ProviderDetailRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type ProviderDetailResponse struct {
@@ -2592,7 +2594,7 @@ type ProvidersDescriptorsResponse struct {
 }
 
 type ProvidersEntitiesRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type ProvidersEntitiesResponse struct {
@@ -2602,8 +2604,8 @@ type ProvidersEntitiesResponse struct {
 }
 
 type ProvidersListRequest struct {
-	Page     int `form:"page,optional"`
-	PageSize int `form:"pageSize,optional"`
+	Page     int `form:"page"`
+	PageSize int `form:"pageSize"`
 }
 
 type ProvidersListResponse struct {
@@ -2625,11 +2627,11 @@ type RateLimit struct {
 }
 
 type RateLimitDeleteRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type RateLimitGetRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type RateLimitPreviewRequest struct {
@@ -2651,11 +2653,11 @@ type RateLimitUpsertRequest struct {
 	Limit    int         `json:"limit"`
 	Window   int         `json:"window"`
 	Action   string      `json:"action"`
-	Rules    interface{} `json:"rules,optional"`
+	Rules    interface{} `json:"rules"`
 }
 
 type RateLimitsListRequest struct {
-	Resource string `form:"resource,optional"`
+	Resource string `form:"resource"`
 }
 
 type RateLimitsListResponse struct {
@@ -2672,8 +2674,8 @@ type RealtimeMetrics struct {
 }
 
 type RealtimeRequest struct {
-	GameId string `form:"gameId,optional"`
-	Env    string `form:"env,optional"`
+	GameId string `form:"gameId"`
+	Env    string `form:"env"`
 }
 
 type RealtimeResponse struct {
@@ -2682,8 +2684,8 @@ type RealtimeResponse struct {
 }
 
 type RealtimeSeriesRequest struct {
-	GameId   string `form:"gameId,optional"`
-	Env      string `form:"env,optional"`
+	GameId   string `form:"gameId"`
+	Env      string `form:"env"`
 	Interval string `form:"interval,optional,default=1m"` // 1m, 5m, 15m
 	Duration int    `form:"duration,optional,default=60"` // 分钟
 }
@@ -2705,7 +2707,7 @@ type RegistryAgent struct {
 type RegistryCoverage struct {
 	GameEnv   string                          `json:"game_env"`
 	Functions map[string]RegistryCoverageStat `json:"functions"`
-	Uncovered []string                        `json:"uncovered,optional"`
+	Uncovered []string                        `json:"uncovered"`
 }
 
 type RegistryCoverageStat struct {
@@ -2752,11 +2754,11 @@ type RetentionCohort struct {
 }
 
 type RetentionRequest struct {
-	GameId    string `form:"gameId,optional"`
-	Env       string `form:"env,optional"`
-	Cohort    string `form:"cohort,optional"` // daily, weekly, monthly
-	StartDate string `form:"startDate,optional"`
-	EndDate   string `form:"endDate,optional"`
+	GameId    string `form:"gameId"`
+	Env       string `form:"env"`
+	Cohort    string `form:"cohort"` // daily, weekly, monthly
+	StartDate string `form:"startDate"`
+	EndDate   string `form:"endDate"`
 }
 
 type RetentionResponse struct {
@@ -2775,9 +2777,9 @@ type Role struct {
 
 type RoleCreateRequest struct {
 	Name        string   `json:"name"`
-	Description string   `json:"description,optional"`
-	Category    string   `json:"category,optional"`
-	Permissions []string `json:"permissions,optional"`
+	Description string   `json:"description"`
+	Category    string   `json:"category"`
+	Permissions []string `json:"permissions"`
 }
 
 type RoleCreateResponse struct {
@@ -2785,11 +2787,11 @@ type RoleCreateResponse struct {
 }
 
 type RoleDeleteRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type RoleDetailRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type RoleDetailResponse struct {
@@ -2797,11 +2799,11 @@ type RoleDetailResponse struct {
 }
 
 type RoleUpdateRequest struct {
-	ID          string   `path:"id"`
-	Name        string   `json:"name,optional"`
-	Description string   `json:"description,optional"`
-	Category    string   `json:"category,optional"`
-	Permissions []string `json:"permissions,optional"`
+	ID          string   `uri:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Category    string   `json:"category"`
+	Permissions []string `json:"permissions"`
 }
 
 type RoleUpdateResponse struct {
@@ -2811,8 +2813,8 @@ type RoleUpdateResponse struct {
 type RolesListRequest struct {
 	Page     int    `form:"page,optional,default=1"`
 	PageSize int    `form:"pageSize,optional,default=20"`
-	Category string `form:"category,optional"`
-	Search   string `form:"search,optional"`
+	Category string `form:"category"`
+	Search   string `form:"search"`
 }
 
 type RolesListResponse struct {
@@ -2834,11 +2836,11 @@ type RootResponse struct {
 type RouteItem struct {
 	Path       string                 `json:"path"`
 	Name       string                 `json:"name"`
-	Icon       string                 `json:"icon,optional"`
-	Component  string                 `json:"component,optional"`
-	Meta       map[string]interface{} `json:"meta,optional"`
-	Routes     []RouteItem            `json:"routes,optional"`
-	HideInMenu bool                   `json:"hideInMenu,optional"`
+	Icon       string                 `json:"icon"`
+	Component  string                 `json:"component"`
+	Meta       map[string]interface{} `json:"meta"`
+	Routes     []RouteItem            `json:"routes"`
+	HideInMenu bool                   `json:"hideInMenu"`
 }
 
 type SchemaCreateRequest struct {
@@ -2853,7 +2855,7 @@ type SchemaCreateResponse struct {
 }
 
 type SchemaDeleteRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type SchemaDeleteResponse struct {
@@ -2863,7 +2865,7 @@ type SchemaDeleteResponse struct {
 }
 
 type SchemaDetailRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type SchemaDetailResponse struct {
@@ -2884,7 +2886,7 @@ type SchemaRawValidateResponse struct {
 }
 
 type SchemaUIConfigRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type SchemaUIConfigResponse struct {
@@ -2894,7 +2896,7 @@ type SchemaUIConfigResponse struct {
 }
 
 type SchemaUIConfigUpdateRequest struct {
-	ID     string      `path:"id"`
+	ID     string      `uri:"id"`
 	Config interface{} `json:"config"`
 }
 
@@ -2905,7 +2907,7 @@ type SchemaUIConfigUpdateResponse struct {
 }
 
 type SchemaUpdateRequest struct {
-	ID     string      `path:"id"`
+	ID     string      `uri:"id"`
 	Schema interface{} `json:"schema"`
 }
 
@@ -2916,7 +2918,7 @@ type SchemaUpdateResponse struct {
 }
 
 type SchemaValidateRequest struct {
-	ID   string      `path:"id"`
+	ID   string      `uri:"id"`
 	Data interface{} `json:"data"`
 }
 
@@ -2927,8 +2929,8 @@ type SchemaValidateResponse struct {
 }
 
 type SchemasListRequest struct {
-	Page     int `form:"page,optional"`
-	PageSize int `form:"pageSize,optional"`
+	Page     int `form:"page"`
+	PageSize int `form:"pageSize"`
 }
 
 type SchemasListResponse struct {
@@ -2939,7 +2941,7 @@ type SchemasListResponse struct {
 
 type SignedUrlRequest struct {
 	Path   string `form:"path"`
-	Expire int    `form:"expire,optional"`
+	Expire int    `form:"expire"`
 }
 
 type SignedUrlResponse struct {
@@ -2958,7 +2960,7 @@ type Silence struct {
 }
 
 type SilenceDeleteRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type SilencesListRequest struct {
@@ -2978,7 +2980,7 @@ type StatusResponse struct {
 }
 
 type StreamJobRequest struct {
-	JobID string `path:"jobId"`
+	JobID string `uri:"jobId"`
 }
 
 type StreamJobResponse struct {
@@ -3006,22 +3008,22 @@ type TermDeleteResponse struct {
 }
 
 type TermItem struct {
-	Id        int64  `json:"id,optional"`
+	Id        int64  `json:"id"`
 	Domain    string `json:"domain"`              // entity | operation
 	TermKey   string `json:"term_key"`            // 原始术语键
 	Alias     string `json:"alias"`               // 别名
-	DisplayZh string `json:"display_zh,optional"` // 中文显示
-	DisplayEn string `json:"display_en,optional"` // 英文显示
-	Order     int64  `json:"order,optional"`      // 排序
+	DisplayZh string `json:"display_zh"` // 中文显示
+	DisplayEn string `json:"display_en"` // 英文显示
+	Order     int64  `json:"order"`      // 排序
 }
 
 type TermUpsertRequest struct {
 	Domain    string `json:"domain"`              // entity | operation
 	TermKey   string `json:"term_key"`            // 原始术语键
 	Alias     string `json:"alias"`               // 别名
-	DisplayZh string `json:"display_zh,optional"` // 中文显示
-	DisplayEn string `json:"display_en,optional"` // 英文显示
-	Order     int64  `json:"order,optional"`      // 排序
+	DisplayZh string `json:"display_zh"` // 中文显示
+	DisplayEn string `json:"display_en"` // 英文显示
+	Order     int64  `json:"order"`      // 排序
 }
 
 type TermUpsertResponse struct {
@@ -3029,11 +3031,11 @@ type TermUpsertResponse struct {
 }
 
 type TermsListRequest struct {
-	Domain string `json:"domain,optional"` // entity | operation
+	Domain string `json:"domain"` // entity | operation
 }
 
 type TermsListResponse struct {
-	Items []TermItem `json:"items,optional"`
+	Items []TermItem `json:"items"`
 }
 
 type Ticket struct {
@@ -3055,12 +3057,12 @@ type Ticket struct {
 }
 
 type TicketCommentCreateRequest struct {
-	TicketID string `path:"ticketId"`
+	TicketID string `uri:"ticketId"`
 	Content  string `json:"content"`
 }
 
 type TicketCommentsRequest struct {
-	TicketID string `path:"ticketId"`
+	TicketID string `uri:"ticketId"`
 }
 
 type TicketCommentsResponse struct {
@@ -3072,19 +3074,19 @@ type TicketCreateRequest struct {
 	Content  string   `json:"content"`
 	Category string   `json:"category"`
 	Priority string   `json:"priority,optional,default=medium"`
-	Tags     []string `json:"tags,optional"`
-	PlayerId string   `json:"playerId,optional"`
-	Contact  string   `json:"contact,optional"`
-	GameId   string   `json:"gameId,optional"`
-	Env      string   `json:"env,optional"`
+	Tags     []string `json:"tags"`
+	PlayerId string   `json:"playerId"`
+	Contact  string   `json:"contact"`
+	GameId   string   `json:"gameId"`
+	Env      string   `json:"env"`
 }
 
 type TicketDeleteRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type TicketDetailRequest struct {
-	ID string `path:"id"`
+	ID string `uri:"id"`
 }
 
 type TicketDetailResponse struct {
@@ -3093,28 +3095,28 @@ type TicketDetailResponse struct {
 }
 
 type TicketTransitionRequest struct {
-	ID     string `path:"id"`
+	ID     string `uri:"id"`
 	Status string `json:"status"` // open, in_progress, resolved, closed
-	Note   string `json:"note,optional"`
+	Note   string `json:"note"`
 }
 
 type TicketUpdateRequest struct {
-	ID       string   `path:"id"`
-	Title    string   `json:"title,optional"`
-	Content  string   `json:"content,optional"`
-	Category string   `json:"category,optional"`
-	Priority string   `json:"priority,optional"`
-	Assignee string   `json:"assignee,optional"`
-	Tags     []string `json:"tags,optional"`
+	ID       string   `uri:"id"`
+	Title    string   `json:"title"`
+	Content  string   `json:"content"`
+	Category string   `json:"category"`
+	Priority string   `json:"priority"`
+	Assignee string   `json:"assignee"`
+	Tags     []string `json:"tags"`
 }
 
 type TicketsListRequest struct {
 	Page     int    `form:"page,optional,default=1"`
 	PageSize int    `form:"pageSize,optional,default=20"`
-	Status   string `form:"status,optional"`
-	Category string `form:"category,optional"`
-	Priority string `form:"priority,optional"`
-	Assignee string `form:"assignee,optional"`
+	Status   string `form:"status"`
+	Category string `form:"category"`
+	Priority string `form:"priority"`
+	Assignee string `form:"assignee"`
 }
 
 type TicketsListResponse struct {
@@ -3161,7 +3163,7 @@ type WorkspaceConfig struct {
 }
 
 type WorkspaceConfigDeleteRequest struct {
-	ObjectKey string `path:"objectKey"`
+	ObjectKey string `uri:"objectKey"`
 }
 
 type WorkspaceConfigDeleteResponse struct {
@@ -3169,7 +3171,7 @@ type WorkspaceConfigDeleteResponse struct {
 }
 
 type WorkspaceConfigGetRequest struct {
-	ObjectKey string `path:"objectKey"`
+	ObjectKey string `uri:"objectKey"`
 }
 
 type WorkspaceConfigGetResponse struct {
@@ -3182,12 +3184,12 @@ type WorkspaceConfigMeta struct {
 }
 
 type WorkspaceConfigSaveRequest struct {
-	ObjectKey   string      `path:"objectKey"`
-	Title       string      `json:"title,optional"`
-	Description string      `json:"description,optional"`
+	ObjectKey   string      `uri:"objectKey"`
+	Title       string      `json:"title"`
+	Description string      `json:"description"`
 	Layout      interface{} `json:"layout,omitempty"`
-	Status      string      `json:"status,optional"`
-	MenuOrder   int         `json:"menuOrder,optional"`
+	Status      string      `json:"status"`
+	MenuOrder   int         `json:"menuOrder"`
 }
 
 type WorkspaceConfigSaveResponse struct {
@@ -3202,8 +3204,8 @@ type WorkspaceConfigsListResponse struct {
 }
 
 type WorkspacePublishRequest struct {
-	ObjectKey   string `path:"objectKey"`
-	PublishedBy string `json:"publishedBy,optional"`
+	ObjectKey   string `uri:"objectKey"`
+	PublishedBy string `json:"publishedBy"`
 }
 
 type WorkspacePublishResponse struct {
@@ -3219,7 +3221,7 @@ type WorkspacePublishedListResponse struct {
 }
 
 type WorkspaceRollbackRequest struct {
-	ObjectKey string `path:"objectKey"`
+	ObjectKey string `uri:"objectKey"`
 	VersionId string `json:"versionId"`
 }
 
@@ -3229,7 +3231,7 @@ type WorkspaceRollbackResponse struct {
 }
 
 type WorkspaceUnpublishRequest struct {
-	ObjectKey string `path:"objectKey"`
+	ObjectKey string `uri:"objectKey"`
 }
 
 type WorkspaceUnpublishResponse struct {
@@ -3238,8 +3240,8 @@ type WorkspaceUnpublishResponse struct {
 }
 
 type WorkspaceVersionDetailRequest struct {
-	ObjectKey string `path:"objectKey"`
-	VersionId string `path:"versionId"`
+	ObjectKey string `uri:"objectKey"`
+	VersionId string `uri:"versionId"`
 }
 
 type WorkspaceVersionDetailResponse struct {
@@ -3251,21 +3253,30 @@ type WorkspaceVersionRecord struct {
 	ObjectKey          string      `json:"objectKey"`
 	Version            int         `json:"version"`
 	Config             interface{} `json:"config"`
-	IsCurrentDraft     bool        `json:"isCurrentDraft,optional"`
-	IsCurrentPublished bool        `json:"isCurrentPublished,optional"`
+	IsCurrentDraft     bool        `json:"isCurrentDraft"`
+	IsCurrentPublished bool        `json:"isCurrentPublished"`
 	CreatedAt          string      `json:"createdAt,omitempty"`
 	CreatedBy          string      `json:"createdBy,omitempty"`
 	Comment            string      `json:"comment,omitempty"`
 }
 
 type WorkspaceVersionsRequest struct {
-	ObjectKey string `path:"objectKey"`
-	From      string `form:"from,optional"`
-	To        string `form:"to,optional"`
+	ObjectKey string `uri:"objectKey"`
+	From      string `form:"from"`
+	To        string `form:"to"`
 }
 
 type WorkspaceVersionsResponse struct {
 	Items                   []WorkspaceVersionRecord `json:"items"`
-	CurrentDraftVersion     int                      `json:"currentDraftVersion,optional"`
-	CurrentPublishedVersion int                      `json:"currentPublishedVersion,optional"`
+	CurrentDraftVersion     int                      `json:"currentDraftVersion"`
+	CurrentPublishedVersion int                      `json:"currentPublishedVersion"`
+}
+
+// MigrationResult represents the result of a data migration operation.
+type MigrationResult struct {
+	Name      string    `json:"name"`
+	Success   bool      `json:"success"`
+	Error     string    `json:"error,omitempty"`
+	Duration  string    `json:"duration,omitempty"`
+	Timestamp time.Time `json:"timestamp,omitempty"`
 }

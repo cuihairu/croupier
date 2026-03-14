@@ -5,15 +5,15 @@ package monitoring
 
 import (
 	"context"
+	"time"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type StatusLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +21,31 @@ type StatusLogic struct {
 // 获取系统状态
 func NewStatusLogic(ctx context.Context, svcCtx *svc.ServiceContext) *StatusLogic {
 	return &StatusLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
 func (l *StatusLogic) Status(req *types.StatusRequest) (resp *types.StatusResponse, err error) {
-	// todo: add your logic here and delete this line
+	dbStatus := checkDatabaseHealth(l.ctx, l.svcCtx)
+	registryStatus, snapshots := collectRegistryStats(l.svcCtx.RegistryStore)
+	opsStatus := summarizeOpsState(l.svcCtx)
 
-	return
+	ok := componentHealthy(dbStatus) && componentHealthy(registryStatus) && componentHealthy(opsStatus)
+
+	data := map[string]interface{}{
+		"ok":             ok,
+		"timestamp":      utils.FormatTimestamp(time.Now()),
+		"uptime_seconds": uptimeSeconds(),
+		"database":       dbStatus,
+		"registry":       registryStatus,
+		"ops":            opsStatus,
+		"agents":         snapshots,
+	}
+
+	return &types.StatusResponse{
+		Code:    0,
+		Message: "OK",
+		Data:    data,
+	}, nil
 }

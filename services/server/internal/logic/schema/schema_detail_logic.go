@@ -9,11 +9,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type SchemaDetailLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +19,20 @@ type SchemaDetailLogic struct {
 // 获取模式详情
 func NewSchemaDetailLogic(ctx context.Context, svcCtx *svc.ServiceContext) *SchemaDetailLogic {
 	return &SchemaDetailLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *SchemaDetailLogic) SchemaDetail(req *types.SchemaDetailRequest) (resp *types.SchemaDetailResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *SchemaDetailLogic) SchemaDetail(req *types.SchemaDetailRequest) (*types.SchemaDetailResponse, error) {
+	doc, err := loadSchema(l.svcCtx.Config, req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.SchemaDetailResponse{
+		Code:    0,
+		Message: "OK",
+		Data:    doc.toMap(),
+	}, nil
 }
