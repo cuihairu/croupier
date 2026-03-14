@@ -1,20 +1,19 @@
-# Docker/dev config for croupier-server (used by docker/docker-compose.yml)
-Name: croupier-server
-Host: 0.0.0.0
-Port: 18780
-Timeout: 600000
-Mode: dev
+# Croupier Server Configuration
+Server:
+  Host: 0.0.0.0
+  Port: 18780
+  Timeout: 600000
+  Mode: dev
 
-SSE:
+database:
+  Driver: mysql
+  DataSource: "root:root@tcp(localhost:3306)/croupier?charset=utf8mb4&parseTime=True&loc=Local"
+  # For PostgreSQL, change Driver to postgres and DataSource to:
+  # DataSource: "host=localhost port=5432 user=postgres password=postgres dbname=croupier sslmode=disable TimeZone=Asia/Shanghai"
+
+sse:
   UpdateInterval: 2
   KeepAliveInterval: 30
-
-Database:
-  # Prefer env override in docker-compose:
-  # - DB_DRIVER
-  # - DATABASE_URL (e.g. postgres://...)
-  Driver: "auto"
-  DataSource: ""
 
 Control:
   Addr: ":19090"
@@ -23,7 +22,7 @@ Control:
   Key: ""
   CA: ""
 
-Registry:
+registry:
   AssignmentsPath: "data/assignments.json"
   AnalyticsFiltersPath: "packs/ui/analytics_filters.json"
   RateLimitsPath: "data/rate_limits.json"
@@ -39,7 +38,7 @@ AgentDispatch:
     ServerName: ""
     InsecureSkipVerify: false
 
-Auth:
+auth:
   JWTSecret: "localdevsecret-change-me"
   RBACConfig: "configs/rbac.json"
   UsersConfig: "configs/users.json"
@@ -48,28 +47,27 @@ Auth:
 BootstrapData:
   BaseDir: "configs"
 
-Descriptors:
+descriptors:
   Dir: "packs"
 
-Components:
+components:
   DataDir: "data"
   StagingDir: "data/components/staging"
 
-Schemas:
+schemas:
   Dir: "packs/ui"
 
-Packs:
+packs:
   Dir: "packs"
 
-Storage:
+storage:
   Driver: "file"
   BaseDir: "data/uploads"
 
-Cache:
+cache:
   Enabled: true
   Type: "redis"
-  # Default to docker-compose service name; override via env if needed.
-  Addr: "redis:6379"
+  Addr: "localhost:6379"
   Password: ""
   DB: 0
   PoolSize: 50
@@ -82,10 +80,10 @@ Log:
   Format: "console"
   Output: "stdout"
 
-Metrics:
+metrics:
   PerFunction: true
   PerGameDenies: false
 
-Platforms:
+platforms:
   Enabled: false
   ConfigFile: "configs/platforms.yaml"

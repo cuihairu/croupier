@@ -1,0 +1,686 @@
+
+package handler
+
+import (
+	"github.com/cuihairu/croupier/internal/svc"
+	"github.com/cuihairu/croupier/internal/api/admin"
+	"github.com/cuihairu/croupier/internal/api/agent"
+	"github.com/cuihairu/croupier/internal/api/alert"
+	"github.com/cuihairu/croupier/internal/api/analytics"
+	"github.com/cuihairu/croupier/internal/api/approval"
+	"github.com/cuihairu/croupier/internal/api/assignment"
+	"github.com/cuihairu/croupier/internal/api/audit"
+	"github.com/cuihairu/croupier/internal/api/auth"
+	"github.com/cuihairu/croupier/internal/api/backup"
+	"github.com/cuihairu/croupier/internal/api/certificate"
+	"github.com/cuihairu/croupier/internal/api/component"
+	"github.com/cuihairu/croupier/internal/api/config"
+	"github.com/cuihairu/croupier/internal/api/entity"
+	"github.com/cuihairu/croupier/internal/api/faq"
+	"github.com/cuihairu/croupier/internal/api/feedback"
+	"github.com/cuihairu/croupier/internal/api/function"
+	"github.com/cuihairu/croupier/internal/api/game"
+	"github.com/cuihairu/croupier/internal/api/job"
+	"github.com/cuihairu/croupier/internal/api/message"
+	"github.com/cuihairu/croupier/internal/api/meta"
+	"github.com/cuihairu/croupier/internal/api/node"
+	"github.com/cuihairu/croupier/internal/api/openapi"
+	"github.com/cuihairu/croupier/internal/api/ops"
+	"github.com/cuihairu/croupier/internal/api/pack"
+	"github.com/cuihairu/croupier/internal/api/platform"
+	"github.com/cuihairu/croupier/internal/api/player"
+	"github.com/cuihairu/croupier/internal/api/profile"
+	"github.com/cuihairu/croupier/internal/api/provider"
+	"github.com/cuihairu/croupier/internal/api/rate_limit"
+	"github.com/cuihairu/croupier/internal/api/registry"
+	"github.com/cuihairu/croupier/internal/api/routes"
+	"github.com/cuihairu/croupier/internal/api/schema"
+	"github.com/cuihairu/croupier/internal/api/storage"
+	"github.com/cuihairu/croupier/internal/api/terms"
+	"github.com/cuihairu/croupier/internal/api/ticket"
+	"github.com/cuihairu/croupier/internal/api/workspace"
+
+	"github.com/gin-gonic/gin"
+)
+
+func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
+	v1 := r.Group("/api/v1")
+
+	// 公开路由（无认证）
+	registerAuthRoutes(v1.Group("/auth"), serverCtx)  // 修复：/api/v1/auth/login
+	registerMetaRoutes(v1, serverCtx)
+	registerRegistryRoutes(v1.Group("/registry"), serverCtx) // 公开访问
+	registerAuditRoutes(v1, serverCtx)                       // 审计日志在 v1 根路径
+	registerOpenAPIRoutes(v1, serverCtx)                     // OpenAPI 在 v1 根路径
+
+	// 需要认证的路由（使用 Authority 中间件）
+	protected := v1.Group("/")
+	protected.Use(serverCtx.Authority)
+	{
+		registerAdminRoutes(protected.Group("/admin"), serverCtx)
+		registerFunctionRoutes(protected.Group("/functions"), serverCtx)
+		registerGameRoutes(protected.Group("/games"), serverCtx)
+		registerJobRoutes(protected.Group("/jobs"), serverCtx)
+		registerNodeRoutes(protected.Group("/nodes"), serverCtx)
+		registerOpsRoutes(protected.Group("/ops"), serverCtx)
+		registerStorageRoutes(protected.Group("/storage"), serverCtx)
+
+		// 剩余模块路由
+		registerAgentRoutes(protected.Group("/agent"), serverCtx)
+		registerAlertRoutes(protected.Group("/alerts"), serverCtx)
+		registerAnalyticsRoutes(protected.Group("/analytics"), serverCtx)
+		registerApprovalRoutes(protected.Group("/approvals"), serverCtx)
+		registerAssignmentRoutes(protected.Group("/assignments"), serverCtx)
+		registerBackupRoutes(protected.Group("/backups"), serverCtx)
+		registerCertificateRoutes(protected.Group("/certificates"), serverCtx)
+		registerComponentRoutes(protected.Group("/components"), serverCtx)
+		registerConfigRoutes(protected.Group("/configs"), serverCtx)
+		registerEntityRoutes(protected.Group("/entities"), serverCtx)
+		registerFAQRoutes(protected.Group("/faqs"), serverCtx)
+		registerFeedbackRoutes(protected.Group("/feedback"), serverCtx)
+		registerMessageRoutes(protected.Group("/messages"), serverCtx)
+		registerPackRoutes(protected.Group("/packs"), serverCtx)
+		registerPlatformRoutes(protected.Group("/platforms"), serverCtx)
+		registerPlayerRoutes(protected.Group("/players"), serverCtx)
+		registerProfileRoutes(protected.Group("/profile"), serverCtx)
+		registerProviderRoutes(protected.Group("/providers"), serverCtx)
+		registerRateLimitRoutes(protected.Group("/rate-limits"), serverCtx)
+		registerSchemaRoutes(protected.Group("/schemas"), serverCtx)
+		registerTermsRoutes(protected.Group("/terms"), serverCtx)
+		registerTicketRoutes(protected.Group("/tickets"), serverCtx)
+		registerWorkspaceRoutes(protected.Group("/workspaces"), serverCtx)
+
+		// 兼容前端的快捷路由
+		registerPermissionsShortcutRoute(protected, serverCtx)
+	}
+}
+
+func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	authSvc := auth.NewService(ctx.AdminModel)
+	authHandler := auth.NewHandler(authSvc)
+	g.POST("/login", authHandler.Login)
+	g.POST("/logout", authHandler.Logout)
+}
+
+func registerMetaRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	metaSvc := meta.NewService(ctx)
+	metaHandler := meta.NewHandler(metaSvc)
+	g.GET("/", metaHandler.Root)
+}
+
+func registerAdminRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	adminSvc := admin.NewService(ctx)
+	adminHandler := admin.NewHandler(adminSvc)
+	g.GET("/", adminHandler.List)
+	g.POST("/", adminHandler.Create)
+	g.GET("/:id", adminHandler.Get)
+	g.PUT("/:id", adminHandler.Update)
+	g.DELETE("/:id", adminHandler.Delete)
+	g.POST("/:id/password-reset", adminHandler.PasswordReset)
+	g.GET("/:id/games", adminHandler.GetGames)
+	g.PUT("/:id/games", adminHandler.UpdateGames)
+}
+
+func registerRoutesRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	routesSvc := routes.NewService()
+	routesHandler := routes.NewHandler(routesSvc)
+	g.GET("/", routesHandler.GetRoutes)
+}
+
+// ============================================================================
+// Function 路由注册
+// ============================================================================
+func registerFunctionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	functionSvc := function.NewService(ctx)
+	functionHandler := function.NewHandler(functionSvc)
+
+	// 基础 CRUD
+	g.GET("/", functionHandler.List)
+	g.GET("/:id", functionHandler.Detail)
+	g.DELETE("/:id", functionHandler.Delete)
+
+	// 函数操作
+	g.POST("/:id/enable", functionHandler.Enable)
+	g.POST("/:id/disable", functionHandler.Disable)
+	g.POST("/:id/copy", functionHandler.Copy)
+	g.POST("/:id/invoke", functionHandler.Invoke)
+	g.POST("/:id/publish", functionHandler.Publish)
+
+	// 函数实例
+	g.GET("/:id/instances", functionHandler.Instances)
+	g.GET("/instances", functionHandler.InstancesAll)
+
+	// 权限管理
+	g.GET("/:id/permissions", functionHandler.Permissions)
+	g.PUT("/:id/permissions", functionHandler.PermissionsUpdate)
+
+	// UI 配置
+	g.GET("/:id/ui", functionHandler.UI)
+	g.PUT("/:id/ui", functionHandler.UIUpdate)
+	g.GET("/:id/ui/history", functionHandler.UIHistory)
+	g.POST("/:id/ui/rollback", functionHandler.UIRollback)
+
+	// 路由配置
+	g.GET("/:id/route", functionHandler.Route)
+	g.PUT("/:id/route", functionHandler.RouteUpdate)
+
+	// 历史与分析
+	g.GET("/:id/history", functionHandler.History)
+	g.GET("/:id/analytics", functionHandler.Analytics)
+
+	// 描述符
+	g.GET("/descriptors", functionHandler.Descriptors)
+
+	// 待处理
+	g.GET("/pending", functionHandler.Pending)
+
+	// 批量操作
+	g.POST("/batch-update", functionHandler.BatchUpdate)
+	g.POST("/batch-copy", functionHandler.BatchCopy)
+	g.POST("/batch-delete", functionHandler.BatchDelete)
+	g.GET("/warnings", functionHandler.Warnings)
+}
+
+// ============================================================================
+// Game 路由注册
+// ============================================================================
+func registerGameRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	gameSvc := game.NewService(ctx)
+	gameHandler := game.NewHandler(gameSvc)
+
+	// 基础 CRUD
+	g.GET("/", gameHandler.List)
+	g.POST("/", gameHandler.Create)
+	g.GET("/:id", gameHandler.Detail)
+	g.PUT("/:id", gameHandler.Update)
+	g.DELETE("/:id", gameHandler.Delete)
+
+	// 环境管理
+	g.GET("/:id/envs", gameHandler.EnvsList)
+	g.POST("/:id/envs", gameHandler.EnvAdd)
+	g.PUT("/:id/envs/:envId", gameHandler.EnvUpdate)
+	g.DELETE("/:id/envs/:envId", gameHandler.EnvDelete)
+}
+
+// ============================================================================
+// Job 路由注册
+// ============================================================================
+func registerJobRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	jobSvc := job.NewService(ctx)
+	jobHandler := job.NewHandler(jobSvc)
+	g.GET("/", jobHandler.List)
+	g.POST("/", jobHandler.Start)
+	g.POST("/:id/cancel", jobHandler.Cancel)
+	g.GET("/:id/result", jobHandler.Result)
+	g.GET("/:id/stream", jobHandler.Stream)
+}
+
+// ============================================================================
+// Node 路由注册
+// ============================================================================
+func registerNodeRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	nodeSvc := node.NewService(ctx)
+	nodeHandler := node.NewHandler(nodeSvc)
+	g.GET("/", nodeHandler.List)
+	g.GET("/:id/meta", nodeHandler.GetMeta)
+	g.PUT("/:id/meta", nodeHandler.UpdateMeta)
+	g.POST("/:id/drain", nodeHandler.Drain)
+	g.POST("/:id/undrain", nodeHandler.Undrain)
+	g.POST("/:id/restart", nodeHandler.Restart)
+	g.GET("/commands", nodeHandler.Commands)
+}
+
+// ============================================================================
+// Ops 路由注册
+// ============================================================================
+func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	opsSvc := ops.NewService(ctx)
+	opsHandler := ops.NewHandler(opsSvc)
+
+	// Agent Ops
+	g.GET("/agents", opsHandler.AgentsList)
+	g.GET("/agents/metrics", opsHandler.AgentMetrics)
+	g.GET("/agents/:agentId/system-info", opsHandler.AgentSystemInfo)
+	g.GET("/agents/:agentId/processes", opsHandler.AgentProcesses)
+	g.POST("/agents/:agentId/processes/:name/restart", opsHandler.AgentProcessRestart)
+	g.POST("/agents/:agentId/processes/:name/stop", opsHandler.AgentProcessStop)
+	g.POST("/agents/:agentId/processes/:name/start", opsHandler.AgentProcessStart)
+	g.POST("/agents/:agentId/exec", opsHandler.AgentExecCommand)
+
+	// 核心 Ops
+	g.PUT("/agent-meta", opsHandler.AgentMeta)
+	g.GET("/alerts", opsHandler.Alerts)
+	g.POST("/alerts/silence", opsHandler.AlertSilence)
+	g.DELETE("/silences/:id", opsHandler.SilenceDelete)
+	g.GET("/silences", opsHandler.Silences)
+
+	// 备份
+	g.POST("/backups", opsHandler.BackupCreate)
+	g.GET("/backups", opsHandler.BackupsList)
+	g.DELETE("/backups/:id", opsHandler.BackupDelete)
+	g.GET("/backups/:id/download", opsHandler.BackupDownload)
+
+	// 配置与状态
+	g.GET("/config", opsHandler.Config)
+	g.GET("/functions", opsHandler.Functions)
+	g.GET("/health", opsHandler.HealthGet)
+	g.POST("/health/run", opsHandler.HealthRun)
+	g.PUT("/health", opsHandler.HealthUpdate)
+	g.GET("/maintenance", opsHandler.MaintenanceGet)
+	g.PUT("/maintenance", opsHandler.MaintenanceUpdate)
+	g.GET("/metrics", opsHandler.Metrics)
+	g.GET("/mq", opsHandler.MQ)
+	g.GET("/notifications", opsHandler.NotificationsGet)
+	g.PUT("/notifications", opsHandler.NotificationsUpdate)
+	g.GET("/services", opsHandler.Services)
+
+	// 节点 Ops
+	g.GET("/nodes", opsHandler.Nodes)
+	g.GET("/nodes/commands", opsHandler.NodeCommands)
+	g.GET("/nodes/:nodeId/meta", opsHandler.NodeMeta)
+	g.POST("/nodes/:nodeId/drain", opsHandler.NodeDrain)
+	g.POST("/nodes/:nodeId/undrain", opsHandler.NodeUndrain)
+	g.POST("/nodes/:nodeId/restart", opsHandler.NodeRestart)
+}
+
+// ============================================================================
+// Storage 路由注册
+// ============================================================================
+func registerStorageRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	storageSvc := storage.NewService(ctx)
+	storageHandler := storage.NewHandler(storageSvc)
+	g.GET("/signed-url", storageHandler.SignedURL)
+	g.GET("/objects", storageHandler.ListObjects)
+	g.POST("/objects", storageHandler.UploadObject)
+	g.DELETE("/objects", storageHandler.DeleteObject)
+	g.POST("/objects/batch-delete", storageHandler.BatchDeleteObjects)
+	g.POST("/directories", storageHandler.CreateDirectory)
+	g.POST("/directories/rename", storageHandler.RenameDirectory)
+}
+
+// ============================================================================
+// Registry 路由注册（公开访问，无需认证）
+// ============================================================================
+func registerRegistryRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	registrySvc := registry.NewService(ctx)
+	registryHandler := registry.NewHandler(registrySvc)
+	g.GET("/", registryHandler.GetRegistry)
+}
+
+// ============================================================================
+// Audit 路由注册（公开访问，在 v1 根路径）
+// ============================================================================
+func registerAuditRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	auditSvc := audit.NewService(ctx)
+	auditHandler := audit.NewHandler(auditSvc)
+	g.GET("/audit", auditHandler.GetAuditLogs)  // 支持 GET（前端兼容）
+	g.POST("/audit", auditHandler.GetAuditLogs) // 支持 POST（原接口）
+}
+
+// ============================================================================
+// OpenAPI 路由注册（公开访问，在 v1 根路径）
+// ============================================================================
+func registerOpenAPIRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	openapiSvc := openapi.NewService(ctx)
+	openapiHandler := openapi.NewHandler(openapiSvc)
+	g.GET("/functions/:id/openapi", openapiHandler.GetSpec)
+	g.POST("/functions/_import", openapiHandler.Import)
+	g.GET("/entities/:id/functions", openapiHandler.EntityFunctions)
+	g.GET("/openapi/spec", openapiHandler.GetDocument)
+}
+
+// ============================================================================
+// Agent 路由注册
+// ============================================================================
+func registerAgentRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	agentSvc := agent.NewService(ctx)
+	agentHandler := agent.NewHandler(agentSvc)
+	g.GET("/analytics-filters", agentHandler.GetAnalyticsFilters)
+	g.POST("/meta", agentHandler.UpdateMeta)
+}
+
+// ============================================================================
+// Alert 路由注册
+// ============================================================================
+func registerAlertRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	alertSvc := alert.NewService(ctx)
+	alertHandler := alert.NewHandler(alertSvc)
+	g.GET("/", alertHandler.List)
+	g.POST("/:id/silence", alertHandler.Silence)
+	g.GET("/silences", alertHandler.SilencesList)
+	g.DELETE("/silences/:id", alertHandler.SilenceDelete)
+}
+
+// ============================================================================
+// Analytics 路由注册（合并所有 analytics_* 模块）
+// ============================================================================
+func registerAnalyticsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	analyticsSvc := analytics.NewService(ctx)
+	analyticsHandler := analytics.NewHandler(analyticsSvc)
+
+	// Overview 模块
+	g.GET("/overview", analyticsHandler.Overview)
+	g.GET("/realtime", analyticsHandler.Realtime)
+	g.GET("/realtime/series", analyticsHandler.RealtimeSeries)
+	g.POST("/ingest", analyticsHandler.Ingest)
+	g.GET("/filters", analyticsHandler.FiltersGet)
+	g.PUT("/filters", analyticsHandler.FiltersUpdate)
+
+	// Behavior 模块 - 使用 /behavior 子路径
+	behaviorGroup := g.Group("/behavior")
+	{
+		behaviorGroup.GET("/", analyticsHandler.Behavior)
+		behaviorGroup.GET("/events", analyticsHandler.BehaviorEvents)
+		behaviorGroup.GET("/paths", analyticsHandler.BehaviorPaths)
+		behaviorGroup.POST("/funnel", analyticsHandler.BehaviorFunnel)
+		behaviorGroup.GET("/adoption", analyticsHandler.BehaviorAdoption)
+		behaviorGroup.GET("/adoption/breakdown", analyticsHandler.BehaviorAdoptionBreakdown)
+	}
+
+	// Payments 模块 - 使用 /payments 子路径
+	paymentsGroup := g.Group("/payments")
+	{
+		paymentsGroup.GET("/", analyticsHandler.Payments)
+		paymentsGroup.GET("/summary", analyticsHandler.PaymentsSummary)
+		paymentsGroup.GET("/product-trend", analyticsHandler.PaymentsProductTrend)
+		paymentsGroup.GET("/transactions", analyticsHandler.PaymentsTransactions)
+		paymentsGroup.POST("/ingest", analyticsHandler.PaymentsIngest)
+	}
+
+	// Retention 模块 - 使用 /retention 和 /levels 子路径
+	g.GET("/retention", analyticsHandler.Retention)
+	g.GET("/levels", analyticsHandler.Levels)
+	g.GET("/levels/episodes", analyticsHandler.LevelsEpisodes)
+	g.GET("/levels/maps", analyticsHandler.LevelsMaps)
+}
+
+// ============================================================================
+// Approval 路由注册
+// ============================================================================
+func registerApprovalRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	approvalSvc := approval.NewService(ctx)
+	approvalHandler := approval.NewHandler(approvalSvc)
+	g.GET("/", approvalHandler.List)
+	g.GET("/:id", approvalHandler.Get)
+	g.POST("/:id/approve", approvalHandler.Approve)
+	g.POST("/:id/reject", approvalHandler.Reject)
+}
+
+// ============================================================================
+// Assignment 路由注册
+// ============================================================================
+func registerAssignmentRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	assignmentSvc := assignment.NewService(ctx)
+	assignmentHandler := assignment.NewHandler(assignmentSvc)
+	g.GET("/", assignmentHandler.List)
+	g.GET("/history", assignmentHandler.History)
+	g.PUT("/", assignmentHandler.Update)
+}
+
+// ============================================================================
+// Backup 路由注册
+// ============================================================================
+func registerBackupRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	backupSvc := backup.NewService(ctx)
+	backupHandler := backup.NewHandler(backupSvc)
+	g.GET("/", backupHandler.List)
+	g.POST("/", backupHandler.Create)
+	g.DELETE("/:id", backupHandler.Delete)
+	g.GET("/:id/download", backupHandler.Download)
+}
+
+// ============================================================================
+// Certificate 路由注册
+// ============================================================================
+func registerCertificateRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	certificateSvc := certificate.NewService(ctx)
+	certificateHandler := certificate.NewHandler(certificateSvc)
+	g.GET("/", certificateHandler.List)
+	g.POST("/", certificateHandler.Add)
+	g.GET("/:id", certificateHandler.Get)
+	g.POST("/:id/check", certificateHandler.Check)
+	g.DELETE("/:id", certificateHandler.Delete)
+	g.GET("/stats", certificateHandler.Stats)
+	g.POST("/alerts", certificateHandler.AddAlert)
+	g.GET("/alerts", certificateHandler.AlertsList)
+	g.POST("/check-all", certificateHandler.CheckAll)
+	g.GET("/domain-info", certificateHandler.DomainInfo)
+	g.GET("/expiring", certificateHandler.Expiring)
+}
+
+// ============================================================================
+// Component 路由注册
+// ============================================================================
+func registerComponentRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	componentSvc := component.NewService(ctx)
+	componentHandler := component.NewHandler(componentSvc)
+	g.GET("/", componentHandler.List)
+	g.POST("/install", componentHandler.Install)
+	g.GET("/:id", componentHandler.Get)
+	g.POST("/:id/enable", componentHandler.Enable)
+	g.POST("/:id/disable", componentHandler.Disable)
+	g.DELETE("/:id", componentHandler.Delete)
+	g.PATCH("/:id", componentHandler.Patch)
+}
+
+// ============================================================================
+// Config 路由注册
+// ============================================================================
+func registerConfigRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	configSvc := config.NewService(ctx)
+	configHandler := config.NewHandler(configSvc)
+	g.POST("/", configHandler.Upsert)
+	g.GET("/version", configHandler.GetVersion)
+	g.GET("/versions", configHandler.ListVersions)
+}
+
+// ============================================================================
+// Entity 路由注册
+// ============================================================================
+func registerEntityRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	entitySvc := entity.NewService(ctx)
+	entityHandler := entity.NewHandler(entitySvc)
+	g.GET("/", entityHandler.List)
+	g.POST("/", entityHandler.Create)
+	g.GET("/:id", entityHandler.Get)
+	g.PUT("/:id", entityHandler.Update)
+	g.DELETE("/:id", entityHandler.Delete)
+	g.GET("/:id/preview", entityHandler.Preview)
+	g.POST("/validate", entityHandler.Validate)
+}
+
+// ============================================================================
+// FAQ 路由注册
+// ============================================================================
+func registerFAQRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	faqSvc := faq.NewService(ctx)
+	faqHandler := faq.NewHandler(faqSvc)
+	g.GET("/", faqHandler.List)
+	g.POST("/", faqHandler.Create)
+	g.PUT("/:id", faqHandler.Update)
+	g.DELETE("/:id", faqHandler.Delete)
+	g.GET("/categories", faqHandler.Categories)
+}
+
+// ============================================================================
+// Feedback 路由注册
+// ============================================================================
+func registerFeedbackRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	feedbackSvc := feedback.NewService(ctx)
+	feedbackHandler := feedback.NewHandler(feedbackSvc)
+	g.GET("/", feedbackHandler.List)
+	g.POST("/", feedbackHandler.Create)
+	g.PUT("/:id", feedbackHandler.Update)
+	g.DELETE("/:id", feedbackHandler.Delete)
+	g.GET("/stats", feedbackHandler.Stats)
+}
+
+// ============================================================================
+// Message 路由注册
+// ============================================================================
+func registerMessageRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	messageSvc := message.NewService(ctx)
+	messageHandler := message.NewHandler(messageSvc)
+	g.GET("/", messageHandler.List)
+	g.POST("/", messageHandler.Send)
+	g.GET("/:id", messageHandler.Get)
+	g.POST("/:id/read", messageHandler.Read)
+	g.GET("/unread-count", messageHandler.UnreadCount)
+	g.GET("/stream", messageHandler.Stream)
+}
+
+// ============================================================================
+// Pack 路由注册
+// ============================================================================
+func registerPackRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	packSvc := pack.NewService(ctx)
+	packHandler := pack.NewHandler(packSvc)
+	g.GET("/export", packHandler.Export)
+	g.POST("/import", packHandler.Import)
+	g.GET("", packHandler.List)   // /api/v1/packs
+	g.GET("/", packHandler.List)  // /api/v1/packs/
+	g.POST("/reload", packHandler.Reload)
+	g.GET("/plugin", packHandler.Plugin)
+}
+
+// ============================================================================
+// Platform 路由注册
+// ============================================================================
+func registerPlatformRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	platformSvc := platform.NewService(ctx)
+	platformHandler := platform.NewHandler(platformSvc)
+	g.POST("/call", platformHandler.Call)
+	g.GET("/", platformHandler.List)
+	g.GET("/:platform/methods", platformHandler.Methods)
+	g.POST("/reload", platformHandler.Reload)
+}
+
+// ============================================================================
+// Player 路由注册
+// ============================================================================
+func registerPlayerRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	playerSvc := player.NewService(ctx)
+	playerHandler := player.NewHandler(playerSvc)
+	g.GET("/", playerHandler.List)
+	g.POST("/", playerHandler.Create)
+	g.GET("/:id", playerHandler.Detail)
+	g.PUT("/:id", playerHandler.Update)
+	g.DELETE("/:id", playerHandler.Delete)
+	g.POST("/:id/balance", playerHandler.Balance)
+}
+
+// ============================================================================
+// Profile 路由注册
+// ============================================================================
+func registerProfileRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	profileSvc := profile.NewService(ctx.AdminModel, ctx.GameModel)
+	profileHandler := profile.NewHandler(profileSvc)
+	g.GET("", profileHandler.GetProfile)           // /api/v1/profile
+	g.GET("/", profileHandler.GetProfile)          // /api/v1/profile/
+	g.PUT("", profileHandler.UpdateProfile)        // /api/v1/profile
+	g.PUT("/", profileHandler.UpdateProfile)       // /api/v1/profile/
+	g.PUT("/password", profileHandler.ChangePassword)
+	g.GET("/permissions", profileHandler.GetPermissions)
+	g.GET("/games", profileHandler.GetGames)
+}
+
+// ============================================================================
+// Provider 路由注册
+// ============================================================================
+func registerProviderRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	providerSvc := provider.NewService(ctx)
+	providerHandler := provider.NewHandler(providerSvc)
+	g.GET("/", providerHandler.List)
+	g.GET("/capabilities", providerHandler.Capabilities)
+	g.GET("/descriptors", providerHandler.Descriptors)
+	g.GET("/:id", providerHandler.Get)
+	g.GET("/:id/entities", providerHandler.Entities)
+	g.DELETE("/:id", providerHandler.Delete)
+	g.POST("/:id/reload", providerHandler.Reload)
+}
+
+// ============================================================================
+// RateLimit 路由注册
+// ============================================================================
+func registerRateLimitRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	rateLimitSvc := rate_limit.NewService(ctx)
+	rateLimitHandler := rate_limit.NewHandler(rateLimitSvc)
+	g.GET("/", rateLimitHandler.List)
+	g.GET("/:id", rateLimitHandler.Get)
+	g.PUT("/", rateLimitHandler.Upsert)
+	g.DELETE("/:id", rateLimitHandler.Delete)
+	g.POST("/preview", rateLimitHandler.Preview)
+}
+
+// ============================================================================
+// Schema 路由注册
+// ============================================================================
+func registerSchemaRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	schemaSvc := schema.NewService(ctx)
+	schemaHandler := schema.NewHandler(schemaSvc)
+	g.GET("/", schemaHandler.List)
+	g.POST("/", schemaHandler.Create)
+	g.GET("/:id", schemaHandler.Get)
+	g.PUT("/:id", schemaHandler.Update)
+	g.DELETE("/:id", schemaHandler.Delete)
+	g.POST("/:id/validate", schemaHandler.Validate)
+	g.POST("/raw-validate", schemaHandler.RawValidate)
+	g.GET("/:id/ui-config", schemaHandler.GetUIConfig)
+	g.PUT("/:id/ui-config", schemaHandler.UpdateUIConfig)
+}
+
+// ============================================================================
+// Terms 路由注册
+// ============================================================================
+func registerTermsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	termsSvc := terms.NewService(ctx)
+	termsHandler := terms.NewHandler(termsSvc)
+	g.GET("/", termsHandler.List)
+	g.PUT("/", termsHandler.Upsert)
+	g.DELETE("/", termsHandler.Delete)
+}
+
+// ============================================================================
+// Ticket 路由注册
+// ============================================================================
+func registerTicketRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	ticketSvc := ticket.NewService(ctx)
+	ticketHandler := ticket.NewHandler(ticketSvc)
+	g.GET("/", ticketHandler.List)
+	g.POST("/", ticketHandler.Create)
+	g.GET("/:id", ticketHandler.Get)
+	g.PUT("/:id", ticketHandler.Update)
+	g.DELETE("/:id", ticketHandler.Delete)
+	g.POST("/:id/transition", ticketHandler.Transition)
+	g.GET("/:id/comments", ticketHandler.GetComments)
+	g.POST("/:id/comments", ticketHandler.CreateComment)
+}
+
+// ============================================================================
+// Workspace 路由注册
+// ============================================================================
+func registerWorkspaceRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	workspaceSvc := workspace.NewService(ctx)
+	workspaceHandler := workspace.NewHandler(workspaceSvc)
+	g.GET("/configs", workspaceHandler.ListConfigs)
+	g.GET("/published", workspaceHandler.ListPublished)
+	g.GET("/:objectKey/config", workspaceHandler.GetConfig)
+	g.PUT("/:objectKey/config", workspaceHandler.SaveConfig)
+	g.DELETE("/:objectKey/config", workspaceHandler.DeleteConfig)
+	g.POST("/:objectKey/publish", workspaceHandler.Publish)
+	g.POST("/:objectKey/unpublish", workspaceHandler.Unpublish)
+	g.GET("/:objectKey/versions", workspaceHandler.Versions)
+	g.GET("/:objectKey/versions/:versionId", workspaceHandler.VersionDetail)
+	g.POST("/:objectKey/rollback", workspaceHandler.Rollback)
+}
+
+// ============================================================================
+// 兼容前端的快捷路由
+// ============================================================================
+func registerPermissionsShortcutRoute(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	// /api/v1/permissions → 重定向到 /api/v1/profile/permissions
+	// 前端期望直接访问 /api/v1/permissions
+	profileSvc := profile.NewService(ctx.AdminModel, ctx.GameModel)
+	profileHandler := profile.NewHandler(profileSvc)
+	g.GET("/permissions", profileHandler.GetPermissions)
+}

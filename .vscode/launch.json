@@ -6,10 +6,10 @@
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}/services/server",
+      "program": "${workspaceFolder}/cmd/server",
       "args": [
         "-f",
-        "services/server/etc/server.yaml"
+        "configs/server.yaml"
       ],
       "env": {
         "CROUPIER_DEV_SEED": "1"
@@ -21,10 +21,10 @@
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}/services/server",
+      "program": "${workspaceFolder}/cmd/server",
       "args": [
         "-f",
-        "services/server/etc/server.yaml"
+        "configs/server.yaml"
       ],
       "env": {
         "DB_DRIVER": "postgres",
@@ -39,10 +39,10 @@
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}/services/server",
+      "program": "${workspaceFolder}/cmd/server",
       "args": [
         "-f",
-        "services/server/etc/server.yaml"
+        "configs/server.yaml"
       ],
       "env": {
         "DB_DRIVER": "mysql",
@@ -57,28 +57,28 @@
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}/services/agent",
+      "program": "${workspaceFolder}/cmd/agent",
       "args": [
         "-f",
-        "etc/agent.yaml"
+        "configs/agent.yaml"
       ],
       "env": {},
-      "cwd": "${workspaceFolder}/services/agent"
+      "cwd": "${workspaceFolder}"
     },
     {
       "name": "Agent (多文件示例)",
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}/services/agent",
+      "program": "${workspaceFolder}/cmd/agent",
       "args": [
         "-f",
-        "etc/agent.yaml"
+        "configs/agent.yaml"
       ],
       "env": {
-        "PROVIDER_CONFIG": "etc/providers.yaml"
+        "PROVIDER_CONFIG": "configs/providers.yaml"
       },
-      "cwd": "${workspaceFolder}/services/agent",
+      "cwd": "${workspaceFolder}",
       "console": "integratedTerminal"
     },
     {
@@ -86,16 +86,16 @@
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}/services/agent",
+      "program": "${workspaceFolder}/cmd/agent",
       "args": [
         "-f",
-        "etc/agent.yaml"
+        "configs/agent.yaml"
       ],
       "env": {
         "GAME_ID": "dev-game",
         "ENV": "dev"
       },
-      "cwd": "${workspaceFolder}/services/agent",
+      "cwd": "${workspaceFolder}",
       "console": "integratedTerminal"
     },
     {
@@ -103,17 +103,17 @@
       "type": "go",
       "request": "launch",
       "mode": "debug",
-      "program": "${workspaceFolder}/services/agent",
+      "program": "${workspaceFolder}/cmd/agent",
       "args": [
         "-f",
-        "etc/agent.yaml",
+        "configs/agent.yaml",
         "-log.level",
         "debug"
       ],
       "env": {
         "CROUPIER_DEV": "1"
       },
-      "cwd": "${workspaceFolder}/services/agent",
+      "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "showLog": true
     },
@@ -122,10 +122,10 @@
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "${workspaceFolder}/services/agent",
+      "program": "${workspaceFolder}/cmd/agent",
       "args": [
         "-f",
-        "etc/agent.yaml"
+        "configs/agent.yaml"
       ],
       "env": {
         "PLAYER_SERVICE_TOKEN": "dev-token-player",
@@ -133,7 +133,7 @@
         "CHAT_SERVICE_TOKEN": "dev-token-chat",
         "MATCH_SERVICE_TOKEN": "dev-token-match"
       },
-      "cwd": "${workspaceFolder}/services/agent",
+      "cwd": "${workspaceFolder}",
       "console": "integratedTerminal"
     },
     {

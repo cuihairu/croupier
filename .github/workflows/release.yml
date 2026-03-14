@@ -49,10 +49,6 @@ jobs:
           echo "GOMODCACHE=$RUNNER_TEMP/go-mod-${{ github.run_id }}" >> "$GITHUB_ENV"
           go version
           go env GOROOT GOTOOLDIR GOVERSION GOOS GOARCH
-      - name: Install goctl
-        run: |
-          go install github.com/zeromicro/go-zero/tools/goctl@latest
-          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
       # Proto 代码由 croupier-proto 的 sync-sdks workflow 同步，无需本地生成
       - name: Go mod download
         run: go mod download
@@ -67,8 +63,8 @@ jobs:
           $VERSION = (git describe --tags --always --dirty)
           $BUILD_TIME = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd_HH:mm:ss")
           $LDFLAGS = "-X main.version=$VERSION -X main.buildTime=$BUILD_TIME -s -w"
-          go build -tags "pg sqlite" -ldflags "$LDFLAGS" -o bin/croupier-server.exe ./services/server
-          go build -ldflags "$LDFLAGS" -o bin/croupier-agent.exe ./services/agent
+          go build -tags "pg sqlite" -ldflags "$LDFLAGS" -o bin/croupier-server.exe ./cmd/server
+          go build -ldflags "$LDFLAGS" -o bin/croupier-agent.exe ./cmd/agent
       - name: Package binaries (Linux/Mac, tar.gz with OS/ARCH)
         if: runner.os != 'Windows'
         shell: bash

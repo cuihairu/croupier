@@ -62,13 +62,9 @@ proto: croupier-plugin
 	@echo "[proto] generating code via buf..."
 	buf generate proto --template buf.gen.yaml --clean
 
-# Generate API code from .api files
+# Generate API code from .api files (DEPRECATED - go-zero removed)
 api:
-	@echo "[api] generating API code via goctl..."
-	@PATH=$$PATH:~/go/bin which goctl > /dev/null || (echo "Error: goctl not found. Please install goctl: goctl: go install github.com/zeromicro/go-zero/tools/goctl@latest" && exit 1)
-	@cd services/server && PATH=$$PATH:~/go/bin goctl api go -api server.api -dir . -style go_zero --home ../templates
-	@cd services/agent && PATH=$$PATH:~/go/bin goctl api go -api agent.api -dir . -style go_zero --home ../templates
-	@echo "[api] code generation complete"
+	@echo "[deprecated] API generation via goctl is no longer supported. Use hand-written handlers in internal/api/"
 
 # Build local protoc plugin for pack generation
 .PHONY: croupier-plugin
@@ -102,10 +98,10 @@ packs-build:
 	@tar -czf packs/dist/grafana.pack.tgz -C packs/grafana .
 	@echo "done: packs/dist/*.pack.tgz"
 
-server: api
+server:
 	@echo "[build] server (all database drivers)"
 	@mkdir -p $(BINDIR)
-	cd services/server && GOFLAGS=-mod=mod go build -ldflags "-X github.com/cuihairu/croupier/services/server/cmd.Version=$(FULL_VERSION) -X github.com/cuihairu/croupier/services/server/cmd.GitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/services/server/cmd.BuildTime=$(BUILD_TIME) -X github.com/cuihairu/croupier/services/server/internal/svc.ServerVersion=$(FULL_VERSION) -X github.com/cuihairu/croupier/services/server/internal/svc.ServerGitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/services/server/internal/svc.ServerBuildTime=$(BUILD_TIME) -s -w" -o ../../$(BINDIR)/croupier-server .
+	GOFLAGS=-mod=mod go build -ldflags "-X github.com/cuihairu/croupier/cmd/server.Version=$(FULL_VERSION) -X github.com/cuihairu/croupier/cmd/server.GitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/cmd/server.BuildTime=$(BUILD_TIME) -X github.com/cuihairu/croupier/internal/svc.ServerVersion=$(FULL_VERSION) -X github.com/cuihairu/croupier/internal/svc.ServerGitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/internal/svc.ServerBuildTime=$(BUILD_TIME) -s -w" -o $(BINDIR)/croupier-server ./cmd/server
 
 .PHONY: server-sqlite
 server-sqlite:
@@ -122,10 +118,10 @@ server-sqlite-ip2loc:
 	@echo "[deprecated] server-sqlite-ip2loc: ip2location is runtime-enabled; building regular sqlite server"
 	$(MAKE) server-sqlite
 
-agent: api
+agent:
 	@echo "[build] agent"
 	@mkdir -p $(BINDIR)
-	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-agent ./services/agent
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/croupier-agent ./cmd/agent
 
 build: server agent worker ingest tools
 
@@ -156,7 +152,7 @@ worker:
 ingest:
 	@echo "[build] ingest"
 	@mkdir -p $(BINDIR)
-	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/ingest ./services/ingest
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/ingest ./cmd/ingest
 
 .PHONY: analytics-spec
 analytics-spec:

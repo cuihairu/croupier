@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sort"
 	"sync"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/zeromicro/go-zero/core/logx"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -129,7 +129,7 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 	if s.db != nil {
 		if err := s.writeToDB(context.Background(), a); err != nil {
 			// Log error but continue - memory store is the primary source
-			logx.Errorf("failed to write agent session to database (agent_id=%s): %v", a.AgentID, err)
+			slog.Error("failed to write agent session to database", "agent_id", a.AgentID, "error", err)
 		}
 	}
 
@@ -499,7 +499,7 @@ func (s *Store) LoadFromDB(ctx context.Context, loader AgentSessionLoader) error
 		s.agents[sess.AgentID] = sess
 	}
 
-	logx.Infof("loaded %d agent sessions from database", len(sessions))
+	slog.Info("loaded agent sessions from database", "count", len(sessions))
 	return nil
 }
 
@@ -517,7 +517,7 @@ func (s *Store) StartCleanupRoutine(ctx context.Context, interval time.Duration)
 		for {
 			select {
 			case <-ctx.Done():
-				logx.Info("Registry cleanup routine stopped")
+				slog.Info("Registry cleanup routine stopped")
 				return
 			case <-ticker.C:
 				s.cleanupExpiredSessions()
@@ -525,7 +525,7 @@ func (s *Store) StartCleanupRoutine(ctx context.Context, interval time.Duration)
 		}
 	}()
 
-	logx.Infof("Started registry cleanup routine (interval: %v)", interval)
+	slog.Info("Started registry cleanup routine", "interval", interval)
 }
 
 // cleanupExpiredSessions 清理过期的 AgentSession
@@ -546,13 +546,11 @@ func (s *Store) cleanupExpiredSessions() {
 			delete(s.agents, agentID)
 			expiredCount++
 
-			logx.Debugf("Cleaned up expired agent session: %s (expired at %v)",
-				agentID, sess.ExpireAt.Format(time.RFC3339))
+			slog.Debug("Cleaned up expired agent session", "agent_id", agentID, "expired_at", sess.ExpireAt.Format(time.RFC3339))
 		}
 	}
 
 	if expiredCount > 0 {
-		logx.Infof("Cleaned up %d expired agent sessions (remaining: %d)",
-			expiredCount, len(s.agents))
+		slog.Info("Cleaned up expired agent sessions", "expired_count", expiredCount, "remaining", len(s.agents))
 	}
 }

@@ -25,14 +25,14 @@ const (
 
 // LogConfig 日志配置（通用结构，供所有服务使用）
 type LogConfig struct {
-	Level      string `json:",optional" yaml:",optional"` // debug|info|warn|error
-	Format     string `json:",optional" yaml:",optional"` // console|json
-	Output     string `json:",optional" yaml:",optional"` // stdout|stderr
-	File       string `json:",optional" yaml:",optional"` // 日志文件路径
-	MaxSize    int    `json:",optional" yaml:",optional"` // 单个日志文件最大大小（MB）
-	MaxBackups int    `json:",optional" yaml:",optional"` // 保留的旧日志文件最大数量
-	MaxAge     int    `json:",optional" yaml:",optional"` // 保留旧日志文件的最大天数
-	Compress   bool   `json:",optional" yaml:",optional"` // 是否压缩旧日志文件
+	Level      string `json:",omitempty" yaml:",omitempty"` // debug|info|warn|error
+	Format     string `json:",omitempty" yaml:",omitempty"` // console|json
+	Output     string `json:",omitempty" yaml:",omitempty"` // stdout|stderr
+	File       string `json:",omitempty" yaml:",omitempty"` // 日志文件路径
+	MaxSize    int    `json:",omitempty" yaml:",omitempty"` // 单个日志文件最大大小（MB）
+	MaxBackups int    `json:",omitempty" yaml:",omitempty"` // 保留的旧日志文件最大数量
+	MaxAge     int    `json:",omitempty" yaml:",omitempty"` // 保留旧日志文件的最大天数
+	Compress   bool   `json:",omitempty" yaml:",omitempty"` // 是否压缩旧日志文件
 }
 
 // coloredTextHandler 是一个带颜色的文本处理器
