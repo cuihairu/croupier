@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -35,6 +36,9 @@ func (m *FunctionModel) Create(ctx context.Context, fn *Function) error {
 
 // Update modifies function fields.
 func (m *FunctionModel) Update(ctx context.Context, id uint, updates map[string]interface{}) error {
+	normalizeJSONMapUpdate(updates, "metadata")
+	normalizeJSONMapUpdate(updates, "schema")
+	normalizeJSONMapUpdate(updates, "open_api_spec")
 	return m.db.WithContext(ctx).Model(&Function{}).Where("id = ?", id).Updates(updates).Error
 }
 
@@ -307,4 +311,30 @@ func (m *FunctionModel) BatchCopyFunctions(ctx context.Context, functionIDs []st
 	}
 
 	return len(copiedIDs), failedIDs, copiedIDs, nil
+}
+
+func normalizeJSONMapUpdate(updates map[string]interface{}, key string) {
+	if updates == nil {
+		return
+	}
+	raw, ok := updates[key]
+	if !ok || raw == nil {
+		return
+	}
+	switch v := raw.(type) {
+	case datatypes.JSONMap:
+		return
+	case map[string]interface{}:
+		updates[key] = datatypes.JSONMap(v)
+	case []byte:
+		var decoded map[string]interface{}
+		if err := json.Unmarshal(v, &decoded); err == nil {
+			updates[key] = datatypes.JSONMap(decoded)
+		}
+	case string:
+		var decoded map[string]interface{}
+		if err := json.Unmarshal([]byte(v), &decoded); err == nil {
+			updates[key] = datatypes.JSONMap(decoded)
+		}
+	}
 }

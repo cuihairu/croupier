@@ -116,13 +116,13 @@ func (am *AdminManager) loadDefaultAdmins() error {
 		for i, admin := range defaultAdmins {
 			// 设置默认值
 			if admin.Status == 0 {
-				admin.Status = 1 // 默认激活
+				defaultAdmins[i].Status = 1 // 默认激活
 			}
 			if admin.CreateAt == "" {
-				admin.CreateAt = now
+				defaultAdmins[i].CreateAt = now
 			}
 			if admin.UpdateAt == "" {
-				admin.UpdateAt = now
+				defaultAdmins[i].UpdateAt = now
 			}
 
 			// 检查是否已存在，不存在则添加

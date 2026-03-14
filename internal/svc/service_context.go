@@ -395,6 +395,10 @@ func seedBootstrapAdmins(ctx *ServiceContext) error {
 		if username == "" || strings.TrimSpace(admin.Password) == "" {
 			continue
 		}
+		bootstrapStatus := 1
+		if admin.Status == 1 {
+			bootstrapStatus = 1
+		}
 
 		var dbAdmin model.Admin
 		err := ctx.DB.WithContext(bg).
@@ -402,17 +406,12 @@ func seedBootstrapAdmins(ctx *ServiceContext) error {
 			First(&dbAdmin).Error
 
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			status := admin.Status
-			if status != 0 && status != 1 {
-				status = 1
-			}
-
 			newAdmin := &model.Admin{
 				Username: username,
 				Nickname: strings.TrimSpace(admin.Nickname),
 				Email:    strings.TrimSpace(admin.Email),
 				Phone:    strings.TrimSpace(admin.Phone),
-				Status:   status,
+				Status:   bootstrapStatus,
 			}
 
 			if err := ctx.AdminModel.Create(bg, newAdmin, admin.Password); err != nil {
@@ -425,6 +424,12 @@ func seedBootstrapAdmins(ctx *ServiceContext) error {
 		} else if err != nil {
 			slog.Default().Error("查询管理员失败", "username", username, "error", err)
 			continue
+		} else if dbAdmin.Status != bootstrapStatus {
+			if err := ctx.AdminModel.Update(bg, dbAdmin.ID, map[string]interface{}{"status": bootstrapStatus}); err != nil {
+				slog.Default().Error("同步引导管理员状态失败", "username", username, "error", err)
+			} else {
+				dbAdmin.Status = bootstrapStatus
+			}
 		}
 
 		for _, roleName := range admin.Roles {
@@ -433,7 +438,7 @@ func seedBootstrapAdmins(ctx *ServiceContext) error {
 				continue
 			}
 			var role model.Role
-			if err := ctx.DB.WithContext(bg).Where("name = ?", trimmed).First(&role).Error; err != nil {
+			if err := ctx.DB.WithContext(bg).Where("LOWER(name) = ?", strings.ToLower(trimmed)).First(&role).Error; err != nil {
 				slog.Default().Error("为管理员查询角色失败", "username", username, "role", trimmed, "error", err)
 				continue
 			}
@@ -452,6 +457,7 @@ func seedBootstrapAdmins(ctx *ServiceContext) error {
 				slog.Default().Error("为管理员分配角色失败", "username", username, "role", trimmed, "error", err)
 			}
 		}
+		ctx.InvalidateAdminCache(bg, dbAdmin.ID, username)
 	}
 
 	return nil
