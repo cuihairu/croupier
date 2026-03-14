@@ -112,14 +112,14 @@ func (l *WorkspaceVersionsLogic) List(objectKey, from, to string) ([]map[string]
 
 		result = append(result, map[string]interface{}{
 			"id":                   strconv.FormatUint(uint64(record.ID), 10),
-			"objectKey":           record.Key,
-			"version":             record.Version,
-			"config":              configData,
+			"objectKey":            record.Key,
+			"version":              record.Version,
+			"config":               configData,
 			"is_current_draft":     record.Version == currentDraftVersion,
 			"is_current_published": record.Version == currentPublishedVersion,
-			"created_at":          record.CreatedAt.Format(time.RFC3339),
-			"created_by":          record.CreatedBy,
-			"comment":             record.Message,
+			"created_at":           record.CreatedAt.Format(time.RFC3339),
+			"created_by":           record.CreatedBy,
+			"comment":              record.Message,
 		})
 	}
 

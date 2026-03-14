@@ -184,7 +184,7 @@ type ApprovalGetResponse struct {
 }
 
 type ApprovalRejectRequest struct {
-	ID     string `uri:"id"`     // 审批ID
+	ID     string `uri:"id"`      // 审批ID
 	Reason string `json:"reason"` // 拒绝原因
 }
 
@@ -3009,18 +3009,18 @@ type TermDeleteResponse struct {
 
 type TermItem struct {
 	Id        int64  `json:"id"`
-	Domain    string `json:"domain"`              // entity | operation
-	TermKey   string `json:"term_key"`            // 原始术语键
-	Alias     string `json:"alias"`               // 别名
+	Domain    string `json:"domain"`     // entity | operation
+	TermKey   string `json:"term_key"`   // 原始术语键
+	Alias     string `json:"alias"`      // 别名
 	DisplayZh string `json:"display_zh"` // 中文显示
 	DisplayEn string `json:"display_en"` // 英文显示
 	Order     int64  `json:"order"`      // 排序
 }
 
 type TermUpsertRequest struct {
-	Domain    string `json:"domain"`              // entity | operation
-	TermKey   string `json:"term_key"`            // 原始术语键
-	Alias     string `json:"alias"`               // 别名
+	Domain    string `json:"domain"`     // entity | operation
+	TermKey   string `json:"term_key"`   // 原始术语键
+	Alias     string `json:"alias"`      // 别名
 	DisplayZh string `json:"display_zh"` // 中文显示
 	DisplayEn string `json:"display_en"` // 英文显示
 	Order     int64  `json:"order"`      // 排序

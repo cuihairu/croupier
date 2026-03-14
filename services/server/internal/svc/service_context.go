@@ -29,8 +29,8 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/runtime"
 	"github.com/cuihairu/croupier/services/server/internal/service/permission"
 	"github.com/gin-gonic/gin"
-	"log/slog"
 	"gorm.io/gorm"
+	"log/slog"
 )
 
 type ServiceContext struct {
@@ -185,7 +185,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	cacheHelper := cache.NewCacheHelper(cacheStore)
 
 	ctx := &ServiceContext{
-		Config: c,
+		Config:            c,
 		AdminManager:      adminManager,
 		OpsStateStore:     opsStateStore,
 		DB:                db,

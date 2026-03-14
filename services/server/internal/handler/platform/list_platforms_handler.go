@@ -9,7 +9,7 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/logic/platform"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 
-"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin"
 )
 
 // 获取所有可用的第三方平台列表

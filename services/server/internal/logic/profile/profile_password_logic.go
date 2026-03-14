@@ -12,7 +12,6 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 	"golang.org/x/crypto/bcrypt"
-
 )
 
 type ProfilePasswordLogic struct {

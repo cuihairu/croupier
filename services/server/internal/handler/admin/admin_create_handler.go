@@ -5,8 +5,8 @@ package admin
 
 import (
 	"github.com/cuihairu/croupier/services/server/internal/common/response"
-	
-"github.com/gin-gonic/gin"
+
+	"github.com/gin-gonic/gin"
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/admin"
 	"github.com/cuihairu/croupier/services/server/internal/svc"

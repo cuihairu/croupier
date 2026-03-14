@@ -10,7 +10,6 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-
 )
 
 type JobCancelLogic struct {

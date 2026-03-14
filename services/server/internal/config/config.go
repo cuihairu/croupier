@@ -53,11 +53,11 @@ type ControlConfig struct {
 
 // ServerConfig HTTP 服务器配置
 type ServerConfig struct {
-	Host         string `json:"Host" yaml:"Host"`
-	Port         int    `json:"Port" yaml:"Port"`
-	Mode         string `json:"Mode" yaml:"Mode"`         // dev | test | prod
-	Timeout      int64  `json:"Timeout" yaml:"Timeout"`   // 毫秒
-	MaxConns     int    `json:"MaxConns" yaml:"MaxConns"`
+	Host     string `json:"Host" yaml:"Host"`
+	Port     int    `json:"Port" yaml:"Port"`
+	Mode     string `json:"Mode" yaml:"Mode"`       // dev | test | prod
+	Timeout  int64  `json:"Timeout" yaml:"Timeout"` // 毫秒
+	MaxConns int    `json:"MaxConns" yaml:"MaxConns"`
 }
 
 // DatabaseConfig 配置数据库连接

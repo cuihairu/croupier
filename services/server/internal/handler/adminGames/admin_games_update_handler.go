@@ -10,8 +10,7 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-
-"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin"
 )
 
 // 更新管理员的游戏访问权限

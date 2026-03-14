@@ -8,7 +8,6 @@ import (
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-
 )
 
 type SchemaUiConfigLogic struct {

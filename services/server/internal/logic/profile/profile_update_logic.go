@@ -12,7 +12,6 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-
 )
 
 type ProfileUpdateLogic struct {

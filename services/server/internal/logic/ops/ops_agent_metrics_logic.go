@@ -10,7 +10,6 @@ import (
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-
 )
 
 type OpsAgentMetricsLogic struct {
