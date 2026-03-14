@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/config"
 	"github.com/cuihairu/croupier/services/server/internal/model"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 var (
@@ -78,7 +78,7 @@ func seedBootstrapGames(ctx *ServiceContext) error {
 
 	cfg, err := loadGamesBootstrapConfig(ctx.Config)
 	if err != nil {
-		logx.Errorf("failed to load games bootstrap config: %v", err)
+		slog.Default().Error("failed to load games bootstrap config", "error", err)
 		cfg = defaultBootstrapGamesConfig()
 	}
 
@@ -91,14 +91,14 @@ func seedBootstrapGames(ctx *ServiceContext) error {
 	for idx, entry := range cfg.Games {
 		record, err := buildGameFromSeed(entry, defaultEnvs, idx)
 		if err != nil {
-			logx.Errorf("skip bootstrap game entry %d: %v", idx, err)
+			slog.Default().Error("skip bootstrap game entry", "index", idx, "error", err)
 			continue
 		}
 		if err := ctx.GameModel.Create(bg, record); err != nil {
-			logx.Errorf("failed to create bootstrap game %s: %v", record.Name, err)
+			slog.Default().Error("failed to create bootstrap game", "name", record.Name, "error", err)
 			continue
 		}
-		logx.Infof("seed bootstrap game: %s (%s)", record.Name, record.AliasName)
+		slog.Default().Info("seed bootstrap game", "name", record.Name, "alias", record.AliasName)
 	}
 	return nil
 }

@@ -4,22 +4,23 @@
 package platform
 
 import (
-	"net/http"
+	"github.com/cuihairu/croupier/services/server/internal/common/response"
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/platform"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
-	"github.com/zeromicro/go-zero/rest/httpx"
+
+"github.com/gin-gonic/gin"
 )
 
 // 获取所有可用的第三方平台列表
-func ListPlatformsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		l := platform.NewListPlatformsLogic(r.Context(), svcCtx)
+func ListPlatformsHandler(svcCtx *svc.ServiceContext) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		l := platform.NewListPlatformsLogic(c.Request.Context(), svcCtx)
 		resp, err := l.ListPlatforms()
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			response.Error(c, err)
 		} else {
-			httpx.OkJsonCtx(r.Context(), w, resp)
+			response.Success(c, resp)
 		}
 	}
 }

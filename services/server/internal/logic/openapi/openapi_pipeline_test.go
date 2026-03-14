@@ -8,6 +8,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 func TestPipeline_ProtoToOpenAPIToServerAPI(t *testing.T) {
@@ -38,15 +39,15 @@ func TestPipeline_ProtoToOpenAPIToServerAPI(t *testing.T) {
 		t.Fatalf("FunctionOpenAPISpec failed: %v", err)
 	}
 
-	spec, ok := resp.Spec.(map[string]interface{})
+	spec, ok := resp.Spec.(*openapi3.Operation)
 	if !ok {
 		t.Fatalf("unexpected spec type: %T", resp.Spec)
 	}
-	if spec["operationId"] != funcID {
-		t.Fatalf("unexpected operationId: %v", spec["operationId"])
+	if spec.OperationID != funcID {
+		t.Fatalf("unexpected operationId: %v", spec.OperationID)
 	}
-	if spec["x-entity"] != "Player" {
-		t.Fatalf("unexpected x-entity: %v", spec["x-entity"])
+	if spec.Extensions["x-entity"] != "Player" {
+		t.Fatalf("unexpected x-entity: %v", spec.Extensions["x-entity"])
 	}
 }
 
@@ -134,12 +135,12 @@ func TestPipeline_OpenAPIProviderToServerAPI(t *testing.T) {
 		t.Fatalf("FunctionOpenAPISpec failed: %v", err)
 	}
 
-	spec, ok := specResp.Spec.(map[string]interface{})
+	spec, ok := specResp.Spec.(*openapi3.Operation)
 	if !ok {
 		t.Fatalf("unexpected spec type: %T", specResp.Spec)
 	}
-	if spec["operationId"] != "createPlayer" {
-		t.Fatalf("unexpected operationId: %v", spec["operationId"])
+	if spec.OperationID != "createPlayer" {
+		t.Fatalf("unexpected operationId: %v", spec.OperationID)
 	}
 }
 

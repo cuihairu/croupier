@@ -6,14 +6,13 @@ package pack
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type PacksExportLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +20,25 @@ type PacksExportLogic struct {
 // 导出功能包
 func NewPacksExportLogic(ctx context.Context, svcCtx *svc.ServiceContext) *PacksExportLogic {
 	return &PacksExportLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *PacksExportLogic) PacksExport(req *types.PacksExportRequest) (resp *types.PacksExportResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *PacksExportLogic) PacksExport(_ *types.PacksExportRequest) (*types.PacksExportResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权导出功能包", "admin:all", "packs:read", "packs:list", "packs:reload"); err != nil {
+		return nil, err
+	}
 
-	return
+	packsDir := resolvePacksDir(l.svcCtx.Config)
+	filename, data, err := buildPacksArchive(packsDir)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.PacksExportResponse{
+		Filename:    filename,
+		ContentType: "application/gzip",
+		Content:     data,
+	}, nil
 }

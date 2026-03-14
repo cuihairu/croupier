@@ -4,22 +4,23 @@
 package platform
 
 import (
-	"net/http"
+	"github.com/cuihairu/croupier/services/server/internal/common/response"
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/platform"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
-	"github.com/zeromicro/go-zero/rest/httpx"
+
+"github.com/gin-gonic/gin"
 )
 
 // 重新加载平台配置
-func ReloadPlatformConfigHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		l := platform.NewReloadPlatformConfigLogic(r.Context(), svcCtx)
+func ReloadPlatformConfigHandler(svcCtx *svc.ServiceContext) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		l := platform.NewReloadPlatformConfigLogic(c.Request.Context(), svcCtx)
 		resp, err := l.ReloadPlatformConfig()
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			response.Error(c, err)
 		} else {
-			httpx.OkJsonCtx(r.Context(), w, resp)
+			response.Success(c, resp)
 		}
 	}
 }

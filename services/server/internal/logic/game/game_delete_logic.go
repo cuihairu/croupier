@@ -6,14 +6,13 @@ package game
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type GameDeleteLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +20,32 @@ type GameDeleteLogic struct {
 // 删除游戏
 func NewGameDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GameDeleteLogic {
 	return &GameDeleteLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *GameDeleteLogic) GameDelete(req *types.GameDeleteRequest) (resp *types.GameDeleteResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *GameDeleteLogic) GameDelete(req *types.GameDeleteRequest) (*types.GameDeleteResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权删除游戏", "admin:all", "games:manage"); err != nil {
+		return nil, err
+	}
 
-	return
+	id, err := parseGameID(req.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := l.svcCtx.GameModel.Delete(l.ctx, id); err != nil {
+		return nil, err
+	}
+
+	l.svcCtx.InvalidateGameCache(l.ctx, id)
+
+	return &types.GameDeleteResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"id": id,
+		},
+	}, nil
 }

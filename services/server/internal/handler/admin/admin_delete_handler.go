@@ -4,29 +4,30 @@
 package admin
 
 import (
-	"net/http"
+	"github.com/cuihairu/croupier/services/server/internal/common/response"
+	
+"github.com/gin-gonic/gin"
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/admin"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 // 删除管理员
-func AdminDeleteHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func AdminDeleteHandler(svcCtx *svc.ServiceContext) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		var req types.AdminDeleteRequest
-		if err := httpx.Parse(r, &req); err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+		if err := c.ShouldBindUri(&req); err != nil {
+			response.Error(c, err)
 			return
 		}
 
-		l := admin.NewAdminDeleteLogic(r.Context(), svcCtx)
+		l := admin.NewAdminDeleteLogic(c.Request.Context(), svcCtx)
 		err := l.AdminDelete(&req)
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			response.Error(c, err)
 		} else {
-			httpx.Ok(w)
+			response.Success(c, gin.H{"message": "操作成功"})
 		}
 	}
 }

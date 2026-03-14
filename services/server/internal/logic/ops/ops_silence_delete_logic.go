@@ -6,14 +6,12 @@ package ops
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type OpsSilenceDeleteLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +19,11 @@ type OpsSilenceDeleteLogic struct {
 // 删除静默规则
 func NewOpsSilenceDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *OpsSilenceDeleteLogic {
 	return &OpsSilenceDeleteLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
 func (l *OpsSilenceDeleteLogic) OpsSilenceDelete(req *types.OpsAlertSilenceDeleteRequest) (resp *types.OpsSilenceDeleteResponse, err error) {
-	// todo: add your logic here and delete this line
-
-	return
+	return nil, errorx.NewNotImplemented("OpsSilenceDelete not implemented")
 }

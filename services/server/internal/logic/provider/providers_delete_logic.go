@@ -9,11 +9,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type ProvidersDeleteLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +19,21 @@ type ProvidersDeleteLogic struct {
 // 删除提供者
 func NewProvidersDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ProvidersDeleteLogic {
 	return &ProvidersDeleteLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
 func (l *ProvidersDeleteLogic) ProvidersDelete(req *types.ProviderActionRequest) (resp *types.ProviderDeleteResponse, err error) {
-	// todo: add your logic here and delete this line
+	if err := deleteProviderCaps(l.svcCtx.RegistryStore, req.ID); err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.ProviderDeleteResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"id": req.ID,
+		},
+	}, nil
 }

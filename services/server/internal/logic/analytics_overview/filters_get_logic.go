@@ -11,11 +11,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type FiltersGetLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -23,7 +21,6 @@ type FiltersGetLogic struct {
 // 获取分析过滤器
 func NewFiltersGetLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FiltersGetLogic {
 	return &FiltersGetLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}

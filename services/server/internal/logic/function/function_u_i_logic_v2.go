@@ -10,11 +10,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type FunctionUILogicV2 struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -22,7 +20,6 @@ type FunctionUILogicV2 struct {
 // 获取函数UI配置（增强版：支持优先级合并）
 func NewFunctionUILogicV2(ctx context.Context, svcCtx *svc.ServiceContext) *FunctionUILogicV2 {
 	return &FunctionUILogicV2{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}

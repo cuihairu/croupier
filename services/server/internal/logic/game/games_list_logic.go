@@ -5,15 +5,16 @@ package game
 
 import (
 	"context"
+	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
+	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type GamesListLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +22,38 @@ type GamesListLogic struct {
 // 获取游戏列表
 func NewGamesListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GamesListLogic {
 	return &GamesListLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *GamesListLogic) GamesList(req *types.GamesListRequest) (resp *types.GamesListResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *GamesListLogic) GamesList(req *types.GamesListRequest) (*types.GamesListResponse, error) {
+	if _, _, err := utils.RequireAnyPermission(l.ctx, l.svcCtx, "无权查看游戏列表", "admin:all", "games:read", "games:manage"); err != nil {
+		return nil, err
+	}
 
-	return
+	opts := model.ListGamesOptions{
+		Page:     req.Page,
+		PageSize: req.PageSize,
+		Status:   strings.TrimSpace(req.Status),
+	}
+
+	games, total, err := l.svcCtx.GameModel.List(l.ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]types.GameInfo, 0, len(games))
+	for i := range games {
+		items = append(items, buildGameInfo(&games[i]))
+	}
+
+	return &types.GamesListResponse{
+		Code:    0,
+		Message: "OK",
+		Data: types.GamesData{
+			Games: items,
+			Total: int(total),
+		},
+	}, nil
 }

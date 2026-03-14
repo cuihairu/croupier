@@ -4,17 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/cuihairu/croupier/services/server/internal/config"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // NewCacheStore 根据配置创建缓存实例
 func NewCacheStore(cfg config.CacheConfig) (CacheStore, error) {
 	if !cfg.Enabled {
-		logx.Info("Cache is disabled, using NullCache")
+		slog.Default().Info("Cache is disabled, using NullCache")
 		return NewNullCache(), nil
 	}
 
@@ -28,7 +28,7 @@ func NewCacheStore(cfg config.CacheConfig) (CacheStore, error) {
 	if cfg.TTL != "" {
 		ttl, err := time.ParseDuration(cfg.TTL)
 		if err != nil {
-			logx.Errorf("Invalid cache TTL %s, using default 5m: %v", cfg.TTL, err)
+			slog.Default().Warn("Invalid cache TTL, using default 5m", "value", cfg.TTL, "error", err)
 			defaultTTL = 5 * time.Minute
 		} else {
 			defaultTTL = ttl
@@ -63,8 +63,8 @@ func newRedisCache(cfg config.CacheConfig, defaultTTL time.Duration) (CacheStore
 		return nil, fmt.Errorf("failed to create redis cache: %w", err)
 	}
 
-	logx.Infof("Redis cache initialized: addr=%s db=%d pool=%d ttl=%s",
-		addr, cfg.DB, poolSize, defaultTTL)
+	slog.Default().Info("Redis cache initialized",
+		"addr", addr, "db", cfg.DB, "pool", poolSize, "ttl", defaultTTL)
 
 	return cache, nil
 }
@@ -75,7 +75,7 @@ func newLocalCache(cfg config.CacheConfig, defaultTTL time.Duration) (CacheStore
 	if cfg.EvictTTL != "" {
 		interval, err := time.ParseDuration(cfg.EvictTTL)
 		if err != nil {
-			logx.Errorf("Invalid evict TTL %s, using default 10m: %v", cfg.EvictTTL, err)
+			slog.Default().Warn("Invalid evict TTL, using default 10m", "value", cfg.EvictTTL, "error", err)
 			cleanupInterval = 10 * time.Minute
 		} else {
 			cleanupInterval = interval
@@ -86,8 +86,8 @@ func newLocalCache(cfg config.CacheConfig, defaultTTL time.Duration) (CacheStore
 
 	cache := NewLocalCache(defaultTTL, cleanupInterval)
 
-	logx.Infof("Local cache initialized: ttl=%s cleanup=%s",
-		defaultTTL, cleanupInterval)
+	slog.Default().Info("Local cache initialized",
+		"ttl", defaultTTL, "cleanup", cleanupInterval)
 
 	return cache, nil
 }
@@ -128,7 +128,7 @@ func (h *CacheHelper) Remember(ctx context.Context, key string, ttl time.Duratio
 	}
 
 	if !IsCacheMiss(err) {
-		logx.Errorf("Cache error for key %s: %v", key, err)
+		slog.ErrorContext(ctx, "Cache error for key", "key", key, "error", err)
 	}
 
 	// 缓存未命中，执行 loader
@@ -139,7 +139,7 @@ func (h *CacheHelper) Remember(ctx context.Context, key string, ttl time.Duratio
 
 	// 保存到缓存
 	if err := h.SetJSON(ctx, key, value, ttl); err != nil {
-		logx.Errorf("Failed to cache key %s: %v", key, err)
+		slog.ErrorContext(ctx, "Failed to cache key", "key", key, "error", err)
 	}
 
 	// 将加载的值复制到 dest

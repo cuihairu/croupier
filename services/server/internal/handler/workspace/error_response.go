@@ -1,14 +1,14 @@
 package workspace
 
 import (
+	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
-	"github.com/zeromicro/go-zero/core/logx"
-	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 func writeWorkspaceError(w http.ResponseWriter, r *http.Request, err error, operation string) {
@@ -29,29 +29,31 @@ func writeWorkspaceError(w http.ResponseWriter, r *http.Request, err error, oper
 	requestID := resolveRequestID(r)
 	if err != nil {
 		if status >= http.StatusInternalServerError {
-			logx.WithContext(r.Context()).Errorw("workspace request failed",
-				logx.Field("operation", operation),
-				logx.Field("status", status),
-				logx.Field("code", code),
-				logx.Field("method", r.Method),
-				logx.Field("path", r.URL.Path),
-				logx.Field("request_id", requestID),
-				logx.Field("error", err.Error()),
+			slog.LogAttrs(r.Context(), slog.LevelError, "workspace request failed",
+				slog.String("operation", operation),
+				slog.Int("status", status),
+				slog.String("code", code),
+				slog.String("method", r.Method),
+				slog.String("path", r.URL.Path),
+				slog.String("request_id", requestID),
+				slog.String("error", err.Error()),
 			)
 		} else {
-			logx.WithContext(r.Context()).Infow("workspace request rejected",
-				logx.Field("operation", operation),
-				logx.Field("status", status),
-				logx.Field("code", code),
-				logx.Field("method", r.Method),
-				logx.Field("path", r.URL.Path),
-				logx.Field("request_id", requestID),
-				logx.Field("error", err.Error()),
+			slog.LogAttrs(r.Context(), slog.LevelInfo, "workspace request rejected",
+				slog.String("operation", operation),
+				slog.Int("status", status),
+				slog.String("code", code),
+				slog.String("method", r.Method),
+				slog.String("path", r.URL.Path),
+				slog.String("request_id", requestID),
+				slog.String("error", err.Error()),
 			)
 		}
 	}
 
-	httpx.WriteJsonCtx(r.Context(), w, status, map[string]interface{}{
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]interface{}{
 		"code":       code,
 		"error":      code,
 		"message":    message,

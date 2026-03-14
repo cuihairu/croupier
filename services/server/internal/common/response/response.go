@@ -1,39 +1,49 @@
 package response
 
 import (
+	"errors"
 	"net/http"
 
-	"github.com/zeromicro/go-zero/rest/httpx"
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
+	"github.com/gin-gonic/gin"
 )
 
-// Success 成功响应（自动序列化为 JSON）
-// 使用 HTTP 200 OK
-func Success(w http.ResponseWriter, data interface{}) {
-	httpx.OkJson(w, data)
+func Success(c *gin.Context, data interface{}) {
+	c.JSON(http.StatusOK, data)
 }
 
-// Created 创建成功响应
-// 使用 HTTP 201 Created
-func Created(w http.ResponseWriter, data interface{}) {
-	w.WriteHeader(http.StatusCreated)
-	httpx.WriteJson(w, http.StatusCreated, data)
+func Created(c *gin.Context, data interface{}) {
+	c.JSON(http.StatusCreated, data)
 }
 
-// NoContent 无内容响应（如删除成功）
-// 使用 HTTP 204 No Content
-func NoContent(w http.ResponseWriter) {
-	w.WriteHeader(http.StatusNoContent)
+func NoContent(c *gin.Context) {
+	c.AbortWithStatus(http.StatusNoContent)
 }
 
-// Error 错误响应（自动设置正确的 HTTP 状态码）
-// go-zero 的 httpx.Error 会自动识别 CodeError 并设置状态码
-func Error(w http.ResponseWriter, r *http.Request, err error) {
-	httpx.ErrorCtx(r.Context(), w, err)
+func Error(c *gin.Context, err error) {
+	var valErr *errorx.ValidationError
+	if errors.As(err, &valErr) {
+		c.JSON(valErr.Code, gin.H{
+			"error":   "validation_failed",
+			"message": valErr.Message,
+			"details": valErr.Details,
+		})
+		return
+	}
+	var codeErr *errorx.CodeError
+	if errors.As(err, &codeErr) {
+		c.JSON(codeErr.Code, gin.H{
+			"error":   codeErr.ErrorCode(),
+			"message": codeErr.Message,
+		})
+		return
+	}
+	c.JSON(http.StatusInternalServerError, gin.H{
+		"error":   "internal_error",
+		"message": err.Error(),
+	})
 }
 
-// 工具函数：快速创建常见响应
-
-// List 列表响应（带分页）
 type ListResponse struct {
 	Items interface{} `json:"items"`
 	Total int64       `json:"total"`
@@ -41,8 +51,8 @@ type ListResponse struct {
 	Size  int         `json:"pageSize"`
 }
 
-func SuccessList(w http.ResponseWriter, items interface{}, total int64, page, size int) {
-	Success(w, ListResponse{
+func SuccessList(c *gin.Context, items interface{}, total int64, page, size int) {
+	Success(c, ListResponse{
 		Items: items,
 		Total: total,
 		Page:  page,

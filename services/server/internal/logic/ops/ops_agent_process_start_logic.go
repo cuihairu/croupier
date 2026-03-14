@@ -9,11 +9,10 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 )
 
 type OpsAgentProcessStartLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +20,42 @@ type OpsAgentProcessStartLogic struct {
 // 启动 Agent 进程
 func NewOpsAgentProcessStartLogic(ctx context.Context, svcCtx *svc.ServiceContext) *OpsAgentProcessStartLogic {
 	return &OpsAgentProcessStartLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *OpsAgentProcessStartLogic) OpsAgentProcessStart(req *types.OpsProcessStartRequest) (resp *types.OpsProcessStartResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *OpsAgentProcessStartLogic) OpsAgentProcessStart(req *types.OpsProcessStartRequest) (*types.OpsProcessStartResponse, error) {
+	client, err := GetAgentOpsClient().GetClient(l.ctx, req.AgentID)
+	if err != nil {
+		return &types.OpsProcessStartResponse{
+			Code:    404,
+			Message: err.Error(),
+		}, nil
+	}
 
-	return
+	startReq := &opsv1.StartProcessRequest{
+		ProcessName: req.Name,
+	}
+
+	resp, err := client.StartProcess(l.ctx, startReq)
+	if err != nil {
+		return &types.OpsProcessStartResponse{
+			Code:    500,
+			Message: "Failed to start process: " + err.Error(),
+		}, nil
+	}
+
+	if !resp.Success {
+		return &types.OpsProcessStartResponse{
+			Code:    500,
+			Message: resp.Message,
+		}, nil
+	}
+
+	return &types.OpsProcessStartResponse{
+		Code:    0,
+		Message: "OK",
+		Data:    resp.Pid,
+	}, nil
 }

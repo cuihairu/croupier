@@ -4,29 +4,30 @@
 package node
 
 import (
-	"net/http"
+	"github.com/cuihairu/croupier/services/server/internal/common/response"
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/node"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-	"github.com/zeromicro/go-zero/rest/httpx"
+
+"github.com/gin-gonic/gin"
 )
 
 // 获取节点元数据
-func NodeMetaHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func NodeMetaHandler(svcCtx *svc.ServiceContext) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		var req types.NodeMetaRequest
-		if err := httpx.Parse(r, &req); err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+		if err := c.ShouldBindUri(&req); err != nil {
+			response.Error(c, err)
 			return
 		}
 
-		l := node.NewNodeMetaLogic(r.Context(), svcCtx)
+		l := node.NewNodeMetaLogic(c.Request.Context(), svcCtx)
 		resp, err := l.NodeMeta(&req)
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			response.Error(c, err)
 		} else {
-			httpx.OkJsonCtx(r.Context(), w, resp)
+			response.Success(c, resp)
 		}
 	}
 }

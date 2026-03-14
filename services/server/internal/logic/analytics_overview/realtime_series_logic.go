@@ -12,11 +12,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type RealtimeSeriesLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -24,7 +22,6 @@ type RealtimeSeriesLogic struct {
 // 获取实时序列数据
 func NewRealtimeSeriesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *RealtimeSeriesLogic {
 	return &RealtimeSeriesLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}

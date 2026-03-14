@@ -10,18 +10,15 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type AdminGamesLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
 func NewAdminGamesLogic(ctx context.Context, svcCtx *svc.ServiceContext) *AdminGamesLogic {
 	return &AdminGamesLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}

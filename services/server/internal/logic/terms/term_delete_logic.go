@@ -9,11 +9,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type TermDeleteLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +19,19 @@ type TermDeleteLogic struct {
 // 删除术语
 func NewTermDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *TermDeleteLogic {
 	return &TermDeleteLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
 func (l *TermDeleteLogic) TermDelete(req *types.TermDeleteRequest) (resp *types.TermDeleteResponse, err error) {
-	// todo: add your logic here and delete this line
+	// 删除术语
+	err = l.svcCtx.TermDictModel.DeleteByAlias(l.ctx, req.Domain, req.Alias)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.TermDeleteResponse{
+		Ok: true,
+	}, nil
 }

@@ -5,15 +5,14 @@ package function
 
 import (
 	"context"
+	"errors"
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type FunctionDeleteLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +20,23 @@ type FunctionDeleteLogic struct {
 // 删除函数
 func NewFunctionDeleteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FunctionDeleteLogic {
 	return &FunctionDeleteLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
 func (l *FunctionDeleteLogic) FunctionDelete(req *types.FunctionActionRequest) error {
-	// todo: add your logic here and delete this line
+	// 1. Validate request
+	if req.ID == "" {
+		return errors.New("function id is required")
+	}
 
+	// 2. Call model layer to delete function
+	err := l.svcCtx.FunctionModel.DeleteFunction(l.ctx, req.ID)
+	if err != nil {
+		return err
+	}
+
+	// 3. Return success (no error)
 	return nil
 }

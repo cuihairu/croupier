@@ -6,6 +6,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -16,12 +17,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type LoginLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -31,7 +29,6 @@ var warnDefaultJWT sync.Once
 // 用户登录
 func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic {
 	return &LoginLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
@@ -100,7 +97,7 @@ func (l *LoginLogic) issueToken(username string, roles []string, issuedAt time.T
 	secret, fallback := jwtutil.ResolveSecret(l.svcCtx.Config)
 	if fallback {
 		warnDefaultJWT.Do(func() {
-			logx.WithContext(l.ctx).Error("JWT secret not configured; using dev fallback. Set auth.jwt_secret for production deployments.")
+			slog.ErrorContext(l.ctx, "JWT secret not configured; using dev fallback. Set auth.jwt_secret for production deployments.")
 		})
 	}
 

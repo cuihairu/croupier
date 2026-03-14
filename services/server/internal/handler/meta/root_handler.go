@@ -4,29 +4,27 @@
 package meta
 
 import (
-	"net/http"
+	"github.com/cuihairu/croupier/services/server/internal/common/response"
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/meta"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-	"github.com/zeromicro/go-zero/rest/httpx"
+
+"github.com/gin-gonic/gin"
 )
 
 // 根路径 - API 信息和版本
-func RootHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func RootHandler(svcCtx *svc.ServiceContext) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		var req types.RootRequest
-		if err := httpx.Parse(r, &req); err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
-			return
-		}
+		// No parameters to bind
 
-		l := meta.NewRootLogic(r.Context(), svcCtx)
+		l := meta.NewRootLogic(c.Request.Context(), svcCtx)
 		resp, err := l.Root(&req)
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			response.Error(c, err)
 		} else {
-			httpx.OkJsonCtx(r.Context(), w, resp)
+			response.Success(c, resp)
 		}
 	}
 }

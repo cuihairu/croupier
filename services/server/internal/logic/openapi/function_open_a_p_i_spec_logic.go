@@ -8,12 +8,9 @@ import (
 
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type FunctionOpenAPISpecLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +18,17 @@ type FunctionOpenAPISpecLogic struct {
 // 获取函数的 OpenAPI spec
 func NewFunctionOpenAPISpecLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FunctionOpenAPISpecLogic {
 	return &FunctionOpenAPISpecLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
 func (l *FunctionOpenAPISpecLogic) FunctionOpenAPISpec(req *types.OpenAPISpecRequest) (resp *types.OpenAPISpecResponse, err error) {
-	// todo: add your logic here and delete this line
-
-	return
+	spec, err := l.svcCtx.RegistryStore.GetOpenAPI(req.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &types.OpenAPISpecResponse{
+		Spec: spec,
+	}, nil
 }

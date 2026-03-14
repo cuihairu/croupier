@@ -9,11 +9,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type NodeCommandsLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +19,26 @@ type NodeCommandsLogic struct {
 // 获取节点命令
 func NewNodeCommandsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *NodeCommandsLogic {
 	return &NodeCommandsLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *NodeCommandsLogic) NodeCommands(req *types.NodeCommandsRequest) (resp *types.NodeCommandsResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *NodeCommandsLogic) NodeCommands(req *types.NodeCommandsRequest) (*types.NodeCommandsResponse, error) {
+	commands, err := l.svcCtx.NodeModel.ListCommands(l.ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	items := make([]types.NodeCommand, 0, len(commands))
+	for _, cmd := range commands {
+		items = append(items, types.NodeCommand{
+			Name:        cmd.Name,
+			Description: cmd.Description,
+		})
+	}
+
+	return &types.NodeCommandsResponse{
+		Items: items,
+	}, nil
 }

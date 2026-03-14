@@ -140,3 +140,8 @@ func (m *GameModel) ListAll(ctx context.Context) ([]Game, error) {
 		Find(&games).Error
 	return games, err
 }
+
+// FindByGameID 根据 GameID 获取游戏
+func (m *GameModel) FindByGameID(ctx context.Context, gameID uint) (*Game, error) {
+	return m.FindOne(ctx, gameID)
+}

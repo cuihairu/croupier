@@ -9,11 +9,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type ProvidersDescriptorsLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +19,46 @@ type ProvidersDescriptorsLogic struct {
 // 获取提供者描述符
 func NewProvidersDescriptorsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *ProvidersDescriptorsLogic {
 	return &ProvidersDescriptorsLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
 func (l *ProvidersDescriptorsLogic) ProvidersDescriptors(req *types.ProvidersDescriptorsRequest) (resp *types.ProvidersDescriptorsResponse, err error) {
-	// todo: add your logic here and delete this line
+	store, err := ensureRegistryStore(l.svcCtx.RegistryStore)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	// Get all OpenAPI providers
+	providers := store.ListOpenAPIProviders()
+	providerManifests := make(map[string]interface{})
+
+	for _, provider := range providers {
+		doc, err := decodeOpenAPIDoc(provider.OpenAPIDoc)
+		if err != nil {
+			continue
+		}
+		// Extract manifest info from OpenAPI doc
+		providerManifests[provider.ID] = map[string]interface{}{
+			"id":        provider.ID,
+			"version":   provider.Version,
+			"lang":      provider.Lang,
+			"sdk":       provider.SDK,
+			"updatedAt": provider.UpdatedAt,
+			// Include functions and entities counts
+			"functions": len(openAPIDocFunctions(doc)),
+			"entities":  len(openAPIDocEntities(doc)),
+			// Full OpenAPI doc
+			"openapi": doc,
+		}
+	}
+
+	return &types.ProvidersDescriptorsResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"provider_manifests": providerManifests,
+		},
+	}, nil
 }

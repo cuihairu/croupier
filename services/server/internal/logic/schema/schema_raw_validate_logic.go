@@ -9,11 +9,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type SchemaRawValidateLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +19,27 @@ type SchemaRawValidateLogic struct {
 // 原始模式验证
 func NewSchemaRawValidateLogic(ctx context.Context, svcCtx *svc.ServiceContext) *SchemaRawValidateLogic {
 	return &SchemaRawValidateLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *SchemaRawValidateLogic) SchemaRawValidate(req *types.SchemaRawValidateRequest) (resp *types.SchemaRawValidateResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *SchemaRawValidateLogic) SchemaRawValidate(req *types.SchemaRawValidateRequest) (*types.SchemaRawValidateResponse, error) {
+	if err := validateSchemaDefinition(req.Schema); err != nil {
+		return nil, err
+	}
 
-	return
+	valid, issues, err := validatePayloadAgainst(req.Schema, req.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.SchemaRawValidateResponse{
+		Code:    0,
+		Message: "OK",
+		Data: map[string]interface{}{
+			"valid":  valid,
+			"errors": issues,
+		},
+	}, nil
 }

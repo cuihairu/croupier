@@ -9,11 +9,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type CertificateStatsLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +19,20 @@ type CertificateStatsLogic struct {
 // 获取证书统计
 func NewCertificateStatsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *CertificateStatsLogic {
 	return &CertificateStatsLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *CertificateStatsLogic) CertificateStats(req *types.CertificateStatsRequest) (resp *types.CertificateStatsResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *CertificateStatsLogic) CertificateStats(req *types.CertificateStatsRequest) (*types.CertificateStatsResponse, error) {
+	stats, err := l.svcCtx.CertificateModel.Stats(l.ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	return &types.CertificateStatsResponse{
+		Code:    0,
+		Message: "OK",
+		Data:    stats,
+	}, nil
 }

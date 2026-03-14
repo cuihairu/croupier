@@ -5,15 +5,15 @@ package node
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type NodeDrainLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +21,25 @@ type NodeDrainLogic struct {
 // 排空节点
 func NewNodeDrainLogic(ctx context.Context, svcCtx *svc.ServiceContext) *NodeDrainLogic {
 	return &NodeDrainLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
 func (l *NodeDrainLogic) NodeDrain(req *types.NodeDrainRequest) error {
-	// todo: add your logic here and delete this line
+	nodeID, err := utils.ValidateNodeID(req.ID)
+	if err != nil {
+		return err
+	}
 
-	return nil
+	if _, err := l.svcCtx.NodeModel.FindByNodeID(l.ctx, nodeID); err != nil {
+		return err
+	}
+
+	status := "draining"
+	if req.Timeout > 0 {
+		status = fmt.Sprintf("draining:%d", req.Timeout)
+	}
+
+	return l.svcCtx.NodeModel.UpdateStatus(l.ctx, nodeID, status)
 }

@@ -6,14 +6,12 @@ package storage
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type UploadObjectLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +19,11 @@ type UploadObjectLogic struct {
 // 上传对象
 func NewUploadObjectLogic(ctx context.Context, svcCtx *svc.ServiceContext) *UploadObjectLogic {
 	return &UploadObjectLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
 func (l *UploadObjectLogic) UploadObject(req *types.UploadObjectRequest) (resp *types.UploadObjectResponse, err error) {
-	// todo: add your logic here and delete this line
-
-	return
+	return nil, errorx.NewNotImplemented("UploadObject not implemented")
 }

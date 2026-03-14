@@ -9,11 +9,10 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 )
 
 type OpsAgentExecCommandLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +20,45 @@ type OpsAgentExecCommandLogic struct {
 // 在 Agent 上执行命令（高风险）
 func NewOpsAgentExecCommandLogic(ctx context.Context, svcCtx *svc.ServiceContext) *OpsAgentExecCommandLogic {
 	return &OpsAgentExecCommandLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *OpsAgentExecCommandLogic) OpsAgentExecCommand(req *types.OpsExecCommandRequest) (resp *types.OpsExecCommandResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *OpsAgentExecCommandLogic) OpsAgentExecCommand(req *types.OpsExecCommandRequest) (*types.OpsExecCommandResponse, error) {
+	client, err := GetAgentOpsClient().GetClient(l.ctx, req.AgentID)
+	if err != nil {
+		return &types.OpsExecCommandResponse{
+			Code:    404,
+			Message: err.Error(),
+		}, nil
+	}
 
-	return
+	execReq := &opsv1.ExecuteCommandRequest{
+		Command: req.Command,
+		Args:    req.Args,
+	}
+
+	if req.Timeout > 0 {
+		execReq.TimeoutSeconds = req.Timeout
+	}
+
+	resp, err := client.ExecuteCommand(l.ctx, execReq)
+	if err != nil {
+		return &types.OpsExecCommandResponse{
+			Code:    500,
+			Message: "Failed to execute command: " + err.Error(),
+		}, nil
+	}
+
+	return &types.OpsExecCommandResponse{
+		Code:    0,
+		Message: "OK",
+		Data: types.OpsExecCommandResult{
+			Success:  resp.Success,
+			ExitCode: resp.ExitCode,
+			Stdout:   resp.StdOut,
+			Stderr:   resp.StdErr,
+		},
+	}, nil
 }

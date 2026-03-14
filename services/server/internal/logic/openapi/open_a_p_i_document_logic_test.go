@@ -30,15 +30,14 @@ func TestOpenAPIDocumentBuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenAPIDocument failed: %v", err)
 	}
-	spec, ok := resp.Spec.(map[string]interface{})
+	spec, ok := resp.Spec.(*openapi3.T)
 	if !ok {
 		t.Fatalf("unexpected spec type: %T", resp.Spec)
 	}
-	if spec["openapi"] != "3.0.3" {
-		t.Fatalf("unexpected openapi version: %v", spec["openapi"])
+	if spec.OpenAPI != "3.0.3" {
+		t.Fatalf("unexpected openapi version: %v", spec.OpenAPI)
 	}
-	paths, ok := spec["paths"].(map[string]interface{})
-	if !ok || len(paths) == 0 {
-		t.Fatalf("expected non-empty paths, got: %#v", spec["paths"])
+	if len(spec.Paths.Map()) == 0 {
+		t.Fatalf("expected non-empty paths")
 	}
 }

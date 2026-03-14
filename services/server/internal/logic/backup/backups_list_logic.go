@@ -5,15 +5,16 @@ package backup
 
 import (
 	"context"
+	"strings"
 
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
+	"github.com/cuihairu/croupier/services/server/internal/model"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type BackupsListLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +22,29 @@ type BackupsListLogic struct {
 // 获取备份列表
 func NewBackupsListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *BackupsListLogic {
 	return &BackupsListLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *BackupsListLogic) BackupsList(req *types.BackupsListRequest) (resp *types.BackupsListResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *BackupsListLogic) BackupsList(req *types.BackupsListRequest) (*types.BackupsListResponse, error) {
+	opts := model.ListBackupsOptions{
+		PaginationOptions: model.PaginationOptions{
+			Page:     req.Page,
+			PageSize: req.PageSize,
+		},
+		Type: strings.TrimSpace(req.Type),
+	}
 
-	return
+	backups, total, err := l.svcCtx.BackupModel.List(l.ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.BackupsListResponse{
+		Items: utils.BuildBackupList(backups),
+		Total: total,
+		Page:  opts.Page,
+		Size:  opts.PageSize,
+	}, nil
 }

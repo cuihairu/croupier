@@ -9,11 +9,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type TermsListLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +19,33 @@ type TermsListLogic struct {
 // 获取术语列表
 func NewTermsListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *TermsListLogic {
 	return &TermsListLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
 func (l *TermsListLogic) TermsList(req *types.TermsListRequest) (resp *types.TermsListResponse, err error) {
-	// todo: add your logic here and delete this line
+	// 查询术语字典
+	terms, err := l.svcCtx.TermDictModel.List(l.ctx, req.Domain)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	// 转换为响应格式
+	items := make([]types.TermItem, 0, len(terms))
+	for _, term := range terms {
+		items = append(items, types.TermItem{
+			Id:        int64(term.ID),
+			Domain:    term.Domain,
+			TermKey:   term.TermKey,
+			Alias:     term.Alias,
+			DisplayZh: term.DisplayZh,
+			DisplayEn: term.DisplayEn,
+			Order:     int64(term.SortOrder),
+		})
+	}
+
+	return &types.TermsListResponse{
+		Items: items,
+	}, nil
 }

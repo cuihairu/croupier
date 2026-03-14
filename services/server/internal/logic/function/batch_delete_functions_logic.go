@@ -9,11 +9,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type BatchDeleteFunctionsLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +19,29 @@ type BatchDeleteFunctionsLogic struct {
 // 批量删除函数
 func NewBatchDeleteFunctionsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *BatchDeleteFunctionsLogic {
 	return &BatchDeleteFunctionsLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *BatchDeleteFunctionsLogic) BatchDeleteFunctions(req *types.BatchDeleteFunctionsRequest) (resp *types.BatchDeleteFunctionsResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *BatchDeleteFunctionsLogic) BatchDeleteFunctions(req *types.BatchDeleteFunctionsRequest) (*types.BatchDeleteFunctionsResponse, error) {
+	// 1. Validate request
+	if len(req.FunctionIds) == 0 {
+		return &types.BatchDeleteFunctionsResponse{
+			Updated: 0,
+			Failed:  []string{"no function ids provided"},
+		}, nil
+	}
 
-	return
+	// 2. Call model layer to batch delete
+	updated, failed, err := l.svcCtx.FunctionModel.BatchDeleteFunctions(l.ctx, req.FunctionIds)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Return result
+	return &types.BatchDeleteFunctionsResponse{
+		Updated: updated,
+		Failed:  failed,
+	}, nil
 }

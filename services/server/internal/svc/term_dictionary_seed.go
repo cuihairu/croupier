@@ -3,12 +3,12 @@ package svc
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/cuihairu/croupier/services/server/internal/model"
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type termDictionarySeedConfig struct {
@@ -51,7 +51,7 @@ func seedBootstrapTermDictionary(ctx *ServiceContext) error {
 				SortOrder: item.Order,
 			})
 			if err != nil {
-				logx.Errorf("seed term dictionary failed domain=%s alias=%s err=%v", domain, alias, err)
+				slog.Default().Error("seed term dictionary failed", "domain", domain, "alias", alias, "error", err)
 			}
 		}
 	}

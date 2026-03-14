@@ -13,11 +13,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type AdminsListLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -25,7 +23,6 @@ type AdminsListLogic struct {
 // 获取管理员列表
 func NewAdminsListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *AdminsListLogic {
 	return &AdminsListLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}

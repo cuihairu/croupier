@@ -3,12 +3,11 @@ package svc
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
-
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // AdminUser 管理员用户结构
@@ -68,21 +67,21 @@ func (am *AdminManager) Initialize() error {
 
 	// 加载默认数据
 	if err := am.loadDefaultAdmins(); err != nil {
-		logx.Errorf("Failed to load default admins: %v", err)
+		slog.Default().Error("Failed to load default admins", "error", err)
 		return err
 	}
 
 	if err := am.loadDefaultRoles(); err != nil {
-		logx.Errorf("Failed to load default roles: %v", err)
+		slog.Default().Error("Failed to load default roles", "error", err)
 		return err
 	}
 
 	if err := am.loadDefaultPermissions(); err != nil {
-		logx.Errorf("Failed to load default permissions: %v", err)
+		slog.Default().Error("Failed to load default permissions", "error", err)
 		return err
 	}
 
-	logx.Info("Admin manager initialized successfully")
+	slog.Default().Info("Admin manager initialized successfully")
 	return nil
 }
 
@@ -101,13 +100,13 @@ func (am *AdminManager) loadDefaultAdmins() error {
 
 		data, err := os.ReadFile(adminsPath)
 		if err != nil {
-			logx.Errorf("Failed to read %s config: %v", configFile, err)
+			slog.Default().Error("Failed to read config file", "file", configFile, "error", err)
 			continue
 		}
 
 		var defaultAdmins []AdminUser
 		if err := json.Unmarshal(data, &defaultAdmins); err != nil {
-			logx.Errorf("Failed to parse %s config: %v", configFile, err)
+			slog.Default().Error("Failed to parse config file", "file", configFile, "error", err)
 			continue
 		}
 
@@ -129,18 +128,18 @@ func (am *AdminManager) loadDefaultAdmins() error {
 			// 检查是否已存在，不存在则添加
 			if _, exists := am.admins[admin.Username]; !exists {
 				am.admins[admin.Username] = &defaultAdmins[i]
-				logx.Infof("Loaded default admin from %s: %s with roles: %v", configFile, admin.Username, admin.Roles)
+				slog.Default().Info("Loaded default admin", "file", configFile, "username", admin.Username, "roles", admin.Roles)
 				loadedCount++
 			}
 		}
 
 		if loadedCount > 0 {
-			logx.Infof("Successfully loaded %d admins from %s", loadedCount, configFile)
+			slog.Default().Info("Successfully loaded admins", "count", loadedCount, "file", configFile)
 			return nil
 		}
 	}
 
-	logx.Error("No valid admin config files found (tried: ", configFiles, ")")
+	slog.Default().Warn("No valid admin config files found", "files", configFiles)
 	return nil
 }
 
@@ -150,7 +149,7 @@ func (am *AdminManager) loadDefaultRoles() error {
 
 	// 检查文件是否存在
 	if _, err := os.Stat(rolesPath); os.IsNotExist(err) {
-		logx.Info("Roles config file not found: ", rolesPath)
+		slog.Default().Warn("Roles config file not found", "path", rolesPath)
 		return nil
 	}
 
@@ -166,7 +165,7 @@ func (am *AdminManager) loadDefaultRoles() error {
 
 	for _, role := range defaultRoles {
 		am.roles[role.Code] = &role
-		logx.Infof("Loaded default role: %s (%s)", role.Code, role.Name)
+		slog.Default().Info("Loaded default role", "code", role.Code, "name", role.Name)
 	}
 
 	return nil
@@ -178,7 +177,7 @@ func (am *AdminManager) loadDefaultPermissions() error {
 
 	// 检查文件是否存在
 	if _, err := os.Stat(permissionsPath); os.IsNotExist(err) {
-		logx.Info("Permissions config file not found: ", permissionsPath)
+		slog.Default().Warn("Permissions config file not found", "path", permissionsPath)
 		return nil
 	}
 
@@ -234,7 +233,7 @@ func (am *AdminManager) CreateAdmin(admin *AdminUser) error {
 	admin.UpdateAt = admin.CreateAt
 
 	am.admins[admin.Username] = admin
-	logx.Infof("Created admin: %s", admin.Username)
+	slog.Default().Info("Created admin", "username", admin.Username)
 	return nil
 }
 
@@ -292,7 +291,7 @@ func (am *AdminManager) UpdateAdmin(username string, updates map[string]interfac
 
 	admin.UpdateAt = time.Now().Format("2006-01-02 15:04:05")
 
-	logx.Infof("Updated admin: %s", username)
+	slog.Default().Info("Updated admin", "username", username)
 	return nil
 }
 
@@ -306,7 +305,7 @@ func (am *AdminManager) DeleteAdmin(username string) error {
 	}
 
 	delete(am.admins, username)
-	logx.Infof("Deleted admin: %s", username)
+	slog.Default().Info("Deleted admin", "username", username)
 	return nil
 }
 
@@ -323,7 +322,7 @@ func (am *AdminManager) ResetPassword(username, newPassword string) error {
 	admin.Password = newPassword
 	admin.UpdateAt = time.Now().Format("2006-01-02 15:04:05")
 
-	logx.Infof("Reset password for admin: %s", username)
+	slog.Default().Info("Reset password for admin", "username", username)
 	return nil
 }
 

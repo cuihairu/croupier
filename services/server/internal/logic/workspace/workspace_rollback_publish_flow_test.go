@@ -74,7 +74,10 @@ func TestWorkspaceRollbackThenPublishFlow(t *testing.T) {
 
 	ctx := context.WithValue(context.Background(), "username", "qa_user")
 	rollbackLogic := NewWorkspaceRollbackLogic(ctx, svcCtx)
-	if _, err := rollbackLogic.Rollback("player", "1"); err != nil {
+	if _, err := rollbackLogic.WorkspaceRollback(&types.WorkspaceRollbackRequest{
+		ObjectKey: "player",
+		VersionId: "1",
+	}); err != nil {
 		t.Fatalf("rollback failed: %v", err)
 	}
 

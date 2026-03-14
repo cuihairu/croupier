@@ -4,29 +4,30 @@
 package node
 
 import (
-	"net/http"
+	"github.com/cuihairu/croupier/services/server/internal/common/response"
 
 	"github.com/cuihairu/croupier/services/server/internal/logic/node"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
-	"github.com/zeromicro/go-zero/rest/httpx"
+
+"github.com/gin-gonic/gin"
 )
 
 // 重启节点
-func NodeRestartHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func NodeRestartHandler(svcCtx *svc.ServiceContext) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		var req types.NodeActionRequest
-		if err := httpx.Parse(r, &req); err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+		if err := c.ShouldBindUri(&req); err != nil {
+			response.Error(c, err)
 			return
 		}
 
-		l := node.NewNodeRestartLogic(r.Context(), svcCtx)
+		l := node.NewNodeRestartLogic(c.Request.Context(), svcCtx)
 		err := l.NodeRestart(&req)
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			response.Error(c, err)
 		} else {
-			httpx.Ok(w)
+			response.Success(c, gin.H{"message": "操作成功"})
 		}
 	}
 }

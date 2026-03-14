@@ -9,11 +9,9 @@ import (
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type JobListLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +19,14 @@ type JobListLogic struct {
 // 任务列表
 func NewJobListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *JobListLogic {
 	return &JobListLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *JobListLogic) JobList(req *types.JobListRequest) (resp *types.JobListResponse, err error) {
-	// todo: add your logic here and delete this line
-
-	return
+func (l *JobListLogic) JobList(_ *types.JobListRequest) (*types.JobListResponse, error) {
+	return &types.JobListResponse{
+		Jobs:  []types.JobItem{},
+		Total: 0,
+	}, nil
 }

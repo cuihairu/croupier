@@ -81,3 +81,50 @@ func parseTimePtr(raw string) *time.Time {
 	}
 	return &parsed
 }
+
+// toDTO converts from model.WorkspaceConfig to types.WorkspaceConfig
+func toDTO(m *model.WorkspaceConfig) types.WorkspaceConfig {
+	cfg := types.WorkspaceConfig{
+		ObjectKey:   m.ObjectKey,
+		Title:       m.Title,
+		Published:   m.Published,
+		MenuOrder:   int(m.MenuOrder),
+		Status:      "draft",
+		PublishedBy: m.PublishedBy,
+	}
+
+	if m.PublishedAt != nil {
+		cfg.PublishedAt = m.PublishedAt.Format(time.RFC3339)
+	}
+
+	// Unmarshal the JSON config into Layout
+	if len(m.Config) > 0 {
+		var layout interface{}
+		if err := json.Unmarshal(m.Config, &layout); err == nil {
+			cfg.Layout = layout
+		}
+	}
+
+	if m.Published {
+		cfg.Status = "published"
+	}
+
+	return cfg
+}
+
+// parseWorkspaceVersionTimeRange parses from/to time strings into time.Time values
+func parseWorkspaceVersionTimeRange(from, to string) (fromAt, toAt time.Time, err error) {
+	if from = strings.TrimSpace(from); from != "" {
+		fromAt, err = time.Parse(time.RFC3339, from)
+		if err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("invalid 'from' time format: %w", err)
+		}
+	}
+	if to = strings.TrimSpace(to); to != "" {
+		toAt, err = time.Parse(time.RFC3339, to)
+		if err != nil {
+			return time.Time{}, time.Time{}, fmt.Errorf("invalid 'to' time format: %w", err)
+		}
+	}
+	return fromAt, toAt, nil
+}

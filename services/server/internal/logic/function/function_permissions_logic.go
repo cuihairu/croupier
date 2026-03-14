@@ -6,14 +6,14 @@ package function
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/services/server/internal/common/errorx"
+	"github.com/cuihairu/croupier/services/server/internal/logic/utils"
 	"github.com/cuihairu/croupier/services/server/internal/svc"
 	"github.com/cuihairu/croupier/services/server/internal/types"
 
-	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type FunctionPermissionsLogic struct {
-	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
@@ -21,14 +21,39 @@ type FunctionPermissionsLogic struct {
 // 获取函数权限
 func NewFunctionPermissionsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FunctionPermissionsLogic {
 	return &FunctionPermissionsLogic{
-		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *FunctionPermissionsLogic) FunctionPermissions(req *types.FunctionPermissionsRequest) (resp *types.FunctionPermissionsResponse, err error) {
-	// todo: add your logic here and delete this line
+func (l *FunctionPermissionsLogic) FunctionPermissions(req *types.FunctionPermissionsRequest) (*types.FunctionPermissionsResponse, error) {
+	functionID, err := utils.ValidateFunctionID(req.ID)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	_, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
+	if err != nil {
+		return nil, err
+	}
+	roleNames := utils.RoleNamesFromModels(roles)
+	permIDs, err := utils.PermissionIDsFromRoles(l.ctx, l.svcCtx, roles)
+	if err != nil {
+		return nil, err
+	}
+	if !utils.HasAdminRole(roleNames) && !utils.HasPermissionID(permIDs, "permission:write") && !utils.HasPermissionID(permIDs, "roles:manage") && !utils.HasPermissionID(permIDs, "*") {
+		return nil, errorx.NewForbidden("无权查看函数权限")
+	}
+
+	if l.svcCtx.FunctionModel == nil {
+		return nil, errorx.NewInternalError("FunctionModel 未初始化")
+	}
+	perms, err := l.svcCtx.FunctionModel.ListPermissions(l.ctx, functionID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.FunctionPermissionsResponse{
+		Items: utils.BuildFunctionPermissions(perms),
+	}, nil
 }
