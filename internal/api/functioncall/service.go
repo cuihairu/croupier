@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/cuihairu/croupier/internal/common/errorx"
 	jobapi "github.com/cuihairu/croupier/internal/api/job"
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 

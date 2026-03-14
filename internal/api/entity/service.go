@@ -37,13 +37,13 @@ func (s *Service) List(ctx context.Context, req *EntitiesListRequest) (*Entities
 	for i := range entities {
 		dto := utils.BuildEntityDTO(&entities[i])
 		items = append(items, EntityItem{
-			ID:        fmt.Sprint(dto["id"]),
-			Type:      dto["type"].(string),
-			Data:      dto["data"],
+			ID:         fmt.Sprint(dto["id"]),
+			Type:       dto["type"].(string),
+			Data:       dto["data"],
 			ProviderID: getStringField(dto, "providerId"),
-			Status:    getIntField(dto, "status"),
-			CreatedAt: getStringField(dto, "createdAt"),
-			UpdatedAt: getStringField(dto, "updatedAt"),
+			Status:     getIntField(dto, "status"),
+			CreatedAt:  getStringField(dto, "createdAt"),
+			UpdatedAt:  getStringField(dto, "updatedAt"),
 		})
 	}
 
@@ -83,13 +83,13 @@ func (s *Service) Create(ctx context.Context, req *EntityCreateRequest) (*Entity
 
 	dto := utils.BuildEntityDTO(entity)
 	return &EntityCreateResponse{
-		ID:        fmt.Sprint(dto["id"]),
-		Type:      dto["type"].(string),
-		Data:      dto["data"],
+		ID:         fmt.Sprint(dto["id"]),
+		Type:       dto["type"].(string),
+		Data:       dto["data"],
 		ProviderID: getStringField(dto, "providerId"),
-		Status:    getIntField(dto, "status"),
-		CreatedAt: getStringField(dto, "createdAt"),
-		UpdatedAt: getStringField(dto, "updatedAt"),
+		Status:     getIntField(dto, "status"),
+		CreatedAt:  getStringField(dto, "createdAt"),
+		UpdatedAt:  getStringField(dto, "updatedAt"),
 	}, nil
 }
 
@@ -107,13 +107,13 @@ func (s *Service) Detail(ctx context.Context, req *EntityDetailRequest) (*Entity
 
 	dto := utils.BuildEntityDTO(entity)
 	return &EntityDetailResponse{
-		ID:        fmt.Sprint(dto["id"]),
-		Type:      dto["type"].(string),
-		Data:      dto["data"],
+		ID:         fmt.Sprint(dto["id"]),
+		Type:       dto["type"].(string),
+		Data:       dto["data"],
 		ProviderID: getStringField(dto, "providerId"),
-		Status:    getIntField(dto, "status"),
-		CreatedAt: getStringField(dto, "createdAt"),
-		UpdatedAt: getStringField(dto, "updatedAt"),
+		Status:     getIntField(dto, "status"),
+		CreatedAt:  getStringField(dto, "createdAt"),
+		UpdatedAt:  getStringField(dto, "updatedAt"),
 	}, nil
 }
 
@@ -148,13 +148,13 @@ func (s *Service) Update(ctx context.Context, req *EntityUpdateRequest) (*Entity
 
 	dto := utils.BuildEntityDTO(entity)
 	return &EntityUpdateResponse{
-		ID:        fmt.Sprint(dto["id"]),
-		Type:      dto["type"].(string),
-		Data:      dto["data"],
+		ID:         fmt.Sprint(dto["id"]),
+		Type:       dto["type"].(string),
+		Data:       dto["data"],
 		ProviderID: getStringField(dto, "providerId"),
-		Status:    getIntField(dto, "status"),
-		CreatedAt: getStringField(dto, "createdAt"),
-		UpdatedAt: getStringField(dto, "updatedAt"),
+		Status:     getIntField(dto, "status"),
+		CreatedAt:  getStringField(dto, "createdAt"),
+		UpdatedAt:  getStringField(dto, "updatedAt"),
 	}, nil
 }
 

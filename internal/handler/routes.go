@@ -1,8 +1,6 @@
-
 package handler
 
 import (
-	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/api/admin"
 	"github.com/cuihairu/croupier/internal/api/agent"
 	"github.com/cuihairu/croupier/internal/api/alert"
@@ -43,6 +41,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/ticket"
 	"github.com/cuihairu/croupier/internal/api/workspace"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
+	"github.com/cuihairu/croupier/internal/svc"
 
 	"github.com/gin-gonic/gin"
 )
@@ -51,7 +50,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	v1 := r.Group("/api/v1")
 
 	// 公开路由（无认证）
-	registerAuthRoutes(v1.Group("/auth"), serverCtx)  // 修复：/api/v1/auth/login
+	registerAuthRoutes(v1.Group("/auth"), serverCtx) // 修复：/api/v1/auth/login
 	registerMetaRoutes(v1, serverCtx)
 	registerRegistryRoutes(v1.Group("/registry"), serverCtx) // 公开访问
 	registerAuditRoutes(v1, serverCtx)                       // 审计日志在 v1 根路径
@@ -585,8 +584,8 @@ func registerPackRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	packHandler := pack.NewHandler(packSvc)
 	g.GET("/export", packHandler.Export)
 	g.POST("/import", packHandler.Import)
-	g.GET("", packHandler.List)   // /api/v1/packs
-	g.GET("/", packHandler.List)  // /api/v1/packs/
+	g.GET("", packHandler.List)  // /api/v1/packs
+	g.GET("/", packHandler.List) // /api/v1/packs/
 	g.POST("/reload", packHandler.Reload)
 	g.GET("/plugin", packHandler.Plugin)
 }
@@ -634,10 +633,10 @@ func registerPlayerRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerProfileRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	profileSvc := profile.NewService(ctx.AdminModel, ctx.GameModel)
 	profileHandler := profile.NewHandler(profileSvc)
-	g.GET("", profileHandler.GetProfile)           // /api/v1/profile
-	g.GET("/", profileHandler.GetProfile)          // /api/v1/profile/
-	g.PUT("", profileHandler.UpdateProfile)        // /api/v1/profile
-	g.PUT("/", profileHandler.UpdateProfile)       // /api/v1/profile/
+	g.GET("", profileHandler.GetProfile)     // /api/v1/profile
+	g.GET("/", profileHandler.GetProfile)    // /api/v1/profile/
+	g.PUT("", profileHandler.UpdateProfile)  // /api/v1/profile
+	g.PUT("/", profileHandler.UpdateProfile) // /api/v1/profile/
 	g.PUT("/password", profileHandler.ChangePassword)
 	g.GET("/permissions", profileHandler.GetPermissions)
 	g.GET("/games", profileHandler.GetGames)

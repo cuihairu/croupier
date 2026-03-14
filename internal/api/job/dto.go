@@ -50,8 +50,8 @@ type JobResultRequest struct {
 // JobResultResponse is the response format used by the service layer
 // with job-specific fields JobID, Done, and Events
 type JobResultResponse struct {
-	JobID  string                 `json:"jobId"`
-	Done   bool                   `json:"done"`
+	JobID  string                   `json:"jobId"`
+	Done   bool                     `json:"done"`
 	Events []map[string]interface{} `json:"events"`
 }
 
@@ -73,7 +73,7 @@ type StreamJobRequest struct {
 // StreamJobResponse is the service-layer response format with Events and Done
 type StreamJobResponse struct {
 	Events []map[string]interface{} `json:"events"`
-	Done   bool                   `json:"done"`
+	Done   bool                     `json:"done"`
 }
 
 // StreamJobAPIResponse is the API-layer response format matching types.go

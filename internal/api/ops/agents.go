@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 
-	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/cuihairu/croupier/internal/logic/ops"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/svc"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 )
 
 // Agent operations sub-service

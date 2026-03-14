@@ -141,11 +141,11 @@ type CertificateStatsRequest struct {
 
 // CertificateStatsResponse is the response with certificate statistics
 type CertificateStatsResponse struct {
-	Total   int64 `json:"total"`
-	Valid   int64 `json:"valid"`
+	Total    int64 `json:"total"`
+	Valid    int64 `json:"valid"`
 	Expiring int64 `json:"expiring"`
-	Expired int64 `json:"expired"`
-	Invalid int64 `json:"invalid"`
+	Expired  int64 `json:"expired"`
+	Invalid  int64 `json:"invalid"`
 }
 
 // CertificatesListRequest is the request to list certificates

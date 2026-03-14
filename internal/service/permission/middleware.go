@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	tokenmgr "github.com/cuihairu/croupier/internal/security/token"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
+	tokenmgr "github.com/cuihairu/croupier/internal/security/token"
 	"gorm.io/gorm"
 )
 

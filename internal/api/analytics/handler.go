@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/cuihairu/croupier/internal/common/requestbind"
+	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
 

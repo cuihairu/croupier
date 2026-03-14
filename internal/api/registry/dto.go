@@ -5,10 +5,10 @@ type RegistryRequest struct{}
 
 // RegistryResponse registry response
 type RegistryResponse struct {
-	Agents      []RegistryAgent      `json:"agents"`
-	Functions   []RegistryFunction   `json:"functions"`
-	Assignments map[string][]string  `json:"assignments"`
-	Coverage    []RegistryCoverage   `json:"coverage"`
+	Agents      []RegistryAgent     `json:"agents"`
+	Functions   []RegistryFunction  `json:"functions"`
+	Assignments map[string][]string `json:"assignments"`
+	Coverage    []RegistryCoverage  `json:"coverage"`
 }
 
 // RegistryAgent registry agent info
@@ -31,9 +31,9 @@ type RegistryFunction struct {
 
 // RegistryCoverage registry coverage info
 type RegistryCoverage struct {
-	GameEnv    string                          `json:"gameEnv"`
-	Functions  map[string]RegistryCoverageStat `json:"functions"`
-	Uncovered  []string                        `json:"uncovered"`
+	GameEnv   string                          `json:"gameEnv"`
+	Functions map[string]RegistryCoverageStat `json:"functions"`
+	Uncovered []string                        `json:"uncovered"`
 }
 
 // RegistryCoverageStat registry coverage statistics

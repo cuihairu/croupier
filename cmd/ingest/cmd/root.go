@@ -405,9 +405,9 @@ func (s *server) metricsMiddleware(next http.Handler) http.Handler {
 		if r.ContentLength > 0 && r.ContentLength > s.maxBodySize {
 			atomic.AddInt64(&s.requestsError, 1)
 			respondJSON(rw, http.StatusRequestEntityTooLarge, map[string]string{
-				"error":        "body_too_large",
-				"max_size_mb":  fmt.Sprintf("%d", maxBodySizeMB),
-				"actual_size":  fmt.Sprintf("%d", r.ContentLength/1024/1024),
+				"error":       "body_too_large",
+				"max_size_mb": fmt.Sprintf("%d", maxBodySizeMB),
+				"actual_size": fmt.Sprintf("%d", r.ContentLength/1024/1024),
 			})
 			return
 		}
@@ -470,8 +470,8 @@ func (s *server) ingestEvents(w http.ResponseWriter, r *http.Request) {
 		// Check if it's a size error
 		if err.Error() == "http: request body too large" {
 			respondJSON(w, http.StatusRequestEntityTooLarge, map[string]string{
-				"error":        "body_too_large",
-				"max_size_mb":  fmt.Sprintf("%d", maxBodySizeMB),
+				"error":       "body_too_large",
+				"max_size_mb": fmt.Sprintf("%d", maxBodySizeMB),
 			})
 			return
 		}
@@ -507,8 +507,8 @@ func (s *server) ingestPayments(w http.ResponseWriter, r *http.Request) {
 		// Check if it's a size error
 		if err.Error() == "http: request body too large" {
 			respondJSON(w, http.StatusRequestEntityTooLarge, map[string]string{
-				"error":        "body_too_large",
-				"max_size_mb":  fmt.Sprintf("%d", maxBodySizeMB),
+				"error":       "body_too_large",
+				"max_size_mb": fmt.Sprintf("%d", maxBodySizeMB),
 			})
 			return
 		}

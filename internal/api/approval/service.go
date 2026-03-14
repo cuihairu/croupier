@@ -7,8 +7,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/logic/utils"
+	"github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 

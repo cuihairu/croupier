@@ -95,17 +95,17 @@ type FunctionAnalyticsRequest struct {
 
 // FunctionAnalyticsResponse represents the response for function analytics
 type FunctionAnalyticsResponse struct {
-	Calls         int64            `json:"calls"`
-	Errors        int64            `json:"errors"`
-	AvgLatency    float64          `json:"avgLatency"`
-	P95Latency    float64          `json:"p95Latency"`
-	P99Latency    float64          `json:"p99Latency"`
-	SuccessRate   float64          `json:"successRate"`
-	TotalCalls    int64            `json:"totalCalls"`
-	CallsToday    int64            `json:"callsToday"`
-	CallsThisWeek int64            `json:"callsThisWeek"`
-	CallsThisMonth int64           `json:"callsThisMonth"`
-	Timeline      []AnalyticsPoint `json:"timeline,omitempty"`
+	Calls          int64            `json:"calls"`
+	Errors         int64            `json:"errors"`
+	AvgLatency     float64          `json:"avgLatency"`
+	P95Latency     float64          `json:"p95Latency"`
+	P99Latency     float64          `json:"p99Latency"`
+	SuccessRate    float64          `json:"successRate"`
+	TotalCalls     int64            `json:"totalCalls"`
+	CallsToday     int64            `json:"callsToday"`
+	CallsThisWeek  int64            `json:"callsThisWeek"`
+	CallsThisMonth int64            `json:"callsThisMonth"`
+	Timeline       []AnalyticsPoint `json:"timeline,omitempty"`
 }
 
 // AnalyticsPoint represents a single analytics data point
@@ -279,17 +279,17 @@ type FunctionUIHistoryResponse struct {
 
 // FunctionUIHistoryItem represents a single function UI history item
 type FunctionUIHistoryItem struct {
-	ID        string      `json:"id"`
-	Timestamp string      `json:"timestamp"`
-	User      string      `json:"user"`
-	UI        interface{} `json:"ui"`
-	Active    bool        `json:"active"`
-	Version   int         `json:"version"`
-	Message   string      `json:"message"`
-	CreatedBy string      `json:"createdBy"`
-	CreatedAt string      `json:"createdAt"`
-	Schema    interface{} `json:"schema"`
-	Layout    interface{} `json:"layout"`
+	ID         string      `json:"id"`
+	Timestamp  string      `json:"timestamp"`
+	User       string      `json:"user"`
+	UI         interface{} `json:"ui"`
+	Active     bool        `json:"active"`
+	Version    int         `json:"version"`
+	Message    string      `json:"message"`
+	CreatedBy  string      `json:"createdBy"`
+	CreatedAt  string      `json:"createdAt"`
+	Schema     interface{} `json:"schema"`
+	Layout     interface{} `json:"layout"`
 	Components interface{} `json:"components"`
 }
 

@@ -1,4 +1,3 @@
-
 package ops
 
 import (
@@ -6,7 +5,6 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/svc"
-	
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )

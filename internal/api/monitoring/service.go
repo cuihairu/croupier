@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/logic/utils"
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -68,9 +68,9 @@ func (s *Service) Metrics(ctx context.Context, req *MetricsRequest) (*MetricsRes
 		"timestamp": utils.FormatTimestamp(time.Now()),
 		"counts":    counts,
 		"database": map[string]interface{}{
-			"ok":        dbStatus["ok"],
+			"ok":         dbStatus["ok"],
 			"latency_ms": dbStatus["latency_ms"],
-			"driver":    dbStatus["driver"],
+			"driver":     dbStatus["driver"],
 		},
 		"registry": map[string]interface{}{
 			"ok":       registryStatus["ok"],

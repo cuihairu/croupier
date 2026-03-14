@@ -531,7 +531,7 @@ func opsNotificationsGet(ctx context.Context, svcCtx *svc.ServiceContext, req *O
 	return &OpsNotificationsGetResponse{
 		Code:    0,
 		Message: "Success",
-		Data:    map[string]interface{}{
+		Data: map[string]interface{}{
 			"channels": []OpsNotificationChannel{},
 			"rules":    []OpsNotificationRule{},
 		},

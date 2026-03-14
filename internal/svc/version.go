@@ -1,4 +1,3 @@
-
 package svc
 
 // 版本信息（由 build 脚本通过 ldflags 注入，或使用默认值）

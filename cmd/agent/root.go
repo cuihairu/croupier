@@ -75,14 +75,14 @@ func init() {
 
 // AgentConfig represents the agent-specific configuration
 type AgentConfig struct {
-	Name    string `json:"Name" yaml:"Name"`
-	Host    string `json:"Host" yaml:"Host"`
-	Port    int    `json:"Port" yaml:"Port"`
-	Server  AgentServerConfig
-	Agent   AgentInfoConfig
+	Name     string `json:"Name" yaml:"Name"`
+	Host     string `json:"Host" yaml:"Host"`
+	Port     int    `json:"Port" yaml:"Port"`
+	Server   AgentServerConfig
+	Agent    AgentInfoConfig
 	Upstream AgentUpstreamConfig
-	Logging common.LogConfig
-	TLS     struct {
+	Logging  common.LogConfig
+	TLS      struct {
 		Enabled            bool   `json:"Enabled" yaml:"Enabled"`
 		CertFile           string `json:"CertFile" yaml:"CertFile"`
 		KeyFile            string `json:"KeyFile" yaml:"KeyFile"`
@@ -110,9 +110,9 @@ type AgentServerConfig struct {
 }
 
 type AgentInfoConfig struct {
-	ID       string            `json:"ID" yaml:"ID"`
-	GameID   string            `json:"GameID" yaml:"GameID"`
-	Env      string            `json:"Env" yaml:"Env"`
+	ID        string            `json:"ID" yaml:"ID"`
+	GameID    string            `json:"GameID" yaml:"GameID"`
+	Env       string            `json:"Env" yaml:"Env"`
 	LocalAddr string            `json:"LocalAddr" yaml:"LocalAddr"`
 	HTTPAddr  string            `json:"HTTPAddr" yaml:"HTTPAddr"`
 	Labels    map[string]string `json:"Labels" yaml:"Labels"`

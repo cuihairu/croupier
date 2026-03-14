@@ -87,8 +87,8 @@ type CreateDirectoryRequest struct {
 
 // CreateDirectoryResponse represents the response for creating a directory
 type CreateDirectoryResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
 }
 
 // RenameDirectoryRequest represents a request to rename a directory
@@ -99,8 +99,8 @@ type RenameDirectoryRequest struct {
 
 // RenameDirectoryResponse represents the response for renaming a directory
 type RenameDirectoryResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
 }
 
 // ObjectInfo represents information about a storage object

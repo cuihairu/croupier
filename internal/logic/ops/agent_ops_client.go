@@ -6,10 +6,10 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/nng"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
-	"github.com/cuihairu/croupier/internal/common/errorx"
 	"google.golang.org/protobuf/proto"
 )
 

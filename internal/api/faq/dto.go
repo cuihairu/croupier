@@ -32,9 +32,9 @@ type FAQListRequest struct {
 // FAQListResponse represents the response with a list of FAQs
 type FAQListResponse struct {
 	Items []FAQ `json:"items"`
-	Total int64  `json:"total"`
-	Page  int    `json:"page"`
-	Size  int    `json:"pageSize"`
+	Total int64 `json:"total"`
+	Page  int   `json:"page"`
+	Size  int   `json:"pageSize"`
 }
 
 // FAQCreateRequest represents the request to create an FAQ

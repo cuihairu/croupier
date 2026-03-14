@@ -3,10 +3,10 @@ package utils
 import (
 	"strings"
 
-	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/helper"
 	"github.com/cuihairu/croupier/internal/model"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 )
 
 // ValidateFunctionID ensures function ID is provided.

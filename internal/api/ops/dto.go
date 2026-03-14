@@ -607,11 +607,11 @@ type OpsAgentMetaRequest struct {
 
 // OpsMetricsRequest is used to query metrics
 type OpsMetricsRequest struct {
-	GameId  string `json:"gameId" binding:"required"`
-	Env     string `json:"env"`
-	Metric  string `json:"metric"`
-	Start   string `json:"start"`
-	End     string `json:"end"`
+	GameId      string `json:"gameId" binding:"required"`
+	Env         string `json:"env"`
+	Metric      string `json:"metric"`
+	Start       string `json:"start"`
+	End         string `json:"end"`
 	Aggregation string `json:"aggregation"`
 }
 
@@ -622,14 +622,14 @@ type OpsNodeCommandsRequest struct {
 
 // Node represents a node in the system
 type Node struct {
-	Id          string            `json:"id"`
-	Hostname    string            `json:"hostname"`
-	Addr        string            `json:"addr"`
-	GameId      string            `json:"gameId"`
-	Env         string            `json:"env"`
-	Status      string            `json:"status"`
-	Labels      map[string]string `json:"labels"`
-	LastSeen    string            `json:"lastSeen"`
+	Id       string            `json:"id"`
+	Hostname string            `json:"hostname"`
+	Addr     string            `json:"addr"`
+	GameId   string            `json:"gameId"`
+	Env      string            `json:"env"`
+	Status   string            `json:"status"`
+	Labels   map[string]string `json:"labels"`
+	LastSeen string            `json:"lastSeen"`
 }
 
 // NodeCommand represents a command that can be executed on a node

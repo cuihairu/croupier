@@ -18,13 +18,13 @@ type EntitiesListResponse struct {
 
 // EntityItem represents a single entity in the list
 type EntityItem struct {
-	ID        string      `json:"id"`
-	Type      string      `json:"type"`
-	Data      interface{} `json:"data"`
-	ProviderID string     `json:"providerId,omitempty"`
-	Status    int         `json:"status"`
-	CreatedAt string      `json:"createdAt"`
-	UpdatedAt string      `json:"updatedAt"`
+	ID         string      `json:"id"`
+	Type       string      `json:"type"`
+	Data       interface{} `json:"data"`
+	ProviderID string      `json:"providerId,omitempty"`
+	Status     int         `json:"status"`
+	CreatedAt  string      `json:"createdAt"`
+	UpdatedAt  string      `json:"updatedAt"`
 }
 
 // EntityCreateRequest represents a request to create an entity
@@ -35,13 +35,13 @@ type EntityCreateRequest struct {
 
 // EntityCreateResponse represents the response for creating an entity
 type EntityCreateResponse struct {
-	ID        string      `json:"id"`
-	Type      string      `json:"type"`
-	Data      interface{} `json:"data"`
-	ProviderID string     `json:"providerId,omitempty"`
-	Status    int         `json:"status"`
-	CreatedAt string      `json:"createdAt"`
-	UpdatedAt string      `json:"updatedAt"`
+	ID         string      `json:"id"`
+	Type       string      `json:"type"`
+	Data       interface{} `json:"data"`
+	ProviderID string      `json:"providerId,omitempty"`
+	Status     int         `json:"status"`
+	CreatedAt  string      `json:"createdAt"`
+	UpdatedAt  string      `json:"updatedAt"`
 }
 
 // EntityDeleteRequest represents a request to delete an entity
@@ -61,13 +61,13 @@ type EntityDetailRequest struct {
 
 // EntityDetailResponse represents the response for getting entity details
 type EntityDetailResponse struct {
-	ID        string      `json:"id"`
-	Type      string      `json:"type"`
-	Data      interface{} `json:"data"`
-	ProviderID string     `json:"providerId,omitempty"`
-	Status    int         `json:"status"`
-	CreatedAt string      `json:"createdAt"`
-	UpdatedAt string      `json:"updatedAt"`
+	ID         string      `json:"id"`
+	Type       string      `json:"type"`
+	Data       interface{} `json:"data"`
+	ProviderID string      `json:"providerId,omitempty"`
+	Status     int         `json:"status"`
+	CreatedAt  string      `json:"createdAt"`
+	UpdatedAt  string      `json:"updatedAt"`
 }
 
 // EntityFunction represents a function that can be performed on an entity
@@ -105,13 +105,13 @@ type EntityUpdateRequest struct {
 
 // EntityUpdateResponse represents the response for updating an entity
 type EntityUpdateResponse struct {
-	ID        string      `json:"id"`
-	Type      string      `json:"type"`
-	Data      interface{} `json:"data"`
-	ProviderID string     `json:"providerId,omitempty"`
-	Status    int         `json:"status"`
-	CreatedAt string      `json:"createdAt"`
-	UpdatedAt string      `json:"updatedAt"`
+	ID         string      `json:"id"`
+	Type       string      `json:"type"`
+	Data       interface{} `json:"data"`
+	ProviderID string      `json:"providerId,omitempty"`
+	Status     int         `json:"status"`
+	CreatedAt  string      `json:"createdAt"`
+	UpdatedAt  string      `json:"updatedAt"`
 }
 
 // EntityValidateRequest represents a request to validate entity data

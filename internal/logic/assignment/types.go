@@ -30,11 +30,11 @@ type AssignmentsListResponse struct {
 }
 
 type AssignmentsUpdateRequest struct {
-	GameId    string        `json:"gameId"`
-	Env       string        `json:"env"`
-	Action    string        `json:"action"`
-	Config    interface{}   `json:"config"`
-	Functions []string      `json:"functions"`
+	GameId    string      `json:"gameId"`
+	Env       string      `json:"env"`
+	Action    string      `json:"action"`
+	Config    interface{} `json:"config"`
+	Functions []string    `json:"functions"`
 }
 
 type AssignmentsUpdateResponse struct {

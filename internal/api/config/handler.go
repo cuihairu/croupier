@@ -1,8 +1,8 @@
 package config
 
 import (
-	"github.com/cuihairu/croupier/internal/pkg2/response"
 	"github.com/cuihairu/croupier/internal/common/requestbind"
+	"github.com/cuihairu/croupier/internal/pkg2/response"
 	"github.com/gin-gonic/gin"
 )
 

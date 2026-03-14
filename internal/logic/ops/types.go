@@ -15,8 +15,8 @@ type OpsAgentsListRequest struct {
 }
 
 type OpsAgentsListResponse struct {
-	Code    int           `json:"code"`
-	Message string        `json:"message"`
+	Code    int            `json:"code"`
+	Message string         `json:"message"`
 	Data    []OpsAgentInfo `json:"data"`
 }
 
@@ -38,15 +38,15 @@ type OpsAgentMetaRequest struct {
 }
 
 type OpsAgentMetaResponse struct {
-	Code    int                  `json:"code"`
-	Message string               `json:"message"`
-	Data    OpsAgentMetaData     `json:"data"`
+	Code    int              `json:"code"`
+	Message string           `json:"message"`
+	Data    OpsAgentMetaData `json:"data"`
 }
 
 type OpsAgentMetaData struct {
-	AgentID   string            `json:"agentId"`
-	Labels    map[string]string `json:"labels"`
-	Metadata  map[string]string `json:"metadata"`
+	AgentID  string            `json:"agentId"`
+	Labels   map[string]string `json:"labels"`
+	Metadata map[string]string `json:"metadata"`
 }
 
 type OpsAgentMetaUpdateRequest struct {
@@ -60,8 +60,8 @@ type OpsAgentSystemInfoRequest struct {
 }
 
 type OpsAgentSystemInfoResponse struct {
-	Code    int              `json:"code"`
-	Message string           `json:"message"`
+	Code    int                `json:"code"`
+	Message string             `json:"message"`
 	Data    OpsAgentSystemInfo `json:"data"`
 }
 
@@ -84,8 +84,8 @@ type OpsAgentSystemInfo struct {
 }
 
 type OpsAgentMetricsRequest struct {
-	Since string `json:"since"`
-	Limit int    `json:"limit"`
+	Since   string `json:"since"`
+	Limit   int    `json:"limit"`
 	AgentID string `json:"agentId"`
 }
 
@@ -100,9 +100,9 @@ type OpsAgentProcessesRequest struct {
 }
 
 type OpsAgentProcessesResponse struct {
-	Code    int                  `json:"code"`
-	Message string               `json:"message"`
-	Data    []OpsManagedProcess  `json:"data"`
+	Code    int                 `json:"code"`
+	Message string              `json:"message"`
+	Data    []OpsManagedProcess `json:"data"`
 }
 
 type OpsProcessInfo struct {
@@ -117,12 +117,12 @@ type OpsExecCommandRequest struct {
 	Command string            `json:"command"`
 	Args    []string          `json:"args"`
 	Env     map[string]string `json:"env"`
-	Timeout int32              `json:"timeout"`
+	Timeout int32             `json:"timeout"`
 }
 
 type OpsExecCommandResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
+	Code    int           `json:"code"`
+	Message string        `json:"message"`
 	Data    OpsExecResult `json:"data"`
 }
 
@@ -135,51 +135,51 @@ type OpsExecResult struct {
 // Metrics types
 
 type OpsCpuMetrics struct {
-	Usage        float64            `json:"usage"`
-	CoreCount    int32              `json:"cores"`
-	Cores        int32              `json:"cores"`
-	UsagePercent float64            `json:"usagePercent"`
-	Load1M       float64            `json:"load1m"`
-	Load5M       float64            `json:"load5m"`
-	Load15M      float64            `json:"load15m"`
-	PerCore      []float64          `json:"perCore,omitempty"`
+	Usage        float64   `json:"usage"`
+	CoreCount    int32     `json:"cores"`
+	Cores        int32     `json:"cores"`
+	UsagePercent float64   `json:"usagePercent"`
+	Load1M       float64   `json:"load1m"`
+	Load5M       float64   `json:"load5m"`
+	Load15M      float64   `json:"load15m"`
+	PerCore      []float64 `json:"perCore,omitempty"`
 }
 
 type OpsMemoryMetrics struct {
-	Total         uint64  `json:"total"`
-	Used          uint64  `json:"used"`
-	Available     uint64  `json:"available"`
-	Usage         float64 `json:"usage"`
-	TotalBytes    uint64  `json:"totalBytes"`
-	UsedBytes     uint64  `json:"usedBytes"`
+	Total          uint64  `json:"total"`
+	Used           uint64  `json:"used"`
+	Available      uint64  `json:"available"`
+	Usage          float64 `json:"usage"`
+	TotalBytes     uint64  `json:"totalBytes"`
+	UsedBytes      uint64  `json:"usedBytes"`
 	AvailableBytes uint64  `json:"availableBytes"`
-	UsagePercent  float64 `json:"usagePercent"`
-	SwapTotal     uint64  `json:"swapTotal"`
-	SwapUsed      uint64  `json:"swapUsed"`
+	UsagePercent   float64 `json:"usagePercent"`
+	SwapTotal      uint64  `json:"swapTotal"`
+	SwapUsed       uint64  `json:"swapUsed"`
 }
 
 type OpsDiskMetrics struct {
-	Device         string `json:"device"`
-	Mount          string `json:"mount"`
-	Total          uint64 `json:"total"`
-	Used           uint64 `json:"used"`
+	Device         string  `json:"device"`
+	Mount          string  `json:"mount"`
+	Total          uint64  `json:"total"`
+	Used           uint64  `json:"used"`
 	Usage          float64 `json:"usage"`
-	MountPoint     string `json:"mountPoint"`
-	FsType         string `json:"fsType"`
-	TotalBytes     uint64 `json:"totalBytes"`
-	UsedBytes      uint64 `json:"usedBytes"`
-	AvailableBytes uint64 `json:"availableBytes"`
+	MountPoint     string  `json:"mountPoint"`
+	FsType         string  `json:"fsType"`
+	TotalBytes     uint64  `json:"totalBytes"`
+	UsedBytes      uint64  `json:"usedBytes"`
+	AvailableBytes uint64  `json:"availableBytes"`
 	UsagePercent   float64 `json:"usagePercent"`
 }
 
 type OpsNetworkMetrics struct {
-	Interface    string `json:"interface"`
-	BytesSent    uint64 `json:"bytesSent"`
-	BytesRecv    uint64 `json:"bytesRecv"`
-	PacketsSent  uint64 `json:"packetsSent"`
-	PacketsRecv  uint64 `json:"packetsRecv"`
-	Errors       uint64 `json:"errors"`
-	Drops        uint64 `json:"drops"`
+	Interface   string `json:"interface"`
+	BytesSent   uint64 `json:"bytesSent"`
+	BytesRecv   uint64 `json:"bytesRecv"`
+	PacketsSent uint64 `json:"packetsSent"`
+	PacketsRecv uint64 `json:"packetsRecv"`
+	Errors      uint64 `json:"errors"`
+	Drops       uint64 `json:"drops"`
 }
 
 // Node related types
@@ -190,19 +190,19 @@ type OpsNodesListRequest struct {
 }
 
 type OpsNodesListResponse struct {
-	Code    int            `json:"code"`
-	Message string         `json:"message"`
-	Data    []OpsNodeInfo  `json:"data"`
+	Code    int           `json:"code"`
+	Message string        `json:"message"`
+	Data    []OpsNodeInfo `json:"data"`
 }
 
 type OpsNodeInfo struct {
-	NodeID   string            `json:"nodeId"`
-	Name     string            `json:"name"`
-	Type     string            `json:"type"`
-	Status   string            `json:"status"`
-	IP       string            `json:"ip"`
-	Port     int               `json:"port"`
-	Labels   map[string]string `json:"labels"`
+	NodeID string            `json:"nodeId"`
+	Name   string            `json:"name"`
+	Type   string            `json:"type"`
+	Status string            `json:"status"`
+	IP     string            `json:"ip"`
+	Port   int               `json:"port"`
+	Labels map[string]string `json:"labels"`
 }
 
 type OpsNodeMetaRequest struct {
@@ -210,9 +210,9 @@ type OpsNodeMetaRequest struct {
 }
 
 type OpsNodeMetaResponse struct {
-	Code    int              `json:"code"`
-	Message string           `json:"message"`
-	Data    OpsNodeInfo      `json:"data"`
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    OpsNodeInfo `json:"data"`
 }
 
 type OpsNodeCommandsRequest struct {
@@ -220,9 +220,9 @@ type OpsNodeCommandsRequest struct {
 }
 
 type OpsNodeCommandsResponse struct {
-	Code    int                `json:"code"`
-	Message string             `json:"message"`
-	Data    []OpsNodeCommand   `json:"data"`
+	Code    int              `json:"code"`
+	Message string           `json:"message"`
+	Data    []OpsNodeCommand `json:"data"`
 }
 
 type OpsNodeCommand struct {
@@ -264,9 +264,9 @@ type OpsFunctionsRequest struct {
 }
 
 type OpsFunctionsResponse struct {
-	Code    int                `json:"code"`
-	Message string             `json:"message"`
-	Data    []OpsFunctionInfo  `json:"data"`
+	Code    int               `json:"code"`
+	Message string            `json:"message"`
+	Data    []OpsFunctionInfo `json:"data"`
 }
 
 type OpsFunctionInfo struct {
@@ -284,8 +284,8 @@ type OpsConfigRequest struct {
 }
 
 type OpsConfigResponse struct {
-	Code    int              `json:"code"`
-	Message string           `json:"message"`
+	Code    int               `json:"code"`
+	Message string            `json:"message"`
 	Data    map[string]string `json:"data"`
 }
 
@@ -302,9 +302,9 @@ type OpsHealthGetResponse struct {
 }
 
 type OpsHealthInfo struct {
-	Name     string `json:"name"`
-	Status   string `json:"status"`
-	Message  string `json:"message"`
+	Name      string `json:"name"`
+	Status    string `json:"status"`
+	Message   string `json:"message"`
 	LastCheck string `json:"lastCheck"`
 }
 
@@ -319,7 +319,7 @@ type OpsHealthRunResponse struct {
 }
 
 type OpsHealthUpdateRequest struct {
-	Target string `json:"target"`
+	Target string      `json:"target"`
 	Config interface{} `json:"config"`
 }
 
@@ -335,21 +335,21 @@ type OpsMaintenanceGetRequest struct {
 }
 
 type OpsMaintenanceGetResponse struct {
-	Code    int                  `json:"code"`
-	Message string               `json:"message"`
+	Code    int                    `json:"code"`
+	Message string                 `json:"message"`
 	Data    []OpsMaintenanceWindow `json:"data"`
 }
 
 type OpsMaintenanceWindow struct {
-	ID        string    `json:"id"`
-	Title     string    `json:"title"`
-	StartTime string    `json:"startTime"`
-	EndTime   string    `json:"endTime"`
-	Reason    string    `json:"reason"`
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	StartTime string `json:"startTime"`
+	EndTime   string `json:"endTime"`
+	Reason    string `json:"reason"`
 }
 
 type OpsMaintenanceUpdateRequest struct {
-	Target string `json:"target"`
+	Target  string                 `json:"target"`
 	Windows []OpsMaintenanceWindow `json:"windows"`
 }
 
@@ -365,9 +365,9 @@ type OpsMQRequest struct {
 }
 
 type OpsMQResponse struct {
-	Code    int              `json:"code"`
-	Message string           `json:"message"`
-	Data    []OpsQueueInfo   `json:"data"`
+	Code    int            `json:"code"`
+	Message string         `json:"message"`
+	Data    []OpsQueueInfo `json:"data"`
 }
 
 type OpsQueueInfo struct {
@@ -379,10 +379,10 @@ type OpsQueueInfo struct {
 // Metrics related types
 
 type OpsMetricsRequest struct {
-	GameID  string `json:"gameId"`
-	NodeID  string `json:"nodeId"`
-	Metric  string `json:"metric"`
-	Range   string `json:"range"`
+	GameID string `json:"gameId"`
+	NodeID string `json:"nodeId"`
+	Metric string `json:"metric"`
+	Range  string `json:"range"`
 }
 
 type OpsMetricsResponse struct {
@@ -403,18 +403,18 @@ type OpsBackupsListRequest struct {
 }
 
 type OpsBackupsListResponse struct {
-	Code    int            `json:"code"`
-	Message string         `json:"message"`
+	Code    int             `json:"code"`
+	Message string          `json:"message"`
 	Data    []OpsBackupInfo `json:"data"`
 }
 
 type OpsBackupInfo struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Size     int64  `json:"size"`
-	Type     string `json:"type"`
-	Status   string `json:"status"`
-	Created  string `json:"created"`
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Size    int64  `json:"size"`
+	Type    string `json:"type"`
+	Status  string `json:"status"`
+	Created string `json:"created"`
 }
 
 type OpsBackupCreateRequest struct {
@@ -423,8 +423,8 @@ type OpsBackupCreateRequest struct {
 }
 
 type OpsBackupCreateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
+	Code    int           `json:"code"`
+	Message string        `json:"message"`
 	Data    OpsBackupInfo `json:"data"`
 }
 
@@ -442,8 +442,8 @@ type OpsBackupDownloadRequest struct {
 }
 
 type OpsBackupDownloadResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
+	Code    int           `json:"code"`
+	Message string        `json:"message"`
 	Data    OpsBackupInfo `json:"data"`
 }
 
@@ -469,22 +469,22 @@ type OpsAlertInfo struct {
 }
 
 type OpsAlertSilenceRequest struct {
-	AlertID string `json:"alertId"`
+	AlertID  string `json:"alertId"`
 	Duration int    `json:"duration"`
-	Comment string `json:"comment"`
+	Comment  string `json:"comment"`
 }
 
 type OpsAlertSilenceResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
+	Code    int            `json:"code"`
+	Message string         `json:"message"`
 	Data    OpsSilenceInfo `json:"data"`
 }
 
 type OpsSilenceInfo struct {
-	ID       string `json:"id"`
-	AlertID  string `json:"alertId"`
-	Expires  string `json:"expires"`
-	Comment  string `json:"comment"`
+	ID      string `json:"id"`
+	AlertID string `json:"alertId"`
+	Expires string `json:"expires"`
+	Comment string `json:"comment"`
 }
 
 type OpsAlertSilenceDeleteRequest struct {
@@ -503,7 +503,7 @@ type OpsSilencesRequest struct {
 type OpsSilencesResponse struct {
 	Code    int              `json:"code"`
 	Message string           `json:"message"`
-	Data    []OpsSilenceInfo  `json:"data"`
+	Data    []OpsSilenceInfo `json:"data"`
 }
 
 // Notification related types
@@ -513,23 +513,23 @@ type OpsNotificationsGetRequest struct {
 }
 
 type OpsNotificationsGetResponse struct {
-	Code    int                    `json:"code"`
-	Message string                 `json:"message"`
-	Data    []OpsNotificationInfo  `json:"data"`
+	Code    int                   `json:"code"`
+	Message string                `json:"message"`
+	Data    []OpsNotificationInfo `json:"data"`
 }
 
 type OpsNotificationInfo struct {
-	ID        string `json:"id"`
-	Type      string `json:"type"`
-	Title     string `json:"title"`
-	Message   string `json:"message"`
-	Severity  string `json:"severity"`
-	Read      bool   `json:"read"`
-	Created   string `json:"created"`
+	ID       string `json:"id"`
+	Type     string `json:"type"`
+	Title    string `json:"title"`
+	Message  string `json:"message"`
+	Severity string `json:"severity"`
+	Read     bool   `json:"read"`
+	Created  string `json:"created"`
 }
 
 type OpsNotificationsUpdateRequest struct {
-	ID    string `json:"id"`
+	ID   string `json:"id"`
 	Read bool   `json:"read"`
 }
 
@@ -557,20 +557,20 @@ type OpsServiceInfo struct {
 }
 
 type OpsServiceItem struct {
-	ID             string                `json:"id"`
-	Name           string                `json:"name"`
-	Type           string                `json:"type"`
-	Status         string                `json:"status"`
-	Address        string                `json:"address"`
-	GameID         string                `json:"gameId"`
-	Env            string                `json:"env"`
-	Version        string                `json:"version"`
-	Region         string                `json:"region"`
-	Zone           string                `json:"zone"`
-	Labels         map[string]string     `json:"labels"`
-	FunctionsCount int                   `json:"functionsCount"`
-	LastSeen       string                `json:"lastSeen"`
-	Metadata       *OpsServiceMetadata   `json:"metadata,omitempty"`
+	ID             string              `json:"id"`
+	Name           string              `json:"name"`
+	Type           string              `json:"type"`
+	Status         string              `json:"status"`
+	Address        string              `json:"address"`
+	GameID         string              `json:"gameId"`
+	Env            string              `json:"env"`
+	Version        string              `json:"version"`
+	Region         string              `json:"region"`
+	Zone           string              `json:"zone"`
+	Labels         map[string]string   `json:"labels"`
+	FunctionsCount int                 `json:"functionsCount"`
+	LastSeen       string              `json:"lastSeen"`
+	Metadata       *OpsServiceMetadata `json:"metadata,omitempty"`
 }
 
 type OpsServiceMetadata struct {
@@ -590,10 +590,10 @@ type OpsServiceProcess struct {
 // Additional query types
 
 type OpsMetricsQuery struct {
-	GameID  string `json:"gameId"`
-	NodeID  string `json:"nodeId"`
-	Metric  string `json:"metric"`
-	Range   string `json:"range"`
+	GameID string `json:"gameId"`
+	NodeID string `json:"nodeId"`
+	Metric string `json:"metric"`
+	Range  string `json:"range"`
 }
 
 type OpsNodeCommandsQuery struct {
@@ -619,11 +619,11 @@ type OpsProcessActionResponse struct {
 }
 
 type OpsProcessStartRequest struct {
-	AgentID  string            `json:"agentId"`
-	Name     string            `json:"name"`
-	Command  string            `json:"command"`
-	Args     []string          `json:"args"`
-	Env      map[string]string `json:"env"`
+	AgentID string            `json:"agentId"`
+	Name    string            `json:"name"`
+	Command string            `json:"command"`
+	Args    []string          `json:"args"`
+	Env     map[string]string `json:"env"`
 }
 
 type OpsProcessStartResponse struct {
@@ -650,21 +650,21 @@ type OpsSilenceDeleteResponse struct {
 }
 
 type OpsExecCommandResult struct {
-	Success bool   `json:"success"`
+	Success  bool   `json:"success"`
 	ExitCode int32  `json:"exitCode"`
 	StdOut   string `json:"stdout"`
 	StdErr   string `json:"stderr"`
 }
 
 type OpsMetricsData struct {
-	Metrics []OpsMetricPoint `json:"metrics"`
-	Summary map[string]float64 `json:"summary"`
-	AgentID  string            `json:"agentId"`
-	Timestamp string           `json:"timestamp"`
-	CPU      OpsCpuMetrics     `json:"cpu"`
-	Memory   OpsMemoryMetrics  `json:"memory"`
-	Disks    []OpsDiskMetrics  `json:"disks"`
-	Networks []OpsNetworkMetrics `json:"networks"`
+	Metrics   []OpsMetricPoint    `json:"metrics"`
+	Summary   map[string]float64  `json:"summary"`
+	AgentID   string              `json:"agentId"`
+	Timestamp string              `json:"timestamp"`
+	CPU       OpsCpuMetrics       `json:"cpu"`
+	Memory    OpsMemoryMetrics    `json:"memory"`
+	Disks     []OpsDiskMetrics    `json:"disks"`
+	Networks  []OpsNetworkMetrics `json:"networks"`
 }
 
 // Corrected and additional types
@@ -690,20 +690,20 @@ type OpsAgentSystemInfoFull struct {
 	Memory        OpsMemoryMetrics    `json:"memory"`
 	Disk          []OpsDiskMetrics    `json:"disk"`
 	Network       []OpsNetworkMetrics `json:"network"`
-	Agents        []OpsMetricsData     `json:"agents"`
+	Agents        []OpsMetricsData    `json:"agents"`
 }
 
 type OpsManagedProcess struct {
-	PID          int32  `json:"pid"`
-	Name         string `json:"name"`
-	Command      string `json:"command"`
-	Status       string `json:"status"`
-	ParentPID    int32  `json:"parentPid"`
-	Memory       uint64 `json:"memory"`
+	PID          int32   `json:"pid"`
+	Name         string  `json:"name"`
+	Command      string  `json:"command"`
+	Status       string  `json:"status"`
+	ParentPID    int32   `json:"parentPid"`
+	Memory       uint64  `json:"memory"`
 	CPUPercent   float64 `json:"cpuPercent"`
-	WorkingDir   string `json:"workingDir"`
-	State        string `json:"state"`
-	Pid          int32  `json:"pid"`
-	RestartCount int32  `json:"restartCount"`
-	LastStart    string `json:"lastStart"`
+	WorkingDir   string  `json:"workingDir"`
+	State        string  `json:"state"`
+	Pid          int32   `json:"pid"`
+	RestartCount int32   `json:"restartCount"`
+	LastStart    string  `json:"lastStart"`
 }

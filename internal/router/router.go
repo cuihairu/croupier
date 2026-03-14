@@ -6,6 +6,7 @@ import (
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/middleware"
 	"github.com/cuihairu/croupier/internal/model"
+	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -33,7 +34,10 @@ func RegisterRoutes(r *gin.Engine, cfg *config.Config) error {
 // registerPublicRoutes 注册公开路由
 func registerPublicRoutes(api *gin.RouterGroup, db *gorm.DB) {
 	// Auth 模块
-	authHandler := auth.NewHandler(auth.NewService(model.NewAdminModel(db)))
+	authHandler := auth.NewHandler(auth.NewService(
+		model.NewAdminModel(db),
+		permissionservice.NewPermissionService(db),
+	))
 	authGroup := api.Group("/auth")
 	{
 		authGroup.POST("/login", authHandler.Login)

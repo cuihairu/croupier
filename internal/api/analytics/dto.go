@@ -123,8 +123,8 @@ type OverviewMetrics struct {
 }
 
 type OverviewResponse struct {
-	Metrics OverviewMetrics          `json:"metrics"`
-	Trends  map[string]interface{}   `json:"trends"`
+	Metrics OverviewMetrics        `json:"metrics"`
+	Trends  map[string]interface{} `json:"trends"`
 }
 
 type RealtimeRequest struct {
@@ -212,9 +212,9 @@ type PaymentsResponse struct {
 }
 
 type PaymentsIngestRequest struct {
-	GameId        string      `json:"gameId" binding:"required"`
-	Env           string      `json:"env"`
-	Transactions  interface{} `json:"transactions" binding:"required"`
+	GameId       string      `json:"gameId" binding:"required"`
+	Env          string      `json:"env"`
+	Transactions interface{} `json:"transactions" binding:"required"`
 }
 
 type PaymentsIngestResponse struct {

@@ -1,8 +1,8 @@
 package function
 
 import (
-	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/cuihairu/croupier/internal/common/requestbind"
+	"github.com/cuihairu/croupier/internal/common/response"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
 	"github.com/gin-gonic/gin"
 )

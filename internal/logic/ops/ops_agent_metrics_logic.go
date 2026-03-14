@@ -1,4 +1,3 @@
-
 package ops
 
 import (
@@ -7,7 +6,6 @@ import (
 
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
-	
 )
 
 type OpsAgentMetricsLogic struct {

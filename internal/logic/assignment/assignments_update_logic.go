@@ -1,4 +1,3 @@
-
 package assignment
 
 import (
@@ -8,7 +7,6 @@ import (
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/svc"
-	
 )
 
 type AssignmentsUpdateLogic struct {

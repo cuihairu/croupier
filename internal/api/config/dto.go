@@ -31,22 +31,22 @@ type ListVersionsRequest struct {
 
 // ConfigVersionItem represents a simplified config version for list view
 type ConfigVersionItem struct {
-	Key          string `json:"key"`
-	Version      int    `json:"version"`
-	CreatedBy    string `json:"createdBy"`
-	CreatedAt    string `json:"createdAt"`
-	GameID       string `json:"game_id"`
-	Env          string `json:"env"`
-	Format       string `json:"format"`
-	Message      string `json:"message"`
-	Value        string `json:"value"`
+	Key       string `json:"key"`
+	Version   int    `json:"version"`
+	CreatedBy string `json:"createdBy"`
+	CreatedAt string `json:"createdAt"`
+	GameID    string `json:"game_id"`
+	Env       string `json:"env"`
+	Format    string `json:"format"`
+	Message   string `json:"message"`
+	Value     string `json:"value"`
 }
 
 // ListVersionsResponse represents the response with config versions list
 type ListVersionsResponse struct {
-	Key      string                `json:"key"`
-	Total    int                   `json:"total"`
-	Versions []ConfigVersionItem   `json:"versions"`
+	Key      string              `json:"key"`
+	Total    int                 `json:"total"`
+	Versions []ConfigVersionItem `json:"versions"`
 }
 
 // GetVersionRequest represents the request to get a specific config version

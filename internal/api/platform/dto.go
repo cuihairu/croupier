@@ -2,10 +2,10 @@ package platform
 
 // PlatformInfo represents information about a platform
 type PlatformInfo struct {
-	Name     string   `json:"name"`
-	Version  string   `json:"version"`
-	Enabled  bool     `json:"enabled"`
-	Methods  []string `json:"methods"`
+	Name    string   `json:"name"`
+	Version string   `json:"version"`
+	Enabled bool     `json:"enabled"`
+	Methods []string `json:"methods"`
 }
 
 // CallPlatformRequest represents a request to call a platform

@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
