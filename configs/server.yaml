@@ -24,7 +24,7 @@ Control:
 
 registry:
   AssignmentsPath: "data/assignments.json"
-  AnalyticsFiltersPath: "packs/ui/analytics_filters.json"
+  AnalyticsFiltersPath: "schemas/analytics_filters.json"
   RateLimitsPath: "data/rate_limits.json"
 
 AgentDispatch:
@@ -48,17 +48,10 @@ BootstrapData:
   BaseDir: "configs"
 
 descriptors:
-  Dir: "packs"
-
-components:
-  DataDir: "data"
-  StagingDir: "data/components/staging"
+  Dir: "descriptors"
 
 schemas:
-  Dir: "packs/ui"
-
-packs:
-  Dir: "packs"
+  Dir: "schemas"
 
 storage:
   Driver: "file"

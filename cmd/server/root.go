@@ -297,10 +297,6 @@ func applyRuntimeDefaults(c *config.Config) {
 	// ✅ Auto-adjust timeout based on SSE configuration to prevent premature disconnection
 	validateAndAdjustTimeout(c)
 
-	if strings.TrimSpace(c.Components.DataDir) == "" {
-		c.Components.DataDir = "data"
-	}
-
 	if strings.EqualFold(strings.TrimSpace(c.Storage.Driver), "file") {
 		if strings.TrimSpace(c.Storage.BaseDir) == "" {
 			c.Storage.BaseDir = filepath.Join("data", "uploads")

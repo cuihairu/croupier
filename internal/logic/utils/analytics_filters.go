@@ -14,8 +14,6 @@ func ResolveAnalyticsFiltersPath(cfg config.Config) string {
 	if raw == "" {
 		if dir := strings.TrimSpace(cfg.Schemas.Dir); dir != "" {
 			raw = filepath.Join(dir, "analytics_filters.json")
-		} else if dir := strings.TrimSpace(cfg.Packs.Dir); dir != "" {
-			raw = filepath.Join(dir, "ui", "analytics_filters.json")
 		} else {
 			raw = "analytics_filters.json"
 		}

@@ -6,7 +6,7 @@ BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 FULL_VERSION := $(VERSION)$(GIT_DIRTY)
 LDFLAGS := -X main.version=$(FULL_VERSION) -X main.buildTime=$(BUILD_TIME) -X main.gitCommit=$(GIT_COMMIT) -s -w
 
-.PHONY: proto sync-proto api build server agent cli clean dev tidy test lint help all tools schema-validator pack-builder
+.PHONY: proto sync-proto api build server agent cli clean dev tidy test lint help all tools schema-validator
 .PHONY: test test-coverage test-coverage-html test-race test-integration test-all
 .PHONY: build-sdks build-sdks-cpp build-sdks-go build-sdks-java build-sdks-js build-sdks-python
 .PHONY: build-web build-dashboard build-website dev-dashboard dev-website
@@ -66,37 +66,12 @@ proto: croupier-plugin
 api:
 	@echo "[deprecated] API generation via goctl is no longer supported. Use hand-written handlers in internal/api/"
 
-# Build local protoc plugin for pack generation
+# Build local protoc plugin
 .PHONY: croupier-plugin
 croupier-plugin:
 	@echo "[build] protoc-gen-croupier"
 	@mkdir -p $(BINDIR)
 	GOFLAGS=-mod=mod go build -o $(BINDIR)/protoc-gen-croupier ./tools/protoc-gen-croupier
-
-# Generate croupier pack artifacts (requires protoc on PATH)
-.PHONY: pack
-pack: croupier-plugin
-	@echo "[pack] generating croupier artifacts with protoc-gen-croupier..."
-	PATH="$(PWD)/$(BINDIR):$$PATH" \
-	protoc \
-		-I proto \
-		--croupier_out=emit_pack=true:gen/croupier \
-		$(shell find proto -name "*.proto" | tr '\n' ' ')
-
-.PHONY: pack-local
-pack-local:
-	@"$(PWD)/scripts/generate-pack.sh"
-
-.PHONY: packs-build
-packs-build:
-	@echo "[packs] building example packs..."
-	@mkdir -p packs/dist
-	@tar -czf packs/dist/prom.pack.tgz -C packs/prom .
-	@tar -czf packs/dist/http.pack.tgz -C packs/http .
-	@tar -czf packs/dist/player.pack.tgz -C packs/player .
-	@tar -czf packs/dist/alertmanager.pack.tgz -C packs/alertmanager .
-	@tar -czf packs/dist/grafana.pack.tgz -C packs/grafana .
-	@echo "done: packs/dist/*.pack.tgz"
 
 server:
 	@echo "[build] server (all database drivers)"
@@ -130,17 +105,12 @@ build-ip2loc:
 	@echo "[deprecated] build-ip2loc: ip2location is runtime-enabled; using default build"
 	$(MAKE) build
 
-tools: schema-validator pack-builder
+tools: schema-validator
 
 schema-validator:
 	@echo "[build] schema-validator"
 	@mkdir -p $(BINDIR)
 	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/schema-validator ./cmd/schema-validator
-
-pack-builder:
-	@echo "[build] pack-builder"
-	@mkdir -p $(BINDIR)
-	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/pack-builder ./cmd/pack-builder
 
 .PHONY: worker
 worker:

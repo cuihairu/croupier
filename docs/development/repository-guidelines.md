@@ -8,7 +8,7 @@ title: 仓库规范
 
 - Go monorepo: binaries in `cmd/`, core implementation in `internal/`, stable exported helpers in `pkg/`.
 - Frontend UI: `dashboard/`.
-- Configs & assets: `configs/`, `packs/`, `scripts/`, `docs/`, runtime data in `data/`.
+- Configs & assets: `configs/`, `descriptors/`, `schemas/`, `scripts/`, `docs/`, runtime data in `data/`.
 - Protocol/IDL: `proto/`, generated stubs in `pkg/pb`.
 
 ## Build, Test, and Development Commands

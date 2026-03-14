@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -16,7 +15,6 @@ import (
 	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/model"
-	"github.com/cuihairu/croupier/internal/pack"
 	"github.com/cuihairu/croupier/internal/pkg2/jwt"
 	plat "github.com/cuihairu/croupier/internal/platform"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
@@ -43,9 +41,6 @@ type ServiceContext struct {
 	Dispatcher        *dispatch.Dispatcher
 	Cache             cache.CacheStore
 	CacheHelper       *cache.CacheHelper
-
-	ComponentManager *pack.ComponentManager
-	ComponentLock    *sync.RWMutex
 
 	AnalyticsFiltersLock *sync.RWMutex
 
@@ -151,20 +146,6 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 	opsStateStore := NewOpsStateStore(resolveBootstrapBaseDir(c))
 
-	componentDataDir := ResolveComponentDataDir(c)
-	if err := ensureComponentDirs(componentDataDir); err != nil {
-		panic(fmt.Sprintf("Failed to prepare component directories: %v", err))
-	}
-	componentManager := pack.NewComponentManager(componentDataDir)
-	if err := componentManager.LoadRegistry(); err != nil {
-		slog.Default().Error("failed to load component registry", "error", err)
-	}
-	if stagingDir := ResolveComponentStagingDir(c); stagingDir != "" {
-		if err := os.MkdirAll(stagingDir, 0o755); err != nil {
-			slog.Default().Error("failed to create component staging dir", "error", err)
-		}
-	}
-
 	objectStore, err := initObjectStore(context.Background(), c.Storage)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize object store: %v", err))
@@ -224,10 +205,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		ServerBuildTime: ServerBuildTime,
 
 		// 记录启动时间
-		StartTime: time.Now(),
-
-		ComponentManager:     componentManager,
-		ComponentLock:        &sync.RWMutex{},
+		StartTime:            time.Now(),
 		AnalyticsFiltersLock: &sync.RWMutex{},
 
 		ObjectStore:    objectStore,
@@ -355,10 +333,6 @@ func resolveBootstrapBaseDir(c config.Config) string {
 
 func resolveJobRoutingDir(c config.Config) string {
 	if dir := strings.TrimSpace(c.AgentDispatch.JobRoutingDir); dir != "" {
-		return toAbs(dir)
-	}
-
-	if dir := strings.TrimSpace(c.Components.DataDir); dir != "" {
 		return toAbs(dir)
 	}
 
@@ -628,41 +602,6 @@ func splitPermissionCode(code string) (string, string) {
 		action = strings.TrimSpace(parts[1])
 	}
 	return resource, action
-}
-
-func ensureComponentDirs(base string) error {
-	if base == "" {
-		return fmt.Errorf("component data dir is empty")
-	}
-	if err := os.MkdirAll(base, 0o755); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Join(base, "components", "installed"), 0o755); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Join(base, "components", "disabled"), 0o755); err != nil {
-		return err
-	}
-	return nil
-}
-
-// ResolveComponentDataDir returns the absolute dir used for component registry storage.
-func ResolveComponentDataDir(c config.Config) string {
-	dir := strings.TrimSpace(c.Components.DataDir)
-	if dir == "" {
-		dir = "data"
-	}
-	return toAbs(dir)
-}
-
-// ResolveComponentStagingDir resolves the directory where component archives are staged before install.
-func ResolveComponentStagingDir(c config.Config) string {
-	dir := strings.TrimSpace(c.Components.StagingDir)
-	if dir == "" {
-		base := ResolveComponentDataDir(c)
-		return filepath.Join(base, "components", "staging")
-	}
-	return toAbs(dir)
 }
 
 // initPlatformLoader initializes the third-party platform loader

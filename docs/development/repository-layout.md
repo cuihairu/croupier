@@ -13,7 +13,8 @@ pkg/                少量对外可复用包
 configs/            运行配置、RBAC、种子数据
 docker/             Dockerfile 与 compose 配置
 docs/               VuePress 文档
-packs/              pack 示例与产物
+descriptors/        示例描述文件
+schemas/            UI schema 与相关配置
 proto/              protobuf 定义
 scripts/            构建、安装、同步脚本
 tools/              辅助工具与适配器

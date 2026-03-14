@@ -239,15 +239,6 @@ func permissionCandidates(resource, action string) []string {
 		case "create", "update", "edit", "delete":
 			keys = append(keys, "games:manage")
 		}
-	case "component":
-		switch action {
-		case "read":
-			keys = append(keys, "components:read", "components:manage")
-		case "create", "update", "edit":
-			keys = append(keys, "components:install", "components:manage")
-		case "delete":
-			keys = append(keys, "components:uninstall", "components:manage")
-		}
 	case "function":
 		if action == "execute" {
 			keys = append(keys, "function:invoke")

@@ -1,15 +1,13 @@
 [
   {
     "code": "super_admin",
-    "name": "è¶…çº§ç®¡ç†å‘˜(ç³»ç»Ÿ)",
-    "description": "æ‹¥æœ‰å…¨éƒ¨æƒé™ï¼ˆè¶…ç®¡ï¼‰",
+    "name": "³¬¼¶¹ÜÀíÔ±(ÏµÍ³)",
+    "description": "ÓµÓĞÈ«²¿È¨ÏŞ£¨³¬¹Ü£©",
     "level": 110,
     "permissions": [
       "admin:all",
       "*",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read",
       "workspace:read",
@@ -21,15 +19,13 @@
   },
   {
     "code": "admin",
-    "name": "è¶…çº§ç®¡ç†å‘˜",
-    "description": "æ‹¥æœ‰å…¨éƒ¨ç³»ç»Ÿæƒé™",
+    "name": "³¬¼¶¹ÜÀíÔ±",
+    "description": "ÓµÓĞÈ«²¿ÏµÍ³È¨ÏŞ",
     "level": 100,
     "permissions": [
       "admin:all",
       "*",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read",
       "workspace:read",
@@ -41,8 +37,8 @@
   },
   {
     "code": "producer",
-    "name": "åˆ¶ä½œäºº",
-    "description": "æ•´ä½“é¡¹ç›®è´Ÿè´£äººï¼Œäº§å“æ–¹å‘/ä¸Šçº¿å†³ç­–",
+    "name": "ÖÆ×÷ÈË",
+    "description": "ÕûÌåÏîÄ¿¸ºÔğÈË£¬²úÆ··½Ïò/ÉÏÏß¾ö²ß",
     "level": 90,
     "permissions": [
       "games:manage",
@@ -50,8 +46,6 @@
       "entity:read",
       "item:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read",
       "workspace:read",
@@ -60,8 +54,8 @@
   },
   {
     "code": "project_manager",
-    "name": "é¡¹ç›®ç»ç†",
-    "description": "é¡¹ç›®æ¨è¿›ä¸åè°ƒ",
+    "name": "ÏîÄ¿¾­Àí",
+    "description": "ÏîÄ¿ÍÆ½øÓëĞ­µ÷",
     "level": 85,
     "permissions": [
       "games:read",
@@ -69,8 +63,6 @@
       "entity:read",
       "item:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read",
       "workspace:read",
@@ -79,12 +71,11 @@
   },
   {
     "code": "tech_lead",
-    "name": "æŠ€æœ¯è´Ÿè´£äºº",
-    "description": "æŠ€æœ¯æ¶æ„ä¸ç ”å‘æŠŠå…³",
+    "name": "¼¼Êõ¸ºÔğÈË",
+    "description": "¼¼Êõ¼Ü¹¹ÓëÑĞ·¢°Ñ¹Ø",
     "level": 85,
     "permissions": [
       "games:manage",
-      "components:manage",
       "uploads:write",
       "entities:create",
       "entities:update",
@@ -95,8 +86,6 @@
       "assignments:write",
       "function:invoke",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read",
       "workspace:read",
@@ -108,12 +97,11 @@
   },
   {
     "code": "backend_lead",
-    "name": "åç«¯ä¸»ç¨‹",
-    "description": "åç«¯ä¸»ç¨‹/æŠ€æœ¯è´Ÿè´£äºº",
+    "name": "ºó¶ËÖ÷³Ì",
+    "description": "ºó¶ËÖ÷³Ì/¼¼Êõ¸ºÔğÈË",
     "level": 85,
     "permissions": [
       "games:manage",
-      "components:manage",
       "uploads:write",
       "entities:create",
       "entities:update",
@@ -124,8 +112,6 @@
       "assignments:write",
       "function:invoke",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read",
       "workspace:read",
@@ -137,8 +123,8 @@
   },
   {
     "code": "qa_lead",
-    "name": "æµ‹è¯•ä¸»ç®¡",
-    "description": "æµ‹è¯•å›¢é˜Ÿè´Ÿè´£äºº",
+    "name": "²âÊÔÖ÷¹Ü",
+    "description": "²âÊÔÍÅ¶Ó¸ºÔğÈË",
     "level": 80,
     "permissions": [
       "function:invoke",
@@ -147,35 +133,30 @@
       "item:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "ops_manager",
-    "name": "è¿ç»´ä¸»ç®¡",
-    "description": "è¿ç»´å›¢é˜Ÿè´Ÿè´£äºº",
+    "name": "ÔËÎ¬Ö÷¹Ü",
+    "description": "ÔËÎ¬ÍÅ¶Ó¸ºÔğÈË",
     "level": 80,
     "permissions": [
-      "components:manage",
       "certificates:manage",
       "games:manage",
       "uploads:write",
       "entity:read",
       "item:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "operations_manager",
-    "name": "è¿è¥ç»ç†",
-    "description": "è¿è¥å›¢é˜Ÿè´Ÿè´£äºº",
+    "name": "ÔËÓª¾­Àí",
+    "description": "ÔËÓªÍÅ¶Ó¸ºÔğÈË",
     "level": 80,
     "permissions": [
       "function:invoke",
@@ -186,16 +167,14 @@
       "wallet:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "operations_lead",
-    "name": "è¿è¥ä¸»ç®¡",
-    "description": "è¿è¥å›¢é˜Ÿç®¡ç†",
+    "name": "ÔËÓªÖ÷¹Ü",
+    "description": "ÔËÓªÍÅ¶Ó¹ÜÀí",
     "level": 75,
     "permissions": [
       "function:invoke",
@@ -207,16 +186,14 @@
       "wallet:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "art_lead",
-    "name": "ç¾æœ¯ä¸»ç®¡",
-    "description": "ç¾æœ¯å›¢é˜Ÿè´Ÿè´£äºº",
+    "name": "ÃÀÊõÖ÷¹Ü",
+    "description": "ÃÀÊõÍÅ¶Ó¸ºÔğÈË",
     "level": 80,
     "permissions": [
       "uploads:write",
@@ -224,16 +201,14 @@
       "item:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "support_manager",
-    "name": "å®¢æœä¸»ç®¡",
-    "description": "å®¢æœå›¢é˜Ÿè´Ÿè´£äºº",
+    "name": "¿Í·şÖ÷¹Ü",
+    "description": "¿Í·şÍÅ¶Ó¸ºÔğÈË",
     "level": 80,
     "permissions": [
       "wallet:read",
@@ -241,16 +216,14 @@
       "entity:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "senior_developer",
-    "name": "é«˜çº§å¼€å‘å·¥ç¨‹å¸ˆ",
-    "description": "æ ¸å¿ƒåŠŸèƒ½å¼€å‘ä¸ä»£ç è¯„å®¡",
+    "name": "¸ß¼¶¿ª·¢¹¤³ÌÊ¦",
+    "description": "ºËĞÄ¹¦ÄÜ¿ª·¢Óë´úÂëÆÀÉó",
     "level": 70,
     "permissions": [
       "function:invoke",
@@ -260,16 +233,14 @@
       "games:read",
       "assignments:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "developer",
-    "name": "å¼€å‘å·¥ç¨‹å¸ˆ",
-    "description": "æ—¥å¸¸åŠŸèƒ½å¼€å‘ä¸è”è°ƒ",
+    "name": "¿ª·¢¹¤³ÌÊ¦",
+    "description": "ÈÕ³£¹¦ÄÜ¿ª·¢ÓëÁªµ÷",
     "level": 60,
     "permissions": [
       "function:invoke",
@@ -279,8 +250,6 @@
       "games:read",
       "assignments:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read",
       "workspace:read",
@@ -289,8 +258,8 @@
   },
   {
     "code": "frontend_developer",
-    "name": "å‰ç«¯å¼€å‘å·¥ç¨‹å¸ˆ",
-    "description": "å‰ç«¯å¼€å‘ä¸é›†æˆ",
+    "name": "Ç°¶Ë¿ª·¢¹¤³ÌÊ¦",
+    "description": "Ç°¶Ë¿ª·¢Óë¼¯³É",
     "level": 60,
     "permissions": [
       "uploads:write",
@@ -298,8 +267,6 @@
       "item:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read",
       "workspace:read",
@@ -308,8 +275,8 @@
   },
   {
     "code": "tester",
-    "name": "æµ‹è¯•å·¥ç¨‹å¸ˆ",
-    "description": "åŠŸèƒ½/å›å½’/è”è°ƒæµ‹è¯•",
+    "name": "²âÊÔ¹¤³ÌÊ¦",
+    "description": "¹¦ÄÜ/»Ø¹é/Áªµ÷²âÊÔ",
     "level": 60,
     "permissions": [
       "function:invoke",
@@ -318,8 +285,6 @@
       "item:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read",
       "workspace:read"
@@ -327,59 +292,51 @@
   },
   {
     "code": "ops",
-    "name": "è¿ç»´å·¥ç¨‹å¸ˆ",
-    "description": "éƒ¨ç½²è¿ç»´ä¸æ—¥å¸¸ä¿éšœ",
+    "name": "ÔËÎ¬¹¤³ÌÊ¦",
+    "description": "²¿ÊğÔËÎ¬ÓëÈÕ³£±£ÕÏ",
     "level": 70,
     "permissions": [
-      "components:manage",
       "certificates:manage",
       "games:read",
       "uploads:write",
       "entity:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "sre",
-    "name": "SRE å·¥ç¨‹å¸ˆ",
-    "description": "å¯é æ€§å·¥ç¨‹ä¸å¹³å°è¿ç»´",
+    "name": "SRE ¹¤³ÌÊ¦",
+    "description": "¿É¿¿ĞÔ¹¤³ÌÓëÆ½Ì¨ÔËÎ¬",
     "level": 70,
     "permissions": [
-      "components:manage",
       "certificates:manage",
       "games:read",
       "entity:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "security",
-    "name": "å®‰å…¨ä¸“å‘˜",
-    "description": "å®‰å…¨ä¸é£æ§ç›¸å…³å·¥ä½œ",
+    "name": "°²È«×¨Ô±",
+    "description": "°²È«Óë·ç¿ØÏà¹Ø¹¤×÷",
     "level": 70,
     "permissions": [
       "certificates:manage",
       "entity:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "operator",
-    "name": "è¿è¥ä¸“å‘˜",
-    "description": "åŸºç¡€è¿è¥äººå‘˜",
+    "name": "ÔËÓª×¨Ô±",
+    "description": "»ù´¡ÔËÓªÈËÔ±",
     "level": 40,
     "permissions": [
       "function:invoke",
@@ -389,48 +346,42 @@
       "currency:read",
       "wallet:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "marketing",
-    "name": "å¸‚åœºè¥é”€",
-    "description": "æ´»åŠ¨/æŠ•æ”¾/å¢é•¿ç›¸å…³",
+    "name": "ÊĞ³¡ÓªÏú",
+    "description": "»î¶¯/Í¶·Å/Ôö³¤Ïà¹Ø",
     "level": 50,
     "permissions": [
       "entity:read",
       "item:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "community",
-    "name": "ç¤¾åŒºè¿è¥",
-    "description": "ç¤¾åŒº/å…¬å‘Š/æ´»åŠ¨ç›¸å…³",
+    "name": "ÉçÇøÔËÓª",
+    "description": "ÉçÇø/¹«¸æ/»î¶¯Ïà¹Ø",
     "level": 50,
     "permissions": [
       "entity:read",
       "item:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "content_manager",
-    "name": "å†…å®¹ç®¡ç†å‘˜",
-    "description": "å†…å®¹/é“å…·é…ç½®ç®¡ç†",
+    "name": "ÄÚÈİ¹ÜÀíÔ±",
+    "description": "ÄÚÈİ/µÀ¾ßÅäÖÃ¹ÜÀí",
     "level": 55,
     "permissions": [
       "item:create",
@@ -438,64 +389,56 @@
       "item:update",
       "uploads:write",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "game_designer",
-    "name": "æ¸¸æˆç­–åˆ’",
-    "description": "ç©æ³•/æ´»åŠ¨/ç³»ç»Ÿè®¾è®¡",
+    "name": "ÓÎÏ·²ß»®",
+    "description": "Íæ·¨/»î¶¯/ÏµÍ³Éè¼Æ",
     "level": 55,
     "permissions": [
       "entity:read",
       "item:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "system_designer",
-    "name": "ç³»ç»Ÿç­–åˆ’",
-    "description": "ç³»ç»Ÿ/åŠŸèƒ½ç­–åˆ’",
+    "name": "ÏµÍ³²ß»®",
+    "description": "ÏµÍ³/¹¦ÄÜ²ß»®",
     "level": 55,
     "permissions": [
       "entity:read",
       "item:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "level_designer",
-    "name": "å…³å¡ç­–åˆ’",
-    "description": "å…³å¡/å‰§æƒ…ç›¸å…³ç­–åˆ’",
+    "name": "¹Ø¿¨²ß»®",
+    "description": "¹Ø¿¨/¾çÇéÏà¹Ø²ß»®",
     "level": 55,
     "permissions": [
       "entity:read",
       "item:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "numerical_designer",
-    "name": "æ•°å€¼ç­–åˆ’",
-    "description": "æ•°å€¼/ç»æµè®¾è®¡ä¸å¹³è¡¡",
+    "name": "ÊıÖµ²ß»®",
+    "description": "ÊıÖµ/¾­¼ÃÉè¼ÆÓëÆ½ºâ",
     "level": 55,
     "permissions": [
       "currency:read",
@@ -503,63 +446,55 @@
       "entity:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "ui_designer",
-    "name": "UI è®¾è®¡å¸ˆ",
-    "description": "ç•Œé¢/äº¤äº’è®¾è®¡",
+    "name": "UI Éè¼ÆÊ¦",
+    "description": "½çÃæ/½»»¥Éè¼Æ",
     "level": 50,
     "permissions": [
       "entity:read",
       "games:read",
       "uploads:write",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "art",
-    "name": "ç¾æœ¯",
-    "description": "ç¾æœ¯èµ„æºä¸è§„èŒƒ",
+    "name": "ÃÀÊõ",
+    "description": "ÃÀÊõ×ÊÔ´Óë¹æ·¶",
     "level": 50,
     "permissions": [
       "uploads:write",
       "entity:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "animator",
-    "name": "åŠ¨ç”»",
-    "description": "åŠ¨ç”»èµ„æºä¸è§„èŒƒ",
+    "name": "¶¯»­",
+    "description": "¶¯»­×ÊÔ´Óë¹æ·¶",
     "level": 50,
     "permissions": [
       "uploads:write",
       "entity:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "analyst",
-    "name": "æ•°æ®åˆ†æå¸ˆ",
-    "description": "æ•°æ®åˆ†æä¸æŠ¥å‘Š",
+    "name": "Êı¾İ·ÖÎöÊ¦",
+    "description": "Êı¾İ·ÖÎöÓë±¨¸æ",
     "level": 45,
     "permissions": [
       "currency:read",
@@ -568,16 +503,14 @@
       "item:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "bi_analyst",
-    "name": "å•†ä¸šæ™ºèƒ½åˆ†æå¸ˆ",
-    "description": "BI/æŠ¥è¡¨/å¢é•¿åˆ†æ",
+    "name": "ÉÌÒµÖÇÄÜ·ÖÎöÊ¦",
+    "description": "BI/±¨±í/Ôö³¤·ÖÎö",
     "level": 45,
     "permissions": [
       "currency:read",
@@ -586,64 +519,56 @@
       "item:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "user_researcher",
-    "name": "ç”¨æˆ·ç ”ç©¶å‘˜",
-    "description": "ç”¨æˆ·ç ”ç©¶ä¸è°ƒç ”",
+    "name": "ÓÃ»§ÑĞ¾¿Ô±",
+    "description": "ÓÃ»§ÑĞ¾¿Óëµ÷ÑĞ",
     "level": 45,
     "permissions": [
       "entity:read",
       "item:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "senior_support",
-    "name": "é«˜çº§å®¢æœ",
-    "description": "é«˜çº§å®¢æœä¸é—®é¢˜å¤„ç†",
+    "name": "¸ß¼¶¿Í·ş",
+    "description": "¸ß¼¶¿Í·şÓëÎÊÌâ´¦Àí",
     "level": 50,
     "permissions": [
       "wallet:read",
       "currency:read",
       "entity:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "support",
-    "name": "å®¢æœäººå‘˜",
-    "description": "å®¢æœé—®ç­”ä¸å¸¸è§„å¤„ç†",
+    "name": "¿Í·şÈËÔ±",
+    "description": "¿Í·şÎÊ´ğÓë³£¹æ´¦Àí",
     "level": 40,
     "permissions": [
       "wallet:read",
       "currency:read",
       "entity:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "gm",
-    "name": "æ¸¸æˆç®¡ç†å‘˜",
-    "description": "æ¸¸æˆè¿è¥ç®¡ç†å‘˜",
+    "name": "ÓÎÏ·¹ÜÀíÔ±",
+    "description": "ÓÎÏ·ÔËÓª¹ÜÀíÔ±",
     "level": 80,
     "permissions": [
       "function:invoke",
@@ -658,16 +583,14 @@
       "currency:read",
       "wallet:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "economy_manager",
-    "name": "ç»æµç®¡ç†å‘˜",
-    "description": "è™šæ‹Ÿç»æµç³»ç»Ÿç®¡ç†å‘˜",
+    "name": "¾­¼Ã¹ÜÀíÔ±",
+    "description": "ĞéÄâ¾­¼ÃÏµÍ³¹ÜÀíÔ±",
     "level": 70,
     "permissions": [
       "currency:create",
@@ -675,16 +598,14 @@
       "wallet:read",
       "wallet:transfer",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "admin_manager",
-    "name": "ç®¡ç†å‘˜",
-    "description": "åå°ç®¡ç†å‘˜è´¦å·ç®¡ç†",
+    "name": "¹ÜÀíÔ±",
+    "description": "ºóÌ¨¹ÜÀíÔ±ÕËºÅ¹ÜÀí",
     "level": 60,
     "permissions": [
       "user:read",
@@ -694,16 +615,14 @@
       "permission:read",
       "permission:write",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "bot_operator",
-    "name": "æœºå™¨äººæ“ä½œå‘˜",
-    "description": "æœºå™¨äºº/æ‰˜ç®¡ç›¸å…³æ“ä½œ",
+    "name": "»úÆ÷ÈË²Ù×÷Ô±",
+    "description": "»úÆ÷ÈË/ÍĞ¹ÜÏà¹Ø²Ù×÷",
     "level": 40,
     "permissions": [
       "function:invoke",
@@ -711,32 +630,28 @@
       "entity:read",
       "item:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "auditor",
-    "name": "å®¡è®¡å‘˜",
-    "description": "å®¡è®¡ä¸åˆè§„æ£€æŸ¥",
+    "name": "Éó¼ÆÔ±",
+    "description": "Éó¼ÆÓëºÏ¹æ¼ì²é",
     "level": 40,
     "permissions": [
       "entity:read",
       "item:read",
       "games:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read"
     ]
   },
   {
     "code": "viewer",
-    "name": "æŸ¥çœ‹è€…",
-    "description": "åªè¯»æƒé™ç”¨æˆ·",
+    "name": "²é¿´Õß",
+    "description": "Ö»¶ÁÈ¨ÏŞÓÃ»§",
     "level": 20,
     "permissions": [
       "assignments:read",
@@ -744,8 +659,6 @@
       "item:read",
       "currency:read",
       "registry:read",
-      "packs:read",
-      "packs:list",
       "entities:read",
       "functions:read",
       "workspace:read"

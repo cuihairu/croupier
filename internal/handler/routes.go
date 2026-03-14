@@ -11,7 +11,6 @@ import (
 	"github.com/cuihairu/croupier/internal/api/auth"
 	"github.com/cuihairu/croupier/internal/api/backup"
 	"github.com/cuihairu/croupier/internal/api/certificate"
-	"github.com/cuihairu/croupier/internal/api/component"
 	"github.com/cuihairu/croupier/internal/api/config"
 	"github.com/cuihairu/croupier/internal/api/entity"
 	"github.com/cuihairu/croupier/internal/api/faq"
@@ -25,7 +24,6 @@ import (
 	"github.com/cuihairu/croupier/internal/api/node"
 	"github.com/cuihairu/croupier/internal/api/openapi"
 	"github.com/cuihairu/croupier/internal/api/ops"
-	"github.com/cuihairu/croupier/internal/api/pack"
 	"github.com/cuihairu/croupier/internal/api/permission"
 	"github.com/cuihairu/croupier/internal/api/platform"
 	"github.com/cuihairu/croupier/internal/api/player"
@@ -77,13 +75,11 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerAssignmentRoutes(protected.Group("/assignments"), serverCtx)
 		registerBackupRoutes(protected.Group("/backups"), serverCtx)
 		registerCertificateRoutes(protected.Group("/certificates"), serverCtx)
-		registerComponentRoutes(protected.Group("/components"), serverCtx)
 		registerConfigRoutes(protected.Group("/configs"), serverCtx)
 		registerEntityRoutes(protected.Group("/entities"), serverCtx)
 		registerFAQRoutes(protected.Group("/faqs"), serverCtx)
 		registerFeedbackRoutes(protected.Group("/feedback"), serverCtx)
 		registerMessageRoutes(protected.Group("/messages"), serverCtx)
-		registerPackRoutes(protected.Group("/packs"), serverCtx)
 		registerPermissionRoutes(protected.Group("/permissions"), serverCtx)
 		registerPlatformRoutes(protected.Group("/platforms"), serverCtx)
 		registerPlayerRoutes(protected.Group("/players"), serverCtx)
@@ -486,22 +482,6 @@ func registerCertificateRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 }
 
 // ============================================================================
-// Component 路由注册
-// ============================================================================
-func registerComponentRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
-	componentSvc := component.NewService(ctx)
-	componentHandler := component.NewHandler(componentSvc)
-	g.GET("", componentHandler.List)
-	g.GET("/", componentHandler.List)
-	g.POST("/install", componentHandler.Install)
-	g.GET("/:id", componentHandler.Get)
-	g.POST("/:id/enable", componentHandler.Enable)
-	g.POST("/:id/disable", componentHandler.Disable)
-	g.DELETE("/:id", componentHandler.Delete)
-	g.PATCH("/:id", componentHandler.Patch)
-}
-
-// ============================================================================
 // Config 路由注册
 // ============================================================================
 func registerConfigRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
@@ -574,20 +554,6 @@ func registerMessageRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/read", messageHandler.Read)
 	g.GET("/unread-count", messageHandler.UnreadCount)
 	g.GET("/stream", messageHandler.Stream)
-}
-
-// ============================================================================
-// Pack 路由注册
-// ============================================================================
-func registerPackRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
-	packSvc := pack.NewService(ctx)
-	packHandler := pack.NewHandler(packSvc)
-	g.GET("/export", packHandler.Export)
-	g.POST("/import", packHandler.Import)
-	g.GET("", packHandler.List)  // /api/v1/packs
-	g.GET("/", packHandler.List) // /api/v1/packs/
-	g.POST("/reload", packHandler.Reload)
-	g.GET("/plugin", packHandler.Plugin)
 }
 
 func registerPermissionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {

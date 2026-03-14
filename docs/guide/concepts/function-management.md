@@ -341,18 +341,6 @@ player-management-1.0.0.tgz
     └── player.list.json
 ```
 
-### 导入/导出
-
-```bash
-# 导出函数包
-curl -X POST http://localhost:18780/api/packs/export \
-  -d '{"functions": ["player.*"]}'
-
-# 导入函数包
-curl -X POST http://localhost:18780/api/packs/import \
-  -F "pack=@player-management-1.0.0.tgz"
-```
-
 ## 最佳实践
 
 ### 1. 函数命名

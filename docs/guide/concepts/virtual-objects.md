@@ -365,19 +365,16 @@ const formConfig = {
 ## 目录结构
 
 ```
-components/
-├── player-management/
-│   ├── manifest.json              # 组件清单
-│   └── descriptors/
-│       ├── player.entity.json     # 玩家实体
-│       ├── player.resource.json   # 玩家资源
-│       ├── player.register.json   # 注册函数
-│       ├── player.get.json        # 获取函数
-│       ├── player.update.json     # 更新函数
-│       └── player.ban.json        # 封禁函数
-├── item-management/
-│   ├── manifest.json
-│   └── descriptors/
+descriptors/
+├── player.entity.json             # 玩家实体
+├── player.resource.json           # 玩家资源
+├── player.register.json           # 注册函数
+├── player.get.json                # 获取函数
+├── player.update.json             # 更新函数
+├── player.ban.json                # 封禁函数
+├── item.entity.json
+├── item.resource.json
+└── item.list.json
 │       ├── item.entity.json
 │       └── ...
 └── economy-system/

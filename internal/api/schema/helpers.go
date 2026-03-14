@@ -38,7 +38,7 @@ type schemaFileModel struct {
 func resolveSchemasDir(cfg config.Config) string {
 	dir := strings.TrimSpace(cfg.Schemas.Dir)
 	if dir == "" {
-		dir = filepath.Join("packs", "ui")
+		dir = "schemas"
 	}
 	if !filepath.IsAbs(dir) {
 		if abs, err := filepath.Abs(dir); err == nil {

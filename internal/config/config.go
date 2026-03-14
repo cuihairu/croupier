@@ -13,9 +13,7 @@ type Config struct {
 	Auth          AuthConfig               `json:"auth" yaml:"auth"`
 	BootstrapData BootstrapDataConfig      `json:"BootstrapData" yaml:"BootstrapData"`
 	Descriptors   DescriptorConfig         `json:"descriptors" yaml:"descriptors"`
-	Components    ComponentsConfig         `json:"components" yaml:"components"`
 	Schemas       SchemasConfig            `json:"schemas" yaml:"schemas"`
-	Packs         PacksConfig              `json:"packs" yaml:"packs"`
 	Storage       StorageConfig            `json:"storage" yaml:"storage"`
 	Cache         CacheConfig              `json:"cache" yaml:"cache"`
 	Logging       common.LogConfig         `json:",omitempty" yaml:"Log"`
@@ -99,16 +97,7 @@ type DescriptorConfig struct {
 	Dir string `json:"dir,omitempty" yaml:"dir,omitempty"`
 }
 
-type ComponentsConfig struct {
-	DataDir    string `json:"DataDir,omitempty" yaml:"DataDir,omitempty"`
-	StagingDir string `json:"StagingDir,omitempty" yaml:"StagingDir,omitempty"`
-}
-
 type SchemasConfig struct {
-	Dir string `json:"dir,omitempty" yaml:"dir,omitempty"`
-}
-
-type PacksConfig struct {
 	Dir string `json:"dir,omitempty" yaml:"dir,omitempty"`
 }
 

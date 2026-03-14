@@ -94,20 +94,13 @@ internal/auth/            # RBAC, JWT, TOTP, user management
 internal/function/        # Descriptor loading and validation
 internal/jobs/            # Job state machine and execution
 internal/loadbalancer/    # Load balancing strategies (RR, consistent hash, least conn)
-internal/pack/            # Pack/plugin system with type registry
 sdks/                     # Multi-language SDKs (submodules: go, cpp, java)
 web/                      # Frontend submodule (Umi Max + Ant Design)
-packs/                    # Example function packs (prom, http, player, grafana)
 configs/                  # Configuration templates and examples
 examples/                 # Demo game servers and invokers
 ```
 
 ## Important Implementation Details
-
-**Function Packs System:**
-- Functions bundled as tar.gz with manifest, descriptors, UI components
-- Import/export via Server HTTP API with ETag versioning
-- Example packs demonstrate Prometheus, HTTP, Grafana integrations
 
 **Security Architecture:**
 - Enforced mTLS for all inter-service communication

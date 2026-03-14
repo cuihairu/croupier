@@ -31,7 +31,7 @@
 | Dashboard | [croupier-dashboard](https://github.com/cuihairu/croupier-dashboard) | `dashboard/` | Umi Max + Ant Design + Formily，已纳入子模块 |
 | Proto 定义 | 本仓库 | `proto/` | Protocol Buffers 定义，用于序列化和接口描述 |
 | Analytics Worker | 本仓库 | `cmd/analytics-worker` | 事件消费、指标写入、ClickHouse 入库 |
-| 示例 / 工具 | 本仓库 | `examples/`, `tools/`, `packs/` | Demo 游戏、Telemetry、打包脚本等 |
+| 示例 / 工具 | 本仓库 | `examples/`, `tools/`, `descriptors/` | Demo 游戏、Telemetry、辅助工具与示例描述文件 |
 
 ### SDK 一览
 | 语言 | 仓库 | Nightly | Release | Docs | Coverage |

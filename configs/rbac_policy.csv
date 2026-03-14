@@ -97,27 +97,12 @@ p, role:qa_lead, /api/v1/entities/*, GET
 p, role:qa_lead, /api/v1/entities/validate, POST
 
 # Tech lead / Backend lead: components + packs + games manage + uploads
-p, role:tech_lead, /api/v1/components, GET
-p, role:tech_lead, /api/v1/components/install, POST
-p, role:tech_lead, /api/v1/components/*/enable, POST
-p, role:tech_lead, /api/v1/components/*/disable, POST
-p, role:tech_lead, /api/v1/components/*, GET
-p, role:tech_lead, /api/v1/components/*, DELETE
-p, role:tech_lead, /api/v1/packs/*, GET
-p, role:tech_lead, /api/v1/packs/*, POST
 p, role:tech_lead, /api/v1/storage/signed-url, GET
 p, role:tech_lead, /api/v1/games, GET
 p, role:tech_lead, /api/v1/games, POST
 p, role:tech_lead, /api/v1/games/*, GET
 p, role:tech_lead, /api/v1/games/*, PUT
 p, role:tech_lead, /api/v1/games/*, DELETE
-p, role:backend_lead, /api/v1/components, GET
-p, role:backend_lead, /api/v1/components/install, POST
-p, role:backend_lead, /api/v1/components/*/enable, POST
-p, role:backend_lead, /api/v1/components/*/disable, POST
-p, role:backend_lead, /api/v1/components/*, DELETE
-p, role:backend_lead, /api/v1/packs/*, GET
-p, role:backend_lead, /api/v1/packs/*, POST
 p, role:backend_lead, /api/v1/storage/signed-url, GET
 p, role:backend_lead, /api/v1/games, GET
 p, role:backend_lead, /api/v1/games, POST
@@ -126,17 +111,8 @@ p, role:backend_lead, /api/v1/games/*, PUT
 p, role:backend_lead, /api/v1/games/*, DELETE
 
 # Ops roles: components manage + uploads + games read
-p, role:ops, /api/v1/components, GET
-p, role:ops, /api/v1/components/install, POST
-p, role:ops, /api/v1/components/*/enable, POST
-p, role:ops, /api/v1/components/*/disable, POST
-p, role:ops, /api/v1/components/*, DELETE
 p, role:ops, /api/v1/storage/signed-url, GET
 p, role:ops, /api/v1/games, GET
-p, role:ops_manager, /api/v1/components, GET
-p, role:ops_manager, /api/v1/components/*, DELETE
-p, role:ops_manager, /api/v1/components/*/enable, POST
-p, role:ops_manager, /api/v1/components/*/disable, POST
 p, role:ops_manager, /api/v1/storage/signed-url, GET
 p, role:ops_manager, /api/v1/games, GET
 

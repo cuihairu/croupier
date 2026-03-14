@@ -146,8 +146,6 @@ func (p *CasbinPolicy) parsePermission(permission string) (string, string) {
 		path = "/api/v1/messages"
 	case "certificates":
 		path = "/api/v1/certificates"
-	case "components":
-		path = "/api/v1/components"
 	case "uploads", "upload":
 		// storage endpoints live under /api/v1/storage
 		path = "/api/v1/storage"
