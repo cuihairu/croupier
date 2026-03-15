@@ -17,7 +17,7 @@ features:
   - title: 当前入口清晰
     details: 所有可执行程序统一位于 cmd/，配置文件统一位于 configs/，Docker 镜像统一位于 docker/。
   - title: API 与描述符驱动
-    details: OpenAPI、JSON Schema、函数 UI 配置和 pack 机制共同驱动管理界面与调用流程。
+    details: OpenAPI、JSON Schema、函数 UI 配置与扩展安装绑定共同驱动管理界面与调用流程。
   - title: 遥测链路解耦
     details: Ingest、analytics-worker、Redis 与 ClickHouse 组成独立分析链路，不与控制面强耦合。
 footer: Apache-2.0 License | Copyright © 2024-present Croupier
