@@ -1,0 +1,77 @@
+name: Deploy Self Hosted
+
+on:
+  workflow_dispatch:
+    inputs:
+      ghcr_owner:
+        description: "GHCR owner/namespace"
+        required: true
+        default: "cuihairu"
+      server_tag:
+        description: "croupier-server image tag"
+        required: true
+        default: "main"
+      agent_tag:
+        description: "croupier-agent image tag"
+        required: true
+        default: "main"
+      dashboard_tag:
+        description: "croupier-dashboard image tag"
+        required: true
+        default: "main"
+      sdk_example_tag:
+        description: "croupier-sdk-go example image tag"
+        required: true
+        default: "main"
+      deploy_dir:
+        description: "Absolute deploy directory on runner host"
+        required: true
+        default: "/data/deploy/croupier"
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure deploy directory
+        run: mkdir -p "${{ inputs.deploy_dir }}"
+
+      - name: Prepare compose and env
+        run: |
+          cp docker/docker-compose.deploy.yml "${{ inputs.deploy_dir }}/docker-compose.yml"
+          cat > "${{ inputs.deploy_dir }}/.env" <<EOF
+          GHCR_OWNER=${{ inputs.ghcr_owner }}
+          CROUPIER_SERVER_TAG=${{ inputs.server_tag }}
+          CROUPIER_AGENT_TAG=${{ inputs.agent_tag }}
+          CROUPIER_DASHBOARD_TAG=${{ inputs.dashboard_tag }}
+          CROUPIER_SDK_EXAMPLE_TAG=${{ inputs.sdk_example_tag }}
+          EOF
+
+      - name: Login GHCR
+        env:
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          if [ -z "${GHCR_USERNAME}" ] || [ -z "${GHCR_TOKEN}" ]; then
+            echo "GHCR_USERNAME/GHCR_TOKEN secrets are required."
+            exit 1
+          fi
+          echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
+
+      - name: Pull latest images
+        run: docker compose --env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml" pull
+
+      - name: Deploy containers
+        run: docker compose --env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml" up -d --remove-orphans
+
+      - name: Show running services
+        run: docker compose --env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml" ps
+
+      - name: Cleanup dangling images
+        run: docker image prune -f

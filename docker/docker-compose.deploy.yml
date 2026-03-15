@@ -1,0 +1,134 @@
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:15-alpine}
+    container_name: croupier-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-croupier}
+      POSTGRES_USER: ${POSTGRES_USER:-croupier}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-croupier_dev_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - croupier-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-croupier} -d ${POSTGRES_DB:-croupier}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:7-alpine}
+    container_name: croupier-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - croupier-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  clickhouse:
+    image: ${CLICKHOUSE_IMAGE:-clickhouse/clickhouse-server:23}
+    container_name: croupier-clickhouse
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-analytics}
+    ports:
+      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+      - "${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_logs:/var/log/clickhouse-server
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8123/?query=SELECT%201 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - croupier-network
+
+  server:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-server:${CROUPIER_SERVER_TAG:-main}
+    container_name: croupier-server
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://croupier:croupier_dev_password@postgres:5432/croupier?sslmode=disable}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CLICKHOUSE_DSN: ${CLICKHOUSE_DSN:-clickhouse://clickhouse:9000/analytics?dial_timeout=5s&compress=true}
+      IP2LOCATION_BIN_PATH: /app/configs/IP2LOCATION-LITE-DB3.BIN
+      IP2LOCATION_BIN_PATH_V6: /app/configs/IP2LOCATION-LITE-DB3.IPV6.BIN
+      GEOIP_TIMEOUT_MS: ${GEOIP_TIMEOUT_MS:-800}
+    command: ["server", "--config", "/app/configs/server.yaml"]
+    ports:
+      - "${SERVER_TLS_PORT:-8443}:8443"
+      - "${SERVER_HTTP_PORT:-18780}:18780"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    networks:
+      - croupier-network
+
+  agent:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-agent:${CROUPIER_AGENT_TAG:-main}
+    container_name: croupier-agent
+    restart: unless-stopped
+    command: ["agent", "--config", "/app/configs/agent.yaml"]
+    ports:
+      - "${AGENT_GRPC_PORT:-19090}:19090"
+      - "${AGENT_HTTP_PORT:-19091}:19091"
+    depends_on:
+      - server
+    networks:
+      - croupier-network
+
+  dashboard:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-dashboard:${CROUPIER_DASHBOARD_TAG:-main}
+    container_name: croupier-dashboard
+    restart: unless-stopped
+    ports:
+      - "${DASHBOARD_PORT:-8000}:80"
+    depends_on:
+      - server
+    networks:
+      - croupier-network
+
+  sdk-example-basic:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-sdk-go-example-basic:${CROUPIER_SDK_EXAMPLE_TAG:-main}
+    container_name: croupier-sdk-example-basic
+    restart: unless-stopped
+    profiles: ["sdk-examples"]
+    networks:
+      - croupier-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  clickhouse_data:
+    driver: local
+  clickhouse_logs:
+    driver: local
+
+networks:
+  croupier-network:
+    driver: bridge
