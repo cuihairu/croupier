@@ -187,6 +187,11 @@ sequenceDiagram
 - [dashboard/README.md](dashboard/README.md)：Web Console、Formily 用法。
 - 各 SDK README：语言特定的安装与示例。
 
+## 🔀 平台迁移开关（Extension-First）
+- `CROUPIER_PLATFORM_EXTENSION_ONLY=true`：仅允许扩展路径（`external.*`），完全禁用 legacy 回退。
+- `CROUPIER_PLATFORM_LEGACY_DISABLED=true`：禁用 legacy 平台加载与 API 回退，适合灰度切流。
+- `CROUPIER_PLATFORM_LEGACY_FALLBACK_ON_EXTENSION_ERROR=false`：扩展调用失败时不再回退 legacy，便于验证扩展链路完整性。
+
 ---
 
 ## 🤝 社区与贡献

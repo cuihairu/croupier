@@ -14,14 +14,21 @@ import (
 
 	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/config"
+	extensioncatalog "github.com/cuihairu/croupier/internal/core/extension/catalog"
+	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
+	extensionmanifest "github.com/cuihairu/croupier/internal/core/extension/manifest"
+	extensionruntime "github.com/cuihairu/croupier/internal/core/extension/runtime"
+	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/pkg2/jwt"
 	plat "github.com/cuihairu/croupier/internal/platform"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
+	"github.com/cuihairu/croupier/internal/platform/migrationflags"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/runtime"
 	jwtutil2 "github.com/cuihairu/croupier/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/internal/service/permission"
@@ -89,6 +96,16 @@ type ServiceContext struct {
 
 	// StartTime 记录服务器启动时间
 	StartTime time.Time
+
+	Extensions *ExtensionServices
+}
+
+type ExtensionServices struct {
+	Catalog      *extensioncatalog.Service
+	Manifest     *extensionmanifest.Service
+	Installation *extensioninstallation.Service
+	Runtime      *extensionruntime.Service
+	Sync         *extensionsync.Service
 }
 
 func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
@@ -163,6 +180,12 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		cacheStore = cache.NewNullCache()
 	}
 	cacheHelper := cache.NewCacheHelper(cacheStore)
+	extensionRepos := extensiongorm.NewBundle(db)
+	extensionManifestSvc := extensionmanifest.NewService()
+	extensionCatalogSvc := extensioncatalog.NewService(extensionRepos.Catalog, extensionRepos.Release)
+	extensionInstallationSvc := extensioninstallation.NewService(extensionRepos.Installation, extensionRepos.Event, extensionRepos.Binding)
+	extensionRuntimeSvc := extensionruntime.NewService(extensionRepos.Installation, extensionRepos.Binding, extensionRepos.Event)
+	extensionSyncSvc := extensionsync.NewService(extensionRepos.Installation, extensionRepos.Binding)
 
 	ctx := &ServiceContext{
 		Config:            c,
@@ -211,6 +234,13 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		ObjectStore:    objectStore,
 		ApprovalsStore: approvalsStore,
 		PlatformLoader: platformLoader,
+		Extensions: &ExtensionServices{
+			Catalog:      extensionCatalogSvc,
+			Manifest:     extensionManifestSvc,
+			Installation: extensionInstallationSvc,
+			Runtime:      extensionRuntimeSvc,
+			Sync:         extensionSyncSvc,
+		},
 	}
 
 	for _, opt := range opts {
@@ -606,6 +636,14 @@ func splitPermissionCode(code string) (string, string) {
 
 // initPlatformLoader initializes the third-party platform loader
 func initPlatformLoader(c config.Config) *plat.Loader {
+	if migrationflags.IsLegacyDisabled() {
+		slog.Default().Info("Third-party platform legacy loader disabled by env")
+		return nil
+	}
+	if migrationflags.IsExtensionOnly() {
+		slog.Default().Info("Third-party platform legacy loader skipped in extension-only mode")
+		return nil
+	}
 	// Default platform config path
 	configFile := "configs/platforms.yaml"
 	if c.Platforms.ConfigFile != "" {
@@ -617,6 +655,7 @@ func initPlatformLoader(c config.Config) *plat.Loader {
 		slog.Default().Info("Third-party platform integration is disabled")
 		return nil
 	}
+	slog.Default().Warn("Third-party platform legacy loader is enabled (deprecated path); prefer extension-first external-platform. Set CROUPIER_PLATFORM_LEGACY_DISABLED=true to disable legacy loader")
 
 	loader := plat.NewLoader(configFile, nil)
 

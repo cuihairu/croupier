@@ -1,5 +1,7 @@
-# Third-Party Platform Configuration
-# This file defines which third-party operation platforms are enabled and their settings.
+# Third-Party Platform Configuration (Legacy Path)
+# This file is kept for backward compatibility.
+# Recommended direction: extension-first external platform (official.external-platform).
+# To fully disable legacy path, set CROUPIER_PLATFORM_LEGACY_DISABLED=true.
 
 platforms:
   # QuickSDK - Game operation data platform

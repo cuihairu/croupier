@@ -338,3 +338,28 @@ func TestHostFromTarget(t *testing.T) {
 		})
 	}
 }
+
+func TestUpstreamClientComposeLabels(t *testing.T) {
+	t.Parallel()
+
+	store := agentlocal.NewLocalStore()
+	client := NewUpstreamClient("127.0.0.1:9999", "agent-1", store, &UpstreamMetadata{
+		Labels: map[string]string{
+			"os": "linux",
+		},
+	})
+	client.SetDynamicLabelsProvider(func() map[string]string {
+		return map[string]string{
+			"extensions.runtime.status": "ok",
+			"os":                        "override-linux",
+		}
+	})
+
+	labels := client.composeLabels()
+	if labels["extensions.runtime.status"] != "ok" {
+		t.Fatalf("expected runtime status label, got: %+v", labels)
+	}
+	if labels["os"] != "override-linux" {
+		t.Fatalf("expected dynamic label override, got: %+v", labels)
+	}
+}

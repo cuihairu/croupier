@@ -48,6 +48,7 @@ type UpstreamClient struct {
 	// Connection callbacks
 	onConnected    func()      // Called when successfully connected to server
 	onDisconnected func(error) // Called when disconnected from server
+	dynamicLabels  func() map[string]string
 }
 
 func (c *UpstreamClient) Connected() bool {
@@ -89,6 +90,10 @@ func NewUpstreamClient(serverAddr, agentID string, store *agentlocal.LocalStore,
 
 func (c *UpstreamClient) SetTLSConfig(cfg *tlsutil.ClientTLSConfig) {
 	c.tlsCfg = cfg
+}
+
+func (c *UpstreamClient) SetDynamicLabelsProvider(fn func() map[string]string) {
+	c.dynamicLabels = fn
 }
 
 // UpstreamMetadata captures optional metadata for registering with server.
@@ -481,7 +486,7 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 		Env:       c.env,
 		Region:    c.region,
 		Zone:      c.zone,
-		Labels:    c.labels,
+		Labels:    c.composeLabels(),
 		Functions: funcs,
 		Processes: providers,
 	}
@@ -723,4 +728,37 @@ func operationToVerbs(operation string) []string {
 	default:
 		return []string{"invoke"}
 	}
+}
+
+func (c *UpstreamClient) composeLabels() map[string]string {
+	base := cloneLabels(c.labels)
+	if c == nil || c.dynamicLabels == nil {
+		return base
+	}
+	dynamic := c.dynamicLabels()
+	if len(dynamic) == 0 {
+		return base
+	}
+	if base == nil {
+		base = map[string]string{}
+	}
+	for k, v := range dynamic {
+		key := strings.TrimSpace(k)
+		if key == "" {
+			continue
+		}
+		base[key] = strings.TrimSpace(v)
+	}
+	return base
+}
+
+func cloneLabels(src map[string]string) map[string]string {
+	if len(src) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(src))
+	for k, v := range src {
+		out[k] = v
+	}
+	return out
 }

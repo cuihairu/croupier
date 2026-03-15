@@ -7,8 +7,9 @@ import (
 
 // CodeError 带错误码的错误
 type CodeError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
+	Code    int            `json:"code"`
+	Message string         `json:"message"`
+	Details map[string]any `json:"details,omitempty"`
 }
 
 func (e *CodeError) Error() string {
@@ -17,10 +18,14 @@ func (e *CodeError) Error() string {
 
 // Data 返回错误的 HTTP 状态码和响应体
 func (e *CodeError) Data() (int, interface{}) {
-	return e.Code, map[string]interface{}{
+	payload := map[string]interface{}{
 		"error":   e.ErrorCode(),
 		"message": e.Message,
 	}
+	if len(e.Details) > 0 {
+		payload["details"] = e.Details
+	}
+	return e.Code, payload
 }
 
 // ErrorCode 返回错误码字符串
@@ -49,6 +54,14 @@ func NewBadRequest(message string) *CodeError {
 	}
 }
 
+func NewBadRequestWithDetails(message string, details map[string]any) *CodeError {
+	return &CodeError{
+		Code:    http.StatusBadRequest,
+		Message: message,
+		Details: details,
+	}
+}
+
 func NewUnauthorized(message string) *CodeError {
 	return &CodeError{
 		Code:    http.StatusUnauthorized,
@@ -74,6 +87,14 @@ func NewConflict(message string) *CodeError {
 	return &CodeError{
 		Code:    http.StatusConflict,
 		Message: message,
+	}
+}
+
+func NewConflictWithDetails(message string, details map[string]any) *CodeError {
+	return &CodeError{
+		Code:    http.StatusConflict,
+		Message: message,
+		Details: details,
 	}
 }
 

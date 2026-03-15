@@ -13,6 +13,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/certificate"
 	"github.com/cuihairu/croupier/internal/api/config"
 	"github.com/cuihairu/croupier/internal/api/entity"
+	"github.com/cuihairu/croupier/internal/api/extension"
 	"github.com/cuihairu/croupier/internal/api/faq"
 	"github.com/cuihairu/croupier/internal/api/feedback"
 	"github.com/cuihairu/croupier/internal/api/function"
@@ -77,6 +78,8 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerCertificateRoutes(protected.Group("/certificates"), serverCtx)
 		registerConfigRoutes(protected.Group("/configs"), serverCtx)
 		registerEntityRoutes(protected.Group("/entities"), serverCtx)
+		registerExtensionRoutes(protected.Group("/extensions"), serverCtx)
+		registerAgentExtensionCompatRoutes(protected.Group("/agents"), serverCtx)
 		registerFAQRoutes(protected.Group("/faqs"), serverCtx)
 		registerFeedbackRoutes(protected.Group("/feedback"), serverCtx)
 		registerMessageRoutes(protected.Group("/messages"), serverCtx)
@@ -126,6 +129,51 @@ func registerAdminRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/password-reset", adminHandler.PasswordReset)
 	g.GET("/:id/games", adminHandler.GetGames)
 	g.PUT("/:id/games", adminHandler.UpdateGames)
+}
+
+func registerExtensionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	extensionSvc := extension.NewService(ctx)
+	extensionHandler := extension.NewHandler(extensionSvc)
+	g.GET("/catalog", extensionHandler.CatalogList)
+	g.GET("/catalog/:id", extensionHandler.CatalogDetail)
+	g.GET("/catalog/:id/releases", extensionHandler.CatalogReleases)
+	g.GET("/installations", extensionHandler.InstallationList)
+	g.POST("/install", extensionHandler.Install)
+	g.GET("/installations/:id", extensionHandler.InstallationDetail)
+	g.GET("/installations/:id/config-schema", extensionHandler.ConfigSchema)
+	g.GET("/installations/:id/config", extensionHandler.Config)
+	g.GET("/installations/:id/capabilities", extensionHandler.Capabilities)
+	g.PUT("/installations/:id/config", extensionHandler.UpdateConfig)
+	g.POST("/installations/:id/test-connection", extensionHandler.TestConnection)
+	g.POST("/installations/:id/health-check", extensionHandler.HealthCheck)
+	g.POST("/installations/:id/enable", extensionHandler.Enable)
+	g.POST("/installations/:id/disable", extensionHandler.Disable)
+	g.POST("/installations/:id/upgrade", extensionHandler.Upgrade)
+	g.POST("/installations/:id/reconcile", extensionHandler.Reconcile)
+	g.DELETE("/installations/:id", extensionHandler.Uninstall)
+	g.GET("/installations/:id/events", extensionHandler.Events)
+	// Compatibility routes aligned with target API shape:
+	// /api/v1/extensions/:id/*
+	g.GET("/:id/config-schema", extensionHandler.CompatConfigSchema)
+	g.GET("/:id/config", extensionHandler.CompatConfig)
+	g.PUT("/:id/config", extensionHandler.CompatUpdateConfig)
+	g.POST("/:id/test-connection", extensionHandler.CompatTestConnection)
+	g.GET("/:id/capabilities", extensionHandler.CompatCapabilities)
+	g.POST("/:id/health-check", extensionHandler.CompatHealthCheck)
+	g.POST("/:id/enable", extensionHandler.CompatEnable)
+	g.POST("/:id/disable", extensionHandler.CompatDisable)
+	g.POST("/:id/upgrade", extensionHandler.CompatUpgrade)
+	g.POST("/:id/reconcile", extensionHandler.CompatReconcile)
+	g.DELETE("/:id/uninstall", extensionHandler.CompatUninstall)
+	g.GET("/:id/events", extensionHandler.CompatEvents)
+	g.GET("/agents/:agentId/sync-payload", extensionHandler.AgentSyncPayload)
+}
+
+func registerAgentExtensionCompatRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	extensionSvc := extension.NewService(ctx)
+	extensionHandler := extension.NewHandler(extensionSvc)
+	g.GET("/:id/extensions", extensionHandler.AgentExtensions)
+	g.POST("/:id/extensions/sync", extensionHandler.AgentExtensionsSync)
 }
 
 func registerRoutesRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {

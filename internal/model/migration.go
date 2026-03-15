@@ -96,6 +96,11 @@ func autoMigrateModels(db *gorm.DB) error {
 		&AgentSessionDB{},
 		&TermDictionary{},
 		&WorkspaceConfig{},
+		&ExtensionCatalog{},
+		&ExtensionRelease{},
+		&ExtensionInstallation{},
+		&ExtensionRuntimeBinding{},
+		&ExtensionEvent{},
 	)
 }
 

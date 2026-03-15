@@ -24,6 +24,23 @@ func TestNewBadRequest(t *testing.T) {
 	}
 }
 
+func TestNewBadRequestWithDetails(t *testing.T) {
+	details := map[string]any{
+		"code":       "dependency_missing",
+		"dependency": "official.base",
+	}
+	err := NewBadRequestWithDetails("missing dependency", details)
+	if err.Code != http.StatusBadRequest {
+		t.Errorf("Wrong code: got %d, want %d", err.Code, http.StatusBadRequest)
+	}
+	if err.Details == nil {
+		t.Fatalf("expected details")
+	}
+	if err.Details["code"] != "dependency_missing" {
+		t.Errorf("Wrong details.code: got %v", err.Details["code"])
+	}
+}
+
 // TestNewUnauthorized 测试创建 Unauthorized 错误
 func TestNewUnauthorized(t *testing.T) {
 	err := NewUnauthorized("authentication required")
@@ -65,6 +82,23 @@ func TestNewConflict(t *testing.T) {
 	}
 	if err.Message != "resource already exists" {
 		t.Errorf("Wrong message: got %s, want 'resource already exists'", err.Message)
+	}
+}
+
+func TestNewConflictWithDetails(t *testing.T) {
+	details := map[string]any{
+		"code":     "dependency_blocked",
+		"blockers": []string{"official.analytics@1.2.3"},
+	}
+	err := NewConflictWithDetails("conflict", details)
+	if err.Code != http.StatusConflict {
+		t.Errorf("Wrong code: got %d, want %d", err.Code, http.StatusConflict)
+	}
+	if err.Details == nil {
+		t.Fatalf("expected details")
+	}
+	if err.Details["code"] != "dependency_blocked" {
+		t.Errorf("Wrong details.code: got %v", err.Details["code"])
 	}
 }
 
@@ -145,6 +179,21 @@ func TestCodeError_Data(t *testing.T) {
 
 	if dataMap["message"] != "user not found" {
 		t.Errorf("Wrong message: got %v, want 'user not found'", dataMap["message"])
+	}
+}
+
+func TestCodeError_Data_WithDetails(t *testing.T) {
+	err := NewConflictWithDetails("dependency blocked", map[string]any{
+		"code":     "dependency_blocked",
+		"blockers": []string{"official.analytics@1.2.3"},
+	})
+	_, data := err.Data()
+	dataMap, ok := data.(map[string]interface{})
+	if !ok {
+		t.Fatal("Data() should return a map")
+	}
+	if dataMap["details"] == nil {
+		t.Fatalf("expected details in payload")
 	}
 }
 

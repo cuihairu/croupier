@@ -159,6 +159,50 @@ func TestError_Validation(t *testing.T) {
 	}
 }
 
+func TestError_CodeErrorWithDetails(t *testing.T) {
+	c, w := setupTestContext()
+	err := errorx.NewConflictWithDetails("dependency blocked", map[string]any{
+		"code":     "dependency_blocked",
+		"blockers": []string{"official.analytics@1.2.3"},
+	})
+
+	Error(c, err)
+
+	if w.Code != http.StatusConflict {
+		t.Errorf("Expected status %d, got %d", http.StatusConflict, w.Code)
+	}
+
+	var body map[string]any
+	if unmarshalErr := json.Unmarshal(w.Body.Bytes(), &body); unmarshalErr != nil {
+		t.Fatalf("Failed to unmarshal response: %v", unmarshalErr)
+	}
+	if body["details"] == nil {
+		t.Fatalf("Expected details in response body")
+	}
+}
+
+func TestError_BadRequestWithDetails(t *testing.T) {
+	c, w := setupTestContext()
+	err := errorx.NewBadRequestWithDetails("missing dependency", map[string]any{
+		"code":       "dependency_missing",
+		"dependency": "official.base",
+	})
+
+	Error(c, err)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+
+	var body map[string]any
+	if unmarshalErr := json.Unmarshal(w.Body.Bytes(), &body); unmarshalErr != nil {
+		t.Fatalf("Failed to unmarshal response: %v", unmarshalErr)
+	}
+	if body["details"] == nil {
+		t.Fatalf("Expected details in response body")
+	}
+}
+
 // TestSuccessList 测试列表响应
 func TestSuccessList(t *testing.T) {
 	c, w := setupTestContext()

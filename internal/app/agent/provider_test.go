@@ -552,3 +552,169 @@ providers:
 		t.Errorf("server1.Type = %q, want 'openapi'", config.Providers["server1"].Type)
 	}
 }
+
+func TestProviderManagerSyncExtensionProviders(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"ok": true,
+		})
+	}))
+	defer server.Close()
+
+	store := agentlocal.NewLocalStore()
+	pm := NewProviderManager(store, "/tmp", nil)
+
+	err := pm.SyncExtensionProviders(context.Background(), map[string]ProviderEntry{
+		"extsrv": {
+			Enabled: true,
+			Type:    "openapi",
+			Config: map[string]interface{}{
+				"base_url": server.URL,
+				"methods": []map[string]interface{}{
+					{"name": "echo", "path": "/echo", "method": "GET"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SyncExtensionProviders failed: %v", err)
+	}
+	if !pm.IsPlatformFunction("extsrv.echo") {
+		t.Fatalf("expected extsrv provider function to be available")
+	}
+	resp, err := pm.Call(context.Background(), "extsrv.echo", nil)
+	if err != nil {
+		t.Fatalf("provider call failed: %v", err)
+	}
+	var out map[string]interface{}
+	if err := json.Unmarshal(resp, &out); err != nil {
+		t.Fatalf("unmarshal response failed: %v", err)
+	}
+	if out["ok"] != true {
+		t.Fatalf("unexpected response: %+v", out)
+	}
+
+	err = pm.SyncExtensionProviders(context.Background(), map[string]ProviderEntry{})
+	if err != nil {
+		t.Fatalf("sync empty extension providers failed: %v", err)
+	}
+	if pm.IsPlatformFunction("extsrv.echo") {
+		t.Fatalf("expected extsrv provider to be removed after empty sync")
+	}
+}
+
+func TestProviderManagerLoadExtensionOnlyMode(t *testing.T) {
+	t.Setenv("CROUPIER_EXTENSION_PROVIDERS_ONLY", "true")
+
+	tmpDir, err := os.MkdirTemp("", "platform-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	configContent := `
+providers:
+  static_server:
+    enabled: true
+    type: openapi
+    config:
+      base_url: "http://127.0.0.1:65535"
+      methods:
+        - name: ping
+          path: /ping
+          method: GET
+`
+	configPath := filepath.Join(tmpDir, "providers.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	store := agentlocal.NewLocalStore()
+	pm := NewProviderManager(store, tmpDir, nil)
+	if err := pm.Load(context.Background()); err != nil {
+		t.Fatalf("load in extension-only mode failed: %v", err)
+	}
+	if len(pm.providers) != 0 {
+		t.Fatalf("expected no static providers in extension-only mode, got %d", len(pm.providers))
+	}
+}
+
+func TestProviderManagerSyncExtensionProvidersOverrideStatic(t *testing.T) {
+	t.Setenv("CROUPIER_EXTENSION_PROVIDER_OVERRIDE_STATIC", "true")
+
+	staticSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"source": "static"})
+	}))
+	defer staticSrv.Close()
+	extSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"source": "extension"})
+	}))
+	defer extSrv.Close()
+
+	tmpDir, err := os.MkdirTemp("", "platform-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	configContent := `
+providers:
+  onepanel:
+    enabled: true
+    type: openapi
+    config:
+      base_url: "` + staticSrv.URL + `"
+      methods:
+        - name: list_apps
+          path: /list_apps
+          method: GET
+`
+	configPath := filepath.Join(tmpDir, "providers.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	store := agentlocal.NewLocalStore()
+	pm := NewProviderManager(store, tmpDir, nil)
+	if err := pm.Load(context.Background()); err != nil {
+		t.Fatalf("load static providers failed: %v", err)
+	}
+	respStatic, err := pm.Call(context.Background(), "onepanel.list_apps", nil)
+	if err != nil {
+		t.Fatalf("static call failed: %v", err)
+	}
+	var staticOut map[string]interface{}
+	_ = json.Unmarshal(respStatic, &staticOut)
+	if staticOut["source"] != "static" {
+		t.Fatalf("expected static source before override, got %+v", staticOut)
+	}
+
+	err = pm.SyncExtensionProviders(context.Background(), map[string]ProviderEntry{
+		"onepanel": {
+			Enabled: true,
+			Type:    "openapi",
+			Config: map[string]interface{}{
+				"base_url": extSrv.URL,
+				"methods": []map[string]interface{}{
+					{"name": "list_apps", "path": "/list_apps", "method": "GET"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("sync extension providers failed: %v", err)
+	}
+
+	respExt, err := pm.Call(context.Background(), "onepanel.list_apps", nil)
+	if err != nil {
+		t.Fatalf("call after override failed: %v", err)
+	}
+	var extOut map[string]interface{}
+	_ = json.Unmarshal(respExt, &extOut)
+	if extOut["source"] != "extension" {
+		t.Fatalf("expected extension source after override, got %+v", extOut)
+	}
+}

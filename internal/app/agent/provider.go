@@ -24,6 +24,10 @@ type ProviderManager struct {
 	mu               sync.RWMutex
 	providers        map[string]provider.Provider // provider name -> Provider
 	providerIDs      map[string]struct{}
+	extensionNames   map[string]struct{}
+	staticNames      map[string]struct{}
+	extensionOnly    bool
+	overrideStatic   bool
 	store            *agentlocal.LocalStore
 	logger           *slog.Logger
 	configDir        string
@@ -36,11 +40,15 @@ func NewProviderManager(store *agentlocal.LocalStore, configDir string, logger *
 		logger = slog.Default()
 	}
 	return &ProviderManager{
-		providers:   make(map[string]provider.Provider),
-		providerIDs: make(map[string]struct{}),
-		store:       store,
-		logger:      logger,
-		configDir:   configDir,
+		providers:      make(map[string]provider.Provider),
+		providerIDs:    make(map[string]struct{}),
+		extensionNames: make(map[string]struct{}),
+		staticNames:    make(map[string]struct{}),
+		extensionOnly:  envBool("CROUPIER_EXTENSION_PROVIDERS_ONLY"),
+		overrideStatic: envBool("CROUPIER_EXTENSION_PROVIDER_OVERRIDE_STATIC"),
+		store:          store,
+		logger:         logger,
+		configDir:      configDir,
 	}
 }
 
@@ -48,6 +56,10 @@ func NewProviderManager(store *agentlocal.LocalStore, configDir string, logger *
 func (m *ProviderManager) Load(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.extensionOnly {
+		m.logger.Info("skip loading static providers.yaml in extension-only mode")
+		return nil
+	}
 
 	configPath := filepath.Join(m.configDir, "providers.yaml")
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
@@ -76,6 +88,7 @@ func (m *ProviderManager) Load(ctx context.Context) error {
 			m.logger.Error("failed to init provider", "name", name, "error", err)
 			continue
 		}
+		m.staticNames[name] = struct{}{}
 	}
 
 	m.startProviderHeartbeat(ctx)
@@ -172,6 +185,73 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 
 	m.logger.Info("provider loaded", "name", name, "methods", len(methods))
 	return nil
+}
+
+// SyncExtensionProviders replaces extension-managed providers with the provided set.
+// It does not touch providers loaded from static providers.yaml unless they are already extension-managed.
+func (m *ProviderManager) SyncExtensionProviders(ctx context.Context, entries map[string]ProviderEntry) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	target := map[string]ProviderEntry{}
+	for name, entry := range entries {
+		key := strings.TrimSpace(name)
+		if key == "" {
+			continue
+		}
+		target[key] = entry
+	}
+
+	for name := range m.extensionNames {
+		if _, keep := target[name]; keep {
+			continue
+		}
+		if p, ok := m.providers[name]; ok {
+			_ = p.Close()
+			delete(m.providers, name)
+		}
+		serviceID := "provider:" + name
+		delete(m.providerIDs, serviceID)
+		// Cleanup previous function registrations for this provider.
+		m.store.Register(serviceID, "", "", []*sdkv1.LocalFunctionDescriptor{})
+		delete(m.extensionNames, name)
+	}
+
+	for name, entry := range target {
+		if !entry.Enabled {
+			continue
+		}
+		if _, exists := m.providers[name]; exists {
+			if _, managed := m.extensionNames[name]; managed {
+				if p := m.providers[name]; p != nil {
+					_ = p.Close()
+				}
+				delete(m.providers, name)
+				delete(m.extensionNames, name)
+				delete(m.staticNames, name)
+			} else if m.overrideStatic {
+				if p := m.providers[name]; p != nil {
+					_ = p.Close()
+				}
+				delete(m.providers, name)
+				delete(m.staticNames, name)
+			} else {
+				m.logger.Warn("skip extension provider due to name conflict with static provider", "name", name)
+				continue
+			}
+		}
+		if err := m.initProvider(ctx, name, entry); err != nil {
+			m.logger.Error("failed to init extension provider", "name", name, "error", err)
+			continue
+		}
+		m.extensionNames[name] = struct{}{}
+	}
+	return nil
+}
+
+func envBool(key string) bool {
+	val := strings.ToLower(strings.TrimSpace(os.Getenv(key)))
+	return val == "1" || val == "true" || val == "yes" || val == "on"
 }
 
 func (m *ProviderManager) startProviderHeartbeat(ctx context.Context) {

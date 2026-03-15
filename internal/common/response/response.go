@@ -32,10 +32,8 @@ func Error(c *gin.Context, err error) {
 	}
 	var codeErr *errorx.CodeError
 	if errors.As(err, &codeErr) {
-		c.JSON(codeErr.Code, gin.H{
-			"error":   codeErr.ErrorCode(),
-			"message": codeErr.Message,
-		})
+		code, payload := codeErr.Data()
+		c.JSON(code, payload)
 		return
 	}
 	c.JSON(http.StatusInternalServerError, gin.H{

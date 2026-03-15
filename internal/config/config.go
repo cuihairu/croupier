@@ -137,8 +137,12 @@ type CacheConfig struct {
 }
 
 type PlatformConfig struct {
-	ConfigFile string `json:"ConfigFile,omitempty" yaml:"ConfigFile,omitempty"` // 配置文件路径
-	Enabled    bool   `json:"Enabled,omitempty" yaml:"Enabled,omitempty"`       // 是否启用平台集成
+	// Legacy 平台配置文件路径（兼容保留）。
+	// 推荐路径：official.external-platform 扩展安装与运行时绑定，而不是静态 YAML。
+	ConfigFile string `json:"ConfigFile,omitempty" yaml:"ConfigFile,omitempty"`
+	// Legacy 平台集成总开关（兼容保留）。
+	// 推荐默认 false，使用扩展路径接入第三方平台。
+	Enabled bool `json:"Enabled,omitempty" yaml:"Enabled,omitempty"`
 }
 
 // SSEConfig 配置 Server-Sent Events (SSE) 推送

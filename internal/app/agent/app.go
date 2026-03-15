@@ -2,26 +2,38 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/core/extension/externalfunc"
+	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
 	"github.com/cuihairu/croupier/internal/nng"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // App assembles NNG-based services for Agent process.
 type App struct {
-	store           *agentlocal.LocalStore
-	jobs            *jobIndex
-	upstream        *UpstreamClient
-	outTLS          *tlsutil.ClientTLSConfig
-	providerManager *ProviderManager
-	configDir       string
+	store            *agentlocal.LocalStore
+	jobs             *jobIndex
+	upstream         *UpstreamClient
+	extensionRuntime *ExtensionRuntime
+	extensionDrivers *ExtensionDriverRuntime
+	extensionRoutes  map[string]extensionFunctionRoute
+	extensionMu      sync.RWMutex
+	extensionPuller  *ExtensionSyncPuller
+	outTLS           *tlsutil.ClientTLSConfig
+	providerManager  *ProviderManager
+	configDir        string
 
 	// NNG server (replaces gRPC)
 	nngServer *nng.AgentServer
@@ -36,26 +48,36 @@ type App struct {
 
 func New(serverAddr, agentID string) *App {
 	store := agentlocal.NewLocalStore()
-	return &App{
-		store:     store,
-		jobs:      newJobIndex(),
-		upstream:  NewUpstreamClient(serverAddr, agentID, store, nil),
-		configDir: getConfigDir(),
-		agentID:   agentID,
-		nngAddr:   ":19091", // Default NNG Agent local service port
+	app := &App{
+		store:            store,
+		jobs:             newJobIndex(),
+		upstream:         NewUpstreamClient(serverAddr, agentID, store, nil),
+		extensionRuntime: NewExtensionRuntime(),
+		extensionDrivers: NewExtensionDriverRuntime(),
+		extensionRoutes:  map[string]extensionFunctionRoute{},
+		configDir:        getConfigDir(),
+		agentID:          agentID,
+		nngAddr:          ":19091", // Default NNG Agent local service port
 	}
+	app.upstream.SetDynamicLabelsProvider(app.extensionRuntimeDynamicLabels)
+	return app
 }
 
 func NewWithConfigDir(serverAddr, agentID, configDir string) *App {
 	store := agentlocal.NewLocalStore()
-	return &App{
-		store:     store,
-		jobs:      newJobIndex(),
-		upstream:  NewUpstreamClient(serverAddr, agentID, store, nil),
-		configDir: configDir,
-		agentID:   agentID,
-		nngAddr:   ":19091", // Default NNG Agent local service port
+	app := &App{
+		store:            store,
+		jobs:             newJobIndex(),
+		upstream:         NewUpstreamClient(serverAddr, agentID, store, nil),
+		extensionRuntime: NewExtensionRuntime(),
+		extensionDrivers: NewExtensionDriverRuntime(),
+		extensionRoutes:  map[string]extensionFunctionRoute{},
+		configDir:        configDir,
+		agentID:          agentID,
+		nngAddr:          ":19091", // Default NNG Agent local service port
 	}
+	app.upstream.SetDynamicLabelsProvider(app.extensionRuntimeDynamicLabels)
+	return app
 }
 
 func getConfigDir() string {
@@ -72,12 +94,20 @@ func getConfigDir() string {
 func (a *App) StartNNGServer() error {
 	// Initialize provider manager
 	a.providerManager = NewProviderManager(a.store, a.configDir, nil)
+	if a.extensionDrivers != nil {
+		a.extensionDrivers.SetOpenAPICaller(func(ctx context.Context, provider, method string, request []byte) ([]byte, error) {
+			if a.providerManager == nil {
+				return nil, errors.New("provider manager not initialized")
+			}
+			return a.providerManager.Call(ctx, provider+"."+method, request)
+		})
+	}
 
 	// Create NNG server
 	a.nngServer = nng.NewAgentServer(a.nngAddr, a.store)
 
 	// Set provider manager - wrap it to implement the interface
-	pmWrapper := &providerManagerWrapper{pm: a.providerManager}
+	pmWrapper := &providerManagerWrapper{pm: a.providerManager, app: a}
 	a.nngServer.SetProviderManager(pmWrapper)
 
 	// Set TLS config for outbound connections
@@ -134,6 +164,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	a.startMaintenance(ctx)
+	a.startExtensionSync(ctx)
 	return a.upstream.Start(ctx)
 }
 
@@ -176,6 +207,19 @@ func parseDurationEnv(key string, def time.Duration) time.Duration {
 		return def
 	}
 	return d
+}
+
+func (a *App) startExtensionSync(ctx context.Context) {
+	if a == nil || a.extensionRuntime == nil {
+		return
+	}
+	baseURL := strings.TrimSpace(os.Getenv("CROUPIER_EXTENSION_SYNC_API"))
+	if baseURL == "" {
+		return
+	}
+	interval := parseDurationEnv("CROUPIER_EXTENSION_SYNC_INTERVAL", 30*time.Second)
+	a.extensionPuller = NewExtensionSyncPuller(baseURL, a.agentID, interval, a.extensionRuntime)
+	a.extensionPuller.Start(ctx)
 }
 
 // Stop shuts down background upstream connection and NNG server.
@@ -309,6 +353,427 @@ func (a *App) ActiveJobCount() int {
 	return a.jobs.Len()
 }
 
+func (a *App) ExtensionRuntime() *ExtensionRuntime {
+	if a == nil {
+		return nil
+	}
+	return a.extensionRuntime
+}
+
+func (a *App) ApplyExtensionSyncPayload(payload *extensionsync.AgentSyncPayload) (*ExtensionRuntimeApplyResult, error) {
+	if a == nil || a.extensionRuntime == nil {
+		return nil, errors.New("extension runtime not initialized")
+	}
+	result, err := a.extensionRuntime.ApplyPayload(payload)
+	if err != nil {
+		a.extensionRuntime.RecordError(err)
+		return nil, err
+	}
+	if err := a.syncExtensionsFromRuntime(context.Background()); err != nil {
+		a.extensionRuntime.RecordError(err)
+		return nil, err
+	}
+	return result, nil
+}
+
+func (a *App) ApplyExtensionSyncPayloadJSON(raw []byte) (*ExtensionRuntimeApplyResult, error) {
+	if a == nil || a.extensionRuntime == nil {
+		return nil, errors.New("extension runtime not initialized")
+	}
+	var payload extensionsync.AgentSyncPayload
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		a.extensionRuntime.RecordError(err)
+		return nil, err
+	}
+	result, err := a.extensionRuntime.ApplyPayload(&payload)
+	if err != nil {
+		a.extensionRuntime.RecordError(err)
+		return nil, err
+	}
+	if err := a.syncExtensionsFromRuntime(context.Background()); err != nil {
+		a.extensionRuntime.RecordError(err)
+		return nil, err
+	}
+	return result, nil
+}
+
+func (a *App) ReconcileExtensions() (*ExtensionRuntimeApplyResult, error) {
+	if a == nil || a.extensionRuntime == nil {
+		return nil, errors.New("extension runtime not initialized")
+	}
+	result, err := a.extensionRuntime.Reload()
+	if err != nil {
+		a.extensionRuntime.RecordError(err)
+		return nil, err
+	}
+	if err := a.syncExtensionsFromRuntime(context.Background()); err != nil {
+		a.extensionRuntime.RecordError(err)
+		return nil, err
+	}
+	return result, nil
+}
+
+func (a *App) PullExtensionSyncOnce(ctx context.Context) error {
+	if a == nil || a.extensionPuller == nil {
+		return errors.New("extension sync puller not initialized")
+	}
+	if err := a.extensionPuller.PullOnce(ctx); err != nil {
+		a.extensionRuntime.RecordError(err)
+		return err
+	}
+	if err := a.syncExtensionsFromRuntime(ctx); err != nil {
+		a.extensionRuntime.RecordError(err)
+		return err
+	}
+	return nil
+}
+
+func (a *App) syncExtensionsFromRuntime(ctx context.Context) error {
+	if a == nil || a.extensionRuntime == nil {
+		return nil
+	}
+	snap := a.extensionRuntime.Snapshot()
+	if a.providerManager != nil {
+		entries := buildExtensionProviderEntries(snap)
+		if err := a.providerManager.SyncExtensionProviders(ctx, entries); err != nil {
+			return err
+		}
+	}
+	if a.extensionDrivers != nil {
+		if _, err := a.extensionDrivers.Sync(ctx, snap); err != nil {
+			return err
+		}
+	}
+	a.syncExtensionFunctionsFromRuntime()
+	return nil
+}
+
+func (a *App) syncExtensionFunctionsFromRuntime() {
+	if a == nil || a.store == nil || a.extensionRuntime == nil {
+		return
+	}
+	snap := a.extensionRuntime.Snapshot()
+	routes := map[string]extensionFunctionRoute{}
+	for _, item := range snap.Installations {
+		providerID := "extension:" + strconv.FormatUint(uint64(item.InstallationID), 10)
+		funcs := discoverExtensionFunctions(item)
+		a.store.Register(providerID, "", item.ReleaseVersion, funcs)
+		for _, fn := range funcs {
+			if fn == nil || strings.TrimSpace(fn.GetId()) == "" {
+				continue
+			}
+			routes[strings.TrimSpace(fn.GetId())] = extensionFunctionRoute{
+				InstallationID: item.InstallationID,
+				Driver:         resolveFunctionDriver(item, fn.GetId()),
+			}
+		}
+	}
+	a.extensionMu.Lock()
+	a.extensionRoutes = routes
+	a.extensionMu.Unlock()
+}
+
+func discoverExtensionFunctions(item RuntimeInstallation) []*sdkv1.LocalFunctionDescriptor {
+	out := make([]*sdkv1.LocalFunctionDescriptor, 0)
+	seen := map[string]bool{}
+	pushWithEntity := func(id, operation, category string, tags []string, entity string) {
+		fid := strings.TrimSpace(id)
+		if fid == "" || seen[fid] {
+			return
+		}
+		seen[fid] = true
+		out = append(out, &sdkv1.LocalFunctionDescriptor{
+			Id:          fid,
+			Version:     item.ReleaseVersion,
+			Category:    firstNonEmpty(category, "extension"),
+			Risk:        "unknown",
+			Entity:      firstNonEmpty(entity, item.ExtensionID),
+			Operation:   firstNonEmpty(operation, "custom"),
+			Tags:        append([]string{"extension", item.ExtensionID}, tags...),
+			Summary:     "Extension function",
+			Description: "Discovered from extension runtime binding",
+		})
+	}
+	push := func(id, operation, category string, tags []string) {
+		pushWithEntity(id, operation, category, tags, "")
+	}
+	for _, f := range discoverExternalPlatformFunctions(item) {
+		pushWithEntity(
+			f.FunctionID,
+			f.Operation,
+			"external-platform",
+			[]string{"external-platform", f.Provider, "capability:" + f.Capability},
+			f.Provider,
+		)
+	}
+
+	for _, b := range item.Bindings {
+		bt := strings.ToLower(strings.TrimSpace(b.BindingType))
+		key := strings.TrimSpace(b.BindingKey)
+		switch bt {
+		case "function":
+			op := valueString(b.Spec, "operation")
+			cat := valueString(b.Spec, "category")
+			push(firstNonEmpty(key, valueString(b.Spec, "function_id"), valueString(b.Spec, "id")), op, cat, nil)
+		case "capability":
+			capID := firstNonEmpty(key, valueString(b.Spec, "capability"), valueString(b.Spec, "id"))
+			ops := valueStringSlice(b.Spec, "operations")
+			if len(ops) == 0 {
+				push(capID, "custom", "capability", []string{"capability"})
+				continue
+			}
+			for _, op := range ops {
+				push(capID+"."+sanitizeNodeKey(op), op, "capability", []string{"capability"})
+			}
+		case "operation":
+			capID := firstNonEmpty(valueString(b.Spec, "capability"), key)
+			op := firstNonEmpty(valueString(b.Spec, "operation"), valueString(b.Spec, "name"), "custom")
+			if capID != "" {
+				push(capID+"."+sanitizeNodeKey(op), op, "capability", []string{"capability"})
+			}
+		}
+	}
+	return out
+}
+
+type externalPlatformFunction struct {
+	Provider   string
+	Capability string
+	Operation  string
+	FunctionID string
+}
+
+func discoverExternalPlatformFunctions(item RuntimeInstallation) []externalPlatformFunction {
+	if !externalfunc.IsExternalPlatformExtensionID(item.ExtensionID) {
+		return nil
+	}
+	out := make([]externalPlatformFunction, 0)
+	seen := map[string]struct{}{}
+	bindings := make([]externalfunc.Binding, 0, len(item.Bindings))
+	for _, b := range item.Bindings {
+		bindings = append(bindings, externalfunc.Binding{
+			BindingType: b.BindingType,
+			BindingKey:  b.BindingKey,
+			Spec:        b.Spec,
+		})
+	}
+	for provider, operations := range externalfunc.DiscoverProviderOperations(bindings) {
+		for _, opKey := range operations {
+			fid := externalfunc.BuildFunctionID(provider, opKey)
+			if _, exists := seen[fid]; exists {
+				continue
+			}
+			seen[fid] = struct{}{}
+			out = append(out, externalPlatformFunction{
+				Provider:   provider,
+				Capability: externalfunc.Capability(provider),
+				Operation:  opKey,
+				FunctionID: fid,
+			})
+		}
+	}
+	return out
+}
+
+func buildExtensionProviderEntries(snapshot ExtensionRuntimeSnapshot) map[string]ProviderEntry {
+	out := map[string]ProviderEntry{}
+	for _, item := range snapshot.Installations {
+		if !externalfunc.IsExternalPlatformExtensionID(item.ExtensionID) {
+			continue
+		}
+		for _, b := range item.Bindings {
+			bt := strings.ToLower(strings.TrimSpace(b.BindingType))
+			if bt != "provider" && bt != "openapi" {
+				continue
+			}
+			parsed, ok := externalfunc.ParseProviderBinding(b.BindingKey, b.Spec)
+			if !ok {
+				continue
+			}
+			name := sanitizeNodeKey(parsed.Provider)
+			if name == "" {
+				continue
+			}
+			cfg := map[string]interface{}{}
+			for k, v := range parsed.Config {
+				cfg[k] = v
+			}
+			if len(parsed.Operations) > 0 {
+				if _, exists := cfg["methods"]; !exists {
+					methods := make([]map[string]any, 0, len(parsed.Operations))
+					for _, opKey := range parsed.Operations {
+						methods = append(methods, map[string]any{
+							"name":   opKey,
+							"path":   "/" + opKey,
+							"method": "POST",
+						})
+					}
+					if len(methods) > 0 {
+						cfg["methods"] = methods
+					}
+				}
+			}
+			out[name] = ProviderEntry{
+				Enabled: parsed.Enabled,
+				Type:    parsed.Type,
+				Config:  cfg,
+			}
+		}
+	}
+	return out
+}
+
+func valueString(m map[string]any, key string) string {
+	if m == nil {
+		return ""
+	}
+	v, ok := m[key]
+	if !ok || v == nil {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprint(v))
+}
+
+func valueStringSlice(m map[string]any, key string) []string {
+	if m == nil {
+		return nil
+	}
+	raw, ok := m[key]
+	if !ok || raw == nil {
+		return nil
+	}
+	list, ok := raw.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]string, 0, len(list))
+	for _, item := range list {
+		s := strings.TrimSpace(fmt.Sprint(item))
+		if s == "" || s == "<nil>" {
+			continue
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
+func (a *App) extensionRuntimeDynamicLabels() map[string]string {
+	if a == nil || a.extensionRuntime == nil {
+		return nil
+	}
+	snap := a.extensionRuntime.Snapshot()
+	enabled := 0
+	bindings := 0
+	for _, item := range snap.Installations {
+		if item.Enabled {
+			enabled++
+		}
+		bindings += len(item.Bindings)
+	}
+	labels := map[string]string{
+		"extensions.runtime.installations": strconv.Itoa(len(snap.Installations)),
+		"extensions.runtime.enabled":       strconv.Itoa(enabled),
+		"extensions.runtime.bindings":      strconv.Itoa(bindings),
+		"extensions.runtime.status":        firstNonEmpty(snap.LastApplyStatus, "unknown"),
+		"extensions.runtime.applied_at":    strconv.FormatInt(snap.AppliedAt, 10),
+		"extensions.runtime.last_error_at": strconv.FormatInt(snap.LastErrorAt, 10),
+		"extensions.runtime.last_failed":   strconv.Itoa(snap.LastFailed),
+	}
+	if snap.LastError != "" {
+		labels["extensions.runtime.last_error"] = truncateString(snap.LastError, 160)
+	}
+	if a.extensionDrivers != nil {
+		stats := a.extensionDrivers.LastResult()
+		labels["extensions.runtime.driver_init"] = strconv.Itoa(stats.Initialized)
+		labels["extensions.runtime.driver_reload"] = strconv.Itoa(stats.Reloaded)
+		labels["extensions.runtime.driver_stop"] = strconv.Itoa(stats.Stopped)
+		labels["extensions.runtime.driver_failed"] = strconv.Itoa(stats.Failed)
+	}
+	return labels
+}
+
+func truncateString(s string, max int) string {
+	if max <= 0 {
+		return ""
+	}
+	s = strings.TrimSpace(s)
+	if len(s) <= max {
+		return s
+	}
+	if max <= 3 {
+		return s[:max]
+	}
+	return s[:max-3] + "..."
+}
+
+type extensionFunctionRoute struct {
+	InstallationID uint
+	Driver         string
+}
+
+func resolveFunctionDriver(item RuntimeInstallation, functionID string) string {
+	fid := strings.TrimSpace(functionID)
+	if _, _, ok := externalfunc.ParseFunctionID(fid); ok {
+		return "openapi-driver"
+	}
+	for _, b := range item.Bindings {
+		key := strings.TrimSpace(b.BindingKey)
+		if key != "" && key != fid {
+			continue
+		}
+		if d := valueString(b.Spec, "driver"); d != "" {
+			return d
+		}
+		names := resolveDriverNames(RuntimeInstallation{Bindings: []RuntimeBinding{b}})
+		if len(names) > 0 {
+			return names[0]
+		}
+	}
+	return "workflow-driver"
+}
+
+func (a *App) hasExtensionFunction(functionID string) bool {
+	if a == nil {
+		return false
+	}
+	key := strings.TrimSpace(functionID)
+	if key == "" {
+		return false
+	}
+	a.extensionMu.RLock()
+	defer a.extensionMu.RUnlock()
+	_, ok := a.extensionRoutes[key]
+	return ok
+}
+
+func (a *App) invokeExtensionFunction(ctx context.Context, functionID string, payload []byte) ([]byte, error) {
+	if a == nil || a.extensionDrivers == nil {
+		return nil, errors.New("extension drivers not initialized")
+	}
+	key := strings.TrimSpace(functionID)
+	if key == "" {
+		return nil, errors.New("function id is required")
+	}
+	a.extensionMu.RLock()
+	route, ok := a.extensionRoutes[key]
+	a.extensionMu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("extension function not found: %s", key)
+	}
+	driver := firstNonEmpty(route.Driver, "workflow-driver")
+	if driver != "openapi-driver" {
+		if out, handled, err := invokeExternalPlatformFunction(ctx, key, payload, func(ctx context.Context, provider, method string, request []byte) ([]byte, error) {
+			if a.providerManager == nil {
+				return nil, errors.New("provider manager not initialized")
+			}
+			return a.providerManager.Call(ctx, provider+"."+method, request)
+		}); handled {
+			return out, err
+		}
+	}
+	return a.extensionDrivers.Invoke(ctx, driver, key, payload)
+}
+
 // opsServerWrapper wraps OpsServer to implement nng.OpsServerWrapper interface
 type opsServerWrapper struct {
 	ops *OpsServer
@@ -356,13 +821,26 @@ func (w *opsServerWrapper) ListCronJobsJSON(ctx context.Context) ([]byte, error)
 
 // providerManagerWrapper wraps ProviderManager to implement nng.ProviderManager interface
 type providerManagerWrapper struct {
-	pm *ProviderManager
+	pm  *ProviderManager
+	app *App
 }
 
 func (w *providerManagerWrapper) IsPlatformFunction(functionID string) bool {
+	if w != nil && w.app != nil && w.app.hasExtensionFunction(functionID) {
+		return true
+	}
+	if w == nil || w.pm == nil {
+		return false
+	}
 	return w.pm.IsPlatformFunction(functionID)
 }
 
 func (w *providerManagerWrapper) Call(ctx context.Context, functionID string, request []byte) ([]byte, error) {
+	if w != nil && w.app != nil && w.app.hasExtensionFunction(functionID) {
+		return w.app.invokeExtensionFunction(ctx, functionID, request)
+	}
+	if w == nil || w.pm == nil {
+		return nil, errors.New("provider manager not initialized")
+	}
 	return w.pm.Call(ctx, functionID, request)
 }
