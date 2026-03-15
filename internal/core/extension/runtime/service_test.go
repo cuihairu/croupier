@@ -36,3 +36,19 @@ func TestBuildRuntimeBindings_OfficialAnalytics(t *testing.T) {
 		t.Fatalf("missing analytics page bindings: %+v", keys)
 	}
 }
+
+func TestBuildRuntimeBindings_OfficialAlerting(t *testing.T) {
+	out := buildRuntimeBindings(&model.ExtensionInstallation{
+		ExtensionID: "official.alerting",
+	})
+	if len(out) < 4 {
+		t.Fatalf("expected alerting bindings, got %d", len(out))
+	}
+	keys := map[string]bool{}
+	for _, b := range out {
+		keys[b.BindingKey] = true
+	}
+	if !keys["alerts.overview"] || !keys["alerts.management"] || !keys["alerts.list"] || !keys["alerts.silence"] {
+		t.Fatalf("missing alerting binding keys: %+v", keys)
+	}
+}

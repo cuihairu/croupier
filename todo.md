@@ -674,6 +674,7 @@ Agent 需要新增 `ExtensionRuntime`，负责：
 - [x] Phase 5 预备：external 平台 provider/method 发现器下沉到 core（`DiscoverProviderOperations`），Agent 与 Platform 共用同一发现语义
 - [x] Phase 5 预备：Platform API 引入 legacy gateway 抽象，隔离对 `PlatformLoader` 的直接依赖，便于后续整体移除 legacy 实现
 - [x] Phase 6 预备：`/api/v1/agent/analytics-filters` 改为 extension-first（优先读取 `official.analytics` installation config，文件路径兜底）
+- [x] Phase 7 预备：编写 `official.alerting` 迁移草案并落 runtime binding 骨架（`docs/architecture/official-alerting-migration-draft.md`）
 - [x] Dashboard 升级流程接入依赖结构化错误提示（missing/version/cycle）
 - [x] `test-connection` / `health-check` 写入扩展事件流，提升可观测性
 - [x] 扩展事件透出 `payload` 字段，并在 Dashboard 事件列表展示

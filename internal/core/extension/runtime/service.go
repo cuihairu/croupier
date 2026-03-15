@@ -130,6 +130,38 @@ func buildRuntimeBindings(item *model.ExtensionInstallation) []model.ExtensionRu
 			},
 		}
 	}
+	if strings.EqualFold(extID, "official.alerting") {
+		return []model.ExtensionRuntimeBinding{
+			{
+				BindingType: "page",
+				BindingKey:  "alerts.overview",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"title":"Alerts","route":"/alerts","icon":"alert","order":10}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "capability",
+				BindingKey:  "alerts.management",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"operations":["list","silence","unsilence"]}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "function",
+				BindingKey:  "alerts.list",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"driver":"workflow-driver","operation":"list"}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "function",
+				BindingKey:  "alerts.silence",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"driver":"workflow-driver","operation":"silence"}`,
+				Status:      "active",
+			},
+		}
+	}
 	return []model.ExtensionRuntimeBinding{
 		{
 			BindingType: "function",
