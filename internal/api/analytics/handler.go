@@ -137,18 +137,11 @@ func (h *Handler) Overview(c *gin.Context) {
 }
 
 func (h *Handler) Realtime(c *gin.Context) {
-	// 支持从查询参数或 JSON body 获取参数
 	var req RealtimeRequest
-	if c.Request.Method == "GET" {
-		if err := c.ShouldBindQuery(&req); err != nil {
-			c.JSON(400, gin.H{"error": "参数错误: " + err.Error()})
-			return
-		}
-	} else {
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(400, gin.H{"error": "参数错误: " + err.Error()})
-			return
-		}
+	// Use compat binder so `gameId` query param works with json tags.
+	if err := bindAnalyticsRequest(c, &req); err != nil {
+		c.JSON(400, gin.H{"error": "参数错误: " + err.Error()})
+		return
 	}
 
 	// 设置 SSE 响应头
