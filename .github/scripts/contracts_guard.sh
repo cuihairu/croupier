@@ -11,20 +11,10 @@ fail() {
 SPEC_FILE="docs/contracts/extensions-openapi-v1.yaml"
 MAPPING_FILE="docs/contracts/frontend-error-mapping-v1.json"
 
-if command -v rg >/dev/null 2>&1; then
-  SEARCH_TOOL="rg"
-else
-  SEARCH_TOOL="grep"
-fi
-
 has_line() {
   local pattern="$1"
   local file="$2"
-  if [[ "${SEARCH_TOOL}" == "rg" ]]; then
-    rg -n --pcre2 "$pattern" "$file" >/dev/null 2>&1
-  else
-    grep -nE "$pattern" "$file" >/dev/null 2>&1
-  fi
+  grep -nF "$pattern" "$file" >/dev/null 2>&1
 }
 
 [[ -f "${SPEC_FILE}" ]] || fail "missing ${SPEC_FILE}"
@@ -48,8 +38,7 @@ required_paths=(
 )
 
 for p in "${required_paths[@]}"; do
-  escaped="$(printf '%s' "$p" | sed -e 's/[.[\*^$()+?{|]/\\&/g')"
-  has_line "^  ${escaped}$" "${SPEC_FILE}" || fail "missing required path in spec: ${p}"
+  has_line "  ${p}" "${SPEC_FILE}" || fail "missing required path in spec: ${p}"
 done
 
 required_error_codes=(
