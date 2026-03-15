@@ -114,6 +114,24 @@ func TestExtractPlatformMethodsFromBindings(t *testing.T) {
 	}
 }
 
+func TestExtractPlatformMethodsFromBindings_NewProviderNoCoreChange(t *testing.T) {
+	bindings := []model.ExtensionRuntimeBinding{
+		{
+			BindingType: "provider",
+			BindingKey:  "newvendor",
+			SpecJSON:    `{"provider":"newvendor","operations":["install","upgrade","uninstall"]}`,
+		},
+	}
+	got := extractPlatformMethodsFromBindings(bindings)
+	methods := got["newvendor"]
+	if len(methods) != 3 {
+		t.Fatalf("expected 3 methods from extension binding, got=%v", methods)
+	}
+	if methods[0] != "install" || methods[1] != "upgrade" || methods[2] != "uninstall" {
+		t.Fatalf("unexpected methods order/content: %v", methods)
+	}
+}
+
 func TestListPlatformsMarksExtensionSource(t *testing.T) {
 	store := reg.NewStore()
 	store.UpsertAgent(&reg.AgentSession{

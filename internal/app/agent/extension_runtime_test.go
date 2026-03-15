@@ -309,6 +309,40 @@ func TestResolveFunctionDriver_ExternalFunctionUsesOpenAPI(t *testing.T) {
 	}
 }
 
+func TestAppApplyExternalPlatformBindingsRegistersFunctions(t *testing.T) {
+	app := New("", "agent-ext-platform")
+	_, err := app.ApplyExtensionSyncPayloadJSON([]byte(`{
+		"agent_id":"agent-ext-platform",
+		"generated_at":123,
+		"version":"v1",
+		"installations":[
+			{
+				"installation_id":88,
+				"extension_id":"official.external-platform",
+				"release_version":"1.0.0",
+				"config_json":"{}",
+				"bindings":[
+					{
+						"binding_type":"provider",
+						"binding_key":"acmeops",
+						"spec_json":"{\"provider\":\"acmeops\",\"operations\":[\"invoke\",\"sync_status\"]}"
+					}
+				]
+			}
+		]
+	}`))
+	if err != nil {
+		t.Fatalf("apply payload json failed: %v", err)
+	}
+	store := app.Store().List()
+	if _, ok := store["external.acmeops.invoke"]; !ok {
+		t.Fatalf("expected registered function external.acmeops.invoke")
+	}
+	if _, ok := store["external.acmeops.sync_status"]; !ok {
+		t.Fatalf("expected registered function external.acmeops.sync_status")
+	}
+}
+
 type assertErr string
 
 func (e assertErr) Error() string { return string(e) }

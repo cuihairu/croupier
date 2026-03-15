@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
 	"github.com/cuihairu/croupier/internal/helper"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -19,6 +20,9 @@ const (
 	defaultOverviewWindowDays = 7
 	defaultRealtimeWindow     = 15 * time.Minute
 	maxRealtimeDurationMin    = 24 * 60
+	officialAnalyticsID       = "official.analytics"
+	analyticsFiltersKey       = "filters"
+	legacyAnalyticsFiltersKey = "analytics_filters"
 )
 
 func overview(ctx context.Context, svcCtx *svc.ServiceContext, req *OverviewRequest) (*OverviewResponse, error) {
@@ -248,6 +252,14 @@ func filtersGet(ctx context.Context, svcCtx *svc.ServiceContext, req *FiltersGet
 		gameID = strings.TrimSpace(req.GameId)
 	}
 
+	if items, ok, err := loadAnalyticsFiltersFromExtensionInstallation(ctx, svcCtx); err != nil {
+		return nil, err
+	} else if ok {
+		return &FiltersGetResponse{
+			Items: filterAnalyticsFilters(items, gameID),
+		}, nil
+	}
+
 	path := helper.ResolveAnalyticsFiltersPath(svcCtx.Config)
 
 	var items []AnalyticsFilters
@@ -294,45 +306,170 @@ func filtersUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *Filters
 		return nil, errors.New("filters 不能为空")
 	}
 
-	path := helper.ResolveAnalyticsFiltersPath(svcCtx.Config)
-
-	var items []AnalyticsFilters
-	var err error
-
-	if lock := svcCtx.AnalyticsFiltersLock; lock != nil {
-		lock.Lock()
-		defer lock.Unlock()
-		var data []byte
-		data, err = helper.ReadAnalyticsFiltersFile(path)
-		if err != nil {
-			return nil, err
-		}
-		items, err = LoadAnalyticsFilters(data)
-	} else {
-		var data []byte
-		data, err = helper.ReadAnalyticsFiltersFile(path)
-		if err != nil {
-			return nil, err
-		}
-		items, err = LoadAnalyticsFilters(data)
-	}
+	items, source, err := loadAnalyticsFiltersForUpdate(ctx, svcCtx)
 	if err != nil {
 		return nil, err
 	}
 
 	items = upsertAnalyticsFilter(items, gameID, req.Filters)
 
-	jsonData, err := SaveAnalyticsFiltersJSON(items)
-	if err != nil {
-		return nil, err
-	}
-	if err := helper.WriteAnalyticsFiltersFile(path, jsonData); err != nil {
-		return nil, err
+	if source == "extension" {
+		if err := saveAnalyticsFiltersToExtensionInstallation(ctx, svcCtx, items); err != nil {
+			return nil, err
+		}
+	} else {
+		path := helper.ResolveAnalyticsFiltersPath(svcCtx.Config)
+		jsonData, err := SaveAnalyticsFiltersJSON(items)
+		if err != nil {
+			return nil, err
+		}
+		if err := helper.WriteAnalyticsFiltersFile(path, jsonData); err != nil {
+			return nil, err
+		}
 	}
 
 	return &FiltersGetResponse{
 		Items: filterAnalyticsFilters(items, gameID),
 	}, nil
+}
+
+func loadAnalyticsFiltersForUpdate(ctx context.Context, svcCtx *svc.ServiceContext) ([]AnalyticsFilters, string, error) {
+	if items, ok, err := loadAnalyticsFiltersFromExtensionInstallation(ctx, svcCtx); err != nil {
+		return nil, "", err
+	} else if ok {
+		return items, "extension", nil
+	}
+	path := helper.ResolveAnalyticsFiltersPath(svcCtx.Config)
+	var items []AnalyticsFilters
+	var err error
+	if lock := svcCtx.AnalyticsFiltersLock; lock != nil {
+		lock.Lock()
+		defer lock.Unlock()
+		var data []byte
+		data, err = helper.ReadAnalyticsFiltersFile(path)
+		if err != nil {
+			return nil, "", err
+		}
+		items, err = LoadAnalyticsFilters(data)
+	} else {
+		var data []byte
+		data, err = helper.ReadAnalyticsFiltersFile(path)
+		if err != nil {
+			return nil, "", err
+		}
+		items, err = LoadAnalyticsFilters(data)
+	}
+	if err != nil {
+		return nil, "", err
+	}
+	return items, "file", nil
+}
+
+func loadAnalyticsFiltersFromExtensionInstallation(ctx context.Context, svcCtx *svc.ServiceContext) ([]AnalyticsFilters, bool, error) {
+	item, ok, err := findActiveAnalyticsInstallation(ctx, svcCtx)
+	if err != nil || !ok || item == nil {
+		return nil, false, err
+	}
+	config := map[string]any{}
+	if strings.TrimSpace(item.ConfigJSON) != "" {
+		if err := json.Unmarshal([]byte(item.ConfigJSON), &config); err != nil {
+			return nil, false, err
+		}
+	}
+	items, ok, err := extractAnalyticsFiltersFromConfig(config)
+	if err != nil {
+		return nil, false, err
+	}
+	if !ok {
+		return []AnalyticsFilters{}, true, nil
+	}
+	return items, true, nil
+}
+
+func saveAnalyticsFiltersToExtensionInstallation(ctx context.Context, svcCtx *svc.ServiceContext, items []AnalyticsFilters) error {
+	item, ok, err := findActiveAnalyticsInstallation(ctx, svcCtx)
+	if err != nil || !ok || item == nil {
+		return err
+	}
+	config := map[string]any{}
+	if strings.TrimSpace(item.ConfigJSON) != "" {
+		_ = json.Unmarshal([]byte(item.ConfigJSON), &config)
+	}
+	config = setAnalyticsFiltersToConfig(config, items)
+	secretRefs := map[string]string{}
+	if strings.TrimSpace(item.SecretRefsJSON) != "" {
+		_ = json.Unmarshal([]byte(item.SecretRefsJSON), &secretRefs)
+	}
+	operator := "system"
+	if v := strings.TrimSpace(pickContextString(ctx, "username")); v != "" {
+		operator = v
+	}
+	return svcCtx.Extensions.Installation.UpdateConfig(ctx, item.ID, config, secretRefs, operator)
+}
+
+func findActiveAnalyticsInstallation(ctx context.Context, svcCtx *svc.ServiceContext) (*model.ExtensionInstallation, bool, error) {
+	if svcCtx == nil || svcCtx.Extensions == nil || svcCtx.Extensions.Installation == nil {
+		return nil, false, nil
+	}
+	items, _, err := svcCtx.Extensions.Installation.List(ctx, extensioninstallation.ListQuery{
+		ExtensionID: officialAnalyticsID,
+		Limit:       50,
+		Offset:      0,
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	for i := range items {
+		item := items[i]
+		if strings.EqualFold(strings.TrimSpace(item.Status), "uninstalled") ||
+			strings.EqualFold(strings.TrimSpace(item.DesiredState), "uninstalled") {
+			continue
+		}
+		return &item, true, nil
+	}
+	return nil, false, nil
+}
+
+func extractAnalyticsFiltersFromConfig(config map[string]any) ([]AnalyticsFilters, bool, error) {
+	if config == nil {
+		return nil, false, nil
+	}
+	raw, exists := config[analyticsFiltersKey]
+	if !exists || raw == nil {
+		raw, exists = config[legacyAnalyticsFiltersKey]
+	}
+	if !exists || raw == nil {
+		return nil, false, nil
+	}
+	data, err := json.Marshal(raw)
+	if err != nil {
+		return nil, false, err
+	}
+	items := []AnalyticsFilters{}
+	if err := json.Unmarshal(data, &items); err != nil {
+		return nil, false, err
+	}
+	return normalizeAnalyticsFilters(items), true, nil
+}
+
+func setAnalyticsFiltersToConfig(config map[string]any, items []AnalyticsFilters) map[string]any {
+	if config == nil {
+		config = map[string]any{}
+	}
+	normalized := normalizeAnalyticsFilters(items)
+	config[analyticsFiltersKey] = normalized
+	config[legacyAnalyticsFiltersKey] = normalized
+	return config
+}
+
+func pickContextString(ctx context.Context, key string) string {
+	if ctx == nil || strings.TrimSpace(key) == "" {
+		return ""
+	}
+	if v := ctx.Value(key); v != nil {
+		return strings.TrimSpace(fmt.Sprint(v))
+	}
+	return ""
 }
 
 // Helper types and functions for overview analytics

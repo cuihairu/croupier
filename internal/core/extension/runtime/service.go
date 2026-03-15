@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"strings"
 
 	"github.com/cuihairu/croupier/internal/model"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
@@ -44,15 +45,7 @@ func (s *Service) Reconcile(ctx context.Context, installationID uint) (*Reconcil
 	if err := s.installationRepo.Save(ctx, item); err != nil {
 		return nil, err
 	}
-	bindings := []model.ExtensionRuntimeBinding{
-		{
-			BindingType: "function",
-			BindingKey:  item.ExtensionID + ".default",
-			TargetRef:   "extension:" + item.ExtensionID,
-			SpecJSON:    `{"strategy":"default"}`,
-			Status:      "active",
-		},
-	}
+	bindings := buildRuntimeBindings(item)
 	if err := s.bindingRepo.ReplaceForInstallation(ctx, installationID, bindings); err != nil {
 		return nil, err
 	}
@@ -69,4 +62,53 @@ func (s *Service) Reconcile(ctx context.Context, installationID uint) (*Reconcil
 		Failed:         0,
 		Message:        "reconciled",
 	}, nil
+}
+
+func buildRuntimeBindings(item *model.ExtensionInstallation) []model.ExtensionRuntimeBinding {
+	if item == nil {
+		return []model.ExtensionRuntimeBinding{}
+	}
+	extID := strings.TrimSpace(item.ExtensionID)
+	targetRef := "extension:" + extID
+	if strings.EqualFold(extID, "official.analytics") {
+		return []model.ExtensionRuntimeBinding{
+			{
+				BindingType: "capability",
+				BindingKey:  "analytics.filters",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"operations":["get","update"]}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "function",
+				BindingKey:  "analytics.filters.get",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"driver":"workflow-driver","operation":"get"}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "function",
+				BindingKey:  "analytics.filters.update",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"driver":"workflow-driver","operation":"update"}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "function",
+				BindingKey:  "analytics.ingest.batch",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"driver":"workflow-driver","operation":"ingest"}`,
+				Status:      "active",
+			},
+		}
+	}
+	return []model.ExtensionRuntimeBinding{
+		{
+			BindingType: "function",
+			BindingKey:  extID + ".default",
+			TargetRef:   targetRef,
+			SpecJSON:    `{"strategy":"default"}`,
+			Status:      "active",
+		},
+	}
 }

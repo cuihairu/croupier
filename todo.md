@@ -292,11 +292,11 @@ Agent 需要新增 `ExtensionRuntime`，负责：
 
 任务：
 
-- [ ] 输出核心模块清单
-- [ ] 输出扩展候选模块清单
-- [ ] 输出现有目录到未来架构的映射表
-- [ ] 确定扩展模型术语：Extension / Capability / Operation
-- [ ] 确定不采用 `HashiCorp/go-plugin` 作为主扩展机制
+- [x] 输出核心模块清单（见 `docs/architecture/core-extension-mapping.md`）
+- [x] 输出扩展候选模块清单（见 `docs/architecture/core-extension-mapping.md`）
+- [x] 输出现有目录到未来架构的映射表（见 `docs/architecture/core-extension-mapping.md`）
+- [x] 确定扩展模型术语：Extension / Capability / Operation（见本计划第 3 节）
+- [x] 确定不采用 `HashiCorp/go-plugin` 作为主扩展机制（见本计划第 11 节）
 - [ ] 清理旧的重构计划、过时路线说明、误导性文档
 
 产出：
@@ -322,13 +322,13 @@ Agent 需要新增 `ExtensionRuntime`，负责：
 
 任务：
 
-- [ ] 设计 `manifest.yaml` 规范
-- [ ] 设计 `capabilities.yaml` 规范
-- [ ] 设计 config schema 和 secrets schema 约定
-- [ ] 设计 runtime binding 规范
-- [ ] 定义扩展生命周期状态机
-- [ ] 定义安装实例 scope 与 target 模型
-- [ ] 输出示例扩展包
+- [x] 设计 `manifest.yaml` 规范（见 `docs/architecture/extension-manifest-draft.md`）
+- [x] 设计 `capabilities.yaml` 规范（见 `docs/architecture/extension-capabilities-draft.md`）
+- [x] 设计 config schema 和 secrets schema 约定（见 `docs/architecture/extension-manifest-draft.md`）
+- [x] 设计 runtime binding 规范（见 `docs/architecture/extension-runtime-service-draft.md`）
+- [x] 定义扩展生命周期状态机（见 `docs/architecture/extension-installation-model.md`）
+- [x] 定义安装实例 scope 与 target 模型（见 `docs/architecture/extension-installation-model.md`）
+- [x] 输出示例扩展包（见 `docs/architecture/extension-package-layout-draft.md`）
 
 产出：
 
@@ -337,8 +337,8 @@ Agent 需要新增 `ExtensionRuntime`，负责：
 
 检查项：
 
-- [ ] 一个扩展无需写宿主代码即可描述安装信息
-- [ ] capability 和 operation 命名规则固定
+- [x] 一个扩展无需写宿主代码即可描述安装信息（已通过 manifest/capabilities/install schema 约束）
+- [x] capability 和 operation 命名规则固定（见本计划第 3 节与 `extension-capabilities-draft.md`）
 
 中断恢复：
 
@@ -447,7 +447,7 @@ Agent 需要新增 `ExtensionRuntime`，负责：
 
 任务：
 
-- [ ] 抽离现有 platform/provider 逻辑为 `official.external-platform`
+- [x] 抽离现有 platform/provider 逻辑为 `official.external-platform`（核心侧保留 legacy gateway 兼容层，主路径已 extension-first）
 - [x] 把 YAML 驱动配置迁移为 installation 驱动（最小实现：Agent 可从 extension bindings 同步动态 provider，替换 extension 管理域内配置）
 - [x] 兼容现有 `external.v1` 协议（最小兼容：`external.<provider>.<method>` 支持 `CallPlatformRequest/Response` proto）
 - [x] 统一 capability / operation 映射
@@ -460,8 +460,8 @@ Agent 需要新增 `ExtensionRuntime`，负责：
 
 检查项：
 
-- [ ] 新平台不需要改核心代码即可通过安装实例接入
-- [ ] Agent 可以发现并注册对应 function
+- [x] 新平台不需要改核心代码即可通过安装实例接入（bindings 驱动 provider/method 发现，平台接口自动识别）
+- [x] Agent 可以发现并注册对应 function（`official.external-platform` bindings 可自动产出并注册 `external.*` function）
 
 中断恢复：
 
@@ -476,12 +476,12 @@ Agent 需要新增 `ExtensionRuntime`，负责：
 
 任务：
 
-- [ ] 梳理 analytics API、任务、存储、页面边界
-- [ ] 抽象核心仍需保留的基础能力
+- [x] 梳理 analytics API、任务、存储、页面边界（见 `docs/architecture/official-analytics-migration-draft.md`）
+- [x] 抽象核心仍需保留的基础能力（见 `docs/architecture/official-analytics-migration-draft.md` 的“核心保留 / 扩展迁移清单”）
 - [ ] 把 analytics 页面转为扩展页面
-- [ ] 把 analytics 配置转为 installation 配置
-- [ ] 把分析任务接入扩展 runtime
-- [ ] 保持已有数据模型兼容迁移
+- [x] 把 analytics 配置转为 installation 配置（analytics filters 已改为优先读写 `official.analytics` 安装配置，文件路径仅兜底）
+- [x] 把分析任务接入扩展 runtime（`runtime.Reconcile` 已为 `official.analytics` 生成 filters/ingest 相关 binding 骨架）
+- [x] 保持已有数据模型兼容迁移（安装配置读写兼容 `filters` 与 `analytics_filters`，并保留文件路径兜底）
 
 产出：
 
@@ -489,8 +489,8 @@ Agent 需要新增 `ExtensionRuntime`，负责：
 
 检查项：
 
-- [ ] 不安装 analytics 时核心仍可正常运行
-- [ ] 安装 analytics 后功能可恢复
+- [x] 不安装 analytics 时核心仍可正常运行（`TestFiltersGetFallsBackToFileWhenExtensionNotInstalled`）
+- [x] 安装 analytics 后功能可恢复（`TestFiltersGetPrefersExtensionInstallationConfig`）
 
 中断恢复：
 
@@ -673,6 +673,7 @@ Agent 需要新增 `ExtensionRuntime`，负责：
 - [x] Phase 5 预备：统一 provider/openapi binding 解析器（抽到 `internal/core/extension/externalfunc` 并复用到 Agent + Platform，消除重复解析语义）
 - [x] Phase 5 预备：external 平台 provider/method 发现器下沉到 core（`DiscoverProviderOperations`），Agent 与 Platform 共用同一发现语义
 - [x] Phase 5 预备：Platform API 引入 legacy gateway 抽象，隔离对 `PlatformLoader` 的直接依赖，便于后续整体移除 legacy 实现
+- [x] Phase 6 预备：`/api/v1/agent/analytics-filters` 改为 extension-first（优先读取 `official.analytics` installation config，文件路径兜底）
 - [x] Dashboard 升级流程接入依赖结构化错误提示（missing/version/cycle）
 - [x] `test-connection` / `health-check` 写入扩展事件流，提升可观测性
 - [x] 扩展事件透出 `payload` 字段，并在 Dashboard 事件列表展示

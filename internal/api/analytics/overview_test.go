@@ -1,10 +1,19 @@
 package analytics
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/config"
+	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
 	"github.com/cuihairu/croupier/internal/model"
+	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
+	"github.com/cuihairu/croupier/internal/svc"
+	gsqlite "github.com/glebarez/sqlite"
+	"gorm.io/gorm"
 )
 
 func TestSummarizeStatsHelpers(t *testing.T) {
@@ -132,5 +141,161 @@ func TestPickStringFormatAndFilterHelpers(t *testing.T) {
 	added := upsertAnalyticsFilter(nil, "new", map[string]interface{}{"env": "prod"})
 	if len(added) != 1 || added[0].GameId != "new" {
 		t.Fatalf("unexpected upsert add result: %#v", added)
+	}
+}
+
+func TestExtractAndSetAnalyticsFiltersFromConfig(t *testing.T) {
+	t.Parallel()
+
+	items, ok, err := extractAnalyticsFiltersFromConfig(map[string]any{
+		"filters": []map[string]any{
+			{"gameId": "tower", "filters": map[string]any{"env": "prod"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("extractAnalyticsFiltersFromConfig() error = %v", err)
+	}
+	if !ok || len(items) != 1 || items[0].GameId != "tower" {
+		t.Fatalf("unexpected parsed filters: ok=%v items=%#v", ok, items)
+	}
+
+	cfg := setAnalyticsFiltersToConfig(map[string]any{"retention_days": 7}, []AnalyticsFilters{
+		{GameId: "newgame", Filters: map[string]any{"env": "dev"}},
+	})
+	raw, exists := cfg["filters"]
+	if !exists || raw == nil {
+		t.Fatalf("expected filters written into config")
+	}
+	if legacy, ok := cfg["analytics_filters"]; !ok || legacy == nil {
+		t.Fatalf("expected legacy analytics_filters compatibility key")
+	}
+}
+
+func TestExtractAnalyticsFiltersFromConfigLegacyKey(t *testing.T) {
+	t.Parallel()
+
+	items, ok, err := extractAnalyticsFiltersFromConfig(map[string]any{
+		"analytics_filters": []map[string]any{
+			{"gameId": "legacy", "filters": map[string]any{"region": "cn"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("extractAnalyticsFiltersFromConfig() error = %v", err)
+	}
+	if !ok || len(items) != 1 || items[0].GameId != "legacy" {
+		t.Fatalf("unexpected parsed filters from legacy key: ok=%v items=%#v", ok, items)
+	}
+}
+
+func TestExtractAnalyticsFiltersFromConfigPreferNewKey(t *testing.T) {
+	t.Parallel()
+
+	items, ok, err := extractAnalyticsFiltersFromConfig(map[string]any{
+		"filters": []map[string]any{
+			{"gameId": "new", "filters": map[string]any{"env": "prod"}},
+		},
+		"analytics_filters": []map[string]any{
+			{"gameId": "legacy", "filters": map[string]any{"env": "legacy"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("extractAnalyticsFiltersFromConfig() error = %v", err)
+	}
+	if !ok || len(items) != 1 || items[0].GameId != "new" {
+		t.Fatalf("expected prefer new filters key, got ok=%v items=%#v", ok, items)
+	}
+}
+
+func TestFiltersGetFallsBackToFileWhenExtensionNotInstalled(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "analytics_filters.json")
+	data, err := SaveAnalyticsFiltersJSON([]AnalyticsFilters{
+		{GameId: "tower", Filters: map[string]any{"env": "prod"}},
+	})
+	if err != nil {
+		t.Fatalf("SaveAnalyticsFiltersJSON() error = %v", err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("write filters file failed: %v", err)
+	}
+
+	resp, err := filtersGet(context.Background(), &svc.ServiceContext{
+		Config: config.Config{
+			Registry: config.RegistryConfig{
+				AnalyticsFiltersPath: path,
+			},
+		},
+	}, &FiltersGetRequest{})
+	if err != nil {
+		t.Fatalf("filtersGet() error = %v", err)
+	}
+	if len(resp.Items) != 1 || resp.Items[0].GameId != "tower" {
+		t.Fatalf("expected file fallback filters, got %#v", resp.Items)
+	}
+}
+
+func TestFiltersGetPrefersExtensionInstallationConfig(t *testing.T) {
+	t.Parallel()
+
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite failed: %v", err)
+	}
+	if err := db.AutoMigrate(&model.ExtensionInstallation{}); err != nil {
+		t.Fatalf("auto migrate failed: %v", err)
+	}
+
+	repos := extensiongorm.NewBundle(db)
+	installationSvc := extensioninstallation.NewService(repos.Installation, repos.Event, repos.Binding)
+	installed, err := installationSvc.Install(context.Background(), extensioninstallation.InstallRequest{
+		ExtensionID:    officialAnalyticsID,
+		ReleaseVersion: "1.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent_group",
+		TargetID:       "default",
+		Config: map[string]any{
+			"filters": []map[string]any{
+				{"gameId": "ext", "filters": map[string]any{"env": "stage"}},
+			},
+		},
+		Operator: "tester",
+	})
+	if err != nil {
+		t.Fatalf("install analytics extension failed: %v", err)
+	}
+	if installed == nil {
+		t.Fatal("expected installed extension")
+	}
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "analytics_filters.json")
+	fileData, err := SaveAnalyticsFiltersJSON([]AnalyticsFilters{
+		{GameId: "file", Filters: map[string]any{"env": "prod"}},
+	})
+	if err != nil {
+		t.Fatalf("SaveAnalyticsFiltersJSON() error = %v", err)
+	}
+	if err := os.WriteFile(path, fileData, 0o644); err != nil {
+		t.Fatalf("write filters file failed: %v", err)
+	}
+
+	resp, err := filtersGet(context.Background(), &svc.ServiceContext{
+		Config: config.Config{
+			Registry: config.RegistryConfig{
+				AnalyticsFiltersPath: path,
+			},
+		},
+		Extensions: &svc.ExtensionServices{
+			Installation: installationSvc,
+		},
+	}, &FiltersGetRequest{})
+	if err != nil {
+		t.Fatalf("filtersGet() error = %v", err)
+	}
+	if len(resp.Items) != 1 || resp.Items[0].GameId != "ext" {
+		t.Fatalf("expected extension filters to win over file fallback, got %#v", resp.Items)
 	}
 }
