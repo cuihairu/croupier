@@ -15,24 +15,24 @@ type Service struct {
 }
 
 type AgentSyncPayload struct {
-	AgentID       string                      `json:"agent_id"`
-	GeneratedAt   int64                       `json:"generated_at"`
-	Version       string                      `json:"version"`
-	Installations []AgentInstallationPayload  `json:"installations"`
+	AgentID       string                     `json:"agent_id"`
+	GeneratedAt   int64                      `json:"generated_at"`
+	Version       string                     `json:"version"`
+	Installations []AgentInstallationPayload `json:"installations"`
 }
 
 type AgentInstallationPayload struct {
-	InstallationID  uint                 `json:"installation_id"`
-	InstallationKey string               `json:"installation_key"`
-	ExtensionID     string               `json:"extension_id"`
-	ReleaseVersion  string               `json:"release_version"`
-	Enabled         bool                 `json:"enabled"`
-	ScopeType       string               `json:"scope_type"`
-	ScopeID         string               `json:"scope_id"`
-	TargetType      string               `json:"target_type"`
-	TargetID        string               `json:"target_id"`
-	ConfigJSON      string               `json:"config_json"`
-	SecretRefsJSON  string               `json:"secret_refs_json"`
+	InstallationID  uint                  `json:"installation_id"`
+	InstallationKey string                `json:"installation_key"`
+	ExtensionID     string                `json:"extension_id"`
+	ReleaseVersion  string                `json:"release_version"`
+	Enabled         bool                  `json:"enabled"`
+	ScopeType       string                `json:"scope_type"`
+	ScopeID         string                `json:"scope_id"`
+	TargetType      string                `json:"target_type"`
+	TargetID        string                `json:"target_id"`
+	ConfigJSON      string                `json:"config_json"`
+	SecretRefsJSON  string                `json:"secret_refs_json"`
 	Bindings        []AgentBindingPayload `json:"bindings"`
 }
 

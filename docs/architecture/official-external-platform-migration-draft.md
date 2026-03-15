@@ -5,11 +5,13 @@
 
 本文件定义 `official.external-platform` 作为第一批官方扩展的迁移方案。
 
+> 说明（2026-03-15）：当前实现已经进入 extension-first 路径。本文中提到的 YAML 路径仅用于迁移兼容，不是推荐默认入口。
+
 ---
 
 ## 1. 目标
 
-把当前“第三方平台集成”从：
+把历史“第三方平台集成”从：
 
 - Server 侧 `configs/platforms.yaml`
 - Agent 侧 `providers.yaml`
@@ -53,7 +55,7 @@
 
 特点：
 
-- Agent 读取 `providers.yaml`
+- Agent 读取本地 provider 配置（迁移期）
 - 只支持 `openapi`
 - 自动把 provider methods 注册成 functions
 - 调用时按 `provider.method` 转回 provider runtime
@@ -124,7 +126,7 @@ driver 负责：
 优先替换：
 
 - `configs/platforms.yaml` 主配置地位
-- Agent 侧 `providers.yaml` 主配置地位
+- Agent 侧本地 provider 配置主配置地位
 - `internal/platform/loader.go` 的 YAML 主入口
 - `internal/app/agent/provider.go` 的 YAML 主入口
 
@@ -299,7 +301,7 @@ internal/extensions/official/externalplatform/
 当 installation 路径跑通后，再考虑逐步删除：
 
 - `configs/platforms.yaml` 的正式入口地位
-- Agent `providers.yaml` 的正式入口地位
+- Agent 本地 provider 配置的正式入口地位
 - `internal/platform/loader.go` 中 YAML 驱动主逻辑
 
 ---
@@ -310,7 +312,7 @@ internal/extensions/official/externalplatform/
 
 短期允许：
 
-- 若无 installation 数据，则 fallback 到 YAML
+- 若显式开启兼容开关且无 installation 数据，则 fallback 到 YAML
 - 若存在 installation 数据，则优先 installation
 
 ### 9.2 中期目标

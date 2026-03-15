@@ -297,7 +297,7 @@ Agent 需要新增 `ExtensionRuntime`，负责：
 - [x] 输出现有目录到未来架构的映射表（见 `docs/architecture/core-extension-mapping.md`）
 - [x] 确定扩展模型术语：Extension / Capability / Operation（见本计划第 3 节）
 - [x] 确定不采用 `HashiCorp/go-plugin` 作为主扩展机制（见本计划第 11 节）
-- [ ] 清理旧的重构计划、过时路线说明、误导性文档
+- [x] 清理旧的重构计划、过时路线说明、误导性文档（已清理 docs 首页与 third-party/architecture 文档中的 pack 与 YAML 主路径误导表述）
 
 产出：
 
