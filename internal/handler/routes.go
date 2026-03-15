@@ -624,7 +624,6 @@ func registerPlatformRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("", platformHandler.List)
 	g.GET("/", platformHandler.List)
 	g.GET("/:platform/methods", platformHandler.Methods)
-	g.POST("/reload", platformHandler.Reload)
 }
 
 // ============================================================================

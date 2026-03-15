@@ -505,11 +505,11 @@ Agent 需要新增 `ExtensionRuntime`，负责：
 
 任务：
 
-- [ ] alerts 迁移
-- [ ] notification 迁移
-- [ ] approval 迁移
-- [ ] backup advanced 迁移
-- [ ] 统一这些扩展的权限、菜单、配置方式
+- [x] alerts 迁移（`official.alerting` 已完成 runtime bindings + 事件桥接 + silences extension-first 配置读写，核心模型保留兼容）
+- [x] notification 迁移（`ops notifications` 已切到 `official.notification` installation config 读写并保留兼容兜底）
+- [x] approval 迁移（`official.approval` 已完成 runtime bindings + 事件桥接 + list/get extension-first + approve/reject 状态回写安装配置，核心 store 兼容保留）
+- [x] backup advanced 迁移（`official.backup-advanced` 已完成 runtime bindings + 事件桥接 + list extension-first + create/delete 同步安装配置，下载链路保留兼容）
+- [x] 统一这些扩展的权限、菜单、配置方式（已落统一规范文档 + 官方扩展 runtime binding 权限/配置键字段 + extension pages/capabilities 透出）
 
 产出：
 
@@ -517,8 +517,8 @@ Agent 需要新增 `ExtensionRuntime`，负责：
 
 检查项：
 
-- [ ] 核心目录显著收敛
-- [ ] 业务模块安装与升级路径统一
+- [x] 核心目录显著收敛（已移除 legacy platform loader/gateway/migrationflags 与旧 platforms 配置入口）
+- [x] 业务模块安装与升级路径统一（alerts/notification/approval/backup 与 external-platform 均走 extension installation/runtime 路径，升级操作统一由 extension installation 管理）
 
 中断恢复：
 
@@ -533,12 +533,12 @@ Agent 需要新增 `ExtensionRuntime`，负责：
 
 任务：
 
-- [ ] 删除废弃 YAML 主配置路径
-- [ ] 删除旧 provider 直连入口
-- [ ] 删除过时 API
-- [ ] 删除仅为旧模块存在的核心耦合代码
-- [ ] 清理旧文档与旧示例
-- [ ] 更新 README、部署说明、架构文档
+- [x] 删除废弃 YAML 主配置路径（移除 legacy `platforms.yaml` 默认主入口：`initPlatformLoader` 不再硬编码默认路径，需显式配置 `platforms.ConfigFile` 才启用）
+- [x] 删除旧 provider 直连入口（平台 API 已移除 legacy fallback 调用链；删除 `internal/api/platform/legacy_gateway.go`、`ServiceContext.PlatformLoader` 与 `initPlatformLoader`）
+- [x] 删除过时 API（移除平台 legacy `POST /api/v1/platforms/reload` 路由与 handler/service/dto，并清理 legacy/fallback 响应字段）
+- [x] 删除仅为旧模块存在的核心耦合代码（移除 `ServiceContext.PlatformLoader`、`initPlatformLoader`、`internal/platform/loader.go` 与对应 legacy 测试/桥接文件）
+- [x] 清理旧文档与旧示例（删除 `configs/platforms.yaml`，移除 `server.yaml` 中 `platforms` 旧配置段，并更新 external-platform 相关文档为历史说明）
+- [x] 更新 README、部署说明、架构文档（已补 extension-first 默认行为与 legacy 开关语义，architecture 索引已收敛到官方扩展迁移文档）
 
 产出：
 
@@ -546,9 +546,9 @@ Agent 需要新增 `ExtensionRuntime`，负责：
 
 检查项：
 
-- [ ] 核心不再承载重业务
-- [ ] 扩展安装成为默认工作方式
-- [ ] 新增业务默认走扩展流程
+- [x] 核心不再承载重业务（platform/alerts/notification/approval/backup 已默认 extension-first，核心侧仅保留兼容与基础治理能力）
+- [x] 扩展安装成为默认工作方式（legacy 平台路径默认关闭：需显式 `CROUPIER_PLATFORM_LEGACY_DISABLED=false` 才启用回退）
+- [x] 新增业务默认走扩展流程（已通过扩展准入策略文档 + extension-first 默认开关落地）
 
 中断恢复：
 
@@ -676,6 +676,11 @@ Agent 需要新增 `ExtensionRuntime`，负责：
 - [x] Phase 6 预备：`/api/v1/agent/analytics-filters` 改为 extension-first（优先读取 `official.analytics` installation config，文件路径兜底）
 - [x] Phase 7 预备：编写 `official.alerting` 迁移草案并落 runtime binding 骨架（`docs/architecture/official-alerting-migration-draft.md`）
 - [x] Phase 7 预备：`internal/api/alert` 接入 extension 事件流（静默/取消静默写入 `official.alerting` installation events，保留核心模型兼容）
+- [x] Phase 7 预备：编写 `official.notification` 迁移草案并落 runtime binding 骨架，`internal/api/ops` 通知更新接入 extension 事件流（保留兼容返回）
+- [x] Phase 7 推进：`ops notifications` 改为 extension-first 配置读写（优先 `official.notification` installation config，未安装时空结构兜底）
+- [x] Phase 7 预备：编写 `official.approval` 迁移草案并落 runtime binding 骨架，`internal/api/approval` 通过/拒绝接入 extension 事件流（保留核心 store 兼容）
+- [x] Phase 7 预备：编写 `official.backup-advanced` 迁移草案并落 runtime binding 骨架，`internal/api/backup` 创建/删除接入 extension 事件流（保留下载与列表兼容）
+- [x] Phase 7 预备：输出官方扩展统一模式文档（权限/菜单/配置命名、事件规范、迁移模板），供 alerts/notification/approval/backup 共用
 - [x] Dashboard 升级流程接入依赖结构化错误提示（missing/version/cycle）
 - [x] `test-connection` / `health-check` 写入扩展事件流，提升可观测性
 - [x] 扩展事件透出 `payload` 字段，并在 Dashboard 事件列表展示

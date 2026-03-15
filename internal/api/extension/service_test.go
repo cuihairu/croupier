@@ -320,6 +320,11 @@ func TestFindInstallationConflictIgnoresUninstalled(t *testing.T) {
 func TestExtractCapabilityDetailsFromBindings(t *testing.T) {
 	caps, details := extractCapabilityDetailsFromBindings([]model.ExtensionRuntimeBinding{
 		{
+			BindingType: "capability",
+			BindingKey:  "notifications.management",
+			SpecJSON:    `{"operations":["get","update"],"permissions":{"get":"notifications.read","update":"notifications.operate"},"config_keys":["enabled","channels"]}`,
+		},
+		{
 			BindingType: "provider",
 			BindingKey:  "onepanel",
 			SpecJSON:    `{"provider":"onepanel","operations":["list_apps","install_app"]}`,
@@ -346,12 +351,24 @@ func TestExtractCapabilityDetailsFromBindings(t *testing.T) {
 	if len(details) == 0 {
 		t.Fatalf("expected structured capability details")
 	}
+	var notify *ExtensionCapabilityDetail
 	var onepanel *ExtensionCapabilityDetail
 	for i := range details {
+		if details[i].Capability == "notifications.management" {
+			notify = &details[i]
+		}
 		if details[i].Capability == "external.onepanel" {
 			onepanel = &details[i]
-			break
 		}
+	}
+	if notify == nil {
+		t.Fatalf("expected notifications.management detail, got: %+v", details)
+	}
+	if notify.Permissions["update"] != "notifications.operate" {
+		t.Fatalf("expected parsed permissions in capability detail, got: %+v", notify.Permissions)
+	}
+	if len(notify.ConfigKeys) != 2 {
+		t.Fatalf("expected parsed config_keys in capability detail, got: %+v", notify.ConfigKeys)
 	}
 	if onepanel == nil {
 		t.Fatalf("expected external.onepanel detail, got: %+v", details)
@@ -371,7 +388,7 @@ func TestExtractPageDetailsFromBindings(t *testing.T) {
 		{
 			BindingType: "page",
 			BindingKey:  "analytics.overview",
-			SpecJSON:    `{"title":"Overview","route":"/analytics/overview","order":10}`,
+			SpecJSON:    `{"title":"Overview","route":"/analytics/overview","order":10,"required_permission":"analytics.read"}`,
 		},
 		{
 			BindingType: "navigation",
@@ -384,5 +401,15 @@ func TestExtractPageDetailsFromBindings(t *testing.T) {
 	}
 	if pages[0].Key != "analytics.realtime" && pages[0].Key != "analytics.overview" {
 		t.Fatalf("unexpected first page key before service sort: %s", pages[0].Key)
+	}
+	var overview *ExtensionPageItem
+	for i := range pages {
+		if pages[i].Key == "analytics.overview" {
+			overview = &pages[i]
+			break
+		}
+	}
+	if overview == nil || overview.RequiredPermission != "analytics.read" {
+		t.Fatalf("expected required_permission=analytics.read, got: %+v", overview)
 	}
 }

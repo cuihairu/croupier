@@ -50,16 +50,6 @@ func (h *Handler) ListMethods(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// ReloadConfig handles the request to reload platform configuration
-func (h *Handler) ReloadConfig(c *gin.Context) {
-	resp, err := h.service.ReloadConfig(c.Request.Context())
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	response.Success(c, resp)
-}
-
 // Alias methods for route compatibility
 
 func (h *Handler) List(c *gin.Context) {
@@ -68,8 +58,4 @@ func (h *Handler) List(c *gin.Context) {
 
 func (h *Handler) Methods(c *gin.Context) {
 	h.ListMethods(c)
-}
-
-func (h *Handler) Reload(c *gin.Context) {
-	h.ReloadConfig(c)
 }

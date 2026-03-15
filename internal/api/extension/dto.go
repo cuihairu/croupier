@@ -191,24 +191,27 @@ type ExtensionCapabilitiesResponse struct {
 }
 
 type ExtensionCapabilityDetail struct {
-	Type       string   `json:"type"`
-	Key        string   `json:"key"`
-	Capability string   `json:"capability"`
-	Provider   string   `json:"provider"`
-	Operations []string `json:"operations"`
-	Source     string   `json:"source"`
+	Type        string            `json:"type"`
+	Key         string            `json:"key"`
+	Capability  string            `json:"capability"`
+	Provider    string            `json:"provider"`
+	Operations  []string          `json:"operations"`
+	Permissions map[string]string `json:"permissions,omitempty"`
+	ConfigKeys  []string          `json:"config_keys,omitempty"`
+	Source      string            `json:"source"`
 }
 
 type ExtensionPageItem struct {
-	Type   string         `json:"type"`
-	Key    string         `json:"key"`
-	Title  string         `json:"title"`
-	Route  string         `json:"route"`
-	Icon   string         `json:"icon"`
-	Group  string         `json:"group"`
-	Order  int            `json:"order"`
-	Source string         `json:"source"`
-	Schema map[string]any `json:"schema"`
+	Type               string         `json:"type"`
+	Key                string         `json:"key"`
+	Title              string         `json:"title"`
+	Route              string         `json:"route"`
+	Icon               string         `json:"icon"`
+	Group              string         `json:"group"`
+	Order              int            `json:"order"`
+	RequiredPermission string         `json:"required_permission,omitempty"`
+	Source             string         `json:"source"`
+	Schema             map[string]any `json:"schema"`
 }
 
 type ExtensionPagesResponse struct {

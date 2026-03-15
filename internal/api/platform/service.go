@@ -8,19 +8,16 @@ import (
 	"github.com/cuihairu/croupier/internal/core/extension/externalfunc"
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
 	"github.com/cuihairu/croupier/internal/model"
-	"github.com/cuihairu/croupier/internal/platform/migrationflags"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
 type Service struct {
 	svcCtx *svc.ServiceContext
-	legacy legacyPlatformGateway
 }
 
 func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{
 		svcCtx: svcCtx,
-		legacy: newLegacyPlatformGateway(svcCtx),
 	}
 }
 
@@ -45,14 +42,8 @@ func (s *Service) Call(ctx context.Context, req *CallPlatformRequest) (*CallPlat
 	if req.Request != "" {
 		requestData = []byte(req.Request)
 	}
-	extensionOnly := isPlatformExtensionOnly()
-	legacyDisabled := isPlatformLegacyDisabled()
-
-	// Extension-first path: try invoking external.<platform>.<method> through dispatcher.
-	var invokeErr error
-	invokeAttempted := false
+	// Extension-only path: invoke external.<platform>.<method> through dispatcher.
 	if functionID := buildExternalFunctionID(req.Platform, req.Method); functionID != "" && s.svcCtx.Dispatcher != nil {
-		invokeAttempted = true
 		response, err := s.svcCtx.Dispatcher.Invoke(ctx, functionID, requestData)
 		if err == nil {
 			var result interface{}
@@ -68,72 +59,16 @@ func (s *Service) Call(ctx context.Context, req *CallPlatformRequest) (*CallPlat
 				Source:   "extension",
 			}, nil
 		}
-		invokeErr = err
-	}
-	if extensionOnly || legacyDisabled {
-		if invokeErr != nil {
-			return &CallPlatformResponse{
-				Code:    500,
-				Message: invokeErr.Error(),
-				Source:  "extension",
-			}, nil
-		}
-		return &CallPlatformResponse{
-			Code:    503,
-			Message: "Platform extension runtime is not available",
-			Source:  "extension",
-		}, nil
-	}
-	if !allowLegacyFallbackAfterExtensionError() && invokeAttempted && invokeErr != nil {
-		return &CallPlatformResponse{
-			Code:    500,
-			Message: invokeErr.Error(),
-			Source:  "extension",
-		}, nil
-	}
-
-	// Fallback to legacy platform loader.
-	if s.legacy == nil {
-		if invokeErr != nil {
-			return &CallPlatformResponse{
-				Code:    500,
-				Message: invokeErr.Error(),
-			}, nil
-		}
-		return &CallPlatformResponse{
-			Code:    503,
-			Message: "Platform integration is not enabled",
-		}, nil
-	}
-
-	fallbackUsed := invokeAttempted && invokeErr != nil
-	response, err := s.legacy.Call(ctx, req.Platform, req.Method, requestData)
-	if err != nil {
-		if invokeErr != nil {
-			return &CallPlatformResponse{
-				Code:    500,
-				Message: invokeErr.Error(),
-			}, nil
-		}
 		return &CallPlatformResponse{
 			Code:    500,
 			Message: err.Error(),
+			Source:  "extension",
 		}, nil
 	}
-
-	// Parse response to return structured data
-	var result interface{}
-	if len(response) > 0 {
-		_ = json.Unmarshal(response, &result)
-	}
-
 	return &CallPlatformResponse{
-		Code:           200,
-		Message:        "success",
-		Response:       result,
-		Source:         "legacy",
-		Fallback:       fallbackUsed,
-		FallbackReason: fallbackReason(fallbackUsed),
+		Code:    503,
+		Message: "Platform extension runtime is not available",
+		Source:  "extension",
 	}, nil
 }
 
@@ -150,25 +85,6 @@ func (s *Service) ListPlatforms(ctx context.Context) (*ListPlatformsResponse, er
 			Source:  "extension",
 		})
 		seen[strings.ToLower(strings.TrimSpace(name))] = true
-	}
-
-	// Merge legacy platform loader providers unless extension-only mode is enabled.
-	if useLegacyPlatformFallback() && s.legacy != nil {
-		providers := s.legacy.ListProviders()
-		for _, p := range providers {
-			name := strings.TrimSpace(p.Name)
-			key := strings.ToLower(name)
-			if seen[key] {
-				continue
-			}
-			platforms = append(platforms, PlatformInfo{
-				Name:    name,
-				Enabled: p.Enabled,
-				Methods: p.Methods,
-				Source:  "legacy",
-			})
-			seen[key] = true
-		}
 	}
 
 	return &ListPlatformsResponse{
@@ -207,15 +123,6 @@ func (s *Service) ListMethods(ctx context.Context, platform string) (*ListPlatfo
 	addMethods(discovered[strings.ToLower(p)])
 	usedExtension := len(methods) > 0
 
-	usedLegacy := false
-	if useLegacyPlatformFallback() && s.legacy != nil {
-		methodsFromLegacy, ok := s.legacy.ListMethods(platform)
-		if ok {
-			addMethods(methodsFromLegacy)
-			usedLegacy = true
-		}
-	}
-
 	if len(methods) == 0 {
 		return &ListPlatformMethodsResponse{
 			Code:    404,
@@ -228,39 +135,7 @@ func (s *Service) ListMethods(ctx context.Context, platform string) (*ListPlatfo
 		Code:    200,
 		Message: "success",
 		Methods: methods,
-		Source:  resolveMethodsSource(usedExtension, usedLegacy),
-	}, nil
-}
-
-// ReloadConfig reloads the platform configuration
-func (s *Service) ReloadConfig(ctx context.Context) (*ReloadPlatformConfigResponse, error) {
-	if !useLegacyPlatformFallback() {
-		return &ReloadPlatformConfigResponse{
-			Code:    200,
-			Message: "Platform legacy fallback disabled; no legacy config to reload",
-			Success: true,
-		}, nil
-	}
-	if s.legacy == nil {
-		return &ReloadPlatformConfigResponse{
-			Code:    503,
-			Message: "Platform integration is not enabled",
-			Success: false,
-		}, nil
-	}
-
-	if err := s.legacy.Reload(ctx); err != nil {
-		return &ReloadPlatformConfigResponse{
-			Code:    500,
-			Message: err.Error(),
-			Success: false,
-		}, nil
-	}
-
-	return &ReloadPlatformConfigResponse{
-		Code:    200,
-		Message: "Platform configuration reloaded successfully",
-		Success: true,
+		Source:  resolveMethodsSource(usedExtension),
 	}, nil
 }
 
@@ -365,38 +240,9 @@ func stringInSlice(list []string, target string) bool {
 	return false
 }
 
-func resolveMethodsSource(useExtension, useLegacy bool) string {
-	switch {
-	case useExtension && useLegacy:
-		return "mixed"
-	case useExtension:
+func resolveMethodsSource(useExtension bool) string {
+	if useExtension {
 		return "extension"
-	case useLegacy:
-		return "legacy"
-	default:
-		return ""
-	}
-}
-
-func isPlatformExtensionOnly() bool {
-	return migrationflags.IsExtensionOnly()
-}
-
-func isPlatformLegacyDisabled() bool {
-	return migrationflags.IsLegacyDisabled()
-}
-
-func useLegacyPlatformFallback() bool {
-	return migrationflags.UseLegacyFallback()
-}
-
-func allowLegacyFallbackAfterExtensionError() bool {
-	return migrationflags.AllowLegacyFallbackAfterExtensionError()
-}
-
-func fallbackReason(fallback bool) string {
-	if fallback {
-		return "extension_error"
 	}
 	return ""
 }

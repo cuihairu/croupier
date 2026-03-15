@@ -17,13 +17,12 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -tags "${BUILD_TAGS}" -o /out/croupier-server ./cmd/server
-RUN mkdir -p /out/logs /out/data/uploads /out/data/components/staging /out/packs
+RUN mkdir -p /out/logs /out/data/uploads /out/data/components/staging
 
 FROM ${RUNTIME_IMAGE}
 WORKDIR /app
 COPY --from=build /out/croupier-server /app/
 COPY --from=build --chown=nonroot:nonroot /src/configs /app/configs
-COPY --from=build --chown=nonroot:nonroot /out/packs /app/packs
 COPY --from=build --chown=nonroot:nonroot /out/data /app/data
 COPY --from=build --chown=nonroot:nonroot /out/logs /app/logs
 

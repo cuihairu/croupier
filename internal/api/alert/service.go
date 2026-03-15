@@ -2,6 +2,7 @@ package alert
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 )
 
 const officialAlertingID = "official.alerting"
+const alertingSilencesKey = "silences"
 
 type Service struct {
 	svcCtx *svc.ServiceContext
@@ -111,6 +113,7 @@ func (s *Service) Silence(ctx context.Context, req *AlertSilenceRequest) error {
 	if err := s.svcCtx.AlertModel.CreateSilence(ctx, silence); err != nil {
 		return err
 	}
+	_ = s.appendAlertingSilenceToExtension(ctx, alertRecord.Type, silence)
 	_ = s.recordAlertingEvent(ctx, "alerts_silence", "alert silenced",
 		fmt.Sprintf(`{"alert_id":"%s","duration":%d}`, alertID, duration),
 	)
@@ -119,6 +122,11 @@ func (s *Service) Silence(ctx context.Context, req *AlertSilenceRequest) error {
 
 // SilencesList retrieves a list of silence rules
 func (s *Service) SilencesList(ctx context.Context, req *SilencesListRequest) (*SilencesListResponse, error) {
+	if items, ok, err := s.loadAlertingSilencesFromExtension(ctx); err != nil {
+		return nil, err
+	} else if ok {
+		return &SilencesListResponse{Items: items}, nil
+	}
 	if s.svcCtx.AlertModel == nil {
 		return nil, errors.New("告警模型未初始化")
 	}
@@ -184,6 +192,7 @@ func (s *Service) SilenceDelete(ctx context.Context, req *SilenceDeleteRequest) 
 	if err := s.svcCtx.AlertModel.DeleteSilence(ctx, uint(id)); err != nil {
 		return err
 	}
+	_ = s.removeAlertingSilenceFromExtension(ctx, strconv.FormatUint(id, 10))
 	_ = s.recordAlertingEvent(ctx, "alerts_unsilence", "alert silence deleted",
 		fmt.Sprintf(`{"silence_id":%d}`, id),
 	)
@@ -223,4 +232,102 @@ func (s *Service) recordAlertingEvent(ctx context.Context, eventType, message, p
 		operator = strings.TrimSpace(username)
 	}
 	return s.svcCtx.Extensions.Installation.RecordEvent(ctx, item.ID, eventType, "info", message, operator, payload)
+}
+
+func (s *Service) loadAlertingSilencesFromExtension(ctx context.Context) ([]Silence, bool, error) {
+	item, ok, err := s.findActiveAlertingInstallation(ctx)
+	if err != nil || !ok || item == nil {
+		return nil, false, err
+	}
+	config := map[string]any{}
+	if strings.TrimSpace(item.ConfigJSON) != "" {
+		if err := json.Unmarshal([]byte(item.ConfigJSON), &config); err != nil {
+			return nil, false, err
+		}
+	}
+	raw, exists := config[alertingSilencesKey]
+	if !exists || raw == nil {
+		return nil, false, nil
+	}
+	data, err := json.Marshal(raw)
+	if err != nil {
+		return nil, false, err
+	}
+	items := []Silence{}
+	if err := json.Unmarshal(data, &items); err != nil {
+		return nil, false, err
+	}
+	return items, true, nil
+}
+
+func (s *Service) saveAlertingSilencesToExtension(ctx context.Context, items []Silence) error {
+	item, ok, err := s.findActiveAlertingInstallation(ctx)
+	if err != nil || !ok || item == nil {
+		return err
+	}
+	config := map[string]any{}
+	if strings.TrimSpace(item.ConfigJSON) != "" {
+		_ = json.Unmarshal([]byte(item.ConfigJSON), &config)
+	}
+	config[alertingSilencesKey] = items
+	secretRefs := map[string]string{}
+	if strings.TrimSpace(item.SecretRefsJSON) != "" {
+		_ = json.Unmarshal([]byte(item.SecretRefsJSON), &secretRefs)
+	}
+	operator := "system"
+	if username, userErr := utils.CurrentUsername(ctx); userErr == nil && strings.TrimSpace(username) != "" {
+		operator = strings.TrimSpace(username)
+	}
+	return s.svcCtx.Extensions.Installation.UpdateConfig(ctx, item.ID, config, secretRefs, operator)
+}
+
+func (s *Service) appendAlertingSilenceToExtension(ctx context.Context, alertType string, silence *model.AlertSilence) error {
+	if silence == nil {
+		return nil
+	}
+	items, _, err := s.loadAlertingSilencesFromExtension(ctx)
+	if err != nil {
+		return err
+	}
+	id := strconv.FormatUint(uint64(silence.ID), 10)
+	for i := range items {
+		if strings.TrimSpace(items[i].Id) == id {
+			items[i].AlertType = alertType
+			items[i].StartAt = utils.FormatTimestamp(silence.CreatedAt)
+			items[i].EndAt = utils.FormatTimestamp(silence.ExpiresAt)
+			items[i].CreatedBy = strings.TrimSpace(silence.CreatedBy)
+			return s.saveAlertingSilencesToExtension(ctx, items)
+		}
+	}
+	items = append(items, Silence{
+		Id:        id,
+		AlertType: strings.TrimSpace(alertType),
+		Matchers:  map[string]interface{}{},
+		StartAt:   utils.FormatTimestamp(silence.CreatedAt),
+		EndAt:     utils.FormatTimestamp(silence.ExpiresAt),
+		CreatedBy: strings.TrimSpace(silence.CreatedBy),
+	})
+	return s.saveAlertingSilencesToExtension(ctx, items)
+}
+
+func (s *Service) removeAlertingSilenceFromExtension(ctx context.Context, silenceID string) error {
+	id := strings.TrimSpace(silenceID)
+	if id == "" {
+		return nil
+	}
+	items, ok, err := s.loadAlertingSilencesFromExtension(ctx)
+	if err != nil {
+		return err
+	}
+	if !ok || len(items) == 0 {
+		return nil
+	}
+	filtered := make([]Silence, 0, len(items))
+	for _, item := range items {
+		if strings.TrimSpace(item.Id) == id {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	return s.saveAlertingSilencesToExtension(ctx, filtered)
 }

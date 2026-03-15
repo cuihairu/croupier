@@ -18,7 +18,6 @@ type Config struct {
 	Cache         CacheConfig              `json:"cache" yaml:"cache"`
 	Logging       common.LogConfig         `json:",omitempty" yaml:"Log"`
 	Metrics       MetricsConfig            `json:"metrics" yaml:"metrics"`
-	Platforms     PlatformConfig           `json:"platforms" yaml:"platforms"`
 	Profiles      map[string]ProfileConfig `json:"profiles" yaml:"profiles"`
 	SSE           SSEConfig                `json:"sse" yaml:"sse"`
 	// Server metadata for registration
@@ -134,15 +133,6 @@ type CacheConfig struct {
 	TTL      string `json:"TTL,omitempty" yaml:"TTL,omitempty"`           // 默认过期时间 (例如: "5m", "1h")
 	MaxItems int    `json:"MaxItems,omitempty" yaml:"MaxItems,omitempty"` // 本地缓存最大条目数
 	EvictTTL string `json:"EvictTTL,omitempty" yaml:"EvictTTL,omitempty"` // 本地缓存清理间隔
-}
-
-type PlatformConfig struct {
-	// Legacy 平台配置文件路径（兼容保留）。
-	// 推荐路径：official.external-platform 扩展安装与运行时绑定，而不是静态 YAML。
-	ConfigFile string `json:"ConfigFile,omitempty" yaml:"ConfigFile,omitempty"`
-	// Legacy 平台集成总开关（兼容保留）。
-	// 推荐默认 false，使用扩展路径接入第三方平台。
-	Enabled bool `json:"Enabled,omitempty" yaml:"Enabled,omitempty"`
 }
 
 // SSEConfig 配置 Server-Sent Events (SSE) 推送

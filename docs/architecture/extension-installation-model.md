@@ -297,16 +297,16 @@ Target 表达“运行位置”。
 
 ## 6. 与当前 YAML 的关系
 
-现有：
+历史上存在：
 
 - `configs/platforms.yaml`
 - Agent 本地 `providers.yaml`
 
-都只能保留为：
+当前状态：
 
-- 本地开发调试输入
-- 测试用静态配置
-- 迁移期间兼容层
+- `configs/platforms.yaml` 主入口已移除
+- 安装主数据源统一为 installation + runtime binding
+- 本地文件路径仅用于测试夹具，不作为生产配置入口
 
 补充：
 

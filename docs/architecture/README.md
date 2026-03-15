@@ -271,4 +271,10 @@ message JobEvent {
 
 - [分层设计](./layers.md)
 - [数据流](./data-flow.md)
-- [分层设计](./layers.md)
+- [核心与扩展边界映射](./core-extension-mapping.md)
+- [扩展清单与安装模型](./extension-installation-model.md)
+- [official.alerting 迁移草案](./official-alerting-migration-draft.md)
+- [official.notification 迁移草案](./official-notification-migration-draft.md)
+- [official.approval 迁移草案](./official-approval-migration-draft.md)
+- [official.backup-advanced 迁移草案](./official-backup-advanced-migration-draft.md)
+- [官方扩展统一模式](./official-extension-unified-pattern.md)

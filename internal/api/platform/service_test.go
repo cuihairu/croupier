@@ -2,33 +2,13 @@ package platform
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"testing"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
-	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 )
-
-type testLegacyGateway struct {
-	callFn func(ctx context.Context, platform, method string, request []byte) ([]byte, error)
-}
-
-func (g *testLegacyGateway) Call(ctx context.Context, platform, method string, request []byte) ([]byte, error) {
-	if g.callFn == nil {
-		return nil, errors.New("call not implemented")
-	}
-	return g.callFn(ctx, platform, method, request)
-}
-
-func (g *testLegacyGateway) ListProviders() []legacyPlatformProviderInfo { return nil }
-
-func (g *testLegacyGateway) ListMethods(platform string) ([]string, bool) { return nil, false }
-
-func (g *testLegacyGateway) Reload(ctx context.Context) error { return nil }
 
 func TestBuildExternalFunctionID(t *testing.T) {
 	got := buildExternalFunctionID("One Panel", "Install/App")
@@ -156,48 +136,15 @@ func TestListPlatformsMarksExtensionSource(t *testing.T) {
 }
 
 func TestResolveMethodsSource(t *testing.T) {
-	if got := resolveMethodsSource(true, true); got != "mixed" {
-		t.Fatalf("expected mixed, got=%s", got)
-	}
-	if got := resolveMethodsSource(true, false); got != "extension" {
+	if got := resolveMethodsSource(true); got != "extension" {
 		t.Fatalf("expected extension, got=%s", got)
 	}
-	if got := resolveMethodsSource(false, true); got != "legacy" {
-		t.Fatalf("expected legacy, got=%s", got)
-	}
-}
-
-func TestIsPlatformExtensionOnly(t *testing.T) {
-	t.Setenv("CROUPIER_PLATFORM_EXTENSION_ONLY", "true")
-	if !isPlatformExtensionOnly() {
-		t.Fatalf("expected extension-only mode true")
-	}
-}
-
-func TestIsPlatformLegacyDisabled(t *testing.T) {
-	t.Setenv("CROUPIER_PLATFORM_LEGACY_DISABLED", "1")
-	if !isPlatformLegacyDisabled() {
-		t.Fatalf("expected legacy disabled=true")
-	}
-}
-
-func TestAllowLegacyFallbackAfterExtensionError(t *testing.T) {
-	t.Setenv("CROUPIER_PLATFORM_LEGACY_FALLBACK_ON_EXTENSION_ERROR", "")
-	if !allowLegacyFallbackAfterExtensionError() {
-		t.Fatalf("expected default true when env empty")
-	}
-	t.Setenv("CROUPIER_PLATFORM_LEGACY_FALLBACK_ON_EXTENSION_ERROR", "false")
-	if allowLegacyFallbackAfterExtensionError() {
-		t.Fatalf("expected false when env=false")
-	}
-	t.Setenv("CROUPIER_PLATFORM_LEGACY_FALLBACK_ON_EXTENSION_ERROR", "true")
-	if !allowLegacyFallbackAfterExtensionError() {
-		t.Fatalf("expected true when env=true")
+	if got := resolveMethodsSource(false); got != "" {
+		t.Fatalf("expected empty source, got=%s", got)
 	}
 }
 
 func TestCallExtensionOnlyNoDispatcher(t *testing.T) {
-	t.Setenv("CROUPIER_PLATFORM_EXTENSION_ONLY", "true")
 	service := NewService(&svc.ServiceContext{})
 	resp, err := service.Call(context.Background(), &CallPlatformRequest{
 		Platform: "onepanel",
@@ -208,149 +155,9 @@ func TestCallExtensionOnlyNoDispatcher(t *testing.T) {
 		t.Fatalf("Call returned unexpected error: %v", err)
 	}
 	if resp.Code != 503 {
-		t.Fatalf("expected code 503 in extension-only mode without dispatcher, got %d", resp.Code)
+		t.Fatalf("expected code 503 without dispatcher, got %d", resp.Code)
 	}
 	if resp.Source != "extension" {
 		t.Fatalf("expected source=extension, got %s", resp.Source)
-	}
-}
-
-func TestCallLegacyDisabledNoDispatcher(t *testing.T) {
-	t.Setenv("CROUPIER_PLATFORM_EXTENSION_ONLY", "")
-	t.Setenv("CROUPIER_PLATFORM_LEGACY_DISABLED", "true")
-	service := NewService(&svc.ServiceContext{})
-	resp, err := service.Call(context.Background(), &CallPlatformRequest{
-		Platform: "onepanel",
-		Method:   "list_apps",
-		Request:  "{}",
-	})
-	if err != nil {
-		t.Fatalf("Call returned unexpected error: %v", err)
-	}
-	if resp.Code != 503 {
-		t.Fatalf("expected code 503 in legacy-disabled mode without dispatcher, got %d", resp.Code)
-	}
-	if resp.Source != "extension" {
-		t.Fatalf("expected source=extension, got %s", resp.Source)
-	}
-}
-
-func TestCallStrictNoFallbackOnExtensionError(t *testing.T) {
-	t.Setenv("CROUPIER_PLATFORM_EXTENSION_ONLY", "")
-	t.Setenv("CROUPIER_PLATFORM_LEGACY_DISABLED", "")
-	t.Setenv("CROUPIER_PLATFORM_LEGACY_FALLBACK_ON_EXTENSION_ERROR", "false")
-
-	store := reg.NewStore()
-	service := NewService(&svc.ServiceContext{
-		RegistryStore:  store,
-		Dispatcher:     dispatch.NewDispatcher(store),
-		PlatformLoader: nil,
-	})
-	resp, err := service.Call(context.Background(), &CallPlatformRequest{
-		Platform: "onepanel",
-		Method:   "list_apps",
-		Request:  "{}",
-	})
-	if err != nil {
-		t.Fatalf("Call returned unexpected error: %v", err)
-	}
-	if resp.Code != 500 {
-		t.Fatalf("expected code 500 when strict no-fallback is enabled, got %d", resp.Code)
-	}
-	if resp.Source != "extension" {
-		t.Fatalf("expected source=extension in strict mode, got %s", resp.Source)
-	}
-}
-
-func TestReloadConfigExtensionOnly(t *testing.T) {
-	t.Setenv("CROUPIER_PLATFORM_EXTENSION_ONLY", "true")
-	service := NewService(&svc.ServiceContext{})
-	resp, err := service.ReloadConfig(context.Background())
-	if err != nil {
-		t.Fatalf("ReloadConfig returned unexpected error: %v", err)
-	}
-	if !resp.Success {
-		t.Fatalf("expected success=true in extension-only mode")
-	}
-}
-
-func TestReloadConfigLegacyDisabled(t *testing.T) {
-	t.Setenv("CROUPIER_PLATFORM_EXTENSION_ONLY", "")
-	t.Setenv("CROUPIER_PLATFORM_LEGACY_DISABLED", "yes")
-	service := NewService(&svc.ServiceContext{})
-	resp, err := service.ReloadConfig(context.Background())
-	if err != nil {
-		t.Fatalf("ReloadConfig returned unexpected error: %v", err)
-	}
-	if !resp.Success {
-		t.Fatalf("expected success=true in legacy-disabled mode")
-	}
-}
-
-func TestCallLegacyResponseNoFallbackFlag(t *testing.T) {
-	t.Setenv("CROUPIER_PLATFORM_EXTENSION_ONLY", "")
-	t.Setenv("CROUPIER_PLATFORM_LEGACY_DISABLED", "")
-	t.Setenv("CROUPIER_PLATFORM_LEGACY_FALLBACK_ON_EXTENSION_ERROR", "true")
-
-	svcObj := NewService(&svc.ServiceContext{Dispatcher: nil})
-	svcObj.legacy = &testLegacyGateway{
-		callFn: func(ctx context.Context, platform, method string, request []byte) ([]byte, error) {
-			return []byte(`{"ok":true}`), nil
-		},
-	}
-	resp, err := svcObj.Call(context.Background(), &CallPlatformRequest{
-		Platform: "onepanel",
-		Method:   "list_apps",
-		Request:  "{}",
-	})
-	if err != nil {
-		t.Fatalf("Call returned unexpected error: %v", err)
-	}
-	if resp.Code != 200 || resp.Source != "legacy" {
-		t.Fatalf("unexpected response: %+v", resp)
-	}
-	if resp.Fallback {
-		t.Fatalf("expected fallback=false when extension invoke not attempted")
-	}
-	if resp.FallbackReason != "" {
-		t.Fatalf("expected empty fallback reason, got %s", resp.FallbackReason)
-	}
-}
-
-func TestCallLegacyResponseWithFallbackFlag(t *testing.T) {
-	t.Setenv("CROUPIER_PLATFORM_EXTENSION_ONLY", "")
-	t.Setenv("CROUPIER_PLATFORM_LEGACY_DISABLED", "")
-	t.Setenv("CROUPIER_PLATFORM_LEGACY_FALLBACK_ON_EXTENSION_ERROR", "true")
-
-	store := reg.NewStore()
-	svcObj := NewService(&svc.ServiceContext{
-		RegistryStore: store,
-		Dispatcher:    dispatch.NewDispatcher(store),
-	})
-	svcObj.legacy = &testLegacyGateway{
-		callFn: func(ctx context.Context, platform, method string, request []byte) ([]byte, error) {
-			return []byte(`{"ok":true}`), nil
-		},
-	}
-	resp, err := svcObj.Call(context.Background(), &CallPlatformRequest{
-		Platform: "onepanel",
-		Method:   "list_apps",
-		Request:  "{}",
-	})
-	if err != nil {
-		t.Fatalf("Call returned unexpected error: %v", err)
-	}
-	if resp.Code != 200 || resp.Source != "legacy" {
-		t.Fatalf("unexpected response: %+v", resp)
-	}
-	if !resp.Fallback {
-		t.Fatalf("expected fallback=true when extension invoke failed then legacy succeeded")
-	}
-	if resp.FallbackReason != "extension_error" {
-		t.Fatalf("unexpected fallback reason: %s", resp.FallbackReason)
-	}
-	raw, _ := json.Marshal(resp)
-	if len(raw) == 0 {
-		t.Fatalf("expected marshalable response")
 	}
 }

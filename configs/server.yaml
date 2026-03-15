@@ -76,13 +76,3 @@ Log:
 metrics:
   PerFunction: true
   PerGameDenies: false
-
-platforms:
-  # Legacy static platform integration (deprecated path).
-  # Recommended: use extension-first external platform capability.
-  # Migration toggles:
-  # - CROUPIER_PLATFORM_LEGACY_DISABLED=true
-  # - CROUPIER_PLATFORM_EXTENSION_ONLY=true
-  # - CROUPIER_PLATFORM_LEGACY_FALLBACK_ON_EXTENSION_ERROR=false
-  Enabled: false
-  ConfigFile: "configs/platforms.yaml"

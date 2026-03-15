@@ -84,28 +84,4 @@ type CallPlatformResponse struct {
 }
 ```
 
-### 4. "重新加载平台配置"
-
-1. route definition
-
-- Url: /api/v1/platforms/reload
-- Method: POST
-- Request: `-`
-- Response: `ReloadPlatformConfigResponse`
-
-2. request definition
-
-
-
-3. response definition
-
-
-
-```golang
-type ReloadPlatformConfigResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Success bool `json:"success,omitempty"`
-}
-```
 

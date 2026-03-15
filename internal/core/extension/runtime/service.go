@@ -76,35 +76,35 @@ func buildRuntimeBindings(item *model.ExtensionInstallation) []model.ExtensionRu
 				BindingType: "page",
 				BindingKey:  "analytics.overview",
 				TargetRef:   targetRef,
-				SpecJSON:    `{"title":"Overview","route":"/analytics/overview","icon":"dashboard","order":10}`,
+				SpecJSON:    `{"title":"Overview","route":"/analytics/overview","icon":"dashboard","order":10,"required_permission":"analytics.read"}`,
 				Status:      "active",
 			},
 			{
 				BindingType: "page",
 				BindingKey:  "analytics.realtime",
 				TargetRef:   targetRef,
-				SpecJSON:    `{"title":"Realtime","route":"/analytics/realtime","icon":"pulse","order":20}`,
+				SpecJSON:    `{"title":"Realtime","route":"/analytics/realtime","icon":"pulse","order":20,"required_permission":"analytics.read"}`,
 				Status:      "active",
 			},
 			{
 				BindingType: "page",
 				BindingKey:  "analytics.retention",
 				TargetRef:   targetRef,
-				SpecJSON:    `{"title":"Retention","route":"/analytics/retention","icon":"retention","order":30}`,
+				SpecJSON:    `{"title":"Retention","route":"/analytics/retention","icon":"retention","order":30,"required_permission":"analytics.read"}`,
 				Status:      "active",
 			},
 			{
 				BindingType: "page",
 				BindingKey:  "analytics.payments",
 				TargetRef:   targetRef,
-				SpecJSON:    `{"title":"Payments","route":"/analytics/payments","icon":"payments","order":40}`,
+				SpecJSON:    `{"title":"Payments","route":"/analytics/payments","icon":"payments","order":40,"required_permission":"analytics.read"}`,
 				Status:      "active",
 			},
 			{
 				BindingType: "capability",
 				BindingKey:  "analytics.filters",
 				TargetRef:   targetRef,
-				SpecJSON:    `{"operations":["get","update"]}`,
+				SpecJSON:    `{"operations":["get","update"],"permissions":{"get":"analytics.read","update":"analytics.operate"},"config_keys":["filters"]}`,
 				Status:      "active",
 			},
 			{
@@ -136,14 +136,14 @@ func buildRuntimeBindings(item *model.ExtensionInstallation) []model.ExtensionRu
 				BindingType: "page",
 				BindingKey:  "alerts.overview",
 				TargetRef:   targetRef,
-				SpecJSON:    `{"title":"Alerts","route":"/alerts","icon":"alert","order":10}`,
+				SpecJSON:    `{"title":"Alerts","route":"/alerts","icon":"alert","order":10,"required_permission":"alerts.read"}`,
 				Status:      "active",
 			},
 			{
 				BindingType: "capability",
 				BindingKey:  "alerts.management",
 				TargetRef:   targetRef,
-				SpecJSON:    `{"operations":["list","silence","unsilence"]}`,
+				SpecJSON:    `{"operations":["list","silence","unsilence"],"permissions":{"list":"alerts.read","silence":"alerts.operate","unsilence":"alerts.operate"},"config_keys":["silence_rules"]}`,
 				Status:      "active",
 			},
 			{
@@ -158,6 +158,102 @@ func buildRuntimeBindings(item *model.ExtensionInstallation) []model.ExtensionRu
 				BindingKey:  "alerts.silence",
 				TargetRef:   targetRef,
 				SpecJSON:    `{"driver":"workflow-driver","operation":"silence"}`,
+				Status:      "active",
+			},
+		}
+	}
+	if strings.EqualFold(extID, "official.notification") {
+		return []model.ExtensionRuntimeBinding{
+			{
+				BindingType: "page",
+				BindingKey:  "notifications.overview",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"title":"Notifications","route":"/ops/notifications","icon":"bell","order":10,"required_permission":"notifications.read"}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "capability",
+				BindingKey:  "notifications.management",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"operations":["get","update"],"permissions":{"get":"notifications.read","update":"notifications.operate"},"config_keys":["enabled","channels","rules"]}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "function",
+				BindingKey:  "notifications.get",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"driver":"workflow-driver","operation":"get"}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "function",
+				BindingKey:  "notifications.update",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"driver":"workflow-driver","operation":"update"}`,
+				Status:      "active",
+			},
+		}
+	}
+	if strings.EqualFold(extID, "official.approval") {
+		return []model.ExtensionRuntimeBinding{
+			{
+				BindingType: "page",
+				BindingKey:  "approvals.overview",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"title":"Approvals","route":"/approvals","icon":"approval","order":10,"required_permission":"approvals.read"}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "capability",
+				BindingKey:  "approvals.management",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"operations":["list","get","approve","reject"],"permissions":{"list":"approvals.read","get":"approvals.read","approve":"approvals.operate","reject":"approvals.operate"},"config_keys":["workflow","delegation"]}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "function",
+				BindingKey:  "approvals.approve",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"driver":"workflow-driver","operation":"approve"}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "function",
+				BindingKey:  "approvals.reject",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"driver":"workflow-driver","operation":"reject"}`,
+				Status:      "active",
+			},
+		}
+	}
+	if strings.EqualFold(extID, "official.backup-advanced") {
+		return []model.ExtensionRuntimeBinding{
+			{
+				BindingType: "page",
+				BindingKey:  "backups.overview",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"title":"Backups","route":"/backups","icon":"backup","order":10,"required_permission":"backups.read"}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "capability",
+				BindingKey:  "backups.management",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"operations":["list","create","delete","download"],"permissions":{"list":"backups.read","create":"backups.operate","delete":"backups.operate","download":"backups.read"},"config_keys":["schedule","retention","storage"]}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "function",
+				BindingKey:  "backups.create",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"driver":"workflow-driver","operation":"create"}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "function",
+				BindingKey:  "backups.delete",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"driver":"workflow-driver","operation":"delete"}`,
 				Status:      "active",
 			},
 		}

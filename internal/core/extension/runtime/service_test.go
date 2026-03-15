@@ -52,3 +52,51 @@ func TestBuildRuntimeBindings_OfficialAlerting(t *testing.T) {
 		t.Fatalf("missing alerting binding keys: %+v", keys)
 	}
 }
+
+func TestBuildRuntimeBindings_OfficialNotification(t *testing.T) {
+	out := buildRuntimeBindings(&model.ExtensionInstallation{
+		ExtensionID: "official.notification",
+	})
+	if len(out) < 4 {
+		t.Fatalf("expected notification bindings, got %d", len(out))
+	}
+	keys := map[string]bool{}
+	for _, b := range out {
+		keys[b.BindingKey] = true
+	}
+	if !keys["notifications.overview"] || !keys["notifications.management"] || !keys["notifications.get"] || !keys["notifications.update"] {
+		t.Fatalf("missing notification binding keys: %+v", keys)
+	}
+}
+
+func TestBuildRuntimeBindings_OfficialApproval(t *testing.T) {
+	out := buildRuntimeBindings(&model.ExtensionInstallation{
+		ExtensionID: "official.approval",
+	})
+	if len(out) < 4 {
+		t.Fatalf("expected approval bindings, got %d", len(out))
+	}
+	keys := map[string]bool{}
+	for _, b := range out {
+		keys[b.BindingKey] = true
+	}
+	if !keys["approvals.overview"] || !keys["approvals.management"] || !keys["approvals.approve"] || !keys["approvals.reject"] {
+		t.Fatalf("missing approval binding keys: %+v", keys)
+	}
+}
+
+func TestBuildRuntimeBindings_OfficialBackupAdvanced(t *testing.T) {
+	out := buildRuntimeBindings(&model.ExtensionInstallation{
+		ExtensionID: "official.backup-advanced",
+	})
+	if len(out) < 4 {
+		t.Fatalf("expected backup bindings, got %d", len(out))
+	}
+	keys := map[string]bool{}
+	for _, b := range out {
+		keys[b.BindingKey] = true
+	}
+	if !keys["backups.overview"] || !keys["backups.management"] || !keys["backups.create"] || !keys["backups.delete"] {
+		t.Fatalf("missing backup binding keys: %+v", keys)
+	}
+}

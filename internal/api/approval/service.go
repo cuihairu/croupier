@@ -5,12 +5,18 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
+	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
 	"github.com/cuihairu/croupier/internal/logic/utils"
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/svc"
 )
+
+const officialApprovalID = "official.approval"
+const approvalRecordsKey = "approvals"
 
 type Service struct {
 	svcCtx *svc.ServiceContext
@@ -22,10 +28,9 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 
 // List retrieves a paginated list of approvals
 func (s *Service) List(ctx context.Context, req *ApprovalsListRequest) (*ApprovalsListResponse, error) {
-	if s.svcCtx.ApprovalsStore == nil {
-		return nil, errors.New("approvals store unavailable")
+	if req == nil {
+		req = &ApprovalsListRequest{}
 	}
-
 	page := req.Page
 	if page <= 0 {
 		page = 1
@@ -33,6 +38,20 @@ func (s *Service) List(ctx context.Context, req *ApprovalsListRequest) (*Approva
 	size := req.PageSize
 	if size <= 0 {
 		size = 20
+	}
+	if items, ok, err := s.loadApprovalsFromExtensionInstallation(ctx); err != nil {
+		return nil, err
+	} else if ok {
+		list, total := paginateApprovalSummaries(filterApprovalSummariesByState(toApprovalSummaries(items), strings.TrimSpace(req.Status)), page, size)
+		return &ApprovalsListResponse{
+			Approvals: list,
+			Total:     int64(total),
+			Page:      page,
+			Size:      size,
+		}, nil
+	}
+	if s.svcCtx.ApprovalsStore == nil {
+		return nil, errors.New("approvals store unavailable")
 	}
 
 	filter := approvals.Filter{
@@ -61,11 +80,22 @@ func (s *Service) List(ctx context.Context, req *ApprovalsListRequest) (*Approva
 
 // Get retrieves details of a specific approval
 func (s *Service) Get(ctx context.Context, req *ApprovalGetRequest) (*ApprovalGetResponse, error) {
-	if s.svcCtx.ApprovalsStore == nil {
-		return nil, errors.New("approvals store unavailable")
-	}
 	if req == nil || strings.TrimSpace(req.ID) == "" {
 		return nil, errors.New("id 不能为空")
+	}
+	if items, ok, err := s.loadApprovalsFromExtensionInstallation(ctx); err != nil {
+		return nil, err
+	} else if ok {
+		id := strings.TrimSpace(req.ID)
+		for _, item := range items {
+			if strings.TrimSpace(item.ID) == id {
+				return &ApprovalGetResponse{Approval: item}, nil
+			}
+		}
+		return nil, errors.New("not found")
+	}
+	if s.svcCtx.ApprovalsStore == nil {
+		return nil, errors.New("approvals store unavailable")
 	}
 
 	approval, err := s.svcCtx.ApprovalsStore.Get(strings.TrimSpace(req.ID))
@@ -93,6 +123,10 @@ func (s *Service) Approve(ctx context.Context, req *ApprovalApproveRequest) (*Ap
 	if err != nil {
 		return nil, err
 	}
+	_ = s.upsertApprovalToExtension(ctx, buildApprovalDetail(record))
+	_ = s.recordApprovalEvent(ctx, "approvals_approve", "approval approved",
+		fmt.Sprintf(`{"approval_id":"%s"}`, record.ID),
+	)
 
 	return &ApprovalApproveResponse{
 		ID:    record.ID,
@@ -116,6 +150,10 @@ func (s *Service) Reject(ctx context.Context, req *ApprovalRejectRequest) (*Appr
 	if err != nil {
 		return nil, err
 	}
+	_ = s.upsertApprovalToExtension(ctx, buildApprovalDetail(record))
+	_ = s.recordApprovalEvent(ctx, "approvals_reject", "approval rejected",
+		fmt.Sprintf(`{"approval_id":"%s"}`, record.ID),
+	)
 
 	return &ApprovalRejectResponse{
 		ID:     record.ID,
@@ -191,4 +229,160 @@ func defaultString(value, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func (s *Service) findActiveApprovalInstallation(ctx context.Context) (*model.ExtensionInstallation, bool, error) {
+	if s == nil || s.svcCtx == nil || s.svcCtx.Extensions == nil || s.svcCtx.Extensions.Installation == nil {
+		return nil, false, nil
+	}
+	items, _, err := s.svcCtx.Extensions.Installation.List(ctx, extensioninstallation.ListQuery{
+		ExtensionID: officialApprovalID,
+		Limit:       50,
+		Offset:      0,
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	for i := range items {
+		item := items[i]
+		if strings.EqualFold(strings.TrimSpace(item.Status), "uninstalled") ||
+			strings.EqualFold(strings.TrimSpace(item.DesiredState), "uninstalled") {
+			continue
+		}
+		return &item, true, nil
+	}
+	return nil, false, nil
+}
+
+func (s *Service) recordApprovalEvent(ctx context.Context, eventType, message, payload string) error {
+	item, ok, err := s.findActiveApprovalInstallation(ctx)
+	if err != nil || !ok || item == nil {
+		return err
+	}
+	operator := "system"
+	if username, userErr := utils.CurrentUsername(ctx); userErr == nil && strings.TrimSpace(username) != "" {
+		operator = strings.TrimSpace(username)
+	}
+	return s.svcCtx.Extensions.Installation.RecordEvent(ctx, item.ID, eventType, "info", message, operator, payload)
+}
+
+func (s *Service) loadApprovalsFromExtensionInstallation(ctx context.Context) ([]Approval, bool, error) {
+	item, ok, err := s.findActiveApprovalInstallation(ctx)
+	if err != nil || !ok || item == nil {
+		return nil, false, err
+	}
+	config := map[string]any{}
+	if strings.TrimSpace(item.ConfigJSON) != "" {
+		if err := json.Unmarshal([]byte(item.ConfigJSON), &config); err != nil {
+			return nil, false, err
+		}
+	}
+	raw, exists := config[approvalRecordsKey]
+	if !exists || raw == nil {
+		return nil, false, nil
+	}
+	data, err := json.Marshal(raw)
+	if err != nil {
+		return nil, false, err
+	}
+	items := []Approval{}
+	if err := json.Unmarshal(data, &items); err != nil {
+		return nil, false, err
+	}
+	return items, true, nil
+}
+
+func (s *Service) saveApprovalsToExtensionInstallation(ctx context.Context, items []Approval) error {
+	item, ok, err := s.findActiveApprovalInstallation(ctx)
+	if err != nil || !ok || item == nil {
+		return err
+	}
+	config := map[string]any{}
+	if strings.TrimSpace(item.ConfigJSON) != "" {
+		_ = json.Unmarshal([]byte(item.ConfigJSON), &config)
+	}
+	config[approvalRecordsKey] = items
+	secretRefs := map[string]string{}
+	if strings.TrimSpace(item.SecretRefsJSON) != "" {
+		_ = json.Unmarshal([]byte(item.SecretRefsJSON), &secretRefs)
+	}
+	operator := "system"
+	if username, userErr := utils.CurrentUsername(ctx); userErr == nil && strings.TrimSpace(username) != "" {
+		operator = strings.TrimSpace(username)
+	}
+	return s.svcCtx.Extensions.Installation.UpdateConfig(ctx, item.ID, config, secretRefs, operator)
+}
+
+func (s *Service) upsertApprovalToExtension(ctx context.Context, current Approval) error {
+	if strings.TrimSpace(current.ID) == "" {
+		return nil
+	}
+	items, _, err := s.loadApprovalsFromExtensionInstallation(ctx)
+	if err != nil {
+		return err
+	}
+	id := strings.TrimSpace(current.ID)
+	for i := range items {
+		if strings.TrimSpace(items[i].ID) == id {
+			items[i] = current
+			return s.saveApprovalsToExtensionInstallation(ctx, items)
+		}
+	}
+	items = append(items, current)
+	return s.saveApprovalsToExtensionInstallation(ctx, items)
+}
+
+func toApprovalSummaries(items []Approval) []ApprovalSummary {
+	out := make([]ApprovalSummary, 0, len(items))
+	for _, item := range items {
+		out = append(out, ApprovalSummary{
+			ID:              item.ID,
+			CreatedAt:       item.CreatedAt,
+			UpdatedAt:       item.UpdatedAt,
+			Actor:           item.Actor,
+			FunctionID:      item.FunctionID,
+			GameID:          item.GameID,
+			Env:             item.Env,
+			State:           item.State,
+			Mode:            item.Mode,
+			Route:           item.Route,
+			IdempotencyKey:  item.IdempotencyKey,
+			TargetServiceID: item.TargetServiceID,
+			HashKey:         item.HashKey,
+			Reason:          item.Reason,
+		})
+	}
+	return out
+}
+
+func filterApprovalSummariesByState(items []ApprovalSummary, state string) []ApprovalSummary {
+	if state == "" {
+		return items
+	}
+	out := make([]ApprovalSummary, 0, len(items))
+	for _, item := range items {
+		if strings.EqualFold(strings.TrimSpace(item.State), state) {
+			out = append(out, item)
+		}
+	}
+	return out
+}
+
+func paginateApprovalSummaries(items []ApprovalSummary, page, size int) ([]ApprovalSummary, int) {
+	total := len(items)
+	if size <= 0 {
+		size = 20
+	}
+	if page <= 0 {
+		page = 1
+	}
+	start := (page - 1) * size
+	if start >= total {
+		return []ApprovalSummary{}, total
+	}
+	end := start + size
+	if end > total {
+		end = total
+	}
+	return items[start:end], total
 }

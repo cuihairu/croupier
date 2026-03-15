@@ -5,7 +5,7 @@
 
 本文件定义 `official.external-platform` 作为第一批官方扩展的迁移方案。
 
-> 说明（2026-03-15）：当前实现已经进入 extension-first 路径。本文中提到的 YAML 路径仅用于迁移兼容，不是推荐默认入口。
+> 说明（2026-03-15）：当前实现已经进入 extension-first 路径，legacy YAML 主入口已移除。本文中提到的 YAML 路径仅保留为历史迁移记录。
 
 ---
 
@@ -13,10 +13,10 @@
 
 把历史“第三方平台集成”从：
 
-- Server 侧 `configs/platforms.yaml`
+- Server 侧 legacy `configs/platforms.yaml`（已移除）
 - Agent 侧 `providers.yaml`
 - 写死 provider type 分支
-- 直接依赖 `PlatformLoader` / `ProviderManager`
+- 直接依赖 `PlatformLoader` / `ProviderManager`（已下线）
 
 重构为：
 
@@ -41,7 +41,7 @@
 
 特点：
 
-- provider 实例通过 YAML 加载
+- provider 实例历史上通过 YAML 加载（已下线）
 - provider type 通过 `switch` 写死
 - registry 负责 runtime call
 - API 层只做通用转发
@@ -62,7 +62,7 @@
 
 ### 2.3 当前问题
 
-- 正式配置主数据源仍是 YAML
+- 历史问题：正式配置主数据源曾是 YAML
 - 安装实例不可审计、不可升级、不可回滚
 - provider 配置与产品安装模型未打通
 - Dashboard 无法真正管理“安装”
@@ -125,9 +125,9 @@ driver 负责：
 
 优先替换：
 
-- `configs/platforms.yaml` 主配置地位
+- `configs/platforms.yaml` 主配置地位（已移除）
 - Agent 侧本地 provider 配置主配置地位
-- `internal/platform/loader.go` 的 YAML 主入口
+- `internal/platform/loader.go` 的 YAML 主入口（已移除）
 - `internal/app/agent/provider.go` 的 YAML 主入口
 
 ### 4.3 需要过渡的东西
@@ -219,7 +219,7 @@ bindings 建议：
 
 目标：
 
-- 不再从 `configs/platforms.yaml` 直接建 provider
+- 不再从 `configs/platforms.yaml` 直接建 provider（已完成）
 
 动作：
 
@@ -265,15 +265,15 @@ bindings 建议：
 
 ## 8. 代码重构建议
 
-### 8.1 第一阶段不立即删除
+### 8.1 历史说明（已完成清理）
 
 - `internal/platform/provider`
 - `internal/platform/openapi`
 - `internal/platform/quicksdk`
-- `internal/api/platform`
-- `internal/app/agent/provider.go`
+- `internal/api/platform`（仅保留 extension-first 入口）
+- `internal/app/agent/provider.go`（保留 extension runtime 相关实现）
 
-### 8.2 第一阶段新增
+### 8.2 后续增强建议
 
 建议新增：
 
@@ -296,32 +296,25 @@ internal/extensions/official/externalplatform/
 - `adapter/`
   - 兼容旧 `PlatformLoader` / `ProviderManager`
 
-### 8.3 第二阶段可删除
+### 8.3 已完成删除项
 
-当 installation 路径跑通后，再考虑逐步删除：
+当前已删除：
 
-- `configs/platforms.yaml` 的正式入口地位
-- Agent 本地 provider 配置的正式入口地位
-- `internal/platform/loader.go` 中 YAML 驱动主逻辑
+- `configs/platforms.yaml` 正式入口
+- 平台 API 的 legacy loader 回退调用链
+- `ServiceContext` 中 legacy `PlatformLoader` 依赖
 
 ---
 
 ## 9. 兼容策略
 
-### 9.1 短期兼容
+### 9.1 当前兼容策略
 
-短期允许：
+当前不再支持平台 YAML fallback；平台能力统一走 extension runtime 与 installation 数据。
 
-- 若显式开启兼容开关且无 installation 数据，则 fallback 到 YAML
-- 若存在 installation 数据，则优先 installation
+### 9.2 目标状态
 
-### 9.2 中期目标
-
-- YAML 只用于本地开发和迁移导入
-
-### 9.3 长期目标
-
-- 删除 YAML 作为正式主数据源
+- extension installation 为唯一主数据源
 
 ---
 
@@ -348,7 +341,7 @@ internal/extensions/official/externalplatform/
 - 可以把 installation 同步到 Agent
 - Agent 可以注册平台 functions
 - 旧 `platform` API 仍可调用
-- YAML 不再是唯一主配置来源
+- YAML 入口已下线
 
 ---
 

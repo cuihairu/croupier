@@ -1,4 +1,4 @@
-package alert
+package ops
 
 import (
 	"context"
@@ -13,46 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestFindActiveAlertingInstallation(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("open sqlite failed: %v", err)
-	}
-	if err := db.AutoMigrate(&model.ExtensionInstallation{}, &model.ExtensionEvent{}, &model.ExtensionRuntimeBinding{}); err != nil {
-		t.Fatalf("auto migrate failed: %v", err)
-	}
-
-	repos := extensiongorm.NewBundle(db)
-	installationSvc := extensioninstallation.NewService(repos.Installation, repos.Event, repos.Binding)
-	_, err = installationSvc.Install(context.Background(), extensioninstallation.InstallRequest{
-		ExtensionID:    officialAlertingID,
-		ReleaseVersion: "1.0.0",
-		ScopeType:      "system",
-		ScopeID:        "global",
-		TargetType:     "agent_group",
-		TargetID:       "default",
-		Config:         map[string]any{},
-		Operator:       "tester",
-	})
-	if err != nil {
-		t.Fatalf("install extension failed: %v", err)
-	}
-
-	s := NewService(&svc.ServiceContext{
-		Extensions: &svc.ExtensionServices{
-			Installation: installationSvc,
-		},
-	})
-	item, ok, err := s.findActiveAlertingInstallation(context.Background())
-	if err != nil {
-		t.Fatalf("findActiveAlertingInstallation() error = %v", err)
-	}
-	if !ok || item == nil || item.ExtensionID != officialAlertingID {
-		t.Fatalf("expected active official.alerting installation, got ok=%v item=%#v", ok, item)
-	}
-}
-
-func TestRecordAlertingEvent(t *testing.T) {
+func TestRecordNotificationEvent(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite failed: %v", err)
@@ -64,7 +25,7 @@ func TestRecordAlertingEvent(t *testing.T) {
 	repos := extensiongorm.NewBundle(db)
 	installationSvc := extensioninstallation.NewService(repos.Installation, repos.Event, repos.Binding)
 	installed, err := installationSvc.Install(context.Background(), extensioninstallation.InstallRequest{
-		ExtensionID:    officialAlertingID,
+		ExtensionID:    officialNotificationID,
 		ReleaseVersion: "1.0.0",
 		ScopeType:      "system",
 		ScopeID:        "global",
@@ -80,13 +41,19 @@ func TestRecordAlertingEvent(t *testing.T) {
 		t.Fatal("expected non-nil installation")
 	}
 
-	s := NewService(&svc.ServiceContext{
+	svcCtx := &svc.ServiceContext{
 		Extensions: &svc.ExtensionServices{
 			Installation: installationSvc,
 		},
-	})
-	if err := s.recordAlertingEvent(context.WithValue(context.Background(), "username", "alice"), "alerts_silence", "silenced", `{"id":"a1"}`); err != nil {
-		t.Fatalf("recordAlertingEvent() error = %v", err)
+	}
+	if err := recordNotificationEvent(
+		context.WithValue(context.Background(), "username", "alice"),
+		svcCtx,
+		"notifications_update",
+		"notifications updated",
+		`{"enabled":true,"channels":1,"rules":1}`,
+	); err != nil {
+		t.Fatalf("recordNotificationEvent() error = %v", err)
 	}
 
 	events, total, err := installationSvc.ListEvents(context.Background(), installed.ID, extensioninstallation.EventListQuery{
@@ -97,96 +64,33 @@ func TestRecordAlertingEvent(t *testing.T) {
 		t.Fatalf("ListEvents() error = %v", err)
 	}
 	if total < 2 || len(events) < 2 {
-		t.Fatalf("expected install + alerting events, total=%d len=%d", total, len(events))
+		t.Fatalf("expected install + notification events, total=%d len=%d", total, len(events))
 	}
 	found := false
 	for _, event := range events {
-		if event.EventType == "alerts_silence" && event.CreatedBy == "alice" {
+		if event.EventType == "notifications_update" && event.CreatedBy == "alice" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Fatalf("expected alerts_silence event created by alice, events=%+v", events)
+		t.Fatalf("expected notifications_update event created by alice, events=%+v", events)
 	}
 }
 
-func TestSilencesListPrefersExtensionConfig(t *testing.T) {
+func TestOpsNotificationsUpdateRecordsExtensionEvent(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite failed: %v", err)
 	}
-	if err := db.AutoMigrate(&model.Alert{}, &model.AlertSilence{}, &model.ExtensionInstallation{}, &model.ExtensionEvent{}, &model.ExtensionRuntimeBinding{}); err != nil {
+	if err := db.AutoMigrate(&model.ExtensionInstallation{}, &model.ExtensionEvent{}, &model.ExtensionRuntimeBinding{}); err != nil {
 		t.Fatalf("auto migrate failed: %v", err)
-	}
-
-	repos := extensiongorm.NewBundle(db)
-	installationSvc := extensioninstallation.NewService(repos.Installation, repos.Event, repos.Binding)
-	_, err = installationSvc.Install(context.Background(), extensioninstallation.InstallRequest{
-		ExtensionID:    officialAlertingID,
-		ReleaseVersion: "1.0.0",
-		ScopeType:      "system",
-		ScopeID:        "global",
-		TargetType:     "agent_group",
-		TargetID:       "default",
-		Config: map[string]any{
-			"silences": []map[string]any{
-				{
-					"id":        "s-1",
-					"alertType": "cpu",
-					"matchers":  map[string]any{},
-					"startAt":   "2026-03-15 00:00:00",
-					"endAt":     "2026-03-15 01:00:00",
-					"createdBy": "tester",
-				},
-			},
-		},
-		Operator: "tester",
-	})
-	if err != nil {
-		t.Fatalf("install extension failed: %v", err)
-	}
-
-	s := NewService(&svc.ServiceContext{
-		AlertModel: model.NewAlertModel(db),
-		Extensions: &svc.ExtensionServices{
-			Installation: installationSvc,
-		},
-	})
-	resp, err := s.SilencesList(context.Background(), &SilencesListRequest{})
-	if err != nil {
-		t.Fatalf("SilencesList() error = %v", err)
-	}
-	if len(resp.Items) != 1 || resp.Items[0].Id != "s-1" || resp.Items[0].AlertType != "cpu" {
-		t.Fatalf("expected extension silences, got %#v", resp.Items)
-	}
-}
-
-func TestSilenceSyncsToExtensionConfig(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("open sqlite failed: %v", err)
-	}
-	if err := db.AutoMigrate(&model.Alert{}, &model.AlertSilence{}, &model.ExtensionInstallation{}, &model.ExtensionEvent{}, &model.ExtensionRuntimeBinding{}); err != nil {
-		t.Fatalf("auto migrate failed: %v", err)
-	}
-
-	alertModel := model.NewAlertModel(db)
-	if err := alertModel.Create(context.Background(), &model.Alert{
-		AlertID: "a-1",
-		Type:    "cpu",
-		Level:   "warning",
-		Message: "high cpu",
-		Source:  "agent-1",
-		Status:  "firing",
-	}); err != nil {
-		t.Fatalf("seed alert failed: %v", err)
 	}
 
 	repos := extensiongorm.NewBundle(db)
 	installationSvc := extensioninstallation.NewService(repos.Installation, repos.Event, repos.Binding)
 	installed, err := installationSvc.Install(context.Background(), extensioninstallation.InstallRequest{
-		ExtensionID:    officialAlertingID,
+		ExtensionID:    officialNotificationID,
 		ReleaseVersion: "1.0.0",
 		ScopeType:      "system",
 		ScopeID:        "global",
@@ -202,41 +106,157 @@ func TestSilenceSyncsToExtensionConfig(t *testing.T) {
 		t.Fatal("expected non-nil installation")
 	}
 
-	s := NewService(&svc.ServiceContext{
-		AlertModel: alertModel,
+	svcCtx := &svc.ServiceContext{
 		Extensions: &svc.ExtensionServices{
 			Installation: installationSvc,
 		},
+	}
+	_, err = opsNotificationsUpdate(context.WithValue(context.Background(), "username", "bob"), svcCtx, &OpsNotificationsUpdateRequest{
+		Enabled: true,
+		Channels: []OpsNotificationChannel{
+			{ID: "ch-1", Type: "webhook", URL: "https://example.com/hook"},
+		},
+		Rules: []OpsNotificationRule{
+			{Event: "alert.fired", Channels: []string{"ch-1"}},
+		},
 	})
-	if err := s.Silence(context.WithValue(context.Background(), "username", "alice"), &AlertSilenceRequest{
-		ID:       "a-1",
-		Duration: 30,
-		Reason:   "manual",
-	}); err != nil {
-		t.Fatalf("Silence() error = %v", err)
+	if err != nil {
+		t.Fatalf("opsNotificationsUpdate() error = %v", err)
+	}
+
+	events, _, err := installationSvc.ListEvents(context.Background(), installed.ID, extensioninstallation.EventListQuery{
+		Limit:  20,
+		Offset: 0,
+	})
+	if err != nil {
+		t.Fatalf("ListEvents() error = %v", err)
+	}
+	found := false
+	for _, event := range events {
+		if event.EventType == "notifications_update" && event.CreatedBy == "bob" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected notifications_update event created by bob, events=%+v", events)
+	}
+}
+
+func TestOpsNotificationsGetPrefersExtensionInstallationConfig(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite failed: %v", err)
+	}
+	if err := db.AutoMigrate(&model.ExtensionInstallation{}, &model.ExtensionEvent{}, &model.ExtensionRuntimeBinding{}); err != nil {
+		t.Fatalf("auto migrate failed: %v", err)
+	}
+
+	repos := extensiongorm.NewBundle(db)
+	installationSvc := extensioninstallation.NewService(repos.Installation, repos.Event, repos.Binding)
+	_, err = installationSvc.Install(context.Background(), extensioninstallation.InstallRequest{
+		ExtensionID:    officialNotificationID,
+		ReleaseVersion: "1.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent_group",
+		TargetID:       "default",
+		Config: map[string]any{
+			"enabled": true,
+			"channels": []map[string]any{
+				{"id": "ch-1", "type": "webhook", "url": "https://example.com/hook"},
+			},
+			"rules": []map[string]any{
+				{"event": "alert.fired", "channels": []string{"ch-1"}},
+			},
+		},
+		Operator: "tester",
+	})
+	if err != nil {
+		t.Fatalf("install extension failed: %v", err)
+	}
+
+	svcCtx := &svc.ServiceContext{
+		Extensions: &svc.ExtensionServices{
+			Installation: installationSvc,
+		},
+	}
+	resp, err := opsNotificationsGet(context.Background(), svcCtx, &OpsNotificationsGetRequest{})
+	if err != nil {
+		t.Fatalf("opsNotificationsGet() error = %v", err)
+	}
+
+	data, ok := resp.Data.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map data, got %T", resp.Data)
+	}
+	if enabled, _ := data["enabled"].(bool); !enabled {
+		t.Fatalf("expected enabled=true, got %#v", data["enabled"])
+	}
+	channels, ok := data["channels"].([]OpsNotificationChannel)
+	if !ok || len(channels) != 1 || channels[0].ID != "ch-1" {
+		t.Fatalf("unexpected channels: %#v", data["channels"])
+	}
+}
+
+func TestOpsNotificationsUpdateWritesExtensionInstallationConfig(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite failed: %v", err)
+	}
+	if err := db.AutoMigrate(&model.ExtensionInstallation{}, &model.ExtensionEvent{}, &model.ExtensionRuntimeBinding{}); err != nil {
+		t.Fatalf("auto migrate failed: %v", err)
+	}
+
+	repos := extensiongorm.NewBundle(db)
+	installationSvc := extensioninstallation.NewService(repos.Installation, repos.Event, repos.Binding)
+	installed, err := installationSvc.Install(context.Background(), extensioninstallation.InstallRequest{
+		ExtensionID:    officialNotificationID,
+		ReleaseVersion: "1.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent_group",
+		TargetID:       "default",
+		Config:         map[string]any{},
+		Operator:       "tester",
+	})
+	if err != nil {
+		t.Fatalf("install extension failed: %v", err)
+	}
+	if installed == nil {
+		t.Fatal("expected non-nil installation")
+	}
+
+	svcCtx := &svc.ServiceContext{
+		Extensions: &svc.ExtensionServices{
+			Installation: installationSvc,
+		},
+	}
+	_, err = opsNotificationsUpdate(context.Background(), svcCtx, &OpsNotificationsUpdateRequest{
+		Enabled: true,
+		Channels: []OpsNotificationChannel{
+			{ID: "ch-1", Type: "webhook", URL: "https://example.com/hook"},
+		},
+		Rules: []OpsNotificationRule{
+			{Event: "alert.fired", Channels: []string{"ch-1"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("opsNotificationsUpdate() error = %v", err)
 	}
 
 	current, err := installationSvc.Get(context.Background(), installed.ID)
 	if err != nil {
 		t.Fatalf("installationSvc.Get() error = %v", err)
 	}
-	config := map[string]any{}
-	if err := json.Unmarshal([]byte(current.ConfigJSON), &config); err != nil {
+	cfg := map[string]any{}
+	if err := json.Unmarshal([]byte(current.ConfigJSON), &cfg); err != nil {
 		t.Fatalf("unmarshal config failed: %v", err)
 	}
-	raw, ok := config["silences"]
-	if !ok || raw == nil {
-		t.Fatalf("expected silences written into extension config, got %#v", config)
+	if enabled, _ := cfg["enabled"].(bool); !enabled {
+		t.Fatalf("expected enabled=true in config, got %#v", cfg["enabled"])
 	}
-	data, err := json.Marshal(raw)
-	if err != nil {
-		t.Fatalf("marshal silences failed: %v", err)
-	}
-	items := []Silence{}
-	if err := json.Unmarshal(data, &items); err != nil {
-		t.Fatalf("unmarshal silences failed: %v", err)
-	}
-	if len(items) == 0 || items[0].AlertType != "cpu" {
-		t.Fatalf("unexpected silences config: %+v", items)
+	if channels, ok := cfg["channels"].([]interface{}); !ok || len(channels) != 1 {
+		t.Fatalf("expected one channel in config, got %#v", cfg["channels"])
 	}
 }

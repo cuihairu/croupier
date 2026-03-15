@@ -21,10 +21,8 @@ import (
 	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/pkg2/jwt"
-	plat "github.com/cuihairu/croupier/internal/platform"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
-	"github.com/cuihairu/croupier/internal/platform/migrationflags"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
@@ -54,8 +52,6 @@ type ServiceContext struct {
 	ApprovalsStore approvals.Store
 
 	ObjectStore objstore.Store
-
-	PlatformLoader *plat.Loader
 
 	// Agent Ops support
 	MetricsStore    *reg.MetricsStore
@@ -170,9 +166,6 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 	approvalsStore := approvals.NewMemStore()
 
-	// 初始化平台加载器
-	platformLoader := initPlatformLoader(c)
-
 	// 初始化缓存
 	cacheStore, err := cache.NewCacheStore(c.Cache)
 	if err != nil {
@@ -233,7 +226,6 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 		ObjectStore:    objectStore,
 		ApprovalsStore: approvalsStore,
-		PlatformLoader: platformLoader,
 		Extensions: &ExtensionServices{
 			Catalog:      extensionCatalogSvc,
 			Manifest:     extensionManifestSvc,
@@ -632,42 +624,6 @@ func splitPermissionCode(code string) (string, string) {
 		action = strings.TrimSpace(parts[1])
 	}
 	return resource, action
-}
-
-// initPlatformLoader initializes the third-party platform loader
-func initPlatformLoader(c config.Config) *plat.Loader {
-	if migrationflags.IsLegacyDisabled() {
-		slog.Default().Info("Third-party platform legacy loader disabled by env")
-		return nil
-	}
-	if migrationflags.IsExtensionOnly() {
-		slog.Default().Info("Third-party platform legacy loader skipped in extension-only mode")
-		return nil
-	}
-	// Default platform config path
-	configFile := "configs/platforms.yaml"
-	if c.Platforms.ConfigFile != "" {
-		configFile = c.Platforms.ConfigFile
-	}
-
-	// If platform integration is explicitly disabled, return nil
-	if !c.Platforms.Enabled {
-		slog.Default().Info("Third-party platform integration is disabled")
-		return nil
-	}
-	slog.Default().Warn("Third-party platform legacy loader is enabled (deprecated path); prefer extension-first external-platform. Set CROUPIER_PLATFORM_LEGACY_DISABLED=true to disable legacy loader")
-
-	loader := plat.NewLoader(configFile, nil)
-
-	// Load platform configurations
-	if err := loader.Load(context.Background()); err != nil {
-		slog.Default().Error("Failed to load platform configurations", "error", err)
-		// Return loader anyway so it can be used for runtime reload
-		return loader
-	}
-
-	slog.Default().Info("Third-party platform loader initialized", "config", configFile)
-	return loader
 }
 
 func initObjectStore(ctx context.Context, cfg config.StorageConfig) (objstore.Store, error) {

@@ -441,6 +441,39 @@ func extractCapabilityDetailsFromBindings(bindings []model.ExtensionRuntimeBindi
 			detail.Operations = append(detail.Operations, key)
 		}
 	}
+	appendPermissions := func(detail *ExtensionCapabilityDetail, permissions map[string]string) {
+		if detail == nil || len(permissions) == 0 {
+			return
+		}
+		if detail.Permissions == nil {
+			detail.Permissions = map[string]string{}
+		}
+		for op, perm := range permissions {
+			opKey := strings.TrimSpace(op)
+			permKey := strings.TrimSpace(perm)
+			if opKey == "" || permKey == "" {
+				continue
+			}
+			detail.Permissions[opKey] = permKey
+		}
+	}
+	appendConfigKeys := func(detail *ExtensionCapabilityDetail, keys []string) {
+		if detail == nil || len(keys) == 0 {
+			return
+		}
+		seen := map[string]bool{}
+		for _, key := range detail.ConfigKeys {
+			seen[strings.TrimSpace(key)] = true
+		}
+		for _, key := range keys {
+			k := strings.TrimSpace(key)
+			if k == "" || seen[k] {
+				continue
+			}
+			seen[k] = true
+			detail.ConfigKeys = append(detail.ConfigKeys, k)
+		}
+	}
 	for _, b := range bindings {
 		raw := strings.TrimSpace(b.BindingType + ":" + b.BindingKey)
 		if raw != "" && raw != ":" {
@@ -448,6 +481,35 @@ func extractCapabilityDetailsFromBindings(bindings []model.ExtensionRuntimeBindi
 		}
 		bt := strings.ToLower(strings.TrimSpace(b.BindingType))
 		switch bt {
+		case "capability":
+			capability := strings.TrimSpace(b.BindingKey)
+			if capability == "" {
+				continue
+			}
+			addCap(capability)
+			spec := map[string]any{}
+			if strings.TrimSpace(b.SpecJSON) != "" {
+				_ = json.Unmarshal([]byte(b.SpecJSON), &spec)
+			}
+			operations := parseStringSliceAny(spec["operations"])
+			permissions := parseStringMapAny(spec["permissions"])
+			configKeys := parseStringSliceAny(spec["config_keys"])
+			if idx, exists := detailIndex[capability]; exists {
+				appendOperation(&details[idx], operations)
+				appendPermissions(&details[idx], permissions)
+				appendConfigKeys(&details[idx], configKeys)
+				continue
+			}
+			detailIndex[capability] = len(details)
+			details = append(details, ExtensionCapabilityDetail{
+				Type:        bt,
+				Key:         capability,
+				Capability:  capability,
+				Operations:  operations,
+				Permissions: permissions,
+				ConfigKeys:  configKeys,
+				Source:      "binding",
+			})
 		case "provider", "openapi":
 			spec := map[string]any{}
 			if strings.TrimSpace(b.SpecJSON) != "" {
@@ -529,6 +591,7 @@ func extractPageDetailsFromBindings(bindings []model.ExtensionRuntimeBinding) []
 		route := strings.TrimSpace(fmt.Sprint(spec["route"]))
 		icon := strings.TrimSpace(fmt.Sprint(spec["icon"]))
 		group := strings.TrimSpace(fmt.Sprint(spec["group"]))
+		requiredPermission := strings.TrimSpace(fmt.Sprint(spec["required_permission"]))
 		order := 0
 		if rawOrder, ok := spec["order"]; ok {
 			switch v := rawOrder.(type) {
@@ -550,18 +613,54 @@ func extractPageDetailsFromBindings(bindings []model.ExtensionRuntimeBinding) []
 			route = "/" + strings.ReplaceAll(key, ".", "/")
 		}
 		items = append(items, ExtensionPageItem{
-			Type:   bt,
-			Key:    key,
-			Title:  title,
-			Route:  route,
-			Icon:   icon,
-			Group:  group,
-			Order:  order,
-			Source: "binding",
-			Schema: spec,
+			Type:               bt,
+			Key:                key,
+			Title:              title,
+			Route:              route,
+			Icon:               icon,
+			Group:              group,
+			Order:              order,
+			RequiredPermission: requiredPermission,
+			Source:             "binding",
+			Schema:             spec,
 		})
 	}
 	return items
+}
+
+func parseStringSliceAny(raw any) []string {
+	list, ok := raw.([]any)
+	if !ok {
+		return []string{}
+	}
+	out := make([]string, 0, len(list))
+	seen := map[string]bool{}
+	for _, item := range list {
+		s := strings.TrimSpace(fmt.Sprint(item))
+		if s == "" || s == "<nil>" || seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	return out
+}
+
+func parseStringMapAny(raw any) map[string]string {
+	m, ok := raw.(map[string]any)
+	if !ok {
+		return map[string]string{}
+	}
+	out := make(map[string]string, len(m))
+	for k, v := range m {
+		key := strings.TrimSpace(k)
+		val := strings.TrimSpace(fmt.Sprint(v))
+		if key == "" || val == "" || val == "<nil>" {
+			continue
+		}
+		out[key] = val
+	}
+	return out
 }
 
 func (s *Service) HealthCheck(ctx context.Context, id uint, operator string) (*ExtensionHealthCheckResponse, error) {

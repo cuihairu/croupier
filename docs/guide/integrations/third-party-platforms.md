@@ -17,7 +17,7 @@ tag:
 
 本文档介绍如何在 Croupier 中接入第三方运营平台和游戏服务器，支持动态配置和启用多个平台。
 
-> 注意：当前主路径为 **extension-first**（`official.external-platform`）。文中涉及 `platforms.yaml` 的内容仅用于兼容过渡，不再作为正式主配置入口。
+> 注意：当前主路径为 **extension-first**（`official.external-platform`）。本文中历史 `platforms:` YAML 片段仅用于理解旧架构，当前版本已移除该主入口。
 
 ### 支持的集成方式
 
@@ -61,7 +61,7 @@ server/
 │       ├── app.go              # 集成 ProviderManager
 │       └── function_server.go  # 支持平台调用
 ├── configs/
-│   └── platforms.yaml          # Legacy 兼容配置（迁移期可选）
+│   └── (legacy platforms.yaml 已移除)
 └── pkg/pb/croupier/platform/v1/ # gRPC 生成代码
 ```
 
