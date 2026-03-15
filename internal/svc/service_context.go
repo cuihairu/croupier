@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -283,6 +284,9 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 	if err := seedBootstrapPermissions(ctx); err != nil {
 		slog.Default().Error("failed to seed bootstrap permissions", "error", err)
+	}
+	if err := seedBootstrapExtensionCatalog(ctx); err != nil {
+		slog.Default().Error("failed to seed bootstrap extension catalog", "error", err)
 	}
 	if err := seedBootstrapRoles(ctx); err != nil {
 		slog.Default().Error("failed to seed bootstrap roles", "error", err)
@@ -624,6 +628,175 @@ func splitPermissionCode(code string) (string, string) {
 		action = strings.TrimSpace(parts[1])
 	}
 	return resource, action
+}
+
+type bootstrapExtensionCatalogFile struct {
+	Items []bootstrapExtensionCatalogItem `json:"items"`
+}
+
+type bootstrapExtensionCatalogItem struct {
+	ExtensionID   string                            `json:"extension_id"`
+	Name          string                            `json:"name"`
+	DisplayName   string                            `json:"display_name"`
+	Vendor        string                            `json:"vendor"`
+	Kind          string                            `json:"kind"`
+	Summary       string                            `json:"summary"`
+	IconURL       string                            `json:"icon_url"`
+	HomepageURL   string                            `json:"homepage_url"`
+	Status        string                            `json:"status"`
+	LatestVersion string                            `json:"latest_version"`
+	Releases      []bootstrapExtensionReleaseRecord `json:"releases"`
+}
+
+type bootstrapExtensionReleaseRecord struct {
+	Version         string         `json:"version"`
+	ReleaseChannel  string         `json:"release_channel"`
+	MinCoreVersion  string         `json:"min_core_version"`
+	PackageRef      string         `json:"package_ref"`
+	Checksum        string         `json:"checksum"`
+	Changelog       string         `json:"changelog"`
+	PublishedAt     string         `json:"published_at"`
+	PublishedAtUnix int64          `json:"published_at_unix"`
+	Manifest        map[string]any `json:"manifest"`
+}
+
+func seedBootstrapExtensionCatalog(ctx *ServiceContext) error {
+	if ctx == nil || ctx.DB == nil {
+		return nil
+	}
+
+	seedPath := filepath.Join(resolveBootstrapAuthDir(ctx.Config), "extensions", "catalog.json")
+	data, err := os.ReadFile(seedPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("read extension catalog seed failed: %w", err)
+	}
+
+	var payload bootstrapExtensionCatalogFile
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return fmt.Errorf("parse extension catalog seed failed: %w", err)
+	}
+	if len(payload.Items) == 0 {
+		return nil
+	}
+
+	bg := context.Background()
+	for _, item := range payload.Items {
+		extID := strings.TrimSpace(item.ExtensionID)
+		if extID == "" {
+			continue
+		}
+		record := model.ExtensionCatalog{
+			ExtensionID:   extID,
+			Name:          strings.TrimSpace(item.Name),
+			DisplayName:   strings.TrimSpace(item.DisplayName),
+			Vendor:        strings.TrimSpace(item.Vendor),
+			Kind:          strings.TrimSpace(item.Kind),
+			Summary:       strings.TrimSpace(item.Summary),
+			IconURL:       strings.TrimSpace(item.IconURL),
+			HomepageURL:   strings.TrimSpace(item.HomepageURL),
+			Status:        strings.TrimSpace(item.Status),
+			LatestVersion: strings.TrimSpace(item.LatestVersion),
+		}
+		if record.Name == "" {
+			record.Name = extID
+		}
+		if record.DisplayName == "" {
+			record.DisplayName = record.Name
+		}
+		if record.Vendor == "" {
+			record.Vendor = "official"
+		}
+		if record.Kind == "" {
+			record.Kind = "official"
+		}
+		if record.Status == "" {
+			record.Status = "active"
+		}
+
+		var existing model.ExtensionCatalog
+		err := ctx.DB.WithContext(bg).Where("extension_id = ?", extID).First(&existing).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			if err := ctx.DB.WithContext(bg).Create(&record).Error; err != nil {
+				return fmt.Errorf("create extension catalog seed failed (%s): %w", extID, err)
+			}
+		} else if err != nil {
+			return fmt.Errorf("query extension catalog seed failed (%s): %w", extID, err)
+		} else {
+			updates := map[string]any{
+				"name":           record.Name,
+				"display_name":   record.DisplayName,
+				"vendor":         record.Vendor,
+				"kind":           record.Kind,
+				"summary":        record.Summary,
+				"icon_url":       record.IconURL,
+				"homepage_url":   record.HomepageURL,
+				"status":         record.Status,
+				"latest_version": record.LatestVersion,
+			}
+			if err := ctx.DB.WithContext(bg).Model(&existing).Updates(updates).Error; err != nil {
+				return fmt.Errorf("update extension catalog seed failed (%s): %w", extID, err)
+			}
+		}
+
+		for _, release := range item.Releases {
+			version := strings.TrimSpace(release.Version)
+			if version == "" {
+				continue
+			}
+			manifest := release.Manifest
+			if len(manifest) == 0 {
+				manifest = map[string]any{
+					"id":      extID,
+					"name":    record.Name,
+					"version": version,
+				}
+			}
+			manifestJSON, _ := json.Marshal(manifest)
+			publishedAtUnix := release.PublishedAtUnix
+			if publishedAtUnix == 0 {
+				if ts := strings.TrimSpace(release.PublishedAt); ts != "" {
+					if parsed, parseErr := time.Parse(time.RFC3339, ts); parseErr == nil {
+						publishedAtUnix = parsed.Unix()
+					}
+				}
+			}
+			if publishedAtUnix == 0 {
+				publishedAtUnix = time.Now().Unix()
+			}
+
+			var existingRelease model.ExtensionRelease
+			err := ctx.DB.WithContext(bg).
+				Where("extension_id = ? AND version = ?", extID, version).
+				First(&existingRelease).Error
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				newRelease := model.ExtensionRelease{
+					ExtensionID:     extID,
+					Version:         version,
+					ReleaseChannel:  strings.TrimSpace(release.ReleaseChannel),
+					ManifestJSON:    string(manifestJSON),
+					PackageRef:      strings.TrimSpace(release.PackageRef),
+					Checksum:        strings.TrimSpace(release.Checksum),
+					MinCoreVersion:  strings.TrimSpace(release.MinCoreVersion),
+					Changelog:       strings.TrimSpace(release.Changelog),
+					PublishedAtUnix: publishedAtUnix,
+				}
+				if newRelease.ReleaseChannel == "" {
+					newRelease.ReleaseChannel = "stable"
+				}
+				if err := ctx.DB.WithContext(bg).Create(&newRelease).Error; err != nil {
+					return fmt.Errorf("create extension release seed failed (%s@%s): %w", extID, version, err)
+				}
+			} else if err != nil {
+				return fmt.Errorf("query extension release seed failed (%s@%s): %w", extID, version, err)
+			}
+		}
+	}
+
+	slog.Default().Info("extension catalog bootstrap seeded", "path", seedPath, "items", len(payload.Items))
+	return nil
 }
 
 func initObjectStore(ctx context.Context, cfg config.StorageConfig) (objstore.Store, error) {
