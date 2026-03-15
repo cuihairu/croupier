@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -360,6 +361,56 @@ func (s *Service) Capabilities(ctx context.Context, id uint) (*ExtensionCapabili
 	}, nil
 }
 
+func (s *Service) Pages(ctx context.Context, id uint) (*ExtensionPagesResponse, error) {
+	if err := s.requireReadPermission(ctx, "无权查看扩展页面"); err != nil {
+		return nil, err
+	}
+	item, err := s.svcCtx.Extensions.Installation.Get(ctx, id)
+	if err != nil {
+		return nil, mapServiceError(err)
+	}
+	bindings, err := s.svcCtx.Extensions.Installation.ListBindings(ctx, id)
+	if err != nil {
+		return nil, mapServiceError(err)
+	}
+	pages := extractPageDetailsFromBindings(bindings)
+	if len(pages) == 0 {
+		manifest, err := s.resolveManifestForRelease(ctx, item.ExtensionID, item.ReleaseVersion)
+		if err == nil {
+			if ui, ok := manifest["ui"].(map[string]any); ok {
+				if rawPages, ok := ui["pages"].([]any); ok {
+					for idx, raw := range rawPages {
+						route := strings.TrimSpace(fmt.Sprint(raw))
+						if route == "" || route == "<nil>" {
+							continue
+						}
+						pages = append(pages, ExtensionPageItem{
+							Type:   "manifest",
+							Key:    route,
+							Title:  route,
+							Route:  route,
+							Order:  idx + 1,
+							Source: "manifest",
+							Schema: map[string]any{},
+						})
+					}
+				}
+			}
+		}
+	}
+	sort.SliceStable(pages, func(i, j int) bool {
+		if pages[i].Order == pages[j].Order {
+			return pages[i].Key < pages[j].Key
+		}
+		return pages[i].Order < pages[j].Order
+	})
+	return &ExtensionPagesResponse{
+		Code:    200,
+		Message: "success",
+		Pages:   pages,
+	}, nil
+}
+
 func extractCapabilityDetailsFromBindings(bindings []model.ExtensionRuntimeBinding) ([]string, []ExtensionCapabilityDetail) {
 	capSet := map[string]bool{}
 	caps := make([]string, 0)
@@ -452,6 +503,65 @@ func extractCapabilityDetailsFromBindings(bindings []model.ExtensionRuntimeBindi
 		}
 	}
 	return caps, details
+}
+
+func extractPageDetailsFromBindings(bindings []model.ExtensionRuntimeBinding) []ExtensionPageItem {
+	items := make([]ExtensionPageItem, 0)
+	seen := map[string]bool{}
+	for _, b := range bindings {
+		bt := strings.ToLower(strings.TrimSpace(b.BindingType))
+		if bt != "page" && bt != "ui" && bt != "navigation" {
+			continue
+		}
+		spec := map[string]any{}
+		if strings.TrimSpace(b.SpecJSON) != "" {
+			_ = json.Unmarshal([]byte(b.SpecJSON), &spec)
+		}
+		key := strings.TrimSpace(b.BindingKey)
+		if key == "" {
+			key = strings.TrimSpace(fmt.Sprint(spec["id"]))
+		}
+		if key == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		title := strings.TrimSpace(fmt.Sprint(spec["title"]))
+		route := strings.TrimSpace(fmt.Sprint(spec["route"]))
+		icon := strings.TrimSpace(fmt.Sprint(spec["icon"]))
+		group := strings.TrimSpace(fmt.Sprint(spec["group"]))
+		order := 0
+		if rawOrder, ok := spec["order"]; ok {
+			switch v := rawOrder.(type) {
+			case float64:
+				order = int(v)
+			case int:
+				order = v
+			case int64:
+				order = int(v)
+			}
+		}
+		if order <= 0 {
+			order = len(items) + 1
+		}
+		if title == "" {
+			title = key
+		}
+		if route == "" || route == "<nil>" {
+			route = "/" + strings.ReplaceAll(key, ".", "/")
+		}
+		items = append(items, ExtensionPageItem{
+			Type:   bt,
+			Key:    key,
+			Title:  title,
+			Route:  route,
+			Icon:   icon,
+			Group:  group,
+			Order:  order,
+			Source: "binding",
+			Schema: spec,
+		})
+	}
+	return items
 }
 
 func (s *Service) HealthCheck(ctx context.Context, id uint, operator string) (*ExtensionHealthCheckResponse, error) {

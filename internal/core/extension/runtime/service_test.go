@@ -32,4 +32,7 @@ func TestBuildRuntimeBindings_OfficialAnalytics(t *testing.T) {
 	if !keys["analytics.filters.get"] || !keys["analytics.filters.update"] || !keys["analytics.ingest.batch"] {
 		t.Fatalf("missing analytics binding keys: %+v", keys)
 	}
+	if !keys["analytics.overview"] || !keys["analytics.realtime"] || !keys["analytics.retention"] || !keys["analytics.payments"] {
+		t.Fatalf("missing analytics page bindings: %+v", keys)
+	}
 }

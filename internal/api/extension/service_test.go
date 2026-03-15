@@ -360,3 +360,29 @@ func TestExtractCapabilityDetailsFromBindings(t *testing.T) {
 		t.Fatalf("expected merged operations [list_apps install_app upgrade_app], got: %+v", onepanel.Operations)
 	}
 }
+
+func TestExtractPageDetailsFromBindings(t *testing.T) {
+	pages := extractPageDetailsFromBindings([]model.ExtensionRuntimeBinding{
+		{
+			BindingType: "page",
+			BindingKey:  "analytics.realtime",
+			SpecJSON:    `{"title":"Realtime","route":"/analytics/realtime","order":20}`,
+		},
+		{
+			BindingType: "page",
+			BindingKey:  "analytics.overview",
+			SpecJSON:    `{"title":"Overview","route":"/analytics/overview","order":10}`,
+		},
+		{
+			BindingType: "navigation",
+			BindingKey:  "analytics.behavior",
+			SpecJSON:    `{"title":"Behavior","route":"/analytics/behavior","order":30}`,
+		},
+	})
+	if len(pages) != 3 {
+		t.Fatalf("expected 3 page items, got %d", len(pages))
+	}
+	if pages[0].Key != "analytics.realtime" && pages[0].Key != "analytics.overview" {
+		t.Fatalf("unexpected first page key before service sort: %s", pages[0].Key)
+	}
+}

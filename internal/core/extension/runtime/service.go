@@ -73,6 +73,34 @@ func buildRuntimeBindings(item *model.ExtensionInstallation) []model.ExtensionRu
 	if strings.EqualFold(extID, "official.analytics") {
 		return []model.ExtensionRuntimeBinding{
 			{
+				BindingType: "page",
+				BindingKey:  "analytics.overview",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"title":"Overview","route":"/analytics/overview","icon":"dashboard","order":10}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "page",
+				BindingKey:  "analytics.realtime",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"title":"Realtime","route":"/analytics/realtime","icon":"pulse","order":20}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "page",
+				BindingKey:  "analytics.retention",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"title":"Retention","route":"/analytics/retention","icon":"retention","order":30}`,
+				Status:      "active",
+			},
+			{
+				BindingType: "page",
+				BindingKey:  "analytics.payments",
+				TargetRef:   targetRef,
+				SpecJSON:    `{"title":"Payments","route":"/analytics/payments","icon":"payments","order":40}`,
+				Status:      "active",
+			},
+			{
 				BindingType: "capability",
 				BindingKey:  "analytics.filters",
 				TargetRef:   targetRef,

@@ -165,6 +165,20 @@ func (h *Handler) Capabilities(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+func (h *Handler) Pages(c *gin.Context) {
+	id, err := parseUintParam(c, "id")
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.Pages(c.Request.Context(), id)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 func (h *Handler) HealthCheck(c *gin.Context) {
 	id, err := parseUintParam(c, "id")
 	if err != nil {
@@ -326,6 +340,20 @@ func (h *Handler) CompatCapabilities(c *gin.Context) {
 		return
 	}
 	resp, err := h.service.Capabilities(c.Request.Context(), id)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+func (h *Handler) CompatPages(c *gin.Context) {
+	id, err := h.resolveCompatInstallationID(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.Pages(c.Request.Context(), id)
 	if err != nil {
 		response.Error(c, err)
 		return

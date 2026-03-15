@@ -478,7 +478,7 @@ Agent 需要新增 `ExtensionRuntime`，负责：
 
 - [x] 梳理 analytics API、任务、存储、页面边界（见 `docs/architecture/official-analytics-migration-draft.md`）
 - [x] 抽象核心仍需保留的基础能力（见 `docs/architecture/official-analytics-migration-draft.md` 的“核心保留 / 扩展迁移清单”）
-- [ ] 把 analytics 页面转为扩展页面
+- [x] 把 analytics 页面转为扩展页面（`official.analytics` runtime 已生成 `page` bindings，扩展接口新增 `GET /extensions/:id/pages` / `GET /extensions/installations/:id/pages`）
 - [x] 把 analytics 配置转为 installation 配置（analytics filters 已改为优先读写 `official.analytics` 安装配置，文件路径仅兜底）
 - [x] 把分析任务接入扩展 runtime（`runtime.Reconcile` 已为 `official.analytics` 生成 filters/ingest 相关 binding 骨架）
 - [x] 保持已有数据模型兼容迁移（安装配置读写兼容 `filters` 与 `analytics_filters`，并保留文件路径兜底）

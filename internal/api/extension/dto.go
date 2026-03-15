@@ -199,6 +199,24 @@ type ExtensionCapabilityDetail struct {
 	Source     string   `json:"source"`
 }
 
+type ExtensionPageItem struct {
+	Type   string         `json:"type"`
+	Key    string         `json:"key"`
+	Title  string         `json:"title"`
+	Route  string         `json:"route"`
+	Icon   string         `json:"icon"`
+	Group  string         `json:"group"`
+	Order  int            `json:"order"`
+	Source string         `json:"source"`
+	Schema map[string]any `json:"schema"`
+}
+
+type ExtensionPagesResponse struct {
+	Code    int                 `json:"code"`
+	Message string              `json:"message"`
+	Pages   []ExtensionPageItem `json:"pages"`
+}
+
 type ExtensionHealthCheckResponse struct {
 	Code      int    `json:"code"`
 	Message   string `json:"message"`
