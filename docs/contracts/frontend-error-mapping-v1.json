@@ -1,0 +1,56 @@
+{
+  "version": "1.0.0",
+  "updated_at": "2026-03-15",
+  "domain": "extensions",
+  "mappings": [
+    {
+      "code": "extension_already_installed",
+      "title": "扩展已安装",
+      "message": "该扩展已存在安装实例，请前往安装列表查看或执行升级。",
+      "action": "open_installation_or_upgrade",
+      "severity": "warn"
+    },
+    {
+      "code": "dependency_blocked",
+      "title": "无法卸载",
+      "message": "当前扩展仍被其他扩展依赖，需先处理依赖关系。",
+      "action": "show_blockers",
+      "severity": "warn"
+    },
+    {
+      "code": "missing_dependency",
+      "title": "缺少依赖",
+      "message": "安装失败：缺少必要依赖扩展，请先安装依赖项。",
+      "action": "show_missing_dependencies",
+      "severity": "error"
+    },
+    {
+      "code": "version_mismatch",
+      "title": "版本不兼容",
+      "message": "当前版本约束不满足，请选择兼容版本后重试。",
+      "action": "show_expected_version_range",
+      "severity": "error"
+    },
+    {
+      "code": "dependency_cycle",
+      "title": "依赖循环",
+      "message": "检测到依赖循环，请调整扩展依赖关系。",
+      "action": "show_dependency_cycle",
+      "severity": "error"
+    },
+    {
+      "code": "forbidden",
+      "title": "无权限",
+      "message": "你没有执行该操作的权限，请联系管理员授权。",
+      "action": "none",
+      "severity": "error"
+    },
+    {
+      "code": "not_found",
+      "title": "资源不存在",
+      "message": "目标资源不存在或已被删除，请刷新后重试。",
+      "action": "refresh",
+      "severity": "warn"
+    }
+  ]
+}

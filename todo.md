@@ -744,7 +744,49 @@ Dashboard 已完成的最小接入：
 
 ---
 
-## 13. 备注
+## 13. 前后端 API 稳定与前端重整计划
+
+目标：
+
+- 先冻结后端契约，再推进前端结构性重整。
+- 避免“后端一改，前端全站连锁修改”。
+
+任务：
+
+- [x] 输出 API 稳定化实施文档（`docs/architecture/frontend-api-stabilization-plan.md`）
+- [x] 输出扩展域 API 契约基线（`docs/architecture/extensions-api-contract-baseline.md` + `docs/contracts/extensions-openapi-v1.yaml`）
+- [x] 输出前端 Adapter 分层模板（`docs/architecture/frontend-adapter-layer-template.md`）
+- [x] 提供 OpenAPI -> TS 类型/client 的跨平台 codegen 脚本与说明（`scripts/contracts/*` + `docs/contracts/codegen.md`）
+- [x] 提供 dashboard 一键 bootstrap（生成 contracts/client + adapter/error 模板）
+- [x] 增加契约守卫（`contracts_guard`）到 CI，防止 API 基线与错误码映射漂移
+- [x] 从 OpenAPI 生成前端 TS 类型与 client（已落地到 `croupier-dashboard/src/services/contracts` 与 `src/services/generated/extensions-client`）
+- [x] 建立前端统一 API 适配层（已在 `croupier-dashboard` 接入 `services/errors` 与 extensions 页面错误映射）
+- [x] 平台接入页改为 extension-first 信息架构（已在 `croupier-dashboard/src/pages/Platforms` 去除 reload/legacy 文案并改为扩展安装语义）
+- [x] alerts/approval/notification/backup 页面入口切到扩展页面容器（已在 `croupier-dashboard` 将对应路由切到 `Extensions/DomainEntry`）
+- [x] 建立错误码到前端提示语映射基线（`docs/contracts/frontend-error-mapping-v1.json`）
+- [x] 建立前后端联调基线用例文档（`docs/testing/extensions-integration-smoke-baseline.md`）
+- [x] 建立 UI 回归清单与发布门禁模板（`docs/testing/extensions-ui-regression-gate.md` + dashboard workflow 模板）
+
+产出：
+
+- 一份稳定 API 契约基线
+- 一套可持续演进的前端 API 适配层
+- 一版 extension-first 的前端信息架构
+
+检查项：
+
+- [x] 后端小版本升级不再触发大面积前端改动（已落契约守卫 + OpenAPI codegen + adapter 分层 + 回归门禁模板）
+- [x] 前端页面不直接依赖后端内部字段细节（扩展域页面已切 adapter/error-mapper）
+- [x] 扩展域页面主路径全部走 extension-first（approvals/alerts/backups/notifications 入口已切到扩展容器）
+
+中断恢复：
+
+- 从 `frontend-api-stabilization-plan.md` 的当前 Phase 继续
+- 若契约未冻结，禁止大面积 UI 重画
+
+---
+
+## 14. 备注
 
 本文件是当前唯一有效的重构主计划。
 

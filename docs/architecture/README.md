@@ -278,3 +278,8 @@ message JobEvent {
 - [official.approval 迁移草案](./official-approval-migration-draft.md)
 - [official.backup-advanced 迁移草案](./official-backup-advanced-migration-draft.md)
 - [官方扩展统一模式](./official-extension-unified-pattern.md)
+- [商店服务拆分方案](./marketplace-service-split-plan.md)
+- [前后端 API 稳定化与前端重整计划](./frontend-api-stabilization-plan.md)
+- [扩展域 API 契约基线（V1）](./extensions-api-contract-baseline.md)
+- [前端 Adapter 分层模板](./frontend-adapter-layer-template.md)
+- [Dashboard 仓库接入 Runbook](./dashboard-repo-integration-runbook.md)

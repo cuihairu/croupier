@@ -1,0 +1,42 @@
+name: Extensions Regression
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  extensions-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Contract guard (frontend side)
+        run: |
+          test -f src/services/contracts/extensions.ts || (echo "missing generated contracts" && exit 1)
+          test -f src/services/errors/codes.ts || (echo "missing error code mapping" && exit 1)
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps
+
+      - name: Run extensions smoke tests
+        run: npx playwright test src/tests/smoke/extensions --reporter=line
+
+      - name: Run extensions visual regression
+        run: npx playwright test src/tests/visual/extensions --reporter=line
+
+      - name: Upload playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            playwright-report
+            test-results

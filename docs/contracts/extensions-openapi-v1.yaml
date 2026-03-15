@@ -1,0 +1,468 @@
+openapi: 3.0.3
+info:
+  title: Croupier Extensions API
+  version: 1.0.0
+  description: Extension domain contract baseline for frontend integration.
+servers:
+  - url: /api/v1
+paths:
+  /extensions/catalog:
+    get:
+      summary: List extension catalog
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogListResponse'
+  /extensions/catalog/{id}:
+    get:
+      summary: Get catalog detail
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogDetailResponse'
+  /extensions/catalog/{id}/releases:
+    get:
+      summary: List catalog releases
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReleaseListResponse'
+  /extensions/installations:
+    get:
+      summary: List extension installations
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallationListResponse'
+  /extensions/installations/{id}:
+    get:
+      summary: Get installation detail
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallationDetailResponse'
+  /extensions/install:
+    post:
+      summary: Install extension release
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstallRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallationDetailResponse'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /extensions/{id}/enable:
+    post:
+      summary: Enable extension installation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallationDetailResponse'
+  /extensions/{id}/disable:
+    post:
+      summary: Disable extension installation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallationDetailResponse'
+  /extensions/{id}/upgrade:
+    post:
+      summary: Upgrade extension installation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                target_version:
+                  type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallationDetailResponse'
+  /extensions/{id}/uninstall:
+    delete:
+      summary: Uninstall extension installation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+  /extensions/{id}/capabilities:
+    get:
+      summary: Get extension capabilities
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilitiesResponse'
+  /extensions/{id}/health-check:
+    post:
+      summary: Trigger extension health check
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+  /extensions/{id}/reconcile:
+    post:
+      summary: Trigger extension reconcile
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResponse'
+  /extensions/{id}/events:
+    get:
+      summary: List extension events
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: page_size
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventListResponse'
+
+components:
+  schemas:
+    BaseResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            details:
+              type: object
+              additionalProperties: true
+    CatalogItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        extension_id:
+          type: string
+        display_name:
+          type: string
+        version:
+          type: string
+        installed:
+          type: boolean
+        tags:
+          type: array
+          items:
+            type: string
+        default_install:
+          type: boolean
+    CatalogListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/CatalogItem'
+                total:
+                  type: integer
+    CatalogDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CatalogItem'
+    Release:
+      type: object
+      properties:
+        version:
+          type: string
+        channel:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    ReleaseListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Release'
+    InstallRequest:
+      type: object
+      required:
+        - extension_id
+        - release_version
+      properties:
+        extension_id:
+          type: string
+        release_version:
+          type: string
+        scope_type:
+          type: string
+        scope_id:
+          type: string
+        target_type:
+          type: string
+        target_id:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+    Installation:
+      type: object
+      properties:
+        installation_id:
+          type: integer
+        installation_key:
+          type: string
+        extension_id:
+          type: string
+        release_version:
+          type: string
+        enabled:
+          type: boolean
+        status:
+          type: string
+        desired_state:
+          type: string
+        scope_type:
+          type: string
+        scope_id:
+          type: string
+        target_type:
+          type: string
+        target_id:
+          type: string
+    InstallationListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Installation'
+                total:
+                  type: integer
+    InstallationDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/Installation'
+    Capability:
+      type: object
+      properties:
+        capability:
+          type: string
+        operations:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+    CapabilitiesResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Capability'
+    ExtensionEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        operator:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+    EventListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ExtensionEvent'
+                total:
+                  type: integer

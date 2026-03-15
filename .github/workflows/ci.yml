@@ -17,6 +17,8 @@ jobs:
           go-version: '1.26.1'
       - name: Architecture guard
         run: bash .github/scripts/architecture_guard.sh
+      - name: Contracts guard
+        run: bash .github/scripts/contracts_guard.sh
       - name: Normalize Go toolchain env
         shell: bash
         run: |
