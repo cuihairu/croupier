@@ -3,6 +3,7 @@ package profile
 import (
 	"context"
 	"errors"
+	"sort"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -11,12 +12,14 @@ import (
 type Service struct {
 	adminModel *model.AdminModel
 	gameModel  *model.GameModel
+	roleModel  *model.RoleModel
 }
 
-func NewService(adminModel *model.AdminModel, gameModel *model.GameModel) *Service {
+func NewService(adminModel *model.AdminModel, gameModel *model.GameModel, roleModel *model.RoleModel) *Service {
 	return &Service{
 		adminModel: adminModel,
 		gameModel:  gameModel,
+		roleModel:  roleModel,
 	}
 }
 
@@ -210,14 +213,42 @@ func (s *Service) GetPermissions(ctx context.Context, username string) (*Profile
 	}
 
 	// 构建权限ID列表
-	permissionIDs := make([]string, 0, len(roles))
+	permissionSet := make(map[string]struct{}, len(roles)+8)
+	permissionIDs := make([]string, 0, len(roles)+8)
+	appendPermission := func(id string) {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return
+		}
+		if _, ok := permissionSet[id]; ok {
+			return
+		}
+		permissionSet[id] = struct{}{}
+		permissionIDs = append(permissionIDs, id)
+	}
+	roleIDs := make([]uint, 0, len(roleModels))
 	for _, role := range roles {
-		permissionIDs = append(permissionIDs, role)
+		appendPermission(role)
 		// 如果是管理员角色，添加通配符权限
 		if role == "admin" || role == "super_admin" {
-			permissionIDs = append(permissionIDs, "admin", "*")
+			appendPermission("admin")
+			appendPermission("*")
 		}
 	}
+	for _, role := range roleModels {
+		roleIDs = append(roleIDs, role.ID)
+	}
+	if s.roleModel != nil && len(roleIDs) > 0 {
+		rolePermMap, err := s.roleModel.GetRolesPermissionIDs(ctx, roleIDs)
+		if err == nil {
+			for _, ids := range rolePermMap {
+				for _, id := range ids {
+					appendPermission(id)
+				}
+			}
+		}
+	}
+	sort.Strings(permissionIDs)
 
 	permissions := make([]ProfilePermission, 0, len(roleModels))
 	for _, role := range roleModels {

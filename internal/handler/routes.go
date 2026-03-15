@@ -645,7 +645,7 @@ func registerPlayerRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 // Profile 路由注册
 // ============================================================================
 func registerProfileRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
-	profileSvc := profile.NewService(ctx.AdminModel, ctx.GameModel)
+	profileSvc := profile.NewService(ctx.AdminModel, ctx.GameModel, ctx.RoleModel)
 	profileHandler := profile.NewHandler(profileSvc)
 	g.GET("", profileHandler.GetProfile)     // /api/v1/profile
 	g.GET("/", profileHandler.GetProfile)    // /api/v1/profile/

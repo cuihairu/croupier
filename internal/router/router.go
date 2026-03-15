@@ -60,6 +60,7 @@ func registerAuthenticatedRoutes(api *gin.RouterGroup, db *gorm.DB) {
 	profileHandler := profile.NewHandler(profile.NewService(
 		model.NewAdminModel(db),
 		model.NewGameModel(db),
+		model.NewRoleModel(db),
 	))
 	profileGroup := authenticated.Group("/profile")
 	{

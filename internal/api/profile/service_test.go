@@ -23,7 +23,7 @@ func TestGetUserGamesReturnsAllGamesForAdmin(t *testing.T) {
 	adminModel := model.NewAdminModel(db)
 	gameModel := model.NewGameModel(db)
 	roleModel := model.NewRoleModel(db)
-	svc := NewService(adminModel, gameModel)
+	svc := NewService(adminModel, gameModel, roleModel)
 
 	admin := &model.Admin{Username: "admin", Status: 1}
 	if err := adminModel.Create(context.Background(), admin, "admin123"); err != nil {
@@ -76,7 +76,8 @@ func TestGetUserGamesReturnsAllGamesWhenScopeIsEmpty(t *testing.T) {
 
 	adminModel := model.NewAdminModel(db)
 	gameModel := model.NewGameModel(db)
-	svc := NewService(adminModel, gameModel)
+	roleModel := model.NewRoleModel(db)
+	svc := NewService(adminModel, gameModel, roleModel)
 
 	admin := &model.Admin{Username: "viewer", Status: 1}
 	if err := adminModel.Create(context.Background(), admin, "viewer123"); err != nil {
