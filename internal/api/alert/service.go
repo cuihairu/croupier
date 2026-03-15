@@ -3,13 +3,17 @@ package alert
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
+	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 )
+
+const officialAlertingID = "official.alerting"
 
 type Service struct {
 	svcCtx *svc.ServiceContext
@@ -104,7 +108,13 @@ func (s *Service) Silence(ctx context.Context, req *AlertSilenceRequest) error {
 		CreatedBy:      createdBy,
 	}
 
-	return s.svcCtx.AlertModel.CreateSilence(ctx, silence)
+	if err := s.svcCtx.AlertModel.CreateSilence(ctx, silence); err != nil {
+		return err
+	}
+	_ = s.recordAlertingEvent(ctx, "alerts_silence", "alert silenced",
+		fmt.Sprintf(`{"alert_id":"%s","duration":%d}`, alertID, duration),
+	)
+	return nil
 }
 
 // SilencesList retrieves a list of silence rules
@@ -171,5 +181,46 @@ func (s *Service) SilenceDelete(ctx context.Context, req *SilenceDeleteRequest) 
 		return errors.New("静默ID格式不正确")
 	}
 
-	return s.svcCtx.AlertModel.DeleteSilence(ctx, uint(id))
+	if err := s.svcCtx.AlertModel.DeleteSilence(ctx, uint(id)); err != nil {
+		return err
+	}
+	_ = s.recordAlertingEvent(ctx, "alerts_unsilence", "alert silence deleted",
+		fmt.Sprintf(`{"silence_id":%d}`, id),
+	)
+	return nil
+}
+
+func (s *Service) findActiveAlertingInstallation(ctx context.Context) (*model.ExtensionInstallation, bool, error) {
+	if s == nil || s.svcCtx == nil || s.svcCtx.Extensions == nil || s.svcCtx.Extensions.Installation == nil {
+		return nil, false, nil
+	}
+	items, _, err := s.svcCtx.Extensions.Installation.List(ctx, extensioninstallation.ListQuery{
+		ExtensionID: officialAlertingID,
+		Limit:       50,
+		Offset:      0,
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	for i := range items {
+		item := items[i]
+		if strings.EqualFold(strings.TrimSpace(item.Status), "uninstalled") ||
+			strings.EqualFold(strings.TrimSpace(item.DesiredState), "uninstalled") {
+			continue
+		}
+		return &item, true, nil
+	}
+	return nil, false, nil
+}
+
+func (s *Service) recordAlertingEvent(ctx context.Context, eventType, message, payload string) error {
+	item, ok, err := s.findActiveAlertingInstallation(ctx)
+	if err != nil || !ok || item == nil {
+		return err
+	}
+	operator := "system"
+	if username, err := utils.CurrentUsername(ctx); err == nil && strings.TrimSpace(username) != "" {
+		operator = strings.TrimSpace(username)
+	}
+	return s.svcCtx.Extensions.Installation.RecordEvent(ctx, item.ID, eventType, "info", message, operator, payload)
 }
