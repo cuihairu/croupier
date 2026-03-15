@@ -96,7 +96,6 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerWorkspaceRoutes(protected.Group("/workspaces"), serverCtx)
 
 		// 兼容前端的快捷路由
-		registerPermissionsShortcutRoute(protected, serverCtx)
 		registerRegistryShortcutRoutes(protected, serverCtx)
 	}
 }
@@ -773,14 +772,6 @@ func registerWorkspaceRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 // ============================================================================
 // 兼容前端的快捷路由
 // ============================================================================
-func registerPermissionsShortcutRoute(g *gin.RouterGroup, ctx *svc.ServiceContext) {
-	// /api/v1/permissions → 重定向到 /api/v1/profile/permissions
-	// 前端期望直接访问 /api/v1/permissions
-	profileSvc := profile.NewService(ctx.AdminModel, ctx.GameModel)
-	profileHandler := profile.NewHandler(profileSvc)
-	g.GET("/permissions", profileHandler.GetPermissions)
-}
-
 func registerRegistryShortcutRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	opsSvc := ops.NewService(ctx)
 	opsHandler := ops.NewHandler(opsSvc)
