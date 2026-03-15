@@ -306,8 +306,8 @@ Agent 需要新增 `ExtensionRuntime`，负责：
 
 检查项：
 
-- [ ] 团队可以用一句话说清核心和扩展的边界
-- [ ] 新业务不再默认进入核心
+- [x] 团队可以用一句话说清核心和扩展的边界（见 `docs/architecture/core-extension-mapping.md` 顶部边界语句）
+- [x] 新业务不再默认进入核心（见 `docs/development/new-business-extension-policy.md` 准入规则）
 
 中断恢复：
 
