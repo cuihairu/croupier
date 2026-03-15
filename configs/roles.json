@@ -1,8 +1,8 @@
 [
   {
     "code": "super_admin",
-    "name": "³¬¼¶¹ÜÀíÔ±(ÏµÍ³)",
-    "description": "ÓµÓĞÈ«²¿È¨ÏŞ£¨³¬¹Ü£©",
+    "name": "è¶…çº§ç®¡ç†å‘˜(ç³»ç»Ÿ)",
+    "description": "æ‹¥æœ‰å…¨éƒ¨æƒé™ï¼ˆè¶…ç®¡ï¼‰",
     "level": 110,
     "permissions": [
       "admin:all",
@@ -19,8 +19,8 @@
   },
   {
     "code": "admin",
-    "name": "³¬¼¶¹ÜÀíÔ±",
-    "description": "ÓµÓĞÈ«²¿ÏµÍ³È¨ÏŞ",
+    "name": "è¶…çº§ç®¡ç†å‘˜",
+    "description": "æ‹¥æœ‰å…¨éƒ¨ç³»ç»Ÿæƒé™",
     "level": 100,
     "permissions": [
       "admin:all",
@@ -37,8 +37,8 @@
   },
   {
     "code": "producer",
-    "name": "ÖÆ×÷ÈË",
-    "description": "ÕûÌåÏîÄ¿¸ºÔğÈË£¬²úÆ··½Ïò/ÉÏÏß¾ö²ß",
+    "name": "åˆ¶ä½œäºº",
+    "description": "æ•´ä½“é¡¹ç›®è´Ÿè´£äººï¼Œäº§å“æ–¹å‘/ä¸Šçº¿å†³ç­–",
     "level": 90,
     "permissions": [
       "games:manage",
@@ -54,8 +54,8 @@
   },
   {
     "code": "project_manager",
-    "name": "ÏîÄ¿¾­Àí",
-    "description": "ÏîÄ¿ÍÆ½øÓëĞ­µ÷",
+    "name": "é¡¹ç›®ç»ç†",
+    "description": "é¡¹ç›®æ¨è¿›ä¸åè°ƒ",
     "level": 85,
     "permissions": [
       "games:read",
@@ -71,8 +71,8 @@
   },
   {
     "code": "tech_lead",
-    "name": "¼¼Êõ¸ºÔğÈË",
-    "description": "¼¼Êõ¼Ü¹¹ÓëÑĞ·¢°Ñ¹Ø",
+    "name": "æŠ€æœ¯è´Ÿè´£äºº",
+    "description": "æŠ€æœ¯æ¶æ„ä¸ç ”å‘æŠŠå…³",
     "level": 85,
     "permissions": [
       "games:manage",
@@ -97,8 +97,8 @@
   },
   {
     "code": "backend_lead",
-    "name": "ºó¶ËÖ÷³Ì",
-    "description": "ºó¶ËÖ÷³Ì/¼¼Êõ¸ºÔğÈË",
+    "name": "åç«¯ä¸»ç¨‹",
+    "description": "åç«¯ä¸»ç¨‹/æŠ€æœ¯è´Ÿè´£äºº",
     "level": 85,
     "permissions": [
       "games:manage",
@@ -123,8 +123,8 @@
   },
   {
     "code": "qa_lead",
-    "name": "²âÊÔÖ÷¹Ü",
-    "description": "²âÊÔÍÅ¶Ó¸ºÔğÈË",
+    "name": "æµ‹è¯•ä¸»ç®¡",
+    "description": "æµ‹è¯•å›¢é˜Ÿè´Ÿè´£äºº",
     "level": 80,
     "permissions": [
       "function:invoke",
@@ -139,8 +139,8 @@
   },
   {
     "code": "ops_manager",
-    "name": "ÔËÎ¬Ö÷¹Ü",
-    "description": "ÔËÎ¬ÍÅ¶Ó¸ºÔğÈË",
+    "name": "è¿ç»´ä¸»ç®¡",
+    "description": "è¿ç»´å›¢é˜Ÿè´Ÿè´£äºº",
     "level": 80,
     "permissions": [
       "certificates:manage",
@@ -155,8 +155,8 @@
   },
   {
     "code": "operations_manager",
-    "name": "ÔËÓª¾­Àí",
-    "description": "ÔËÓªÍÅ¶Ó¸ºÔğÈË",
+    "name": "è¿è¥ç»ç†",
+    "description": "è¿è¥å›¢é˜Ÿè´Ÿè´£äºº",
     "level": 80,
     "permissions": [
       "function:invoke",
@@ -173,8 +173,8 @@
   },
   {
     "code": "operations_lead",
-    "name": "ÔËÓªÖ÷¹Ü",
-    "description": "ÔËÓªÍÅ¶Ó¹ÜÀí",
+    "name": "è¿è¥ä¸»ç®¡",
+    "description": "è¿è¥å›¢é˜Ÿç®¡ç†",
     "level": 75,
     "permissions": [
       "function:invoke",
@@ -192,8 +192,8 @@
   },
   {
     "code": "art_lead",
-    "name": "ÃÀÊõÖ÷¹Ü",
-    "description": "ÃÀÊõÍÅ¶Ó¸ºÔğÈË",
+    "name": "ç¾æœ¯ä¸»ç®¡",
+    "description": "ç¾æœ¯å›¢é˜Ÿè´Ÿè´£äºº",
     "level": 80,
     "permissions": [
       "uploads:write",
@@ -207,8 +207,8 @@
   },
   {
     "code": "support_manager",
-    "name": "¿Í·şÖ÷¹Ü",
-    "description": "¿Í·şÍÅ¶Ó¸ºÔğÈË",
+    "name": "å®¢æœä¸»ç®¡",
+    "description": "å®¢æœå›¢é˜Ÿè´Ÿè´£äºº",
     "level": 80,
     "permissions": [
       "wallet:read",
@@ -222,8 +222,8 @@
   },
   {
     "code": "senior_developer",
-    "name": "¸ß¼¶¿ª·¢¹¤³ÌÊ¦",
-    "description": "ºËĞÄ¹¦ÄÜ¿ª·¢Óë´úÂëÆÀÉó",
+    "name": "é«˜çº§å¼€å‘å·¥ç¨‹å¸ˆ",
+    "description": "æ ¸å¿ƒåŠŸèƒ½å¼€å‘ä¸ä»£ç è¯„å®¡",
     "level": 70,
     "permissions": [
       "function:invoke",
@@ -239,8 +239,8 @@
   },
   {
     "code": "developer",
-    "name": "¿ª·¢¹¤³ÌÊ¦",
-    "description": "ÈÕ³£¹¦ÄÜ¿ª·¢ÓëÁªµ÷",
+    "name": "å¼€å‘å·¥ç¨‹å¸ˆ",
+    "description": "æ—¥å¸¸åŠŸèƒ½å¼€å‘ä¸è”è°ƒ",
     "level": 60,
     "permissions": [
       "function:invoke",
@@ -258,8 +258,8 @@
   },
   {
     "code": "frontend_developer",
-    "name": "Ç°¶Ë¿ª·¢¹¤³ÌÊ¦",
-    "description": "Ç°¶Ë¿ª·¢Óë¼¯³É",
+    "name": "å‰ç«¯å¼€å‘å·¥ç¨‹å¸ˆ",
+    "description": "å‰ç«¯å¼€å‘ä¸é›†æˆ",
     "level": 60,
     "permissions": [
       "uploads:write",
@@ -275,8 +275,8 @@
   },
   {
     "code": "tester",
-    "name": "²âÊÔ¹¤³ÌÊ¦",
-    "description": "¹¦ÄÜ/»Ø¹é/Áªµ÷²âÊÔ",
+    "name": "æµ‹è¯•å·¥ç¨‹å¸ˆ",
+    "description": "åŠŸèƒ½/å›å½’/è”è°ƒæµ‹è¯•",
     "level": 60,
     "permissions": [
       "function:invoke",
@@ -292,8 +292,8 @@
   },
   {
     "code": "ops",
-    "name": "ÔËÎ¬¹¤³ÌÊ¦",
-    "description": "²¿ÊğÔËÎ¬ÓëÈÕ³£±£ÕÏ",
+    "name": "è¿ç»´å·¥ç¨‹å¸ˆ",
+    "description": "éƒ¨ç½²è¿ç»´ä¸æ—¥å¸¸ä¿éšœ",
     "level": 70,
     "permissions": [
       "certificates:manage",
@@ -307,8 +307,8 @@
   },
   {
     "code": "sre",
-    "name": "SRE ¹¤³ÌÊ¦",
-    "description": "¿É¿¿ĞÔ¹¤³ÌÓëÆ½Ì¨ÔËÎ¬",
+    "name": "SRE å·¥ç¨‹å¸ˆ",
+    "description": "å¯é æ€§å·¥ç¨‹ä¸å¹³å°è¿ç»´",
     "level": 70,
     "permissions": [
       "certificates:manage",
@@ -321,8 +321,8 @@
   },
   {
     "code": "security",
-    "name": "°²È«×¨Ô±",
-    "description": "°²È«Óë·ç¿ØÏà¹Ø¹¤×÷",
+    "name": "å®‰å…¨ä¸“å‘˜",
+    "description": "å®‰å…¨ä¸é£æ§ç›¸å…³å·¥ä½œ",
     "level": 70,
     "permissions": [
       "certificates:manage",
@@ -335,8 +335,8 @@
   },
   {
     "code": "operator",
-    "name": "ÔËÓª×¨Ô±",
-    "description": "»ù´¡ÔËÓªÈËÔ±",
+    "name": "è¿è¥ä¸“å‘˜",
+    "description": "åŸºç¡€è¿è¥äººå‘˜",
     "level": 40,
     "permissions": [
       "function:invoke",
@@ -352,8 +352,8 @@
   },
   {
     "code": "marketing",
-    "name": "ÊĞ³¡ÓªÏú",
-    "description": "»î¶¯/Í¶·Å/Ôö³¤Ïà¹Ø",
+    "name": "å¸‚åœºè¥é”€",
+    "description": "æ´»åŠ¨/æŠ•æ”¾/å¢é•¿ç›¸å…³",
     "level": 50,
     "permissions": [
       "entity:read",
@@ -366,8 +366,8 @@
   },
   {
     "code": "community",
-    "name": "ÉçÇøÔËÓª",
-    "description": "ÉçÇø/¹«¸æ/»î¶¯Ïà¹Ø",
+    "name": "ç¤¾åŒºè¿è¥",
+    "description": "ç¤¾åŒº/å…¬å‘Š/æ´»åŠ¨ç›¸å…³",
     "level": 50,
     "permissions": [
       "entity:read",
@@ -380,8 +380,8 @@
   },
   {
     "code": "content_manager",
-    "name": "ÄÚÈİ¹ÜÀíÔ±",
-    "description": "ÄÚÈİ/µÀ¾ßÅäÖÃ¹ÜÀí",
+    "name": "å†…å®¹ç®¡ç†å‘˜",
+    "description": "å†…å®¹/é“å…·é…ç½®ç®¡ç†",
     "level": 55,
     "permissions": [
       "item:create",
@@ -395,8 +395,8 @@
   },
   {
     "code": "game_designer",
-    "name": "ÓÎÏ·²ß»®",
-    "description": "Íæ·¨/»î¶¯/ÏµÍ³Éè¼Æ",
+    "name": "æ¸¸æˆç­–åˆ’",
+    "description": "ç©æ³•/æ´»åŠ¨/ç³»ç»Ÿè®¾è®¡",
     "level": 55,
     "permissions": [
       "entity:read",
@@ -409,8 +409,8 @@
   },
   {
     "code": "system_designer",
-    "name": "ÏµÍ³²ß»®",
-    "description": "ÏµÍ³/¹¦ÄÜ²ß»®",
+    "name": "ç³»ç»Ÿç­–åˆ’",
+    "description": "ç³»ç»Ÿ/åŠŸèƒ½ç­–åˆ’",
     "level": 55,
     "permissions": [
       "entity:read",
@@ -423,8 +423,8 @@
   },
   {
     "code": "level_designer",
-    "name": "¹Ø¿¨²ß»®",
-    "description": "¹Ø¿¨/¾çÇéÏà¹Ø²ß»®",
+    "name": "å…³å¡ç­–åˆ’",
+    "description": "å…³å¡/å‰§æƒ…ç›¸å…³ç­–åˆ’",
     "level": 55,
     "permissions": [
       "entity:read",
@@ -437,8 +437,8 @@
   },
   {
     "code": "numerical_designer",
-    "name": "ÊıÖµ²ß»®",
-    "description": "ÊıÖµ/¾­¼ÃÉè¼ÆÓëÆ½ºâ",
+    "name": "æ•°å€¼ç­–åˆ’",
+    "description": "æ•°å€¼/ç»æµè®¾è®¡ä¸å¹³è¡¡",
     "level": 55,
     "permissions": [
       "currency:read",
@@ -452,8 +452,8 @@
   },
   {
     "code": "ui_designer",
-    "name": "UI Éè¼ÆÊ¦",
-    "description": "½çÃæ/½»»¥Éè¼Æ",
+    "name": "UI è®¾è®¡å¸ˆ",
+    "description": "ç•Œé¢/äº¤äº’è®¾è®¡",
     "level": 50,
     "permissions": [
       "entity:read",
@@ -466,8 +466,8 @@
   },
   {
     "code": "art",
-    "name": "ÃÀÊõ",
-    "description": "ÃÀÊõ×ÊÔ´Óë¹æ·¶",
+    "name": "ç¾æœ¯",
+    "description": "ç¾æœ¯èµ„æºä¸è§„èŒƒ",
     "level": 50,
     "permissions": [
       "uploads:write",
@@ -480,8 +480,8 @@
   },
   {
     "code": "animator",
-    "name": "¶¯»­",
-    "description": "¶¯»­×ÊÔ´Óë¹æ·¶",
+    "name": "åŠ¨ç”»",
+    "description": "åŠ¨ç”»èµ„æºä¸è§„èŒƒ",
     "level": 50,
     "permissions": [
       "uploads:write",
@@ -493,8 +493,8 @@
   },
   {
     "code": "analyst",
-    "name": "Êı¾İ·ÖÎöÊ¦",
-    "description": "Êı¾İ·ÖÎöÓë±¨¸æ",
+    "name": "æ•°æ®åˆ†æå¸ˆ",
+    "description": "æ•°æ®åˆ†æä¸æŠ¥å‘Š",
     "level": 45,
     "permissions": [
       "currency:read",
@@ -509,8 +509,8 @@
   },
   {
     "code": "bi_analyst",
-    "name": "ÉÌÒµÖÇÄÜ·ÖÎöÊ¦",
-    "description": "BI/±¨±í/Ôö³¤·ÖÎö",
+    "name": "å•†ä¸šæ™ºèƒ½åˆ†æå¸ˆ",
+    "description": "BI/æŠ¥è¡¨/å¢é•¿åˆ†æ",
     "level": 45,
     "permissions": [
       "currency:read",
@@ -525,8 +525,8 @@
   },
   {
     "code": "user_researcher",
-    "name": "ÓÃ»§ÑĞ¾¿Ô±",
-    "description": "ÓÃ»§ÑĞ¾¿Óëµ÷ÑĞ",
+    "name": "ç”¨æˆ·ç ”ç©¶å‘˜",
+    "description": "ç”¨æˆ·ç ”ç©¶ä¸è°ƒç ”",
     "level": 45,
     "permissions": [
       "entity:read",
@@ -539,8 +539,8 @@
   },
   {
     "code": "senior_support",
-    "name": "¸ß¼¶¿Í·ş",
-    "description": "¸ß¼¶¿Í·şÓëÎÊÌâ´¦Àí",
+    "name": "é«˜çº§å®¢æœ",
+    "description": "é«˜çº§å®¢æœä¸é—®é¢˜å¤„ç†",
     "level": 50,
     "permissions": [
       "wallet:read",
@@ -553,8 +553,8 @@
   },
   {
     "code": "support",
-    "name": "¿Í·şÈËÔ±",
-    "description": "¿Í·şÎÊ´ğÓë³£¹æ´¦Àí",
+    "name": "å®¢æœäººå‘˜",
+    "description": "å®¢æœé—®ç­”ä¸å¸¸è§„å¤„ç†",
     "level": 40,
     "permissions": [
       "wallet:read",
@@ -567,8 +567,8 @@
   },
   {
     "code": "gm",
-    "name": "ÓÎÏ·¹ÜÀíÔ±",
-    "description": "ÓÎÏ·ÔËÓª¹ÜÀíÔ±",
+    "name": "æ¸¸æˆç®¡ç†å‘˜",
+    "description": "æ¸¸æˆè¿è¥ç®¡ç†å‘˜",
     "level": 80,
     "permissions": [
       "function:invoke",
@@ -589,8 +589,8 @@
   },
   {
     "code": "economy_manager",
-    "name": "¾­¼Ã¹ÜÀíÔ±",
-    "description": "ĞéÄâ¾­¼ÃÏµÍ³¹ÜÀíÔ±",
+    "name": "ç»æµç®¡ç†å‘˜",
+    "description": "è™šæ‹Ÿç»æµç³»ç»Ÿç®¡ç†å‘˜",
     "level": 70,
     "permissions": [
       "currency:create",
@@ -604,8 +604,8 @@
   },
   {
     "code": "admin_manager",
-    "name": "¹ÜÀíÔ±",
-    "description": "ºóÌ¨¹ÜÀíÔ±ÕËºÅ¹ÜÀí",
+    "name": "ç®¡ç†å‘˜",
+    "description": "åå°ç®¡ç†å‘˜è´¦å·ç®¡ç†",
     "level": 60,
     "permissions": [
       "user:read",
@@ -621,8 +621,8 @@
   },
   {
     "code": "bot_operator",
-    "name": "»úÆ÷ÈË²Ù×÷Ô±",
-    "description": "»úÆ÷ÈË/ÍĞ¹ÜÏà¹Ø²Ù×÷",
+    "name": "æœºå™¨äººæ“ä½œå‘˜",
+    "description": "æœºå™¨äºº/æ‰˜ç®¡ç›¸å…³æ“ä½œ",
     "level": 40,
     "permissions": [
       "function:invoke",
@@ -636,8 +636,8 @@
   },
   {
     "code": "auditor",
-    "name": "Éó¼ÆÔ±",
-    "description": "Éó¼ÆÓëºÏ¹æ¼ì²é",
+    "name": "å®¡è®¡å‘˜",
+    "description": "å®¡è®¡ä¸åˆè§„æ£€æŸ¥",
     "level": 40,
     "permissions": [
       "entity:read",
@@ -650,8 +650,8 @@
   },
   {
     "code": "viewer",
-    "name": "²é¿´Õß",
-    "description": "Ö»¶ÁÈ¨ÏŞÓÃ»§",
+    "name": "æŸ¥çœ‹è€…",
+    "description": "åªè¯»æƒé™ç”¨æˆ·",
     "level": 20,
     "permissions": [
       "assignments:read",
