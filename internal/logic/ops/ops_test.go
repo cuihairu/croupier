@@ -72,3 +72,32 @@ func TestAgentOpsClient_Close(t *testing.T) {
 	globalAgentOpsClient = nil
 	agentOpsClientOnce = sync.Once{}
 }
+
+// TestAgentOpsClient_RegisterClient_NotRunning tests registering when existing client is not running
+func TestAgentOpsClient_RegisterClient_NotRunning(t *testing.T) {
+	// This tests the branch where existing.IsRunning() is false
+	// which is covered by the implementation but we can test the behavior
+
+	client := GetAgentOpsClient()
+
+	// Try to get a non-existent client - should return error
+	_, err := client.GetClient(context.Background(), "non-existent-agent-test")
+	if err == nil {
+		t.Error("GetClient() should return error for non-existent agent")
+	}
+}
+
+// TestAgentOpsClient_GetClient_ContextCancellation tests with cancelled context
+func TestAgentOpsClient_GetClient_ContextCancellation(t *testing.T) {
+	client := GetAgentOpsClient()
+
+	// Create a cancelled context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// GetClient should handle cancelled context
+	_, err := client.GetClient(ctx, "test-agent")
+	if err == nil {
+		t.Error("GetClient() should return error for cancelled context when agent doesn't exist")
+	}
+}

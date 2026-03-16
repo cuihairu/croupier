@@ -9,14 +9,14 @@ import (
 	"time"
 
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
-	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/model"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
 	gsqlite "github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -6095,8 +6095,8 @@ func TestListMethods_DuplicateSkip(t *testing.T) {
 		RPCAddr:  "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
 		Functions: map[string]reg.FunctionMeta{
-			"external.myapp.list_items": {Enabled: true},
-			"external.myapp.LIST_ITEMS": {Enabled: true}, // Duplicate (different case)
+			"external.myapp.list_items":  {Enabled: true},
+			"external.myapp.LIST_ITEMS":  {Enabled: true}, // Duplicate (different case)
 			"external.myapp.create_item": {Enabled: true},
 		},
 	})

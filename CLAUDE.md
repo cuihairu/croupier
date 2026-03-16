@@ -30,6 +30,14 @@ go test ./internal/...    # Subset testing
 ./bin/croupier-server --config configs/server.yaml validate      # Config validation
 ```
 
+**Code Style:**
+```bash
+gofmt -w .                # Format all Go files
+gofmt -l .                # List files that need formatting
+```
+
+**IMPORTANT: Before committing any changes, ALWAYS run `gofmt -w .` to ensure all Go files are properly formatted.**
+
 ## Architecture Overview
 
 Croupier implements a **three-tier distributed GM backend system**:

@@ -13,11 +13,11 @@ import (
 	extensionruntime "github.com/cuihairu/croupier/internal/core/extension/runtime"
 	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
 	"github.com/cuihairu/croupier/internal/model"
+	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/cuihairu/croupier/internal/svc"
-	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
-	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/gin-gonic/gin"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -2103,15 +2103,15 @@ func setupExtensionTestContext(t *testing.T, db *gorm.DB) *svc.ServiceContext {
 	extensionSyncSvc := extensionsync.NewService(extensionRepos.Installation, extensionRepos.Binding)
 
 	return &svc.ServiceContext{
-		DB:                  db,
-		PermissionService:   permSvc,
-		Cache:               nullCache,
-		CacheHelper:         cacheHelper,
-		AdminModel:          model.NewAdminModel(db),
-		RoleModel:           model.NewRoleModel(db),
-		PermissionModel:     model.NewPermissionModel(db),
-		RegistryStore:       reg.NewStore(),
-		Dispatcher:          dispatch.NewDispatcher(reg.NewStore()),
+		DB:                db,
+		PermissionService: permSvc,
+		Cache:             nullCache,
+		CacheHelper:       cacheHelper,
+		AdminModel:        model.NewAdminModel(db),
+		RoleModel:         model.NewRoleModel(db),
+		PermissionModel:   model.NewPermissionModel(db),
+		RegistryStore:     reg.NewStore(),
+		Dispatcher:        dispatch.NewDispatcher(reg.NewStore()),
 		Extensions: &svc.ExtensionServices{
 			Catalog:      extensionCatalogSvc,
 			Manifest:     extensionManifestSvc,
