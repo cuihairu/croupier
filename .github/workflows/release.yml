@@ -14,8 +14,11 @@ on:
         default: 'nightly'
         type: choice
         options:
-          - nightly
-          - tag
+      - nightly
+      - tag
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 permissions:
   contents: write
@@ -33,7 +36,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: false
       - uses: actions/setup-go@v5

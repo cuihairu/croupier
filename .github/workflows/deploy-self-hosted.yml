@@ -28,6 +28,9 @@ on:
         required: true
         default: "/data/deploy/croupier"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: read
   packages: read
@@ -37,7 +40,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Ensure deploy directory
         run: mkdir -p "${{ inputs.deploy_dir }}"
