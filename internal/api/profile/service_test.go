@@ -1482,4 +1482,3 @@ func TestService_GetUserGames_GameWithWhitespaceAlias(t *testing.T) {
 	}
 	assert.True(t, found, "Should find the game and fall back to Name for GameName")
 }
-

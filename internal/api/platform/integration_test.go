@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/core/extension/installation"
+	"github.com/cuihairu/croupier/internal/model"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/svc"
-	"github.com/cuihairu/croupier/internal/model"
 	gsqlite "github.com/glebarez/sqlite"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -40,18 +40,18 @@ func TestDiscoverExternalPlatforms_WithInstallationDB(t *testing.T) {
 
 	// Create a test installation
 	testInstallation := &model.ExtensionInstallation{
-		InstallationKey:  "test-external-platform",
-		ExtensionID:      "test-external-platform",
-		ReleaseVersion:   "1.0.0",
-		ScopeType:        "global",
-		ScopeID:          "default",
-		TargetType:       "server",
-		TargetID:         "default",
-		Status:           "installed",
-		DesiredState:     "installed",
-		Enabled:          true,
-		InstalledBy:      "test",
-		InstalledAtUnix:  time.Now().Unix(),
+		InstallationKey: "test-external-platform",
+		ExtensionID:     "test-external-platform",
+		ReleaseVersion:  "1.0.0",
+		ScopeType:       "global",
+		ScopeID:         "default",
+		TargetType:      "server",
+		TargetID:        "default",
+		Status:          "installed",
+		DesiredState:    "installed",
+		Enabled:         true,
+		InstalledBy:     "test",
+		InstalledAtUnix: time.Now().Unix(),
 	}
 	if err := installationRepo.Create(context.Background(), testInstallation); err != nil {
 		t.Fatalf("failed to create installation: %v", err)

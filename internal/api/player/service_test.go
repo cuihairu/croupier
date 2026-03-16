@@ -50,10 +50,10 @@ func setupTestServiceContext(t *testing.T, db *gorm.DB) *svc.ServiceContext {
 	cacheHelper := cache.NewCacheHelper(nullCache)
 
 	return &svc.ServiceContext{
-		DB:              db,
-		PlayerModel:     model.NewPlayerModel(db),
-		Cache:           nullCache,
-		CacheHelper:     cacheHelper,
+		DB:          db,
+		PlayerModel: model.NewPlayerModel(db),
+		Cache:       nullCache,
+		CacheHelper: cacheHelper,
 	}
 }
 

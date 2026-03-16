@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
-	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/cuihairu/croupier/internal/pkg2/jwt"
+	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

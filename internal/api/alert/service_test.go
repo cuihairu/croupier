@@ -1062,9 +1062,9 @@ func TestList_WithWhitespaceFilters(t *testing.T) {
 
 	// Test with whitespace in filters - should be trimmed
 	resp, err := s.List(context.Background(), &AlertsListRequest{
-		Level:   "  info  ",
-		Status:  "  active  ",
-		Page:    1,
+		Level:    "  info  ",
+		Status:   "  active  ",
+		Page:     1,
 		PageSize: 10,
 	})
 

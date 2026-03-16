@@ -17,11 +17,11 @@ import (
 )
 
 var (
-	testGameDB          *gorm.DB
-	testGameDBOnce      sync.Once
-	testGameDBMutex     sync.Mutex
-	seedPermMutex       sync.Mutex
-	createAdminMutex    sync.Mutex
+	testGameDB       *gorm.DB
+	testGameDBOnce   sync.Once
+	testGameDBMutex  sync.Mutex
+	seedPermMutex    sync.Mutex
+	createAdminMutex sync.Mutex
 )
 
 // setupTestDB creates a shared in-memory SQLite database for testing
@@ -1042,7 +1042,7 @@ func TestService_EnvAdd_MissingEnv(t *testing.T) {
 	// Missing env field should fail validation
 	resp, err := service.EnvAdd(ctx, &GameEnvAddRequest{
 		ID:   strconv.FormatUint(uint64(game.ID), 10),
-		Type:  "some type",
+		Type: "some type",
 	})
 
 	assert.Error(t, err)

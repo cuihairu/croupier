@@ -57,7 +57,7 @@
 				
 				<option value="file0">github.com/cuihairu/croupier/internal/api/platform/handler.go (73.9%)</option>
 				
-				<option value="file1">github.com/cuihairu/croupier/internal/api/platform/service.go (76.8%)</option>
+				<option value="file1">github.com/cuihairu/croupier/internal/api/platform/service.go (73.7%)</option>
 				
 				</select>
 			</div>
@@ -313,12 +313,12 @@ func (s *Service) discoverExternalPlatforms(ctx context.Context) map[string][]st
         }
 
         // 2) Discover from installation bindings (planned/declared view), useful before agent sync.
-        <span class="cov8" title="1">if s.svcCtx.Extensions != nil &amp;&amp; s.svcCtx.Extensions.Installation != nil </span><span class="cov8" title="1">{
+        <span class="cov8" title="1">if s.svcCtx.Extensions != nil &amp;&amp; s.svcCtx.Extensions.Installation != nil </span><span class="cov0" title="0">{
                 items, _, err := s.svcCtx.Extensions.Installation.List(ctx, extensioninstallation.ListQuery{
                         Limit:  1000,
                         Offset: 0,
                 })
-                if err == nil </span><span class="cov8" title="1">{
+                if err == nil </span><span class="cov0" title="0">{
                         for _, item := range items </span><span class="cov0" title="0">{
                                 if !externalfunc.IsExternalPlatformExtensionID(item.ExtensionID) </span><span class="cov0" title="0">{
                                         continue</span>

@@ -84,11 +84,11 @@ func TestParseToken(t *testing.T) {
 	}
 
 	tests := []struct {
-		name       string
-		token      string
-		wantErr    bool
+		name         string
+		token        string
+		wantErr      bool
 		wantUsername string
-		wantAdminID uint
+		wantAdminID  uint
 	}{
 		{
 			name:         "valid token",

@@ -140,7 +140,6 @@ func seedTestPermissions(t *testing.T, db *gorm.DB) {
 }
 
 func TestService_List_Success(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -176,7 +175,6 @@ func TestService_List_Success(t *testing.T) {
 }
 
 func TestService_List_WithSearch(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -204,7 +202,6 @@ func TestService_List_WithSearch(t *testing.T) {
 }
 
 func TestService_List_WithRoleFilter(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -226,7 +223,6 @@ func TestService_List_WithRoleFilter(t *testing.T) {
 }
 
 func TestService_List_WithStatusFilter(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -280,7 +276,6 @@ func TestService_List_WithStatusFilter(t *testing.T) {
 }
 
 func TestService_List_Unauthorized(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -302,7 +297,6 @@ func TestService_List_Unauthorized(t *testing.T) {
 }
 
 func TestService_Create_Success(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -330,7 +324,6 @@ func TestService_Create_Success(t *testing.T) {
 }
 
 func TestService_Create_EmptyUsername(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -351,7 +344,6 @@ func TestService_Create_EmptyUsername(t *testing.T) {
 }
 
 func TestService_Create_EmptyPassword(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -372,7 +364,6 @@ func TestService_Create_EmptyPassword(t *testing.T) {
 }
 
 func TestService_Create_PasswordWithWhitespace(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -393,7 +384,6 @@ func TestService_Create_PasswordWithWhitespace(t *testing.T) {
 }
 
 func TestService_Create_WithRoles(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -422,7 +412,6 @@ func TestService_Create_WithRoles(t *testing.T) {
 }
 
 func TestService_Create_InvalidRole(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -444,7 +433,6 @@ func TestService_Create_InvalidRole(t *testing.T) {
 }
 
 func TestService_Create_Unauthorized(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -465,7 +453,6 @@ func TestService_Create_Unauthorized(t *testing.T) {
 }
 
 func TestService_Get_Success(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -488,7 +475,6 @@ func TestService_Get_Success(t *testing.T) {
 }
 
 func TestService_Get_NotFound(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -507,7 +493,6 @@ func TestService_Get_NotFound(t *testing.T) {
 }
 
 func TestService_Get_InvalidID(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -529,7 +514,6 @@ func TestService_Get_InvalidID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			
 
 			resp, err := service.Get(ctx, &GetRequest{ID: tt.id})
 
@@ -540,7 +524,6 @@ func TestService_Get_InvalidID(t *testing.T) {
 }
 
 func TestService_Get_Unauthorized(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -560,7 +543,6 @@ func TestService_Get_Unauthorized(t *testing.T) {
 }
 
 func TestService_Update_Success(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -587,7 +569,6 @@ func TestService_Update_Success(t *testing.T) {
 }
 
 func TestService_Update_Status(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -611,7 +592,6 @@ func TestService_Update_Status(t *testing.T) {
 }
 
 func TestService_Update_Roles(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -665,7 +645,6 @@ func TestService_Update_Roles(t *testing.T) {
 
 func TestService_Update_ClearRoles(t *testing.T) {
 
-
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
@@ -695,7 +674,6 @@ func TestService_Update_ClearRoles(t *testing.T) {
 }
 
 func TestService_Update_InvalidID(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -716,7 +694,6 @@ func TestService_Update_InvalidID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			
 
 			resp, err := service.Update(ctx, &UpdateRequest{ID: tt.id})
 
@@ -727,7 +704,6 @@ func TestService_Update_InvalidID(t *testing.T) {
 }
 
 func TestService_Update_NotFound(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -747,7 +723,6 @@ func TestService_Update_NotFound(t *testing.T) {
 }
 
 func TestService_Delete_Success(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -772,7 +747,6 @@ func TestService_Delete_Success(t *testing.T) {
 }
 
 func TestService_Delete_InvalidID(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -793,7 +767,6 @@ func TestService_Delete_InvalidID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			
 
 			err := service.Delete(ctx, &DeleteRequest{ID: tt.id})
 
@@ -803,7 +776,6 @@ func TestService_Delete_InvalidID(t *testing.T) {
 }
 
 func TestService_Delete_NotFound(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -821,7 +793,6 @@ func TestService_Delete_NotFound(t *testing.T) {
 }
 
 func TestService_PasswordReset_Success(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -856,7 +827,6 @@ func TestService_PasswordReset_Success(t *testing.T) {
 }
 
 func TestService_PasswordReset_EmptyPassword(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -878,7 +848,6 @@ func TestService_PasswordReset_EmptyPassword(t *testing.T) {
 }
 
 func TestService_PasswordReset_InvalidID(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -899,7 +868,6 @@ func TestService_PasswordReset_InvalidID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			
 
 			err := service.PasswordReset(ctx, &PasswordResetRequest{
 				ID:          tt.id,
@@ -912,7 +880,6 @@ func TestService_PasswordReset_InvalidID(t *testing.T) {
 }
 
 func TestService_PasswordReset_NotFound(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -931,7 +898,6 @@ func TestService_PasswordReset_NotFound(t *testing.T) {
 }
 
 func TestService_GetGames_Empty(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -953,7 +919,6 @@ func TestService_GetGames_Empty(t *testing.T) {
 }
 
 func TestService_GetGames_WithScopes(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -1056,7 +1021,6 @@ func TestService_UpdateGames_Success(t *testing.T) {
 }
 
 func TestService_UpdateGames_ClearGames(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -1096,7 +1060,6 @@ func TestService_UpdateGames_ClearGames(t *testing.T) {
 }
 
 func TestService_UpdateGames_InvalidGame(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)
@@ -1134,7 +1097,6 @@ func TestParseAdminID_Valid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-
 			result, err := parseAdminID(tt.input)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
@@ -1157,7 +1119,6 @@ func TestParseAdminID_Invalid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			
 
 			result, err := parseAdminID(tt.input)
 			assert.Error(t, err)
@@ -1215,7 +1176,6 @@ func TestFormatTimestamp(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			
 
 			result := formatTimestamp(tt.input)
 			assert.Equal(t, tt.expected, result)
@@ -1224,7 +1184,6 @@ func TestFormatTimestamp(t *testing.T) {
 }
 
 func TestRoleNamesFromModels(t *testing.T) {
-	
 
 	roles := []model.Role{
 		{Name: "admin"},
@@ -1240,14 +1199,12 @@ func TestRoleNamesFromModels(t *testing.T) {
 }
 
 func TestRoleNamesFromModels_Empty(t *testing.T) {
-	
 
 	result := roleNamesFromModels([]model.Role{})
 	assert.Nil(t, result)
 }
 
 func TestUniqueStrings(t *testing.T) {
-	
 
 	tests := []struct {
 		name     string
@@ -1293,7 +1250,6 @@ func TestUniqueStrings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			
 
 			result := uniqueStrings(tt.input)
 			assert.Equal(t, tt.expected, result)
@@ -1302,7 +1258,6 @@ func TestUniqueStrings(t *testing.T) {
 }
 
 func TestFetchRolesByNames_Success(t *testing.T) {
-
 
 	db := setupTestDB(t)
 
@@ -1334,7 +1289,6 @@ func TestFetchRolesByNames_Success(t *testing.T) {
 
 func TestFetchRolesByNames_NotFound(t *testing.T) {
 
-
 	db := setupTestDB(t)
 
 	role := &model.Role{Name: "fetch_notfound_admin"}
@@ -1349,7 +1303,6 @@ func TestFetchRolesByNames_NotFound(t *testing.T) {
 }
 
 func TestFetchRolesByNames_EmptyInput(t *testing.T) {
-	
 
 	db := setupTestDB(t)
 
@@ -1360,7 +1313,6 @@ func TestFetchRolesByNames_EmptyInput(t *testing.T) {
 }
 
 func TestFetchRolesByNames_Duplicates(t *testing.T) {
-
 
 	db := setupTestDB(t)
 
@@ -1375,7 +1327,6 @@ func TestFetchRolesByNames_Duplicates(t *testing.T) {
 }
 
 func TestUniqueRoleInputs(t *testing.T) {
-	
 
 	tests := []struct {
 		name        string
@@ -1417,7 +1368,6 @@ func TestUniqueRoleInputs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			
 
 			ordered, lowered := uniqueRoleInputs(tt.input)
 			assert.Equal(t, tt.wantOrdered, ordered)
@@ -1427,7 +1377,6 @@ func TestUniqueRoleInputs(t *testing.T) {
 }
 
 func TestService_List_Pagination(t *testing.T) {
-
 
 	db := setupTestDB(t)
 	seedTestPermissions(t, db)

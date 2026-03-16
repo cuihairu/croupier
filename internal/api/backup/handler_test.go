@@ -10,8 +10,8 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 	"github.com/glebarez/sqlite"
+	"gorm.io/gorm"
 )
 
 func newBackupTestContext(method, target, body string) (*gin.Context, *httptest.ResponseRecorder) {
@@ -442,10 +442,10 @@ func TestService_ResolveBackupPath(t *testing.T) {
 	service := NewService(&svc.ServiceContext{})
 
 	tests := []struct {
-		name        string
-		location    string
-		wantErr     bool
-		contains    string
+		name     string
+		location string
+		wantErr  bool
+		contains string
 	}{
 		{"file url", "file:///C:/backups/backup.zip", false, "/C:/backups/backup.zip"},
 		{"relative path", "./backups/backup.zip", false, "backups"},
@@ -2955,4 +2955,3 @@ func TestHandler_List_AllQueryParameters(t *testing.T) {
 		t.Logf("Unexpected status: %d", resp.Code)
 	}
 }
-

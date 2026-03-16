@@ -176,10 +176,10 @@ func TestEventBool_AdditionalCases(t *testing.T) {
 	t.Parallel()
 
 	payload, _ := json.Marshal(map[string]interface{}{
-		"active":   false,
-		"deleted":  "false",
-		"number":   123,
-		"missing":  "",
+		"active":  false,
+		"deleted": "false",
+		"number":  123,
+		"missing": "",
 	})
 	ev := model.BehaviorEvent{
 		UserID: "u1",
@@ -457,5 +457,305 @@ func TestOverview_NilRequest(t *testing.T) {
 	_, err := overview(context.Background(), svcCtx, nil)
 	if err == nil {
 		t.Fatal("expected error for nil request")
+	}
+}
+
+// Additional tests to improve coverage
+
+func TestEventFloat_AllNumericFormats(t *testing.T) {
+	t.Parallel()
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"floatKey":  3.14,
+		"intKey":    42,
+		"stringKey": "123.45",
+		"zeroKey":   0.0,
+		"zeroStr":   "0",
+	})
+	ev := model.BehaviorEvent{
+		UserID: "u1",
+		Data:   datatypes.JSONMap{},
+	}
+	_ = json.Unmarshal(payload, &ev.Data)
+
+	if got := eventFloat(ev, "floatKey"); got != 3.14 {
+		t.Fatalf("expected 3.14, got %v", got)
+	}
+	if got := eventFloat(ev, "intKey"); got != 42.0 {
+		t.Fatalf("expected 42.0, got %v", got)
+	}
+	if got := eventFloat(ev, "stringKey"); got != 123.45 {
+		t.Fatalf("expected 123.45, got %v", got)
+	}
+	if got := eventFloat(ev, "zeroKey"); got != 0.0 {
+		t.Fatalf("expected 0.0, got %v", got)
+	}
+	if got := eventFloat(ev, "zeroStr"); got != 0.0 {
+		t.Fatalf("expected 0.0, got %v", got)
+	}
+}
+
+func TestEventBool_StringTrueVariations(t *testing.T) {
+	t.Parallel()
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"trueLower": "true",
+		"trueUpper": "TRUE",
+		"yesLower":  "yes",
+		"yesUpper":  "YES",
+		"oneLower":  "1",
+		"falseStr":  "false",
+		"noStr":     "no",
+		"zeroInt":   0,
+	})
+	ev := model.BehaviorEvent{
+		UserID: "u1",
+		Data:   datatypes.JSONMap{},
+	}
+	_ = json.Unmarshal(payload, &ev.Data)
+
+	if !eventBool(ev, "trueLower") {
+		t.Fatal("expected true for 'true'")
+	}
+	if !eventBool(ev, "trueUpper") {
+		t.Fatal("expected true for 'TRUE'")
+	}
+	if !eventBool(ev, "yesLower") {
+		t.Fatal("expected true for 'yes'")
+	}
+	if !eventBool(ev, "yesUpper") {
+		t.Fatal("expected true for 'YES'")
+	}
+	if !eventBool(ev, "oneLower") {
+		t.Fatal("expected true for '1'")
+	}
+	if eventBool(ev, "falseStr") {
+		t.Fatal("expected false for 'false'")
+	}
+	if eventBool(ev, "noStr") {
+		t.Fatal("expected false for 'no'")
+	}
+	if eventBool(ev, "zeroInt") {
+		t.Fatal("expected false for 0")
+	}
+}
+
+func TestParseTime_AllLayouts(t *testing.T) {
+	t.Parallel()
+
+	// RFC3339
+	ts1, err := parseTime("2026-03-14T10:00:00Z")
+	if err != nil {
+		t.Fatalf("parseTime(RFC3339) error = %v", err)
+	}
+	if ts1.Year() != 2026 || ts1.Month() != 3 || ts1.Day() != 14 {
+		t.Fatalf("unexpected date: %v", ts1)
+	}
+
+	// Date only
+	ts2, err := parseTime("2026-03-14")
+	if err != nil {
+		t.Fatalf("parseTime(date) error = %v", err)
+	}
+	if ts2.Year() != 2026 || ts2.Month() != 3 || ts2.Day() != 14 {
+		t.Fatalf("unexpected date: %v", ts2)
+	}
+
+	// Whitespace
+	ts3, err := parseTime("  2026-03-14  ")
+	if err != nil {
+		t.Fatalf("parseTime(whitespace) error = %v", err)
+	}
+	if ts3.Year() != 2026 {
+		t.Fatalf("unexpected year: %d", ts3.Year())
+	}
+}
+
+func TestParseRetentionValues_AdditionalCases(t *testing.T) {
+	t.Parallel()
+
+	// Empty
+	values := parseRetentionValues(datatypes.JSON([]byte{}))
+	if len(values) != 0 {
+		t.Fatalf("expected empty values, got %#v", values)
+	}
+
+	// Single value
+	values = parseRetentionValues(datatypes.JSON([]byte(`[0.5]`)))
+	if len(values) != 1 || values[0] != 0.5 {
+		t.Fatalf("unexpected values: %#v", values)
+	}
+
+	// Multiple values
+	values = parseRetentionValues(datatypes.JSON([]byte(`[1.0,0.8,0.6,0.5,0.4,0.3,0.2]`)))
+	if len(values) != 7 {
+		t.Fatalf("expected 7 values, got %d", len(values))
+	}
+}
+
+func TestMapPoints_AdditionalTypes(t *testing.T) {
+	t.Parallel()
+
+	// Empty slice
+	if got := mapPoints([]map[string]float64{}); got != 0 {
+		t.Fatalf("expected 0 for empty slice, got %d", got)
+	}
+
+	// Multiple maps
+	points := []map[string]float64{
+		{"x": 1, "y": 2},
+		{"z": 3},
+		{"a": 1, "b": 2, "c": 3},
+		{"q": 4},
+	}
+	if got := mapPoints(points); got != 4 {
+		t.Fatalf("expected 4 for multiple points, got %d", got)
+	}
+
+	// Test with []map[string]interface{}
+	if got := mapPoints([]map[string]interface{}{{"x": 1}, {"y": 2}}); got != 2 {
+		t.Fatalf("expected 2 for interface{} maps, got %d", got)
+	}
+
+	// Test with []interface{}
+	if got := mapPoints([]interface{}{1, 2, 3}); got != 3 {
+		t.Fatalf("expected 3 for interface{} slice, got %d", got)
+	}
+
+	// Test with nil interface
+	if got := mapPoints(nil); got != 0 {
+		t.Fatalf("expected 0 for nil, got %d", got)
+	}
+
+	// Test with invalid type
+	if got := mapPoints("invalid"); got != 0 {
+		t.Fatalf("expected 0 for invalid type, got %d", got)
+	}
+}
+
+func TestSortMapMetrics_EdgeCases(t *testing.T) {
+	t.Parallel()
+
+	// Empty slice
+	sortMapMetrics([]MapMetrics{})
+
+	// Single element
+	maps := []MapMetrics{{MapId: "a", HeatMap: []map[string]float64{{"x": 1}}}}
+	sortMapMetrics(maps)
+	if maps[0].MapId != "a" {
+		t.Fatal("single element sort failed")
+	}
+
+	// Equal heat points - should sort by MapId
+	mapsEqual := []MapMetrics{
+		{MapId: "b", HeatMap: []map[string]float64{{"x": 1}, {"y": 2}}},
+		{MapId: "a", HeatMap: []map[string]float64{{"x": 1}, {"y": 2}}},
+	}
+	sortMapMetrics(mapsEqual)
+	if mapsEqual[0].MapId != "a" {
+		t.Fatalf("expected 'a' first for equal heat points, got %q", mapsEqual[0].MapId)
+	}
+
+	// Nil heat maps
+	mapsNil := []MapMetrics{
+		{MapId: "a", HeatMap: nil},
+		{MapId: "b", HeatMap: nil},
+	}
+	sortMapMetrics(mapsNil)
+	// Should not panic
+}
+
+func TestNormalizeRange_SwappedDates(t *testing.T) {
+	t.Parallel()
+
+	start, end, err := normalizeRange("2026-03-20", "2026-03-10")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Should swap dates if end is before start
+	if start.After(end) {
+		t.Fatalf("expected start <= end, got start=%v end=%v", start, end)
+	}
+}
+
+func TestNormalizeRange_EmptyStrings(t *testing.T) {
+	t.Parallel()
+
+	start, end, err := normalizeRange("", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !start.IsZero() || !end.IsZero() {
+		t.Fatalf("expected zero times for empty strings, got start=%v end=%v", start, end)
+	}
+}
+
+func TestParseRetentionValues_EdgeCases(t *testing.T) {
+	t.Parallel()
+
+	// Empty JSON array
+	values := parseRetentionValues(datatypes.JSON([]byte(`[]`)))
+	if len(values) != 0 {
+		t.Fatalf("expected empty values for empty array, got %#v", values)
+	}
+
+	// All zeros
+	values = parseRetentionValues(datatypes.JSON([]byte(`[0,0.0,0]`)))
+	if len(values) != 3 {
+		t.Fatalf("expected 3 values, got %d", len(values))
+	}
+	for i, v := range values {
+		if v != 0 {
+			t.Fatalf("expected value %d to be 0, got %v", i, v)
+		}
+	}
+
+	// Very small values
+	values = parseRetentionValues(datatypes.JSON([]byte(`[0.001,0.0001]`)))
+	if len(values) != 2 {
+		t.Fatalf("expected 2 values, got %d", len(values))
+	}
+}
+
+func TestEventFloat_MissingKey(t *testing.T) {
+	t.Parallel()
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"existingKey": 1.0,
+	})
+	ev := model.BehaviorEvent{
+		UserID: "u1",
+		Data:   datatypes.JSONMap{},
+	}
+	_ = json.Unmarshal(payload, &ev.Data)
+
+	// Missing key should return 0
+	if got := eventFloat(ev, "missingKey"); got != 0 {
+		t.Fatalf("expected 0 for missing key, got %v", got)
+	}
+}
+
+func TestEventString_WhitespaceValues(t *testing.T) {
+	t.Parallel()
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"spaces":   "  value  ",
+		"tabs":     "\tvalue\t",
+		"newlines": "\nvalue\n",
+	})
+	ev := model.BehaviorEvent{
+		UserID: "u1",
+		Data:   datatypes.JSONMap{},
+	}
+	_ = json.Unmarshal(payload, &ev.Data)
+
+	if got := eventString(ev, "spaces"); got != "value" {
+		t.Fatalf("expected 'value', got %q", got)
+	}
+	if got := eventString(ev, "tabs"); got != "value" {
+		t.Fatalf("expected 'value', got %q", got)
+	}
+	if got := eventString(ev, "newlines"); got != "value" {
+		t.Fatalf("expected 'value', got %q", got)
 	}
 }

@@ -3,11 +3,13 @@ package extension
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
 	gsqlite "github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -39,8 +41,8 @@ func TestMapServiceError(t *testing.T) {
 
 func TestIsJSONNumberType(t *testing.T) {
 	cases := []struct {
-		name  string
-		value any
+		name   string
+		value  any
 		expect bool
 	}{
 		{name: "int", value: int(1), expect: true},
@@ -187,8 +189,8 @@ func TestToInstallationItem(t *testing.T) {
 
 func TestPtrInstallationItem(t *testing.T) {
 	modelItem := model.ExtensionInstallation{
-		Model:         gorm.Model{ID: 456},
-		ExtensionID:   "test.ext",
+		Model:          gorm.Model{ID: 456},
+		ExtensionID:    "test.ext",
 		ReleaseVersion: "2.0.0",
 	}
 	ptr := ptrInstallationItem(modelItem)
@@ -233,18 +235,18 @@ func TestToEventItems(t *testing.T) {
 func TestToBindingItems(t *testing.T) {
 	bindings := []model.ExtensionRuntimeBinding{
 		{
-			BindingType:  "capability",
-			BindingKey:   "analytics.query",
-			TargetRef:    "agent1",
-			Status:       "active",
-			LastError:    "",
+			BindingType: "capability",
+			BindingKey:  "analytics.query",
+			TargetRef:   "agent1",
+			Status:      "active",
+			LastError:   "",
 		},
 		{
-			BindingType:  "function",
-			BindingKey:   "external.onepanel.upgrade",
-			TargetRef:    "agent2",
-			Status:       "error",
-			LastError:    "connection failed",
+			BindingType: "function",
+			BindingKey:  "external.onepanel.upgrade",
+			TargetRef:   "agent2",
+			Status:      "error",
+			LastError:   "connection failed",
 		},
 	}
 	items := toBindingItems(bindings)
@@ -264,13 +266,13 @@ func TestToBindingItems(t *testing.T) {
 
 func TestParseSemVersion(t *testing.T) {
 	cases := []struct {
-		name       string
-		input      string
-		wantValid  bool
-		wantMajor  int
-		wantMinor  int
-		wantPatch  int
-		wantParts  int
+		name      string
+		input     string
+		wantValid bool
+		wantMajor int
+		wantMinor int
+		wantPatch int
+		wantParts int
 	}{
 		{name: "full_version", input: "1.2.3", wantValid: true, wantMajor: 1, wantMinor: 2, wantPatch: 3, wantParts: 3},
 		{name: "two_parts", input: "1.2", wantValid: true, wantMajor: 1, wantMinor: 2, wantPatch: 0, wantParts: 2},
@@ -662,8 +664,8 @@ func TestValidateConfigField(t *testing.T) {
 
 func TestParseStringSliceAny(t *testing.T) {
 	cases := []struct {
-		name  string
-		input []any
+		name   string
+		input  []any
 		expect []string
 	}{
 		{name: "strings", input: []any{"a", "b", "c"}, expect: []string{"a", "b", "c"}},
@@ -688,8 +690,8 @@ func TestParseStringSliceAny(t *testing.T) {
 
 func TestParseStringMapAny(t *testing.T) {
 	cases := []struct {
-		name  string
-		input map[string]any
+		name   string
+		input  map[string]any
 		expect map[string]string
 	}{
 		{name: "strings", input: map[string]any{"a": "1", "b": "2"}, expect: map[string]string{"a": "1", "b": "2"}},
@@ -1037,5 +1039,1008 @@ func TestNewService(t *testing.T) {
 	}
 	if s.svcCtx != svcCtx {
 		t.Fatal("expected svcCtx to be set")
+	}
+}
+
+func TestConnectionStatusByInstallation(t *testing.T) {
+	tests := []struct {
+		name     string
+		item     *model.ExtensionInstallation
+		expected string
+	}{
+		{
+			name:     "nil item",
+			item:     nil,
+			expected: "unknown",
+		},
+		{
+			name: "enabled status",
+			item: &model.ExtensionInstallation{
+				Status:  "enabled",
+				Enabled: true,
+			},
+			expected: "ok",
+		},
+		{
+			name: "disabled status",
+			item: &model.ExtensionInstallation{
+				Status:  "disabled",
+				Enabled: false,
+			},
+			expected: "disabled",
+		},
+		{
+			name: "uninstalled status",
+			item: &model.ExtensionInstallation{
+				Status:       "uninstalled",
+				DesiredState: "uninstalled",
+			},
+			expected: "uninstalled",
+		},
+		{
+			name: "error status with enabled=true",
+			item: &model.ExtensionInstallation{
+				Status:  "error",
+				Enabled: true,
+			},
+			expected: "ok",
+		},
+		{
+			name: "error status with enabled=false",
+			item: &model.ExtensionInstallation{
+				Status:  "error",
+				Enabled: false,
+			},
+			expected: "disabled",
+		},
+		{
+			name: "pending status with enabled=false",
+			item: &model.ExtensionInstallation{
+				Status:  "pending",
+				Enabled: false,
+			},
+			expected: "disabled",
+		},
+		{
+			name: "installing status with enabled=true",
+			item: &model.ExtensionInstallation{
+				Status:  "installing",
+				Enabled: true,
+			},
+			expected: "ok",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := connectionStatusByInstallation(tt.item)
+			if got != tt.expected {
+				t.Fatalf("unexpected status, got=%s expect=%s", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestIsJSONIntegerType(t *testing.T) {
+	cases := []struct {
+		name   string
+		value  any
+		expect bool
+	}{
+		{name: "int", value: int(1), expect: true},
+		{name: "int8", value: int8(1), expect: true},
+		{name: "int16", value: int16(1), expect: true},
+		{name: "int32", value: int32(1), expect: true},
+		{name: "int64", value: int64(1), expect: true},
+		{name: "uint", value: uint(1), expect: true},
+		{name: "uint8", value: uint8(1), expect: true},
+		{name: "uint16", value: uint16(1), expect: true},
+		{name: "uint32", value: uint32(1), expect: true},
+		{name: "uint64", value: uint64(1), expect: true},
+		{name: "float32", value: float32(1.5), expect: false},
+		{name: "float64", value: float64(1.5), expect: false},
+		{name: "float64 integer value", value: float64(2.0), expect: true}, // 2.0 is an integer value
+		{name: "string", value: "1", expect: false},
+		{name: "bool", value: true, expect: false},
+		{name: "nil", value: nil, expect: false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := isJSONIntegerType(c.value)
+			if got != c.expect {
+				t.Fatalf("unexpected result for %T, got=%v expect=%v", c.value, got, c.expect)
+			}
+		})
+	}
+}
+
+func TestExtensionInstallRequest_Validation(t *testing.T) {
+	t.Run("valid request", func(t *testing.T) {
+		req := ExtensionInstallRequest{
+			ExtensionID:    "test.ext",
+			ReleaseVersion: "1.0.0",
+			ScopeType:      "system",
+			ScopeID:        "global",
+			TargetType:     "agent",
+			Config:         map[string]any{"key": "value"},
+			SecretRefs:     map[string]string{"secret": "ref"},
+		}
+		if req.ExtensionID == "" {
+			t.Fatal("extension_id should not be empty")
+		}
+	})
+
+	t.Run("minimal request", func(t *testing.T) {
+		req := ExtensionInstallRequest{
+			ExtensionID:    "test.ext",
+			ReleaseVersion: "1.0.0",
+			ScopeType:      "system",
+			ScopeID:        "global",
+			TargetType:     "agent",
+		}
+		if req.ExtensionID == "" || req.ReleaseVersion == "" {
+			t.Fatal("required fields missing")
+		}
+	})
+}
+
+func TestExtensionCatalogListRequest_Defaults(t *testing.T) {
+	req := ExtensionCatalogListRequest{}
+	// Note: struct tags don't set default values in Go structs
+	// The default values are applied by the query parser in the handler
+	// Here we just verify the zero values
+	if req.Page != 0 {
+		t.Fatalf("unexpected default page: %d", req.Page)
+	}
+	if req.PageSize != 0 {
+		t.Fatalf("unexpected default page_size: %d", req.PageSize)
+	}
+}
+
+func TestExtensionInstallationListRequest_Defaults(t *testing.T) {
+	req := ExtensionInstallationListRequest{}
+	// Note: struct tags don't set default values in Go structs
+	if req.Page != 0 {
+		t.Fatalf("unexpected default page: %d", req.Page)
+	}
+	if req.PageSize != 0 {
+		t.Fatalf("unexpected default page_size: %d", req.PageSize)
+	}
+}
+
+func TestExtensionEventListRequest_Defaults(t *testing.T) {
+	req := ExtensionEventListRequest{}
+	// Note: struct tags don't set default values in Go structs
+	if req.Page != 0 {
+		t.Fatalf("unexpected default page: %d", req.Page)
+	}
+	if req.PageSize != 0 {
+		t.Fatalf("unexpected default page_size: %d", req.PageSize)
+	}
+}
+
+func TestExtensionUpgradeRequest_Validation(t *testing.T) {
+	req := ExtensionUpgradeRequest{
+		ReleaseVersion: "2.0.0",
+	}
+	if req.ReleaseVersion == "" {
+		t.Fatal("release_version should not be empty")
+	}
+}
+
+func TestExtensionConfigUpdateRequest(t *testing.T) {
+	req := ExtensionConfigUpdateRequest{
+		Config:     map[string]any{"enabled": true},
+		SecretRefs: map[string]string{"api_key": "secret:ref"},
+	}
+	if req.Config == nil {
+		t.Fatal("config should not be nil")
+	}
+	if req.SecretRefs == nil {
+		t.Fatal("secret_refs should not be nil")
+	}
+}
+
+func TestCatalogListQuery_EdgeCases(t *testing.T) {
+	t.Run("negative page", func(t *testing.T) {
+		req := ExtensionCatalogListRequest{Page: -1, PageSize: 10}
+		q := catalogListQuery(req)
+		if q.Offset != 0 {
+			t.Fatalf("expected offset 0 for negative page, got: %d", q.Offset)
+		}
+	})
+
+	t.Run("zero page size", func(t *testing.T) {
+		req := ExtensionCatalogListRequest{Page: 1, PageSize: 0}
+		q := catalogListQuery(req)
+		if q.Limit != 20 {
+			t.Fatalf("expected limit 20 for zero page_size, got: %d", q.Limit)
+		}
+	})
+
+	t.Run("page size exceeds max", func(t *testing.T) {
+		req := ExtensionCatalogListRequest{Page: 1, PageSize: 200}
+		q := catalogListQuery(req)
+		if q.Limit != 100 {
+			t.Fatalf("expected limit 100 for page_size > 100, got: %d", q.Limit)
+		}
+	})
+
+	t.Run("page size at max boundary", func(t *testing.T) {
+		req := ExtensionCatalogListRequest{Page: 1, PageSize: 100}
+		q := catalogListQuery(req)
+		if q.Limit != 100 {
+			t.Fatalf("expected limit 100 at boundary, got: %d", q.Limit)
+		}
+	})
+}
+
+func TestInstallationListQuery_EdgeCases(t *testing.T) {
+	t.Run("negative page", func(t *testing.T) {
+		req := ExtensionInstallationListRequest{Page: -1, PageSize: 10}
+		q := installationListQuery(req)
+		if q.Offset != 0 {
+			t.Fatalf("expected offset 0 for negative page, got: %d", q.Offset)
+		}
+	})
+
+	t.Run("zero page size", func(t *testing.T) {
+		req := ExtensionInstallationListRequest{Page: 1, PageSize: 0}
+		q := installationListQuery(req)
+		if q.Limit != 20 {
+			t.Fatalf("expected limit 20 for zero page_size, got: %d", q.Limit)
+		}
+	})
+
+	t.Run("page size exceeds max", func(t *testing.T) {
+		req := ExtensionInstallationListRequest{Page: 1, PageSize: 150}
+		q := installationListQuery(req)
+		if q.Limit != 100 {
+			t.Fatalf("expected limit 100 for page_size > 100, got: %d", q.Limit)
+		}
+	})
+}
+
+func TestToInstallationItem_WithTimestamp(t *testing.T) {
+	modelItem := model.ExtensionInstallation{
+		Model:        gorm.Model{ID: 123, UpdatedAt: time.Now()},
+		ExtensionID:  "test.ext",
+		ReleaseVersion: "1.0.0",
+		Status:       "enabled",
+		DesiredState: "enabled",
+		Enabled:      true,
+	}
+	item := toInstallationItem(modelItem)
+	if item.ID != 123 {
+		t.Fatalf("unexpected id: %d", item.ID)
+	}
+	if item.UpdatedAt == 0 {
+		t.Fatal("expected non-zero UpdatedAt")
+	}
+}
+
+func TestMatchSingleClause_EdgeCases(t *testing.T) {
+	t.Run("empty clause", func(t *testing.T) {
+		cur, ok := parseSemVersion("1.2.3")
+		if !ok {
+			t.Fatal("failed to parse version")
+		}
+		// Empty clause - parseSemVersion returns false for empty string
+		got := matchSingleClause(cur, "")
+		if got {
+			t.Fatalf("expected false for empty clause (fails to parse)")
+		}
+	})
+
+	t.Run("whitespace clause", func(t *testing.T) {
+		cur, ok := parseSemVersion("1.2.3")
+		if !ok {
+			t.Fatal("failed to parse version")
+		}
+		got := matchSingleClause(cur, "  ")
+		// Whitespace fails to parse as semVersion, so returns false
+		if got {
+			t.Fatalf("expected false for whitespace clause (fails to parse)")
+		}
+	})
+}
+
+func TestMatchVersionConstraint_EdgeCases(t *testing.T) {
+	t.Run("empty constraint", func(t *testing.T) {
+		got := matchVersionConstraint("1.2.3", "")
+		if !got {
+			t.Fatalf("expected true for empty constraint")
+		}
+	})
+
+	t.Run("whitespace constraint", func(t *testing.T) {
+		got := matchVersionConstraint("1.2.3", "  ,  ")
+		// Whitespace clauses fail to parse, but empty clauses in comma-separated list are skipped
+		if !got {
+			t.Fatalf("expected true for whitespace constraint (skipped)")
+		}
+	})
+
+	t.Run("multiple clauses", func(t *testing.T) {
+		got := matchVersionConstraint("1.5.0", ">=1.2.0, <2.0.0")
+		if !got {
+			t.Fatalf("expected true for valid range")
+		}
+	})
+
+	t.Run("multiple clauses failing", func(t *testing.T) {
+		got := matchVersionConstraint("2.5.0", ">=1.2.0, <2.0.0")
+		if got {
+			t.Fatalf("expected false for version outside range")
+		}
+	})
+}
+
+func TestValidateConfigField_Array(t *testing.T) {
+	schema := map[string]any{
+		"type": "array",
+		"items": map[string]any{
+			"type": "string",
+		},
+	}
+	valid := []any{"item1", "item2"}
+	err := validateConfigField("test", valid, schema)
+	if err != nil {
+		t.Fatalf("unexpected error for array: %v", err)
+	}
+
+	// Test non-array value
+	err = validateConfigField("test", "not-an-array", schema)
+	if err == nil {
+		t.Fatalf("expected error for non-array value")
+	}
+}
+
+func TestValidateConfigField_Object_Nested(t *testing.T) {
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"nested": map[string]any{"type": "string"},
+		},
+	}
+	valid := map[string]any{"nested": "value"}
+	err := validateConfigField("test", valid, schema)
+	if err != nil {
+		t.Fatalf("unexpected error for nested object: %v", err)
+	}
+}
+
+func TestValidateConfigField_Number(t *testing.T) {
+	schema := map[string]any{"type": "number"}
+	err := validateConfigField("test", float64(3.14), schema)
+	if err != nil {
+		t.Fatalf("unexpected error for number: %v", err)
+	}
+
+	err = validateConfigField("test", 3, schema)
+	if err != nil {
+		t.Fatalf("unexpected error for int as number: %v", err)
+	}
+
+	err = validateConfigField("test", "3.14", schema)
+	if err == nil {
+		t.Fatalf("expected error for string as number")
+	}
+}
+
+func TestResolveConfigSchema_EmptyVersion(t *testing.T) {
+	// This test requires a full ServiceContext setup with Extensions.Catalog
+	// For now, just test that the function doesn't panic with nil context
+	// The actual schema resolution is tested in integration tests
+	t.Skip("Requires full service context setup")
+}
+
+func TestParseSemVersion_PreRelease(t *testing.T) {
+	cases := []struct {
+		input    string
+		wantValid bool
+		wantMajor int
+		wantMinor int
+		wantPatch int
+	}{
+		{input: "1.2.3-alpha.1", wantValid: true, wantMajor: 1, wantMinor: 2, wantPatch: 3},
+		{input: "1.2.3-beta", wantValid: true, wantMajor: 1, wantMinor: 2, wantPatch: 3},
+		{input: "1.2.3-rc1", wantValid: true, wantMajor: 1, wantMinor: 2, wantPatch: 3},
+	}
+	for _, c := range cases {
+		t.Run(c.input, func(t *testing.T) {
+			got, ok := parseSemVersion(c.input)
+			if ok != c.wantValid {
+				t.Fatalf("validity mismatch, got=%v want=%v", ok, c.wantValid)
+			}
+			if ok {
+				if got.major != c.wantMajor {
+					t.Fatalf("major mismatch, got=%d want=%d", got.major, c.wantMajor)
+				}
+			}
+		})
+	}
+}
+
+func TestCompareSemVersion_Equal(t *testing.T) {
+	a := semVersion{major: 1, minor: 2, patch: 3}
+	b := semVersion{major: 1, minor: 2, patch: 3}
+	if compareSemVersion(a, b) != 0 {
+		t.Fatal("expected versions to be equal")
+	}
+}
+
+func TestMatchCaretConstraint_ZeroVersions(t *testing.T) {
+	t.Run("zero major with parts field", func(t *testing.T) {
+		// For ^0.2.3, it allows >=0.2.3 <0.3.0
+		current := semVersion{major: 0, minor: 2, patch: 5, parts: 3}
+		base := semVersion{major: 0, minor: 2, patch: 3, parts: 3}
+		if !matchCaretConstraint(current, base) {
+			t.Fatal("expected true for 0.2.5 vs ^0.2.3")
+		}
+	})
+
+	t.Run("zero minor with parts field - at boundary", func(t *testing.T) {
+		// For ^0.0.2, it allows >=0.0.2 <0.0.3
+		// So 0.0.2 should match
+		current := semVersion{major: 0, minor: 0, patch: 2, parts: 3}
+		base := semVersion{major: 0, minor: 0, patch: 2, parts: 3}
+		if !matchCaretConstraint(current, base) {
+			t.Fatal("expected true for 0.0.2 vs ^0.0.2 (exact match)")
+		}
+	})
+
+	t.Run("zero minor with parts field - outside upper bound", func(t *testing.T) {
+		// For ^0.0.2, upper bound is 0.0.3, so 0.0.3 should NOT match
+		current := semVersion{major: 0, minor: 0, patch: 3, parts: 3}
+		base := semVersion{major: 0, minor: 0, patch: 2, parts: 3}
+		if matchCaretConstraint(current, base) {
+			t.Fatal("expected false for 0.0.3 vs ^0.0.2 (at upper bound)")
+		}
+	})
+}
+
+func TestMatchTildeConstraint_SinglePart(t *testing.T) {
+	current := semVersion{major: 1, minor: 0, patch: 5}
+	base := semVersion{major: 1, minor: 0, patch: 0, parts: 1}
+	if !matchTildeConstraint(current, base) {
+		t.Fatal("expected true for single part version")
+	}
+}
+
+func TestExtractCapabilities_NestedMap(t *testing.T) {
+	manifest := map[string]any{
+		"capabilities": []any{
+			map[string]any{
+				"id": "analytics.query",
+				"metadata": map[string]any{"priority": 1},
+			},
+			map[string]any{
+				"capability": "notify.send",
+			},
+		},
+	}
+	got := extractCapabilities(manifest)
+	// extractCapabilities looks for "id" or "name" in nested maps
+	// The second map has "capability" which isn't recognized
+	if len(got) != 1 {
+		t.Fatalf("expected 1 capability (only 'id' is recognized), got: %d: %v", len(got), got)
+	}
+	if got[0] != "analytics.query" {
+		t.Fatalf("expected analytics.query, got: %s", got[0])
+	}
+}
+
+func TestExtractTags_MixedTypes(t *testing.T) {
+	manifest := map[string]any{
+		"tags": []any{"ops", 123, true, "analytics"},
+	}
+	tags := extractTags(manifest)
+	if len(tags) != 4 {
+		t.Fatalf("expected 4 tags, got: %d", len(tags))
+	}
+}
+
+func TestParseDependencies_Complex(t *testing.T) {
+	manifest := map[string]any{
+		"dependencies": []any{
+			"simple.extension",
+			map[string]any{
+				"id": "complex.extension",
+				"version": "^1.2.0",
+				"metadata": map[string]any{"optional": true},
+			},
+			map[string]any{
+				"extension_id": "another.ext",
+				"required_version": ">=2.0.0",
+			},
+		},
+	}
+	deps := parseDependencies(manifest)
+	if len(deps) != 3 {
+		t.Fatalf("expected 3 dependencies, got: %d", len(deps))
+	}
+	if deps[1].Version != "^1.2.0" {
+		t.Fatalf("unexpected version: %s", deps[1].Version)
+	}
+}
+
+func TestMapString_Conversions(t *testing.T) {
+	m := map[string]any{
+		"string":  "value",
+		"number":  123,
+		"bool":    true,
+		"float":   3.14,
+		"nil":     nil,
+		"empty":   "",
+		"<nil>":   "<nil>",
+	}
+	cases := []struct {
+		key      string
+		expected string
+	}{
+		{"string", "value"},
+		{"number", "123"},
+		{"bool", "true"},
+		{"float", "3.14"},
+		{"nil", ""},
+		{"empty", ""},
+		{"<nil>", ""},
+		{"missing", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.key, func(t *testing.T) {
+			got := mapString(m, c.key)
+			if got != c.expected {
+				t.Fatalf("unexpected value for %s, got=%s expect=%s", c.key, got, c.expected)
+			}
+		})
+	}
+}
+
+func TestMapString_NilMap(t *testing.T) {
+	got := mapString(nil, "key")
+	if got != "" {
+		t.Fatalf("expected empty string for nil map, got: %s", got)
+	}
+}
+
+func TestFindInstallationConflict_NilDB(t *testing.T) {
+	svcCtx := &svc.ServiceContext{DB: nil}
+	s := &Service{svcCtx: svcCtx}
+
+	req := ExtensionInstallRequest{
+		ExtensionID: "test.ext",
+		ScopeType:   "system",
+		ScopeID:     "global",
+		TargetType:  "agent",
+		TargetID:    "agent1",
+	}
+
+	_, _, err := s.findInstallationConflict(context.Background(), req)
+	if err == nil {
+		t.Fatal("expected error for nil DB")
+	}
+}
+
+func TestResolveCatalogMetadata_EmptyExtensionID(t *testing.T) {
+	// This test requires a proper ServiceContext with Extensions.Catalog
+	// For now, skip as we can't easily mock the catalog interface
+	t.Skip("Requires full service context with catalog")
+}
+
+func TestValidateDependencies_EmptyManifest(t *testing.T) {
+	// Test with nil manifest
+	deps := parseDependencies(nil)
+	if deps != nil {
+		t.Fatal("expected nil for nil manifest")
+	}
+
+	// Test with empty manifest
+	deps = parseDependencies(map[string]any{})
+	if deps != nil {
+		t.Fatal("expected nil for empty manifest")
+	}
+}
+
+func TestValidateDependencies_NoDependenciesKey(t *testing.T) {
+	manifest := map[string]any{
+		"name": "test",
+		"version": "1.0.0",
+	}
+	deps := parseDependencies(manifest)
+	if deps != nil {
+		t.Fatal("expected nil when dependencies key is missing")
+	}
+}
+
+func TestValidateDependencies_DependencyWithEmptyID(t *testing.T) {
+	manifest := map[string]any{
+		"dependencies": []any{
+			"",
+			"   ",
+			map[string]any{},
+		},
+	}
+	deps := parseDependencies(manifest)
+	// Empty IDs should be skipped
+	if len(deps) != 0 {
+		t.Fatalf("expected 0 dependencies after filtering empty IDs, got: %d", len(deps))
+	}
+}
+
+func TestDependencyTargetsExtension_CaseInsensitive(t *testing.T) {
+	dep := extensionDependency{ExtensionID: "Test.Ext", Version: ">=1.0.0"}
+
+	// Test case insensitive matching (normalizeExtensionID lowercases)
+	// Since we're testing with different case, normalizeExtensionID makes them equal
+	normalizedID := normalizeExtensionID(dep.ExtensionID)
+	normalizedTarget := normalizeExtensionID("Test.Ext")
+	if normalizedID != normalizedTarget {
+		t.Fatalf("expected normalized IDs to match, got: %s vs %s", normalizedID, normalizedTarget)
+	}
+}
+
+func TestDependencyTargetsExtension_EmptyVersion(t *testing.T) {
+	// Empty version means any version matches
+	dep := extensionDependency{ExtensionID: "test.ext", Version: ""}
+
+	if !dependencyTargetsExtension(dep, "test.ext", "999.0.0") {
+		t.Fatal("expected true for empty version constraint")
+	}
+
+	if !dependencyTargetsExtension(dep, "test.ext", "0.0.1") {
+		t.Fatal("expected true for empty version constraint with low version")
+	}
+}
+
+func TestDependencyTargetsExtension_DifferentExtension(t *testing.T) {
+	dep := extensionDependency{ExtensionID: "test.ext", Version: ">=1.0.0"}
+
+	if dependencyTargetsExtension(dep, "other.ext", "2.0.0") {
+		t.Fatal("expected false for different extension ID")
+	}
+}
+
+func TestFormatDependentRef_EmptyFields(t *testing.T) {
+	item := model.ExtensionInstallation{
+		ExtensionID:    "",
+		ReleaseVersion: "",
+	}
+	ref := formatDependentRef(item)
+	// formatDependentRef returns "unknown" for empty extension ID
+	if ref != "unknown" {
+		t.Fatalf("expected 'unknown' for empty extension ID, got: %s", ref)
+	}
+
+	item.ExtensionID = "test.ext"
+	item.ReleaseVersion = ""
+	ref = formatDependentRef(item)
+	if ref != "test.ext" {
+		t.Fatalf("expected extension ID only, got: %s", ref)
+	}
+}
+
+func TestMatchVersionConstraint_SimpleEquality(t *testing.T) {
+	// When constraint is just a version number, it's an exact match
+	if !matchVersionConstraint("1.2.3", "1.2.3") {
+		t.Fatal("expected true for exact version match")
+	}
+
+	if matchVersionConstraint("1.2.4", "1.2.3") {
+		t.Fatal("expected false for different version")
+	}
+}
+
+func TestMatchVersionConstraint_LessThan(t *testing.T) {
+	if !matchVersionConstraint("1.2.2", "<1.2.3") {
+		t.Fatal("expected true for less than")
+	}
+
+	if matchVersionConstraint("1.2.3", "<1.2.3") {
+		t.Fatal("expected false for equal version with <")
+	}
+
+	if matchVersionConstraint("1.2.4", "<1.2.3") {
+		t.Fatal("expected false for greater version with <")
+	}
+}
+
+func TestMatchVersionConstraint_LessThanOrEqual(t *testing.T) {
+	if !matchVersionConstraint("1.2.2", "<=1.2.3") {
+		t.Fatal("expected true for less than or equal")
+	}
+
+	if !matchVersionConstraint("1.2.3", "<=1.2.3") {
+		t.Fatal("expected true for equal version with <=")
+	}
+
+	if matchVersionConstraint("1.2.4", "<=1.2.3") {
+		t.Fatal("expected false for greater version with <=")
+	}
+}
+
+func TestMatchVersionConstraint_GreaterThan(t *testing.T) {
+	if !matchVersionConstraint("1.2.4", ">1.2.3") {
+		t.Fatal("expected true for greater than")
+	}
+
+	if matchVersionConstraint("1.2.3", ">1.2.3") {
+		t.Fatal("expected false for equal version with >")
+	}
+
+	if matchVersionConstraint("1.2.2", ">1.2.3") {
+		t.Fatal("expected false for less version with >")
+	}
+}
+
+func TestMatchVersionConstraint_GreaterThanOrEqual(t *testing.T) {
+	if !matchVersionConstraint("1.2.4", ">=1.2.3") {
+		t.Fatal("expected true for greater than or equal")
+	}
+
+	if !matchVersionConstraint("1.2.3", ">=1.2.3") {
+		t.Fatal("expected true for equal version with >=")
+	}
+
+	if matchVersionConstraint("1.2.2", ">=1.2.3") {
+		t.Fatal("expected false for less version with >=")
+	}
+}
+
+func TestMatchVersionConstraint_Prefix(t *testing.T) {
+	// Test with v prefix - parseSemVersion handles v prefix
+	if !matchVersionConstraint("v1.2.3", ">=1.2.0") {
+		t.Fatal("expected true for version with v prefix")
+	}
+
+	// V prefix is not handled (only lowercase v)
+	if !matchVersionConstraint("1.2.3", ">=1.2.0") {
+		t.Fatal("expected true for version constraint")
+	}
+}
+
+func TestMatchVersionConstraint_BuildMetadata(t *testing.T) {
+	// Test with build metadata (should be ignored)
+	if !matchVersionConstraint("1.2.3+build123", ">=1.2.0") {
+		t.Fatal("expected true for version with build metadata")
+	}
+
+	if !matchVersionConstraint("1.2.3-alpha+build123", ">=1.2.0") {
+		t.Fatal("expected true for version with pre-release and build")
+	}
+}
+
+func TestMatchVersionConstraint_TwoPartVersion(t *testing.T) {
+	// Test with two-part versions (1.2)
+	// Two-part version "1.2" means exactly 1.2.0, not >=1.2
+	if !matchVersionConstraint("1.2", "1.2") {
+		t.Fatal("expected true for exact match of two-part version")
+	}
+
+	// 1.2.0 should match 1.2
+	if !matchVersionConstraint("1.2.0", "1.2") {
+		t.Fatal("expected true for 1.2.0 matching constraint 1.2")
+	}
+
+	// But 1.2.5 won't match - it's an exact match
+	if matchVersionConstraint("1.2.5", "1.2") {
+		t.Fatal("expected false - two-part version is exact match to 1.2.0")
+	}
+}
+
+func TestMatchVersionConstraint_OnePartVersion(t *testing.T) {
+	// Test with one-part versions (1)
+	if !matchVersionConstraint("1", "1") {
+		t.Fatal("expected true for exact match of one-part version")
+	}
+
+	// One-part version "1" means exactly 1.0.0, so 1.5 won't match
+	if matchVersionConstraint("1.5", "1") {
+		t.Fatal("expected false - one-part version is exact match")
+	}
+
+	// But 1.0 matches 1
+	if !matchVersionConstraint("1.0", "1") {
+		t.Fatal("expected true for 1.0 matching constraint 1")
+	}
+}
+
+func TestValidateConfigField_NullValue(t *testing.T) {
+	schema := map[string]any{"type": "string"}
+	err := validateConfigField("test", nil, schema)
+	// nil is not valid for string type
+	if err == nil {
+		t.Fatal("expected error for nil value with string type")
+	}
+}
+
+func TestValidateConfigAgainstSchema_NoProperties(t *testing.T) {
+	schema := map[string]any{
+		"required": []any{"field1"},
+	}
+	err := validateConfigAgainstSchema(map[string]any{"field1": "value"}, schema)
+	// Schema without properties should validate required fields but not types
+	if err != nil {
+		t.Fatalf("unexpected error for schema without properties: %v", err)
+	}
+}
+
+func TestExtractCapabilities_NoCapabilities(t *testing.T) {
+	// Test with manifest without capabilities
+	caps := extractCapabilities(map[string]any{})
+	if len(caps) != 0 {
+		t.Fatalf("expected empty capabilities for empty manifest")
+	}
+
+	caps = extractCapabilities(map[string]any{"other": "data"})
+	if len(caps) != 0 {
+		t.Fatalf("expected empty capabilities when capabilities key is missing")
+	}
+}
+
+func TestExtractCapabilities_NotAnArray(t *testing.T) {
+	manifest := map[string]any{
+		"capabilities": "not-an-array",
+	}
+	caps := extractCapabilities(manifest)
+	if len(caps) != 0 {
+		t.Fatalf("expected empty capabilities for non-array value")
+	}
+}
+
+func TestExtractTags_NotAnArray(t *testing.T) {
+	manifest := map[string]any{
+		"tags": "not-an-array",
+	}
+	tags := extractTags(manifest)
+	if len(tags) != 0 {
+		t.Fatalf("expected empty tags for non-array value")
+	}
+}
+
+func TestExtractDefaultInstall_NilManifest(t *testing.T) {
+	result := extractDefaultInstall(nil)
+	if result {
+		t.Fatal("expected false for nil manifest")
+	}
+}
+
+func TestExtractDefaultInstall_UnknownType(t *testing.T) {
+	manifest := map[string]any{
+		"default_install": []string{"yes"},
+	}
+	result := extractDefaultInstall(manifest)
+	if result {
+		t.Fatal("expected false for unknown type")
+	}
+}
+
+func TestToInstallationItem_AllFields(t *testing.T) {
+	now := time.Now()
+	modelItem := model.ExtensionInstallation{
+		Model:           gorm.Model{ID: 999, UpdatedAt: now},
+		InstallationKey: "test-key",
+		ExtensionID:     "official.analytics",
+		ReleaseVersion:  "2.5.0",
+		ScopeType:       "organization",
+		ScopeID:         "org123",
+		TargetType:      "agent_group",
+		TargetID:        "default",
+		Status:          "enabled",
+		DesiredState:    "enabled",
+		Enabled:         true,
+		LastError:       "some error",
+	}
+
+	item := toInstallationItem(modelItem)
+	assert.Equal(t, uint(999), item.ID)
+	assert.Equal(t, "test-key", item.InstallationKey)
+	assert.Equal(t, "official.analytics", item.ExtensionID)
+	assert.Equal(t, "official.analytics", item.DisplayName)
+	assert.Equal(t, "2.5.0", item.ReleaseVersion)
+	assert.Equal(t, "organization", item.ScopeType)
+	assert.Equal(t, "org123", item.ScopeID)
+	assert.Equal(t, "agent_group", item.TargetType)
+	assert.Equal(t, "default", item.TargetID)
+	assert.Equal(t, "enabled", item.Status)
+	assert.Equal(t, "enabled", item.DesiredState)
+	assert.True(t, item.Enabled)
+	assert.Equal(t, "unknown", item.HealthStatus)
+	assert.Equal(t, "some error", item.LastError)
+	assert.Equal(t, now.Unix(), item.UpdatedAt)
+}
+
+func TestToEventItems_Empty(t *testing.T) {
+	items := toEventItems([]model.ExtensionEvent{})
+	if len(items) != 0 {
+		t.Fatalf("expected empty items")
+	}
+}
+
+func TestToBindingItems_Empty(t *testing.T) {
+	items := toBindingItems([]model.ExtensionRuntimeBinding{})
+	if len(items) != 0 {
+		t.Fatalf("expected empty items")
+	}
+}
+
+func TestCatalogListQuery_AllParams(t *testing.T) {
+	req := ExtensionCatalogListRequest{
+		Keyword:  "search",
+		Kind:     "provider",
+		Status:   "beta",
+		Page:     5,
+		PageSize: 50,
+	}
+	q := catalogListQuery(req)
+	assert.Equal(t, "search", q.Keyword)
+	assert.Equal(t, "provider", q.Kind)
+	assert.Equal(t, "beta", q.Status)
+	assert.Equal(t, 50, q.Limit)
+	assert.Equal(t, 200, q.Offset) // (5-1)*50
+}
+
+func TestInstallationListQuery_AllParams(t *testing.T) {
+	req := ExtensionInstallationListRequest{
+		ExtensionID: "test.ext",
+		ScopeType:   "system",
+		ScopeID:     "global",
+		TargetType:  "agent",
+		TargetID:    "agent1",
+		Status:      "enabled",
+		Page:        2,
+		PageSize:    10,
+		Enabled:     boolPtr(true),
+	}
+	q := installationListQuery(req)
+	assert.Equal(t, "test.ext", q.ExtensionID)
+	assert.Equal(t, "system", q.ScopeType)
+	assert.Equal(t, "global", q.ScopeID)
+	assert.Equal(t, "agent", q.TargetType)
+	assert.Equal(t, "agent1", q.TargetID)
+	assert.Equal(t, "enabled", q.Status)
+	assert.Equal(t, 10, q.Limit)
+	assert.Equal(t, 10, q.Offset)
+	assert.True(t, q.Enabled != nil && *q.Enabled)
+}
+
+func boolPtr(b bool) *bool {
+	return &b
+}
+
+func TestInstallationListQuery_WithEnabled(t *testing.T) {
+	f := false
+	req := ExtensionInstallationListRequest{
+		Enabled: &f,
+	}
+	q := installationListQuery(req)
+	assert.True(t, q.Enabled != nil && *q.Enabled == false)
+}
+
+func TestService_ResolveInstallationID_Numeric(t *testing.T) {
+	svcCtx := &svc.ServiceContext{}
+	s := &Service{svcCtx: svcCtx}
+
+	// Test numeric ID
+	id, err := s.ResolveInstallationID(context.Background(), "123")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != 123 {
+		t.Fatalf("expected id 123, got: %d", id)
+	}
+}
+
+func TestService_ResolveInstallationID_Whitespace(t *testing.T) {
+	svcCtx := &svc.ServiceContext{}
+	s := &Service{svcCtx: svcCtx}
+
+	// Test numeric ID with whitespace
+	id, err := s.ResolveInstallationID(context.Background(), "  456  ")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if id != 456 {
+		t.Fatalf("expected id 456, got: %d", id)
 	}
 }

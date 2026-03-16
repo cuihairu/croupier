@@ -101,12 +101,12 @@ func createTestPermissionContext(t *testing.T, db *gorm.DB) (*svc.ServiceContext
 	}
 
 	svcCtx := &svc.ServiceContext{
-		DB:                db,
-		AdminModel:        adminModel,
-		RoleModel:         roleModel,
-		PermissionModel:   permissionModel,
-		Cache:             cache.NewNullCache(),
-		CacheHelper:       cache.NewCacheHelper(cache.NewNullCache()),
+		DB:              db,
+		AdminModel:      adminModel,
+		RoleModel:       roleModel,
+		PermissionModel: permissionModel,
+		Cache:           cache.NewNullCache(),
+		CacheHelper:     cache.NewCacheHelper(cache.NewNullCache()),
 	}
 
 	ctx := context.WithValue(context.Background(), "username", "testadmin")

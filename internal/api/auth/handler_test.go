@@ -24,9 +24,9 @@ func TestHandler_Login_BindValidation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
-		name       string
-		body       string
-		wantCode   int
+		name     string
+		body     string
+		wantCode int
 	}{
 		{
 			name:     "missing username",

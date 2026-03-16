@@ -16,7 +16,7 @@ type Player struct {
 	Balance  int64  `gorm:"default:0;index"`                                   // 游戏货币
 	Level    int    `gorm:"default:1;index"`
 	VIP      int    `gorm:"column:vip;default:0;index"` // Column name explicitly set to 'vip'
-	Password string `gorm:"size:255"` // 密码哈希
+	Password string `gorm:"size:255"`                   // 密码哈希
 }
 
 // TableName 实现 GORM 的表名接口

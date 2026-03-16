@@ -19,7 +19,7 @@ func newAdminTestContext(method, target, body string) (*gin.Context, *httptest.R
 }
 
 func TestHandler_List_BindValidation(t *testing.T) {
-	
+
 	gin.SetMode(gin.TestMode)
 
 	handler := NewHandler(&Service{})
@@ -68,7 +68,6 @@ func TestHandler_List_BindValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			
 
 			ctx, rec := newAdminTestContext("GET", "/admins"+tt.query, "")
 			handler.List(ctx)
@@ -88,7 +87,7 @@ func TestHandler_List_BindValidation(t *testing.T) {
 }
 
 func TestHandler_Create_BindValidation(t *testing.T) {
-	
+
 	gin.SetMode(gin.TestMode)
 
 	handler := NewHandler(&Service{})
@@ -132,7 +131,6 @@ func TestHandler_Create_BindValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			
 
 			ctx, rec := newAdminTestContext("POST", "/admins", tt.body)
 			handler.Create(ctx)
@@ -150,7 +148,7 @@ func TestHandler_Create_BindValidation(t *testing.T) {
 }
 
 func TestHandler_Get_BindValidation(t *testing.T) {
-	
+
 	gin.SetMode(gin.TestMode)
 
 	handler := NewHandler(&Service{})
@@ -189,7 +187,6 @@ func TestHandler_Get_BindValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			
 
 			ctx, rec := newAdminTestContext("GET", tt.uri, "")
 			ctx.Params = gin.Params{gin.Param{Key: "id", Value: strings.TrimPrefix(tt.uri, "/admins/")}}
@@ -208,7 +205,7 @@ func TestHandler_Get_BindValidation(t *testing.T) {
 }
 
 func TestHandler_Update_BindValidation(t *testing.T) {
-	
+
 	gin.SetMode(gin.TestMode)
 
 	handler := NewHandler(&Service{})
@@ -253,7 +250,6 @@ func TestHandler_Update_BindValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			
 
 			ctx, rec := newAdminTestContext("PUT", tt.uri, tt.body)
 			ctx.Params = gin.Params{gin.Param{Key: "id", Value: strings.TrimPrefix(tt.uri, "/admins/")}}
@@ -272,7 +268,7 @@ func TestHandler_Update_BindValidation(t *testing.T) {
 }
 
 func TestHandler_Delete_BindValidation(t *testing.T) {
-	
+
 	gin.SetMode(gin.TestMode)
 
 	handler := NewHandler(&Service{})
@@ -306,7 +302,6 @@ func TestHandler_Delete_BindValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			
 
 			ctx, rec := newAdminTestContext("DELETE", tt.uri, "")
 			ctx.Params = gin.Params{gin.Param{Key: "id", Value: strings.TrimPrefix(tt.uri, "/admins/")}}
@@ -325,7 +320,7 @@ func TestHandler_Delete_BindValidation(t *testing.T) {
 }
 
 func TestHandler_PasswordReset_BindValidation(t *testing.T) {
-	
+
 	gin.SetMode(gin.TestMode)
 
 	handler := NewHandler(&Service{})
@@ -364,7 +359,6 @@ func TestHandler_PasswordReset_BindValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			
 
 			ctx, rec := newAdminTestContext("POST", tt.uri, tt.body)
 			ctx.Params = gin.Params{gin.Param{Key: "id", Value: strings.TrimPrefix(strings.TrimSuffix(tt.uri, "/password-reset"), "/admins/")}}
@@ -383,7 +377,7 @@ func TestHandler_PasswordReset_BindValidation(t *testing.T) {
 }
 
 func TestHandler_GetGames_BindValidation(t *testing.T) {
-	
+
 	gin.SetMode(gin.TestMode)
 
 	handler := NewHandler(&Service{})
@@ -417,7 +411,6 @@ func TestHandler_GetGames_BindValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			
 
 			ctx, rec := newAdminTestContext("GET", tt.uri, "")
 			ctx.Params = gin.Params{gin.Param{Key: "id", Value: strings.TrimSuffix(strings.TrimPrefix(tt.uri, "/admins/"), "/games")}}
@@ -436,7 +429,7 @@ func TestHandler_GetGames_BindValidation(t *testing.T) {
 }
 
 func TestHandler_UpdateGames_BindValidation(t *testing.T) {
-	
+
 	gin.SetMode(gin.TestMode)
 
 	handler := NewHandler(&Service{})
@@ -475,7 +468,6 @@ func TestHandler_UpdateGames_BindValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			
 
 			ctx, rec := newAdminTestContext("PUT", tt.uri, tt.body)
 			ctx.Params = gin.Params{gin.Param{Key: "id", Value: strings.TrimSuffix(strings.TrimPrefix(tt.uri, "/admins/"), "/games")}}

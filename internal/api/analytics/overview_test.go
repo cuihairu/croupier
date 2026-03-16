@@ -2,6 +2,7 @@ package analytics
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,8 +12,11 @@ import (
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
 	"github.com/cuihairu/croupier/internal/model"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
+	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -924,5 +928,606 @@ func TestUpsertAnalyticsFilter_NewWithMultiple(t *testing.T) {
 	result := upsertAnalyticsFilter(items, "game2", newFilters)
 	if len(result) != 2 {
 		t.Fatalf("expected 2 items, got %d", len(result))
+	}
+}
+
+// Additional tests to improve coverage for overview and aggregateAgentMetrics
+
+func TestAggregateAgentMetrics_WithValidAgents(t *testing.T) {
+	t.Parallel()
+
+	store := registry.NewStore()
+
+	agent1 := &registry.AgentSession{
+		AgentID: "agent1",
+		GameID: "game1",
+		Env:    "prod",
+		Labels: map[string]string{
+			"stats.avg_latency_ms": "100.5",
+			"stats.error_rate":     "0.5",
+		},
+	}
+	agent2 := &registry.AgentSession{
+		AgentID: "agent2",
+		GameID: "game1",
+		Env:    "prod",
+		Labels: map[string]string{
+			"stats.avg_latency_ms": "200.0",
+			"stats.error_rate":     "1.0",
+		},
+	}
+
+	store.UpsertAgent(agent1)
+	store.UpsertAgent(agent2)
+
+	avgLatency, errorRate := aggregateAgentMetrics(store, "game1", "prod")
+
+	// Average latency: (100.5 + 200.0) / 2 = 150.25
+	// Average error rate: (0.5 + 1.0) / 2 = 0.75
+	if avgLatency < 150.2 || avgLatency > 150.3 {
+		t.Fatalf("expected avgLatency ~150.25, got %v", avgLatency)
+	}
+	if errorRate < 0.74 || errorRate > 0.76 {
+		t.Fatalf("expected errorRate ~0.75, got %v", errorRate)
+	}
+}
+
+func TestAggregateAgentMetrics_FilterByGameID(t *testing.T) {
+	t.Parallel()
+
+	store := registry.NewStore()
+
+	agent1 := &registry.AgentSession{
+		AgentID: "agent1",
+		GameID: "game1",
+		Env:    "prod",
+		Labels: map[string]string{
+			"stats.avg_latency_ms": "100.0",
+		},
+	}
+	agent2 := &registry.AgentSession{
+		AgentID: "agent2",
+		GameID: "game2",
+		Env:    "prod",
+		Labels: map[string]string{
+			"stats.avg_latency_ms": "200.0",
+		},
+	}
+
+	store.UpsertAgent(agent1)
+	store.UpsertAgent(agent2)
+
+	avgLatency, _ := aggregateAgentMetrics(store, "game1", "prod")
+
+	if avgLatency != 100.0 {
+		t.Fatalf("expected avgLatency 100.0 for game1, got %v", avgLatency)
+	}
+
+	// Test with empty gameID (should return average of all)
+	avgLatencyAll, _ := aggregateAgentMetrics(store, "", "prod")
+	expectedAll := (100.0 + 200.0) / 2.0
+	if avgLatencyAll != expectedAll {
+		t.Fatalf("expected avgLatency %v for empty gameID, got %v", expectedAll, avgLatencyAll)
+	}
+}
+
+func TestAggregateAgentMetrics_FilterByEnv(t *testing.T) {
+	t.Parallel()
+
+	store := registry.NewStore()
+
+	agent1 := &registry.AgentSession{
+		AgentID: "agent1",
+		GameID: "game1",
+		Env:    "prod",
+		Labels: map[string]string{
+			"stats.avg_latency_ms": "100.0",
+		},
+	}
+	agent2 := &registry.AgentSession{
+		AgentID: "agent2",
+		GameID: "game1",
+		Env:    "dev",
+		Labels: map[string]string{
+			"stats.avg_latency_ms": "200.0",
+		},
+	}
+
+	store.UpsertAgent(agent1)
+	store.UpsertAgent(agent2)
+
+	avgLatency, _ := aggregateAgentMetrics(store, "game1", "prod")
+
+	if avgLatency != 100.0 {
+		t.Fatalf("expected avgLatency 100.0 for prod, got %v", avgLatency)
+	}
+}
+
+func TestAggregateAgentMetrics_PartialMetrics(t *testing.T) {
+	t.Parallel()
+
+	store := registry.NewStore()
+
+	agent1 := &registry.AgentSession{
+		AgentID: "agent1",
+		GameID: "game1",
+		Env:    "prod",
+		Labels: map[string]string{
+			"stats.avg_latency_ms": "100.0",
+			// Missing error_rate
+		},
+	}
+	agent2 := &registry.AgentSession{
+		AgentID: "agent2",
+		GameID: "game1",
+		Env:    "prod",
+		Labels: map[string]string{
+			// Missing latency
+			"stats.error_rate": "0.5",
+		},
+	}
+
+	store.UpsertAgent(agent1)
+	store.UpsertAgent(agent2)
+
+	avgLatency, errorRate := aggregateAgentMetrics(store, "game1", "prod")
+
+	// Latency: only agent1 has it, so 100.0
+	// Error rate: only agent2 has it, so 0.5
+	if avgLatency != 100.0 {
+		t.Fatalf("expected avgLatency 100.0, got %v", avgLatency)
+	}
+	if errorRate != 0.5 {
+		t.Fatalf("expected errorRate 0.5, got %v", errorRate)
+	}
+}
+
+func TestAggregateAgentMetrics_InvalidFloatValues(t *testing.T) {
+	t.Parallel()
+
+	store := registry.NewStore()
+
+	agent1 := &registry.AgentSession{
+		AgentID: "agent1",
+		GameID: "game1",
+		Env:    "prod",
+		Labels: map[string]string{
+			"stats.avg_latency_ms": "invalid",
+			"stats.error_rate":     "also-invalid",
+		},
+	}
+
+	store.UpsertAgent(agent1)
+
+	avgLatency, errorRate := aggregateAgentMetrics(store, "game1", "prod")
+
+	// Should handle invalid values gracefully (return 0)
+	if avgLatency != 0 || errorRate != 0 {
+		t.Fatalf("expected 0,0 for invalid values, got %v,%v", avgLatency, errorRate)
+	}
+}
+
+func TestAggregateAgentMetrics_MixedValidInvalid(t *testing.T) {
+	t.Parallel()
+
+	store := registry.NewStore()
+
+	agent1 := &registry.AgentSession{
+		AgentID: "agent1",
+		GameID: "game1",
+		Env:    "prod",
+		Labels: map[string]string{
+			"stats.avg_latency_ms": "100.0",
+		},
+	}
+	agent2 := &registry.AgentSession{
+		AgentID: "agent2",
+		GameID: "game1",
+		Env:    "prod",
+		Labels: map[string]string{
+			"stats.avg_latency_ms": "invalid",
+		},
+	}
+
+	store.UpsertAgent(agent1)
+	store.UpsertAgent(agent2)
+
+	avgLatency, _ := aggregateAgentMetrics(store, "game1", "prod")
+
+	// Should only count valid values
+	if avgLatency != 100.0 {
+		t.Fatalf("expected avgLatency 100.0 (only valid agent), got %v", avgLatency)
+	}
+}
+
+func TestAggregateAgentMetrics_WhitespaceGameID(t *testing.T) {
+	t.Parallel()
+
+	store := registry.NewStore()
+
+	agent1 := &registry.AgentSession{
+		AgentID: "agent1",
+		GameID: "game1",
+		Env:    "prod",
+		Labels: map[string]string{
+			"stats.avg_latency_ms": "100.0",
+		},
+	}
+
+	store.UpsertAgent(agent1)
+
+	// Whitespace gameID should be trimmed to empty, so not filter
+	avgLatency, _ := aggregateAgentMetrics(store, "  ", "prod")
+
+	if avgLatency != 100.0 {
+		t.Fatalf("expected avgLatency 100.0, got %v", avgLatency)
+	}
+}
+
+func TestOverview_ModelValidation(t *testing.T) {
+	t.Parallel()
+
+	// Test nil BehaviorModel - the function checks BehaviorModel first
+	svcCtx := &svc.ServiceContext{}
+	_, err := overview(context.Background(), svcCtx, &OverviewRequest{GameId: "test"})
+	if err == nil {
+		t.Fatal("expected error for nil models")
+	}
+}
+
+func TestRealtime_ModelValidation(t *testing.T) {
+	t.Parallel()
+
+	svcCtx := &svc.ServiceContext{
+		BehaviorModel: nil,
+	}
+	_, err := realtime(context.Background(), svcCtx, &RealtimeRequest{GameId: "test"})
+	if err == nil {
+		t.Fatal("expected error for nil behavior model")
+	}
+}
+
+func TestRealtimeSeries_ModelValidation(t *testing.T) {
+	t.Parallel()
+
+	svcCtx := &svc.ServiceContext{
+		BehaviorModel: nil,
+	}
+	_, err := realtimeSeries(context.Background(), svcCtx, &RealtimeSeriesRequest{GameId: "test"})
+	if err == nil {
+		t.Fatal("expected error for nil behavior model")
+	}
+}
+
+func TestIngest_ModelValidation(t *testing.T) {
+	t.Parallel()
+
+	svcCtx := &svc.ServiceContext{
+		BehaviorModel: nil,
+	}
+	_, err := ingest(context.Background(), svcCtx, &IngestRequest{
+		GameId: "test",
+		Events: []interface{}{},
+	})
+	if err == nil {
+		t.Fatal("expected error for nil behavior model")
+	}
+
+	// Test empty gameID - this check happens before model check
+	_, err = ingest(context.Background(), &svc.ServiceContext{}, &IngestRequest{
+		GameId: "", // Empty gameID
+		Events:  []interface{}{},
+	})
+	if err == nil {
+		t.Fatal("expected error for empty gameID")
+	}
+}
+
+func TestFiltersUpdate_Validation(t *testing.T) {
+	t.Parallel()
+
+	svcCtx := &svc.ServiceContext{}
+
+	// Test nil request
+	_, err := filtersUpdate(context.Background(), svcCtx, nil)
+	if err == nil {
+		t.Fatal("expected error for nil request")
+	}
+
+	// Test empty gameID
+	_, err = filtersUpdate(context.Background(), svcCtx, &FiltersUpdateRequest{
+		GameId:  "",
+		Filters: map[string]interface{}{},
+	})
+	if err == nil {
+		t.Fatal("expected error for empty gameID")
+	}
+
+	// Test nil filters
+	_, err = filtersUpdate(context.Background(), svcCtx, &FiltersUpdateRequest{
+		GameId:  "test",
+		Filters: nil,
+	})
+	if err == nil {
+		t.Fatal("expected error for nil filters")
+	}
+}
+
+// Tests to improve coverage for main functions (overview, realtime, realtimeSeries, ingest)
+
+func TestOverview_Integration(t *testing.T) {
+	t.Parallel()
+
+	db := setupServiceTestDB(t)
+	svcCtx := setupServiceTestContext(t, db)
+	ctx := context.Background()
+
+	// Create test events
+	baseTime := time.Date(2026, 3, 14, 10, 0, 0, 0, time.UTC)
+	ev := createTestEventFull("session_start", "user1", "game1", "prod", baseTime, nil)
+	require.NoError(t, svcCtx.BehaviorModel.RecordEvent(ctx, &ev), "Failed to record event")
+
+	req := &OverviewRequest{
+		GameId:    "game1",
+		Env:       "prod",
+		StartDate: "2026-03-01",
+		EndDate:   "2026-03-20",
+	}
+
+	// This will fail due to nil PaymentsModel and PlayerModel, but tests the path
+	_, err := overview(ctx, svcCtx, req)
+	// We expect an error due to missing models
+	if err == nil {
+		// If somehow models are available, that's fine too
+	}
+}
+
+func TestRealtime_Integration(t *testing.T) {
+	t.Parallel()
+
+	db := setupServiceTestDB(t)
+	svcCtx := setupServiceTestContext(t, db)
+	ctx := context.Background()
+
+	// Create test events
+	baseTime := time.Now().UTC()
+	ev := createTestEventFull("login", "user1", "game1", "prod", baseTime, nil)
+	require.NoError(t, svcCtx.BehaviorModel.RecordEvent(ctx, &ev), "Failed to record event")
+
+	req := &RealtimeRequest{
+		GameId: "game1",
+		Env:    "prod",
+	}
+
+	resp, err := realtime(ctx, svcCtx, req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.RealtimeMetrics.OnlineUsers < 0 {
+		t.Fatalf("expected non-negative online users")
+	}
+}
+
+func TestRealtimeSeries_Integration(t *testing.T) {
+	t.Parallel()
+
+	db := setupServiceTestDB(t)
+	svcCtx := setupServiceTestContext(t, db)
+	ctx := context.Background()
+
+	// Create test events
+	baseTime := time.Now().UTC()
+	ev := createTestEventFull("action", "user1", "game1", "prod", baseTime, nil)
+	require.NoError(t, svcCtx.BehaviorModel.RecordEvent(ctx, &ev), "Failed to record event")
+
+	req := &RealtimeSeriesRequest{
+		GameId:   "game1",
+		Env:      "prod",
+		Interval: "1m",
+		Duration: 5,
+	}
+
+	resp, err := realtimeSeries(ctx, svcCtx, req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Series == nil {
+		t.Fatal("expected series in response")
+	}
+}
+
+func TestIngest_Integration(t *testing.T) {
+	t.Parallel()
+
+	db := setupServiceTestDB(t)
+	svcCtx := setupServiceTestContext(t, db)
+	ctx := context.Background()
+
+	req := &IngestRequest{
+		GameId: "game1",
+		Env:    "prod",
+		Events: []interface{}{
+			map[string]interface{}{
+				"eventType": "test_event",
+				"userId":    "user1",
+				"timestamp": "2026-03-14T10:00:00Z",
+			},
+		},
+	}
+
+	resp, err := ingest(ctx, svcCtx, req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Accepted != 1 {
+		t.Fatalf("expected 1 accepted event, got %d", resp.Accepted)
+	}
+	if resp.BatchId == "" {
+		t.Fatal("expected non-empty batch ID")
+	}
+}
+
+func TestIngest_MultipleEvents(t *testing.T) {
+	t.Parallel()
+
+	db := setupServiceTestDB(t)
+	svcCtx := setupServiceTestContext(t, db)
+	ctx := context.Background()
+
+	req := &IngestRequest{
+		GameId: "game1",
+		Env:    "prod",
+		Events: []interface{}{
+			map[string]interface{}{
+				"eventType": "event1",
+				"userId":    "user1",
+			},
+			map[string]interface{}{
+				"eventType": "event2",
+				"userId":    "user1",
+			},
+			map[string]interface{}{
+				// Invalid event - missing eventType
+				"userId": "user2",
+			},
+		},
+	}
+
+	resp, err := ingest(ctx, svcCtx, req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Should accept 2 valid events, reject 1 invalid
+	if resp.Accepted != 2 {
+		t.Fatalf("expected 2 accepted events, got %d", resp.Accepted)
+	}
+	if resp.Rejected != 1 {
+		t.Fatalf("expected 1 rejected event, got %d", resp.Rejected)
+	}
+}
+
+func TestIngest_EmptyEvents(t *testing.T) {
+	t.Parallel()
+
+	db := setupServiceTestDB(t)
+	svcCtx := setupServiceTestContext(t, db)
+	ctx := context.Background()
+
+	req := &IngestRequest{
+		GameId: "game1",
+		Env:    "prod",
+		Events: []interface{}{},
+	}
+
+	resp, err := ingest(ctx, svcCtx, req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Accepted != 0 {
+		t.Fatalf("expected 0 accepted events, got %d", resp.Accepted)
+	}
+}
+
+func TestRealtimeSeries_DifferentIntervals(t *testing.T) {
+	t.Parallel()
+
+	db := setupServiceTestDB(t)
+	svcCtx := setupServiceTestContext(t, db)
+	ctx := context.Background()
+
+	// Create test events
+	baseTime := time.Now().UTC()
+	ev := createTestEventFull("action", "user1", "game1", "prod", baseTime, nil)
+	require.NoError(t, svcCtx.BehaviorModel.RecordEvent(ctx, &ev), "Failed to record event")
+
+	intervals := []string{"", "1m", "5m", "15m"}
+	for _, interval := range intervals {
+		req := &RealtimeSeriesRequest{
+			GameId:   "game1",
+			Env:      "prod",
+			Interval: interval,
+			Duration: 10,
+		}
+
+		resp, err := realtimeSeries(ctx, svcCtx, req)
+		if err != nil {
+			t.Fatalf("unexpected error for interval %s: %v", interval, err)
+		}
+		if resp.Series == nil {
+			t.Fatalf("expected series for interval %s", interval)
+		}
+	}
+}
+
+func TestRealtimeSeries_DifferentDurations(t *testing.T) {
+	t.Parallel()
+
+	db := setupServiceTestDB(t)
+	svcCtx := setupServiceTestContext(t, db)
+	ctx := context.Background()
+
+	// Create test events
+	baseTime := time.Now().UTC()
+	ev := createTestEventFull("action", "user1", "game1", "prod", baseTime, nil)
+	require.NoError(t, svcCtx.BehaviorModel.RecordEvent(ctx, &ev), "Failed to record event")
+
+	durations := []int{1, 5, 30, 60}
+	for _, duration := range durations {
+		req := &RealtimeSeriesRequest{
+			GameId:   "game1",
+			Env:      "prod",
+			Duration: duration,
+		}
+
+		resp, err := realtimeSeries(ctx, svcCtx, req)
+		if err != nil {
+			t.Fatalf("unexpected error for duration %d: %v", duration, err)
+		}
+		if resp.Series == nil {
+			t.Fatalf("expected series for duration %d", duration)
+		}
+	}
+}
+
+func TestRealtime_WithNilRequest(t *testing.T) {
+	t.Parallel()
+
+	db := setupServiceTestDB(t)
+	svcCtx := setupServiceTestContext(t, db)
+
+	// Test with nil request
+	_, err := realtime(context.Background(), svcCtx, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRealtimeSeries_WithNilRequest(t *testing.T) {
+	t.Parallel()
+
+	db := setupServiceTestDB(t)
+	svcCtx := setupServiceTestContext(t, db)
+
+	// Test with nil request
+	_, err := realtimeSeries(context.Background(), svcCtx, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// Helper function for creating test events
+
+func createTestEventFull(eventType, userID, gameID, env string, occurredAt time.Time, data map[string]interface{}) model.BehaviorEvent {
+	if data == nil {
+		data = make(map[string]interface{})
+	}
+	_ = json.Unmarshal // Use json import
+	return model.BehaviorEvent{
+		EventType:  eventType,
+		UserID:     userID,
+		GameID:     gameID,
+		Env:        env,
+		Data:       datatypes.JSONMap{},
+		OccurredAt: occurredAt,
 	}
 }

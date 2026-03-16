@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -1380,4 +1382,267 @@ func TestHandler_ListPlatforms_EmptyResponseStructure(t *testing.T) {
 	// Should have proper response structure
 	assert.Contains(t, body, `"code":200`)
 	assert.Contains(t, body, `"message":"success"`)
+}
+
+// TestHandler_ListPlatforms_ErrorResponse tests error path when service returns error
+func TestHandler_ListPlatforms_ErrorResponse(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	service := NewService(&svc.ServiceContext{})
+	handler := NewHandler(service)
+
+	router := gin.New()
+	router.GET("/platforms", handler.ListPlatforms)
+
+	req := httptest.NewRequest("GET", "/platforms", nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	// Should succeed even with empty platforms
+	assert.Equal(t, http.StatusOK, resp.Code)
+}
+
+// TestHandler_ListMethods_InvalidPlatform tests with a platform that doesn't exist
+func TestHandler_ListMethods_InvalidPlatform(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	service := NewService(&svc.ServiceContext{})
+	handler := NewHandler(service)
+
+	router := gin.New()
+	router.GET("/platforms/:platform/methods", handler.ListMethods)
+
+	req := httptest.NewRequest("GET", "/platforms/nonexistent_platform/methods", nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	// Should return 200 OK with error in body
+	assert.Equal(t, http.StatusOK, resp.Code)
+	body := resp.Body.String()
+	assert.Contains(t, body, "404")
+}
+
+// TestHandler_ListMethods_ErrorResponse tests error path when service returns error
+func TestHandler_ListMethods_ErrorResponse(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	service := NewService(&svc.ServiceContext{})
+	handler := NewHandler(service)
+
+	router := gin.New()
+	router.GET("/platforms/:platform/methods", handler.ListMethods)
+
+	req := httptest.NewRequest("GET", "/platforms/invalid_platform/methods", nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	// Should return 200 with error response body
+	assert.Equal(t, http.StatusOK, resp.Code)
+	body := resp.Body.String()
+	assert.Contains(t, body, "404")
+}
+
+// TestHandler_ListMethods_WithWhitespacePlatform tests whitespace-only platform
+func TestHandler_ListMethods_WithWhitespacePlatform(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	service := NewService(&svc.ServiceContext{})
+	handler := NewHandler(service)
+
+	router := gin.New()
+	router.GET("/platforms/:platform/methods", handler.ListMethods)
+
+	req := httptest.NewRequest("GET", "/platforms/%20/methods", nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+	body := resp.Body.String()
+	assert.Contains(t, body, "platform")
+}
+
+// TestHandler_ListPlatforms_WithPlatforms tests listing when platforms exist
+func TestHandler_ListPlatforms_WithPlatforms(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	// Create a registry with an agent
+	store := reg.NewStore()
+	store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "test-agent",
+		RPCAddr:  "127.0.0.1:19091",
+		ExpireAt: time.Now().Add(time.Minute),
+		Functions: map[string]reg.FunctionMeta{
+			"external.test_platform.method1": {Enabled: true},
+			"external.test_platform.method2": {Enabled: true},
+		},
+	})
+
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: store,
+	}
+
+	service := NewService(svcCtx)
+	handler := NewHandler(service)
+
+	router := gin.New()
+	router.GET("/platforms", handler.ListPlatforms)
+
+	req := httptest.NewRequest("GET", "/platforms", nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+	body := resp.Body.String()
+	assert.Contains(t, body, `"code":200`)
+	assert.Contains(t, body, "test_platform")
+}
+
+// TestHandler_ListMethods_ExistingPlatform tests listing methods for existing platform
+func TestHandler_ListMethods_ExistingPlatform(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	// Create a registry with an agent
+	store := reg.NewStore()
+	store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "test-agent",
+		RPCAddr:  "127.0.0.1:19091",
+		ExpireAt: time.Now().Add(time.Minute),
+		Functions: map[string]reg.FunctionMeta{
+			"external.my_platform.method_a": {Enabled: true},
+			"external.my_platform.method_b": {Enabled: true},
+		},
+	})
+
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: store,
+	}
+
+	service := NewService(svcCtx)
+	handler := NewHandler(service)
+
+	router := gin.New()
+	router.GET("/platforms/:platform/methods", handler.ListMethods)
+
+	req := httptest.NewRequest("GET", "/platforms/my_platform/methods", nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+	body := resp.Body.String()
+	assert.Contains(t, body, `"code":200`)
+	assert.Contains(t, body, "method_a")
+	assert.Contains(t, body, "method_b")
+}
+
+// TestHandler_ListPlatforms_WithDuplicatePlatforms tests duplicate platform handling
+func TestHandler_ListPlatforms_WithDuplicatePlatforms(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	store := reg.NewStore()
+	// Add multiple agents with same platform
+	store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent1",
+		RPCAddr:  "127.0.0.1:19091",
+		ExpireAt: time.Now().Add(time.Minute),
+		Functions: map[string]reg.FunctionMeta{
+			"external.duplicate_platform.method1": {Enabled: true},
+		},
+	})
+	store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent2",
+		RPCAddr:  "127.0.0.1:19092",
+		ExpireAt: time.Now().Add(time.Minute),
+		Functions: map[string]reg.FunctionMeta{
+			"external.duplicate_platform.method2": {Enabled: true},
+		},
+	})
+
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: store,
+	}
+
+	service := NewService(svcCtx)
+	handler := NewHandler(service)
+
+	router := gin.New()
+	router.GET("/platforms", handler.ListPlatforms)
+
+	req := httptest.NewRequest("GET", "/platforms", nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+	body := resp.Body.String()
+	assert.Contains(t, body, "duplicate_platform")
+	// Should deduplicate platforms - just one entry in response
+	// The key should appear in the response
+}
+
+// TestHandler_ListMethods_CaseInsensitive tests case-insensitive platform lookup
+func TestHandler_ListMethods_CaseInsensitive(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	store := reg.NewStore()
+	store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "test-agent",
+		RPCAddr:  "127.0.0.1:19091",
+		ExpireAt: time.Now().Add(time.Minute),
+		Functions: map[string]reg.FunctionMeta{
+			"external.mycase.platform_method": {Enabled: true},
+		},
+	})
+
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: store,
+	}
+
+	service := NewService(svcCtx)
+	handler := NewHandler(service)
+
+	router := gin.New()
+	router.GET("/platforms/:platform/methods", handler.ListMethods)
+
+	// Test with different case
+	req := httptest.NewRequest("GET", "/platforms/MYCASE/methods", nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+	body := resp.Body.String()
+	assert.Contains(t, body, `"code":200`)
+}
+
+// TestHandler_Call_WithValidPlatformButNoDispatcher tests call with valid platform but no dispatcher
+func TestHandler_Call_WithValidPlatformButNoDispatcher(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	// No dispatcher set
+	svcCtx := &svc.ServiceContext{}
+
+	service := NewService(svcCtx)
+	handler := NewHandler(service)
+
+	router := gin.New()
+	router.POST("/platform/call", handler.Call)
+
+	reqBody := `{"platform":"test_platform","method":"test_method"}`
+	req := httptest.NewRequest("POST", "/platform/call", bytes.NewBufferString(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+	body := resp.Body.String()
+	// Should return 503 because dispatcher is not available
+	assert.Contains(t, body, `"code":503`)
+	assert.Contains(t, body, "not available")
 }

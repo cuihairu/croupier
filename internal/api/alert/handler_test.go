@@ -11,8 +11,8 @@ import (
 
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
-	gsqlite "github.com/glebarez/sqlite"
 	"github.com/gin-gonic/gin"
+	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
@@ -50,7 +50,7 @@ func setupAlertTestDB(t *testing.T) *gorm.DB {
 
 func setupAlertServiceContext(t *testing.T, db *gorm.DB) *svc.ServiceContext {
 	return &svc.ServiceContext{
-		DB:        db,
+		DB:         db,
 		AlertModel: model.NewAlertModel(db),
 	}
 }
@@ -290,10 +290,10 @@ func TestHandler_SilenceDelete_Success(t *testing.T) {
 	}
 	require.NoError(t, alertModel.Create(context.Background(), alert))
 	silence := &model.AlertSilence{
-		AlertID:       alert.ID,
-		Reason:        "test silence",
+		AlertID:        alert.ID,
+		Reason:         "test silence",
 		DurationMinute: 60,
-		CreatedBy:     "test",
+		CreatedBy:      "test",
 	}
 	require.NoError(t, alertModel.CreateSilence(context.Background(), silence))
 

@@ -10,8 +10,8 @@ import (
 
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
-	gsqlite "github.com/glebarez/sqlite"
 	"github.com/gin-gonic/gin"
+	gsqlite "github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -459,13 +459,13 @@ func TestMapConfigItem_AllFields(t *testing.T) {
 	t.Parallel()
 
 	v := &model.ConfigVersion{
-		Key:        "test:key",
-		Version:    1,
-		CreatedBy:  "user1",
-		Format:     "json",
-		GameID:     "game1",
-		Env:        "prod",
-		Message:    "test config",
+		Key:       "test:key",
+		Version:   1,
+		CreatedBy: "user1",
+		Format:    "json",
+		GameID:    "game1",
+		Env:       "prod",
+		Message:   "test config",
 	}
 
 	result := mapConfigItem(v)

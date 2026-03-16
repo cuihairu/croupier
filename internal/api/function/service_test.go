@@ -12,8 +12,8 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
-	gsqlite "github.com/glebarez/sqlite"
 	"github.com/gin-gonic/gin"
+	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
@@ -49,17 +49,17 @@ func createTestFunction(t *testing.T, db *gorm.DB, functionID, name string) *mod
 		Version:     "1.0.0",
 		Category:    "test",
 		Metadata: map[string]interface{}{
-			"category":     "test",
-			"version":      "1.0.0",
-			"spec_format":  "openapi3.0.3",
-			"instances":    3,
-			"nodes":        []string{"node1", "node2"},
-			"path":         "/test",
-			"order":        1,
-			"hidden":       false,
-			"input_schema": map[string]interface{}{"type": "object"},
+			"category":      "test",
+			"version":       "1.0.0",
+			"spec_format":   "openapi3.0.3",
+			"instances":     3,
+			"nodes":         []string{"node1", "node2"},
+			"path":          "/test",
+			"order":         1,
+			"hidden":        false,
+			"input_schema":  map[string]interface{}{"type": "object"},
 			"output_schema": map[string]interface{}{"type": "object"},
-			"schema":       map[string]interface{}{"type": "object"},
+			"schema":        map[string]interface{}{"type": "object"},
 		},
 	}
 	require.NoError(t, db.Create(fn).Error)
@@ -500,10 +500,10 @@ func TestFunctionInstancesAll_WithRegistry(t *testing.T) {
 
 	// Add agent sessions with multiple functions
 	sess1 := &registry.AgentSession{
-		AgentID:   "agent1",
-		GameID:    "test-game",
-		Env:       "prod",
-		RPCAddr:   "localhost:8080",
+		AgentID: "agent1",
+		GameID:  "test-game",
+		Env:     "prod",
+		RPCAddr: "localhost:8080",
 		Functions: map[string]registry.FunctionMeta{
 			"func1": {Enabled: true, Version: "1.0.0"},
 			"func2": {Enabled: true, Version: "1.0.0"},
@@ -511,10 +511,10 @@ func TestFunctionInstancesAll_WithRegistry(t *testing.T) {
 		LastSeen: time.Now(),
 	}
 	sess2 := &registry.AgentSession{
-		AgentID:   "agent2",
-		GameID:    "test-game",
-		Env:       "prod",
-		RPCAddr:   "localhost:8081",
+		AgentID: "agent2",
+		GameID:  "test-game",
+		Env:     "prod",
+		RPCAddr: "localhost:8081",
 		Functions: map[string]registry.FunctionMeta{
 			"func1": {Enabled: true, Version: "1.0.0"},
 		},
@@ -1546,11 +1546,11 @@ func TestHandlers_WithURIParams(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
-		name       string
-		setupFunc  func(*svc.ServiceContext) string // returns function ID
-		handler    func(*gin.Context)
-		method     string
-		uri        string // URI template
+		name      string
+		setupFunc func(*svc.ServiceContext) string // returns function ID
+		handler   func(*gin.Context)
+		method    string
+		uri       string // URI template
 	}{
 		{
 			name: "FunctionInstances",
@@ -2447,4 +2447,3 @@ func TestHandlers_AdditionalCoverage(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rec.Code)
 	})
 }
-

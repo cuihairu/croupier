@@ -637,11 +637,11 @@ func TestToApprovalSummaries_EmptyList(t *testing.T) {
 func TestToApprovalSummaries_PreserveFields(t *testing.T) {
 	items := []Approval{
 		{
-			ID:        "test-1",
-			Actor:     "user1",
-			State:     "pending",
+			ID:         "test-1",
+			Actor:      "user1",
+			State:      "pending",
 			FunctionID: "func-1",
-			GameID:    "game-1",
+			GameID:     "game-1",
 		},
 	}
 
