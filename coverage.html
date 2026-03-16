@@ -1,0 +1,417 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>platform: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/cuihairu/croupier/internal/api/platform/handler.go (73.9%)</option>
+				
+				<option value="file1">github.com/cuihairu/croupier/internal/api/platform/service.go (73.7%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package platform
+
+import (
+        "github.com/cuihairu/croupier/internal/common/response"
+        "github.com/gin-gonic/gin"
+)
+
+type Handler struct {
+        service *Service
+}
+
+func NewHandler(service *Service) *Handler <span class="cov8" title="1">{
+        return &amp;Handler{service: service}
+}</span>
+
+// Call handles the request to call a platform method
+func (h *Handler) Call(c *gin.Context) <span class="cov8" title="1">{
+        var req CallPlatformRequest
+        if err := c.ShouldBindJSON(&amp;req); err != nil </span><span class="cov8" title="1">{
+                response.Error(c, err)
+                return
+        }</span>
+
+        <span class="cov8" title="1">resp, err := h.service.Call(c.Request.Context(), &amp;req)
+        if err != nil </span><span class="cov0" title="0">{
+                response.Error(c, err)
+                return
+        }</span>
+        <span class="cov8" title="1">response.Success(c, resp)</span>
+}
+
+// ListPlatforms handles the request to list platforms
+func (h *Handler) ListPlatforms(c *gin.Context) <span class="cov8" title="1">{
+        resp, err := h.service.ListPlatforms(c.Request.Context())
+        if err != nil </span><span class="cov0" title="0">{
+                response.Error(c, err)
+                return
+        }</span>
+        <span class="cov8" title="1">response.Success(c, resp)</span>
+}
+
+// ListMethods handles the request to list platform methods
+func (h *Handler) ListMethods(c *gin.Context) <span class="cov8" title="1">{
+        platform := c.Param("platform")
+        resp, err := h.service.ListMethods(c.Request.Context(), platform)
+        if err != nil </span><span class="cov0" title="0">{
+                response.Error(c, err)
+                return
+        }</span>
+        <span class="cov8" title="1">response.Success(c, resp)</span>
+}
+
+// Alias methods for route compatibility
+
+func (h *Handler) List(c *gin.Context) <span class="cov8" title="1">{
+        h.ListPlatforms(c)
+}</span>
+
+func (h *Handler) Methods(c *gin.Context) <span class="cov8" title="1">{
+        h.ListMethods(c)
+}</span>
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package platform
+
+import (
+        "bytes"
+        "context"
+        "encoding/json"
+        "strings"
+
+        "github.com/cuihairu/croupier/internal/core/extension/externalfunc"
+        extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
+        "github.com/cuihairu/croupier/internal/model"
+        "github.com/cuihairu/croupier/internal/svc"
+)
+
+type Service struct {
+        svcCtx *svc.ServiceContext
+}
+
+func NewService(svcCtx *svc.ServiceContext) *Service <span class="cov8" title="1">{
+        return &amp;Service{
+                svcCtx: svcCtx,
+        }
+}</span>
+
+// Call calls a platform method
+func (s *Service) Call(ctx context.Context, req *CallPlatformRequest) (*CallPlatformResponse, error) <span class="cov8" title="1">{
+        // Validate required parameters
+        if req.Platform == "" </span><span class="cov8" title="1">{
+                return &amp;CallPlatformResponse{
+                        Code:    400,
+                        Message: "platform is required",
+                }, nil
+        }</span>
+        <span class="cov8" title="1">if req.Method == "" </span><span class="cov8" title="1">{
+                return &amp;CallPlatformResponse{
+                        Code:    400,
+                        Message: "method is required",
+                }, nil
+        }</span>
+
+        // Convert JSON string request to []byte
+        <span class="cov8" title="1">var requestData []byte
+        if req.Request != "" </span><span class="cov8" title="1">{
+                requestData = []byte(req.Request)
+        }</span>
+        // Extension-only path: invoke external.&lt;platform&gt;.&lt;method&gt; through dispatcher.
+        <span class="cov8" title="1">if functionID := buildExternalFunctionID(req.Platform, req.Method); functionID != "" &amp;&amp; s.svcCtx.Dispatcher != nil </span><span class="cov8" title="1">{
+                response, err := s.svcCtx.Dispatcher.Invoke(ctx, functionID, requestData)
+                if err == nil </span><span class="cov0" title="0">{
+                        var result interface{}
+                        if len(response) &gt; 0 </span><span class="cov0" title="0">{
+                                if unmarshalErr := json.Unmarshal(response, &amp;result); unmarshalErr != nil </span><span class="cov0" title="0">{
+                                        result = string(response)
+                                }</span>
+                        }
+                        <span class="cov0" title="0">return &amp;CallPlatformResponse{
+                                Code:     200,
+                                Message:  "success",
+                                Response: result,
+                                Source:   "extension",
+                        }, nil</span>
+                }
+                <span class="cov8" title="1">return &amp;CallPlatformResponse{
+                        Code:    500,
+                        Message: err.Error(),
+                        Source:  "extension",
+                }, nil</span>
+        }
+        <span class="cov8" title="1">return &amp;CallPlatformResponse{
+                Code:    503,
+                Message: "Platform extension runtime is not available",
+                Source:  "extension",
+        }, nil</span>
+}
+
+// ListPlatforms lists all available platforms
+func (s *Service) ListPlatforms(ctx context.Context) (*ListPlatformsResponse, error) <span class="cov8" title="1">{
+        discovered := s.discoverExternalPlatforms(ctx)
+        platforms := make([]PlatformInfo, 0, len(discovered))
+        seen := map[string]bool{}
+        for name, methods := range discovered </span><span class="cov8" title="1">{
+                platforms = append(platforms, PlatformInfo{
+                        Name:    name,
+                        Enabled: true,
+                        Methods: methods,
+                        Source:  "extension",
+                })
+                seen[strings.ToLower(strings.TrimSpace(name))] = true
+        }</span>
+
+        <span class="cov8" title="1">return &amp;ListPlatformsResponse{
+                Code:      200,
+                Message:   "success",
+                Platforms: platforms,
+        }, nil</span>
+}
+
+// ListMethods lists methods for a platform
+func (s *Service) ListMethods(ctx context.Context, platform string) (*ListPlatformMethodsResponse, error) <span class="cov8" title="1">{
+        p := strings.TrimSpace(platform)
+        if p == "" </span><span class="cov8" title="1">{
+                return &amp;ListPlatformMethodsResponse{
+                        Code:    400,
+                        Message: "platform is required",
+                        Methods: []string{},
+                }, nil
+        }</span>
+        <span class="cov8" title="1">discovered := s.discoverExternalPlatforms(ctx)
+        merged := map[string]struct{}{}
+        methods := make([]string, 0)
+        addMethods := func(list []string) </span><span class="cov8" title="1">{
+                for _, m := range list </span><span class="cov8" title="1">{
+                        key := strings.ToLower(strings.TrimSpace(m))
+                        if key == "" </span><span class="cov0" title="0">{
+                                continue</span>
+                        }
+                        <span class="cov8" title="1">if _, ok := merged[key]; ok </span><span class="cov0" title="0">{
+                                continue</span>
+                        }
+                        <span class="cov8" title="1">merged[key] = struct{}{}
+                        methods = append(methods, strings.TrimSpace(m))</span>
+                }
+        }
+        <span class="cov8" title="1">addMethods(discovered[strings.ToLower(p)])
+        usedExtension := len(methods) &gt; 0
+
+        if len(methods) == 0 </span><span class="cov8" title="1">{
+                return &amp;ListPlatformMethodsResponse{
+                        Code:    404,
+                        Message: "Platform not found",
+                        Methods: []string{},
+                }, nil
+        }</span>
+
+        <span class="cov8" title="1">return &amp;ListPlatformMethodsResponse{
+                Code:    200,
+                Message: "success",
+                Methods: methods,
+                Source:  resolveMethodsSource(usedExtension),
+        }, nil</span>
+}
+
+func buildExternalFunctionID(platform, method string) string <span class="cov8" title="1">{
+        return externalfunc.BuildFunctionID(platform, method)
+}</span>
+
+func (s *Service) discoverExternalPlatforms(ctx context.Context) map[string][]string <span class="cov8" title="1">{
+        result := map[string][]string{}
+        if s.svcCtx == nil </span><span class="cov0" title="0">{
+                return result
+        }</span>
+
+        // 1) Discover from registry functions (runtime-ready view).
+        <span class="cov8" title="1">if store := s.svcCtx.RegistryStore; store != nil </span><span class="cov8" title="1">{
+                store.Mu().RLock()
+                for _, agent := range store.AgentsUnsafe() </span><span class="cov8" title="1">{
+                        if agent == nil </span><span class="cov0" title="0">{
+                                continue</span>
+                        }
+                        <span class="cov8" title="1">for functionID, meta := range agent.Functions </span><span class="cov8" title="1">{
+                                if !meta.Enabled </span><span class="cov8" title="1">{
+                                        continue</span>
+                                }
+                                <span class="cov8" title="1">provider, method, ok := parseExternalFunctionID(functionID)
+                                if !ok </span><span class="cov8" title="1">{
+                                        continue</span>
+                                }
+                                <span class="cov8" title="1">if _, exists := result[provider]; !exists </span><span class="cov8" title="1">{
+                                        result[provider] = []string{}
+                                }</span>
+                                <span class="cov8" title="1">if !stringInSlice(result[provider], method) </span><span class="cov8" title="1">{
+                                        result[provider] = append(result[provider], method)
+                                }</span>
+                        }
+                }
+                <span class="cov8" title="1">store.Mu().RUnlock()</span>
+        }
+
+        // 2) Discover from installation bindings (planned/declared view), useful before agent sync.
+        <span class="cov8" title="1">if s.svcCtx.Extensions != nil &amp;&amp; s.svcCtx.Extensions.Installation != nil </span><span class="cov0" title="0">{
+                items, _, err := s.svcCtx.Extensions.Installation.List(ctx, extensioninstallation.ListQuery{
+                        Limit:  1000,
+                        Offset: 0,
+                })
+                if err == nil </span><span class="cov0" title="0">{
+                        for _, item := range items </span><span class="cov0" title="0">{
+                                if !externalfunc.IsExternalPlatformExtensionID(item.ExtensionID) </span><span class="cov0" title="0">{
+                                        continue</span>
+                                }
+                                <span class="cov0" title="0">if strings.EqualFold(strings.TrimSpace(item.Status), "uninstalled") ||
+                                        strings.EqualFold(strings.TrimSpace(item.DesiredState), "uninstalled") </span><span class="cov0" title="0">{
+                                        continue</span>
+                                }
+                                <span class="cov0" title="0">bindings, bindErr := s.svcCtx.Extensions.Installation.ListBindings(ctx, item.ID)
+                                if bindErr != nil </span><span class="cov0" title="0">{
+                                        continue</span>
+                                }
+                                <span class="cov0" title="0">declared := extractPlatformMethodsFromBindings(bindings)
+                                for provider, methods := range declared </span><span class="cov0" title="0">{
+                                        if _, exists := result[provider]; !exists </span><span class="cov0" title="0">{
+                                                result[provider] = []string{}
+                                        }</span>
+                                        <span class="cov0" title="0">for _, method := range methods </span><span class="cov0" title="0">{
+                                                if !stringInSlice(result[provider], method) </span><span class="cov0" title="0">{
+                                                        result[provider] = append(result[provider], method)
+                                                }</span>
+                                        }
+                                }
+                        }
+                }
+        }
+        <span class="cov8" title="1">return result</span>
+}
+
+func extractPlatformMethodsFromBindings(bindings []model.ExtensionRuntimeBinding) map[string][]string <span class="cov8" title="1">{
+        inputs := make([]externalfunc.Binding, 0, len(bindings))
+        for _, b := range bindings </span><span class="cov8" title="1">{
+                spec := map[string]any{}
+                if len(bytes.TrimSpace(b.SpecJSON)) &gt; 0 </span><span class="cov8" title="1">{
+                        _ = json.Unmarshal(b.SpecJSON, &amp;spec)
+                }</span>
+                <span class="cov8" title="1">inputs = append(inputs, externalfunc.Binding{
+                        BindingType: b.BindingType,
+                        BindingKey:  b.BindingKey,
+                        Spec:        spec,
+                })</span>
+        }
+        <span class="cov8" title="1">return externalfunc.DiscoverProviderOperations(inputs)</span>
+}
+
+func parseExternalFunctionID(functionID string) (provider string, method string, ok bool) <span class="cov8" title="1">{
+        return externalfunc.ParseFunctionID(functionID)
+}</span>
+
+func stringInSlice(list []string, target string) bool <span class="cov8" title="1">{
+        for _, item := range list </span><span class="cov8" title="1">{
+                if strings.EqualFold(strings.TrimSpace(item), strings.TrimSpace(target)) </span><span class="cov8" title="1">{
+                        return true
+                }</span>
+        }
+        <span class="cov8" title="1">return false</span>
+}
+
+func resolveMethodsSource(useExtension bool) string <span class="cov8" title="1">{
+        if useExtension </span><span class="cov8" title="1">{
+                return "extension"
+        }</span>
+        <span class="cov8" title="1">return ""</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

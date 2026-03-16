@@ -1,7 +1,6 @@
 package ops
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -27,6 +26,13 @@ const (
 // Agent operations implementations
 
 func opsAgentsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgentsListRequest) (*OpsAgentsListResponse, error) {
+	if svcCtx == nil {
+		return &OpsAgentsListResponse{
+			Code:    0,
+			Message: "Success",
+			Data:    []OpsAgentInfo{},
+		}, nil
+	}
 	store := svcCtx.RegistryStore
 	if store == nil {
 		return &OpsAgentsListResponse{
@@ -497,6 +503,13 @@ func opsMaintenanceUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *
 // Services and functions implementations
 
 func opsFunctions(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsFunctionsRequest) (*OpsFunctionsResponse, error) {
+	if svcCtx == nil {
+		return &OpsFunctionsResponse{
+			Code:    0,
+			Message: "Success",
+			Data:    map[string][]string{},
+		}, nil
+	}
 	store := svcCtx.RegistryStore
 	if store == nil {
 		return &OpsFunctionsResponse{
@@ -624,7 +637,7 @@ func loadNotificationsFromExtensionInstallation(ctx context.Context, svcCtx *svc
 		return false, nil, nil, false, err
 	}
 	config := map[string]any{}
-	if len(bytes.TrimSpace(item.ConfigJSON)) > 0 {
+	if len(item.ConfigJSON) > 0 {
 		if err := json.Unmarshal(item.ConfigJSON, &config); err != nil {
 			return false, nil, nil, false, err
 		}
@@ -645,14 +658,14 @@ func saveNotificationsToExtensionInstallation(ctx context.Context, svcCtx *svc.S
 		return err
 	}
 	config := map[string]any{}
-	if len(bytes.TrimSpace(item.ConfigJSON)) > 0 {
+	if len(item.ConfigJSON) > 0 {
 		_ = json.Unmarshal(item.ConfigJSON, &config)
 	}
 	config[notificationEnabledKey] = req.Enabled
 	config[notificationChannelsKey] = req.Channels
 	config[notificationRulesKey] = req.Rules
 	secretRefs := map[string]string{}
-	if len(bytes.TrimSpace(item.SecretRefsJSON)) > 0 {
+	if len(item.SecretRefsJSON) > 0 {
 		_ = json.Unmarshal(item.SecretRefsJSON, &secretRefs)
 	}
 	operator := "system"

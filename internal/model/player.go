@@ -15,7 +15,7 @@ type Player struct {
 	Status   int    `gorm:"default:1;index:idx_player_game_status,priority:2"` // 1:active 0:banned 2:suspended
 	Balance  int64  `gorm:"default:0;index"`                                   // 游戏货币
 	Level    int    `gorm:"default:1;index"`
-	VIP      int    `gorm:"default:0;index"`
+	VIP      int    `gorm:"column:vip;default:0;index"` // Column name explicitly set to 'vip'
 	Password string `gorm:"size:255"` // 密码哈希
 }
 

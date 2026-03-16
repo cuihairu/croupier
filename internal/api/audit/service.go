@@ -45,6 +45,9 @@ func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditRe
 	}
 	size := req.PageSize
 	if size <= 0 {
+		size = req.Size
+	}
+	if size <= 0 {
 		size = 20
 	}
 	if size > maxPageSize {

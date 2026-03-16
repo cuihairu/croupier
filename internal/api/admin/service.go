@@ -35,7 +35,10 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 		Role:     strings.TrimSpace(req.Role),
 	}
 
-	if req.Status != -1 {
+	// Only apply status filter if Status > 0
+	// Status 0 is the default and means "no filter" in the context of this API
+	// Status 1 means "active", Status < 0 means "no filter"
+	if req.Status > 0 {
 		status := req.Status
 		opts.Status = &status
 	}

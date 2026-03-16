@@ -32,10 +32,21 @@ func (s *Service) Upsert(ctx context.Context, req *UpsertRequest) (*UpsertRespon
 	}
 
 	versionData := mapConfigVersion(record, true)
+	// Handle both int and int64 for version (SQLite vs other databases)
+	var version int
+	switch v := versionData["version"].(type) {
+	case int:
+		version = v
+	case int64:
+		version = int(v)
+	case int32:
+		version = int(v)
+	}
+
 	return &UpsertResponse{
 		Version: ConfigVersion{
 			Key:       versionData["key"].(string),
-			Version:   int(versionData["version"].(int64)),
+			Version:   version,
 			CreatedBy: versionData["createdBy"].(string),
 			CreatedAt: versionData["createdAt"].(string),
 			GameID:    versionData["game_id"].(string),
@@ -65,9 +76,20 @@ func (s *Service) ListVersions(ctx context.Context, req *ListVersionsRequest) (*
 	items := make([]ConfigVersionItem, 0, len(versions))
 	for i := range versions {
 		versionData := mapConfigVersion(&versions[i], true)
+		// Handle both int and int64 for version (SQLite vs other databases)
+		var version int
+		switch v := versionData["version"].(type) {
+		case int:
+			version = v
+		case int64:
+			version = int(v)
+		case int32:
+			version = int(v)
+		}
+
 		items = append(items, ConfigVersionItem{
 			Key:       versionData["key"].(string),
-			Version:   int(versionData["version"].(int64)),
+			Version:   version,
 			CreatedBy: versionData["createdBy"].(string),
 			CreatedAt: versionData["createdAt"].(string),
 			GameID:    versionData["game_id"].(string),
@@ -104,10 +126,21 @@ func (s *Service) GetVersion(ctx context.Context, req *GetVersionRequest) (*GetV
 	}
 
 	versionData := mapConfigVersion(record, true)
+	// Handle both int and int64 for version (SQLite vs other databases)
+	var version int
+	switch v := versionData["version"].(type) {
+	case int:
+		version = v
+	case int64:
+		version = int(v)
+	case int32:
+		version = int(v)
+	}
+
 	return &GetVersionResponse{
 		Version: ConfigVersion{
 			Key:       versionData["key"].(string),
-			Version:   int(versionData["version"].(int64)),
+			Version:   version,
 			CreatedBy: versionData["createdBy"].(string),
 			CreatedAt: versionData["createdAt"].(string),
 			GameID:    versionData["game_id"].(string),
