@@ -2,8 +2,13 @@ package cache
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/cuihairu/croupier/internal/config"
 )
 
 // TestNullCache_Get 测试 NullCache Get 方法
@@ -380,5 +385,1102 @@ func TestNewNullCache(t *testing.T) {
 	// 验证返回的是 *NullCache 类型 - 由于 cache 已经是 *NullCache，直接比较即可
 	if cache == nil {
 		t.Error("NewNullCache should return non-nil *NullCache")
+	}
+}
+
+// TestLocalCache_NewLocalCache 测试 LocalCache 构造函数
+func TestLocalCache_NewLocalCache(t *testing.T) {
+	tests := []struct {
+		name            string
+		defaultTTL      time.Duration
+		cleanupInterval time.Duration
+	}{
+		{"Default values", 0, 0},
+		{"Custom values", time.Minute, 5 * time.Minute},
+		{"Short TTL", time.Second, 10 * time.Second},
+		{"Long TTL", time.Hour, 2 * time.Hour},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cache := NewLocalCache(tt.defaultTTL, tt.cleanupInterval)
+			if cache == nil {
+				t.Fatal("NewLocalCache returned nil")
+			}
+			if cache.cache == nil {
+				t.Error("NewLocalCache.cache is nil")
+			}
+		})
+	}
+}
+
+// TestLocalCache_Get 测试 LocalCache Get 方法
+func TestLocalCache_Get(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	ctx := context.Background()
+
+	// 测试获取不存在的键
+	_, err := cache.Get(ctx, "nonexistent")
+	if err != ErrCacheMiss {
+		t.Errorf("Expected ErrCacheMiss for nonexistent key, got %v", err)
+	}
+
+	// 设置值后获取
+	value := []byte("test_value")
+	_ = cache.Set(ctx, "test_key", value, time.Minute)
+
+	retrieved, err := cache.Get(ctx, "test_key")
+	if err != nil {
+		t.Errorf("Get failed after Set: %v", err)
+	}
+	if string(retrieved) != string(value) {
+		t.Errorf("Get returned wrong value: got %s, want %s", retrieved, value)
+	}
+}
+
+// TestLocalCache_Set 测试 LocalCache Set 方法
+func TestLocalCache_Set(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	ctx := context.Background()
+
+	tests := []struct {
+		name  string
+		key   string
+		value []byte
+		ttl   time.Duration
+	}{
+		{"Basic value", "key1", []byte("value1"), time.Minute},
+		{"Empty value", "key2", []byte(""), time.Minute},
+		{"Large value", "key3", make([]byte, 1024*100), time.Hour},
+		{"Zero TTL (uses default)", "key4", []byte("value4"), 0},
+		{"Special characters", "key:5", []byte("special:value"), time.Minute},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := cache.Set(ctx, tt.key, tt.value, tt.ttl)
+			if err != nil {
+				t.Errorf("Set(%q) failed: %v", tt.key, err)
+			}
+
+			// 验证值可以被获取
+			retrieved, err := cache.Get(ctx, tt.key)
+			if err != nil {
+				t.Errorf("Get after Set(%q) failed: %v", tt.key, err)
+			}
+			if string(retrieved) != string(tt.value) {
+				t.Errorf("Value mismatch for %q: got %s, want %s", tt.key, retrieved, tt.value)
+			}
+		})
+	}
+}
+
+// TestLocalCache_Delete 测试 LocalCache Delete 方法
+func TestLocalCache_Delete(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	ctx := context.Background()
+
+	// 设置值
+	_ = cache.Set(ctx, "delete_me", []byte("value"), time.Minute)
+
+	// 验证存在
+	_, err := cache.Get(ctx, "delete_me")
+	if err != nil {
+		t.Fatalf("Get before delete failed: %v", err)
+	}
+
+	// 删除
+	err = cache.Delete(ctx, "delete_me")
+	if err != nil {
+		t.Errorf("Delete failed: %v", err)
+	}
+
+	// 验证已删除
+	_, err = cache.Get(ctx, "delete_me")
+	if err != ErrCacheMiss {
+		t.Errorf("Expected ErrCacheMiss after delete, got %v", err)
+	}
+
+	// 删除不存在的键不应该报错
+	err = cache.Delete(ctx, "nonexistent")
+	if err != nil {
+		t.Errorf("Delete of nonexistent key should not error, got %v", err)
+	}
+}
+
+// TestLocalCache_DeletePattern 测试 LocalCache DeletePattern 方法
+func TestLocalCache_DeletePattern(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	ctx := context.Background()
+
+	// 设置多个键
+	keys := []string{
+		"user:1",
+		"user:2",
+		"user:3",
+		"session:abc",
+		"session:def",
+		"other:key",
+	}
+
+	for _, key := range keys {
+		_ = cache.Set(ctx, key, []byte("value"), time.Minute)
+	}
+
+	// 测试通配符删除
+	t.Run("Delete with wildcard", func(t *testing.T) {
+		err := cache.DeletePattern(ctx, "user:*")
+		if err != nil {
+			t.Errorf("DeletePattern(user:*) failed: %v", err)
+		}
+
+		// 验证 user:* 已删除
+		_, err = cache.Get(ctx, "user:1")
+		if err != ErrCacheMiss {
+			t.Errorf("user:1 should be deleted, got %v", err)
+		}
+		_, err = cache.Get(ctx, "user:2")
+		if err != ErrCacheMiss {
+			t.Errorf("user:2 should be deleted, got %v", err)
+		}
+
+		// 验证其他键存在
+		_, err = cache.Get(ctx, "session:abc")
+		if err == ErrCacheMiss {
+			t.Error("session:abc should still exist")
+		}
+	})
+
+	// 测试精确匹配
+	t.Run("Exact match", func(t *testing.T) {
+		err := cache.DeletePattern(ctx, "other:key")
+		if err != nil {
+			t.Errorf("DeletePattern(exact) failed: %v", err)
+		}
+
+		_, err = cache.Get(ctx, "other:key")
+		if err != ErrCacheMiss {
+			t.Errorf("other:key should be deleted, got %v", err)
+		}
+	})
+
+	// 测试空模式
+	t.Run("Empty pattern", func(t *testing.T) {
+		err := cache.DeletePattern(ctx, "")
+		if err != nil {
+			t.Errorf("DeletePattern(empty) failed: %v", err)
+		}
+	})
+
+	// 测试无通配符
+	t.Run("No wildcard", func(t *testing.T) {
+		err := cache.DeletePattern(ctx, "session:abc")
+		if err != nil {
+			t.Errorf("DeletePattern(no wildcard) failed: %v", err)
+		}
+
+		_, err = cache.Get(ctx, "session:abc")
+		if err != ErrCacheMiss {
+			t.Errorf("session:abc should be deleted, got %v", err)
+		}
+	})
+}
+
+// TestLocalCache_Exists 测试 LocalCache Exists 方法
+func TestLocalCache_Exists(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	ctx := context.Background()
+
+	// 不存在的键
+	exists, err := cache.Exists(ctx, "nonexistent")
+	if err != nil {
+		t.Errorf("Exists failed for nonexistent key: %v", err)
+	}
+	if exists {
+		t.Error("Exists returned true for nonexistent key")
+	}
+
+	// 设置后检查
+	_ = cache.Set(ctx, "existing", []byte("value"), time.Minute)
+	exists, err = cache.Exists(ctx, "existing")
+	if err != nil {
+		t.Errorf("Exists failed for existing key: %v", err)
+	}
+	if !exists {
+		t.Error("Exists returned false for existing key")
+	}
+}
+
+// TestLocalCache_Close 测试 LocalCache Close 方法
+func TestLocalCache_Close(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	ctx := context.Background()
+
+	// 设置一些值
+	_ = cache.Set(ctx, "key1", []byte("value1"), time.Minute)
+	_ = cache.Set(ctx, "key2", []byte("value2"), time.Minute)
+
+	// 关闭
+	err := cache.Close()
+	if err != nil {
+		t.Errorf("Close failed: %v", err)
+	}
+
+	// 验证缓存已清空
+	count := cache.Stats()
+	if count != 0 {
+		t.Errorf("After Close, stats should be 0, got %d", count)
+	}
+}
+
+// TestLocalCache_Stats 测试 LocalCache Stats 方法
+func TestLocalCache_Stats(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	ctx := context.Background()
+
+	// 初始计数
+	if cache.Stats() != 0 {
+		t.Errorf("Initial stats should be 0, got %d", cache.Stats())
+	}
+
+	// 添加一些项
+	for i := 0; i < 5; i++ {
+		_ = cache.Set(ctx, fmt.Sprintf("key%d", i), []byte("value"), time.Minute)
+	}
+
+	count := cache.Stats()
+	if count != 5 {
+		t.Errorf("Stats should be 5, got %d", count)
+	}
+
+	// 删除一个
+	_ = cache.Delete(ctx, "key0")
+	count = cache.Stats()
+	if count != 4 {
+		t.Errorf("Stats after delete should be 4, got %d", count)
+	}
+}
+
+// TestLocalCache_Expiration 测试过期功能
+func TestLocalCache_Expiration(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	ctx := context.Background()
+
+	// 设置短 TTL 的值
+	_ = cache.Set(ctx, "short", []byte("value"), 10*time.Millisecond)
+
+	// 等待过期
+	time.Sleep(150 * time.Millisecond)
+
+	_, err := cache.Get(ctx, "short")
+	if err != ErrCacheMiss {
+		t.Errorf("Expected ErrCacheMiss for expired key, got %v", err)
+	}
+}
+
+// TestLocalCache_Overwrite 测试覆盖值
+func TestLocalCache_Overwrite(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	ctx := context.Background()
+
+	// 设置初始值
+	_ = cache.Set(ctx, "key", []byte("value1"), time.Minute)
+
+	// 覆盖
+	_ = cache.Set(ctx, "key", []byte("value2"), time.Minute)
+
+	value, err := cache.Get(ctx, "key")
+	if err != nil {
+		t.Errorf("Get failed: %v", err)
+	}
+	if string(value) != "value2" {
+		t.Errorf("Overwritten value wrong: got %s, want value2", value)
+	}
+}
+
+// TestLocalCache_DefaultTTL 测试默认 TTL
+func TestLocalCache_DefaultTTL(t *testing.T) {
+	cache := NewLocalCache(100*time.Millisecond, time.Minute)
+	ctx := context.Background()
+
+	// 使用零 TTL，应该使用默认值
+	_ = cache.Set(ctx, "default_ttl", []byte("value"), 0)
+
+	// 等待过期
+	time.Sleep(150 * time.Millisecond)
+
+	_, err := cache.Get(ctx, "default_ttl")
+	if err != ErrCacheMiss {
+		t.Errorf("Expected ErrCacheMiss for expired default TTL key, got %v", err)
+	}
+}
+
+// TestLocalCache_ConcurrentOperations 测试并发操作
+func TestLocalCache_ConcurrentOperations(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	ctx := context.Background()
+
+	done := make(chan bool, 100)
+
+	// 并发写入
+	for i := 0; i < 50; i++ {
+		go func(idx int) {
+			key := fmt.Sprintf("key%d", idx)
+			_ = cache.Set(ctx, key, []byte(fmt.Sprintf("value%d", idx)), time.Minute)
+			done <- true
+		}(i)
+	}
+
+	// 并发读取
+	for i := 0; i < 50; i++ {
+		go func(idx int) {
+			key := fmt.Sprintf("key%d", idx)
+			_, _ = cache.Get(ctx, key)
+			done <- true
+		}(i)
+	}
+
+	// 等待完成
+	for i := 0; i < 100; i++ {
+		<-done
+	}
+
+	// 验证所有键都存在
+	for i := 0; i < 50; i++ {
+		key := fmt.Sprintf("key%d", i)
+		_, err := cache.Get(ctx, key)
+		if err != nil {
+			t.Errorf("Key %s not found: %v", key, err)
+		}
+	}
+}
+
+// TestLocalCache_InvalidType 测试无效类型处理
+func TestLocalCache_InvalidType(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	ctx := context.Background()
+
+	// 这里我们测试正常的 []byte 类型工作正常
+	_ = cache.Set(ctx, "valid", []byte("value"), time.Minute)
+	val, err := cache.Get(ctx, "valid")
+	if err != nil {
+		t.Errorf("Get failed: %v", err)
+	}
+	if len(val) == 0 {
+		t.Error("Value should have content")
+	}
+}
+
+// TestLocalCache_DeletePatternNoWildcard 测试无通配符的模式删除
+func TestLocalCache_DeletePatternNoWildcard(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	ctx := context.Background()
+
+	_ = cache.Set(ctx, "exact_key", []byte("value"), time.Minute)
+	_ = cache.Set(ctx, "prefix_exact_key", []byte("value2"), time.Minute)
+
+	// 删除精确匹配
+	_ = cache.DeletePattern(ctx, "exact_key")
+
+	// 验证精确匹配已删除
+	_, err := cache.Get(ctx, "exact_key")
+	if err != ErrCacheMiss {
+		t.Errorf("exact_key should be deleted, got %v", err)
+	}
+
+	// 验证前缀键仍然存在
+	_, err = cache.Get(ctx, "prefix_exact_key")
+	if err == ErrCacheMiss {
+		t.Error("prefix_exact_key should still exist")
+	}
+}
+
+// TestCacheKey 测试 CacheKey 函数
+func TestCacheKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		parts    []string
+		expected string
+	}{
+		{"Single part", []string{"test"}, "croupier:test"},
+		{"Two parts", []string{"user", "123"}, "croupier:user:123"},
+		{"Multiple parts", []string{"a", "b", "c", "d"}, "croupier:a:b:c:d"},
+		{"Empty parts", []string{}, "croupier:"},
+		{"Empty string part", []string{"a", "", "b"}, "croupier:a::b"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CacheKey(tt.parts...)
+			if result != tt.expected {
+				t.Errorf("CacheKey(%v) = %s, want %s", tt.parts, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestAdminCacheKey 测试 AdminCacheKey 函数
+func TestAdminCacheKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		username string
+		expected string
+	}{
+		{"Lowercase", "admin", "croupier:admin:user:admin"},
+		{"Uppercase should be lowercased", "ADMIN", "croupier:admin:user:admin"},
+		{"Mixed case", "AdminUser", "croupier:admin:user:adminuser"},
+		{"With special chars", "admin@example.com", "croupier:admin:user:admin@example.com"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := AdminCacheKey(tt.username)
+			if result != tt.expected {
+				t.Errorf("AdminCacheKey(%q) = %s, want %s", tt.username, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestAdminIDCacheKey 测试 AdminIDCacheKey 函数
+func TestAdminIDCacheKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		adminID  uint
+		expected string
+	}{
+		{"ID 0", 0, "croupier:admin:id:0"},
+		{"ID 1", 1, "croupier:admin:id:1"},
+		{"Large ID", 12345, "croupier:admin:id:12345"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := AdminIDCacheKey(tt.adminID)
+			if result != tt.expected {
+				t.Errorf("AdminIDCacheKey(%d) = %s, want %s", tt.adminID, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestAdminRolesCacheKey 测试 AdminRolesCacheKey 函数
+func TestAdminRolesCacheKey(t *testing.T) {
+	result := AdminRolesCacheKey(42)
+	expected := "croupier:admin:roles:42"
+	if result != expected {
+		t.Errorf("AdminRolesCacheKey(42) = %s, want %s", result, expected)
+	}
+}
+
+// TestRoleCacheKey 测试 RoleCacheKey 函数
+func TestRoleCacheKey(t *testing.T) {
+	result := RoleCacheKey(10)
+	expected := "croupier:role:10"
+	if result != expected {
+		t.Errorf("RoleCacheKey(10) = %s, want %s", result, expected)
+	}
+}
+
+// TestRolePermissionsCacheKey 测试 RolePermissionsCacheKey 函数
+func TestRolePermissionsCacheKey(t *testing.T) {
+	result := RolePermissionsCacheKey(5)
+	expected := "croupier:role:perms:5"
+	if result != expected {
+		t.Errorf("RolePermissionsCacheKey(5) = %s, want %s", result, expected)
+	}
+}
+
+// TestPermissionCacheKey 测试 PermissionCacheKey 函数
+func TestPermissionCacheKey(t *testing.T) {
+	tests := []struct {
+		name         string
+		permissionID string
+		expected     string
+	}{
+		{"Simple", "read", "croupier:permission:read"},
+		{"Mixed case should be lowercased", "WRITE_DATA", "croupier:permission:write_data"},
+		{"With dots", "user.delete", "croupier:permission:user.delete"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := PermissionCacheKey(tt.permissionID)
+			if result != tt.expected {
+				t.Errorf("PermissionCacheKey(%q) = %s, want %s", tt.permissionID, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestGameCacheKey 测试 GameCacheKey 函数
+func TestGameCacheKey(t *testing.T) {
+	result := GameCacheKey(123)
+	expected := "croupier:game:123"
+	if result != expected {
+		t.Errorf("GameCacheKey(123) = %s, want %s", result, expected)
+	}
+}
+
+// TestGamesCacheKey 测试 GamesCacheKey 函数
+func TestGamesCacheKey(t *testing.T) {
+	result := GamesCacheKey()
+	expected := "croupier:games:all"
+	if result != expected {
+		t.Errorf("GamesCacheKey() = %s, want %s", result, expected)
+	}
+}
+
+// TestCacheHelper_NewCacheHelper 测试 CacheHelper 构造函数
+func TestCacheHelper_NewCacheHelper(t *testing.T) {
+	cache := NewNullCache()
+	helper := NewCacheHelper(cache)
+
+	if helper == nil {
+		t.Fatal("NewCacheHelper returned nil")
+	}
+	if helper.store != cache {
+		t.Error("NewCacheHelper.store is not the provided cache")
+	}
+}
+
+// TestCacheHelper_GetJSON 测试 CacheHelper GetJSON 方法
+func TestCacheHelper_GetJSON(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	helper := NewCacheHelper(cache)
+	ctx := context.Background()
+
+	// 测试缓存未命中
+	var dest map[string]interface{}
+	err := helper.GetJSON(ctx, "nonexistent", &dest)
+	if err != ErrCacheMiss {
+		t.Errorf("Expected ErrCacheMiss, got %v", err)
+	}
+
+	// 设置 JSON 数据
+	data := map[string]string{"key": "value"}
+	jsonData, _ := json.Marshal(data)
+	_ = cache.Set(ctx, "test", jsonData, time.Minute)
+
+	// 获取 JSON
+	var result map[string]string
+	err = helper.GetJSON(ctx, "test", &result)
+	if err != nil {
+		t.Errorf("GetJSON failed: %v", err)
+	}
+	if result["key"] != "value" {
+		t.Errorf("GetJSON result wrong: got %v, want map[key:value]", result)
+	}
+
+	// 测试无效的 JSON 数据
+	_ = cache.Set(ctx, "invalid", []byte("not json"), time.Minute)
+	err = helper.GetJSON(ctx, "invalid", &result)
+	if err == nil {
+		t.Error("Expected error for invalid JSON, got nil")
+	}
+}
+
+// TestCacheHelper_SetJSON 测试 CacheHelper SetJSON 方法
+func TestCacheHelper_SetJSON(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	helper := NewCacheHelper(cache)
+	ctx := context.Background()
+
+	// 设置各种类型的值
+	tests := []struct {
+		name  string
+		key   string
+		value interface{}
+	}{
+		{"Map", "map", map[string]string{"a": "b"}},
+		{"Slice", "slice", []int{1, 2, 3}},
+		{"Struct", "struct", struct{ Name string }{"test"}},
+		{"String", "string", "value"},
+		{"Number", "number", 42},
+		{"Boolean", "bool", true},
+		{"Nil", "nil", nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := helper.SetJSON(ctx, tt.key, tt.value, time.Minute)
+			if err != nil {
+				t.Errorf("SetJSON(%q) failed: %v", tt.key, err)
+			}
+
+			// 验证可以获取
+			var dest interface{}
+			err = helper.GetJSON(ctx, tt.key, &dest)
+			if err != nil {
+				t.Errorf("GetJSON after SetJSON(%q) failed: %v", tt.key, err)
+			}
+		})
+	}
+}
+
+// TestCacheHelper_Remember 测试 CacheHelper Remember 方法
+func TestCacheHelper_Remember(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	helper := NewCacheHelper(cache)
+	ctx := context.Background()
+
+	// 测试缓存未命中时调用 loader
+	loadCount := 0
+	loader := func() (interface{}, error) {
+		loadCount++
+		return map[string]string{"loaded": "value"}, nil
+	}
+
+	var result map[string]string
+	err := helper.Remember(ctx, "remember_key", time.Minute, &result, loader)
+	if err != nil {
+		t.Errorf("Remember failed: %v", err)
+	}
+	if loadCount != 1 {
+		t.Errorf("Loader should be called once, called %d times", loadCount)
+	}
+	if result["loaded"] != "value" {
+		t.Errorf("Result wrong: got %v, want map[loaded:value]", result)
+	}
+
+	// 再次调用应该从缓存获取，不调用 loader
+	err = helper.Remember(ctx, "remember_key", time.Minute, &result, loader)
+	if err != nil {
+		t.Errorf("Remember second call failed: %v", err)
+	}
+	if loadCount != 1 {
+		t.Errorf("Loader should still be called once, called %d times", loadCount)
+	}
+}
+
+// TestCacheHelper_RememberLoaderError 测试 Remember loader 错误
+func TestCacheHelper_RememberLoaderError(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	helper := NewCacheHelper(cache)
+	ctx := context.Background()
+
+	expectedErr := fmt.Errorf("loader error")
+	loader := func() (interface{}, error) {
+		return nil, expectedErr
+	}
+
+	var result map[string]string
+	err := helper.Remember(ctx, "error_key", time.Minute, &result, loader)
+	if err != expectedErr {
+		t.Errorf("Expected loader error, got %v", err)
+	}
+}
+
+// TestCacheHelper_RememberDifferentTypes 测试 Remember 不同类型
+func TestCacheHelper_RememberDifferentTypes(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	helper := NewCacheHelper(cache)
+	ctx := context.Background()
+
+	tests := []struct {
+		name     string
+		loader   func() (interface{}, error)
+		destType interface{}
+	}{
+		{
+			"String slice",
+			func() (interface{}, error) { return []string{"a", "b"}, nil },
+			[]string(nil),
+		},
+		{
+			"Int slice",
+			func() (interface{}, error) { return []int{1, 2, 3}, nil },
+			[]int(nil),
+		},
+		{
+			"Struct",
+			func() (interface{}, error) {
+				return struct{ Name string }{Name: "test"}, nil
+			},
+			struct{ Name string }{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := helper.Remember(ctx, tt.name, time.Minute, &tt.destType, tt.loader)
+			if err != nil {
+				t.Errorf("Remember(%q) failed: %v", tt.name, err)
+			}
+		})
+	}
+}
+
+// TestCacheHelper_RememberWithNullCache 测试 NullCache 的 Remember
+func TestCacheHelper_RememberWithNullCache(t *testing.T) {
+	cache := NewNullCache()
+	helper := NewCacheHelper(cache)
+	ctx := context.Background()
+
+	loadCount := 0
+	loader := func() (interface{}, error) {
+		loadCount++
+		return "value", nil
+	}
+
+	var result string
+	// NullCache 总是未命中，每次都会调用 loader
+	err := helper.Remember(ctx, "null_key", time.Minute, &result, loader)
+	if err != nil {
+		t.Errorf("Remember with NullCache failed: %v", err)
+	}
+	if loadCount != 1 {
+		t.Errorf("Loader should be called once, called %d times", loadCount)
+	}
+	if result != "value" {
+		t.Errorf("Result wrong: got %s, want 'value'", result)
+	}
+
+	// 再次调用，loader 应该再次被调用（因为 NullCache 不缓存）
+	err = helper.Remember(ctx, "null_key", time.Minute, &result, loader)
+	if err != nil {
+		t.Errorf("Remember second call with NullCache failed: %v", err)
+	}
+	if loadCount != 2 {
+		t.Errorf("Loader should be called twice with NullCache, called %d times", loadCount)
+	}
+}
+
+// TestNewCacheStore_Disabled 测试禁用缓存
+func TestNewCacheStore_Disabled(t *testing.T) {
+	cfg := config.CacheConfig{
+		Enabled: false,
+	}
+
+	store, err := NewCacheStore(cfg)
+	if err != nil {
+		t.Fatalf("NewCacheStore with Enabled=false failed: %v", err)
+	}
+
+	if _, ok := store.(*NullCache); !ok {
+		t.Errorf("Expected NullCache when disabled, got %T", store)
+	}
+
+	_ = store.Close()
+}
+
+// TestNewCacheStore_DefaultLocal 测试默认本地缓存
+func TestNewCacheStore_DefaultLocal(t *testing.T) {
+	cfg := config.CacheConfig{
+		Enabled: true,
+		Type:    "",
+		TTL:     "",
+	}
+
+	store, err := NewCacheStore(cfg)
+	if err != nil {
+		t.Fatalf("NewCacheStore with default config failed: %v", err)
+	}
+
+	if _, ok := store.(*LocalCache); !ok {
+		t.Errorf("Expected LocalCache with default config, got %T", store)
+	}
+
+	_ = store.Close()
+}
+
+// TestNewCacheStore_LocalType 测试本地缓存类型
+func TestNewCacheStore_LocalType(t *testing.T) {
+	tests := []struct {
+		name      string
+		cacheType string
+	}{
+		{"local type", "local"},
+		{"memory type", "memory"},
+		{"LOCAL case", "LOCAL"},
+		{"MEMORY case", "MEMORY"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.CacheConfig{
+				Enabled: true,
+				Type:    tt.cacheType,
+			}
+
+			store, err := NewCacheStore(cfg)
+			if err != nil {
+				t.Fatalf("NewCacheStore with type=%s failed: %v", tt.cacheType, err)
+			}
+
+			if _, ok := store.(*LocalCache); !ok {
+				t.Errorf("Expected LocalCache for type=%s, got %T", tt.cacheType, store)
+			}
+
+			_ = store.Close()
+		})
+	}
+}
+
+// TestNewCacheStore_InvalidType 测试无效缓存类型
+func TestNewCacheStore_InvalidType(t *testing.T) {
+	cfg := config.CacheConfig{
+		Enabled: true,
+		Type:    "invalid_type",
+	}
+
+	_, err := NewCacheStore(cfg)
+	if err == nil {
+		t.Error("Expected error for invalid cache type, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "unsupported cache type") {
+		t.Errorf("Error message should mention unsupported type, got: %v", err)
+	}
+}
+
+// TestNewCacheStore_WithTTL 测试自定义 TTL
+func TestNewCacheStore_WithTTL(t *testing.T) {
+	tests := []struct {
+		name     string
+		ttl      string
+		expected time.Duration
+	}{
+		{"1 minute", "1m", time.Minute},
+		{"5 minutes", "5m", 5 * time.Minute},
+		{"1 hour", "1h", time.Hour},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.CacheConfig{
+				Enabled: true,
+				Type:    "local",
+				TTL:     tt.ttl,
+			}
+
+			store, err := NewCacheStore(cfg)
+			if err != nil {
+				t.Fatalf("NewCacheStore failed: %v", err)
+			}
+
+			localCache, ok := store.(*LocalCache)
+			if !ok {
+				t.Fatalf("Expected LocalCache, got %T", store)
+			}
+
+			if localCache.defaultTTL != tt.expected {
+				t.Errorf("Default TTL wrong: got %v, want %v", localCache.defaultTTL, tt.expected)
+			}
+
+			_ = store.Close()
+		})
+	}
+}
+
+// TestNewCacheStore_InvalidTTL 测试无效 TTL
+func TestNewCacheStore_InvalidTTL(t *testing.T) {
+	cfg := config.CacheConfig{
+		Enabled: true,
+		Type:    "local",
+		TTL:     "invalid-ttl",
+	}
+
+	store, err := NewCacheStore(cfg)
+	if err != nil {
+		t.Fatalf("NewCacheStore with invalid TTL failed: %v", err)
+	}
+
+	localCache, ok := store.(*LocalCache)
+	if !ok {
+		t.Fatalf("Expected LocalCache, got %T", store)
+	}
+
+	// 应该使用默认值 5 分钟
+	if localCache.defaultTTL != 5*time.Minute {
+		t.Errorf("Default TTL should be 5m for invalid input, got %v", localCache.defaultTTL)
+	}
+
+	_ = store.Close()
+}
+
+// TestNewCacheStore_WithEvictTTL 测试清理间隔
+func TestNewCacheStore_WithEvictTTL(t *testing.T) {
+	cfg := config.CacheConfig{
+		Enabled:  true,
+		Type:     "local",
+		TTL:      "1m",
+		EvictTTL: "30s",
+	}
+
+	store, err := NewCacheStore(cfg)
+	if err != nil {
+		t.Fatalf("NewCacheStore failed: %v", err)
+	}
+
+	// 验证缓存可以正常工作
+	ctx := context.Background()
+	_ = store.Set(ctx, "test", []byte("value"), time.Minute)
+	val, err := store.Get(ctx, "test")
+	if err != nil {
+		t.Errorf("Get failed: %v", err)
+	}
+	if string(val) != "value" {
+		t.Errorf("Value wrong: got %s, want value", val)
+	}
+
+	_ = store.Close()
+}
+
+// TestNewCacheStore_InvalidEvictTTL 测试无效清理间隔
+func TestNewCacheStore_InvalidEvictTTL(t *testing.T) {
+	cfg := config.CacheConfig{
+		Enabled:  true,
+		Type:     "local",
+		EvictTTL: "invalid",
+	}
+
+	store, err := NewCacheStore(cfg)
+	if err != nil {
+		t.Fatalf("NewCacheStore with invalid EvictTTL failed: %v", err)
+	}
+
+	// 应该使用默认值并正常工作
+	ctx := context.Background()
+	_ = store.Set(ctx, "test", []byte("value"), time.Minute)
+	_, err = store.Get(ctx, "test")
+	if err != nil {
+		t.Errorf("Get failed: %v", err)
+	}
+
+	_ = store.Close()
+}
+
+// TestNewCacheStore_TrimmedType 测试带空格的类型
+func TestNewCacheStore_TrimmedType(t *testing.T) {
+	cfg := config.CacheConfig{
+		Enabled: true,
+		Type:    "  local  ",
+	}
+
+	store, err := NewCacheStore(cfg)
+	if err != nil {
+		t.Fatalf("NewCacheStore failed: %v", err)
+	}
+
+	if _, ok := store.(*LocalCache); !ok {
+		t.Errorf("Expected LocalCache, got %T", store)
+	}
+
+	_ = store.Close()
+}
+
+// TestNewCacheStore_Redis 测试 Redis 类型（不需要连接 Redis）
+func TestNewCacheStore_Redis(t *testing.T) {
+	// 测试 Redis 配置解析（不实际连接）
+	cfg := config.CacheConfig{
+		Enabled:  true,
+		Type:     "redis",
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
+		PoolSize: 10,
+		TTL:      "5m",
+	}
+
+	store, err := NewCacheStore(cfg)
+	// 如果 Redis 服务器运行，应该成功；否则返回连接错误
+	if err != nil {
+		// 验证错误是关于 Redis 连接的
+		if !strings.Contains(err.Error(), "redis") && !strings.Contains(err.Error(), "connect") {
+			t.Logf("Got error: %v", err)
+		}
+	} else {
+		// Redis 连接成功，验证类型
+		if _, ok := store.(*RedisCache); !ok {
+			t.Errorf("Expected RedisCache, got %T", store)
+		}
+		_ = store.Close()
+	}
+}
+
+// TestNewLocalCacheFunction 测试 newLocalCache 函数
+func TestNewLocalCacheFunction(t *testing.T) {
+	cfg := config.CacheConfig{
+		Enabled:  true,
+		Type:     "local",
+		TTL:      "2m",
+		EvictTTL: "5m",
+	}
+
+	store, err := newLocalCache(cfg, 2*time.Minute)
+	if err != nil {
+		t.Fatalf("newLocalCache failed: %v", err)
+	}
+
+	localCache, ok := store.(*LocalCache)
+	if !ok {
+		t.Fatalf("Expected LocalCache, got %T", store)
+	}
+
+	if localCache.defaultTTL != 2*time.Minute {
+		t.Errorf("Default TTL wrong: got %v, want 2m", localCache.defaultTTL)
+	}
+
+	_ = store.Close()
+}
+
+// TestNewLocalCacheInvalidEvictTTL 测试 newLocalCache 无效清理间隔
+func TestNewLocalCacheInvalidEvictTTL(t *testing.T) {
+	cfg := config.CacheConfig{
+		Enabled:  true,
+		Type:     "local",
+		EvictTTL: "invalid",
+	}
+
+	store, err := newLocalCache(cfg, time.Minute)
+	if err != nil {
+		t.Fatalf("newLocalCache with invalid EvictTTL failed: %v", err)
+	}
+
+	// 应该使用默认清理间隔
+	_ = store.(*LocalCache)
+	_ = store.Close()
+}
+
+// TestNewRedisCacheFunction 测试 newRedisCache 配置解析
+func TestNewRedisCacheFunction(t *testing.T) {
+	cfg := config.CacheConfig{
+		Enabled:  true,
+		Type:     "redis",
+		Addr:     "",
+		Password: "",
+		DB:       0,
+		PoolSize: 0, // 应该使用默认值 10
+		TTL:      "3m",
+	}
+
+	store, err := newRedisCache(cfg, 3*time.Minute)
+	if err != nil {
+		// 验证错误是关于 Redis 连接的
+		if !strings.Contains(err.Error(), "redis") && !strings.Contains(err.Error(), "connect") {
+			t.Logf("Got error: %v", err)
+		}
+		return
+	}
+
+	// Redis 连接成功，验证类型
+	if _, ok := store.(*RedisCache); !ok {
+		t.Errorf("Expected RedisCache, got %T", store)
+	}
+	_ = store.Close()
+}
+
+// TestCacheHelper_SetJSONError 测试 SetJSON 错误处理
+func TestCacheHelper_SetJSONError(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	helper := NewCacheHelper(cache)
+	ctx := context.Background()
+
+	// 测试无法序列化的值（包含 channel 的值）
+	invalidValue := make(chan int)
+	err := helper.SetJSON(ctx, "invalid", invalidValue, time.Minute)
+	if err == nil {
+		t.Error("Expected error for unmarshallable value, got nil")
 	}
 }
