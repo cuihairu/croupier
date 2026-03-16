@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -87,21 +88,21 @@ func (s *Service) loadFiltersFromAnalyticsInstallation(ctx context.Context) ([]a
 	if err != nil {
 		return nil, false, err
 	}
-	var activeConfig string
+	var activeConfig []byte
 	for i := range items {
 		item := items[i]
 		if strings.EqualFold(strings.TrimSpace(item.Status), "uninstalled") ||
 			strings.EqualFold(strings.TrimSpace(item.DesiredState), "uninstalled") {
 			continue
 		}
-		activeConfig = strings.TrimSpace(item.ConfigJSON)
+		activeConfig = bytes.TrimSpace(item.ConfigJSON)
 		break
 	}
-	if activeConfig == "" {
+	if len(activeConfig) == 0 {
 		return nil, false, nil
 	}
 	cfg := map[string]any{}
-	if err := json.Unmarshal([]byte(activeConfig), &cfg); err != nil {
+	if err := json.Unmarshal(activeConfig, &cfg); err != nil {
 		return nil, false, err
 	}
 	raw := cfg["filters"]

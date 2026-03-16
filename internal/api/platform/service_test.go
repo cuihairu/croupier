@@ -8,6 +8,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
+	"gorm.io/datatypes"
 )
 
 func TestBuildExternalFunctionID(t *testing.T) {
@@ -70,12 +71,12 @@ func TestExtractPlatformMethodsFromBindings(t *testing.T) {
 		{
 			BindingType: "provider",
 			BindingKey:  "onepanel",
-			SpecJSON:    `{"provider":"onepanel","operations":["install_app","list_apps"]}`,
+			SpecJSON:    datatypes.JSON([]byte(`{"provider":"onepanel","operations":["install_app","list_apps"]}`)),
 		},
 		{
 			BindingType: "openapi",
 			BindingKey:  "helm",
-			SpecJSON:    `{"name":"helm","operation":"install_chart"}`,
+			SpecJSON:    datatypes.JSON([]byte(`{"name":"helm","operation":"install_chart"}`)),
 		},
 		{
 			BindingType: "function",
@@ -99,7 +100,7 @@ func TestExtractPlatformMethodsFromBindings_NewProviderNoCoreChange(t *testing.T
 		{
 			BindingType: "provider",
 			BindingKey:  "newvendor",
-			SpecJSON:    `{"provider":"newvendor","operations":["install","upgrade","uninstall"]}`,
+			SpecJSON:    datatypes.JSON([]byte(`{"provider":"newvendor","operations":["install","upgrade","uninstall"]}`)),
 		},
 	}
 	got := extractPlatformMethodsFromBindings(bindings)

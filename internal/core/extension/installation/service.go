@@ -8,6 +8,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/model"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -228,7 +229,7 @@ func (s *Service) appendEvent(ctx context.Context, installationID uint, eventTyp
 		Level:          level,
 		Message:        message,
 		CreatedBy:      createdBy,
-		PayloadJSON:    payload,
+		PayloadJSON:    datatypes.JSON([]byte(payload)),
 	})
 }
 
@@ -236,13 +237,13 @@ func buildInstallationKey(req InstallRequest) string {
 	return fmt.Sprintf("%s:%s:%s:%s:%s:%s", req.ExtensionID, req.ScopeType, req.ScopeID, req.TargetType, req.TargetID, req.ReleaseVersion)
 }
 
-func marshalJSON(v any) (string, error) {
+func marshalJSON(v any) (datatypes.JSON, error) {
 	if v == nil {
-		return "{}", nil
+		return datatypes.JSON([]byte("{}")), nil
 	}
 	data, err := json.Marshal(v)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return string(data), nil
+	return datatypes.JSON(data), nil
 }

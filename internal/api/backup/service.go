@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -259,8 +260,8 @@ func (s *Service) loadBackupsFromExtensionInstallation(ctx context.Context) ([]B
 		return nil, false, err
 	}
 	config := map[string]any{}
-	if strings.TrimSpace(item.ConfigJSON) != "" {
-		if err := json.Unmarshal([]byte(item.ConfigJSON), &config); err != nil {
+	if len(bytes.TrimSpace(item.ConfigJSON)) > 0 {
+		if err := json.Unmarshal(item.ConfigJSON, &config); err != nil {
 			return nil, false, err
 		}
 	}
@@ -285,13 +286,13 @@ func (s *Service) saveBackupsToExtensionInstallation(ctx context.Context, items 
 		return err
 	}
 	config := map[string]any{}
-	if strings.TrimSpace(item.ConfigJSON) != "" {
-		_ = json.Unmarshal([]byte(item.ConfigJSON), &config)
+	if len(bytes.TrimSpace(item.ConfigJSON)) > 0 {
+		_ = json.Unmarshal(item.ConfigJSON, &config)
 	}
 	config[backupRecordsKey] = items
 	secretRefs := map[string]string{}
-	if strings.TrimSpace(item.SecretRefsJSON) != "" {
-		_ = json.Unmarshal([]byte(item.SecretRefsJSON), &secretRefs)
+	if len(bytes.TrimSpace(item.SecretRefsJSON)) > 0 {
+		_ = json.Unmarshal(item.SecretRefsJSON, &secretRefs)
 	}
 	operator := "system"
 	if username, userErr := utils.CurrentUsername(ctx); userErr == nil && strings.TrimSpace(username) != "" {

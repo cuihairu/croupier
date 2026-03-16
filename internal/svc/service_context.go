@@ -32,6 +32,7 @@ import (
 	jwtutil2 "github.com/cuihairu/croupier/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/gin-gonic/gin"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"log/slog"
 )
@@ -776,7 +777,7 @@ func seedBootstrapExtensionCatalog(ctx *ServiceContext) error {
 					ExtensionID:     extID,
 					Version:         version,
 					ReleaseChannel:  strings.TrimSpace(release.ReleaseChannel),
-					ManifestJSON:    string(manifestJSON),
+					ManifestJSON:    datatypes.JSON(manifestJSON),
 					PackageRef:      strings.TrimSpace(release.PackageRef),
 					Checksum:        strings.TrimSpace(release.Checksum),
 					MinCoreVersion:  strings.TrimSpace(release.MinCoreVersion),

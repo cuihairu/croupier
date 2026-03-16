@@ -1,6 +1,7 @@
 package extension
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -224,8 +225,8 @@ func (s *Service) InstallationDetail(ctx context.Context, id uint) (*ExtensionIn
 	}
 	config := map[string]any{}
 	secretRefs := map[string]string{}
-	_ = json.Unmarshal([]byte(item.ConfigJSON), &config)
-	_ = json.Unmarshal([]byte(item.SecretRefsJSON), &secretRefs)
+	_ = json.Unmarshal(item.ConfigJSON, &config)
+	_ = json.Unmarshal(item.SecretRefsJSON, &secretRefs)
 	configSchema := s.resolveConfigSchema(ctx, item.ExtensionID, item.ReleaseVersion)
 	return &ExtensionInstallationDetailResponse{
 		Code:         200,
@@ -282,8 +283,8 @@ func (s *Service) Config(ctx context.Context, id uint) (*ExtensionConfigResponse
 	}
 	config := map[string]any{}
 	secretRefs := map[string]string{}
-	_ = json.Unmarshal([]byte(item.ConfigJSON), &config)
-	_ = json.Unmarshal([]byte(item.SecretRefsJSON), &secretRefs)
+	_ = json.Unmarshal(item.ConfigJSON, &config)
+	_ = json.Unmarshal(item.SecretRefsJSON, &secretRefs)
 	return &ExtensionConfigResponse{
 		Code:       200,
 		Message:    "success",
@@ -488,8 +489,8 @@ func extractCapabilityDetailsFromBindings(bindings []model.ExtensionRuntimeBindi
 			}
 			addCap(capability)
 			spec := map[string]any{}
-			if strings.TrimSpace(b.SpecJSON) != "" {
-				_ = json.Unmarshal([]byte(b.SpecJSON), &spec)
+			if len(bytes.TrimSpace(b.SpecJSON)) > 0 {
+				_ = json.Unmarshal(b.SpecJSON, &spec)
 			}
 			operations := parseStringSliceAny(spec["operations"])
 			permissions := parseStringMapAny(spec["permissions"])
@@ -512,8 +513,8 @@ func extractCapabilityDetailsFromBindings(bindings []model.ExtensionRuntimeBindi
 			})
 		case "provider", "openapi":
 			spec := map[string]any{}
-			if strings.TrimSpace(b.SpecJSON) != "" {
-				_ = json.Unmarshal([]byte(b.SpecJSON), &spec)
+			if len(bytes.TrimSpace(b.SpecJSON)) > 0 {
+				_ = json.Unmarshal(b.SpecJSON, &spec)
 			}
 			parsed, ok := externalfunc.ParseProviderBinding(b.BindingKey, spec)
 			if !ok {
@@ -576,8 +577,8 @@ func extractPageDetailsFromBindings(bindings []model.ExtensionRuntimeBinding) []
 			continue
 		}
 		spec := map[string]any{}
-		if strings.TrimSpace(b.SpecJSON) != "" {
-			_ = json.Unmarshal([]byte(b.SpecJSON), &spec)
+		if len(bytes.TrimSpace(b.SpecJSON)) > 0 {
+			_ = json.Unmarshal(b.SpecJSON, &spec)
 		}
 		key := strings.TrimSpace(b.BindingKey)
 		if key == "" {
@@ -755,8 +756,8 @@ func (s *Service) Upgrade(ctx context.Context, id uint, version, operator string
 		return nil, err
 	}
 	currentConfig := map[string]any{}
-	if strings.TrimSpace(item.ConfigJSON) != "" {
-		_ = json.Unmarshal([]byte(item.ConfigJSON), &currentConfig)
+	if len(bytes.TrimSpace(item.ConfigJSON)) > 0 {
+		_ = json.Unmarshal(item.ConfigJSON, &currentConfig)
 	}
 	if err := s.validateInstallConfig(ctx, item.ExtensionID, targetVersion, currentConfig); err != nil {
 		return nil, err
@@ -847,7 +848,7 @@ func firstManifest(items []model.ExtensionRelease) string {
 	if len(items) == 0 {
 		return "{}"
 	}
-	return items[0].ManifestJSON
+	return string(items[0].ManifestJSON)
 }
 
 func (s *Service) resolveConfigSchema(ctx context.Context, extensionID, releaseVersion string) map[string]any {
@@ -861,7 +862,7 @@ func (s *Service) resolveConfigSchema(ctx context.Context, extensionID, releaseV
 	raw := firstManifest(releases)
 	for _, release := range releases {
 		if release.Version == releaseVersion {
-			raw = release.ManifestJSON
+			raw = string(release.ManifestJSON)
 			break
 		}
 	}
@@ -1018,7 +1019,7 @@ func toEventItems(events []model.ExtensionEvent) []ExtensionEventItem {
 			EventType: event.EventType,
 			Level:     event.Level,
 			Message:   event.Message,
-			Payload:   event.PayloadJSON,
+			Payload:   string(event.PayloadJSON),
 			CreatedBy: event.CreatedBy,
 			CreatedAt: event.CreatedAt.Unix(),
 		})
@@ -1279,7 +1280,7 @@ func (s *Service) resolveManifestForRelease(ctx context.Context, extensionID, re
 	raw := ""
 	for _, release := range releases {
 		if strings.EqualFold(strings.TrimSpace(release.Version), target) {
-			raw = release.ManifestJSON
+			raw = string(release.ManifestJSON)
 			break
 		}
 	}
@@ -1487,7 +1488,7 @@ func (s *Service) resolveCatalogMetadata(ctx context.Context, extensionID, lates
 	raw := firstManifest(releases)
 	for _, r := range releases {
 		if strings.EqualFold(strings.TrimSpace(r.Version), strings.TrimSpace(latestVersion)) {
-			raw = r.ManifestJSON
+			raw = string(r.ManifestJSON)
 			break
 		}
 	}

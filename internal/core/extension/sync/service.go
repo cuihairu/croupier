@@ -83,7 +83,7 @@ func (s *Service) BuildAgentPayload(ctx context.Context, agentID string) (*Agent
 				BindingType: b.BindingType,
 				BindingKey:  b.BindingKey,
 				TargetRef:   b.TargetRef,
-				SpecJSON:    b.SpecJSON,
+				SpecJSON:    string(b.SpecJSON),
 				Status:      b.Status,
 			})
 		}
@@ -97,8 +97,8 @@ func (s *Service) BuildAgentPayload(ctx context.Context, agentID string) (*Agent
 			ScopeID:         item.ScopeID,
 			TargetType:      item.TargetType,
 			TargetID:        item.TargetID,
-			ConfigJSON:      item.ConfigJSON,
-			SecretRefsJSON:  item.SecretRefsJSON,
+			ConfigJSON:      string(item.ConfigJSON),
+			SecretRefsJSON:  string(item.SecretRefsJSON),
 			Bindings:        agentBindings,
 		})
 	}

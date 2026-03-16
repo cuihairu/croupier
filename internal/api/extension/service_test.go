@@ -7,6 +7,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -322,12 +323,12 @@ func TestExtractCapabilityDetailsFromBindings(t *testing.T) {
 		{
 			BindingType: "capability",
 			BindingKey:  "notifications.management",
-			SpecJSON:    `{"operations":["get","update"],"permissions":{"get":"notifications.read","update":"notifications.operate"},"config_keys":["enabled","channels"]}`,
+			SpecJSON:    datatypes.JSON([]byte(`{"operations":["get","update"],"permissions":{"get":"notifications.read","update":"notifications.operate"},"config_keys":["enabled","channels"]}`)),
 		},
 		{
 			BindingType: "provider",
 			BindingKey:  "onepanel",
-			SpecJSON:    `{"provider":"onepanel","operations":["list_apps","install_app"]}`,
+			SpecJSON:    datatypes.JSON([]byte(`{"provider":"onepanel","operations":["list_apps","install_app"]}`)),
 		},
 		{
 			BindingType: "function",
@@ -383,17 +384,17 @@ func TestExtractPageDetailsFromBindings(t *testing.T) {
 		{
 			BindingType: "page",
 			BindingKey:  "analytics.realtime",
-			SpecJSON:    `{"title":"Realtime","route":"/analytics/realtime","order":20}`,
+			SpecJSON:    datatypes.JSON([]byte(`{"title":"Realtime","route":"/analytics/realtime","order":20}`)),
 		},
 		{
 			BindingType: "page",
 			BindingKey:  "analytics.overview",
-			SpecJSON:    `{"title":"Overview","route":"/analytics/overview","order":10,"required_permission":"analytics.read"}`,
+			SpecJSON:    datatypes.JSON([]byte(`{"title":"Overview","route":"/analytics/overview","order":10,"required_permission":"analytics.read"}`)),
 		},
 		{
 			BindingType: "navigation",
 			BindingKey:  "analytics.behavior",
-			SpecJSON:    `{"title":"Behavior","route":"/analytics/behavior","order":30}`,
+			SpecJSON:    datatypes.JSON([]byte(`{"title":"Behavior","route":"/analytics/behavior","order":30}`)),
 		},
 	})
 	if len(pages) != 3 {

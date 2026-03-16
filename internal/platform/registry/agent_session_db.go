@@ -5,25 +5,26 @@ import (
 	"encoding/json"
 	"time"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 // AgentSessionDB represents the database model for agent sessions.
 type AgentSessionDB struct {
-	ID        uint      `gorm:"primaryKey"`
-	AgentID   string    `gorm:"size:64;uniqueIndex;not null"`
-	GameID    string    `gorm:"size:64;index"`
-	Env       string    `gorm:"size:32;index"`
-	RPCAddr   string    `gorm:"size:255;not null"`
-	Version   string    `gorm:"size:32"`
-	Region    string    `gorm:"size:64;index"`
-	Zone      string    `gorm:"size:64;index"`
-	Labels    string    `gorm:"type:json"`
-	Functions string    `gorm:"type:json"`
-	Providers string    `gorm:"type:json"`
-	ExpireAt  time.Time `gorm:"index;not null"`
-	LastSeen  time.Time `gorm:"index;not null"`
+	ID        uint           `gorm:"primaryKey"`
+	AgentID   string         `gorm:"size:64;uniqueIndex;not null"`
+	GameID    string         `gorm:"size:64;index"`
+	Env       string         `gorm:"size:32;index"`
+	RPCAddr   string         `gorm:"size:255;not null"`
+	Version   string         `gorm:"size:32"`
+	Region    string         `gorm:"size:64;index"`
+	Zone      string         `gorm:"size:64;index"`
+	Labels    datatypes.JSON `gorm:"type:json"`
+	Functions datatypes.JSON `gorm:"type:json"`
+	Providers datatypes.JSON `gorm:"type:json"`
+	ExpireAt  time.Time      `gorm:"index;not null"`
+	LastSeen  time.Time      `gorm:"index;not null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
@@ -118,22 +119,22 @@ func toDomainSession(dbSess *AgentSessionDB) (*AgentSession, error) {
 	}
 
 	// Parse Labels JSON
-	if dbSess.Labels != "" {
-		if err := json.Unmarshal([]byte(dbSess.Labels), &sess.Labels); err != nil {
+	if len(dbSess.Labels) > 0 {
+		if err := json.Unmarshal(dbSess.Labels, &sess.Labels); err != nil {
 			return nil, err
 		}
 	}
 
 	// Parse Functions JSON
-	if dbSess.Functions != "" {
-		if err := json.Unmarshal([]byte(dbSess.Functions), &sess.Functions); err != nil {
+	if len(dbSess.Functions) > 0 {
+		if err := json.Unmarshal(dbSess.Functions, &sess.Functions); err != nil {
 			return nil, err
 		}
 	}
 
 	// Parse Providers JSON
-	if dbSess.Providers != "" {
-		if err := json.Unmarshal([]byte(dbSess.Providers), &sess.Providers); err != nil {
+	if len(dbSess.Providers) > 0 {
+		if err := json.Unmarshal(dbSess.Providers, &sess.Providers); err != nil {
 			return nil, err
 		}
 	}
@@ -161,7 +162,7 @@ func toDBSession(sess *AgentSession) (*AgentSessionDB, error) {
 		if err != nil {
 			return nil, err
 		}
-		dbSess.Labels = string(labelsJSON)
+		dbSess.Labels = datatypes.JSON(labelsJSON)
 	}
 
 	// Marshal Functions to JSON
@@ -170,7 +171,7 @@ func toDBSession(sess *AgentSession) (*AgentSessionDB, error) {
 		if err != nil {
 			return nil, err
 		}
-		dbSess.Functions = string(functionsJSON)
+		dbSess.Functions = datatypes.JSON(functionsJSON)
 	}
 
 	// Marshal Providers to JSON
@@ -179,7 +180,7 @@ func toDBSession(sess *AgentSession) (*AgentSessionDB, error) {
 		if err != nil {
 			return nil, err
 		}
-		dbSess.Providers = string(providersJSON)
+		dbSess.Providers = datatypes.JSON(providersJSON)
 	}
 
 	return dbSess, nil

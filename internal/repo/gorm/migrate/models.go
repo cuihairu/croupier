@@ -16,7 +16,7 @@ type MigrationRecord struct {
 	Name        string     `gorm:"primaryKey;size:128;not null"` // Migration name
 	Version     string     `gorm:"size:32;not null"`             // Semantic version
 	Description string     `gorm:"type:text"`                    // Migration description
-	SQL         string     `gorm:"type:longtext"`                // Migration SQL
+	SQL         string     `gorm:"type:text"`                    // Migration SQL
 	Checksum    string     `gorm:"size:64;not null"`             // MD5 checksum of migration
 	ExecutedAt  *time.Time // When migration was executed
 	ExecutedBy  string     `gorm:"size:64"`                 // Who executed it (system, admin)

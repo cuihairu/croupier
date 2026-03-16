@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"strings"
@@ -215,8 +216,8 @@ func extractPlatformMethodsFromBindings(bindings []model.ExtensionRuntimeBinding
 	inputs := make([]externalfunc.Binding, 0, len(bindings))
 	for _, b := range bindings {
 		spec := map[string]any{}
-		if strings.TrimSpace(b.SpecJSON) != "" {
-			_ = json.Unmarshal([]byte(b.SpecJSON), &spec)
+		if len(bytes.TrimSpace(b.SpecJSON)) > 0 {
+			_ = json.Unmarshal(b.SpecJSON, &spec)
 		}
 		inputs = append(inputs, externalfunc.Binding{
 			BindingType: b.BindingType,
