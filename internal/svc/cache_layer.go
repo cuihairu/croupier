@@ -48,7 +48,7 @@ func (s *ServiceContext) GetAdminByUsernameCached(ctx context.Context, username 
 
 	var admin model.Admin
 	if err := s.cachedFetch(ctx, cache.AdminCacheKey(normalized), &admin, func() (interface{}, error) {
-		return s.AdminModel.FindByUsername(ctx, username)
+		return s.AdminModel.FindByUsername(ctx, normalized)
 	}); err != nil {
 		return nil, err
 	}
