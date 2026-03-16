@@ -9,13 +9,16 @@ import (
 	"time"
 
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
+	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/model"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	gsqlite "github.com/glebarez/sqlite"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 func TestBuildExternalFunctionID(t *testing.T) {
@@ -6050,5 +6053,181 @@ func TestDiscoverExternalPlatforms_NilRegistryStoreWithExtensions(t *testing.T) 
 	// Should return empty map
 	if len(platforms) != 0 {
 		t.Fatalf("expected empty platforms for nil store, got %d", len(platforms))
+	}
+}
+
+// TestCall_WithDispatcherSuccess tests successful dispatcher invocation path
+func TestCall_WithDispatcherSuccess(t *testing.T) {
+	store := reg.NewStore()
+	dispatcher := dispatch.NewDispatcher(store)
+
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: store,
+		Dispatcher:    dispatcher,
+	}
+
+	service := NewService(svcCtx)
+
+	resp, err := service.Call(context.Background(), &CallPlatformRequest{
+		Platform: "testplatform",
+		Method:   "testmethod",
+		Request:  `{"test":"data"}`,
+	})
+
+	// Dispatcher will fail (no real agent), but we exercise the path
+	if err != nil {
+		t.Fatalf("Call returned error: %v", err)
+	}
+	if resp.Source != "extension" {
+		t.Errorf("expected source 'extension', got %s", resp.Source)
+	}
+	// Since there's no real agent, expect 500
+	if resp.Code == 503 {
+		t.Errorf("expected dispatcher to be invoked, got 503 (service unavailable)")
+	}
+}
+
+// TestListMethods_DuplicateSkip tests that duplicate methods are skipped
+func TestListMethods_DuplicateSkip(t *testing.T) {
+	store := reg.NewStore()
+	store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "a1",
+		RPCAddr:  "127.0.0.1:19091",
+		ExpireAt: time.Now().Add(time.Minute),
+		Functions: map[string]reg.FunctionMeta{
+			"external.myapp.list_items": {Enabled: true},
+			"external.myapp.LIST_ITEMS": {Enabled: true}, // Duplicate (different case)
+			"external.myapp.create_item": {Enabled: true},
+		},
+	})
+
+	service := NewService(&svc.ServiceContext{RegistryStore: store})
+
+	resp, err := service.ListMethods(context.Background(), "myapp")
+
+	if err != nil {
+		t.Fatalf("ListMethods returned error: %v", err)
+	}
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got %d: %s", resp.Code, resp.Message)
+	}
+	// Should deduplicate case-insensitively: list_items, create_item
+	if len(resp.Methods) != 2 {
+		t.Fatalf("expected 2 deduplicated methods, got %d: %v", len(resp.Methods), resp.Methods)
+	}
+}
+
+// TestDiscoverExternalPlatforms_WithDisabledFunction tests that disabled functions are skipped
+func TestDiscoverExternalPlatforms_WithDisabledFunction(t *testing.T) {
+	store := reg.NewStore()
+	store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "a1",
+		RPCAddr:  "127.0.0.1:19091",
+		ExpireAt: time.Now().Add(time.Minute),
+		Functions: map[string]reg.FunctionMeta{
+			"external.myplatform.enabled_method":  {Enabled: true},
+			"external.myplatform.disabled_method": {Enabled: false}, // Disabled
+		},
+	})
+
+	service := NewService(&svc.ServiceContext{RegistryStore: store})
+
+	platforms := service.discoverExternalPlatforms(context.Background())
+
+	if len(platforms["myplatform"]) != 1 {
+		t.Fatalf("expected only 1 enabled method, got %d: %v", len(platforms["myplatform"]), platforms["myplatform"])
+	}
+	if platforms["myplatform"][0] != "enabled_method" {
+		t.Fatalf("expected 'enabled_method', got '%s'", platforms["myplatform"][0])
+	}
+}
+
+// TestDiscoverExternalPlatforms_WithInstallationDB tests the installation bindings discovery path
+func TestDiscoverExternalPlatforms_WithInstallationDB(t *testing.T) {
+	// Create in-memory SQLite database
+	db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("failed to open database: %v", err)
+	}
+
+	// Auto-migrate the schema
+	if err := db.AutoMigrate(&model.ExtensionInstallation{}, &model.ExtensionRuntimeBinding{}); err != nil {
+		t.Fatalf("failed to migrate database: %v", err)
+	}
+
+	// Create repos
+	installationRepo := extensiongorm.NewInstallationRepo(db)
+	bindingRepo := extensiongorm.NewBindingRepo(db)
+	eventRepo := extensiongorm.NewEventRepo(db)
+
+	// Create installation service
+	installationService := extensioninstallation.NewService(installationRepo, eventRepo, bindingRepo)
+
+	// Create a test installation with an external-platform extension ID
+	testInstallation := &model.ExtensionInstallation{
+		InstallationKey: "test-external-platform",
+		ExtensionID:     "test.external-platform", // Contains "external-platform"
+		ReleaseVersion:  "1.0.0",
+		ScopeType:       "global",
+		ScopeID:         "default",
+		TargetType:      "server",
+		TargetID:        "default",
+		Status:          "installed",
+		DesiredState:    "installed",
+		Enabled:         true,
+		InstalledBy:     "test",
+		InstalledAtUnix: time.Now().Unix(),
+	}
+	if err := installationRepo.Create(context.Background(), testInstallation); err != nil {
+		t.Fatalf("failed to create installation: %v", err)
+	}
+
+	// Create test bindings
+	bindings := []model.ExtensionRuntimeBinding{
+		{
+			BindingType: "provider",
+			BindingKey:  "steam",
+			SpecJSON:    datatypes.JSON([]byte(`{"provider":"steam","operations":["get_player","ban_player"]}`)),
+			Status:      "active",
+		},
+		{
+			BindingType: "function",
+			BindingKey:  "external.k8s.restart_pod",
+			Status:      "active",
+		},
+	}
+	if err := bindingRepo.ReplaceForInstallation(context.Background(), testInstallation.ID, bindings); err != nil {
+		t.Fatalf("failed to create bindings: %v", err)
+	}
+
+	// Create service context with installation service
+	svcCtx := &svc.ServiceContext{
+		Extensions: &svc.ExtensionServices{
+			Installation: installationService,
+		},
+	}
+	service := NewService(svcCtx)
+
+	// Test discoverExternalPlatforms
+	platforms := service.discoverExternalPlatforms(context.Background())
+
+	// Should discover platforms from installation bindings
+	if len(platforms["steam"]) != 2 {
+		t.Fatalf("expected 2 methods for steam platform, got %d: %v", len(platforms["steam"]), platforms["steam"])
+	}
+	if len(platforms["k8s"]) != 1 {
+		t.Fatalf("expected 1 method for k8s platform, got %d: %v", len(platforms["k8s"]), platforms["k8s"])
+	}
+
+	// Verify methods
+	steamHasGetPlayer := false
+	for _, m := range platforms["steam"] {
+		if m == "get_player" {
+			steamHasGetPlayer = true
+			break
+		}
+	}
+	if !steamHasGetPlayer {
+		t.Fatal("expected get_player method for steam")
 	}
 }

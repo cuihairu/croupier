@@ -2,11 +2,22 @@ package extension
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/cache"
+	extensioncatalog "github.com/cuihairu/croupier/internal/core/extension/catalog"
+	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
+	extensionmanifest "github.com/cuihairu/croupier/internal/core/extension/manifest"
+	extensionruntime "github.com/cuihairu/croupier/internal/core/extension/runtime"
+	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
 	"github.com/cuihairu/croupier/internal/model"
+	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
+	"github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/cuihairu/croupier/internal/svc"
+	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/gin-gonic/gin"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -727,15 +738,7 @@ func TestMapString(t *testing.T) {
 	}
 }
 
-func TestService_FindActiveInstallationByExtension(t *testing.T) {
-	t.Skip("Requires full service context setup")
-}
-
-func TestService_ActiveInstalledExtensionSet(t *testing.T) {
-	t.Skip("Requires full service context setup")
-}
-
-func TestService_ResolveInstallationID(t *testing.T) {
+func TestService_ResolveInstallationID_Skipped(t *testing.T) {
 	t.Skip("Requires full service context setup")
 }
 
@@ -2042,5 +2045,1562 @@ func TestService_ResolveInstallationID_Whitespace(t *testing.T) {
 	}
 	if id != 456 {
 		t.Fatalf("expected id 456, got: %d", id)
+	}
+}
+
+// ============================================================================
+// Integration tests with in-memory database
+// ============================================================================
+
+var (
+	integrationTestDB      *gorm.DB
+	integrationTestDBOnce  sync.Once
+	integrationTestDBMutex sync.Mutex
+)
+
+// setupIntegrationTestDB creates a shared in-memory SQLite database for integration testing
+func setupIntegrationTestDB(t *testing.T) *gorm.DB {
+	integrationTestDBMutex.Lock()
+	defer integrationTestDBMutex.Unlock()
+
+	integrationTestDBOnce.Do(func() {
+		var err error
+		integrationTestDB, err = gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+		if err != nil {
+			panic(err)
+		}
+		err = model.AutoMigrate(integrationTestDB)
+		if err != nil {
+			panic(err)
+		}
+	})
+
+	// Clean up before each test
+	integrationTestDB.Exec("DELETE FROM extension_installations")
+	integrationTestDB.Exec("DELETE FROM extension_events")
+	integrationTestDB.Exec("DELETE FROM extension_runtime_bindings")
+	integrationTestDB.Exec("DELETE FROM extension_releases")
+	integrationTestDB.Exec("DELETE FROM extension_catalogs")
+	integrationTestDB.Exec("DELETE FROM admins")
+	integrationTestDB.Exec("DELETE FROM roles")
+	integrationTestDB.Exec("DELETE FROM admin_roles")
+	integrationTestDB.Exec("DELETE FROM role_permissions")
+
+	return integrationTestDB
+}
+
+// setupExtensionTestContext creates a test service context with extension services
+func setupExtensionTestContext(t *testing.T, db *gorm.DB) *svc.ServiceContext {
+	permSvc := permission.NewPermissionService(db)
+	nullCache := cache.NewNullCache()
+	cacheHelper := cache.NewCacheHelper(nullCache)
+
+	extensionRepos := extensiongorm.NewBundle(db)
+	extensionManifestSvc := extensionmanifest.NewService()
+	extensionCatalogSvc := extensioncatalog.NewService(extensionRepos.Catalog, extensionRepos.Release)
+	extensionInstallationSvc := extensioninstallation.NewService(extensionRepos.Installation, extensionRepos.Event, extensionRepos.Binding)
+	extensionRuntimeSvc := extensionruntime.NewService(extensionRepos.Installation, extensionRepos.Binding, extensionRepos.Event)
+	extensionSyncSvc := extensionsync.NewService(extensionRepos.Installation, extensionRepos.Binding)
+
+	return &svc.ServiceContext{
+		DB:                  db,
+		PermissionService:   permSvc,
+		Cache:               nullCache,
+		CacheHelper:         cacheHelper,
+		AdminModel:          model.NewAdminModel(db),
+		RoleModel:           model.NewRoleModel(db),
+		PermissionModel:     model.NewPermissionModel(db),
+		RegistryStore:       reg.NewStore(),
+		Dispatcher:          dispatch.NewDispatcher(reg.NewStore()),
+		Extensions: &svc.ExtensionServices{
+			Catalog:      extensionCatalogSvc,
+			Manifest:     extensionManifestSvc,
+			Installation: extensionInstallationSvc,
+			Runtime:      extensionRuntimeSvc,
+			Sync:         extensionSyncSvc,
+		},
+	}
+}
+
+// setupAdminContext creates an admin user with admin:all permission and returns context with username
+func setupAdminContext(t *testing.T, svcCtx *svc.ServiceContext) context.Context {
+	bg := context.Background()
+
+	// Create admin role
+	role := &model.Role{Name: "admin_role", Description: "Admin role for testing"}
+	err := svcCtx.RoleModel.Create(bg, role)
+	if err != nil {
+		t.Fatalf("failed to create role: %v", err)
+	}
+
+	// Create admin
+	admin := &model.Admin{Username: "test_admin", Status: 1}
+	err = svcCtx.AdminModel.Create(bg, admin, "password123")
+	if err != nil {
+		t.Fatalf("failed to create admin: %v", err)
+	}
+
+	// Assign role to admin
+	err = svcCtx.AdminModel.AssignRole(bg, admin.ID, role.ID)
+	if err != nil {
+		t.Fatalf("failed to assign role: %v", err)
+	}
+
+	// Grant admin:all permission to role
+	err = svcCtx.RoleModel.ReplacePermissions(bg, role.ID, []string{"admin:all"})
+	if err != nil {
+		t.Fatalf("failed to grant permissions: %v", err)
+	}
+
+	return context.WithValue(bg, "username", "test_admin")
+}
+
+// createTestCatalogData creates test extension catalog and releases
+func createTestCatalogData(t *testing.T, svcCtx *svc.ServiceContext) {
+	db := svcCtx.DB
+	bg := context.Background()
+
+	// Create test extension catalog
+	catalog := &model.ExtensionCatalog{
+		ExtensionID:   "test.analytics",
+		Name:          "analytics",
+		DisplayName:   "Test Analytics",
+		Vendor:        "test",
+		Kind:          "official",
+		Summary:       "Test analytics extension",
+		Status:        "active",
+		LatestVersion: "2.0.0",
+	}
+	err := db.WithContext(bg).Create(catalog).Error
+	if err != nil {
+		t.Fatalf("failed to create catalog: %v", err)
+	}
+
+	// Create another catalog entry
+	catalog2 := &model.ExtensionCatalog{
+		ExtensionID:   "test.notifications",
+		Name:          "notifications",
+		DisplayName:   "Test Notifications",
+		Vendor:        "test",
+		Kind:          "official",
+		Summary:       "Test notifications extension",
+		Status:        "active",
+		LatestVersion: "1.5.0",
+	}
+	err = db.WithContext(bg).Create(catalog2).Error
+	if err != nil {
+		t.Fatalf("failed to create catalog2: %v", err)
+	}
+
+	// Create releases for test.analytics
+	release1 := &model.ExtensionRelease{
+		ExtensionID:     "test.analytics",
+		Version:         "2.0.0",
+		ReleaseChannel:  "stable",
+		MinCoreVersion:  "1.0.0",
+		Changelog:       "Initial release",
+		PublishedAtUnix: time.Now().Unix(),
+		ManifestJSON:    datatypes.JSON([]byte(`{"id":"test.analytics","version":"2.0.0","capabilities":["analytics.read","analytics.write"],"config_schema":{"type":"object","properties":{"enabled":{"type":"boolean"},"interval":{"type":"number"}},"required":["enabled"]},"default_install":true,"tags":["analytics","reporting"]}`)),
+	}
+	err = db.WithContext(bg).Create(release1).Error
+	if err != nil {
+		t.Fatalf("failed to create release1: %v", err)
+	}
+
+	release2 := &model.ExtensionRelease{
+		ExtensionID:     "test.analytics",
+		Version:         "1.0.0",
+		ReleaseChannel:  "stable",
+		MinCoreVersion:  "1.0.0",
+		Changelog:       "First version",
+		PublishedAtUnix: time.Now().Unix(),
+		ManifestJSON:    datatypes.JSON([]byte(`{"id":"test.analytics","version":"1.0.0","capabilities":["analytics.read"]}`)),
+	}
+	err = db.WithContext(bg).Create(release2).Error
+	if err != nil {
+		t.Fatalf("failed to create release2: %v", err)
+	}
+
+	// Create release for test.notifications
+	release3 := &model.ExtensionRelease{
+		ExtensionID:     "test.notifications",
+		Version:         "1.5.0",
+		ReleaseChannel:  "stable",
+		MinCoreVersion:  "1.0.0",
+		Changelog:       "Notification extension",
+		PublishedAtUnix: time.Now().Unix(),
+		ManifestJSON:    datatypes.JSON([]byte(`{"id":"test.notifications","version":"1.5.0","capabilities":["notifications.send"]}`)),
+	}
+	err = db.WithContext(bg).Create(release3).Error
+	if err != nil {
+		t.Fatalf("failed to create release3: %v", err)
+	}
+
+	// Create catalog entry with dependencies
+	catalogWithDeps := &model.ExtensionCatalog{
+		ExtensionID:   "test.dependent",
+		Name:          "dependent",
+		DisplayName:   "Test Dependent Extension",
+		Vendor:        "test",
+		Kind:          "official",
+		Summary:       "Extension with dependencies",
+		Status:        "active",
+		LatestVersion: "1.0.0",
+	}
+	err = db.WithContext(bg).Create(catalogWithDeps).Error
+	if err != nil {
+		t.Fatalf("failed to create catalogWithDeps: %v", err)
+	}
+
+	releaseWithDeps := &model.ExtensionRelease{
+		ExtensionID:     "test.dependent",
+		Version:         "1.0.0",
+		ReleaseChannel:  "stable",
+		MinCoreVersion:  "1.0.0",
+		Changelog:       "Dependent extension",
+		PublishedAtUnix: time.Now().Unix(),
+		ManifestJSON:    datatypes.JSON([]byte(`{"id":"test.dependent","version":"1.0.0","dependencies":["test.analytics"]}`)),
+	}
+	err = db.WithContext(bg).Create(releaseWithDeps).Error
+	if err != nil {
+		t.Fatalf("failed to create releaseWithDeps: %v", err)
+	}
+}
+
+// TestService_CatalogList_Success tests successful catalog list retrieval
+func TestService_CatalogList_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	req := ExtensionCatalogListRequest{
+		Page:     1,
+		PageSize: 10,
+	}
+
+	resp, err := s.CatalogList(ctx, req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	if resp.Total < 3 {
+		t.Fatalf("expected at least 3 catalog items, got: %d", resp.Total)
+	}
+
+	// Check that at least one item has tags from manifest
+	hasTags := false
+	for _, item := range resp.Items {
+		if len(item.Tags) > 0 {
+			hasTags = true
+			break
+		}
+	}
+	if !hasTags {
+		t.Fatal("expected at least one item with tags")
+	}
+}
+
+// TestService_CatalogDetail_Success tests successful catalog detail retrieval
+func TestService_CatalogDetail_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	resp, err := s.CatalogDetail(ctx, "test.analytics")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	if resp.Item == nil {
+		t.Fatal("expected item to be non-nil")
+	}
+
+	if resp.Item.ID != "test.analytics" {
+		t.Fatalf("expected extension_id test.analytics, got: %s", resp.Item.ID)
+	}
+
+	if len(resp.Releases) != 2 {
+		t.Fatalf("expected 2 releases, got: %d", len(resp.Releases))
+	}
+
+	// Note: firstManifest uses the first release in the list, which may be 1.0.0
+	// The manifest capabilities and default_install depend on which release is first
+	if resp.Manifest == nil {
+		t.Fatal("expected manifest to be non-nil")
+	}
+}
+
+// TestService_CatalogDetail_EmptyID tests catalog detail with empty extension ID
+func TestService_CatalogDetail_EmptyID(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	_, err := s.CatalogDetail(ctx, "")
+	if err == nil {
+		t.Fatal("expected error for empty extension_id")
+	}
+}
+
+// TestService_CatalogReleases_Success tests successful catalog releases retrieval
+func TestService_CatalogReleases_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	resp, err := s.CatalogReleases(ctx, "test.analytics")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	if len(resp.Releases) != 2 {
+		t.Fatalf("expected 2 releases, got: %d", len(resp.Releases))
+	}
+
+	if resp.Total != 2 {
+		t.Fatalf("expected total 2, got: %d", resp.Total)
+	}
+}
+
+// TestService_Install_Success tests successful extension installation
+func TestService_Install_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true, "interval": 60},
+	}
+
+	resp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	if resp.InstallationID == 0 {
+		t.Fatal("expected non-zero installation_id")
+	}
+
+	if resp.Status != "installed" {
+		t.Fatalf("expected status 'installed', got: %s", resp.Status)
+	}
+}
+
+// TestService_Install_Conflict tests installation conflict detection
+func TestService_Install_Conflict(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+
+	// First installation should succeed
+	_, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("first installation failed: %v", err)
+	}
+
+	// Second installation with same scope/target should conflict
+	_, err = s.Install(ctx, req, "test_admin")
+	if err == nil {
+		t.Fatal("expected conflict error for duplicate installation")
+	}
+}
+
+// TestService_Install_MissingRequiredConfig tests installation with missing required config
+func TestService_Install_MissingRequiredConfig(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{}, // Missing required 'enabled' field
+	}
+
+	_, err := s.Install(ctx, req, "test_admin")
+	if err == nil {
+		t.Fatal("expected error for missing required config field")
+	}
+}
+
+// TestService_InstallationList_Success tests successful installation list retrieval
+func TestService_InstallationList_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	_, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// List installations
+	listReq := ExtensionInstallationListRequest{
+		ExtensionID: "test.analytics",
+		Page:        1,
+		PageSize:    10,
+	}
+
+	resp, err := s.InstallationList(ctx, listReq)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	if len(resp.Items) == 0 {
+		t.Fatal("expected at least one installation")
+	}
+}
+
+// TestService_InstallationDetail_Success tests successful installation detail retrieval
+func TestService_InstallationDetail_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true, "interval": 60},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Get installation detail
+	resp, err := s.InstallationDetail(ctx, installResp.InstallationID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	if resp.Installation == nil {
+		t.Fatal("expected installation to be non-nil")
+	}
+
+	if resp.Installation.ExtensionID != "test.analytics" {
+		t.Fatalf("expected extension_id test.analytics, got: %s", resp.Installation.ExtensionID)
+	}
+
+	if len(resp.ConfigSchema) == 0 {
+		t.Fatal("expected config_schema from manifest")
+	}
+
+	if resp.Config == nil {
+		t.Fatal("expected config to be non-nil")
+	}
+
+	if enabled, ok := resp.Config["enabled"].(bool); !ok || !enabled {
+		t.Fatal("expected enabled=true in config")
+	}
+}
+
+// TestService_UpdateConfig_Success tests successful config update
+func TestService_UpdateConfig_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true, "interval": 60},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Update config
+	updateReq := ExtensionConfigUpdateRequest{
+		Config: map[string]any{"enabled": false, "interval": 120},
+	}
+
+	resp, err := s.UpdateConfig(ctx, installResp.InstallationID, updateReq, "test_admin")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	if resp.Status != "updated" {
+		t.Fatalf("expected status 'updated', got: %s", resp.Status)
+	}
+}
+
+// TestService_ConfigSchema_Success tests config schema retrieval
+func TestService_ConfigSchema_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Get config schema
+	resp, err := s.ConfigSchema(ctx, installResp.InstallationID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	if len(resp.Schema) == 0 {
+		t.Fatal("expected non-empty config schema from manifest")
+	}
+}
+
+// TestService_Config_Success tests config retrieval
+func TestService_Config_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true, "interval": 60},
+		SecretRefs:     map[string]string{"api_key": "secret:key1"},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Get config
+	resp, err := s.Config(ctx, installResp.InstallationID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	if resp.Config == nil {
+		t.Fatal("expected config to be non-nil")
+	}
+
+	if len(resp.SecretRefs) == 0 {
+		t.Fatal("expected secret_refs to be non-empty")
+	}
+}
+
+// TestService_TestConnection_Success tests test connection
+func TestService_TestConnection_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Test connection
+	resp, err := s.TestConnection(ctx, installResp.InstallationID, "test_admin")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	if resp.Status != "disabled" { // New installations start disabled
+		t.Fatalf("expected status 'disabled', got: %s", resp.Status)
+	}
+}
+
+// TestService_Capabilities_Success tests capabilities retrieval
+func TestService_Capabilities_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Get capabilities
+	resp, err := s.Capabilities(ctx, installResp.InstallationID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	// Should have capabilities from manifest since bindings are empty
+	if len(resp.Capabilities) == 0 {
+		t.Fatal("expected capabilities from manifest")
+	}
+}
+
+// TestService_Pages_Success tests pages retrieval
+func TestService_Pages_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Get pages
+	resp, err := s.Pages(ctx, installResp.InstallationID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	// Pages list should be returned (empty if not defined)
+	if resp.Pages == nil {
+		t.Fatal("expected pages list to be initialized")
+	}
+}
+
+// TestService_HealthCheck_Success tests health check
+func TestService_HealthCheck_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Health check
+	resp, err := s.HealthCheck(ctx, installResp.InstallationID, "test_admin")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	if resp.Status != "disabled" { // New installations start disabled
+		t.Fatalf("expected status 'disabled', got: %s", resp.Status)
+	}
+
+	if resp.CheckedAt == 0 {
+		t.Fatal("expected checked_at to be set")
+	}
+}
+
+// TestService_Enable_Success tests enable operation
+func TestService_Enable_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Enable the installation
+	resp, err := s.Enable(ctx, installResp.InstallationID, "test_admin")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	if resp.Status != "enabled" {
+		t.Fatalf("expected status 'enabled', got: %s", resp.Status)
+	}
+}
+
+// TestService_Disable_Success tests disable operation
+func TestService_Disable_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create and enable an installation
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// First enable
+	_, err = s.Enable(ctx, installResp.InstallationID, "test_admin")
+	if err != nil {
+		t.Fatalf("enable failed: %v", err)
+	}
+
+	// Then disable
+	resp, err := s.Disable(ctx, installResp.InstallationID, "test_admin")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	if resp.Status != "disabled" {
+		t.Fatalf("expected status 'disabled', got: %s", resp.Status)
+	}
+}
+
+// TestService_Upgrade_Success tests upgrade operation
+func TestService_Upgrade_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation with version 1.0.0
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "1.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Upgrade to 2.0.0
+	resp, err := s.Upgrade(ctx, installResp.InstallationID, "2.0.0", "test_admin")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	if resp.Status != "upgraded" {
+		t.Fatalf("expected status 'upgraded', got: %s", resp.Status)
+	}
+}
+
+// TestService_Upgrade_AlreadyOnTargetVersion tests upgrade to same version
+func TestService_Upgrade_AlreadyOnTargetVersion(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation with version 2.0.0
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Try to upgrade to same version
+	_, err = s.Upgrade(ctx, installResp.InstallationID, "2.0.0", "test_admin")
+	if err == nil {
+		t.Fatal("expected error for upgrading to same version")
+	}
+}
+
+// TestService_Upgrade_VersionNotFound tests upgrade to non-existent version
+func TestService_Upgrade_VersionNotFound(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "1.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Try to upgrade to non-existent version
+	_, err = s.Upgrade(ctx, installResp.InstallationID, "99.99.99", "test_admin")
+	if err == nil {
+		t.Fatal("expected error for non-existent version")
+	}
+}
+
+// TestService_Reconcile_Success tests reconcile operation
+func TestService_Reconcile_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Reconcile
+	resp, err := s.Reconcile(ctx, installResp.InstallationID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	if resp.Applied < 0 {
+		t.Fatalf("expected applied >= 0, got: %d", resp.Applied)
+	}
+}
+
+// TestService_Uninstall_Success tests uninstall operation
+func TestService_Uninstall_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Uninstall
+	resp, err := s.Uninstall(ctx, installResp.InstallationID, "test_admin")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	if resp.Status != "uninstalled" {
+		t.Fatalf("expected status 'uninstalled', got: %s", resp.Status)
+	}
+}
+
+// TestService_Events_Success tests events retrieval
+func TestService_Events_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Get events
+	eventReq := ExtensionEventListRequest{
+		Page:     1,
+		PageSize: 10,
+	}
+
+	resp, err := s.Events(ctx, installResp.InstallationID, eventReq)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	// Events list should be returned (may be empty initially)
+	if resp.Items == nil {
+		t.Fatal("expected events list to be initialized")
+	}
+}
+
+// TestService_AgentSyncPayload_Success tests agent sync payload retrieval
+func TestService_AgentSyncPayload_Success(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation targeted at all agents
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent_group",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	_, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Get agent sync payload
+	resp, err := s.AgentSyncPayload(ctx, "test-agent-001")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Code != 200 {
+		t.Fatalf("expected code 200, got: %d", resp.Code)
+	}
+
+	if resp.Payload == nil {
+		t.Fatal("expected payload to be non-nil")
+	}
+
+	// The Payload field contains the actual AgentSyncPayload
+	payload, ok := resp.Payload.(*extensionsync.AgentSyncPayload)
+	if !ok {
+		t.Fatalf("expected payload to be *AgentSyncPayload, got: %T", resp.Payload)
+	}
+
+	if payload.AgentID != "test-agent-001" {
+		t.Fatalf("expected agent_id 'test-agent-001', got: %s", payload.AgentID)
+	}
+}
+
+// TestService_ResolveInstallationID_ByExtensionID tests resolving installation ID by extension ID
+func TestService_ResolveInstallationID_ByExtensionID(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create an installation
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Resolve by extension ID
+	id, err := s.ResolveInstallationID(ctx, "test.analytics")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if id != installResp.InstallationID {
+		t.Fatalf("expected id %d, got: %d", installResp.InstallationID, id)
+	}
+}
+
+// TestService_ValidateDependencies_MissingDependency tests validation with missing dependency
+func TestService_ValidateDependencies_MissingDependency(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Try to install test.dependent without test.analytics installed
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.dependent",
+		ReleaseVersion: "1.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{},
+	}
+
+	_, err := s.Install(ctx, req, "test_admin")
+	if err == nil {
+		t.Fatal("expected error for missing dependency")
+	}
+}
+
+// TestService_ValidateDependencies_WithInstalledDependency tests validation with installed dependency
+func TestService_ValidateDependencies_WithInstalledDependency(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// First install the dependency
+	depReq := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	_, err := s.Install(ctx, depReq, "test_admin")
+	if err != nil {
+		t.Fatalf("failed to install dependency: %v", err)
+	}
+
+	// Now install the dependent extension
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.dependent",
+		ReleaseVersion: "1.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{},
+	}
+
+	_, err = s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("unexpected error with dependency installed: %v", err)
+	}
+}
+
+// TestService_HealthCheck_UninstalledStatus tests health check for uninstalled extension
+func TestService_HealthCheck_UninstalledStatus(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Create and then uninstall an installation
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	installResp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	_, err = s.Uninstall(ctx, installResp.InstallationID, "test_admin")
+	if err != nil {
+		t.Fatalf("uninstall failed: %v", err)
+	}
+
+	// Health check should return uninstalled status
+	resp, err := s.HealthCheck(ctx, installResp.InstallationID, "test_admin")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.Status != "uninstalled" {
+		t.Fatalf("expected status 'uninstalled', got: %s", resp.Status)
+	}
+}
+
+// TestService_FindInstallationConflict_NotFound tests findInstallationConflict with no existing installation
+func TestService_FindInstallationConflict_NotFound(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	svcCtx.DB = db
+
+	s := NewService(svcCtx)
+
+	req := ExtensionInstallRequest{
+		ExtensionID: "test.ext",
+		ScopeType:   "system",
+		ScopeID:     "global",
+		TargetType:  "agent",
+		TargetID:    "default",
+	}
+
+	conflict, existing, err := s.findInstallationConflict(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if conflict {
+		t.Fatal("expected no conflict")
+	}
+
+	if existing != nil {
+		t.Fatal("expected existing to be nil")
+	}
+}
+
+// TestService_ReleaseVersionExists tests release version existence check
+func TestService_ReleaseVersionExists(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Test existing version
+	exists, err := s.releaseVersionExists(context.Background(), "test.analytics", "2.0.0")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !exists {
+		t.Fatal("expected version to exist")
+	}
+
+	// Test non-existing version
+	exists, err = s.releaseVersionExists(context.Background(), "test.analytics", "99.99.99")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if exists {
+		t.Fatal("expected version to not exist")
+	}
+}
+
+// TestService_ResolveManifestForRelease tests manifest resolution for a release
+func TestService_ResolveManifestForRelease(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	manifest, err := s.resolveManifestForRelease(context.Background(), "test.analytics", "2.0.0")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if manifest == nil {
+		t.Fatal("expected manifest to be non-nil")
+	}
+
+	if id, ok := manifest["id"].(string); !ok || id != "test.analytics" {
+		t.Fatalf("expected manifest id 'test.analytics', got: %v", manifest["id"])
+	}
+}
+
+// TestService_ResolveManifestForRelease_NotFound tests manifest resolution for non-existent release
+func TestService_ResolveManifestForRelease_NotFound(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	manifest, err := s.resolveManifestForRelease(context.Background(), "test.analytics", "99.99.99")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if manifest == nil {
+		t.Fatal("expected manifest to be non-nil (empty map)")
+	}
+
+	if len(manifest) != 0 {
+		t.Fatal("expected empty manifest for non-existent release")
+	}
+}
+
+// TestService_EnsureNoActiveDependents tests dependency blocking on uninstall
+func TestService_EnsureNoActiveDependents(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Install dependency first
+	depReq := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	depResp, err := s.Install(ctx, depReq, "test_admin")
+	if err != nil {
+		t.Fatalf("failed to install dependency: %v", err)
+	}
+
+	// Install dependent extension
+	dependentReq := ExtensionInstallRequest{
+		ExtensionID:    "test.dependent",
+		ReleaseVersion: "1.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{},
+	}
+	_, err = s.Install(ctx, dependentReq, "test_admin")
+	if err != nil {
+		t.Fatalf("failed to install dependent: %v", err)
+	}
+
+	// Try to uninstall the dependency - should fail due to active dependent
+	err = s.ensureNoActiveDependents(ctx, depResp.InstallationID)
+	if err == nil {
+		t.Fatal("expected error when uninstalling extension with active dependents")
+	}
+}
+
+// TestService_FindActiveInstallationByExtension_Integration tests finding active installation by extension ID
+func TestService_FindActiveInstallationByExtension_Integration(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Install an extension
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	_, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Find active installation
+	installation, err := s.findActiveInstallationByExtension(ctx, "test.analytics")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if installation == nil {
+		t.Fatal("expected installation to be found")
+	}
+
+	if installation.ExtensionID != "test.analytics" {
+		t.Fatalf("expected extension_id 'test.analytics', got: %s", installation.ExtensionID)
+	}
+}
+
+// TestService_ActiveInstalledExtensionSet_Integration tests building the set of installed extensions
+func TestService_ActiveInstalledExtensionSet_Integration(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// Install two extensions
+	req1 := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}
+	_, err := s.Install(ctx, req1, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	req2 := ExtensionInstallRequest{
+		ExtensionID:    "test.notifications",
+		ReleaseVersion: "1.5.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{},
+	}
+	_, err = s.Install(ctx, req2, "test_admin")
+	if err != nil {
+		t.Fatalf("installation failed: %v", err)
+	}
+
+	// Get active installed extension set
+	installedSet, err := s.activeInstalledExtensionSet(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !installedSet["test.analytics"] {
+		t.Fatal("expected test.analytics to be in installed set")
+	}
+
+	if !installedSet["test.notifications"] {
+		t.Fatal("expected test.notifications to be in installed set")
 	}
 }
