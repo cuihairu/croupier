@@ -144,8 +144,8 @@ func TestHandler_Install(t *testing.T) {
 			expectCode: http.StatusOK,
 		},
 		{
-			name: "invalid json",
-			body: "invalid json",
+			name:       "invalid json",
+			body:       "invalid json",
 			expectCode: http.StatusOK,
 		},
 	}

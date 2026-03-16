@@ -20,20 +20,20 @@ func createMockStore() *registry.Store {
 	openAPIDoc := createTestOpenAPIDoc()
 
 	store.UpsertOpenAPIProvider(registry.OpenAPIProviderCaps{
-		ID:        "test-provider-1",
-		Version:   "1.0.0",
-		Lang:      "go",
-		SDK:       "croupier-go",
-		UpdatedAt: time.Now().Add(-1 * time.Hour),
+		ID:         "test-provider-1",
+		Version:    "1.0.0",
+		Lang:       "go",
+		SDK:        "croupier-go",
+		UpdatedAt:  time.Now().Add(-1 * time.Hour),
 		OpenAPIDoc: openAPIDoc,
 	})
 
 	store.UpsertOpenAPIProvider(registry.OpenAPIProviderCaps{
-		ID:        "test-provider-2",
-		Version:   "2.0.0",
-		Lang:      "python",
-		SDK:       "croupier-python",
-		UpdatedAt: time.Now().Add(-2 * time.Hour),
+		ID:         "test-provider-2",
+		Version:    "2.0.0",
+		Lang:       "python",
+		SDK:        "croupier-python",
+		UpdatedAt:  time.Now().Add(-2 * time.Hour),
 		OpenAPIDoc: openAPIDoc,
 	})
 
@@ -81,7 +81,7 @@ func createTestOpenAPIDoc() []byte {
 			Title:   "Test API",
 			Version: "1.0.0",
 		},
-		Paths:     paths,
+		Paths: paths,
 		Extensions: map[string]interface{}{
 			"x-entities": []interface{}{
 				map[string]interface{}{

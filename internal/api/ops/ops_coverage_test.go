@@ -11,9 +11,9 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
+	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	gsqlite "github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -1548,10 +1548,10 @@ func TestOpsFunctionsMultiple(t *testing.T) {
 
 	// Agent 1 has func1 and func2
 	store.UpsertAgent(&registry.AgentSession{
-		AgentID:   "agent-1",
-		RPCAddr:   "localhost:1001",
-		GameID:    "game1",
-		Env:       "prod",
+		AgentID: "agent-1",
+		RPCAddr: "localhost:1001",
+		GameID:  "game1",
+		Env:     "prod",
 		Functions: map[string]registry.FunctionMeta{
 			"func1": {Enabled: true},
 			"func2": {Enabled: true},
@@ -1561,10 +1561,10 @@ func TestOpsFunctionsMultiple(t *testing.T) {
 
 	// Agent 2 has func1 and func3
 	store.UpsertAgent(&registry.AgentSession{
-		AgentID:   "agent-2",
-		RPCAddr:   "localhost:1002",
-		GameID:    "game1",
-		Env:       "prod",
+		AgentID: "agent-2",
+		RPCAddr: "localhost:1002",
+		GameID:  "game1",
+		Env:     "prod",
 		Functions: map[string]registry.FunctionMeta{
 			"func1": {Enabled: true},
 			"func3": {Enabled: true},

@@ -11,8 +11,8 @@ import (
 	"github.com/cuihairu/croupier/internal/config"
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
 	"github.com/cuihairu/croupier/internal/model"
-	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/platform/registry"
+	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
@@ -940,8 +940,8 @@ func TestAggregateAgentMetrics_WithValidAgents(t *testing.T) {
 
 	agent1 := &registry.AgentSession{
 		AgentID: "agent1",
-		GameID: "game1",
-		Env:    "prod",
+		GameID:  "game1",
+		Env:     "prod",
 		Labels: map[string]string{
 			"stats.avg_latency_ms": "100.5",
 			"stats.error_rate":     "0.5",
@@ -949,8 +949,8 @@ func TestAggregateAgentMetrics_WithValidAgents(t *testing.T) {
 	}
 	agent2 := &registry.AgentSession{
 		AgentID: "agent2",
-		GameID: "game1",
-		Env:    "prod",
+		GameID:  "game1",
+		Env:     "prod",
 		Labels: map[string]string{
 			"stats.avg_latency_ms": "200.0",
 			"stats.error_rate":     "1.0",
@@ -979,16 +979,16 @@ func TestAggregateAgentMetrics_FilterByGameID(t *testing.T) {
 
 	agent1 := &registry.AgentSession{
 		AgentID: "agent1",
-		GameID: "game1",
-		Env:    "prod",
+		GameID:  "game1",
+		Env:     "prod",
 		Labels: map[string]string{
 			"stats.avg_latency_ms": "100.0",
 		},
 	}
 	agent2 := &registry.AgentSession{
 		AgentID: "agent2",
-		GameID: "game2",
-		Env:    "prod",
+		GameID:  "game2",
+		Env:     "prod",
 		Labels: map[string]string{
 			"stats.avg_latency_ms": "200.0",
 		},
@@ -1018,16 +1018,16 @@ func TestAggregateAgentMetrics_FilterByEnv(t *testing.T) {
 
 	agent1 := &registry.AgentSession{
 		AgentID: "agent1",
-		GameID: "game1",
-		Env:    "prod",
+		GameID:  "game1",
+		Env:     "prod",
 		Labels: map[string]string{
 			"stats.avg_latency_ms": "100.0",
 		},
 	}
 	agent2 := &registry.AgentSession{
 		AgentID: "agent2",
-		GameID: "game1",
-		Env:    "dev",
+		GameID:  "game1",
+		Env:     "dev",
 		Labels: map[string]string{
 			"stats.avg_latency_ms": "200.0",
 		},
@@ -1050,8 +1050,8 @@ func TestAggregateAgentMetrics_PartialMetrics(t *testing.T) {
 
 	agent1 := &registry.AgentSession{
 		AgentID: "agent1",
-		GameID: "game1",
-		Env:    "prod",
+		GameID:  "game1",
+		Env:     "prod",
 		Labels: map[string]string{
 			"stats.avg_latency_ms": "100.0",
 			// Missing error_rate
@@ -1059,8 +1059,8 @@ func TestAggregateAgentMetrics_PartialMetrics(t *testing.T) {
 	}
 	agent2 := &registry.AgentSession{
 		AgentID: "agent2",
-		GameID: "game1",
-		Env:    "prod",
+		GameID:  "game1",
+		Env:     "prod",
 		Labels: map[string]string{
 			// Missing latency
 			"stats.error_rate": "0.5",
@@ -1089,8 +1089,8 @@ func TestAggregateAgentMetrics_InvalidFloatValues(t *testing.T) {
 
 	agent1 := &registry.AgentSession{
 		AgentID: "agent1",
-		GameID: "game1",
-		Env:    "prod",
+		GameID:  "game1",
+		Env:     "prod",
 		Labels: map[string]string{
 			"stats.avg_latency_ms": "invalid",
 			"stats.error_rate":     "also-invalid",
@@ -1114,16 +1114,16 @@ func TestAggregateAgentMetrics_MixedValidInvalid(t *testing.T) {
 
 	agent1 := &registry.AgentSession{
 		AgentID: "agent1",
-		GameID: "game1",
-		Env:    "prod",
+		GameID:  "game1",
+		Env:     "prod",
 		Labels: map[string]string{
 			"stats.avg_latency_ms": "100.0",
 		},
 	}
 	agent2 := &registry.AgentSession{
 		AgentID: "agent2",
-		GameID: "game1",
-		Env:    "prod",
+		GameID:  "game1",
+		Env:     "prod",
 		Labels: map[string]string{
 			"stats.avg_latency_ms": "invalid",
 		},
@@ -1147,8 +1147,8 @@ func TestAggregateAgentMetrics_WhitespaceGameID(t *testing.T) {
 
 	agent1 := &registry.AgentSession{
 		AgentID: "agent1",
-		GameID: "game1",
-		Env:    "prod",
+		GameID:  "game1",
+		Env:     "prod",
 		Labels: map[string]string{
 			"stats.avg_latency_ms": "100.0",
 		},
@@ -1216,7 +1216,7 @@ func TestIngest_ModelValidation(t *testing.T) {
 	// Test empty gameID - this check happens before model check
 	_, err = ingest(context.Background(), &svc.ServiceContext{}, &IngestRequest{
 		GameId: "", // Empty gameID
-		Events:  []interface{}{},
+		Events: []interface{}{},
 	})
 	if err == nil {
 		t.Fatal("expected error for empty gameID")

@@ -1302,12 +1302,12 @@ func TestInstallationListQuery_EdgeCases(t *testing.T) {
 
 func TestToInstallationItem_WithTimestamp(t *testing.T) {
 	modelItem := model.ExtensionInstallation{
-		Model:        gorm.Model{ID: 123, UpdatedAt: time.Now()},
-		ExtensionID:  "test.ext",
+		Model:          gorm.Model{ID: 123, UpdatedAt: time.Now()},
+		ExtensionID:    "test.ext",
 		ReleaseVersion: "1.0.0",
-		Status:       "enabled",
-		DesiredState: "enabled",
-		Enabled:      true,
+		Status:         "enabled",
+		DesiredState:   "enabled",
+		Enabled:        true,
 	}
 	item := toInstallationItem(modelItem)
 	if item.ID != 123 {
@@ -1436,7 +1436,7 @@ func TestResolveConfigSchema_EmptyVersion(t *testing.T) {
 
 func TestParseSemVersion_PreRelease(t *testing.T) {
 	cases := []struct {
-		input    string
+		input     string
 		wantValid bool
 		wantMajor int
 		wantMinor int
@@ -1511,7 +1511,7 @@ func TestExtractCapabilities_NestedMap(t *testing.T) {
 	manifest := map[string]any{
 		"capabilities": []any{
 			map[string]any{
-				"id": "analytics.query",
+				"id":       "analytics.query",
 				"metadata": map[string]any{"priority": 1},
 			},
 			map[string]any{
@@ -1545,12 +1545,12 @@ func TestParseDependencies_Complex(t *testing.T) {
 		"dependencies": []any{
 			"simple.extension",
 			map[string]any{
-				"id": "complex.extension",
-				"version": "^1.2.0",
+				"id":       "complex.extension",
+				"version":  "^1.2.0",
 				"metadata": map[string]any{"optional": true},
 			},
 			map[string]any{
-				"extension_id": "another.ext",
+				"extension_id":     "another.ext",
 				"required_version": ">=2.0.0",
 			},
 		},
@@ -1566,13 +1566,13 @@ func TestParseDependencies_Complex(t *testing.T) {
 
 func TestMapString_Conversions(t *testing.T) {
 	m := map[string]any{
-		"string":  "value",
-		"number":  123,
-		"bool":    true,
-		"float":   3.14,
-		"nil":     nil,
-		"empty":   "",
-		"<nil>":   "<nil>",
+		"string": "value",
+		"number": 123,
+		"bool":   true,
+		"float":  3.14,
+		"nil":    nil,
+		"empty":  "",
+		"<nil>":  "<nil>",
 	}
 	cases := []struct {
 		key      string
@@ -1644,7 +1644,7 @@ func TestValidateDependencies_EmptyManifest(t *testing.T) {
 
 func TestValidateDependencies_NoDependenciesKey(t *testing.T) {
 	manifest := map[string]any{
-		"name": "test",
+		"name":    "test",
 		"version": "1.0.0",
 	}
 	deps := parseDependencies(manifest)
