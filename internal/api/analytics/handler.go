@@ -140,7 +140,7 @@ func (h *Handler) Realtime(c *gin.Context) {
 	var req RealtimeRequest
 	// Use compat binder so `gameId` query param works with json tags.
 	if err := bindAnalyticsRequest(c, &req); err != nil {
-		c.JSON(400, gin.H{"error": "参数错误: " + err.Error()})
+		response.Error(c, err)
 		return
 	}
 
