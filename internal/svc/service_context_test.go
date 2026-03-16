@@ -120,41 +120,41 @@ func setupTestServiceContext(t *testing.T) *ServiceContext {
 	opsStateStore := NewOpsStateStore(tmpDir)
 
 	ctx := &ServiceContext{
-		Config:                 cfg,
-		DB:                     db,
-		Cache:                  cacheStore,
-		CacheHelper:            cacheHelper,
-		AdminModel:             adminModel,
-		RoleModel:              roleModel,
-		PermissionModel:        permissionModel,
-		GameModel:              gameModel,
-		PlayerModel:            playerModel,
-		ProfileModel:           profileModel,
-		FunctionModel:          functionModel,
-		TermDictModel:          termDictModel,
-		NodeModel:              nodeModel,
-		TicketModel:            ticketModel,
-		MessageModel:           messageModel,
-		AlertModel:             alertModel,
-		BackupModel:            backupModel,
-		FAQModel:               faqModel,
-		FeedbackModel:          feedbackModel,
-		EntityModel:            entityModel,
-		BehaviorModel:          behaviorModel,
-		RetentionModel:         retentionModel,
-		PaymentsModel:          paymentsModel,
-		RateLimitModel:         rateLimitModel,
-		SupportModel:           supportModel,
-		CertificateModel:       certificateModel,
-		ConfigVersionModel:     configVersionModel,
-		WorkspaceConfigModel:   workspaceConfigModel,
-		AgentSessionModel:      agentSessionModel,
-		AdminManager:           adminManager,
-		OpsStateStore:          opsStateStore,
-		StartTime:              time.Now(),
-		AnalyticsFiltersLock:   &sync.RWMutex{},
-		MetricsStore:           reg.NewMetricsStore(),
-		SystemInfoCache:        reg.NewSystemInfoCache(),
+		Config:               cfg,
+		DB:                   db,
+		Cache:                cacheStore,
+		CacheHelper:          cacheHelper,
+		AdminModel:           adminModel,
+		RoleModel:            roleModel,
+		PermissionModel:      permissionModel,
+		GameModel:            gameModel,
+		PlayerModel:          playerModel,
+		ProfileModel:         profileModel,
+		FunctionModel:        functionModel,
+		TermDictModel:        termDictModel,
+		NodeModel:            nodeModel,
+		TicketModel:          ticketModel,
+		MessageModel:         messageModel,
+		AlertModel:           alertModel,
+		BackupModel:          backupModel,
+		FAQModel:             faqModel,
+		FeedbackModel:        feedbackModel,
+		EntityModel:          entityModel,
+		BehaviorModel:        behaviorModel,
+		RetentionModel:       retentionModel,
+		PaymentsModel:        paymentsModel,
+		RateLimitModel:       rateLimitModel,
+		SupportModel:         supportModel,
+		CertificateModel:     certificateModel,
+		ConfigVersionModel:   configVersionModel,
+		WorkspaceConfigModel: workspaceConfigModel,
+		AgentSessionModel:    agentSessionModel,
+		AdminManager:         adminManager,
+		OpsStateStore:        opsStateStore,
+		StartTime:            time.Now(),
+		AnalyticsFiltersLock: &sync.RWMutex{},
+		MetricsStore:         reg.NewMetricsStore(),
+		SystemInfoCache:      reg.NewSystemInfoCache(),
 	}
 
 	// Initialize registry store and dispatcher
@@ -250,7 +250,7 @@ func TestCachedFetch_EmptyKey(t *testing.T) {
 
 	cacheStore := cache.NewNullCache()
 	ctx := &ServiceContext{
-		Cache:      cacheStore,
+		Cache:       cacheStore,
 		CacheHelper: cache.NewCacheHelper(cacheStore),
 	}
 
@@ -1347,7 +1347,7 @@ func TestSplitPermissionCode(t *testing.T) {
 
 		resource, action := splitPermissionCode("")
 		assert.Equal(t, "", resource)
-		assert.Equal(t, "", action)  // Empty code returns empty action, not "*"
+		assert.Equal(t, "", action) // Empty code returns empty action, not "*"
 	})
 
 	t.Run("permission with whitespace", func(t *testing.T) {
@@ -2127,7 +2127,7 @@ func TestOpenDatabase_PostgresNoDSN(t *testing.T) {
 
 	cfg := config.Config{
 		Database: config.DatabaseConfig{
-			Driver:    "postgres",
+			Driver:     "postgres",
 			DataSource: "",
 		},
 	}
@@ -2142,7 +2142,7 @@ func TestOpenDatabase_MySQLNoDSN(t *testing.T) {
 
 	cfg := config.Config{
 		Database: config.DatabaseConfig{
-			Driver:    "mysql",
+			Driver:     "mysql",
 			DataSource: "",
 		},
 	}
@@ -2157,7 +2157,7 @@ func TestOpenDatabase_SQLServerNoDSN(t *testing.T) {
 
 	cfg := config.Config{
 		Database: config.DatabaseConfig{
-			Driver:    "sqlserver",
+			Driver:     "sqlserver",
 			DataSource: "",
 		},
 	}
@@ -2170,9 +2170,13 @@ func TestOpenDatabase_SQLServerNoDSN(t *testing.T) {
 func TestOpenDatabase_UnsupportedDriver(t *testing.T) {
 	t.Parallel()
 
+	// Clear env vars that might override config
+	os.Unsetenv("DB_DRIVER")
+	os.Unsetenv("DATABASE_URL")
+
 	cfg := config.Config{
 		Database: config.DatabaseConfig{
-			Driver:    "mongodb",
+			Driver:     "mongodb",
 			DataSource: "",
 		},
 	}
@@ -2190,7 +2194,7 @@ func TestOpenDatabase_SQLite(t *testing.T) {
 
 	cfg := config.Config{
 		Database: config.DatabaseConfig{
-			Driver:    "sqlite",
+			Driver:     "sqlite",
 			DataSource: dbPath,
 		},
 	}
@@ -2213,7 +2217,7 @@ func TestOpenDatabase_Auto(t *testing.T) {
 
 	cfg := config.Config{
 		Database: config.DatabaseConfig{
-			Driver:    "auto",
+			Driver:     "auto",
 			DataSource: ":memory:",
 		},
 	}
@@ -2232,7 +2236,7 @@ func TestOpenDatabase_EnvOverride(t *testing.T) {
 
 	cfg := config.Config{
 		Database: config.DatabaseConfig{
-			Driver:    "postgres",
+			Driver:     "postgres",
 			DataSource: "postgres://localhost",
 		},
 	}

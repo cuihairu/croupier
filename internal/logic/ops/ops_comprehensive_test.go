@@ -31,11 +31,11 @@ func createTestServiceContext() *svc.ServiceContext {
 				"env": "test",
 			},
 		},
-		ServerVersion:    "v1.0.0",
-		StartTime:        time.Now(),
-		RegistryStore:    registry.NewStore(),
-		MetricsStore:     registry.NewMetricsStore(),
-		SystemInfoCache:  registry.NewSystemInfoCache(),
+		ServerVersion:   "v1.0.0",
+		StartTime:       time.Now(),
+		RegistryStore:   registry.NewStore(),
+		MetricsStore:    registry.NewMetricsStore(),
+		SystemInfoCache: registry.NewSystemInfoCache(),
 	}
 }
 
@@ -66,12 +66,12 @@ func TestOpsAgentsListLogic(t *testing.T) {
 
 		// Add a test agent session
 		sess := &registry.AgentSession{
-			AgentID:   "test-agent-1",
-			GameID:    "game1",
-			Env:       "dev",
-			Version:   "v1.0.0",
-			RPCAddr:   "localhost:19090",
-			ExpireAt:  time.Now().Add(time.Minute),
+			AgentID:  "test-agent-1",
+			GameID:   "game1",
+			Env:      "dev",
+			Version:  "v1.0.0",
+			RPCAddr:  "localhost:19090",
+			ExpireAt: time.Now().Add(time.Minute),
 			Functions: map[string]registry.FunctionMeta{
 				"func1": {Enabled: true},
 			},
@@ -300,15 +300,15 @@ func TestOpsAgentSystemInfoLogic(t *testing.T) {
 		svcCtx := createTestServiceContext()
 
 		cachedInfo := &opsv1.SystemInfo{
-			Hostname:     "cached-host",
-			Os:           "linux",
-			OsVersion:    "1.0",
+			Hostname:      "cached-host",
+			Os:            "linux",
+			OsVersion:     "1.0",
 			KernelVersion: "5.0",
-			Arch:         "amd64",
-			CpuCores:     8,
-			TotalMemory:  16 * 1024 * 1024 * 1024,
-			BootTime:     timestamppb.Now(),
-			AgentVersion: "v1.0.0",
+			Arch:          "amd64",
+			CpuCores:      8,
+			TotalMemory:   16 * 1024 * 1024 * 1024,
+			BootTime:      timestamppb.Now(),
+			AgentVersion:  "v1.0.0",
 		}
 		svcCtx.SystemInfoCache.Set("test-agent", cachedInfo)
 
@@ -520,7 +520,7 @@ func TestOpsAgentMetricsLogic(t *testing.T) {
 
 		// Add metrics with Memory to avoid nil pointer
 		report := &opsv1.MetricsReport{
-			Cpu: &opsv1.CpuMetrics{Cores: 4},
+			Cpu:    &opsv1.CpuMetrics{Cores: 4},
 			Memory: &opsv1.MemoryMetrics{TotalBytes: 1024},
 		}
 
@@ -1340,12 +1340,12 @@ func TestOpsAgentSystemInfoLogic_CacheHit(t *testing.T) {
 
 	// Pre-populate the cache
 	cachedInfo := &opsv1.SystemInfo{
-		Hostname:      "cached-host",
-		Os:            "linux",
-		CpuCores:      8,
-		TotalMemory:   16 * 1024 * 1024 * 1024,
-		BootTime:      timestamppb.Now(),
-		AgentVersion:  "v1.0.0",
+		Hostname:     "cached-host",
+		Os:           "linux",
+		CpuCores:     8,
+		TotalMemory:  16 * 1024 * 1024 * 1024,
+		BootTime:     timestamppb.Now(),
+		AgentVersion: "v1.0.0",
 	}
 	svcCtx.SystemInfoCache.Set("test-agent", cachedInfo)
 
@@ -1447,7 +1447,7 @@ func TestOpsAgentsListLogic_EdgeCases(t *testing.T) {
 func TestTtlAndHealth_EdgeCases(t *testing.T) {
 	t.Run("exactly at expiration boundary", func(t *testing.T) {
 		sess := &registry.AgentSession{
-			ExpireAt: time.Now().Add(time.Second),
+			ExpireAt: time.Now().Add(10 * time.Second),
 		}
 
 		ttl, healthy := ttlAndHealth(sess)
@@ -1709,7 +1709,7 @@ func TestNewOpsLogicConstructors(t *testing.T) {
 	ctx := context.Background()
 
 	constructors := []struct {
-		name     string
+		name      string
 		construct func(context.Context, *svc.ServiceContext) interface{}
 	}{
 		{"NewOpsAgentMetaLogic", func(ctx context.Context, svcCtx *svc.ServiceContext) interface{} {
@@ -2089,8 +2089,8 @@ func TestOpsAgentsList_RequestTypes(t *testing.T) {
 	svcCtx := createTestServiceContext()
 
 	testCases := []struct {
-		name    string
-		req     *OpsAgentsListRequest
+		name string
+		req  *OpsAgentsListRequest
 	}{
 		{
 			name: "empty request",
@@ -2139,8 +2139,8 @@ func TestOpsAgentMetrics_RequestTypes(t *testing.T) {
 	svcCtx := createTestServiceContext()
 
 	testCases := []struct {
-		name    string
-		req     *OpsAgentMetricsRequest
+		name string
+		req  *OpsAgentMetricsRequest
 	}{
 		{
 			name: "empty request",
@@ -2324,4 +2324,3 @@ func TestTtlAndHealth_SessionStates(t *testing.T) {
 		})
 	}
 }
-

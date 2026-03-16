@@ -2687,10 +2687,10 @@ func TestFunctionModel_BatchCopyFunctions_Empty(t *testing.T) {
 
 func TestPaginationOptions_Normalize(t *testing.T) {
 	tests := []struct {
-		name          string
-		opts          PaginationOptions
-		expectedPage  int
-		expectedSize  int
+		name         string
+		opts         PaginationOptions
+		expectedPage int
+		expectedSize int
 	}{
 		{"default values", PaginationOptions{}, 1, 20},
 		{"negative page", PaginationOptions{Page: -1, PageSize: 10}, 1, 10},
@@ -2713,9 +2713,9 @@ func TestPaginationOptions_Normalize(t *testing.T) {
 
 func TestPaginationOptions_Offset(t *testing.T) {
 	tests := []struct {
-		name          string
-		opts          PaginationOptions
-		expected      int
+		name     string
+		opts     PaginationOptions
+		expected int
 	}{
 		{"page 1", PaginationOptions{Page: 1, PageSize: 10}, 0},
 		{"page 2", PaginationOptions{Page: 2, PageSize: 10}, 10},
