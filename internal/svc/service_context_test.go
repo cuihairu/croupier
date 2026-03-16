@@ -24,7 +24,9 @@ import (
 
 // Helper function to create an in-memory SQLite database for testing
 func setupTestDB(t *testing.T) *gorm.DB {
-	db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	// Use a unique in-memory database for each test to avoid conflicts in parallel tests
+	// Mode=memory creates a separate in-memory database for each connection
+	db, err := gorm.Open(gsqlite.Open("file::memory:?mode=memory"), &gorm.Config{})
 	require.NoError(t, err)
 	return db
 }
@@ -1148,6 +1150,13 @@ func TestEnsureSQLiteDir(t *testing.T) {
 
 	t.Run("sqlite:// prefix", func(t *testing.T) {
 		t.Parallel()
+
+		// Skip on Windows where "sqlite:" contains invalid colon character for directory names
+		// The ensureSQLiteDir function tries to create a directory from the path,
+		// and Windows doesn't allow colons in directory names (except for drive letters)
+		if filepath.Separator == '\\' {
+			t.Skip("skipping on Windows due to invalid colon character in directory name")
+		}
 
 		tmpDir := t.TempDir()
 		dbPath := "sqlite://" + tmpDir + "/test.db"

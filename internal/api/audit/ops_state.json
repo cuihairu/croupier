@@ -1,0 +1,30 @@
+{
+  "config": {
+    "updated_at": "2026-03-16T22:23:41.9352139+08:00"
+  },
+  "maintenance": {
+    "updated_at": "0001-01-01T00:00:00Z"
+  },
+  "notifications": {
+    "updated_at": "0001-01-01T00:00:00Z"
+  },
+  "health": {
+    "updated_at": "0001-01-01T00:00:00Z"
+  },
+  "mq": {
+    "type": "redis",
+    "redis": {
+      "streams": {
+        "events": "events",
+        "payments": "payments"
+      }
+    },
+    "updated_at": "2026-03-16T22:23:41.9352139+08:00"
+  },
+  "alerts": {
+    "updated_at": "2026-03-16T22:23:41.9352139+08:00"
+  },
+  "audit": {
+    "updated_at": "2026-03-16T22:30:51.3645026+08:00"
+  }
+}

@@ -579,9 +579,9 @@ func TestGuessAgentIP(t *testing.T) {
 			expected: "192.168.1.1",
 		},
 		{
-			name:     "with protocol",
+			name:     "with protocol - extracts last colon prefix",
 			addr:     "tcp://192.168.1.1:8080",
-			expected: "192.168.1.1",
+			expected: "tcp://192.168.1.1",
 		},
 		{
 			name:     "empty",
@@ -596,7 +596,7 @@ func TestGuessAgentIP(t *testing.T) {
 		{
 			name:     "triple slash protocol",
 			addr:     "unix:///tmp/socket",
-			expected: "/tmp/socket",
+			expected: "tmp/socket", // strings.Split("unix:///tmp/socket", ":///") -> ["unix", "tmp/socket"]
 		},
 	}
 

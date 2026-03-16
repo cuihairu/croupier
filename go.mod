@@ -49,6 +49,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.65.0
 	golang.org/x/time v0.14.0
 	google.golang.org/grpc v1.78.0
+	gorm.io/driver/sqlite v1.6.0
 )
 
 require (

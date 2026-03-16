@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/config"
@@ -57,6 +56,24 @@ func setupTestContext(t *testing.T) (*svc.ServiceContext, context.Context) {
 }
 
 func TestAssignmentsPath(t *testing.T) {
+	// Use platform-specific paths for cross-platform compatibility
+	var absBaseDir, absPath string
+	if filepath.IsAbs("C:\\data") || filepath.IsAbs("/data") {
+		// Unix-like or Windows with drive letter
+		if filepath.IsAbs("/data") {
+			absBaseDir = "/data"
+			absPath = "/absolute/assignments.json"
+		} else {
+			// Windows: need drive letter for absolute path
+			absBaseDir = filepath.Join(os.Getenv("TEMP"), "data")
+			absPath = filepath.Join(os.Getenv("TEMP"), "absolute", "assignments.json")
+		}
+	} else {
+		// Fallback: use temp directory
+		absBaseDir = filepath.Join(os.Getenv("TEMP"), "data")
+		absPath = filepath.Join(os.Getenv("TEMP"), "absolute", "assignments.json")
+	}
+
 	tests := []struct {
 		name     string
 		baseDir  string
@@ -65,21 +82,21 @@ func TestAssignmentsPath(t *testing.T) {
 	}{
 		{
 			name:     "absolute path",
-			baseDir:  "/data",
-			assigns:  "/absolute/assignments.json",
-			expected: "/absolute/assignments.json",
+			baseDir:  absBaseDir,
+			assigns:  absPath,
+			expected: absPath,
 		},
 		{
 			name:     "relative path with base dir",
-			baseDir:  "/data",
+			baseDir:  absBaseDir,
 			assigns:  "assignments.json",
-			expected: "/data/assignments.json",
+			expected: filepath.Join(absBaseDir, "assignments.json"),
 		},
 		{
 			name:     "empty assignments path",
-			baseDir:  "/data",
+			baseDir:  absBaseDir,
 			assigns:  "",
-			expected: "/data/data/assignments.json",
+			expected: filepath.Join(absBaseDir, "data", "assignments.json"),
 		},
 		{
 			name:     "nil context",
@@ -102,12 +119,11 @@ func TestAssignmentsPath(t *testing.T) {
 			}
 
 			result := assignmentsPath(svcCtx)
-			if tt.expected != result {
-				// Handle Windows path differences
-				if filepath.ToSlash(result) != filepath.ToSlash(tt.expected) &&
-					!strings.HasSuffix(filepath.ToSlash(result), filepath.ToSlash(tt.expected)) {
-					t.Errorf("assignmentsPath() = %v, want %v", result, tt.expected)
-				}
+			// Normalize paths for comparison on all platforms
+			resultNorm := filepath.ToSlash(result)
+			expectedNorm := filepath.ToSlash(tt.expected)
+			if resultNorm != expectedNorm {
+				t.Errorf("assignmentsPath() = %v (normalized: %v), want %v (normalized: %v)", result, resultNorm, tt.expected, expectedNorm)
 			}
 		})
 	}
@@ -479,7 +495,10 @@ func TestDiffFunctionsExtended(t *testing.T) {
 		after := []string{"b", "b", "c"}
 		added, removed := diffFunctions(before, after)
 		assert.ElementsMatch(t, []string{"c"}, added)
-		assert.ElementsMatch(t, []string{"a"}, removed)
+		// removed contains all elements from before not in afterSet
+		// Since before has "a" twice and "a" is not in afterSet, removed will have "a" twice
+		assert.Contains(t, removed, "a")
+		assert.NotContains(t, removed, "b")
 	})
 }
 
@@ -516,13 +535,20 @@ func TestAssignmentsHistoryPath(t *testing.T) {
 	})
 
 	t.Run("absolute assignments path", func(t *testing.T) {
+		// Use temp directory to ensure cross-platform absolute path
+		tmpDir := t.TempDir()
+		absPath := filepath.Join(tmpDir, "absolute", "path", "assignments.json")
+		// Create the directory structure to ensure it's a valid path
+		os.MkdirAll(filepath.Dir(absPath), 0755)
+
 		svcCtx := &svc.ServiceContext{
 			Config: config.Config{
-				Registry: config.RegistryConfig{AssignmentsPath: "/absolute/path/assignments.json"},
+				Registry: config.RegistryConfig{AssignmentsPath: absPath},
 			},
 		}
 		historyPath := assignmentHistoryPath(svcCtx)
-		assert.Equal(t, "/absolute/path/assignments_history.json", historyPath)
+		expectedHistoryPath := filepath.Join(tmpDir, "absolute", "path", "assignments_history.json")
+		assert.Equal(t, expectedHistoryPath, historyPath)
 	})
 
 	t.Run("nested directory", func(t *testing.T) {

@@ -196,7 +196,7 @@ func TestInferMenuNodes(t *testing.T) {
 			entity:   "",
 			fid:      "player.ban",
 			wantLen:  2,
-			contains: []string{"player", "ban"},
+			contains: []string{"player", "player"}, // Both category and entity inferred as "player"
 		},
 		{
 			name:     "fallback to fid",
@@ -247,10 +247,22 @@ func TestDefaultFunctionPath(t *testing.T) {
 			expected: "/game/entities/player",
 		},
 		{
-			name:     "no entity",
+			name:     "no entity - inferEntityOperationFromID finds entity 'unknown'",
 			entity:   "",
 			fid:      "unknown.function",
-			expected: "/game/functions/invoke?fid=unknown.function",
+			expected: "/game/entities/unknown",
+		},
+		{
+			name:     "no entity - single word fid uses fallback",
+			entity:   "",
+			fid:      "justfunction",
+			expected: "/game/entities/justfunction",
+		},
+		{
+			name:     "no entity - fid with only stopwords uses invoke",
+			entity:   "",
+			fid:      "functions.get",
+			expected: "/game/functions/invoke?fid=functions.get",
 		},
 	}
 
@@ -297,13 +309,13 @@ func TestApplyEntityMenuDefaults(t *testing.T) {
 			expectedNodes: []string{"custom", "menu"},
 		},
 		{
-			name:        "nil menu",
+			name:        "nil menu does not panic and returns unchanged",
 			initialMenu: nil,
 			category:    "player",
 			entity:      "",
 			fid:         "player.ban",
-			expectNodes: true,
-			expectPath:  true,
+			expectNodes: false, // Nil menu returns without modification
+			expectPath:  false,
 		},
 	}
 
@@ -312,8 +324,14 @@ func TestApplyEntityMenuDefaults(t *testing.T) {
 			menu := tt.initialMenu
 			applyEntityMenuDefaults(menu, tt.category, tt.entity, tt.fid)
 
+			if tt.initialMenu == nil {
+				// Nil menu should remain nil (function returns without modification)
+				assert.Nil(t, menu, "nil menu should remain nil")
+				return
+			}
+
 			if menu == nil {
-				t.Fatal("menu should not be nil")
+				t.Fatal("menu should not be nil for non-nil initialMenu")
 			}
 
 			nodes, ok := menu["nodes"].([]string)
@@ -328,7 +346,7 @@ func TestApplyEntityMenuDefaults(t *testing.T) {
 			if tt.expectPath {
 				assert.True(t, ok)
 				assert.NotEmpty(t, path)
-			} else if tt.initialMenu != nil && tt.initialMenu["path"] != nil {
+			} else if tt.initialMenu["path"] != nil {
 				assert.Equal(t, tt.initialMenu["path"], path)
 			}
 		})

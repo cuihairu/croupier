@@ -141,7 +141,7 @@ func (s *ServiceContext) GetPermissionCached(ctx context.Context, permissionID s
 
 	var perm model.Permission
 	if err := s.cachedFetch(ctx, cache.PermissionCacheKey(normalized), &perm, func() (interface{}, error) {
-		return s.PermissionModel.FindOne(ctx, permissionID)
+		return s.PermissionModel.FindOne(ctx, normalized)
 	}); err != nil {
 		return nil, err
 	}

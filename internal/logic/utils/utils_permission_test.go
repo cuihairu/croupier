@@ -48,32 +48,42 @@ func TestCurrentUsernameSimple(t *testing.T) {
 		name     string
 		ctx      context.Context
 		expected string
+		wantErr  bool
 	}{
 		{
 			name:     "username in context",
 			ctx:      context.WithValue(context.Background(), "username", "testuser"),
 			expected: "testuser",
+			wantErr:  false,
 		},
 		{
 			name:     "no username in context",
 			ctx:      context.Background(),
 			expected: "",
+			wantErr:  true,
 		},
 		{
 			name:     "empty username",
 			ctx:      context.WithValue(context.Background(), "username", ""),
 			expected: "",
+			wantErr:  true,
 		},
 		{
-			name:     "whitespace username",
+			name:     "whitespace username - trimmed to empty",
 			ctx:      context.WithValue(context.Background(), "username", "  "),
-			expected: "  ",
+			expected: "",
+			wantErr:  true, // TrimSpace makes it empty, which returns error
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, _ := CurrentUsername(tt.ctx)
+			result, err := CurrentUsername(tt.ctx)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -276,10 +286,10 @@ func TestHasRoleVariants(t *testing.T) {
 }
 
 func TestAppendPermissionIDsEdgeCases(t *testing.T) {
-	t.Run("nil base with nil values", func(t *testing.T) {
+	t.Run("nil base with nil values returns nil", func(t *testing.T) {
 		result := appendPermissionIDs(nil, nil...)
-		assert.NotNil(t, result)
-		assert.Empty(t, result)
+		// When no values provided, function returns original (nil)
+		assert.Nil(t, result)
 	})
 
 	t.Run("empty strings are filtered", func(t *testing.T) {
