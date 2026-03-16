@@ -5,9 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -38,6 +40,26 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&FunctionInstance{},
 		&FunctionPermission{},
 		&PendingFunction{},
+		&Alert{},
+		&AlertSilence{},
+		&AgentSessionDB{},
+		&Message{},
+		&Node{},
+		&NodeCommand{},
+		&Ticket{},
+		&TicketComment{},
+		&Feedback{},
+		&FAQ{},
+		&FAQCategory{},
+		&Backup{},
+		&Certificate{},
+		&CertificateAlert{},
+		&ConfigVersion{},
+		&ProfilePermission{},
+		&ProfileGame{},
+		&RateLimit{},
+		&TermDictionary{},
+		&WorkspaceConfig{},
 	)
 	require.NoError(t, err)
 
@@ -2775,4 +2797,2803 @@ func TestNowUTC(t *testing.T) {
 	now := NowUTC()
 	assert.False(t, now.IsZero())
 	assert.WithinDuration(t, time.Now().UTC(), now, time.Second)
+}
+
+// ===== AlertModel Tests =====
+
+func setupAlertTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	err = db.AutoMigrate(&Alert{}, &AlertSilence{})
+	require.NoError(t, err)
+	return db
+}
+
+func TestNewAlertModel(t *testing.T) {
+	db := setupAlertTestDB(t)
+	model := NewAlertModel(db)
+	assert.NotNil(t, model)
+}
+
+func TestAlertModel_Create(t *testing.T) {
+	db := setupAlertTestDB(t)
+	model := NewAlertModel(db)
+	ctx := context.Background()
+
+	alert := &Alert{
+		AlertID: "test-alert-001",
+		Type:    "system",
+		Level:   "warning",
+		Message: "Test alert message",
+		Source:  "test",
+		Status:  "active",
+	}
+
+	err := model.Create(ctx, alert)
+	require.NoError(t, err)
+	assert.NotZero(t, alert.ID)
+}
+
+func TestAlertModel_FindByAlertID(t *testing.T) {
+	db := setupAlertTestDB(t)
+	model := NewAlertModel(db)
+	ctx := context.Background()
+
+	// Create test alert
+	alert := &Alert{
+		AlertID: "test-find-alert",
+		Type:    "system",
+		Level:   "error",
+		Message: "Find test alert",
+		Source:  "test",
+		Status:  "active",
+	}
+	err := model.Create(ctx, alert)
+	require.NoError(t, err)
+
+	// Test finding existing alert
+	found, err := model.FindByAlertID(ctx, "test-find-alert")
+	require.NoError(t, err)
+	assert.Equal(t, alert.AlertID, found.AlertID)
+	assert.Equal(t, alert.Message, found.Message)
+
+	// Test finding non-existent alert
+	_, err = model.FindByAlertID(ctx, "non-existent")
+	assert.Error(t, err)
+
+	// Test empty alert ID
+	_, err = model.FindByAlertID(ctx, "")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "alert_id is required")
+}
+
+func TestAlertModel_UpdateStatus(t *testing.T) {
+	db := setupAlertTestDB(t)
+	model := NewAlertModel(db)
+	ctx := context.Background()
+
+	alert := &Alert{
+		AlertID: "test-update-alert",
+		Type:    "system",
+		Level:   "warning",
+		Message: "Update status test",
+		Source:  "test",
+		Status:  "active",
+	}
+	err := model.Create(ctx, alert)
+	require.NoError(t, err)
+
+	// Update status
+	err = model.UpdateStatus(ctx, alert.ID, "resolved")
+	require.NoError(t, err)
+
+	// Verify update
+	found, err := model.FindByAlertID(ctx, "test-update-alert")
+	require.NoError(t, err)
+	assert.Equal(t, "resolved", found.Status)
+}
+
+func TestAlertModel_List(t *testing.T) {
+	db := setupAlertTestDB(t)
+	model := NewAlertModel(db)
+	ctx := context.Background()
+
+	// Create test alerts with different levels
+	alerts := []*Alert{
+		{AlertID: "list-001", Type: "system", Level: "error", Message: "Error message", Source: "test", Status: "active"},
+		{AlertID: "list-002", Type: "system", Level: "warning", Message: "Warning message", Source: "test", Status: "active"},
+		{AlertID: "list-003", Type: "system", Level: "info", Message: "Info message", Source: "test", Status: "resolved"},
+	}
+	for _, a := range alerts {
+		err := model.Create(ctx, a)
+		require.NoError(t, err)
+	}
+
+	// Test list all
+	items, total, err := model.List(ctx, ListAlertsOptions{})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(3))
+	assert.GreaterOrEqual(t, len(items), 3)
+
+	// Test filter by level
+	items, total, err = model.List(ctx, ListAlertsOptions{Level: "error"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(1))
+
+	// Test filter by status
+	items, total, err = model.List(ctx, ListAlertsOptions{Status: "resolved"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(1))
+}
+
+func TestAlertModel_CreateSilence(t *testing.T) {
+	db := setupAlertTestDB(t)
+	model := NewAlertModel(db)
+	ctx := context.Background()
+
+	silence := &AlertSilence{
+		AlertID:        1,
+		Reason:         "Testing silence",
+		DurationMinute: 60,
+		CreatedBy:      "test-user",
+	}
+
+	err := model.CreateSilence(ctx, silence)
+	require.NoError(t, err)
+	assert.NotZero(t, silence.ID)
+	assert.False(t, silence.ExpiresAt.IsZero())
+}
+
+func TestAlertModel_ListSilences(t *testing.T) {
+	db := setupAlertTestDB(t)
+	model := NewAlertModel(db)
+	ctx := context.Background()
+
+	// Create test silences
+	silence1 := &AlertSilence{
+		AlertID:        1,
+		Reason:         "Active silence",
+		DurationMinute: 60,
+		CreatedBy:      "test-user",
+	}
+	silence2 := &AlertSilence{
+		AlertID:        2,
+		Reason:         "Expired silence",
+		DurationMinute: 0, // Don't auto-calculate
+		ExpiresAt:      time.Now().UTC().Add(-1 * time.Hour),
+		CreatedBy:      "test-user",
+	}
+	err := model.CreateSilence(ctx, silence1)
+	require.NoError(t, err)
+	err = model.CreateSilence(ctx, silence2)
+	require.NoError(t, err)
+
+	// Verify silence2 is actually expired
+	var checkSilence AlertSilence
+	db.First(&checkSilence, silence2.ID)
+	assert.True(t, checkSilence.ExpiresAt.Before(NowUTC()))
+
+	// Test list all
+	silences, err := model.ListSilences(ctx, ListSilencesOptions{})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(silences), 2)
+
+	// Test active only - should only get silence1 (the non-expired one)
+	active, err := model.ListSilences(ctx, ListSilencesOptions{ActiveOnly: true})
+	require.NoError(t, err)
+	// All active silences should have future expiration times
+	for _, s := range active {
+		assert.True(t, s.ExpiresAt.After(NowUTC().Add(-time.Minute)), "Active silence should not be expired")
+	}
+	// We should have at least silence1 in the active list
+	foundActive := false
+	for _, s := range active {
+		if s.ID == silence1.ID {
+			foundActive = true
+			break
+		}
+	}
+	assert.True(t, foundActive, "Active silence should be in the list")
+}
+
+func TestAlertModel_DeleteSilence(t *testing.T) {
+	db := setupAlertTestDB(t)
+	model := NewAlertModel(db)
+	ctx := context.Background()
+
+	silence := &AlertSilence{
+		AlertID:        1,
+		Reason:         "To be deleted",
+		DurationMinute: 60,
+		CreatedBy:      "test-user",
+	}
+	err := model.CreateSilence(ctx, silence)
+	require.NoError(t, err)
+
+	// Delete silence
+	err = model.DeleteSilence(ctx, silence.ID)
+	require.NoError(t, err)
+
+	// Verify deletion
+	var count int64
+	db.Model(&AlertSilence{}).Where("id = ?", silence.ID).Count(&count)
+	assert.Equal(t, int64(0), count)
+}
+
+func TestAlertModel_BootstrapAlerts(t *testing.T) {
+	db := setupAlertTestDB(t)
+	model := NewAlertModel(db)
+	ctx := context.Background()
+
+	alerts := []Alert{
+		{AlertID: "boot-001", Type: "system", Level: "error", Message: "Bootstrap 1", Source: "test", Status: "active"},
+		{AlertID: "boot-002", Type: "system", Level: "warning", Message: "Bootstrap 2", Source: "test", Status: "active"},
+	}
+
+	// First bootstrap should create
+	err := model.BootstrapAlerts(ctx, alerts)
+	require.NoError(t, err)
+
+	var count int64
+	db.Model(&Alert{}).Where("alert_id IN ?", []string{"boot-001", "boot-002"}).Count(&count)
+	assert.Equal(t, int64(2), count)
+
+	// Second bootstrap should skip existing
+	err = model.BootstrapAlerts(ctx, alerts)
+	require.NoError(t, err)
+
+	db.Model(&Alert{}).Where("alert_id IN ?", []string{"boot-001", "boot-002"}).Count(&count)
+	assert.Equal(t, int64(2), count) // No duplicates
+}
+
+func TestAlertModel_PruneExpiredSilences(t *testing.T) {
+	db := setupAlertTestDB(t)
+	model := NewAlertModel(db)
+	ctx := context.Background()
+
+	// Create expired silence (DurationMinute=0 so ExpiresAt is not overridden)
+	expiredTime := time.Now().UTC().Add(-1 * time.Hour)
+	expired := &AlertSilence{
+		AlertID:        1,
+		Reason:         "Expired",
+		DurationMinute: 0, // Don't auto-calculate ExpiresAt
+		ExpiresAt:      expiredTime,
+		CreatedBy:      "test-user",
+	}
+	err := model.CreateSilence(ctx, expired)
+	require.NoError(t, err)
+
+	// Verify it was created with the expired time
+	var createdAlertSilence AlertSilence
+	db.First(&createdAlertSilence, expired.ID)
+	assert.True(t, createdAlertSilence.ExpiresAt.Before(time.Now().UTC()))
+
+	// Prune
+	err = model.PruneExpiredSilences(ctx)
+	require.NoError(t, err)
+
+	// Verify the specific expired silence was pruned
+	var count int64
+	db.Model(&AlertSilence{}).Where("id = ?", expired.ID).Count(&count)
+	assert.Equal(t, int64(0), count)
+}
+
+func TestAlertModel_FindByIDs(t *testing.T) {
+	db := setupAlertTestDB(t)
+	model := NewAlertModel(db)
+	ctx := context.Background()
+
+	// Create test alerts
+	alert1 := &Alert{AlertID: "findbyid-001", Type: "system", Level: "error", Message: "Alert 1", Source: "test", Status: "active"}
+	alert2 := &Alert{AlertID: "findbyid-002", Type: "system", Level: "warning", Message: "Alert 2", Source: "test", Status: "active"}
+	err := model.Create(ctx, alert1)
+	require.NoError(t, err)
+	err = model.Create(ctx, alert2)
+	require.NoError(t, err)
+
+	// Find by IDs
+	result, err := model.FindByIDs(ctx, []uint{alert1.ID, alert2.ID})
+	require.NoError(t, err)
+	assert.Len(t, result, 2)
+	assert.Equal(t, alert1.AlertID, result[alert1.ID].AlertID)
+	assert.Equal(t, alert2.AlertID, result[alert2.ID].AlertID)
+
+	// Empty slice
+	result, err = model.FindByIDs(ctx, []uint{})
+	require.NoError(t, err)
+	assert.Empty(t, result)
+}
+
+// ===== MessageModel Tests =====
+
+func setupMessageTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	err = db.AutoMigrate(&Message{})
+	require.NoError(t, err)
+	return db
+}
+
+func TestNewMessageModel(t *testing.T) {
+	db := setupMessageTestDB(t)
+	model := NewMessageModel(db)
+	assert.NotNil(t, model)
+}
+
+func TestMessageModel_Create(t *testing.T) {
+	db := setupMessageTestDB(t)
+	model := NewMessageModel(db)
+	ctx := context.Background()
+
+	msg := &Message{
+		To:      "user@example.com",
+		Type:    "notification",
+		Title:   "Test Message",
+		Content: "Test content",
+		Status:  "unread",
+	}
+
+	err := model.Create(ctx, msg)
+	require.NoError(t, err)
+	assert.NotZero(t, msg.ID)
+}
+
+func TestMessageModel_FindOne(t *testing.T) {
+	db := setupMessageTestDB(t)
+	model := NewMessageModel(db)
+	ctx := context.Background()
+
+	msg := &Message{
+		To:      "user@example.com",
+		Type:    "notification",
+		Title:   "Find Test",
+		Content: "Find test content",
+		Status:  "unread",
+	}
+	err := model.Create(ctx, msg)
+	require.NoError(t, err)
+
+	// Find existing
+	found, err := model.FindOne(ctx, msg.ID)
+	require.NoError(t, err)
+	assert.Equal(t, msg.Title, found.Title)
+
+	// Find non-existent
+	_, err = model.FindOne(ctx, 99999)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "message not found")
+}
+
+func TestMessageModel_List(t *testing.T) {
+	db := setupMessageTestDB(t)
+	model := NewMessageModel(db)
+	ctx := context.Background()
+
+	// Create test messages
+	messages := []*Message{
+		{To: "user1@example.com", Type: "notification", Title: "Msg 1", Content: "Content 1", Status: "unread"},
+		{To: "user1@example.com", Type: "alert", Title: "Msg 2", Content: "Content 2", Status: "read"},
+		{To: "user2@example.com", Type: "notification", Title: "Msg 3", Content: "Content 3", Status: "unread"},
+	}
+	for _, m := range messages {
+		err := model.Create(ctx, m)
+		require.NoError(t, err)
+	}
+
+	// Test list all
+	_, total, err := model.List(ctx, ListMessagesOptions{})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(3))
+
+	// Test filter by type
+	items, total, err := model.List(ctx, ListMessagesOptions{Type: "notification"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(2))
+	_ = items // items is used for verification
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(2))
+
+	// Test filter by status
+	items, total, err = model.List(ctx, ListMessagesOptions{Status: "unread"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(2))
+
+	// Test filter by recipient
+	items, total, err = model.List(ctx, ListMessagesOptions{To: "user1@example.com"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(2))
+}
+
+func TestMessageModel_MarkRead(t *testing.T) {
+	db := setupMessageTestDB(t)
+	model := NewMessageModel(db)
+	ctx := context.Background()
+
+	msg := &Message{
+		To:      "user@example.com",
+		Type:    "notification",
+		Title:   "Mark Read Test",
+		Content: "Content",
+		Status:  "unread",
+	}
+	err := model.Create(ctx, msg)
+	require.NoError(t, err)
+
+	// Mark as read
+	err = model.MarkRead(ctx, msg.ID)
+	require.NoError(t, err)
+
+	// Verify
+	found, err := model.FindOne(ctx, msg.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "read", found.Status)
+	assert.NotNil(t, found.ReadAt)
+}
+
+func TestMessageModel_CountUnread(t *testing.T) {
+	db := setupMessageTestDB(t)
+	model := NewMessageModel(db)
+	ctx := context.Background()
+
+	// Create messages with unique recipient
+	messages := []*Message{
+		{To: "countuser@example.com", Type: "notification", Title: "Unread 1", Content: "Content", Status: "unread"},
+		{To: "countuser@example.com", Type: "notification", Title: "Unread 2", Content: "Content", Status: "unread"},
+		{To: "countuser@example.com", Type: "notification", Title: "Read", Content: "Content", Status: "read"},
+	}
+	for _, m := range messages {
+		err := model.Create(ctx, m)
+		require.NoError(t, err)
+	}
+
+	// Count unread for user
+	count, err := model.CountUnread(ctx, "countuser@example.com")
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), count)
+
+	// Count all unread (should be at least our 2)
+	count, err = model.CountUnread(ctx, "")
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, count, int64(2))
+}
+
+func TestMessageModel_Recent(t *testing.T) {
+	db := setupMessageTestDB(t)
+	model := NewMessageModel(db)
+	ctx := context.Background()
+
+	// Create messages
+	for i := 0; i < 5; i++ {
+		msg := &Message{
+			To:      "user@example.com",
+			Type:    "notification",
+			Title:   "Recent",
+			Content: "Content",
+			Status:  "unread",
+		}
+		err := model.Create(ctx, msg)
+		require.NoError(t, err)
+	}
+
+	// Get recent messages
+	recent, err := model.Recent(ctx, 3, "user@example.com")
+	require.NoError(t, err)
+	assert.LessOrEqual(t, len(recent), 3)
+}
+
+func TestEncodeData(t *testing.T) {
+	// Test encoding nil
+	data, err := EncodeData(nil)
+	require.NoError(t, err)
+	assert.Equal(t, datatypes.JSON([]byte("null")), data)
+
+	// Test encoding map
+	input := map[string]interface{}{"key": "value", "number": 123}
+	data, err = EncodeData(input)
+	require.NoError(t, err)
+	assert.NotEmpty(t, data)
+}
+
+// ===== NodeModel Tests =====
+
+func setupNodeTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	err = db.AutoMigrate(&Node{}, &NodeCommand{})
+	require.NoError(t, err)
+	return db
+}
+
+func TestNewNodeModel(t *testing.T) {
+	db := setupNodeTestDB(t)
+	model := NewNodeModel(db)
+	assert.NotNil(t, model)
+}
+
+func TestNodeModel_Upsert(t *testing.T) {
+	db := setupNodeTestDB(t)
+	model := NewNodeModel(db)
+	ctx := context.Background()
+
+	node := &Node{
+		NodeID: "node-001",
+		Name:   "Test Node",
+		Type:   "agent",
+		Status: "active",
+		IP:     "192.168.1.1",
+		Port:   8080,
+	}
+
+	err := model.Upsert(ctx, node)
+	require.NoError(t, err)
+	assert.NotZero(t, node.ID)
+
+	// Update via upsert
+	node.Status = "offline"
+	err = model.Upsert(ctx, node)
+	require.NoError(t, err)
+}
+
+func TestNodeModel_List(t *testing.T) {
+	db := setupNodeTestDB(t)
+	model := NewNodeModel(db)
+	ctx := context.Background()
+
+	nodes := []*Node{
+		{NodeID: "node-list-1", Name: "Node 1", Type: "agent", Status: "active", IP: "192.168.1.1", Port: 8080},
+		{NodeID: "node-list-2", Name: "Node 2", Type: "server", Status: "active", IP: "192.168.1.2", Port: 8081},
+		{NodeID: "node-list-3", Name: "Node 3", Type: "agent", Status: "offline", IP: "192.168.1.3", Port: 8082},
+	}
+	for _, n := range nodes {
+		err := model.Upsert(ctx, n)
+		require.NoError(t, err)
+	}
+
+	// List all
+	all, err := model.List(ctx, ListNodesOptions{})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(all), 3)
+
+	// Filter by type
+	agents, err := model.List(ctx, ListNodesOptions{Type: "agent"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(agents), 2)
+
+	// Filter by status
+	active, err := model.List(ctx, ListNodesOptions{Status: "active"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(active), 2)
+}
+
+func TestNodeModel_UpdateMeta(t *testing.T) {
+	db := setupNodeTestDB(t)
+	model := NewNodeModel(db)
+	ctx := context.Background()
+
+	node := &Node{
+		NodeID: "node-meta-001",
+		Name:   "Meta Node",
+		Type:   "agent",
+		Status: "active",
+		IP:     "192.168.1.1",
+		Port:   8080,
+	}
+	err := model.Upsert(ctx, node)
+	require.NoError(t, err)
+
+	// Update metadata
+	updates := map[string]interface{}{
+		"name":   "Updated Node",
+		"status": "busy",
+	}
+	err = model.UpdateMeta(ctx, "node-meta-001", updates)
+	require.NoError(t, err)
+
+	// Verify
+	found, err := model.FindByNodeID(ctx, "node-meta-001")
+	require.NoError(t, err)
+	assert.Equal(t, "Updated Node", found.Name)
+	assert.Equal(t, "busy", found.Status)
+}
+
+func TestNodeModel_FindByNodeID(t *testing.T) {
+	db := setupNodeTestDB(t)
+	model := NewNodeModel(db)
+	ctx := context.Background()
+
+	node := &Node{
+		NodeID: "node-find-001",
+		Name:   "Find Node",
+		Type:   "agent",
+		Status: "active",
+		IP:     "192.168.1.1",
+		Port:   8080,
+	}
+	err := model.Upsert(ctx, node)
+	require.NoError(t, err)
+
+	// Find existing
+	found, err := model.FindByNodeID(ctx, "node-find-001")
+	require.NoError(t, err)
+	assert.Equal(t, "Find Node", found.Name)
+
+	// Find non-existent
+	_, err = model.FindByNodeID(ctx, "non-existent")
+	assert.Error(t, err)
+}
+
+func TestNodeModel_UpdateStatus(t *testing.T) {
+	db := setupNodeTestDB(t)
+	model := NewNodeModel(db)
+	ctx := context.Background()
+
+	node := &Node{
+		NodeID: "node-status-001",
+		Name:   "Status Node",
+		Type:   "agent",
+		Status: "active",
+		IP:     "192.168.1.1",
+		Port:   8080,
+	}
+	err := model.Upsert(ctx, node)
+	require.NoError(t, err)
+
+	// Update status
+	err = model.UpdateStatus(ctx, "node-status-001", "offline")
+	require.NoError(t, err)
+
+	// Verify
+	found, err := model.FindByNodeID(ctx, "node-status-001")
+	require.NoError(t, err)
+	assert.Equal(t, "offline", found.Status)
+}
+
+func TestNodeModel_ListCommands(t *testing.T) {
+	db := setupNodeTestDB(t)
+	model := NewNodeModel(db)
+	ctx := context.Background()
+
+	commands := []*NodeCommand{
+		{Name: "cmd1", Description: "Command 1"},
+		{Name: "cmd2", Description: "Command 2"},
+		{Name: "cmd3", Description: "Command 3"},
+	}
+	for _, cmd := range commands {
+		err := model.UpsertCommand(ctx, cmd)
+		require.NoError(t, err)
+	}
+
+	// List commands
+	list, err := model.ListCommands(ctx)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(list), 3)
+}
+
+func TestNodeModel_UpsertCommand(t *testing.T) {
+	db := setupNodeTestDB(t)
+	model := NewNodeModel(db)
+	ctx := context.Background()
+
+	cmd := &NodeCommand{
+		Name:        "test-command",
+		Description: "Test command description",
+	}
+
+	err := model.UpsertCommand(ctx, cmd)
+	require.NoError(t, err)
+	assert.NotZero(t, cmd.ID)
+
+	// Update via upsert
+	cmd.Description = "Updated description"
+	err = model.UpsertCommand(ctx, cmd)
+	require.NoError(t, err)
+}
+
+// ===== TicketModel Tests =====
+
+func setupTicketTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	err = db.AutoMigrate(&Ticket{}, &TicketComment{})
+	require.NoError(t, err)
+	return db
+}
+
+func TestNewTicketModel(t *testing.T) {
+	db := setupTicketTestDB(t)
+	model := NewTicketModel(db)
+	assert.NotNil(t, model)
+}
+
+func TestTicketModel_Create(t *testing.T) {
+	db := setupTicketTestDB(t)
+	model := NewTicketModel(db)
+	ctx := context.Background()
+
+	ticket := &Ticket{
+		Title:    "Test Ticket",
+		Content:  "Test ticket content",
+		Category: "bug",
+		Priority: "high",
+		Status:   "open",
+		Assignee: "admin",
+		GameID:   "game001",
+		Env:      "prod",
+	}
+
+	err := model.Create(ctx, ticket)
+	require.NoError(t, err)
+	assert.NotZero(t, ticket.ID)
+}
+
+func TestTicketModel_Update(t *testing.T) {
+	db := setupTicketTestDB(t)
+	model := NewTicketModel(db)
+	ctx := context.Background()
+
+	ticket := &Ticket{
+		Title:    "Update Test",
+		Content:  "Content",
+		Category: "bug",
+		Status:   "open",
+	}
+	err := model.Create(ctx, ticket)
+	require.NoError(t, err)
+
+	// Update
+	updates := map[string]interface{}{
+		"status":   "in_progress",
+		"assignee": "developer",
+	}
+	err = model.Update(ctx, ticket.ID, updates)
+	require.NoError(t, err)
+
+	// Verify
+	found, err := model.FindOne(ctx, ticket.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "in_progress", found.Status)
+	assert.Equal(t, "developer", found.Assignee)
+}
+
+func TestTicketModel_Delete(t *testing.T) {
+	db := setupTicketTestDB(t)
+	model := NewTicketModel(db)
+	ctx := context.Background()
+
+	ticket := &Ticket{
+		Title:    "Delete Test",
+		Content:  "Content",
+		Category: "bug",
+		Status:   "open",
+	}
+	err := model.Create(ctx, ticket)
+	require.NoError(t, err)
+
+	// Delete
+	err = model.Delete(ctx, ticket.ID)
+	require.NoError(t, err)
+
+	// Verify deletion
+	_, err = model.FindOne(ctx, ticket.ID)
+	assert.Error(t, err)
+}
+
+func TestTicketModel_FindOne(t *testing.T) {
+	db := setupTicketTestDB(t)
+	model := NewTicketModel(db)
+	ctx := context.Background()
+
+	ticket := &Ticket{
+		Title:    "Find One Test",
+		Content:  "Content",
+		Category: "bug",
+		Status:   "open",
+	}
+	err := model.Create(ctx, ticket)
+	require.NoError(t, err)
+
+	// Find existing
+	found, err := model.FindOne(ctx, ticket.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Find One Test", found.Title)
+
+	// Find non-existent
+	_, err = model.FindOne(ctx, 99999)
+	assert.Error(t, err)
+}
+
+func TestTicketModel_List(t *testing.T) {
+	db := setupTicketTestDB(t)
+	model := NewTicketModel(db)
+	ctx := context.Background()
+
+	tickets := []*Ticket{
+		{Title: "Ticket 1", Category: "bug", Priority: "high", Status: "open", Assignee: "admin"},
+		{Title: "Ticket 2", Category: "feature", Priority: "low", Status: "open", Assignee: "user"},
+		{Title: "Ticket 3", Category: "bug", Priority: "medium", Status: "closed", Assignee: "admin"},
+	}
+	for _, tkt := range tickets {
+		err := model.Create(ctx, tkt)
+		require.NoError(t, err)
+	}
+
+	// List all
+	_, total, err := model.List(ctx, TicketQueryOptions{})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(3))
+
+	// Filter by status
+	items, total, err := model.List(ctx, TicketQueryOptions{Status: "open"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(2))
+	_ = items // items is used for verification
+
+	// Filter by category
+	items, total, err = model.List(ctx, TicketQueryOptions{Category: "bug"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(2))
+
+	// Filter by assignee
+	items, total, err = model.List(ctx, TicketQueryOptions{Assignee: "admin"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(2))
+}
+
+func TestTicketModel_CreateComment(t *testing.T) {
+	db := setupTicketTestDB(t)
+	model := NewTicketModel(db)
+	ctx := context.Background()
+
+	ticket := &Ticket{
+		Title:    "Comment Test",
+		Content:  "Content",
+		Category: "bug",
+		Status:   "open",
+	}
+	err := model.Create(ctx, ticket)
+	require.NoError(t, err)
+
+	comment := &TicketComment{
+		TicketID: ticket.ID,
+		Author:   "admin",
+		Content:  "Test comment",
+	}
+
+	err = model.CreateComment(ctx, comment)
+	require.NoError(t, err)
+	assert.NotZero(t, comment.ID)
+}
+
+func TestTicketModel_ListComments(t *testing.T) {
+	db := setupTicketTestDB(t)
+	model := NewTicketModel(db)
+	ctx := context.Background()
+
+	ticket := &Ticket{
+		Title:    "List Comments Test",
+		Content:  "Content",
+		Category: "bug",
+		Status:   "open",
+	}
+	err := model.Create(ctx, ticket)
+	require.NoError(t, err)
+
+	comments := []*TicketComment{
+		{TicketID: ticket.ID, Author: "user1", Content: "First comment"},
+		{TicketID: ticket.ID, Author: "user2", Content: "Second comment"},
+	}
+	for _, c := range comments {
+		err := model.CreateComment(ctx, c)
+		require.NoError(t, err)
+	}
+
+	// List comments
+	list, err := model.ListComments(ctx, ticket.ID)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(list), 2)
+}
+
+// ===== FeedbackModel Tests =====
+
+func setupFeedbackTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	err = db.AutoMigrate(&Feedback{})
+	require.NoError(t, err)
+	return db
+}
+
+func TestNewFeedbackModel(t *testing.T) {
+	db := setupFeedbackTestDB(t)
+	model := NewFeedbackModel(db)
+	assert.NotNil(t, model)
+}
+
+func TestFeedbackModel_Create(t *testing.T) {
+	db := setupFeedbackTestDB(t)
+	model := NewFeedbackModel(db)
+	ctx := context.Background()
+
+	feedback := &Feedback{
+		PlayerID: "player001",
+		Contact:  "player@example.com",
+		Content:  "Great game!",
+		Category: "general",
+		Priority: "low",
+		Status:   "new",
+		Rating:   5,
+		GameID:   "game001",
+		Env:      "prod",
+	}
+
+	err := model.Create(ctx, feedback)
+	require.NoError(t, err)
+	assert.NotZero(t, feedback.ID)
+}
+
+func TestFeedbackModel_Update(t *testing.T) {
+	db := setupFeedbackTestDB(t)
+	model := NewFeedbackModel(db)
+	ctx := context.Background()
+
+	feedback := &Feedback{
+		PlayerID: "player001",
+		Content:  "Content",
+		Category: "bug",
+		Status:   "new",
+	}
+	err := model.Create(ctx, feedback)
+	require.NoError(t, err)
+
+	// Update
+	updates := map[string]interface{}{
+		"status": "reviewed",
+		"reply":  "Thank you for your feedback",
+	}
+	err = model.Update(ctx, feedback.ID, updates)
+	require.NoError(t, err)
+
+	// Verify
+	found, err := model.FindByID(ctx, feedback.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "reviewed", found.Status)
+	assert.Equal(t, "Thank you for your feedback", found.Reply)
+}
+
+func TestFeedbackModel_Delete(t *testing.T) {
+	db := setupFeedbackTestDB(t)
+	model := NewFeedbackModel(db)
+	ctx := context.Background()
+
+	feedback := &Feedback{
+		PlayerID: "player001",
+		Content:  "Content",
+		Category: "bug",
+		Status:   "new",
+	}
+	err := model.Create(ctx, feedback)
+	require.NoError(t, err)
+
+	// Delete
+	err = model.Delete(ctx, feedback.ID)
+	require.NoError(t, err)
+
+	// Verify
+	_, err = model.FindByID(ctx, feedback.ID)
+	assert.Error(t, err)
+}
+
+func TestFeedbackModel_FindByID(t *testing.T) {
+	db := setupFeedbackTestDB(t)
+	model := NewFeedbackModel(db)
+	ctx := context.Background()
+
+	feedback := &Feedback{
+		PlayerID: "player001",
+		Content:  "Find test",
+		Category: "bug",
+		Status:   "new",
+	}
+	err := model.Create(ctx, feedback)
+	require.NoError(t, err)
+
+	// Find existing
+	found, err := model.FindByID(ctx, feedback.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Find test", found.Content)
+
+	// Find non-existent
+	_, err = model.FindByID(ctx, 99999)
+	assert.Error(t, err)
+}
+
+func TestFeedbackModel_List(t *testing.T) {
+	db := setupFeedbackTestDB(t)
+	model := NewFeedbackModel(db)
+	ctx := context.Background()
+
+	feedbacks := []*Feedback{
+		{PlayerID: "p1", Content: "Content 1", Category: "bug", Status: "new", GameID: "game1", Env: "prod"},
+		{PlayerID: "p2", Content: "Content 2", Category: "feature", Status: "new", GameID: "game1", Env: "prod"},
+		{PlayerID: "p3", Content: "Content 3", Category: "bug", Status: "reviewed", GameID: "game2", Env: "test"},
+	}
+	for _, f := range feedbacks {
+		err := model.Create(ctx, f)
+		require.NoError(t, err)
+	}
+
+	// List all
+	_, total, err := model.List(ctx, ListFeedbackOptions{})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(3))
+
+	// Filter by game
+	items, total, err := model.List(ctx, ListFeedbackOptions{GameID: "game1"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(2))
+	_ = items // items is used for verification
+
+	// Filter by status
+	items, total, err = model.List(ctx, ListFeedbackOptions{Status: "new"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(2))
+
+	// Filter by category
+	items, total, err = model.List(ctx, ListFeedbackOptions{Category: "bug"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(2))
+
+	// Filter by keyword
+	items, total, err = model.List(ctx, ListFeedbackOptions{Keyword: "Content 1"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(1))
+}
+
+func TestFeedbackModel_Stats(t *testing.T) {
+	db := setupFeedbackTestDB(t)
+	model := NewFeedbackModel(db)
+	ctx := context.Background()
+
+	feedbacks := []*Feedback{
+		{PlayerID: "p1", Content: "Content 1", Category: "bug", Status: "new", Rating: 3},
+		{PlayerID: "p2", Content: "Content 2", Category: "bug", Status: "new", Rating: 4},
+		{PlayerID: "p3", Content: "Content 3", Category: "feature", Status: "reviewed", Rating: 5, Reply: "Thanks"},
+	}
+	for _, f := range feedbacks {
+		err := model.Create(ctx, f)
+		require.NoError(t, err)
+	}
+
+	// Get stats
+	stats, err := model.Stats(ctx, FeedbackStatsOptions{})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, stats.Total, int64(3))
+	assert.NotEmpty(t, stats.ByCategory)
+	assert.NotEmpty(t, stats.ByStatus)
+	assert.Greater(t, stats.AvgRating, 0.0)
+	assert.GreaterOrEqual(t, stats.Responded, int64(1)) // At least our 1 responded
+}
+
+// ===== FAQModel Tests =====
+
+func setupFAQTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	err = db.AutoMigrate(&FAQ{}, &FAQCategory{})
+	require.NoError(t, err)
+	return db
+}
+
+func TestNewFAQModel(t *testing.T) {
+	db := setupFAQTestDB(t)
+	model := NewFAQModel(db)
+	assert.NotNil(t, model)
+}
+
+func TestFAQModel_Create(t *testing.T) {
+	db := setupFAQTestDB(t)
+	model := NewFAQModel(db)
+	ctx := context.Background()
+
+	faq := &FAQ{
+		Question: "What is Croupier?",
+		Answer:   "Croupier is a distributed GM backend system.",
+		Category: "general",
+		Visible:  true,
+		Sort:     1,
+	}
+
+	err := model.Create(ctx, faq)
+	require.NoError(t, err)
+	assert.NotZero(t, faq.ID)
+}
+
+func TestFAQModel_Update(t *testing.T) {
+	db := setupFAQTestDB(t)
+	model := NewFAQModel(db)
+	ctx := context.Background()
+
+	faq := &FAQ{
+		Question: "Test Question",
+		Answer:   "Test Answer",
+		Category: "general",
+	}
+	err := model.Create(ctx, faq)
+	require.NoError(t, err)
+
+	// Update
+	updates := map[string]interface{}{
+		"question": "Updated Question",
+		"answer":   "Updated Answer",
+	}
+	err = model.Update(ctx, faq.ID, updates)
+	require.NoError(t, err)
+
+	// Verify
+	found, err := model.FindOne(ctx, faq.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Updated Question", found.Question)
+}
+
+func TestFAQModel_Delete(t *testing.T) {
+	db := setupFAQTestDB(t)
+	model := NewFAQModel(db)
+	ctx := context.Background()
+
+	faq := &FAQ{
+		Question: "Delete Test",
+		Answer:   "Answer",
+		Category: "general",
+	}
+	err := model.Create(ctx, faq)
+	require.NoError(t, err)
+
+	// Delete
+	err = model.Delete(ctx, faq.ID)
+	require.NoError(t, err)
+
+	// Verify
+	_, err = model.FindOne(ctx, faq.ID)
+	assert.Error(t, err)
+}
+
+func TestFAQModel_FindOne(t *testing.T) {
+	db := setupFAQTestDB(t)
+	model := NewFAQModel(db)
+	ctx := context.Background()
+
+	faq := &FAQ{
+		Question: "Find Test",
+		Answer:   "Answer",
+		Category: "general",
+	}
+	err := model.Create(ctx, faq)
+	require.NoError(t, err)
+
+	// Find existing
+	found, err := model.FindOne(ctx, faq.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Find Test", found.Question)
+
+	// Find non-existent
+	_, err = model.FindOne(ctx, 99999)
+	assert.Error(t, err)
+}
+
+func TestFAQModel_List(t *testing.T) {
+	db := setupFAQTestDB(t)
+	model := NewFAQModel(db)
+	ctx := context.Background()
+
+	faqs := []*FAQ{
+		{Question: "Q1", Answer: "A1", Category: "general", Visible: true, Sort: 1},
+		{Question: "Q2", Answer: "A2", Category: "technical", Visible: true, Sort: 2},
+		{Question: "Q3", Answer: "A3", Category: "general", Visible: false, Sort: 3},
+	}
+	for _, f := range faqs {
+		err := model.Create(ctx, f)
+		require.NoError(t, err)
+	}
+
+	// List all
+	_, total, err := model.List(ctx, ListFAQOptions{})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(3))
+
+	// Filter by category
+	items, total, err := model.List(ctx, ListFAQOptions{Category: "general"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(2))
+	_ = items // items is used for verification
+
+	// Filter by visible
+	visible := true
+	items, total, err = model.List(ctx, ListFAQOptions{Visible: &visible})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(2))
+
+	// Filter by keyword
+	items, total, err = model.List(ctx, ListFAQOptions{Keyword: "Q1"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(1))
+}
+
+func TestFAQModel_UpsertCategory(t *testing.T) {
+	db := setupFAQTestDB(t)
+	model := NewFAQModel(db)
+	ctx := context.Background()
+
+	category := &FAQCategory{
+		Name:        "Getting Started",
+		Description: "Help for new users",
+		Visible:     true,
+		Sort:        1,
+	}
+
+	err := model.UpsertCategory(ctx, category)
+	require.NoError(t, err)
+	assert.NotZero(t, category.ID)
+
+	// Update via upsert
+	category.Description = "Updated description"
+	err = model.UpsertCategory(ctx, category)
+	require.NoError(t, err)
+}
+
+func TestFAQModel_ListCategories(t *testing.T) {
+	db := setupFAQTestDB(t)
+	model := NewFAQModel(db)
+	ctx := context.Background()
+
+	// Create FAQs in different categories
+	faqs := []*FAQ{
+		{Question: "Q1", Answer: "A1", Category: "general"},
+		{Question: "Q2", Answer: "A2", Category: "general"},
+		{Question: "Q3", Answer: "A3", Category: "technical"},
+	}
+	for _, f := range faqs {
+		err := model.Create(ctx, f)
+		require.NoError(t, err)
+	}
+
+	// List categories
+	categories, err := model.ListCategories(ctx)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(categories), 2)
+}
+
+// ===== ProfileModel Tests =====
+
+func setupProfileTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	err = db.AutoMigrate(&ProfilePermission{}, &ProfileGame{})
+	require.NoError(t, err)
+	return db
+}
+
+func TestNewProfileModel(t *testing.T) {
+	db := setupProfileTestDB(t)
+	model := NewProfileModel(db)
+	assert.NotNil(t, model)
+}
+
+func TestProfileModel_ReplacePermissions(t *testing.T) {
+	db := setupProfileTestDB(t)
+	model := NewProfileModel(db)
+	ctx := context.Background()
+
+	perms := []ProfilePermission{
+		{Resource: "resource1", GameID: "game1", Env: "prod", Actions: datatypes.JSON([]byte(`["read","write"]`))},
+		{Resource: "resource2", GameID: "game1", Env: "prod", Actions: datatypes.JSON([]byte(`["read"]`))},
+	}
+
+	err := model.ReplacePermissions(ctx, 1, perms)
+	require.NoError(t, err)
+
+	// Verify
+	list, err := model.ListPermissions(ctx, 1)
+	require.NoError(t, err)
+	assert.Len(t, list, 2)
+
+	// Replace with different set
+	newPerms := []ProfilePermission{
+		{Resource: "resource3", GameID: "game2", Env: "test", Actions: datatypes.JSON([]byte(`["admin"]`))},
+	}
+	err = model.ReplacePermissions(ctx, 1, newPerms)
+	require.NoError(t, err)
+
+	list, err = model.ListPermissions(ctx, 1)
+	require.NoError(t, err)
+	assert.Len(t, list, 1)
+	assert.Equal(t, "resource3", list[0].Resource)
+}
+
+func TestProfileModel_ListPermissions(t *testing.T) {
+	db := setupProfileTestDB(t)
+	model := NewProfileModel(db)
+	ctx := context.Background()
+
+	perms := []ProfilePermission{
+		{Resource: "res1", GameID: "game1", Actions: datatypes.JSON([]byte(`["read"]`))},
+		{Resource: "res2", GameID: "game1", Actions: datatypes.JSON([]byte(`["write"]`))},
+	}
+	err := model.ReplacePermissions(ctx, 1, perms)
+	require.NoError(t, err)
+
+	// List permissions
+	list, err := model.ListPermissions(ctx, 1)
+	require.NoError(t, err)
+	assert.Len(t, list, 2)
+
+	// List for non-existent admin
+	list, err = model.ListPermissions(ctx, 999)
+	require.NoError(t, err)
+	assert.Len(t, list, 0)
+}
+
+func TestProfileModel_ReplaceGames(t *testing.T) {
+	db := setupProfileTestDB(t)
+	model := NewProfileModel(db)
+	ctx := context.Background()
+
+	games := []ProfileGame{
+		{GameID: "game1", GameName: "Game 1", Color: "red", Envs: datatypes.JSON([]byte(`["prod","test"]`))},
+		{GameID: "game2", GameName: "Game 2", Color: "blue", Envs: datatypes.JSON([]byte(`["dev"]`))},
+	}
+
+	err := model.ReplaceGames(ctx, 1, games)
+	require.NoError(t, err)
+
+	// Verify
+	list, err := model.ListGames(ctx, 1)
+	require.NoError(t, err)
+	assert.Len(t, list, 2)
+}
+
+func TestProfileModel_ListGames(t *testing.T) {
+	db := setupProfileTestDB(t)
+	model := NewProfileModel(db)
+	ctx := context.Background()
+
+	games := []ProfileGame{
+		{GameID: "game1", GameName: "Game 1", Color: "red"},
+		{GameID: "game2", GameName: "Game 2", Color: "blue"},
+	}
+	err := model.ReplaceGames(ctx, 1, games)
+	require.NoError(t, err)
+
+	// List games
+	list, err := model.ListGames(ctx, 1)
+	require.NoError(t, err)
+	assert.Len(t, list, 2)
+
+	// List for non-existent admin
+	list, err = model.ListGames(ctx, 999)
+	require.NoError(t, err)
+	assert.Len(t, list, 0)
+}
+
+// ===== RateLimitModel Tests =====
+
+func setupRateLimitTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	err = db.AutoMigrate(&RateLimit{})
+	require.NoError(t, err)
+	return db
+}
+
+func TestNewRateLimitModel(t *testing.T) {
+	db := setupRateLimitTestDB(t)
+	model := NewRateLimitModel(db)
+	assert.NotNil(t, model)
+}
+
+func TestRateLimitModel_Upsert(t *testing.T) {
+	db := setupRateLimitTestDB(t)
+	model := NewRateLimitModel(db)
+	ctx := context.Background()
+
+	rl := &RateLimit{
+		RateLimitID: "limit-001",
+		Name:        "API Rate Limit",
+		Resource:    "/api/v1",
+		Limit:       100,
+		Window:      60,
+		Action:      "throttle",
+		Status:      1,
+	}
+
+	err := model.Upsert(ctx, rl)
+	require.NoError(t, err)
+	assert.NotZero(t, rl.ID)
+
+	// Update via upsert
+	rl.Limit = 200
+	err = model.Upsert(ctx, rl)
+	require.NoError(t, err)
+}
+
+func TestRateLimitModel_FindByID(t *testing.T) {
+	db := setupRateLimitTestDB(t)
+	model := NewRateLimitModel(db)
+	ctx := context.Background()
+
+	rl := &RateLimit{
+		RateLimitID: "findbyid-001",
+		Name:        "Find Test",
+		Resource:    "/api/test",
+		Limit:       50,
+		Window:      60,
+		Action:      "block",
+		Status:      1,
+	}
+	err := model.Upsert(ctx, rl)
+	require.NoError(t, err)
+
+	// Find existing
+	found, err := model.FindByID(ctx, rl.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Find Test", found.Name)
+
+	// Find non-existent
+	_, err = model.FindByID(ctx, 99999)
+	assert.Error(t, err)
+}
+
+func TestRateLimitModel_FindByKey(t *testing.T) {
+	db := setupRateLimitTestDB(t)
+	model := NewRateLimitModel(db)
+	ctx := context.Background()
+
+	rl := &RateLimit{
+		RateLimitID: "findbykey-001",
+		Name:        "Find By Key Test",
+		Resource:    "/api/key",
+		Limit:       30,
+		Window:      60,
+		Action:      "throttle",
+		Status:      1,
+	}
+	err := model.Upsert(ctx, rl)
+	require.NoError(t, err)
+
+	// Find by key
+	found, err := model.FindByKey(ctx, "findbykey-001")
+	require.NoError(t, err)
+	assert.Equal(t, "Find By Key Test", found.Name)
+
+	// Find non-existent key
+	_, err = model.FindByKey(ctx, "non-existent")
+	assert.Error(t, err)
+}
+
+func TestRateLimitModel_Delete(t *testing.T) {
+	db := setupRateLimitTestDB(t)
+	model := NewRateLimitModel(db)
+	ctx := context.Background()
+
+	rl := &RateLimit{
+		RateLimitID: "delete-001",
+		Name:        "Delete Test",
+		Resource:    "/api/delete",
+		Limit:       10,
+		Window:      60,
+		Action:      "block",
+		Status:      1,
+	}
+	err := model.Upsert(ctx, rl)
+	require.NoError(t, err)
+
+	// Delete
+	err = model.Delete(ctx, rl.ID)
+	require.NoError(t, err)
+
+	// Verify
+	_, err = model.FindByID(ctx, rl.ID)
+	assert.Error(t, err)
+}
+
+func TestRateLimitModel_DeleteByKey(t *testing.T) {
+	db := setupRateLimitTestDB(t)
+	model := NewRateLimitModel(db)
+	ctx := context.Background()
+
+	rl := &RateLimit{
+		RateLimitID: "deletebykey-001",
+		Name:        "Delete By Key Test",
+		Resource:    "/api/deletekey",
+		Limit:       20,
+		Window:      60,
+		Action:      "block",
+		Status:      1,
+	}
+	err := model.Upsert(ctx, rl)
+	require.NoError(t, err)
+
+	// Delete by key
+	err = model.DeleteByKey(ctx, "deletebykey-001")
+	require.NoError(t, err)
+
+	// Verify
+	_, err = model.FindByKey(ctx, "deletebykey-001")
+	assert.Error(t, err)
+
+	// Delete non-existent key
+	err = model.DeleteByKey(ctx, "non-existent")
+	assert.Error(t, err)
+	assert.Equal(t, gorm.ErrRecordNotFound, err)
+}
+
+func TestRateLimitModel_List(t *testing.T) {
+	db := setupRateLimitTestDB(t)
+	model := NewRateLimitModel(db)
+	ctx := context.Background()
+
+	limits := []*RateLimit{
+		{RateLimitID: "list-001", Name: "Limit 1", Resource: "/api/v1", Limit: 100, Window: 60, Action: "throttle", Status: 1},
+		{RateLimitID: "list-002", Name: "Limit 2", Resource: "/api/v2", Limit: 50, Window: 60, Action: "block", Status: 1},
+		{RateLimitID: "list-003", Name: "Limit 3", Resource: "/api/v1", Limit: 200, Window: 120, Action: "throttle", Status: 0},
+	}
+	for _, rl := range limits {
+		err := model.Upsert(ctx, rl)
+		require.NoError(t, err)
+	}
+
+	// List all
+	all, err := model.List(ctx, "")
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(all), 3)
+
+	// Filter by resource
+	filtered, err := model.List(ctx, "/api/v1")
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(filtered), 2)
+}
+
+// ===== BackupModel Tests =====
+
+func setupBackupTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	err = db.AutoMigrate(&Backup{})
+	require.NoError(t, err)
+	return db
+}
+
+func TestNewBackupModel(t *testing.T) {
+	db := setupBackupTestDB(t)
+	model := NewBackupModel(db)
+	assert.NotNil(t, model)
+}
+
+func TestBackupModel_Create(t *testing.T) {
+	db := setupBackupTestDB(t)
+	model := NewBackupModel(db)
+	ctx := context.Background()
+
+	backup := &Backup{
+		BackupID: "backup-001",
+		Name:     "Daily Backup",
+		Size:     1024000,
+		Type:     "full",
+		Status:   "completed",
+		Location: "/backups/daily.tar.gz",
+		Checksum: "abc123",
+	}
+
+	err := model.Create(ctx, backup)
+	require.NoError(t, err)
+	assert.NotZero(t, backup.ID)
+}
+
+func TestBackupModel_FindByID(t *testing.T) {
+	db := setupBackupTestDB(t)
+	model := NewBackupModel(db)
+	ctx := context.Background()
+
+	backup := &Backup{
+		BackupID: "findbyid-001",
+		Name:     "Find By ID Test",
+		Size:     512000,
+		Type:     "incremental",
+		Status:   "completed",
+		Location: "/backups/inc.tar.gz",
+	}
+	err := model.Create(ctx, backup)
+	require.NoError(t, err)
+
+	// Find existing
+	found, err := model.FindByID(ctx, backup.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Find By ID Test", found.Name)
+
+	// Find non-existent
+	_, err = model.FindByID(ctx, 99999)
+	assert.Error(t, err)
+}
+
+func TestBackupModel_FindByBackupID(t *testing.T) {
+	db := setupBackupTestDB(t)
+	model := NewBackupModel(db)
+	ctx := context.Background()
+
+	backup := &Backup{
+		BackupID: "findbybkid-001",
+		Name:     "Find By Backup ID Test",
+		Size:     256000,
+		Type:     "full",
+		Status:   "completed",
+		Location: "/backups/full.tar.gz",
+	}
+	err := model.Create(ctx, backup)
+	require.NoError(t, err)
+
+	// Find by backup ID
+	found, err := model.FindByBackupID(ctx, "findbybkid-001")
+	require.NoError(t, err)
+	assert.Equal(t, "Find By Backup ID Test", found.Name)
+
+	// Find non-existent
+	_, err = model.FindByBackupID(ctx, "non-existent")
+	assert.Error(t, err)
+
+	// Empty backup ID
+	_, err = model.FindByBackupID(ctx, "")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "backup id is required")
+
+	_, err = model.FindByBackupID(ctx, "   ")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "backup id is required")
+}
+
+func TestBackupModel_Delete(t *testing.T) {
+	db := setupBackupTestDB(t)
+	model := NewBackupModel(db)
+	ctx := context.Background()
+
+	backup := &Backup{
+		BackupID: "delete-001",
+		Name:     "Delete Test",
+		Size:     128000,
+		Type:     "full",
+		Status:   "completed",
+		Location: "/backups/delete.tar.gz",
+	}
+	err := model.Create(ctx, backup)
+	require.NoError(t, err)
+
+	// Delete
+	err = model.Delete(ctx, backup.ID)
+	require.NoError(t, err)
+
+	// Verify
+	_, err = model.FindByID(ctx, backup.ID)
+	assert.Error(t, err)
+}
+
+func TestBackupModel_DeleteByBackupID(t *testing.T) {
+	db := setupBackupTestDB(t)
+	model := NewBackupModel(db)
+	ctx := context.Background()
+
+	backup := &Backup{
+		BackupID: "deletebybkid-001",
+		Name:     "Delete By Backup ID Test",
+		Size:     64000,
+		Type:     "full",
+		Status:   "completed",
+		Location: "/backups/delbkid.tar.gz",
+	}
+	err := model.Create(ctx, backup)
+	require.NoError(t, err)
+
+	// Delete by backup ID
+	err = model.DeleteByBackupID(ctx, "deletebybkid-001")
+	require.NoError(t, err)
+
+	// Verify
+	_, err = model.FindByBackupID(ctx, "deletebybkid-001")
+	assert.Error(t, err)
+
+	// Empty backup ID
+	err = model.DeleteByBackupID(ctx, "")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "backup id is required")
+}
+
+func TestBackupModel_List(t *testing.T) {
+	db := setupBackupTestDB(t)
+	model := NewBackupModel(db)
+	ctx := context.Background()
+
+	backups := []*Backup{
+		{BackupID: "list-001", Name: "Backup 1", Size: 1000, Type: "full", Status: "completed", Location: "/b1.tar.gz"},
+		{BackupID: "list-002", Name: "Backup 2", Size: 2000, Type: "incremental", Status: "completed", Location: "/b2.tar.gz"},
+		{BackupID: "list-003", Name: "Backup 3", Size: 3000, Type: "full", Status: "pending", Location: "/b3.tar.gz"},
+	}
+	for _, b := range backups {
+		err := model.Create(ctx, b)
+		require.NoError(t, err)
+	}
+
+	// List all
+	items, total, err := model.List(ctx, ListBackupsOptions{})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(3))
+
+	// Filter by type
+	items, total, err = model.List(ctx, ListBackupsOptions{Type: "full"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(2))
+
+	// Test pagination
+	items, total, err = model.List(ctx, ListBackupsOptions{PaginationOptions: PaginationOptions{Page: 1, PageSize: 2}})
+	require.NoError(t, err)
+	assert.LessOrEqual(t, len(items), 2)
+}
+
+// ===== CertificateModel Tests =====
+
+func setupCertificateTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	err = db.AutoMigrate(&Certificate{}, &CertificateAlert{})
+	require.NoError(t, err)
+	return db
+}
+
+func TestNewCertificateModel(t *testing.T) {
+	db := setupCertificateTestDB(t)
+	model := NewCertificateModel(db)
+	assert.NotNil(t, model)
+}
+
+func TestCertificateStatus(t *testing.T) {
+	tests := []struct {
+		name     string
+		expiry   time.Time
+		expected string
+	}{
+		{"expired", time.Now().Add(-24 * time.Hour), "expired"},
+		{"expiring soon", time.Now().Add(15 * 24 * time.Hour), "expiring"},
+		{"active", time.Now().Add(60 * 24 * time.Hour), "active"},
+		{"unknown", time.Time{}, "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, CertificateStatus(tt.expiry))
+		})
+	}
+}
+
+func TestCertificateModel_Create(t *testing.T) {
+	db := setupCertificateTestDB(t)
+	model := NewCertificateModel(db)
+	ctx := context.Background()
+
+	cert := &Certificate{
+		Domain:         "example.com",
+		CertificatePEM: "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----",
+		PrivateKeyPEM:  "-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----",
+		Issuer:         "Let's Encrypt",
+		ExpiresAt:      time.Now().Add(90 * 24 * time.Hour),
+		Status:         "active",
+	}
+
+	err := model.Create(ctx, cert)
+	require.NoError(t, err)
+	assert.NotZero(t, cert.ID)
+}
+
+func TestCertificateModel_Update(t *testing.T) {
+	db := setupCertificateTestDB(t)
+	model := NewCertificateModel(db)
+	ctx := context.Background()
+
+	cert := &Certificate{
+		Domain:    "update.example.com",
+		Issuer:    "Test Issuer",
+		ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
+		Status:    "active",
+	}
+	err := model.Create(ctx, cert)
+	require.NoError(t, err)
+
+	// Update
+	updates := map[string]interface{}{
+		"status":        "expiring",
+		"error_message": "Certificate expiring soon",
+	}
+	err = model.Update(ctx, cert.ID, updates)
+	require.NoError(t, err)
+
+	// Verify
+	found, err := model.FindOne(ctx, cert.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "expiring", found.Status)
+}
+
+func TestCertificateModel_Delete(t *testing.T) {
+	db := setupCertificateTestDB(t)
+	model := NewCertificateModel(db)
+	ctx := context.Background()
+
+	cert := &Certificate{
+		Domain:    "delete.example.com",
+		Issuer:    "Test",
+		ExpiresAt: time.Now().Add(90 * 24 * time.Hour),
+		Status:    "active",
+	}
+	err := model.Create(ctx, cert)
+	require.NoError(t, err)
+
+	// Delete
+	err = model.Delete(ctx, cert.ID)
+	require.NoError(t, err)
+
+	// Verify
+	_, err = model.FindOne(ctx, cert.ID)
+	assert.Error(t, err)
+}
+
+func TestCertificateModel_FindOne(t *testing.T) {
+	db := setupCertificateTestDB(t)
+	model := NewCertificateModel(db)
+	ctx := context.Background()
+
+	cert := &Certificate{
+		Domain:    "findone.example.com",
+		Issuer:    "Test Issuer",
+		ExpiresAt: time.Now().Add(60 * 24 * time.Hour),
+		Status:    "active",
+	}
+	err := model.Create(ctx, cert)
+	require.NoError(t, err)
+
+	// Find existing
+	found, err := model.FindOne(ctx, cert.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "findone.example.com", found.Domain)
+
+	// Find non-existent
+	_, err = model.FindOne(ctx, 99999)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "证书不存在")
+}
+
+func TestCertificateModel_FindByDomain(t *testing.T) {
+	db := setupCertificateTestDB(t)
+	model := NewCertificateModel(db)
+	ctx := context.Background()
+
+	cert := &Certificate{
+		Domain:    "finddomain.example.com",
+		Issuer:    "Test Issuer",
+		ExpiresAt: time.Now().Add(60 * 24 * time.Hour),
+		Status:    "active",
+	}
+	err := model.Create(ctx, cert)
+	require.NoError(t, err)
+
+	// Find by domain
+	found, err := model.FindByDomain(ctx, "finddomain.example.com")
+	require.NoError(t, err)
+	assert.Equal(t, cert.ID, found.ID)
+
+	// Find non-existent domain
+	_, err = model.FindByDomain(ctx, "nonexistent.example.com")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "证书不存在")
+}
+
+func TestCertificateModel_ExpiringWithin(t *testing.T) {
+	db := setupCertificateTestDB(t)
+	model := NewCertificateModel(db)
+	ctx := context.Background()
+
+	// Create certificates with different expiry times
+	certs := []*Certificate{
+		{Domain: "expired.example.com", Issuer: "Test", ExpiresAt: time.Now().Add(-1 * time.Hour), Status: "expired"},
+		{Domain: "expiring.example.com", Issuer: "Test", ExpiresAt: time.Now().Add(15 * 24 * time.Hour), Status: "expiring"},
+		{Domain: "active.example.com", Issuer: "Test", ExpiresAt: time.Now().Add(60 * 24 * time.Hour), Status: "active"},
+	}
+	for _, c := range certs {
+		err := model.Create(ctx, c)
+		require.NoError(t, err)
+	}
+
+	// Find expiring within 30 days
+	expiring, err := model.ExpiringWithin(ctx, 30*24*time.Hour)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(expiring), 2) // expired + expiring
+}
+
+func TestCertificateModel_Stats(t *testing.T) {
+	db := setupCertificateTestDB(t)
+	model := NewCertificateModel(db)
+	ctx := context.Background()
+
+	certs := []*Certificate{
+		{Domain: "cert1.example.com", Issuer: "Test", ExpiresAt: time.Now().Add(-1 * time.Hour), Status: "expired"},
+		{Domain: "cert2.example.com", Issuer: "Test", ExpiresAt: time.Now().Add(15 * 24 * time.Hour), Status: "expiring"},
+		{Domain: "cert3.example.com", Issuer: "Test", ExpiresAt: time.Now().Add(15 * 24 * time.Hour), Status: "expiring"},
+		{Domain: "cert4.example.com", Issuer: "Test", ExpiresAt: time.Now().Add(90 * 24 * time.Hour), Status: "active"},
+	}
+	for _, c := range certs {
+		err := model.Create(ctx, c)
+		require.NoError(t, err)
+	}
+
+	// Get stats
+	stats, err := model.Stats(ctx)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, stats["total"], int64(4))
+	assert.GreaterOrEqual(t, stats["expiring"], int64(2))
+	assert.GreaterOrEqual(t, stats["expired"], int64(1))
+	assert.GreaterOrEqual(t, stats["active"], int64(1))
+}
+
+func TestCertificateModel_ListAlerts(t *testing.T) {
+	db := setupCertificateTestDB(t)
+	model := NewCertificateModel(db)
+	ctx := context.Background()
+
+	alerts := []*CertificateAlert{
+		{Domain: "alert1.example.com", ThresholdDays: 30, Active: true},
+		{Domain: "alert2.example.com", ThresholdDays: 15, Active: true},
+		{Domain: "alert3.example.com", ThresholdDays: 7, Active: false},
+	}
+	for _, a := range alerts {
+		err := model.Create(ctx, &Certificate{
+			Domain:    a.Domain,
+			Issuer:    "Test",
+			ExpiresAt: time.Now().Add(60 * 24 * time.Hour),
+			Status:    "active",
+		})
+		require.NoError(t, err)
+		err = model.AddAlert(ctx, a)
+		require.NoError(t, err)
+	}
+
+	// List alerts
+	list, total, err := model.ListAlerts(ctx, 1, 10)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(3))
+	assert.GreaterOrEqual(t, len(list), 3)
+}
+
+func TestCertificateModel_AddAlert(t *testing.T) {
+	db := setupCertificateTestDB(t)
+	model := NewCertificateModel(db)
+	ctx := context.Background()
+
+	alert := &CertificateAlert{
+		Domain:        "addalert.example.com",
+		ThresholdDays: 30,
+		Active:        true,
+	}
+
+	err := model.AddAlert(ctx, alert)
+	require.NoError(t, err)
+	assert.NotZero(t, alert.ID)
+}
+
+func TestCertificateModel_ListAll(t *testing.T) {
+	db := setupCertificateTestDB(t)
+	model := NewCertificateModel(db)
+	ctx := context.Background()
+
+	certs := []*Certificate{
+		{Domain: "all1.example.com", Issuer: "Test", ExpiresAt: time.Now().Add(60 * 24 * time.Hour), Status: "active"},
+		{Domain: "all2.example.com", Issuer: "Test", ExpiresAt: time.Now().Add(90 * 24 * time.Hour), Status: "active"},
+	}
+	for _, c := range certs {
+		err := model.Create(ctx, c)
+		require.NoError(t, err)
+	}
+
+	// List all
+	all, err := model.ListAll(ctx)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(all), 2)
+}
+
+func TestCertificateModel_List(t *testing.T) {
+	db := setupCertificateTestDB(t)
+	model := NewCertificateModel(db)
+	ctx := context.Background()
+
+	certs := []*Certificate{
+		{Domain: "list1.example.com", Issuer: "Test", ExpiresAt: time.Now().Add(-1 * time.Hour), Status: "expired"},
+		{Domain: "list2.example.com", Issuer: "Test", ExpiresAt: time.Now().Add(15 * 24 * time.Hour), Status: "expiring"},
+		{Domain: "list3.example.com", Issuer: "Test", ExpiresAt: time.Now().Add(90 * 24 * time.Hour), Status: "active"},
+	}
+	for _, c := range certs {
+		err := model.Create(ctx, c)
+		require.NoError(t, err)
+	}
+
+	// List all
+	_, total, err := model.List(ctx, ListCertificatesOptions{})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(3))
+
+	// Filter by status
+	items, total, err := model.List(ctx, ListCertificatesOptions{Status: "expiring"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, total, int64(1))
+	_ = items // items is used for verification
+}
+
+// ===== ConfigVersionModel Tests =====
+
+func setupConfigVersionTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	err = db.AutoMigrate(&ConfigVersion{})
+	require.NoError(t, err)
+	return db
+}
+
+func TestNewConfigVersionModel(t *testing.T) {
+	db := setupConfigVersionTestDB(t)
+	model := NewConfigVersionModel(db)
+	assert.NotNil(t, model)
+}
+
+func TestConfigVersionModel_Create(t *testing.T) {
+	db := setupConfigVersionTestDB(t)
+	model := NewConfigVersionModel(db)
+	ctx := context.Background()
+
+	record, err := model.Create(ctx, "test-key", "test-value", "admin")
+	require.NoError(t, err)
+	assert.NotZero(t, record.ID)
+	assert.Equal(t, "test-key", record.Key)
+	assert.Equal(t, 1, record.Version)
+	assert.Equal(t, "admin", record.CreatedBy)
+}
+
+func TestConfigVersionModel_List(t *testing.T) {
+	db := setupConfigVersionTestDB(t)
+	model := NewConfigVersionModel(db)
+	ctx := context.Background()
+
+	// Create multiple versions
+	for i := 1; i <= 3; i++ {
+		_, err := model.Create(ctx, "list-test-key", "value-v"+string(rune('0'+i)), "admin")
+		require.NoError(t, err)
+	}
+
+	// List versions
+	records, err := model.List(ctx, "list-test-key")
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(records), 3)
+
+	// Verify order (newest first)
+	assert.Greater(t, records[0].Version, records[len(records)-1].Version)
+
+	// Empty key returns empty
+	records, err = model.List(ctx, "")
+	require.NoError(t, err)
+	assert.Empty(t, records)
+}
+
+func TestConfigVersionModel_Find(t *testing.T) {
+	db := setupConfigVersionTestDB(t)
+	model := NewConfigVersionModel(db)
+	ctx := context.Background()
+
+	// Create test record
+	_, err := model.Create(ctx, "find-test-key", "find-test-value", "admin")
+	require.NoError(t, err)
+
+	// Find version 1
+	record, err := model.Find(ctx, "find-test-key", 1)
+	require.NoError(t, err)
+	assert.Equal(t, "find-test-key", record.Key)
+	assert.Equal(t, 1, record.Version)
+
+	// Find non-existent version
+	_, err = model.Find(ctx, "find-test-key", 999)
+	assert.Error(t, err)
+
+	// Empty key
+	_, err = model.Find(ctx, "", 1)
+	assert.Error(t, err)
+
+	// Invalid version
+	_, err = model.Find(ctx, "find-test-key", 0)
+	assert.Error(t, err)
+	_, err = model.Find(ctx, "find-test-key", -1)
+	assert.Error(t, err)
+}
+
+func TestConfigVersionModel_CreateWithMeta(t *testing.T) {
+	db := setupConfigVersionTestDB(t)
+	model := NewConfigVersionModel(db)
+	ctx := context.Background()
+
+	payload := ConfigVersionPayload{
+		Key:         "meta-key",
+		Content:     "meta-value",
+		Format:      "yaml",
+		GameID:      "game1",
+		Env:         "prod",
+		Message:     "Initial config",
+		BaseVersion: 0,
+	}
+
+	record, err := model.CreateWithMeta(ctx, payload, "admin")
+	require.NoError(t, err)
+	assert.NotZero(t, record.ID)
+	assert.Equal(t, "meta-key", record.Key)
+	assert.Equal(t, "yaml", record.Format)
+	assert.Equal(t, "game1", record.GameID)
+	assert.Equal(t, "prod", record.Env)
+
+	// Create with stale base version (conflict with existing version 1)
+	payload2 := payload
+	payload2.BaseVersion = 999
+	_, err = model.CreateWithMeta(ctx, payload2, "admin")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "config has been updated by another user")
+
+	// Create another version (should increment)
+	record2, err := model.CreateWithMeta(ctx, ConfigVersionPayload{
+		Key:     "meta-key",
+		Content: "meta-value-v2",
+	}, "admin")
+	require.NoError(t, err)
+	assert.Equal(t, 2, record2.Version)
+
+	// Create with stale base version
+	_, err = model.CreateWithMeta(ctx, ConfigVersionPayload{
+		Key:         "meta-key",
+		Content:     "meta-value-v3-stale",
+		BaseVersion: 1, // stale, we're at version 2 now
+	}, "admin")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "config has been updated by another user")
+
+	// Create with correct base version
+	record3, err := model.CreateWithMeta(ctx, ConfigVersionPayload{
+		Key:         "meta-key",
+		Content:     "meta-value-v3",
+		BaseVersion: 2,
+	}, "admin")
+	require.NoError(t, err)
+	assert.Equal(t, 3, record3.Version)
+
+	// Create with stale base version
+	_, err = model.CreateWithMeta(ctx, ConfigVersionPayload{
+		Key:         "meta-key",
+		Content:     "meta-value-v4",
+		BaseVersion: 2, // stale
+	}, "admin")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "config has been updated by another user")
+}
+
+func TestConfigVersionModel_ListLatest(t *testing.T) {
+	db := setupConfigVersionTestDB(t)
+	model := NewConfigVersionModel(db)
+	ctx := context.Background()
+
+	// Create configs with different attributes
+	configs := []ConfigVersionPayload{
+		{Key: "config1", Content: "value1", GameID: "game1", Env: "prod", Format: "json"},
+		{Key: "config2", Content: "value2", GameID: "game1", Env: "test", Format: "yaml"},
+		{Key: "config3", Content: "value3", GameID: "game2", Env: "prod", Format: "json"},
+	}
+	for _, cfg := range configs {
+		_, err := model.CreateWithMeta(ctx, cfg, "admin")
+		require.NoError(t, err)
+	}
+
+	// List all latest
+	records, err := model.ListLatest(ctx, ConfigListOptions{})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(records), 3)
+
+	// Filter by game ID
+	records, err = model.ListLatest(ctx, ConfigListOptions{GameID: "game1"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(records), 2)
+
+	// Filter by env
+	records, err = model.ListLatest(ctx, ConfigListOptions{Env: "prod"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(records), 2)
+
+	// Filter by format
+	records, err = model.ListLatest(ctx, ConfigListOptions{Format: "json"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(records), 2)
+
+	// Filter by ID like
+	records, err = model.ListLatest(ctx, ConfigListOptions{IDLike: "config"})
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(records), 3)
+}
+
+func TestConfigVersionModel_FindLatest(t *testing.T) {
+	db := setupConfigVersionTestDB(t)
+	model := NewConfigVersionModel(db)
+	ctx := context.Background()
+
+	// Create multiple versions
+	for i := 1; i <= 3; i++ {
+		_, err := model.Create(ctx, "latest-test", "value-v"+string(rune('0'+i)), "admin")
+		require.NoError(t, err)
+	}
+
+	// Find latest
+	record, err := model.FindLatest(ctx, "latest-test")
+	require.NoError(t, err)
+	assert.Equal(t, 3, record.Version)
+
+	// Non-existent key
+	_, err = model.FindLatest(ctx, "non-existent")
+	assert.Error(t, err)
+
+	// Empty key
+	_, err = model.FindLatest(ctx, "")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "config key required")
+}
+
+// ===== WorkspaceConfigModel Tests =====
+
+func setupWorkspaceConfigTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	err = db.AutoMigrate(&WorkspaceConfig{})
+	require.NoError(t, err)
+	return db
+}
+
+func TestNewWorkspaceConfigModel(t *testing.T) {
+	db := setupWorkspaceConfigTestDB(t)
+	model := NewWorkspaceConfigModel(db)
+	assert.NotNil(t, model)
+}
+
+func TestWorkspaceConfigModel_Upsert(t *testing.T) {
+	db := setupWorkspaceConfigTestDB(t)
+	model := NewWorkspaceConfigModel(db)
+	ctx := context.Background()
+
+	cfg := &WorkspaceConfig{
+		ObjectKey: "test-object",
+		Title:     "Test Config",
+		Config:    datatypes.JSON([]byte(`{"key":"value"}`)),
+	}
+
+	// Create new
+	err := model.Upsert(ctx, cfg)
+	require.NoError(t, err)
+	assert.NotZero(t, cfg.ID)
+
+	// Update existing
+	cfg.Title = "Updated Title"
+	err = model.Upsert(ctx, cfg)
+	require.NoError(t, err)
+
+	// Verify
+	found, err := model.FindByObjectKey(ctx, "test-object")
+	require.NoError(t, err)
+	assert.Equal(t, "Updated Title", found.Title)
+	assert.Equal(t, cfg.ID, found.ID)
+	assert.Equal(t, cfg.CreatedAt, found.CreatedAt)
+}
+
+func TestWorkspaceConfigModel_FindByObjectKey(t *testing.T) {
+	db := setupWorkspaceConfigTestDB(t)
+	model := NewWorkspaceConfigModel(db)
+	ctx := context.Background()
+
+	cfg := &WorkspaceConfig{
+		ObjectKey: "find-test",
+		Title:     "Find Test",
+		Config:    datatypes.JSON([]byte(`{}`)),
+	}
+	err := model.Upsert(ctx, cfg)
+	require.NoError(t, err)
+
+	// Find existing
+	found, err := model.FindByObjectKey(ctx, "find-test")
+	require.NoError(t, err)
+	assert.Equal(t, "Find Test", found.Title)
+
+	// Find non-existent
+	_, err = model.FindByObjectKey(ctx, "non-existent")
+	assert.Error(t, err)
+}
+
+func TestWorkspaceConfigModel_Delete(t *testing.T) {
+	db := setupWorkspaceConfigTestDB(t)
+	model := NewWorkspaceConfigModel(db)
+	ctx := context.Background()
+
+	cfg := &WorkspaceConfig{
+		ObjectKey: "delete-test",
+		Title:     "Delete Test",
+		Config:    datatypes.JSON([]byte(`{}`)),
+	}
+	err := model.Upsert(ctx, cfg)
+	require.NoError(t, err)
+
+	// Delete
+	err = model.Delete(ctx, "delete-test")
+	require.NoError(t, err)
+
+	// Verify
+	_, err = model.FindByObjectKey(ctx, "delete-test")
+	assert.Error(t, err)
+}
+
+func TestWorkspaceConfigModel_ListAll(t *testing.T) {
+	db := setupWorkspaceConfigTestDB(t)
+	model := NewWorkspaceConfigModel(db)
+	ctx := context.Background()
+
+	configs := []*WorkspaceConfig{
+		{ObjectKey: "list-obj-1", Title: "Config 1", MenuOrder: 2, Config: datatypes.JSON([]byte(`{}`))},
+		{ObjectKey: "list-obj-2", Title: "Config 2", MenuOrder: 1, Config: datatypes.JSON([]byte(`{}`))},
+		{ObjectKey: "list-obj-3", Title: "Config 3", MenuOrder: 3, Config: datatypes.JSON([]byte(`{}`))},
+	}
+	for _, cfg := range configs {
+		err := model.Upsert(ctx, cfg)
+		require.NoError(t, err)
+	}
+
+	// List all (should be ordered by menu_order)
+	all, err := model.ListAll(ctx)
+	require.NoError(t, err)
+	// Find our configs and verify ordering among them
+	var foundConfigs []WorkspaceConfig
+	for _, cfg := range all {
+		if cfg.ObjectKey == "list-obj-1" || cfg.ObjectKey == "list-obj-2" || cfg.ObjectKey == "list-obj-3" {
+			foundConfigs = append(foundConfigs, cfg)
+		}
+	}
+	assert.Len(t, foundConfigs, 3)
+	// Verify ordering among our configs
+	assert.Equal(t, "list-obj-2", foundConfigs[0].ObjectKey) // MenuOrder 1
+	assert.Equal(t, "list-obj-1", foundConfigs[1].ObjectKey) // MenuOrder 2
+}
+
+func TestWorkspaceConfigModel_ListPublished(t *testing.T) {
+	db := setupWorkspaceConfigTestDB(t)
+	model := NewWorkspaceConfigModel(db)
+	ctx := context.Background()
+
+	now := time.Now()
+	configs := []*WorkspaceConfig{
+		{ObjectKey: "pub1", Title: "Published 1", Published: true, PublishedAt: &now, PublishedBy: "admin", MenuOrder: 1, Config: datatypes.JSON([]byte(`{}`))},
+		{ObjectKey: "pub2", Title: "Published 2", Published: true, PublishedAt: &now, PublishedBy: "admin", MenuOrder: 2, Config: datatypes.JSON([]byte(`{}`))},
+		{ObjectKey: "unpub", Title: "Unpublished", Published: false, MenuOrder: 3, Config: datatypes.JSON([]byte(`{}`))},
+	}
+	for _, cfg := range configs {
+		err := model.Upsert(ctx, cfg)
+		require.NoError(t, err)
+	}
+
+	// List published
+	published, err := model.ListPublished(ctx)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(published), 2)
+	for _, p := range published {
+		assert.True(t, p.Published)
+	}
+}
+
+func TestWorkspaceConfigModel_SetPublished(t *testing.T) {
+	db := setupWorkspaceConfigTestDB(t)
+	model := NewWorkspaceConfigModel(db)
+	ctx := context.Background()
+
+	cfg := &WorkspaceConfig{
+		ObjectKey: "setpub-test",
+		Title:     "Set Published Test",
+		Published: false,
+		Config:    datatypes.JSON([]byte(`{}`)),
+	}
+	err := model.Upsert(ctx, cfg)
+	require.NoError(t, err)
+
+	// Publish
+	err = model.SetPublished(ctx, "setpub-test", true, "admin")
+	require.NoError(t, err)
+
+	// Verify
+	found, err := model.FindByObjectKey(ctx, "setpub-test")
+	require.NoError(t, err)
+	assert.True(t, found.Published)
+	assert.NotNil(t, found.PublishedAt)
+	assert.Equal(t, "admin", found.PublishedBy)
+
+	// Unpublish
+	err = model.SetPublished(ctx, "setpub-test", false, "")
+	require.NoError(t, err)
+
+	found, err = model.FindByObjectKey(ctx, "setpub-test")
+	require.NoError(t, err)
+	assert.False(t, found.Published)
+	assert.Nil(t, found.PublishedAt)
+	assert.Equal(t, "", found.PublishedBy)
+}
+
+// ===== TermDictionaryModel Tests =====
+
+func setupTermDictionaryTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	err = db.AutoMigrate(&TermDictionary{})
+	require.NoError(t, err)
+	return db
+}
+
+func TestNewTermDictionaryModel(t *testing.T) {
+	db := setupTermDictionaryTestDB(t)
+	model := NewTermDictionaryModel(db)
+	assert.NotNil(t, model)
+}
+
+func TestTermDictionaryModel_List(t *testing.T) {
+	db := setupTermDictionaryTestDB(t)
+	model := NewTermDictionaryModel(db)
+	ctx := context.Background()
+
+	terms := []*TermDictionary{
+		{Domain: "entity", TermKey: "player", Alias: "玩家", DisplayZh: "玩家", DisplayEn: "Player", SortOrder: 1},
+		{Domain: "entity", TermKey: "game", Alias: "游戏", DisplayZh: "游戏", DisplayEn: "Game", SortOrder: 2},
+		{Domain: "operation", TermKey: "create", Alias: "创建", DisplayZh: "创建", DisplayEn: "Create", SortOrder: 1},
+	}
+	for _, term := range terms {
+		err := db.Create(term).Error
+		require.NoError(t, err)
+	}
+
+	// List all
+	all, err := model.List(ctx, "")
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(all), 3)
+
+	// Filter by domain
+	entityTerms, err := model.List(ctx, "entity")
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(entityTerms), 2)
+}
+
+func TestTermDictionaryModel_Upsert(t *testing.T) {
+	db := setupTermDictionaryTestDB(t)
+	model := NewTermDictionaryModel(db)
+	ctx := context.Background()
+
+	// Create new
+	term := &TermDictionary{
+		Domain:    "entity",
+		TermKey:   "item",
+		Alias:     "道具",
+		DisplayZh: "道具",
+		DisplayEn: "Item",
+		SortOrder: 3,
+	}
+	err := model.Upsert(ctx, term)
+	require.NoError(t, err)
+	assert.NotZero(t, term.ID)
+
+	// Update existing
+	term.DisplayZh = "游戏道具"
+	term.SortOrder = 10
+	err = model.Upsert(ctx, term)
+	require.NoError(t, err)
+
+	// Verify
+	list, err := model.List(ctx, "entity")
+	require.NoError(t, err)
+	for _, term := range list {
+		if term.Alias == "道具" {
+			assert.Equal(t, "游戏道具", term.DisplayZh)
+			assert.Equal(t, 10, term.SortOrder)
+		}
+	}
+
+	// Test nil term (should not error)
+	err = model.Upsert(ctx, nil)
+	require.NoError(t, err)
+
+	// Test empty required fields (should not error)
+	emptyTerm := &TermDictionary{}
+	err = model.Upsert(ctx, emptyTerm)
+	require.NoError(t, err)
+}
+
+func TestTermDictionaryModel_AliasMap(t *testing.T) {
+	db := setupTermDictionaryTestDB(t)
+	model := NewTermDictionaryModel(db)
+	ctx := context.Background()
+
+	terms := []*TermDictionary{
+		{Domain: "entity_alias_map", TermKey: "player", Alias: "玩家2", DisplayZh: "玩家", DisplayEn: "Player"},
+		{Domain: "entity_alias_map", TermKey: "game", Alias: "游戏2", DisplayZh: "游戏", DisplayEn: "Game"},
+		{Domain: "operation_alias_map", TermKey: "create", Alias: "创建2", DisplayZh: "创建", DisplayEn: "Create"},
+	}
+	for _, term := range terms {
+		err := db.Create(term).Error
+		require.NoError(t, err)
+	}
+
+	// Get alias map
+	aliasMap, err := model.AliasMap(ctx)
+	require.NoError(t, err)
+	assert.Contains(t, aliasMap, "entity_alias_map")
+	assert.Contains(t, aliasMap, "operation_alias_map")
+	assert.Equal(t, "player", aliasMap["entity_alias_map"]["玩家2"])
+	assert.Equal(t, "game", aliasMap["entity_alias_map"]["游戏2"])
+	assert.Equal(t, "create", aliasMap["operation_alias_map"]["创建2"])
+}
+
+func TestTermDictionaryModel_DeleteByAlias(t *testing.T) {
+	db := setupTermDictionaryTestDB(t)
+	model := NewTermDictionaryModel(db)
+	ctx := context.Background()
+
+	term := &TermDictionary{
+		Domain:    "entity_del",
+		TermKey:   "test_del",
+		Alias:     "测试_del",
+		DisplayZh: "测试",
+		DisplayEn: "Test",
+	}
+	err := db.Create(term).Error
+	require.NoError(t, err)
+
+	// Delete by alias
+	err = model.DeleteByAlias(ctx, "entity_del", "测试_del")
+	require.NoError(t, err)
+
+	// Verify
+	list, err := model.List(ctx, "entity_del")
+	require.NoError(t, err)
+	for _, termItem := range list {
+		assert.NotEqual(t, "测试_del", termItem.Alias)
+	}
+
+	// Empty params (should not error)
+	err = model.DeleteByAlias(ctx, "", "")
+	require.NoError(t, err)
+}
+
+// ===== AgentSessionModel Tests =====
+
+func setupAgentSessionTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	err = db.AutoMigrate(&AgentSessionDB{})
+	require.NoError(t, err)
+	return db
+}
+
+func TestNewAgentSessionModel(t *testing.T) {
+	db := setupAgentSessionTestDB(t)
+	model := NewAgentSessionModel(db)
+	assert.NotNil(t, model)
+}
+
+func TestAgentSessionModel_Upsert(t *testing.T) {
+	db := setupAgentSessionTestDB(t)
+	model := NewAgentSessionModel(db)
+	ctx := context.Background()
+
+	session := &registry.AgentSession{
+		AgentID: "agent-001",
+		GameID:  "game001",
+		Env:     "prod",
+		RPCAddr: "192.168.1.1:8080",
+		Version: "1.0.0",
+		Region:  "us-east",
+		Zone:    "zone1",
+		Labels:  map[string]string{"rack": "r1"},
+		Providers: []registry.ProviderSession{
+			{ProviderID: "provider1", GameID: "game001", Env: "prod", Addr: "192.168.1.10:8080"},
+			{ProviderID: "provider2", GameID: "game001", Env: "prod", Addr: "192.168.1.11:8080"},
+		},
+		ExpireAt: time.Now().Add(1 * time.Hour),
+		LastSeen: time.Now(),
+	}
+
+	err := model.Upsert(ctx, session)
+	require.NoError(t, err)
+
+	// Update via upsert
+	session.Version = "1.0.1"
+	err = model.Upsert(ctx, session)
+	require.NoError(t, err)
+}
+
+func TestAgentSessionModel_LoadActiveSessions(t *testing.T) {
+	db := setupAgentSessionTestDB(t)
+	model := NewAgentSessionModel(db)
+	ctx := context.Background()
+
+	// Create active and expired sessions
+	active := &registry.AgentSession{
+		AgentID:  "active-agent",
+		GameID:   "game001",
+		Env:      "prod",
+		RPCAddr:  "192.168.1.1:8080",
+		ExpireAt: time.Now().Add(1 * time.Hour),
+		LastSeen: time.Now(),
+	}
+	expired := &registry.AgentSession{
+		AgentID:  "expired-agent",
+		GameID:   "game001",
+		Env:      "prod",
+		RPCAddr:  "192.168.1.2:8080",
+		ExpireAt: time.Now().Add(-1 * time.Hour),
+		LastSeen: time.Now().Add(-2 * time.Hour),
+	}
+
+	err := model.Upsert(ctx, active)
+	require.NoError(t, err)
+	err = model.Upsert(ctx, expired)
+	require.NoError(t, err)
+
+	// Load active sessions
+	sessions, err := model.LoadActiveSessions(ctx)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, len(sessions), 1)
+
+	// Verify only active sessions are returned
+	for _, s := range sessions {
+		assert.True(t, s.ExpireAt.After(time.Now()))
+	}
+}
+
+func TestAgentSessionModel_DeleteExpired(t *testing.T) {
+	db := setupAgentSessionTestDB(t)
+	model := NewAgentSessionModel(db)
+	ctx := context.Background()
+
+	// Create expired sessions
+	expired1 := &registry.AgentSession{
+		AgentID:  "expired-1",
+		GameID:   "game001",
+		Env:      "prod",
+		RPCAddr:  "192.168.1.1:8080",
+		ExpireAt: time.Now().Add(-1 * time.Hour),
+		LastSeen: time.Now().Add(-2 * time.Hour),
+	}
+	expired2 := &registry.AgentSession{
+		AgentID:  "expired-2",
+		GameID:   "game001",
+		Env:      "prod",
+		RPCAddr:  "192.168.1.2:8080",
+		ExpireAt: time.Now().Add(-30 * time.Minute),
+		LastSeen: time.Now().Add(-1 * time.Hour),
+	}
+
+	err := model.Upsert(ctx, expired1)
+	require.NoError(t, err)
+	err = model.Upsert(ctx, expired2)
+	require.NoError(t, err)
+
+	// Delete expired
+	count, err := model.DeleteExpired(ctx)
+	require.NoError(t, err)
+	assert.GreaterOrEqual(t, count, int64(2))
+}
+
+func TestToDomainSession(t *testing.T) {
+	labelsJSON := datatypes.JSON([]byte(`{"rack":"r1","zone":"z1"}`))
+	providersJSON := datatypes.JSON([]byte(`[{"ProviderID":"provider1","GameID":"game001","Env":"prod","Addr":"192.168.1.10:8080"},{"ProviderID":"provider2","GameID":"game001","Env":"prod","Addr":"192.168.1.11:8080"}]`))
+
+	dbSess := &AgentSessionDB{
+		ID:        1,
+		AgentID:   "agent-001",
+		GameID:    "game001",
+		Env:       "prod",
+		RPCAddr:   "192.168.1.1:8080",
+		Version:   "1.0.0",
+		Region:    "us-east",
+		Zone:      "zone1",
+		Labels:    labelsJSON,
+		Providers: providersJSON,
+		ExpireAt:  time.Now().Add(1 * time.Hour),
+		LastSeen:  time.Now(),
+	}
+
+	sess, err := toDomainSession(dbSess)
+	require.NoError(t, err)
+	assert.Equal(t, "agent-001", sess.AgentID)
+	assert.Equal(t, "game001", sess.GameID)
+	assert.Equal(t, "r1", sess.Labels["rack"])
+	assert.Equal(t, "z1", sess.Labels["zone"])
+	assert.Len(t, sess.Providers, 2)
+	if len(sess.Providers) >= 1 {
+		assert.Equal(t, "provider1", sess.Providers[0].ProviderID)
+	}
+	if len(sess.Providers) >= 2 {
+		assert.Equal(t, "provider2", sess.Providers[1].ProviderID)
+	}
+
+	// Test invalid JSON
+	dbSess.Labels = datatypes.JSON([]byte(`invalid json`))
+	_, err = toDomainSession(dbSess)
+	assert.Error(t, err)
+}
+
+func TestToDBSession(t *testing.T) {
+	sess := &registry.AgentSession{
+		AgentID: "agent-001",
+		GameID:  "game001",
+		Env:     "prod",
+		RPCAddr: "192.168.1.1:8080",
+		Version: "1.0.0",
+		Region:  "us-east",
+		Zone:    "zone1",
+		Labels:  map[string]string{"rack": "r1", "zone": "z1"},
+		Providers: []registry.ProviderSession{
+			{ProviderID: "provider1", GameID: "game001", Env: "prod", Addr: "192.168.1.10:8080"},
+			{ProviderID: "provider2", GameID: "game001", Env: "prod", Addr: "192.168.1.11:8080"},
+		},
+		ExpireAt: time.Now().Add(1 * time.Hour),
+		LastSeen: time.Now(),
+	}
+
+	dbSess, err := toDBSession(sess)
+	require.NoError(t, err)
+	assert.Equal(t, "agent-001", dbSess.AgentID)
+	assert.Equal(t, "game001", dbSess.GameID)
+	assert.NotEmpty(t, dbSess.Labels)
+	assert.NotEmpty(t, dbSess.Providers)
 }
