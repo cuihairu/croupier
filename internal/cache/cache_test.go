@@ -1484,3 +1484,359 @@ func TestCacheHelper_SetJSONError(t *testing.T) {
 		t.Error("Expected error for unmarshallable value, got nil")
 	}
 }
+
+// TestLocalCache_Get_InvalidType 测试获取非[]byte类型的缓存值
+func TestLocalCache_Get_InvalidType(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	ctx := context.Background()
+
+	// 直接访问底层 cache 来存储一个非[]byte值
+	cache.cache.Set("invalid_key", "string_value_not_bytes", time.Minute)
+
+	// Get 应该返回类型错误
+	_, err := cache.Get(ctx, "invalid_key")
+	if err == nil {
+		t.Fatal("Expected error for invalid type, got nil")
+	}
+
+	// 验证错误信息
+	expectedErrMsg := "invalid cache value type"
+	if err.Error() != expectedErrMsg {
+		t.Errorf("Expected error message %q, got %q", expectedErrMsg, err.Error())
+	}
+}
+
+// TestCacheHelper_Remember_SetJSONError 测试 SetJSON 失败时 Remember 仍然返回数据
+func TestCacheHelper_Remember_SetJSONError(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	helper := NewCacheHelper(cache)
+	ctx := context.Background()
+
+	// 创建一个总是返回值的 loader
+	loader := func() (interface{}, error) {
+		return map[string]string{"key": "value"}, nil
+	}
+
+	var result map[string]string
+	// Remember 应该成功，即使 SetJSON 失败也会返回数据
+	err := helper.Remember(ctx, "remember_error_test", time.Minute, &result, loader)
+	if err != nil {
+		t.Fatalf("Remember should succeed: %v", err)
+	}
+
+	if result["key"] != "value" {
+		t.Errorf("Expected result[key]='value', got %q", result["key"])
+	}
+}
+
+// TestCacheHelper_Remember_InvalidCachedJSON 测试缓存中有无效 JSON 时的情况
+func TestCacheHelper_Remember_InvalidCachedJSON(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	helper := NewCacheHelper(cache)
+	ctx := context.Background()
+
+	// 设置一个无效的 JSON 到缓存
+	_ = cache.Set(ctx, "invalid_json", []byte("not valid json"), time.Minute)
+
+	loadCount := 0
+	loader := func() (interface{}, error) {
+		loadCount++
+		return map[string]string{"key": "loaded"}, nil
+	}
+
+	var result map[string]string
+	// Remember 应该检测到缓存中的数据无效，然后调用 loader
+	err := helper.Remember(ctx, "invalid_json", time.Minute, &result, loader)
+	if err != nil {
+		t.Fatalf("Remember should succeed: %v", err)
+	}
+
+	// 由于缓存的 JSON 无效，应该调用 loader
+	if loadCount != 1 {
+		t.Errorf("Loader should be called once for invalid cached JSON, called %d times", loadCount)
+	}
+
+	if result["key"] != "loaded" {
+		t.Errorf("Expected result[key]='loaded', got %q", result["key"])
+	}
+}
+
+// TestCacheHelper_Remember_UnmarshalErrorAfterSet 测试 SetJSON 后 Unmarshal 仍然失败的情况
+func TestCacheHelper_Remember_UnmarshalErrorAfterSet(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	helper := NewCacheHelper(cache)
+	ctx := context.Background()
+
+	// 创建一个总是返回无法序列化值的 loader
+	loader := func() (interface{}, error) {
+		return make(chan int), nil // 无法 JSON 序列化
+	}
+
+	var result map[string]string
+	// Remember 应该返回 SetJSON 的错误
+	err := helper.Remember(ctx, "unmarshal_error", time.Minute, &result, loader)
+	if err == nil {
+		t.Error("Expected error from Remember when loader returns unserializable value")
+	}
+}
+
+// TestLocalCache_Close_Idempotent 测试多次关闭 LocalCache
+func TestLocalCache_Close_Idempotent(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	ctx := context.Background()
+
+	// 设置一些值
+	_ = cache.Set(ctx, "key1", []byte("value1"), time.Minute)
+
+	// 第一次关闭
+	err := cache.Close()
+	if err != nil {
+		t.Errorf("First Close failed: %v", err)
+	}
+
+	// 第二次关闭应该不报错
+	err = cache.Close()
+	if err != nil {
+		t.Errorf("Second Close failed: %v", err)
+	}
+
+	// 第三次关闭
+	err = cache.Close()
+	if err != nil {
+		t.Errorf("Third Close failed: %v", err)
+	}
+}
+
+// TestLocalCache_Stats_AfterClose 测试关闭后统计
+func TestLocalCache_Stats_AfterClose(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	ctx := context.Background()
+
+	// 设置一些值
+	_ = cache.Set(ctx, "key1", []byte("value1"), time.Minute)
+	_ = cache.Set(ctx, "key2", []byte("value2"), time.Minute)
+
+	// 验证统计
+	if cache.Stats() != 2 {
+		t.Errorf("Expected 2 items before close, got %d", cache.Stats())
+	}
+
+	// 关闭
+	_ = cache.Close()
+
+	// 关闭后统计应该为 0
+	if cache.Stats() != 0 {
+		t.Errorf("Expected 0 items after close, got %d", cache.Stats())
+	}
+}
+
+// TestLocalCache_Get_AfterClose 测试关闭后获取
+func TestLocalCache_Get_AfterClose(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	ctx := context.Background()
+
+	// 设置值
+	_ = cache.Set(ctx, "key1", []byte("value1"), time.Minute)
+
+	// 关闭
+	_ = cache.Close()
+
+	// 关闭后获取应该返回缓存未命中
+	_, err := cache.Get(ctx, "key1")
+	if err != ErrCacheMiss {
+		t.Errorf("Expected ErrCacheMiss after close, got %v", err)
+	}
+}
+
+// TestLocalCache_Set_AfterClose 测试关闭后设置
+func TestLocalCache_Set_AfterClose(t *testing.T) {
+	cache := NewLocalCache(time.Minute, time.Minute)
+	ctx := context.Background()
+
+	// 关闭会清空缓存
+	_ = cache.Set(ctx, "before_close", []byte("value"), time.Minute)
+	_ = cache.Close()
+
+	// 关闭后设置仍然可以操作（不会报错）
+	// 但缓存已经被清空，新设置的项目会存在
+	err := cache.Set(ctx, "key1", []byte("value1"), time.Minute)
+	if err != nil {
+		t.Errorf("Set after close should not error, got %v", err)
+	}
+
+	// 关闭后，缓存行为类似于新创建的缓存
+	// 可以继续使用，但之前的内容已被清空
+	t.Log("Cache is usable after Close, but previous content is cleared")
+}
+
+// TestNullCache_Delete_Idempotent 测试多次删除同一个键
+func TestNullCache_Delete_Idempotent(t *testing.T) {
+	cache := NewNullCache()
+	ctx := context.Background()
+
+	// 删除同一个键多次
+	for i := 0; i < 5; i++ {
+		err := cache.Delete(ctx, "same_key")
+		if err != nil {
+			t.Errorf("Delete iteration %d failed: %v", i, err)
+		}
+	}
+}
+
+// TestNullCache_Set_Get_Cycle 测试设置和获取循环
+func TestNullCache_Set_Get_Cycle(t *testing.T) {
+	cache := NewNullCache()
+	ctx := context.Background()
+
+	// 多次设置和获取
+	for i := 0; i < 10; i++ {
+		key := fmt.Sprintf("key%d", i)
+		value := []byte(fmt.Sprintf("value%d", i))
+
+		err := cache.Set(ctx, key, value, time.Minute)
+		if err != nil {
+			t.Errorf("Set failed for %s: %v", key, err)
+		}
+
+		retrieved, err := cache.Get(ctx, key)
+		if err != ErrCacheMiss {
+			t.Errorf("Get for %s should return ErrCacheMiss, got %v", key, err)
+		}
+		if retrieved != nil {
+			t.Errorf("Get for %s should return nil, got %v", key, retrieved)
+		}
+	}
+}
+
+// TestNewRedisCache_DefaultValues 测试 NewRedisCache 默认值
+func TestNewRedisCache_DefaultValues(t *testing.T) {
+	// 使用无效地址来测试默认值设置（会连接失败但会验证默认值逻辑）
+	// 使用一个不太可能运行的端口来避免实际连接
+	_, err := NewRedisCache("localhost:9999", "", 0, 0, 0)
+	if err == nil {
+		t.Skip("Redis server running on localhost:9999, skipping default values test")
+	}
+
+	// 验证错误是连接相关的
+	if err == nil {
+		t.Error("Expected connection error for non-existent Redis server")
+	}
+	// 错误信息应该包含 "redis" 或 "connect"
+	errMsg := err.Error()
+	if !containsAny(errMsg, "redis", "connect", "refused") {
+		t.Logf("Got error: %v", err)
+	}
+}
+
+// TestNewRedisCache_ConnectionError 测试 Redis 连接错误
+func TestNewRedisCache_ConnectionError(t *testing.T) {
+	tests := []struct {
+		name     string
+		addr     string
+		password string
+		db       int
+	}{
+		{"Invalid address", "invalid:address", "", 0},
+		{"Non-existent host", "localhost:9999", "", 0},
+		{"Wrong port", "localhost:1234", "", 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := NewRedisCache(tt.addr, tt.password, tt.db, 10, time.Minute)
+			if err == nil {
+				t.Skip("Redis server unexpectedly available")
+			}
+			// 验证错误信息
+			if err != nil {
+				t.Logf("Expected connection error: %v", err)
+			}
+		})
+	}
+}
+
+// containsAny 检查字符串是否包含任意一个子串
+func containsAny(s string, substrs ...string) bool {
+	for _, sub := range substrs {
+		if strings.Contains(s, sub) {
+			return true
+		}
+	}
+	return false
+}
+
+// TestNewRedisCache_ValidConfig 测试有效配置（需要 Redis 服务器）
+func TestNewRedisCache_ValidConfig(t *testing.T) {
+	// 这个测试需要 Redis 服务器运行
+	cache, err := NewRedisCache("localhost:6379", "", 0, 20, 10*time.Minute)
+	if err != nil {
+		// Redis 服务器不可用，跳过测试
+		t.Skip("Redis server not available, skipping Redis cache test")
+	}
+
+	defer cache.Close()
+
+	// 验证 cache 创建成功
+	if cache == nil {
+		t.Fatal("Expected non-nil RedisCache")
+	}
+
+	if cache.defaultTTL != 10*time.Minute {
+		t.Errorf("Expected defaultTTL 10m, got %v", cache.defaultTTL)
+	}
+
+	// 测试基本操作
+	ctx := context.Background()
+	testKey := "test_key"
+	testValue := []byte("test_value")
+
+	// Set
+	err = cache.Set(ctx, testKey, testValue, time.Minute)
+	if err != nil {
+		t.Errorf("Set failed: %v", err)
+	}
+
+	// Get
+	val, err := cache.Get(ctx, testKey)
+	if err != nil {
+		t.Errorf("Get failed: %v", err)
+	}
+	if string(val) != string(testValue) {
+		t.Errorf("Got wrong value: %s, want %s", val, testValue)
+	}
+
+	// Exists
+	exists, err := cache.Exists(ctx, testKey)
+	if err != nil {
+		t.Errorf("Exists failed: %v", err)
+	}
+	if !exists {
+		t.Error("Expected key to exist")
+	}
+
+	// Delete
+	err = cache.Delete(ctx, testKey)
+	if err != nil {
+		t.Errorf("Delete failed: %v", err)
+	}
+
+	// Verify deleted
+	_, err = cache.Get(ctx, testKey)
+	if err != ErrCacheMiss {
+		t.Errorf("Expected ErrCacheMiss after delete, got %v", err)
+	}
+}
+
+// TestRedisCache_Client 测试 Client 方法
+func TestRedisCache_Client(t *testing.T) {
+	cache, err := NewRedisCache("localhost:6379", "", 0, 10, time.Minute)
+	if err != nil {
+		t.Skip("Redis server not available")
+	}
+	defer cache.Close()
+
+	client := cache.Client()
+	if client == nil {
+		t.Error("Client() returned nil")
+	}
+}

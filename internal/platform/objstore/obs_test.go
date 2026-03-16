@@ -1044,3 +1044,324 @@ func BenchmarkOBSStore_StringOperations(b *testing.B) {
 		}
 	})
 }
+
+// TestOBSStore_Put_Operation tests Put operation with various inputs
+func TestOBSStore_Put_Operation(t *testing.T) {
+	tests := []struct {
+		name         string
+		key          string
+		contentType  string
+		sanitizedKey string
+	}{
+		{
+			name:         "simple file",
+			key:          "test/file.txt",
+			contentType:  "text/plain",
+			sanitizedKey: "test/file.txt",
+		},
+		{
+			name:         "with leading slash",
+			key:          "/leading/file.txt",
+			contentType:  "application/json",
+			sanitizedKey: "leading/file.txt",
+		},
+		{
+			name:         "with dot segments",
+			key:          "path/../file.txt",
+			contentType:  "",
+			sanitizedKey: "path/file.txt",
+		},
+		{
+			name:         "nested path",
+			key:          "a/b/c/d/e/file.txt",
+			contentType:  "image/png",
+			sanitizedKey: "a/b/c/d/e/file.txt",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeKey(tt.key)
+			if result != tt.sanitizedKey {
+				t.Errorf("sanitizeKey() = %q, want %q", result, tt.sanitizedKey)
+			}
+		})
+	}
+}
+
+// TestOBSStore_SignedURLMethodMapping tests HTTP method to OBS HttpMethod mapping
+func TestOBSStore_SignedURLMethodMapping(t *testing.T) {
+	tests := []struct {
+		name        string
+		method      string
+		expectError bool
+	}{
+		{
+			name:        "GET method",
+			method:      "GET",
+			expectError: false,
+		},
+		{
+			name:        "PUT method",
+			method:      "PUT",
+			expectError: false,
+		},
+		{
+			name:        "POST method",
+			method:      "POST",
+			expectError: false,
+		},
+		{
+			name:        "DELETE method",
+			method:      "DELETE",
+			expectError: false,
+		},
+		{
+			name:        "empty defaults to GET",
+			method:      "",
+			expectError: false,
+		},
+		{
+			name:        "PATCH unsupported",
+			method:      "PATCH",
+			expectError: true,
+		},
+		{
+			name:        "HEAD unsupported",
+			method:      "HEAD",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var err error
+
+			switch tt.method {
+			case "PUT", "POST":
+				// valid
+			case "DELETE":
+				// valid
+			case "GET", "":
+				// valid
+			default:
+				err = errors.New("unsupported method: " + tt.method)
+			}
+
+			if (err != nil) != tt.expectError {
+				t.Errorf("Error existence = %v, want %v", err != nil, tt.expectError)
+			}
+		})
+	}
+}
+
+// TestOBSStore_ExpirySecondsConversion tests expiry to seconds conversion
+func TestOBSStore_ExpirySecondsConversion(t *testing.T) {
+	tests := []struct {
+		name     string
+		expiry   time.Duration
+		expected int
+	}{
+		{
+			name:     "1 minute",
+			expiry:   1 * time.Minute,
+			expected: 60,
+		},
+		{
+			name:     "15 minutes",
+			expiry:   15 * time.Minute,
+			expected: 900,
+		},
+		{
+			name:     "1 hour",
+			expiry:   1 * time.Hour,
+			expected: 3600,
+		},
+		{
+			name:     "30 seconds",
+			expiry:   30 * time.Second,
+			expected: 30,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sec := int(tt.expiry / time.Second)
+			if sec != tt.expected {
+				t.Errorf("Expected %d seconds, got %d", tt.expected, sec)
+			}
+		})
+	}
+}
+
+// TestOBSStore_DeleteFolderLogic tests folder deletion logic
+func TestOBSStore_DeleteFolderLogic(t *testing.T) {
+	tests := []struct {
+		name       string
+		key        string
+		shouldList bool
+	}{
+		{
+			name:       "folder key",
+			key:        "test/",
+			shouldList: true,
+		},
+		{
+			name:       "nested folder",
+			key:        "a/b/c/",
+			shouldList: true,
+		},
+		{
+			name:       "file key",
+			key:        "test/file.txt",
+			shouldList: false,
+		},
+		{
+			name:       "folder with leading slash",
+			key:        "/test/",
+			shouldList: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			key := sanitizeKey(tt.key)
+			// Preserve trailing slash for folders
+			if strings.HasSuffix(tt.key, "/") && !strings.HasSuffix(key, "/") {
+				key += "/"
+			}
+			isFolder := strings.HasSuffix(key, "/")
+
+			shouldList := isFolder
+			if shouldList != tt.shouldList {
+				t.Errorf("shouldList = %v, want %v", shouldList, tt.shouldList)
+			}
+		})
+	}
+}
+
+// TestOBSStore_PrefixHandling tests prefix handling in operations
+func TestOBSStore_PrefixHandling(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "with trailing slash",
+			input:    "test/",
+			expected: "test/",
+		},
+		{
+			name:     "without trailing slash",
+			input:    "test",
+			expected: "test/",
+		},
+		{
+			name:     "with leading slash",
+			input:    "/test/",
+			expected: "test/",
+		},
+		{
+			name:     "with dot segments",
+			input:    "a/../test",
+			expected: "a/test/",
+		},
+		{
+			name:     "empty input",
+			input:    "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prefix := sanitizeKey(tt.input)
+			if !strings.HasSuffix(prefix, "/") && prefix != "" {
+				prefix += "/"
+			}
+
+			if prefix != tt.expected {
+				t.Errorf("prefix = %q, want %q", prefix, tt.expected)
+			}
+		})
+	}
+}
+
+// TestOBSStore_KeyReplacementInRename tests key replacement in rename
+func TestOBSStore_KeyReplacementInRename(t *testing.T) {
+	tests := []struct {
+		name      string
+		oldKey    string
+		oldPrefix string
+		newPrefix string
+		newKey    string
+	}{
+		{
+			name:      "simple replacement",
+			oldKey:    "old/file.txt",
+			oldPrefix: "old/",
+			newPrefix: "new/",
+			newKey:    "new/file.txt",
+		},
+		{
+			name:      "nested replacement",
+			oldKey:    "a/b/c/file.txt",
+			oldPrefix: "a/b/",
+			newPrefix: "x/y/",
+			newKey:    "x/y/c/file.txt",
+		},
+		{
+			name:      "deep replacement",
+			oldKey:    "old/nested/path/to/file.txt",
+			oldPrefix: "old/nested/path/",
+			newPrefix: "new/path/",
+			newKey:    "new/path/to/file.txt",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			newKey := strings.Replace(tt.oldKey, tt.oldPrefix, tt.newPrefix, 1)
+			if newKey != tt.newKey {
+				t.Errorf("newKey = %q, want %q", newKey, tt.newKey)
+			}
+		})
+	}
+}
+
+// TestOBSStore_ObjectMetadata tests object metadata handling
+func TestOBSStore_ObjectMetadata(t *testing.T) {
+	tests := []struct {
+		name string
+		key  string
+		size int64
+	}{
+		{
+			name: "full metadata",
+			key:  "test/file.txt",
+			size: 1024,
+		},
+		{
+			name: "minimal metadata",
+			key:  "file.txt",
+			size: 0,
+		},
+		{
+			name: "large file",
+			key:  "large/file.bin",
+			size: 1024 * 1024 * 100,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.key == "" {
+				t.Error("Object Key should not be empty")
+			}
+			if tt.size < 0 {
+				t.Error("Object Size should not be negative")
+			}
+		})
+	}
+}

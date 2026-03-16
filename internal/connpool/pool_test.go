@@ -160,6 +160,176 @@ func TestConnectionPool_Put(t *testing.T) {
 	// Put 应该是空操作（no-op），不引起恐慌
 	var conn *grpc.ClientConn
 	pool.Put("target", conn)
+
+	// Test with different targets
+	pool.Put("target2", nil)
+	pool.Put("", conn)
+}
+
+// TestConnectionPool_Remove_ClosedPool 测试关闭后移除连接
+func TestConnectionPool_Remove_ClosedPool(t *testing.T) {
+	pool := NewConnectionPool(nil).(*DefaultConnectionPool)
+	pool.Close()
+
+	// 关闭后移除不应该报错（实现中不存在目标时直接返回 nil）
+	err := pool.Remove("target")
+	if err != nil {
+		t.Errorf("Remove() after close error = %v", err)
+	}
+}
+
+// TestConnectionPool_Stats_UnhealthyConnections_WithActualConnection 测试统计不健康连接
+func TestConnectionPool_Stats_UnhealthyConnections_WithActualConnection(t *testing.T) {
+	pool := NewConnectionPool(nil).(*DefaultConnectionPool)
+	defer func() {
+		// 清理 nil 连接，避免 Close 时 panic
+		pool.mu.Lock()
+		delete(pool.connections, "unhealthy-target-2")
+		pool.mu.Unlock()
+		pool.Close()
+	}()
+
+	// 手动添加一个不健康的连接
+	var conn *grpc.ClientConn
+	connInfo := &ConnectionInfo{
+		conn:      conn,
+		target:    "unhealthy-target-2",
+		createdAt: time.Now(),
+		lastUsed:  time.Now(),
+		useCount:  1,
+		healthy:   false, // 标记为不健康
+	}
+
+	pool.mu.Lock()
+	pool.connections["unhealthy-target-2"] = connInfo
+	pool.mu.Unlock()
+
+	stats := pool.Stats()
+
+	if stats.TotalConnections != 1 {
+		t.Errorf("Expected 1 total connection, got %d", stats.TotalConnections)
+	}
+	if stats.UnhealthyConnections != 1 {
+		t.Errorf("Expected 1 unhealthy connection, got %d", stats.UnhealthyConnections)
+	}
+	if stats.HealthyConnections != 0 {
+		t.Errorf("Expected 0 healthy connections, got %d", stats.HealthyConnections)
+	}
+}
+
+// TestConnectionPool_Stats_IdleConnections_WithActualConnection 测试统计空闲连接
+func TestConnectionPool_Stats_IdleConnections_WithActualConnection(t *testing.T) {
+	config := &PoolConfig{
+		MaxIdleTime: 10 * time.Millisecond, // 很短的空闲时间
+	}
+	pool := NewConnectionPool(config).(*DefaultConnectionPool)
+	defer func() {
+		// 清理 nil 连接，避免 Close 时 panic
+		pool.mu.Lock()
+		delete(pool.connections, "idle-target")
+		pool.mu.Unlock()
+		pool.Close()
+	}()
+
+	// 添加一个很久未使用的连接
+	var conn *grpc.ClientConn
+	connInfo := &ConnectionInfo{
+		conn:      conn,
+		target:    "idle-target",
+		createdAt: time.Now().Add(-1 * time.Hour),
+		lastUsed:  time.Now().Add(-1 * time.Hour), // 很久未使用
+		useCount:  1,
+		healthy:   true,
+	}
+
+	pool.mu.Lock()
+	pool.connections["idle-target"] = connInfo
+	pool.mu.Unlock()
+
+	stats := pool.Stats()
+
+	if stats.IdleConnections != 1 {
+		t.Errorf("Expected 1 idle connection, got %d", stats.IdleConnections)
+	}
+}
+
+// TestConnectionPool_checkHealth_EmptyPool 测试空池的健康检查
+func TestConnectionPool_checkHealth_EmptyPool(t *testing.T) {
+	pool := NewConnectionPool(nil).(*DefaultConnectionPool)
+	defer pool.Close()
+
+	// 空池执行健康检查不应该 panic
+	pool.checkHealth()
+
+	// 验证没有连接
+	pool.mu.RLock()
+	count := len(pool.connections)
+	pool.mu.RUnlock()
+
+	if count != 0 {
+		t.Errorf("Expected 0 connections, got %d", count)
+	}
+}
+
+// TestConnectionPool_createConnection_PoolClosed 测试连接创建时池关闭
+func TestConnectionPool_createConnection_PoolClosed(t *testing.T) {
+	pool := NewConnectionPool(nil).(*DefaultConnectionPool)
+
+	// 标记池为关闭状态
+	pool.mu.Lock()
+	pool.closed = true
+	pool.mu.Unlock()
+
+	ctx := context.Background()
+	_, err := pool.createConnection(ctx, "test-target")
+
+	if err != ErrPoolClosed {
+		t.Errorf("Expected ErrPoolClosed, got %v", err)
+	}
+
+	pool.Close()
+}
+
+// TestConnectionPool_cleanIdleConnections 测试清理空闲连接（空池）
+func TestConnectionPool_cleanIdleConnections(t *testing.T) {
+	config := &PoolConfig{
+		MaxIdleTime: 10 * time.Millisecond, // 很短的空闲时间
+	}
+	pool := NewConnectionPool(config).(*DefaultConnectionPool)
+	defer pool.Close()
+
+	// 空池执行清理不应该 panic
+	pool.cleanIdleConnections()
+
+	// 验证没有连接
+	pool.mu.RLock()
+	count := len(pool.connections)
+	pool.mu.RUnlock()
+
+	if count != 0 {
+		t.Errorf("Expected 0 connections, got %d", count)
+	}
+}
+
+// TestConnectionPool_cleanIdleConnections_NotIdle 测试不清理活跃连接（空池）
+func TestConnectionPool_cleanIdleConnections_NotIdle(t *testing.T) {
+	config := &PoolConfig{
+		MaxIdleTime: 1 * time.Hour,
+	}
+	pool := NewConnectionPool(config).(*DefaultConnectionPool)
+	defer pool.Close()
+
+	// 空池执行清理不应该 panic
+	pool.cleanIdleConnections()
+
+	// 验证没有连接
+	pool.mu.RLock()
+	count := len(pool.connections)
+	pool.mu.RUnlock()
+
+	if count != 0 {
+		t.Errorf("Expected 0 connections, got %d", count)
+	}
 }
 
 // TestPoolErrors 测试错误变量

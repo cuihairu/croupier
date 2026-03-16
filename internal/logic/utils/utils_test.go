@@ -1,10 +1,20 @@
 package utils
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"encoding/json"
+	"math/big"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/model"
 	"gorm.io/datatypes"
 )
@@ -535,5 +545,847 @@ func TestRoleNamesFromModels_Empty(t *testing.T) {
 	}
 	if len(result) != 0 {
 		t.Errorf("RoleNamesFromModels() returned %d items, want 0", len(result))
+	}
+}
+
+// TestParseUintID tests parsing uint ID
+func TestParseUintID(t *testing.T) {
+	tests := []struct {
+		name    string
+		id      string
+		label   string
+		want    uint
+		wantErr bool
+	}{
+		{
+			name:    "valid ID",
+			id:      "123",
+			label:   "ID",
+			want:    123,
+			wantErr: false,
+		},
+		{
+			name:    "empty ID",
+			id:      "",
+			label:   "ID",
+			want:    0,
+			wantErr: true,
+		},
+		{
+			name:    "whitespace only ID",
+			id:      "   ",
+			label:   "ID",
+			want:    0,
+			wantErr: true,
+		},
+		{
+			name:    "invalid non-numeric ID",
+			id:      "abc",
+			label:   "ID",
+			want:    0,
+			wantErr: true,
+		},
+		{
+			name:    "zero ID",
+			id:      "0",
+			label:   "ID",
+			want:    0,
+			wantErr: true,
+		},
+		{
+			name:    "negative ID",
+			id:      "-1",
+			label:   "ID",
+			want:    0,
+			wantErr: true,
+		},
+		{
+			name:    "ID with spaces",
+			id:      "  456  ",
+			label:   "ID",
+			want:    456,
+			wantErr: false,
+		},
+		{
+			name:    "large ID",
+			id:      "18446744073709551615",
+			label:   "ID",
+			want:    18446744073709551615,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseUintID(tt.id, tt.label)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseUintID() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ParseUintID() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestValidatePassword tests password validation
+func TestValidatePassword(t *testing.T) {
+	tests := []struct {
+		name    string
+		passwd  string
+		wantErr bool
+	}{
+		{
+			name:    "valid password",
+			passwd:  "password123",
+			wantErr: false,
+		},
+		{
+			name:    "empty password",
+			passwd:  "",
+			wantErr: true,
+		},
+		{
+			name:    "password with space",
+			passwd:  "pass word",
+			wantErr: true,
+		},
+		{
+			name:    "password with tab",
+			passwd:  "pass\tword",
+			wantErr: true,
+		},
+		{
+			name:    "password with newline",
+			passwd:  "pass\nword",
+			wantErr: true,
+		},
+		{
+			name:    "password with trailing space",
+			passwd:  "password ",
+			wantErr: true,
+		},
+		{
+			name:    "password with leading space",
+			passwd:  " password",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ValidatePassword(tt.passwd)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidatePassword() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && got != tt.passwd {
+				t.Errorf("ValidatePassword() = %v, want %v", got, tt.passwd)
+			}
+		})
+	}
+}
+
+// TestNormalizeFeedbackRating tests rating normalization
+func TestNormalizeFeedbackRating(t *testing.T) {
+	tests := []struct {
+		name  string
+		rating int
+		want  int
+	}{
+		{
+			name:  "normal rating",
+			rating: 3,
+			want:  3,
+		},
+		{
+			name:  "minimum rating",
+			rating: 0,
+			want:  0,
+		},
+		{
+			name:  "maximum rating",
+			rating: 5,
+			want:  5,
+		},
+		{
+			name:  "negative rating",
+			rating: -1,
+			want:  0,
+		},
+		{
+			name:  "very negative rating",
+			rating: -100,
+			want:  0,
+		},
+		{
+			name:  "above maximum rating",
+			rating: 6,
+			want:  5,
+		},
+		{
+			name:  "very high rating",
+			rating: 100,
+			want:  5,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NormalizeFeedbackRating(tt.rating); got != tt.want {
+				t.Errorf("NormalizeFeedbackRating() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestBuildFeedback tests building feedback DTO
+func TestBuildFeedback(t *testing.T) {
+	fb := &model.Feedback{
+		PlayerID:  "player1",
+		Contact:   "test@example.com",
+		Content:   "Great game!",
+		Category:  "bug",
+		Priority:  "high",
+		Status:    "open",
+		Rating:    5,
+		Attach:    "screenshot.png",
+		GameID:    "game1",
+		Env:       "prod",
+		Reply:     "Thanks!",
+	}
+	// Set the embedded model fields
+	fb.ID = 123
+
+	result := BuildFeedback(fb)
+
+	if result.Id != 123 {
+		t.Errorf("BuildFeedback() Id = %v, want %v", result.Id, 123)
+	}
+	if result.PlayerId != "player1" {
+		t.Errorf("BuildFeedback() PlayerId = %v, want %v", result.PlayerId, "player1")
+	}
+	if result.Content != "Great game!" {
+		t.Errorf("BuildFeedback() Content = %v, want %v", result.Content, "Great game!")
+	}
+	if result.Rating != 5 {
+		t.Errorf("BuildFeedback() Rating = %v, want %v", result.Rating, 5)
+	}
+}
+
+// TestBuildFeedback_Nil tests nil feedback
+func TestBuildFeedback_Nil(t *testing.T) {
+	result := BuildFeedback(nil)
+	if result.Id != 0 {
+		t.Errorf("BuildFeedback() Id = %v, want %v", result.Id, 0)
+	}
+	if result.PlayerId != "" {
+		t.Errorf("BuildFeedback() PlayerId = %v, want empty", result.PlayerId)
+	}
+}
+
+// TestValidateDomain tests domain validation
+func TestValidateDomain(t *testing.T) {
+	tests := []struct {
+		name    string
+		domain  string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "valid domain",
+			domain:  "example.com",
+			want:    "example.com",
+			wantErr: false,
+		},
+		{
+			name:    "domain with spaces",
+			domain:  "  example.com  ",
+			want:    "example.com",
+			wantErr: false,
+		},
+		{
+			name:    "empty domain",
+			domain:  "",
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:    "whitespace only domain",
+			domain:  "   ",
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:    "domain with subdomain",
+			domain:  "api.example.com",
+			want:    "api.example.com",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ValidateDomain(tt.domain)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateDomain() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ValidateDomain() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestFormatIssuer tests formatting issuer
+func TestFormatIssuer(t *testing.T) {
+	tests := []struct {
+		name string
+		cert *x509.Certificate
+		want string
+	}{
+		{
+			name: "nil cert",
+			cert: nil,
+			want: "",
+		},
+		{
+			name: "cert with CommonName",
+			cert: &x509.Certificate{
+				Issuer: pkix.Name{
+					CommonName: "Example CA",
+				},
+			},
+			want: "Example CA",
+		},
+		{
+			name: "cert with Organization",
+			cert: &x509.Certificate{
+				Issuer: pkix.Name{
+					Organization: []string{"Example Org"},
+				},
+			},
+			want: "Example Org",
+		},
+		{
+			name: "cert with both CommonName and Organization",
+			cert: &x509.Certificate{
+				Issuer: pkix.Name{
+					CommonName:   "Example CA",
+					Organization: []string{"Example Org"},
+				},
+			},
+			want: "Example CA",
+		},
+		{
+			name: "cert with no CommonName or Organization",
+			cert: &x509.Certificate{
+				Issuer: pkix.Name{
+					Country: []string{"US"},
+				},
+			},
+			want: "C=US",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := FormatIssuer(tt.cert); got != tt.want {
+				t.Errorf("FormatIssuer() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestParseCertificatePEM tests parsing certificate PEM
+func TestParseCertificatePEM(t *testing.T) {
+	// Generate a test certificate for testing
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(time.Hour * 24),
+	}
+
+	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("Failed to generate private key: %v", err)
+	}
+
+	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &privKey.PublicKey, privKey)
+	if err != nil {
+		t.Fatalf("Failed to create certificate: %v", err)
+	}
+
+	certPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certDER,
+	})
+
+	tests := []struct {
+		name    string
+		pemData string
+		wantErr bool
+	}{
+		{
+			name:    "valid PEM certificate",
+			pemData: string(certPEM),
+			wantErr: false,
+		},
+		{
+			name:    "empty PEM",
+			pemData: "",
+			wantErr: true,
+		},
+		{
+			name:    "invalid PEM",
+			pemData: "not a valid PEM",
+			wantErr: true,
+		},
+		{
+			name:    "PEM with wrong type",
+			pemData: string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte("data")})),
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseCertificatePEM(tt.pemData)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseCertificatePEM() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && got == nil {
+				t.Error("ParseCertificatePEM() returned nil certificate")
+			}
+		})
+	}
+}
+
+// TestBuildCertificateDTO tests building certificate DTO
+func TestBuildCertificateDTO(t *testing.T) {
+	now := time.Now()
+	cert := &model.Certificate{
+		Domain:        "example.com",
+		Issuer:        "Example CA",
+		ExpiresAt:     now,
+		Status:        "valid",
+		LastCheckedAt: &now,
+		ErrorMessage:  "",
+	}
+	cert.ID = 1
+
+	result := BuildCertificateDTO(cert)
+
+	if result["id"] != uint(1) {
+		t.Errorf("BuildCertificateDTO() id = %v, want %v", result["id"], 1)
+	}
+	if result["domain"] != "example.com" {
+		t.Errorf("BuildCertificateDTO() domain = %v, want %v", result["domain"], "example.com")
+	}
+	if result["status"] != "valid" {
+		t.Errorf("BuildCertificateDTO() status = %v, want %v", result["status"], "valid")
+	}
+}
+
+// TestUpdateCertificateStatus tests updating certificate status
+func TestUpdateCertificateStatus(t *testing.T) {
+	tests := []struct {
+		name             string
+		expiresAt        time.Time
+		errorMessage     string
+		wantStatus       string
+		wantErrorMessage string
+	}{
+		{
+			name:             "valid certificate",
+			expiresAt:        time.Now().Add(time.Hour * 24),
+			errorMessage:     "",
+			wantStatus:       "valid",
+			wantErrorMessage: "",
+		},
+		{
+			name:             "expired certificate with no error",
+			expiresAt:        time.Now().Add(-time.Hour * 24),
+			errorMessage:     "",
+			wantStatus:       "expired",
+			wantErrorMessage: "证书已过期",
+		},
+		{
+			name:             "expired certificate with existing error",
+			expiresAt:        time.Now().Add(-time.Hour * 24),
+			errorMessage:     "existing error",
+			wantStatus:       "expired",
+			wantErrorMessage: "existing error",
+		},
+		{
+			name:             "expiring soon certificate",
+			expiresAt:        time.Now().Add(time.Hour * 12),
+			errorMessage:     "",
+			wantStatus:       "expiring_soon",
+			wantErrorMessage: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cert := &model.Certificate{
+				ExpiresAt:    tt.expiresAt,
+				ErrorMessage: tt.errorMessage,
+			}
+			UpdateCertificateStatus(cert)
+			if cert.Status != tt.wantStatus {
+				t.Errorf("UpdateCertificateStatus() status = %v, want %v", cert.Status, tt.wantStatus)
+			}
+			if cert.ErrorMessage != tt.wantErrorMessage {
+				t.Errorf("UpdateCertificateStatus() errorMessage = %v, want %v", cert.ErrorMessage, tt.wantErrorMessage)
+			}
+			if cert.LastCheckedAt == nil {
+				t.Error("UpdateCertificateStatus() LastCheckedAt should be set")
+			}
+		})
+	}
+}
+
+// TestBuildBackupDTO tests building backup DTO
+func TestBuildBackupDTO(t *testing.T) {
+	backup := &model.Backup{
+		BackupID: "bkp123",
+		Name:     "Daily Backup",
+		Size:     1024000,
+		Type:     "full",
+		Status:   "completed",
+		Location: "/backups/daily.tar.gz",
+	}
+	backup.ID = 1
+
+	result := BuildBackupDTO(backup)
+
+	if result.Id != "bkp123" {
+		t.Errorf("BuildBackupDTO() Id = %v, want %v", result.Id, "bkp123")
+	}
+	if result.Name != "Daily Backup" {
+		t.Errorf("BuildBackupDTO() Name = %v, want %v", result.Name, "Daily Backup")
+	}
+	if result.Size != 1024000 {
+		t.Errorf("BuildBackupDTO() Size = %v, want %v", result.Size, 1024000)
+	}
+	if result.Type != "full" {
+		t.Errorf("BuildBackupDTO() Type = %v, want %v", result.Type, "full")
+	}
+	if result.Status != "completed" {
+		t.Errorf("BuildBackupDTO() Status = %v, want %v", result.Status, "completed")
+	}
+}
+
+// TestBuildBackupDTO_Nil tests nil backup
+func TestBuildBackupDTO_Nil(t *testing.T) {
+	result := BuildBackupDTO(nil)
+	if result.Id != "" {
+		t.Errorf("BuildBackupDTO() Id = %v, want empty", result.Id)
+	}
+}
+
+// TestBuildBackupDTO_EmptyBackupID tests backup with empty BackupID
+func TestBuildBackupDTO_EmptyBackupID(t *testing.T) {
+	backup := &model.Backup{
+		BackupID: "",
+		Name:     "Test Backup",
+	}
+	backup.ID = 123
+	result := BuildBackupDTO(backup)
+	if result.Id != "123" {
+		t.Errorf("BuildBackupDTO() Id = %v, want %v", result.Id, "123")
+	}
+}
+
+// TestBuildBackupDTO_WhitespaceBackupID tests backup with whitespace BackupID
+func TestBuildBackupDTO_WhitespaceBackupID(t *testing.T) {
+	backup := &model.Backup{
+		BackupID: "  ",
+		Name:     "Test Backup",
+	}
+	backup.ID = 456
+	result := BuildBackupDTO(backup)
+	if result.Id != "456" {
+		t.Errorf("BuildBackupDTO() Id = %v, want %v", result.Id, "456")
+	}
+}
+
+// TestBuildBackupList tests building backup list
+func TestBuildBackupList(t *testing.T) {
+	backups := []model.Backup{
+		{
+			BackupID: "bkp1",
+			Name:     "Backup 1",
+			Size:     1000,
+			Type:     "full",
+			Status:   "completed",
+		},
+		{
+			BackupID: "bkp2",
+			Name:     "Backup 2",
+			Size:     2000,
+			Type:     "incremental",
+			Status:   "completed",
+		},
+	}
+	backups[0].ID = 1
+	backups[1].ID = 2
+
+	result := BuildBackupList(backups)
+
+	if len(result) != 2 {
+		t.Fatalf("BuildBackupList() returned %d items, want 2", len(result))
+	}
+	if result[0].Id != "bkp1" {
+		t.Errorf("BuildBackupList()[0].Id = %v, want %v", result[0].Id, "bkp1")
+	}
+	if result[1].Id != "bkp2" {
+		t.Errorf("BuildBackupList()[1].Id = %v, want %v", result[1].Id, "bkp2")
+	}
+}
+
+// TestBuildBackupList_Empty tests empty backup list
+func TestBuildBackupList_Empty(t *testing.T) {
+	result := BuildBackupList([]model.Backup{})
+	if len(result) != 0 {
+		t.Errorf("BuildBackupList() returned %d items, want 0", len(result))
+	}
+}
+
+// TestGenerateBackupID tests generating backup ID
+func TestGenerateBackupID(t *testing.T) {
+	id1 := GenerateBackupID()
+	id2 := GenerateBackupID()
+
+	// IDs should be different (UUID is unique)
+	if id1 == id2 {
+		t.Error("GenerateBackupID() should generate unique IDs")
+	}
+
+	// ID should start with "bkp_"
+	if !strings.HasPrefix(id1, "bkp_") {
+		t.Errorf("GenerateBackupID() = %v, should start with 'bkp_'", id1)
+	}
+
+	// ID should be 41 characters (bkp_ + 32 char hex UUID without dashes)
+	if len(id1) != 41 {
+		t.Errorf("GenerateBackupID() length = %d, want 41", len(id1))
+	}
+}
+
+// TestGuessBackupFilename tests guessing backup filename
+func TestGuessBackupFilename(t *testing.T) {
+	// Helper function to create a backup with ID set
+	makeBackup := func(id uint, backupID, name, location string) *model.Backup {
+		b := &model.Backup{
+			BackupID: backupID,
+			Name:     name,
+			Location: location,
+		}
+		b.ID = id
+		return b
+	}
+
+	tests := []struct {
+		name   string
+		backup *model.Backup
+		want   string
+	}{
+		{
+			name:   "backup with name",
+			backup: makeBackup(1, "bkp123", "my-backup.tar.gz", "/other/path/file.tar.gz"),
+			want:   "my-backup.tar.gz",
+		},
+		{
+			name:   "backup with whitespace name",
+			backup: makeBackup(1, "bkp123", "  ", "/path/to/backup.tar.gz"),
+			want:   "backup.tar.gz",
+		},
+		{
+			name:   "backup with location",
+			backup: makeBackup(1, "bkp123", "", "/backups/daily/backup-2023.tar.gz"),
+			want:   "backup-2023.tar.gz",
+		},
+		{
+			name:   "backup with BackupID",
+			backup: makeBackup(1, "bkp_abc123", "", ""),
+			want:   "bkp_abc123.bak",
+		},
+		{
+			name:   "backup with only ID",
+			backup: makeBackup(42, "", "", ""),
+			want:   "backup-42.bak",
+		},
+		{
+			name:   "nil backup",
+			backup: nil,
+			want:   "",
+		},
+		{
+			name:   "location with only directory",
+			backup: makeBackup(1, "bkp123", "", "/backups/"),
+			want:   "bkp123.bak",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GuessBackupFilename(tt.backup); got != tt.want {
+				t.Errorf("GuessBackupFilename() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestResolveAnalyticsFiltersPath tests resolving analytics filters path
+func TestResolveAnalyticsFiltersPath(t *testing.T) {
+	tests := []struct {
+		name     string
+		cfg      config.Config
+		contains string
+	}{
+		{
+			name: "explicit filters path",
+			cfg: config.Config{
+				Registry: config.RegistryConfig{
+					AnalyticsFiltersPath: "/custom/path/filters.json",
+				},
+			},
+			contains: "filters.json",
+		},
+		{
+			name: "use schemas dir",
+			cfg: config.Config{
+				Schemas: config.SchemasConfig{
+					Dir: "/schemas",
+				},
+			},
+			contains: "analytics_filters.json",
+		},
+		{
+			name: "default path",
+			cfg:  config.Config{},
+			contains: "analytics_filters.json",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ResolveAnalyticsFiltersPath(tt.cfg)
+			if !strings.Contains(result, tt.contains) {
+				t.Errorf("ResolveAnalyticsFiltersPath() = %v, should contain %v", result, tt.contains)
+			}
+		})
+	}
+}
+
+// TestReadAnalyticsFiltersFile tests reading analytics filters file
+func TestReadAnalyticsFiltersFile(t *testing.T) {
+	// Create a temporary file
+	tmpfile, err := os.CreateTemp("", "filters-*.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	content := []byte(`{"filters": ["test"]}`)
+	if _, err := tmpfile.Write(content); err != nil {
+		t.Fatal(err)
+	}
+	tmpfile.Close()
+
+	tests := []struct {
+		name    string
+		path    string
+		want    []byte
+		wantErr bool
+	}{
+		{
+			name:    "valid file",
+			path:    tmpfile.Name(),
+			want:    content,
+			wantErr: false,
+		},
+		{
+			name:    "empty path",
+			path:    "",
+			want:    []byte{},
+			wantErr: false,
+		},
+		{
+			name:    "whitespace path",
+			path:    "   ",
+			want:    []byte{},
+			wantErr: false,
+		},
+		{
+			name:    "non-existent file",
+			path:    "/nonexistent/file.json",
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ReadAnalyticsFiltersFile(tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ReadAnalyticsFiltersFile() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.want != nil && string(got) != string(tt.want) {
+				t.Errorf("ReadAnalyticsFiltersFile() = %v, want %v", string(got), string(tt.want))
+			}
+		})
+	}
+}
+
+// TestWriteAnalyticsFiltersFile tests writing analytics filters file
+func TestWriteAnalyticsFiltersFile(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name    string
+		path    string
+		data    []byte
+		wantErr bool
+	}{
+		{
+			name:    "write to valid path",
+			path:    filepath.Join(tmpDir, "filters.json"),
+			data:    []byte(`{"filters": []}`),
+			wantErr: false,
+		},
+		{
+			name:    "write to nested path",
+			path:    filepath.Join(tmpDir, "subdir", "filters.json"),
+			data:    []byte(`{"filters": []}`),
+			wantErr: false,
+		},
+		{
+			name:    "empty path",
+			path:    "",
+			data:    []byte(`{}`),
+			wantErr: false,
+		},
+		{
+			name:    "whitespace path",
+			path:    "   ",
+			data:    []byte(`{}`),
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := WriteAnalyticsFiltersFile(tt.path, tt.data)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("WriteAnalyticsFiltersFile() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && tt.path != "" && strings.TrimSpace(tt.path) != "" {
+				// Verify file was written
+				content, err := os.ReadFile(tt.path)
+				if err != nil {
+					t.Errorf("Failed to read written file: %v", err)
+				}
+				if string(content) != string(tt.data) {
+					t.Errorf("File content = %v, want %v", string(content), string(tt.data))
+				}
+			}
+		})
 	}
 }

@@ -514,3 +514,215 @@ func TestWriteFile_Permissions(t *testing.T) {
 		})
 	}
 }
+
+// TestIsCertExpired 测试证书过期检查
+func TestIsCertExpired(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// 测试不存在的证书文件
+	expired := isCertExpired(filepath.Join(tempDir, "nonexistent.crt"))
+	if !expired {
+		t.Error("Non-existent cert should be considered expired")
+	}
+
+	// 测试无效的 PEM 文件
+	invalidPEM := filepath.Join(tempDir, "invalid.crt")
+	os.WriteFile(invalidPEM, []byte("not a valid PEM"), 0644)
+	expired = isCertExpired(invalidPEM)
+	if !expired {
+		t.Error("Invalid PEM should be considered expired")
+	}
+
+	// 测试空的 PEM 文件
+	emptyPEM := filepath.Join(tempDir, "empty.crt")
+	os.WriteFile(emptyPEM, []byte(""), 0644)
+	expired = isCertExpired(emptyPEM)
+	if !expired {
+		t.Error("Empty PEM should be considered expired")
+	}
+
+	// 测试有效的 PEM 但无效的证书
+	validPEMInvalidCert := filepath.Join(tempDir, "pem_invalid.crt")
+	os.WriteFile(validPEMInvalidCert, []byte("-----BEGIN CERTIFICATE-----\ninvalid base64 data\n-----END CERTIFICATE-----"), 0644)
+	expired = isCertExpired(validPEMInvalidCert)
+	if !expired {
+		t.Error("PEM with invalid cert data should be considered expired")
+	}
+}
+
+// TestEnsureDevCA_EmptyDir 测试空目录中创建 CA
+func TestEnsureDevCA_EmptyDir(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// 空目录中应该创建新的 CA
+	caCrt, caKey, err := EnsureDevCA(tempDir)
+	if err != nil {
+		t.Fatalf("EnsureDevCA() error = %v", err)
+	}
+
+	if caCrt == "" || caKey == "" {
+		t.Error("Expected non-empty paths")
+	}
+}
+
+// TestEnsureDevCA_SubDir 测试在子目录中创建 CA
+func TestEnsureDevCA_SubDir(t *testing.T) {
+	tempDir := t.TempDir()
+	subDir := filepath.Join(tempDir, "subdir", "nested")
+
+	// 子目录不存在时应该创建
+	caCrt, caKey, err := EnsureDevCA(subDir)
+	if err != nil {
+		t.Fatalf("EnsureDevCA() with nested dirs error = %v", err)
+	}
+
+	// 验证文件被创建在正确的位置
+	if _, err := os.Stat(caCrt); err != nil {
+		t.Errorf("CA cert should exist at %s: %v", caCrt, err)
+	}
+	if _, err := os.Stat(caKey); err != nil {
+		t.Errorf("CA key should exist at %s: %v", caKey, err)
+	}
+}
+
+// TestEnsureServerCert_InvalidCAFiles 测试无效的 CA 文件
+func TestEnsureServerCert_InvalidCAFiles(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// 测试不存在的 CA 文件
+	_, _, err := EnsureServerCert(tempDir, "nonexistent.crt", "nonexistent.key", []string{"localhost"})
+	if err == nil {
+		t.Error("Expected error for non-existent CA files")
+	}
+}
+
+// TestEnsureAgentCert_InvalidCAFiles 测试无效的 CA 文件
+func TestEnsureAgentCert_InvalidCAFiles(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// 测试不存在的 CA 文件
+	_, _, err := EnsureAgentCert(tempDir, "nonexistent.crt", "nonexistent.key", "test-agent")
+	if err == nil {
+		t.Error("Expected error for non-existent CA files")
+	}
+}
+
+// TestEnsureAgentCert_EmptyCommonName 测试空 CommonName
+func TestEnsureAgentCert_EmptyCommonName(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// 先创建 CA
+	caCrt, caKey, err := EnsureDevCA(tempDir)
+	if err != nil {
+		t.Fatalf("EnsureDevCA() error = %v", err)
+	}
+
+	// 使用空的 CommonName
+	_, _, err = EnsureAgentCert(tempDir, caCrt, caKey, "")
+	if err != nil {
+		// 空的 CommonName 可能会导致错误，这是可接受的
+		t.Logf("Empty CommonName resulted in error (acceptable): %v", err)
+	}
+}
+
+// TestEnsureServerCert_EmptyHosts 测试空主机列表
+func TestEnsureServerCert_EmptyHosts(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// 先创建 CA
+	caCrt, caKey, err := EnsureDevCA(tempDir)
+	if err != nil {
+		t.Fatalf("EnsureDevCA() error = %v", err)
+	}
+
+	// 使用空的主机列表
+	crtPath, keyPath, err := EnsureServerCert(tempDir, caCrt, caKey, []string{})
+	if err != nil {
+		t.Fatalf("EnsureServerCert() with empty hosts error = %v", err)
+	}
+
+	// 验证证书仍然被创建
+	if _, err := os.Stat(crtPath); err != nil {
+		t.Error("Server cert should exist even with empty hosts list")
+	}
+	if _, err := os.Stat(keyPath); err != nil {
+		t.Error("Server key should exist even with empty hosts list")
+	}
+}
+
+// TestEnsureServerCert_InvalidCAContent 测试无效的 CA 内容
+func TestEnsureServerCert_InvalidCAContent(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// 创建无效的 CA 文件
+	invalidCrt := filepath.Join(tempDir, "invalid_ca.crt")
+	invalidKey := filepath.Join(tempDir, "invalid_ca.key")
+	os.WriteFile(invalidCrt, []byte("invalid cert content"), 0644)
+	os.WriteFile(invalidKey, []byte("invalid key content"), 0600)
+
+	// 尝试使用无效的 CA 创建服务器证书
+	_, _, err := EnsureServerCert(tempDir, invalidCrt, invalidKey, []string{"localhost"})
+	if err == nil {
+		t.Error("Expected error for invalid CA content")
+	}
+}
+
+// TestEnsureAgentCert_InvalidCAContent 测试无效的 CA 内容
+func TestEnsureAgentCert_InvalidCAContent(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// 创建无效的 CA 文件
+	invalidCrt := filepath.Join(tempDir, "invalid_ca.crt")
+	invalidKey := filepath.Join(tempDir, "invalid_ca.key")
+	os.WriteFile(invalidCrt, []byte("invalid cert content"), 0644)
+	os.WriteFile(invalidKey, []byte("invalid key content"), 0600)
+
+	// 尝试使用无效的 CA 创建 Agent 证书
+	_, _, err := EnsureAgentCert(tempDir, invalidCrt, invalidKey, "test-agent")
+	if err == nil {
+		t.Error("Expected error for invalid CA content")
+	}
+}
+
+// TestEnsureServerCert_MissingKeyFile 测试缺少密钥文件
+func TestEnsureServerCert_MissingKeyFile(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// 先创建 CA
+	caCrt, _, err := EnsureDevCA(tempDir)
+	if err != nil {
+		t.Fatalf("EnsureDevCA() error = %v", err)
+	}
+
+	// 只提供证书文件，不提供密钥文件
+	_, _, err = EnsureServerCert(tempDir, caCrt, "nonexistent.key", []string{"localhost"})
+	if err == nil {
+		t.Error("Expected error for missing key file")
+	}
+}
+
+// TestEnsureAgentCert_MissingKeyFile 测试缺少密钥文件
+func TestEnsureAgentCert_MissingKeyFile(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// 先创建 CA
+	caCrt, _, err := EnsureDevCA(tempDir)
+	if err != nil {
+		t.Fatalf("EnsureDevCA() error = %v", err)
+	}
+
+	// 只提供证书文件，不提供密钥文件
+	_, _, err = EnsureAgentCert(tempDir, caCrt, "nonexistent.key", "test-agent")
+	if err == nil {
+		t.Error("Expected error for missing key file")
+	}
+}
+
+// TestWriteFile_EmptyPath 测试空路径
+func TestWriteFile_EmptyPath(t *testing.T) {
+	// 空路径应该导致错误
+	err := writeFile("", []byte("data"), 0644)
+	if err == nil {
+		t.Error("Expected error for empty path")
+	}
+}
