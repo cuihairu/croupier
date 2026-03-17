@@ -215,6 +215,48 @@ CROUPIER_SDK_EXAMPLE_ENV=development
 
 ---
 
+## 🗄️ 数据库配置
+
+服务支持多种数据库，启动时会自动创建不存在的数据库。
+
+### 配置示例
+
+编辑 `configs/server.yaml` 中的 `database` 部分：
+
+```yaml
+database:
+  Driver: mysql      # 支持: mysql / postgres / sqlite / sqlserver
+  DataSource: "root:root@tcp(localhost:3306)/croupier?charset=utf8mb4&parseTime=True&loc=Local"
+```
+
+### 支持的数据库
+
+| 数据库 | Driver 值 | DataSource 示例 | 说明 |
+|--------|----------|-----------------|------|
+| **MySQL** | `mysql` | `root:root@tcp(localhost:3306)/croupier?charset=utf8mb4&parseTime=True&loc=Local` | 默认配置 |
+| **PostgreSQL** | `postgres` | `host=localhost port=5432 user=postgres password=postgres dbname=croupier sslmode=disable` | 需先启动 PostgreSQL 服务 |
+| **SQLite** | `sqlite` | `data/croupier.db` | 文件路径，自动创建 |
+| **SQL Server** | `sqlserver` | `sqlserver://sa:password@localhost:1433?database=croupier` | 需先启动 SQL Server 服务 |
+
+### 环境变量覆盖
+
+可通过环境变量覆盖配置：
+
+```bash
+export DB_DRIVER=postgres
+export DATABASE_URL="host=localhost port=5432 user=postgres password=postgres dbname=croupier sslmode=disable"
+```
+
+### 自动初始化
+
+首次启动时，服务会自动：
+1. 创建数据库（如果不存在）
+2. 运行数据库迁移
+3. 创建默认 admin 账号（username=`admin`, password=`admin123`）
+4. 加载默认角色和权限
+
+---
+
 ## 📚 文档入口
 - [docs/](docs/) & [configs/](configs/)：架构详解、配置样例、部署建议。
 - [proto/](proto/)：IDL + `buf` 配置，可运行 `buf lint` / `buf generate`。
