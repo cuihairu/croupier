@@ -65,7 +65,7 @@ func setupIntegrationTestDB(t *testing.T) *gorm.DB {
 					AssignmentsPath: assignmentsFile,
 				},
 			},
-			RegistryStore: registry.NewStore(),
+			RegistryStore:   registry.NewStore(),
 			AdminModel:      model.NewAdminModel(integrationDB),
 			RoleModel:       model.NewRoleModel(integrationDB),
 			PermissionModel: model.NewPermissionModel(integrationDB),
