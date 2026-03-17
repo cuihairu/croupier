@@ -16,6 +16,9 @@ ignore:
   - "pkg/pb/**"
   - "gen/**"
   - "dashboard/**"
+  - "cmd/**"
+  - "examples/**"
+  - "scripts/**"
 
 github_checks:
   annotations: true
