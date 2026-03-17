@@ -146,7 +146,10 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.out
           flags: server
-          fail_ci_if_error: ${{ github.event_name != 'pull_request' }}
+          fail_on_error: ${{ github.event_name != 'pull_request' }}
+          verbose: true
+          os: linux
+          arch: amd64
 
   e2e:
     name: E2E Tests

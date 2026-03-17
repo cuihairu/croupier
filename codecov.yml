@@ -1,3 +1,14 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 1%
+    patch:
+      default:
+        target: 80%
+        threshold: 1%
+
 comment: false
 
 ignore:
@@ -5,3 +16,6 @@ ignore:
   - "pkg/pb/**"
   - "gen/**"
   - "dashboard/**"
+
+github_checks:
+  annotations: true
