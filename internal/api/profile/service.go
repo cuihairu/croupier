@@ -5,21 +5,29 @@ import (
 	"errors"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/svc"
 )
 
 type Service struct {
 	adminModel *model.AdminModel
 	gameModel  *model.GameModel
 	roleModel  *model.RoleModel
+	opsStore   *svc.OpsStateStore
 }
 
-func NewService(adminModel *model.AdminModel, gameModel *model.GameModel, roleModel *model.RoleModel) *Service {
+func NewService(adminModel *model.AdminModel, gameModel *model.GameModel, roleModel *model.RoleModel, opsStore ...*svc.OpsStateStore) *Service {
+	var store *svc.OpsStateStore
+	if len(opsStore) > 0 {
+		store = opsStore[0]
+	}
 	return &Service{
 		adminModel: adminModel,
 		gameModel:  gameModel,
 		roleModel:  roleModel,
+		opsStore:   store,
 	}
 }
 
@@ -44,17 +52,47 @@ func (s *Service) GetProfile(ctx context.Context, username string) (*ProfileGetR
 
 	return &ProfileGetResponse{
 		ProfileInfo: ProfileInfo{
-			Id:        int64(admin.ID),
-			Username:  admin.Username,
-			Nickname:  admin.Nickname,
-			Email:     admin.Email,
-			Phone:     admin.Phone,
-			Roles:     roles,
-			Avatar:    admin.Avatar,
-			CreatedAt: admin.CreatedAt.String(),
-			UpdatedAt: admin.UpdatedAt.String(),
+			Id:          int64(admin.ID),
+			Username:    admin.Username,
+			Nickname:    admin.Nickname,
+			Email:       admin.Email,
+			Phone:       admin.Phone,
+			Active:      admin.Status == 1,
+			Roles:       roles,
+			Avatar:      admin.Avatar,
+			CreatedAt:   admin.CreatedAt.String(),
+			UpdatedAt:   admin.UpdatedAt.String(),
+			LastLoginAt: s.resolveLastLoginAt(admin.Username, admin.LastLoginAt),
 		},
 	}, nil
+}
+
+func (s *Service) resolveLastLoginAt(username string, ts *time.Time) string {
+	if ts != nil && !ts.IsZero() {
+		return ts.UTC().Format(time.RFC3339)
+	}
+	if s == nil || s.opsStore == nil {
+		return ""
+	}
+	state := s.opsStore.Snapshot()
+	for i := len(state.Audit.Entries) - 1; i >= 0; i-- {
+		entry := state.Audit.Entries[i]
+		if !strings.EqualFold(strings.TrimSpace(entry.UserID), strings.TrimSpace(username)) {
+			continue
+		}
+		action := strings.ToLower(strings.TrimSpace(entry.Action))
+		if action != "auth.login" && action != "login" {
+			continue
+		}
+		if strings.TrimSpace(entry.Result) != "" && !strings.EqualFold(strings.TrimSpace(entry.Result), "success") {
+			continue
+		}
+		if entry.CreatedAt.IsZero() {
+			continue
+		}
+		return entry.CreatedAt.UTC().Format(time.RFC3339)
+	}
+	return ""
 }
 
 // GetUserGames 获取用户的游戏列表

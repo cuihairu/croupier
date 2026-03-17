@@ -101,7 +101,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 }
 
 func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
-	authSvc := auth.NewService(ctx.AdminModel, permissionservice.NewPermissionService(ctx.DB))
+	authSvc := auth.NewService(ctx.AdminModel, permissionservice.NewPermissionService(ctx.DB), ctx.OpsStateStore)
 	authHandler := auth.NewHandler(authSvc)
 	g.POST("/login", authHandler.Login)
 	g.POST("/logout", authHandler.Logout)
@@ -645,7 +645,7 @@ func registerPlayerRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 // Profile 路由注册
 // ============================================================================
 func registerProfileRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
-	profileSvc := profile.NewService(ctx.AdminModel, ctx.GameModel, ctx.RoleModel)
+	profileSvc := profile.NewService(ctx.AdminModel, ctx.GameModel, ctx.RoleModel, ctx.OpsStateStore)
 	profileHandler := profile.NewHandler(profileSvc)
 	g.GET("", profileHandler.GetProfile)     // /api/v1/profile
 	g.GET("/", profileHandler.GetProfile)    // /api/v1/profile/

@@ -3,9 +3,11 @@ package audit
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -55,17 +57,79 @@ func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditRe
 	}
 
 	actionFilter := strings.TrimSpace(req.Action)
+	if actionFilter == "" {
+		actionFilter = strings.TrimSpace(req.Kind)
+	}
 	userFilter := strings.TrimSpace(req.UserID)
+	if userFilter == "" {
+		userFilter = strings.TrimSpace(req.Actor)
+	}
+	gameFilter := strings.TrimSpace(req.GameID)
+	envFilter := strings.TrimSpace(req.Env)
+	ipFilter := strings.TrimSpace(req.IP)
+
+	actionSet := make(map[string]struct{})
+	addActionAlias := func(value string) {
+		value = strings.ToLower(strings.TrimSpace(value))
+		if value == "" {
+			return
+		}
+		actionSet[value] = struct{}{}
+		switch value {
+		case "login":
+			actionSet["auth.login"] = struct{}{}
+		case "login_fail":
+			actionSet["auth.login_failed"] = struct{}{}
+		case "login_failed":
+			actionSet["auth.login_failed"] = struct{}{}
+		}
+	}
+	if actionFilter != "" {
+		addActionAlias(actionFilter)
+	}
+	for _, item := range strings.Split(strings.TrimSpace(req.Kinds), ",") {
+		addActionAlias(item)
+	}
+
+	var startAt time.Time
+	if trimmed := strings.TrimSpace(req.Start); trimmed != "" {
+		if parsed, err := time.Parse(time.RFC3339, trimmed); err == nil {
+			startAt = parsed
+		}
+	}
+	var endAt time.Time
+	if trimmed := strings.TrimSpace(req.End); trimmed != "" {
+		if parsed, err := time.Parse(time.RFC3339, trimmed); err == nil {
+			endAt = parsed
+		}
+	}
 
 	state := s.svcCtx.OpsStateStore.Snapshot()
 	entries := state.Audit.Entries
 
 	filtered := make([]svc.OpsAuditEntry, 0, len(entries))
 	for _, entry := range entries {
-		if actionFilter != "" && !strings.EqualFold(entry.Action, actionFilter) {
-			continue
+		if len(actionSet) > 0 {
+			if _, ok := actionSet[strings.ToLower(strings.TrimSpace(entry.Action))]; !ok {
+				continue
+			}
 		}
 		if userFilter != "" && !strings.EqualFold(entry.UserID, userFilter) {
+			continue
+		}
+		if gameFilter != "" && !strings.EqualFold(entry.GameID, gameFilter) {
+			continue
+		}
+		if envFilter != "" && !strings.EqualFold(entry.Env, envFilter) {
+			continue
+		}
+		if ipFilter != "" && !strings.EqualFold(fmt.Sprint(entry.Metadata["ip"]), ipFilter) {
+			continue
+		}
+		if !startAt.IsZero() && entry.CreatedAt.Before(startAt) {
+			continue
+		}
+		if !endAt.IsZero() && entry.CreatedAt.After(endAt) {
 			continue
 		}
 		filtered = append(filtered, entry)

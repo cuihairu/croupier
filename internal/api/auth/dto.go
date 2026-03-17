@@ -2,8 +2,10 @@ package auth
 
 // LoginRequest 登录请求
 type LoginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Username  string `json:"username" binding:"required"`
+	Password  string `json:"password" binding:"required"`
+	ClientIP  string `json:"-"`
+	UserAgent string `json:"-"`
 }
 
 // LoginResponse 登录响应

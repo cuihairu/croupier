@@ -22,6 +22,8 @@ func (h *Handler) Login(c *gin.Context) {
 		response.BadRequest(c, "参数错误: "+err.Error())
 		return
 	}
+	req.ClientIP = c.ClientIP()
+	req.UserAgent = c.GetHeader("User-Agent")
 
 	resp, err := h.service.Login(c.Request.Context(), &req)
 	if err != nil {

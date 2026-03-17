@@ -2,11 +2,19 @@ package audit
 
 // AuditRequest audit log request
 type AuditRequest struct {
-	Page     int    `form:"page" json:"page"`         // 页码
-	PageSize int    `form:"pageSize" json:"pageSize"` // 每页数量
-	Size     int    `form:"size" json:"size"`         // 每页数量别名（兼容前端）
-	Action   string `form:"action" json:"action"`     // 操作类型过滤
-	UserID   string `form:"userId" json:"userId"`     // 用户ID过滤
+	Page     int    `form:"page" json:"page"`
+	PageSize int    `form:"pageSize" json:"pageSize"`
+	Size     int    `form:"size" json:"size"`
+	Action   string `form:"action" json:"action"`
+	UserID   string `form:"userId" json:"userId"`
+	Actor    string `form:"actor" json:"actor"`
+	Kind     string `form:"kind" json:"kind"`
+	Kinds    string `form:"kinds" json:"kinds"`
+	GameID   string `form:"game_id" json:"game_id"`
+	Env      string `form:"env" json:"env"`
+	IP       string `form:"ip" json:"ip"`
+	Start    string `form:"start" json:"start"`
+	End      string `form:"end" json:"end"`
 }
 
 // AuditResponse audit log response

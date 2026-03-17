@@ -30,15 +30,17 @@ type ProfileGetResponse struct {
 
 // ProfileInfo 个人资料信息
 type ProfileInfo struct {
-	Id        int64    `json:"id"`
-	Username  string   `json:"username"`
-	Nickname  string   `json:"nickname"`
-	Email     string   `json:"email"`
-	Phone     string   `json:"phone"`
-	Roles     []string `json:"roles"`
-	Avatar    string   `json:"avatar"`
-	CreatedAt string   `json:"createdAt"`
-	UpdatedAt string   `json:"updatedAt"`
+	Id          int64    `json:"id"`
+	Username    string   `json:"username"`
+	Nickname    string   `json:"nickname"`
+	Email       string   `json:"email"`
+	Phone       string   `json:"phone"`
+	Active      bool     `json:"active"`
+	Roles       []string `json:"roles"`
+	Avatar      string   `json:"avatar"`
+	CreatedAt   string   `json:"createdAt"`
+	UpdatedAt   string   `json:"updatedAt"`
+	LastLoginAt string   `json:"lastLoginAt,omitempty"`
 }
 
 // ProfilePasswordRequest 修改密码请求
