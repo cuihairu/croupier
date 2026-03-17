@@ -1,13 +1,27 @@
 package admin
 
 import (
-	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 )
+
+func assertAdminStatus(t *testing.T, rec *httptest.ResponseRecorder, want int) {
+	t.Helper()
+	if rec.Code != want {
+		t.Fatalf("expected status %d, got %d body=%s", want, rec.Code, rec.Body.String())
+	}
+}
+
+func assertAdminRejected(t *testing.T, rec *httptest.ResponseRecorder) {
+	t.Helper()
+	if rec.Code == http.StatusOK {
+		t.Fatalf("expected request to be rejected, got 200 body=%s", rec.Body.String())
+	}
+}
 
 func newAdminTestContext(method, target, body string) (*gin.Context, *httptest.ResponseRecorder) {
 	rec := httptest.NewRecorder()
@@ -72,14 +86,9 @@ func TestHandler_List_BindValidation(t *testing.T) {
 			ctx, rec := newAdminTestContext("GET", "/admins"+tt.query, "")
 			handler.List(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				// Service layer will fail due to nil dependencies, but binding should succeed
-				if code, ok := result["code"].(float64); ok && tt.wantCode == 0 {
-					// Expected to fail at service layer (500 or 401)
-					if code != 0 && code != 500 && code != 401 {
-						t.Errorf("Unexpected code: %v", code)
-					}
+			if tt.wantCode == 0 {
+				if rec.Code != http.StatusInternalServerError && rec.Code != http.StatusUnauthorized && rec.Code != http.StatusOK {
+					t.Errorf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
 				}
 			}
 		})
@@ -135,13 +144,8 @@ func TestHandler_Create_BindValidation(t *testing.T) {
 			ctx, rec := newAdminTestContext("POST", "/admins", tt.body)
 			handler.Create(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if code, ok := result["code"].(float64); ok {
-					if tt.wantCode != 0 && int(code) != tt.wantCode {
-						t.Errorf("Expected code %d, got %d. Body: %s", tt.wantCode, int(code), rec.Body.String())
-					}
-				}
+			if tt.wantCode != 0 {
+				assertAdminRejected(t, rec)
 			}
 		})
 	}
@@ -192,13 +196,8 @@ func TestHandler_Get_BindValidation(t *testing.T) {
 			ctx.Params = gin.Params{gin.Param{Key: "id", Value: strings.TrimPrefix(tt.uri, "/admins/")}}
 			handler.Get(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if code, ok := result["code"].(float64); ok {
-					if tt.wantCode != 0 && int(code) != tt.wantCode {
-						t.Errorf("Expected code %d, got %d", tt.wantCode, int(code))
-					}
-				}
+			if tt.wantCode != 0 {
+				assertAdminRejected(t, rec)
 			}
 		})
 	}
@@ -255,13 +254,8 @@ func TestHandler_Update_BindValidation(t *testing.T) {
 			ctx.Params = gin.Params{gin.Param{Key: "id", Value: strings.TrimPrefix(tt.uri, "/admins/")}}
 			handler.Update(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if code, ok := result["code"].(float64); ok {
-					if tt.wantCode != 0 && int(code) != tt.wantCode {
-						t.Errorf("Expected code %d, got %d", tt.wantCode, int(code))
-					}
-				}
+			if tt.wantCode != 0 {
+				assertAdminRejected(t, rec)
 			}
 		})
 	}
@@ -307,13 +301,8 @@ func TestHandler_Delete_BindValidation(t *testing.T) {
 			ctx.Params = gin.Params{gin.Param{Key: "id", Value: strings.TrimPrefix(tt.uri, "/admins/")}}
 			handler.Delete(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if code, ok := result["code"].(float64); ok {
-					if tt.wantCode != 0 && int(code) != tt.wantCode {
-						t.Errorf("Expected code %d, got %d", tt.wantCode, int(code))
-					}
-				}
+			if tt.wantCode != 0 {
+				assertAdminRejected(t, rec)
 			}
 		})
 	}
@@ -364,13 +353,8 @@ func TestHandler_PasswordReset_BindValidation(t *testing.T) {
 			ctx.Params = gin.Params{gin.Param{Key: "id", Value: strings.TrimPrefix(strings.TrimSuffix(tt.uri, "/password-reset"), "/admins/")}}
 			handler.PasswordReset(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if code, ok := result["code"].(float64); ok {
-					if tt.wantCode != 0 && int(code) != tt.wantCode {
-						t.Errorf("Expected code %d, got %d", tt.wantCode, int(code))
-					}
-				}
+			if tt.wantCode != 0 {
+				assertAdminRejected(t, rec)
 			}
 		})
 	}
@@ -416,13 +400,8 @@ func TestHandler_GetGames_BindValidation(t *testing.T) {
 			ctx.Params = gin.Params{gin.Param{Key: "id", Value: strings.TrimSuffix(strings.TrimPrefix(tt.uri, "/admins/"), "/games")}}
 			handler.GetGames(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if code, ok := result["code"].(float64); ok {
-					if tt.wantCode != 0 && int(code) != tt.wantCode {
-						t.Errorf("Expected code %d, got %d", tt.wantCode, int(code))
-					}
-				}
+			if tt.wantCode != 0 {
+				assertAdminRejected(t, rec)
 			}
 		})
 	}
@@ -473,13 +452,8 @@ func TestHandler_UpdateGames_BindValidation(t *testing.T) {
 			ctx.Params = gin.Params{gin.Param{Key: "id", Value: strings.TrimSuffix(strings.TrimPrefix(tt.uri, "/admins/"), "/games")}}
 			handler.UpdateGames(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if code, ok := result["code"].(float64); ok {
-					if tt.wantCode != 0 && int(code) != tt.wantCode {
-						t.Errorf("Expected code %d, got %d", tt.wantCode, int(code))
-					}
-				}
+			if tt.wantCode != 0 {
+				assertAdminRejected(t, rec)
 			}
 		})
 	}

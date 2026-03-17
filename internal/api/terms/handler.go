@@ -1,7 +1,7 @@
 package terms
 
 import (
-	"github.com/cuihairu/croupier/internal/pkg2/response"
+	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
 

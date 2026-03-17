@@ -1,7 +1,7 @@
 package game
 
 import (
-	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -89,13 +89,8 @@ func TestHandler_Create_BindValidation(t *testing.T) {
 			ctx, rec := newGameTestContext("POST", "/games", tt.body)
 			handler.Create(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if !tt.valid {
-					if code, ok := result["code"].(float64); ok && code == 0 {
-						t.Errorf("Expected validation error for invalid request")
-					}
-				}
+			if !tt.valid && rec.Code == http.StatusOK {
+				t.Errorf("Expected validation error for invalid request")
 			}
 		})
 	}
@@ -123,13 +118,8 @@ func TestHandler_Detail_BindValidation(t *testing.T) {
 			ctx.Params = gin.Params{gin.Param{Key: "gameId", Value: strings.TrimPrefix(tt.uri, "/games/")}}
 			handler.Detail(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if !tt.valid {
-					if code, ok := result["code"].(float64); ok && code == 0 {
-						t.Errorf("Expected validation error")
-					}
-				}
+			if !tt.valid && rec.Code == http.StatusOK {
+				t.Errorf("Expected validation error")
 			}
 		})
 	}
@@ -174,13 +164,8 @@ func TestHandler_Update_BindValidation(t *testing.T) {
 			ctx.Params = gin.Params{gin.Param{Key: "gameId", Value: strings.TrimPrefix(tt.uri, "/games/")}}
 			handler.Update(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if !tt.valid {
-					if code, ok := result["code"].(float64); ok && code == 0 {
-						t.Errorf("Expected validation error")
-					}
-				}
+			if !tt.valid && rec.Code == http.StatusOK {
+				t.Errorf("Expected validation error")
 			}
 		})
 	}
@@ -208,13 +193,8 @@ func TestHandler_Delete_BindValidation(t *testing.T) {
 			ctx.Params = gin.Params{gin.Param{Key: "gameId", Value: strings.TrimPrefix(tt.uri, "/games/")}}
 			handler.Delete(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if !tt.valid {
-					if code, ok := result["code"].(float64); ok && code == 0 {
-						t.Errorf("Expected validation error")
-					}
-				}
+			if !tt.valid && rec.Code == http.StatusOK {
+				t.Errorf("Expected validation error")
 			}
 		})
 	}
@@ -243,13 +223,8 @@ func TestHandler_EnvsList_BindValidation(t *testing.T) {
 			ctx.Params = gin.Params{gin.Param{Key: "gameId", Value: gameId}}
 			handler.EnvsList(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if !tt.valid {
-					if code, ok := result["code"].(float64); ok && code == 0 {
-						t.Errorf("Expected validation error")
-					}
-				}
+			if !tt.valid && rec.Code == http.StatusOK {
+				t.Errorf("Expected validation error")
 			}
 		})
 	}
@@ -294,13 +269,8 @@ func TestHandler_EnvAdd_BindValidation(t *testing.T) {
 			ctx.Params = gin.Params{gin.Param{Key: "gameId", Value: "testgame"}}
 			handler.EnvAdd(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if !tt.valid {
-					if code, ok := result["code"].(float64); ok && code == 0 {
-						t.Errorf("Expected validation error")
-					}
-				}
+			if !tt.valid && rec.Code == http.StatusOK {
+				t.Errorf("Expected validation error")
 			}
 		})
 	}
@@ -343,13 +313,8 @@ func TestHandler_EnvUpdate_BindValidation(t *testing.T) {
 			}
 			handler.EnvUpdate(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if !tt.valid {
-					if code, ok := result["code"].(float64); ok && code == 0 {
-						t.Errorf("Expected validation error")
-					}
-				}
+			if !tt.valid && rec.Code == http.StatusOK {
+				t.Errorf("Expected validation error")
 			}
 		})
 	}
@@ -383,13 +348,8 @@ func TestHandler_EnvDelete_BindValidation(t *testing.T) {
 			}
 			handler.EnvDelete(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if !tt.valid {
-					if code, ok := result["code"].(float64); ok && code == 0 {
-						t.Errorf("Expected validation error")
-					}
-				}
+			if !tt.valid && rec.Code == http.StatusOK {
+				t.Errorf("Expected validation error")
 			}
 		})
 	}

@@ -31,7 +31,14 @@ func ReadAnalyticsFiltersFile(path string) ([]byte, error) {
 	if strings.TrimSpace(path) == "" {
 		return []byte{}, nil
 	}
-	return os.ReadFile(path)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []byte("{\"items\":[]}"), nil
+		}
+		return nil, err
+	}
+	return data, nil
 }
 
 // WriteAnalyticsFiltersFile writes the filters file content

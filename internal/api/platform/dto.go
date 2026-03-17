@@ -24,10 +24,21 @@ type CallPlatformResponse struct {
 	Source   string      `json:"source,omitempty"`   // extension
 }
 
+// CallPlatformPayload is the public HTTP success payload for platform calls.
+type CallPlatformPayload struct {
+	Response interface{} `json:"response,omitempty"`
+	Source   string      `json:"source,omitempty"`
+}
+
 // ListPlatformsResponse represents the response for listing platforms
 type ListPlatformsResponse struct {
 	Code      int            `json:"code"`
 	Message   string         `json:"message"`
+	Platforms []PlatformInfo `json:"platforms,omitempty"`
+}
+
+// ListPlatformsPayload is the public HTTP success payload for listing platforms.
+type ListPlatformsPayload struct {
 	Platforms []PlatformInfo `json:"platforms,omitempty"`
 }
 
@@ -37,4 +48,10 @@ type ListPlatformMethodsResponse struct {
 	Message string   `json:"message"`
 	Methods []string `json:"methods,omitempty"`
 	Source  string   `json:"source,omitempty"` // extension
+}
+
+// ListPlatformMethodsPayload is the public HTTP success payload for listing methods.
+type ListPlatformMethodsPayload struct {
+	Methods []string `json:"methods,omitempty"`
+	Source  string   `json:"source,omitempty"`
 }

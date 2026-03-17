@@ -105,7 +105,7 @@ func TestHandler_GetAuditLogs_GETRequest(t *testing.T) {
 	}
 	require.NoError(t, err)
 
-	assert.Equal(t, float64(0), result["code"])
+	assert.Equal(t, http.StatusOK, resp.Code)
 	assert.NotNil(t, result["data"])
 }
 
@@ -135,7 +135,7 @@ func TestHandler_GetAuditLogs_POSTRequest(t *testing.T) {
 	err := json.Unmarshal(resp.Body.Bytes(), &result)
 	require.NoError(t, err)
 
-	assert.Equal(t, float64(0), result["code"])
+	assert.Equal(t, http.StatusOK, resp.Code)
 }
 
 func TestHandler_GetAuditLogs_DefaultPagination(t *testing.T) {
@@ -209,7 +209,7 @@ func TestHandler_GetAuditLogs_EmptyResults(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check that we got a valid response
-	assert.Equal(t, float64(0), result["code"])
+	assert.Equal(t, http.StatusOK, resp.Code)
 	assert.NotNil(t, result["data"])
 }
 
@@ -236,11 +236,7 @@ func TestHandler_GetAuditLogs_JSONResponseStructure(t *testing.T) {
 	assert.Contains(t, result, "message")
 	assert.Contains(t, result, "data")
 
-	// response.Success wraps AuditResponse, so we need to access the nested data
-	// result = {code: 0, message: "success", data: AuditResponse}
-	// AuditResponse = {code: 0, message: "OK", data: {items, total, page, size}}
-	auditResp := result["data"].(map[string]interface{})
-	innerData := auditResp["data"].(map[string]interface{})
+	innerData := result["data"].(map[string]interface{})
 
 	// Direct key existence check
 	_, hasItems := innerData["items"]
@@ -270,10 +266,10 @@ func TestHandler_GetAuditLogs_ItemStructure(t *testing.T) {
 	require.NoError(t, err)
 
 	data := result["data"].(map[string]interface{})
-	items, ok := data["items"].([]map[string]interface{})
-
-	if ok && len(items) > 0 {
-		item := items[0]
+	rawItems, ok := data["items"].([]interface{})
+	if ok && len(rawItems) > 0 {
+		item, ok := rawItems[0].(map[string]interface{})
+		require.True(t, ok)
 		assert.Contains(t, item, "id")
 		assert.Contains(t, item, "action")
 		assert.Contains(t, item, "userId")
@@ -350,7 +346,7 @@ func TestHandler_GetAuditLogs_POSTWithEmptyBody(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check that we got a valid response
-	assert.Equal(t, float64(0), result["code"])
+	assert.Equal(t, http.StatusOK, resp.Code)
 	assert.NotNil(t, result["data"])
 }
 

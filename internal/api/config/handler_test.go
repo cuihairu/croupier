@@ -24,6 +24,13 @@ func newConfigTestContext(method, target, body string) (*gin.Context, *httptest.
 	return ctx, rec
 }
 
+func assertConfigHTTPStatus(t *testing.T, rec *httptest.ResponseRecorder, want int) {
+	t.Helper()
+	if rec.Code != want {
+		t.Fatalf("expected status=%d got=%d body=%s", want, rec.Code, rec.Body.String())
+	}
+}
+
 func TestBindConfigRequestUsesQueryForGet(t *testing.T) {
 	t.Parallel()
 
@@ -63,27 +70,21 @@ func TestConfigHandlers(t *testing.T) {
 		t.Parallel()
 		ctx, rec := newConfigTestContext(http.MethodPost, "/api/v1/config", "{")
 		h.Upsert(ctx)
-		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"code":400`) {
-			t.Fatalf("expected wrapped 400 response, got status=%d body=%s", rec.Code, rec.Body.String())
-		}
+		assertConfigHTTPStatus(t, rec, http.StatusBadRequest)
 	})
 
 	t.Run("ListVersionsValidatesEmptyKey", func(t *testing.T) {
 		t.Parallel()
 		ctx, rec := newConfigTestContext(http.MethodGet, "/api/v1/config/versions", "")
 		h.ListVersions(ctx)
-		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"code":500`) {
-			t.Fatalf("expected wrapped 500 response, got status=%d body=%s", rec.Code, rec.Body.String())
-		}
+		assertConfigHTTPStatus(t, rec, http.StatusInternalServerError)
 	})
 
 	t.Run("GetVersionValidatesEmptyKey", func(t *testing.T) {
 		t.Parallel()
 		ctx, rec := newConfigTestContext(http.MethodGet, "/api/v1/config/version", "")
 		h.GetVersion(ctx)
-		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"code":500`) {
-			t.Fatalf("expected wrapped 500 response, got status=%d body=%s", rec.Code, rec.Body.String())
-		}
+		assertConfigHTTPStatus(t, rec, http.StatusInternalServerError)
 	})
 }
 
@@ -206,7 +207,7 @@ func TestHandler_Upsert_MalformedJSON(t *testing.T) {
 
 	// Should return 400 for malformed JSON
 	body := rec.Body.String()
-	if rec.Code != http.StatusOK || !strings.Contains(body, `"code":400`) {
+	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected error response, got status=%d body=%s", rec.Code, body)
 	}
 }

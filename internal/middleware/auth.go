@@ -3,8 +3,8 @@ package middleware
 import (
 	"strings"
 
+	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/cuihairu/croupier/internal/pkg2/jwt"
-	"github.com/cuihairu/croupier/internal/pkg2/response"
 	"github.com/gin-gonic/gin"
 )
 

@@ -1,7 +1,7 @@
 package player
 
 import (
-	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -109,11 +109,8 @@ func TestHandler_Create_BindValidation(t *testing.T) {
 			handler.Create(ctx)
 
 			if !tt.valid {
-				var result map[string]any
-				if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-					if code, ok := result["code"].(float64); ok && code == 0 {
-						t.Errorf("Expected validation error")
-					}
+				if rec.Code == http.StatusOK {
+					t.Errorf("Expected validation error")
 				}
 			}
 		})
@@ -151,11 +148,8 @@ func TestHandler_Detail_BindValidation(t *testing.T) {
 			handler.Detail(ctx)
 
 			if !tt.valid {
-				var result map[string]any
-				if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-					if code, ok := result["code"].(float64); ok && code == 0 {
-						t.Errorf("Expected validation error")
-					}
+				if rec.Code == http.StatusOK {
+					t.Errorf("Expected validation error")
 				}
 			}
 		})
@@ -215,11 +209,8 @@ func TestHandler_Update_BindValidation(t *testing.T) {
 			handler.Update(ctx)
 
 			if !tt.valid {
-				var result map[string]any
-				if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-					if code, ok := result["code"].(float64); ok && code == 0 {
-						t.Errorf("Expected validation error")
-					}
+				if rec.Code == http.StatusOK {
+					t.Errorf("Expected validation error")
 				}
 			}
 		})
@@ -257,11 +248,8 @@ func TestHandler_Delete_BindValidation(t *testing.T) {
 			handler.Delete(ctx)
 
 			if !tt.valid {
-				var result map[string]any
-				if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-					if code, ok := result["code"].(float64); ok && code == 0 {
-						t.Errorf("Expected validation error")
-					}
+				if rec.Code == http.StatusOK {
+					t.Errorf("Expected validation error")
 				}
 			}
 		})
@@ -331,11 +319,8 @@ func TestHandler_Balance_BindValidation(t *testing.T) {
 			}()
 
 			if !tt.valid && !panicked {
-				var result map[string]any
-				if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-					if code, ok := result["code"].(float64); ok && code == 0 {
-						t.Errorf("Expected validation error")
-					}
+				if rec.Code == http.StatusOK {
+					t.Errorf("Expected validation error")
 				}
 			}
 		})

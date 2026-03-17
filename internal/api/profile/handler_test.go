@@ -2,12 +2,32 @@ package profile
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 )
+
+func assertProfileHTTPStatus(t *testing.T, rec *httptest.ResponseRecorder, want int) {
+	t.Helper()
+	if rec.Code != want {
+		t.Fatalf("expected status %d, got %d body=%s", want, rec.Code, rec.Body.String())
+	}
+}
+
+func assertProfileErrorCode(t *testing.T, rec *httptest.ResponseRecorder, want string) {
+	t.Helper()
+	var result map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	got, _ := result["error"].(string)
+	if got != want {
+		t.Fatalf("expected error %q, got %q body=%s", want, got, rec.Body.String())
+	}
+}
 
 func newProfileTestContext(method, target, body string) (*gin.Context, *httptest.ResponseRecorder) {
 	rec := httptest.NewRecorder()
@@ -26,14 +46,8 @@ func TestHandler_GetProfile_Unauthorized(t *testing.T) {
 	ctx, rec := newProfileTestContext("GET", "/profile", "")
 	handler.GetProfile(ctx)
 
-	var result map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	if result["code"].(float64) != 401 {
-		t.Errorf("Expected code 401 for unauthorized, got %v", result["code"])
-	}
+	assertProfileHTTPStatus(t, rec, http.StatusUnauthorized)
+	assertProfileErrorCode(t, rec, "unauthorized")
 }
 
 func TestHandler_GetProfile_WithUsername(t *testing.T) {
@@ -63,14 +77,8 @@ func TestHandler_GetGames_Unauthorized(t *testing.T) {
 	ctx, rec := newProfileTestContext("GET", "/profile/games", "")
 	handler.GetGames(ctx)
 
-	var result map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	if result["code"].(float64) != 401 {
-		t.Errorf("Expected code 401 for unauthorized, got %v", result["code"])
-	}
+	assertProfileHTTPStatus(t, rec, http.StatusUnauthorized)
+	assertProfileErrorCode(t, rec, "unauthorized")
 }
 
 func TestHandler_GetGames_WithUsername(t *testing.T) {
@@ -100,14 +108,8 @@ func TestHandler_UpdateProfile_Unauthorized(t *testing.T) {
 	ctx, rec := newProfileTestContext("PUT", "/profile", `{"nickname":"Updated"}`)
 	handler.UpdateProfile(ctx)
 
-	var result map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	if result["code"].(float64) != 401 {
-		t.Errorf("Expected code 401 for unauthorized, got %v", result["code"])
-	}
+	assertProfileHTTPStatus(t, rec, http.StatusUnauthorized)
+	assertProfileErrorCode(t, rec, "unauthorized")
 }
 
 func TestHandler_UpdateProfile_BindValidation(t *testing.T) {
@@ -149,12 +151,7 @@ func TestHandler_UpdateProfile_BindValidation(t *testing.T) {
 			ctx, rec := newProfileTestContext("PUT", "/profile", tt.body)
 			handler.UpdateProfile(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if code, ok := result["code"].(float64); ok && int(code) != tt.wantCode {
-					t.Errorf("Expected code %d, got %d", tt.wantCode, int(code))
-				}
-			}
+			assertProfileHTTPStatus(t, rec, tt.wantCode)
 		})
 	}
 }
@@ -186,14 +183,8 @@ func TestHandler_ChangePassword_Unauthorized(t *testing.T) {
 	ctx, rec := newProfileTestContext("POST", "/profile/change-password", `{"oldPassword":"old","newPassword":"new"}`)
 	handler.ChangePassword(ctx)
 
-	var result map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	if result["code"].(float64) != 401 {
-		t.Errorf("Expected code 401 for unauthorized, got %v", result["code"])
-	}
+	assertProfileHTTPStatus(t, rec, http.StatusUnauthorized)
+	assertProfileErrorCode(t, rec, "unauthorized")
 }
 
 func TestHandler_ChangePassword_BindValidation(t *testing.T) {
@@ -245,12 +236,7 @@ func TestHandler_ChangePassword_BindValidation(t *testing.T) {
 			ctx, rec := newProfileTestContext("POST", "/profile/change-password", tt.body)
 			handler.ChangePassword(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if code, ok := result["code"].(float64); ok && int(code) != tt.wantCode {
-					t.Errorf("Expected code %d, got %d. Body: %s", tt.wantCode, int(code), rec.Body.String())
-				}
-			}
+			assertProfileHTTPStatus(t, rec, tt.wantCode)
 		})
 	}
 }
@@ -282,14 +268,8 @@ func TestHandler_GetPermissions_Unauthorized(t *testing.T) {
 	ctx, rec := newProfileTestContext("GET", "/profile/permissions", "")
 	handler.GetPermissions(ctx)
 
-	var result map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	if result["code"].(float64) != 401 {
-		t.Errorf("Expected code 401 for unauthorized, got %v", result["code"])
-	}
+	assertProfileHTTPStatus(t, rec, http.StatusUnauthorized)
+	assertProfileErrorCode(t, rec, "unauthorized")
 }
 
 func TestHandler_GetPermissions_WithUsername(t *testing.T) {

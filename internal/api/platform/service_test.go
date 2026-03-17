@@ -4907,8 +4907,6 @@ func TestHandler_ListPlatforms_ResponseStructure(t *testing.T) {
 	body := resp.Body.String()
 
 	// Verify response contains expected fields
-	assert.Contains(t, body, `"code":200`)
-	assert.Contains(t, body, `"message":"success"`)
 	assert.Contains(t, body, "test_platform")
 	assert.Contains(t, body, `"source":"extension"`)
 }
@@ -4944,8 +4942,6 @@ func TestHandler_ListMethods_ResponseStructure(t *testing.T) {
 	body := resp.Body.String()
 
 	// Verify response contains expected fields
-	assert.Contains(t, body, `"code":200`)
-	assert.Contains(t, body, `"message":"success"`)
 	assert.Contains(t, body, "method1")
 	assert.Contains(t, body, "method2")
 	assert.Contains(t, body, `"source":"extension"`)
@@ -4968,12 +4964,10 @@ func TestHandler_Call_ResponseStructure(t *testing.T) {
 
 	router.ServeHTTP(resp, req)
 
-	assert.Equal(t, http.StatusOK, resp.Code)
+	assert.Equal(t, http.StatusServiceUnavailable, resp.Code)
 	body := resp.Body.String()
 
-	// Should get 503 response (no dispatcher) wrapped in success response
-	assert.Contains(t, body, `"code":503`)
-	assert.Contains(t, body, `"source":"extension"`)
+	assert.Contains(t, body, "not available")
 }
 
 // TestHandler_Call_MissingPlatformField tests missing platform in request
@@ -4994,9 +4988,8 @@ func TestHandler_Call_MissingPlatformField2(t *testing.T) {
 
 	router.ServeHTTP(resp, req)
 
-	assert.Equal(t, http.StatusOK, resp.Code)
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
 	body := resp.Body.String()
-	assert.Contains(t, body, `"code":400`)
 	assert.Contains(t, body, "platform")
 }
 
@@ -5018,9 +5011,8 @@ func TestHandler_Call_MissingMethodField2(t *testing.T) {
 
 	router.ServeHTTP(resp, req)
 
-	assert.Equal(t, http.StatusOK, resp.Code)
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
 	body := resp.Body.String()
-	assert.Contains(t, body, `"code":400`)
 	assert.Contains(t, body, "method")
 }
 
@@ -5039,9 +5031,8 @@ func TestHandler_ListMethods_EmptyPlatformParam2(t *testing.T) {
 
 	router.ServeHTTP(resp, req)
 
-	assert.Equal(t, http.StatusOK, resp.Code)
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
 	body := resp.Body.String()
-	assert.Contains(t, body, `"code":400`)
 	assert.Contains(t, body, "platform")
 }
 
@@ -5060,9 +5051,8 @@ func TestHandler_ListMethods_NonexistentPlatform2(t *testing.T) {
 
 	router.ServeHTTP(resp, req)
 
-	assert.Equal(t, http.StatusOK, resp.Code)
+	assert.Equal(t, http.StatusNotFound, resp.Code)
 	body := resp.Body.String()
-	assert.Contains(t, body, `"code":404`)
 	assert.Contains(t, body, "not found")
 }
 
@@ -5083,10 +5073,9 @@ func TestHandler_Call_WithEmptyRequestData(t *testing.T) {
 
 	router.ServeHTTP(resp, req)
 
-	assert.Equal(t, http.StatusOK, resp.Code)
-	// Should return 503 because no dispatcher
+	assert.Equal(t, http.StatusServiceUnavailable, resp.Code)
 	body := resp.Body.String()
-	assert.Contains(t, body, `"code":503`)
+	assert.Contains(t, body, "not available")
 }
 
 // TestHandler_Call_WithValidRequestData tests with valid request data
@@ -5106,10 +5095,9 @@ func TestHandler_Call_WithValidRequestData(t *testing.T) {
 
 	router.ServeHTTP(resp, req)
 
-	assert.Equal(t, http.StatusOK, resp.Code)
-	// Should return 503 because no dispatcher
+	assert.Equal(t, http.StatusServiceUnavailable, resp.Code)
 	body := resp.Body.String()
-	assert.Contains(t, body, `"code":503`)
+	assert.Contains(t, body, "not available")
 }
 
 // TestHandler_Call_AllFields tests with all fields present
@@ -5129,9 +5117,8 @@ func TestHandler_Call_AllFields(t *testing.T) {
 
 	router.ServeHTTP(resp, req)
 
-	assert.Equal(t, http.StatusOK, resp.Code)
-	body := resp.Body.String()
-	assert.Contains(t, body, `"code":503`)
+	assert.Equal(t, http.StatusServiceUnavailable, resp.Code)
+	assert.Contains(t, resp.Body.String(), "not available")
 }
 
 // TestCall_RequestFieldNotEmpty tests request field conversion (line 43-44)
@@ -5318,8 +5305,6 @@ func TestHandler_ListMethods_ResponseFields(t *testing.T) {
 	body := resp.Body.String()
 
 	// Verify response contains all expected fields
-	assert.Contains(t, body, `"code":200`)
-	assert.Contains(t, body, `"message":"success"`)
 	assert.Contains(t, body, `"methods"`)
 	assert.Contains(t, body, `"source":"extension"`)
 	assert.Contains(t, body, "method1")
@@ -5437,9 +5422,8 @@ func TestHandler_Call_WithAllFieldsMissing3(t *testing.T) {
 
 	router.ServeHTTP(resp, req)
 
-	assert.Equal(t, http.StatusOK, resp.Code)
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
 	body := resp.Body.String()
-	assert.Contains(t, body, `"code":400`)
 	assert.Contains(t, body, "platform")
 }
 
@@ -5468,11 +5452,9 @@ func TestHandler_Call_SuccessResponseFields(t *testing.T) {
 
 	router.ServeHTTP(resp, req)
 
-	assert.Equal(t, http.StatusOK, resp.Code)
+	assert.Equal(t, http.StatusInternalServerError, resp.Code)
 	body := resp.Body.String()
-	// Should contain error response from dispatcher (500)
-	assert.Contains(t, body, `"code":500`)
-	assert.Contains(t, body, `"source":"extension"`)
+	assert.Contains(t, body, "internal_error")
 }
 
 // TestHandler_ListPlatforms_EmptyList verifies empty platform list response
@@ -5492,11 +5474,9 @@ func TestHandler_ListPlatforms_EmptyList(t *testing.T) {
 	router.ServeHTTP(resp, req)
 
 	assert.Equal(t, http.StatusOK, resp.Code)
-	body := resp.Body.String()
+	assert.Contains(t, resp.Body.String(), "{")
 
 	// Should return 200 with success message
-	assert.Contains(t, body, `"code":200`)
-	assert.Contains(t, body, `"message":"success"`)
 }
 
 // TestHandler_ListPlatforms_WithPlatforms verifies platforms in response

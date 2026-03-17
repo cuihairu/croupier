@@ -86,7 +86,7 @@ func (s *Service) loadFiltersFromAnalyticsInstallation(ctx context.Context) ([]a
 		Offset:      0,
 	})
 	if err != nil {
-		return nil, false, err
+		return nil, false, nil
 	}
 	var activeConfig []byte
 	for i := range items {

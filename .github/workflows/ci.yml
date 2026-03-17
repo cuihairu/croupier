@@ -22,6 +22,8 @@ jobs:
         run: bash .github/scripts/architecture_guard.sh
       - name: Contracts guard
         run: bash .github/scripts/contracts_guard.sh
+      - name: API response guard
+        run: bash .github/scripts/api_response_guard.sh
       - name: Normalize Go toolchain env
         shell: bash
         run: |

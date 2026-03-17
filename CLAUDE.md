@@ -136,3 +136,109 @@ Unit tests focus on:
 - Registry agent session management
 
 Integration examples in `examples/` demonstrate end-to-end flows from function registration through UI invocation.
+
+## API Response Contract (Mandatory)
+
+All HTTP APIs must follow one response contract. Do not mix envelope and non-envelope styles.
+
+### 1) Success Response
+
+- Use standard HTTP status code (`200/201/204`).
+- Return business payload directly as JSON object/array.
+- Do **not** wrap success payload in `{ "code": ..., "message": ..., "data": ... }`.
+
+Examples:
+- `200 OK` + `{ "id": 1, "name": "admin" }`
+- `200 OK` + `{ "items": [...], "total": 10 }`
+- `204 No Content` with empty body
+
+### 2) Error Response
+
+- Use standard HTTP error status (`400/401/403/404/409/422/500`).
+- Body uses unified error object:
+  - `error`: stable machine-readable code (snake_case)
+  - `message`: human-readable message
+  - `details` (optional): structured validation/business detail
+
+Example:
+- `401 Unauthorized` + `{ "error": "unauthorized", "message": "未授权" }`
+
+### 3) Frontend Error Handling Contract
+
+HTTP status and response body have different responsibilities. Do not duplicate them.
+
+- HTTP status expresses the error class:
+  - `400`: invalid request / validation error
+  - `401`: unauthenticated / token invalid
+  - `403`: authenticated but forbidden
+  - `404`: resource not found
+  - `409`: conflict
+  - `422`: semantically invalid but well-formed request
+  - `500`: internal server error
+- Response body expresses the readable and structured error detail:
+  - `error`: stable code for frontend branching
+  - `message`: user-facing error text
+  - `details`: optional structured payload for form fields or extra diagnostics
+
+Recommended examples:
+
+- `400 Bad Request`
+
+```json
+{
+  "error": "validation_failed",
+  "message": "请求参数无效",
+  "details": {
+    "gameId": "不能为空"
+  }
+}
+```
+
+- `401 Unauthorized`
+
+```json
+{
+  "error": "unauthorized",
+  "message": "未授权"
+}
+```
+
+- `409 Conflict`
+
+```json
+{
+  "error": "conflict",
+  "message": "资源状态冲突"
+}
+```
+
+Frontend rules:
+
+- Route and global handling should primarily branch on HTTP status.
+- UI text should come from `message`.
+- Stable client logic should branch on `error`, not on localized `message`.
+- Form-level rendering should read `details` when present.
+- Do not require frontend to read a business `code` field when HTTP status already exists.
+
+### 4) Explicit Exceptions
+
+- SSE endpoints must return `text/event-stream` (not JSON envelope).
+- Health/readiness probes may return minimal payload (for example `{ "status": "ok" }`).
+- File/binary download endpoints follow content-type requirements instead of JSON.
+
+### 5) Implementation Rules
+
+- Prefer `internal/common/response` for API handlers.
+- Do not introduce new handlers based on `internal/pkg2/response` envelope style.
+- Middleware auth failures must keep the same JSON error shape as above.
+- New APIs must keep response shape consistent with existing REST handlers in `internal/api`.
+
+### 6) CI/Review Checklist
+
+Before merge, scan for direct ad-hoc response writes:
+
+```bash
+rg -n "\bc\.(JSON|IndentedJSON|String|Data|PureJSON|XML|YAML|ProtoBuf)\(" internal --glob "!**/*_test.go"
+```
+
+Any new direct write must be justified as an exception (SSE/health/binary), otherwise refactor to unified response helpers.

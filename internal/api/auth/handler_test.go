@@ -3,12 +3,32 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 )
+
+func assertHTTPStatus(t *testing.T, rec *httptest.ResponseRecorder, want int) {
+	t.Helper()
+	if rec.Code != want {
+		t.Fatalf("expected status %d, got %d body=%s", want, rec.Code, rec.Body.String())
+	}
+}
+
+func assertErrorCode(t *testing.T, rec *httptest.ResponseRecorder, want string) {
+	t.Helper()
+	var result map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	got, _ := result["error"].(string)
+	if got != want {
+		t.Fatalf("expected error %q, got %q body=%s", want, got, rec.Body.String())
+	}
+}
 
 func newAuthTestContext(method, target, body string) (*gin.Context, *httptest.ResponseRecorder) {
 	rec := httptest.NewRecorder()
@@ -58,12 +78,7 @@ func TestHandler_Login_BindValidation(t *testing.T) {
 			ctx, rec := newAuthTestContext("POST", "/login", tt.body)
 			handler.Login(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if code, ok := result["code"].(float64); ok && int(code) != tt.wantCode {
-					t.Errorf("Expected code %d, got %d. Body: %s", tt.wantCode, int(code), rec.Body.String())
-				}
-			}
+			assertHTTPStatus(t, rec, tt.wantCode)
 		})
 	}
 }
@@ -73,19 +88,19 @@ func TestHandler_Logout_BindValidation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	tests := []struct {
-		name     string
-		body     string
-		wantCode int
+		name       string
+		body       string
+		wantStatus int
 	}{
 		{
-			name:     "valid logout request",
-			body:     `{}`,
-			wantCode: 0, // Logout always succeeds
+			name:       "valid logout request",
+			body:       `{}`,
+			wantStatus: http.StatusOK,
 		},
 		{
-			name:     "invalid json",
-			body:     `invalid`,
-			wantCode: 0, // Logout doesn't have required fields, so binding passes
+			name:       "invalid json",
+			body:       `invalid`,
+			wantStatus: http.StatusOK, // Logout doesn't have required fields, so binding passes
 		},
 	}
 
@@ -97,12 +112,7 @@ func TestHandler_Logout_BindValidation(t *testing.T) {
 			ctx, rec := newAuthTestContext("POST", "/logout", tt.body)
 			handler.Logout(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if code, ok := result["code"].(float64); ok && int(code) != tt.wantCode {
-					t.Errorf("Expected code %d, got %d", tt.wantCode, int(code))
-				}
-			}
+			assertHTTPStatus(t, rec, tt.wantStatus)
 		})
 	}
 }
@@ -116,14 +126,8 @@ func TestHandler_Check_Unauthorized(t *testing.T) {
 	handler.Check(ctx)
 
 	// Should return 401 because no username is set
-	var result map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	if result["code"].(float64) != 401 {
-		t.Errorf("Expected code 401 for unauthorized, got %v", result["code"])
-	}
+	assertHTTPStatus(t, rec, http.StatusUnauthorized)
+	assertErrorCode(t, rec, "unauthorized")
 }
 
 func TestHandler_Check_WithUsername_MissingFields(t *testing.T) {
@@ -156,12 +160,7 @@ func TestHandler_Check_WithUsername_MissingFields(t *testing.T) {
 			ctx.Set("username", "admin")
 			handler.Check(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if code, ok := result["code"].(float64); ok && int(code) != tt.wantCode {
-					t.Errorf("Expected code %d, got %d. Body: %s", tt.wantCode, int(code), rec.Body.String())
-				}
-			}
+			assertHTTPStatus(t, rec, tt.wantCode)
 		})
 	}
 }
@@ -194,14 +193,8 @@ func TestHandler_BatchCheck_Unauthorized(t *testing.T) {
 	handler.BatchCheck(ctx)
 
 	// Should return 401 because no username is set
-	var result map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	if result["code"].(float64) != 401 {
-		t.Errorf("Expected code 401 for unauthorized, got %v", result["code"])
-	}
+	assertHTTPStatus(t, rec, http.StatusUnauthorized)
+	assertErrorCode(t, rec, "unauthorized")
 }
 
 func TestHandler_BatchCheck_BindValidation(t *testing.T) {
@@ -243,12 +236,7 @@ func TestHandler_BatchCheck_BindValidation(t *testing.T) {
 			ctx, rec := newAuthTestContext("POST", "/batch-check", tt.body)
 			handler.BatchCheck(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err == nil {
-				if code, ok := result["code"].(float64); ok && int(code) != tt.wantCode {
-					t.Errorf("Expected code %d, got %d. Body: %s", tt.wantCode, int(code), rec.Body.String())
-				}
-			}
+			assertHTTPStatus(t, rec, tt.wantCode)
 		})
 	}
 }
@@ -327,15 +315,8 @@ func TestHandler_Login_Success(t *testing.T) {
 	handler.Login(ctx)
 
 	// With nil service models, it will fail, but we're testing the handler flow
-	var result map[string]any
-	json.Unmarshal(rec.Body.Bytes(), &result)
-
-	// Should get an error response since service is not properly mocked
-	if code, ok := result["code"].(float64); ok {
-		// Either success or error is acceptable
-		if code != 200 && code != 401 {
-			t.Logf("Got code %d, response: %s", int(code), rec.Body.String())
-		}
+	if rec.Code != http.StatusOK && rec.Code != http.StatusUnauthorized {
+		t.Logf("Got status %d, response: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -355,15 +336,8 @@ func TestHandler_Login_ServiceError(t *testing.T) {
 
 	handler.Login(ctx)
 
-	var result map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	// Should get unauthorized
-	code, ok := result["code"].(float64)
-	if !ok || int(code) != 401 {
-		t.Logf("Expected 401, got %v. Response: %s", code, rec.Body.String())
+	if rec.Code != http.StatusUnauthorized {
+		t.Logf("Expected 401, got %d. Response: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -374,17 +348,7 @@ func TestHandler_Login_InvalidJSON(t *testing.T) {
 	ctx, rec := newAuthTestContext("POST", "/login", `{invalid json`)
 	handler.Login(ctx)
 
-	var result map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	// Should get bad request
-	if code, ok := result["code"].(float64); ok {
-		if int(code) != 400 {
-			t.Errorf("Expected 400 for invalid JSON, got %d", int(code))
-		}
-	}
+	assertHTTPStatus(t, rec, http.StatusBadRequest)
 }
 
 func TestHandler_Logout_Success(t *testing.T) {
@@ -394,16 +358,8 @@ func TestHandler_Logout_Success(t *testing.T) {
 	ctx, rec := newAuthTestContext("POST", "/logout", `{}`)
 	handler.Logout(ctx)
 
-	var result map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	// Logout should always succeed
-	if code, ok := result["code"].(float64); ok {
-		if int(code) != 200 {
-			t.Logf("Logout got code %d, response: %s", int(code), rec.Body.String())
-		}
+	if rec.Code != http.StatusOK {
+		t.Logf("Logout got status %d, response: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -415,17 +371,7 @@ func TestHandler_Check_BindError(t *testing.T) {
 	ctx.Set("username", "admin")
 	handler.Check(ctx)
 
-	var result map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	// Should get bad request
-	if code, ok := result["code"].(float64); ok {
-		if int(code) != 400 {
-			t.Errorf("Expected 400 for invalid JSON, got %d", int(code))
-		}
-	}
+	assertHTTPStatus(t, rec, http.StatusBadRequest)
 }
 
 func TestHandler_BatchCheck_BindError(t *testing.T) {
@@ -436,17 +382,7 @@ func TestHandler_BatchCheck_BindError(t *testing.T) {
 	ctx.Set("username", "admin")
 	handler.BatchCheck(ctx)
 
-	var result map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	// Should get bad request
-	if code, ok := result["code"].(float64); ok {
-		if int(code) != 400 {
-			t.Errorf("Expected 400 for invalid JSON, got %d", int(code))
-		}
-	}
+	assertHTTPStatus(t, rec, http.StatusBadRequest)
 }
 
 func TestHandler_Login_EmptyBody(t *testing.T) {
@@ -456,17 +392,7 @@ func TestHandler_Login_EmptyBody(t *testing.T) {
 	ctx, rec := newAuthTestContext("POST", "/login", ``)
 	handler.Login(ctx)
 
-	var result map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	// Should get bad request
-	if code, ok := result["code"].(float64); ok {
-		if int(code) != 400 {
-			t.Errorf("Expected 400 for empty body, got %d", int(code))
-		}
-	}
+	assertHTTPStatus(t, rec, http.StatusBadRequest)
 }
 
 func TestHandler_Check_MissingUsernameInContext(t *testing.T) {
@@ -477,16 +403,7 @@ func TestHandler_Check_MissingUsernameInContext(t *testing.T) {
 	// Don't set username in context
 	handler.Check(ctx)
 
-	var result map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	if code, ok := result["code"].(float64); ok {
-		if int(code) != 401 {
-			t.Errorf("Expected 401 for missing username, got %d", int(code))
-		}
-	}
+	assertHTTPStatus(t, rec, http.StatusUnauthorized)
 }
 
 func TestHandler_BatchCheck_MissingUsernameInContext(t *testing.T) {
@@ -497,16 +414,7 @@ func TestHandler_BatchCheck_MissingUsernameInContext(t *testing.T) {
 	// Don't set username in context
 	handler.BatchCheck(ctx)
 
-	var result map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	if code, ok := result["code"].(float64); ok {
-		if int(code) != 401 {
-			t.Errorf("Expected 401 for missing username, got %d", int(code))
-		}
-	}
+	assertHTTPStatus(t, rec, http.StatusUnauthorized)
 }
 
 func TestHandler_Login_WhitespaceUsername(t *testing.T) {
@@ -547,16 +455,8 @@ func TestHandler_Login_NullPassword(t *testing.T) {
 
 	handler.Login(ctx)
 
-	var result map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	// Should get validation error
-	if code, ok := result["code"].(float64); ok {
-		if int(code) != 400 {
-			t.Logf("Got code %d for null password", int(code))
-		}
+	if rec.Code != http.StatusBadRequest {
+		t.Logf("Got status %d for null password", rec.Code)
 	}
 }
 
@@ -635,17 +535,8 @@ func TestHandler_Login_MalformedJSON(t *testing.T) {
 			ctx, rec := newAuthTestContext("POST", "/login", tt.body)
 			handler.Login(ctx)
 
-			var result map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-				// Malformed JSON should return error
-				return
-			}
-
-			// Should get error response
-			if code, ok := result["code"].(float64); ok {
-				if int(code) == 200 {
-					t.Errorf("Expected error for malformed JSON, got success")
-				}
+			if rec.Code == http.StatusOK {
+				t.Errorf("Expected error for malformed JSON, got success: %s", rec.Body.String())
 			}
 		})
 	}
@@ -736,16 +627,8 @@ func TestHandler_Check_MissingAction(t *testing.T) {
 	ctx.Set("username", "admin")
 	handler.Check(ctx)
 
-	var result map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
-		t.Fatalf("Failed to parse response: %v", err)
-	}
-
-	// Should get bad request due to missing required field
-	if code, ok := result["code"].(float64); ok {
-		if int(code) != 400 {
-			t.Logf("Expected 400 for missing action, got %d", int(code))
-		}
+	if rec.Code != http.StatusBadRequest {
+		t.Logf("Expected 400 for missing action, got %d", rec.Code)
 	}
 }
 
