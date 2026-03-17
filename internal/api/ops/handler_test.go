@@ -103,8 +103,8 @@ func TestOpsHandlersRejectMalformedJSON(t *testing.T) {
 
 			ctx, rec := newOpsTestContext(http.MethodPost, "/api/v1/ops", "{")
 			tc.fn(ctx)
-			if rec.Code != http.StatusInternalServerError {
-				t.Fatalf("expected status=500, got %d body=%s", rec.Code, rec.Body.String())
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("expected status=400, got %d body=%s", rec.Code, rec.Body.String())
 			}
 		})
 	}

@@ -99,11 +99,11 @@ func TestFunctionHandlersRejectMalformedJSON(t *testing.T) {
 
 			ctx, rec := newFunctionTestContext(http.MethodPost, "/api/v1/functions", "{")
 			tc.fn(ctx)
-			if rec.Code != http.StatusInternalServerError {
-				t.Fatalf("expected status=500, got %d body=%s", rec.Code, rec.Body.String())
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("expected status=400, got %d body=%s", rec.Code, rec.Body.String())
 			}
-			if !strings.Contains(rec.Body.String(), "internal_error") {
-				t.Fatalf("expected internal_error body, got %s", rec.Body.String())
+			if !strings.Contains(rec.Body.String(), "bad_request") {
+				t.Fatalf("expected bad_request body, got %s", rec.Body.String())
 			}
 		})
 	}

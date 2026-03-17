@@ -141,12 +141,12 @@ func TestHandler_Install(t *testing.T) {
 				ScopeID:        "global",
 				TargetType:     "agent",
 			},
-			expectCode: http.StatusOK,
+			expectCode: http.StatusBadRequest,
 		},
 		{
 			name:       "invalid json",
 			body:       "invalid json",
-			expectCode: http.StatusOK,
+			expectCode: http.StatusBadRequest,
 		},
 	}
 
@@ -171,7 +171,7 @@ func TestHandler_Install(t *testing.T) {
 			w := httptest.NewRecorder()
 			router.ServeHTTP(w, req)
 
-			assert.True(t, w.Code == http.StatusOK || w.Code == http.StatusInternalServerError)
+			assert.True(t, w.Code == tt.expectCode || w.Code == http.StatusInternalServerError, "got status %d", w.Code)
 		})
 	}
 }

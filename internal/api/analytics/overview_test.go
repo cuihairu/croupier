@@ -247,7 +247,7 @@ func TestFiltersGetPrefersExtensionInstallationConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite failed: %v", err)
 	}
-	if err := db.AutoMigrate(&model.ExtensionInstallation{}); err != nil {
+	if err := db.AutoMigrate(&model.ExtensionInstallation{}, &model.ExtensionRuntimeBinding{}, &model.ExtensionEvent{}); err != nil {
 		t.Fatalf("auto migrate failed: %v", err)
 	}
 
@@ -405,7 +405,7 @@ func TestSaveAnalyticsFiltersToExtensionInstallation_NoActiveInstallation(t *tes
 	if err != nil {
 		t.Fatalf("open sqlite failed: %v", err)
 	}
-	if err := db.AutoMigrate(&model.ExtensionInstallation{}); err != nil {
+	if err := db.AutoMigrate(&model.ExtensionInstallation{}, &model.ExtensionRuntimeBinding{}, &model.ExtensionEvent{}); err != nil {
 		t.Fatalf("auto migrate failed: %v", err)
 	}
 

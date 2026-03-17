@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -364,6 +365,9 @@ func (d *Dispatcher) pickAgentWithRouting(functionID string, metadata map[string
 			}
 			cands = append(cands, agent)
 		}
+		sort.Slice(cands, func(i, j int) bool {
+			return cands[i].AgentID < cands[j].AgentID
+		})
 		chosen := pickAgentByHash(cands, hashKey)
 		if chosen == nil {
 			return nil, fmt.Errorf("no live agent for function %s", functionID)

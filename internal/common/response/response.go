@@ -42,7 +42,7 @@ func Error(c *gin.Context, err error) {
 		return
 	}
 	var syntaxErr *json.SyntaxError
-	if errors.As(err, &syntaxErr) || errors.Is(err, io.EOF) {
+	if errors.As(err, &syntaxErr) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 		BadRequest(c, err.Error())
 		return
 	}

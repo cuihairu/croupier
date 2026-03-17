@@ -2367,8 +2367,8 @@ func TestHandlerAliasMethods(t *testing.T) {
 
 			alias.fn(ctx)
 
-			// Should return error due to malformed JSON
-			assert.Equal(t, http.StatusInternalServerError, rec.Code)
+			// Should return bad request due to malformed JSON
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
 		})
 	}
 }

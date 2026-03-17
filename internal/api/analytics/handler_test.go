@@ -86,8 +86,8 @@ func TestAnalyticsHandlersRejectMalformedJSON(t *testing.T) {
 
 			ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics", "{")
 			tc.fn(ctx)
-			if rec.Code != http.StatusInternalServerError {
-				t.Fatalf("expected status=500, got %d body=%s", rec.Code, rec.Body.String())
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("expected status=400, got %d body=%s", rec.Code, rec.Body.String())
 			}
 		})
 	}
@@ -185,7 +185,7 @@ func TestBehaviorFunnelHandler_POSTBinding(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/behavior/funnel", `{"gameId":"tower","steps":[{"event":"login"}]}`)
+	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/behavior/funnel", `{"gameId":"tower","steps":["login"]}`)
 	h.BehaviorFunnel(ctx)
 
 	if rec.Code == http.StatusBadRequest {
@@ -290,7 +290,7 @@ func TestPaymentsIngestHandler_JSONBinding(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/payments/ingest", `{"gameId":"tower","payments":[]}`)
+	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/payments/ingest", `{"gameId":"tower","transactions":[]}`)
 	h.PaymentsIngest(ctx)
 
 	if rec.Code == http.StatusBadRequest {
@@ -396,7 +396,7 @@ func TestBehaviorAdoptionBreakdownHandler_POSTBinding(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/behavior/adoption-breakdown", `{"gameId":"tower","env":"prod"}`)
+	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/behavior/adoption-breakdown", `{"gameId":"tower","env":"prod","feature":"login_reward"}`)
 	h.BehaviorAdoptionBreakdown(ctx)
 
 	if rec.Code == http.StatusBadRequest {
@@ -409,7 +409,7 @@ func TestBehaviorAdoptionBreakdownHandler_GETBinding(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/behavior/adoption-breakdown?gameId=tower&env=prod", "")
+	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/behavior/adoption-breakdown?gameId=tower&env=prod&feature=login_reward", "")
 	h.BehaviorAdoptionBreakdown(ctx)
 
 	if rec.Code == http.StatusBadRequest {
@@ -422,7 +422,7 @@ func TestBehaviorFunnelHandler_GETBinding(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/behavior/funnel?gameId=tower", "")
+	ctx, rec := newAnalyticsTestContext(http.MethodGet, "/api/v1/analytics/behavior/funnel?gameId=tower&steps=login&steps=pay", "")
 	h.BehaviorFunnel(ctx)
 
 	if rec.Code == http.StatusBadRequest {
@@ -435,7 +435,7 @@ func TestPaymentsIngestHandler_POSTBinding(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/payments/ingest", `{"gameId":"tower","payments":[]}`)
+	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/payments/ingest", `{"gameId":"tower","transactions":[]}`)
 	h.PaymentsIngest(ctx)
 
 	if rec.Code == http.StatusBadRequest {
@@ -451,8 +451,8 @@ func TestPaymentsIngestHandler_InvalidJSON(t *testing.T) {
 	ctx, rec := newAnalyticsTestContext(http.MethodPost, "/api/v1/analytics/payments/ingest", "{invalid")
 	h.PaymentsIngest(ctx)
 
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500 for invalid JSON, got %d", rec.Code)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for invalid JSON, got %d", rec.Code)
 	}
 }
 
