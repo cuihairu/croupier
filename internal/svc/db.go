@@ -54,12 +54,41 @@ func openDatabase(cfg config.Config) (*gorm.DB, error) {
 		if err := ensureSQLiteDir(dsn); err != nil {
 			return nil, err
 		}
+		// SQLite 会自动创建数据库文件，无需额外处理
 		return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 	case "postgres", "postgresql", "pg":
 		if dsn == "" {
 			return nil, fmt.Errorf("postgres DSN is required")
 		}
-		return gorm.Open(gpostgres.Open(dsn), &gorm.Config{})
+		// 尝试连接，如果数据库不存在则创建
+		db, err := gorm.Open(gpostgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+		if err != nil {
+			// 检查是否是数据库不存在的错误
+			if strings.Contains(err.Error(), "database") && strings.Contains(err.Error(), "does not exist") {
+				// 从 DSN 中提取数据库名称
+				dbName := extractPostgresDatabaseName(dsn)
+				if dbName == "" {
+					return nil, fmt.Errorf("failed to extract database name from DSN: %w", err)
+				}
+				// 连接到默认的 postgres 数据库
+				dsnWithoutDB := removeDBFromPostgresDSN(dsn, "postgres")
+				if dsnWithoutDB == "" {
+					return nil, fmt.Errorf("failed to remove database name from DSN: %w", err)
+				}
+				// 创建数据库
+				if err := createPostgresDatabase(dsnWithoutDB, dbName); err != nil {
+					return nil, fmt.Errorf("failed to create database %s: %w", dbName, err)
+				}
+				// 重新连接
+				db, err = gorm.Open(gpostgres.Open(dsn), &gorm.Config{})
+				if err != nil {
+					return nil, fmt.Errorf("failed to connect after creating database: %w", err)
+				}
+			} else {
+				return nil, err
+			}
+		}
+		return db, nil
 	case "mysql":
 		if dsn == "" {
 			return nil, fmt.Errorf("mysql DSN is required")
@@ -97,7 +126,35 @@ func openDatabase(cfg config.Config) (*gorm.DB, error) {
 		if dsn == "" {
 			return nil, fmt.Errorf("sqlserver DSN is required")
 		}
-		return gorm.Open(gsqlserver.Open(dsn), &gorm.Config{})
+		// 尝试连接，如果数据库不存在则创建
+		db, err := gorm.Open(gsqlserver.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+		if err != nil {
+			// 检查是否是数据库不存在的错误
+			if strings.Contains(err.Error(), "Could not locate database") || strings.Contains(err.Error(), "invalid database") {
+				// 从 DSN 中提取数据库名称
+				dbName := extractSQLServerDatabaseName(dsn)
+				if dbName == "" {
+					return nil, fmt.Errorf("failed to extract database name from DSN: %w", err)
+				}
+				// 连接到 master 数据库
+				dsnWithoutDB := replaceDBInSQLServerDSN(dsn, "master")
+				if dsnWithoutDB == "" {
+					return nil, fmt.Errorf("failed to replace database name in DSN: %w", err)
+				}
+				// 创建数据库
+				if err := createSQLServerDatabase(dsnWithoutDB, dbName); err != nil {
+					return nil, fmt.Errorf("failed to create database %s: %w", dbName, err)
+				}
+				// 重新连接
+				db, err = gorm.Open(gsqlserver.Open(dsn), &gorm.Config{})
+				if err != nil {
+					return nil, fmt.Errorf("failed to connect after creating database: %w", err)
+				}
+			} else {
+				return nil, err
+			}
+		}
+		return db, nil
 	default:
 		return nil, fmt.Errorf("unsupported database driver %q", driver)
 	}
@@ -164,5 +221,118 @@ func createMySQLDatabase(dsn, dbName string) error {
 
 	// 创建数据库（如果不存在）
 	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", dbName))
+	return err
+}
+
+// extractPostgresDatabaseName 从 PostgreSQL DSN 中提取数据库名称
+// 例如: "host=localhost port=5432 user=postgres password=postgres dbname=croupier..." -> "croupier"
+// 例如: "postgres://user:pass@localhost:5432/croupier?..." -> "croupier"
+func extractPostgresDatabaseName(dsn string) string {
+	// 尝试从 URL 格式中提取
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		// URL 格式: postgres://user:pass@host:port/dbname?params
+		re := regexp.MustCompile(`//[^/]+/([^/?]+)`)
+		matches := re.FindStringSubmatch(dsn)
+		if len(matches) > 1 {
+			return matches[1]
+		}
+	}
+	// 尝试从 key=value 格式中提取
+	re := regexp.MustCompile(`dbname=([^&\s]+)`)
+	matches := re.FindStringSubmatch(dsn)
+	if len(matches) > 1 {
+		return matches[1]
+	}
+	return ""
+}
+
+// removeDBFromPostgresDSN 从 PostgreSQL DSN 中移除数据库名称，替换为指定的数据库
+func removeDBFromPostgresDSN(dsn, replacementDB string) string {
+	// 处理 URL 格式
+	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
+		// 替换数据库名
+		re := regexp.MustCompile(`^(postgres(?:ql)?://[^/]+/)[^/?]+`)
+		result := re.ReplaceAllString(dsn, "$1"+replacementDB)
+		// 确保查询参数保留
+		if idx := strings.Index(dsn, "?"); idx > 0 && !strings.Contains(result, "?") {
+			result += dsn[idx:]
+		}
+		return result
+	}
+	// 处理 key=value 格式
+	re := regexp.MustCompile(`dbname=[^&\s]+`)
+	result := re.ReplaceAllString(dsn, "dbname="+replacementDB)
+	return result
+}
+
+// createPostgresDatabase 创建 PostgreSQL 数据库
+func createPostgresDatabase(dsn, dbName string) error {
+	// 使用 pq 驱动（需要导入）
+	// 这里我们使用标准 database/sql 包
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	// 创建数据库（如果不存在），禁用连接池以避免空闲连接问题
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(0)
+
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s WITH ENCODING 'UTF8'", quotePostgresIdentifier(dbName)))
+	return err
+}
+
+// quotePostgresIdentifier 引用 PostgreSQL 标识符（处理特殊字符）
+func quotePostgresIdentifier(ident string) string {
+	// PostgreSQL 使用双引号引用标识符
+	if strings.Contains(ident, "-") || strings.Contains(ident, " ") || strings.Contains(ident, ".") {
+		return `"` + strings.ReplaceAll(ident, `"`, `""`) + `"`
+	}
+	return ident
+}
+
+// extractSQLServerDatabaseName 从 SQL Server DSN 中提取数据库名称
+// 例如: "sqlserver://user:pass@localhost?database=croupier" -> "croupier"
+func extractSQLServerDatabaseName(dsn string) string {
+	// 尝试从 URL 格式中提取
+	if strings.HasPrefix(dsn, "sqlserver://") {
+		// URL 格式: sqlserver://user:pass@host?database=dbname
+		re := regexp.MustCompile(`database=([^&\s]+)`)
+		matches := re.FindStringSubmatch(dsn)
+		if len(matches) > 1 {
+			return matches[1]
+		}
+	}
+	// 尝试_odbc 格式
+	re := regexp.MustCompile(`database=([^;{\s]+)`)
+	matches := re.FindStringSubmatch(dsn)
+	if len(matches) > 1 {
+		return matches[1]
+	}
+	return ""
+}
+
+// replaceDBInSQLServerDSN 替换 SQL Server DSN 中的数据库名称
+func replaceDBInSQLServerDSN(dsn, replacementDB string) string {
+	re := regexp.MustCompile(`database=[^&\s;]+`)
+	return re.ReplaceAllString(dsn, "database="+replacementDB)
+}
+
+// createSQLServerDatabase 创建 SQL Server 数据库
+func createSQLServerDatabase(dsn, dbName string) error {
+	db, err := sql.Open("sqlserver", dsn)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(0)
+
+	// 创建数据库（如果不存在）
+	_, err = db.Exec(fmt.Sprintf("IF NOT EXISTS (SELECT name FROM sys.databases WHERE name='%s') CREATE DATABASE [%s]", dbName, dbName))
 	return err
 }
