@@ -14,6 +14,7 @@ comment: false
 ignore:
   - "proto/**"
   - "pkg/pb/**"
+  - "pkg/protocol/**"
   - "gen/**"
   - "dashboard/**"
   - "cmd/**"
