@@ -87,14 +87,17 @@ func (am *AdminManager) Initialize() error {
 
 // loadDefaultAdmins 加载默认管理员账号
 func (am *AdminManager) loadDefaultAdmins() error {
+	slog.Default().Info("Loading default admins", "configDir", am.configDir)
 	// 尝试加载多个可能的配置文件
 	configFiles := []string{"admins.json", "users.json"}
 
 	for _, configFile := range configFiles {
 		adminsPath := filepath.Join(am.configDir, configFile)
+		slog.Default().Debug("Trying to load admin config", "path", adminsPath)
 
 		// 检查文件是否存在
 		if _, err := os.Stat(adminsPath); os.IsNotExist(err) {
+			slog.Default().Debug("Admin config file not found, trying next", "file", adminsPath)
 			continue
 		}
 
@@ -130,6 +133,8 @@ func (am *AdminManager) loadDefaultAdmins() error {
 				am.admins[admin.Username] = &defaultAdmins[i]
 				slog.Default().Info("Loaded default admin", "file", configFile, "username", admin.Username, "roles", admin.Roles)
 				loadedCount++
+			} else {
+				slog.Default().Debug("Admin already loaded, skipping", "username", admin.Username)
 			}
 		}
 
@@ -139,7 +144,7 @@ func (am *AdminManager) loadDefaultAdmins() error {
 		}
 	}
 
-	slog.Default().Warn("No valid admin config files found", "files", configFiles)
+	slog.Default().Warn("No valid admin config files found", "files", configFiles, "configDir", am.configDir)
 	return nil
 }
 

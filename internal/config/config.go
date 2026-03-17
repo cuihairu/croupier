@@ -56,8 +56,8 @@ type ServerConfig struct {
 
 // DatabaseConfig 配置数据库连接
 type DatabaseConfig struct {
-	Driver     string `json:"driver,omitempty" yaml:"driver,omitempty"`
-	DataSource string `json:"datasource,omitempty" yaml:"datasource,omitempty"`
+	Driver     string `json:"Driver,omitempty" yaml:"Driver,omitempty"`
+	DataSource string `json:"DataSource,omitempty" yaml:"DataSource,omitempty"`
 }
 
 type RegistryConfig struct {

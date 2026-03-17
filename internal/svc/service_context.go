@@ -108,15 +108,19 @@ type ExtensionServices struct {
 
 func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	// 初始化数据库连接
+	slog.Default().Info("Connecting to database", "driver", c.Database.Driver, "dataSource", c.Database.DataSource)
 	db, err := openDatabase(c)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to connect to database: %v", err))
 	}
+	slog.Default().Info("Database connected successfully")
 
 	// 自动迁移数据库模型
+	slog.Default().Info("Starting database migration")
 	if err := autoMigrate(db); err != nil {
 		panic(fmt.Sprintf("Failed to auto migrate database: %v", err))
 	}
+	slog.Default().Info("Database migration completed successfully")
 
 	// 创建服务
 	permissionService := permission.NewPermissionService(db)
@@ -152,11 +156,20 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 	// 创建管理员管理器（基于JSON文件）
 	configDir := resolveBootstrapAuthDir(c)
+	slog.Default().Info("Initializing AdminManager", "configDir", configDir)
 	adminManager := NewAdminManager(configDir)
 	if err := adminManager.Initialize(); err != nil {
 		// 如果初始化失败，记录错误但不停止服务
+		slog.Default().Error("Failed to initialize AdminManager", "error", err)
 		// 这样可以让服务启动，但登录功能可能受限
 		// 在生产环境中应该更严格地处理这个错误
+	} else {
+		// 记录加载的管理员数量
+		admins := adminManager.ListAdmins()
+		slog.Default().Info("AdminManager initialized", "loadedAdmins", len(admins), "configDir", configDir)
+		if len(admins) == 0 {
+			slog.Default().Warn("No admins loaded from config, admin accounts will not be created")
+		}
 	}
 
 	opsStateStore := NewOpsStateStore(resolveBootstrapBaseDir(c))
@@ -381,11 +394,14 @@ func toAbs(p string) string {
 
 func seedBootstrapAdmins(ctx *ServiceContext) error {
 	if ctx == nil || ctx.AdminManager == nil || ctx.AdminModel == nil {
+		slog.Default().Warn("seedBootstrapAdmins: missing dependencies", "ctx", ctx == nil, "adminManager", ctx == nil || ctx.AdminManager == nil, "adminModel", ctx == nil || ctx.AdminModel == nil)
 		return nil
 	}
 
 	admins := ctx.AdminManager.ListAdmins()
+	slog.Default().Info("seedBootstrapAdmins: starting", "adminCount", len(admins))
 	if len(admins) == 0 {
+		slog.Default().Warn("seedBootstrapAdmins: no admins to seed from AdminManager")
 		return nil
 	}
 
