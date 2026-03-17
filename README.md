@@ -187,6 +187,32 @@ sequenceDiagram
    ```
 6. **接入 SDK**：根据所需语言切换到对应仓库，参考 README / 示例。
 
+### 自托管 Demo 部署
+
+`Deploy Self Hosted` 工作流现在支持一并部署 Go SDK 的常驻游戏 Demo 容器，而不是最小 `basic` 示例。
+
+- 默认镜像：`ghcr.io/<owner>/croupier-sdk-go-example-game-demo:<tag>`
+- 默认 profile：`sdk-examples`
+- 默认函数覆盖：
+  - 玩家 CRUD / 列表
+  - 订单 CRUD / 列表
+  - 排行榜查询 / 写分 / 重置
+  - 背包查询 / 发放 / 消耗
+  - 邮件发送 / 列表 / 领取
+
+关键环境变量：
+
+```bash
+CROUPIER_SDK_EXAMPLE_TAG=main
+CROUPIER_AGENT_ADDR=agent:19091
+CROUPIER_SDK_EXAMPLE_GAME_ID=demo-game
+CROUPIER_SDK_EXAMPLE_SERVICE_ID=game-demo-service
+CROUPIER_SDK_EXAMPLE_LOCAL_LISTEN=0.0.0.0:19103
+CROUPIER_SDK_EXAMPLE_ENV=development
+```
+
+如果你希望这个 Demo 容器一起拉起，触发部署工作流时保持 `enable_sdk_examples=true` 即可。
+
 ---
 
 ## 📚 文档入口

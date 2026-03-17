@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"mime/multipart"
+
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
@@ -48,9 +50,30 @@ func (h *Handler) ListObjects(c *gin.Context) {
 // UploadObject handles the request to upload an object
 func (h *Handler) UploadObject(c *gin.Context) {
 	var req UploadObjectRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
+	if err := c.ShouldBind(&req); err != nil {
 		response.Error(c, err)
 		return
+	}
+
+	var file multipart.File
+	fileHeader, err := c.FormFile("file")
+	if err == nil && fileHeader != nil {
+		file, err = fileHeader.Open()
+		if err != nil {
+			response.Error(c, err)
+			return
+		}
+		defer file.Close()
+
+		req.File = file
+		req.Size = fileHeader.Size
+		req.OriginalName = fileHeader.Filename
+		if req.Path == "" {
+			req.Path = fileHeader.Filename
+		}
+		if req.ContentType == "" {
+			req.ContentType = fileHeader.Header.Get("Content-Type")
+		}
 	}
 
 	resp, err := h.service.UploadObject(c.Request.Context(), &req)

@@ -20,9 +20,13 @@ on:
         required: true
         default: "main"
       sdk_example_tag:
-        description: "croupier-sdk-go example image tag"
+        description: "croupier-sdk-go game demo image tag"
         required: true
         default: "main"
+      enable_sdk_examples:
+        description: "Deploy croupier-sdk-go game demo container"
+        required: true
+        default: "true"
       deploy_dir:
         description: "Absolute deploy directory on runner host"
         required: true
@@ -54,6 +58,7 @@ jobs:
           CROUPIER_AGENT_TAG=${{ inputs.agent_tag }}
           CROUPIER_DASHBOARD_TAG=${{ inputs.dashboard_tag }}
           CROUPIER_SDK_EXAMPLE_TAG=${{ inputs.sdk_example_tag }}
+          ENABLE_SDK_EXAMPLES=${{ inputs.enable_sdk_examples }}
           EOF
 
       - name: Login GHCR
@@ -61,13 +66,31 @@ jobs:
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Pull latest images
-        run: docker compose --env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml" pull
+        run: |
+          COMPOSE_ARGS='--env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml"'
+          if [ "${{ inputs.enable_sdk_examples }}" = "true" ]; then
+            eval docker compose $COMPOSE_ARGS --profile sdk-examples pull
+          else
+            eval docker compose $COMPOSE_ARGS pull
+          fi
 
       - name: Deploy containers
-        run: docker compose --env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml" up -d --remove-orphans
+        run: |
+          COMPOSE_ARGS='--env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml"'
+          if [ "${{ inputs.enable_sdk_examples }}" = "true" ]; then
+            eval docker compose $COMPOSE_ARGS --profile sdk-examples up -d --remove-orphans
+          else
+            eval docker compose $COMPOSE_ARGS up -d --remove-orphans
+          fi
 
       - name: Show running services
-        run: docker compose --env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml" ps
+        run: |
+          COMPOSE_ARGS='--env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml"'
+          if [ "${{ inputs.enable_sdk_examples }}" = "true" ]; then
+            eval docker compose $COMPOSE_ARGS --profile sdk-examples ps
+          else
+            eval docker compose $COMPOSE_ARGS ps
+          fi
 
       - name: Cleanup dangling images
         run: docker image prune -f

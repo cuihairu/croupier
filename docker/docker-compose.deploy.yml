@@ -111,11 +111,19 @@ services:
     networks:
       - croupier-network
 
-  sdk-example-basic:
-    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-sdk-go-example-basic:${CROUPIER_SDK_EXAMPLE_TAG:-main}
-    container_name: croupier-sdk-example-basic
+  sdk-example-game-demo:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-sdk-go-example-game-demo:${CROUPIER_SDK_EXAMPLE_TAG:-main}
+    container_name: croupier-sdk-example-game-demo
     restart: unless-stopped
     profiles: ["sdk-examples"]
+    environment:
+      CROUPIER_AGENT_ADDR: ${CROUPIER_AGENT_ADDR:-agent:19091}
+      CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-demo-game}
+      CROUPIER_SERVICE_ID: ${CROUPIER_SDK_EXAMPLE_SERVICE_ID:-game-demo-service}
+      CROUPIER_LOCAL_LISTEN: ${CROUPIER_SDK_EXAMPLE_LOCAL_LISTEN:-0.0.0.0:19103}
+      CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-development}
+    depends_on:
+      - agent
     networks:
       - croupier-network
 

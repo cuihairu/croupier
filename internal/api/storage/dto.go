@@ -1,5 +1,7 @@
 package storage
 
+import objstore "github.com/cuihairu/croupier/internal/platform/objstore"
+
 // SignedUrlRequest represents a request to get a signed URL
 type SignedUrlRequest struct {
 	Path   string `form:"path"`
@@ -8,9 +10,7 @@ type SignedUrlRequest struct {
 
 // SignedUrlResponse represents the response for getting a signed URL
 type SignedUrlResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	URL string `json:"url"`
 }
 
 // ListObjectsRequest represents a request to list objects
@@ -19,23 +19,28 @@ type ListObjectsRequest struct {
 	Delimiter       string `form:"delimiter"`
 	Marker          string `form:"marker"`
 	MaxKeys         int    `form:"maxKeys"`
+	Limit           int    `form:"limit"`
 	StorageClassURL string `form:"storageClassUrl"`
 }
 
 // ListObjectsResponse represents the response for listing objects
 type ListObjectsResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Objects     []ObjectInfo `json:"objects"`
+	Prefixes    []string     `json:"prefixes"`
+	IsTruncated bool         `json:"is_truncated"`
+	NextMarker  string       `json:"next_marker"`
 }
 
 // UploadObjectRequest represents a request to upload an object
 type UploadObjectRequest struct {
-	Path          string `form:"path"`
-	ContentType   string `form:"contentType"`
-	Content       string `form:"content"`
-	StorageClass  string `form:"storageClass"`
-	PreassignedID string `form:"preassignedId"`
+	Path          string              `form:"path"`
+	ContentType   string              `form:"contentType"`
+	Content       string              `form:"content"`
+	StorageClass  string              `form:"storageClass"`
+	PreassignedID string              `form:"preassignedId"`
+	File          objstore.ReadSeeker `form:"-" json:"-"`
+	Size          int64               `form:"-" json:"-"`
+	OriginalName  string              `form:"-" json:"-"`
 }
 
 // UploadObjectData represents the data for upload object response
@@ -45,9 +50,7 @@ type UploadObjectData struct {
 
 // UploadObjectResponse represents the response for uploading an object
 type UploadObjectResponse struct {
-	Code    int              `json:"code"`
-	Message string           `json:"message"`
-	Data    UploadObjectData `json:"data"`
+	Path string `json:"path"`
 }
 
 // DeleteObjectRequest represents a request to delete an object
@@ -57,9 +60,7 @@ type DeleteObjectRequest struct {
 
 // DeleteObjectResponse represents the response for deleting an object
 type DeleteObjectResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Path string `json:"path"`
 }
 
 // BatchDeleteObjectsData represents the data for batch delete objects response
@@ -75,9 +76,8 @@ type BatchDeleteObjectsRequest struct {
 
 // BatchDeleteObjectsResponse represents the response for batch deleting objects
 type BatchDeleteObjectsResponse struct {
-	Code    int                    `json:"code"`
-	Message string                 `json:"message"`
-	Data    BatchDeleteObjectsData `json:"data"`
+	Deleted []string `json:"deleted"`
+	Failed  []string `json:"failed"`
 }
 
 // CreateDirectoryRequest represents a request to create a directory
@@ -87,8 +87,7 @@ type CreateDirectoryRequest struct {
 
 // CreateDirectoryResponse represents the response for creating a directory
 type CreateDirectoryResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
+	Prefix string `json:"prefix"`
 }
 
 // RenameDirectoryRequest represents a request to rename a directory
@@ -99,8 +98,8 @@ type RenameDirectoryRequest struct {
 
 // RenameDirectoryResponse represents the response for renaming a directory
 type RenameDirectoryResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
+	OldPrefix string `json:"oldPrefix"`
+	NewPrefix string `json:"newPrefix"`
 }
 
 // ObjectInfo represents information about a storage object
@@ -113,12 +112,7 @@ type ObjectInfo struct {
 }
 
 // ObjectsData represents the data returned when listing objects
-type ObjectsData struct {
-	Objects     []ObjectInfo `json:"objects"`
-	Prefixes    []string     `json:"prefixes"`
-	IsTruncated bool         `json:"is_truncated"`
-	NextMarker  string       `json:"next_marker"`
-}
+type ObjectsData = ListObjectsResponse
 
 // Type aliases for backward compatibility with types.CreateDirectoryRequest
 // Deprecated: Use storage.CreateDirectoryRequest directly.
