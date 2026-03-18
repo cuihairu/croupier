@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/model"
@@ -1481,4 +1482,53 @@ func TestService_GetUserGames_GameWithWhitespaceAlias(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "Should find the game and fall back to Name for GameName")
+}
+
+// TestService_ResolveLastLoginAt_WithTimestamp tests with existing timestamp
+func TestService_ResolveLastLoginAt_WithTimestamp(t *testing.T) {
+	db := setupTestDB(t)
+	svcCtx := setupTestServiceContext(t, db)
+	service := NewService(svcCtx.AdminModel, svcCtx.GameModel, svcCtx.RoleModel)
+
+	now := "2024-01-15T10:30:00Z"
+	ts, err := parseTimestampPtr(now)
+	require.NoError(t, err)
+
+	result := service.resolveLastLoginAt("admin", ts)
+	assert.Equal(t, now, result)
+}
+
+// TestService_ResolveLastLoginAt_NilTimestamp tests with nil timestamp
+func TestService_ResolveLastLoginAt_NilTimestamp(t *testing.T) {
+	db := setupTestDB(t)
+	svcCtx := setupTestServiceContext(t, db)
+	service := NewService(svcCtx.AdminModel, svcCtx.GameModel, svcCtx.RoleModel)
+
+	result := service.resolveLastLoginAt("admin", nil)
+	// Should return empty string when no ops store
+	assert.Equal(t, "", result)
+}
+
+// TestService_ResolveLastLoginAt_ZeroTimestamp tests with zero timestamp
+func TestService_ResolveLastLoginAt_ZeroTimestamp(t *testing.T) {
+	db := setupTestDB(t)
+	svcCtx := setupTestServiceContext(t, db)
+	service := NewService(svcCtx.AdminModel, svcCtx.GameModel, svcCtx.RoleModel)
+
+	var ts time.Time
+	result := service.resolveLastLoginAt("admin", &ts)
+	// Should return empty string when timestamp is zero
+	assert.Equal(t, "", result)
+}
+
+// parseTimestampPtr is a helper function for testing
+func parseTimestampPtr(s string) (*time.Time, error) {
+	if s == "" {
+		return nil, nil
+	}
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
 }

@@ -60,6 +60,11 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&RateLimit{},
 		&TermDictionary{},
 		&WorkspaceConfig{},
+		&RetentionCohort{},
+		&SupportTicket{},
+		&SupportComment{},
+		&SupportFAQ{},
+		&SupportFeedback{},
 	)
 	require.NoError(t, err)
 

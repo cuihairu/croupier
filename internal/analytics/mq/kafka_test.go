@@ -50,3 +50,13 @@ func TestNewKafka_MultipleBrokers(t *testing.T) {
 	q := NewKafka([]string{"broker1:9092", "broker2:9092", "broker3:9092"}, "events", "payments")
 	assert.NotNil(t, q)
 }
+
+// TestNewKafka_EmptyBrokers tests with empty brokers list (returns noop)
+func TestNewKafka_EmptyBrokers(t *testing.T) {
+	q := NewKafka([]string{}, "events", "payments")
+	assert.NotNil(t, q)
+	// Should return Noop when brokers list is empty
+	if _, ok := q.(*Noop); !ok {
+		t.Error("Empty brokers list should return Noop queue")
+	}
+}

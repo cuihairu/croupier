@@ -6211,3 +6211,150 @@ func TestDiscoverExternalPlatforms_WithInstallationDB(t *testing.T) {
 		t.Fatal("expected get_player method for steam")
 	}
 }
+
+// TestHandler_List_AliasMethod tests the List alias method
+func TestHandler_List_AliasMethod(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := reg.NewStore()
+	store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "a1",
+		RPCAddr:  "127.0.0.1:19091",
+		ExpireAt: time.Now().Add(time.Minute),
+		Functions: map[string]reg.FunctionMeta{
+			"external.test.method1": {Enabled: true},
+		},
+	})
+
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: store,
+		Extensions: &svc.ExtensionServices{
+			Installation: extensioninstallation.NewService(nil, nil, nil),
+		},
+	}
+
+	service := NewService(svcCtx)
+	handler := NewHandler(service)
+
+	router := gin.New()
+	router.GET("/platforms", handler.List)
+
+	req, _ := http.NewRequest("GET", "/platforms", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+}
+
+// TestHandler_Methods_AliasMethod tests the Methods alias method
+func TestHandler_Methods_AliasMethod(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := reg.NewStore()
+	store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "a1",
+		RPCAddr:  "127.0.0.1:19091",
+		ExpireAt: time.Now().Add(time.Minute),
+		Functions: map[string]reg.FunctionMeta{
+			"external.test.method1": {Enabled: true},
+			"external.test.method2": {Enabled: true},
+		},
+	})
+
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: store,
+		Extensions: &svc.ExtensionServices{
+			Installation: extensioninstallation.NewService(nil, nil, nil),
+		},
+	}
+
+	service := NewService(svcCtx)
+	handler := NewHandler(service)
+
+	router := gin.New()
+	router.GET("/platforms/:platform/methods", handler.Methods)
+
+	req, _ := http.NewRequest("GET", "/platforms/test/methods", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+}
+
+// TestWriteListPlatformsResponse_NilResponse tests the nil response path
+func TestWriteListPlatformsResponse_NilResponse(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+
+	router.GET("/test", func(c *gin.Context) {
+		writeListPlatformsResponse(c, nil)
+	})
+
+	req, _ := http.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500 for nil response, got %d", w.Code)
+	}
+}
+
+// TestWriteCallResponse_NilResponse tests the nil response path
+func TestWriteCallResponse_NilResponse(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+
+	router.GET("/test", func(c *gin.Context) {
+		writeCallResponse(c, nil)
+	})
+
+	req, _ := http.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500 for nil response, got %d", w.Code)
+	}
+}
+
+// TestWriteCallResponse_ErrorCode tests the error code path
+func TestWriteCallResponse_ErrorCode(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+
+	router.GET("/test", func(c *gin.Context) {
+		resp := &CallPlatformResponse{
+			Code:    http.StatusBadRequest,
+			Message: "bad request",
+		}
+		writeCallResponse(c, resp)
+	})
+
+	req, _ := http.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 for error response, got %d", w.Code)
+	}
+}
+
+// TestWriteListMethodsResponse_NilResponse tests the nil response path
+func TestWriteListMethodsResponse_NilResponse(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+
+	router.GET("/test", func(c *gin.Context) {
+		writeListMethodsResponse(c, nil)
+	})
+
+	req, _ := http.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status 500 for nil response, got %d", w.Code)
+	}
+}
