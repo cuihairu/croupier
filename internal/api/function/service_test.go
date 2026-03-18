@@ -359,10 +359,12 @@ func TestFunctionRoute(t *testing.T) {
 		Version:     "1.0.0",
 		Category:    "test",
 		Metadata: map[string]interface{}{
-			"nodes":  []string{"node1", "node2"},
-			"path":   "/test",
-			"order":  1, // Using int directly
-			"hidden": false,
+			"menu": map[string]interface{}{
+				"nodes":  []string{"node1", "node2"},
+				"path":   "/test",
+				"order":  1,
+				"hidden": false,
+			},
 		},
 	}
 	require.NoError(t, svcCtx.DB.Create(fn).Error)
@@ -383,8 +385,10 @@ func TestFunctionRoute_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	req := &FunctionRouteRequest{ID: "nonexistent"}
-	_, err := functionRoute(ctx, svcCtx, req)
-	assert.Error(t, err)
+	resp, err := functionRoute(ctx, svcCtx, req)
+	require.NoError(t, err)
+	assert.Equal(t, "default", resp.Source)
+	assert.NotNil(t, resp.Menu.Nodes)
 }
 
 // Test functionRouteUpdate
@@ -417,7 +421,7 @@ func TestFunctionRouteUpdate(t *testing.T) {
 
 	resp, err := functionRouteUpdate(ctx, svcCtx, req)
 	require.NoError(t, err)
-	assert.Equal(t, "updated", resp.Source)
+	assert.Equal(t, "metadata", resp.Source)
 	assert.Equal(t, []string{"node3", "node4"}, resp.Menu.Nodes)
 	assert.Equal(t, "/updated", resp.Menu.Path)
 	assert.Equal(t, 5, resp.Menu.Order)
@@ -434,8 +438,10 @@ func TestFunctionRouteUpdate_NotFound(t *testing.T) {
 		Nodes: []string{"node1"},
 	}
 
-	_, err := functionRouteUpdate(ctx, svcCtx, req)
-	assert.Error(t, err)
+	resp, err := functionRouteUpdate(ctx, svcCtx, req)
+	require.NoError(t, err)
+	assert.Equal(t, "metadata", resp.Source)
+	assert.Equal(t, []string{"node1"}, resp.Menu.Nodes)
 }
 
 // Test functionInstances
@@ -1174,8 +1180,10 @@ func TestService_FunctionRoute(t *testing.T) {
 		FunctionID: "func1",
 		Name:       "Function 1",
 		Metadata: map[string]interface{}{
-			"nodes": []string{"node1"},
-			"path":  "/test",
+			"menu": map[string]interface{}{
+				"nodes": []string{"node1"},
+				"path":  "/test",
+			},
 		},
 	}
 	require.NoError(t, svcCtx.DB.Create(fn).Error)
@@ -1639,9 +1647,9 @@ func TestFunctionRoute_NilMetadata(t *testing.T) {
 	req := &FunctionRouteRequest{ID: "func1"}
 	resp, err := functionRoute(ctx, svcCtx, req)
 	require.NoError(t, err)
-	assert.Equal(t, "metadata", resp.Source)
-	assert.Empty(t, resp.Menu.Nodes)
-	assert.Empty(t, resp.Menu.Path)
+	assert.Equal(t, "default", resp.Source)
+	assert.Equal(t, []string{"func1"}, resp.Menu.Nodes)
+	assert.Equal(t, "/game/entities/func1", resp.Menu.Path)
 }
 
 // Test functionRouteUpdate with nil metadata initially
@@ -1668,7 +1676,7 @@ func TestFunctionRouteUpdate_NilMetadata(t *testing.T) {
 
 	resp, err := functionRouteUpdate(ctx, svcCtx, req)
 	require.NoError(t, err)
-	assert.Equal(t, "updated", resp.Source)
+	assert.Equal(t, "metadata", resp.Source)
 	assert.Equal(t, []string{"node1"}, resp.Menu.Nodes)
 }
 
@@ -2024,7 +2032,7 @@ func TestFunctionRouteUpdate_PartialMetadata(t *testing.T) {
 
 	resp, err := functionRouteUpdate(ctx, svcCtx, req)
 	require.NoError(t, err)
-	assert.Equal(t, "updated", resp.Source)
+	assert.Equal(t, "metadata", resp.Source)
 
 	// Verify existing metadata is preserved
 	fnAfter, err := svcCtx.FunctionModel.FindByFunctionID(ctx, "func1")
@@ -2428,8 +2436,7 @@ func TestHandlers_AdditionalCoverage(t *testing.T) {
 
 		h.FunctionRoute(ctx)
 
-		// Will return 500 because URI param binding fails and function not found
-		assert.Equal(t, http.StatusInternalServerError, rec.Code)
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 
 	t.Run("FunctionPublish_Success", func(t *testing.T) {

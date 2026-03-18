@@ -261,60 +261,44 @@ func functionPublish(ctx context.Context, svcCtx *svc.ServiceContext, req *Funct
 }
 
 func functionRoute(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionRouteRequest) (*FunctionRouteResponse, error) {
-	fn, err := svcCtx.FunctionModel.FindByFunctionID(ctx, req.ID)
+	logicResp, err := logicfunction.NewFunctionRouteLogic(ctx, svcCtx).FunctionRoute(&logicfunction.FunctionRouteRequest{
+		ID: req.ID,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	// Get route config from metadata
-	nodes := getStringSliceFromMetadata(fn.Metadata, "nodes")
-	path := getStringFromMetadata(fn.Metadata, "path")
-	order := getIntFromMetadata(fn.Metadata, "order")
-	hidden := getBoolFromMetadata(fn.Metadata, "hidden")
-
 	return &FunctionRouteResponse{
 		Menu: FunctionRouteConfig{
-			Nodes:  nodes,
-			Path:   path,
-			Order:  order,
-			Hidden: hidden,
+			Nodes:  logicResp.Menu.(logicfunction.FunctionRouteConfig).Nodes,
+			Path:   logicResp.Menu.(logicfunction.FunctionRouteConfig).Path,
+			Order:  logicResp.Menu.(logicfunction.FunctionRouteConfig).Order,
+			Hidden: logicResp.Menu.(logicfunction.FunctionRouteConfig).Hidden,
 		},
-		Source: "metadata",
+		Source: logicResp.Source,
 	}, nil
 }
 
 func functionRouteUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionRouteUpdateRequest) (*FunctionRouteResponse, error) {
-	// Update route config in metadata
-	updates := map[string]interface{}{
-		"nodes":  req.Nodes,
-		"path":   req.Path,
-		"order":  req.Order,
-		"hidden": req.Hidden,
-	}
-	// Find the function first
-	fn, err := svcCtx.FunctionModel.FindByFunctionID(ctx, req.ID)
+	logicResp, err := logicfunction.NewFunctionRouteUpdateLogic(ctx, svcCtx).FunctionRouteUpdate(&logicfunction.FunctionRouteUpdateRequest{
+		ID:     req.ID,
+		Nodes:  req.Nodes,
+		Path:   req.Path,
+		Order:  req.Order,
+		Hidden: req.Hidden,
+	})
 	if err != nil {
 		return nil, err
 	}
-	// Merge with existing metadata
-	if fn.Metadata == nil {
-		fn.Metadata = make(map[string]interface{})
-	}
-	for k, v := range updates {
-		fn.Metadata[k] = v
-	}
-	err = svcCtx.FunctionModel.Update(ctx, fn.ID, map[string]interface{}{"metadata": fn.Metadata})
-	if err != nil {
-		return nil, err
-	}
+
 	return &FunctionRouteResponse{
 		Menu: FunctionRouteConfig{
-			Nodes:  req.Nodes,
-			Path:   req.Path,
-			Order:  req.Order,
-			Hidden: req.Hidden,
+			Nodes:  logicResp.Menu.(logicfunction.FunctionRouteConfig).Nodes,
+			Path:   logicResp.Menu.(logicfunction.FunctionRouteConfig).Path,
+			Order:  logicResp.Menu.(logicfunction.FunctionRouteConfig).Order,
+			Hidden: logicResp.Menu.(logicfunction.FunctionRouteConfig).Hidden,
 		},
-		Source: "updated",
+		Source: logicResp.Source,
 	}, nil
 }
 
