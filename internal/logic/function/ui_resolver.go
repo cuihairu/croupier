@@ -30,6 +30,9 @@ func resolveFunctionUI(c config.Config, fn *model.Function) uiResolveResult {
 	if fn.OpenAPISpec != nil {
 		defaultUI = fn.OpenAPISpec["x-ui"]
 	}
+	if defaultUI == nil {
+		defaultUI = BuildFallbackUISchema(fn.FunctionID)
+	}
 
 	resultUI := customUI
 	if resultUI == nil {
@@ -49,8 +52,12 @@ func resolveFunctionUI(c config.Config, fn *model.Function) uiResolveResult {
 		uiSource = "config_file_override"
 		uiSourceDetail = "configs/ui/functions(.override) file"
 	case defaultUI != nil:
-		uiSource = "openapi_x_ui"
-		uiSourceDetail = "openapi_spec.x-ui (provider default)"
+		uiSource = "generated_default"
+		uiSourceDetail = "generated default ui schema"
+		if fn.OpenAPISpec != nil {
+			uiSource = "openapi_x_ui"
+			uiSourceDetail = "openapi_spec.x-ui (provider default)"
+		}
 	}
 
 	var layout interface{}

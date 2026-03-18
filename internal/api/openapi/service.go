@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/getkin/kin-openapi/openapi3"
 )
@@ -24,7 +25,11 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 func (s *Service) GetSpec(ctx context.Context, req *GetSpecRequest) (*GetSpecResponse, error) {
 	spec, err := s.svcCtx.RegistryStore.GetOpenAPI(req.ID)
 	if err != nil {
-		return nil, err
+		if hasRegisteredFunction(s.svcCtx, req.ID) {
+			spec = logicfunction.BuildFallbackOpenAPIOperation(req.ID)
+		} else {
+			return nil, err
+		}
 	}
 	return &GetSpecResponse{
 		Spec: spec,
@@ -174,12 +179,44 @@ func (s *Service) BatchGetSpec(ctx context.Context, req *BatchGetSpecRequest) (B
 		}
 		spec, err := s.svcCtx.RegistryStore.GetOpenAPI(functionID)
 		if err != nil {
+			if hasRegisteredFunction(s.svcCtx, functionID) {
+				resp[functionID] = logicfunction.BuildFallbackOpenAPIOperation(functionID)
+				continue
+			}
 			resp[functionID] = nil
 			continue
 		}
 		resp[functionID] = spec
 	}
 	return resp, nil
+}
+
+func hasRegisteredFunction(svcCtx *svc.ServiceContext, functionID string) bool {
+	functionID = strings.TrimSpace(functionID)
+	if functionID == "" {
+		return false
+	}
+	if svcCtx == nil {
+		return false
+	}
+	if svcCtx.RegistryStore != nil {
+		svcCtx.RegistryStore.Mu().RLock()
+		defer svcCtx.RegistryStore.Mu().RUnlock()
+		for _, sess := range svcCtx.RegistryStore.AgentsUnsafe() {
+			if sess == nil {
+				continue
+			}
+			if _, ok := sess.Functions[functionID]; ok {
+				return true
+			}
+		}
+	}
+	if svcCtx.FunctionModel != nil {
+		if _, err := svcCtx.FunctionModel.FindByFunctionID(context.Background(), functionID); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // normalizeOpenAPIDoc patches common non-critical gaps from external OpenAPI docs

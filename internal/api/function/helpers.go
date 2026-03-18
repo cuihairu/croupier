@@ -105,57 +105,31 @@ func functionsPending(ctx context.Context, svcCtx *svc.ServiceContext, req *Func
 }
 
 func functionDetail(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionDetailRequest) (*FunctionDetailResponse, error) {
-	functionID, err := utils.ValidateFunctionID(req.ID)
+	logicResp, err := logicfunction.NewFunctionDetailLogic(ctx, svcCtx).FunctionDetail(&logicfunction.FunctionDetailRequest{
+		ID: req.ID,
+	})
 	if err != nil {
 		return nil, err
-	}
-
-	fn, err := svcCtx.FunctionModel.FindByFunctionID(ctx, functionID)
-	if err != nil {
-		return nil, err
-	}
-
-	desc := FunctionDescriptor{
-		Input:  getInterfaceFromMetadata(fn.Metadata, "input_schema"),
-		Output: getInterfaceFromMetadata(fn.Metadata, "output_schema"),
-		Schema: getInterfaceFromMetadata(fn.Metadata, "schema"),
-	}
-
-	perms, _ := svcCtx.FunctionModel.ListPermissions(ctx, functionID)
-	permItems := make([]FunctionPermission, 0, len(perms))
-	for _, p := range perms {
-		var roles []string
-		if len(p.Roles) > 0 {
-			// Roles is JSON, try to parse it as array
-			roles = parseRolesFromJSON(p.Roles)
-		}
-		var actions []string
-		if p.Actions != nil {
-			actions = parseActionsFromJSON(p.Actions)
-		}
-		permItems = append(permItems, FunctionPermission{
-			Resource: p.Resource,
-			Actions:  actions,
-			Roles:    roles,
-		})
 	}
 
 	return &FunctionDetailResponse{
 		Function: Function{
-			Id:          fn.FunctionID,
-			Name:        fn.Name,
-			Description: fn.Description,
-			Category:    getStringFromMetadata(fn.Metadata, "category"),
-			GameId:      fn.GameID,
-			Status:      fn.Status,
-			Version:     getStringFromMetadata(fn.Metadata, "version"),
-			Instances:   getIntFromMetadata(fn.Metadata, "instances"),
-			SpecFormat:  getStringFromMetadata(fn.Metadata, "spec_format"),
-			OpenAPISpec: getInterfaceFromMetadata(fn.Metadata, "openapi_spec"),
-			CreatedAt:   utils.FormatTimestamp(fn.CreatedAt),
-			UpdatedAt:   utils.FormatTimestamp(fn.UpdatedAt),
+			Id:          logicResp.Function.ID,
+			Name:        logicResp.Function.Name,
+			Description: logicResp.Function.Description,
+			Category:    logicResp.Function.Category,
+			GameId:      logicResp.Function.GameId,
+			Status:      logicResp.Function.Status,
+			Version:     logicResp.Function.Version,
+			Instances:   logicResp.Function.Instances,
+			SpecFormat:  logicResp.Function.SpecFormat,
+			OpenAPISpec: logicResp.Function.OpenAPISpec,
 		},
-		Descriptor: desc,
+		Descriptor: FunctionDescriptor{
+			Input:  logicResp.Descriptor.Input,
+			Output: logicResp.Descriptor.Output,
+			Schema: logicResp.Descriptor.Schema,
+		},
 	}, nil
 }
 
@@ -412,31 +386,31 @@ func functionPermissionsUpdate(ctx context.Context, svcCtx *svc.ServiceContext, 
 // UI configuration implementations
 
 func functionUI(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUIRequest) (*FunctionUIResponse, error) {
-	// GetUI not implemented - return placeholder
+	logicResp, err := logicfunction.NewFunctionUILogicV2(ctx, svcCtx).FunctionUI(&logicfunction.FunctionUIRequest{
+		ID: req.ID,
+	})
+	if err != nil {
+		return nil, err
+	}
 	return &FunctionUIResponse{
-		Schema:         map[string]interface{}{},
-		Layout:         map[string]interface{}{},
-		Components:     map[string]interface{}{},
-		Custom:         false,
-		HasDefault:     false,
-		UISource:       "none",
-		UISourceDetail: "not implemented",
+		Schema:         logicResp.Schema,
+		Layout:         logicResp.Layout,
+		Components:     logicResp.Components,
+		Custom:         boolFromAny(logicResp.Custom),
+		HasDefault:     logicResp.HasDefault,
+		UISource:       logicResp.UISource,
+		UISourceDetail: stringFromAny(logicResp.UISourceDetail),
 	}, nil
 }
 
 func functionUIUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUIUpdateRequest) error {
-	// SaveUI not implemented - store in metadata
-	fn, err := svcCtx.FunctionModel.FindByFunctionID(ctx, req.ID)
-	if err != nil {
-		return err
-	}
-	if fn.Metadata == nil {
-		fn.Metadata = make(map[string]interface{})
-	}
-	fn.Metadata["ui_schema"] = req.Schema
-	fn.Metadata["ui_layout"] = req.Layout
-	fn.Metadata["ui_components"] = req.Components
-	return svcCtx.FunctionModel.Update(ctx, fn.ID, map[string]interface{}{"metadata": fn.Metadata})
+	_, err := logicfunction.NewFunctionUIUpdateLogic(ctx, svcCtx).FunctionUIUpdate(&logicfunction.FunctionUIUpdateRequest{
+		ID:         req.ID,
+		Schema:     req.Schema,
+		Layout:     req.Layout,
+		Components: req.Components,
+	})
+	return err
 }
 
 func functionUIHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUIHistoryRequest) (*FunctionUIHistoryResponse, error) {
@@ -682,4 +656,18 @@ func getBoolFromMetadata(metadata map[string]interface{}, key string) bool {
 		}
 	}
 	return false
+}
+
+func boolFromAny(value interface{}) bool {
+	if v, ok := value.(bool); ok {
+		return v
+	}
+	return false
+}
+
+func stringFromAny(value interface{}) string {
+	if v, ok := value.(string); ok {
+		return v
+	}
+	return ""
 }

@@ -215,6 +215,63 @@ func TestFunctionDetail_WithPermissions(t *testing.T) {
 	assert.NotNil(t, resp)
 }
 
+func TestFunctionDetail_RuntimeOnly(t *testing.T) {
+	t.Parallel()
+	svcCtx := setupTestServiceContext(t)
+	ctx := context.Background()
+
+	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+		AgentID: "agent1",
+		GameID:  "demo-game",
+		Env:     "development",
+		Functions: map[string]registry.FunctionMeta{
+			"player.list": {Enabled: true, Version: "1.2.3"},
+		},
+		LastSeen: time.Now(),
+	})
+
+	req := &FunctionDetailRequest{ID: "player.list"}
+	resp, err := functionDetail(ctx, svcCtx, req)
+	require.NoError(t, err)
+	assert.Equal(t, "player.list", resp.Function.Id)
+	assert.Equal(t, "demo-game", resp.Function.GameId)
+	assert.Equal(t, "1.2.3", resp.Function.Version)
+	assert.Equal(t, 1, resp.Function.Instances)
+}
+
+func TestFunctionDetail_RuntimeEnrichmentOnPlaceholderRecord(t *testing.T) {
+	t.Parallel()
+	svcCtx := setupTestServiceContext(t)
+	ctx := context.Background()
+
+	require.NoError(t, svcCtx.DB.Create(&model.Function{
+		FunctionID: "player.list",
+		Name:       "",
+		GameID:     "",
+		Version:    "",
+		Instances:  0,
+		Status:     1,
+	}).Error)
+
+	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+		AgentID: "agent1",
+		GameID:  "demo-game",
+		Env:     "development",
+		Functions: map[string]registry.FunctionMeta{
+			"player.list": {Enabled: true, Version: "1.2.3"},
+		},
+		LastSeen: time.Now(),
+	})
+
+	req := &FunctionDetailRequest{ID: "player.list"}
+	resp, err := functionDetail(ctx, svcCtx, req)
+	require.NoError(t, err)
+	assert.Equal(t, "player.list", resp.Function.Name)
+	assert.Equal(t, "demo-game", resp.Function.GameId)
+	assert.Equal(t, "1.2.3", resp.Function.Version)
+	assert.Equal(t, 1, resp.Function.Instances)
+}
+
 // Test functionAnalytics
 
 func TestFunctionAnalytics(t *testing.T) {
@@ -624,10 +681,35 @@ func TestFunctionUI(t *testing.T) {
 	req := &FunctionUIRequest{ID: "func1"}
 	resp, err := functionUI(ctx, svcCtx, req)
 	require.NoError(t, err)
-	assert.Equal(t, "none", resp.UISource)
-	assert.Equal(t, "not implemented", resp.UISourceDetail)
+	assert.Equal(t, "generated_default", resp.UISource)
+	assert.Equal(t, "generated default ui schema", resp.UISourceDetail)
 	assert.False(t, resp.Custom)
-	assert.False(t, resp.HasDefault)
+	assert.True(t, resp.HasDefault)
+	assert.NotNil(t, resp.Schema)
+}
+
+func TestFunctionUI_RuntimeOnly(t *testing.T) {
+	t.Parallel()
+	svcCtx := setupTestServiceContext(t)
+	ctx := context.Background()
+
+	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+		AgentID: "agent1",
+		GameID:  "demo-game",
+		Env:     "development",
+		Functions: map[string]registry.FunctionMeta{
+			"player.list": {Enabled: true, Version: "1.0.0"},
+		},
+		LastSeen: time.Now(),
+	})
+
+	req := &FunctionUIRequest{ID: "player.list"}
+	resp, err := functionUI(ctx, svcCtx, req)
+	require.NoError(t, err)
+	assert.Equal(t, "generated_default", resp.UISource)
+	assert.NotNil(t, resp.Schema)
+	assert.NotNil(t, resp.Layout)
+	assert.NotNil(t, resp.Components)
 }
 
 // Test functionUIUpdate
@@ -656,9 +738,9 @@ func TestFunctionUIUpdate(t *testing.T) {
 	// Verify metadata was updated
 	fn, err := svcCtx.FunctionModel.FindByFunctionID(ctx, "func1")
 	require.NoError(t, err)
-	assert.NotNil(t, fn.Metadata["ui_schema"])
-	assert.NotNil(t, fn.Metadata["ui_layout"])
-	assert.NotNil(t, fn.Metadata["ui_components"])
+	assert.NotNil(t, fn.Metadata["ui"])
+	assert.NotNil(t, fn.Metadata["layout"])
+	assert.NotNil(t, fn.Metadata["components"])
 }
 
 func TestFunctionUIUpdate_NotFound(t *testing.T) {
@@ -672,7 +754,11 @@ func TestFunctionUIUpdate_NotFound(t *testing.T) {
 	}
 
 	err := functionUIUpdate(ctx, svcCtx, req)
-	assert.Error(t, err)
+	require.NoError(t, err)
+
+	fn, findErr := svcCtx.FunctionModel.FindByFunctionID(ctx, "nonexistent")
+	require.NoError(t, findErr)
+	assert.NotNil(t, fn)
 }
 
 // Test functionUIHistory
@@ -996,7 +1082,7 @@ func TestService_FunctionUI(t *testing.T) {
 	req := &FunctionUIRequest{ID: "func1"}
 	resp, err := svc.FunctionUI(ctx, req)
 	require.NoError(t, err)
-	assert.Equal(t, "none", resp.UISource)
+	assert.Equal(t, "generated_default", resp.UISource)
 }
 
 func TestService_Descriptors(t *testing.T) {
@@ -1791,7 +1877,7 @@ func TestFunctionUIUpdate_NilValues(t *testing.T) {
 	}
 
 	err := functionUIUpdate(ctx, svcCtx, req)
-	require.NoError(t, err)
+	assert.Error(t, err)
 }
 
 // Test functionUIUpdate with empty values
@@ -2421,7 +2507,7 @@ func TestHandlers_AdditionalCoverage(t *testing.T) {
 
 		h.FunctionUI(ctx)
 
-		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
 	})
 
 	t.Run("FunctionRoute_Success", func(t *testing.T) {

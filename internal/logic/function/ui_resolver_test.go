@@ -92,13 +92,13 @@ func TestResolveFunctionUI_NoLegacySchemaFallback(t *testing.T) {
 	}
 
 	resolved := resolveFunctionUI(cfg, fn)
-	if resolved.Schema != nil {
-		t.Fatalf("expected schema to be nil without openapi/custom ui, got %#v", resolved.Schema)
+	if resolved.Schema == nil {
+		t.Fatalf("expected generated schema without openapi/custom ui")
 	}
-	if resolved.HasDefault {
-		t.Fatalf("expected hasDefault=false when only historical schema exists")
+	if !resolved.HasDefault {
+		t.Fatalf("expected hasDefault=true when generated default ui exists")
 	}
-	if resolved.UISource != "none" {
-		t.Fatalf("expected uiSource=none, got %s", resolved.UISource)
+	if resolved.UISource != "generated_default" {
+		t.Fatalf("expected uiSource=generated_default, got %s", resolved.UISource)
 	}
 }

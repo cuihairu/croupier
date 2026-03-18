@@ -93,7 +93,10 @@ func TestFunctionUI_RuntimeOnlyFunctionFallback(t *testing.T) {
 	if resp == nil {
 		t.Fatalf("expected response, got nil")
 	}
-	if resp.UISource != "none" {
-		t.Fatalf("expected uiSource=none for runtime-only function, got %s", resp.UISource)
+	if resp.UISource != "generated_default" {
+		t.Fatalf("expected uiSource=generated_default for runtime-only function, got %s", resp.UISource)
+	}
+	if resp.Schema == nil {
+		t.Fatalf("expected generated schema, got nil")
 	}
 }
