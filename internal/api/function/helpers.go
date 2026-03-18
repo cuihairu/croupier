@@ -4,14 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
-	"sort"
 	"strings"
 
 	"gorm.io/datatypes"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
-	"github.com/cuihairu/croupier/internal/logic/function"
+	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -20,58 +18,82 @@ import (
 // Function management implementations
 
 func functionsList(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionsListRequest) (*FunctionsListResponse, error) {
-	admin, roles, err := utils.LoadCurrentAdmin(ctx, svcCtx)
-	isAdmin := false
-	if err == nil && utils.HasAdminRole(function.ExtractRoleNames(roles)) {
-		isAdmin = true
-	}
-
-	if admin != nil {
-		slog.InfoContext(ctx, "FunctionsList",
-			"user", admin.Username,
-			"isAdmin", isAdmin,
-			"gameId", req.GameId)
-	}
-
-	opts := model.ListFunctionsOptions{
-		PaginationOptions: model.PaginationOptions{
-			Page:     1,
-			PageSize: 10000,
-		},
-	}
-
-	if !isAdmin && req.GameId != "" {
-		opts.GameID = strings.TrimSpace(req.GameId)
-	}
-	if req.Status != 0 {
-		opts.Status = &req.Status
-	}
-
-	functions, _, err := svcCtx.FunctionModel.List(ctx, opts)
+	logicResp, err := logicfunction.NewFunctionsListLogic(ctx, svcCtx).FunctionsList(&logicfunction.FunctionsListRequest{
+		Page:     1,
+		PageSize: 10000,
+		GameId:   req.GameId,
+		Category: req.Category,
+		Status:   req.Status,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	items := make([]Function, 0, len(functions))
-	for _, fn := range functions {
+	dbItems, _, err := svcCtx.FunctionModel.List(ctx, model.ListFunctionsOptions{
+		PaginationOptions: model.PaginationOptions{
+			Page:     1,
+			PageSize: 10000,
+		},
+		GameID: strings.TrimSpace(req.GameId),
+	})
+	if err != nil {
+		return nil, err
+	}
+	dbIndex := make(map[string]model.Function, len(dbItems))
+	for _, item := range dbItems {
+		dbIndex[item.FunctionID] = item
+	}
+
+	items := make([]Function, 0, len(logicResp.Items))
+	for _, fn := range logicResp.Items {
+		dbFn, ok := dbIndex[fn.ID]
+		category := fn.Category
+		version := fn.Version
+		specFormat := fn.SpecFormat
+		openAPISpec := fn.OpenAPISpec
+		description := fn.Description
+		createdAt := ""
+		updatedAt := ""
+		if ok {
+			if category == "" {
+				category = getStringFromMetadata(dbFn.Metadata, "category")
+			}
+			if version == "" {
+				version = getStringFromMetadata(dbFn.Metadata, "version")
+			}
+			if specFormat == "" {
+				specFormat = getStringFromMetadata(dbFn.Metadata, "spec_format")
+			}
+			if openAPISpec == nil {
+				openAPISpec = getInterfaceFromMetadata(dbFn.Metadata, "openapi_spec")
+			}
+			if description == "" {
+				description = dbFn.Description
+			}
+			createdAt = utils.FormatTimestamp(dbFn.CreatedAt)
+			updatedAt = utils.FormatTimestamp(dbFn.UpdatedAt)
+		}
 		items = append(items, Function{
-			Id:          fn.FunctionID,
+			Id:          fn.ID,
 			Name:        fn.Name,
-			Description: fn.Description,
-			Category:    getStringFromMetadata(fn.Metadata, "category"),
-			GameId:      fn.GameID,
+			Description: description,
+			Category:    category,
+			GameId:      fn.GameId,
 			Status:      fn.Status,
-			Version:     getStringFromMetadata(fn.Metadata, "version"),
-			SpecFormat:  getStringFromMetadata(fn.Metadata, "spec_format"),
-			OpenAPISpec: getInterfaceFromMetadata(fn.Metadata, "openapi_spec"),
-			CreatedAt:   utils.FormatTimestamp(fn.CreatedAt),
-			UpdatedAt:   utils.FormatTimestamp(fn.UpdatedAt),
+			Version:     version,
+			Instances:   fn.Instances,
+			SpecFormat:  specFormat,
+			OpenAPISpec: openAPISpec,
+			CreatedAt:   createdAt,
+			UpdatedAt:   updatedAt,
 		})
 	}
-	sort.Slice(items, func(i, j int) bool { return items[i].Id < items[j].Id })
 
 	return &FunctionsListResponse{
 		Items: items,
+		Total: logicResp.Total,
+		Page:  logicResp.Page,
+		Size:  logicResp.Size,
 	}, nil
 }
 

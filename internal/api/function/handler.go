@@ -8,6 +8,9 @@ import (
 )
 
 func bindFunctionRequest(c *gin.Context, req interface{}) error {
+	if err := c.ShouldBindUri(req); err != nil {
+		return err
+	}
 	if c.Request.Method == "GET" {
 		return requestbind.BindQueryCompat(c, req)
 	}

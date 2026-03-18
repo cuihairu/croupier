@@ -50,6 +50,24 @@ func TestBindFunctionRequestUsesJSONForPost(t *testing.T) {
 	}
 }
 
+func TestBindFunctionRequestBindsURIParams(t *testing.T) {
+	t.Parallel()
+
+	rec := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(rec)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/functions/inventory.consume/ui", nil)
+	ctx.Request = req
+	ctx.Params = gin.Params{{Key: "id", Value: "inventory.consume"}}
+
+	var bindReq FunctionUIRequest
+	if err := bindFunctionRequest(ctx, &bindReq); err != nil {
+		t.Fatalf("bindFunctionRequest() error = %v", err)
+	}
+	if bindReq.ID != "inventory.consume" {
+		t.Fatalf("expected id=inventory.consume, got %q", bindReq.ID)
+	}
+}
+
 func TestFunctionHandlersRejectMalformedJSON(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)

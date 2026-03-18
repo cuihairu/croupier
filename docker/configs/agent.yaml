@@ -10,9 +10,9 @@ Server:
   InsecureSkipVerify: false
 
 Agent:
-  ID: ""
-  GameID: ""
-  Env: ""
+  ID: "croupier-docker-agent"
+  GameID: "demo-game"
+  Env: "development"
   LocalAddr: "agent:19090"
   HTTPAddr: "agent:19091"
   Labels: {}

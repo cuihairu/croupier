@@ -438,7 +438,9 @@ func TestServiceOpsServices(t *testing.T) {
 
 	resp, err := s.OpsServices(ctx, &OpsServicesRequest{})
 	require.NoError(t, err)
-	assert.Empty(t, resp.Services)
+	require.Len(t, resp.Services, 1)
+	assert.Equal(t, "server", resp.Services[0].ID)
+	assert.Equal(t, 1, resp.Total)
 }
 
 // Functions tests

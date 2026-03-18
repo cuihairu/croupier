@@ -207,12 +207,7 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 	}
 	nngAddr := nngDisplayAddr
 
-	agentID := "agent"
-	host, _ := os.Hostname()
-	if host == "" {
-		host = "agent"
-	}
-	agentID = fmt.Sprintf("%s-%d", host, time.Now().Unix())
+	agentID := resolveAgentID(strings.TrimSpace(c.Agent.ID))
 
 	rpcAddr := nngAddr
 
@@ -284,6 +279,17 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 	}()
 
 	return core, nngAddr, nil
+}
+
+func resolveAgentID(configured string) string {
+	if strings.TrimSpace(configured) != "" {
+		return strings.TrimSpace(configured)
+	}
+	host, _ := os.Hostname()
+	if host == "" {
+		host = "agent"
+	}
+	return fmt.Sprintf("%s-%d", host, time.Now().Unix())
 }
 
 // collectSystemLabels 收集系统信息作为标签

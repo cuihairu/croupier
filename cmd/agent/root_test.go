@@ -45,3 +45,13 @@ Upstream:
 		t.Fatalf("heartbeat interval = %d, want %d", cfg.Upstream.HeartbeatInterval, 30)
 	}
 }
+
+func TestResolveAgentID(t *testing.T) {
+	if got := resolveAgentID("fixed-agent"); got != "fixed-agent" {
+		t.Fatalf("resolveAgentID() = %q, want %q", got, "fixed-agent")
+	}
+
+	if got := resolveAgentID(""); got == "" {
+		t.Fatal("resolveAgentID() returned empty id for blank config")
+	}
+}
