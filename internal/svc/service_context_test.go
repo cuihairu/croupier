@@ -2254,3 +2254,291 @@ func TestOpenDatabase_EnvOverride(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, db)
 }
+
+// ============================================================================
+// Tests for Database DSN Parsing Functions
+// ============================================================================
+
+func TestExtractMySQLDatabaseName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		dsn      string
+		expected string
+	}{
+		{
+			name:     "standard DSN",
+			dsn:      "root:root@tcp(localhost:3306)/croupier?parseTime=true",
+			expected: "croupier",
+		},
+		{
+			name:     "DSN without params",
+			dsn:      "root:root@tcp(localhost:3306)/mydb",
+			expected: "mydb",
+		},
+		{
+			name:     "DSN with special characters",
+			dsn:      "user:pass@tcp(host:3306)/my_db_name",
+			expected: "my_db_name",
+		},
+		{
+			name:     "invalid DSN",
+			dsn:      "invalid-dsn",
+			expected: "",
+		},
+		{
+			name:     "empty DSN",
+			dsn:      "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			result := extractMySQLDatabaseName(tt.dsn)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestRemoveDBFromMySQLDSN(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		dsn      string
+		expected string
+	}{
+		{
+			name:     "standard DSN with params",
+			dsn:      "root:root@tcp(localhost:3306)/croupier?parseTime=true",
+			expected: "root:root@tcp(localhost:3306)/?parseTime=true",
+		},
+		{
+			name:     "DSN without params - function only removes with ?",
+			dsn:      "root:root@tcp(localhost:3306)/mydb",
+			expected: "root:root@tcp(localhost:3306)/mydb", // No change without ?
+		},
+		{
+			name:     "DSN with underscore in dbname",
+			dsn:      "user:pass@tcp(host:3306)/my_db?charset=utf8",
+			expected: "user:pass@tcp(host:3306)/?charset=utf8",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			result := removeDBFromMySQLDSN(tt.dsn)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestExtractPostgresDatabaseName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		dsn      string
+		expected string
+	}{
+		{
+			name:     "postgres:// URL format",
+			dsn:      "postgres://user:pass@localhost:5432/croupier?sslmode=disable",
+			expected: "croupier",
+		},
+		{
+			name:     "postgresql:// URL format",
+			dsn:      "postgresql://user:pass@localhost:5432/mydb",
+			expected: "mydb",
+		},
+		{
+			name:     "key=value format with dbname",
+			dsn:      "host=localhost port=5432 user=postgres dbname=croupier",
+			expected: "croupier",
+		},
+		{
+			name:     "key=value format with dbname and other params",
+			dsn:      "host=localhost port=5432 user=postgres dbname=my_db sslmode=disable",
+			expected: "my_db",
+		},
+		{
+			name:     "invalid DSN",
+			dsn:      "invalid-dsn",
+			expected: "",
+		},
+		{
+			name:     "empty DSN",
+			dsn:      "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			result := extractPostgresDatabaseName(tt.dsn)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestRemoveDBFromPostgresDSN(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		dsn           string
+		replacementDB string
+		expected      string
+	}{
+		{
+			name:          "key=value format",
+			dsn:           "host=localhost port=5432 user=postgres dbname=croupier",
+			replacementDB: "postgres",
+			expected:      "host=localhost port=5432 user=postgres dbname=postgres",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			result := removeDBFromPostgresDSN(tt.dsn, tt.replacementDB)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestQuotePostgresIdentifier(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		ident    string
+		expected string
+	}{
+		{
+			name:     "simple identifier",
+			ident:    "mydb",
+			expected: "mydb",
+		},
+		{
+			name:     "identifier with dash",
+			ident:    "my-db",
+			expected: "\"my-db\"",
+		},
+		{
+			name:     "identifier with space",
+			ident:    "my db",
+			expected: "\"my db\"",
+		},
+		{
+			name:     "identifier with dot",
+			ident:    "my.db",
+			expected: "\"my.db\"",
+		},
+		{
+			name:     "identifier with dash and quote",
+			ident:    `my-"db`,
+			expected: `"my-""db"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			result := quotePostgresIdentifier(tt.ident)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestExtractSQLServerDatabaseName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		dsn      string
+		expected string
+	}{
+		{
+			name:     "sqlserver:// URL format",
+			dsn:      "sqlserver://user:pass@localhost?database=croupier",
+			expected: "croupier",
+		},
+		{
+			name:     "sqlserver:// URL format with port",
+			dsn:      "sqlserver://user:pass@localhost:1433?database=mydb",
+			expected: "mydb",
+		},
+		{
+			name:     "odbc format with database",
+			dsn:      "odbc:server=localhost;database=croupier;trusted_connection=yes",
+			expected: "croupier",
+		},
+		{
+			name:     "odbc format with braces - not supported by current regex",
+			dsn:      "odbc:server={localhost};database={my_db}",
+			expected: "",
+		},
+		{
+			name:     "invalid DSN",
+			dsn:      "invalid-dsn",
+			expected: "",
+		},
+		{
+			name:     "empty DSN",
+			dsn:      "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			result := extractSQLServerDatabaseName(tt.dsn)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestReplaceDBInSQLServerDSN(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		dsn           string
+		replacementDB string
+		expected      string
+	}{
+		{
+			name:          "sqlserver:// URL format",
+			dsn:           "sqlserver://user:pass@localhost?database=croupier",
+			replacementDB: "master",
+			expected:      "sqlserver://user:pass@localhost?database=master",
+		},
+		{
+			name:          "odbc format",
+			dsn:           "odbc:server=localhost;database=mydb;trusted_connection=yes",
+			replacementDB: "master",
+			expected:      "odbc:server=localhost;database=master;trusted_connection=yes",
+		},
+		{
+			name:          "odbc format with braces - regex replaces database=value",
+			dsn:           "odbc:server={localhost};database={my_db}",
+			replacementDB: "master",
+			expected:      "odbc:server={localhost};database=master",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			result := replaceDBInSQLServerDSN(tt.dsn, tt.replacementDB)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

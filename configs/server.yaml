@@ -1,78 +1,78 @@
 # Croupier Server Configuration
-Server:
-  Host: 0.0.0.0
-  Port: 18780
-  Timeout: 600000
-  Mode: dev
+server:
+  host: 0.0.0.0
+  port: 18780
+  timeout: 600000
+  mode: dev
 
 database:
-  Driver: mysql
-  DataSource: "root:root@tcp(localhost:3306)/croupier?charset=utf8mb4&parseTime=True&loc=Local"
+  driver: mysql
+  dataSource: "root:root@tcp(localhost:3306)/croupier?charset=utf8mb4&parseTime=True&loc=Local"
   # For PostgreSQL, change Driver to postgres and DataSource to:
   # DataSource: "host=localhost port=5432 user=postgres password=postgres dbname=croupier sslmode=disable TimeZone=Asia/Shanghai"
 
 sse:
-  UpdateInterval: 2
-  KeepAliveInterval: 30
+  updateInterval: 2
+  keepAliveInterval: 30
 
-Control:
-  Addr: ":19090"
-  IPCAddr: ""
-  Cert: ""
-  Key: ""
-  CA: ""
+control:
+  addr: ":19090"
+  ipcAddr: ""
+  cert: ""
+  key: ""
+  ca: ""
 
 registry:
-  AssignmentsPath: "data/assignments.json"
-  AnalyticsFiltersPath: "schemas/analytics_filters.json"
-  RateLimitsPath: "data/rate_limits.json"
+  assignmentsPath: "data/assignments.json"
+  analyticsFiltersPath: "schemas/analytics_filters.json"
+  rateLimitsPath: "data/rate_limits.json"
 
-AgentDispatch:
-  JobRoutingDir: "data"
-  JobRoutingTTL: ""
-  ToAgentTLS:
-    Enabled: false
-    CertFile: ""
-    KeyFile: ""
-    CAFile: ""
-    ServerName: ""
-    InsecureSkipVerify: false
+agentDispatch:
+  jobRoutingDir: "data"
+  jobRoutingTTL: ""
+  toAgentTLS:
+    enabled: false
+    certFile: ""
+    keyFile: ""
+    caFile: ""
+    serverName: ""
+    insecureSkipVerify: false
 
 auth:
-  JWTSecret: "localdevsecret-change-me"
-  RBACConfig: "configs/rbac.json"
-  UsersConfig: "configs/users.json"
-  GamesConfig: "configs/games.json"
+  jwtSecret: "localdevsecret-change-me"
+  rbacConfig: "configs/rbac.json"
+  usersConfig: "configs/users.json"
+  gamesConfig: "configs/games.json"
 
-BootstrapData:
-  BaseDir: "configs"
+bootstrapData:
+  baseDir: "configs"
 
 descriptors:
-  Dir: "descriptors"
+  dir: "descriptors"
 
 schemas:
-  Dir: "schemas"
+  dir: "schemas"
 
 storage:
-  Driver: "file"
-  BaseDir: "data/uploads"
+  driver: "file"
+  baseDir: "data/uploads"
 
 cache:
-  Enabled: true
-  Type: "redis"
-  Addr: "localhost:6379"
-  Password: ""
-  DB: 0
-  PoolSize: 50
-  TTL: "5m"
-  EvictTTL: "10m"
-  MaxItems: 10000
+  enabled: true
+  type: "redis"
+  addr: "localhost:6379"
+  password: ""
+  db: 0
+  poolSize: 50
+  ttl: "5m"
+  evictTTL: "10m"
+  maxItems: 10000
 
-Log:
-  Level: "info"
-  Format: "console"
-  Output: "stdout"
+log:
+  level: "info"
+  format: "console"
+  output: "stdout"
 
 metrics:
-  PerFunction: true
-  PerGameDenies: false
+  perFunction: true
+  perGameDenies: false

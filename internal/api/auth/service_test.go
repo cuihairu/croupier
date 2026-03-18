@@ -3,10 +3,12 @@ package auth
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/pkg2/jwt"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
+	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -553,4 +555,166 @@ func TestService_Check_WithEmptyAction(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
+}
+
+// TestRecordLoginAudit_NilService tests recordLoginAudit with nil receiver
+func TestRecordLoginAudit_NilService(t *testing.T) {
+	var service *Service = nil
+	// This should not panic - the method handles nil receiver
+	service.recordLoginAudit("testuser", "auth.login", "success", nil, "")
+	// If we got here without panic, the test passed
+	assert.True(t, true)
+}
+
+// TestRecordLoginAudit_NilOpsStore tests recordLoginAudit with nil opsStore
+func TestRecordLoginAudit_NilOpsStore(t *testing.T) {
+	db := setupTestDB(t)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db))
+	// service.opsStore is nil
+	assert.Nil(t, service.opsStore)
+
+	// This should not panic and should return early
+	service.recordLoginAudit("testuser", "auth.login", "success", nil, "")
+	// If we got here without panic, the test passed
+	assert.True(t, true)
+}
+
+// TestRecordLoginAudit_WithOpsStore tests recordLoginAudit with opsStore
+func TestRecordLoginAudit_WithOpsStore(t *testing.T) {
+	db := setupTestDB(t)
+	tmpDir := t.TempDir()
+	store := svc.NewOpsStateStore(tmpDir)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+
+	req := &LoginRequest{
+		ClientIP:  "127.0.0.1",
+		UserAgent: "test-agent",
+	}
+
+	// Record successful login
+	service.recordLoginAudit("admin", "auth.login", "success", req, "")
+
+	// Verify audit entry was created
+	state := store.Snapshot()
+	assert.GreaterOrEqual(t, len(state.Audit.Entries), 1)
+	// Find the last entry (the one we just added)
+	lastEntry := state.Audit.Entries[len(state.Audit.Entries)-1]
+	assert.Equal(t, "auth.login", lastEntry.Action)
+	assert.Equal(t, "admin", lastEntry.UserID)
+	assert.Equal(t, "success", lastEntry.Result)
+	assert.Equal(t, "127.0.0.1", lastEntry.Metadata["ip"])
+	assert.Equal(t, "test-agent", lastEntry.Metadata["user_agent"])
+	assert.Equal(t, "test-agent", lastEntry.Metadata["ua"])
+}
+
+// TestRecordLoginAudit_WithReason tests recordLoginAudit with reason parameter
+func TestRecordLoginAudit_WithReason(t *testing.T) {
+	db := setupTestDB(t)
+	tmpDir := t.TempDir()
+	store := svc.NewOpsStateStore(tmpDir)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+
+	req := &LoginRequest{
+		ClientIP:  "192.168.1.1",
+		UserAgent: "Mozilla/5.0",
+	}
+
+	service.recordLoginAudit("user", "auth.login_failed", "failed", req, "invalid_credentials")
+
+	state := store.Snapshot()
+	assert.GreaterOrEqual(t, len(state.Audit.Entries), 1)
+	lastEntry := state.Audit.Entries[len(state.Audit.Entries)-1]
+	assert.Equal(t, "auth.login_failed", lastEntry.Action)
+	assert.Equal(t, "failed", lastEntry.Result)
+	assert.Equal(t, "invalid_credentials", lastEntry.Metadata["reason"])
+}
+
+// TestRecordLoginAudit_WithNilRequest tests recordLoginAudit with nil request
+func TestRecordLoginAudit_WithNilRequest(t *testing.T) {
+	db := setupTestDB(t)
+	tmpDir := t.TempDir()
+	store := svc.NewOpsStateStore(tmpDir)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+
+	// With nil request
+	service.recordLoginAudit("user", "auth.login", "success", nil, "")
+
+	state := store.Snapshot()
+	assert.GreaterOrEqual(t, len(state.Audit.Entries), 1)
+	lastEntry := state.Audit.Entries[len(state.Audit.Entries)-1]
+	// Metadata should not have ip or user_agent when request is nil
+	_, hasIP := lastEntry.Metadata["ip"]
+	_, hasUA := lastEntry.Metadata["user_agent"]
+	assert.False(t, hasIP)
+	assert.False(t, hasUA)
+}
+
+// TestRecordLoginAudit_WithWhitespaceInRequest tests recordLoginAudit with whitespace-only fields
+func TestRecordLoginAudit_WithWhitespaceInRequest(t *testing.T) {
+	db := setupTestDB(t)
+	tmpDir := t.TempDir()
+	store := svc.NewOpsStateStore(tmpDir)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+
+	req := &LoginRequest{
+		ClientIP:  "   ",
+		UserAgent: "  ",
+	}
+
+	service.recordLoginAudit("user", "auth.login", "success", req, "")
+
+	state := store.Snapshot()
+	assert.GreaterOrEqual(t, len(state.Audit.Entries), 1)
+	lastEntry := state.Audit.Entries[len(state.Audit.Entries)-1]
+	// Whitespace-only values should not be added to metadata
+	_, hasIP := lastEntry.Metadata["ip"]
+	_, hasUA := lastEntry.Metadata["user_agent"]
+	assert.False(t, hasIP)
+	assert.False(t, hasUA)
+}
+
+// TestRecordLoginAudit_AuditEntryLimit tests that audit entries are limited to 2000
+func TestRecordLoginAudit_AuditEntryLimit(t *testing.T) {
+	db := setupTestDB(t)
+	tmpDir := t.TempDir()
+	store := svc.NewOpsStateStore(tmpDir)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+
+	// Pre-populate with 2001 entries
+	store.Update(func(st *svc.OpsState) {
+		for i := 0; i < 2001; i++ {
+			st.Audit.Entries = append(st.Audit.Entries, svc.OpsAuditEntry{
+				ID:        "old-entry-" + string(rune(i)),
+				Action:    "old.action",
+				UserID:    "olduser",
+				Result:    "success",
+				CreatedAt: time.Now(),
+			})
+		}
+	})
+
+	// Record one more audit
+	service.recordLoginAudit("newuser", "auth.login", "success", nil, "")
+
+	state := store.Snapshot()
+	// Should be limited to 2000
+	assert.LessOrEqual(t, len(state.Audit.Entries), 2000)
+	// The newest entry should be at the end
+	lastEntry := state.Audit.Entries[len(state.Audit.Entries)-1]
+	assert.Equal(t, "newuser", lastEntry.UserID)
+}
+
+// TestRecordLoginAudit_TrimmedUsername tests that username is trimmed
+func TestRecordLoginAudit_TrimmedUsername(t *testing.T) {
+	db := setupTestDB(t)
+	tmpDir := t.TempDir()
+	store := svc.NewOpsStateStore(tmpDir)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+
+	service.recordLoginAudit("  admin  ", "auth.login", "success", nil, "")
+
+	state := store.Snapshot()
+	assert.GreaterOrEqual(t, len(state.Audit.Entries), 1)
+	lastEntry := state.Audit.Entries[len(state.Audit.Entries)-1]
+	assert.Equal(t, "admin", lastEntry.UserID)
 }

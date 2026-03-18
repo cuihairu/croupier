@@ -242,3 +242,65 @@ rg -n "\bc\.(JSON|IndentedJSON|String|Data|PureJSON|XML|YAML|ProtoBuf)\(" intern
 ```
 
 Any new direct write must be justified as an exception (SSE/health/binary), otherwise refactor to unified response helpers.
+
+## Configuration Contract (Mandatory)
+
+Configuration naming must be standardized. Do not invent new casing per file or per module.
+
+This repository previously drifted into mixed styles such as `Server` vs `storage`, `Driver` vs `driver`, `Dir` vs `dir`, `Enabled` vs `enabled`. That is invalid going forward.
+
+### 1) Canonical Naming Rules
+
+- YAML keys: `lowerCamelCase`
+- JSON keys: `lowerCamelCase`
+- Go struct fields: `PascalCase`
+- Environment variables: `UPPER_SNAKE_CASE`
+- CLI flags: `kebab-case`
+
+Examples:
+
+```yaml
+server:
+  host: 0.0.0.0
+  port: 18780
+  timeout: 600000
+  mode: dev
+
+database:
+  driver: mysql
+  dataSource: xxx
+
+storage:
+  driver: file
+  baseDir: data/uploads
+
+cache:
+  enabled: true
+  type: redis
+```
+
+### 2) Implementation Rules
+
+- New config structs must use `yaml:"lowerCamelCase"` and `json:"lowerCamelCase"`.
+- Do not add new config tags using `Server`, `Driver`, `Dir`, `Enabled`, `BaseDir` style keys.
+- Do not mix uppercase and lowercase siblings in the same config object.
+- Config examples under `configs/*.yaml` must use canonical keys only.
+- If old configs already exist, backward compatibility must be handled in code, not by continuing to write new examples in legacy style.
+
+### 3) Backward Compatibility Rules
+
+- Legacy config keys may be tolerated only in compatibility parsing code.
+- Compatibility exists only to avoid breaking old deployments.
+- Compatibility code must not become the new documentation standard.
+- All docs, examples, generated templates, and new tests must use canonical `lowerCamelCase`.
+
+### 4) Review Checklist
+
+Before merge, check for mixed or legacy config naming:
+
+```bash
+rg -n 'yaml:"[A-Z]' internal/config
+rg -n '^\s+[A-Z][A-Za-z0-9]*:' configs/*.yaml configs/**/*.yaml
+```
+
+If a change introduces new uppercase YAML keys, it is a review failure unless the file is explicitly a legacy compatibility fixture.
