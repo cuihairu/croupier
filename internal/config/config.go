@@ -39,9 +39,15 @@ func (c *Config) UnmarshalYAML(value *yaml.Node) error {
 		Control       ControlConfig       `yaml:"Control"`
 		AgentDispatch AgentDispatchConfig `yaml:"AgentDispatch"`
 		BootstrapData BootstrapDataConfig `yaml:"BootstrapData"`
-		Logging       common.LogConfig    `yaml:"Log"`
+		Logging       legacyLogConfig     `yaml:"Log"`
+	}
+	var canonical struct {
+		Logging canonicalLogConfig `yaml:"log"`
 	}
 	if err := value.Decode(&compat); err != nil {
+		return err
+	}
+	if err := value.Decode(&canonical); err != nil {
 		return err
 	}
 
@@ -58,7 +64,12 @@ func (c *Config) UnmarshalYAML(value *yaml.Node) error {
 		decoded.BootstrapData = compat.BootstrapData
 	}
 	if isZeroLogConfig(decoded.Logging) {
-		decoded.Logging = compat.Logging
+		switch {
+		case !canonical.Logging.isZero():
+			decoded.Logging = canonical.Logging.toCommon()
+		case !compat.Logging.isZero():
+			decoded.Logging = compat.Logging.toCommon()
+		}
 	}
 
 	*c = Config(decoded)
@@ -636,4 +647,60 @@ func isZeroTLSClientConfig(cfg TLSClientConfig) bool {
 
 func isZeroLogConfig(cfg common.LogConfig) bool {
 	return cfg == (common.LogConfig{})
+}
+
+type canonicalLogConfig struct {
+	Level      string `yaml:"level,omitempty"`
+	Format     string `yaml:"format,omitempty"`
+	Output     string `yaml:"output,omitempty"`
+	File       string `yaml:"file,omitempty"`
+	MaxSize    int    `yaml:"maxSize,omitempty"`
+	MaxBackups int    `yaml:"maxBackups,omitempty"`
+	MaxAge     int    `yaml:"maxAge,omitempty"`
+	Compress   bool   `yaml:"compress,omitempty"`
+}
+
+func (c canonicalLogConfig) isZero() bool {
+	return c == (canonicalLogConfig{})
+}
+
+func (c canonicalLogConfig) toCommon() common.LogConfig {
+	return common.LogConfig{
+		Level:      c.Level,
+		Format:     c.Format,
+		Output:     c.Output,
+		File:       c.File,
+		MaxSize:    c.MaxSize,
+		MaxBackups: c.MaxBackups,
+		MaxAge:     c.MaxAge,
+		Compress:   c.Compress,
+	}
+}
+
+type legacyLogConfig struct {
+	Level      string `yaml:"Level,omitempty"`
+	Format     string `yaml:"Format,omitempty"`
+	Output     string `yaml:"Output,omitempty"`
+	File       string `yaml:"File,omitempty"`
+	MaxSize    int    `yaml:"MaxSize,omitempty"`
+	MaxBackups int    `yaml:"MaxBackups,omitempty"`
+	MaxAge     int    `yaml:"MaxAge,omitempty"`
+	Compress   bool   `yaml:"Compress,omitempty"`
+}
+
+func (c legacyLogConfig) isZero() bool {
+	return c == (legacyLogConfig{})
+}
+
+func (c legacyLogConfig) toCommon() common.LogConfig {
+	return common.LogConfig{
+		Level:      c.Level,
+		Format:     c.Format,
+		Output:     c.Output,
+		File:       c.File,
+		MaxSize:    c.MaxSize,
+		MaxBackups: c.MaxBackups,
+		MaxAge:     c.MaxAge,
+		Compress:   c.Compress,
+	}
 }
