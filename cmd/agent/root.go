@@ -75,20 +75,20 @@ func init() {
 
 // AgentConfig represents the agent-specific configuration
 type AgentConfig struct {
-	Name     string `json:"Name" yaml:"Name"`
-	Host     string `json:"Host" yaml:"Host"`
-	Port     int    `json:"Port" yaml:"Port"`
-	Server   AgentServerConfig
-	Agent    AgentInfoConfig
-	Upstream AgentUpstreamConfig
-	Logging  common.LogConfig
+	Name     string              `json:"Name" yaml:"Name"`
+	Host     string              `json:"Host" yaml:"Host"`
+	Port     int                 `json:"Port" yaml:"Port"`
+	Server   AgentServerConfig   `json:"Server" yaml:"Server"`
+	Agent    AgentInfoConfig     `json:"Agent" yaml:"Agent"`
+	Upstream AgentUpstreamConfig `json:"Upstream" yaml:"Upstream"`
+	Logging  common.LogConfig    `json:"Logging" yaml:"Logging"`
 	TLS      struct {
 		Enabled            bool   `json:"Enabled" yaml:"Enabled"`
 		CertFile           string `json:"CertFile" yaml:"CertFile"`
 		KeyFile            string `json:"KeyFile" yaml:"KeyFile"`
 		CAFile             string `json:"CAFile" yaml:"CAFile"`
 		InsecureSkipVerify bool   `json:"InsecureSkipVerify" yaml:"InsecureSkipVerify"`
-	}
+	} `json:"TLS" yaml:"TLS"`
 	OutboundTLS struct {
 		Enabled            bool   `json:"Enabled" yaml:"Enabled"`
 		CertFile           string `json:"CertFile" yaml:"CertFile"`
@@ -96,7 +96,7 @@ type AgentConfig struct {
 		CAFile             string `json:"CAFile" yaml:"CAFile"`
 		ServerName         string `json:"ServerName" yaml:"ServerName"`
 		InsecureSkipVerify bool   `json:"InsecureSkipVerify" yaml:"InsecureSkipVerify"`
-	}
+	} `json:"OutboundTLS" yaml:"OutboundTLS"`
 }
 
 type AgentServerConfig struct {
@@ -143,6 +143,11 @@ func runAgent() error {
 	if err := yaml.Unmarshal(data, &c); err != nil {
 		return fmt.Errorf("failed to parse config: %w", err)
 	}
+	slog.Info("parsed agent upstream config",
+		"server_addr", strings.TrimSpace(c.Server.Addr),
+		"local_addr", strings.TrimSpace(c.Agent.LocalAddr),
+		"http_addr", strings.TrimSpace(c.Agent.HTTPAddr),
+	)
 
 	// 初始化日志系统
 	if c.Logging.Level == "" {

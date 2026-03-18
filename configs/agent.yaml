@@ -5,7 +5,7 @@ Port: 19091
 
 Server:
   # Upstream control plane gRPC (docker-compose service name)
-  Addr: "server:8443"
+  Addr: "server:19090"
   Insecure: true
   ServerName: ""
   InsecureSkipVerify: false

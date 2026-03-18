@@ -1,0 +1,76 @@
+# Docker deployment override for croupier-server.
+Server:
+  Host: 0.0.0.0
+  Port: 18780
+  Timeout: 600000
+  Mode: dev
+
+database:
+  Driver: postgres
+  DataSource: "host=postgres port=5432 user=croupier password=croupier_dev_password dbname=croupier sslmode=disable TimeZone=Asia/Shanghai"
+
+sse:
+  UpdateInterval: 2
+  KeepAliveInterval: 30
+
+Control:
+  Addr: ":19090"
+  IPCAddr: ""
+  Cert: ""
+  Key: ""
+  CA: ""
+
+registry:
+  AssignmentsPath: "data/assignments.json"
+  AnalyticsFiltersPath: "schemas/analytics_filters.json"
+  RateLimitsPath: "data/rate_limits.json"
+
+AgentDispatch:
+  JobRoutingDir: "data"
+  JobRoutingTTL: ""
+  ToAgentTLS:
+    Enabled: false
+    CertFile: ""
+    KeyFile: ""
+    CAFile: ""
+    ServerName: ""
+    InsecureSkipVerify: false
+
+auth:
+  JWTSecret: "localdevsecret-change-me"
+  RBACConfig: "configs/rbac.json"
+  UsersConfig: "configs/users.json"
+  GamesConfig: "configs/games.json"
+
+BootstrapData:
+  BaseDir: "configs"
+
+descriptors:
+  Dir: "descriptors"
+
+schemas:
+  Dir: "schemas"
+
+storage:
+  Driver: "file"
+  BaseDir: "data/uploads"
+
+cache:
+  Enabled: true
+  Type: "redis"
+  Addr: "redis:6379"
+  Password: ""
+  DB: 0
+  PoolSize: 50
+  TTL: "5m"
+  EvictTTL: "10m"
+  MaxItems: 10000
+
+Log:
+  Level: "info"
+  Format: "console"
+  Output: "stdout"
+
+metrics:
+  PerFunction: true
+  PerGameDenies: false

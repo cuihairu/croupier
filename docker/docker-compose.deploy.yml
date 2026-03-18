@@ -66,6 +66,8 @@ services:
     image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-server:${CROUPIER_SERVER_TAG:-main}
     container_name: croupier-server
     restart: unless-stopped
+    volumes:
+      - ./configs/server.yaml:/app/configs/server.yaml:ro
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgres://croupier:croupier_dev_password@postgres:5432/croupier?sslmode=disable}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
@@ -91,6 +93,8 @@ services:
     image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-agent:${CROUPIER_AGENT_TAG:-main}
     container_name: croupier-agent
     restart: unless-stopped
+    volumes:
+      - ./configs/agent.yaml:/app/configs/agent.yaml:ro
     command: ["agent", "--config", "/app/configs/agent.yaml"]
     ports:
       - "${AGENT_GRPC_PORT:-19090}:19090"

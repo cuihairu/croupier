@@ -1,0 +1,54 @@
+# Docker deployment override for croupier-agent.
+Name: croupier-agent
+Host: 0.0.0.0
+Port: 19091
+
+Server:
+  Addr: "server:19090"
+  Insecure: true
+  ServerName: ""
+  InsecureSkipVerify: false
+
+Agent:
+  ID: ""
+  GameID: ""
+  Env: ""
+  LocalAddr: "agent:19090"
+  HTTPAddr: "agent:19091"
+  Labels: {}
+
+GRPC:
+  Host: 0.0.0.0
+  Port: 19090
+  Timeout: 30000
+
+Upstream:
+  HeartbeatInterval: 30
+  RetryInterval: 5
+  MaxRetries: 3
+  Timeout: 10000
+
+Job:
+  MaxConcurrent: 100
+  Timeout: 300000
+  Retries: 3
+
+Metrics:
+  Enabled: true
+  Port: 9090
+  Path: /metrics
+
+TLS:
+  Enabled: false
+  CertFile: ""
+  KeyFile: ""
+  CAFile: ""
+  InsecureSkipVerify: false
+
+OutboundTLS:
+  Enabled: false
+  CertFile: ""
+  KeyFile: ""
+  CAFile: ""
+  ServerName: ""
+  InsecureSkipVerify: false
