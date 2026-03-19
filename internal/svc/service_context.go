@@ -849,8 +849,6 @@ func initObjectStore(ctx context.Context, cfg config.StorageConfig) (objstore.St
 		return objstore.OpenOSS(ctx, storeCfg)
 	case "cos":
 		return objstore.OpenCOS(ctx, storeCfg)
-	case "obs":
-		return objstore.OpenOBS(ctx, storeCfg)
 	case "file":
 		return objstore.OpenFile(ctx, storeCfg)
 	default:

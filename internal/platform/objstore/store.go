@@ -78,6 +78,7 @@ func FromEnv() Config {
 	return c
 }
 
+// Validate checks if the driver is supported and basic config is valid.
 func Validate(c Config) error {
 	switch strings.ToLower(c.Driver) {
 	case "s3":
@@ -104,16 +105,6 @@ func Validate(c Config) error {
 		}
 		if c.AccessKey == "" || c.SecretKey == "" {
 			return errors.New("access_key/secret_key required for cos driver")
-		}
-	case "obs":
-		if c.Bucket == "" {
-			return errors.New("bucket required for obs driver")
-		}
-		if c.Endpoint == "" {
-			return errors.New("endpoint required for obs driver")
-		}
-		if c.AccessKey == "" || c.SecretKey == "" {
-			return errors.New("access_key/secret_key required for obs driver")
 		}
 	case "file":
 		if c.BaseDir == "" {
