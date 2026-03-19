@@ -1,7 +1,6 @@
 package dispatch
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"testing"
