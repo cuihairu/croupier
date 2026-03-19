@@ -48,9 +48,9 @@ func TestWithResource(t *testing.T) {
 
 	ctx := context.Background()
 	resource := ResourceInfo{
-		Type:  "server",
-		ID:    "srv-1",
-		Name:  "Test Server",
+		Type: "server",
+		ID:   "srv-1",
+		Name: "Test Server",
 	}
 
 	record, err := service.Log(ctx, EventConfigUpdate, WithResource(resource))
@@ -70,7 +70,7 @@ func TestWithContext(t *testing.T) {
 	auditCtx := AuditContext{
 		RequestID:     "req-1",
 		TraceID:       "trace-1",
-		CorrelationID:  "corr-1",
+		CorrelationID: "corr-1",
 		Service:       "test-service",
 		Environment:   "dev",
 		Tags: map[string]string{
@@ -261,10 +261,10 @@ func TestWithResource_Combined(t *testing.T) {
 
 	ctx := context.Background()
 	resource := ResourceInfo{
-		Type:    "server",
-		ID:      "srv-1",
-		Name:    "Test Server",
-		GameID:  "game-1",
+		Type:   "server",
+		ID:     "srv-1",
+		Name:   "Test Server",
+		GameID: "game-1",
 	}
 
 	record, err := service.Log(ctx, EventConfigUpdate,
@@ -349,7 +349,7 @@ func TestWithContext_AllFields(t *testing.T) {
 	auditCtx := AuditContext{
 		RequestID:     "req-1",
 		TraceID:       "trace-1",
-		CorrelationID:  "corr-1",
+		CorrelationID: "corr-1",
 		Service:       "test-service",
 		Environment:   "dev",
 		Tags: map[string]string{
