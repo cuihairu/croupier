@@ -60,7 +60,7 @@
       "program": "${workspaceFolder}/cmd/agent",
       "args": [
         "-f",
-        "configs/agent.yaml"
+        "configs/agent.local.yaml"
       ],
       "env": {},
       "cwd": "${workspaceFolder}"

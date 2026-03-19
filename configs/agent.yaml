@@ -16,7 +16,7 @@ agent:
   gameId: ""
   env: ""
   # Must be reachable by server within the docker network.
-  localAddr: "agent:19090"
+  localAddr: "agent:19091"
   httpAddr: "agent:19091"
   labels: {}
 

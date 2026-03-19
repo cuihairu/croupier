@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -473,22 +474,30 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 
 	slog.Info("loading agent config", "config_file", cfgFile, "config_dir", configDir)
 
-	// NNG local service address (for SDK→Agent communication)
-	// Default address if not specified
-	nngAddrStr := ":19091"
-	if nngAddrStr == "" {
-		nngAddrStr = ":19091" // Default NNG Agent port
+	// SDK 连接的是 Agent 本地 NNG 服务，而不是 Server 控制端口。
+	nngListenAddr := strings.TrimSpace(c.Agent.LocalAddr)
+	if nngListenAddr == "" {
+		host := strings.TrimSpace(c.Host)
+		switch host {
+		case "", "0.0.0.0":
+			nngListenAddr = net.JoinHostPort("0.0.0.0", strconv.Itoa(c.Port))
+		default:
+			nngListenAddr = net.JoinHostPort(host, strconv.Itoa(c.Port))
+		}
 	}
-	// Remove leading colon if present for display
-	nngDisplayAddr := nngAddrStr
-	if strings.HasPrefix(nngAddrStr, ":") {
-		nngDisplayAddr = "0.0.0.0" + nngAddrStr
+	nngListenAddr = strings.TrimPrefix(nngListenAddr, "tcp://")
+	nngDisplayAddr := nngListenAddr
+	if strings.HasPrefix(nngDisplayAddr, ":") {
+		nngDisplayAddr = "0.0.0.0" + nngDisplayAddr
 	}
-	nngAddr := nngDisplayAddr
+	nngAddr := nngListenAddr
 
 	agentID := resolveAgentID(strings.TrimSpace(c.Agent.ID))
 
-	rpcAddr := nngAddr
+	rpcAddr := strings.TrimSpace(c.Agent.LocalAddr)
+	if rpcAddr == "" {
+		rpcAddr = nngDisplayAddr
+	}
 
 	// 收集系统标签
 	labels := collectSystemLabels()
