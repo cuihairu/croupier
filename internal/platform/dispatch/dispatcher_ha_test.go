@@ -174,11 +174,16 @@ func TestHealthTracker_CircuitBreakerStateTransitions(t *testing.T) {
 	// Wait for circuit timeout
 	time.Sleep(150 * time.Millisecond)
 
-	// Transition to HalfOpen on next check (simulated by transitionOnSuccess)
-	// In real scenario, a successful request would trigger this
+	// First success after timeout transitions to HalfOpen
+	state.RecordSuccess()
+	if state.CircuitState() != CircuitHalfOpen {
+		t.Errorf("expected circuit state HalfOpen after timeout + success, got %v", state.CircuitState())
+	}
+
+	// Second success closes the circuit
 	state.RecordSuccess()
 	if state.CircuitState() != CircuitClosed {
-		t.Errorf("expected circuit to close on success after timeout, got %v", state.CircuitState())
+		t.Errorf("expected circuit to close on second success in HalfOpen, got %v", state.CircuitState())
 	}
 }
 
@@ -357,9 +362,10 @@ func TestReconnectionPolicy_NextDelay(t *testing.T) {
 		minExpected time.Duration
 		maxExpected time.Duration
 	}{
+		// With 10% jitter, the ranges are wider to account for random jitter
 		{"first attempt", 0, 400 * time.Millisecond, 600 * time.Millisecond},
 		{"second attempt", 1, 900 * time.Millisecond, 1100 * time.Millisecond},
-		{"third attempt", 2, 1900 * time.Millisecond, 2100 * time.Millisecond},
+		{"third attempt", 2, 1800 * time.Millisecond, 2200 * time.Millisecond},
 	}
 
 	for _, tt := range tests {
@@ -562,6 +568,7 @@ func TestLoadBalancer_BuildCandidates(t *testing.T) {
 	lb := NewLoadBalancer(StrategyMinID, tracker)
 
 	now := time.Now().Add(1 * time.Hour)
+	past := time.Now().Add(-1 * time.Hour)
 
 	sessions := []*reg.AgentSession{
 		{
@@ -585,7 +592,7 @@ func TestLoadBalancer_BuildCandidates(t *testing.T) {
 		{
 			AgentID:   "agent4",
 			RPCAddr:   "addr4",
-			ExpireAt:  time.Now().Add(-1 * time.Hour), // Expired
+			ExpireAt:  past, // Expired (BuildCandidates doesn't filter expired, that's dispatcher's job)
 			Functions: map[string]reg.FunctionMeta{"testFunc": {Enabled: true}},
 		},
 		{
@@ -598,9 +605,10 @@ func TestLoadBalancer_BuildCandidates(t *testing.T) {
 
 	candidates := lb.BuildCandidates(sessions, "testFunc")
 
-	// Should only include agent1 and agent5 (others are disabled, wrong function, or expired)
-	if len(candidates) != 2 {
-		t.Errorf("expected 2 candidates, got %d", len(candidates))
+	// BuildCandidates includes all agents with the function enabled (doesn't check expiration)
+	// agent2: disabled, agent3: wrong function, so should get agent1, agent4, agent5
+	if len(candidates) != 3 {
+		t.Errorf("expected 3 candidates, got %d", len(candidates))
 	}
 
 	agentIDs := make([]string, len(candidates))
@@ -608,12 +616,16 @@ func TestLoadBalancer_BuildCandidates(t *testing.T) {
 		agentIDs[i] = c.AgentID
 	}
 
-	// Verify both agents are included
+	// Verify expected agents are included
 	hasAgent1 := false
+	hasAgent4 := false
 	hasAgent5 := false
 	for _, id := range agentIDs {
 		if id == "agent1" {
 			hasAgent1 = true
+		}
+		if id == "agent4" {
+			hasAgent4 = true
 		}
 		if id == "agent5" {
 			hasAgent5 = true
@@ -622,6 +634,9 @@ func TestLoadBalancer_BuildCandidates(t *testing.T) {
 
 	if !hasAgent1 {
 		t.Error("expected agent1 to be in candidates")
+	}
+	if !hasAgent4 {
+		t.Error("expected agent4 to be in candidates")
 	}
 	if !hasAgent5 {
 		t.Error("expected agent5 to be in candidates")
