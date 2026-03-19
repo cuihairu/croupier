@@ -119,28 +119,6 @@ func TestValidate_Comprehensive(t *testing.T) {
 			errMsg:  "region or endpoint required",
 		},
 		{
-			name: "OBS complete config",
-			cfg: Config{
-				Driver:    "obs",
-				Bucket:    "test-bucket",
-				Endpoint:  "https://obs.myhuaweicloud.com",
-				AccessKey: "key",
-				SecretKey: "secret",
-			},
-			wantErr: false,
-		},
-		{
-			name: "OBS missing endpoint",
-			cfg: Config{
-				Driver:    "obs",
-				Bucket:    "test-bucket",
-				AccessKey: "key",
-				SecretKey: "secret",
-			},
-			wantErr: true,
-			errMsg:  "endpoint required",
-		},
-		{
 			name: "File with base dir",
 			cfg: Config{
 				Driver:  "file",
@@ -235,7 +213,6 @@ func TestStore_InterfaceImplementation(t *testing.T) {
 	var _ Store = &s3Store{}
 	var _ Store = &ossStore{}
 	var _ Store = &cosStore{}
-	var _ Store = &obsStore{}
 }
 
 // TestObjectInfo_Structure tests ObjectInfo structure fields
