@@ -123,3 +123,4 @@ build/*/proto/
 *.crt
 *.key
 certs/
+stdout
