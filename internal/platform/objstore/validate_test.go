@@ -127,40 +127,6 @@ func TestValidate_ErrorPaths(t *testing.T) {
 			wantErr: false,
 		},
 
-		// OBS validation errors
-		{
-			name: "OBS missing bucket",
-			cfg: Config{
-				Driver:    "obs",
-				Endpoint:  "obs.myhuaweicloud.com",
-				AccessKey: "key",
-				SecretKey: "secret",
-			},
-			wantErr:     true,
-			errContains: "bucket required",
-		},
-		{
-			name: "OBS missing endpoint",
-			cfg: Config{
-				Driver:    "obs",
-				Bucket:    "test",
-				AccessKey: "key",
-				SecretKey: "secret",
-			},
-			wantErr:     true,
-			errContains: "endpoint required",
-		},
-		{
-			name: "OBS missing credentials",
-			cfg: Config{
-				Driver:   "obs",
-				Bucket:   "test",
-				Endpoint: "obs.myhuaweicloud.com",
-			},
-			wantErr:     true,
-			errContains: "access_key/secret_key required",
-		},
-
 		// File validation errors
 		{
 			name:        "File missing base dir",
@@ -291,30 +257,6 @@ func TestValidate_DriverCaseInsensitivity(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:   "OBS lowercase",
-			driver: "obs",
-			cfg: Config{
-				Driver:    "obs",
-				Bucket:    "test",
-				Endpoint:  "obs.myhuaweicloud.com",
-				AccessKey: "key",
-				SecretKey: "secret",
-			},
-			wantErr: false,
-		},
-		{
-			name:   "OBS uppercase",
-			driver: "OBS",
-			cfg: Config{
-				Driver:    "OBS",
-				Bucket:    "test",
-				Endpoint:  "obs.myhuaweicloud.com",
-				AccessKey: "key",
-				SecretKey: "secret",
-			},
-			wantErr: false,
-		},
-		{
 			name:    "File lowercase",
 			driver:  "file",
 			cfg:     Config{Driver: "file", BaseDir: "/tmp"},
@@ -388,16 +330,6 @@ func TestValidate_ValidConfigurations(t *testing.T) {
 				Driver:    "cos",
 				Bucket:    "my-bucket",
 				Endpoint:  "https://cos.ap-guangzhou.myqcloud.com",
-				AccessKey: "key",
-				SecretKey: "secret",
-			},
-		},
-		{
-			name: "OBS complete",
-			cfg: Config{
-				Driver:    "obs",
-				Bucket:    "my-bucket",
-				Endpoint:  "https://obs.myhuaweicloud.com",
 				AccessKey: "key",
 				SecretKey: "secret",
 			},
@@ -489,12 +421,6 @@ func TestValidate_CombinedErrors(t *testing.T) {
 			},
 			wantErr:     true,
 			errContains: []string{"bucket"},
-		},
-		{
-			name:        "OBS with only driver",
-			cfg:         Config{Driver: "obs"},
-			wantErr:     true,
-			errContains: []string{"bucket", "endpoint"},
 		},
 	}
 
