@@ -37,6 +37,7 @@ require (
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.12.0
 	github.com/glebarez/sqlite v1.11.0
+	github.com/go-playground/validator/v10 v10.30.1
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/google/uuid v1.6.0
 	github.com/huaweicloud/huaweicloud-sdk-go-obs v3.25.9+incompatible
@@ -48,8 +49,8 @@ require (
 	go.nanomsg.org/mangos/v3 v3.4.2
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.65.0
 	golang.org/x/time v0.14.0
-	google.golang.org/grpc v1.78.0
-	gorm.io/driver/sqlite v1.6.0
+	google.golang.org/grpc v1.79.3
+	modernc.org/sqlite v1.44.3
 )
 
 require (
@@ -103,7 +104,6 @@ require (
 	github.com/go-openapi/swag v0.23.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-playground/validator/v10 v10.30.1 // indirect
 	github.com/go-sql-driver/mysql v1.9.3 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
@@ -177,7 +177,6 @@ require (
 	modernc.org/libc v1.67.7 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.44.3 // indirect
 )
 
 require (
