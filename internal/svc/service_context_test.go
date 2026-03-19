@@ -2134,6 +2134,10 @@ func TestSeedBootstrapExtensionCatalog_MissingFile(t *testing.T) {
 func TestOpenDatabase_PostgresNoDSN(t *testing.T) {
 	t.Parallel()
 
+	// Clear env vars that might override config
+	os.Unsetenv("DB_DRIVER")
+	os.Unsetenv("DATABASE_URL")
+
 	cfg := config.Config{
 		Database: config.DatabaseConfig{
 			Driver:     "postgres",
@@ -2149,6 +2153,10 @@ func TestOpenDatabase_PostgresNoDSN(t *testing.T) {
 func TestOpenDatabase_MySQLNoDSN(t *testing.T) {
 	t.Parallel()
 
+	// Clear env vars that might override config
+	os.Unsetenv("DB_DRIVER")
+	os.Unsetenv("DATABASE_URL")
+
 	cfg := config.Config{
 		Database: config.DatabaseConfig{
 			Driver:     "mysql",
@@ -2163,6 +2171,10 @@ func TestOpenDatabase_MySQLNoDSN(t *testing.T) {
 
 func TestOpenDatabase_SQLServerNoDSN(t *testing.T) {
 	t.Parallel()
+
+	// Clear env vars that might override config
+	os.Unsetenv("DB_DRIVER")
+	os.Unsetenv("DATABASE_URL")
 
 	cfg := config.Config{
 		Database: config.DatabaseConfig{
