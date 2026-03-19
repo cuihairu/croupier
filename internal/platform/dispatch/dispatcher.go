@@ -20,6 +20,7 @@ import (
 
 // Dispatcher routes function invocations to live agents discovered via registry store.
 // Now uses NNG instead of gRPC for Agent communication.
+// Supports HA features: health tracking, circuit breaker, load balancing.
 type Dispatcher struct {
 	store         *reg.Store
 	mu            sync.RWMutex
@@ -30,6 +31,11 @@ type Dispatcher struct {
 	tlsCfg        *tlsutil.ClientTLSConfig
 	nngClients    map[string]*nng.Client // cached NNG clients
 	clientsMu     sync.RWMutex
+
+	// HA features
+	healthTracker *HealthTracker
+	loadBalancer  *LoadBalancer
+	haEnabled     bool
 }
 
 func NewDispatcher(store *reg.Store) *Dispatcher {
@@ -38,6 +44,11 @@ func NewDispatcher(store *reg.Store) *Dispatcher {
 
 // NewDispatcherWithJobStore creates a new Dispatcher with optional job routing store
 func NewDispatcherWithJobStore(store *reg.Store, jobStore JobRoutingStore) *Dispatcher {
+	return NewDispatcherWithHA(store, jobStore, false, StrategyMinID, nil)
+}
+
+// NewDispatcherWithHA creates a new Dispatcher with HA features enabled
+func NewDispatcherWithHA(store *reg.Store, jobStore JobRoutingStore, haEnabled bool, strategy LoadBalanceStrategy, healthConfig *HealthCheckConfig) *Dispatcher {
 	if store == nil {
 		store = reg.NewStore()
 	}
@@ -54,12 +65,81 @@ func NewDispatcherWithJobStore(store *reg.Store, jobStore JobRoutingStore) *Disp
 		nngClients:    make(map[string]*nng.Client),
 		dialTimeout:   5 * time.Second,
 		invokeTimeout: 15 * time.Second,
+		haEnabled:     haEnabled,
+	}
+
+	// Initialize HA components if enabled
+	if haEnabled {
+		if healthConfig == nil {
+			healthConfig = DefaultHealthCheckConfig()
+		}
+		d.healthTracker = NewHealthTracker(healthConfig)
+		d.loadBalancer = NewLoadBalancer(strategy, d.healthTracker)
+		d.healthTracker.Start()
 	}
 
 	// Load existing job routing from persistent store
 	d.loadJobRouting()
 
 	return d
+}
+
+// SetHAEnabled enables or disables HA features at runtime
+func (d *Dispatcher) SetHAEnabled(enabled bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if d.haEnabled == enabled {
+		return
+	}
+
+	if enabled && d.healthTracker == nil {
+		healthConfig := DefaultHealthCheckConfig()
+		d.healthTracker = NewHealthTracker(healthConfig)
+		d.loadBalancer = NewLoadBalancer(StrategyMinID, d.healthTracker)
+		d.healthTracker.Start()
+	} else if !enabled && d.healthTracker != nil {
+		d.healthTracker.Stop()
+		d.healthTracker = nil
+		d.loadBalancer = nil
+	}
+
+	d.haEnabled = enabled
+}
+
+// SetLoadBalanceStrategy changes the load balancing strategy
+func (d *Dispatcher) SetLoadBalanceStrategy(strategy LoadBalanceStrategy) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if d.loadBalancer != nil {
+		d.loadBalancer.SetStrategy(strategy)
+	}
+}
+
+// GetLoadBalanceStrategy returns the current load balancing strategy
+func (d *Dispatcher) GetLoadBalanceStrategy() LoadBalanceStrategy {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	if d.loadBalancer != nil {
+		return d.loadBalancer.GetStrategy()
+	}
+	return StrategyMinID
+}
+
+// GetHealthTracker returns the health tracker (for monitoring/inspection)
+func (d *Dispatcher) GetHealthTracker() *HealthTracker {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.healthTracker
+}
+
+// GetLoadBalancer returns the load balancer (for monitoring/inspection)
+func (d *Dispatcher) GetLoadBalancer() *LoadBalancer {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.loadBalancer
 }
 
 func (d *Dispatcher) SetTLSConfig(cfg *tlsutil.ClientTLSConfig) {
@@ -91,8 +171,17 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 		return nil, err
 	}
 
+	// Track connection start
+	if d.healthTracker != nil {
+		d.healthTracker.IncrementConnections(agent.AgentID)
+		defer d.healthTracker.DecrementConnections(agent.AgentID)
+	}
+
 	client, err := d.getNNGClient(agent.RPCAddr)
 	if err != nil {
+		if d.healthTracker != nil {
+			d.healthTracker.RecordFailure(agent.AgentID)
+		}
 		return nil, err
 	}
 
@@ -107,18 +196,32 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 	// Marshal request
 	reqBytes, err := proto.Marshal(req)
 	if err != nil {
+		if d.healthTracker != nil {
+			d.healthTracker.RecordFailure(agent.AgentID)
+		}
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
 	// Send via NNG
 	respBytes, err := client.Call(callCtx, protocol.MsgInvokeRequest, reqBytes)
 	if err != nil {
+		if d.healthTracker != nil {
+			d.healthTracker.RecordFailure(agent.AgentID)
+		}
 		return nil, err
 	}
 
 	resp := &sdkv1.InvokeResponse{}
 	if err := proto.Unmarshal(respBytes, resp); err != nil {
+		if d.healthTracker != nil {
+			d.healthTracker.RecordFailure(agent.AgentID)
+		}
 		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	// Record success
+	if d.healthTracker != nil {
+		d.healthTracker.RecordSuccess(agent.AgentID)
 	}
 
 	return resp, nil
@@ -145,8 +248,17 @@ func (d *Dispatcher) StartJobRequest(ctx context.Context, req *sdkv1.InvokeReque
 		return nil, err
 	}
 
+	// Track connection start
+	if d.healthTracker != nil {
+		d.healthTracker.IncrementConnections(agent.AgentID)
+		defer d.healthTracker.DecrementConnections(agent.AgentID)
+	}
+
 	client, err := d.getNNGClient(agent.RPCAddr)
 	if err != nil {
+		if d.healthTracker != nil {
+			d.healthTracker.RecordFailure(agent.AgentID)
+		}
 		return nil, err
 	}
 
@@ -161,18 +273,32 @@ func (d *Dispatcher) StartJobRequest(ctx context.Context, req *sdkv1.InvokeReque
 	// Marshal request
 	reqBytes, err := proto.Marshal(req)
 	if err != nil {
+		if d.healthTracker != nil {
+			d.healthTracker.RecordFailure(agent.AgentID)
+		}
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
 	// Send via NNG
 	respBytes, err := client.Call(callCtx, protocol.MsgStartJobRequest, reqBytes)
 	if err != nil {
+		if d.healthTracker != nil {
+			d.healthTracker.RecordFailure(agent.AgentID)
+		}
 		return nil, err
 	}
 
 	resp := &sdkv1.StartJobResponse{}
 	if err := proto.Unmarshal(respBytes, resp); err != nil {
+		if d.healthTracker != nil {
+			d.healthTracker.RecordFailure(agent.AgentID)
+		}
 		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	// Record success
+	if d.healthTracker != nil {
+		d.healthTracker.RecordSuccess(agent.AgentID)
 	}
 
 	if jobID := resp.GetJobId(); jobID != "" {
@@ -300,7 +426,8 @@ func (d *Dispatcher) pickAgent(functionID string) (*reg.AgentSession, error) {
 	d.store.Mu().RLock()
 	defer d.store.Mu().RUnlock()
 
-	var chosen *reg.AgentSession
+	// Collect all candidates
+	var candidates []*reg.AgentSession
 	for _, agent := range d.store.AgentsUnsafe() {
 		if agent == nil || agent.RPCAddr == "" {
 			continue
@@ -312,13 +439,39 @@ func (d *Dispatcher) pickAgent(functionID string) (*reg.AgentSession, error) {
 		if !ok || !meta.Enabled {
 			continue
 		}
+		candidates = append(candidates, agent)
+	}
+
+	if len(candidates) == 0 {
+		return nil, fmt.Errorf("no live agent for function %s", functionID)
+	}
+
+	// Use load balancer if HA is enabled
+	d.mu.RLock()
+	useLoadBalancer := d.loadBalancer != nil
+	tracker := d.healthTracker
+	d.mu.RUnlock()
+
+	if useLoadBalancer && tracker != nil {
+		// Build candidates with health state
+		candidateList := d.loadBalancer.BuildCandidates(candidates, functionID)
+		if len(candidateList) == 0 {
+			return nil, fmt.Errorf("no healthy agents available for function %s", functionID)
+		}
+
+		selected, err := d.loadBalancer.Select(functionID, candidateList)
+		if err != nil {
+			return nil, err
+		}
+		return selected.Session, nil
+	}
+
+	// Fallback to original min_id selection
+	var chosen *reg.AgentSession
+	for _, agent := range candidates {
 		if chosen == nil || agent.AgentID < chosen.AgentID {
 			chosen = agent
 		}
-	}
-
-	if chosen == nil {
-		return nil, fmt.Errorf("no live agent for function %s", functionID)
 	}
 	return chosen, nil
 }
@@ -530,6 +683,13 @@ func (d *Dispatcher) CleanupOldJobs(ttl time.Duration) error {
 
 // Close closes the dispatcher and its resources
 func (d *Dispatcher) Close() error {
+	// Stop health tracker if enabled
+	d.mu.Lock()
+	if d.healthTracker != nil {
+		d.healthTracker.Stop()
+	}
+	d.mu.Unlock()
+
 	// Close all NNG clients
 	d.clientsMu.Lock()
 	for _, client := range d.nngClients {

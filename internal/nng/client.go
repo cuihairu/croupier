@@ -35,8 +35,37 @@ type Client struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
 
+	// Auto-reconnect
+	reconnectCfg *ReconnectConfig
+	reconnecting atomic.Bool
+	reconnWg     sync.WaitGroup
+
 	// Logging
 	logger Logger
+}
+
+// ReconnectConfig configures automatic reconnection behavior
+type ReconnectConfig struct {
+	Enabled           bool          // Enable auto-reconnect
+	MaxRetries        int           // Maximum number of reconnection attempts (-1 for infinite)
+	InitialDelay      time.Duration // Initial delay before first retry
+	MaxDelay          time.Duration // Maximum delay between retries
+	Multiplier        float64       // Exponential backoff multiplier
+	Jitter            float64       // Random jitter factor (0-1)
+	HeartbeatInterval time.Duration // Heartbeat interval to detect connection issues
+}
+
+// DefaultReconnectConfig returns the default reconnection configuration
+func DefaultReconnectConfig() *ReconnectConfig {
+	return &ReconnectConfig{
+		Enabled:           true,
+		MaxRetries:        5,
+		InitialDelay:      500 * time.Millisecond,
+		MaxDelay:          30 * time.Second,
+		Multiplier:        2.0,
+		Jitter:            0.1,
+		HeartbeatInterval: 30 * time.Second,
+	}
 }
 
 // Logger is a minimal logging interface
@@ -136,6 +165,34 @@ func (c *Client) SetLogger(logger Logger) {
 	c.logger = logger
 }
 
+// SetReconnectConfig sets the reconnection configuration
+func (c *Client) SetReconnectConfig(cfg *ReconnectConfig) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.reconnectCfg = cfg
+}
+
+// EnableReconnect enables automatic reconnection with default settings
+func (c *Client) EnableReconnect() {
+	c.SetReconnectConfig(DefaultReconnectConfig())
+}
+
+// DisableReconnect disables automatic reconnection
+func (c *Client) DisableReconnect() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.reconnectCfg != nil {
+		c.reconnectCfg.Enabled = false
+	}
+}
+
+// IsReconnectEnabled returns whether auto-reconnect is enabled
+func (c *Client) IsReconnectEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.reconnectCfg != nil && c.reconnectCfg.Enabled
+}
+
 // Dial connects to the NNG server
 // It will try each address in order until one succeeds
 func (c *Client) Dial() error {
@@ -146,6 +203,11 @@ func (c *Client) Dial() error {
 		return fmt.Errorf("client already connected")
 	}
 
+	return c.dialLocked()
+}
+
+// dialLocked performs the actual dial operation (caller must hold lock)
+func (c *Client) dialLocked() error {
 	// Create REQ socket
 	sock, err := req.NewSocket()
 	if err != nil {
@@ -183,6 +245,12 @@ func (c *Client) Dial() error {
 		// Start receive loop
 		go c.receiveLoop()
 
+		// Start reconnection loop if enabled
+		if c.reconnectCfg != nil && c.reconnectCfg.Enabled {
+			c.reconnWg.Add(1)
+			go c.reconnectLoop()
+		}
+
 		c.logger.Info("NNG Control client connected", "addr", dialAddr)
 		return nil
 	}
@@ -190,6 +258,145 @@ func (c *Client) Dial() error {
 	// All addresses failed
 	sock.Close()
 	return fmt.Errorf("failed to dial any address (last error: %w)", lastErr)
+}
+
+// reconnectLoop handles automatic reconnection
+func (c *Client) reconnectLoop() {
+	defer c.reconnWg.Done()
+
+	cfg := c.getReconnectConfig()
+	if cfg == nil || !cfg.Enabled {
+		return
+	}
+
+	ticker := time.NewTicker(cfg.HeartbeatInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-c.ctx.Done():
+			return
+		case <-ticker.C:
+			// Check if connection is still alive
+			if c.isConnected() {
+				continue
+			}
+
+			// Connection lost, attempt reconnection
+			if c.reconnecting.CompareAndSwap(false, true) {
+				c.logger.Warn("connection lost, attempting to reconnect")
+				c.attemptReconnect()
+				c.reconnecting.Store(false)
+			}
+		}
+	}
+}
+
+// getReconnectConfig returns the current reconnection config (caller must hold lock or use atomic read)
+func (c *Client) getReconnectConfig() *ReconnectConfig {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.reconnectCfg
+}
+
+// isConnected checks if the socket is still connected
+func (c *Client) isConnected() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.running && c.sock != nil
+}
+
+// attemptReconnect attempts to reconnect to the server
+func (c *Client) attemptReconnect() {
+	cfg := c.getReconnectConfig()
+	if cfg == nil {
+		cfg = DefaultReconnectConfig()
+	}
+
+	attempt := 0
+	for {
+		// Check if we should stop trying
+		select {
+		case <-c.ctx.Done():
+			return
+		default:
+		}
+
+		// Check max retries
+		if cfg.MaxRetries >= 0 && attempt > cfg.MaxRetries {
+			c.logger.Error("max reconnection retries exceeded", "maxRetries", cfg.MaxRetries)
+			return
+		}
+
+		// Calculate delay
+		delay := c.calculateReconnectDelay(attempt, cfg)
+		c.logger.Debug("waiting before reconnect attempt", "attempt", attempt, "delay", delay)
+
+		select {
+		case <-c.ctx.Done():
+			return
+		case <-time.After(delay):
+		}
+
+		// Attempt reconnection
+		c.mu.Lock()
+		err := c.dialLocked()
+		if err == nil {
+			c.mu.Unlock()
+			c.logger.Info("reconnection successful")
+			return
+		}
+		c.mu.Unlock()
+
+		attempt++
+		c.logger.Warn("reconnection attempt failed", "attempt", attempt, "error", err)
+	}
+}
+
+// calculateReconnectDelay calculates the delay before the next reconnection attempt
+func (c *Client) calculateReconnectDelay(attempt int, cfg *ReconnectConfig) time.Duration {
+	if attempt == 0 {
+		return cfg.InitialDelay
+	}
+
+	// Exponential backoff
+	delay := float64(cfg.InitialDelay) * powFloat64(cfg.Multiplier, float64(attempt))
+
+	// Cap at max delay
+	if delay > float64(cfg.MaxDelay) {
+		delay = float64(cfg.MaxDelay)
+	}
+
+	// Add jitter
+	if cfg.Jitter > 0 {
+		jitterRange := delay * cfg.Jitter
+		// Simple random jitter: [-jitterRange, +jitterRange]
+		jitterOffset := (float64(time.Now().UnixNano()%1000000)/1000000.0*2 - 1) * jitterRange
+		delay += jitterOffset
+	}
+
+	// Ensure non-negative
+	if delay < 0 {
+		delay = 0
+	}
+
+	return time.Duration(delay)
+}
+
+// powFloat64 calculates base^exp for float64 values
+func powFloat64(base, exp float64) float64 {
+	if exp == 0 {
+		return 1
+	}
+	if base == 0 {
+		return 0
+	}
+
+	result := base
+	for i := 1; i < int(exp); i++ {
+		result *= base
+	}
+	return result
 }
 
 // Close closes the client connection
@@ -202,7 +409,11 @@ func (c *Client) Close() error {
 	c.running = false
 	c.mu.Unlock()
 
+	// Cancel context to stop all goroutines
 	c.cancel()
+
+	// Wait for reconnection loop to finish
+	c.reconnWg.Wait()
 
 	if c.sock != nil {
 		if err := c.sock.Close(); err != nil {
