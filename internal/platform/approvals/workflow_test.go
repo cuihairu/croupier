@@ -303,10 +303,10 @@ func TestWorkflowEngine_StartWorkflow(t *testing.T) {
 
 	t.Run("Inactive workflow", func(t *testing.T) {
 		inactiveDef := &WorkflowDefinition{
-			ID:      "inactive-workflow",
-			Name:    "Inactive Workflow",
-			Active:  false,
-			Steps:   []ApprovalStep{{ID: "step1", Approvers: []string{"user1"}}},
+			ID:     "inactive-workflow",
+			Name:   "Inactive Workflow",
+			Active: false,
+			Steps:  []ApprovalStep{{ID: "step1", Approvers: []string{"user1"}}},
 		}
 		_, err := store.CreateDefinition(inactiveDef)
 		require.NoError(t, err)
@@ -326,9 +326,9 @@ func TestWorkflowEngine_StartWorkflow(t *testing.T) {
 
 	t.Run("Workflow with timeout", func(t *testing.T) {
 		defWithTimeout := &WorkflowDefinition{
-			ID:      "timeout-workflow",
-			Name:    "Timeout Workflow",
-			Active:  true,
+			ID:     "timeout-workflow",
+			Name:   "Timeout Workflow",
+			Active: true,
 			Steps: []ApprovalStep{
 				{
 					ID:        "step1",
@@ -364,9 +364,9 @@ func TestWorkflowEngine_ApproveStep_Basic(t *testing.T) {
 	engine := NewWorkflowEngine(store, approvalStore, notifier)
 
 	def := &WorkflowDefinition{
-		ID:      "test-workflow-basic",
-		Name:    "Test Workflow",
-		Active:  true,
+		ID:     "test-workflow-basic",
+		Name:   "Test Workflow",
+		Active: true,
 		Steps: []ApprovalStep{
 			{
 				ID:        "step1",
@@ -415,9 +415,9 @@ func TestWorkflowEngine_ApproveStep_Unauthorized(t *testing.T) {
 	engine := NewWorkflowEngine(store, approvalStore, notifier)
 
 	def := &WorkflowDefinition{
-		ID:      "test-workflow-auth",
-		Name:    "Test Workflow",
-		Active:  true,
+		ID:     "test-workflow-auth",
+		Name:   "Test Workflow",
+		Active: true,
 		Steps: []ApprovalStep{
 			{
 				ID:        "step1",
@@ -455,9 +455,9 @@ func TestWorkflowEngine_ApproveStep_Complete(t *testing.T) {
 	engine := NewWorkflowEngine(store, approvalStore, notifier)
 
 	def := &WorkflowDefinition{
-		ID:      "test-workflow-complete",
-		Name:    "Test Workflow",
-		Active:  true,
+		ID:     "test-workflow-complete",
+		Name:   "Test Workflow",
+		Active: true,
 		Steps: []ApprovalStep{
 			{
 				ID:        "step1",
@@ -511,9 +511,9 @@ func TestWorkflowEngine_ApproveStep_Duplicate(t *testing.T) {
 
 	// Create a workflow where first step needs 2 approvers
 	def := &WorkflowDefinition{
-		ID:      "test-workflow-dup",
-		Name:    "Two Approver Workflow",
-		Active:  true,
+		ID:     "test-workflow-dup",
+		Name:   "Two Approver Workflow",
+		Active: true,
 		Steps: []ApprovalStep{
 			{
 				ID:        "step1",
@@ -562,9 +562,9 @@ func TestWorkflowEngine_RejectStep(t *testing.T) {
 	engine := NewWorkflowEngine(store, approvalStore, notifier)
 
 	def := &WorkflowDefinition{
-		ID:      "test-workflow",
-		Name:    "Test Workflow",
-		Active:  true,
+		ID:     "test-workflow",
+		Name:   "Test Workflow",
+		Active: true,
 		Steps: []ApprovalStep{
 			{
 				ID:        "step1",
@@ -628,9 +628,9 @@ func TestWorkflowEngine_CancelWorkflow(t *testing.T) {
 	engine := NewWorkflowEngine(store, approvalStore, notifier)
 
 	def := &WorkflowDefinition{
-		ID:      "test-workflow",
-		Name:    "Test Workflow",
-		Active:  true,
+		ID:     "test-workflow",
+		Name:   "Test Workflow",
+		Active: true,
 		Steps: []ApprovalStep{
 			{ID: "step1", Name: "Step 1", Approvers: []string{"manager1"}},
 		},
@@ -672,9 +672,9 @@ func TestWorkflowEngine_ParallelStepType(t *testing.T) {
 	engine := NewWorkflowEngine(store, approvalStore, notifier)
 
 	def := &WorkflowDefinition{
-		ID:      "parallel-workflow",
-		Name:    "Parallel Workflow",
-		Active:  true,
+		ID:     "parallel-workflow",
+		Name:   "Parallel Workflow",
+		Active: true,
 		Steps: []ApprovalStep{
 			{
 				ID:        "step1",
@@ -725,9 +725,9 @@ func TestWorkflowEngine_AnyStepType(t *testing.T) {
 	engine := NewWorkflowEngine(store, approvalStore, notifier)
 
 	def := &WorkflowDefinition{
-		ID:      "any-workflow",
-		Name:    "Any Approval Workflow",
-		Active:  true,
+		ID:     "any-workflow",
+		Name:   "Any Approval Workflow",
+		Active: true,
 		Steps: []ApprovalStep{
 			{
 				ID:        "step1",
@@ -767,9 +767,9 @@ func TestWorkflowEngine_PercentageStepType(t *testing.T) {
 	engine := NewWorkflowEngine(store, approvalStore, notifier)
 
 	def := &WorkflowDefinition{
-		ID:      "percentage-workflow",
-		Name:    "Percentage Workflow",
-		Active:  true,
+		ID:     "percentage-workflow",
+		Name:   "Percentage Workflow",
+		Active: true,
 		Steps: []ApprovalStep{
 			{
 				ID:            "step1",
@@ -815,9 +815,9 @@ func TestWorkflowEngine_ProcessTimeouts(t *testing.T) {
 
 	t.Run("Timeout reject action", func(t *testing.T) {
 		def := &WorkflowDefinition{
-			ID:      "timeout-reject-workflow",
-			Name:    "Timeout Reject Workflow",
-			Active:  true,
+			ID:     "timeout-reject-workflow",
+			Name:   "Timeout Reject Workflow",
+			Active: true,
 			Steps: []ApprovalStep{
 				{
 					ID:            "step1",
@@ -858,9 +858,9 @@ func TestWorkflowEngine_ProcessTimeouts(t *testing.T) {
 
 	t.Run("Timeout approve action", func(t *testing.T) {
 		def := &WorkflowDefinition{
-			ID:      "timeout-approve-workflow",
-			Name:    "Timeout Approve Workflow",
-			Active:  true,
+			ID:     "timeout-approve-workflow",
+			Name:   "Timeout Approve Workflow",
+			Active: true,
 			Steps: []ApprovalStep{
 				{
 					ID:            "step1",
@@ -974,9 +974,9 @@ func TestWorkflowEngine_ConditionalSteps(t *testing.T) {
 	engine := NewWorkflowEngine(store, approvalStore, notifier)
 
 	def := &WorkflowDefinition{
-		ID:      "conditional-workflow",
-		Name:    "Conditional Workflow",
-		Active:  true,
+		ID:     "conditional-workflow",
+		Name:   "Conditional Workflow",
+		Active: true,
 		Steps: []ApprovalStep{
 			{
 				ID:        "step1",
@@ -1041,14 +1041,14 @@ func TestWorkflowEngine_DelegationApproval(t *testing.T) {
 	engine := NewWorkflowEngine(store, approvalStore, notifier)
 
 	def := &WorkflowDefinition{
-		ID:      "delegation-workflow",
-		Name:    "Delegation Workflow",
-		Active:  true,
+		ID:     "delegation-workflow",
+		Name:   "Delegation Workflow",
+		Active: true,
 		Steps: []ApprovalStep{
 			{
-				ID:           "step1",
-				Name:         "Step 1",
-				Approvers:    []string{"manager1"},
+				ID:            "step1",
+				Name:          "Step 1",
+				Approvers:     []string{"manager1"},
 				AllowDelegate: true,
 			},
 		},
@@ -1080,8 +1080,8 @@ func TestWorkflowEngine_DelegationApproval(t *testing.T) {
 	// This means "delegate" was the original approver who delegated to someone else
 	delegatedApproval := &StepApproval{
 		StepID:      "step1",
-		Approver:    "manager1",     // manager1 is doing the approving
-		DelegatedBy: "delegate",     // on behalf of delegate (delegate delegated to manager1)
+		Approver:    "manager1", // manager1 is doing the approving
+		DelegatedBy: "delegate", // on behalf of delegate (delegate delegated to manager1)
 		Decision:    "approved",
 		DecidedAt:   time.Now(),
 	}
