@@ -114,26 +114,28 @@ openssl x509 -req -days 365 \
 
 ### Server 配置
 
+当前服务端控制面 TLS 配置位于 `control` 节点，而不是旧的 `GRPC` 节点。
+
 **本地开发（自动生成证书）**：
 
 ```yaml
 # server.yaml
-GRPC:
-  Addr: ":19090"
-  Cert: ""      # 空=自动生成证书
-  Key: ""       # 空=自动生成密钥
-  CA: ""        # 空=不要求客户端证书（启用 mTLS 时设置 CA 路径）
+control:
+  addr: ":19090"
+  cert: ""      # 空=自动生成证书
+  key: ""       # 空=自动生成密钥
+  ca: ""        # 空=不要求客户端证书（启用 mTLS 时设置 CA 路径）
 ```
 
 **生产环境（手动配置证书）**：
 
 ```yaml
 # server.yaml
-GRPC:
-  Addr: ":19090"
-  Cert: "/path/to/server.crt"     # 手动配置证书
-  Key: "/path/to/server.key"      # 手动配置密钥
-  CA: "/path/to/ca.crt"          # 配置 CA 时启用 mTLS
+control:
+  addr: ":19090"
+  cert: "/path/to/server.crt"     # 手动配置证书
+  key: "/path/to/server.key"      # 手动配置密钥
+  ca: "/path/to/ca.crt"           # 配置 CA 时启用 mTLS
 ```
 
 ### Agent 配置
@@ -142,24 +144,24 @@ GRPC:
 
 ```yaml
 # agent.yaml
-Server:
-  Addr: localhost:19090
-  Insecure: false               # 使用 TLS
-  CAFile: "etc/certs/ca.crt"    # CA 证书
-  InsecureSkipVerify: true       # 跳过验证（本地开发）
+server:
+  addr: localhost:19090
+  insecure: false                # 使用 TLS
+  caFile: "etc/certs/ca.crt"     # CA 证书
+  insecureSkipVerify: true       # 跳过验证（本地开发）
 ```
 
 **生产环境（严格 mTLS）**：
 
 ```yaml
 # agent.yaml
-Server:
-  Addr: server.example.com:19090
-  Insecure: false
-  CAFile: "/path/to/ca.crt"      # CA 证书
-  TLSCertFile: "/path/to/agent.crt"  # 客户端证书
-  TLSKeyFile: "/path/to/agent.key"    # 客户端密钥
-  ServerName: "server.example.com"  # Server SNI
+server:
+  addr: server.example.com:19090
+  insecure: false
+  caFile: "/path/to/ca.crt"          # CA 证书
+  tlsCertFile: "/path/to/agent.crt"  # 客户端证书
+  tlsKeyFile: "/path/to/agent.key"   # 客户端密钥
+  serverName: "server.example.com"   # Server SNI
   InsecureSkipVerify: false      # 严格验证
 
 ### Agent 配置

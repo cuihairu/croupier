@@ -225,13 +225,13 @@ CROUPIER_SDK_EXAMPLE_ENV=development
 
 ```yaml
 database:
-  Driver: mysql      # 支持: mysql / postgres / sqlite / sqlserver
-  DataSource: "root:root@tcp(localhost:3306)/croupier?charset=utf8mb4&parseTime=True&loc=Local"
+  driver: mysql      # 支持: mysql / postgres / sqlite / sqlserver
+  dataSource: "root:root@tcp(localhost:3306)/croupier?charset=utf8mb4&parseTime=True&loc=Local"
 ```
 
 ### 支持的数据库
 
-| 数据库 | Driver 值 | DataSource 示例 | 说明 |
+| 数据库 | `driver` 值 | `dataSource` 示例 | 说明 |
 |--------|----------|-----------------|------|
 | **MySQL** | `mysql` | `root:root@tcp(localhost:3306)/croupier?charset=utf8mb4&parseTime=True&loc=Local` | 默认配置 |
 | **PostgreSQL** | `postgres` | `host=localhost port=5432 user=postgres password=postgres dbname=croupier sslmode=disable` | 需先启动 PostgreSQL 服务 |

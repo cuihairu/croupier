@@ -25,30 +25,30 @@ Croupier 当前使用 YAML 配置文件驱动运行时行为。本文档只描�
 `configs/server.yaml` 中最关键的几组配置如下：
 
 ```yaml
-Server:
-  Host: 0.0.0.0
-  Port: 18780
-  Timeout: 600000
-  Mode: dev
+server:
+  host: 0.0.0.0
+  port: 18780
+  timeout: 600000
+  mode: dev
 
 database:
-  Driver: mysql
-  DataSource: "${DATABASE_URL}"
+  driver: mysql
+  dataSource: "${DATABASE_URL}"
 
-Control:
-  Addr: ":19090"
+control:
+  addr: ":19090"
 
 auth:
-  JWTSecret: "${JWT_SECRET}"
-  RBACConfig: "configs/rbac.json"
+  jwtSecret: "${JWT_SECRET}"
+  rbacConfig: "configs/rbac.json"
 
 storage:
-  Driver: file
-  BaseDir: "data/uploads"
+  driver: file
+  baseDir: "data/uploads"
 
-Log:
-  Level: info
-  Format: console
+log:
+  level: info
+  format: console
 ```
 
 ### 常见覆盖项
@@ -64,29 +64,29 @@ export JWT_SECRET="change-me"
 `configs/agent.yaml` 当前对应的是 Agent 启动配置：
 
 ```yaml
-Name: croupier-agent
-Host: 0.0.0.0
-Port: 19091
+name: croupier-agent
+host: 0.0.0.0
+port: 19091
 
-Server:
-  Addr: "server:8443"
-  Insecure: true
+server:
+  addr: "server:8443"
+  insecure: true
 
-Agent:
-  ID: ""
-  GameID: ""
-  Env: ""
-  LocalAddr: "agent:19090"
-  HTTPAddr: "agent:19091"
+agent:
+  id: ""
+  gameId: ""
+  env: ""
+  localAddr: "agent:19090"
+  httpAddr: "agent:19091"
 
-Upstream:
-  HeartbeatInterval: 30
-  RetryInterval: 5
-  MaxRetries: 3
-  Timeout: 10000
+upstream:
+  heartbeatInterval: 30
+  retryInterval: 5
+  maxRetries: 3
+  timeout: 10000
 
-TLS:
-  Enabled: false
+tls:
+  enabled: false
 ```
 
 ## 配置验证

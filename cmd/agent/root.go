@@ -75,55 +75,334 @@ func init() {
 
 // AgentConfig represents the agent-specific configuration
 type AgentConfig struct {
-	Name     string              `json:"Name" yaml:"Name"`
-	Host     string              `json:"Host" yaml:"Host"`
-	Port     int                 `json:"Port" yaml:"Port"`
-	Server   AgentServerConfig   `json:"Server" yaml:"Server"`
-	Agent    AgentInfoConfig     `json:"Agent" yaml:"Agent"`
-	Upstream AgentUpstreamConfig `json:"Upstream" yaml:"Upstream"`
-	Logging  common.LogConfig    `json:"Logging" yaml:"Logging"`
-	TLS      struct {
-		Enabled            bool   `json:"Enabled" yaml:"Enabled"`
-		CertFile           string `json:"CertFile" yaml:"CertFile"`
-		KeyFile            string `json:"KeyFile" yaml:"KeyFile"`
-		CAFile             string `json:"CAFile" yaml:"CAFile"`
-		InsecureSkipVerify bool   `json:"InsecureSkipVerify" yaml:"InsecureSkipVerify"`
-	} `json:"TLS" yaml:"TLS"`
-	OutboundTLS struct {
-		Enabled            bool   `json:"Enabled" yaml:"Enabled"`
-		CertFile           string `json:"CertFile" yaml:"CertFile"`
-		KeyFile            string `json:"KeyFile" yaml:"KeyFile"`
-		CAFile             string `json:"CAFile" yaml:"CAFile"`
-		ServerName         string `json:"ServerName" yaml:"ServerName"`
-		InsecureSkipVerify bool   `json:"InsecureSkipVerify" yaml:"InsecureSkipVerify"`
-	} `json:"OutboundTLS" yaml:"OutboundTLS"`
+	Name        string              `json:"name" yaml:"name"`
+	Host        string              `json:"host" yaml:"host"`
+	Port        int                 `json:"port" yaml:"port"`
+	Server      AgentServerConfig   `json:"server" yaml:"server"`
+	Agent       AgentInfoConfig     `json:"agent" yaml:"agent"`
+	Upstream    AgentUpstreamConfig `json:"upstream" yaml:"upstream"`
+	Logging     common.LogConfig    `json:"log" yaml:"log"`
+	TLS         AgentTLSConfig      `json:"tls" yaml:"tls"`
+	OutboundTLS AgentTLSConfig      `json:"outboundTLS" yaml:"outboundTLS"`
+}
+
+type AgentTLSConfig struct {
+	Enabled            bool   `json:"enabled" yaml:"enabled"`
+	CertFile           string `json:"certFile" yaml:"certFile"`
+	KeyFile            string `json:"keyFile" yaml:"keyFile"`
+	CAFile             string `json:"caFile" yaml:"caFile"`
+	ServerName         string `json:"serverName,omitempty" yaml:"serverName,omitempty"`
+	InsecureSkipVerify bool   `json:"insecureSkipVerify" yaml:"insecureSkipVerify"`
+}
+
+func (c *AgentTLSConfig) UnmarshalYAML(value *yaml.Node) error {
+	type plain AgentTLSConfig
+	var decoded plain
+	if err := value.Decode(&decoded); err != nil {
+		return err
+	}
+	var compat struct {
+		Enabled            *bool  `yaml:"Enabled,omitempty"`
+		CertFile           string `yaml:"CertFile,omitempty"`
+		KeyFile            string `yaml:"KeyFile,omitempty"`
+		CAFile             string `yaml:"CAFile,omitempty"`
+		ServerName         string `yaml:"ServerName,omitempty"`
+		InsecureSkipVerify *bool  `yaml:"InsecureSkipVerify,omitempty"`
+	}
+	if err := value.Decode(&compat); err != nil {
+		return err
+	}
+	if !decoded.Enabled && compat.Enabled != nil {
+		decoded.Enabled = *compat.Enabled
+	}
+	if decoded.CertFile == "" {
+		decoded.CertFile = compat.CertFile
+	}
+	if decoded.KeyFile == "" {
+		decoded.KeyFile = compat.KeyFile
+	}
+	if decoded.CAFile == "" {
+		decoded.CAFile = compat.CAFile
+	}
+	if decoded.ServerName == "" {
+		decoded.ServerName = compat.ServerName
+	}
+	if !decoded.InsecureSkipVerify && compat.InsecureSkipVerify != nil {
+		decoded.InsecureSkipVerify = *compat.InsecureSkipVerify
+	}
+	*c = AgentTLSConfig(decoded)
+	return nil
+}
+
+func (c *AgentConfig) UnmarshalYAML(value *yaml.Node) error {
+	type plain AgentConfig
+	var decoded plain
+	if err := value.Decode(&decoded); err != nil {
+		return err
+	}
+
+	var compat struct {
+		Name        string               `yaml:"Name"`
+		Host        string               `yaml:"Host"`
+		Port        int                  `yaml:"Port"`
+		Server      AgentServerConfig    `yaml:"Server"`
+		Agent       AgentInfoConfig      `yaml:"Agent"`
+		Upstream    AgentUpstreamConfig  `yaml:"Upstream"`
+		Logging     legacyAgentLogConfig `yaml:"Logging"`
+		TLS         AgentTLSConfig       `yaml:"TLS"`
+		OutboundTLS AgentTLSConfig       `yaml:"OutboundTLS"`
+	}
+	var canonical struct {
+		Logging     canonicalAgentLogConfig `yaml:"log"`
+		TLS         AgentTLSConfig          `yaml:"tls"`
+		OutboundTLS AgentTLSConfig          `yaml:"outboundTLS"`
+	}
+	if err := value.Decode(&compat); err != nil {
+		return err
+	}
+	if err := value.Decode(&canonical); err != nil {
+		return err
+	}
+
+	if decoded.Name == "" {
+		decoded.Name = compat.Name
+	}
+	if decoded.Host == "" {
+		decoded.Host = compat.Host
+	}
+	if decoded.Port == 0 {
+		decoded.Port = compat.Port
+	}
+	if isZeroAgentServerConfig(decoded.Server) {
+		decoded.Server = compat.Server
+	}
+	if isZeroAgentInfoConfig(decoded.Agent) {
+		decoded.Agent = compat.Agent
+	}
+	if isZeroAgentUpstreamConfig(decoded.Upstream) {
+		decoded.Upstream = compat.Upstream
+	}
+	if isZeroCommonLogConfig(decoded.Logging) {
+		switch {
+		case !canonical.Logging.isZero():
+			decoded.Logging = canonical.Logging.toCommon()
+		case !compat.Logging.isZero():
+			decoded.Logging = compat.Logging.toCommon()
+		}
+	}
+	if isZeroInlineTLSConfig(decoded.TLS) {
+		switch {
+		case !isZeroAgentTLSConfig(canonical.TLS):
+			decoded.TLS = canonical.TLS
+		case !isZeroAgentTLSConfig(compat.TLS):
+			decoded.TLS = compat.TLS
+		}
+	}
+	if isZeroInlineTLSConfig(decoded.OutboundTLS) {
+		switch {
+		case !isZeroAgentTLSConfig(canonical.OutboundTLS):
+			decoded.OutboundTLS = canonical.OutboundTLS
+		case !isZeroAgentTLSConfig(compat.OutboundTLS):
+			decoded.OutboundTLS = compat.OutboundTLS
+		}
+	}
+
+	*c = AgentConfig(decoded)
+	return nil
 }
 
 type AgentServerConfig struct {
-	Addr               string `json:"Addr" yaml:"Addr"`
-	Insecure           bool   `json:"Insecure" yaml:"Insecure"`
-	ServerName         string `json:"ServerName" yaml:"ServerName"`
-	InsecureSkipVerify bool   `json:"InsecureSkipVerify" yaml:"InsecureSkipVerify"`
-	TLSCertFile        string `json:"TLSCertFile" yaml:"TLSCertFile"`
-	TLSKeyFile         string `json:"TLSKeyFile" yaml:"TLSKeyFile"`
-	CAFile             string `json:"CAFile" yaml:"CAFile"`
+	Addr               string `json:"addr" yaml:"addr"`
+	Insecure           bool   `json:"insecure" yaml:"insecure"`
+	ServerName         string `json:"serverName" yaml:"serverName"`
+	InsecureSkipVerify bool   `json:"insecureSkipVerify" yaml:"insecureSkipVerify"`
+	TLSCertFile        string `json:"tlsCertFile" yaml:"tlsCertFile"`
+	TLSKeyFile         string `json:"tlsKeyFile" yaml:"tlsKeyFile"`
+	CAFile             string `json:"caFile" yaml:"caFile"`
+}
+
+func (c *AgentServerConfig) UnmarshalYAML(value *yaml.Node) error {
+	type plain AgentServerConfig
+	var decoded plain
+	if err := value.Decode(&decoded); err != nil {
+		return err
+	}
+	var compat struct {
+		Addr               string `yaml:"Addr,omitempty"`
+		Insecure           *bool  `yaml:"Insecure,omitempty"`
+		ServerName         string `yaml:"ServerName,omitempty"`
+		InsecureSkipVerify *bool  `yaml:"InsecureSkipVerify,omitempty"`
+		TLSCertFile        string `yaml:"TLSCertFile,omitempty"`
+		TLSKeyFile         string `yaml:"TLSKeyFile,omitempty"`
+		CAFile             string `yaml:"CAFile,omitempty"`
+	}
+	if err := value.Decode(&compat); err != nil {
+		return err
+	}
+	if decoded.Addr == "" {
+		decoded.Addr = compat.Addr
+	}
+	if !decoded.Insecure && compat.Insecure != nil {
+		decoded.Insecure = *compat.Insecure
+	}
+	if decoded.ServerName == "" {
+		decoded.ServerName = compat.ServerName
+	}
+	if !decoded.InsecureSkipVerify && compat.InsecureSkipVerify != nil {
+		decoded.InsecureSkipVerify = *compat.InsecureSkipVerify
+	}
+	if decoded.TLSCertFile == "" {
+		decoded.TLSCertFile = compat.TLSCertFile
+	}
+	if decoded.TLSKeyFile == "" {
+		decoded.TLSKeyFile = compat.TLSKeyFile
+	}
+	if decoded.CAFile == "" {
+		decoded.CAFile = compat.CAFile
+	}
+	*c = AgentServerConfig(decoded)
+	return nil
 }
 
 type AgentInfoConfig struct {
-	ID        string            `json:"ID" yaml:"ID"`
-	GameID    string            `json:"GameID" yaml:"GameID"`
-	Env       string            `json:"Env" yaml:"Env"`
-	LocalAddr string            `json:"LocalAddr" yaml:"LocalAddr"`
-	HTTPAddr  string            `json:"HTTPAddr" yaml:"HTTPAddr"`
-	Labels    map[string]string `json:"Labels" yaml:"Labels"`
+	ID        string            `json:"id" yaml:"id"`
+	GameID    string            `json:"gameId" yaml:"gameId"`
+	Env       string            `json:"env" yaml:"env"`
+	LocalAddr string            `json:"localAddr" yaml:"localAddr"`
+	HTTPAddr  string            `json:"httpAddr" yaml:"httpAddr"`
+	Labels    map[string]string `json:"labels" yaml:"labels"`
+}
+
+func (c *AgentInfoConfig) UnmarshalYAML(value *yaml.Node) error {
+	type plain AgentInfoConfig
+	var decoded plain
+	if err := value.Decode(&decoded); err != nil {
+		return err
+	}
+	var compat struct {
+		ID        string            `yaml:"ID,omitempty"`
+		GameID    string            `yaml:"GameID,omitempty"`
+		Env       string            `yaml:"Env,omitempty"`
+		LocalAddr string            `yaml:"LocalAddr,omitempty"`
+		HTTPAddr  string            `yaml:"HTTPAddr,omitempty"`
+		Labels    map[string]string `yaml:"Labels,omitempty"`
+	}
+	if err := value.Decode(&compat); err != nil {
+		return err
+	}
+	if decoded.ID == "" {
+		decoded.ID = compat.ID
+	}
+	if decoded.GameID == "" {
+		decoded.GameID = compat.GameID
+	}
+	if decoded.Env == "" {
+		decoded.Env = compat.Env
+	}
+	if decoded.LocalAddr == "" {
+		decoded.LocalAddr = compat.LocalAddr
+	}
+	if decoded.HTTPAddr == "" {
+		decoded.HTTPAddr = compat.HTTPAddr
+	}
+	if decoded.Labels == nil {
+		decoded.Labels = compat.Labels
+	}
+	*c = AgentInfoConfig(decoded)
+	return nil
 }
 
 type AgentUpstreamConfig struct {
-	HeartbeatInterval int `json:"HeartbeatInterval" yaml:"HeartbeatInterval"`
-	RetryInterval     int `json:"RetryInterval" yaml:"RetryInterval"`
-	MaxRetries        int `json:"MaxRetries" yaml:"MaxRetries"`
-	Timeout           int `json:"Timeout" yaml:"Timeout"`
+	HeartbeatInterval int `json:"heartbeatInterval" yaml:"heartbeatInterval"`
+	RetryInterval     int `json:"retryInterval" yaml:"retryInterval"`
+	MaxRetries        int `json:"maxRetries" yaml:"maxRetries"`
+	Timeout           int `json:"timeout" yaml:"timeout"`
 }
+
+func (c *AgentUpstreamConfig) UnmarshalYAML(value *yaml.Node) error {
+	type plain AgentUpstreamConfig
+	var decoded plain
+	if err := value.Decode(&decoded); err != nil {
+		return err
+	}
+	var compat struct {
+		HeartbeatInterval *int `yaml:"HeartbeatInterval,omitempty"`
+		RetryInterval     *int `yaml:"RetryInterval,omitempty"`
+		MaxRetries        *int `yaml:"MaxRetries,omitempty"`
+		Timeout           *int `yaml:"Timeout,omitempty"`
+	}
+	if err := value.Decode(&compat); err != nil {
+		return err
+	}
+	if decoded.HeartbeatInterval == 0 && compat.HeartbeatInterval != nil {
+		decoded.HeartbeatInterval = *compat.HeartbeatInterval
+	}
+	if decoded.RetryInterval == 0 && compat.RetryInterval != nil {
+		decoded.RetryInterval = *compat.RetryInterval
+	}
+	if decoded.MaxRetries == 0 && compat.MaxRetries != nil {
+		decoded.MaxRetries = *compat.MaxRetries
+	}
+	if decoded.Timeout == 0 && compat.Timeout != nil {
+		decoded.Timeout = *compat.Timeout
+	}
+	*c = AgentUpstreamConfig(decoded)
+	return nil
+}
+
+type canonicalAgentLogConfig struct {
+	Level      string `yaml:"level,omitempty"`
+	Format     string `yaml:"format,omitempty"`
+	Output     string `yaml:"output,omitempty"`
+	File       string `yaml:"file,omitempty"`
+	MaxSize    int    `yaml:"maxSize,omitempty"`
+	MaxBackups int    `yaml:"maxBackups,omitempty"`
+	MaxAge     int    `yaml:"maxAge,omitempty"`
+	Compress   bool   `yaml:"compress,omitempty"`
+}
+
+func (c canonicalAgentLogConfig) isZero() bool { return c == (canonicalAgentLogConfig{}) }
+func (c canonicalAgentLogConfig) toCommon() common.LogConfig {
+	return common.LogConfig{
+		Level: c.Level, Format: c.Format, Output: c.Output, File: c.File,
+		MaxSize: c.MaxSize, MaxBackups: c.MaxBackups, MaxAge: c.MaxAge, Compress: c.Compress,
+	}
+}
+
+type legacyAgentLogConfig struct {
+	Level      string `yaml:"Level,omitempty"`
+	Format     string `yaml:"Format,omitempty"`
+	Output     string `yaml:"Output,omitempty"`
+	File       string `yaml:"File,omitempty"`
+	MaxSize    int    `yaml:"MaxSize,omitempty"`
+	MaxBackups int    `yaml:"MaxBackups,omitempty"`
+	MaxAge     int    `yaml:"MaxAge,omitempty"`
+	Compress   bool   `yaml:"Compress,omitempty"`
+}
+
+func (c legacyAgentLogConfig) isZero() bool { return c == (legacyAgentLogConfig{}) }
+func (c legacyAgentLogConfig) toCommon() common.LogConfig {
+	return common.LogConfig{
+		Level: c.Level, Format: c.Format, Output: c.Output, File: c.File,
+		MaxSize: c.MaxSize, MaxBackups: c.MaxBackups, MaxAge: c.MaxAge, Compress: c.Compress,
+	}
+}
+
+func isZeroAgentServerConfig(cfg AgentServerConfig) bool { return cfg == (AgentServerConfig{}) }
+func isZeroAgentInfoConfig(cfg AgentInfoConfig) bool {
+	return cfg.ID == "" &&
+		cfg.GameID == "" &&
+		cfg.Env == "" &&
+		cfg.LocalAddr == "" &&
+		cfg.HTTPAddr == "" &&
+		len(cfg.Labels) == 0
+}
+func isZeroAgentUpstreamConfig(cfg AgentUpstreamConfig) bool {
+	return cfg == (AgentUpstreamConfig{})
+}
+func isZeroCommonLogConfig(cfg common.LogConfig) bool { return cfg == (common.LogConfig{}) }
+func isZeroAgentTLSConfig(cfg AgentTLSConfig) bool    { return cfg == (AgentTLSConfig{}) }
+func isZeroInlineTLSConfig(cfg AgentTLSConfig) bool   { return cfg == (AgentTLSConfig{}) }
 
 func runAgent() error {
 	if cfgFile == "" {

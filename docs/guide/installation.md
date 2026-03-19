@@ -216,17 +216,17 @@ pip install croupier-sdk-python
 ### Server 配置
 
 ```yaml
-Name: croupier-server
-Host: 0.0.0.0
-Port: 18780                  # HTTP 监听地址
-Control:
-  Addr: ":19090"             # Control 监听地址
-Database:
-  Driver: postgres
-  DataSource: "postgres://user:pass@localhost:5432/croupier"
-Log:
-  Level: info
-  Format: json
+name: croupier-server
+host: 0.0.0.0
+port: 18780                  # HTTP 监听地址
+control:
+  addr: ":19090"             # Control 监听地址
+database:
+  driver: postgres
+  dataSource: "postgres://user:pass@localhost:5432/croupier"
+log:
+  level: info
+  format: json
 ```
 
 ### Agent 配置
@@ -303,9 +303,9 @@ export PATH=$PATH:$(go env GOPATH)/bin
 
 修改配置文件中的端口：
 ```yaml
-Control:
-  Addr: ":19091"
-Port: 19080
+control:
+  addr: ":19091"
+port: 19080
 ```
 </details>
 

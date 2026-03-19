@@ -121,23 +121,23 @@ create_config() {
 # Croupier Server 配置文件
 # 请根据实际环境修改
 
-Name: croupier-server
-Host: 0.0.0.0
-Port: 18780
-Mode: prod
+name: croupier-server
+host: 0.0.0.0
+port: 18780
+mode: prod
 
-Database:
-  Driver: postgres
-  DataSource: "postgres://croupier:password@localhost:5432/croupier?sslmode=disable"
+database:
+  driver: postgres
+  dataSource: "postgres://croupier:password@localhost:5432/croupier?sslmode=disable"
 
-Control:
-  Addr: ":19090"
+control:
+  addr: ":19090"
 
-Auth:
-  JWTSecret: "change-me-to-random-string"
+auth:
+  jwtSecret: "change-me-to-random-string"
 
-Log:
-  Level: info
+log:
+  level: info
   Format: json
   Output: stdout
 EOF

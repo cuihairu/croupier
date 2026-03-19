@@ -190,63 +190,43 @@ function New-AgentConfig {
 # Croupier Agent Configuration
 # Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 
-Name: croupier-agent
-Host: 0.0.0.0
-Port: 18888
+name: croupier-agent
+host: 0.0.0.0
+port: 18888
 
 # Server configuration
-Server:
-  Addr: $ServerAddr
-  Insecure: true                # Disable mTLS for development
-  TLSCertFile: ""
-  TLSKeyFile: ""
-  CAFile: ""
-  ServerName: ""
-  InsecureSkipVerify: true
+server:
+  addr: $ServerAddr
+  insecure: true                # Disable mTLS for development
+  tlsCertFile: ""
+  tlsKeyFile: ""
+  caFile: ""
+  serverName: ""
+  insecureSkipVerify: true
 
 # Agent configuration
-Agent:
-  ID: ""                        # Auto-generate if empty
-  GameID: "$GameID"
-  Env: "$Env"
-  LocalAddr: "127.0.0.1:19090"
-  HTTPAddr: "127.0.0.1:19091"
-  Region: ""
-  Zone: ""
-  Labels: {}
-
-# gRPC configuration
-GRPC:
-  Host: 127.0.0.1
-  Port: 19090
-  Timeout: 30000
+agent:
+  id: ""                        # Auto-generate if empty
+  gameId: "$GameID"
+  env: "$Env"
+  localAddr: "127.0.0.1:19090"
+  httpAddr: "127.0.0.1:19091"
+  labels: {}
 
 # Upstream configuration
-Upstream:
-  HeartbeatInterval: 30
-  RetryInterval: 5
-  MaxRetries: 3
-  Timeout: 10000
-
-# Job configuration
-Job:
-  MaxConcurrent: 100
-  Timeout: 300000
-  Retries: 3
-
-# Metrics configuration
-Metrics:
-  Enabled: true
-  Port: 9090
-  Path: /metrics
+upstream:
+  heartbeatInterval: 30
+  retryInterval: 5
+  maxRetries: 3
+  timeout: 10000
 
 # TLS configuration for game servers connecting to this Agent
-TLS:
-  Enabled: false
-  CertFile: ""
-  KeyFile: ""
-  CAFile: ""
-  InsecureSkipVerify: false
+tls:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  caFile: ""
+  insecureSkipVerify: false
 "@
 
     $configContent | Out-File -FilePath $ConfigPath -Encoding UTF8

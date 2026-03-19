@@ -1,91 +1,42 @@
 # Docker/dev config for croupier-agent (used by docker/docker-compose.yml)
-Name: croupier-agent
-Host: 0.0.0.0
-Port: 19091
+name: croupier-agent
+host: 0.0.0.0
+port: 19091
 
-Server:
-  # Upstream control plane gRPC (docker-compose service name)
-  Addr: "server:19090"
-  Insecure: true
-  ServerName: ""
-  InsecureSkipVerify: false
+server:
+  # Upstream control plane address (docker-compose service name)
+  addr: "server:19090"
+  insecure: true
+  serverName: ""
+  insecureSkipVerify: false
 
-Agent:
+agent:
   # ID is optional; when empty, agent will auto-generate one at runtime.
-  ID: ""
-  GameID: ""
-  Env: ""
+  id: ""
+  gameId: ""
+  env: ""
   # Must be reachable by server within the docker network.
-  LocalAddr: "agent:19090"
-  HTTPAddr: "agent:19091"
-  Labels: {}
+  localAddr: "agent:19090"
+  httpAddr: "agent:19091"
+  labels: {}
 
-GRPC:
-  Host: 0.0.0.0
-  Port: 19090
-  Timeout: 30000
+upstream:
+  heartbeatInterval: 30
+  retryInterval: 5
+  maxRetries: 3
+  timeout: 10000
 
-Upstream:
-  HeartbeatInterval: 30
-  RetryInterval: 5
-  MaxRetries: 3
-  Timeout: 10000
+tls:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  caFile: ""
+  insecureSkipVerify: false
 
-Job:
-  MaxConcurrent: 100
-  Timeout: 300000
-  Retries: 3
-
-Metrics:
-  Enabled: true
-  Port: 9090
-  Path: /metrics
-
-TLS:
-  Enabled: false
-  CertFile: ""
-  KeyFile: ""
-  CAFile: ""
-  InsecureSkipVerify: false
-
-OutboundTLS:
-  Enabled: false
-  CertFile: ""
-  KeyFile: ""
-  CAFile: ""
-  ServerName: ""
-  InsecureSkipVerify: false
-
-# Ops module configuration for system monitoring and process management
-Ops:
-  # Master switch for ops functionality
-  Enabled: false
-
-  # Enable metrics reporting to server (recommended: true)
-  MetricsEnabled: true
-  # Metrics reporting interval (default: 30s)
-  MetricsInterval: 30s
-
-  # Allow process management (restart/stop/start) - requires ops.enabled=true
-  AllowRestart: false
-
-  # Allow arbitrary command execution - HIGH RISK, use with extreme caution
-  AllowExec: false
-
-  # Commands whitelist when allow_exec=true (empty = all commands allowed)
-  ExecAllowedCommands: []
-  # Maximum execution time for commands (default: 60s, max: 300s)
-  ExecTimeout: 60s
-
-  # Managed processes that can be controlled
-  ManagedProcesses: {}
-  # Example:
-  #   game-server:
-  #     command: /usr/local/bin/game-server
-  #     args: ["--config", "/etc/game-server/config.yaml"]
-  #     working_dir: /opt/game-server
-  #     env:
-  #       GAME_ENV: "production"
-  #     graceful_timeout: 30s
-  #     restart_delay: 5s
-  #     auto_restart: false
+outboundTLS:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  caFile: ""
+  serverName: ""
+  insecureSkipVerify: false
