@@ -174,9 +174,9 @@ func (s *AgentHealthState) RecordSuccess() {
 		atomic.StoreInt32(&s.consecutiveFailures, 0)
 	}
 
-	atomic.AddInt64(&s.totalRequests, 1)
-	atomic.AddInt64(&s.successfulRequests, 1)
-	atomic.StoreInt64(&s.lastSuccessTime, now.UnixNano())
+	s.totalRequests.Add(1)
+	s.successfulRequests.Add(1)
+	s.lastSuccessTime.Store(now.UnixNano())
 
 	// Update health score
 	s.updateHealthScore(s.config.ScoreSuccessBonus)
@@ -190,9 +190,9 @@ func (s *AgentHealthState) RecordFailure() {
 
 	atomic.AddInt32(&s.consecutiveFailures, 1)
 
-	atomic.AddInt64(&s.totalRequests, 1)
-	atomic.AddInt64(&s.failedRequests, 1)
-	atomic.StoreInt64(&s.lastFailureTime, now.UnixNano())
+	s.totalRequests.Add(1)
+	s.failedRequests.Add(1)
+	s.lastFailureTime.Store(now.UnixNano())
 
 	// Update health score
 	s.updateHealthScore(-s.config.ScoreFailurePenalty)
