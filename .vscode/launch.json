@@ -12,7 +12,9 @@
         "configs/server.yaml"
       ],
       "env": {
-        "CROUPIER_DEV_SEED": "1"
+        "CROUPIER_DEV_SEED": "1",
+        "DB_DRIVER": "sqlite",
+        "DATABASE_URL": "data/croupier.db"
       },
       "cwd": "${workspaceFolder}"
     },
@@ -73,7 +75,7 @@
       "program": "${workspaceFolder}/cmd/agent",
       "args": [
         "-f",
-        "configs/agent.yaml"
+        "configs/agent.local.yaml"
       ],
       "env": {
         "PROVIDER_CONFIG": "configs/providers.yaml"
@@ -89,7 +91,7 @@
       "program": "${workspaceFolder}/cmd/agent",
       "args": [
         "-f",
-        "configs/agent.yaml"
+        "configs/agent.local.yaml"
       ],
       "env": {
         "GAME_ID": "dev-game",
@@ -106,7 +108,7 @@
       "program": "${workspaceFolder}/cmd/agent",
       "args": [
         "-f",
-        "configs/agent.yaml",
+        "configs/agent.local.yaml",
         "-log.level",
         "debug"
       ],
@@ -125,7 +127,7 @@
       "program": "${workspaceFolder}/cmd/agent",
       "args": [
         "-f",
-        "configs/agent.yaml"
+        "configs/agent.local.yaml"
       ],
       "env": {
         "PLAYER_SERVICE_TOKEN": "dev-token-player",

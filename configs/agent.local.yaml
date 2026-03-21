@@ -1,0 +1,43 @@
+# Local development config for croupier-agent
+# Used by VSCode launch configurations
+name: croupier-agent
+host: 0.0.0.0
+port: 19091
+
+server:
+  # Local server address (localhost)
+  addr: "localhost:19090"
+  insecure: true
+  serverName: ""
+  insecureSkipVerify: false
+
+agent:
+  # ID is optional; when empty, agent will auto-generate one at runtime.
+  id: ""
+  gameId: "dev-game"
+  env: "dev"
+  # Local agent address (accessible from server)
+  localAddr: "localhost:19091"
+  httpAddr: "localhost:19091"
+  labels: {}
+
+upstream:
+  heartbeatInterval: 30
+  retryInterval: 5
+  maxRetries: 3
+  timeout: 10000
+
+tls:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  caFile: ""
+  insecureSkipVerify: false
+
+outboundTLS:
+  enabled: false
+  certFile: ""
+  keyFile: ""
+  caFile: ""
+  serverName: ""
+  insecureSkipVerify: false
