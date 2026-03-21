@@ -16,7 +16,7 @@ func NewHandler(service *Service) *Handler {
 // List handles the terms list request
 func (h *Handler) List(c *gin.Context) {
 	var req TermsListRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.ShouldBindQuery(&req); err != nil {
 		response.BadRequest(c, err.Error())
 		return
 	}

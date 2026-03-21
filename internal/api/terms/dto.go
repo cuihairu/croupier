@@ -39,7 +39,7 @@ type TermUpsertResponse struct {
 
 // TermsListRequest represents the request to list terms
 type TermsListRequest struct {
-	Domain string `json:"domain"` // entity | operation
+	Domain string `form:"domain" json:"domain"` // entity | operation
 }
 
 // TermsListResponse represents the response with terms list
