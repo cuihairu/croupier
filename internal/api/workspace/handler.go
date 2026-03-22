@@ -90,9 +90,18 @@ func (h *Handler) DeleteConfig(c *gin.Context) {
 // Publish handles the request to publish a workspace configuration
 func (h *Handler) Publish(c *gin.Context) {
 	var req PublishRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.ShouldBindUri(&req); err != nil {
 		response.Error(c, err)
 		return
+	}
+	// PublishedBy is optional, bind JSON if body exists
+	if c.Request.ContentLength > 0 {
+		var bodyReq struct {
+			PublishedBy string `json:"publishedBy"`
+		}
+		if err := c.ShouldBindJSON(&bodyReq); err == nil {
+			req.PublishedBy = bodyReq.PublishedBy
+		}
 	}
 
 	resp, err := h.service.Publish(c.Request.Context(), &req)
@@ -106,7 +115,7 @@ func (h *Handler) Publish(c *gin.Context) {
 // Unpublish handles the request to unpublish a workspace configuration
 func (h *Handler) Unpublish(c *gin.Context) {
 	var req UnpublishRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := c.ShouldBindUri(&req); err != nil {
 		response.Error(c, err)
 		return
 	}
@@ -122,6 +131,10 @@ func (h *Handler) Unpublish(c *gin.Context) {
 // Versions handles the request to list workspace versions
 func (h *Handler) Versions(c *gin.Context) {
 	var req VersionsRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Error(c, err)
 		return

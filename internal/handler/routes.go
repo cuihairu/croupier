@@ -536,10 +536,17 @@ func registerCertificateRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerConfigRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	configSvc := config.NewService(ctx)
 	configHandler := config.NewHandler(configSvc)
+	g.GET("", configHandler.List)
+	g.GET("/", configHandler.List)
 	g.POST("", configHandler.Upsert)
 	g.POST("/", configHandler.Upsert)
 	g.GET("/version", configHandler.GetVersion)
 	g.GET("/versions", configHandler.ListVersions)
+	g.GET("/:id", configHandler.Get)
+	g.PUT("/:id", configHandler.Save)
+	g.POST("/:id/validate", configHandler.Validate)
+	g.GET("/:id/versions", configHandler.ListVersionsByID)
+	g.GET("/:id/versions/:version", configHandler.GetVersionByID)
 }
 
 // ============================================================================

@@ -40,6 +40,9 @@ type Client struct {
 	reconnecting atomic.Bool
 	reconnWg     sync.WaitGroup
 
+	// Callbacks
+	onReconnect func() // Called when reconnection succeeds
+
 	// Logging
 	logger Logger
 }
@@ -163,6 +166,13 @@ func (c *Client) SetLogger(logger Logger) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.logger = logger
+}
+
+// SetOnReconnect sets a callback to be called when reconnection succeeds
+func (c *Client) SetOnReconnect(callback func()) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.onReconnect = callback
 }
 
 // SetReconnectConfig sets the reconnection configuration
@@ -344,6 +354,12 @@ func (c *Client) attemptReconnect() {
 		if err == nil {
 			c.mu.Unlock()
 			c.logger.Info("reconnection successful")
+
+			// Call reconnection callback if set (e.g., to re-register)
+			if c.onReconnect != nil {
+				c.logger.Info("triggering post-reconnect callback")
+				c.onReconnect()
+			}
 			return
 		}
 		c.mu.Unlock()

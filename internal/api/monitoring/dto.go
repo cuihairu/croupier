@@ -3,29 +3,46 @@ package monitoring
 // HealthzRequest health check request
 type HealthzRequest struct{}
 
-// HealthzResponse health check response
+// MonitoringComponentStatus describes the status of a monitoring component.
+type MonitoringComponentStatus map[string]interface{}
+
+// MonitoringComponents groups the major subsystems reported by healthz.
+type MonitoringComponents struct {
+	Database MonitoringComponentStatus `json:"database"`
+	Registry MonitoringComponentStatus `json:"registry"`
+	Ops      MonitoringComponentStatus `json:"ops"`
+}
+
+// HealthzResponse matches the REST contract for GET /api/v1/monitoring/healthz.
 type HealthzResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	OK            bool                 `json:"ok"`
+	Timestamp     string               `json:"timestamp"`
+	UptimeSeconds int64                `json:"uptimeSeconds"`
+	Components    MonitoringComponents `json:"components"`
 }
 
 // MetricsRequest metrics request
 type MetricsRequest struct{}
 
-// MetricsResponse metrics response
+// MetricsResponse matches the REST contract for GET /api/v1/monitoring/metrics.
 type MetricsResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Timestamp string                    `json:"timestamp"`
+	Counts    map[string]interface{}    `json:"counts"`
+	Database  MonitoringComponentStatus `json:"database"`
+	Registry  map[string]interface{}    `json:"registry"`
+	Ops       map[string]interface{}    `json:"ops"`
 }
 
 // StatusRequest status request
 type StatusRequest struct{}
 
-// StatusResponse status response
+// StatusResponse matches the REST contract for GET /api/v1/monitoring/status.
 type StatusResponse struct {
-	Code    int                    `json:"code"`
-	Message string                 `json:"message"`
-	Data    map[string]interface{} `json:"data"`
+	OK            bool                      `json:"ok"`
+	Timestamp     string                    `json:"timestamp"`
+	UptimeSeconds int64                     `json:"uptimeSeconds"`
+	Database      MonitoringComponentStatus `json:"database"`
+	Registry      MonitoringComponentStatus `json:"registry"`
+	Ops           MonitoringComponentStatus `json:"ops"`
+	Agents        []map[string]interface{}  `json:"agents"`
 }

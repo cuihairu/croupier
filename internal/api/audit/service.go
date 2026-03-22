@@ -30,8 +30,8 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx}
 }
 
-// GetAuditLogs retrieves audit logs with filtering and pagination
-func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditResponse, error) {
+// GetAuditLogs retrieves audit logs with filtering and pagination.
+func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditListResponse, error) {
 	if s.svcCtx == nil || s.svcCtx.OpsStateStore == nil {
 		return nil, errors.New("audit store unavailable")
 	}
@@ -141,15 +141,11 @@ func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditRe
 
 	total := len(filtered)
 	if total == 0 {
-		return &AuditResponse{
-			Code:    0,
-			Message: "OK",
-			Data: map[string]interface{}{
-				"items": []map[string]interface{}{},
-				"total": 0,
-				"page":  page,
-				"size":  size,
-			},
+		return &AuditListResponse{
+			Items:    []AuditItem{},
+			Total:    0,
+			Page:     page,
+			PageSize: size,
 		}, nil
 	}
 
@@ -189,30 +185,26 @@ func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditRe
 	start := int(start64)
 	end := int(end64)
 
-	items := make([]map[string]interface{}, 0, end-start)
+	items := make([]AuditItem, 0, end-start)
 	for _, entry := range filtered[start:end] {
-		items = append(items, map[string]interface{}{
-			"id":        entry.ID,
-			"action":    entry.Action,
-			"userId":    entry.UserID,
-			"gameId":    entry.GameID,
-			"env":       entry.Env,
-			"target":    entry.Target,
-			"result":    entry.Result,
-			"traceId":   entry.TraceID,
-			"metadata":  entry.Metadata,
-			"createdAt": utils.FormatTimestamp(entry.CreatedAt),
+		items = append(items, AuditItem{
+			ID:        entry.ID,
+			Action:    entry.Action,
+			UserID:    entry.UserID,
+			GameID:    entry.GameID,
+			Env:       entry.Env,
+			Target:    entry.Target,
+			Result:    entry.Result,
+			TraceID:   entry.TraceID,
+			Metadata:  entry.Metadata,
+			CreatedAt: utils.FormatTimestamp(entry.CreatedAt),
 		})
 	}
 
-	return &AuditResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"items": items,
-			"total": total,
-			"page":  page,
-			"size":  size,
-		},
+	return &AuditListResponse{
+		Items:    items,
+		Total:    total,
+		Page:     page,
+		PageSize: size,
 	}, nil
 }

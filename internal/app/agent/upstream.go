@@ -158,6 +158,16 @@ func (c *UpstreamClient) dialServer(ctx context.Context) error {
 	c.nngClient = nng.NewClient(c.serverAddr)
 	c.nngClient.SetLogger(slog.Default())
 
+	// Set reconnection callback to re-register after reconnect
+	c.nngClient.SetOnReconnect(func() {
+		slog.Info("nng client reconnected, re-registering...")
+		if syncErr := c.syncWithRetry(ctx, 3); syncErr != nil {
+			slog.Error("re-register after reconnect failed", "error", syncErr)
+		} else {
+			slog.Info("✅ re-registered successfully after reconnect")
+		}
+	})
+
 	if err := c.nngClient.Dial(); err != nil {
 		c.nngClient = nil
 		return fmt.Errorf("failed to connect to upstream server via NNG: %w", err)

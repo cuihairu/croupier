@@ -25,27 +25,15 @@ func (s *Service) Healthz(ctx context.Context, req *HealthzRequest) (*HealthzRes
 	registryStatus, _ := collectRegistryStats(s.svcCtx.RegistryStore)
 	opsStatus := summarizeOpsState(s.svcCtx)
 
-	ok := componentHealthy(dbStatus) && componentHealthy(registryStatus) && componentHealthy(opsStatus)
-	message := "OK"
-	if !ok {
-		message = "DEGRADED"
-	}
-
-	data := map[string]interface{}{
-		"ok":             ok,
-		"timestamp":      utils.FormatTimestamp(time.Now()),
-		"uptime_seconds": uptimeSeconds(),
-		"components": map[string]interface{}{
-			"database": dbStatus,
-			"registry": registryStatus,
-			"ops":      opsStatus,
-		},
-	}
-
 	return &HealthzResponse{
-		Code:    0,
-		Message: message,
-		Data:    data,
+		OK:            componentHealthy(dbStatus) && componentHealthy(registryStatus) && componentHealthy(opsStatus),
+		Timestamp:     utils.FormatTimestamp(time.Now()),
+		UptimeSeconds: uptimeSeconds(),
+		Components: MonitoringComponents{
+			Database: dbStatus,
+			Registry: registryStatus,
+			Ops:      opsStatus,
+		},
 	}, nil
 }
 
@@ -56,40 +44,34 @@ func (s *Service) Metrics(ctx context.Context, req *MetricsRequest) (*MetricsRes
 	opsStatus := summarizeOpsState(s.svcCtx)
 
 	counts := map[string]interface{}{
-		"agents_total":         registryStatus["agents_total"],
-		"agents_healthy":       registryStatus["agents_healthy"],
-		"functions_registered": registryStatus["functions_registered"],
-		"maintenance_windows":  opsStatus["maintenance_windows"],
-		"health_checks":        opsStatus["health_checks"],
-		"alerts":               opsStatus["alerts"],
-	}
-
-	data := map[string]interface{}{
-		"timestamp": utils.FormatTimestamp(time.Now()),
-		"counts":    counts,
-		"database": map[string]interface{}{
-			"ok":         dbStatus["ok"],
-			"latency_ms": dbStatus["latency_ms"],
-			"driver":     dbStatus["driver"],
-		},
-		"registry": map[string]interface{}{
-			"ok":       registryStatus["ok"],
-			"agents":   snapshots,
-			"metadata": registryStatus,
-		},
-		"ops": map[string]interface{}{
-			"ok":            opsStatus["ok"],
-			"mq_type":       opsStatus["mq_type"],
-			"mq_lengths":    opsStatus["mq_lengths"],
-			"health":        opsStatus["health_status"],
-			"notifications": opsStatus["notifications"],
-		},
+		"agentsTotal":         registryStatus["agentsTotal"],
+		"agentsHealthy":       registryStatus["agentsHealthy"],
+		"functionsRegistered": registryStatus["functionsRegistered"],
+		"maintenanceWindows":  opsStatus["maintenanceWindows"],
+		"healthChecks":        opsStatus["healthChecks"],
+		"alerts":              opsStatus["alerts"],
 	}
 
 	return &MetricsResponse{
-		Code:    0,
-		Message: "OK",
-		Data:    data,
+		Timestamp: utils.FormatTimestamp(time.Now()),
+		Counts:    counts,
+		Database: MonitoringComponentStatus{
+			"ok":        dbStatus["ok"],
+			"latencyMs": dbStatus["latencyMs"],
+			"driver":    dbStatus["driver"],
+		},
+		Registry: map[string]interface{}{
+			"ok":       registryStatus["ok"],
+			"agents":   normalizeAgentSnapshots(snapshots),
+			"metadata": registryStatus,
+		},
+		Ops: map[string]interface{}{
+			"ok":            opsStatus["ok"],
+			"mqType":        opsStatus["mqType"],
+			"mqLengths":     opsStatus["mqLengths"],
+			"healthStatus":  opsStatus["healthStatus"],
+			"notifications": opsStatus["notifications"],
+		},
 	}, nil
 }
 
@@ -101,20 +83,14 @@ func (s *Service) Status(ctx context.Context, req *StatusRequest) (*StatusRespon
 
 	ok := componentHealthy(dbStatus) && componentHealthy(registryStatus) && componentHealthy(opsStatus)
 
-	data := map[string]interface{}{
-		"ok":             ok,
-		"timestamp":      utils.FormatTimestamp(time.Now()),
-		"uptime_seconds": uptimeSeconds(),
-		"database":       dbStatus,
-		"registry":       registryStatus,
-		"ops":            opsStatus,
-		"agents":         snapshots,
-	}
-
 	return &StatusResponse{
-		Code:    0,
-		Message: "OK",
-		Data:    data,
+		OK:            ok,
+		Timestamp:     utils.FormatTimestamp(time.Now()),
+		UptimeSeconds: uptimeSeconds(),
+		Database:      dbStatus,
+		Registry:      registryStatus,
+		Ops:           opsStatus,
+		Agents:        normalizeAgentSnapshots(snapshots),
 	}, nil
 }
 
@@ -133,7 +109,7 @@ func checkDatabaseHealth(ctx context.Context, svcCtx *svc.ServiceContext) map[st
 
 	start := time.Now()
 	err := svcCtx.DB.WithContext(ctx).Exec("SELECT 1").Error
-	status["latency_ms"] = time.Since(start).Milliseconds()
+	status["latencyMs"] = time.Since(start).Milliseconds()
 	if err != nil {
 		status["error"] = err.Error()
 		return status
@@ -144,10 +120,10 @@ func checkDatabaseHealth(ctx context.Context, svcCtx *svc.ServiceContext) map[st
 
 func collectRegistryStats(store *reg.Store) (map[string]interface{}, []map[string]interface{}) {
 	stats := map[string]interface{}{
-		"ok":                   false,
-		"agents_total":         0,
-		"agents_healthy":       0,
-		"functions_registered": 0,
+		"ok":                  false,
+		"agentsTotal":         0,
+		"agentsHealthy":       0,
+		"functionsRegistered": 0,
 	}
 	snapshots := make([]map[string]interface{}, 0)
 	if store == nil {
@@ -162,14 +138,14 @@ func collectRegistryStats(store *reg.Store) (map[string]interface{}, []map[strin
 		if sess == nil {
 			continue
 		}
-		stats["agents_total"] = stats["agents_total"].(int) + 1
+		stats["agentsTotal"] = stats["agentsTotal"].(int) + 1
 		if time.Until(sess.ExpireAt) > 0 {
-			stats["agents_healthy"] = stats["agents_healthy"].(int) + 1
+			stats["agentsHealthy"] = stats["agentsHealthy"].(int) + 1
 		}
-		stats["functions_registered"] = stats["functions_registered"].(int) + utils.CountEnabledFunctions(sess.Functions)
+		stats["functionsRegistered"] = stats["functionsRegistered"].(int) + utils.CountEnabledFunctions(sess.Functions)
 
 		if snapshot := utils.BuildOpsAgentSnapshot(sess); snapshot != nil {
-			snapshots = append(snapshots, snapshot)
+			snapshots = append(snapshots, normalizeAgentSnapshot(snapshot))
 		}
 	}
 
@@ -188,14 +164,14 @@ func summarizeOpsState(svcCtx *svc.ServiceContext) map[string]interface{} {
 
 	state := svcCtx.OpsStateStore.Snapshot()
 	summary["ok"] = true
-	summary["maintenance_windows"] = len(state.Maintenance.Windows)
-	summary["health_checks"] = len(state.Health.Checks)
-	summary["health_status"] = len(state.Health.Status)
+	summary["maintenanceWindows"] = len(state.Maintenance.Windows)
+	summary["healthChecks"] = len(state.Health.Checks)
+	summary["healthStatus"] = len(state.Health.Status)
 	summary["notifications"] = len(state.Notifications.Channels)
 	summary["alerts"] = len(state.Alerts.Silences)
-	summary["mq_type"] = state.MQ.Type
+	summary["mqType"] = state.MQ.Type
 	if state.MQ.Lengths != nil {
-		summary["mq_lengths"] = state.MQ.Lengths
+		summary["mqLengths"] = state.MQ.Lengths
 	}
 	return summary
 }
@@ -212,4 +188,75 @@ func componentHealthy(status map[string]interface{}) bool {
 
 func uptimeSeconds() int64 {
 	return int64(time.Since(serverBootTime).Seconds())
+}
+
+func normalizeAgentSnapshots(items []map[string]interface{}) []map[string]interface{} {
+	out := make([]map[string]interface{}, 0, len(items))
+	for _, item := range items {
+		out = append(out, normalizeAgentSnapshot(item))
+	}
+	return out
+}
+
+func normalizeAgentSnapshot(item map[string]interface{}) map[string]interface{} {
+	if item == nil {
+		return nil
+	}
+	return map[string]interface{}{
+		"id":             item["id"],
+		"agentId":        firstNonNil(item["agent_id"], item["agentId"], item["id"]),
+		"gameId":         firstNonNil(item["game_id"], item["gameId"]),
+		"env":            item["env"],
+		"type":           item["type"],
+		"addr":           item["addr"],
+		"rpcAddr":        firstNonNil(item["rpc_addr"], item["rpcAddr"], item["addr"]),
+		"ip":             item["ip"],
+		"version":        item["version"],
+		"region":         item["region"],
+		"zone":           item["zone"],
+		"labels":         item["labels"],
+		"functions":      item["functions"],
+		"providers":      normalizeProviders(item["providers"]),
+		"providersCount": firstNonNil(item["providers_count"], item["providersCount"]),
+		"healthy":        item["healthy"],
+		"expiresInSec":   firstNonNil(item["expires_in_sec"], item["expiresInSec"]),
+		"lastSeen":       firstNonNil(item["last_seen"], item["lastSeen"]),
+		"activeConns":    firstNonNil(item["active_conns"], item["activeConns"]),
+		"totalRequests":  firstNonNil(item["total_requests"], item["totalRequests"]),
+		"failedRequests": firstNonNil(item["failed_requests"], item["failedRequests"]),
+		"errorRate":      firstNonNil(item["error_rate"], item["errorRate"]),
+		"avgLatencyMs":   firstNonNil(item["avg_latency_ms"], item["avgLatencyMs"]),
+		"qpsLimit":       firstNonNil(item["qps_limit"], item["qpsLimit"]),
+		"qps1m":          firstNonNil(item["qps_1m"], item["qps1m"]),
+	}
+}
+
+func normalizeProviders(value interface{}) []map[string]interface{} {
+	items, ok := value.([]map[string]interface{})
+	if !ok || len(items) == 0 {
+		return nil
+	}
+	out := make([]map[string]interface{}, 0, len(items))
+	for _, item := range items {
+		out = append(out, map[string]interface{}{
+			"providerId":   firstNonNil(item["provider_id"], item["providerId"]),
+			"gameId":       firstNonNil(item["game_id"], item["gameId"]),
+			"env":          item["env"],
+			"addr":         item["addr"],
+			"version":      item["version"],
+			"lastSeenUnix": firstNonNil(item["last_seen_unix"], item["lastSeenUnix"]),
+			"functionIds":  firstNonNil(item["function_ids"], item["functionIds"]),
+			"functions":    item["functions"],
+		})
+	}
+	return out
+}
+
+func firstNonNil(values ...interface{}) interface{} {
+	for _, value := range values {
+		if value != nil {
+			return value
+		}
+	}
+	return nil
 }

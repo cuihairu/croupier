@@ -106,7 +106,7 @@ func TestHandler_GetAuditLogs_GETRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, http.StatusOK, resp.Code)
-	assert.NotNil(t, result["data"])
+	assert.NotNil(t, result["items"])
 }
 
 func TestHandler_GetAuditLogs_POSTRequest(t *testing.T) {
@@ -210,7 +210,7 @@ func TestHandler_GetAuditLogs_EmptyResults(t *testing.T) {
 
 	// Check that we got a valid response
 	assert.Equal(t, http.StatusOK, resp.Code)
-	assert.NotNil(t, result["data"])
+	assert.NotNil(t, result["items"])
 }
 
 func TestHandler_GetAuditLogs_JSONResponseStructure(t *testing.T) {
@@ -232,21 +232,10 @@ func TestHandler_GetAuditLogs_JSONResponseStructure(t *testing.T) {
 	err := json.Unmarshal(resp.Body.Bytes(), &result)
 	require.NoError(t, err)
 
-	assert.Contains(t, result, "code")
-	assert.Contains(t, result, "message")
-	assert.Contains(t, result, "data")
-
-	innerData := result["data"].(map[string]interface{})
-
-	// Direct key existence check
-	_, hasItems := innerData["items"]
-	_, hasTotal := innerData["total"]
-	_, hasPage := innerData["page"]
-	_, hasSize := innerData["size"]
-	assert.True(t, hasItems, "data should contain 'items' key")
-	assert.True(t, hasTotal, "data should contain 'total' key")
-	assert.True(t, hasPage, "data should contain 'page' key")
-	assert.True(t, hasSize, "data should contain 'size' key")
+	assert.Contains(t, result, "items")
+	assert.Contains(t, result, "total")
+	assert.Contains(t, result, "page")
+	assert.Contains(t, result, "pageSize")
 }
 
 func TestHandler_GetAuditLogs_ItemStructure(t *testing.T) {
@@ -265,8 +254,7 @@ func TestHandler_GetAuditLogs_ItemStructure(t *testing.T) {
 	err := json.Unmarshal(resp.Body.Bytes(), &result)
 	require.NoError(t, err)
 
-	data := result["data"].(map[string]interface{})
-	rawItems, ok := data["items"].([]interface{})
+	rawItems, ok := result["items"].([]interface{})
 	if ok && len(rawItems) > 0 {
 		item, ok := rawItems[0].(map[string]interface{})
 		require.True(t, ok)
@@ -279,7 +267,6 @@ func TestHandler_GetAuditLogs_ItemStructure(t *testing.T) {
 		assert.Contains(t, item, "result")
 		assert.Contains(t, item, "traceId")
 		assert.Contains(t, item, "createdAt")
-		assert.Contains(t, item, "metadata")
 	}
 }
 
@@ -347,7 +334,7 @@ func TestHandler_GetAuditLogs_POSTWithEmptyBody(t *testing.T) {
 
 	// Check that we got a valid response
 	assert.Equal(t, http.StatusOK, resp.Code)
-	assert.NotNil(t, result["data"])
+	assert.NotNil(t, result["items"])
 }
 
 func TestHandler_GetAuditLogs_ConcurrentRequests(t *testing.T) {

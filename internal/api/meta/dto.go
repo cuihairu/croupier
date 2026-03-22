@@ -3,11 +3,15 @@ package meta
 // RootRequest 根路径请求（空）
 type RootRequest struct{}
 
-// RootResponse 根路径响应
+// RootResponse is the canonical REST response for GET /api/v1.
 type RootResponse struct {
-	Code    int                    `json:"code"`
-	Message string                 `json:"message"`
-	Data    map[string]interface{} `json:"data"`
+	Service     string            `json:"service"`
+	Version     string            `json:"version"`
+	Environment string            `json:"environment"`
+	Timestamp   string            `json:"timestamp"`
+	Features    []string          `json:"features"`
+	Profiles    []string          `json:"profiles"`
+	Links       map[string]string `json:"links"`
 }
 
 // AgentMetaReportRequest Agent元数据上报请求

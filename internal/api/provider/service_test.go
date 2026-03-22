@@ -540,17 +540,8 @@ func TestService_List_WithProviders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.Code != 0 {
-		t.Fatalf("expected code 0, got %d", resp.Code)
-	}
-	if resp.Message != "OK" {
-		t.Fatalf("expected message 'OK', got '%s'", resp.Message)
-	}
-
-	data := resp.Data.(map[string]interface{})
-	items := data["items"].([]map[string]interface{})
-	if len(items) != 2 {
-		t.Fatalf("expected 2 providers, got %d", len(items))
+	if len(resp.Items) != 2 {
+		t.Fatalf("expected 2 providers, got %d", len(resp.Items))
 	}
 }
 
@@ -566,18 +557,12 @@ func TestService_Capabilities_WithProviders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.Code != 0 {
-		t.Fatalf("expected code 0, got %d", resp.Code)
-	}
-
-	data := resp.Data.(map[string]interface{})
-	items := data["items"].([]map[string]interface{})
-	if len(items) != 2 {
-		t.Fatalf("expected 2 providers, got %d", len(items))
+	if len(resp.Items) != 2 {
+		t.Fatalf("expected 2 providers, got %d", len(resp.Items))
 	}
 
 	// Check that openapi field is included
-	for _, item := range items {
+	for _, item := range resp.Items {
 		if item["openapi"] == nil {
 			t.Fatal("expected openapi field in capabilities")
 		}
@@ -596,12 +581,7 @@ func TestService_Descriptors_WithProviders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.Code != 0 {
-		t.Fatalf("expected code 0, got %d", resp.Code)
-	}
-
-	data := resp.Data.(map[string]interface{})
-	manifests := data["provider_manifests"].(map[string]interface{})
+	manifests := resp.ProviderManifests
 	if len(manifests) != 2 {
 		t.Fatalf("expected 2 provider manifests, got %d", len(manifests))
 	}
@@ -635,15 +615,10 @@ func TestService_Detail_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.Code != 0 {
-		t.Fatalf("expected code 0, got %d", resp.Code)
+	if (*resp)["id"] != "test-provider-1" {
+		t.Fatalf("expected id 'test-provider-1', got '%v'", (*resp)["id"])
 	}
-
-	data := resp.Data.(map[string]interface{})
-	if data["id"] != "test-provider-1" {
-		t.Fatalf("expected id 'test-provider-1', got '%v'", data["id"])
-	}
-	if data["openapi"] == nil {
+	if (*resp)["openapi"] == nil {
 		t.Fatal("expected openapi field in detail")
 	}
 }
@@ -662,13 +637,7 @@ func TestService_Entities_AllProviders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.Code != 0 {
-		t.Fatalf("expected code 0, got %d", resp.Code)
-	}
-
-	data := resp.Data.(map[string]interface{})
-	items := data["items"].([]map[string]interface{})
-	if len(items) == 0 {
+	if len(resp.Items) == 0 {
 		t.Fatal("expected entities")
 	}
 }
@@ -687,13 +656,7 @@ func TestService_Entities_Wildcard(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.Code != 0 {
-		t.Fatalf("expected code 0, got %d", resp.Code)
-	}
-
-	data := resp.Data.(map[string]interface{})
-	items := data["items"].([]map[string]interface{})
-	if len(items) == 0 {
+	if len(resp.Items) == 0 {
 		t.Fatal("expected entities")
 	}
 }
@@ -712,18 +675,12 @@ func TestService_Entities_SingleProvider(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.Code != 0 {
-		t.Fatalf("expected code 0, got %d", resp.Code)
-	}
-
-	data := resp.Data.(map[string]interface{})
-	items := data["items"].([]map[string]interface{})
-	if len(items) == 0 {
+	if len(resp.Items) == 0 {
 		t.Fatal("expected entities")
 	}
 
 	// Verify all entities have the correct provider_id
-	for _, item := range items {
+	for _, item := range resp.Items {
 		if item["provider_id"] != "test-provider-1" {
 			t.Fatalf("expected provider_id 'test-provider-1', got '%v'", item["provider_id"])
 		}
@@ -744,13 +701,8 @@ func TestService_Delete_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.Code != 0 {
-		t.Fatalf("expected code 0, got %d", resp.Code)
-	}
-
-	data := resp.Data.(map[string]interface{})
-	if data["id"] != "test-provider-1" {
-		t.Fatalf("expected id 'test-provider-1', got '%v'", data["id"])
+	if resp.ID != "test-provider-1" {
+		t.Fatalf("expected id 'test-provider-1', got '%v'", resp.ID)
 	}
 
 	// Verify provider is deleted
@@ -774,15 +726,10 @@ func TestService_Reload_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.Code != 0 {
-		t.Fatalf("expected code 0, got %d", resp.Code)
+	if resp.ID != "test-provider-1" {
+		t.Fatalf("expected id 'test-provider-1', got '%v'", resp.ID)
 	}
-
-	data := resp.Data.(map[string]interface{})
-	if data["id"] != "test-provider-1" {
-		t.Fatalf("expected id 'test-provider-1', got '%v'", data["id"])
-	}
-	if data["updatedAt"] == nil {
+	if resp.UpdatedAt == "" {
 		t.Fatal("expected updatedAt field")
 	}
 }

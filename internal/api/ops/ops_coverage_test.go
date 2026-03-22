@@ -43,11 +43,8 @@ func TestOpsBackupsListWithRealModel(t *testing.T) {
 
 	resp, err := opsBackupsList(ctx, svcCtx, &OpsBackupsListRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	data, ok := resp.Data.([]Backup)
-	require.True(t, ok)
-	assert.Len(t, data, 1)
-	assert.Equal(t, "test-backup", data[0].Name)
+	assert.Len(t, resp.Backups, 1)
+	assert.Equal(t, "test-backup", resp.Backups[0].Name)
 }
 
 func TestOpsBackupCreateWithRealModel(t *testing.T) {
@@ -271,10 +268,7 @@ func TestOpsSilencesWithRealModel(t *testing.T) {
 
 	resp, err := opsSilences(ctx, svcCtx, &OpsSilencesRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	data, ok := resp.Data.([]Silence)
-	require.True(t, ok)
-	assert.Len(t, data, 1)
+	assert.Len(t, resp.Silences, 1)
 }
 
 func TestAlertServiceListWithRealModel(t *testing.T) {
@@ -1531,10 +1525,7 @@ func TestOpsNodesMultiple(t *testing.T) {
 
 	resp, err := opsNodes(ctx, svcCtx, &OpsNodesRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	data, ok := resp.Data.([]Node)
-	require.True(t, ok)
-	assert.Len(t, data, 5)
+	assert.Len(t, resp.Nodes, 5)
 }
 
 // Test for opsFunctions with multiple functions across agents
@@ -1780,10 +1771,7 @@ func TestOpsBackupsListWithRealModelEmpty(t *testing.T) {
 
 	resp, err := opsBackupsList(ctx, svcCtx, &OpsBackupsListRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	data, ok := resp.Data.([]Backup)
-	require.True(t, ok)
-	assert.Empty(t, data)
+	assert.Empty(t, resp.Backups)
 }
 
 // Test for OpsAlerts with real model and empty list
@@ -1821,10 +1809,7 @@ func TestOpsSilencesWithRealModelEmpty(t *testing.T) {
 
 	resp, err := opsSilences(ctx, svcCtx, &OpsSilencesRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	data, ok := resp.Data.([]Silence)
-	require.True(t, ok)
-	assert.Empty(t, data)
+	assert.Empty(t, resp.Silences)
 }
 
 // Test for BackupService.GetDownloadURL with real model

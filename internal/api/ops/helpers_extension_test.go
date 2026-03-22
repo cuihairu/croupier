@@ -186,16 +186,12 @@ func TestOpsNotificationsGetPrefersExtensionInstallationConfig(t *testing.T) {
 		t.Fatalf("opsNotificationsGet() error = %v", err)
 	}
 
-	data, ok := resp.Data.(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected map data, got %T", resp.Data)
+	if !resp.Enabled {
+		t.Fatalf("expected enabled=true, got %#v", resp.Enabled)
 	}
-	if enabled, _ := data["enabled"].(bool); !enabled {
-		t.Fatalf("expected enabled=true, got %#v", data["enabled"])
-	}
-	channels, ok := data["channels"].([]OpsNotificationChannel)
-	if !ok || len(channels) != 1 || channels[0].ID != "ch-1" {
-		t.Fatalf("unexpected channels: %#v", data["channels"])
+	channels := resp.Channels
+	if len(channels) != 1 || channels[0].ID != "ch-1" {
+		t.Fatalf("unexpected channels: %#v", channels)
 	}
 }
 

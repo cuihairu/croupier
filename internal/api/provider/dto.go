@@ -1,56 +1,20 @@
 package provider
 
-// Provider DTOs - Data Transfer Objects for provider API operations
+// Provider DTOs - canonical REST contracts for provider API operations.
 type ProviderActionRequest struct {
 	ID string `uri:"id"`
-}
-
-type ProviderDeleteResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
 }
 
 type ProviderDetailRequest struct {
 	ID string `uri:"id"`
 }
 
-type ProviderDetailResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-type ProviderReloadResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
 type ProvidersCapabilitiesRequest struct{}
-
-type ProvidersCapabilitiesResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
 
 type ProvidersDescriptorsRequest struct{}
 
-type ProvidersDescriptorsResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
 type ProvidersEntitiesRequest struct {
 	ID string `uri:"id"`
-}
-
-type ProvidersEntitiesResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
 }
 
 type ProvidersListRequest struct {
@@ -58,8 +22,44 @@ type ProvidersListRequest struct {
 	PageSize int `form:"pageSize"`
 }
 
+// ProviderItem is the canonical provider metadata item returned by list/detail/capabilities.
+type ProviderItem map[string]interface{}
+
+// ProvidersListResponse is the canonical REST list response for providers.
 type ProvidersListResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Items    []ProviderItem `json:"items"`
+	Total    int            `json:"total"`
+	Page     int            `json:"page"`
+	PageSize int            `json:"pageSize"`
+}
+
+// ProvidersCapabilitiesResponse is the canonical REST list response for provider capabilities.
+type ProvidersCapabilitiesResponse struct {
+	Items []ProviderItem `json:"items"`
+	Total int            `json:"total"`
+}
+
+// ProvidersDescriptorsResponse contains provider OpenAPI manifests keyed by provider id.
+type ProvidersDescriptorsResponse struct {
+	ProviderManifests map[string]interface{} `json:"providerManifests"`
+}
+
+// ProviderDetailResponse returns the canonical detail payload for a single provider.
+type ProviderDetailResponse = ProviderItem
+
+// ProvidersEntitiesResponse lists entities exported by one or more providers.
+type ProvidersEntitiesResponse struct {
+	Items []map[string]interface{} `json:"items"`
+	Total int                      `json:"total"`
+}
+
+// ProviderDeleteResponse confirms provider deletion.
+type ProviderDeleteResponse struct {
+	ID string `json:"id"`
+}
+
+// ProviderReloadResponse confirms provider reload and updated timestamp.
+type ProviderReloadResponse struct {
+	ID        string `json:"id"`
+	UpdatedAt string `json:"updatedAt"`
 }

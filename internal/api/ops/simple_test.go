@@ -216,10 +216,7 @@ func TestServiceOpsNodes(t *testing.T) {
 
 	resp, err := s.OpsNodes(ctx, &OpsNodesRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	data, ok := resp.Data.([]Node)
-	require.True(t, ok)
-	assert.Len(t, data, 1)
+	assert.Len(t, resp.Nodes, 1)
 }
 
 func TestServiceOpsNodesEmptyRegistry(t *testing.T) {
@@ -231,10 +228,7 @@ func TestServiceOpsNodesEmptyRegistry(t *testing.T) {
 
 	resp, err := s.OpsNodes(ctx, &OpsNodesRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	data, ok := resp.Data.([]Node)
-	require.True(t, ok)
-	assert.Empty(t, data)
+	assert.Empty(t, resp.Nodes)
 }
 
 func TestServiceOpsNodeCommands(t *testing.T) {
@@ -423,8 +417,9 @@ func TestServiceOpsConfig(t *testing.T) {
 
 	resp, err := s.OpsConfig(ctx, &OpsConfigRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Empty(t, resp.Data)
+	assert.Empty(t, resp.AlertmanagerURL)
+	assert.Empty(t, resp.GrafanaExploreURL)
+	assert.Empty(t, resp.JaegerURL)
 }
 
 // Services tests
@@ -511,10 +506,7 @@ func TestServiceOpsNotificationsGet(t *testing.T) {
 
 	resp, err := s.OpsNotificationsGet(ctx, &OpsNotificationsGetRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	data, ok := resp.Data.(map[string]interface{})
-	require.True(t, ok)
-	assert.False(t, data["enabled"].(bool))
+	assert.False(t, resp.Enabled)
 }
 
 func TestServiceOpsNotificationsUpdate(t *testing.T) {

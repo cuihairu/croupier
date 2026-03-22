@@ -22,22 +22,21 @@ func (s *Service) List(ctx context.Context, req *ProvidersListRequest) (*Provide
 	if err != nil {
 		return nil, err
 	}
+	if req == nil {
+		req = &ProvidersListRequest{}
+	}
 
 	providers := store.ListOpenAPIProviders()
-	items := make([]map[string]interface{}, 0, len(providers))
+	items := make([]ProviderItem, 0, len(providers))
 	for _, provider := range providers {
 		items = append(items, buildProviderMeta(*provider, false))
 	}
 
 	return &ProvidersListResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"items": items,
-			"total": len(items),
-			"page":  req.Page,
-			"size":  req.PageSize,
-		},
+		Items:    items,
+		Total:    len(items),
+		Page:     req.Page,
+		PageSize: req.PageSize,
 	}, nil
 }
 
@@ -49,18 +48,14 @@ func (s *Service) Capabilities(ctx context.Context, req *ProvidersCapabilitiesRe
 	}
 	providers := store.ListOpenAPIProviders()
 
-	items := make([]map[string]interface{}, 0, len(providers))
+	items := make([]ProviderItem, 0, len(providers))
 	for _, provider := range providers {
 		items = append(items, buildProviderMeta(*provider, true))
 	}
 
 	return &ProvidersCapabilitiesResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"items": items,
-			"total": len(items),
-		},
+		Items: items,
+		Total: len(items),
 	}, nil
 }
 
@@ -96,11 +91,7 @@ func (s *Service) Descriptors(ctx context.Context, req *ProvidersDescriptorsRequ
 	}
 
 	return &ProvidersDescriptorsResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"provider_manifests": providerManifests,
-		},
+		ProviderManifests: providerManifests,
 	}, nil
 }
 
@@ -111,13 +102,8 @@ func (s *Service) Detail(ctx context.Context, req *ProviderDetailRequest) (*Prov
 		return nil, err
 	}
 
-	meta := buildProviderMeta(caps, true)
-
-	return &ProviderDetailResponse{
-		Code:    0,
-		Message: "OK",
-		Data:    meta,
-	}, nil
+	meta := ProviderItem(buildProviderMeta(caps, true))
+	return &meta, nil
 }
 
 // Entities returns the entities of providers
@@ -138,12 +124,8 @@ func (s *Service) Entities(ctx context.Context, req *ProvidersEntitiesRequest) (
 	}
 
 	return &ProvidersEntitiesResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"items": entities,
-			"total": len(entities),
-		},
+		Items: entities,
+		Total: len(entities),
 	}, nil
 }
 
@@ -154,11 +136,7 @@ func (s *Service) Delete(ctx context.Context, req *ProviderActionRequest) (*Prov
 	}
 
 	return &ProviderDeleteResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"id": req.ID,
-		},
+		ID: req.ID,
 	}, nil
 }
 
@@ -176,11 +154,7 @@ func (s *Service) Reload(ctx context.Context, req *ProviderActionRequest) (*Prov
 	refreshProviderTimestamp(s.svcCtx.RegistryStore, caps)
 
 	return &ProviderReloadResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"id":        caps.ID,
-			"updatedAt": time.Now().UTC().Format(time.RFC3339),
-		},
+		ID:        caps.ID,
+		UpdatedAt: time.Now().UTC().Format(time.RFC3339),
 	}, nil
 }

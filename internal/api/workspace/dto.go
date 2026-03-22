@@ -70,7 +70,7 @@ type DeleteConfigResponse struct {
 
 // PublishRequest is the request to publish a workspace
 type PublishRequest struct {
-	ObjectKey   string `json:"objectKey" binding:"required"`
+	ObjectKey   string `uri:"objectKey" binding:"required"`
 	PublishedBy string `json:"publishedBy"`
 }
 
@@ -82,7 +82,7 @@ type PublishResponse struct {
 
 // UnpublishRequest is the request to unpublish a workspace
 type UnpublishRequest struct {
-	ObjectKey string `json:"objectKey" binding:"required"`
+	ObjectKey string `uri:"objectKey" binding:"required"`
 }
 
 // UnpublishResponse is the response from unpublishing workspace
@@ -93,7 +93,7 @@ type UnpublishResponse struct {
 
 // VersionsRequest is the request to list workspace versions
 type VersionsRequest struct {
-	ObjectKey string `form:"objectKey" binding:"required"`
+	ObjectKey string `uri:"objectKey" binding:"required"`
 	From      string `form:"from"`
 	To        string `form:"to"`
 }

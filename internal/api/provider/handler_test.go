@@ -87,8 +87,8 @@ func TestService_List_NilContext(t *testing.T) {
 	if err != nil {
 		t.Logf("Expected error for nil context: %v", err)
 	}
-	if resp != nil && resp.Data == nil {
-		t.Log("Data field is nil as expected for empty service context")
+	if resp != nil && len(resp.Items) == 0 {
+		t.Log("Items field is empty as expected for empty service context")
 	}
 }
 

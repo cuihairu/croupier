@@ -196,9 +196,7 @@ type OpsBackupsListRequest struct {
 }
 
 type OpsBackupsListResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Backups []Backup `json:"backups"`
 }
 
 // Config and operations DTOs
@@ -207,9 +205,9 @@ type OpsConfigRequest struct {
 }
 
 type OpsConfigResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	AlertmanagerURL   string `json:"alertmanager_url,omitempty"`
+	GrafanaExploreURL string `json:"grafana_explore_url,omitempty"`
+	JaegerURL         string `json:"jaeger_url,omitempty"`
 }
 
 // Metrics DTOs
@@ -441,9 +439,7 @@ type OpsNodesRequest struct {
 }
 
 type OpsNodesResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Nodes []Node `json:"nodes"`
 }
 
 // Notification operations DTOs
@@ -465,9 +461,9 @@ type OpsNotificationsGetRequest struct {
 }
 
 type OpsNotificationsGetResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Enabled  bool                     `json:"enabled"`
+	Channels []OpsNotificationChannel `json:"channels"`
+	Rules    []OpsNotificationRule    `json:"rules"`
 }
 
 type OpsNotificationsUpdateRequest struct {
@@ -593,9 +589,7 @@ type OpsSilencesRequest struct {
 }
 
 type OpsSilencesResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Silences []Silence `json:"silences"`
 }
 
 // Additional DTOs used by the ops module helpers

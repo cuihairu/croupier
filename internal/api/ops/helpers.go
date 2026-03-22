@@ -216,9 +216,7 @@ func opsBackupsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsBac
 	}
 
 	return &OpsBackupsListResponse{
-		Code:    0,
-		Message: "Success",
-		Data:    items,
+		Backups: items,
 	}, nil
 }
 
@@ -348,9 +346,7 @@ func opsSilences(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsSilenc
 	}
 
 	return &OpsSilencesResponse{
-		Code:    0,
-		Message: "Success",
-		Data:    items,
+		Silences: items,
 	}, nil
 }
 
@@ -360,9 +356,7 @@ func opsNodes(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodesRequ
 	store := svcCtx.RegistryStore
 	if store == nil {
 		return &OpsNodesResponse{
-			Code:    0,
-			Message: "Success",
-			Data:    []Node{},
+			Nodes: []Node{},
 		}, nil
 	}
 
@@ -388,9 +382,7 @@ func opsNodes(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodesRequ
 	}
 
 	return &OpsNodesResponse{
-		Code:    0,
-		Message: "Success",
-		Data:    nodes,
+		Nodes: nodes,
 	}, nil
 }
 
@@ -546,9 +538,9 @@ func opsFunctions(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsFunct
 func opsConfig(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsConfigRequest) (*OpsConfigResponse, error) {
 	// ConfigModel not implemented - return empty config
 	return &OpsConfigResponse{
-		Code:    0,
-		Message: "Success",
-		Data:    map[string]interface{}{},
+		AlertmanagerURL:   "",
+		GrafanaExploreURL: "",
+		JaegerURL:         "",
 	}, nil
 }
 
@@ -557,24 +549,16 @@ func opsNotificationsGet(ctx context.Context, svcCtx *svc.ServiceContext, req *O
 		return nil, err
 	} else if ok {
 		return &OpsNotificationsGetResponse{
-			Code:    0,
-			Message: "Success",
-			Data: map[string]interface{}{
-				"enabled":  enabled,
-				"channels": channels,
-				"rules":    rules,
-			},
+			Enabled:  enabled,
+			Channels: channels,
+			Rules:    rules,
 		}, nil
 	}
 	// NotificationModel not implemented - fallback to empty
 	return &OpsNotificationsGetResponse{
-		Code:    0,
-		Message: "Success",
-		Data: map[string]interface{}{
-			"enabled":  false,
-			"channels": []OpsNotificationChannel{},
-			"rules":    []OpsNotificationRule{},
-		},
+		Enabled:  false,
+		Channels: []OpsNotificationChannel{},
+		Rules:    []OpsNotificationRule{},
 	}, nil
 }
 

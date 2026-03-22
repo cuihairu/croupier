@@ -10,7 +10,7 @@ func NewService() *Service {
 
 // GetRoutes returns the available routes
 func (s *Service) GetRoutes(ctx context.Context) (*GetRoutesResponse, error) {
-	routes := []RouteItem{
+	routes := GetRoutesResponse{
 		{Path: "/api/v1/admin", Name: "Admin", Icon: "user", Component: "Admin"},
 		{Path: "/api/v1/functions", Name: "Functions", Icon: "function", Component: "Functions"},
 		{Path: "/api/v1/games", Name: "Games", Icon: "game", Component: "Games"},
@@ -41,9 +41,5 @@ func (s *Service) GetRoutes(ctx context.Context) (*GetRoutesResponse, error) {
 		{Path: "/api/v1/workspaces", Name: "Workspaces", Icon: "workspace", Component: "Workspaces"},
 	}
 
-	return &GetRoutesResponse{
-		Code:    0,
-		Message: "OK",
-		Data:    routes,
-	}, nil
+	return &routes, nil
 }

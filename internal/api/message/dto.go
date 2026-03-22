@@ -4,21 +4,26 @@ type MessageDetailRequest struct {
 	ID string `uri:"id"`
 }
 
-type MessageDetailResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+type MessageItem struct {
+	ID        interface{} `json:"id"`
+	To        string      `json:"to"`
+	Type      string      `json:"type"`
+	Title     string      `json:"title"`
+	Content   string      `json:"content"`
+	Data      interface{} `json:"data,omitempty"`
+	Status    string      `json:"status"`
+	ReadAt    string      `json:"readAt,omitempty"`
+	CreatedAt string      `json:"createdAt"`
+	UpdatedAt string      `json:"updatedAt"`
 }
+
+type MessageDetailResponse = MessageItem
 
 type MessageReadRequest struct {
 	ID string `uri:"id"`
 }
 
-type MessageReadResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
+type MessageReadResponse = MessageItem
 
 type MessageSendRequest struct {
 	To      string      `json:"to"`
@@ -28,11 +33,7 @@ type MessageSendRequest struct {
 	Data    interface{} `json:"data"`
 }
 
-type MessageSendResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
+type MessageSendResponse = MessageItem
 
 type MessagesListRequest struct {
 	Page     int    `form:"page"`
@@ -42,17 +43,16 @@ type MessagesListRequest struct {
 }
 
 type MessagesListResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Items    []MessageItem `json:"items"`
+	Total    int64         `json:"total"`
+	Page     int           `json:"page"`
+	PageSize int           `json:"pageSize"`
 }
 
 type MessagesUnreadCountRequest struct{}
 
 type MessagesUnreadCountResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Count int64 `json:"count"`
 }
 
 // StreamMessagesRequest is for streaming messages
@@ -61,7 +61,5 @@ type StreamMessagesRequest struct {
 
 // StreamMessagesResponse is for streaming messages response
 type StreamMessagesResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Items []MessageItem `json:"items"`
 }

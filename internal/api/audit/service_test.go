@@ -60,20 +60,8 @@ func TestService_GetAuditLogs_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, 0, resp.Code)
-	assert.Equal(t, "OK", resp.Message)
-
-	data, ok := resp.Data.(map[string]interface{})
-	assert.True(t, ok)
-	assert.NotNil(t, data)
-
-	items, ok := data["items"].([]map[string]interface{})
-	assert.True(t, ok)
-	assert.GreaterOrEqual(t, len(items), 3)
-
-	total, ok := data["total"].(int)
-	assert.True(t, ok)
-	assert.GreaterOrEqual(t, total, 3)
+	assert.GreaterOrEqual(t, len(resp.Items), 3)
+	assert.GreaterOrEqual(t, resp.Total, 3)
 }
 
 func TestService_GetAuditLogs_WithActionFilter(t *testing.T) {
@@ -99,13 +87,10 @@ func TestService_GetAuditLogs_WithActionFilter(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
+	assert.GreaterOrEqual(t, len(resp.Items), 2)
 
-	data := resp.Data.(map[string]interface{})
-	items := data["items"].([]map[string]interface{})
-	assert.GreaterOrEqual(t, len(items), 2)
-
-	for _, item := range items {
-		assert.Equal(t, "create", item["action"])
+	for _, item := range resp.Items {
+		assert.Equal(t, "create", item.Action)
 	}
 }
 
@@ -132,13 +117,10 @@ func TestService_GetAuditLogs_WithUserFilter(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
+	assert.GreaterOrEqual(t, len(resp.Items), 2)
 
-	data := resp.Data.(map[string]interface{})
-	items := data["items"].([]map[string]interface{})
-	assert.GreaterOrEqual(t, len(items), 2)
-
-	for _, item := range items {
-		assert.Equal(t, "user1", item["userId"])
+	for _, item := range resp.Items {
+		assert.Equal(t, "user1", item.UserID)
 	}
 }
 
@@ -166,14 +148,11 @@ func TestService_GetAuditLogs_WithBothFilters(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
+	assert.GreaterOrEqual(t, len(resp.Items), 1)
 
-	data := resp.Data.(map[string]interface{})
-	items := data["items"].([]map[string]interface{})
-	assert.GreaterOrEqual(t, len(items), 1)
-
-	if len(items) > 0 {
-		assert.Equal(t, "user1", items[0]["userId"])
-		assert.Equal(t, "create", items[0]["action"])
+	if len(resp.Items) > 0 {
+		assert.Equal(t, "user1", resp.Items[0].UserID)
+		assert.Equal(t, "create", resp.Items[0].Action)
 	}
 }
 
@@ -192,11 +171,8 @@ func TestService_GetAuditLogs_EmptyResults(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-
-	data := resp.Data.(map[string]interface{})
-	items := data["items"].([]map[string]interface{})
-	assert.Len(t, items, 0)
-	assert.Equal(t, 0, data["total"])
+	assert.Len(t, resp.Items, 0)
+	assert.Equal(t, 0, resp.Total)
 }
 
 func TestService_GetAuditLogs_DefaultPagination(t *testing.T) {
@@ -218,10 +194,8 @@ func TestService_GetAuditLogs_DefaultPagination(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-
-	data := resp.Data.(map[string]interface{})
-	assert.Equal(t, 1, data["page"])
-	assert.Equal(t, 20, data["size"])
+	assert.Equal(t, 1, resp.Page)
+	assert.Equal(t, 20, resp.PageSize)
 }
 
 func TestService_GetAuditLogs_ZeroPage(t *testing.T) {
@@ -244,9 +218,7 @@ func TestService_GetAuditLogs_ZeroPage(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-
-	data := resp.Data.(map[string]interface{})
-	assert.Equal(t, 1, data["page"])
+	assert.Equal(t, 1, resp.Page)
 }
 
 func TestService_GetAuditLogs_ZeroPageSize(t *testing.T) {
@@ -269,9 +241,7 @@ func TestService_GetAuditLogs_ZeroPageSize(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-
-	data := resp.Data.(map[string]interface{})
-	assert.Equal(t, 20, data["size"])
+	assert.Equal(t, 20, resp.PageSize)
 }
 
 func TestService_GetAuditLogs_MaxPageSize(t *testing.T) {
@@ -296,12 +266,8 @@ func TestService_GetAuditLogs_MaxPageSize(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-
-	data := resp.Data.(map[string]interface{})
-	assert.Equal(t, 1000, data["size"])
-
-	items := data["items"].([]map[string]interface{})
-	assert.Len(t, items, 1000)
+	assert.Equal(t, 1000, resp.PageSize)
+	assert.Len(t, resp.Items, 1000)
 }
 
 func TestService_GetAuditLogs_MaxPage(t *testing.T) {
@@ -318,11 +284,7 @@ func TestService_GetAuditLogs_MaxPage(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-
-	data := resp.Data.(map[string]interface{})
-	// The page should be capped at 1_000_000_000
-	pageVal := data["page"]
-	assert.Equal(t, 1000000000, pageVal)
+	assert.Equal(t, 1000000000, resp.Page)
 }
 
 func TestService_GetAuditLogs_Pagination(t *testing.T) {
@@ -344,26 +306,20 @@ func TestService_GetAuditLogs_Pagination(t *testing.T) {
 		Page:     1,
 		PageSize: 10,
 	})
-	data1 := resp1.Data.(map[string]interface{})
-	items1 := data1["items"].([]map[string]interface{})
-	assert.Len(t, items1, 10)
-	assert.Equal(t, 25, data1["total"])
+	assert.Len(t, resp1.Items, 10)
+	assert.Equal(t, 25, resp1.Total)
 
 	resp2, _ := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page:     2,
 		PageSize: 10,
 	})
-	data2 := resp2.Data.(map[string]interface{})
-	items2 := data2["items"].([]map[string]interface{})
-	assert.Len(t, items2, 10)
+	assert.Len(t, resp2.Items, 10)
 
 	resp3, _ := service.GetAuditLogs(context.Background(), &AuditRequest{
 		Page:     3,
 		PageSize: 10,
 	})
-	data3 := resp3.Data.(map[string]interface{})
-	items3 := data3["items"].([]map[string]interface{})
-	assert.Len(t, items3, 5)
+	assert.Len(t, resp3.Items, 5)
 }
 
 func TestService_GetAuditLogs_PageBeyondData(t *testing.T) {
@@ -388,11 +344,8 @@ func TestService_GetAuditLogs_PageBeyondData(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-
-	data := resp.Data.(map[string]interface{})
-	items := data["items"].([]map[string]interface{})
-	assert.Len(t, items, 0)
-	assert.Equal(t, 5, data["total"])
+	assert.Len(t, resp.Items, 0)
+	assert.Equal(t, 5, resp.Total)
 }
 
 func TestService_GetAuditLogs_NilRequest(t *testing.T) {
@@ -449,9 +402,7 @@ func TestService_GetAuditLogs_WithSizeAlias(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-
-	data := resp.Data.(map[string]interface{})
-	assert.Equal(t, 5, data["size"])
+	assert.Equal(t, 5, resp.PageSize)
 }
 
 func TestService_GetAuditLogs_PageSizeTakesPrecedence(t *testing.T) {
@@ -475,9 +426,7 @@ func TestService_GetAuditLogs_PageSizeTakesPrecedence(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-
-	data := resp.Data.(map[string]interface{})
-	assert.Equal(t, 10, data["size"])
+	assert.Equal(t, 10, resp.PageSize)
 }
 
 func TestService_GetAuditLogs_WithMetadata(t *testing.T) {
@@ -504,13 +453,8 @@ func TestService_GetAuditLogs_WithMetadata(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-
-	data := resp.Data.(map[string]interface{})
-	items := data["items"].([]map[string]interface{})
-	assert.GreaterOrEqual(t, len(items), 1)
-
-	itemMetadata := items[0]["metadata"]
-	assert.NotNil(t, itemMetadata)
+	assert.GreaterOrEqual(t, len(resp.Items), 1)
+	assert.NotNil(t, resp.Items[0].Metadata)
 }
 
 func TestService_GetAuditLogs_SortedByCreatedAt(t *testing.T) {
@@ -536,14 +480,11 @@ func TestService_GetAuditLogs_SortedByCreatedAt(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 
-	data := resp.Data.(map[string]interface{})
-	items := data["items"].([]map[string]interface{})
-
 	// Items should be sorted by CreatedAt descending (newest first)
-	if len(items) >= 3 {
-		assert.Equal(t, "user3", items[0]["userId"])
-		assert.Equal(t, "user2", items[1]["userId"])
-		assert.Equal(t, "user1", items[2]["userId"])
+	if len(resp.Items) >= 3 {
+		assert.Equal(t, "user3", resp.Items[0].UserID)
+		assert.Equal(t, "user2", resp.Items[1].UserID)
+		assert.Equal(t, "user1", resp.Items[2].UserID)
 	}
 }
 
@@ -567,21 +508,18 @@ func TestService_GetAuditLogs_AllFieldsPresent(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
+	assert.GreaterOrEqual(t, len(resp.Items), 1)
 
-	data := resp.Data.(map[string]interface{})
-	items := data["items"].([]map[string]interface{})
-	assert.GreaterOrEqual(t, len(items), 1)
-
-	item := items[0]
-	assert.Equal(t, "testuser", item["userId"])
-	assert.Equal(t, "testgame", item["gameId"])
-	assert.Equal(t, "testenv", item["env"])
-	assert.Equal(t, "testaction", item["action"])
-	assert.Equal(t, "testtarget", item["target"])
-	assert.Equal(t, "testresult", item["result"])
-	assert.Equal(t, "testtrace", item["traceId"])
-	assert.NotEmpty(t, item["createdAt"])
-	assert.NotNil(t, item["metadata"])
+	item := resp.Items[0]
+	assert.Equal(t, "testuser", item.UserID)
+	assert.Equal(t, "testgame", item.GameID)
+	assert.Equal(t, "testenv", item.Env)
+	assert.Equal(t, "testaction", item.Action)
+	assert.Equal(t, "testtarget", item.Target)
+	assert.Equal(t, "testresult", item.Result)
+	assert.Equal(t, "testtrace", item.TraceID)
+	assert.NotEmpty(t, item.CreatedAt)
+	assert.NotNil(t, item.Metadata)
 }
 
 func TestNewService(t *testing.T) {

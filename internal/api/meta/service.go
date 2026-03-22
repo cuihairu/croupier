@@ -28,12 +28,12 @@ func (s *Service) Root(ctx context.Context) (*RootResponse, error) {
 	}
 	sort.Strings(profiles)
 
-	data := map[string]interface{}{
-		"service":     "croupier-server",
-		"version":     currentAPIVersion(),
-		"environment": s.svcCtx.Config.Server.Mode,
-		"timestamp":   utils.FormatTimestamp(time.Now()),
-		"features": []string{
+	return &RootResponse{
+		Service:     "croupier-server",
+		Version:     currentAPIVersion(),
+		Environment: s.svcCtx.Config.Server.Mode,
+		Timestamp:   utils.FormatTimestamp(time.Now()),
+		Features: []string{
 			"alerts",
 			"analytics",
 			"functions",
@@ -41,18 +41,12 @@ func (s *Service) Root(ctx context.Context) (*RootResponse, error) {
 			"ops",
 			"feedback",
 		},
-		"profiles": profiles,
-		"links": map[string]string{
+		Profiles: profiles,
+		Links: map[string]string{
 			"docs":   "https://github.com/cuihairu/croupier",
 			"status": "/api/v1/ops/config",
 			"health": "/api/v1/ops/health",
 		},
-	}
-
-	return &RootResponse{
-		Code:    0,
-		Message: "OK",
-		Data:    data,
 	}, nil
 }
 

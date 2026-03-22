@@ -31,14 +31,10 @@ func (s *Service) List(ctx context.Context, req *AssignmentsListRequest) (*Assig
 
 	filtered := filterAssignments(assignments, strings.TrimSpace(req.GameId), strings.TrimSpace(req.Env))
 	return &AssignmentsListResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"assignments": filtered,
-			"total":       len(filtered),
-			"page":        req.Page,
-			"pageSize":    req.PageSize,
-		},
+		Assignments: filtered,
+		Total:       len(filtered),
+		Page:        req.Page,
+		PageSize:    req.PageSize,
 	}, nil
 }
 
@@ -94,14 +90,10 @@ func (s *Service) History(ctx context.Context, req *AssignmentsHistoryRequest) (
 	}
 
 	return &AssignmentsHistoryResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"items":    filtered[start:end],
-			"total":    total,
-			"page":     page,
-			"pageSize": pageSize,
-		},
+		Items:    filtered[start:end],
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
 	}, nil
 }
 
@@ -164,12 +156,8 @@ func (s *Service) Update(ctx context.Context, req *AssignmentsUpdateRequest) (*A
 	})
 
 	return &AssignmentsUpdateResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"ok":          true,
-			"unknown":     unknown,
-			"assignments": map[string][]string{key: accepted},
-		},
+		OK:          true,
+		Unknown:     unknown,
+		Assignments: map[string][]string{key: accepted},
 	}, nil
 }

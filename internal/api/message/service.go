@@ -39,14 +39,10 @@ func (s *Service) List(ctx context.Context, req *MessagesListRequest) (*Messages
 	}
 
 	return &MessagesListResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"items": items,
-			"total": total,
-			"page":  opts.Page,
-			"size":  opts.PageSize,
-		},
+		Items:    normalizeMessageItems(items),
+		Total:    total,
+		Page:     opts.Page,
+		PageSize: opts.PageSize,
 	}, nil
 }
 
@@ -85,11 +81,7 @@ func (s *Service) Send(ctx context.Context, req *MessageSendRequest) (*MessageSe
 		return nil, err
 	}
 
-	return &MessageSendResponse{
-		Code:    0,
-		Message: "OK",
-		Data:    utils.BuildMessageDTO(msg),
-	}, nil
+	return buildMessageItemResponse(msg), nil
 }
 
 // Detail returns the details of a message
@@ -104,11 +96,7 @@ func (s *Service) Detail(ctx context.Context, req *MessageDetailRequest) (*Messa
 		return nil, err
 	}
 
-	return &MessageDetailResponse{
-		Code:    0,
-		Message: "OK",
-		Data:    utils.BuildMessageDTO(msg),
-	}, nil
+	return buildMessageItemResponse(msg), nil
 }
 
 // Read marks a message as read
@@ -127,11 +115,7 @@ func (s *Service) Read(ctx context.Context, req *MessageReadRequest) (*MessageRe
 		return nil, err
 	}
 
-	return &MessageReadResponse{
-		Code:    0,
-		Message: "OK",
-		Data:    utils.BuildMessageDTO(msg),
-	}, nil
+	return buildMessageItemResponse(msg), nil
 }
 
 // UnreadCount returns the count of unread messages
@@ -142,11 +126,7 @@ func (s *Service) UnreadCount(ctx context.Context, req *MessagesUnreadCountReque
 	}
 
 	return &MessagesUnreadCountResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"count": count,
-		},
+		Count: count,
 	}, nil
 }
 
@@ -163,10 +143,40 @@ func (s *Service) Stream(ctx context.Context, req *StreamMessagesRequest) (*Stre
 	}
 
 	return &StreamMessagesResponse{
-		Code:    0,
-		Message: "OK",
-		Data: map[string]interface{}{
-			"items": items,
-		},
+		Items: normalizeMessageItems(items),
 	}, nil
+}
+
+func buildMessageItemResponse(msg *model.Message) *MessageItem {
+	items := normalizeMessageItems([]map[string]interface{}{utils.BuildMessageDTO(msg)})
+	if len(items) == 0 {
+		return &MessageItem{}
+	}
+	return &items[0]
+}
+
+func normalizeMessageItems(items []map[string]interface{}) []MessageItem {
+	out := make([]MessageItem, 0, len(items))
+	for _, item := range items {
+		out = append(out, MessageItem{
+			ID:        item["id"],
+			To:        stringValue(item["to"]),
+			Type:      stringValue(item["type"]),
+			Title:     stringValue(item["title"]),
+			Content:   stringValue(item["content"]),
+			Data:      item["data"],
+			Status:    stringValue(item["status"]),
+			ReadAt:    stringValue(item["readAt"]),
+			CreatedAt: stringValue(item["createdAt"]),
+			UpdatedAt: stringValue(item["updatedAt"]),
+		})
+	}
+	return out
+}
+
+func stringValue(value interface{}) string {
+	if text, ok := value.(string); ok {
+		return text
+	}
+	return ""
 }

@@ -9,9 +9,5 @@ type RouteItem struct {
 	Meta      map[string]interface{} `json:"meta"`
 }
 
-// GetRoutesResponse returns the available routes
-type GetRoutesResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    []RouteItem `json:"data"`
-}
+// GetRoutesResponse returns the available routes.
+type GetRoutesResponse []RouteItem

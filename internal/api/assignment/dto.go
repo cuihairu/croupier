@@ -1,6 +1,6 @@
 package assignment
 
-// AssignmentsListRequest represents a request to list assignments
+// AssignmentsListRequest represents a request to list assignments.
 type AssignmentsListRequest struct {
 	Page     int    `form:"page"`
 	PageSize int    `form:"pageSize"`
@@ -8,14 +8,15 @@ type AssignmentsListRequest struct {
 	Env      string `form:"env"`
 }
 
-// AssignmentsListResponse represents the response for listing assignments
+// AssignmentsListResponse represents the canonical list response for assignments.
 type AssignmentsListResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Assignments map[string][]string `json:"assignments"`
+	Total       int                 `json:"total"`
+	Page        int                 `json:"page"`
+	PageSize    int                 `json:"pageSize"`
 }
 
-// AssignmentsHistoryRequest represents a request to list assignment history
+// AssignmentsHistoryRequest represents a request to list assignment history.
 type AssignmentsHistoryRequest struct {
 	Page     int    `form:"page"`
 	PageSize int    `form:"pageSize"`
@@ -24,14 +25,15 @@ type AssignmentsHistoryRequest struct {
 	Action   string `form:"action"`
 }
 
-// AssignmentsHistoryResponse represents the response for listing assignment history
+// AssignmentsHistoryResponse represents the canonical history list response.
 type AssignmentsHistoryResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Items    []assignmentHistoryEntry `json:"items"`
+	Total    int                      `json:"total"`
+	Page     int                      `json:"page"`
+	PageSize int                      `json:"pageSize"`
 }
 
-// AssignmentsUpdateRequest represents a request to update assignments
+// AssignmentsUpdateRequest represents a request to update assignments.
 type AssignmentsUpdateRequest struct {
 	GameId    string   `json:"game_id"`
 	Env       string   `json:"env"`
@@ -39,9 +41,9 @@ type AssignmentsUpdateRequest struct {
 	Functions []string `json:"functions"`
 }
 
-// AssignmentsUpdateResponse represents the response for updating assignments
+// AssignmentsUpdateResponse represents the canonical update response.
 type AssignmentsUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	OK          bool                `json:"ok"`
+	Unknown     []string            `json:"unknown,omitempty"`
+	Assignments map[string][]string `json:"assignments,omitempty"`
 }
