@@ -112,6 +112,7 @@ services/server/current_handlers.txt
 # Temporary build artifacts
 services/*/bin/
 services/*/logs/
+__debug_bin.exe*
 
 # Python bytecode caches
 sdks/python/croupier/__pycache__/
