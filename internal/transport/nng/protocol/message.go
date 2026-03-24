@@ -19,16 +19,22 @@ const (
 // Message type IDs (24-bit, aligned with SDK)
 const (
 	// ControlService messages (0x01xx)
-	MsgRegisterRequest   = 0x010101
-	MsgRegisterResponse  = 0x010102
-	MsgHeartbeatRequest  = 0x010103
-	MsgHeartbeatResponse = 0x010104
+	MsgRegisterRequest          = 0x010101
+	MsgRegisterResponse         = 0x010102
+	MsgHeartbeatRequest         = 0x010103
+	MsgHeartbeatResponse        = 0x010104
+	MsgRegisterCapabilitiesReq  = 0x010105
+	MsgRegisterCapabilitiesResp = 0x010106
 
 	// ClientService messages (0x02xx)
 	MsgRegisterClientRequest   = 0x020101
 	MsgRegisterClientResponse  = 0x020102
 	MsgClientHeartbeatRequest  = 0x020103
 	MsgClientHeartbeatResponse = 0x020104
+	MsgListClientsRequest      = 0x020105
+	MsgListClientsResponse     = 0x020106
+	MsgGetJobResultRequest     = 0x020107
+	MsgGetJobResultResponse    = 0x020108
 
 	// InvokerService messages (0x03xx)
 	MsgInvokeRequest     = 0x030101
@@ -39,6 +45,36 @@ const (
 	MsgJobEvent          = 0x030106
 	MsgCancelJobRequest  = 0x030107
 	MsgCancelJobResponse = 0x030108
+
+	// OpsService messages (0x04xx)
+	MsgGetSystemInfoRequest     = 0x040101
+	MsgGetSystemInfoResponse    = 0x040102
+	MsgListProcessesRequest     = 0x040103
+	MsgListProcessesResponse    = 0x040104
+	MsgReportMetricsRequest     = 0x040105
+	MsgReportMetricsResponse    = 0x040106
+	MsgStreamMetricsRequest     = 0x040107
+	MsgMetricEvent              = 0x040108
+	MsgRestartProcessRequest    = 0x040109
+	MsgRestartProcessResponse   = 0x04010A
+	MsgStopProcessRequest       = 0x04010B
+	MsgStopProcessResponse      = 0x04010C
+	MsgStartProcessRequest      = 0x04010D
+	MsgStartProcessResponse     = 0x04010E
+	MsgExecuteCommandRequest    = 0x04010F
+	MsgExecuteCommandResponse   = 0x040110
+	MsgListServicesRequest      = 0x040111
+	MsgListServicesResponse     = 0x040112
+	MsgGetServiceStatusRequest  = 0x040113
+	MsgGetServiceStatusResponse = 0x040114
+
+	// LocalControlService messages (0x05xx)
+	MsgRegisterLocalRequest   = 0x050101
+	MsgRegisterLocalResponse  = 0x050102
+	MsgHeartbeatLocalRequest  = 0x050103
+	MsgHeartbeatLocalResponse = 0x050104
+	MsgListLocalRequest       = 0x050105
+	MsgListLocalResponse      = 0x050106
 )
 
 // PutMsgID encodes a 24-bit MsgID into buf in big-endian order.
@@ -95,12 +131,12 @@ func NewResponseMessage(msgID uint32, reqID uint32, body []byte) (*mangos.Messag
 
 // IsRequest判断是否是Request消息（奇数）
 func IsRequest(msgID uint32) bool {
-	return msgID%2 == 1 && msgID != MsgJobEvent
+	return msgID%2 == 1 && msgID != MsgJobEvent && msgID != MsgMetricEvent
 }
 
 // IsResponse判断是否是Response消息（偶数）
 func IsResponse(msgID uint32) bool {
-	return msgID%2 == 0
+	return msgID%2 == 0 && msgID != MsgJobEvent && msgID != MsgMetricEvent
 }
 
 // GetResponseMsgID获取对应的Response MsgID
@@ -119,6 +155,10 @@ func MsgIDString(msgID uint32) string {
 		return "HeartbeatRequest"
 	case MsgHeartbeatResponse:
 		return "HeartbeatResponse"
+	case MsgRegisterCapabilitiesReq:
+		return "RegisterCapabilitiesRequest"
+	case MsgRegisterCapabilitiesResp:
+		return "RegisterCapabilitiesResponse"
 	case MsgRegisterClientRequest:
 		return "RegisterClientRequest"
 	case MsgRegisterClientResponse:
@@ -127,6 +167,14 @@ func MsgIDString(msgID uint32) string {
 		return "ClientHeartbeatRequest"
 	case MsgClientHeartbeatResponse:
 		return "ClientHeartbeatResponse"
+	case MsgListClientsRequest:
+		return "ListClientsRequest"
+	case MsgListClientsResponse:
+		return "ListClientsResponse"
+	case MsgGetJobResultRequest:
+		return "GetJobResultRequest"
+	case MsgGetJobResultResponse:
+		return "GetJobResultResponse"
 	case MsgInvokeRequest:
 		return "InvokeRequest"
 	case MsgInvokeResponse:
@@ -143,6 +191,58 @@ func MsgIDString(msgID uint32) string {
 		return "CancelJobRequest"
 	case MsgCancelJobResponse:
 		return "CancelJobResponse"
+	case MsgGetSystemInfoRequest:
+		return "GetSystemInfoRequest"
+	case MsgGetSystemInfoResponse:
+		return "GetSystemInfoResponse"
+	case MsgListProcessesRequest:
+		return "ListProcessesRequest"
+	case MsgListProcessesResponse:
+		return "ListProcessesResponse"
+	case MsgReportMetricsRequest:
+		return "ReportMetricsRequest"
+	case MsgReportMetricsResponse:
+		return "ReportMetricsResponse"
+	case MsgStreamMetricsRequest:
+		return "StreamMetricsRequest"
+	case MsgMetricEvent:
+		return "MetricEvent"
+	case MsgRestartProcessRequest:
+		return "RestartProcessRequest"
+	case MsgRestartProcessResponse:
+		return "RestartProcessResponse"
+	case MsgStopProcessRequest:
+		return "StopProcessRequest"
+	case MsgStopProcessResponse:
+		return "StopProcessResponse"
+	case MsgStartProcessRequest:
+		return "StartProcessRequest"
+	case MsgStartProcessResponse:
+		return "StartProcessResponse"
+	case MsgExecuteCommandRequest:
+		return "ExecuteCommandRequest"
+	case MsgExecuteCommandResponse:
+		return "ExecuteCommandResponse"
+	case MsgListServicesRequest:
+		return "ListServicesRequest"
+	case MsgListServicesResponse:
+		return "ListServicesResponse"
+	case MsgGetServiceStatusRequest:
+		return "GetServiceStatusRequest"
+	case MsgGetServiceStatusResponse:
+		return "GetServiceStatusResponse"
+	case MsgRegisterLocalRequest:
+		return "RegisterLocalRequest"
+	case MsgRegisterLocalResponse:
+		return "RegisterLocalResponse"
+	case MsgHeartbeatLocalRequest:
+		return "HeartbeatLocalRequest"
+	case MsgHeartbeatLocalResponse:
+		return "HeartbeatLocalResponse"
+	case MsgListLocalRequest:
+		return "ListLocalRequest"
+	case MsgListLocalResponse:
+		return "ListLocalResponse"
 	default:
 		return fmt.Sprintf("Unknown(0x%06X)", msgID)
 	}

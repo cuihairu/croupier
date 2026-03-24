@@ -18,6 +18,7 @@ import (
 	"github.com/cuihairu/croupier/internal/nng"
 	"github.com/cuihairu/croupier/internal/runtime"
 	"github.com/cuihairu/croupier/internal/svc"
+	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
@@ -241,6 +242,11 @@ func runServer() error {
 
 // startNNGControlServer 启动 NNG 控制服务器（替代 gRPC）
 func startNNGControlServer(c *config.Config, svcCtx *svc.ServiceContext) {
+	transportKind := strings.ToLower(strings.TrimSpace(c.Control.Transport))
+	if transportKind == "" {
+		transportKind = "nng"
+	}
+
 	// 解析 NNG 监听地址
 	addr := c.Control.Addr
 	if addr == "" {
@@ -253,18 +259,33 @@ func startNNGControlServer(c *config.Config, svcCtx *svc.ServiceContext) {
 	// 解析地址为 ListenAddr 数组
 	addrs := []nng.ListenAddr{nng.ParseListenAddr(addr)}
 
-	// 创建 NNG 控制服务器（带数据库持久化）
-	nngServer := nng.NewServerWithDB(addrs, svcCtx.RegistryStore, svcCtx.AgentSessionModel)
+	controlServer := nng.NewServerWithDB(addrs, svcCtx.RegistryStore, svcCtx.AgentSessionModel)
 
-	// 启动服务器
-	if err := nngServer.Start(); err != nil {
-		fmt.Printf("Failed to start NNG Control server: %v\n", err)
-		return
+	switch transportKind {
+	case "tcp":
+		controlServer.StartBackgroundTasks()
+		tcpServer, err := tcptr.NewServer(&tcptr.Config{
+			Address:     addr,
+			Insecure:    true,
+			RecvTimeout: time.Second,
+			SendTimeout: 10 * time.Second,
+		}, controlServer.TransportHandler())
+		if err != nil {
+			fmt.Printf("Failed to start TCP Control server: %v\n", err)
+			return
+		}
+		fmt.Printf("Starting TCP ControlService on %s (SDK/Agent registration with DB persistence)...\n", tcpServer.Addr())
+		if err := tcpServer.Serve(context.Background()); err != nil && err != context.Canceled {
+			fmt.Printf("TCP Control server stopped: %v\n", err)
+		}
+	default:
+		if err := controlServer.Start(); err != nil {
+			fmt.Printf("Failed to start NNG Control server: %v\n", err)
+			return
+		}
+		localAddr, _ := controlServer.GetLocalAddr()
+		fmt.Printf("Starting NNG ControlService on %s (SDK/Agent registration with DB persistence)...\n", localAddr)
 	}
-
-	// 获取实际监听地址
-	localAddr, _ := nngServer.GetLocalAddr()
-	fmt.Printf("Starting NNG ControlService on %s (SDK/Agent registration with DB persistence)...\n", localAddr)
 }
 
 // startRegistryCleanup 启动后台清理任务，定期删除过期的 AgentSession

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -16,6 +17,8 @@ import (
 	"github.com/cuihairu/croupier/internal/nng"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	transportcore "github.com/cuihairu/croupier/internal/transport"
+	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -36,8 +39,10 @@ type App struct {
 	configDir        string
 
 	// NNG server (replaces gRPC)
-	nngServer *nng.AgentServer
-	nngAddr   string
+	nngServer          *nng.AgentServer
+	localServer        transportcore.Server
+	nngAddr            string
+	localTransportKind string
 
 	// Ops module (optional)
 	opsConfig *OpsConfig
@@ -49,15 +54,16 @@ type App struct {
 func New(serverAddr, agentID string) *App {
 	store := agentlocal.NewLocalStore()
 	app := &App{
-		store:            store,
-		jobs:             newJobIndex(),
-		upstream:         NewUpstreamClient(serverAddr, agentID, store, nil),
-		extensionRuntime: NewExtensionRuntime(),
-		extensionDrivers: NewExtensionDriverRuntime(),
-		extensionRoutes:  map[string]extensionFunctionRoute{},
-		configDir:        getConfigDir(),
-		agentID:          agentID,
-		nngAddr:          ":19091", // Default NNG Agent local service port
+		store:              store,
+		jobs:               newJobIndex(),
+		upstream:           NewUpstreamClient(serverAddr, agentID, store, nil),
+		extensionRuntime:   NewExtensionRuntime(),
+		extensionDrivers:   NewExtensionDriverRuntime(),
+		extensionRoutes:    map[string]extensionFunctionRoute{},
+		configDir:          getConfigDir(),
+		agentID:            agentID,
+		nngAddr:            ":19091", // Default NNG Agent local service port
+		localTransportKind: "nng",
 	}
 	app.upstream.SetDynamicLabelsProvider(app.extensionRuntimeDynamicLabels)
 	return app
@@ -66,15 +72,16 @@ func New(serverAddr, agentID string) *App {
 func NewWithConfigDir(serverAddr, agentID, configDir string) *App {
 	store := agentlocal.NewLocalStore()
 	app := &App{
-		store:            store,
-		jobs:             newJobIndex(),
-		upstream:         NewUpstreamClient(serverAddr, agentID, store, nil),
-		extensionRuntime: NewExtensionRuntime(),
-		extensionDrivers: NewExtensionDriverRuntime(),
-		extensionRoutes:  map[string]extensionFunctionRoute{},
-		configDir:        configDir,
-		agentID:          agentID,
-		nngAddr:          ":19091", // Default NNG Agent local service port
+		store:              store,
+		jobs:               newJobIndex(),
+		upstream:           NewUpstreamClient(serverAddr, agentID, store, nil),
+		extensionRuntime:   NewExtensionRuntime(),
+		extensionDrivers:   NewExtensionDriverRuntime(),
+		extensionRoutes:    map[string]extensionFunctionRoute{},
+		configDir:          configDir,
+		agentID:            agentID,
+		nngAddr:            ":19091", // Default NNG Agent local service port
+		localTransportKind: "nng",
 	}
 	app.upstream.SetDynamicLabelsProvider(app.extensionRuntimeDynamicLabels)
 	return app
@@ -105,6 +112,7 @@ func (a *App) StartNNGServer() error {
 
 	// Create NNG server
 	a.nngServer = nng.NewAgentServer(a.nngAddr, a.store)
+	a.nngServer.SetLocalTransportKind(a.localTransportKind)
 
 	// Set provider manager - wrap it to implement the interface
 	pmWrapper := &providerManagerWrapper{pm: a.providerManager, app: a}
@@ -125,9 +133,28 @@ func (a *App) StartNNGServer() error {
 	opsWrapper := &opsServerWrapper{ops: a.opsServer}
 	a.nngServer.SetOpsServer(opsWrapper)
 
-	// Start NNG server
-	if err := a.nngServer.Start(); err != nil {
-		return fmt.Errorf("failed to start NNG server: %w", err)
+	switch normalizeTransportKind(a.localTransportKind) {
+	case "tcp":
+		tcpServer, err := tcptr.NewServer(&tcptr.Config{
+			Address:     a.nngAddr,
+			Insecure:    true,
+			RecvTimeout: time.Second,
+			SendTimeout: 10 * time.Second,
+		}, a.nngServer.TransportHandler())
+		if err != nil {
+			return fmt.Errorf("failed to create TCP local server: %w", err)
+		}
+		a.localServer = tcpServer
+		go func() {
+			if err := tcpServer.Serve(context.Background()); err != nil && !errors.Is(err, context.Canceled) {
+				slog.Error("agent tcp local server stopped", "error", err)
+			}
+		}()
+	default:
+		if err := a.nngServer.Start(); err != nil {
+			return fmt.Errorf("failed to start NNG server: %w", err)
+		}
+		a.localServer = nil
 	}
 
 	return nil
@@ -135,7 +162,13 @@ func (a *App) StartNNGServer() error {
 
 // GetNNGServerAddr returns the NNG server address
 func (a *App) GetNNGServerAddr() string {
-	if a == nil || a.nngServer == nil {
+	if a == nil {
+		return ""
+	}
+	if a.localServer != nil {
+		return a.localServer.Addr()
+	}
+	if a.nngServer == nil {
 		return ""
 	}
 	return a.nngServer.GetAddr()
@@ -147,6 +180,14 @@ func (a *App) SetNNGAddr(addr string) {
 		return
 	}
 	a.nngAddr = addr
+}
+
+// SetLocalTransportKind sets the local SDK-facing transport kind.
+func (a *App) SetLocalTransportKind(kind string) {
+	if a == nil {
+		return
+	}
+	a.localTransportKind = normalizeTransportKind(kind)
 }
 
 // Run starts the agent's background processes (upstream sync and NNG server).
@@ -228,6 +269,9 @@ func (a *App) Stop() {
 		return
 	}
 	// Stop NNG server
+	if a.localServer != nil {
+		_ = a.localServer.Close()
+	}
 	if a.nngServer != nil {
 		a.nngServer.Stop()
 	}
@@ -250,6 +294,14 @@ func (a *App) WithUpstreamTLSConfig(cfg *tlsutil.ClientTLSConfig) {
 		return
 	}
 	a.upstream.SetTLSConfig(cfg)
+}
+
+// SetUpstreamTransportKind sets the control-plane transport kind for server connections.
+func (a *App) SetUpstreamTransportKind(kind string) {
+	if a == nil || a.upstream == nil {
+		return
+	}
+	a.upstream.SetTransportKind(kind)
 }
 
 // OnConnected sets a callback to be invoked when the agent successfully connects to the server.
@@ -343,6 +395,17 @@ func (a *App) Jobs() *jobIndex {
 		return nil
 	}
 	return a.jobs
+}
+
+func normalizeTransportKind(kind string) string {
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "", "nng":
+		return "nng"
+	case "tcp":
+		return "tcp"
+	default:
+		return "nng"
+	}
 }
 
 // ActiveJobCount returns the number of currently active jobs.

@@ -18,6 +18,7 @@ import (
 	"github.com/cuihairu/croupier/internal/function/converter"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	transportcore "github.com/cuihairu/croupier/internal/transport"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"go.nanomsg.org/mangos/v3"
@@ -119,6 +120,8 @@ type Server struct {
 
 	// Logging
 	logger *slog.Logger
+
+	backgroundOnce sync.Once
 }
 
 // Handler handles control service requests
@@ -311,24 +314,36 @@ func (s *Server) Start() error {
 	s.sockets = sockets
 	s.sock = sockets[0] // Primary socket for serving
 
-	// Load agent sessions from database if configured
-	if err := s.LoadAgentSessions(); err != nil {
-		s.logger.Error("failed to load agent sessions from database", "error", err)
-		// Don't fail startup if database load fails
-	}
+	s.startBackgroundTasks()
 
 	// Start serving
 	go s.serve()
 
-	// Start metrics pruning
-	go s.pruneOldMetrics()
-
-	// Start database cleanup loop if configured
-	if s.agentSessionLoader != nil {
-		go s.cleanupLoop()
-	}
-
 	return nil
+}
+
+func (s *Server) startBackgroundTasks() {
+	s.backgroundOnce.Do(func() {
+		if err := s.LoadAgentSessions(); err != nil {
+			s.logger.Error("failed to load agent sessions from database", "error", err)
+		}
+		go s.pruneOldMetrics()
+		if s.agentSessionLoader != nil {
+			go s.cleanupLoop()
+		}
+	})
+}
+
+// StartBackgroundTasks starts background maintenance loops for non-NNG transports.
+func (s *Server) StartBackgroundTasks() {
+	s.startBackgroundTasks()
+}
+
+// TransportHandler exposes the control-plane request handler for alternate transports.
+func (s *Server) TransportHandler() transportcore.Handler {
+	return transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
+		return s.handleRequest(ctx, msgID, body)
+	})
 }
 
 // Stop stops the NNG server

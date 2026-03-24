@@ -1,5 +1,10 @@
 # Croupier SDK 行为规范
 
+> 协议与能力矩阵入口：
+>
+> - `docs/architecture/sdk-wire-protocol.md`
+> - `docs/sdks/sdk-parity-matrix.md`
+
 本文档定义了所有 Croupier SDK 必须遵守的行为规范，确保跨语言 SDK 的一致性和可预测性。
 
 ## 目录

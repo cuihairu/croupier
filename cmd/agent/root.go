@@ -214,6 +214,7 @@ func (c *AgentConfig) UnmarshalYAML(value *yaml.Node) error {
 
 type AgentServerConfig struct {
 	Addr               string `json:"addr" yaml:"addr"`
+	Transport          string `json:"transport,omitempty" yaml:"transport,omitempty"`
 	Insecure           bool   `json:"insecure" yaml:"insecure"`
 	ServerName         string `json:"serverName" yaml:"serverName"`
 	InsecureSkipVerify bool   `json:"insecureSkipVerify" yaml:"insecureSkipVerify"`
@@ -230,6 +231,7 @@ func (c *AgentServerConfig) UnmarshalYAML(value *yaml.Node) error {
 	}
 	var compat struct {
 		Addr               string `yaml:"Addr,omitempty"`
+		Transport          string `yaml:"Transport,omitempty"`
 		Insecure           *bool  `yaml:"Insecure,omitempty"`
 		ServerName         string `yaml:"ServerName,omitempty"`
 		InsecureSkipVerify *bool  `yaml:"InsecureSkipVerify,omitempty"`
@@ -242,6 +244,9 @@ func (c *AgentServerConfig) UnmarshalYAML(value *yaml.Node) error {
 	}
 	if decoded.Addr == "" {
 		decoded.Addr = compat.Addr
+	}
+	if decoded.Transport == "" {
+		decoded.Transport = compat.Transport
 	}
 	if !decoded.Insecure && compat.Insecure != nil {
 		decoded.Insecure = *compat.Insecure
@@ -269,6 +274,7 @@ type AgentInfoConfig struct {
 	ID        string            `json:"id" yaml:"id"`
 	GameID    string            `json:"gameId" yaml:"gameId"`
 	Env       string            `json:"env" yaml:"env"`
+	Transport string            `json:"transport,omitempty" yaml:"transport,omitempty"`
 	LocalAddr string            `json:"localAddr" yaml:"localAddr"`
 	HTTPAddr  string            `json:"httpAddr" yaml:"httpAddr"`
 	Labels    map[string]string `json:"labels" yaml:"labels"`
@@ -284,6 +290,7 @@ func (c *AgentInfoConfig) UnmarshalYAML(value *yaml.Node) error {
 		ID        string            `yaml:"ID,omitempty"`
 		GameID    string            `yaml:"GameID,omitempty"`
 		Env       string            `yaml:"Env,omitempty"`
+		Transport string            `yaml:"Transport,omitempty"`
 		LocalAddr string            `yaml:"LocalAddr,omitempty"`
 		HTTPAddr  string            `yaml:"HTTPAddr,omitempty"`
 		Labels    map[string]string `yaml:"Labels,omitempty"`
@@ -299,6 +306,9 @@ func (c *AgentInfoConfig) UnmarshalYAML(value *yaml.Node) error {
 	}
 	if decoded.Env == "" {
 		decoded.Env = compat.Env
+	}
+	if decoded.Transport == "" {
+		decoded.Transport = compat.Transport
 	}
 	if decoded.LocalAddr == "" {
 		decoded.LocalAddr = compat.LocalAddr
@@ -509,6 +519,8 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 	// 使用 NewWithConfigDir 以确保 providers.yaml 能从正确的目录加载
 	core := agentcore.NewWithConfigDir(strings.TrimSpace(c.Server.Addr), agentID, configDir)
 	core.SetNNGAddr(nngAddr)
+	core.SetLocalTransportKind(strings.TrimSpace(c.Agent.Transport))
+	core.SetUpstreamTransportKind(strings.TrimSpace(c.Server.Transport))
 	core.WithUpstreamMetadata(agentcore.UpstreamMetadata{
 		GameID:            strings.TrimSpace(c.Agent.GameID),
 		Env:               strings.TrimSpace(c.Agent.Env),

@@ -78,6 +78,10 @@ func (c *Config) UnmarshalYAML(value *yaml.Node) error {
 
 // ControlConfig 配置 NNG 控制服务器（控制平面）
 type ControlConfig struct {
+	// Transport selects the control-plane transport implementation.
+	// Supported values: nng, tcp.
+	Transport string `json:"transport,omitempty" yaml:"transport,omitempty"`
+
 	// NNG ControlService 监听地址（默认 :19090，用于 SDK/Agent 连接）
 	// 支持多传输层，可以使用逗号分隔多个地址
 	// 例如: ":19090" 或 ":19090,ipc://croupier-server"
@@ -102,14 +106,18 @@ func (c *ControlConfig) UnmarshalYAML(value *yaml.Node) error {
 		return err
 	}
 	var compat struct {
-		Addr    string `yaml:"Addr,omitempty"`
-		IPCAddr string `yaml:"IPCAddr,omitempty"`
-		Cert    string `yaml:"Cert,omitempty"`
-		Key     string `yaml:"Key,omitempty"`
-		CA      string `yaml:"CA,omitempty"`
+		Transport string `yaml:"Transport,omitempty"`
+		Addr      string `yaml:"Addr,omitempty"`
+		IPCAddr   string `yaml:"IPCAddr,omitempty"`
+		Cert      string `yaml:"Cert,omitempty"`
+		Key       string `yaml:"Key,omitempty"`
+		CA        string `yaml:"CA,omitempty"`
 	}
 	if err := value.Decode(&compat); err != nil {
 		return err
+	}
+	if decoded.Transport == "" {
+		decoded.Transport = compat.Transport
 	}
 	if decoded.Addr == "" {
 		decoded.Addr = compat.Addr

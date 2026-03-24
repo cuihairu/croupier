@@ -12,6 +12,8 @@ import (
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	transportcore "github.com/cuihairu/croupier/internal/transport"
+	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
@@ -47,6 +49,8 @@ type AgentServer struct {
 
 	// Logging
 	logger *slog.Logger
+
+	localTransportKind string
 }
 
 // ProviderManager is the interface for provider function calls
@@ -125,13 +129,14 @@ func NewAgentServer(addr string, store *agentlocal.LocalStore) *AgentServer {
 	}
 
 	return &AgentServer{
-		addrs:  addrs,
-		addr:   addr, // Keep for backward compatibility
-		store:  store,
-		jobs:   newJobIndex(),
-		ctx:    ctx,
-		cancel: cancel,
-		logger: slog.Default(),
+		addrs:              addrs,
+		addr:               addr, // Keep for backward compatibility
+		store:              store,
+		jobs:               newJobIndex(),
+		ctx:                ctx,
+		cancel:             cancel,
+		logger:             slog.Default(),
+		localTransportKind: "nng",
 	}
 }
 
@@ -145,12 +150,13 @@ func NewAgentServerWithAddrs(addrs []ListenAddr, store *agentlocal.LocalStore) *
 	}
 
 	return &AgentServer{
-		addrs:  addrs,
-		store:  store,
-		jobs:   newJobIndex(),
-		ctx:    ctx,
-		cancel: cancel,
-		logger: slog.Default(),
+		addrs:              addrs,
+		store:              store,
+		jobs:               newJobIndex(),
+		ctx:                ctx,
+		cancel:             cancel,
+		logger:             slog.Default(),
+		localTransportKind: "nng",
 	}
 }
 
@@ -180,6 +186,18 @@ func (s *AgentServer) SetLogger(logger *slog.Logger) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.logger = logger
+}
+
+// SetLocalTransportKind sets the SDK-facing local transport kind.
+func (s *AgentServer) SetLocalTransportKind(kind string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	switch strings.ToLower(strings.TrimSpace(kind)) {
+	case "tcp":
+		s.localTransportKind = "tcp"
+	default:
+		s.localTransportKind = "nng"
+	}
 }
 
 // Start starts the NNG agent server
@@ -281,6 +299,13 @@ func (s *AgentServer) GetLocalAddrs() []string {
 		urls[i] = la.URL
 	}
 	return urls
+}
+
+// TransportHandler exposes the agent local-service request handler for alternate transports.
+func (s *AgentServer) TransportHandler() transportcore.Handler {
+	return transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
+		return s.handleRequest(ctx, msgID, body)
+	})
 }
 
 // serve handles incoming requests
@@ -402,12 +427,6 @@ func (s *AgentServer) handleInvoke(ctx context.Context, data []byte) ([]byte, er
 		return nil, err
 	}
 
-	client := NewClient(addr)
-	if err := client.Dial(); err != nil {
-		return nil, fmt.Errorf("dial local provider %s: %w", addr, err)
-	}
-	defer client.Close()
-
 	callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -416,7 +435,7 @@ func (s *AgentServer) handleInvoke(ctx context.Context, data []byte) ([]byte, er
 		return nil, fmt.Errorf("marshal InvokeRequest: %w", err)
 	}
 
-	respBytes, err := client.Call(callCtx, protocol.MsgInvokeRequest, reqBytes)
+	respBytes, err := s.callLocalProvider(callCtx, addr, protocol.MsgInvokeRequest, reqBytes)
 	if err != nil {
 		return nil, fmt.Errorf("invoke local provider at %s: %w", addr, err)
 	}
@@ -427,6 +446,36 @@ func (s *AgentServer) handleInvoke(ctx context.Context, data []byte) ([]byte, er
 	}
 
 	return proto.Marshal(resp)
+}
+
+func (s *AgentServer) callLocalProvider(ctx context.Context, addr string, msgID uint32, data []byte) ([]byte, error) {
+	s.mu.RLock()
+	transportKind := s.localTransportKind
+	s.mu.RUnlock()
+
+	switch transportKind {
+	case "tcp":
+		client, err := tcptr.NewClient(&tcptr.Config{
+			Address:        addr,
+			Insecure:       true,
+			ConnectTimeout: 5 * time.Second,
+			RecvTimeout:    10 * time.Second,
+			SendTimeout:    10 * time.Second,
+		})
+		if err != nil {
+			return nil, err
+		}
+		defer client.Close()
+		_, respBody, err := client.Call(ctx, msgID, data)
+		return respBody, err
+	default:
+		client := NewClient(addr)
+		if err := client.Dial(); err != nil {
+			return nil, err
+		}
+		defer client.Close()
+		return client.Call(ctx, msgID, data)
+	}
 }
 
 // invokePlatform handles provider function calls

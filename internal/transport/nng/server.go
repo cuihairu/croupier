@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	transportcore "github.com/cuihairu/croupier/internal/transport"
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol/rep"
 	_ "go.nanomsg.org/mangos/v3/transport/tcp"
@@ -16,19 +17,8 @@ import (
 	"github.com/cuihairu/croupier/internal/transport/nng/protocol"
 )
 
-// Handler handles incoming NNG requests.
-type Handler interface {
-	// Handle handles an incoming request and returns the response body.
-	Handle(ctx context.Context, msgID uint32, reqID uint32, body []byte) (respBody []byte, err error)
-}
-
-// HandlerFunc is an adapter to allow the use of ordinary functions as Handlers.
-type HandlerFunc func(ctx context.Context, msgID uint32, reqID uint32, body []byte) (respBody []byte, err error)
-
-// Handle calls f(ctx, msgID, reqID, body).
-func (f HandlerFunc) Handle(ctx context.Context, msgID uint32, reqID uint32, body []byte) (respBody []byte, err error) {
-	return f(ctx, msgID, reqID, body)
-}
+type Handler = transportcore.Handler
+type HandlerFunc = transportcore.HandlerFunc
 
 // Server represents a NNG transport server.
 // It uses the Rep protocol for handling request/response communication.

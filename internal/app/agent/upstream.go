@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/nng"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
@@ -22,7 +21,7 @@ type UpstreamClient struct {
 	serverAddr string
 	agentID    string
 	store      *agentlocal.LocalStore
-	nngClient  *nng.Client
+	client     controlClient
 	updateCh   chan struct{}
 	gameID     string
 	env        string
@@ -49,10 +48,11 @@ type UpstreamClient struct {
 	onConnected    func()      // Called when successfully connected to server
 	onDisconnected func(error) // Called when disconnected from server
 	dynamicLabels  func() map[string]string
+	transportKind  string
 }
 
 func (c *UpstreamClient) Connected() bool {
-	return c != nil && c.nngClient != nil && c.nngClient.Connected()
+	return c != nil && c.client != nil && c.client.Connected()
 }
 
 // NewUpstreamClient creates a new upstream client.
@@ -66,9 +66,10 @@ func NewUpstreamClient(serverAddr, agentID string, store *agentlocal.LocalStore,
 		}
 	}
 	client := &UpstreamClient{
-		serverAddr: serverAddr,
-		agentID:    agentID,
-		store:      store,
+		serverAddr:    serverAddr,
+		agentID:       agentID,
+		store:         store,
+		transportKind: "nng",
 	}
 	if meta != nil {
 		client.gameID = meta.GameID
@@ -90,6 +91,10 @@ func NewUpstreamClient(serverAddr, agentID string, store *agentlocal.LocalStore,
 
 func (c *UpstreamClient) SetTLSConfig(cfg *tlsutil.ClientTLSConfig) {
 	c.tlsCfg = cfg
+}
+
+func (c *UpstreamClient) SetTransportKind(kind string) {
+	c.transportKind = normalizeTransportKind(kind)
 }
 
 func (c *UpstreamClient) SetDynamicLabelsProvider(fn func() map[string]string) {
@@ -148,35 +153,22 @@ func (c *UpstreamClient) OnDisconnected(callback func(error)) {
 // It closes any existing connection before establishing a new one.
 // On successful connection, it automatically calls register.
 func (c *UpstreamClient) dialServer(ctx context.Context) error {
-	// Close existing NNG connection if any
-	if c.nngClient != nil {
-		c.nngClient.Close()
-		c.nngClient = nil
+	if c.client != nil {
+		c.client.Close()
+		c.client = nil
 	}
 
-	// Create and connect NNG client
-	c.nngClient = nng.NewClient(c.serverAddr)
-	c.nngClient.SetLogger(slog.Default())
-
-	// Set reconnection callback to re-register after reconnect
-	c.nngClient.SetOnReconnect(func() {
-		slog.Info("nng client reconnected, re-registering...")
-		if syncErr := c.syncWithRetry(ctx, 3); syncErr != nil {
-			slog.Error("re-register after reconnect failed", "error", syncErr)
-		} else {
-			slog.Info("✅ re-registered successfully after reconnect")
-		}
-	})
-
-	if err := c.nngClient.Dial(); err != nil {
-		c.nngClient = nil
-		return fmt.Errorf("failed to connect to upstream server via NNG: %w", err)
+	client, err := newControlClient(c.transportKind, c.serverAddr)
+	if err != nil {
+		c.client = nil
+		return fmt.Errorf("failed to connect to upstream server via %s: %w", c.transportKind, err)
 	}
+	c.client = client
 
 	// 连接成功后立即注册
 	if err := c.syncOnce(ctx); err != nil {
-		c.nngClient.Close()
-		c.nngClient = nil
+		c.client.Close()
+		c.client = nil
 		return fmt.Errorf("failed to register after connection: %w", err)
 	}
 
@@ -335,13 +327,13 @@ func (c *UpstreamClient) heartbeatLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			// 检查客户端是否可用，未连接时跳过本次心跳
-			if c.nngClient == nil || !c.nngClient.Connected() {
+			if c.client == nil || !c.client.Connected() {
 				slog.Debug("heartbeat skipped: client not connected")
 				continue
 			}
 			// 心跳调用设置超时，避免 server 关闭后一直阻塞
 			hbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-			_, err := c.nngClient.Heartbeat(hbCtx, &agentv1.HeartbeatRequest{AgentId: c.agentID})
+			_, err := c.client.Heartbeat(hbCtx, &agentv1.HeartbeatRequest{AgentId: c.agentID})
 			cancel()
 			if err != nil {
 				consecutiveFailures++
@@ -412,8 +404,8 @@ func (c *UpstreamClient) syncWithRetry(ctx context.Context, attempts int) error 
 }
 
 func (c *UpstreamClient) syncOnce(ctx context.Context) error {
-	if c.nngClient == nil || !c.nngClient.Connected() {
-		return fmt.Errorf("NNG client not connected")
+	if c.client == nil || !c.client.Connected() {
+		return fmt.Errorf("upstream client not connected")
 	}
 
 	// Snapshot local store
@@ -501,11 +493,11 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 		Processes: providers,
 	}
 
-	_, err := c.nngClient.Register(ctx, req)
+	_, err := c.client.Register(ctx, req)
 	if err != nil {
 		return err
 	}
-	slog.Info("synced with upstream server via NNG", "functions", len(funcs))
+	slog.Info("synced with upstream server", "transport", c.transportKind, "functions", len(funcs))
 
 	// Call connection callback if set
 	if c.onConnected != nil {
@@ -579,7 +571,7 @@ func (c *UpstreamClient) Sync(ctx context.Context) error {
 	if c == nil {
 		return fmt.Errorf("upstream client is nil")
 	}
-	if c.nngClient == nil || !c.nngClient.Connected() {
+	if c.client == nil || !c.client.Connected() {
 		return fmt.Errorf("upstream client not connected")
 	}
 	return c.syncWithRetry(ctx, 3)
@@ -590,16 +582,16 @@ func (c *UpstreamClient) Heartbeat(ctx context.Context) error {
 	if c == nil {
 		return fmt.Errorf("upstream client is nil")
 	}
-	if c.nngClient == nil || !c.nngClient.Connected() {
+	if c.client == nil || !c.client.Connected() {
 		return fmt.Errorf("upstream client not connected")
 	}
-	_, err := c.nngClient.Heartbeat(ctx, &agentv1.HeartbeatRequest{AgentId: c.agentID})
+	_, err := c.client.Heartbeat(ctx, &agentv1.HeartbeatRequest{AgentId: c.agentID})
 	return err
 }
 
 func (c *UpstreamClient) Stop() {
-	if c.nngClient != nil {
-		c.nngClient.Close()
+	if c.client != nil {
+		c.client.Close()
 	}
 }
 
