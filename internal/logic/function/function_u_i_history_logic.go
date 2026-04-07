@@ -26,6 +26,9 @@ func (l *FunctionUIHistoryLogic) FunctionUIHistory(req *FunctionUIHistoryRequest
 	if err != nil {
 		return nil, err
 	}
+	if l == nil || l.svcCtx == nil || l.svcCtx.ConfigVersionModel == nil {
+		return &FunctionUIHistoryResponse{Items: []FunctionUIHistoryItem{}}, nil
+	}
 	versions, err := l.svcCtx.ConfigVersionModel.List(l.ctx, functionUIHistoryKey(functionID))
 	if err != nil {
 		return nil, err

@@ -8,6 +8,9 @@ set -euo pipefail
 SERVER_URL="${SERVER_URL:-http://localhost:18780}"
 DASHBOARD_URL="${DASHBOARD_URL:-}"
 GAME_ID="${GAME_ID:-test-game}"
+ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin123}"
+TOKEN=""
 
 # Colors
 RED='\033[0;31m'
@@ -24,9 +27,14 @@ test_service() {
     local name="$1"
     local url="$2"
     local expected_code="${3:-200}"
+    local requires_auth="${4:-}"
 
     echo -n "Testing $name... "
-    code=$(curl -s -o /dev/null -w "%{http_code}" "$url" 2>/dev/null || echo "000")
+    if [ -n "$requires_auth" ]; then
+        code=$(curl -s -H "Authorization: Bearer $TOKEN" -o /dev/null -w "%{http_code}" "$url" 2>/dev/null || echo "000")
+    else
+        code=$(curl -s -o /dev/null -w "%{http_code}" "$url" 2>/dev/null || echo "000")
+    fi
 
     if [ "$code" = "$expected_code" ]; then
         echo -e "${GREEN}PASS${NC} ($code)"
@@ -36,6 +44,17 @@ test_service() {
         echo -e "${RED}FAIL${NC} (expected $expected_code, got $code)"
         ((FAILED++))
         return 1
+    fi
+}
+
+login() {
+    TOKEN=$(curl -s -X POST "$SERVER_URL/api/v1/auth/login" \
+        -H "Content-Type: application/json" \
+        -d "{\"username\":\"$ADMIN_USERNAME\",\"password\":\"$ADMIN_PASSWORD\"}" | jq -r '.token // empty')
+
+    if [ -z "$TOKEN" ]; then
+        echo -e "${RED}Failed to obtain auth token${NC}"
+        exit 1
     fi
 }
 
@@ -51,11 +70,13 @@ fi
 echo "Game ID:   $GAME_ID"
 echo ""
 
+login
+
 # Service health checks
 echo "--- Service Health ---"
 test_service "Server Health" "$SERVER_URL/healthz"
-test_service "Agent Status" "$SERVER_URL/api/v1/agents"
-test_service "Function Descriptors" "$SERVER_URL/api/v1/functions/descriptors"
+test_service "Agent Status" "$SERVER_URL/api/v1/ops/agents" 200 auth
+test_service "Function Descriptors" "$SERVER_URL/api/v1/functions/descriptors" 200 auth
 if [ -n "$DASHBOARD_URL" ]; then
     test_service "Dashboard" "$DASHBOARD_URL"
 fi
@@ -63,9 +84,9 @@ fi
 # API endpoint checks
 echo ""
 echo "--- API Endpoints ---"
-test_service "Function List" "$SERVER_URL/api/v1/functions"
-test_service "Games List" "$SERVER_URL/api/v1/games"
-test_service "Audit Logs" "$SERVER_URL/api/v1/audit"
+test_service "Function List" "$SERVER_URL/api/v1/functions" 200 auth
+test_service "Games List" "$SERVER_URL/api/v1/games" 200 auth
+test_service "Audit Logs" "$SERVER_URL/api/v1/audit" 200 auth
 
 echo ""
 echo "=========================================="

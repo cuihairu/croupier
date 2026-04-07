@@ -403,26 +403,73 @@ func functionUI(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUI
 	}, nil
 }
 
-func functionUIUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUIUpdateRequest) error {
-	_, err := logicfunction.NewFunctionUIUpdateLogic(ctx, svcCtx).FunctionUIUpdate(&logicfunction.FunctionUIUpdateRequest{
+func functionUIUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUIUpdateRequest) (*FunctionUIResponse, error) {
+	logicResp, err := logicfunction.NewFunctionUIUpdateLogic(ctx, svcCtx).FunctionUIUpdate(&logicfunction.FunctionUIUpdateRequest{
 		ID:         req.ID,
 		Schema:     req.Schema,
 		Layout:     req.Layout,
 		Components: req.Components,
 	})
-	return err
-}
-
-func functionUIHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUIHistoryRequest) (*FunctionUIHistoryResponse, error) {
-	// GetUIHistory not implemented - return empty
-	return &FunctionUIHistoryResponse{
-		Items: []FunctionUIHistoryItem{},
+	if err != nil {
+		return nil, err
+	}
+	return &FunctionUIResponse{
+		Schema:         logicResp.Schema,
+		Layout:         logicResp.Layout,
+		Components:     logicResp.Components,
+		Custom:         boolFromAny(logicResp.Custom),
+		HasDefault:     logicResp.HasDefault,
+		UISource:       stringFromAny(logicResp.UISource),
+		UISourceDetail: stringFromAny(logicResp.UISourceDetail),
 	}, nil
 }
 
-func functionUIRollback(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUIRollbackRequest) error {
-	// RollbackUI not implemented
-	return nil
+func functionUIHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUIHistoryRequest) (*FunctionUIHistoryResponse, error) {
+	logicResp, err := logicfunction.NewFunctionUIHistoryLogic(ctx, svcCtx).FunctionUIHistory(&logicfunction.FunctionUIHistoryRequest{
+		ID: req.ID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	items := make([]FunctionUIHistoryItem, 0, len(logicResp.Items))
+	for _, item := range logicResp.Items {
+		items = append(items, FunctionUIHistoryItem{
+			Version:    item.Version,
+			Schema:     item.Schema,
+			Layout:     item.Layout,
+			Components: item.Components,
+			Message:    item.Message,
+			CreatedBy:  item.CreatedBy,
+			CreatedAt:  item.CreatedAt,
+		})
+	}
+	return &FunctionUIHistoryResponse{Items: items}, nil
+}
+
+func functionUIRollback(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionUIRollbackRequest) (*FunctionUIRollbackResponse, error) {
+	logicResp, err := logicfunction.NewFunctionUIRollbackLogic(ctx, svcCtx).FunctionUIRollback(&logicfunction.FunctionUIRollbackRequest{
+		ID:      req.ID,
+		Version: req.Version,
+	})
+	if err != nil {
+		return nil, err
+	}
+	current := (*FunctionUIResponse)(nil)
+	if resp, ok := logicResp.Current.(*logicfunction.FunctionUIResponse); ok && resp != nil {
+		current = &FunctionUIResponse{
+			Schema:         resp.Schema,
+			Layout:         resp.Layout,
+			Components:     resp.Components,
+			Custom:         boolFromAny(resp.Custom),
+			HasDefault:     resp.HasDefault,
+			UISource:       stringFromAny(resp.UISource),
+			UISourceDetail: stringFromAny(resp.UISourceDetail),
+		}
+	}
+	return &FunctionUIRollbackResponse{
+		AppliedVersion: logicResp.AppliedVersion,
+		Current:        current,
+	}, nil
 }
 
 func functionWarnings(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionWarningsRequest) (*FunctionWarningsResponse, error) {

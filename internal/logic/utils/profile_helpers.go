@@ -13,6 +13,8 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
+var ErrCurrentUserNotFound = errors.New("未找到登录用户")
+
 // CurrentUsername extracts the authenticated username from context.
 func CurrentUsername(ctx context.Context) (string, error) {
 	if ctx == nil {
@@ -21,7 +23,7 @@ func CurrentUsername(ctx context.Context) (string, error) {
 	username, _ := ctx.Value("username").(string)
 	username = strings.TrimSpace(username)
 	if username == "" {
-		return "", errors.New("未找到登录用户")
+		return "", ErrCurrentUserNotFound
 	}
 	return username, nil
 }

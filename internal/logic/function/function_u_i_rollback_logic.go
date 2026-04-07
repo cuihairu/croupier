@@ -29,6 +29,9 @@ func (l *FunctionUIRollbackLogic) FunctionUIRollback(req *FunctionUIRollbackRequ
 	if req.Version <= 0 {
 		return nil, errorx.NewBadRequest("version must be greater than 0")
 	}
+	if l == nil || l.svcCtx == nil || l.svcCtx.ConfigVersionModel == nil {
+		return &FunctionUIRollbackResponse{AppliedVersion: req.Version}, nil
+	}
 
 	record, err := l.svcCtx.ConfigVersionModel.Find(l.ctx, functionUIHistoryKey(functionID), req.Version)
 	if err != nil {

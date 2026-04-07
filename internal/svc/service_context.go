@@ -1089,6 +1089,7 @@ func NewAuthMiddlewareImpl(svcCtx *ServiceContext) *AuthMiddleware {
 	return &AuthMiddleware{
 		svcCtx: svcCtx,
 		allowPaths: map[string]struct{}{
+			"/healthz":                   {},
 			"/api/v1/auth/login":         {},
 			"/api/v1/monitoring/health":  {},
 			"/api/v1/monitoring/healthz": {},

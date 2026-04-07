@@ -306,11 +306,12 @@ func (h *Handler) FunctionUIUpdate(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.FunctionUIUpdate(c.Request.Context(), &req); err != nil {
+	resp, err := h.service.FunctionUIUpdate(c.Request.Context(), &req)
+	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	response.Success(c, gin.H{})
+	response.Success(c, resp)
 }
 
 func (h *Handler) FunctionUIHistory(c *gin.Context) {
@@ -335,11 +336,12 @@ func (h *Handler) FunctionUIRollback(c *gin.Context) {
 		return
 	}
 
-	if err := h.service.FunctionUIRollback(c.Request.Context(), &req); err != nil {
+	resp, err := h.service.FunctionUIRollback(c.Request.Context(), &req)
+	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	response.Success(c, gin.H{})
+	response.Success(c, resp)
 }
 
 func (h *Handler) FunctionWarnings(c *gin.Context) {

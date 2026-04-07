@@ -5,7 +5,18 @@
 set -euo pipefail
 
 SERVER_URL="${SERVER_URL:-http://localhost:18780}"
-FUNCTION_ID="${FUNCTION_ID:-test.player.addCurrency}"
+FUNCTION_ID="${FUNCTION_ID:-player.ban}"
+ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin123}"
+
+TOKEN=$(curl -s -X POST "$SERVER_URL/api/v1/auth/login" \
+    -H "Content-Type: application/json" \
+    -d "{\"username\":\"$ADMIN_USERNAME\",\"password\":\"$ADMIN_PASSWORD\"}" | jq -r '.token // empty')
+
+if [ -z "$TOKEN" ]; then
+    echo "Error: Failed to obtain auth token"
+    exit 1
+fi
 
 echo "=========================================="
 echo "  UI Configuration Flow Test"
@@ -17,6 +28,7 @@ echo ""
 # Check if function exists
 echo ">>> Checking if function exists..."
 code=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "Authorization: Bearer $TOKEN" \
     "$SERVER_URL/api/v1/functions/$FUNCTION_ID" 2>/dev/null || echo "000")
 
 if [ "$code" != "200" ] && [ "$code" != "404" ]; then
@@ -33,11 +45,11 @@ fi
 # Step 1: Read current UI configuration
 echo ""
 echo ">>> Step 1: Read current UI configuration"
-current_ui=$(curl -s "$SERVER_URL/api/v1/functions/$FUNCTION_ID/ui" 2>/dev/null || echo '{}')
+current_ui=$(curl -s -H "Authorization: Bearer $TOKEN" "$SERVER_URL/api/v1/functions/$FUNCTION_ID/ui" 2>/dev/null || echo '{}')
 echo "$current_ui" | jq '.' 2>/dev/null || echo "$current_ui"
 
-current_version=$(echo "$current_ui" | jq -r '.version // 1')
-echo "Current version: $current_version"
+current_cols=$(echo "$current_ui" | jq -r 'if (.layout | type) == "object" then .layout.cols // empty else empty end')
+echo "Current layout cols: ${current_cols:-unknown}"
 
 # Step 2: Update UI configuration
 echo ""
@@ -45,62 +57,78 @@ echo ">>> Step 2: Update UI configuration"
 
 # Prepare test UI config
 new_ui_config='{
-  "layout": "horizontal",
-  "labelWidth": 160,
-  "size": "large",
-  "colon": true
+  "schema": {
+    "type": "object",
+    "properties": {
+      "playerId": { "type": "string", "title": "Player ID" },
+      "reason": { "type": "string", "title": "Reason" },
+      "operator": { "type": "string", "title": "Operator" }
+    },
+    "required": ["playerId", "reason"]
+  },
+  "layout": {
+    "type": "grid",
+    "cols": 3
+  },
+  "components": {
+    "reason": {
+      "widget": "textarea"
+    }
+  }
 }'
 
 update_result=$(curl -s -X PUT "$SERVER_URL/api/v1/functions/$FUNCTION_ID/ui" \
+    -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
     -d "$new_ui_config" 2>/dev/null || echo '{}')
 
 echo "$update_result" | jq '.' 2>/dev/null || echo "$update_result"
 
-new_version=$(echo "$update_result" | jq -r '.version // empty')
-if [ -n "$new_version" ] && [ "$new_version" != "null" ] && [ "$new_version" != "empty" ]; then
-    echo "New version: $new_version"
-else
-    echo "Warning: Could not determine new version"
-fi
+echo "Update request completed"
 
 # Step 3: Verify configuration updated
 echo ""
 echo ">>> Step 3: Verify configuration updated"
-updated_ui=$(curl -s "$SERVER_URL/api/v1/functions/$FUNCTION_ID/ui" 2>/dev/null || echo '{}')
+updated_ui=$(curl -s -H "Authorization: Bearer $TOKEN" "$SERVER_URL/api/v1/functions/$FUNCTION_ID/ui" 2>/dev/null || echo '{}')
 
 # Check if layout was updated
-layout=$(echo "$updated_ui" | jq -r '.config.layout // empty')
-if [ "$layout" = "horizontal" ]; then
-    echo -e "\e[32m✓\e[0m Layout successfully updated to 'horizontal'"
+layout_cols=$(echo "$updated_ui" | jq -r 'if (.layout | type) == "object" then .layout.cols // empty else empty end')
+if [ "$layout_cols" = "3" ]; then
+    echo -e "\e[32m✓\e[0m Layout successfully updated to cols=3"
 else
     echo -e "\e[31m✗\e[0m Layout update verification failed"
+    exit 1
 fi
 
 # Step 4: View UI history
 echo ""
 echo ">>> Step 4: View UI configuration history"
-history=$(curl -s "$SERVER_URL/api/v1/functions/$FUNCTION_ID/ui/history" 2>/dev/null || '[]')
+history=$(curl -s -H "Authorization: Bearer $TOKEN" "$SERVER_URL/api/v1/functions/$FUNCTION_ID/ui/history" 2>/dev/null || echo '{}')
 echo "$history" | jq '.' 2>/dev/null || echo "$history"
 
-history_count=$(echo "$history" | jq '.history | length' 2>/dev/null || echo '0')
+history_count=$(echo "$history" | jq '.items | length' 2>/dev/null || echo '0')
 echo "History entries: $history_count"
 
 # Step 5: Rollback (if previous version exists)
-if [ -n "$current_version" ] && [ "$current_version" != "null" ] && [ "$current_version" != "1" ]; then
+rollback_version=$(echo "$history" | jq -r '.items[1].version // empty' 2>/dev/null || echo '')
+if [ -n "$rollback_version" ] && [ "$rollback_version" != "null" ]; then
     echo ""
-    echo ">>> Step 5: Rollback to version $current_version"
+    echo ">>> Step 5: Rollback to version $rollback_version"
 
     rollback_result=$(curl -s -X POST \
         "$SERVER_URL/api/v1/functions/$FUNCTION_ID/ui/rollback" \
+        -H "Authorization: Bearer $TOKEN" \
         -H "Content-Type: application/json" \
-        -d "{\"version\": $current_version}" 2>/dev/null || echo '{}')
+        -d "{\"version\": $rollback_version}" 2>/dev/null || echo '{}')
 
     echo "$rollback_result" | jq '.' 2>/dev/null || echo "$rollback_result"
 
-    rollback_version=$(echo "$rollback_result" | jq -r '.version // empty')
-    if [ -n "$rollback_version" ] && [ "$rollback_version" != "null" ] && [ "$rollback_version" != "empty" ]; then
-        echo -e "\e[32m✓\e[0m Rolled back to version $current_version, new version: $rollback_version"
+    applied_version=$(echo "$rollback_result" | jq -r '.appliedVersion // empty')
+    if [ "$applied_version" = "$rollback_version" ]; then
+        echo -e "\e[32m✓\e[0m Rolled back to version $rollback_version"
+    else
+        echo -e "\e[31m✗\e[0m Rollback verification failed"
+        exit 1
     fi
 else
     echo ""

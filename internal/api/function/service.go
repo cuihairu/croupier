@@ -95,7 +95,7 @@ func (s *Service) FunctionUI(ctx context.Context, req *FunctionUIRequest) (*Func
 	return functionUI(ctx, s.svcCtx, req)
 }
 
-func (s *Service) FunctionUIUpdate(ctx context.Context, req *FunctionUIUpdateRequest) error {
+func (s *Service) FunctionUIUpdate(ctx context.Context, req *FunctionUIUpdateRequest) (*FunctionUIResponse, error) {
 	return functionUIUpdate(ctx, s.svcCtx, req)
 }
 
@@ -103,7 +103,7 @@ func (s *Service) FunctionUIHistory(ctx context.Context, req *FunctionUIHistoryR
 	return functionUIHistory(ctx, s.svcCtx, req)
 }
 
-func (s *Service) FunctionUIRollback(ctx context.Context, req *FunctionUIRollbackRequest) error {
+func (s *Service) FunctionUIRollback(ctx context.Context, req *FunctionUIRollbackRequest) (*FunctionUIRollbackResponse, error) {
 	return functionUIRollback(ctx, s.svcCtx, req)
 }
 

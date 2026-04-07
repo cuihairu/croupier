@@ -22,6 +22,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/job"
 	"github.com/cuihairu/croupier/internal/api/message"
 	"github.com/cuihairu/croupier/internal/api/meta"
+	"github.com/cuihairu/croupier/internal/api/monitoring"
 	"github.com/cuihairu/croupier/internal/api/node"
 	"github.com/cuihairu/croupier/internal/api/openapi"
 	"github.com/cuihairu/croupier/internal/api/ops"
@@ -51,6 +52,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	// 公开路由（无认证）
 	registerAuthRoutes(v1.Group("/auth"), serverCtx) // 修复：/api/v1/auth/login
 	registerMetaRoutes(v1, serverCtx)
+	registerMonitoringPublicRoutes(r, v1.Group("/monitoring"), serverCtx)
 	registerRegistryRoutes(v1.Group("/registry"), serverCtx) // 公开访问
 	registerAuditRoutes(v1, serverCtx)                       // 审计日志在 v1 根路径
 	registerOpenAPIRoutes(v1, serverCtx)                     // OpenAPI 在 v1 根路径
@@ -83,6 +85,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerFAQRoutes(protected.Group("/faqs"), serverCtx)
 		registerFeedbackRoutes(protected.Group("/feedback"), serverCtx)
 		registerMessageRoutes(protected.Group("/messages"), serverCtx)
+		registerMonitoringProtectedRoutes(protected.Group("/monitoring"), serverCtx)
 		registerPermissionRoutes(protected.Group("/permissions"), serverCtx)
 		registerPlatformRoutes(protected.Group("/platforms"), serverCtx)
 		registerPlayerRoutes(protected.Group("/players"), serverCtx)
@@ -113,6 +116,20 @@ func registerMetaRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	metaSvc := meta.NewService(ctx)
 	metaHandler := meta.NewHandler(metaSvc)
 	g.GET("/", metaHandler.Root)
+}
+
+func registerMonitoringPublicRoutes(r *gin.Engine, g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	monitoringSvc := monitoring.NewService(ctx)
+	monitoringHandler := monitoring.NewHandler(monitoringSvc)
+	r.GET("/healthz", monitoringHandler.Healthz)
+	g.GET("/healthz", monitoringHandler.Healthz)
+}
+
+func registerMonitoringProtectedRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	monitoringSvc := monitoring.NewService(ctx)
+	monitoringHandler := monitoring.NewHandler(monitoringSvc)
+	g.GET("/metrics", monitoringHandler.Metrics)
+	g.GET("/status", monitoringHandler.Status)
 }
 
 func registerAdminRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {

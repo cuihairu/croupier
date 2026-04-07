@@ -2,6 +2,7 @@ package function
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"sort"
 	"strings"
@@ -39,7 +40,7 @@ func (l *FunctionsListLogic) FunctionsList(req *FunctionsListRequest) (*Function
 			"isAdmin", isAdmin,
 			"roles", ExtractRoleNames(roles),
 			"gameId", req.GameId)
-	} else {
+	} else if err != nil && !errors.Is(err, utils.ErrCurrentUserNotFound) {
 		slog.InfoContext(l.ctx, "FunctionsList: admin retrieval failed", "error", err)
 	}
 

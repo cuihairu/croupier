@@ -732,8 +732,12 @@ func TestFunctionUIUpdate(t *testing.T) {
 		Components: components,
 	}
 
-	err := functionUIUpdate(ctx, svcCtx, req)
+	resp, err := functionUIUpdate(ctx, svcCtx, req)
 	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.NotNil(t, resp.Schema)
+	assert.NotNil(t, resp.Layout)
+	assert.NotNil(t, resp.Components)
 
 	// Verify metadata was updated
 	fn, err := svcCtx.FunctionModel.FindByFunctionID(ctx, "func1")
@@ -753,8 +757,9 @@ func TestFunctionUIUpdate_NotFound(t *testing.T) {
 		Schema: map[string]interface{}{},
 	}
 
-	err := functionUIUpdate(ctx, svcCtx, req)
+	resp, err := functionUIUpdate(ctx, svcCtx, req)
 	require.NoError(t, err)
+	assert.NotNil(t, resp)
 
 	fn, findErr := svcCtx.FunctionModel.FindByFunctionID(ctx, "nonexistent")
 	require.NoError(t, findErr)
@@ -786,8 +791,10 @@ func TestFunctionUIRollback(t *testing.T) {
 		Version: 1,
 	}
 
-	err := functionUIRollback(ctx, svcCtx, req)
-	assert.NoError(t, err) // Currently no-op
+	resp, err := functionUIRollback(ctx, svcCtx, req)
+	require.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, 1, resp.AppliedVersion)
 }
 
 // Test functionWarnings
@@ -1358,8 +1365,9 @@ func TestService_FunctionUIUpdate(t *testing.T) {
 		Components: map[string]interface{}{},
 	}
 
-	err := svc.FunctionUIUpdate(ctx, req)
+	resp, err := svc.FunctionUIUpdate(ctx, req)
 	require.NoError(t, err)
+	require.NotNil(t, resp)
 }
 
 func TestService_FunctionUIHistory(t *testing.T) {
@@ -1385,8 +1393,10 @@ func TestService_FunctionUIRollback(t *testing.T) {
 		Version: 1,
 	}
 
-	err := svc.FunctionUIRollback(ctx, req)
-	assert.NoError(t, err)
+	resp, err := svc.FunctionUIRollback(ctx, req)
+	require.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, 1, resp.AppliedVersion)
 }
 
 func TestService_FunctionWarnings(t *testing.T) {
@@ -1876,7 +1886,8 @@ func TestFunctionUIUpdate_NilValues(t *testing.T) {
 		Components: nil,
 	}
 
-	err := functionUIUpdate(ctx, svcCtx, req)
+	resp, err := functionUIUpdate(ctx, svcCtx, req)
+	assert.Nil(t, resp)
 	assert.Error(t, err)
 }
 
@@ -1896,8 +1907,9 @@ func TestFunctionUIUpdate_EmptyValues(t *testing.T) {
 		Components: map[string]interface{}{},
 	}
 
-	err := functionUIUpdate(ctx, svcCtx, req)
+	resp, err := functionUIUpdate(ctx, svcCtx, req)
 	require.NoError(t, err)
+	assert.NotNil(t, resp)
 
 	// Verify metadata was updated
 	fn, err := svcCtx.FunctionModel.FindByFunctionID(ctx, "func1")
@@ -2345,6 +2357,9 @@ func TestHandlers_Success(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.url, strings.NewReader(tt.body))
 			req.Header.Set("Content-Type", "application/json")
 			ctx.Request = req
+			if tt.name == "FunctionUIHistory" {
+				ctx.Params = gin.Params{{Key: "id", Value: "func1"}}
+			}
 
 			tt.handler(ctx)
 

@@ -6,6 +6,9 @@ set -euo pipefail
 
 SERVER_URL="${SERVER_URL:-http://localhost:18780}"
 DASHBOARD_URL="${DASHBOARD_URL:-}"
+ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin123}"
+TOKEN=""
 
 echo "=========================================="
 echo "  API Performance Test"
@@ -26,17 +29,26 @@ test_endpoint() {
     local url="$2"
     local threshold_warn="${3:-0.5}"
     local threshold_slow="${4:-1.0}"
+    local requires_auth="${5:-}"
     local iterations=10
 
     printf "%-40s" "$name"
 
     # Warm up
-    curl -s -o /dev/null "$url" > /dev/null 2>&1
+    if [ -n "$requires_auth" ]; then
+        curl -s -H "Authorization: Bearer $TOKEN" -o /dev/null "$url" > /dev/null 2>&1
+    else
+        curl -s -o /dev/null "$url" > /dev/null 2>&1
+    fi
 
     # Measure iterations
     total=0.0
     for i in $(seq 1 $iterations); do
-        time=$(curl -s -o /dev/null -w "%{time_total}" "$url" 2>/dev/null || echo "0")
+        if [ -n "$requires_auth" ]; then
+            time=$(curl -s -H "Authorization: Bearer $TOKEN" -o /dev/null -w "%{time_total}" "$url" 2>/dev/null || echo "0")
+        else
+            time=$(curl -s -o /dev/null -w "%{time_total}" "$url" 2>/dev/null || echo "0")
+        fi
         total=$(echo "$total + $time" | bc 2>/dev/null || echo "999")
     done
 
@@ -54,18 +66,27 @@ test_endpoint() {
     fi
 }
 
+TOKEN=$(curl -s -X POST "$SERVER_URL/api/v1/auth/login" \
+    -H "Content-Type: application/json" \
+    -d "{\"username\":\"$ADMIN_USERNAME\",\"password\":\"$ADMIN_PASSWORD\"}" | jq -r '.token // empty')
+
+if [ -z "$TOKEN" ]; then
+    echo "Error: Failed to obtain auth token"
+    exit 1
+fi
+
 echo "--- Core API Endpoints ---"
 test_endpoint "Health Check" "$SERVER_URL/healthz" 0.05 0.1
-test_endpoint "Function Descriptors" "$SERVER_URL/api/v1/functions/descriptors" 0.2 0.5
-test_endpoint "Function List" "$SERVER_URL/api/v1/functions" 0.2 0.5
-test_endpoint "Agents Status" "$SERVER_URL/api/v1/agents" 0.1 0.3
-test_endpoint "Games List" "$SERVER_URL/api/v1/games" 0.2 0.5
+test_endpoint "Function Descriptors" "$SERVER_URL/api/v1/functions/descriptors" 0.2 0.5 auth
+test_endpoint "Function List" "$SERVER_URL/api/v1/functions" 0.2 0.5 auth
+test_endpoint "Agents Status" "$SERVER_URL/api/v1/ops/agents" 0.1 0.3 auth
+test_endpoint "Games List" "$SERVER_URL/api/v1/games" 0.2 0.5 auth
 
 echo ""
 echo "--- Function Detail Endpoints ---"
-test_endpoint "Function OpenAPI" "$SERVER_URL/api/v1/functions/test.player.addCurrency/openapi" 0.1 0.3
-test_endpoint "Function UI Config" "$SERVER_URL/api/v1/functions/test.player.addCurrency/ui" 0.1 0.3
-test_endpoint "Function Route Config" "$SERVER_URL/api/v1/functions/test.player.addCurrency/route" 0.1 0.3
+test_endpoint "Function OpenAPI" "$SERVER_URL/api/v1/functions/player.ban/openapi" 0.1 0.3 auth
+test_endpoint "Function UI Config" "$SERVER_URL/api/v1/functions/player.ban/ui" 0.1 0.3 auth
+test_endpoint "Function Route Config" "$SERVER_URL/api/v1/functions/player.ban/route" 0.1 0.3 auth
 
 echo ""
 if [ -n "$DASHBOARD_URL" ]; then
