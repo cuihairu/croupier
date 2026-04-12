@@ -13,6 +13,12 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+cover.html
+coverage.html
+platform_coverage.html
+coverage_refactor
+coverage_refactor_latest
+coverage_target
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
@@ -112,6 +118,8 @@ services/server/current_handlers.txt
 # Temporary build artifacts
 services/*/bin/
 services/*/logs/
+services/*/__debug_bin*
+cmd/*/__debug_bin*
 __debug_bin.exe*
 
 # Python bytecode caches
