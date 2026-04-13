@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
       - name: Architecture guard
@@ -35,10 +35,16 @@ jobs:
           go version
           go env GOROOT GOTOOLDIR GOVERSION GOOS GOARCH
       - name: Install buf
-        uses: bufbuild/buf-setup-action@v1
-        with:
-          version: '1.47.2'
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        env:
+          BUF_VERSION: '1.47.2'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -sSLf "https://github.com/bufbuild/buf/releases/download/v${BUF_VERSION}/buf-Linux-x86_64" -o "$RUNNER_TEMP/bin/buf"
+          chmod +x "$RUNNER_TEMP/bin/buf"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/bin/buf" --version
       - name: Lint proto
         run: buf lint proto
       - name: Checkout SDK repository
@@ -68,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
       - name: Normalize Go toolchain env
@@ -100,7 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
       - name: Normalize Go toolchain env
@@ -147,7 +153,7 @@ jobs:
     needs: [test]
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
       - name: Normalize Go toolchain env

@@ -23,21 +23,21 @@ jobs:
         with:
           submodules: false
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       - name: Login to GHCR
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository_owner }}/croupier-server
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./docker/Dockerfile.server
@@ -48,23 +48,15 @@ jobs:
         if: github.event_name != 'pull_request'
         env:
           GH_OWNER: ${{ github.repository_owner }}
+          GH_OWNER_SCOPE: ${{ github.event.repository.owner.type == 'Organization' && 'orgs' || 'users' }}
           # Prefer a PAT if provided; fall back to GITHUB_TOKEN (may lack perms to change visibility)
-          TOKEN: ${{ secrets.GHCR_TOKEN != '' && secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          TOKEN: ${{ secrets.GHCR_TOKEN != '' && secrets.GHCR_TOKEN || github.token }}
           PKG: croupier-server
         continue-on-error: true
         run: |
           set -euo pipefail
           echo "Ensuring GHCR package visibility: ghcr.io/${GH_OWNER}/${PKG} -> public"
-          # Determine scope that exists and wait until package appears
-          scope=""
-          for s in "orgs/${GH_OWNER}" "users/${GH_OWNER}"; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/${s}" || true)
-            if [ "$code" = "200" ]; then scope="$s"; break; fi
-          done
-          if [ -z "$scope" ]; then
-            echo "::warning::Cannot determine owner scope for ${GH_OWNER}; skip visibility change"
-            exit 0
-          fi
+          scope="${GH_OWNER_SCOPE}/${GH_OWNER}"
           # Wait for package to exist (up to ~60s)
           for i in $(seq 1 12); do
             code=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/${scope}/packages/container/${PKG}" || true)
@@ -82,7 +74,7 @@ jobs:
           if [ "$code" = "204" ] || [ "$code" = "200" ]; then
             echo "Package ${PKG} set to public via ${scope}"
           else
-            echo "::warning::Failed to set ${PKG} public (HTTP $code). If this persists, create a PAT with write:packages and set it as GHCR_TOKEN secret, or set visibility manually once via UI."
+            echo "Skipping GHCR visibility update for ${PKG} (HTTP $code)"
           fi
 
   build-agent:
@@ -92,21 +84,21 @@ jobs:
         with:
           submodules: false
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
       - name: Login to GHCR
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository_owner }}/croupier-agent
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./docker/Dockerfile.agent
@@ -117,21 +109,14 @@ jobs:
         if: github.event_name != 'pull_request'
         env:
           GH_OWNER: ${{ github.repository_owner }}
-          TOKEN: ${{ secrets.GHCR_TOKEN != '' && secrets.GHCR_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_OWNER_SCOPE: ${{ github.event.repository.owner.type == 'Organization' && 'orgs' || 'users' }}
+          TOKEN: ${{ secrets.GHCR_TOKEN != '' && secrets.GHCR_TOKEN || github.token }}
           PKG: croupier-agent
         continue-on-error: true
         run: |
           set -euo pipefail
           echo "Ensuring GHCR package visibility: ghcr.io/${GH_OWNER}/${PKG} -> public"
-          scope=""
-          for s in "orgs/${GH_OWNER}" "users/${GH_OWNER}"; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/${s}" || true)
-            if [ "$code" = "200" ]; then scope="$s"; break; fi
-          done
-          if [ -z "$scope" ]; then
-            echo "::warning::Cannot determine owner scope for ${GH_OWNER}; skip visibility change"
-            exit 0
-          fi
+          scope="${GH_OWNER_SCOPE}/${GH_OWNER}"
           for i in $(seq 1 12); do
             code=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${TOKEN}" -H "Accept: application/vnd.github+json" "https://api.github.com/${scope}/packages/container/${PKG}" || true)
             echo "Probe ${scope}/packages/container/${PKG} -> $code"
@@ -147,5 +132,5 @@ jobs:
           if [ "$code" = "204" ] || [ "$code" = "200" ]; then
             echo "Package ${PKG} set to public via ${scope}"
           else
-            echo "::warning::Failed to set ${PKG} public (HTTP $code). If this persists, create a PAT with write:packages and set it as GHCR_TOKEN secret, or set visibility manually once via UI."
+            echo "Skipping GHCR visibility update for ${PKG} (HTTP $code)"
           fi
