@@ -316,6 +316,12 @@ func (c *Client) isConnected() bool {
 	return c.running && c.sock != nil
 }
 
+func (c *Client) currentSocket() mangos.Socket {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.sock
+}
+
 // attemptReconnect attempts to reconnect to the server
 func (c *Client) attemptReconnect() {
 	cfg := c.getReconnectConfig()
@@ -423,6 +429,8 @@ func (c *Client) Close() error {
 		return nil
 	}
 	c.running = false
+	sock := c.sock
+	c.sock = nil
 	c.mu.Unlock()
 
 	// Cancel context to stop all goroutines
@@ -431,11 +439,10 @@ func (c *Client) Close() error {
 	// Wait for reconnection loop to finish
 	c.reconnWg.Wait()
 
-	if c.sock != nil {
-		if err := c.sock.Close(); err != nil {
+	if sock != nil {
+		if err := sock.Close(); err != nil {
 			c.logger.Error("failed to close socket", "error", err)
 		}
-		c.sock = nil
 	}
 
 	// Close all pending channels
@@ -546,7 +553,11 @@ func (c *Client) call(ctx context.Context, msgID uint32, data []byte) ([]byte, e
 	// Send request
 	msg := mangos.NewMessage(0)
 	msg.Body = body
-	if err := c.sock.SendMsg(msg); err != nil {
+	sock := c.currentSocket()
+	if sock == nil {
+		return nil, fmt.Errorf("client socket closed")
+	}
+	if err := sock.SendMsg(msg); err != nil {
 		return nil, fmt.Errorf("send: %w", err)
 	}
 
@@ -588,12 +599,13 @@ func (c *Client) receiveLoop() {
 		default:
 		}
 
-		if c.sock == nil {
+		sock := c.currentSocket()
+		if sock == nil {
 			return
 		}
 
 		// Receive message
-		msg, err := c.sock.RecvMsg()
+		msg, err := sock.RecvMsg()
 		if err != nil {
 			// Check if context is cancelled
 			select {
