@@ -6,12 +6,19 @@
 
 - 协议标准：`docs/architecture/sdk-wire-protocol.md`
 - 行为规范：`docs/sdk/specification.md`
+- 目标传输重构：`docs/architecture/sdk-agent-transport-redesign.md`
 
 状态说明：
 
 - `Yes`: 已实现且链路已接通
 - `Partial`: 有部分代码或协议常量，但行为未完全可用
 - `No`: 当前未实现或不可用
+
+> 注:
+> 本文档描述的是**当前代码状态**，不是未来目标架构。
+> 当前矩阵中仍包含 `LocalControl`、SDK 本地监听和 SDK 侧 NNG server 等历史实现痕迹。
+> 目标架构已调整为 “SDK 不监听端口，SDK-Agent 使用单条 TCP/TLS 长连接”，详见
+> [`docs/architecture/sdk-agent-transport-redesign.md`](../architecture/sdk-agent-transport-redesign.md)。
 
 ## 当前总体判断
 

@@ -271,6 +271,7 @@ message JobEvent {
 
 - [分层设计](./layers.md)
 - [数据流](./data-flow.md)
+- [SDK-Agent 传输重构设计](./sdk-agent-transport-redesign.md)
 - [核心与扩展边界映射](./core-extension-mapping.md)
 - [扩展清单与安装模型](./extension-installation-model.md)
 - [official.alerting 迁移草案](./official-alerting-migration-draft.md)

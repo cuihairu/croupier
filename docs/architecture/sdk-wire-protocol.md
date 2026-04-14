@@ -16,8 +16,14 @@
 - 协议格式、MsgID、兼容性规则，以本文档为准
 - 各 SDK 当前实现状态，以 `docs/sdks/sdk-parity-matrix.md` 为准
 - 语言级 API 风格、行为约束，以 `docs/sdk/specification.md` 为准
+- SDK-Agent 连接模型的目标重构方案，以 `docs/architecture/sdk-agent-transport-redesign.md` 为准
 
 各 SDK 仓库不应复制本协议正文，只应引用主仓库文档。
+
+> 注:
+> 当前文档仍包含一部分基于历史代码状态的 `LocalControl` / SDK 本地监听语义。
+> 目标架构已经收敛为 “SDK 不监听端口，SDK-Agent 使用单条 `tcp` 长连接，按需启用 `tls`”。
+> 具体迁移设计见 [`sdk-agent-transport-redesign.md`](./sdk-agent-transport-redesign.md)。
 
 ## 当前结论
 
@@ -35,7 +41,7 @@
   - 底层依赖 NNG 运行时/绑定
   - 地址样式通常为 `tcp://...`、`ipc://...`
 - `tcp`
-  - 仍使用同一份 Croupier message header + protobuf body
+  - 仍使用同一份 Croupier message header + protobuf message body
   - 但底层不依赖 NNG，而是自定义裸 TCP framing
   - 地址样式应单独定义，例如 `tcp://host:port`
 
@@ -80,6 +86,72 @@ SDK 通信标准建议拆成三层：
 - `MsgID`：24-bit，无符号，大端
 - `RequestID`：32-bit，无符号，大端
 - Body：protobuf 序列化字节
+
+## 业务 payload 约定
+
+需要明确区分：
+
+- 协议消息体
+  - 指 `ProviderConnectRequest`、`InvokeRequest`、`InvokeResponse`、`JobEvent` 等 protobuf message 本身
+  - 这一层固定使用 protobuf
+- 用户业务 payload
+  - 指 protobuf message 中承载业务数据的 `bytes payload`
+  - 这一层默认不强制 protobuf
+
+v1 默认规则：
+
+- `InvokeRequest.payload` 默认是 UTF-8 JSON 字节
+- `InvokeResponse.payload` 默认是 UTF-8 JSON 字节
+- `JobEvent.payload` 默认是 UTF-8 JSON 字节
+- SDK 用户不需要先定义 `.proto` 才能接入
+- SDK 应提供原生对象与 JSON bytes 之间的默认自动编解码
+
+这意味着：
+
+- protobuf 是平台协议格式，不是 SDK 用户业务模型的强制格式
+- Agent 默认不解析业务 payload 内部结构，只处理路由、会话、背压和转发
+- JSON 是 v1 唯一支持的业务 payload 格式
+
+### 字段分层规则
+
+字段放在哪一层，不按“消息名字”判断，而按“谁需要理解这个字段”判断。
+
+规则：
+
+- 凡是 Agent 需要理解、路由、治理或协商的字段，必须放在 protobuf 协议层
+- 凡是只被具体业务函数理解的字段，应放在 JSON payload 层
+- 不允许把平台通用控制字段藏在 JSON payload 中，要求 Agent 运行时去猜
+
+典型应放 protobuf 的字段：
+
+- `function_id`
+- `idempotency_key`
+- `session_id`
+- `trace_id`
+- `tenant_id`
+- `timeout_ms`
+- `priority`
+- 能力协商、重试、限流、审计相关字段
+
+典型应放 JSON payload 的字段：
+
+- `player_id`
+- `ban_reason`
+- `duration`
+- `guild_id`
+- `item_count`
+- 其他仅被具体函数 handler 消费的业务参数
+
+### Schema 约定
+
+`input_schema` / `output_schema` 在默认路径下表示 JSON payload 的 JSON Schema。
+
+规则：
+
+- schema 是可选增强项，不是接入前置条件
+- 没有 schema 时，函数仍然可以注册和调用
+- schema 主要用于校验、文档、UI 生成和调试提示
+- 不应把“是否提供 schema”与“是否支持协议”绑定
 
 ## 请求响应规则
 
@@ -132,6 +204,13 @@ SDK 通信标准建议拆成三层：
 | `0x030107` | CancelJobRequest |
 | `0x030108` | CancelJobResponse |
 
+这一组消息的业务负载约束补充如下：
+
+- `InvokeRequest.payload` 默认是 JSON request body 的 UTF-8 字节
+- `InvokeResponse.payload` 默认是 JSON response body 的 UTF-8 字节
+- `JobEvent.payload` 默认是 JSON event/result body 的 UTF-8 字节
+- 双方都必须按 JSON 解释这些 `payload`
+
 ### 0x04xx OpsService
 
 这一组目前并非所有 SDK 都实现，但主仓库、Python、C++、JS 等实现中已出现：
@@ -158,16 +237,19 @@ SDK 通信标准建议拆成三层：
 
 这些扩展消息尚未在所有 SDK 完全对齐，后续应以主仓库 proto/handler 实际支持范围为准统一收口。
 
-### 0x05xx LocalControlService
+### 0x05xx ProviderSessionService
 
-| MsgID | 名称 |
-|------:|------|
-| `0x050101` | RegisterLocalRequest |
-| `0x050102` | RegisterLocalResponse |
-| `0x050103` | HeartbeatLocalRequest |
-| `0x050104` | HeartbeatLocalResponse |
-| `0x050105` | ListLocalRequest |
-| `0x050106` | ListLocalResponse |
+> 历史实现中这一组常量曾以 `LocalControlService`、`RegisterLocalRequest` 等名称出现。
+> 目标语义已经切换为“连接内 provider session”，不再表达“SDK 本地监听地址注册”。
+
+| MsgID | 名称 | 历史别名 |
+|------:|------|------|
+| `0x050101` | ProviderConnectRequest | RegisterLocalRequest |
+| `0x050102` | ProviderConnectResponse | RegisterLocalResponse |
+| `0x050103` | ProviderHeartbeatRequest | HeartbeatLocalRequest |
+| `0x050104` | ProviderHeartbeatResponse | HeartbeatLocalResponse |
+| `0x050105` | ProviderDrainRequest | ListLocalRequest |
+| `0x050106` | ProviderDrainResponse | ListLocalResponse |
 
 ## 当前协议偏差
 
@@ -183,7 +265,7 @@ SDK 通信标准建议拆成三层：
 
 缺少：
 
-- `0x05xx LocalControlService`
+- `0x05xx ProviderSessionService`
 - `0x04xx OpsService`
 - `0x02xx` 中部分扩展消息
 
@@ -237,10 +319,10 @@ transport:
 要求：
 
 - 不依赖 NNG 原生库或语言绑定
-- 使用独立 framing，建议：
-  - 固定前缀魔数
-  - 版本号
-  - 总帧长度
+- `transport.kind` 仍定义为 `tcp`，`tls` 只是其上的安全配置
+- 默认可使用明文 `tcp`，跨主机/跨网段/有合规要求时启用 `tls`
+- 使用独立 framing：
+  - `FrameLength`
   - 8 字节 Croupier header
   - protobuf body
 - 支持半包/粘包解析
@@ -249,13 +331,26 @@ transport:
 推荐 framing：
 
 ```text
-+---------+---------+--------------+------------------+-----------+
-| Magic   | Version | FrameLength  | Croupier Header  | Body      |
-| 4 bytes | 1 byte  | 4 bytes      | 8 bytes          | N bytes   |
-+---------+---------+--------------+------------------+-----------+
++--------------+------------------+-----------+
+| FrameLength  | Croupier Header  | Body      |
+| 4 bytes      | 8 bytes          | N bytes   |
++--------------+------------------+-----------+
 ```
 
-推荐魔数示例：`CRP1`
+约束：
+
+- `FrameLength` 为大端无符号 32-bit，表示后续 `Croupier Header + Body` 总长度
+- 首条应用层消息必须为 `ProviderConnectRequest`
+- 首条消息的 `Version`、`MsgID` 或 body 不可识别时，Agent 直接关闭连接
+- framing 非法或长度越界时，Agent 直接关闭连接
+- v1 不做同连接内重同步，不引入 `Magic`
+
+这样设计的原因是：
+
+- SDK-Agent listener 是专用边界，不做多协议复用
+- 首条 `ProviderConnectRequest` 已足够完成协议识别
+- `Header.Version` 已承担 wire 版本演进语义
+- 一旦流损坏，关闭连接并重连比继续猜测边界更简单、更稳
 
 ## 为什么要加独立 TCP transport
 
@@ -286,6 +381,8 @@ transport:
 建议后续统一为：
 
 - 默认 transport：`tcp`
+- 默认 `tls.enabled = false`
+- 跨主机、跨网段、零信任网络或合规要求下启用 `tls`
 - 可选 transport：`nng`
 - 本地同机部署且明确安装了 NNG 时，可手动切换到 `nng`
 
@@ -317,18 +414,20 @@ sdk:
   - `nng`
   - `tcp`
 - `supported_capabilities`
+  - `provider_session`
   - `invoke`
   - `start_job`
   - `stream_job`
   - `cancel_job`
-  - `register_local`
-  - `heartbeat_local`
-  - `list_local`
+  - `drain`
   - `ops_read`
   - `ops_control`
 - `sdk_language`
 - `sdk_version`
 - `protocol_version`
+- `transport_security_mode`
+  - `plaintext`
+  - `tls`
 
 这样 server/agent 可以：
 
@@ -344,6 +443,7 @@ sdk:
    - 不能重定义既有 `MsgID`
    - 不能改变 header 长度
    - protobuf 字段只能做向后兼容扩展
+   - 业务 payload 的 JSON 语义不能被静默改成其他格式
 2. 新增消息：
    - 新增未使用 `MsgID`
    - 更新主仓库协议文档
@@ -361,7 +461,7 @@ sdk:
 
 1. 主仓库补齐协议常量与文档
 2. 定义统一 transport 抽象
-3. 为 `agent` 和 `server` 增加独立 `tcp` transport
+3. 为 `agent` 增加 SDK-Agent 专用独立 `tcp` transport，按配置支持 `tls`
 4. Go SDK 先实现 `tcp`，作为参考实现
 5. Python / JS / C# / Java 跟进 `tcp`
 6. 将默认 transport 切换为 `tcp`
