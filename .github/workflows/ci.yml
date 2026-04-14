@@ -13,18 +13,25 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - timeout-minutes: 3
+        uses: actions/checkout@v5
+      - timeout-minutes: 5
+        uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
       - name: Architecture guard
+        timeout-minutes: 5
         run: bash .github/scripts/architecture_guard.sh
       - name: Contracts guard
+        timeout-minutes: 5
         run: bash .github/scripts/contracts_guard.sh
       - name: API response guard
+        timeout-minutes: 5
         run: bash .github/scripts/api_response_guard.sh
       - name: Normalize Go toolchain env
+        timeout-minutes: 2
         shell: bash
         run: |
           go env -u GOROOT || true
@@ -35,6 +42,7 @@ jobs:
           go version
           go env GOROOT GOTOOLDIR GOVERSION GOOS GOARCH
       - name: Install buf
+        timeout-minutes: 5
         shell: bash
         env:
           BUF_VERSION: '1.47.2'
@@ -46,15 +54,19 @@ jobs:
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/bin/buf" --version
       - name: Lint proto
+        timeout-minutes: 5
         run: buf lint proto
       - name: Checkout SDK repository
+        timeout-minutes: 3
         uses: actions/checkout@v5
         with:
           repository: cuihairu/croupier-sdk-go
           path: ./croupier-sdk-go
       - name: Go mod download
+        timeout-minutes: 5
         run: go mod download
       - name: Check gofmt
+        timeout-minutes: 5
         run: |
           mapfile -d '' -t go_files < <(git ls-files -z '*.go' || true)
           if [[ ${#go_files[@]} -eq 0 ]]; then
@@ -67,17 +79,22 @@ jobs:
             exit 1
           fi
       - name: Vet Go code
+        timeout-minutes: 5
         run: go vet ./...
 
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - timeout-minutes: 3
+        uses: actions/checkout@v5
+      - timeout-minutes: 5
+        uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
       - name: Normalize Go toolchain env
+        timeout-minutes: 2
         shell: bash
         run: |
           go env -u GOROOT || true
@@ -88,15 +105,19 @@ jobs:
           go version
           go env GOROOT GOTOOLDIR GOVERSION GOOS GOARCH
       - name: Install govulncheck
+        timeout-minutes: 5
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
       - name: Checkout SDK repository
+        timeout-minutes: 3
         uses: actions/checkout@v5
         with:
           repository: cuihairu/croupier-sdk-go
           path: ./croupier-sdk-go
       - name: Go mod download
+        timeout-minutes: 5
         run: go mod download
       - name: Run govulncheck
+        timeout-minutes: 10
         run: |
           echo "Running Go vulnerability scan..."
           ~/go/bin/govulncheck ./...
@@ -104,12 +125,16 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - timeout-minutes: 3
+        uses: actions/checkout@v5
+      - timeout-minutes: 5
+        uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
       - name: Normalize Go toolchain env
+        timeout-minutes: 2
         shell: bash
         run: |
           go env -u GOROOT || true
@@ -121,15 +146,19 @@ jobs:
           go env GOROOT GOTOOLDIR GOVERSION GOOS GOARCH
       # Proto 代码由 croupier-proto 的 sync-sdks workflow 同步，无需本地生成
       - name: Checkout SDK repository
+        timeout-minutes: 3
         uses: actions/checkout@v5
         with:
           repository: cuihairu/croupier-sdk-go
           path: ./croupier-sdk-go
       - name: Go mod download
+        timeout-minutes: 5
         run: go mod download
       - name: Prepare storage directory
+        timeout-minutes: 1
         run: mkdir -p data/uploads
       - name: Unit tests
+        timeout-minutes: 10
         env:
           DB_DRIVER: sqlite
           DATABASE_URL: ":memory:"
@@ -138,6 +167,7 @@ jobs:
         run: go test -count=1 -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Upload coverage to Codecov
+        timeout-minutes: 3
         uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -150,13 +180,17 @@ jobs:
     name: E2E Tests
     if: ${{ false }} # Temporarily disabled: health-check endpoint expectation is unstable in CI
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [test]
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - timeout-minutes: 3
+        uses: actions/checkout@v5
+      - timeout-minutes: 5
+        uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
       - name: Normalize Go toolchain env
+        timeout-minutes: 2
         shell: bash
         run: |
           go env -u GOROOT || true
@@ -167,8 +201,10 @@ jobs:
           go version
           go env GOROOT GOTOOLDIR GOVERSION GOOS GOARCH
       - name: Setup E2E scripts
+        timeout-minutes: 1
         run: chmod +x scripts/e2e/*.sh
       - name: Start Server
+        timeout-minutes: 15
         run: |
           go build -o bin/croupier-server ./cmd/server
           mkdir -p data/uploads
@@ -185,12 +221,14 @@ jobs:
             sleep 1
           done
       - name: Run E2E tests
+        timeout-minutes: 10
         env:
           SERVER_URL: http://localhost:18780
         run: |
           bash scripts/e2e/health-check.sh
           bash scripts/e2e/test-performance.sh
       - name: Cleanup
+        timeout-minutes: 2
         if: always()
         run: |
           if [ -n "${SERVER_PID:-}" ]; then

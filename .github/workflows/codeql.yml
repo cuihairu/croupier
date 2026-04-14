@@ -23,15 +23,18 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout
+        timeout-minutes: 3
         uses: actions/checkout@v5
         with:
           submodules: false
 
       - name: Setup Go
+        timeout-minutes: 5
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
       - name: Normalize Go toolchain env
+        timeout-minutes: 2
         shell: bash
         run: |
           go env -u GOROOT || true
@@ -43,12 +46,15 @@ jobs:
           go env GOROOT GOTOOLDIR GOVERSION GOOS GOARCH
 
       - name: Initialize CodeQL
+        timeout-minutes: 5
         uses: github/codeql-action/init@v4
         with:
           languages: go
 
       - name: Build (for Go extractor)
+        timeout-minutes: 15
         run: go build ./...
 
       - name: Perform CodeQL Analysis
+        timeout-minutes: 10
         uses: github/codeql-action/analyze@v4
