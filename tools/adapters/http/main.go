@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/nng"
+	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 )
@@ -210,7 +210,7 @@ func (s *server) Invoke(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.I
 func main() {
 	agent := os.Getenv("AGENT_ADDR")
 	if agent == "" {
-		agent = "127.0.0.1:19091" // NNG port
+		agent = "127.0.0.1:19090" // TCP port
 	}
 	listen := os.Getenv("RPC_ADDR")
 	if listen == "" {
@@ -226,14 +226,19 @@ func main() {
 	}
 
 	log.Printf("http-adapter listening on %s (HTTP)", listen)
-	log.Printf("connecting to agent %s (NNG)", agent)
+	log.Printf("connecting to agent %s (TCP)", agent)
 
-	// Create NNG client for agent communication
-	nngClient := nng.NewClient(agent)
-	if err := nngClient.Dial(); err != nil {
-		log.Fatalf("Failed to connect to agent via NNG: %v", err)
+	// Create TCP client for agent communication
+	tcpClient, err := tcptr.NewClient(&tcptr.Config{
+		Address:     agent,
+		Insecure:    true,
+		RecvTimeout: 10 * time.Second,
+		SendTimeout: 10 * time.Second,
+	})
+	if err != nil {
+		log.Fatalf("Failed to create TCP client: %v", err)
 	}
-	defer nngClient.Close()
+	defer tcpClient.Close()
 
 	// Define JSON Schemas for function parameters
 	genericInvokeInputSchema := `{
@@ -377,7 +382,7 @@ func main() {
 	regData := sdkv1.MarshalRegisterLocalRequest(regReq)
 
 	ctx := context.Background()
-	_, err := nngClient.Call(ctx, protocol.MsgRegisterLocalRequest, regData)
+	_, _, err = tcpClient.Call(ctx, protocol.MsgRegisterLocalRequest, regData)
 	if err != nil {
 		log.Fatalf("Failed to register with agent: %v", err)
 	}
@@ -390,6 +395,6 @@ func main() {
 	hbReq := &sdkv1.HeartbeatRequest{ServiceId: serviceID}
 	for range ticker.C {
 		hbData := sdkv1.MarshalHeartbeatRequestCompat(hbReq)
-		_, _ = nngClient.Call(ctx, protocol.MsgHeartbeatLocalRequest, hbData)
+		_, _, _ = tcpClient.Call(ctx, protocol.MsgHeartbeatLocalRequest, hbData)
 	}
 }

@@ -76,13 +76,13 @@ func (c *Config) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-// ControlConfig 配置 NNG 控制服务器（控制平面）
+// ControlConfig 配置控制服务器（控制平面）
 type ControlConfig struct {
 	// Transport selects the control-plane transport implementation.
-	// Supported values: nng, tcp.
+	// Supported values: tcp.
 	Transport string `json:"transport,omitempty" yaml:"transport,omitempty"`
 
-	// NNG ControlService 监听地址（默认 :19090，用于 SDK/Agent 连接）
+	// ControlService 监听地址（默认 :19090，用于 SDK/Agent 连接）
 	// 支持多传输层，可以使用逗号分隔多个地址
 	// 例如: ":19090" 或 ":19090,ipc://croupier-server"
 	// 支持的传输协议: tcp://, ipc:// (Windows Named Pipes / Unix Domain Socket)
@@ -93,7 +93,7 @@ type ControlConfig struct {
 	// Linux/Unix: ipc:///tmp/croupier-server.sock 或 ipc://@croupier-server (abstract)
 	IPCAddr string `json:"ipcAddr,omitempty" yaml:"ipcAddr,omitempty"`
 
-	// TLS 证书配置（保留用于未来 NNG TLS 支持）
+	// TLS 证书配置（保留用于未来 TLS 支持）
 	Cert string `json:"cert,omitempty" yaml:"cert,omitempty"`
 	Key  string `json:"key,omitempty" yaml:"key,omitempty"`
 	CA   string `json:"ca,omitempty" yaml:"ca,omitempty"`

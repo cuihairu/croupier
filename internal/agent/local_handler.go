@@ -3,21 +3,15 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"net"
-	"net/http"
-	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
-	transportcore "github.com/cuihairu/croupier/internal/transport"
 	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
@@ -51,7 +45,7 @@ type OpsServerWrapper interface {
 }
 
 // LocalHandler contains the business logic for handling agent requests
-// without any transport-specific dependencies (NNG/TCP sockets).
+// without any transport-specific dependencies.
 type LocalHandler struct {
 	store     *agentlocal.LocalStore
 	jobs      *jobIndex

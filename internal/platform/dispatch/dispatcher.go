@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/nng"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
@@ -30,7 +29,7 @@ type AgentSessionResolver interface {
 }
 
 // Dispatcher routes function invocations to live agents discovered via registry store.
-// Supports both TCP session routing (preferred) and NNG fallback.
+// Uses TCP session routing for all agent communication.
 // Supports HA features: health tracking, circuit breaker, load balancing.
 type Dispatcher struct {
 	store         *reg.Store
@@ -40,10 +39,8 @@ type Dispatcher struct {
 	dialTimeout   time.Duration
 	invokeTimeout time.Duration
 	tlsCfg        *tlsutil.ClientTLSConfig
-	nngClients    map[string]*nng.Client // cached NNG clients
-	clientsMu     sync.RWMutex
 
-	// TCP session routing (preferred over NNG when available)
+	// TCP session routing
 	sessionResolver AgentSessionResolver
 
 	// HA features
@@ -76,7 +73,6 @@ func NewDispatcherWithHA(store *reg.Store, jobStore JobRoutingStore, haEnabled b
 		store:         store,
 		jobRouting:    map[string]string{},
 		jobStore:      jobStore,
-		nngClients:    make(map[string]*nng.Client),
 		dialTimeout:   5 * time.Second,
 		invokeTimeout: 15 * time.Second,
 		haEnabled:     haEnabled,
@@ -161,7 +157,7 @@ func (d *Dispatcher) SetTLSConfig(cfg *tlsutil.ClientTLSConfig) {
 }
 
 // SetSessionResolver sets the TCP session resolver for routing requests over
-// established Agent sessions instead of dialing NNG connections.
+// established Agent sessions.
 func (d *Dispatcher) SetSessionResolver(resolver AgentSessionResolver) {
 	d.sessionResolver = resolver
 }
@@ -320,16 +316,12 @@ func (d *Dispatcher) CancelJob(ctx context.Context, jobID string) error {
 }
 
 func (d *Dispatcher) StreamJob(ctx context.Context, jobID string) ([]*sdkv1.JobEvent, bool, error) {
-	// Note: Streaming with NNG would require Pair protocol
-	// For now, return a simplified response
-	return nil, false, fmt.Errorf("streaming not yet implemented for NNG")
+	return nil, false, fmt.Errorf("streaming not yet implemented")
 }
 
 // StreamJobRealtime forwards job events to the provided callback.
 func (d *Dispatcher) StreamJobRealtime(ctx context.Context, jobID string, fn func(*sdkv1.JobEvent) bool) (bool, error) {
-	// Note: Streaming with NNG would require Pair protocol
-	// For now, return a simplified response
-	return false, fmt.Errorf("streaming not yet implemented for NNG")
+	return false, fmt.Errorf("streaming not yet implemented")
 }
 
 // ListFunctionAgents returns agent IDs that currently expose the function.
@@ -513,87 +505,29 @@ func (d *Dispatcher) pickAgentWithRouting(functionID string, metadata map[string
 	return d.pickAgent(functionID)
 }
 
-// callAgent sends a request to an Agent, preferring TCP session over NNG.
-// agentID identifies the session; rpcAddr is the NNG fallback address.
+// callAgent sends a request to an Agent via TCP session.
 func (d *Dispatcher) callAgent(ctx context.Context, agentID, rpcAddr string, msgID uint32, reqBody []byte) ([]byte, error) {
-	// Try TCP session first
-	if d.sessionResolver != nil {
-		if caller, ok := d.sessionResolver.ResolveAgentConn(agentID); ok {
-			callCtx, cancel := context.WithTimeout(ctx, d.invokeTimeout)
-			defer cancel()
-
-			_, respBody, err := caller.Call(callCtx, msgID, reqBody)
-			if err == nil {
-				return respBody, nil
-			}
-			// Session call failed, log and fall through to NNG
-			log.Printf("[dispatch] TCP session call failed for agent %s, falling back to NNG: %v", agentID, err)
-		}
+	if d.sessionResolver == nil {
+		return nil, fmt.Errorf("session resolver not configured")
 	}
 
-	// Fallback to NNG
-	client, err := d.getNNGClient(rpcAddr)
-	if err != nil {
-		return nil, err
+	caller, ok := d.sessionResolver.ResolveAgentConn(agentID)
+	if !ok {
+		return nil, fmt.Errorf("agent %s session not found", agentID)
 	}
 
 	callCtx, cancel := context.WithTimeout(ctx, d.invokeTimeout)
 	defer cancel()
 
-	respBody, err := client.Call(callCtx, msgID, reqBody)
+	_, respBody, err := caller.Call(callCtx, msgID, reqBody)
 	return respBody, err
 }
 
-// callAgentByAddr sends a request to an Agent by NNG address (no session lookup).
+// callAgentByAddr sends a request to an Agent by address.
+// NOTE: This method is not functional in TCP-only mode.
+// Job routing should be updated to store agentID instead of RPC addr.
 func (d *Dispatcher) callAgentByAddr(ctx context.Context, rpcAddr string, msgID uint32, reqBody []byte) ([]byte, error) {
-	client, err := d.getNNGClient(rpcAddr)
-	if err != nil {
-		return nil, err
-	}
-
-	callCtx, cancel := context.WithTimeout(ctx, d.invokeTimeout)
-	defer cancel()
-
-	respBody, err := client.Call(callCtx, msgID, reqBody)
-	return respBody, err
-}
-
-// getNNGClient gets or creates an NNG client for the given address
-func (d *Dispatcher) getNNGClient(addr string) (*nng.Client, error) {
-	d.clientsMu.RLock()
-	client, ok := d.nngClients[addr]
-	d.clientsMu.RUnlock()
-
-	if ok && client.IsRunning() {
-		return client, nil
-	}
-
-	d.clientsMu.Lock()
-	defer d.clientsMu.Unlock()
-
-	// Double-check after acquiring write lock
-	if client, ok := d.nngClients[addr]; ok && client.IsRunning() {
-		return client, nil
-	}
-
-	// Create new client
-	if addr == "" {
-		return nil, fmt.Errorf("agent address missing")
-	}
-
-	// Build NNG address
-	nngAddr := addr
-	if !strings.Contains(nngAddr, ":") {
-		nngAddr = net.JoinHostPort(nngAddr, "19091") // Default Agent NNG port
-	}
-
-	client = nng.NewClient(nngAddr)
-	if err := client.Dial(); err != nil {
-		return nil, fmt.Errorf("failed to dial NNG: %w", err)
-	}
-
-	d.nngClients[addr] = client
-	return client, nil
+	return nil, fmt.Errorf("callAgentByAddr not supported in TCP-only mode; job routing must store agentID")
 }
 
 func hostFromAddr(addr string) string {
@@ -716,14 +650,6 @@ func (d *Dispatcher) Close() error {
 		d.healthTracker.Stop()
 	}
 	d.mu.Unlock()
-
-	// Close all NNG clients
-	d.clientsMu.Lock()
-	for _, client := range d.nngClients {
-		client.Close()
-	}
-	d.nngClients = make(map[string]*nng.Client)
-	d.clientsMu.Unlock()
 
 	return d.jobStore.Close()
 }

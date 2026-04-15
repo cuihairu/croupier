@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cuihairu/cuihairu/croupier/internal/core/extension/externalfunc"
+	"github.com/cuihairu/croupier/internal/core/extension/externalfunc"
 	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
 	"github.com/cuihairu/croupier/internal/agent"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
@@ -39,7 +39,7 @@ type App struct {
 	configDir        string
 
 	// TCP local server
-	localHandler       *LocalHandler
+	localHandler       *agent.LocalHandler
 	localServer        transportcore.Server
 	localAddr          string
 
@@ -108,7 +108,7 @@ func (a *App) StartLocalServer() error {
 		})
 	}
 
-	// Create local handler (business logic, no NNG socket)
+	// Create local handler (business logic, TCP transport)
 	a.localHandler = agent.NewLocalHandler(a.store, a.configDir, a.agentID, slog.Default())
 
 	// Set provider manager - wrap it to implement the interface
@@ -240,7 +240,7 @@ func (a *App) startExtensionSync(ctx context.Context) {
 	a.extensionPuller.Start(ctx)
 }
 
-// Stop shuts down background upstream connection and NNG server.
+// Stop shuts down background upstream connection and local TCP server.
 func (a *App) Stop() {
 	if a == nil {
 		return
@@ -800,7 +800,7 @@ func (a *App) invokeExtensionFunction(ctx context.Context, functionID string, pa
 	return a.extensionDrivers.Invoke(ctx, driver, key, payload)
 }
 
-// opsServerWrapper wraps OpsServer to implement nng.OpsServerWrapper interface
+// opsServerWrapper wraps OpsServer to implement agent.OpsServerWrapper interface
 type opsServerWrapper struct {
 	ops *OpsServer
 }
@@ -845,7 +845,7 @@ func (w *opsServerWrapper) ListCronJobsJSON(ctx context.Context) ([]byte, error)
 	return w.ops.ListCronJobsJSON(ctx)
 }
 
-// providerManagerWrapper wraps ProviderManager to implement nng.ProviderManager interface
+// providerManagerWrapper wraps ProviderManager to implement agent.ProviderManager interface
 type providerManagerWrapper struct {
 	pm  *ProviderManager
 	app *App

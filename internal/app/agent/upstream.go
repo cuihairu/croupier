@@ -74,7 +74,7 @@ func NewUpstreamClient(serverAddr, agentID string, store *agentlocal.LocalStore,
 		serverAddr:    serverAddr,
 		agentID:       agentID,
 		store:         store,
-		transportKind: "nng",
+		transportKind: "tcp",
 	}
 	if meta != nil {
 		client.gameID = meta.GameID
@@ -173,7 +173,7 @@ func (c *UpstreamClient) dialServer(ctx context.Context) error {
 	var err error
 
 	// For TCP transport with a local handler, use MuxConn (bidirectional).
-	// Otherwise fall back to simple TCP or NNG client.
+	// Otherwise fall back to simple TCP client.
 	if c.localHandler != nil {
 		client, err = newMuxControlClient(c.serverAddr, c.localHandler)
 	} else {
@@ -662,7 +662,7 @@ func (c *UpstreamClient) metricsLoop(ctx context.Context) {
 }
 
 // reportMetrics sends a single metrics report to the upstream server.
-// Note: Metrics reporting via NNG is not yet implemented.
+// Note: Metrics reporting is not yet implemented.
 // This method collects metrics but does not send them.
 func (c *UpstreamClient) reportMetrics(ctx context.Context) {
 	c.metricsOnce.Do(func() {
@@ -692,7 +692,7 @@ func (c *UpstreamClient) WithMetricsReporting(interval time.Duration) {
 }
 
 // ReportMetricsOnce sends a single metrics report (for manual trigger).
-// Note: Metrics reporting via NNG is not yet implemented.
+// Note: Metrics reporting is not yet implemented.
 func (c *UpstreamClient) ReportMetricsOnce(ctx context.Context) error {
 	if c == nil {
 		return fmt.Errorf("upstream client is nil")
@@ -704,9 +704,9 @@ func (c *UpstreamClient) ReportMetricsOnce(ctx context.Context) error {
 		}
 	})
 
-	// Collect metrics (not implemented for NNG yet)
+	// Collect metrics (not implemented yet)
 	_ = c.metricsCollector.Collect(ctx)
-	return fmt.Errorf("metrics reporting via NNG not yet implemented")
+	return fmt.Errorf("metrics reporting not yet implemented")
 }
 
 // toTitle converts a string to title case (first letter uppercase)

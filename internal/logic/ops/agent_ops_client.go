@@ -1,4 +1,4 @@
-// Package ops provides Agent Ops client for Server to communicate with Agents via NNG
+// Package ops provides Agent Ops client for Server to communicate with Agents via TCP session
 package ops
 
 import (
@@ -7,29 +7,36 @@ import (
 	"sync"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
-	"github.com/cuihairu/croupier/internal/nng"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
 )
 
-// AgentOpsClient manages NNG connections to multiple Agents
+// SessionCaller sends a request over an established TCP session.
+type SessionCaller interface {
+	Call(ctx context.Context, msgID uint32, reqBody []byte) (uint32, []byte, error)
+}
+
+// AgentSessionResolver finds active TCP sessions for connected Agents.
+type AgentSessionResolver interface {
+	ResolveAgentConn(agentID string) (SessionCaller, bool)
+}
+
+// AgentOpsClient manages Ops communication with Agents via TCP sessions
 type AgentOpsClient struct {
-	agents map[string]*nng.Client // agentID -> NNG client
-	mu     sync.RWMutex
+	resolver AgentSessionResolver
+	mu       sync.RWMutex
 }
 
 var (
 	globalAgentOpsClient *AgentOpsClient
-	agentOpsClientOnce   sync.Once
+	opsClientOnce        sync.Once
 )
 
-// InitAgentOpsClient initializes the global AgentOpsClient with a registry store
+// InitAgentOpsClient initializes the global AgentOpsClient
 func InitAgentOpsClient(store interface{}) {
-	agentOpsClientOnce.Do(func() {
-		globalAgentOpsClient = &AgentOpsClient{
-			agents: make(map[string]*nng.Client),
-		}
+	opsClientOnce.Do(func() {
+		globalAgentOpsClient = &AgentOpsClient{}
 		slog.Info("Global AgentOpsClient initialized")
 	})
 }
@@ -37,80 +44,44 @@ func InitAgentOpsClient(store interface{}) {
 // GetAgentOpsClient returns the global AgentOpsClient
 func GetAgentOpsClient() *AgentOpsClient {
 	if globalAgentOpsClient == nil {
-		// Initialize with empty store if not initialized
 		InitAgentOpsClient(nil)
 	}
 	return globalAgentOpsClient
 }
 
+// SetSessionResolver sets the TCP session resolver
+func (c *AgentOpsClient) SetSessionResolver(resolver AgentSessionResolver) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.resolver = resolver
+}
+
 // GetClient returns an Ops client wrapper for the specified agentID
 func (c *AgentOpsClient) GetClient(ctx context.Context, agentID string) (*OpsClientWrapper, error) {
 	c.mu.RLock()
-	client, ok := c.agents[agentID]
+	resolver := c.resolver
 	c.mu.RUnlock()
 
-	if ok && client.IsRunning() {
-		return &OpsClientWrapper{client: client}, nil
+	if resolver == nil {
+		return nil, errorx.NewInternalError("session resolver not configured")
 	}
 
-	// Need to get agent address from registry
-	// For now, return error - the agent should be connected via heartbeat
-	return nil, errorx.NewNotFound("agent not connected or found: " + agentID)
+	caller, ok := resolver.ResolveAgentConn(agentID)
+	if !ok {
+		return nil, errorx.NewNotFound("agent session not found: " + agentID)
+	}
+
+	return &OpsClientWrapper{caller: caller}, nil
 }
 
-// RegisterClient registers an NNG client for an agent
-func (c *AgentOpsClient) RegisterClient(agentID, addr string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// Close existing client if any
-	if existing, ok := c.agents[agentID]; ok && existing.IsRunning() {
-		existing.Close()
-	}
-
-	client := nng.NewClient(addr)
-	if err := client.Dial(); err != nil {
-		return errorx.NewInternalError("failed to dial agent")
-	}
-
-	c.agents[agentID] = client
-	slog.Info("Registered Agent Ops client", "agent_id", agentID, "addr", addr)
-	return nil
-}
-
-// UnregisterClient removes an agent's client
-func (c *AgentOpsClient) UnregisterClient(agentID string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if client, ok := c.agents[agentID]; ok {
-		client.Close()
-		delete(c.agents, agentID)
-		slog.Info("Unregistered Agent Ops client", "agent_id", agentID)
-	}
-}
-
-// Close closes all agent connections
-func (c *AgentOpsClient) Close() error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	for _, client := range c.agents {
-		client.Close()
-	}
-	c.agents = make(map[string]*nng.Client)
-
-	return nil
-}
-
-// OpsClientWrapper wraps NNG client to implement Ops-like methods
+// OpsClientWrapper wraps TCP session caller to implement Ops methods
 type OpsClientWrapper struct {
-	client *nng.Client
+	caller SessionCaller
 }
 
 // GetSystemInfo gets system info from the agent
 func (w *OpsClientWrapper) GetSystemInfo(ctx context.Context) (*opsv1.SystemInfo, error) {
-	data, err := w.client.Call(ctx, protocol.MsgGetSystemInfoRequest, []byte{})
+	_, data, err := w.caller.Call(ctx, protocol.MsgGetSystemInfoRequest, []byte{})
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +96,7 @@ func (w *OpsClientWrapper) GetSystemInfo(ctx context.Context) (*opsv1.SystemInfo
 
 // ListProcesses lists processes on the agent
 func (w *OpsClientWrapper) ListProcesses(ctx context.Context) (*opsv1.ListProcessesResponse, error) {
-	data, err := w.client.Call(ctx, protocol.MsgListProcessesRequest, []byte{})
+	_, data, err := w.caller.Call(ctx, protocol.MsgListProcessesRequest, []byte{})
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +116,7 @@ func (w *OpsClientWrapper) ReportMetrics(ctx context.Context, req *opsv1.Metrics
 		return nil, errorx.NewInternalError("marshal metrics report failed")
 	}
 
-	_, err = w.client.Call(ctx, protocol.MsgReportMetricsRequest, data)
+	_, _, err = w.caller.Call(ctx, protocol.MsgReportMetricsRequest, data)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +132,7 @@ func (w *OpsClientWrapper) RestartProcess(ctx context.Context, req *opsv1.Restar
 		return nil, errorx.NewInternalError("marshal restart request failed")
 	}
 
-	respData, err := w.client.Call(ctx, protocol.MsgRestartProcessRequest, data)
+	_, respData, err := w.caller.Call(ctx, protocol.MsgRestartProcessRequest, data)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +152,7 @@ func (w *OpsClientWrapper) StopProcess(ctx context.Context, req *opsv1.StopProce
 		return nil, errorx.NewInternalError("marshal stop request failed")
 	}
 
-	respData, err := w.client.Call(ctx, protocol.MsgStopProcessRequest, data)
+	_, respData, err := w.caller.Call(ctx, protocol.MsgStopProcessRequest, data)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +172,7 @@ func (w *OpsClientWrapper) StartProcess(ctx context.Context, req *opsv1.StartPro
 		return nil, errorx.NewInternalError("marshal start request failed")
 	}
 
-	respData, err := w.client.Call(ctx, protocol.MsgStartProcessRequest, data)
+	_, respData, err := w.caller.Call(ctx, protocol.MsgStartProcessRequest, data)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +192,7 @@ func (w *OpsClientWrapper) ExecuteCommand(ctx context.Context, req *opsv1.Execut
 		return nil, errorx.NewInternalError("marshal execute request failed")
 	}
 
-	respData, err := w.client.Call(ctx, protocol.MsgExecuteCommandRequest, data)
+	_, respData, err := w.caller.Call(ctx, protocol.MsgExecuteCommandRequest, data)
 	if err != nil {
 		return nil, err
 	}

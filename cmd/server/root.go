@@ -15,8 +15,8 @@ import (
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/handler"
 	"github.com/cuihairu/croupier/internal/logic/ops"
-	"github.com/cuihairu/croupier/internal/nng"
 	"github.com/cuihairu/croupier/internal/runtime"
+	"github.com/cuihairu/croupier/internal/server"
 	"github.com/cuihairu/croupier/internal/svc"
 	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	"github.com/gin-contrib/cors"
@@ -192,8 +192,8 @@ func runServer() error {
 		fmt.Println("某些功能可能无法正常工作，请检查数据库配置")
 	}
 
-	// 启动 NNG 控制服务器（替代 gRPC）
-	go startNNGControlServer(&c, ctx)
+	// 启动控制服务器（TCP）
+	go startControlServer(&c, ctx)
 
 	// 启动 Registry 清理任务（定期删除过期的 AgentSession）
 	go startRegistryCleanup(ctx)
@@ -240,51 +240,36 @@ func runServer() error {
 	return srv.ListenAndServe()
 }
 
-// startNNGControlServer 启动 NNG 控制服务器（替代 gRPC）
-func startNNGControlServer(c *config.Config, svcCtx *svc.ServiceContext) {
-	transportKind := strings.ToLower(strings.TrimSpace(c.Control.Transport))
-	if transportKind == "" {
-		transportKind = "nng"
-	}
-
-	// 解析 NNG 监听地址
+// startControlServer 启动控制服务器（TCP）
+func startControlServer(c *config.Config, svcCtx *svc.ServiceContext) {
+	// 解析监听地址
 	addr := c.Control.Addr
 	if addr == "" {
-		addr = ":19090" // 默认 NNG ControlService 端口（与 SDK 保持一致）
+		addr = ":19090" // 默认 ControlService 端口
 	}
 	if addr[0] == ':' {
 		addr = "0.0.0.0" + addr
 	}
 
-	// 解析地址为 ListenAddr 数组
-	addrs := []nng.ListenAddr{nng.ParseListenAddr(addr)}
+	// 创建 ControlService
+	controlService := server.NewControlService(svcCtx.RegistryStore, svcCtx.AgentSessionModel)
+	controlService.StartBackgroundTasks()
 
-	controlServer := nng.NewServerWithDB(addrs, svcCtx.RegistryStore, svcCtx.AgentSessionModel)
+	// 启动 TCP 服务器
+	tcpServer, err := tcptr.NewServer(&tcptr.Config{
+		Address:     addr,
+		Insecure:    true,
+		RecvTimeout: time.Second,
+		SendTimeout: 10 * time.Second,
+	}, controlService.TransportHandler())
+	if err != nil {
+		fmt.Printf("Failed to start TCP Control server: %v\n", err)
+		return
+	}
 
-	switch transportKind {
-	case "tcp":
-		controlServer.StartBackgroundTasks()
-		tcpServer, err := tcptr.NewServer(&tcptr.Config{
-			Address:     addr,
-			Insecure:    true,
-			RecvTimeout: time.Second,
-			SendTimeout: 10 * time.Second,
-		}, controlServer.TransportHandler())
-		if err != nil {
-			fmt.Printf("Failed to start TCP Control server: %v\n", err)
-			return
-		}
-		fmt.Printf("Starting TCP ControlService on %s (SDK/Agent registration with DB persistence)...\n", tcpServer.Addr())
-		if err := tcpServer.Serve(context.Background()); err != nil && err != context.Canceled {
-			fmt.Printf("TCP Control server stopped: %v\n", err)
-		}
-	default:
-		if err := controlServer.Start(); err != nil {
-			fmt.Printf("Failed to start NNG Control server: %v\n", err)
-			return
-		}
-		localAddr, _ := controlServer.GetLocalAddr()
-		fmt.Printf("Starting NNG ControlService on %s (SDK/Agent registration with DB persistence)...\n", localAddr)
+	fmt.Printf("Starting TCP ControlService on %s (SDK/Agent registration)...\n", tcpServer.Addr())
+	if err := tcpServer.Serve(context.Background()); err != nil && err != context.Canceled {
+		fmt.Printf("TCP Control server stopped: %v\n", err)
 	}
 }
 

@@ -48,22 +48,13 @@ type TCPListener struct {
 	listener     net.Listener
 	sessionStore *AgentSessionStore
 	registry     *reg.Store
-	handler      NNGControlHandler // reuse existing register/heartbeat logic
+	handler      *ControlService // control-plane service
 
 	wg      sync.WaitGroup
 	closing chan struct{}
 	once    sync.Once
 
 	logger *slog.Logger
-}
-
-// NNGControlHandler reuses the control plane logic from the NNG server.
-// This avoids duplicating handleRegister/handleHeartbeat.
-type NNGControlHandler interface {
-	// TransportHandler exposes the control-plane request handler for alternate transports.
-	TransportHandler() interface {
-		Handle(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error)
-	}
 }
 
 // NewTCPListener creates a new TCP session listener.
@@ -96,8 +87,8 @@ func NewTCPListener(config *TCPListenerConfig, sessionStore *AgentSessionStore, 
 	}, nil
 }
 
-// SetHandler sets the NNG control handler for processing register/heartbeat.
-func (l *TCPListener) SetHandler(h NNGControlHandler) {
+// SetHandler sets the control service for processing register/heartbeat.
+func (l *TCPListener) SetHandler(h *ControlService) {
 	l.handler = h
 }
 
@@ -149,7 +140,7 @@ func (l *TCPListener) serveConn(ctx context.Context, conn net.Conn) {
 		SendTimeout: l.config.SendTimeout,
 	}
 
-	// Create a handler that dispatches through the existing NNG server logic
+	// Create a handler that dispatches through the control plane logic
 	// and also tracks AgentSession lifecycle.
 	handler := &agentSessionHandler{
 		listener:   l,
@@ -225,7 +216,7 @@ func (h *agentSessionHandler) Handle(ctx context.Context, msgID uint32, reqID ui
 	case protocol.MsgHeartbeatRequest:
 		return h.handleHeartbeat(ctx, body)
 	default:
-		// Delegate to the existing NNG control handler if available
+		// Delegate to the control service if available
 		if h.listener.handler != nil {
 			return h.listener.handler.TransportHandler().Handle(ctx, msgID, reqID, body)
 		}

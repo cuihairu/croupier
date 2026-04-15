@@ -7,7 +7,6 @@ import "context"
 type Kind string
 
 const (
-	KindNNG Kind = "nng"
 	KindTCP Kind = "tcp"
 )
 

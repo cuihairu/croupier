@@ -104,7 +104,7 @@ func TestDispatcher_InvokeRequest_NoAgent(t *testing.T) {
 // TestDispatcher_InvokeRequest_InvalidRequestProto 测试无效的 protobuf 编码
 func TestDispatcher_InvokeRequest_InvalidMarshal(t *testing.T) {
 	// 这是一个集成测试，需要设置一个模拟代理
-	// 由于 getNNGClient 涉及实际的网络连接，我们测试 pickAgent 的错误路径
+	// 由于 TCP session 涉及实际的网络连接，我们测试 pickAgent 的错误路径
 	d := NewDispatcher(nil)
 
 	// 添加一个过期的代理
@@ -656,16 +656,6 @@ func TestDispatcher_pickAgentWithRouting_NilMetadata(t *testing.T) {
 	}
 }
 
-// TestDispatcher_getNNGClient_EmptyAddr 测试空地址
-func TestDispatcher_getNNGClient_EmptyAddr(t *testing.T) {
-	d := NewDispatcher(nil)
-
-	_, err := d.getNNGClient("")
-
-	if err == nil {
-		t.Error("getNNGClient() should return error for empty address")
-	}
-}
 
 // TestDispatcher_JobAddr_NotFound 测试未找到任务地址
 func TestDispatcher_JobAddr_NotFound(t *testing.T) {
@@ -904,7 +894,7 @@ func TestProtoMarshalError(t *testing.T) {
 	// 添加一个代理，但会导致后续错误
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "invalid-address-for-test", // 无效地址将在 getNNGClient 时失败
+		RPCAddr:  "invalid-address-for-test", // 无效地址将在TCP session查找时失败
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -954,32 +944,10 @@ func (s *errorJobRoutingStore) Close() error {
 	return nil
 }
 
-// mockNNGClient 是一个模拟的 NNG 客户端
-type mockNNGClient struct {
-	running bool
-}
 
-func (m *mockNNGClient) Dial() error {
-	m.running = true
-	return nil
-}
 
-func (m *mockNNGClient) Call(ctx context.Context, msgType uint8, data []byte) ([]byte, error) {
-	// 返回一个模拟的 InvokeResponse
-	resp := &sdkv1.InvokeResponse{
-		Payload: []byte("mock response"),
-	}
-	return proto.Marshal(resp)
-}
 
-func (m *mockNNGClient) IsRunning() bool {
-	return m.running
-}
 
-func (m *mockNNGClient) Close() error {
-	m.running = false
-	return nil
-}
 
 // TestMessageTypes 测试消息类型常量
 func TestMessageTypes(t *testing.T) {
@@ -997,7 +965,7 @@ func TestDispatcher_InvokeRequest_WithMetadata(t *testing.T) {
 
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "invalid-address", // 无效地址会在 getNNGClient 时失败
+		RPCAddr:  "invalid-address", // 无效地址会在TCP session查找时失败
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -1027,7 +995,7 @@ func TestDispatcher_StartJobRequest_WithMetadata(t *testing.T) {
 
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "invalid-address", // 无效地址会在 getNNGClient 时失败
+		RPCAddr:  "invalid-address", // 无效地址会在TCP session查找时失败
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -1073,7 +1041,7 @@ func TestDispatcher_CancelJob_UnregistersAfterSuccess(t *testing.T) {
 	d := NewDispatcher(nil)
 
 	// 注册任务到有效地址（但没有实际服务）
-	// 由于我们无法模拟成功的 NNG 调用，我们直接测试 UnregisterJob
+	// 由于我们无法模拟成功的 TCP session 调用，我们直接测试 UnregisterJob
 	d.RegisterJob("test-job", "127.0.0.1:9001")
 
 	// 验证已注册

@@ -1,6 +1,5 @@
-// Package agent provides Ops server implementation for NNG communication.
-// This replaces the gRPC-based Ops server with a lightweight implementation
-// that can be wrapped for NNG AgentServer.
+// Package agent provides Ops server implementation.
+// This replaces the gRPC-based Ops server with a lightweight implementation.
 package agent
 
 import (
@@ -90,7 +89,7 @@ func (s *OpsServer) ListProcesses(ctx context.Context, _ *emptypb.Empty) (*opsv1
 // ReportMetrics handles metrics reporting (just acknowledges).
 func (s *OpsServer) ReportMetrics(ctx context.Context, req *opsv1.MetricsReport) (*emptypb.Empty, error) {
 	// Metrics are handled by the MetricsCollector in upstream.go
-	// This is just an acknowledgment for NNG protocol
+	// This is just an acknowledgment for the protocol
 	return &emptypb.Empty{}, nil
 }
 

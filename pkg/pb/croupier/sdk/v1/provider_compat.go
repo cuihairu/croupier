@@ -1,10 +1,6 @@
 package sdkv1
 
-// Legacy compatibility types for the NNG→TCP migration.
-// These types are used by internal/nng and internal/transport/nng code
-// that hasn't been migrated to the new Provider* message names yet.
-// They will be removed once the migration is complete (P10).
-//
+// Legacy compatibility types.
 // These types use manual protobuf encoding via protobuf-go's lightweight
 // marshal/unmarshal functions to avoid needing generated proto.Message stubs.
 

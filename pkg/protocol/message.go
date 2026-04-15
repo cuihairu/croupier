@@ -1,4 +1,4 @@
-// Package protocol implements the Croupier wire protocol over NNG.
+// Package protocol implements the Croupier wire protocol.
 //
 // Message Format:
 //
@@ -17,9 +17,6 @@ package protocol
 import (
 	"encoding/binary"
 	"fmt"
-
-	"go.nanomsg.org/mangos/v3"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -112,67 +109,6 @@ func PutMsgID(buf []byte, msgID uint32) {
 // GetMsgID decodes a 24-bit MsgID from buf in big-endian order.
 func GetMsgID(buf []byte) uint32 {
 	return uint32(buf[0])<<16 | uint32(buf[1])<<8 | uint32(buf[2])
-}
-
-// NewRequestMessage creates a new request message.
-// The caller must not use the returned message after calling SendMsg.
-func NewRequestMessage(msgID uint32, reqID uint32, body proto.Message) (*mangos.Message, error) {
-	msg := mangos.NewMessage(0)
-	msg.Header = make([]byte, HeaderSize)
-
-	msg.Header[0] = Version1
-	PutMsgID(msg.Header[1:4], msgID)                   // MsgID: 3 bytes
-	binary.BigEndian.PutUint32(msg.Header[4:8], reqID) // RequestID: 4 bytes
-
-	var err error
-	msg.Body, err = proto.Marshal(body)
-	if err != nil {
-		msg.Free()
-		return nil, fmt.Errorf("marshal body: %w", err)
-	}
-	return msg, nil
-}
-
-// NewResponseMessage creates a new response message with the given RequestID.
-// The caller must not use the returned message after calling SendMsg.
-func NewResponseMessage(msgID uint32, reqID uint32, body proto.Message) (*mangos.Message, error) {
-	msg := mangos.NewMessage(0)
-	msg.Header = make([]byte, HeaderSize)
-
-	msg.Header[0] = Version1
-	PutMsgID(msg.Header[1:4], msgID)                   // MsgID: 3 bytes
-	binary.BigEndian.PutUint32(msg.Header[4:8], reqID) // RequestID: matches request
-
-	var err error
-	msg.Body, err = proto.Marshal(body)
-	if err != nil {
-		msg.Free()
-		return nil, fmt.Errorf("marshal body: %w", err)
-	}
-	return msg, nil
-}
-
-// NewStreamMessage creates a new stream message (e.g., JobEvent).
-// The caller must not use the returned message after calling SendMsg.
-func NewStreamMessage(msgID uint32, reqID uint32, body proto.Message) (*mangos.Message, error) {
-	// Stream messages use the same format as request/response
-	return NewRequestMessage(msgID, reqID, body)
-}
-
-// ParseMessage parses a received message.
-// It returns the version, message ID, request ID, and body.
-func ParseMessage(msg *mangos.Message) (version uint8, msgID uint32, reqID uint32, body []byte, err error) {
-	if len(msg.Header) < HeaderSize {
-		err = fmt.Errorf("header too short: %d < %d", len(msg.Header), HeaderSize)
-		return
-	}
-
-	version = msg.Header[0]
-	msgID = GetMsgID(msg.Header[1:4])
-	reqID = binary.BigEndian.Uint32(msg.Header[4:8])
-	body = msg.Body
-
-	return
 }
 
 // IsRequest returns true if the MsgID indicates a request message.
