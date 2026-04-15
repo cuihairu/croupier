@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/core/extension/externalfunc"
+	"github.com/cuihairu/cuihairu/croupier/internal/core/extension/externalfunc"
 	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
-	"github.com/cuihairu/croupier/internal/nng"
+	"github.com/cuihairu/croupier/internal/agent"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	transportcore "github.com/cuihairu/croupier/internal/transport"
@@ -39,7 +39,7 @@ type App struct {
 	configDir        string
 
 	// TCP local server
-	nngServer          *nng.AgentServer
+	localHandler       *LocalHandler
 	localServer        transportcore.Server
 	localAddr          string
 
@@ -108,16 +108,16 @@ func (a *App) StartLocalServer() error {
 		})
 	}
 
-	// Create NNG server (business logic holder, no NNG socket)
-	a.nngServer = nng.NewAgentServer(a.localAddr, a.store)
+	// Create local handler (business logic, no NNG socket)
+	a.localHandler = agent.NewLocalHandler(a.store, a.configDir, a.agentID, slog.Default())
 
 	// Set provider manager - wrap it to implement the interface
 	pmWrapper := &providerManagerWrapper{pm: a.providerManager, app: a}
-	a.nngServer.SetProviderManager(pmWrapper)
+	a.localHandler.SetProviderManager(pmWrapper)
 
 	// Set TLS config for outbound connections
 	if a.outTLS != nil {
-		a.nngServer.SetTLSConfig(a.outTLS)
+		a.localHandler.SetTLSConfig(a.outTLS)
 	}
 
 	// Initialize and set ops server wrapper
@@ -126,15 +126,15 @@ func (a *App) StartLocalServer() error {
 	}
 	a.opsServer = NewOpsServer(a.opsConfig, a.agentID, a.version, nil)
 	opsWrapper := &opsServerWrapper{ops: a.opsServer}
-	a.nngServer.SetOpsServer(opsWrapper)
+	a.localHandler.SetOpsServer(opsWrapper)
 
-	// Start TCP server with NNG server's transport handler
+	// Start TCP server with local handler
 	tcpServer, err := tcptr.NewServer(&tcptr.Config{
 		Address:     a.localAddr,
 		Insecure:    true,
 		RecvTimeout: time.Second,
 		SendTimeout: 10 * time.Second,
-	}, a.nngServer.TransportHandler())
+	}, a.localHandler)
 	if err != nil {
 		return fmt.Errorf("failed to create TCP local server: %w", err)
 	}
@@ -155,9 +155,6 @@ func (a *App) GetLocalServerAddr() string {
 	}
 	if a.localServer != nil {
 		return a.localServer.Addr()
-	}
-	if a.nngServer != nil {
-		return a.nngServer.GetAddr()
 	}
 	return ""
 }
