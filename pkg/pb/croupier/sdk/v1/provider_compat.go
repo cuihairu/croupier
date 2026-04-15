@@ -20,9 +20,11 @@ type RegisterLocalRequest struct {
 	Functions []*LocalFunctionDescriptor
 }
 
-func (m *RegisterLocalRequest) Reset()         { *m = RegisterLocalRequest{} }
-func (m *RegisterLocalRequest) String() string { return fmt.Sprintf("%+v", m) }
-func (m *RegisterLocalRequest) ProtoMessage()  {}
+func (m *RegisterLocalRequest) Reset() { *m = RegisterLocalRequest{} }
+func (m *RegisterLocalRequest) String() string {
+	return fmt.Sprintf("RegisterLocalRequest{ServiceId:%q Version:%q RpcAddr:%q Functions:%v}", m.ServiceId, m.Version, m.RpcAddr, m.Functions)
+}
+func (m *RegisterLocalRequest) ProtoMessage() {}
 
 func (m *RegisterLocalRequest) GetServiceId() string {
 	if m != nil {
@@ -55,9 +57,11 @@ type RegisterLocalResponse struct {
 	SessionId string
 }
 
-func (m *RegisterLocalResponse) Reset()         { *m = RegisterLocalResponse{} }
-func (m *RegisterLocalResponse) String() string { return fmt.Sprintf("%+v", m) }
-func (m *RegisterLocalResponse) ProtoMessage()  {}
+func (m *RegisterLocalResponse) Reset() { *m = RegisterLocalResponse{} }
+func (m *RegisterLocalResponse) String() string {
+	return fmt.Sprintf("RegisterLocalResponse{SessionId:%q}", m.SessionId)
+}
+func (m *RegisterLocalResponse) ProtoMessage() {}
 
 // ---- HeartbeatRequest ----
 
@@ -66,9 +70,11 @@ type HeartbeatRequest struct {
 	SessionId string
 }
 
-func (m *HeartbeatRequest) Reset()         { *m = HeartbeatRequest{} }
-func (m *HeartbeatRequest) String() string { return fmt.Sprintf("%+v", m) }
-func (m *HeartbeatRequest) ProtoMessage()  {}
+func (m *HeartbeatRequest) Reset() { *m = HeartbeatRequest{} }
+func (m *HeartbeatRequest) String() string {
+	return fmt.Sprintf("HeartbeatRequest{ServiceId:%q SessionId:%q}", m.ServiceId, m.SessionId)
+}
+func (m *HeartbeatRequest) ProtoMessage() {}
 
 // ---- HeartbeatResponse ----
 
@@ -92,9 +98,11 @@ type ListLocalResponse struct {
 	Functions []*LocalFunction
 }
 
-func (m *ListLocalResponse) Reset()         { *m = ListLocalResponse{} }
-func (m *ListLocalResponse) String() string { return fmt.Sprintf("%+v", m) }
-func (m *ListLocalResponse) ProtoMessage()  {}
+func (m *ListLocalResponse) Reset() { *m = ListLocalResponse{} }
+func (m *ListLocalResponse) String() string {
+	return fmt.Sprintf("ListLocalResponse{Functions:%v}", m.Functions)
+}
+func (m *ListLocalResponse) ProtoMessage() {}
 
 // ---- LocalFunction ----
 
@@ -103,9 +111,11 @@ type LocalFunction struct {
 	Instances []*LocalInstance
 }
 
-func (m *LocalFunction) Reset()         { *m = LocalFunction{} }
-func (m *LocalFunction) String() string { return fmt.Sprintf("%+v", m) }
-func (m *LocalFunction) ProtoMessage()  {}
+func (m *LocalFunction) Reset() { *m = LocalFunction{} }
+func (m *LocalFunction) String() string {
+	return fmt.Sprintf("LocalFunction{Id:%q Instances:%v}", m.Id, m.Instances)
+}
+func (m *LocalFunction) ProtoMessage() {}
 
 // ---- LocalInstance ----
 
@@ -115,9 +125,11 @@ type LocalInstance struct {
 	Version   string
 }
 
-func (m *LocalInstance) Reset()         { *m = LocalInstance{} }
-func (m *LocalInstance) String() string { return fmt.Sprintf("%+v", m) }
-func (m *LocalInstance) ProtoMessage()  {}
+func (m *LocalInstance) Reset() { *m = LocalInstance{} }
+func (m *LocalInstance) String() string {
+	return fmt.Sprintf("LocalInstance{ServiceId:%q Addr:%q Version:%q}", m.ServiceId, m.Addr, m.Version)
+}
+func (m *LocalInstance) ProtoMessage() {}
 
 // ---- Manual protobuf Marshal/Unmarshal ----
 // We use protowire to manually encode/decode these types since they
