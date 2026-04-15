@@ -14,161 +14,70 @@ tag:
 
 ## 概述
 
-Croupier Agent 支持通过 OpenAPI 3.0.3 规范格式注册函数。游戏服务器可以通过 `LocalControlService.RegisterLocal` API 向 Agent 注册函数，函数描述符完全兼容 OpenAPI 3.0.3 Operation Object 字段。
+Croupier 当前的函数注册模型不是历史 `LocalControlService.RegisterLocal` 回拨模型，而是：
 
-## 协议定义
+- SDK 或本地业务进程主动连接 Agent 本地 gateway
+- 在同一条 `sdk-agent subprotocol` session 上完成 `ProviderConnectRequest`
+- 通过连接内的 provider session 上报函数描述与心跳
 
-```protobuf
-// 基于 OpenAPI 3.0.3 Operation Object 字段
-message LocalFunctionDescriptor {
-  string id = 1;                          // 唯一函数标识符
-  string version = 2;                     // 函数版本
+OpenAPI 在这里的作用是提供函数元数据来源，而不是单独定义一套 `gRPC` 注册 API。
 
-  // OpenAPI 3.0.3 Operation Object 字段
-  repeated string tags = 3;               // 标签（用于分组操作）
-  string summary = 4;                     // 简短摘要
-  string description = 5;                 // 详细描述（支持 Markdown）
-  string operation_id = 6;                // 唯一操作 ID
-  bool deprecated = 7;                    // 废弃状态
-}
+## 当前设计结论
 
-message RegisterLocalRequest {
-  string service_id = 1;                  // 服务标识（如 "game-server"）
-  string version = 2;                     // 服务版本
-  string rpc_addr = 3;                    // RPC 地址（可选，用于回调）
-  repeated LocalFunctionDescriptor functions = 4;  // 函数列表
-}
+- 不再要求 SDK 暴露 `rpc_addr`
+- 不再要求 SDK 开本地监听端口
+- 不再以 `LocalControlService` 作为新的实现依据
+- OpenAPI 字段映射进 `LocalFunctionDescriptor`
+- 注册、心跳、drain、调用都复用同一条 session
 
-service LocalControlService {
-  rpc RegisterLocal(RegisterLocalRequest) returns (RegisterLocalResponse);
-}
+## 会话流程
+
+```text
++----------------------+        TCP Session (+TLS optional)        +----------------------+
+| SDK / Game Process   | ---------------------------------------> | Agent Local Gateway   |
+|                      |                                           |                      |
+| 1. ProviderConnect   |                                           | 建立 provider session |
+| 2. Functions[]       |                                           | 记录 descriptors      |
+| 3. Heartbeat         |                                           | 同步到 Server         |
+| 4. Invoke Response   |                                           | 下发 Invoke / Job     |
++----------------------+                                           +----------------------+
 ```
 
-## OpenAPI 3.0.3 字段映射
+说明：
 
-| Croupier 字段 | OpenAPI 3.0.3 字段 | 说明 |
-|---------------|-------------------|------|
-| `id` | 自定义 | 函数唯一标识，格式如 `game.player.ban` |
-| `version` | 自定义 | 函数版本号 |
-| `tags` | `tags` | 用于分组操作的标签数组 |
-| `summary` | `summary` | 简短摘要字符串 |
-| `description` | `description` | 详细描述，支持 Markdown 语法 |
-| `operation_id` | `operationId` | 唯一操作 ID |
-| `deprecated` | `deprecated` | 标记该函数是否已废弃 |
+- 首帧必须是 `ProviderConnectRequest`
+- `functions[]` 直接挂在连接内 provider session 上
+- Agent 后续通过既有 session 向 SDK 下发调用请求
 
-## 注册流程
+## OpenAPI 字段映射
 
-```
-┌─────────────┐                              ┌─────────────┐
-│Game Server  │                              │  Croupier   │
-│             │                              │    Agent    │
-└──────┬──────┘                              └──────┬──────┘
-       │                                            │
-       │ 1. RegisterLocal(functions[])            │
-       │──────────────────────────────────────────►│
-       │                                            │
-       │ 2. session_id                             │
-       │◄───────────────────────────────────────────│
-       │                                            │
-       │ 3. Heartbeat(session_id)  [定期]           │
-       │──────────────────────────────────────────►│
-       │                                            │
-       │                    ┌────────────────────────┤
-       │                    │  Functions Registered: │
-       │                    │  - game.player.ban      │
-       │                    │  - game.player.kick     │
-       │                    │  - game.item.give      │
-       │                    └────────────────────────┘
-```
+`proto/croupier/sdk/v1/provider.proto` 中的 `LocalFunctionDescriptor` 继续承载 OpenAPI 常见字段：
 
-## 使用示例
+| Croupier 字段 | OpenAPI 字段 | 说明 |
+| --- | --- | --- |
+| `id` | 自定义 | 函数唯一标识，例如 `game.player.ban` |
+| `version` | 自定义 | 函数版本 |
+| `tags` | `tags` | 分组标签 |
+| `summary` | `summary` | 简短摘要 |
+| `description` | `description` | 详细描述 |
+| `operation_id` | `operationId` | 操作 ID |
+| `deprecated` | `deprecated` | 是否废弃 |
+| `input_schema` | `requestBody.content.application/json.schema` | 输入 JSON Schema |
+| `output_schema` | `responses.*.content.application/json.schema` | 输出 JSON Schema |
+| `category` | `x-category` | 平台分类 |
+| `risk` | `x-risk` | 风险级别 |
+| `entity` | `x-entity` | 关联实体 |
+| `operation` | `x-operation` | CRUD / 自定义操作 |
 
-### Go SDK
-
-```go
-import (
-    localv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/local/v1"
-)
-
-func RegisterFunctions(conn *grpc.ClientConn) error {
-    client := localv1.NewLocalControlServiceClient(conn)
-
-    resp, err := client.RegisterLocal(context.Background(), &localv1.RegisterLocalRequest{
-        ServiceId: "game-server",
-        Version:   "1.0.0",
-        RpcAddr:   "localhost:9090",
-        Functions: []*localv1.LocalFunctionDescriptor{
-            {
-                Id:          "game.player.ban",
-                Version:     "1.0.0",
-                Tags:        []string{"player", "moderation"},
-                Summary:     "封禁玩家",
-                Description: "封禁指定玩家账号，禁止登录\n\n**参数**:\n- `player_id`: 玩家 ID\n- `reason`: 封禁原因\n- `duration`: 封禁时长（秒）",
-                OperationId: "banPlayer",
-                Deprecated:  false,
-            },
-            {
-                Id:          "game.player.kick",
-                Version:     "1.0.0",
-                Tags:        []string{"player"},
-                Summary:     "踢出玩家",
-                Description: "将玩家从游戏中踢出",
-                OperationId: "kickPlayer",
-            },
-        },
-    })
-
-    if err != nil {
-        return err
-    }
-
-    fmt.Printf("Registered with session: %s\n", resp.SessionId)
-    return nil
-}
-```
-
-### C++ SDK
-
-```cpp
-#include <croupier/agent/local/v1/local.pb.h>
-#include <grpc/grpc.h>
-
-void RegisterFunctions(std::shared_ptr<grpc::Channel> channel) {
-    auto stub = croupier::agent::local::v1::LocalControlService::NewStub(channel);
-
-    croupier::agent::local::v1::RegisterLocalRequest request;
-    request.set_service_id("game-server");
-    request.set_version("1.0.0");
-
-    // 添加函数描述
-    auto* func = request.add_functions();
-    func->set_id("game.player.ban");
-    func->set_version("1.0.0");
-    func->add_tags("player");
-    func->add_tags("moderation");
-    func->set_summary("封禁玩家");
-    func->set_description("封禁指定玩家账号");
-    func->set_operation_id("banPlayer");
-    func->set_deprecated(false);
-
-    grpc::ClientContext ctx;
-    croupier::agent::local::v1::RegisterLocalResponse response;
-    grpc::Status status = stub->RegisterLocal(&ctx, request, &response);
-
-    if (status.ok()) {
-        std::cout << "Session: " << response.session_id() << std::endl;
-    }
-}
-```
-
-### HTTP JSON 格式
-
-如果你有 OpenAPI 3.0.3 JSON 文档，可以转换并注册：
+## 描述符示例
 
 ```json
 {
   "service_id": "game-server",
   "version": "1.0.0",
+  "sdk_language": "cpp",
+  "sdk_version": "0.1.0",
+  "protocol_version": "1.0",
   "functions": [
     {
       "id": "game.player.ban",
@@ -177,57 +86,58 @@ void RegisterFunctions(std::shared_ptr<grpc::Channel> channel) {
       "summary": "封禁玩家",
       "description": "封禁指定玩家账号，禁止登录",
       "operation_id": "banPlayer",
-      "deprecated": false
+      "deprecated": false,
+      "category": "player",
+      "risk": "high",
+      "entity": "Player",
+      "operation": "custom",
+      "input_schema": "{ \"type\": \"object\", \"properties\": { \"player_id\": { \"type\": \"string\" } } }",
+      "output_schema": "{ \"type\": \"object\", \"properties\": { \"success\": { \"type\": \"boolean\" } } }"
     }
   ]
 }
 ```
 
-## 心跳保活
+## 业务 payload 边界
 
-注册成功后，需要定期发送心跳保持连接：
+需要明确区分两层：
 
-```protobuf
-message HeartbeatRequest {
-  string service_id = 1;
-  string session_id = 2;
-}
-```
+- 平台协议层
+  - `ProviderConnectRequest`
+  - `InvokeRequest`
+  - `InvokeResponse`
+  - `JobEvent`
+- 业务 payload 层
+  - 默认固定为 UTF-8 JSON
 
-**建议心跳间隔**: 30 秒
+边界规则：
 
-## 函数调用
+- Agent 需要理解、路由、治理的字段，必须放在 protobuf 协议层
+- 只被业务函数消费的字段，放在 JSON payload 中
+- `input_schema` / `output_schema` 默认描述 JSON payload，而不是要求用户先定义 `.proto`
 
-注册后的函数可以通过 Server 端调用：
+## 推荐接入方式
 
-```bash
-# 通过 gRPC 调用
-grpcurl -plaintext localhost:8443 \
-  croupier.function.v1.FunctionService/InvokeFunction \
-  -d '{
-    "game_id": "my-game",
-    "env": "prod",
-    "function_id": "game.player.ban",
-    "payload": {
-      "player_id": "12345",
-      "reason": "作弊",
-      "duration": 86400
-    }
-  }'
-```
+如果你已经有 OpenAPI 文档，推荐做法是：
 
-## 完整示例
+1. 抽取 `Operation Object` 中与函数治理相关的字段
+2. 生成 `LocalFunctionDescriptor`
+3. 把请求/响应 schema 转成 JSON Schema 字符串填入 `input_schema` / `output_schema`
+4. 通过 SDK 的 provider session 建连逻辑一次性上报
 
-参考以下完整示例：
+## 明确废弃的旧模型
 
-- [Go SDK 示例](https://github.com/cuihairu/croupier-sdk-go)
-- [C++ SDK 示例](https://github.com/cuihairu/croupier-sdk-cpp)
-- [游戏服务器示例](../examples/)
+以下概念不应再出现在新的接入文档和 SDK 设计中：
 
-## 最佳实践
+- `LocalControlService`
+- `RegisterLocalRequest`
+- `RegisterLocalResponse`
+- `rpc_addr`
+- SDK 本地监听端口
+- `Agent -> SDK` 回拨模型
 
-1. **使用有意义的 ID**: 格式建议为 `{category}.{entity}.{action}`，如 `game.player.ban`
-2. **填写完整元数据**: `summary` 和 `description` 会在 Dashboard 中显示
-3. **使用标签分组**: 通过 `tags` 字段将相关函数分组
-4. **设置废弃标记**: 废弃的函数设置 `deprecated: true`
-5. **保持心跳**: 定期发送心跳避免注册过期
+## 相关文档
+
+- [SDK-Agent 传输重构设计](../../architecture/sdk-agent-transport-redesign.md)
+- [SDK Wire Protocol](../../architecture/sdk-wire-protocol.md)
+- [SDK 规范](../../sdk/specification.md)

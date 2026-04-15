@@ -21,8 +21,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Local function registration from game servers to Agent
-// Based on OpenAPI 3.0.3 Operation Object fields
+// Provider function declaration from embedded SDK to Agent.
+// Based on OpenAPI 3.0.3 Operation Object fields.
 type LocalFunctionDescriptor struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Id      string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`           // Unique function identifier
@@ -166,30 +166,36 @@ func (x *LocalFunctionDescriptor) GetOperation() string {
 	return ""
 }
 
-type RegisterLocalRequest struct {
-	state         protoimpl.MessageState     `protogen:"open.v1"`
-	ServiceId     string                     `protobuf:"bytes,1,opt,name=service_id,json=serviceId,proto3" json:"service_id,omitempty"`
-	Version       string                     `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
-	RpcAddr       string                     `protobuf:"bytes,3,opt,name=rpc_addr,json=rpcAddr,proto3" json:"rpc_addr,omitempty"`
-	Functions     []*LocalFunctionDescriptor `protobuf:"bytes,4,rep,name=functions,proto3" json:"functions,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+// ProviderConnectRequest establishes a provider session on the current SDK-Agent connection.
+type ProviderConnectRequest struct {
+	state                 protoimpl.MessageState     `protogen:"open.v1"`
+	ServiceId             string                     `protobuf:"bytes,1,opt,name=service_id,json=serviceId,proto3" json:"service_id,omitempty"` // Provider / process identifier
+	Version               string                     `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`                      // Provider version
+	Functions             []*LocalFunctionDescriptor `protobuf:"bytes,3,rep,name=functions,proto3" json:"functions,omitempty"`
+	SdkLanguage           string                     `protobuf:"bytes,4,opt,name=sdk_language,json=sdkLanguage,proto3" json:"sdk_language,omitempty"`             // e.g. "go", "java", "csharp"
+	SdkVersion            string                     `protobuf:"bytes,5,opt,name=sdk_version,json=sdkVersion,proto3" json:"sdk_version,omitempty"`                // SDK release version
+	ProtocolVersion       string                     `protobuf:"bytes,6,opt,name=protocol_version,json=protocolVersion,proto3" json:"protocol_version,omitempty"` // Wire protocol semantic version string
+	SupportedCapabilities []string                   `protobuf:"bytes,7,rep,name=supported_capabilities,json=supportedCapabilities,proto3" json:"supported_capabilities,omitempty"`
+	TransportSecurityMode string                     `protobuf:"bytes,8,opt,name=transport_security_mode,json=transportSecurityMode,proto3" json:"transport_security_mode,omitempty"` // "plaintext" | "tls"
+	SupportedTransports   []string                   `protobuf:"bytes,9,rep,name=supported_transports,json=supportedTransports,proto3" json:"supported_transports,omitempty"`         // currently fixed to "tcp"
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
-func (x *RegisterLocalRequest) Reset() {
-	*x = RegisterLocalRequest{}
+func (x *ProviderConnectRequest) Reset() {
+	*x = ProviderConnectRequest{}
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RegisterLocalRequest) String() string {
+func (x *ProviderConnectRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RegisterLocalRequest) ProtoMessage() {}
+func (*ProviderConnectRequest) ProtoMessage() {}
 
-func (x *RegisterLocalRequest) ProtoReflect() protoreflect.Message {
+func (x *ProviderConnectRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -201,60 +207,97 @@ func (x *RegisterLocalRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RegisterLocalRequest.ProtoReflect.Descriptor instead.
-func (*RegisterLocalRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ProviderConnectRequest.ProtoReflect.Descriptor instead.
+func (*ProviderConnectRequest) Descriptor() ([]byte, []int) {
 	return file_croupier_sdk_v1_provider_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *RegisterLocalRequest) GetServiceId() string {
+func (x *ProviderConnectRequest) GetServiceId() string {
 	if x != nil {
 		return x.ServiceId
 	}
 	return ""
 }
 
-func (x *RegisterLocalRequest) GetVersion() string {
+func (x *ProviderConnectRequest) GetVersion() string {
 	if x != nil {
 		return x.Version
 	}
 	return ""
 }
 
-func (x *RegisterLocalRequest) GetRpcAddr() string {
-	if x != nil {
-		return x.RpcAddr
-	}
-	return ""
-}
-
-func (x *RegisterLocalRequest) GetFunctions() []*LocalFunctionDescriptor {
+func (x *ProviderConnectRequest) GetFunctions() []*LocalFunctionDescriptor {
 	if x != nil {
 		return x.Functions
 	}
 	return nil
 }
 
-type RegisterLocalResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+func (x *ProviderConnectRequest) GetSdkLanguage() string {
+	if x != nil {
+		return x.SdkLanguage
+	}
+	return ""
 }
 
-func (x *RegisterLocalResponse) Reset() {
-	*x = RegisterLocalResponse{}
+func (x *ProviderConnectRequest) GetSdkVersion() string {
+	if x != nil {
+		return x.SdkVersion
+	}
+	return ""
+}
+
+func (x *ProviderConnectRequest) GetProtocolVersion() string {
+	if x != nil {
+		return x.ProtocolVersion
+	}
+	return ""
+}
+
+func (x *ProviderConnectRequest) GetSupportedCapabilities() []string {
+	if x != nil {
+		return x.SupportedCapabilities
+	}
+	return nil
+}
+
+func (x *ProviderConnectRequest) GetTransportSecurityMode() string {
+	if x != nil {
+		return x.TransportSecurityMode
+	}
+	return ""
+}
+
+func (x *ProviderConnectRequest) GetSupportedTransports() []string {
+	if x != nil {
+		return x.SupportedTransports
+	}
+	return nil
+}
+
+type ProviderConnectResponse struct {
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	SessionId            string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	AcceptedCapabilities []string               `protobuf:"bytes,2,rep,name=accepted_capabilities,json=acceptedCapabilities,proto3" json:"accepted_capabilities,omitempty"`
+	Warnings             []string               `protobuf:"bytes,3,rep,name=warnings,proto3" json:"warnings,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *ProviderConnectResponse) Reset() {
+	*x = ProviderConnectResponse{}
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RegisterLocalResponse) String() string {
+func (x *ProviderConnectResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RegisterLocalResponse) ProtoMessage() {}
+func (*ProviderConnectResponse) ProtoMessage() {}
 
-func (x *RegisterLocalResponse) ProtoReflect() protoreflect.Message {
+func (x *ProviderConnectResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -266,19 +309,33 @@ func (x *RegisterLocalResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RegisterLocalResponse.ProtoReflect.Descriptor instead.
-func (*RegisterLocalResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use ProviderConnectResponse.ProtoReflect.Descriptor instead.
+func (*ProviderConnectResponse) Descriptor() ([]byte, []int) {
 	return file_croupier_sdk_v1_provider_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *RegisterLocalResponse) GetSessionId() string {
+func (x *ProviderConnectResponse) GetSessionId() string {
 	if x != nil {
 		return x.SessionId
 	}
 	return ""
 }
 
-type HeartbeatRequest struct {
+func (x *ProviderConnectResponse) GetAcceptedCapabilities() []string {
+	if x != nil {
+		return x.AcceptedCapabilities
+	}
+	return nil
+}
+
+func (x *ProviderConnectResponse) GetWarnings() []string {
+	if x != nil {
+		return x.Warnings
+	}
+	return nil
+}
+
+type ProviderHeartbeatRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ServiceId     string                 `protobuf:"bytes,1,opt,name=service_id,json=serviceId,proto3" json:"service_id,omitempty"`
 	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
@@ -286,20 +343,20 @@ type HeartbeatRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *HeartbeatRequest) Reset() {
-	*x = HeartbeatRequest{}
+func (x *ProviderHeartbeatRequest) Reset() {
+	*x = ProviderHeartbeatRequest{}
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *HeartbeatRequest) String() string {
+func (x *ProviderHeartbeatRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*HeartbeatRequest) ProtoMessage() {}
+func (*ProviderHeartbeatRequest) ProtoMessage() {}
 
-func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
+func (x *ProviderHeartbeatRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -311,45 +368,45 @@ func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use HeartbeatRequest.ProtoReflect.Descriptor instead.
-func (*HeartbeatRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ProviderHeartbeatRequest.ProtoReflect.Descriptor instead.
+func (*ProviderHeartbeatRequest) Descriptor() ([]byte, []int) {
 	return file_croupier_sdk_v1_provider_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *HeartbeatRequest) GetServiceId() string {
+func (x *ProviderHeartbeatRequest) GetServiceId() string {
 	if x != nil {
 		return x.ServiceId
 	}
 	return ""
 }
 
-func (x *HeartbeatRequest) GetSessionId() string {
+func (x *ProviderHeartbeatRequest) GetSessionId() string {
 	if x != nil {
 		return x.SessionId
 	}
 	return ""
 }
 
-type HeartbeatResponse struct {
+type ProviderHeartbeatResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *HeartbeatResponse) Reset() {
-	*x = HeartbeatResponse{}
+func (x *ProviderHeartbeatResponse) Reset() {
+	*x = ProviderHeartbeatResponse{}
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *HeartbeatResponse) String() string {
+func (x *ProviderHeartbeatResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*HeartbeatResponse) ProtoMessage() {}
+func (*ProviderHeartbeatResponse) ProtoMessage() {}
 
-func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
+func (x *ProviderHeartbeatResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -361,36 +418,34 @@ func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use HeartbeatResponse.ProtoReflect.Descriptor instead.
-func (*HeartbeatResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use ProviderHeartbeatResponse.ProtoReflect.Descriptor instead.
+func (*ProviderHeartbeatResponse) Descriptor() ([]byte, []int) {
 	return file_croupier_sdk_v1_provider_proto_rawDescGZIP(), []int{4}
 }
 
-// Query local registered instances
-type LocalInstance struct {
+type ProviderDrainRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ServiceId     string                 `protobuf:"bytes,1,opt,name=service_id,json=serviceId,proto3" json:"service_id,omitempty"`
-	Addr          string                 `protobuf:"bytes,2,opt,name=addr,proto3" json:"addr,omitempty"`
-	Version       string                 `protobuf:"bytes,3,opt,name=version,proto3" json:"version,omitempty"`
-	LastSeen      string                 `protobuf:"bytes,4,opt,name=last_seen,json=lastSeen,proto3" json:"last_seen,omitempty"`
+	SessionId     string                 `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	RetryAfterMs  uint32                 `protobuf:"varint,3,opt,name=retry_after_ms,json=retryAfterMs,proto3" json:"retry_after_ms,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *LocalInstance) Reset() {
-	*x = LocalInstance{}
+func (x *ProviderDrainRequest) Reset() {
+	*x = ProviderDrainRequest{}
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LocalInstance) String() string {
+func (x *ProviderDrainRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LocalInstance) ProtoMessage() {}
+func (*ProviderDrainRequest) ProtoMessage() {}
 
-func (x *LocalInstance) ProtoReflect() protoreflect.Message {
+func (x *ProviderDrainRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -402,61 +457,52 @@ func (x *LocalInstance) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LocalInstance.ProtoReflect.Descriptor instead.
-func (*LocalInstance) Descriptor() ([]byte, []int) {
+// Deprecated: Use ProviderDrainRequest.ProtoReflect.Descriptor instead.
+func (*ProviderDrainRequest) Descriptor() ([]byte, []int) {
 	return file_croupier_sdk_v1_provider_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *LocalInstance) GetServiceId() string {
+func (x *ProviderDrainRequest) GetSessionId() string {
 	if x != nil {
-		return x.ServiceId
+		return x.SessionId
 	}
 	return ""
 }
 
-func (x *LocalInstance) GetAddr() string {
+func (x *ProviderDrainRequest) GetReason() string {
 	if x != nil {
-		return x.Addr
+		return x.Reason
 	}
 	return ""
 }
 
-func (x *LocalInstance) GetVersion() string {
+func (x *ProviderDrainRequest) GetRetryAfterMs() uint32 {
 	if x != nil {
-		return x.Version
+		return x.RetryAfterMs
 	}
-	return ""
+	return 0
 }
 
-func (x *LocalInstance) GetLastSeen() string {
-	if x != nil {
-		return x.LastSeen
-	}
-	return ""
-}
-
-type LocalFunction struct {
+type ProviderDrainResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Instances     []*LocalInstance       `protobuf:"bytes,2,rep,name=instances,proto3" json:"instances,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *LocalFunction) Reset() {
-	*x = LocalFunction{}
+func (x *ProviderDrainResponse) Reset() {
+	*x = ProviderDrainResponse{}
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LocalFunction) String() string {
+func (x *ProviderDrainResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LocalFunction) ProtoMessage() {}
+func (*ProviderDrainResponse) ProtoMessage() {}
 
-func (x *LocalFunction) ProtoReflect() protoreflect.Message {
+func (x *ProviderDrainResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -468,106 +514,13 @@ func (x *LocalFunction) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LocalFunction.ProtoReflect.Descriptor instead.
-func (*LocalFunction) Descriptor() ([]byte, []int) {
+// Deprecated: Use ProviderDrainResponse.ProtoReflect.Descriptor instead.
+func (*ProviderDrainResponse) Descriptor() ([]byte, []int) {
 	return file_croupier_sdk_v1_provider_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *LocalFunction) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *LocalFunction) GetInstances() []*LocalInstance {
-	if x != nil {
-		return x.Instances
-	}
-	return nil
-}
-
-type ListLocalRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListLocalRequest) Reset() {
-	*x = ListLocalRequest{}
-	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListLocalRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListLocalRequest) ProtoMessage() {}
-
-func (x *ListLocalRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[7]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListLocalRequest.ProtoReflect.Descriptor instead.
-func (*ListLocalRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_sdk_v1_provider_proto_rawDescGZIP(), []int{7}
-}
-
-type ListLocalResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Functions     []*LocalFunction       `protobuf:"bytes,1,rep,name=functions,proto3" json:"functions,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *ListLocalResponse) Reset() {
-	*x = ListLocalResponse{}
-	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[8]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ListLocalResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ListLocalResponse) ProtoMessage() {}
-
-func (x *ListLocalResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[8]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ListLocalResponse.ProtoReflect.Descriptor instead.
-func (*ListLocalResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_sdk_v1_provider_proto_rawDescGZIP(), []int{8}
-}
-
-func (x *ListLocalResponse) GetFunctions() []*LocalFunction {
-	if x != nil {
-		return x.Functions
-	}
-	return nil
-}
-
-// Query job result from Agent (best-effort)
+// Query job result from Agent (best-effort).
+// This remains in the shared SDK package because job polling is still SDK-visible.
 type GetJobResultRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
@@ -577,7 +530,7 @@ type GetJobResultRequest struct {
 
 func (x *GetJobResultRequest) Reset() {
 	*x = GetJobResultRequest{}
-	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[9]
+	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -589,7 +542,7 @@ func (x *GetJobResultRequest) String() string {
 func (*GetJobResultRequest) ProtoMessage() {}
 
 func (x *GetJobResultRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[9]
+	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -602,7 +555,7 @@ func (x *GetJobResultRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetJobResultRequest.ProtoReflect.Descriptor instead.
 func (*GetJobResultRequest) Descriptor() ([]byte, []int) {
-	return file_croupier_sdk_v1_provider_proto_rawDescGZIP(), []int{9}
+	return file_croupier_sdk_v1_provider_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetJobResultRequest) GetJobId() string {
@@ -623,7 +576,7 @@ type GetJobResultResponse struct {
 
 func (x *GetJobResultResponse) Reset() {
 	*x = GetJobResultResponse{}
-	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[10]
+	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -635,7 +588,7 @@ func (x *GetJobResultResponse) String() string {
 func (*GetJobResultResponse) ProtoMessage() {}
 
 func (x *GetJobResultResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[10]
+	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -648,7 +601,7 @@ func (x *GetJobResultResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetJobResultResponse.ProtoReflect.Descriptor instead.
 func (*GetJobResultResponse) Descriptor() ([]byte, []int) {
-	return file_croupier_sdk_v1_provider_proto_rawDescGZIP(), []int{10}
+	return file_croupier_sdk_v1_provider_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetJobResultResponse) GetState() string {
@@ -693,34 +646,36 @@ const file_croupier_sdk_v1_provider_proto_rawDesc = "" +
 	" \x01(\tR\bcategory\x12\x12\n" +
 	"\x04risk\x18\v \x01(\tR\x04risk\x12\x16\n" +
 	"\x06entity\x18\f \x01(\tR\x06entity\x12\x1c\n" +
-	"\toperation\x18\r \x01(\tR\toperation\"\xb2\x01\n" +
-	"\x14RegisterLocalRequest\x12\x1d\n" +
+	"\toperation\x18\r \x01(\tR\toperation\"\xaa\x03\n" +
+	"\x16ProviderConnectRequest\x12\x1d\n" +
 	"\n" +
 	"service_id\x18\x01 \x01(\tR\tserviceId\x12\x18\n" +
-	"\aversion\x18\x02 \x01(\tR\aversion\x12\x19\n" +
-	"\brpc_addr\x18\x03 \x01(\tR\arpcAddr\x12F\n" +
-	"\tfunctions\x18\x04 \x03(\v2(.croupier.sdk.v1.LocalFunctionDescriptorR\tfunctions\"6\n" +
-	"\x15RegisterLocalResponse\x12\x1d\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion\x12F\n" +
+	"\tfunctions\x18\x03 \x03(\v2(.croupier.sdk.v1.LocalFunctionDescriptorR\tfunctions\x12!\n" +
+	"\fsdk_language\x18\x04 \x01(\tR\vsdkLanguage\x12\x1f\n" +
+	"\vsdk_version\x18\x05 \x01(\tR\n" +
+	"sdkVersion\x12)\n" +
+	"\x10protocol_version\x18\x06 \x01(\tR\x0fprotocolVersion\x125\n" +
+	"\x16supported_capabilities\x18\a \x03(\tR\x15supportedCapabilities\x126\n" +
+	"\x17transport_security_mode\x18\b \x01(\tR\x15transportSecurityMode\x121\n" +
+	"\x14supported_transports\x18\t \x03(\tR\x13supportedTransports\"\x89\x01\n" +
+	"\x17ProviderConnectResponse\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x01 \x01(\tR\tsessionId\"P\n" +
-	"\x10HeartbeatRequest\x12\x1d\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x123\n" +
+	"\x15accepted_capabilities\x18\x02 \x03(\tR\x14acceptedCapabilities\x12\x1a\n" +
+	"\bwarnings\x18\x03 \x03(\tR\bwarnings\"X\n" +
+	"\x18ProviderHeartbeatRequest\x12\x1d\n" +
 	"\n" +
 	"service_id\x18\x01 \x01(\tR\tserviceId\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionId\"\x13\n" +
-	"\x11HeartbeatResponse\"y\n" +
-	"\rLocalInstance\x12\x1d\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\"\x1b\n" +
+	"\x19ProviderHeartbeatResponse\"s\n" +
+	"\x14ProviderDrainRequest\x12\x1d\n" +
 	"\n" +
-	"service_id\x18\x01 \x01(\tR\tserviceId\x12\x12\n" +
-	"\x04addr\x18\x02 \x01(\tR\x04addr\x12\x18\n" +
-	"\aversion\x18\x03 \x01(\tR\aversion\x12\x1b\n" +
-	"\tlast_seen\x18\x04 \x01(\tR\blastSeen\"]\n" +
-	"\rLocalFunction\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12<\n" +
-	"\tinstances\x18\x02 \x03(\v2\x1e.croupier.sdk.v1.LocalInstanceR\tinstances\"\x12\n" +
-	"\x10ListLocalRequest\"Q\n" +
-	"\x11ListLocalResponse\x12<\n" +
-	"\tfunctions\x18\x01 \x03(\v2\x1e.croupier.sdk.v1.LocalFunctionR\tfunctions\",\n" +
+	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\x12$\n" +
+	"\x0eretry_after_ms\x18\x03 \x01(\rR\fretryAfterMs\"\x17\n" +
+	"\x15ProviderDrainResponse\",\n" +
 	"\x13GetJobResultRequest\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"\\\n" +
 	"\x14GetJobResultResponse\x12\x14\n" +
@@ -741,29 +696,25 @@ func file_croupier_sdk_v1_provider_proto_rawDescGZIP() []byte {
 	return file_croupier_sdk_v1_provider_proto_rawDescData
 }
 
-var file_croupier_sdk_v1_provider_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_croupier_sdk_v1_provider_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_croupier_sdk_v1_provider_proto_goTypes = []any{
-	(*LocalFunctionDescriptor)(nil), // 0: croupier.sdk.v1.LocalFunctionDescriptor
-	(*RegisterLocalRequest)(nil),    // 1: croupier.sdk.v1.RegisterLocalRequest
-	(*RegisterLocalResponse)(nil),   // 2: croupier.sdk.v1.RegisterLocalResponse
-	(*HeartbeatRequest)(nil),        // 3: croupier.sdk.v1.HeartbeatRequest
-	(*HeartbeatResponse)(nil),       // 4: croupier.sdk.v1.HeartbeatResponse
-	(*LocalInstance)(nil),           // 5: croupier.sdk.v1.LocalInstance
-	(*LocalFunction)(nil),           // 6: croupier.sdk.v1.LocalFunction
-	(*ListLocalRequest)(nil),        // 7: croupier.sdk.v1.ListLocalRequest
-	(*ListLocalResponse)(nil),       // 8: croupier.sdk.v1.ListLocalResponse
-	(*GetJobResultRequest)(nil),     // 9: croupier.sdk.v1.GetJobResultRequest
-	(*GetJobResultResponse)(nil),    // 10: croupier.sdk.v1.GetJobResultResponse
+	(*LocalFunctionDescriptor)(nil),   // 0: croupier.sdk.v1.LocalFunctionDescriptor
+	(*ProviderConnectRequest)(nil),    // 1: croupier.sdk.v1.ProviderConnectRequest
+	(*ProviderConnectResponse)(nil),   // 2: croupier.sdk.v1.ProviderConnectResponse
+	(*ProviderHeartbeatRequest)(nil),  // 3: croupier.sdk.v1.ProviderHeartbeatRequest
+	(*ProviderHeartbeatResponse)(nil), // 4: croupier.sdk.v1.ProviderHeartbeatResponse
+	(*ProviderDrainRequest)(nil),      // 5: croupier.sdk.v1.ProviderDrainRequest
+	(*ProviderDrainResponse)(nil),     // 6: croupier.sdk.v1.ProviderDrainResponse
+	(*GetJobResultRequest)(nil),       // 7: croupier.sdk.v1.GetJobResultRequest
+	(*GetJobResultResponse)(nil),      // 8: croupier.sdk.v1.GetJobResultResponse
 }
 var file_croupier_sdk_v1_provider_proto_depIdxs = []int32{
-	0, // 0: croupier.sdk.v1.RegisterLocalRequest.functions:type_name -> croupier.sdk.v1.LocalFunctionDescriptor
-	5, // 1: croupier.sdk.v1.LocalFunction.instances:type_name -> croupier.sdk.v1.LocalInstance
-	6, // 2: croupier.sdk.v1.ListLocalResponse.functions:type_name -> croupier.sdk.v1.LocalFunction
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	0, // 0: croupier.sdk.v1.ProviderConnectRequest.functions:type_name -> croupier.sdk.v1.LocalFunctionDescriptor
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_croupier_sdk_v1_provider_proto_init() }
@@ -777,7 +728,7 @@ func file_croupier_sdk_v1_provider_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_sdk_v1_provider_proto_rawDesc), len(file_croupier_sdk_v1_provider_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

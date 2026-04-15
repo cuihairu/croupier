@@ -18,8 +18,19 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// SessionCaller sends a request over an established TCP session and returns the response.
+type SessionCaller interface {
+	Call(ctx context.Context, msgID uint32, reqBody []byte) (uint32, []byte, error)
+}
+
+// AgentSessionResolver finds active TCP sessions for connected Agents.
+// The server package's AgentSessionStore implements this interface.
+type AgentSessionResolver interface {
+	ResolveAgentConn(agentID string) (SessionCaller, bool)
+}
+
 // Dispatcher routes function invocations to live agents discovered via registry store.
-// Now uses NNG instead of gRPC for Agent communication.
+// Supports both TCP session routing (preferred) and NNG fallback.
 // Supports HA features: health tracking, circuit breaker, load balancing.
 type Dispatcher struct {
 	store         *reg.Store
@@ -31,6 +42,9 @@ type Dispatcher struct {
 	tlsCfg        *tlsutil.ClientTLSConfig
 	nngClients    map[string]*nng.Client // cached NNG clients
 	clientsMu     sync.RWMutex
+
+	// TCP session routing (preferred over NNG when available)
+	sessionResolver AgentSessionResolver
 
 	// HA features
 	healthTracker *HealthTracker
@@ -146,6 +160,12 @@ func (d *Dispatcher) SetTLSConfig(cfg *tlsutil.ClientTLSConfig) {
 	d.tlsCfg = cfg
 }
 
+// SetSessionResolver sets the TCP session resolver for routing requests over
+// established Agent sessions instead of dialing NNG connections.
+func (d *Dispatcher) SetSessionResolver(resolver AgentSessionResolver) {
+	d.sessionResolver = resolver
+}
+
 func (d *Dispatcher) Store() *reg.Store {
 	return d.store
 }
@@ -177,23 +197,11 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 		defer d.healthTracker.DecrementConnections(agent.AgentID)
 	}
 
-	client, err := d.getNNGClient(agent.RPCAddr)
-	if err != nil {
-		if d.healthTracker != nil {
-			d.healthTracker.RecordFailure(agent.AgentID)
-		}
-		return nil, err
-	}
-
-	callCtx, cancel := context.WithTimeout(ctx, d.invokeTimeout)
-	defer cancel()
-
 	if req.Metadata == nil {
 		req.Metadata = map[string]string{}
 	}
 	req.Metadata["agent_id"] = agent.AgentID
 
-	// Marshal request
 	reqBytes, err := proto.Marshal(req)
 	if err != nil {
 		if d.healthTracker != nil {
@@ -202,8 +210,7 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	// Send via NNG
-	respBytes, err := client.Call(callCtx, protocol.MsgInvokeRequest, reqBytes)
+	respBytes, err := d.callAgent(ctx, agent.AgentID, agent.RPCAddr, protocol.MsgInvokeRequest, reqBytes)
 	if err != nil {
 		if d.healthTracker != nil {
 			d.healthTracker.RecordFailure(agent.AgentID)
@@ -219,7 +226,6 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
 
-	// Record success
 	if d.healthTracker != nil {
 		d.healthTracker.RecordSuccess(agent.AgentID)
 	}
@@ -248,29 +254,16 @@ func (d *Dispatcher) StartJobRequest(ctx context.Context, req *sdkv1.InvokeReque
 		return nil, err
 	}
 
-	// Track connection start
 	if d.healthTracker != nil {
 		d.healthTracker.IncrementConnections(agent.AgentID)
 		defer d.healthTracker.DecrementConnections(agent.AgentID)
 	}
-
-	client, err := d.getNNGClient(agent.RPCAddr)
-	if err != nil {
-		if d.healthTracker != nil {
-			d.healthTracker.RecordFailure(agent.AgentID)
-		}
-		return nil, err
-	}
-
-	callCtx, cancel := context.WithTimeout(ctx, d.invokeTimeout)
-	defer cancel()
 
 	if req.Metadata == nil {
 		req.Metadata = map[string]string{}
 	}
 	req.Metadata["agent_id"] = agent.AgentID
 
-	// Marshal request
 	reqBytes, err := proto.Marshal(req)
 	if err != nil {
 		if d.healthTracker != nil {
@@ -279,8 +272,7 @@ func (d *Dispatcher) StartJobRequest(ctx context.Context, req *sdkv1.InvokeReque
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	// Send via NNG
-	respBytes, err := client.Call(callCtx, protocol.MsgStartJobRequest, reqBytes)
+	respBytes, err := d.callAgent(ctx, agent.AgentID, agent.RPCAddr, protocol.MsgStartJobRequest, reqBytes)
 	if err != nil {
 		if d.healthTracker != nil {
 			d.healthTracker.RecordFailure(agent.AgentID)
@@ -296,7 +288,6 @@ func (d *Dispatcher) StartJobRequest(ctx context.Context, req *sdkv1.InvokeReque
 		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
 
-	// Record success
 	if d.healthTracker != nil {
 		d.healthTracker.RecordSuccess(agent.AgentID)
 	}
@@ -314,22 +305,13 @@ func (d *Dispatcher) CancelJob(ctx context.Context, jobID string) error {
 		return err
 	}
 
-	client, err := d.getNNGClient(addr)
-	if err != nil {
-		return err
-	}
-
-	callCtx, cancel := context.WithTimeout(ctx, d.invokeTimeout)
-	defer cancel()
-
-	// Marshal request
 	req := &sdkv1.CancelJobRequest{JobId: jobID}
 	reqBytes, err := proto.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("marshal request: %w", err)
 	}
 
-	_, err = client.Call(callCtx, protocol.MsgCancelJobRequest, reqBytes)
+	_, err = d.callAgentByAddr(ctx, addr, protocol.MsgCancelJobRequest, reqBytes)
 	if err == nil {
 		d.unregisterJob(jobID)
 	}
@@ -529,6 +511,51 @@ func (d *Dispatcher) pickAgentWithRouting(functionID string, metadata map[string
 	}
 
 	return d.pickAgent(functionID)
+}
+
+// callAgent sends a request to an Agent, preferring TCP session over NNG.
+// agentID identifies the session; rpcAddr is the NNG fallback address.
+func (d *Dispatcher) callAgent(ctx context.Context, agentID, rpcAddr string, msgID uint32, reqBody []byte) ([]byte, error) {
+	// Try TCP session first
+	if d.sessionResolver != nil {
+		if caller, ok := d.sessionResolver.ResolveAgentConn(agentID); ok {
+			callCtx, cancel := context.WithTimeout(ctx, d.invokeTimeout)
+			defer cancel()
+
+			_, respBody, err := caller.Call(callCtx, msgID, reqBody)
+			if err == nil {
+				return respBody, nil
+			}
+			// Session call failed, log and fall through to NNG
+			log.Printf("[dispatch] TCP session call failed for agent %s, falling back to NNG: %v", agentID, err)
+		}
+	}
+
+	// Fallback to NNG
+	client, err := d.getNNGClient(rpcAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, d.invokeTimeout)
+	defer cancel()
+
+	respBody, err := client.Call(callCtx, msgID, reqBody)
+	return respBody, err
+}
+
+// callAgentByAddr sends a request to an Agent by NNG address (no session lookup).
+func (d *Dispatcher) callAgentByAddr(ctx context.Context, rpcAddr string, msgID uint32, reqBody []byte) ([]byte, error) {
+	client, err := d.getNNGClient(rpcAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, d.invokeTimeout)
+	defer cancel()
+
+	respBody, err := client.Call(callCtx, msgID, reqBody)
+	return respBody, err
 }
 
 // getNNGClient gets or creates an NNG client for the given address

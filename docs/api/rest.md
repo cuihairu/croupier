@@ -632,5 +632,4 @@ result = response.json()
 
 ## 相关文档
 
-- [gRPC API](./grpc.md)
 - [API 概览](./README.md)

@@ -269,10 +269,7 @@ func registerLocalToAgent(t *testing.T, agentAddr, rpcAddr, serviceID string, fu
 		RpcAddr:   rpcAddr,
 		Functions: functions,
 	}
-	body, err := proto.Marshal(req)
-	if err != nil {
-		t.Fatalf("marshal RegisterLocalRequest failed: %v", err)
-	}
+	body := sdkv1.MarshalRegisterLocalRequest(req)
 	if _, err := client.Call(context.Background(), protocol.MsgRegisterLocalRequest, body); err != nil {
 		t.Fatalf("register local to agent failed: %v", err)
 	}

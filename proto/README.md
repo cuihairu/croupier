@@ -2,137 +2,143 @@
 
 ## 目录结构
 
-```
+```text
 proto/
-├── component/                     # 组件定义元数据（非通信协议）
-│   └── v1/
-│       ├── function_options.proto   # 方法级 protobuf 扩展选项
-│       ├── ui_options.proto         # 字段级 protobuf 扩展选项
-│       └── dashboard_ui.proto       # UI/i18n/菜单/权限定义
-│
-├── sdk/                           # Game SDK → Agent 通信协议
-│   └── v1/
-│       ├── provider.proto          # 函数注册（游戏服务器向 Agent 注册函数）
-│       └── invocation.proto        # 函数调用（调用者请求执行函数）
-│
-├── agent/                         # Agent → Server 通信协议
-│   └── v1/
-│       ├── register.proto          # Agent 注册
-│       ├── ops.proto               # 运维操作
-│       └── job.proto               # 任务类型（JobStatus, JobEvent）
-│
-├── external/                      # Server → 第三方服务通信
-│   └── v1/
-│       └── platform.proto         # 第三方平台调用统一接口
-│
-└── examples/                      # 函数定义示例
-    ├── games/                     # 游戏相关示例
-    └── integrations/              # 第三方集成示例
+├── buf.gen.yaml
+├── buf.yaml
+├── README.md
+├── croupier/
+│   ├── agent/v1/
+│   │   ├── job.proto
+│   │   └── register.proto
+│   ├── component/v1/
+│   │   ├── dashboard_ui.proto
+│   │   ├── function_options.proto
+│   │   └── ui_options.proto
+│   ├── external/v1/
+│   │   └── platform.proto
+│   ├── ops/v1/
+│   │   └── ops.proto
+│   └── sdk/v1/
+│       ├── invocation.proto
+│       └── provider.proto
+└── examples/
+    ├── games/
+    └── integrations/
 ```
 
-## 通信场景
+## 设计定位
 
-### component/ - 组件元数据
-**不是通信协议**，用于定义函数时的注解/装饰器。
+本目录定义的是 Croupier 的平台协议与组件元数据，而不是某种固定 transport 的专属协议实现。
+
+当前推荐理解方式：
+
+- `shared session runtime`
+  - `tcp`
+  - 可选 `tls`
+  - framing
+  - request/response mux
+  - reconnect / heartbeat / drain
+- `subprotocol`
+  - `sdk-agent subprotocol`
+  - `agent-server subprotocol`
+
+Proto 文件主要描述的是这些子协议之上的消息格式。
+
+## 各目录含义
+
+### `croupier/component/v1`
+
+组件元数据，不直接代表传输链路：
 
 | 文件 | 用途 |
-|-----|------|
-| `function_options.proto` | 方法级元信息：function_id, risk, timeout, two_person_rule 等 |
-| `ui_options.proto` | 字段级 UI 元信息：widget, label, placeholder, sensitive 等 |
-| `dashboard_ui.proto` | 共享 UI 类型：I18nText, Menu, PermissionSpec |
+| --- | --- |
+| `function_options.proto` | 方法级元数据扩展 |
+| `ui_options.proto` | 字段级 UI 元数据扩展 |
+| `dashboard_ui.proto` | UI / i18n / 菜单 / 权限定义 |
 
-**使用示例**：
-```proto
-import "croupier/component/v1/function_options.proto";
-import "croupier/component/v1/ui_options.proto";
+### `croupier/sdk/v1`
 
-service PlayerService {
-  rpc Ban(BanRequest) returns (BanResponse) {
-    option (croupier.component.v1.function) = {
-      function_id: "player.ban"
-      risk: "high"
-      timeout: "30s"
-    };
-  }
-}
-
-message BanRequest {
-  string player_id = 1 [(croupier.component.v1.ui) = { label: "玩家ID", widget: "input" }];
-}
-```
-
-### sdk/ - Game SDK → Agent
-游戏服务器 SDK 与本地 Agent 的通信协议。
+定义 `SDK <-> Agent` 边界的消息：
 
 | 文件 | 用途 |
-|-----|------|
-| `provider.proto` | 游戏服务器向 Agent 注册函数、心跳、查询本地实例 |
-| `invocation.proto` | 调用者请求执行函数（同步/异步）、任务流、取消任务 |
+| --- | --- |
+| `provider.proto` | provider session 建连、心跳、drain、函数描述符 |
+| `invocation.proto` | 调用、作业、取消、结果查询 |
 
-**通信方向**：
-```
-Game SDK --[NNG]--> Agent
-Invoker  --[NNG]--> Agent
-```
+当前语义：
 
-### agent/ - Agent → Server
-Agent 与中央 Server 的通信协议。
+- SDK 通过 `ProviderConnectRequest` 建立 provider session
+- SDK 不再注册 `rpc_addr`
+- SDK 不再开启本地监听端口
 
-| 文件 | 用途 |
-|-----|------|
-| `register.proto` | Agent 向 Server 注册、心跳、能力注册 |
-| `ops.proto` | 运维操作：指标上报、进程管理、系统信息查询 |
-| `job.proto` | 任务类型定义（JobStatus, JobEvent） |
+### `croupier/agent/v1`
 
-**通信方向**：
-```
-Agent --[NNG]--> Server
-```
-
-### external/ - Server → 第三方服务
-Server 调用第三方平台（如 QuickSDK）的统一接口。
+定义 `Agent <-> Server` 边界的消息：
 
 | 文件 | 用途 |
-|-----|------|
-| `platform.proto` | 调用第三方平台 API、查询平台列表、重载配置 |
+| --- | --- |
+| `register.proto` | agent session 建连、心跳、能力注册 |
+| `job.proto` | 作业状态与事件类型 |
 
-**通信方向**：
-```
-Server --> 第三方平台 (QuickSDK, etc.)
-```
+当前语义：
 
-### examples/ - 示例
-函数定义示例，展示如何使用 `component` 中的元数据注解。
+- `RegisterRequest` 在语义上等价于 agent session connect/register
+- `rpc_addr` 字段仍有历史兼容痕迹，但不应再作为目标架构的长期依赖
 
-## 通信协议说明
+### `croupier/ops/v1`
 
-本系统使用 **NNG (nanomsg-next-gen)** 作为通信协议，不再使用 gRPC。
+定义运维与观测相关消息：
 
-Proto 文件中的 `message` 定义用于 NNG 消息的序列化/反序列化，`service` 定义仅作为接口文档说明，不生成 gRPC 代码。
+| 文件 | 用途 |
+| --- | --- |
+| `ops.proto` | 指标、系统信息、进程与运维控制 |
 
-## 通信流程图
+### `croupier/external/v1`
 
-```
-┌─────────────┐
-│  Game SDK   │
-└──────┬──────┘
-       │ NNG (注册函数)
-       ↓
-┌─────────────┐           ┌─────────────┐
-│    Agent    │──────────→│   Server    │
-│             │ NNG       │             │
-└──────┬──────┘           └──────┬──────┘
-       │                         │
-       │ NNG                     │ HTTP
-       ↑                         │ (第三方平台)
-┌──────┴──────┐                  ↓
-│  Invoker    │          ┌─────────────┐
-└─────────────┘          │ 第三方平台   │
-                         └─────────────┘
-```
+定义 Server 与第三方平台集成时使用的统一接口：
 
-## 目录命名规范
+| 文件 | 用途 |
+| --- | --- |
+| `platform.proto` | 外部平台适配接口 |
 
-- **按通信场景分类**，不是按组件名分类
-- **服务提供方**作为目录名（sdk 提供 Game SDK 接口，agent 提供 Agent 接口）
-- **非通信协议**放在独立的目录（component）
+### `examples`
+
+示例 proto，展示如何配合组件元数据描述业务对象和函数。
+
+## 传输与序列化边界
+
+需要明确区分三件事：
+
+1. 平台协议消息
+   - 由 protobuf `message` 定义
+   - 用于 session 建连、能力协商、调用路由、作业控制
+2. 用户业务 payload
+   - 默认使用 UTF-8 JSON
+   - 一般承载在 protobuf 消息里的 `bytes payload`
+3. 底层传输
+   - 当前推荐为独立 `TCP session`
+   - 按需启用 `TLS`
+
+因此：
+
+- protobuf 是平台协议格式
+- JSON 是默认业务 payload 格式
+- 不应再把 proto 文档描述为“NNG 协议文档”或“gRPC API 文档”
+
+## 关于 `service` 定义
+
+仓库中的 `service` 定义主要用于：
+
+- 表达消息分组和语义归属
+- 辅助生成多语言类型与文档
+- 帮助识别请求/响应族
+
+它们不应自动被理解为“当前推荐通过 gRPC 暴露这些接口”。
+
+## 相关文档
+
+- [架构总览](../docs/architecture/README.md)
+- [SDK-Agent 传输重构设计](../docs/architecture/sdk-agent-transport-redesign.md)
+- [Agent-Server TCP Session 重构设计](../docs/architecture/agent-server-session-transport-redesign.md)
+- [SDK Wire Protocol](../docs/architecture/sdk-wire-protocol.md)

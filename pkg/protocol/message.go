@@ -83,13 +83,23 @@ const (
 	MsgGetServiceStatusRequest  = 0x040113
 	MsgGetServiceStatusResponse = 0x040114
 
-	// LocalControlService (0x05xx) - Agent local function registration
-	MsgRegisterLocalRequest   = 0x050101
-	MsgRegisterLocalResponse  = 0x050102
-	MsgHeartbeatLocalRequest  = 0x050103
-	MsgHeartbeatLocalResponse = 0x050104
-	MsgListLocalRequest       = 0x050105
-	MsgListLocalResponse      = 0x050106
+	// ProviderSessionService (0x05xx) - SDK <-> Agent provider session control
+	MsgProviderConnectRequest    = 0x050101
+	MsgProviderConnectResponse   = 0x050102
+	MsgProviderHeartbeatRequest  = 0x050103
+	MsgProviderHeartbeatResponse = 0x050104
+	MsgProviderDrainRequest      = 0x050105
+	MsgProviderDrainResponse     = 0x050106
+)
+
+const (
+	// Deprecated aliases kept temporarily for compatibility with historical call sites.
+	MsgRegisterLocalRequest   = MsgProviderConnectRequest
+	MsgRegisterLocalResponse  = MsgProviderConnectResponse
+	MsgHeartbeatLocalRequest  = MsgProviderHeartbeatRequest
+	MsgHeartbeatLocalResponse = MsgProviderHeartbeatResponse
+	MsgListLocalRequest       = MsgProviderDrainRequest
+	MsgListLocalResponse      = MsgProviderDrainResponse
 )
 
 // PutMsgID encodes a 24-bit MsgID into buf in big-endian order.
@@ -293,18 +303,18 @@ func MsgIDString(msgID uint32) string {
 		return "GetServiceStatusRequest"
 	case MsgGetServiceStatusResponse:
 		return "GetServiceStatusResponse"
-	case MsgRegisterLocalRequest:
-		return "RegisterLocalRequest"
-	case MsgRegisterLocalResponse:
-		return "RegisterLocalResponse"
-	case MsgHeartbeatLocalRequest:
-		return "HeartbeatLocalRequest"
-	case MsgHeartbeatLocalResponse:
-		return "HeartbeatLocalResponse"
-	case MsgListLocalRequest:
-		return "ListLocalRequest"
-	case MsgListLocalResponse:
-		return "ListLocalResponse"
+	case MsgProviderConnectRequest:
+		return "ProviderConnectRequest"
+	case MsgProviderConnectResponse:
+		return "ProviderConnectResponse"
+	case MsgProviderHeartbeatRequest:
+		return "ProviderHeartbeatRequest"
+	case MsgProviderHeartbeatResponse:
+		return "ProviderHeartbeatResponse"
+	case MsgProviderDrainRequest:
+		return "ProviderDrainRequest"
+	case MsgProviderDrainResponse:
+		return "ProviderDrainResponse"
 	default:
 		return fmt.Sprintf("Unknown(0x%06X)", msgID)
 	}

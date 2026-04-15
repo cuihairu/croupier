@@ -6,8 +6,8 @@ option java_multiple_files = true;
 
 option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1";
 
-// Local function registration from game servers to Agent
-// Based on OpenAPI 3.0.3 Operation Object fields
+// Provider function declaration from embedded SDK to Agent.
+// Based on OpenAPI 3.0.3 Operation Object fields.
 message LocalFunctionDescriptor {
   string id = 1;                          // Unique function identifier
   string version = 2;                     // Function version
@@ -30,44 +30,42 @@ message LocalFunctionDescriptor {
   string operation = 13;                  // x-operation: CRUD operation type (e.g., "create", "read", "update", "delete", "custom")
 }
 
-message RegisterLocalRequest {
-  string service_id = 1;
-  string version = 2;
-  string rpc_addr = 3;
-  repeated LocalFunctionDescriptor functions = 4;
+// ProviderConnectRequest establishes a provider session on the current SDK-Agent connection.
+message ProviderConnectRequest {
+  string service_id = 1;                     // Provider / process identifier
+  string version = 2;                        // Provider version
+  repeated LocalFunctionDescriptor functions = 3;
+  string sdk_language = 4;                   // e.g. "go", "java", "csharp"
+  string sdk_version = 5;                    // SDK release version
+  string protocol_version = 6;               // Wire protocol semantic version string
+  repeated string supported_capabilities = 7;
+  string transport_security_mode = 8;        // "plaintext" | "tls"
+  repeated string supported_transports = 9;  // currently fixed to "tcp"
 }
 
-message RegisterLocalResponse {
+message ProviderConnectResponse {
   string session_id = 1;
+  repeated string accepted_capabilities = 2;
+  repeated string warnings = 3;
 }
 
-message HeartbeatRequest {
+message ProviderHeartbeatRequest {
   string service_id = 1;
   string session_id = 2;
 }
 
-message HeartbeatResponse {}
+message ProviderHeartbeatResponse {}
 
-// Query local registered instances
-message LocalInstance {
-  string service_id = 1;
-  string addr = 2;
-  string version = 3;
-  string last_seen = 4;
+message ProviderDrainRequest {
+  string session_id = 1;
+  string reason = 2;
+  uint32 retry_after_ms = 3;
 }
 
-message LocalFunction {
-  string id = 1;
-  repeated LocalInstance instances = 2;
-}
+message ProviderDrainResponse {}
 
-message ListLocalRequest {}
-
-message ListLocalResponse {
-  repeated LocalFunction functions = 1;
-}
-
-// Query job result from Agent (best-effort)
+// Query job result from Agent (best-effort).
+// This remains in the shared SDK package because job polling is still SDK-visible.
 message GetJobResultRequest {
   string job_id = 1;
 }

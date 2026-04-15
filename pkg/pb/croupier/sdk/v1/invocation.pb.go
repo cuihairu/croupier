@@ -21,12 +21,13 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// SDK Function Invocation Request
+// SDK Function Invocation Request.
+// payload is always UTF-8 JSON in protocol v1.
 type InvokeRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	FunctionId     string                 `protobuf:"bytes,1,opt,name=function_id,json=functionId,proto3" json:"function_id,omitempty"`                                                     // e.g. "player.ban"
 	IdempotencyKey string                 `protobuf:"bytes,2,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`                                         // client-supplied idempotency key
-	Payload        []byte                 `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`                                                                             // serialized request (JSON/Proto)
+	Payload        []byte                 `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`                                                                             // serialized request JSON bytes
 	Metadata       map[string]string      `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // optional k/v metadata
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -90,10 +91,11 @@ func (x *InvokeRequest) GetMetadata() map[string]string {
 	return nil
 }
 
-// SDK Function Invocation Response
+// SDK Function Invocation Response.
+// payload is always UTF-8 JSON in protocol v1.
 type InvokeResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Payload       []byte                 `protobuf:"bytes,1,opt,name=payload,proto3" json:"payload,omitempty"` // serialized response body
+	Payload       []byte                 `protobuf:"bytes,1,opt,name=payload,proto3" json:"payload,omitempty"` // serialized response JSON bytes
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -225,13 +227,14 @@ func (x *JobStreamRequest) GetJobId() string {
 	return ""
 }
 
-// SDK Job Event
+// SDK Job Event.
+// payload is always UTF-8 JSON in protocol v1.
 type JobEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Type          string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`          // "progress" | "log" | "done" | "error"
 	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`    // free text for log/error
 	Progress      int32                  `protobuf:"varint,3,opt,name=progress,proto3" json:"progress,omitempty"` // 0..100 when type == progress
-	Payload       []byte                 `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`    // optional final result
+	Payload       []byte                 `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`    // optional final result JSON bytes
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

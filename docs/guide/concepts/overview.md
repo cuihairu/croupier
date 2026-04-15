@@ -6,201 +6,76 @@ category:
   - 核心概念
 tag:
   - 架构
-  - 概述
+  - 概览
 ---
 
 # 系统概览
 
-Croupier 是一个现代化的**三层分布式 GM 后台系统**，专为游戏运营和管理而设计。
+Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。
+当前架构已经明确收敛到“统一 session 传输”：
 
-## 设计理念
+- `Agent <-> Server`：`TCP session + TLS`
+- `SDK <-> Agent`：`TCP session`，默认不启用 `TLS`
 
-### 三层架构
-
-```
-┌────────────────────────────────────────────────────────────┐
-│                    可观测展示层                            │
-│  描述符驱动 UI · 风控提示 · 敏感字段脱敏 · 进度追踪        │
-└────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌────────────────────────────────────────────────────────────┐
-│                    函数控制层                              │
-│  函数注册 · 调用路由 · 幂等处理 · 负载均衡                │
-└────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌────────────────────────────────────────────────────────────┐
-│                    权限控制层                              │
-│  RBAC/ABAC · 操作审批 · 审计日志 · 风控策略                │
-└────────────────────────────────────────────────────────────┘
-```
-
-### 核心特性
+## 核心特点
 
 | 特性 | 说明 |
-|------|------|
-| **零信任安全** | gRPC+mTLS、细粒度 RBAC/ABAC、操作审批与审计日志 |
-| **函数注册驱动** | 游戏服务器通过 Agent 注册函数，控制面统一管理 |
-| **Schema 驱动 UI** | Formily + JSON Schema 自动生成表单和界面 |
-| **可观测性解耦** | 控制面与遥测面分离，支持实时事件处理 |
-| **多语言 SDK** | Go / C++ / Java / JS / Python 全覆盖 |
-| **协议优先** | 所有 API 通过 Protocol Buffers 定义 |
+| --- | --- |
+| 统一 session 传输 | 双向请求、重连、heartbeat、drain、背压 |
+| 函数注册驱动 | SDK / Agent 上报 function/provider/process 能力 |
+| Schema 驱动 UI | JSON Schema + Formily |
+| JSON payload | 用户业务数据默认 JSON |
+| protobuf 信封 | 平台控制字段与消息路由统一 protobuf |
 
-## 系统组件
+## 关键组件
 
-### Server（控制平面）
+### Server
 
-中央控制平面，负责权限控制、函数路由和协调。
+- 保存 registry
+- 做 RBAC / 审批 / 审计
+- 负责路由 invoke/job/ops 请求
+- 持有 `Agent session`
 
-- **端口**: NNG 8443 (mTLS), HTTP 8080 (REST)
-- **职责**:
-  - Agent 注册与连接管理
-  - 函数调用路由与负载均衡
-  - RBAC/ABAC 权限校验
-  - 审计日志记录
-  - 操作审批工作流
+### Agent
 
-### Agent（分布式代理）
+- 主动连接 `Server`
+- 本地接入 `GameServer / SDK / 第三方应用`
+- 在本地和上游两侧维护 session
 
-部署在游戏内网的代理进程，负责游戏服务器与控制平面的通信。
+### SDK
 
-- **端口**: NNG 19090 (本地监听)
-- **职责**:
-  - 连接 Server 并保持长连接
-  - 注册游戏服务器函数
-  - 转发函数调用请求
-  - 执行异步作业
-  - 支持双向隧道
+- 作为嵌入式客户端主动连接 `Agent`
+- 默认不监听本地端口
+- 通过 provider session 暴露函数能力
 
-### Dashboard（管理界面）
+## 关键术语
 
-基于 React + Ant Design 的 Web 管理界面。
+### shared session runtime
 
-- **技术栈**: Umi Max + Ant Design + Formily
-- **职责**:
-  - 函数调用可视化
-  - 审批流程管理
-  - 实时日志查看
-  - 权限配置界面
+指共享的 session 运行时基座：
 
-## 数据流模式
+- `tcp/tls`
+- framing
+- request/response 复用
+- reconnect
+- heartbeat
+- drain
+- backpressure
 
-### 标准调用流程
+### subprotocol
 
-```mermaid
-sequenceDiagram
-  participant UI as Web UI
-  participant Server as Croupier Server
-  participant Agent as Croupier Agent
-  participant GS as Game Server
+指运行在 shared session runtime 之上的具体子协议：
 
-  UI->>Server: POST /api/invoke
-  Server->>Server: RBAC 鉴权
-  Server->>Server: 审批检查
-  Server->>Agent: NNG Invoke
-  Agent->>GS: 本地 RPC 调用
-  GS-->>Agent: 响应
-  Agent-->>Server: 响应
-  Server->>Server: 审计记录
-  Server-->>UI: 结果
-```
+- `sdk-agent subprotocol`
+- `agent-server subprotocol`
 
-## 虚拟对象系统
+它不是“配置模板”，而是“不同边界上的应用层协议变体”。
 
-Croupier 采用**四层虚拟对象模型**：
+## 不再推荐的理解
 
-### 1. Function（函数）
+以下旧概念不应再当作新设计依据：
 
-具体的业务操作实现。
-
-```json
-{
-  "id": "player.ban",
-  "name": "封禁玩家",
-  "params": {
-    "type": "object",
-    "properties": {
-      "player_id": {"type": "string"},
-      "duration": {"type": "integer"}
-    }
-  }
-}
-```
-
-### 2. Entity（实体）
-
-业务对象的完整描述。
-
-```json
-{
-  "id": "player",
-  "name": "玩家",
-  "schema": { /* JSON Schema */ },
-  "operations": {
-    "create": "player.register",
-    "read": "player.get",
-    "update": "player.update",
-    "delete": "player.ban"
-  }
-}
-```
-
-### 3. Resource（资源）
-
-UI 层面的操作集合。
-
-```json
-{
-  "id": "player.resource",
-  "type": "pro-table",
-  "columns": [ /* 列定义 */ ],
-  "actions": ["create", "edit", "delete"]
-}
-```
-
-### 4. Component（组件）
-
-功能模块的打包单位。
-
-```json
-{
-  "id": "player-management",
-  "functions": ["player.*"],
-  "entities": ["player"],
-  "resources": ["player.resource"]
-}
-```
-
-## 安全模型
-
-### RBAC/ABAC 权限控制
-
-- **RBAC**: 基于角色的访问控制
-- **ABAC**: 基于属性的访问控制
-- **审批工作流**: 高风险操作需要双人审批
-- **审计链**: 所有操作可追溯、防篡改
-
-### mTLS 通信
-
-- 服务间强制使用 mTLS
-- 支持自定义 CA 签名
-- 证书自动轮换（可选）
-
-## 关键概念
-
-| 概念 | 说明 |
-|------|------|
-| **Game ID** | 游戏标识，用于租户隔离 |
-| **Env** | 环境标识（dev/staging/prod） |
-| **Function ID** | 函数唯一标识 |
-| **Idempotency Key** | 幂等键，防止重复执行 |
-| **Job ID** | 异步作业标识 |
-| **Pack** | 函数打包文件 (.tgz) |
-
-## 相关文档
-
-- [虚拟对象设计](../concepts/virtual-objects.md)
-- [函数管理](../concepts/function-management.md)
-- [权限控制](../concepts/permissions.md)
-- [系统架构](../../architecture/README.md)
+- `NNG REQ/REP` 作为主链路模型
+- `Server -> Agent` 直接回拨
+- `rpc_addr` 作为长期运行时入口
+- SDK 开本地监听端口给 `Agent`

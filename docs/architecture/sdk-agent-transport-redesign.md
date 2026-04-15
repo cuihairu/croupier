@@ -16,6 +16,23 @@
 4. `Agent <-> Server` 链路不在本次重构范围内，保持现状。
 5. SDK 侧旧的 `NNGServer` / `LocalControl` / “本地 server 回调” 模型进入废弃状态。
 
+## shared session runtime 与 subprotocol
+
+这里需要明确两个术语：
+
+- `shared session runtime`
+  - 指两条主链路共享的传输与会话基座
+  - 包括 `tcp/tls + framing + request/response mux + reconnect + heartbeat + drain`
+- `subprotocol`
+  - 指运行在该基座上的具体应用层子协议
+  - 对 `SDK <-> Agent` 而言，就是 `sdk-agent subprotocol`
+
+`sdk-agent subprotocol` 的关键特征是：
+
+- 首帧必须是 `ProviderConnectRequest`
+- 默认不启用 `tls`
+- 面向 provider session，而不是回拨地址注册
+
 ## 背景
 
 当前多语言 SDK 在 SDK-Agent 连接层存在以下问题：

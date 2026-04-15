@@ -12,409 +12,81 @@ tag:
 
 # 数据流
 
-本文档详细说明 Croupier 系统中的调用流、数据流转和事件处理。
+本文档只描述当前目标架构下的主要调用流，不再使用历史 `gRPC/NNG 回拨` 模型。
 
-## 目录
-
-[[toc]]
-
-## 标准调用流程
-
-### 端到端流程
+## 1. Dashboard 到业务函数
 
 ```mermaid
 sequenceDiagram
-    participant User as 用户
     participant UI as Dashboard
-    participant Server as Croupier Server
-    participant Agent as Croupier Agent
-    participant Game as Game Server
+    participant Server as Server
+    participant Agent as Agent
+    participant App as Game Server / SDK
 
-    User->>UI: 点击"封禁玩家"
     UI->>Server: POST /api/invoke
-    Server->>Server: 验证 JWT Token
-    Server->>Server: RBAC/ABAC 权限检查
-    Server->>Server: 审批检查
-    Server->>Server: 选择目标 Agent
-    Server->>Agent: gRPC InvokeFunction
-    Agent->>Game: 本地 gRPC 调用
-    Game->>Agent: 返回结果
-    Agent->>Server: 返回结果
-    Server->>Server: 记录审计日志
-    Server->>UI: 返回结果
-    UI->>User: 显示成功提示
+    Server->>Server: 鉴权 / RBAC / 审批 / 路由
+    Server->>Agent: InvokeRequest over agent-server session
+    Agent->>App: InvokeRequest over local session
+    App-->>Agent: InvokeResponse
+    Agent-->>Server: InvokeResponse
+    Server-->>UI: result
 ```
 
-### 详细步骤
+要点：
 
-| 步骤 | 操作 | 说明 |
-|------|------|------|
-| 1 | 用户操作 | 在 Dashboard 点击操作按钮 |
-| 2 | HTTP 请求 | 发送 POST /api/invoke |
-| 3 | 身份验证 | 验证 JWT Token |
-| 4 | 权限检查 | RBAC/ABAC 验证 |
-| 5 | 审批检查 | 检查是否需要审批 |
-| 6 | 路由选择 | 选择目标 Agent |
-| 7 | gRPC 调用 | 调用 Agent 的 InvokeFunction |
-| 8 | 业务执行 | Game Server 执行业务逻辑 |
-| 9 | 结果返回 | 逐层返回结果 |
-| 10 | 审计记录 | 记录操作审计日志 |
+- `Server -> Agent` 不再新开一条回拨连接
+- `Agent -> App` 由本地 session 边界处理
+- 两段链路都遵循相同的 session runtime 思维
 
-## 同步调用流
+## 2. SDK 注册到 Agent
 
-### 请求格式
+```mermaid
+sequenceDiagram
+    participant SDK as Embedded SDK
+    participant Agent as Agent
 
-```json
-POST /api/invoke
-{
-  "function_id": "player.ban",
-  "game_id": "my-game",
-  "env": "prod",
-  "payload": {
-    "player_id": "player_123",
-    "duration": 24,
-    "reason": "作弊"
-  },
-  "options": {
-    "idempotency_key": "unique-key-123",
-    "timeout": "30s"
-  }
-}
+    SDK->>Agent: ProviderConnectRequest
+    Agent-->>SDK: ProviderConnectResponse(session_id)
+    SDK->>Agent: ProviderHeartbeatRequest
+    Agent-->>SDK: ProviderHeartbeatResponse
 ```
 
-### 响应格式
+## 3. Agent 注册到 Server
 
-**成功响应**：
-```json
-{
-  "success": true,
-  "result": {
-    "ban_id": "ban_456",
-    "expires_at": "2024-12-02T10:30:00Z"
-  }
-}
+```mermaid
+sequenceDiagram
+    participant Agent as Agent
+    participant Server as Server
+
+    Agent->>Server: AgentConnectRequest / RegisterRequest
+    Server-->>Agent: AgentConnectResponse / RegisterResponse(session_id)
+    Agent->>Server: Heartbeat
+    Server-->>Agent: HeartbeatResponse
 ```
 
-**需要审批**：
-```json
-{
-  "success": false,
-  "pending_approval": true,
-  "approval_id": "approval_789",
-  "message": "操作需要双人审批"
-}
-```
-
-**权限拒绝**：
-```json
-{
-  "success": false,
-  "error": {
-    "code": "PERMISSION_DENIED",
-    "message": "没有权限执行该操作",
-    "required_permission": "player.ban"
-  }
-}
-```
-
-## 异步调用流（作业）
-
-### 异步调用流程
+## 4. 作业流
 
 ```mermaid
 sequenceDiagram
     participant UI as Dashboard
-    participant Server as Croupier Server
-    participant Agent as Croupier Agent
-    participant Game as Game Server
+    participant Server as Server
+    participant Agent as Agent
+    participant App as Game Server / SDK
 
     UI->>Server: POST /api/jobs
-    Server->>Server: 创建作业记录
-    Server-->>UI: 返回 job_id
-    UI->>Server: SSE /api/jobs/{id}/events
-
-    Server->>Agent: InvokeJob
-    Agent->>Game: 异步执行
-
-    loop 作业事件流
-        Game-->>Agent: 进度更新
-        Agent-->>Server: JobEvent(PROGRESS)
-        Server-->>UI: SSE 推送事件
-    end
-
-    Game-->>Agent: 执行完成
-    Agent-->>Server: JobEvent(DONE)
-    Server-->>UI: SSE 推送完成
+    Server-->>UI: job_id
+    Server->>Agent: StartJobRequest
+    Agent->>App: StartJobRequest
+    App-->>Agent: JobEvent / StartJobResponse
+    Agent-->>Server: JobEvent / StartJobResponse
+    Server-->>UI: SSE / WebSocket / Polling
 ```
 
-### 作业事件类型
+## 5. 核心原则
 
-```protobuf
-enum EventType {
-  START    = 0;  // 作业开始
-  PROGRESS = 1;  // 进度更新
-  LOG      = 2;  // 日志输出
-  DONE     = 3;  // 作业完成
-  ERROR    = 4;  // 作业错误
-}
+当前数据流遵循以下原则：
 
-message JobEvent {
-  string job_id = 1;
-  EventType type = 2;
-  string message = 3;
-  double progress = 4;  // 0.0 - 1.0
-  int64 timestamp = 5;
-}
-```
-
-### 作业管理 API
-
-```bash
-# 创建异步作业
-POST /api/jobs
-{
-  "function_id": "data.export",
-  "payload": {...}
-}
-# 返回: {"job_id": "job_123"}
-
-# 获取作业状态
-GET /api/jobs/job_123
-# 返回: {"status": "running", "progress": 0.5}
-
-# 流式获取事件
-GET /api/jobs/job_123/events
-# SSE 流式事件
-
-# 取消作业
-DELETE /api/jobs/job_123
-```
-
-## 审批流程
-
-### 审批数据流
-
-```mermaid
-stateDiagram-v2
-    [*] --> 提交: 用户提交调用
-    提交 --> 检查: Server 检查配置
-    检查 --> 待审批: 需要双人审批
-    检查 --> 直接执行: 无需审批
-
-    待审批 --> 已通过: 第二人审批
-    待审批 --> 已拒绝: 拒绝
-    待审批 --> 已取消: 超时
-
-    已通过 --> 执行: 开始执行
-    直接执行 --> 执行: 开始执行
-
-    执行 --> 完成: 执行成功
-    执行 --> 失败: 执行失败
-
-    完成 --> [*]
-    失败 --> [*]
-    已拒绝 --> [*]
-    已取消 --> [*]
-```
-
-### 审批请求格式
-
-```json
-POST /api/approvals
-{
-  "function_id": "player.ban",
-  "game_id": "my-game",
-  "env": "prod",
-  "payload": {...},
-  "reason": "玩家使用外挂",
-  "requested_by": "user_123"
-}
-```
-
-### 审批操作
-
-```bash
-# 审批通过
-POST /api/approvals/{id}/approve
-{
-  "approved_by": "user_456"
-}
-
-# 审批拒绝
-POST /api/approvals/{id}/reject
-{
-  "rejected_by": "user_456",
-  "reason": "证据不足"
-}
-```
-
-## 广播模式
-
-### 广播调用流程
-
-```mermaid
-graph LR
-    A[Server] -->|Invoke| B1[Agent 1]
-    A -->|Invoke| B2[Agent 2]
-    A -->|Invoke| B3[Agent 3]
-
-    B1 --> G1[Game 1]
-    B2 --> G2[Game 2]
-    B3 --> G3[Game 3]
-
-    A --> R[聚合结果]
-```
-
-### 广播调用示例
-
-```bash
-POST /api/invoke
-{
-  "function_id": "config.reload",
-  "routing": {
-    "mode": "broadcast"
-  }
-}
-```
-
-## 审计数据流
-
-### 审计记录流程
-
-```mermaid
-sequenceDiagram
-    participant User as 用户
-    participant Server as Server
-    participant Audit as 审计服务
-    participant Storage as 存储
-
-    User->>Server: 调用函数
-    Server->>Audit: 记录审计事件 (START)
-    Audit->>Storage: 持久化
-
-    Server->>Server: 执行业务逻辑
-    Server->>Audit: 记录审计事件 (COMPLETE)
-    Audit->>Storage: 持久化
-
-    Audit->>Audit: 计算哈希链
-```
-
-### 审计事件结构
-
-```json
-{
-  "audit_id": "audit_20241201_001",
-  "timestamp": "2024-12-01T10:30:00Z",
-  "user_id": "user_123",
-  "username": "admin",
-  "action": "function.invoke",
-  "game_id": "my-game",
-  "env": "prod",
-  "function_id": "player.ban",
-  "payload_preview": {
-    "player_id": "***",
-    "duration": 24
-  },
-  "result": "success",
-  "ip": "192.168.1.100",
-  "ip_region": "中国 上海",
-  "hash": "sha256(...)",
-  "prev_hash": "sha256(...)"
-}
-```
-
-## 实时数据流
-
-### WebSocket / SSE
-
-```mermaid
-sequenceDiagram
-    participant Client as 前端
-    participant Server as Server
-
-    Client->>Server: SSE GET /api/events
-    Server-->>Client: 建立连接
-
-    loop 事件推送
-        Server->>Server: 检测到事件
-        Server-->>Client: data: {...}
-    end
-
-    Client->>Server: 关闭连接
-```
-
-### 事件类型
-
-| 事件类型 | 说明 | 示例 |
-|----------|------|------|
-| `function.called` | 函数被调用 | `{function_id, user, result}` |
-| `job.progress` | 作业进度更新 | `{job_id, progress, message}` |
-| `approval.pending` | 待审批请求 | `{approval_id, function_id}` |
-| `agent.connected` | Agent 上线 | `{agent_id, game_id}` |
-| `agent.disconnected` | Agent 下线 | `{agent_id, reason}` |
-
-## 错误处理流
-
-### 错误传播
-
-```mermaid
-graph LR
-    A[Game Server Error] --> B[Agent]
-    B --> C[Server]
-    C --> D[Dashboard]
-
-    style A fill:#ffcccc
-    style B fill:#ffcccc
-    style C fill:#ffcccc
-    style D fill:#ffcccc
-```
-
-### 错误响应格式
-
-```json
-{
-  "success": false,
-  "error": {
-    "code": "PLAYER_NOT_FOUND",
-    "message": "玩家不存在",
-    "details": {
-      "player_id": "player_123"
-    },
-    "trace_id": "trace_abc123",
-    "timestamp": "2024-12-01T10:30:00Z"
-  }
-}
-```
-
-## 数据格式转换
-
-### JSON ↔ Protobuf
-
-```javascript
-// HTTP JSON 请求
-{
-  "function_id": "player.ban",
-  "payload": {"player_id": "123", "duration": 24}
-}
-
-// 转换为 gRPC Protobuf
-InvokeFunctionRequest {
-  function_id: "player.ban"
-  payload {
-    fields {
-      key: "player_id"
-      value { string_value: "123" }
-    }
-    fields {
-      key: "duration"
-      value { number_value: 24 }
-    }
-  }
-}
-```
-
-## 相关文档
-
-- [分层设计](./layers.md)
-- [架构概览](./README.md)
-- [API 参考](../api/README.md)
+1. 控制面和调用面统一收敛到 session 复用，不再拆成“注册链路 + 回拨链路”。
+2. `Agent` 本地监听只面向本地接入方。
+3. `Server` 通过 session ownership 路由到对应 `Agent`，而不是直接拨 `Agent`。
+4. 业务 payload 保持 JSON，平台控制字段保持 protobuf。

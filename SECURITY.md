@@ -30,7 +30,8 @@
 
 Croupier Server 采用多层安全架构：
 
-- **mTLS 通信**：所有服务间通信强制使用双向 TLS
+- **控制面 TLS / mTLS**：`Agent <-> Server` 推荐默认启用 TLS，生产环境建议 mTLS
+- **本地接入可选 TLS**：`SDK <-> Agent` 默认可在受信内网使用明文，也支持按需开启 TLS
 - **RBAC/ABAC**：基于角色和属性的访问控制
 - **审计日志**：完整的操作审计链，支持敏感字段脱敏
 - **双人规则**：高风险操作强制要求双人审批
@@ -44,5 +45,5 @@ Croupier Server 采用多层安全架构：
 - 生产环境必须配置有效的 TLS 证书（避免使用 dev-certs.sh 生成的自签名证书）
 - 使用 Secret Manager（如 HashiCorp Vault）管理敏感配置
 - 配置合适的日志级别，启用审计日志
-- 限制网络访问，仅开放必要端口（gRPC: 8443, HTTP: 8080）
+- 限制网络访问，仅开放必要端口（REST: 18780, session/control: 19090, agent local gateway: 19091）
 - 定期轮换 JWT 签名密钥和 API 凭据

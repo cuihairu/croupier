@@ -12,6 +12,7 @@ import (
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	transportcore "github.com/cuihairu/croupier/internal/transport"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	componentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/component/v1"
 )
@@ -49,6 +50,10 @@ type UpstreamClient struct {
 	onDisconnected func(error) // Called when disconnected from server
 	dynamicLabels  func() map[string]string
 	transportKind  string
+
+	// localHandler processes inbound requests from Server (e.g., Invoke, StartJob)
+	// when using MuxConn-based TCP transport.
+	localHandler transportcore.Handler
 }
 
 func (c *UpstreamClient) Connected() bool {
@@ -95,6 +100,12 @@ func (c *UpstreamClient) SetTLSConfig(cfg *tlsutil.ClientTLSConfig) {
 
 func (c *UpstreamClient) SetTransportKind(kind string) {
 	c.transportKind = normalizeTransportKind(kind)
+}
+
+// SetLocalHandler sets the handler for inbound requests from Server.
+// This is used when the upstream connection uses MuxConn (bidirectional TCP).
+func (c *UpstreamClient) SetLocalHandler(h transportcore.Handler) {
+	c.localHandler = h
 }
 
 func (c *UpstreamClient) SetDynamicLabelsProvider(fn func() map[string]string) {
@@ -149,7 +160,7 @@ func (c *UpstreamClient) OnDisconnected(callback func(error)) {
 	c.onDisconnected = callback
 }
 
-// dialServer establishes a new NNG connection to the upstream server and registers.
+// dialServer establishes a connection to the upstream server and registers.
 // It closes any existing connection before establishing a new one.
 // On successful connection, it automatically calls register.
 func (c *UpstreamClient) dialServer(ctx context.Context) error {
@@ -158,7 +169,17 @@ func (c *UpstreamClient) dialServer(ctx context.Context) error {
 		c.client = nil
 	}
 
-	client, err := newControlClient(c.transportKind, c.serverAddr)
+	var client controlClient
+	var err error
+
+	// For TCP transport with a local handler, use MuxConn (bidirectional).
+	// Otherwise fall back to simple TCP or NNG client.
+	if normalizeTransportKind(c.transportKind) == "tcp" && c.localHandler != nil {
+		client, err = newMuxControlClient(c.serverAddr, c.localHandler)
+	} else {
+		client, err = newControlClient(c.transportKind, c.serverAddr)
+	}
+
 	if err != nil {
 		c.client = nil
 		return fmt.Errorf("failed to connect to upstream server via %s: %w", c.transportKind, err)

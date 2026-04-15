@@ -860,16 +860,16 @@ func TestHandleRegisterLocal(t *testing.T) {
 			{Id: "test.function2"},
 		},
 	}
-	data, _ := proto.Marshal(req)
+	data := sdkv1.MarshalRegisterLocalRequest(req)
 
 	resp, err := server.handleRegisterLocal(ctx, data)
 	if err != nil {
 		t.Errorf("handleRegisterLocal() failed: %v", err)
 	}
 
-	response := &sdkv1.RegisterLocalResponse{}
-	if err := proto.Unmarshal(resp, response); err != nil {
-		t.Errorf("failed to unmarshal response: %v", err)
+	response := sdkv1.UnmarshalRegisterLocalResponse(resp)
+	if response == nil {
+		t.Errorf("failed to unmarshal response")
 	}
 
 	// Verify function was registered
@@ -887,7 +887,7 @@ func TestHandleRegisterLocalNoStore(t *testing.T) {
 
 	ctx := context.Background()
 	req := &sdkv1.RegisterLocalRequest{}
-	data, _ := proto.Marshal(req)
+	data := sdkv1.MarshalRegisterLocalRequest(req)
 
 	_, err := server.handleRegisterLocal(ctx, data)
 	if err == nil {
@@ -909,22 +909,20 @@ func TestHandleHeartbeatLocal(t *testing.T) {
 			{Id: "test.function1"},
 		},
 	}
-	regData, _ := proto.Marshal(regReq)
+	regData := sdkv1.MarshalRegisterLocalRequest(regReq)
 	_, _ = server.handleRegisterLocal(context.Background(), regData)
 
 	ctx := context.Background()
 	req := &sdkv1.HeartbeatRequest{ServiceId: "provider1"}
-	data, _ := proto.Marshal(req)
+	data := sdkv1.MarshalHeartbeatRequestCompat(req)
 
 	resp, err := server.handleHeartbeatLocal(ctx, data)
 	if err != nil {
 		t.Errorf("handleHeartbeatLocal() failed: %v", err)
 	}
 
-	response := &sdkv1.HeartbeatResponse{}
-	if err := proto.Unmarshal(resp, response); err != nil {
-		t.Errorf("failed to unmarshal response: %v", err)
-	}
+	// HeartbeatResponse is an empty message, no need to unmarshal
+	_ = resp
 }
 
 // TestHandleHeartbeatLocalNoStore tests handleHeartbeatLocal without store
@@ -935,7 +933,7 @@ func TestHandleHeartbeatLocalNoStore(t *testing.T) {
 
 	ctx := context.Background()
 	req := &sdkv1.HeartbeatRequest{}
-	data, _ := proto.Marshal(req)
+	data := sdkv1.MarshalHeartbeatRequestCompat(req)
 
 	_, err := server.handleHeartbeatLocal(ctx, data)
 	if err == nil {
@@ -958,22 +956,18 @@ func TestHandleListLocal(t *testing.T) {
 			{Id: "test.function2"},
 		},
 	}
-	regData, _ := proto.Marshal(regReq)
+	regData := sdkv1.MarshalRegisterLocalRequest(regReq)
 	_, _ = server.handleRegisterLocal(context.Background(), regData)
 
 	ctx := context.Background()
-	req := &sdkv1.ListLocalRequest{}
-	data, _ := proto.Marshal(req)
+	data := []byte{}
 
 	resp, err := server.handleListLocal(ctx, data)
 	if err != nil {
 		t.Errorf("handleListLocal() failed: %v", err)
 	}
 
-	response := &sdkv1.ListLocalResponse{}
-	if err := proto.Unmarshal(resp, response); err != nil {
-		t.Errorf("failed to unmarshal response: %v", err)
-	}
+	response := sdkv1.UnmarshalListLocalResponse(resp)
 
 	if len(response.Functions) != 2 {
 		t.Errorf("handleListLocal() functions count = %d, want 2", len(response.Functions))
@@ -987,8 +981,7 @@ func TestHandleListLocalNoStore(t *testing.T) {
 	server.store = nil
 
 	ctx := context.Background()
-	req := &sdkv1.ListLocalRequest{}
-	data, _ := proto.Marshal(req)
+	data := []byte{}
 
 	_, err := server.handleListLocal(ctx, data)
 	if err == nil {

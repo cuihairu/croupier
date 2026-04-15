@@ -701,10 +701,7 @@ func (s *AgentServer) handleExecuteCommand(ctx context.Context, data []byte) ([]
 
 // handleRegisterLocal handles RegisterLocalRequest
 func (s *AgentServer) handleRegisterLocal(ctx context.Context, data []byte) ([]byte, error) {
-	req := &sdkv1.RegisterLocalRequest{}
-	if err := proto.Unmarshal(data, req); err != nil {
-		return nil, fmt.Errorf("unmarshal RegisterLocalRequest: %w", err)
-	}
+	req := sdkv1.UnmarshalRegisterLocalRequest(data)
 
 	if s.store == nil {
 		return nil, fmt.Errorf("store not initialized")
@@ -714,15 +711,12 @@ func (s *AgentServer) handleRegisterLocal(ctx context.Context, data []byte) ([]b
 	s.store.Register(req.ServiceId, req.RpcAddr, req.Version, req.Functions)
 
 	resp := &sdkv1.RegisterLocalResponse{}
-	return proto.Marshal(resp)
+	return sdkv1.MarshalRegisterLocalResponse(resp), nil
 }
 
 // handleHeartbeatLocal handles HeartbeatLocalRequest
 func (s *AgentServer) handleHeartbeatLocal(ctx context.Context, data []byte) ([]byte, error) {
-	req := &sdkv1.HeartbeatRequest{}
-	if err := proto.Unmarshal(data, req); err != nil {
-		return nil, fmt.Errorf("unmarshal HeartbeatRequest: %w", err)
-	}
+	req := sdkv1.UnmarshalHeartbeatRequestCompat(data)
 
 	if s.store == nil {
 		return nil, fmt.Errorf("store not initialized")
@@ -731,16 +725,13 @@ func (s *AgentServer) handleHeartbeatLocal(ctx context.Context, data []byte) ([]
 	// Update provider heartbeat only; do not mutate function registrations.
 	s.store.Heartbeat(req.ServiceId)
 
-	resp := &sdkv1.HeartbeatResponse{}
-	return proto.Marshal(resp)
+	// HeartbeatResponse is empty, return nil bytes
+	return nil, nil
 }
 
 // handleListLocal handles ListLocalRequest
 func (s *AgentServer) handleListLocal(ctx context.Context, data []byte) ([]byte, error) {
-	req := &sdkv1.ListLocalRequest{}
-	if err := proto.Unmarshal(data, req); err != nil {
-		return nil, fmt.Errorf("unmarshal ListLocalRequest: %w", err)
-	}
+	// ListLocalRequest is empty, no need to parse
 
 	if s.store == nil {
 		return nil, fmt.Errorf("store not initialized")
@@ -768,7 +759,7 @@ func (s *AgentServer) handleListLocal(ctx context.Context, data []byte) ([]byte,
 	resp := &sdkv1.ListLocalResponse{
 		Functions: functions,
 	}
-	return proto.Marshal(resp)
+	return sdkv1.MarshalListLocalResponse(resp), nil
 }
 
 // handleListServices handles ListServicesRequest

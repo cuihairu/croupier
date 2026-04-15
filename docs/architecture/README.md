@@ -1,5 +1,5 @@
 ---
-title: 架构概览
+title: 架构总览
 icon: sitemap
 order: 1
 category:
@@ -11,276 +11,100 @@ tag:
 
 # 系统架构
 
-Croupier 采用**四层分布式架构**，实现权限控制、函数路由和 UI 展示的完全分离。
+Croupier 当前的目标架构已经从“多条回拨链路 + 历史 NNG/gRPC 混合模型”收敛到“统一 session 传输”：
 
-## 架构图
+- `SDK <-> Agent`：`sdk-agent subprotocol`
+- `Agent <-> Server`：`agent-server subprotocol`
+- 两者共享同一套 `shared session runtime`
+
+## 总体拓扑
 
 ```mermaid
 graph TB
-  subgraph "展示层 - 可观测"
-    Dashboard[Web Dashboard<br/>Ant Design + Formily]
-    Mobile[移动端<br/>未来支持]
+  subgraph "展示层"
+    Dashboard[Web Dashboard<br/>React + Formily]
   end
 
-  subgraph "控制层 - Server"
-    API[HTTP REST API<br/>:8080]
-    Control[Control Service<br/>gRPC :8443]
-    Function[Function Service<br/>gRPC :8443]
-    RBAC[RBAC/ABAC<br/>权限控制]
-    Audit[审计日志]
-    Approval[审批工作流]
+  subgraph "控制层"
+    Server[Server<br/>Registry / Dispatch / RBAC / Audit]
   end
 
-  subgraph "代理层 - Agent"
-    Agent1[Agent 1<br/>游戏内网 A]
-    Agent2[Agent 2<br/>游戏内网 B]
+  subgraph "代理层"
+    Agent1[Agent 1<br/>Session Client + Local Gateway]
+    Agent2[Agent 2<br/>Session Client + Local Gateway]
   end
 
-  subgraph "业务层 - Service"
-    GS1[Game Server A<br/>+ SDK]
-    GS2[Game Server B<br/>+ SDK]
-    GS3[Game Server C<br/>+ SDK]
+  subgraph "业务层"
+    GS1[Game Server A]
+    GS2[Game Server B]
+    SDK1[Embedded SDK / Third-party App]
+    SDK2[Embedded SDK / Third-party App]
   end
 
-  Dashboard -->|HTTP| API
-  API --> RBAC
-  RBAC --> Control
-  RBAC --> Function
-  Control --> Agent1
-  Control --> Agent2
-  Function --> Agent1
-  Function --> Agent2
-  Agent1 --> GS1
-  Agent2 --> GS2
-  Agent1 --> GS3
-
-  Function --> Audit
-  RBAC --> Approval
-
-  classDef ui fill:#e8f5ff,stroke:#1890ff
-  classDef server fill:#f6ffed,stroke:#52c41a
-  classDef agent fill:#fff7e6,stroke:#fa8c16
-  classDef service fill:#f0f9e6,stroke:#52c41a
-
-  class Dashboard,Mobile ui
-  class API,Control,Function,RBAC,Audit,Approval server
-  class Agent1,Agent2 agent
-  class GS1,GS2,GS3 service
+  Dashboard -->|HTTP REST| Server
+  Agent1 -->|TCP Session + TLS| Server
+  Agent2 -->|TCP Session + TLS| Server
+  GS1 -->|TCP Session| Agent1
+  SDK1 -->|TCP Session| Agent1
+  GS2 -->|TCP Session| Agent2
+  SDK2 -->|TCP Session| Agent2
 ```
 
-## 分层说明
+## 核心结论
 
-### 1. 展示层
+1. `Agent <-> Server` 不再以 `REQ/REP` 作为目标主模型，而是轻量双向 session。
+2. `Server -> Agent` 的调用应复用既有 session，不再依赖 `rpc_addr` 反向回拨。
+3. `Agent` 本地监听只服务 `GameServer / SDK / 第三方应用`。
+4. `SDK <-> Agent` 与 `Agent <-> Server` 共享同一套 session 传输基座。
 
-**职责**: 用户界面、操作可视化、进度展示
+## shared session runtime
 
-**组件**:
-- **Dashboard**: Web 管理界面，基于 React + Ant Design
-- **未来**: 移动端支持
+这里的 `shared session runtime` 指共享的传输与会话基座，至少包括：
 
-**特性**:
-- Formily 驱动的表单自动生成
-- 实时日志流式展示
-- 审批流程可视化
-- 响应式设计
+- `tcp`
+- 可选 `tls`
+- `4-byte frame length + 8-byte croupier header + protobuf body`
+- 双向 request/response 复用
+- request id 管理
+- heartbeat
+- reconnect
+- drain
+- backpressure
 
-### 2. 控制层
+它不等于具体业务协议，只是通用运行时。
 
-**职责**: 权限控制、函数路由、审计记录
+## subprotocol 说明
 
-**组件**:
-- **HTTP API**: RESTful 接口 (8080)
-- **Control Service**: Agent 注册与连接管理
-- **Function Service**: 函数调用路由
-- **RBAC/ABAC**: 权限控制引擎
-- **审计日志**: 操作记录与追溯
-- **审批工作流**: 高风险操作审批
+这里的 `subprotocol` 不是“个性化配置”，而是“运行在同一套 session runtime 上的不同应用层子协议”。
 
-**特性**:
-- 负载均衡 (轮询/一致性哈希/最少连接)
-- 幂等性保证
-- 双人强制规则
-- 敏感字段脱敏
+当前有两套主要 `subprotocol`：
 
-### 3. 代理层
+- `sdk-agent subprotocol`
+  - 首条消息是 `ProviderConnectRequest`
+  - 默认不启用 `tls`
+  - 面向 provider session
+- `agent-server subprotocol`
+  - 首条消息是 `AgentConnectRequest` 或其兼容注册消息
+  - 默认启用 `tls`
+  - 面向 agent session
 
-**职责**: 游戏内网代理、函数注册、调用转发
+二者共享底层机制，但握手、注册内容和路由语义不同。
 
-**组件**:
-- **Agent**: 部署在游戏内网的代理进程
+## 为什么不再以 NNG pattern 为中心
 
-**特性**:
-- 出站 mTLS 连接
-- 本地 gRPC 监听 (19090)
-- 函数自动注册
-- 异步作业执行
-- 作业取消与进度流
+问题不在于 `NNG` 没有长连接能力，而在于当前使用的 `REQ/REP` pattern 不适合：
 
-### 4. 业务层
+- 在已有连接上由双方主动发新请求
+- 多个并发 in-flight 请求复用
+- session 级别的重连、背压、drain 和路由治理
 
-**职责**: 业务逻辑实现
+因此当前架构收敛为“轻量 session 协议”，而不是继续围绕某个 `NNG pattern` 修补。
 
-**组件**:
-- **Game Server**: 游戏服务器进程
-- **SDK**: 多语言客户端 SDK
-
-**特性**:
-- 函数实现与注册
-- 类型安全的 API
-- 热重载支持
-
-## 核心设计模式
-
-### 1. 协议优先开发
-
-所有 API 通过 Protocol Buffers 定义：
-
-```protobuf
-// proto/croupier/control/v1/service.proto
-service ControlService {
-  rpc RegisterAgent(RegisterAgentRequest) returns (RegisterAgentResponse);
-  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
-}
-
-// proto/croupier/function/v1/service.proto
-service FunctionService {
-  rpc InvokeFunction(InvokeFunctionRequest) returns (InvokeFunctionResponse);
-  rpc StreamJobEvents(StreamJobEventsRequest) returns (stream JobEvent);
-}
-```
-
-### 2. 描述符驱动 UI
-
-基于 JSON Schema + UI Schema 自动生成 UI（Formily）：
-
-```json
-{
-  "id": "player.ban",
-  "params": {
-    "type": "object",
-    "properties": {
-      "player_id": {"type": "string"},
-      "duration": {"type": "integer", "minimum": 1}
-    }
-  },
-  "ui": {
-    "risk_warning": "高风险操作，需要审批"
-  }
-}
-```
-
-### 3. 作业模型
-
-异步执行长时间任务：
-
-```protobuf
-message JobEvent {
-  string job_id = 1;
-  EventType type = 2;  // START, PROGRESS, DONE, ERROR
-  string message = 3;
-  double progress = 4;
-}
-```
-
-## 安全架构
-
-### 通信安全
-
-| 连接 | 协议 | 安全方式 |
-|------|------|----------|
-| Dashboard → Server | HTTPS | TLS |
-| Server → Agent | gRPC | mTLS |
-| Agent → Game Server | gRPC | 可选 mTLS |
-
-### 权限模型
-
-```
-用户 (User)
-  ↓ 拥有
-角色 (Role)
-  ↓ 分配
-权限 (Permission)
-  ↓ 保护
-函数 (Function)
-  ↓ 关联
-实体 (Entity)
-```
-
-### 审计日志
-
-所有操作记录包含：
-
-- 操作时间
-- 操作用户
-- 目标游戏/环境
-- 函数与参数
-- 审批信息
-- 执行结果
-- 哈希防篡改
-
-## 可观测性
-
-### 指标 (Metrics)
-
-- Prometheus 格式输出
-- `/metrics` 端点
-- 按函数/游戏统计
-
-### 日志 (Logging)
-
-- 结构化日志 (JSON)
-- 日志级别可配置
-- 支持文件轮转
-
-### 追踪 (Tracing)
-
-- OpenTelemetry 集成
-- Jaeger 导出
-- 分布式调用链
-
-## 部署架构
-
-### 单机房部署
-
-```
-┌─────────────────────────────────────────┐
-│           数据中心                       │
-│  ┌─────────────────────────────────┐   │
-│  │  管理网段 (内网)                │   │
-│  │  Server + Dashboard            │   │
-│  │         │                       │   │
-│  │    Agent (游戏服务器旁)         │   │
-│  └─────────────────────────────────┘   │
-└─────────────────────────────────────────┘
-```
-
-### 多机房部署
-
-```
-┌──────────────┐       ┌──────────────┐
-│  机房 A       │       │  机房 B       │
-│  Server      │◄─────►│  Server      │
-│  │           │       │  │           │
-│  Agent       │       │  Agent       │
-│  │           │       │  │           │
-│  Game Server │       │  Game Server │
-└──────────────┘       └──────────────┘
-```
-
-## 相关文档
+## 文档索引
 
 - [分层设计](./layers.md)
 - [数据流](./data-flow.md)
 - [SDK-Agent 传输重构设计](./sdk-agent-transport-redesign.md)
+- [Agent-Server TCP Session 重构设计](./agent-server-session-transport-redesign.md)
+- [SDK Wire Protocol](./sdk-wire-protocol.md)
 - [核心与扩展边界映射](./core-extension-mapping.md)
-- [扩展清单与安装模型](./extension-installation-model.md)
-- [official.alerting 迁移草案](./official-alerting-migration-draft.md)
-- [official.notification 迁移草案](./official-notification-migration-draft.md)
-- [official.approval 迁移草案](./official-approval-migration-draft.md)
-- [official.backup-advanced 迁移草案](./official-backup-advanced-migration-draft.md)
-- [官方扩展统一模式](./official-extension-unified-pattern.md)
-- [商店服务拆分方案](./marketplace-service-split-plan.md)
-- [前后端 API 稳定化与前端重整计划](./frontend-api-stabilization-plan.md)
-- [扩展域 API 契约基线（V1）](./extensions-api-contract-baseline.md)
-- [前端 Adapter 分层模板](./frontend-adapter-layer-template.md)
-- [Dashboard 仓库接入 Runbook](./dashboard-repo-integration-runbook.md)

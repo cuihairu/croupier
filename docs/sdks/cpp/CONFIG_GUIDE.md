@@ -1,371 +1,198 @@
-# Croupier C++ SDK - Advanced Configuration System
+# Croupier C++ SDK 配置指南
 
-The Croupier C++ SDK now features a comprehensive, modular configuration system that supports multiple environments, validation, and flexible deployment scenarios.
+本文档给出 C++ SDK 应遵循的统一配置语义，重点是让 C++ SDK 与其他语言在 session、TLS、重连与 payload 行为上保持一致。
 
-## 🏗️ Architecture Overview
+## 配置原则
 
-The configuration system is built with the following modular components:
+- 配置面只保留当前明确需要的字段
+- 优先表达 session 语义，而不是绑定某种历史 transport 实现
+- 不再暴露 `rpc_addr`、`local_listen`、`grpc_target`、`nng_server` 这类过时字段
 
-### Core Modules
+## 推荐配置模型
 
-- **`utils/JsonUtils`** - Cross-platform JSON processing with nlohmann/json support
-- **`utils/FileSystemUtils`** - File and directory operations across platforms
-- **`config/ClientConfigLoader`** - Client configuration loading and validation
-- **`ConfigDrivenLoader`** - Component and virtual object loading from configuration
-
-### Benefits
-
-✅ **Modular Design** - Each utility is in its own file for maintainability
-✅ **Environment Support** - Development, staging, production configurations
-✅ **Validation** - Comprehensive configuration validation with detailed errors
-✅ **Override Support** - Environment variables can override file settings
-✅ **Cross-Platform** - Works on Windows, Linux, and macOS
-✅ **Schema Support** - Virtual object schemas with field validation
-
-## 🚀 Quick Start
-
-### 1. Basic Configuration Loading
-
-```cpp
-#include "croupier/sdk/config/client_config_loader.h"
-
-// Load configuration
-ClientConfigLoader loader;
-ClientConfig config = loader.LoadFromFile("./configs/development.json");
-
-// Validate configuration
-auto errors = loader.ValidateConfig(config);
-if (!errors.empty()) {
-    for (const auto& error : errors) {
-        std::cerr << "Config error: " << error << std::endl;
-    }
-    return 1;
-}
-
-// Create client
-CroupierClient client(config);
-```
-
-### 2. Environment-Based Configuration
-
-```cpp
-// Load configuration with environment variable overrides
-ClientConfig config = loader.LoadWithEnvironmentOverrides(
-    "./configs/production.json",
-    "CROUPIER_"  // Environment variable prefix
-);
-
-// Environment variables like CROUPIER_GAME_ID will override config file values
-```
-
-### 3. Profile-Based Loading
-
-```cpp
-// Load configuration profile (base + environment-specific)
-ClientConfig config = loader.LoadProfile("./configs", "production");
-
-// This loads base.json and production.json, merging them together
-```
-
-## 📁 Configuration File Structure
-
-### Environment-Specific Configurations
-
-Create separate configuration files for each environment:
-
-```
-configs/
-├── development.json    # Development environment
-├── staging.json       # Staging environment
-├── production.json    # Production environment
-└── base.json          # Common base configuration
-```
-
-### Development Configuration Example
+建议 C++ SDK 至少支持如下结构：
 
 ```json
 {
-  "game_id": "my-game-dev",
-  "env": "development",
-  "service_id": "backend-dev",
-  "agent_addr": "127.0.0.1:19090",
-  "local_listen": "0.0.0.0:0",
-  "insecure": true,
-  "timeout_seconds": 30,
-  "auth": {
-    "headers": {
-      "X-Game-Version": "1.0.0-dev",
-      "X-Environment": "development"
-    }
-  }
-}
-```
-
-### Production Configuration Example
-
-```json
-{
-  "game_id": "my-game-prod",
-  "env": "production",
-  "service_id": "backend-prod-01",
-  "agent_addr": "croupier-agent.internal:19090",
-  "local_listen": "0.0.0.0:0",
-  "insecure": false,
-  "timeout_seconds": 60,
-  "security": {
-    "cert_file": "/etc/tls/client.crt",
-    "key_file": "/etc/tls/client.key",
-    "ca_file": "/etc/tls/ca.crt",
-    "server_name": "croupier.internal"
+  "address": "127.0.0.1:19091",
+  "connectTimeoutMs": 5000,
+  "requestTimeoutMs": 30000,
+  "heartbeat": {
+    "intervalMs": 30000
   },
-  "auth": {
-    "token": "Bearer ${JWT_TOKEN}",
-    "headers": {
-      "X-Game-Version": "2.1.0",
-      "X-Service-Region": "us-west-2"
-    }
+  "tls": {
+    "enabled": false,
+    "certFile": "",
+    "keyFile": "",
+    "caFile": "",
+    "serverName": "",
+    "insecureSkipVerify": false
+  },
+  "reconnect": {
+    "enabled": true,
+    "initialDelayMs": 1000,
+    "maxDelayMs": 30000,
+    "multiplier": 2.0,
+    "jitter": 0.2,
+    "steadyStateDelayMs": 30000
   }
 }
 ```
 
-## 🔧 Environment Variable Overrides
+## 字段说明
 
-You can override any configuration value using environment variables with the `CROUPIER_` prefix:
+| 字段 | 说明 |
+| --- | --- |
+| `address` | Agent 本地 gateway 地址 |
+| `connectTimeoutMs` | 建连超时 |
+| `requestTimeoutMs` | 单请求超时 |
+| `heartbeat.intervalMs` | provider 心跳周期 |
+| `tls.enabled` | 是否启用 TLS |
+| `tls.certFile` | 客户端证书 |
+| `tls.keyFile` | 客户端私钥 |
+| `tls.caFile` | CA 文件 |
+| `tls.serverName` | 证书校验名 / SNI |
+| `tls.insecureSkipVerify` | 仅限开发环境跳过校验 |
+| `reconnect.enabled` | 是否自动重连 |
+| `reconnect.initialDelayMs` | 初始退避时间 |
+| `reconnect.maxDelayMs` | 最大退避时间 |
+| `reconnect.multiplier` | 指数退避倍率 |
+| `reconnect.jitter` | 抖动比例 |
+| `reconnect.steadyStateDelayMs` | 达到上限后的持续廉价重试周期 |
 
-```bash
-# Override basic settings
-export CROUPIER_GAME_ID="my-override-game"
-export CROUPIER_ENV="staging"
-export CROUPIER_AGENT_ADDR="staging-agent:19090"
+## TLS 规则
 
-# Override security settings
-export CROUPIER_INSECURE="false"
-export CROUPIER_CERT_FILE="/path/to/cert.pem"
+默认规则：
 
-# Override authentication
-export CROUPIER_AUTH_TOKEN="Bearer abc123..."
+- `SDK <-> Agent` 默认可以不开启 TLS
+- 跨主机、跨网段或有合规要求时启用 TLS
+- 需要双向身份校验时启用 mTLS
 
-# Run your application
-./your-app
-```
+注意：
 
-## 🛠️ Building and Running Examples
+- `tls` 是 `tcp session` 的安全配置
+- `tls` 不是新的 transport kind
 
-### Build the SDK with Examples
+## 重连规则
 
-```bash
-# Configure build
-cmake -B build -DBUILD_EXAMPLES=ON \
-    -DCMAKE_TOOLCHAIN_FILE=[vcpkg-root]/scripts/buildsystems/vcpkg.cmake
+推荐默认值：
 
-# Build all targets
-cmake --build build --config Release
+- `enabled = true`
+- `initialDelayMs = 1000`
+- `maxDelayMs = 30000`
+- `multiplier = 2.0`
+- `jitter = 0.2`
+- `steadyStateDelayMs = 30000`
 
-# Examples will be in build/bin/
-```
+设计意图：
 
-### Run Configuration Example
+- 刚断线时快速恢复
+- 避免惊群
+- 达到上限后保持低成本持续重试，而不是无限变慢
 
-```bash
-# Run with default (development) configuration
-./build/bin/croupier-config-example
+## payload 与 schema
 
-# Run with specific environment
-./build/bin/croupier-config-example production
+统一规则：
 
-# Use environment variable
-export CROUPIER_ENV=staging
-./build/bin/croupier-config-example
-```
+- 平台协议消息继续使用 protobuf
+- 业务 payload 默认固定为 JSON
+- `input_schema` / `output_schema` 默认是 JSON Schema
 
-## 📊 Configuration Validation
+这意味着接入方无需先定义自己的 `.proto` 文件。
 
-The system provides comprehensive validation with detailed error messages:
+## `profile` 术语说明
 
-```cpp
-auto errors = loader.ValidateConfig(config);
-for (const auto& error : errors) {
-    std::cout << "❌ " << error << std::endl;
-}
-```
+在配置语境里，`profile` 的专业含义通常是：
 
-Common validation checks:
+- `configuration profile`
+- `deployment profile`
+- `runtime profile`
 
-- ✅ Required fields (game_id, agent_addr)
-- ✅ Network address formats (host:port)
-- ✅ File path existence (TLS certificates)
-- ✅ Environment values (development, staging, production)
-- ✅ Security configuration consistency
-- ✅ Authentication token formats
+它表示“命名配置预设”，而不是“个性化偏好”。
 
-## 🔒 Security Configuration
+建议：
 
-For production deployments, the SDK supports comprehensive TLS configuration:
+- 如果区分环境，优先用 `deployment profile`
+- 如果区分连接安全与网络边界，优先用 `connection profile`
+
+例如：
+
+- `local-dev`
+- `intra-cluster`
+- `cross-zone-tls`
+- `cross-zone-mtls`
+
+## 推荐 profile 示例
+
+### 本机开发
 
 ```json
 {
-  "insecure": false,
-  "security": {
-    "cert_file": "/etc/tls/croupier/client.crt",
-    "key_file": "/etc/tls/croupier/client.key",
-    "ca_file": "/etc/tls/croupier/ca.crt",
-    "server_name": "croupier.internal"
-  },
-  "auth": {
-    "token": "Bearer eyJhbGciOiJIUzI1NiIs...",
-    "headers": {
-      "X-Client-ID": "backend-service-01",
-      "X-Service-Region": "us-west-2"
-    }
+  "profile": "local-dev",
+  "address": "127.0.0.1:19091",
+  "tls": {
+    "enabled": false
   }
 }
 ```
 
-## 🐳 Docker Deployment
+### 同集群内网
 
-### Dockerfile Example
-
-```dockerfile
-FROM ubuntu:22.04
-
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-    libgrpc++1.54 \
-    libprotobuf32 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy application and configs
-COPY build/bin/your-app /usr/local/bin/
-COPY configs/ /etc/croupier/configs/
-
-# Set environment
-ENV CROUPIER_ENV=production
-ENV CROUPIER_GAME_ID=your-production-game
-
-# Run application
-CMD ["/usr/local/bin/your-app"]
-```
-
-### Kubernetes Deployment
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: game-backend
-spec:
-  replicas: 3
-  template:
-    spec:
-      containers:
-      - name: backend
-        image: your-registry/game-backend:latest
-        env:
-        - name: CROUPIER_ENV
-          value: "production"
-        - name: CROUPIER_GAME_ID
-          valueFrom:
-            configMapKeyRef:
-              name: game-config
-              key: game-id
-        - name: CROUPIER_AUTH_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: croupier-auth
-              key: jwt-token
-        volumeMounts:
-        - name: tls-certs
-          mountPath: /etc/tls
-          readOnly: true
-      volumes:
-      - name: tls-certs
-        secret:
-          secretName: croupier-tls
-```
-
-## 🧪 Testing Your Configuration
-
-Use the provided example to test your configuration:
-
-```bash
-# Test development configuration
-./build/bin/croupier-config-example development
-
-# Test production configuration
-./build/bin/croupier-config-example production
-
-# Test with environment overrides
-CROUPIER_GAME_ID="test-game" \
-CROUPIER_TIMEOUT_SECONDS="60" \
-./build/bin/croupier-config-example
-```
-
-## 🚨 Troubleshooting
-
-### Common Issues
-
-**Configuration file not found**
-```
-⚠️ Configuration file not found: ./configs/production.json
-📄 Generating example configuration...
-```
-*Solution: The SDK will generate an example configuration file for you to edit.*
-
-**TLS certificate not found**
-```
-❌ cert_file does not exist: /etc/tls/client.crt
-```
-*Solution: Ensure TLS certificates exist or set `insecure: true` for development.*
-
-**Invalid network address**
-```
-❌ agent_addr format is invalid (should be host:port)
-```
-*Solution: Use proper host:port format like `127.0.0.1:19090` or `agent.internal:19090`*
-
-**Environment variable override not working**
-```cpp
-// Make sure to use the LoadWithEnvironmentOverrides method
-ClientConfig config = loader.LoadWithEnvironmentOverrides(
-    config_file,
-    "CROUPIER_"  // This prefix is important
-);
-```
-
-### Debug Configuration Loading
-
-Enable verbose output in your application:
-
-```cpp
-// Add debug logging
-std::cout << "Loading config from: " << config_file << std::endl;
-ClientConfig config = loader.LoadFromFile(config_file);
-
-// Validate and show errors
-auto errors = loader.ValidateConfig(config);
-for (const auto& error : errors) {
-    std::cout << "Validation error: " << error << std::endl;
+```json
+{
+  "profile": "intra-cluster",
+  "address": "agent.service.local:19091",
+  "tls": {
+    "enabled": false
+  }
 }
 ```
 
-## 📖 API Reference
+### 跨机房 TLS
 
-### ClientConfigLoader Methods
+```json
+{
+  "profile": "cross-zone-tls",
+  "address": "agent.example.com:19091",
+  "tls": {
+    "enabled": true,
+    "caFile": "/etc/croupier/ca.crt",
+    "serverName": "agent.example.com"
+  }
+}
+```
 
-- `LoadFromFile(file_path)` - Load configuration from JSON file
-- `LoadFromJson(json_content)` - Load configuration from JSON string
-- `LoadWithEnvironmentOverrides(file_path, prefix)` - Load with env var overrides
-- `LoadProfile(config_dir, profile)` - Load configuration profile
-- `ValidateConfig(config)` - Validate configuration and return errors
-- `GenerateExampleConfig(environment)` - Generate example configuration
-- `CreateDefaultConfig()` - Create configuration with defaults
-- `MergeConfigs(base, overlay)` - Merge two configurations
+### mTLS
 
-### Utility Classes
+```json
+{
+  "profile": "cross-zone-mtls",
+  "address": "agent.example.com:19091",
+  "tls": {
+    "enabled": true,
+    "certFile": "/etc/croupier/client.crt",
+    "keyFile": "/etc/croupier/client.key",
+    "caFile": "/etc/croupier/ca.crt",
+    "serverName": "agent.example.com"
+  }
+}
+```
 
-- `utils::JsonUtils` - JSON processing utilities
-- `utils::FileSystemUtils` - Cross-platform file operations
+## 明确禁止的字段
 
----
+以下字段不应出现在新的配置模型里：
 
-🎮 **Ready to build next-generation game backends with Croupier C++ SDK!**
+- `rpc_addr`
+- `local_listen`
+- `listen_port`
+- `grpc_addr`
+- `grpc_target`
+- `nng_server`
+
+原因是这些字段会把 SDK 重新拉回回拨式或本地监听式模型。
+
+## 相关文档
+
+- [C++ SDK 概览](./README.md)
+- [SDK 规范](../../sdk/specification.md)
+- [SDK Wire Protocol](../../architecture/sdk-wire-protocol.md)

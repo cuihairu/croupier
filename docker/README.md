@@ -1,39 +1,57 @@
 # Docker 容器化部署
 
-本目录包含 Croupier 所有服务的 Docker 配置文件。
+本目录包含 Croupier 各服务的 Docker 构建与编排文件。
 
 ## 目录结构
 
-```
+```text
 docker/
-├── README.md                          # 本文件
-├── docker-compose.yml                 # 主服务编排配置
-├── docker-compose.telemetry.yaml      # 遥测监控栈配置
-├── Dockerfile.server                  # Server 服务镜像
-├── Dockerfile.agent                   # Agent 服务镜像
-├── Dockerfile.web                     # Web UI 镜像
-├── Dockerfile.analytics-worker        # 分析工作器镜像
-├── Dockerfile.ingest                  # 数据摄取服务镜像
-└── Dockerfile.demo                    # 演示应用镜像
+├── README.md
+├── docker-compose.yml
+├── docker-compose.telemetry.yaml
+├── Dockerfile.server
+├── Dockerfile.agent
+├── Dockerfile.web
+├── Dockerfile.analytics-worker
+├── Dockerfile.ingest
+└── Dockerfile.demo
 ```
+
+## 当前端口语义
+
+当前推荐按“统一 session + 本地 gateway”理解端口，而不是历史 `gRPC` / `NNG` 命名：
+
+| 端口 | 含义 |
+| --- | --- |
+| `18780` | Server REST API |
+| `19090` | Server session/control 入口，供 Agent 主动连接 |
+| `19091` | Agent 本地 gateway，供 SDK / GameServer / 第三方本地程序接入 |
+| `8000` | Dashboard |
+| `18081` | Analytics Ingestion |
+
+说明：
+
+- Docker 编排中仍可能保留部分历史兼容端口映射
+- 但新的架构文档与接入文档，应统一以上述 session 语义为准
 
 ## 快速开始
 
-### 启动所有核心服务
+### 启动核心服务
 
 ```bash
 cd docker
 docker-compose up -d
 ```
 
-这将启动：
-- PostgreSQL (端口 5432)
-- Redis (端口 6379)
-- ClickHouse (端口 8123/9000)
-- Server 服务 (端口 8443/18780)
-- Agent 服务 (端口 19090/19091)
-- Web UI (端口 8000)
-- Analytics Ingestion (端口 18081)
+默认会启动：
+
+- PostgreSQL
+- Redis
+- ClickHouse
+- Server
+- Agent
+- Dashboard
+- Analytics Ingestion
 
 ### 启动遥测监控栈
 
@@ -42,156 +60,59 @@ cd docker
 docker-compose -f docker-compose.telemetry.yaml up -d
 ```
 
-这将启动：
-- OpenTelemetry Collector (端口 4317/4318)
-- Jaeger (端口 16686)
-- Prometheus (端口 9090)
-- Grafana (端口 3000)
-- Redis (端口 6379)
-- ClickHouse (端口 8123/9000)
-- Demo 应用 (端口 8080)
-
 ## 服务访问
 
-### 核心服务
+| 服务 | 地址 | 说明 |
+| --- | --- | --- |
+| Dashboard | http://localhost:8000 | 控制台 |
+| Server REST API | http://localhost:18780 | 管理与查询接口 |
+| Server Session Control | localhost:19090 | Agent 上行 session 入口 |
+| Agent Local Gateway | localhost:19091 | SDK / GameServer 本地接入 |
+| Analytics Ingestion | http://localhost:18081 | 公网/DMZ 摄取入口 |
 
-| 服务 | 访问地址 | 说明 |
-|-----|---------|------|
-| Web UI | http://localhost:8000 | 管理控制台 |
-| Server HTTP API | http://localhost:18780 | REST API |
-| Server gRPC | localhost:8443 | gRPC 服务 |
-| Agent | localhost:19090 | 本地 Agent |
-| Analytics Ingestion | http://localhost:18081 | 公网/DMZ 摄取入口（开发） |
+## 数据库
 
-### 数据库
-
-| 服务 | 访问地址 | 凭据 |
-|-----|---------|------|
-| PostgreSQL | localhost:5432 | croupier/croupier_dev_password |
-| Redis | localhost:6379 | 无密码 |
-| ClickHouse | localhost:8123 | default/无密码 |
-
-### 管理工具（需要 `--profile tools` 启动）
-
-```bash
-docker-compose --profile tools up -d
-```
-
-| 工具 | 访问地址 | 凭据 |
-|-----|---------|------|
-| pgAdmin | http://localhost:8082 | admin@croupier.local/admin123 |
-| Redis Commander | http://localhost:8083 | admin/admin123 |
-
-### 遥测监控
-
-| 服务 | 访问地址 | 凭据 |
-|-----|---------|------|
-| Grafana | http://localhost:13000 | admin/admin |
-| Prometheus | http://localhost:19092 | 无需认证 |
-| Jaeger | http://localhost:17686 | 无需认证 |
+| 服务 | 地址 |
+| --- | --- |
+| PostgreSQL | localhost:5432 |
+| Redis | localhost:6379 |
+| ClickHouse | localhost:8123 / 9000 |
 
 ## 常用命令
 
 ```bash
-# 查看所有服务状态
+# 查看状态
 docker-compose ps
 
 # 查看日志
 docker-compose logs -f [service_name]
 
-# 停止所有服务
+# 停止
 docker-compose down
 
-# 停止并删除卷数据
+# 停止并删除卷
 docker-compose down -v
 
-# 重启特定服务
+# 重启单服务
 docker-compose restart server
 
-# 仅启动特定服务及其依赖
+# 仅启动单服务
 docker-compose up -d server
 
-# 重新构建镜像
+# 重新构建
 docker-compose build [service_name]
-
-# 启动流式计算服务（Kafka + Flink）
-docker-compose --profile stream up -d
 ```
 
-## 环境变量
+## 开发建议
 
-可以通过 `.env` 文件或环境变量覆盖默认配置：
+- 只需要数据库时，可先单独拉起 `postgres`、`redis`、`clickhouse`
+- 开发主链路时，重点关注 `18780`、`19090`、`19091`
+- SDK 接入时，应把目标地址指向 Agent 本地 gateway，而不是 Server
 
-```bash
-# 数据库
-DATABASE_URL=postgres://user:pass@host:5432/dbname
-REDIS_URL=redis://host:6379/0
-CLICKHOUSE_DSN=clickhouse://host:9000/analytics
+## 生产建议
 
-# 镜像版本
-GO_IMAGE=golang:1.26.1
-POSTGRES_IMAGE=postgres:15-alpine
-REDIS_IMAGE=redis:7-alpine
-
-# 服务配置
-SERVER_BUILD_TAGS="pg sqlite ip2location"
-ANALYTICS_MQ_TYPE=redis
-```
-
-## 开发模式
-
-开发模式下，建议使用以下配置：
-
-```bash
-# 仅启动数据库服务
-docker-compose up -d postgres redis clickhouse
-
-# 本地运行服务（更快的开发迭代）
-cd ..
-go run ./cmd/server --config configs/server.yaml
-```
-
-## 生产部署建议
-
-1. **修改默认密码**：所有数据库和管理工具的密码
-2. **配置 TLS**：为所有服务启用 HTTPS/TLS
-3. **持久化存储**：使用外部卷或云存储
-4. **资源限制**：在 docker-compose.yml 中添加 CPU/内存限制
-5. **监控告警**：配置 Grafana 告警规则
-6. **备份策略**：定期备份 PostgreSQL 和 ClickHouse 数据
-
-## 故障排查
-
-### 服务无法启动
-
-```bash
-# 查看详细日志
-docker-compose logs service_name
-
-# 检查健康状态
-docker-compose ps
-```
-
-### 端口冲突
-
-修改 `docker-compose.yml` 中的端口映射：
-
-```yaml
-ports:
-  - "新端口:容器端口"
-```
-
-### 数据库连接失败
-
-确保服务健康检查通过：
-
-```bash
-docker-compose ps
-# 查看 STATUS 列是否显示 healthy
-```
-
-## 更多信息
-
-- [Croupier 文档](../README.md)
-- [配置说明](../configs/)
-- [开发指南](../DEVELOPMENT.md)
+1. 修改默认密码与默认密钥
+2. `Agent <-> Server` 启用 TLS / mTLS
+3. 对 `19090`、`19091` 做明确网络边界控制
+4. Dashboard 与 REST API 走 HTTPS 与统一鉴权
+5. 为证书、JWT、数据库凭据接入 Secret Manager

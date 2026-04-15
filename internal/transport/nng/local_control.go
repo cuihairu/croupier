@@ -69,10 +69,7 @@ func (s *LocalControlServer) Handle(ctx context.Context, msgID uint32, reqID uin
 
 // handleRegister handles SDK registration requests.
 func (s *LocalControlServer) handleRegister(ctx context.Context, reqID uint32, body []byte) ([]byte, error) {
-	req := &sdkv1.RegisterLocalRequest{}
-	if err := proto.Unmarshal(body, req); err != nil {
-		return nil, fmt.Errorf("unmarshal request: %w", err)
-	}
+	req := sdkv1.UnmarshalRegisterLocalRequest(body)
 
 	// Generate session ID
 	sessionID := generateSessionID(req.ServiceId)
@@ -96,15 +93,12 @@ func (s *LocalControlServer) handleRegister(ctx context.Context, reqID uint32, b
 	resp := &sdkv1.RegisterLocalResponse{
 		SessionId: sessionID,
 	}
-	return proto.Marshal(resp)
+	return sdkv1.MarshalRegisterLocalResponse(resp), nil
 }
 
 // handleHeartbeat handles heartbeat requests.
 func (s *LocalControlServer) handleHeartbeat(ctx context.Context, reqID uint32, body []byte) ([]byte, error) {
-	req := &sdkv1.HeartbeatRequest{}
-	if err := proto.Unmarshal(body, req); err != nil {
-		return nil, fmt.Errorf("unmarshal request: %w", err)
-	}
+	req := sdkv1.UnmarshalHeartbeatRequestCompat(body)
 
 	s.mu.Lock()
 	if session, ok := s.sessions[req.SessionId]; ok {
@@ -116,8 +110,7 @@ func (s *LocalControlServer) handleHeartbeat(ctx context.Context, reqID uint32, 
 	}
 	s.mu.Unlock()
 
-	resp := &sdkv1.HeartbeatResponse{}
-	return proto.Marshal(resp)
+	return []byte{}, nil
 }
 
 // handleInvoke handles function invocation requests.

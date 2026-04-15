@@ -11,266 +11,147 @@
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 ![Go Version](https://img.shields.io/badge/go-1.26+-green.svg)
 
-统一的游戏运营控制面：Server / Agent 服务负责安全合规与函数路由，Dashboard 由 Formily + JSON Schema 驱动自动生成 UI，SDK 覆盖多语言并保持 Nightly 构建。这个仓库承载主进程、示例与公共配置，其余组件拆分为独立仓库并通过子模块引用。
+Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。当前架构已经收敛到“统一 session 传输”方向：
 
----
+- `Agent <-> Server`：默认采用 `TCP session`，默认启用 `TLS`
+- `SDK <-> Agent`：默认采用 `TCP session`，默认不启用 `TLS`，按需开启
+- 两条链路共享同一套 session 传输基座，只在首条握手消息和业务语义上区分子协议
 
-## 🌐 在线 Demo
-- 地址：<https://croupier.cuihairu.site>
-- 账号：`admin`
-- 密码：`admin123`
-- 提示：该账号仅用于演示环境，请勿在生产环境使用默认凭据。
+## Highlights
 
----
+- 统一的函数注册、调度、调用与作业模型
+- 轻量 session 传输：单连接、双向请求、可重连、可背压、可摘流
+- JSON payload + protobuf 信封，兼顾跨语言一致性与接入成本
+- Formily + JSON Schema 驱动的控制台 UI
+- 多语言 SDK 独立仓库协同演进
 
-## ✨ Highlights
-- **零信任安全**：NNG+mTLS、细粒度 RBAC/ABAC、操作审批与审计日志。
-- **函数注册控制**：游戏服务器通过 Agent 注册函数，控制面统一调用、可视化进度与日志。
-- **Schema 驱动 UI**：Formily + JSON Schema 自动生成表单、风控提示、参数校验。
-- **可观测性解耦**：控制面与遥测面分离，Analytics Worker 通过 Redis Streams / ClickHouse 处理实时事件。
-- **多语言 SDK**：Go / C++ / Java / JS / Python / C# 设有独立仓库与 Nightly 构建；Lua 通过 C++ SDK 提供。
+## 当前架构
 
----
-
-## 📦 仓库导航
-| 组件 | 仓库 | 在本仓库中的位置 | 说明 |
-| --- | --- | --- | --- |
-| Server / Agent | 本仓库 | 根目录 | 控制面、代理、审批、审计与示例 |
-| Dashboard | [croupier-dashboard](https://github.com/cuihairu/croupier-dashboard) | `dashboard/` | Umi Max + Ant Design + Formily，已纳入子模块 |
-| Proto 定义 | 本仓库 | `proto/` | Protocol Buffers 定义，用于序列化和接口描述 |
-| Analytics Worker | 本仓库 | `cmd/analytics-worker` | 事件消费、指标写入、ClickHouse 入库 |
-| 示例 / 工具 | 本仓库 | `examples/`, `tools/`, `descriptors/` | Demo 游戏、Telemetry、辅助工具与示例描述文件 |
-
-### SDK 一览
-| 语言 | 仓库 | Nightly | Release | Docs | Coverage |
-| --- | --- | --- | --- | --- | --- |
-| Go | [croupier-sdk-go](https://github.com/cuihairu/croupier-sdk-go) | [![nightly](https://github.com/cuihairu/croupier-sdk-go/actions/workflows/nightly.yml/badge.svg)](https://github.com/cuihairu/croupier-sdk-go/actions/workflows/nightly.yml) | [![release](https://img.shields.io/github/v/release/cuihairu/croupier-sdk-go)](https://github.com/cuihairu/croupier-sdk-go/releases) | [![docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://cuihairu.github.io/croupier-sdk-go/) | [![codecov](https://codecov.io/gh/cuihairu/croupier-sdk-go/branch/main/graph/badge.svg)](https://codecov.io/gh/cuihairu/croupier-sdk-go) |
-| C++ | [croupier-sdk-cpp](https://github.com/cuihairu/croupier-sdk-cpp) | [![nightly](https://github.com/cuihairu/croupier-sdk-cpp/actions/workflows/nightly.yml/badge.svg)](https://github.com/cuihairu/croupier-sdk-cpp/actions/workflows/nightly.yml) | [![release](https://img.shields.io/github/v/release/cuihairu/croupier-sdk-cpp)](https://github.com/cuihairu/croupier-sdk-cpp/releases) | [![docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://cuihairu.github.io/croupier-sdk-cpp/) | [![codecov](https://codecov.io/gh/cuihairu/croupier-sdk-cpp/branch/main/graph/badge.svg)](https://codecov.io/gh/cuihairu/croupier-sdk-cpp) |
-| Java | [croupier-sdk-java](https://github.com/cuihairu/croupier-sdk-java) | [![nightly](https://github.com/cuihairu/croupier-sdk-java/actions/workflows/nightly.yml/badge.svg)](https://github.com/cuihairu/croupier-sdk-java/actions/workflows/nightly.yml) | [![release](https://img.shields.io/github/v/release/cuihairu/croupier-sdk-java)](https://github.com/cuihairu/croupier-sdk-java/releases) | [![docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://cuihairu.github.io/croupier-sdk-java/) | [![codecov](https://codecov.io/gh/cuihairu/croupier-sdk-java/branch/main/graph/badge.svg)](https://codecov.io/gh/cuihairu/croupier-sdk-java) |
-| JS/TS | [croupier-sdk-js](https://github.com/cuihairu/croupier-sdk-js) | [![nightly](https://github.com/cuihairu/croupier-sdk-js/actions/workflows/nightly.yml/badge.svg)](https://github.com/cuihairu/croupier-sdk-js/actions/workflows/nightly.yml) | [![release](https://img.shields.io/github/v/release/cuihairu/croupier-sdk-js)](https://github.com/cuihairu/croupier-sdk-js/releases) | [![docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://cuihairu.github.io/croupier-sdk-js/) | [![codecov](https://codecov.io/gh/cuihairu/croupier-sdk-js/branch/main/graph/badge.svg)](https://codecov.io/gh/cuihairu/croupier-sdk-js) |
-| Python | [croupier-sdk-python](https://github.com/cuihairu/croupier-sdk-python) | [![nightly](https://github.com/cuihairu/croupier-sdk-python/actions/workflows/nightly.yml/badge.svg)](https://github.com/cuihairu/croupier-sdk-python/actions/workflows/nightly.yml) | [![release](https://img.shields.io/github/v/release/cuihairu/croupier-sdk-python)](https://github.com/cuihairu/croupier-sdk-python/releases) | [![docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://cuihairu.github.io/croupier-sdk-python/) | [![codecov](https://codecov.io/gh/cuihairu/croupier-sdk-python/branch/main/graph/badge.svg)](https://codecov.io/gh/cuihairu/croupier-sdk-python) |
-| C# | [croupier-sdk-csharp](https://github.com/cuihairu/croupier-sdk-csharp) | [![nightly](https://github.com/cuihairu/croupier-sdk-csharp/actions/workflows/nightly.yml/badge.svg)](https://github.com/cuihairu/croupier-sdk-csharp/actions/workflows/nightly.yml) | [![release](https://img.shields.io/github/v/release/cuihairu/croupier-sdk-csharp)](https://github.com/cuihairu/croupier-sdk-csharp/releases) | [![docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://cuihairu.github.io/croupier-sdk-csharp/) | [![codecov](https://codecov.io/gh/cuihairu/croupier-sdk-csharp/branch/main/graph/badge.svg)](https://codecov.io/gh/cuihairu/croupier-sdk-csharp) |
-| Lua | [croupier-sdk-cpp](https://github.com/cuihairu/croupier-sdk-cpp) (C++ SDK) | [![nightly](https://github.com/cuihairu/croupier-sdk-cpp/actions/workflows/nightly.yml/badge.svg)](https://github.com/cuihairu/croupier-sdk-cpp/actions/workflows/nightly.yml) | [![release](https://img.shields.io/github/v/release/cuihairu/croupier-sdk-cpp)](https://github.com/cuihairu/croupier-sdk-cpp/releases) | [![docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://cuihairu.github.io/croupier-sdk-cpp/) | [![codecov](https://codecov.io/gh/cuihairu/croupier-sdk-cpp/branch/main/graph/badge.svg)](https://codecov.io/gh/cuihairu/croupier-sdk-cpp) |
-
-> SDK README 内包含语言特定的安装与示例；Proto 定义位于主仓库的 `proto/` 目录。
-
----
-
-## 🧠 设计理念与架构
-
-### 分层理念
-1. **权限控制层（安全基座）**：独立的 RBAC/ABAC 模型，统一的审批、审计与风控策略。
-2. **函数控制层（函数注册驱动）**：游戏服务器通过 Agent 注册函数，控制面统一管理、路由与幂等处理。
-3. **动态展示层（Formily）**：基于 JSON Schema 自动生成 UI，包含风险提示、敏感字段脱敏及进度追踪。
-
-### 系统架构（控制面 & 采集面）
 ```mermaid
 graph TB
-  subgraph "客户端"
-    Client[游戏客户端<br/>iOS/Android/Web]
+  subgraph "展示层"
+    UI[Dashboard<br/>React + Ant Design + Formily]
   end
 
-  subgraph "管理控制层（内网）"
-    UI[Web 管理界面<br/>Ant Design + TypeScript]
-    Server[Croupier Server<br/>控制面/权限/查询]
+  subgraph "控制层"
+    Server[Server<br/>Registry / Dispatch / RBAC / Audit]
   end
 
-  subgraph "DMZ/公网"
-    Ingest[Analytics Ingestion<br/>HTTP/OTLP · CDN/WAF/限流]
-    OtelColPub[OTel Collector<br/>公共/DMZ接入 可选]
+  subgraph "代理层"
+    Agent1[Agent 1<br/>Session Client + Local Gateway]
+    Agent2[Agent 2<br/>Session Client + Local Gateway]
   end
 
-  subgraph "分布式代理层（游戏内网）"
-    A1[Croupier Agent 1]
-    A2[Croupier Agent 2]
-  end
-
-  subgraph "游戏服务层（游戏内网）"
-    GS1[Game Server A + SDK<br/>+SimpleAnalytics]
-    GS2[Game Server B + SDK<br/>+OTel Integration]
-    GS3[Game Server C + SDK]
-    GS4[Game Server D + SDK]
-  end
-
-  subgraph "数据处理层（内网）"
-    Redis[(Redis Streams<br/>analytics:events<br/>analytics:payments)]
-    Worker[Analytics Worker Group<br/>实时数据处理]
-  end
-
-  subgraph "存储观测层（内网）"
-    ClickHouse[(ClickHouse<br/>分析数据存储)]
-    Jaeger[Jaeger<br/>分布式追踪]
-    Prometheus[Prometheus<br/>指标收集]
-    Grafana[Grafana<br/>可视化面板]
+  subgraph "业务层"
+    GS1[Game Server A<br/>SDK / Third-party App]
+    GS2[Game Server B<br/>SDK / Third-party App]
+    GS3[Game Server C<br/>SDK / Third-party App]
   end
 
   UI -->|HTTP REST| Server
-  Server -->|NNG mTLS| A1
-  Server -->|NNG mTLS| A2
-  Client -->|HTTPS| Ingest
-  GS1 -->|SDK 事件| Redis
-  GS2 -->|OTLP/HTTP| OtelColPub
-  Ingest -->|写入| Redis
-  OtelColPub -- "导出事件(可选)" --> Redis
-  Redis -->|stream consume| Worker
-  Worker -->|batch insert| ClickHouse
-  OtelColPub -->|traces| Jaeger
-  OtelColPub -->|metrics| Prometheus
-  Prometheus --> Grafana
-  Jaeger --> Grafana
-  ClickHouse --> Grafana
-
-  classDef ui fill:#e8f5ff,stroke:#1890ff
-  classDef server fill:#f6ffed,stroke:#52c41a
-  classDef agent fill:#f6ffed,stroke:#52c41a
-  classDef game fill:#fff7e6,stroke:#fa8c16
-  classDef data fill:#f0f9e6,stroke:#52c41a
-  classDef storage fill:#f9f0ff,stroke:#722ed1
-  classDef dmz fill:#fffbe6,stroke:#faad14
-
-  class UI ui
-  class Server server
-  class A1,A2 agent
-  class GS1,GS2,GS3,GS4 game
-  class Redis,Worker data
-  class ClickHouse,Jaeger,Prometheus,Grafana storage
-  class Ingest,OtelColPub dmz
+  Agent1 -->|TCP Session + TLS| Server
+  Agent2 -->|TCP Session + TLS| Server
+  GS1 -->|TCP Session| Agent1
+  GS2 -->|TCP Session| Agent2
+  GS3 -->|TCP Session| Agent1
 ```
 
-#### 调用与数据流
-```mermaid
-sequenceDiagram
-  participant UI as Web UI
-  participant Server as Server
-  participant Agent as Agent
-  participant GS as Game Server
+关键边界说明：
 
-  UI->>Server: POST /api/invoke {function_id, payload, X-Game-ID}
-  Server->>Agent: Function Invoke (NNG mTLS)
-  Agent->>GS: local RPC Invoke
-  GS-->>Agent: response
-  Agent-->>Server: response
-  Server-->>UI: result
-```
+- `Server` 不再依赖反向直连 `Agent` 暴露的 `rpc_addr`
+- `Agent` 本地监听只服务 `GameServer / SDK / 第三方应用`
+- `Server -> Agent` 的 `Invoke / StartJob / CancelJob / Ops` 都应复用既有 `Agent-Server` session
 
-### 函数注册到 Dashboard 展示（当前实现）
-1. **SDK -> Agent 注册函数**：函数能力与描述由 SDK 上报到 Agent。
-2. **Agent -> Server 注册/同步**：Server 接收注册并写入 Registry，函数 OpenAPI Operation 同步到服务端。
-3. **Dashboard 拉取目录**：前端通过 `GET /api/v1/functions/descriptors` 获取函数列表、分类、菜单元信息。
-4. **动态菜单展示**：Dashboard 按 descriptor 的 `category/menu` 生成“Registered”菜单分组并展示函数入口。
-5. **调用表单渲染**：函数详情/调用页通过 `GET /api/v1/functions/{id}/openapi` + `x-ui` 生成 Formily 表单。
-6. **UI 配置编辑**：通过 `GET/PUT /api/v1/functions/{id}/ui` 读取与保存函数 UI 配置（支持自定义覆盖）。
-7. **UI 历史与回滚**：通过 `GET /api/v1/functions/{id}/ui/history` 查看版本历史，`POST /api/v1/functions/{id}/ui/rollback` 回滚。
-8. **菜单路由编辑**：通过 `GET/PUT /api/v1/functions/{id}/route` 调整 section/group/path/order/hidden 并实时影响前端展示。
+## Session 模型
 
----
+Croupier 当前的核心传输抽象不是 `NNG pattern`，而是轻量的应用层 session：
 
-## 🚀 快速起步
-1. **拉取代码 & 子模块**
-   ```bash
-   git clone git@github.com:cuihairu/croupier.git
-   cd croupier
-   git submodule update --init --recursive
-   ```
-2. **安装工具链**：Go 1.26+、pnpm、buf、protoc（详见 [CLAUDE.md](CLAUDE.md)）。
-3. **一键构建**：`make dev` 会生成协议、构建 server/agent/worker/ingest。
-4. **运行服务**：
-   ```bash
-   ./bin/croupier-server --config configs/server.yaml
-   ./bin/croupier-agent  --config configs/agent.example.yaml
-   ```
-5. **Dashboard**：
-   ```bash
-   cd dashboard
-   pnpm install && pnpm dev   # http://localhost:8000
-   pnpm build                 # dist/ 可由 server 静态托管
-   ```
-6. **接入 SDK**：根据所需语言切换到对应仓库，参考 README / 示例。
+- 一条可靠长连接
+- 首条消息完成身份与能力协商
+- 同一连接上双向发起新请求
+- 多个并发 in-flight 请求复用
+- heartbeat / reconnect / drain / backpressure
 
-### 自托管 Demo 部署
+这也是为什么当前文档中会出现两个术语：
 
-`Deploy Self Hosted` 工作流现在支持一并部署 Go SDK 的常驻游戏 Demo 容器，而不是最小 `basic` 示例。
+- `shared session runtime`
+  - 指共享的传输基座：`tcp/tls + framing + mux + reconnect + heartbeat + drain`
+- `subprotocol`
+  - 指运行在该基座上的不同子协议
+  - 例如：
+    - `sdk-agent subprotocol`
+    - `agent-server subprotocol`
 
-- 默认镜像：`ghcr.io/<owner>/croupier-sdk-go-example-game-demo:<tag>`
-- 默认 profile：`sdk-examples`
-- 默认函数覆盖：
-  - 玩家 CRUD / 列表
-  - 订单 CRUD / 列表
-  - 排行榜查询 / 写分 / 重置
-  - 背包查询 / 发放 / 消耗
-  - 邮件发送 / 列表 / 领取
+`subprotocol` 不是“个性化配置”，而是“共享同一套 session 运行时，但握手消息、注册内容和路由语义不同的应用层协议变体”。
 
-关键环境变量：
+## 文档入口
+
+- 架构总览：[docs/architecture/README.md](docs/architecture/README.md)
+- SDK-Agent 设计：[docs/architecture/sdk-agent-transport-redesign.md](docs/architecture/sdk-agent-transport-redesign.md)
+- Agent-Server 设计：[docs/architecture/agent-server-session-transport-redesign.md](docs/architecture/agent-server-session-transport-redesign.md)
+- Wire 协议：[docs/architecture/sdk-wire-protocol.md](docs/architecture/sdk-wire-protocol.md)
+- SDK 规范：[docs/sdk/specification.md](docs/sdk/specification.md)
+
+## 仓库导航
+
+| 组件 | 位置 | 说明 |
+| --- | --- | --- |
+| Server / Agent | `cmd/`, `internal/` | 控制面、代理、调度、审计、注册与作业 |
+| Proto | `proto/` | protobuf 定义与生成入口 |
+| Dashboard | `dashboard/` | Web 控制台 |
+| Examples / Tools | `examples/`, `tools/` | 示例和辅助工具 |
+| Docs | `docs/` | 架构、指南、API 与 SDK 文档 |
+
+### SDK 一览
+
+| 语言 | 仓库 |
+| --- | --- |
+| Go | [croupier-sdk-go](https://github.com/cuihairu/croupier-sdk-go) |
+| C++ | [croupier-sdk-cpp](https://github.com/cuihairu/croupier-sdk-cpp) |
+| Java | [croupier-sdk-java](https://github.com/cuihairu/croupier-sdk-java) |
+| JS/TS | [croupier-sdk-js](https://github.com/cuihairu/croupier-sdk-js) |
+| Python | [croupier-sdk-python](https://github.com/cuihairu/croupier-sdk-python) |
+| C# | [croupier-sdk-csharp](https://github.com/cuihairu/croupier-sdk-csharp) |
+
+## 快速开始
+
+1. 拉取代码与子模块
 
 ```bash
-CROUPIER_SDK_EXAMPLE_TAG=main
-CROUPIER_AGENT_ADDR=agent:19091
-CROUPIER_SDK_EXAMPLE_GAME_ID=demo-game
-CROUPIER_SDK_EXAMPLE_SERVICE_ID=game-demo-service
-CROUPIER_SDK_EXAMPLE_LOCAL_LISTEN=0.0.0.0:19103
-CROUPIER_SDK_EXAMPLE_ENV=development
+git clone git@github.com:cuihairu/croupier.git
+cd croupier
+git submodule update --init --recursive
 ```
 
-如果你希望这个 Demo 容器一起拉起，触发部署工作流时保持 `enable_sdk_examples=true` 即可。
+2. 安装工具链
 
----
+- Go 1.26+
+- Node.js / pnpm
+- `buf`
+- `protoc`
 
-## 🗄️ 数据库配置
-
-服务支持多种数据库，启动时会自动创建不存在的数据库。
-
-### 配置示例
-
-编辑 `configs/server.yaml` 中的 `database` 部分：
-
-```yaml
-database:
-  driver: mysql      # 支持: mysql / postgres / sqlite / sqlserver
-  dataSource: "root:root@tcp(localhost:3306)/croupier?charset=utf8mb4&parseTime=True&loc=Local"
-```
-
-### 支持的数据库
-
-| 数据库 | `driver` 值 | `dataSource` 示例 | 说明 |
-|--------|----------|-----------------|------|
-| **MySQL** | `mysql` | `root:root@tcp(localhost:3306)/croupier?charset=utf8mb4&parseTime=True&loc=Local` | 默认配置 |
-| **PostgreSQL** | `postgres` | `host=localhost port=5432 user=postgres password=postgres dbname=croupier sslmode=disable` | 需先启动 PostgreSQL 服务 |
-| **SQLite** | `sqlite` | `data/croupier.db` | 文件路径，自动创建 |
-| **SQL Server** | `sqlserver` | `sqlserver://sa:password@localhost:1433?database=croupier` | 需先启动 SQL Server 服务 |
-
-### 环境变量覆盖
-
-可通过环境变量覆盖配置：
+3. 构建
 
 ```bash
-export DB_DRIVER=postgres
-export DATABASE_URL="host=localhost port=5432 user=postgres password=postgres dbname=croupier sslmode=disable"
+make dev
 ```
 
-### 自动初始化
+4. 启动
 
-首次启动时，服务会自动：
-1. 创建数据库（如果不存在）
-2. 运行数据库迁移
-3. 创建默认 admin 账号（username=`admin`, password=`admin123`）
-4. 加载默认角色和权限
+```bash
+./bin/croupier-server --config configs/server.yaml
+./bin/croupier-agent --config configs/agent.example.yaml
+```
 
----
+5. 查看 Dashboard
 
-## 📚 文档入口
-- [docs/](docs/) & [configs/](configs/)：架构详解、配置样例、部署建议。
-- [proto/](proto/)：IDL + `buf` 配置，可运行 `buf lint` / `buf generate`。
-- [dashboard/README.md](dashboard/README.md)：Web Console、Formily 用法。
-- 各 SDK README：语言特定的安装与示例。
+```bash
+cd dashboard
+pnpm install
+pnpm dev
+```
 
-## 🔀 平台调用路径（Extension-First）
-- 平台能力仅通过扩展函数路径（`external.*`）提供。
-- legacy loader 与 YAML 入口已移除，不再支持旧回退链路。
+## 说明
 
----
-
-## 🤝 社区与贡献
-- Server/Agent 变更请附 `make lint` + `make test` 结果；Dashboard/SDK 改动在对应仓库提 PR。
-- Issues / Discussions 可按组件在各仓库发起，我们欢迎任何反馈。
-
-如果需要更全面的架构背景、审批机制或数据链路，请查阅 `docs/` 目录或 Dashboard / SDK 的 README。欢迎在 Issues 中交流！
+当前仓库中仍有部分历史文档引用 `gRPC`、`NNG REQ/REP`、`LocalControl`、`rpc_addr` 或 SDK 本地监听模型。
+这些内容正在按“统一 TCP session + subprotocol”设计逐步清理，不应再作为新的实现依据。

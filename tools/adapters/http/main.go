@@ -15,7 +15,6 @@ import (
 	"github.com/cuihairu/croupier/internal/nng"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
-	"google.golang.org/protobuf/proto"
 )
 
 // http-adapter implements a generic HTTP invoker function: http.generic_invoke
@@ -375,13 +374,10 @@ func main() {
 			},
 		},
 	}
-	regData, err := proto.Marshal(regReq)
-	if err != nil {
-		log.Fatalf("Failed to marshal register request: %v", err)
-	}
+	regData := sdkv1.MarshalRegisterLocalRequest(regReq)
 
 	ctx := context.Background()
-	_, err = nngClient.Call(ctx, protocol.MsgRegisterLocalRequest, regData)
+	_, err := nngClient.Call(ctx, protocol.MsgRegisterLocalRequest, regData)
 	if err != nil {
 		log.Fatalf("Failed to register with agent: %v", err)
 	}
@@ -393,7 +389,7 @@ func main() {
 
 	hbReq := &sdkv1.HeartbeatRequest{ServiceId: serviceID}
 	for range ticker.C {
-		hbData, _ := proto.Marshal(hbReq)
+		hbData := sdkv1.MarshalHeartbeatRequestCompat(hbReq)
 		_, _ = nngClient.Call(ctx, protocol.MsgHeartbeatLocalRequest, hbData)
 	}
 }
