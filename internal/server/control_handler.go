@@ -100,10 +100,10 @@ type ControlService struct {
 
 	upstream Handler
 
-	mu      sync.RWMutex
-	ctx     context.Context
-	cancel  context.CancelFunc
-	logger  *slog.Logger
+	mu     sync.RWMutex
+	ctx    context.Context
+	cancel context.CancelFunc
+	logger *slog.Logger
 
 	backgroundOnce sync.Once
 }

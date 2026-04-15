@@ -90,7 +90,7 @@ func main() {
 	// Test cleanup of old jobs
 	fmt.Println("\n6. Testing cleanup of old jobs...")
 	time.Sleep(10 * time.Millisecond) // Ensure jobs are considered "old"
-	if err := dispatcher.CleanupOldJobs(1*time.Millisecond); err != nil {
+	if err := dispatcher.CleanupOldJobs(1 * time.Millisecond); err != nil {
 		log.Fatalf("Failed to cleanup old jobs: %v", err)
 	}
 

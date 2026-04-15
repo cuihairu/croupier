@@ -196,4 +196,3 @@ func (c *muxControlClient) call(ctx context.Context, msgID uint32, req proto.Mes
 func normalizeTCPAddr(addr string) string {
 	return strings.TrimPrefix(strings.TrimSpace(addr), "tcp://")
 }
-

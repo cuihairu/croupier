@@ -655,7 +655,6 @@ func TestDispatcher_pickAgentWithRouting_NilMetadata(t *testing.T) {
 	}
 }
 
-
 // TestDispatcher_JobAddr_NotFound 测试未找到任务地址
 func TestDispatcher_JobAddr_NotFound(t *testing.T) {
 	d := NewDispatcher(nil)
@@ -942,11 +941,6 @@ func (s *errorJobRoutingStore) Cleanup(ttl time.Duration) error {
 func (s *errorJobRoutingStore) Close() error {
 	return nil
 }
-
-
-
-
-
 
 // TestMessageTypes 测试消息类型常量
 func TestMessageTypes(t *testing.T) {

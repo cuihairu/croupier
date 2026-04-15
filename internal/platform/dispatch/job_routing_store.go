@@ -11,8 +11,8 @@ import (
 
 // JobRouting represents a job routing entry
 type JobRouting struct {
-	JobID    string    `json:"job_id"`
-	AgentID  string    `json:"agent_id"`
+	JobID     string    `json:"job_id"`
+	AgentID   string    `json:"agent_id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -83,8 +83,8 @@ func (s *FileJobRoutingStore) Set(jobID, agentID string) error {
 
 	now := time.Now()
 	routing := &JobRouting{
-		JobID:    jobID,
-		AgentID:  agentID,
+		JobID:     jobID,
+		AgentID:   agentID,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -216,8 +216,8 @@ func (s *MemoryJobRoutingStore) Set(jobID, agentID string) error {
 
 	now := time.Now()
 	routing := &JobRouting{
-		JobID:    jobID,
-		AgentID:  agentID,
+		JobID:     jobID,
+		AgentID:   agentID,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}

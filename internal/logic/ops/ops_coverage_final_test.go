@@ -769,4 +769,3 @@ func createTestServiceContext() *svc.ServiceContext {
 		SystemInfoCache: registry.NewSystemInfoCache(),
 	}
 }
-

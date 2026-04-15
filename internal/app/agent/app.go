@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/agent"
 	"github.com/cuihairu/croupier/internal/core/extension/externalfunc"
 	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
-	"github.com/cuihairu/croupier/internal/agent"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	transportcore "github.com/cuihairu/croupier/internal/transport"
@@ -39,9 +39,9 @@ type App struct {
 	configDir        string
 
 	// TCP local server
-	localHandler       *agent.LocalHandler
-	localServer        transportcore.Server
-	localAddr          string
+	localHandler *agent.LocalHandler
+	localServer  transportcore.Server
+	localAddr    string
 
 	// Ops module (optional)
 	opsConfig *OpsConfig
@@ -53,16 +53,15 @@ type App struct {
 func New(serverAddr, agentID string) *App {
 	store := agentlocal.NewLocalStore()
 	app := &App{
-		store:              store,
-		jobs:               newJobIndex(),
-		upstream:           NewUpstreamClient(serverAddr, agentID, store, nil),
-		extensionRuntime:   NewExtensionRuntime(),
-		extensionDrivers:   NewExtensionDriverRuntime(),
-		extensionRoutes:    map[string]extensionFunctionRoute{},
-		configDir:          getConfigDir(),
-		agentID:            agentID,
-		localAddr:            ":19091",
-		
+		store:            store,
+		jobs:             newJobIndex(),
+		upstream:         NewUpstreamClient(serverAddr, agentID, store, nil),
+		extensionRuntime: NewExtensionRuntime(),
+		extensionDrivers: NewExtensionDriverRuntime(),
+		extensionRoutes:  map[string]extensionFunctionRoute{},
+		configDir:        getConfigDir(),
+		agentID:          agentID,
+		localAddr:        ":19091",
 	}
 	app.upstream.SetDynamicLabelsProvider(app.extensionRuntimeDynamicLabels)
 	return app
@@ -71,16 +70,15 @@ func New(serverAddr, agentID string) *App {
 func NewWithConfigDir(serverAddr, agentID, configDir string) *App {
 	store := agentlocal.NewLocalStore()
 	app := &App{
-		store:              store,
-		jobs:               newJobIndex(),
-		upstream:           NewUpstreamClient(serverAddr, agentID, store, nil),
-		extensionRuntime:   NewExtensionRuntime(),
-		extensionDrivers:   NewExtensionDriverRuntime(),
-		extensionRoutes:    map[string]extensionFunctionRoute{},
-		configDir:          configDir,
-		agentID:            agentID,
-		localAddr:            ":19091",
-		
+		store:            store,
+		jobs:             newJobIndex(),
+		upstream:         NewUpstreamClient(serverAddr, agentID, store, nil),
+		extensionRuntime: NewExtensionRuntime(),
+		extensionDrivers: NewExtensionDriverRuntime(),
+		extensionRoutes:  map[string]extensionFunctionRoute{},
+		configDir:        configDir,
+		agentID:          agentID,
+		localAddr:        ":19091",
 	}
 	app.upstream.SetDynamicLabelsProvider(app.extensionRuntimeDynamicLabels)
 	return app
