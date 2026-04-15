@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/transport"
 	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 )
 
@@ -176,4 +177,31 @@ func (store *AgentSessionStore) ResolveAgentConn(agentID string) (*tcptr.MuxConn
 		return nil, false
 	}
 	return sess.conn, true
+}
+
+// ResolveSessionCaller returns a SessionCaller for dispatch.AgentSessionResolver.
+func (store *AgentSessionStore) ResolveSessionCaller(agentID string) (transport.SessionCaller, bool) {
+	store.mu.RLock()
+	defer store.mu.RUnlock()
+
+	sess, ok := store.sessions[agentID]
+	if !ok || sess.conn == nil {
+		return nil, false
+	}
+	return sess.conn, true
+}
+
+// SessionResolverAdapter adapts AgentSessionStore to dispatch.AgentSessionResolver.
+type SessionResolverAdapter struct {
+	store *AgentSessionStore
+}
+
+// NewSessionResolverAdapter creates a new adapter.
+func NewSessionResolverAdapter(store *AgentSessionStore) *SessionResolverAdapter {
+	return &SessionResolverAdapter{store: store}
+}
+
+// ResolveAgentConn implements dispatch.AgentSessionResolver.
+func (a *SessionResolverAdapter) ResolveAgentConn(agentID string) (transport.SessionCaller, bool) {
+	return a.store.ResolveSessionCaller(agentID)
 }

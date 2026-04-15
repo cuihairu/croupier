@@ -11,8 +11,8 @@ import (
 
 // JobRouting represents a job routing entry
 type JobRouting struct {
-	JobID     string    `json:"job_id"`
-	AgentAddr string    `json:"agent_addr"`
+	JobID    string    `json:"job_id"`
+	AgentID  string    `json:"agent_id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -23,7 +23,7 @@ type JobRoutingStore interface {
 	Get(jobID string) (*JobRouting, error)
 
 	// Set stores or updates job routing
-	Set(jobID, agentAddr string) error
+	Set(jobID, agentID string) error
 
 	// Delete removes job routing
 	Delete(jobID string) error
@@ -77,14 +77,14 @@ func (s *FileJobRoutingStore) Get(jobID string) (*JobRouting, error) {
 	return routing, nil
 }
 
-func (s *FileJobRoutingStore) Set(jobID, agentAddr string) error {
+func (s *FileJobRoutingStore) Set(jobID, agentID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	now := time.Now()
 	routing := &JobRouting{
-		JobID:     jobID,
-		AgentAddr: agentAddr,
+		JobID:    jobID,
+		AgentID:  agentID,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -210,14 +210,14 @@ func (s *MemoryJobRoutingStore) Get(jobID string) (*JobRouting, error) {
 	return routing, nil
 }
 
-func (s *MemoryJobRoutingStore) Set(jobID, agentAddr string) error {
+func (s *MemoryJobRoutingStore) Set(jobID, agentID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	now := time.Now()
 	routing := &JobRouting{
-		JobID:     jobID,
-		AgentAddr: agentAddr,
+		JobID:    jobID,
+		AgentID:  agentID,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}

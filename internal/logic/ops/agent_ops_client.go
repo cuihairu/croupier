@@ -7,19 +7,15 @@ import (
 	"sync"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/transport"
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
 )
 
-// SessionCaller sends a request over an established TCP session.
-type SessionCaller interface {
-	Call(ctx context.Context, msgID uint32, reqBody []byte) (uint32, []byte, error)
-}
-
 // AgentSessionResolver finds active TCP sessions for connected Agents.
 type AgentSessionResolver interface {
-	ResolveAgentConn(agentID string) (SessionCaller, bool)
+	ResolveAgentConn(agentID string) (transport.SessionCaller, bool)
 }
 
 // AgentOpsClient manages Ops communication with Agents via TCP sessions
@@ -34,7 +30,8 @@ var (
 )
 
 // InitAgentOpsClient initializes the global AgentOpsClient
-func InitAgentOpsClient(store interface{}) {
+// The session resolver must be set via SetSessionResolver before use.
+func InitAgentOpsClient() {
 	opsClientOnce.Do(func() {
 		globalAgentOpsClient = &AgentOpsClient{}
 		slog.Info("Global AgentOpsClient initialized")
@@ -44,7 +41,7 @@ func InitAgentOpsClient(store interface{}) {
 // GetAgentOpsClient returns the global AgentOpsClient
 func GetAgentOpsClient() *AgentOpsClient {
 	if globalAgentOpsClient == nil {
-		InitAgentOpsClient(nil)
+		InitAgentOpsClient()
 	}
 	return globalAgentOpsClient
 }
@@ -76,7 +73,7 @@ func (c *AgentOpsClient) GetClient(ctx context.Context, agentID string) (*OpsCli
 
 // OpsClientWrapper wraps TCP session caller to implement Ops methods
 type OpsClientWrapper struct {
-	caller SessionCaller
+	caller transport.SessionCaller
 }
 
 // GetSystemInfo gets system info from the agent

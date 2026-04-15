@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,7 +19,6 @@ import (
 	"github.com/cuihairu/croupier/internal/runtime"
 	"github.com/cuihairu/croupier/internal/server"
 	"github.com/cuihairu/croupier/internal/svc"
-	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
@@ -180,23 +180,33 @@ func runServer() error {
 	applyRuntimeDefaults(&c)
 
 	// 创建服务上下文
-	ctx := svc.NewServiceContext(c)
+	svcCtx := svc.NewServiceContext(c)
 
-	// 初始化 Agent Ops 客户端
-	ops.InitAgentOpsClient(ctx.RegistryStore)
+	// 创建 AgentSessionStore 用于管理 Agent TCP session
+	sessionStore := server.NewAgentSessionStore()
+
+	// 初始化 Agent Ops 客户端并注入 session resolver
+	ops.InitAgentOpsClient()
+	opsClient := ops.GetAgentOpsClient()
+	opsClient.SetSessionResolver(server.NewSessionResolverAdapter(sessionStore))
 
 	// 检查数据库连接
-	dbHealth := svc.NewDBHealth(ctx)
+	dbHealth := svc.NewDBHealth(svcCtx)
 	if err := dbHealth.Ping(); err != nil {
 		fmt.Printf("警告: 数据库连接失败: %v\n", err)
 		fmt.Println("某些功能可能无法正常工作，请检查数据库配置")
 	}
 
+	// 将 session resolver 注入到 Dispatcher
+	if svcCtx.Dispatcher != nil {
+		svcCtx.Dispatcher.SetSessionResolver(server.NewSessionResolverAdapter(sessionStore))
+	}
+
 	// 启动控制服务器（TCP）
-	go startControlServer(&c, ctx)
+	go startControlServer(&c, svcCtx, sessionStore)
 
 	// 启动 Registry 清理任务（定期删除过期的 AgentSession）
-	go startRegistryCleanup(ctx)
+	go startRegistryCleanup(svcCtx)
 
 	// 设置 Gin 模式
 	switch c.Server.Mode {
@@ -218,11 +228,11 @@ func runServer() error {
 	r.RedirectFixedPath = false
 
 	// 添加认证中间件
-	authMiddleware := svc.NewAuthMiddleware(ctx)
+	authMiddleware := svc.NewAuthMiddleware(svcCtx)
 	r.Use(authMiddleware)
 
 	// 注册路由
-	handler.RegisterHandlers(r, ctx)
+	handler.RegisterHandlers(r, svcCtx)
 
 	addr := fmt.Sprintf("%s:%d", c.Server.Host, c.Server.Port)
 	fmt.Printf("Starting Croupier Server at %s (mode: %s, debug: %v)...\n",
@@ -241,7 +251,7 @@ func runServer() error {
 }
 
 // startControlServer 启动控制服务器（TCP）
-func startControlServer(c *config.Config, svcCtx *svc.ServiceContext) {
+func startControlServer(c *config.Config, svcCtx *svc.ServiceContext, sessionStore *server.AgentSessionStore) {
 	// 解析监听地址
 	addr := c.Control.Addr
 	if addr == "" {
@@ -255,20 +265,41 @@ func startControlServer(c *config.Config, svcCtx *svc.ServiceContext) {
 	controlService := server.NewControlService(svcCtx.RegistryStore, svcCtx.AgentSessionModel)
 	controlService.StartBackgroundTasks()
 
-	// 启动 TCP 服务器
-	tcpServer, err := tcptr.NewServer(&tcptr.Config{
+	// 创建 TCPListener (管理 Agent session)
+	// 如果配置了 TLS 证书，启用 TLS；否则使用 insecure 模式
+	hasTLS := c.Control.Cert != "" && c.Control.Key != ""
+	listenerConfig := &server.TCPListenerConfig{
 		Address:     addr,
-		Insecure:    true,
+		Insecure:    !hasTLS,
+		CertFile:    c.Control.Cert,
+		KeyFile:     c.Control.Key,
+		CAFile:      c.Control.CA,
 		RecvTimeout: time.Second,
 		SendTimeout: 10 * time.Second,
-	}, controlService.TransportHandler())
+	}
+	tcpListener, err := server.NewTCPListener(listenerConfig, sessionStore, svcCtx.RegistryStore, slog.Default())
 	if err != nil {
-		fmt.Printf("Failed to start TCP Control server: %v\n", err)
+		fmt.Printf("Failed to create TCP listener: %v\n", err)
 		return
 	}
 
-	fmt.Printf("Starting TCP ControlService on %s (SDK/Agent registration)...\n", tcpServer.Addr())
-	if err := tcpServer.Serve(context.Background()); err != nil && err != context.Canceled {
+	// 设置 control handler
+	tcpListener.SetHandler(controlService)
+
+	// 启动 session 清理任务（定期删除过时的 session）
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			pruned := sessionStore.PruneStale(5 * time.Minute)
+			if pruned > 0 {
+				fmt.Printf("[control] Pruned %d stale sessions\n", pruned)
+			}
+		}
+	}()
+
+	fmt.Printf("Starting TCP ControlService on %s (SDK/Agent registration with session management)...\n", addr)
+	if err := tcpListener.Serve(context.Background()); err != nil && err != context.Canceled {
 		fmt.Printf("TCP Control server stopped: %v\n", err)
 	}
 }

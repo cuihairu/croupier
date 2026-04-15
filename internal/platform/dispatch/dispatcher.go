@@ -12,20 +12,16 @@ import (
 
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	"github.com/cuihairu/croupier/internal/transport"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
 )
 
-// SessionCaller sends a request over an established TCP session and returns the response.
-type SessionCaller interface {
-	Call(ctx context.Context, msgID uint32, reqBody []byte) (uint32, []byte, error)
-}
-
 // AgentSessionResolver finds active TCP sessions for connected Agents.
 // The server package's AgentSessionStore implements this interface.
 type AgentSessionResolver interface {
-	ResolveAgentConn(agentID string) (SessionCaller, bool)
+	ResolveAgentConn(agentID string) (transport.SessionCaller, bool)
 }
 
 // Dispatcher routes function invocations to live agents discovered via registry store.
@@ -34,7 +30,7 @@ type AgentSessionResolver interface {
 type Dispatcher struct {
 	store         *reg.Store
 	mu            sync.RWMutex
-	jobRouting    map[string]string // jobID -> agent rpc addr (in-memory cache)
+	jobRouting    map[string]string // jobID -> agentID (in-memory cache)
 	jobStore      JobRoutingStore   // persistent storage for job routing
 	dialTimeout   time.Duration
 	invokeTimeout time.Duration
@@ -289,14 +285,14 @@ func (d *Dispatcher) StartJobRequest(ctx context.Context, req *sdkv1.InvokeReque
 	}
 
 	if jobID := resp.GetJobId(); jobID != "" {
-		d.registerJob(jobID, agent.RPCAddr)
+		d.registerJob(jobID, agent.AgentID)
 	}
 
 	return resp, nil
 }
 
 func (d *Dispatcher) CancelJob(ctx context.Context, jobID string) error {
-	addr, err := d.jobAddr(jobID)
+	agentID, err := d.jobAddr(jobID)
 	if err != nil {
 		return err
 	}
@@ -307,7 +303,7 @@ func (d *Dispatcher) CancelJob(ctx context.Context, jobID string) error {
 		return fmt.Errorf("marshal request: %w", err)
 	}
 
-	_, err = d.callAgentByAddr(ctx, addr, protocol.MsgCancelJobRequest, reqBytes)
+	_, err = d.callAgent(ctx, agentID, "", protocol.MsgCancelJobRequest, reqBytes)
 	if err == nil {
 		d.unregisterJob(jobID)
 	}
@@ -386,12 +382,13 @@ func pickAgentByHash(candidates []*reg.AgentSession, key string) *reg.AgentSessi
 	return candidates[idx]
 }
 
-// JobAddr exposes tracked job routing addresses (primarily for diagnostics).
+// JobAddr exposes tracked job routing (primarily for diagnostics).
+// Returns the agentID for the job.
 func (d *Dispatcher) JobAddr(jobID string) (string, bool) {
 	d.mu.RLock()
-	addr, ok := d.jobRouting[jobID]
+	agentID, ok := d.jobRouting[jobID]
 	d.mu.RUnlock()
-	return addr, ok
+	return agentID, ok
 }
 
 // pickAgent returns a live agent that owns the function.
@@ -554,21 +551,21 @@ func (d *Dispatcher) UnregisterJob(jobID string) {
 
 func (d *Dispatcher) jobAddr(jobID string) (string, error) {
 	d.mu.RLock()
-	addr, ok := d.jobRouting[jobID]
+	agentID, ok := d.jobRouting[jobID]
 	d.mu.RUnlock()
 	if !ok {
 		if d.jobStore != nil {
 			routing, err := d.jobStore.Get(jobID)
-			if err == nil && routing != nil && routing.AgentAddr != "" {
+			if err == nil && routing != nil && routing.AgentID != "" {
 				d.mu.Lock()
-				d.jobRouting[jobID] = routing.AgentAddr
+				d.jobRouting[jobID] = routing.AgentID
 				d.mu.Unlock()
-				return routing.AgentAddr, nil
+				return routing.AgentID, nil
 			}
 		}
 		return "", fmt.Errorf("job %s not tracked", jobID)
 	}
-	return addr, nil
+	return agentID, nil
 }
 
 func isTerminalEvent(evt *sdkv1.JobEvent) bool {
@@ -595,20 +592,20 @@ func (d *Dispatcher) loadJobRouting() {
 	// Rebuild in-memory cache (clear removed jobs too).
 	d.jobRouting = make(map[string]string, len(routings))
 	for _, routing := range routings {
-		d.jobRouting[routing.JobID] = routing.AgentAddr
+		d.jobRouting[routing.JobID] = routing.AgentID
 	}
 }
 
 // registerJob registers job routing to both memory cache and persistent store
-func (d *Dispatcher) registerJob(jobID, addr string) {
+func (d *Dispatcher) registerJob(jobID, agentID string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	// Update memory cache
-	d.jobRouting[jobID] = addr
+	d.jobRouting[jobID] = agentID
 
 	// Update persistent store
-	if err := d.jobStore.Set(jobID, addr); err != nil {
+	if err := d.jobStore.Set(jobID, agentID); err != nil {
 		// Log error but continue
 		log.Printf("[dispatch] Warning: failed to persist job routing: %v", err)
 	}

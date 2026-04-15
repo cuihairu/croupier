@@ -37,3 +37,8 @@ type Server interface {
 	IsClosed() bool
 	Addr() string
 }
+
+// SessionCaller sends a request over an established TCP session and returns the response.
+type SessionCaller interface {
+	Call(ctx context.Context, msgID uint32, reqBody []byte) (respMsgID uint32, respBody []byte, err error)
+}

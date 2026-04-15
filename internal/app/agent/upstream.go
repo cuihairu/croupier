@@ -99,7 +99,15 @@ func (c *UpstreamClient) SetTLSConfig(cfg *tlsutil.ClientTLSConfig) {
 }
 
 func (c *UpstreamClient) SetTransportKind(kind string) {
-	c.transportKind = "tcp"
+	// Validate: only "tcp" is supported after NNG removal
+	kind = strings.TrimSpace(strings.ToLower(kind))
+	if kind == "" {
+		kind = "tcp" // default to tcp if empty
+	}
+	if kind != "tcp" {
+		panic(fmt.Sprintf("unsupported transport kind: %q (only 'tcp' is supported)", kind))
+	}
+	c.transportKind = kind
 }
 
 // SetLocalHandler sets the handler for inbound requests from Server.

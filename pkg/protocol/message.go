@@ -87,6 +87,8 @@ const (
 	MsgProviderHeartbeatResponse = 0x050104
 	MsgProviderDrainRequest      = 0x050105
 	MsgProviderDrainResponse     = 0x050106
+	MsgListLocalRequest          = 0x050107 // List local providers (separate from drain)
+	MsgListLocalResponse         = 0x050108
 )
 
 const (
@@ -95,8 +97,6 @@ const (
 	MsgRegisterLocalResponse  = MsgProviderConnectResponse
 	MsgHeartbeatLocalRequest  = MsgProviderHeartbeatRequest
 	MsgHeartbeatLocalResponse = MsgProviderHeartbeatResponse
-	MsgListLocalRequest       = MsgProviderDrainRequest
-	MsgListLocalResponse      = MsgProviderDrainResponse
 )
 
 // PutMsgID encodes a 24-bit MsgID into buf in big-endian order.
@@ -251,6 +251,10 @@ func MsgIDString(msgID uint32) string {
 		return "ProviderDrainRequest"
 	case MsgProviderDrainResponse:
 		return "ProviderDrainResponse"
+	case MsgListLocalRequest:
+		return "ListLocalRequest"
+	case MsgListLocalResponse:
+		return "ListLocalResponse"
 	default:
 		return fmt.Sprintf("Unknown(0x%06X)", msgID)
 	}

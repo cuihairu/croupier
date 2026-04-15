@@ -2,17 +2,15 @@ package ops
 
 import (
 	"context"
-	"sync"
 	"testing"
 
-	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	"github.com/cuihairu/croupier/internal/transport"
 )
 
 // TestInitAgentOpsClient tests the initialization of the global client
 func TestInitAgentOpsClient(t *testing.T) {
-	// Initialize with a registry store
-	r := reg.NewStore()
-	InitAgentOpsClient(r)
+	// Initialize without parameters
+	InitAgentOpsClient()
 
 	client := GetAgentOpsClient()
 	if client == nil {
@@ -50,54 +48,56 @@ func TestAgentOpsClient_GetClient_EmptyAgentID(t *testing.T) {
 	}
 }
 
-// TestAgentOpsClient_UnregisterClient tests unregistering a client
-func TestAgentOpsClient_UnregisterClient(t *testing.T) {
+// TestAgentOpsClient_SetSessionResolver tests setting session resolver
+func TestAgentOpsClient_SetSessionResolver(t *testing.T) {
 	client := GetAgentOpsClient()
 
-	// Unregister should not panic
-	client.UnregisterClient("test-agent")
+	// Set a nil resolver (for testing purposes)
+	client.SetSessionResolver(nil)
+
+	// GetClient should fail with nil resolver
+	_, err := client.GetClient(context.Background(), "test-agent")
+	if err == nil {
+		t.Error("GetClient() should return error when resolver is nil")
+	}
 }
 
-// TestAgentOpsClient_Close tests closing the client
-func TestAgentOpsClient_Close(t *testing.T) {
+// TestAgentOpsClient_SetSessionResolver_ThenGetClient tests setting resolver and getting client
+func TestAgentOpsClient_SetSessionResolver_ThenGetClient(t *testing.T) {
 	client := GetAgentOpsClient()
 
-	// Close should not panic
-	err := client.Close()
+	// Create a mock resolver
+	mockResolver := &mockSessionResolver{
+		agentExists: true,
+	}
+
+	client.SetSessionResolver(mockResolver)
+
+	// GetClient should succeed with mock resolver
+	wrapper, err := client.GetClient(context.Background(), "test-agent")
 	if err != nil {
-		t.Errorf("Close() should not error, got: %v", err)
+		t.Errorf("GetClient() should not error with mock resolver, got: %v", err)
 	}
-
-	// Re-initialize for other tests
-	globalAgentOpsClient = nil
-	agentOpsClientOnce = sync.Once{}
-}
-
-// TestAgentOpsClient_RegisterClient_NotRunning tests registering when existing client is not running
-func TestAgentOpsClient_RegisterClient_NotRunning(t *testing.T) {
-	// This tests the branch where existing.IsRunning() is false
-	// which is covered by the implementation but we can test the behavior
-
-	client := GetAgentOpsClient()
-
-	// Try to get a non-existent client - should return error
-	_, err := client.GetClient(context.Background(), "non-existent-agent-test")
-	if err == nil {
-		t.Error("GetClient() should return error for non-existent agent")
+	if wrapper == nil {
+		t.Error("GetClient() should return non-nil wrapper")
 	}
 }
 
-// TestAgentOpsClient_GetClient_ContextCancellation tests with cancelled context
-func TestAgentOpsClient_GetClient_ContextCancellation(t *testing.T) {
-	client := GetAgentOpsClient()
+// mockSessionResolver is a mock implementation of AgentSessionResolver
+type mockSessionResolver struct {
+	agentExists bool
+}
 
-	// Create a cancelled context
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	// GetClient should handle cancelled context
-	_, err := client.GetClient(ctx, "test-agent")
-	if err == nil {
-		t.Error("GetClient() should return error for cancelled context when agent doesn't exist")
+func (m *mockSessionResolver) ResolveAgentConn(agentID string) (transport.SessionCaller, bool) {
+	if !m.agentExists {
+		return nil, false
 	}
+	return &mockSessionCaller{}, true
+}
+
+// mockSessionCaller is a mock implementation of SessionCaller
+type mockSessionCaller struct{}
+
+func (m *mockSessionCaller) Call(ctx context.Context, msgID uint32, reqBody []byte) (uint32, []byte, error) {
+	return msgID, []byte("ok"), nil
 }

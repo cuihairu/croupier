@@ -79,24 +79,21 @@ func (c *Config) UnmarshalYAML(value *yaml.Node) error {
 // ControlConfig 配置控制服务器（控制平面）
 type ControlConfig struct {
 	// Transport selects the control-plane transport implementation.
-	// Supported values: tcp.
+	// Only "tcp" is supported (NNG/IPC removed).
 	Transport string `json:"transport,omitempty" yaml:"transport,omitempty"`
 
 	// ControlService 监听地址（默认 :19090，用于 SDK/Agent 连接）
-	// 支持多传输层，可以使用逗号分隔多个地址
-	// 例如: ":19090" 或 ":19090,ipc://croupier-server"
-	// 支持的传输协议: tcp://, ipc:// (Windows Named Pipes / Unix Domain Socket)
+	// 格式: ":port" 或 "host:port"，例如 ":19090" 或 "0.0.0.0:19090"
 	Addr string `json:"addr" yaml:"addr"`
 
-	// IPC 地址（可选），用于本地高性能通信
-	// Windows: ipc://croupier-server
-	// Linux/Unix: ipc:///tmp/croupier-server.sock 或 ipc://@croupier-server (abstract)
+	// IPC 地址已废弃（保留用于配置兼容性，不再使用）
+	// NNG/IPC 传输已被移除，所有连接现在使用 TCP
 	IPCAddr string `json:"ipcAddr,omitempty" yaml:"ipcAddr,omitempty"`
 
-	// TLS 证书配置（保留用于未来 TLS 支持）
+	// TLS 证书配置。如果配置了 Cert 和 Key，将启用 TLS
 	Cert string `json:"cert,omitempty" yaml:"cert,omitempty"`
 	Key  string `json:"key,omitempty" yaml:"key,omitempty"`
-	CA   string `json:"ca,omitempty" yaml:"ca,omitempty"`
+	CA   string `json:"ca,omitempty" yaml:"ca,omitempty"` // 可选的 CA 证书，用于客户端验证
 }
 
 func (c *ControlConfig) UnmarshalYAML(value *yaml.Node) error {

@@ -9,7 +9,6 @@ import (
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
-	"google.golang.org/protobuf/proto"
 )
 
 // TestNewDispatcher 测试创建新 Dispatcher
@@ -726,18 +725,18 @@ func TestDispatcher_unregisterJob_WithStore(t *testing.T) {
 	d := NewDispatcherWithJobStore(nil, store)
 
 	jobID := "test-job"
-	addr := "127.0.0.1:9001"
+	agentID := "agent-test"
 
 	// 注册任务
-	d.registerJob(jobID, addr)
+	d.registerJob(jobID, agentID)
 
 	// 验证在存储中
 	routing, err := store.Get(jobID)
 	if err != nil {
 		t.Fatal("Job should be in store")
 	}
-	if routing.AgentAddr != addr {
-		t.Error("Store should have correct address")
+	if routing.AgentID != agentID {
+		t.Error("Store should have correct agentID")
 	}
 
 	// 注销任务

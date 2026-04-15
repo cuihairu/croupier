@@ -752,3 +752,21 @@ func TestCrossPlatformTimeHandling(t *testing.T) {
 		})
 	}
 }
+
+// createTestServiceContext creates a test ServiceContext for testing
+func createTestServiceContext() *svc.ServiceContext {
+	return &svc.ServiceContext{
+		Config: config.Config{
+			Server: config.ServerConfig{
+				Host: "localhost",
+				Port: 8080,
+			},
+		},
+		ServerVersion:   "v1.0.0",
+		StartTime:       time.Now(),
+		RegistryStore:   registry.NewStore(),
+		MetricsStore:    registry.NewMetricsStore(),
+		SystemInfoCache: registry.NewSystemInfoCache(),
+	}
+}
+

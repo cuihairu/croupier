@@ -18,7 +18,7 @@ func TestFileJobRoutingStore_PersistsAcrossInstances(t *testing.T) {
 		t.Fatalf("NewFileJobRoutingStore: %v", err)
 	}
 
-	if err := store1.Set("job-1", "127.0.0.1:9001"); err != nil {
+	if err := store1.Set("job-1", "agent-1"); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
 
@@ -31,8 +31,8 @@ func TestFileJobRoutingStore_PersistsAcrossInstances(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
-	if got, want := routing.AgentAddr, "127.0.0.1:9001"; got != want {
-		t.Fatalf("AgentAddr=%q want %q", got, want)
+	if got, want := routing.AgentID, "agent-1"; got != want {
+		t.Fatalf("AgentID=%q want %q", got, want)
 	}
 }
 
@@ -43,7 +43,7 @@ func TestFileJobRoutingStore_Cleanup(t *testing.T) {
 		t.Fatalf("NewFileJobRoutingStore: %v", err)
 	}
 
-	if err := store.Set("job-old", "127.0.0.1:9999"); err != nil {
+	if err := store.Set("job-old", "agent-old"); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
 
@@ -68,13 +68,13 @@ func TestDispatcher_LoadsJobRoutingFromStore(t *testing.T) {
 		t.Fatalf("NewFileJobRoutingStore: %v", err)
 	}
 
-	if err := store.Set("job-2", "127.0.0.1:9002"); err != nil {
+	if err := store.Set("job-2", "agent-2"); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
 
 	d := NewDispatcherWithJobStore(nil, store)
-	if got, ok := d.JobAddr("job-2"); !ok || got != "127.0.0.1:9002" {
-		t.Fatalf("JobAddr(job-2)=(%q,%v) want (%q,true)", got, ok, "127.0.0.1:9002")
+	if got, ok := d.JobAddr("job-2"); !ok || got != "agent-2" {
+		t.Fatalf("JobAddr(job-2)=(%q,%v) want (%q,true)", got, ok, "agent-2")
 	}
 }
 
@@ -87,15 +87,15 @@ func TestDispatcher_CleanupOldJobsClearsMemoryCache(t *testing.T) {
 
 	d := NewDispatcherWithJobStore(nil, store)
 
-	d.RegisterJob("job-old", "127.0.0.1:9009")
+	d.RegisterJob("job-old", "agent-old")
 	time.Sleep(10 * time.Millisecond)
 
 	if err := d.CleanupOldJobs(1 * time.Millisecond); err != nil {
 		t.Fatalf("CleanupOldJobs: %v", err)
 	}
 
-	if addr, ok := d.JobAddr("job-old"); ok {
-		t.Fatalf("JobAddr(job-old)=(%q,%v) want (_,false)", addr, ok)
+	if agentID, ok := d.JobAddr("job-old"); ok {
+		t.Fatalf("JobAddr(job-old)=(%q,%v) want (_,false)", agentID, ok)
 	}
 }
 
@@ -104,7 +104,7 @@ func TestMemoryJobRoutingStore_BasicOperations(t *testing.T) {
 	store := NewMemoryJobRoutingStore()
 
 	// 测试 Set 和 Get
-	err := store.Set("job-1", "127.0.0.1:9001")
+	err := store.Set("job-1", "agent-1")
 	if err != nil {
 		t.Fatalf("Set() error = %v", err)
 	}
@@ -117,8 +117,8 @@ func TestMemoryJobRoutingStore_BasicOperations(t *testing.T) {
 	if routing.JobID != "job-1" {
 		t.Errorf("JobID = %q, want 'job-1'", routing.JobID)
 	}
-	if routing.AgentAddr != "127.0.0.1:9001" {
-		t.Errorf("AgentAddr = %q, want '127.0.0.1:9001'", routing.AgentAddr)
+	if routing.AgentID != "agent-1" {
+		t.Errorf("AgentID = %q, want 'agent-1'", routing.AgentID)
 	}
 }
 
@@ -136,23 +136,23 @@ func TestMemoryJobRoutingStore_GetNotFound(t *testing.T) {
 func TestMemoryJobRoutingStore_UpdatePreservesCreatedAt(t *testing.T) {
 	store := NewMemoryJobRoutingStore()
 
-	_ = store.Set("job-1", "127.0.0.1:9001")
+	_ = store.Set("job-1", "agent-1")
 	time.Sleep(10 * time.Millisecond)
 
-	_ = store.Set("job-1", "127.0.0.1:9002")
+	_ = store.Set("job-1", "agent-2")
 
 	routing, _ := store.Get("job-1")
 	originalCreatedAt := routing.CreatedAt
 
 	time.Sleep(10 * time.Millisecond)
-	_ = store.Set("job-1", "127.0.0.1:9003")
+	_ = store.Set("job-1", "agent-3")
 
 	routing, _ = store.Get("job-1")
 	if routing.CreatedAt != originalCreatedAt {
 		t.Error("CreatedAt should be preserved across updates")
 	}
-	if routing.AgentAddr != "127.0.0.1:9003" {
-		t.Errorf("AgentAddr = %q, want '127.0.0.1:9003'", routing.AgentAddr)
+	if routing.AgentID != "agent-3" {
+		t.Errorf("AgentID = %q, want 'agent-3'", routing.AgentID)
 	}
 }
 
@@ -160,7 +160,7 @@ func TestMemoryJobRoutingStore_UpdatePreservesCreatedAt(t *testing.T) {
 func TestMemoryJobRoutingStore_Delete(t *testing.T) {
 	store := NewMemoryJobRoutingStore()
 
-	_ = store.Set("job-1", "127.0.0.1:9001")
+	_ = store.Set("job-1", "agent-1")
 	_, err := store.Get("job-1")
 	if err != nil {
 		t.Fatal("Job should exist before delete")
@@ -181,9 +181,9 @@ func TestMemoryJobRoutingStore_Delete(t *testing.T) {
 func TestMemoryJobRoutingStore_List(t *testing.T) {
 	store := NewMemoryJobRoutingStore()
 
-	_ = store.Set("job-1", "127.0.0.1:9001")
-	_ = store.Set("job-2", "127.0.0.1:9002")
-	_ = store.Set("job-3", "127.0.0.1:9003")
+	_ = store.Set("job-1", "agent-1")
+	_ = store.Set("job-2", "agent-2")
+	_ = store.Set("job-3", "agent-3")
 
 	list, err := store.List()
 	if err != nil {
@@ -213,10 +213,10 @@ func TestMemoryJobRoutingStore_ListEmpty(t *testing.T) {
 func TestMemoryJobRoutingStore_Cleanup(t *testing.T) {
 	store := NewMemoryJobRoutingStore()
 
-	_ = store.Set("old-job", "127.0.0.1:9999")
+	_ = store.Set("old-job", "agent-old")
 	time.Sleep(10 * time.Millisecond)
 
-	_ = store.Set("new-job", "127.0.0.1:9001")
+	_ = store.Set("new-job", "agent-new")
 
 	err := store.Cleanup(1 * time.Millisecond)
 	if err != nil {
@@ -240,8 +240,8 @@ func TestMemoryJobRoutingStore_Cleanup(t *testing.T) {
 func TestMemoryJobRoutingStore_CleanupAll(t *testing.T) {
 	store := NewMemoryJobRoutingStore()
 
-	_ = store.Set("job-1", "127.0.0.1:9001")
-	_ = store.Set("job-2", "127.0.0.1:9002")
+	_ = store.Set("job-1", "agent-1")
+	_ = store.Set("job-2", "agent-2")
 	time.Sleep(10 * time.Millisecond)
 
 	_ = store.Cleanup(1 * time.Millisecond)
@@ -312,7 +312,7 @@ func TestFileJobRoutingStore_Delete(t *testing.T) {
 		t.Fatalf("NewFileJobRoutingStore() error = %v", err)
 	}
 
-	_ = store.Set("job-1", "127.0.0.1:9001")
+	_ = store.Set("job-1", "agent-1")
 	err = store.Delete("job-1")
 	if err != nil {
 		t.Fatalf("Delete() error = %v", err)
@@ -338,7 +338,7 @@ func TestFileJobRoutingStore_CleanupNoOldEntries(t *testing.T) {
 		t.Fatalf("NewFileJobRoutingStore() error = %v", err)
 	}
 
-	_ = store.Set("job-1", "127.0.0.1:9001")
+	_ = store.Set("job-1", "agent-1")
 
 	// 清理一个非常短的 TTL，应该删除所有条目
 	time.Sleep(10 * time.Millisecond)
@@ -494,14 +494,14 @@ func BenchmarkMemoryJobRoutingStore_Set(b *testing.B) {
 	store := NewMemoryJobRoutingStore()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = store.Set("job-id", "127.0.0.1:9001")
+		_ = store.Set("job-id", "agent-1")
 	}
 }
 
 // BenchmarkMemoryJobRoutingStore_Get 性能基准测试
 func BenchmarkMemoryJobRoutingStore_Get(b *testing.B) {
 	store := NewMemoryJobRoutingStore()
-	_ = store.Set("job-id", "127.0.0.1:9001")
+	_ = store.Set("job-id", "agent-1")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = store.Get("job-id")
