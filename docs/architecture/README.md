@@ -103,8 +103,11 @@ graph TB
 ## 文档索引
 
 - [分层设计](./layers.md)
+- [术语与分层](./terms-and-layering.md)
 - [数据流](./data-flow.md)
 - [SDK-Agent 传输重构设计](./sdk-agent-transport-redesign.md)
 - [Agent-Server TCP Session 重构设计](./agent-server-session-transport-redesign.md)
+- [Session 生命周期](./session-lifecycle.md)
 - [SDK Wire Protocol](./sdk-wire-protocol.md)
+- [Session Runtime 参考实现](./session-runtime-landscape.md)
 - [核心与扩展边界映射](./core-extension-mapping.md)

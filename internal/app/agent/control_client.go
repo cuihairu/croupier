@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cuihairu/croupier/internal/nng"
 	transportcore "github.com/cuihairu/croupier/internal/transport"
 	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
@@ -38,21 +37,12 @@ type muxControlClient struct {
 }
 
 func newControlClient(kind, addr string) (controlClient, error) {
-	switch normalizeTransportKind(kind) {
-	case "tcp":
-		client, err := tcptr.NewClient(&tcptr.Config{Address: addr, Insecure: true})
-		if err != nil {
-			return nil, err
-		}
-		return &tcpControlClient{client: client}, nil
-	default:
-		client := nng.NewClient(addr)
-		client.SetLogger(defaultNNGLogger{})
-		if err := client.Dial(); err != nil {
-			return nil, err
-		}
-		return client, nil
+	// Only TCP transport supported
+	client, err := tcptr.NewClient(&tcptr.Config{Address: addr, Insecure: true})
+	if err != nil {
+		return nil, err
 	}
+	return &tcpControlClient{client: client}, nil
 }
 
 // newMuxControlClient creates a bidirectional TCP session using MuxConn.
@@ -207,9 +197,3 @@ func normalizeTCPAddr(addr string) string {
 	return strings.TrimPrefix(strings.TrimSpace(addr), "tcp://")
 }
 
-type defaultNNGLogger struct{}
-
-func (defaultNNGLogger) Debug(msg string, args ...any) {}
-func (defaultNNGLogger) Info(msg string, args ...any)  {}
-func (defaultNNGLogger) Warn(msg string, args ...any)  {}
-func (defaultNNGLogger) Error(msg string, args ...any) {}

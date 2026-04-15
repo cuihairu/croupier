@@ -99,7 +99,7 @@ func (c *UpstreamClient) SetTLSConfig(cfg *tlsutil.ClientTLSConfig) {
 }
 
 func (c *UpstreamClient) SetTransportKind(kind string) {
-	c.transportKind = normalizeTransportKind(kind)
+	c.transportKind = "tcp"
 }
 
 // SetLocalHandler sets the handler for inbound requests from Server.
@@ -174,7 +174,7 @@ func (c *UpstreamClient) dialServer(ctx context.Context) error {
 
 	// For TCP transport with a local handler, use MuxConn (bidirectional).
 	// Otherwise fall back to simple TCP or NNG client.
-	if normalizeTransportKind(c.transportKind) == "tcp" && c.localHandler != nil {
+	if c.localHandler != nil {
 		client, err = newMuxControlClient(c.serverAddr, c.localHandler)
 	} else {
 		client, err = newControlClient(c.transportKind, c.serverAddr)

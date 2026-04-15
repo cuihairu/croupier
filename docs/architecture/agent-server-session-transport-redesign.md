@@ -155,7 +155,7 @@
 ### 默认 transport
 
 - 默认 transport: `tcp`
-- 默认安全模式: `tls.disabled`
+- 默认安全模式: `tls.enabled`
 - `tls` 是 `tcp` 之上的安全配置，不单独定义为新 transport
 
 ### framing
@@ -283,6 +283,13 @@
 - 停止向其分配新请求
 - 允许已发请求在超时窗口内完成
 - 超时后关闭连接并使 session 失效
+
+这里的 `drain` 是会话级优雅摘流，不是立即断连：
+
+- `Dispatcher` 不再把新的 `Invoke / Job / Ops` 路由给该 session
+- `Agent` 继续处理已在途请求
+- heartbeat 继续保持
+- 排空完成后再关闭连接，或在宽限期后强制关闭
 
 ## 协议与消息演进建议
 

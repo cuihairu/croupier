@@ -459,7 +459,7 @@ func runAgent() error {
 	runCtx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	core, nngAddr, err := startAgentCore(runCtx, &c, configDir)
+	core, localAddr, err := startAgentCore(runCtx, &c, configDir)
 	if err != nil {
 		return err
 	}
@@ -471,7 +471,7 @@ func runAgent() error {
 	}()
 
 	fmt.Printf("Starting Croupier Agent (mode: %s, debug: %v)...\n", mode, debug)
-	slog.Info("agent nng core started", "listen", nngAddr)
+	slog.Info("agent local server started", "listen", localAddr)
 
 	<-runCtx.Done()
 	return nil
@@ -484,29 +484,29 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 
 	slog.Info("loading agent config", "config_file", cfgFile, "config_dir", configDir)
 
-	// SDK 连接的是 Agent 本地 NNG 服务，而不是 Server 控制端口。
-	nngListenAddr := strings.TrimSpace(c.Agent.LocalAddr)
-	if nngListenAddr == "" {
+	// SDK 连接的是 Agent 本地 TCP 服务，而不是 Server 控制端口。
+	localListenAddr := strings.TrimSpace(c.Agent.LocalAddr)
+	if localListenAddr == "" {
 		host := strings.TrimSpace(c.Host)
 		switch host {
 		case "", "0.0.0.0":
-			nngListenAddr = net.JoinHostPort("0.0.0.0", strconv.Itoa(c.Port))
+			localListenAddr = net.JoinHostPort("0.0.0.0", strconv.Itoa(c.Port))
 		default:
-			nngListenAddr = net.JoinHostPort(host, strconv.Itoa(c.Port))
+			localListenAddr = net.JoinHostPort(host, strconv.Itoa(c.Port))
 		}
 	}
-	nngListenAddr = strings.TrimPrefix(nngListenAddr, "tcp://")
-	nngDisplayAddr := nngListenAddr
-	if strings.HasPrefix(nngDisplayAddr, ":") {
-		nngDisplayAddr = "0.0.0.0" + nngDisplayAddr
+	localListenAddr = strings.TrimPrefix(localListenAddr, "tcp://")
+	localDisplayAddr := localListenAddr
+	if strings.HasPrefix(localDisplayAddr, ":") {
+		localDisplayAddr = "0.0.0.0" + localDisplayAddr
 	}
-	nngAddr := nngListenAddr
+	localAddr := localListenAddr
 
 	agentID := resolveAgentID(strings.TrimSpace(c.Agent.ID))
 
 	rpcAddr := strings.TrimSpace(c.Agent.LocalAddr)
 	if rpcAddr == "" {
-		rpcAddr = nngDisplayAddr
+		rpcAddr = localDisplayAddr
 	}
 
 	// 收集系统标签
@@ -518,8 +518,7 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 
 	// 使用 NewWithConfigDir 以确保 providers.yaml 能从正确的目录加载
 	core := agentcore.NewWithConfigDir(strings.TrimSpace(c.Server.Addr), agentID, configDir)
-	core.SetNNGAddr(nngAddr)
-	core.SetLocalTransportKind(strings.TrimSpace(c.Agent.Transport))
+	core.SetLocalAddr(localAddr)
 	core.SetUpstreamTransportKind(strings.TrimSpace(c.Server.Transport))
 	core.WithUpstreamMetadata(agentcore.UpstreamMetadata{
 		GameID:            strings.TrimSpace(c.Agent.GameID),
@@ -571,14 +570,14 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 		core.WithOutboundTLSConfig(nil)
 	}
 
-	// Start the agent (which now starts NNG server internally)
+	// Start the agent (which now starts TCP local server internally)
 	go func() {
 		if err := core.Run(ctx); err != nil && ctx.Err() == nil {
 			slog.Error("agent run failed", "error", err)
 		}
 	}()
 
-	return core, nngAddr, nil
+	return core, localAddr, nil
 }
 
 func resolveAgentID(configured string) string {

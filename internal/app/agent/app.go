@@ -24,7 +24,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// App assembles NNG-based services for Agent process.
+// App assembles TCP-based services for Agent process.
 type App struct {
 	store            *agentlocal.LocalStore
 	jobs             *jobIndex
@@ -38,11 +38,10 @@ type App struct {
 	providerManager  *ProviderManager
 	configDir        string
 
-	// NNG server (replaces gRPC)
+	// TCP local server
 	nngServer          *nng.AgentServer
 	localServer        transportcore.Server
-	nngAddr            string
-	localTransportKind string
+	localAddr          string
 
 	// Ops module (optional)
 	opsConfig *OpsConfig
@@ -62,8 +61,8 @@ func New(serverAddr, agentID string) *App {
 		extensionRoutes:    map[string]extensionFunctionRoute{},
 		configDir:          getConfigDir(),
 		agentID:            agentID,
-		nngAddr:            ":19091", // Default NNG Agent local service port
-		localTransportKind: "nng",
+		localAddr:            ":19091",
+		
 	}
 	app.upstream.SetDynamicLabelsProvider(app.extensionRuntimeDynamicLabels)
 	return app
@@ -80,8 +79,8 @@ func NewWithConfigDir(serverAddr, agentID, configDir string) *App {
 		extensionRoutes:    map[string]extensionFunctionRoute{},
 		configDir:          configDir,
 		agentID:            agentID,
-		nngAddr:            ":19091", // Default NNG Agent local service port
-		localTransportKind: "nng",
+		localAddr:            ":19091",
+		
 	}
 	app.upstream.SetDynamicLabelsProvider(app.extensionRuntimeDynamicLabels)
 	return app
@@ -96,9 +95,8 @@ func getConfigDir() string {
 	return "./configs"
 }
 
-// StartNNGServer starts the NNG server for local services.
-// Replaces RegisterGRPC for NNG-based communication.
-func (a *App) StartNNGServer() error {
+// StartLocalServer starts the TCP local server for SDK connections.
+func (a *App) StartLocalServer() error {
 	// Initialize provider manager
 	a.providerManager = NewProviderManager(a.store, a.configDir, nil)
 	if a.extensionDrivers != nil {
@@ -110,9 +108,8 @@ func (a *App) StartNNGServer() error {
 		})
 	}
 
-	// Create NNG server
-	a.nngServer = nng.NewAgentServer(a.nngAddr, a.store)
-	a.nngServer.SetLocalTransportKind(a.localTransportKind)
+	// Create NNG server (business logic holder, no NNG socket)
+	a.nngServer = nng.NewAgentServer(a.localAddr, a.store)
 
 	// Set provider manager - wrap it to implement the interface
 	pmWrapper := &providerManagerWrapper{pm: a.providerManager, app: a}
@@ -128,73 +125,56 @@ func (a *App) StartNNGServer() error {
 		a.opsConfig = DefaultOpsConfig()
 	}
 	a.opsServer = NewOpsServer(a.opsConfig, a.agentID, a.version, nil)
-
-	// Wrap ops server for NNG
 	opsWrapper := &opsServerWrapper{ops: a.opsServer}
 	a.nngServer.SetOpsServer(opsWrapper)
 
-	switch normalizeTransportKind(a.localTransportKind) {
-	case "tcp":
-		tcpServer, err := tcptr.NewServer(&tcptr.Config{
-			Address:     a.nngAddr,
-			Insecure:    true,
-			RecvTimeout: time.Second,
-			SendTimeout: 10 * time.Second,
-		}, a.nngServer.TransportHandler())
-		if err != nil {
-			return fmt.Errorf("failed to create TCP local server: %w", err)
-		}
-		a.localServer = tcpServer
-		go func() {
-			if err := tcpServer.Serve(context.Background()); err != nil && !errors.Is(err, context.Canceled) {
-				slog.Error("agent tcp local server stopped", "error", err)
-			}
-		}()
-	default:
-		if err := a.nngServer.Start(); err != nil {
-			return fmt.Errorf("failed to start NNG server: %w", err)
-		}
-		a.localServer = nil
+	// Start TCP server with NNG server's transport handler
+	tcpServer, err := tcptr.NewServer(&tcptr.Config{
+		Address:     a.localAddr,
+		Insecure:    true,
+		RecvTimeout: time.Second,
+		SendTimeout: 10 * time.Second,
+	}, a.nngServer.TransportHandler())
+	if err != nil {
+		return fmt.Errorf("failed to create TCP local server: %w", err)
 	}
+	a.localServer = tcpServer
+	go func() {
+		if err := tcpServer.Serve(context.Background()); err != nil && !errors.Is(err, context.Canceled) {
+			slog.Error("agent tcp local server stopped", "error", err)
+		}
+	}()
 
 	return nil
 }
 
-// GetNNGServerAddr returns the NNG server address
-func (a *App) GetNNGServerAddr() string {
+// GetLocalServerAddr returns the local TCP server address.
+func (a *App) GetLocalServerAddr() string {
 	if a == nil {
 		return ""
 	}
 	if a.localServer != nil {
 		return a.localServer.Addr()
 	}
-	if a.nngServer == nil {
-		return ""
+	if a.nngServer != nil {
+		return a.nngServer.GetAddr()
 	}
-	return a.nngServer.GetAddr()
+	return ""
 }
 
-// SetNNGAddr sets the NNG server address
-func (a *App) SetNNGAddr(addr string) {
+// SetLocalAddr sets the local server address.
+func (a *App) SetLocalAddr(addr string) {
 	if a == nil {
 		return
 	}
-	a.nngAddr = addr
+	a.localAddr = addr
 }
 
-// SetLocalTransportKind sets the local SDK-facing transport kind.
-func (a *App) SetLocalTransportKind(kind string) {
-	if a == nil {
-		return
-	}
-	a.localTransportKind = normalizeTransportKind(kind)
-}
-
-// Run starts the agent's background processes (upstream sync and NNG server).
+// Run starts the agent's background processes (upstream sync and local server).
 func (a *App) Run(ctx context.Context) error {
-	// Start NNG server for local services
-	if err := a.StartNNGServer(); err != nil {
-		return fmt.Errorf("failed to start NNG server: %w", err)
+	// Start local TCP server for SDK connections
+	if err := a.StartLocalServer(); err != nil {
+		return fmt.Errorf("failed to start local server: %w", err)
 	}
 
 	// Load providers before starting upstream
@@ -268,12 +248,9 @@ func (a *App) Stop() {
 	if a == nil {
 		return
 	}
-	// Stop NNG server
+	// Stop local TCP server
 	if a.localServer != nil {
 		_ = a.localServer.Close()
-	}
-	if a.nngServer != nil {
-		a.nngServer.Stop()
 	}
 	// Stop upstream connection
 	if a.upstream != nil {
@@ -395,17 +372,6 @@ func (a *App) Jobs() *jobIndex {
 		return nil
 	}
 	return a.jobs
-}
-
-func normalizeTransportKind(kind string) string {
-	switch strings.ToLower(strings.TrimSpace(kind)) {
-	case "", "nng":
-		return "nng"
-	case "tcp":
-		return "tcp"
-	default:
-		return "nng"
-	}
 }
 
 // ActiveJobCount returns the number of currently active jobs.

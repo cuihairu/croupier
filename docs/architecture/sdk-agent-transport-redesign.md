@@ -13,7 +13,7 @@
 1. SDK 与 Agent 的默认传输从 SDK 侧 `NNG` 迁移为独立的 `tcp` transport，并按需启用 `tls`。
 2. SDK 不再开启本地监听端口，不再向 Agent 暴露 `rpc_addr` / `local_listen`。
 3. SDK 与 Agent 之间采用 **单条由 SDK 主动发起的长连接**，在同一连接上完成注册、心跳、函数调用、作业控制和响应回传。
-4. `Agent <-> Server` 链路不在本次重构范围内，保持现状。
+4. `Agent <-> Server` 链路不在本次重构实现范围内，但设计目标已统一到共享 session runtime。
 5. SDK 侧旧的 `NNGServer` / `LocalControl` / “本地 server 回调” 模型进入废弃状态。
 
 ## shared session runtime 与 subprotocol
@@ -92,7 +92,7 @@
 ### 默认 transport
 
 - 默认 transport: `tcp`
-- 默认安全模式: `tls.disabled`
+- 默认安全模式: `tls.optional`
 - `tls` 为可选增强项，而不是默认必选项
 
 ### TLS 策略
@@ -311,6 +311,14 @@ Agent 至少需要实现：
 - 连接关闭前的有限度 drain
 - 旧 session 上未完成请求的失效处理
 - SDK 重连后的新旧 session 隔离
+
+其中 `drain` 的统一语义是：
+
+- `Agent` 将 provider session 标记为 `draining`
+- 不再向该 session 分配新的 `Invoke / Job`
+- 已在途请求允许在宽限时间内继续完成
+- provider 保持 heartbeat 与必要控制消息处理
+- 排空完成或宽限时间结束后，再关闭连接或使 session 失效
 
 ### 明确不做的事
 
@@ -647,4 +655,4 @@ Agent 可以据此：
 - **纯 TCP，按需 TLS**
 - **SDK 不监听端口**
 - **Agent 负责 session、背压与调度**
-- **Agent-Server 链路保持不变**
+- **Agent-Server 与 SDK-Agent 共享同一套 session runtime 心智模型**

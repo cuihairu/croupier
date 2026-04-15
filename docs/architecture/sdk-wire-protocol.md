@@ -118,6 +118,30 @@ v1 不引入独立 `Magic`，而是直接用首条应用层消息识别子协议
 - `responseMsgID = requestMsgID + 1` 仍是默认约定
 - 像 `JobEvent` 这样的单向事件消息不属于标准 request/response 配对
 
+## drain 语义
+
+`drain` 是会话级的优雅摘流语义，不是立即断连语义。
+
+统一定义：
+
+- 不再向该 session 分配新的业务请求
+- 允许已在途请求在宽限时间内继续完成
+- 排空完成或宽限期结束后，再关闭连接或使 session 失效
+
+最小行为约束：
+
+1. session 进入 `draining` 状态
+2. 新请求应被拒绝、重路由，或返回明确的 `draining` / `retry_after_ms`
+3. 已在途请求可继续执行
+4. heartbeat 继续保持
+5. 宽限时间到达后，可强制关闭剩余请求
+
+边界说明：
+
+- `drain` 不是普通背压
+- `drain` 不等于取消所有在途请求
+- `drain` 期间仍可收发与会话治理相关的控制消息
+
 ## 消息族
 
 ### `0x01xx` Agent Session Control
@@ -132,6 +156,13 @@ v1 不引入独立 `Magic`，而是直接用首条应用层消息识别子协议
 - `RegisterCapabilitiesResponse`
 
 语义上，这一组已经应按“agent session connect/register”理解，而不是历史回拨模型。
+
+其中 `agent-server subprotocol` 还应具备会话级 `drain` 能力：
+
+- `Server` 可将某个 `Agent session` 置为 `draining`
+- `Dispatcher` 不再向该 session 分配新请求
+- 已在途请求在宽限时间内继续完成
+- 排空完成后再关闭连接或移除 session
 
 ### `0x02xx` Client / Result 查询
 
@@ -164,10 +195,17 @@ v1 不引入独立 `Magic`，而是直接用首条应用层消息识别子协议
 | `0x050102` | `ProviderConnectResponse` | 返回 `session_id` 与协商结果 |
 | `0x050103` | `ProviderHeartbeatRequest` | provider 心跳 |
 | `0x050104` | `ProviderHeartbeatResponse` | 心跳响应 |
-| `0x050105` | `ProviderDrainRequest` | Agent 要求 provider 停止接新请求 |
-| `0x050106` | `ProviderDrainResponse` | provider 确认 drain |
+| `0x050105` | `ProviderDrainRequest` | Agent 将 provider session 置为 `draining` |
+| `0x050106` | `ProviderDrainResponse` | provider 确认进入 drain 状态 |
 
 历史别名如 `RegisterLocalRequest`、`RegisterLocalResponse`、`HeartbeatLocalRequest` 只属于兼容语义，不应再出现在新设计文档里。
+
+`ProviderDrainRequest / Response` 的语义应统一为：
+
+- `Agent` 不再向该 provider session 分配新请求
+- provider 继续完成已接收的在途请求
+- provider 回应 `ProviderDrainResponse` 仅表示“已接受 drain 状态”
+- 真正关闭连接应发生在排空完成或宽限时间结束之后
 
 ## 业务 payload 规则
 
