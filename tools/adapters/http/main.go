@@ -15,6 +15,7 @@ import (
 	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
+	"google.golang.org/protobuf/proto"
 )
 
 // http-adapter implements a generic HTTP invoker function: http.generic_invoke
@@ -328,10 +329,9 @@ func main() {
 		}
 	}`
 
-	// Register with agent using OpenAPI 3.0.3 compatible descriptors
-	regReq := &sdkv1.RegisterLocalRequest{
+	// Register with agent using the provider-session handshake.
+	regReq := &sdkv1.ProviderConnectRequest{
 		ServiceId: serviceID,
-		RpcAddr:   listen,
 		Version:   version,
 		Functions: []*sdkv1.LocalFunctionDescriptor{
 			{
@@ -378,13 +378,25 @@ func main() {
 				Operation:    "read",
 			},
 		},
+		SdkLanguage:           "go",
+		SdkVersion:            version,
+		ProtocolVersion:       "v1",
+		SupportedTransports:   []string{"tcp"},
+		TransportSecurityMode: "plain_tcp",
 	}
-	regData := sdkv1.MarshalRegisterLocalRequest(regReq)
+	regData, err := proto.Marshal(regReq)
+	if err != nil {
+		log.Fatalf("Failed to marshal ProviderConnectRequest: %v", err)
+	}
 
 	ctx := context.Background()
-	_, _, err = tcpClient.Call(ctx, protocol.MsgRegisterLocalRequest, regData)
+	_, respData, err := tcpClient.Call(ctx, protocol.MsgProviderConnectRequest, regData)
 	if err != nil {
 		log.Fatalf("Failed to register with agent: %v", err)
+	}
+	regResp := &sdkv1.ProviderConnectResponse{}
+	if err := proto.Unmarshal(respData, regResp); err != nil {
+		log.Fatalf("Failed to parse ProviderConnectResponse: %v", err)
 	}
 	log.Printf("Registered with agent as service %s", serviceID)
 
@@ -392,9 +404,16 @@ func main() {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
-	hbReq := &sdkv1.HeartbeatRequest{ServiceId: serviceID}
+	hbReq := &sdkv1.ProviderHeartbeatRequest{
+		ServiceId: serviceID,
+		SessionId: regResp.GetSessionId(),
+	}
 	for range ticker.C {
-		hbData := sdkv1.MarshalHeartbeatRequestCompat(hbReq)
-		_, _, _ = tcpClient.Call(ctx, protocol.MsgHeartbeatLocalRequest, hbData)
+		hbData, marshalErr := proto.Marshal(hbReq)
+		if marshalErr != nil {
+			log.Printf("Failed to marshal ProviderHeartbeatRequest: %v", marshalErr)
+			continue
+		}
+		_, _, _ = tcpClient.Call(ctx, protocol.MsgProviderHeartbeatRequest, hbData)
 	}
 }

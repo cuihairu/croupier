@@ -218,6 +218,10 @@ type providerSessionHandler struct {
 
 // Handle processes inbound requests on a Provider TCP session.
 func (h *providerSessionHandler) Handle(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
+	if !h.registered && msgID != protocol.MsgProviderConnectRequest {
+		return nil, tcptr.NewProtocolError(fmt.Errorf("first frame must be %s, got %s", protocol.MsgIDString(protocol.MsgProviderConnectRequest), protocol.MsgIDString(msgID)))
+	}
+
 	switch msgID {
 	case protocol.MsgProviderConnectRequest:
 		return h.handleConnect(ctx, body)
