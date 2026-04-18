@@ -55,3 +55,25 @@ func TestResolveAgentID(t *testing.T) {
 		t.Fatal("resolveAgentID() returned empty id for blank config")
 	}
 }
+
+func TestAgentConfigDefaultsToTLSServerAndPlainGateway(t *testing.T) {
+	data := []byte(`
+name: croupier-agent
+server:
+  addr: "server:19090"
+agent:
+  localAddr: "127.0.0.1:19091"
+`)
+
+	var cfg AgentConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("unmarshal config: %v", err)
+	}
+
+	if cfg.Server.Insecure {
+		t.Fatal("server insecure = true, want false by default")
+	}
+	if cfg.TLS.Enabled {
+		t.Fatal("local gateway tls = true, want false by default")
+	}
+}

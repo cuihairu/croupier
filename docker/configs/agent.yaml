@@ -5,7 +5,7 @@ port: 19091
 
 server:
   addr: "server:19090"
-  insecure: true
+  insecure: false
   serverName: ""
   insecureSkipVerify: false
 

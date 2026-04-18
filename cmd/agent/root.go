@@ -208,7 +208,9 @@ func (c *AgentConfig) UnmarshalYAML(value *yaml.Node) error {
 		}
 	}
 
-	*c = AgentConfig(decoded)
+	cfg := AgentConfig(decoded)
+	applyAgentConfigDefaults(&cfg)
+	*c = cfg
 	return nil
 }
 
@@ -414,6 +416,24 @@ func isZeroAgentUpstreamConfig(cfg AgentUpstreamConfig) bool {
 func isZeroCommonLogConfig(cfg common.LogConfig) bool { return cfg == (common.LogConfig{}) }
 func isZeroAgentTLSConfig(cfg AgentTLSConfig) bool    { return cfg == (AgentTLSConfig{}) }
 func isZeroInlineTLSConfig(cfg AgentTLSConfig) bool   { return cfg == (AgentTLSConfig{}) }
+
+func applyAgentConfigDefaults(cfg *AgentConfig) {
+	if cfg == nil {
+		return
+	}
+
+	// Agent <-> Server defaults to TLS. The legacy "insecure" switch only
+	// changes this when callers explicitly opt out.
+	if strings.TrimSpace(cfg.Server.Addr) != "" && !cfg.Server.Insecure {
+		cfg.Server.Insecure = false
+	}
+
+	// SDK <-> Agent local gateway remains plain TCP by default unless TLS is
+	// explicitly configured.
+	if isZeroAgentTLSConfig(cfg.TLS) {
+		cfg.TLS.Enabled = false
+	}
+}
 
 func runAgent() error {
 	if cfgFile == "" {
