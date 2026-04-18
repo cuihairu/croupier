@@ -164,7 +164,7 @@ make dev
 
 ```bash
 ./bin/croupier-server --config configs/server.yaml
-./bin/croupier-agent --config configs/agent.example.yaml
+./bin/croupier-agent --config configs/agent.yaml
 ```
 
 5. 查看 Dashboard

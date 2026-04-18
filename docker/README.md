@@ -112,7 +112,7 @@ docker-compose build [service_name]
 ## 生产建议
 
 1. 修改默认密码与默认密钥
-2. `Agent <-> Server` 启用 TLS / mTLS
+2. `Agent <-> Server` 保持 TLS 开启，生产环境优先 mTLS
 3. 对 `19090`、`19091` 做明确网络边界控制
 4. Dashboard 与 REST API 走 HTTPS 与统一鉴权
 5. 为证书、JWT、数据库凭据接入 Secret Manager

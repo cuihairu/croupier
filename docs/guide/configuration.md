@@ -70,7 +70,7 @@ port: 19091
 
 server:
   addr: "server:8443"
-  insecure: true
+  insecure: false
 
 agent:
   id: ""
