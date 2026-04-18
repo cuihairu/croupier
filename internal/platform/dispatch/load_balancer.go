@@ -227,7 +227,7 @@ func (lb *LoadBalancer) BuildCandidates(sessions []*reg.AgentSession, functionID
 	candidates := make([]*Candidate, 0, len(sessions))
 
 	for _, session := range sessions {
-		if session == nil || session.AgentID == "" || session.RPCAddr == "" {
+		if session == nil || session.AgentID == "" {
 			continue
 		}
 

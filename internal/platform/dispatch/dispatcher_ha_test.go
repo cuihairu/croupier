@@ -352,6 +352,30 @@ func TestLoadBalancer_HealthFiltering(t *testing.T) {
 	}
 }
 
+func TestLoadBalancer_BuildCandidates_AllowsEmptyRPCAddr(t *testing.T) {
+	tracker := NewHealthTracker(nil)
+	defer tracker.Stop()
+
+	lb := NewLoadBalancer(StrategyMinID, tracker)
+	sessions := []*reg.AgentSession{
+		{
+			AgentID: "agent1",
+			RPCAddr: "",
+			Functions: map[string]reg.FunctionMeta{
+				"test-func": {Enabled: true},
+			},
+		},
+	}
+
+	candidates := lb.BuildCandidates(sessions, "test-func")
+	if len(candidates) != 1 {
+		t.Fatalf("expected 1 candidate, got %d", len(candidates))
+	}
+	if candidates[0].AgentID != "agent1" {
+		t.Fatalf("candidate agentID = %q, want %q", candidates[0].AgentID, "agent1")
+	}
+}
+
 // TestReconnectionPolicy_NextDelay tests reconnection delay calculation
 func TestReconnectionPolicy_NextDelay(t *testing.T) {
 	policy := DefaultReconnectionPolicy()
