@@ -20,7 +20,7 @@ scripts/            构建、安装、同步脚本
 tools/              辅助工具与适配器
 examples/           示例程序
 sdks/               多语言 SDK 仓库
-dashboard/          前端控制台仓库
+../croupier-dashboard/ 前端控制台仓库（独立仓库）
 ```
 
 几个重要约定：

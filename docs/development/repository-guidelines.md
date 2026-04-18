@@ -7,7 +7,7 @@ title: 仓库规范
 ## Project Structure & Module Organization
 
 - Go monorepo: binaries in `cmd/`, core implementation in `internal/`, stable exported helpers in `pkg/`.
-- Frontend UI: `dashboard/`.
+- Frontend UI: `../croupier-dashboard/`.
 - Configs & assets: `configs/`, `descriptors/`, `schemas/`, `scripts/`, `docs/`, runtime data in `data/`.
 - Protocol/IDL: `proto/`, generated stubs in `pkg/pb`.
 
@@ -18,7 +18,7 @@ title: 仓库规范
 - Generate protobuf code: `make proto`
 - Run tests: `make test`
 - Build docs: `cd docs && pnpm install && pnpm run build`
-- Build dashboard: `cd dashboard && npm ci && npm run build`
+- Build dashboard: `cd ../croupier-dashboard && npm ci && npm run build`
 
 ## Coding Style & Naming Conventions
 
@@ -30,7 +30,7 @@ title: 仓库规范
 ## Testing Guidelines
 
 - Go unit tests co-locate as `*_test.go`; prefer table-driven tests.
-- Frontend: `cd dashboard && npm run test` or `npm run test:coverage`.
+- Frontend: `cd ../croupier-dashboard && npm run test` or `npm run test:coverage`.
 - Add tests when touching RBAC, APIs, routing, analytics processing, or descriptor resolution.
 
 ## Commit & Pull Request Guidelines
