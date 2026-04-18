@@ -132,7 +132,8 @@ func (h *LocalHandler) handleRequest(ctx context.Context, msgID uint32, data []b
 	case protocol.MsgRegisterCapabilitiesReq:
 		return h.handleRegisterCapabilities(ctx, data)
 
-	// LocalControlService
+	// ProviderSession compatibility aliases. New provider-session traffic should
+	// use the dedicated TCP session listener and Provider* messages instead.
 	case protocol.MsgRegisterLocalRequest:
 		return h.handleRegisterLocal(ctx, data)
 	case protocol.MsgHeartbeatLocalRequest:
@@ -465,7 +466,7 @@ func (h *LocalHandler) handleExecuteCommand(ctx context.Context, data []byte) ([
 	return proto.Marshal(resp)
 }
 
-// handleRegisterLocal handles RegisterLocalRequest
+// handleRegisterLocal handles the legacy RegisterLocal compatibility alias.
 func (h *LocalHandler) handleRegisterLocal(ctx context.Context, data []byte) ([]byte, error) {
 	req := sdkv1.UnmarshalRegisterLocalRequest(data)
 
@@ -480,7 +481,7 @@ func (h *LocalHandler) handleRegisterLocal(ctx context.Context, data []byte) ([]
 	return sdkv1.MarshalRegisterLocalResponse(resp), nil
 }
 
-// handleHeartbeatLocal handles HeartbeatLocalRequest
+// handleHeartbeatLocal handles the legacy HeartbeatLocal compatibility alias.
 func (h *LocalHandler) handleHeartbeatLocal(ctx context.Context, data []byte) ([]byte, error) {
 	req := sdkv1.UnmarshalHeartbeatRequestCompat(data)
 

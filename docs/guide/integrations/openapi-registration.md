@@ -129,9 +129,8 @@ OpenAPI 在这里的作用是提供函数元数据来源，而不是单独定义
 
 以下概念不应再出现在新的接入文档和 SDK 设计中：
 
-- `LocalControlService`
-- `RegisterLocalRequest`
-- `RegisterLocalResponse`
+- `LocalControlService` 作为主语义入口
+- `RegisterLocalRequest` / `RegisterLocalResponse` 作为主语义入口
 - `rpc_addr`
 - SDK 本地监听端口
 - `Agent -> SDK` 回拨模型

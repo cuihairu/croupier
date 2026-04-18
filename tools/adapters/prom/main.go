@@ -18,7 +18,7 @@ import (
 )
 
 // prom-adapter implements FunctionService with function_id "prom.query_range".
-// It registers itself to the Agent's LocalControlService (via TCP) and forwards QueryRange to Prometheus HTTP API.
+// It registers itself to the Agent via the provider-session TCP handshake and forwards QueryRange to Prometheus HTTP API.
 
 type server struct {
 	prom string

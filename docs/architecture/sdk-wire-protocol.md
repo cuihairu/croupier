@@ -278,8 +278,8 @@ v1 默认规则：
 
 以下概念不应再作为新的协议实现依据：
 
-- `LocalControlService`
-- `RegisterLocalRequest`
+- `LocalControlService` 作为主语义入口
+- `RegisterLocalRequest` 作为主语义入口
 - `rpc_addr`
 - SDK 本地监听 server
 - `Server -> Agent` 回拨模型
