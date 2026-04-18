@@ -232,15 +232,24 @@ log:
 ### Agent 配置
 
 ```yaml
+name: croupier-agent
+host: 0.0.0.0
+port: 19091
+
+server:
+  addr: "localhost:19090"
+  insecure: false
+
 agent:
-  server_addr: "localhost:8443"
-  local_addr: ":19090"
-  game_id: "my-game"
+  gameId: "my-game"
   env: "dev"
-  tls:
-    ca_file: "data/ca.crt"
-    cert_file: "data/agent.crt"
-    key_file: "data/agent.key"
+  localAddr: "localhost:19091"
+
+outboundTLS:
+  enabled: true
+  caFile: "data/ca.crt"
+  certFile: "data/agent.crt"
+  keyFile: "data/agent.key"
 ```
 
 ## 验证安装
