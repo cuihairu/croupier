@@ -202,7 +202,7 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	respBytes, err := d.callAgent(ctx, agent.AgentID, agent.RPCAddr, protocol.MsgInvokeRequest, reqBytes)
+	respBytes, err := d.callAgent(ctx, agent.AgentID, protocol.MsgInvokeRequest, reqBytes)
 	if err != nil {
 		if d.healthTracker != nil {
 			d.healthTracker.RecordFailure(agent.AgentID)
@@ -264,7 +264,7 @@ func (d *Dispatcher) StartJobRequest(ctx context.Context, req *sdkv1.InvokeReque
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	respBytes, err := d.callAgent(ctx, agent.AgentID, agent.RPCAddr, protocol.MsgStartJobRequest, reqBytes)
+	respBytes, err := d.callAgent(ctx, agent.AgentID, protocol.MsgStartJobRequest, reqBytes)
 	if err != nil {
 		if d.healthTracker != nil {
 			d.healthTracker.RecordFailure(agent.AgentID)
@@ -303,7 +303,7 @@ func (d *Dispatcher) CancelJob(ctx context.Context, jobID string) error {
 		return fmt.Errorf("marshal request: %w", err)
 	}
 
-	_, err = d.callAgent(ctx, agentID, "", protocol.MsgCancelJobRequest, reqBytes)
+	_, err = d.callAgent(ctx, agentID, protocol.MsgCancelJobRequest, reqBytes)
 	if err == nil {
 		d.unregisterJob(jobID)
 	}
@@ -327,7 +327,7 @@ func (d *Dispatcher) ListFunctionAgents(functionID string) []string {
 	defer d.store.Mu().RUnlock()
 	var ids []string
 	for _, agent := range d.store.AgentsUnsafe() {
-		if agent == nil || agent.AgentID == "" || agent.RPCAddr == "" {
+		if agent == nil || agent.AgentID == "" {
 			continue
 		}
 		if !agent.ExpireAt.After(now) {
@@ -400,7 +400,7 @@ func (d *Dispatcher) pickAgent(functionID string) (*reg.AgentSession, error) {
 	// Collect all candidates
 	var candidates []*reg.AgentSession
 	for _, agent := range d.store.AgentsUnsafe() {
-		if agent == nil || agent.RPCAddr == "" {
+		if agent == nil {
 			continue
 		}
 		if !agent.ExpireAt.After(now) {
@@ -462,7 +462,7 @@ func (d *Dispatcher) pickAgentWithRouting(functionID string, metadata map[string
 	// Targeted: choose the agent that owns the service_id.
 	if serviceID != "" {
 		for _, agent := range d.store.AgentsUnsafe() {
-			if agent == nil || agent.RPCAddr == "" || !agent.ExpireAt.After(now) {
+			if agent == nil || !agent.ExpireAt.After(now) {
 				continue
 			}
 			meta, ok := agent.Functions[functionID]
@@ -480,7 +480,7 @@ func (d *Dispatcher) pickAgentWithRouting(functionID string, metadata map[string
 	if hashKey != "" {
 		cands := make([]*reg.AgentSession, 0)
 		for _, agent := range d.store.AgentsUnsafe() {
-			if agent == nil || agent.RPCAddr == "" || !agent.ExpireAt.After(now) {
+			if agent == nil || !agent.ExpireAt.After(now) {
 				continue
 			}
 			meta, ok := agent.Functions[functionID]
@@ -502,8 +502,8 @@ func (d *Dispatcher) pickAgentWithRouting(functionID string, metadata map[string
 	return d.pickAgent(functionID)
 }
 
-// callAgent sends a request to an Agent via TCP session.
-func (d *Dispatcher) callAgent(ctx context.Context, agentID, rpcAddr string, msgID uint32, reqBody []byte) ([]byte, error) {
+// callAgent sends a request to an Agent via its established TCP session.
+func (d *Dispatcher) callAgent(ctx context.Context, agentID string, msgID uint32, reqBody []byte) ([]byte, error) {
 	if d.sessionResolver == nil {
 		return nil, fmt.Errorf("session resolver not configured")
 	}

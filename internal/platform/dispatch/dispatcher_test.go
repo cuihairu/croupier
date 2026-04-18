@@ -480,8 +480,8 @@ func TestDispatcher_pickAgent_IgnoresDisabledFunctions(t *testing.T) {
 	}
 }
 
-// TestDispatcher_pickAgent_IgnoresEmptyRPCAddr 测试忽略空 RPC 地址
-func TestDispatcher_pickAgent_IgnoresEmptyRPCAddr(t *testing.T) {
+// TestDispatcher_pickAgent_AllowsEmptyRPCAddr 测试 session 路由下不再要求 RPC 地址
+func TestDispatcher_pickAgent_AllowsEmptyRPCAddr(t *testing.T) {
 	d := NewDispatcher(nil)
 	now := time.Now().Add(time.Hour)
 
@@ -494,10 +494,12 @@ func TestDispatcher_pickAgent_IgnoresEmptyRPCAddr(t *testing.T) {
 		},
 	})
 
-	_, err := d.pickAgent("test-func")
-
-	if err == nil {
-		t.Error("pickAgent() should return error when agent has empty RPC address")
+	agent, err := d.pickAgent("test-func")
+	if err != nil {
+		t.Fatalf("pickAgent() error = %v", err)
+	}
+	if agent == nil || agent.AgentID != "agent-1" {
+		t.Fatalf("pickAgent() selected %+v, want agent-1", agent)
 	}
 }
 
