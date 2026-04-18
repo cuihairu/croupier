@@ -19,19 +19,19 @@ import (
 
 // UpstreamClient manages the connection to the central Croupier Server.
 type UpstreamClient struct {
-	serverAddr string
-	agentID    string
-	store      *agentlocal.LocalStore
-	client     controlClient
-	updateCh   chan struct{}
-	gameID     string
-	env        string
-	version    string
-	rpcAddr    string
-	region     string
-	zone       string
-	labels     map[string]string
-	tlsCfg     *tlsutil.ClientTLSConfig
+	serverAddr    string
+	agentID       string
+	store         *agentlocal.LocalStore
+	client        controlClient
+	updateCh      chan struct{}
+	gameID        string
+	env           string
+	version       string
+	legacyRPCAddr string
+	region        string
+	zone          string
+	labels        map[string]string
+	tlsCfg        *tlsutil.ClientTLSConfig
 
 	// Timeouts (from config, with defaults)
 	dialTimeout       time.Duration
@@ -80,7 +80,7 @@ func NewUpstreamClient(serverAddr, agentID string, store *agentlocal.LocalStore,
 		client.gameID = meta.GameID
 		client.env = meta.Env
 		client.version = meta.Version
-		client.rpcAddr = meta.RPCAddr
+		client.legacyRPCAddr = meta.RPCAddr
 		client.region = meta.Region
 		client.zone = meta.Zone
 		if meta.Labels != nil {
@@ -125,7 +125,7 @@ type UpstreamMetadata struct {
 	GameID            string
 	Env               string
 	Version           string
-	RPCAddr           string
+	RPCAddr           string            // legacy compatibility field; session routing should not depend on it
 	Region            string            // region/zone info (e.g. "us-west-1")
 	Zone              string            // availability zone (e.g. "us-west-1a")
 	Labels            map[string]string // system metadata (os, arch, hostname, etc.)
@@ -139,7 +139,7 @@ func (c *UpstreamClient) WithMetadata(meta UpstreamMetadata) {
 	c.gameID = meta.GameID
 	c.env = meta.Env
 	c.version = meta.Version
-	c.rpcAddr = meta.RPCAddr
+	c.legacyRPCAddr = meta.RPCAddr
 	c.region = meta.Region
 	c.zone = meta.Zone
 	if meta.Labels != nil {
@@ -512,7 +512,7 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 	req := &agentv1.RegisterRequest{
 		AgentId:   c.agentID,
 		Version:   c.version,
-		RpcAddr:   c.rpcAddr,
+		RpcAddr:   c.legacyRPCAddr,
 		GameId:    c.gameID,
 		Env:       c.env,
 		Region:    c.region,
