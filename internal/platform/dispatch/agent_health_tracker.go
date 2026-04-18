@@ -100,15 +100,16 @@ func DefaultHealthCheckConfig() *HealthCheckConfig {
 	}
 }
 
-// NewAgentHealthState creates a new agent health state
-func NewAgentHealthState(agentID, addr string, config *HealthCheckConfig) *AgentHealthState {
+// NewAgentHealthState creates a new agent health state.
+// routeHint keeps a best-effort compatibility address for diagnostics only.
+func NewAgentHealthState(agentID, routeHint string, config *HealthCheckConfig) *AgentHealthState {
 	if config == nil {
 		config = DefaultHealthCheckConfig()
 	}
 
 	state := &AgentHealthState{
 		AgentID: agentID,
-		Addr:    addr,
+		Addr:    routeHint,
 		config:  config,
 	}
 	state.circuitState.Store(int32(CircuitClosed))
@@ -403,22 +404,23 @@ func (t *HealthTracker) decayScores() {
 	}
 }
 
-// RegisterAgent registers a new agent or updates an existing one
-func (t *HealthTracker) RegisterAgent(agentID, addr string) *AgentHealthState {
+// RegisterAgent registers a new agent or updates an existing one.
+// routeHint is a compatibility mirror used for observability, not routing.
+func (t *HealthTracker) RegisterAgent(agentID, routeHint string) *AgentHealthState {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	if state, ok := t.states[agentID]; ok {
 		// Update address if changed
-		if state.Addr != addr {
+		if state.Addr != routeHint {
 			state.mu.Lock()
-			state.Addr = addr
+			state.Addr = routeHint
 			state.mu.Unlock()
 		}
 		return state
 	}
 
-	state := NewAgentHealthState(agentID, addr, t.config)
+	state := NewAgentHealthState(agentID, routeHint, t.config)
 	t.states[agentID] = state
 	return state
 }
@@ -440,8 +442,9 @@ func (t *HealthTracker) GetState(agentID string) (*AgentHealthState, bool) {
 	return state, ok
 }
 
-// GetOrCreateState returns the health state for an agent, creating it if necessary
-func (t *HealthTracker) GetOrCreateState(agentID, addr string) *AgentHealthState {
+// GetOrCreateState returns the health state for an agent, creating it if necessary.
+// routeHint is retained only for diagnostics while live routing uses sessions.
+func (t *HealthTracker) GetOrCreateState(agentID, routeHint string) *AgentHealthState {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -449,7 +452,7 @@ func (t *HealthTracker) GetOrCreateState(agentID, addr string) *AgentHealthState
 		return state
 	}
 
-	state := NewAgentHealthState(agentID, addr, t.config)
+	state := NewAgentHealthState(agentID, routeHint, t.config)
 	t.states[agentID] = state
 	return state
 }

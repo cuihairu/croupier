@@ -524,9 +524,9 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 
 	agentID := resolveAgentID(strings.TrimSpace(c.Agent.ID))
 
-	rpcAddr := strings.TrimSpace(c.Agent.LocalAddr)
-	if rpcAddr == "" {
-		rpcAddr = localDisplayAddr
+	legacyRPCAddr := strings.TrimSpace(c.Agent.LocalAddr)
+	if legacyRPCAddr == "" {
+		legacyRPCAddr = localDisplayAddr
 	}
 
 	// 收集系统标签
@@ -544,7 +544,7 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 		GameID:            strings.TrimSpace(c.Agent.GameID),
 		Env:               strings.TrimSpace(c.Agent.Env),
 		Version:           Version,
-		RPCAddr:           rpcAddr,
+		RPCAddr:           legacyRPCAddr,
 		Region:            "",
 		Zone:              "",
 		Labels:            labels,

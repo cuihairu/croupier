@@ -12,6 +12,7 @@ import (
 )
 
 // AgentSessionDB represents the database model for agent sessions.
+// RPCAddr is retained as a legacy compatibility column until storage is migrated.
 type AgentSessionDB struct {
 	ID        uint           `gorm:"primaryKey"`
 	AgentID   string         `gorm:"size:64;uniqueIndex;not null"`
@@ -97,6 +98,7 @@ func (m *AgentSessionModel) DeleteExpired(ctx context.Context) (int64, error) {
 }
 
 // toDomainSession converts a DB session to a registry.AgentSession.
+// RPCAddr is restored only as a compatibility mirror for older consumers.
 func toDomainSession(dbSess *AgentSessionDB) (*registry.AgentSession, error) {
 	sess := &registry.AgentSession{
 		AgentID:  dbSess.AgentID,
@@ -128,6 +130,7 @@ func toDomainSession(dbSess *AgentSessionDB) (*registry.AgentSession, error) {
 }
 
 // toDBSession converts a registry.AgentSession to a DB session.
+// RPCAddr continues to dual-write into the legacy column for compatibility.
 func toDBSession(sess *registry.AgentSession) (*AgentSessionDB, error) {
 	dbSess := &AgentSessionDB{
 		AgentID:  sess.AgentID,
