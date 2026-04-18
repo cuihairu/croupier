@@ -122,7 +122,7 @@ Croupier 当前的核心传输抽象不是 `NNG pattern`，而是轻量的应用
 | --- | --- | --- |
 | Server / Agent | `cmd/`, `internal/` | 控制面、代理、调度、审计、注册与作业 |
 | Proto | `proto/` | protobuf 定义与生成入口 |
-| Dashboard | `dashboard/` | Web 控制台 |
+| Dashboard | `../croupier-dashboard/` | Web 控制台（独立仓库） |
 | Examples / Tools | `examples/`, `tools/` | 示例和辅助工具 |
 | Docs | `docs/` | 架构、指南、API 与 SDK 文档 |
 
@@ -170,7 +170,7 @@ make dev
 5. 查看 Dashboard
 
 ```bash
-cd dashboard
+cd ../croupier-dashboard
 pnpm install
 pnpm dev
 ```
