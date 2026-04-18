@@ -241,7 +241,9 @@ func (h *agentSessionHandler) handleRegister(ctx context.Context, body []byte) (
 	}
 	expireAt := time.Now().Add(ttl)
 
-	// Create Agent session
+	// Create Agent session. RpcAddr is kept only as a legacy compatibility
+	// mirror from the register request; the active TCP session is the primary
+	// runtime route.
 	sess := &AgentSession{
 		conn:        h.conn,
 		AgentID:     req.AgentId,

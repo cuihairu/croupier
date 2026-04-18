@@ -26,6 +26,7 @@ func TestStore_UpsertAgent(t *testing.T) {
 		assert.NotNil(t, retrieved)
 		assert.Equal(t, "agent-1", retrieved.AgentID)
 		assert.Equal(t, "game-1", retrieved.GameID)
+		assert.Equal(t, "localhost:19090", retrieved.RPCAddr)
 	})
 
 	t.Run("update existing agent", func(t *testing.T) {
@@ -45,6 +46,27 @@ func TestStore_UpsertAgent(t *testing.T) {
 		retrieved := store.AgentsUnsafe()["agent-2"]
 		assert.Equal(t, "2.0.0", retrieved.Version)
 		assert.Equal(t, "us-west", retrieved.Region)
+	})
+
+	t.Run("update compatibility rpc addr mirror", func(t *testing.T) {
+		agent := &AgentSession{
+			AgentID: "agent-3",
+			GameID:  "game-3",
+			Env:     "test",
+			RPCAddr: "legacy-a",
+		}
+		store.UpsertAgent(agent)
+
+		updated := &AgentSession{
+			AgentID: "agent-3",
+			GameID:  "game-3",
+			Env:     "test",
+			RPCAddr: "legacy-b",
+		}
+		store.UpsertAgent(updated)
+
+		retrieved := store.AgentsUnsafe()["agent-3"]
+		assert.Equal(t, "legacy-b", retrieved.RPCAddr)
 	})
 }
 

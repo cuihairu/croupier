@@ -33,6 +33,8 @@ type ProviderSession struct {
 }
 
 // AgentSession represents a registered agent instance in the registry.
+// RPCAddr is retained only as a compatibility mirror while the runtime moves
+// to session-first routing.
 type AgentSession struct {
 	AgentID   string
 	GameID    string
@@ -141,7 +143,8 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 		s.agents[a.AgentID] = a
 		return
 	}
-	// merge minimal fields
+	// Merge minimal fields. RPCAddr remains a compatibility mirror and should
+	// not be treated as the primary runtime route.
 	cur.GameID, cur.Env, cur.RPCAddr, cur.Version = a.GameID, a.Env, a.RPCAddr, a.Version
 	cur.Region, cur.Zone = a.Region, a.Zone
 	// merge labels: new labels replace old ones

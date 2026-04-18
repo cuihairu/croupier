@@ -32,7 +32,8 @@ type AgentSession struct {
 	// Version is the agent's reported version.
 	Version string
 
-	// RPCAddr is the legacy field, kept for backward compatibility during migration.
+	// RPCAddr mirrors the legacy compatibility address published during register.
+	// Session routing should prefer the live TCP session instead of this field.
 	RPCAddr string
 
 	// ConnectedAt is the time the session was established.

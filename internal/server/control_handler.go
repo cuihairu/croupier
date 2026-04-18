@@ -272,7 +272,7 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 		AgentID:   req.AgentId,
 		GameID:    req.GameId,
 		Env:       req.Env,
-		RPCAddr:   req.RpcAddr,
+		RPCAddr:   req.RpcAddr, // legacy compatibility address; session routing should not depend on it
 		Version:   req.Version,
 		Region:    "",
 		Zone:      "",
