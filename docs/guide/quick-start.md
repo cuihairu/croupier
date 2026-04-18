@@ -73,7 +73,7 @@ cp configs/agent.local.yaml configs/agent.runtime.yaml
 ### 3. 启动 Dashboard（可选）
 
 ```bash
-cd dashboard
+cd ../croupier-dashboard
 pnpm install
 pnpm dev
 ```
