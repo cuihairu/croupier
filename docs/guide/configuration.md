@@ -69,14 +69,14 @@ host: 0.0.0.0
 port: 19091
 
 server:
-  addr: "server:8443"
+  addr: "server:19090"
   insecure: false
 
 agent:
   id: ""
   gameId: ""
   env: ""
-  localAddr: "agent:19090"
+  localAddr: "agent:19091"
   httpAddr: "agent:19091"
 
 upstream:
@@ -85,7 +85,7 @@ upstream:
   maxRetries: 3
   timeout: 10000
 
-tls:
+outboundTLS:
   enabled: false
 ```
 
