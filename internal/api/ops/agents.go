@@ -48,6 +48,7 @@ func (s *AgentService) List(ctx context.Context, gameId, env, status string) ([]
 
 		agents = append(agents, OpsAgentInfo{
 			AgentID:   sess.AgentID,
+			Addr:      sess.RPCAddr,
 			RPCAddr:   sess.RPCAddr,
 			GameID:    sess.GameID,
 			Env:       sess.Env,

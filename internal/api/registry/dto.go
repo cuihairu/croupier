@@ -16,7 +16,8 @@ type RegistryAgent struct {
 	AgentID      string `json:"agentId"`
 	GameID       string `json:"gameId"`
 	Env          string `json:"env"`
-	RpcAddr      string `json:"rpcAddr"`
+	Addr         string `json:"addr"`
+	RpcAddr      string `json:"rpcAddr"` // compatibility alias; prefer "addr"
 	Functions    int    `json:"functions"`
 	Healthy      bool   `json:"healthy"`
 	ExpiresInSec int    `json:"expiresInSec"`

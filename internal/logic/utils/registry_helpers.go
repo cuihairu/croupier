@@ -41,7 +41,7 @@ func BuildOpsAgentSnapshot(sess *reg.AgentSession) map[string]interface{} {
 		"env":       sess.Env,
 		"type":      firstNonEmpty(sess.Labels["type"], "agent"),
 		"addr":      sess.RPCAddr,
-		"rpc_addr":  sess.RPCAddr,
+		"rpc_addr":  sess.RPCAddr, // compatibility alias; prefer "addr"
 		"ip":        guessAgentIP(sess.RPCAddr),
 		"version":   sess.Version,
 		"region":    sess.Region,

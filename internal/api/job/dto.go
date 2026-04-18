@@ -21,7 +21,8 @@ type JobItem struct {
 	State      string `json:"state,omitempty"`
 	GameID     string `json:"game_id,omitempty"`
 	Env        string `json:"env,omitempty"`
-	RPCAddr    string `json:"rpc_addr,omitempty"`
+	Addr       string `json:"addr,omitempty"`
+	RPCAddr    string `json:"rpc_addr,omitempty"` // compatibility alias; prefer "addr"
 	StartedAt  string `json:"started_at,omitempty"`
 	EndedAt    string `json:"ended_at,omitempty"`
 	DurationMs int64  `json:"duration_ms,omitempty"`

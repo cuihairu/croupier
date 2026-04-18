@@ -778,6 +778,8 @@ func TestBuildOpsAgentSnapshot(t *testing.T) {
 	assert.Equal(t, "agent-1", result["id"])
 	assert.Equal(t, "game1", result["game_id"])
 	assert.Equal(t, "prod", result["env"])
+	assert.Equal(t, "192.168.1.1:8080", result["addr"])
+	assert.Equal(t, "192.168.1.1:8080", result["rpc_addr"])
 	assert.Equal(t, "192.168.1.1", result["ip"])
 	assert.Equal(t, 1, result["functions"]) // Only enabled functions counted
 	assert.Equal(t, true, result["healthy"])

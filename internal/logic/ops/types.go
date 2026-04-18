@@ -25,7 +25,8 @@ type OpsAgentInfo struct {
 	GameID    string            `json:"gameId"`
 	Env       string            `json:"env"`
 	Version   string            `json:"version"`
-	RPCAddr   string            `json:"rpcAddr"`
+	Addr      string            `json:"addr"`
+	RPCAddr   string            `json:"rpcAddr"` // compatibility alias; prefer "addr"
 	Connected bool              `json:"connected"`
 	LastSeen  string            `json:"lastSeen"`
 	Functions []string          `json:"functions"`
