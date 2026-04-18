@@ -2,7 +2,7 @@ package jobs
 
 import "sync"
 
-// Router maps job_id to agent RPC address for streaming.
+// Router maps job_id to agentID for streaming and cancellation routing.
 type Router struct {
 	mu sync.RWMutex
 	m  map[string]string
@@ -10,10 +10,10 @@ type Router struct {
 
 func NewRouter() *Router { return &Router{m: map[string]string{}} }
 
-func (r *Router) Set(jobID, rpcAddr string) {
+func (r *Router) Set(jobID, agentID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.m[jobID] = rpcAddr
+	r.m[jobID] = agentID
 }
 
 func (r *Router) Get(jobID string) (string, bool) {

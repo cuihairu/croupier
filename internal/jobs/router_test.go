@@ -21,15 +21,15 @@ func TestRouter_SetAndGet(t *testing.T) {
 	r := NewRouter()
 
 	// 设置路由
-	r.Set("job1", "agent1:8080")
+	r.Set("job1", "agent-1")
 
 	// 获取路由
-	addr, ok := r.Get("job1")
+	agentID, ok := r.Get("job1")
 	if !ok {
 		t.Error("Get failed: job not found")
 	}
-	if addr != "agent1:8080" {
-		t.Errorf("Get returned wrong address: got %s, want agent1:8080", addr)
+	if agentID != "agent-1" {
+		t.Errorf("Get returned wrong agentID: got %s, want agent-1", agentID)
 	}
 }
 
@@ -48,18 +48,18 @@ func TestRouter_Update(t *testing.T) {
 	r := NewRouter()
 
 	// 设置初始值
-	r.Set("job1", "agent1:8080")
+	r.Set("job1", "agent-1")
 
 	// 更新值
-	r.Set("job1", "agent2:9090")
+	r.Set("job1", "agent-2")
 
 	// 验证更新
-	addr, ok := r.Get("job1")
+	agentID, ok := r.Get("job1")
 	if !ok {
 		t.Fatal("Get failed: job not found")
 	}
-	if addr != "agent2:9090" {
-		t.Errorf("Get returned wrong address after update: got %s, want agent2:9090", addr)
+	if agentID != "agent-2" {
+		t.Errorf("Get returned wrong agentID after update: got %s, want agent-2", agentID)
 	}
 }
 
@@ -68,28 +68,28 @@ func TestRouter_MultipleJobs(t *testing.T) {
 	r := NewRouter()
 
 	jobs := []struct {
-		id   string
-		addr string
+		id      string
+		agentID string
 	}{
-		{"job1", "agent1:8080"},
-		{"job2", "agent2:8080"},
-		{"job3", "agent3:8080"},
+		{"job1", "agent-1"},
+		{"job2", "agent-2"},
+		{"job3", "agent-3"},
 	}
 
 	// 设置所有任务
 	for _, job := range jobs {
-		r.Set(job.id, job.addr)
+		r.Set(job.id, job.agentID)
 	}
 
 	// 验证所有任务
 	for _, job := range jobs {
-		addr, ok := r.Get(job.id)
+		agentID, ok := r.Get(job.id)
 		if !ok {
 			t.Errorf("Job %s not found", job.id)
 			continue
 		}
-		if addr != job.addr {
-			t.Errorf("Job %s: got %s, want %s", job.id, addr, job.addr)
+		if agentID != job.agentID {
+			t.Errorf("Job %s: got %s, want %s", job.id, agentID, job.agentID)
 		}
 	}
 }
@@ -109,8 +109,8 @@ func TestRouter_ConcurrentAccess(t *testing.T) {
 			defer wg.Done()
 			for j := 0; j < numOps; j++ {
 				jobID := "job" + string(rune(idx%10))
-				addr := "agent" + string(rune(idx%10)) + ":8080"
-				r.Set(jobID, addr)
+				agentID := "agent-" + string(rune(idx%10))
+				r.Set(jobID, agentID)
 			}
 		}(i)
 	}
