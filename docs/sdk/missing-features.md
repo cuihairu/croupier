@@ -1,7 +1,7 @@
 # Croupier SDK 重构执行清单
 
-更新时间：2026-04-14
-状态：SDK 文档基线已更新，代码与各语言仓库待逐个落地
+更新时间：2026-04-18
+状态：主仓库功能对齐已完成，剩余以文档同步与独立仓库尾项为主
 
 ## 文档入口
 
@@ -36,14 +36,14 @@ SDK 侧这轮重构只做四件事：
 
 ## S0. 统一协议与配置基线
 
-- [ ] 统一所有 SDK 的 `0x05xx` 语义为 `ProviderSession`
-- [ ] 统一所有 SDK 的 header 编解码
-- [ ] 统一 `FrameLength + Header + Body` framing
-- [ ] 统一 `ProviderConnect/Heartbeat/Drain` 消息语义
-- [ ] 统一 `invoke/startJob/streamJob/cancelJob` 语义
-- [ ] 统一默认地址语义为 Agent 本地 gateway 地址
-- [ ] 统一 TLS 字段命名
-- [ ] 统一 reconnect / heartbeat / backpressure 字段命名
+- [x] 统一所有 SDK 的 `0x05xx` 语义为 `ProviderSession`
+- [x] 统一所有 SDK 的 header 编解码
+- [x] 统一 `FrameLength + Header + Body` framing
+- [x] 统一 `ProviderConnect/Heartbeat/Drain` 消息语义
+- [x] 统一 `invoke/startJob/streamJob/cancelJob` 语义
+- [x] 统一默认地址语义为 Agent 本地 gateway 地址
+- [x] 统一 TLS 字段命名
+- [x] 统一 reconnect / heartbeat / backpressure 字段命名
 
 验收标准：
 
@@ -111,12 +111,12 @@ SDK 侧这轮重构只做四件事：
 
 ## S5. 清理旧模型
 
-- [ ] 清理 `LocalControl`
-- [ ] 清理 `RegisterLocal`
-- [ ] 清理 `rpc_addr`
-- [ ] 清理 `local_listen`
-- [ ] 清理 SDK 本地 `NNGServer`
-- [ ] 清理 SDK 本地 `gRPC server`
+- [x] 清理 `LocalControl`
+- [x] 清理 `RegisterLocal`
+- [x] 清理 `rpc_addr`
+- [x] 清理 `local_listen`
+- [x] 清理 SDK 本地 `NNGServer`
+- [x] 清理 SDK 本地 `gRPC server`
 - [ ] 清理 README / 示例 / CI 中的旧接入描述
 
 验收标准：
@@ -125,47 +125,47 @@ SDK 侧这轮重构只做四件事：
 
 ## G1. Go SDK
 
-- [ ] 作为首个参考实现完成独立 `tcp session`
-- [ ] 对齐 `ProviderSession`
-- [ ] 对齐 JSON payload
-- [ ] 对齐 TLS / reconnect / drain 语义
-- [ ] 作为其他语言 SDK 的协议样板
+- [x] 作为首个参考实现完成独立 `tcp session`
+- [x] 对齐 `ProviderSession`
+- [x] 对齐 JSON payload
+- [x] 对齐 TLS / reconnect / drain 语义
+- [x] 作为其他语言 SDK 的协议样板
 
 ## P1. Python SDK
 
-- [ ] 用独立 `tcp session` 替换默认 `pynng`
-- [ ] 打通 provider session
-- [ ] 对齐 JSON payload、TLS、重连、drain
+- [x] 用独立 `tcp session` 替换默认 `pynng`
+- [x] 打通 provider session
+- [x] 对齐 JSON payload、TLS、重连、drain
 - [ ] 更新示例与打包说明
 
 ## J1. JS/TS SDK
 
-- [ ] 用独立 `tcp session` 替换默认 `@rustup/nng`
-- [ ] 打通 provider session
-- [ ] 对齐 JSON payload、TLS、重连、drain
+- [x] 用独立 `tcp session` 替换默认 `@rustup/nng`
+- [x] 打通 provider session
+- [x] 对齐 JSON payload、TLS、重连、drain
 - [ ] 更新 README、Node/Bun 浏览器边界说明
 
 ## C1. C# SDK
 
-- [ ] 用独立 `tcp session` 替换默认 `nng.NET`
-- [ ] 打通 provider session
-- [ ] 对齐 JSON payload、TLS、重连、drain
-- [ ] 清理反射加载 `nng.NET` 的主路径依赖
+- [x] 用独立 `tcp session` 替换默认 `nng.NET`
+- [x] 打通 provider session
+- [x] 对齐 JSON payload、TLS、重连、drain
+- [x] 清理反射加载 `nng.NET` 的主路径依赖
 
 ## J2. Java SDK
 
-- [ ] 去掉 TODO / mock / 占位调用路径
-- [ ] 接入真实 `tcp session transport`
-- [ ] 打通 provider session
-- [ ] 对齐 JSON payload、TLS、重连、drain
+- [x] 去掉 TODO / mock / 占位调用路径
+- [x] 接入真实 `tcp session transport`
+- [x] 打通 provider session
+- [x] 对齐 JSON payload、TLS、重连、drain
 - [ ] 完善 Java 17 下的集成测试
 
 ## C2. C++ SDK
 
-- [ ] 清理 README 与代码中的历史 `gRPC/NNG server` 心智
-- [ ] 接入独立 `tcp session`
-- [ ] 打通 provider session
-- [ ] 对齐 JSON payload、TLS、重连、drain
+- [x] 清理 README 与代码中的历史 `gRPC/NNG server` 心智
+- [x] 接入独立 `tcp session`
+- [x] 打通 provider session
+- [x] 对齐 JSON payload、TLS、重连、drain
 - [ ] 清理“启动本地服务”的旧 API 语义
 
 ## S6. 统一配置字段
