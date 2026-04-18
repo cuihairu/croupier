@@ -115,13 +115,13 @@ git submodule update --init --recursive
 
 ```bash
 # 构建镜像
-docker-compose build
+docker compose build
 
 # 启动服务
-docker-compose up -d
+docker compose up -d
 
 # 查看日志
-docker-compose logs -f
+docker compose logs -f
 ```
 
 #### 单独部署
@@ -133,7 +133,7 @@ docker build -t croupier-server:latest -f docker/Dockerfile.server .
 # 运行 Server
 docker run -d \
   --name croupier-server \
-  -p 8443:8443 \
+  -p 19090:19090 \
   -p 18780:18780 \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/configs:/app/configs \
@@ -176,7 +176,7 @@ go get github.com/cuihairu/croupier-sdk-go@latest
 vcpkg install croupier-sdk-cpp
 
 # 或从源码构建
-cd sdks/cpp
+cd sdks/croupier-sdk-cpp
 mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make install
