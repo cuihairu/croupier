@@ -46,9 +46,9 @@ clone-dashboard:
 clone-all: clone-sdks clone-dashboard
 	@echo "[done] all dependencies cloned"
 
-# Sync proto files from croupier-proto
+# Sync proto files from remote
 sync-proto:
-	@echo "[sync] updating proto/ from croupier-proto..."
+	@echo "[sync] updating proto/ from latest..."
 	@cd proto && git fetch origin && \
 		if git rev-parse --abbrev-ref HEAD > /dev/null 2>&1; then \
 			git pull origin $$(git rev-parse --abbrev-ref HEAD); \
@@ -215,7 +215,7 @@ help:
 	@echo "Core Targets:"
 	@echo "  all              - Build server, SDKs, and web components"
 	@echo "  build            - Build server components (server, agent, worker, ingest)"
-	@echo "  sync-proto       - Sync proto files from croupier-proto"
+	@echo "  sync-proto       - Sync proto files from remote"
 	@echo "  proto            - Generate protobuf code"
 	@echo ""
 	@echo "Server Targets:"

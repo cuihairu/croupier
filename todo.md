@@ -55,8 +55,23 @@
 
 ## 未完成
 
+### Transport 迁移（高优先级）
+
+经过 2026-04-19 检查，发现除 Python SDK 外，所有 SDK 仍在使用 NNG transport，未完成 TCP session 迁移：
+
+- [ ] **Go SDK**: `pkg/croupier/transport/` 仍在使用 `go.nanomsg.org/mangos/v3`
+- [ ] **JS SDK**: `src/transport.ts` 仍在使用 `@rustup/nng`（Jest 警告的根本原因）
+- [ ] **Java SDK**: `transport/NNGTransport.java` 仍在使用 NNG
+- [ ] **C# SDK**: `Transport/NNGTransport.cs` 仍在使用 NNG
+- [ ] **C++ SDK**: `src/nng_transport.cpp` 仍在使用 NNG
+
+参考实现：
+- ✅ **Python SDK**: `croupier/transport/tcp.py` 已完成 TCP session 迁移
+- ✅ **主仓库**: `internal/transport/tcp/` 已有共享 TCP transport 实现
+
+### 其他任务
+
 - [ ] SDK 文档中提到历史 `StartJob` / `RegisterLocal` / `local_listen` 的内容需要统一改写为当前设计说明（主要文档已更新为说明废弃概念）。
-- [ ] JS Jest 测试虽然通过，但仍报告未关闭异步句柄警告，需要单独收口测试清理。
 - [ ] C# SDK 生成代码 (Gen 目录) 需要重新生成以反映最新的 proto 更改。
 - [ ] `TaskEvent` 上行接收后回写 `task_runs` / `task_events` 的闭环仍需完成。
 - [ ] `Dispatcher.StreamTask` 仍需改为基于持久化 `task_events` 的正式查询路径。
