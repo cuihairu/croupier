@@ -23,7 +23,7 @@ func main() {
 	defer taskStore.Close()
 
 	// Create dispatcher with persistent task store
-	dispatcher := dispatch.NewDispatcherWithTaskStore(registryStore, taskStore)
+	dispatcher := dispatch.NewDispatcherWithTaskStore(registryStore, taskStore, nil)
 	defer dispatcher.Close()
 
 	// Simulate task routing

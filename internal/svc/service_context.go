@@ -270,7 +270,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 				taskStore = store
 			}
 		}
-		ctx.Dispatcher = dispatch.NewDispatcherWithTaskStore(ctx.RegistryStore, taskStore)
+		ctx.Dispatcher = dispatch.NewDispatcherWithTaskStore(ctx.RegistryStore, taskStore, nil)
 
 		if ttlStr := strings.TrimSpace(ctx.Config.AgentDispatch.TaskRoutingTTL); ttlStr != "" {
 			if ttl, err := time.ParseDuration(ttlStr); err != nil {
