@@ -723,7 +723,7 @@ func TestDispatcher_UnregisterTask(t *testing.T) {
 // TestDispatcher_unregisterTask 测试内部注销任务方法
 func TestDispatcher_unregisterTask_WithStore(t *testing.T) {
 	store := NewMemoryTaskRoutingStore()
-	d := NewDispatcherWithTaskStore(nil, store)
+	d := NewDispatcherWithTaskStore(nil, store, nil)
 
 	taskID := "test-task"
 	agentID := "agent-test"
