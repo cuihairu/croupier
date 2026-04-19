@@ -35,6 +35,7 @@
 - [x] Python SDK runtime/tests 已改为 `Provider*`，删除 `local_listen/rpc_addr` 回拨字段和旧 `agent/local/v1` generated proto，`PYTHONPATH=. pytest -q` 通过 247 个测试、跳过 8 个。
 - [x] C# SDK runtime/proto/generated/tests 已改为 `Task*` 与 `Provider*`，`dotnet test Croupier.Sdk.sln --no-restore` 通过 330 个测试。
 - [x] SDK 文档中的 `Job*` / `RegisterLocal` / `local_listen` 表述已全部改为 `Task*` / `Provider*` 并删除旧配置字段（API docs、integration guides、proto READMEs、配置文档）。
+- [x] 架构文档中的 `Job*` / `StartJobRequest` / `CancelJobRequest` / `JobEvent` 已全部改为 `Task*` 命名（SDK_SPECIFICATION.md、架构设计文档、proto READMEs）。
 
 ## 正在推进
 
