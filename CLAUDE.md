@@ -81,10 +81,10 @@ Web UI → Server (HTTP) → Load Balancer → Agent → Game Server
 - Environment prefixes: `CROUPIER_SERVER_*`, `CROUPIER_AGENT_*`
 - Config validation: `./croupier config test`
 
-**Idempotency & Job Model:**
+**Idempotency & Task Model:**
 - All operations support `idempotency-key` to prevent duplicate side effects
-- Async jobs with event streaming (progress/logs/done/error)
-- Job cancellation via `CancelJob` RPC
+- Async tasks with event streaming (progress/logs/done/error)
+- Task cancellation via `CancelTask` RPC
 
 **Build Tags for Features:**
 - `pg` tag: PostgreSQL support for approvals

@@ -19,7 +19,6 @@ import (
 	"github.com/cuihairu/croupier/internal/api/function"
 	"github.com/cuihairu/croupier/internal/api/functioncall"
 	"github.com/cuihairu/croupier/internal/api/game"
-	"github.com/cuihairu/croupier/internal/api/job"
 	"github.com/cuihairu/croupier/internal/api/message"
 	"github.com/cuihairu/croupier/internal/api/meta"
 	"github.com/cuihairu/croupier/internal/api/monitoring"
@@ -37,6 +36,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/routes"
 	"github.com/cuihairu/croupier/internal/api/schema"
 	"github.com/cuihairu/croupier/internal/api/storage"
+	"github.com/cuihairu/croupier/internal/api/task"
 	"github.com/cuihairu/croupier/internal/api/terms"
 	"github.com/cuihairu/croupier/internal/api/ticket"
 	"github.com/cuihairu/croupier/internal/api/workspace"
@@ -65,10 +65,10 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerFunctionRoutes(protected.Group("/functions"), serverCtx)
 		registerFunctionCallRoutes(protected.Group("/function-calls"), serverCtx)
 		registerGameRoutes(protected.Group("/games"), serverCtx)
-		registerJobRoutes(protected.Group("/jobs"), serverCtx)
 		registerNodeRoutes(protected.Group("/nodes"), serverCtx)
 		registerOpsRoutes(protected.Group("/ops"), serverCtx)
 		registerStorageRoutes(protected.Group("/storage"), serverCtx)
+		registerTaskRoutes(protected.Group("/tasks"), serverCtx)
 
 		// 剩余模块路由
 		registerAgentRoutes(protected.Group("/agent"), serverCtx)
@@ -290,19 +290,19 @@ func registerGameRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 }
 
 // ============================================================================
-// Job 路由注册
+// Task 路由注册
 // ============================================================================
-func registerJobRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
-	jobSvc := job.NewService(ctx)
-	jobHandler := job.NewHandler(jobSvc)
-	g.GET("", jobHandler.List)
-	g.GET("/", jobHandler.List)
-	g.POST("", jobHandler.Start)
-	g.POST("/", jobHandler.Start)
-	g.POST("/cancel", jobHandler.CancelByBody)
-	g.POST("/:id/cancel", jobHandler.Cancel)
-	g.GET("/:id/result", jobHandler.Result)
-	g.GET("/:id/stream", jobHandler.Stream)
+func registerTaskRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	taskSvc := task.NewService(ctx)
+	taskHandler := task.NewHandler(taskSvc)
+	g.GET("", taskHandler.List)
+	g.GET("/", taskHandler.List)
+	g.POST("", taskHandler.Start)
+	g.POST("/", taskHandler.Start)
+	g.POST("/cancel", taskHandler.CancelByBody)
+	g.POST("/:id/cancel", taskHandler.Cancel)
+	g.GET("/:id", taskHandler.Detail)
+	g.GET("/:id/events", taskHandler.Events)
 }
 
 // ============================================================================

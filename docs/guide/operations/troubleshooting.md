@@ -150,7 +150,7 @@ x509: certificate is not valid for any names
 如果你在日志、配置或文档中看到以下概念，优先怀疑走到了旧路径：
 
 - `gRPC`
-- `NNG REQ/REP`
+- `历史 REQ/REP`
 - `LocalControlService`
 - `RegisterLocal`
 - `rpc_addr`

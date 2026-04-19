@@ -118,7 +118,7 @@ Agent sync payload 需要解决：
 - `function`
 - `provider`
 - `workflow`
-- `job`
+- `task`
 
 ---
 

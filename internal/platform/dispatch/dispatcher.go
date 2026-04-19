@@ -30,8 +30,8 @@ type AgentSessionResolver interface {
 type Dispatcher struct {
 	store         *reg.Store
 	mu            sync.RWMutex
-	jobRouting    map[string]string // jobID -> agentID (in-memory cache)
-	jobStore      JobRoutingStore   // persistent storage for job routing
+	taskRouting   map[string]string // taskID -> agentID (in-memory cache)
+	taskStore     TaskRoutingStore  // persistent storage for task routing
 	dialTimeout   time.Duration
 	invokeTimeout time.Duration
 	tlsCfg        *tlsutil.ClientTLSConfig
@@ -46,29 +46,29 @@ type Dispatcher struct {
 }
 
 func NewDispatcher(store *reg.Store) *Dispatcher {
-	return NewDispatcherWithJobStore(store, nil)
+	return NewDispatcherWithTaskStore(store, nil)
 }
 
-// NewDispatcherWithJobStore creates a new Dispatcher with optional job routing store
-func NewDispatcherWithJobStore(store *reg.Store, jobStore JobRoutingStore) *Dispatcher {
-	return NewDispatcherWithHA(store, jobStore, false, StrategyMinID, nil)
+// NewDispatcherWithTaskStore creates a new Dispatcher with optional task routing store
+func NewDispatcherWithTaskStore(store *reg.Store, taskStore TaskRoutingStore) *Dispatcher {
+	return NewDispatcherWithHA(store, taskStore, false, StrategyMinID, nil)
 }
 
 // NewDispatcherWithHA creates a new Dispatcher with HA features enabled
-func NewDispatcherWithHA(store *reg.Store, jobStore JobRoutingStore, haEnabled bool, strategy LoadBalanceStrategy, healthConfig *HealthCheckConfig) *Dispatcher {
+func NewDispatcherWithHA(store *reg.Store, taskStore TaskRoutingStore, haEnabled bool, strategy LoadBalanceStrategy, healthConfig *HealthCheckConfig) *Dispatcher {
 	if store == nil {
 		store = reg.NewStore()
 	}
 
-	// Default to memory store if none provided
-	if jobStore == nil {
-		jobStore = NewMemoryJobRoutingStore()
+	// Default to memory store if none provided.
+	if taskStore == nil {
+		taskStore = NewMemoryTaskRoutingStore()
 	}
 
 	d := &Dispatcher{
 		store:         store,
-		jobRouting:    map[string]string{},
-		jobStore:      jobStore,
+		taskRouting:   map[string]string{},
+		taskStore:     taskStore,
 		dialTimeout:   5 * time.Second,
 		invokeTimeout: 15 * time.Second,
 		haEnabled:     haEnabled,
@@ -84,8 +84,8 @@ func NewDispatcherWithHA(store *reg.Store, jobStore JobRoutingStore, haEnabled b
 		d.healthTracker.Start()
 	}
 
-	// Load existing job routing from persistent store
-	d.loadJobRouting()
+	// Load existing task routing from persistent store.
+	d.loadTaskRouting()
 
 	return d
 }
@@ -225,19 +225,19 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 	return resp, nil
 }
 
-func (d *Dispatcher) StartJob(ctx context.Context, functionID string, payload []byte) (string, error) {
-	resp, err := d.StartJobRequest(ctx, &sdkv1.InvokeRequest{
+func (d *Dispatcher) StartTask(ctx context.Context, functionID string, payload []byte) (string, error) {
+	resp, err := d.StartTaskRequest(ctx, &sdkv1.InvokeRequest{
 		FunctionId: functionID,
 		Payload:    payload,
 	})
 	if err != nil {
 		return "", err
 	}
-	return resp.GetJobId(), nil
+	return resp.GetTaskId(), nil
 }
 
-// StartJobRequest forwards a structured InvokeRequest to the agent StartJob RPC.
-func (d *Dispatcher) StartJobRequest(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartJobResponse, error) {
+// StartTaskRequest forwards a structured InvokeRequest to the agent StartTask RPC.
+func (d *Dispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
 	if req == nil || req.GetFunctionId() == "" {
 		return nil, fmt.Errorf("function id is required")
 	}
@@ -264,7 +264,7 @@ func (d *Dispatcher) StartJobRequest(ctx context.Context, req *sdkv1.InvokeReque
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	respBytes, err := d.callAgent(ctx, agent.AgentID, protocol.MsgStartJobRequest, reqBytes)
+	respBytes, err := d.callAgent(ctx, agent.AgentID, protocol.MsgStartTaskRequest, reqBytes)
 	if err != nil {
 		if d.healthTracker != nil {
 			d.healthTracker.RecordFailure(agent.AgentID)
@@ -272,7 +272,7 @@ func (d *Dispatcher) StartJobRequest(ctx context.Context, req *sdkv1.InvokeReque
 		return nil, err
 	}
 
-	resp := &sdkv1.StartJobResponse{}
+	resp := &sdkv1.StartTaskResponse{}
 	if err := proto.Unmarshal(respBytes, resp); err != nil {
 		if d.healthTracker != nil {
 			d.healthTracker.RecordFailure(agent.AgentID)
@@ -284,39 +284,39 @@ func (d *Dispatcher) StartJobRequest(ctx context.Context, req *sdkv1.InvokeReque
 		d.healthTracker.RecordSuccess(agent.AgentID)
 	}
 
-	if jobID := resp.GetJobId(); jobID != "" {
-		d.registerJob(jobID, agent.AgentID)
+	if taskID := resp.GetTaskId(); taskID != "" {
+		d.registerTask(taskID, agent.AgentID)
 	}
 
 	return resp, nil
 }
 
-func (d *Dispatcher) CancelJob(ctx context.Context, jobID string) error {
-	agentID, err := d.jobAddr(jobID)
+func (d *Dispatcher) CancelTask(ctx context.Context, taskID string) error {
+	agentID, err := d.taskAgentID(taskID)
 	if err != nil {
 		return err
 	}
 
-	req := &sdkv1.CancelJobRequest{JobId: jobID}
+	req := &sdkv1.CancelTaskRequest{TaskId: taskID}
 	reqBytes, err := proto.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("marshal request: %w", err)
 	}
 
-	_, err = d.callAgent(ctx, agentID, protocol.MsgCancelJobRequest, reqBytes)
+	_, err = d.callAgent(ctx, agentID, protocol.MsgCancelTaskRequest, reqBytes)
 	if err == nil {
-		d.unregisterJob(jobID)
+		d.unregisterTask(taskID)
 	}
 
 	return err
 }
 
-func (d *Dispatcher) StreamJob(ctx context.Context, jobID string) ([]*sdkv1.JobEvent, bool, error) {
+func (d *Dispatcher) StreamTask(ctx context.Context, taskID string) ([]*sdkv1.TaskEvent, bool, error) {
 	return nil, false, fmt.Errorf("streaming not yet implemented")
 }
 
-// StreamJobRealtime forwards job events to the provided callback.
-func (d *Dispatcher) StreamJobRealtime(ctx context.Context, jobID string, fn func(*sdkv1.JobEvent) bool) (bool, error) {
+// StreamTaskRealtime forwards task events to the provided callback.
+func (d *Dispatcher) StreamTaskRealtime(ctx context.Context, taskID string, fn func(*sdkv1.TaskEvent) bool) (bool, error) {
 	return false, fmt.Errorf("streaming not yet implemented")
 }
 
@@ -382,11 +382,11 @@ func pickAgentByHash(candidates []*reg.AgentSession, key string) *reg.AgentSessi
 	return candidates[idx]
 }
 
-// JobAddr exposes tracked job routing (primarily for diagnostics).
-// Returns the agentID for the job.
-func (d *Dispatcher) JobAddr(jobID string) (string, bool) {
+// TaskAgentID exposes tracked task routing (primarily for diagnostics).
+// Returns the agentID for the task.
+func (d *Dispatcher) TaskAgentID(taskID string) (string, bool) {
 	d.mu.RLock()
-	agentID, ok := d.jobRouting[jobID]
+	agentID, ok := d.taskRouting[taskID]
 	d.mu.RUnlock()
 	return agentID, ok
 }
@@ -522,9 +522,9 @@ func (d *Dispatcher) callAgent(ctx context.Context, agentID string, msgID uint32
 
 // callAgentByAddr sends a request to an Agent by address.
 // NOTE: This method is not functional in TCP-only mode.
-// Job routing should be updated to store agentID instead of RPC addr.
+// Task routing stores agentID, not RPC addr.
 func (d *Dispatcher) callAgentByAddr(ctx context.Context, rpcAddr string, msgID uint32, reqBody []byte) ([]byte, error) {
-	return nil, fmt.Errorf("callAgentByAddr not supported in TCP-only mode; job routing must store agentID")
+	return nil, fmt.Errorf("callAgentByAddr not supported in TCP-only mode; task routing stores agentID")
 }
 
 func hostFromAddr(addr string) string {
@@ -539,36 +539,44 @@ func hostFromAddr(addr string) string {
 	return strings.Trim(strings.TrimPrefix(addr, "["), "]")
 }
 
-// RegisterJob registers a job routing (exported method)
-func (d *Dispatcher) RegisterJob(jobID, addr string) {
-	d.registerJob(jobID, addr)
+// RegisterTask registers a task routing.
+func (d *Dispatcher) RegisterTask(taskID, agentID string) {
+	d.registerTask(taskID, agentID)
 }
 
-// UnregisterJob unregisters a job routing (exported method)
-func (d *Dispatcher) UnregisterJob(jobID string) {
-	d.unregisterJob(jobID)
+// ListTaskRoutings returns persisted task routing entries.
+func (d *Dispatcher) ListTaskRoutings() ([]*TaskRouting, error) {
+	if d == nil || d.taskStore == nil {
+		return []*TaskRouting{}, nil
+	}
+	return d.taskStore.List()
 }
 
-func (d *Dispatcher) jobAddr(jobID string) (string, error) {
+// UnregisterTask unregisters a task routing.
+func (d *Dispatcher) UnregisterTask(taskID string) {
+	d.unregisterTask(taskID)
+}
+
+func (d *Dispatcher) taskAgentID(taskID string) (string, error) {
 	d.mu.RLock()
-	agentID, ok := d.jobRouting[jobID]
+	agentID, ok := d.taskRouting[taskID]
 	d.mu.RUnlock()
 	if !ok {
-		if d.jobStore != nil {
-			routing, err := d.jobStore.Get(jobID)
+		if d.taskStore != nil {
+			routing, err := d.taskStore.Get(taskID)
 			if err == nil && routing != nil && routing.AgentID != "" {
 				d.mu.Lock()
-				d.jobRouting[jobID] = routing.AgentID
+				d.taskRouting[taskID] = routing.AgentID
 				d.mu.Unlock()
 				return routing.AgentID, nil
 			}
 		}
-		return "", fmt.Errorf("job %s not tracked", jobID)
+		return "", fmt.Errorf("task %s not tracked", taskID)
 	}
 	return agentID, nil
 }
 
-func isTerminalEvent(evt *sdkv1.JobEvent) bool {
+func isTerminalEvent(evt *sdkv1.TaskEvent) bool {
 	switch strings.ToLower(evt.GetType()) {
 	case "done", "completed", "error", "failed", "cancelled", "canceled", "succeeded", "success":
 		return true
@@ -577,64 +585,64 @@ func isTerminalEvent(evt *sdkv1.JobEvent) bool {
 	}
 }
 
-// loadJobRouting loads job routing from persistent store
-func (d *Dispatcher) loadJobRouting() {
-	routings, err := d.jobStore.List()
+// loadTaskRouting loads task routing from persistent store.
+func (d *Dispatcher) loadTaskRouting() {
+	routings, err := d.taskStore.List()
 	if err != nil {
 		// Log error but continue with empty cache
-		log.Printf("[dispatch] Warning: failed to load job routing from store: %v", err)
+		log.Printf("[dispatch] Warning: failed to load task routing from store: %v", err)
 		return
 	}
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	// Rebuild in-memory cache (clear removed jobs too).
-	d.jobRouting = make(map[string]string, len(routings))
+	// Rebuild in-memory cache.
+	d.taskRouting = make(map[string]string, len(routings))
 	for _, routing := range routings {
-		d.jobRouting[routing.JobID] = routing.AgentID
+		d.taskRouting[routing.TaskID] = routing.AgentID
 	}
 }
 
-// registerJob registers job routing to both memory cache and persistent store
-func (d *Dispatcher) registerJob(jobID, agentID string) {
+// registerTask registers task routing to both memory cache and persistent store.
+func (d *Dispatcher) registerTask(taskID, agentID string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	// Update memory cache
-	d.jobRouting[jobID] = agentID
+	d.taskRouting[taskID] = agentID
 
 	// Update persistent store
-	if err := d.jobStore.Set(jobID, agentID); err != nil {
+	if err := d.taskStore.Set(taskID, agentID); err != nil {
 		// Log error but continue
-		log.Printf("[dispatch] Warning: failed to persist job routing: %v", err)
+		log.Printf("[dispatch] Warning: failed to persist task routing: %v", err)
 	}
 }
 
-// unregisterJob removes job routing from both memory cache and persistent store
-func (d *Dispatcher) unregisterJob(jobID string) {
+// unregisterTask removes task routing from both memory cache and persistent store.
+func (d *Dispatcher) unregisterTask(taskID string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	// Remove from memory cache
-	delete(d.jobRouting, jobID)
+	delete(d.taskRouting, taskID)
 
 	// Remove from persistent store
-	if err := d.jobStore.Delete(jobID); err != nil {
+	if err := d.taskStore.Delete(taskID); err != nil {
 		// Log error but continue
-		log.Printf("[dispatch] Warning: failed to delete job routing: %v", err)
+		log.Printf("[dispatch] Warning: failed to delete task routing: %v", err)
 	}
 }
 
-// CleanupOldJobs removes old job routing entries
-func (d *Dispatcher) CleanupOldJobs(ttl time.Duration) error {
+// CleanupOldTasks removes old task routing entries.
+func (d *Dispatcher) CleanupOldTasks(ttl time.Duration) error {
 	// Cleanup persistent store
-	if err := d.jobStore.Cleanup(ttl); err != nil {
+	if err := d.taskStore.Cleanup(ttl); err != nil {
 		return err
 	}
 
 	// Reload cache to sync with persistent store
-	d.loadJobRouting()
+	d.loadTaskRouting()
 
 	return nil
 }
@@ -648,5 +656,5 @@ func (d *Dispatcher) Close() error {
 	}
 	d.mu.Unlock()
 
-	return d.jobStore.Close()
+	return d.taskStore.Close()
 }

@@ -4,7 +4,7 @@
 
 ## 目标
 
-移除对 `nng.NET` 的默认依赖，切到独立 `tcp session`，保证 .NET 8 下行为与 Go 参考实现一致。
+移除对 `.NET 原生传输` 的默认依赖，切到独立 `tcp session`，保证 .NET 8 下行为与 Go 参考实现一致。
 
 ## C0. 基线核对
 
@@ -16,8 +16,8 @@
 ## C1. transport
 
 - [x] 新增独立 `tcp transport`
-- [x] 不再把 `nng.NET` 作为默认主路径
-- [x] 清理反射加载 `nng.NET` 的主路径依赖
+- [x] 不再把 `.NET 原生传输` 作为默认主路径
+- [x] 清理反射加载 `.NET 原生传输` 的主路径依赖
 - [x] 支持 framing、header、读循环、写队列
 
 ## C2. provider session
@@ -49,5 +49,5 @@
 
 ## 验收
 
-- [x] .NET 8 默认链路不依赖 `nng.NET`
+- [x] .NET 8 默认链路不依赖 `.NET 原生传输`
 - [x] C# 用户只需传 POCO / JSON 对象

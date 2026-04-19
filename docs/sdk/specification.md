@@ -9,7 +9,7 @@
 > - `docs/sdk/missing-features.md`
 
 本文档定义所有 Croupier SDK 的统一行为规范。
-旧的“SDK 启动本地 gRPC/NNG server、暴露 `local_addr/rpc_addr` 给 Agent 回调”的模型已经废弃。
+旧的“SDK 启动本地 gRPC/local server、暴露 `local_addr/rpc_addr` 给 Agent 回调”的模型已经废弃。
 
 ## 核心原则
 
@@ -120,7 +120,7 @@
 - `rpc_addr`
 - `getLocalAddress`
 - “启动本地 gRPC server”
-- “启动本地 NNG server”
+- “启动本地 local server”
 
 ## 生命周期
 

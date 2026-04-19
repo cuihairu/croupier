@@ -260,8 +260,8 @@ type FunctionInvokeRequest struct {
 
 ```golang
 type FunctionInvokeResponse struct {
-	JobId string `json:"jobId"`
-	JobID string `json:"jobID,omitempty"`
+	TaskId string `json:"taskId"`
+	TaskID string `json:"taskID,omitempty"`
 	Result interface{} `json:"result,omitempty"`
 }
 ```
@@ -660,4 +660,3 @@ map[string]interface{}
 
 - 该接口用于 Dashboard 批量读取函数 OpenAPI，避免逐个请求。
 - 当前返回值直接透传注册表中的 OpenAPI operation 对象。
-

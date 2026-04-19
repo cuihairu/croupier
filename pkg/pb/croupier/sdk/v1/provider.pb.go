@@ -519,29 +519,29 @@ func (*ProviderDrainResponse) Descriptor() ([]byte, []int) {
 	return file_croupier_sdk_v1_provider_proto_rawDescGZIP(), []int{6}
 }
 
-// Query job result from Agent (best-effort).
-// This remains in the shared SDK package because job polling is still SDK-visible.
-type GetJobResultRequest struct {
+// Query task result from Agent (best-effort).
+// This remains in the shared SDK package because task polling is still SDK-visible.
+type GetTaskResultRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetJobResultRequest) Reset() {
-	*x = GetJobResultRequest{}
+func (x *GetTaskResultRequest) Reset() {
+	*x = GetTaskResultRequest{}
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetJobResultRequest) String() string {
+func (x *GetTaskResultRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetJobResultRequest) ProtoMessage() {}
+func (*GetTaskResultRequest) ProtoMessage() {}
 
-func (x *GetJobResultRequest) ProtoReflect() protoreflect.Message {
+func (x *GetTaskResultRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -553,19 +553,19 @@ func (x *GetJobResultRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetJobResultRequest.ProtoReflect.Descriptor instead.
-func (*GetJobResultRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetTaskResultRequest.ProtoReflect.Descriptor instead.
+func (*GetTaskResultRequest) Descriptor() ([]byte, []int) {
 	return file_croupier_sdk_v1_provider_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *GetJobResultRequest) GetJobId() string {
+func (x *GetTaskResultRequest) GetTaskId() string {
 	if x != nil {
-		return x.JobId
+		return x.TaskId
 	}
 	return ""
 }
 
-type GetJobResultResponse struct {
+type GetTaskResultResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	State         string                 `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
 	Payload       []byte                 `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
@@ -574,20 +574,20 @@ type GetJobResultResponse struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *GetJobResultResponse) Reset() {
-	*x = GetJobResultResponse{}
+func (x *GetTaskResultResponse) Reset() {
+	*x = GetTaskResultResponse{}
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *GetJobResultResponse) String() string {
+func (x *GetTaskResultResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*GetJobResultResponse) ProtoMessage() {}
+func (*GetTaskResultResponse) ProtoMessage() {}
 
-func (x *GetJobResultResponse) ProtoReflect() protoreflect.Message {
+func (x *GetTaskResultResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_croupier_sdk_v1_provider_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -599,26 +599,26 @@ func (x *GetJobResultResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use GetJobResultResponse.ProtoReflect.Descriptor instead.
-func (*GetJobResultResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetTaskResultResponse.ProtoReflect.Descriptor instead.
+func (*GetTaskResultResponse) Descriptor() ([]byte, []int) {
 	return file_croupier_sdk_v1_provider_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *GetJobResultResponse) GetState() string {
+func (x *GetTaskResultResponse) GetState() string {
 	if x != nil {
 		return x.State
 	}
 	return ""
 }
 
-func (x *GetJobResultResponse) GetPayload() []byte {
+func (x *GetTaskResultResponse) GetPayload() []byte {
 	if x != nil {
 		return x.Payload
 	}
 	return nil
 }
 
-func (x *GetJobResultResponse) GetError() string {
+func (x *GetTaskResultResponse) GetError() string {
 	if x != nil {
 		return x.Error
 	}
@@ -675,10 +675,10 @@ const file_croupier_sdk_v1_provider_proto_rawDesc = "" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\x12$\n" +
 	"\x0eretry_after_ms\x18\x03 \x01(\rR\fretryAfterMs\"\x17\n" +
-	"\x15ProviderDrainResponse\",\n" +
-	"\x13GetJobResultRequest\x12\x15\n" +
-	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"\\\n" +
-	"\x14GetJobResultResponse\x12\x14\n" +
+	"\x15ProviderDrainResponse\"/\n" +
+	"\x14GetTaskResultRequest\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\"]\n" +
+	"\x15GetTaskResultResponse\x12\x14\n" +
 	"\x05state\x18\x01 \x01(\tR\x05state\x12\x18\n" +
 	"\apayload\x18\x02 \x01(\fR\apayload\x12\x14\n" +
 	"\x05error\x18\x03 \x01(\tR\x05errorBa\n" +
@@ -705,8 +705,8 @@ var file_croupier_sdk_v1_provider_proto_goTypes = []any{
 	(*ProviderHeartbeatResponse)(nil), // 4: croupier.sdk.v1.ProviderHeartbeatResponse
 	(*ProviderDrainRequest)(nil),      // 5: croupier.sdk.v1.ProviderDrainRequest
 	(*ProviderDrainResponse)(nil),     // 6: croupier.sdk.v1.ProviderDrainResponse
-	(*GetJobResultRequest)(nil),       // 7: croupier.sdk.v1.GetJobResultRequest
-	(*GetJobResultResponse)(nil),      // 8: croupier.sdk.v1.GetJobResultResponse
+	(*GetTaskResultRequest)(nil),      // 7: croupier.sdk.v1.GetTaskResultRequest
+	(*GetTaskResultResponse)(nil),     // 8: croupier.sdk.v1.GetTaskResultResponse
 }
 var file_croupier_sdk_v1_provider_proto_depIdxs = []int32{
 	0, // 0: croupier.sdk.v1.ProviderConnectRequest.functions:type_name -> croupier.sdk.v1.LocalFunctionDescriptor

@@ -4,20 +4,20 @@ import (
 	"context"
 	"strings"
 
-	jobapi "github.com/cuihairu/croupier/internal/api/job"
+	taskapi "github.com/cuihairu/croupier/internal/api/task"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
 type Service struct {
-	svcCtx *svc.ServiceContext
-	jobSvc *jobapi.Service
+	svcCtx  *svc.ServiceContext
+	taskSvc *taskapi.Service
 }
 
 func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{
-		svcCtx: svcCtx,
-		jobSvc: jobapi.NewService(svcCtx),
+		svcCtx:  svcCtx,
+		taskSvc: taskapi.NewService(svcCtx),
 	}
 }
 
@@ -31,7 +31,7 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 		pageSize = 20
 	}
 
-	jobs, err := s.jobSvc.List(ctx, &jobapi.JobListRequest{
+	tasks, err := s.taskSvc.List(ctx, &taskapi.ListRequest{
 		Status:     req.Status,
 		FunctionID: req.FunctionID,
 		GameID:     req.GameID,
@@ -43,42 +43,41 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 		return nil, err
 	}
 
-	items := make([]Item, 0, len(jobs.Jobs))
-	for _, job := range jobs.Jobs {
-		items = append(items, fromJob(job))
+	items := make([]Item, 0, len(tasks.Items))
+	for _, task := range tasks.Items {
+		items = append(items, fromTask(task))
 	}
 	return &ListResponse{
 		Calls:    items,
-		Total:    jobs.Total,
+		Total:    tasks.Total,
 		Page:     page,
 		PageSize: pageSize,
 	}, nil
 }
 
 func (s *Service) Detail(ctx context.Context, req *DetailRequest) (*Item, error) {
-	jobID := strings.TrimSpace(req.ID)
-	if jobID == "" {
+	taskID := strings.TrimSpace(req.ID)
+	if taskID == "" {
 		return nil, errorx.NewBadRequest("任务ID不能为空")
 	}
-	result, err := s.jobSvc.Result(ctx, &jobapi.JobResultRequest{ID: jobID})
+	result, err := s.taskSvc.Detail(ctx, &taskapi.DetailRequest{ID: taskID})
 	if err != nil {
 		return nil, err
 	}
-	status := "running"
-	if result.Done {
-		status = "completed"
-	}
 	return &Item{
-		ID:        jobID,
-		JobID:     jobID,
-		Status:    status,
-		Result:    result.Events,
-		CreatedAt: "",
+		ID:         taskID,
+		TaskID:     taskID,
+		Status:     result.Status,
+		Result:     result.Result,
+		ErrorMsg:   result.Error,
+		CreatedAt:  result.CreatedAt,
+		StartedAt:  result.StartedAt,
+		FinishedAt: result.FinishedAt,
 	}, nil
 }
 
 func (s *Service) Cancel(ctx context.Context, req *DetailRequest) error {
-	return s.jobSvc.Cancel(ctx, &jobapi.JobCancelRequest{ID: strings.TrimSpace(req.ID)})
+	return s.taskSvc.Cancel(ctx, &taskapi.CancelRequest{ID: strings.TrimSpace(req.ID)})
 }
 
 func (s *Service) Stats(ctx context.Context, req *ListRequest) (*StatsResponse, error) {
@@ -110,22 +109,22 @@ func (s *Service) Rerun(ctx context.Context, req *RerunRequest) (*RerunResponse,
 	return nil, errorx.NewBadRequest("当前版本暂不支持从调用历史重跑")
 }
 
-func fromJob(job jobapi.JobItem) Item {
-	status := job.State
+func fromTask(task taskapi.Item) Item {
+	status := task.Status
 	if status == "" {
 		status = "unknown"
 	}
 	return Item{
-		ID:         job.ID,
-		JobID:      job.ID,
-		FunctionID: job.FunctionID,
-		GameID:     job.GameID,
-		Env:        job.Env,
+		ID:         task.ID,
+		TaskID:     task.ID,
+		FunctionID: task.FunctionID,
+		GameID:     task.GameID,
+		Env:        task.Env,
 		Status:     status,
-		StartedAt:  job.StartedAt,
-		FinishedAt: job.EndedAt,
-		DurationMs: job.DurationMs,
-		ErrorMsg:   job.Error,
-		CreatedAt:  job.StartedAt,
+		AgentID:    task.AgentID,
+		StartedAt:  task.StartedAt,
+		FinishedAt: task.FinishedAt,
+		ErrorMsg:   task.Error,
+		CreatedAt:  task.CreatedAt,
 	}
 }

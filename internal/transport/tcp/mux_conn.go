@@ -146,6 +146,18 @@ func (c *MuxConn) Run(ctx context.Context) error {
 			continue
 		}
 
+		if protocol.IsEvent(msgID) {
+			if c.handler == nil {
+				continue
+			}
+			if _, err := c.handler.Handle(ctx, msgID, 0, body); err != nil {
+				if isProtocolError(err) {
+					return err
+				}
+			}
+			continue
+		}
+
 		if !protocol.IsRequest(msgID) {
 			return NewProtocolError(fmt.Errorf("unexpected non-request message: %s", protocol.MsgIDString(msgID)))
 		}
@@ -158,6 +170,25 @@ func (c *MuxConn) Run(ctx context.Context) error {
 			return err
 		}
 	}
+}
+
+// Send writes a one-way event frame on the connection.
+func (c *MuxConn) Send(ctx context.Context, msgID uint32, body []byte) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-c.closed:
+		return fmt.Errorf("connection closed")
+	default:
+	}
+
+	if !protocol.IsEvent(msgID) {
+		return fmt.Errorf("message %s is not an event", protocol.MsgIDString(msgID))
+	}
+	return c.writeFrame(0, msgID, body)
 }
 
 // Call sends a request and waits for the matching response on the same connection.

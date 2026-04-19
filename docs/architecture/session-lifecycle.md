@@ -109,7 +109,7 @@ handshaking
 不允许：
 
 - 把连接当作可用业务 session
-- 分配 `Invoke / Job / Ops`
+- 分配 `Invoke / Task / Ops`
 
 进入 `active` 的前提是：
 
@@ -223,7 +223,7 @@ v1 不建议支持：
 
 当 provider session 进入 `draining`：
 
-- `Agent` 不再向该 provider 分配新的 `Invoke / Job`
+- `Agent` 不再向该 provider 分配新的 `Invoke / Task`
 - provider 继续完成已接收的请求
 - `ProviderDrainResponse` 只表示“已接受 drain 状态”
 - 排空完成后，连接可被优雅关闭
@@ -232,7 +232,7 @@ v1 不建议支持：
 
 当 agent session 进入 `draining`：
 
-- `Dispatcher` 不再向该 session 路由新的 `Invoke / Job / Ops`
+- `Dispatcher` 不再向该 session 路由新的 `Invoke / Task / Ops`
 - `Agent` 继续完成已接收的工作
 - registry / 调度层应将该 session 视为“可排空，不可接新单”
 - 排空完成后再移除该 session

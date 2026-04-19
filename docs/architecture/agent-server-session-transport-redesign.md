@@ -9,11 +9,11 @@
 
 本设计用于收敛 `Agent <-> Server` 主链路的传输模型，核心结论如下：
 
-1. `Agent <-> Server` 默认传输从当前 `NNG REQ/REP` 迁移为独立的 `tcp` session，并按需启用 `tls`。
+1. `Agent <-> Server` 默认传输从当前 `历史 REQ/REP` 迁移为独立的 `tcp` session，并按需启用 `tls`。
 2. `Agent` 只保留到 `Server` 的主动出站长连接，不再要求 `Server` 反向直连 `Agent` 暴露的 `rpc_addr`。
-3. `Server -> Agent` 的 `Invoke`、`StartJob`、`CancelJob`、`Ops` 请求，统一复用已有 `Agent-Server` session 下发。
+3. `Server -> Agent` 的 `Invoke`、`StartTask`、`CancelTask`、`Ops` 请求，统一复用已有 `Agent-Server` session 下发。
 4. `Agent` 本地监听地址只服务 `GameServer / SDK / 第三方应用`，不再承担 `Server -> Agent` 回拨职责。
-5. 不再把 `NNG pattern` 作为主链路抽象中心，统一收敛为“单连接、双向、多路复用、可重连、可治理”的轻量 session 协议。
+5. 不再把 `历史消息模式` 作为主链路抽象中心，统一收敛为“单连接、双向、多路复用、可重连、可治理”的轻量 session 协议。
 
 ## shared session runtime 与 subprotocol
 
@@ -36,17 +36,17 @@
 
 当前仓库里，`Agent <-> Server` 实际上混合了两条不同语义的链路：
 
-- 控制面: `Agent` 通过 `NNG REQ/REP` 主动连接 `Server`，完成 `Register/Heartbeat`
-- 调用面: `Server/Dispatcher` 再根据 `rpc_addr` 主动拨回 `Agent`，执行 `Invoke/Job/Ops`
+- 控制面: `Agent` 通过 `历史 REQ/REP` 主动连接 `Server`，完成 `Register/Heartbeat`
+- 调用面: `Server/Dispatcher` 再根据 `rpc_addr` 主动拨回 `Agent`，执行 `Invoke/Task/Ops`
 
 这带来了几个问题：
 
 - 传输模型分裂: 控制面一条连接，调用面另一条连接
 - `rpc_addr` 语义混乱: 看起来像“Agent 的注册信息”，本质却是“供 Server 回拨的入口”
 - 集群语义不清晰: `Agent` 实际连到了某个 `Server` 节点，但调用面又试图绕开该 session 直接拨 `Agent`
-- `NNG REQ/REP` 本身不适合“在已有连接上由 Server 主动发新请求”
+- `历史 REQ/REP` 本身不适合“在已有连接上由 Server 主动发新请求”
 
-这不是因为 `NNG` 没有长连接能力，而是因为当前使用的 `REQ/REP` pattern 与目标会话模型不一致。
+这不是因为 `旧传输` 没有长连接能力，而是因为当前使用的 `REQ/REP` pattern 与目标会话模型不一致。
 
 ## 我们真正需要的东西
 
@@ -80,18 +80,18 @@
 - 便于跨服务统一
 - 便于后续与 `SDK <-> Agent` 复用同一套 session 心智模型
 
-### 为什么不是继续用 NNG pattern
+### 为什么不是继续用 历史消息模式
 
-`NNG` 本身并不是错误的，问题在于它提供的是“消息模式抽象”，而我们需要的是“会话协议抽象”。
+`旧传输` 本身并不是错误的，问题在于它提供的是“消息模式抽象”，而我们需要的是“会话协议抽象”。
 
-当前主链路继续依赖 `NNG` 的问题主要有：
+当前主链路继续依赖 `旧传输` 的问题主要有：
 
 - `REQ/REP` 不适合双向主动发请求
 - 即使用 `PAIR` 等其他模式，session、mux、重连、背压语义仍然要自己补
-- 最终复杂度落在我们自己实现的协议层，而不是 `NNG` 帮我们解决
-- 既然协议层仍然要自己做，继续绑定 `NNG` 只会让模型更绕
+- 最终复杂度落在我们自己实现的协议层，而不是 `旧传输` 帮我们解决
+- 既然协议层仍然要自己做，继续绑定 `旧传输` 只会让模型更绕
 
-结论不是“NNG 不能长连接”，而是“NNG pattern 不是我们当前主链路最合适的抽象”。
+结论不是“旧传输 不能长连接”，而是“历史消息模式 不是我们当前主链路最合适的抽象”。
 
 ### 为什么不是 RSocket / libp2p / Aeron / HTTP2
 
@@ -126,7 +126,7 @@
 | Agent                |             | Server Node          |
 |  - Session client    |             |  - Session manager   |
 |  - Local dispatch    |  TCP(+TLS)  |  - Registry          |
-|  - SDK/Game bridge   +-----------> |  - Invoke/Job/Ops    |
+|  - SDK/Game bridge   +-----------> |  - Invoke/Task/Ops   |
 |                      |             |                      |
 +----------------------+             +----------------------+
 ```
@@ -146,7 +146,7 @@
 2. `Agent` 发送 `AgentConnectRequest` 或等价注册消息
 3. `Server` 返回 `session_id`、能力协商结果和告警信息
 4. 双方开始 heartbeat
-5. `Server` 后续在同一连接上向 `Agent` 下发 `Invoke/Job/Ops`
+5. `Server` 后续在同一连接上向 `Agent` 下发 `Invoke/Task/Ops`
 6. 连接断开后 session 立即失效
 7. `Agent` 重连后必须重新注册，拿到新的 `session_id`
 
@@ -189,8 +189,8 @@
   - Metrics / 状态上报
 - `Server -> Agent`
   - Invoke
-  - StartJob
-  - CancelJob
+  - StartTask
+  - CancelTask
   - Ops / control
   - Drain / shutdown
 
@@ -286,7 +286,7 @@
 
 这里的 `drain` 是会话级优雅摘流，不是立即断连：
 
-- `Dispatcher` 不再把新的 `Invoke / Job / Ops` 路由给该 session
+- `Dispatcher` 不再把新的 `Invoke / Task / Ops` 路由给该 session
 - `Agent` 继续处理已在途请求
 - heartbeat 继续保持
 - 排空完成后再关闭连接，或在宽限期后强制关闭
@@ -317,11 +317,11 @@
 2. 在 `Server` 侧引入 `tcp session listener`
 3. 在 `Agent` 侧引入 `tcp session client`
 4. 让 `Register/Heartbeat` 跑在新 session 上
-5. 将 `Invoke/StartJob/CancelJob/Ops` 改为走现有 session 下发
+5. 将 `Invoke/StartTask/CancelTask/Ops` 改为走现有 session 下发
 6. 在 registry 中增加 `server_node_id + session_id` 路由信息
 7. 改造 `Dispatcher`，不再直拨 `Agent`
 8. 清理 `rpc_addr` 直连依赖
-9. 将 `NNG` 从默认主链路中移除
+9. 将 `旧传输` 从默认主链路中移除
 
 ## 最终判断
 
@@ -345,7 +345,7 @@
 - **轻量 TCP session**
 - **按需 TLS**
 - **Server 持有 Agent session**
-- **Invoke/Job/Ops 全部复用既有 session**
+- **Invoke/Task/Ops 全部复用既有 session**
 - **Agent 本地监听只服务本地接入方**
 
-这比继续围绕 `NNG pattern` 修补当前主链路，更符合当前系统真实需求。
+这比继续围绕 `历史消息模式` 修补当前主链路，更符合当前系统真实需求。

@@ -51,7 +51,7 @@
 当前链路：
 
 - `internal/app/agent/provider.go`
-- `internal/nng/agent_server.go`
+- `internal/agent/agent_server.go`
 
 特点：
 

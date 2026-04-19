@@ -99,10 +99,10 @@ POST /api/invoke
 }
 ```
 
-### 调用函数（异步）
+### 启动任务
 
 ```http
-POST /api/jobs
+POST /api/v1/tasks
 ```
 
 **请求体**：
@@ -117,21 +117,21 @@ POST /api/jobs
 ```json
 {
   "success": true,
-  "job_id": "job_abc123",
-  "status": "pending"
+  "task_id": "task_abc123",
+  "status": "queued"
 }
 ```
 
-### 获取作业状态
+### 获取任务详情
 
 ```http
-GET /api/jobs/{job_id}
+GET /api/v1/tasks/{task_id}
 ```
 
 **响应**：
 ```json
 {
-  "job_id": "job_abc123",
+  "task_id": "task_abc123",
   "status": "running",
   "progress": 0.5,
   "started_at": "2024-12-01T10:00:00Z",
@@ -139,26 +139,27 @@ GET /api/jobs/{job_id}
 }
 ```
 
-### 流式获取作业事件
+### 获取任务事件
 
 ```http
-GET /api/jobs/{job_id}/events
+GET /api/v1/tasks/{task_id}/events
 ```
 
-返回 Server-Sent Events (SSE) 流：
-
+```json
+{
+  "items": [
+    {"seq": 1, "type": "queued", "progress": 0, "message": "任务已创建"},
+    {"seq": 2, "type": "progress", "progress": 50, "message": "处理中"}
+  ],
+  "next_seq": 3,
+  "done": false
+}
 ```
-data: {"type":"PROGRESS","progress":0.1,"message":"处理中..."}
 
-data: {"type":"PROGRESS","progress":0.5,"message":"处理中..."}
-
-data: {"type":"DONE","progress":1.0,"result":{...}}
-```
-
-### 取消作业
+### 取消任务
 
 ```http
-DELETE /api/jobs/{job_id}
+POST /api/v1/tasks/{task_id}/cancel
 ```
 
 **请求体**：

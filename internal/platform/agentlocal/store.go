@@ -60,15 +60,15 @@ type LocalStore struct {
 	funcVersions map[string]map[string]string
 	// function_id -> FunctionMeta (stores the latest metadata for each function)
 	funcMeta map[string]*FunctionMeta
-	// job_id -> job result
-	jobResults map[string]*JobResult
+	// task_id -> task result
+	taskResults map[string]*TaskResult
 	// callback for updates
 	onUpdate func()
 }
 
-// JobResult stores the result of a job
-type JobResult struct {
-	JobID     string
+// TaskResult stores the result of a task.
+type TaskResult struct {
+	TaskID    string
 	State     string // pending, running, completed, failed, cancelled
 	Payload   []byte
 	Error     string
@@ -81,7 +81,7 @@ func NewLocalStore() *LocalStore {
 		data:         map[string][]Instance{},
 		funcVersions: map[string]map[string]string{},
 		funcMeta:     map[string]*FunctionMeta{},
-		jobResults:   map[string]*JobResult{},
+		taskResults:  map[string]*TaskResult{},
 	}
 }
 
@@ -281,58 +281,58 @@ func (s *LocalStore) FunctionMetadata() map[string]*FunctionMeta {
 	return out
 }
 
-// SetJobResult stores or updates a job result
-func (s *LocalStore) SetJobResult(jobID, state string, payload []byte, errorMsg string) {
+// SetTaskResult stores or updates a task result.
+func (s *LocalStore) SetTaskResult(taskID, state string, payload []byte, errorMsg string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	now := time.Now()
-	if result, exists := s.jobResults[jobID]; exists {
+	if result, exists := s.taskResults[taskID]; exists {
 		result.State = state
 		result.Payload = payload
 		result.Error = errorMsg
 		result.UpdatedAt = now
 	} else {
-		result := &JobResult{
-			JobID:     jobID,
+		result := &TaskResult{
+			TaskID:    taskID,
 			State:     state,
 			Payload:   payload,
 			Error:     errorMsg,
 			CreatedAt: now,
 			UpdatedAt: now,
 		}
-		s.jobResults[jobID] = result
+		s.taskResults[taskID] = result
 	}
 }
 
-// GetJobResult retrieves a job result
-func (s *LocalStore) GetJobResult(jobID string) (*JobResult, bool) {
+// GetTaskResult retrieves a task result.
+func (s *LocalStore) GetTaskResult(taskID string) (*TaskResult, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	result, exists := s.jobResults[jobID]
+	result, exists := s.taskResults[taskID]
 	return result, exists
 }
 
-// RemoveJobResult removes a job result
-func (s *LocalStore) RemoveJobResult(jobID string) {
+// RemoveTaskResult removes a task result.
+func (s *LocalStore) RemoveTaskResult(taskID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	delete(s.jobResults, jobID)
+	delete(s.taskResults, taskID)
 }
 
-// CleanupOldJobResults removes job results older than maxAge
-func (s *LocalStore) CleanupOldJobResults(maxAge time.Duration) int {
+// CleanupOldTaskResults removes task results older than maxAge.
+func (s *LocalStore) CleanupOldTaskResults(maxAge time.Duration) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	now := time.Now()
 	removed := 0
 
-	for jobID, result := range s.jobResults {
+	for taskID, result := range s.taskResults {
 		if now.Sub(result.UpdatedAt) > maxAge {
-			delete(s.jobResults, jobID)
+			delete(s.taskResults, taskID)
 			removed++
 		}
 	}

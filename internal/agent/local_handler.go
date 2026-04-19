@@ -3,6 +3,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
@@ -44,13 +45,18 @@ type OpsServerWrapper interface {
 	ListCronJobsJSON(ctx context.Context) ([]byte, error)
 }
 
+type TaskEventReporter interface {
+	ReportTaskEvent(ctx context.Context, event *sdkv1.TaskEvent) error
+}
+
 // LocalHandler contains the business logic for handling agent requests
 // without any transport-specific dependencies.
 type LocalHandler struct {
 	store     *agentlocal.LocalStore
-	jobs      *jobIndex
+	tasks     *taskIndex
 	pm        ProviderManager // Use field name `pm` to avoid conflict with existing providerManager in app.go
 	opsServer OpsServerWrapper
+	reporter  TaskEventReporter
 	tlsCfg    *tlsutil.ClientTLSConfig
 	logger    *slog.Logger
 	configDir string
@@ -65,7 +71,7 @@ func NewLocalHandler(store *agentlocal.LocalStore, configDir, agentID string, lo
 	}
 	return &LocalHandler{
 		store:     store,
-		jobs:      newJobIndex(),
+		tasks:     newTaskIndex(),
 		logger:    logger,
 		configDir: configDir,
 		agentID:   agentID,
@@ -84,6 +90,12 @@ func (h *LocalHandler) SetOpsServer(ops OpsServerWrapper) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.opsServer = ops
+}
+
+func (h *LocalHandler) SetTaskEventReporter(reporter TaskEventReporter) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.reporter = reporter
 }
 
 // SetTLSConfig sets the TLS config for outbound connections
@@ -105,10 +117,10 @@ func (h *LocalHandler) handleRequest(ctx context.Context, msgID uint32, data []b
 	// InvokerService
 	case protocol.MsgInvokeRequest:
 		return h.handleInvoke(ctx, data)
-	case protocol.MsgStartJobRequest:
-		return h.handleStartJob(ctx, data)
-	case protocol.MsgCancelJobRequest:
-		return h.handleCancelJob(ctx, data)
+	case protocol.MsgStartTaskRequest:
+		return h.handleStartTask(ctx, data)
+	case protocol.MsgCancelTaskRequest:
+		return h.handleCancelTask(ctx, data)
 
 	// OpsService
 	case protocol.MsgGetSystemInfoRequest:
@@ -131,15 +143,6 @@ func (h *LocalHandler) handleRequest(ctx context.Context, msgID uint32, data []b
 		return h.handleGetServiceStatus(ctx, data)
 	case protocol.MsgRegisterCapabilitiesReq:
 		return h.handleRegisterCapabilities(ctx, data)
-
-	// ProviderSession compatibility aliases. New provider-session traffic should
-	// use the dedicated TCP session listener and Provider* messages instead.
-	case protocol.MsgRegisterLocalRequest:
-		return h.handleRegisterLocal(ctx, data)
-	case protocol.MsgHeartbeatLocalRequest:
-		return h.handleHeartbeatLocal(ctx, data)
-	case protocol.MsgListLocalRequest:
-		return h.handleListLocal(ctx, data)
 
 	default:
 		return nil, fmt.Errorf("unknown message type: 0x%06X", msgID)
@@ -260,47 +263,135 @@ func (h *LocalHandler) pickInstance(functionID string, metadata map[string]strin
 	return arr[0].Addr, nil
 }
 
-// handleStartJob handles StartJobRequest
-func (h *LocalHandler) handleStartJob(ctx context.Context, data []byte) ([]byte, error) {
+// handleStartTask handles StartTaskRequest.
+func (h *LocalHandler) handleStartTask(ctx context.Context, data []byte) ([]byte, error) {
 	req := &sdkv1.InvokeRequest{}
 	if err := proto.Unmarshal(data, req); err != nil {
-		return nil, fmt.Errorf("unmarshal InvokeRequest for StartJob: %w", err)
+		return nil, fmt.Errorf("unmarshal InvokeRequest for StartTask: %w", err)
 	}
 
-	// For now, return not implemented
-	// Full implementation would forward to game server and track job
-	jobID := fmt.Sprintf("job-%d", time.Now().UnixNano())
-	resp := &sdkv1.StartJobResponse{
-		JobId: jobID,
+	taskID := fmt.Sprintf("task-%d", time.Now().UnixNano())
+	resp := &sdkv1.StartTaskResponse{
+		TaskId: taskID,
 	}
 
-	// Track the job
-	if h.jobs != nil {
-		h.jobs.Set(jobID, "")
+	taskCtx, cancel := context.WithCancel(context.Background())
+	if h.tasks != nil {
+		h.tasks.Set(taskID, cancel)
 	}
+	go h.runTask(taskCtx, taskID, req)
 
 	return proto.Marshal(resp)
 }
 
-// handleCancelJob handles CancelJobRequest
-func (h *LocalHandler) handleCancelJob(ctx context.Context, data []byte) ([]byte, error) {
-	req := &sdkv1.CancelJobRequest{}
+// handleCancelTask handles CancelTaskRequest.
+func (h *LocalHandler) handleCancelTask(ctx context.Context, data []byte) ([]byte, error) {
+	req := &sdkv1.CancelTaskRequest{}
 	if err := proto.Unmarshal(data, req); err != nil {
-		return nil, fmt.Errorf("unmarshal CancelJobRequest: %w", err)
+		return nil, fmt.Errorf("unmarshal CancelTaskRequest: %w", err)
 	}
 
-	if h.jobs == nil {
-		return nil, fmt.Errorf("job tracking not available")
+	if h.tasks == nil {
+		return nil, fmt.Errorf("task tracking not available")
 	}
 
-	if _, ok := h.jobs.Get(req.GetJobId()); ok {
-		// Remove from tracking
-		h.jobs.Delete(req.GetJobId())
-		h.logger.Info("job cancelled", "job_id", req.GetJobId())
+	if cancel, ok := h.tasks.Get(req.GetTaskId()); ok {
+		cancel()
+		h.tasks.Delete(req.GetTaskId())
+		_ = h.emitTaskEvent(context.Background(), &sdkv1.TaskEvent{
+			TaskId:   req.GetTaskId(),
+			Type:     "cancel_requested",
+			Message:  "已请求取消任务",
+			Progress: 0,
+			Payload:  []byte("null"),
+		})
+		h.logger.Info("task cancel requested", "task_id", req.GetTaskId())
 	}
 
-	resp := &sdkv1.StartJobResponse{}
+	resp := &sdkv1.StartTaskResponse{}
 	return proto.Marshal(resp)
+}
+
+func (h *LocalHandler) runTask(ctx context.Context, taskID string, req *sdkv1.InvokeRequest) {
+	defer func() {
+		if h.tasks != nil {
+			h.tasks.Delete(taskID)
+		}
+	}()
+
+	_ = h.emitTaskEvent(context.Background(), &sdkv1.TaskEvent{
+		TaskId:   taskID,
+		Type:     "started",
+		Message:  "任务开始执行",
+		Progress: 0,
+		Payload:  []byte("null"),
+	})
+
+	result, err := h.executeTask(ctx, req)
+	if err != nil {
+		eventType := "failed"
+		message := err.Error()
+		if ctx.Err() != nil {
+			eventType = "cancelled"
+			message = "任务已取消"
+		}
+		_ = h.emitTaskEvent(context.Background(), &sdkv1.TaskEvent{
+			TaskId:   taskID,
+			Type:     eventType,
+			Message:  message,
+			Progress: 0,
+			Payload:  []byte("null"),
+		})
+		return
+	}
+
+	_ = h.emitTaskEvent(context.Background(), &sdkv1.TaskEvent{
+		TaskId:   taskID,
+		Type:     "completed",
+		Message:  "任务执行完成",
+		Progress: 100,
+		Payload:  result,
+	})
+}
+
+func (h *LocalHandler) executeTask(ctx context.Context, req *sdkv1.InvokeRequest) ([]byte, error) {
+	respBytes, err := h.handleInvoke(ctx, mustMarshal(req))
+	if err != nil {
+		return nil, err
+	}
+	resp := &sdkv1.InvokeResponse{}
+	if err := proto.Unmarshal(respBytes, resp); err != nil {
+		return nil, fmt.Errorf("unmarshal task invoke response: %w", err)
+	}
+	if len(resp.GetPayload()) == 0 {
+		return []byte("null"), nil
+	}
+	return resp.GetPayload(), nil
+}
+
+func (h *LocalHandler) emitTaskEvent(ctx context.Context, event *sdkv1.TaskEvent) error {
+	h.mu.RLock()
+	reporter := h.reporter
+	h.mu.RUnlock()
+	if reporter == nil || event == nil {
+		return nil
+	}
+	if len(event.GetPayload()) == 0 {
+		event.Payload = []byte("null")
+	}
+	return reporter.ReportTaskEvent(ctx, event)
+}
+
+func mustMarshal(msg proto.Message) []byte {
+	if msg == nil {
+		return nil
+	}
+	data, err := proto.Marshal(msg)
+	if err == nil {
+		return data
+	}
+	fallback, _ := json.Marshal(map[string]string{"error": err.Error()})
+	return fallback
 }
 
 // handleGetSystemInfo handles GetSystemInfoRequest
@@ -466,69 +557,6 @@ func (h *LocalHandler) handleExecuteCommand(ctx context.Context, data []byte) ([
 	return proto.Marshal(resp)
 }
 
-// handleRegisterLocal handles the legacy RegisterLocal compatibility alias.
-func (h *LocalHandler) handleRegisterLocal(ctx context.Context, data []byte) ([]byte, error) {
-	req := sdkv1.UnmarshalRegisterLocalRequest(data)
-
-	if h.store == nil {
-		return nil, fmt.Errorf("store not initialized")
-	}
-
-	// Use the Register method which takes service_id, addr, version, and functions
-	h.store.Register(req.ServiceId, req.RpcAddr, req.Version, req.Functions)
-
-	resp := &sdkv1.RegisterLocalResponse{}
-	return sdkv1.MarshalRegisterLocalResponse(resp), nil
-}
-
-// handleHeartbeatLocal handles the legacy HeartbeatLocal compatibility alias.
-func (h *LocalHandler) handleHeartbeatLocal(ctx context.Context, data []byte) ([]byte, error) {
-	req := sdkv1.UnmarshalHeartbeatRequestCompat(data)
-
-	if h.store == nil {
-		return nil, fmt.Errorf("store not initialized")
-	}
-
-	// Update provider heartbeat only; do not mutate function registrations.
-	h.store.Heartbeat(req.ServiceId)
-
-	// HeartbeatResponse is empty, return nil bytes
-	return nil, nil
-}
-
-// handleListLocal handles ListLocalRequest
-func (h *LocalHandler) handleListLocal(ctx context.Context, data []byte) ([]byte, error) {
-	// ListLocalRequest is empty, no need to parse
-
-	if h.store == nil {
-		return nil, fmt.Errorf("store not initialized")
-	}
-
-	snap := h.store.List()
-	functions := make([]*sdkv1.LocalFunction, 0, len(snap))
-
-	for fid, instances := range snap {
-		localInsts := make([]*sdkv1.LocalInstance, 0, len(instances))
-		for _, inst := range instances {
-			localInsts = append(localInsts, &sdkv1.LocalInstance{
-				ServiceId: inst.ProviderID,
-				Addr:      inst.Addr,
-				Version:   inst.Version,
-			})
-		}
-
-		functions = append(functions, &sdkv1.LocalFunction{
-			Id:        fid,
-			Instances: localInsts,
-		})
-	}
-
-	resp := &sdkv1.ListLocalResponse{
-		Functions: functions,
-	}
-	return sdkv1.MarshalListLocalResponse(resp), nil
-}
-
 // handleListServices handles ListServicesRequest
 func (h *LocalHandler) handleListServices(ctx context.Context, data []byte) ([]byte, error) {
 	h.mu.RLock()
@@ -568,35 +596,35 @@ func (h *LocalHandler) handleRegisterCapabilities(ctx context.Context, data []by
 	return proto.Marshal(resp)
 }
 
-// jobIndex tracks running jobs
-type jobIndex struct {
-	mu   sync.RWMutex
-	jobs map[string]string // job_id -> addr
+// taskIndex tracks running tasks.
+type taskIndex struct {
+	mu    sync.RWMutex
+	tasks map[string]context.CancelFunc
 }
 
-func newJobIndex() *jobIndex {
-	return &jobIndex{
-		jobs: make(map[string]string),
+func newTaskIndex() *taskIndex {
+	return &taskIndex{
+		tasks: make(map[string]context.CancelFunc),
 	}
 }
 
-func (j *jobIndex) Set(jobID, addr string) {
+func (j *taskIndex) Set(taskID string, cancel context.CancelFunc) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	j.jobs[jobID] = addr
+	j.tasks[taskID] = cancel
 }
 
-func (j *jobIndex) Get(jobID string) (string, bool) {
+func (j *taskIndex) Get(taskID string) (context.CancelFunc, bool) {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
-	addr, ok := j.jobs[jobID]
-	return addr, ok
+	cancel, ok := j.tasks[taskID]
+	return cancel, ok
 }
 
-func (j *jobIndex) Delete(jobID string) {
+func (j *taskIndex) Delete(taskID string) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	delete(j.jobs, jobID)
+	delete(j.tasks, taskID)
 }
 
 // hostFromAddr extracts hostname from address

@@ -1,0 +1,62 @@
+openapi: 3.0.3
+info:
+  title: HTTP Functions Pack
+  description: Generic HTTP invocation functions for Croupier
+  version: 1.0.0
+  x-category: http
+paths:
+  /http/generic_invoke:
+    post:
+      operationId: http.generic_invoke
+      summary: Generic HTTP Invoke
+      description: Invoke any HTTP method with customizable URL, headers, and body
+      x-category: http
+      x-risk: low
+      x-entity: http
+      x-operation: custom
+      tags:
+        - http
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                method:
+                  type: string
+                  enum: [GET, POST, PUT, PATCH, DELETE]
+                  description: HTTP method
+                url:
+                  type: string
+                  description: Target URL
+                headers:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  description: HTTP headers
+                body:
+                  type: string
+                  description: Request body
+              required:
+                - method
+                - url
+      responses:
+        '200':
+          description: Successful HTTP response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    description: HTTP status code
+                  headers:
+                    type: object
+                    additionalProperties:
+                      type: string
+                  body:
+                    type: string
+                    description: Response body
+components: {}

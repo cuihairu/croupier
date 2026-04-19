@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
+	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/getkin/kin-openapi/openapi3"
 )
@@ -122,40 +124,56 @@ func (s *Service) EntityFunctions(ctx context.Context, req *EntityFunctionsReque
 		return nil, errorx.NewBadRequest("entity ID is required")
 	}
 
-	// TODO: Get entity functions from Entity Manager
-	// Currently return empty list, will implement after EntityManager integration
-	slog.InfoContext(ctx, "Getting functions for entity", "id", req.ID)
-
-	// Temporary implementation: Get all operations from registry store, then filter
-	operations := s.svcCtx.RegistryStore.ListOpenAPIOperations()
-
-	items := []EntityFunction{}
-	for funcID, op := range operations {
-		// Check operation extensions
-		if op.Extensions != nil {
-			if entityID, ok := op.Extensions["x-entity"].(string); ok {
-				if entityID == req.ID {
-					// Extract operation type
-					operation := "custom"
-					if opType, ok := op.Extensions["x-operation"].(string); ok {
-						operation = opType
-					}
-
-					items = append(items, EntityFunction{
-						ID:        funcID,
-						Operation: operation,
-						Name:      op.Summary,
-					})
-				}
+	entityType := strings.TrimSpace(req.ID)
+	if s.svcCtx != nil && s.svcCtx.EntityModel != nil {
+		if parsed, err := utils.ParseUintID(req.ID, "实体ID"); err == nil {
+			entity, findErr := s.svcCtx.EntityModel.FindOne(ctx, parsed)
+			if findErr == nil && entity != nil && strings.TrimSpace(entity.Type) != "" {
+				entityType = strings.TrimSpace(entity.Type)
 			}
 		}
 	}
 
-	slog.InfoContext(ctx, "Found functions for entity", "id", req.ID, "count", len(items))
+	items := make([]EntityFunction, 0)
+	operations := s.svcCtx.RegistryStore.ListOpenAPIOperations()
+	for funcID, op := range operations {
+		if op == nil {
+			continue
+		}
+		if entityType != "" && !matchesEntity(op.Extensions["x-entity"], entityType, req.ID) {
+			continue
+		}
+		operation := "custom"
+		if opType, ok := op.Extensions["x-operation"].(string); ok && strings.TrimSpace(opType) != "" {
+			operation = opType
+		}
+		name := strings.TrimSpace(op.Summary)
+		if name == "" {
+			name = funcID
+		}
+		items = append(items, EntityFunction{
+			ID:        funcID,
+			Operation: operation,
+			Name:      name,
+		})
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].ID < items[j].ID
+	})
 
 	return &EntityFunctionsResponse{
 		Items: items,
 	}, nil
+}
+
+func matchesEntity(raw interface{}, entityType, entityID string) bool {
+	value, ok := raw.(string)
+	if !ok {
+		return false
+	}
+	value = strings.TrimSpace(value)
+	return strings.EqualFold(value, strings.TrimSpace(entityType)) || strings.EqualFold(value, strings.TrimSpace(entityID))
 }
 
 // GetDocument returns aggregated OpenAPI document

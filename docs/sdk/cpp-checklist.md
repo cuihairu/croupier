@@ -16,7 +16,7 @@
 ## C1. transport
 
 - [x] 实现独立 `tcp transport`
-- [x] 不再把 `NNG` 作为默认主路径
+- [x] 不再把 `旧传输` 作为默认主路径
 - [x] transport 与高层 Client / Invoker 解耦
 - [x] 支持 framing、header、读循环、写队列
 
@@ -44,7 +44,7 @@
 ## C5. 清理旧模型
 
 - [x] 清理 README 中的历史 `gRPC` 表述
-- [x] 清理 README 中的历史 `NNG server` 表述
+- [x] 清理 README 中的历史 `local server` 表述
 - [x] 清理 `LocalControl/RegisterLocal`
 - [x] 清理 `rpc_addr/local_listen`
 - [ ] 清理“启动本地服务”的旧 API 语义

@@ -55,7 +55,7 @@ operation 最终如何落地到 runtime：
 - provider_method
 - workflow
 - page_action
-- job
+- task
 
 ---
 
@@ -120,7 +120,7 @@ spec:
 
 | 字段 | 必填 | 说明 |
 |---|---|---|
-| `type` | 是 | `function/provider_method/workflow/job/page_action` |
+| `type` | 是 | `function/provider_method/workflow/task/page_action` |
 | `target` | 是 | 目标引用 |
 | `driver` | 否 | 指定 driver |
 | `timeout` | 否 | 调用超时 |

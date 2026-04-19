@@ -137,28 +137,28 @@ func (x *InvokeResponse) GetPayload() []byte {
 	return nil
 }
 
-// SDK Job Start Response
-type StartJobResponse struct {
+// SDK Task Start Response
+type StartTaskResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *StartJobResponse) Reset() {
-	*x = StartJobResponse{}
+func (x *StartTaskResponse) Reset() {
+	*x = StartTaskResponse{}
 	mi := &file_croupier_sdk_v1_invocation_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *StartJobResponse) String() string {
+func (x *StartTaskResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*StartJobResponse) ProtoMessage() {}
+func (*StartTaskResponse) ProtoMessage() {}
 
-func (x *StartJobResponse) ProtoReflect() protoreflect.Message {
+func (x *StartTaskResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_croupier_sdk_v1_invocation_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -170,40 +170,40 @@ func (x *StartJobResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use StartJobResponse.ProtoReflect.Descriptor instead.
-func (*StartJobResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use StartTaskResponse.ProtoReflect.Descriptor instead.
+func (*StartTaskResponse) Descriptor() ([]byte, []int) {
 	return file_croupier_sdk_v1_invocation_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *StartJobResponse) GetJobId() string {
+func (x *StartTaskResponse) GetTaskId() string {
 	if x != nil {
-		return x.JobId
+		return x.TaskId
 	}
 	return ""
 }
 
-// SDK Job Stream Request
-type JobStreamRequest struct {
+// SDK Task Stream Request
+type TaskStreamRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *JobStreamRequest) Reset() {
-	*x = JobStreamRequest{}
+func (x *TaskStreamRequest) Reset() {
+	*x = TaskStreamRequest{}
 	mi := &file_croupier_sdk_v1_invocation_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *JobStreamRequest) String() string {
+func (x *TaskStreamRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*JobStreamRequest) ProtoMessage() {}
+func (*TaskStreamRequest) ProtoMessage() {}
 
-func (x *JobStreamRequest) ProtoReflect() protoreflect.Message {
+func (x *TaskStreamRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_croupier_sdk_v1_invocation_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -215,44 +215,45 @@ func (x *JobStreamRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use JobStreamRequest.ProtoReflect.Descriptor instead.
-func (*JobStreamRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use TaskStreamRequest.ProtoReflect.Descriptor instead.
+func (*TaskStreamRequest) Descriptor() ([]byte, []int) {
 	return file_croupier_sdk_v1_invocation_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *JobStreamRequest) GetJobId() string {
+func (x *TaskStreamRequest) GetTaskId() string {
 	if x != nil {
-		return x.JobId
+		return x.TaskId
 	}
 	return ""
 }
 
-// SDK Job Event.
+// SDK Task Event.
 // payload is always UTF-8 JSON in protocol v1.
-type JobEvent struct {
+type TaskEvent struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Type          string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`          // "progress" | "log" | "done" | "error"
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`    // free text for log/error
-	Progress      int32                  `protobuf:"varint,3,opt,name=progress,proto3" json:"progress,omitempty"` // 0..100 when type == progress
-	Payload       []byte                 `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`    // optional final result JSON bytes
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
+	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`          // "queued" | "started" | "progress" | "log" | "completed" | "failed" | "cancel_requested" | "cancelled"
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`    // free text for log/error
+	Progress      int32                  `protobuf:"varint,4,opt,name=progress,proto3" json:"progress,omitempty"` // 0..100 when type == progress
+	Payload       []byte                 `protobuf:"bytes,5,opt,name=payload,proto3" json:"payload,omitempty"`    // optional JSON bytes
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *JobEvent) Reset() {
-	*x = JobEvent{}
+func (x *TaskEvent) Reset() {
+	*x = TaskEvent{}
 	mi := &file_croupier_sdk_v1_invocation_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *JobEvent) String() string {
+func (x *TaskEvent) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*JobEvent) ProtoMessage() {}
+func (*TaskEvent) ProtoMessage() {}
 
-func (x *JobEvent) ProtoReflect() protoreflect.Message {
+func (x *TaskEvent) ProtoReflect() protoreflect.Message {
 	mi := &file_croupier_sdk_v1_invocation_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -264,61 +265,68 @@ func (x *JobEvent) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use JobEvent.ProtoReflect.Descriptor instead.
-func (*JobEvent) Descriptor() ([]byte, []int) {
+// Deprecated: Use TaskEvent.ProtoReflect.Descriptor instead.
+func (*TaskEvent) Descriptor() ([]byte, []int) {
 	return file_croupier_sdk_v1_invocation_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *JobEvent) GetType() string {
+func (x *TaskEvent) GetTaskId() string {
+	if x != nil {
+		return x.TaskId
+	}
+	return ""
+}
+
+func (x *TaskEvent) GetType() string {
 	if x != nil {
 		return x.Type
 	}
 	return ""
 }
 
-func (x *JobEvent) GetMessage() string {
+func (x *TaskEvent) GetMessage() string {
 	if x != nil {
 		return x.Message
 	}
 	return ""
 }
 
-func (x *JobEvent) GetProgress() int32 {
+func (x *TaskEvent) GetProgress() int32 {
 	if x != nil {
 		return x.Progress
 	}
 	return 0
 }
 
-func (x *JobEvent) GetPayload() []byte {
+func (x *TaskEvent) GetPayload() []byte {
 	if x != nil {
 		return x.Payload
 	}
 	return nil
 }
 
-// SDK Job Cancellation Request
-type CancelJobRequest struct {
+// SDK Task Cancellation Request
+type CancelTaskRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *CancelJobRequest) Reset() {
-	*x = CancelJobRequest{}
+func (x *CancelTaskRequest) Reset() {
+	*x = CancelTaskRequest{}
 	mi := &file_croupier_sdk_v1_invocation_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *CancelJobRequest) String() string {
+func (x *CancelTaskRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CancelJobRequest) ProtoMessage() {}
+func (*CancelTaskRequest) ProtoMessage() {}
 
-func (x *CancelJobRequest) ProtoReflect() protoreflect.Message {
+func (x *CancelTaskRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_croupier_sdk_v1_invocation_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -330,14 +338,14 @@ func (x *CancelJobRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CancelJobRequest.ProtoReflect.Descriptor instead.
-func (*CancelJobRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use CancelTaskRequest.ProtoReflect.Descriptor instead.
+func (*CancelTaskRequest) Descriptor() ([]byte, []int) {
 	return file_croupier_sdk_v1_invocation_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *CancelJobRequest) GetJobId() string {
+func (x *CancelTaskRequest) GetTaskId() string {
 	if x != nil {
-		return x.JobId
+		return x.TaskId
 	}
 	return ""
 }
@@ -357,18 +365,19 @@ const file_croupier_sdk_v1_invocation_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"*\n" +
 	"\x0eInvokeResponse\x12\x18\n" +
-	"\apayload\x18\x01 \x01(\fR\apayload\")\n" +
-	"\x10StartJobResponse\x12\x15\n" +
-	"\x06job_id\x18\x01 \x01(\tR\x05jobId\")\n" +
-	"\x10JobStreamRequest\x12\x15\n" +
-	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"n\n" +
-	"\bJobEvent\x12\x12\n" +
-	"\x04type\x18\x01 \x01(\tR\x04type\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1a\n" +
-	"\bprogress\x18\x03 \x01(\x05R\bprogress\x12\x18\n" +
-	"\apayload\x18\x04 \x01(\fR\apayload\")\n" +
-	"\x10CancelJobRequest\x12\x15\n" +
-	"\x06job_id\x18\x01 \x01(\tR\x05jobIdBa\n" +
+	"\apayload\x18\x01 \x01(\fR\apayload\",\n" +
+	"\x11StartTaskResponse\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\",\n" +
+	"\x11TaskStreamRequest\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\"\x88\x01\n" +
+	"\tTaskEvent\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x12\n" +
+	"\x04type\x18\x02 \x01(\tR\x04type\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\x12\x1a\n" +
+	"\bprogress\x18\x04 \x01(\x05R\bprogress\x12\x18\n" +
+	"\apayload\x18\x05 \x01(\fR\apayload\",\n" +
+	"\x11CancelTaskRequest\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskIdBa\n" +
 	"\"io.github.cuihairu.croupier.sdk.v1P\x01Z9github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1;sdkv1b\x06proto3"
 
 var (
@@ -385,13 +394,13 @@ func file_croupier_sdk_v1_invocation_proto_rawDescGZIP() []byte {
 
 var file_croupier_sdk_v1_invocation_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_croupier_sdk_v1_invocation_proto_goTypes = []any{
-	(*InvokeRequest)(nil),    // 0: croupier.sdk.v1.InvokeRequest
-	(*InvokeResponse)(nil),   // 1: croupier.sdk.v1.InvokeResponse
-	(*StartJobResponse)(nil), // 2: croupier.sdk.v1.StartJobResponse
-	(*JobStreamRequest)(nil), // 3: croupier.sdk.v1.JobStreamRequest
-	(*JobEvent)(nil),         // 4: croupier.sdk.v1.JobEvent
-	(*CancelJobRequest)(nil), // 5: croupier.sdk.v1.CancelJobRequest
-	nil,                      // 6: croupier.sdk.v1.InvokeRequest.MetadataEntry
+	(*InvokeRequest)(nil),     // 0: croupier.sdk.v1.InvokeRequest
+	(*InvokeResponse)(nil),    // 1: croupier.sdk.v1.InvokeResponse
+	(*StartTaskResponse)(nil), // 2: croupier.sdk.v1.StartTaskResponse
+	(*TaskStreamRequest)(nil), // 3: croupier.sdk.v1.TaskStreamRequest
+	(*TaskEvent)(nil),         // 4: croupier.sdk.v1.TaskEvent
+	(*CancelTaskRequest)(nil), // 5: croupier.sdk.v1.CancelTaskRequest
+	nil,                       // 6: croupier.sdk.v1.InvokeRequest.MetadataEntry
 }
 var file_croupier_sdk_v1_invocation_proto_depIdxs = []int32{
 	6, // 0: croupier.sdk.v1.InvokeRequest.metadata:type_name -> croupier.sdk.v1.InvokeRequest.MetadataEntry

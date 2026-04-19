@@ -97,8 +97,8 @@ curl http://localhost:18780/api/v1/functions/descriptors
 | --- | --- |
 | 发起 `InvokeRequest` | SDK handler 被命中 |
 | 返回 `InvokeResponse` | 调用成功 |
-| 发起 `StartJobRequest` | 作业创建成功 |
-| 收到 `JobEvent` | 事件流正常 |
+| 发起 `StartTaskRequest` | 任务创建成功 |
+| 收到 `TaskEvent` | 事件流正常 |
 
 ## 阶段五：重连与摘流
 
@@ -139,4 +139,4 @@ curl http://localhost:18780/api/v1/functions/descriptors
 - 首帧不是 `ProviderConnectRequest`
 - 断线后复用旧 `session_id`
 - 业务 payload 默认不是 JSON
-- Dashboard 仍依赖历史 `gRPC` / `NNG` 描述理解链路
+- Dashboard 仍依赖历史 `gRPC` / `旧传输` 描述理解链路

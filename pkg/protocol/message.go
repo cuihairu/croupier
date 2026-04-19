@@ -44,18 +44,18 @@ const (
 	MsgClientHeartbeatResponse = 0x020104
 	MsgListClientsRequest      = 0x020105
 	MsgListClientsResponse     = 0x020106
-	MsgGetJobResultRequest     = 0x020107
-	MsgGetJobResultResponse    = 0x020108
+	MsgGetTaskResultRequest    = 0x020107
+	MsgGetTaskResultResponse   = 0x020108
 
 	// InvokerService (0x03xx)
-	MsgInvokeRequest     = 0x030101
-	MsgInvokeResponse    = 0x030102
-	MsgStartJobRequest   = 0x030103
-	MsgStartJobResponse  = 0x030104
-	MsgStreamJobRequest  = 0x030105
-	MsgJobEvent          = 0x030106 // Stream event (not request/response)
-	MsgCancelJobRequest  = 0x030107
-	MsgCancelJobResponse = 0x030108
+	MsgInvokeRequest      = 0x030101
+	MsgInvokeResponse     = 0x030102
+	MsgStartTaskRequest   = 0x030103
+	MsgStartTaskResponse  = 0x030104
+	MsgStreamTaskRequest  = 0x030105
+	MsgTaskEvent          = 0x030106 // Stream event (not request/response)
+	MsgCancelTaskRequest  = 0x030107
+	MsgCancelTaskResponse = 0x030108
 
 	// OpsService (0x04xx)
 	MsgGetSystemInfoRequest   = 0x040101
@@ -87,16 +87,6 @@ const (
 	MsgProviderHeartbeatResponse = 0x050104
 	MsgProviderDrainRequest      = 0x050105
 	MsgProviderDrainResponse     = 0x050106
-	MsgListLocalRequest          = 0x050107 // List local providers (separate from drain)
-	MsgListLocalResponse         = 0x050108
-)
-
-const (
-	// Deprecated aliases kept temporarily for compatibility with historical call sites.
-	MsgRegisterLocalRequest   = MsgProviderConnectRequest
-	MsgRegisterLocalResponse  = MsgProviderConnectResponse
-	MsgHeartbeatLocalRequest  = MsgProviderHeartbeatRequest
-	MsgHeartbeatLocalResponse = MsgProviderHeartbeatResponse
 )
 
 // PutMsgID encodes a 24-bit MsgID into buf in big-endian order.
@@ -113,12 +103,17 @@ func GetMsgID(buf []byte) uint32 {
 
 // IsRequest returns true if the MsgID indicates a request message.
 func IsRequest(msgID uint32) bool {
-	return msgID%2 == 1 && msgID != MsgJobEvent && msgID != MsgMetricEvent
+	return msgID%2 == 1 && msgID != MsgTaskEvent && msgID != MsgMetricEvent
 }
 
 // IsResponse returns true if the MsgID indicates a response message.
 func IsResponse(msgID uint32) bool {
-	return msgID%2 == 0 && msgID != MsgJobEvent && msgID != MsgMetricEvent // JobEvent and MetricEvent are stream events, not responses
+	return msgID%2 == 0 && msgID != MsgTaskEvent && msgID != MsgMetricEvent // TaskEvent and MetricEvent are stream events, not responses
+}
+
+// IsEvent returns true if the MsgID is a one-way event frame.
+func IsEvent(msgID uint32) bool {
+	return msgID == MsgTaskEvent || msgID == MsgMetricEvent
 }
 
 // GetResponseMsgID returns the response MsgID for a given request MsgID.
@@ -179,26 +174,26 @@ func MsgIDString(msgID uint32) string {
 		return "ListClientsRequest"
 	case MsgListClientsResponse:
 		return "ListClientsResponse"
-	case MsgGetJobResultRequest:
-		return "GetJobResultRequest"
-	case MsgGetJobResultResponse:
-		return "GetJobResultResponse"
+	case MsgGetTaskResultRequest:
+		return "GetTaskResultRequest"
+	case MsgGetTaskResultResponse:
+		return "GetTaskResultResponse"
 	case MsgInvokeRequest:
 		return "InvokeRequest"
 	case MsgInvokeResponse:
 		return "InvokeResponse"
-	case MsgStartJobRequest:
-		return "StartJobRequest"
-	case MsgStartJobResponse:
-		return "StartJobResponse"
-	case MsgStreamJobRequest:
-		return "StreamJobRequest"
-	case MsgJobEvent:
-		return "JobEvent"
-	case MsgCancelJobRequest:
-		return "CancelJobRequest"
-	case MsgCancelJobResponse:
-		return "CancelJobResponse"
+	case MsgStartTaskRequest:
+		return "StartTaskRequest"
+	case MsgStartTaskResponse:
+		return "StartTaskResponse"
+	case MsgStreamTaskRequest:
+		return "StreamTaskRequest"
+	case MsgTaskEvent:
+		return "TaskEvent"
+	case MsgCancelTaskRequest:
+		return "CancelTaskRequest"
+	case MsgCancelTaskResponse:
+		return "CancelTaskResponse"
 	case MsgGetSystemInfoRequest:
 		return "GetSystemInfoRequest"
 	case MsgGetSystemInfoResponse:
@@ -251,10 +246,6 @@ func MsgIDString(msgID uint32) string {
 		return "ProviderDrainRequest"
 	case MsgProviderDrainResponse:
 		return "ProviderDrainResponse"
-	case MsgListLocalRequest:
-		return "ListLocalRequest"
-	case MsgListLocalResponse:
-		return "ListLocalResponse"
 	default:
 		return fmt.Sprintf("Unknown(0x%06X)", msgID)
 	}

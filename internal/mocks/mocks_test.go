@@ -177,39 +177,39 @@ func TestMockGRPCClient_SetError(t *testing.T) {
 		t.Errorf("Invoke() error = %v, want %v", err, expectedErr)
 	}
 
-	_, err = client.StartJob(context.Background(), &InvokeRequest{FunctionID: "test"})
+	_, err = client.StartTask(context.Background(), &InvokeRequest{FunctionID: "test"})
 	if err != expectedErr {
-		t.Errorf("StartJob() error = %v, want %v", err, expectedErr)
+		t.Errorf("StartTask() error = %v, want %v", err, expectedErr)
 	}
 }
 
-func TestMockGRPCClient_JobWorkflow(t *testing.T) {
+func TestMockGRPCClient_TaskWorkflow(t *testing.T) {
 	client := NewMockGRPCClient()
 
-	// Start job
-	jobID, err := client.StartJob(context.Background(), &InvokeRequest{
+	// Start task
+	taskID, err := client.StartTask(context.Background(), &InvokeRequest{
 		FunctionID: "player.export",
 	})
 	if err != nil {
-		t.Errorf("StartJob() error = %v", err)
+		t.Errorf("StartTask() error = %v", err)
 	}
-	if jobID == "" {
-		t.Error("StartJob() returned empty job ID")
+	if taskID == "" {
+		t.Error("StartTask() returned empty task ID")
 	}
 
 	// Stream events
-	events, err := client.StreamJob(context.Background(), jobID)
+	events, err := client.StreamTask(context.Background(), taskID)
 	if err != nil {
-		t.Errorf("StreamJob() error = %v", err)
+		t.Errorf("StreamTask() error = %v", err)
 	}
 	if len(events) < 2 {
-		t.Errorf("StreamJob() returned %d events, want at least 2", len(events))
+		t.Errorf("StreamTask() returned %d events, want at least 2", len(events))
 	}
 
-	// Cancel job
-	err = client.CancelJob(context.Background(), jobID)
+	// Cancel task
+	err = client.CancelTask(context.Background(), taskID)
 	if err != nil {
-		t.Errorf("CancelJob() error = %v", err)
+		t.Errorf("CancelTask() error = %v", err)
 	}
 
 	calls := client.GetCalls()
@@ -231,16 +231,16 @@ func TestMockServiceContext_Basic(t *testing.T) {
 	}
 }
 
-func TestMockServiceContext_ActiveJobs(t *testing.T) {
+func TestMockServiceContext_ActiveTasks(t *testing.T) {
 	ctx := NewMockServiceContext()
 
-	if ctx.GetActiveJobs() != 0 {
-		t.Errorf("GetActiveJobs() = %d, want 0", ctx.GetActiveJobs())
+	if ctx.GetActiveTasks() != 0 {
+		t.Errorf("GetActiveTasks() = %d, want 0", ctx.GetActiveTasks())
 	}
 
-	ctx.SetActiveJobs(5)
-	if ctx.GetActiveJobs() != 5 {
-		t.Errorf("GetActiveJobs() = %d, want 5", ctx.GetActiveJobs())
+	ctx.SetActiveTasks(5)
+	if ctx.GetActiveTasks() != 5 {
+		t.Errorf("GetActiveTasks() = %d, want 5", ctx.GetActiveTasks())
 	}
 }
 
@@ -297,9 +297,9 @@ func TestMockServiceContext_ConcurrentAccess(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			ctx.SetActiveJobs(idx)
+			ctx.SetActiveTasks(idx)
 			ctx.SetLastHeartbeat(time.Now())
-			_ = ctx.GetActiveJobs()
+			_ = ctx.GetActiveTasks()
 			_ = ctx.GetLastHeartbeat()
 		}(i)
 	}

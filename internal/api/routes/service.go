@@ -14,7 +14,7 @@ func (s *Service) GetRoutes(ctx context.Context) (*GetRoutesResponse, error) {
 		{Path: "/api/v1/admin", Name: "Admin", Icon: "user", Component: "Admin"},
 		{Path: "/api/v1/functions", Name: "Functions", Icon: "function", Component: "Functions"},
 		{Path: "/api/v1/games", Name: "Games", Icon: "game", Component: "Games"},
-		{Path: "/api/v1/jobs", Name: "Jobs", Icon: "job", Component: "Jobs"},
+		{Path: "/api/v1/tasks", Name: "Tasks", Icon: "task", Component: "Tasks"},
 		{Path: "/api/v1/nodes", Name: "Nodes", Icon: "node", Component: "Nodes"},
 		{Path: "/api/v1/ops", Name: "Ops", Icon: "ops", Component: "Ops"},
 		{Path: "/api/v1/storage", Name: "Storage", Icon: "storage", Component: "Storage"},

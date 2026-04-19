@@ -10,24 +10,24 @@ import (
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 )
 
-func TestFileJobRoutingStore_PersistsAcrossInstances(t *testing.T) {
+func TestFileTaskRoutingStore_PersistsAcrossInstances(t *testing.T) {
 	dataDir := t.TempDir()
 
-	store1, err := NewFileJobRoutingStore(dataDir)
+	store1, err := NewFileTaskRoutingStore(dataDir)
 	if err != nil {
-		t.Fatalf("NewFileJobRoutingStore: %v", err)
+		t.Fatalf("NewFileTaskRoutingStore: %v", err)
 	}
 
-	if err := store1.Set("job-1", "agent-1"); err != nil {
+	if err := store1.Set("task-1", "agent-1"); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
 
-	store2, err := NewFileJobRoutingStore(dataDir)
+	store2, err := NewFileTaskRoutingStore(dataDir)
 	if err != nil {
-		t.Fatalf("NewFileJobRoutingStore (second): %v", err)
+		t.Fatalf("NewFileTaskRoutingStore (second): %v", err)
 	}
 
-	routing, err := store2.Get("job-1")
+	routing, err := store2.Get("task-1")
 	if err != nil {
 		t.Fatalf("Get: %v", err)
 	}
@@ -36,14 +36,14 @@ func TestFileJobRoutingStore_PersistsAcrossInstances(t *testing.T) {
 	}
 }
 
-func TestFileJobRoutingStore_Cleanup(t *testing.T) {
+func TestFileTaskRoutingStore_Cleanup(t *testing.T) {
 	dataDir := t.TempDir()
-	store, err := NewFileJobRoutingStore(dataDir)
+	store, err := NewFileTaskRoutingStore(dataDir)
 	if err != nil {
-		t.Fatalf("NewFileJobRoutingStore: %v", err)
+		t.Fatalf("NewFileTaskRoutingStore: %v", err)
 	}
 
-	if err := store.Set("job-old", "agent-old"); err != nil {
+	if err := store.Set("task-old", "agent-old"); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
 
@@ -61,93 +61,93 @@ func TestFileJobRoutingStore_Cleanup(t *testing.T) {
 	}
 }
 
-func TestDispatcher_LoadsJobRoutingFromStore(t *testing.T) {
+func TestDispatcher_LoadsTaskRoutingFromStore(t *testing.T) {
 	dataDir := t.TempDir()
-	store, err := NewFileJobRoutingStore(dataDir)
+	store, err := NewFileTaskRoutingStore(dataDir)
 	if err != nil {
-		t.Fatalf("NewFileJobRoutingStore: %v", err)
+		t.Fatalf("NewFileTaskRoutingStore: %v", err)
 	}
 
-	if err := store.Set("job-2", "agent-2"); err != nil {
+	if err := store.Set("task-2", "agent-2"); err != nil {
 		t.Fatalf("Set: %v", err)
 	}
 
-	d := NewDispatcherWithJobStore(nil, store)
-	if got, ok := d.JobAddr("job-2"); !ok || got != "agent-2" {
-		t.Fatalf("JobAddr(job-2)=(%q,%v) want (%q,true)", got, ok, "agent-2")
+	d := NewDispatcherWithTaskStore(nil, store)
+	if got, ok := d.TaskAgentID("task-2"); !ok || got != "agent-2" {
+		t.Fatalf("TaskAgentID(task-2)=(%q,%v) want (%q,true)", got, ok, "agent-2")
 	}
 }
 
-func TestDispatcher_CleanupOldJobsClearsMemoryCache(t *testing.T) {
+func TestDispatcher_CleanupOldTasksClearsMemoryCache(t *testing.T) {
 	dataDir := t.TempDir()
-	store, err := NewFileJobRoutingStore(dataDir)
+	store, err := NewFileTaskRoutingStore(dataDir)
 	if err != nil {
-		t.Fatalf("NewFileJobRoutingStore: %v", err)
+		t.Fatalf("NewFileTaskRoutingStore: %v", err)
 	}
 
-	d := NewDispatcherWithJobStore(nil, store)
+	d := NewDispatcherWithTaskStore(nil, store)
 
-	d.RegisterJob("job-old", "agent-old")
+	d.RegisterTask("task-old", "agent-old")
 	time.Sleep(10 * time.Millisecond)
 
-	if err := d.CleanupOldJobs(1 * time.Millisecond); err != nil {
-		t.Fatalf("CleanupOldJobs: %v", err)
+	if err := d.CleanupOldTasks(1 * time.Millisecond); err != nil {
+		t.Fatalf("CleanupOldTasks: %v", err)
 	}
 
-	if agentID, ok := d.JobAddr("job-old"); ok {
-		t.Fatalf("JobAddr(job-old)=(%q,%v) want (_,false)", agentID, ok)
+	if agentID, ok := d.TaskAgentID("task-old"); ok {
+		t.Fatalf("TaskAgentID(task-old)=(%q,%v) want (_,false)", agentID, ok)
 	}
 }
 
-// TestMemoryJobRoutingStore_BasicOperations 测试内存存储的基本操作
-func TestMemoryJobRoutingStore_BasicOperations(t *testing.T) {
-	store := NewMemoryJobRoutingStore()
+// TestMemoryTaskRoutingStore_BasicOperations 测试内存存储的基本操作
+func TestMemoryTaskRoutingStore_BasicOperations(t *testing.T) {
+	store := NewMemoryTaskRoutingStore()
 
 	// 测试 Set 和 Get
-	err := store.Set("job-1", "agent-1")
+	err := store.Set("task-1", "agent-1")
 	if err != nil {
 		t.Fatalf("Set() error = %v", err)
 	}
 
-	routing, err := store.Get("job-1")
+	routing, err := store.Get("task-1")
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
 
-	if routing.JobID != "job-1" {
-		t.Errorf("JobID = %q, want 'job-1'", routing.JobID)
+	if routing.TaskID != "task-1" {
+		t.Errorf("TaskID = %q, want 'task-1'", routing.TaskID)
 	}
 	if routing.AgentID != "agent-1" {
 		t.Errorf("AgentID = %q, want 'agent-1'", routing.AgentID)
 	}
 }
 
-// TestMemoryJobRoutingStore_GetNotFound 测试获取不存在的任务
-func TestMemoryJobRoutingStore_GetNotFound(t *testing.T) {
-	store := NewMemoryJobRoutingStore()
+// TestMemoryTaskRoutingStore_GetNotFound 测试获取不存在的任务
+func TestMemoryTaskRoutingStore_GetNotFound(t *testing.T) {
+	store := NewMemoryTaskRoutingStore()
 
 	_, err := store.Get("nonexistent")
 	if err == nil {
-		t.Error("Get() should return error for nonexistent job")
+		t.Error("Get() should return error for nonexistent task")
 	}
 }
 
-// TestMemoryJobRoutingStore_UpdatePreservesCreatedAt 测试更新保留创建时间
-func TestMemoryJobRoutingStore_UpdatePreservesCreatedAt(t *testing.T) {
-	store := NewMemoryJobRoutingStore()
+// TestMemoryTaskRoutingStore_UpdatePreservesCreatedAt 测试更新保留创建时间
+func TestMemoryTaskRoutingStore_UpdatePreservesCreatedAt(t *testing.T) {
+	store := NewMemoryTaskRoutingStore()
 
-	_ = store.Set("job-1", "agent-1")
+	_ = store.Set("task-1", "agent-1")
 	time.Sleep(10 * time.Millisecond)
 
-	_ = store.Set("job-1", "agent-2")
+	_ = store.Set("task-1", "agent-2")
 
-	routing, _ := store.Get("job-1")
+	routing, _ := store.Get("task-1")
 	originalCreatedAt := routing.CreatedAt
 
 	time.Sleep(10 * time.Millisecond)
-	_ = store.Set("job-1", "agent-3")
+	_ = store.Set("task-1", "agent-3")
 
-	routing, _ = store.Get("job-1")
+	routing, _ = store.Get("task-1")
 	if routing.CreatedAt != originalCreatedAt {
 		t.Error("CreatedAt should be preserved across updates")
 	}
@@ -156,34 +156,34 @@ func TestMemoryJobRoutingStore_UpdatePreservesCreatedAt(t *testing.T) {
 	}
 }
 
-// TestMemoryJobRoutingStore_Delete 测试删除任务路由
-func TestMemoryJobRoutingStore_Delete(t *testing.T) {
-	store := NewMemoryJobRoutingStore()
+// TestMemoryTaskRoutingStore_Delete 测试删除任务路由
+func TestMemoryTaskRoutingStore_Delete(t *testing.T) {
+	store := NewMemoryTaskRoutingStore()
 
-	_ = store.Set("job-1", "agent-1")
-	_, err := store.Get("job-1")
+	_ = store.Set("task-1", "agent-1")
+	_, err := store.Get("task-1")
 	if err != nil {
-		t.Fatal("Job should exist before delete")
+		t.Fatal("Task should exist before delete")
 	}
 
-	err = store.Delete("job-1")
+	err = store.Delete("task-1")
 	if err != nil {
 		t.Fatalf("Delete() error = %v", err)
 	}
 
-	_, err = store.Get("job-1")
+	_, err = store.Get("task-1")
 	if err == nil {
-		t.Error("Job should not exist after delete")
+		t.Error("Task should not exist after delete")
 	}
 }
 
-// TestMemoryJobRoutingStore_List 测试列出所有任务路由
-func TestMemoryJobRoutingStore_List(t *testing.T) {
-	store := NewMemoryJobRoutingStore()
+// TestMemoryTaskRoutingStore_List 测试列出所有任务路由
+func TestMemoryTaskRoutingStore_List(t *testing.T) {
+	store := NewMemoryTaskRoutingStore()
 
-	_ = store.Set("job-1", "agent-1")
-	_ = store.Set("job-2", "agent-2")
-	_ = store.Set("job-3", "agent-3")
+	_ = store.Set("task-1", "agent-1")
+	_ = store.Set("task-2", "agent-2")
+	_ = store.Set("task-3", "agent-3")
 
 	list, err := store.List()
 	if err != nil {
@@ -195,9 +195,9 @@ func TestMemoryJobRoutingStore_List(t *testing.T) {
 	}
 }
 
-// TestMemoryJobRoutingStore_ListEmpty 测试列出空存储
-func TestMemoryJobRoutingStore_ListEmpty(t *testing.T) {
-	store := NewMemoryJobRoutingStore()
+// TestMemoryTaskRoutingStore_ListEmpty 测试列出空存储
+func TestMemoryTaskRoutingStore_ListEmpty(t *testing.T) {
+	store := NewMemoryTaskRoutingStore()
 
 	list, err := store.List()
 	if err != nil {
@@ -209,39 +209,39 @@ func TestMemoryJobRoutingStore_ListEmpty(t *testing.T) {
 	}
 }
 
-// TestMemoryJobRoutingStore_Cleanup 测试清理过期任务
-func TestMemoryJobRoutingStore_Cleanup(t *testing.T) {
-	store := NewMemoryJobRoutingStore()
+// TestMemoryTaskRoutingStore_Cleanup 测试清理过期任务
+func TestMemoryTaskRoutingStore_Cleanup(t *testing.T) {
+	store := NewMemoryTaskRoutingStore()
 
-	_ = store.Set("old-job", "agent-old")
+	_ = store.Set("old-task", "agent-old")
 	time.Sleep(10 * time.Millisecond)
 
-	_ = store.Set("new-job", "agent-new")
+	_ = store.Set("new-task", "agent-new")
 
 	err := store.Cleanup(1 * time.Millisecond)
 	if err != nil {
 		t.Fatalf("Cleanup() error = %v", err)
 	}
 
-	// old-job 应该被清理
-	_, err = store.Get("old-job")
+	// old-task 应该被清理
+	_, err = store.Get("old-task")
 	if err == nil {
-		t.Error("old-job should be cleaned up")
+		t.Error("old-task should be cleaned up")
 	}
 
-	// new-job 应该仍然存在
-	_, err = store.Get("new-job")
+	// new-task 应该仍然存在
+	_, err = store.Get("new-task")
 	if err != nil {
-		t.Error("new-job should still exist")
+		t.Error("new-task should still exist")
 	}
 }
 
-// TestMemoryJobRoutingStore_CleanupAll 测试清理所有任务
-func TestMemoryJobRoutingStore_CleanupAll(t *testing.T) {
-	store := NewMemoryJobRoutingStore()
+// TestMemoryTaskRoutingStore_CleanupAll 测试清理所有任务
+func TestMemoryTaskRoutingStore_CleanupAll(t *testing.T) {
+	store := NewMemoryTaskRoutingStore()
 
-	_ = store.Set("job-1", "agent-1")
-	_ = store.Set("job-2", "agent-2")
+	_ = store.Set("task-1", "agent-1")
+	_ = store.Set("task-2", "agent-2")
 	time.Sleep(10 * time.Millisecond)
 
 	_ = store.Cleanup(1 * time.Millisecond)
@@ -252,9 +252,9 @@ func TestMemoryJobRoutingStore_CleanupAll(t *testing.T) {
 	}
 }
 
-// TestMemoryJobRoutingStore_Close 测试关闭存储
-func TestMemoryJobRoutingStore_Close(t *testing.T) {
-	store := NewMemoryJobRoutingStore()
+// TestMemoryTaskRoutingStore_Close 测试关闭存储
+func TestMemoryTaskRoutingStore_Close(t *testing.T) {
+	store := NewMemoryTaskRoutingStore()
 
 	err := store.Close()
 	if err != nil {
@@ -268,13 +268,13 @@ func TestMemoryJobRoutingStore_Close(t *testing.T) {
 	}
 }
 
-// TestFileJobRoutingStore_EmptyDirectory 测试空目录
-func TestFileJobRoutingStore_EmptyDirectory(t *testing.T) {
+// TestFileTaskRoutingStore_EmptyDirectory 测试空目录
+func TestFileTaskRoutingStore_EmptyDirectory(t *testing.T) {
 	dataDir := t.TempDir()
 
-	store, err := NewFileJobRoutingStore(dataDir)
+	store, err := NewFileTaskRoutingStore(dataDir)
 	if err != nil {
-		t.Fatalf("NewFileJobRoutingStore() error = %v", err)
+		t.Fatalf("NewFileTaskRoutingStore() error = %v", err)
 	}
 
 	// 空目录应该创建空存储
@@ -288,57 +288,57 @@ func TestFileJobRoutingStore_EmptyDirectory(t *testing.T) {
 	}
 }
 
-// TestFileJobRoutingStore_GetNotFound 测试文件存储获取不存在的任务
-func TestFileJobRoutingStore_GetNotFound(t *testing.T) {
+// TestFileTaskRoutingStore_GetNotFound 测试文件存储获取不存在的任务
+func TestFileTaskRoutingStore_GetNotFound(t *testing.T) {
 	dataDir := t.TempDir()
 
-	store, err := NewFileJobRoutingStore(dataDir)
+	store, err := NewFileTaskRoutingStore(dataDir)
 	if err != nil {
-		t.Fatalf("NewFileJobRoutingStore() error = %v", err)
+		t.Fatalf("NewFileTaskRoutingStore() error = %v", err)
 	}
 
 	_, err = store.Get("nonexistent")
 	if err == nil {
-		t.Error("Get() should return error for nonexistent job")
+		t.Error("Get() should return error for nonexistent task")
 	}
 }
 
-// TestFileJobRoutingStore_Delete 测试文件存储删除
-func TestFileJobRoutingStore_Delete(t *testing.T) {
+// TestFileTaskRoutingStore_Delete 测试文件存储删除
+func TestFileTaskRoutingStore_Delete(t *testing.T) {
 	dataDir := t.TempDir()
 
-	store, err := NewFileJobRoutingStore(dataDir)
+	store, err := NewFileTaskRoutingStore(dataDir)
 	if err != nil {
-		t.Fatalf("NewFileJobRoutingStore() error = %v", err)
+		t.Fatalf("NewFileTaskRoutingStore() error = %v", err)
 	}
 
-	_ = store.Set("job-1", "agent-1")
-	err = store.Delete("job-1")
+	_ = store.Set("task-1", "agent-1")
+	err = store.Delete("task-1")
 	if err != nil {
 		t.Fatalf("Delete() error = %v", err)
 	}
 
 	// 验证文件被删除
-	filePath := filepath.Join(dataDir, "job_routing.json")
+	filePath := filepath.Join(dataDir, "task_routing.json")
 	if _, err := os.Stat(filePath); err == nil {
 		// 文件可能存在但是空的（空 map）
 		data, _ := os.ReadFile(filePath)
 		if len(data) > 10 { // 至少有 "{}"
-			t.Error("Job routing file should be empty or deleted")
+			t.Error("Task routing file should be empty or deleted")
 		}
 	}
 }
 
-// TestFileJobRoutingStore_CleanupNoOldEntries 测试清理时没有旧条目
-func TestFileJobRoutingStore_CleanupNoOldEntries(t *testing.T) {
+// TestFileTaskRoutingStore_CleanupNoOldEntries 测试清理时没有旧条目
+func TestFileTaskRoutingStore_CleanupNoOldEntries(t *testing.T) {
 	dataDir := t.TempDir()
 
-	store, err := NewFileJobRoutingStore(dataDir)
+	store, err := NewFileTaskRoutingStore(dataDir)
 	if err != nil {
-		t.Fatalf("NewFileJobRoutingStore() error = %v", err)
+		t.Fatalf("NewFileTaskRoutingStore() error = %v", err)
 	}
 
-	_ = store.Set("job-1", "agent-1")
+	_ = store.Set("task-1", "agent-1")
 
 	// 清理一个非常短的 TTL，应该删除所有条目
 	time.Sleep(10 * time.Millisecond)
@@ -353,13 +353,13 @@ func TestFileJobRoutingStore_CleanupNoOldEntries(t *testing.T) {
 	}
 }
 
-// TestFileJobRoutingStore_Close 测试关闭文件存储
-func TestFileJobRoutingStore_Close(t *testing.T) {
+// TestFileTaskRoutingStore_Close 测试关闭文件存储
+func TestFileTaskRoutingStore_Close(t *testing.T) {
 	dataDir := t.TempDir()
 
-	store, err := NewFileJobRoutingStore(dataDir)
+	store, err := NewFileTaskRoutingStore(dataDir)
 	if err != nil {
-		t.Fatalf("NewFileJobRoutingStore() error = %v", err)
+		t.Fatalf("NewFileTaskRoutingStore() error = %v", err)
 	}
 
 	err = store.Close()
@@ -480,7 +480,7 @@ func TestIsTerminalEvent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			evt := &sdkv1.JobEvent{Type: tt.eventType}
+			evt := &sdkv1.TaskEvent{Type: tt.eventType}
 			result := isTerminalEvent(evt)
 			if result != tt.expected {
 				t.Errorf("isTerminalEvent(%q) = %v, want %v", tt.eventType, result, tt.expected)
@@ -489,22 +489,22 @@ func TestIsTerminalEvent(t *testing.T) {
 	}
 }
 
-// BenchmarkMemoryJobRoutingStore_Set 性能基准测试
-func BenchmarkMemoryJobRoutingStore_Set(b *testing.B) {
-	store := NewMemoryJobRoutingStore()
+// BenchmarkMemoryTaskRoutingStore_Set 性能基准测试
+func BenchmarkMemoryTaskRoutingStore_Set(b *testing.B) {
+	store := NewMemoryTaskRoutingStore()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = store.Set("job-id", "agent-1")
+		_ = store.Set("task-id", "agent-1")
 	}
 }
 
-// BenchmarkMemoryJobRoutingStore_Get 性能基准测试
-func BenchmarkMemoryJobRoutingStore_Get(b *testing.B) {
-	store := NewMemoryJobRoutingStore()
-	_ = store.Set("job-id", "agent-1")
+// BenchmarkMemoryTaskRoutingStore_Get 性能基准测试
+func BenchmarkMemoryTaskRoutingStore_Get(b *testing.B) {
+	store := NewMemoryTaskRoutingStore()
+	_ = store.Set("task-id", "agent-1")
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = store.Get("job-id")
+		_, _ = store.Get("task-id")
 	}
 }
 

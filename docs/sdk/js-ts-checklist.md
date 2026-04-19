@@ -4,7 +4,7 @@
 
 ## 目标
 
-移除对 `@rustup/nng` 的默认依赖，切到独立 `tcp session`，统一 Node 侧默认接入体验。
+移除对 `JS 原生传输` 的默认依赖，切到独立 `tcp session`，统一 Node 侧默认接入体验。
 
 ## J0. 基线核对
 
@@ -16,7 +16,7 @@
 ## J1. transport
 
 - [x] 新增独立 `tcp transport`
-- [x] 不再把 `@rustup/nng` 作为默认主路径
+- [x] 不再把 `JS 原生传输` 作为默认主路径
 - [x] transport 与高层 Client / Invoker 解耦
 - [x] 支持 framing、header、读循环、写队列
 
@@ -49,5 +49,5 @@
 
 ## 验收
 
-- [x] 不安装 `@rustup/nng` 也能跑默认链路
+- [x] 不安装 `JS 原生传输` 也能跑默认链路
 - [x] Node 用户只需传 JS 对象

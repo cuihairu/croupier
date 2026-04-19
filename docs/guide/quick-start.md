@@ -14,7 +14,7 @@ tag:
 
 - `Server <-> Agent` 使用单条内部 session 链路
 - `SDK / GameServer / 第三方本地应用 <-> Agent` 使用 Agent 本地 gateway
-- 不再以历史 `gRPC` 或 `NNG REQ/REP` 文档作为新的接入依据
+- 不再以历史 `gRPC` 或 `历史 REQ/REP` 文档作为新的接入依据
 
 ## 环境要求
 
@@ -53,7 +53,7 @@ cp configs/agent.local.yaml configs/agent.runtime.yaml
 
 说明：
 
-- `19090` 是内部控制与会话链路端口，不应再理解为 `gRPC` 或 `NNG` 专用端口
+- `19090` 是内部控制与会话链路端口，不应再理解为 `gRPC` 或 `旧传输` 专用端口
 - `19091` 是本地接入边界，不是 `Server -> Agent` 回拨入口
 
 ## 启动服务

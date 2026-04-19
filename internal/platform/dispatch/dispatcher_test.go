@@ -22,8 +22,8 @@ func TestNewDispatcher(t *testing.T) {
 	if d.store != store {
 		t.Error("store should be set correctly")
 	}
-	if d.jobStore == nil {
-		t.Error("jobStore should be initialized with default memory store")
+	if d.taskStore == nil {
+		t.Error("taskStore should be initialized with default memory store")
 	}
 }
 
@@ -125,65 +125,65 @@ func TestDispatcher_InvokeRequest_InvalidMarshal(t *testing.T) {
 	}
 }
 
-// TestDispatcher_StartJob_NilRequest 测试 nil StartJobRequest
-func TestDispatcher_StartJob_NilRequest(t *testing.T) {
+// TestDispatcher_StartTask_NilRequest 测试 nil StartTaskRequest
+func TestDispatcher_StartTask_NilRequest(t *testing.T) {
 	d := NewDispatcher(nil)
 
 	ctx := context.Background()
-	_, err := d.StartJobRequest(ctx, nil)
+	_, err := d.StartTaskRequest(ctx, nil)
 
 	if err == nil {
-		t.Error("StartJobRequest with nil request should return error")
+		t.Error("StartTaskRequest with nil request should return error")
 	}
 }
 
-// TestDispatcher_StartJob_EmptyFunctionID 测试空 FunctionID
-func TestDispatcher_StartJob_EmptyFunctionID(t *testing.T) {
+// TestDispatcher_StartTask_EmptyFunctionID 测试空 FunctionID
+func TestDispatcher_StartTask_EmptyFunctionID(t *testing.T) {
 	d := NewDispatcher(nil)
 
 	ctx := context.Background()
 	req := &sdkv1.InvokeRequest{FunctionId: ""}
-	_, err := d.StartJobRequest(ctx, req)
+	_, err := d.StartTaskRequest(ctx, req)
 
 	if err == nil {
-		t.Error("StartJobRequest with empty function id should return error")
+		t.Error("StartTaskRequest with empty function id should return error")
 	}
 }
 
-// TestDispatcher_StartJob_NoAgent 测试没有可用代理
-func TestDispatcher_StartJob_NoAgent(t *testing.T) {
+// TestDispatcher_StartTask_NoAgent 测试没有可用代理
+func TestDispatcher_StartTask_NoAgent(t *testing.T) {
 	d := NewDispatcher(nil)
 
 	ctx := context.Background()
 	req := &sdkv1.InvokeRequest{FunctionId: "test-function"}
-	_, err := d.StartJobRequest(ctx, req)
+	_, err := d.StartTaskRequest(ctx, req)
 
 	if err == nil {
-		t.Error("StartJobRequest should return error when no agent available")
+		t.Error("StartTaskRequest should return error when no agent available")
 	}
 }
 
-// TestDispatcher_CancelJob_NotTracked 测试取消未跟踪的任务
-func TestDispatcher_CancelJob_NotTracked(t *testing.T) {
+// TestDispatcher_CancelTask_NotTracked 测试取消未跟踪的任务
+func TestDispatcher_CancelTask_NotTracked(t *testing.T) {
 	d := NewDispatcher(nil)
 
 	ctx := context.Background()
-	err := d.CancelJob(ctx, "non-existent-job")
+	err := d.CancelTask(ctx, "non-existent-task")
 
 	if err == nil {
-		t.Error("CancelJob should return error for non-existent job")
+		t.Error("CancelTask should return error for non-existent task")
 	}
 }
 
-// TestDispatcher_StreamJob 测试流式任务
-func TestDispatcher_StreamJob(t *testing.T) {
+// TestDispatcher_StreamTask 测试流式任务
+func TestDispatcher_StreamTask(t *testing.T) {
 	d := NewDispatcher(nil)
 
 	ctx := context.Background()
-	events, complete, err := d.StreamJob(ctx, "test-job")
+	events, complete, err := d.StreamTask(ctx, "test-task")
 
 	if err == nil {
-		t.Error("StreamJob should return error (not yet implemented)")
+		t.Error("StreamTask should return error (not yet implemented)")
 	}
 	if complete {
 		t.Error("complete should be false on error")
@@ -193,17 +193,17 @@ func TestDispatcher_StreamJob(t *testing.T) {
 	}
 }
 
-// TestDispatcher_StreamJobRealtime 测试实时流式任务
-func TestDispatcher_StreamJobRealtime(t *testing.T) {
+// TestDispatcher_StreamTaskRealtime 测试实时流式任务
+func TestDispatcher_StreamTaskRealtime(t *testing.T) {
 	d := NewDispatcher(nil)
 
 	ctx := context.Background()
-	complete, err := d.StreamJobRealtime(ctx, "test-job", func(evt *sdkv1.JobEvent) bool {
+	complete, err := d.StreamTaskRealtime(ctx, "test-task", func(evt *sdkv1.TaskEvent) bool {
 		return true
 	})
 
 	if err == nil {
-		t.Error("StreamJobRealtime should return error (not yet implemented)")
+		t.Error("StreamTaskRealtime should return error (not yet implemented)")
 	}
 	if complete {
 		t.Error("complete should be false on error")
@@ -657,127 +657,127 @@ func TestDispatcher_pickAgentWithRouting_NilMetadata(t *testing.T) {
 	}
 }
 
-// TestDispatcher_JobAddr_NotFound 测试未找到任务地址
-func TestDispatcher_JobAddr_NotFound(t *testing.T) {
+// TestDispatcher_TaskAgentID_NotFound 测试未找到任务地址
+func TestDispatcher_TaskAgentID_NotFound(t *testing.T) {
 	d := NewDispatcher(nil)
 
-	addr, ok := d.JobAddr("non-existent")
+	addr, ok := d.TaskAgentID("non-existent")
 
 	if ok {
-		t.Errorf("JobAddr() should return false for non-existent job, got (%q, %v)", addr, ok)
+		t.Errorf("TaskAgentID() should return false for non-existent task, got (%q, %v)", addr, ok)
 	}
 }
 
-// TestDispatcher_jobAddr_LoadsFromStore 测试从存储加载
-func TestDispatcher_jobAddr_LoadsFromStore(t *testing.T) {
-	store := NewMemoryJobRoutingStore()
-	d := NewDispatcherWithJobStore(nil, store)
+// TestDispatcher_taskAgentID_LoadsFromStore 测试从存储加载
+func TestDispatcher_taskAgentID_LoadsFromStore(t *testing.T) {
+	store := NewMemoryTaskRoutingStore()
+	d := NewDispatcherWithTaskStore(nil, store)
 
-	jobID := "test-job"
+	taskID := "test-task"
 	addr := "127.0.0.1:9001"
 
 	// 直接设置到存储中
-	store.Set(jobID, addr)
+	store.Set(taskID, addr)
 
-	// 通过 jobAddr 获取
-	retrievedAddr, err := d.jobAddr(jobID)
+	// 通过 taskAgentID 获取
+	retrievedAddr, err := d.taskAgentID(taskID)
 
 	if err != nil {
-		t.Fatalf("jobAddr() error = %v", err)
+		t.Fatalf("taskAgentID() error = %v", err)
 	}
 
 	if retrievedAddr != addr {
-		t.Errorf("jobAddr() = %q, want %q", retrievedAddr, addr)
+		t.Errorf("taskAgentID() = %q, want %q", retrievedAddr, addr)
 	}
 
 	// 现在应该在内存缓存中
-	cachedAddr, ok := d.JobAddr(jobID)
+	cachedAddr, ok := d.TaskAgentID(taskID)
 	if !ok || cachedAddr != addr {
-		t.Errorf("JobAddr() after load = (%q, %v), want (%q, true)", cachedAddr, ok, addr)
+		t.Errorf("TaskAgentID() after load = (%q, %v), want (%q, true)", cachedAddr, ok, addr)
 	}
 }
 
-// TestDispatcher_UnregisterJob 测试注销任务
-func TestDispatcher_UnregisterJob(t *testing.T) {
+// TestDispatcher_UnregisterTask 测试注销任务
+func TestDispatcher_UnregisterTask(t *testing.T) {
 	d := NewDispatcher(nil)
 
 	// 注册任务
-	d.RegisterJob("test-job", "127.0.0.1:9001")
+	d.RegisterTask("test-task", "127.0.0.1:9001")
 
 	// 验证已注册
-	addr, ok := d.JobAddr("test-job")
+	addr, ok := d.TaskAgentID("test-task")
 	if !ok || addr != "127.0.0.1:9001" {
-		t.Fatal("Job should be registered")
+		t.Fatal("Task should be registered")
 	}
 
 	// 注销任务
-	d.UnregisterJob("test-job")
+	d.UnregisterTask("test-task")
 
 	// 验证已注销
-	_, ok = d.JobAddr("test-job")
+	_, ok = d.TaskAgentID("test-task")
 	if ok {
-		t.Error("Job should be unregistered")
+		t.Error("Task should be unregistered")
 	}
 }
 
-// TestDispatcher_unregisterJob 测试内部注销任务方法
-func TestDispatcher_unregisterJob_WithStore(t *testing.T) {
-	store := NewMemoryJobRoutingStore()
-	d := NewDispatcherWithJobStore(nil, store)
+// TestDispatcher_unregisterTask 测试内部注销任务方法
+func TestDispatcher_unregisterTask_WithStore(t *testing.T) {
+	store := NewMemoryTaskRoutingStore()
+	d := NewDispatcherWithTaskStore(nil, store)
 
-	jobID := "test-job"
+	taskID := "test-task"
 	agentID := "agent-test"
 
 	// 注册任务
-	d.registerJob(jobID, agentID)
+	d.registerTask(taskID, agentID)
 
 	// 验证在存储中
-	routing, err := store.Get(jobID)
+	routing, err := store.Get(taskID)
 	if err != nil {
-		t.Fatal("Job should be in store")
+		t.Fatal("Task should be in store")
 	}
 	if routing.AgentID != agentID {
 		t.Error("Store should have correct agentID")
 	}
 
 	// 注销任务
-	d.unregisterJob(jobID)
+	d.unregisterTask(taskID)
 
 	// 验证从存储中删除
-	_, err = store.Get(jobID)
+	_, err = store.Get(taskID)
 	if err == nil {
-		t.Error("Job should be removed from store")
+		t.Error("Task should be removed from store")
 	}
 }
 
-// TestDispatcher_loadJobRouting_StoreError 测试存储错误处理
-func TestDispatcher_loadJobRouting_StoreError(t *testing.T) {
+// TestDispatcher_loadTaskRouting_StoreError 测试存储错误处理
+func TestDispatcher_loadTaskRouting_StoreError(t *testing.T) {
 	// 创建一个会返回错误的存储
-	errorStore := &errorJobRoutingStore{}
-	d := NewDispatcherWithJobStore(nil, errorStore)
+	errorStore := &errorTaskRoutingStore{}
+	d := NewDispatcherWithTaskStore(nil, errorStore)
 
-	// loadJobRouting 应该处理错误并继续
-	d.loadJobRouting()
+	// loadTaskRouting 应该处理错误并继续
+	d.loadTaskRouting()
 
 	// 应该有空的内存缓存
-	if _, ok := d.JobAddr("any-job"); ok {
-		t.Error("Job routing should be empty after store error")
+	if _, ok := d.TaskAgentID("any-task"); ok {
+		t.Error("Task routing should be empty after store error")
 	}
 }
 
-// TestDispatcher_registerJob_StoreError 测试注册时存储错误
-func TestDispatcher_registerJob_StoreError(t *testing.T) {
+// TestDispatcher_registerTask_StoreError 测试注册时存储错误
+func TestDispatcher_registerTask_StoreError(t *testing.T) {
 	// 创建一个会返回错误的存储
-	errorStore := &errorJobRoutingStore{}
-	d := NewDispatcherWithJobStore(nil, errorStore)
+	errorStore := &errorTaskRoutingStore{}
+	d := NewDispatcherWithTaskStore(nil, errorStore)
 
 	// 注册任务 - 应该成功，即使存储失败
-	d.registerJob("test-job", "127.0.0.1:9001")
+	d.registerTask("test-task", "127.0.0.1:9001")
 
 	// 应该在内存缓存中
-	addr, ok := d.JobAddr("test-job")
+	addr, ok := d.TaskAgentID("test-task")
 	if !ok || addr != "127.0.0.1:9001" {
-		t.Error("Job should be in memory cache even if store fails")
+		t.Error("Task should be in memory cache even if store fails")
 	}
 }
 
@@ -799,11 +799,11 @@ func TestDispatcher_Close(t *testing.T) {
 
 // TestDispatcher_CloseWithClients 测试关闭带有客户端的 Dispatcher
 func TestDispatcher_CloseWithClients(t *testing.T) {
-	store := NewMemoryJobRoutingStore()
-	d := NewDispatcherWithJobStore(nil, store)
+	store := NewMemoryTaskRoutingStore()
+	d := NewDispatcherWithTaskStore(nil, store)
 
 	// 添加任务来使用 dispatcher
-	d.RegisterJob("test-job", "127.0.0.1:9001")
+	d.RegisterTask("test-task", "127.0.0.1:9001")
 
 	err := d.Close()
 	if err != nil {
@@ -817,32 +817,32 @@ func TestDispatcher_CloseWithClients(t *testing.T) {
 	}
 }
 
-// TestDispatcher_CleanupOldJobs 测试清理旧任务
-func TestDispatcher_CleanupOldJobs(t *testing.T) {
-	store := NewMemoryJobRoutingStore()
-	d := NewDispatcherWithJobStore(nil, store)
+// TestDispatcher_CleanupOldTasks 测试清理旧任务
+func TestDispatcher_CleanupOldTasks(t *testing.T) {
+	store := NewMemoryTaskRoutingStore()
+	d := NewDispatcherWithTaskStore(nil, store)
 
 	// 添加一些任务
-	d.RegisterJob("old-job", "127.0.0.1:9001")
+	d.RegisterTask("old-task", "127.0.0.1:9001")
 	time.Sleep(10 * time.Millisecond)
-	d.RegisterJob("new-job", "127.0.0.1:9002")
+	d.RegisterTask("new-task", "127.0.0.1:9002")
 
 	// 清理旧任务
-	err := d.CleanupOldJobs(1 * time.Millisecond)
+	err := d.CleanupOldTasks(1 * time.Millisecond)
 	if err != nil {
-		t.Fatalf("CleanupOldJobs() error = %v", err)
+		t.Fatalf("CleanupOldTasks() error = %v", err)
 	}
 
 	// 验证旧任务被删除
-	_, ok := d.JobAddr("old-job")
+	_, ok := d.TaskAgentID("old-task")
 	if ok {
-		t.Error("Old job should be removed")
+		t.Error("Old task should be removed")
 	}
 
 	// 验证新任务保留
-	addr, ok := d.JobAddr("new-job")
+	addr, ok := d.TaskAgentID("new-task")
 	if !ok || addr != "127.0.0.1:9002" {
-		t.Error("New job should still exist")
+		t.Error("New task should still exist")
 	}
 }
 
@@ -865,22 +865,22 @@ func TestDispatcher_Invoke(t *testing.T) {
 	}
 }
 
-// TestDispatcher_StartJob 测试简单的 StartJob 方法
-func TestDispatcher_StartJob(t *testing.T) {
+// TestDispatcher_StartTask 测试简单的 StartTask 方法
+func TestDispatcher_StartTask(t *testing.T) {
 	d := NewDispatcher(nil)
 
 	ctx := context.Background()
 
 	// 测试空 function ID
-	_, err := d.StartJob(ctx, "", []byte("test"))
+	_, err := d.StartTask(ctx, "", []byte("test"))
 	if err == nil {
-		t.Error("StartJob() with empty function id should return error")
+		t.Error("StartTask() with empty function id should return error")
 	}
 
 	// 测试没有可用代理
-	_, err = d.StartJob(ctx, "test-func", []byte("test"))
+	_, err = d.StartTask(ctx, "test-func", []byte("test"))
 	if err == nil {
-		t.Error("StartJob() should return error when no agent available")
+		t.Error("StartTask() should return error when no agent available")
 	}
 }
 
@@ -916,31 +916,31 @@ func TestProtoMarshalError(t *testing.T) {
 
 // Helper types for testing
 
-// errorJobRoutingStore 是一个总是返回错误的存储实现
-type errorJobRoutingStore struct {
+// errorTaskRoutingStore 是一个总是返回错误的存储实现
+type errorTaskRoutingStore struct {
 }
 
-func (s *errorJobRoutingStore) Get(jobID string) (*JobRouting, error) {
+func (s *errorTaskRoutingStore) Get(jobID string) (*TaskRouting, error) {
 	return nil, fmt.Errorf("store error")
 }
 
-func (s *errorJobRoutingStore) Set(jobID, agentAddr string) error {
+func (s *errorTaskRoutingStore) Set(jobID, agentAddr string) error {
 	return fmt.Errorf("store error")
 }
 
-func (s *errorJobRoutingStore) Delete(jobID string) error {
+func (s *errorTaskRoutingStore) Delete(jobID string) error {
 	return fmt.Errorf("store error")
 }
 
-func (s *errorJobRoutingStore) List() ([]*JobRouting, error) {
+func (s *errorTaskRoutingStore) List() ([]*TaskRouting, error) {
 	return nil, fmt.Errorf("store error")
 }
 
-func (s *errorJobRoutingStore) Cleanup(ttl time.Duration) error {
+func (s *errorTaskRoutingStore) Cleanup(ttl time.Duration) error {
 	return fmt.Errorf("store error")
 }
 
-func (s *errorJobRoutingStore) Close() error {
+func (s *errorTaskRoutingStore) Close() error {
 	return nil
 }
 
@@ -949,8 +949,8 @@ func TestMessageTypes(t *testing.T) {
 	// 测试消息类型值是否在合理范围内
 	// 注意：protocol 包中的消息类型是 uint32，不是 uint8
 	_ = protocol.MsgInvokeRequest
-	_ = protocol.MsgStartJobRequest
-	_ = protocol.MsgCancelJobRequest
+	_ = protocol.MsgStartTaskRequest
+	_ = protocol.MsgCancelTaskRequest
 }
 
 // TestDispatcher_InvokeRequest_WithMetadata 测试带元数据的请求
@@ -983,8 +983,8 @@ func TestDispatcher_InvokeRequest_WithMetadata(t *testing.T) {
 	}
 }
 
-// TestDispatcher_StartJobRequest_WithMetadata 测试带元数据的任务启动
-func TestDispatcher_StartJobRequest_WithMetadata(t *testing.T) {
+// TestDispatcher_StartTaskRequest_WithMetadata 测试带元数据的任务启动
+func TestDispatcher_StartTaskRequest_WithMetadata(t *testing.T) {
 	d := NewDispatcher(nil)
 	now := time.Now().Add(time.Hour)
 
@@ -1003,54 +1003,54 @@ func TestDispatcher_StartJobRequest_WithMetadata(t *testing.T) {
 		Payload:    []byte("test"),
 	}
 
-	_, err := d.StartJobRequest(ctx, req)
+	_, err := d.StartTaskRequest(ctx, req)
 	if err == nil {
-		t.Error("StartJobRequest() should return error with invalid address")
+		t.Error("StartTaskRequest() should return error with invalid address")
 	}
 }
 
-// TestDispatcher_CancelJob_AfterRegister 测试注册后取消任务
-func TestDispatcher_CancelJob_AfterRegister(t *testing.T) {
+// TestDispatcher_CancelTask_AfterRegister 测试注册后取消任务
+func TestDispatcher_CancelTask_AfterRegister(t *testing.T) {
 	d := NewDispatcher(nil)
 
 	// 注册任务
-	d.RegisterJob("test-job", "invalid-address")
+	d.RegisterTask("test-task", "invalid-address")
 
 	ctx := context.Background()
-	err := d.CancelJob(ctx, "test-job")
+	err := d.CancelTask(ctx, "test-task")
 
 	// 应该返回错误，因为地址无效
 	if err == nil {
-		t.Error("CancelJob() should return error with invalid address")
+		t.Error("CancelTask() should return error with invalid address")
 	}
 
 	// 任务应该仍然被注册（因为取消失败，所以不会注销）
-	_, ok := d.JobAddr("test-job")
+	_, ok := d.TaskAgentID("test-task")
 	if !ok {
-		t.Error("Job should still be registered when cancel fails")
+		t.Error("Task should still be registered when cancel fails")
 	}
 }
 
-// TestDispatcher_CancelJob_UnregistersAfterSuccess 测试成功取消后注销任务
-func TestDispatcher_CancelJob_UnregistersAfterSuccess(t *testing.T) {
+// TestDispatcher_CancelTask_UnregistersAfterSuccess 测试成功取消后注销任务
+func TestDispatcher_CancelTask_UnregistersAfterSuccess(t *testing.T) {
 	d := NewDispatcher(nil)
 
 	// 注册任务到有效地址（但没有实际服务）
-	// 由于我们无法模拟成功的 TCP session 调用，我们直接测试 UnregisterJob
-	d.RegisterJob("test-job", "127.0.0.1:9001")
+	// 由于我们无法模拟成功的 TCP session 调用，我们直接测试 UnregisterTask
+	d.RegisterTask("test-task", "127.0.0.1:9001")
 
 	// 验证已注册
-	_, ok := d.JobAddr("test-job")
+	_, ok := d.TaskAgentID("test-task")
 	if !ok {
-		t.Fatal("Job should be registered")
+		t.Fatal("Task should be registered")
 	}
 
-	// 使用 UnregisterJob 直接注销
-	d.UnregisterJob("test-job")
+	// 使用 UnregisterTask 直接注销
+	d.UnregisterTask("test-task")
 
 	// 验证已注销
-	_, ok = d.JobAddr("test-job")
+	_, ok = d.TaskAgentID("test-task")
 	if ok {
-		t.Error("Job should be unregistered")
+		t.Error("Task should be unregistered")
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -167,26 +168,74 @@ func opsAgentExecCommand(ctx context.Context, svcCtx *svc.ServiceContext, req *O
 }
 
 func opsAgentProcessStart(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsProcessStartRequest) (*OpsProcessStartResponse, error) {
-	// TODO: Implement process start functionality
+	if svcCtx == nil {
+		return &OpsProcessStartResponse{
+			Code:    0,
+			Message: "Process start not implemented",
+		}, nil
+	}
+	agentSvc := NewAgentService(svcCtx)
+	pid, err := agentSvc.StartProcess(ctx, req.AgentID, req.Name, nil, nil, "")
+	if err != nil {
+		return &OpsProcessStartResponse{
+			Code:    0,
+			Message: "Process start not implemented",
+		}, nil
+	}
 	return &OpsProcessStartResponse{
 		Code:    0,
-		Message: "Process start not implemented",
+		Message: "Success",
+		Data:    int32(pid),
 	}, nil
 }
 
 func opsAgentProcessStop(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsProcessActionRequest) (*OpsProcessActionResponse, error) {
-	// TODO: Implement process stop functionality
+	if svcCtx == nil {
+		return &OpsProcessActionResponse{
+			Code:    0,
+			Message: "Process stop not implemented",
+		}, nil
+	}
+	agentSvc := NewAgentService(svcCtx)
+	pid, err := strconv.Atoi(strings.TrimSpace(req.Name))
+	if err != nil {
+		pid = 0
+	}
+	if err := agentSvc.StopProcess(ctx, req.AgentID, pid); err != nil {
+		return &OpsProcessActionResponse{
+			Code:    0,
+			Message: "Process stop not implemented",
+		}, nil
+	}
 	return &OpsProcessActionResponse{
 		Code:    0,
-		Message: "Process stop not implemented",
+		Message: "Success",
+		Data:    int32(pid),
 	}, nil
 }
 
 func opsAgentProcessRestart(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsProcessActionRequest) (*OpsProcessActionResponse, error) {
-	// TODO: Implement process restart functionality
+	if svcCtx == nil {
+		return &OpsProcessActionResponse{
+			Code:    0,
+			Message: "Process restart not implemented",
+		}, nil
+	}
+	agentSvc := NewAgentService(svcCtx)
+	pid, err := strconv.Atoi(strings.TrimSpace(req.Name))
+	if err != nil {
+		pid = 0
+	}
+	if err := agentSvc.RestartProcess(ctx, req.AgentID, pid); err != nil {
+		return &OpsProcessActionResponse{
+			Code:    0,
+			Message: "Process restart not implemented",
+		}, nil
+	}
 	return &OpsProcessActionResponse{
 		Code:    0,
-		Message: "Process restart not implemented",
+		Message: "Success",
+		Data:    int32(pid),
 	}, nil
 }
 
@@ -240,14 +289,28 @@ func opsBackupCreate(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsBa
 }
 
 func opsBackupDelete(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsBackupDeleteRequest) (*OpsBackupDeleteResponse, error) {
-	// TODO: Implement delete functionality
+	if svcCtx != nil && svcCtx.BackupModel != nil {
+		backupSvc := NewBackupService(svcCtx)
+		if err := backupSvc.Delete(ctx, strings.TrimSpace(req.ID)); err != nil {
+			return nil, err
+		}
+	}
 	return &OpsBackupDeleteResponse{
 		Data: true,
 	}, nil
 }
 
 func opsBackupDownload(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsBackupDownloadRequest) (*OpsBackupDownloadResponse, error) {
-	// TODO: Implement download URL generation
+	if svcCtx != nil && svcCtx.BackupModel != nil {
+		backupSvc := NewBackupService(svcCtx)
+		url, _, err := backupSvc.GetDownloadURL(ctx, strings.TrimSpace(req.ID))
+		if err != nil {
+			return nil, err
+		}
+		return &OpsBackupDownloadResponse{
+			Data: url,
+		}, nil
+	}
 	return &OpsBackupDownloadResponse{
 		Data: fmt.Sprintf("/backups/%s/download", req.ID),
 	}, nil

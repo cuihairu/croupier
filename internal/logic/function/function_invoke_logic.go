@@ -89,19 +89,19 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *FunctionInvokeRequest) (*Funct
 		return nil, errorx.NewBadRequest("invalid route " + route)
 	}
 
-	if mode == "job" || mode == "start_job" || mode == "async" {
+	if mode == "task" || mode == "start_task" || mode == "async" {
 		if err := utils.RequireGameEnvScope(l.ctx, l.svcCtx, admin.ID, roleNames, gameID, env); err != nil {
 			return nil, err
 		}
 		if err := l.enforceInvokePermission(roleNames, permIDs, functionID, gameID, env); err != nil {
 			return nil, err
 		}
-		jobResp, err := l.svcCtx.Dispatcher.StartJobRequest(l.ctx, utils.BuildInvokeRequest(functionID, payload, metadata))
+		taskResp, err := l.svcCtx.Dispatcher.StartTaskRequest(l.ctx, utils.BuildInvokeRequest(functionID, payload, metadata))
 		if err != nil {
 			return nil, err
 		}
-		jobID := jobResp.GetJobId()
-		return &FunctionInvokeResponse{JobId: jobID, JobID: jobID}, nil
+		taskID := taskResp.GetTaskId()
+		return &FunctionInvokeResponse{TaskId: taskID, TaskID: taskID}, nil
 	}
 
 	// Default: synchronous invoke.

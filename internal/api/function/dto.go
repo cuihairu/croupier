@@ -129,8 +129,8 @@ type FunctionInvokeRequest struct {
 
 // FunctionInvokeResponse represents the response of a function invocation
 type FunctionInvokeResponse struct {
-	JobId  string      `json:"jobId"`
-	JobID  string      `json:"jobID,omitempty"`
+	TaskId string      `json:"taskId"`
+	TaskID string      `json:"taskID,omitempty"`
 	Result interface{} `json:"result,omitempty"`
 }
 

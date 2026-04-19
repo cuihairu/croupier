@@ -232,8 +232,8 @@ type FunctionInvokeResponse struct {
 	Error     string      `json:"error,omitempty"`
 	Duration  int64       `json:"duration"`
 	Timestamp string      `json:"timestamp"`
-	JobId     string      `json:"jobId"`
-	JobID     string      `json:"jobID"`
+	TaskId    string      `json:"taskId"`
+	TaskID    string      `json:"taskID"`
 }
 
 // FunctionUIRequest represents a request for function UI

@@ -21,26 +21,27 @@ message InvokeResponse {
   bytes payload = 1; // serialized response JSON bytes
 }
 
-// SDK Job Start Response
-message StartJobResponse {
-  string job_id = 1;
+// SDK Task Start Response
+message StartTaskResponse {
+  string task_id = 1;
 }
 
-// SDK Job Stream Request
-message JobStreamRequest {
-  string job_id = 1;
+// SDK Task Stream Request
+message TaskStreamRequest {
+  string task_id = 1;
 }
 
-// SDK Job Event.
+// SDK Task Event.
 // payload is always UTF-8 JSON in protocol v1.
-message JobEvent {
-  string type = 1;      // "progress" | "log" | "done" | "error"
-  string message = 2;   // free text for log/error
-  int32 progress = 3;   // 0..100 when type == progress
-  bytes payload = 4;    // optional final result JSON bytes
+message TaskEvent {
+  string task_id = 1;
+  string type = 2;      // "queued" | "started" | "progress" | "log" | "completed" | "failed" | "cancel_requested" | "cancelled"
+  string message = 3;   // free text for log/error
+  int32 progress = 4;   // 0..100 when type == progress
+  bytes payload = 5;    // optional JSON bytes
 }
 
-// SDK Job Cancellation Request
-message CancelJobRequest {
-  string job_id = 1;
+// SDK Task Cancellation Request
+message CancelTaskRequest {
+  string task_id = 1;
 }

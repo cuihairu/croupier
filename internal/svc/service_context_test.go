@@ -58,8 +58,8 @@ func setupTestServiceContext(t *testing.T) *ServiceContext {
 			GamesConfig: "",
 		},
 		AgentDispatch: config.AgentDispatchConfig{
-			JobRoutingDir: "",
-			JobRoutingTTL: "",
+			TaskRoutingDir: "",
+			TaskRoutingTTL: "",
 			ToAgentTLS: config.TLSClientConfig{
 				Enabled: false,
 			},
@@ -1297,7 +1297,7 @@ func TestResolveBootstrapBaseDir(t *testing.T) {
 	})
 }
 
-func TestResolveJobRoutingDir(t *testing.T) {
+func TestResolveTaskRoutingDir(t *testing.T) {
 	t.Parallel()
 
 	t.Run("with routing dir set", func(t *testing.T) {
@@ -1306,11 +1306,11 @@ func TestResolveJobRoutingDir(t *testing.T) {
 		tmpDir := t.TempDir()
 		cfg := config.Config{
 			AgentDispatch: config.AgentDispatchConfig{
-				JobRoutingDir: tmpDir,
+				TaskRoutingDir: tmpDir,
 			},
 		}
 
-		result := resolveJobRoutingDir(cfg)
+		result := resolveTaskRoutingDir(cfg)
 		assert.Equal(t, tmpDir, result)
 	})
 
@@ -1319,11 +1319,11 @@ func TestResolveJobRoutingDir(t *testing.T) {
 
 		cfg := config.Config{
 			AgentDispatch: config.AgentDispatchConfig{
-				JobRoutingDir: "",
+				TaskRoutingDir: "",
 			},
 		}
 
-		result := resolveJobRoutingDir(cfg)
+		result := resolveTaskRoutingDir(cfg)
 		assert.Equal(t, "data", result)
 	})
 }

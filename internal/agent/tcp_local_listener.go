@@ -32,7 +32,7 @@ type TCPLocalListenerConfig struct {
 //  1. SDK Provider dials in → first frame must be ProviderConnectRequest
 //  2. Agent validates and creates ProviderSession → stores in ProviderSessionStore
 //  3. Heartbeat/Drain flow through MuxConn
-//  4. Agent can send Invoke/StartJob to Provider via session.conn.Call()
+//  4. Agent can send Invoke/StartTask to Provider via session.conn.Call()
 //  5. On disconnect, session is removed from store
 type TCPLocalListener struct {
 	config       *TCPLocalListenerConfig

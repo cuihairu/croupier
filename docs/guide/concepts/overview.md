@@ -33,7 +33,7 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。
 
 - 保存 registry
 - 做 RBAC / 审批 / 审计
-- 负责路由 invoke/job/ops 请求
+- 负责路由 invoke/task/ops 请求
 - 持有 `Agent session`
 
 ### Agent
@@ -75,7 +75,7 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。
 
 以下旧概念不应再当作新设计依据：
 
-- `NNG REQ/REP` 作为主链路模型
+- `历史 REQ/REP` 作为主链路模型
 - `Server -> Agent` 直接回拨
 - `rpc_addr` 作为长期运行时入口
 - SDK 开本地监听端口给 `Agent`

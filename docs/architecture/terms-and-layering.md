@@ -169,7 +169,7 @@ v1 建议统一遵循下面的最小语义：
 
 也就是说：
 
-- 单个请求的取消仍由 `CancelJobRequest` 等消息承担
+- 单个请求的取消仍由 `CancelTaskRequest` 等消息承担
 - `drain` 负责的是“这条连接还要不要继续接新流量”
 
 ## subprotocol
@@ -291,7 +291,7 @@ v1 当前明确收敛为：
 
 以下词在旧讨论里容易混淆：
 
-- `NNG pattern`
+- `历史消息模式`
 - `gRPC`
 - `LocalControl`
 - `rpc_addr`

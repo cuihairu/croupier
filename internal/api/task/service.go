@@ -1,0 +1,200 @@
+package task
+
+import (
+	"context"
+	"encoding/json"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/logic/utils"
+	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/svc"
+	"github.com/cuihairu/croupier/internal/tasks"
+)
+
+type Service struct {
+	svcCtx *svc.ServiceContext
+	store  *tasks.Store
+}
+
+func NewService(svcCtx *svc.ServiceContext) *Service {
+	return &Service{
+		svcCtx: svcCtx,
+		store: tasks.NewStore(
+			model.NewTaskRunModel(svcCtx.DB),
+			model.NewTaskEventModel(svcCtx.DB),
+		),
+	}
+}
+
+func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, error) {
+	items, total, err := s.store.ListRuns(ctx, model.ListTasksOptions{
+		PaginationOptions: model.PaginationOptions{
+			Page:     req.Page,
+			PageSize: req.Size,
+		},
+		FunctionID: req.FunctionID,
+		Status:     req.Status,
+		GameID:     req.GameID,
+		Env:        req.Env,
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]Item, 0, len(items))
+	for i := range items {
+		result = append(result, buildItem(&items[i]))
+	}
+	return &ListResponse{Items: result, Total: int(total)}, nil
+}
+
+func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse, error) {
+	functionID, err := utils.ValidateFunctionID(req.FunctionID)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.svcCtx.FunctionModel.FindByFunctionID(ctx, functionID); err != nil {
+		return nil, err
+	}
+	payload, err := json.Marshal(req.Params)
+	if err != nil {
+		return nil, err
+	}
+	taskID := uuid.NewString()
+	run := &model.TaskRun{
+		TaskID:       taskID,
+		FunctionID:   functionID,
+		Status:       tasks.StatusQueued,
+		Progress:     0,
+		Message:      "任务已创建",
+		InputPayload: payload,
+	}
+	if err := s.store.CreateRun(ctx, run); err != nil {
+		return nil, err
+	}
+	if err := s.store.AppendEvent(ctx, taskID, tasks.EventQueued, 0, "任务已创建", []byte("null")); err != nil {
+		return nil, err
+	}
+	return &StartResponse{TaskID: taskID, Status: tasks.StatusQueued}, nil
+}
+
+func (s *Service) Detail(ctx context.Context, req *DetailRequest) (*DetailResponse, error) {
+	taskID := strings.TrimSpace(req.ID)
+	if taskID == "" {
+		return nil, errorx.NewBadRequest("任务ID不能为空")
+	}
+	run, err := s.store.GetRun(ctx, taskID)
+	if err != nil {
+		return nil, err
+	}
+	return buildDetail(run), nil
+}
+
+func (s *Service) Events(ctx context.Context, req *EventsRequest) (*EventsResponse, error) {
+	taskID := strings.TrimSpace(req.ID)
+	if taskID == "" {
+		return nil, errorx.NewBadRequest("任务ID不能为空")
+	}
+	run, err := s.store.GetRun(ctx, taskID)
+	if err != nil {
+		return nil, err
+	}
+	events, err := s.store.ListEvents(ctx, taskID, req.AfterSeq)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]EventItem, 0, len(events))
+	var nextSeq int64 = req.AfterSeq
+	for i := range events {
+		payload := decodePayload(events[i].Payload)
+		items = append(items, EventItem{
+			Seq:       events[i].Seq,
+			Type:      events[i].Type,
+			Progress:  events[i].Progress,
+			Message:   events[i].Message,
+			Payload:   payload,
+			CreatedAt: utils.FormatTimestamp(events[i].CreatedAt),
+		})
+		if events[i].Seq >= nextSeq {
+			nextSeq = events[i].Seq + 1
+		}
+	}
+	done := run.Status == tasks.StatusSucceeded || run.Status == tasks.StatusFailed || run.Status == tasks.StatusCancelled || run.Status == tasks.StatusTimedOut
+	return &EventsResponse{Items: items, NextSeq: nextSeq, Done: done}, nil
+}
+
+func (s *Service) Cancel(ctx context.Context, req *CancelRequest) error {
+	taskID := strings.TrimSpace(req.ID)
+	if taskID == "" {
+		return errorx.NewBadRequest("任务ID不能为空")
+	}
+	now := time.Now()
+	if err := s.store.UpdateRun(ctx, taskID, map[string]interface{}{
+		"status":              tasks.StatusCancelRequested,
+		"message":             "已请求取消任务",
+		"cancel_requested_at": &now,
+	}); err != nil {
+		return err
+	}
+	return s.store.AppendEvent(ctx, taskID, tasks.EventCancelRequested, 0, "已请求取消任务", []byte("null"))
+}
+
+func buildItem(run *model.TaskRun) Item {
+	item := Item{
+		ID:         run.TaskID,
+		FunctionID: run.FunctionID,
+		Status:     run.Status,
+		Progress:   run.Progress,
+		Message:    run.Message,
+		GameID:     run.GameID,
+		Env:        run.Env,
+		AgentID:    run.AgentID,
+		CreatedAt:  utils.FormatTimestamp(run.CreatedAt),
+		Error:      run.ErrorMessage,
+	}
+	if run.StartedAt != nil {
+		item.StartedAt = utils.FormatTimestamp(*run.StartedAt)
+	}
+	if run.FinishedAt != nil {
+		item.FinishedAt = utils.FormatTimestamp(*run.FinishedAt)
+	}
+	return item
+}
+
+func buildDetail(run *model.TaskRun) *DetailResponse {
+	resp := &DetailResponse{
+		ID:         run.TaskID,
+		FunctionID: run.FunctionID,
+		Status:     run.Status,
+		Progress:   run.Progress,
+		Message:    run.Message,
+		GameID:     run.GameID,
+		Env:        run.Env,
+		AgentID:    run.AgentID,
+		Error:      run.ErrorMessage,
+		CreatedAt:  utils.FormatTimestamp(run.CreatedAt),
+		UpdatedAt:  utils.FormatTimestamp(run.UpdatedAt),
+		Result:     decodePayload(run.ResultPayload),
+	}
+	if run.StartedAt != nil {
+		resp.StartedAt = utils.FormatTimestamp(*run.StartedAt)
+	}
+	if run.FinishedAt != nil {
+		resp.FinishedAt = utils.FormatTimestamp(*run.FinishedAt)
+	}
+	return resp
+}
+
+func decodePayload(data []byte) interface{} {
+	if len(data) == 0 {
+		return nil
+	}
+	var out interface{}
+	if err := json.Unmarshal(data, &out); err != nil {
+		return string(data)
+	}
+	return out
+}

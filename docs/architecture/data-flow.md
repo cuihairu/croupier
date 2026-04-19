@@ -12,7 +12,7 @@ tag:
 
 # 数据流
 
-本文档只描述当前目标架构下的主要调用流，不再使用历史 `gRPC/NNG 回拨` 模型。
+本文档只描述当前目标架构下的主要调用流，不再使用历史 `gRPC/旧传输 回拨` 模型。
 
 ## 1. Dashboard 到业务函数
 
@@ -73,12 +73,12 @@ sequenceDiagram
     participant Agent as Agent
     participant App as Game Server / SDK
 
-    UI->>Server: POST /api/jobs
-    Server-->>UI: job_id
-    Server->>Agent: StartJobRequest
-    Agent->>App: StartJobRequest
-    App-->>Agent: JobEvent / StartJobResponse
-    Agent-->>Server: JobEvent / StartJobResponse
+    UI->>Server: POST /api/v1/tasks
+    Server-->>UI: task_id
+    Server->>Agent: StartTaskRequest
+    Agent->>App: StartTaskRequest
+    App-->>Agent: TaskEvent / StartTaskResponse
+    Agent-->>Server: TaskEvent / StartTaskResponse
     Server-->>UI: SSE / WebSocket / Polling
 ```
 

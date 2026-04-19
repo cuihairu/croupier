@@ -20,22 +20,22 @@ type InvokeResponse struct {
 	Error   string
 }
 
-// JobEvent represents a job execution event.
-type JobEvent struct {
-	JobID     string
+// TaskEvent represents a task execution event.
+type TaskEvent struct {
+	TaskID    string
 	EventType string // "progress", "log", "done", "error"
 	Data      []byte
 }
 
 // MockGRPCClient is a mock implementation of gRPC client for testing.
 type MockGRPCClient struct {
-	mu            sync.RWMutex
-	invokeFunc    func(ctx context.Context, req *InvokeRequest) (*InvokeResponse, error)
-	startJobFunc  func(ctx context.Context, req *InvokeRequest) (string, error)
-	cancelJobFunc func(ctx context.Context, jobID string) error
-	streamEvents  []*JobEvent
-	calls         []string
-	err           error
+	mu             sync.RWMutex
+	invokeFunc     func(ctx context.Context, req *InvokeRequest) (*InvokeResponse, error)
+	startTaskFunc  func(ctx context.Context, req *InvokeRequest) (string, error)
+	cancelTaskFunc func(ctx context.Context, taskID string) error
+	streamEvents   []*TaskEvent
+	calls          []string
+	err            error
 }
 
 // NewMockGRPCClient creates a new mock gRPC client.
@@ -59,15 +59,15 @@ func (m *MockGRPCClient) SetInvokeFunc(f func(ctx context.Context, req *InvokeRe
 	m.invokeFunc = f
 }
 
-// SetStartJobFunc sets a custom start job function.
-func (m *MockGRPCClient) SetStartJobFunc(f func(ctx context.Context, req *InvokeRequest) (string, error)) {
+// SetStartTaskFunc sets a custom start task function.
+func (m *MockGRPCClient) SetStartTaskFunc(f func(ctx context.Context, req *InvokeRequest) (string, error)) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.startJobFunc = f
+	m.startTaskFunc = f
 }
 
 // SetStreamEvents sets the events to return from stream.
-func (m *MockGRPCClient) SetStreamEvents(events []*JobEvent) {
+func (m *MockGRPCClient) SetStreamEvents(events []*TaskEvent) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.streamEvents = events
@@ -93,44 +93,44 @@ func (m *MockGRPCClient) Invoke(ctx context.Context, req *InvokeRequest) (*Invok
 	}, nil
 }
 
-// StartJob starts a mock job.
-func (m *MockGRPCClient) StartJob(ctx context.Context, req *InvokeRequest) (string, error) {
+// StartTask starts a mock task.
+func (m *MockGRPCClient) StartTask(ctx context.Context, req *InvokeRequest) (string, error) {
 	m.mu.Lock()
-	m.calls = append(m.calls, "StartJob:"+req.FunctionID)
-	startJobFunc := m.startJobFunc
+	m.calls = append(m.calls, "StartTask:"+req.FunctionID)
+	startTaskFunc := m.startTaskFunc
 	err := m.err
 	m.mu.Unlock()
 
 	if err != nil {
 		return "", err
 	}
-	if startJobFunc != nil {
-		return startJobFunc(ctx, req)
+	if startTaskFunc != nil {
+		return startTaskFunc(ctx, req)
 	}
-	return "mock-job-id-12345", nil
+	return "mock-task-id-12345", nil
 }
 
-// CancelJob cancels a mock job.
-func (m *MockGRPCClient) CancelJob(ctx context.Context, jobID string) error {
+// CancelTask cancels a mock task.
+func (m *MockGRPCClient) CancelTask(ctx context.Context, taskID string) error {
 	m.mu.Lock()
-	m.calls = append(m.calls, "CancelJob:"+jobID)
-	cancelJobFunc := m.cancelJobFunc
+	m.calls = append(m.calls, "CancelTask:"+taskID)
+	cancelTaskFunc := m.cancelTaskFunc
 	err := m.err
 	m.mu.Unlock()
 
 	if err != nil {
 		return err
 	}
-	if cancelJobFunc != nil {
-		return cancelJobFunc(ctx, jobID)
+	if cancelTaskFunc != nil {
+		return cancelTaskFunc(ctx, taskID)
 	}
 	return nil
 }
 
-// StreamJob returns mock job events.
-func (m *MockGRPCClient) StreamJob(ctx context.Context, jobID string) ([]*JobEvent, error) {
+// StreamTask returns mock task events.
+func (m *MockGRPCClient) StreamTask(ctx context.Context, taskID string) ([]*TaskEvent, error) {
 	m.mu.Lock()
-	m.calls = append(m.calls, "StreamJob:"+jobID)
+	m.calls = append(m.calls, "StreamTask:"+taskID)
 	events := m.streamEvents
 	err := m.err
 	m.mu.Unlock()
@@ -141,9 +141,9 @@ func (m *MockGRPCClient) StreamJob(ctx context.Context, jobID string) ([]*JobEve
 	if events != nil {
 		return events, nil
 	}
-	return []*JobEvent{
-		{JobID: jobID, EventType: "progress", Data: []byte(`{"percent":50}`)},
-		{JobID: jobID, EventType: "done", Data: []byte(`{"result":"completed"}`)},
+	return []*TaskEvent{
+		{TaskID: taskID, EventType: "progress", Data: []byte(`{"percent":50}`)},
+		{TaskID: taskID, EventType: "done", Data: []byte(`{"result":"completed"}`)},
 	}, nil
 }
 

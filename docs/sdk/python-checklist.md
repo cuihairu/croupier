@@ -4,7 +4,7 @@
 
 ## 目标
 
-移除对 `pynng` 的默认依赖，切到独立 `tcp session`，保证 Python 在内网常见部署下开箱可用。
+移除对 `Python 原生传输` 的默认依赖，切到独立 `tcp session`，保证 Python 在内网常见部署下开箱可用。
 
 ## P0. 基线核对
 
@@ -16,7 +16,7 @@
 ## P1. transport
 
 - [x] 新增独立 `tcp transport`
-- [x] 不再把 `pynng` 作为默认主路径
+- [x] 不再把 `Python 原生传输` 作为默认主路径
 - [x] transport 与高层 Client / Invoker 解耦
 - [x] 支持 framing、header、读循环、写队列
 
@@ -49,5 +49,5 @@
 
 ## 验收
 
-- [x] 不安装 `pynng` 也能跑默认链路
+- [x] 不安装 `Python 原生传输` 也能跑默认链路
 - [x] Python 用户只需传原生 JSON 对象

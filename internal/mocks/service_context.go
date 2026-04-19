@@ -34,7 +34,7 @@ type MockServiceContext struct {
 	startTime     time.Time
 	registeredAt  time.Time
 	lastHeartbeat time.Time
-	activeJobs    int
+	activeTasks   int
 	functions     map[string]interface{}
 	isRunning     bool
 }
@@ -70,18 +70,18 @@ func (m *MockServiceContext) IsRunning() bool {
 	return m.isRunning
 }
 
-// SetActiveJobs sets the number of active jobs.
-func (m *MockServiceContext) SetActiveJobs(count int) {
+// SetActiveTasks sets the number of active tasks.
+func (m *MockServiceContext) SetActiveTasks(count int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.activeJobs = count
+	m.activeTasks = count
 }
 
-// GetActiveJobs returns the number of active jobs.
-func (m *MockServiceContext) GetActiveJobs() int {
+// GetActiveTasks returns the number of active tasks.
+func (m *MockServiceContext) GetActiveTasks() int {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.activeJobs
+	return m.activeTasks
 }
 
 // AddFunction adds a function to the mock context.

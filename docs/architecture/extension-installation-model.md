@@ -51,7 +51,7 @@
 - provider
 - page
 - workflow
-- job
+- task
 
 ### 2.5 Runtime State
 
@@ -178,7 +178,7 @@
 |---|---|---|
 | `id` | bigint | 主键 |
 | `installation_id` | bigint | 安装实例 |
-| `binding_type` | varchar | `function/provider/page/workflow/job` |
+| `binding_type` | varchar | `function/provider/page/workflow/task` |
 | `binding_key` | varchar | 唯一键 |
 | `target_ref` | varchar | 目标引用 |
 | `spec_json` | json | 绑定定义 |

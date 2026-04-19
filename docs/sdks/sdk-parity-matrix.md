@@ -1,6 +1,6 @@
 # SDK 对齐矩阵
 
-本文档记录的是各语言 SDK 必须对齐的统一基线，而不是继续维护历史 `NNG server`、`LocalControl`、`gRPC callback` 的静态遗留能力表。
+本文档记录的是各语言 SDK 必须对齐的统一基线，而不是继续维护历史 `local server`、`LocalControl`、`gRPC callback` 的静态遗留能力表。
 
 ## 评估口径
 
@@ -42,7 +42,7 @@
 - 8 字节 header
 - request / response 对应规则
 - `ProviderConnectRequest` / `ProviderHeartbeatRequest`
-- `InvokeRequest` / `StartJobRequest` / `CancelJobRequest`
+- `InvokeRequest` / `StartTaskRequest` / `CancelTaskRequest`
 
 ### 业务 payload 层
 
@@ -90,7 +90,7 @@
 - `RegisterLocal`
 - `local_listen`
 - `rpc_addr`
-- `NNG client/server`
+- `session client/server`
 
 ## 为什么主仓库不再维护旧式“现状能力表”
 

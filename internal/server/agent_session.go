@@ -12,7 +12,7 @@ import (
 )
 
 // AgentSession represents an established session with a connected Agent.
-// Server dispatches Invoke/StartJob/CancelJob requests through this session.
+// Server dispatches Invoke/StartTask/CancelTask requests through this session.
 type AgentSession struct {
 	// conn is the bidirectional multiplexed connection.
 	conn *tcptr.MuxConn

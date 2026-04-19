@@ -12,10 +12,10 @@ p, role:super_admin, *, *
 # GM: function invoke + assignments + entities + registry/audit
 p, role:gm, /api/v1/functions/*/invoke, POST
 p, role:gm, /api/v1/functions/*/instances, GET
-p, role:gm, /api/v1/jobs, POST
-p, role:gm, /api/v1/jobs/*/cancel, POST
-p, role:gm, /api/v1/jobs/*/result, GET
-p, role:gm, /api/v1/jobs/*/stream, GET
+p, role:gm, /api/v1/tasks, POST
+p, role:gm, /api/v1/tasks/*/cancel, POST
+p, role:gm, /api/v1/tasks/*/result, GET
+p, role:gm, /api/v1/tasks/*/stream, GET
 p, role:gm, /api/v1/assignments, GET
 p, role:gm, /api/v1/assignments, POST
 p, role:gm, /api/v1/entities, GET
@@ -42,9 +42,9 @@ p, role:admin_manager, /api/v1/roles/*, DELETE
 
 p, role:operator, /api/v1/functions/*/invoke, POST
 p, role:operator, /api/v1/functions/*/instances, GET
-p, role:operator, /api/v1/jobs, POST
-p, role:operator, /api/v1/jobs/*/result, GET
-p, role:operator, /api/v1/jobs/*/stream, GET
+p, role:operator, /api/v1/tasks, POST
+p, role:operator, /api/v1/tasks/*/result, GET
+p, role:operator, /api/v1/tasks/*/stream, GET
 p, role:operator, /api/v1/assignments, GET
 p, role:operator, /api/v1/entities, GET
 p, role:operator, /api/v1/entities/*, GET
@@ -53,9 +53,9 @@ p, role:operator, /api/v1/analytics/*, GET
 # Developer: invoke + schema/entity validate + entities read
 p, role:developer, /api/v1/functions/*/invoke, POST
 p, role:developer, /api/v1/functions/*/instances, GET
-p, role:developer, /api/v1/jobs, POST
-p, role:developer, /api/v1/jobs/*/result, GET
-p, role:developer, /api/v1/jobs/*/stream, GET
+p, role:developer, /api/v1/tasks, POST
+p, role:developer, /api/v1/tasks/*/result, GET
+p, role:developer, /api/v1/tasks/*/stream, GET
 p, role:developer, /api/v1/schemas/*/validate, POST
 p, role:developer, /api/v1/schemas/raw-validate, POST
 p, role:developer, /api/v1/entities/validate, POST
@@ -72,7 +72,7 @@ p, role:tech_lead, /api/v1/providers, GET
 
 # Senior developer: can update entities
 p, role:senior_developer, /api/v1/functions/*/invoke, POST
-p, role:senior_developer, /api/v1/jobs, POST
+p, role:senior_developer, /api/v1/tasks, POST
 p, role:senior_developer, /api/v1/entities, POST
 p, role:senior_developer, /api/v1/entities/*, PUT
 p, role:senior_developer, /api/v1/entities/*, GET
@@ -84,14 +84,14 @@ p, role:frontend_developer, /api/v1/entities/*, GET
 
 # Tester and QA lead: invoke + entities read + schema validate
 p, role:tester, /api/v1/functions/*/invoke, POST
-p, role:tester, /api/v1/jobs, POST
-p, role:tester, /api/v1/jobs/*/result, GET
+p, role:tester, /api/v1/tasks, POST
+p, role:tester, /api/v1/tasks/*/result, GET
 p, role:tester, /api/v1/entities, GET
 p, role:tester, /api/v1/entities/*, GET
 p, role:tester, /api/v1/entities/validate, POST
 p, role:qa_lead, /api/v1/functions/*/invoke, POST
-p, role:qa_lead, /api/v1/jobs, POST
-p, role:qa_lead, /api/v1/jobs/*/result, GET
+p, role:qa_lead, /api/v1/tasks, POST
+p, role:qa_lead, /api/v1/tasks/*/result, GET
 p, role:qa_lead, /api/v1/entities, GET
 p, role:qa_lead, /api/v1/entities/*, GET
 p, role:qa_lead, /api/v1/entities/validate, POST

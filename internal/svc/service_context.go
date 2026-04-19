@@ -261,24 +261,24 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		ctx.RegistryStore = reg.NewStoreWithDB(ctx.DB)
 	}
 	if ctx.Dispatcher == nil {
-		var jobStore dispatch.JobRoutingStore
-		jobRoutingDir := resolveJobRoutingDir(ctx.Config)
-		if jobRoutingDir != "" {
-			store, err := dispatch.NewFileJobRoutingStore(jobRoutingDir)
+		var taskStore dispatch.TaskRoutingStore
+		taskRoutingDir := resolveTaskRoutingDir(ctx.Config)
+		if taskRoutingDir != "" {
+			store, err := dispatch.NewFileTaskRoutingStore(taskRoutingDir)
 			if err != nil {
-				slog.Default().Error("failed to init job routing store", "dir", jobRoutingDir, "error", err)
+				slog.Default().Error("failed to init task routing store", "dir", taskRoutingDir, "error", err)
 			} else {
-				jobStore = store
+				taskStore = store
 			}
 		}
-		ctx.Dispatcher = dispatch.NewDispatcherWithJobStore(ctx.RegistryStore, jobStore)
+		ctx.Dispatcher = dispatch.NewDispatcherWithTaskStore(ctx.RegistryStore, taskStore)
 
-		if ttlStr := strings.TrimSpace(ctx.Config.AgentDispatch.JobRoutingTTL); ttlStr != "" {
+		if ttlStr := strings.TrimSpace(ctx.Config.AgentDispatch.TaskRoutingTTL); ttlStr != "" {
 			if ttl, err := time.ParseDuration(ttlStr); err != nil {
-				slog.Default().Error("invalid dispatch.job_routing_ttl", "value", ttlStr, "error", err)
+				slog.Default().Error("invalid dispatch.task_routing_ttl", "value", ttlStr, "error", err)
 			} else if ttl > 0 {
-				if err := ctx.Dispatcher.CleanupOldJobs(ttl); err != nil {
-					slog.Default().Error("failed to cleanup old jobs", "error", err)
+				if err := ctx.Dispatcher.CleanupOldTasks(ttl); err != nil {
+					slog.Default().Error("failed to cleanup old tasks", "error", err)
 				}
 			}
 		}
@@ -371,8 +371,8 @@ func resolveBootstrapBaseDir(c config.Config) string {
 	return runtime.DefaultBootstrapDataDir()
 }
 
-func resolveJobRoutingDir(c config.Config) string {
-	if dir := strings.TrimSpace(c.AgentDispatch.JobRoutingDir); dir != "" {
+func resolveTaskRoutingDir(c config.Config) string {
+	if dir := strings.TrimSpace(c.AgentDispatch.TaskRoutingDir); dir != "" {
 		return toAbs(dir)
 	}
 

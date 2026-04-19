@@ -77,6 +77,8 @@ func autoMigrateModels(db *gorm.DB) error {
 		&ProductTrend{},
 		&RetentionCohort{},
 		&Backup{},
+		&TaskRun{},
+		&TaskEvent{},
 		&FAQ{},
 		&FAQCategory{},
 		&Feedback{},

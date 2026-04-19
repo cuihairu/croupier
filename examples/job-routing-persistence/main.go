@@ -10,92 +10,92 @@ import (
 )
 
 func main() {
-	fmt.Println("=== Job Routing Persistence Demo ===")
+	fmt.Println("=== Task Routing Persistence Demo ===")
 
 	// Create registry store
 	registryStore := registry.NewStore()
 
-	// Create dispatcher with file-based job routing store
-	jobStore, err := dispatch.NewFileJobRoutingStore("data")
+	// Create dispatcher with file-based task routing store
+	taskStore, err := dispatch.NewFileTaskRoutingStore("data")
 	if err != nil {
-		log.Fatalf("Failed to create job routing store: %v", err)
+		log.Fatalf("Failed to create task routing store: %v", err)
 	}
-	defer jobStore.Close()
+	defer taskStore.Close()
 
-	// Create dispatcher with persistent job store
-	dispatcher := dispatch.NewDispatcherWithJobStore(registryStore, jobStore)
+	// Create dispatcher with persistent task store
+	dispatcher := dispatch.NewDispatcherWithTaskStore(registryStore, taskStore)
 	defer dispatcher.Close()
 
-	// Simulate job routing
-	fmt.Println("\n1. Registering job routes...")
-	jobRoutes := []struct {
-		jobID   string
+	// Simulate task routing
+	fmt.Println("\n1. Registering task routes...")
+	taskRoutes := []struct {
+		taskID  string
 		agentID string
 	}{
-		{"job-001", "agent-1"},
-		{"job-002", "agent-2"},
-		{"job-003", "agent-3"},
+		{"task-001", "agent-1"},
+		{"task-002", "agent-2"},
+		{"task-003", "agent-3"},
 	}
 
-	for _, jr := range jobRoutes {
-		// Register job routing
-		dispatcher.RegisterJob(jr.jobID, jr.agentID)
-		fmt.Printf("   Registered job %s -> %s\n", jr.jobID, jr.agentID)
+	for _, tr := range taskRoutes {
+		// Register task routing
+		dispatcher.RegisterTask(tr.taskID, tr.agentID)
+		fmt.Printf("   Registered task %s -> %s\n", tr.taskID, tr.agentID)
 	}
 
-	// List all job routes
-	fmt.Println("\n2. Listing all job routes...")
-	routings, err := jobStore.List()
+	// List all task routes
+	fmt.Println("\n2. Listing all task routes...")
+	routings, err := taskStore.List()
 	if err != nil {
-		log.Fatalf("Failed to list job routes: %v", err)
+		log.Fatalf("Failed to list task routes: %v", err)
 	}
 
 	for _, routing := range routings {
-		fmt.Printf("   Job: %s, Agent: %s, Created: %s\n",
-			routing.JobID,
+		fmt.Printf("   Task: %s, Agent: %s, Created: %s\n",
+			routing.TaskID,
 			routing.AgentID,
 			routing.CreatedAt.Format("2006-01-02 15:04:05"))
 	}
 
-	// Test job route lookup
-	fmt.Println("\n3. Testing job route lookup...")
-	for _, jr := range jobRoutes {
-		if agentID, exists := dispatcher.JobAddr(jr.jobID); exists {
-			fmt.Printf("   Found job %s -> %s\n", jr.jobID, agentID)
+	// Test task route lookup
+	fmt.Println("\n3. Testing task route lookup...")
+	for _, tr := range taskRoutes {
+		if routing, err := taskStore.Get(tr.taskID); err == nil {
+			fmt.Printf("   Found task %s -> %s\n", tr.taskID, routing.AgentID)
 		} else {
-			fmt.Printf("   Job %s not found\n", jr.jobID)
+			fmt.Printf("   Task %s not found\n", tr.taskID)
 		}
 	}
 
-	// Simulate job completion
-	fmt.Println("\n4. Simulating job completion...")
-	completedJobs := []string{"job-001", "job-003"}
-	for _, jobID := range completedJobs {
-		dispatcher.UnregisterJob(jobID)
-		fmt.Printf("   Unregistered job %s\n", jobID)
+	// Simulate task completion
+	fmt.Println("\n4. Simulating task completion...")
+	completedTasks := []string{"task-001", "task-003"}
+	for _, taskID := range completedTasks {
+		dispatcher.UnregisterTask(taskID)
+		fmt.Printf("   Unregistered task %s\n", taskID)
 	}
 
-	// Check remaining jobs
-	fmt.Println("\n5. Checking remaining jobs...")
-	routings, err = jobStore.List()
+	// Check remaining tasks
+	fmt.Println("\n5. Checking remaining tasks...")
+	routings, err = taskStore.List()
 	if err != nil {
-		log.Fatalf("Failed to list job routes: %v", err)
+		log.Fatalf("Failed to list task routes: %v", err)
 	}
 
-	fmt.Printf("   Remaining jobs: %d\n", len(routings))
+	fmt.Printf("   Remaining tasks: %d\n", len(routings))
 	for _, routing := range routings {
-		fmt.Printf("   Job: %s, Agent: %s\n", routing.JobID, routing.AgentID)
+		fmt.Printf("   Task: %s, Agent: %s\n", routing.TaskID, routing.AgentID)
 	}
 
-	// Test cleanup of old jobs
-	fmt.Println("\n6. Testing cleanup of old jobs...")
-	time.Sleep(10 * time.Millisecond) // Ensure jobs are considered "old"
-	if err := dispatcher.CleanupOldJobs(1 * time.Millisecond); err != nil {
-		log.Fatalf("Failed to cleanup old jobs: %v", err)
+	// Test cleanup of old tasks
+	fmt.Println("\n6. Testing cleanup of old tasks...")
+	time.Sleep(10 * time.Millisecond) // Ensure tasks are considered "old"
+	if err := dispatcher.CleanupOldTasks(1 * time.Millisecond); err != nil {
+		log.Fatalf("Failed to cleanup old tasks: %v", err)
 	}
 
-	routings, _ = jobStore.List()
-	fmt.Printf("   Jobs after cleanup: %d\n", len(routings))
+	routings, _ = taskStore.List()
+	fmt.Printf("   Tasks after cleanup: %d\n", len(routings))
 
 	fmt.Println("\n=== Demo Complete ===")
 }

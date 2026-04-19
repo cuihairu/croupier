@@ -15,7 +15,7 @@ type ListRequest struct {
 
 type Item struct {
 	ID         string      `json:"id"`
-	JobID      string      `json:"job_id"`
+	TaskID     string      `json:"task_id"`
 	FunctionID string      `json:"function_id"`
 	GameID     string      `json:"game_id,omitempty"`
 	Env        string      `json:"env,omitempty"`
@@ -62,5 +62,5 @@ type RerunRequest struct {
 }
 
 type RerunResponse struct {
-	JobID string `json:"job_id"`
+	TaskID string `json:"task_id"`
 }

@@ -12,7 +12,7 @@
 - `subprotocol` 识别方式
 - protobuf 协议层与 JSON payload 层的边界
 
-本文档不再把历史 `gRPC` 或 `NNG pattern` 作为标准基线。
+本文档不再把历史 `gRPC` 或 `历史消息模式` 作为标准基线。
 
 ## shared session runtime
 
@@ -168,7 +168,7 @@ v1 不引入独立 `Magic`，而是直接用首条应用层消息识别子协议
 
 保留给 client 注册与作业结果查询等 SDK 可见控制消息。
 
-### `0x03xx` Invocation / Job
+### `0x03xx` Invocation / Task
 
 用于同步调用、异步作业与取消：
 
@@ -283,7 +283,7 @@ v1 默认规则：
 - `rpc_addr`
 - SDK 本地监听 server
 - `Server -> Agent` 回拨模型
-- “NNG over TCP 等于独立 TCP transport”的说法
+- “历史消息封装 over TCP 等于独立 TCP transport”的说法
 
 ## 相关文档
 

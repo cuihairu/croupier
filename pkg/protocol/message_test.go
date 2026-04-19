@@ -21,18 +21,3 @@ func TestProviderSessionMsgIDsUseProviderNames(t *testing.T) {
 		}
 	}
 }
-
-func TestDeprecatedLocalControlAliasesPointToProviderSessionMsgIDs(t *testing.T) {
-	if MsgRegisterLocalRequest != MsgProviderConnectRequest {
-		t.Fatalf("MsgRegisterLocalRequest = 0x%06X, want 0x%06X", MsgRegisterLocalRequest, MsgProviderConnectRequest)
-	}
-	if MsgRegisterLocalResponse != MsgProviderConnectResponse {
-		t.Fatalf("MsgRegisterLocalResponse = 0x%06X, want 0x%06X", MsgRegisterLocalResponse, MsgProviderConnectResponse)
-	}
-	if MsgHeartbeatLocalRequest != MsgProviderHeartbeatRequest {
-		t.Fatalf("MsgHeartbeatLocalRequest = 0x%06X, want 0x%06X", MsgHeartbeatLocalRequest, MsgProviderHeartbeatRequest)
-	}
-	if MsgHeartbeatLocalResponse != MsgProviderHeartbeatResponse {
-		t.Fatalf("MsgHeartbeatLocalResponse = 0x%06X, want 0x%06X", MsgHeartbeatLocalResponse, MsgProviderHeartbeatResponse)
-	}
-}

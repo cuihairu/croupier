@@ -104,11 +104,11 @@ sequenceDiagram
 - 同步调用
   - `InvokeRequest`
   - `InvokeResponse`
-- 异步作业
-  - `StartJobRequest`
-  - `StartJobResponse`
-  - `JobEvent`
-  - `CancelJobRequest`
+- 异步任务
+  - `StartTaskRequest`
+  - `StartTaskResponse`
+  - `TaskEvent`
+  - `CancelTaskRequest`
 
 关键点：
 
@@ -138,7 +138,7 @@ stateDiagram-v2
 - `rpc_addr`
 - SDK 本地监听
 - `Agent -> SDK` 回拨
-- 以 `gRPC` 或 `NNG REQ/REP` 作为默认注册链路
+- 以 `gRPC` 或 `历史 REQ/REP` 作为默认注册链路
 
 ## 最佳实践
 

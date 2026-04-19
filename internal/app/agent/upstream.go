@@ -15,6 +15,8 @@ import (
 	transportcore "github.com/cuihairu/croupier/internal/transport"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	componentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/component/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
+	"google.golang.org/protobuf/proto"
 )
 
 // UpstreamClient manages the connection to the central Croupier Server.
@@ -51,13 +53,31 @@ type UpstreamClient struct {
 	dynamicLabels  func() map[string]string
 	transportKind  string
 
-	// localHandler processes inbound requests from Server (e.g., Invoke, StartJob)
+	// localHandler processes inbound requests from Server (e.g., Invoke, StartTask)
 	// when using MuxConn-based TCP transport.
 	localHandler transportcore.Handler
 }
 
 func (c *UpstreamClient) Connected() bool {
 	return c != nil && c.client != nil && c.client.Connected()
+}
+
+func (c *UpstreamClient) SendTaskEvent(ctx context.Context, event *sdkv1.TaskEvent) error {
+	if c == nil || c.client == nil {
+		return fmt.Errorf("upstream client is nil")
+	}
+	if !c.client.Connected() {
+		return fmt.Errorf("upstream client not connected")
+	}
+	data, err := proto.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshal task event: %w", err)
+	}
+	return c.client.SendTaskEvent(ctx, data)
+}
+
+func (c *UpstreamClient) ReportTaskEvent(ctx context.Context, event *sdkv1.TaskEvent) error {
+	return c.SendTaskEvent(ctx, event)
 }
 
 // NewUpstreamClient creates a new upstream client.
@@ -99,7 +119,7 @@ func (c *UpstreamClient) SetTLSConfig(cfg *tlsutil.ClientTLSConfig) {
 }
 
 func (c *UpstreamClient) SetTransportKind(kind string) {
-	// Validate: only "tcp" is supported after NNG removal
+	// Validate: only "tcp" is supported after 旧传输 removal
 	kind = strings.TrimSpace(strings.ToLower(kind))
 	if kind == "" {
 		kind = "tcp" // default to tcp if empty

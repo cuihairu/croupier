@@ -197,13 +197,13 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	}
 
 	if req.Mode == "async" {
-		jobResp, err := svcCtx.Dispatcher.StartJobRequest(ctx, utils.BuildInvokeRequest(req.ID, payload, metadata))
+		taskResp, err := svcCtx.Dispatcher.StartTaskRequest(ctx, utils.BuildInvokeRequest(req.ID, payload, metadata))
 		if err != nil {
 			return nil, err
 		}
 		return &FunctionInvokeResponse{
-			JobId:  jobResp.GetJobId(),
-			JobID:  jobResp.GetJobId(),
+			TaskId: taskResp.GetTaskId(),
+			TaskID: taskResp.GetTaskId(),
 			Result: nil,
 		}, nil
 	}
@@ -211,7 +211,7 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	resp, err := svcCtx.Dispatcher.InvokeRequest(ctx, utils.BuildInvokeRequest(req.ID, payload, metadata))
 	if err != nil {
 		return &FunctionInvokeResponse{
-			JobId:  "",
+			TaskId: "",
 			Result: nil,
 		}, err
 	}

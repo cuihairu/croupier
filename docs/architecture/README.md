@@ -11,7 +11,7 @@ tag:
 
 # 系统架构
 
-Croupier 当前的目标架构已经从“多条回拨链路 + 历史 NNG/gRPC 混合模型”收敛到“统一 session 传输”：
+Croupier 当前的目标架构已经从“多条回拨链路 + 历史 旧传输/gRPC 混合模型”收敛到“统一 session 传输”：
 
 - `SDK <-> Agent`：`sdk-agent subprotocol`
 - `Agent <-> Server`：`agent-server subprotocol`
@@ -90,15 +90,15 @@ graph TB
 
 二者共享底层机制，但握手、注册内容和路由语义不同。
 
-## 为什么不再以 NNG pattern 为中心
+## 为什么不再以 历史消息模式 为中心
 
-问题不在于 `NNG` 没有长连接能力，而在于当前使用的 `REQ/REP` pattern 不适合：
+问题不在于 `旧传输` 没有长连接能力，而在于当前使用的 `REQ/REP` pattern 不适合：
 
 - 在已有连接上由双方主动发新请求
 - 多个并发 in-flight 请求复用
 - session 级别的重连、背压、drain 和路由治理
 
-因此当前架构收敛为“轻量 session 协议”，而不是继续围绕某个 `NNG pattern` 修补。
+因此当前架构收敛为“轻量 session 协议”，而不是继续围绕某个 `历史消息模式` 修补。
 
 ## 文档索引
 

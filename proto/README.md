@@ -9,7 +9,7 @@ proto/
 ├── README.md
 ├── croupier/
 │   ├── agent/v1/
-│   │   ├── job.proto
+│   │   ├── task.proto
 │   │   └── register.proto
 │   ├── component/v1/
 │   │   ├── dashboard_ui.proto
@@ -79,7 +79,7 @@ Proto 文件主要描述的是这些子协议之上的消息格式。
 | 文件 | 用途 |
 | --- | --- |
 | `register.proto` | agent session 建连、心跳、能力注册 |
-| `job.proto` | 作业状态与事件类型 |
+| `task.proto` | 任务状态与事件类型 |
 
 当前语义：
 
@@ -124,7 +124,7 @@ Proto 文件主要描述的是这些子协议之上的消息格式。
 
 - protobuf 是平台协议格式
 - JSON 是默认业务 payload 格式
-- 不应再把 proto 文档描述为“NNG 协议文档”或“gRPC API 文档”
+- 不应再把 proto 文档描述为“旧传输 协议文档”或“gRPC API 文档”
 
 ## 关于 `service` 定义
 

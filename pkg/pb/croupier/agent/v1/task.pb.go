@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: croupier/agent/v1/job.proto
+// source: croupier/agent/v1/task.proto
 
 package agentv1
 
@@ -21,63 +21,69 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Job Status enumeration
-type JobStatus int32
+// Task Status enumeration
+type TaskStatus int32
 
 const (
-	JobStatus_JOB_STATUS_UNSPECIFIED JobStatus = 0
-	JobStatus_JOB_STATUS_PENDING     JobStatus = 1
-	JobStatus_JOB_STATUS_RUNNING     JobStatus = 2
-	JobStatus_JOB_STATUS_COMPLETED   JobStatus = 3
-	JobStatus_JOB_STATUS_FAILED      JobStatus = 4
-	JobStatus_JOB_STATUS_CANCELLED   JobStatus = 5
+	TaskStatus_TASK_STATUS_UNSPECIFIED      TaskStatus = 0
+	TaskStatus_TASK_STATUS_QUEUED           TaskStatus = 1
+	TaskStatus_TASK_STATUS_RUNNING          TaskStatus = 2
+	TaskStatus_TASK_STATUS_SUCCEEDED        TaskStatus = 3
+	TaskStatus_TASK_STATUS_FAILED           TaskStatus = 4
+	TaskStatus_TASK_STATUS_CANCELLED        TaskStatus = 5
+	TaskStatus_TASK_STATUS_CANCEL_REQUESTED TaskStatus = 6
+	TaskStatus_TASK_STATUS_TIMED_OUT        TaskStatus = 7
 )
 
-// Enum value maps for JobStatus.
+// Enum value maps for TaskStatus.
 var (
-	JobStatus_name = map[int32]string{
-		0: "JOB_STATUS_UNSPECIFIED",
-		1: "JOB_STATUS_PENDING",
-		2: "JOB_STATUS_RUNNING",
-		3: "JOB_STATUS_COMPLETED",
-		4: "JOB_STATUS_FAILED",
-		5: "JOB_STATUS_CANCELLED",
+	TaskStatus_name = map[int32]string{
+		0: "TASK_STATUS_UNSPECIFIED",
+		1: "TASK_STATUS_QUEUED",
+		2: "TASK_STATUS_RUNNING",
+		3: "TASK_STATUS_SUCCEEDED",
+		4: "TASK_STATUS_FAILED",
+		5: "TASK_STATUS_CANCELLED",
+		6: "TASK_STATUS_CANCEL_REQUESTED",
+		7: "TASK_STATUS_TIMED_OUT",
 	}
-	JobStatus_value = map[string]int32{
-		"JOB_STATUS_UNSPECIFIED": 0,
-		"JOB_STATUS_PENDING":     1,
-		"JOB_STATUS_RUNNING":     2,
-		"JOB_STATUS_COMPLETED":   3,
-		"JOB_STATUS_FAILED":      4,
-		"JOB_STATUS_CANCELLED":   5,
+	TaskStatus_value = map[string]int32{
+		"TASK_STATUS_UNSPECIFIED":      0,
+		"TASK_STATUS_QUEUED":           1,
+		"TASK_STATUS_RUNNING":          2,
+		"TASK_STATUS_SUCCEEDED":        3,
+		"TASK_STATUS_FAILED":           4,
+		"TASK_STATUS_CANCELLED":        5,
+		"TASK_STATUS_CANCEL_REQUESTED": 6,
+		"TASK_STATUS_TIMED_OUT":        7,
 	}
 )
 
-func (x JobStatus) Enum() *JobStatus {
-	p := new(JobStatus)
+func (x TaskStatus) Enum() *TaskStatus {
+	p := new(TaskStatus)
 	*p = x
 	return p
 }
 
-func (x JobStatus) String() string {
+func (x TaskStatus) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (JobStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_croupier_agent_v1_job_proto_enumTypes[0].Descriptor()
+func (TaskStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_croupier_agent_v1_task_proto_enumTypes[0].Descriptor()
 }
 
-func (JobStatus) Type() protoreflect.EnumType {
-	return &file_croupier_agent_v1_job_proto_enumTypes[0]
+func (TaskStatus) Type() protoreflect.EnumType {
+	return &file_croupier_agent_v1_task_proto_enumTypes[0]
 }
 
-func (x JobStatus) Number() protoreflect.EnumNumber {
+func (x TaskStatus) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use JobStatus.Descriptor instead.
-func (JobStatus) EnumDescriptor() ([]byte, []int) {
-	return file_croupier_agent_v1_job_proto_rawDescGZIP(), []int{0}
+// Deprecated: Use TaskStatus.Descriptor instead.
+func (TaskStatus) EnumDescriptor() ([]byte, []int) {
+	return file_croupier_agent_v1_task_proto_rawDescGZIP(), []int{0}
 }
 
 // Function Descriptor - Complete definition for a function
@@ -96,7 +102,7 @@ type FunctionDefinition struct {
 
 func (x *FunctionDefinition) Reset() {
 	*x = FunctionDefinition{}
-	mi := &file_croupier_agent_v1_job_proto_msgTypes[0]
+	mi := &file_croupier_agent_v1_task_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -108,7 +114,7 @@ func (x *FunctionDefinition) String() string {
 func (*FunctionDefinition) ProtoMessage() {}
 
 func (x *FunctionDefinition) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_v1_job_proto_msgTypes[0]
+	mi := &file_croupier_agent_v1_task_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -121,7 +127,7 @@ func (x *FunctionDefinition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FunctionDefinition.ProtoReflect.Descriptor instead.
 func (*FunctionDefinition) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_v1_job_proto_rawDescGZIP(), []int{0}
+	return file_croupier_agent_v1_task_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *FunctionDefinition) GetId() string {
@@ -188,7 +194,7 @@ type ServiceConfig struct {
 
 func (x *ServiceConfig) Reset() {
 	*x = ServiceConfig{}
-	mi := &file_croupier_agent_v1_job_proto_msgTypes[1]
+	mi := &file_croupier_agent_v1_task_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -200,7 +206,7 @@ func (x *ServiceConfig) String() string {
 func (*ServiceConfig) ProtoMessage() {}
 
 func (x *ServiceConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_v1_job_proto_msgTypes[1]
+	mi := &file_croupier_agent_v1_task_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -213,7 +219,7 @@ func (x *ServiceConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ServiceConfig.ProtoReflect.Descriptor instead.
 func (*ServiceConfig) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_v1_job_proto_rawDescGZIP(), []int{1}
+	return file_croupier_agent_v1_task_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ServiceConfig) GetServiceId() string {
@@ -258,12 +264,12 @@ func (x *ServiceConfig) GetTimeoutSeconds() int32 {
 	return 0
 }
 
-// Job Information
-type JobInfo struct {
+// Task Information
+type TaskInfo struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	TaskId        string                 `protobuf:"bytes,1,opt,name=task_id,json=taskId,proto3" json:"task_id,omitempty"`
 	FunctionId    string                 `protobuf:"bytes,2,opt,name=function_id,json=functionId,proto3" json:"function_id,omitempty"`
-	Status        JobStatus              `protobuf:"varint,3,opt,name=status,proto3,enum=croupier.agent.v1.JobStatus" json:"status,omitempty"`
+	Status        TaskStatus             `protobuf:"varint,3,opt,name=status,proto3,enum=croupier.agent.v1.TaskStatus" json:"status,omitempty"`
 	CreatedAt     int64                  `protobuf:"varint,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     int64                  `protobuf:"varint,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	Error         string                 `protobuf:"bytes,6,opt,name=error,proto3" json:"error,omitempty"`
@@ -272,21 +278,21 @@ type JobInfo struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *JobInfo) Reset() {
-	*x = JobInfo{}
-	mi := &file_croupier_agent_v1_job_proto_msgTypes[2]
+func (x *TaskInfo) Reset() {
+	*x = TaskInfo{}
+	mi := &file_croupier_agent_v1_task_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *JobInfo) String() string {
+func (x *TaskInfo) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*JobInfo) ProtoMessage() {}
+func (*TaskInfo) ProtoMessage() {}
 
-func (x *JobInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_v1_job_proto_msgTypes[2]
+func (x *TaskInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_croupier_agent_v1_task_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -297,54 +303,54 @@ func (x *JobInfo) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use JobInfo.ProtoReflect.Descriptor instead.
-func (*JobInfo) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_v1_job_proto_rawDescGZIP(), []int{2}
+// Deprecated: Use TaskInfo.ProtoReflect.Descriptor instead.
+func (*TaskInfo) Descriptor() ([]byte, []int) {
+	return file_croupier_agent_v1_task_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *JobInfo) GetJobId() string {
+func (x *TaskInfo) GetTaskId() string {
 	if x != nil {
-		return x.JobId
+		return x.TaskId
 	}
 	return ""
 }
 
-func (x *JobInfo) GetFunctionId() string {
+func (x *TaskInfo) GetFunctionId() string {
 	if x != nil {
 		return x.FunctionId
 	}
 	return ""
 }
 
-func (x *JobInfo) GetStatus() JobStatus {
+func (x *TaskInfo) GetStatus() TaskStatus {
 	if x != nil {
 		return x.Status
 	}
-	return JobStatus_JOB_STATUS_UNSPECIFIED
+	return TaskStatus_TASK_STATUS_UNSPECIFIED
 }
 
-func (x *JobInfo) GetCreatedAt() int64 {
+func (x *TaskInfo) GetCreatedAt() int64 {
 	if x != nil {
 		return x.CreatedAt
 	}
 	return 0
 }
 
-func (x *JobInfo) GetUpdatedAt() int64 {
+func (x *TaskInfo) GetUpdatedAt() int64 {
 	if x != nil {
 		return x.UpdatedAt
 	}
 	return 0
 }
 
-func (x *JobInfo) GetError() string {
+func (x *TaskInfo) GetError() string {
 	if x != nil {
 		return x.Error
 	}
 	return ""
 }
 
-func (x *JobInfo) GetProgress() int32 {
+func (x *TaskInfo) GetProgress() int32 {
 	if x != nil {
 		return x.Progress
 	}
@@ -363,7 +369,7 @@ type ErrorInfo struct {
 
 func (x *ErrorInfo) Reset() {
 	*x = ErrorInfo{}
-	mi := &file_croupier_agent_v1_job_proto_msgTypes[3]
+	mi := &file_croupier_agent_v1_task_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -375,7 +381,7 @@ func (x *ErrorInfo) String() string {
 func (*ErrorInfo) ProtoMessage() {}
 
 func (x *ErrorInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_croupier_agent_v1_job_proto_msgTypes[3]
+	mi := &file_croupier_agent_v1_task_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -388,7 +394,7 @@ func (x *ErrorInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ErrorInfo.ProtoReflect.Descriptor instead.
 func (*ErrorInfo) Descriptor() ([]byte, []int) {
-	return file_croupier_agent_v1_job_proto_rawDescGZIP(), []int{3}
+	return file_croupier_agent_v1_task_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ErrorInfo) GetCode() string {
@@ -412,11 +418,11 @@ func (x *ErrorInfo) GetDetails() map[string]string {
 	return nil
 }
 
-var File_croupier_agent_v1_job_proto protoreflect.FileDescriptor
+var File_croupier_agent_v1_task_proto protoreflect.FileDescriptor
 
-const file_croupier_agent_v1_job_proto_rawDesc = "" +
+const file_croupier_agent_v1_task_proto_rawDesc = "" +
 	"\n" +
-	"\x1bcroupier/agent/v1/job.proto\x12\x11croupier.agent.v1\"\xbe\x01\n" +
+	"\x1ccroupier/agent/v1/task.proto\x12\x11croupier.agent.v1\"\xbe\x01\n" +
 	"\x12FunctionDefinition\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12\x1a\n" +
@@ -433,12 +439,12 @@ const file_croupier_agent_v1_job_proto_rawDesc = "" +
 	"\x03env\x18\x04 \x01(\tR\x03env\x12\x1d\n" +
 	"\n" +
 	"local_addr\x18\x05 \x01(\tR\tlocalAddr\x12'\n" +
-	"\x0ftimeout_seconds\x18\x06 \x01(\x05R\x0etimeoutSeconds\"\xe7\x01\n" +
-	"\aJobInfo\x12\x15\n" +
-	"\x06job_id\x18\x01 \x01(\tR\x05jobId\x12\x1f\n" +
+	"\x0ftimeout_seconds\x18\x06 \x01(\x05R\x0etimeoutSeconds\"\xeb\x01\n" +
+	"\bTaskInfo\x12\x17\n" +
+	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12\x1f\n" +
 	"\vfunction_id\x18\x02 \x01(\tR\n" +
-	"functionId\x124\n" +
-	"\x06status\x18\x03 \x01(\x0e2\x1c.croupier.agent.v1.JobStatusR\x06status\x12\x1d\n" +
+	"functionId\x125\n" +
+	"\x06status\x18\x03 \x01(\x0e2\x1d.croupier.agent.v1.TaskStatusR\x06status\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x04 \x01(\x03R\tcreatedAt\x12\x1d\n" +
 	"\n" +
@@ -451,40 +457,43 @@ const file_croupier_agent_v1_job_proto_rawDesc = "" +
 	"\adetails\x18\x03 \x03(\v2).croupier.agent.v1.ErrorInfo.DetailsEntryR\adetails\x1a:\n" +
 	"\fDetailsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01*\xa2\x01\n" +
-	"\tJobStatus\x12\x1a\n" +
-	"\x16JOB_STATUS_UNSPECIFIED\x10\x00\x12\x16\n" +
-	"\x12JOB_STATUS_PENDING\x10\x01\x12\x16\n" +
-	"\x12JOB_STATUS_RUNNING\x10\x02\x12\x18\n" +
-	"\x14JOB_STATUS_COMPLETED\x10\x03\x12\x15\n" +
-	"\x11JOB_STATUS_FAILED\x10\x04\x12\x18\n" +
-	"\x14JOB_STATUS_CANCELLED\x10\x05Bg\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01*\xe5\x01\n" +
+	"\n" +
+	"TaskStatus\x12\x1b\n" +
+	"\x17TASK_STATUS_UNSPECIFIED\x10\x00\x12\x16\n" +
+	"\x12TASK_STATUS_QUEUED\x10\x01\x12\x17\n" +
+	"\x13TASK_STATUS_RUNNING\x10\x02\x12\x19\n" +
+	"\x15TASK_STATUS_SUCCEEDED\x10\x03\x12\x16\n" +
+	"\x12TASK_STATUS_FAILED\x10\x04\x12\x19\n" +
+	"\x15TASK_STATUS_CANCELLED\x10\x05\x12 \n" +
+	"\x1cTASK_STATUS_CANCEL_REQUESTED\x10\x06\x12\x19\n" +
+	"\x15TASK_STATUS_TIMED_OUT\x10\aBg\n" +
 	"$io.github.cuihairu.croupier.agent.v1P\x01Z=github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1;agentv1b\x06proto3"
 
 var (
-	file_croupier_agent_v1_job_proto_rawDescOnce sync.Once
-	file_croupier_agent_v1_job_proto_rawDescData []byte
+	file_croupier_agent_v1_task_proto_rawDescOnce sync.Once
+	file_croupier_agent_v1_task_proto_rawDescData []byte
 )
 
-func file_croupier_agent_v1_job_proto_rawDescGZIP() []byte {
-	file_croupier_agent_v1_job_proto_rawDescOnce.Do(func() {
-		file_croupier_agent_v1_job_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_croupier_agent_v1_job_proto_rawDesc), len(file_croupier_agent_v1_job_proto_rawDesc)))
+func file_croupier_agent_v1_task_proto_rawDescGZIP() []byte {
+	file_croupier_agent_v1_task_proto_rawDescOnce.Do(func() {
+		file_croupier_agent_v1_task_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_croupier_agent_v1_task_proto_rawDesc), len(file_croupier_agent_v1_task_proto_rawDesc)))
 	})
-	return file_croupier_agent_v1_job_proto_rawDescData
+	return file_croupier_agent_v1_task_proto_rawDescData
 }
 
-var file_croupier_agent_v1_job_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_croupier_agent_v1_job_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_croupier_agent_v1_job_proto_goTypes = []any{
-	(JobStatus)(0),             // 0: croupier.agent.v1.JobStatus
+var file_croupier_agent_v1_task_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_croupier_agent_v1_task_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_croupier_agent_v1_task_proto_goTypes = []any{
+	(TaskStatus)(0),            // 0: croupier.agent.v1.TaskStatus
 	(*FunctionDefinition)(nil), // 1: croupier.agent.v1.FunctionDefinition
 	(*ServiceConfig)(nil),      // 2: croupier.agent.v1.ServiceConfig
-	(*JobInfo)(nil),            // 3: croupier.agent.v1.JobInfo
+	(*TaskInfo)(nil),           // 3: croupier.agent.v1.TaskInfo
 	(*ErrorInfo)(nil),          // 4: croupier.agent.v1.ErrorInfo
 	nil,                        // 5: croupier.agent.v1.ErrorInfo.DetailsEntry
 }
-var file_croupier_agent_v1_job_proto_depIdxs = []int32{
-	0, // 0: croupier.agent.v1.JobInfo.status:type_name -> croupier.agent.v1.JobStatus
+var file_croupier_agent_v1_task_proto_depIdxs = []int32{
+	0, // 0: croupier.agent.v1.TaskInfo.status:type_name -> croupier.agent.v1.TaskStatus
 	5, // 1: croupier.agent.v1.ErrorInfo.details:type_name -> croupier.agent.v1.ErrorInfo.DetailsEntry
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
@@ -493,27 +502,27 @@ var file_croupier_agent_v1_job_proto_depIdxs = []int32{
 	0, // [0:2] is the sub-list for field type_name
 }
 
-func init() { file_croupier_agent_v1_job_proto_init() }
-func file_croupier_agent_v1_job_proto_init() {
-	if File_croupier_agent_v1_job_proto != nil {
+func init() { file_croupier_agent_v1_task_proto_init() }
+func file_croupier_agent_v1_task_proto_init() {
+	if File_croupier_agent_v1_task_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_agent_v1_job_proto_rawDesc), len(file_croupier_agent_v1_job_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_croupier_agent_v1_task_proto_rawDesc), len(file_croupier_agent_v1_task_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_croupier_agent_v1_job_proto_goTypes,
-		DependencyIndexes: file_croupier_agent_v1_job_proto_depIdxs,
-		EnumInfos:         file_croupier_agent_v1_job_proto_enumTypes,
-		MessageInfos:      file_croupier_agent_v1_job_proto_msgTypes,
+		GoTypes:           file_croupier_agent_v1_task_proto_goTypes,
+		DependencyIndexes: file_croupier_agent_v1_task_proto_depIdxs,
+		EnumInfos:         file_croupier_agent_v1_task_proto_enumTypes,
+		MessageInfos:      file_croupier_agent_v1_task_proto_msgTypes,
 	}.Build()
-	File_croupier_agent_v1_job_proto = out.File
-	file_croupier_agent_v1_job_proto_goTypes = nil
-	file_croupier_agent_v1_job_proto_depIdxs = nil
+	File_croupier_agent_v1_task_proto = out.File
+	file_croupier_agent_v1_task_proto_goTypes = nil
+	file_croupier_agent_v1_task_proto_depIdxs = nil
 }

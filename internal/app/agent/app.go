@@ -27,7 +27,7 @@ import (
 // App assembles TCP-based services for Agent process.
 type App struct {
 	store            *agentlocal.LocalStore
-	jobs             *jobIndex
+	tasks            *taskIndex
 	upstream         *UpstreamClient
 	extensionRuntime *ExtensionRuntime
 	extensionDrivers *ExtensionDriverRuntime
@@ -54,7 +54,7 @@ func New(serverAddr, agentID string) *App {
 	store := agentlocal.NewLocalStore()
 	app := &App{
 		store:            store,
-		jobs:             newJobIndex(),
+		tasks:            newTaskIndex(),
 		upstream:         NewUpstreamClient(serverAddr, agentID, store, nil),
 		extensionRuntime: NewExtensionRuntime(),
 		extensionDrivers: NewExtensionDriverRuntime(),
@@ -71,7 +71,7 @@ func NewWithConfigDir(serverAddr, agentID, configDir string) *App {
 	store := agentlocal.NewLocalStore()
 	app := &App{
 		store:            store,
-		jobs:             newJobIndex(),
+		tasks:            newTaskIndex(),
 		upstream:         NewUpstreamClient(serverAddr, agentID, store, nil),
 		extensionRuntime: NewExtensionRuntime(),
 		extensionDrivers: NewExtensionDriverRuntime(),
@@ -117,6 +117,7 @@ func (a *App) StartLocalServer() error {
 	if a.outTLS != nil {
 		a.localHandler.SetTLSConfig(a.outTLS)
 	}
+	a.localHandler.SetTaskEventReporter(a.upstream)
 
 	// Initialize and set ops server wrapper
 	if a.opsConfig == nil {
@@ -191,7 +192,7 @@ func (a *App) startMaintenance(ctx context.Context) {
 
 	pruneInterval := parseDurationEnv("CROUPIER_AGENTLOCAL_PRUNE_INTERVAL", 30*time.Second)
 	maxAge := parseDurationEnv("CROUPIER_AGENTLOCAL_MAX_AGE", 2*time.Minute)
-	jobResultMaxAge := parseDurationEnv("CROUPIER_AGENTLOCAL_JOBRESULT_MAX_AGE", 10*time.Minute)
+	taskResultMaxAge := parseDurationEnv("CROUPIER_AGENTLOCAL_TASKRESULT_MAX_AGE", 10*time.Minute)
 	if pruneInterval <= 0 || maxAge <= 0 {
 		return
 	}
@@ -205,8 +206,8 @@ func (a *App) startMaintenance(ctx context.Context) {
 				return
 			case <-ticker.C:
 				a.store.Prune(maxAge)
-				if jobResultMaxAge > 0 {
-					a.store.CleanupOldJobResults(jobResultMaxAge)
+				if taskResultMaxAge > 0 {
+					a.store.CleanupOldTaskResults(taskResultMaxAge)
 				}
 			}
 		}
@@ -361,20 +362,20 @@ func (a *App) MetricsCollector() *MetricsCollector {
 	return NewMetricsCollector(a.agentID)
 }
 
-// Jobs returns the job index for tracking active jobs.
-func (a *App) Jobs() *jobIndex {
+// Tasks returns the task index for tracking active tasks.
+func (a *App) Tasks() *taskIndex {
 	if a == nil {
 		return nil
 	}
-	return a.jobs
+	return a.tasks
 }
 
-// ActiveJobCount returns the number of currently active jobs.
-func (a *App) ActiveJobCount() int {
-	if a == nil || a.jobs == nil {
+// ActiveTaskCount returns the number of currently active tasks.
+func (a *App) ActiveTaskCount() int {
+	if a == nil || a.tasks == nil {
 		return 0
 	}
-	return a.jobs.Len()
+	return a.tasks.Len()
 }
 
 func (a *App) ExtensionRuntime() *ExtensionRuntime {

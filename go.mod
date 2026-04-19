@@ -46,6 +46,7 @@ require (
 	gocloud.dev v0.45.0
 	golang.org/x/time v0.14.0
 	google.golang.org/grpc v1.80.0
+	gorm.io/driver/sqlite v1.6.0
 	modernc.org/sqlite v1.44.3
 )
 

@@ -84,14 +84,14 @@ internal/
 | `internal/api/meta` | `internal/core/config` | 元信息接口可收敛到核心 |
 | `internal/api/ops` | `internal/core/ops` | 仅保留基础 ops 能力 |
 | `internal/app` | `internal/agent` | Agent 运行逻辑 |
-| `internal/nng` | `internal/core` + `internal/agent` | 按 server/agent 分层重组 |
+| `internal/agent transport` | `internal/core` + `internal/agent` | 按 server/agent 分层重组 |
 | `internal/service/permission` | `internal/core/permission` | 中间件和服务保留统一 |
 | `internal/middleware` | `internal/core` | 收敛为核心通用中间件 |
 | `internal/router` | `internal/core` | 核心 HTTP/路由装配 |
 | `internal/handler` | `internal/core` | 核心 handler 装配层 |
 | `internal/svc` | `internal/core` | 服务上下文，后续要瘦身 |
 | `internal/security` | `internal/core` | 身份、安全、令牌属于底座 |
-| `internal/jobs` | `internal/core` | 任务基础设施 |
+| `internal/tasks` | `internal/core` | 任务基础设施 |
 | `internal/config` | `internal/core/config` | 配置结构定义 |
 | `internal/model` | `internal/core` | 后续按领域拆，不直接外放给扩展 |
 | `internal/repo` | `internal/core` | 核心数据访问层 |

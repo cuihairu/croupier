@@ -64,13 +64,13 @@ message ProviderDrainRequest {
 
 message ProviderDrainResponse {}
 
-// Query job result from Agent (best-effort).
-// This remains in the shared SDK package because job polling is still SDK-visible.
-message GetJobResultRequest {
-  string job_id = 1;
+// Query task result from Agent (best-effort).
+// This remains in the shared SDK package because task polling is still SDK-visible.
+message GetTaskResultRequest {
+  string task_id = 1;
 }
 
-message GetJobResultResponse {
+message GetTaskResultResponse {
   string state = 1;
   bytes payload = 2;
   string error = 3;

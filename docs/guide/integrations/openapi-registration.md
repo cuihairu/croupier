@@ -39,7 +39,7 @@ OpenAPI 在这里的作用是提供函数元数据来源，而不是单独定义
 | 1. ProviderConnect   |                                           | 建立 provider session |
 | 2. Functions[]       |                                           | 记录 descriptors      |
 | 3. Heartbeat         |                                           | 同步到 Server         |
-| 4. Invoke Response   |                                           | 下发 Invoke / Job     |
+| 4. Invoke Response   |                                           | 下发 Invoke / Task    |
 +----------------------+                                           +----------------------+
 ```
 

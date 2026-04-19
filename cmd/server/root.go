@@ -16,9 +16,11 @@ import (
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/handler"
 	"github.com/cuihairu/croupier/internal/logic/ops"
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/runtime"
 	"github.com/cuihairu/croupier/internal/server"
 	"github.com/cuihairu/croupier/internal/svc"
+	"github.com/cuihairu/croupier/internal/tasks"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
@@ -263,6 +265,10 @@ func startControlServer(c *config.Config, svcCtx *svc.ServiceContext, sessionSto
 
 	// 创建 ControlService
 	controlService := server.NewControlService(svcCtx.RegistryStore, svcCtx.AgentSessionModel)
+	controlService.SetTaskStore(tasks.NewStore(
+		model.NewTaskRunModel(svcCtx.DB),
+		model.NewTaskEventModel(svcCtx.DB),
+	))
 	controlService.StartBackgroundTasks()
 
 	// 创建 TCPListener (管理 Agent session)

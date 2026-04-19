@@ -11,7 +11,7 @@ tag:
 
 # 分层设计
 
-Croupier 当前采用四层结构，但传输模型已经统一为 session 思维，而不是旧的 `gRPC/NNG 回拨` 思维。
+Croupier 当前采用四层结构，但传输模型已经统一为 session 思维，而不是旧的 `gRPC/旧传输 回拨` 思维。
 
 ## 四层结构
 
@@ -84,7 +84,7 @@ Agent 当前应被视为“本地网关 + 上游 session client”：
 
 - 向 `Server` 主动建立上游 session
 - 维护本地 provider / process / function 视图
-- 接收 `Server` 下发的 invoke/job/ops 请求
+- 接收 `Server` 下发的 invoke/task/ops 请求
 - 将本地 `SDK / GameServer / 第三方应用` 接入统一到本地 session 边界
 
 ## 不再推荐的术语

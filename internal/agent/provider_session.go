@@ -12,7 +12,7 @@ import (
 )
 
 // ProviderSession represents an established session with a connected SDK Provider.
-// Agent dispatches Invoke/StartJob/CancelJob requests to the Provider through this session.
+// Agent dispatches Invoke/StartTask/CancelTask requests to the Provider through this session.
 type ProviderSession struct {
 	// conn is the bidirectional multiplexed connection.
 	conn *tcptr.MuxConn

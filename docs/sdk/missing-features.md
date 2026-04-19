@@ -23,7 +23,7 @@ SDK 侧这轮重构只做四件事：
 1. 所有 SDK 默认切到独立 `tcp session`
 2. 所有 SDK 默认作为 `Agent` 的 session client，而不是本地 server
 3. 所有 SDK 默认业务 `payload` 固定为 UTF-8 JSON
-4. 所有 SDK 清理 `NNG` 主依赖、`LocalControl`、`rpc_addr`、本地监听模型
+4. 所有 SDK 清理 `旧传输` 主依赖、`LocalControl`、`rpc_addr`、本地监听模型
 
 ## 统一约束
 
@@ -53,13 +53,13 @@ SDK 侧这轮重构只做四件事：
 
 - [ ] 每个 SDK 都要有明确的 transport abstraction
 - [ ] transport 默认实现固定优先为 `tcp`
-- [ ] transport 不再把 `NNG` 写死在高层 API
+- [ ] transport 不再把 `旧传输` 写死在高层 API
 - [ ] transport 支持独立读循环、写队列、并发请求复用
 - [ ] transport 暴露关闭、重连、状态查询与错误映射
 
 验收标准：
 
-- 上层 Client / Invoker 不依赖具体 `NNG` 类型
+- 上层 Client / Invoker 不依赖具体 `旧传输` 类型
 
 ## S2. 实现 provider session
 
@@ -133,24 +133,24 @@ SDK 侧这轮重构只做四件事：
 
 ## P1. Python SDK
 
-- [x] 用独立 `tcp session` 替换默认 `pynng`
+- [x] 用独立 `tcp session` 替换默认 `Python 原生传输`
 - [x] 打通 provider session
 - [x] 对齐 JSON payload、TLS、重连、drain
 - [ ] 更新示例与打包说明
 
 ## J1. JS/TS SDK
 
-- [x] 用独立 `tcp session` 替换默认 `@rustup/nng`
+- [x] 用独立 `tcp session` 替换默认 `JS 原生传输`
 - [x] 打通 provider session
 - [x] 对齐 JSON payload、TLS、重连、drain
 - [ ] 更新 README、Node/Bun 浏览器边界说明
 
 ## C1. C# SDK
 
-- [x] 用独立 `tcp session` 替换默认 `nng.NET`
+- [x] 用独立 `tcp session` 替换默认 `.NET 原生传输`
 - [x] 打通 provider session
 - [x] 对齐 JSON payload、TLS、重连、drain
-- [x] 清理反射加载 `nng.NET` 的主路径依赖
+- [x] 清理反射加载 `.NET 原生传输` 的主路径依赖
 
 ## J2. Java SDK
 
@@ -162,7 +162,7 @@ SDK 侧这轮重构只做四件事：
 
 ## C2. C++ SDK
 
-- [x] 清理 README 与代码中的历史 `gRPC/NNG server` 心智
+- [x] 清理 README 与代码中的历史 `gRPC/local server` 心智
 - [x] 接入独立 `tcp session`
 - [x] 打通 provider session
 - [x] 对齐 JSON payload、TLS、重连、drain
@@ -234,4 +234,4 @@ SDK 侧这轮重构只做四件事：
 - 启动本地服务
 - 配置 `rpc_addr`
 - 预先定义自己的 `.proto`
-- 安装或分发 `NNG` 运行时
+- 安装或分发 `旧传输` 运行时

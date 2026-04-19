@@ -83,11 +83,11 @@ graph TB
 
 - `Server` 不再依赖反向直连 `Agent` 暴露的 `rpc_addr`
 - `Agent` 本地监听只服务 `GameServer / SDK / 第三方应用`
-- `Server -> Agent` 的 `Invoke / StartJob / CancelJob / Ops` 都应复用既有 `Agent-Server` session
+- `Server -> Agent` 的 `Invoke / StartTask / CancelTask / Ops` 都应复用既有 `Agent-Server` session
 
 ## Session 模型
 
-Croupier 当前的核心传输抽象不是 `NNG pattern`，而是轻量的应用层 session：
+Croupier 当前的核心传输抽象不是 `历史消息模式`，而是轻量的应用层 session：
 
 - 一条可靠长连接
 - 首条消息完成身份与能力协商
@@ -177,5 +177,5 @@ pnpm dev
 
 ## 说明
 
-当前仓库中仍有部分历史文档引用 `gRPC`、`NNG REQ/REP`、`LocalControl`、`rpc_addr` 或 SDK 本地监听模型。
+当前仓库中仍有部分历史文档引用 `gRPC`、`历史 REQ/REP`、`LocalControl`、`rpc_addr` 或 SDK 本地监听模型。
 这些内容正在按“统一 TCP session + subprotocol”设计逐步清理，不应再作为新的实现依据。

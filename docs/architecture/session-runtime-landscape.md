@@ -261,7 +261,7 @@ Croupier 当前真正要的是一套：
 - 比 `RSocket` 轻
 - 比 `libp2p` 简单
 - 比 `Aeron` 更通用
-- 比“继续围绕 NNG pattern 修补”更贴近真实需求
+- 比“继续围绕 历史消息模式 修补”更贴近真实需求
 
 ## 中长期可借鉴路线
 
@@ -282,7 +282,7 @@ Croupier 当前真正要的是一套：
 
 当前最接近我们目标的专业描述不是：
 
-- `NNG pattern`
+- `历史消息模式`
 - `RPC transport`
 - `message bus`
 

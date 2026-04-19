@@ -70,7 +70,7 @@ database:
 Control:
   Addr: ":19090"
 AgentDispatch:
-  JobRoutingDir: data
+  TaskRoutingDir: data
   ToAgentTLS:
     Enabled: true
 BootstrapData:
@@ -107,8 +107,8 @@ sse:
 	if cfg.Control.Addr != ":19090" {
 		t.Fatalf("Control.Addr = %q, want :19090", cfg.Control.Addr)
 	}
-	if cfg.AgentDispatch.JobRoutingDir != "data" {
-		t.Fatalf("AgentDispatch.JobRoutingDir = %q, want data", cfg.AgentDispatch.JobRoutingDir)
+	if cfg.AgentDispatch.TaskRoutingDir != "data" {
+		t.Fatalf("AgentDispatch.TaskRoutingDir = %q, want data", cfg.AgentDispatch.TaskRoutingDir)
 	}
 	if !cfg.AgentDispatch.ToAgentTLS.Enabled {
 		t.Fatalf("AgentDispatch.ToAgentTLS.Enabled = false, want true")

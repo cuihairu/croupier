@@ -20,6 +20,7 @@ type controlClient interface {
 	Register(ctx context.Context, req *agentv1.RegisterRequest) (*agentv1.RegisterResponse, error)
 	Heartbeat(ctx context.Context, req *agentv1.HeartbeatRequest) (*agentv1.HeartbeatResponse, error)
 	RegisterCapabilities(ctx context.Context, req *agentv1.RegisterCapabilitiesRequest) (*agentv1.RegisterCapabilitiesResponse, error)
+	SendTaskEvent(ctx context.Context, reqBody []byte) error
 }
 
 // tcpControlClient wraps a simple TCP request-response client (no multiplexing).
@@ -29,8 +30,8 @@ type tcpControlClient struct {
 
 // muxControlClient wraps a MuxConn for bidirectional TCP session.
 // It runs a read loop in the background and supports both outbound
-// requests (Register, Heartbeat) and inbound requests from Server
-// (Invoke, StartJob, Ops).
+// requests (Register, Heartbeat, TaskEvent) and inbound requests from Server
+// (Invoke, StartTask, Ops).
 type muxControlClient struct {
 	mux    *tcptr.MuxConn
 	cancel context.CancelFunc
@@ -46,7 +47,7 @@ func newControlClient(kind, addr string) (controlClient, error) {
 }
 
 // newMuxControlClient creates a bidirectional TCP session using MuxConn.
-// The localHandler processes inbound requests from the Server (e.g., Invoke, StartJob).
+// The localHandler processes inbound requests from the Server (e.g., Invoke, StartTask).
 func newMuxControlClient(addr string, localHandler transportcore.Handler) (*muxControlClient, error) {
 	dialer := &net.Dialer{Timeout: 5 * time.Second}
 	conn, err := dialer.Dial("tcp", normalizeTCPAddr(addr))
@@ -113,6 +114,14 @@ func (c *tcpControlClient) RegisterCapabilities(ctx context.Context, req *agentv
 	return resp, nil
 }
 
+func (c *tcpControlClient) SendTaskEvent(ctx context.Context, reqBody []byte) error {
+	if c == nil || c.client == nil {
+		return fmt.Errorf("tcp control client not initialized")
+	}
+	_, _, err := c.client.Call(ctx, protocol.MsgTaskEvent, reqBody)
+	return err
+}
+
 func (c *tcpControlClient) call(ctx context.Context, msgID uint32, req proto.Message, resp proto.Message) error {
 	if c == nil || c.client == nil {
 		return fmt.Errorf("tcp control client not initialized")
@@ -172,6 +181,13 @@ func (c *muxControlClient) RegisterCapabilities(ctx context.Context, req *agentv
 		return nil, err
 	}
 	return resp, nil
+}
+
+func (c *muxControlClient) SendTaskEvent(ctx context.Context, reqBody []byte) error {
+	if c == nil || c.mux == nil {
+		return fmt.Errorf("mux control client not initialized")
+	}
+	return c.mux.Send(ctx, protocol.MsgTaskEvent, reqBody)
 }
 
 func (c *muxControlClient) call(ctx context.Context, msgID uint32, req proto.Message, resp proto.Message) error {

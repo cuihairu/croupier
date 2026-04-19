@@ -41,7 +41,7 @@ type TCPListenerConfig struct {
 // Lifecycle:
 //  1. Agent dials in → first frame must be RegisterRequest
 //  2. Server validates and creates AgentSession → stores in AgentSessionStore
-//  3. Subsequent Heartbeat/Invoke/StartJob/CancelJob flow through MuxConn
+//  3. Subsequent Heartbeat/Invoke/StartTask/CancelTask flow through MuxConn
 //  4. On disconnect, session is removed from store
 type TCPListener struct {
 	config       *TCPListenerConfig

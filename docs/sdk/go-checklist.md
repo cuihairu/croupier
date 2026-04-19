@@ -44,7 +44,7 @@ Go SDK 作为首个参考实现，先把完整的 `sdk-agent subprotocol` 跑通
 
 ## G5. 清理旧模型
 
-- [x] 清理默认 `NNG` 依赖
+- [x] 清理默认原生传输依赖
 - [x] 清理 `LocalControl/RegisterLocal` 主语义
 - [x] 清理 `rpc_addr/local_listen`
 - [x] 清理 README 中的旧接入方式

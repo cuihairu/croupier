@@ -16,10 +16,13 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/function/converter"
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	"github.com/cuihairu/croupier/internal/tasks"
 	transportcore "github.com/cuihairu/croupier/internal/transport"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
 )
@@ -97,6 +100,7 @@ type ControlService struct {
 	defaultSessionTTL time.Duration
 	metricsStore      *reg.MetricsStore
 	systemInfoCache   *reg.SystemInfoCache
+	taskStore         *tasks.Store
 
 	upstream Handler
 
@@ -124,6 +128,12 @@ func NewControlService(registry *reg.Store, loader AgentSessionLoader) *ControlS
 		cancel:             cancel,
 		logger:             slog.Default(),
 	}
+}
+
+func (s *ControlService) SetTaskStore(store *tasks.Store) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.taskStore = store
 }
 
 // Store returns the registry store.
@@ -202,6 +212,8 @@ func (s *ControlService) handleRequest(ctx context.Context, msgID uint32, data [
 		return s.handleHeartbeat(ctx, data)
 	case protocol.MsgRegisterCapabilitiesReq:
 		return s.handleRegisterCapabilities(ctx, data)
+	case protocol.MsgTaskEvent:
+		return s.handleTaskEvent(ctx, data)
 	default:
 		return nil, fmt.Errorf("unknown message type: 0x%06X", msgID)
 	}
@@ -241,6 +253,64 @@ func (s *ControlService) handleRegisterCapabilities(ctx context.Context, data []
 		return nil, err
 	}
 	return proto.Marshal(resp)
+}
+
+func (s *ControlService) handleTaskEvent(ctx context.Context, data []byte) ([]byte, error) {
+	req := &sdkv1.TaskEvent{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal TaskEvent: %w", err)
+	}
+
+	s.mu.RLock()
+	taskStore := s.taskStore
+	s.mu.RUnlock()
+	if taskStore == nil {
+		return nil, fmt.Errorf("task store not configured")
+	}
+
+	taskID := strings.TrimSpace(req.GetTaskId())
+	if taskID == "" {
+		return nil, fmt.Errorf("task_id is required")
+	}
+
+	now := time.Now()
+	updates := map[string]interface{}{
+		"progress": req.GetProgress(),
+		"message":  req.GetMessage(),
+	}
+
+	switch strings.ToLower(strings.TrimSpace(req.GetType())) {
+	case string(tasks.EventStarted):
+		updates["status"] = tasks.StatusRunning
+		updates["started_at"] = &now
+	case string(tasks.EventProgress), string(tasks.EventLog):
+		updates["status"] = tasks.StatusRunning
+	case string(tasks.EventCompleted):
+		updates["status"] = tasks.StatusSucceeded
+		updates["progress"] = int32(100)
+		updates["finished_at"] = &now
+		updates["result_payload"] = model.EncodeTaskPayload(req.GetPayload())
+	case string(tasks.EventFailed):
+		updates["status"] = tasks.StatusFailed
+		updates["finished_at"] = &now
+		updates["error_message"] = req.GetMessage()
+	case string(tasks.EventCancelRequested):
+		updates["status"] = tasks.StatusCancelRequested
+		updates["cancel_requested_at"] = &now
+	case string(tasks.EventCancelled):
+		updates["status"] = tasks.StatusCancelled
+		updates["finished_at"] = &now
+	default:
+		updates["status"] = tasks.StatusRunning
+	}
+
+	if err := taskStore.UpdateRun(ctx, taskID, updates); err != nil {
+		return nil, fmt.Errorf("update task run: %w", err)
+	}
+	if err := taskStore.AppendEvent(ctx, taskID, tasks.EventType(req.GetType()), req.GetProgress(), req.GetMessage(), req.GetPayload()); err != nil {
+		return nil, fmt.Errorf("append task event: %w", err)
+	}
+	return nil, nil
 }
 
 // handleRegisterRequest implements the actual Register logic.

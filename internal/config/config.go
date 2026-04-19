@@ -79,7 +79,7 @@ func (c *Config) UnmarshalYAML(value *yaml.Node) error {
 // ControlConfig 配置控制服务器（控制平面）
 type ControlConfig struct {
 	// Transport selects the control-plane transport implementation.
-	// Only "tcp" is supported (NNG/IPC removed).
+	// Only "tcp" is supported (旧传输/IPC removed).
 	Transport string `json:"transport,omitempty" yaml:"transport,omitempty"`
 
 	// ControlService 监听地址（默认 :19090，用于 SDK/Agent 连接）
@@ -87,7 +87,7 @@ type ControlConfig struct {
 	Addr string `json:"addr" yaml:"addr"`
 
 	// IPC 地址已废弃（保留用于配置兼容性，不再使用）
-	// NNG/IPC 传输已被移除，所有连接现在使用 TCP
+	// 旧传输/IPC 传输已被移除，所有连接现在使用 TCP
 	IPCAddr string `json:"ipcAddr,omitempty" yaml:"ipcAddr,omitempty"`
 
 	// TLS 证书配置。如果配置了 Cert 和 Key，将启用 TLS
@@ -242,9 +242,9 @@ func (c *RegistryConfig) UnmarshalYAML(value *yaml.Node) error {
 }
 
 type AgentDispatchConfig struct {
-	JobRoutingDir string          `json:"jobRoutingDir,omitempty" yaml:"jobRoutingDir,omitempty"`
-	JobRoutingTTL string          `json:"jobRoutingTTL,omitempty" yaml:"jobRoutingTTL,omitempty"`
-	ToAgentTLS    TLSClientConfig `json:"toAgentTLS,omitempty" yaml:"toAgentTLS,omitempty"` // Server → Agent TLS
+	TaskRoutingDir string          `json:"taskRoutingDir,omitempty" yaml:"taskRoutingDir,omitempty"`
+	TaskRoutingTTL string          `json:"taskRoutingTTL,omitempty" yaml:"taskRoutingTTL,omitempty"`
+	ToAgentTLS     TLSClientConfig `json:"toAgentTLS,omitempty" yaml:"toAgentTLS,omitempty"` // Server → Agent TLS
 	// HA configuration
 	LoadBalanceStrategy string               `json:"loadBalanceStrategy,omitempty" yaml:"loadBalanceStrategy,omitempty"` // min_id, round_robin, least_conn, weighted
 	HealthCheck         HealthCheckConfig    `json:"healthCheck,omitempty" yaml:"healthCheck,omitempty"`
@@ -260,8 +260,8 @@ func (c *AgentDispatchConfig) UnmarshalYAML(value *yaml.Node) error {
 		return err
 	}
 	var compat struct {
-		JobRoutingDir       string          `yaml:"JobRoutingDir,omitempty"`
-		JobRoutingTTL       string          `yaml:"JobRoutingTTL,omitempty"`
+		TaskRoutingDir      string          `yaml:"TaskRoutingDir,omitempty"`
+		TaskRoutingTTL      string          `yaml:"TaskRoutingTTL,omitempty"`
 		ToAgentTLS          TLSClientConfig `yaml:"ToAgentTLS,omitempty"`
 		LoadBalanceStrategy string          `yaml:"LoadBalanceStrategy,omitempty"`
 		EnableHA            *bool           `yaml:"EnableHA,omitempty"`
@@ -269,11 +269,11 @@ func (c *AgentDispatchConfig) UnmarshalYAML(value *yaml.Node) error {
 	if err := value.Decode(&compat); err != nil {
 		return err
 	}
-	if decoded.JobRoutingDir == "" {
-		decoded.JobRoutingDir = compat.JobRoutingDir
+	if decoded.TaskRoutingDir == "" {
+		decoded.TaskRoutingDir = compat.TaskRoutingDir
 	}
-	if decoded.JobRoutingTTL == "" {
-		decoded.JobRoutingTTL = compat.JobRoutingTTL
+	if decoded.TaskRoutingTTL == "" {
+		decoded.TaskRoutingTTL = compat.TaskRoutingTTL
 	}
 	if isZeroTLSClientConfig(decoded.ToAgentTLS) {
 		decoded.ToAgentTLS = compat.ToAgentTLS
