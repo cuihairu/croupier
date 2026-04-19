@@ -17,6 +17,7 @@ import (
 	"github.com/cuihairu/croupier/internal/handler"
 	"github.com/cuihairu/croupier/internal/logic/ops"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/runtime"
 	"github.com/cuihairu/croupier/internal/server"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -202,6 +203,12 @@ func runServer() error {
 	// 将 session resolver 注入到 Dispatcher
 	if svcCtx.Dispatcher != nil {
 		svcCtx.Dispatcher.SetSessionResolver(server.NewSessionResolverAdapter(sessionStore))
+		// 将 task event query 注入到 Dispatcher（用于 StreamTask 查询）
+		taskQuery := dispatch.NewTaskEventQueryAdapter(
+			model.NewTaskEventModel(svcCtx.DB),
+			model.NewTaskRunModel(svcCtx.DB),
+		)
+		svcCtx.Dispatcher.SetTaskEventQuery(taskQuery)
 	}
 
 	// 启动控制服务器（TCP）
