@@ -612,7 +612,7 @@ func TestRecordLoginAudit_WithReason(t *testing.T) {
 	db := setupTestDB(t)
 	tmpDir := t.TempDir()
 	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
 
 	req := &LoginRequest{
 		ClientIP:  "192.168.1.1",
@@ -634,7 +634,7 @@ func TestRecordLoginAudit_WithNilRequest(t *testing.T) {
 	db := setupTestDB(t)
 	tmpDir := t.TempDir()
 	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
 
 	// With nil request
 	service.recordLoginAudit("user", "auth.login", "success", nil, "")
@@ -654,7 +654,7 @@ func TestRecordLoginAudit_WithWhitespaceInRequest(t *testing.T) {
 	db := setupTestDB(t)
 	tmpDir := t.TempDir()
 	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
 
 	req := &LoginRequest{
 		ClientIP:  "   ",
@@ -678,7 +678,7 @@ func TestRecordLoginAudit_AuditEntryLimit(t *testing.T) {
 	db := setupTestDB(t)
 	tmpDir := t.TempDir()
 	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
 
 	// Pre-populate with 2001 entries
 	store.Update(func(st *svc.OpsState) {
@@ -709,7 +709,7 @@ func TestRecordLoginAudit_TrimmedUsername(t *testing.T) {
 	db := setupTestDB(t)
 	tmpDir := t.TempDir()
 	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
 
 	service.recordLoginAudit("  admin  ", "auth.login", "success", nil, "")
 
