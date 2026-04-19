@@ -214,7 +214,7 @@ v1 建议统一遵循下面的最小语义：
 - `ProviderConnectRequest`
 - `RegisterRequest`
 - `InvokeRequest`
-- `JobEvent`
+- `TaskEvent`
 
 以及这些消息承载的：
 

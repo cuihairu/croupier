@@ -335,9 +335,9 @@ Agent 至少需要实现：
 `0x03xx InvokerService` 的业务语义应尽量保持不变：
 
 - `InvokeRequest` / `InvokeResponse`
-- `StartJobRequest` / `StartJobResponse`
-- `StreamJobRequest` / `JobEvent`
-- `CancelJobRequest` / `CancelJobResponse`
+- `StartTaskRequest` / `StartTaskResponse`
+- `StreamTaskRequest` / `TaskEvent`
+- `CancelTaskRequest` / `CancelTaskResponse`
 
 ### 变化点
 
@@ -353,10 +353,10 @@ Agent 至少需要实现：
 需要明确区分两层数据：
 
 - 平台协议消息
-  - 例如 `ProviderConnectRequest`、`InvokeRequest`、`InvokeResponse`、`JobEvent`
+  - 例如 `ProviderConnectRequest`、`InvokeRequest`、`InvokeResponse`、`TaskEvent`
   - 这层继续使用 protobuf，便于跨语言统一、版本演进和固定头部路由
 - 用户业务 payload
-  - 例如 `InvokeRequest.payload`、`InvokeResponse.payload`、`JobEvent.payload`
+  - 例如 `InvokeRequest.payload`、`InvokeResponse.payload`、`TaskEvent.payload`
   - 这层不应强制要求 SDK 用户定义 protobuf schema
 
 设计结论：
@@ -410,7 +410,7 @@ SDK-Agent v1 的默认业务负载规则为：
 
 - `InvokeRequest.payload` 默认承载 UTF-8 JSON 字节
 - `InvokeResponse.payload` 默认承载 UTF-8 JSON 字节
-- `JobEvent.payload` 默认承载 UTF-8 JSON 字节
+- `TaskEvent.payload` 默认承载 UTF-8 JSON 字节
 - Agent 负责转发和调度，不默认解析业务字段语义
 - SDK 负责把语言原生对象编码为 JSON，并在回调侧解码为语言原生对象
 

@@ -116,7 +116,7 @@ v1 不引入独立 `Magic`，而是直接用首条应用层消息识别子协议
 说明：
 
 - `responseMsgID = requestMsgID + 1` 仍是默认约定
-- 像 `JobEvent` 这样的单向事件消息不属于标准 request/response 配对
+- 像 `TaskEvent` 这样的单向事件消息不属于标准 request/response 配对
 
 ## drain 语义
 
@@ -170,16 +170,16 @@ v1 不引入独立 `Magic`，而是直接用首条应用层消息识别子协议
 
 ### `0x03xx` Invocation / Task
 
-用于同步调用、异步作业与取消：
+用于同步调用、异步任务与取消：
 
 - `InvokeRequest`
 - `InvokeResponse`
-- `StartJobRequest`
-- `StartJobResponse`
-- `StreamJobRequest`
-- `JobEvent`
-- `CancelJobRequest`
-- `CancelJobResponse`
+- `StartTaskRequest`
+- `StartTaskResponse`
+- `StreamTaskRequest`
+- `TaskEvent`
+- `CancelTaskRequest`
+- `CancelTaskResponse`
 
 ### `0x04xx` Ops / Telemetry
 
@@ -222,7 +222,7 @@ v1 默认规则：
 
 - `InvokeRequest.payload` 是 JSON bytes
 - `InvokeResponse.payload` 是 JSON bytes
-- `JobEvent.payload` 是 JSON bytes
+- `TaskEvent.payload` 是 JSON bytes
 - SDK 用户不需要先定义 `.proto` 才能接入
 - SDK 应默认提供原生对象与 JSON bytes 的自动编解码
 

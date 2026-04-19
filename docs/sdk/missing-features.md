@@ -79,7 +79,7 @@ SDK 侧这轮重构只做四件事：
 
 - [ ] `InvokeRequest.payload` 默认编码 JSON
 - [ ] `InvokeResponse.payload` 默认编码 JSON
-- [ ] `JobEvent.payload` 默认编码 JSON
+- [ ] `TaskEvent.payload` 默认编码 JSON
 - [ ] 提供原生对象与 JSON bytes 的自动编解码
 - [ ] `input_schema` / `output_schema` 固定解释为 JSON Schema
 - [ ] 不要求 SDK 用户先定义自己的 `.proto`

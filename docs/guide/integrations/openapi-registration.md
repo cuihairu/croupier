@@ -106,7 +106,7 @@ OpenAPI 在这里的作用是提供函数元数据来源，而不是单独定义
   - `ProviderConnectRequest`
   - `InvokeRequest`
   - `InvokeResponse`
-  - `JobEvent`
+  - `TaskEvent`
 - 业务 payload 层
   - 默认固定为 UTF-8 JSON
 
