@@ -327,8 +327,17 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	}
 
 	// 初始化 JWT 密钥（从配置文件读取）
-	secret, _ := jwtutil2.ResolveSecret(ctx.Config)
-	jwt.SetSecret(secret)
+	secret, err := jwtutil2.ResolveSecret(ctx.Config)
+	if err != nil {
+		// JWT secret 未配置且不在开发模式，这是一个严重配置错误
+		slog.Default().Error("JWT secret configuration error", "error", err)
+		// 在生产环境下应该启动失败
+		if !isDevelopmentConfig(ctx.Config) {
+			panic(fmt.Sprintf("JWT secret not configured: %v", err))
+		}
+		slog.Default().Warn("Using development JWT secret - do not use in production", "mode", ctx.Config.Server.Mode)
+	}
+	jwtutil2.InitGlobalSecret(secret)
 
 	// 设置认证中间件
 	ctx.Authority = NewAuthMiddleware(ctx)
@@ -349,6 +358,25 @@ func autoMigrate(db *gorm.DB) error {
 	}
 
 	return nil
+}
+
+// isDevelopmentConfig checks if the current configuration is in development mode.
+func isDevelopmentConfig(cfg config.Config) bool {
+	// Check server mode configuration
+	if strings.EqualFold(cfg.Server.Mode, "dev") || strings.EqualFold(cfg.Server.Mode, "development") || strings.EqualFold(cfg.Server.Mode, "debug") {
+		return true
+	}
+	// Check environment variable
+	if env := strings.TrimSpace(os.Getenv("CROUPIER_ENV")); env != "" {
+		if strings.EqualFold(env, "dev") || strings.EqualFold(env, "development") {
+			return true
+		}
+	}
+	// Default to development if not explicitly set to production
+	if strings.EqualFold(os.Getenv("CROUPIER_MODE"), "prod") || strings.EqualFold(os.Getenv("CROUPIER_MODE"), "production") {
+		return false
+	}
+	return true
 }
 
 func resolveBootstrapAuthDir(c config.Config) string {

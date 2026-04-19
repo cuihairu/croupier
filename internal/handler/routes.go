@@ -45,6 +45,7 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 
 	"github.com/gin-gonic/gin"
+	"log/slog"
 )
 
 func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
@@ -105,7 +106,15 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 }
 
 func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
-	jwtSecret, _ := jwtutil.ResolveSecret(ctx.Config)
+	jwtSecret, err := jwtutil.ResolveSecret(ctx.Config)
+	if err != nil {
+		// Log error but continue with fallback for compatibility
+		slog.Default().Warn("JWT secret resolution warning, using fallback", "error", err)
+		// Use fallback for backward compatibility
+		if jwtSecret == "" {
+			jwtSecret = jwtutil.DevSecret()
+		}
+	}
 	authSvc := auth.NewService(ctx.AdminModel, permissionservice.NewPermissionService(ctx.DB), jwtSecret, ctx.OpsStateStore)
 	authHandler := auth.NewHandler(authSvc)
 	g.POST("/login", authHandler.Login)

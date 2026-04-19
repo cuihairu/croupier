@@ -10,6 +10,7 @@ import (
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"log/slog"
 )
 
 // RegisterRoutes 注册所有路由
@@ -35,7 +36,15 @@ func RegisterRoutes(r *gin.Engine, cfg *config.Config) error {
 // registerPublicRoutes 注册公开路由
 func registerPublicRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.Config) {
 	// Auth 模块
-	jwtSecret, _ := jwtutil.ResolveSecret(*cfg)
+	jwtSecret, err := jwtutil.ResolveSecret(*cfg)
+	if err != nil {
+		// Log error but continue with fallback for compatibility
+		slog.Default().Warn("JWT secret resolution warning, using fallback", "error", err)
+		// Use fallback for backward compatibility
+		if jwtSecret == "" {
+			jwtSecret = jwtutil.DevSecret()
+		}
+	}
 	authHandler := auth.NewHandler(auth.NewService(
 		model.NewAdminModel(db),
 		permissionservice.NewPermissionService(db),

@@ -4,7 +4,6 @@
 package session
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -194,8 +193,6 @@ func Example_HeartbeatUsage() {
 
 // Example_SessionUsage demonstrates basic session operations.
 func Example_SessionUsage() {
-	ctx := context.Background()
-
 	// In real usage, conn would be from accepted connection
 	// var conn *tcp.MuxConn
 
@@ -203,6 +200,7 @@ func Example_SessionUsage() {
 	// sess := NewAgentSessionAdapter(conn, "agent-1", "sess-123", "game-1", "prod", "1.0.0")
 
 	// Session can send requests
+	// ctx := context.Background()
 	// respMsgID, respBody, err := sess.Conn().Call(ctx, msgID, reqBody)
 
 	// Update heartbeat

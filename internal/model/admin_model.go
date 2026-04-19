@@ -47,13 +47,14 @@ func (m *AdminModel) Create(ctx context.Context, admin *Admin, password string) 
 	} else {
 		// Warn about plaintext password in production
 		slog.Default().Warn("Creating admin with plaintext password - will be hashed", "username", admin.Username)
-		hashedPassword, err = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 		if err != nil {
 			return fmt.Errorf("failed to hash password: %w", err)
 		}
+		hashedPassword = string(hashedBytes)
 	}
 
-	admin.PasswordHash = string(hashedPassword)
+	admin.PasswordHash = hashedPassword
 	return m.db.WithContext(ctx).Create(admin).Error
 }
 
