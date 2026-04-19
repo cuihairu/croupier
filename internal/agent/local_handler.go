@@ -276,10 +276,8 @@ func (h *LocalHandler) handleStartTask(ctx context.Context, data []byte) ([]byte
 	}
 
 	taskCtx, cancel := context.WithCancel(context.Background())
-	if h.tasks != nil {
-		h.tasks.Set(taskID, cancel)
-	}
-	go h.runTask(taskCtx, taskID, req)
+	h.tasks.Set(taskID, cancel)
+	go h.runTask(taskCtx, taskID, cancel, req)
 
 	return proto.Marshal(resp)
 }
@@ -312,11 +310,10 @@ func (h *LocalHandler) handleCancelTask(ctx context.Context, data []byte) ([]byt
 	return proto.Marshal(resp)
 }
 
-func (h *LocalHandler) runTask(ctx context.Context, taskID string, req *sdkv1.InvokeRequest) {
+func (h *LocalHandler) runTask(ctx context.Context, taskID string, cancel context.CancelFunc, req *sdkv1.InvokeRequest) {
 	defer func() {
-		if h.tasks != nil {
-			h.tasks.Delete(taskID)
-		}
+		h.tasks.Delete(taskID)
+		cancel() // Ensure the context is canceled to prevent leaks
 	}()
 
 	_ = h.emitTaskEvent(context.Background(), &sdkv1.TaskEvent{

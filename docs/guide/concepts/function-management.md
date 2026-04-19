@@ -27,7 +27,7 @@ Croupier 的核心模型仍然是“函数注册驱动”，但注册与调用�
 
 ## 当前注册模型
 
-当前推荐模型不是历史 `gRPC RegisterFunction` 或 `RegisterLocal + rpc_addr`，而是：
+当前注册模型采用 Provider Session 设计：
 
 1. SDK 或本地进程主动连接 Agent 本地 gateway
 2. 首帧发送 `ProviderConnectRequest`
@@ -131,14 +131,13 @@ stateDiagram-v2
 
 ## 设计边界
 
-新的函数管理文档不应再继续宣传以下模型：
+函数管理协议基于 Provider Session 设计：
 
-- `LocalControlService`
-- `RegisterLocal`
-- `rpc_addr`
-- SDK 本地监听
-- `Agent -> SDK` 回拨
-- 以 `gRPC` 或 `历史 REQ/REP` 作为默认注册链路
+- `ProviderConnectRequest` / `ProviderConnectResponse` - 建立会话并注册函数
+- `ProviderHeartbeatRequest` / `ProviderHeartbeatResponse` - 会话保活
+- `ProviderDrainRequest` / `ProviderDrainResponse` - 优雅关闭
+- SDK 主动连接 Agent，携带函数描述符在 `functions[]` 中
+- Agent 维护 provider session 并向 Server 同步函数摘要
 
 ## 最佳实践
 

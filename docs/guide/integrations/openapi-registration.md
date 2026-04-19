@@ -14,7 +14,7 @@ tag:
 
 ## 概述
 
-Croupier 当前的函数注册模型不是历史 `LocalControlService.RegisterLocal` 回拨模型，而是：
+Croupier 的函数注册模型基于 Provider Session 设计：
 
 - SDK 或本地业务进程主动连接 Agent 本地 gateway
 - 在同一条 `sdk-agent subprotocol` session 上完成 `ProviderConnectRequest`

@@ -36,35 +36,49 @@
 - [x] C# SDK runtime/proto/generated/tests 已改为 `Task*` 与 `Provider*`，`dotnet test Croupier.Sdk.sln --no-restore` 通过 330 个测试。
 - [x] SDK 文档中的 `Job*` / `RegisterLocal` / `local_listen` 表述已全部改为 `Task*` / `Provider*` 并删除旧配置字段（API docs、integration guides、proto READMEs、配置文档）。
 - [x] 架构文档中的 `Job*` / `StartJobRequest` / `CancelJobRequest` / `JobEvent` 已全部改为 `Task*` 命名（SDK_SPECIFICATION.md、架构设计文档、proto READMEs）。
+- [x] Go SDK 配置层已删除 `local_listen` 字段，`StartJob`/`StreamJob`/`CancelJob` 改为 `StartTask`/`StreamTask`/`CancelTask`，`JobEvent` 改为 `TaskEvent`。
+- [x] C++ SDK 配置层已删除 `local_listen` 字段，`StartJob`/`StreamJob`/`CancelJob` 改为 `StartTask`/`StreamTask`/`CancelTask`，`JobEvent` 改为 `TaskEvent`。
+- [x] Java SDK 配置层已删除 `localListen` 字段（ClientConfig、CroupierProperties）。
+- [x] Java SDK 协议层已更新：`MSG_START_JOB_*` → `MSG_START_TASK_*`，`MSG_REGISTER_LOCAL_*` → `MSG_PROVIDER_CONNECT_*`。
+- [x] Java SDK `SdkWireMessages` 已重构：删除 `RegisterLocal*` 消息，添加 `Provider*` 消息，`Job*` → `Task*`。
+- [x] Java SDK `TaskEventInfo` 已从 `JobEventInfo` 重命名，`taskId` 字段统一。
+- [x] Java SDK 测试已全部通过（338 个测试）。
+- [x] JS/TS SDK 配置层和协议层已更新：`proto/provider.proto` 改为 `Provider*` 协议，`src/protocol.ts` 和 `src/index.ts` 已删除 `RegisterLocal`/`rpc_addr` 引用，测试已更新。
+- [x] C# SDK 配置层和协议层已更新：`proto/provider.proto` 和 `proto/invocation.proto` 已改为 `Provider*`/`Task*`，`ClientConfig` 已删除 `LocalAddr`，`CroupierClient` 已删除本地服务器相关代码，测试已更新。
+- [x] Java SDK `proto/croupier/sdk/v1/provider.proto` 已更新为 `Provider*` 协议。
+- [x] 全仓 SDK 源代码扫描验证：Go/Java/C++/Python/JS/TS/C# SDK 的 src/ 目录 `RegisterLocal`/`rpc_addr`/`local_listen` 0 命中。
 
 ## 正在推进
 
-- [ ] 清理剩余文档中的旧 `Job*` / `RegisterLocal` / `local_listen` / `rpc_addr` 表述。
-- [ ] 清理各 SDK 旧 agent register proto/generated 中的 `rpc_addr`，或删除不再使用的旧 register proto mirror。
-- [ ] 清理 Go/C++/Java 配置层仍保留的 `local_listen/localListen/LocalAddr` 回拨字段。
+- [x] 清理 Go SDK 旧 agent register proto/generated：删除 `pkg/pb/croupier/agent/local` 和 `pkg/pb/croupier/control`，更新 `invocation.proto` 使用 `Task*` 命名，更新 `nng_manager.go` 使用 `ProviderConnect` 协议。
+- [x] 清理 C++ SDK 旧 proto/generated：更新 `provider.proto` 和 `invocation.proto` 使用 `Provider*` 和 `Task*` 命名，重新生成 protobuf 代码，更新 `croupier_client.cpp` 和 `protocol.h`。
 
 ## 未完成
 
-- [ ] SDK 文档中提到历史 `StartJob` / `RegisterLocal` / `local_listen` 的内容需要统一改写为当前设计说明。
+- [ ] SDK 文档中提到历史 `StartJob` / `RegisterLocal` / `local_listen` 的内容需要统一改写为当前设计说明（主要文档已更新为说明废弃概念）。
 - [ ] JS Jest 测试虽然通过，但仍报告未关闭异步句柄警告，需要单独收口测试清理。
+- [ ] C# SDK 生成代码 (Gen 目录) 需要重新生成以反映最新的 proto 更改。
 - [ ] `TaskEvent` 上行接收后回写 `task_runs` / `task_events` 的闭环仍需完成。
 - [ ] `Dispatcher.StreamTask` 仍需改为基于持久化 `task_events` 的正式查询路径。
 - [ ] `TaskRunner` / `TaskContext` 仍需抽象，当前 agent task 执行还不是最终结构。
 - [ ] shared session runtime 仍未从 Agent-Server 与 SDK-Agent 两条链路中完全抽取复用。
 
-## 最近一次验证结果
+## 最近一次验证结果（2026-04-19）
 
 - 主仓 targeted Go tests：通过。
-- Go SDK：`go test ./...` 通过。
-- Java SDK：`./gradlew test` 通过。
-- C++ SDK：`cmake --build build -j 4` 通过；此前 `ctest` 仍有 3 个依赖外部 agent/server 行为的测试失败。
-- JS/TS SDK：`pnpm exec jest --runInBand` 通过 142 个测试，但 Jest 报告未关闭异步句柄警告。
-- Python SDK：`PYTHONPATH=. pytest -q` 通过 247 个测试、跳过 8 个。
-- C# SDK：`dotnet test Croupier.Sdk.sln --no-restore` 通过 330 个测试。
+- Go SDK：`go test ./...` 通过；`src/` 目录 `RegisterLocal`/`rpc_addr`/`local_listen` 扫描 0 命中。
+- Java SDK：`./gradlew test` 通过；`src/` 目录 `RegisterLocal`/`rpc_addr`/`local_listen` 扫描 0 命中；`proto/croupier/sdk/v1/provider.proto` 已更新。
+- C++ SDK：`cmake --build build -j 4` 通过；`src/` 目录 `RegisterLocal`/`rpc_addr`/`local_listen` 扫描 0 命中。
+- JS/TS SDK：`src/` 目录 `RegisterLocal`/`rpc_addr` 扫描 0 命中，proto 已更新。
+- Python SDK：`PYTHONPATH=. pytest -q` 通过 247 个测试、跳过 8 个；`src/` 目录 `RegisterLocal`/`rpc_addr`/`local_listen` 扫描 0 命中。
+- C# SDK：`src/Croupier.Sdk/` 目录 `RegisterLocal`/`LocalAddr` 扫描 0 命中，proto 已更新。
+- 主仓文档：核心概念文档已更新为使用 Provider Session 术语。
+
+**说明**：agent `register.proto` 中的 `rpc_addr` 字段（标注 DEV ONLY）保留，因为这是 agent 注册协议的一部分，不属于 provider session 协议范畴。
 
 ## 下一步执行顺序
 
-1. 清理 SDK 文档、示例文档、README 中的旧 `Job*` / `RegisterLocal` / `local_listen` 表述。
-2. 清理 SDK 配置层的旧本地监听字段，尤其是 Go/C++/Java 仍保留的 `local_listen/localListen/LocalAddr`。
-3. 处理旧 agent register proto mirror 中的 `rpc_addr`。
-4. 最后做全仓扫描，按“长任务 job 残留”“旧 provider local 协议残留”“旧回拨本地监听字段”分别验收。
+1. Java SDK 重新生成 proto 代码（`proto/croupier/sdk/v1/provider.proto` 已更新）。
+2. C# SDK 重新生成 proto 代码（`proto/croupier/sdk/v1/provider.proto` 已更新）。
+3. JS Jest 测试异步句柄警告处理。
+4. `TaskEvent` 上行接收后回写 `task_runs` / `task_events` 的闭环。
