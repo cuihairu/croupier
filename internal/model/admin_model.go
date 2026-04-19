@@ -38,7 +38,6 @@ type ListAdminsOptions struct {
 // - Plaintext (not recommended): will be hashed with bcrypt before storage
 func (m *AdminModel) Create(ctx context.Context, admin *Admin, password string) error {
 	var hashedPassword string
-	var err error
 
 	// Check if password is already a bcrypt hash
 	if strings.HasPrefix(password, "$2a$") || strings.HasPrefix(password, "$2b$") {

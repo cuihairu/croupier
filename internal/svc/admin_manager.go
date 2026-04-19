@@ -227,8 +227,8 @@ func (am *AdminManager) loadDefaultPermissions() error {
 	return nil
 }
 
-// ValidateUser 验证用户登录
-// 支持明文密码（向后兼容，不推荐）和 bcrypt 哈希密码
+// ValidateUser 验证用户登录。
+// 新配置应只使用 bcrypt 哈希；明文仅为历史兼容导入保留。
 func (am *AdminManager) ValidateUser(username, password string) (*AdminUser, error) {
 	am.mu.RLock()
 	defer am.mu.RUnlock()
@@ -248,9 +248,8 @@ func (am *AdminManager) ValidateUser(username, password string) (*AdminUser, err
 			return nil, fmt.Errorf("invalid password")
 		}
 	} else {
-		// 明文密码比较（向后兼容，但不推荐）
-		// 警告日志提醒使用 bcrypt
-		slog.Default().Warn("AdminManager using plaintext password comparison - please migrate to bcrypt", "username", username)
+		// 明文密码仅用于历史兼容，建议通过 seedBootstrapAdmins 迁移到数据库哈希存储。
+		slog.Default().Warn("AdminManager using legacy plaintext password comparison", "username", username)
 		if admin.Password != password {
 			return nil, fmt.Errorf("invalid password")
 		}

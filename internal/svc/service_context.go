@@ -21,7 +21,6 @@ import (
 	extensionruntime "github.com/cuihairu/croupier/internal/core/extension/runtime"
 	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
 	"github.com/cuihairu/croupier/internal/model"
-	"github.com/cuihairu/croupier/internal/pkg2/jwt"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
@@ -29,7 +28,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/runtime"
-	jwtutil2 "github.com/cuihairu/croupier/internal/security/jwtutil"
+	jwtutil "github.com/cuihairu/croupier/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
@@ -327,17 +326,14 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	}
 
 	// 初始化 JWT 密钥（从配置文件读取）
-	secret, err := jwtutil2.ResolveSecret(ctx.Config)
-	if err != nil {
-		// JWT secret 未配置且不在开发模式，这是一个严重配置错误
-		slog.Default().Error("JWT secret configuration error", "error", err)
-		// 在生产环境下应该启动失败
+	secret, fallback := jwtutil.ResolveSecret(ctx.Config)
+	if fallback {
 		if !isDevelopmentConfig(ctx.Config) {
-			panic(fmt.Sprintf("JWT secret not configured: %v", err))
+			panic("JWT secret not configured")
 		}
 		slog.Default().Warn("Using development JWT secret - do not use in production", "mode", ctx.Config.Server.Mode)
 	}
-	jwtutil2.InitGlobalSecret(secret)
+	jwtutil.InitGlobalSecret(secret)
 
 	// 设置认证中间件
 	ctx.Authority = NewAuthMiddleware(ctx)
@@ -1151,12 +1147,6 @@ func (m *AuthMiddleware) Handle(c *gin.Context) {
 	// 获取 Authorization header
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
-		// 兼容 SSE 等无法自定义 header 的场景，支持 token 查询参数
-		if token := strings.TrimSpace(c.Query("token")); token != "" {
-			authHeader = "Bearer " + token
-		}
-	}
-	if authHeader == "" {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing authorization header", "message": "未授权"})
 		return
 	}
@@ -1195,8 +1185,12 @@ func (m *AuthMiddleware) shouldBypassGin(c *gin.Context) bool {
 }
 
 func (m *AuthMiddleware) authenticate(ctx context.Context, token string) (string, []string, uint, error) {
-	// 使用 JWT 包验证 token
-	claims, err := jwt.ParseToken(token)
+	secret := jwtutil.GetGlobalSecret()
+	if strings.TrimSpace(secret) == "" {
+		return "", nil, 0, errors.New("jwt secret not initialized")
+	}
+
+	claims, err := jwtutil.Parse(token, secret)
 	if err != nil {
 		return "", nil, 0, fmt.Errorf("invalid token: %w", err)
 	}

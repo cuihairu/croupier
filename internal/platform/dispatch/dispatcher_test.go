@@ -182,14 +182,14 @@ func TestDispatcher_StreamTask(t *testing.T) {
 	ctx := context.Background()
 	events, complete, err := d.StreamTask(ctx, "test-task")
 
-	if err == nil {
-		t.Error("StreamTask should return error (not yet implemented)")
+	if err != nil {
+		t.Fatalf("StreamTask() error = %v", err)
 	}
-	if complete {
-		t.Error("complete should be false on error")
+	if !complete {
+		t.Error("complete should be true when no active run exists")
 	}
-	if events != nil {
-		t.Error("events should be nil on error")
+	if len(events) != 0 {
+		t.Errorf("events should be empty when task has no persisted events, got %d", len(events))
 	}
 }
 
@@ -202,11 +202,11 @@ func TestDispatcher_StreamTaskRealtime(t *testing.T) {
 		return true
 	})
 
-	if err == nil {
-		t.Error("StreamTaskRealtime should return error (not yet implemented)")
+	if err != nil {
+		t.Fatalf("StreamTaskRealtime() error = %v", err)
 	}
-	if complete {
-		t.Error("complete should be false on error")
+	if !complete {
+		t.Error("complete should be true when no active run exists")
 	}
 }
 

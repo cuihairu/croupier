@@ -170,8 +170,8 @@ func (s *ProviderSessionStoreAdapter) Remove(sessionID string) {
 	s.bySessionID.Remove(sessionID)
 }
 
-// Example_HeartbeatUsage demonstrates using HeartbeatManager.
-func Example_HeartbeatUsage() {
+// Example demonstrates using HeartbeatManager.
+func Example() {
 	// Create store
 	store := NewAgentSessionStoreAdapter()
 
@@ -191,8 +191,8 @@ func Example_HeartbeatUsage() {
 	// Use session.UpdateLastSeen() on heartbeat/activity
 }
 
-// Example_SessionUsage demonstrates basic session operations.
-func Example_SessionUsage() {
+// ExampleNewAgentSessionAdapter demonstrates basic session operations.
+func ExampleNewAgentSessionAdapter() {
 	// In real usage, conn would be from accepted connection
 	// var conn *tcp.MuxConn
 
@@ -200,8 +200,7 @@ func Example_SessionUsage() {
 	// sess := NewAgentSessionAdapter(conn, "agent-1", "sess-123", "game-1", "prod", "1.0.0")
 
 	// Session can send requests
-	// ctx := context.Background()
-	// respMsgID, respBody, err := sess.Conn().Call(ctx, msgID, reqBody)
+	// respMsgID, respBody, err := sess.Conn().Call(context.Background(), msgID, reqBody)
 
 	// Update heartbeat
 	// sess.UpdateLastSeen()
