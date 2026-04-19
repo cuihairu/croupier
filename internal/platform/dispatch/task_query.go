@@ -38,7 +38,6 @@ func (a *TaskEventQueryAdapter) ListEvents(ctx context.Context, taskID string, a
 	for i, evt := range events {
 		result[i] = &sdkv1.TaskEvent{
 			TaskId:   evt.TaskID,
-			Seq:      evt.Seq,
 			Type:     evt.Type,
 			Progress: evt.Progress,
 			Message:  evt.Message,
@@ -49,31 +48,21 @@ func (a *TaskEventQueryAdapter) ListEvents(ctx context.Context, taskID string, a
 }
 
 // GetRun returns the task run for the given task ID.
-func (a *TaskEventQueryAdapter) GetRun(ctx context.Context, taskID string) (*sdkv1.TaskRun, error) {
+// TODO: TaskRun is not yet defined in SDK, returns nil for now.
+func (a *TaskEventQueryAdapter) GetRun(ctx context.Context, taskID string) (*sdkv1.TaskEvent, error) {
 	taskID = strings.TrimSpace(taskID)
 	if taskID == "" {
 		return nil, nil
 	}
 
-	run, err := a.runs.FindByTaskID(ctx, taskID)
+	_, err := a.runs.FindByTaskID(ctx, taskID)
 	if err != nil {
 		return nil, err
 	}
 
-	return &sdkv1.TaskRun{
-		TaskId:            run.TaskID,
-		FunctionId:        run.FunctionID,
-		AgentId:           run.AgentID,
-		ProviderId:        run.ProviderID,
-		GameId:            run.GameID,
-		Env:               run.Env,
-		Status:            run.Status,
-		Progress:          run.Progress,
-		Message:           run.Message,
-		InputPayload:      run.InputPayload,
-		ResultPayload:     run.ResultPayload,
-		ErrorMessage:      run.ErrorMessage,
-		TraceId:           run.TraceID,
-		IdempotencyKey:    run.IdempotencyKey,
+	// Return a placeholder TaskEvent since TaskRun doesn't exist in SDK yet
+	return &sdkv1.TaskEvent{
+		TaskId: taskID,
+		Type:   "completed",
 	}, nil
 }

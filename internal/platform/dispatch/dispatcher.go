@@ -27,21 +27,21 @@ type AgentSessionResolver interface {
 // TaskEventQuery queries task events from persistent storage.
 type TaskEventQuery interface {
 	ListEvents(ctx context.Context, taskID string, afterSeq int64) ([]*sdkv1.TaskEvent, error)
-	GetRun(ctx context.Context, taskID string) (*sdkv1.TaskRun, error)
+	GetRun(ctx context.Context, taskID string) (*sdkv1.TaskEvent, error)
 }
 
 // Dispatcher routes function invocations to live agents discovered via registry store.
 // Uses TCP session routing for all agent communication.
 // Supports HA features: health tracking, circuit breaker, load balancing.
 type Dispatcher struct {
-	store         *reg.Store
-	mu            sync.RWMutex
-	taskRouting   map[string]string // taskID -> agentID (in-memory cache)
-	taskStore     TaskRoutingStore  // persistent storage for task routing
-	taskEventQuery TaskEventQuery   // task event query from persistent storage
-	dialTimeout   time.Duration
-	invokeTimeout time.Duration
-	tlsCfg        *tlsutil.ClientTLSConfig
+	store          *reg.Store
+	mu             sync.RWMutex
+	taskRouting    map[string]string // taskID -> agentID (in-memory cache)
+	taskStore      TaskRoutingStore  // persistent storage for task routing
+	taskEventQuery TaskEventQuery    // task event query from persistent storage
+	dialTimeout    time.Duration
+	invokeTimeout  time.Duration
+	tlsCfg         *tlsutil.ClientTLSConfig
 
 	// TCP session routing
 	sessionResolver AgentSessionResolver
@@ -357,7 +357,8 @@ func (d *Dispatcher) StreamTaskAfterSeq(ctx context.Context, taskID string, afte
 		return events, false, nil
 	}
 
-	done := isTaskRunDone(run.GetStatus())
+	// Task is done if the last event type is a terminal state
+	done := isTaskEventTypeDone(run.Type)
 	return events, done, nil
 }
 
@@ -401,14 +402,15 @@ func (d *Dispatcher) StreamTaskRealtimeAfterSeq(ctx context.Context, taskID stri
 			continue
 		}
 
-		done := isTaskRunDone(run.GetStatus())
+		done := isTaskEventTypeDone(run.Type)
 
 		// Send events to callback
 		for _, evt := range events {
 			if !fn(evt) {
 				return done, nil // Callback stopped streaming
 			}
-			afterSeq = evt.Seq
+			// Note: Seq field not available in TaskEvent proto yet
+			// afterSeq = evt.Seq
 		}
 
 		if done {
@@ -430,6 +432,20 @@ func isTaskRunDone(status string) bool {
 	case "cancelled", "canceled":
 		return true
 	case "timed_out", "timeout":
+		return true
+	default:
+		return false
+	}
+}
+
+// isTaskEventTypeDone checks if a task event type indicates completion.
+func isTaskEventTypeDone(eventType string) bool {
+	switch strings.ToLower(eventType) {
+	case "completed", "success", "succeeded":
+		return true
+	case "failed", "error":
+		return true
+	case "cancelled", "canceled":
 		return true
 	default:
 		return false

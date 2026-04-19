@@ -22,7 +22,7 @@ func Auth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		secret := jwtutil.GetGlobalSecret()
 		if secret == "" {
-			response.InternalError(c, "JWT secret not initialized")
+			response.InternalServerError(c, "JWT secret not initialized")
 			c.Abort()
 			return
 		}

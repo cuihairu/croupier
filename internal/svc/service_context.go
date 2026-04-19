@@ -326,11 +326,16 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	}
 
 	// 初始化 JWT 密钥（从配置文件读取）
-	secret, fallback := jwtutil.ResolveSecret(ctx.Config)
-	if fallback {
+	secret, err := jwtutil.ResolveSecret(ctx.Config)
+	if err != nil {
+		// JWT secret 未配置且不在开发模式，这是一个严重配置错误
+		slog.Default().Error("JWT secret configuration error", "error", err)
+		// 在生产环境下应该启动失败
 		if !isDevelopmentConfig(ctx.Config) {
-			panic("JWT secret not configured")
+			panic(fmt.Sprintf("JWT secret not configured: %v", err))
 		}
+		// 开发模式使用默认密钥
+		secret = jwtutil.DevSecret()
 		slog.Default().Warn("Using development JWT secret - do not use in production", "mode", ctx.Config.Server.Mode)
 	}
 	jwtutil.InitGlobalSecret(secret)
