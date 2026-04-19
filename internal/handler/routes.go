@@ -40,6 +40,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/terms"
 	"github.com/cuihairu/croupier/internal/api/ticket"
 	"github.com/cuihairu/croupier/internal/api/workspace"
+	"github.com/cuihairu/croupier/internal/security/jwtutil"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/cuihairu/croupier/internal/svc"
 
@@ -104,7 +105,8 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 }
 
 func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
-	authSvc := auth.NewService(ctx.AdminModel, permissionservice.NewPermissionService(ctx.DB), ctx.OpsStateStore)
+	jwtSecret, _ := jwtutil.ResolveSecret(ctx.Config)
+	authSvc := auth.NewService(ctx.AdminModel, permissionservice.NewPermissionService(ctx.DB), jwtSecret, ctx.OpsStateStore)
 	authHandler := auth.NewHandler(authSvc)
 	g.POST("/login", authHandler.Login)
 	g.POST("/logout", authHandler.Logout)

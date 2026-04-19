@@ -411,6 +411,11 @@ func seedBootstrapAdmins(ctx *ServiceContext) error {
 		if username == "" || strings.TrimSpace(admin.Password) == "" {
 			continue
 		}
+		// Warn about plaintext passwords in bootstrap config
+		if !admin.IsHashedPassword() {
+			slog.Default().Warn("Bootstrap admin uses plaintext password - consider using bcrypt hash", "username", username)
+		}
+
 		bootstrapStatus := 1
 		if admin.Status == 1 {
 			bootstrapStatus = 1

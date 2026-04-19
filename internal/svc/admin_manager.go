@@ -6,14 +6,24 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
 
 // AdminUser 管理员用户结构
+//
+// 密码字段说明：
+// - 支持 bcrypt 哈希密码（推荐）：以 "$2a$" 或 "$2b$" 开头的哈希值
+// - 支持明文密码（不推荐）：明文密码会在导入数据库时自动转换为 bcrypt 哈希
+//
+// 安全建议：
+// - 生产环境应使用预哈希的 bcrypt 密码
+// - 可使用 `htpasswd -nbB username password` 生成 bcrypt 哈希
+// - 或使用在线工具：https://bcrypt-generator.com/
 type AdminUser struct {
 	Username string   `json:"username"`
-	Password string   `json:"password"`
+	Password string   `json:"password"` // bcrypt 哈希或明文（见上方说明）
 	Roles    []string `json:"roles"`
 	Nickname string   `json:"nickname,omitempty"`
 	Email    string   `json:"email,omitempty"`
@@ -21,6 +31,11 @@ type AdminUser struct {
 	Status   int      `json:"status"` // 1:active 0:disabled
 	CreateAt string   `json:"create_at,omitempty"`
 	UpdateAt string   `json:"update_at,omitempty"`
+}
+
+// IsHashedPassword 检查密码是否为 bcrypt 哈希格式
+func (u *AdminUser) IsHashedPassword() bool {
+	return strings.HasPrefix(u.Password, "$2a$") || strings.HasPrefix(u.Password, "$2b$")
 }
 
 // Role 角色定义

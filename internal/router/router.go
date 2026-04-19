@@ -6,6 +6,7 @@ import (
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/middleware"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/security/jwtutil"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -23,7 +24,7 @@ func RegisterRoutes(r *gin.Engine, cfg *config.Config) error {
 	api := r.Group("/api/v1")
 
 	// 注册公开路由（无需认证）
-	registerPublicRoutes(api, db)
+	registerPublicRoutes(api, db, cfg)
 
 	// 注册需要认证的路由
 	registerAuthenticatedRoutes(api, db)
@@ -32,11 +33,13 @@ func RegisterRoutes(r *gin.Engine, cfg *config.Config) error {
 }
 
 // registerPublicRoutes 注册公开路由
-func registerPublicRoutes(api *gin.RouterGroup, db *gorm.DB) {
+func registerPublicRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.Config) {
 	// Auth 模块
+	jwtSecret, _ := jwtutil.ResolveSecret(*cfg)
 	authHandler := auth.NewHandler(auth.NewService(
 		model.NewAdminModel(db),
 		permissionservice.NewPermissionService(db),
+		jwtSecret,
 	))
 	authGroup := api.Group("/auth")
 	{

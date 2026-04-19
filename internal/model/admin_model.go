@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+	"log/slog"
 )
 
 // AdminModel exposes CRUD helpers backed by gorm.
@@ -30,11 +32,27 @@ type ListAdminsOptions struct {
 }
 
 // Create inserts an admin with the given password (hashed internally).
+//
+// Password format:
+// - Bcrypt hash (recommended): "$2a$" or "$2b$" prefix - used directly
+// - Plaintext (not recommended): will be hashed with bcrypt before storage
 func (m *AdminModel) Create(ctx context.Context, admin *Admin, password string) error {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return fmt.Errorf("failed to hash password: %w", err)
+	var hashedPassword string
+	var err error
+
+	// Check if password is already a bcrypt hash
+	if strings.HasPrefix(password, "$2a$") || strings.HasPrefix(password, "$2b$") {
+		hashedPassword = password
+		slog.Default().Info("Using pre-hashed password for admin", "username", admin.Username)
+	} else {
+		// Warn about plaintext password in production
+		slog.Default().Warn("Creating admin with plaintext password - will be hashed", "username", admin.Username)
+		hashedPassword, err = bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+		if err != nil {
+			return fmt.Errorf("failed to hash password: %w", err)
+		}
 	}
+
 	admin.PasswordHash = string(hashedPassword)
 	return m.db.WithContext(ctx).Create(admin).Error
 }

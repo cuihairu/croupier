@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
-	"github.com/cuihairu/croupier/internal/pkg2/jwt"
+	"github.com/cuihairu/croupier/internal/security/jwtutil"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -17,9 +17,10 @@ type Service struct {
 	adminModel *model.AdminModel
 	permSvc    *permissionservice.PermissionService
 	opsStore   *svc.OpsStateStore
+	jwtSecret  string
 }
 
-func NewService(adminModel *model.AdminModel, permSvc *permissionservice.PermissionService, opsStore ...*svc.OpsStateStore) *Service {
+func NewService(adminModel *model.AdminModel, permSvc *permissionservice.PermissionService, jwtSecret string, opsStore ...*svc.OpsStateStore) *Service {
 	var store *svc.OpsStateStore
 	if len(opsStore) > 0 {
 		store = opsStore[0]
@@ -28,6 +29,7 @@ func NewService(adminModel *model.AdminModel, permSvc *permissionservice.Permiss
 		adminModel: adminModel,
 		permSvc:    permSvc,
 		opsStore:   store,
+		jwtSecret:  jwtSecret,
 	}
 }
 
@@ -65,7 +67,7 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 	}
 
 	// 生成 JWT token
-	token, err := jwt.GenerateToken(admin.Username, roles, admin.ID)
+	token, err := jwtutil.Sign(s.jwtSecret, admin.Username, roles, admin.ID, time.Now())
 	if err != nil {
 		s.recordLoginAudit(admin.Username, "auth.login_failed", "failed", req, "token_generation_failed")
 		return nil, errors.New("生成 token 失败")
