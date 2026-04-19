@@ -584,7 +584,7 @@ func TestRecordLoginAudit_WithOpsStore(t *testing.T) {
 	db := setupTestDB(t)
 	tmpDir := t.TempDir()
 	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
 
 	req := &LoginRequest{
 		ClientIP:  "127.0.0.1",

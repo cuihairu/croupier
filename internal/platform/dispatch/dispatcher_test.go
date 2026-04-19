@@ -671,7 +671,7 @@ func TestDispatcher_TaskAgentID_NotFound(t *testing.T) {
 // TestDispatcher_taskAgentID_LoadsFromStore 测试从存储加载
 func TestDispatcher_taskAgentID_LoadsFromStore(t *testing.T) {
 	store := NewMemoryTaskRoutingStore()
-	d := NewDispatcherWithTaskStore(nil, store)
+	d := NewDispatcherWithTaskStore(nil, store, nil)
 
 	taskID := "test-task"
 	addr := "127.0.0.1:9001"
