@@ -72,7 +72,7 @@ func TestDispatcher_LoadsTaskRoutingFromStore(t *testing.T) {
 		t.Fatalf("Set: %v", err)
 	}
 
-	d := NewDispatcherWithTaskStore(nil, store)
+	d := NewDispatcherWithTaskStore(nil, store, nil)
 	if got, ok := d.TaskAgentID("task-2"); !ok || got != "agent-2" {
 		t.Fatalf("TaskAgentID(task-2)=(%q,%v) want (%q,true)", got, ok, "agent-2")
 	}
@@ -85,7 +85,7 @@ func TestDispatcher_CleanupOldTasksClearsMemoryCache(t *testing.T) {
 		t.Fatalf("NewFileTaskRoutingStore: %v", err)
 	}
 
-	d := NewDispatcherWithTaskStore(nil, store)
+	d := NewDispatcherWithTaskStore(nil, store, nil)
 
 	d.RegisterTask("task-old", "agent-old")
 	time.Sleep(10 * time.Millisecond)
