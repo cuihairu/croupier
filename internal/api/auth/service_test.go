@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
-	"github.com/cuihairu/croupier/internal/pkg2/jwt"
+	"github.com/cuihairu/croupier/internal/security/jwtutil"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
@@ -61,8 +61,8 @@ func TestService_Login_Success(t *testing.T) {
 
 	createTestAdminWithRole(t, db, "testadmin", "password123", "admin")
 
-	service := NewService(adminModel, permSvc)
-	jwt.SetSecret("test-secret-key")
+	service := NewService(adminModel, permSvc, "test-secret-key")
+	jwtutil.InitGlobalSecret("test-secret-key")
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username: "testadmin",
@@ -81,7 +81,7 @@ func TestService_Login_EmptyUsername(t *testing.T) {
 	t.Parallel()
 
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db))
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username: "",
@@ -97,7 +97,7 @@ func TestService_Login_EmptyPassword(t *testing.T) {
 	t.Parallel()
 
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db))
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username: "admin",
@@ -123,7 +123,7 @@ func TestService_Login_InvalidPassword(t *testing.T) {
 	err := adminModel.Create(context.Background(), admin, "password123")
 	require.NoError(t, err)
 
-	service := NewService(adminModel, permissionservice.NewPermissionService(db))
+	service := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret-key")
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username: "testadmin",
@@ -139,7 +139,7 @@ func TestService_Login_UserNotFound(t *testing.T) {
 	t.Parallel()
 
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db))
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username: "nonexistent",
@@ -183,8 +183,8 @@ func TestService_Login_MultipleRoles(t *testing.T) {
 	err = adminModel.AssignRole(context.Background(), admin.ID, role3.ID)
 	require.NoError(t, err)
 
-	service := NewService(adminModel, permissionservice.NewPermissionService(db))
-	jwt.SetSecret("test-secret-key")
+	service := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret-key")
+	jwtutil.InitGlobalSecret("test-secret-key")
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username: "multirole",
@@ -210,8 +210,8 @@ func TestService_Login_NoRoles(t *testing.T) {
 	err := adminModel.Create(context.Background(), admin, "password123")
 	require.NoError(t, err)
 
-	service := NewService(adminModel, permissionservice.NewPermissionService(db))
-	jwt.SetSecret("test-secret-key")
+	service := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret-key")
+	jwtutil.InitGlobalSecret("test-secret-key")
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username: "norole",
@@ -228,7 +228,7 @@ func TestService_Logout_Success(t *testing.T) {
 	t.Parallel()
 
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db))
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
 
 	resp, err := service.Logout(context.Background(), &LogoutRequest{})
 
@@ -245,7 +245,7 @@ func TestService_Check_Allowed(t *testing.T) {
 	_ = createTestAdminWithRole(t, db, "testadmin", "password123", "admin")
 
 	permSvc := permissionservice.NewPermissionService(db)
-	service := NewService(adminModel, permSvc)
+	service := NewService(adminModel, permSvc, "test-secret-key")
 
 	resp, err := service.Check(context.Background(), "testadmin", &CheckRequest{
 		Resource: "admin",
@@ -262,7 +262,7 @@ func TestService_Check_UserNotFound(t *testing.T) {
 	t.Parallel()
 
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db))
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
 
 	resp, err := service.Check(context.Background(), "nonexistent", &CheckRequest{
 		Resource: "game",
@@ -282,7 +282,7 @@ func TestService_BatchCheck_EmptyChecks(t *testing.T) {
 
 	createTestAdminWithRole(t, db, "testadmin", "password123", "admin")
 
-	service := NewService(adminModel, permissionservice.NewPermissionService(db))
+	service := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret-key")
 
 	resp, err := service.BatchCheck(context.Background(), "testadmin", &BatchCheckRequest{
 		Checks: []CheckRequest{},
@@ -297,7 +297,7 @@ func TestService_BatchCheck_UserNotFound(t *testing.T) {
 	t.Parallel()
 
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db))
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
 
 	resp, err := service.BatchCheck(context.Background(), "nonexistent", &BatchCheckRequest{
 		Checks: []CheckRequest{
@@ -318,8 +318,8 @@ func TestService_Login_WhitespaceUsername(t *testing.T) {
 
 	createTestAdminWithRole(t, db, "whitespaceuser", "password123", "admin")
 
-	service := NewService(adminModel, permSvc)
-	jwt.SetSecret("test-secret-key")
+	service := NewService(adminModel, permSvc, "test-secret-key")
+	jwtutil.InitGlobalSecret("test-secret-key")
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username: "  whitespaceuser  ",
@@ -340,8 +340,8 @@ func TestService_Login_WhitespacePassword(t *testing.T) {
 
 	createTestAdminWithRole(t, db, "whitespacepass", "password123", "admin")
 
-	service := NewService(adminModel, permSvc)
-	jwt.SetSecret("test-secret-key")
+	service := NewService(adminModel, permSvc, "test-secret-key")
+	jwtutil.InitGlobalSecret("test-secret-key")
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username: "whitespacepass",
@@ -360,7 +360,7 @@ func TestService_Check_Denied(t *testing.T) {
 	adminModel := model.NewAdminModel(db)
 	permSvc := permissionservice.NewPermissionService(db)
 
-	service := NewService(adminModel, permSvc)
+	service := NewService(adminModel, permSvc, "test-secret-key")
 
 	createTestAdminWithRole(t, db, "denieduser", "password123", "admin")
 
@@ -382,7 +382,7 @@ func TestService_Check_InvalidUser(t *testing.T) {
 	adminModel := model.NewAdminModel(db)
 	permSvc := permissionservice.NewPermissionService(db)
 
-	service := NewService(adminModel, permSvc)
+	service := NewService(adminModel, permSvc, "test-secret-key")
 
 	resp, err := service.Check(context.Background(), "", &CheckRequest{
 		Resource: "test",
@@ -401,7 +401,7 @@ func TestService_BatchCheck_SingleCheck(t *testing.T) {
 	adminModel := model.NewAdminModel(db)
 	permSvc := permissionservice.NewPermissionService(db)
 
-	service := NewService(adminModel, permSvc)
+	service := NewService(adminModel, permSvc, "test-secret-key")
 
 	createTestAdminWithRole(t, db, "batchuser", "password123", "admin")
 
@@ -429,7 +429,7 @@ func TestService_Check_MultipleResources(t *testing.T) {
 	adminModel := model.NewAdminModel(db)
 	permSvc := permissionservice.NewPermissionService(db)
 
-	service := NewService(adminModel, permSvc)
+	service := NewService(adminModel, permSvc, "test-secret-key")
 
 	createTestAdminWithRole(t, db, "multiuser", "password123", "admin")
 
@@ -460,7 +460,7 @@ func TestService_BatchCheck_MultipleChecks(t *testing.T) {
 	adminModel := model.NewAdminModel(db)
 	permSvc := permissionservice.NewPermissionService(db)
 
-	service := NewService(adminModel, permSvc)
+	service := NewService(adminModel, permSvc, "test-secret-key")
 
 	createTestAdminWithRole(t, db, "batchmulti", "password123", "admin")
 
@@ -481,7 +481,7 @@ func TestService_Login_WhitespaceOnlyUsername(t *testing.T) {
 	t.Parallel()
 
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db))
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username: "   ",
@@ -497,7 +497,7 @@ func TestService_Login_WhitespaceOnlyPassword(t *testing.T) {
 	t.Parallel()
 
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db))
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username: "testuser",
@@ -522,7 +522,7 @@ func TestService_Check_WithEmptyResource(t *testing.T) {
 	adminModel := model.NewAdminModel(db)
 	permSvc := permissionservice.NewPermissionService(db)
 
-	service := NewService(adminModel, permSvc)
+	service := NewService(adminModel, permSvc, "test-secret-key")
 
 	createTestAdminWithRole(t, db, "emptyresuser", "password123", "admin")
 
@@ -544,7 +544,7 @@ func TestService_Check_WithEmptyAction(t *testing.T) {
 	adminModel := model.NewAdminModel(db)
 	permSvc := permissionservice.NewPermissionService(db)
 
-	service := NewService(adminModel, permSvc)
+	service := NewService(adminModel, permSvc, "test-secret-key")
 
 	createTestAdminWithRole(t, db, "emptyactionuser", "password123", "admin")
 
@@ -569,7 +569,7 @@ func TestRecordLoginAudit_NilService(t *testing.T) {
 // TestRecordLoginAudit_NilOpsStore tests recordLoginAudit with nil opsStore
 func TestRecordLoginAudit_NilOpsStore(t *testing.T) {
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db))
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
 	// service.opsStore is nil
 	assert.Nil(t, service.opsStore)
 
@@ -584,7 +584,7 @@ func TestRecordLoginAudit_WithOpsStore(t *testing.T) {
 	db := setupTestDB(t)
 	tmpDir := t.TempDir()
 	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
 
 	req := &LoginRequest{
 		ClientIP:  "127.0.0.1",
@@ -612,7 +612,7 @@ func TestRecordLoginAudit_WithReason(t *testing.T) {
 	db := setupTestDB(t)
 	tmpDir := t.TempDir()
 	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
 
 	req := &LoginRequest{
 		ClientIP:  "192.168.1.1",
@@ -634,7 +634,7 @@ func TestRecordLoginAudit_WithNilRequest(t *testing.T) {
 	db := setupTestDB(t)
 	tmpDir := t.TempDir()
 	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
 
 	// With nil request
 	service.recordLoginAudit("user", "auth.login", "success", nil, "")
@@ -654,7 +654,7 @@ func TestRecordLoginAudit_WithWhitespaceInRequest(t *testing.T) {
 	db := setupTestDB(t)
 	tmpDir := t.TempDir()
 	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
 
 	req := &LoginRequest{
 		ClientIP:  "   ",
@@ -678,7 +678,7 @@ func TestRecordLoginAudit_AuditEntryLimit(t *testing.T) {
 	db := setupTestDB(t)
 	tmpDir := t.TempDir()
 	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
 
 	// Pre-populate with 2001 entries
 	store.Update(func(st *svc.OpsState) {
@@ -709,7 +709,7 @@ func TestRecordLoginAudit_TrimmedUsername(t *testing.T) {
 	db := setupTestDB(t)
 	tmpDir := t.TempDir()
 	store := svc.NewOpsStateStore(tmpDir)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), store)
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret", store)
 
 	service.recordLoginAudit("  admin  ", "auth.login", "success", nil, "")
 

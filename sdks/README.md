@@ -7,7 +7,6 @@
 | 项目 | 描述 | 链接 |
 | --- | --- | --- |
 | **Croupier** | 游戏后端平台主项目 | [cuihairu/croupier](https://github.com/cuihairu/croupier) |
-| **Croupier Proto** | 协议定义（Protobuf/gRPC） | [cuihairu/croupier-proto](https://github.com/cuihairu/croupier-proto) |
 
 ## 官方 SDK
 

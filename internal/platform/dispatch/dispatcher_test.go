@@ -182,14 +182,14 @@ func TestDispatcher_StreamTask(t *testing.T) {
 	ctx := context.Background()
 	events, complete, err := d.StreamTask(ctx, "test-task")
 
-	if err == nil {
-		t.Error("StreamTask should return error (not yet implemented)")
+	if err != nil {
+		t.Fatalf("StreamTask() error = %v", err)
 	}
-	if complete {
-		t.Error("complete should be false on error")
+	if !complete {
+		t.Error("complete should be true when no active run exists")
 	}
-	if events != nil {
-		t.Error("events should be nil on error")
+	if len(events) != 0 {
+		t.Errorf("events should be empty when task has no persisted events, got %d", len(events))
 	}
 }
 
@@ -202,11 +202,11 @@ func TestDispatcher_StreamTaskRealtime(t *testing.T) {
 		return true
 	})
 
-	if err == nil {
-		t.Error("StreamTaskRealtime should return error (not yet implemented)")
+	if err != nil {
+		t.Fatalf("StreamTaskRealtime() error = %v", err)
 	}
-	if complete {
-		t.Error("complete should be false on error")
+	if !complete {
+		t.Error("complete should be true when no active run exists")
 	}
 }
 
@@ -671,7 +671,7 @@ func TestDispatcher_TaskAgentID_NotFound(t *testing.T) {
 // TestDispatcher_taskAgentID_LoadsFromStore 测试从存储加载
 func TestDispatcher_taskAgentID_LoadsFromStore(t *testing.T) {
 	store := NewMemoryTaskRoutingStore()
-	d := NewDispatcherWithTaskStore(nil, store)
+	d := NewDispatcherWithTaskStore(nil, store, nil)
 
 	taskID := "test-task"
 	addr := "127.0.0.1:9001"
@@ -723,7 +723,7 @@ func TestDispatcher_UnregisterTask(t *testing.T) {
 // TestDispatcher_unregisterTask 测试内部注销任务方法
 func TestDispatcher_unregisterTask_WithStore(t *testing.T) {
 	store := NewMemoryTaskRoutingStore()
-	d := NewDispatcherWithTaskStore(nil, store)
+	d := NewDispatcherWithTaskStore(nil, store, nil)
 
 	taskID := "test-task"
 	agentID := "agent-test"
@@ -754,7 +754,7 @@ func TestDispatcher_unregisterTask_WithStore(t *testing.T) {
 func TestDispatcher_loadTaskRouting_StoreError(t *testing.T) {
 	// 创建一个会返回错误的存储
 	errorStore := &errorTaskRoutingStore{}
-	d := NewDispatcherWithTaskStore(nil, errorStore)
+	d := NewDispatcherWithTaskStore(nil, errorStore, nil)
 
 	// loadTaskRouting 应该处理错误并继续
 	d.loadTaskRouting()
@@ -769,7 +769,7 @@ func TestDispatcher_loadTaskRouting_StoreError(t *testing.T) {
 func TestDispatcher_registerTask_StoreError(t *testing.T) {
 	// 创建一个会返回错误的存储
 	errorStore := &errorTaskRoutingStore{}
-	d := NewDispatcherWithTaskStore(nil, errorStore)
+	d := NewDispatcherWithTaskStore(nil, errorStore, nil)
 
 	// 注册任务 - 应该成功，即使存储失败
 	d.registerTask("test-task", "127.0.0.1:9001")
@@ -800,7 +800,7 @@ func TestDispatcher_Close(t *testing.T) {
 // TestDispatcher_CloseWithClients 测试关闭带有客户端的 Dispatcher
 func TestDispatcher_CloseWithClients(t *testing.T) {
 	store := NewMemoryTaskRoutingStore()
-	d := NewDispatcherWithTaskStore(nil, store)
+	d := NewDispatcherWithTaskStore(nil, store, nil)
 
 	// 添加任务来使用 dispatcher
 	d.RegisterTask("test-task", "127.0.0.1:9001")
@@ -820,7 +820,7 @@ func TestDispatcher_CloseWithClients(t *testing.T) {
 // TestDispatcher_CleanupOldTasks 测试清理旧任务
 func TestDispatcher_CleanupOldTasks(t *testing.T) {
 	store := NewMemoryTaskRoutingStore()
-	d := NewDispatcherWithTaskStore(nil, store)
+	d := NewDispatcherWithTaskStore(nil, store, nil)
 
 	// 添加一些任务
 	d.RegisterTask("old-task", "127.0.0.1:9001")

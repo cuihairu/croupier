@@ -55,30 +55,49 @@
 
 ## 未完成
 
-- [ ] SDK 文档中提到历史 `StartJob` / `RegisterLocal` / `local_listen` 的内容需要统一改写为当前设计说明（主要文档已更新为说明废弃概念）。
-- [ ] JS Jest 测试虽然通过，但仍报告未关闭异步句柄警告，需要单独收口测试清理。
-- [ ] C# SDK 生成代码 (Gen 目录) 需要重新生成以反映最新的 proto 更改。
+### Transport 实现
+
+主仓库已完成 TCP transport 实现：
+
+- ✅ **主仓库**: `internal/transport/tcp/` 已实现共享 TCP transport
+- ✅ **主仓库**: 全仓无 NNG/mangos/nanomsg 引用（2026-04-19 验证）
+
+注：各语言 SDK 为独立仓库，其 transport 迁移状态需在各 SDK 仓库中跟踪。
+
+### 其他任务
+
 - [ ] `TaskEvent` 上行接收后回写 `task_runs` / `task_events` 的闭环仍需完成。
 - [ ] `Dispatcher.StreamTask` 仍需改为基于持久化 `task_events` 的正式查询路径。
 - [ ] `TaskRunner` / `TaskContext` 仍需抽象，当前 agent task 执行还不是最终结构。
 - [ ] shared session runtime 仍未从 Agent-Server 与 SDK-Agent 两条链路中完全抽取复用。
 
+注：各语言 SDK 的文档和生成代码更新需在各 SDK 仓库中跟踪。
+
 ## 最近一次验证结果（2026-04-19）
 
-- 主仓 targeted Go tests：通过。
-- Go SDK：`go test ./...` 通过；`src/` 目录 `RegisterLocal`/`rpc_addr`/`local_listen` 扫描 0 命中。
-- Java SDK：`./gradlew test` 通过；`src/` 目录 `RegisterLocal`/`rpc_addr`/`local_listen` 扫描 0 命中；`proto/croupier/sdk/v1/provider.proto` 已更新。
-- C++ SDK：`cmake --build build -j 4` 通过；`src/` 目录 `RegisterLocal`/`rpc_addr`/`local_listen` 扫描 0 命中。
-- JS/TS SDK：`src/` 目录 `RegisterLocal`/`rpc_addr` 扫描 0 命中，proto 已更新。
-- Python SDK：`PYTHONPATH=. pytest -q` 通过 247 个测试、跳过 8 个；`src/` 目录 `RegisterLocal`/`rpc_addr`/`local_listen` 扫描 0 命中。
-- C# SDK：`src/Croupier.Sdk/` 目录 `RegisterLocal`/`LocalAddr` 扫描 0 命中，proto 已更新。
-- 主仓文档：核心概念文档已更新为使用 Provider Session 术语。
+### 主仓库
 
-**说明**：agent `register.proto` 中的 `rpc_addr` 字段（标注 DEV ONLY）保留，因为这是 agent 注册协议的一部分，不属于 provider session 协议范畴。
+- 主仓 targeted Go tests：通过。
+- 全仓 `RegisterLocal`/`rpc_addr`/`local_listen` 扫描 0 命中（agent `register.proto` 中的 `rpc_addr` 字段标注 DEV ONLY 保留）。
+- 全仓 NNG/mangos/nanomsg 扫描 0 命中。
+- 主仓文档：核心概念文档已更新为使用 Provider Session 术语。
+- TCP transport：`internal/transport/tcp/` 已实现。
+
+### 各语言 SDK（独立仓库）
+
+各语言 SDK 的验证结果需在各 SDK 仓库中跟踪：
+- Go SDK（cuihairu/croupier-sdk-go）
+- Java SDK（cuihairu/croupier-sdk-java）
+- C++ SDK（cuihairu/croupier-sdk-cpp）
+- JS/TS SDK（cuihairu/croupier-sdk-js）
+- Python SDK（cuihairu/croupier-sdk-python）
+- C# SDK（cuihairu/croupier-sdk-csharp）
 
 ## 下一步执行顺序
 
-1. Java SDK 重新生成 proto 代码（`proto/croupier/sdk/v1/provider.proto` 已更新）。
-2. C# SDK 重新生成 proto 代码（`proto/croupier/sdk/v1/provider.proto` 已更新）。
-3. JS Jest 测试异步句柄警告处理。
-4. `TaskEvent` 上行接收后回写 `task_runs` / `task_events` 的闭环。
+1. `TaskEvent` 上行接收后回写 `task_runs` / `task_events` 的闭环。
+2. `Dispatcher.StreamTask` 改为基于持久化 `task_events` 的正式查询路径。
+3. `TaskRunner` / `TaskContext` 抽象优化。
+4. shared session runtime 从 Agent-Server 与 SDK-Agent 两条链路中完全抽取复用。
+
+注：各语言 SDK 的 proto 代码更新和测试需在各 SDK 仓库中跟踪。

@@ -10,14 +10,16 @@ import (
 
 // Claims represents the JWT claims we issue/parse.
 type Claims struct {
-	Roles []string `json:"roles"`
+	Username string   `json:"username"`
+	Roles    []string `json:"roles"`
+	AdminID  uint     `json:"admin_id"`
 	jwt.RegisteredClaims
 }
 
 const tokenTTL = 24 * time.Hour
 
 // Sign issues a JWT for the provided user/roles using the shared secret.
-func Sign(secret, subject string, roles []string, issuedAt time.Time) (string, error) {
+func Sign(secret string, username string, roles []string, adminID uint, issuedAt time.Time) (string, error) {
 	if secret == "" {
 		return "", errors.New("jwt secret is empty")
 	}
@@ -25,9 +27,11 @@ func Sign(secret, subject string, roles []string, issuedAt time.Time) (string, e
 		issuedAt = time.Now().UTC()
 	}
 	claims := Claims{
-		Roles: roles,
+		Username: username,
+		Roles:    roles,
+		AdminID:  adminID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   subject,
+			Subject:   username,
 			IssuedAt:  jwt.NewNumericDate(issuedAt),
 			ExpiresAt: jwt.NewNumericDate(issuedAt.Add(tokenTTL)),
 		},

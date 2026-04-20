@@ -21,7 +21,6 @@ import (
 	extensionruntime "github.com/cuihairu/croupier/internal/core/extension/runtime"
 	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
 	"github.com/cuihairu/croupier/internal/model"
-	"github.com/cuihairu/croupier/internal/pkg2/jwt"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
@@ -29,7 +28,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/runtime"
-	jwtutil2 "github.com/cuihairu/croupier/internal/security/jwtutil"
+	jwtutil "github.com/cuihairu/croupier/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/gin-gonic/gin"
 	"gorm.io/datatypes"
@@ -271,7 +270,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 				taskStore = store
 			}
 		}
-		ctx.Dispatcher = dispatch.NewDispatcherWithTaskStore(ctx.RegistryStore, taskStore)
+		ctx.Dispatcher = dispatch.NewDispatcherWithTaskStore(ctx.RegistryStore, taskStore, nil)
 
 		if ttlStr := strings.TrimSpace(ctx.Config.AgentDispatch.TaskRoutingTTL); ttlStr != "" {
 			if ttl, err := time.ParseDuration(ttlStr); err != nil {
@@ -327,8 +326,19 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	}
 
 	// 初始化 JWT 密钥（从配置文件读取）
-	secret, _ := jwtutil2.ResolveSecret(ctx.Config)
-	jwt.SetSecret(secret)
+	secret, err := jwtutil.ResolveSecret(ctx.Config)
+	if err != nil {
+		// JWT secret 未配置且不在开发模式，这是一个严重配置错误
+		slog.Default().Error("JWT secret configuration error", "error", err)
+		// 在生产环境下应该启动失败
+		if !isDevelopmentConfig(ctx.Config) {
+			panic(fmt.Sprintf("JWT secret not configured: %v", err))
+		}
+		// 开发模式使用默认密钥
+		secret = jwtutil.DevSecret()
+		slog.Default().Warn("Using development JWT secret - do not use in production", "mode", ctx.Config.Server.Mode)
+	}
+	jwtutil.InitGlobalSecret(secret)
 
 	// 设置认证中间件
 	ctx.Authority = NewAuthMiddleware(ctx)
@@ -349,6 +359,25 @@ func autoMigrate(db *gorm.DB) error {
 	}
 
 	return nil
+}
+
+// isDevelopmentConfig checks if the current configuration is in development mode.
+func isDevelopmentConfig(cfg config.Config) bool {
+	// Check server mode configuration
+	if strings.EqualFold(cfg.Server.Mode, "dev") || strings.EqualFold(cfg.Server.Mode, "development") || strings.EqualFold(cfg.Server.Mode, "debug") {
+		return true
+	}
+	// Check environment variable
+	if env := strings.TrimSpace(os.Getenv("CROUPIER_ENV")); env != "" {
+		if strings.EqualFold(env, "dev") || strings.EqualFold(env, "development") {
+			return true
+		}
+	}
+	// Default to development if not explicitly set to production
+	if strings.EqualFold(os.Getenv("CROUPIER_MODE"), "prod") || strings.EqualFold(os.Getenv("CROUPIER_MODE"), "production") {
+		return false
+	}
+	return true
 }
 
 func resolveBootstrapAuthDir(c config.Config) string {
@@ -411,6 +440,11 @@ func seedBootstrapAdmins(ctx *ServiceContext) error {
 		if username == "" || strings.TrimSpace(admin.Password) == "" {
 			continue
 		}
+		// Warn about plaintext passwords in bootstrap config
+		if !admin.IsHashedPassword() {
+			slog.Default().Warn("Bootstrap admin uses plaintext password - consider using bcrypt hash", "username", username)
+		}
+
 		bootstrapStatus := 1
 		if admin.Status == 1 {
 			bootstrapStatus = 1
@@ -1118,12 +1152,6 @@ func (m *AuthMiddleware) Handle(c *gin.Context) {
 	// 获取 Authorization header
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
-		// 兼容 SSE 等无法自定义 header 的场景，支持 token 查询参数
-		if token := strings.TrimSpace(c.Query("token")); token != "" {
-			authHeader = "Bearer " + token
-		}
-	}
-	if authHeader == "" {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing authorization header", "message": "未授权"})
 		return
 	}
@@ -1162,8 +1190,12 @@ func (m *AuthMiddleware) shouldBypassGin(c *gin.Context) bool {
 }
 
 func (m *AuthMiddleware) authenticate(ctx context.Context, token string) (string, []string, uint, error) {
-	// 使用 JWT 包验证 token
-	claims, err := jwt.ParseToken(token)
+	secret := jwtutil.GetGlobalSecret()
+	if strings.TrimSpace(secret) == "" {
+		return "", nil, 0, errors.New("jwt secret not initialized")
+	}
+
+	claims, err := jwtutil.Parse(token, secret)
 	if err != nil {
 		return "", nil, 0, fmt.Errorf("invalid token: %w", err)
 	}

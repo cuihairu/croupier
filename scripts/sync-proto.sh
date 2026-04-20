@@ -1,9 +1,9 @@
 #!/bin/bash
-# Sync proto files from croupier-proto
+# Sync proto files from remote
 
 set -e
 
-echo "Syncing proto/ with croupier-proto..."
+echo "Syncing proto/ with latest..."
 
 cd "$(dirname "$0")/.."
 cd proto

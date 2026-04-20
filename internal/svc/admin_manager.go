@@ -6,14 +6,33 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 // AdminUser 管理员用户结构
+//
+// AdminManager 用途说明：
+// - 主要用于初始化和引导数据管理（bootstrap data）
+// - 支持从配置文件导入管理员账号
+// - 运行时会自动将明文密码转换为 bcrypt 哈希
+//
+// 密码字段说明：
+// - 支持 bcrypt 哈希密码（推荐）：以 "$2a$" 或 "$2b$" 开头的哈希值
+// - 支持明文密码（仅用于配置文件导入）：运行时自动转换为 bcrypt 哈希
+// - ValidateUser 会自动检测并使用正确的验证方式
+//
+// 安全建议：
+// - 生产环境配置文件应使用预哈希的 bcrypt 密码
+// - 可使用 `htpasswd -nbB username password` 生成 bcrypt 哈希
+// - 或使用在线工具：https://bcrypt-generator.com/
+// - 运行时不再进行明文密码比较（除非是旧配置文件）
 type AdminUser struct {
 	Username string   `json:"username"`
-	Password string   `json:"password"`
+	Password string   `json:"password"` // bcrypt 哈希或明文（见上方说明）
 	Roles    []string `json:"roles"`
 	Nickname string   `json:"nickname,omitempty"`
 	Email    string   `json:"email,omitempty"`
@@ -21,6 +40,11 @@ type AdminUser struct {
 	Status   int      `json:"status"` // 1:active 0:disabled
 	CreateAt string   `json:"create_at,omitempty"`
 	UpdateAt string   `json:"update_at,omitempty"`
+}
+
+// IsHashedPassword 检查密码是否为 bcrypt 哈希格式
+func (u *AdminUser) IsHashedPassword() bool {
+	return strings.HasPrefix(u.Password, "$2a$") || strings.HasPrefix(u.Password, "$2b$")
 }
 
 // Role 角色定义
@@ -203,7 +227,8 @@ func (am *AdminManager) loadDefaultPermissions() error {
 	return nil
 }
 
-// ValidateUser 验证用户登录
+// ValidateUser 验证用户登录。
+// 新配置应只使用 bcrypt 哈希；明文仅为历史兼容导入保留。
 func (am *AdminManager) ValidateUser(username, password string) (*AdminUser, error) {
 	am.mu.RLock()
 	defer am.mu.RUnlock()
@@ -217,20 +242,40 @@ func (am *AdminManager) ValidateUser(username, password string) (*AdminUser, err
 		return nil, fmt.Errorf("user is disabled")
 	}
 
-	if admin.Password != password {
-		return nil, fmt.Errorf("invalid password")
+	// 如果存储的密码是 bcrypt 哈希，使用 bcrypt 比较
+	if admin.IsHashedPassword() {
+		if err := bcrypt.CompareHashAndPassword([]byte(admin.Password), []byte(password)); err != nil {
+			return nil, fmt.Errorf("invalid password")
+		}
+	} else {
+		// 明文密码仅用于历史兼容，建议通过 seedBootstrapAdmins 迁移到数据库哈希存储。
+		slog.Default().Warn("AdminManager using legacy plaintext password comparison", "username", username)
+		if admin.Password != password {
+			return nil, fmt.Errorf("invalid password")
+		}
 	}
 
 	return admin, nil
 }
 
 // CreateAdmin 创建管理员账号
+// 如果密码不是 bcrypt 哈希格式，将自动进行哈希处理
 func (am *AdminManager) CreateAdmin(admin *AdminUser) error {
 	am.mu.Lock()
 	defer am.mu.Unlock()
 
 	if _, exists := am.admins[admin.Username]; exists {
 		return fmt.Errorf("admin already exists")
+	}
+
+	// 如果密码不是 bcrypt 哈希，自动进行哈希处理
+	if !admin.IsHashedPassword() {
+		slog.Default().Info("Hashing plaintext password for new admin", "username", admin.Username)
+		hashedBytes, err := bcrypt.GenerateFromPassword([]byte(admin.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return fmt.Errorf("failed to hash password: %w", err)
+		}
+		admin.Password = string(hashedBytes)
 	}
 
 	admin.Status = 1
@@ -315,6 +360,7 @@ func (am *AdminManager) DeleteAdmin(username string) error {
 }
 
 // ResetPassword 重置管理员密码
+// 如果新密码不是 bcrypt 哈希格式，将自动进行哈希处理
 func (am *AdminManager) ResetPassword(username, newPassword string) error {
 	am.mu.Lock()
 	defer am.mu.Unlock()
@@ -324,7 +370,18 @@ func (am *AdminManager) ResetPassword(username, newPassword string) error {
 		return fmt.Errorf("admin not found")
 	}
 
-	admin.Password = newPassword
+	// 如果密码不是 bcrypt 哈希，自动进行哈希处理
+	if !strings.HasPrefix(newPassword, "$2a$") && !strings.HasPrefix(newPassword, "$2b$") {
+		slog.Default().Info("Hashing new password for admin", "username", username)
+		hashedBytes, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+		if err != nil {
+			return fmt.Errorf("failed to hash password: %w", err)
+		}
+		admin.Password = string(hashedBytes)
+	} else {
+		admin.Password = newPassword
+	}
+
 	admin.UpdateAt = time.Now().Format("2006-01-02 15:04:05")
 
 	slog.Default().Info("Reset password for admin", "username", username)

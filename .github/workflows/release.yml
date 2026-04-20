@@ -56,7 +56,7 @@ jobs:
           echo "GOMODCACHE=$RUNNER_TEMP/go-mod-${{ github.run_id }}" >> "$GITHUB_ENV"
           go version
           go env GOROOT GOTOOLDIR GOVERSION GOOS GOARCH
-      # Proto 代码由 croupier-proto 的 sync-sdks workflow 同步，无需本地生成
+      # Proto 代码无需本地生成
       - name: Go mod download
         timeout-minutes: 5
         run: go mod download

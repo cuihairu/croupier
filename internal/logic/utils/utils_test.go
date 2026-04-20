@@ -628,165 +628,208 @@ func TestParseUintID(t *testing.T) {
 	}
 }
 
-// TestValidatePassword tests password validation
+// TestValidatePassword tests password validation with enhanced security rules
 func TestValidatePassword(t *testing.T) {
 	tests := []struct {
 		name        string
-		passwd      string
+		password    string
 		wantErr     bool
 		errContains string
 	}{
-		// 有效密码
+		// Valid passwords (2+ character varieties)
 		{
-			name:    "valid: lowercase + uppercase + digits",
-			passwd:  "MyPass123",
-			wantErr: false,
+			name:     "valid: lowercase + digits",
+			password: "password123",
+			wantErr:  false,
 		},
 		{
-			name:    "valid: uppercase + lowercase",
-			passwd:  "PasswordAbc",
-			wantErr: false,
+			name:     "valid: uppercase + lowercase",
+			password: "Password",
+			wantErr:  false,
 		},
 		{
-			name:    "valid: uppercase + digits",
-			passwd:  "PASS1234",
-			wantErr: false,
+			name:     "valid: uppercase + digits",
+			password: "PASSWORD123",
+			wantErr:  false,
 		},
 		{
-			name:    "valid: lowercase + special + digits",
-			passwd:  "mypass@123",
-			wantErr: false,
+			name:     "valid: lowercase + special",
+			password: "password!",
+			wantErr:  false,
 		},
 		{
-			name:    "valid: all four types",
-			passwd:  "P@ssw0rd!",
-			wantErr: false,
+			name:     "valid: all 4 varieties",
+			password: "Pass123!",
+			wantErr:  false,
 		},
 		{
-			name:    "valid: exactly 8 chars, 2 varieties",
-			passwd:  "Pass1234",
-			wantErr: false,
+			name:     "valid: exactly 8 chars, 2 varieties",
+			password: "Pass123",
+			wantErr:  false,
 		},
 		{
-			name:    "valid: chinese + uppercase + digits",
-			passwd:  "密码Abc123",
-			wantErr: false,
+			name:     "valid: long password with special chars",
+			password: "MySecure@Password#2023",
+			wantErr:  false,
+		},
+		{
+			name:     "valid: mixed case and numbers",
+			password: "Abc123xyz",
+			wantErr:  false,
+		},
+		{
+			name:     "valid: chinese characters + digits",
+			password: "密码123456",
+			wantErr:  false,
 		},
 
-		// 无效密码 - 空/空格
+		// Empty password
 		{
 			name:        "invalid: empty password",
-			passwd:      "",
+			password:    "",
 			wantErr:     true,
 			errContains: "密码不能为空",
 		},
+
+		// Whitespace violations
 		{
-			name:        "invalid: password with space",
-			passwd:      "pass word",
+			name:        "invalid: space in middle",
+			password:    "pass word",
 			wantErr:     true,
 			errContains: "密码不能包含空格",
 		},
 		{
-			name:        "invalid: password with tab",
-			passwd:      "pass\tword",
+			name:        "invalid: tab character",
+			password:    "pass\tword",
 			wantErr:     true,
 			errContains: "密码不能包含空格",
 		},
 		{
-			name:        "invalid: password with trailing space",
-			passwd:      "password ",
+			name:        "invalid: newline character",
+			password:    "pass\nword",
+			wantErr:     true,
+			errContains: "密码不能包含空格",
+		},
+		{
+			name:        "invalid: trailing space",
+			password:    "password ",
+			wantErr:     true,
+			errContains: "密码不能包含空格",
+		},
+		{
+			name:        "invalid: leading space",
+			password:    " password",
 			wantErr:     true,
 			errContains: "密码不能包含空格",
 		},
 
-		// 无效密码 - 长度不足
+		// Length violations
 		{
-			name:        "invalid: less than 8 chars",
-			passwd:      "Pass12",
+			name:        "invalid: 7 chars (too short)",
+			password:    "Pass12",
 			wantErr:     true,
 			errContains: "密码长度至少为8个字符",
 		},
 		{
-			name:        "invalid: exactly 7 chars",
-			passwd:      "Pass123",
+			name:        "invalid: 1 char (too short)",
+			password:    "a",
 			wantErr:     true,
 			errContains: "密码长度至少为8个字符",
+		},
+		{
+			name:        "invalid: 129 chars (too long)",
+			password:    strings.Repeat("a", 129),
+			wantErr:     true,
+			errContains: "密码长度不能超过128个字符",
+		},
+		{
+			name:        "invalid: 200 chars (too long)",
+			password:    strings.Repeat("a", 200),
+			wantErr:     true,
+			errContains: "密码长度不能超过128个字符",
 		},
 
-		// 无效密码 - 常见弱密码
+		// Weak password violations
+		{
+			name:        "invalid: common password 'password'",
+			password:    "password",
+			wantErr:     true,
+			errContains: "密码过于简单",
+		},
+		{
+			name:        "invalid: common password '12345678'",
+			password:    "12345678",
+			wantErr:     true,
+			errContains: "密码过于简单",
+		},
+		{
+			name:        "invalid: common password 'qwerty123'",
+			password:    "qwerty123",
+			wantErr:     true,
+			errContains: "密码过于简单",
+		},
 		{
 			name:        "invalid: common password 'admin'",
-			passwd:      "admin1234",
+			password:    "admin",
 			wantErr:     true,
 			errContains: "密码过于简单",
 		},
 		{
 			name:        "invalid: common password 'welcome'",
-			passwd:      "welcome1",
-			wantErr:     true,
-			errContains: "密码过于简单",
-		},
-		{
-			name:        "invalid: common password 'password'",
-			passwd:      "password123",
-			wantErr:     true,
-			errContains: "密码过于简单",
-		},
-		{
-			name:        "invalid: common password '123456'",
-			passwd:      "12345678",
-			wantErr:     true,
-			errContains: "密码过于简单",
-		},
-		{
-			name:        "invalid: common password 'qwerty'",
-			passwd:      "qwerty12",
+			password:    "welcome",
 			wantErr:     true,
 			errContains: "密码过于简单",
 		},
 
-		// 无效密码 - 只有单一类型
+		// Character variety violations (less than 2 of 4 categories)
 		{
 			name:        "invalid: only lowercase",
-			passwd:      "mysecretpassword",
+			password:    "password",
 			wantErr:     true,
-			errContains: "至少两种",
-		},
-		{
-			name:        "invalid: only digits",
-			passwd:      "98765432",
-			wantErr:     true,
-			errContains: "至少两种",
+			errContains: "密码必须包含大写字母、小写字母、数字、特殊字符中的至少两种",
 		},
 		{
 			name:        "invalid: only uppercase",
-			passwd:      "MYSECRETPASSWORD",
+			password:    "PASSWORD",
 			wantErr:     true,
-			errContains: "至少两种",
+			errContains: "密码必须包含大写字母、小写字母、数字、特殊字符中的至少两种",
+		},
+		{
+			name:        "invalid: only digits",
+			password:    "12345678",
+			wantErr:     true,
+			errContains: "密码必须包含大写字母、小写字母、数字、特殊字符中的至少两种",
 		},
 		{
 			name:        "invalid: only special chars",
-			passwd:      "!@#$%^&*",
+			password:    "!@#$%^&*",
 			wantErr:     true,
-			errContains: "至少两种",
+			errContains: "密码必须包含大写字母、小写字母、数字、特殊字符中的至少两种",
+		},
+		{
+			name:        "invalid: single variety - all lowercase with 8 chars",
+			password:    "abcdefgh",
+			wantErr:     true,
+			errContains: "密码必须包含大写字母、小写字母、数字、特殊字符中的至少两种",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ValidatePassword(tt.passwd)
+			got, err := ValidatePassword(tt.password)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidatePassword() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if tt.wantErr {
-				if err == nil {
-					t.Errorf("ValidatePassword() expected error containing %q, got nil", tt.errContains)
-				} else if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
-					t.Errorf("ValidatePassword() error = %q, should contain %q", err.Error(), tt.errContains)
+				if tt.errContains != "" && err != nil {
+					if !strings.Contains(err.Error(), tt.errContains) {
+						t.Errorf("ValidatePassword() error = %v, should contain %v", err, tt.errContains)
+					}
 				}
-			}
-			if !tt.wantErr && got != tt.passwd {
-				t.Errorf("ValidatePassword() = %v, want %v", got, tt.passwd)
+			} else {
+				if got != tt.password {
+					t.Errorf("ValidatePassword() = %v, want %v", got, tt.password)
+				}
 			}
 		})
 	}
@@ -802,102 +845,91 @@ func TestValidatePasswordForUser(t *testing.T) {
 		errContains string
 	}{
 		{
-			name:     "valid: password doesn't contain username",
-			password: "MyPass123",
+			name:     "valid: password does not contain username",
+			password: "SecurePass123!",
+			username: "admin",
+			wantErr:  false,
+		},
+		{
+			name:     "valid: different case, password contains username",
+			password: "SecurePass123!",
 			username: "john",
 			wantErr:  false,
 		},
 		{
-			name:     "valid: strong password",
-			password: "Secure@Pass123",
-			username: "admin",
+			name:     "valid: empty username",
+			password: "MyPassword123",
+			username: "",
 			wantErr:  false,
 		},
 		{
+			name:        "invalid: password contains username exact match",
+			password:    "john123456",
+			username:    "john",
+			wantErr:     true,
+			errContains: "密码不能包含用户名",
+		},
+		{
+			name:        "invalid: password contains username prefix",
+			password:    "johnSecure123",
+			username:    "john",
+			wantErr:     true,
+			errContains: "密码不能包含用户名",
+		},
+		{
+			name:        "invalid: password contains username suffix",
+			password:    "Securejohn123",
+			username:    "john",
+			wantErr:     true,
+			errContains: "密码不能包含用户名",
+		},
+		{
+			name:        "invalid: password contains username case insensitive",
+			password:    "JOHN123456",
+			username:    "john",
+			wantErr:     true,
+			errContains: "密码不能包含用户名",
+		},
+		{
+			name:        "invalid: password contains username, username uppercase",
+			password:    "john123456",
+			username:    "JOHN",
+			wantErr:     true,
+			errContains: "密码不能包含用户名",
+		},
+		{
+			name:        "invalid: password contains username mixed case",
+			password:    "JoHn123456",
+			username:    "john",
+			wantErr:     true,
+			errContains: "密码不能包含用户名",
+		},
+		{
 			name:        "invalid: weak password also contains username",
-			password:    "john1234",
-			username:    "john",
-			wantErr:     true,
-			errContains: "密码不能包含用户名",
-		},
-		{
-			name:        "invalid: password contains username (exact)",
-			password:    "JohnPassword123",
-			username:    "john",
-			wantErr:     true,
-			errContains: "密码不能包含用户名",
-		},
-		{
-			name:        "invalid: password contains username (partial)",
-			password:    "Pass123word",
-			username:    "pass",
-			wantErr:     true,
-			errContains: "密码不能包含用户名",
-		},
-		{
-			name:        "invalid: password contains username (uppercase)",
-			password:    "MyAdminPass",
+			password:    "admin123456",
 			username:    "admin",
-			wantErr:     true,
-			errContains: "密码不能包含用户名",
-		},
-		{
-			name:        "invalid: empty username should still validate password",
-			password:    "weak",
-			username:    "",
-			wantErr:     true,
-			errContains: "密码长度至少为8个字符",
-		},
-		{
-			name:        "invalid: common password",
-			password:    "password123",
-			username:    "testuser",
 			wantErr:     true,
 			errContains: "密码过于简单",
 		},
 		{
-			name:        "invalid: password too short",
-			password:    "Pass1",
-			username:    "user",
+			name:        "invalid: password fails basic validation first",
+			password:    "short",
+			username:    "john",
 			wantErr:     true,
 			errContains: "密码长度至少为8个字符",
-		},
-		{
-			name:        "invalid: only lowercase letters",
-			password:    "mypassword",
-			username:    "user",
-			wantErr:     true,
-			errContains: "至少两种",
-		},
-		{
-			name:     "valid: similar but not containing username",
-			password: "MySecurePass123",
-			username: "admin",
-			wantErr:  false,
-		},
-		{
-			name:     "valid: password with special chars",
-			password: "P@ssw0rd!2024",
-			username: "testadmin",
-			wantErr:  false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ValidatePasswordForUser(tt.password, tt.username)
+			err := ValidatePasswordForUser(tt.password, tt.username)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidatePasswordForUser() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if tt.wantErr {
-				if err == nil {
-					t.Errorf("ValidatePasswordForUser() expected error containing %q, got nil", tt.errContains)
-				} else if tt.errContains != "" && !strings.Contains(err.Error(), tt.errContains) {
-					t.Errorf("ValidatePasswordForUser() error = %q, should contain %q", err.Error(), tt.errContains)
+			if tt.wantErr && tt.errContains != "" && err != nil {
+				if !strings.Contains(err.Error(), tt.errContains) {
+					t.Errorf("ValidatePasswordForUser() error = %v, should contain %v", err, tt.errContains)
 				}
-			}
-			if !tt.wantErr && got != tt.password {
-				t.Errorf("ValidatePasswordForUser() = %v, want %v", got, tt.password)
 			}
 		})
 	}

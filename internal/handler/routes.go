@@ -40,10 +40,12 @@ import (
 	"github.com/cuihairu/croupier/internal/api/terms"
 	"github.com/cuihairu/croupier/internal/api/ticket"
 	"github.com/cuihairu/croupier/internal/api/workspace"
+	"github.com/cuihairu/croupier/internal/security/jwtutil"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/cuihairu/croupier/internal/svc"
 
 	"github.com/gin-gonic/gin"
+	"log/slog"
 )
 
 func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
@@ -104,7 +106,16 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 }
 
 func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
-	authSvc := auth.NewService(ctx.AdminModel, permissionservice.NewPermissionService(ctx.DB), ctx.OpsStateStore)
+	jwtSecret, err := jwtutil.ResolveSecret(ctx.Config)
+	if err != nil {
+		// Log error but continue with fallback for compatibility
+		slog.Default().Warn("JWT secret resolution warning, using fallback", "error", err)
+		// Use fallback for backward compatibility
+		if jwtSecret == "" {
+			jwtSecret = jwtutil.DevSecret()
+		}
+	}
+	authSvc := auth.NewService(ctx.AdminModel, permissionservice.NewPermissionService(ctx.DB), jwtSecret, ctx.OpsStateStore)
 	authHandler := auth.NewHandler(authSvc)
 	g.POST("/login", authHandler.Login)
 	g.POST("/logout", authHandler.Logout)

@@ -24,17 +24,24 @@ type AgentSessionResolver interface {
 	ResolveAgentConn(agentID string) (transport.SessionCaller, bool)
 }
 
+// TaskEventQuery queries task events from persistent storage.
+type TaskEventQuery interface {
+	ListEvents(ctx context.Context, taskID string, afterSeq int64) ([]*sdkv1.TaskEvent, error)
+	GetRun(ctx context.Context, taskID string) (*sdkv1.TaskEvent, error)
+}
+
 // Dispatcher routes function invocations to live agents discovered via registry store.
 // Uses TCP session routing for all agent communication.
 // Supports HA features: health tracking, circuit breaker, load balancing.
 type Dispatcher struct {
-	store         *reg.Store
-	mu            sync.RWMutex
-	taskRouting   map[string]string // taskID -> agentID (in-memory cache)
-	taskStore     TaskRoutingStore  // persistent storage for task routing
-	dialTimeout   time.Duration
-	invokeTimeout time.Duration
-	tlsCfg        *tlsutil.ClientTLSConfig
+	store          *reg.Store
+	mu             sync.RWMutex
+	taskRouting    map[string]string // taskID -> agentID (in-memory cache)
+	taskStore      TaskRoutingStore  // persistent storage for task routing
+	taskEventQuery TaskEventQuery    // task event query from persistent storage
+	dialTimeout    time.Duration
+	invokeTimeout  time.Duration
+	tlsCfg         *tlsutil.ClientTLSConfig
 
 	// TCP session routing
 	sessionResolver AgentSessionResolver
@@ -46,16 +53,16 @@ type Dispatcher struct {
 }
 
 func NewDispatcher(store *reg.Store) *Dispatcher {
-	return NewDispatcherWithTaskStore(store, nil)
+	return NewDispatcherWithTaskStore(store, nil, nil)
 }
 
-// NewDispatcherWithTaskStore creates a new Dispatcher with optional task routing store
-func NewDispatcherWithTaskStore(store *reg.Store, taskStore TaskRoutingStore) *Dispatcher {
-	return NewDispatcherWithHA(store, taskStore, false, StrategyMinID, nil)
+// NewDispatcherWithTaskStore creates a new Dispatcher with optional task routing store and task event query
+func NewDispatcherWithTaskStore(store *reg.Store, taskStore TaskRoutingStore, taskEventQuery TaskEventQuery) *Dispatcher {
+	return NewDispatcherWithHA(store, taskStore, taskEventQuery, false, StrategyMinID, nil)
 }
 
 // NewDispatcherWithHA creates a new Dispatcher with HA features enabled
-func NewDispatcherWithHA(store *reg.Store, taskStore TaskRoutingStore, haEnabled bool, strategy LoadBalanceStrategy, healthConfig *HealthCheckConfig) *Dispatcher {
+func NewDispatcherWithHA(store *reg.Store, taskStore TaskRoutingStore, taskEventQuery TaskEventQuery, haEnabled bool, strategy LoadBalanceStrategy, healthConfig *HealthCheckConfig) *Dispatcher {
 	if store == nil {
 		store = reg.NewStore()
 	}
@@ -66,12 +73,13 @@ func NewDispatcherWithHA(store *reg.Store, taskStore TaskRoutingStore, haEnabled
 	}
 
 	d := &Dispatcher{
-		store:         store,
-		taskRouting:   map[string]string{},
-		taskStore:     taskStore,
-		dialTimeout:   5 * time.Second,
-		invokeTimeout: 15 * time.Second,
-		haEnabled:     haEnabled,
+		store:          store,
+		taskRouting:    map[string]string{},
+		taskStore:      taskStore,
+		taskEventQuery: taskEventQuery,
+		dialTimeout:    5 * time.Second,
+		invokeTimeout:  15 * time.Second,
+		haEnabled:      haEnabled,
 	}
 
 	// Initialize HA components if enabled
@@ -156,6 +164,13 @@ func (d *Dispatcher) SetTLSConfig(cfg *tlsutil.ClientTLSConfig) {
 // established Agent sessions.
 func (d *Dispatcher) SetSessionResolver(resolver AgentSessionResolver) {
 	d.sessionResolver = resolver
+}
+
+// SetTaskEventQuery sets the task event query for persistent storage access.
+func (d *Dispatcher) SetTaskEventQuery(query TaskEventQuery) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.taskEventQuery = query
 }
 
 func (d *Dispatcher) Store() *reg.Store {
@@ -312,12 +327,129 @@ func (d *Dispatcher) CancelTask(ctx context.Context, taskID string) error {
 }
 
 func (d *Dispatcher) StreamTask(ctx context.Context, taskID string) ([]*sdkv1.TaskEvent, bool, error) {
-	return nil, false, fmt.Errorf("streaming not yet implemented")
+	return d.StreamTaskAfterSeq(ctx, taskID, 0)
+}
+
+// StreamTaskAfterSeq streams task events after a given sequence number.
+// Returns events, whether the task is done, and any error.
+func (d *Dispatcher) StreamTaskAfterSeq(ctx context.Context, taskID string, afterSeq int64) ([]*sdkv1.TaskEvent, bool, error) {
+	taskID = strings.TrimSpace(taskID)
+	if taskID == "" {
+		return nil, false, fmt.Errorf("task id is required")
+	}
+
+	d.mu.RLock()
+	query := d.taskEventQuery
+	d.mu.RUnlock()
+
+	if query == nil {
+		return nil, false, fmt.Errorf("task event query not configured")
+	}
+
+	events, err := query.ListEvents(ctx, taskID, afterSeq)
+	if err != nil {
+		return nil, false, fmt.Errorf("query events: %w", err)
+	}
+
+	run, err := query.GetRun(ctx, taskID)
+	if err != nil {
+		// If run not found, still return events but mark as not done
+		return events, false, nil
+	}
+
+	// Task is done if the last event type is a terminal state
+	done := isTaskEventTypeDone(run.Type)
+	return events, done, nil
 }
 
 // StreamTaskRealtime forwards task events to the provided callback.
 func (d *Dispatcher) StreamTaskRealtime(ctx context.Context, taskID string, fn func(*sdkv1.TaskEvent) bool) (bool, error) {
-	return false, fmt.Errorf("streaming not yet implemented")
+	return d.StreamTaskRealtimeAfterSeq(ctx, taskID, 0, fn)
+}
+
+// StreamTaskRealtimeAfterSeq streams task events to the callback after a given sequence number.
+// Returns whether the task is done and any error.
+func (d *Dispatcher) StreamTaskRealtimeAfterSeq(ctx context.Context, taskID string, afterSeq int64, fn func(*sdkv1.TaskEvent) bool) (bool, error) {
+	taskID = strings.TrimSpace(taskID)
+	if taskID == "" {
+		return false, fmt.Errorf("task id is required")
+	}
+
+	d.mu.RLock()
+	query := d.taskEventQuery
+	d.mu.RUnlock()
+
+	if query == nil {
+		return false, fmt.Errorf("task event query not configured")
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return false, ctx.Err()
+		default:
+		}
+
+		events, err := query.ListEvents(ctx, taskID, afterSeq)
+		if err != nil {
+			return false, fmt.Errorf("query events: %w", err)
+		}
+
+		run, err := query.GetRun(ctx, taskID)
+		if err != nil {
+			// Run not found, continue waiting
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+
+		done := isTaskEventTypeDone(run.Type)
+
+		// Send events to callback
+		for _, evt := range events {
+			if !fn(evt) {
+				return done, nil // Callback stopped streaming
+			}
+			// Note: Seq field not available in TaskEvent proto yet
+			// afterSeq = evt.Seq
+		}
+
+		if done {
+			return done, nil
+		}
+
+		// Wait before next poll
+		time.Sleep(500 * time.Millisecond)
+	}
+}
+
+// isTaskRunDone checks if a task run status indicates completion.
+func isTaskRunDone(status string) bool {
+	switch strings.ToLower(status) {
+	case "succeeded", "success", "done", "completed":
+		return true
+	case "failed", "error":
+		return true
+	case "cancelled", "canceled":
+		return true
+	case "timed_out", "timeout":
+		return true
+	default:
+		return false
+	}
+}
+
+// isTaskEventTypeDone checks if a task event type indicates completion.
+func isTaskEventTypeDone(eventType string) bool {
+	switch strings.ToLower(eventType) {
+	case "completed", "success", "succeeded":
+		return true
+	case "failed", "error":
+		return true
+	case "cancelled", "canceled":
+		return true
+	default:
+		return false
+	}
 }
 
 // ListFunctionAgents returns agent IDs that currently expose the function.
