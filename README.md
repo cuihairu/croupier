@@ -138,12 +138,11 @@ Croupier 当前的核心传输抽象不是 `历史消息模式`，而是轻量�
 
 ## 快速开始
 
-1. 拉取代码与子模块
+1. 拉取代码
 
 ```bash
 git clone git@github.com:cuihairu/croupier.git
 cd croupier
-git submodule update --init --recursive
 ```
 
 2. 安装工具链
@@ -153,20 +152,26 @@ git submodule update --init --recursive
 - `buf`
 - `protoc`
 
-3. 构建
+3. 安装 pre-commit hook（推荐）
+
+```bash
+cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+```
+
+4. 构建
 
 ```bash
 make dev
 ```
 
-4. 启动
+5. 启动
 
 ```bash
 ./bin/croupier-server --config configs/server.yaml
 ./bin/croupier-agent --config configs/agent.yaml
 ```
 
-5. 查看 Dashboard
+6. 查看 Dashboard
 
 ```bash
 cd ../croupier-dashboard
