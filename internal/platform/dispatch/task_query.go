@@ -48,21 +48,53 @@ func (a *TaskEventQueryAdapter) ListEvents(ctx context.Context, taskID string, a
 }
 
 // GetRun returns the task run for the given task ID.
-// TODO: TaskRun is not yet defined in SDK, returns nil for now.
 func (a *TaskEventQueryAdapter) GetRun(ctx context.Context, taskID string) (*sdkv1.TaskEvent, error) {
 	taskID = strings.TrimSpace(taskID)
 	if taskID == "" {
 		return nil, nil
 	}
 
-	_, err := a.runs.FindByTaskID(ctx, taskID)
+	run, err := a.runs.FindByTaskID(ctx, taskID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Return a placeholder TaskEvent since TaskRun doesn't exist in SDK yet
 	return &sdkv1.TaskEvent{
-		TaskId: taskID,
-		Type:   "completed",
+		TaskId:   run.TaskID,
+		Type:     taskRunStatusToEventType(run.Status),
+		Progress: run.Progress,
+		Message:  taskRunMessage(run),
+		Payload:  []byte(run.ResultPayload),
 	}, nil
+}
+
+func taskRunStatusToEventType(status string) string {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "queued":
+		return "queued"
+	case "running":
+		return "started"
+	case "succeeded", "success", "done", "completed":
+		return "completed"
+	case "failed", "error":
+		return "failed"
+	case "cancel_requested":
+		return "cancel_requested"
+	case "cancelled", "canceled":
+		return "cancelled"
+	case "timed_out", "timeout":
+		return "failed"
+	default:
+		return strings.TrimSpace(status)
+	}
+}
+
+func taskRunMessage(run *model.TaskRun) string {
+	if run == nil {
+		return ""
+	}
+	if strings.TrimSpace(run.ErrorMessage) != "" {
+		return run.ErrorMessage
+	}
+	return run.Message
 }
