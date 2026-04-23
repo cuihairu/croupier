@@ -29,52 +29,33 @@ jobs:
     steps:
       - name: Checkout
         timeout-minutes: 3
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         timeout-minutes: 5
         uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - name: Setup PNPM
-        timeout-minutes: 3
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
+          node-version: 24
 
       - name: Setup Pages
         timeout-minutes: 3
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
-      - name: Enable Corepack and prepare pnpm
-        timeout-minutes: 5
-        run: |
-          set -euxo pipefail
-          corepack enable
-          corepack prepare pnpm@9 --activate
-          if ! command -v pnpm >/dev/null 2>&1; then
-            echo "pnpm not found after corepack; installing via npm as fallback"
-            npm i -g pnpm@9
-          fi
-          pnpm --version
-
-      - name: Install dependencies (pnpm)
+      - name: Install dependencies
         timeout-minutes: 5
         working-directory: docs
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
-      - name: Build website (pnpm)
+      - name: Build website
         timeout-minutes: 10
         working-directory: docs
-        run: pnpm build
+        run: npm run build
 
       - name: Upload artifact
         timeout-minutes: 3
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
-          path: docs/.vuepress/dist
+          path: docs/.vitepress/dist
 
       - name: Deploy to GitHub Pages
         timeout-minutes: 10
