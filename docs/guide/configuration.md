@@ -131,4 +131,4 @@ cp configs/agent.yaml configs/agent.local.yaml
 ## 下一步
 
 - [部署指南](./deployment.md)
-- [开发文档](../development/README.md)
+- [开发文档](../development/)

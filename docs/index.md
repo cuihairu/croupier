@@ -9,7 +9,7 @@ actions:
     link: /guide/quick-start
     type: primary
   - text: 开发约定
-    link: /development/README.md
+    link: /development/
     type: secondary
 features:
   - title: 控制面与 Agent 协同
@@ -44,8 +44,8 @@ make build
 
 更多内容从这里进入：
 
-- [使用指南](/guide/README.md)
-- [架构文档](/architecture/README.md)
-- [API 参考](/api/README.md)
-- [分析系统](/analytics/README.md)
-- [开发文档](/development/README.md)
+- [使用指南](/guide/)
+- [架构文档](/architecture/)
+- [API 参考](/api/)
+- [分析系统](/analytics/)
+- [开发文档](/development/)

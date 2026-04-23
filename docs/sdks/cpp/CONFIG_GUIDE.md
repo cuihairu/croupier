@@ -193,6 +193,6 @@
 
 ## 相关文档
 
-- [C++ SDK 概览](./README.md)
+- [C++ SDK 概览](./)
 - [SDK 规范](../../sdk/specification.md)
 - [SDK Wire Protocol](../../architecture/sdk-wire-protocol.md)

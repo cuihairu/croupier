@@ -388,4 +388,4 @@ descriptors/
 
 - [函数管理](./function-management.md)
 - [函数管理](./function-management.md)
-- [系统架构](../../architecture/README.md)
+- [系统架构](../../architecture/)
