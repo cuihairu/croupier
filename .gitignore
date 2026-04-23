@@ -10,6 +10,7 @@
 *.out
 go.work
 go.work.sum
+docs/.vuepress/dist
 http
 protoc-gen-croupier
 stdout
