@@ -86,8 +86,8 @@ func TestConfigValidation_AddressFormats(t *testing.T) {
 
 	t.Run("Port edge cases", func(t *testing.T) {
 		portCases := []struct {
-			port    string
-			valid   bool
+			port     string
+			valid    bool
 			describe string
 		}{
 			{"0", true, "Port 0 (system assigned)"},
@@ -119,12 +119,12 @@ func TestConfigValidation_AddressFormats(t *testing.T) {
 func TestConfigValidation_TimeoutValues(t *testing.T) {
 	t.Run("Valid timeout values", func(t *testing.T) {
 		timeouts := []int{
-			0,      // No timeout
-			1,      // 1 second
-			30,     // 30 seconds (common)
-			60,     // 1 minute
-			300,    // 5 minutes
-			3600,   // 1 hour
+			0,    // No timeout
+			1,    // 1 second
+			30,   // 30 seconds (common)
+			60,   // 1 minute
+			300,  // 5 minutes
+			3600, // 1 hour
 		}
 
 		for _, timeout := range timeouts {
@@ -174,8 +174,8 @@ func TestConfigValidation_TimeoutValues(t *testing.T) {
 func TestConfigValidation_TLSCombinations(t *testing.T) {
 	t.Run("TLS configuration matrix", func(t *testing.T) {
 		configs := []struct {
-			name     string
-			config   *InvokerConfig
+			name   string
+			config *InvokerConfig
 		}{
 			{
 				"No TLS",
@@ -290,11 +290,11 @@ func TestRetryConfiguration_BoundaryValues(t *testing.T) {
 
 	t.Run("Backoff multiplier boundaries", func(t *testing.T) {
 		multipliers := []float64{
-			1.0,   // No backoff
-			1.5,   // Moderate backoff
-			2.0,   // Standard exponential backoff
-			3.0,   // Aggressive backoff
-			10.0,  // Very aggressive backoff
+			1.0,  // No backoff
+			1.5,  // Moderate backoff
+			2.0,  // Standard exponential backoff
+			3.0,  // Aggressive backoff
+			10.0, // Very aggressive backoff
 		}
 
 		for _, mult := range multipliers {
@@ -330,11 +330,11 @@ func TestRetryConfiguration_BoundaryValues(t *testing.T) {
 			config := &InvokerConfig{
 				Address: "http://localhost:19090",
 				Retry: &RetryConfig{
-					Enabled:       true,
-					MaxAttempts:   3,
+					Enabled:        true,
+					MaxAttempts:    3,
 					InitialDelayMs: 100,
-					MaxDelayMs:    1000,
-					JitterFactor:  jitter,
+					MaxDelayMs:     1000,
+					JitterFactor:   jitter,
 				},
 			}
 

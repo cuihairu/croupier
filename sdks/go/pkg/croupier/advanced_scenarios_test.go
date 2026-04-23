@@ -466,14 +466,14 @@ func TestComplex_headerPropagation(t *testing.T) {
 
 	t.Run("headers with standard keys", func(t *testing.T) {
 		standardHeaders := map[string]string{
-			"X-Request-ID":       "req-123",
-			"X-Correlation-ID":   "corr-456",
-			"X-Trace-ID":         "trace-789",
-			"X-Session-ID":       "session-abc",
-			"X-User-ID":          "user-def",
-			"X-Client-Version":   "1.0.0",
-			"X-Client-Name":      "test-client",
-			"X-Environment":      "development",
+			"X-Request-ID":     "req-123",
+			"X-Correlation-ID": "corr-456",
+			"X-Trace-ID":       "trace-789",
+			"X-Session-ID":     "session-abc",
+			"X-User-ID":        "user-def",
+			"X-Client-Version": "1.0.0",
+			"X-Client-Name":    "test-client",
+			"X-Environment":    "development",
 		}
 
 		options := InvokeOptions{
@@ -501,9 +501,9 @@ func TestComplex_headerPropagation(t *testing.T) {
 
 	t.Run("headers with mixed case", func(t *testing.T) {
 		mixedCaseHeaders := map[string]string{
-			"x-request-id":  "lower",
-			"X-Request-Id":  "mixed",
-			"X-REQUEST-ID":  "upper",
+			"x-request-id":        "lower",
+			"X-Request-Id":        "mixed",
+			"X-REQUEST-ID":        "upper",
 			"X-R e q u e s t-I D": "spaced",
 		}
 

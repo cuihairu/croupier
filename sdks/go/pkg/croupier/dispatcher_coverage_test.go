@@ -55,7 +55,7 @@ func TestMainThreadDispatcher_ProcessQueueWithLimit_coverage(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		dispatcher.Enqueue(func() {})
 	}
-	
+
 	limits := []int{0, 5, 100, -1}
 	for _, limit := range limits {
 		processed := dispatcher.ProcessQueueWithLimit(limit)
@@ -66,12 +66,12 @@ func TestMainThreadDispatcher_ProcessQueueWithLimit_coverage(t *testing.T) {
 func TestMainThreadDispatcher_GetPendingCount_coverage(t *testing.T) {
 	ResetDispatcher()
 	dispatcher := GetDispatcher()
-	
+
 	initial := dispatcher.GetPendingCount()
 	if initial != 0 {
 		t.Errorf("Initial pending count should be 0, got %d", initial)
 	}
-	
+
 	dispatcher.Enqueue(func() {})
 	after := dispatcher.GetPendingCount()
 	t.Logf("Pending count after enqueue: %d", after)
@@ -81,14 +81,14 @@ func TestMainThreadDispatcher_IsMainGoroutine_coverage(t *testing.T) {
 	dispatcher := GetDispatcher()
 	isMain := dispatcher.IsMainGoroutine()
 	t.Logf("IsMainGoroutine: %v", isMain)
-	
+
 	done := make(chan bool)
 	go func() {
 		isMain := dispatcher.IsMainGoroutine()
 		t.Logf("IsMainGoroutine from goroutine: %v", isMain)
 		done <- true
 	}()
-	
+
 	select {
 	case <-done:
 		// Success
@@ -99,7 +99,7 @@ func TestMainThreadDispatcher_IsMainGoroutine_coverage(t *testing.T) {
 
 func TestMainThreadDispatcher_SetMaxProcessPerFrame_coverage(t *testing.T) {
 	dispatcher := GetDispatcher()
-	
+
 	values := []int{-1, 0, 1, 10, 100, 1000}
 	for _, val := range values {
 		dispatcher.SetMaxProcessPerFrame(val)
@@ -109,17 +109,17 @@ func TestMainThreadDispatcher_SetMaxProcessPerFrame_coverage(t *testing.T) {
 func TestMainThreadDispatcher_Clear_coverage(t *testing.T) {
 	ResetDispatcher()
 	dispatcher := GetDispatcher()
-	
+
 	for i := 0; i < 10; i++ {
 		dispatcher.Enqueue(func() {})
 	}
-	
+
 	before := dispatcher.GetPendingCount()
 	dispatcher.Clear()
 	after := dispatcher.GetPendingCount()
-	
+
 	t.Logf("Before clear: %d, after clear: %d", before, after)
-	
+
 	if after != 0 {
 		t.Errorf("After clear should be 0, got %d", after)
 	}
@@ -128,10 +128,10 @@ func TestMainThreadDispatcher_Clear_coverage(t *testing.T) {
 func TestMainThreadDispatcher_Concurrency_coverage(t *testing.T) {
 	ResetDispatcher()
 	dispatcher := GetDispatcher()
-	
+
 	const numGoroutines = 10
 	const operationsPerGoroutine = 50
-	
+
 	var wg sync.WaitGroup
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
@@ -143,7 +143,7 @@ func TestMainThreadDispatcher_Concurrency_coverage(t *testing.T) {
 			}
 		}()
 	}
-	
+
 	wg.Wait()
 	t.Logf("Pending count after concurrent enqueues: %d", dispatcher.GetPendingCount())
 }
@@ -151,13 +151,13 @@ func TestMainThreadDispatcher_Concurrency_coverage(t *testing.T) {
 func TestGetGoroutineID_coverage(t *testing.T) {
 	id := getGoroutineID()
 	t.Logf("Current goroutine ID: %d", id)
-	
+
 	ids := make(map[int64]bool)
 	const numGoroutines = 10
-	
+
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	
+
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
 		go func() {
@@ -168,7 +168,7 @@ func TestGetGoroutineID_coverage(t *testing.T) {
 			mu.Unlock()
 		}()
 	}
-	
+
 	wg.Wait()
 	t.Logf("Unique goroutine IDs: %d", len(ids))
 }

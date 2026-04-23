@@ -31,14 +31,14 @@ func TestLocalFunctionDescriptor_comprehensive(t *testing.T) {
 
 	t.Run("full descriptor with all fields", func(t *testing.T) {
 		desc := LocalFunctionDescriptor{
-			ID:          "player.create",
-			Version:     "2.1.0",
-			Tags:        []string{"player", "crud"},
-			Summary:     "Create a new player",
-			Description: "Creates a new player with the given properties",
-			OperationID: "createPlayer",
-			Deprecated:  false,
-			InputSchema: `{"type":"object","properties":{"name":{"type":"string"}}}`,
+			ID:           "player.create",
+			Version:      "2.1.0",
+			Tags:         []string{"player", "crud"},
+			Summary:      "Create a new player",
+			Description:  "Creates a new player with the given properties",
+			OperationID:  "createPlayer",
+			Deprecated:   false,
+			InputSchema:  `{"type":"object","properties":{"name":{"type":"string"}}}`,
 			OutputSchema: `{"type":"object","properties":{"id":{"type":"string"}}}`,
 			Category:     "player",
 			Risk:         "safe",
@@ -248,8 +248,8 @@ This is a **markdown** description with:
 }`
 
 		desc := LocalFunctionDescriptor{
-			ID:          "schema.func",
-			Version:     "1.0.0",
+			ID:           "schema.func",
+			Version:      "1.0.0",
 			InputSchema:  inputSchema,
 			OutputSchema: outputSchema,
 		}

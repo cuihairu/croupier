@@ -1,0 +1,436 @@
+<template><div><h1 id="croupier-函数管理系统分析文档" tabindex="-1"><a class="header-anchor" href="#croupier-函数管理系统分析文档"><span>Croupier 函数管理系统分析文档</span></a></h1>
+<h2 id="概述" tabindex="-1"><a class="header-anchor" href="#概述"><span>概述</span></a></h2>
+<p>本目录包含 Croupier 系统函数管理架构的完整分析和改进方案，共 4 份文档、1600+ 行内容。</p>
+<p><strong>生成时间：</strong> 2024-11-13<br>
+<strong>分析范围：</strong> 菜单结构、页面设计、API 接口、权限模型、数据流、组件复用<br>
+<strong>改进方案：</strong> 统一菜单 + 5 个专注页面 + 5 个通用组件 + 10 个新 API + 三阶段实施计划</p>
+<hr>
+<h2 id="文档清单" tabindex="-1"><a class="header-anchor" href="#文档清单"><span>文档清单</span></a></h2>
+<h3 id="📄-function-management-quick-reference-md" tabindex="-1"><a class="header-anchor" href="#📄-function-management-quick-reference-md"><span>📄 <RouteLink to="/FUNCTION_MANAGEMENT_QUICK_REFERENCE.html">FUNCTION_MANAGEMENT_QUICK_REFERENCE.md</RouteLink></span></a></h3>
+<p><strong>最适合：需要快速了解的人</strong></p>
+<ul>
+<li>关键要点 (30 秒速览)</li>
+<li>新菜单结构速览</li>
+<li>5 个新页面概览</li>
+<li>5 个通用组件清单</li>
+<li>10 个新增 API 端点</li>
+<li>新增数据模型</li>
+<li>实施三阶段</li>
+<li>常见问题 FAQ</li>
+</ul>
+<p><strong>读者：</strong> 项目经理、产品经理、开发者<br>
+<strong>阅读时间：</strong> 15-20 分钟</p>
+<hr>
+<h3 id="📊-function-management-comparison-md" tabindex="-1"><a class="header-anchor" href="#📊-function-management-comparison-md"><span>📊 <RouteLink to="/FUNCTION_MANAGEMENT_COMPARISON.html">FUNCTION_MANAGEMENT_COMPARISON.md</RouteLink></span></a></h3>
+<p><strong>最适合：需要看对比的人</strong></p>
+<ul>
+<li>菜单结构现状 vs 建议</li>
+<li>页面布局对比（当前 GmFunctions vs 改进方案）</li>
+<li>数据流对比</li>
+<li>权限模型对比</li>
+<li>组件复用策略</li>
+</ul>
+<p><strong>读者：</strong> 架构师、高级开发者<br>
+<strong>阅读时间：</strong> 20-30 分钟</p>
+<hr>
+<h3 id="📋-function-management-executive-summary-md" tabindex="-1"><a class="header-anchor" href="#📋-function-management-executive-summary-md"><span>📋 <RouteLink to="/FUNCTION_MANAGEMENT_EXECUTIVE_SUMMARY.html">FUNCTION_MANAGEMENT_EXECUTIVE_SUMMARY.md</RouteLink></span></a></h3>
+<p><strong>最适合：需要了解完整方案的人</strong></p>
+<ul>
+<li>执行摘要（核心发现）</li>
+<li>4 大问题详细分析（菜单分散、页面过多、权限粗粒度、数据流低效）</li>
+<li>改进方案概览</li>
+<li>5 个关键页面设计详述</li>
+<li>组件复用策略</li>
+<li>实施路线图（三阶段详细说明）</li>
+<li>技术架构（前端状态管理、后端 API 扩展）</li>
+<li>预期收益量化</li>
+<li>风险缓解策略</li>
+</ul>
+<p><strong>读者：</strong> 技术决策者、架构师、项目负责人<br>
+<strong>阅读时间：</strong> 30-45 分钟</p>
+<hr>
+<h3 id="🔬-function-management-architecture-analysis-md" tabindex="-1"><a class="header-anchor" href="#🔬-function-management-architecture-analysis-md"><span>🔬 <RouteLink to="/FUNCTION_MANAGEMENT_ARCHITECTURE_ANALYSIS.html">FUNCTION_MANAGEMENT_ARCHITECTURE_ANALYSIS.md</RouteLink></span></a></h3>
+<p><strong>最适合：需要深入理解的人</strong></p>
+<ul>
+<li>现状分析（4 个页面的逐一深度分析）</li>
+<li>后端 API 完整盘点（13 个端点分析）</li>
+<li>数据流详细分析（3 大流程图解）</li>
+<li>现存问题清单（架构层、功能层、UX 层）</li>
+<li>改进建议详述
+<ul>
+<li>菜单结构优化</li>
+<li>5 个页面重构方案</li>
+<li>组件复用设计</li>
+<li>数据模型扩展</li>
+<li>前端路由优化</li>
+</ul>
+</li>
+<li>实施路线图</li>
+<li>总结</li>
+</ul>
+<p><strong>读者：</strong> 资深架构师、技术专家<br>
+<strong>阅读时间：</strong> 60+ 分钟</p>
+<hr>
+<h2 id="快速导航" tabindex="-1"><a class="header-anchor" href="#快速导航"><span>快速导航</span></a></h2>
+<h3 id="我是-我应该看" tabindex="-1"><a class="header-anchor" href="#我是-我应该看"><span>我是...，我应该看...</span></a></h3>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>推荐文档</th>
+<th>阅读顺序</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>项目经理</strong></td>
+<td>Quick Reference + Executive Summary</td>
+<td>1 → 3</td>
+</tr>
+<tr>
+<td><strong>产品经理</strong></td>
+<td>Quick Reference + Comparison</td>
+<td>1 → 2</td>
+</tr>
+<tr>
+<td><strong>开发经理</strong></td>
+<td>Executive Summary + Analysis</td>
+<td>3 → 4</td>
+</tr>
+<tr>
+<td><strong>架构师</strong></td>
+<td>Executive Summary + Analysis + Comparison</td>
+<td>3 → 4 → 2</td>
+</tr>
+<tr>
+<td><strong>资深开发</strong></td>
+<td>Quick Reference + Analysis</td>
+<td>1 → 4</td>
+</tr>
+<tr>
+<td><strong>新人</strong></td>
+<td>Quick Reference</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="核心要点提炼" tabindex="-1"><a class="header-anchor" href="#核心要点提炼"><span>核心要点提炼</span></a></h2>
+<h3 id="_4-大问题" tabindex="-1"><a class="header-anchor" href="#_4-大问题"><span>4 大问题</span></a></h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>问题</th>
+<th>现状</th>
+<th>建议</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>菜单结构</td>
+<td>分散在 2 个菜单</td>
+<td>统一为&quot;函数管理&quot;菜单</td>
+<td>高</td>
+</tr>
+<tr>
+<td>2</td>
+<td>页面设计</td>
+<td>GmFunctions 650+ 行</td>
+<td>拆分为 5 个专注页面</td>
+<td>中</td>
+</tr>
+<tr>
+<td>3</td>
+<td>权限模型</td>
+<td>粗粒度（functions:read）</td>
+<td>细粒度（<code v-pre>function:{id}:invoke</code>）</td>
+<td>中</td>
+</tr>
+<tr>
+<td>4</td>
+<td>数据流</td>
+<td>各页面独立加载</td>
+<td>全局 Context + 缓存</td>
+<td>低-中</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_5-个新页面" tabindex="-1"><a class="header-anchor" href="#_5-个新页面"><span>5 个新页面</span></a></h3>
+<table>
+<thead>
+<tr>
+<th>页面</th>
+<th>目的</th>
+<th>主要功能</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>函数目录</strong></td>
+<td>发现浏览</td>
+<td>搜索、分类、版本、权限管理</td>
+</tr>
+<tr>
+<td><strong>函数调用</strong></td>
+<td>执行函数</td>
+<td>参数表单、调用历史、结果展示</td>
+</tr>
+<tr>
+<td><strong>实例管理</strong></td>
+<td>Agent 覆盖率</td>
+<td>Agent 管理、覆盖率分析、健康检查</td>
+</tr>
+<tr>
+<td><strong>函数分配</strong></td>
+<td>权限管理</td>
+<td>白名单、细粒度权限、变更历史</td>
+</tr>
+<tr>
+<td><strong>函数包</strong></td>
+<td>包管理</td>
+<td>清单、导入导出、版本历史、灰度发布</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_5-个通用组件" tabindex="-1"><a class="header-anchor" href="#_5-个通用组件"><span>5 个通用组件</span></a></h3>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>功能</th>
+<th>使用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FunctionFormRenderer</td>
+<td>JSONSchema 表单</td>
+<td>Invoke, Assignments, Approvals</td>
+</tr>
+<tr>
+<td>FunctionListTable</td>
+<td>搜索排序过滤</td>
+<td>Catalog, Assignments, Approvals</td>
+</tr>
+<tr>
+<td>RegistryViewer</td>
+<td>注册表展示</td>
+<td>Instances, Dashboard, Reports</td>
+</tr>
+<tr>
+<td>FunctionCallHistory</td>
+<td>历史时间线</td>
+<td>Invoke, Detail, Dashboard</td>
+</tr>
+<tr>
+<td>FunctionDetailPanel</td>
+<td>详情面板</td>
+<td>Catalog, Invoke, Detail</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_10-个新-api-端点" tabindex="-1"><a class="header-anchor" href="#_10-个新-api-端点"><span>10 个新 API 端点</span></a></h3>
+<div class="language-text line-numbers-mode" data-highlighter="prismjs" data-ext="text"><pre v-pre><code class="language-text"><span class="line">GET /api/functions/summary          汇总信息</span>
+<span class="line">GET /api/function_calls             调用历史</span>
+<span class="line">GET /api/function_calls/{id}        单次详情</span>
+<span class="line">POST /api/function_calls/{id}/rerun 重新运行</span>
+<span class="line">GET /api/agents                     Agent 列表</span>
+<span class="line">GET /api/agents/{id}/functions      Agent 函数</span>
+<span class="line">GET /api/coverage/analysis          覆盖率分析</span>
+<span class="line">GET /api/packs/{id}/contents        包内容</span>
+<span class="line">GET /api/packs/{id}/versions        版本历史</span>
+<span class="line">POST /api/packs/{id}/canary         灰度发布</span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="三阶段实施计划" tabindex="-1"><a class="header-anchor" href="#三阶段实施计划"><span>三阶段实施计划</span></a></h3>
+<div class="language-text line-numbers-mode" data-highlighter="prismjs" data-ext="text"><pre v-pre><code class="language-text"><span class="line">第 1 阶段（2-3 周）: 基础设施</span>
+<span class="line">  ├─ 新增菜单配置</span>
+<span class="line">  ├─ 创建函数目录页面</span>
+<span class="line">  ├─ 分离实例管理页面</span>
+<span class="line">  └─ 后向兼容重定向</span>
+<span class="line"></span>
+<span class="line">第 2 阶段（3-4 周）: 核心增强</span>
+<span class="line">  ├─ 重构函数调用页面</span>
+<span class="line">  ├─ 调用历史集成</span>
+<span class="line">  ├─ 分配管理增强</span>
+<span class="line">  └─ 函数包详情</span>
+<span class="line"></span>
+<span class="line">第 3 阶段（1-2 月）: 高级功能</span>
+<span class="line">  ├─ 版本管理对比</span>
+<span class="line">  ├─ 细粒度权限</span>
+<span class="line">  ├─ 可视化监控</span>
+<span class="line">  └─ 性能优化</span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><hr>
+<h2 id="文档统计" tabindex="-1"><a class="header-anchor" href="#文档统计"><span>文档统计</span></a></h2>
+<table>
+<thead>
+<tr>
+<th>文档</th>
+<th>行数</th>
+<th>大小</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ARCHITECTURE_ANALYSIS</td>
+<td>551</td>
+<td>16K</td>
+</tr>
+<tr>
+<td>COMPARISON</td>
+<td>282</td>
+<td>13K</td>
+</tr>
+<tr>
+<td>EXECUTIVE_SUMMARY</td>
+<td>403</td>
+<td>11K</td>
+</tr>
+<tr>
+<td>QUICK_REFERENCE</td>
+<td>368</td>
+<td>9.1K</td>
+</tr>
+<tr>
+<td><strong>总计</strong></td>
+<td><strong>1604</strong></td>
+<td><strong>49.1K</strong></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="预期收益" tabindex="-1"><a class="header-anchor" href="#预期收益"><span>预期收益</span></a></h2>
+<h3 id="用户体验提升" tabindex="-1"><a class="header-anchor" href="#用户体验提升"><span>用户体验提升</span></a></h3>
+<ul>
+<li>菜单导航清晰，发现能力 +50%</li>
+<li>页面加载速度 +30%</li>
+<li>新用户学习曲线 -40%</li>
+<li>高级用户效率 +25%</li>
+</ul>
+<h3 id="系统质量提升" tabindex="-1"><a class="header-anchor" href="#系统质量提升"><span>系统质量提升</span></a></h3>
+<ul>
+<li>代码复用率 +35%</li>
+<li>维护成本 -35%</li>
+<li>开发速度 +50%</li>
+<li>权限安全性 ⬆️</li>
+</ul>
+<h3 id="业务价值提升" tabindex="-1"><a class="header-anchor" href="#业务价值提升"><span>业务价值提升</span></a></h3>
+<ul>
+<li>为版本管理、灰度发布等功能奠定基础</li>
+<li>用户满意度提升</li>
+<li>系统稳定性增强</li>
+</ul>
+<hr>
+<h2 id="使用建议" tabindex="-1"><a class="header-anchor" href="#使用建议"><span>使用建议</span></a></h2>
+<h3 id="开发者应该做的事" tabindex="-1"><a class="header-anchor" href="#开发者应该做的事"><span>开发者应该做的事</span></a></h3>
+<ol>
+<li><strong>第 1 天：</strong> 阅读 Quick Reference，了解总体方案</li>
+<li><strong>第 2 天：</strong> 阅读 Executive Summary，理解改进方案</li>
+<li><strong>第 3 天：</strong> 阅读 Analysis，掌握技术细节</li>
+<li><strong>第 4 天：</strong> 开始实施第 1 阶段</li>
+</ol>
+<h3 id="项目经理应该做的事" tabindex="-1"><a class="header-anchor" href="#项目经理应该做的事"><span>项目经理应该做的事</span></a></h3>
+<ol>
+<li>快速浏览 Quick Reference 的关键要点</li>
+<li>审阅 Executive Summary 的实施路线图</li>
+<li>评估时间表和资源需求</li>
+<li>与技术团队讨论，确定启动时间</li>
+</ol>
+<h3 id="架构师应该做的事" tabindex="-1"><a class="header-anchor" href="#架构师应该做的事"><span>架构师应该做的事</span></a></h3>
+<ol>
+<li>深入阅读所有 4 份文档</li>
+<li>验证设计方案的技术可行性</li>
+<li>识别潜在的风险和挑战</li>
+<li>提出优化建议</li>
+</ol>
+<hr>
+<h2 id="关键决策点" tabindex="-1"><a class="header-anchor" href="#关键决策点"><span>关键决策点</span></a></h2>
+<table>
+<thead>
+<tr>
+<th>决策</th>
+<th>现状</th>
+<th>建议</th>
+<th>影响</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>菜单位置</td>
+<td>分散</td>
+<td>统一新菜单</td>
+<td>高</td>
+</tr>
+<tr>
+<td>页面拆分</td>
+<td>单页</td>
+<td>5 个页面</td>
+<td>高</td>
+</tr>
+<tr>
+<td>权限粒度</td>
+<td>粗粒度</td>
+<td>细粒度</td>
+<td>中</td>
+</tr>
+<tr>
+<td>缓存策略</td>
+<td>无</td>
+<td>全局 Context</td>
+<td>中</td>
+</tr>
+<tr>
+<td>API 增长</td>
+<td>13 个</td>
+<td>23 个</td>
+<td>低</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="faq" tabindex="-1"><a class="header-anchor" href="#faq"><span>FAQ</span></a></h2>
+<p><strong>Q: 这个改进会破坏现有用户的工作流吗？</strong><br>
+A: 不会。所有旧链接都会通过重定向保持工作，用户可以逐步迁移到新菜单。</p>
+<p><strong>Q: 需要迁移数据吗？</strong><br>
+A: 不需要。新页面和旧页面共享后端数据，无需迁移。</p>
+<p><strong>Q: 实施周期能更短吗？</strong><br>
+A: 可以。如果只实施高优先级功能，第 1 阶段可以缩短到 1-2 周。</p>
+<p><strong>Q: 这个方案是否可扩展？</strong><br>
+A: 非常可扩展。新架构为后续的版本管理、灰度发布等功能奠定了基础。</p>
+<hr>
+<h2 id="下一步" tabindex="-1"><a class="header-anchor" href="#下一步"><span>下一步</span></a></h2>
+<ol>
+<li><strong>立即：</strong> 项目团队审阅本文档集</li>
+<li><strong>本周：</strong> 技术评审和可行性分析</li>
+<li><strong>下周：</strong> 启动第 1 阶段实施</li>
+<li><strong>2-3 周后：</strong> 新菜单上线</li>
+</ol>
+<hr>
+<h2 id="相关资源" tabindex="-1"><a class="header-anchor" href="#相关资源"><span>相关资源</span></a></h2>
+<ul>
+<li>项目 CLAUDE.md：/Users/cui/Workspaces/croupier/CLAUDE.md</li>
+<li>Web 源码：/Users/cui/Workspaces/croupier/web/src/</li>
+<li>路由配置：/Users/cui/Workspaces/croupier/web/config/routes.ts</li>
+<li>菜单配置：/Users/cui/Workspaces/croupier/web/src/locales/zh-CN/menu.ts</li>
+</ul>
+<hr>
+<h2 id="文档维护" tabindex="-1"><a class="header-anchor" href="#文档维护"><span>文档维护</span></a></h2>
+<p>本文档集由架构分析生成，建议：</p>
+<ul>
+<li>每个月更新一次实施进度</li>
+<li>每个阶段完成后验证预期收益</li>
+<li>识别任何需要调整的地方</li>
+<li>为后续功能优化保留备注</li>
+</ul>
+<hr>
+<p><strong>最后的话：</strong> Croupier 的函数管理系统功能完整，但组织散乱。通过实施本方案，
+可以显著提升用户体验、降低维护成本、为系统长期发展奠定基础。建议立即启动第 1 阶段。</p>
+<p><strong>联系：</strong> 架构评审团队<br>
+<strong>日期：</strong> 2024-11-13<br>
+<strong>版本：</strong> 1.0</p>
+</div></template>
+
+

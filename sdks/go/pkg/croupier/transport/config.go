@@ -42,9 +42,9 @@ type Config struct {
 	ServerName string
 
 	// Timeouts
-	DialTimeout  time.Duration
-	RecvTimeout  time.Duration
-	SendTimeout  time.Duration
+	DialTimeout time.Duration
+	RecvTimeout time.Duration
+	SendTimeout time.Duration
 
 	// Backpressure
 	ReadQLen  int // receive queue length (default 128)
@@ -54,15 +54,15 @@ type Config struct {
 // DefaultConfig returns a default configuration for the transport layer.
 func DefaultConfig() *Config {
 	return &Config{
-		Address:      "127.0.0.1:19090",
-		Host:         "127.0.0.1",
-		Port:         19090,
-		Insecure:     true,
-		DialTimeout:  30 * time.Second,
-		RecvTimeout:  30 * time.Second,
-		SendTimeout:  5 * time.Second,
-		ReadQLen:     128,
-		WriteQLen:    64,
+		Address:     "127.0.0.1:19090",
+		Host:        "127.0.0.1",
+		Port:        19090,
+		Insecure:    true,
+		DialTimeout: 30 * time.Second,
+		RecvTimeout: 30 * time.Second,
+		SendTimeout: 5 * time.Second,
+		ReadQLen:    128,
+		WriteQLen:   64,
 	}
 }
 

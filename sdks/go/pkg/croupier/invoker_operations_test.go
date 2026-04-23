@@ -341,17 +341,17 @@ func TestInvoker_schemaOperations(t *testing.T) {
 			"type": "object",
 			"properties": map[string]interface{}{
 				"field1": map[string]interface{}{
-					"type": "string",
+					"type":      "string",
 					"minLength": 1,
 					"maxLength": 100,
 				},
 				"field2": map[string]interface{}{
-					"type": "integer",
+					"type":    "integer",
 					"minimum": 0,
 					"maximum": 1000,
 				},
 				"field3": map[string]interface{}{
-					"type": "array",
+					"type":  "array",
 					"items": map[string]string{"type": "string"},
 				},
 			},

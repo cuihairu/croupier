@@ -40,8 +40,8 @@ func TestDispatcher_enqueueWithData(t *testing.T) {
 		dispatcher := GetDispatcher()
 
 		items := []struct {
-			ID    int
-			Name  string
+			ID   int
+			Name string
 		}{
 			{ID: 1, Name: "first"},
 			{ID: 2, Name: "second"},
@@ -50,8 +50,8 @@ func TestDispatcher_enqueueWithData(t *testing.T) {
 
 		for _, item := range items {
 			EnqueueWithData(dispatcher, func(item struct {
-				ID    int
-				Name  string
+				ID   int
+				Name string
 			}) {
 				// Callback for enqueued item
 			}, item)
@@ -476,9 +476,9 @@ func TestParseJSONPayload_extremeCases(t *testing.T) {
 		largeNums := []string{
 			`{"num": 999999999999999999999}`,
 			`{"num": -999999999999999999999}`,
-			`{"num": 1.7976931348623157e+308}`,  // Max float64
+			`{"num": 1.7976931348623157e+308}`, // Max float64
 			`{"num": -1.7976931348623157e+308}`,
-			`{"num": 5e-324}`,                // Min float64
+			`{"num": 5e-324}`, // Min float64
 		}
 
 		ctx := context.Background()

@@ -16,24 +16,24 @@ import (
 func TestComprehensive_configCombos(t *testing.T) {
 	t.Run("client with all fields configured", func(t *testing.T) {
 		config := &ClientConfig{
-			AgentAddr:         "tcp://localhost:19090",
-			AgentIPCAddr:      "ipc://croupier-agent",
-			GameID:            "game-123",
-			Env:               "production",
-			ServiceID:         "service-456",
-			ServiceVersion:    "2.0.0",
-			AgentID:           "agent-789",
-			ProviderLang:      "go",
-			ProviderSDK:       "croupier-go-sdk",
-			TimeoutSeconds:    60,
-			Insecure:          false,
-			CAFile:            "/path/to/ca.crt",
-			CertFile:          "/path/to/cert.pem",
-			KeyFile:           "/path/to/key.pem",
-			ServerName:        "example.com",
+			AgentAddr:          "tcp://localhost:19090",
+			AgentIPCAddr:       "ipc://croupier-agent",
+			GameID:             "game-123",
+			Env:                "production",
+			ServiceID:          "service-456",
+			ServiceVersion:     "2.0.0",
+			AgentID:            "agent-789",
+			ProviderLang:       "go",
+			ProviderSDK:        "croupier-go-sdk",
+			TimeoutSeconds:     60,
+			Insecure:           false,
+			CAFile:             "/path/to/ca.crt",
+			CertFile:           "/path/to/cert.pem",
+			KeyFile:            "/path/to/key.pem",
+			ServerName:         "example.com",
 			InsecureSkipVerify: false,
-			DisableLogging:    false,
-			DebugLogging:      false,
+			DisableLogging:     false,
+			DebugLogging:       false,
 		}
 
 		client := NewClient(config)
@@ -95,14 +95,14 @@ func TestComprehensive_descriptorCombinations(t *testing.T) {
 
 	t.Run("local descriptor with all OpenAPI fields", func(t *testing.T) {
 		desc := LocalFunctionDescriptor{
-			ID:          "comprehensive.test",
-			Version:     "1.0.0",
-			Tags:        []string{"comprehensive", "test", "openapi"},
-			Summary:     "Comprehensive test function",
-			Description: "This is a comprehensive test function with all OpenAPI fields",
-			OperationID: "comprehensiveTest",
-			Deprecated:  false,
-			InputSchema: `{"type":"object","properties":{"input":{"type":"string"}}}`,
+			ID:           "comprehensive.test",
+			Version:      "1.0.0",
+			Tags:         []string{"comprehensive", "test", "openapi"},
+			Summary:      "Comprehensive test function",
+			Description:  "This is a comprehensive test function with all OpenAPI fields",
+			OperationID:  "comprehensiveTest",
+			Deprecated:   false,
+			InputSchema:  `{"type":"object","properties":{"input":{"type":"string"}}}`,
 			OutputSchema: `{"type":"object","properties":{"output":{"type":"string"}}}`,
 			Category:     "test",
 			Risk:         "safe",
@@ -191,10 +191,10 @@ func TestComprehensive_headerCombinations(t *testing.T) {
 				"X-Correlation-ID": "corr-456",
 			},
 			{
-				"X-Request-ID":  "req-123",
-				"X-User-ID":     "user-789",
-				"X-Session-ID":  "session-abc",
-				"X-Trace-ID":    "trace-def",
+				"X-Request-ID":    "req-123",
+				"X-User-ID":       "user-789",
+				"X-Session-ID":    "session-abc",
+				"X-Trace-ID":      "trace-def",
 				"X-Custom-Header": "custom-value",
 			},
 		}
@@ -285,8 +285,8 @@ func TestComprehensive_concurrentAccess(t *testing.T) {
 			go func(idx int) {
 				defer wg.Done()
 				desc := FunctionDescriptor{
-					ID:      "test.func",
-					Version: "1.0.0",
+					ID:       "test.func",
+					Version:  "1.0.0",
 					Category: "test",
 					Risk:     "low",
 					Enabled:  true,

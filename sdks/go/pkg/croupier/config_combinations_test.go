@@ -269,7 +269,7 @@ func TestRetryConfig_allValues(t *testing.T) {
 		for _, jitter := range jitters {
 			config := &RetryConfig{
 				Enabled:      true,
-				MaxAttempts: 2,
+				MaxAttempts:  2,
 				JitterFactor: jitter,
 			}
 

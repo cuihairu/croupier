@@ -16,42 +16,42 @@ func TestLoggerConfiguration(t *testing.T) {
 		config := &ClientConfig{
 			DisableLogging: true,
 		}
-		
+
 		client := NewClient(config)
 		if client == nil {
 			t.Error("NewClient with DisableLogging should return valid client")
 		}
 	})
-	
+
 	t.Run("config with debug logging", func(t *testing.T) {
 		config := &ClientConfig{
 			DebugLogging: true,
 		}
-		
+
 		client := NewClient(config)
 		if client == nil {
 			t.Error("NewClient with DebugLogging should return valid client")
 		}
 	})
-	
+
 	t.Run("config with both disable and debug logging", func(t *testing.T) {
 		config := &ClientConfig{
 			DisableLogging: true,
 			DebugLogging:   true,
 		}
-		
+
 		client := NewClient(config)
 		if client == nil {
 			t.Error("NewClient with both logging flags should return valid client")
 		}
 	})
-	
+
 	t.Run("config with neither disable nor debug logging", func(t *testing.T) {
 		config := &ClientConfig{
 			DisableLogging: false,
 			DebugLogging:   false,
 		}
-		
+
 		client := NewClient(config)
 		if client == nil {
 			t.Error("NewClient with default logging should return valid client")
@@ -64,28 +64,28 @@ func TestInvokerLogging(t *testing.T) {
 	t.Run("invoker with disabled logging", func(t *testing.T) {
 		config := DefaultClientConfig()
 		config.DisableLogging = true
-		
+
 		client := NewClient(config)
 		if client == nil {
 			t.Error("NewClient with disabled logging should return valid client")
 		}
 	})
-	
+
 	t.Run("invoker with debug logging", func(t *testing.T) {
 		config := DefaultClientConfig()
 		config.DebugLogging = true
-		
+
 		client := NewClient(config)
 		if client == nil {
 			t.Error("NewClient with debug logging should return valid client")
 		}
 	})
-	
+
 	t.Run("invoker with normal logging", func(t *testing.T) {
 		config := DefaultClientConfig()
 		config.DisableLogging = false
 		config.DebugLogging = false
-		
+
 		client := NewClient(config)
 		if client == nil {
 			t.Error("NewClient with normal logging should return valid client")
@@ -105,13 +105,13 @@ func TestInvoker_IdentifierFields(t *testing.T) {
 			ProviderLang:   "go",
 			ProviderSDK:    "croupier-go-sdk",
 		}
-		
+
 		client := NewClient(config)
 		if client == nil {
 			t.Error("NewClient with all identifiers should return valid client")
 		}
 	})
-	
+
 	t.Run("config with empty identifiers", func(t *testing.T) {
 		config := &ClientConfig{
 			GameID:         "",
@@ -120,33 +120,33 @@ func TestInvoker_IdentifierFields(t *testing.T) {
 			ServiceVersion: "",
 			AgentID:        "",
 		}
-		
+
 		client := NewClient(config)
 		if client == nil {
 			t.Error("NewClient with empty identifiers should return valid client")
 		}
 	})
-	
+
 	t.Run("config with special characters in identifiers", func(t *testing.T) {
 		config := &ClientConfig{
 			GameID:    "game_test-123",
 			ServiceID: "service.test@456",
 			AgentID:   "agent#dev$789",
 		}
-		
+
 		client := NewClient(config)
 		if client == nil {
 			t.Error("NewClient with special characters should return valid client")
 		}
 	})
-	
+
 	t.Run("config with very long identifiers", func(t *testing.T) {
 		longID := "very-long-identifier-" + string(make([]byte, 100))
-		
+
 		config := &ClientConfig{
 			ServiceID: longID,
 		}
-		
+
 		client := NewClient(config)
 		if client == nil {
 			t.Error("NewClient with long identifier should return valid client")

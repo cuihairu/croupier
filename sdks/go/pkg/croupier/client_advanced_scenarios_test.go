@@ -29,11 +29,11 @@ func TestClientAdvanced_ConcurrentOperations(t *testing.T) {
 				defer wg.Done()
 
 				config := &ClientConfig{
-					AgentAddr:   fmt.Sprintf("localhost:%d", 19090+clientID),
-					ServiceID:   fmt.Sprintf("service-%d", clientID),
-					AgentID:     fmt.Sprintf("agent-%d", clientID),
-					GameID:      "test-game-concurrent",
-					Env:         "testing",
+					AgentAddr:      fmt.Sprintf("localhost:%d", 19090+clientID),
+					ServiceID:      fmt.Sprintf("service-%d", clientID),
+					AgentID:        fmt.Sprintf("agent-%d", clientID),
+					GameID:         "test-game-concurrent",
+					Env:            "testing",
 					ServiceVersion: "1.0.0",
 				}
 
@@ -137,8 +137,8 @@ func TestClientAdvanced_RealWorldScenarios(t *testing.T) {
 
 		// Register typical e-commerce functions
 		functions := []struct {
-			id   string
-			desc FunctionDescriptor
+			id      string
+			desc    FunctionDescriptor
 			handler FunctionHandler
 		}{
 			{
@@ -253,11 +253,11 @@ func TestClientAdvanced_RealWorldScenarios(t *testing.T) {
 
 		for _, gf := range gameFunctions {
 			desc := FunctionDescriptor{
-				ID:        gf.id,
-				Version:   "1.0.0",
-				Category:  "gameplay",
-				Risk:      gf.risk,
-				Enabled:   true,
+				ID:       gf.id,
+				Version:  "1.0.0",
+				Category: "gameplay",
+				Risk:     gf.risk,
+				Enabled:  true,
 			}
 
 			handler := FunctionHandler(func(ctx context.Context, payload []byte) ([]byte, error) {
@@ -280,9 +280,9 @@ func TestClientAdvanced_RealWorldScenarios(t *testing.T) {
 func TestClientAdvanced_ErrorHandling(t *testing.T) {
 	t.Run("Client creation with invalid configurations", func(t *testing.T) {
 		invalidConfigs := []*ClientConfig{
-			{AgentAddr: ""}, // Empty address
+			{AgentAddr: ""},                  // Empty address
 			{AgentAddr: "invalid://address"}, // Invalid protocol
-			{AgentAddr: "localhost:99999"}, // Invalid port
+			{AgentAddr: "localhost:99999"},   // Invalid port
 		}
 
 		for i, config := range invalidConfigs {
@@ -310,8 +310,8 @@ func TestClientAdvanced_ErrorHandling(t *testing.T) {
 
 		invalidDescriptors := []FunctionDescriptor{
 			{ID: "", Version: "1.0.0"}, // Empty ID
-			{ID: "test", Version: ""}, // Empty version
-			{ID: "", Version: ""}, // Both empty
+			{ID: "test", Version: ""},  // Empty version
+			{ID: "", Version: ""},      // Both empty
 		}
 
 		_ = context.Background()

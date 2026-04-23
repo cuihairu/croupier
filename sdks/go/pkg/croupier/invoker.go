@@ -322,7 +322,7 @@ func (i *tcpInvoker) StreamJob(ctx context.Context, jobID string) (<-chan JobEve
 			case <-ticker.C:
 				// Poll for job status
 				req := &sdkv1.TaskStreamRequest{
-					TaskId:        jobID,
+					TaskId: jobID,
 				}
 
 				reqBytes, err := proto.Marshal(req)
@@ -417,7 +417,7 @@ func (i *tcpInvoker) CancelJob(ctx context.Context, jobID string) error {
 
 	// Build CancelJobRequest
 	req := &sdkv1.CancelTaskRequest{
-		TaskId:        jobID,
+		TaskId: jobID,
 	}
 
 	reqBytes, err := proto.Marshal(req)

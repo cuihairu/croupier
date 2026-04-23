@@ -187,11 +187,11 @@ func TestProtocolTransport_HeaderHandling(t *testing.T) {
 		ctx := context.Background()
 
 		headers := map[string]string{
-			"Content-Type":      "application/json",
-			"Accept":            "application/json",
-			"User-Agent":         "Croupier-SDK/1.0",
-			"Cache-Control":      "no-cache",
-			"Connection":         "keep-alive",
+			"Content-Type":  "application/json",
+			"Accept":        "application/json",
+			"User-Agent":    "Croupier-SDK/1.0",
+			"Cache-Control": "no-cache",
+			"Connection":    "keep-alive",
 		}
 
 		opts := InvokeOptions{Headers: headers}
@@ -421,7 +421,7 @@ func TestProtocolTransport_ErrorCodes(t *testing.T) {
 		// Test with addresses that will fail
 		addresses := []string{
 			"localhost:1",            // Wrong port
-			"192.0.2.1:8080",        // Non-routable IP
+			"192.0.2.1:8080",         // Non-routable IP
 			"invalid-host-name:8080", // Invalid hostname
 		}
 

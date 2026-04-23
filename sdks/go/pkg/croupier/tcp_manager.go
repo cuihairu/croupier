@@ -154,19 +154,19 @@ func (m *TCPManager) RegisterWithAgent(ctx context.Context, serviceID, serviceVe
 	descriptors := make([]*sdkv1.LocalFunctionDescriptor, len(functions))
 	for i, f := range functions {
 		descriptors[i] = &sdkv1.LocalFunctionDescriptor{
-			Id:          f.ID,
-			Version:     f.Version,
-			Tags:        f.Tags,
-			Summary:     f.Summary,
-			Description: f.Description,
-			OperationId: f.OperationID,
-			Deprecated:  f.Deprecated,
-			InputSchema: f.InputSchema,
+			Id:           f.ID,
+			Version:      f.Version,
+			Tags:         f.Tags,
+			Summary:      f.Summary,
+			Description:  f.Description,
+			OperationId:  f.OperationID,
+			Deprecated:   f.Deprecated,
+			InputSchema:  f.InputSchema,
 			OutputSchema: f.OutputSchema,
-			Category:    f.Category,
-			Risk:        f.Risk,
-			Entity:      f.Entity,
-			Operation:   f.Operation,
+			Category:     f.Category,
+			Risk:         f.Risk,
+			Entity:       f.Entity,
+			Operation:    f.Operation,
 		}
 	}
 

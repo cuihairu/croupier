@@ -79,7 +79,7 @@ func TestErrorHandling_NetworkErrors(t *testing.T) {
 			"http://",
 			"localhost:abc",
 			"99999", // Port too high
-			":8080",  // Missing host
+			":8080", // Missing host
 		}
 
 		for _, addr := range invalidAddresses {
@@ -109,7 +109,7 @@ func TestErrorHandling_PayloadErrors(t *testing.T) {
 			"invalid",
 			"{invalid}",
 			"{'key': 'value'}", // Single quotes
-			"{key: value}",      // Unquoted keys
+			"{key: value}",     // Unquoted keys
 			"null",
 			"undefined",
 		}

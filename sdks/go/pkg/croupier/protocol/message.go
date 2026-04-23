@@ -58,16 +58,16 @@ const (
 	MsgCancelTaskResponse = 0x030108
 
 	// ProviderService (0x05xx) - Provider session protocol
-	MsgProviderConnectRequest  = 0x050101
-	MsgProviderConnectResponse = 0x050102
+	MsgProviderConnectRequest    = 0x050101
+	MsgProviderConnectResponse   = 0x050102
 	MsgProviderHeartbeatRequest  = 0x050103
 	MsgProviderHeartbeatResponse = 0x050104
-	MsgProviderDrainRequest    = 0x050105
-	MsgProviderDrainResponse   = 0x050106
-	MsgGetTaskResultRequest    = 0x050107
-	MsgGetTaskResultResponse   = 0x050108
-	MsgListLocalRequest        = 0x050109
-	MsgListLocalResponse       = 0x05010a
+	MsgProviderDrainRequest      = 0x050105
+	MsgProviderDrainResponse     = 0x050106
+	MsgGetTaskResultRequest      = 0x050107
+	MsgGetTaskResultResponse     = 0x050108
+	MsgListLocalRequest          = 0x050109
+	MsgListLocalResponse         = 0x05010a
 
 	// Legacy aliases for backward compatibility
 	MsgRegisterLocalRequest   = MsgProviderConnectRequest

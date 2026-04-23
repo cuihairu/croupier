@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="generator" content="VuePress 2.0.0-rc.26" />
+    <style>
+      :root {
+        --vp-c-bg: #fff;
+      }
+
+      [data-theme='dark'] {
+        --vp-c-bg: #1b1b1f;
+      }
+
+      html,
+      body {
+        background-color: var(--vp-c-bg);
+      }
+    </style>
+    <script>
+      const useChoice = localStorage.getItem('vuepress-color-scheme')
+      const systemStatus =
+        'matchMedia' in window
+          ? window.matchMedia('(prefers-color-scheme: dark)').matches
+          : false
+
+      if (useChoice === 'light') {
+        document.documentElement.dataset.theme = 'light'
+      } else if (useChoice === 'dark' || systemStatus) {
+        document.documentElement.dataset.theme = 'dark'
+      }
+    </script>
+    <title>Croupier</title><meta name="description" content="分布式游戏管理系统文档">
+    <link rel="preload" href="/croupier/assets/style-CcMi4HSy.css" as="style"><link rel="stylesheet" href="/croupier/assets/style-CcMi4HSy.css">
+    <link rel="modulepreload" href="/croupier/assets/app-C_dHcy8Q.js"><link rel="modulepreload" href="/croupier/assets/404.html-DMRAtPaO.js">
+    <link rel="prefetch" href="/croupier/assets/ARCHITECTURE.html-QxTwFTF_.js" as="script"><link rel="prefetch" href="/croupier/assets/CPP_SDK_ANALYSIS.html-B2qn2kNT.js" as="script"><link rel="prefetch" href="/croupier/assets/CPP_SDK_ANALYSIS_SUMMARY.html-DSpBSLe1.js" as="script"><link rel="prefetch" href="/croupier/assets/CPP_SDK_BUILD_OPTIMIZATION.html-BgqnnIkx.js" as="script"><link rel="prefetch" href="/croupier/assets/CPP_SDK_DEEP_ANALYSIS.html-DeviIBCX.js" as="script"><link rel="prefetch" href="/croupier/assets/CPP_SDK_DIRECTORY_INDEX.html-CPY2gfVH.js" as="script"><link rel="prefetch" href="/croupier/assets/CPP_SDK_DOCS_INDEX.html-B0EQR2gd.js" as="script"><link rel="prefetch" href="/croupier/assets/CPP_SDK_QUICK_REFERENCE.html-fczUgzBk.js" as="script"><link rel="prefetch" href="/croupier/assets/FUNCTION_MANAGEMENT_ARCHITECTURE_ANALYSIS.html-BzayTWwf.js" as="script"><link rel="prefetch" href="/croupier/assets/FUNCTION_MANAGEMENT_COMPARISON.html-DMgUSMtg.js" as="script"><link rel="prefetch" href="/croupier/assets/FUNCTION_MANAGEMENT_EXECUTIVE_SUMMARY.html-VCJ_AmwR.js" as="script"><link rel="prefetch" href="/croupier/assets/FUNCTION_MANAGEMENT_QUICK_REFERENCE.html-Dq91pcAU.js" as="script"><link rel="prefetch" href="/croupier/assets/FUNCTION_MANAGEMENT_README.html-BKJHRWBG.js" as="script"><link rel="prefetch" href="/croupier/assets/HOTRELOAD_BEST_PRACTICES.html-D4H1bNR4.js" as="script"><link rel="prefetch" href="/croupier/assets/HOTRELOAD_IMPLEMENTATION_SUMMARY.html-DAz8RXAo.js" as="script"><link rel="prefetch" href="/croupier/assets/HOT_RELOAD_SOLUTIONS.html-D3XaWpAJ.js" as="script"><link rel="prefetch" href="/croupier/assets/PROTO_OPTIONS_GUIDE.html-Yr5DdOFb.js" as="script"><link rel="prefetch" href="/croupier/assets/index.html-BKT1HPIk.js" as="script"><link rel="prefetch" href="/croupier/assets/SDK_HOTRELOAD_SUPPORT.html-BNZUHaaj.js" as="script"><link rel="prefetch" href="/croupier/assets/SDK_VERSION_MANAGEMENT.html-CjKqQEbs.js" as="script"><link rel="prefetch" href="/croupier/assets/VCPKG_OPTIMIZATION.html-DxATT06W.js" as="script"><link rel="prefetch" href="/croupier/assets/VIRTUAL_OBJECT_DESIGN.html-CM_qZbrB.js" as="script"><link rel="prefetch" href="/croupier/assets/VIRTUAL_OBJECT_QUICK_REFERENCE.html-C6NYO2nZ.js" as="script"><link rel="prefetch" href="/croupier/assets/api.html-BOWwqGWz.js" as="script"><link rel="prefetch" href="/croupier/assets/approvals-storage.html-CN6CJtoC.js" as="script"><link rel="prefetch" href="/croupier/assets/assignments.html-CSYXvA9y.js" as="script"><link rel="prefetch" href="/croupier/assets/complete-game-roles-design.html-CGmrn_dQ.js" as="script"><link rel="prefetch" href="/croupier/assets/config.html-CQdoLuYf.js" as="script"><link rel="prefetch" href="/croupier/assets/control-capabilities.html-DwyVoHfV.js" as="script"><link rel="prefetch" href="/croupier/assets/deployment.html-D8AluX6C.js" as="script"><link rel="prefetch" href="/croupier/assets/directory-structure.html-BhfOpPpm.js" as="script"><link rel="prefetch" href="/croupier/assets/e2e-example.html-yzB4PpIj.js" as="script"><link rel="prefetch" href="/croupier/assets/game-roles-design.html-CtP13jek.js" as="script"><link rel="prefetch" href="/croupier/assets/generator.html-_vgrdt42.js" as="script"><link rel="prefetch" href="/croupier/assets/http-adapter.html-Bw8TaTaW.js" as="script"><link rel="prefetch" href="/croupier/assets/ingest-signing.html-chn_lrl2.js" as="script"><link rel="prefetch" href="/croupier/assets/metrics.html-D23d9rBi.js" as="script"><link rel="prefetch" href="/croupier/assets/providers-manifest.html-B-krDRwz.js" as="script"><link rel="prefetch" href="/croupier/assets/sdk-development.html-CEyPdL-M.js" as="script"><link rel="prefetch" href="/croupier/assets/security.html-Claq6c1x.js" as="script"><link rel="prefetch" href="/croupier/assets/tracing.html-3PJNE4jl.js" as="script"><link rel="prefetch" href="/croupier/assets/ui-and-views.html-vjwMgeyv.js" as="script"><link rel="prefetch" href="/croupier/assets/wire-and-di.html-CcetC4sD.js" as="script"><link rel="prefetch" href="/croupier/assets/函数管理系统重构完成总结.html-BOZczkNX.js" as="script"><link rel="prefetch" href="/croupier/assets/函数管理系统重构实施指南.html-rH5fZF7I.js" as="script"><link rel="prefetch" href="/croupier/assets/函数管理系统重构部署清单.html-DTG1w6zo.js" as="script"><link rel="prefetch" href="/croupier/assets/配置管理系统使用指南.html-gj87N2YD.js" as="script"><link rel="prefetch" href="/croupier/assets/index.html-DBHFWZfY.js" as="script"><link rel="prefetch" href="/croupier/assets/api-reference.html-CO5o-68m.js" as="script"><link rel="prefetch" href="/croupier/assets/best-practices.html-C2agDvPx.js" as="script"><link rel="prefetch" href="/croupier/assets/casual-games.html-fJnReHOZ.js" as="script"><link rel="prefetch" href="/croupier/assets/clickhouse-schema.html-BlmKvFVu.js" as="script"><link rel="prefetch" href="/croupier/assets/competitive-games.html-CwHJwm-L.js" as="script"><link rel="prefetch" href="/croupier/assets/current-system-analysis.html-CxJViN3_.js" as="script"><link rel="prefetch" href="/croupier/assets/data-collection-architecture.html-CJxK9RDJ.js" as="script"><link rel="prefetch" href="/croupier/assets/enhancement-plan.html-Jt_fWTOS.js" as="script"><link rel="prefetch" href="/croupier/assets/game-metrics-overview.html-BJ9BolXr.js" as="script"><link rel="prefetch" href="/croupier/assets/game-type-adaptation.html-BTr2s7DP.js" as="script"><link rel="prefetch" href="/croupier/assets/instrumentation-spec-cn.html-Dg-ZjQe-.js" as="script"><link rel="prefetch" href="/croupier/assets/metrics-dictionary.html-DV3E3m8B.js" as="script"><link rel="prefetch" href="/croupier/assets/opentelemetry-integration.html-Csd-bHGw.js" as="script"><link rel="prefetch" href="/croupier/assets/quick-start.html-C90ysOq3.js" as="script"><link rel="prefetch" href="/croupier/assets/rpg-games.html-BiQNC5jM.js" as="script"><link rel="prefetch" href="/croupier/assets/sdk-reference.html-CFHqPKG2.js" as="script"><link rel="prefetch" href="/croupier/assets/strategy-games.html-B9Fw_XsC.js" as="script"><link rel="prefetch" href="/croupier/assets/troubleshooting.html-D87JKJSa.js" as="script"><link rel="prefetch" href="/croupier/assets/remote-access-web.html-CkxSynTe.js" as="script"><link rel="prefetch" href="/croupier/assets/board-table-cn.html-gZjhlSD6.js" as="script"><link rel="prefetch" href="/croupier/assets/card-ccg-cn.html-N0ymAXWO.js" as="script"><link rel="prefetch" href="/croupier/assets/idle-cn.html-B5IuKYnn.js" as="script"><link rel="prefetch" href="/croupier/assets/tower-defense-cn.html-DgWLkMBA.js" as="script"><link rel="prefetch" href="/croupier/assets/CONFIG_GUIDE.html-MHZcSKyZ.js" as="script"><link rel="prefetch" href="/croupier/assets/PLUGIN_GUIDE.html-Cwt_ruZi.js" as="script"><link rel="prefetch" href="/croupier/assets/index.html-DsuJCd5J.js" as="script"><link rel="prefetch" href="/croupier/assets/VIRTUAL_OBJECT_REGISTRATION.html-7nMoDqBp.js" as="script"><link rel="prefetch" href="/croupier/assets/mermaid.esm.min-DqEENQ4y.js" as="script">
+  </head>
+  <body>
+    <div id="app"><!--[--><div class="vp-theme-container" vp-container data-v-33dc569d><main class="page" data-v-33dc569d><div vp-content data-v-33dc569d><h1 data-v-33dc569d>404</h1><blockquote data-v-33dc569d>There&#39;s nothing here.</blockquote><a class="route-link" href="/croupier/" data-v-33dc569d>Take me home</a></div></main></div><!--[--><!----><!--]--><!--]--></div>
+    <script type="module" src="/croupier/assets/app-C_dHcy8Q.js" defer></script>
+  </body>
+</html>

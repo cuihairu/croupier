@@ -185,7 +185,7 @@ func TestRealWorldUsage_EventDriven(t *testing.T) {
 		ctx := context.Background()
 
 		events := []struct {
-		 eventType string
+			eventType string
 			payload   string
 		}{
 			{"user.created", `{"userId":"123","name":"John"}`},
@@ -479,7 +479,7 @@ func TestRealWorldUsage_Monitoring(t *testing.T) {
 
 		// Different health check types
 		checks := []struct {
-			name string
+			name    string
 			payload string
 		}{
 			{"liveness", `{"type":"liveness"}`},

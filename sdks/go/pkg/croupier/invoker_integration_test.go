@@ -661,8 +661,8 @@ func TestInvoker_configuration_tests(t *testing.T) {
 
 	t.Run("Invoker with TLS configurations", func(t *testing.T) {
 		configs := []struct {
-			name     string
-			config   InvokerConfig
+			name   string
+			config InvokerConfig
 		}{
 			{
 				"CA only",
@@ -724,8 +724,8 @@ func TestInvoker_schema_operations(t *testing.T) {
 			{"type": "boolean"},
 			{"type": "array", "items": map[string]interface{}{"type": "string"}},
 			{"type": "object", "properties": map[string]interface{}{
-				"name":  map[string]interface{}{"type": "string"},
-				"age":   map[string]interface{}{"type": "number"},
+				"name":   map[string]interface{}{"type": "string"},
+				"age":    map[string]interface{}{"type": "number"},
 				"active": map[string]interface{}{"type": "boolean"},
 			}},
 			{

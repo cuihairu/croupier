@@ -870,9 +870,9 @@ func TestClient_StopNotRunning(t *testing.T) {
 	t.Parallel()
 
 	c := &client{
-		config:  &ClientConfig{},
-		stopCh:  make(chan struct{}),
-		logger:  &NoOpLogger{},
+		config: &ClientConfig{},
+		stopCh: make(chan struct{}),
+		logger: &NoOpLogger{},
 	}
 	c.running.Store(false)
 
@@ -885,9 +885,9 @@ func TestClient_StopWhileRunning(t *testing.T) {
 	t.Parallel()
 
 	c := &client{
-		config:  &ClientConfig{},
-		stopCh:  make(chan struct{}),
-		logger:  &NoOpLogger{},
+		config: &ClientConfig{},
+		stopCh: make(chan struct{}),
+		logger: &NoOpLogger{},
 	}
 	c.running.Store(true)
 
@@ -1119,13 +1119,13 @@ func TestFunctionDescriptor_Fields(t *testing.T) {
 	t.Parallel()
 
 	desc := FunctionDescriptor{
-		ID:          "test.function",
-		Version:     "1.0.0",
-		Category:    "test",
-		Risk:        "low",
-		Entity:      "player",
-		Operation:   "read",
-		Enabled:     true,
+		ID:        "test.function",
+		Version:   "1.0.0",
+		Category:  "test",
+		Risk:      "low",
+		Entity:    "player",
+		Operation: "read",
+		Enabled:   true,
 	}
 
 	if desc.ID != "test.function" {

@@ -110,10 +110,10 @@ func TestLifecycle_Initialization(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 			Reconnect: &ReconnectConfig{
-				Enabled:       true,
-				MaxAttempts:   3,
+				Enabled:        true,
+				MaxAttempts:    3,
 				InitialDelayMs: 100,
-				MaxDelayMs:    1000,
+				MaxDelayMs:     1000,
 			},
 		}
 

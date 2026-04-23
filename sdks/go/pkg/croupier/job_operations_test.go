@@ -47,10 +47,10 @@ func TestJobOperations_BasicScenarios(t *testing.T) {
 			IdempotencyKey: fmt.Sprintf("job-key-%d", time.Now().UnixNano()),
 			Timeout:        30 * 1000 * 1000 * 1000, // 30s
 			Headers: map[string]string{
-				"X-Job-Type":    "test",
-				"X-Priority":    "high",
-				"X-Attempt":     "1",
-				"X-Request-ID":  fmt.Sprintf("req-%d", time.Now().UnixNano()),
+				"X-Job-Type":   "test",
+				"X-Priority":   "high",
+				"X-Attempt":    "1",
+				"X-Request-ID": fmt.Sprintf("req-%d", time.Now().UnixNano()),
 			},
 		}
 

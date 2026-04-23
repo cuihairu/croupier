@@ -44,9 +44,9 @@ func TestHTTPInvoker_realistic_api_calls(t *testing.T) {
 		defer invoker.Close()
 
 		type Request struct {
-			UserID   string   `json:"userId"`
-			Action   string   `json:"action"`
-			Items    []string `json:"items"`
+			UserID   string            `json:"userId"`
+			Action   string            `json:"action"`
+			Items    []string          `json:"items"`
 			Metadata map[string]string `json:"metadata"`
 		}
 
@@ -229,8 +229,8 @@ func TestHTTPInvoker_retry_scenarios(t *testing.T) {
 
 		opts := InvokeOptions{
 			Retry: &RetryConfig{
-				Enabled:     true,
-				MaxAttempts: 5,
+				Enabled:        true,
+				MaxAttempts:    5,
 				InitialDelayMs: 50,
 			},
 		}

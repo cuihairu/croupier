@@ -87,7 +87,7 @@ func TestTypes_InvokeOptions(t *testing.T) {
 			Timeout:        30 * 1000 * 1000 * 1000, // 30s in nanoseconds
 			Headers: map[string]string{
 				"X-Custom-Header": "value",
-				"X-Another":      "another-value",
+				"X-Another":       "another-value",
 			},
 			Retry: &RetryConfig{
 				Enabled:     true,

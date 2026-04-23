@@ -62,7 +62,7 @@ func TestTypeSystem_PrimitiveTypes(t *testing.T) {
 			`{"value":0}`,
 			`{"value":3.14159}`,
 			`{"value":-0.001}`,
-			`{"value":1.7976931348623157e+308}`, // Max float64
+			`{"value":1.7976931348623157e+308}`,  // Max float64
 			`{"value":-1.7976931348623157e+308}`, // Min float64
 		}
 
@@ -467,7 +467,7 @@ func TestTypeSystem_BinaryData(t *testing.T) {
 
 		base64Data := []string{
 			`{"data":"SGVsbG8gV29ybGQ="}`, // "Hello World"
-			`{"data":""}`,                // Empty
+			`{"data":""}`,                 // Empty
 			`{"data":"YWJj"}`,             // "abc" (incomplete, but valid)
 		}
 
@@ -547,7 +547,7 @@ func TestTypeSystem_LargeNumbers(t *testing.T) {
 		floatBoundaries := []string{
 			`{"value":1.7976931348623157e+308}`,  // Max float64
 			`{"value":-1.7976931348623157e+308}`, // Min float64
-			`{"value":5e-324}`,                  // Min positive float64
+			`{"value":5e-324}`,                   // Min positive float64
 			`{"value":0.0}`,
 		}
 
@@ -685,8 +685,8 @@ func TestTypeSystem_TypeValidationRuntime(t *testing.T) {
 		schema := map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
-				"name":  map[string]string{"type": "string"},
-				"age":   map[string]string{"type": "integer"},
+				"name":   map[string]string{"type": "string"},
+				"age":    map[string]string{"type": "integer"},
 				"active": map[string]string{"type": "boolean"},
 			},
 			"required": []string{"name"},

@@ -141,12 +141,12 @@ func TestRetryConfiguration_variations(t *testing.T) {
 
 		for _, cfg := range delayConfigs {
 			config := &RetryConfig{
-				Enabled:        true,
-				MaxAttempts:    3,
-				InitialDelayMs: cfg.initial,
-				MaxDelayMs:     cfg.max,
+				Enabled:           true,
+				MaxAttempts:       3,
+				InitialDelayMs:    cfg.initial,
+				MaxDelayMs:        cfg.max,
 				BackoffMultiplier: 2.0,
-				JitterFactor:   0.1,
+				JitterFactor:      0.1,
 			}
 
 			invoker := NewInvoker(&InvokerConfig{
@@ -224,12 +224,12 @@ func TestReconnectConfiguration_variations(t *testing.T) {
 
 		for _, cfg := range delayConfigs {
 			config := &ReconnectConfig{
-				Enabled:        true,
-				MaxAttempts:    5,
-				InitialDelayMs: cfg.initial,
-				MaxDelayMs:     cfg.max,
+				Enabled:           true,
+				MaxAttempts:       5,
+				InitialDelayMs:    cfg.initial,
+				MaxDelayMs:        cfg.max,
 				BackoffMultiplier: 2.0,
-				JitterFactor:   0.1,
+				JitterFactor:      0.1,
 			}
 
 			invoker := NewInvoker(&InvokerConfig{
@@ -265,7 +265,7 @@ func TestReconnectConfiguration_variations(t *testing.T) {
 // TestInvoker_withBothRetryAndReconnect tests interaction between retry and reconnect
 func TestInvoker_withBothRetryAndReconnect(t *testing.T) {
 	invoker := NewInvoker(&InvokerConfig{
-		Address:   "localhost:8080",
+		Address: "localhost:8080",
 		Retry: &RetryConfig{
 			Enabled:     true,
 			MaxAttempts: 3,
@@ -402,12 +402,12 @@ func TestDefaultConfigurations(t *testing.T) {
 func TestConfigurationEdgeCases(t *testing.T) {
 	t.Run("zero values in retry config", func(t *testing.T) {
 		config := &RetryConfig{
-			Enabled:        true,
-			MaxAttempts:    0,      // 0 = unlimited
-			InitialDelayMs: 0,      // 0 is valid
-			MaxDelayMs:     0,      // 0 is valid
-			BackoffMultiplier: 1.0,  // 1.0 is valid
-			JitterFactor:   0.0,   // 0.0 is valid
+			Enabled:           true,
+			MaxAttempts:       0,   // 0 = unlimited
+			InitialDelayMs:    0,   // 0 is valid
+			MaxDelayMs:        0,   // 0 is valid
+			BackoffMultiplier: 1.0, // 1.0 is valid
+			JitterFactor:      0.0, // 0.0 is valid
 		}
 
 		invoker := NewInvoker(&InvokerConfig{
@@ -423,12 +423,12 @@ func TestConfigurationEdgeCases(t *testing.T) {
 
 	t.Run("zero values in reconnect config", func(t *testing.T) {
 		config := &ReconnectConfig{
-			Enabled:        true,
-			MaxAttempts:    0,      // 0 = unlimited
-			InitialDelayMs: 0,      // 0 is valid
-			MaxDelayMs:     0,      // 0 is valid
-			BackoffMultiplier: 1.0,  // 1.0 is valid
-			JitterFactor:   0.0,   // 0.0 is valid
+			Enabled:           true,
+			MaxAttempts:       0,   // 0 = unlimited
+			InitialDelayMs:    0,   // 0 is valid
+			MaxDelayMs:        0,   // 0 is valid
+			BackoffMultiplier: 1.0, // 1.0 is valid
+			JitterFactor:      0.0, // 0.0 is valid
 		}
 
 		invoker := NewInvoker(&InvokerConfig{

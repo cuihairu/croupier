@@ -40,7 +40,7 @@ func TestInvoker_tlsConfigTests(t *testing.T) {
 		invoker := NewInvoker(&InvokerConfig{
 			Address:  "localhost:8080",
 			CertFile: "/path/to/cert.pem",
-			KeyFile:   "/path/to/key.pem",
+			KeyFile:  "/path/to/key.pem",
 		})
 
 		ctx := context.Background()
@@ -268,9 +268,9 @@ func TestInvoker_invokeCombinations(t *testing.T) {
 			IdempotencyKey: "test-key-12345",
 			Timeout:        30 * time.Second,
 			Headers: map[string]string{
-				"X-Request-ID":  "req-123",
+				"X-Request-ID":     "req-123",
 				"X-Correlation-ID": "corr-456",
-				"X-User-ID":     "user-789",
+				"X-User-ID":        "user-789",
 			},
 			Retry: &RetryConfig{
 				Enabled:     true,

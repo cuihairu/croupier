@@ -194,9 +194,9 @@ func TestSecurityValidation_HeaderSecurity(t *testing.T) {
 
 		specialHeaders := map[string]string{
 			"X-Control-Chars": "\x00\x01\x02\x03",
-			"X-Unicode": "测试中文🎉",
-			"X-Quotes":       `"value"`,
-			"X-Null":         "value\x00",
+			"X-Unicode":       "测试中文🎉",
+			"X-Quotes":        `"value"`,
+			"X-Null":          "value\x00",
 		}
 
 		opts := InvokeOptions{Headers: specialHeaders}
@@ -427,7 +427,7 @@ func TestErrorRecovery_StateRecovery(t *testing.T) {
 
 		// Try to set invalid schema
 		schema := map[string]interface{}{
-			"type":     "invalid",
+			"type":       "invalid",
 			"properties": map[string]interface{}{},
 		}
 		_ = invoker.SetSchema("test.function", schema)
@@ -533,10 +533,10 @@ func TestSecurityValidation_ResourceLimiting(t *testing.T) {
 
 		// Test with various payload sizes
 		sizes := []int{
-			1024,       // 1 KB
-			10240,      // 10 KB
-			102400,     // 100 KB
-			1024000,    // 1 MB
+			1024,    // 1 KB
+			10240,   // 10 KB
+			102400,  // 100 KB
+			1024000, // 1 MB
 		}
 
 		for _, size := range sizes {
@@ -570,7 +570,7 @@ func TestSecurityValidation_AuthorizationTests(t *testing.T) {
 				"with valid token",
 				map[string]string{
 					"Authorization": "Bearer valid-token-12345",
-					"X-API-Key":       "api-key-67890",
+					"X-API-Key":     "api-key-67890",
 				},
 			},
 			{
@@ -587,7 +587,7 @@ func TestSecurityValidation_AuthorizationTests(t *testing.T) {
 				"with malformed auth",
 				map[string]string{
 					"Authorization": "Bearer",
-					"X-API-Key":       "",
+					"X-API-Key":     "",
 				},
 			},
 		}

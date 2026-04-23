@@ -212,13 +212,13 @@ func TestEdgeCases_specialCharacters(t *testing.T) {
 		})
 
 		specialHeaders := map[string]string{
-			"X-Special":      "value with \n newlines \t tabs",
-			"X-Unicode":      "世界 🌍 Привет",
-			"X-URL-Encoded":  "name=value&foo=bar",
-			"X-JSON":         `{"key":"value"}`,
-			"X-Empty-Value":  "",
-			"X-Space-Only":   "   ",
-			"X-With-Quotes":  `"quoted"`,
+			"X-Special":     "value with \n newlines \t tabs",
+			"X-Unicode":     "世界 🌍 Привет",
+			"X-URL-Encoded": "name=value&foo=bar",
+			"X-JSON":        `{"key":"value"}`,
+			"X-Empty-Value": "",
+			"X-Space-Only":  "   ",
+			"X-With-Quotes": `"quoted"`,
 		}
 
 		options := InvokeOptions{
@@ -285,12 +285,12 @@ func TestEdgeCases_invalidInputs(t *testing.T) {
 		})
 
 		invalidSchemas := []map[string]interface{}{
-			{"type": 123},                           // Wrong type for type field
-			{"type": "invalid"},                     // Invalid type
-			{"properties": "not an object"},        // Wrong type for properties
-			{"additionalProperties": "not bool"},  // Wrong type
-			{"required": 123},                       // Wrong type for required
-			{"items": "not an object"},              // Wrong type for items
+			{"type": 123},                        // Wrong type for type field
+			{"type": "invalid"},                  // Invalid type
+			{"properties": "not an object"},      // Wrong type for properties
+			{"additionalProperties": "not bool"}, // Wrong type
+			{"required": 123},                    // Wrong type for required
+			{"items": "not an object"},           // Wrong type for items
 		}
 
 		for i, schema := range invalidSchemas {

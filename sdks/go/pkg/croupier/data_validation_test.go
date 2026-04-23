@@ -62,7 +62,7 @@ func TestDataValidation_InputValidation(t *testing.T) {
 			"}{",
 			"{invalid}",
 			"{'key': 'value'}", // Single quotes instead of double
-			"{key: value}",      // Unquoted keys
+			"{key: value}",     // Unquoted keys
 			"{{\"key\": \"value\"}",
 			"{\"key\": \"value\"",
 			"not json at all",
@@ -117,10 +117,10 @@ func TestDataValidation_InputValidation(t *testing.T) {
 		ctx := context.Background()
 
 		sizes := []int{
-			1024,          // 1 KB
-			10 * 1024,     // 10 KB
-			100 * 1024,    // 100 KB
-			1024 * 1024,   // 1 MB
+			1024,        // 1 KB
+			10 * 1024,   // 10 KB
+			100 * 1024,  // 100 KB
+			1024 * 1024, // 1 MB
 		}
 
 		for _, size := range sizes {

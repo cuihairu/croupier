@@ -432,10 +432,10 @@ func TestBoundaryValues_SpecialCharacters(t *testing.T) {
 			"test:function",
 			"test:function:v1",
 			"test.function/sub.function",
-			"测试.函数",  // Chinese
-			"функция",    // Russian
-			"関数",       // Japanese
-			"🎉.emoji",   // Emoji
+			"测试.函数",   // Chinese
+			"функция", // Russian
+			"関数",      // Japanese
+			"🎉.emoji", // Emoji
 		}
 
 		for _, functionID := range functionIDs {
@@ -589,7 +589,7 @@ func TestBoundaryValues_Combinatorial(t *testing.T) {
 func TestBoundaryValues_BooleanAndNil(t *testing.T) {
 	t.Run("Boolean flag combinations", func(t *testing.T) {
 		config := &InvokerConfig{
-			Address: "http://localhost:19090",
+			Address:  "http://localhost:19090",
 			Insecure: true,
 		}
 

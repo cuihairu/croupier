@@ -100,7 +100,7 @@ func TestSchemaOperations_ComplexSchemas(t *testing.T) {
 					"type": "number",
 				},
 				"email": map[string]interface{}{
-					"type": "string",
+					"type":   "string",
 					"format": "email",
 				},
 			},
@@ -217,7 +217,7 @@ func TestSchemaOperations_ValidationFeatures(t *testing.T) {
 		defer invoker.Close()
 
 		schema := map[string]interface{}{
-			"type": "number",
+			"type":    "number",
 			"minimum": 0,
 			"maximum": 100,
 		}
@@ -240,7 +240,7 @@ func TestSchemaOperations_ValidationFeatures(t *testing.T) {
 		defer invoker.Close()
 
 		schema := map[string]interface{}{
-			"type": "string",
+			"type":    "string",
 			"pattern": "^[a-zA-Z0-9]+$",
 		}
 
@@ -262,7 +262,7 @@ func TestSchemaOperations_ValidationFeatures(t *testing.T) {
 		defer invoker.Close()
 
 		schema := map[string]interface{}{
-			"type": "string",
+			"type":      "string",
 			"minLength": 1,
 			"maxLength": 100,
 		}
@@ -306,7 +306,7 @@ func TestSchemaOperations_MultipleSchemas(t *testing.T) {
 			{
 				"test.func4",
 				map[string]interface{}{
-					"type": "array",
+					"type":  "array",
 					"items": map[string]interface{}{"type": "string"},
 				},
 			},

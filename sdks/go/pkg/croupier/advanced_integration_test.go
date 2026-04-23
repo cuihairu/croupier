@@ -361,7 +361,7 @@ func TestAdvancedIntegration_ErrorPropagation(t *testing.T) {
 		// Test various error scenarios
 		scenarios := []struct {
 			functionID string
-			payload     string
+			payload    string
 		}{
 			{"nonexistent.function", "{}"},
 			{"test.function", "invalid json"},

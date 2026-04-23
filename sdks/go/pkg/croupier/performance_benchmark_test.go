@@ -338,7 +338,7 @@ func TestPerformanceBenchmark_ScalabilityTests(t *testing.T) {
 
 		ctx := context.Background()
 
-		sizes := []struct{
+		sizes := []struct {
 			name string
 			size int
 		}{

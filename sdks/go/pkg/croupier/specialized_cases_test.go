@@ -232,9 +232,9 @@ func TestInvokeOptions_combinations(t *testing.T) {
 			IdempotencyKey: "unique-key-12345",
 			Timeout:        30 * time.Second,
 			Headers: map[string]string{
-				"X-Request-ID":  "req-123",
+				"X-Request-ID":     "req-123",
 				"X-Correlation-ID": "corr-456",
-				"X-User-ID":     "user-789",
+				"X-User-ID":        "user-789",
 			},
 			Retry: &RetryConfig{
 				Enabled:     true,
@@ -351,9 +351,9 @@ func TestCategory_and_Risk(t *testing.T) {
 				desc := FunctionDescriptor{
 					ID:       "test.func",
 					Version:  "1.0.0",
-					Category:  cat,
-					Risk:      risk,
-					Enabled:   true,
+					Category: cat,
+					Risk:     risk,
+					Enabled:  true,
 				}
 
 				if desc.Category != cat || desc.Risk != risk {
@@ -391,13 +391,13 @@ func TestEnabled_flag(t *testing.T) {
 func TestLocalFunctionDescriptor_tags(t *testing.T) {
 	t.Run("empty vs nil tags", func(t *testing.T) {
 		emptyTags := LocalFunctionDescriptor{
-			ID:    "test.func",
-			Tags:  []string{},
+			ID:   "test.func",
+			Tags: []string{},
 		}
 
 		nilTags := LocalFunctionDescriptor{
-			ID:    "test.func",
-			Tags:  nil,
+			ID:   "test.func",
+			Tags: nil,
 		}
 
 		if emptyTags.Tags == nil {

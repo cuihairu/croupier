@@ -1,0 +1,666 @@
+<template><div><h1 id="croupier-系统函数管理架构分析报告" tabindex="-1"><a class="header-anchor" href="#croupier-系统函数管理架构分析报告"><span>Croupier 系统函数管理架构分析报告</span></a></h1>
+<h2 id="执行摘要" tabindex="-1"><a class="header-anchor" href="#执行摘要"><span>执行摘要</span></a></h2>
+<p>Croupier 的函数管理系统采用了<strong>分布式、描述符驱动</strong>的架构，支持多渠道的函数发现、注册、分配和调用。当前实现存在<strong>菜单结构分散</strong>、<strong>功能复用不足</strong>、<strong>用户体验需要统一</strong>等问题。</p>
+<hr>
+<h2 id="一、现状分析" tabindex="-1"><a class="header-anchor" href="#一、现状分析"><span>一、现状分析</span></a></h2>
+<h3 id="_1-1-函数管理相关页面盘点" tabindex="-1"><a class="header-anchor" href="#_1-1-函数管理相关页面盘点"><span>1.1 函数管理相关页面盘点</span></a></h3>
+<table>
+<thead>
+<tr>
+<th>页面</th>
+<th>路由</th>
+<th>功能</th>
+<th>权限</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GM Functions</strong></td>
+<td><code v-pre>/game/functions</code></td>
+<td>列出所有函数描述符，支持参数填写、函数调用和任务管理</td>
+<td><code v-pre>canFunctionsRead</code></td>
+</tr>
+<tr>
+<td><strong>Registry</strong></td>
+<td><code v-pre>/operations/registry</code></td>
+<td>查看已注册的 Agent、函数、分配关系、覆盖率</td>
+<td><code v-pre>canRegistryRead</code></td>
+</tr>
+<tr>
+<td><strong>Assignments</strong></td>
+<td><code v-pre>/game/assignments</code></td>
+<td>管理游戏/环境下分配的函数列表</td>
+<td><code v-pre>canAssignmentsRead</code></td>
+</tr>
+<tr>
+<td><strong>Packs</strong></td>
+<td><code v-pre>/game/packs</code></td>
+<td>查看函数包清单、导出/导入、重新加载</td>
+<td><code v-pre>canPacksRead</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="_1-2-菜单结构现状" tabindex="-1"><a class="header-anchor" href="#_1-2-菜单结构现状"><span>1.2 菜单结构现状</span></a></h3>
+<div class="language-text line-numbers-mode" data-highlighter="prismjs" data-ext="text"><pre v-pre><code class="language-text"><span class="line">游戏管理 (GameManagement)</span>
+<span class="line">├── 游戏环境 (GamesEnvs)</span>
+<span class="line">├── 实体管理 (Entities)</span>
+<span class="line">├── 函数管理 (GmFunctions) ← /game/functions</span>
+<span class="line">├── 功能分配 (Assignments)  ← /game/assignments</span>
+<span class="line">└── 功能包管理 (Packs)      ← /game/packs</span>
+<span class="line"></span>
+<span class="line">游戏运营 (Operations)</span>
+<span class="line">├── 审批管理 (Approvals)</span>
+<span class="line">├── 审计日志 (Audit)</span>
+<span class="line">├── 操作日志 (OperationLogs)</span>
+<span class="line">├── 服务注册表 (Registry)    ← /operations/registry</span>
+<span class="line">└── 服务列表 (Servers)</span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p><strong>问题：</strong></p>
+<ul>
+<li>函数相关的管理功能分散在&quot;游戏管理&quot;和&quot;游戏运营&quot;两个不同菜单下</li>
+<li>Registry 在&quot;运营&quot;菜单，但与函数分配、包管理紧密相关</li>
+<li>缺乏统一的&quot;函数管理&quot;顶级菜单</li>
+</ul>
+<h3 id="_1-3-功能页面深度分析" tabindex="-1"><a class="header-anchor" href="#_1-3-功能页面深度分析"><span>1.3 功能页面深度分析</span></a></h3>
+<h4 id="gmfunctions-game-functions" tabindex="-1"><a class="header-anchor" href="#gmfunctions-game-functions"><span>GmFunctions (<code v-pre>/game/functions</code>)</span></a></h4>
+<p><strong>核心功能：</strong></p>
+<ul>
+<li>列出所有函数描述符 (<code v-pre>listDescriptors()</code>)</li>
+<li>根据游戏/环境过滤函数（调用 <code v-pre>fetchAssignments()</code>)</li>
+<li>支持3种表单渲染模式：Enhanced UI、Form-Render、Legacy</li>
+<li>支持4种路由策略：lb、broadcast、targeted、hash</li>
+<li>实时函数实例查询 (<code v-pre>listFunctionInstances()</code>)</li>
+<li>同步调用 + 异步任务支持</li>
+<li>输出视图渲染（支持自定义 renderer 插件）</li>
+</ul>
+<p><strong>问题：</strong></p>
+<ul>
+<li>单页面承载功能过多，UI 复杂度高</li>
+<li>缺少批量操作、搜索、分类等高级功能</li>
+<li>没有函数版本管理或历史对比</li>
+<li>输出视图插件系统复杂度高，文档缺失</li>
+</ul>
+<h4 id="registry-operations-registry" tabindex="-1"><a class="header-anchor" href="#registry-operations-registry"><span>Registry (<code v-pre>/operations/registry</code>)</span></a></h4>
+<p><strong>核心功能：</strong></p>
+<ul>
+<li>显示已注册 Agent（按游戏/环境过滤）</li>
+<li>函数覆盖率分析（已覆盖 vs 未覆盖 vs 部分覆盖）</li>
+<li>支持按前缀分组、多种排序方式</li>
+<li>CSV 导出功能（支持细粒度导出）</li>
+</ul>
+<p><strong>问题：</strong></p>
+<ul>
+<li>菜单位置不直观</li>
+<li>没有与函数调用页面的联动</li>
+<li>数据展示主要是表格，缺乏可视化</li>
+</ul>
+<h4 id="assignments-game-assignments" tabindex="-1"><a class="header-anchor" href="#assignments-game-assignments"><span>Assignments (<code v-pre>/game/assignments</code>)</span></a></h4>
+<p><strong>核心功能：</strong></p>
+<ul>
+<li>为游戏/环境配置允许的函数列表</li>
+<li>空列表表示允许所有函数</li>
+</ul>
+<p><strong>问题：</strong></p>
+<ul>
+<li>仅支持白名单机制，没有细粒度权限控制</li>
+<li>没有与函数描述符的强绑定</li>
+<li>缺乏变更历史记录</li>
+</ul>
+<h4 id="packs-game-packs" tabindex="-1"><a class="header-anchor" href="#packs-game-packs"><span>Packs (<code v-pre>/game/packs</code>)</span></a></h4>
+<p><strong>核心功能：</strong></p>
+<ul>
+<li>显示函数包清单（manifest）</li>
+<li>导出/导入函数包（tar.gz 格式）</li>
+<li>重新加载包内容</li>
+<li>显示 ETag 用于版本管理</li>
+</ul>
+<p><strong>问题：</strong></p>
+<ul>
+<li>功能简单，主要是展示和导出</li>
+<li>没有包内容详情视图（如包内包含的函数列表）</li>
+<li>没有版本历史管理</li>
+</ul>
+<hr>
+<h2 id="二、后端-api-分析" tabindex="-1"><a class="header-anchor" href="#二、后端-api-分析"><span>二、后端 API 分析</span></a></h2>
+<h3 id="_2-1-核心-api-端点" tabindex="-1"><a class="header-anchor" href="#_2-1-核心-api-端点"><span>2.1 核心 API 端点</span></a></h3>
+<table>
+<thead>
+<tr>
+<th>端点</th>
+<th>方法</th>
+<th>功能</th>
+<th>返回值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code v-pre>/api/descriptors</code></td>
+<td>GET</td>
+<td>获取函数描述符列表</td>
+<td><code v-pre>FunctionDescriptor[]</code></td>
+</tr>
+<tr>
+<td><code v-pre>/api/descriptors?detailed=true</code></td>
+<td>GET</td>
+<td>获取详细信息（包含 provider manifests）</td>
+<td>组合对象</td>
+</tr>
+<tr>
+<td><code v-pre>/api/invoke</code></td>
+<td>POST</td>
+<td>同步调用函数</td>
+<td>函数返回值</td>
+</tr>
+<tr>
+<td><code v-pre>/api/start_job</code></td>
+<td>POST</td>
+<td>异步启动任务</td>
+<td><code v-pre>{ job_id }</code></td>
+</tr>
+<tr>
+<td><code v-pre>/api/cancel_job</code></td>
+<td>POST</td>
+<td>取消任务</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code v-pre>/api/stream_job?id={job_id}</code></td>
+<td>GET/SSE</td>
+<td>流式获取任务事件</td>
+<td>事件流</td>
+</tr>
+<tr>
+<td><code v-pre>/api/function_instances</code></td>
+<td>GET</td>
+<td>获取函数实例列表</td>
+<td><code v-pre>{ instances }</code></td>
+</tr>
+<tr>
+<td><code v-pre>/api/registry</code></td>
+<td>GET</td>
+<td>获取注册表（Agent、函数、覆盖率）</td>
+<td>注册表对象</td>
+</tr>
+<tr>
+<td><code v-pre>/api/assignments</code></td>
+<td>GET/POST</td>
+<td>获取/设置分配关系</td>
+<td>分配对象</td>
+</tr>
+<tr>
+<td><code v-pre>/api/packs/list</code></td>
+<td>GET</td>
+<td>列出函数包清单</td>
+<td>清单对象</td>
+</tr>
+<tr>
+<td><code v-pre>/api/packs/export</code></td>
+<td>GET</td>
+<td>导出函数包</td>
+<td>tar.gz 文件</td>
+</tr>
+<tr>
+<td><code v-pre>/api/packs/import</code></td>
+<td>POST</td>
+<td>导入函数包</td>
+<td>-</td>
+</tr>
+<tr>
+<td><code v-pre>/api/packs/reload</code></td>
+<td>POST</td>
+<td>重新加载函数包</td>
+<td>-</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_2-2-权限控制" tabindex="-1"><a class="header-anchor" href="#_2-2-权限控制"><span>2.2 权限控制</span></a></h3>
+<div class="language-text line-numbers-mode" data-highlighter="prismjs" data-ext="text"><pre v-pre><code class="language-text"><span class="line">函数相关权限：</span>
+<span class="line">├── `function:&lt;function_id>:invoke`    (调用特定函数)</span>
+<span class="line">├── functions:read / functions:*       (读取函数列表)</span>
+<span class="line">├── registry:read                      (查看注册表)</span>
+<span class="line">├── assignments:read / write           (管理分配)</span>
+<span class="line">├── packs:read / reload / export       (包管理)</span>
+<span class="line">└── packs:export                       (导出包)</span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><hr>
+<h2 id="三、数据流分析" tabindex="-1"><a class="header-anchor" href="#三、数据流分析"><span>三、数据流分析</span></a></h2>
+<h3 id="_3-1-函数发现流程" tabindex="-1"><a class="header-anchor" href="#_3-1-函数发现流程"><span>3.1 函数发现流程</span></a></h3>
+<div class="language-text line-numbers-mode" data-highlighter="prismjs" data-ext="text"><pre v-pre><code class="language-text"><span class="line">1. Admin 创建游戏/环境</span>
+<span class="line">   ↓</span>
+<span class="line">2. Agent 注册函数到 Server</span>
+<span class="line">   (gRPC: ControlService.RegisterFunction)</span>
+<span class="line">   ↓</span>
+<span class="line">3. Server 维护 Registry</span>
+<span class="line">   (存储 Agent -> Function 映射)</span>
+<span class="line">   ↓</span>
+<span class="line">4. Web UI 查询</span>
+<span class="line">   GET /api/descriptors</span>
+<span class="line">   GET /api/registry</span>
+<span class="line">   GET /api/assignments</span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="_3-2-函数调用流程" tabindex="-1"><a class="header-anchor" href="#_3-2-函数调用流程"><span>3.2 函数调用流程</span></a></h3>
+<div class="language-text line-numbers-mode" data-highlighter="prismjs" data-ext="text"><pre v-pre><code class="language-text"><span class="line">web 用户填表 </span>
+<span class="line">   ↓</span>
+<span class="line">POST /api/invoke 或 POST /api/start_job</span>
+<span class="line">   ↓</span>
+<span class="line">Server 权限检查 (RBAC)</span>
+<span class="line">   ↓</span>
+<span class="line">Server 负载均衡器选择 Agent</span>
+<span class="line">   ↓</span>
+<span class="line">gRPC 调用 Agent.Invoke</span>
+<span class="line">   ↓</span>
+<span class="line">Agent 调用游戏服务函数</span>
+<span class="line">   ↓</span>
+<span class="line">返回结果 / 流式任务事件</span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="_3-3-分配管理流程" tabindex="-1"><a class="header-anchor" href="#_3-3-分配管理流程"><span>3.3 分配管理流程</span></a></h3>
+<div class="language-text line-numbers-mode" data-highlighter="prismjs" data-ext="text"><pre v-pre><code class="language-text"><span class="line">Web 选择游戏 + 环境 + 函数列表</span>
+<span class="line">   ↓</span>
+<span class="line">POST /api/assignments</span>
+<span class="line">   ↓</span>
+<span class="line">Server 保存白名单到存储</span>
+<span class="line">   ↓</span>
+<span class="line">GmFunctions 页面过滤展示</span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><hr>
+<h2 id="四、现存问题清单" tabindex="-1"><a class="header-anchor" href="#四、现存问题清单"><span>四、现存问题清单</span></a></h2>
+<h3 id="_4-1-架构层面" tabindex="-1"><a class="header-anchor" href="#_4-1-架构层面"><span>4.1 架构层面</span></a></h3>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>严重程度</th>
+<th>影响范围</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>菜单结构分散</strong></td>
+<td>高</td>
+<td>用户导航、功能发现</td>
+</tr>
+<tr>
+<td><strong>页面承载过多</strong></td>
+<td>中</td>
+<td>GmFunctions 页面 UI 复杂</td>
+</tr>
+<tr>
+<td><strong>权限模型过粗</strong></td>
+<td>中</td>
+<td>Assignments 只支持白名单</td>
+</tr>
+<tr>
+<td><strong>缺乏版本管理</strong></td>
+<td>低</td>
+<td>函数版本追踪</td>
+</tr>
+<tr>
+<td><strong>缺乏关联视图</strong></td>
+<td>中</td>
+<td>分散的管理界面</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_4-2-功能层面" tabindex="-1"><a class="header-anchor" href="#_4-2-功能层面"><span>4.2 功能层面</span></a></h3>
+<table>
+<thead>
+<tr>
+<th>页面</th>
+<th>问题</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GmFunctions</td>
+<td>搜索/分类缺失、表单编辑器复杂、没有调用历史</td>
+<td>P1</td>
+</tr>
+<tr>
+<td>Registry</td>
+<td>菜单位置不直观、缺乏与调用的联动</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>Assignments</td>
+<td>权限粒度太粗、缺乏变更记录</td>
+<td>P2</td>
+</tr>
+<tr>
+<td>Packs</td>
+<td>功能简单、缺乏包内容详情视图</td>
+<td>P3</td>
+</tr>
+</tbody>
+</table>
+<h3 id="_4-3-ux-层面" tabindex="-1"><a class="header-anchor" href="#_4-3-ux-层面"><span>4.3 UX 层面</span></a></h3>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>表现</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>认知成本高</strong></td>
+<td>用户需要在多个菜单间切换</td>
+</tr>
+<tr>
+<td><strong>功能发现困难</strong></td>
+<td>没有统一的函数管理入口</td>
+</tr>
+<tr>
+<td><strong>缺乏批量操作</strong></td>
+<td>无法批量启用/禁用函数</td>
+</tr>
+<tr>
+<td><strong>缺乏搜索</strong></td>
+<td>函数列表无过滤能力</td>
+</tr>
+<tr>
+<td><strong>缺乏操作反馈</strong></td>
+<td>调用历史、修改记录不清晰</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="五、改进建议" tabindex="-1"><a class="header-anchor" href="#五、改进建议"><span>五、改进建议</span></a></h2>
+<h3 id="_5-1-菜单结构优化" tabindex="-1"><a class="header-anchor" href="#_5-1-菜单结构优化"><span>5.1 菜单结构优化</span></a></h3>
+<p><strong>建议方案：统一的&quot;函数管理&quot;菜单</strong></p>
+<div class="language-text line-numbers-mode" data-highlighter="prismjs" data-ext="text"><pre v-pre><code class="language-text"><span class="line">函数管理 (FunctionManagement) [新增]</span>
+<span class="line">├── 函数目录 (Catalog)           [新页面，聚合函数列表和描述]</span>
+<span class="line">│   ├── 按分类浏览</span>
+<span class="line">│   ├── 搜索和过滤</span>
+<span class="line">│   ├── 版本管理</span>
+<span class="line">│   └── 权限管理</span>
+<span class="line">├── 函数调用 (Invoke)            [重构 GmFunctions]</span>
+<span class="line">│   ├── 快速调用（简化 UI）</span>
+<span class="line">│   ├── 高级调用（路由策略）</span>
+<span class="line">│   └── 调用历史</span>
+<span class="line">├── 函数分配 (Assignments)       [保留，增强]</span>
+<span class="line">├── 实例管理 (Instances)         [从 Registry 拆分]</span>
+<span class="line">│   ├── Agent 管理</span>
+<span class="line">│   ├── 覆盖率分析</span>
+<span class="line">│   └── 健康检查</span>
+<span class="line">└── 函数包 (Packs)               [保留，增强]</span>
+<span class="line">    ├── 包清单</span>
+<span class="line">    ├── 导入/导出</span>
+<span class="line">    └── 包内容详情</span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><p><strong>优势：</strong></p>
+<ul>
+<li>集中化：所有函数操作都在一个菜单下</li>
+<li>清晰化：按功能分页面，而非按对象</li>
+<li>可扩展：易于添加版本管理、权限控制等功能</li>
+</ul>
+<h3 id="_5-2-页面重构方案" tabindex="-1"><a class="header-anchor" href="#_5-2-页面重构方案"><span>5.2 页面重构方案</span></a></h3>
+<h4 id="_5-2-1-函数目录页面-新增" tabindex="-1"><a class="header-anchor" href="#_5-2-1-函数目录页面-新增"><span>5.2.1 函数目录页面（新增）</span></a></h4>
+<div class="language-typescript line-numbers-mode" data-highlighter="prismjs" data-ext="ts"><pre v-pre><code class="language-typescript"><span class="line"><span class="token comment">// 功能</span></span>
+<span class="line"><span class="token operator">-</span> <span class="token function">全文搜索</span> <span class="token punctuation">(</span>by name<span class="token punctuation">,</span> description<span class="token punctuation">,</span> category<span class="token punctuation">)</span></span>
+<span class="line"><span class="token operator">-</span> <span class="token function">高级过滤</span> <span class="token punctuation">(</span>category<span class="token punctuation">,</span> version<span class="token punctuation">,</span> assigned_to_game<span class="token punctuation">,</span> health_status<span class="token punctuation">)</span></span>
+<span class="line"><span class="token operator">-</span> 列表<span class="token operator">/</span>卡片<span class="token operator">/</span>详情三视图切换</span>
+<span class="line"><span class="token operator">-</span> <span class="token function">批量操作</span> <span class="token punctuation">(</span>enable<span class="token operator">/</span>disable <span class="token keyword">for</span> game<span class="token punctuation">,</span> <span class="token keyword">export</span><span class="token punctuation">)</span></span>
+<span class="line"><span class="token operator">-</span> 版本选择和对比</span>
+<span class="line"></span>
+<span class="line"><span class="token comment">// 数据结构扩展</span></span>
+<span class="line"><span class="token keyword">interface</span> <span class="token class-name">FunctionDescriptor</span> <span class="token punctuation">{</span></span>
+<span class="line">  id<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">  version<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">  category<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>                <span class="token comment">// 分类</span></span>
+<span class="line">  description<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>            <span class="token comment">// 描述</span></span>
+<span class="line">  params<span class="token operator">?</span><span class="token operator">:</span> JSONSchema<span class="token punctuation">;</span></span>
+<span class="line">  auth<span class="token operator">?</span><span class="token operator">:</span> Record<span class="token operator">&lt;</span><span class="token builtin">string</span><span class="token punctuation">,</span> <span class="token builtin">any</span><span class="token operator">></span><span class="token punctuation">;</span></span>
+<span class="line">  outputs<span class="token operator">?</span><span class="token operator">:</span> ViewDefinitions<span class="token punctuation">;</span></span>
+<span class="line">  metadata<span class="token operator">?</span><span class="token operator">:</span> <span class="token punctuation">{</span></span>
+<span class="line">    created_at<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">    created_by<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">    updated_at<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">    updated_by<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">    tags<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>               <span class="token comment">// 标签</span></span>
+<span class="line">    deprecated<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">boolean</span><span class="token punctuation">;</span>          <span class="token comment">// 弃用标志</span></span>
+<span class="line">  <span class="token punctuation">}</span><span class="token punctuation">;</span></span>
+<span class="line"><span class="token punctuation">}</span></span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h4 id="_5-2-2-函数调用页面-重构" tabindex="-1"><a class="header-anchor" href="#_5-2-2-函数调用页面-重构"><span>5.2.2 函数调用页面（重构）</span></a></h4>
+<p><strong>当前问题：</strong> 承载了函数列表、选择、表单渲染、调用、历史等多个功能</p>
+<p><strong>改进方向：</strong></p>
+<div class="language-text line-numbers-mode" data-highlighter="prismjs" data-ext="text"><pre v-pre><code class="language-text"><span class="line">页面分离模式：</span>
+<span class="line">├── 快速调用版（简化）</span>
+<span class="line">│  └── 函数选择 → 参数填写 → 调用 → 结果展示</span>
+<span class="line">├── 高级调用版（复杂）</span>
+<span class="line">│  └── + 路由策略、实例选择、幂等性 key、历史记录</span>
+<span class="line">└── API 接口增强</span>
+<span class="line">   └── 支持 tab 式/历史记录/对比</span>
+<span class="line"></span>
+<span class="line">// 新增 API 端点</span>
+<span class="line">GET /api/function_calls?game_id=...&amp;function_id=...&amp;limit=20</span>
+<span class="line">  返回: { calls: [ { id, timestamp, user, params, result, status } ] }</span>
+<span class="line"></span>
+<span class="line">GET /api/function_call/{id}</span>
+<span class="line">  返回: 单次调用的完整信息</span>
+<span class="line"></span>
+<span class="line">POST /api/function_calls/{id}/rerun</span>
+<span class="line">  重新执行之前的调用</span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h4 id="_5-2-3-实例管理页面-新增" tabindex="-1"><a class="header-anchor" href="#_5-2-3-实例管理页面-新增"><span>5.2.3 实例管理页面（新增）</span></a></h4>
+<div class="language-text line-numbers-mode" data-highlighter="prismjs" data-ext="text"><pre v-pre><code class="language-text"><span class="line">从 Registry 页面分离出来，专注于：</span>
+<span class="line">- Agent 生命周期管理（注册、心跳、过期）</span>
+<span class="line">- 函数实例覆盖率分析（表格 + 可视化）</span>
+<span class="line">- 健康检查和告警</span>
+<span class="line">- 批量操作（重启、升级、删除）</span>
+<span class="line"></span>
+<span class="line">// 数据增强</span>
+<span class="line">GET /api/agents</span>
+<span class="line">  - 支持按游戏/环境/状态过滤</span>
+<span class="line">  - 返回实时健康状态</span>
+<span class="line"></span>
+<span class="line">GET /api/agents/{agent_id}/functions</span>
+<span class="line">  - 该 Agent 上的函数实例列表</span>
+<span class="line">  - 每个函数的最后一次调用时间、成功率等</span>
+<span class="line"></span>
+<span class="line">GET /api/coverage/analysis?game_id=...&amp;env=...</span>
+<span class="line">  - 按分类统计覆盖率</span>
+<span class="line">  - 识别有风险的函数组合</span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h4 id="_5-2-4-分配管理增强" tabindex="-1"><a class="header-anchor" href="#_5-2-4-分配管理增强"><span>5.2.4 分配管理增强</span></a></h4>
+<div class="language-typescript line-numbers-mode" data-highlighter="prismjs" data-ext="ts"><pre v-pre><code class="language-typescript"><span class="line"><span class="token comment">// 当前：简单白名单</span></span>
+<span class="line"><span class="token comment">// 改进：细粒度权限模型</span></span>
+<span class="line"></span>
+<span class="line"><span class="token keyword">interface</span> <span class="token class-name">FunctionAssignment</span> <span class="token punctuation">{</span></span>
+<span class="line">  game_id<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">  env<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">  functions<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>                    <span class="token comment">// 白名单</span></span>
+<span class="line">  </span>
+<span class="line">  <span class="token comment">// 新增：细粒度权限</span></span>
+<span class="line">  role_assignments<span class="token operator">?</span><span class="token operator">:</span> <span class="token punctuation">{</span>                    <span class="token comment">// 按角色分配</span></span>
+<span class="line">    <span class="token punctuation">[</span>role<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">]</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span></span>
+<span class="line">  <span class="token punctuation">}</span><span class="token punctuation">;</span></span>
+<span class="line">  </span>
+<span class="line">  <span class="token comment">// 新增：时间控制</span></span>
+<span class="line">  time_windows<span class="token operator">?</span><span class="token operator">:</span> <span class="token punctuation">{</span></span>
+<span class="line">    enabled<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>                    <span class="token comment">// 仅在指定时间可用的函数</span></span>
+<span class="line">    disabled<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>                   <span class="token comment">// 禁用时间段</span></span>
+<span class="line">  <span class="token punctuation">}</span><span class="token punctuation">;</span></span>
+<span class="line">  </span>
+<span class="line">  <span class="token comment">// 新增：审计</span></span>
+<span class="line">  change_history<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">Array</span><span class="token operator">&lt;</span><span class="token punctuation">{</span></span>
+<span class="line">    timestamp<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">    actor<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">    operation<span class="token operator">:</span> <span class="token string">'add'</span> <span class="token operator">|</span> <span class="token string">'remove'</span> <span class="token operator">|</span> <span class="token string">'enable'</span> <span class="token operator">|</span> <span class="token string">'disable'</span><span class="token punctuation">;</span></span>
+<span class="line">    function_id<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">    reason<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">  <span class="token punctuation">}</span><span class="token operator">></span><span class="token punctuation">;</span></span>
+<span class="line"><span class="token punctuation">}</span></span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h4 id="_5-2-5-函数包增强" tabindex="-1"><a class="header-anchor" href="#_5-2-5-函数包增强"><span>5.2.5 函数包增强</span></a></h4>
+<div class="language-text line-numbers-mode" data-highlighter="prismjs" data-ext="text"><pre v-pre><code class="language-text"><span class="line">当前：只展示 manifest 和导出/导入</span>
+<span class="line"></span>
+<span class="line">改进：</span>
+<span class="line">1. 包内容详情视图</span>
+<span class="line">   - 显示包内包含的函数列表</span>
+<span class="line">   - 版本历史</span>
+<span class="line">   - 依赖关系图</span>
+<span class="line"></span>
+<span class="line">2. 包管理界面</span>
+<span class="line">   - 版本对比</span>
+<span class="line">   - 灰度发布（按环境/百分比）</span>
+<span class="line">   - 自动降级机制</span>
+<span class="line"></span>
+<span class="line">3. 新增 API</span>
+<span class="line">   GET /api/packs/{pack_id}/contents</span>
+<span class="line">   GET /api/packs/{pack_id}/versions</span>
+<span class="line">   POST /api/packs/{pack_id}/canary?env=...&amp;percentage=10</span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="_5-3-组件复用策略" tabindex="-1"><a class="header-anchor" href="#_5-3-组件复用策略"><span>5.3 组件复用策略</span></a></h3>
+<h4 id="_5-3-1-通用表单组件" tabindex="-1"><a class="header-anchor" href="#_5-3-1-通用表单组件"><span>5.3.1 通用表单组件</span></a></h4>
+<div class="language-typescript line-numbers-mode" data-highlighter="prismjs" data-ext="ts"><pre v-pre><code class="language-typescript"><span class="line"><span class="token comment">// 统一函数参数表单渲染</span></span>
+<span class="line"><span class="token keyword">export</span> <span class="token keyword">interface</span> <span class="token class-name">FormRenderConfig</span> <span class="token punctuation">{</span></span>
+<span class="line">  schema<span class="token operator">:</span> JSONSchema<span class="token punctuation">;</span></span>
+<span class="line">  uiSchema<span class="token operator">?</span><span class="token operator">:</span> UISchema<span class="token punctuation">;</span></span>
+<span class="line">  mode<span class="token operator">?</span><span class="token operator">:</span> <span class="token string">'simple'</span> <span class="token operator">|</span> <span class="token string">'advanced'</span><span class="token punctuation">;</span>     <span class="token comment">// 简化/高级模式</span></span>
+<span class="line">  readOnly<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">boolean</span><span class="token punctuation">;</span></span>
+<span class="line">  onSubmit<span class="token operator">?</span><span class="token operator">:</span> <span class="token punctuation">(</span>values<span class="token operator">:</span> <span class="token builtin">any</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token keyword">void</span><span class="token punctuation">;</span></span>
+<span class="line"><span class="token punctuation">}</span></span>
+<span class="line"></span>
+<span class="line"><span class="token comment">// 使用场处：</span></span>
+<span class="line"><span class="token comment">// - GmFunctions: 函数调用表单</span></span>
+<span class="line"><span class="token comment">// - Assignments: 参数预设配置</span></span>
+<span class="line"><span class="token comment">// - Approvals: 审批时的参数验证</span></span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h4 id="_5-3-2-注册表展示组件" tabindex="-1"><a class="header-anchor" href="#_5-3-2-注册表展示组件"><span>5.3.2 注册表展示组件</span></a></h4>
+<div class="language-typescript line-numbers-mode" data-highlighter="prismjs" data-ext="ts"><pre v-pre><code class="language-typescript"><span class="line"><span class="token comment">// 提取 Registry 的表格和统计逻辑</span></span>
+<span class="line"><span class="token keyword">export</span> <span class="token keyword">interface</span> <span class="token class-name">RegistryViewProps</span> <span class="token punctuation">{</span></span>
+<span class="line">  agents<span class="token operator">?</span><span class="token operator">:</span> Agent<span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span></span>
+<span class="line">  functions<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">Function</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span></span>
+<span class="line">  coverage<span class="token operator">?</span><span class="token operator">:</span> Coverage<span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span></span>
+<span class="line">  loading<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">boolean</span><span class="token punctuation">;</span></span>
+<span class="line">  groupBy<span class="token operator">?</span><span class="token operator">:</span> <span class="token string">'prefix'</span> <span class="token operator">|</span> <span class="token string">'none'</span><span class="token punctuation">;</span></span>
+<span class="line">  filter<span class="token operator">?</span><span class="token operator">:</span> <span class="token punctuation">{</span></span>
+<span class="line">    gameId<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">    env<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">    uncovered<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">boolean</span><span class="token punctuation">;</span></span>
+<span class="line">    partial<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">boolean</span><span class="token punctuation">;</span></span>
+<span class="line">  <span class="token punctuation">}</span><span class="token punctuation">;</span></span>
+<span class="line">  onExport<span class="token operator">?</span><span class="token operator">:</span> <span class="token punctuation">(</span>type<span class="token operator">:</span> <span class="token string">'csv'</span> <span class="token operator">|</span> <span class="token string">'json'</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token keyword">void</span><span class="token punctuation">;</span></span>
+<span class="line"><span class="token punctuation">}</span></span>
+<span class="line"></span>
+<span class="line"><span class="token comment">// 使用场景：</span></span>
+<span class="line"><span class="token comment">// - Operations/Registry: 完整视图</span></span>
+<span class="line"><span class="token comment">// - Instances: 部分视图</span></span>
+<span class="line"><span class="token comment">// - Dashboards: 嵌入式组件</span></span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h4 id="_5-3-3-函数列表组件" tabindex="-1"><a class="header-anchor" href="#_5-3-3-函数列表组件"><span>5.3.3 函数列表组件</span></a></h4>
+<div class="language-typescript line-numbers-mode" data-highlighter="prismjs" data-ext="ts"><pre v-pre><code class="language-typescript"><span class="line"><span class="token comment">// 支持多种展示模式</span></span>
+<span class="line"><span class="token keyword">export</span> <span class="token keyword">interface</span> <span class="token class-name">FunctionListProps</span> <span class="token punctuation">{</span></span>
+<span class="line">  descriptors<span class="token operator">:</span> FunctionDescriptor<span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span></span>
+<span class="line">  mode<span class="token operator">?</span><span class="token operator">:</span> <span class="token string">'list'</span> <span class="token operator">|</span> <span class="token string">'grid'</span> <span class="token operator">|</span> <span class="token string">'table'</span><span class="token punctuation">;</span></span>
+<span class="line">  search<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">  filters<span class="token operator">?</span><span class="token operator">:</span> FunctionFilter<span class="token punctuation">;</span></span>
+<span class="line">  selectable<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">boolean</span><span class="token punctuation">;</span></span>
+<span class="line">  selected<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span></span>
+<span class="line">  onSelect<span class="token operator">?</span><span class="token operator">:</span> <span class="token punctuation">(</span>id<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">,</span> selected<span class="token operator">:</span> <span class="token builtin">boolean</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token keyword">void</span><span class="token punctuation">;</span></span>
+<span class="line">  onInvoke<span class="token operator">?</span><span class="token operator">:</span> <span class="token punctuation">(</span>id<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token keyword">void</span><span class="token punctuation">;</span></span>
+<span class="line"><span class="token punctuation">}</span></span>
+<span class="line"></span>
+<span class="line"><span class="token comment">// 使用场景：</span></span>
+<span class="line"><span class="token comment">// - Catalog: 主列表视图</span></span>
+<span class="line"><span class="token comment">// - Assignments: 函数选择</span></span>
+<span class="line"><span class="token comment">// - Approvals: 函数搜索</span></span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="_5-4-数据模型扩展" tabindex="-1"><a class="header-anchor" href="#_5-4-数据模型扩展"><span>5.4 数据模型扩展</span></a></h3>
+<div class="language-typescript line-numbers-mode" data-highlighter="prismjs" data-ext="ts"><pre v-pre><code class="language-typescript"><span class="line"><span class="token comment">// 后端应该提供的新数据结构</span></span>
+<span class="line"></span>
+<span class="line"><span class="token keyword">interface</span> <span class="token class-name">EnrichedFunctionDescriptor</span> <span class="token punctuation">{</span></span>
+<span class="line">  <span class="token comment">// 原有字段</span></span>
+<span class="line">  id<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">  version<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">  params<span class="token operator">?</span><span class="token operator">:</span> JSONSchema<span class="token punctuation">;</span></span>
+<span class="line">  </span>
+<span class="line">  <span class="token comment">// 元数据</span></span>
+<span class="line">  metadata<span class="token operator">?</span><span class="token operator">:</span> <span class="token punctuation">{</span></span>
+<span class="line">    category<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">    tags<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span></span>
+<span class="line">    description<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">    creator<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">    created_at<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">    updated_at<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">    deprecation_notice<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span></span>
+<span class="line">  <span class="token punctuation">}</span><span class="token punctuation">;</span></span>
+<span class="line">  </span>
+<span class="line">  <span class="token comment">// 运行时信息</span></span>
+<span class="line">  runtime<span class="token operator">?</span><span class="token operator">:</span> <span class="token punctuation">{</span></span>
+<span class="line">    instances<span class="token operator">:</span> <span class="token builtin">number</span><span class="token punctuation">;</span>                    <span class="token comment">// 有多少个实例</span></span>
+<span class="line">    agents<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>                     <span class="token comment">// 哪些 Agent 上有</span></span>
+<span class="line">    last_called<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>                 <span class="token comment">// 最后调用时间</span></span>
+<span class="line">    success_rate<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">number</span><span class="token punctuation">;</span>                <span class="token comment">// 成功率</span></span>
+<span class="line">    avg_latency_ms<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">number</span><span class="token punctuation">;</span>              <span class="token comment">// 平均延迟</span></span>
+<span class="line">  <span class="token punctuation">}</span><span class="token punctuation">;</span></span>
+<span class="line">  </span>
+<span class="line">  <span class="token comment">// 权限信息</span></span>
+<span class="line">  permissions<span class="token operator">?</span><span class="token operator">:</span> <span class="token punctuation">{</span></span>
+<span class="line">    assigned_games<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>             <span class="token comment">// 分配给哪些游戏</span></span>
+<span class="line">    required_role<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>               <span class="token comment">// 所需角色</span></span>
+<span class="line">  <span class="token punctuation">}</span><span class="token punctuation">;</span></span>
+<span class="line"><span class="token punctuation">}</span></span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><h3 id="_5-5-前端路由优化" tabindex="-1"><a class="header-anchor" href="#_5-5-前端路由优化"><span>5.5 前端路由优化</span></a></h3>
+<div class="language-typescript line-numbers-mode" data-highlighter="prismjs" data-ext="ts"><pre v-pre><code class="language-typescript"><span class="line"><span class="token comment">// 新的路由结构</span></span>
+<span class="line"><span class="token punctuation">{</span></span>
+<span class="line">  path<span class="token operator">:</span> <span class="token string">'/functions'</span><span class="token punctuation">,</span></span>
+<span class="line">  name<span class="token operator">:</span> <span class="token string">'FunctionManagement'</span><span class="token punctuation">,</span></span>
+<span class="line">  icon<span class="token operator">:</span> <span class="token string">'code'</span><span class="token punctuation">,</span></span>
+<span class="line">  routes<span class="token operator">:</span> <span class="token punctuation">[</span></span>
+<span class="line">    <span class="token punctuation">{</span> path<span class="token operator">:</span> <span class="token string">'/functions'</span><span class="token punctuation">,</span> redirect<span class="token operator">:</span> <span class="token string">'/functions/catalog'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span></span>
+<span class="line">    </span>
+<span class="line">    <span class="token comment">// 主页面</span></span>
+<span class="line">    <span class="token punctuation">{</span> path<span class="token operator">:</span> <span class="token string">'/functions/catalog'</span><span class="token punctuation">,</span> name<span class="token operator">:</span> <span class="token string">'Catalog'</span><span class="token punctuation">,</span> component<span class="token operator">:</span> <span class="token string">'./Functions/Catalog'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span></span>
+<span class="line">    <span class="token punctuation">{</span> path<span class="token operator">:</span> <span class="token string">'/functions/invoke'</span><span class="token punctuation">,</span> name<span class="token operator">:</span> <span class="token string">'Invoke'</span><span class="token punctuation">,</span> component<span class="token operator">:</span> <span class="token string">'./Functions/Invoke'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span></span>
+<span class="line">    <span class="token punctuation">{</span> path<span class="token operator">:</span> <span class="token string">'/functions/invoke/:id'</span><span class="token punctuation">,</span> hideInMenu<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span> component<span class="token operator">:</span> <span class="token string">'./Functions/InvokeDetail'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span></span>
+<span class="line">    <span class="token punctuation">{</span> path<span class="token operator">:</span> <span class="token string">'/functions/assignments'</span><span class="token punctuation">,</span> name<span class="token operator">:</span> <span class="token string">'Assignments'</span><span class="token punctuation">,</span> component<span class="token operator">:</span> <span class="token string">'./Functions/Assignments'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span></span>
+<span class="line">    <span class="token punctuation">{</span> path<span class="token operator">:</span> <span class="token string">'/functions/instances'</span><span class="token punctuation">,</span> name<span class="token operator">:</span> <span class="token string">'Instances'</span><span class="token punctuation">,</span> component<span class="token operator">:</span> <span class="token string">'./Functions/Instances'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span></span>
+<span class="line">    <span class="token punctuation">{</span> path<span class="token operator">:</span> <span class="token string">'/functions/packs'</span><span class="token punctuation">,</span> name<span class="token operator">:</span> <span class="token string">'Packs'</span><span class="token punctuation">,</span> component<span class="token operator">:</span> <span class="token string">'./Functions/Packs'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span></span>
+<span class="line">    </span>
+<span class="line">    <span class="token comment">// 详情页</span></span>
+<span class="line">    <span class="token punctuation">{</span> path<span class="token operator">:</span> <span class="token string">'/functions/:id'</span><span class="token punctuation">,</span> hideInMenu<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span> component<span class="token operator">:</span> <span class="token string">'./Functions/Detail'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span></span>
+<span class="line">    <span class="token punctuation">{</span> path<span class="token operator">:</span> <span class="token string">'/functions/:id/history'</span><span class="token punctuation">,</span> hideInMenu<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span> component<span class="token operator">:</span> <span class="token string">'./Functions/History'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span></span>
+<span class="line">    <span class="token punctuation">{</span> path<span class="token operator">:</span> <span class="token string">'/functions/:id/compare'</span><span class="token punctuation">,</span> hideInMenu<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span> component<span class="token operator">:</span> <span class="token string">'./Functions/Compare'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span></span>
+<span class="line">  <span class="token punctuation">]</span></span>
+<span class="line"><span class="token punctuation">}</span></span>
+<span class="line"></span>
+<span class="line"><span class="token comment">// 后向兼容重定向</span></span>
+<span class="line"><span class="token punctuation">{</span> path<span class="token operator">:</span> <span class="token string">'/game/functions'</span><span class="token punctuation">,</span> redirect<span class="token operator">:</span> <span class="token string">'/functions/invoke'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span></span>
+<span class="line"><span class="token punctuation">{</span> path<span class="token operator">:</span> <span class="token string">'/game/assignments'</span><span class="token punctuation">,</span> redirect<span class="token operator">:</span> <span class="token string">'/functions/assignments'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span></span>
+<span class="line"><span class="token punctuation">{</span> path<span class="token operator">:</span> <span class="token string">'/game/packs'</span><span class="token punctuation">,</span> redirect<span class="token operator">:</span> <span class="token string">'/functions/packs'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span></span>
+<span class="line"><span class="token punctuation">{</span> path<span class="token operator">:</span> <span class="token string">'/operations/registry'</span><span class="token punctuation">,</span> redirect<span class="token operator">:</span> <span class="token string">'/functions/instances'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span></span>
+<span class="line"></span></code></pre>
+<div class="line-numbers" aria-hidden="true" style="counter-reset:line-number 0"><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div><div class="line-number"></div></div></div><hr>
+<h2 id="六、实施路线图" tabindex="-1"><a class="header-anchor" href="#六、实施路线图"><span>六、实施路线图</span></a></h2>
+<h3 id="阶段-1-短期-2-3-周" tabindex="-1"><a class="header-anchor" href="#阶段-1-短期-2-3-周"><span>阶段 1（短期，2-3 周）</span></a></h3>
+<ol>
+<li>新增菜单配置和路由结构</li>
+<li>创建函数目录页面（基础功能）</li>
+<li>分离实例管理页面（从 Registry）</li>
+<li>增强权限检查和错误提示</li>
+</ol>
+<h3 id="阶段-2-中期-3-4-周" tabindex="-1"><a class="header-anchor" href="#阶段-2-中期-3-4-周"><span>阶段 2（中期，3-4 周）</span></a></h3>
+<ol>
+<li>重构函数调用页面（UI 分离）</li>
+<li>增加调用历史 API 和展示</li>
+<li>增强分配管理（变更历史）</li>
+<li>函数包详情视图</li>
+</ol>
+<h3 id="阶段-3-长期-1-2-月" tabindex="-1"><a class="header-anchor" href="#阶段-3-长期-1-2-月"><span>阶段 3（长期，1-2 月）</span></a></h3>
+<ol>
+<li>版本管理和对比功能</li>
+<li>细粒度权限模型</li>
+<li>可视化监控和告警</li>
+<li>性能分析和优化建议</li>
+</ol>
+<hr>
+<h2 id="七、总结" tabindex="-1"><a class="header-anchor" href="#七、总结"><span>七、总结</span></a></h2>
+<p>Croupier 的函数管理系统功能完整但<strong>组织散乱</strong>。通过统一的菜单结构、清晰的页面职责分工、增强的数据模型，可以显著提升用户体验和系统可维护性。</p>
+<p>建议优先实施<strong>菜单统一</strong>和<strong>功能目录页面</strong>，作为后续优化的基础。</p>
+</div></template>
+
+
