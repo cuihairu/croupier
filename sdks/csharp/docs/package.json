@@ -9,7 +9,7 @@
     "serve": "vitepress serve . --host 0.0.0.0 --port 8080"
   },
   "devDependencies": {
-    "esbuild": "^0.25.11",
+    "esbuild": "^0.25.0",
     "mermaid": "^10.9.0",
     "vitepress": "^1.6.4",
     "vitepress-plugin-mermaid": "^2.0.17"

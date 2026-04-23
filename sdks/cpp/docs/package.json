@@ -10,7 +10,7 @@
     "preview": "vitepress preview ."
   },
   "devDependencies": {
-    "esbuild": "^0.25.11",
+    "esbuild": "^0.25.0",
     "mermaid": "^10.9.0",
     "sass-embedded": "^1.93.2",
     "vitepress": "^1.6.4",
