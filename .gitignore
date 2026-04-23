@@ -1,102 +1,175 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
-# Binaries for programs and plugins
+# =============================================================================
+# 主项目 (Go)
+# =============================================================================
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-.env
-# Test binary, built with `go test -c`
 *.test
-
-# Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+go.work
+go.work.sum
+
+# =============================================================================
+# 通用
+# =============================================================================
+.env
+.env.*
+*.crt
+*.key
+*.backup.*
+*_backup.*
+.DS_Store
+.idea/
+.vscode/settings.local.json
+.vscode/.intellisense-cache
+.claude
+.stdout
+
+# =============================================================================
+# 构建产物
+# =============================================================================
+bin/
+gen/
+protoc-gen-croupier
+/server
+/prom
+/croupier
+/agent
+__debug_bin*
+
+# =============================================================================
+# 覆盖率
+# =============================================================================
 cover.html
 coverage.html
 platform_coverage.html
 coverage_refactor
 coverage_refactor_latest
 coverage_target
+*.out
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
-
-# Go workspace file
-go.work
-go.work.sum
-
-# Local build and generated code
-bin/
-gen/
-
-# Generated binaries (files)
-protoc-gen-croupier
-/http
-
-# Local module/build caches
+# =============================================================================
+# 缓存
+# =============================================================================
 .gocache/
 .gomodcache/
-
-# Local TLS dev certs
-configs/dev/
-configs/ops_state.json
-
-# Logs
-logs/
-.tmp/
-
-# IDE
-.idea/
-.DS_Store
 .bufcache
-.claude
-# 允许团队共享的 VSCode 配置（使用 ${workspaceFolder} 变量）
-# .vscode/settings.json  # 已注释，允许提交
-.vscode/settings.local.json  # 个人配置放这里
-.vscode/.intellisense-cache
 node_modules/
 
-# Local binaries (root)
-/server
-/prom
-/croupier
-/agent
+# =============================================================================
+# 日志和临时文件
+# =============================================================================
+logs/
+.tmp/
 data/
-sdks/cpp/vcpkg_installed/
-
-# Local IP2Location BIN databases (downloaded externally; do not commit)
-configs/IP2LOCATION-LITE-DB*.BIN
+configs/dev/
+configs/ops_state.json
 configs/*.BIN
-web.local/
+internal/api/**/ops_state.json
+
+# =============================================================================
+# Web/Dashboard (原croupier-dashboard，现为web/)
+# =============================================================================
+web/node_modules/
+web/node_modules/.cache/
+web/node_modules/.pnpm-store/
+web/.umi/
+web/src/.umi/
+web/src/.umi-production/
+web/dist/
+web/build/
+web/.next/
+web/.cache/
+web/.nyc_output/
+web/coverage/
+web/.eslintcache
+web/.pnpm-debug.log
+web/pnpm-lock.yaml
+web.yarn.lock
+
+# =============================================================================
+# SDKs
+# =============================================================================
+# JavaScript/TypeScript SDK
+sdks/js/node_modules/
+sdks/js/.next/
+sdks/js/out/
+sdks/js/build/
+sdks/js/dist/
+sdks/js/coverage/
+sdks/js/.pnp.js
+sdks/js/.umi/
+
+# Python SDK
+sdks/python/__pycache__/
+sdks/python/*/__pycache__/
+sdks/python/.venv/
+sdks/python/venv/
+sdks/python/build/
+sdks/python/dist/
+sdks/python/*.egg-info/
+sdks/python/.eggs/
+sdks/python/.pytest_cache/
+sdks/python/.coverage
+sdks/python/htmlcov/
+sdks/python/uv.lock
+
+# Go SDK
+# (已由主项目Go配置覆盖)
+
+# Java SDK
+sdks/java/build/
+sdks/java/.gradle/
+sdks/java/*.iml
+sdks/java/spring-boot-starter/build/
+sdks/java/coverage.out
+
+# C# SDK
+sdks/csharp/bin/
+sdks/csharp/obj/
+sdks/csharp/[Dd]ebug/
+sdks/csharp/[Rr]elease/
+sdks/csharp/x64/
+sdks/csharp/x86/
+
+# C++ SDK
+sdks/cpp/build/
+sdks/cpp/build-*/
+sdks/cpp/bin/
+sdks/cpp/lib/
+sdks/cpp/vcpkg_installed/
+sdks/cpp/CMakeFiles/
+sdks/cpp/CMakeCache.txt
+sdks/cpp/cmake_install.cmake
+sdks/cpp/CTestTestfile.cmake
+sdks/cpp/downloaded_proto/
+
+# =============================================================================
+# 示例和服务
+# =============================================================================
+examples/*/bin/
+examples/*/logs/
+examples/*/__debug_bin*
+services/*/bin/
+services/*/logs/
+services/*/__debug_bin*
+cmd/*/__debug_bin*
+
+# =============================================================================
+# 文档和配置
+# =============================================================================
 docs_new/
+web.local/
 
-# Dashboard specific
-dashboard/node_modules/
-dashboard/node_modules/.cache/
-dashboard/node_modules/.pnpm-store/
-dashboard/.umi/
-dashboard/src/.umi/
-dashboard/src/.umi-production/
-dashboard/dist/
-dashboard/build/
-dashboard/.next/
-dashboard/.cache/
-dashboard/.nyc_output/
-dashboard/coverage/
-dashboard/.eslintcache
-dashboard/.DS_Store
-dashboard/.pnpm-debug.log
-dashboard/yarn.lock
-dashboard/pnpm-lock.yaml
-
-# API Documentation and Swagger Files (临时生成的文件)
-# 保留主要的 server.api 和必要的文档，忽略临时生成的文件
+# =============================================================================
+# 临时API文件
+# =============================================================================
 services/server/croupier-api-simple.json
 services/server/croupier-api-*.json
 services/server/croupier-api.json
-services/server/croupier-apifox-collection.json
+services/server/croupier-apofx-collection.json
 services/server/test-swagger.json
 services/server/server.json
 services/server/simple-swagger.api
@@ -105,32 +178,6 @@ services/server/backup-*.api
 services/server/*.backup.*
 services/server/annotated-api.api
 services/server/api.api.bak
-
-# Temporary API files and scripts
 services/server/missing_handlers.txt
 services/server/original_handlers.txt
 services/server/current_handlers.txt
-
-# Generated backup files
-*.backup.*
-*_backup.*
-
-# Temporary build artifacts
-services/*/bin/
-services/*/logs/
-services/*/__debug_bin*
-cmd/*/__debug_bin*
-__debug_bin.exe*
-
-# Python bytecode caches
-sdks/python/croupier/__pycache__/
-sdks/python/examples/__pycache__/
-sdks/cpp/build/
-sdks/cpp/bin/
-sdks/cpp/lib/
-build/*/proto/
-*.crt
-*.key
-certs/
-stdout
-internal/api/**/ops_state.json

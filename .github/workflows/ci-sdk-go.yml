@@ -1,0 +1,67 @@
+name: "Build Croupier Go SDK"
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout repository
+      timeout-minutes: 3
+      uses: actions/checkout@v5
+
+    - name: Setup Go
+      timeout-minutes: 5
+      uses: actions/setup-go@v6
+      with:
+        go-version-file: sdks/go/go.mod
+        cache: true
+        cache-dependency-path: sdks/go/go.sum
+
+    - name: Download dependencies
+      timeout-minutes: 5
+      working-directory: ./sdks/go
+      run: |
+        go mod tidy
+        go mod download
+
+    # Proto 代码无需本地生成
+    - name: Build SDK
+      timeout-minutes: 15
+      working-directory: ./sdks/go
+      run: go build -v ./...
+
+    - name: Run tests with coverage
+      timeout-minutes: 10
+      working-directory: ./sdks/go
+      run: |
+        # Run tests for main package (skip integration tests that require running agent)
+        go test -v -race -coverprofile=coverage.out -covermode=atomic -tags=!integration ./pkg/croupier
+        # Run tests for all packages (skip integration tests)
+        go test -v -race -tags=!integration ./pkg/...
+
+    - name: Upload coverage to Codecov
+      timeout-minutes: 3
+      uses: codecov/codecov-action@v6
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: sdks/go/coverage.out
+        flags: go-sdk
+        fail_ci_if_error: ${{ github.event_name != 'pull_request' }}
+
+    - name: Build examples
+      timeout-minutes: 15
+      working-directory: ./sdks/go
+      run: go build -v ./examples/...

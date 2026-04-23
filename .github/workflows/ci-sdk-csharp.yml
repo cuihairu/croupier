@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - name: Checkout Repository
+      timeout-minutes: 3
+      uses: actions/checkout@v5
+      with:
+        submodules: false
+
+    - name: Setup .NET
+      timeout-minutes: 5
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      timeout-minutes: 5
+      run: dotnet restore
+
+    - name: Build SDK
+      timeout-minutes: 15
+      run: dotnet build src/Croupier.Sdk/Croupier.Sdk.csproj --configuration Release --no-restore
+
+    - name: Build examples
+      timeout-minutes: 15
+      run: dotnet build examples/SimpleService/SimpleService.csproj --configuration Release --no-restore
+
+    - name: Run tests (if any)
+      timeout-minutes: 10
+      run: |
+        # Find and run test projects
+        if [ -n "$(find . -name '*.Tests.csproj')" ]; then
+          dotnet test --configuration Release --verbosity normal
+        else
+          echo "No test projects found, skipping tests"
+        fi
+
+    - name: Upload artifacts
+      timeout-minutes: 3
+      uses: actions/upload-artifact@v7
+      with:
+        name: croupier-csharp-sdk
+        path: |
+          src/Croupier.Sdk/bin/Release/
+          examples/SimpleService/bin/Release/
+
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - name: Checkout Repository
+      timeout-minutes: 3
+      uses: actions/checkout@v5
+      with:
+        submodules: false
+
+    - name: Setup .NET
+      timeout-minutes: 5
+      uses: actions/setup-dotnet@v5
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Install coverlet global tool
+      timeout-minutes: 5
+      run: dotnet tool install --global coverlet.console
+
+    - name: Restore dependencies
+      timeout-minutes: 5
+      run: dotnet restore
+
+    - name: Run tests with coverage (if any)
+      timeout-minutes: 10
+      run: |
+        if [ -n "$(find . -name '*.Tests.csproj')" ]; then
+          dotnet test --configuration Release \
+            --collect:"XPlat Code Coverage" \
+            -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+        else
+          echo "No test projects found, creating empty coverage report"
+          mkdir -p coverage
+          echo '<?xml version="1.0"?><coverage></coverage>' > coverage/coverage.xml
+        fi
+
+    - name: Upload coverage to Codecov
+      timeout-minutes: 3
+      uses: codecov/codecov-action@v6
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: |
+          **/coverage.cobertura.xml
+          **/coverage.opencover.xml
+          coverage/coverage.xml
+        flags: csharp-sdk
+        fail_ci_if_error: false

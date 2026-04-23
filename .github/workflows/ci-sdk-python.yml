@@ -1,0 +1,91 @@
+name: "Build Croupier Python SDK"
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ./sdks/python
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.13']
+    steps:
+      - timeout-minutes: 3
+        uses: actions/checkout@v5
+        with:
+          submodules: false
+
+      - name: Install uv
+        timeout-minutes: 5
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "sdks/python/uv.lock"
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        timeout-minutes: 5
+        run: uv sync --dev --all-extras
+
+      - name: Unit tests
+        timeout-minutes: 10
+        run: uv run pytest -q --cov=croupier --cov-report=xml --cov-report=term
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.12'
+        timeout-minutes: 5
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: sdks/python/coverage.xml
+          flags: python-sdk
+          fail_ci_if_error: ${{ github.event_name != 'pull_request' }}
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ./sdks/python
+    steps:
+      - timeout-minutes: 3
+        uses: actions/checkout@v5
+
+      - name: Install uv
+        timeout-minutes: 5
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "sdks/python/uv.lock"
+          python-version: "3.12"
+
+      - name: Install dependencies
+        timeout-minutes: 5
+        run: uv sync --dev
+
+      - name: Run black
+        timeout-minutes: 5
+        run: uv run black --check --target-version=py312 croupier tests
+
+      - name: Run flake8
+        timeout-minutes: 5
+        run: uv run flake8 --ignore=F841,W391,F824,W504,E226 --extend-exclude=croupier/pb/,generated/ croupier tests
+
+      - name: Run mypy
+        timeout-minutes: 5
+        run: uv run mypy croupier

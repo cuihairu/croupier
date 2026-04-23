@@ -1,0 +1,18 @@
+* text=auto eol=lf
+
+# Java/Kotlin sources
+*.java    diff=java
+*.kt      diff=kotlin
+
+# Build scripts
+*.gradle  text eol=lf
+gradlew   text eol=lf
+gradlew.bat text eol=crlf
+settings.gradle text eol=lf
+
+# Proto definitions / generated stubs
+*.proto   diff=proto
+
+# Shell/Python scripts
+*.sh      text eol=lf
+*.py      text eol=lf

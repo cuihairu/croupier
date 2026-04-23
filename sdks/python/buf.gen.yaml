@@ -1,0 +1,7 @@
+version: v2
+plugins:
+  # Python plugins (使用固定版本 v25.1 对应 protobuf 4.25.x)
+  - remote: buf.build/protocolbuffers/python:v25.1
+    out: generated
+  - remote: buf.build/grpc/python:v1.71.0
+    out: generated

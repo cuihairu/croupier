@@ -1,0 +1,121 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'signing'
+}
+
+// Inherit version from root project
+version = rootProject.version
+group = rootProject.group
+
+dependencies {
+    // Depend on the main SDK project
+    api project(':')
+
+    // Spring Boot autoconfigure
+    api 'org.springframework.boot:spring-boot-autoconfigure:3.4.0'
+
+    // Spring Boot configuration processor (for metadata)
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor:3.4.0'
+
+    // Optional: Provide spring-boot-starter for developers who want it
+    compileOnly 'org.springframework.boot:spring-boot-starter:3.4.0'
+
+    // Testing
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test:3.4.0'
+}
+
+java {
+    withSourcesJar()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+}
+
+// Generate spring-configuration-metadata.json
+tasks.named('compileJava') {
+    inputs.files(tasks.named('processResources'))
+}
+
+// Determine if this is a release build (from root project)
+boolean isRelease = rootProject.hasProperty('isRelease') ? rootProject.isRelease : false
+
+// Maven publishing configuration
+// - Snapshots → GitHub Packages
+// - Releases → Maven Central (Sonatype OSSRH)
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = 'croupier-spring-boot-starter'
+            from components.java
+            pom {
+                name = 'Croupier Spring Boot Starter'
+                description = 'Spring Boot Starter for Croupier Java SDK'
+                url = 'https://github.com/cuihairu/croupier-sdk-java'
+                
+                inceptionYear = '2025'
+                
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'cuihairu'
+                        name = 'Cui Hairu'
+                        email = 'cuihairu@gmail.com'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:git://github.com/cuihairu/croupier-sdk-java.git'
+                    developerConnection = 'scm:git:ssh://github.com:cuihairu/croupier-sdk-java.git'
+                    url = 'https://github.com/cuihairu/croupier-sdk-java'
+                }
+            }
+        }
+    }
+    repositories {
+        // Maven Central (Sonatype OSSRH) for releases
+        if (isRelease) {
+            maven {
+                name = 'SonatypeReleases'
+                url = uri('https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/')
+                credentials {
+                    username = System.getenv('MAVEN_CENTRAL_USERNAME')
+                    password = System.getenv('MAVEN_CENTRAL_PASSWORD')
+                }
+            }
+        }
+        // GitHub Packages for snapshots
+        maven {
+            name = 'GitHubPackages'
+            url = uri('https://maven.pkg.github.com/cuihairu/croupier-sdk-java')
+            credentials {
+                username = System.getenv('GITHUB_ACTOR')
+                password = System.getenv('GITHUB_TOKEN')
+            }
+            // Allow overwriting existing artifacts for nightly builds
+            // This requires GITHUB_TOKEN to have write:packages scope
+        }
+    }
+}
+
+// Sign artifacts for Maven Central (only for releases)
+if (isRelease) {
+    signing {
+        sign publishing.publications.mavenJava
+    }
+}
+
+// Configure GPG signing for Maven Central
+signing {
+    useInMemoryPgpKeys(
+        System.getenv('GPG_KEY_ID'),
+        System.getenv('GPG_PRIVATE_KEY'),
+        System.getenv('GPG_PRIVATE_KEY_PASSWORD')
+    )
+}

@@ -1,0 +1,15 @@
+* text=auto eol=lf
+
+# Python sources
+*.py      diff=python
+
+# Proto definitions / generated stubs
+*.proto   diff=proto
+
+# Scripts
+*.sh      text eol=lf
+Makefile  text eol=lf
+
+# Binary artifacts
+*.so      binary
+*.whl     binary

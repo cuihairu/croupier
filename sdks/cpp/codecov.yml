@@ -1,0 +1,9 @@
+comment: false
+
+ignore:
+  - "proto/**"
+  - "generated/**"
+  - "build/**"
+  - "build-coverage/**"
+  - "vcpkg/**"
+  - "vcpkg_installed/**"

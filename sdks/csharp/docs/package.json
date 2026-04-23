@@ -1,0 +1,35 @@
+{
+  "name": "croupier-sdk-csharp-docs",
+  "version": "1.0.0",
+  "description": "Croupier C# SDK Documentation",
+  "private": true,
+  "scripts": {
+    "dev": "vitepress dev .",
+    "build": "vitepress build .",
+    "serve": "vitepress serve . --host 0.0.0.0 --port 8080"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.11",
+    "mermaid": "^10.9.0",
+    "vitepress": "^1.6.4",
+    "vitepress-plugin-mermaid": "^2.0.17"
+  },
+  "keywords": [
+    "croupier",
+    "csharp",
+    ".net",
+    "sdk",
+    "documentation",
+    "vitepress"
+  ],
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "pnpm": {
+    "overrides": {
+      "esbuild": ">=0.25.0",
+      "vite": ">=6.4.2"
+    }
+  }
+}

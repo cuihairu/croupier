@@ -1,0 +1,8 @@
+comment: false
+
+ignore:
+  - "proto/**"
+  - "generated/**"
+  - "croupier/pb/**"
+  - "build/**"
+  - "dist/**"

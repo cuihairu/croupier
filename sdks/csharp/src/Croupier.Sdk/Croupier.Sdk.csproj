@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Croupier.Sdk</RootNamespace>
+    <Version>0.1.0</Version>
+    <Authors>Croupier Project</Authors>
+    <Description>Croupier SDK for .NET 8+ with TCP Transport</Description>
+    <RepositoryUrl>https://github.com/cuihairu/croupier-sdk-csharp</RepositoryUrl>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>CS1591</NoWarn>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <!-- Allow test project to access internal members -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Croupier.Sdk.Tests" />
+  </ItemGroup>
+
+  <!-- Include generated protobuf files -->
+  <ItemGroup>
+    <Compile Include="../../generated/*.cs" LinkBase="V1" />
+  </ItemGroup>
+
+  <!-- ============================================================================ -->
+  <!-- 版本锁定 - 必须与 croupier/proto/ 中的版本保持一致！ -->
+  <!-- Google.Protobuf 3.25.1 对应 protoc-csharp v25.1 -->
+  <!-- TCP transport replaces NNG -->
+  <!-- ============================================================================ -->
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.25.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="8.0.0" />
+    <PackageReference Include="System.Threading.Channels" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>
