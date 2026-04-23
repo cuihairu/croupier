@@ -6,10 +6,10 @@ heroText: Croupier
 tagline: 游戏运营控制面与 Agent 协同平台
 actions:
   - text: 快速开始 →
-    link: /guide/quick-start.html
+    link: /guide/quick-start
     type: primary
   - text: 开发约定
-    link: /development/
+    link: /development/README.md
     type: secondary
 features:
   - title: 控制面与 Agent 协同
@@ -44,8 +44,8 @@ make build
 
 更多内容从这里进入：
 
-- [使用指南](/guide/)
-- [架构文档](/architecture/)
-- [API 参考](/api/)
-- [分析系统](/analytics/)
-- [开发文档](/development/)
+- [使用指南](/guide/README.md)
+- [架构文档](/architecture/README.md)
+- [API 参考](/api/README.md)
+- [分析系统](/analytics/README.md)
+- [开发文档](/development/README.md)

@@ -31,11 +31,19 @@ jobs:
         timeout-minutes: 3
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        timeout-minutes: 3
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Setup Node.js
         timeout-minutes: 5
         uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: pnpm
+          cache-dependency-path: docs/pnpm-lock.yaml
 
       - name: Setup Pages
         timeout-minutes: 3
@@ -44,12 +52,12 @@ jobs:
       - name: Install dependencies
         timeout-minutes: 5
         working-directory: docs
-        run: npm ci
+        run: pnpm install
 
       - name: Build website
         timeout-minutes: 10
         working-directory: docs
-        run: npm run build
+        run: pnpm build
 
       - name: Upload artifact
         timeout-minutes: 3

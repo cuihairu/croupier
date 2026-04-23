@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
-export default defineConfig({
+const config = defineConfig({
   lang: 'zh-CN',
   title: 'Croupier',
   description: '分布式游戏管理系统 - 统一的游戏运营控制面',
@@ -106,3 +107,5 @@ export default defineConfig({
     },
   },
 })
+
+export default withMermaid(config)
