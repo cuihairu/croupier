@@ -153,7 +153,7 @@ Console.WriteLine("Connecting to Agent...");
 try
 {
     await client.ConnectAsync();
-    Console.WriteLine($"  ✓ Connected. Local: {client.LocalAddress}");
+    Console.WriteLine($"  ✓ Connected to Agent at {config.AgentAddr}");
 }
 catch (Exception ex)
 {
