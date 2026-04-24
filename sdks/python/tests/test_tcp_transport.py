@@ -92,6 +92,7 @@ class TestTCPTransport:
 
     def test_transport_set_handler(self):
         """Test setting handler before connection."""
+
         def handler(msg_type, req_id, body):
             return body
 

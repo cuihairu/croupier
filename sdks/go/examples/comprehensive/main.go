@@ -197,7 +197,6 @@ func demonstrateClientLifecycle(client croupier.Client) error {
 		return fmt.Errorf("连接到Agent失败: %w", err)
 	}
 	fmt.Println("✅ 成功连接到Agent")
-	fmt.Printf("📍 本地服务地址: %s\n", client.GetLocalAddress())
 
 	// 2. 异步启动服务
 	fmt.Println("🚀 启动客户端服务...")
@@ -216,7 +215,7 @@ func demonstrateClientLifecycle(client croupier.Client) error {
 	time.Sleep(3 * time.Second)
 
 	// 3. 检查服务状态 (Go SDK目前没有IsServing方法，但我们可以演示其他功能)
-	fmt.Printf("📍 当前本地地址: %s\n", client.GetLocalAddress())
+	fmt.Println("📍 客户端已连接并运行")
 
 	// 4. 优雅停止
 	fmt.Println("🛑 停止服务...")
@@ -420,7 +419,6 @@ func demonstrateConfigurationVariations() error {
 		Env:            "development",
 		ServiceID:      "dev-service",
 		ServiceVersion: "0.1.0",
-		LocalListen:    ":0",
 		TimeoutSeconds: 15,
 		Insecure:       true,
 	}
@@ -434,7 +432,6 @@ func demonstrateConfigurationVariations() error {
 		Env:            "production",
 		ServiceID:      "game-server-prod",
 		ServiceVersion: "2.1.0",
-		LocalListen:    "0.0.0.0:19001",
 		TimeoutSeconds: 60,
 		Insecure:       false,
 		CAFile:         "/etc/ssl/certs/ca.pem",
@@ -489,7 +486,6 @@ func main() {
 	agentAddr := getenv("CROUPIER_AGENT_ADDR", "127.0.0.1:19091")
 	gameID := getenv("CROUPIER_GAME_ID", "comprehensive-example")
 	serviceID := getenv("CROUPIER_SERVICE_ID", "demo-service-go")
-	localListen := getenv("CROUPIER_LOCAL_LISTEN", "127.0.0.1:19102")
 
 	// 创建客户端配置
 	config := &croupier.ClientConfig{
@@ -498,7 +494,6 @@ func main() {
 		Env:            "development",
 		ServiceID:      serviceID,
 		ServiceVersion: "1.0.0",
-		LocalListen:    localListen,
 		TimeoutSeconds: 30,
 		Insecure:       true,
 	}

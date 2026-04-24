@@ -17,7 +17,6 @@ func main() {
 	agentAddr := getenv("CROUPIER_AGENT_ADDR", "127.0.0.1:19091")
 	gameID := getenv("CROUPIER_GAME_ID", "example-game")
 	serviceID := getenv("CROUPIER_SERVICE_ID", "example-service")
-	localListen := getenv("CROUPIER_LOCAL_LISTEN", "127.0.0.1:19101")
 
 	// Create client configuration
 	config := &croupier.ClientConfig{
@@ -26,7 +25,6 @@ func main() {
 		Env:            "development",
 		ServiceID:      serviceID,
 		ServiceVersion: "1.0.0",
-		LocalListen:    localListen,
 		TimeoutSeconds: 30,
 		Insecure:       true, // Use insecure gRPC for development
 	}
