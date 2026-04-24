@@ -1,4 +1,4 @@
-name: CI: C# SDK
+name: Build Croupier C# SDK
 
 on:
   push:

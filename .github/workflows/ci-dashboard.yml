@@ -1,4 +1,4 @@
-name: Dashboard Quality
+name: CI: Dashboard
 
 on:
   pull_request:

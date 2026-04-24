@@ -1,4 +1,4 @@
-name: Dashboard Docker
+name: Docker: Dashboard
 
 on:
   push:
