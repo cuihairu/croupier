@@ -31,17 +31,23 @@ jobs:
       with:
         node-version: '20'
 
+    - name: Setup pnpm
+      timeout-minutes: 5
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9
+
     - name: Install dependencies
       timeout-minutes: 10
-      run: npm install
+      run: pnpm install
 
     - name: Run tests
       timeout-minutes: 10
-      run: npm test
+      run: pnpm test
 
     - name: Build package
       timeout-minutes: 10
-      run: npm run build
+      run: pnpm run build
 
     - name: Upload coverage to Codecov
       timeout-minutes: 3
