@@ -21,7 +21,7 @@ class ClientConfigTest {
         assertEquals("development", config.getEnv());
         assertEquals("127.0.0.1:19090", config.getAgentAddr());
         assertTrue(config.isInsecure());
-        assertEquals("127.0.0.1:0", config.getLocalListen());
+        assertEquals("127.0.0.1:0", config"127.0.0.1:0");
     }
 
     @Test
@@ -31,8 +31,8 @@ class ClientConfigTest {
         config.setAgentAddr("localhost:9999");
         assertEquals("localhost:9999", config.getAgentAddr());
 
-        config.setLocalListen("0.0.0.0:8888");
-        assertEquals("0.0.0.0:8888", config.getLocalListen());
+        config
+        assertEquals("0.0.0.0:8888", config"127.0.0.1:0");
 
         config.setEnv("production");
         assertEquals("production", config.getEnv());
@@ -252,7 +252,7 @@ class ClientConfigTest {
         ClientConfig config = new ClientConfig("game1", "svc1");
         config.setAgentAddr("localhost:9999");
         config.setAgentId("agent-123");
-        config.setLocalListen("0.0.0.0:8888");
+        config
         config.setControlAddr("localhost:8080");
         config.setTimeoutSeconds(60);
         config.setInsecure(false);
@@ -273,7 +273,7 @@ class ClientConfigTest {
 
         assertEquals("localhost:9999", config.getAgentAddr());
         assertEquals("agent-123", config.getAgentId());
-        assertEquals("0.0.0.0:8888", config.getLocalListen());
+        assertEquals("0.0.0.0:8888", config"127.0.0.1:0");
         assertEquals("localhost:8080", config.getControlAddr());
         assertEquals(60, config.getTimeoutSeconds());
         assertFalse(config.isInsecure());

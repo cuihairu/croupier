@@ -50,7 +50,6 @@ public class CroupierAutoConfiguration {
         config.setEnv(properties.getEnv());
         config.setServiceVersion(properties.getServiceVersion());
         config.setAgentId(properties.getAgentId());
-        config.setLocalListen(properties.getLocalListen());
         config.setControlAddr(properties.getControlAddr());
         config.setTimeoutSeconds(properties.getTimeoutSeconds());
         config.setInsecure(properties.isInsecure());

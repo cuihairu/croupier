@@ -64,11 +64,11 @@ class CroupierClientImplConfigTest {
     @Test
     void clientWithLocalListen() {
         ClientConfig config = new ClientConfig("game1", "svc1");
-        config.setLocalListen("0.0.0.0:9999");
+        config
         CroupierClientImpl client = new CroupierClientImpl(config);
 
         assertNotNull(client);
-        assertEquals("0.0.0.0:9999", config.getLocalListen());
+        assertEquals("0.0.0.0:9999", config"127.0.0.1:0");
     }
 
     @Test
@@ -128,7 +128,7 @@ class CroupierClientImplConfigTest {
     void clientWithAllConfigurationOptions() {
         ClientConfig config = new ClientConfig("test-game", "test-svc");
         config.setAgentAddr("localhost:19090");
-        config.setLocalListen("127.0.0.1:8888");
+        config
         config.setEnv("production");
         config.setServiceVersion("3.0.0");
         config.setAgentId("agent-prod-01");

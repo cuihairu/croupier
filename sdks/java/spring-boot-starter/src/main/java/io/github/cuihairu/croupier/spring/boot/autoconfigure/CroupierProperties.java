@@ -51,11 +51,6 @@ public class CroupierProperties {
     private String agentId;
 
     /**
-     * Local gRPC listener address.
-     */
-    private String localListen = "127.0.0.1:0";
-
-    /**
      * Optional control-plane address for manifest upload.
      */
     private String controlAddr;
@@ -141,14 +136,6 @@ public class CroupierProperties {
 
     public void setAgentId(String agentId) {
         this.agentId = agentId;
-    }
-
-    public String getLocalListen() {
-        return localListen;
-    }
-
-    public void setLocalListen(String localListen) {
-        this.localListen = localListen;
     }
 
     public String getControlAddr() {

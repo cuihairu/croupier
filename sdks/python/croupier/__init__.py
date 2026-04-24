@@ -449,30 +449,30 @@ class CroupierClient:
     def _handle_inbound_invoke(self, body: bytes) -> bytes:
         if self._draining.is_set():
             resp = invocation_pb2.InvokeResponse(payload=b"")
-            return resp.SerializeToString()
+            return resp.SerializeToString()  # type: ignore[no-any-return]
         req = invocation_pb2.InvokeRequest()
         req.ParseFromString(body)
         with self._active_call_tracker():
             result = self.invoke(req.function_id, req.payload, dict(req.metadata))
         resp = invocation_pb2.InvokeResponse(payload=result)
-        return resp.SerializeToString()
+        return resp.SerializeToString()  # type: ignore[no-any-return]
 
     def _handle_inbound_start_job(self, body: bytes) -> bytes:
         if self._draining.is_set():
             resp = invocation_pb2.StartJobResponse(job_id="")
-            return resp.SerializeToString()
+            return resp.SerializeToString()  # type: ignore[no-any-return]
         req = invocation_pb2.InvokeRequest()
         req.ParseFromString(body)
         job_id = self.start_job(req.function_id, req.payload, dict(req.metadata))
         resp = invocation_pb2.StartJobResponse(job_id=job_id)
-        return resp.SerializeToString()
+        return resp.SerializeToString()  # type: ignore[no-any-return]
 
     def _handle_inbound_cancel_job(self, body: bytes) -> bytes:
         req = invocation_pb2.CancelJobRequest()
         req.ParseFromString(body)
         self.cancel_job(req.job_id)
         resp = invocation_pb2.InvokeResponse()
-        return resp.SerializeToString()
+        return resp.SerializeToString()  # type: ignore[no-any-return]
 
     def _handle_inbound_stream_job(self, body: bytes) -> bytes:
         req = invocation_pb2.JobStreamRequest()
