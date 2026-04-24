@@ -16,6 +16,9 @@ jobs:
     strategy:
       matrix:
         java-version: ['17', '21']
+    defaults:
+      run:
+        working-directory: ./sdks/java
 
     steps:
     - name: Checkout SDK repository
