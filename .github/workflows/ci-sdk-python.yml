@@ -1,4 +1,4 @@
-name: CI: Python SDK
+name: "Build Croupier Python SDK"
 
 permissions:
   contents: read

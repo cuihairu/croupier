@@ -1,4 +1,4 @@
-name: CI: Go SDK
+name: "Build Croupier Go SDK"
 
 permissions:
   contents: read

@@ -1,4 +1,4 @@
-name: CI: Java SDK
+name: "Build Croupier Java SDK"
 
 permissions:
   contents: read
