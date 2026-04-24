@@ -33,7 +33,7 @@ jobs:
 
     - name: Install dependencies
       timeout-minutes: 10
-      run: npm ci
+      run: npm install
 
     - name: Run tests
       timeout-minutes: 10
