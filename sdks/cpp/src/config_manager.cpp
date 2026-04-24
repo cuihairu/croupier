@@ -270,8 +270,6 @@ std::vector<std::string> ConfigManager::ValidateClientConfig(const ClientConfig&
         errors.push_back("agent_addr 格式不正确，应为 host:port");
     }
 
-    }
-
     // 验证 TLS 配置
     if (!config.insecure) {
         if (config.cert_file.empty()) {
