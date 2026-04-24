@@ -1,0 +1,232 @@
+/**
+ * 画布渲染器样式
+ */
+
+.canvas-renderer {
+  min-height: 400px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  padding: 16px;
+  position: relative;
+
+  // 组件包装器
+  .canvas-component-wrapper {
+    position: relative;
+    min-height: 30px;
+    border: 1px dashed transparent;
+    border-radius: 4px;
+    transition: all 0.2s;
+
+    &:hover {
+      border-color: #d9d9d9;
+    }
+
+    &.hovered {
+      border-color: #1890ff;
+      background: rgba(24, 144, 255, 0.05);
+    }
+
+    &.selected {
+      border-color: #1890ff;
+      border-style: solid;
+      background: rgba(24, 144, 255, 0.1);
+    }
+  }
+
+  // 组件覆盖层
+  .canvas-component-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 10;
+
+    .canvas-component-label {
+      position: absolute;
+      top: -20px;
+      left: 0;
+      font-size: 11px;
+      color: #1890ff;
+      background: #fff;
+      padding: 2px 6px;
+      border-radius: 2px;
+      border: 1px solid #1890ff;
+      white-space: nowrap;
+    }
+
+    .canvas-component-handles {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+
+      .handle {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        background: #fff;
+        border: 1px solid #1890ff;
+        border-radius: 1px;
+
+        &.handle-tl {
+          top: -4px;
+          left: -4px;
+          cursor: nw-resize;
+        }
+        &.handle-tr {
+          top: -4px;
+          right: -4px;
+          cursor: ne-resize;
+        }
+        &.handle-bl {
+          bottom: -4px;
+          left: -4px;
+          cursor: sw-resize;
+        }
+        &.handle-br {
+          bottom: -4px;
+          right: -4px;
+          cursor: se-resize;
+        }
+      }
+    }
+  }
+
+  // 容器
+  .canvas-container {
+    background: #fff;
+    border-radius: 4px;
+    min-height: 80px;
+    padding: 16px;
+    border: 1px solid #d9d9d9;
+  }
+
+  // 分区
+  .canvas-section {
+    background: #fff;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    border: 1px solid #d9d9d9;
+    overflow: hidden;
+
+    .canvas-section-title {
+      padding: 12px 16px;
+      background: #fafafa;
+      border-bottom: 1px solid #d9d9d9;
+      font-weight: 500;
+    }
+  }
+
+  // 行
+  .canvas-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+
+  // 列
+  .canvas-col {
+    min-height: 40px;
+    background: rgba(24, 144, 255, 0.05);
+    border: 1px dashed rgba(24, 144, 255, 0.3);
+    border-radius: 4px;
+    padding: 8px;
+  }
+
+  // 字段
+  .canvas-field {
+    margin-bottom: 12px;
+    padding: 8px;
+    background: #fff;
+    border-radius: 4px;
+    border: 1px solid #f0f0f0;
+  }
+
+  // 按钮
+  .canvas-button {
+    display: inline-block;
+  }
+
+  // 文本
+  .canvas-text {
+    padding: 8px;
+  }
+
+  // 占位符
+  .canvas-spacer {
+    background: repeating-linear-gradient(
+      45deg,
+      rgba(24, 144, 255, 0.1),
+      rgba(24, 144, 255, 0.1) 5px,
+      transparent 5px,
+      transparent 10px
+    );
+    border-radius: 4px;
+  }
+
+  // 字段标签
+  .field-label {
+    margin-bottom: 8px;
+    font-weight: 500;
+
+    .required {
+      color: #ff4d4f;
+      margin-left: 4px;
+    }
+  }
+
+  // 开关
+  .field-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  // 复选框
+  .field-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    label {
+      margin: 0;
+    }
+  }
+}
+
+// 拖拽预览
+.canvas-drag-preview {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0.8;
+  background: #fff;
+  padding: 8px 12px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  font-size: 12px;
+}
+
+// 拖拽插入指示器
+.canvas-drop-indicator {
+  height: 4px;
+  background: #1890ff;
+  border-radius: 2px;
+  margin: 4px 0;
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    background: #1890ff;
+    border-radius: 50%;
+  }
+}

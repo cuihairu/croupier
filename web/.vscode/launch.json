@@ -1,0 +1,40 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Dashboard: start:dev (pnpm)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "pnpm run start:dev",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Dashboard: start (pnpm)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "pnpm run start",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Dashboard: build (pnpm)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "pnpm run build",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Dashboard: tsc (pnpm)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "pnpm run tsc",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Dashboard: test (pnpm)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "pnpm run test",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}
