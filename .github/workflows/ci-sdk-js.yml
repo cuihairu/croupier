@@ -1,13 +1,13 @@
 name: CI: JavaScript SDK
 
-permissions:
-  contents: read
-
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main]
+
+permissions:
+  contents: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -19,40 +19,35 @@ jobs:
     defaults:
       run:
         working-directory: ./sdks/js
+
     steps:
-      - timeout-minutes: 3
-        uses: actions/checkout@v5
-      - name: Configure git line endings
-        run: git config --global core.autocrlf false
-      - timeout-minutes: 5
-        uses: pnpm/action-setup@v6
-        with:
-          version: 9
-      - timeout-minutes: 5
-        uses: actions/setup-node@v5
-        with:
-          node-version: 22
-      - name: Get pnpm store directory
-        id: pnpm-cache
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v4
-        name: Setup pnpm cache
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-js-${{ hashFiles('sdks/js/pnpm-lock.yaml') }}
-      - name: Install dependencies
-        timeout-minutes: 5
-        run: pnpm install
-      - name: Unit tests (coverage)
-        timeout-minutes: 10
-        run: pnpm run test:coverage
-      - name: Upload coverage to Codecov
-        timeout-minutes: 5
-        uses: codecov/codecov-action@v6
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: sdks/js/coverage/lcov.info
-          flags: js-sdk
-          fail_ci_if_error: ${{ github.event_name != 'pull_request' }}
+    - name: Checkout repository
+      timeout-minutes: 3
+      uses: actions/checkout@v5
+
+    - name: Setup Node.js
+      timeout-minutes: 5
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install dependencies
+      timeout-minutes: 10
+      run: npm ci
+
+    - name: Run tests
+      timeout-minutes: 10
+      run: npm test
+
+    - name: Build package
+      timeout-minutes: 10
+      run: npm run build
+
+    - name: Upload coverage to Codecov
+      timeout-minutes: 3
+      uses: codecov/codecov-action@v6
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./sdks/js/coverage/lcov.info
+        flags: js-sdk
+        fail_ci_if_error: ${{ github.event_name != 'pull_request' }}
