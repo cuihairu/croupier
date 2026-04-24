@@ -2,116 +2,12 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 )
-
-// ProtoFile represents a proto file to download
-type ProtoFile struct {
-	Path string
-	URL  string
-}
-
-// getProtoFiles returns the list of proto files to download
-func getProtoFiles(branch string) []ProtoFile {
-	baseURL := fmt.Sprintf("https://raw.githubusercontent.com/cuihairu/croupier/%s/proto", branch)
-
-	return []ProtoFile{
-		{
-			Path: "croupier/common/v1/ui.proto",
-			URL:  fmt.Sprintf("%s/croupier/common/v1/ui.proto", baseURL),
-		},
-		{
-			Path: "croupier/agent/local/v1/local.proto",
-			URL:  fmt.Sprintf("%s/croupier/agent/local/v1/local.proto", baseURL),
-		},
-		{
-			Path: "croupier/server/v1/server_control.proto",
-			URL:  fmt.Sprintf("%s/croupier/server/v1/server_control.proto", baseURL),
-		},
-		{
-			Path: "croupier/sdk/v1/invoker.proto",
-			URL:  fmt.Sprintf("%s/croupier/sdk/v1/invoker.proto", baseURL),
-		},
-		{
-			Path: "croupier/edge/job/v1/job.proto",
-			URL:  fmt.Sprintf("%s/croupier/edge/job/v1/job.proto", baseURL),
-		},
-		{
-			Path: "croupier/server/v1/server_tunnel.proto",
-			URL:  fmt.Sprintf("%s/croupier/server/v1/server_tunnel.proto", baseURL),
-		},
-		{
-			Path: "croupier/options/v1/ui_options.proto",
-			URL:  fmt.Sprintf("%s/croupier/options/v1/ui_options.proto", baseURL),
-		},
-		{
-			Path: "croupier/options/v1/function_options.proto",
-			URL:  fmt.Sprintf("%s/croupier/options/v1/function_options.proto", baseURL),
-		},
-	}
-}
-
-// downloadFile downloads a file from a URL
-func downloadFile(url, destPath string) error {
-	// Create directory if it doesn't exist
-	dir := filepath.Dir(destPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %w", dir, err)
-	}
-
-	// Download file
-	resp, err := http.Get(url)
-	if err != nil {
-		return fmt.Errorf("failed to download %s: %w", url, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("download failed with status %d for %s", resp.StatusCode, url)
-	}
-
-	// Create destination file
-	out, err := os.Create(destPath)
-	if err != nil {
-		return fmt.Errorf("failed to create file %s: %w", destPath, err)
-	}
-	defer out.Close()
-
-	// Copy content
-	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to write file %s: %w", destPath, err)
-	}
-
-	return nil
-}
-
-// downloadProtoFiles downloads all proto files
-func downloadProtoFiles(protoDir, branch string) error {
-	files := getProtoFiles(branch)
-
-	fmt.Printf("Downloading %d proto files to %s...\n", len(files), protoDir)
-
-	for _, file := range files {
-		destPath := filepath.Join(protoDir, file.Path)
-		fmt.Printf("Downloading: %s\n", file.URL)
-
-		if err := downloadFile(file.URL, destPath); err != nil {
-			return fmt.Errorf("failed to download %s: %w", file.Path, err)
-		}
-
-		fmt.Printf("Downloaded: %s\n", file.Path)
-	}
-
-	fmt.Println("Proto files downloaded successfully")
-	return nil
-}
 
 // generateGRPCCode generates Go gRPC code from proto files
 func generateGRPCCode(protoDir, genDir string) error {
@@ -145,7 +41,7 @@ func generateGRPCCode(protoDir, genDir string) error {
 	for _, protoFile := range protoFiles {
 		fmt.Printf("Generating code for: %s\n", protoFile)
 
-		// Generate protobuf code
+		// Generate protobuf code using fixed version plugins
 		cmd := exec.Command("protoc",
 			"--proto_path="+protoDir,
 			"--go_out="+genDir,
@@ -179,32 +75,26 @@ func checkProtocInstalled() error {
 
 // checkGoProtocPlugins checks if required Go protoc plugins are installed
 func checkGoProtocPlugins() error {
-	plugins := []string{
-		"protoc-gen-go",
-		"protoc-gen-go-grpc",
+	plugins := []struct {
+		name   string
+		install string
+	}{
+		{"protoc-gen-go", "google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11"},
+		{"protoc-gen-go-grpc", "google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1"},
 	}
 
 	for _, plugin := range plugins {
-		cmd := exec.Command("which", plugin)
+		cmd := exec.Command("which", plugin.name)
 		if err := cmd.Run(); err != nil {
-			fmt.Printf("Installing %s...\n", plugin)
+			fmt.Printf("Installing %s@v1.36.11...\n", plugin.name)
 
-			var installCmd *exec.Cmd
-			switch plugin {
-			case "protoc-gen-go":
-				installCmd = exec.Command("go", "install", "google.golang.org/protobuf/cmd/protoc-gen-go@latest")
-			case "protoc-gen-go-grpc":
-				installCmd = exec.Command("go", "install", "google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest")
+			installCmd := exec.Command("go", "install", plugin.install)
+			if err := installCmd.Run(); err != nil {
+				return fmt.Errorf("failed to install %s: %w", plugin.name, err)
 			}
-
-			if installCmd != nil {
-				if err := installCmd.Run(); err != nil {
-					return fmt.Errorf("failed to install %s: %w", plugin, err)
-				}
-				fmt.Printf("Installed %s successfully\n", plugin)
-			}
+			fmt.Printf("Installed %s successfully\n", plugin.name)
 		} else {
-			fmt.Printf("Found %s\n", plugin)
+			fmt.Printf("Found %s\n", plugin.name)
 		}
 	}
 
@@ -214,6 +104,43 @@ func checkGoProtocPlugins() error {
 // isCI checks if running in CI environment
 func isCI() bool {
 	return os.Getenv("CI") != "" || os.Getenv("CROUPIER_CI_BUILD") != ""
+}
+
+// findProjectRoot finds the project root directory by looking for go.mod
+func findProjectRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	for {
+		// Check if we're in the Go SDK directory
+		if _, err := os.Stat("go.mod"); err == nil {
+			// Check if we're in sdks/go subdirectory
+			if _, err := os.Stat("../go.mod"); err == nil {
+				// Parent has go.mod, we might be in sdks/go
+				if _, err := os.Stat("../../proto"); err == nil {
+					// Found proto/ two levels up
+					return filepath.Join(dir, "../.."), nil
+				}
+			}
+			// Check if proto exists in parent (we're in sdks/go)
+			if _, err := os.Stat("../proto"); err == nil {
+				return filepath.Join(dir, ".."), nil
+			}
+			// Check if proto exists in current directory (we're in root)
+			if _, err := os.Stat("proto"); err == nil {
+				return dir, nil
+			}
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached root
+			return "", fmt.Errorf("could not find project root")
+		}
+		dir = parent
+	}
 }
 
 func main() {
@@ -234,6 +161,14 @@ func main() {
 		fmt.Println("CI build detected, enabling proto generation...")
 	}
 
+	// Find project root
+	projectRoot, err := findProjectRoot()
+	if err != nil {
+		log.Fatalf("Failed to find project root: %v", err)
+	}
+
+	fmt.Printf("Project root: %s\n", projectRoot)
+
 	// Check dependencies
 	fmt.Println("\nChecking dependencies...")
 	if err := checkProtocInstalled(); err != nil {
@@ -252,9 +187,9 @@ func main() {
 	if err := checkGoProtocPlugins(); err != nil {
 		if !isCI {
 			fmt.Printf("⚠️  Go protoc plugins not found: %v\n", err)
-			fmt.Println("Please install go plugins:")
-			fmt.Println("  go install google.golang.org/protobuf/cmd/protoc-gen-go@latest")
-			fmt.Println("  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest")
+			fmt.Println("Please install go plugins (using fixed versions):")
+			fmt.Println("  go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11")
+			fmt.Println("  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1")
 			fmt.Println("  Make sure $GOPATH/bin is in your $PATH")
 			fmt.Println("\nSkipping proto generation, using mock implementation")
 			return
@@ -262,26 +197,13 @@ func main() {
 		log.Fatalf("Go protoc plugin check failed: %v", err)
 	}
 
-	// Get branch from environment or default to main
-	branch := os.Getenv("CROUPIER_PROTO_BRANCH")
-	if branch == "" {
-		branch = "main"
-	}
-
 	// Directories
-	protoDir := "downloaded_proto"
-	genDir := "proto"
+	protoDir := filepath.Join(projectRoot, "proto")
+	genDir := filepath.Join(projectRoot, "sdks/go/pkg/pb")
 
-	// Download proto files
-	fmt.Printf("\nDownloading proto files from branch '%s'...\n", branch)
-	if err := downloadProtoFiles(protoDir, branch); err != nil {
-		if !isCI {
-			fmt.Printf("⚠️  Failed to download proto files: %v\n", err)
-			fmt.Println("This might be due to network issues or an invalid branch name")
-			fmt.Println("Skipping proto generation, using mock implementation")
-			return
-		}
-		log.Fatalf("Failed to download proto files: %v", err)
+	// Check if proto directory exists
+	if _, err := os.Stat(protoDir); os.IsNotExist(err) {
+		log.Fatalf("Proto directory not found: %s", protoDir)
 	}
 
 	// Generate gRPC code
@@ -291,7 +213,7 @@ func main() {
 	}
 
 	// Create build tag file to indicate real gRPC is available
-	buildTagFile := "proto/build_tags.go"
+	buildTagFile := filepath.Join(projectRoot, "sdks/go/proto/build_tags.go")
 	buildTagContent := `//go:build croupier_real_grpc
 // +build croupier_real_grpc
 
