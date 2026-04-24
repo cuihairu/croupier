@@ -1,7 +1,6 @@
 package io.github.cuihairu.croupier.sdk;
 
 import io.github.cuihairu.croupier.sdk.invoker.JobEventInfo;
-import io.github.cuihairu.croupier.sdk.testing.FakeRequestServer;
 import io.github.cuihairu.croupier.sdk.testing.FakeTransportClient;
 import io.github.cuihairu.croupier.sdk.transport.Protocol;
 import io.github.cuihairu.croupier.sdk.wire.SdkWireMessages;
@@ -36,8 +35,7 @@ class CroupierClientImplTest {
         harness = new TestHarness();
         client = new CroupierClientImpl(
             config,
-            (address, timeout) -> harness.newTransport(),
-            (address, timeout) -> harness.server
+            (address, timeout) -> harness.newTransport()
         );
     }
 
@@ -45,8 +43,7 @@ class CroupierClientImplTest {
     void constructorWithNullConfigThrowsException() {
         assertThrows(NullPointerException.class, () -> new CroupierClientImpl(
             null,
-            (address, timeout) -> harness.newTransport(),
-            (address, timeout) -> harness.server
+            (address, timeout) -> harness.newTransport()
         ));
     }
 
@@ -66,7 +63,6 @@ class CroupierClientImplTest {
         client.connect().join();
 
         assertTrue(client.isConnected());
-        assertTrue(harness.server.isListening());
         assertNotNull(harness.registerRequest.get());
         assertEquals("svc-1", harness.registerRequest.get().serviceId);
         assertEquals(1, harness.registerRequest.get().functions.size());
@@ -90,62 +86,6 @@ class CroupierClientImplTest {
         String result = client.invoke("test.fn", "input", Map.of("key", "value"));
 
         assertEquals("result:input", result);
-    }
-
-    @Test
-    void localServerHandlesInvokeRequest() throws Exception {
-        client.registerFunction(new FunctionDescriptor("player.echo", "1.0.0"), (ctx, payload) -> "echo:" + payload);
-        client.connect().join();
-
-        byte[] response = harness.server.dispatch(
-            Protocol.MSG_INVOKE_REQUEST,
-            1,
-            SdkWireMessages.encodeInvokeRequest(
-                new SdkWireMessages.InvokeRequest(
-                    "player.echo",
-                    "",
-                    "hello".getBytes(StandardCharsets.UTF_8),
-                    Map.of("trace", "t1")
-                )
-            )
-        );
-
-        assertEquals("echo:hello", SdkWireMessages.decodeInvokeResponse(response).payloadUtf8());
-    }
-
-    @Test
-    void localServerHandlesAsyncJobLifecycle() throws Exception {
-        client.registerFunction(new FunctionDescriptor("player.async", "1.0.0"), (ctx, payload) -> payload.toUpperCase());
-        client.connect().join();
-
-        byte[] startResponse = harness.server.dispatch(
-            Protocol.MSG_START_JOB_REQUEST,
-            2,
-            SdkWireMessages.encodeInvokeRequest(
-                new SdkWireMessages.InvokeRequest("player.async", "", "hello".getBytes(StandardCharsets.UTF_8), Map.of())
-            )
-        );
-        String jobId = SdkWireMessages.decodeStartJobResponse(startResponse).jobId;
-        assertFalse(jobId.isEmpty());
-
-        SdkWireMessages.JobEvent latest = null;
-        for (int i = 0; i < 10; i++) {
-            latest = SdkWireMessages.decodeJobEvent(
-                harness.server.dispatch(
-                    Protocol.MSG_STREAM_JOB_REQUEST,
-                    3,
-                    SdkWireMessages.encodeJobStreamRequest(new SdkWireMessages.JobStreamRequest(jobId))
-                )
-            );
-            if ("completed".equals(latest.type)) {
-                break;
-            }
-            Thread.sleep(50L);
-        }
-
-        assertNotNull(latest);
-        assertEquals("completed", latest.type);
-        assertEquals("HELLO", latest.payloadUtf8());
     }
 
     @Test
@@ -242,7 +182,6 @@ class CroupierClientImplTest {
     }
 
     private static final class TestHarness {
-        private final FakeRequestServer server = new FakeRequestServer();
         private final AtomicReference<SdkWireMessages.RegisterLocalRequest> registerRequest = new AtomicReference<>();
         private final AtomicReference<SdkWireMessages.InvokeRequest> lastRemoteInvoke = new AtomicReference<>();
         private final CountDownLatch heartbeatLatch = new CountDownLatch(1);

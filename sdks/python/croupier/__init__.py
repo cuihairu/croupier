@@ -503,7 +503,7 @@ class CroupierClient:
             event.type = "progress"
             event.message = "job is running"
 
-        return event.SerializeToString()
+        return event.SerializeToString()  # type: ignore[no-any-return]
 
     # ---- drain internals ----
 
@@ -557,9 +557,11 @@ class CroupierClient:
         deadline = __import__("time").monotonic() + 30
         while self._active_calls._counter > 0:  # type: ignore[attr-defined]
             if __import__("time").monotonic() > deadline:
-                LOG.warning(
-                    "Drain timeout, %d calls still in-flight", self._active_calls._counter
-                )  # type: ignore[attr-defined]
+                # fmt: off
+                LOG.warning(  # type: ignore[attr-defined]
+                    "Drain timeout, %d calls still in-flight", self._active_calls._counter  # type: ignore[attr-defined]
+                )
+                # fmt: on
                 break
             __import__("time").sleep(0.1)
 

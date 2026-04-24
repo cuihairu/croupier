@@ -98,9 +98,9 @@ class ClientConfigTest {
         assertEquals("127.0.0.1:19090", config.getAgentAddr());
         assertEquals(30, config.getTimeoutSeconds());
         assertTrue(config.isInsecure());
+        assertEquals("1.0.0", config.getServiceVersion());
         assertNull(config.getAgentId());
         assertNull(config.getControlAddr());
-        assertNull(config.getServiceVersion());
         assertNull(config.getCaFile());
         assertNull(config.getCertFile());
         assertNull(config.getKeyFile());
