@@ -67,10 +67,8 @@ class CroupierClientImplTest {
 
         assertTrue(client.isConnected());
         assertTrue(harness.server.isListening());
-        assertNotNull(client.getLocalAddress());
         assertNotNull(harness.registerRequest.get());
         assertEquals("svc-1", harness.registerRequest.get().serviceId);
-        assertEquals(client.getLocalAddress(), harness.registerRequest.get().rpcAddr);
         assertEquals(1, harness.registerRequest.get().functions.size());
         assertEquals("player.ban", harness.registerRequest.get().functions.get(0).id);
         assertEquals("Ban player", harness.registerRequest.get().functions.get(0).summary);

@@ -266,7 +266,6 @@ public interface CroupierClient {
     // 状态
     boolean isConnected();
     boolean isServing();
-    String getLocalAddress();
 }
 ```
 

@@ -275,7 +275,6 @@ public class ComprehensiveExample {
         CompletableFuture<Void> connectFuture = client.connect()
             .thenRun(() -> {
                 logger.info("✅ 异步连接完成");
-                logger.info("📍 本地地址: {}", client.getLocalAddress());
                 logger.info("🔗 连接状态: {}", client.isConnected());
             })
             .exceptionally(throwable -> {
@@ -477,13 +476,13 @@ public class ComprehensiveExample {
 
         // 1. 初始状态
         logger.info("📊 初始状态: 连接={}, 服务={}, 本地地址={}",
-                   client.isConnected(), client.isServing(), client.getLocalAddress());
+                   client.isConnected(), client.isServing(), "N/A");
 
         // 2. 连接后状态
         try {
             client.connect().get(5, TimeUnit.SECONDS);
             logger.info("📊 连接后状态: 连接={}, 服务={}, 本地地址={}",
-                       client.isConnected(), client.isServing(), client.getLocalAddress());
+                       client.isConnected(), client.isServing(), "N/A");
         } catch (Exception e) {
             logger.error("状态监控 - 连接失败", e);
         }
@@ -493,7 +492,7 @@ public class ComprehensiveExample {
             client.serveAsync();
             Thread.sleep(1000); // 等待服务启动
             logger.info("📊 服务后状态: 连接={}, 服务={}, 本地地址={}",
-                       client.isConnected(), client.isServing(), client.getLocalAddress());
+                       client.isConnected(), client.isServing(), "N/A");
         } catch (Exception e) {
             logger.error("状态监控 - 服务启动失败", e);
         }
@@ -501,7 +500,7 @@ public class ComprehensiveExample {
         // 4. 停止后状态
         client.stop();
         logger.info("📊 停止后状态: 连接={}, 服务={}, 本地地址={}",
-                   client.isConnected(), client.isServing(), client.getLocalAddress());
+                   client.isConnected(), client.isServing(), "N/A");
     }
 
     // ==================== Utility Methods ====================

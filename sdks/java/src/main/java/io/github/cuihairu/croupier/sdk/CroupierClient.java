@@ -52,13 +52,6 @@ public interface CroupierClient {
     void close();
 
     /**
-     * Get the local server address
-     *
-     * @return Local server address, or null if not started
-     */
-    String getLocalAddress();
-
-    /**
      * Check if the client is connected to the agent
      *
      * @return true if connected

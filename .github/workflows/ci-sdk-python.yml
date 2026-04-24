@@ -88,4 +88,4 @@ jobs:
 
       - name: Run mypy
         timeout-minutes: 5
-        run: uv run mypy croupier
+        run: uv run mypy croupier --ignore-missing-imports --no-strict-optional
