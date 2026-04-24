@@ -1,4 +1,4 @@
-name: Docker: Server & Agent
+name: Docker - Server & Agent
 
 on:
   push:

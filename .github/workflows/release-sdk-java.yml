@@ -1,4 +1,4 @@
-name: Release: Java SDK
+name: Release - Java SDK
 
 on:
   push:

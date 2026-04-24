@@ -1,4 +1,4 @@
-name: Release: Server & Agent
+name: Release - Server & Agent
 
 on:
   push:

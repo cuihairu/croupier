@@ -1,4 +1,4 @@
-name: CI: Server & Agent
+name: CI - Server & Agent
 
 on:
   push:

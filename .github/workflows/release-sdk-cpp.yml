@@ -1,4 +1,4 @@
-name: Release: C++ SDK
+name: Release - C++ SDK
 
 on:
   push:

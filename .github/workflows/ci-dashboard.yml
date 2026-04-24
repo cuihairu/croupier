@@ -1,4 +1,4 @@
-name: CI: Dashboard
+name: CI - Dashboard
 
 on:
   pull_request:
