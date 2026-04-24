@@ -1,14 +1,14 @@
 name: CI: Python SDK
 
+permissions:
+  contents: read
+  id-token: write
+
 on:
   push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
-
-permissions:
-  contents: read
-  id-token: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
