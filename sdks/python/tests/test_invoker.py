@@ -5,7 +5,6 @@ Uses TCP transport for communication.
 """
 
 import asyncio
-import time
 import croupier.invoker as invoker_module
 
 from croupier.invoker import (

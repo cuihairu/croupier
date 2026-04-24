@@ -513,7 +513,6 @@ class CroupierClient:
 
     def _active_call_tracker(self):
         """Context manager that tracks in-flight calls for drain coordination."""
-        import threading as _threading
 
         class _Tracker:
             def __init__(self, client: "CroupierClient") -> None:

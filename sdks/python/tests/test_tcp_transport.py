@@ -2,8 +2,6 @@
 Tests for Croupier Python SDK TCP Transport Layer.
 """
 
-import time
-
 import pytest
 
 from croupier.protocol import (

@@ -68,14 +68,6 @@ public class CroupierClientImpl implements CroupierClient {
             return new TCPTransport(host, port, timeout);
         };
     }
-            }
-
-            @Override
-            public void close() {
-                listening = false;
-            }
-        };
-    }
 
     CroupierClientImpl(
         ClientConfig config,
