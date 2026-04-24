@@ -1,4 +1,4 @@
-name: "Build Croupier JavaScript SDK"
+name: CI: JavaScript SDK
 
 permissions:
   contents: read

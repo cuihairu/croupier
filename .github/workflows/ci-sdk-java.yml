@@ -1,4 +1,4 @@
-name: "Build Croupier Java SDK"
+name: CI: Java SDK
 
 on:
   push:

@@ -1,4 +1,4 @@
-name: "Build Croupier Python SDK"
+name: CI: Python SDK
 
 on:
   push:
