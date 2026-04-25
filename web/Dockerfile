@@ -7,7 +7,7 @@ WORKDIR /app
 ARG NPM_REGISTRY=
 RUN if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi
 
-COPY package.json pnpm-lock.yaml ./
+COPY ["package.json", "pnpm-lock.yaml", "./"]
 RUN corepack enable && corepack prepare pnpm@10 --activate && pnpm install --frozen-lockfile --ignore-scripts
 
 COPY . .
