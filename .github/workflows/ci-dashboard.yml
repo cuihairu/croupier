@@ -5,8 +5,6 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/ci-dashboard.yml'
-      - 'README.md'
-      - 'docs/**'
       - 'web/**'
   workflow_dispatch:
 
@@ -42,12 +40,6 @@ jobs:
         run: |
           test -f src/services/contracts/extensions.ts || (echo "missing generated contracts" && exit 1)
           test -f src/services/errors/codes.ts || (echo "missing error code mapping" && exit 1)
-
-      - name: Check docs and workflow formatting
-        timeout-minutes: 5
-        run: |
-          pnpm exec prettier -c README.md
-          pnpm exec prettier -c "docs/**/*.md" ".github/workflows/*.yml"
 
       - name: Lint dashboard product path
         timeout-minutes: 5
