@@ -7,6 +7,8 @@ permissions:
 on:
   push:
     branches: [main, develop]
+    tags:
+      - "sdk-python-v*"
     paths:
       - ".github/workflows/ci-sdk-python.yml"
       - "proto/**"
@@ -17,8 +19,6 @@ on:
       - ".github/workflows/ci-sdk-python.yml"
       - "proto/**"
       - "sdks/python/**"
-  tags:
-    - "sdk-python-v*"
   workflow_dispatch:
     inputs:
       tag:

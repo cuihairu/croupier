@@ -3,6 +3,8 @@ name: Build and Release C++ SDK
 on:
   push:
     branches: [main, develop]
+    tags:
+      - "sdk-cpp-v*"
     paths:
       - ".github/workflows/ci-sdk-cpp.yml"
       - "proto/**"
@@ -13,8 +15,6 @@ on:
       - ".github/workflows/ci-sdk-cpp.yml"
       - "proto/**"
       - "sdks/cpp/**"
-  tags:
-    - "sdk-cpp-v*"
   workflow_dispatch:
     inputs:
       tag:

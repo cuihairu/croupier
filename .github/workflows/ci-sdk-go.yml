@@ -6,6 +6,8 @@ permissions:
 on:
   push:
     branches: [main, develop]
+    tags:
+      - "sdk-go-v*"
     paths:
       - ".github/workflows/ci-sdk-go.yml"
       - "proto/**"
@@ -16,8 +18,6 @@ on:
       - ".github/workflows/ci-sdk-go.yml"
       - "proto/**"
       - "sdks/go/**"
-  tags:
-    - "sdk-go-v*"
   workflow_dispatch:
     inputs:
       tag:
