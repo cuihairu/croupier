@@ -1,4 +1,4 @@
-name: Build & Release Python SDK
+name: Build and Release Python SDK
 
 permissions:
   contents: read

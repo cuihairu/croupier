@@ -1,4 +1,4 @@
-name: Build & Release JavaScript SDK
+name: Build and Release JavaScript SDK
 
 permissions:
   contents: read

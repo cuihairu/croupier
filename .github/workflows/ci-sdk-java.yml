@@ -1,4 +1,4 @@
-name: Build & Release Java SDK
+name: Build and Release Java SDK
 
 permissions:
   contents: read

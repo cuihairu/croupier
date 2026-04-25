@@ -1,4 +1,4 @@
-name: Build & Release Go SDK
+name: Build and Release Go SDK
 
 permissions:
   contents: read
