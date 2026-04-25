@@ -3,7 +3,7 @@
   "version-string": "0.1.0",
   "description": "Croupier C++ SDK for Virtual Object Registration and TCP Integration",
   "homepage": "https://github.com/cuihairu/croupier-sdk-cpp",
-  "builtin-baseline": "096e0079c53538058fac0a6d1e0994db230352a4",
+  "builtin-baseline": "ce613c41372b23b1f51333815feb3edd87ef8a8b",
   "supports": "windows | linux | osx",
   "dependencies": [
     {
