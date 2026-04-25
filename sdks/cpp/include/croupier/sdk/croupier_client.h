@@ -186,7 +186,8 @@ struct InvokerConfig {
     std::map<std::string, std::string> headers;  // Additional request headers
 
     // ========== Timeouts ==========
-    int timeout_seconds = 30;  // Request timeout
+    int timeout_seconds = 30;       // Request timeout
+    int connect_timeout_seconds = 5;  // Connection timeout
 
     // ========== Retry Configuration ==========
     RetryConfig retry;  // Retry configuration
