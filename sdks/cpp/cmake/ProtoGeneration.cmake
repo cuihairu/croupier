@@ -3,7 +3,7 @@
 # This module handles proto file downloading and code generation for CI builds
 
 get_filename_component(CPP_SDK_DIR "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
-get_filename_component(PROJECT_ROOT_DIR "${CPP_SDK_DIR}/.." ABSOLUTE)
+get_filename_component(PROJECT_ROOT_DIR "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
 
 # Function to download proto files from main repository
 function(download_proto_files PROTO_SOURCE_DIR PROTO_DEST_DIR)
