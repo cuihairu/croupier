@@ -5,8 +5,6 @@ set -euo pipefail
 VCPKG_ROOT="${1:?missing vcpkg root}"
 VCPKG_COMMIT="${2:?missing vcpkg commit}"
 
-# Create a separate directory for vcpkg with its own git repository
-# This prevents vcpkg from using the main project's git history
 if [[ ! -f "$VCPKG_ROOT/bootstrap-vcpkg.sh" ]]; then
   rm -rf "$VCPKG_ROOT"
   mkdir -p "$VCPKG_ROOT"
@@ -22,8 +20,10 @@ if [[ ! -f "$VCPKG_ROOT/bootstrap-vcpkg.sh" ]]; then
   # Checkout the fetched content
   git -C "$VCPKG_ROOT" checkout FETCH_HEAD
 
-  # Remove .git directory to save space and prevent vcpkg from using project git
+  # Replace .git directory with a file to prevent git from using this as a repo
+  # and prevent git from searching parent directories
   rm -rf "$VCPKG_ROOT/.git"
+  touch "$VCPKG_ROOT/.git"
 fi
 
 chmod +x "$VCPKG_ROOT/bootstrap-vcpkg.sh"
