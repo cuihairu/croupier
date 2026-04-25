@@ -89,7 +89,6 @@ web/.nyc_output/
 web/coverage/
 web/.eslintcache
 web/.pnpm-debug.log
-web/pnpm-lock.yaml
 web.yarn.lock
 
 # =============================================================================
