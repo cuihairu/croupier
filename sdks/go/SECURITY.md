@@ -13,7 +13,7 @@
 如果您发现安全漏洞，请通过以下方式负责任地披露：
 
 1. **请勿** 在公开的 GitHub Issues 中报告安全漏洞
-2. 发送邮件至项目维护者，或通过 [GitHub Security Advisories](https://github.com/cuihairu/croupier-sdk-go/security/advisories/new) 提交报告
+2. 发送邮件至项目维护者，或通过 [GitHub Security Advisories](https://github.com/cuihairu/croupier/security/advisories/new) 提交报告
 3. 请在报告中包含：
    - 漏洞描述
    - 复现步骤
