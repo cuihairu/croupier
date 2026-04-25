@@ -46,7 +46,7 @@ jobs:
       - name: Build and push Docker image
         timeout-minutes: 15
         run: |
-          docker builder prune -af
+          docker system prune -af --volumes
           docker buildx build \
             --push \
             --file ./web/Dockerfile \

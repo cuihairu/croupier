@@ -52,9 +52,10 @@ jobs:
         working-directory: docs
         run: |
           rm -rf node_modules/.pnpm/ignored-builds.log .pnpm-store
-          pnpm install --no-frozen-lockfile --no-strict
+          pnpm install --no-frozen-lockfile
         env:
           NODE_ENV: development
+          PNPM_IGNORE_SCRIPTS: false
 
       - name: Build website
         timeout-minutes: 10
