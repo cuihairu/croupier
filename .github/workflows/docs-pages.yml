@@ -50,7 +50,9 @@ jobs:
       - name: Install dependencies
         timeout-minutes: 5
         working-directory: docs
-        run: pnpm install --no-frozen-lockfile
+        run: |
+          pnpm install --no-frozen-lockfile
+          pnpm approve-builds esbuild
 
       - name: Build website
         timeout-minutes: 10
