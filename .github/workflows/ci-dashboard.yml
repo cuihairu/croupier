@@ -19,6 +19,10 @@ on:
         required: false
         type: string
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   dashboard-quality:
     runs-on: ubuntu-latest
