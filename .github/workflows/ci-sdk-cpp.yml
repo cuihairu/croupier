@@ -74,12 +74,16 @@ jobs:
         run: |
           echo "::group::Running clang-tidy static analysis"
           for file in src/*.cpp src/**/*.cpp; do
+            # Skip optional bindings that require external dependencies
+            if [[ "$file" == src/bindings/* ]]; then
+              continue
+            fi
             if [ -f "$file" ]; then
               echo "Checking: $file"
               clang-tidy "$file" \
                 --checks='-*,bugprone-*,clang-analyzer-*,performance-*,modernize-use-nullptr,modernize-use-override' \
                 --quiet \
-                -- -std=c++17 -I include -I src -I build/generated 2>/dev/null || echo "clang-tidy found issues: $file"
+                -- -std=c++17 -I include -I generated 2>/dev/null || echo "clang-tidy found issues: $file"
             fi
           done
           echo "::endgroup::"
