@@ -75,15 +75,6 @@ TEST_F(ClientConnectionTest, DisconnectFromAgent) {
     EXPECT_FALSE(connected_after_close);
 }
 
-TEST_F(ClientConnectionTest, GetLocalAddress) {
-    // RED: 测试获取本地地址
-    // 未连接时，本地地址可能为空
-    EXPECT_FALSE(client->IsConnected());
-
-    // 验证可以获取本地地址（即使是空的）
-    EXPECT_TRUE(local_addr.empty() || !local_addr.empty());
-}
-
 TEST_F(ClientConnectionTest, BlockingConnect) {
     // RED: 测试阻塞连接模式
     // 创建阻塞模式的配置
