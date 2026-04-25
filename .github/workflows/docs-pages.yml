@@ -50,7 +50,9 @@ jobs:
       - name: Install dependencies
         timeout-minutes: 5
         working-directory: docs
-        run: pnpm install --no-frozen-lockfile --force
+        run: |
+          rm -rf node_modules/.pnpm/ignored-builds.log
+          pnpm install --no-frozen-lockfile --force
         env:
           NODE_ENV: development
 
