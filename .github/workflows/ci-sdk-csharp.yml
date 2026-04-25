@@ -1,4 +1,4 @@
-name: Build Croupier C# SDK
+name: Build and Release C# SDK
 
 on:
   push:
