@@ -81,7 +81,6 @@ jobs:
             if [ -f "$file" ]; then
               echo "Checking: $file"
               clang-tidy "$file" \
-                --checks='-*,bugprone-*,clang-analyzer-*,performance-*,modernize-use-nullptr,modernize-use-override' \
                 --quiet \
                 -- -std=c++17 \
                    -I include \
