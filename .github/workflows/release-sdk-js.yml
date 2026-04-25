@@ -50,7 +50,7 @@ jobs:
         shell: bash
         run: |
           echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         name: Setup pnpm cache
         with:
           path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
@@ -70,7 +70,7 @@ jobs:
           zip -r "artifacts/croupier-js-sdk-${{ steps.version.outputs.sdk_version }}.zip" dist package.json README.md LICENSE
       - name: Publish release assets
         timeout-minutes: 10
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@v4
         with:
           files: sdks/js/artifacts/*
           fail_on_unmatched_files: true

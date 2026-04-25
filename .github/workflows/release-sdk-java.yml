@@ -63,7 +63,7 @@ jobs:
 
       - name: Import GPG key
         timeout-minutes: 5
-        uses: crazy-max/ghaction-import-gpg@v7
+        uses: crazy-max/ghaction-import-gpg@v8
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PRIVATE_KEY_PASSWORD: ${{ secrets.GPG_PRIVATE_KEY_PASSWORD }}
@@ -91,7 +91,7 @@ jobs:
 
       - name: Create Release
         timeout-minutes: 10
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@v4
         with:
           files: sdks/java/artifacts/*
           fail_on_unmatched_files: true

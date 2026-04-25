@@ -98,7 +98,7 @@ jobs:
 
       - name: Create Release
         timeout-minutes: 10
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@v4
         with:
           files: sdks/go/artifacts/*
           fail_on_unmatched_files: true
