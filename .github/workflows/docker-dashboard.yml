@@ -3,10 +3,10 @@ name: Docker - Dashboard
 on:
   push:
     branches: [main]
-    tags: ['v*']
+    tags: ["v*"]
     paths:
-      - '.github/workflows/docker-dashboard.yml'
-      - 'web/**'
+      - ".github/workflows/docker-dashboard.yml"
+      - "web/**"
   workflow_dispatch:
 
 env:

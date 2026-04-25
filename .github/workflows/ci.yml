@@ -2,41 +2,41 @@ name: CI - Server & Agent
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - '.github/workflows/ci.yml'
-      - '.github/scripts/**'
-      - 'cmd/**'
-      - 'configs/**'
-      - 'database/**'
-      - 'descriptors/**'
-      - 'examples/**'
-      - 'go.mod'
-      - 'go.sum'
-      - 'internal/**'
-      - 'migrations/**'
-      - 'pkg/**'
-      - 'proto/**'
-      - 'scripts/**'
-      - 'tools/**'
+      - ".github/workflows/ci.yml"
+      - ".github/scripts/**"
+      - "cmd/**"
+      - "configs/**"
+      - "database/**"
+      - "descriptors/**"
+      - "examples/**"
+      - "go.mod"
+      - "go.sum"
+      - "internal/**"
+      - "migrations/**"
+      - "pkg/**"
+      - "proto/**"
+      - "scripts/**"
+      - "tools/**"
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - '.github/workflows/ci.yml'
-      - '.github/scripts/**'
-      - 'cmd/**'
-      - 'configs/**'
-      - 'database/**'
-      - 'descriptors/**'
-      - 'examples/**'
-      - 'go.mod'
-      - 'go.sum'
-      - 'internal/**'
-      - 'migrations/**'
-      - 'pkg/**'
-      - 'proto/**'
-      - 'scripts/**'
-      - 'tools/**'
+      - ".github/workflows/ci.yml"
+      - ".github/scripts/**"
+      - "cmd/**"
+      - "configs/**"
+      - "database/**"
+      - "descriptors/**"
+      - "examples/**"
+      - "go.mod"
+      - "go.sum"
+      - "internal/**"
+      - "migrations/**"
+      - "pkg/**"
+      - "proto/**"
+      - "scripts/**"
+      - "tools/**"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -52,7 +52,7 @@ jobs:
       - timeout-minutes: 5
         uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
       - name: Architecture guard
         timeout-minutes: 5
         run: bash .github/scripts/architecture_guard.sh
@@ -77,7 +77,7 @@ jobs:
         timeout-minutes: 5
         shell: bash
         env:
-          BUF_VERSION: '1.47.2'
+          BUF_VERSION: "1.47.2"
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/bin"
@@ -118,7 +118,7 @@ jobs:
       - timeout-minutes: 5
         uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
       - name: Normalize Go toolchain env
         timeout-minutes: 2
         shell: bash
@@ -152,7 +152,7 @@ jobs:
       - timeout-minutes: 5
         uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
       - name: Normalize Go toolchain env
         timeout-minutes: 2
         shell: bash
@@ -202,7 +202,7 @@ jobs:
       - timeout-minutes: 5
         uses: actions/setup-go@v6
         with:
-          go-version-file: 'go.mod'
+          go-version-file: "go.mod"
       - name: Normalize Go toolchain env
         timeout-minutes: 2
         shell: bash

@@ -4,8 +4,8 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - '.github/workflows/ci-dashboard.yml'
-      - 'web/**'
+      - ".github/workflows/ci-dashboard.yml"
+      - "web/**"
   workflow_dispatch:
 
 jobs:
@@ -27,9 +27,9 @@ jobs:
       - timeout-minutes: 5
         uses: actions/setup-node@v6
         with:
-          node-version: '24'
-          cache: 'pnpm'
-          cache-dependency-path: 'web/pnpm-lock.yaml'
+          node-version: "24"
+          cache: "pnpm"
+          cache-dependency-path: "web/pnpm-lock.yaml"
 
       - name: Install dependencies
         timeout-minutes: 5

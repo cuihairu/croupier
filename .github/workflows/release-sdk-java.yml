@@ -3,7 +3,7 @@ name: Release - Java SDK
 on:
   push:
     tags:
-      - 'sdk-java-v*'
+      - "sdk-java-v*"
   workflow_dispatch:
 
 permissions:
@@ -47,7 +47,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
 
       - name: Make gradlew executable
         timeout-minutes: 1

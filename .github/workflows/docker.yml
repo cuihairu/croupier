@@ -2,28 +2,28 @@ name: Docker - Server & Agent
 
 on:
   push:
-    branches: [ main ]
-    tags: [ 'v*' ]
+    branches: [main]
+    tags: ["v*"]
     paths:
-      - '.github/workflows/docker.yml'
-      - 'cmd/**'
-      - 'configs/**'
-      - 'docker/**'
-      - 'go.mod'
-      - 'go.sum'
-      - 'internal/**'
-      - 'pkg/**'
+      - ".github/workflows/docker.yml"
+      - "cmd/**"
+      - "configs/**"
+      - "docker/**"
+      - "go.mod"
+      - "go.sum"
+      - "internal/**"
+      - "pkg/**"
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - '.github/workflows/docker.yml'
-      - 'cmd/**'
-      - 'configs/**'
-      - 'docker/**'
-      - 'go.mod'
-      - 'go.sum'
-      - 'internal/**'
-      - 'pkg/**'
+      - ".github/workflows/docker.yml"
+      - "cmd/**"
+      - "configs/**"
+      - "docker/**"
+      - "go.mod"
+      - "go.sum"
+      - "internal/**"
+      - "pkg/**"
   workflow_dispatch:
 
 env:

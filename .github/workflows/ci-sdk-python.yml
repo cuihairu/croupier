@@ -6,17 +6,17 @@ permissions:
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
     paths:
-      - '.github/workflows/ci-sdk-python.yml'
-      - 'proto/**'
-      - 'sdks/python/**'
+      - ".github/workflows/ci-sdk-python.yml"
+      - "proto/**"
+      - "sdks/python/**"
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - '.github/workflows/ci-sdk-python.yml'
-      - 'proto/**'
-      - 'sdks/python/**'
+      - ".github/workflows/ci-sdk-python.yml"
+      - "proto/**"
+      - "sdks/python/**"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.12', '3.13']
+        python-version: ["3.12", "3.13"]
     steps:
       - timeout-minutes: 3
         uses: actions/checkout@v6

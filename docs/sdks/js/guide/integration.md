@@ -9,7 +9,11 @@ npm install @croupier/sdk
 ## 最小示例
 
 ```typescript
-import { CroupierClient, FunctionDescriptor, ClientConfig } from "@croupier/sdk";
+import {
+  CroupierClient,
+  FunctionDescriptor,
+  ClientConfig,
+} from "@croupier/sdk";
 
 async function main() {
   const config: ClientConfig = {
@@ -25,7 +29,9 @@ async function main() {
     risk: "low",
   };
 
-  client.registerFunction(descriptor, async () => JSON.stringify({ status: "success" }));
+  client.registerFunction(descriptor, async () =>
+    JSON.stringify({ status: "success" }),
+  );
   await client.connect();
   await client.serve();
 }

@@ -7,15 +7,15 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - '.github/workflows/ci-sdk-js.yml'
-      - 'proto/**'
-      - 'sdks/js/**'
+      - ".github/workflows/ci-sdk-js.yml"
+      - "proto/**"
+      - "sdks/js/**"
   pull_request:
     branches: [main]
     paths:
-      - '.github/workflows/ci-sdk-js.yml'
-      - 'proto/**'
-      - 'sdks/js/**'
+      - ".github/workflows/ci-sdk-js.yml"
+      - "proto/**"
+      - "sdks/js/**"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -29,39 +29,39 @@ jobs:
         working-directory: ./sdks/js
 
     steps:
-    - name: Checkout repository
-      timeout-minutes: 3
-      uses: actions/checkout@v6
+      - name: Checkout repository
+        timeout-minutes: 3
+        uses: actions/checkout@v6
 
-    - name: Setup Node.js
-      timeout-minutes: 5
-      uses: actions/setup-node@v6
-      with:
-        node-version: '24'
+      - name: Setup Node.js
+        timeout-minutes: 5
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
 
-    - name: Setup pnpm
-      timeout-minutes: 5
-      uses: pnpm/action-setup@v6
-      with:
-        version: 9
+      - name: Setup pnpm
+        timeout-minutes: 5
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9
 
-    - name: Install dependencies
-      timeout-minutes: 10
-      run: pnpm install
+      - name: Install dependencies
+        timeout-minutes: 10
+        run: pnpm install
 
-    - name: Run tests
-      timeout-minutes: 10
-      run: pnpm test:coverage
+      - name: Run tests
+        timeout-minutes: 10
+        run: pnpm test:coverage
 
-    - name: Build package
-      timeout-minutes: 10
-      run: pnpm run build
+      - name: Build package
+        timeout-minutes: 10
+        run: pnpm run build
 
-    - name: Upload coverage to Codecov
-      timeout-minutes: 3
-      uses: codecov/codecov-action@v6
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: ./sdks/js/coverage/lcov.info
-        flags: js-sdk
-        fail_ci_if_error: ${{ github.event_name != 'pull_request' }}
+      - name: Upload coverage to Codecov
+        timeout-minutes: 3
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./sdks/js/coverage/lcov.info
+          flags: js-sdk
+          fail_ci_if_error: ${{ github.event_name != 'pull_request' }}

@@ -41,23 +41,23 @@
 
 ## 字段说明
 
-| 字段 | 说明 |
-| --- | --- |
-| `address` | Agent 本地 gateway 地址 |
-| `connectTimeoutMs` | 建连超时 |
-| `requestTimeoutMs` | 单请求超时 |
-| `heartbeat.intervalMs` | provider 心跳周期 |
-| `tls.enabled` | 是否启用 TLS |
-| `tls.certFile` | 客户端证书 |
-| `tls.keyFile` | 客户端私钥 |
-| `tls.caFile` | CA 文件 |
-| `tls.serverName` | 证书校验名 / SNI |
-| `tls.insecureSkipVerify` | 仅限开发环境跳过校验 |
-| `reconnect.enabled` | 是否自动重连 |
-| `reconnect.initialDelayMs` | 初始退避时间 |
-| `reconnect.maxDelayMs` | 最大退避时间 |
-| `reconnect.multiplier` | 指数退避倍率 |
-| `reconnect.jitter` | 抖动比例 |
+| 字段                           | 说明                         |
+| ------------------------------ | ---------------------------- |
+| `address`                      | Agent 本地 gateway 地址      |
+| `connectTimeoutMs`             | 建连超时                     |
+| `requestTimeoutMs`             | 单请求超时                   |
+| `heartbeat.intervalMs`         | provider 心跳周期            |
+| `tls.enabled`                  | 是否启用 TLS                 |
+| `tls.certFile`                 | 客户端证书                   |
+| `tls.keyFile`                  | 客户端私钥                   |
+| `tls.caFile`                   | CA 文件                      |
+| `tls.serverName`               | 证书校验名 / SNI             |
+| `tls.insecureSkipVerify`       | 仅限开发环境跳过校验         |
+| `reconnect.enabled`            | 是否自动重连                 |
+| `reconnect.initialDelayMs`     | 初始退避时间                 |
+| `reconnect.maxDelayMs`         | 最大退避时间                 |
+| `reconnect.multiplier`         | 指数退避倍率                 |
+| `reconnect.jitter`             | 抖动比例                     |
 | `reconnect.steadyStateDelayMs` | 达到上限后的持续廉价重试周期 |
 
 ## TLS 规则

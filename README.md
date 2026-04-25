@@ -30,14 +30,14 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。�
 
 ### 官方 SDK
 
-| 语言 | 目录 | Build | Coverage | Docs |
-| --- | --- | --- | --- | --- |
-| Go | `sdks/go/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=go-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/go/README.md) |
-| JS/TS | `sdks/js/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=js-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/js/README.md) |
+| 语言   | 目录           | Build                                                                                                                                                                    | Coverage                                                                                                                                    | Docs                            |
+| ------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| Go     | `sdks/go/`     | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml)         | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=go-sdk)](https://codecov.io/gh/cuihairu/croupier)     | [README](sdks/go/README.md)     |
+| JS/TS  | `sdks/js/`     | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml)         | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=js-sdk)](https://codecov.io/gh/cuihairu/croupier)     | [README](sdks/js/README.md)     |
 | Python | `sdks/python/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=python-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/python/README.md) |
-| Java | `sdks/java/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=java-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/java/README.md) |
-| C# | `sdks/csharp/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=csharp-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/csharp/README.md) |
-| C++ | `sdks/cpp/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml) | Not wired yet | [README](sdks/cpp/README.md) |
+| Java   | `sdks/java/`   | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml)     | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=java-sdk)](https://codecov.io/gh/cuihairu/croupier)   | [README](sdks/java/README.md)   |
+| C#     | `sdks/csharp/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=csharp-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/csharp/README.md) |
+| C++    | `sdks/cpp/`    | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml)       | Not wired yet                                                                                                                               | [README](sdks/cpp/README.md)    |
 
 ## 当前架构
 
@@ -122,25 +122,25 @@ Croupier 当前的核心传输抽象不是 `历史消息模式`，而是轻量�
 
 ## 仓库导航
 
-| 组件 | 位置 | 说明 |
-| --- | --- | --- |
-| Server / Agent | `cmd/`, `internal/` | 控制面、代理、调度、审计、注册与作业 |
-| Proto | `proto/` | protobuf 定义与生成入口（单源） |
-| SDKs | `sdks/` | 多语言 SDK（go, js, python, java, csharp, cpp） |
-| Dashboard | `web/` | Web 控制台（React + Ant Design） |
-| Examples / Tools | `examples/`, `tools/` | 示例和辅助工具 |
-| Docs | `docs/` | 架构、指南、API 与 SDK 文档 |
+| 组件             | 位置                  | 说明                                            |
+| ---------------- | --------------------- | ----------------------------------------------- |
+| Server / Agent   | `cmd/`, `internal/`   | 控制面、代理、调度、审计、注册与作业            |
+| Proto            | `proto/`              | protobuf 定义与生成入口（单源）                 |
+| SDKs             | `sdks/`               | 多语言 SDK（go, js, python, java, csharp, cpp） |
+| Dashboard        | `web/`                | Web 控制台（React + Ant Design）                |
+| Examples / Tools | `examples/`, `tools/` | 示例和辅助工具                                  |
+| Docs             | `docs/`               | 架构、指南、API 与 SDK 文档                     |
 
 ### SDK 目录结构
 
-| 语言 | 目录 |
-| --- | --- |
-| Go | `sdks/go/` |
-| JS/TS | `sdks/js/` |
+| 语言   | 目录           |
+| ------ | -------------- |
+| Go     | `sdks/go/`     |
+| JS/TS  | `sdks/js/`     |
 | Python | `sdks/python/` |
-| Java | `sdks/java/` |
-| C# | `sdks/csharp/` |
-| C++ | `sdks/cpp/` |
+| Java   | `sdks/java/`   |
+| C#     | `sdks/csharp/` |
+| C++    | `sdks/cpp/`    |
 
 ## 快速开始
 

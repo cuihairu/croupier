@@ -3,7 +3,7 @@ name: Release - Go SDK
 on:
   push:
     tags:
-      - 'sdk-go-v*'
+      - "sdk-go-v*"
   workflow_dispatch:
 
 permissions:
@@ -48,7 +48,7 @@ jobs:
       - timeout-minutes: 5
         uses: actions/setup-go@v6
         with:
-          go-version: '1.26'
+          go-version: "1.26"
 
       - name: Add Go bin to PATH
         timeout-minutes: 1
