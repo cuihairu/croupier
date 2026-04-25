@@ -167,7 +167,7 @@ ConfigManager::ApplicationConfig ConfigManager::LoadApplicationConfig(const std:
     }
 
     // 4. 加载全局设置
-    std::string global_config_file = config_dir + "/global.json";
+    [[maybe_unused]] std::string global_config_file = config_dir + "/global.json";
     try {
 #ifdef CROUPIER_SDK_ENABLE_JSON
         std::string content = LoadFileContent(global_config_file);

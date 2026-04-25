@@ -130,7 +130,7 @@ bool TCPTransport::ConnectWithTimeout(int timeout_ms) {
 #else
     struct timeval tv;
     tv.tv_sec = timeout_ms_ / 1000;
-    tv.tv_usec = (timeout_ms_ % 1000) * 1000;
+    tv.tv_usec = static_cast<__suseconds_t>((timeout_ms_ % 1000) * 1000);
     setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 #endif
 
@@ -194,7 +194,7 @@ bool TCPTransport::ConnectWithTimeout(int timeout_ms) {
 
     struct timeval select_timeout;
     select_timeout.tv_sec = timeout_ms / 1000;
-    select_timeout.tv_usec = (timeout_ms % 1000) * 1000;
+    select_timeout.tv_usec = static_cast<__suseconds_t>((timeout_ms % 1000) * 1000);
 
     int select_result = select(static_cast<int>(socket_) + 1, nullptr, &write_fds, &except_fds, &select_timeout);
 

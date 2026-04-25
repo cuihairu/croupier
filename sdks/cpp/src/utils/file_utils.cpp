@@ -293,7 +293,7 @@ std::string FileSystemUtils::NormalizePath(const std::string& path) {
 
     // Check if path is absolute (before normalization, using original path)
     bool is_absolute = false;
-    std::string drive_prefix;  // For Windows drive letters like "C:"
+    [[maybe_unused]] std::string drive_prefix;  // For Windows drive letters like "C:"
 
 #ifdef _WIN32
     // Windows: Check for drive letter or UNC path

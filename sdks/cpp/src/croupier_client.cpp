@@ -38,7 +38,7 @@
         if (!croupier::sdk::Logger::GetInstance().IsEnabled(croupier::sdk::Logger::Level::INFO)) \
             break;                                                                               \
         std::ostringstream oss_;                                                                 \
-        oss_ << msg;                                                                             \
+        oss_ << (msg);                                                                           \
         std::cout << "[INFO] [croupier] " << oss_.str() << '\n';                                 \
     } while (0)
 
@@ -47,7 +47,7 @@
         if (!croupier::sdk::Logger::GetInstance().IsEnabled(croupier::sdk::Logger::Level::WARN)) \
             break;                                                                               \
         std::ostringstream oss_;                                                                 \
-        oss_ << msg;                                                                             \
+        oss_ << (msg);                                                                           \
         std::cerr << "[WARN] [croupier] " << oss_.str() << '\n';                                 \
     } while (0)
 
@@ -56,7 +56,7 @@
         if (!croupier::sdk::Logger::GetInstance().IsEnabled(croupier::sdk::Logger::Level::ERR)) \
             break;                                                                              \
         std::ostringstream oss_;                                                                \
-        oss_ << msg;                                                                            \
+        oss_ << (msg);                                                                          \
         std::cerr << "[ERROR] [croupier] " << oss_.str() << '\n';                               \
     } while (0)
 
@@ -65,7 +65,7 @@
         if (!croupier::sdk::Logger::GetInstance().IsEnabled(croupier::sdk::Logger::Level::DEBUG)) \
             break;                                                                                \
         std::ostringstream oss_;                                                                  \
-        oss_ << msg;                                                                              \
+        oss_ << (msg);                                                                            \
         std::cout << "[DEBUG] [croupier] " << oss_.str() << '\n';                                 \
     } while (0)
 
@@ -240,7 +240,7 @@ bool SameTaskEvent(const TaskEvent& lhs, const TaskEvent& rhs) {
 namespace utils {
 std::string NewIdempotencyKey() {
     std::random_device rd;
-    std::mt19937 gen(rd());
+    std::mt19937 gen(static_cast<unsigned int>(rd()));
     std::uniform_int_distribution<> dis(0, 15);
 
     std::stringstream ss;
@@ -1490,7 +1490,7 @@ public:
 
         // Add jitter to prevent thundering herd
         std::random_device rd;
-        std::mt19937 gen(rd());
+        std::mt19937 gen(static_cast<unsigned int>(rd()));
         std::uniform_real_distribution<> dis(-reconnect_config_.jitter_factor, reconnect_config_.jitter_factor);
         double jitter_ratio = dis(gen);
 
@@ -1585,7 +1585,7 @@ public:
 
         // Add jitter to prevent thundering herd
         std::random_device rd;
-        std::mt19937 gen(rd());
+        std::mt19937 gen(static_cast<unsigned int>(rd()));
         std::uniform_real_distribution<> dis(-retry_config_.jitter_factor, retry_config_.jitter_factor);
         double jitter_ratio = dis(gen);
 
