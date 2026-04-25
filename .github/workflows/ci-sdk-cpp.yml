@@ -102,6 +102,7 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref }}
           submodules: recursive
+          fetch-depth: 0
 
       - name: Install system dependencies
         timeout-minutes: 5
@@ -161,6 +162,7 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref }}
           submodules: recursive
+          fetch-depth: 0
 
       - name: Install system dependencies
         timeout-minutes: 5
