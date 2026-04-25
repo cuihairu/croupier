@@ -67,7 +67,7 @@ jobs:
         run: ./gradlew --no-daemon clean test jacocoTestReport
 
       - name: Upload coverage to Codecov
-        if: matrix.java-version == '17'
+        if: success() && matrix.java-version == '17'
         timeout-minutes: 5
         uses: codecov/codecov-action@v6
         with:

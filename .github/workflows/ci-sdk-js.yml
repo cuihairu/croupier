@@ -66,6 +66,7 @@ jobs:
         run: pnpm run build
 
       - name: Upload coverage to Codecov
+        if: success()
         timeout-minutes: 3
         uses: codecov/codecov-action@v6
         with:

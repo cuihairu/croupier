@@ -463,6 +463,7 @@ void TCPServer::Stop() {
         client->active = false;
         if (client->socket != INVALID_SOCKET_VALUE) {
             closesocket(client->socket);
+            client->socket = INVALID_SOCKET_VALUE;
         }
         if (client->read_thread.joinable()) {
             client->read_thread.join();
@@ -592,18 +593,7 @@ void TCPServer::HandleClient(socket_t client_socket) {
             SendMessage(client_socket, response_msg_id, req_id, response_body);
         }
     }
-
-    // Clean up
-    closesocket(client_socket);
-
-    // Remove from clients list
-    std::lock_guard<std::mutex> lock(clients_mutex_);
-    clients_.erase(
-        std::remove_if(clients_.begin(), clients_.end(),
-                      [client_socket](const std::unique_ptr<ClientConnection>& c) {
-                          return c->socket == client_socket;
-                      }),
-        clients_.end());
+    // Note: socket cleanup is handled by Stop()
 }
 
 int TCPServer::ReadFully(socket_t sock, void* buf, size_t count) {

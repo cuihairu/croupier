@@ -215,6 +215,7 @@ jobs:
             --gcov-ignore-parse-errors=negative_hits.warn
 
       - name: Upload coverage to Codecov
+        if: success()
         timeout-minutes: 3
         uses: codecov/codecov-action@v6
         with:

@@ -65,7 +65,7 @@ jobs:
         run: uv run pytest -q --cov=croupier --cov-report=xml --cov-report=term
 
       - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.12'
+        if: success() && matrix.python-version == '3.12'
         timeout-minutes: 5
         uses: codecov/codecov-action@v6
         with:
