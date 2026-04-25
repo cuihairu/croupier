@@ -363,28 +363,28 @@ void TCPServer::Start() {
     }
 
     // Parse listen address (format: "tcp://host:port" or "host:port")
-    std::string addr = listen_address_;
+    std::string endpoint = listen_address_;
     std::string host = "127.0.0.1";
     int port = 0;
 
     // Strip "tcp://" prefix if present
     const std::string tcp_prefix = "tcp://";
-    if (addr.rfind(tcp_prefix, 0) == 0) {
-        addr = addr.substr(tcp_prefix.length());
+    if (endpoint.rfind(tcp_prefix, 0) == 0) {
+        endpoint = endpoint.substr(tcp_prefix.length());
     }
 
     // Find the last colon (separating host from port)
-    size_t colon_pos = addr.rfind(':');
+    size_t colon_pos = endpoint.rfind(':');
     if (colon_pos != std::string::npos) {
-        host = addr.substr(0, colon_pos);
-        std::string port_str = addr.substr(colon_pos + 1);
+        host = endpoint.substr(0, colon_pos);
+        std::string port_str = endpoint.substr(colon_pos + 1);
         try {
             port = std::stoi(port_str);
         } catch (const std::exception&) {
             throw std::runtime_error("Invalid port number in address: " + listen_address_);
         }
     } else {
-        host = addr;
+        host = endpoint;
     }
 
     // Create socket
