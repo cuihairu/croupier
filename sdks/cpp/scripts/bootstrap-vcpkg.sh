@@ -18,12 +18,14 @@ if [[ ! -f "$VCPKG_ROOT/vcpkg" || ! -f "$VCPKG_ROOT/.vcpkg-root" ]]; then
   git clone --depth 1 --branch "$VCPKG_COMMIT" https://github.com/microsoft/vcpkg.git "$TMP_DIR/vcpkg" 2>/dev/null || \
   git clone --depth 1 --single-branch --shallow-submodules https://github.com/microsoft/vcpkg.git "$TMP_DIR/vcpkg"
 
-  # Copy only the vcpkg files, not the .git directory
-  rsync -a --exclude='.git' "$TMP_DIR/vcpkg/" "$VCPKG_ROOT/"
+  # Copy vcpkg files including the .git directory
+  rsync -a "$TMP_DIR/vcpkg/" "$VCPKG_ROOT/"
 
-  # Create a .git file to prevent this from being treated as a git repo
-  # and to prevent git from searching parent directories
-  echo "gitdir: /dev/null" > "$VCPKG_ROOT/.git"
+  # Detach from the original remote to prevent any accidental fetching/pushing
+  # This keeps vcpkg's internal git working while isolating it from project git
+  git -C "$VCPKG_ROOT" remote remove origin 2>/dev/null || true
+  git -C "$VCPKG_ROOT" config user.name "vcpkg"
+  git -C "$VCPKG_ROOT" config user.email "vcpkg@localhost"
 
   # Mark this as a valid vcpkg root
   touch "$VCPKG_ROOT/.vcpkg-root"
