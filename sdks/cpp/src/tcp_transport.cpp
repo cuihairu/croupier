@@ -362,17 +362,29 @@ void TCPServer::Start() {
         return;
     }
 
-    // Parse listen address (format: "host:port")
+    // Parse listen address (format: "tcp://host:port" or "host:port")
+    std::string addr = listen_address_;
     std::string host = "127.0.0.1";
     int port = 0;
 
-    size_t colon_pos = listen_address_.find(':');
+    // Strip "tcp://" prefix if present
+    const std::string tcp_prefix = "tcp://";
+    if (addr.rfind(tcp_prefix, 0) == 0) {
+        addr = addr.substr(tcp_prefix.length());
+    }
+
+    // Find the last colon (separating host from port)
+    size_t colon_pos = addr.rfind(':');
     if (colon_pos != std::string::npos) {
-        host = listen_address_.substr(0, colon_pos);
-        std::string port_str = listen_address_.substr(colon_pos + 1);
-        port = std::stoi(port_str);
+        host = addr.substr(0, colon_pos);
+        std::string port_str = addr.substr(colon_pos + 1);
+        try {
+            port = std::stoi(port_str);
+        } catch (const std::exception&) {
+            throw std::runtime_error("Invalid port number in address: " + listen_address_);
+        }
     } else {
-        host = listen_address_;
+        host = addr;
     }
 
     // Create socket

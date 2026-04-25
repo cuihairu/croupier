@@ -48,6 +48,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang-format-17 clang-tidy-17
+          sudo apt-get install -y build-essential ninja-build
           sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-17 100
           sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-17 100
 
@@ -78,7 +79,7 @@ jobs:
               clang-tidy "$file" \
                 --checks='-*,bugprone-*,clang-analyzer-*,performance-*,modernize-use-nullptr,modernize-use-override' \
                 --quiet \
-                -- -std=c++17 -I include -I src 2>/dev/null || echo "clang-tidy found issues: $file"
+                -- -std=c++17 -I include -I src -I build/generated 2>/dev/null || echo "clang-tidy found issues: $file"
             fi
           done
           echo "::endgroup::"

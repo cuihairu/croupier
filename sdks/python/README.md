@@ -6,6 +6,12 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml">
+    <img src="https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml/badge.svg" alt="CI">
+  </a>
+  <a href="https://codecov.io/gh/cuihairu/croupier">
+    <img src="https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=python-sdk" alt="Coverage">
+  </a>
   <a href="https://www.apache.org/licenses/LICENSE-2.0">
     <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License">
   </a>
@@ -15,7 +21,7 @@
 </p>
 
 <p align="center">
-  <a href="#">
+  <a href="#支持平台">
     <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg" alt="Platform">
   </a>
   <a href="https://github.com/cuihairu/croupier">
@@ -34,12 +40,39 @@ Croupier Python SDK is the official Python client for the [Croupier](https://git
 - Unified docs site entry: `/docs/sdks/python/`
 - In-repo path: `docs/sdks/python`
 
-Key features:
+## 主项目
+
+| 项目 | 描述 | 链接 |
+|------|------|------|
+| **Croupier** | 游戏后端平台主项目 | [cuihairu/croupier](https://github.com/cuihairu/croupier) |
+
+## 其他语言 SDK
+
+所有 SDK 现已整合到主 monorepo 的 `sdks/` 目录下：
+
+| 语言 | 目录 | CI | Docs |
+| --- | --- | --- | --- |
+| Go | [sdks/go/](https://github.com/cuihairu/croupier/tree/main/sdks/go) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml) | [README](sdks/go/README.md) |
+| C++ | [sdks/cpp/](https://github.com/cuihairu/croupier/tree/main/sdks/cpp) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml) | [README](sdks/cpp/README.md) |
+| Java | [sdks/java/](https://github.com/cuihairu/croupier/tree/main/sdks/java) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml) | [README](sdks/java/README.md) |
+| JS/TS | [sdks/js/](https://github.com/cuihairu/croupier/tree/main/sdks/js) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml) | [README](sdks/js/README.md) |
+| C# | [sdks/csharp/](https://github.com/cuihairu/croupier/tree/main/sdks/csharp) | [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml) | [README](sdks/csharp/README.md) |
+
+## 核心特性
+
 - Single TCP connection with multiplexed request/response
 - Automatic heartbeat and reconnection
 - Synchronous function invocation and asynchronous job execution
 - Built-in TLS support
 - Zero external TCP dependency
+
+## 支持平台
+
+| 平台 | 架构 | 状态 |
+|------|------|------|
+| **Windows** | x64 | ✅ 支持 |
+| **Linux** | x64, ARM64 | ✅ 支持 |
+| **macOS** | x64, ARM64 (Apple Silicon) | ✅ 支持 |
 
 ## Requirements
 

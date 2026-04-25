@@ -167,7 +167,7 @@ public:
     /**
      * Initialize TCP server.
      *
-     * @param listen_address Listen address (e.g., "127.0.0.1:0" for auto-port)
+     * @param listen_address Listen address (e.g., "127.0.0.1:0" or "tcp://127.0.0.1:0" for auto-port)
      * @param timeout_ms Request timeout in milliseconds
      */
     explicit TCPServer(const std::string& listen_address, int timeout_ms = 30000);

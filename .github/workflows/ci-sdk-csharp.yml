@@ -13,6 +13,7 @@ on:
       - ".github/workflows/ci-sdk-csharp.yml"
       - "proto/**"
       - "sdks/csharp/**"
+  workflow_dispatch:  # 允许手动触发
 
 permissions:
   contents: read
