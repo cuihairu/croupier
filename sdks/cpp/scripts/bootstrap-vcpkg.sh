@@ -3,7 +3,7 @@
 set -euo pipefail
 
 VCPKG_ROOT="${1:?missing vcpkg root}"
-VCPKG_COMMIT="${2:?missing vcpkg commit}"
+VCPKG_COMMIT="${2:-master}"  # Default to master if no version specified
 
 # Ensure we have a clean vcpkg installation
 if [[ ! -f "$VCPKG_ROOT/vcpkg" || ! -f "$VCPKG_ROOT/.vcpkg-root" ]]; then
@@ -11,17 +11,18 @@ if [[ ! -f "$VCPKG_ROOT/vcpkg" || ! -f "$VCPKG_ROOT/.vcpkg-root" ]]; then
   mkdir -p "$VCPKG_ROOT"
 
   # Clone vcpkg with full history to get all git objects needed for port versioning
-  # This is required because vcpkg's internal versioning system uses git tree objects
   echo "Cloning vcpkg (this may take a few minutes for full history)..."
   git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
 
-  # Fetch the specific tag/commit to ensure we have all objects
-  echo "Fetching vcpkg version $VCPKG_COMMIT..."
-  git -C "$VCPKG_ROOT" fetch origin "refs/tags/$VCPKG_COMMIT" 2>/dev/null || \
-  git -C "$VCPKG_ROOT" fetch origin "$VCPKG_COMMIT"
+  # If a specific version was requested, fetch and checkout
+  if [[ "$VCPKG_COMMIT" != "master" ]]; then
+    echo "Fetching vcpkg version $VCPKG_COMMIT..."
+    git -C "$VCPKG_ROOT" fetch origin "refs/tags/$VCPKG_COMMIT" 2>/dev/null || \
+    git -C "$VCPKG_ROOT" fetch origin "$VCPKG_COMMIT"
 
-  # Checkout the desired version
-  git -C "$VCPKG_ROOT" checkout "$VCPKG_COMMIT"
+    echo "Checking out $VCPKG_COMMIT..."
+    git -C "$VCPKG_ROOT" checkout "$VCPKG_COMMIT"
+  fi
 
   # Remove the origin remote to prevent any accidental operations on upstream
   git -C "$VCPKG_ROOT" remote remove origin

@@ -118,7 +118,7 @@ jobs:
         run: |
           bash "${{ github.workspace }}/sdks/cpp/scripts/bootstrap-vcpkg.sh" \
             "${{ github.workspace }}/sdks/cpp/vcpkg" \
-            "2024.12.16"
+            "2025.04.09"
 
       - name: Configure CMake
         timeout-minutes: 30
@@ -176,7 +176,7 @@ jobs:
         run: |
           bash "${{ github.workspace }}/sdks/cpp/scripts/bootstrap-vcpkg.sh" \
             "${{ github.workspace }}/sdks/cpp/vcpkg" \
-            "2024.12.16"
+            "2025.04.09"
 
       - name: Configure CMake (coverage)
         timeout-minutes: 30
@@ -403,7 +403,7 @@ jobs:
         run: |
           $scriptPath = Join-Path "${{ github.workspace }}" "sdks/cpp/scripts/bootstrap-vcpkg.ps1"
           $vcpkgRoot = Join-Path "${{ github.workspace }}" "sdks/cpp/vcpkg"
-          & $scriptPath -VcpkgRoot $vcpkgRoot -VcpkgCommit "2024.12.16"
+          & $scriptPath -VcpkgRoot $vcpkgRoot -VcpkgCommit "2025.04.09"
 
       - name: Bootstrap vcpkg (Unix)
         if: runner.os != 'Windows'
@@ -412,7 +412,7 @@ jobs:
         run: |
           bash "${{ github.workspace }}/sdks/cpp/scripts/bootstrap-vcpkg.sh" \
             "${{ github.workspace }}/sdks/cpp/vcpkg" \
-            "2024.12.16"
+            "2025.04.09"
 
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
