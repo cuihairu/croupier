@@ -1,0 +1,22 @@
+name: Dependabot Auto-merge
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  pull-requests: write
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  dependabot:
+    runs-on: ubuntu-latest
+    if: ${{ github.actor == 'dependabot[bot]' }}
+    steps:
+      - uses: github/dependabot-action@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
