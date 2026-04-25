@@ -3,8 +3,40 @@ name: CI - Server & Agent
 on:
   push:
     branches: [ main ]
+    paths:
+      - '.github/workflows/ci.yml'
+      - '.github/scripts/**'
+      - 'cmd/**'
+      - 'configs/**'
+      - 'database/**'
+      - 'descriptors/**'
+      - 'examples/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'internal/**'
+      - 'migrations/**'
+      - 'pkg/**'
+      - 'proto/**'
+      - 'scripts/**'
+      - 'tools/**'
   pull_request:
     branches: [ main ]
+    paths:
+      - '.github/workflows/ci.yml'
+      - '.github/scripts/**'
+      - 'cmd/**'
+      - 'configs/**'
+      - 'database/**'
+      - 'descriptors/**'
+      - 'examples/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'internal/**'
+      - 'migrations/**'
+      - 'pkg/**'
+      - 'proto/**'
+      - 'scripts/**'
+      - 'tools/**'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -56,12 +88,6 @@ jobs:
       - name: Lint proto
         timeout-minutes: 5
         run: buf lint proto
-      - name: Checkout SDK repository
-        timeout-minutes: 3
-        uses: actions/checkout@v5
-        with:
-          repository: cuihairu/croupier-sdk-go
-          path: ./croupier-sdk-go
       - name: Go mod download
         timeout-minutes: 5
         run: go mod download
@@ -107,12 +133,6 @@ jobs:
       - name: Install govulncheck
         timeout-minutes: 5
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
-      - name: Checkout SDK repository
-        timeout-minutes: 3
-        uses: actions/checkout@v5
-        with:
-          repository: cuihairu/croupier-sdk-go
-          path: ./croupier-sdk-go
       - name: Go mod download
         timeout-minutes: 5
         run: go mod download
@@ -145,12 +165,6 @@ jobs:
           go version
           go env GOROOT GOTOOLDIR GOVERSION GOOS GOARCH
       # Proto 代码无需本地生成
-      - name: Checkout SDK repository
-        timeout-minutes: 3
-        uses: actions/checkout@v5
-        with:
-          repository: cuihairu/croupier-sdk-go
-          path: ./croupier-sdk-go
       - name: Go mod download
         timeout-minutes: 5
         run: go mod download

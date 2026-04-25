@@ -55,6 +55,11 @@
 
 Croupier C# SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 .NET 客户端实现。支持 .NET 8+，提供简洁的异步 API 用于服务器端服务连接 Agent、注册函数和调用远程函数。
 
+## 正式文档
+
+- 统一文档站入口：`/docs/sdks/csharp/`
+- 仓库内路径：`docs/sdks/csharp`
+
 ## 主项目
 
 | 项目 | 描述 | 链接 |

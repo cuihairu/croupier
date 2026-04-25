@@ -55,6 +55,11 @@
 
 Croupier Java SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 Java 客户端实现。它提供了与官方 Croupier proto 定义 100% 对齐的类型、基于 `CompletableFuture` 的异步能力以及完整的函数注册到执行链路。
 
+## 正式文档
+
+- 统一文档站入口：`/docs/sdks/java/`
+- 仓库内路径：`docs/sdks/java`
+
 ## 主项目
 
 | 项目 | 描述 | 链接 |

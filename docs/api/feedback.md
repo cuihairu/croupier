@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type FeedbackListRequest struct {
 	Page int `form:"page,optional,default=1"`
 	PageSize int `form:"pageSize,optional,default=20"`
@@ -28,7 +28,7 @@ type FeedbackListRequest struct {
 
 
 
-```golang
+```go
 type FeedbackListResponse struct {
 	Items []Feedback `json:"items"`
 	Total int64 `json:"total"`
@@ -50,7 +50,7 @@ type FeedbackListResponse struct {
 
 
 
-```golang
+```go
 type FeedbackCreateRequest struct {
 	PlayerId string `json:"playerId,optional"`
 	Contact string `json:"contact"`
@@ -68,7 +68,7 @@ type FeedbackCreateRequest struct {
 
 
 
-```golang
+```go
 type FeedbackDetailResponse struct {
 	Id int64 `json:"id"`
 	PlayerId string `json:"playerId"`
@@ -117,7 +117,7 @@ type Feedback struct {
 
 
 
-```golang
+```go
 type FeedbackUpdateRequest struct {
 	ID string `path:"id"`
 	Status string `json:"status,optional"`
@@ -131,7 +131,7 @@ type FeedbackUpdateRequest struct {
 
 
 
-```golang
+```go
 type FeedbackDetailResponse struct {
 	Id int64 `json:"id"`
 	PlayerId string `json:"playerId"`
@@ -180,7 +180,7 @@ type Feedback struct {
 
 
 
-```golang
+```go
 type FeedbackDeleteRequest struct {
 	ID string `path:"id"`
 }
@@ -203,7 +203,7 @@ type FeedbackDeleteRequest struct {
 
 
 
-```golang
+```go
 type FeedbackStatsRequest struct {
 	GameId string `form:"gameId,optional"`
 	Days int `form:"days,optional,default=7"`
@@ -215,7 +215,7 @@ type FeedbackStatsRequest struct {
 
 
 
-```golang
+```go
 type FeedbackStatsResponse struct {
 	Total int `json:"total"`
 	ByCategory map[string]int `json:"byCategory"`

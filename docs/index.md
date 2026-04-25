@@ -30,6 +30,7 @@ footer: Apache-2.0 License | Copyright © 2024-present Croupier
 - `api/`: REST/API 能力说明
 - `analytics/`: 采集、处理、指标与分析链路
 - `development/`: 仓库结构、开发命令、约定
+- `sdks/`: 多语言 SDK 文档与能力矩阵
 
 ## 快速开始
 
@@ -49,3 +50,4 @@ make build
 - [API 参考](/api/)
 - [分析系统](/analytics/)
 - [开发文档](/development/)
+- [SDK 文档](/sdks/)

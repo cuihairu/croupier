@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type TicketsListRequest struct {
 	Page int `form:"page,optional,default=1"`
 	PageSize int `form:"pageSize,optional,default=20"`
@@ -29,7 +29,7 @@ type TicketsListRequest struct {
 
 
 
-```golang
+```go
 type TicketsListResponse struct {
 	Items []Ticket `json:"items"`
 	Total int64 `json:"total"`
@@ -51,7 +51,7 @@ type TicketsListResponse struct {
 
 
 
-```golang
+```go
 type TicketCreateRequest struct {
 	Title string `json:"title"`
 	Content string `json:"content"`
@@ -70,7 +70,7 @@ type TicketCreateRequest struct {
 
 
 
-```golang
+```go
 type TicketDetailResponse struct {
 	Id int64 `json:"id"`
 	Title string `json:"title"`
@@ -122,7 +122,7 @@ type Ticket struct {
 
 
 
-```golang
+```go
 type TicketDetailRequest struct {
 	ID string `path:"id"`
 }
@@ -133,7 +133,7 @@ type TicketDetailRequest struct {
 
 
 
-```golang
+```go
 type TicketDetailResponse struct {
 	Id int64 `json:"id"`
 	Title string `json:"title"`
@@ -185,7 +185,7 @@ type Ticket struct {
 
 
 
-```golang
+```go
 type TicketUpdateRequest struct {
 	ID string `path:"id"`
 	Title string `json:"title,optional"`
@@ -202,7 +202,7 @@ type TicketUpdateRequest struct {
 
 
 
-```golang
+```go
 type TicketDetailResponse struct {
 	Id int64 `json:"id"`
 	Title string `json:"title"`
@@ -254,7 +254,7 @@ type Ticket struct {
 
 
 
-```golang
+```go
 type TicketDeleteRequest struct {
 	ID string `path:"id"`
 }
@@ -277,7 +277,7 @@ type TicketDeleteRequest struct {
 
 
 
-```golang
+```go
 type TicketTransitionRequest struct {
 	ID string `path:"id"`
 	Status string `json:"status"` // open, in_progress, resolved, closed
@@ -290,7 +290,7 @@ type TicketTransitionRequest struct {
 
 
 
-```golang
+```go
 type TicketDetailResponse struct {
 	Id int64 `json:"id"`
 	Title string `json:"title"`
@@ -342,7 +342,7 @@ type Ticket struct {
 
 
 
-```golang
+```go
 type TicketCommentsRequest struct {
 	TicketID string `path:"ticketId"`
 }
@@ -353,7 +353,7 @@ type TicketCommentsRequest struct {
 
 
 
-```golang
+```go
 type TicketCommentsResponse struct {
 	Items []Comment `json:"items"`
 }
@@ -372,7 +372,7 @@ type TicketCommentsResponse struct {
 
 
 
-```golang
+```go
 type TicketCommentCreateRequest struct {
 	TicketID string `path:"ticketId"`
 	Content string `json:"content"`
@@ -384,7 +384,7 @@ type TicketCommentCreateRequest struct {
 
 
 
-```golang
+```go
 type TicketCommentsResponse struct {
 	Items []Comment `json:"items"`
 }

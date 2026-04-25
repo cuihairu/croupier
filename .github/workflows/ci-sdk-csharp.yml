@@ -3,8 +3,16 @@ name: Build Croupier C# SDK
 on:
   push:
     branches: [ main, develop ]
+    paths:
+      - '.github/workflows/ci-sdk-csharp.yml'
+      - 'proto/**'
+      - 'sdks/csharp/**'
   pull_request:
     branches: [ main ]
+    paths:
+      - '.github/workflows/ci-sdk-csharp.yml'
+      - 'proto/**'
+      - 'sdks/csharp/**'
 
 permissions:
   contents: read

@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type OpsAgentMetaUpdateRequest struct {
 	AgentID string `json:"agentId"`
 	Meta interface{} `json:"meta"`
@@ -25,7 +25,7 @@ type OpsAgentMetaUpdateRequest struct {
 
 
 
-```golang
+```go
 type OpsAgentMetaResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -46,7 +46,7 @@ type OpsAgentMetaResponse struct {
 
 
 
-```golang
+```go
 type OpsAgentsListRequest struct {
 }
 ```
@@ -56,7 +56,7 @@ type OpsAgentsListRequest struct {
 
 
 
-```golang
+```go
 type OpsAgentsListResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -77,7 +77,7 @@ type OpsAgentsListResponse struct {
 
 
 
-```golang
+```go
 type OpsExecCommandRequest struct {
 	AgentID string `path:"agentId"`
 	Command string `json:"command"`
@@ -91,7 +91,7 @@ type OpsExecCommandRequest struct {
 
 
 
-```golang
+```go
 type OpsExecCommandResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -119,7 +119,7 @@ type OpsExecCommandResult struct {
 
 
 
-```golang
+```go
 type OpsAgentProcessesRequest struct {
 	AgentID string `path:"agentId"`
 }
@@ -130,7 +130,7 @@ type OpsAgentProcessesRequest struct {
 
 
 
-```golang
+```go
 type OpsAgentProcessesResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -151,7 +151,7 @@ type OpsAgentProcessesResponse struct {
 
 
 
-```golang
+```go
 type OpsProcessActionRequest struct {
 	AgentID string `path:"agentId"`
 	Name string `path:"name"`
@@ -164,7 +164,7 @@ type OpsProcessActionRequest struct {
 
 
 
-```golang
+```go
 type OpsProcessActionResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -185,7 +185,7 @@ type OpsProcessActionResponse struct {
 
 
 
-```golang
+```go
 type OpsProcessStartRequest struct {
 	AgentID string `path:"agentId"`
 	Name string `path:"name"`
@@ -197,7 +197,7 @@ type OpsProcessStartRequest struct {
 
 
 
-```golang
+```go
 type OpsProcessStartResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -218,7 +218,7 @@ type OpsProcessStartResponse struct {
 
 
 
-```golang
+```go
 type OpsProcessActionRequest struct {
 	AgentID string `path:"agentId"`
 	Name string `path:"name"`
@@ -231,7 +231,7 @@ type OpsProcessActionRequest struct {
 
 
 
-```golang
+```go
 type OpsProcessActionResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -252,7 +252,7 @@ type OpsProcessActionResponse struct {
 
 
 
-```golang
+```go
 type OpsAgentSystemInfoRequest struct {
 	AgentID string `path:"agentId"`
 }
@@ -263,7 +263,7 @@ type OpsAgentSystemInfoRequest struct {
 
 
 
-```golang
+```go
 type OpsAgentSystemInfoResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -296,7 +296,7 @@ type OpsAgentSystemInfo struct {
 
 
 
-```golang
+```go
 type OpsAgentMetricsRequest struct {
 	AgentID string `form:"agentId,optional"`
 	Since string `form:"since,optional"`
@@ -309,7 +309,7 @@ type OpsAgentMetricsRequest struct {
 
 
 
-```golang
+```go
 type OpsAgentMetricsResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -330,7 +330,7 @@ type OpsAgentMetricsResponse struct {
 
 
 
-```golang
+```go
 type OpsAlertsRequest struct {
 }
 ```
@@ -340,7 +340,7 @@ type OpsAlertsRequest struct {
 
 
 
-```golang
+```go
 type OpsAlertsResponse struct {
 	Alerts []OpsAlert `json:"alerts"`
 }
@@ -359,7 +359,7 @@ type OpsAlertsResponse struct {
 
 
 
-```golang
+```go
 type OpsAlertSilenceRequest struct {
 	AlertID string `json:"alertId"`
 	Duration int `json:"duration"` // 静默时长（分钟）
@@ -371,7 +371,7 @@ type OpsAlertSilenceRequest struct {
 
 
 
-```golang
+```go
 type OpsAlertSilenceResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -392,7 +392,7 @@ type OpsAlertSilenceResponse struct {
 
 
 
-```golang
+```go
 type OpsBackupCreateRequest struct {
 	Name string `json:"name,optional"`
 }
@@ -403,7 +403,7 @@ type OpsBackupCreateRequest struct {
 
 
 
-```golang
+```go
 type OpsBackupCreateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -424,7 +424,7 @@ type OpsBackupCreateResponse struct {
 
 
 
-```golang
+```go
 type OpsBackupsListRequest struct {
 	Page int `form:"page,optional"`
 	PageSize int `form:"pageSize,optional"`
@@ -436,7 +436,7 @@ type OpsBackupsListRequest struct {
 
 
 
-```golang
+```go
 type OpsBackupsListResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -457,7 +457,7 @@ type OpsBackupsListResponse struct {
 
 
 
-```golang
+```go
 type OpsBackupDeleteRequest struct {
 	ID string `path:"id"`
 }
@@ -468,7 +468,7 @@ type OpsBackupDeleteRequest struct {
 
 
 
-```golang
+```go
 type OpsBackupDeleteResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -489,7 +489,7 @@ type OpsBackupDeleteResponse struct {
 
 
 
-```golang
+```go
 type OpsBackupDownloadRequest struct {
 	ID string `path:"id"`
 }
@@ -500,7 +500,7 @@ type OpsBackupDownloadRequest struct {
 
 
 
-```golang
+```go
 type OpsBackupDownloadResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -521,7 +521,7 @@ type OpsBackupDownloadResponse struct {
 
 
 
-```golang
+```go
 type OpsConfigRequest struct {
 }
 ```
@@ -531,7 +531,7 @@ type OpsConfigRequest struct {
 
 
 
-```golang
+```go
 type OpsConfigResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -552,7 +552,7 @@ type OpsConfigResponse struct {
 
 
 
-```golang
+```go
 type OpsFunctionsRequest struct {
 }
 ```
@@ -562,7 +562,7 @@ type OpsFunctionsRequest struct {
 
 
 
-```golang
+```go
 type OpsFunctionsResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -583,7 +583,7 @@ type OpsFunctionsResponse struct {
 
 
 
-```golang
+```go
 type OpsHealthGetRequest struct {
 }
 ```
@@ -593,7 +593,7 @@ type OpsHealthGetRequest struct {
 
 
 
-```golang
+```go
 type OpsHealthGetResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -614,7 +614,7 @@ type OpsHealthGetResponse struct {
 
 
 
-```golang
+```go
 type OpsHealthUpdateRequest struct {
 	Enabled bool `json:"enabled"`
 	Checks []OpsHealthCheck `json:"checks,optional"`
@@ -626,7 +626,7 @@ type OpsHealthUpdateRequest struct {
 
 
 
-```golang
+```go
 type OpsHealthUpdateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -647,7 +647,7 @@ type OpsHealthUpdateResponse struct {
 
 
 
-```golang
+```go
 type OpsHealthRunRequest struct {
 	ID string `json:"id,optional"`
 }
@@ -658,7 +658,7 @@ type OpsHealthRunRequest struct {
 
 
 
-```golang
+```go
 type OpsHealthRunResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -679,7 +679,7 @@ type OpsHealthRunResponse struct {
 
 
 
-```golang
+```go
 type OpsMaintenanceGetRequest struct {
 }
 ```
@@ -689,7 +689,7 @@ type OpsMaintenanceGetRequest struct {
 
 
 
-```golang
+```go
 type OpsMaintenanceGetResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -710,7 +710,7 @@ type OpsMaintenanceGetResponse struct {
 
 
 
-```golang
+```go
 type OpsMaintenanceUpdateRequest struct {
 	Enabled bool `json:"enabled"`
 	Message string `json:"message,optional"`
@@ -723,7 +723,7 @@ type OpsMaintenanceUpdateRequest struct {
 
 
 
-```golang
+```go
 type OpsMaintenanceUpdateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -744,7 +744,7 @@ type OpsMaintenanceUpdateResponse struct {
 
 
 
-```golang
+```go
 type OpsMetricsQuery struct {
 	Start string `form:"start,optional"`
 	End string `form:"end,optional"`
@@ -756,7 +756,7 @@ type OpsMetricsQuery struct {
 
 
 
-```golang
+```go
 type OpsMetricsResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -777,7 +777,7 @@ type OpsMetricsResponse struct {
 
 
 
-```golang
+```go
 type OpsMQRequest struct {
 }
 ```
@@ -787,7 +787,7 @@ type OpsMQRequest struct {
 
 
 
-```golang
+```go
 type OpsMQResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -808,7 +808,7 @@ type OpsMQResponse struct {
 
 
 
-```golang
+```go
 type OpsNodesRequest struct {
 }
 ```
@@ -818,7 +818,7 @@ type OpsNodesRequest struct {
 
 
 
-```golang
+```go
 type OpsNodesResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -839,7 +839,7 @@ type OpsNodesResponse struct {
 
 
 
-```golang
+```go
 type OpsNodeActionRequest struct {
 	NodeID string `path:"nodeId"`
 }
@@ -850,7 +850,7 @@ type OpsNodeActionRequest struct {
 
 
 
-```golang
+```go
 type OpsNodeDrainResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -871,7 +871,7 @@ type OpsNodeDrainResponse struct {
 
 
 
-```golang
+```go
 type OpsNodeMetaRequest struct {
 	NodeID string `path:"nodeId"`
 }
@@ -882,7 +882,7 @@ type OpsNodeMetaRequest struct {
 
 
 
-```golang
+```go
 type OpsNodeMetaResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -903,7 +903,7 @@ type OpsNodeMetaResponse struct {
 
 
 
-```golang
+```go
 type OpsNodeActionRequest struct {
 	NodeID string `path:"nodeId"`
 }
@@ -914,7 +914,7 @@ type OpsNodeActionRequest struct {
 
 
 
-```golang
+```go
 type OpsNodeRestartResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -935,7 +935,7 @@ type OpsNodeRestartResponse struct {
 
 
 
-```golang
+```go
 type OpsNodeActionRequest struct {
 	NodeID string `path:"nodeId"`
 }
@@ -946,7 +946,7 @@ type OpsNodeActionRequest struct {
 
 
 
-```golang
+```go
 type OpsNodeUndrainResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -967,7 +967,7 @@ type OpsNodeUndrainResponse struct {
 
 
 
-```golang
+```go
 type OpsNodeCommandsQuery struct {
 	NodeID string `form:"nodeId"`
 }
@@ -978,7 +978,7 @@ type OpsNodeCommandsQuery struct {
 
 
 
-```golang
+```go
 type OpsNodeCommandsResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -999,7 +999,7 @@ type OpsNodeCommandsResponse struct {
 
 
 
-```golang
+```go
 type OpsNotificationsGetRequest struct {
 }
 ```
@@ -1009,7 +1009,7 @@ type OpsNotificationsGetRequest struct {
 
 
 
-```golang
+```go
 type OpsNotificationsGetResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -1030,7 +1030,7 @@ type OpsNotificationsGetResponse struct {
 
 
 
-```golang
+```go
 type OpsNotificationsUpdateRequest struct {
 	Enabled bool `json:"enabled"`
 	Channels []OpsNotificationChannel `json:"channels,optional"`
@@ -1043,7 +1043,7 @@ type OpsNotificationsUpdateRequest struct {
 
 
 
-```golang
+```go
 type OpsNotificationsUpdateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -1064,7 +1064,7 @@ type OpsNotificationsUpdateResponse struct {
 
 
 
-```golang
+```go
 type OpsServicesRequest struct {
 }
 ```
@@ -1074,7 +1074,7 @@ type OpsServicesRequest struct {
 
 
 
-```golang
+```go
 type OpsServicesResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -1095,7 +1095,7 @@ type OpsServicesResponse struct {
 
 
 
-```golang
+```go
 type OpsSilencesRequest struct {
 }
 ```
@@ -1105,7 +1105,7 @@ type OpsSilencesRequest struct {
 
 
 
-```golang
+```go
 type OpsSilencesResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -1126,7 +1126,7 @@ type OpsSilencesResponse struct {
 
 
 
-```golang
+```go
 type OpsAlertSilenceDeleteRequest struct {
 	ID string `path:"id"`
 }
@@ -1137,7 +1137,7 @@ type OpsAlertSilenceDeleteRequest struct {
 
 
 
-```golang
+```go
 type OpsSilenceDeleteResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

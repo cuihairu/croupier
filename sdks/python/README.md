@@ -29,6 +29,11 @@
 
 Croupier Python SDK is the official Python client for the [Croupier](https://github.com/cuihairu/croupier) game backend platform. It connects to the Agent via a **single bidirectional TCP session** — the SDK is a session client (no local port listening).
 
+## Documentation
+
+- Unified docs site entry: `/docs/sdks/python/`
+- In-repo path: `docs/sdks/python`
+
 Key features:
 - Single TCP connection with multiplexed request/response
 - Automatic heartbeat and reconnection

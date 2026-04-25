@@ -3,7 +3,7 @@ name: Release - Go SDK
 on:
   push:
     tags:
-      - 'v*'
+      - 'sdk-go-v*'
   workflow_dispatch:
 
 permissions:
@@ -16,11 +16,34 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ./sdks/go
     steps:
       - timeout-minutes: 3
         uses: actions/checkout@v5
         with:
           submodules: false
+      - name: Determine SDK Version
+        id: version
+        shell: bash
+        run: |
+          PACKAGE_VERSION=$(sed -n 's/^const Version = "\(.*\)"/\1/p' version.go)
+          if [[ -z "$PACKAGE_VERSION" ]]; then
+            echo "Failed to read version from version.go"
+            exit 1
+          fi
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            TAG_VERSION="${GITHUB_REF_NAME#sdk-go-v}"
+            if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
+              echo "Tag version ($TAG_VERSION) does not match version.go version ($PACKAGE_VERSION)"
+              exit 1
+            fi
+            VERSION="$TAG_VERSION"
+          else
+            VERSION="$PACKAGE_VERSION"
+          fi
+          echo "sdk_version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - timeout-minutes: 5
         uses: actions/setup-go@v6
@@ -54,26 +77,30 @@ jobs:
       - name: Build
         timeout-minutes: 15
         run: |
-          mkdir -p dist
-          go build -o dist/croupier-sdk-go ./...
+          go build ./...
 
       - name: Package
         timeout-minutes: 5
         run: |
           mkdir -p artifacts
-          tar -czf "artifacts/croupier-go-sdk-${GITHUB_REF_NAME}.tar.gz" \
-            --exclude='.git*' \
-            --exclude='*.md' \
-            --exclude='docs' \
-            --exclude='examples' \
-            --exclude='tests' \
-            .
+          tar --exclude='*_test.go' \
+            --exclude='examples/**/*.test' \
+            -czf "artifacts/croupier-go-sdk-${{ steps.version.outputs.sdk_version }}.tar.gz" \
+            go.mod \
+            go.sum \
+            version.go \
+            pkg \
+            scripts \
+            examples \
+            LICENSE \
+            README.md \
+            SECURITY.md
 
       - name: Create Release
         timeout-minutes: 10
         uses: softprops/action-gh-release@v3
         with:
-          files: artifacts/*
+          files: sdks/go/artifacts/*
           fail_on_unmatched_files: true
           generate_release_notes: true
         env:

@@ -3,7 +3,7 @@ name: Release - C++ SDK
 on:
   push:
     tags:
-      - 'v*'
+      - 'sdk-cpp-v*'
   workflow_dispatch:
 
 permissions:
@@ -19,6 +19,9 @@ jobs:
   version:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ./sdks/cpp
     outputs:
       version: ${{ steps.version.outputs.version }}
       version_tag: ${{ steps.version.outputs.version_tag }}
@@ -33,17 +36,26 @@ jobs:
       id: version
       timeout-minutes: 2
       run: |
-        CURRENT_TAG=$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+        PACKAGE_VERSION=$(sed -n 's/^set(CROUPIER_SDK_VERSION "\(.*\)")/\1/p' VERSION.cmake)
+        if [[ -z "$PACKAGE_VERSION" ]]; then
+          echo "Failed to read version from VERSION.cmake"
+          exit 1
+        fi
+        CURRENT_TAG=$(git tag --points-at HEAD | grep -E '^sdk-cpp-v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
         IS_TAGGED_RELEASE="false"
 
         if [[ -n "$CURRENT_TAG" ]]; then
-          VERSION="${CURRENT_TAG#v}"
+          VERSION="${CURRENT_TAG#sdk-cpp-v}"
+          if [[ "$VERSION" != "$PACKAGE_VERSION" ]]; then
+            echo "Tag version ($VERSION) does not match VERSION.cmake version ($PACKAGE_VERSION)"
+            exit 1
+          fi
           VERSION_TAG="$CURRENT_TAG"
           IS_TAGGED_RELEASE="true"
           echo "Tagged release detected: $CURRENT_TAG"
         else
-          VERSION="${SDK_VERSION_BASE}.0"
-          VERSION_TAG="v${VERSION}"
+          VERSION="$PACKAGE_VERSION"
+          VERSION_TAG="sdk-cpp-v${VERSION}"
         fi
 
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
@@ -97,6 +109,9 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: ./sdks/cpp
 
     steps:
     - name: Checkout Repository
@@ -164,8 +179,8 @@ jobs:
       timeout-minutes: 5
       shell: pwsh
       run: |
-        $scriptPath = Join-Path "${{ github.workspace }}" "scripts/bootstrap-vcpkg.ps1"
-        $vcpkgRoot = Join-Path "${{ github.workspace }}" "vcpkg"
+        $scriptPath = Join-Path "${{ github.workspace }}" "sdks/cpp/scripts/bootstrap-vcpkg.ps1"
+        $vcpkgRoot = Join-Path "${{ github.workspace }}" "sdks/cpp/vcpkg"
         & $scriptPath -VcpkgRoot $vcpkgRoot -VcpkgCommit "2024.07.22"
 
     - name: Bootstrap vcpkg (Unix)
@@ -173,15 +188,15 @@ jobs:
       timeout-minutes: 5
       shell: bash
       run: |
-        bash "${{ github.workspace }}/scripts/bootstrap-vcpkg.sh" \
-          "${{ github.workspace }}/vcpkg" \
+        bash "${{ github.workspace }}/sdks/cpp/scripts/bootstrap-vcpkg.sh" \
+          "${{ github.workspace }}/sdks/cpp/vcpkg" \
           "2024.07.22"
 
     - name: Configure CMake (Windows)
       if: runner.os == 'Windows'
       timeout-minutes: 30
       run: |
-        cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE="${{ env.BUILD_TYPE }}" -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/vcpkg-overlays" -DVCPKG_TARGET_TRIPLET="${{ matrix.vcpkg_triplet }}" -DVCPKG_HOST_TRIPLET="${{ matrix.vcpkg_triplet }}" -DVCPKG_BUILD_TYPE="${{ env.VCPKG_BUILD_TYPE }}" -DCMAKE_INSTALL_PREFIX=install -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON -DBUILD_EXAMPLES=ON -DBUILD_TESTS=ON -DCPACK_PACKAGE_VERSION="${{ needs.version.outputs.version }}"
+        cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE="${{ env.BUILD_TYPE }}" -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/sdks/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake" -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays" -DVCPKG_TARGET_TRIPLET="${{ matrix.vcpkg_triplet }}" -DVCPKG_HOST_TRIPLET="${{ matrix.vcpkg_triplet }}" -DVCPKG_BUILD_TYPE="${{ env.VCPKG_BUILD_TYPE }}" -DCMAKE_INSTALL_PREFIX=install -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON -DBUILD_EXAMPLES=ON -DBUILD_TESTS=ON -DCPACK_PACKAGE_VERSION="${{ needs.version.outputs.version }}"
 
     - name: Configure CMake (Unix)
       if: runner.os != 'Windows'
@@ -205,8 +220,8 @@ jobs:
         cmake -B build \
           -G "Ninja" \
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} \
-          -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" \
-          -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/vcpkg-overlays" \
+          -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/sdks/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+          -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays" \
           -DVCPKG_TARGET_TRIPLET=${{ matrix.vcpkg_triplet }} \
           -DVCPKG_BUILD_TYPE=${{ env.VCPKG_BUILD_TYPE }} \
           -DCMAKE_INSTALL_PREFIX=install \
@@ -227,7 +242,7 @@ jobs:
       run: |
         if [ "$RUNNER_OS" = "Windows" ]; then
           # Add build output directory and vcpkg bin directory to PATH for DLL discovery
-          export PATH="$PWD/build/bin:$PWD/build/vcpkg_installed/${{ matrix.vcpkg_triplet }}/bin:$PATH"
+          export PATH="$PWD/build/bin:$PWD/vcpkg_installed/${{ matrix.vcpkg_triplet }}/bin:$PATH"
         fi
         cd build && ctest --build-config ${{ env.BUILD_TYPE }} --output-on-failure
       shell: bash

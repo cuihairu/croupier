@@ -6,8 +6,16 @@ permissions:
 on:
   push:
     branches: [ main, develop ]
+    paths:
+      - '.github/workflows/ci-sdk-go.yml'
+      - 'proto/**'
+      - 'sdks/go/**'
   pull_request:
     branches: [ main ]
+    paths:
+      - '.github/workflows/ci-sdk-go.yml'
+      - 'proto/**'
+      - 'sdks/go/**'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

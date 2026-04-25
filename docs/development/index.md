@@ -10,4 +10,5 @@ title: 开发指南
 
 - [仓库规范](./repository-guidelines.md)
 - [仓库结构](./repository-layout.md)
+- [发布约定](./release-conventions.md)
 - [新业务准入规则（Extension-First）](./new-business-extension-policy.md)

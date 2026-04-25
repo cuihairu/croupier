@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type FunctionsListRequest struct {
 	Page int `form:"page,optional,default=1"`
 	PageSize int `form:"pageSize,optional,default=20"`
@@ -28,7 +28,7 @@ type FunctionsListRequest struct {
 
 
 
-```golang
+```go
 type FunctionsListResponse struct {
 	Items []Function `json:"items"`
 	Total int64 `json:"total"`
@@ -50,7 +50,7 @@ type FunctionsListResponse struct {
 
 
 
-```golang
+```go
 type FunctionDetailRequest struct {
 	ID string `path:"id"`
 }
@@ -61,7 +61,7 @@ type FunctionDetailRequest struct {
 
 
 
-```golang
+```go
 type FunctionDetailResponse struct {
 	Id string `json:"id"`
 	Name string `json:"name"`
@@ -109,7 +109,7 @@ type FunctionDescriptor struct {
 
 
 
-```golang
+```go
 type FunctionActionRequest struct {
 	ID string `path:"id"`
 }
@@ -132,7 +132,7 @@ type FunctionActionRequest struct {
 
 
 
-```golang
+```go
 type FunctionCopyRequest struct {
 	ID string `path:"id"`
 }
@@ -143,7 +143,7 @@ type FunctionCopyRequest struct {
 
 
 
-```golang
+```go
 type FunctionCopyResponse struct {
 	FunctionId string `json:"function_id"`
 	NewId string `json:"new_id"`
@@ -163,7 +163,7 @@ type FunctionCopyResponse struct {
 
 
 
-```golang
+```go
 type FunctionActionRequest struct {
 	ID string `path:"id"`
 }
@@ -186,7 +186,7 @@ type FunctionActionRequest struct {
 
 
 
-```golang
+```go
 type FunctionActionRequest struct {
 	ID string `path:"id"`
 }
@@ -209,7 +209,7 @@ type FunctionActionRequest struct {
 
 
 
-```golang
+```go
 type FunctionInstancesRequest struct {
 	ID string `path:"id"`
 }
@@ -220,7 +220,7 @@ type FunctionInstancesRequest struct {
 
 
 
-```golang
+```go
 type FunctionInstancesResponse struct {
 	Items []FunctionInstance `json:"items"`
 }
@@ -239,7 +239,7 @@ type FunctionInstancesResponse struct {
 
 
 
-```golang
+```go
 type FunctionInvokeRequest struct {
 	ID string `path:"id"`
 	Params interface{} `json:"params,optional"`
@@ -258,7 +258,7 @@ type FunctionInvokeRequest struct {
 
 
 
-```golang
+```go
 type FunctionInvokeResponse struct {
 	TaskId string `json:"taskId"`
 	TaskID string `json:"taskID,omitempty"`
@@ -279,7 +279,7 @@ type FunctionInvokeResponse struct {
 
 
 
-```golang
+```go
 type FunctionPermissionsRequest struct {
 	ID string `path:"id"`
 }
@@ -290,7 +290,7 @@ type FunctionPermissionsRequest struct {
 
 
 
-```golang
+```go
 type FunctionPermissionsResponse struct {
 	Items []FunctionPermission `json:"items"`
 }
@@ -309,7 +309,7 @@ type FunctionPermissionsResponse struct {
 
 
 
-```golang
+```go
 type FunctionPermissionsUpdateRequest struct {
 	ID string `path:"id"`
 	Permissions []FunctionPermission `json:"permissions"`
@@ -321,7 +321,7 @@ type FunctionPermissionsUpdateRequest struct {
 
 
 
-```golang
+```go
 type FunctionPermissionsResponse struct {
 	Items []FunctionPermission `json:"items"`
 }
@@ -340,7 +340,7 @@ type FunctionPermissionsResponse struct {
 
 
 
-```golang
+```go
 type FunctionPublishRequest struct {
 	ID string `path:"id"`
 }
@@ -351,7 +351,7 @@ type FunctionPublishRequest struct {
 
 
 
-```golang
+```go
 type FunctionPublishResponse struct {
 	ApprovalId string `json:"approvalId,omitempty"` // 如果需要审批
 	Published bool `json:"published"`
@@ -371,7 +371,7 @@ type FunctionPublishResponse struct {
 
 
 
-```golang
+```go
 type FunctionUIRequest struct {
 	ID string `path:"id"`
 }
@@ -382,7 +382,7 @@ type FunctionUIRequest struct {
 
 
 
-```golang
+```go
 type FunctionUIResponse struct {
 	Schema interface{} `json:"schema"`
 	Layout interface{} `json:"layout"`
@@ -403,7 +403,7 @@ type FunctionUIResponse struct {
 
 
 
-```golang
+```go
 type FunctionUIUpdateRequest struct {
 	ID string `path:"id"`
 	Schema interface{} `json:"schema,optional"`
@@ -417,7 +417,7 @@ type FunctionUIUpdateRequest struct {
 
 
 
-```golang
+```go
 type FunctionUIResponse struct {
 	Schema interface{} `json:"schema"`
 	Layout interface{} `json:"layout"`
@@ -436,7 +436,7 @@ type FunctionUIResponse struct {
 
 2. request definition
 
-```golang
+```go
 type FunctionUIHistoryRequest struct {
 	ID string `path:"id"`
 }
@@ -444,7 +444,7 @@ type FunctionUIHistoryRequest struct {
 
 3. response definition
 
-```golang
+```go
 type FunctionUIHistoryResponse struct {
 	Items []FunctionUIHistoryItem `json:"items"`
 }
@@ -461,7 +461,7 @@ type FunctionUIHistoryResponse struct {
 
 2. request definition
 
-```golang
+```go
 type FunctionUIRollbackRequest struct {
 	ID      string `path:"id"`
 	Version int    `json:"version"`
@@ -470,7 +470,7 @@ type FunctionUIRollbackRequest struct {
 
 3. response definition
 
-```golang
+```go
 type FunctionUIRollbackResponse struct {
 	AppliedVersion int                 `json:"appliedVersion"`
 	Current        *FunctionUIResponse `json:"current"`
@@ -490,7 +490,7 @@ type FunctionUIRollbackResponse struct {
 
 
 
-```golang
+```go
 type BatchCopyFunctionsRequest struct {
 	FunctionIds []string `json:"function_ids"`
 }
@@ -501,7 +501,7 @@ type BatchCopyFunctionsRequest struct {
 
 
 
-```golang
+```go
 type BatchCopyFunctionsResponse struct {
 	Updated int `json:"updated"`
 	Failed []string `json:"failed"`
@@ -522,7 +522,7 @@ type BatchCopyFunctionsResponse struct {
 
 
 
-```golang
+```go
 type BatchDeleteFunctionsRequest struct {
 	FunctionIds []string `json:"function_ids"`
 }
@@ -533,7 +533,7 @@ type BatchDeleteFunctionsRequest struct {
 
 
 
-```golang
+```go
 type BatchDeleteFunctionsResponse struct {
 	Updated int `json:"updated"`
 	Failed []string `json:"failed"`
@@ -553,7 +553,7 @@ type BatchDeleteFunctionsResponse struct {
 
 
 
-```golang
+```go
 type BatchUpdateFunctionsRequest struct {
 	FunctionIds []string `json:"function_ids"`
 	Enabled bool `json:"enabled"`
@@ -565,7 +565,7 @@ type BatchUpdateFunctionsRequest struct {
 
 
 
-```golang
+```go
 type BatchUpdateFunctionsResponse struct {
 	Updated int `json:"updated"`
 	Failed []string `json:"failed"`
@@ -585,7 +585,7 @@ type BatchUpdateFunctionsResponse struct {
 
 
 
-```golang
+```go
 type DescriptorsRequest struct {
 	Type string `form:"type,optional"`
 	GameId string `form:"gameId,optional"`
@@ -597,7 +597,7 @@ type DescriptorsRequest struct {
 
 
 
-```golang
+```go
 type DescriptorsResponse struct {
 	Items []Descriptor `json:"items"`
 }
@@ -616,7 +616,7 @@ type DescriptorsResponse struct {
 
 
 
-```golang
+```go
 type FunctionsPendingRequest struct {
 }
 ```
@@ -626,7 +626,7 @@ type FunctionsPendingRequest struct {
 
 
 
-```golang
+```go
 type FunctionsPendingResponse struct {
 	Items []PendingFunction `json:"items"`
 }
@@ -643,7 +643,7 @@ type FunctionsPendingResponse struct {
 
 2. request definition
 
-```golang
+```go
 type BatchGetSpecRequest struct {
 	FunctionIDs []string `json:"function_ids"`
 }
@@ -651,7 +651,7 @@ type BatchGetSpecRequest struct {
 
 3. response definition
 
-```golang
+```go
 // key 为 function id，value 为对应的 OpenAPI Operation；未找到时返回 null
 map[string]interface{}
 ```

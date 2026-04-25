@@ -116,9 +116,22 @@ provider.serve();
 
 具体 API 名称、构建脚本、发布工件和示例代码，应以 `croupier-sdk-cpp` 仓库为准。
 
+## 文档入口
+
+- [指南](./guide/)
+- [API](./api/)
+- [配置](./configuration/)
+- [示例](./examples/)
+- [集成指南](./integration)
+- [约定规范](./conventions)
+- [运行时库修复](./runtime-library-fix)
+- [测试进度](./test-implementation-progress)
+- [配置指南](./CONFIG_GUIDE)
+- [插件指南](./PLUGIN_GUIDE)
+- [虚拟对象注册机制](./VIRTUAL_OBJECT_REGISTRATION)
+
 ## 相关文档
 
-- [C++ SDK 配置指南](./CONFIG_GUIDE.md)
 - [SDK 规范](../../sdk/specification.md)
 - [SDK Wire Protocol](../../architecture/sdk-wire-protocol.md)
 - [SDK-Agent 传输重构设计](../../architecture/sdk-agent-transport-redesign.md)

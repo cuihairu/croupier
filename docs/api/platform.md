@@ -17,7 +17,7 @@
 
 
 
-```golang
+```go
 type ListPlatformsResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -42,7 +42,7 @@ type ListPlatformsResponse struct {
 
 
 
-```golang
+```go
 type ListPlatformMethodsResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -63,7 +63,7 @@ type ListPlatformMethodsResponse struct {
 
 
 
-```golang
+```go
 type CallPlatformRequest struct {
 	Platform string `json:"platform"` // 平台名称，如 "quicksdk"
 	Method string `json:"method"` // API 方法名
@@ -76,7 +76,7 @@ type CallPlatformRequest struct {
 
 
 
-```golang
+```go
 type CallPlatformResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

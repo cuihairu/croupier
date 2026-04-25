@@ -3,7 +3,7 @@ name: Release - Java SDK
 on:
   push:
     tags:
-      - 'v*'
+      - 'sdk-java-v*'
   workflow_dispatch:
 
 permissions:
@@ -17,11 +17,30 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ./sdks/java
     steps:
       - timeout-minutes: 3
         uses: actions/checkout@v5
         with:
           submodules: recursive
+      - name: Determine SDK Version
+        id: version
+        shell: bash
+        run: |
+          PACKAGE_VERSION=$(sed -n "s/^String baseVersion = '\\(.*\\)'/\\1/p" build.gradle)
+          if [[ -z "$PACKAGE_VERSION" ]]; then
+            echo "Failed to read baseVersion from build.gradle"
+            exit 1
+          fi
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            TAG_VERSION="${GITHUB_REF_NAME#sdk-java-v}"
+            if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
+              echo "Tag version ($TAG_VERSION) does not match build.gradle baseVersion ($PACKAGE_VERSION)"
+              exit 1
+            fi
+          fi
 
       - name: Set up Java
         timeout-minutes: 5
@@ -74,7 +93,7 @@ jobs:
         timeout-minutes: 10
         uses: softprops/action-gh-release@v3
         with:
-          files: artifacts/*
+          files: sdks/java/artifacts/*
           fail_on_unmatched_files: true
           generate_release_notes: true
         env:

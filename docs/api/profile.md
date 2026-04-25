@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type ProfileGetRequest struct {
 }
 ```
@@ -23,7 +23,7 @@ type ProfileGetRequest struct {
 
 
 
-```golang
+```go
 type ProfileGetResponse struct {
 	Id int64 `json:"id"`
 	Username string `json:"username"`
@@ -62,7 +62,7 @@ type ProfileInfo struct {
 
 
 
-```golang
+```go
 type ProfileUpdateRequest struct {
 	Nickname string `json:"nickname,optional"`
 	Email string `json:"email,optional"`
@@ -76,7 +76,7 @@ type ProfileUpdateRequest struct {
 
 
 
-```golang
+```go
 type ProfileGetResponse struct {
 	Id int64 `json:"id"`
 	Username string `json:"username"`
@@ -115,7 +115,7 @@ type ProfileInfo struct {
 
 
 
-```golang
+```go
 type ProfileGamesRequest struct {
 }
 ```
@@ -125,7 +125,7 @@ type ProfileGamesRequest struct {
 
 
 
-```golang
+```go
 type ProfileGamesResponse struct {
 	Games []ProfileGame `json:"games"`
 }
@@ -144,7 +144,7 @@ type ProfileGamesResponse struct {
 
 
 
-```golang
+```go
 type ProfilePasswordRequest struct {
 	OldPassword string `json:"oldPassword"`
 	NewPassword string `json:"newPassword"`
@@ -168,7 +168,7 @@ type ProfilePasswordRequest struct {
 
 
 
-```golang
+```go
 type ProfilePermissionsRequest struct {
 	GameId string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -180,7 +180,7 @@ type ProfilePermissionsRequest struct {
 
 
 
-```golang
+```go
 type ProfilePermissionsResponse struct {
 	Permissions []ProfilePermission `json:"permissions"`
 	Admin bool `json:"admin"`

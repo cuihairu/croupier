@@ -3,8 +3,36 @@ name: CodeQL (SAST)
 on:
   push:
     branches: [ main ]
+    paths:
+      - '.github/workflows/codeql.yml'
+      - 'cmd/**'
+      - 'configs/**'
+      - 'database/**'
+      - 'descriptors/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'internal/**'
+      - 'migrations/**'
+      - 'pkg/**'
+      - 'proto/**'
+      - 'scripts/**'
+      - 'tools/**'
   pull_request:
     branches: [ main ]
+    paths:
+      - '.github/workflows/codeql.yml'
+      - 'cmd/**'
+      - 'configs/**'
+      - 'database/**'
+      - 'descriptors/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'internal/**'
+      - 'migrations/**'
+      - 'pkg/**'
+      - 'proto/**'
+      - 'scripts/**'
+      - 'tools/**'
   schedule:
     - cron: '0 3 * * 1' # weekly at 03:00 UTC (Mon)
   workflow_dispatch:

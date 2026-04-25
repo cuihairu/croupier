@@ -7,8 +7,16 @@ permissions:
 on:
   push:
     branches: [ main, develop ]
+    paths:
+      - '.github/workflows/ci-sdk-python.yml'
+      - 'proto/**'
+      - 'sdks/python/**'
   pull_request:
     branches: [ main ]
+    paths:
+      - '.github/workflows/ci-sdk-python.yml'
+      - 'proto/**'
+      - 'sdks/python/**'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

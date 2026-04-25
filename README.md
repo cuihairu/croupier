@@ -104,8 +104,21 @@ Croupier 当前的核心传输抽象不是 `历史消息模式`，而是轻量�
 - SDK-Agent 设计：[docs/architecture/sdk-agent-transport-redesign.md](docs/architecture/sdk-agent-transport-redesign.md)
 - Agent-Server 设计：[docs/architecture/agent-server-session-transport-redesign.md](docs/architecture/agent-server-session-transport-redesign.md)
 - Wire 协议：[docs/architecture/sdk-wire-protocol.md](docs/architecture/sdk-wire-protocol.md)
+- 统一 SDK 文档：[docs/sdks/index.md](docs/sdks/index.md)
+- SDK 能力矩阵：[docs/sdks/sdk-parity-matrix.md](docs/sdks/sdk-parity-matrix.md)
 - SDK 规范：[docs/sdk/specification.md](docs/sdk/specification.md)
-- SDK 汇总入口：[sdks/README.md](sdks/README.md)
+- SDK 代码入口：[sdks/README.md](sdks/README.md)
+
+## 发布约定
+
+- Server / Agent 发布标签使用 `v*`，例如 `v0.2.0`
+- SDK 发布标签使用带语言前缀的格式：
+  - `sdk-js-v0.1.0`
+  - `sdk-python-v0.1.0`
+  - `sdk-go-v0.1.0`
+  - `sdk-java-v0.1.0`
+  - `sdk-cpp-v0.1.0`
+- 这样可以避免 monorepo 中一个标签误触发所有发布 workflow
 
 ## 仓库导航
 

@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type ProvidersListRequest struct {
 	Page int `form:"page,optional"`
 	PageSize int `form:"pageSize,optional"`
@@ -25,7 +25,7 @@ type ProvidersListRequest struct {
 
 
 
-```golang
+```go
 type ProvidersListResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -46,7 +46,7 @@ type ProvidersListResponse struct {
 
 
 
-```golang
+```go
 type ProviderDetailRequest struct {
 	ID string `path:"id"`
 }
@@ -57,7 +57,7 @@ type ProviderDetailRequest struct {
 
 
 
-```golang
+```go
 type ProviderDetailResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -78,7 +78,7 @@ type ProviderDetailResponse struct {
 
 
 
-```golang
+```go
 type ProviderActionRequest struct {
 	ID string `path:"id"`
 }
@@ -89,7 +89,7 @@ type ProviderActionRequest struct {
 
 
 
-```golang
+```go
 type ProviderDeleteResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -110,7 +110,7 @@ type ProviderDeleteResponse struct {
 
 
 
-```golang
+```go
 type ProvidersEntitiesRequest struct {
 	ID string `path:"id"`
 }
@@ -121,7 +121,7 @@ type ProvidersEntitiesRequest struct {
 
 
 
-```golang
+```go
 type ProvidersEntitiesResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -142,7 +142,7 @@ type ProvidersEntitiesResponse struct {
 
 
 
-```golang
+```go
 type ProviderActionRequest struct {
 	ID string `path:"id"`
 }
@@ -153,7 +153,7 @@ type ProviderActionRequest struct {
 
 
 
-```golang
+```go
 type ProviderReloadResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -174,7 +174,7 @@ type ProviderReloadResponse struct {
 
 
 
-```golang
+```go
 type ProvidersCapabilitiesRequest struct {
 }
 ```
@@ -184,7 +184,7 @@ type ProvidersCapabilitiesRequest struct {
 
 
 
-```golang
+```go
 type ProvidersCapabilitiesResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -205,7 +205,7 @@ type ProvidersCapabilitiesResponse struct {
 
 
 
-```golang
+```go
 type ProvidersDescriptorsRequest struct {
 }
 ```
@@ -215,7 +215,7 @@ type ProvidersDescriptorsRequest struct {
 
 
 
-```golang
+```go
 type ProvidersDescriptorsResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

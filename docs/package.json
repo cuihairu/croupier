@@ -18,7 +18,7 @@
   "keywords": ["croupier", "documentation", "vitepress"],
   "license": "Apache-2.0",
   "engines": {
-    "node": ">=24"
+    "node": ">=22"
   },
   "overrides": {
     "esbuild": ">=0.25.0",

@@ -52,6 +52,11 @@
 
 Croupier Go SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 Go 客户端实现。它提供了与官方 Croupier proto 定义对齐的数据结构、双构建系统（本地开发 Mock 和 CI/生产环境真实 gRPC）以及多租户支持。
 
+## 正式文档
+
+- 统一文档站入口：`/docs/sdks/go/`
+- 仓库内路径：`docs/sdks/go`
+
 ## 主项目
 
 | 项目 | 描述 | 链接 |

@@ -3,7 +3,7 @@ name: Release - Python SDK
 on:
   push:
     tags:
-      - "v*"
+      - "sdk-python-v*"
   workflow_dispatch:
 
 permissions:
@@ -16,18 +16,33 @@ jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ./sdks/python
     steps:
       - timeout-minutes: 3
         uses: actions/checkout@v5
         with:
           submodules: false
+      - name: Determine SDK Version
+        id: version
+        shell: bash
+        run: |
+          PACKAGE_VERSION=$(python3 -c 'import pathlib, tomllib; data = tomllib.loads(pathlib.Path("pyproject.toml").read_text()); print(data["project"]["version"])')
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            TAG_VERSION="${GITHUB_REF_NAME#sdk-python-v}"
+            if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
+              echo "Tag version ($TAG_VERSION) does not match pyproject.toml version ($PACKAGE_VERSION)"
+              exit 1
+            fi
+          fi
 
       - name: Install uv
         timeout-minutes: 5
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          cache-dependency-glob: "uv.lock"
+          cache-dependency-glob: "sdks/python/pyproject.toml"
           python-version: "3.12"
 
       - name: Install dependencies
@@ -52,7 +67,7 @@ jobs:
         timeout-minutes: 10
         uses: softprops/action-gh-release@v3
         with:
-          files: artifacts/*
+          files: sdks/python/artifacts/*
           fail_on_unmatched_files: true
           generate_release_notes: true
         env:

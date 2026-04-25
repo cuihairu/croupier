@@ -6,8 +6,16 @@ permissions:
 on:
   push:
     branches: [main, develop]
+    paths:
+      - '.github/workflows/ci-sdk-js.yml'
+      - 'proto/**'
+      - 'sdks/js/**'
   pull_request:
     branches: [main]
+    paths:
+      - '.github/workflows/ci-sdk-js.yml'
+      - 'proto/**'
+      - 'sdks/js/**'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

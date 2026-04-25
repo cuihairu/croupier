@@ -55,6 +55,11 @@
 
 Croupier Node.js SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 Node.js/TypeScript 客户端实现。它提供了真实的 gRPC 管道、心跳与自动重连机制以及强类型的处理器注册系统。
 
+## 正式文档
+
+- 统一文档站入口：`/docs/sdks/js/`
+- 仓库内路径：`docs/sdks/js`
+
 ## 主项目
 
 | 项目         | 描述                 | 链接                                                              |
