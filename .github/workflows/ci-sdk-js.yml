@@ -57,7 +57,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         timeout-minutes: 3
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./sdks/js/coverage/lcov.info
