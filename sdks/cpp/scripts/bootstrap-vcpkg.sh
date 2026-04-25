@@ -5,27 +5,31 @@ set -euo pipefail
 VCPKG_ROOT="${1:?missing vcpkg root}"
 VCPKG_COMMIT="${2:?missing vcpkg commit}"
 
-if [[ ! -f "$VCPKG_ROOT/bootstrap-vcpkg.sh" ]]; then
+# Ensure we have a clean vcpkg installation
+if [[ ! -f "$VCPKG_ROOT/vcpkg" || ! -f "$VCPKG_ROOT/.vcpkg-root" ]]; then
   rm -rf "$VCPKG_ROOT"
   mkdir -p "$VCPKG_ROOT"
 
-  # Initialize a fresh git repository for vcpkg
-  git init "$VCPKG_ROOT"
-  git -C "$VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
+  # Use a temporary directory for git operations to avoid any interference
+  TMP_DIR="$(mktemp -d)"
+  trap "rm -rf '$TMP_DIR'" EXIT
 
-  # Fetch the specific tag/commit
-  git -C "$VCPKG_ROOT" fetch --depth 1 origin "refs/tags/$VCPKG_COMMIT" 2>/dev/null || \
-  git -C "$VCPKG_ROOT" fetch --depth 1 origin "$VCPKG_COMMIT"
+  # Clone vcpkg to a temporary location first
+  git clone --depth 1 --branch "$VCPKG_COMMIT" https://github.com/microsoft/vcpkg.git "$TMP_DIR/vcpkg" 2>/dev/null || \
+  git clone --depth 1 --single-branch --shallow-submodules https://github.com/microsoft/vcpkg.git "$TMP_DIR/vcpkg"
 
-  # Checkout the fetched content
-  git -C "$VCPKG_ROOT" checkout FETCH_HEAD
+  # Copy only the vcpkg files, not the .git directory
+  rsync -a --exclude='.git' "$TMP_DIR/vcpkg/" "$VCPKG_ROOT/"
 
-  # Replace .git directory with a file to prevent git from using this as a repo
-  # and prevent git from searching parent directories
-  rm -rf "$VCPKG_ROOT/.git"
-  touch "$VCPKG_ROOT/.git"
+  # Create a .git file to prevent this from being treated as a git repo
+  # and to prevent git from searching parent directories
+  echo "gitdir: /dev/null" > "$VCPKG_ROOT/.git"
+
+  # Mark this as a valid vcpkg root
+  touch "$VCPKG_ROOT/.vcpkg-root"
 fi
 
+# Build vcpkg
 chmod +x "$VCPKG_ROOT/bootstrap-vcpkg.sh"
 "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
 
@@ -33,7 +37,7 @@ echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
 echo "VCPKG_FORCE_SYSTEM_BINARIES=1" >> "$GITHUB_ENV"
 
 for name in VCPKG_DEFAULT_TRIPLET VCPKG_BUILD_TYPE; do
-  if [[ -n "${!name:-}" ]]; then
+  if [[ -n "${!name:-}" ]; then
     echo "$name=${!name}" >> "$GITHUB_ENV"
   fi
 done
