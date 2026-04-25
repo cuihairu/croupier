@@ -83,7 +83,6 @@ int main(int argc, char* argv[]) {
         std::cout << "  Environment:  " << config.env << std::endl;
         std::cout << "  Service ID:   " << config.service_id << std::endl;
         std::cout << "  Agent Addr:   " << config.agent_addr << std::endl;
-        std::cout << "  Local Listen: " << config.local_listen << std::endl;
         std::cout << "  Insecure:     " << (config.insecure ? "true" : "false") << std::endl;
         std::cout << "  Timeout:      " << config.timeout_seconds << "s" << std::endl;
         std::cout << "  AutoReconnect:" << (config.auto_reconnect ? "true" : "false") << std::endl;
@@ -147,7 +146,6 @@ int main(int argc, char* argv[]) {
         if (connected) {
             std::cout << "✅ Successfully connected to Croupier Agent!" << std::endl;
             std::cout << "🎯 Client is now ready to handle function calls" << std::endl;
-            std::cout << "📡 Local service address: " << client.GetLocalAddress() << std::endl;
 
             std::cout << "\n💡 In a production environment, call client.Serve() to start handling requests" << std::endl;
             std::cout << "💡 For this example, we'll simulate a function call..." << std::endl;

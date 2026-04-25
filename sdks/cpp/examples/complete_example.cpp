@@ -136,8 +136,7 @@ int main(int /* argc */, char* /* argv */[]) {
         config.env = "development";
         config.service_id = "game-backend";
         config.agent_addr = "127.0.0.1:19090";
-        config.local_listen = "127.0.0.1:0";  // 自动分配端口
-        config.insecure = true;               // 开发环境使用非安全Connect
+        config.insecure = true;  // 开发环境使用非安全Connect
 
         std::cout << "🔧 ConfigurationClient:" << std::endl;
         std::cout << "   - 游戏 ID: " << config.game_id << std::endl;
