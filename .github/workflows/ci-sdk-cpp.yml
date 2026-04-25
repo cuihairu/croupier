@@ -1,4 +1,4 @@
-name: Build Croupier C++ SDK
+name: Build & Release C++ SDK
 
 on:
   push:
@@ -13,6 +13,14 @@ on:
       - ".github/workflows/ci-sdk-cpp.yml"
       - "proto/**"
       - "sdks/cpp/**"
+  tags:
+    - "sdk-cpp-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '指定 Tag 构建 (例如: sdk-cpp-v1.0.0)'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -32,6 +40,8 @@ jobs:
       - name: Checkout Repository
         timeout-minutes: 3
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Install clang tools
         timeout-minutes: 5
@@ -90,6 +100,7 @@ jobs:
         timeout-minutes: 3
         uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.tag || github.ref }}
           submodules: recursive
 
       - name: Install system dependencies
@@ -137,175 +148,6 @@ jobs:
             build/bin/
             build/lib/
 
-  build-windows:
-    runs-on: windows-latest
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        build-type: [Release, Debug]
-        runtime: [static, dynamic]
-    defaults:
-      run:
-        working-directory: ./sdks/cpp
-
-    steps:
-      - name: Checkout Repository
-        timeout-minutes: 3
-        uses: actions/checkout@v6
-        with:
-          submodules: recursive
-
-      - name: Setup MSVC environment
-        timeout-minutes: 3
-        shell: pwsh
-        run: |
-          $vsWhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio/Installer/vswhere.exe"
-          $installPath = & $vsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          if (-not $installPath) {
-            throw "Visual Studio with C++ tools was not found."
-          }
-
-          $vsDevCmd = Join-Path $installPath "Common7/Tools/VsDevCmd.bat"
-          $env:VSCMD_SKIP_SENDTELEMETRY = "1"
-
-          cmd /c "`"$vsDevCmd`" -no_logo -arch=x64 -host_arch=x64 && set" |
-            ForEach-Object {
-              if ($_ -match '^[^=]+=') {
-                Add-Content -Path $env:GITHUB_ENV -Value $_
-              }
-            }
-
-      - name: Install Ninja
-        timeout-minutes: 5
-        shell: pwsh
-        run: |
-          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
-            choco install ninja -y
-          }
-
-      - name: Bootstrap vcpkg
-        timeout-minutes: 5
-        shell: pwsh
-        run: |
-          $scriptPath = Join-Path "${{ github.workspace }}" "sdks/cpp/scripts/bootstrap-vcpkg.ps1"
-          $vcpkgRoot = Join-Path "${{ github.workspace }}" "sdks/cpp/vcpkg"
-          & $scriptPath -VcpkgRoot $vcpkgRoot -VcpkgCommit "2024.08.23"
-
-      - name: Configure CMake (Static Runtime)
-        if: matrix.runtime == 'static'
-        timeout-minutes: 30
-        shell: pwsh
-        run: |
-          $env:CC = ''
-          $env:CXX = ''
-          cmake -B build `
-            -G "Visual Studio 17 2022" `
-            -A x64 `
-            -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} `
-            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/sdks/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET=x64-windows-static `
-            -DVCPKG_HOST_TRIPLET=x64-windows-static `
-            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays" `
-            -DCROUPIER_USE_STATIC_RUNTIME=ON `
-            -DBUILD_STATIC_LIBS=ON `
-            -DBUILD_SHARED_LIBS=OFF `
-            -DBUILD_EXAMPLES=OFF `
-            -DBUILD_TESTS=OFF
-
-      - name: Configure CMake (Dynamic Runtime)
-        if: matrix.runtime == 'dynamic'
-        timeout-minutes: 30
-        shell: pwsh
-        run: |
-          $env:CC = ''
-          $env:CXX = ''
-          cmake -B build `
-            -G "Visual Studio 17 2022" `
-            -A x64 `
-            -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} `
-            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/sdks/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET=x64-windows-static-md `
-            -DVCPKG_HOST_TRIPLET=x64-windows-static-md `
-            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays" `
-            -DCROUPIER_USE_STATIC_RUNTIME=OFF `
-            -DBUILD_STATIC_LIBS=ON `
-            -DBUILD_SHARED_LIBS=ON `
-            -DBUILD_EXAMPLES=OFF `
-            -DBUILD_TESTS=OFF
-
-      - name: Build
-        timeout-minutes: 15
-        run: cmake --build build --config ${{ matrix.build-type }} --parallel
-
-      - name: Prepare artifacts
-        timeout-minutes: 5
-        shell: pwsh
-        run: |
-          $runtimeSuffix = if ("${{ matrix.runtime }}" -eq "static") { "mt" } else { "md" }
-          $artifactName = "croupier-sdk-windows-x64-${{ matrix.build-type }}-${runtimeSuffix}"
-
-          New-Item -ItemType Directory -Force -Path "artifacts/$artifactName/include" | Out-Null
-          New-Item -ItemType Directory -Force -Path "artifacts/$artifactName/lib" | Out-Null
-          New-Item -ItemType Directory -Force -Path "artifacts/$artifactName/debug/lib" | Out-Null
-          New-Item -ItemType Directory -Force -Path "artifacts/$artifactName/bin" | Out-Null
-
-          Copy-Item -Path "include/croupier" -Destination "artifacts/$artifactName/include/" -Recurse -Force
-
-          if (Test-Path "build/include/croupier") {
-            Copy-Item -Path "build/include/croupier" -Destination "artifacts/$artifactName/include/" -Recurse -Force
-          }
-
-          if (Test-Path "build/lib/*.lib") {
-            Copy-Item -Path "build/lib/*.lib" -Destination "artifacts/$artifactName/lib/" -Force
-          }
-
-          if (Test-Path "build/debug/lib/*.lib") {
-            Copy-Item -Path "build/debug/lib/*.lib" -Destination "artifacts/$artifactName/debug/lib/" -Force
-          }
-
-          if (Test-Path "build/bin/*.dll") {
-            Copy-Item -Path "build/bin/*.dll" -Destination "artifacts/$artifactName/bin/" -Force
-          }
-
-          if (Test-Path "build/debug/bin/*.dll") {
-            Copy-Item -Path "build/debug/bin/*.dll" -Destination "artifacts/$artifactName/bin/" -Force
-          }
-
-          @"
-          # Croupier C++ SDK for Windows
-
-          - Build Type: ${{ matrix.build-type }}
-          - Runtime: $runtimeSuffix ($(if ("${{ matrix.runtime }}" -eq "static") { "MT/MTd (Static)" } else { "MD/MDd (Dynamic)" }))
-          - Architecture: x64
-
-          ## Directory Structure (vcpkg-style)
-
-          ## Usage
-
-          ### Static Library (MT/MTd)
-          Add to your project:
-          - Additional Include Directories: `path/to/include`
-          - Additional Library Directories (Release): `path/to/lib`
-          - Additional Library Directories (Debug): `path/to/debug/lib`
-          - Additional Dependencies: `croupier-sdk-static.lib`
-
-          ### Dynamic Library (MD/MDd)
-          Add to your project:
-          - Additional Include Directories: `path/to/include`
-          - Additional Library Directories (Release): `path/to/lib`
-          - Additional Library Directories (Debug): `path/to/debug/lib`
-          - Additional Dependencies: `croupier-sdk.lib`
-          - Copy `croupier-sdk.dll` to your executable directory.
-          "@ | Out-File -FilePath "artifacts/$artifactName/README.txt" -Encoding UTF8
-
-      - name: Upload artifacts
-        timeout-minutes: 3
-        uses: actions/upload-artifact@v7
-        with:
-          name: croupier-sdk-windows-x64-${{ matrix.build-type }}-${{ matrix.runtime }}
-          path: artifacts/
-
   coverage:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -317,6 +159,7 @@ jobs:
         timeout-minutes: 3
         uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.tag || github.ref }}
           submodules: recursive
 
       - name: Install system dependencies
@@ -377,224 +220,381 @@ jobs:
           flags: cpp-sdk
           fail_ci_if_error: ${{ github.event_name != 'pull_request' }}
 
-  lua-binding:
-    name: Lua Binding Test
-    if: false
+  # Release jobs - only run on tags
+  version:
+    if: |
+      startsWith(github.ref, 'refs/tags/sdk-cpp-v') ||
+      (inputs.tag != '' && startsWith(inputs.tag, 'sdk-cpp-v'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ./sdks/cpp
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_tag: ${{ steps.version.outputs.version_tag }}
+      is_tagged_release: ${{ steps.version.outputs.is_tagged_release }}
+    permissions:
+      contents: read
     steps:
       - name: Checkout Repository
         timeout-minutes: 3
         uses: actions/checkout@v6
         with:
-          submodules: recursive
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
 
-      - name: Install system dependencies
-        timeout-minutes: 5
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential ninja-build lua5.5 liblua5.5-dev || sudo apt-get install -y lua5.4 liblua5.4-dev
-
-      - name: Bootstrap vcpkg
-        timeout-minutes: 5
-        shell: bash
-        run: |
-          bash "${{ github.workspace }}/scripts/bootstrap-vcpkg.sh" \
-            "${{ github.workspace }}/vcpkg" \
-            "2024.08.23"
-
-      - name: Configure CMake with Lua binding
-        timeout-minutes: 15
-        env:
-          VCPKG_MAX_CONCURRENCY: 1
-        run: |
-          cmake -B build \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" \
-            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/vcpkg-overlays" \
-            -DVCPKG_TARGET_TRIPLET=x64-linux \
-            -DBUILD_SHARED_LIBS=ON \
-            -DBUILD_STATIC_LIBS=OFF \
-            -DBUILD_TESTS=ON \
-            -DENABLE_LUA_BINDING=ON
-
-      - name: Build
-        timeout-minutes: 15
-        run: cmake --build build --config Release --parallel
-
-      - name: Test Lua binding (basic)
-        timeout-minutes: 10
-        run: |
-          cat > test_lua.lua << 'EOF'
-          -- Basic Lua binding test
-          package.cpath = package.cpath .. ";./build/lib/?.so"
-          local croupier = require("croupier")
-
-          local client, err = pcall(function()
-            return croupier.Client.new("localhost:50051")
-          end)
-
-          if client then
-            print("Lua binding: Client creation successful")
-            print("Lua binding: Module loaded correctly")
-            return 0
-          else
-            print("Lua binding: Client creation failed")
-            print("Error:", err)
-            return 1
-          end
-          EOF
-
-          lua5.5 test_lua.lua || lua5.4 test_lua.lua
-
-      - name: Test Lua binding examples
-        timeout-minutes: 10
-        run: |
-          if [ -f "lua/examples/standalone_example.lua" ]; then
-            echo "Testing Lua example file..."
-            lua5.5 -e "dofile('lua/examples/standalone_example.lua')" || lua5.4 -e "dofile('lua/examples/standalone_example.lua')" || echo "Example test may require server connection"
-          fi
-
-      - name: Upload Lua artifacts
-        timeout-minutes: 3
-        uses: actions/upload-artifact@v7
-        with:
-          name: croupier-sdk-lua-binding
-          path: |
-            build/lib/libcroupier-sdk.so*
-            lua/
-            skynet/
-
-  skynet-so:
-    name: Skynet .so Build Test
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    env:
-      SKYNET_VERSION: "5.0"
-    steps:
-      - name: Checkout Repository
-        timeout-minutes: 3
-        uses: actions/checkout@v6
-        with:
-          submodules: recursive
-
-      - name: Install system dependencies
-        timeout-minutes: 5
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential ninja-build lua5.5 liblua5.5-dev || sudo apt-get install -y lua5.4 liblua5.4-dev git
-
-      - name: Bootstrap vcpkg
-        timeout-minutes: 5
-        shell: bash
-        run: |
-          bash "${{ github.workspace }}/scripts/bootstrap-vcpkg.sh" \
-            "${{ github.workspace }}/vcpkg" \
-            "2024.08.23"
-
-      - name: Clone Skynet
-        timeout-minutes: 5
-        run: |
-          cd /tmp
-          git clone https://github.com/cloudwu/skynet.git
-          cd skynet
-          git checkout "tags/${SKYNET_VERSION}" 2>/dev/null || echo "Using default branch"
-
-      - name: Configure CMake for Skynet .so
-        timeout-minutes: 30
-        run: |
-          cmake -B build-skynet \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" \
-            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/vcpkg-overlays" \
-            -DVCPKG_TARGET_TRIPLET=x64-linux \
-            -DBUILD_SHARED_LIBS=ON \
-            -DBUILD_STATIC_LIBS=OFF \
-            -DBUILD_TESTS=OFF \
-            -DBUILD_EXAMPLES=OFF \
-            -DENABLE_LUA_BINDING=ON \
-            -DCROUPIER_SKYNET_SO=ON
-
-      - name: Build Skynet .so
-        timeout-minutes: 15
-        run: cmake --build build-skynet --config Release --parallel
-
-      - name: Verify Skynet service files
+      - name: Generate Version
+        id: version
         timeout-minutes: 2
         run: |
-          echo "Checking Skynet service files..."
-          if [ -f "skynet/service/croupier_service.lua" ]; then
-            echo "Skynet service file found"
-            head -20 skynet/service/croupier_service.lua
-          else
-            echo "Skynet service file not found"
+          PACKAGE_VERSION=$(sed -n 's/^set(CROUPIER_SDK_VERSION "\(.*\)")/\1/p' VERSION.cmake)
+          if [[ -z "$PACKAGE_VERSION" ]]; then
+            echo "Failed to read version from VERSION.cmake"
             exit 1
           fi
+          CURRENT_TAG=$(git tag --points-at HEAD | grep -E '^sdk-cpp-v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)
+          IS_TAGGED_RELEASE="false"
 
-      - name: Create Skynet integration package
+          if [[ -n "$CURRENT_TAG" ]]; then
+            VERSION="${CURRENT_TAG#sdk-cpp-v}"
+            if [[ "$VERSION" != "$PACKAGE_VERSION" ]]; then
+              echo "Tag version ($VERSION) does not match VERSION.cmake version ($PACKAGE_VERSION)"
+              exit 1
+            fi
+            VERSION_TAG="$CURRENT_TAG"
+            IS_TAGGED_RELEASE="true"
+            echo "Tagged release detected: $CURRENT_TAG"
+          elif [[ -n "${{ inputs.tag }}" ]]; then
+            TAG_INPUT="${{ inputs.tag }}"
+            VERSION="${TAG_INPUT#sdk-cpp-v}"
+            if [[ "$VERSION" != "$PACKAGE_VERSION" ]]; then
+              echo "Tag version ($VERSION) does not match VERSION.cmake version ($PACKAGE_VERSION)"
+              exit 1
+            fi
+            VERSION_TAG="$TAG_INPUT"
+            IS_TAGGED_RELEASE="true"
+          else
+            VERSION="$PACKAGE_VERSION"
+            VERSION_TAG="sdk-cpp-v${VERSION}"
+          fi
+
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
+          echo "is_tagged_release=${IS_TAGGED_RELEASE}" >> $GITHUB_OUTPUT
+
+          echo "Generated version: ${VERSION}"
+          echo "Generated tag: ${VERSION_TAG}"
+
+  release-build:
+    if: |
+      startsWith(github.ref, 'refs/tags/sdk-cpp-v') ||
+      (inputs.tag != '' && startsWith(inputs.tag, 'sdk-cpp-v'))
+    needs: version
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          # Windows - MD (动态 CRT，推荐)
+          - os: windows-latest
+            arch: x64
+            vcpkg_triplet: x64-windows-static-md
+            artifact_name: windows-x64-md
+            display_name: "Windows x64 (MD)"
+
+          # Windows - MT (静态 CRT，独立应用)
+          - os: windows-latest
+            arch: x64
+            vcpkg_triplet: x64-windows-static
+            artifact_name: windows-x64-mt
+            display_name: "Windows x64 (MT)"
+
+          # Linux
+          - os: ubuntu-latest
+            arch: x64
+            vcpkg_triplet: x64-linux
+            artifact_name: linux-x64
+            display_name: "Linux x64"
+
+          # macOS Intel
+          - os: macos-latest
+            arch: x64
+            vcpkg_triplet: x64-osx
+            artifact_name: macos-x64
+            display_name: "macOS x64"
+
+          # macOS ARM64
+          - os: macos-latest
+            arch: arm64
+            vcpkg_triplet: arm64-osx
+            artifact_name: macos-arm64
+            display_name: "macOS ARM64"
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: ./sdks/cpp
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        timeout-minutes: 3
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          submodules: "recursive"
+
+      - name: Setup Windows Environment
+        if: runner.os == 'Windows'
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
+            choco install ninja -y
+          }
+          ninja --version
+          cmake --version
+
+      - name: Setup MSVC Developer Command Prompt
+        if: runner.os == 'Windows'
+        timeout-minutes: 3
+        shell: pwsh
+        run: |
+          $vsWhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio/Installer/vswhere.exe"
+          $installPath = & $vsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installPath) {
+            throw "Visual Studio with C++ tools was not found."
+          }
+
+          $vsDevCmd = Join-Path $installPath "Common7/Tools/VsDevCmd.bat"
+          $env:VSCMD_SKIP_SENDTELEMETRY = "1"
+
+          cmd /c "`"$vsDevCmd`" -no_logo -arch=${{ matrix.arch }} -host_arch=x64 && set" |
+            ForEach-Object {
+              if ($_ -match '^[^=]+=') {
+                Add-Content -Path $env:GITHUB_ENV -Value $_
+              }
+            }
+
+      - name: Setup Linux Environment
+        if: runner.os == 'Linux'
         timeout-minutes: 5
         run: |
-          mkdir -p skynet-package/cservice
-          mkdir -p skynet-package/lua
-          mkdir -p skynet-package/examples
+          sudo apt-get update
+          sudo apt-get install -y build-essential ninja-build
 
-          if [ -f "build-skynet/lib/libcroupier-sdk.so" ]; then
-            cp build-skynet/lib/libcroupier-sdk.so skynet-package/cservice/
-            echo "Copied libcroupier-sdk.so to cservice/"
+      - name: Setup macOS Environment
+        if: runner.os == 'macOS'
+        timeout-minutes: 5
+        run: |
+          if ! command -v ninja >/dev/null 2>&1; then
+            brew install ninja
           fi
 
-          if [ -d "lua" ]; then
-            cp -r lua/* skynet-package/lua/
-            echo "Copied Lua bindings"
+      - name: Bootstrap vcpkg (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $scriptPath = Join-Path "${{ github.workspace }}" "sdks/cpp/scripts/bootstrap-vcpkg.ps1"
+          $vcpkgRoot = Join-Path "${{ github.workspace }}" "sdks/cpp/vcpkg"
+          & $scriptPath -VcpkgRoot $vcpkgRoot -VcpkgCommit "2024.07.22"
+
+      - name: Bootstrap vcpkg (Unix)
+        if: runner.os != 'Windows'
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          bash "${{ github.workspace }}/sdks/cpp/scripts/bootstrap-vcpkg.sh" \
+            "${{ github.workspace }}/sdks/cpp/vcpkg" \
+            "2024.07.22"
+
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 30
+        run: |
+          cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE="Release" -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/sdks/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake" -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays" -DVCPKG_TARGET_TRIPLET="${{ matrix.vcpkg_triplet }}" -DVCPKG_HOST_TRIPLET="${{ matrix.vcpkg_triplet }}" -DVCPKG_BUILD_TYPE="release" -DCMAKE_INSTALL_PREFIX=install -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON -DBUILD_EXAMPLES=ON -DBUILD_TESTS=ON -DCPACK_PACKAGE_VERSION="${{ needs.version.outputs.version }}"
+
+      - name: Configure CMake (Unix)
+        if: runner.os != 'Windows'
+        timeout-minutes: 30
+        run: |
+          BUILD_TESTS=ON
+          BUILD_EXAMPLES=ON
+          # macOS 交叉编译需要明确指定目标架构
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            if [[ "${{ matrix.arch }}" == "x64" ]]; then
+              CMAKE_ARCH_ARGS="-DCMAKE_OSX_ARCHITECTURES=x86_64"
+            elif [[ "${{ matrix.arch }}" == "arm64" ]]; then
+              CMAKE_ARCH_ARGS="-DCMAKE_OSX_ARCHITECTURES=arm64"
+            fi
           fi
+          cmake -B build \
+            -G "Ninja" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/sdks/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays" \
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.vcpkg_triplet }} \
+            -DVCPKG_BUILD_TYPE=release \
+            -DCMAKE_INSTALL_PREFIX=install \
+            -DBUILD_SHARED_LIBS=ON \
+            -DBUILD_STATIC_LIBS=ON \
+            -DBUILD_EXAMPLES=${BUILD_EXAMPLES} \
+            -DBUILD_TESTS=${BUILD_TESTS} \
+            ${CMAKE_ARCH_ARGS} \
+            -DCPACK_PACKAGE_VERSION="${{ needs.version.outputs.version }}"
 
-          if [ -f "skynet/service/croupier_service.lua" ]; then
-            cp skynet/service/croupier_service.lua skynet-package/lua/
-            echo "Copied croupier_service.lua"
+      - name: Build SDK
+        timeout-minutes: 20
+        run: cmake --build build --config Release --parallel
+
+      - name: Run Tests
+        if: matrix.arch == 'x64'
+        timeout-minutes: 10
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            export PATH="$PWD/build/bin:$PWD/vcpkg_installed/${{ matrix.vcpkg_triplet }}/bin:$PATH"
           fi
+          cd build && ctest --build-config Release --output-on-failure
+        shell: bash
 
-          if [ -d "skynet/examples" ]; then
-            cp -r skynet/examples/* skynet-package/examples/
-            echo "Copied Skynet examples"
+      - name: Create Separate Static and Dynamic Packages
+        timeout-minutes: 10
+        run: |
+          mkdir -p package-static package-dynamic
+          cmake --install build --prefix package-install
+
+          cp -r package-install/include package-static/ 2>/dev/null || true
+          cp -r package-install/include package-dynamic/ 2>/dev/null || true
+          cp -r package-install/share package-static/ 2>/dev/null || true
+          cp -r package-install/share package-dynamic/ 2>/dev/null || true
+          cp -r package-install/bin package-dynamic/ 2>/dev/null || true
+
+          mkdir -p package-static/lib package-dynamic/lib
+
+          find package-install -name "*.a" -exec cp {} package-static/lib/ \; 2>/dev/null || true
+          find package-install -name "*.lib" -exec cp {} package-static/lib/ \; 2>/dev/null || true
+
+          find package-install -name "*.so*" -exec cp {} package-dynamic/lib/ \; 2>/dev/null || true
+          find package-install -name "*.dylib*" -exec cp {} package-dynamic/lib/ \; 2>/dev/null || true
+          find package-install -name "*.dll" -exec cp {} package-dynamic/lib/ \; 2>/dev/null || true
+
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            powershell -Command "Compress-Archive -Path 'package-static/*' -DestinationPath 'croupier-cpp-sdk-static-${{ needs.version.outputs.version }}-${{ matrix.artifact_name }}.zip' -Force"
+            powershell -Command "Compress-Archive -Path 'package-dynamic/*' -DestinationPath 'croupier-cpp-sdk-dynamic-${{ needs.version.outputs.version }}-${{ matrix.artifact_name }}.zip' -Force"
+          else
+            tar -czf "croupier-cpp-sdk-static-${{ needs.version.outputs.version }}-${{ matrix.artifact_name }}.tar.gz" -C package-static .
+            tar -czf "croupier-cpp-sdk-dynamic-${{ needs.version.outputs.version }}-${{ matrix.artifact_name }}.tar.gz" -C package-dynamic .
           fi
+        shell: bash
 
-          cat > skynet-package/README.md << 'EOF'
-          # Croupier SDK for Skynet
-
-          This package contains the Croupier C++ SDK compiled as a Skynet C service (.so).
-
-          ## Installation
-
-          1. Copy `libcroupier-sdk.so` to your Skynet project's `cservice/` directory
-          2. Copy all files from `lua/` to your Skynet project's `lua/` directory
-          3. Use the service in your Skynet configuration
-
-          ## Usage
-
-          See `examples/` for complete examples.
-
-          ```lua
-          local skynet = require "skynet"
-          local croupier = require "croupier"
-
-          -- Start Croupier service
-          skynet.call(".croupier", "lua", "start", "localhost:50051")
-
-          -- Register a virtual object
-          skynet.call(".croupier", "lua", "register_vo", "player_001", "Player", {
-            level = 10,
-            name = "TestPlayer"
-          })
-          ```
-          EOF
-
-          echo "Skynet package created successfully"
-
-      - name: Upload Skynet artifacts
+      - name: Upload Static Library Artifacts
         timeout-minutes: 3
         uses: actions/upload-artifact@v7
         with:
-          name: croupier-sdk-skynet-so
-          path: skynet-package/
+          name: croupier-cpp-sdk-static-${{ matrix.artifact_name }}
+          path: croupier-cpp-sdk-static-*-${{ matrix.artifact_name }}.*
+          retention-days: 30
+
+      - name: Upload Dynamic Library Artifacts
+        timeout-minutes: 3
+        uses: actions/upload-artifact@v7
+        with:
+          name: croupier-cpp-sdk-dynamic-${{ matrix.artifact_name }}
+          path: croupier-cpp-sdk-dynamic-*-${{ matrix.artifact_name }}.*
+          retention-days: 30
+
+  release:
+    if: |
+      startsWith(github.ref, 'refs/tags/sdk-cpp-v') ||
+      (inputs.tag != '' && startsWith(inputs.tag, 'sdk-cpp-v'))
+    needs: [version, release-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        timeout-minutes: 3
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Download All Static Artifacts
+        timeout-minutes: 3
+        uses: actions/download-artifact@v8
+        with:
+          pattern: croupier-cpp-sdk-static-*
+          path: static-artifacts/
+
+      - name: Download All Dynamic Artifacts
+        timeout-minutes: 3
+        uses: actions/download-artifact@v8
+        with:
+          pattern: croupier-cpp-sdk-dynamic-*
+          path: dynamic-artifacts/
+
+      - name: Prepare Release Assets
+        timeout-minutes: 5
+        run: |
+          mkdir -p release_assets
+
+          find static-artifacts/ -name "*.zip" -o -name "*.tar.gz" | while read file; do
+            cp "$file" release_assets/
+          done
+
+          find dynamic-artifacts/ -name "*.zip" -o -name "*.tar.gz" | while read file; do
+            cp "$file" release_assets/
+          done
+
+          echo "Release assets:"
+          ls -la release_assets/
+          echo ""
+          echo "Package summary:"
+          echo "Static packages: $(ls release_assets/*static* 2>/dev/null | wc -l)"
+          echo "Dynamic packages: $(ls release_assets/*dynamic* 2>/dev/null | wc -l)"
+          echo "Total packages: $(ls release_assets/*.* 2>/dev/null | wc -l)"
+
+      - name: Generate Release Notes
+        timeout-minutes: 2
+        run: |
+          cat << EOF > RELEASE_NOTES.md
+          # Croupier C++ SDK ${{ needs.version.outputs.version }}
+
+          ## Available Packages
+
+          ### Static Library Packages
+          - Windows: `croupier-cpp-sdk-static-*-windows-x64.zip`
+          - Linux: `croupier-cpp-sdk-static-*-linux-x64.tar.gz`
+          - macOS: `croupier-cpp-sdk-static-*-macos-x64.tar.gz`, `croupier-cpp-sdk-static-*-macos-arm64.tar.gz`
+
+          ### Dynamic Library Packages
+          - Windows: `croupier-cpp-sdk-dynamic-*-windows-x64.zip`
+          - Linux: `croupier-cpp-sdk-dynamic-*-linux-x64.tar.gz`
+          - macOS: `croupier-cpp-sdk-dynamic-*-macos-x64.tar.gz`, `croupier-cpp-sdk-dynamic-*-macos-arm64.tar.gz`
+
+          ## Build Information
+          - Build Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          - Commit: ${{ github.sha }}
+          - Workflow: ${{ github.run_id }}
+          - Version Tag: ${{ needs.version.outputs.version_tag }}
+
+          EOF
+
+      - name: Create Release
+        timeout-minutes: 10
+        uses: softprops/action-gh-release@v4
+        with:
+          tag_name: ${{ needs.version.outputs.version_tag }}
+          name: "Croupier C++ SDK ${{ needs.version.outputs.version }}"
+          body_path: RELEASE_NOTES.md
+          files: release_assets/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

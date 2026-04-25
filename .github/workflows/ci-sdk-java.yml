@@ -1,4 +1,4 @@
-name: "Build Croupier Java SDK"
+name: Build & Release Java SDK
 
 permissions:
   contents: read
@@ -16,6 +16,14 @@ on:
       - ".github/workflows/ci-sdk-java.yml"
       - "proto/**"
       - "sdks/java/**"
+  tags:
+    - "sdk-java-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '指定 Tag 构建 (例如: sdk-java-v1.0.0)'
+        required: false
+        type: string
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -35,6 +43,8 @@ jobs:
       - name: Checkout SDK repository
         timeout-minutes: 3
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Setup Java JDK
         timeout-minutes: 5
@@ -73,3 +83,107 @@ jobs:
           name: croupier-java-sdk-jdk${{ matrix.java-version }}
           path: |
             build/libs/*.jar
+
+  publish:
+    if: |
+      startsWith(github.ref, 'refs/tags/sdk-java-v') ||
+      (inputs.tag != '' && startsWith(inputs.tag, 'sdk-java-v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build
+    permissions:
+      contents: write
+      packages: write
+
+    defaults:
+      run:
+        working-directory: ./sdks/java
+
+    steps:
+      - name: Checkout SDK repository
+        timeout-minutes: 3
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          submodules: recursive
+
+      - name: Determine SDK Version
+        id: version
+        shell: bash
+        run: |
+          PACKAGE_VERSION=$(sed -n "s/^String baseVersion = '\\(.*\\)'/\\1/p" build.gradle)
+          if [[ -z "$PACKAGE_VERSION" ]]; then
+            echo "Failed to read baseVersion from build.gradle"
+            exit 1
+          fi
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            TAG_VERSION="${GITHUB_REF_NAME#sdk-java-v}"
+            if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
+              echo "Tag version ($TAG_VERSION) does not match build.gradle baseVersion ($PACKAGE_VERSION)"
+              exit 1
+            fi
+          elif [[ -n "${{ inputs.tag }}" ]]; then
+            TAG_VERSION="${{ inputs.tag }}"
+            TAG_VERSION="${TAG_VERSION#sdk-java-v}"
+            if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
+              echo "Tag version ($TAG_VERSION) does not match build.gradle baseVersion ($PACKAGE_VERSION)"
+              exit 1
+            fi
+          fi
+
+      - name: Set up Java
+        timeout-minutes: 5
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Make gradlew executable
+        timeout-minutes: 1
+        run: chmod +x gradlew
+
+      - name: Run tests
+        timeout-minutes: 10
+        run: ./gradlew --no-daemon test
+
+      - name: Build
+        timeout-minutes: 15
+        run: ./gradlew --no-daemon clean build
+
+      - name: Import GPG key
+        timeout-minutes: 5
+        uses: crazy-max/ghaction-import-gpg@v8
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PRIVATE_KEY_PASSWORD: ${{ secrets.GPG_PRIVATE_KEY_PASSWORD }}
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PRIVATE_KEY_PASSWORD }}
+
+      - name: Publish to Maven Central
+        timeout-minutes: 10
+        run: ./gradlew --no-daemon publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PRIVATE_KEY_PASSWORD: ${{ secrets.GPG_PRIVATE_KEY_PASSWORD }}
+
+      - name: Package
+        timeout-minutes: 2
+        run: |
+          mkdir -p artifacts
+          find . -name "*.jar" -not -path "*/build/*" -exec cp {} artifacts/ \;
+          find build/libs -name "*.jar" -exec cp {} artifacts/ \;
+
+      - name: Create Release
+        timeout-minutes: 10
+        uses: softprops/action-gh-release@v4
+        with:
+          files: sdks/java/artifacts/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

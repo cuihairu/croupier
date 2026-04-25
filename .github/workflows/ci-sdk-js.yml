@@ -1,4 +1,4 @@
-name: "Build Croupier JavaScript SDK"
+name: Build & Release JavaScript SDK
 
 permissions:
   contents: read
@@ -16,6 +16,14 @@ on:
       - ".github/workflows/ci-sdk-js.yml"
       - "proto/**"
       - "sdks/js/**"
+  tags:
+    - "sdk-js-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '指定 Tag 构建 (例如: sdk-js-v1.0.0)'
+        required: false
+        type: string
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -32,6 +40,8 @@ jobs:
       - name: Checkout repository
         timeout-minutes: 3
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Setup Node.js
         timeout-minutes: 5
@@ -63,3 +73,97 @@ jobs:
           files: ./sdks/js/coverage/lcov.info
           flags: js-sdk
           fail_ci_if_error: ${{ github.event_name != 'pull_request' }}
+
+  publish:
+    if: |
+      startsWith(github.ref, 'refs/tags/sdk-js-v') ||
+      (inputs.tag != '' && startsWith(inputs.tag, 'sdk-js-v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: test
+    permissions:
+      contents: write
+
+    defaults:
+      run:
+        working-directory: ./sdks/js
+
+    steps:
+      - name: Checkout repository
+        timeout-minutes: 3
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Determine SDK Version
+        id: version
+        shell: bash
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            TAG_VERSION="${GITHUB_REF_NAME#sdk-js-v}"
+            if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
+              echo "Tag version ($TAG_VERSION) does not match package.json version ($PACKAGE_VERSION)"
+              exit 1
+            fi
+            VERSION="$TAG_VERSION"
+          elif [[ -n "${{ inputs.tag }}" ]]; then
+            TAG_VERSION="${{ inputs.tag }}"
+            TAG_VERSION="${TAG_VERSION#sdk-js-v}"
+            if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
+              echo "Tag version ($TAG_VERSION) does not match package.json version ($PACKAGE_VERSION)"
+              exit 1
+            fi
+            VERSION="$TAG_VERSION"
+          else
+            VERSION="$PACKAGE_VERSION"
+          fi
+          echo "sdk_version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm
+        timeout-minutes: 5
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        timeout-minutes: 5
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v5
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('sdks/js/pnpm-lock.yaml') }}
+
+      - name: Install dependencies
+        timeout-minutes: 5
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        timeout-minutes: 15
+        run: pnpm run build
+
+      - name: Package
+        timeout-minutes: 2
+        run: |
+          rm -rf artifacts
+          mkdir -p artifacts
+          pnpm pack --pack-destination artifacts
+          zip -r "artifacts/croupier-js-sdk-${{ steps.version.outputs.sdk_version }}.zip" dist package.json README.md LICENSE
+
+      - name: Publish release assets
+        timeout-minutes: 10
+        uses: softprops/action-gh-release@v4
+        with:
+          files: sdks/js/artifacts/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

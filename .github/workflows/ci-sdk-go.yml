@@ -1,4 +1,4 @@
-name: "Build Croupier Go SDK"
+name: Build & Release Go SDK
 
 permissions:
   contents: read
@@ -16,6 +16,14 @@ on:
       - ".github/workflows/ci-sdk-go.yml"
       - "proto/**"
       - "sdks/go/**"
+  tags:
+    - "sdk-go-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '指定 Tag 构建 (例如: sdk-go-v1.0.0)'
+        required: false
+        type: string
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -29,6 +37,8 @@ jobs:
       - name: Checkout repository
         timeout-minutes: 3
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Setup Go
         timeout-minutes: 5
@@ -73,3 +83,116 @@ jobs:
         timeout-minutes: 15
         working-directory: ./sdks/go
         run: go build -v ./examples/...
+
+  publish:
+    if: |
+      startsWith(github.ref, 'refs/tags/sdk-go-v') ||
+      (inputs.tag != '' && startsWith(inputs.tag, 'sdk-go-v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build
+    permissions:
+      contents: write
+
+    defaults:
+      run:
+        working-directory: ./sdks/go
+
+    steps:
+      - name: Checkout repository
+        timeout-minutes: 3
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          submodules: false
+
+      - name: Determine SDK Version
+        id: version
+        shell: bash
+        run: |
+          PACKAGE_VERSION=$(sed -n 's/^const Version = "\(.*\)"/\1/p' version.go)
+          if [[ -z "$PACKAGE_VERSION" ]]; then
+            echo "Failed to read version from version.go"
+            exit 1
+          fi
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            TAG_VERSION="${GITHUB_REF_NAME#sdk-go-v}"
+            if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
+              echo "Tag version ($TAG_VERSION) does not match version.go version ($PACKAGE_VERSION)"
+              exit 1
+            fi
+            VERSION="$TAG_VERSION"
+          elif [[ -n "${{ inputs.tag }}" ]]; then
+            TAG_VERSION="${{ inputs.tag }}"
+            TAG_VERSION="${TAG_VERSION#sdk-go-v}"
+            if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
+              echo "Tag version ($TAG_VERSION) does not match version.go version ($PACKAGE_VERSION)"
+              exit 1
+            fi
+            VERSION="$TAG_VERSION"
+          else
+            VERSION="$PACKAGE_VERSION"
+          fi
+          echo "sdk_version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Go
+        timeout-minutes: 5
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+
+      - name: Add Go bin to PATH
+        timeout-minutes: 1
+        run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Install protoc
+        timeout-minutes: 5
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Generate proto (CI mode)
+        timeout-minutes: 10
+        env:
+          CROUPIER_CI_BUILD: "1"
+        run: go run ./scripts/generate_proto.go
+
+      - name: Go mod download
+        timeout-minutes: 5
+        run: go mod download
+
+      - name: Run tests
+        timeout-minutes: 10
+        run: go test ./...
+
+      - name: Build
+        timeout-minutes: 15
+        run: |
+          go build ./...
+
+      - name: Package
+        timeout-minutes: 5
+        run: |
+          mkdir -p artifacts
+          tar --exclude='*_test.go' \
+            --exclude='examples/**/*.test' \
+            -czf "artifacts/croupier-go-sdk-${{ steps.version.outputs.sdk_version }}.tar.gz" \
+            go.mod \
+            go.sum \
+            version.go \
+            pkg \
+            scripts \
+            examples \
+            LICENSE \
+            README.md \
+            SECURITY.md
+
+      - name: Create Release
+        timeout-minutes: 10
+        uses: softprops/action-gh-release@v4
+        with:
+          files: sdks/go/artifacts/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

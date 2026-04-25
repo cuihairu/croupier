@@ -1,4 +1,4 @@
-name: "Build Croupier Python SDK"
+name: Build & Release Python SDK
 
 permissions:
   contents: read
@@ -17,6 +17,14 @@ on:
       - ".github/workflows/ci-sdk-python.yml"
       - "proto/**"
       - "sdks/python/**"
+  tags:
+    - "sdk-python-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '指定 Tag 构建 (例如: sdk-python-v1.0.0)'
+        required: false
+        type: string
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -33,9 +41,11 @@ jobs:
       matrix:
         python-version: ["3.12", "3.13"]
     steps:
-      - timeout-minutes: 3
+      - name: Checkout repository
+        timeout-minutes: 3
         uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.tag || github.ref }}
           submodules: false
 
       - name: Install uv
@@ -71,8 +81,11 @@ jobs:
       run:
         working-directory: ./sdks/python
     steps:
-      - timeout-minutes: 3
+      - name: Checkout repository
+        timeout-minutes: 3
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Install uv
         timeout-minutes: 5
@@ -97,3 +110,81 @@ jobs:
       - name: Run mypy
         timeout-minutes: 5
         run: uv run mypy croupier --ignore-missing-imports --no-strict-optional
+
+  publish:
+    if: |
+      startsWith(github.ref, 'refs/tags/sdk-python-v') ||
+      (inputs.tag != '' && startsWith(inputs.tag, 'sdk-python-v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [test, lint]
+    permissions:
+      contents: write
+
+    defaults:
+      run:
+        working-directory: ./sdks/python
+
+    steps:
+      - name: Checkout repository
+        timeout-minutes: 3
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          submodules: false
+
+      - name: Determine SDK Version
+        id: version
+        shell: bash
+        run: |
+          PACKAGE_VERSION=$(python3 -c 'import pathlib, tomllib; data = tomllib.loads(pathlib.Path("pyproject.toml").read_text()); print(data["project"]["version"])')
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            TAG_VERSION="${GITHUB_REF_NAME#sdk-python-v}"
+            if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
+              echo "Tag version ($TAG_VERSION) does not match pyproject.toml version ($PACKAGE_VERSION)"
+              exit 1
+            fi
+          elif [[ -n "${{ inputs.tag }}" ]]; then
+            TAG_VERSION="${{ inputs.tag }}"
+            TAG_VERSION="${TAG_VERSION#sdk-python-v}"
+            if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
+              echo "Tag version ($TAG_VERSION) does not match pyproject.toml version ($PACKAGE_VERSION)"
+              exit 1
+            fi
+          fi
+
+      - name: Install uv
+        timeout-minutes: 5
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "sdks/python/pyproject.toml"
+          python-version: "3.12"
+
+      - name: Install dependencies
+        timeout-minutes: 5
+        run: uv sync --dev --all-extras
+
+      - name: Run tests
+        timeout-minutes: 10
+        run: uv run pytest -q
+
+      - name: Build wheel and sdist
+        timeout-minutes: 10
+        run: uv build
+
+      - name: Package
+        timeout-minutes: 2
+        run: |
+          mkdir -p artifacts
+          cp dist/* artifacts/
+
+      - name: Create Release
+        timeout-minutes: 10
+        uses: softprops/action-gh-release@v4
+        with:
+          files: sdks/python/artifacts/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

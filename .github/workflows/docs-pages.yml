@@ -2,6 +2,11 @@ name: Docs (GitHub Pages)
 
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: '指定 Tag 构建 (例如: v1.0.0)'
+        required: false
+        type: string
   push:
     branches: [main, master]
     tags:
@@ -9,6 +14,13 @@ on:
     paths:
       - "docs/**"
       - ".github/workflows/docs-pages.yml"
+  pull_request:
+    branches: [main, master]
+    paths:
+      - ".github/workflows/docs-pages.yml"
+      - ".github/workflows/*.yml"
+      - "README.md"
+      - "docs/**"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -23,13 +35,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Formatting check - runs on PRs
+  formatting:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - timeout-minutes: 3
+        uses: actions/checkout@v6
+
+      - timeout-minutes: 3
+        uses: pnpm/action-setup@v6
+
+      - timeout-minutes: 5
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          cache-dependency-path: "pnpm-lock.yaml"
+
+      - name: Install dependencies
+        timeout-minutes: 5
+        run: pnpm install --frozen-lockfile
+
+      - name: Check docs and workflow formatting
+        timeout-minutes: 5
+        run: pnpm run format:check
+
+  # Build and deploy - runs on push to main/master or tags
   build:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Checkout
         timeout-minutes: 3
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Setup pnpm
         timeout-minutes: 3
@@ -71,6 +114,10 @@ jobs:
           path: docs/.vitepress/dist
 
       - name: Deploy to GitHub Pages
+        if: |
+          github.ref == 'refs/heads/main' ||
+          github.ref == 'refs/heads/master' ||
+          startsWith(github.ref, 'refs/tags/v')
         timeout-minutes: 10
         id: deployment
         uses: actions/deploy-pages@v5
