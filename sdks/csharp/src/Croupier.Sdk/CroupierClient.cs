@@ -492,7 +492,7 @@ public partial class CroupierClient : IDisposable
         }
 
         var address = _config.ControlAddr.StartsWith("tcp://") ? _config.ControlAddr : $"tcp://{_config.ControlAddr}";
-        using var transport = _transportFactory(address, _config.TimeoutSeconds * 1000, _logger);
+        using var transport = _transportFactory(address, _config.TimeoutSeconds * 1000, _config.ConnectTimeoutSeconds * 1000, _logger);
         transport.Connect();
 
         try

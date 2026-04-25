@@ -105,7 +105,7 @@ public class CroupierInvoker : IDisposable
         string gameId,
         string env,
         ILogger logger)
-        : this(agentAddr, gameId, env, 5000, new CroupierLogger(logger))
+        : this(agentAddr, gameId, env, 5000, 5000, new CroupierLogger(logger))
     {
     }
 

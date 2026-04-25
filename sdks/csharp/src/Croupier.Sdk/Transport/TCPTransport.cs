@@ -37,7 +37,7 @@ public sealed class TCPTransport : IClientTransport
     private readonly string _host;
     private readonly int _port;
     private readonly int _timeoutMs;
-    private readonly int _connectTimeoutMs;
+    private int _connectTimeoutMs;
     private readonly ICroupierLogger _logger;
 
     private TcpClient? _client;
