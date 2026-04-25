@@ -27,9 +27,11 @@ jobs:
         timeout-minutes: 5
         uses: docker/setup-buildx-action@v4
         with:
-          driver-opts: |
-            image=moby/buildkit:latest
-            network=host
+          driver: docker
+      - name: Remove old BuildKit builder
+        timeout-minutes: 3
+        run: |
+          docker buildx rm -f $(docker buildx ls | grep -v "NAME/NODE" | awk '{print $1}') 2>/dev/null || true
       - name: Login to GHCR
         timeout-minutes: 3
         uses: docker/login-action@v4
@@ -52,5 +54,3 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/croupier-dashboard:buildcache
-          cache-to: type=inline
