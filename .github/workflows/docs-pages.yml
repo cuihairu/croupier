@@ -33,11 +33,11 @@ jobs:
 
       - name: Setup pnpm
         timeout-minutes: 3
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
         timeout-minutes: 5
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm

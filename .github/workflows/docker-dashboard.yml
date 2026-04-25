@@ -46,12 +46,12 @@ jobs:
           images: ghcr.io/${{ github.repository_owner }}/croupier-dashboard
 
       - timeout-minutes: 3
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - timeout-minutes: 5
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
