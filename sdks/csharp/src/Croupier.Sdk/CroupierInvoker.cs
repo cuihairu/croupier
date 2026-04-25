@@ -30,6 +30,7 @@ public class CroupierInvoker : IDisposable
     private readonly string _env;
     private readonly ICroupierLogger _logger;
     private readonly int _timeoutMs;
+    private readonly int _connectTimeoutMs;
 
     private TCPTransport? _transport;
     private bool _isDisposed;
@@ -55,19 +56,22 @@ public class CroupierInvoker : IDisposable
     /// <param name="agentAddr">Agent 地址 (e.g., "tcp://127.0.0.1:19090")</param>
     /// <param name="gameId">游戏 ID</param>
     /// <param name="env">环境</param>
-    /// <param name="timeoutMs">超时时间（毫秒）</param>
+    /// <param name="timeoutMs">请求超时时间（毫秒）</param>
+    /// <param name="connectTimeoutMs">连接超时时间（毫秒）</param>
     /// <param name="logger">日志记录器</param>
     public CroupierInvoker(
         string agentAddr = "tcp://127.0.0.1:19090",
         string? gameId = null,
         string? env = null,
         int timeoutMs = 5000,
+        int connectTimeoutMs = 5000,
         ICroupierLogger? logger = null)
     {
         _agentAddr = agentAddr;
         _gameId = gameId ?? "default-game";
         _env = env ?? "dev";
         _timeoutMs = timeoutMs;
+        _connectTimeoutMs = connectTimeoutMs;
         _logger = logger ?? new ConsoleCroupierLogger("Invoker");
 
         _logger.LogInfo("CroupierInvoker", $"Invoker created for {_gameId}/{_env}");
@@ -84,6 +88,7 @@ public class CroupierInvoker : IDisposable
             config.GameId,
             config.Env,
             config.TimeoutSeconds * 1000,
+            config.ConnectTimeoutSeconds * 1000,
             logger)
     {
     }
@@ -193,7 +198,7 @@ public class CroupierInvoker : IDisposable
     {
         if (_transport == null)
         {
-            _transport = new TCPTransport(_agentAddr, _timeoutMs, _logger);
+            _transport = new TCPTransport(_agentAddr, _timeoutMs, _connectTimeoutMs, _logger);
             _transport.Connect();
         }
         else if (!_transport.IsConnected)

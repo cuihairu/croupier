@@ -37,7 +37,7 @@ public partial class CroupierClient : IDisposable
     private readonly ConcurrentDictionary<string, FunctionDescriptor> _descriptors;
     private readonly CancellationTokenSource _shutdownCts;
     private readonly Channel<FunctionCallTask> _callChannel;
-    private readonly Func<string, int, ICroupierLogger, IClientTransport> _transportFactory;
+    private readonly Func<string, int, int, ICroupierLogger, IClientTransport> _transportFactory;
 
     private IClientTransport? _transport;
     private bool _isConnected;
@@ -66,14 +66,14 @@ public partial class CroupierClient : IDisposable
         : this(
             config,
             logger,
-            static (address, timeoutMs, transportLogger) => new TCPTransport(address, timeoutMs, transportLogger))
+            static (address, timeoutMs, connectTimeoutMs, transportLogger) => new TCPTransport(address, timeoutMs, connectTimeoutMs, transportLogger))
     {
     }
 
     internal CroupierClient(
         ClientConfig? config,
         ICroupierLogger? logger,
-        Func<string, int, ICroupierLogger, IClientTransport> transportFactory)
+        Func<string, int, int, ICroupierLogger, IClientTransport> transportFactory)
     {
         _config = config ?? new ClientConfig();
         _logger = logger ?? new ConsoleCroupierLogger();
@@ -95,7 +95,7 @@ public partial class CroupierClient : IDisposable
         : this(
             config,
             new CroupierLogger(logger),
-            static (address, timeoutMs, transportLogger) => new TCPTransport(address, timeoutMs, transportLogger))
+            static (address, timeoutMs, connectTimeoutMs, transportLogger) => new TCPTransport(address, timeoutMs, connectTimeoutMs, transportLogger))
     {
     }
 
@@ -432,7 +432,7 @@ public partial class CroupierClient : IDisposable
     private async Task ConnectAndRegisterAsync(CancellationToken cancellationToken)
     {
         var address = _config.AgentAddr.StartsWith("tcp://") ? _config.AgentAddr : $"tcp://{_config.AgentAddr}";
-        var transport = _transportFactory(address, _config.TimeoutSeconds * 1000, _logger);
+        var transport = _transportFactory(address, _config.TimeoutSeconds * 1000, _config.ConnectTimeoutSeconds * 1000, _logger);
         transport.Connect();
 
         try

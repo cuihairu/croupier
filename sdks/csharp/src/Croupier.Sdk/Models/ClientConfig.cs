@@ -105,6 +105,11 @@ public class ClientConfig
     public int TimeoutSeconds { get; set; } = 30;
 
     /// <summary>
+    /// 连接尝试超时（秒）- 用于初始连接，默认 5 秒
+    /// </summary>
+    public int ConnectTimeoutSeconds { get; set; } = 5;
+
+    /// <summary>
     /// 心跳间隔（秒）
     /// </summary>
     public int HeartbeatIntervalSeconds { get; set; } = 60;

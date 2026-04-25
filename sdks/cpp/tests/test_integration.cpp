@@ -19,6 +19,10 @@ protected:
         // Disable auto-reconnect for tests to avoid thread hanging
         config.auto_reconnect = false;
 
+        // Set short connection timeout for tests (3 seconds)
+        // This prevents tests from hanging when no agent is running (e.g., in CI)
+        config.connect_timeout_seconds = 3;
+
         client = std::make_unique<CroupierClient>(config);
     }
 

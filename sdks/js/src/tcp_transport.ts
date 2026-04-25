@@ -81,6 +81,7 @@ interface PendingCall {
 export interface TCPTransportConfig {
   address?: string;
   timeoutMs?: number;
+  connectTimeoutMs?: number;  // Connection timeout (separate from request timeout)
   tlsEnabled?: boolean;
   tlsCertFile?: string;
   tlsKeyFile?: string;
@@ -106,6 +107,7 @@ export type RequestHandler = (
 export class TCPTransport {
   private address: string;
   private timeoutMs: number;
+  private connectTimeoutMs: number;
   private tlsEnabled: boolean;
   private tlsCertFile: string;
   private tlsKeyFile: string;
@@ -130,6 +132,7 @@ export class TCPTransport {
   constructor(config: TCPTransportConfig = {}) {
     this.address = config.address ?? "127.0.0.1:19090";
     this.timeoutMs = config.timeoutMs ?? 30000;
+    this.connectTimeoutMs = config.connectTimeoutMs ?? 5000;
     this.tlsEnabled = config.tlsEnabled ?? false;
     this.tlsCertFile = config.tlsCertFile ?? "";
     this.tlsKeyFile = config.tlsKeyFile ?? "";
@@ -143,17 +146,23 @@ export class TCPTransport {
     this.handler = handler;
   }
 
-  /** Connect to the remote endpoint */
+  /** Set the connection timeout (separate from request timeout) */
+  setConnectTimeout(timeoutMs: number): void {
+    this.connectTimeoutMs = timeoutMs;
+  }
+
+  /** Connect to the remote endpoint with timeout */
   async connect(): Promise<void> {
     if (this.connected) {
       return;
     }
 
-    return new Promise((resolve, reject) => {
-      const addr = this.stripScheme(this.address);
-      const [host, portStr] = addr.split(":");
-      const port = parseInt(portStr, 10);
+    const addr = this.stripScheme(this.address);
+    const [host, portStr] = addr.split(":");
+    const port = parseInt(portStr, 10);
 
+    // Create a promise that resolves when connection is established
+    const connectionPromise = new Promise<void>((resolve, reject) => {
       const socket = createConnection(
         { host, port, family: 4 } as TcpSocketConnectOpts,
         () => {
@@ -165,9 +174,24 @@ export class TCPTransport {
         },
       );
 
+      // Handle connection errors
+      socket.once("error", (err: Error) => {
+        reject(new Error(`Failed to connect to ${this.address}: ${err.message}`));
+      });
+
+      // Set read timeout (not connection timeout)
       socket.setTimeout(this.timeoutMs);
-      socket.once("error", reject);
     });
+
+    // Create a timeout promise
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Connection timeout to ${this.address} after ${this.connectTimeoutMs}ms`));
+      }, this.connectTimeoutMs);
+    });
+
+    // Race between connection and timeout
+    await Promise.race([connectionPromise, timeoutPromise]);
   }
 
   /** Close the connection and release resources */

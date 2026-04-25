@@ -283,6 +283,7 @@ export interface ClientConfig {
   // === Connection ===
   agentAddr?: string;
   timeout?: number;
+  connectTimeout?: number;  // Connection timeout in milliseconds (default: 5000)
   controlAddr?: string;
 
   // === Service Identity ===
@@ -492,6 +493,7 @@ export class BasicClient implements CroupierClient {
       // Connection
       agentAddr: "tcp://127.0.0.1:19090",
       timeout: 30000,
+      connectTimeout: 5000,
       controlAddr: "",
 
       // Service Identity
@@ -1188,6 +1190,7 @@ export class BasicClient implements CroupierClient {
     const transport = new TCPTransport({
       address: this.config.agentAddr,
       timeoutMs: this.config.timeout,
+      connectTimeoutMs: this.config.connectTimeout,
       tlsEnabled: !this.config.insecure,
       tlsCertFile: this.config.certFile,
       tlsKeyFile: this.config.keyFile,
@@ -1227,6 +1230,7 @@ export class BasicClient implements CroupierClient {
     const controlTransport = new TCPTransport({
       address: this.config.controlAddr,
       timeoutMs: this.config.timeout,
+      connectTimeoutMs: this.config.connectTimeout,
       tlsEnabled: !this.config.insecure,
       tlsCertFile: this.config.certFile,
       tlsKeyFile: this.config.keyFile,

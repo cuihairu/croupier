@@ -84,8 +84,15 @@ public:
 
     /**
      * Connect to the TCP server (Agent).
+     * @throws std::runtime_error if connection fails or times out
      */
     void Connect();
+
+    /**
+     * Set the connection timeout (separate from request timeout).
+     * @param timeout_ms Connection timeout in milliseconds (default: uses request timeout)
+     */
+    void SetConnectTimeout(int timeout_ms);
 
     /**
      * Close the connection.
@@ -135,10 +142,13 @@ private:
     int ReadFully(void* buf, size_t count);
     static void PutMsgId(uint8_t* buf, uint32_t msg_id);
     static uint32_t GetMsgId(const uint8_t* buf);
+    bool ConnectWithTimeout(int timeout_ms);
+    void SetSocketNonBlocking(bool non_blocking);
 
     std::string host_;
     int port_;
     int timeout_ms_;
+    int connect_timeout_ms_;  // Separate timeout for connection attempts
     socket_t socket_;
     std::atomic<bool> connected_;
     std::atomic<bool> closing_;

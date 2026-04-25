@@ -36,6 +36,7 @@ TCPTransport::TCPTransport(const std::string& host, int port, int timeout_ms)
     : host_(host),
       port_(port),
       timeout_ms_(timeout_ms),
+      connect_timeout_ms_(timeout_ms),
       socket_(INVALID_SOCKET_VALUE),
       connected_(false),
       closing_(false),
@@ -61,6 +62,7 @@ TCPTransport::TCPTransport(TCPTransport&& other) noexcept
     : host_(std::move(other.host_)),
       port_(other.port_),
       timeout_ms_(other.timeout_ms_),
+      connect_timeout_ms_(other.connect_timeout_ms_),
       socket_(other.socket_),
       connected_(other.connected_.load()),
       closing_(other.closing_.load()),
@@ -78,6 +80,7 @@ TCPTransport& TCPTransport::operator=(TCPTransport&& other) noexcept {
         host_ = std::move(other.host_);
         port_ = other.port_;
         timeout_ms_ = other.timeout_ms_;
+        connect_timeout_ms_ = other.connect_timeout_ms_;
         socket_ = other.socket_;
         connected_ = other.connected_.load();
         closing_ = other.closing_.load();
@@ -91,11 +94,28 @@ TCPTransport& TCPTransport::operator=(TCPTransport&& other) noexcept {
     return *this;
 }
 
-void TCPTransport::Connect() {
-    if (connected_) {
-        return;
-    }
+void TCPTransport::SetConnectTimeout(int timeout_ms) {
+    connect_timeout_ms_ = timeout_ms;
+}
 
+void TCPTransport::SetSocketNonBlocking(bool non_blocking) {
+#ifdef _WIN32
+    u_long mode = non_blocking ? 1 : 0;
+    ioctlsocket(socket_, FIONBIO, &mode);
+#else
+    int flags = fcntl(socket_, F_GETFL, 0);
+    if (flags == -1) {
+        throw std::runtime_error("Failed to get socket flags");
+    }
+    if (non_blocking) {
+        fcntl(socket_, F_SETFL, flags | O_NONBLOCK);
+    } else {
+        fcntl(socket_, F_SETFL, flags & ~O_NONBLOCK);
+    }
+#endif
+}
+
+bool TCPTransport::ConnectWithTimeout(int timeout_ms) {
     // Create socket
     socket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (socket_ == INVALID_SOCKET_VALUE) {
@@ -114,7 +134,7 @@ void TCPTransport::Connect() {
     setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 #endif
 
-    // Connect
+    // Parse address
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
     addr.sin_port = htons(port_);
@@ -138,11 +158,101 @@ void TCPTransport::Connect() {
         freeaddrinfo(result);
     }
 
-    if (connect(socket_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == SOCKET_ERROR_VALUE) {
+    // Set socket to non-blocking for connect with timeout
+    SetSocketNonBlocking(true);
+
+    // Initiate connection (will return immediately with EINPROGRESS on Unix or WSAEWOULDBLOCK on Windows)
+    int connect_result = connect(socket_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+
+#ifdef _WIN32
+    int error = WSAGetLastError();
+    bool in_progress = (connect_result == SOCKET_ERROR_VALUE && error == WSAEWOULDBLOCK);
+#else
+    bool in_progress = (connect_result == SOCKET_ERROR_VALUE && errno == EINPROGRESS);
+#endif
+
+    if (!in_progress) {
+        if (connect_result == 0) {
+            // Connection completed immediately (rare, e.g., localhost)
+            SetSocketNonBlocking(false);
+            return true;
+        } else {
+            // Connection failed immediately
+            closesocket(socket_);
+            socket_ = INVALID_SOCKET_VALUE;
+            throw std::runtime_error("Failed to connect to " + host_ + ":" + std::to_string(port_));
+        }
+    }
+
+    // Wait for connection to complete using select
+    fd_set write_fds;
+    fd_set except_fds;
+    FD_ZERO(&write_fds);
+    FD_ZERO(&except_fds);
+    FD_SET(socket_, &write_fds);
+    FD_SET(socket_, &except_fds);
+
+    struct timeval select_timeout;
+    select_timeout.tv_sec = timeout_ms / 1000;
+    select_timeout.tv_usec = (timeout_ms % 1000) * 1000;
+
+    int select_result = select(static_cast<int>(socket_) + 1, nullptr, &write_fds, &except_fds, &select_timeout);
+
+    if (select_result == SOCKET_ERROR_VALUE) {
         closesocket(socket_);
         socket_ = INVALID_SOCKET_VALUE;
-        throw std::runtime_error("Failed to connect to " + host_ + ":" + std::to_string(port_));
+        throw std::runtime_error("select() failed during connection to " + host_ + ":" + std::to_string(port_));
     }
+
+    if (select_result == 0) {
+        // Timeout
+        closesocket(socket_);
+        socket_ = INVALID_SOCKET_VALUE;
+        throw std::runtime_error("Connection timeout to " + host_ + ":" + std::to_string(port_));
+    }
+
+    // Check if socket is writable (connection succeeded) or in except set (connection failed)
+    if (FD_ISSET(socket_, &except_fds)) {
+        closesocket(socket_);
+        socket_ = INVALID_SOCKET_VALUE;
+        throw std::runtime_error("Connection failed to " + host_ + ":" + std::to_string(port_));
+    }
+
+    if (!FD_ISSET(socket_, &write_fds)) {
+        closesocket(socket_);
+        socket_ = INVALID_SOCKET_VALUE;
+        throw std::runtime_error("Unexpected select result for " + host_ + ":" + std::to_string(port_));
+    }
+
+    // Verify connection success using getsockopt
+#ifdef _WIN32
+    int socket_error = 0;
+    int error_len = sizeof(socket_error);
+    getsockopt(socket_, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&socket_error), &error_len);
+#else
+    int socket_error = 0;
+    socklen_t error_len = sizeof(socket_error);
+    getsockopt(socket_, SOL_SOCKET, SO_ERROR, &socket_error, &error_len);
+#endif
+
+    if (socket_error != 0) {
+        closesocket(socket_);
+        socket_ = INVALID_SOCKET_VALUE;
+        throw std::runtime_error("Connection error to " + host_ + ":" + std::to_string(port_));
+    }
+
+    // Restore blocking mode
+    SetSocketNonBlocking(false);
+    return true;
+}
+
+void TCPTransport::Connect() {
+    if (connected_) {
+        return;
+    }
+
+    // Use connect with timeout
+    ConnectWithTimeout(connect_timeout_ms_);
 
     connected_ = true;
     closing_ = false;

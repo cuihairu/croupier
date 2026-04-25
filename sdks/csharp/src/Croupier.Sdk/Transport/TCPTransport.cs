@@ -37,6 +37,7 @@ public sealed class TCPTransport : IClientTransport
     private readonly string _host;
     private readonly int _port;
     private readonly int _timeoutMs;
+    private readonly int _connectTimeoutMs;
     private readonly ICroupierLogger _logger;
 
     private TcpClient? _client;
@@ -56,12 +57,19 @@ public sealed class TCPTransport : IClientTransport
     public bool IsConnected => _connected && _client?.Connected == true && _stream != null;
 
     /// <summary>
+    /// Set the connection timeout (separate from request timeout).
+    /// </summary>
+    /// <param name="timeoutMs">Connection timeout in milliseconds</param>
+    public void SetConnectTimeout(int timeoutMs) => _connectTimeoutMs = timeoutMs;
+
+    /// <summary>
     /// Initialize TCP transport.
     /// </summary>
     /// <param name="address">TCP address (e.g., "127.0.0.1:19090")</param>
     /// <param name="timeoutMs">Request timeout in milliseconds</param>
+    /// <param name="connectTimeoutMs">Connection timeout in milliseconds (default: 5000ms)</param>
     /// <param name="logger">Logger instance</param>
-    public TCPTransport(string address, int timeoutMs = 30000, ICroupierLogger? logger = null)
+    public TCPTransport(string address, int timeoutMs = 30000, int connectTimeoutMs = 5000, ICroupierLogger? logger = null)
     {
         var parts = address.Split(':');
         if (parts.Length != 2)
@@ -72,12 +80,13 @@ public sealed class TCPTransport : IClientTransport
         _host = parts[0];
         _port = int.Parse(parts[1]);
         _timeoutMs = timeoutMs;
+        _connectTimeoutMs = connectTimeoutMs;
         _logger = logger ?? new ConsoleCroupierLogger("TCPTransport");
         _readLoopCts = new CancellationTokenSource();
     }
 
     /// <summary>
-    /// Connect to the TCP server (Agent).
+    /// Connect to the TCP server (Agent) with timeout.
     /// </summary>
     public void Connect()
     {
@@ -95,7 +104,15 @@ public sealed class TCPTransport : IClientTransport
             _client = new TcpClient();
             _client.ReceiveTimeout = _timeoutMs;
             _client.SendTimeout = _timeoutMs;
-            _client.Connect(_host, _port);
+
+            // Use async connect with timeout to avoid blocking indefinitely
+            // ConnectAsync returns a Task that completes when connection is established
+            var connectTask = _client.ConnectAsync(_host, _port);
+
+            // Wait for connection with timeout
+            using var timeoutCts = new CancellationTokenSource(_connectTimeoutMs);
+            connectTask.WaitAsync(timeoutCts.Token).GetAwaiter().GetResult();
+
             _stream = _client.GetStream();
             _connected = true;
 
@@ -107,7 +124,9 @@ public sealed class TCPTransport : IClientTransport
         catch (Exception ex)
         {
             _logger.LogError("TCPTransport", $"Failed to connect: {ex.Message}");
-            throw;
+            _client?.Dispose();
+            _client = null;
+            throw new TimeoutException($"Connection timeout to {_host}:{_port} after {_connectTimeoutMs}ms");
         }
     }
 

@@ -566,6 +566,7 @@ public:
             const auto agent_address = ParseTCPAddress(config_.agent_addr);
             std::unique_ptr<TCPTransport> replacement =
                 std::make_unique<TCPTransport>(agent_address.host, agent_address.port, config_.timeout_seconds * 1000);
+            replacement->SetConnectTimeout(config_.connect_timeout_seconds * 1000);
             replacement->Connect();
             std::string session_id = registerWithAgent(*replacement);
 
@@ -873,6 +874,7 @@ public:
             const auto server_address = ParseTCPAddress(config_.address);
             auto transport =
                 std::make_unique<TCPTransport>(server_address.host, server_address.port, config_.timeout_seconds * 1000);
+            transport->SetConnectTimeout(config_.connect_timeout_seconds * 1000);
             transport->Connect();
             {
                 std::lock_guard<std::mutex> lock(transport_mutex_);
