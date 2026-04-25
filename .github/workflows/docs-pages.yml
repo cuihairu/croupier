@@ -34,6 +34,8 @@ jobs:
       - name: Setup pnpm
         timeout-minutes: 3
         uses: pnpm/action-setup@v6
+        with:
+          version: 10.28.2
 
       - name: Setup Node.js
         timeout-minutes: 5
