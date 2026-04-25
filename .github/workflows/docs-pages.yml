@@ -51,8 +51,8 @@ jobs:
         timeout-minutes: 5
         working-directory: docs
         run: |
-          rm -rf node_modules/.pnpm/ignored-builds.log
-          pnpm install --no-frozen-lockfile --force
+          rm -rf node_modules/.pnpm/ignored-builds.log .pnpm-store
+          pnpm install --no-frozen-lockfile --no-strict
         env:
           NODE_ENV: development
 
