@@ -359,15 +359,15 @@ public:
 
         // Validate environment
         if (config_.env != "development" && config_.env != "staging" && config_.env != "production") {
-            SDK_LOG_WARN("Unknown environment '" << config_.env << "'. Valid values: development, staging, production");
+            SDK_LOG_WARN(("Unknown environment '" << config_.env << "'. Valid values: development, staging, production"));
         }
 
         if (config_.service_id.empty()) {
             config_.service_id = "cpp-sdk-" + utils::NewIdempotencyKey().substr(0, 8);
         }
 
-        SDK_LOG_INFO("Initialized CroupierClient for game '" << config_.game_id << "' in '" << config_.env
-                                                             << "' environment");
+        SDK_LOG_INFO(("Initialized CroupierClient for game '" << config_.game_id << "' in '" << config_.env
+                                                             << "' environment"));
     }
 
     ~Impl() { Stop(); }
@@ -387,7 +387,7 @@ public:
         handlers_[desc.id] = std::move(handler);
         descriptors_[desc.id] = desc;
 
-        SDK_LOG_INFO("Registered function: " << desc.id << " (version: " << desc.version << ")");
+        SDK_LOG_INFO(("Registered function: " << desc.id << " (version: " << desc.version << ")"));
         return true;
     }
 
@@ -401,7 +401,7 @@ public:
 
         // Validate object descriptor
         if (!utils::ValidateObjectDescriptor(desc)) {
-            SDK_LOG_ERROR("Invalid virtual object descriptor: " << desc.id);
+            SDK_LOG_ERROR(("Invalid virtual object descriptor: " << desc.id));
             return false;
         }
 
@@ -579,7 +579,7 @@ public:
         } catch (const std::exception& e) {
             last_error_ = e.what();
             connected_ = false;
-            SDK_LOG_ERROR("Failed to re-register local functions: " << last_error_);
+            SDK_LOG_ERROR(("Failed to re-register local functions: " << last_error_));
         }
     }
 
@@ -612,14 +612,14 @@ public:
             running_ = true;
             last_error_.clear();
             startHeartbeatLoop();
-            SDK_LOG_INFO("Connected to agent at " << NormalizeTCPAddress(config_.agent_addr));
+            SDK_LOG_INFO(("Connected to agent at " << NormalizeTCPAddress(config_.agent_addr)));
             return true;
         } catch (const std::exception& e) {
             last_error_ = e.what();
             connected_ = false;
             stopHeartbeatLoop();
             closeTransport();
-            SDK_LOG_ERROR("Failed to connect/register client: " << last_error_);
+            SDK_LOG_ERROR(("Failed to connect/register client: " << last_error_));
             return false;
         }
     }
@@ -630,7 +630,7 @@ public:
         }
         running_ = true;
         SDK_LOG_INFO("Croupier client service started");
-        SDK_LOG_INFO("Registered functions: " << handlers_.size());
+        SDK_LOG_INFO(("Registered functions: " << handlers_.size()));
         std::cout << "📦 已RegisterVirtual Object: " << objects_.size() << " 个" << '\n';
         std::cout << "🔧 已RegisterComponent: " << components_.size() << " 个" << '\n';
         std::cout << "💡 使用 Stop() 方法StopService" << '\n';
@@ -747,7 +747,7 @@ public:
                 } catch (const std::exception& e) {
                     last_error_ = e.what();
                     connected_ = false;
-                    SDK_LOG_WARN("Heartbeat failed: " << last_error_);
+                    SDK_LOG_WARN(("Heartbeat failed: " << last_error_));
                     break;
                 }
             }
@@ -856,7 +856,7 @@ public:
         if (connected_)
             return true;
 
-        SDK_LOG_INFO("Connecting to server/agent at: " << config_.address);
+        SDK_LOG_INFO(("Connecting to server/agent at: " << config_.address));
         if (config_.address.empty()) {
             last_error_ = "connection address is empty";
             connected_ = false;
@@ -866,7 +866,7 @@ public:
         if (!IsTCPAddress(config_.address)) {
             last_error_.clear();
             connected_ = true;
-            SDK_LOG_INFO("Using local fallback mode for non-TCP address: " << config_.address);
+            SDK_LOG_INFO(("Using local fallback mode for non-TCP address: " << config_.address));
             return true;
         }
 
@@ -882,12 +882,12 @@ public:
             }
             last_error_.clear();
             connected_ = true;
-            SDK_LOG_INFO("Connected to: " << server_address.display);
+            SDK_LOG_INFO(("Connected to: " << server_address.display));
             return true;
         } catch (const std::exception& e) {
             last_error_ = e.what();
             connected_ = false;
-            SDK_LOG_ERROR("Failed to connect: " << last_error_);
+            SDK_LOG_ERROR(("Failed to connect: " << last_error_));
             return false;
         }
     }
