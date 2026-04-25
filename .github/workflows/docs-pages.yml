@@ -90,7 +90,7 @@ jobs:
 
       - name: Setup Pages
         timeout-minutes: 3
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Install dependencies
         timeout-minutes: 5
