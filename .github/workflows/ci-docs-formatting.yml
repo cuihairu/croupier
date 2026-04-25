@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - timeout-minutes: 3
         uses: pnpm/action-setup@v6
@@ -24,9 +24,9 @@ jobs:
           version: 9
 
       - timeout-minutes: 5
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'pnpm'
           cache-dependency-path: 'pnpm-lock.yaml'
 

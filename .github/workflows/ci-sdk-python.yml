@@ -34,7 +34,7 @@ jobs:
         python-version: ['3.12', '3.13']
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: false
 
@@ -72,7 +72,7 @@ jobs:
         working-directory: ./sdks/python
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install uv
         timeout-minutes: 5

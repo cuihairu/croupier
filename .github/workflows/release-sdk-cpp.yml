@@ -28,7 +28,7 @@ jobs:
       is_tagged_release: ${{ steps.version.outputs.is_tagged_release }}
     steps:
     - timeout-minutes: 3
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
 
@@ -116,7 +116,7 @@ jobs:
     steps:
     - name: Checkout Repository
       timeout-minutes: 3
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         submodules: 'recursive'
 
@@ -305,7 +305,7 @@ jobs:
     steps:
     - name: Checkout Repository
       timeout-minutes: 3
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
 
     - name: Download All Static Artifacts
       timeout-minutes: 3

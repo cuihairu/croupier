@@ -28,7 +28,7 @@ jobs:
     steps:
     - name: Checkout repository
       timeout-minutes: 3
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
 
     - name: Setup Go
       timeout-minutes: 5

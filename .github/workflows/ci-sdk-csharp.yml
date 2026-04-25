@@ -31,7 +31,7 @@ jobs:
     steps:
     - name: Checkout Repository
       timeout-minutes: 3
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         submodules: false
 
@@ -81,7 +81,7 @@ jobs:
     steps:
     - name: Checkout Repository
       timeout-minutes: 3
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         submodules: false
 

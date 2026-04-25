@@ -22,7 +22,7 @@ jobs:
         working-directory: ./sdks/java
     steps:
       - timeout-minutes: 3
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: recursive
       - name: Determine SDK Version

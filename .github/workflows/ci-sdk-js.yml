@@ -31,17 +31,17 @@ jobs:
     steps:
     - name: Checkout repository
       timeout-minutes: 3
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
 
     - name: Setup Node.js
       timeout-minutes: 5
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
-        node-version: '22'
+        node-version: '24'
 
     - name: Setup pnpm
       timeout-minutes: 5
-      uses: pnpm/action-setup@v4
+      uses: pnpm/action-setup@v6
       with:
         version: 9
 
