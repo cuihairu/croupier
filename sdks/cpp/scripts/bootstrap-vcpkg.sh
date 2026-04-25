@@ -37,8 +37,9 @@ echo "VCPKG_ROOT=$VCPKG_ROOT" >> "$GITHUB_ENV"
 echo "VCPKG_FORCE_SYSTEM_BINARIES=1" >> "$GITHUB_ENV"
 
 for name in VCPKG_DEFAULT_TRIPLET VCPKG_BUILD_TYPE; do
-  if [[ -n "${!name:-}" ]; then
-    echo "$name=${!name}" >> "$GITHUB_ENV"
+  value="${!name:-}"
+  if [[ -n "$value" ]]; then
+    echo "$name=$value" >> "$GITHUB_ENV"
   fi
 done
 
