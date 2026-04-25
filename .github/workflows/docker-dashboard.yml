@@ -49,7 +49,7 @@ jobs:
         uses: pnpm/action-setup@v6
         with:
           version: 10.28.2
-          cache-dependency-path: web/pnpm-lock.yaml
+          cache_dependency_path: web/pnpm-lock.yaml
 
       - timeout-minutes: 5
         uses: actions/setup-node@v6
