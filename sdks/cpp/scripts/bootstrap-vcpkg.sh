@@ -10,37 +10,21 @@ if [[ ! -f "$VCPKG_ROOT/vcpkg" || ! -f "$VCPKG_ROOT/.vcpkg-root" ]]; then
   rm -rf "$VCPKG_ROOT"
   mkdir -p "$VCPKG_ROOT"
 
-  # Use a temporary directory for download
-  TMP_DIR="$(mktemp -d)"
-  trap "rm -rf '$TMP_DIR'" EXIT
+  # Clone vcpkg with full history to get all git objects needed for port versioning
+  # This is required because vcpkg's internal versioning system uses git tree objects
+  echo "Cloning vcpkg (this may take a few minutes for full history)..."
+  git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
 
-  # Download vcpkg as a zip archive from GitHub
-  # This avoids git shallow clone issues entirely
-  VCPKG_URL="https://github.com/microsoft/vcpkg/archive/refs/tags/${VCPKG_COMMIT}.tar.gz"
+  # Fetch the specific tag/commit to ensure we have all objects
+  echo "Fetching vcpkg version $VCPKG_COMMIT..."
+  git -C "$VCPKG_ROOT" fetch origin "refs/tags/$VCPKG_COMMIT" 2>/dev/null || \
+  git -C "$VCPKG_ROOT" fetch origin "$VCPKG_COMMIT"
 
-  echo "Downloading vcpkg from: $VCPKG_URL"
-  if ! curl -fsSL "$VCPKG_URL" -o "$TMP_DIR/vcpkg.tar.gz"; then
-    # If tag download fails, try commit download
-    VCPKG_URL="https://github.com/microsoft/vcpkg/archive/${VCPKG_COMMIT}.tar.gz"
-    echo "Retrying from: $VCPKG_URL"
-    curl -fsSL "$VCPKG_URL" -o "$TMP_DIR/vcpkg.tar.gz"
-  fi
+  # Checkout the desired version
+  git -C "$VCPKG_ROOT" checkout "$VCPKG_COMMIT"
 
-  # Extract the archive
-  tar -xzf "$TMP_DIR/vcpkg.tar.gz" -C "$TMP_DIR"
-
-  # Copy files to vcpkg root (the archive extracts to vcpkg-COMMIT or vcpkg-TAG)
-  find "$TMP_DIR" -maxdepth 1 -type d -name "vcpkg-*" | while read dir; do
-    rsync -a "$dir/" "$VCPKG_ROOT/"
-  done
-
-  # Initialize a fresh git repository for vcpkg's internal operations
-  # This is needed for vcpkg's versioning system to work
-  git -C "$VCPKG_ROOT" init -q
-  git -C "$VCPKG_ROOT" config user.name "vcpkg"
-  git -C "$VCPKG_ROOT" config user.email "vcpkg@localhost"
-  git -C "$VCPKG_ROOT" add -A
-  git -C "$VCPKG_ROOT" commit -q -m "initial commit"
+  # Remove the origin remote to prevent any accidental operations on upstream
+  git -C "$VCPKG_ROOT" remote remove origin
 
   # Mark this as a valid vcpkg root
   touch "$VCPKG_ROOT/.vcpkg-root"
