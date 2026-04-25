@@ -76,7 +76,7 @@ func checkProtocInstalled() error {
 // checkGoProtocPlugins checks if required Go protoc plugins are installed
 func checkGoProtocPlugins() error {
 	plugins := []struct {
-		name   string
+		name    string
 		install string
 	}{
 		{"protoc-gen-go", "google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11"},

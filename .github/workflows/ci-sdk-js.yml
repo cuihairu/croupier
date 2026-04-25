@@ -42,8 +42,6 @@ jobs:
       - name: Setup pnpm
         timeout-minutes: 5
         uses: pnpm/action-setup@v6
-        with:
-          version: 9
 
       - name: Install dependencies
         timeout-minutes: 10
