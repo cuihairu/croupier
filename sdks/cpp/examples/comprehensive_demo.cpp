@@ -204,7 +204,6 @@ void demonstrateClientLifecycle(CroupierClient& client) {
     // Connect to Agent
     if (client.Connect()) {
         std::cout << "✅ Successfully connected to Agent" << '\n';
-        std::cout << "📍 LocalServiceAddress: " << client.GetLocalAddress() << '\n';
     } else {
         std::cout << "❌ Connection failed" << '\n';
         return;
@@ -274,31 +273,9 @@ void demonstrateInvoker() {
         std::string result = invoker.Invoke("player.ban", payload, options);
         std::cout << "📞 SyncInvoke结果: " << result << '\n';
 
-        // 4. Start async job
-        std::string jobId = invoker.StartJob("item.create", R"({"type":"sword","rarity":"epic"})", options);
-        std::cout << "🚀 Start async job: " << jobId << '\n';
-
-        // 5. StreamGetJobevents
-        auto future = invoker.StreamJob(jobId);
-        std::cout << "📡 监听Jobevents..." << '\n';
-
-        auto events = future.get();
-        for (const auto& event : events) {
-            std::cout << "📋 Jobevents: " << event.event_type
-                      << ", 负载: " << event.payload;
-            if (event.done) {
-                std::cout << " (Complete)";
-            }
-            std::cout << '\n';
-
-            // DemoCancel job (在progressevents时)
-            if (event.event_type == "progress") {
-                std::cout << "⏹️ DemoCancel job..." << '\n';
-                if (invoker.CancelJob(jobId)) {
-                    std::cout << "✅ Job cancellation successful" << '\n';
-                }
-            }
-        }
+        // 4. 更多同步Invoke示例
+        std::string itemResult = invoker.Invoke("item.create", R"({"type":"sword","rarity":"epic"})", options);
+        std::cout << "📦 Item creation result: " << itemResult << '\n';
 
         // 6. CloseInvoke器
         invoker.Close();
@@ -422,7 +399,7 @@ int main() {
         config.service_id = "demo-service";
         config.service_version = "1.0.0";
         config.agent_addr = "localhost:19090";
-        config.local_listen = "0.0.0.0:0";  // 自动分配端口（gRPC 需要完整地址）
+        // local_listen 已移除 - SDK 不再监听本地端口
         config.timeout_seconds = 30;
 
         // TLS 配置：优先从环境变量读取，否则使用不安全连接
@@ -489,11 +466,7 @@ int main() {
         std::cout << "   🚀 Serve - Start local service" << '\n';
         std::cout << "   🛑 Stop - Stop local service" << '\n';
         std::cout << "   🔐 Close - Close client" << '\n';
-        std::cout << "   📍 GetLocalAddress - Get local address" << '\n';
         std::cout << "   📞 Invoke - Synchronous function invocation" << '\n';
-        std::cout << "   🚀 StartJob - Start async job" << '\n';
-        std::cout << "   📡 StreamJob - Stream job events" << '\n';
-        std::cout << "   ⏹️ CancelJob - Cancel job" << '\n';
         std::cout << "   📄 SetSchema - Set validation schema" << '\n';
 
         // 等待用户按键后再退出 (避免闪退)
