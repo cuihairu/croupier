@@ -45,12 +45,13 @@ jobs:
           images: ghcr.io/${{ github.repository_owner }}/croupier-dashboard
       - name: Build and push Docker image
         timeout-minutes: 15
-        uses: docker/build-push-action@v7
-        with:
-          context: ./web
-          file: ./web/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            BUILDKIT_INLINE_CACHE=0
+        run: |
+          docker buildx build \
+            --push \
+            --file ./web/Dockerfile \
+            --context ./web \
+            --tag ghcr.io/${{ github.repository_owner }}/croupier-dashboard:latest \
+            --tag ghcr.io/${{ github.repository_owner }}/croupier-dashboard:${{ github.sha }} \
+            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            --no-cache \
+            --progress=plain
