@@ -45,7 +45,7 @@ jobs:
 
       - name: Setup Gradle
         timeout-minutes: 5
-        uses: gradle/actions/setup-gradle@v7
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Make gradlew executable
         timeout-minutes: 1
