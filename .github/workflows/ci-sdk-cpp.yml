@@ -52,24 +52,6 @@ jobs:
           sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-17 100
           sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-17 100
 
-      - name: Bootstrap vcpkg
-        timeout-minutes: 5
-        shell: bash
-        env:
-          VCPKG_DEFAULT_TRIPLET: x64-linux
-        run: |
-          bash "${{ github.workspace }}/sdks/cpp/scripts/bootstrap-vcpkg.sh" \
-            "${{ github.workspace }}/sdks/cpp/vcpkg" \
-            "2025.04.09"
-
-      - name: Install protobuf via vcpkg
-        timeout-minutes: 10
-        shell: bash
-        env:
-          VCPKG_DEFAULT_TRIPLET: x64-linux
-        run: |
-          "${{ github.workspace }}/sdks/cpp/vcpkg/vcpkg" install protobuf --triplet=x64-linux
-
       - name: Check code formatting
         timeout-minutes: 10
         run: |
@@ -103,8 +85,7 @@ jobs:
                 --quiet \
                 -- -std=c++17 \
                    -I include \
-                   -I generated \
-                   -I "${{ github.workspace }}/sdks/cpp/vcpkg/installed/x64-linux/include" \
+                   -isystem generated \
                    2>/dev/null || echo "clang-tidy found issues: $file"
             fi
           done
