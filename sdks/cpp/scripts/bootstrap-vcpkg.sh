@@ -5,17 +5,25 @@ set -euo pipefail
 VCPKG_ROOT="${1:?missing vcpkg root}"
 VCPKG_COMMIT="${2:?missing vcpkg commit}"
 
+# Create a separate directory for vcpkg with its own git repository
+# This prevents vcpkg from using the main project's git history
 if [[ ! -f "$VCPKG_ROOT/bootstrap-vcpkg.sh" ]]; then
   rm -rf "$VCPKG_ROOT"
-  # Clone with depth 1 and checkout the specific tag/commit in one command
-  git clone --depth 1 --branch "$VCPKG_COMMIT" https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT" || {
-    # If branch doesn't exist (for tags), try cloning then checkout
-    rm -rf "$VCPKG_ROOT"
-    git clone --depth 1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
-    git -C "$VCPKG_ROOT" fetch --tags --depth 1 origin tag "$VCPKG_COMMIT" || \
-    git -C "$VCPKG_ROOT" fetch --depth 1 origin "$VCPKG_COMMIT"
-    git -C "$VCPKG_ROOT" checkout --force "$VCPKG_COMMIT"
-  }
+  mkdir -p "$VCPKG_ROOT"
+
+  # Initialize a fresh git repository for vcpkg
+  git init "$VCPKG_ROOT"
+  git -C "$VCPKG_ROOT" remote add origin https://github.com/microsoft/vcpkg.git
+
+  # Fetch the specific tag/commit
+  git -C "$VCPKG_ROOT" fetch --depth 1 origin "refs/tags/$VCPKG_COMMIT" 2>/dev/null || \
+  git -C "$VCPKG_ROOT" fetch --depth 1 origin "$VCPKG_COMMIT"
+
+  # Checkout the fetched content
+  git -C "$VCPKG_ROOT" checkout FETCH_HEAD
+
+  # Remove .git directory to save space and prevent vcpkg from using project git
+  rm -rf "$VCPKG_ROOT/.git"
 fi
 
 chmod +x "$VCPKG_ROOT/bootstrap-vcpkg.sh"
