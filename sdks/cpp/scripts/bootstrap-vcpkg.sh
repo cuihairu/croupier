@@ -7,11 +7,16 @@ VCPKG_COMMIT="${2:?missing vcpkg commit}"
 
 if [[ ! -f "$VCPKG_ROOT/bootstrap-vcpkg.sh" ]]; then
   rm -rf "$VCPKG_ROOT"
-  git clone https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+  # Clone with depth 1 and checkout the specific tag/commit in one command
+  git clone --depth 1 --branch "$VCPKG_COMMIT" https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT" || {
+    # If branch doesn't exist (for tags), try cloning then checkout
+    rm -rf "$VCPKG_ROOT"
+    git clone --depth 1 https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+    git -C "$VCPKG_ROOT" fetch --tags --depth 1 origin tag "$VCPKG_COMMIT" || \
+    git -C "$VCPKG_ROOT" fetch --depth 1 origin "$VCPKG_COMMIT"
+    git -C "$VCPKG_ROOT" checkout --force "$VCPKG_COMMIT"
+  }
 fi
-
-git -C "$VCPKG_ROOT" fetch --depth 1 origin "$VCPKG_COMMIT"
-git -C "$VCPKG_ROOT" checkout --force FETCH_HEAD
 
 chmod +x "$VCPKG_ROOT/bootstrap-vcpkg.sh"
 "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
