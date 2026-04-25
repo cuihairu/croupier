@@ -115,6 +115,8 @@ jobs:
         shell: bash
         env:
           VCPKG_DEFAULT_TRIPLET: x64-linux
+          GIT_DIR: ""
+          GIT_WORK_TREE: ""
         run: |
           bash "${{ github.workspace }}/sdks/cpp/scripts/bootstrap-vcpkg.sh" \
             "${{ github.workspace }}/sdks/cpp/vcpkg" \
@@ -122,6 +124,9 @@ jobs:
 
       - name: Configure CMake
         timeout-minutes: 30
+        env:
+          GIT_DIR: ""
+          GIT_WORK_TREE: ""
         run: |
           cmake -B build \
             -G Ninja \
@@ -173,6 +178,9 @@ jobs:
       - name: Bootstrap vcpkg
         timeout-minutes: 5
         shell: bash
+        env:
+          GIT_DIR: ""
+          GIT_WORK_TREE: ""
         run: |
           bash "${{ github.workspace }}/sdks/cpp/scripts/bootstrap-vcpkg.sh" \
             "${{ github.workspace }}/sdks/cpp/vcpkg" \
@@ -180,6 +188,9 @@ jobs:
 
       - name: Configure CMake (coverage)
         timeout-minutes: 30
+        env:
+          GIT_DIR: ""
+          GIT_WORK_TREE: ""
         run: |
           cmake -B build-coverage \
             -G Ninja \
@@ -400,6 +411,9 @@ jobs:
         if: runner.os == 'Windows'
         timeout-minutes: 5
         shell: pwsh
+        env:
+          GIT_DIR: ""
+          GIT_WORK_TREE: ""
         run: |
           $scriptPath = Join-Path "${{ github.workspace }}" "sdks/cpp/scripts/bootstrap-vcpkg.ps1"
           $vcpkgRoot = Join-Path "${{ github.workspace }}" "sdks/cpp/vcpkg"
@@ -409,6 +423,9 @@ jobs:
         if: runner.os != 'Windows'
         timeout-minutes: 5
         shell: bash
+        env:
+          GIT_DIR: ""
+          GIT_WORK_TREE: ""
         run: |
           bash "${{ github.workspace }}/sdks/cpp/scripts/bootstrap-vcpkg.sh" \
             "${{ github.workspace }}/sdks/cpp/vcpkg" \
@@ -417,12 +434,18 @@ jobs:
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
         timeout-minutes: 30
+        env:
+          GIT_DIR: ""
+          GIT_WORK_TREE: ""
         run: |
           cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE="Release" -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/sdks/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake" -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays" -DVCPKG_TARGET_TRIPLET="${{ matrix.vcpkg_triplet }}" -DVCPKG_HOST_TRIPLET="${{ matrix.vcpkg_triplet }}" -DVCPKG_BUILD_TYPE="release" -DCMAKE_INSTALL_PREFIX=install -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON -DBUILD_EXAMPLES=ON -DBUILD_TESTS=ON -DCPACK_PACKAGE_VERSION="${{ needs.version.outputs.version }}"
 
       - name: Configure CMake (Unix)
         if: runner.os != 'Windows'
         timeout-minutes: 30
+        env:
+          GIT_DIR: ""
+          GIT_WORK_TREE: ""
         run: |
           BUILD_TESTS=ON
           BUILD_EXAMPLES=ON
