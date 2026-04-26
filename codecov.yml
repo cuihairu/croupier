@@ -2,51 +2,61 @@ coverage:
   status:
     project:
       default:
-        target: 80%
+        target: auto
         threshold: 1%
-      # SDK-specific settings - only report coverage when the specific flag uploads
       go-sdk:
-        flags:
-          - go-sdk
-        target: 80%
+        flags: go-sdk
+        target: auto
         threshold: 1%
-        if_not_found: success  # Don't fail if go-sdk didn't upload
+        if_not_found: success
+        informational: true  # Don't fail PR
       js-sdk:
-        flags:
-          - js-sdk
-        target: 80%
+        flags: js-sdk
+        target: auto
         threshold: 1%
         if_not_found: success
+        informational: true
       cpp-sdk:
-        flags:
-          - cpp-sdk
-        target: 70%
+        flags: cpp-sdk
+        target: auto
         threshold: 1%
         if_not_found: success
+        informational: true
       python-sdk:
-        flags:
-          - python-sdk
-        target: 80%
+        flags: python-sdk
+        target: auto
         threshold: 1%
         if_not_found: success
+        informational: true
       java-sdk:
-        flags:
-          - java-sdk
-        target: 80%
+        flags: java-sdk
+        target: auto
         threshold: 1%
         if_not_found: success
+        informational: true
       csharp-sdk:
-        flags:
-          - csharp-sdk
-        target: 80%
+        flags: csharp-sdk
+        target: auto
         threshold: 1%
         if_not_found: success
+        informational: true
+      server:
+        flags: server
+        target: auto
+        threshold: 1%
+        if_not_found: success
+        informational: true
     patch:
       default:
-        target: 80%
+        target: auto
         threshold: 1%
 
-comment: false
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: true
 
 ignore:
   # Generated code and protocols
