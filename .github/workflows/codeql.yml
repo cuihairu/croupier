@@ -75,7 +75,7 @@ jobs:
 
       - name: Initialize CodeQL
         timeout-minutes: 5
-        uses: github/codeql-action/init@v5
+        uses: github/codeql-action/init@v3
         with:
           languages: go
 
@@ -85,4 +85,4 @@ jobs:
 
       - name: Perform CodeQL Analysis
         timeout-minutes: 10
-        uses: github/codeql-action/analyze@v5
+        uses: github/codeql-action/analyze@v3
