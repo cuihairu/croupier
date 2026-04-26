@@ -18,10 +18,23 @@ namespace test {
 namespace {
 
 std::string GetTestAddress() {
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-    std::uniform_int_distribution<> dis(17001, 18000);
-    return "tcp://127.0.0.1:" + std::to_string(dis(gen));
+    // Use port 0 to let OS assign an available port
+    // This is more reliable than random ports in CI environments
+    return "tcp://127.0.0.1:0";
+}
+
+// Wait for server to be ready with timeout
+bool WaitForServerReady(const TCPServer& server, int timeout_ms = 1000) {
+    auto start = std::chrono::steady_clock::now();
+    while (!server.IsRunning()) {
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - start).count();
+        if (elapsed >= timeout_ms) {
+            return false;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return true;
 }
 
 std::vector<uint8_t> SerializeMessage(const google::protobuf::Message& message) {
@@ -66,11 +79,14 @@ TEST_F(InvokerTest, InvokeUsesTCPProtocol) {
         return SerializeMessage(response);
     });
     server.Start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));  // Reduced from 200ms
+    ASSERT_TRUE(WaitForServerReady(server)) << "Server failed to start within timeout";
+
+    // Get the actual bound address (port 0 gets assigned a real port)
+    std::string actual_address = server.GetListenAddress();
 
     {
         InvokerConfig config;
-        config.address = server_address_;
+        config.address = actual_address;
         config.game_id = "test-game";
         config.env = "testing";
         config.disable_logging = true;
@@ -126,11 +142,14 @@ TEST_F(InvokerTest, StartTaskAndStreamTaskPollsRemoteEvents) {
         return {};
     });
     server.Start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));  // Reduced from 100ms
+    ASSERT_TRUE(WaitForServerReady(server)) << "Server failed to start within timeout";
+
+    // Get the actual bound address (port 0 gets assigned a real port)
+    std::string actual_address = server.GetListenAddress();
 
     {
         InvokerConfig config;
-        config.address = server_address_;
+        config.address = actual_address;
         config.disable_logging = true;
         CroupierInvoker invoker(config);
 
@@ -176,17 +195,19 @@ TEST_F(InvokerTest, CancelTaskSendsProtocolRequest) {
         return {};
     });
     server.Start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));  // Reduced from 100ms
+    ASSERT_TRUE(WaitForServerReady(server)) << "Server failed to start within timeout";
+
+    // Get the actual bound address (port 0 gets assigned a real port)
+    std::string actual_address = server.GetListenAddress();
 
     {
         InvokerConfig config;
-        config.address = server_address_;
+        config.address = actual_address;
         config.disable_logging = true;
         config.timeout_seconds = 5;
         CroupierInvoker invoker(config);
 
         std::string task_id = invoker.StartTask("player.batch", "{}");
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));  // Reduced from 200ms
 
         EXPECT_TRUE(invoker.CancelTask(task_id));
         EXPECT_TRUE(cancel_called);
