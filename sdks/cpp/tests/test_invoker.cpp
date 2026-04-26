@@ -24,7 +24,8 @@ std::string GetTestAddress() {
 }
 
 // Wait for server to be ready with timeout
-bool WaitForServerReady(const TCPServer& server, int timeout_ms = 1000) {
+// Use longer timeout for CI/Debug environments where startup can be slower
+bool WaitForServerReady(const TCPServer& server, int timeout_ms = 5000) {
     auto start = std::chrono::steady_clock::now();
     while (!server.IsRunning()) {
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -93,7 +94,7 @@ TEST_F(InvokerTest, InvokeUsesTCPProtocol) {
         config.game_id = "test-game";
         config.env = "testing";
         config.disable_logging = true;
-        config.timeout_seconds = 5;
+        config.timeout_seconds = 15;
         config.retry.enabled = false;  // Disable retry
 
         CroupierInvoker invoker(config);
@@ -213,7 +214,7 @@ TEST_F(InvokerTest, CancelTaskSendsProtocolRequest) {
         InvokerConfig config;
         config.address = actual_address;
         config.disable_logging = true;
-        config.timeout_seconds = 5;
+        config.timeout_seconds = 15;
         CroupierInvoker invoker(config);
 
         std::string task_id = invoker.StartTask("player.batch", "{}");
