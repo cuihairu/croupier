@@ -81,11 +81,13 @@ TEST_F(InvokerTest, InvokeUsesTCPProtocol) {
     });
     server.Start();
     ASSERT_TRUE(WaitForServerReady(server)) << "Server failed to start within timeout";
+    std::cerr << "[DEBUG] Server started, GetListenAddress()..." << std::endl;
 
     // Get the actual bound address (port 0 gets assigned a real port)
     // Note: GetListenAddress() returns "host:port" without "tcp://" prefix,
     // but ParseTCPAddress will auto-normalize it via NormalizeTCPAddress()
     std::string actual_address = server.GetListenAddress();
+    std::cerr << "[DEBUG] GetListenAddress() returned: '" << actual_address << "'" << std::endl;
     ASSERT_FALSE(actual_address.empty()) << "GetListenAddress() returned empty string";
 
     {
@@ -99,7 +101,9 @@ TEST_F(InvokerTest, InvokeUsesTCPProtocol) {
         config.retry.enabled = false;  // Disable retry
 
         CroupierInvoker invoker(config);
+        std::cerr << "[DEBUG] Calling invoker.Connect()..." << std::endl;
         ASSERT_TRUE(invoker.Connect());
+        std::cerr << "[DEBUG] Connect() succeeded, calling Invoke()..." << std::endl;
 
         InvokeOptions options;
         std::string result = invoker.Invoke("player.echo", R"({"name":"alice"})", options);
@@ -148,11 +152,13 @@ TEST_F(InvokerTest, StartTaskAndStreamTaskPollsRemoteEvents) {
     });
     server.Start();
     ASSERT_TRUE(WaitForServerReady(server)) << "Server failed to start within timeout";
+    std::cerr << "[DEBUG] Server started, GetListenAddress()..." << std::endl;
 
     // Get the actual bound address (port 0 gets assigned a real port)
     // Note: GetListenAddress() returns "host:port" without "tcp://" prefix,
     // but ParseTCPAddress will auto-normalize it via NormalizeTCPAddress()
     std::string actual_address = server.GetListenAddress();
+    std::cerr << "[DEBUG] GetListenAddress() returned: '" << actual_address << "'" << std::endl;
     ASSERT_FALSE(actual_address.empty()) << "GetListenAddress() returned empty string";
 
     {
@@ -205,11 +211,13 @@ TEST_F(InvokerTest, CancelTaskSendsProtocolRequest) {
     });
     server.Start();
     ASSERT_TRUE(WaitForServerReady(server)) << "Server failed to start within timeout";
+    std::cerr << "[DEBUG] Server started, GetListenAddress()..." << std::endl;
 
     // Get the actual bound address (port 0 gets assigned a real port)
     // Note: GetListenAddress() returns "host:port" without "tcp://" prefix,
     // but ParseTCPAddress will auto-normalize it via NormalizeTCPAddress()
     std::string actual_address = server.GetListenAddress();
+    std::cerr << "[DEBUG] GetListenAddress() returned: '" << actual_address << "'" << std::endl;
     ASSERT_FALSE(actual_address.empty()) << "GetListenAddress() returned empty string";
 
     {
