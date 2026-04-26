@@ -95,6 +95,7 @@ TEST_F(InvokerTest, InvokeUsesTCPProtocol) {
         config.env = "testing";
         config.disable_logging = true;
         config.timeout_seconds = 30;
+        config.connect_timeout_seconds = 30;  // Longer for CI
         config.retry.enabled = false;  // Disable retry
 
         CroupierInvoker invoker(config);
@@ -158,6 +159,7 @@ TEST_F(InvokerTest, StartTaskAndStreamTaskPollsRemoteEvents) {
         InvokerConfig config;
         config.address = actual_address;
         config.disable_logging = true;
+        config.connect_timeout_seconds = 30;  // Longer for CI
         CroupierInvoker invoker(config);
 
         std::string task_id = invoker.StartTask("player.batch", R"({"ids":[1,2,3]})");
@@ -215,6 +217,7 @@ TEST_F(InvokerTest, CancelTaskSendsProtocolRequest) {
         config.address = actual_address;
         config.disable_logging = true;
         config.timeout_seconds = 30;
+        config.connect_timeout_seconds = 30;  // Longer for CI
         CroupierInvoker invoker(config);
 
         std::string task_id = invoker.StartTask("player.batch", "{}");
