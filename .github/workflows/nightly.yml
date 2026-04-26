@@ -227,11 +227,28 @@ jobs:
             "${{ github.workspace }}/sdks/cpp/vcpkg" \
             "2025.04.09"
 
-      - name: Build C++ SDK (Linux)
+      - name: Build C++ SDK (Debug)
         timeout-minutes: 30
         working-directory: ./sdks/cpp
         run: |
-          cmake -B build \
+          cmake -B build-debug \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/sdks/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays" \
+            -DVCPKG_TARGET_TRIPLET=x64-linux \
+            -DBUILD_SHARED_LIBS=ON \
+            -DBUILD_STATIC_LIBS=ON \
+            -DBUILD_EXAMPLES=OFF \
+            -DBUILD_TESTS=OFF
+
+          cmake --build build-debug --config Debug --parallel
+
+      - name: Build C++ SDK (Release)
+        timeout-minutes: 30
+        working-directory: ./sdks/cpp
+        run: |
+          cmake -B build-release \
             -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/sdks/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake" \
@@ -242,18 +259,36 @@ jobs:
             -DBUILD_EXAMPLES=OFF \
             -DBUILD_TESTS=OFF
 
-          cmake --build build --config Release --parallel
+          cmake --build build-release --config Release --parallel
 
       - name: Package C++ SDK
         timeout-minutes: 5
         working-directory: ./sdks/cpp
         run: |
-          mkdir -p ../../release-sdks/cpp
+          mkdir -p ../../release-sdks/cpp/debug ../../release-sdks/cpp/release
+
+          # Copy headers (shared)
           cp -r include ../../release-sdks/cpp/
-          cp build/lib/*.so* ../../release-sdks/cpp/ 2>/dev/null || true
-          cp build/lib/*.a ../../release-sdks/cpp/ 2>/dev/null || true
+          cp -r include ../../release-sdks/cpp/debug/
+          cp -r include ../../release-sdks/cpp/release/
+
+          # Copy debug libraries
+          cp build-debug/lib/*.so* ../../release-sdks/cpp/debug/ 2>/dev/null || true
+          cp build-debug/lib/*.a ../../release-sdks/cpp/debug/ 2>/dev/null || true
+
+          # Copy release libraries
+          cp build-release/lib/*.so* ../../release-sdks/cpp/release/ 2>/dev/null || true
+          cp build-release/lib/*.a ../../release-sdks/cpp/release/ 2>/dev/null || true
+
+          # Create packages
+          cd ../../release-sdks/cpp/debug
+          tar -czf ../../../sdk-cpp-linux-x64-debug.tar.gz *
+
+          cd ../../release-sdks/cpp/release
+          tar -czf ../../../sdk-cpp-linux-x64-release.tar.gz *
+
           cd ../../release-sdks/cpp
-          tar -czf ../sdk-cpp-linux-x64.tar.gz *
+          tar -czf ../../../sdk-cpp-linux-x64.tar.gz *
 
       - name: Create SDKs bundle
         timeout-minutes: 5
@@ -374,7 +409,7 @@ jobs:
             - JavaScript (npm package)
             - Python (wheel)
             - C# (nupkg)
-            - C++ (Linux x64 binaries, headers)
+            - C++ (Linux x64: Debug + Release, shared + static, headers)
           - **Dashboard**: Web UI bundle
 
           ## Installation
