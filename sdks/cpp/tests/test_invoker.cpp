@@ -82,10 +82,10 @@ TEST_F(InvokerTest, InvokeUsesTCPProtocol) {
     ASSERT_TRUE(WaitForServerReady(server)) << "Server failed to start within timeout";
 
     // Get the actual bound address (port 0 gets assigned a real port)
-    // Add tcp:// prefix as required by ParseTCPAddress
-    std::string listen_addr = server.GetListenAddress();
-    ASSERT_FALSE(listen_addr.empty()) << "GetListenAddress() returned empty string";
-    std::string actual_address = "tcp://" + listen_addr;
+    // Note: GetListenAddress() returns "host:port" without "tcp://" prefix,
+    // but ParseTCPAddress will auto-normalize it via NormalizeTCPAddress()
+    std::string actual_address = server.GetListenAddress();
+    ASSERT_FALSE(actual_address.empty()) << "GetListenAddress() returned empty string";
 
     {
         InvokerConfig config;
@@ -148,10 +148,10 @@ TEST_F(InvokerTest, StartTaskAndStreamTaskPollsRemoteEvents) {
     ASSERT_TRUE(WaitForServerReady(server)) << "Server failed to start within timeout";
 
     // Get the actual bound address (port 0 gets assigned a real port)
-    // Add tcp:// prefix as required by ParseTCPAddress
-    std::string listen_addr = server.GetListenAddress();
-    ASSERT_FALSE(listen_addr.empty()) << "GetListenAddress() returned empty string";
-    std::string actual_address = "tcp://" + listen_addr;
+    // Note: GetListenAddress() returns "host:port" without "tcp://" prefix,
+    // but ParseTCPAddress will auto-normalize it via NormalizeTCPAddress()
+    std::string actual_address = server.GetListenAddress();
+    ASSERT_FALSE(actual_address.empty()) << "GetListenAddress() returned empty string";
 
     {
         InvokerConfig config;
@@ -204,10 +204,10 @@ TEST_F(InvokerTest, CancelTaskSendsProtocolRequest) {
     ASSERT_TRUE(WaitForServerReady(server)) << "Server failed to start within timeout";
 
     // Get the actual bound address (port 0 gets assigned a real port)
-    // Add tcp:// prefix as required by ParseTCPAddress
-    std::string listen_addr = server.GetListenAddress();
-    ASSERT_FALSE(listen_addr.empty()) << "GetListenAddress() returned empty string";
-    std::string actual_address = "tcp://" + listen_addr;
+    // Note: GetListenAddress() returns "host:port" without "tcp://" prefix,
+    // but ParseTCPAddress will auto-normalize it via NormalizeTCPAddress()
+    std::string actual_address = server.GetListenAddress();
+    ASSERT_FALSE(actual_address.empty()) << "GetListenAddress() returned empty string";
 
     {
         InvokerConfig config;
