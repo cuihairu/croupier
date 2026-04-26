@@ -144,8 +144,8 @@ jobs:
         run: cmake --build build --config ${{ matrix.build-type }} --parallel
 
       - name: Test
-        timeout-minutes: 30
-        run: cd build && ctest --build-config ${{ matrix.build-type }} --output-on-failure
+        timeout-minutes: 10
+        run: cd build && ctest --build-config ${{ matrix.build-type }} --output-on-failure --timeout 60
 
       - name: Upload artifacts
         timeout-minutes: 3
@@ -205,8 +205,8 @@ jobs:
         run: cmake --build build-coverage --config Debug --parallel
 
       - name: Test (coverage)
-        timeout-minutes: 30
-        run: cd build-coverage && ctest --build-config Debug --output-on-failure --parallel 2
+        timeout-minutes: 10
+        run: cd build-coverage && ctest --build-config Debug --output-on-failure --parallel 2 --timeout 60
 
       - name: Generate coverage report
         timeout-minutes: 5
@@ -470,7 +470,7 @@ jobs:
           if [ "$RUNNER_OS" = "Windows" ]; then
             export PATH="$PWD/build/bin:$PWD/vcpkg_installed/${{ matrix.vcpkg_triplet }}/bin:$PATH"
           fi
-          cd build && ctest --build-config Release --output-on-failure
+          cd build && ctest --build-config Release --output-on-failure --timeout 60
         shell: bash
 
       - name: Create Separate Static and Dynamic Packages
