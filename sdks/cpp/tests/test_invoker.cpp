@@ -83,7 +83,9 @@ TEST_F(InvokerTest, InvokeUsesTCPProtocol) {
 
     // Get the actual bound address (port 0 gets assigned a real port)
     // Add tcp:// prefix as required by ParseTCPAddress
-    std::string actual_address = "tcp://" + server.GetListenAddress();
+    std::string listen_addr = server.GetListenAddress();
+    ASSERT_FALSE(listen_addr.empty()) << "GetListenAddress() returned empty string";
+    std::string actual_address = "tcp://" + listen_addr;
 
     {
         InvokerConfig config;
@@ -147,7 +149,9 @@ TEST_F(InvokerTest, StartTaskAndStreamTaskPollsRemoteEvents) {
 
     // Get the actual bound address (port 0 gets assigned a real port)
     // Add tcp:// prefix as required by ParseTCPAddress
-    std::string actual_address = "tcp://" + server.GetListenAddress();
+    std::string listen_addr = server.GetListenAddress();
+    ASSERT_FALSE(listen_addr.empty()) << "GetListenAddress() returned empty string";
+    std::string actual_address = "tcp://" + listen_addr;
 
     {
         InvokerConfig config;
@@ -201,7 +205,9 @@ TEST_F(InvokerTest, CancelTaskSendsProtocolRequest) {
 
     // Get the actual bound address (port 0 gets assigned a real port)
     // Add tcp:// prefix as required by ParseTCPAddress
-    std::string actual_address = "tcp://" + server.GetListenAddress();
+    std::string listen_addr = server.GetListenAddress();
+    ASSERT_FALSE(listen_addr.empty()) << "GetListenAddress() returned empty string";
+    std::string actual_address = "tcp://" + listen_addr;
 
     {
         InvokerConfig config;
