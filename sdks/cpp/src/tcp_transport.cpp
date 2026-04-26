@@ -265,15 +265,33 @@ void TCPTransport::Close() {
     closing_ = true;
     connected_ = false;
 
+    // First, signal all pending responses to wake up any waiting threads
+    // This must happen BEFORE clearing the map and closing the socket
+    std::unordered_map<uint32_t, std::unique_ptr<ResponseLatch>> responses_to_signal;
+    {
+        std::lock_guard<std::mutex> lock(pending_mutex_);
+        responses_to_signal = std::move(pending_responses_);
+    }
+
+    // Signal all waiting responses outside the lock to avoid deadlock
+    for (auto& [req_id, latch] : responses_to_signal) {
+        if (latch) {
+            latch->Signal({}, 0);  // Empty response signals closure
+        }
+    }
+
+    // Now close the socket - this will unblock ReadLoop's recv() call
     if (socket_ != INVALID_SOCKET_VALUE) {
         closesocket(socket_);
         socket_ = INVALID_SOCKET_VALUE;
     }
 
+    // Wait for read thread to finish (it should exit when recv() returns due to closed socket)
     if (read_thread_.joinable()) {
         read_thread_.join();
     }
 
+    // Clear any remaining responses (should be none after signaling)
     std::lock_guard<std::mutex> lock(pending_mutex_);
     pending_responses_.clear();
 }
@@ -323,30 +341,65 @@ std::pair<uint32_t, std::vector<uint8_t>> TCPTransport::Call(
     ssize_t sent = send(socket_, reinterpret_cast<const char*>(frame.data()),
                        frame.size(), 0);
     if (sent != static_cast<ssize_t>(frame.size())) {
+        // Clean up pending response
+        std::lock_guard<std::mutex> lock(pending_mutex_);
+        pending_responses_.erase(req_id);
         throw std::runtime_error("Failed to send complete frame");
     }
 
-    // Get response latch
-    std::unique_ptr<ResponseLatch> response_latch;
+    // Get pointer to latch (keep it in pending_responses_ so Close() can find it)
+    ResponseLatch* latch_ptr = nullptr;
     {
         std::lock_guard<std::mutex> lock(pending_mutex_);
         auto it = pending_responses_.find(req_id);
         if (it != pending_responses_.end()) {
-            response_latch = std::move(it->second);
-            pending_responses_.erase(it);
+            latch_ptr = it->second.get();
         }
     }
 
-    if (!response_latch) {
+    if (!latch_ptr) {
         throw std::runtime_error("Response latch not found");
     }
 
-    // Wait for response
-    if (!response_latch->Wait(timeout_ms_)) {
-        throw std::runtime_error("Timeout waiting for response");
+    // Wait with periodic closing_ check
+    const int check_interval_ms = 100;
+    int total_waited = 0;
+
+    while (total_waited < timeout_ms_) {
+        if (closing_) {
+            // Connection is closing, abort the wait
+            {
+                std::lock_guard<std::mutex> lock(pending_mutex_);
+                pending_responses_.erase(req_id);
+            }
+            throw std::runtime_error("Connection closing");
+        }
+
+        int wait_time = std::min(check_interval_ms, timeout_ms_ - total_waited);
+        if (latch_ptr->Wait(wait_time)) {
+            // Response received - extract data and remove from pending
+            std::vector<uint8_t> body;
+            uint32_t msg_id = 0;
+            {
+                std::lock_guard<std::mutex> lock(pending_mutex_);
+                auto it = pending_responses_.find(req_id);
+                if (it != pending_responses_.end()) {
+                    body = std::move(it->second->body);
+                    msg_id = it->second->msg_id;
+                    pending_responses_.erase(it);
+                }
+            }
+            return {msg_id, std::move(body)};
+        }
+        total_waited += wait_time;
     }
 
-    return {response_latch->msg_id, std::move(response_latch->body)};
+    // Timeout - remove from pending
+    {
+        std::lock_guard<std::mutex> lock(pending_mutex_);
+        pending_responses_.erase(req_id);
+    }
+    throw std::runtime_error("Timeout waiting for response");
 }
 
 void TCPTransport::ReadLoop() {
@@ -404,9 +457,8 @@ void TCPTransport::ReadLoop() {
         }
     }
 
-    if (!closing_) {
-        Close();
-    }
+    // ReadLoop exits - do NOT recursively call Close()
+    // The Close() method is responsible for cleanup
 }
 
 int TCPTransport::ReadFully(void* buf, size_t count) {
@@ -567,19 +619,37 @@ void TCPServer::Stop() {
         accept_thread_.join();
     }
 
-    // Close all client connections
-    std::lock_guard<std::mutex> lock(clients_mutex_);
-    for (auto& client : clients_) {
+    // Close all client connections - copy clients to avoid deadlock
+    std::vector<std::unique_ptr<ClientConnection>> clients_to_stop;
+    {
+        std::lock_guard<std::mutex> lock(clients_mutex_);
+        clients_to_stop = std::move(clients_);
+    }
+
+    for (auto& client : clients_to_stop) {
         client->active = false;
         if (client->socket != INVALID_SOCKET_VALUE) {
             closesocket(client->socket);
             client->socket = INVALID_SOCKET_VALUE;
         }
+    }
+
+    // Detach threads that might be blocked in send() - they will exit when they detect the socket is closed
+    // Use join with timeout for threads that might exit quickly, detach the rest
+    for (auto& client : clients_to_stop) {
         if (client->read_thread.joinable()) {
-            client->read_thread.join();
+            // Try to join with a short timeout - if the thread is stuck in send(), we detach it
+            // Note: C++ doesn't have a timed join, so we detach all for simplicity
+            // The thread resources will be cleaned up when the process exits
+            client->read_thread.detach();
         }
     }
-    clients_.clear();
+
+    // Clear the now-empty vector
+    {
+        std::lock_guard<std::mutex> lock(clients_mutex_);
+        clients_.clear();
+    }
 }
 
 bool TCPServer::IsRunning() const {

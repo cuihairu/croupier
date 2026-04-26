@@ -340,6 +340,7 @@ public:
     std::atomic<bool> is_reconnecting_{false};
     std::atomic<bool> should_stop_reconnecting_{false};
     std::thread reconnect_thread_;
+    std::mutex reconnect_mutex_;  // Protects reconnect_thread_ access
 
     explicit Impl(const ClientConfig& config) : config_(config) {
         // ========== Initialize Logger Configuration ==========
@@ -803,7 +804,11 @@ public:
     std::atomic<int> reconnect_attempts_{0};
     std::atomic<bool> should_stop_reconnecting_{false};
     std::thread reconnect_thread_;
+    std::mutex reconnect_mutex_;  // Protects reconnect_thread_ access
     std::string last_error_;
+
+    // Close state
+    std::atomic<bool> closed_{false};
 
     explicit Impl(const InvokerConfig& config) : config_(config) {
         // ========== Initialize Logger Configuration ==========
@@ -1405,23 +1410,38 @@ public:
     void SetRetryConfig(const RetryConfig& config) { retry_config_ = config; }
 
     void Close() {
-        // Stop reconnection thread
-        should_stop_reconnecting_ = true;
-        if (reconnect_thread_.joinable()) {
-            reconnect_thread_.join();
+        // Idempotent close - only execute once
+        if (closed_.exchange(true)) {
+            return;  // Already closed
         }
 
-        std::vector<std::shared_ptr<LocalJobState>> jobs_to_close;
+        // First, signal all threads to stop
+        should_stop_reconnecting_ = true;
+        connected_ = false;
+
+        // Detach reconnect thread to avoid deadlock
+        // The thread will exit naturally when it checks should_stop_reconnecting_
+        {
+            std::lock_guard<std::mutex> lock(reconnect_mutex_);
+            if (reconnect_thread_.joinable()) {
+                reconnect_thread_.detach();
+            }
+        }
+
+        // Signal all jobs to cancel
+        std::vector<std::shared_ptr<LocalJobState>> jobs_to_cancel;
         {
             std::lock_guard<std::mutex> lock(jobs_mutex_);
             for (const auto& entry : jobs_) {
-                jobs_to_close.push_back(entry.second);
+                jobs_to_cancel.push_back(entry.second);
             }
         }
-        for (const auto& job : jobs_to_close) {
+        for (const auto& job : jobs_to_cancel) {
             job->cancelled = true;
+            job->done = true;
+            // Detach worker threads instead of joining to avoid deadlock
             if (job->worker.joinable()) {
-                job->worker.join();
+                job->worker.detach();
             }
         }
         {
@@ -1429,7 +1449,8 @@ public:
             jobs_.clear();
         }
 
-        connected_ = false;
+        // Close transport - this sets closing_ flag and closes socket
+        // This will unblock any pending Call() operations
         {
             std::lock_guard<std::mutex> lock(transport_mutex_);
             if (transport_) {
@@ -1437,10 +1458,7 @@ public:
                 transport_.reset();
             }
         }
-        {
-            std::lock_guard<std::mutex> lock(jobs_mutex_);
-            jobs_.clear();
-        }
+
         schemas_.clear();
         SDK_LOG_INFO("Invoker closed");
     }
@@ -1507,6 +1525,11 @@ public:
 
     // Schedule reconnection if enabled
     void ScheduleReconnectIfNeeded() {
+        // Don't schedule if already closed
+        if (closed_ || should_stop_reconnecting_) {
+            return;
+        }
+
         if (!reconnect_config_.enabled) {
             return;
         }
@@ -1528,24 +1551,31 @@ public:
         int delay = CalculateReconnectDelay();
         std::cout << "Scheduling reconnection attempt " << reconnect_attempts_ << " in " << delay << " ms" << '\n';
 
-        // Stop existing reconnect thread if any
-        if (reconnect_thread_.joinable()) {
-            reconnect_thread_.join();
+        // Stop existing reconnect thread if any (use mutex to protect)
+        std::thread old_thread;
+        {
+            std::lock_guard<std::mutex> lock(reconnect_mutex_);
+            if (reconnect_thread_.joinable()) {
+                old_thread = std::move(reconnect_thread_);
+            }
+        }
+        if (old_thread.joinable()) {
+            old_thread.join();
         }
 
         // Start reconnection thread
-        reconnect_thread_ = std::thread([this, delay]() {
+        std::thread new_thread([this, delay]() {
             // Use interruptible sleep with 100ms intervals to check for stop signal
             const int sleep_interval_ms = 100;
             int elapsed = 0;
-            while (elapsed < delay && !should_stop_reconnecting_) {
+            while (elapsed < delay && !should_stop_reconnecting_ && !closed_) {
                 int remaining = delay - elapsed;
                 int sleep_time = (remaining < sleep_interval_ms) ? remaining : sleep_interval_ms;
                 std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time));
                 elapsed += sleep_time;
             }
 
-            if (should_stop_reconnecting_) {
+            if (should_stop_reconnecting_ || closed_) {
                 is_reconnecting_ = false;
                 return;
             }
@@ -1556,11 +1586,16 @@ public:
             } else {
                 std::cout << "Reconnection attempt " << reconnect_attempts_ << " failed" << '\n';
                 // Schedule next attempt (only if not stopping)
-                if (!should_stop_reconnecting_) {
+                if (!should_stop_reconnecting_ && !closed_) {
                     ScheduleReconnectIfNeeded();
                 }
             }
         });
+
+        {
+            std::lock_guard<std::mutex> lock(reconnect_mutex_);
+            reconnect_thread_ = std::move(new_thread);
+        }
     }
 
     // Check if error is retryable based on status code
