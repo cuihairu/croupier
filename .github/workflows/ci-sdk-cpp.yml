@@ -205,8 +205,8 @@ jobs:
         run: cmake --build build-coverage --config Debug --parallel
 
       - name: Test (coverage)
-        timeout-minutes: 10
-        run: cd build-coverage && ctest --build-config Debug --output-on-failure
+        timeout-minutes: 30
+        run: cd build-coverage && ctest --build-config Debug --output-on-failure --parallel 2
 
       - name: Generate coverage report
         timeout-minutes: 5
