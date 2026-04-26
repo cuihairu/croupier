@@ -71,6 +71,13 @@ Web UI → Server (HTTP) → Load Balancer → Agent → Game Server
 - Custom protoc plugin (`protoc-gen-croupier`) generates pack artifacts
 - Generated code in `gen/` (ignored in git)
 
+**CRITICAL: Protobuf Code Generation**
+- **ALWAYS** use `make proto` to generate protobuf code
+- Buf uses **remote plugins** with fixed versions (e.g., buf.build/protocolbuffers/go:v1.36.11)
+- **NEVER** use local `protoc` directly - it will generate incompatible code
+- Local protoc version mismatches will cause compilation failures
+- Buf config (`buf.gen.yaml`) specifies exact plugin versions to match CI environment
+
 **Descriptor-Driven Architecture:**
 - Functions defined via protobuf + JSON Schema descriptors
 - UI auto-generates forms, validation, and permission checks from single source
