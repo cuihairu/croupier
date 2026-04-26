@@ -213,6 +213,48 @@ jobs:
           cd ../../release-sdks/csharp
           tar -czf ../sdk-csharp.tar.gz *
 
+      - name: Install system dependencies for C++
+        timeout-minutes: 5
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ninja-build
+
+      - name: Bootstrap vcpkg for C++
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          bash "${{ github.workspace }}/sdks/cpp/scripts/bootstrap-vcpkg.sh" \
+            "${{ github.workspace }}/sdks/cpp/vcpkg" \
+            "2025.04.09"
+
+      - name: Build C++ SDK (Linux)
+        timeout-minutes: 30
+        working-directory: ./sdks/cpp
+        run: |
+          cmake -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/sdks/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays" \
+            -DVCPKG_TARGET_TRIPLET=x64-linux \
+            -DBUILD_SHARED_LIBS=ON \
+            -DBUILD_STATIC_LIBS=ON \
+            -DBUILD_EXAMPLES=OFF \
+            -DBUILD_TESTS=OFF
+
+          cmake --build build --config Release --parallel
+
+      - name: Package C++ SDK
+        timeout-minutes: 5
+        working-directory: ./sdks/cpp
+        run: |
+          mkdir -p ../../release-sdks/cpp
+          cp -r include ../../release-sdks/cpp/
+          cp build/lib/*.so* ../../release-sdks/cpp/ 2>/dev/null || true
+          cp build/lib/*.a ../../release-sdks/cpp/ 2>/dev/null || true
+          cd ../../release-sdks/cpp
+          tar -czf ../sdk-cpp-linux-x64.tar.gz *
+
       - name: Create SDKs bundle
         timeout-minutes: 5
         run: |
@@ -312,9 +354,6 @@ jobs:
           # Copy Dashboard
           cp artifacts/dashboard/dashboard.tar.gz release-assets/
 
-          # Generate source archive
-          git archive --format=tar.gz --output=release-assets/croupier-nightly-src.tar.gz HEAD
-
           ls -la release-assets/
 
       - name: Generate release notes
@@ -330,7 +369,12 @@ jobs:
           ## Contents
 
           - **Server/Agent Binaries**: \`darwin-arm64\`, \`linux-amd64\`, \`windows-amd64\`
-          - **SDKs**: Go, JavaScript, Python, C#
+          - **SDKs**:
+            - Go (source)
+            - JavaScript (npm package)
+            - Python (wheel)
+            - C# (nupkg)
+            - C++ (Linux x64 binaries, headers)
           - **Dashboard**: Web UI bundle
 
           ## Installation
