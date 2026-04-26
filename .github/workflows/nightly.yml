@@ -96,41 +96,63 @@ jobs:
           path: release/*
           retention-days: 7
 
-  build-sdks:
-    name: Build SDKs
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+  build-go-sdk:
+    name: Build Go SDK (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            runs-on: ubuntu-latest
+          - goos: linux
+            goarch: arm64
+            runs-on: ubuntu-latest
+          - goos: darwin
+            goarch: amd64
+            runs-on: macos-latest
+          - goos: darwin
+            goarch: arm64
+            runs-on: macos-latest
+          - goos: windows
+            goarch: amd64
+            runs-on: windows-latest
     steps:
       - name: Checkout
         timeout-minutes: 3
         uses: actions/checkout@v6
         with:
           ref: main
-          submodules: recursive
 
       - name: Setup Go
         timeout-minutes: 5
         uses: actions/setup-go@v6
         with:
           go-version-file: "sdks/go/go.mod"
-          cache: true
-          cache-dependency-path: sdks/go/go.sum
 
       - name: Build Go SDK
-        timeout-minutes: 10
+        timeout-minutes: 15
+        shell: bash
         working-directory: ./sdks/go
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
         run: |
           go mod download
-          go build -v ./...
+          go build -v -o ../release-artifacts ./pkg/...
 
-      - name: Package Go SDK source
+      - name: Package Go SDK
         timeout-minutes: 5
+        shell: bash
         run: |
+          mkdir -p release-artifacts
           cd sdks/go
-          mkdir -p ../release-sdks
           tar --exclude='*_test.go' \
             --exclude='examples/**/*.test' \
-            -czf ../release-sdks/sdk-go-src.tar.gz \
+            -cf ../release-artifacts/sdk-content.tar \
             go.mod \
             go.sum \
             version.go \
@@ -140,6 +162,31 @@ jobs:
             LICENSE \
             README.md \
             SECURITY.md
+
+          cd release-artifacts
+          tar -rf sdk-content.tar sdk-*
+          gzip -f sdk-content.tar
+          mv sdk-content.tar.gz sdk-go-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz
+
+      - name: Upload artifact
+        timeout-minutes: 3
+        uses: actions/upload-artifact@v7
+        with:
+          name: go-sdk-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: release-artifacts/sdk-go-*.tar.gz
+          retention-days: 7
+
+  build-other-sdks:
+    name: Build Other SDKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        timeout-minutes: 3
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          submodules: false
 
       - name: Setup Node.js
         timeout-minutes: 5
@@ -160,8 +207,8 @@ jobs:
 
       - name: Package JS SDK
         timeout-minutes: 5
-        working-directory: ./sdks/js
         run: |
+          cd sdks/js
           rm -rf ../../release-sdks/js
           mkdir -p ../../release-sdks/js
           pnpm pack --pack-destination ../../release-sdks/js
@@ -213,83 +260,6 @@ jobs:
           cd ../../release-sdks/csharp
           tar -czf ../sdk-csharp.tar.gz *
 
-      - name: Install system dependencies for C++
-        timeout-minutes: 5
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential ninja-build
-
-      - name: Bootstrap vcpkg for C++
-        timeout-minutes: 10
-        shell: bash
-        run: |
-          bash "${{ github.workspace }}/sdks/cpp/scripts/bootstrap-vcpkg.sh" \
-            "${{ github.workspace }}/sdks/cpp/vcpkg" \
-            "2025.04.09"
-
-      - name: Build C++ SDK (Debug)
-        timeout-minutes: 30
-        working-directory: ./sdks/cpp
-        run: |
-          cmake -B build-debug \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/sdks/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake" \
-            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays" \
-            -DVCPKG_TARGET_TRIPLET=x64-linux \
-            -DBUILD_SHARED_LIBS=ON \
-            -DBUILD_STATIC_LIBS=ON \
-            -DBUILD_EXAMPLES=OFF \
-            -DBUILD_TESTS=OFF
-
-          cmake --build build-debug --config Debug --parallel
-
-      - name: Build C++ SDK (Release)
-        timeout-minutes: 30
-        working-directory: ./sdks/cpp
-        run: |
-          cmake -B build-release \
-            -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/sdks/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake" \
-            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays" \
-            -DVCPKG_TARGET_TRIPLET=x64-linux \
-            -DBUILD_SHARED_LIBS=ON \
-            -DBUILD_STATIC_LIBS=ON \
-            -DBUILD_EXAMPLES=OFF \
-            -DBUILD_TESTS=OFF
-
-          cmake --build build-release --config Release --parallel
-
-      - name: Package C++ SDK
-        timeout-minutes: 5
-        working-directory: ./sdks/cpp
-        run: |
-          mkdir -p ../../release-sdks/cpp/debug ../../release-sdks/cpp/release
-
-          # Copy headers (shared)
-          cp -r include ../../release-sdks/cpp/
-          cp -r include ../../release-sdks/cpp/debug/
-          cp -r include ../../release-sdks/cpp/release/
-
-          # Copy debug libraries
-          cp build-debug/lib/*.so* ../../release-sdks/cpp/debug/ 2>/dev/null || true
-          cp build-debug/lib/*.a ../../release-sdks/cpp/debug/ 2>/dev/null || true
-
-          # Copy release libraries
-          cp build-release/lib/*.so* ../../release-sdks/cpp/release/ 2>/dev/null || true
-          cp build-release/lib/*.a ../../release-sdks/cpp/release/ 2>/dev/null || true
-
-          # Create packages
-          cd ../../release-sdks/cpp/debug
-          tar -czf ../../../sdk-cpp-linux-x64-debug.tar.gz *
-
-          cd ../../release-sdks/cpp/release
-          tar -czf ../../../sdk-cpp-linux-x64-release.tar.gz *
-
-          cd ../../release-sdks/cpp
-          tar -czf ../../../sdk-cpp-linux-x64.tar.gz *
-
       - name: Create SDKs bundle
         timeout-minutes: 5
         run: |
@@ -300,8 +270,217 @@ jobs:
         timeout-minutes: 3
         uses: actions/upload-artifact@v7
         with:
-          name: sdks
+          name: other-sdks
           path: release-sdks.tar.gz
+          retention-days: 7
+
+  build-cpp-sdk:
+    name: Build C++ SDK (${{ matrix.display_name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Windows - MD (动态 CRT)
+          - os: windows-latest
+            display_name: windows-x64-md
+            vcpkg_triplet: x64-windows-static-md
+            artifact_name: windows-x64-md
+            build_type: Release
+
+          # Linux
+          - os: ubuntu-latest
+            display_name: linux-x64
+            vcpkg_triplet: x64-linux
+            artifact_name: linux-x64
+            build_type: Release
+
+          # macOS Intel
+          - os: macos-latest
+            display_name: macos-x64
+            vcpkg_triplet: x64-osx
+            artifact_name: macos-x64
+            build_type: Release
+
+          # macOS ARM64
+          - os: macos-latest
+            display_name: macos-arm64
+            vcpkg_triplet: arm64-osx
+            artifact_name: macos-arm64
+            build_type: Release
+    steps:
+      - name: Checkout
+        timeout-minutes: 3
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          submodules: recursive
+
+      - name: Setup Windows Environment
+        if: runner.os == 'Windows'
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
+            choco install ninja -y
+          }
+          ninja --version
+
+      - name: Setup MSVC Developer Command Prompt
+        if: runner.os == 'Windows'
+        timeout-minutes: 3
+        shell: pwsh
+        run: |
+          $vsWhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio/Installer/vswhere.exe"
+          $installPath = & $vsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $vsDevCmd = Join-Path $installPath "Common7/Tools/VsDevCmd.bat"
+          $env:VSCMD_SKIP_SENDTELEMETRY = "1"
+          cmd /c "`"$vsDevCmd`" -no_logo -arch=x64 -host_arch=x64 && set" |
+            ForEach-Object {
+              if ($_ -match '^[^=]+=') {
+                Add-Content -Path $env:GITHUB_ENV -Value $_
+              }
+            }
+
+      - name: Setup Linux Environment
+        if: runner.os == 'Linux'
+        timeout-minutes: 5
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ninja-build
+
+      - name: Setup macOS Environment
+        if: runner.os == 'macOS'
+        timeout-minutes: 5
+        run: |
+          if ! command -v ninja >/dev/null 2>&1; then
+            brew install ninja
+          fi
+
+      - name: Bootstrap vcpkg (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 10
+        shell: pwsh
+        run: |
+          $scriptPath = Join-Path "${{ github.workspace }}" "sdks/cpp/scripts/bootstrap-vcpkg.ps1"
+          $vcpkgRoot = Join-Path "${{ github.workspace }}" "sdks/cpp/vcpkg"
+          & $scriptPath -VcpkgRoot $vcpkgRoot -VcpkgCommit "2025.04.09"
+
+      - name: Bootstrap vcpkg (Unix)
+        if: runner.os != 'Windows'
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          bash "${{ github.workspace }}/sdks/cpp/scripts/bootstrap-vcpkg.sh" \
+            "${{ github.workspace }}/sdks/cpp/vcpkg" \
+            "2025.04.09"
+
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 30
+        shell: pwsh
+        working-directory: ./sdks/cpp
+        run: |
+          cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE="Release" `
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/sdks/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays" `
+            -DVCPKG_TARGET_TRIPLET="${{ matrix.vcpkg_triplet }}" `
+            -DVCPKG_HOST_TRIPLET="${{ matrix.vcpkg_triplet }}" `
+            -DVCPKG_BUILD_TYPE="release" `
+            -DBUILD_SHARED_LIBS=ON `
+            -DBUILD_STATIC_LIBS=ON `
+            -DBUILD_EXAMPLES=OFF `
+            -DBUILD_TESTS=OFF
+
+      - name: Configure CMake (Unix)
+        if: runner.os != 'Windows'
+        timeout-minutes: 30
+        shell: bash
+        working-directory: ./sdks/cpp
+        run: |
+          CMAKE_ARCH_ARGS=""
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            if [[ "${{ matrix.artifact_name }}" == "macos-x64" ]]; then
+              CMAKE_ARCH_ARGS="-DCMAKE_OSX_ARCHITECTURES=x86_64"
+            elif [[ "${{ matrix.artifact_name }}" == "macos-arm64" ]]; then
+              CMAKE_ARCH_ARGS="-DCMAKE_OSX_ARCHITECTURES=arm64"
+            fi
+          fi
+          cmake -B build \
+            -G "Ninja" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/sdks/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays" \
+            -DVCPKG_TARGET_TRIPLET=${{ matrix.vcpkg_triplet }} \
+            -DVCPKG_BUILD_TYPE=release \
+            -DBUILD_SHARED_LIBS=ON \
+            -DBUILD_STATIC_LIBS=ON \
+            -DBUILD_EXAMPLES=OFF \
+            -DBUILD_TESTS=OFF \
+            ${CMAKE_ARCH_ARGS}
+
+      - name: Build C++ SDK
+        timeout-minutes: 30
+        shell: bash
+        working-directory: ./sdks/cpp
+        run: |
+          cmake --build build --config Release --parallel
+
+      - name: Package C++ SDK (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 10
+        shell: pwsh
+        working-directory: ./sdks/cpp
+        run: |
+          mkdir -p package-static package-dynamic
+          cmake --install build --prefix package-install
+
+          cp -r package-install/include package-static/
+          cp -r package-install/include package-dynamic/
+          cp -r package-install/share package-static/
+          cp -r package-install/share package-dynamic/
+          cp -r package-install/bin package-dynamic/
+
+          mkdir -p package-static/lib package-dynamic/lib
+          Get-ChildItem -Path package-install -Recurse -Filter "*.lib" | Copy-Item -Destination package-static/lib
+          Get-ChildItem -Path package-install -Recurse -Filter "*.dll" | Copy-Item -Destination package-dynamic/lib
+
+          Compress-Archive -Path "package-static/*" -DestinationPath "sdk-cpp-static-${{ matrix.artifact_name }}.zip"
+          Compress-Archive -Path "package-dynamic/*" -DestinationPath "sdk-cpp-dynamic-${{ matrix.artifact_name }}.zip"
+
+      - name: Package C++ SDK (Unix)
+        if: runner.os != 'Windows'
+        timeout-minutes: 10
+        shell: bash
+        working-directory: ./sdks/cpp
+        run: |
+          mkdir -p package-static package-dynamic
+          cmake --install build --prefix package-install
+
+          cp -r package-install/include package-static/ 2>/dev/null || true
+          cp -r package-install/include package-dynamic/ 2>/dev/null || true
+          cp -r package-install/share package-static/ 2>/dev/null || true
+          cp -r package-install/share package-dynamic/ 2>/dev/null || true
+          cp -r package-install/bin package-dynamic/ 2>/dev/null || true
+
+          mkdir -p package-static/lib package-dynamic/lib
+
+          find package-install -name "*.a" -exec cp {} package-static/lib/ \; 2>/dev/null || true
+          find package-install -name "*.so*" -exec cp {} package-dynamic/lib/ \; 2>/dev/null || true
+          find package-install -name "*.dylib*" -exec cp {} package-dynamic/lib/ \; 2>/dev/null || true
+
+          tar -czf "sdk-cpp-static-${{ matrix.artifact_name }}.tar.gz" -C package-static .
+          tar -czf "sdk-cpp-dynamic-${{ matrix.artifact_name }}.tar.gz" -C package-dynamic .
+
+      - name: Upload artifacts
+        timeout-minutes: 3
+        uses: actions/upload-artifact@v7
+        with:
+          name: cpp-sdk-${{ matrix.artifact_name }}
+          path: |
+            sdks/cpp/sdk-cpp-*.tar.gz
+            sdks/cpp/sdk-cpp-*.zip
           retention-days: 7
 
   build-dashboard:
@@ -357,7 +536,7 @@ jobs:
     name: Create Nightly Release
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [build-binaries, build-sdks, build-dashboard]
+    needs: [build-binaries, build-go-sdk, build-other-sdks, build-cpp-sdk, build-dashboard]
     permissions:
       contents: write
     steps:
@@ -369,22 +548,29 @@ jobs:
           fetch-depth: 0
 
       - name: Download all artifacts
-        timeout-minutes: 5
+        timeout-minutes: 10
         uses: actions/download-artifact@v8
         with:
           path: artifacts
 
       - name: Prepare release assets
-        timeout-minutes: 5
+        timeout-minutes: 10
         run: |
           mkdir -p release-assets
 
-          # Copy binaries
+          # Copy server/agent binaries
           find artifacts/binaries-* -name "*.tar.gz" -exec cp {} release-assets/ \;
           find artifacts/binaries-* -name "*.zip" -exec cp {} release-assets/ \;
 
-          # Copy SDKs
-          cp artifacts/sdks/release-sdks.tar.gz release-assets/
+          # Copy Go SDK
+          find artifacts/go-sdk-* -name "sdk-go-*.tar.gz" -exec cp {} release-assets/ \;
+
+          # Copy other SDKs
+          cp artifacts/other-sdks/release-sdks.tar.gz release-assets/
+
+          # Copy C++ SDK
+          find artifacts/cpp-sdk-* -name "sdk-cpp-*.tar.gz" -exec cp {} release-assets/ \;
+          find artifacts/cpp-sdk-* -name "sdk-cpp-*.zip" -exec cp {} release-assets/ \;
 
           # Copy Dashboard
           cp artifacts/dashboard/dashboard.tar.gz release-assets/
@@ -394,7 +580,7 @@ jobs:
       - name: Generate release notes
         timeout-minutes: 2
         run: |
-          cat > release-notes.md << EOF
+          cat > release-notes.md << 'EOF'
           # Nightly Build
 
           **Built**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
@@ -403,23 +589,59 @@ jobs:
 
           ## Contents
 
-          - **Server/Agent Binaries**: \`darwin-arm64\`, \`linux-amd64\`, \`windows-amd64\`
-          - **SDKs**:
-            - Go (source)
-            - JavaScript (npm package)
-            - Python (wheel)
-            - C# (nupkg)
-            - C++ (Linux x64: Debug + Release, shared + static, headers)
-          - **Dashboard**: Web UI bundle
+          ### Server/Agent Binaries
+          - `croupier-bin-darwin-arm64.tar.gz` - macOS ARM64
+          - `croupier-bin-darwin-amd64.tar.gz` - macOS Intel
+          - `croupier-bin-linux-amd64.tar.gz` - Linux x64
+          - `croupier-bin-windows-amd64.zip` - Windows x64
+
+          ### Go SDK (Multi-platform)
+          - `sdk-go-linux-amd64.tar.gz` - Linux x64
+          - `sdk-go-linux-arm64.tar.gz` - Linux ARM64
+          - `sdk-go-darwin-amd64.tar.gz` - macOS Intel
+          - `sdk-go-darwin-arm64.tar.gz` - macOS ARM64
+          - `sdk-go-windows-amd64.tar.gz` - Windows x64
+
+          ### C++ SDK (Multi-platform, Static + Dynamic)
+          - `sdk-cpp-static-linux-x64.tar.gz` - Linux x64 static
+          - `sdk-cpp-dynamic-linux-x64.tar.gz` - Linux x64 dynamic
+          - `sdk-cpp-static-macos-x64.tar.gz` - macOS Intel static
+          - `sdk-cpp-dynamic-macos-x64.tar.gz` - macOS Intel dynamic
+          - `sdk-cpp-static-macos-arm64.tar.gz` - macOS ARM64 static
+          - `sdk-cpp-dynamic-macos-arm64.tar.gz` - macOS ARM64 dynamic
+          - `sdk-cpp-static-windows-x64-md.zip` - Windows x64 static (MD)
+          - `sdk-cpp-dynamic-windows-x64-md.zip` - Windows x64 dynamic (MD)
+
+          ### Other SDKs
+          - `sdk-js.tar.gz` - JavaScript/TypeScript npm package
+          - `sdk-python.tar.gz` - Python wheel
+          - `sdk-csharp.tar.gz` - C# NuGet packages
+          - `release-sdks.tar.gz` - All other SDKs bundle
+
+          ### Dashboard
+          - `dashboard.tar.gz` - Web UI bundle
 
           ## Installation
 
-          Download the binary for your platform and extract:
-
-          \`\`\`bash
+          ### Server/Agent
+          ```bash
           tar -xzf croupier-bin-linux-amd64.tar.gz
           ./croupier-server --help
-          \`\`\`
+          ```
+
+          ### Go SDK
+          ```bash
+          tar -xzf sdk-go-linux-amd64.tar.gz
+          ```
+
+          ### C++ SDK
+          ```bash
+          # Static linking
+          tar -xzf sdk-cpp-static-linux-x64.tar.gz
+
+          # Dynamic linking
+          tar -xzf sdk-cpp-dynamic-linux-x64.tar.gz
+          ```
 
           ---
           **Note**: This is an automated nightly build. Use at your own risk.
