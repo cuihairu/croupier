@@ -115,7 +115,66 @@ jobs:
         timeout-minutes: 5
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential ninja-build
+          sudo apt-get install -y build-essential ninja-build netcat-openbsd
+
+      - name: Create agent config
+        timeout-minutes: 2
+        run: |
+          cat > /tmp/agent-ci.yaml << 'EOF'
+          name: croupier-agent
+          host: 0.0.0.0
+          port: 19090
+
+          server:
+            addr: ""
+            insecure: true
+
+          agent:
+            id: "ci-test-agent"
+            gameId: "ci-test-game"
+            env: "testing"
+            localAddr: "0.0.0.0:19090"
+            httpAddr: "0.0.0.0:19090"
+
+          upstream:
+            heartbeatInterval: 30
+            retryInterval: 5
+            maxRetries: 0
+            timeout: 5000
+
+          tls:
+            enabled: false
+
+          outboundTLS:
+            enabled: false
+          EOF
+
+      - name: Start croupier-agent (docker-compose)
+        timeout-minutes: 10
+        run: |
+          cd "${{ github.workspace }}"
+
+          # 尝试拉取镜像，如果失败则本地构建
+          docker pull ghcr.io/cuihairu/croupier-agent:latest || \
+          docker compose -f docker/docker-compose.ci.yml build
+
+          docker compose -f docker/docker-compose.ci.yml up -d
+
+          # 等待 agent 启动
+          for i in {1..60}; do
+            if nc -z localhost 19090 2>/dev/null; then
+              echo "Agent is ready"
+              docker compose -f docker/docker-compose.ci.yml ps
+              break
+            fi
+            if [ $i -eq 60 ]; then
+              echo "Agent failed to start"
+              docker compose -f docker/docker-compose.ci.yml logs
+              docker compose -f docker/docker-compose.ci.yml ps
+              exit 1
+            fi
+            sleep 1
+          done
 
       - name: Cache vcpkg binaries
         uses: actions/cache@v4
@@ -157,6 +216,14 @@ jobs:
         timeout-minutes: 10
         run: cd build && ctest --build-config ${{ matrix.build-type }} --output-on-failure --timeout 120
 
+      - name: Show agent logs (if test failed)
+        if: failure()
+        run: docker compose -f docker/docker-compose.ci.yml logs
+
+      - name: Stop agent
+        if: always()
+        run: docker compose -f docker/docker-compose.ci.yml down -v
+
       - name: Upload artifacts
         timeout-minutes: 3
         uses: actions/upload-artifact@v7
@@ -185,7 +252,66 @@ jobs:
         timeout-minutes: 5
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential ninja-build gcovr
+          sudo apt-get install -y build-essential ninja-build netcat-openbsd
+
+      - name: Create agent config
+        timeout-minutes: 2
+        run: |
+          cat > /tmp/agent-ci.yaml << 'EOF'
+          name: croupier-agent
+          host: 0.0.0.0
+          port: 19090
+
+          server:
+            addr: ""
+            insecure: true
+
+          agent:
+            id: "ci-test-agent"
+            gameId: "ci-test-game"
+            env: "testing"
+            localAddr: "0.0.0.0:19090"
+            httpAddr: "0.0.0.0:19090"
+
+          upstream:
+            heartbeatInterval: 30
+            retryInterval: 5
+            maxRetries: 0
+            timeout: 5000
+
+          tls:
+            enabled: false
+
+          outboundTLS:
+            enabled: false
+          EOF
+
+      - name: Start croupier-agent (docker-compose)
+        timeout-minutes: 10
+        run: |
+          cd "${{ github.workspace }}"
+
+          # 尝试拉取镜像，如果失败则本地构建
+          docker pull ghcr.io/cuihairu/croupier-agent:latest || \
+          docker compose -f docker/docker-compose.ci.yml build
+
+          docker compose -f docker/docker-compose.ci.yml up -d
+
+          # 等待 agent 启动
+          for i in {1..60}; do
+            if nc -z localhost 19090 2>/dev/null; then
+              echo "Agent is ready"
+              docker compose -f docker/docker-compose.ci.yml ps
+              break
+            fi
+            if [ $i -eq 60 ]; then
+              echo "Agent failed to start"
+              docker compose -f docker/docker-compose.ci.yml logs
+              docker compose -f docker/docker-compose.ci.yml ps
+              exit 1
+            fi
+            sleep 1
+          done gcovr
 
       - name: Cache vcpkg binaries (coverage)
         uses: actions/cache@v4
@@ -227,6 +353,14 @@ jobs:
       - name: Test (coverage)
         timeout-minutes: 20
         run: cd build-coverage && ctest --build-config Debug --output-on-failure --parallel 2 --timeout 120
+
+      - name: Show agent logs (if test failed)
+        if: failure()
+        run: docker compose -f docker/docker-compose.ci.yml logs
+
+      - name: Stop agent
+        if: always()
+        run: docker compose -f docker/docker-compose.ci.yml down -v
 
       - name: Generate coverage report
         timeout-minutes: 5
