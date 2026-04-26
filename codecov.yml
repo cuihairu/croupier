@@ -4,6 +4,43 @@ coverage:
       default:
         target: 80%
         threshold: 1%
+      # SDK-specific settings - only report coverage when the specific flag uploads
+      go-sdk:
+        flags:
+          - go-sdk
+        target: 80%
+        threshold: 1%
+        if_not_found: success  # Don't fail if go-sdk didn't upload
+      js-sdk:
+        flags:
+          - js-sdk
+        target: 80%
+        threshold: 1%
+        if_not_found: success
+      cpp-sdk:
+        flags:
+          - cpp-sdk
+        target: 70%
+        threshold: 1%
+        if_not_found: success
+      python-sdk:
+        flags:
+          - python-sdk
+        target: 80%
+        threshold: 1%
+        if_not_found: success
+      java-sdk:
+        flags:
+          - java-sdk
+        target: 80%
+        threshold: 1%
+        if_not_found: success
+      csharp-sdk:
+        flags:
+          - csharp-sdk
+        target: 80%
+        threshold: 1%
+        if_not_found: success
     patch:
       default:
         target: 80%
@@ -12,14 +49,31 @@ coverage:
 comment: false
 
 ignore:
+  # Generated code and protocols
   - "proto/**"
   - "pkg/pb/**"
   - "pkg/protocol/**"
   - "gen/**"
+  - "generated/**"
+
+  # SDK generated code (relative to repo root)
+  - "sdks/go/pkg/pb/**"
+  - "sdks/go/downloaded_proto/**"
+  - "sdks/js/generated/**"
+  - "sdks/cpp/generated/**"
+  - "sdks/cpp/vcpkg/**"
+  - "sdks/cpp/vcpkg_installed/**"
+  - "sdks/cpp/build/**"
+  - "sdks/python/croupier/pb/**"
+  - "sdks/java/build/**"
+  - "sdks/csharp/**/obj/**"
+
+  # Non-SDK code
   - "dashboard/**"
   - "cmd/**"
   - "examples/**"
   - "scripts/**"
+  - "web/**"
 
 github_checks:
   annotations: true
