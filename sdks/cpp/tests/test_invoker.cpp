@@ -66,7 +66,7 @@ TEST_F(InvokerTest, InvokeUsesTCPProtocol) {
         return SerializeMessage(response);
     });
     server.Start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));  // Reduced from 200ms
 
     {
         InvokerConfig config;
@@ -86,7 +86,6 @@ TEST_F(InvokerTest, InvokeUsesTCPProtocol) {
         EXPECT_EQ(result, R"(ok:{"name":"alice"})");
 
         // Don't explicitly call Close() - let destructor handle it
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     server.Stop();
@@ -127,7 +126,7 @@ TEST_F(InvokerTest, StartTaskAndStreamTaskPollsRemoteEvents) {
         return {};
     });
     server.Start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));  // Reduced from 100ms
 
     {
         InvokerConfig config;
@@ -177,7 +176,7 @@ TEST_F(InvokerTest, CancelTaskSendsProtocolRequest) {
         return {};
     });
     server.Start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));  // Reduced from 100ms
 
     {
         InvokerConfig config;
@@ -187,7 +186,7 @@ TEST_F(InvokerTest, CancelTaskSendsProtocolRequest) {
         CroupierInvoker invoker(config);
 
         std::string task_id = invoker.StartTask("player.batch", "{}");
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));  // Reduced from 200ms
 
         EXPECT_TRUE(invoker.CancelTask(task_id));
         EXPECT_TRUE(cancel_called);

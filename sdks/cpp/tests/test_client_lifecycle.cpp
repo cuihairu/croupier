@@ -118,11 +118,12 @@ TEST_F(ClientLifecycleTest, StateTransitions) {
 
 TEST_F(ClientLifecycleTest, MultipleStartStopCycles) {
     // RED: 测试多次启动停止循环
+    // 非阻塞模式下，Connect() 会立即返回，无需 sleep 等待
+
     // 第一次循环
     {
         CroupierClient client1(config);
         client1.Connect();
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         client1.Close();
     }
 
@@ -130,7 +131,6 @@ TEST_F(ClientLifecycleTest, MultipleStartStopCycles) {
     {
         CroupierClient client2(config);
         client2.Connect();
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         client2.Close();
     }
 
@@ -138,7 +138,6 @@ TEST_F(ClientLifecycleTest, MultipleStartStopCycles) {
     {
         CroupierClient client3(config);
         client3.Connect();
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         client3.Close();
     }
 

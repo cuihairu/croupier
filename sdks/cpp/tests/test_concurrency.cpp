@@ -318,8 +318,8 @@ TEST(ConcurrencyTest, ConditionVariableNotification) {
         });
     }
 
-    // Notify all threads
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    // Notify all threads (short delay to ensure all threads are waiting)
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
     {
         std::lock_guard<std::mutex> lock(mutex);
         ready = true;
@@ -477,8 +477,8 @@ TEST(ConcurrencyTest, ThreadPoolPattern) {
     }
     cv.notify_all();
 
-    // Wait for completion
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    // Wait for completion (short sleep to let workers finish)
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
     stop.store(true);
     cv.notify_all();
 
@@ -586,12 +586,12 @@ TEST(ConcurrencyTest, TimeoutScenarios) {
 
     std::thread waiter([&]() {
         std::unique_lock<std::mutex> lock(mutex);
-        auto result = cv.wait_for(lock, std::chrono::milliseconds(100));
+        auto result = cv.wait_for(lock, std::chrono::milliseconds(50));
         EXPECT_FALSE(result); // Should timeout
     });
 
     std::thread notifier([&]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));  // Reduced from 200ms, still > 50ms timeout
         std::lock_guard<std::mutex> lock(mutex);
         ready = true;
         cv.notify_one();
