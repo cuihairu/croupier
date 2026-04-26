@@ -130,7 +130,7 @@ bool TCPTransport::ConnectWithTimeout(int timeout_ms) {
 #else
     struct timeval tv;
     tv.tv_sec = timeout_ms_ / 1000;
-    tv.tv_usec = static_cast<__suseconds_t>((timeout_ms_ % 1000) * 1000);
+    tv.tv_usec = (timeout_ms_ % 1000) * 1000;
     setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 #endif
 
@@ -194,7 +194,7 @@ bool TCPTransport::ConnectWithTimeout(int timeout_ms) {
 
     struct timeval select_timeout;
     select_timeout.tv_sec = timeout_ms / 1000;
-    select_timeout.tv_usec = static_cast<__suseconds_t>((timeout_ms % 1000) * 1000);
+    select_timeout.tv_usec = (timeout_ms % 1000) * 1000;
 
     int select_result = select(static_cast<int>(socket_) + 1, nullptr, &write_fds, &except_fds, &select_timeout);
 
@@ -442,10 +442,10 @@ std::mutex TCPServer::ws_init_mutex_;
 
 TCPServer::TCPServer(const std::string& listen_address, int timeout_ms)
     : listen_address_(listen_address),
-      timeout_ms_(timeout_ms),
       server_socket_(INVALID_SOCKET_VALUE),
       running_(false),
       accept_thread_running_(false) {
+    (void)timeout_ms;  // Unused parameter reserved for future use
 
 #ifdef _WIN32
     std::lock_guard<std::mutex> lock(ws_init_mutex_);

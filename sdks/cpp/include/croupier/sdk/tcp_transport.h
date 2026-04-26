@@ -226,7 +226,6 @@ private:
     bool SendMessage(socket_t sock, uint32_t msg_type, uint32_t req_id, const std::vector<uint8_t>& body);
 
     std::string listen_address_;
-    int timeout_ms_;
     socket_t server_socket_;
     std::atomic<bool> running_;
     std::atomic<bool> accept_thread_running_;
