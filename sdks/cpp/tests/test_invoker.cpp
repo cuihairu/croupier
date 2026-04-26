@@ -82,7 +82,8 @@ TEST_F(InvokerTest, InvokeUsesTCPProtocol) {
     ASSERT_TRUE(WaitForServerReady(server)) << "Server failed to start within timeout";
 
     // Get the actual bound address (port 0 gets assigned a real port)
-    std::string actual_address = server.GetListenAddress();
+    // Add tcp:// prefix as required by ParseTCPAddress
+    std::string actual_address = "tcp://" + server.GetListenAddress();
 
     {
         InvokerConfig config;
@@ -145,7 +146,8 @@ TEST_F(InvokerTest, StartTaskAndStreamTaskPollsRemoteEvents) {
     ASSERT_TRUE(WaitForServerReady(server)) << "Server failed to start within timeout";
 
     // Get the actual bound address (port 0 gets assigned a real port)
-    std::string actual_address = server.GetListenAddress();
+    // Add tcp:// prefix as required by ParseTCPAddress
+    std::string actual_address = "tcp://" + server.GetListenAddress();
 
     {
         InvokerConfig config;
@@ -198,7 +200,8 @@ TEST_F(InvokerTest, CancelTaskSendsProtocolRequest) {
     ASSERT_TRUE(WaitForServerReady(server)) << "Server failed to start within timeout";
 
     // Get the actual bound address (port 0 gets assigned a real port)
-    std::string actual_address = server.GetListenAddress();
+    // Add tcp:// prefix as required by ParseTCPAddress
+    std::string actual_address = "tcp://" + server.GetListenAddress();
 
     {
         InvokerConfig config;
