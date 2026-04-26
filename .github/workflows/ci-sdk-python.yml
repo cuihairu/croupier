@@ -53,7 +53,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          cache-dependency-glob: "sdks/python/uv.lock"
+          cache-dependency-glob: "sdks/python/pyproject.toml"
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
@@ -153,7 +153,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-          cache-dependency-glob: "sdks/python/uv.lock"
+          cache-dependency-glob: "sdks/python/pyproject.toml"
           python-version: "3.12"
 
       - name: Install dependencies
