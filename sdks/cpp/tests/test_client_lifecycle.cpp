@@ -19,6 +19,21 @@ protected:
         config.auto_reconnect = false;
 
         client = std::make_unique<CroupierClient>(config);
+
+        // 注册一个测试函数以满足 CroupierClient::Connect() 的要求
+        FunctionDescriptor test_desc;
+        test_desc.id = "test.lifecycle.function";
+        test_desc.version = "1.0.0";
+        test_desc.category = "test";
+        test_desc.risk = "low";
+        test_desc.entity = "test";
+        test_desc.operation = "lifecycle";
+
+        FunctionHandler test_handler = [](const std::string& context, const std::string& payload) -> std::string {
+            return "{\"status\":\"ok\"}";
+        };
+
+        client->RegisterFunction(test_desc, test_handler);
     }
 
     void TearDown() override {
@@ -69,6 +84,20 @@ TEST_F(ClientLifecycleTest, ServeMethod) {
     serve_config.blocking_connect = false;
     CroupierClient serve_client(serve_config);
 
+    // 注册测试函数
+    FunctionDescriptor desc;
+    desc.id = "test.serve.function";
+    desc.version = "1.0.0";
+    desc.category = "test";
+    desc.risk = "low";
+    desc.entity = "test";
+    desc.operation = "serve";
+
+    FunctionHandler handler = [](const std::string& context, const std::string& payload) -> std::string {
+        return "{\"status\":\"ok\"}";
+    };
+    serve_client.RegisterFunction(desc, handler);
+
     // 连接
     serve_client.Connect();
 
@@ -84,6 +113,20 @@ TEST_F(ClientLifecycleTest, ResourceCleanup) {
     {
         // 创建临时客户端
         CroupierClient temp_client(config);
+
+        // 注册测试函数
+        FunctionDescriptor desc;
+        desc.id = "test.cleanup.function";
+        desc.version = "1.0.0";
+        desc.category = "test";
+        desc.risk = "low";
+        desc.entity = "test";
+        desc.operation = "cleanup";
+
+        FunctionHandler handler = [](const std::string& context, const std::string& payload) -> std::string {
+            return "{\"status\":\"ok\"}";
+        };
+        temp_client.RegisterFunction(desc, handler);
 
         // 连接
         temp_client.Connect();
@@ -120,23 +163,51 @@ TEST_F(ClientLifecycleTest, MultipleStartStopCycles) {
     // RED: 测试多次启动停止循环
     // 非阻塞模式下，Connect() 会立即返回，无需 sleep 等待
 
+    // 辅助函数：为客户端注册测试函数
+    auto register_test_func = [](CroupierClient& cl) {
+        FunctionDescriptor desc;
+        desc.id = "test.cycle.function";
+        desc.version = "1.0.0";
+        desc.category = "test";
+        desc.risk = "low";
+        desc.entity = "test";
+        desc.operation = "cycle";
+
+        FunctionHandler handler = [](const std::string& context, const std::string& payload) -> std::string {
+            return "{\"status\":\"ok\"}";
+        };
+        cl.RegisterFunction(desc, handler);
+    };
+
     // 第一次循环
     {
-        CroupierClient client1(config);
+        ClientConfig cfg = loader->CreateDefaultConfig();
+        cfg.blocking_connect = false;
+        cfg.auto_reconnect = false;
+        CroupierClient client1(cfg);
+        register_test_func(client1);
         client1.Connect();
         client1.Close();
     }
 
     // 第二次循环
     {
-        CroupierClient client2(config);
+        ClientConfig cfg = loader->CreateDefaultConfig();
+        cfg.blocking_connect = false;
+        cfg.auto_reconnect = false;
+        CroupierClient client2(cfg);
+        register_test_func(client2);
         client2.Connect();
         client2.Close();
     }
 
     // 第三次循环
     {
-        CroupierClient client3(config);
+        ClientConfig cfg = loader->CreateDefaultConfig();
+        cfg.blocking_connect = false;
+        cfg.auto_reconnect = false;
+        CroupierClient client3(cfg);
+        register_test_func(client3);
         client3.Connect();
         client3.Close();
     }

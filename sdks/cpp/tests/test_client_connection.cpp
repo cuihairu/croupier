@@ -5,6 +5,22 @@
 using namespace croupier::sdk;
 using namespace croupier::sdk::config;
 
+// 辅助函数：为客户端注册一个测试函数
+static void RegisterTestFunction(CroupierClient& cl) {
+    FunctionDescriptor desc;
+    desc.id = "test.temp.function";
+    desc.version = "1.0.0";
+    desc.category = "test";
+    desc.risk = "low";
+    desc.entity = "test";
+    desc.operation = "temp";
+
+    FunctionHandler handler = [](const std::string& context, const std::string& payload) -> std::string {
+        return "{\"status\":\"ok\"}";
+    };
+    cl.RegisterFunction(desc, handler);
+}
+
 // 测试夹具：连接管理测试
 class ClientConnectionTest : public ::testing::Test {
 protected:
@@ -17,6 +33,21 @@ protected:
         config.auto_reconnect = false;  // 禁用自动重连，加快测试
 
         client = std::make_unique<CroupierClient>(config);
+
+        // 注册一个测试函数以满足 CroupierClient::Connect() 的要求
+        FunctionDescriptor test_desc;
+        test_desc.id = "test.connection.function";
+        test_desc.version = "1.0.0";
+        test_desc.category = "test";
+        test_desc.risk = "low";
+        test_desc.entity = "test";
+        test_desc.operation = "connect";
+
+        FunctionHandler test_handler = [](const std::string& context, const std::string& payload) -> std::string {
+            return "{\"status\":\"ok\"}";
+        };
+
+        client->RegisterFunction(test_desc, test_handler);
     }
 
     void TearDown() override {
@@ -83,6 +114,7 @@ TEST_F(ClientConnectionTest, BlockingConnect) {
     blocking_config.timeout_seconds = 1;  // 短超时，避免测试卡住太久
 
     CroupierClient blocking_client(blocking_config);
+    RegisterTestFunction(blocking_client);  // 注册测试函数
 
     // 验证配置已应用
     EXPECT_TRUE(blocking_config.blocking_connect);
@@ -105,6 +137,7 @@ TEST_F(ClientConnectionTest, NonBlockingConnect) {
     non_blocking_config.connect_timeout_seconds = 1;
 
     CroupierClient non_blocking_client(non_blocking_config);
+    RegisterTestFunction(non_blocking_client);  // 注册测试函数
 
     // 验证配置已应用
     EXPECT_FALSE(non_blocking_config.blocking_connect);
@@ -126,6 +159,7 @@ TEST_F(ClientConnectionTest, ConnectionTimeout) {
     timeout_config.blocking_connect = true;
 
     CroupierClient timeout_client(timeout_config);
+    RegisterTestFunction(timeout_client);  // 注册测试函数
 
     // 记录开始时间
     // 注意：这里不使用时间测量，因为单元测试不应该依赖时间
@@ -149,6 +183,7 @@ TEST_F(ClientConnectionTest, AutoReconnect) {
     reconnect_config.blocking_connect = false;
 
     CroupierClient reconnect_client(reconnect_config);
+    RegisterTestFunction(reconnect_client);  // 注册测试函数
 
     // 验证配置已应用
     EXPECT_TRUE(reconnect_config.auto_reconnect);
