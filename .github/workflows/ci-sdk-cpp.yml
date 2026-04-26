@@ -123,7 +123,7 @@ jobs:
           path: |
             sdks/cpp/vcpkg_installed
             ~/.cache/vcpkg
-          key: ${{ runner.os }}-vcpkg-${{ hashFiles('sdks/cpp/vcpkg.json', 'sdks/cpp/vcpkg-overlays/**/vcpkg.json') }}
+          key: ${{ runner.os }}-vcpkg-${{ hashFiles('sdks/cpp/vcpkg.json') }}
           restore-keys: |
             ${{ runner.os }}-vcpkg-
 
@@ -193,7 +193,7 @@ jobs:
           path: |
             sdks/cpp/vcpkg_installed
             ~/.cache/vcpkg
-          key: ${{ runner.os }}-vcpkg-coverage-${{ hashFiles('sdks/cpp/vcpkg.json', 'sdks/cpp/vcpkg-overlays/**/vcpkg.json') }}
+          key: ${{ runner.os }}-vcpkg-coverage-${{ hashFiles('sdks/cpp/vcpkg.json') }}
           restore-keys: |
             ${{ runner.os }}-vcpkg-
 
