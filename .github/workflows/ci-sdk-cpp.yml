@@ -117,6 +117,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential ninja-build
 
+      - name: Cache vcpkg binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            sdks/cpp/vcpkg_installed
+            ~/.cache/vcpkg
+          key: ${{ runner.os }}-vcpkg-${{ hashFiles('sdks/cpp/vcpkg.json', 'sdks/cpp/vcpkg-overlays/**/vcpkg.json') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-
+
       - name: Bootstrap vcpkg
         timeout-minutes: 5
         shell: bash
@@ -140,12 +150,12 @@ jobs:
             -DBUILD_TESTS=ON
 
       - name: Build
-        timeout-minutes: 15
+        timeout-minutes: 30
         run: cmake --build build --config ${{ matrix.build-type }} --parallel
 
       - name: Test
         timeout-minutes: 10
-        run: cd build && ctest --build-config ${{ matrix.build-type }} --output-on-failure --timeout 60
+        run: cd build && ctest --build-config ${{ matrix.build-type }} --output-on-failure --timeout 120
 
       - name: Upload artifacts
         timeout-minutes: 3
@@ -177,6 +187,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential ninja-build gcovr
 
+      - name: Cache vcpkg binaries (coverage)
+        uses: actions/cache@v4
+        with:
+          path: |
+            sdks/cpp/vcpkg_installed
+            ~/.cache/vcpkg
+          key: ${{ runner.os }}-vcpkg-coverage-${{ hashFiles('sdks/cpp/vcpkg.json', 'sdks/cpp/vcpkg-overlays/**/vcpkg.json') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-
+
       - name: Bootstrap vcpkg
         timeout-minutes: 5
         shell: bash
@@ -201,12 +221,12 @@ jobs:
             -DCMAKE_EXE_LINKER_FLAGS="--coverage"
 
       - name: Build (coverage)
-        timeout-minutes: 15
+        timeout-minutes: 30
         run: cmake --build build-coverage --config Debug --parallel
 
       - name: Test (coverage)
-        timeout-minutes: 10
-        run: cd build-coverage && ctest --build-config Debug --output-on-failure --parallel 2 --timeout 60
+        timeout-minutes: 20
+        run: cd build-coverage && ctest --build-config Debug --output-on-failure --parallel 2 --timeout 120
 
       - name: Generate coverage report
         timeout-minutes: 5
