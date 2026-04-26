@@ -33,44 +33,43 @@
 // Logging macros with configuration support
 // These check the global logger configuration before outputting
 // Note: Use string concatenation, not stream syntax: SDK_LOG_INFO("value: " + variable)
-#define SDK_LOG_INFO(msg)                                                                        \
-    do {                                                                                         \
-        if (!croupier::sdk::Logger::GetInstance().IsEnabled(croupier::sdk::Logger::Level::INFO)) \
-            break;                                                                               \
-        std::ostringstream oss_;                                                                 \
-        oss_ << (msg);                                                                           \
-        std::cout << "[INFO] [croupier] " << oss_.str() << '\n';                                 \
+#define SDK_LOG_INFO(msg)                                                                \
+    do {                                                                                 \
+        if (!::croupier::sdk::Logger::GetInstance().IsEnabled(::croupier::sdk::Logger::Level::INFO)) \
+            break;                                                                       \
+        std::ostringstream oss_;                                                         \
+        oss_ << (msg);                                                                   \
+        std::cout << "[INFO] [croupier] " << oss_.str() << '\n';                         \
     } while (0)
 
-#define SDK_LOG_WARN(msg)                                                                        \
-    do {                                                                                         \
-        if (!croupier::sdk::Logger::GetInstance().IsEnabled(croupier::sdk::Logger::Level::WARN)) \
-            break;                                                                               \
-        std::ostringstream oss_;                                                                 \
-        oss_ << (msg);                                                                           \
-        std::cerr << "[WARN] [croupier] " << oss_.str() << '\n';                                 \
+#define SDK_LOG_WARN(msg)                                                                \
+    do {                                                                                 \
+        if (!::croupier::sdk::Logger::GetInstance().IsEnabled(::croupier::sdk::Logger::Level::WARN)) \
+            break;                                                                       \
+        std::ostringstream oss_;                                                         \
+        oss_ << (msg);                                                                   \
+        std::cerr << "[WARN] [croupier] " << oss_.str() << '\n';                         \
     } while (0)
 
-#define SDK_LOG_ERROR(msg)                                                                      \
-    do {                                                                                        \
-        if (!croupier::sdk::Logger::GetInstance().IsEnabled(croupier::sdk::Logger::Level::ERR)) \
-            break;                                                                              \
-        std::ostringstream oss_;                                                                \
-        oss_ << (msg);                                                                          \
-        std::cerr << "[ERROR] [croupier] " << oss_.str() << '\n';                               \
+#define SDK_LOG_ERROR(msg)                                                               \
+    do {                                                                                 \
+        if (!::croupier::sdk::Logger::GetInstance().IsEnabled(::croupier::sdk::Logger::Level::ERR)) \
+            break;                                                                       \
+        std::ostringstream oss_;                                                         \
+        oss_ << (msg);                                                                   \
+        std::cerr << "[ERROR] [croupier] " << oss_.str() << '\n';                        \
     } while (0)
 
-#define SDK_LOG_DEBUG(msg)                                                                        \
-    do {                                                                                          \
-        if (!croupier::sdk::Logger::GetInstance().IsEnabled(croupier::sdk::Logger::Level::DEBUG)) \
-            break;                                                                                \
-        std::ostringstream oss_;                                                                  \
-        oss_ << (msg);                                                                            \
-        std::cout << "[DEBUG] [croupier] " << oss_.str() << '\n';                                 \
+#define SDK_LOG_DEBUG(msg)                                                               \
+    do {                                                                                 \
+        if (!::croupier::sdk::Logger::GetInstance().IsEnabled(::croupier::sdk::Logger::Level::DEBUG)) \
+            break;                                                                       \
+        std::ostringstream oss_;                                                         \
+        oss_ << (msg);                                                                   \
+        std::cout << "[DEBUG] [croupier] " << oss_.str() << '\n';                        \
     } while (0)
 
-namespace croupier {
-namespace sdk {
+namespace croupier::sdk {
 
 namespace {
 [[maybe_unused]] std::string EscapeJsonString(const std::string& value) {
@@ -177,7 +176,7 @@ TCPAddress ParseTCPAddress(const std::string& address) {
     return TCPAddress{host, port, normalized};
 }
 
-std::string NormalizeProviderTaskEventType(const croupier::sdk::v1::TaskEvent& event) {
+std::string NormalizeProviderTaskEventType(const ::croupier::sdk::v1::TaskEvent& event) {
     if (event.type() == "done") {
         return "completed";
     }
@@ -208,7 +207,7 @@ T ParseMessage(const std::vector<uint8_t>& bytes, const std::string& type_name) 
     return message;
 }
 
-TaskEvent ToTaskEvent(const std::string& task_id, const croupier::sdk::v1::TaskEvent& event) {
+TaskEvent ToTaskEvent(const std::string& task_id, const ::croupier::sdk::v1::TaskEvent& event) {
     TaskEvent result;
     result.event_type = NormalizeProviderTaskEventType(event);
     result.task_id = task_id;
@@ -254,7 +253,7 @@ std::string NewIdempotencyKey() {
 bool ValidateJSON(const std::string& json, const std::map<std::string, std::string>& schema) {
     // If no schema provided, just check if JSON is valid
     if (schema.empty()) {
-        return croupier::sdk::utils::JsonUtils::IsValidJson(json);
+        return ::croupier::sdk::utils::JsonUtils::IsValidJson(json);
     }
 
     // Convert schema map to JSON schema string
@@ -277,7 +276,7 @@ bool ValidateJSON(const std::string& json, const std::map<std::string, std::stri
     schema_json += "}";
 
     // Use the new JSON schema validation
-    return croupier::sdk::utils::JsonUtils::ValidateJsonSchema(json, schema_json);
+    return ::croupier::sdk::utils::JsonUtils::ValidateJsonSchema(json, schema_json);
 }
 
 std::map<std::string, std::string> ParseJSON(const std::string& json) {
@@ -687,7 +686,7 @@ public:
     }
 
     std::string registerWithAgent(TCPTransport& transport) {
-        croupier::sdk::v1::ProviderConnectRequest request;
+        ::croupier::sdk::v1::ProviderConnectRequest request;
         request.set_service_id(config_.service_id);
         request.set_version(config_.service_version);
         request.set_sdk_language("cpp");
@@ -723,7 +722,7 @@ public:
 
         auto [_, response_body] = transport.Call(protocol::MSG_PROVIDER_CONNECT_REQUEST, SerializeMessage(request));
         auto response =
-            ParseMessage<croupier::sdk::v1::ProviderConnectResponse>(response_body, "ProviderConnectResponse");
+            ParseMessage<::croupier::sdk::v1::ProviderConnectResponse>(response_body, "ProviderConnectResponse");
         if (response.session_id().empty()) {
             throw std::runtime_error("ProviderConnect returned empty session_id");
         }
@@ -763,7 +762,7 @@ public:
     }
 
     void sendHeartbeat() {
-        croupier::sdk::v1::ProviderHeartbeatRequest request;
+        ::croupier::sdk::v1::ProviderHeartbeatRequest request;
         request.set_service_id(config_.service_id);
         request.set_session_id(session_id_);
 
@@ -975,7 +974,7 @@ public:
             return response.str();
         }
 
-        croupier::sdk::v1::InvokeRequest req;
+        ::croupier::sdk::v1::InvokeRequest req;
         req.set_function_id(function_id);
         req.set_idempotency_key(options.idempotency_key.empty() ? utils::NewIdempotencyKey() : options.idempotency_key);
         req.set_payload(payload);
@@ -1014,7 +1013,7 @@ public:
         }
 
         auto [_, response_body] = transport_->Call(protocol::MSG_INVOKE_REQUEST, SerializeMessage(req));
-        auto response = ParseMessage<croupier::sdk::v1::InvokeResponse>(response_body, "InvokeResponse");
+        auto response = ParseMessage<::croupier::sdk::v1::InvokeResponse>(response_body, "InvokeResponse");
         return response.payload();
     }
 
@@ -1089,7 +1088,7 @@ public:
     std::string startJobInternal(const std::string& function_id, const std::string& payload,
                                  const InvokeOptions& options) {
         if (IsTCPAddress(config_.address)) {
-            croupier::sdk::v1::InvokeRequest req;
+            ::croupier::sdk::v1::InvokeRequest req;
             req.set_function_id(function_id);
             req.set_idempotency_key(options.idempotency_key.empty() ? utils::NewIdempotencyKey() : options.idempotency_key);
             req.set_payload(payload);
@@ -1132,7 +1131,7 @@ public:
                 response_body = std::move(response.second);
             }
 
-            auto response = ParseMessage<croupier::sdk::v1::StartTaskResponse>(response_body, "StartTaskResponse");
+            auto response = ParseMessage<::croupier::sdk::v1::StartTaskResponse>(response_body, "StartTaskResponse");
             if (response.task_id().empty()) {
                 throw std::runtime_error("StartTask response did not include job ID");
             }
@@ -1255,7 +1254,7 @@ public:
                 }
 
                 for (int attempt = 0; attempt < 120; ++attempt) {
-                    croupier::sdk::v1::TaskStreamRequest req;
+                    ::croupier::sdk::v1::TaskStreamRequest req;
                     req.set_task_id(task_id);
 
                     std::vector<uint8_t> response_body;
@@ -1273,7 +1272,7 @@ public:
                         response_body = std::move(response.second);
                     }
 
-                    auto proto_event = ParseMessage<croupier::sdk::v1::TaskEvent>(response_body, "TaskEvent");
+                    auto proto_event = ParseMessage<::croupier::sdk::v1::TaskEvent>(response_body, "TaskEvent");
                     TaskEvent event = ToTaskEvent(task_id, proto_event);
                     if (events.empty() || !SameTaskEvent(events.back(), event)) {
                         events.push_back(event);
@@ -1357,7 +1356,7 @@ public:
                 return false;
             }
 
-            croupier::sdk::v1::CancelTaskRequest req;
+            ::croupier::sdk::v1::CancelTaskRequest req;
             req.set_task_id(task_id);
 
             {
@@ -1853,7 +1852,7 @@ VirtualObjectDescriptor LoadObjectDescriptor(const std::string& file_path) {
         }
 #else
         // Fallback: use simple JSON parsing
-        auto json_simple = utils::JsonUtils::ParseJson(json_content);
+        auto json_simple = ::croupier::sdk::utils::JsonUtils::ParseJson(json_content);
 
         desc.id = json_simple.value("id", "unknown");
         desc.version = json_simple.value("version", "1.0.0");
@@ -1947,7 +1946,7 @@ ComponentDescriptor LoadComponentDescriptor(const std::string& file_path) {
         }
 #else
         // Fallback: use simple JSON parsing
-        auto json_simple = utils::JsonUtils::ParseJson(json_content);
+        auto json_simple = ::croupier::sdk::utils::JsonUtils::ParseJson(json_content);
 
         desc.id = json_simple.value("id", "unknown");
         desc.version = json_simple.value("version", "1.0.0");
@@ -2094,7 +2093,7 @@ VirtualObjectDescriptor ParseObjectDescriptor(const std::string& json) {
     VirtualObjectDescriptor desc;
 
 #ifdef CROUPIER_SDK_ENABLE_JSON
-    auto json_obj = utils::JsonUtils::ParseJson(json);
+    auto json_obj = ::croupier::sdk::utils::JsonUtils::ParseJson(json);
 
     desc.id = json_obj.value("id", "");
     desc.version = json_obj.value("version", "");
@@ -2135,7 +2134,7 @@ ComponentDescriptor ParseComponentDescriptor(const std::string& json) {
     ComponentDescriptor comp;
 
 #ifdef CROUPIER_SDK_ENABLE_JSON
-    auto json_obj = utils::JsonUtils::ParseJson(json);
+    auto json_obj = ::croupier::sdk::utils::JsonUtils::ParseJson(json);
 
     comp.id = json_obj.value("id", "");
     comp.version = json_obj.value("version", "");
@@ -2260,5 +2259,4 @@ std::string ComponentDescriptorToJSON(const ComponentDescriptor& comp) {
 
 }  // namespace utils
 
-}  // namespace sdk
-}  // namespace croupier
+}  // namespace croupier::sdk

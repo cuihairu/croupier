@@ -2,10 +2,16 @@
 
 #include "croupier/sdk/utils/json_utils.h"
 
+#include <cstdint>      // for std::uint8_t, size_t
+#include <ctime>        // for std::time
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <sstream>
 #include <stdexcept>
+#include <string>
+#include <utility>      // for std::move
+#include <vector>
 
 // Platform-specific dynamic library headers
 #ifdef _WIN32
@@ -28,12 +34,12 @@ struct JsonValue {
     enum class Type : std::uint8_t { STRING, OBJECT, ARRAY } type;
 
     JsonValue() : type(Type::STRING) {}
-    JsonValue(const std::string& s) : str_value(s), type(Type::STRING) {}
+    explicit JsonValue(std::string s) : str_value(std::move(s)), type(Type::STRING) {}
 };
 
 class JsonParser {
 public:
-    static JsonValue parse(const std::string& content) {
+    static JsonValue Parse(const std::string& content) {
         // 简化实现：仅支持基础 JSON 结构
         JsonValue result;
         result.type = JsonValue::Type::OBJECT;
@@ -57,8 +63,7 @@ using json = simple_json::JsonValue;
 using JsonParser = simple_json::JsonParser;
 #endif
 
-namespace croupier {
-namespace sdk {
+namespace croupier::sdk {
 
 ConfigDrivenLoader::ConfigDrivenLoader() {
     // Set默认的动态库Load器
@@ -67,9 +72,7 @@ ConfigDrivenLoader::ConfigDrivenLoader() {
     };
 }
 
-ConfigDrivenLoader::~ConfigDrivenLoader() {
-    // 清理资源（如果有动态库句柄需要清理）
-}
+ConfigDrivenLoader::~ConfigDrivenLoader() = default;
 
 // ========== Handler器Register机制 ==========
 
@@ -93,7 +96,7 @@ void ConfigDrivenLoader::SetDynamicLibLoader(DynamicLibLoader loader) {
 ComponentDescriptor ConfigDrivenLoader::LoadComponentFromFile(const std::string& config_file) {
     std::cout << "📂 从FileLoadComponentConfiguration: " << config_file << '\n';
 
-    std::string content = LoadFileContent(config_file);
+    const std::string content = LoadFileContent(config_file);
     if (content.empty()) {
         throw std::runtime_error("Unable to读取ConfigurationFile: " + config_file);
     }
@@ -139,7 +142,7 @@ bool ConfigDrivenLoader::LoadAndRegisterComponent(CroupierClient& client, const 
         }
 
         // 4. Register component with client
-        bool success = client.RegisterComponent(component);
+        const bool success = client.RegisterComponent(component);
 
         if (success) {
             std::cout << "✅ ComponentRegisterSuccess: " << component.id << '\n';
@@ -225,7 +228,7 @@ bool ConfigDrivenLoader::ValidateConfigFile(const std::string& config_file) {
     std::cout << "✅ ValidateConfigurationFile: " << config_file << '\n';
 
     try {
-        std::string content = LoadFileContent(config_file);
+        const std::string content = LoadFileContent(config_file);
         return ValidateJsonConfig(content);
     } catch (const std::exception& e) {
         std::cerr << "❌ FileValidateFailed: " << e.what() << '\n';
@@ -443,21 +446,25 @@ FunctionHandler ConfigDrivenLoader::CreateHandlerFromConfig(const std::string& f
 
     if (handler_type == "echo") {
         return BasicHandlerFactory::CreateEchoHandler(config);
-    } else if (handler_type == "error") {
+    }
+    if (handler_type == "error") {
         auto msg_it = config.find("message");
-        std::string message = (msg_it != config.end()) ? msg_it->second : "Handler器Error";
+        const std::string message = (msg_it != config.end()) ? msg_it->second : "Handler器Error";
         return BasicHandlerFactory::CreateErrorHandler(message);
-    } else if (handler_type == "proxy") {
+    }
+    if (handler_type == "proxy") {
         auto url_it = config.find("target_url");
         if (url_it != config.end()) {
             return BasicHandlerFactory::CreateProxyHandler(url_it->second, config);
         }
-    } else if (handler_type == "template") {
+    }
+    if (handler_type == "template") {
         auto template_it = config.find("template");
         if (template_it != config.end()) {
             return BasicHandlerFactory::CreateTemplateHandler(template_it->second, config);
         }
-    } else if (handler_type == "dynamic_lib") {
+    }
+    if (handler_type == "dynamic_lib") {
         auto lib_it = config.find("library");
         auto func_it = config.find("function");
         if (lib_it != config.end() && func_it != config.end() && dynamic_lib_loader_) {
@@ -517,14 +524,14 @@ FunctionHandler ConfigDrivenLoader::LoadFromDynamicLib(const std::string& lib_pa
 #else
     // Unix 动态库Load
     void* handle = dlopen(lib_path.c_str(), RTLD_LAZY);
-    if (!handle) {
+    if (handle == nullptr) {
         std::cerr << "❌ Unable toLoad动态库: " << lib_path << " - " << dlerror() << '\n';
         return nullptr;
     }
 
     typedef const char* (*HandlerFunc)(const char* context, const char* payload);
-    HandlerFunc func = (HandlerFunc)dlsym(handle, function_name.c_str());
-    if (!func) {
+    auto func = reinterpret_cast<HandlerFunc>(dlsym(handle, function_name.c_str()));
+    if (func == nullptr) {
         std::cerr << "❌ Unable to找到Function: " << function_name << " - " << dlerror() << '\n';
         dlclose(handle);
         return nullptr;
@@ -536,7 +543,7 @@ FunctionHandler ConfigDrivenLoader::LoadFromDynamicLib(const std::string& lib_pa
     // Create包装器，将 C 风格Function包装成 std::function
     return [func](const std::string& context, const std::string& payload) -> std::string {
         const char* result = func(context.c_str(), payload.c_str());
-        return result ? std::string(result) : "{}";
+        return (result != nullptr) ? std::string(result) : "{}";
     };
 }
 
@@ -623,5 +630,4 @@ FunctionHandler BasicHandlerFactory::CreateTemplateHandler(const std::string& te
     };
 }
 
-}  // namespace sdk
-}  // namespace croupier
+}  // namespace croupier::sdk

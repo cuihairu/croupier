@@ -4,6 +4,10 @@
 #include <iostream>
 #include <regex>
 #include <sstream>
+#include <string>
+#include <vector>
+#include <cstddef>
+#include <ctime>
 
 #ifdef CROUPIER_SDK_ENABLE_JSON
 #include <nlohmann/json.hpp>
@@ -18,26 +22,23 @@ using json = nlohmann::json;
 #else
 #include <dirent.h>
 #include <sys/stat.h>
-#include <unistd.h>
+#include <cerrno>
 #endif
 
-namespace croupier {
-namespace sdk {
+namespace croupier::sdk {
 
 ConfigManager::ConfigManager() {
     std::cout << "📋 配置管理器已初始化" << '\n';
 }
 
-ConfigManager::~ConfigManager() {
-    // 清理资源
-}
+ConfigManager::~ConfigManager() = default;
 
 // ========== 客户端配置加载 ==========
 
 ClientConfig ConfigManager::LoadClientConfig(const std::string& config_file) {
     std::cout << "📂 从文件加载客户端配置: " << config_file << '\n';
 
-    std::string content = LoadFileContent(config_file);
+    const std::string content = LoadFileContent(config_file);
     if (content.empty()) {
         throw std::runtime_error("无法读取配置文件: " + config_file);
     }
@@ -146,8 +147,8 @@ ConfigManager::ApplicationConfig ConfigManager::LoadApplicationConfig(const std:
     for (const auto& file : component_files) {
         try {
             ConfigDrivenLoader loader;
-            ComponentDescriptor comp = loader.LoadComponentFromFile(file);
-            app_config.components.push_back(comp);
+            const ComponentDescriptor comp = loader.LoadComponentFromFile(file);
+            app_config.components.emplace_back(comp);
             std::cout << "✅ 组件配置加载成功: " << comp.id << '\n';
         } catch (const std::exception& e) {
             std::cout << "⚠️ 组件配置加载失败: " << file << " - " << e.what() << '\n';
@@ -158,7 +159,7 @@ ConfigManager::ApplicationConfig ConfigManager::LoadApplicationConfig(const std:
     auto schema_files = ListFiles(config_dir + "/schemas", ".json");
     for (const auto& file : schema_files) {
         try {
-            VirtualObjectSchema schema = LoadVirtualObjectSchema(file);
+            const VirtualObjectSchema schema = LoadVirtualObjectSchema(file);
             app_config.schemas[schema.id] = schema;
             std::cout << "✅ Schema 加载成功: " << schema.id << '\n';
         } catch (const std::exception& e) {
@@ -253,33 +254,33 @@ std::vector<std::string> ConfigManager::ValidateClientConfig(const ClientConfig&
     std::vector<std::string> errors;
 
     if (config.game_id.empty()) {
-        errors.push_back("game_id 不能为空");
+        errors.emplace_back("game_id 不能为空");
     }
 
     if (config.agent_addr.empty()) {
-        errors.push_back("agent_addr 不能为空");
+        errors.emplace_back("agent_addr 不能为空");
     }
 
     if (config.timeout_seconds <= 0) {
-        errors.push_back("timeout_seconds 必须大于 0");
+        errors.emplace_back("timeout_seconds 必须大于 0");
     }
 
     // 验证地址格式
-    std::regex addr_pattern(R"(^.+:\d+$)");
+    const std::regex addr_pattern(R"(^.+:\d+$)");
     if (!std::regex_match(config.agent_addr, addr_pattern)) {
-        errors.push_back("agent_addr 格式不正确，应为 host:port");
+        errors.emplace_back("agent_addr 格式不正确，应为 host:port");
     }
 
     // 验证 TLS 配置
     if (!config.insecure) {
         if (config.cert_file.empty()) {
-            errors.push_back("启用 TLS 时，cert_file 不能为空");
+            errors.emplace_back("启用 TLS 时，cert_file 不能为空");
         }
         if (config.key_file.empty()) {
-            errors.push_back("启用 TLS 时，key_file 不能为空");
+            errors.emplace_back("启用 TLS 时，key_file 不能为空");
         }
         if (config.ca_file.empty()) {
-            errors.push_back("启用 TLS 时，ca_file 不能为空");
+            errors.emplace_back("启用 TLS 时，ca_file 不能为空");
         }
     }
 
@@ -290,50 +291,43 @@ std::vector<std::string> ConfigManager::ValidateApplicationConfig(const Applicat
     std::vector<std::string> errors;
 
     // 验证客户端配置
-    auto client_errors = ValidateClientConfig(app_config.client_config);
+    const auto client_errors = ValidateClientConfig(app_config.client_config);
     errors.insert(errors.end(), client_errors.begin(), client_errors.end());
 
     // 验证组件配置
     for (size_t i = 0; i < app_config.components.size(); ++i) {
         const auto& comp = app_config.components[i];
-        std::string prefix = "组件[" + std::to_string(i) + "]: ";
+        const std::string prefix = "组件[" + std::to_string(i) + "]: ";
 
         if (comp.id.empty()) {
-            errors.push_back(prefix + "组件 ID 不能为空");
+            errors.emplace_back(prefix + "组件 ID 不能为空");
         }
         if (comp.version.empty()) {
-            errors.push_back(prefix + "组件版本不能为空");
+            errors.emplace_back(prefix + "组件版本不能为空");
         }
     }
 
     // 验证 Schema 定义
     for (const auto& [schema_id, schema] : app_config.schemas) {
-        std::string prefix = "Schema[" + schema_id + "]: ";
+        const std::string prefix = "Schema[" + schema_id + "]: ";
 
         if (schema.id.empty()) {
-            errors.push_back(prefix + "Schema ID 不能为空");
+            errors.emplace_back(prefix + "Schema ID 不能为空");
         }
         if (schema.version.empty()) {
-            errors.push_back(prefix + "Schema 版本不能为空");
+            errors.emplace_back(prefix + "Schema 版本不能为空");
         }
 
         // 验证字段定义
         for (const auto& [field_name, field] : schema.fields) {
             if (field.type.empty()) {
-                std::string error_msg = prefix;
-                error_msg += "字段[";
-                error_msg += field_name;
-                error_msg += "]类型不能为空";
-                errors.push_back(error_msg);
+                const std::string error_msg = prefix + "字段[" + field_name + "]类型不能为空";
+                errors.emplace_back(error_msg);
             }
             if (field.type != "string" && field.type != "int" && field.type != "float" && field.type != "bool" &&
                 field.type != "object" && field.type != "array") {
-                std::string error_msg = prefix;
-                error_msg += "字段[";
-                error_msg += field_name;
-                error_msg += "]类型无效: ";
-                error_msg += field.type;
-                errors.push_back(error_msg);
+                const std::string error_msg = prefix + "字段[" + field_name + "]类型无效: " + field.type;
+                errors.emplace_back(error_msg);
             }
         }
     }
@@ -466,15 +460,13 @@ std::vector<std::string> ConfigManager::ListFiles(const std::string& directory, 
 #else
     DIR* dir = opendir(directory.c_str());
     if (dir != nullptr) {
-        struct dirent* entry;
+        struct dirent* entry = nullptr;
         while ((entry = readdir(dir)) != nullptr) {
-            std::string filename = entry->d_name;
+            const std::string filename = entry->d_name;
             if (filename.length() >= file_extension.length() &&
                 filename.substr(filename.length() - file_extension.length()) == file_extension) {
-                std::string file_path = directory;
-                file_path += "/";
-                file_path += filename;
-                files.push_back(file_path);
+                const std::string file_path = directory + "/" + filename;
+                files.emplace_back(file_path);
             }
         }
         closedir(dir);
@@ -744,5 +736,4 @@ ClientConfig ConfigManager::CreateDefaultClientConfig() {
 
 #endif  // CROUPIER_SDK_ENABLE_JSON
 
-}  // namespace sdk
-}  // namespace croupier
+}  // namespace croupier::sdk

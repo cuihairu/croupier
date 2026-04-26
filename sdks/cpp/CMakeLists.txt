@@ -276,6 +276,7 @@ else()
     add_compile_options(
         -Wno-deprecated-declarations    # Suppress protobuf deprecated API warnings
         -Wno-unused-parameter           # Suppress gRPC unused parameter warnings
+        -Wno-sign-compare               # Suppress sign comparison warnings in generated code
     )
 
     # Enable debug info in release builds for better profiling
