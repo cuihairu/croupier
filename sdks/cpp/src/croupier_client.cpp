@@ -201,6 +201,19 @@ std::vector<uint8_t> SerializeMessage(const google::protobuf::Message& message) 
 template <typename T>
 T ParseMessage(const std::vector<uint8_t>& bytes, const std::string& type_name) {
     T message;
+
+    // Debug: log raw response bytes (first 32 bytes in hex)
+    std::string hex_debug;
+    size_t max_bytes = std::min(size_t(32), bytes.size());
+    for (size_t i = 0; i < max_bytes; ++i) {
+        char buf[4];
+        snprintf(buf, sizeof(buf), "%02X", bytes[i]);
+        hex_debug += buf;
+        if (i < max_bytes - 1) hex_debug += " ";
+        if (bytes.size() > 32 && i == 15) hex_debug += "... ";
+    }
+    SDK_LOG_DEBUG("Parsing " + type_name + ": size=" + std::to_string(bytes.size()) + " bytes, hex=" + hex_debug);
+
     if (!message.ParseFromArray(bytes.data(), static_cast<int>(bytes.size()))) {
         throw std::runtime_error("failed to parse protobuf message: " + type_name);
     }
