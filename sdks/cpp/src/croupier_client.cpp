@@ -737,8 +737,17 @@ public:
         auto [msg_id, response_body] = transport.Call(protocol::MSG_PROVIDER_CONNECT_REQUEST, SerializeMessage(request));
 
         // Debug: log response details
+        std::string hex_resp;
+        for (size_t i = 0; i < std::min(size_t(50), response_body.size()); ++i) {
+            char buf[4];
+            snprintf(buf, sizeof(buf), "%02X", response_body[i]);
+            hex_resp += buf;
+            if (i < 49) hex_resp += " ";
+        }
         std::cerr << "[DEBUG] ProviderConnect response: msg_id=" << msg_id
-                  << ", body_size=" << response_body.size() << '\n';
+                  << " (0x" << std::hex << msg_id << std::dec << ")"
+                  << ", body_size=" << response_body.size()
+                  << ", hex=" << hex_resp << '\n';
 
         auto response =
             ParseMessage<::croupier::sdk::v1::ProviderConnectResponse>(response_body, "ProviderConnectResponse");
