@@ -45,7 +45,9 @@ public class CroupierInvokerTests
             ServiceId = "test-invoker",
             GameId = "test-game",
             Env = "test",
-            Insecure = true
+            Insecure = true,
+            TimeoutSeconds = 30,
+            ConnectTimeoutSeconds = 10  // Increased for CI environment
         };
     }
 
