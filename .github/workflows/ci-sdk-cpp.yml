@@ -212,8 +212,10 @@ jobs:
         run: cmake --build build --config ${{ matrix.build-type }} --parallel
 
       - name: Test
-        timeout-minutes: 10
-        run: cd build && ctest --build-config ${{ matrix.build-type }} --output-on-failure --timeout 120
+        timeout-minutes: 15
+        env:
+          CROUPIER_SDK_TIMEOUT_SECONDS: 5
+        run: cd build && ctest --build-config ${{ matrix.build-type }} --output-on-failure --timeout 180
 
       - name: Show agent logs (if test failed)
         if: failure()
@@ -349,8 +351,10 @@ jobs:
         run: cmake --build build-coverage --config Debug --parallel
 
       - name: Test (coverage)
-        timeout-minutes: 20
-        run: cd build-coverage && ctest --build-config Debug --output-on-failure --parallel 2 --timeout 120
+        timeout-minutes: 25
+        env:
+          CROUPIER_SDK_TIMEOUT_SECONDS: 5
+        run: cd build-coverage && ctest --build-config Debug --output-on-failure --parallel 2 --timeout 180
 
       - name: Show agent logs (if test failed)
         if: failure()

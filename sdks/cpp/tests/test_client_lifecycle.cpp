@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <cstdlib>
 #include "croupier/sdk/croupier_client.h"
 #include "croupier/sdk/config/client_config_loader.h"
 #include <thread>
@@ -17,6 +18,15 @@ protected:
         // 使用非阻塞模式进行测试
         config.blocking_connect = false;
         config.auto_reconnect = false;
+
+        // 支持通过环境变量覆盖 timeout_seconds（CI中使用）
+        if (const char* timeout_env = std::getenv("CROUPIER_SDK_TIMEOUT_SECONDS")) {
+            try {
+                config.timeout_seconds = std::stoi(timeout_env);
+            } catch (...) {
+                // 保持默认值
+            }
+        }
 
         client = std::make_unique<CroupierClient>(config);
 

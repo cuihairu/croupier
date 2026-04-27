@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <cstdlib>
 #include "croupier/sdk/croupier_client.h"
 #include <thread>
 #include <chrono>
@@ -22,6 +23,18 @@ protected:
         // Set short connection timeout for tests (3 seconds)
         // This prevents tests from hanging when no agent is running (e.g., in CI)
         config.connect_timeout_seconds = 3;
+
+        // 支持通过环境变量覆盖 timeout_seconds（CI中使用）
+        if (const char* timeout_env = std::getenv("CROUPIER_SDK_TIMEOUT_SECONDS")) {
+            try {
+                config.timeout_seconds = std::stoi(timeout_env);
+            } catch (...) {
+                // 保持默认值
+                config.timeout_seconds = 5;  // 默认5秒
+            }
+        } else {
+            config.timeout_seconds = 5;  // 集成测试默认5秒
+        }
 
         client = std::make_unique<CroupierClient>(config);
     }
