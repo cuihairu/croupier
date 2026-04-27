@@ -758,10 +758,12 @@ public:
 
         auto response =
             ParseMessage<::croupier::sdk::v1::ProviderConnectResponse>(response_body, "ProviderConnectResponse");
-        if (response.session_id().empty()) {
+        // Copy session_id to avoid dangling reference
+        std::string session_id = response.session_id();
+        if (session_id.empty()) {
             throw std::runtime_error("ProviderConnect returned empty session_id");
         }
-        return response.session_id();
+        return session_id;
     }
 
     void startHeartbeatLoop() {
