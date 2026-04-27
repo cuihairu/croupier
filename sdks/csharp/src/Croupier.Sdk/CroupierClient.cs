@@ -436,7 +436,10 @@ public partial class CroupierClient : IDisposable
 
     private async Task ConnectAndRegisterAsync(CancellationToken cancellationToken)
     {
-        var address = _config.AgentAddr.StartsWith("tcp://") ? _config.AgentAddr : $"tcp://{_config.AgentAddr}";
+        // Remove tcp:// prefix if present, as TCPTransport expects raw "host:port" format
+        var address = _config.AgentAddr.StartsWith("tcp://")
+            ? _config.AgentAddr["tcp://".Length..]
+            : _config.AgentAddr;
         var transport = _transportFactory(address, _config.TimeoutSeconds * 1000, _config.ConnectTimeoutSeconds * 1000, _logger);
         transport.Connect();
 
@@ -496,7 +499,10 @@ public partial class CroupierClient : IDisposable
             return;
         }
 
-        var address = _config.ControlAddr.StartsWith("tcp://") ? _config.ControlAddr : $"tcp://{_config.ControlAddr}";
+        // Remove tcp:// prefix if present, as TCPTransport expects raw "host:port" format
+        var address = _config.ControlAddr.StartsWith("tcp://")
+            ? _config.ControlAddr["tcp://".Length..]
+            : _config.ControlAddr;
         using var transport = _transportFactory(address, _config.TimeoutSeconds * 1000, _config.ConnectTimeoutSeconds * 1000, _logger);
         transport.Connect();
 
