@@ -36,6 +36,7 @@ def check_agent() -> None:
         pytest.skip(f"croupier-agent not available at {AGENT_ADDR}")
 
 
+@pytest.mark.integration
 class TestIntegrationConnect:
     """Tests for connecting to croupier-agent."""
 
@@ -181,6 +182,7 @@ class TestIntegrationConnect:
         assert client._connected is False
 
 
+@pytest.mark.integration
 class TestIntegrationHeartbeat:
     """Tests for heartbeat mechanism."""
 
@@ -212,6 +214,7 @@ class TestIntegrationHeartbeat:
         client.disconnect()
 
 
+@pytest.mark.integration
 class TestIntegrationMultipleFunctions:
     """Tests for registering multiple functions."""
 
