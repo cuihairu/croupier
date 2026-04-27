@@ -756,10 +756,16 @@ public:
             throw std::runtime_error("Agent returned error: " + json_error);
         }
 
+        std::cerr << "[DEBUG] About to call ParseMessage..." << '\n';
         auto response =
             ParseMessage<::croupier::sdk::v1::ProviderConnectResponse>(response_body, "ProviderConnectResponse");
+        std::cerr << "[DEBUG] ParseMessage returned successfully" << '\n';
+        std::cerr << "[DEBUG] About to call response.session_id()..." << '\n';
+        std::cerr << std::flush;  // Force flush
         // Copy session_id to avoid dangling reference
         std::string session_id = response.session_id();
+        std::cerr << "[DEBUG] Got session_id: " << session_id << '\n';
+        std::cerr << std::flush;  // Force flush
         if (session_id.empty()) {
             throw std::runtime_error("ProviderConnect returned empty session_id");
         }
