@@ -212,7 +212,8 @@ T ParseMessage(const std::vector<uint8_t>& bytes, const std::string& type_name) 
         if (i < max_bytes - 1) hex_debug += " ";
         if (bytes.size() > 32 && i == 15) hex_debug += "... ";
     }
-    SDK_LOG_DEBUG("Parsing " + type_name + ": size=" + std::to_string(bytes.size()) + " bytes, hex=" + hex_debug);
+    std::cerr << "[DEBUG] Parsing " << type_name << ": size=" << bytes.size()
+              << " bytes, hex=" << hex_debug << '\n';
 
     if (!message.ParseFromArray(bytes.data(), static_cast<int>(bytes.size()))) {
         throw std::runtime_error("failed to parse protobuf message: " + type_name);
@@ -736,7 +737,8 @@ public:
         auto [msg_id, response_body] = transport.Call(protocol::MSG_PROVIDER_CONNECT_REQUEST, SerializeMessage(request));
 
         // Debug: log response details
-        SDK_LOG_DEBUG("ProviderConnect response: msg_id=" + std::to_string(msg_id) + ", body_size=" + std::to_string(response_body.size()));
+        std::cerr << "[DEBUG] ProviderConnect response: msg_id=" << msg_id
+                  << ", body_size=" << response_body.size() << '\n';
 
         auto response =
             ParseMessage<::croupier::sdk::v1::ProviderConnectResponse>(response_body, "ProviderConnectResponse");
