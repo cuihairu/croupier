@@ -294,7 +294,13 @@ void TCPTransport::Close() {
     }
 
     // Now close the socket - this will unblock ReadLoop's recv() call
+    // Use shutdown() first to ensure recv() returns immediately even on Linux
     if (socket_ != INVALID_SOCKET_VALUE) {
+#ifdef _WIN32
+        shutdown(socket_, SD_BOTH);
+#else
+        shutdown(socket_, SHUT_RDWR);
+#endif
         closesocket(socket_);
         socket_ = INVALID_SOCKET_VALUE;
     }
@@ -651,7 +657,13 @@ void TCPServer::Stop() {
     running_ = false;
 
     // Close server socket to unblock accept()
+    // Use shutdown() first to ensure accept() returns immediately
     if (server_socket_ != INVALID_SOCKET_VALUE) {
+#ifdef _WIN32
+        shutdown(server_socket_, SD_BOTH);
+#else
+        shutdown(server_socket_, SHUT_RDWR);
+#endif
         closesocket(server_socket_);
         server_socket_ = INVALID_SOCKET_VALUE;
     }
@@ -671,6 +683,11 @@ void TCPServer::Stop() {
     for (auto& client : clients_to_stop) {
         client->active = false;
         if (client->socket != INVALID_SOCKET_VALUE) {
+#ifdef _WIN32
+            shutdown(client->socket, SD_BOTH);
+#else
+            shutdown(client->socket, SHUT_RDWR);
+#endif
             closesocket(client->socket);
             client->socket = INVALID_SOCKET_VALUE;
         }
