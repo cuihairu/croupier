@@ -144,6 +144,14 @@ func (h *LocalHandler) handleRequest(ctx context.Context, msgID uint32, data []b
 	case protocol.MsgRegisterCapabilitiesReq:
 		return h.handleRegisterCapabilities(ctx, data)
 
+	// Provider session messages (for SDK Provider connections)
+	case protocol.MsgProviderConnectRequest:
+		return h.handleProviderConnect(ctx, data)
+	case protocol.MsgProviderHeartbeatRequest:
+		return h.handleProviderHeartbeat(ctx, data)
+	case protocol.MsgProviderDrainRequest:
+		return h.handleProviderDrain(ctx, data)
+
 	default:
 		return nil, fmt.Errorf("unknown message type: 0x%06X", msgID)
 	}
@@ -648,4 +656,105 @@ func fnvIndex(key string, mod int) int {
 		h *= 16777619
 	}
 	return int(h % uint32(mod))
+}
+
+// handleProviderConnect handles ProviderConnectRequest from SDK Providers.
+// This allows SDK Providers to register their functions with the Agent.
+func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) ([]byte, error) {
+	req := &sdkv1.ProviderConnectRequest{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal ProviderConnectRequest: %w", err)
+	}
+
+	if req.ServiceId == "" {
+		return nil, fmt.Errorf("service_id is required")
+	}
+
+	sessionID := fmt.Sprintf("ps-%d", time.Now().UnixNano())
+
+	// Use sessionID as providerID for tracking
+	// Register all functions from the provider in a single call
+	if h.store != nil && len(req.Functions) > 0 {
+		// Convert proto functions to LocalFunctionDescriptor
+		funcs := make([]*sdkv1.LocalFunctionDescriptor, len(req.Functions))
+		for i, fn := range req.Functions {
+			funcs[i] = &sdkv1.LocalFunctionDescriptor{
+				Id:          fn.Id,
+				Version:     fn.Version,
+				Tags:        fn.Tags,
+				Summary:     fn.Summary,
+				Description: fn.Description,
+				OperationId: fn.OperationId,
+				Deprecated:  fn.Deprecated,
+				InputSchema: fn.InputSchema,
+				OutputSchema: fn.OutputSchema,
+			}
+		}
+		h.store.Register(sessionID, req.ServiceId, req.Version, funcs)
+	}
+
+	h.logger.Info("Provider connected via TCP session",
+		"service_id", req.ServiceId,
+		"version", req.Version,
+		"session_id", sessionID,
+		"sdk_language", req.SdkLanguage,
+		"sdk_version", req.SdkVersion,
+		"functions", len(req.Functions),
+	)
+
+	resp := &sdkv1.ProviderConnectResponse{
+		SessionId: sessionID,
+	}
+	return proto.Marshal(resp)
+}
+
+// handleProviderHeartbeat handles ProviderHeartbeatRequest from SDK Providers.
+func (h *LocalHandler) handleProviderHeartbeat(ctx context.Context, data []byte) ([]byte, error) {
+	req := &sdkv1.ProviderHeartbeatRequest{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal ProviderHeartbeatRequest: %w", err)
+	}
+
+	if req.SessionId == "" {
+		return nil, fmt.Errorf("session_id is required")
+	}
+
+	// Re-register to update LastSeen timestamp
+	if h.store != nil {
+		snap := h.store.List()
+		for _, instances := range snap {
+			for _, inst := range instances {
+				if inst.ProviderID == req.SessionId {
+					// Re-register with current timestamp to update LastSeen
+					h.store.Register(inst.ProviderID, inst.Addr, inst.Version, nil)
+				}
+			}
+		}
+	}
+
+	resp := &sdkv1.ProviderHeartbeatResponse{}
+	return proto.Marshal(resp)
+}
+
+// handleProviderDrain handles ProviderDrainRequest from SDK Providers.
+func (h *LocalHandler) handleProviderDrain(ctx context.Context, data []byte) ([]byte, error) {
+	req := &sdkv1.ProviderDrainRequest{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal ProviderDrainRequest: %w", err)
+	}
+
+	if req.SessionId == "" {
+		return nil, fmt.Errorf("session_id is required")
+	}
+
+	// Drain by registering empty function list (removes all instances for this provider)
+	if h.store != nil {
+		h.store.Register(req.SessionId, "", "", nil)
+		h.logger.Info("Provider drained",
+			"session_id", req.SessionId,
+		)
+	}
+
+	resp := &sdkv1.ProviderDrainResponse{}
+	return proto.Marshal(resp)
 }
