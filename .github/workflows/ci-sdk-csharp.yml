@@ -135,9 +135,22 @@ jobs:
         timeout-minutes: 10
         run: |
           if [ -n "$(find . -name '*.Tests.csproj')" ]; then
+            # Run tests with XPlat Code Coverage
             dotnet test --configuration Release \
               --collect:"XPlat Code Coverage" \
               -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+
+            # Find and copy coverage file to expected location
+            COVERAGE_FILE=$(find . -path "*/TestResults/*/coverage.opencover.xml" | head -1)
+            if [ -n "$COVERAGE_FILE" ]; then
+              mkdir -p coverage
+              cp "$COVERAGE_FILE" coverage/coverage.opencover.xml
+              echo "Coverage file: $COVERAGE_FILE -> coverage/coverage.opencover.xml"
+            else
+              echo "Warning: No coverage file found"
+              mkdir -p coverage
+              echo '<?xml version="1.0"?><coverage></coverage>' > coverage/coverage.xml
+            fi
           else
             echo "No test projects found, creating empty coverage report"
             mkdir -p coverage
@@ -151,8 +164,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: |
-            **/coverage.cobertura.xml
-            **/coverage.opencover.xml
-            coverage/coverage.xml
+            sdks/csharp/coverage/coverage.opencover.xml
+            sdks/csharp/coverage/coverage.xml
           flags: csharp-sdk
           fail_ci_if_error: false
