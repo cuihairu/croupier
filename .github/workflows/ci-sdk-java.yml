@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: '指定 Tag 构建 (例如: sdk-java-v1.0.0)'
+        description: "指定 Tag 构建 (例如: sdk-java-v1.0.0)"
         required: false
         type: string
 
@@ -61,10 +61,42 @@ jobs:
         timeout-minutes: 1
         run: chmod +x gradlew
 
+      - name: Start croupier-agent
+        timeout-minutes: 10
+        run: |
+          cd "${{ github.workspace }}"
+          docker pull ghcr.io/cuihairu/croupier-agent:latest || docker compose -f docker/docker-compose.ci.yml build
+          docker compose -f docker/docker-compose.ci.yml up -d
+
+          for i in {1..60}; do
+            if nc -z localhost 19090 2>/dev/null; then
+              echo "Agent is ready"
+              break
+            fi
+            if [ $i -eq 60 ]; then
+              echo "Agent failed to start"
+              docker compose -f docker/docker-compose.ci.yml logs
+              exit 1
+            fi
+            sleep 1
+          done
+
       # Proto 代码无需本地生成
-      - name: Build SDK (includes tests)
+      - name: Unit tests
         timeout-minutes: 15
         run: ./gradlew --no-daemon clean test jacocoTestReport
+
+      - name: Integration tests
+        timeout-minutes: 10
+        run: ./gradlew --no-daemon test -Dintegration=true
+
+      - name: Show agent logs (if test failed)
+        if: failure()
+        run: cd "${{ github.workspace }}" && docker compose -f docker/docker-compose.ci.yml logs
+
+      - name: Stop agent
+        if: always()
+        run: cd "${{ github.workspace }}" && docker compose -f docker/docker-compose.ci.yml down -v
 
       - name: Upload coverage to Codecov
         if: success() && matrix.java-version == '17'

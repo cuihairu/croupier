@@ -223,6 +223,11 @@ public class CroupierClientImpl implements CroupierClient {
         return serving.get();
     }
 
+    @Override
+    public String getSessionId() {
+        return sessionId;
+    }
+
     // ========== Job Management Methods ==========
 
     @Override

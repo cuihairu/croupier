@@ -41,11 +41,10 @@ def test_connect_without_functions_raises_error():
         client.connect()
 
 
+@pytest.mark.integration
 def test_connect_is_idempotent():
-    """Test that connect can be called multiple times safely (without real server)."""
-    # This test requires a real server, skip it in unit tests
-    # The actual idempotent behavior is tested in integration tests
-    pass
+    """Test that connect can be called multiple times safely (requires real server)."""
+    # Integration test - see test_integration.py for implementation
 
 
 def test_build_manifest_contains_provider_and_functions():
@@ -412,16 +411,16 @@ def test_client_has_initial_state():
     assert client._session_id == ""
 
 
+@pytest.mark.integration
 def test_connect_registers_with_agent():
     """Test connect performs RegisterLocal and stores session_id (requires real server)."""
-    # This test requires a real server, skip it in unit tests
-    pass
+    # Integration test - see test_integration.py for implementation
 
 
+@pytest.mark.integration
 def test_reconnects_and_reregisters_after_agent_restart():
     """Test heartbeat failure triggers reconnect and re-register (requires real server)."""
-    # This test requires a real server, skip it in unit tests
-    pass
+    # Integration test - see test_integration.py for implementation
 
 
 def test_client_with_custom_config():

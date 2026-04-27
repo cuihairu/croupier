@@ -22,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: '指定 Tag 构建 (例如: sdk-python-v1.0.0)'
+        description: "指定 Tag 构建 (例如: sdk-python-v1.0.0)"
         required: false
         type: string
 
@@ -114,7 +114,11 @@ jobs:
 
       - name: Unit tests
         timeout-minutes: 10
-        run: uv run pytest -q --cov=croupier --cov-report=xml --cov-report=term
+        run: uv run pytest -q --cov=croupier --cov-report=xml --cov-report=term -m 'not integration'
+
+      - name: Integration tests
+        timeout-minutes: 10
+        run: uv run pytest -q tests/test_integration.py -m integration
 
       - name: Show agent logs (if test failed)
         if: failure()

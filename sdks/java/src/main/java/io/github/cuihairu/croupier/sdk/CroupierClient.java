@@ -59,6 +59,13 @@ public interface CroupierClient {
     boolean isConnected();
 
     /**
+     * Get the current session ID from the agent
+     *
+     * @return session ID, or empty string if not connected
+     */
+    String getSessionId();
+
+    /**
      * Check if the client is serving
      *
      * @return true if serving

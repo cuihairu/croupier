@@ -58,6 +58,11 @@ public partial class CroupierClient : IDisposable
     public bool IsConnected => _isConnected && _transport != null;
 
     /// <summary>
+    /// 获取当前会话 ID
+    /// </summary>
+    public string SessionId => _sessionId;
+
+    /// <summary>
     /// 创建 Croupier 客户端实例
     /// </summary>
     /// <param name="config">客户端配置</param>

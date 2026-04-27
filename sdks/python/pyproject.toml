@@ -124,3 +124,11 @@ extend-exclude = [
     "croupier/pb/",
     "generated/",
 ]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests (require running agent)"
+]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-m 'not integration'"  # Skip integration tests by default
