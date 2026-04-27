@@ -749,6 +749,13 @@ public:
                   << ", body_size=" << response_body.size()
                   << ", hex=" << hex_resp << '\n';
 
+        // Check if response is a JSON error message from Agent
+        if (!response_body.empty() && response_body[0] == '{') {
+            std::string json_error(response_body.begin(), response_body.end());
+            std::cerr << "[ERROR] Agent returned JSON error: " << json_error << '\n';
+            throw std::runtime_error("Agent returned error: " + json_error);
+        }
+
         auto response =
             ParseMessage<::croupier::sdk::v1::ProviderConnectResponse>(response_body, "ProviderConnectResponse");
         if (response.session_id().empty()) {
