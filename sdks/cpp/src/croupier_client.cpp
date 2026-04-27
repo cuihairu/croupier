@@ -720,7 +720,11 @@ public:
             }
         }
 
-        auto [_, response_body] = transport.Call(protocol::MSG_PROVIDER_CONNECT_REQUEST, SerializeMessage(request));
+        auto [msg_id, response_body] = transport.Call(protocol::MSG_PROVIDER_CONNECT_REQUEST, SerializeMessage(request));
+
+        // Debug: log response details
+        SDK_LOG_DEBUG("ProviderConnect response: msg_id=" + std::to_string(msg_id) + ", body_size=" + std::to_string(response_body.size()));
+
         auto response =
             ParseMessage<::croupier::sdk::v1::ProviderConnectResponse>(response_body, "ProviderConnectResponse");
         if (response.session_id().empty()) {

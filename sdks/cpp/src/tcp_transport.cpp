@@ -466,6 +466,10 @@ void TCPTransport::ReadLoop() {
         auto it = pending_responses_.find(req_id);
         if (it != pending_responses_.end()) {
             it->second->Signal(std::move(body), msg_id);
+        } else {
+            // Debug: log unmatched response
+            std::cerr << "[DEBUG] TCPTransport: Received response for unknown req_id: " << req_id
+                      << ", msg_id: " << msg_id << ", body_size: " << body_size << '\n';
         }
     }
 
