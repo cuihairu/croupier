@@ -112,7 +112,7 @@ public class CroupierClientIntegrationTests
         client.RegisterFunction(descriptor, (ctx, payload) => Task.FromResult("ok"));
 
         // Act & Assert
-        var exception = await Assert.ThrowsAnyAsyncException>(() => client.ConnectAsync());
+        var exception = await Assert.ThrowsAnyAsync<Exception>(() => client.ConnectAsync());
         _output.WriteLine($"Expected connection failure: {exception.Message}");
     }
 
