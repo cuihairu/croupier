@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <cstring>
 #include <cstddef>
+#include <iostream>
 
 #ifdef _WIN32
 #include <winsock2.h>
