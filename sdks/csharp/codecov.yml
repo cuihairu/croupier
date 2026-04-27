@@ -3,12 +3,10 @@ comment: false
 ignore:
   - "proto/**"
   - "generated/**"
-  - "croupier/pb/**"
-  - "build/**"
-  - "dist/**"
+  - "examples/**"
   - "tests/**"
 
-# 只统计 croupier 包
+# 只统计源码目录
 coverage:
   status:
     project:
@@ -16,10 +14,10 @@ coverage:
         target: auto
         base: auto
         paths:
-          - "croupier/"
+          - "src/"
     patch:
       default:
         target: auto
         base: auto
         paths:
-          - "croupier/"
+          - "src/"

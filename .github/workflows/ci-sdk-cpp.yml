@@ -376,7 +376,13 @@ jobs:
             --exclude 'build' \
             --exclude 'build-coverage' \
             --exclude 'vcpkg' \
+            --exclude 'vcpkg_installed' \
             --exclude 'tests' \
+            --exclude '_deps' \
+            --gcov-exclude 'vcpkg*' \
+            --gcov-exclude 'vcpkg_installed*' \
+            --gcov-exclude '_deps*' \
+            --gcov-exclude '/usr/include/*' \
             --gcov-ignore-parse-errors=negative_hits.warn
 
       - name: Upload coverage to Codecov

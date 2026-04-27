@@ -7,3 +7,26 @@ ignore:
   - "build-coverage/**"
   - "vcpkg/**"
   - "vcpkg_installed/**"
+  - "tests/**"
+
+# 只包含源码目录
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        base: auto
+        paths:
+          - "src/"
+          - "include/"
+    patch:
+      default:
+        target: auto
+        base: auto
+        paths:
+          - "src/"
+          - "include/"
+
+# 忽略第三方库的覆盖率数据
+github_checks:
+  annotations: false
