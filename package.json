@@ -3,9 +3,22 @@
   "private": true,
   "packageManager": "pnpm@10.28.2",
   "scripts": {
-    "format:check": "prettier -c README.md docs/index.md \"docs/development/**/*.md\" \"docs/sdks/**/*.md\" \".github/workflows/*.yml\""
+    "format:check": "prettier -c README.md docs/index.md \"docs/development/**/*.md\" \"docs/sdks/**/*.md\" \".github/workflows/*.yml\"",
+    "prepare": "husky",
+    "gofmt:check": "gofmt -l .",
+    "gofmt:fix": "gofmt -w .",
+    "go:vet": "go vet ./..."
+  },
+  "lint-staged": {
+    "*.go": [
+      "gofmt -w",
+      "go vet"
+    ],
+    "*.{md,yml,yaml}": "prettier --write"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "prettier": "^3.6.2"
   },
   "engines": {
