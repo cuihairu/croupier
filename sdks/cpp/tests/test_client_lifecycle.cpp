@@ -8,6 +8,17 @@
 using namespace croupier::sdk;
 using namespace croupier::sdk::config;
 
+// 辅助函数：应用环境变量覆盖（CI中使用）
+static void ApplyEnvTimeoutOverride(ClientConfig& config) {
+    if (const char* timeout_env = std::getenv("CROUPIER_SDK_TIMEOUT_SECONDS")) {
+        try {
+            config.timeout_seconds = std::stoi(timeout_env);
+        } catch (...) {
+            // 保持默认值
+        }
+    }
+}
+
 // 测试夹具：客户端生命周期测试
 class ClientLifecycleTest : public ::testing::Test {
 protected:
@@ -92,6 +103,7 @@ TEST_F(ClientLifecycleTest, ServeMethod) {
     // 创建用于 Serve 的客户端
     ClientConfig serve_config = loader->CreateDefaultConfig();
     serve_config.blocking_connect = false;
+    ApplyEnvTimeoutOverride(serve_config);  // CI中应用短超时
     CroupierClient serve_client(serve_config);
 
     // 注册测试函数
@@ -194,6 +206,7 @@ TEST_F(ClientLifecycleTest, MultipleStartStopCycles) {
         ClientConfig cfg = loader->CreateDefaultConfig();
         cfg.blocking_connect = false;
         cfg.auto_reconnect = false;
+        ApplyEnvTimeoutOverride(cfg);  // CI中应用短超时
         CroupierClient client1(cfg);
         register_test_func(client1);
         client1.Connect();
@@ -205,6 +218,7 @@ TEST_F(ClientLifecycleTest, MultipleStartStopCycles) {
         ClientConfig cfg = loader->CreateDefaultConfig();
         cfg.blocking_connect = false;
         cfg.auto_reconnect = false;
+        ApplyEnvTimeoutOverride(cfg);  // CI中应用短超时
         CroupierClient client2(cfg);
         register_test_func(client2);
         client2.Connect();
@@ -216,6 +230,7 @@ TEST_F(ClientLifecycleTest, MultipleStartStopCycles) {
         ClientConfig cfg = loader->CreateDefaultConfig();
         cfg.blocking_connect = false;
         cfg.auto_reconnect = false;
+        ApplyEnvTimeoutOverride(cfg);  // CI中应用短超时
         CroupierClient client3(cfg);
         register_test_func(client3);
         client3.Connect();
@@ -251,6 +266,7 @@ TEST_F(ClientLifecycleTest, CompleteLifecycle) {
     ClientConfig lifecycle_config = loader->CreateDefaultConfig();
     lifecycle_config.service_id = "lifecycle-test";
     lifecycle_config.game_id = "test-game";
+    ApplyEnvTimeoutOverride(lifecycle_config);  // CI中应用短超时
 
     CroupierClient lifecycle_client(lifecycle_config);
 

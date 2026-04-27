@@ -22,6 +22,17 @@ static void RegisterTestFunction(CroupierClient& cl) {
     cl.RegisterFunction(desc, handler);
 }
 
+// 辅助函数：应用环境变量覆盖（CI中使用）
+static void ApplyEnvTimeoutOverride(ClientConfig& config) {
+    if (const char* timeout_env = std::getenv("CROUPIER_SDK_TIMEOUT_SECONDS")) {
+        try {
+            config.timeout_seconds = std::stoi(timeout_env);
+        } catch (...) {
+            // 保持默认值
+        }
+    }
+}
+
 // 测试夹具：连接管理测试
 class ClientConnectionTest : public ::testing::Test {
 protected:
@@ -145,6 +156,7 @@ TEST_F(ClientConnectionTest, NonBlockingConnect) {
     ClientConfig non_blocking_config = loader->CreateDefaultConfig();
     non_blocking_config.blocking_connect = false;
     non_blocking_config.connect_timeout_seconds = 1;
+    ApplyEnvTimeoutOverride(non_blocking_config);  // CI中应用短超时
 
     CroupierClient non_blocking_client(non_blocking_config);
     RegisterTestFunction(non_blocking_client);  // 注册测试函数
@@ -191,6 +203,7 @@ TEST_F(ClientConnectionTest, AutoReconnect) {
     reconnect_config.reconnect_interval_seconds = 1;
     reconnect_config.reconnect_max_attempts = 3;  // 最多重试3次
     reconnect_config.blocking_connect = false;
+    ApplyEnvTimeoutOverride(reconnect_config);  // CI中应用短超时
 
     CroupierClient reconnect_client(reconnect_config);
     RegisterTestFunction(reconnect_client);  // 注册测试函数
