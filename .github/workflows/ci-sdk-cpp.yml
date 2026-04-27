@@ -155,8 +155,7 @@ jobs:
           cd "${{ github.workspace }}"
 
           # 尝试拉取镜像，如果失败则本地构建
-          docker pull ghcr.io/cuihairu/croupier-agent:latest || \
-          docker compose -f docker/docker-compose.ci.yml build
+          docker pull ghcr.io/cuihairu/croupier-agent:latest || docker compose -f docker/docker-compose.ci.yml build
 
           docker compose -f docker/docker-compose.ci.yml up -d
 
@@ -218,11 +217,11 @@ jobs:
 
       - name: Show agent logs (if test failed)
         if: failure()
-        run: docker compose -f docker/docker-compose.ci.yml logs
+        run: cd "${{ github.workspace }}" && docker compose -f docker/docker-compose.ci.yml logs
 
       - name: Stop agent
         if: always()
-        run: docker compose -f docker/docker-compose.ci.yml down -v
+        run: cd "${{ github.workspace }}" && docker compose -f docker/docker-compose.ci.yml down -v
 
       - name: Upload artifacts
         timeout-minutes: 3
@@ -292,8 +291,7 @@ jobs:
           cd "${{ github.workspace }}"
 
           # 尝试拉取镜像，如果失败则本地构建
-          docker pull ghcr.io/cuihairu/croupier-agent:latest || \
-          docker compose -f docker/docker-compose.ci.yml build
+          docker pull ghcr.io/cuihairu/croupier-agent:latest || docker compose -f docker/docker-compose.ci.yml build
 
           docker compose -f docker/docker-compose.ci.yml up -d
 
@@ -356,11 +354,11 @@ jobs:
 
       - name: Show agent logs (if test failed)
         if: failure()
-        run: docker compose -f docker/docker-compose.ci.yml logs
+        run: cd "${{ github.workspace }}" && docker compose -f docker/docker-compose.ci.yml logs
 
       - name: Stop agent
         if: always()
-        run: docker compose -f docker/docker-compose.ci.yml down -v
+        run: cd "${{ github.workspace }}" && docker compose -f docker/docker-compose.ci.yml down -v
 
       - name: Generate coverage report
         timeout-minutes: 5
