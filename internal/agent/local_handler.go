@@ -679,14 +679,14 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 		funcs := make([]*sdkv1.LocalFunctionDescriptor, len(req.Functions))
 		for i, fn := range req.Functions {
 			funcs[i] = &sdkv1.LocalFunctionDescriptor{
-				Id:          fn.Id,
-				Version:     fn.Version,
-				Tags:        fn.Tags,
-				Summary:     fn.Summary,
-				Description: fn.Description,
-				OperationId: fn.OperationId,
-				Deprecated:  fn.Deprecated,
-				InputSchema: fn.InputSchema,
+				Id:           fn.Id,
+				Version:      fn.Version,
+				Tags:         fn.Tags,
+				Summary:      fn.Summary,
+				Description:  fn.Description,
+				OperationId:  fn.OperationId,
+				Deprecated:   fn.Deprecated,
+				InputSchema:  fn.InputSchema,
 				OutputSchema: fn.OutputSchema,
 			}
 		}
