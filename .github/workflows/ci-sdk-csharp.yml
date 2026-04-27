@@ -56,6 +56,8 @@ jobs:
           for i in {1..60}; do
             if nc -z localhost 19090 2>/dev/null; then
               echo "Agent is ready"
+              # Additional wait to ensure agent is fully initialized
+              sleep 3
               break
             fi
             if [ $i -eq 60 ]; then
