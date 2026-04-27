@@ -254,6 +254,18 @@ void TCPTransport::Connect() {
     // Use connect with timeout
     ConnectWithTimeout(connect_timeout_ms_);
 
+    // Set receive timeout on the connected socket to prevent blocking in ReadLoop
+#ifdef _WIN32
+    DWORD recv_timeout = timeout_ms_;
+    setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO,
+               reinterpret_cast<const char*>(&recv_timeout), sizeof(recv_timeout));
+#else
+    struct timeval tv;
+    tv.tv_sec = timeout_ms_ / 1000;
+    tv.tv_usec = (timeout_ms_ % 1000) * 1000;
+    setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+#endif
+
     connected_ = true;
     closing_ = false;
 
