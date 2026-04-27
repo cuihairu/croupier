@@ -183,3 +183,4 @@ services/server/api.api.bak
 services/server/missing_handlers.txt
 services/server/original_handlers.txt
 services/server/current_handlers.txt
+sdks/cpp/Testing/
