@@ -664,9 +664,8 @@ public:
 
         SDK_LOG_INFO("Stopping Croupier client...");
 
-#ifdef CROUPIER_SDK_HAS_NNG
+        // Always stop heartbeat loop to avoid std::terminate on thread destruction
         stopHeartbeatLoop();
-#endif
 
         // Signal reconnection thread to stop
         should_stop_reconnecting_ = true;
