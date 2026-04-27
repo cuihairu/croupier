@@ -131,4 +131,5 @@ markers = [
 ]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-m 'not integration'"  # Skip integration tests by default
+# Note: Don't use addopts to exclude integration tests, as it conflicts with -m integration in CI
+# To skip integration tests locally, run: pytest -m "not integration"
