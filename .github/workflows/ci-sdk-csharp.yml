@@ -47,7 +47,7 @@ jobs:
         run: dotnet restore
 
       - name: Start croupier-agent
-        timeout-minutes: 10
+        timeout-minutes: 30
         run: |
           cd "${{ github.workspace }}"
           docker pull ghcr.io/cuihairu/croupier-agent:latest || docker compose -f docker/docker-compose.ci.yml build
