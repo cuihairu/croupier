@@ -82,8 +82,9 @@ jobs:
         timeout-minutes: 30
         run: |
           cd "${{ github.workspace }}"
-          docker pull ghcr.io/cuihairu/croupier-agent:latest || docker compose -f docker/docker-compose.ci.yml build
-          docker compose -f docker/docker-compose.ci.yml up -d
+          # Try to pull, but continue if it fails (will build instead)
+          docker pull ghcr.io/cuihairu/croupier-agent:latest || echo "Pull failed, will build locally"
+          docker compose -f docker/docker-compose.ci.yml up -d --build
 
           for i in {1..60}; do
             if nc -z localhost 19090 2>/dev/null; then

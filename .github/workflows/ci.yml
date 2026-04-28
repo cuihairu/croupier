@@ -105,9 +105,7 @@ jobs:
         run: buf lint proto
       - name: Go mod download
         timeout-minutes: 5
-        run: |
-          go clean -modcache 2>/dev/null || true
-          go mod download
+        run: go mod download
       - name: Check gofmt
         timeout-minutes: 5
         run: |
@@ -159,9 +157,7 @@ jobs:
           fi
       - name: Go mod download
         timeout-minutes: 5
-        run: |
-          go clean -modcache 2>/dev/null || true
-          go mod download
+        run: go mod download
       - name: Run govulncheck
         timeout-minutes: 10
         run: |
@@ -195,9 +191,7 @@ jobs:
       # Proto 代码无需本地生成
       - name: Go mod download
         timeout-minutes: 5
-        run: |
-          go clean -modcache 2>/dev/null || true
-          go mod download
+        run: go mod download
       - name: Prepare storage directory
         timeout-minutes: 1
         run: mkdir -p data/uploads
@@ -461,9 +455,7 @@ jobs:
       # Proto 代码无需本地生成
       - name: Go mod download
         timeout-minutes: 5
-        run: |
-          go clean -modcache 2>/dev/null || true
-          go mod download
+        run: go mod download
       - name: Build (Linux/Mac)
         if: runner.os != 'Windows'
         timeout-minutes: 15
