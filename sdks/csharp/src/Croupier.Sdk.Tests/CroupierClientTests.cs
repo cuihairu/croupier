@@ -368,9 +368,24 @@ public class CroupierClientTests
         {
             // Arrange
             var client = new CroupierClient(CreateTestConfig());
+
+            // Register a test function before connecting
+            var descriptor = new FunctionDescriptor
+            {
+                Id = "function",
+                Category = "test",
+                Operation = "invoke"
+            };
+
+            FunctionHandlerDelegate handler = (ctx, payload) => Task.FromResult($"result: {payload}");
+            client.RegisterFunction(descriptor, handler);
+
             await client.ConnectAsync();
 
-            // Act
+            // Wait for Agent to process registration
+            await Task.Delay(500);
+
+            // Act - call the function via self-invocation
             var result = await client.InvokeAsync("test.function", "{}");
 
             // Assert
@@ -380,6 +395,22 @@ public class CroupierClientTests
         {
             // Skip if connection fails (no agent running)
             Assert.True(true, $"Connection failed - test skipped: {ex.Message}");
+        }
+        finally
+        {
+            // Ensure client is disconnected
+            try
+            {
+                var client = new CroupierClient(CreateTestConfig());
+                if (client.IsConnected)
+                {
+                    client.Disconnect();
+                }
+            }
+            catch
+            {
+                // Ignore cleanup errors
+            }
         }
     }
 
