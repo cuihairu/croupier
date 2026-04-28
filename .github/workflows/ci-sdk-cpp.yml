@@ -399,46 +399,49 @@ jobs:
           echo "=== Finding .gcno files ==="
           find build-coverage -name "*.gcno" | head -20 || echo "No .gcno files found"
 
-          # Generate coverage with gcovr (root should be the source directory)
-          if find build-coverage -name "*.gcda" | grep -q .; then
-            gcovr -r .. \
-              --xml-pretty -o coverage.xml \
-              --exclude 'tests/' \
-              --exclude '_deps/' \
-              --exclude 'vcpkg*' \
-              --exclude 'build-coverage/' \
-              --gcov-ignore-parse-errors=negative_hits.warn \
-              --print-summary || echo "gcovr failed, trying lcov..."
+          # Check if .gcda files exist (they're created when tests run)
+          if ! find build-coverage -name "*.gcda" | grep -q .; then
+            echo "ERROR: No .gcda files found - tests may not have executed properly"
+            mkdir -p coverage
+            echo '<?xml version="1.0"?><coverage></coverage>' > coverage/coverage.xml
+            exit 0
           fi
 
-          # If gcovr failed or produced empty file, use lcov
-          if [ ! -s coverage.xml ] || ! grep -q '<coverage' coverage.xml 2>/dev/null; then
-            echo "Using lcov as fallback..."
-            lcov --capture --directory build-coverage --output-file coverage.info \
-              --rc lcov_branch_coverage=1 2>/dev/null || true
-            lcov --remove coverage.info '/usr/*' --output-file coverage.info 2>/dev/null || true
-            lcov --remove coverage.info '*_deps/*' --output-file coverage.info 2>/dev/null || true
-            lcov --remove coverage.info '*/vcpkg_installed/*' --output-file coverage.info 2>/dev/null || true
+          # Generate coverage with gcovr
+          echo "=== Running gcovr ==="
+          gcovr --xml-pretty -o coverage/coverage.xml \
+            --root . \
+            --exclude 'tests/' \
+            --exclude '_deps/' \
+            --exclude 'vcpkg*' \
+            --exclude 'build-coverage/' \
+            --gcov-ignore-parse-errors=negative_hits.warn \
+            --print-summary || echo "gcovr failed"
 
-            # Convert to XML using lcov-cobertura
-            if [ -s coverage.info ]; then
-              lcov --list coverage.info
-              if command -v lcov-cobertura &>/dev/null; then
-                lcov-cobertura coverage.info -o coverage.xml || true
-              else
-                pip3 install lcov-cobertura
-                lcov-cobertura coverage.info -o coverage.xml || true
-              fi
+          # Check if coverage.xml was generated
+          if [ ! -s coverage/coverage.xml ] || ! grep -q '<coverage' coverage/coverage.xml 2>/dev/null; then
+            echo "gcovr output invalid or empty, trying lcov..."
+            # Try lcov as fallback
+            lcov --capture --directory build-coverage --output-file coverage/coverage.info \
+              --rc lcov_branch_coverage=1 2>/dev/null || true
+            lcov --remove coverage/coverage.info '/usr/*' --output-file coverage/coverage.info 2>/dev/null || true
+            lcov --remove coverage/coverage.info '*_deps/*' --output-file coverage/coverage.info 2>/dev/null || true
+            lcov --remove coverage/coverage.info '*/vcpkg_installed/*' --output-file coverage/coverage.info 2>/dev/null || true
+
+            if [ -s coverage/coverage.info ]; then
+              pip3 install lcov-cobertura
+              lcov-cobertura coverage/coverage.info -o coverage/coverage.xml || true
             fi
           fi
 
-          # Ensure coverage.xml exists even if empty
-          if [ ! -f coverage.xml ]; then
-            cat > coverage.xml << 'EOF'
-          <?xml version="1.0" ?>
-          <coverage></coverage>
-          EOF
+          # Ensure coverage.xml exists
+          if [ ! -f coverage/coverage.xml ]; then
+            mkdir -p coverage
+            echo '<?xml version="1.0"?><coverage></coverage>' > coverage/coverage.xml
           fi
+
+          echo "=== Coverage file size ==="
+          ls -la coverage/coverage.xml || true
 
       - name: Upload coverage to Codecov
         if: success()
@@ -446,7 +449,7 @@ jobs:
         uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: sdks/cpp/coverage.xml
+          files: sdks/cpp/coverage/coverage.xml
           flags: cpp-sdk
           name: cpp-sdk-coverage
           fail_ci_if_error: false
