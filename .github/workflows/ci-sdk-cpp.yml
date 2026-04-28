@@ -391,6 +391,9 @@ jobs:
       - name: Generate coverage report
         timeout-minutes: 5
         run: |
+          # Create coverage directory first (gcovr won't auto-create it)
+          mkdir -p coverage
+
           # List all .gcda files to verify they exist
           echo "=== Finding .gcda files ==="
           find build-coverage -name "*.gcda" | head -20 || echo "No .gcda files found"
