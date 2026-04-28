@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Croupier.Sdk.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+14e7fdebed071d2583a5038ae16cc8cb0d62de94")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7b78dcc9323a1a310483b6b408d2725c2f49d39e")]
 [assembly: System.Reflection.AssemblyProductAttribute("Croupier.Sdk.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Croupier.Sdk.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

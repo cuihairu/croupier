@@ -77,9 +77,9 @@
             是否已连接
             </summary>
         </member>
-        <member name="P:Croupier.Sdk.CroupierClient.LocalAddress">
+        <member name="P:Croupier.Sdk.CroupierClient.SessionId">
             <summary>
-            本地监听地址
+            获取当前会话 ID
             </summary>
         </member>
         <member name="M:Croupier.Sdk.CroupierClient.#ctor(Croupier.Sdk.Models.ClientConfig,Croupier.Sdk.Logging.ICroupierLogger)">
@@ -142,11 +142,6 @@
             </summary>
             <param name="cancellationToken">取消令牌</param>
         </member>
-        <member name="M:Croupier.Sdk.CroupierClient.OnRequestReceived(System.Object,Croupier.Sdk.Transport.RequestReceivedEventArgs)">
-            <summary>
-            Handle incoming request from Agent.
-            </summary>
-        </member>
         <member name="M:Croupier.Sdk.CroupierClient.InvokeAsync(System.String,System.String,Croupier.Sdk.Models.InvokeOptions,System.Threading.CancellationToken)">
             <summary>
             调用远程函数
@@ -202,14 +197,15 @@
             环境
             </summary>
         </member>
-        <member name="M:Croupier.Sdk.CroupierInvoker.#ctor(System.String,System.String,System.String,System.Int32,Croupier.Sdk.Logging.ICroupierLogger)">
+        <member name="M:Croupier.Sdk.CroupierInvoker.#ctor(System.String,System.String,System.String,System.Int32,System.Int32,Croupier.Sdk.Logging.ICroupierLogger)">
             <summary>
             创建调用器实例
             </summary>
             <param name="agentAddr">Agent 地址 (e.g., "tcp://127.0.0.1:19090")</param>
             <param name="gameId">游戏 ID</param>
             <param name="env">环境</param>
-            <param name="timeoutMs">超时时间（毫秒）</param>
+            <param name="timeoutMs">请求超时时间（毫秒）</param>
+            <param name="connectTimeoutMs">连接超时时间（毫秒）</param>
             <param name="logger">日志记录器</param>
         </member>
         <member name="M:Croupier.Sdk.CroupierInvoker.#ctor(Croupier.Sdk.Models.ClientConfig,Croupier.Sdk.Logging.ICroupierLogger)">
@@ -557,11 +553,6 @@
             环境
             </summary>
         </member>
-        <member name="P:Croupier.Sdk.Models.ClientConfig.LocalAddr">
-            <summary>
-            本地监听地址
-            </summary>
-        </member>
         <member name="P:Croupier.Sdk.Models.ClientConfig.ControlAddr">
             <summary>
             可选控制面地址
@@ -615,6 +606,11 @@
         <member name="P:Croupier.Sdk.Models.ClientConfig.TimeoutSeconds">
             <summary>
             连接超时（秒）
+            </summary>
+        </member>
+        <member name="P:Croupier.Sdk.Models.ClientConfig.ConnectTimeoutSeconds">
+            <summary>
+            连接尝试超时（秒）- 用于初始连接，默认 5 秒
             </summary>
         </member>
         <member name="P:Croupier.Sdk.Models.ClientConfig.HeartbeatIntervalSeconds">
@@ -987,128 +983,9 @@
             Resets the singleton instance. Primarily for testing purposes.
             </summary>
         </member>
-        <member name="T:Croupier.Sdk.Transport.NNGTransport">
-            <summary>
-            NNG-based transport client using REQ/REP pattern.
-            Uses nng.NET library for NNG communication.
-            </summary>
-        </member>
-        <member name="P:Croupier.Sdk.Transport.NNGTransport.IsConnected">
-            <summary>
-            Gets whether the transport is connected.
-            </summary>
-        </member>
-        <member name="M:Croupier.Sdk.Transport.NNGTransport.#ctor(System.String,System.Int32,Croupier.Sdk.Logging.ICroupierLogger)">
-            <summary>
-            Initialize NNG transport.
-            </summary>
-            <param name="address">NNG address (e.g., "tcp://127.0.0.1:19090")</param>
-            <param name="timeoutMs">Request timeout in milliseconds</param>
-            <param name="logger">Logger instance</param>
-        </member>
-        <member name="M:Croupier.Sdk.Transport.NNGTransport.Connect">
-            <summary>
-            Connect to the NNG server (Agent).
-            </summary>
-        </member>
-        <member name="M:Croupier.Sdk.Transport.NNGTransport.Close">
-            <summary>
-            Close the connection.
-            </summary>
-        </member>
-        <member name="M:Croupier.Sdk.Transport.NNGTransport.Call(System.Int32,System.Byte[])">
-            <summary>
-            Send a request and wait for response.
-            </summary>
-            <param name="msgType">Protocol message type (e.g., MsgInvokeRequest)</param>
-            <param name="data">Protobuf serialized request body</param>
-            <returns>Response body bytes</returns>
-        </member>
-        <member name="M:Croupier.Sdk.Transport.NNGTransport.CallAsync(System.Int32,System.Byte[],System.Threading.CancellationToken)">
-            <summary>
-            Send a request asynchronously and wait for response.
-            </summary>
-            <param name="msgType">Protocol message type</param>
-            <param name="data">Protobuf serialized request body</param>
-            <param name="cancellationToken">Cancellation token</param>
-            <returns>Response body bytes</returns>
-        </member>
-        <member name="M:Croupier.Sdk.Transport.NNGTransport.Dispose">
-            <summary>
-            Release resources.
-            </summary>
-        </member>
-        <member name="T:Croupier.Sdk.Transport.NNGServer">
-            <summary>
-            NNG-based server for receiving function calls from Agent.
-            </summary>
-        </member>
-        <member name="P:Croupier.Sdk.Transport.NNGServer.IsListening">
-            <summary>
-            Gets whether the server is listening.
-            </summary>
-        </member>
-        <member name="E:Croupier.Sdk.Transport.NNGServer.RequestReceived">
-            <summary>
-            Event raised when a request is received.
-            </summary>
-        </member>
-        <member name="M:Croupier.Sdk.Transport.NNGServer.#ctor(System.String,System.Int32,Croupier.Sdk.Logging.ICroupierLogger)">
-            <summary>
-            Initialize NNG server.
-            </summary>
-            <param name="address">NNG address to listen on (e.g., "tcp://127.0.0.1:0" for auto port)</param>
-            <param name="timeoutMs">Request timeout in milliseconds</param>
-            <param name="logger">Logger instance</param>
-        </member>
-        <member name="M:Croupier.Sdk.Transport.NNGServer.Listen">
-            <summary>
-            Start listening for connections.
-            </summary>
-        </member>
-        <member name="M:Croupier.Sdk.Transport.NNGServer.Stop">
-            <summary>
-            Stop the server.
-            </summary>
-        </member>
-        <member name="M:Croupier.Sdk.Transport.NNGServer.Dispose">
-            <summary>
-            Release resources.
-            </summary>
-        </member>
-        <member name="T:Croupier.Sdk.Transport.RequestReceivedEventArgs">
-            <summary>
-            Event arguments for request received event.
-            </summary>
-        </member>
-        <member name="P:Croupier.Sdk.Transport.RequestReceivedEventArgs.MsgId">
-            <summary>
-            Message type ID.
-            </summary>
-        </member>
-        <member name="P:Croupier.Sdk.Transport.RequestReceivedEventArgs.ReqId">
-            <summary>
-            Request ID.
-            </summary>
-        </member>
-        <member name="P:Croupier.Sdk.Transport.RequestReceivedEventArgs.Body">
-            <summary>
-            Request body.
-            </summary>
-        </member>
-        <member name="P:Croupier.Sdk.Transport.RequestReceivedEventArgs.Response">
-            <summary>
-            Response to send back.
-            </summary>
-        </member>
-        <member name="M:Croupier.Sdk.Transport.RequestReceivedEventArgs.#ctor(System.Int32,System.Int32,System.Byte[])">
-            <summary>
-            Create event args.
-            </summary>
-        </member>
         <member name="T:Croupier.Sdk.Transport.Protocol">
              <summary>
-             Croupier wire protocol implementation for NNG transport.
+             Croupier wire protocol implementation for TCP transport.
             
              Message Format:
              Header (8 bytes):
@@ -1174,6 +1051,74 @@
         <member name="M:Croupier.Sdk.Transport.Protocol.MsgIdString(System.Int32)">
             <summary>
             Get human-readable string for MsgID.
+            </summary>
+        </member>
+        <member name="T:Croupier.Sdk.Transport.TCPTransport">
+             <summary>
+             TCP-based transport client using multiplexed bidirectional communication.
+            
+             Wire Protocol:
+               Frame:   [4-byte length prefix (big-endian)][payload]
+               Payload: [8-byte header][protobuf body]
+               Header:  Version(1B) + MsgID(3B) + RequestID(4B)
+            
+             Request messages have odd MsgID, Response messages have even MsgID.
+             Multiple concurrent request/response pairs multiplex on the same connection.
+             </summary>
+        </member>
+        <member name="P:Croupier.Sdk.Transport.TCPTransport.IsConnected">
+            <summary>
+            Gets whether the transport is connected.
+            </summary>
+        </member>
+        <member name="M:Croupier.Sdk.Transport.TCPTransport.SetConnectTimeout(System.Int32)">
+            <summary>
+            Set the connection timeout (separate from request timeout).
+            </summary>
+            <param name="timeoutMs">Connection timeout in milliseconds</param>
+        </member>
+        <member name="M:Croupier.Sdk.Transport.TCPTransport.#ctor(System.String,System.Int32,System.Int32,Croupier.Sdk.Logging.ICroupierLogger)">
+            <summary>
+            Initialize TCP transport.
+            </summary>
+            <param name="address">TCP address (e.g., "127.0.0.1:19090")</param>
+            <param name="timeoutMs">Request timeout in milliseconds</param>
+            <param name="connectTimeoutMs">Connection timeout in milliseconds (default: 5000ms)</param>
+            <param name="logger">Logger instance</param>
+        </member>
+        <member name="M:Croupier.Sdk.Transport.TCPTransport.Connect">
+            <summary>
+            Connect to the TCP server (Agent) with timeout.
+            </summary>
+        </member>
+        <member name="M:Croupier.Sdk.Transport.TCPTransport.Call(System.Int32,System.Byte[])">
+            <summary>
+            Send a request and wait for the response synchronously.
+            </summary>
+        </member>
+        <member name="M:Croupier.Sdk.Transport.TCPTransport.CallAsync(System.Int32,System.Byte[],System.Threading.CancellationToken)">
+            <summary>
+            Send a request and wait for the response asynchronously.
+            </summary>
+        </member>
+        <member name="M:Croupier.Sdk.Transport.TCPTransport.ReadLoop(System.Threading.CancellationToken)">
+            <summary>
+            Background read loop that processes incoming frames.
+            </summary>
+        </member>
+        <member name="M:Croupier.Sdk.Transport.TCPTransport.ReadExactAsync(System.Int32,System.Threading.CancellationToken)">
+            <summary>
+            Read exactly n bytes from the stream.
+            </summary>
+        </member>
+        <member name="M:Croupier.Sdk.Transport.TCPTransport.WriteFrameAsync(System.Byte[],System.Threading.CancellationToken)">
+            <summary>
+            Write a length-prefixed frame to the stream.
+            </summary>
+        </member>
+        <member name="M:Croupier.Sdk.Transport.TCPTransport.Dispose">
+            <summary>
+            Close the connection and release resources.
             </summary>
         </member>
         <member name="T:Croupier.Sdk.V1.ProtobufExtensions">
@@ -1311,8 +1256,8 @@
         </member>
         <member name="T:Croupier.Sdk.V1.LocalFunctionDescriptor">
             <summary>
-            Local function registration from game servers to Agent
-            Based on OpenAPI 3.0.3 Operation Object fields
+            Provider function declaration from embedded SDK to Agent.
+            Based on OpenAPI 3.0.3 Operation Object fields.
             </summary>
         </member>
         <member name="F:Croupier.Sdk.V1.LocalFunctionDescriptor.IdFieldNumber">
@@ -1387,6 +1332,152 @@
             JSON Schema for response body
             </summary>
         </member>
+        <member name="F:Croupier.Sdk.V1.LocalFunctionDescriptor.CategoryFieldNumber">
+            <summary>Field number for the "category" field.</summary>
+        </member>
+        <member name="P:Croupier.Sdk.V1.LocalFunctionDescriptor.Category">
+            <summary>
+            OpenAPI 3.0.3 Extension fields (x-* prefix)
+            </summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.LocalFunctionDescriptor.RiskFieldNumber">
+            <summary>Field number for the "risk" field.</summary>
+        </member>
+        <member name="P:Croupier.Sdk.V1.LocalFunctionDescriptor.Risk">
+            <summary>
+            x-risk: risk level (e.g., "safe", "danger", "warning")
+            </summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.LocalFunctionDescriptor.EntityFieldNumber">
+            <summary>Field number for the "entity" field.</summary>
+        </member>
+        <member name="P:Croupier.Sdk.V1.LocalFunctionDescriptor.Entity">
+            <summary>
+            x-entity: associated entity type (e.g., "Player", "Item", "Guild")
+            </summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.LocalFunctionDescriptor.OperationFieldNumber">
+            <summary>Field number for the "operation" field.</summary>
+        </member>
+        <member name="P:Croupier.Sdk.V1.LocalFunctionDescriptor.Operation">
+            <summary>
+            x-operation: CRUD operation type (e.g., "create", "read", "update", "delete", "custom")
+            </summary>
+        </member>
+        <member name="T:Croupier.Sdk.V1.ProviderConnectRequest">
+            <summary>
+            ProviderConnectRequest establishes a provider session on the current SDK-Agent connection.
+            </summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.ProviderConnectRequest.ServiceIdFieldNumber">
+            <summary>Field number for the "service_id" field.</summary>
+        </member>
+        <member name="P:Croupier.Sdk.V1.ProviderConnectRequest.ServiceId">
+            <summary>
+            Provider / process identifier
+            </summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.ProviderConnectRequest.VersionFieldNumber">
+            <summary>Field number for the "version" field.</summary>
+        </member>
+        <member name="P:Croupier.Sdk.V1.ProviderConnectRequest.Version">
+            <summary>
+            Provider version
+            </summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.ProviderConnectRequest.FunctionsFieldNumber">
+            <summary>Field number for the "functions" field.</summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.ProviderConnectRequest.SdkLanguageFieldNumber">
+            <summary>Field number for the "sdk_language" field.</summary>
+        </member>
+        <member name="P:Croupier.Sdk.V1.ProviderConnectRequest.SdkLanguage">
+            <summary>
+            e.g. "go", "java", "csharp"
+            </summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.ProviderConnectRequest.SdkVersionFieldNumber">
+            <summary>Field number for the "sdk_version" field.</summary>
+        </member>
+        <member name="P:Croupier.Sdk.V1.ProviderConnectRequest.SdkVersion">
+            <summary>
+            SDK release version
+            </summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.ProviderConnectRequest.ProtocolVersionFieldNumber">
+            <summary>Field number for the "protocol_version" field.</summary>
+        </member>
+        <member name="P:Croupier.Sdk.V1.ProviderConnectRequest.ProtocolVersion">
+            <summary>
+            Wire protocol semantic version string
+            </summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.ProviderConnectRequest.SupportedCapabilitiesFieldNumber">
+            <summary>Field number for the "supported_capabilities" field.</summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.ProviderConnectRequest.TransportSecurityModeFieldNumber">
+            <summary>Field number for the "transport_security_mode" field.</summary>
+        </member>
+        <member name="P:Croupier.Sdk.V1.ProviderConnectRequest.TransportSecurityMode">
+            <summary>
+            "plaintext" | "tls"
+            </summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.ProviderConnectRequest.SupportedTransportsFieldNumber">
+            <summary>Field number for the "supported_transports" field.</summary>
+        </member>
+        <member name="P:Croupier.Sdk.V1.ProviderConnectRequest.SupportedTransports">
+            <summary>
+            currently fixed to "tcp"
+            </summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.ProviderConnectResponse.SessionIdFieldNumber">
+            <summary>Field number for the "session_id" field.</summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.ProviderConnectResponse.AcceptedCapabilitiesFieldNumber">
+            <summary>Field number for the "accepted_capabilities" field.</summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.ProviderConnectResponse.WarningsFieldNumber">
+            <summary>Field number for the "warnings" field.</summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.ProviderHeartbeatRequest.ServiceIdFieldNumber">
+            <summary>Field number for the "service_id" field.</summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.ProviderHeartbeatRequest.SessionIdFieldNumber">
+            <summary>Field number for the "session_id" field.</summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.ProviderDrainRequest.SessionIdFieldNumber">
+            <summary>Field number for the "session_id" field.</summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.ProviderDrainRequest.ReasonFieldNumber">
+            <summary>Field number for the "reason" field.</summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.ProviderDrainRequest.RetryAfterMsFieldNumber">
+            <summary>Field number for the "retry_after_ms" field.</summary>
+        </member>
+        <member name="T:Croupier.Sdk.V1.GetTaskResultRequest">
+            <summary>
+            Query task result from Agent (best-effort).
+            This remains in the shared SDK package because task polling is still SDK-visible.
+            </summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.GetTaskResultRequest.TaskIdFieldNumber">
+            <summary>Field number for the "task_id" field.</summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.GetTaskResultResponse.StateFieldNumber">
+            <summary>Field number for the "state" field.</summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.GetTaskResultResponse.PayloadFieldNumber">
+            <summary>Field number for the "payload" field.</summary>
+        </member>
+        <member name="F:Croupier.Sdk.V1.GetTaskResultResponse.ErrorFieldNumber">
+            <summary>Field number for the "error" field.</summary>
+        </member>
+        <member name="T:Croupier.Sdk.V1.RegisterLocalRequest">
+            <summary>
+            Legacy aliases for backward compatibility (deprecated)
+            </summary>
+        </member>
         <member name="F:Croupier.Sdk.V1.RegisterLocalRequest.ServiceIdFieldNumber">
             <summary>Field number for the "service_id" field.</summary>
         </member>
@@ -1395,6 +1486,11 @@
         </member>
         <member name="F:Croupier.Sdk.V1.RegisterLocalRequest.RpcAddrFieldNumber">
             <summary>Field number for the "rpc_addr" field.</summary>
+        </member>
+        <member name="P:Croupier.Sdk.V1.RegisterLocalRequest.RpcAddr">
+            <summary>
+            DEPRECATED: No longer used
+            </summary>
         </member>
         <member name="F:Croupier.Sdk.V1.RegisterLocalRequest.FunctionsFieldNumber">
             <summary>Field number for the "functions" field.</summary>
@@ -1419,6 +1515,11 @@
         <member name="F:Croupier.Sdk.V1.LocalInstance.AddrFieldNumber">
             <summary>Field number for the "addr" field.</summary>
         </member>
+        <member name="P:Croupier.Sdk.V1.LocalInstance.Addr">
+            <summary>
+            DEPRECATED
+            </summary>
+        </member>
         <member name="F:Croupier.Sdk.V1.LocalInstance.VersionFieldNumber">
             <summary>Field number for the "version" field.</summary>
         </member>
@@ -1436,11 +1537,16 @@
         </member>
         <member name="T:Croupier.Sdk.V1.GetJobResultRequest">
             <summary>
-            Query job result from Agent (best-effort)
+            Query job result from Agent (best-effort) - DEPRECATED
             </summary>
         </member>
         <member name="F:Croupier.Sdk.V1.GetJobResultRequest.JobIdFieldNumber">
             <summary>Field number for the "job_id" field.</summary>
+        </member>
+        <member name="P:Croupier.Sdk.V1.GetJobResultRequest.JobId">
+            <summary>
+            DEPRECATED: Use GetTaskResultRequest instead
+            </summary>
         </member>
         <member name="F:Croupier.Sdk.V1.GetJobResultResponse.StateFieldNumber">
             <summary>Field number for the "state" field.</summary>
@@ -1945,6 +2051,1580 @@
         </member>
         <member name="F:Croupier.Component.V1.UIFieldOptions.RequiredIfFieldNumber">
             <summary>Field number for the "required_if" field.</summary>
+        </member>
+        <member name="T:Croupier.Ops.V1.OpsReflection">
+            <summary>Holder for reflection information generated from croupier/ops/v1/ops.proto</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.OpsReflection.Descriptor">
+            <summary>File descriptor for croupier/ops/v1/ops.proto</summary>
+        </member>
+        <member name="T:Croupier.Ops.V1.MetricsReport">
+            <summary>
+            MetricsReport contains system metrics from an agent.
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.MetricsReport.AgentIdFieldNumber">
+            <summary>Field number for the "agent_id" field.</summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.MetricsReport.TimestampFieldNumber">
+            <summary>Field number for the "timestamp" field.</summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.MetricsReport.CpuFieldNumber">
+            <summary>Field number for the "cpu" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.MetricsReport.Cpu">
+            <summary>
+            CPU metrics
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.MetricsReport.MemoryFieldNumber">
+            <summary>Field number for the "memory" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.MetricsReport.Memory">
+            <summary>
+            Memory metrics
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.MetricsReport.DisksFieldNumber">
+            <summary>Field number for the "disks" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.MetricsReport.Disks">
+            <summary>
+            Disk metrics
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.MetricsReport.NetworksFieldNumber">
+            <summary>Field number for the "networks" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.MetricsReport.Networks">
+            <summary>
+            Network metrics
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.MetricsReport.ProcessesFieldNumber">
+            <summary>Field number for the "processes" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.MetricsReport.Processes">
+            <summary>
+            Process metrics
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.MetricsReport.CustomFieldNumber">
+            <summary>Field number for the "custom" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.MetricsReport.Custom">
+            <summary>
+            Custom metrics (key-value pairs)
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.CpuMetrics.UsagePercentFieldNumber">
+            <summary>Field number for the "usage_percent" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.CpuMetrics.UsagePercent">
+            <summary>
+            Overall CPU usage percentage (0-100)
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.CpuMetrics.CoresFieldNumber">
+            <summary>Field number for the "cores" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.CpuMetrics.Cores">
+            <summary>
+            Number of CPU cores
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.CpuMetrics.PerCoreFieldNumber">
+            <summary>Field number for the "per_core" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.CpuMetrics.PerCore">
+            <summary>
+            Per-core usage percentage
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.CpuMetrics.Load1MFieldNumber">
+            <summary>Field number for the "load_1m" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.CpuMetrics.Load1M">
+            <summary>
+            1-minute load average
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.CpuMetrics.Load5MFieldNumber">
+            <summary>Field number for the "load_5m" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.CpuMetrics.Load5M">
+            <summary>
+            5-minute load average
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.CpuMetrics.Load15MFieldNumber">
+            <summary>Field number for the "load_15m" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.CpuMetrics.Load15M">
+            <summary>
+            15-minute load average
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.MemoryMetrics.TotalBytesFieldNumber">
+            <summary>Field number for the "total_bytes" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.MemoryMetrics.TotalBytes">
+            <summary>
+            Total memory in bytes
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.MemoryMetrics.UsedBytesFieldNumber">
+            <summary>Field number for the "used_bytes" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.MemoryMetrics.UsedBytes">
+            <summary>
+            Used memory in bytes
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.MemoryMetrics.AvailableBytesFieldNumber">
+            <summary>Field number for the "available_bytes" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.MemoryMetrics.AvailableBytes">
+            <summary>
+            Available memory in bytes
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.MemoryMetrics.UsagePercentFieldNumber">
+            <summary>Field number for the "usage_percent" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.MemoryMetrics.UsagePercent">
+            <summary>
+            Memory usage percentage
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.MemoryMetrics.SwapTotalFieldNumber">
+            <summary>Field number for the "swap_total" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.MemoryMetrics.SwapTotal">
+            <summary>
+            Swap total in bytes
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.MemoryMetrics.SwapUsedFieldNumber">
+            <summary>Field number for the "swap_used" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.MemoryMetrics.SwapUsed">
+            <summary>
+            Swap used in bytes
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.DiskMetrics.MountPointFieldNumber">
+            <summary>Field number for the "mount_point" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.DiskMetrics.MountPoint">
+            <summary>
+            Mount point path
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.DiskMetrics.DeviceFieldNumber">
+            <summary>Field number for the "device" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.DiskMetrics.Device">
+            <summary>
+            Device name
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.DiskMetrics.FsTypeFieldNumber">
+            <summary>Field number for the "fs_type" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.DiskMetrics.FsType">
+            <summary>
+            Filesystem type
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.DiskMetrics.TotalBytesFieldNumber">
+            <summary>Field number for the "total_bytes" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.DiskMetrics.TotalBytes">
+            <summary>
+            Total disk space
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.DiskMetrics.UsedBytesFieldNumber">
+            <summary>Field number for the "used_bytes" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.DiskMetrics.UsedBytes">
+            <summary>
+            Used disk space
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.DiskMetrics.AvailableBytesFieldNumber">
+            <summary>Field number for the "available_bytes" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.DiskMetrics.AvailableBytes">
+            <summary>
+            Available disk space
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.DiskMetrics.UsagePercentFieldNumber">
+            <summary>Field number for the "usage_percent" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.DiskMetrics.UsagePercent">
+            <summary>
+            Disk usage percentage
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.DiskMetrics.InodeTotalFieldNumber">
+            <summary>Field number for the "inode_total" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.DiskMetrics.InodeTotal">
+            <summary>
+            Total inodes
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.DiskMetrics.InodeUsedFieldNumber">
+            <summary>Field number for the "inode_used" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.DiskMetrics.InodeUsed">
+            <summary>
+            Used inodes
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.NetworkMetrics.InterfaceFieldNumber">
+            <summary>Field number for the "interface" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.NetworkMetrics.Interface">
+            <summary>
+            Network interface name
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.NetworkMetrics.BytesSentFieldNumber">
+            <summary>Field number for the "bytes_sent" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.NetworkMetrics.BytesSent">
+            <summary>
+            Total bytes sent
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.NetworkMetrics.BytesRecvFieldNumber">
+            <summary>Field number for the "bytes_recv" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.NetworkMetrics.BytesRecv">
+            <summary>
+            Total bytes received
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.NetworkMetrics.PacketsSentFieldNumber">
+            <summary>Field number for the "packets_sent" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.NetworkMetrics.PacketsSent">
+            <summary>
+            Total packets sent
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.NetworkMetrics.PacketsRecvFieldNumber">
+            <summary>Field number for the "packets_recv" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.NetworkMetrics.PacketsRecv">
+            <summary>
+            Total packets received
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.NetworkMetrics.ErrorsInFieldNumber">
+            <summary>Field number for the "errors_in" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.NetworkMetrics.ErrorsIn">
+            <summary>
+            Input errors
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.NetworkMetrics.ErrorsOutFieldNumber">
+            <summary>Field number for the "errors_out" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.NetworkMetrics.ErrorsOut">
+            <summary>
+            Output errors
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ProcessMetrics.PidFieldNumber">
+            <summary>Field number for the "pid" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ProcessMetrics.Pid">
+            <summary>
+            Process ID
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ProcessMetrics.NameFieldNumber">
+            <summary>Field number for the "name" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ProcessMetrics.Name">
+            <summary>
+            Process name
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ProcessMetrics.StatusFieldNumber">
+            <summary>Field number for the "status" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ProcessMetrics.Status">
+            <summary>
+            Process status
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ProcessMetrics.CpuPercentFieldNumber">
+            <summary>Field number for the "cpu_percent" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ProcessMetrics.CpuPercent">
+            <summary>
+            CPU usage percentage
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ProcessMetrics.MemoryBytesFieldNumber">
+            <summary>Field number for the "memory_bytes" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ProcessMetrics.MemoryBytes">
+            <summary>
+            Memory usage in bytes
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ProcessMetrics.ThreadsFieldNumber">
+            <summary>Field number for the "threads" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ProcessMetrics.Threads">
+            <summary>
+            Number of threads
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ProcessMetrics.StartTimeFieldNumber">
+            <summary>Field number for the "start_time" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ProcessMetrics.StartTime">
+            <summary>
+            Process start time
+            </summary>
+        </member>
+        <member name="T:Croupier.Ops.V1.SystemInfo">
+            <summary>
+            SystemInfo contains detailed system information.
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.SystemInfo.HostnameFieldNumber">
+            <summary>Field number for the "hostname" field.</summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.SystemInfo.OsFieldNumber">
+            <summary>Field number for the "os" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.SystemInfo.Os">
+            <summary>
+            Operating system (linux, windows, darwin)
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.SystemInfo.OsVersionFieldNumber">
+            <summary>Field number for the "os_version" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.SystemInfo.OsVersion">
+            <summary>
+            OS version
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.SystemInfo.KernelVersionFieldNumber">
+            <summary>Field number for the "kernel_version" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.SystemInfo.KernelVersion">
+            <summary>
+            Kernel version
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.SystemInfo.ArchFieldNumber">
+            <summary>Field number for the "arch" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.SystemInfo.Arch">
+            <summary>
+            Architecture (amd64, arm64, etc.)
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.SystemInfo.CpuCoresFieldNumber">
+            <summary>Field number for the "cpu_cores" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.SystemInfo.CpuCores">
+            <summary>
+            Number of CPU cores
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.SystemInfo.TotalMemoryFieldNumber">
+            <summary>Field number for the "total_memory" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.SystemInfo.TotalMemory">
+            <summary>
+            Total memory in bytes
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.SystemInfo.BootTimeFieldNumber">
+            <summary>Field number for the "boot_time" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.SystemInfo.BootTime">
+            <summary>
+            System boot time
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.SystemInfo.AgentVersionFieldNumber">
+            <summary>Field number for the "agent_version" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.SystemInfo.AgentVersion">
+            <summary>
+            Croupier agent version
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.SystemInfo.OpsStatusFieldNumber">
+            <summary>Field number for the "ops_status" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.SystemInfo.OpsStatus">
+            <summary>
+            Ops module status
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.OpsStatus.EnabledFieldNumber">
+            <summary>Field number for the "enabled" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.OpsStatus.Enabled">
+            <summary>
+            Whether ops module is enabled
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.OpsStatus.AllowRestartFieldNumber">
+            <summary>Field number for the "allow_restart" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.OpsStatus.AllowRestart">
+            <summary>
+            Whether restart operations are allowed
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.OpsStatus.AllowExecFieldNumber">
+            <summary>Field number for the "allow_exec" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.OpsStatus.AllowExec">
+            <summary>
+            Whether command execution is allowed
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.OpsStatus.ManagedProcessesFieldNumber">
+            <summary>Field number for the "managed_processes" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.OpsStatus.ManagedProcesses">
+            <summary>
+            List of managed process names
+            </summary>
+        </member>
+        <member name="T:Croupier.Ops.V1.RestartProcessRequest">
+            <summary>
+            RestartProcessRequest requests a process restart.
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.RestartProcessRequest.ProcessNameFieldNumber">
+            <summary>Field number for the "process_name" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.RestartProcessRequest.ProcessName">
+            <summary>
+            Name of the process to restart
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.RestartProcessRequest.ForceFieldNumber">
+            <summary>Field number for the "force" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.RestartProcessRequest.Force">
+            <summary>
+            Force restart (kill if not responding)
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.RestartProcessRequest.TimeoutSecondsFieldNumber">
+            <summary>Field number for the "timeout_seconds" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.RestartProcessRequest.TimeoutSeconds">
+            <summary>
+            Timeout for graceful shutdown (default: 30)
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.RestartProcessResponse.SuccessFieldNumber">
+            <summary>Field number for the "success" field.</summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.RestartProcessResponse.MessageFieldNumber">
+            <summary>Field number for the "message" field.</summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.RestartProcessResponse.NewPidFieldNumber">
+            <summary>Field number for the "new_pid" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.RestartProcessResponse.NewPid">
+            <summary>
+            New process ID after restart
+            </summary>
+        </member>
+        <member name="T:Croupier.Ops.V1.StopProcessRequest">
+            <summary>
+            StopProcessRequest requests a process stop.
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.StopProcessRequest.ProcessNameFieldNumber">
+            <summary>Field number for the "process_name" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.StopProcessRequest.ProcessName">
+            <summary>
+            Name of the process to stop
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.StopProcessRequest.ForceFieldNumber">
+            <summary>Field number for the "force" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.StopProcessRequest.Force">
+            <summary>
+            Force stop (SIGKILL instead of SIGTERM)
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.StopProcessRequest.TimeoutSecondsFieldNumber">
+            <summary>Field number for the "timeout_seconds" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.StopProcessRequest.TimeoutSeconds">
+            <summary>
+            Timeout for graceful shutdown
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.StopProcessResponse.SuccessFieldNumber">
+            <summary>Field number for the "success" field.</summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.StopProcessResponse.MessageFieldNumber">
+            <summary>Field number for the "message" field.</summary>
+        </member>
+        <member name="T:Croupier.Ops.V1.StartProcessRequest">
+            <summary>
+            StartProcessRequest requests a process start.
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.StartProcessRequest.ProcessNameFieldNumber">
+            <summary>Field number for the "process_name" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.StartProcessRequest.ProcessName">
+            <summary>
+            Name of the process to start
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.StartProcessResponse.SuccessFieldNumber">
+            <summary>Field number for the "success" field.</summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.StartProcessResponse.MessageFieldNumber">
+            <summary>Field number for the "message" field.</summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.StartProcessResponse.PidFieldNumber">
+            <summary>Field number for the "pid" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.StartProcessResponse.Pid">
+            <summary>
+            Process ID
+            </summary>
+        </member>
+        <member name="T:Croupier.Ops.V1.ListProcessesResponse">
+            <summary>
+            ListProcessesResponse contains the list of managed processes.
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ListProcessesResponse.ProcessesFieldNumber">
+            <summary>Field number for the "processes" field.</summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ManagedProcess.NameFieldNumber">
+            <summary>Field number for the "name" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ManagedProcess.Name">
+            <summary>
+            Process name (as configured)
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ManagedProcess.CommandFieldNumber">
+            <summary>Field number for the "command" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ManagedProcess.Command">
+            <summary>
+            Command to start the process
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ManagedProcess.WorkingDirFieldNumber">
+            <summary>Field number for the "working_dir" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ManagedProcess.WorkingDir">
+            <summary>
+            Working directory
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ManagedProcess.StateFieldNumber">
+            <summary>Field number for the "state" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ManagedProcess.State">
+            <summary>
+            Current state
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ManagedProcess.PidFieldNumber">
+            <summary>Field number for the "pid" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ManagedProcess.Pid">
+            <summary>
+            Current PID (0 if not running)
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ManagedProcess.RestartCountFieldNumber">
+            <summary>Field number for the "restart_count" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ManagedProcess.RestartCount">
+            <summary>
+            Number of restarts
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ManagedProcess.LastStartFieldNumber">
+            <summary>Field number for the "last_start" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ManagedProcess.LastStart">
+            <summary>
+            Last start time
+            </summary>
+        </member>
+        <member name="T:Croupier.Ops.V1.ExecuteCommandRequest">
+            <summary>
+            ExecuteCommandRequest requests command execution.
+            WARNING: This is a high-risk operation.
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ExecuteCommandRequest.CommandFieldNumber">
+            <summary>Field number for the "command" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ExecuteCommandRequest.Command">
+            <summary>
+            Command to execute
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ExecuteCommandRequest.ArgsFieldNumber">
+            <summary>Field number for the "args" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ExecuteCommandRequest.Args">
+            <summary>
+            Command arguments
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ExecuteCommandRequest.WorkingDirFieldNumber">
+            <summary>Field number for the "working_dir" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ExecuteCommandRequest.WorkingDir">
+            <summary>
+            Working directory (optional)
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ExecuteCommandRequest.EnvFieldNumber">
+            <summary>Field number for the "env" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ExecuteCommandRequest.Env">
+            <summary>
+            Environment variables (optional)
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ExecuteCommandRequest.TimeoutSecondsFieldNumber">
+            <summary>Field number for the "timeout_seconds" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ExecuteCommandRequest.TimeoutSeconds">
+            <summary>
+            Execution timeout (default: 60, max: 300)
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ExecuteCommandResponse.SuccessFieldNumber">
+            <summary>Field number for the "success" field.</summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ExecuteCommandResponse.ExitCodeFieldNumber">
+            <summary>Field number for the "exit_code" field.</summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ExecuteCommandResponse.StdOutFieldNumber">
+            <summary>Field number for the "std_out" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ExecuteCommandResponse.StdOut">
+            <summary>
+            Renamed from 'stdout' to avoid Windows CRT macro conflict
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ExecuteCommandResponse.StdErrFieldNumber">
+            <summary>Field number for the "std_err" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ExecuteCommandResponse.StdErr">
+            <summary>
+            Renamed from 'stderr' to avoid Windows CRT macro conflict
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ExecuteCommandResponse.ErrorFieldNumber">
+            <summary>Field number for the "error" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ExecuteCommandResponse.Error">
+            <summary>
+            Error message if execution failed
+            </summary>
+        </member>
+        <member name="T:Croupier.Ops.V1.ListServicesRequest">
+            <summary>
+            ListServicesRequest requests a list of system services.
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ListServicesRequest.StateFieldNumber">
+            <summary>Field number for the "state" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ListServicesRequest.State">
+            <summary>
+            Filter by state: "running", "stopped", "paused" (optional)
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ListServicesRequest.NamePatternFieldNumber">
+            <summary>Field number for the "name_pattern" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ListServicesRequest.NamePattern">
+            <summary>
+            Filter by service name pattern (optional)
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ListServicesRequest.LimitFieldNumber">
+            <summary>Field number for the "limit" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ListServicesRequest.Limit">
+            <summary>
+            Maximum number of results (default: 100)
+            </summary>
+        </member>
+        <member name="T:Croupier.Ops.V1.ListServicesResponse">
+            <summary>
+            ListServicesResponse contains the list of system services.
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ListServicesResponse.ServicesFieldNumber">
+            <summary>Field number for the "services" field.</summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ListServicesResponse.TotalFieldNumber">
+            <summary>Field number for the "total" field.</summary>
+        </member>
+        <member name="T:Croupier.Ops.V1.ServiceInfo">
+            <summary>
+            ServiceInfo contains information about a system service.
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ServiceInfo.NameFieldNumber">
+            <summary>Field number for the "name" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ServiceInfo.Name">
+            <summary>
+            Service name
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ServiceInfo.DisplayNameFieldNumber">
+            <summary>Field number for the "display_name" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ServiceInfo.DisplayName">
+            <summary>
+            Display name
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ServiceInfo.StatusFieldNumber">
+            <summary>Field number for the "status" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ServiceInfo.Status">
+            <summary>
+            Status: "running", "stopped", "paused"
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ServiceInfo.StartTypeFieldNumber">
+            <summary>Field number for the "start_type" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ServiceInfo.StartType">
+            <summary>
+            Start type: "auto", "manual", "disabled"
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ServiceInfo.ProcessIdFieldNumber">
+            <summary>Field number for the "process_id" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.ServiceInfo.ProcessId">
+            <summary>
+            Process ID (0 if not running)
+            </summary>
+        </member>
+        <member name="T:Croupier.Ops.V1.GetServiceStatusRequest">
+            <summary>
+            GetServiceStatusRequest requests detailed status of a specific service.
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.GetServiceStatusRequest.NameFieldNumber">
+            <summary>Field number for the "name" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.GetServiceStatusRequest.Name">
+            <summary>
+            Service name
+            </summary>
+        </member>
+        <member name="T:Croupier.Ops.V1.GetServiceStatusResponse">
+            <summary>
+            GetServiceStatusResponse contains detailed service status.
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.GetServiceStatusResponse.NameFieldNumber">
+            <summary>Field number for the "name" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.GetServiceStatusResponse.Name">
+            <summary>
+            Service name
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.GetServiceStatusResponse.DisplayNameFieldNumber">
+            <summary>Field number for the "display_name" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.GetServiceStatusResponse.DisplayName">
+            <summary>
+            Display name
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.GetServiceStatusResponse.StatusFieldNumber">
+            <summary>Field number for the "status" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.GetServiceStatusResponse.Status">
+            <summary>
+            Status
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.GetServiceStatusResponse.StartTypeFieldNumber">
+            <summary>Field number for the "start_type" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.GetServiceStatusResponse.StartType">
+            <summary>
+            Start type
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.GetServiceStatusResponse.ProcessIdFieldNumber">
+            <summary>Field number for the "process_id" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.GetServiceStatusResponse.ProcessId">
+            <summary>
+            Process ID (0 if not running)
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.GetServiceStatusResponse.BinaryPathFieldNumber">
+            <summary>Field number for the "binary_path" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.GetServiceStatusResponse.BinaryPath">
+            <summary>
+            Path to service binary
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.GetServiceStatusResponse.DescriptionFieldNumber">
+            <summary>Field number for the "description" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.GetServiceStatusResponse.Description">
+            <summary>
+            Service description
+            </summary>
+        </member>
+        <member name="T:Croupier.Ops.V1.ListCronJobsResponse">
+            <summary>
+            ListCronJobsResponse contains the list of cron jobs.
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ListCronJobsResponse.JobsFieldNumber">
+            <summary>Field number for the "jobs" field.</summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.ListCronJobsResponse.TotalFieldNumber">
+            <summary>Field number for the "total" field.</summary>
+        </member>
+        <member name="T:Croupier.Ops.V1.CronJob">
+            <summary>
+            CronJob represents a cron job entry.
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.CronJob.ScheduleFieldNumber">
+            <summary>Field number for the "schedule" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.CronJob.Schedule">
+            <summary>
+            Cron expression or @keyword
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.CronJob.CommandFieldNumber">
+            <summary>Field number for the "command" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.CronJob.Command">
+            <summary>
+            Command to execute
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.CronJob.UserFieldNumber">
+            <summary>Field number for the "user" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.CronJob.User">
+            <summary>
+            User who runs the job
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.CronJob.SourceFileFieldNumber">
+            <summary>Field number for the "source_file" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.CronJob.SourceFile">
+            <summary>
+            File where this job is defined
+            </summary>
+        </member>
+        <member name="F:Croupier.Ops.V1.CronJob.EnabledFieldNumber">
+            <summary>Field number for the "enabled" field.</summary>
+        </member>
+        <member name="P:Croupier.Ops.V1.CronJob.Enabled">
+            <summary>
+            Whether the job is active
+            </summary>
+        </member>
+        <member name="T:Croupier.External.V1.PlatformReflection">
+            <summary>Holder for reflection information generated from croupier/external/v1/platform.proto</summary>
+        </member>
+        <member name="P:Croupier.External.V1.PlatformReflection.Descriptor">
+            <summary>File descriptor for croupier/external/v1/platform.proto</summary>
+        </member>
+        <member name="T:Croupier.External.V1.CallPlatformRequest">
+            <summary>
+            CallPlatformRequest represents a request to call a platform method.
+            </summary>
+        </member>
+        <member name="F:Croupier.External.V1.CallPlatformRequest.PlatformFieldNumber">
+            <summary>Field number for the "platform" field.</summary>
+        </member>
+        <member name="P:Croupier.External.V1.CallPlatformRequest.Platform">
+            <summary>
+            Platform name (e.g., "quicksdk")
+            </summary>
+        </member>
+        <member name="F:Croupier.External.V1.CallPlatformRequest.MethodFieldNumber">
+            <summary>Field number for the "method" field.</summary>
+        </member>
+        <member name="P:Croupier.External.V1.CallPlatformRequest.Method">
+            <summary>
+            Method name (e.g., "day_report")
+            </summary>
+        </member>
+        <member name="F:Croupier.External.V1.CallPlatformRequest.RequestFieldNumber">
+            <summary>Field number for the "request" field.</summary>
+        </member>
+        <member name="P:Croupier.External.V1.CallPlatformRequest.Request">
+            <summary>
+            Request parameters (JSON)
+            </summary>
+        </member>
+        <member name="T:Croupier.External.V1.CallPlatformResponse">
+            <summary>
+            CallPlatformResponse represents the response from a platform method call.
+            </summary>
+        </member>
+        <member name="F:Croupier.External.V1.CallPlatformResponse.ResponseFieldNumber">
+            <summary>Field number for the "response" field.</summary>
+        </member>
+        <member name="P:Croupier.External.V1.CallPlatformResponse.Response">
+            <summary>
+            Response data (JSON)
+            </summary>
+        </member>
+        <member name="F:Croupier.External.V1.CallPlatformResponse.ErrorFieldNumber">
+            <summary>Field number for the "error" field.</summary>
+        </member>
+        <member name="P:Croupier.External.V1.CallPlatformResponse.Error">
+            <summary>
+            Error message if the call failed
+            </summary>
+        </member>
+        <member name="T:Croupier.External.V1.ListPlatformsRequest">
+            <summary>
+            ListPlatformsRequest represents a request to list platforms.
+            </summary>
+        </member>
+        <member name="T:Croupier.External.V1.PlatformInfo">
+            <summary>
+            PlatformInfo represents information about a platform.
+            </summary>
+        </member>
+        <member name="F:Croupier.External.V1.PlatformInfo.NameFieldNumber">
+            <summary>Field number for the "name" field.</summary>
+        </member>
+        <member name="P:Croupier.External.V1.PlatformInfo.Name">
+            <summary>
+            Platform name
+            </summary>
+        </member>
+        <member name="F:Croupier.External.V1.PlatformInfo.EnabledFieldNumber">
+            <summary>Field number for the "enabled" field.</summary>
+        </member>
+        <member name="P:Croupier.External.V1.PlatformInfo.Enabled">
+            <summary>
+            Whether the platform is enabled
+            </summary>
+        </member>
+        <member name="F:Croupier.External.V1.PlatformInfo.MethodsFieldNumber">
+            <summary>Field number for the "methods" field.</summary>
+        </member>
+        <member name="P:Croupier.External.V1.PlatformInfo.Methods">
+            <summary>
+            Supported methods
+            </summary>
+        </member>
+        <member name="T:Croupier.External.V1.ListPlatformsResponse">
+            <summary>
+            ListPlatformsResponse represents the response with platform list.
+            </summary>
+        </member>
+        <member name="F:Croupier.External.V1.ListPlatformsResponse.PlatformsFieldNumber">
+            <summary>Field number for the "platforms" field.</summary>
+        </member>
+        <member name="T:Croupier.External.V1.ListPlatformMethodsRequest">
+            <summary>
+            ListPlatformMethodsRequest represents a request to list platform methods.
+            </summary>
+        </member>
+        <member name="F:Croupier.External.V1.ListPlatformMethodsRequest.PlatformFieldNumber">
+            <summary>Field number for the "platform" field.</summary>
+        </member>
+        <member name="P:Croupier.External.V1.ListPlatformMethodsRequest.Platform">
+            <summary>
+            Platform name
+            </summary>
+        </member>
+        <member name="T:Croupier.External.V1.ListPlatformMethodsResponse">
+            <summary>
+            ListPlatformMethodsResponse represents the response with method list.
+            </summary>
+        </member>
+        <member name="F:Croupier.External.V1.ListPlatformMethodsResponse.MethodsFieldNumber">
+            <summary>Field number for the "methods" field.</summary>
+        </member>
+        <member name="T:Croupier.External.V1.ReloadPlatformConfigResponse">
+            <summary>
+            ReloadPlatformConfigResponse represents the response after reloading config.
+            </summary>
+        </member>
+        <member name="F:Croupier.External.V1.ReloadPlatformConfigResponse.SuccessFieldNumber">
+            <summary>Field number for the "success" field.</summary>
+        </member>
+        <member name="F:Croupier.External.V1.ReloadPlatformConfigResponse.MessageFieldNumber">
+            <summary>Field number for the "message" field.</summary>
+        </member>
+        <member name="T:Croupier.Agent.V1.RegisterReflection">
+            <summary>Holder for reflection information generated from croupier/agent/v1/register.proto</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.RegisterReflection.Descriptor">
+            <summary>File descriptor for croupier/agent/v1/register.proto</summary>
+        </member>
+        <member name="T:Croupier.Agent.V1.FunctionDescriptor">
+            <summary>
+            Function Descriptor - Server-side function definition with UI/RBAC metadata
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDescriptor.IdFieldNumber">
+            <summary>Field number for the "id" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.FunctionDescriptor.Id">
+            <summary>
+            function id, e.g. "player.ban"
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDescriptor.VersionFieldNumber">
+            <summary>Field number for the "version" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.FunctionDescriptor.Version">
+            <summary>
+            semver, e.g. "1.2.0"
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDescriptor.CategoryFieldNumber">
+            <summary>Field number for the "category" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.FunctionDescriptor.Category">
+            <summary>
+            grouping
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDescriptor.RiskFieldNumber">
+            <summary>Field number for the "risk" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.FunctionDescriptor.Risk">
+            <summary>
+            "low"|"medium"|"high"
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDescriptor.EntityFieldNumber">
+            <summary>Field number for the "entity" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.FunctionDescriptor.Entity">
+            <summary>
+            entity type, e.g. "item", "player"
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDescriptor.OperationFieldNumber">
+            <summary>Field number for the "operation" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.FunctionDescriptor.Operation">
+            <summary>
+            operation type, e.g. "create", "read", "update", "delete"
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDescriptor.EnabledFieldNumber">
+            <summary>Field number for the "enabled" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.FunctionDescriptor.Enabled">
+            <summary>
+            whether this function is currently enabled
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDescriptor.DisplayNameFieldNumber">
+            <summary>Field number for the "display_name" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.FunctionDescriptor.DisplayName">
+            <summary>
+            UI/i18n/tags/menu/permissions for dynamic navigation &amp; RBAC generation
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDescriptor.SummaryFieldNumber">
+            <summary>Field number for the "summary" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDescriptor.TagsFieldNumber">
+            <summary>Field number for the "tags" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDescriptor.MenuFieldNumber">
+            <summary>Field number for the "menu" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDescriptor.PermissionsFieldNumber">
+            <summary>Field number for the "permissions" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDescriptor.InputSchemaFieldNumber">
+            <summary>Field number for the "input_schema" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.FunctionDescriptor.InputSchema">
+            <summary>
+            OpenAPI 3.0.3 Schema fields (JSON Schema format)
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDescriptor.OutputSchemaFieldNumber">
+            <summary>Field number for the "output_schema" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.FunctionDescriptor.OutputSchema">
+            <summary>
+            JSON Schema for response body
+            </summary>
+        </member>
+        <member name="T:Croupier.Agent.V1.AgentProcess">
+            <summary>
+            Process/service instance registered to an agent (e.g. a game server process)
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.AgentProcess.ServiceIdFieldNumber">
+            <summary>Field number for the "service_id" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.AgentProcess.ServiceId">
+            <summary>
+            unique id from SDK
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.AgentProcess.AddrFieldNumber">
+            <summary>Field number for the "addr" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.AgentProcess.Addr">
+            <summary>
+            reachable address (agent-local)
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.AgentProcess.VersionFieldNumber">
+            <summary>Field number for the "version" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.AgentProcess.Version">
+            <summary>
+            process/service version
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.AgentProcess.LastSeenUnixFieldNumber">
+            <summary>Field number for the "last_seen_unix" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.AgentProcess.LastSeenUnix">
+            <summary>
+            unix seconds
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.AgentProcess.FunctionIdsFieldNumber">
+            <summary>Field number for the "function_ids" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.AgentProcess.FunctionIds">
+            <summary>
+            functions exposed by this process
+            </summary>
+        </member>
+        <member name="T:Croupier.Agent.V1.RegisterRequest">
+            <summary>
+            Agent Registration Request
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.RegisterRequest.AgentIdFieldNumber">
+            <summary>Field number for the "agent_id" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.RegisterRequest.AgentId">
+            <summary>
+            agent unique id
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.RegisterRequest.VersionFieldNumber">
+            <summary>Field number for the "version" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.RegisterRequest.Version">
+            <summary>
+            agent version
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.RegisterRequest.FunctionsFieldNumber">
+            <summary>Field number for the "functions" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.RegisterRequest.Functions">
+            <summary>
+            summarized function list
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.RegisterRequest.RpcAddrFieldNumber">
+            <summary>Field number for the "rpc_addr" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.RegisterRequest.RpcAddr">
+            <summary>
+            agent's reachable gRPC address (DEV ONLY)
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.RegisterRequest.GameIdFieldNumber">
+            <summary>Field number for the "game_id" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.RegisterRequest.GameId">
+            <summary>
+            game scope (required for multi-game)
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.RegisterRequest.EnvFieldNumber">
+            <summary>Field number for the "env" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.RegisterRequest.Env">
+            <summary>
+            environment (optional: prod/stage/test)
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.RegisterRequest.ProcessesFieldNumber">
+            <summary>Field number for the "processes" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.RegisterRequest.Processes">
+            <summary>
+            registered processes (sdk->agent)
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.RegisterRequest.TtlSecondsFieldNumber">
+            <summary>Field number for the "ttl_seconds" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.RegisterRequest.TtlSeconds">
+            <summary>
+            session TTL (default 300s = 5min)
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.RegisterRequest.RegionFieldNumber">
+            <summary>Field number for the "region" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.RegisterRequest.Region">
+            <summary>
+            Location and labels
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.RegisterRequest.ZoneFieldNumber">
+            <summary>Field number for the "zone" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.RegisterRequest.Zone">
+            <summary>
+            availability zone (e.g. "us-west-1a")
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.RegisterRequest.LabelsFieldNumber">
+            <summary>Field number for the "labels" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.RegisterRequest.Labels">
+            <summary>
+            system metadata labels (os, arch, hostname, etc.)
+            </summary>
+        </member>
+        <member name="T:Croupier.Agent.V1.RegisterResponse">
+            <summary>
+            Agent Registration Response
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.RegisterResponse.SessionIdFieldNumber">
+            <summary>Field number for the "session_id" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.RegisterResponse.ExpireAtFieldNumber">
+            <summary>Field number for the "expire_at" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.RegisterResponse.ExpireAt">
+            <summary>
+            epoch seconds
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.RegisterResponse.WarningsFieldNumber">
+            <summary>Field number for the "warnings" field.</summary>
+        </member>
+        <member name="T:Croupier.Agent.V1.HeartbeatRequest">
+            <summary>
+            Agent Heartbeat Request
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.HeartbeatRequest.AgentIdFieldNumber">
+            <summary>Field number for the "agent_id" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.HeartbeatRequest.SessionIdFieldNumber">
+            <summary>Field number for the "session_id" field.</summary>
+        </member>
+        <member name="T:Croupier.Agent.V1.HeartbeatResponse">
+            <summary>
+            Agent Heartbeat Response
+            </summary>
+        </member>
+        <member name="T:Croupier.Agent.V1.ProviderMeta">
+            <summary>
+            Provider capabilities (manifest) — language-agnostic declaration
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.ProviderMeta.IdFieldNumber">
+            <summary>Field number for the "id" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.ProviderMeta.VersionFieldNumber">
+            <summary>Field number for the "version" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.ProviderMeta.LangFieldNumber">
+            <summary>Field number for the "lang" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.ProviderMeta.SdkFieldNumber">
+            <summary>Field number for the "sdk" field.</summary>
+        </member>
+        <member name="T:Croupier.Agent.V1.RegisterCapabilitiesRequest">
+            <summary>
+            Register Capabilities Request
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.RegisterCapabilitiesRequest.ProviderFieldNumber">
+            <summary>Field number for the "provider" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.RegisterCapabilitiesRequest.ManifestJsonGzFieldNumber">
+            <summary>Field number for the "manifest_json_gz" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.RegisterCapabilitiesRequest.ManifestJsonGz">
+            <summary>
+            gzipped manifest.json
+            </summary>
+        </member>
+        <member name="T:Croupier.Agent.V1.RegisterCapabilitiesResponse">
+            <summary>
+            Register Capabilities Response
+            </summary>
+        </member>
+        <member name="T:Croupier.Agent.V1.TaskReflection">
+            <summary>Holder for reflection information generated from croupier/agent/v1/task.proto</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.TaskReflection.Descriptor">
+            <summary>File descriptor for croupier/agent/v1/task.proto</summary>
+        </member>
+        <member name="T:Croupier.Agent.V1.TaskStatus">
+            <summary>
+            Task Status enumeration
+            </summary>
+        </member>
+        <member name="T:Croupier.Agent.V1.FunctionDefinition">
+            <summary>
+            Function Descriptor - Complete definition for a function
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDefinition.IdFieldNumber">
+            <summary>Field number for the "id" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.FunctionDefinition.Id">
+            <summary>
+            function id, e.g. "player.ban"
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDefinition.VersionFieldNumber">
+            <summary>Field number for the "version" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.FunctionDefinition.Version">
+            <summary>
+            semver, e.g. "1.2.0"
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDefinition.CategoryFieldNumber">
+            <summary>Field number for the "category" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.FunctionDefinition.Category">
+            <summary>
+            grouping
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDefinition.RiskFieldNumber">
+            <summary>Field number for the "risk" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.FunctionDefinition.Risk">
+            <summary>
+            "low"|"medium"|"high"
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDefinition.EntityFieldNumber">
+            <summary>Field number for the "entity" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.FunctionDefinition.Entity">
+            <summary>
+            entity type, e.g. "item", "player"
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDefinition.OperationFieldNumber">
+            <summary>Field number for the "operation" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.FunctionDefinition.Operation">
+            <summary>
+            operation type, e.g. "create", "read", "update", "delete"
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.FunctionDefinition.EnabledFieldNumber">
+            <summary>Field number for the "enabled" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.FunctionDefinition.Enabled">
+            <summary>
+            whether this function is currently enabled
+            </summary>
+        </member>
+        <member name="T:Croupier.Agent.V1.ServiceConfig">
+            <summary>
+            Service Configuration for SDK clients
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.ServiceConfig.ServiceIdFieldNumber">
+            <summary>Field number for the "service_id" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.ServiceConfig.VersionFieldNumber">
+            <summary>Field number for the "version" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.ServiceConfig.GameIdFieldNumber">
+            <summary>Field number for the "game_id" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.ServiceConfig.EnvFieldNumber">
+            <summary>Field number for the "env" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.ServiceConfig.Env">
+            <summary>
+            environment: dev, staging, prod
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.ServiceConfig.LocalAddrFieldNumber">
+            <summary>Field number for the "local_addr" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.ServiceConfig.LocalAddr">
+            <summary>
+            local listening address
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.ServiceConfig.TimeoutSecondsFieldNumber">
+            <summary>Field number for the "timeout_seconds" field.</summary>
+        </member>
+        <member name="T:Croupier.Agent.V1.TaskInfo">
+            <summary>
+            Task Information
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.TaskInfo.TaskIdFieldNumber">
+            <summary>Field number for the "task_id" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.TaskInfo.FunctionIdFieldNumber">
+            <summary>Field number for the "function_id" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.TaskInfo.StatusFieldNumber">
+            <summary>Field number for the "status" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.TaskInfo.CreatedAtFieldNumber">
+            <summary>Field number for the "created_at" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.TaskInfo.UpdatedAtFieldNumber">
+            <summary>Field number for the "updated_at" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.TaskInfo.ErrorFieldNumber">
+            <summary>Field number for the "error" field.</summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.TaskInfo.ProgressFieldNumber">
+            <summary>Field number for the "progress" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.TaskInfo.Progress">
+            <summary>
+            0-100
+            </summary>
+        </member>
+        <member name="T:Croupier.Agent.V1.ErrorInfo">
+            <summary>
+            Error information for SDK responses
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.ErrorInfo.CodeFieldNumber">
+            <summary>Field number for the "code" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.ErrorInfo.Code">
+            <summary>
+            error code
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.ErrorInfo.MessageFieldNumber">
+            <summary>Field number for the "message" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.ErrorInfo.Message">
+            <summary>
+            error message
+            </summary>
+        </member>
+        <member name="F:Croupier.Agent.V1.ErrorInfo.DetailsFieldNumber">
+            <summary>Field number for the "details" field.</summary>
+        </member>
+        <member name="P:Croupier.Agent.V1.ErrorInfo.Details">
+            <summary>
+            additional error context
+            </summary>
+        </member>
+        <member name="T:Examples.Games.Player.V1.PlayerReflection">
+            <summary>Holder for reflection information generated from examples/games/player/v1/player.proto</summary>
+        </member>
+        <member name="P:Examples.Games.Player.V1.PlayerReflection.Descriptor">
+            <summary>File descriptor for examples/games/player/v1/player.proto</summary>
+        </member>
+        <member name="F:Examples.Games.Player.V1.BanRequest.PlayerIdFieldNumber">
+            <summary>Field number for the "player_id" field.</summary>
+        </member>
+        <member name="F:Examples.Games.Player.V1.BanRequest.ReasonFieldNumber">
+            <summary>Field number for the "reason" field.</summary>
+        </member>
+        <member name="F:Examples.Games.Player.V1.BanResponse.ResultFieldNumber">
+            <summary>Field number for the "result" field.</summary>
+        </member>
+        <member name="T:Examples.Integrations.Prom.V1.PromReflection">
+            <summary>Holder for reflection information generated from examples/integrations/prom/v1/prom.proto</summary>
+        </member>
+        <member name="P:Examples.Integrations.Prom.V1.PromReflection.Descriptor">
+            <summary>File descriptor for examples/integrations/prom/v1/prom.proto</summary>
+        </member>
+        <member name="F:Examples.Integrations.Prom.V1.QueryRangeRequest.ExprFieldNumber">
+            <summary>Field number for the "expr" field.</summary>
+        </member>
+        <member name="F:Examples.Integrations.Prom.V1.QueryRangeRequest.StartFieldNumber">
+            <summary>Field number for the "start" field.</summary>
+        </member>
+        <member name="F:Examples.Integrations.Prom.V1.QueryRangeRequest.EndFieldNumber">
+            <summary>Field number for the "end" field.</summary>
+        </member>
+        <member name="F:Examples.Integrations.Prom.V1.QueryRangeRequest.StepFieldNumber">
+            <summary>Field number for the "step" field.</summary>
+        </member>
+        <member name="F:Examples.Integrations.Prom.V1.Sample.TFieldNumber">
+            <summary>Field number for the "t" field.</summary>
+        </member>
+        <member name="F:Examples.Integrations.Prom.V1.Sample.VFieldNumber">
+            <summary>Field number for the "v" field.</summary>
+        </member>
+        <member name="F:Examples.Integrations.Prom.V1.Timeseries.LabelsFieldNumber">
+            <summary>Field number for the "labels" field.</summary>
+        </member>
+        <member name="F:Examples.Integrations.Prom.V1.Timeseries.SamplesFieldNumber">
+            <summary>Field number for the "samples" field.</summary>
+        </member>
+        <member name="F:Examples.Integrations.Prom.V1.QueryRangeResponse.SeriesFieldNumber">
+            <summary>Field number for the "series" field.</summary>
         </member>
     </members>
 </doc>

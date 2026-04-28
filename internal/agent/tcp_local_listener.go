@@ -218,8 +218,9 @@ type providerSessionHandler struct {
 
 // Handle processes inbound requests on a Provider TCP session.
 func (h *providerSessionHandler) Handle(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
-	if !h.registered && msgID != protocol.MsgProviderConnectRequest {
-		return nil, tcptr.NewProtocolError(fmt.Errorf("first frame must be %s, got %s", protocol.MsgIDString(protocol.MsgProviderConnectRequest), protocol.MsgIDString(msgID)))
+	// InvokeRequest can be sent without registration (for invokers)
+	if !h.registered && msgID != protocol.MsgProviderConnectRequest && msgID != protocol.MsgInvokeRequest {
+		return nil, tcptr.NewProtocolError(fmt.Errorf("first frame must be %s or %s, got %s", protocol.MsgIDString(protocol.MsgProviderConnectRequest), protocol.MsgIDString(protocol.MsgInvokeRequest), protocol.MsgIDString(msgID)))
 	}
 
 	switch msgID {
@@ -230,7 +231,7 @@ func (h *providerSessionHandler) Handle(ctx context.Context, msgID uint32, reqID
 	case protocol.MsgProviderDrainRequest:
 		return h.handleDrain(ctx, body)
 	default:
-		// Delegate to local handler for other message types
+		// Delegate to local handler for other message types (including InvokeRequest)
 		if h.listener.localHandler != nil {
 			return h.listener.localHandler.Handle(ctx, msgID, reqID, body)
 		}

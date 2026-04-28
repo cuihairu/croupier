@@ -77,6 +77,11 @@
             是否已连接
             </summary>
         </member>
+        <member name="P:Croupier.Sdk.CroupierClient.SessionId">
+            <summary>
+            获取当前会话 ID
+            </summary>
+        </member>
         <member name="M:Croupier.Sdk.CroupierClient.#ctor(Croupier.Sdk.Models.ClientConfig,Croupier.Sdk.Logging.ICroupierLogger)">
             <summary>
             创建 Croupier 客户端实例

@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("Croupier SDK for .NET 8+ with TCP Transport")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("0.1.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.1.0+6c5ab9ff3fe4765c9625a664952a16f944a93bd8")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("0.1.0+9638f55fff88887a03f6edf8fdfc971d3fd9eef0")]
 [assembly: System.Reflection.AssemblyProductAttribute("Croupier.Sdk")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Croupier.Sdk")]
 [assembly: System.Reflection.AssemblyVersionAttribute("0.1.0.0")]
