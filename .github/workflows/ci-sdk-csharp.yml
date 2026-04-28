@@ -46,6 +46,38 @@ jobs:
         timeout-minutes: 5
         run: dotnet restore
 
+      - name: Create agent config
+        timeout-minutes: 2
+        run: |
+          cat > /tmp/agent-ci.yaml << 'EOF'
+          name: croupier-agent
+          host: 0.0.0.0
+          port: 19090
+
+          server:
+            addr: ""
+            insecure: true
+
+          agent:
+            id: "ci-test-agent"
+            gameId: "ci-test-game"
+            env: "testing"
+            localAddr: "0.0.0.0:19090"
+            httpAddr: "0.0.0.0:19090"
+
+          upstream:
+            heartbeatInterval: 30
+            retryInterval: 5
+            maxRetries: 0
+            timeout: 5000
+
+          tls:
+            enabled: false
+
+          outboundTLS:
+            enabled: false
+          EOF
+
       - name: Start croupier-agent
         timeout-minutes: 30
         run: |
@@ -142,16 +174,16 @@ jobs:
         timeout-minutes: 10
         run: |
           if [ -n "$(find . -name '*.Tests.csproj')" ]; then
-            # Run tests with XPlat Code Coverage (opencover format)
+            # Run tests with XPlat Code Coverage
             dotnet test --configuration Release \
               --collect:"XPlat Code Coverage"
 
-            # Find and copy coverage file to expected location
-            COVERAGE_FILE=$(find . -name "coverage.opencover.xml" | head -1)
+            # Find coverage file (XPlat generates cobertura.xml format)
+            COVERAGE_FILE=$(find . -name "coverage.cobertura.xml" -o -name "coverage.opencover.xml" | head -1)
             if [ -n "$COVERAGE_FILE" ]; then
               mkdir -p coverage
-              cp "$COVERAGE_FILE" coverage/coverage.opencover.xml
-              echo "Coverage file: $COVERAGE_FILE -> coverage/coverage.opencover.xml"
+              cp "$COVERAGE_FILE" coverage/coverage.xml
+              echo "Coverage file: $COVERAGE_FILE -> coverage/coverage.xml"
             else
               echo "Warning: No coverage file found"
               mkdir -p coverage
@@ -170,7 +202,6 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: |
-            sdks/csharp/coverage/coverage.opencover.xml
             sdks/csharp/coverage/coverage.xml
           flags: csharp-sdk
           fail_ci_if_error: false
