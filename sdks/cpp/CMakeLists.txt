@@ -713,6 +713,8 @@ if(BUILD_TESTS)
             tests/test_config_driven_loader.cpp
             tests/test_config_manager.cpp
             tests/test_plugin_manager.cpp
+            tests/test_protocol.cpp
+            tests/test_logger.cpp
         )
 
         if(tcp_ENABLED)
