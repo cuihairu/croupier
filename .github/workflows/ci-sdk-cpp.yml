@@ -215,7 +215,11 @@ jobs:
         timeout-minutes: 15
         env:
           CROUPIER_SDK_TIMEOUT_SECONDS: 5
-        run: cd build && ctest --build-config ${{ matrix.build-type }} --output-on-failure --timeout 180
+        run: |
+          cd build && ctest --build-config ${{ matrix.build-type }} --output-on-failure --timeout 180 --verbose
+          # Show test list summary
+          echo "=== Test Cases ==="
+          ./bin/croupier-sdk-tests --gtest_list_tests 2>/dev/null | wc -l || true
 
       - name: Show agent logs (if test failed)
         if: failure()
@@ -354,7 +358,11 @@ jobs:
         timeout-minutes: 25
         env:
           CROUPIER_SDK_TIMEOUT_SECONDS: 5
-        run: cd build-coverage && ctest --build-config Debug --output-on-failure --parallel 2 --timeout 180
+        run: |
+          cd build-coverage && ctest --build-config Debug --output-on-failure --timeout 180
+          # Show test count
+          echo "=== Test Cases ==="
+          ./bin/croupier-sdk-tests --gtest_list_tests 2>/dev/null | wc -l || true
 
       - name: Show agent logs (if test failed)
         if: failure()
