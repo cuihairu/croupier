@@ -153,22 +153,30 @@ public partial class CroupierClient : IDisposable
 
         _logger.LogInfo("CroupierClient", "Disconnecting...");
 
+        // First, cancel the shutdown token and dispose transport to interrupt ReadLoop
         _shutdownCts.Cancel();
         _heartbeatCts?.Cancel();
         _isConnected = false;
 
+        // Dispose transport first to interrupt any pending ReadAsync calls
+        _transport?.Dispose();
+        _transport = null;
+
+        // Then wait for tasks with a shorter timeout since transport is already disposed
         try
         {
-            _processTask?.Wait(TimeSpan.FromSeconds(5));
-            _heartbeatTask?.Wait(TimeSpan.FromSeconds(5));
+            _processTask?.Wait(TimeSpan.FromSeconds(2));
+            _heartbeatTask?.Wait(TimeSpan.FromSeconds(2));
         }
         catch (OperationCanceledException)
         {
             // Expected
         }
+        catch (AggregateException)
+        {
+            // Task may have faulted
+        }
 
-        _transport?.Dispose();
-        _transport = null;
         _heartbeatCts?.Dispose();
         _heartbeatCts = null;
         _heartbeatTask = null;

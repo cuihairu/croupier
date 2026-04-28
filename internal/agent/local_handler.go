@@ -209,8 +209,8 @@ func (h *LocalHandler) callLocalProvider(ctx context.Context, addr string, msgID
 		Address:        addr,
 		Insecure:       true,
 		ConnectTimeout: 5 * time.Second,
-		RecvTimeout:    10 * time.Second,
-		SendTimeout:    10 * time.Second,
+		RecvTimeout:    30 * time.Second,
+		SendTimeout:    30 * time.Second,
 	})
 	if err != nil {
 		return nil, err

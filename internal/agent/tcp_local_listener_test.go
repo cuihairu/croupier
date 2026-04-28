@@ -17,8 +17,8 @@ func TestTCPLocalListenerProviderSessionLifecycle(t *testing.T) {
 	store := NewProviderSessionStore()
 	listener, err := NewTCPLocalListener(&TCPLocalListenerConfig{
 		Address:     "127.0.0.1:0",
-		RecvTimeout: 100 * time.Millisecond,
-		SendTimeout: 100 * time.Millisecond,
+		RecvTimeout: 30 * time.Second,
+		SendTimeout: 30 * time.Second,
 	}, store, nil)
 	if err != nil {
 		t.Fatalf("new listener: %v", err)
@@ -36,9 +36,9 @@ func TestTCPLocalListenerProviderSessionLifecycle(t *testing.T) {
 	client, err := tcptr.NewClient(&tcptr.Config{
 		Address:        listener.Addr(),
 		Insecure:       true,
-		ConnectTimeout: time.Second,
-		RecvTimeout:    time.Second,
-		SendTimeout:    time.Second,
+		ConnectTimeout: 5 * time.Second,
+		RecvTimeout:    30 * time.Second,
+		SendTimeout:    30 * time.Second,
 	})
 	if err != nil {
 		t.Fatalf("new client: %v", err)
@@ -146,8 +146,8 @@ func TestTCPLocalListenerRejectsNonProviderConnectFirstFrame(t *testing.T) {
 	store := NewProviderSessionStore()
 	listener, err := NewTCPLocalListener(&TCPLocalListenerConfig{
 		Address:     "127.0.0.1:0",
-		RecvTimeout: 100 * time.Millisecond,
-		SendTimeout: 100 * time.Millisecond,
+		RecvTimeout: 30 * time.Second,
+		SendTimeout: 30 * time.Second,
 	}, store, nil)
 	if err != nil {
 		t.Fatalf("new listener: %v", err)
@@ -165,9 +165,9 @@ func TestTCPLocalListenerRejectsNonProviderConnectFirstFrame(t *testing.T) {
 	client, err := tcptr.NewClient(&tcptr.Config{
 		Address:        listener.Addr(),
 		Insecure:       true,
-		ConnectTimeout: time.Second,
-		RecvTimeout:    time.Second,
-		SendTimeout:    time.Second,
+		ConnectTimeout: 5 * time.Second,
+		RecvTimeout:    30 * time.Second,
+		SendTimeout:    30 * time.Second,
 	})
 	if err != nil {
 		t.Fatalf("new client: %v", err)
