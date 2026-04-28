@@ -51,6 +51,9 @@ public sealed class TCPTransport : IClientTransport
     private readonly CancellationTokenSource? _readLoopCts;
     private Task? _readLoopTask;
 
+    // Handler for inbound requests from Agent (e.g., InvokeRequest)
+    private Func<int, int, byte[], Task<byte[]>>? _inboundRequestHandler;
+
     /// <summary>
     /// Gets whether the transport is connected.
     /// </summary>
@@ -61,6 +64,14 @@ public sealed class TCPTransport : IClientTransport
     /// </summary>
     /// <param name="timeoutMs">Connection timeout in milliseconds</param>
     public void SetConnectTimeout(int timeoutMs) => _connectTimeoutMs = timeoutMs;
+
+    /// <summary>
+    /// Set handler for inbound requests from Agent (e.g., InvokeRequest).
+    /// </summary>
+    public void SetInboundRequestHandler(Func<int, int, byte[], Task<byte[]>>? handler)
+    {
+        _inboundRequestHandler = handler;
+    }
 
     /// <summary>
     /// Initialize TCP transport.
@@ -181,6 +192,44 @@ public sealed class TCPTransport : IClientTransport
     }
 
     /// <summary>
+    /// Handle inbound request from Agent.
+    /// </summary>
+    private async Task HandleInboundRequest(int msgId, int reqId, byte[] body, CancellationToken cancellationToken)
+    {
+        byte[]? responseBody = null;
+        try
+        {
+            if (_inboundRequestHandler == null)
+            {
+                _logger.LogWarning("TCPTransport", $"No handler for inbound request: {Protocol.MsgIdString(msgId)}");
+                responseBody = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new { error = "no handler registered" });
+            }
+            else
+            {
+                _logger.LogDebug("TCPTransport", $"Processing inbound request: {Protocol.MsgIdString(msgId)}");
+                responseBody = await _inboundRequestHandler(msgId, reqId, body).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("TCPTransport", $"Inbound request handler failed: {ex.Message}");
+            responseBody = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new { error = ex.Message });
+        }
+
+        // Send response
+        var responseMsgId = Protocol.GetResponseMsgId(msgId);
+        var message = Protocol.NewMessage(responseMsgId, reqId, responseBody);
+        try
+        {
+            await WriteFrameAsync(message, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("TCPTransport", $"Failed to send response: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Background read loop that processes incoming frames.
     /// </summary>
     private async Task ReadLoop(CancellationToken cancellationToken)
@@ -222,8 +271,8 @@ public sealed class TCPTransport : IClientTransport
                 }
                 else if (Protocol.IsRequest(parsed.MsgId))
                 {
-                    // TODO: Handle inbound requests (invoke/task from agent)
-                    _logger.LogWarning("TCPTransport", $"Received inbound request: {Protocol.MsgIdString(parsed.MsgId)} (not implemented)");
+                    // Handle inbound requests (invoke/task from agent)
+                    await HandleInboundRequest(parsed.MsgId, parsed.ReqId, parsed.Body, cancellationToken).ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException)

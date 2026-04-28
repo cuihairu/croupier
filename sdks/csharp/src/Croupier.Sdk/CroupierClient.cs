@@ -414,6 +414,54 @@ public partial class CroupierClient : IDisposable
     }
 
     /// <summary>
+    /// 处理来自Agent的入站请求（InvokeRequest）
+    /// </summary>
+    private async Task<byte[]> HandleInboundRequestAsync(int msgId, int reqId, byte[] body)
+    {
+        if (msgId == Protocol.MsgInvokeRequest)
+        {
+            var request = InvokeRequest.Parser.ParseFrom(body);
+            var payload = request.Payload.ToStringUtf8();
+
+            // Extract metadata
+            request.Metadata.TryGetValue("X-Game-ID", out var gameId);
+            request.Metadata.TryGetValue("X-Env", out var env);
+            request.Metadata.TryGetValue("X-User-ID", out var userId);
+            request.Metadata.TryGetValue("X-Caller-Service-ID", out var callerServiceId);
+
+            // Create function call task
+            var task = new FunctionCallTask
+            {
+                FunctionId = request.FunctionId,
+                CallId = Guid.NewGuid().ToString(),
+                GameId = gameId ?? _config.GameId ?? "",
+                Env = env ?? _config.Env ?? "",
+                Payload = payload,
+                UserId = userId,
+                IdempotencyKey = string.IsNullOrEmpty(request.IdempotencyKey) ? null : request.IdempotencyKey,
+                CallerServiceId = callerServiceId
+            };
+
+            // Process function call
+            var result = await ProcessFunctionCallAsync(task);
+
+            // Build InvokeResponse
+            var response = new InvokeResponse
+            {
+                Payload = Google.Protobuf.ByteString.CopyFromUtf8(result)
+            };
+            return response.ToByteArray();
+        }
+
+        _logger.LogWarning("CroupierClient", $"Unsupported inbound request: {Protocol.MsgIdString(msgId)}");
+        var errorResponse = new InvokeResponse
+        {
+            Payload = Google.Protobuf.ByteString.CopyFromUtf8($"{{\"error\":\"Unsupported message type: {Protocol.MsgIdString(msgId)}\"}}")
+        };
+        return errorResponse.ToByteArray();
+    }
+
+    /// <summary>
     /// 处理函数调用循环
     /// </summary>
     private async Task ProcessCallsAsync(CancellationToken cancellationToken)
@@ -458,6 +506,10 @@ public partial class CroupierClient : IDisposable
             _transport?.Dispose();
             _transport = transport;
             _sessionId = response.SessionId;
+
+            // Register inbound request handler for InvokeRequest from Agent
+            transport.SetInboundRequestHandler(HandleInboundRequestAsync);
+
             await RegisterCapabilitiesAsync(cancellationToken);
         }
         catch
