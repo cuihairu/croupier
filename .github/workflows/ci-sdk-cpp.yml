@@ -204,6 +204,8 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/sdks/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake" \
             -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays" \
             -DVCPKG_TARGET_TRIPLET=x64-linux \
+            -DBUILD_SHARED_LIBS=ON \
+            -DBUILD_STATIC_LIBS=ON \
             -DBUILD_EXAMPLES=ON \
             -DBUILD_TESTS=ON
 
@@ -235,8 +237,8 @@ jobs:
         with:
           name: croupier-cpp-sdk-${{ matrix.build-type }}
           path: |
-            build/bin/
-            build/lib/
+            sdks/cpp/build/bin/
+            sdks/cpp/build/lib/
 
   coverage:
     runs-on: ubuntu-latest
