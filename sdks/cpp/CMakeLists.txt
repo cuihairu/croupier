@@ -708,6 +708,9 @@ if(BUILD_TESTS)
             tests/test_client_lifecycle.cpp
             tests/test_invoker_fallback.cpp
             tests/test_plugin_registry.cpp
+            tests/test_tcp_transport_errors.cpp
+            tests/test_client_utils.cpp
+            tests/test_config_driven_loader.cpp
         )
 
         if(tcp_ENABLED)
