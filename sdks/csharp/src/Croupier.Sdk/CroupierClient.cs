@@ -446,13 +446,13 @@ public partial class CroupierClient : IDisposable
         try
         {
             var responseBytes = await transport.CallAsync(
-                Protocol.MsgRegisterLocalRequest,
-                BuildRegisterRequest().ToByteArray(),
+                Protocol.MsgProviderConnectRequest,
+                BuildProviderConnectRequest().ToByteArray(),
                 cancellationToken);
-            var response = RegisterLocalResponse.Parser.ParseFrom(responseBytes);
+            var response = ProviderConnectResponse.Parser.ParseFrom(responseBytes);
             if (string.IsNullOrWhiteSpace(response.SessionId))
             {
-                throw new InvalidOperationException("RegisterLocal returned empty session_id");
+                throw new InvalidOperationException("ProviderConnect returned empty session_id");
             }
 
             _transport?.Dispose();
@@ -467,13 +467,15 @@ public partial class CroupierClient : IDisposable
         }
     }
 
-    private RegisterLocalRequest BuildRegisterRequest()
+    private ProviderConnectRequest BuildProviderConnectRequest()
     {
-        var request = new RegisterLocalRequest
+        var request = new ProviderConnectRequest
         {
             ServiceId = _config.ServiceId,
             Version = _config.ServiceVersion,
-            RpcAddr = "" // No longer using local server
+            SdkLanguage = _config.ProviderLang,
+            SdkVersion = _config.ProviderSdk,
+            ProtocolVersion = "v1"
         };
 
         foreach (var descriptor in _descriptors.Values)
@@ -638,13 +640,13 @@ public partial class CroupierClient : IDisposable
             throw new InvalidOperationException("Not connected to Agent");
         }
 
-        var request = new HeartbeatRequest
+        var request = new ProviderHeartbeatRequest
         {
             ServiceId = _config.ServiceId,
             SessionId = _sessionId
         };
 
-        await _transport.CallAsync(Protocol.MsgHeartbeatLocalRequest, request.ToByteArray(), cancellationToken);
+        await _transport.CallAsync(Protocol.MsgProviderHeartbeatRequest, request.ToByteArray(), cancellationToken);
     }
 
     private async Task ReconnectAsync(CancellationToken cancellationToken)
