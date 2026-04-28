@@ -12,7 +12,9 @@ import (
 	"time"
 
 	transportcore "github.com/cuihairu/croupier/internal/transport"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
+	"google.golang.org/protobuf/proto"
 )
 
 // Server implements a plain TCP request-response transport server.
@@ -117,7 +119,15 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 
 		respBody, handleErr := s.handler.Handle(ctx, msgID, reqID, body)
 		if handleErr != nil {
-			respBody, _ = json.Marshal(map[string]string{"error": handleErr.Error()})
+			// For InvokeRequest, return a proper InvokeResponse with error payload
+			// instead of plain JSON error
+			if msgID == 0x030101 { // MsgInvokeRequest
+				errorJSON := []byte(`{"error":"` + handleErr.Error() + `"}`)
+				resp := &sdkv1.InvokeResponse{Payload: errorJSON}
+				respBody, _ = proto.Marshal(resp)
+			} else {
+				respBody, _ = json.Marshal(map[string]string{"error": handleErr.Error()})
+			}
 		}
 
 		respFrame := protocol.NewMessageBody(protocol.GetResponseMsgID(msgID), reqID, respBody)
