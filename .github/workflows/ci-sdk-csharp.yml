@@ -86,15 +86,17 @@ jobs:
           docker pull ghcr.io/cuihairu/croupier-agent:latest || echo "Pull failed, will build locally"
           docker compose -f docker/docker-compose.ci.yml up -d --build
 
-          for i in {1..60}; do
+          # Wait for agent to be ready (increased timeout)
+          for i in {1..120}; do
             if nc -z localhost 19090 2>/dev/null; then
-              echo "Agent is ready"
+              echo "Agent port is open"
               # Additional wait to ensure agent is fully initialized
-              sleep 3
+              sleep 5
+              echo "Agent is ready"
               break
             fi
-            if [ $i -eq 60 ]; then
-              echo "Agent failed to start"
+            if [ $i -eq 120 ]; then
+              echo "Agent failed to start after 120 seconds"
               docker compose -f docker/docker-compose.ci.yml logs
               exit 1
             fi
