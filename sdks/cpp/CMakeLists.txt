@@ -711,6 +711,8 @@ if(BUILD_TESTS)
             tests/test_tcp_transport_errors.cpp
             tests/test_client_utils.cpp
             tests/test_config_driven_loader.cpp
+            tests/test_config_manager.cpp
+            tests/test_plugin_manager.cpp
         )
 
         if(tcp_ENABLED)
