@@ -82,9 +82,9 @@ jobs:
         timeout-minutes: 30
         run: |
           cd "${{ github.workspace }}"
-          # Try to pull, but continue if it fails (will build instead)
-          docker pull ghcr.io/cuihairu/croupier-agent:latest || echo "Pull failed, will build locally"
-          docker compose -f docker/docker-compose.ci.yml up -d --build
+          # Build locally to use latest code changes
+          docker compose -f docker/docker-compose.ci.yml build
+          docker compose -f docker/docker-compose.ci.yml up -d
 
           # Wait for agent to be ready (increased timeout)
           for i in {1..120}; do
