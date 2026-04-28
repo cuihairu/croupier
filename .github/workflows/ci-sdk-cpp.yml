@@ -176,7 +176,7 @@ jobs:
           done
 
       - name: Cache vcpkg binaries
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             sdks/cpp/vcpkg_installed
@@ -318,7 +318,7 @@ jobs:
           done
 
       - name: Cache vcpkg binaries (coverage)
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             sdks/cpp/vcpkg_installed
