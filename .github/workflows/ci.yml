@@ -44,7 +44,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: '指定 Tag 构建 (例如: v1.0.0)'
+        description: "指定 Tag 构建 (例如: v1.0.0)"
         required: false
         type: string
 
@@ -149,7 +149,12 @@ jobs:
           go env GOROOT GOTOOLDIR GOVERSION GOOS GOARCH
       - name: Install govulncheck
         timeout-minutes: 5
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        run: |
+          if ! command -v govulncheck &>/dev/null; then
+            go install golang.org/x/vuln/cmd/govulncheck@latest
+          else
+            echo "govulncheck already installed: $(govulncheck -help 2>&1 | head -1)"
+          fi
       - name: Go mod download
         timeout-minutes: 5
         run: go mod download

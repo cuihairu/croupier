@@ -127,7 +127,12 @@ jobs:
 
       - name: Install coverlet global tool
         timeout-minutes: 5
-        run: dotnet tool install --global coverlet.console
+        run: |
+          if ! command -v coverlet &>/dev/null; then
+            dotnet tool install --global coverlet.console
+          else
+            echo "coverlet already installed: $(coverlet --version)"
+          fi
 
       - name: Restore dependencies
         timeout-minutes: 5
@@ -137,13 +142,12 @@ jobs:
         timeout-minutes: 10
         run: |
           if [ -n "$(find . -name '*.Tests.csproj')" ]; then
-            # Run tests with XPlat Code Coverage
+            # Run tests with XPlat Code Coverage (opencover format)
             dotnet test --configuration Release \
-              --collect:"XPlat Code Coverage" \
-              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+              --collect:"XPlat Code Coverage"
 
             # Find and copy coverage file to expected location
-            COVERAGE_FILE=$(find . -path "*/TestResults/*/coverage.opencover.xml" | head -1)
+            COVERAGE_FILE=$(find . -name "coverage.opencover.xml" | head -1)
             if [ -n "$COVERAGE_FILE" ]; then
               mkdir -p coverage
               cp "$COVERAGE_FILE" coverage/coverage.opencover.xml
