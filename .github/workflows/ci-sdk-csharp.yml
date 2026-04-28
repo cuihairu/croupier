@@ -82,9 +82,14 @@ jobs:
         timeout-minutes: 30
         run: |
           cd "${{ github.workspace }}"
-          # Build locally to use latest code changes
-          docker compose -f docker/docker-compose.ci.yml build
-          docker compose -f docker/docker-compose.ci.yml up -d
+          # Build the agent locally using the dockerfile
+          docker build -f docker/Dockerfile.agent -t croupier-agent:ci .
+          # Start using the locally built image
+          docker run -d --name croupier-agent-ci \
+            -p 19090:19090 \
+            -v /tmp/agent-ci.yaml:/app/etc/agent.yaml:ro \
+            --network bridge \
+            croupier-agent:ci
 
           # Wait for agent to be ready (increased timeout)
           for i in {1..120}; do
@@ -126,11 +131,11 @@ jobs:
 
       - name: Show agent logs (if test failed)
         if: failure()
-        run: cd "${{ github.workspace }}" && docker compose -f docker/docker-compose.ci.yml logs
+        run: docker logs croupier-agent-ci
 
       - name: Stop agent
         if: always()
-        run: cd "${{ github.workspace }}" && docker compose -f docker/docker-compose.ci.yml down -v
+        run: docker rm -f croupier-agent-ci || true
 
       - name: Upload artifacts
         timeout-minutes: 3
