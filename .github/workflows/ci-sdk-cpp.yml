@@ -457,6 +457,7 @@ jobs:
           name: cpp-sdk-coverage
           fail_ci_if_error: false
           verbose: true
+          disable_file_fixes: true
 
   # Release jobs - only run on tags
   version:
