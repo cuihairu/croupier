@@ -700,3 +700,299 @@ func TestHTTPInvoker_Retry(t *testing.T) {
 		t.Errorf("expected 3 attempts, got %d", attempt)
 	}
 }
+
+// TestHTTPInvoker_StartJob_Comprehensive covers edge cases for StartJob
+func TestHTTPInvoker_StartJob_Comprehensive(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns generated job ID on success", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			resp := map[string]interface{}{
+				"code":    0,
+				"message": "success",
+				"data":    map[string]interface{}{"status": "started"},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(resp)
+		}))
+		defer server.Close()
+
+		invoker := NewHTTPInvoker(&InvokerConfig{
+			Address:  server.URL,
+			Insecure: true,
+		})
+
+		ctx := context.Background()
+		_ = invoker.Connect(ctx)
+
+		jobID, err := invoker.StartJob(ctx, "test.async.function", `{"input":"data"}`, InvokeOptions{})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		// Verify job ID format (should start with "http-job-")
+		if jobID == "" {
+			t.Error("expected non-empty job ID")
+		}
+		if len(jobID) < 10 {
+			t.Errorf("job ID too short: %s", jobID)
+		}
+	})
+
+	t.Run("propagates invoke errors", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			resp := map[string]interface{}{
+				"code":    500,
+				"message": "internal server error",
+				"data":    nil,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(resp)
+		}))
+		defer server.Close()
+
+		invoker := NewHTTPInvoker(&InvokerConfig{
+			Address:  server.URL,
+			Insecure: true,
+			Retry:    &RetryConfig{Enabled: false},
+		})
+
+		ctx := context.Background()
+		_ = invoker.Connect(ctx)
+
+		_, err := invoker.StartJob(ctx, "test.function", `{}`, InvokeOptions{})
+		if err == nil {
+			t.Error("expected error for failed invocation")
+		}
+	})
+
+	t.Run("handles timeout during StartJob", func(t *testing.T) {
+		t.Parallel()
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(200 * time.Millisecond)
+			resp := map[string]interface{}{
+				"code":    0,
+				"message": "success",
+				"data":    nil,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(resp)
+		}))
+		defer server.Close()
+
+		invoker := NewHTTPInvoker(&InvokerConfig{
+			Address:        server.URL,
+			Insecure:       true,
+			TimeoutSeconds: 1,
+			Retry:          &RetryConfig{Enabled: false},
+		})
+
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+		defer cancel()
+
+		_ = invoker.Connect(ctx)
+
+		_, err := invoker.StartJob(ctx, "test.function", `{}`, InvokeOptions{})
+		if err == nil {
+			t.Error("expected timeout error")
+		}
+	})
+}
+
+// TestHTTPInvoker_StreamJob_ErrorCases tests error scenarios for StreamJob
+func TestHTTPInvoker_StreamJob_ErrorCases(t *testing.T) {
+	t.Parallel()
+
+	invoker := NewHTTPInvoker(&InvokerConfig{
+		Address:  "localhost:18780",
+		Insecure: true,
+	})
+
+	ctx := context.Background()
+
+	t.Run("returns not supported error", func(t *testing.T) {
+		t.Parallel()
+
+		_, err := invoker.StreamJob(ctx, "any-job-id")
+		if err == nil {
+			t.Error("expected error for StreamJob (not supported)")
+		}
+
+		expectedErr := "not supported for HTTP invoker"
+		if err.Error() == "" || !containsString(err.Error(), expectedErr) {
+			t.Errorf("expected error containing %q, got %q", expectedErr, err.Error())
+		}
+	})
+
+	t.Run("error is consistent across different job IDs", func(t *testing.T) {
+		t.Parallel()
+
+		jobIDs := []string{"", "job-123", "http-job-456", "invalid"}
+
+		for _, jobID := range jobIDs {
+			_, err := invoker.StreamJob(ctx, jobID)
+			if err == nil {
+				t.Errorf("expected error for job ID %q", jobID)
+			}
+		}
+	})
+}
+
+// TestHTTPInvoker_CancelJob_ErrorCases tests error scenarios for CancelJob
+func TestHTTPInvoker_CancelJob_ErrorCases(t *testing.T) {
+	t.Parallel()
+
+	invoker := NewHTTPInvoker(&InvokerConfig{
+		Address:  "localhost:18780",
+		Insecure: true,
+	})
+
+	ctx := context.Background()
+
+	t.Run("returns not supported error", func(t *testing.T) {
+		t.Parallel()
+
+		err := invoker.CancelJob(ctx, "any-job-id")
+		if err == nil {
+			t.Error("expected error for CancelJob (not supported)")
+		}
+
+		expectedErr := "not supported for HTTP invoker"
+		if err.Error() == "" || !containsString(err.Error(), expectedErr) {
+			t.Errorf("expected error containing %q, got %q", expectedErr, err.Error())
+		}
+	})
+
+	t.Run("error is consistent across different job IDs", func(t *testing.T) {
+		t.Parallel()
+
+		jobIDs := []string{"", "job-123", "http-job-456", "running-job"}
+
+		for _, jobID := range jobIDs {
+			err := invoker.CancelJob(ctx, jobID)
+			if err == nil {
+				t.Errorf("expected error for job ID %q", jobID)
+			}
+		}
+	})
+
+	t.Run("CancelJob when not connected", func(t *testing.T) {
+		t.Parallel()
+
+		invoker2 := NewHTTPInvoker(&InvokerConfig{
+			Address:  "localhost:18780",
+			Insecure: true,
+		})
+		// Don't connect
+
+		err := invoker2.CancelJob(ctx, "job-123")
+		if err == nil {
+			t.Error("expected error when not connected")
+		}
+	})
+}
+
+// TestHTTPInvoker_JobOperations_NotSupported tests all unsupported job operations
+func TestHTTPInvoker_JobOperations_NotSupported(t *testing.T) {
+	t.Parallel()
+
+	invoker := NewHTTPInvoker(&InvokerConfig{
+		Address:  "localhost:18780",
+		Insecure: true,
+	})
+
+	ctx := context.Background()
+
+	// Test that both StreamJob and CancelJob return consistent errors
+	streamErrChan := make(chan error, 1)
+	cancelErrChan := make(chan error, 1)
+
+	go func() {
+		_, err := invoker.StreamJob(ctx, "test-job")
+		streamErrChan <- err
+	}()
+
+	go func() {
+		err := invoker.CancelJob(ctx, "test-job")
+		cancelErrChan <- err
+	}()
+
+	streamErr := <-streamErrChan
+	cancelErr := <-cancelErrChan
+
+	if streamErr == nil || cancelErr == nil {
+		t.Error("both operations should return errors")
+	}
+
+	// Both should mention "not supported"
+	if !containsString(streamErr.Error(), "not supported") {
+		t.Errorf("StreamJob error should mention 'not supported', got: %v", streamErr)
+	}
+	if !containsString(cancelErr.Error(), "not supported") {
+		t.Errorf("CancelJob error should mention 'not supported', got: %v", cancelErr)
+	}
+}
+
+// TestHTTPInvoker_StartJob_UniqueIdGeneration tests job ID uniqueness
+func TestHTTPInvoker_StartJob_UniqueIdGeneration(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]interface{}{
+			"code":    0,
+			"message": "success",
+			"data":    nil,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer server.Close()
+
+	invoker := NewHTTPInvoker(&InvokerConfig{
+		Address:  server.URL,
+		Insecure: true,
+	})
+
+	ctx := context.Background()
+	_ = invoker.Connect(ctx)
+
+	// Generate multiple job IDs and verify they are unique
+	jobIDs := make(map[string]bool)
+	for i := 0; i < 10; i++ {
+		jobID, err := invoker.StartJob(ctx, "test.function", `{}`, InvokeOptions{})
+		if err != nil {
+			t.Fatalf("unexpected error on iteration %d: %v", i, err)
+		}
+
+		if jobIDs[jobID] {
+			t.Errorf("duplicate job ID generated: %s", jobID)
+		}
+		jobIDs[jobID] = true
+	}
+
+	if len(jobIDs) != 10 {
+		t.Errorf("expected 10 unique job IDs, got %d", len(jobIDs))
+	}
+}
+
+// Helper function for string contains check
+func containsString(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
+		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
+			findInString(s, substr)))
+}
+
+func findInString(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

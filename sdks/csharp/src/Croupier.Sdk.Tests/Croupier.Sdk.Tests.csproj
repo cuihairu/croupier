@@ -31,6 +31,12 @@
 
     <!-- Test Ordering -->
     <PackageReference Include="Xunit.Priority" Version="1.1.6" />
+
+    <!-- Configuration and DI for testing -->
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
