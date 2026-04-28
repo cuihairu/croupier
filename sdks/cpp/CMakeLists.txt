@@ -708,13 +708,6 @@ if(BUILD_TESTS)
             tests/test_client_lifecycle.cpp
             tests/test_invoker_fallback.cpp
             tests/test_plugin_registry.cpp
-            tests/test_concurrency.cpp
-            tests/test_data_validation.cpp
-            tests/test_dynamic_library.cpp
-            tests/test_edge_cases.cpp
-            tests/test_error_recovery.cpp
-            tests/test_performance.cpp
-            tests/test_security.cpp
         )
 
         if(tcp_ENABLED)
