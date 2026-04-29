@@ -728,6 +728,11 @@ if(BUILD_TESTS)
             ${CROUPIER_TEST_SOURCES}
         )
 
+        # Ensure TCP tests are compiled when TCP is enabled
+        if(tcp_ENABLED)
+            target_compile_definitions(croupier-sdk-tests PRIVATE CROUPIER_SDK_HAS_TCP)
+        endif()
+
         if(TARGET GTest::gtest_main)
             set(_croupier_gtest_main GTest::gtest_main)
         else()

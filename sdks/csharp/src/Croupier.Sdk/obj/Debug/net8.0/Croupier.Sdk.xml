@@ -162,6 +162,11 @@
             处理函数调用
             </summary>
         </member>
+        <member name="M:Croupier.Sdk.CroupierClient.HandleInboundRequestAsync(System.Int32,System.Int32,System.Byte[])">
+            <summary>
+            处理来自Agent的入站请求（InvokeRequest）
+            </summary>
+        </member>
         <member name="M:Croupier.Sdk.CroupierClient.ProcessCallsAsync(System.Threading.CancellationToken)">
             <summary>
             处理函数调用循环
@@ -412,6 +417,7 @@
             <param name="services">服务集合</param>
             <param name="configAction">配置操作</param>
             <returns>服务集合（链式调用）</returns>
+            <exception cref="T:System.ArgumentNullException">Thrown when services is null</exception>
         </member>
         <member name="M:Croupier.Sdk.Extensions.ServiceCollectionExtensions.AddCroupier(Microsoft.Extensions.DependencyInjection.IServiceCollection,Microsoft.Extensions.Configuration.IConfigurationSection)">
             <summary>
@@ -428,6 +434,7 @@
             <param name="services">服务集合</param>
             <param name="configProvider">配置提供者</param>
             <returns>服务集合（链式调用）</returns>
+            <exception cref="T:System.ArgumentNullException">Thrown when services or configProvider is null</exception>
         </member>
         <member name="T:Croupier.Sdk.FunctionHandlerDelegate">
             <summary>
@@ -983,6 +990,11 @@
             Resets the singleton instance. Primarily for testing purposes.
             </summary>
         </member>
+        <member name="M:Croupier.Sdk.Transport.IClientTransport.SetInboundRequestHandler(System.Func{System.Int32,System.Int32,System.Byte[],System.Threading.Tasks.Task{System.Byte[]}})">
+            <summary>
+            Set handler for inbound requests (e.g., InvokeRequest from Agent).
+            </summary>
+        </member>
         <member name="T:Croupier.Sdk.Transport.Protocol">
              <summary>
              Croupier wire protocol implementation for TCP transport.
@@ -1077,14 +1089,27 @@
             </summary>
             <param name="timeoutMs">Connection timeout in milliseconds</param>
         </member>
+        <member name="M:Croupier.Sdk.Transport.TCPTransport.SetInboundRequestHandler(System.Func{System.Int32,System.Int32,System.Byte[],System.Threading.Tasks.Task{System.Byte[]}})">
+            <summary>
+            Set handler for inbound requests from Agent (e.g., InvokeRequest).
+            </summary>
+        </member>
         <member name="M:Croupier.Sdk.Transport.TCPTransport.#ctor(System.String,System.Int32,System.Int32,Croupier.Sdk.Logging.ICroupierLogger)">
             <summary>
             Initialize TCP transport.
             </summary>
-            <param name="address">TCP address (e.g., "127.0.0.1:19090")</param>
+            <param name="address">TCP address (e.g., "127.0.0.1:19090" or "[::1]:19090" for IPv6)</param>
             <param name="timeoutMs">Request timeout in milliseconds</param>
             <param name="connectTimeoutMs">Connection timeout in milliseconds (default: 5000ms)</param>
             <param name="logger">Logger instance</param>
+            <exception cref="T:System.ArgumentNullException">Thrown when address is null</exception>
+            <exception cref="T:System.ArgumentException">Thrown when address format is invalid</exception>
+            <exception cref="T:System.OverflowException">Thrown when port is out of valid range</exception>
+        </member>
+        <member name="M:Croupier.Sdk.Transport.TCPTransport.ParsePort(System.String)">
+            <summary>
+            Parse port string to int, throwing OverflowException for out-of-range values.
+            </summary>
         </member>
         <member name="M:Croupier.Sdk.Transport.TCPTransport.Connect">
             <summary>
@@ -1099,6 +1124,11 @@
         <member name="M:Croupier.Sdk.Transport.TCPTransport.CallAsync(System.Int32,System.Byte[],System.Threading.CancellationToken)">
             <summary>
             Send a request and wait for the response asynchronously.
+            </summary>
+        </member>
+        <member name="M:Croupier.Sdk.Transport.TCPTransport.HandleInboundRequest(System.Int32,System.Int32,System.Byte[],System.Threading.CancellationToken)">
+            <summary>
+            Handle inbound request from Agent.
             </summary>
         </member>
         <member name="M:Croupier.Sdk.Transport.TCPTransport.ReadLoop(System.Threading.CancellationToken)">

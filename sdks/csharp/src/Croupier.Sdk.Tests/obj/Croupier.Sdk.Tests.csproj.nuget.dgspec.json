@@ -1,35 +1,33 @@
 {
   "format": 1,
   "restore": {
-    "D:\\workspaces\\croupier\\sdks\\csharp\\src\\Croupier.Sdk.Tests\\Croupier.Sdk.Tests.csproj": {}
+    "/Users/cui/Workspaces/croupier/sdks/csharp/src/Croupier.Sdk.Tests/Croupier.Sdk.Tests.csproj": {}
   },
   "projects": {
-    "D:\\workspaces\\croupier\\sdks\\csharp\\src\\Croupier.Sdk.Tests\\Croupier.Sdk.Tests.csproj": {
+    "/Users/cui/Workspaces/croupier/sdks/csharp/src/Croupier.Sdk.Tests/Croupier.Sdk.Tests.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\workspaces\\croupier\\sdks\\csharp\\src\\Croupier.Sdk.Tests\\Croupier.Sdk.Tests.csproj",
+        "projectUniqueName": "/Users/cui/Workspaces/croupier/sdks/csharp/src/Croupier.Sdk.Tests/Croupier.Sdk.Tests.csproj",
         "projectName": "Croupier.Sdk.Tests",
-        "projectPath": "D:\\workspaces\\croupier\\sdks\\csharp\\src\\Croupier.Sdk.Tests\\Croupier.Sdk.Tests.csproj",
-        "packagesPath": "C:\\Users\\admin\\.nuget\\packages\\",
-        "outputPath": "D:\\workspaces\\croupier\\sdks\\csharp\\src\\Croupier.Sdk.Tests\\obj\\",
+        "projectPath": "/Users/cui/Workspaces/croupier/sdks/csharp/src/Croupier.Sdk.Tests/Croupier.Sdk.Tests.csproj",
+        "packagesPath": "/Users/cui/.nuget/packages/",
+        "outputPath": "/Users/cui/Workspaces/croupier/sdks/csharp/src/Croupier.Sdk.Tests/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\admin\\AppData\\Roaming\\NuGet\\NuGet.Config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+          "/Users/cui/.nuget/NuGet/NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
         ],
         "sources": {
-          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
           "net8.0": {
             "targetAlias": "net8.0",
             "projectReferences": {
-              "D:\\workspaces\\croupier\\sdks\\csharp\\src\\Croupier.Sdk\\Croupier.Sdk.csproj": {
-                "projectPath": "D:\\workspaces\\croupier\\sdks\\csharp\\src\\Croupier.Sdk\\Croupier.Sdk.csproj"
+              "/Users/cui/Workspaces/croupier/sdks/csharp/src/Croupier.Sdk/Croupier.Sdk.csproj": {
+                "projectPath": "/Users/cui/Workspaces/croupier/sdks/csharp/src/Croupier.Sdk/Croupier.Sdk.csproj"
               }
             }
           }
@@ -44,7 +42,7 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "9.0.300"
+        "SdkAnalysisLevel": "10.0.200"
       },
       "frameworks": {
         "net8.0": {
@@ -53,6 +51,22 @@
             "FluentAssertions": {
               "target": "Package",
               "version": "[6.12.2, )"
+            },
+            "Microsoft.Extensions.Configuration": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Microsoft.Extensions.Configuration.Abstractions": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Microsoft.Extensions.DependencyInjection": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
+            "Microsoft.Extensions.Options": {
+              "target": "Package",
+              "version": "[8.0.0, )"
             },
             "Microsoft.NET.Test.Sdk": {
               "target": "Package",
@@ -99,28 +113,26 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.312/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/10.0.203/PortableRuntimeIdentifierGraph.json"
         }
       }
     },
-    "D:\\workspaces\\croupier\\sdks\\csharp\\src\\Croupier.Sdk\\Croupier.Sdk.csproj": {
+    "/Users/cui/Workspaces/croupier/sdks/csharp/src/Croupier.Sdk/Croupier.Sdk.csproj": {
       "version": "0.1.0",
       "restore": {
-        "projectUniqueName": "D:\\workspaces\\croupier\\sdks\\csharp\\src\\Croupier.Sdk\\Croupier.Sdk.csproj",
+        "projectUniqueName": "/Users/cui/Workspaces/croupier/sdks/csharp/src/Croupier.Sdk/Croupier.Sdk.csproj",
         "projectName": "Croupier.Sdk",
-        "projectPath": "D:\\workspaces\\croupier\\sdks\\csharp\\src\\Croupier.Sdk\\Croupier.Sdk.csproj",
-        "packagesPath": "C:\\Users\\admin\\.nuget\\packages\\",
-        "outputPath": "D:\\workspaces\\croupier\\sdks\\csharp\\src\\Croupier.Sdk\\obj\\",
+        "projectPath": "/Users/cui/Workspaces/croupier/sdks/csharp/src/Croupier.Sdk/Croupier.Sdk.csproj",
+        "packagesPath": "/Users/cui/.nuget/packages/",
+        "outputPath": "/Users/cui/Workspaces/croupier/sdks/csharp/src/Croupier.Sdk/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\admin\\AppData\\Roaming\\NuGet\\NuGet.Config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+          "/Users/cui/.nuget/NuGet/NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
         ],
         "sources": {
-          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -139,7 +151,7 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "9.0.300"
+        "SdkAnalysisLevel": "10.0.200"
       },
       "frameworks": {
         "net8.0": {
@@ -198,7 +210,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.312/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/10.0.203/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

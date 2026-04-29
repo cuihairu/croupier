@@ -454,7 +454,7 @@ jobs:
         uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: sdks/cpp/coverage/coverage.xml
+          files: ./coverage/coverage.xml
           flags: cpp-sdk
           name: cpp-sdk-coverage
           fail_ci_if_error: false

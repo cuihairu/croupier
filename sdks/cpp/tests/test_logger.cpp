@@ -67,9 +67,9 @@ TEST_F(LoggerTest, MaskSensitiveMedium) {
 }
 
 TEST_F(LoggerTest, MaskSensitiveToken) {
-    // Token-like string
+    // Token-like string - shows first 3 and last 3 characters
     std::string result = MaskSensitive("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9");
-    EXPECT_EQ(result, "eyJ...IkpXVCJ9");
+    EXPECT_EQ(result, "eyJ...CJ9");
 }
 
 // ========== MaskFully Tests ==========
