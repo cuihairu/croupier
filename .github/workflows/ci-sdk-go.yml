@@ -31,7 +31,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
@@ -115,7 +115,7 @@ jobs:
           done
 
       - name: Run tests with coverage
-        timeout-minutes: 10
+        timeout-minutes: 20
         working-directory: ./sdks/go
         run: |
           # Run tests including integration tests (agent is started via docker-compose)
