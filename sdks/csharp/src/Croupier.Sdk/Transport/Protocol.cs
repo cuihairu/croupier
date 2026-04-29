@@ -147,12 +147,13 @@ public static class Protocol
         public readonly int ReqId;
         public readonly byte[] Body;
 
-        public ParsedMessage(byte version, int msgId, int reqId, byte[] body)
+        public ParsedMessage(byte version, int msgId, int reqId, byte[]? body)
         {
             Version = version;
             MsgId = msgId;
             ReqId = reqId;
-            Body = body;
+            // Ensure Body is never null - use empty array if null is provided
+            Body = body ?? Array.Empty<byte>();
         }
     }
 

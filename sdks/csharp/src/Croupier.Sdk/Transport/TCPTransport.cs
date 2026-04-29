@@ -76,24 +76,83 @@ public sealed class TCPTransport : IClientTransport
     /// <summary>
     /// Initialize TCP transport.
     /// </summary>
-    /// <param name="address">TCP address (e.g., "127.0.0.1:19090")</param>
+    /// <param name="address">TCP address (e.g., "127.0.0.1:19090" or "[::1]:19090" for IPv6)</param>
     /// <param name="timeoutMs">Request timeout in milliseconds</param>
     /// <param name="connectTimeoutMs">Connection timeout in milliseconds (default: 5000ms)</param>
     /// <param name="logger">Logger instance</param>
+    /// <exception cref="ArgumentNullException">Thrown when address is null</exception>
+    /// <exception cref="ArgumentException">Thrown when address format is invalid</exception>
+    /// <exception cref="OverflowException">Thrown when port is out of valid range</exception>
     public TCPTransport(string address, int timeoutMs = 30000, int connectTimeoutMs = 5000, ICroupierLogger? logger = null)
     {
-        var parts = address.Split(':');
-        if (parts.Length != 2)
+        if (address == null)
         {
-            throw new ArgumentException($"Invalid address format: {address}", nameof(address));
+            throw new ArgumentNullException(nameof(address));
         }
 
-        _host = parts[0];
-        _port = int.Parse(parts[1]);
+        // Handle IPv6 addresses in brackets [host]:port
+        if (address.StartsWith('['))
+        {
+            var bracketEnd = address.IndexOf(']');
+            if (bracketEnd == -1 || bracketEnd == 1)
+            {
+                throw new ArgumentException($"Invalid IPv6 address format: {address}", nameof(address));
+            }
+
+            var colonAfterBracket = address.IndexOf(':', bracketEnd);
+            if (colonAfterBracket == -1 || colonAfterBracket != bracketEnd + 1 || colonAfterBracket == address.Length - 1)
+            {
+                throw new ArgumentException($"Invalid IPv6 address format: {address}", nameof(address));
+            }
+
+            _host = address.Substring(1, bracketEnd - 1);
+            var portStr = address.Substring(colonAfterBracket + 1);
+            _port = ParsePort(portStr);
+        }
+        else
+        {
+            var parts = address.Split(':');
+            if (parts.Length != 2)
+            {
+                throw new ArgumentException($"Invalid address format: {address}", nameof(address));
+            }
+
+            _host = parts[0];
+            _port = ParsePort(parts[1]);
+        }
+
         _timeoutMs = timeoutMs;
         _connectTimeoutMs = connectTimeoutMs;
         _logger = logger ?? new ConsoleCroupierLogger("TCPTransport");
         _readLoopCts = new CancellationTokenSource();
+    }
+
+    /// <summary>
+    /// Parse port string to int, throwing OverflowException for out-of-range values.
+    /// </summary>
+    private static int ParsePort(string portStr)
+    {
+        // Check for negative sign explicitly to throw OverflowException
+        if (portStr.StartsWith('-'))
+        {
+            throw new OverflowException("Port number cannot be negative");
+        }
+
+        // Use int.Parse which will throw OverflowException for values outside int range
+        try
+        {
+            var port = int.Parse(portStr);
+            if (port < 0 || port > 65535)
+            {
+                throw new OverflowException($"Port number {port} is out of valid range (0-65535)");
+            }
+            return port;
+        }
+        catch (FormatException)
+        {
+            // Re-throw as is for non-numeric values
+            throw;
+        }
     }
 
     /// <summary>

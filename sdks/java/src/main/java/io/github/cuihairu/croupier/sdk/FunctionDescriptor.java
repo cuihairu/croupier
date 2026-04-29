@@ -30,6 +30,26 @@ public class FunctionDescriptor {
         this.enabled = true;
     }
 
+    /**
+     * Copy constructor for creating a deep copy of a descriptor
+     */
+    public FunctionDescriptor(FunctionDescriptor other) {
+        this.id = other.id;
+        this.version = other.version;
+        this.tags = other.tags != null ? new ArrayList<>(other.tags) : null;
+        this.summary = other.summary;
+        this.description = other.description;
+        this.operationId = other.operationId;
+        this.deprecated = other.deprecated;
+        this.inputSchema = other.inputSchema;
+        this.outputSchema = other.outputSchema;
+        this.category = other.category;
+        this.risk = other.risk;
+        this.entity = other.entity;
+        this.operation = other.operation;
+        this.enabled = other.enabled;
+    }
+
     // Getters and setters
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -38,7 +58,7 @@ public class FunctionDescriptor {
     public void setVersion(String version) { this.version = version; }
 
     public List<String> getTags() { return tags; }
-    public void setTags(List<String> tags) { this.tags = tags != null ? new ArrayList<>(tags) : new ArrayList<>(); }
+    public void setTags(List<String> tags) { this.tags = tags; }
 
     public String getSummary() { return summary; }
     public void setSummary(String summary) { this.summary = summary; }

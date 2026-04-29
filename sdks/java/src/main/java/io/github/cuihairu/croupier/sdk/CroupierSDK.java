@@ -26,8 +26,15 @@ public class CroupierSDK {
      * @param gameId Game identifier
      * @param serviceId Service identifier
      * @return CroupierClient instance
+     * @throws NullPointerException if gameId or serviceId is null
      */
     public static CroupierClient createClient(String gameId, String serviceId) {
+        if (gameId == null) {
+            throw new NullPointerException("gameId cannot be null");
+        }
+        if (serviceId == null) {
+            throw new NullPointerException("serviceId cannot be null");
+        }
         ClientConfig config = new ClientConfig(gameId, serviceId);
         return new CroupierClientImpl(config);
     }
@@ -39,8 +46,15 @@ public class CroupierSDK {
      * @param serviceId Service identifier
      * @param agentAddr Agent address
      * @return CroupierClient instance
+     * @throws NullPointerException if gameId or serviceId is null
      */
     public static CroupierClient createClient(String gameId, String serviceId, String agentAddr) {
+        if (gameId == null) {
+            throw new NullPointerException("gameId cannot be null");
+        }
+        if (serviceId == null) {
+            throw new NullPointerException("serviceId cannot be null");
+        }
         ClientConfig config = new ClientConfig(gameId, serviceId);
         config.setAgentAddr(agentAddr);
         return new CroupierClientImpl(config);
@@ -64,8 +78,12 @@ public class CroupierSDK {
      *
      * @param config Invoker configuration
      * @return Invoker instance
+     * @throws NullPointerException if config is null
      */
     public static Invoker createInvoker(InvokerConfig config) {
+        if (config == null) {
+            throw new NullPointerException("config cannot be null");
+        }
         return new InvokerImpl(config);
     }
 
@@ -83,8 +101,16 @@ public class CroupierSDK {
      *
      * @param address the server address in "host:port" format
      * @return Invoker instance
+     * @throws NullPointerException if address is null
+     * @throws IllegalArgumentException if address is empty
      */
     public static Invoker createInvoker(String address) {
+        if (address == null) {
+            throw new NullPointerException("address cannot be null");
+        }
+        if (address.isEmpty()) {
+            throw new IllegalArgumentException("address cannot be empty");
+        }
         InvokerConfig config = InvokerConfig.builder()
             .address(address)
             .build();
@@ -171,7 +197,8 @@ public class CroupierSDK {
         }
 
         public FunctionDescriptor build() {
-            return descriptor;
+            // Return a copy to ensure immutability
+            return new FunctionDescriptor(descriptor);
         }
     }
 }

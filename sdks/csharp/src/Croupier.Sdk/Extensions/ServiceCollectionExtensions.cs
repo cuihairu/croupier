@@ -31,15 +31,21 @@ public static class ServiceCollectionExtensions
     /// <param name="services">服务集合</param>
     /// <param name="configAction">配置操作</param>
     /// <returns>服务集合（链式调用）</returns>
+    /// <exception cref="ArgumentNullException">Thrown when services is null</exception>
     public static IServiceCollection AddCroupier(
         this IServiceCollection services,
         Action<ClientConfig>? configAction = null)
     {
-        // 配置选项
-        var config = new ClientConfig();
-        configAction?.Invoke(config);
+        if (services == null)
+        {
+            throw new ArgumentNullException(nameof(services));
+        }
 
-        services.AddSingleton(Options.Create(config));
+        // Use Configure to support IOptionsSnapshot
+        services.Configure<ClientConfig>(options =>
+        {
+            configAction?.Invoke(options);
+        });
 
         // 注册核心服务
         services.AddSingleton<CroupierClient>();
@@ -71,10 +77,20 @@ public static class ServiceCollectionExtensions
     /// <param name="services">服务集合</param>
     /// <param name="configProvider">配置提供者</param>
     /// <returns>服务集合（链式调用）</returns>
+    /// <exception cref="ArgumentNullException">Thrown when services or configProvider is null</exception>
     public static IServiceCollection AddCroupier(
         this IServiceCollection services,
         ICroupierConfigProvider configProvider)
     {
+        if (services == null)
+        {
+            throw new ArgumentNullException(nameof(services));
+        }
+        if (configProvider == null)
+        {
+            throw new ArgumentNullException(nameof(configProvider));
+        }
+
         var config = configProvider.GetConfig();
         services.AddSingleton(Options.Create(config));
         services.AddSingleton<CroupierClient>();
