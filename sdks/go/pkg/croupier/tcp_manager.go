@@ -324,11 +324,19 @@ func (h *tcpRPCHandler) startTask(ctx context.Context, msgID uint32, reqID uint3
 		defer h.manager.tasksMutex.Unlock()
 
 		task.UpdatedAt = time.Now().Unix()
-		if execErr != nil {
-			task.Status = agentv1.TaskStatus_TASK_STATUS_FAILED
+		// Don't override status if task was already cancelled
+		if task.Status != agentv1.TaskStatus_TASK_STATUS_CANCEL_REQUESTED {
+			if execErr != nil {
+				task.Status = agentv1.TaskStatus_TASK_STATUS_FAILED
+				task.Error = execErr.Error()
+			} else {
+				task.Status = agentv1.TaskStatus_TASK_STATUS_SUCCEEDED
+				task.Result = result
+			}
+		} else if execErr != nil {
+			// Task was cancelled, but still record the error
 			task.Error = execErr.Error()
 		} else {
-			task.Status = agentv1.TaskStatus_TASK_STATUS_SUCCEEDED
 			task.Result = result
 		}
 	}()

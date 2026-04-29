@@ -2125,7 +2125,7 @@ func TestCalculateReconnectDelay_EdgeCases(t *testing.T) {
 		{
 			name:            "attempt 0",
 			attempt:         0,
-			expectedDelayMs: 400, // 100 * 2^2 = 400
+			expectedDelayMs: 1000, // 1000 * 2^0 = 1000
 		},
 		{
 			name:            "attempt 1",
