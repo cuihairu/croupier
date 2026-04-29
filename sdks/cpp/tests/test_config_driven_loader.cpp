@@ -375,17 +375,18 @@ TEST_F(ConfigDrivenLoaderTest, CreateHandlerFromConfigTemplate) {
 
     std::map<std::string, std::string> config = {
         {"type", "template"},
-        {"template", R"( {"result": "{{context}}:{{payload}"} })"}
+        {"template", "{{context}}:{{payload}}"}  // Simple template without JSON wrapping
     };
 
     auto handler = loader.CreateHandlerFromConfig("test.template", config);
-    EXPECT_NE(handler, nullptr);
+    ASSERT_NE(handler, nullptr) << "Template handler should not be null";
 
     std::string result = handler("mycontext", "mypayload");
     // Debug output to see actual result
     std::cout << "DEBUG: template handler result = [" << result << "]" << std::endl;
-    std::cout << "DEBUG: looking for [mycontext:mypayload]" << std::endl;
-    EXPECT_NE(result.find("mycontext:mypayload"), std::string::npos);
+
+    // After template replacement, result should be "mycontext:mypayload"
+    EXPECT_EQ(result, "mycontext:mypayload");
 }
 
 // Test CreateHandlerFromConfig unknown type
