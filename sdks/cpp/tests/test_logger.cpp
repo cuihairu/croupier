@@ -4,6 +4,7 @@
 
 #include <sstream>
 #include <regex>
+#include <thread>
 
 namespace croupier {
 namespace sdk {

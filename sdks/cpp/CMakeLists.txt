@@ -292,6 +292,7 @@ endif()
 set(SDK_SOURCES
     src/croupier_client.cpp
     src/config_driven_loader.cpp
+    src/config_manager.cpp
     src/tcp_transport.cpp
     src/utils/json_utils.cpp
     src/utils/file_utils.cpp

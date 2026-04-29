@@ -121,12 +121,17 @@ func (c *TCPClient) Call(ctx context.Context, msgID uint32, reqBody []byte) (res
 	c.mu.Lock()
 	reqID := c.nextReqID
 	c.nextReqID++
-	c.mu.Unlock()
 
 	// Create response channel
 	respCh := make(chan responseTuple, 1)
 	c.pending[reqID] = respCh
-	defer delete(c.pending, reqID)
+	c.mu.Unlock()
+
+	defer func() {
+		c.mu.Lock()
+		delete(c.pending, reqID)
+		c.mu.Unlock()
+	}()
 
 	// Create frame with protocol header
 	frame := make([]byte, frameHeaderBytes+protocol.HeaderSize+len(reqBody))

@@ -12,13 +12,8 @@ import (
 )
 
 // mockMessage is a simple protobuf message for testing
-type mockMessage struct {
-	proto.Message
-	value string
-}
-
-func (m *mockMessage) Reset() { m.value = "" }
-func (m *mockMessage) String() string { return m.value }
+// Using wrapperspb.StringValue as a real protobuf message
+type mockMessage = wrapperspb.StringValue
 
 // TestNewRegistry verifies that NewRegistry creates an empty registry.
 func TestNewRegistry(t *testing.T) {
@@ -48,7 +43,7 @@ func TestRegister(t *testing.T) {
 		msgID := uint32(0x010101)
 
 		factory := func() proto.Message {
-			return &mockMessage{value: "test"}
+			return wrapperspb.String("test")
 		}
 
 		registry.Register(msgID, factory)
@@ -62,8 +57,8 @@ func TestRegister(t *testing.T) {
 		if !ok {
 			t.Fatal("expected mockMessage type")
 		}
-		if mock.value != "test" {
-			t.Errorf("expected value 'test', got '%s'", mock.value)
+		if mock.Value != "test" {
+			t.Errorf("expected value 'test', got '%s'", mock.Value)
 		}
 	})
 
@@ -74,11 +69,11 @@ func TestRegister(t *testing.T) {
 		msgID := uint32(0x010102)
 
 		registry.Register(msgID, func() proto.Message {
-			return &mockMessage{value: "first"}
+			return wrapperspb.String("first")
 		})
 
 		registry.Register(msgID, func() proto.Message {
-			return &mockMessage{value: "second"}
+			return wrapperspb.String("second")
 		})
 
 		msg, err := registry.Create(msgID)
@@ -87,8 +82,8 @@ func TestRegister(t *testing.T) {
 		}
 
 		mock := msg.(*mockMessage)
-		if mock.value != "second" {
-			t.Errorf("expected value 'second', got '%s'", mock.value)
+		if mock.Value != "second" {
+			t.Errorf("expected value 'second', got '%s'", mock.Value)
 		}
 	})
 
@@ -101,7 +96,7 @@ func TestRegister(t *testing.T) {
 
 		for _, msgID := range msgIDs {
 			registry.Register(msgID, func() proto.Message {
-				return &mockMessage{value: "registered"}
+				return wrapperspb.String("registered")
 			})
 		}
 
@@ -124,9 +119,9 @@ func TestRegisterBatch(t *testing.T) {
 		registry := NewRegistry()
 
 		types := map[uint32]func() proto.Message{
-			0x010101: func() proto.Message { return &mockMessage{value: "first"} },
-			0x010102: func() proto.Message { return &mockMessage{value: "second"} },
-			0x010103: func() proto.Message { return &mockMessage{value: "third"} },
+			0x010101: func() proto.Message { return wrapperspb.String("first") },
+			0x010102: func() proto.Message { return wrapperspb.String("second") },
+			0x010103: func() proto.Message { return wrapperspb.String("third") },
 		}
 
 		registry.RegisterBatch(types)
@@ -159,10 +154,10 @@ func TestRegisterBatch(t *testing.T) {
 		registry := NewRegistry()
 
 		batch1 := map[uint32]func() proto.Message{
-			0x010101: func() proto.Message { return &mockMessage{value: "batch1"} },
+			0x010101: func() proto.Message { return wrapperspb.String("batch1") },
 		}
 		batch2 := map[uint32]func() proto.Message{
-			0x010102: func() proto.Message { return &mockMessage{value: "batch2"} },
+			0x010102: func() proto.Message { return wrapperspb.String("batch2") },
 		}
 
 		registry.RegisterBatch(batch1)
@@ -207,7 +202,7 @@ func TestCreate(t *testing.T) {
 		callCount := 0
 		factory := func() proto.Message {
 			callCount++
-			return &mockMessage{value: "test"}
+			return wrapperspb.String("test")
 		}
 
 		registry.Register(msgID, factory)
@@ -320,7 +315,7 @@ func TestUnmarshal(t *testing.T) {
 		msgID := uint32(0x010101)
 
 		registry.Register(msgID, func() proto.Message {
-			return &mockMessage{}
+			return wrapperspb.String("")
 		})
 
 		msg, err := registry.Unmarshal(msgID, []byte{})
@@ -345,7 +340,7 @@ func TestMustRegister(t *testing.T) {
 		msgID := uint32(0x010101)
 
 		registry.MustRegister(msgID, func() proto.Message {
-			return &mockMessage{value: "must-register"}
+			return wrapperspb.String("must-register")
 		})
 
 		// Should be able to create the message
@@ -368,12 +363,12 @@ func TestMustRegister(t *testing.T) {
 		msgID := uint32(0x010101)
 
 		registry.MustRegister(msgID, func() proto.Message {
-			return &mockMessage{value: "first"}
+			return wrapperspb.String("first")
 		})
 
 		// This should panic
 		registry.MustRegister(msgID, func() proto.Message {
-			return &mockMessage{value: "second"}
+			return wrapperspb.String("second")
 		})
 	})
 
@@ -399,10 +394,10 @@ func TestMustRegister(t *testing.T) {
 		msgID := uint32(0x010101)
 
 		registry.MustRegister(msgID, func() proto.Message {
-			return &mockMessage{}
+			return wrapperspb.String("")
 		})
 		registry.MustRegister(msgID, func() proto.Message {
-			return &mockMessage{}
+			return wrapperspb.String("")
 		})
 	})
 }
@@ -426,7 +421,7 @@ func TestRegistry_ConcurrentAccess(t *testing.T) {
 				defer wg.Done()
 				msgID := msgIDBase + uint32(idx)
 				registry.Register(msgID, func() proto.Message {
-					return &mockMessage{value: "concurrent"}
+					return wrapperspb.String("concurrent")
 				})
 			}(i)
 		}
@@ -450,7 +445,7 @@ func TestRegistry_ConcurrentAccess(t *testing.T) {
 		msgID := uint32(0x030101)
 
 		registry.Register(msgID, func() proto.Message {
-			return &mockMessage{value: "concurrent-create"}
+			return wrapperspb.String("concurrent-create")
 		})
 
 		var wg sync.WaitGroup
@@ -483,14 +478,14 @@ func TestRegistry_ConcurrentAccess(t *testing.T) {
 				defer wg.Done()
 				msgID := uint32(0x040000 + idx)
 				registry.Register(msgID, func() proto.Message {
-					return &mockMessage{value: "mixed"}
+					return wrapperspb.String("mixed")
 				})
 			}(i)
 		}
 
 		// Create goroutines (for already registered types)
 		registry.Register(0x050101, func() proto.Message {
-			return &mockMessage{value: "create-test"}
+			return wrapperspb.String("create-test")
 		})
 
 		for i := 0; i < 50; i++ {
@@ -521,7 +516,7 @@ func TestRegistry_ConcurrentAccess(t *testing.T) {
 				for j := 0; j < 10; j++ {
 					msgID := uint32(0x060000 + idx*10 + j)
 					batch[msgID] = func() proto.Message {
-						return &mockMessage{value: "batch"}
+						return wrapperspb.String("batch")
 					}
 				}
 
@@ -568,7 +563,7 @@ func TestRegistry_RealMessageTypes(t *testing.T) {
 
 		for _, msgID := range controlMessages {
 			registry.Register(msgID, func() proto.Message {
-				return &mockMessage{value: "control"}
+				return wrapperspb.String("control")
 			})
 		}
 

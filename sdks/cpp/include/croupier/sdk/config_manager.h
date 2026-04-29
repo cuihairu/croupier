@@ -161,6 +161,10 @@ private:
     nlohmann::json GenerateExampleClientConfigJson();
     nlohmann::json GenerateExampleComponentJson();
     nlohmann::json GenerateExampleSchemaJson();
+
+    // Schema validation helpers
+    bool ValidateFieldType(const nlohmann::json& value, const VirtualObjectSchema::FieldSchema& field_schema);
+    bool ValidateFieldRules(const nlohmann::json& value, const VirtualObjectSchema::FieldSchema& field_schema);
 #endif
 };
 

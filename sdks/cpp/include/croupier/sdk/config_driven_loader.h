@@ -133,6 +133,18 @@ public:
      */
     bool ValidateJsonConfig(const std::string& json_content);
 
+    // ========== 测试辅助方法 (Testing Helper Methods) ==========
+    // Note: These methods are exposed for testing purposes
+
+    /**
+     * @brief 解析处理器配置 (测试用)
+     */
+    std::map<std::string, FunctionHandler> ResolveHandlers(const ComponentDescriptor& comp);
+    FunctionHandler CreateHandlerFromConfig(const std::string& function_id,
+                                            const std::map<std::string, std::string>& config);
+    FunctionHandler CreateDefaultHandler(const std::string& function_id);
+    VirtualObjectDescriptor ParseJsonToVirtualObject(const std::string& json_content);
+
 private:
     // 工厂映射表
     std::map<std::string, HandlerFactory> handler_factories_;
@@ -146,11 +158,6 @@ private:
     // Internal helper methods
     std::string LoadFileContent(const std::string& file_path);
     ComponentDescriptor ParseJsonToComponent(const std::string& json_content);
-    VirtualObjectDescriptor ParseJsonToVirtualObject(const std::string& json_content);
-    std::map<std::string, FunctionHandler> ResolveHandlers(const ComponentDescriptor& comp);
-    FunctionHandler CreateHandlerFromConfig(const std::string& function_id,
-                                            const std::map<std::string, std::string>& config);
-    FunctionHandler CreateDefaultHandler(const std::string& function_id);
     FunctionHandler LoadFromDynamicLib(const std::string& lib_path, const std::string& function_name);
 };
 

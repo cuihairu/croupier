@@ -1245,6 +1245,8 @@ type mockServer struct {
 	requestCount int
 	versionValid bool
 	closing     chan struct{}
+	closeOnce   sync.Once
+	closed      bool
 }
 
 func startMockServer(t *testing.T) *mockServer {
@@ -1298,7 +1300,10 @@ func (s *mockServer) Addr() string {
 }
 
 func (s *mockServer) Close() error {
-	close(s.closing)
+	s.closeOnce.Do(func() {
+		close(s.closing)
+		s.closed = true
+	})
 	if s.listener != nil {
 		return s.listener.Close()
 	}

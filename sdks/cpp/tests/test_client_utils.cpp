@@ -134,7 +134,7 @@ TEST_F(ClientUtilsTest, ValidateObjectDescriptorWithRelationships) {
     desc.version = "1.0.0";
 
     // Valid relationships
-    Relationship rel1;
+    RelationshipDef rel1;
     rel1.type = "one-to-many";
     rel1.entity = "item";
     rel1.foreign_key = "player_id";
@@ -143,7 +143,7 @@ TEST_F(ClientUtilsTest, ValidateObjectDescriptorWithRelationships) {
     EXPECT_TRUE(utils::ValidateObjectDescriptor(desc));
 
     // Invalid relationship type
-    Relationship rel2;
+    RelationshipDef rel2;
     rel2.type = "invalid-type";
     rel2.entity = "guild";
     rel2.foreign_key = "guild_id";
@@ -483,7 +483,7 @@ TEST_F(ClientUtilsTest, RegisterFunctionWhileRunning) {
     desc.id = "test.func";
     desc.version = "1.0.0";
 
-    FunctionHandler handler = [](const std::string&) -> std::string {
+    FunctionHandler handler = [](const std::string&, const std::string&) -> std::string {
         return "{}";
     };
 
@@ -533,7 +533,7 @@ TEST_F(ClientUtilsTest, RegisterEmptyFunctionId) {
     desc.id = "";  // Empty ID
     desc.version = "1.0.0";
 
-    FunctionHandler handler = [](const std::string&) -> std::string {
+    FunctionHandler handler = [](const std::string&, const std::string&) -> std::string {
         return "{}";
     };
 

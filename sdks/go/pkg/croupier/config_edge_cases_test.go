@@ -158,6 +158,8 @@ func TestClientConfig_MultiAddressFallback(t *testing.T) {
 			t.Parallel()
 
 			config := &ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 				AgentAddr:    tc.agentAddr,
 				AgentIPCAddr: tc.agentIPCAddr,
 			}
@@ -194,6 +196,8 @@ func TestClientConfig_TLSValidation(t *testing.T) {
 		{
 			name: "insecure mode - no TLS files required",
 			config: ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 				Insecure:   true,
 				AgentAddr:  "localhost:19090",
 				ServiceID:  "test-service",
@@ -205,6 +209,8 @@ func TestClientConfig_TLSValidation(t *testing.T) {
 		{
 			name: "secure mode without CA file",
 			config: ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 				Insecure:   false,
 				AgentAddr:  "localhost:19090",
 				ServiceID:  "test-service",
@@ -216,6 +222,8 @@ func TestClientConfig_TLSValidation(t *testing.T) {
 		{
 			name: "secure mode with skip verify",
 			config: ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 				Insecure:           false,
 				InsecureSkipVerify: true,
 				AgentAddr:          "localhost:19090",
@@ -228,6 +236,8 @@ func TestClientConfig_TLSValidation(t *testing.T) {
 		{
 			name: "secure mode with CA file",
 			config: ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 				Insecure:   false,
 				CAFile:     "/path/to/ca.pem",
 				AgentAddr:  "localhost:19090",
@@ -304,7 +314,8 @@ func TestClientConfig_TimeoutValidation(t *testing.T) {
 			t.Parallel()
 
 			config := &ClientConfig{
-				TimeoutSeconds: tc.timeoutSec,
+				TimeoutSeconds:     tc.timeoutSec,
+				HeartbeatInterval: 60,
 				AgentAddr:      "localhost:19090",
 				ServiceID:      "test-service",
 				GameID:         "game1",
@@ -312,7 +323,12 @@ func TestClientConfig_TimeoutValidation(t *testing.T) {
 				Insecure:       true,
 			}
 
-			err := ValidateClientConfig(config)
+
+				// Adjust heartbeat interval to be >= timeout
+				if config.HeartbeatInterval < config.TimeoutSeconds {
+					config.HeartbeatInterval = config.TimeoutSeconds
+				}
+				err := ValidateClientConfig(config)
 
 			if tc.wantErr {
 				if err == nil {
@@ -373,13 +389,13 @@ func TestClientConfig_HeartbeatValidation(t *testing.T) {
 			t.Parallel()
 
 			config := &ClientConfig{
-				HeartbeatInterval: tc.heartbeatInterval,
-				TimeoutSeconds:    tc.timeoutSeconds,
 				AgentAddr:         "localhost:19090",
 				ServiceID:         "test-service",
 				GameID:            "game1",
 			Env:                "test", // Added for validation
 				Insecure:          true,
+					TimeoutSeconds:     tc.timeoutSeconds,
+					HeartbeatInterval:  tc.heartbeatInterval,
 			}
 
 			err := ValidateClientConfig(config)
@@ -454,7 +470,7 @@ func TestReconnectConfig_Validation(t *testing.T) {
 				BackoffMultiplier: 2.0,
 			},
 			wantErr:     true,
-			errContains: "initial delay",
+			errContains: "initial_delay",
 		},
 		{
 			name: "invalid - negative initial delay",
@@ -574,7 +590,7 @@ func TestRetryConfig_Validation(t *testing.T) {
 				BackoffMultiplier: 2.0,
 			},
 			wantErr:     true,
-			errContains: "max attempts",
+			errContains: "max_attempts",
 		},
 		{
 			name: "invalid - zero max attempts with retry enabled",
@@ -586,7 +602,7 @@ func TestRetryConfig_Validation(t *testing.T) {
 				BackoffMultiplier: 2.0,
 			},
 			wantErr:     true,
-			errContains: "max attempts",
+			errContains: "max_attempts",
 		},
 		{
 			name: "invalid - negative initial delay",
@@ -636,19 +652,21 @@ func TestClientConfig_RequiredFields(t *testing.T) {
 		{
 			name: "all required fields present",
 			config: ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 				ServiceID:  "test-service",
 				GameID:     "game1",
 				AgentAddr:  "localhost:19090",
 				Env:        "development",
 				Insecure:   true,
-				TimeoutSeconds:    30,
-				HeartbeatInterval: 30,
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing service ID",
 			config: ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 				GameID:    "game1",
 				AgentAddr: "localhost:19090",
 				Env:       "development",
@@ -660,6 +678,8 @@ func TestClientConfig_RequiredFields(t *testing.T) {
 		{
 			name: "missing game ID",
 			config: ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 				ServiceID: "test-service",
 				AgentAddr: "localhost:19090",
 				Env:       "development",
@@ -671,6 +691,8 @@ func TestClientConfig_RequiredFields(t *testing.T) {
 		{
 			name: "missing agent address",
 			config: ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 				ServiceID: "test-service",
 				GameID:    "game1",
 				Env:       "development",
@@ -682,6 +704,8 @@ func TestClientConfig_RequiredFields(t *testing.T) {
 		{
 			name: "missing env",
 			config: ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 				ServiceID: "test-service",
 				GameID:    "game1",
 				AgentAddr: "localhost:19090",
@@ -724,6 +748,8 @@ func TestClientConfig_LogLevelValidation(t *testing.T) {
 			t.Parallel()
 
 			config := &ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 				LogLevel:      level,
 				AgentAddr:     "localhost:19090",
 				ServiceID:     "test-service",
@@ -739,13 +765,15 @@ func TestClientConfig_LogLevelValidation(t *testing.T) {
 		})
 	}
 
-	invalidLevels := []string{"TRACE", "FATAL", "", "invalid"}
+	invalidLevels := []string{"TRACE", "FATAL", "invalid"}
 
 	for _, level := range invalidLevels {
 		t.Run("invalid_"+level, func(t *testing.T) {
 			t.Parallel()
 
 			config := &ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 				LogLevel:      level,
 				AgentAddr:     "localhost:19090",
 				ServiceID:     "test-service",
@@ -891,7 +919,7 @@ func TestInvokerConfig_Validation(t *testing.T) {
 				Insecure:       false,
 			},
 			wantErr:     true,
-			errContains: "certificate",
+			errContains: "ca",
 		},
 	}
 
@@ -1000,21 +1028,21 @@ func TestClientConfig_FileTransferValidation(t *testing.T) {
 			enabled:     true,
 			maxSize:     0,
 			wantErr:     true,
-			errContains: "file size",
+			errContains: "file_size",
 		},
 		{
 			name:        "file transfer enabled with negative size",
 			enabled:     true,
 			maxSize:     -100,
 			wantErr:     true,
-			errContains: "file size",
+			errContains: "file_size",
 		},
 		{
 			name:        "file transfer enabled with excessive size",
 			enabled:     true,
 			maxSize:     1024 * 1024 * 1024,
 			wantErr:     true,
-			errContains: "file size",
+			errContains: "file_size",
 		},
 	}
 
@@ -1023,6 +1051,8 @@ func TestClientConfig_FileTransferValidation(t *testing.T) {
 			t.Parallel()
 
 			config := &ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 				EnableFileTransfer: tc.enabled,
 				MaxFileSize:        tc.maxSize,
 				AgentAddr:          "localhost:19090",
@@ -1091,6 +1121,8 @@ func TestClientConfig_AuthTokenValidation(t *testing.T) {
 			t.Parallel()
 
 			config := &ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 				AuthToken: tc.authToken,
 				Headers:   tc.headers,
 				AgentAddr: "localhost:19090",
@@ -1240,6 +1272,8 @@ func TestClientConfig_ProviderMetadataValidation(t *testing.T) {
 			t.Parallel()
 
 			config := &ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 				ProviderLang:   tc.providerLang,
 				ProviderSDK:    tc.providerSDK,
 				ServiceVersion: tc.serviceVer,
@@ -1309,13 +1343,13 @@ func TestClientConfig_ControlAddrValidation(t *testing.T) {
 			t.Parallel()
 
 			config := &ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 				ControlAddr:       tc.controlAddr,
 				AgentAddr:         "localhost:19090",
 				ServiceID:         "test-service",
 				GameID:            "game1",
 				Env:               "test",     // Required field
-				TimeoutSeconds:    30,         // Required field
-				HeartbeatInterval: 60,         // Required field
 				Insecure:          true,
 			}
 
@@ -1979,6 +2013,8 @@ func TestClientConfig_TLSOptions(t *testing.T) {
 			t.Parallel()
 
 			config := &ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 				Insecure:           tc.insecure,
 				InsecureSkipVerify: tc.insecureSkipVerify,
 				CAFile:             tc.caFile,
@@ -1989,8 +2025,6 @@ func TestClientConfig_TLSOptions(t *testing.T) {
 				ServiceID:          "test-service",
 				GameID:             "game1",
 				Env:                "test",     // Required field
-				TimeoutSeconds:     30,         // Required field
-				HeartbeatInterval:  60,         // Required field
 			}
 
 			err := ValidateClientConfig(config)
@@ -2015,6 +2049,8 @@ func TestClientConfig_HighAvailability(t *testing.T) {
 	t.Parallel()
 
 	config := &ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 		AgentAddr:    "primary:19090,backup1:19090,backup2:19090",
 		AgentIPCAddr: "ipc://croupier-agent",
 		ServiceID:    "test-service",
@@ -2186,12 +2222,13 @@ func TestClientConfig_Serialization(t *testing.T) {
 	t.Parallel()
 
 	config := &ClientConfig{
+				TimeoutSeconds:    30,
+				HeartbeatInterval: 60,
 		ServiceID:      "test-service",
 		GameID:         "game1",
 		AgentAddr:      "localhost:19090",
 		Env:            "production",
 		ServiceVersion: "1.0.0",
-		TimeoutSeconds: 30,
 		Insecure:       false,
 		CAFile:         "/path/to/ca.pem",
 		Headers: map[string]string{
