@@ -142,7 +142,7 @@ jobs:
           CGO_ENABLED: "0"
         run: |
           go mod download
-          go build -v -o ../release-artifacts ./pkg/...
+          go build -v ./pkg/...
 
       - name: Package Go SDK
         timeout-minutes: 5
