@@ -31,10 +31,18 @@ public class CroupierClientExtensionsTests : IDisposable
 {
     private readonly CancellationTokenSource _cts = new();
 
+    public CroupierClientExtensionsTests()
+    {
+        // Reset singleton before each test to ensure clean state
+        MainThreadDispatcher.Reset();
+        MainThreadDispatcher.Initialize();
+    }
+
     public void Dispose()
     {
         _cts.Cancel();
         _cts.Dispose();
+        MainThreadDispatcher.Reset();
     }
 
     #region InvokeOnMainThread Tests
@@ -50,15 +58,13 @@ public class CroupierClientExtensionsTests : IDisposable
             AgentAddr = "invalid-host:99999" // Use invalid host to avoid connection timeout
         });
 
-        var callbackCalled = false;
-
         // Act - Should not block (fire and forget)
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
         client.InvokeOnMainThread(
             "testFunc",
             "payload",
-            _ => { callbackCalled = true; },
+            _ => { },
             ex => { }, // Error handler
             null,
             _cts.Token
@@ -178,10 +184,14 @@ public class CroupierClientExtensionsTests : IDisposable
             _cts.Token
         );
 
-        Thread.Sleep(200); // Give time for operation to fail
+        // Wait for the async operation to complete and queue the error callback
+        await Task.WhenAny(task, Task.Delay(1000));
+
+        // Process the queue to execute the enqueued error callback
         MainThreadDispatcher.Instance.ProcessQueue();
 
-        await Task.WhenAny(task, Task.Delay(1000));
+        // Give a moment for the callback to execute
+        await Task.Yield();
 
         // Assert - Error callback should have been called
         capturedException.Should().NotBeNull();
@@ -202,11 +212,9 @@ public class CroupierClientExtensionsTests : IDisposable
             AgentAddr = "localhost:19090"
         });
 
-        var successCalled = false;
-
         // Act - Should not block
         client.ConnectOnMainThread(
-            () => { successCalled = true; },
+            () => { },
             null,
             _cts.Token
         );

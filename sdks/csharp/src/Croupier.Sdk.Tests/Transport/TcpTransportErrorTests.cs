@@ -130,7 +130,7 @@ public class TcpTransportErrorTests
         await Assert.ThrowsAsync<TimeoutException>(() => Task.Run(() =>
         {
             try { transport.Connect(); }
-            catch (TimeoutException ex) { throw; }
+            catch (TimeoutException) { throw; }
             catch (Exception ex) { throw new TimeoutException("Connect failed", ex); }
         }));
     }
