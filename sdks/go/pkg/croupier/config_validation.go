@@ -563,12 +563,17 @@ func (c *ClientConfig) DeepCopy() *ClientConfig {
 
 // MarshalJSON marshals the config to JSON
 func (c *ClientConfig) MarshalJSON() ([]byte, error) {
-	return json.Marshal(c)
+	// Use type alias to avoid infinite recursion
+	type clientConfigAlias ClientConfig
+	return json.Marshal((*clientConfigAlias)(c))
 }
 
 // UnmarshalJSON unmarshals JSON into the config
 func (c *ClientConfig) UnmarshalJSON(data []byte) error {
-	return json.Unmarshal(data, c)
+	// Use type alias to avoid infinite recursion
+	type clientConfigAlias ClientConfig
+	alias := (*clientConfigAlias)(c)
+	return json.Unmarshal(data, alias)
 }
 
 // IsRetryable checks if a status code is retryable
