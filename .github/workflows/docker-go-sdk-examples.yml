@@ -96,7 +96,7 @@ jobs:
       - name: Extract metadata
         if: steps.filter.outputs.should_build == 'true'
         id: meta
-        timeout-minumes: 3
+        timeout-minutes: 3
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME }}-${{ matrix.example }}
