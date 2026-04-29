@@ -1249,11 +1249,16 @@ type mockServer struct {
 
 func startMockServer(t *testing.T) *mockServer {
 	t.Helper()
-	return startMockServerWithAddr(t, "")
+	return startMockServerWithAddr(t, "127.0.0.1:0")
 }
 
 func startMockServerWithAddr(t *testing.T, addr string) *mockServer {
 	t.Helper()
+
+	// Use IPv4 loopback if no address specified to avoid IPv6 issues
+	if addr == "" {
+		addr = "127.0.0.1:0"
+	}
 
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {

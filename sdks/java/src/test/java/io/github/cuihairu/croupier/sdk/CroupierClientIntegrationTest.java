@@ -59,7 +59,7 @@ class CroupierClientIntegrationTest {
     }
 
     @Test
-    void connectFailsWithInvalidAgentAddress() {
+    void connectFailsWithInvalidAgentAddress() throws CroupierException {
         ClientConfig config = new ClientConfig("game1", "java-integration-test-invalid");
         config.setAgentAddr("tcp://127.0.0.1:9999"); // Non-existent port
         config.setTimeoutSeconds(5);

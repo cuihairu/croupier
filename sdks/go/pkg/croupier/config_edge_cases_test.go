@@ -308,6 +308,7 @@ func TestClientConfig_TimeoutValidation(t *testing.T) {
 				AgentAddr:      "localhost:19090",
 				ServiceID:      "test-service",
 				GameID:         "game1",
+			Env:                "test", // Added for validation
 				Insecure:       true,
 			}
 
@@ -377,6 +378,7 @@ func TestClientConfig_HeartbeatValidation(t *testing.T) {
 				AgentAddr:         "localhost:19090",
 				ServiceID:         "test-service",
 				GameID:            "game1",
+			Env:                "test", // Added for validation
 				Insecure:          true,
 			}
 
@@ -724,6 +726,7 @@ func TestClientConfig_LogLevelValidation(t *testing.T) {
 				AgentAddr:     "localhost:19090",
 				ServiceID:     "test-service",
 				GameID:        "game1",
+			Env:                "test", // Added for validation
 				Insecure:      true,
 			}
 
@@ -745,6 +748,7 @@ func TestClientConfig_LogLevelValidation(t *testing.T) {
 				AgentAddr:     "localhost:19090",
 				ServiceID:     "test-service",
 				GameID:        "game1",
+			Env:                "test", // Added for validation
 				Insecure:      true,
 			}
 
@@ -1034,6 +1038,7 @@ func TestClientConfig_FileTransferValidation(t *testing.T) {
 				AgentAddr:          "localhost:19090",
 				ServiceID:          "test-service",
 				GameID:             "game1",
+			Env:                "test", // Added for validation
 				Insecure:           true,
 			}
 
@@ -1101,6 +1106,7 @@ func TestClientConfig_AuthTokenValidation(t *testing.T) {
 				AgentAddr: "localhost:19090",
 				ServiceID: "test-service",
 				GameID:    "game1",
+			Env:                "test", // Added for validation
 				Insecure:  true,
 			}
 
@@ -1250,6 +1256,7 @@ func TestClientConfig_ProviderMetadataValidation(t *testing.T) {
 				AgentAddr:      "localhost:19090",
 				ServiceID:      "test-service",
 				GameID:         "game1",
+			Env:                "test", // Added for validation
 				Insecure:       true,
 			}
 
@@ -1312,11 +1319,14 @@ func TestClientConfig_ControlAddrValidation(t *testing.T) {
 			t.Parallel()
 
 			config := &ClientConfig{
-				ControlAddr: tc.controlAddr,
-				AgentAddr:   "localhost:19090",
-				ServiceID:   "test-service",
-				GameID:      "game1",
-				Insecure:    true,
+				ControlAddr:       tc.controlAddr,
+				AgentAddr:         "localhost:19090",
+				ServiceID:         "test-service",
+				GameID:            "game1",
+				Env:               "test",     // Required field
+				TimeoutSeconds:    30,         // Required field
+				HeartbeatInterval: 60,         // Required field
+				Insecure:          true,
 			}
 
 			err := ValidateClientConfig(config)
@@ -1950,6 +1960,7 @@ func TestClientConfig_TLSOptions(t *testing.T) {
 		{
 			name:               "secure with cert but no key",
 			insecure:           false,
+			caFile:             "/path/to/ca.pem", // Add CA to avoid CA error first
 			certFile:           "/path/to/cert.pem",
 			wantErr:            true,
 			errContains:        "key",
@@ -1957,6 +1968,7 @@ func TestClientConfig_TLSOptions(t *testing.T) {
 		{
 			name:               "secure with key but no cert",
 			insecure:           false,
+			caFile:             "/path/to/ca.pem", // Add CA to avoid CA error first
 			keyFile:            "/path/to/key.pem",
 			wantErr:            true,
 			errContains:        "cert",
@@ -1984,6 +1996,9 @@ func TestClientConfig_TLSOptions(t *testing.T) {
 				AgentAddr:          "localhost:19090",
 				ServiceID:          "test-service",
 				GameID:             "game1",
+				Env:                "test",     // Required field
+				TimeoutSeconds:     30,         // Required field
+				HeartbeatInterval:  60,         // Required field
 			}
 
 			err := ValidateClientConfig(config)
@@ -2012,6 +2027,7 @@ func TestClientConfig_HighAvailability(t *testing.T) {
 		AgentIPCAddr: "ipc://croupier-agent",
 		ServiceID:    "test-service",
 		GameID:       "game1",
+			Env:                "test", // Added for validation
 		Insecure:     true,
 	}
 
