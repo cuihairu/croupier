@@ -382,6 +382,9 @@ TEST_F(ConfigDrivenLoaderTest, CreateHandlerFromConfigTemplate) {
     EXPECT_NE(handler, nullptr);
 
     std::string result = handler("mycontext", "mypayload");
+    // Debug output to see actual result
+    std::cout << "DEBUG: template handler result = [" << result << "]" << std::endl;
+    std::cout << "DEBUG: looking for [mycontext:mypayload]" << std::endl;
     EXPECT_NE(result.find("mycontext:mypayload"), std::string::npos);
 }
 
