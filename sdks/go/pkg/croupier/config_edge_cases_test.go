@@ -160,8 +160,8 @@ func TestClientConfig_MultiAddressFallback(t *testing.T) {
 			config := &ClientConfig{
 				TimeoutSeconds:    30,
 				HeartbeatInterval: 60,
-				AgentAddr:    tc.agentAddr,
-				AgentIPCAddr: tc.agentIPCAddr,
+				AgentAddr:         tc.agentAddr,
+				AgentIPCAddr:      tc.agentIPCAddr,
 			}
 
 			addresses := []string{}
@@ -198,11 +198,11 @@ func TestClientConfig_TLSValidation(t *testing.T) {
 			config: ClientConfig{
 				TimeoutSeconds:    30,
 				HeartbeatInterval: 60,
-				Insecure:   true,
-				AgentAddr:  "localhost:19090",
-				ServiceID:  "test-service",
-				GameID:     "game1",
-				Env:        "development",
+				Insecure:          true,
+				AgentAddr:         "localhost:19090",
+				ServiceID:         "test-service",
+				GameID:            "game1",
+				Env:               "development",
 			},
 			wantErr: false,
 		},
@@ -211,19 +211,19 @@ func TestClientConfig_TLSValidation(t *testing.T) {
 			config: ClientConfig{
 				TimeoutSeconds:    30,
 				HeartbeatInterval: 60,
-				Insecure:   false,
-				AgentAddr:  "localhost:19090",
-				ServiceID:  "test-service",
-				GameID:     "game1",
-				Env:        "development",
+				Insecure:          false,
+				AgentAddr:         "localhost:19090",
+				ServiceID:         "test-service",
+				GameID:            "game1",
+				Env:               "development",
 			},
 			wantErr: true,
 		},
 		{
 			name: "secure mode with skip verify",
 			config: ClientConfig{
-				TimeoutSeconds:    30,
-				HeartbeatInterval: 60,
+				TimeoutSeconds:     30,
+				HeartbeatInterval:  60,
 				Insecure:           false,
 				InsecureSkipVerify: true,
 				AgentAddr:          "localhost:19090",
@@ -238,12 +238,12 @@ func TestClientConfig_TLSValidation(t *testing.T) {
 			config: ClientConfig{
 				TimeoutSeconds:    30,
 				HeartbeatInterval: 60,
-				Insecure:   false,
-				CAFile:     "/path/to/ca.pem",
-				AgentAddr:  "localhost:19090",
-				ServiceID:  "test-service",
-				GameID:     "game1",
-				Env:        "development",
+				Insecure:          false,
+				CAFile:            "/path/to/ca.pem",
+				AgentAddr:         "localhost:19090",
+				ServiceID:         "test-service",
+				GameID:            "game1",
+				Env:               "development",
 			},
 			wantErr: false,
 		},
@@ -314,21 +314,20 @@ func TestClientConfig_TimeoutValidation(t *testing.T) {
 			t.Parallel()
 
 			config := &ClientConfig{
-				TimeoutSeconds:     tc.timeoutSec,
+				TimeoutSeconds:    tc.timeoutSec,
 				HeartbeatInterval: 60,
-				AgentAddr:      "localhost:19090",
-				ServiceID:      "test-service",
-				GameID:         "game1",
-			Env:                "test", // Added for validation
-				Insecure:       true,
+				AgentAddr:         "localhost:19090",
+				ServiceID:         "test-service",
+				GameID:            "game1",
+				Env:               "test", // Added for validation
+				Insecure:          true,
 			}
 
-
-				// Adjust heartbeat interval to be >= timeout
-				if config.HeartbeatInterval < config.TimeoutSeconds {
-					config.HeartbeatInterval = config.TimeoutSeconds
-				}
-				err := ValidateClientConfig(config)
+			// Adjust heartbeat interval to be >= timeout
+			if config.HeartbeatInterval < config.TimeoutSeconds {
+				config.HeartbeatInterval = config.TimeoutSeconds
+			}
+			err := ValidateClientConfig(config)
 
 			if tc.wantErr {
 				if err == nil {
@@ -392,10 +391,10 @@ func TestClientConfig_HeartbeatValidation(t *testing.T) {
 				AgentAddr:         "localhost:19090",
 				ServiceID:         "test-service",
 				GameID:            "game1",
-			Env:                "test", // Added for validation
+				Env:               "test", // Added for validation
 				Insecure:          true,
-					TimeoutSeconds:     tc.timeoutSeconds,
-					HeartbeatInterval:  tc.heartbeatInterval,
+				TimeoutSeconds:    tc.timeoutSeconds,
+				HeartbeatInterval: tc.heartbeatInterval,
 			}
 
 			err := ValidateClientConfig(config)
@@ -654,11 +653,11 @@ func TestClientConfig_RequiredFields(t *testing.T) {
 			config: ClientConfig{
 				TimeoutSeconds:    30,
 				HeartbeatInterval: 60,
-				ServiceID:  "test-service",
-				GameID:     "game1",
-				AgentAddr:  "localhost:19090",
-				Env:        "development",
-				Insecure:   true,
+				ServiceID:         "test-service",
+				GameID:            "game1",
+				AgentAddr:         "localhost:19090",
+				Env:               "development",
+				Insecure:          true,
 			},
 			wantErr: false,
 		},
@@ -667,10 +666,10 @@ func TestClientConfig_RequiredFields(t *testing.T) {
 			config: ClientConfig{
 				TimeoutSeconds:    30,
 				HeartbeatInterval: 60,
-				GameID:    "game1",
-				AgentAddr: "localhost:19090",
-				Env:       "development",
-				Insecure:  true,
+				GameID:            "game1",
+				AgentAddr:         "localhost:19090",
+				Env:               "development",
+				Insecure:          true,
 			},
 			wantErr:     true,
 			errContains: "service",
@@ -680,10 +679,10 @@ func TestClientConfig_RequiredFields(t *testing.T) {
 			config: ClientConfig{
 				TimeoutSeconds:    30,
 				HeartbeatInterval: 60,
-				ServiceID: "test-service",
-				AgentAddr: "localhost:19090",
-				Env:       "development",
-				Insecure:  true,
+				ServiceID:         "test-service",
+				AgentAddr:         "localhost:19090",
+				Env:               "development",
+				Insecure:          true,
 			},
 			wantErr:     true,
 			errContains: "game",
@@ -693,10 +692,10 @@ func TestClientConfig_RequiredFields(t *testing.T) {
 			config: ClientConfig{
 				TimeoutSeconds:    30,
 				HeartbeatInterval: 60,
-				ServiceID: "test-service",
-				GameID:    "game1",
-				Env:       "development",
-				Insecure:  true,
+				ServiceID:         "test-service",
+				GameID:            "game1",
+				Env:               "development",
+				Insecure:          true,
 			},
 			wantErr:     true,
 			errContains: "addr",
@@ -706,10 +705,10 @@ func TestClientConfig_RequiredFields(t *testing.T) {
 			config: ClientConfig{
 				TimeoutSeconds:    30,
 				HeartbeatInterval: 60,
-				ServiceID: "test-service",
-				GameID:    "game1",
-				AgentAddr: "localhost:19090",
-				Insecure:  true,
+				ServiceID:         "test-service",
+				GameID:            "game1",
+				AgentAddr:         "localhost:19090",
+				Insecure:          true,
 			},
 			wantErr:     true,
 			errContains: "env",
@@ -750,12 +749,12 @@ func TestClientConfig_LogLevelValidation(t *testing.T) {
 			config := &ClientConfig{
 				TimeoutSeconds:    30,
 				HeartbeatInterval: 60,
-				LogLevel:      level,
-				AgentAddr:     "localhost:19090",
-				ServiceID:     "test-service",
-				GameID:        "game1",
-			Env:                "test", // Added for validation
-				Insecure:      true,
+				LogLevel:          level,
+				AgentAddr:         "localhost:19090",
+				ServiceID:         "test-service",
+				GameID:            "game1",
+				Env:               "test", // Added for validation
+				Insecure:          true,
 			}
 
 			err := ValidateClientConfig(config)
@@ -774,12 +773,12 @@ func TestClientConfig_LogLevelValidation(t *testing.T) {
 			config := &ClientConfig{
 				TimeoutSeconds:    30,
 				HeartbeatInterval: 60,
-				LogLevel:      level,
-				AgentAddr:     "localhost:19090",
-				ServiceID:     "test-service",
-				GameID:        "game1",
-			Env:                "test", // Added for validation
-				Insecure:      true,
+				LogLevel:          level,
+				AgentAddr:         "localhost:19090",
+				ServiceID:         "test-service",
+				GameID:            "game1",
+				Env:               "test", // Added for validation
+				Insecure:          true,
 			}
 
 			err := ValidateClientConfig(config)
@@ -1051,14 +1050,14 @@ func TestClientConfig_FileTransferValidation(t *testing.T) {
 			t.Parallel()
 
 			config := &ClientConfig{
-				TimeoutSeconds:    30,
-				HeartbeatInterval: 60,
+				TimeoutSeconds:     30,
+				HeartbeatInterval:  60,
 				EnableFileTransfer: tc.enabled,
 				MaxFileSize:        tc.maxSize,
 				AgentAddr:          "localhost:19090",
 				ServiceID:          "test-service",
 				GameID:             "game1",
-			Env:                "test", // Added for validation
+				Env:                "test", // Added for validation
 				Insecure:           true,
 			}
 
@@ -1107,7 +1106,7 @@ func TestClientConfig_AuthTokenValidation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "both auth token and authorization header - should warn but not error",
+			name:      "both auth token and authorization header - should warn but not error",
 			authToken: "Bearer token123",
 			headers: map[string]string{
 				"Authorization": "Bearer token456",
@@ -1123,13 +1122,13 @@ func TestClientConfig_AuthTokenValidation(t *testing.T) {
 			config := &ClientConfig{
 				TimeoutSeconds:    30,
 				HeartbeatInterval: 60,
-				AuthToken: tc.authToken,
-				Headers:   tc.headers,
-				AgentAddr: "localhost:19090",
-				ServiceID: "test-service",
-				GameID:    "game1",
-			Env:                "test", // Added for validation
-				Insecure:  true,
+				AuthToken:         tc.authToken,
+				Headers:           tc.headers,
+				AgentAddr:         "localhost:19090",
+				ServiceID:         "test-service",
+				GameID:            "game1",
+				Env:               "test", // Added for validation
+				Insecure:          true,
 			}
 
 			err := ValidateClientConfig(config)
@@ -1194,12 +1193,12 @@ func TestClientConfig_DeepCopy(t *testing.T) {
 	t.Parallel()
 
 	original := &ClientConfig{
-		ServiceID:  "test-service",
-		GameID:     "game1",
-		AgentAddr:  "localhost:19090",
-		Env:        "production",
-		Insecure:   false,
-		CAFile:     "/path/to/ca.pem",
+		ServiceID: "test-service",
+		GameID:    "game1",
+		AgentAddr: "localhost:19090",
+		Env:       "production",
+		Insecure:  false,
+		CAFile:    "/path/to/ca.pem",
 		Headers: map[string]string{
 			"X-Custom": "value",
 		},
@@ -1237,12 +1236,12 @@ func TestClientConfig_ProviderMetadataValidation(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		name          string
-		providerLang  string
-		providerSDK   string
-		serviceVer    string
-		wantErr       bool
-		errContains   string
+		name         string
+		providerLang string
+		providerSDK  string
+		serviceVer   string
+		wantErr      bool
+		errContains  string
 	}{
 		{
 			name:         "valid provider metadata",
@@ -1274,14 +1273,14 @@ func TestClientConfig_ProviderMetadataValidation(t *testing.T) {
 			config := &ClientConfig{
 				TimeoutSeconds:    30,
 				HeartbeatInterval: 60,
-				ProviderLang:   tc.providerLang,
-				ProviderSDK:    tc.providerSDK,
-				ServiceVersion: tc.serviceVer,
-				AgentAddr:      "localhost:19090",
-				ServiceID:      "test-service",
-				GameID:         "game1",
-			Env:                "test", // Added for validation
-				Insecure:       true,
+				ProviderLang:      tc.providerLang,
+				ProviderSDK:       tc.providerSDK,
+				ServiceVersion:    tc.serviceVer,
+				AgentAddr:         "localhost:19090",
+				ServiceID:         "test-service",
+				GameID:            "game1",
+				Env:               "test", // Added for validation
+				Insecure:          true,
 			}
 
 			err := ValidateClientConfig(config)
@@ -1349,7 +1348,7 @@ func TestClientConfig_ControlAddrValidation(t *testing.T) {
 				AgentAddr:         "localhost:19090",
 				ServiceID:         "test-service",
 				GameID:            "game1",
-				Env:               "test",     // Required field
+				Env:               "test", // Required field
 				Insecure:          true,
 			}
 
@@ -1380,18 +1379,18 @@ func TestClientConfig_EnvironmentVariablePriority(t *testing.T) {
 
 	defaultConfig := DefaultClientConfig()
 	config := ApplyEnvOverrides(defaultConfig, map[string]string{
-		"CROUPIER_AGENT_ADDR":     "env-override:19090",
-		"CROUPIER_TIMEOUT":        "60",
-		"CROUPIER_INSECURE":       "false",
-		"CROUPIER_LOG_LEVEL":      "DEBUG",
-		"CROUPIER_SERVICE_ID":     "env-service",
-		"CROUPIER_GAME_ID":        "env-game",
-		"CROUPIER_ENV":            "staging",
-		"CROUPIER_AUTH_TOKEN":     "env-token",
-		"CROUPIER_CONTROL_ADDR":   "env-control:18080",
-		"CROUPIER_HEARTBEAT":      "30",
-		"CROUPIER_RECONNECT":      "true",
-		"CROUPIER_RECONNECT_MAX":  "10",
+		"CROUPIER_AGENT_ADDR":    "env-override:19090",
+		"CROUPIER_TIMEOUT":       "60",
+		"CROUPIER_INSECURE":      "false",
+		"CROUPIER_LOG_LEVEL":     "DEBUG",
+		"CROUPIER_SERVICE_ID":    "env-service",
+		"CROUPIER_GAME_ID":       "env-game",
+		"CROUPIER_ENV":           "staging",
+		"CROUPIER_AUTH_TOKEN":    "env-token",
+		"CROUPIER_CONTROL_ADDR":  "env-control:18080",
+		"CROUPIER_HEARTBEAT":     "30",
+		"CROUPIER_RECONNECT":     "true",
+		"CROUPIER_RECONNECT_MAX": "10",
 	})
 
 	if config.AgentAddr != "env-override:19090" {
@@ -1842,9 +1841,9 @@ func TestFunctionDescriptor_Validation(t *testing.T) {
 		{
 			name: "valid descriptor",
 			descriptor: FunctionDescriptor{
-				ID:        "player.ban",
-				Version:   "1.0.0",
-				Enabled:   true,
+				ID:      "player.ban",
+				Version: "1.0.0",
+				Enabled: true,
 			},
 			wantErr: false,
 		},
@@ -1909,14 +1908,14 @@ func TestLocalFunctionDescriptor_OpenAPICompliance(t *testing.T) {
 	t.Parallel()
 
 	descriptor := &LocalFunctionDescriptor{
-		ID:          "player.create",
-		Version:     "1.0.0",
-		Tags:        []string{"player", "crud"},
-		Summary:     "Create a new player",
-		Description: "Creates a new player with the provided data",
-		OperationID: "createPlayer",
-		Deprecated:  false,
-		InputSchema: `{"type":"object","properties":{"name":{"type":"string"}}}`,
+		ID:           "player.create",
+		Version:      "1.0.0",
+		Tags:         []string{"player", "crud"},
+		Summary:      "Create a new player",
+		Description:  "Creates a new player with the provided data",
+		OperationID:  "createPlayer",
+		Deprecated:   false,
+		InputSchema:  `{"type":"object","properties":{"name":{"type":"string"}}}`,
 		OutputSchema: `{"type":"object","properties":{"id":{"type":"string"}}}`,
 		Category:     "player",
 		Risk:         "safe",
@@ -1970,41 +1969,41 @@ func TestClientConfig_TLSOptions(t *testing.T) {
 			wantErr:            false,
 		},
 		{
-			name:               "secure with CA only",
-			insecure:           false,
-			caFile:             "/path/to/ca.pem",
-			wantErr:            false,
+			name:     "secure with CA only",
+			insecure: false,
+			caFile:   "/path/to/ca.pem",
+			wantErr:  false,
 		},
 		{
-			name:               "secure with mTLS",
-			insecure:           false,
-			caFile:             "/path/to/ca.pem",
-			certFile:           "/path/to/cert.pem",
-			keyFile:            "/path/to/key.pem",
-			wantErr:            false,
+			name:     "secure with mTLS",
+			insecure: false,
+			caFile:   "/path/to/ca.pem",
+			certFile: "/path/to/cert.pem",
+			keyFile:  "/path/to/key.pem",
+			wantErr:  false,
 		},
 		{
-			name:               "secure with cert but no key",
-			insecure:           false,
-			caFile:             "/path/to/ca.pem", // Add CA to avoid CA error first
-			certFile:           "/path/to/cert.pem",
-			wantErr:            true,
-			errContains:        "key",
+			name:        "secure with cert but no key",
+			insecure:    false,
+			caFile:      "/path/to/ca.pem", // Add CA to avoid CA error first
+			certFile:    "/path/to/cert.pem",
+			wantErr:     true,
+			errContains: "key",
 		},
 		{
-			name:               "secure with key but no cert",
-			insecure:           false,
-			caFile:             "/path/to/ca.pem", // Add CA to avoid CA error first
-			keyFile:            "/path/to/key.pem",
-			wantErr:            true,
-			errContains:        "cert",
+			name:        "secure with key but no cert",
+			insecure:    false,
+			caFile:      "/path/to/ca.pem", // Add CA to avoid CA error first
+			keyFile:     "/path/to/key.pem",
+			wantErr:     true,
+			errContains: "cert",
 		},
 		{
-			name:               "secure with server name override",
-			insecure:           false,
-			caFile:             "/path/to/ca.pem",
-			serverName:         "example.com",
-			wantErr:            false,
+			name:       "secure with server name override",
+			insecure:   false,
+			caFile:     "/path/to/ca.pem",
+			serverName: "example.com",
+			wantErr:    false,
 		},
 	}
 
@@ -2013,8 +2012,8 @@ func TestClientConfig_TLSOptions(t *testing.T) {
 			t.Parallel()
 
 			config := &ClientConfig{
-				TimeoutSeconds:    30,
-				HeartbeatInterval: 60,
+				TimeoutSeconds:     30,
+				HeartbeatInterval:  60,
 				Insecure:           tc.insecure,
 				InsecureSkipVerify: tc.insecureSkipVerify,
 				CAFile:             tc.caFile,
@@ -2024,7 +2023,7 @@ func TestClientConfig_TLSOptions(t *testing.T) {
 				AgentAddr:          "localhost:19090",
 				ServiceID:          "test-service",
 				GameID:             "game1",
-				Env:                "test",     // Required field
+				Env:                "test", // Required field
 			}
 
 			err := ValidateClientConfig(config)
@@ -2049,14 +2048,14 @@ func TestClientConfig_HighAvailability(t *testing.T) {
 	t.Parallel()
 
 	config := &ClientConfig{
-				TimeoutSeconds:    30,
-				HeartbeatInterval: 60,
-		AgentAddr:    "primary:19090,backup1:19090,backup2:19090",
-		AgentIPCAddr: "ipc://croupier-agent",
-		ServiceID:    "test-service",
-		GameID:       "game1",
-			Env:                "test", // Added for validation
-		Insecure:     true,
+		TimeoutSeconds:    30,
+		HeartbeatInterval: 60,
+		AgentAddr:         "primary:19090,backup1:19090,backup2:19090",
+		AgentIPCAddr:      "ipc://croupier-agent",
+		ServiceID:         "test-service",
+		GameID:            "game1",
+		Env:               "test", // Added for validation
+		Insecure:          true,
 	}
 
 	addresses := GetFallbackAddresses(config)
@@ -2222,15 +2221,15 @@ func TestClientConfig_Serialization(t *testing.T) {
 	t.Parallel()
 
 	config := &ClientConfig{
-				TimeoutSeconds:    30,
-				HeartbeatInterval: 60,
-		ServiceID:      "test-service",
-		GameID:         "game1",
-		AgentAddr:      "localhost:19090",
-		Env:            "production",
-		ServiceVersion: "1.0.0",
-		Insecure:       false,
-		CAFile:         "/path/to/ca.pem",
+		TimeoutSeconds:    30,
+		HeartbeatInterval: 60,
+		ServiceID:         "test-service",
+		GameID:            "game1",
+		AgentAddr:         "localhost:19090",
+		Env:               "production",
+		ServiceVersion:    "1.0.0",
+		Insecure:          false,
+		CAFile:            "/path/to/ca.pem",
 		Headers: map[string]string{
 			"X-Header": "value",
 		},
