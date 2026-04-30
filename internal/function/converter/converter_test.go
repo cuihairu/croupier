@@ -2,6 +2,8 @@ package converter
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -346,4 +348,420 @@ func TestJSONSchemaRoundTrip(t *testing.T) {
 // Helper function
 func ptr[T any](v T) *T {
 	return &v
+}
+
+func TestToOpenAPIOperation(t *testing.T) {
+	t.Run("convert descriptor with input and output schemas", func(t *testing.T) {
+		descriptor := LocalFunctionDescriptorDesc{
+			OperationID: "player.ban",
+			Summary:     "Ban Player",
+			Description: "Permanently ban a player from the game",
+			Tags:        []string{"player", "moderation"},
+			Deprecated:  false,
+			InputSchema: `{
+				"type": "object",
+				"properties": {
+					"player_id": {"type": "string"},
+					"reason": {"type": "string"}
+				},
+				"required": ["player_id"]
+			}`,
+			OutputSchema: `{
+				"type": "object",
+				"properties": {
+					"success": {"type": "boolean"}
+				}
+			}`,
+			Category:  "player",
+			Risk:      "high",
+			Entity:    "Player",
+			Operation: "delete",
+		}
+
+		op, err := ToOpenAPIOperation(descriptor)
+		require.NoError(t, err)
+
+		assert.Equal(t, "player.ban", op.OperationID)
+		assert.Equal(t, "Ban Player", op.Summary)
+		assert.Equal(t, "Permanently ban a player from the game", op.Description)
+		assert.Equal(t, []string{"player", "moderation"}, op.Tags)
+		assert.False(t, op.Deprecated)
+
+		// Check request body
+		assert.NotNil(t, op.RequestBody)
+		assert.Contains(t, op.RequestBody.Value.Content, "application/json")
+		mediaType := op.RequestBody.Value.Content["application/json"]
+		assert.NotNil(t, mediaType.Schema)
+		assert.NotNil(t, mediaType.Schema.Value)
+
+		// Check response
+		assert.NotNil(t, op.Responses)
+		responsesMap := op.Responses.Map()
+		response200, ok := responsesMap["200"]
+		assert.True(t, ok)
+		assert.NotNil(t, response200)
+		assert.NotNil(t, response200.Value)
+		desc := "Success"
+		assert.Equal(t, &desc, response200.Value.Description)
+
+		// Check extensions
+		assert.Equal(t, "player", op.Extensions["x-category"])
+		assert.Equal(t, "high", op.Extensions["x-risk"])
+		assert.Equal(t, "Player", op.Extensions["x-entity"])
+		assert.Equal(t, "delete", op.Extensions["x-operation"])
+	})
+
+	t.Run("convert minimal descriptor", func(t *testing.T) {
+		descriptor := LocalFunctionDescriptorDesc{
+			OperationID: "test.simple",
+			Summary:     "Simple Test",
+		}
+
+		op, err := ToOpenAPIOperation(descriptor)
+		require.NoError(t, err)
+
+		assert.Equal(t, "test.simple", op.OperationID)
+		assert.Equal(t, "Simple Test", op.Summary)
+		assert.Nil(t, op.RequestBody)
+		assert.Nil(t, op.Responses)
+	})
+
+	t.Run("convert descriptor with invalid input schema", func(t *testing.T) {
+		descriptor := LocalFunctionDescriptorDesc{
+			OperationID: "test.invalid",
+			InputSchema: `{invalid json`,
+		}
+
+		_, err := ToOpenAPIOperation(descriptor)
+		assert.Error(t, err)
+	})
+
+	t.Run("convert descriptor with invalid output schema", func(t *testing.T) {
+		descriptor := LocalFunctionDescriptorDesc{
+			OperationID:  "test.invalid",
+			OutputSchema: `{invalid json`,
+		}
+
+		_, err := ToOpenAPIOperation(descriptor)
+		assert.Error(t, err)
+	})
+
+	t.Run("convert deprecated descriptor", func(t *testing.T) {
+		descriptor := LocalFunctionDescriptorDesc{
+			OperationID: "legacy.endpoint",
+			Summary:     "Legacy Endpoint",
+			Deprecated:  true,
+		}
+
+		op, err := ToOpenAPIOperation(descriptor)
+		require.NoError(t, err)
+
+		assert.True(t, op.Deprecated)
+	})
+
+	t.Run("convert descriptor with only category extension", func(t *testing.T) {
+		descriptor := LocalFunctionDescriptorDesc{
+			OperationID: "game.create",
+			Category:    "game",
+		}
+
+		op, err := ToOpenAPIOperation(descriptor)
+		require.NoError(t, err)
+
+		assert.NotNil(t, op.Extensions)
+		assert.Equal(t, "game", op.Extensions["x-category"])
+		_, hasRisk := op.Extensions["x-risk"]
+		assert.False(t, hasRisk)
+	})
+}
+
+func TestPackConverter_LoadPackFromFile(t *testing.T) {
+	converter := NewPackConverter()
+
+	t.Run("load valid pack file", func(t *testing.T) {
+		// Create a temporary file
+		tmpDir := t.TempDir()
+		packFile := filepath.Join(tmpDir, "pack.json")
+
+		manifestData := `{
+			"id": "test-pack",
+			"version": "1.0.0",
+			"name": "Test Pack",
+			"functions": [
+				{
+					"id": "test.function",
+					"name": "Test Function"
+				}
+			]
+		}`
+
+		err := os.WriteFile(packFile, []byte(manifestData), 0644)
+		require.NoError(t, err)
+
+		manifest, err := converter.LoadPackFromFile(packFile)
+		require.NoError(t, err)
+
+		assert.Equal(t, "test-pack", manifest.ID)
+		assert.Equal(t, "1.0.0", manifest.Version)
+		assert.Equal(t, "Test Pack", manifest.Name)
+		assert.Len(t, manifest.Functions, 1)
+		assert.Equal(t, "test.function", manifest.Functions[0].ID)
+	})
+
+	t.Run("load non-existent file", func(t *testing.T) {
+		_, err := converter.LoadPackFromFile("/nonexistent/file.json")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to read pack file")
+	})
+
+	t.Run("load invalid JSON", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		invalidFile := filepath.Join(tmpDir, "invalid.json")
+
+		err := os.WriteFile(invalidFile, []byte("{invalid json}"), 0644)
+		require.NoError(t, err)
+
+		_, err = converter.LoadPackFromFile(invalidFile)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to unmarshal pack manifest")
+	})
+}
+
+func TestPackConverter_LoadPackFromDir(t *testing.T) {
+	converter := NewPackConverter()
+
+	t.Run("load pack from directory", func(t *testing.T) {
+		// Create a temporary directory with manifest.json
+		tmpDir := t.TempDir()
+
+		manifestData := `{
+			"id": "dir-pack",
+			"version": "1.0.0",
+			"name": "Directory Pack"
+		}`
+
+		err := os.WriteFile(filepath.Join(tmpDir, "manifest.json"), []byte(manifestData), 0644)
+		require.NoError(t, err)
+
+		manifest, err := converter.LoadPackFromDir(tmpDir)
+		require.NoError(t, err)
+
+		assert.Equal(t, "dir-pack", manifest.ID)
+		assert.Equal(t, "Directory Pack", manifest.Name)
+	})
+
+	t.Run("load from directory without manifest", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		// Empty directory, no manifest.json
+
+		_, err := converter.LoadPackFromDir(tmpDir)
+		assert.Error(t, err)
+	})
+
+	t.Run("load from non-existent directory", func(t *testing.T) {
+		_, err := converter.LoadPackFromDir("/nonexistent/directory")
+		assert.Error(t, err)
+	})
+}
+
+func TestOpenAPIConverter_ToJSONSchema_Complete(t *testing.T) {
+	converter := NewOpenAPIConverter()
+
+	objectType := openapi3.Types{"object"}
+	min := 0.0
+	max := 100.0
+	multipleOf := 5.0
+
+	schema := &openapi3.Schema{
+		Type:         &objectType,
+		Title:        "TestSchema",
+		Description:  "A test schema",
+		Format:       "int64",
+		Enum:         []interface{}{"a", "b", "c"},
+		Min:          &min,
+		Max:          &max,
+		MultipleOf:   &multipleOf,
+		ExclusiveMin: true,
+		ExclusiveMax: true,
+		Pattern:      "^[a-z]+$",
+		MinLength:    1,
+		MaxLength:    ptr(uint64(50)),
+		MinItems:     1,
+		MaxItems:     ptr(uint64(10)),
+		UniqueItems:  true,
+		Required:     []string{"id", "name"},
+	}
+
+	result, err := converter.ToJSONSchema(schema)
+	require.NoError(t, err)
+
+	assert.Equal(t, "object", result["type"])
+	assert.Equal(t, "TestSchema", result["title"])
+	assert.Equal(t, "A test schema", result["description"])
+	assert.Equal(t, "int64", result["format"])
+	assert.NotNil(t, result["enum"])
+	assert.Equal(t, 0.0, result["minimum"])
+	assert.Equal(t, 100.0, result["maximum"])
+	assert.Equal(t, 5.0, result["multipleOf"])
+	assert.True(t, result["exclusiveMinimum"].(bool))
+	assert.True(t, result["exclusiveMaximum"].(bool))
+	assert.Equal(t, "^[a-z]+$", result["pattern"])
+	assert.Equal(t, uint64(1), result["minLength"])
+	assert.Equal(t, uint64(50), result["maxLength"])
+	assert.Equal(t, uint64(1), result["minItems"])
+	assert.Equal(t, uint64(10), result["maxItems"])
+	assert.True(t, result["uniqueItems"].(bool))
+	assert.Equal(t, []string{"id", "name"}, result["required"])
+}
+
+func TestExtractExtension_ErrorCases(t *testing.T) {
+	t.Run("nil extensions map", func(t *testing.T) {
+		value, exists := ExtractExtension(nil, "category")
+		assert.False(t, exists)
+		assert.Nil(t, value)
+	})
+
+	t.Run("extension value is number", func(t *testing.T) {
+		extensions := map[string]interface{}{
+			"x-max": 42.0,
+		}
+
+		value, exists := ExtractExtension(extensions, "max")
+		assert.True(t, exists)
+		assert.Equal(t, 42.0, value)
+	})
+
+	t.Run("extension value is bool", func(t *testing.T) {
+		extensions := map[string]interface{}{
+			"x-enabled": true,
+		}
+
+		value, exists := ExtractExtension(extensions, "enabled")
+		assert.True(t, exists)
+		assert.True(t, value.(bool))
+	})
+}
+
+func TestGetStringExtension_ErrorCases(t *testing.T) {
+	t.Run("nil extensions", func(t *testing.T) {
+		value, exists := GetStringExtension(nil, "key")
+		assert.False(t, exists)
+		assert.Empty(t, value)
+	})
+
+	t.Run("non-string value", func(t *testing.T) {
+		extensions := map[string]interface{}{
+			"x-count": 42,
+		}
+
+		value, exists := GetStringExtension(extensions, "count")
+		assert.False(t, exists)
+		assert.Empty(t, value)
+	})
+}
+
+func TestGetBoolExtension_ErrorCases(t *testing.T) {
+	t.Run("nil extensions", func(t *testing.T) {
+		value, exists := GetBoolExtension(nil, "key")
+		assert.False(t, exists)
+		assert.False(t, value)
+	})
+
+	t.Run("non-bool value", func(t *testing.T) {
+		extensions := map[string]interface{}{
+			"x-value": "true",
+		}
+
+		value, exists := GetBoolExtension(extensions, "value")
+		assert.False(t, exists)
+		assert.False(t, value)
+	})
+
+	t.Run("bool value false", func(t *testing.T) {
+		extensions := map[string]interface{}{
+			"x-enabled": false,
+		}
+
+		value, exists := GetBoolExtension(extensions, "enabled")
+		assert.True(t, exists)
+		assert.False(t, value)
+	})
+}
+
+func TestToOpenAPIOperation_WithCompleteSchema(t *testing.T) {
+	descriptor := LocalFunctionDescriptorDesc{
+		OperationID: "test.complex",
+		Summary:     "Complex Test",
+		Description: "A complex test function",
+		Tags:        []string{"test", "complex"},
+		Deprecated:  true,
+		InputSchema: `{
+			"type": "object",
+			"title": "Input",
+			"required": ["field1"]
+		}`,
+		OutputSchema: `{
+			"type": "object",
+			"title": "Output"
+		}`,
+		Category:  "test",
+		Risk:      "medium",
+		Entity:    "TestEntity",
+		Operation: "update",
+	}
+
+	op, err := ToOpenAPIOperation(descriptor)
+	require.NoError(t, err)
+
+	assert.Equal(t, "test.complex", op.OperationID)
+	assert.Equal(t, "Complex Test", op.Summary)
+	assert.Equal(t, "A complex test function", op.Description)
+	assert.Equal(t, []string{"test", "complex"}, op.Tags)
+	assert.True(t, op.Deprecated)
+	assert.NotNil(t, op.RequestBody)
+	assert.NotNil(t, op.Responses)
+	assert.Equal(t, "test", op.Extensions["x-category"])
+	assert.Equal(t, "medium", op.Extensions["x-risk"])
+	assert.Equal(t, "TestEntity", op.Extensions["x-entity"])
+	assert.Equal(t, "update", op.Extensions["x-operation"])
+}
+
+func TestPackConverter_PackToOpenAPI_WithCompleteFunction(t *testing.T) {
+	converter := NewPackConverter()
+
+	manifest := &PackManifest{
+		ID:      "complete-pack",
+		Version: "1.0.0",
+		Functions: []PackFunction{
+			{
+				ID:          "complex.function",
+				Name:        "Complex Function",
+				Summary:     "Complex summary",
+				Description: "Complex description",
+				Params: map[string]interface{}{
+					"type":  "object",
+					"title": "Request",
+				},
+				Returns: map[string]interface{}{
+					"type":  "object",
+					"title": "Response",
+				},
+				Category:  "complex",
+				Risk:      "medium",
+				Entity:    "ComplexEntity",
+				Operation: "create",
+			},
+		},
+	}
+
+	operations, err := converter.PackToOpenAPI(manifest)
+	require.NoError(t, err)
+
+	op := operations["complex.function"]
+	assert.NotNil(t, op)
+	assert.Equal(t, "complex.function", op.OperationID)
+	assert.Equal(t, "complex", op.Extensions["x-category"])
+	assert.Equal(t, "medium", op.Extensions["x-risk"])
+	assert.Equal(t, "ComplexEntity", op.Extensions["x-entity"])
+	assert.Equal(t, "create", op.Extensions["x-operation"])
 }

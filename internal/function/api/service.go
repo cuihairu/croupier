@@ -157,13 +157,13 @@ func (s *Service) GetTags(ctx context.Context) []string {
 func normalizeRiskLevelForStore(level string) string {
 	switch level {
 	case "low", "LOW", "RISK_LOW", "RISK_LEVEL_LOW":
-		return "RISK_LEVEL_LOW"
+		return "low"
 	case "medium", "MEDIUM", "RISK_MEDIUM", "RISK_LEVEL_MEDIUM":
-		return "RISK_LEVEL_MEDIUM"
+		return "medium"
 	case "high", "HIGH", "RISK_HIGH", "RISK_LEVEL_HIGH":
-		return "RISK_LEVEL_HIGH"
+		return "high"
 	case "danger", "DANGER", "RISK_DANGER", "RISK_LEVEL_DANGER":
-		return "RISK_LEVEL_DANGER"
+		return "danger"
 	default:
 		return level
 	}
@@ -172,9 +172,9 @@ func normalizeRiskLevelForStore(level string) string {
 func normalizeModeForStore(mode string) string {
 	switch mode {
 	case "query", "QUERY", "MODE_QUERY":
-		return "MODE_QUERY"
+		return "query"
 	case "command", "COMMAND", "MODE_COMMAND":
-		return "MODE_COMMAND"
+		return "command"
 	default:
 		return mode
 	}

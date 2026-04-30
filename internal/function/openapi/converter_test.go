@@ -457,3 +457,350 @@ func TestParseRouteStrategy(t *testing.T) {
 		})
 	}
 }
+
+func TestConverter_ImportFromSpecData(t *testing.T) {
+	converter := NewConverter()
+
+	t.Run("import valid spec data", func(t *testing.T) {
+		specData := `{
+			"openapi": "3.0.3",
+			"info": {"title": "Test API", "version": "1.0.0"},
+			"paths": {
+				"/players": {
+					"get": {
+						"operationId": "player.list",
+						"summary": "List players",
+						"responses": {
+							"200": {
+								"description": "Success",
+								"content": {
+									"application/json": {
+										"schema": {"type": "array"}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}`
+
+		metadatas, err := converter.ImportFromSpecData([]byte(specData), nil)
+		if err != nil {
+			t.Fatalf("ImportFromSpecData failed: %v", err)
+		}
+
+		if len(metadatas) != 1 {
+			t.Errorf("Expected 1 metadata, got %d", len(metadatas))
+		}
+
+		if metadatas[0].Id != "player.list" {
+			t.Errorf("Expected ID player.list, got %s", metadatas[0].Id)
+		}
+	})
+
+	t.Run("import invalid spec data", func(t *testing.T) {
+		invalidData := []byte(`{invalid json`)
+
+		_, err := converter.ImportFromSpecData(invalidData, nil)
+		if err == nil {
+			t.Error("Expected error for invalid JSON, got nil")
+		}
+	})
+
+	t.Run("import with continue on error", func(t *testing.T) {
+		specData := `{
+			"openapi": "3.0.3",
+			"info": {"title": "Test API", "version": "1.0.0"},
+			"paths": {
+				"/players": {
+					"get": {
+						"operationId": "player.list",
+						"summary": "List players",
+						"responses": {
+							"200": {"description": "Success"}
+						}
+					}
+				}
+			}
+		}`
+
+		opts := &ImportOptions{
+			ContinueOnError: true,
+		}
+
+		metadatas, err := converter.ImportFromSpecData([]byte(specData), opts)
+		if err != nil {
+			t.Fatalf("ImportFromSpecData with ContinueOnError failed: %v", err)
+		}
+
+		// Should return 1 metadata even with no request body
+		if len(metadatas) != 1 {
+			t.Errorf("Expected 1 metadata, got %d", len(metadatas))
+		}
+	})
+
+	t.Run("import with options", func(t *testing.T) {
+		specData := `{
+			"openapi": "3.0.3",
+			"info": {"title": "Test API", "version": "1.0.0"},
+			"paths": {
+				"/players": {
+					"post": {
+						"operationId": "player.create",
+						"summary": "Create player",
+						"requestBody": {
+							"content": {
+								"application/json": {
+									"schema": {"type": "object"}
+								}
+							}
+						},
+						"responses": {
+							"201": {"description": "Created"}
+						}
+					}
+				}
+			}
+		}`
+
+		opts := &ImportOptions{
+			DefaultTimeoutMs: 45000,
+		}
+
+		metadatas, err := converter.ImportFromSpecData([]byte(specData), opts)
+		if err != nil {
+			t.Fatalf("ImportFromSpecData with options failed: %v", err)
+		}
+
+		if len(metadatas) != 1 {
+			t.Fatalf("Expected 1 metadata, got %d", len(metadatas))
+		}
+
+		md := metadatas[0]
+		if md.Behavior.TimeoutMs != 45000 {
+			t.Errorf("Expected timeout 45000, got %d", md.Behavior.TimeoutMs)
+		}
+	})
+}
+
+func TestConverter_ImportFromSpec_NilSpec(t *testing.T) {
+	converter := NewConverter()
+
+	_, err := converter.ImportFromSpec(nil, nil)
+	if err == nil {
+		t.Error("Expected error for nil spec, got nil")
+	}
+}
+
+func TestSchemaMapper_IsArraySchema(t *testing.T) {
+	mapper := NewSchemaMapper()
+
+	t.Run("valid array schema", func(t *testing.T) {
+		if !mapper.IsArraySchema(`{"type":"array"}`) {
+			t.Error("Expected true for array schema")
+		}
+	})
+
+	t.Run("non-array schema", func(t *testing.T) {
+		if mapper.IsArraySchema(`{"type":"object"}`) {
+			t.Error("Expected false for object schema")
+		}
+		if mapper.IsArraySchema(`{"type":"string"}`) {
+			t.Error("Expected false for string schema")
+		}
+	})
+
+	t.Run("invalid schema", func(t *testing.T) {
+		if mapper.IsArraySchema(`{invalid}`) {
+			t.Error("Expected false for invalid schema")
+		}
+	})
+}
+
+func TestSchemaMapper_InferType(t *testing.T) {
+	mapper := NewSchemaMapper()
+
+	tests := []struct {
+		name     string
+		value    interface{}
+		expected string
+	}{
+		{"string value", "hello", "string"},
+		{"integer value", 42, "integer"},
+		{"float value", 3.14, "number"},
+		{"bool value", true, "boolean"},
+		{"nil value", nil, "string"},
+		{"array value", []interface{}{}, "array"},
+		{"map value", map[string]interface{}{}, "object"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := mapper.inferType(tt.value)
+			if result != tt.expected {
+				t.Errorf("Expected %s, got %s", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestConverter_ExportToSpec_WithNilMetadata(t *testing.T) {
+	converter := NewConverter()
+
+	metadatas := []*functionv1.FunctionMetadata{
+		{
+			Id:       "player.get",
+			Category: "player",
+			Name:     "Get Player",
+			Behavior: &functionv1.FunctionBehavior{},
+			Security: &functionv1.FunctionSecurity{},
+		},
+		nil, // Nil metadata should be skipped
+		{
+			Id:       "game.create",
+			Category: "game",
+			Name:     "Create Game",
+			Behavior: &functionv1.FunctionBehavior{},
+			Security: &functionv1.FunctionSecurity{},
+		},
+	}
+
+	spec, err := converter.ExportToSpec(metadatas)
+	if err != nil {
+		t.Fatalf("ExportToSpec failed: %v", err)
+	}
+
+	// Should have 2 paths (nil metadata skipped)
+	if len(spec.Paths.Map()) != 2 {
+		t.Errorf("Expected 2 paths, got %d", len(spec.Paths.Map()))
+	}
+}
+
+func TestConverter_ImportToMetadata_NilOperation(t *testing.T) {
+	converter := NewConverter()
+
+	_, err := converter.ImportToMetadata("test.id", nil)
+	if err == nil {
+		t.Error("Expected error for nil operation, got nil")
+	}
+}
+
+func TestConverter_DeriveName(t *testing.T) {
+	t.Run("operation with summary", func(t *testing.T) {
+		op := &openapi3.Operation{
+			Summary:     "Get Player",
+			OperationID: "player.get",
+		}
+
+		name := deriveName(op)
+		if name != "Get Player" {
+			t.Errorf("Expected 'Get Player', got '%s'", name)
+		}
+	})
+
+	t.Run("operation with only operationId", func(t *testing.T) {
+		op := &openapi3.Operation{
+			OperationID: "player_ban",
+		}
+
+		name := deriveName(op)
+		if name != "Player ban" {
+			t.Errorf("Expected 'Player ban', got '%s'", name)
+		}
+	})
+
+	t.Run("operation with no summary or operationId", func(t *testing.T) {
+		op := &openapi3.Operation{}
+
+		name := deriveName(op)
+		if name != "Unnamed Function" {
+			t.Errorf("Expected 'Unnamed Function', got '%s'", name)
+		}
+	})
+
+	t.Run("nil operation", func(t *testing.T) {
+		name := deriveName(nil)
+		if name != "Unnamed Function" {
+			t.Errorf("Expected 'Unnamed Function', got '%s'", name)
+		}
+	})
+}
+
+func TestConverter_DeriveFunctionID(t *testing.T) {
+	t.Run("operation with operationId", func(t *testing.T) {
+		op := &openapi3.Operation{
+			OperationID: "player.get",
+		}
+
+		id := deriveFunctionID(op, "/api/players")
+		if id != "player.get" {
+			t.Errorf("Expected 'player.get', got '%s'", id)
+		}
+	})
+
+	t.Run("generate from path", func(t *testing.T) {
+		op := &openapi3.Operation{}
+
+		id := deriveFunctionID(op, "/api/players/{id}")
+		if id != "api.players.{id}" {
+			t.Errorf("Expected 'api.players.{id}', got '%s'", id)
+		}
+	})
+
+	t.Run("nil operation and empty path", func(t *testing.T) {
+		id := deriveFunctionID(nil, "")
+		if id != "unknown.function" {
+			t.Errorf("Expected 'unknown.function', got '%s'", id)
+		}
+	})
+
+	t.Run("empty path", func(t *testing.T) {
+		id := deriveFunctionID(&openapi3.Operation{}, "")
+		if id != "unknown.function" {
+			t.Errorf("Expected 'unknown.function', got '%s'", id)
+		}
+	})
+}
+
+func TestSchemaMapper_GetObjectProperties_ErrorCases(t *testing.T) {
+	mapper := NewSchemaMapper()
+
+	t.Run("invalid JSON", func(t *testing.T) {
+		_, err := mapper.GetObjectProperties(`{invalid}`)
+		if err == nil {
+			t.Error("Expected error for invalid JSON")
+		}
+	})
+
+	t.Run("non-object schema", func(t *testing.T) {
+		_, err := mapper.GetObjectProperties(`{"type":"string"}`)
+		if err == nil {
+			t.Error("Expected error for non-object schema")
+		}
+	})
+
+	t.Run("missing properties field", func(t *testing.T) {
+		_, err := mapper.GetObjectProperties(`{"type":"object"}`)
+		if err == nil {
+			t.Error("Expected error for schema without properties")
+		}
+	})
+}
+
+func TestConverter_ExportToSpec_EmptyMetadatas(t *testing.T) {
+	converter := NewConverter()
+
+	spec, err := converter.ExportToSpec([]*functionv1.FunctionMetadata{})
+	if err != nil {
+		t.Fatalf("ExportToSpec failed: %v", err)
+	}
+
+	if spec.OpenAPI != "3.0.3" {
+		t.Errorf("Expected OpenAPI 3.0.3, got %s", spec.OpenAPI)
+	}
+
+	if len(spec.Paths.Map()) != 0 {
+		t.Errorf("Expected 0 paths, got %d", len(spec.Paths.Map()))
+	}
+}

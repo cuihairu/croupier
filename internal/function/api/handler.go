@@ -124,7 +124,18 @@ func (h *Handler) UpdateFunction(c *gin.Context) {
 		return
 	}
 
-	var body UpdateFunctionRequest
+	// Define a body-only type to avoid ID validation issue
+	type updateFunctionBody struct {
+		Name         *string           `json:"name"`
+		Description  *string           `json:"description"`
+		InputSchema  *string           `json:"input_schema"`
+		OutputSchema *string           `json:"output_schema"`
+		Behavior     *FunctionBehavior `json:"behavior"`
+		Security     *FunctionSecurity `json:"security"`
+		Extensions   map[string]string `json:"extensions"`
+	}
+
+	var body updateFunctionBody
 	if err := c.ShouldBindJSON(&body); err != nil {
 		response.Error(c, err)
 		return
