@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 	"github.com/cuihairu/croupier/internal/function/openapi"
 	"github.com/cuihairu/croupier/internal/function/registry"
+	functionv1 "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1"
 )
 
 var (
