@@ -86,7 +86,7 @@ func LocalFunctionDescriptorToMetadata(desc LocalFunctionDescriptor) *functionv1
 		Mode:          inferModeFromID(desc.ID),
 		Idempotent:    inferIdempotency(desc.ID),
 		TimeoutMs:     30000,
-		RouteStrategy: functionv1.FunctionBehavior_ROUTE_LB,
+		RouteStrategy: functionv1.FunctionBehavior_ROUTE_STRATEGY_LB,
 		Cacheable:     false,
 	}
 
@@ -149,7 +149,7 @@ func FunctionDescriptorToMetadata(desc FunctionDescriptor) *functionv1.FunctionM
 		Mode:          inferModeFromOperation(desc.Operation),
 		Idempotent:    inferIdempotencyFromOperation(desc.Operation),
 		TimeoutMs:     30000,
-		RouteStrategy: functionv1.FunctionBehavior_ROUTE_LB,
+		RouteStrategy: functionv1.FunctionBehavior_ROUTE_STRATEGY_LB,
 		Cacheable:     false,
 	}
 
@@ -266,21 +266,21 @@ func inferModeFromID(id string) functionv1.FunctionBehavior_Mode {
 		strings.Contains(id, "fetch") ||
 		strings.Contains(id, "info") ||
 		strings.Contains(id, "check") {
-		return functionv1.FunctionBehavior_QUERY
+		return functionv1.FunctionBehavior_MODE_QUERY
 	}
 
 	// Default to command for write operations
-	return functionv1.FunctionBehavior_COMMAND
+	return functionv1.FunctionBehavior_MODE_COMMAND
 }
 
 func inferModeFromOperation(operation string) functionv1.FunctionBehavior_Mode {
 	operation = strings.ToLower(operation)
 
 	if operation == "read" || operation == "query" || operation == "list" {
-		return functionv1.FunctionBehavior_QUERY
+		return functionv1.FunctionBehavior_MODE_QUERY
 	}
 
-	return functionv1.FunctionBehavior_COMMAND
+	return functionv1.FunctionBehavior_MODE_COMMAND
 }
 
 func inferIdempotency(id string) bool {
@@ -325,15 +325,15 @@ func inferRiskLevel(risk string) functionv1.FunctionSecurity_RiskLevel {
 
 	switch risk {
 	case "low", "safe", "info":
-		return functionv1.FunctionSecurity_RISK_LOW
+		return functionv1.FunctionSecurity_RISK_LEVEL_LOW
 	case "medium", "moderate", "warning":
-		return functionv1.FunctionSecurity_RISK_MEDIUM
+		return functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM
 	case "high", "error":
-		return functionv1.FunctionSecurity_RISK_HIGH
+		return functionv1.FunctionSecurity_RISK_LEVEL_HIGH
 	case "critical", "fatal":
-		return functionv1.FunctionSecurity_RISK_DANGER
+		return functionv1.FunctionSecurity_RISK_LEVEL_DANGER
 	default:
-		return functionv1.FunctionSecurity_RISK_MEDIUM
+		return functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM
 	}
 }
 
@@ -344,13 +344,13 @@ func inferRequiresApproval(risk string) bool {
 
 func normalizeRiskLevel(level functionv1.FunctionSecurity_RiskLevel) string {
 	switch level {
-	case functionv1.FunctionSecurity_RISK_LOW:
+	case functionv1.FunctionSecurity_RISK_LEVEL_LOW:
 		return "low"
-	case functionv1.FunctionSecurity_RISK_MEDIUM:
+	case functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM:
 		return "medium"
-	case functionv1.FunctionSecurity_RISK_HIGH:
+	case functionv1.FunctionSecurity_RISK_LEVEL_HIGH:
 		return "high"
-	case functionv1.FunctionSecurity_RISK_DANGER:
+	case functionv1.FunctionSecurity_RISK_LEVEL_DANGER:
 		return "danger"
 	default:
 		return "medium"

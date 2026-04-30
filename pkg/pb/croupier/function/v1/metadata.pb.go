@@ -25,22 +25,22 @@ const (
 type FunctionBehavior_Mode int32
 
 const (
-	FunctionBehavior_MODE_UNKNOWN FunctionBehavior_Mode = 0
-	FunctionBehavior_QUERY        FunctionBehavior_Mode = 1 // Read-only operation
-	FunctionBehavior_COMMAND      FunctionBehavior_Mode = 2 // Write operation with side effects
+	FunctionBehavior_MODE_UNSPECIFIED FunctionBehavior_Mode = 0
+	FunctionBehavior_MODE_QUERY       FunctionBehavior_Mode = 1 // Read-only operation
+	FunctionBehavior_MODE_COMMAND     FunctionBehavior_Mode = 2 // Write operation with side effects
 )
 
 // Enum value maps for FunctionBehavior_Mode.
 var (
 	FunctionBehavior_Mode_name = map[int32]string{
-		0: "MODE_UNKNOWN",
-		1: "QUERY",
-		2: "COMMAND",
+		0: "MODE_UNSPECIFIED",
+		1: "MODE_QUERY",
+		2: "MODE_COMMAND",
 	}
 	FunctionBehavior_Mode_value = map[string]int32{
-		"MODE_UNKNOWN": 0,
-		"QUERY":        1,
-		"COMMAND":      2,
+		"MODE_UNSPECIFIED": 0,
+		"MODE_QUERY":       1,
+		"MODE_COMMAND":     2,
 	}
 )
 
@@ -75,28 +75,28 @@ func (FunctionBehavior_Mode) EnumDescriptor() ([]byte, []int) {
 type FunctionBehavior_RouteStrategy int32
 
 const (
-	FunctionBehavior_ROUTE_UNKNOWN   FunctionBehavior_RouteStrategy = 0
-	FunctionBehavior_ROUTE_LB        FunctionBehavior_RouteStrategy = 1 // Load balanced across agents
-	FunctionBehavior_ROUTE_BROADCAST FunctionBehavior_RouteStrategy = 2 // Send to all agents
-	FunctionBehavior_ROUTE_TARGETED  FunctionBehavior_RouteStrategy = 3 // Target specific agent by ID
-	FunctionBehavior_ROUTE_HASH      FunctionBehavior_RouteStrategy = 4 // Consistent hash routing
+	FunctionBehavior_ROUTE_STRATEGY_UNSPECIFIED FunctionBehavior_RouteStrategy = 0
+	FunctionBehavior_ROUTE_STRATEGY_LB          FunctionBehavior_RouteStrategy = 1 // Load balanced across agents
+	FunctionBehavior_ROUTE_STRATEGY_BROADCAST   FunctionBehavior_RouteStrategy = 2 // Send to all agents
+	FunctionBehavior_ROUTE_STRATEGY_TARGETED    FunctionBehavior_RouteStrategy = 3 // Target specific agent by ID
+	FunctionBehavior_ROUTE_STRATEGY_HASH        FunctionBehavior_RouteStrategy = 4 // Consistent hash routing
 )
 
 // Enum value maps for FunctionBehavior_RouteStrategy.
 var (
 	FunctionBehavior_RouteStrategy_name = map[int32]string{
-		0: "ROUTE_UNKNOWN",
-		1: "ROUTE_LB",
-		2: "ROUTE_BROADCAST",
-		3: "ROUTE_TARGETED",
-		4: "ROUTE_HASH",
+		0: "ROUTE_STRATEGY_UNSPECIFIED",
+		1: "ROUTE_STRATEGY_LB",
+		2: "ROUTE_STRATEGY_BROADCAST",
+		3: "ROUTE_STRATEGY_TARGETED",
+		4: "ROUTE_STRATEGY_HASH",
 	}
 	FunctionBehavior_RouteStrategy_value = map[string]int32{
-		"ROUTE_UNKNOWN":   0,
-		"ROUTE_LB":        1,
-		"ROUTE_BROADCAST": 2,
-		"ROUTE_TARGETED":  3,
-		"ROUTE_HASH":      4,
+		"ROUTE_STRATEGY_UNSPECIFIED": 0,
+		"ROUTE_STRATEGY_LB":          1,
+		"ROUTE_STRATEGY_BROADCAST":   2,
+		"ROUTE_STRATEGY_TARGETED":    3,
+		"ROUTE_STRATEGY_HASH":        4,
 	}
 )
 
@@ -131,28 +131,28 @@ func (FunctionBehavior_RouteStrategy) EnumDescriptor() ([]byte, []int) {
 type FunctionSecurity_RiskLevel int32
 
 const (
-	FunctionSecurity_RISK_UNKNOWN FunctionSecurity_RiskLevel = 0
-	FunctionSecurity_RISK_LOW     FunctionSecurity_RiskLevel = 1 // Safe, read-only operations
-	FunctionSecurity_RISK_MEDIUM  FunctionSecurity_RiskLevel = 2 // Modifies data but reversible
-	FunctionSecurity_RISK_HIGH    FunctionSecurity_RiskLevel = 3 // Destructive or irreversible operations
-	FunctionSecurity_RISK_DANGER  FunctionSecurity_RiskLevel = 4 // Critical operations requiring extra safeguards
+	FunctionSecurity_RISK_LEVEL_UNSPECIFIED FunctionSecurity_RiskLevel = 0
+	FunctionSecurity_RISK_LEVEL_LOW         FunctionSecurity_RiskLevel = 1 // Safe, read-only operations
+	FunctionSecurity_RISK_LEVEL_MEDIUM      FunctionSecurity_RiskLevel = 2 // Modifies data but reversible
+	FunctionSecurity_RISK_LEVEL_HIGH        FunctionSecurity_RiskLevel = 3 // Destructive or irreversible operations
+	FunctionSecurity_RISK_LEVEL_DANGER      FunctionSecurity_RiskLevel = 4 // Critical operations requiring extra safeguards
 )
 
 // Enum value maps for FunctionSecurity_RiskLevel.
 var (
 	FunctionSecurity_RiskLevel_name = map[int32]string{
-		0: "RISK_UNKNOWN",
-		1: "RISK_LOW",
-		2: "RISK_MEDIUM",
-		3: "RISK_HIGH",
-		4: "RISK_DANGER",
+		0: "RISK_LEVEL_UNSPECIFIED",
+		1: "RISK_LEVEL_LOW",
+		2: "RISK_LEVEL_MEDIUM",
+		3: "RISK_LEVEL_HIGH",
+		4: "RISK_LEVEL_DANGER",
 	}
 	FunctionSecurity_RiskLevel_value = map[string]int32{
-		"RISK_UNKNOWN": 0,
-		"RISK_LOW":     1,
-		"RISK_MEDIUM":  2,
-		"RISK_HIGH":    3,
-		"RISK_DANGER":  4,
+		"RISK_LEVEL_UNSPECIFIED": 0,
+		"RISK_LEVEL_LOW":         1,
+		"RISK_LEVEL_MEDIUM":      2,
+		"RISK_LEVEL_HIGH":        3,
+		"RISK_LEVEL_DANGER":      4,
 	}
 )
 
@@ -186,22 +186,22 @@ func (FunctionSecurity_RiskLevel) EnumDescriptor() ([]byte, []int) {
 type FunctionSecurity_ApprovalType int32
 
 const (
-	FunctionSecurity_APPROVAL_NONE       FunctionSecurity_ApprovalType = 0
-	FunctionSecurity_APPROVAL_SINGLE     FunctionSecurity_ApprovalType = 1 // Single approver
-	FunctionSecurity_APPROVAL_TWO_PERSON FunctionSecurity_ApprovalType = 2 // Two-person rule
+	FunctionSecurity_APPROVAL_TYPE_UNSPECIFIED FunctionSecurity_ApprovalType = 0
+	FunctionSecurity_APPROVAL_TYPE_SINGLE      FunctionSecurity_ApprovalType = 1 // Single approver
+	FunctionSecurity_APPROVAL_TYPE_TWO_PERSON  FunctionSecurity_ApprovalType = 2 // Two-person rule
 )
 
 // Enum value maps for FunctionSecurity_ApprovalType.
 var (
 	FunctionSecurity_ApprovalType_name = map[int32]string{
-		0: "APPROVAL_NONE",
-		1: "APPROVAL_SINGLE",
-		2: "APPROVAL_TWO_PERSON",
+		0: "APPROVAL_TYPE_UNSPECIFIED",
+		1: "APPROVAL_TYPE_SINGLE",
+		2: "APPROVAL_TYPE_TWO_PERSON",
 	}
 	FunctionSecurity_ApprovalType_value = map[string]int32{
-		"APPROVAL_NONE":       0,
-		"APPROVAL_SINGLE":     1,
-		"APPROVAL_TWO_PERSON": 2,
+		"APPROVAL_TYPE_UNSPECIFIED": 0,
+		"APPROVAL_TYPE_SINGLE":      1,
+		"APPROVAL_TYPE_TWO_PERSON":  2,
 	}
 )
 
@@ -417,7 +417,7 @@ func (x *FunctionBehavior) GetMode() FunctionBehavior_Mode {
 	if x != nil {
 		return x.Mode
 	}
-	return FunctionBehavior_MODE_UNKNOWN
+	return FunctionBehavior_MODE_UNSPECIFIED
 }
 
 func (x *FunctionBehavior) GetIdempotent() bool {
@@ -445,7 +445,7 @@ func (x *FunctionBehavior) GetRouteStrategy() FunctionBehavior_RouteStrategy {
 	if x != nil {
 		return x.RouteStrategy
 	}
-	return FunctionBehavior_ROUTE_UNKNOWN
+	return FunctionBehavior_ROUTE_STRATEGY_UNSPECIFIED
 }
 
 func (x *FunctionBehavior) GetCacheable() bool {
@@ -514,7 +514,7 @@ func (x *FunctionSecurity) GetRiskLevel() FunctionSecurity_RiskLevel {
 	if x != nil {
 		return x.RiskLevel
 	}
-	return FunctionSecurity_RISK_UNKNOWN
+	return FunctionSecurity_RISK_LEVEL_UNSPECIFIED
 }
 
 func (x *FunctionSecurity) GetPermission() string {
@@ -535,7 +535,7 @@ func (x *FunctionSecurity) GetApprovalType() FunctionSecurity_ApprovalType {
 	if x != nil {
 		return x.ApprovalType
 	}
-	return FunctionSecurity_APPROVAL_NONE
+	return FunctionSecurity_APPROVAL_TYPE_UNSPECIFIED
 }
 
 func (x *FunctionSecurity) GetAllowedRoles() []string {
@@ -772,7 +772,7 @@ const file_croupier_function_v1_metadata_proto_rawDesc = "" +
 	"extensions\x1a=\n" +
 	"\x0fExtensionsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x90\x04\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xd0\x04\n" +
 	"\x10FunctionBehavior\x12?\n" +
 	"\x04mode\x18\x01 \x01(\x0e2+.croupier.function.v1.FunctionBehavior.ModeR\x04mode\x12\x1e\n" +
 	"\n" +
@@ -783,18 +783,18 @@ const file_croupier_function_v1_metadata_proto_rawDesc = "" +
 	"timeout_ms\x18\x04 \x01(\x05R\ttimeoutMs\x12[\n" +
 	"\x0eroute_strategy\x18\x05 \x01(\x0e24.croupier.function.v1.FunctionBehavior.RouteStrategyR\rrouteStrategy\x12\x1c\n" +
 	"\tcacheable\x18\x06 \x01(\bR\tcacheable\x12*\n" +
-	"\x11cache_ttl_seconds\x18\a \x01(\x05R\x0fcacheTtlSeconds\"0\n" +
-	"\x04Mode\x12\x10\n" +
-	"\fMODE_UNKNOWN\x10\x00\x12\t\n" +
-	"\x05QUERY\x10\x01\x12\v\n" +
-	"\aCOMMAND\x10\x02\"i\n" +
-	"\rRouteStrategy\x12\x11\n" +
-	"\rROUTE_UNKNOWN\x10\x00\x12\f\n" +
-	"\bROUTE_LB\x10\x01\x12\x13\n" +
-	"\x0fROUTE_BROADCAST\x10\x02\x12\x12\n" +
-	"\x0eROUTE_TARGETED\x10\x03\x12\x0e\n" +
+	"\x11cache_ttl_seconds\x18\a \x01(\x05R\x0fcacheTtlSeconds\">\n" +
+	"\x04Mode\x12\x14\n" +
+	"\x10MODE_UNSPECIFIED\x10\x00\x12\x0e\n" +
 	"\n" +
-	"ROUTE_HASH\x10\x04\"\xab\x04\n" +
+	"MODE_QUERY\x10\x01\x12\x10\n" +
+	"\fMODE_COMMAND\x10\x02\"\x9a\x01\n" +
+	"\rRouteStrategy\x12\x1e\n" +
+	"\x1aROUTE_STRATEGY_UNSPECIFIED\x10\x00\x12\x15\n" +
+	"\x11ROUTE_STRATEGY_LB\x10\x01\x12\x1c\n" +
+	"\x18ROUTE_STRATEGY_BROADCAST\x10\x02\x12\x1b\n" +
+	"\x17ROUTE_STRATEGY_TARGETED\x10\x03\x12\x17\n" +
+	"\x13ROUTE_STRATEGY_HASH\x10\x04\"\xe3\x04\n" +
 	"\x10FunctionSecurity\x12O\n" +
 	"\n" +
 	"risk_level\x18\x01 \x01(\x0e20.croupier.function.v1.FunctionSecurity.RiskLevelR\triskLevel\x12\x1e\n" +
@@ -805,17 +805,17 @@ const file_croupier_function_v1_metadata_proto_rawDesc = "" +
 	"\rapproval_type\x18\x04 \x01(\x0e23.croupier.function.v1.FunctionSecurity.ApprovalTypeR\fapprovalType\x12#\n" +
 	"\rallowed_roles\x18\x05 \x03(\tR\fallowedRoles\x12\x1b\n" +
 	"\taudit_log\x18\x06 \x01(\bR\bauditLog\x12.\n" +
-	"\x13mask_sensitive_data\x18\a \x01(\bR\x11maskSensitiveData\"\\\n" +
-	"\tRiskLevel\x12\x10\n" +
-	"\fRISK_UNKNOWN\x10\x00\x12\f\n" +
-	"\bRISK_LOW\x10\x01\x12\x0f\n" +
-	"\vRISK_MEDIUM\x10\x02\x12\r\n" +
-	"\tRISK_HIGH\x10\x03\x12\x0f\n" +
-	"\vRISK_DANGER\x10\x04\"O\n" +
-	"\fApprovalType\x12\x11\n" +
-	"\rAPPROVAL_NONE\x10\x00\x12\x13\n" +
-	"\x0fAPPROVAL_SINGLE\x10\x01\x12\x17\n" +
-	"\x13APPROVAL_TWO_PERSON\x10\x02\"\\\n" +
+	"\x13mask_sensitive_data\x18\a \x01(\bR\x11maskSensitiveData\"~\n" +
+	"\tRiskLevel\x12\x1a\n" +
+	"\x16RISK_LEVEL_UNSPECIFIED\x10\x00\x12\x12\n" +
+	"\x0eRISK_LEVEL_LOW\x10\x01\x12\x15\n" +
+	"\x11RISK_LEVEL_MEDIUM\x10\x02\x12\x13\n" +
+	"\x0fRISK_LEVEL_HIGH\x10\x03\x12\x15\n" +
+	"\x11RISK_LEVEL_DANGER\x10\x04\"e\n" +
+	"\fApprovalType\x12\x1d\n" +
+	"\x19APPROVAL_TYPE_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14APPROVAL_TYPE_SINGLE\x10\x01\x12\x1c\n" +
+	"\x18APPROVAL_TYPE_TWO_PERSON\x10\x02\"\\\n" +
 	"\x14FunctionMetadataList\x12D\n" +
 	"\tfunctions\x18\x01 \x03(\v2&.croupier.function.v1.FunctionMetadataR\tfunctions\"\xaf\x01\n" +
 	"\x0eFunctionFilter\x12\x1a\n" +

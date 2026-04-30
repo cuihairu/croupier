@@ -497,13 +497,13 @@ func (s *Store) removeFromIndexes(id string, metadata *functionv1.FunctionMetada
 	}
 }
 
-// normalizeEnumName converts enum names like MODE_QUERY -> query, RISK_LOW -> low, risk_low -> low.
+// normalizeEnumName converts enum names like MODE_QUERY -> query, RISK_LEVEL_LOW -> low, route_strategy_lb -> lb.
 func normalizeEnumName(s string) string {
 	// First convert to lowercase for consistent handling
 	s = strings.ToLower(s)
 
-	// Remove common lowercase prefixes
-	prefixes := []string{"mode_", "risk_", "route_", "approval_"}
+	// Remove common lowercase prefixes (longer prefixes first to avoid partial matches)
+	prefixes := []string{"route_strategy_", "risk_level_", "approval_type_", "mode_", "risk_", "route_", "approval_"}
 	for _, prefix := range prefixes {
 		if strings.HasPrefix(s, prefix) {
 			s = strings.TrimPrefix(s, prefix)

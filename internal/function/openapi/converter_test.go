@@ -20,13 +20,13 @@ func TestConverter_MetadataToOperation(t *testing.T) {
 		InputSchema:  `{"type":"object","properties":{"playerId":{"type":"string"},"reason":{"type":"string"}}}`,
 		OutputSchema: `{"type":"object","properties":{"success":{"type":"boolean"}}}`,
 		Behavior: &functionv1.FunctionBehavior{
-			Mode:          functionv1.FunctionBehavior_COMMAND,
+			Mode:          functionv1.FunctionBehavior_MODE_COMMAND,
 			Idempotent:    false,
 			TimeoutMs:     30000,
-			RouteStrategy: functionv1.FunctionBehavior_ROUTE_LB,
+			RouteStrategy: functionv1.FunctionBehavior_ROUTE_STRATEGY_LB,
 		},
 		Security: &functionv1.FunctionSecurity{
-			RiskLevel:        functionv1.FunctionSecurity_RISK_HIGH,
+			RiskLevel:        functionv1.FunctionSecurity_RISK_LEVEL_HIGH,
 			Permission:       "player.ban.invoke",
 			RequiresApproval: true,
 			AuditLog:         true,
@@ -122,11 +122,11 @@ func TestConverter_OperationToMetadata(t *testing.T) {
 		t.Errorf("Expected category player, got %s", metadata.Category)
 	}
 
-	if metadata.Behavior.Mode != functionv1.FunctionBehavior_QUERY {
+	if metadata.Behavior.Mode != functionv1.FunctionBehavior_MODE_QUERY {
 		t.Errorf("Expected default mode QUERY, got %v", metadata.Behavior.Mode)
 	}
 
-	if metadata.Security.RiskLevel != functionv1.FunctionSecurity_RISK_HIGH {
+	if metadata.Security.RiskLevel != functionv1.FunctionSecurity_RISK_LEVEL_HIGH {
 		t.Errorf("Expected risk level RISK_HIGH, got %v", metadata.Security.RiskLevel)
 	}
 
@@ -207,7 +207,7 @@ func TestConverter_ImportFromSpec(t *testing.T) {
 		t.Errorf("Expected category player, got %s", md.Category)
 	}
 
-	if md.Security.RiskLevel != functionv1.FunctionSecurity_RISK_HIGH {
+	if md.Security.RiskLevel != functionv1.FunctionSecurity_RISK_LEVEL_HIGH {
 		t.Errorf("Expected risk level RISK_HIGH, got %v", md.Security.RiskLevel)
 	}
 }
@@ -223,8 +223,8 @@ func TestConverter_ExportToSpec(t *testing.T) {
 			Description: "Ban a player",
 			Tags:        []string{"moderation"},
 			InputSchema: `{"type":"object"}`,
-			Behavior:    &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_COMMAND},
-			Security:    &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_HIGH},
+			Behavior:    &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
+			Security:    &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_HIGH},
 		},
 	}
 
@@ -415,13 +415,13 @@ func TestParseRiskLevel(t *testing.T) {
 		input    string
 		expected functionv1.FunctionSecurity_RiskLevel
 	}{
-		{"low", functionv1.FunctionSecurity_RISK_LOW},
-		{"safe", functionv1.FunctionSecurity_RISK_LOW},
-		{"medium", functionv1.FunctionSecurity_RISK_MEDIUM},
-		{"high", functionv1.FunctionSecurity_RISK_HIGH},
-		{"danger", functionv1.FunctionSecurity_RISK_DANGER},
-		{"critical", functionv1.FunctionSecurity_RISK_DANGER},
-		{"unknown", functionv1.FunctionSecurity_RISK_MEDIUM},
+		{"low", functionv1.FunctionSecurity_RISK_LEVEL_LOW},
+		{"safe", functionv1.FunctionSecurity_RISK_LEVEL_LOW},
+		{"medium", functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM},
+		{"high", functionv1.FunctionSecurity_RISK_LEVEL_HIGH},
+		{"danger", functionv1.FunctionSecurity_RISK_LEVEL_DANGER},
+		{"critical", functionv1.FunctionSecurity_RISK_LEVEL_DANGER},
+		{"unknown", functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM},
 	}
 
 	for _, tt := range tests {
@@ -439,13 +439,13 @@ func TestParseRouteStrategy(t *testing.T) {
 		input    string
 		expected functionv1.FunctionBehavior_RouteStrategy
 	}{
-		{"lb", functionv1.FunctionBehavior_ROUTE_LB},
-		{"load_balance", functionv1.FunctionBehavior_ROUTE_LB},
-		{"broadcast", functionv1.FunctionBehavior_ROUTE_BROADCAST},
-		{"targeted", functionv1.FunctionBehavior_ROUTE_TARGETED},
-		{"hash", functionv1.FunctionBehavior_ROUTE_HASH},
-		{"consistent_hash", functionv1.FunctionBehavior_ROUTE_HASH},
-		{"unknown", functionv1.FunctionBehavior_ROUTE_LB},
+		{"lb", functionv1.FunctionBehavior_ROUTE_STRATEGY_LB},
+		{"load_balance", functionv1.FunctionBehavior_ROUTE_STRATEGY_LB},
+		{"broadcast", functionv1.FunctionBehavior_ROUTE_STRATEGY_BROADCAST},
+		{"targeted", functionv1.FunctionBehavior_ROUTE_STRATEGY_TARGETED},
+		{"hash", functionv1.FunctionBehavior_ROUTE_STRATEGY_HASH},
+		{"consistent_hash", functionv1.FunctionBehavior_ROUTE_STRATEGY_HASH},
+		{"unknown", functionv1.FunctionBehavior_ROUTE_STRATEGY_LB},
 	}
 
 	for _, tt := range tests {

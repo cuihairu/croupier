@@ -226,9 +226,9 @@ func MetadataToProto(dto *FunctionMetadata) *functionv1.FunctionMetadata {
 
 func normalizeMode(mode functionv1.FunctionBehavior_Mode) string {
 	switch mode {
-	case functionv1.FunctionBehavior_QUERY:
+	case functionv1.FunctionBehavior_MODE_QUERY:
 		return "query"
-	case functionv1.FunctionBehavior_COMMAND:
+	case functionv1.FunctionBehavior_MODE_COMMAND:
 		return "command"
 	default:
 		return "unknown"
@@ -237,13 +237,13 @@ func normalizeMode(mode functionv1.FunctionBehavior_Mode) string {
 
 func normalizeRouteStrategy(strategy functionv1.FunctionBehavior_RouteStrategy) string {
 	switch strategy {
-	case functionv1.FunctionBehavior_ROUTE_LB:
+	case functionv1.FunctionBehavior_ROUTE_STRATEGY_LB:
 		return "lb"
-	case functionv1.FunctionBehavior_ROUTE_BROADCAST:
+	case functionv1.FunctionBehavior_ROUTE_STRATEGY_BROADCAST:
 		return "broadcast"
-	case functionv1.FunctionBehavior_ROUTE_TARGETED:
+	case functionv1.FunctionBehavior_ROUTE_STRATEGY_TARGETED:
 		return "targeted"
-	case functionv1.FunctionBehavior_ROUTE_HASH:
+	case functionv1.FunctionBehavior_ROUTE_STRATEGY_HASH:
 		return "hash"
 	default:
 		return "unknown"
@@ -252,13 +252,13 @@ func normalizeRouteStrategy(strategy functionv1.FunctionBehavior_RouteStrategy) 
 
 func normalizeRiskLevel(level functionv1.FunctionSecurity_RiskLevel) string {
 	switch level {
-	case functionv1.FunctionSecurity_RISK_LOW:
+	case functionv1.FunctionSecurity_RISK_LEVEL_LOW:
 		return "low"
-	case functionv1.FunctionSecurity_RISK_MEDIUM:
+	case functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM:
 		return "medium"
-	case functionv1.FunctionSecurity_RISK_HIGH:
+	case functionv1.FunctionSecurity_RISK_LEVEL_HIGH:
 		return "high"
-	case functionv1.FunctionSecurity_RISK_DANGER:
+	case functionv1.FunctionSecurity_RISK_LEVEL_DANGER:
 		return "danger"
 	default:
 		return "unknown"
@@ -267,11 +267,11 @@ func normalizeRiskLevel(level functionv1.FunctionSecurity_RiskLevel) string {
 
 func normalizeApprovalType(atype functionv1.FunctionSecurity_ApprovalType) string {
 	switch atype {
-	case functionv1.FunctionSecurity_APPROVAL_NONE:
+	case functionv1.FunctionSecurity_APPROVAL_TYPE_UNSPECIFIED:
 		return "none"
-	case functionv1.FunctionSecurity_APPROVAL_SINGLE:
+	case functionv1.FunctionSecurity_APPROVAL_TYPE_SINGLE:
 		return "single"
-	case functionv1.FunctionSecurity_APPROVAL_TWO_PERSON:
+	case functionv1.FunctionSecurity_APPROVAL_TYPE_TWO_PERSON:
 		return "two_person"
 	default:
 		return "unknown"
@@ -281,53 +281,53 @@ func normalizeApprovalType(atype functionv1.FunctionSecurity_ApprovalType) strin
 func parseMode(mode string) functionv1.FunctionBehavior_Mode {
 	switch mode {
 	case "query":
-		return functionv1.FunctionBehavior_QUERY
+		return functionv1.FunctionBehavior_MODE_QUERY
 	case "command":
-		return functionv1.FunctionBehavior_COMMAND
+		return functionv1.FunctionBehavior_MODE_COMMAND
 	default:
-		return functionv1.FunctionBehavior_MODE_UNKNOWN
+		return functionv1.FunctionBehavior_MODE_UNSPECIFIED
 	}
 }
 
 func parseRouteStrategy(strategy string) functionv1.FunctionBehavior_RouteStrategy {
 	switch strategy {
 	case "lb":
-		return functionv1.FunctionBehavior_ROUTE_LB
+		return functionv1.FunctionBehavior_ROUTE_STRATEGY_LB
 	case "broadcast":
-		return functionv1.FunctionBehavior_ROUTE_BROADCAST
+		return functionv1.FunctionBehavior_ROUTE_STRATEGY_BROADCAST
 	case "targeted":
-		return functionv1.FunctionBehavior_ROUTE_TARGETED
+		return functionv1.FunctionBehavior_ROUTE_STRATEGY_TARGETED
 	case "hash":
-		return functionv1.FunctionBehavior_ROUTE_HASH
+		return functionv1.FunctionBehavior_ROUTE_STRATEGY_HASH
 	default:
-		return functionv1.FunctionBehavior_ROUTE_UNKNOWN
+		return functionv1.FunctionBehavior_ROUTE_STRATEGY_UNSPECIFIED
 	}
 }
 
 func parseRiskLevel(level string) functionv1.FunctionSecurity_RiskLevel {
 	switch level {
 	case "low":
-		return functionv1.FunctionSecurity_RISK_LOW
+		return functionv1.FunctionSecurity_RISK_LEVEL_LOW
 	case "medium":
-		return functionv1.FunctionSecurity_RISK_MEDIUM
+		return functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM
 	case "high":
-		return functionv1.FunctionSecurity_RISK_HIGH
+		return functionv1.FunctionSecurity_RISK_LEVEL_HIGH
 	case "danger":
-		return functionv1.FunctionSecurity_RISK_DANGER
+		return functionv1.FunctionSecurity_RISK_LEVEL_DANGER
 	default:
-		return functionv1.FunctionSecurity_RISK_UNKNOWN
+		return functionv1.FunctionSecurity_RISK_LEVEL_UNSPECIFIED
 	}
 }
 
 func parseApprovalType(atype string) functionv1.FunctionSecurity_ApprovalType {
 	switch atype {
 	case "none":
-		return functionv1.FunctionSecurity_APPROVAL_NONE
+		return functionv1.FunctionSecurity_APPROVAL_TYPE_UNSPECIFIED
 	case "single":
-		return functionv1.FunctionSecurity_APPROVAL_SINGLE
+		return functionv1.FunctionSecurity_APPROVAL_TYPE_SINGLE
 	case "two_person":
-		return functionv1.FunctionSecurity_APPROVAL_TWO_PERSON
+		return functionv1.FunctionSecurity_APPROVAL_TYPE_TWO_PERSON
 	default:
-		return functionv1.FunctionSecurity_APPROVAL_NONE
+		return functionv1.FunctionSecurity_APPROVAL_TYPE_UNSPECIFIED
 	}
 }

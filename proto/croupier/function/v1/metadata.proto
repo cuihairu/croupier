@@ -40,9 +40,9 @@ message FunctionMetadata {
 message FunctionBehavior {
   // Execution mode
   enum Mode {
-    MODE_UNKNOWN = 0;
-    QUERY = 1;      // Read-only operation
-    COMMAND = 2;    // Write operation with side effects
+    MODE_UNSPECIFIED = 0;
+    MODE_QUERY = 1;      // Read-only operation
+    MODE_COMMAND = 2;    // Write operation with side effects
   }
   Mode mode = 1;
 
@@ -55,11 +55,11 @@ message FunctionBehavior {
 
   // Routing strategy
   enum RouteStrategy {
-    ROUTE_UNKNOWN = 0;
-    ROUTE_LB = 1;             // Load balanced across agents
-    ROUTE_BROADCAST = 2;      // Send to all agents
-    ROUTE_TARGETED = 3;       // Target specific agent by ID
-    ROUTE_HASH = 4;           // Consistent hash routing
+    ROUTE_STRATEGY_UNSPECIFIED = 0;
+    ROUTE_STRATEGY_LB = 1;             // Load balanced across agents
+    ROUTE_STRATEGY_BROADCAST = 2;      // Send to all agents
+    ROUTE_STRATEGY_TARGETED = 3;       // Target specific agent by ID
+    ROUTE_STRATEGY_HASH = 4;           // Consistent hash routing
   }
   RouteStrategy route_strategy = 5;
 
@@ -72,11 +72,11 @@ message FunctionBehavior {
 message FunctionSecurity {
   // Risk level
   enum RiskLevel {
-    RISK_UNKNOWN = 0;
-    RISK_LOW = 1;             // Safe, read-only operations
-    RISK_MEDIUM = 2;          // Modifies data but reversible
-    RISK_HIGH = 3;            // Destructive or irreversible operations
-    RISK_DANGER = 4;          // Critical operations requiring extra safeguards
+    RISK_LEVEL_UNSPECIFIED = 0;
+    RISK_LEVEL_LOW = 1;             // Safe, read-only operations
+    RISK_LEVEL_MEDIUM = 2;          // Modifies data but reversible
+    RISK_LEVEL_HIGH = 3;            // Destructive or irreversible operations
+    RISK_LEVEL_DANGER = 4;          // Critical operations requiring extra safeguards
   }
   RiskLevel risk_level = 1;
 
@@ -86,9 +86,9 @@ message FunctionSecurity {
   // Approval requirements
   bool requires_approval = 3;
   enum ApprovalType {
-    APPROVAL_NONE = 0;
-    APPROVAL_SINGLE = 1;      // Single approver
-    APPROVAL_TWO_PERSON = 2;  // Two-person rule
+    APPROVAL_TYPE_UNSPECIFIED = 0;
+    APPROVAL_TYPE_SINGLE = 1;      // Single approver
+    APPROVAL_TYPE_TWO_PERSON = 2;  // Two-person rule
   }
   ApprovalType approval_type = 4;
 

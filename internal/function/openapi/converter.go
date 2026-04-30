@@ -262,19 +262,19 @@ func (c *Converter) metadataToOperation(metadata *functionv1.FunctionMetadata) *
 // deriveBehavior derives FunctionBehavior from OpenAPI operation.
 func (c *Converter) deriveBehavior(op *openapi3.Operation, options *ImportOptions) *functionv1.FunctionBehavior {
 	behavior := &functionv1.FunctionBehavior{
-		Mode:          functionv1.FunctionBehavior_QUERY,
+		Mode:          functionv1.FunctionBehavior_MODE_QUERY,
 		Idempotent:    false,
 		TimeoutMs:     30000,
-		RouteStrategy: functionv1.FunctionBehavior_ROUTE_LB,
+		RouteStrategy: functionv1.FunctionBehavior_ROUTE_STRATEGY_LB,
 	}
 
 	// Derive mode from extensions
 	if modeStr := c.extractExtension(op.Extensions, "x-mode"); modeStr != "" {
 		switch strings.ToLower(modeStr) {
 		case "query", "read":
-			behavior.Mode = functionv1.FunctionBehavior_QUERY
+			behavior.Mode = functionv1.FunctionBehavior_MODE_QUERY
 		case "command", "write":
-			behavior.Mode = functionv1.FunctionBehavior_COMMAND
+			behavior.Mode = functionv1.FunctionBehavior_MODE_COMMAND
 		}
 	}
 	// Note: We can't check HTTP method here because openapi3.Operation
@@ -356,28 +356,28 @@ func deriveName(op *openapi3.Operation) string {
 func parseRiskLevel(level string) functionv1.FunctionSecurity_RiskLevel {
 	switch strings.ToLower(level) {
 	case "low", "safe":
-		return functionv1.FunctionSecurity_RISK_LOW
+		return functionv1.FunctionSecurity_RISK_LEVEL_LOW
 	case "medium", "moderate":
-		return functionv1.FunctionSecurity_RISK_MEDIUM
+		return functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM
 	case "high":
-		return functionv1.FunctionSecurity_RISK_HIGH
+		return functionv1.FunctionSecurity_RISK_LEVEL_HIGH
 	case "danger", "critical":
-		return functionv1.FunctionSecurity_RISK_DANGER
+		return functionv1.FunctionSecurity_RISK_LEVEL_DANGER
 	default:
-		return functionv1.FunctionSecurity_RISK_MEDIUM
+		return functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM
 	}
 }
 
 // normalizeRiskLevel normalizes a risk level enum to string.
 func normalizeRiskLevel(level functionv1.FunctionSecurity_RiskLevel) string {
 	switch level {
-	case functionv1.FunctionSecurity_RISK_LOW:
+	case functionv1.FunctionSecurity_RISK_LEVEL_LOW:
 		return "low"
-	case functionv1.FunctionSecurity_RISK_MEDIUM:
+	case functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM:
 		return "medium"
-	case functionv1.FunctionSecurity_RISK_HIGH:
+	case functionv1.FunctionSecurity_RISK_LEVEL_HIGH:
 		return "high"
-	case functionv1.FunctionSecurity_RISK_DANGER:
+	case functionv1.FunctionSecurity_RISK_LEVEL_DANGER:
 		return "danger"
 	default:
 		return "medium"
@@ -388,15 +388,15 @@ func normalizeRiskLevel(level functionv1.FunctionSecurity_RiskLevel) string {
 func parseRouteStrategy(strategy string) functionv1.FunctionBehavior_RouteStrategy {
 	switch strings.ToLower(strategy) {
 	case "lb", "load_balance":
-		return functionv1.FunctionBehavior_ROUTE_LB
+		return functionv1.FunctionBehavior_ROUTE_STRATEGY_LB
 	case "broadcast":
-		return functionv1.FunctionBehavior_ROUTE_BROADCAST
+		return functionv1.FunctionBehavior_ROUTE_STRATEGY_BROADCAST
 	case "targeted":
-		return functionv1.FunctionBehavior_ROUTE_TARGETED
+		return functionv1.FunctionBehavior_ROUTE_STRATEGY_TARGETED
 	case "hash", "consistent_hash":
-		return functionv1.FunctionBehavior_ROUTE_HASH
+		return functionv1.FunctionBehavior_ROUTE_STRATEGY_HASH
 	default:
-		return functionv1.FunctionBehavior_ROUTE_LB
+		return functionv1.FunctionBehavior_ROUTE_STRATEGY_LB
 	}
 }
 

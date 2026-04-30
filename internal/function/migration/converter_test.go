@@ -34,7 +34,7 @@ func TestLocalFunctionDescriptorToMetadata(t *testing.T) {
 				if metadata.Name != "Ban Player" {
 					t.Errorf("Name = %v, want Ban Player", metadata.Name)
 				}
-				if metadata.Security.RiskLevel != functionv1.FunctionSecurity_RISK_HIGH {
+				if metadata.Security.RiskLevel != functionv1.FunctionSecurity_RISK_LEVEL_HIGH {
 					t.Errorf("RiskLevel = %v, want RISK_HIGH", metadata.Security.RiskLevel)
 				}
 				if metadata.Extensions["x-entity"] != "Player" {
@@ -49,7 +49,7 @@ func TestLocalFunctionDescriptorToMetadata(t *testing.T) {
 				Category: "player",
 			},
 			check: func(t *testing.T, metadata *functionv1.FunctionMetadata) {
-				if metadata.Behavior.Mode != functionv1.FunctionBehavior_QUERY {
+				if metadata.Behavior.Mode != functionv1.FunctionBehavior_MODE_QUERY {
 					t.Errorf("Mode = %v, want QUERY", metadata.Behavior.Mode)
 				}
 			},
@@ -95,11 +95,11 @@ func TestFunctionDescriptorToMetadata(t *testing.T) {
 		t.Errorf("ID = %v, want %v", metadata.Id, desc.ID)
 	}
 
-	if metadata.Behavior.Mode != functionv1.FunctionBehavior_QUERY {
+	if metadata.Behavior.Mode != functionv1.FunctionBehavior_MODE_QUERY {
 		t.Errorf("Mode = %v, want QUERY", metadata.Behavior.Mode)
 	}
 
-	if metadata.Security.RiskLevel != functionv1.FunctionSecurity_RISK_LOW {
+	if metadata.Security.RiskLevel != functionv1.FunctionSecurity_RISK_LEVEL_LOW {
 		t.Errorf("RiskLevel = %v, want RISK_LOW", metadata.Security.RiskLevel)
 	}
 
@@ -125,14 +125,14 @@ func TestInferModeFromID(t *testing.T) {
 		id   string
 		want functionv1.FunctionBehavior_Mode
 	}{
-		{"player.get", functionv1.FunctionBehavior_QUERY},
-		{"player.list", functionv1.FunctionBehavior_QUERY},
-		{"player.find", functionv1.FunctionBehavior_QUERY},
-		{"player.query", functionv1.FunctionBehavior_QUERY},
-		{"player.create", functionv1.FunctionBehavior_COMMAND},
-		{"player.update", functionv1.FunctionBehavior_COMMAND},
-		{"player.delete", functionv1.FunctionBehavior_COMMAND},
-		{"player.send", functionv1.FunctionBehavior_COMMAND},
+		{"player.get", functionv1.FunctionBehavior_MODE_QUERY},
+		{"player.list", functionv1.FunctionBehavior_MODE_QUERY},
+		{"player.find", functionv1.FunctionBehavior_MODE_QUERY},
+		{"player.query", functionv1.FunctionBehavior_MODE_QUERY},
+		{"player.create", functionv1.FunctionBehavior_MODE_COMMAND},
+		{"player.update", functionv1.FunctionBehavior_MODE_COMMAND},
+		{"player.delete", functionv1.FunctionBehavior_MODE_COMMAND},
+		{"player.send", functionv1.FunctionBehavior_MODE_COMMAND},
 	}
 
 	for _, tt := range tests {
@@ -175,15 +175,15 @@ func TestInferRiskLevel(t *testing.T) {
 		risk string
 		want functionv1.FunctionSecurity_RiskLevel
 	}{
-		{"low", functionv1.FunctionSecurity_RISK_LOW},
-		{"safe", functionv1.FunctionSecurity_RISK_LOW},
-		{"medium", functionv1.FunctionSecurity_RISK_MEDIUM},
-		{"warning", functionv1.FunctionSecurity_RISK_MEDIUM},
-		{"high", functionv1.FunctionSecurity_RISK_HIGH},
-		{"error", functionv1.FunctionSecurity_RISK_HIGH},
-		{"critical", functionv1.FunctionSecurity_RISK_DANGER},
-		{"fatal", functionv1.FunctionSecurity_RISK_DANGER},
-		{"unknown", functionv1.FunctionSecurity_RISK_MEDIUM},
+		{"low", functionv1.FunctionSecurity_RISK_LEVEL_LOW},
+		{"safe", functionv1.FunctionSecurity_RISK_LEVEL_LOW},
+		{"medium", functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM},
+		{"warning", functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM},
+		{"high", functionv1.FunctionSecurity_RISK_LEVEL_HIGH},
+		{"error", functionv1.FunctionSecurity_RISK_LEVEL_HIGH},
+		{"critical", functionv1.FunctionSecurity_RISK_LEVEL_DANGER},
+		{"fatal", functionv1.FunctionSecurity_RISK_LEVEL_DANGER},
+		{"unknown", functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM},
 	}
 
 	for _, tt := range tests {
@@ -266,10 +266,10 @@ func TestNormalizeRiskLevel(t *testing.T) {
 		level    functionv1.FunctionSecurity_RiskLevel
 		expected string
 	}{
-		{functionv1.FunctionSecurity_RISK_LOW, "low"},
-		{functionv1.FunctionSecurity_RISK_MEDIUM, "medium"},
-		{functionv1.FunctionSecurity_RISK_HIGH, "high"},
-		{functionv1.FunctionSecurity_RISK_DANGER, "danger"},
+		{functionv1.FunctionSecurity_RISK_LEVEL_LOW, "low"},
+		{functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM, "medium"},
+		{functionv1.FunctionSecurity_RISK_LEVEL_HIGH, "high"},
+		{functionv1.FunctionSecurity_RISK_LEVEL_DANGER, "danger"},
 	}
 
 	for _, tt := range tests {

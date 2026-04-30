@@ -21,13 +21,13 @@ func TestStore_Register(t *testing.T) {
 		InputSchema:  `{"type":"object"}`,
 		OutputSchema: `{"type":"object"}`,
 		Behavior: &functionv1.FunctionBehavior{
-			Mode:          functionv1.FunctionBehavior_QUERY,
+			Mode:          functionv1.FunctionBehavior_MODE_QUERY,
 			Idempotent:    true,
 			TimeoutMs:     30000,
-			RouteStrategy: functionv1.FunctionBehavior_ROUTE_LB,
+			RouteStrategy: functionv1.FunctionBehavior_ROUTE_STRATEGY_LB,
 		},
 		Security: &functionv1.FunctionSecurity{
-			RiskLevel:        functionv1.FunctionSecurity_RISK_LOW,
+			RiskLevel:        functionv1.FunctionSecurity_RISK_LEVEL_LOW,
 			Permission:       "test.function.invoke",
 			RequiresApproval: false,
 			AuditLog:         true,
@@ -63,15 +63,15 @@ func TestStore_RegisterBatch(t *testing.T) {
 			Id:       "test.function1",
 			Category: "test",
 			Tags:     []string{"test"},
-			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_QUERY},
-			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LOW},
+			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
+			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		},
 		{
 			Id:       "test.function2",
 			Category: "test",
 			Tags:     []string{"test"},
-			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_COMMAND},
-			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_MEDIUM},
+			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
+			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM},
 		},
 	}
 
@@ -95,22 +95,22 @@ func TestStore_ListByCategory(t *testing.T) {
 			Id:       "player.ban",
 			Category: "player",
 			Tags:     []string{"moderation"},
-			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_COMMAND},
-			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_HIGH},
+			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
+			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_HIGH},
 		},
 		{
 			Id:       "player.kick",
 			Category: "player",
 			Tags:     []string{"moderation"},
-			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_COMMAND},
-			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_MEDIUM},
+			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
+			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM},
 		},
 		{
 			Id:       "game.shutdown",
 			Category: "game",
 			Tags:     []string{"admin"},
-			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_COMMAND},
-			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_DANGER},
+			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
+			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_DANGER},
 		},
 	}
 
@@ -146,15 +146,15 @@ func TestStore_ListByTag(t *testing.T) {
 			Id:       "player.ban",
 			Category: "player",
 			Tags:     []string{"moderation", "high-risk"},
-			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_COMMAND},
-			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_HIGH},
+			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
+			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_HIGH},
 		},
 		{
 			Id:       "player.kick",
 			Category: "player",
 			Tags:     []string{"moderation"},
-			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_COMMAND},
-			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_MEDIUM},
+			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
+			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM},
 		},
 	}
 
@@ -189,14 +189,14 @@ func TestStore_ListByRiskLevel(t *testing.T) {
 		{
 			Id:       "safe.query",
 			Category: "test",
-			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_QUERY},
-			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LOW},
+			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
+			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		},
 		{
 			Id:       "danger.command",
 			Category: "test",
-			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_COMMAND},
-			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_DANGER},
+			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
+			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_DANGER},
 		},
 	}
 
@@ -243,20 +243,20 @@ func TestStore_ListByMode(t *testing.T) {
 		{
 			Id:       "query.test",
 			Category: "test",
-			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_QUERY},
-			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LOW},
+			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
+			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		},
 		{
 			Id:       "command.test",
 			Category: "test",
-			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_COMMAND},
-			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_MEDIUM},
+			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
+			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM},
 		},
 	}
 
 	_ = store.RegisterBatch(ctx, metadatas)
 
-	queries, err := store.ListByMode(ctx, functionv1.FunctionBehavior_QUERY)
+	queries, err := store.ListByMode(ctx, functionv1.FunctionBehavior_MODE_QUERY)
 	if err != nil {
 		t.Fatalf("ListByMode failed: %v", err)
 	}
@@ -265,7 +265,7 @@ func TestStore_ListByMode(t *testing.T) {
 		t.Errorf("Expected 1 query function, got %d", len(queries))
 	}
 
-	commands, err := store.ListByMode(ctx, functionv1.FunctionBehavior_COMMAND)
+	commands, err := store.ListByMode(ctx, functionv1.FunctionBehavior_MODE_COMMAND)
 	if err != nil {
 		t.Fatalf("ListByMode failed: %v", err)
 	}
@@ -284,22 +284,22 @@ func TestStore_Filter(t *testing.T) {
 			Id:       "player.ban",
 			Category: "player",
 			Tags:     []string{"moderation"},
-			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_COMMAND},
-			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_HIGH},
+			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
+			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_HIGH},
 		},
 		{
 			Id:       "player.info",
 			Category: "player",
 			Tags:     []string{"query"},
-			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_QUERY},
-			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LOW},
+			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
+			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		},
 		{
 			Id:       "game.shutdown",
 			Category: "game",
 			Tags:     []string{"admin"},
-			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_COMMAND},
-			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_DANGER},
+			Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
+			Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_DANGER},
 		},
 	}
 
@@ -353,8 +353,8 @@ func TestStore_Unregister(t *testing.T) {
 		Id:       "test.function",
 		Category: "test",
 		Tags:     []string{"test"},
-		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_QUERY},
-		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LOW},
+		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
+		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 	}
 
 	_ = store.Register(ctx, metadata)
@@ -380,9 +380,9 @@ func TestStore_GetCategories(t *testing.T) {
 	store := NewStore()
 
 	metadatas := []*functionv1.FunctionMetadata{
-		{Id: "p1", Category: "player", Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_QUERY}, Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LOW}},
-		{Id: "p2", Category: "player", Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_QUERY}, Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LOW}},
-		{Id: "g1", Category: "game", Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_QUERY}, Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LOW}},
+		{Id: "p1", Category: "player", Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY}, Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW}},
+		{Id: "p2", Category: "player", Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY}, Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW}},
+		{Id: "g1", Category: "game", Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY}, Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW}},
 	}
 
 	_ = store.RegisterBatch(ctx, metadatas)
@@ -398,8 +398,8 @@ func TestStore_GetTags(t *testing.T) {
 	store := NewStore()
 
 	metadatas := []*functionv1.FunctionMetadata{
-		{Id: "t1", Category: "test", Tags: []string{"tag1", "tag2"}, Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_QUERY}, Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LOW}},
-		{Id: "t2", Category: "test", Tags: []string{"tag2", "tag3"}, Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_QUERY}, Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LOW}},
+		{Id: "t1", Category: "test", Tags: []string{"tag1", "tag2"}, Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY}, Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW}},
+		{Id: "t2", Category: "test", Tags: []string{"tag2", "tag3"}, Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY}, Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW}},
 	}
 
 	_ = store.RegisterBatch(ctx, metadatas)
@@ -420,8 +420,8 @@ func TestStore_Update(t *testing.T) {
 		Category: "test",
 		Tags:     []string{"test"},
 		Name:     "Original Name",
-		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_QUERY},
-		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LOW},
+		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
+		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 	}
 
 	_ = store.Register(ctx, metadata)
@@ -433,8 +433,8 @@ func TestStore_Update(t *testing.T) {
 		Category: "test",
 		Tags:     []string{"test", "updated"},
 		Name:     "Updated Name",
-		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_COMMAND},
-		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_MEDIUM},
+		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_COMMAND},
+		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM},
 	}
 
 	_ = store.Register(ctx, updated)
@@ -463,8 +463,8 @@ func TestRegistry_Validation(t *testing.T) {
 			metadata: &functionv1.FunctionMetadata{
 				Id:       "test.function",
 				Category: "test",
-				Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_QUERY},
-				Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LOW},
+				Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
+				Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 			},
 			expectError: false,
 		},
@@ -477,8 +477,8 @@ func TestRegistry_Validation(t *testing.T) {
 			name: "missing ID",
 			metadata: &functionv1.FunctionMetadata{
 				Category: "test",
-				Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_QUERY},
-				Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LOW},
+				Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
+				Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 			},
 			expectError: true,
 		},
@@ -487,7 +487,7 @@ func TestRegistry_Validation(t *testing.T) {
 			metadata: &functionv1.FunctionMetadata{
 				Id:       "test.function",
 				Category: "test",
-				Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_QUERY},
+				Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
 			},
 			expectError: true,
 		},
@@ -496,7 +496,7 @@ func TestRegistry_Validation(t *testing.T) {
 			metadata: &functionv1.FunctionMetadata{
 				Id:       "test.function",
 				Category: "test",
-				Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LOW},
+				Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 			},
 			expectError: true,
 		},
@@ -505,8 +505,8 @@ func TestRegistry_Validation(t *testing.T) {
 			metadata: &functionv1.FunctionMetadata{
 				Id:       "invalid",
 				Category: "test",
-				Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_QUERY},
-				Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LOW},
+				Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
+				Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 			},
 			expectError: true,
 		},
@@ -534,15 +534,15 @@ func TestRegistry_Wrapperspb(t *testing.T) {
 		Id:       "test.function",
 		Category: "test",
 		Behavior: &functionv1.FunctionBehavior{
-			Mode:            functionv1.FunctionBehavior_QUERY,
+			Mode:            functionv1.FunctionBehavior_MODE_QUERY,
 			Idempotent:      true,
 			TimeoutMs:       30000,
-			RouteStrategy:   functionv1.FunctionBehavior_ROUTE_LB,
+			RouteStrategy:   functionv1.FunctionBehavior_ROUTE_STRATEGY_LB,
 			Cacheable:       true,
 			CacheTtlSeconds: 60,
 		},
 		Security: &functionv1.FunctionSecurity{
-			RiskLevel:         functionv1.FunctionSecurity_RISK_LOW,
+			RiskLevel:         functionv1.FunctionSecurity_RISK_LEVEL_LOW,
 			Permission:        "test.invoke",
 			RequiresApproval:  false,
 			AuditLog:          true,
