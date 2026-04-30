@@ -182,13 +182,9 @@ jobs:
         timeout-minutes: 10
         run: |
           if [ -n "$(find . -name '*.Tests.csproj')" ]; then
-            # Run tests with XPlat Code Coverage, excluding generated protobuf code
+            # Run tests with XPlat Code Coverage using runsettings
             dotnet test --configuration Release \
-              --collect:"XPlat Code Coverage" \
-              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura \
-              -- Exclude="[Croupier.Sdk]*generated*" \
-              -- ExcludeByFile="**/generated/*" \
-              -- ExcludeByFile="**/obj/*"
+              --settings coverlet.runsettings.xml
 
             # Find coverage file (XPlat generates cobertura.xml format)
             COVERAGE_FILE=$(find . -name "coverage.cobertura.xml" -o -name "coverage.opencover.xml" | head -1)
@@ -213,12 +209,6 @@ jobs:
         uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: |
-            sdks/csharp/coverage/coverage.xml
+          files: sdks/csharp/coverage/coverage.xml
           flags: csharp-sdk
           fail_ci_if_error: false
-          files: sdks/csharp/coverage/coverage.xml
-          exclude: |
-            **/generated/*
-            **/obj/*
-          custom_flags: csharp-sdk
