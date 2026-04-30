@@ -50,12 +50,22 @@ func NewTCPClient(config *Config) (*TCPClient, error) {
 			addr = addr[9:]
 		}
 
+		// Validate address is not empty after stripping protocol prefix
+		if addr == "" {
+			return nil, errors.New("address cannot be empty")
+		}
+
 		// Parse host:port
 		var err error
 		host, port, err = parseHostPort(addr)
 		if err != nil {
 			return nil, fmt.Errorf("parse address %s: %w", config.Address, err)
 		}
+	}
+
+	// Validate host is not empty
+	if host == "" {
+		return nil, errors.New("host cannot be empty")
 	}
 
 	// Use JoinHostPort to properly handle IPv6 addresses
