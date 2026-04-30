@@ -471,6 +471,139 @@ TEST_F(TCPTransportErrorTest, IPv6AddressFormat) {
     }
 }
 
+// Test multiple Close calls (idempotent)
+TEST_F(TCPTransportErrorTest, MultipleCloseCalls) {
+    TCPTransport transport("127.0.0.1", 8080, 1000);
+
+    // Close without connecting should not throw
+    transport.Close();
+    transport.Close();
+    transport.Close();
+
+    EXPECT_FALSE(transport.IsConnected());
+}
+
+// Test Close during connection attempt
+TEST_F(TCPTransportErrorTest, CloseDuringConnect) {
+    TCPServer server("tcp://127.0.0.1:0");
+    server.SetHandler([](uint32_t, uint32_t, const std::vector<uint8_t>&) -> std::vector<uint8_t> {
+        return {1, 2, 3};
+    });
+    server.Start();
+
+    auto start = std::chrono::steady_clock::now();
+    while (!server.IsRunning()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - start).count() > 5000) {
+            break;
+        }
+    }
+
+    std::string actual_address = server.GetListenAddress();
+    TCPTransport transport = CreateTransport(actual_address, 5000);
+
+    // Start connection in background
+    std::thread connect_thread([&transport]() {
+        try {
+            transport.Connect();
+        } catch (...) {
+            // Connection might fail
+        }
+    });
+
+    // Immediately close
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    transport.Close();
+
+    connect_thread.join();
+
+    server.Stop();
+}
+
+// Test Call with empty data
+TEST_F(TCPTransportErrorTest, CallWithEmptyData) {
+    TCPServer server("tcp://127.0.0.1:0");
+    server.SetHandler([](uint32_t, uint32_t, const std::vector<uint8_t>&) -> std::vector<uint8_t> {
+        return {1, 2, 3};
+    });
+    server.Start();
+
+    auto start = std::chrono::steady_clock::now();
+    while (!server.IsRunning()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - start).count() > 5000) {
+            break;
+        }
+    }
+
+    std::string actual_address = server.GetListenAddress();
+    TCPTransport transport = CreateTransport(actual_address, 1000);
+    transport.Connect();
+
+    std::vector<uint8_t> empty_data;
+    auto [msg_id, response] = transport.Call(1, empty_data);
+
+    EXPECT_FALSE(response.empty());
+
+    server.Stop();
+}
+
+// Test SetConnectTimeout with various values
+TEST_F(TCPTransportErrorTest, SetConnectTimeoutVariations) {
+    TCPTransport transport("127.0.0.1", 8080, 1000);
+
+    // Test various timeout values
+    transport.SetConnectTimeout(0);    // Zero timeout (should use default)
+    transport.SetConnectTimeout(100);  // 100ms
+    transport.SetConnectTimeout(10000); // 10 seconds
+    transport.SetConnectTimeout(1);    // 1ms
+
+    // Should not throw
+    EXPECT_NO_THROW({
+        transport.SetConnectTimeout(5000);
+    });
+}
+
+// Test IsConnected after various operations
+TEST_F(TCPTransportErrorTest, IsConnectedStateTransitions) {
+    TCPServer server("tcp://127.0.0.1:0");
+    server.SetHandler([](uint32_t, uint32_t, const std::vector<uint8_t>&) -> std::vector<uint8_t> {
+        return {1, 2, 3};
+    });
+    server.Start();
+
+    auto start = std::chrono::steady_clock::now();
+    while (!server.IsRunning()) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - start).count() > 5000) {
+            break;
+        }
+    }
+
+    std::string actual_address = server.GetListenAddress();
+    TCPTransport transport = CreateTransport(actual_address, 1000);
+
+    // Not connected initially
+    EXPECT_FALSE(transport.IsConnected());
+
+    // Connect
+    transport.Connect();
+    EXPECT_TRUE(transport.IsConnected());
+
+    // Close
+    transport.Close();
+    EXPECT_FALSE(transport.IsConnected());
+
+    // Multiple Close calls
+    transport.Close();
+    EXPECT_FALSE(transport.IsConnected());
+
+    server.Stop();
+}
+
 }  // namespace test
 }  // namespace sdk
 }  // namespace croupier
