@@ -49,4 +49,14 @@
     </None>
   </ItemGroup>
 
+  <!-- Coverlet coverage settings -->
+  <ItemGroup>
+    <CoverletSettings Include="coverlet.runsettings" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- Exclude generated protobuf code from coverage -->
+    <CoverletExclude>[Croupier.Sdk]*generated*</CoverletExclude>
+  </PropertyGroup>
+
 </Project>
