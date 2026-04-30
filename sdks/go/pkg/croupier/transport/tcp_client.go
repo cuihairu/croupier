@@ -58,7 +58,8 @@ func NewTCPClient(config *Config) (*TCPClient, error) {
 		}
 	}
 
-	addr := fmt.Sprintf("%s:%d", host, port)
+	// Use JoinHostPort to properly handle IPv6 addresses
+	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
 
 	// Create connection with timeout
 	dialer := &net.Dialer{
@@ -133,11 +134,17 @@ func (c *TCPClient) Call(ctx context.Context, msgID uint32, reqBody []byte) (res
 		c.mu.Unlock()
 	}()
 
+	// Check payload size
+	payloadSize := protocol.HeaderSize + len(reqBody)
+	if payloadSize > maxFrameBytes {
+		return 0, nil, fmt.Errorf("payload size %d exceeds maximum frame size %d", payloadSize, maxFrameBytes)
+	}
+
 	// Create frame with protocol header
-	frame := make([]byte, frameHeaderBytes+protocol.HeaderSize+len(reqBody))
+	frame := make([]byte, frameHeaderBytes+payloadSize)
 
 	// Frame length prefix (big-endian)
-	binary.BigEndian.PutUint32(frame[0:4], uint32(protocol.HeaderSize+len(reqBody)))
+	binary.BigEndian.PutUint32(frame[0:4], uint32(payloadSize))
 
 	// Protocol header
 	frame[4] = protocol.Version1
