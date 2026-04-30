@@ -1,0 +1,123 @@
+syntax = "proto3";
+
+package croupier.function.v1;
+option java_package = "io.github.cuihairu.croupier.function.v1";
+option java_multiple_files = true;
+
+option go_package = "github.com/cuihairu/croupier/pkg/pb/croupier/function/v1;functionv1";
+
+// FunctionMetadata defines the core function registration contract.
+// It deliberately excludes UI-related fields (menu, display_name, i18n) which
+// are derived by the Dashboard from this metadata.
+message FunctionMetadata {
+  // Identity fields
+  string id = 1;              // Unique identifier, format: <domain>.<entity>.<action>
+  string version = 2;         // Semantic version (semver)
+
+  // Classification fields
+  string category = 3;        // Function category (e.g., "player", "game", "system")
+  repeated string tags = 4;   // Tags for grouping and filtering
+
+  // Documentation fields
+  string name = 5;            // Short display name (english, UI will i18n from key)
+  string description = 6;     // Detailed description (supports markdown)
+
+  // Parameter definitions (JSON Schema Draft 2020-12)
+  string input_schema = 7;    // JSON Schema for request/validation
+  string output_schema = 8;   // JSON Schema for response
+
+  // Behavior definition
+  FunctionBehavior behavior = 9;
+
+  // Security definition
+  FunctionSecurity security = 10;
+
+  // Extension fields for vendor-specific metadata
+  map<string, string> extensions = 11;
+}
+
+// FunctionBehavior defines how the function executes.
+message FunctionBehavior {
+  // Execution mode
+  enum Mode {
+    MODE_UNKNOWN = 0;
+    QUERY = 1;      // Read-only operation
+    COMMAND = 2;    // Write operation with side effects
+  }
+  Mode mode = 1;
+
+  // Idempotency
+  bool idempotent = 2;        // True if repeated calls have same effect
+  bool supports_idempotency_key = 3;  // True if client-provided key is supported
+
+  // Timeout
+  int32 timeout_ms = 4;       // Execution timeout in milliseconds (default 30000)
+
+  // Routing strategy
+  enum RouteStrategy {
+    ROUTE_UNKNOWN = 0;
+    ROUTE_LB = 1;             // Load balanced across agents
+    ROUTE_BROADCAST = 2;      // Send to all agents
+    ROUTE_TARGETED = 3;       // Target specific agent by ID
+    ROUTE_HASH = 4;           // Consistent hash routing
+  }
+  RouteStrategy route_strategy = 5;
+
+  // Caching behavior
+  bool cacheable = 6;         // True if results can be cached
+  int32 cache_ttl_seconds = 7;  // Cache TTL if cacheable
+}
+
+// FunctionSecurity defines security and access control.
+message FunctionSecurity {
+  // Risk level
+  enum RiskLevel {
+    RISK_UNKNOWN = 0;
+    RISK_LOW = 1;             // Safe, read-only operations
+    RISK_MEDIUM = 2;          // Modifies data but reversible
+    RISK_HIGH = 3;            // Destructive or irreversible operations
+    RISK_DANGER = 4;          // Critical operations requiring extra safeguards
+  }
+  RiskLevel risk_level = 1;
+
+  // Permission requirement
+  string permission = 2;      // Required permission (e.g., "player.ban.invoke")
+
+  // Approval requirements
+  bool requires_approval = 3;
+  enum ApprovalType {
+    APPROVAL_NONE = 0;
+    APPROVAL_SINGLE = 1;      // Single approver
+    APPROVAL_TWO_PERSON = 2;  // Two-person rule
+  }
+  ApprovalType approval_type = 4;
+
+  // Role-based access control
+  repeated string allowed_roles = 5;  // Empty means all authenticated users
+
+  // Audit requirements
+  bool audit_log = 6;         // True if calls must be logged
+  bool mask_sensitive_data = 7;  // True if request/response should be masked
+}
+
+// FunctionMetadataList for bulk operations
+message FunctionMetadataList {
+  repeated FunctionMetadata functions = 1;
+}
+
+// FunctionFilter for listing/querying functions
+message FunctionFilter {
+  string category = 1;
+  repeated string tags = 2;
+  string risk_level = 3;
+  string mode = 4;            // query/command
+  int32 page_size = 5;
+  string page_token = 6;
+}
+
+// FunctionListResponse
+message FunctionListResponse {
+  repeated FunctionMetadata functions = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
