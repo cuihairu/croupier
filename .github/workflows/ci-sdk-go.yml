@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: '指定 Tag 构建 (例如: sdk-go-v1.0.0)'
+        description: "指定 Tag 构建 (例如: sdk-go-v1.0.0)"
         required: false
         type: string
 
@@ -119,8 +119,17 @@ jobs:
         working-directory: ./sdks/go
         run: |
           # Run tests including integration tests (agent is started via docker-compose)
-          go test -v -race -coverprofile=coverage.out -covermode=atomic ./pkg/croupier
+          # Exclude proto-generated code in pkg/pb from coverage
+          go test -v -race -coverprofile=coverage.out -covermode=atomic -coverpkg=./pkg/croupier/... ./pkg/croupier
           go test -v -race ./pkg/...
+
+          # Filter out pkg/pb from coverage report
+          if [ -f coverage.out ]; then
+            grep -v "^github.com/cuihairu/croupier/sdks/go/pkg/pb/" coverage.out > coverage.filtered.out || true
+            if [ -s coverage.filtered.out ]; then
+              mv coverage.filtered.out coverage.out
+            fi
+          fi
 
       - name: Show agent logs (if test failed)
         if: failure()

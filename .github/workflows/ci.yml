@@ -202,7 +202,18 @@ jobs:
           DATABASE_URL: ":memory:"
           STORAGE_DRIVER: file
           STORAGE_BASE_DIR: data/uploads
-        run: go test -count=1 -coverprofile=coverage.out -covermode=atomic ./...
+        run: |
+          # Run tests with coverage, excluding proto-generated code in pkg/pb
+          go test -count=1 -coverprofile=coverage.out -covermode=atomic \
+            -coverpkg=./cmd/...,./internal/...,./pkg/protocol/... ./...
+
+          # Filter out pkg/pb from coverage report
+          if [ -f coverage.out ]; then
+            grep -v "^pkg/pb/" coverage.out > coverage.filtered.out || true
+            if [ -s coverage.filtered.out ]; then
+              mv coverage.filtered.out coverage.out
+            fi
+          fi
 
       - name: Upload coverage to Codecov
         if: success()
