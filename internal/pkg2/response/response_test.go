@@ -308,8 +308,8 @@ func TestResponseWithComplexData(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 
 	complexData := map[string]interface{}{
-		"items": []string{"item1", "item2"},
-		"count": 2,
+		"items":  []string{"item1", "item2"},
+		"count":  2,
 		"nested": map[string]string{"key": "value"},
 	}
 
