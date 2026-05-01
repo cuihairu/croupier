@@ -480,3 +480,132 @@ func TestHandler_GetRegistry_InvalidMethod(t *testing.T) {
 	// Should handle GET without body (empty request fallback)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
+
+func TestService_GetRegistry_WhitespacedAgentID(t *testing.T) {
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+	}
+	service := NewService(svcCtx)
+
+	// Add agent with whitespace in AgentID (should be trimmed)
+	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+		AgentID:   "  agent-whitespace  ",
+		GameID:    "game1",
+		Env:       "prod",
+		RPCAddr:   "127.0.0.1:19091",
+		ExpireAt:  time.Now().Add(5 * time.Minute),
+		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
+	})
+
+	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	require.NoError(t, err)
+	// Agent with whitespace should be included (after trim in ShouldBindUri)
+	assert.Greater(t, len(resp.Agents), 0)
+}
+
+func TestService_GetRegistry_FunctionsKeyGeneration(t *testing.T) {
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+	}
+	service := NewService(svcCtx)
+
+	// Add multiple agents for the same function
+	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+		AgentID:  "agent-a",
+		GameID:   "game1",
+		Env:      "prod",
+		RPCAddr:  "127.0.0.1:19091",
+		ExpireAt: time.Now().Add(5 * time.Minute),
+		Functions: map[string]registry.FunctionMeta{
+			"shared.func": {Enabled: true},
+		},
+	})
+	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+		AgentID:  "agent-b",
+		GameID:   "game1",
+		Env:      "prod",
+		RPCAddr:  "127.0.0.1:19092",
+		ExpireAt: time.Now().Add(5 * time.Minute),
+		Functions: map[string]registry.FunctionMeta{
+			"shared.func": {Enabled: true},
+		},
+	})
+
+	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	require.NoError(t, err)
+
+	// Should have one function with two agents
+	assert.Len(t, resp.Functions, 1)
+	assert.Len(t, resp.Functions[0].Agents, 2)
+}
+
+func TestService_GetRegistry_AssignmentIntegration(t *testing.T) {
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+	}
+	service := NewService(svcCtx)
+
+	// Add agent
+	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+		AgentID:   "agent-1",
+		GameID:    "game1",
+		Env:       "prod",
+		RPCAddr:   "127.0.0.1:19091",
+		ExpireAt:  time.Now().Add(5 * time.Minute),
+		Functions: map[string]registry.FunctionMeta{"assigned.func": {Enabled: true}},
+	})
+
+	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	require.NoError(t, err)
+
+	// Assignments should be included in response
+	assert.NotNil(t, resp.Assignments)
+}
+
+func TestService_GetRegistry_CoverageUncovered(t *testing.T) {
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+	}
+	service := NewService(svcCtx)
+
+	// Add agent
+	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+		AgentID:   "agent-1",
+		GameID:    "game1",
+		Env:       "prod",
+		RPCAddr:   "127.0.0.1:19091",
+		ExpireAt:  time.Now().Add(5 * time.Minute),
+		Functions: map[string]registry.FunctionMeta{
+			"covered.func":   {Enabled: true},
+			"uncovered.func": {Enabled: false},
+		},
+	})
+
+	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	require.NoError(t, err)
+
+	// Only enabled functions should be in response
+	for _, fn := range resp.Functions {
+		assert.NotEqual(t, "uncovered.func", fn.ID)
+	}
+}
+
+func TestHandler_GetRegistry_JSONRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+	}
+	handler := NewHandler(NewService(svcCtx))
+
+	router := gin.New()
+	router.POST("/registry", handler.GetRegistry)
+
+	reqBody := `{"gameId":"test","env":"prod"}`
+	req := httptest.NewRequest("POST", "/registry", bytes.NewBufferString(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
