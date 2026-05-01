@@ -260,11 +260,21 @@ type FunctionInvokeRequest struct {
 
 ```go
 type FunctionInvokeResponse struct {
-	TaskId string `json:"taskId"`
-	TaskID string `json:"taskID,omitempty"`
-	Result interface{} `json:"result,omitempty"`
+	TaskId           string      `json:"taskId"`
+	TaskID           string      `json:"taskID,omitempty"`
+	Result           interface{} `json:"result,omitempty"`
+	ApprovalID       string      `json:"approval_id,omitempty"`       // 审批请求 ID（当需要审批时返回）
+	ApprovalRequired bool        `json:"approval_required,omitempty"` // 是否需要审批
+	ApprovalWorkflow string      `json:"approval_workflow,omitempty"` // 审批流程类型（single_admin/two_person）
 }
 ```
+
+**说明：**
+- 当函数政策需要审批时（`RequireApproval=true`），调用会创建审批请求并返回 `ApprovalID`
+- 需要审批的调用不会立即执行，需等待审批通过后执行
+- `ApprovalWorkflow` 表示审批流程类型：
+  - `single_admin`: 单个管理员审批即可
+  - `two_person`: 需要双人审批
 
 ### 9. "获取函数权限"
 
@@ -660,3 +670,174 @@ map[string]interface{}
 
 - 该接口用于 Dashboard 批量读取函数 OpenAPI，避免逐个请求。
 - 当前返回值直接透传注册表中的 OpenAPI operation 对象。
+
+## 函数政策 API
+
+### 22. "获取函数政策"
+
+1. route definition
+
+- Url: /api/v1/functions/:function_id/policy
+- Method: GET
+- Request: -
+- Response: `Policy`
+
+2. request definition
+
+```
+function_id: path parameter
+risk_level: query parameter (optional, default: medium)
+```
+
+3. response definition
+
+```go
+type Policy struct {
+	FunctionID       string   `json:"function_id"`
+	RequireApproval  bool     `json:"require_approval"`
+	ApprovalWorkflow string   `json:"approval_workflow"`
+	RequireAudit     bool     `json:"require_audit"`
+	AllowedRoles     []string `json:"allowed_roles"`
+	Source           string   `json:"source"`       // "default" 或 "manual"
+	IsOverride       bool     `json:"is_override"`
+	DefaultRiskLevel string   `json:"default_risk_level"`
+}
+```
+
+**说明：**
+- 返回函数的有效政策（优先使用数据库覆盖，否则使用默认风险等级政策）
+- 风险等级可选值：`low`、`medium`、`high`、`danger`
+
+### 23. "设置函数政策覆盖"
+
+1. route definition
+
+- Url: /api/v1/functions/:function_id/policy
+- Method: PUT
+- Request: `SetPolicyRequest`
+- Response: `Policy`
+
+2. request definition
+
+```go
+type SetPolicyRequest struct {
+	RequireApproval  bool     `json:"require_approval"`
+	ApprovalWorkflow string   `json:"approval_workflow"`
+	RequireAudit     bool     `json:"require_audit"`
+	AllowedRoles     []string `json:"allowed_roles"`
+}
+```
+
+3. response definition
+
+```go
+type Policy struct {
+	FunctionID       string   `json:"function_id"`
+	RequireApproval  bool     `json:"require_approval"`
+	ApprovalWorkflow string   `json:"approval_workflow"`
+	RequireAudit     bool     `json:"require_audit"`
+	AllowedRoles     []string `json:"allowed_roles"`
+	Source           string   `json:"source"`
+	IsOverride       bool     `json:"is_override"`
+}
+```
+
+**说明：**
+- 为函数设置数据库覆盖政策，覆盖默认风险等级政策
+- `AllowedRoles` 为空时表示无角色限制
+- 设置后，`Source` 为 `"manual"`，`IsOverride` 为 `true`
+
+### 24. "删除函数政策覆盖"
+
+1. route definition
+
+- Url: /api/v1/functions/:function_id/policy
+- Method: DELETE
+- Request: -
+- Response: `{"message": "..."}`
+
+2. request definition
+
+```
+function_id: path parameter
+```
+
+3. response definition
+
+```go
+{
+  "message": "Policy deleted, using default risk-based policy"
+}
+```
+
+**说明：**
+- 删除函数的数据库覆盖政策
+- 删除后，函数将恢复使用默认风险等级政策
+
+## 系统政策 API
+
+### 25. "获取所有政策覆盖"
+
+1. route definition
+
+- Url: /api/v1/policies/overrides
+- Method: GET
+- Request: -
+- Response: `{"policies": [...]}`
+
+2. response definition
+
+```go
+{
+  "policies": []Policy  // 所有手动设置的覆盖政策
+}
+```
+
+**说明：**
+- 返回所有手动设置的函数政策覆盖列表
+- 不包括默认风险等级政策
+
+### 26. "获取默认政策配置"
+
+1. route definition
+
+- Url: /api/v1/policies/defaults
+- Method: GET
+- Request: -
+- Response: `{"low": ..., "medium": ..., "high": ..., "danger": ...}`
+
+2. response definition
+
+```go
+{
+  "low": Policy,    // 低风险默认政策
+  "medium": Policy, // 中风险默认政策
+  "high": Policy,   // 高风险默认政策
+  "danger": Policy  // 危险风险默认政策
+}
+```
+
+**说明：**
+- 返回所有风险等级的默认政策配置
+- 这些配置来自 `configs/default-policies.yaml` 文件
+
+### 27. "重新加载政策配置"
+
+1. route definition
+
+- Url: /api/v1/policies/reload
+- Method: POST
+- Request: -
+- Response: `{"message": "..."}`
+
+2. response definition
+
+```go
+{
+  "message": "Configuration reloaded"
+}
+```
+
+**说明：**
+- 重新从 `configs/default-policies.yaml` 加载默认政策配置
+- 不影响已设置的数据库覆盖政策

@@ -68,6 +68,18 @@ type FunctionPermission struct {
 	Roles      datatypes.JSON `gorm:"type:json"`
 }
 
+// FunctionPolicy stores per-function security policy (can override default risk-based policy).
+// Source: 'default' = auto-generated from risk level, 'manual' = manually configured.
+type FunctionPolicy struct {
+	gorm.Model
+	FunctionID       string         `gorm:"size:64;uniqueIndex"`
+	RequireApproval  bool           `gorm:"default:false"`
+	ApprovalWorkflow string         `gorm:"size:100"`
+	RequireAudit     bool           `gorm:"default:false"`
+	AllowedRoles     datatypes.JSON `gorm:"type:json"`                // JSON array of role names
+	Source           string         `gorm:"size:50;default:'manual'"` // 'default' or 'manual'
+}
+
 // PendingFunction stores functions awaiting approval.
 type PendingFunction struct {
 	gorm.Model
@@ -95,6 +107,10 @@ func (FunctionInstance) TableName() string {
 
 func (FunctionPermission) TableName() string {
 	return "function_permissions"
+}
+
+func (FunctionPolicy) TableName() string {
+	return "function_policies"
 }
 
 func (PendingFunction) TableName() string {

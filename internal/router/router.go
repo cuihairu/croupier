@@ -12,6 +12,7 @@ import (
 	opsapi "github.com/cuihairu/croupier/internal/api/ops"
 	permissionapi "github.com/cuihairu/croupier/internal/api/permission"
 	playerapi "github.com/cuihairu/croupier/internal/api/player"
+	policyapi "github.com/cuihairu/croupier/internal/api/policy"
 	"github.com/cuihairu/croupier/internal/api/profile"
 	providerapi "github.com/cuihairu/croupier/internal/api/provider"
 	registryapi "github.com/cuihairu/croupier/internal/api/registry"
@@ -138,6 +139,7 @@ func registerAuthenticatedRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.
 	registerRoleRoutes(authenticated, svcCtx)
 	registerPermissionRoutes(authenticated, svcCtx)
 	registerGameRoutes(authenticated, svcCtx)
+	registerPolicyRoutes(authenticated, svcCtx)
 	registerAdminRoutes(authenticated, svcCtx)
 	registerPlayerRoutes(authenticated, svcCtx)
 	registerTaskRoutes(authenticated, svcCtx)
@@ -240,6 +242,7 @@ func registerRegistryRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceC
 
 func registerFunctionRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {
 	handler := functionapi.NewHandler(functionapi.NewService(svcCtx))
+	policyHandler := policyapi.NewHandler(svcCtx.PolicyManager)
 	group := authenticated.Group("/functions")
 	{
 		group.GET("", handler.List)
@@ -263,6 +266,10 @@ func registerFunctionRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceC
 		group.POST("/:id/ui", handler.UIUpdate)
 		group.GET("/:id/ui/history", handler.UIHistory)
 		group.POST("/:id/ui/rollback", handler.UIRollback)
+		// Policy routes for individual functions
+		group.GET("/:id/policy", policyHandler.GetPolicy)
+		group.PUT("/:id/policy", policyHandler.SetPolicy)
+		group.DELETE("/:id/policy", policyHandler.DeletePolicy)
 	}
 }
 
@@ -371,6 +378,16 @@ func registerProviderRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceC
 		group.GET("/:id/entities", handler.Entities)
 		group.DELETE("/:id", handler.Delete)
 		group.POST("/:id/reload", handler.Reload)
+	}
+}
+
+func registerPolicyRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceContext) {
+	handler := policyapi.NewHandler(svcCtx.PolicyManager)
+	policiesGroup := authenticated.Group("/policies")
+	{
+		policiesGroup.GET("/defaults", handler.GetDefaultPolicies)
+		policiesGroup.GET("/overrides", handler.ListOverrides)
+		policiesGroup.POST("/reload", handler.ReloadConfig)
 	}
 }
 

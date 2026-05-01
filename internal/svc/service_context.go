@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/config"
 	extensioncatalog "github.com/cuihairu/croupier/internal/core/extension/catalog"
@@ -26,6 +27,7 @@ import (
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	policymgr "github.com/cuihairu/croupier/internal/policy"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/runtime"
 	jwtutil "github.com/cuihairu/croupier/internal/security/jwtutil"
@@ -51,6 +53,8 @@ type ServiceContext struct {
 	AnalyticsFiltersLock *sync.RWMutex
 
 	ApprovalsStore approvals.Store
+	PolicyManager  *policymgr.Manager
+	AuditService   *audit.AuditService
 
 	ObjectStore objstore.Store
 
@@ -180,6 +184,30 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 	approvalsStore := approvals.NewMemStore()
 
+	// 初始化审计服务
+	auditStore, err := audit.NewSQLAuditStore(db)
+	if err != nil {
+		slog.Default().Error("Failed to initialize audit store", "error", err)
+		// Continue without audit service
+		auditStore = nil
+	}
+	var auditSvc *audit.AuditService
+	if auditStore != nil {
+		auditSvc = audit.NewAuditService(auditStore, nil)
+		slog.Default().Info("AuditService initialized")
+	}
+
+	// 初始化策略管理器
+	policyConfigPath := filepath.Join(resolveBootstrapBaseDir(c), "default-policies.yaml")
+	policyManager, err := policymgr.NewManager(db, policyConfigPath)
+	if err != nil {
+		slog.Default().Error("Failed to initialize PolicyManager", "error", err)
+		// Continue without policy manager - system will use defaults
+		policyManager = nil
+	} else {
+		slog.Default().Info("PolicyManager initialized", "configPath", policyConfigPath)
+	}
+
 	// 初始化缓存
 	cacheStore, err := cache.NewCacheStore(c.Cache)
 	if err != nil {
@@ -240,6 +268,8 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 		ObjectStore:    objectStore,
 		ApprovalsStore: approvalsStore,
+		PolicyManager:  policyManager,
+		AuditService:   auditSvc,
 		Extensions: &ExtensionServices{
 			Catalog:      extensionCatalogSvc,
 			Manifest:     extensionManifestSvc,

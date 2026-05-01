@@ -87,6 +87,17 @@ sequenceDiagram
 }
 ```
 
+**风险等级 (`risk`)：**
+
+| 等级 | 说明 | 审批要求 | 允许角色 |
+|------|------|----------|----------|
+| `low` | 低风险操作 | 无需审批 | user, operator |
+| `medium` | 中风险操作 | 无需审批，需审计 | operator |
+| `high` | 高风险操作 | 单管理员审批 + 审计 | admin |
+| `danger` | 危险操作 | 双人审批 + 审计 | super_admin |
+
+函数注册时会根据风险等级自动创建对应的默认政策，也可以通过 API 覆盖。详见[权限控制](./permissions.md)文档。
+
 ## OpenAPI 与 JSON Schema
 
 函数描述符可以吸收 OpenAPI 常见字段，但默认业务 payload 边界仍然是 JSON：

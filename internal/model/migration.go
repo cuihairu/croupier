@@ -69,6 +69,7 @@ func autoMigrateModels(db *gorm.DB) error {
 		&FunctionInstance{},
 		&FunctionPermission{},
 		&PendingFunction{},
+		&FunctionPolicy{},
 		&Alert{},
 		&AlertSilence{},
 		&BehaviorEvent{},
