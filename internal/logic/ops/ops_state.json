@@ -1,0 +1,58 @@
+{
+  "config": {
+    "alertmanager_url": "http://test",
+    "updated_at": "2026-05-01T07:40:58.682133+08:00"
+  },
+  "maintenance": {
+    "updated_at": "0001-01-01T00:00:00Z"
+  },
+  "notifications": {
+    "updated_at": "0001-01-01T00:00:00Z"
+  },
+  "health": {
+    "updated_at": "0001-01-01T00:00:00Z"
+  },
+  "mq": {
+    "type": "redis",
+    "redis": {
+      "streams": {
+        "events": "events",
+        "payments": "payments"
+      }
+    },
+    "updated_at": "2026-05-01T07:40:58.682133+08:00"
+  },
+  "alerts": {
+    "updated_at": "2026-05-01T07:40:58.682133+08:00"
+  },
+  "audit": {
+    "entries": [
+      {
+        "id": "seed-login",
+        "action": "auth.login",
+        "user_id": "admin",
+        "result": "success",
+        "metadata": {
+          "ip": "127.0.0.1",
+          "user_agent": "dev-cli"
+        },
+        "created_at": "2026-05-01T05:40:58.682133+08:00"
+      },
+      {
+        "id": "seed-assignments",
+        "action": "assignments.update",
+        "user_id": "ops",
+        "target": "game-demo/prod",
+        "result": "success",
+        "metadata": {
+          "functions": [
+            "prom.reload",
+            "http.post"
+          ]
+        },
+        "created_at": "2026-05-01T07:10:58.682133+08:00"
+      }
+    ],
+    "updated_at": "2026-05-01T07:40:58.682133+08:00"
+  }
+}

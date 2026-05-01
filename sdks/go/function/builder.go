@@ -17,7 +17,7 @@ func NewMetadataBuilder() *MetadataBuilder {
 		metadata: &FunctionMetadata{
 			Tags:       []string{},
 			Behavior:   &FunctionBehavior{},
-			Security:   &FunctionSecurity{},
+			Risk:       &FunctionRisk{Level: RiskMedium},
 			Extensions: map[string]string{},
 		},
 		errors: []error{},
@@ -84,9 +84,9 @@ func (b *MetadataBuilder) SetBehavior(behavior *FunctionBehavior) *MetadataBuild
 	return b
 }
 
-// SetSecurity sets the function security.
-func (b *MetadataBuilder) SetSecurity(security *FunctionSecurity) *MetadataBuilder {
-	b.metadata.Security = security
+// SetRisk sets the function risk.
+func (b *MetadataBuilder) SetRisk(risk *FunctionRisk) *MetadataBuilder {
+	b.metadata.Risk = risk
 	return b
 }
 
@@ -108,8 +108,8 @@ func (b *MetadataBuilder) Build() (*FunctionMetadata, error) {
 	if b.metadata.Behavior == nil {
 		b.metadata.Behavior = &FunctionBehavior{}
 	}
-	if b.metadata.Security == nil {
-		b.metadata.Security = &FunctionSecurity{}
+	if b.metadata.Risk == nil {
+		b.metadata.Risk = &FunctionRisk{Level: RiskMedium}
 	}
 
 	if len(b.errors) > 0 {
@@ -194,95 +194,53 @@ func (b *BehaviorBuilder) Build() *FunctionBehavior {
 	return b.behavior
 }
 
-// SecurityBuilder builds FunctionSecurity using the builder pattern.
-type SecurityBuilder struct {
-	security *FunctionSecurity
+// RiskBuilder builds FunctionRisk using the builder pattern.
+type RiskBuilder struct {
+	risk *FunctionRisk
 }
 
-// NewSecurityBuilder creates a new SecurityBuilder with default values.
-func NewSecurityBuilder() *SecurityBuilder {
-	return &SecurityBuilder{
-		security: &FunctionSecurity{
-			RiskLevel:         RiskMedium,
-			RequiresApproval:  false,
-			AuditLog:          true,
-			MaskSensitiveData: false,
+// NewRiskBuilder creates a new RiskBuilder with default values.
+func NewRiskBuilder() *RiskBuilder {
+	return &RiskBuilder{
+		risk: &FunctionRisk{
+			Level: RiskMedium,
 		},
 	}
 }
 
-// SetRiskLevel sets the risk level.
-func (b *SecurityBuilder) SetRiskLevel(level RiskLevel) *SecurityBuilder {
-	b.security.RiskLevel = level
+// SetLevel sets the risk level.
+func (b *RiskBuilder) SetLevel(level RiskLevel) *RiskBuilder {
+	b.risk.Level = level
 	return b
 }
 
-// SetLowRisk sets risk level to LOW.
-func (b *SecurityBuilder) SetLowRisk() *SecurityBuilder {
-	b.security.RiskLevel = RiskLow
+// SetLow sets risk level to LOW.
+func (b *RiskBuilder) SetLow() *RiskBuilder {
+	b.risk.Level = RiskLow
 	return b
 }
 
-// SetMediumRisk sets risk level to MEDIUM.
-func (b *SecurityBuilder) SetMediumRisk() *SecurityBuilder {
-	b.security.RiskLevel = RiskMedium
+// SetMedium sets risk level to MEDIUM.
+func (b *RiskBuilder) SetMedium() *RiskBuilder {
+	b.risk.Level = RiskMedium
 	return b
 }
 
-// SetHighRisk sets risk level to HIGH.
-func (b *SecurityBuilder) SetHighRisk() *SecurityBuilder {
-	b.security.RiskLevel = RiskHigh
+// SetHigh sets risk level to HIGH.
+func (b *RiskBuilder) SetHigh() *RiskBuilder {
+	b.risk.Level = RiskHigh
 	return b
 }
 
-// SetDangerRisk sets risk level to DANGER.
-func (b *SecurityBuilder) SetDangerRisk() *SecurityBuilder {
-	b.security.RiskLevel = RiskDanger
+// SetDanger sets risk level to DANGER.
+func (b *RiskBuilder) SetDanger() *RiskBuilder {
+	b.risk.Level = RiskDanger
 	return b
 }
 
-// SetPermission sets the required permission.
-func (b *SecurityBuilder) SetPermission(permission string) *SecurityBuilder {
-	b.security.Permission = permission
-	return b
-}
-
-// SetRequiresApproval enables or disables approval requirement.
-func (b *SecurityBuilder) SetRequiresApproval(requires bool) *SecurityBuilder {
-	b.security.RequiresApproval = requires
-	return b
-}
-
-// SetApprovalType sets the approval type.
-func (b *SecurityBuilder) SetApprovalType(approvalType ApprovalType) *SecurityBuilder {
-	b.security.ApprovalType = approvalType
-	if approvalType != ApprovalNone {
-		b.security.RequiresApproval = true
-	}
-	return b
-}
-
-// SetAllowedRoles sets the allowed roles.
-func (b *SecurityBuilder) SetAllowedRoles(roles ...string) *SecurityBuilder {
-	b.security.AllowedRoles = roles
-	return b
-}
-
-// SetAuditLog enables or disables audit logging.
-func (b *SecurityBuilder) SetAuditLog(enabled bool) *SecurityBuilder {
-	b.security.AuditLog = enabled
-	return b
-}
-
-// SetMaskSensitiveData enables or disables sensitive data masking.
-func (b *SecurityBuilder) SetMaskSensitiveData(enabled bool) *SecurityBuilder {
-	b.security.MaskSensitiveData = enabled
-	return b
-}
-
-// Build returns the FunctionSecurity.
-func (b *SecurityBuilder) Build() *FunctionSecurity {
-	return b.security
+// Build returns the FunctionRisk.
+func (b *RiskBuilder) Build() *FunctionRisk {
+	return b.risk
 }
 
 // ImportOptions controls OpenAPI import behavior.

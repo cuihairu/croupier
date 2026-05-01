@@ -804,3 +804,197 @@ func TestConverter_ExportToSpec_EmptyMetadatas(t *testing.T) {
 		t.Errorf("Expected 0 paths, got %d", len(spec.Paths.Map()))
 	}
 }
+
+func TestNormalizeRiskLevel(t *testing.T) {
+	tests := []struct {
+		name     string
+		level    functionv1.FunctionSecurity_RiskLevel
+		expected string
+	}{
+		{"low", functionv1.FunctionSecurity_RISK_LEVEL_LOW, "low"},
+		{"medium", functionv1.FunctionSecurity_RISK_LEVEL_MEDIUM, "medium"},
+		{"high", functionv1.FunctionSecurity_RISK_LEVEL_HIGH, "high"},
+		{"danger", functionv1.FunctionSecurity_RISK_LEVEL_DANGER, "danger"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizeRiskLevel(tt.level)
+			if result != tt.expected {
+				t.Errorf("normalizeRiskLevel(%v) = %v, want %v", tt.level, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSchemaMapper_GetSchemaType_Complete(t *testing.T) {
+	mapper := NewSchemaMapper()
+
+	tests := []struct {
+		name     string
+		schema   string
+		expected string
+	}{
+		{"object", `{"type":"object"}`, "object"},
+		{"array", `{"type":"array"}`, "array"},
+		{"string", `{"type":"string"}`, "string"},
+		{"integer", `{"type":"integer"}`, "integer"},
+		{"number", `{"type":"number"}`, "number"},
+		{"boolean", `{"type":"boolean"}`, "boolean"},
+		{"null", `{"type":"null"}`, "null"},
+		{"ref", `{"$ref":"#/definitions/test"}`, "$ref"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := mapper.GetSchemaType(tt.schema)
+			if err != nil {
+				t.Fatalf("GetSchemaType failed: %v", err)
+			}
+			if result != tt.expected {
+				t.Errorf("Expected %s, got %s", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestSchemaMapper_GetSchemaType_Errors(t *testing.T) {
+	mapper := NewSchemaMapper()
+
+	t.Run("invalid JSON", func(t *testing.T) {
+		_, err := mapper.GetSchemaType(`{invalid}`)
+		if err == nil {
+			t.Error("Expected error for invalid JSON")
+		}
+	})
+
+	t.Run("missing type", func(t *testing.T) {
+		_, err := mapper.GetSchemaType(`{"title":"test"}`)
+		if err == nil {
+			t.Error("Expected error for missing type")
+		}
+	})
+}
+
+func TestSchemaMapper_IsObjectSchema_Complete(t *testing.T) {
+	mapper := NewSchemaMapper()
+
+	tests := []struct {
+		name     string
+		schema   string
+		expected bool
+	}{
+		{"valid object", `{"type":"object"}`, true},
+		{"array", `{"type":"array"}`, false},
+		{"string", `{"type":"string"}`, false},
+		{"invalid", `{invalid}`, false},
+		{"empty", ``, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := mapper.IsObjectSchema(tt.schema)
+			if result != tt.expected {
+				t.Errorf("IsObjectSchema(%q) = %v, want %v", tt.schema, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSchemaMapper_BuildSchemaFromObject_SupportedFields(t *testing.T) {
+	mapper := NewSchemaMapper()
+
+	obj := map[string]interface{}{
+		"type":     "object",
+		"title":    "TestTitle",
+		"format":   "int64",
+		"enum":     []interface{}{"a", "b"},
+		"default":  "default_val",
+		"required": []interface{}{"id"},
+		"properties": map[string]interface{}{
+			"field": map[string]interface{}{"type": "string"},
+		},
+		"items":                map[string]interface{}{"type": "string"},
+		"additionalProperties": map[string]interface{}{"type": "boolean"},
+		"allOf":                []interface{}{map[string]interface{}{"type": "string"}},
+		"anyOf":                []interface{}{map[string]interface{}{"type": "number"}},
+		"oneOf":                []interface{}{map[string]interface{}{"type": "integer"}},
+	}
+
+	schema := mapper.buildSchemaFromObject(obj)
+
+	if schema.Title != "TestTitle" {
+		t.Errorf("Title = %v, want TestTitle", schema.Title)
+	}
+	if schema.Format != "int64" {
+		t.Errorf("Format = %v, want int64", schema.Format)
+	}
+	if len(schema.Enum) != 2 {
+		t.Errorf("Enum length = %d, want 2", len(schema.Enum))
+	}
+	if schema.Default != "default_val" {
+		t.Errorf("Default = %v, want default_val", schema.Default)
+	}
+	if len(schema.Required) != 1 {
+		t.Errorf("Required length = %d, want 1", len(schema.Required))
+	}
+	if len(schema.Properties) != 1 {
+		t.Errorf("Properties length = %d, want 1", len(schema.Properties))
+	}
+	if schema.Items == nil {
+		t.Error("Items should not be nil")
+	}
+	if schema.AdditionalProperties.Schema == nil {
+		t.Error("AdditionalProperties should not be nil")
+	}
+	if len(schema.AllOf) != 1 {
+		t.Errorf("AllOf length = %d, want 1", len(schema.AllOf))
+	}
+	if len(schema.AnyOf) != 1 {
+		t.Errorf("AnyOf length = %d, want 1", len(schema.AnyOf))
+	}
+	if len(schema.OneOf) != 1 {
+		t.Errorf("OneOf length = %d, want 1", len(schema.OneOf))
+	}
+}
+
+func TestConverter_MetadataToOperation_WithNilSecurity(t *testing.T) {
+	converter := NewConverter()
+
+	metadata := &functionv1.FunctionMetadata{
+		Id:       "test.no-security",
+		Category: "test",
+		Name:     "No Security",
+		Security: nil,
+		Behavior: &functionv1.FunctionBehavior{
+			Mode: functionv1.FunctionBehavior_MODE_QUERY,
+		},
+	}
+
+	op, err := converter.MetadataToOperation(metadata)
+	if err != nil {
+		t.Fatalf("MetadataToOperation failed: %v", err)
+	}
+
+	if op.Extensions["x-risk"] != nil {
+		t.Errorf("x-risk should not be set when Security is nil, got %v", op.Extensions["x-risk"])
+	}
+}
+
+func TestSchemaMapper_MergeSchemas_WithErrors(t *testing.T) {
+	mapper := NewSchemaMapper()
+
+	t.Run("invalid first schema", func(t *testing.T) {
+		_, err := mapper.MergeSchemas(`{invalid}`, `{"type":"object"}`)
+		if err == nil {
+			t.Error("Expected error for invalid first schema")
+		}
+	})
+
+	t.Run("invalid second schema", func(t *testing.T) {
+		_, err := mapper.MergeSchemas(`{"type":"object"}`, `{invalid}`)
+		if err == nil {
+			t.Error("Expected error for invalid second schema")
+		}
+	})
+}

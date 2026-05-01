@@ -104,10 +104,8 @@ func (r *Registry) operationToMetadata(path string, op *openapi3.Operation, opti
 			TimeoutMs:     30000,
 			RouteStrategy: RouteLB,
 		},
-		Security: &FunctionSecurity{
-			RiskLevel:        RiskMedium,
-			RequiresApproval: false,
-			AuditLog:         true,
+		Risk: &FunctionRisk{
+			Level: RiskMedium,
 		},
 	}
 
@@ -149,7 +147,6 @@ func (r *Registry) operationToMetadata(path string, op *openapi3.Operation, opti
 	// Extract extensions
 	metadata.Category = extractExtension(op.Extensions, "x-category")
 	riskLevel := extractExtension(op.Extensions, "x-risk")
-	permission := extractExtension(op.Extensions, "x-permission")
 
 	// Set default values
 	if metadata.Category == "" && len(op.Tags) > 0 {
@@ -173,16 +170,9 @@ func (r *Registry) operationToMetadata(path string, op *openapi3.Operation, opti
 		}
 	}
 
-	// Set security level
+	// Set risk level from extension
 	if riskLevel != "" {
-		metadata.Security.RiskLevel = parseRiskLevel(riskLevel)
-		if metadata.Security.Permission == "" {
-			metadata.Security.Permission = permission
-		}
-		// High/danger risk requires approval
-		if metadata.Security.RiskLevel == RiskHigh || metadata.Security.RiskLevel == RiskDanger {
-			metadata.Security.RequiresApproval = true
-		}
+		metadata.Risk.Level = parseRiskLevel(riskLevel)
 	}
 
 	return metadata, nil

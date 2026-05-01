@@ -32,8 +32,8 @@ type FunctionMetadata struct {
 	// Behavior definition
 	Behavior *FunctionBehavior `json:"behavior"`
 
-	// Security definition
-	Security *FunctionSecurity `json:"security"`
+	// Risk definition (function's inherent risk level)
+	Risk *FunctionRisk `json:"risk"`
 
 	// Extension fields
 	Extensions map[string]string `json:"extensions"`
@@ -106,24 +106,11 @@ func (r RouteStrategy) String() string {
 	}
 }
 
-// FunctionSecurity defines security and access control.
-type FunctionSecurity struct {
-	// Risk level
-	RiskLevel RiskLevel `json:"risk_level"`
-
-	// Permission requirement
-	Permission string `json:"permission"`
-
-	// Approval requirements
-	RequiresApproval bool         `json:"requires_approval"`
-	ApprovalType     ApprovalType `json:"approval_type"`
-
-	// Role-based access control
-	AllowedRoles []string `json:"allowed_roles"`
-
-	// Audit requirements
-	AuditLog          bool `json:"audit_log"`
-	MaskSensitiveData bool `json:"mask_sensitive_data"`
+// FunctionRisk defines the function's inherent risk level.
+// This is a declarative metadata field; Server-side policies determine
+// the actual security requirements based on this risk level.
+type FunctionRisk struct {
+	Level RiskLevel `json:"level"`
 }
 
 // RiskLevel represents the risk level.
@@ -148,29 +135,6 @@ func (r RiskLevel) String() string {
 		return "high"
 	case RiskDanger:
 		return "danger"
-	default:
-		return "unknown"
-	}
-}
-
-// ApprovalType represents the approval type.
-type ApprovalType int32
-
-const (
-	ApprovalNone ApprovalType = iota
-	ApprovalSingle
-	ApprovalTwoPerson
-)
-
-// String returns the string representation of ApprovalType.
-func (a ApprovalType) String() string {
-	switch a {
-	case ApprovalNone:
-		return "none"
-	case ApprovalSingle:
-		return "single"
-	case ApprovalTwoPerson:
-		return "two_person"
 	default:
 		return "unknown"
 	}
@@ -382,13 +346,9 @@ func (r *Registry) cloneMetadata(metadata *FunctionMetadata) *FunctionMetadata {
 		cloned.Behavior = &behaviorClone
 	}
 
-	if metadata.Security != nil {
-		securityClone := *metadata.Security
-		if metadata.Security.AllowedRoles != nil {
-			securityClone.AllowedRoles = make([]string, len(metadata.Security.AllowedRoles))
-			copy(securityClone.AllowedRoles, metadata.Security.AllowedRoles)
-		}
-		cloned.Security = &securityClone
+	if metadata.Risk != nil {
+		riskClone := *metadata.Risk
+		cloned.Risk = &riskClone
 	}
 
 	if metadata.Extensions != nil {
@@ -410,8 +370,8 @@ func (r *Registry) toFunctionDescriptor(metadata *FunctionMetadata) croupier.Fun
 		Enabled:  true,
 	}
 
-	if metadata.Security != nil {
-		desc.Risk = metadata.Security.RiskLevel.String()
+	if metadata.Risk != nil {
+		desc.Risk = metadata.Risk.Level.String()
 	}
 
 	return desc
@@ -449,9 +409,8 @@ func SimpleRegister(
 			Mode:      ModeQuery,
 			TimeoutMs: 30000,
 		},
-		Security: &FunctionSecurity{
-			RiskLevel: RiskLow,
-			AuditLog:  true,
+		Risk: &FunctionRisk{
+			Level: RiskLow,
 		},
 	}
 

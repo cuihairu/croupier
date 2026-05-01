@@ -30,7 +30,7 @@ func TestMetadataBuilder_Basic(t *testing.T) {
 
 // TestMetadataBuilder_WithDefaults tests builder with default values.
 // Note: Builder uses Go zero values, not semantic defaults.
-// Use SecurityBuilder and BehaviorBuilder for semantic defaults.
+// Use RiskBuilder and BehaviorBuilder for semantic defaults.
 func TestMetadataBuilder_WithDefaults(t *testing.T) {
 	metadata, err := NewMetadataBuilder().
 		SetID("test.function").
@@ -39,10 +39,10 @@ func TestMetadataBuilder_WithDefaults(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, metadata)
-	assert.NotNil(t, metadata.Security)
+	assert.NotNil(t, metadata.Risk)
 	assert.NotNil(t, metadata.Behavior)
-	// Zero values from Go
-	assert.Equal(t, RiskUnknown, metadata.Security.RiskLevel)
+	// Default values from NewMetadataBuilder
+	assert.Equal(t, RiskMedium, metadata.Risk.Level)
 	assert.Equal(t, ModeUnknown, metadata.Behavior.Mode)
 }
 
@@ -71,32 +71,20 @@ func TestMetadataBuilder_WithBehavior(t *testing.T) {
 	assert.Equal(t, int32(300), metadata.Behavior.CacheTtlSeconds)
 }
 
-// TestMetadataBuilder_WithSecurity tests setting security.
-func TestMetadataBuilder_WithSecurity(t *testing.T) {
-	security := NewSecurityBuilder().
-		SetDangerRisk().
-		SetPermission("admin.delete.invoke").
-		SetRequiresApproval(true).
-		SetApprovalType(ApprovalTwoPerson).
-		SetAllowedRoles("admin", "superadmin").
-		SetAuditLog(true).
-		SetMaskSensitiveData(true).
+// TestMetadataBuilder_WithRisk tests setting risk.
+func TestMetadataBuilder_WithRisk(t *testing.T) {
+	risk := NewRiskBuilder().
+		SetDanger().
 		Build()
 
 	metadata, err := NewMetadataBuilder().
 		SetID("admin.delete").
 		SetName("Admin Delete").
-		SetSecurity(security).
+		SetRisk(risk).
 		Build()
 
 	assert.NoError(t, err)
-	assert.Equal(t, RiskDanger, metadata.Security.RiskLevel)
-	assert.Equal(t, "admin.delete.invoke", metadata.Security.Permission)
-	assert.True(t, metadata.Security.RequiresApproval)
-	assert.Equal(t, ApprovalTwoPerson, metadata.Security.ApprovalType)
-	assert.ElementsMatch(t, []string{"admin", "superadmin"}, metadata.Security.AllowedRoles)
-	assert.True(t, metadata.Security.AuditLog)
-	assert.True(t, metadata.Security.MaskSensitiveData)
+	assert.Equal(t, RiskDanger, metadata.Risk.Level)
 }
 
 // TestMetadataBuilder_WithSchemas tests setting JSON schemas.
@@ -318,18 +306,15 @@ func TestBehaviorBuilder_SetCacheable(t *testing.T) {
 	}
 }
 
-// TestSecurityBuilder_Defaults tests default security values.
-func TestSecurityBuilder_Defaults(t *testing.T) {
-	security := NewSecurityBuilder().Build()
+// TestRiskBuilder_Defaults tests default risk values.
+func TestRiskBuilder_Defaults(t *testing.T) {
+	risk := NewRiskBuilder().Build()
 
-	assert.Equal(t, RiskMedium, security.RiskLevel)
-	assert.False(t, security.RequiresApproval)
-	assert.True(t, security.AuditLog)
-	assert.False(t, security.MaskSensitiveData)
+	assert.Equal(t, RiskMedium, risk.Level)
 }
 
-// TestSecurityBuilder_SetRiskLevel tests setting risk levels.
-func TestSecurityBuilder_SetRiskLevel(t *testing.T) {
+// TestRiskBuilder_SetLevel tests setting risk levels.
+func TestRiskBuilder_SetLevel(t *testing.T) {
 	tests := []struct {
 		name     string
 		level    RiskLevel
@@ -343,99 +328,32 @@ func TestSecurityBuilder_SetRiskLevel(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			security := NewSecurityBuilder().
-				SetRiskLevel(tt.level).
+			risk := NewRiskBuilder().
+				SetLevel(tt.level).
 				Build()
 
-			assert.Equal(t, tt.expected, security.RiskLevel)
+			assert.Equal(t, tt.expected, risk.Level)
 		})
 	}
 }
 
-// TestSecurityBuilder_RiskLevelShortcuts tests risk level shortcut methods.
-func TestSecurityBuilder_RiskLevelShortcuts(t *testing.T) {
+// TestRiskBuilder_LevelShortcuts tests risk level shortcut methods.
+func TestRiskBuilder_LevelShortcuts(t *testing.T) {
 	tests := []struct {
 		name     string
-		builder  *SecurityBuilder
+		builder  *RiskBuilder
 		expected RiskLevel
 	}{
-		{"low", NewSecurityBuilder().SetLowRisk(), RiskLow},
-		{"medium", NewSecurityBuilder().SetMediumRisk(), RiskMedium},
-		{"high", NewSecurityBuilder().SetHighRisk(), RiskHigh},
-		{"danger", NewSecurityBuilder().SetDangerRisk(), RiskDanger},
+		{"low", NewRiskBuilder().SetLow(), RiskLow},
+		{"medium", NewRiskBuilder().SetMedium(), RiskMedium},
+		{"high", NewRiskBuilder().SetHigh(), RiskHigh},
+		{"danger", NewRiskBuilder().SetDanger(), RiskDanger},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			security := tt.builder.Build()
-			assert.Equal(t, tt.expected, security.RiskLevel)
-		})
-	}
-}
-
-// TestSecurityBuilder_SetApprovalType tests setting approval types.
-func TestSecurityBuilder_SetApprovalType(t *testing.T) {
-	tests := []struct {
-		name             string
-		approvalType     ApprovalType
-		requiresApproval bool
-	}{
-		{"none", ApprovalNone, false},
-		{"single", ApprovalSingle, true},
-		{"two_person", ApprovalTwoPerson, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			security := NewSecurityBuilder().
-				SetApprovalType(tt.approvalType).
-				Build()
-
-			assert.Equal(t, tt.approvalType, security.ApprovalType)
-			assert.Equal(t, tt.requiresApproval, security.RequiresApproval)
-		})
-	}
-}
-
-// TestSecurityBuilder_SetRequiresApproval tests manual approval setting.
-func TestSecurityBuilder_SetRequiresApproval(t *testing.T) {
-	security := NewSecurityBuilder().
-		SetRequiresApproval(true).
-		Build()
-
-	assert.True(t, security.RequiresApproval)
-}
-
-// TestSecurityBuilder_SetAllowedRoles tests setting allowed roles.
-func TestSecurityBuilder_SetAllowedRoles(t *testing.T) {
-	security := NewSecurityBuilder().
-		SetAllowedRoles("admin", "moderator", "user").
-		Build()
-
-	assert.ElementsMatch(t, []string{"admin", "moderator", "user"}, security.AllowedRoles)
-}
-
-// TestSecurityBuilder_AuditConfiguration tests audit configuration.
-func TestSecurityBuilder_AuditConfiguration(t *testing.T) {
-	tests := []struct {
-		name              string
-		auditLog          bool
-		maskSensitiveData bool
-	}{
-		{"full audit", true, true},
-		{"audit only", true, false},
-		{"no audit", false, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			security := NewSecurityBuilder().
-				SetAuditLog(tt.auditLog).
-				SetMaskSensitiveData(tt.maskSensitiveData).
-				Build()
-
-			assert.Equal(t, tt.auditLog, security.AuditLog)
-			assert.Equal(t, tt.maskSensitiveData, security.MaskSensitiveData)
+			risk := tt.builder.Build()
+			assert.Equal(t, tt.expected, risk.Level)
 		})
 	}
 }
@@ -498,24 +416,6 @@ func TestRiskLevel_String(t *testing.T) {
 	}
 }
 
-// TestApprovalType_String tests ApprovalType string representation.
-func TestApprovalType_String(t *testing.T) {
-	tests := []struct {
-		atype    ApprovalType
-		expected string
-	}{
-		{ApprovalNone, "none"},
-		{ApprovalSingle, "single"},
-		{ApprovalTwoPerson, "two_person"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.expected, func(t *testing.T) {
-			assert.Equal(t, tt.expected, tt.atype.String())
-		})
-	}
-}
-
 // TestMetadataBuilder_CompleteExample tests a complete realistic example.
 func TestMetadataBuilder_CompleteExample(t *testing.T) {
 	behavior := NewBehaviorBuilder().
@@ -525,13 +425,8 @@ func TestMetadataBuilder_CompleteExample(t *testing.T) {
 		SetRouteStrategy(RouteTargeted).
 		Build()
 
-	security := NewSecurityBuilder().
-		SetHighRisk().
-		SetPermission("game.update.invoke").
-		SetRequiresApproval(true).
-		SetApprovalType(ApprovalSingle).
-		SetAllowedRoles("admin").
-		SetAuditLog(true).
+	risk := NewRiskBuilder().
+		SetHigh().
 		Build()
 
 	metadata, err := NewMetadataBuilder().
@@ -544,7 +439,7 @@ func TestMetadataBuilder_CompleteExample(t *testing.T) {
 		SetInputSchema(`{"type":"object","properties":{"gameId":{"type":"string"},"config":{"type":"object"}}}`).
 		SetOutputSchema(`{"type":"object","properties":{"success":{"type":"boolean"}}}`).
 		SetBehavior(behavior).
-		SetSecurity(security).
+		SetRisk(risk).
 		SetExtension("x-entity", "Game").
 		SetExtension("x-operation", "update").
 		Build()
@@ -554,6 +449,6 @@ func TestMetadataBuilder_CompleteExample(t *testing.T) {
 	assert.Equal(t, "game.update", metadata.ID)
 	assert.Equal(t, "2.0.0", metadata.Version)
 	assert.Equal(t, ModeCommand, metadata.Behavior.Mode)
-	assert.Equal(t, RiskHigh, metadata.Security.RiskLevel)
+	assert.Equal(t, RiskHigh, metadata.Risk.Level)
 	assert.Equal(t, "Game", metadata.Extensions["x-entity"])
 }

@@ -126,16 +126,8 @@ func TestRegistry_RegisterFromOpenAPI(t *testing.T) {
 		t.Errorf("Expected category 'player', got '%s'", metadata.Category)
 	}
 
-	if metadata.Security.RiskLevel != RiskHigh {
-		t.Errorf("Expected risk level RiskHigh, got %v", metadata.Security.RiskLevel)
-	}
-
-	if metadata.Security.Permission != "player.ban.invoke" {
-		t.Errorf("Expected permission 'player.ban.invoke', got '%s'", metadata.Security.Permission)
-	}
-
-	if !metadata.Security.RequiresApproval {
-		t.Error("Expected RequiresApproval to be true for high risk")
+	if metadata.Risk.Level != RiskHigh {
+		t.Errorf("Expected risk level RiskHigh, got %v", metadata.Risk.Level)
 	}
 }
 
