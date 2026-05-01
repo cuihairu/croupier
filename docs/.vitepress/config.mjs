@@ -19,7 +19,6 @@ const config = defineConfig({
       { text: '指南', link: '/guide/' },
       { text: '架构', link: '/architecture/' },
       { text: 'API 参考', link: '/api/' },
-      { text: '开发', link: '/development/' },
       {
         text: 'SDK',
         items: [
@@ -32,81 +31,252 @@ const config = defineConfig({
           { text: 'C# SDK', link: '/sdks/csharp/' },
         ],
       },
-      { text: '分析', link: '/analytics/' },
     ],
 
     sidebar: {
       '/guide/': [
-        { text: '入门指南', collapsed: false, items: [
-          { text: '简介', link: '/guide/' },
-          { text: '快速开始', link: '/guide/quick-start' },
-          { text: '安装', link: '/guide/installation' },
-          { text: '配置', link: '/guide/configuration' },
-          { text: '部署', link: '/guide/deployment' },
-        ]},
+        {
+          text: '入门',
+          collapsed: false,
+          items: [
+            { text: '简介', link: '/guide/' },
+            { text: '快速开始', link: '/guide/quick-start' },
+            { text: '安装', link: '/guide/installation' },
+            { text: '配置', link: '/guide/configuration' },
+            { text: '部署', link: '/guide/deployment' },
+          ],
+        },
+        {
+          text: '核心概念',
+          collapsed: false,
+          items: [
+            { text: '系统概述', link: '/guide/concepts/overview' },
+            { text: '函数管理', link: '/guide/concepts/function-management' },
+            { text: '权限控制', link: '/guide/concepts/permissions' },
+            { text: '虚拟对象', link: '/guide/concepts/virtual-objects' },
+          ],
+        },
+        {
+          text: '运维',
+          collapsed: true,
+          items: [
+            { text: '监控', link: '/guide/operations/monitoring' },
+            { text: '安全', link: '/guide/operations/security' },
+            { text: '故障排除', link: '/guide/operations/troubleshooting' },
+          ],
+        },
+        {
+          text: '集成',
+          collapsed: true,
+          items: [
+            { text: 'OpenAPI 注册', link: '/guide/integrations/openapi-registration' },
+            { text: '第三方平台', link: '/guide/integrations/third-party-platforms' },
+          ],
+        },
       ],
+
       '/architecture/': [
-        { text: '系统架构', items: [
-          { text: '概述', link: '/architecture/' },
-          { text: '分层', link: '/architecture/layers' },
-          { text: '数据流', link: '/architecture/data-flow' },
-        ]},
+        {
+          text: '架构文档',
+          collapsed: false,
+          items: [
+            { text: '概述', link: '/architecture/' },
+            { text: '分层', link: '/architecture/layers' },
+            { text: '术语', link: '/architecture/terms-and-layering' },
+            { text: '数据流', link: '/architecture/data-flow' },
+          ],
+        },
+        {
+          text: '传输协议',
+          collapsed: true,
+          items: [
+            { text: 'SDK Wire 协议', link: '/architecture/sdk-wire-protocol' },
+            { text: 'SDK-Agent 传输重构', link: '/architecture/sdk-agent-transport-redesign' },
+            { text: 'Agent-Server Session', link: '/architecture/agent-server-session-transport-redesign' },
+            { text: 'Session 生命周期', link: '/architecture/session-lifecycle' },
+            { text: 'Session 运行时', link: '/architecture/session-runtime-landscape' },
+          ],
+        },
+        {
+          text: '扩展系统',
+          collapsed: true,
+          items: [
+            { text: '扩展安装模型', link: '/architecture/extension-installation-model' },
+            { text: '核心扩展映射', link: '/architecture/core-extension-mapping' },
+            { text: '扩展统一模式', link: '/architecture/official-extension-unified-pattern' },
+          ],
+        },
       ],
+
       '/api/': [
-        { text: 'API 参考', collapsed: false, items: [
-          { text: '概述', link: '/api/' },
-          { text: 'gRPC', link: '/api/grpc' },
-          { text: 'REST', link: '/api/rest' },
-        ]},
+        {
+          text: 'REST API',
+          collapsed: false,
+          items: [
+            { text: '概述', link: '/api/' },
+            { text: '认证', link: '/api/auth' },
+            { text: '用户管理', link: '/api/admin' },
+          ],
+        },
+        {
+          text: '函数 API',
+          collapsed: false,
+          items: [
+            { text: '函数管理', link: '/api/function' },
+            { text: '审批', link: '/api/approval' },
+            { text: '审计', link: '/api/audit' },
+          ],
+        },
+        {
+          text: '游戏管理',
+          collapsed: true,
+          items: [
+            { text: '游戏', link: '/api/game' },
+            { text: '玩家', link: '/api/player' },
+            { text: '消息', link: '/api/message' },
+          ],
+        },
+        {
+          text: '运营工具',
+          collapsed: true,
+          items: [
+            { text: '工单', link: '/api/ticket' },
+            { text: '反馈', link: '/api/feedback' },
+            { text: '公告', link: '/api/assignment' },
+          ],
+        },
+        {
+          text: '系统 API',
+          collapsed: true,
+          items: [
+            { text: 'Agent', link: '/api/agent' },
+            { text: '节点', link: '/api/node' },
+            { text: '注册中心', link: '/api/registry' },
+            { text: '配置', link: '/api/config' },
+            { text: '监控', link: '/api/monitoring' },
+            { text: '证书', link: '/api/certificate' },
+            { text: '备份', link: '/api/backup' },
+            { text: '迁移', link: '/api/migrate' },
+            { text: '存储', link: '/api/storage' },
+          ],
+        },
+        {
+          text: '其他 API',
+          collapsed: true,
+          items: [
+            { text: '平台', link: '/api/platform' },
+            { text: '工作空间', link: '/api/workspace' },
+            { text: '服务商', link: '/api/provider' },
+            { text: '实体', link: '/api/entity' },
+            { text: '限流', link: '/api/rate_limit' },
+            { text: '告警', link: '/api/alert' },
+            { text: '任务', link: '/api/task' },
+            { text: '客服', link: '/api/support' },
+            { text: 'FAQ', link: '/api/faq' },
+          ],
+        },
       ],
+
       '/development/': [
-        { text: '开发指南', collapsed: false, items: [
-          { text: '概述', link: '/development/' },
-          { text: '仓库指南', link: '/development/repository-guidelines' },
-          { text: '仓库布局', link: '/development/repository-layout' },
-        ]},
+        {
+          text: '开发指南',
+          collapsed: false,
+          items: [
+            { text: '概述', link: '/development/' },
+            { text: '仓库指南', link: '/development/repository-guidelines' },
+            { text: '仓库布局', link: '/development/repository-layout' },
+            { text: '发布约定', link: '/development/release-conventions' },
+            { text: '业务扩展策略', link: '/development/new-business-extension-policy' },
+          ],
+        },
       ],
-      '/analytics/': [
-        { text: '分析系统', items: [
-          { text: '概述', link: '/analytics/' },
-          { text: '快速开始', link: '/analytics/quick-start' },
-        ]},
-      ],
+
       '/sdks/': [
-        { text: 'SDK', collapsed: false, items: [
-          { text: '概览', link: '/sdks/' },
-          { text: '能力矩阵', link: '/sdks/sdk-parity-matrix' },
-          { text: 'C++ SDK', link: '/sdks/cpp/' },
-          { text: 'C++ 指南', link: '/sdks/cpp/guide/' },
-          { text: 'C++ API', link: '/sdks/cpp/api/' },
-          { text: 'C++ 配置', link: '/sdks/cpp/configuration/' },
-          { text: 'C++ 示例', link: '/sdks/cpp/examples/' },
-          { text: 'Go SDK', link: '/sdks/go/' },
-          { text: 'Go 指南', link: '/sdks/go/guide/' },
-          { text: 'Go API', link: '/sdks/go/api/' },
-          { text: 'Java SDK', link: '/sdks/java/' },
-          { text: 'Java 指南', link: '/sdks/java/guide/' },
-          { text: 'Java API', link: '/sdks/java/api/' },
-          { text: 'JavaScript SDK', link: '/sdks/js/' },
-          { text: 'JavaScript 指南', link: '/sdks/js/guide/' },
-          { text: 'JavaScript API', link: '/sdks/js/api/' },
-          { text: 'Python SDK', link: '/sdks/python/' },
-          { text: 'Python 指南', link: '/sdks/python/guide/' },
-          { text: 'Python API', link: '/sdks/python/api/' },
-          { text: 'C# SDK', link: '/sdks/csharp/' },
-          { text: 'C# 指南', link: '/sdks/csharp/guide/' },
-          { text: 'C# API', link: '/sdks/csharp/api/' },
-        ]},
+        {
+          text: 'SDK 概览',
+          collapsed: false,
+          items: [
+            { text: '简介', link: '/sdks/' },
+            { text: '能力矩阵', link: '/sdks/sdk-parity-matrix' },
+          ],
+        },
+        {
+          text: 'C++ SDK',
+          collapsed: true,
+          items: [
+            { text: '概述', link: '/sdks/cpp/' },
+            { text: '安装', link: '/sdks/cpp/guide/installation' },
+            { text: '构建', link: '/sdks/cpp/guide/building' },
+            { text: '快速开始', link: '/sdks/cpp/guide/quick-start' },
+            { text: '配置', link: '/sdks/cpp/configuration/' },
+            { text: '函数', link: '/sdks/cpp/guide/functions' },
+            { text: '虚拟对象', link: '/sdks/cpp/guide/virtual-objects' },
+            { text: '插件', link: '/sdks/cpp/guide/plugins' },
+            { text: '架构', link: '/sdks/cpp/guide/architecture' },
+            { text: '线程', link: '/sdks/cpp/guide/threading' },
+            { text: '测试', link: '/sdks/cpp/guide/testing' },
+            { text: '部署', link: '/sdks/cpp/guide/deployment' },
+            { text: '约定', link: '/sdks/cpp/conventions' },
+            { text: '集成', link: '/sdks/cpp/integration' },
+            { text: 'API 参考', link: '/sdks/cpp/api/' },
+            { text: '示例', link: '/sdks/cpp/examples/' },
+          ],
+        },
+        {
+          text: 'Go SDK',
+          collapsed: true,
+          items: [
+            { text: '概述', link: '/sdks/go/' },
+            { text: '指南', link: '/sdks/go/guide/' },
+            { text: 'API 参考', link: '/sdks/go/api/' },
+            { text: '示例', link: '/sdks/go/examples/' },
+            { text: '端到端流程', link: '/sdks/go/e2e-flow' },
+          ],
+        },
+        {
+          text: 'Java SDK',
+          collapsed: true,
+          items: [
+            { text: '概述', link: '/sdks/java/' },
+            { text: '指南', link: '/sdks/java/guide/' },
+            { text: 'API 参考', link: '/sdks/java/api/' },
+          ],
+        },
+        {
+          text: 'JavaScript SDK',
+          collapsed: true,
+          items: [
+            { text: '概述', link: '/sdks/js/' },
+            { text: '指南', link: '/sdks/js/guide/' },
+            { text: 'API 参考', link: '/sdks/js/api/' },
+          ],
+        },
+        {
+          text: 'Python SDK',
+          collapsed: true,
+          items: [
+            { text: '概述', link: '/sdks/python/' },
+            { text: '指南', link: '/sdks/python/guide/' },
+            { text: 'API 参考', link: '/sdks/python/api/' },
+          ],
+        },
+        {
+          text: 'C# SDK',
+          collapsed: true,
+          items: [
+            { text: '概述', link: '/sdks/csharp/' },
+            { text: '指南', link: '/sdks/csharp/guide/' },
+            { text: 'API 参考', link: '/sdks/csharp/api/' },
+          ],
+        },
       ],
+
       '/': [
-        { text: '概览', collapsed: false, items: [
-          { text: '简介', link: '/' },
-          { text: '指南', link: '/guide/' },
-          { text: '架构', link: '/architecture/' },
-          { text: 'API', link: '/api/' },
-          { text: '开发', link: '/development/' },
-          { text: 'SDK', link: '/sdks/' },
-        ]},
+        { text: '指南', link: '/guide/' },
+        { text: '架构', link: '/architecture/' },
+        { text: 'API 参考', link: '/api/' },
+        { text: '开发', link: '/development/' },
+        { text: 'SDK', link: '/sdks/' },
       ],
     },
 

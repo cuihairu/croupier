@@ -2,50 +2,50 @@
 title: API 概览
 icon: code
 order: 1
-category:
-  - API 参考
-tag:
-  - API
-  - 接口
 ---
 
 # API 概览
 
-Croupier 当前对外主要分为两类接口：
+Croupier 提供以下 API 接口：
 
-| 类型 | 说明 |
-| --- | --- |
-| REST API | 面向 Dashboard 与外部管理调用 |
-| Session Wire API | 面向 `SDK <-> Agent` 与 `Agent <-> Server` 的内部会话协议 |
+| 类型 | 说明 | 协议 |
+| --- | --- | --- |
+| REST API | 面向 Dashboard 与外部管理调用 | HTTP / HTTPS |
+| Session Wire API | SDK 与 Agent、Agent 与 Server 之间的内部协议 | TCP + TLS |
 
 ## REST API
 
-- 协议：HTTP / HTTPS
-- 典型用途：Dashboard、管理接口、查询与配置
+REST API 用于：
 
-## Session Wire API
+- Dashboard 管理界面
+- 外部系统集成
+- 查询与配置操作
 
-Session Wire API 不是 gRPC API，而是运行在轻量 session runtime 之上的内部协议。
+**基础路径：** `/api/v1/`
 
-共享能力：
+**认证方式：** JWT Bearer Token
 
-- `tcp`
-- 可选 `tls`
-- framing
-- request/response 复用
-- heartbeat
-- reconnect
-- drain
-- backpressure
+## 主要接口分类
 
-子协议：
+### 函数管理
+- 函数列表、详情、创建、删除
+- 函数调用与执行状态
+- 函数权限配置
+- 函数政策管理
 
-- `sdk-agent subprotocol`
-- `agent-server subprotocol`
+### 游戏管理
+- 游戏配置
+- 玩家管理
+- 消息推送
+
+### 系统管理
+- Agent 注册与状态
+- 用户认证与授权
+- 审批流程
+- 审计日志
 
 ## 相关文档
 
-- [REST API 详情](./rest.md)
-- [SDK-Agent 传输重构设计](../architecture/sdk-agent-transport-redesign.md)
-- [Agent-Server TCP Session 重构设计](../architecture/agent-server-session-transport-redesign.md)
-- [SDK Wire Protocol](../architecture/sdk-wire-protocol.md)
+- [函数 API](./function.md)
+- [审批 API](./approval.md)
+- [认证 API](./auth.md)
