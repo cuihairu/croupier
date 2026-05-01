@@ -142,10 +142,10 @@ func TestService_History_Pagination(t *testing.T) {
 	testHistory := make([]assignmentHistoryEntry, 25)
 	for i := 0; i < 25; i++ {
 		testHistory[i] = assignmentHistoryEntry{
-			ID:        string(rune(i)),
-			GameID:    "game1",
+			ID:         string(rune(i)),
+			GameID:     "game1",
 			FunctionID: "func1",
-			Action:    "add",
+			Action:     "add",
 		}
 	}
 	err := saveAssignmentHistory(historyPath, testHistory)
