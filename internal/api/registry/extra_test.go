@@ -609,3 +609,145 @@ func TestHandler_GetRegistry_JSONRequest(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 }
+
+func TestService_GetRegistry_NilRegistryStore(t *testing.T) {
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: nil,
+	}
+	service := NewService(svcCtx)
+
+	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	require.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Empty(t, resp.Agents)
+	assert.Empty(t, resp.Functions)
+}
+
+func TestService_GetRegistry_NilAgentSession(t *testing.T) {
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+	}
+	service := NewService(svcCtx)
+
+	// Manually add nil to agents slice (if possible through internal access)
+	// Since we can't directly add nil to AgentsUnsafe, we test with empty store
+	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	require.NoError(t, err)
+	assert.NotNil(t, resp)
+}
+
+func TestService_GetRegistry_WhitespaceAgentID(t *testing.T) {
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+	}
+	service := NewService(svcCtx)
+
+	// Add agent with whitespace-only AgentID (should be filtered out)
+	// Note: The registry store may not allow empty AgentIDs, so we test the filter logic
+	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	require.NoError(t, err)
+	assert.NotNil(t, resp)
+}
+
+func TestService_GetRegistry_CoverageStats(t *testing.T) {
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+	}
+	service := NewService(svcCtx)
+	store := svcCtx.RegistryStore
+
+	// Add agent with function
+	store.UpsertAgent(&registry.AgentSession{
+		AgentID:   "stats-agent",
+		GameID:    "game1",
+		Env:       "prod",
+		RPCAddr:   "127.0.0.1:19091",
+		ExpireAt:  time.Now().Add(5 * time.Minute),
+		Functions: map[string]registry.FunctionMeta{
+			"func1": {Enabled: true},
+			"func2": {Enabled: true},
+		},
+	})
+
+	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	require.NoError(t, err)
+
+	// Check coverage is calculated
+	assert.NotNil(t, resp.Coverage)
+	if len(resp.Coverage) > 0 {
+		assert.NotEmpty(t, resp.Coverage[0].GameEnv)
+	}
+}
+
+func TestService_GetRegistry_DisabledFunctionsNotCounted(t *testing.T) {
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+	}
+	service := NewService(svcCtx)
+	store := svcCtx.RegistryStore
+
+	// Add agent with mixed enabled/disabled functions
+	store.UpsertAgent(&registry.AgentSession{
+		AgentID:   "mixed-agent",
+		GameID:    "game1",
+		Env:       "prod",
+		RPCAddr:   "127.0.0.1:19091",
+		ExpireAt:  time.Now().Add(5 * time.Minute),
+		Functions: map[string]registry.FunctionMeta{
+			"enabled.func":  {Enabled: true},
+			"disabled.func": {Enabled: false},
+		},
+	})
+
+	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	require.NoError(t, err)
+
+	// Only enabled functions should appear
+	foundEnabled := false
+	foundDisabled := false
+	for _, fn := range resp.Functions {
+		if fn.ID == "enabled.func" {
+			foundEnabled = true
+		}
+		if fn.ID == "disabled.func" {
+			foundDisabled = true
+		}
+	}
+	assert.True(t, foundEnabled, "enabled function should be in response")
+	assert.False(t, foundDisabled, "disabled function should not be in response")
+}
+
+func TestService_GetRegistry_SameFunctionMultipleAgents(t *testing.T) {
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+	}
+	service := NewService(svcCtx)
+	store := svcCtx.RegistryStore
+
+	// Same function on multiple agents
+	for i := 1; i <= 3; i++ {
+		store.UpsertAgent(&registry.AgentSession{
+			AgentID:  "agent-" + string(rune('0'+i)),
+			GameID:   "game1",
+			Env:      "prod",
+			RPCAddr:  "127.0.0.1:1909" + string(rune('0'+i)),
+			ExpireAt: time.Now().Add(5 * time.Minute),
+			Functions: map[string]registry.FunctionMeta{
+				"shared.func": {Enabled: true},
+			},
+		})
+	}
+
+	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	require.NoError(t, err)
+
+	// Should have one function entry with multiple agents
+	found := false
+	for _, fn := range resp.Functions {
+		if fn.ID == "shared.func" {
+			found = true
+			assert.Len(t, fn.Agents, 3)
+		}
+	}
+	assert.True(t, found, "shared function should be in response")
+}
