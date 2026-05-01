@@ -1189,4 +1189,3 @@ func TestHandler_FunctionInstancesAll_QueryParams(t *testing.T) {
 	// Should not panic
 	assert.True(t, rec.Code >= 200 && rec.Code < 600)
 }
-

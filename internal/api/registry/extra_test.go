@@ -395,11 +395,11 @@ func TestService_GetRegistry_DisabledFunctions(t *testing.T) {
 
 	// Add agent with both enabled and disabled functions
 	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
-		AgentID:   "agent-1",
-		GameID:    "game1",
-		Env:       "prod",
-		RPCAddr:   "127.0.0.1:19091",
-		ExpireAt:  time.Now().Add(5 * time.Minute),
+		AgentID:  "agent-1",
+		GameID:   "game1",
+		Env:      "prod",
+		RPCAddr:  "127.0.0.1:19091",
+		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"enabled.func":  {Enabled: true},
 			"disabled.func": {Enabled: false},
@@ -570,11 +570,11 @@ func TestService_GetRegistry_CoverageUncovered(t *testing.T) {
 
 	// Add agent
 	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
-		AgentID:   "agent-1",
-		GameID:    "game1",
-		Env:       "prod",
-		RPCAddr:   "127.0.0.1:19091",
-		ExpireAt:  time.Now().Add(5 * time.Minute),
+		AgentID:  "agent-1",
+		GameID:   "game1",
+		Env:      "prod",
+		RPCAddr:  "127.0.0.1:19091",
+		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"covered.func":   {Enabled: true},
 			"uncovered.func": {Enabled: false},
@@ -658,11 +658,11 @@ func TestService_GetRegistry_CoverageStats(t *testing.T) {
 
 	// Add agent with function
 	store.UpsertAgent(&registry.AgentSession{
-		AgentID:   "stats-agent",
-		GameID:    "game1",
-		Env:       "prod",
-		RPCAddr:   "127.0.0.1:19091",
-		ExpireAt:  time.Now().Add(5 * time.Minute),
+		AgentID:  "stats-agent",
+		GameID:   "game1",
+		Env:      "prod",
+		RPCAddr:  "127.0.0.1:19091",
+		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"func1": {Enabled: true},
 			"func2": {Enabled: true},
@@ -688,11 +688,11 @@ func TestService_GetRegistry_DisabledFunctionsNotCounted(t *testing.T) {
 
 	// Add agent with mixed enabled/disabled functions
 	store.UpsertAgent(&registry.AgentSession{
-		AgentID:   "mixed-agent",
-		GameID:    "game1",
-		Env:       "prod",
-		RPCAddr:   "127.0.0.1:19091",
-		ExpireAt:  time.Now().Add(5 * time.Minute),
+		AgentID:  "mixed-agent",
+		GameID:   "game1",
+		Env:      "prod",
+		RPCAddr:  "127.0.0.1:19091",
+		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"enabled.func":  {Enabled: true},
 			"disabled.func": {Enabled: false},

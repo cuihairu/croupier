@@ -459,8 +459,8 @@ func TestService_Add_DuplicateDomain(t *testing.T) {
 
 	// Try to create duplicate
 	_, err := service.Add(context.Background(), &AddRequest{
-		Domain:       "duplicate.com",
-		Certificate:  certPEM,
+		Domain:      "duplicate.com",
+		Certificate: certPEM,
 	})
 	// Should return error or handle based on uniqueness constraints
 	assert.True(t, err == nil || err.Error() != "")
