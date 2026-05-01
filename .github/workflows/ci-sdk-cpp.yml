@@ -830,7 +830,7 @@ jobs:
 
       - name: Create Release
         timeout-minutes: 10
-        uses: softprops/action-gh-release@v4
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.version.outputs.version_tag }}
           name: "Croupier C++ SDK ${{ needs.version.outputs.version }}"

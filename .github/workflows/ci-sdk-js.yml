@@ -224,7 +224,7 @@ jobs:
 
       - name: Publish release assets
         timeout-minutes: 10
-        uses: softprops/action-gh-release@v4
+        uses: softprops/action-gh-release@v3
         with:
           files: sdks/js/artifacts/*
           fail_on_unmatched_files: true

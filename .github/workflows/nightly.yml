@@ -655,7 +655,7 @@ jobs:
 
       - name: Create/Update Release
         timeout-minutes: 10
-        uses: softprops/action-gh-release@v4
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: nightly
           name: Nightly

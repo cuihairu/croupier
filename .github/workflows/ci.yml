@@ -529,7 +529,7 @@ jobs:
       - name: Create Tag Release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         timeout-minutes: 10
-        uses: softprops/action-gh-release@v4
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
@@ -541,7 +541,7 @@ jobs:
       - name: Create Manual Dispatch Release
         if: github.event_name == 'workflow_dispatch' && inputs.tag != ''
         timeout-minutes: 10
-        uses: softprops/action-gh-release@v4
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ inputs.tag }}
           name: ${{ inputs.tag }}
