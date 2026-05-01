@@ -44,8 +44,8 @@ func TestService_List_Success(t *testing.T) {
 
 	resp, err := service.List(ctx, req)
 	if err != nil {
-		// Permission check may fail in test, that's expected
-		assert.Contains(t, err.Error(), "权限")
+		// Admin model not initialized in test, that's expected
+		assert.Contains(t, err.Error(), "管理员")
 		return
 	}
 
@@ -84,7 +84,7 @@ func TestService_List_FilterByEnv(t *testing.T) {
 
 	resp, err := service.List(ctx, req)
 	if err != nil {
-		assert.Contains(t, err.Error(), "权限")
+		assert.Contains(t, err.Error(), "管理员")
 		return
 	}
 
@@ -124,7 +124,7 @@ func TestService_History_Success(t *testing.T) {
 
 	resp, err := service.History(ctx, req)
 	if err != nil {
-		assert.Contains(t, err.Error(), "权限")
+		assert.Contains(t, err.Error(), "管理员")
 		return
 	}
 
@@ -169,7 +169,7 @@ func TestService_History_Pagination(t *testing.T) {
 
 	resp, err := service.History(ctx, req)
 	if err != nil {
-		assert.Contains(t, err.Error(), "权限")
+		assert.Contains(t, err.Error(), "管理员")
 		return
 	}
 
@@ -213,7 +213,7 @@ func TestService_Update_Success(t *testing.T) {
 
 	resp, err := service.Update(ctx, req)
 	if err != nil {
-		assert.Contains(t, err.Error(), "权限")
+		assert.Contains(t, err.Error(), "管理员")
 		return
 	}
 
@@ -280,7 +280,7 @@ func TestService_Update_RemoveAll(t *testing.T) {
 
 	resp, err := service.Update(ctx, req)
 	if err != nil {
-		assert.Contains(t, err.Error(), "权限")
+		assert.Contains(t, err.Error(), "管理员")
 		return
 	}
 
@@ -318,7 +318,7 @@ func TestService_Update_WithWhitespace(t *testing.T) {
 
 	resp, err := service.Update(ctx, req)
 	if err != nil {
-		assert.Contains(t, err.Error(), "权限")
+		assert.Contains(t, err.Error(), "管理员")
 		return
 	}
 
@@ -353,7 +353,7 @@ func TestService_LoadAssignments_NotExist(t *testing.T) {
 
 	resp, err := service.List(ctx, req)
 	if err != nil {
-		assert.Contains(t, err.Error(), "权限")
+		assert.Contains(t, err.Error(), "管理员")
 		return
 	}
 
@@ -386,7 +386,7 @@ func TestService_Update_CreateHistoryEntry(t *testing.T) {
 
 	_, err := service.Update(ctx, req)
 	if err != nil {
-		assert.Contains(t, err.Error(), "权限")
+		assert.Contains(t, err.Error(), "管理员")
 		return
 	}
 
