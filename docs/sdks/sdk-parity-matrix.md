@@ -118,6 +118,6 @@
 
 ## 相关文档
 
-- [SDK 规范](../sdk/specification.md)
+- [SDK 概览](../sdks/)
 - [SDK-Agent 传输重构设计](../architecture/sdk-agent-transport-redesign.md)
 - [SDK Wire Protocol](../architecture/sdk-wire-protocol.md)

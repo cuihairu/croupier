@@ -163,4 +163,4 @@ stateDiagram-v2
 - [核心概念总览](./overview.md)
 - [OpenAPI 函数注册](../integrations/openapi-registration.md)
 - [SDK Wire Protocol](../../architecture/sdk-wire-protocol.md)
-- [SDK 规范](../../sdk/specification.md)
+- [SDK 文档](../../sdks/)

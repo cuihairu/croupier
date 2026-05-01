@@ -194,5 +194,5 @@
 ## 相关文档
 
 - [C++ SDK 概览](./)
-- [SDK 规范](../../sdk/specification.md)
+- [SDK 文档](../../sdks/)
 - [SDK Wire Protocol](../../architecture/sdk-wire-protocol.md)

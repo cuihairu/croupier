@@ -113,5 +113,5 @@ curl http://localhost:8000
 - [配置管理](./configuration.md)
 - [部署指南](./deployment.md)
 - [核心概念](./concepts/overview.md)
-- [SDK 规范](../sdk/specification.md)
+- [SDK 文档](../sdks/)
 - [SDK-Agent 传输设计](../architecture/sdk-agent-transport-redesign.md)

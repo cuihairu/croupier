@@ -290,4 +290,4 @@ v1 默认规则：
 - [架构总览](./)
 - [SDK-Agent 传输重构设计](./sdk-agent-transport-redesign.md)
 - [Agent-Server TCP Session 重构设计](./agent-server-session-transport-redesign.md)
-- [SDK 规范](../sdk/specification.md)
+- [SDK 文档](../sdks/)
