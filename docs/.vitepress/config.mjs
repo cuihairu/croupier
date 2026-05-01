@@ -192,83 +192,89 @@ const config = defineConfig({
       ],
 
       '/sdks/': [
+        { text: 'SDK 概览', link: '/sdks/' },
+        { text: '能力矩阵', link: '/sdks/sdk-parity-matrix' },
         {
-          text: 'SDK 概览',
+          text: '语言文档',
           collapsed: false,
           items: [
-            { text: '简介', link: '/sdks/' },
-            { text: '能力矩阵', link: '/sdks/sdk-parity-matrix' },
+            { text: 'C++', link: '/sdks/cpp/' },
+            { text: 'Go', link: '/sdks/go/' },
+            { text: 'Java', link: '/sdks/java/' },
+            { text: 'JavaScript', link: '/sdks/js/' },
+            { text: 'Python', link: '/sdks/python/' },
+            { text: 'C#', link: '/sdks/csharp/' },
           ],
         },
+      ],
+
+      '/sdks/cpp/': [
+        { text: '概述', link: '/sdks/cpp/' },
         {
-          text: 'C++ SDK',
+          text: '指南',
           collapsed: true,
           items: [
-            { text: '概述', link: '/sdks/cpp/' },
             { text: '安装', link: '/sdks/cpp/guide/installation' },
             { text: '构建', link: '/sdks/cpp/guide/building' },
             { text: '快速开始', link: '/sdks/cpp/guide/quick-start' },
-            { text: '配置', link: '/sdks/cpp/configuration/' },
             { text: '函数', link: '/sdks/cpp/guide/functions' },
             { text: '虚拟对象', link: '/sdks/cpp/guide/virtual-objects' },
             { text: '插件', link: '/sdks/cpp/guide/plugins' },
+            { text: '配置', link: '/sdks/cpp/configuration/' },
+          ],
+        },
+        {
+          text: '进阶',
+          collapsed: true,
+          items: [
             { text: '架构', link: '/sdks/cpp/guide/architecture' },
             { text: '线程', link: '/sdks/cpp/guide/threading' },
             { text: '测试', link: '/sdks/cpp/guide/testing' },
             { text: '部署', link: '/sdks/cpp/guide/deployment' },
+          ],
+        },
+        {
+          text: '参考',
+          collapsed: true,
+          items: [
             { text: '约定', link: '/sdks/cpp/conventions' },
             { text: '集成', link: '/sdks/cpp/integration' },
-            { text: 'API 参考', link: '/sdks/cpp/api/' },
+            { text: 'API', link: '/sdks/cpp/api/' },
             { text: '示例', link: '/sdks/cpp/examples/' },
           ],
         },
-        {
-          text: 'Go SDK',
-          collapsed: true,
-          items: [
-            { text: '概述', link: '/sdks/go/' },
-            { text: '指南', link: '/sdks/go/guide/' },
-            { text: 'API 参考', link: '/sdks/go/api/' },
-            { text: '示例', link: '/sdks/go/examples/' },
-            { text: '端到端流程', link: '/sdks/go/e2e-flow' },
-          ],
-        },
-        {
-          text: 'Java SDK',
-          collapsed: true,
-          items: [
-            { text: '概述', link: '/sdks/java/' },
-            { text: '指南', link: '/sdks/java/guide/' },
-            { text: 'API 参考', link: '/sdks/java/api/' },
-          ],
-        },
-        {
-          text: 'JavaScript SDK',
-          collapsed: true,
-          items: [
-            { text: '概述', link: '/sdks/js/' },
-            { text: '指南', link: '/sdks/js/guide/' },
-            { text: 'API 参考', link: '/sdks/js/api/' },
-          ],
-        },
-        {
-          text: 'Python SDK',
-          collapsed: true,
-          items: [
-            { text: '概述', link: '/sdks/python/' },
-            { text: '指南', link: '/sdks/python/guide/' },
-            { text: 'API 参考', link: '/sdks/python/api/' },
-          ],
-        },
-        {
-          text: 'C# SDK',
-          collapsed: true,
-          items: [
-            { text: '概述', link: '/sdks/csharp/' },
-            { text: '指南', link: '/sdks/csharp/guide/' },
-            { text: 'API 参考', link: '/sdks/csharp/api/' },
-          ],
-        },
+      ],
+
+      '/sdks/go/': [
+        { text: '概述', link: '/sdks/go/' },
+        { text: '指南', link: '/sdks/go/guide/' },
+        { text: 'API', link: '/sdks/go/api/' },
+        { text: '示例', link: '/sdks/go/examples/' },
+        { text: '端到端流程', link: '/sdks/go/e2e-flow' },
+      ],
+
+      '/sdks/java/': [
+        { text: '概述', link: '/sdks/java/' },
+        { text: '指南', link: '/sdks/java/guide/' },
+        { text: 'API', link: '/sdks/java/api/' },
+      ],
+
+      '/sdks/js/': [
+        { text: '概述', link: '/sdks/js/' },
+        { text: '指南', link: '/sdks/js/guide/' },
+        { text: 'API', link: '/sdks/js/api/' },
+      ],
+
+      '/sdks/python/': [
+        { text: '概述', link: '/sdks/python/' },
+        { text: '指南', link: '/sdks/python/guide/' },
+        { text: 'API', link: '/sdks/python/api/' },
+      ],
+
+      '/sdks/csharp/': [
+        { text: '概述', link: '/sdks/csharp/' },
+        { text: '指南', link: '/sdks/csharp/guide/' },
+        { text: 'API', link: '/sdks/csharp/api/' },
       ],
 
       '/': [
