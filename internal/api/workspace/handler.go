@@ -171,6 +171,12 @@ func (h *Handler) Rollback(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	if c.Request.ContentLength > 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Error(c, err)
+			return
+		}
+	}
 
 	resp, err := h.service.Rollback(c.Request.Context(), &req)
 	if err != nil {

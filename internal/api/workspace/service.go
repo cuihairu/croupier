@@ -11,7 +11,6 @@ import (
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -124,12 +123,8 @@ func (s *Service) SaveConfig(ctx context.Context, req *SaveConfigRequest) (*Save
 		dto.Status = status
 	}
 
-	// Validate minimal required fields after merge.
-	if strings.TrimSpace(dto.Title) == "" {
-		return nil, errorx.NewBadRequest("title is required")
-	}
-	if dto.Layout == nil {
-		return nil, errorx.NewBadRequest("layout is required")
+	if err := validateWorkspaceConfig(dto, false); err != nil {
+		return nil, err
 	}
 
 	dto.UpdatedAt = now.UTC().Format(time.RFC3339)
@@ -140,26 +135,7 @@ func (s *Service) SaveConfig(ctx context.Context, req *SaveConfigRequest) (*Save
 	dto.PublishedBy = publishedBy
 	dto.Status = resolveWorkspaceStatus(&dto)
 
-	// Convert to WorkspaceConfig for storage
-	typesCfg := WorkspaceConfig{
-		ObjectKey:   dto.ObjectKey,
-		Title:       dto.Title,
-		Description: dto.Description,
-		Layout:      dto.Layout,
-		Published:   dto.Published,
-		PublishedBy: dto.PublishedBy,
-		MenuOrder:   dto.MenuOrder,
-		Status:      dto.Status,
-		Meta: WorkspaceConfigMeta{
-			CreatedAt: dto.CreatedAt,
-			UpdatedAt: dto.UpdatedAt,
-		},
-	}
-	if dto.PublishedAt != "" {
-		typesCfg.PublishedAt = dto.PublishedAt
-	}
-
-	configJSON, err := json.Marshal(typesCfg)
+	configJSON, err := json.Marshal(dto)
 	if err != nil {
 		return nil, errorx.NewInternalError("failed to marshal workspace config")
 	}
@@ -300,18 +276,13 @@ func (s *Service) VersionDetail(ctx context.Context, req *VersionDetailRequest) 
 		return nil, err
 	}
 
-	// Parse the config JSON
-	var configData interface{}
-	if record.Value != "" {
-		if err := json.Unmarshal([]byte(record.Value), &configData); err != nil {
-			// If JSON parsing fails, return the raw string
-			configData = record.Value
-		}
+	configData, _, err := decodeWorkspaceSnapshot(record.Value)
+	if err != nil {
+		return nil, errorx.NewInternalError("failed to parse workspace config from version")
 	}
 
-	// Build the response record
 	versionRecord := WorkspaceVersionRecord{
-		ID:        strconv.FormatUint(uint64(record.ID), 10),
+		ID:        strconv.Itoa(record.Version),
 		ObjectKey: record.Key,
 		Version:   record.Version,
 		Config:    configData,
@@ -320,10 +291,12 @@ func (s *Service) VersionDetail(ctx context.Context, req *VersionDetailRequest) 
 		Comment:   record.Message,
 	}
 
-	// Check if this is the current draft or published version
 	latest, err := s.svcCtx.ConfigVersionModel.FindLatest(ctx, key)
 	if err == nil {
 		versionRecord.IsCurrentDraft = (latest.ID == record.ID)
+	}
+	if configData.Published || normalizeWorkspaceStatus(configData.Status) == workspaceStatusPublished {
+		versionRecord.IsCurrentPublished = true
 	}
 
 	return &VersionDetailResponse{
@@ -354,46 +327,55 @@ func (s *Service) Rollback(ctx context.Context, req *RollbackRequest) (*Rollback
 		return nil, err
 	}
 
-	// Parse the workspace config from the version record
-	var workspaceCfg WorkspaceConfig
-	if err := json.Unmarshal([]byte(record.Value), &workspaceCfg); err != nil {
+	workspaceCfg, _, err := decodeWorkspaceSnapshot(record.Value)
+	if err != nil {
 		return nil, errorx.NewInternalError("failed to parse workspace config from version")
 	}
+	workspaceCfg.ObjectKey = objectKey
+	workspaceCfg.Version = 0
+	workspaceCfg.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+	workspaceCfg.Status = resolveWorkspaceStatus(&workspaceCfg)
 
-	// Apply the rollback: update the workspace config with the version data
 	cfgModel := s.svcCtx.WorkspaceConfigModel
 	if cfgModel == nil {
 		return nil, errorx.NewInternalError("workspace config model not available")
 	}
-
-	// Marshal just the layout part to store in Config field
-	layoutJSON, err := json.Marshal(workspaceCfg.Layout)
-	if err != nil {
-		return nil, errorx.NewInternalError("failed to marshal layout: " + err.Error())
-	}
-
-	// Update the workspace config with the rolled-back data
 	update := &model.WorkspaceConfig{
-		ObjectKey: objectKey,
-		Title:     workspaceCfg.Title,
-		Config:    datatypes.JSON(layoutJSON),
+		ObjectKey:   objectKey,
+		Title:       workspaceCfg.Title,
+		Published:   workspaceCfg.Published,
+		MenuOrder:   workspaceCfg.MenuOrder,
+		PublishedBy: workspaceCfg.PublishedBy,
+		PublishedAt: workspacePublishedAt(workspaceCfg),
+	}
+	if configJSON, marshalErr := json.Marshal(workspaceCfg); marshalErr == nil {
+		update.Config = configJSON
+	} else {
+		return nil, errorx.NewInternalError("failed to marshal workspace config")
 	}
 
 	if err := cfgModel.Upsert(ctx, update); err != nil {
 		return nil, err
 	}
 
-	// If the rolled-back version was published, also mark it as published
-	if workspaceCfg.Published {
+	if workspaceCfg.Published || normalizeWorkspaceStatus(workspaceCfg.Status) == workspaceStatusPublished {
 		actor := workspaceActorFromCtx(ctx)
 		if err := cfgModel.SetPublished(ctx, objectKey, true, actor); err != nil {
 			return nil, err
 		}
+	} else if err := cfgModel.SetPublished(ctx, objectKey, false, ""); err != nil {
+		return nil, err
+	}
+
+	actor := workspaceActorFromCtx(ctx)
+	rolledBackVersion := 0
+	if version, versionErr := persistWorkspaceVersion(ctx, s.svcCtx, workspaceCfg, actor, "rollback workspace config"); versionErr == nil {
+		rolledBackVersion = version
 	}
 
 	return &RollbackResponse{
 		ObjectKey: objectKey,
-		Version:   version,
+		Version:   rolledBackVersion,
 	}, nil
 }
 
@@ -420,15 +402,18 @@ func (s *Service) listVersions(ctx context.Context, objectKey, from, to string) 
 	}
 
 	currentPublishedVersion := 0
-	if latestCfg, cfgErr := s.svcCtx.WorkspaceConfigModel.FindByObjectKey(ctx, objectKey); cfgErr == nil {
-		if latestCfg.Published && latestCfg.PublishedAt != nil {
-			// Find the version that matches the published_at timestamp
-			publishedTime := latestCfg.PublishedAt.Unix()
-			for _, rec := range records {
-				if rec.CreatedAt.Unix() == publishedTime {
-					currentPublishedVersion = rec.Version
-					break
-				}
+	if latestCfg, cfgErr := s.svcCtx.WorkspaceConfigModel.FindByObjectKey(ctx, objectKey); cfgErr == nil && latestCfg.Published {
+		for _, rec := range records {
+			if rec.Value == "" {
+				continue
+			}
+			cfg, _, decodeErr := decodeWorkspaceSnapshot(rec.Value)
+			if decodeErr != nil {
+				continue
+			}
+			if cfg.Published || normalizeWorkspaceStatus(cfg.Status) == workspaceStatusPublished {
+				currentPublishedVersion = rec.Version
+				break
 			}
 		}
 	}
@@ -443,15 +428,19 @@ func (s *Service) listVersions(ctx context.Context, objectKey, from, to string) 
 			continue
 		}
 
-		var configData interface{}
-		if record.Value != "" {
-			if err := json.Unmarshal([]byte(record.Value), &configData); err != nil {
-				configData = record.Value // fallback to raw string
+		configData, legacyLayout, decodeErr := decodeWorkspaceSnapshot(record.Value)
+		if decodeErr != nil {
+			configData = WorkspaceConfig{}
+		}
+		if legacyLayout {
+			var raw interface{}
+			if err := json.Unmarshal([]byte(record.Value), &raw); err == nil {
+				configData.Layout = raw
 			}
 		}
 
 		result = append(result, WorkspaceVersionRecord{
-			ID:                 strconv.FormatUint(uint64(record.ID), 10),
+			ID:                 strconv.Itoa(record.Version),
 			ObjectKey:          record.Key,
 			Version:            record.Version,
 			Config:             configData,

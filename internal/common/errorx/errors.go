@@ -3,13 +3,15 @@ package errorx
 import (
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 // CodeError 带错误码的错误
 type CodeError struct {
-	Code    int            `json:"code"`
-	Message string         `json:"message"`
-	Details map[string]any `json:"details,omitempty"`
+	Code       int            `json:"code"`
+	Message    string         `json:"message"`
+	Details    map[string]any `json:"details,omitempty"`
+	CustomCode string         `json:"-"`
 }
 
 func (e *CodeError) Error() string {
@@ -18,8 +20,10 @@ func (e *CodeError) Error() string {
 
 // Data 返回错误的 HTTP 状态码和响应体
 func (e *CodeError) Data() (int, interface{}) {
+	errorCode := e.ErrorCode()
 	payload := map[string]interface{}{
-		"error":   e.ErrorCode(),
+		"code":    errorCode,
+		"error":   errorCode,
 		"message": e.Message,
 	}
 	if len(e.Details) > 0 {
@@ -30,6 +34,9 @@ func (e *CodeError) Data() (int, interface{}) {
 
 // ErrorCode 返回错误码字符串
 func (e *CodeError) ErrorCode() string {
+	if e != nil && strings.TrimSpace(e.CustomCode) != "" {
+		return strings.TrimSpace(e.CustomCode)
+	}
 	return errorCodeMap[e.Code]
 }
 
@@ -56,9 +63,10 @@ func NewBadRequest(message string) *CodeError {
 
 func NewBadRequestWithDetails(message string, details map[string]any) *CodeError {
 	return &CodeError{
-		Code:    http.StatusBadRequest,
-		Message: message,
-		Details: details,
+		Code:       http.StatusBadRequest,
+		Message:    message,
+		Details:    details,
+		CustomCode: customCodeFromDetails(details),
 	}
 }
 
@@ -92,9 +100,10 @@ func NewConflict(message string) *CodeError {
 
 func NewConflictWithDetails(message string, details map[string]any) *CodeError {
 	return &CodeError{
-		Code:    http.StatusConflict,
-		Message: message,
-		Details: details,
+		Code:       http.StatusConflict,
+		Message:    message,
+		Details:    details,
+		CustomCode: customCodeFromDetails(details),
 	}
 }
 
@@ -142,8 +151,20 @@ func (e *ValidationError) Error() string {
 
 func (e *ValidationError) Data() (int, interface{}) {
 	return e.Code, map[string]interface{}{
+		"code":    "validation_failed",
 		"error":   "validation_failed",
 		"message": e.Message,
 		"details": e.Details,
 	}
+}
+
+func customCodeFromDetails(details map[string]any) string {
+	if details == nil {
+		return ""
+	}
+	raw, ok := details["code"].(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(raw)
 }

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"gorm.io/gorm"
@@ -77,12 +78,63 @@ func toDTO(m *model.WorkspaceConfig) WorkspaceConfig {
 		cfg.PublishedAt = m.PublishedAt.Format(time.RFC3339)
 	}
 
-	// Unmarshal the JSON config into Layout
+	// Config always stores the full WorkspaceConfig JSON snapshot.
 	if len(m.Config) > 0 {
-		var layout interface{}
-		if err := json.Unmarshal(m.Config, &layout); err == nil {
-			cfg.Layout = layout
+		var stored WorkspaceConfig
+		if err := json.Unmarshal(m.Config, &stored); err == nil {
+			if strings.TrimSpace(stored.ObjectKey) != "" {
+				cfg.ObjectKey = stored.ObjectKey
+			}
+			if strings.TrimSpace(stored.Title) != "" {
+				cfg.Title = stored.Title
+			}
+			cfg.Description = stored.Description
+			cfg.Layout = stored.Layout
+			cfg.MenuOrder = stored.MenuOrder
+			if status := normalizeWorkspaceStatus(stored.Status); status != "" {
+				cfg.Status = status
+			}
+			if stored.Published {
+				cfg.Published = true
+			}
+			if strings.TrimSpace(stored.PublishedBy) != "" {
+				cfg.PublishedBy = stored.PublishedBy
+			}
+			if strings.TrimSpace(stored.PublishedAt) != "" {
+				cfg.PublishedAt = stored.PublishedAt
+			}
+			if strings.TrimSpace(stored.CreatedAt) != "" {
+				cfg.CreatedAt = stored.CreatedAt
+			}
+			if strings.TrimSpace(stored.UpdatedAt) != "" {
+				cfg.UpdatedAt = stored.UpdatedAt
+			}
+			if strings.TrimSpace(stored.Meta.CreatedAt) != "" || strings.TrimSpace(stored.Meta.UpdatedAt) != "" {
+				cfg.Meta = stored.Meta
+			}
+			if stored.Version > 0 {
+				cfg.Version = stored.Version
+			}
+		} else {
+			// Backward compatibility for legacy rows that stored layout only.
+			var legacyLayout interface{}
+			if legacyErr := json.Unmarshal(m.Config, &legacyLayout); legacyErr == nil {
+				cfg.Layout = legacyLayout
+			}
 		}
+	}
+
+	if cfg.CreatedAt == "" && !m.CreatedAt.IsZero() {
+		cfg.CreatedAt = m.CreatedAt.UTC().Format(time.RFC3339)
+	}
+	if cfg.UpdatedAt == "" && !m.UpdatedAt.IsZero() {
+		cfg.UpdatedAt = m.UpdatedAt.UTC().Format(time.RFC3339)
+	}
+	if cfg.Meta.CreatedAt == "" && cfg.CreatedAt != "" {
+		cfg.Meta.CreatedAt = cfg.CreatedAt
+	}
+	if cfg.Meta.UpdatedAt == "" && cfg.UpdatedAt != "" {
+		cfg.Meta.UpdatedAt = cfg.UpdatedAt
 	}
 
 	if m.Published {
@@ -103,24 +155,7 @@ func persistWorkspaceVersion(
 		return 0, nil
 	}
 
-	// Convert WorkspaceConfig to WorkspaceConfig for versioning
-	typesCfg := WorkspaceConfig{
-		ObjectKey:   cfg.ObjectKey,
-		Title:       cfg.Title,
-		Layout:      cfg.Layout,
-		Published:   cfg.Published,
-		MenuOrder:   cfg.MenuOrder,
-		Status:      cfg.Status,
-		PublishedBy: cfg.PublishedBy,
-		PublishedAt: cfg.PublishedAt,
-		Meta: WorkspaceConfigMeta{
-			CreatedAt: cfg.CreatedAt,
-			UpdatedAt: cfg.UpdatedAt,
-		},
-		Version: cfg.Version,
-	}
-
-	payload, err := json.Marshal(typesCfg)
+	payload, err := json.Marshal(cfg)
 	if err != nil {
 		return 0, err
 	}
@@ -134,6 +169,43 @@ func persistWorkspaceVersion(
 		return 0, err
 	}
 	return record.Version, nil
+}
+
+func decodeWorkspaceSnapshot(raw string) (WorkspaceConfig, bool, error) {
+	var cfg WorkspaceConfig
+	if err := json.Unmarshal([]byte(raw), &cfg); err == nil {
+		if strings.TrimSpace(cfg.ObjectKey) != "" ||
+			strings.TrimSpace(cfg.Title) != "" ||
+			strings.TrimSpace(cfg.Description) != "" ||
+			cfg.Layout != nil ||
+			cfg.Published ||
+			strings.TrimSpace(cfg.PublishedAt) != "" ||
+			strings.TrimSpace(cfg.PublishedBy) != "" ||
+			cfg.MenuOrder != 0 ||
+			strings.TrimSpace(cfg.Status) != "" ||
+			strings.TrimSpace(cfg.CreatedAt) != "" ||
+			strings.TrimSpace(cfg.UpdatedAt) != "" ||
+			cfg.Version != 0 {
+			return cfg, false, nil
+		}
+	}
+
+	var legacyLayout interface{}
+	if err := json.Unmarshal([]byte(raw), &legacyLayout); err != nil {
+		return WorkspaceConfig{}, false, err
+	}
+	return WorkspaceConfig{Layout: legacyLayout}, true, nil
+}
+
+func workspacePublishedAt(cfg WorkspaceConfig) *time.Time {
+	if strings.TrimSpace(cfg.PublishedAt) == "" {
+		return nil
+	}
+	parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(cfg.PublishedAt))
+	if err != nil {
+		return nil
+	}
+	return &parsed
 }
 
 func enrichWorkspaceVersion(
@@ -157,13 +229,189 @@ func enrichWorkspaceVersion(
 }
 
 func validateWorkspaceForPublish(cfg WorkspaceConfig) error {
-	if strings.TrimSpace(cfg.Title) == "" {
-		return errors.New("title is required for publishing")
-	}
-	if cfg.Layout == nil {
-		return errors.New("layout is required for publishing")
+	if err := validateWorkspaceConfig(cfg, true); err != nil {
+		return err
 	}
 	return nil
+}
+
+func validateWorkspaceConfig(cfg WorkspaceConfig, publishing bool) error {
+	if strings.TrimSpace(cfg.ObjectKey) == "" {
+		return badWorkspaceRequest("objectKey is required", nil)
+	}
+	if strings.TrimSpace(cfg.Title) == "" {
+		return badWorkspaceRequest("title is required", nil)
+	}
+	if cfg.Layout == nil {
+		return badWorkspaceRequest("layout is required", nil)
+	}
+
+	layoutMap, ok := cfg.Layout.(map[string]interface{})
+	if !ok {
+		return badWorkspaceRequest("layout must be a JSON object", nil)
+	}
+	layoutType := strings.TrimSpace(asString(layoutMap["type"]))
+	if layoutType == "" {
+		return badWorkspaceRequest("layout.type is required", map[string]any{"field": "layout.type"})
+	}
+	if layoutType != "tabs" {
+		return badWorkspaceRequest(
+			fmt.Sprintf("layout.type must be tabs, got %s", layoutType),
+			map[string]any{"field": "layout.type"},
+		)
+	}
+
+	tabs, ok := layoutMap["tabs"].([]interface{})
+	if !ok || len(tabs) == 0 {
+		return badWorkspaceRequest("layout.tabs must contain at least one tab", map[string]any{"field": "layout.tabs"})
+	}
+
+	supportedTabLayouts := map[string]struct{}{
+		"list":        {},
+		"form":        {},
+		"detail":      {},
+		"form-detail": {},
+		"kanban":      {},
+		"timeline":    {},
+		"split":       {},
+		"wizard":      {},
+		"dashboard":   {},
+		"grid":        {},
+		"custom":      {},
+		"single":      {},
+	}
+
+	tabKeys := make(map[string]struct{}, len(tabs))
+	for index, rawTab := range tabs {
+		tab, ok := rawTab.(map[string]interface{})
+		if !ok {
+			return badWorkspaceRequest(
+				fmt.Sprintf("layout.tabs[%d] must be a JSON object", index),
+				map[string]any{"field": fmt.Sprintf("layout.tabs[%d]", index)},
+			)
+		}
+
+		tabKey := strings.TrimSpace(asString(tab["key"]))
+		if tabKey == "" {
+			return badWorkspaceRequest(
+				fmt.Sprintf("layout.tabs[%d].key is required", index),
+				map[string]any{"field": fmt.Sprintf("layout.tabs[%d].key", index)},
+			)
+		}
+		if _, exists := tabKeys[tabKey]; exists {
+			return badWorkspaceRequest(
+				fmt.Sprintf("layout.tabs[%d].key duplicates %q", index, tabKey),
+				map[string]any{"field": fmt.Sprintf("layout.tabs[%d].key", index)},
+			)
+		}
+		tabKeys[tabKey] = struct{}{}
+
+		if strings.TrimSpace(asString(tab["title"])) == "" {
+			return badWorkspaceRequest(
+				fmt.Sprintf("layout.tabs[%d].title is required", index),
+				map[string]any{"field": fmt.Sprintf("layout.tabs[%d].title", index)},
+			)
+		}
+
+		rawTabLayout, ok := tab["layout"].(map[string]interface{})
+		if !ok {
+			return badWorkspaceRequest(
+				fmt.Sprintf("layout.tabs[%d].layout must be a JSON object", index),
+				map[string]any{"field": fmt.Sprintf("layout.tabs[%d].layout", index)},
+			)
+		}
+		tabLayoutType := strings.TrimSpace(asString(rawTabLayout["type"]))
+		if tabLayoutType == "" {
+			return badWorkspaceRequest(
+				fmt.Sprintf("layout.tabs[%d].layout.type is required", index),
+				map[string]any{"field": fmt.Sprintf("layout.tabs[%d].layout.type", index)},
+			)
+		}
+		if _, supported := supportedTabLayouts[tabLayoutType]; !supported {
+			return badWorkspaceRequest(
+				fmt.Sprintf("layout.tabs[%d].layout.type %q is not supported", index, tabLayoutType),
+				map[string]any{"field": fmt.Sprintf("layout.tabs[%d].layout.type", index)},
+			)
+		}
+
+		if err := validateTabLayout(index, tabLayoutType, rawTabLayout, publishing); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateTabLayout(index int, layoutType string, layout map[string]interface{}, publishing bool) error {
+	fieldPrefix := fmt.Sprintf("layout.tabs[%d].layout", index)
+	switch layoutType {
+	case "list":
+		if strings.TrimSpace(asString(layout["listFunction"])) == "" {
+			return badWorkspaceRequest(
+				fmt.Sprintf("%s.listFunction is required", fieldPrefix),
+				map[string]any{"field": fieldPrefix + ".listFunction"},
+			)
+		}
+		if publishing && len(asObjectSlice(layout["columns"])) == 0 {
+			return badWorkspaceRequest(
+				fmt.Sprintf("%s.columns must contain at least one item", fieldPrefix),
+				map[string]any{"field": fieldPrefix + ".columns"},
+			)
+		}
+	case "form":
+		if strings.TrimSpace(asString(layout["submitFunction"])) == "" {
+			return badWorkspaceRequest(
+				fmt.Sprintf("%s.submitFunction is required", fieldPrefix),
+				map[string]any{"field": fieldPrefix + ".submitFunction"},
+			)
+		}
+		if publishing && len(asObjectSlice(layout["fields"])) == 0 {
+			return badWorkspaceRequest(
+				fmt.Sprintf("%s.fields must contain at least one item", fieldPrefix),
+				map[string]any{"field": fieldPrefix + ".fields"},
+			)
+		}
+	case "detail":
+		if strings.TrimSpace(asString(layout["detailFunction"])) == "" &&
+			strings.TrimSpace(asString(layout["dataFunction"])) == "" {
+			return badWorkspaceRequest(
+				fmt.Sprintf("%s.detailFunction or %s.dataFunction is required", fieldPrefix, fieldPrefix),
+				map[string]any{"field": fieldPrefix},
+			)
+		}
+	case "form-detail":
+		if strings.TrimSpace(asString(layout["queryFunction"])) == "" {
+			return badWorkspaceRequest(
+				fmt.Sprintf("%s.queryFunction is required", fieldPrefix),
+				map[string]any{"field": fieldPrefix + ".queryFunction"},
+			)
+		}
+		if publishing && len(asObjectSlice(layout["queryFields"])) == 0 {
+			return badWorkspaceRequest(
+				fmt.Sprintf("%s.queryFields must contain at least one item", fieldPrefix),
+				map[string]any{"field": fieldPrefix + ".queryFields"},
+			)
+		}
+	}
+	return nil
+}
+
+func badWorkspaceRequest(message string, details map[string]any) error {
+	if details == nil {
+		details = map[string]any{}
+	}
+	details["code"] = "workspace_invalid_config"
+	return errorx.NewBadRequestWithDetails(message, details)
+}
+
+func asString(value interface{}) string {
+	text, _ := value.(string)
+	return text
+}
+
+func asObjectSlice(value interface{}) []interface{} {
+	items, _ := value.([]interface{})
+	return items
 }
 
 func parseWorkspaceVersionTimeRange(from, to string) (fromAt, toAt time.Time, err error) {
