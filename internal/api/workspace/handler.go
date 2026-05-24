@@ -3,6 +3,7 @@ package workspace
 import (
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
+	"strings"
 )
 
 type Handler struct {
@@ -166,15 +167,24 @@ func (h *Handler) VersionDetail(c *gin.Context) {
 
 // Rollback handles the request to rollback a workspace to a specific version
 func (h *Handler) Rollback(c *gin.Context) {
-	var req RollbackRequest
-	if err := c.ShouldBindUri(&req); err != nil {
+	var uriReq struct {
+		ObjectKey string `uri:"objectKey" binding:"required"`
+	}
+	if err := c.ShouldBindUri(&uriReq); err != nil {
 		response.Error(c, err)
 		return
 	}
+	req := RollbackRequest{ObjectKey: uriReq.ObjectKey}
 	if c.Request.ContentLength > 0 {
-		if err := c.ShouldBindJSON(&req); err != nil {
+		var bodyReq struct {
+			VersionID string `json:"versionId"`
+		}
+		if err := c.ShouldBindJSON(&bodyReq); err != nil {
 			response.Error(c, err)
 			return
+		}
+		if strings.TrimSpace(bodyReq.VersionID) != "" {
+			req.VersionID = bodyReq.VersionID
 		}
 	}
 

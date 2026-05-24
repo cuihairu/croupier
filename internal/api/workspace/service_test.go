@@ -236,3 +236,43 @@ func TestService_Rollback_RestoresSnapshotAndVersionPointers(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "版本一", detailConfig.Title)
 }
+
+func TestService_Versions_MarksPublishedSnapshot(t *testing.T) {
+	db := setupWorkspaceServiceTestDB(t)
+	svcCtx := setupWorkspaceServiceContext(t, db)
+	service := NewService(svcCtx)
+
+	ctx := context.WithValue(context.Background(), "username", "tester")
+
+	_, err := service.SaveConfig(ctx, &SaveConfigRequest{
+		ObjectKey:   "player",
+		Title:       "草稿一",
+		Description: "草稿",
+		MenuOrder:   1,
+		Status:      "draft",
+		Layout:      validWorkspaceLayout(),
+	})
+	require.NoError(t, err)
+
+	_, err = service.Publish(ctx, &PublishRequest{ObjectKey: "player", PublishedBy: "tester"})
+	require.NoError(t, err)
+
+	_, err = service.SaveConfig(ctx, &SaveConfigRequest{
+		ObjectKey:   "player",
+		Title:       "草稿二",
+		Description: "二次修改",
+		MenuOrder:   2,
+		Status:      "draft",
+		Layout:      validWorkspaceLayout(),
+	})
+	require.NoError(t, err)
+
+	versionsResp, err := service.Versions(ctx, &VersionsRequest{ObjectKey: "player"})
+	require.NoError(t, err)
+	require.Len(t, versionsResp.Items, 3)
+
+	assert.True(t, versionsResp.Items[0].IsCurrentDraft)
+	assert.True(t, versionsResp.Items[0].IsCurrentPublished)
+	assert.False(t, versionsResp.Items[1].IsCurrentPublished)
+	assert.False(t, versionsResp.Items[2].IsCurrentPublished)
+}

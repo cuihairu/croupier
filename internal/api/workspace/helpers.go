@@ -208,6 +208,46 @@ func workspacePublishedAt(cfg WorkspaceConfig) *time.Time {
 	return &parsed
 }
 
+func resolveWorkspaceVersionPointers(
+	ctx context.Context,
+	svcCtx *svc.ServiceContext,
+	objectKey string,
+	records []model.ConfigVersion,
+) (currentDraftVersion int, currentPublishedVersion int, err error) {
+	if len(records) > 0 {
+		currentDraftVersion = records[0].Version
+	}
+	if svcCtx == nil || svcCtx.WorkspaceConfigModel == nil {
+		return currentDraftVersion, 0, nil
+	}
+
+	currentCfg, err := svcCtx.WorkspaceConfigModel.FindByObjectKey(ctx, objectKey)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return currentDraftVersion, 0, nil
+		}
+		return 0, 0, err
+	}
+	if !currentCfg.Published {
+		return currentDraftVersion, 0, nil
+	}
+
+	for _, rec := range records {
+		if rec.Value == "" {
+			continue
+		}
+		cfg, _, decodeErr := decodeWorkspaceSnapshot(rec.Value)
+		if decodeErr != nil {
+			continue
+		}
+		if cfg.Published || normalizeWorkspaceStatus(cfg.Status) == workspaceStatusPublished {
+			return currentDraftVersion, rec.Version, nil
+		}
+	}
+
+	return currentDraftVersion, 0, nil
+}
+
 func enrichWorkspaceVersion(
 	ctx context.Context,
 	svcCtx *svc.ServiceContext,

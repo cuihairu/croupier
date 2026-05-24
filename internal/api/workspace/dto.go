@@ -130,7 +130,7 @@ type VersionDetailResponse struct {
 // RollbackRequest is the request to rollback a workspace
 type RollbackRequest struct {
 	ObjectKey string `uri:"objectKey" binding:"required"`
-	VersionID string `uri:"versionId" binding:"required"`
+	VersionID string `json:"versionId" binding:"required"`
 }
 
 // RollbackResponse is the response from rolling back workspace

@@ -280,10 +280,11 @@ func (s *Service) VersionDetail(ctx context.Context, req *VersionDetailRequest) 
 	if err != nil {
 		return nil, errorx.NewInternalError("failed to parse workspace config from version")
 	}
+	configData.Version = record.Version
 
 	versionRecord := WorkspaceVersionRecord{
 		ID:        strconv.Itoa(record.Version),
-		ObjectKey: record.Key,
+		ObjectKey: req.ObjectKey,
 		Version:   record.Version,
 		Config:    configData,
 		CreatedAt: record.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
@@ -291,12 +292,16 @@ func (s *Service) VersionDetail(ctx context.Context, req *VersionDetailRequest) 
 		Comment:   record.Message,
 	}
 
-	latest, err := s.svcCtx.ConfigVersionModel.FindLatest(ctx, key)
-	if err == nil {
-		versionRecord.IsCurrentDraft = (latest.ID == record.ID)
-	}
-	if configData.Published || normalizeWorkspaceStatus(configData.Status) == workspaceStatusPublished {
-		versionRecord.IsCurrentPublished = true
+	allRecords, listErr := s.svcCtx.ConfigVersionModel.List(ctx, key)
+	if listErr == nil {
+		currentDraftVersion, currentPublishedVersion, resolveErr := resolveWorkspaceVersionPointers(ctx, s.svcCtx, req.ObjectKey, allRecords)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		versionRecord.IsCurrentDraft = currentDraftVersion == record.Version
+		versionRecord.IsCurrentPublished = currentPublishedVersion == record.Version
+	} else if errors.Is(listErr, gorm.ErrRecordNotFound) {
+		versionRecord.IsCurrentDraft = true
 	}
 
 	return &VersionDetailResponse{
@@ -335,6 +340,7 @@ func (s *Service) Rollback(ctx context.Context, req *RollbackRequest) (*Rollback
 	workspaceCfg.Version = 0
 	workspaceCfg.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
 	workspaceCfg.Status = resolveWorkspaceStatus(&workspaceCfg)
+	workspaceCfg.PublishedAt = ""
 
 	cfgModel := s.svcCtx.WorkspaceConfigModel
 	if cfgModel == nil {
@@ -394,28 +400,9 @@ func (s *Service) listVersions(ctx context.Context, objectKey, from, to string) 
 	if err != nil {
 		return nil, err
 	}
-	currentDraftVersion := 0
-	if latest, latestErr := s.svcCtx.ConfigVersionModel.FindLatest(ctx, versionKey); latestErr == nil {
-		currentDraftVersion = latest.Version
-	} else if latestErr != nil && !errors.Is(latestErr, gorm.ErrRecordNotFound) {
-		return nil, latestErr
-	}
-
-	currentPublishedVersion := 0
-	if latestCfg, cfgErr := s.svcCtx.WorkspaceConfigModel.FindByObjectKey(ctx, objectKey); cfgErr == nil && latestCfg.Published {
-		for _, rec := range records {
-			if rec.Value == "" {
-				continue
-			}
-			cfg, _, decodeErr := decodeWorkspaceSnapshot(rec.Value)
-			if decodeErr != nil {
-				continue
-			}
-			if cfg.Published || normalizeWorkspaceStatus(cfg.Status) == workspaceStatusPublished {
-				currentPublishedVersion = rec.Version
-				break
-			}
-		}
+	currentDraftVersion, currentPublishedVersion, err := resolveWorkspaceVersionPointers(ctx, s.svcCtx, objectKey, records)
+	if err != nil {
+		return nil, err
 	}
 
 	result := make([]WorkspaceVersionRecord, 0, len(records))
@@ -432,6 +419,7 @@ func (s *Service) listVersions(ctx context.Context, objectKey, from, to string) 
 		if decodeErr != nil {
 			configData = WorkspaceConfig{}
 		}
+		configData.Version = record.Version
 		if legacyLayout {
 			var raw interface{}
 			if err := json.Unmarshal([]byte(record.Value), &raw); err == nil {
@@ -441,7 +429,7 @@ func (s *Service) listVersions(ctx context.Context, objectKey, from, to string) 
 
 		result = append(result, WorkspaceVersionRecord{
 			ID:                 strconv.Itoa(record.Version),
-			ObjectKey:          record.Key,
+			ObjectKey:          objectKey,
 			Version:            record.Version,
 			Config:             configData,
 			IsCurrentDraft:     record.Version == currentDraftVersion,
