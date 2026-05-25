@@ -327,7 +327,7 @@ jobs:
           }
           $ninjaPath = (Get-Command ninja).Source
           $ninjaDir = Split-Path $ninjaPath -Parent
-          echo "$ninjaDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "$ninjaDir" >> $env:GITHUB_PATH
           ninja --version
 
       - name: Setup MSVC Developer Command Prompt
