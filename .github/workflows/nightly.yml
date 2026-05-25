@@ -149,10 +149,10 @@ jobs:
         shell: bash
         working-directory: ./sdks/go
         run: |
-          mkdir -p "${GITHUB_WORKSPACE}/release-artifacts"
+          mkdir -p artifacts
           tar --exclude='*_test.go' \
             --exclude='examples/**/*.test' \
-            -czf "${GITHUB_WORKSPACE}/release-artifacts/sdk-go-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz" \
+            -czf "artifacts/sdk-go-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz" \
             go.mod \
             go.sum \
             version.go \
@@ -168,7 +168,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: go-sdk-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: release-artifacts/sdk-go-*.tar.gz
+          path: sdks/go/artifacts/sdk-go-*.tar.gz
           retention-days: 7
 
   build-other-sdks:
