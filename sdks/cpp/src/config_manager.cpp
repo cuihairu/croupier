@@ -342,9 +342,9 @@ bool ConfigManager::GenerateExampleConfigs(const std::string& output_dir) {
 
     try {
         // 创建目录结构
-        CreateDirectory(output_dir);
-        CreateDirectory(output_dir + "/components");
-        CreateDirectory(output_dir + "/schemas");
+        EnsureDirectory(output_dir);
+        EnsureDirectory(output_dir + "/components");
+        EnsureDirectory(output_dir + "/schemas");
 
 #ifdef CROUPIER_SDK_ENABLE_JSON
         // 1. 生成客户端配置
@@ -476,7 +476,7 @@ std::vector<std::string> ConfigManager::ListFiles(const std::string& directory, 
     return files;
 }
 
-bool ConfigManager::CreateDirectory(const std::string& path) {
+bool ConfigManager::EnsureDirectory(const std::string& path) {
 #ifdef _WIN32
     return CreateDirectoryA(path.c_str(), nullptr) || GetLastError() == ERROR_ALREADY_EXISTS;
 #else

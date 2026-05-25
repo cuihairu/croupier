@@ -152,7 +152,7 @@ private:
     // 内部辅助方法
     std::string LoadFileContent(const std::string& file_path);
     std::vector<std::string> ListFiles(const std::string& directory, const std::string& file_extension);
-    bool CreateDirectory(const std::string& path);
+    bool EnsureDirectory(const std::string& path);
 
 #ifdef CROUPIER_SDK_ENABLE_JSON
     ClientConfig ParseClientConfigFromJson(const nlohmann::json& json);
