@@ -23,10 +23,10 @@ func NewTaskEventQueryAdapter(events *model.TaskEventModel, runs *model.TaskRunM
 }
 
 // ListEvents returns task events after the given sequence number.
-func (a *TaskEventQueryAdapter) ListEvents(ctx context.Context, taskID string, afterSeq int64) ([]*sdkv1.TaskEvent, error) {
+func (a *TaskEventQueryAdapter) ListEvents(ctx context.Context, taskID string, afterSeq int64) ([]TaskEventRecord, error) {
 	taskID = strings.TrimSpace(taskID)
 	if taskID == "" {
-		return []*sdkv1.TaskEvent{}, nil
+		return []TaskEventRecord{}, nil
 	}
 
 	events, err := a.events.ListByTaskID(ctx, taskID, afterSeq)
@@ -34,35 +34,33 @@ func (a *TaskEventQueryAdapter) ListEvents(ctx context.Context, taskID string, a
 		return nil, err
 	}
 
-	result := make([]*sdkv1.TaskEvent, len(events))
+	result := make([]TaskEventRecord, len(events))
 	for i, evt := range events {
-		result[i] = &sdkv1.TaskEvent{
-			TaskId:   evt.TaskID,
-			Type:     evt.Type,
-			Progress: evt.Progress,
-			Message:  evt.Message,
-			Payload:  evt.Payload,
+		result[i] = TaskEventRecord{
+			Seq: evt.Seq,
+			Event: &sdkv1.TaskEvent{
+				TaskId:   evt.TaskID,
+				Type:     evt.Type,
+				Progress: evt.Progress,
+				Message:  evt.Message,
+				Payload:  evt.Payload,
+			},
 		}
 	}
 	return result, nil
 }
 
 // GetRun returns the task run for the given task ID.
-// TODO: TaskRun is not yet defined in SDK, returns nil for now.
-func (a *TaskEventQueryAdapter) GetRun(ctx context.Context, taskID string) (*sdkv1.TaskEvent, error) {
+func (a *TaskEventQueryAdapter) GetRun(ctx context.Context, taskID string) (*TaskRunState, error) {
 	taskID = strings.TrimSpace(taskID)
 	if taskID == "" {
 		return nil, nil
 	}
 
-	_, err := a.runs.FindByTaskID(ctx, taskID)
+	run, err := a.runs.FindByTaskID(ctx, taskID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Return a placeholder TaskEvent since TaskRun doesn't exist in SDK yet
-	return &sdkv1.TaskEvent{
-		TaskId: taskID,
-		Type:   "completed",
-	}, nil
+	return &TaskRunState{Status: run.Status}, nil
 }

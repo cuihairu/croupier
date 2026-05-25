@@ -24,10 +24,21 @@ type AgentSessionResolver interface {
 	ResolveAgentConn(agentID string) (transport.SessionCaller, bool)
 }
 
+// TaskEventRecord is a persisted task event with sequence metadata.
+type TaskEventRecord struct {
+	Seq   int64
+	Event *sdkv1.TaskEvent
+}
+
+// TaskRunState is the persisted task run state used to determine completion.
+type TaskRunState struct {
+	Status string
+}
+
 // TaskEventQuery queries task events from persistent storage.
 type TaskEventQuery interface {
-	ListEvents(ctx context.Context, taskID string, afterSeq int64) ([]*sdkv1.TaskEvent, error)
-	GetRun(ctx context.Context, taskID string) (*sdkv1.TaskEvent, error)
+	ListEvents(ctx context.Context, taskID string, afterSeq int64) ([]TaskEventRecord, error)
+	GetRun(ctx context.Context, taskID string) (*TaskRunState, error)
 }
 
 // Dispatcher routes function invocations to live agents discovered via registry store.
@@ -346,7 +357,7 @@ func (d *Dispatcher) StreamTaskAfterSeq(ctx context.Context, taskID string, afte
 		return nil, false, fmt.Errorf("task event query not configured")
 	}
 
-	events, err := query.ListEvents(ctx, taskID, afterSeq)
+	records, err := query.ListEvents(ctx, taskID, afterSeq)
 	if err != nil {
 		return nil, false, fmt.Errorf("query events: %w", err)
 	}
@@ -354,12 +365,12 @@ func (d *Dispatcher) StreamTaskAfterSeq(ctx context.Context, taskID string, afte
 	run, err := query.GetRun(ctx, taskID)
 	if err != nil {
 		// If run not found, still return events but mark as not done
-		return events, false, nil
+		return flattenTaskEventRecords(records), false, nil
 	}
 
 	// Task is done if the last event type is a terminal state
-	done := isTaskEventTypeDone(run.Type)
-	return events, done, nil
+	done := isTaskRunDone(run.Status)
+	return flattenTaskEventRecords(records), done, nil
 }
 
 // StreamTaskRealtime forwards task events to the provided callback.
@@ -390,7 +401,7 @@ func (d *Dispatcher) StreamTaskRealtimeAfterSeq(ctx context.Context, taskID stri
 		default:
 		}
 
-		events, err := query.ListEvents(ctx, taskID, afterSeq)
+		records, err := query.ListEvents(ctx, taskID, afterSeq)
 		if err != nil {
 			return false, fmt.Errorf("query events: %w", err)
 		}
@@ -402,15 +413,17 @@ func (d *Dispatcher) StreamTaskRealtimeAfterSeq(ctx context.Context, taskID stri
 			continue
 		}
 
-		done := isTaskEventTypeDone(run.Type)
+		done := isTaskRunDone(run.Status)
 
 		// Send events to callback
-		for _, evt := range events {
-			if !fn(evt) {
+		for _, record := range records {
+			if record.Event == nil {
+				continue
+			}
+			if !fn(record.Event) {
 				return done, nil // Callback stopped streaming
 			}
-			// Note: Seq field not available in TaskEvent proto yet
-			// afterSeq = evt.Seq
+			afterSeq = record.Seq
 		}
 
 		if done {
@@ -420,6 +433,20 @@ func (d *Dispatcher) StreamTaskRealtimeAfterSeq(ctx context.Context, taskID stri
 		// Wait before next poll
 		time.Sleep(500 * time.Millisecond)
 	}
+}
+
+func flattenTaskEventRecords(records []TaskEventRecord) []*sdkv1.TaskEvent {
+	if len(records) == 0 {
+		return []*sdkv1.TaskEvent{}
+	}
+	out := make([]*sdkv1.TaskEvent, 0, len(records))
+	for _, record := range records {
+		if record.Event == nil {
+			continue
+		}
+		out = append(out, record.Event)
+	}
+	return out
 }
 
 // isTaskRunDone checks if a task run status indicates completion.

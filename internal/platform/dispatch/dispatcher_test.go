@@ -11,6 +11,34 @@ import (
 	"github.com/cuihairu/croupier/pkg/protocol"
 )
 
+type stubTaskEventQuery struct {
+	events    []TaskEventRecord
+	run       *TaskRunState
+	err       error
+	listCalls int
+}
+
+func (s *stubTaskEventQuery) ListEvents(ctx context.Context, taskID string, afterSeq int64) ([]TaskEventRecord, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	s.listCalls++
+	filtered := make([]TaskEventRecord, 0, len(s.events))
+	for _, evt := range s.events {
+		if evt.Seq > afterSeq {
+			filtered = append(filtered, evt)
+		}
+	}
+	return filtered, nil
+}
+
+func (s *stubTaskEventQuery) GetRun(ctx context.Context, taskID string) (*TaskRunState, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.run, nil
+}
+
 // TestNewDispatcher 测试创建新 Dispatcher
 func TestNewDispatcher(t *testing.T) {
 	store := reg.NewStore()
@@ -177,7 +205,12 @@ func TestDispatcher_CancelTask_NotTracked(t *testing.T) {
 
 // TestDispatcher_StreamTask 测试流式任务
 func TestDispatcher_StreamTask(t *testing.T) {
-	d := NewDispatcher(nil)
+	d := NewDispatcherWithTaskStore(nil, nil, &stubTaskEventQuery{
+		events: []TaskEventRecord{
+			{Seq: 1, Event: &sdkv1.TaskEvent{TaskId: "test-task", Type: "progress", Progress: 30, Message: "running"}},
+		},
+		run: &TaskRunState{Status: "succeeded"},
+	})
 
 	ctx := context.Background()
 	events, complete, err := d.StreamTask(ctx, "test-task")
@@ -188,17 +221,24 @@ func TestDispatcher_StreamTask(t *testing.T) {
 	if !complete {
 		t.Error("complete should be true when no active run exists")
 	}
-	if len(events) != 0 {
-		t.Errorf("events should be empty when task has no persisted events, got %d", len(events))
+	if len(events) != 1 {
+		t.Errorf("events should contain persisted items, got %d", len(events))
 	}
 }
 
 // TestDispatcher_StreamTaskRealtime 测试实时流式任务
 func TestDispatcher_StreamTaskRealtime(t *testing.T) {
-	d := NewDispatcher(nil)
+	d := NewDispatcherWithTaskStore(nil, nil, &stubTaskEventQuery{
+		events: []TaskEventRecord{
+			{Seq: 1, Event: &sdkv1.TaskEvent{TaskId: "test-task", Type: "progress", Progress: 50, Message: "halfway"}},
+		},
+		run: &TaskRunState{Status: "succeeded"},
+	})
 
 	ctx := context.Background()
+	count := 0
 	complete, err := d.StreamTaskRealtime(ctx, "test-task", func(evt *sdkv1.TaskEvent) bool {
+		count++
 		return true
 	})
 
@@ -207,6 +247,58 @@ func TestDispatcher_StreamTaskRealtime(t *testing.T) {
 	}
 	if !complete {
 		t.Error("complete should be true when no active run exists")
+	}
+	if count != 1 {
+		t.Errorf("callback should receive persisted events, got %d", count)
+	}
+}
+
+func TestDispatcher_StreamTaskRealtimeAfterSeq_AdvancesCursor(t *testing.T) {
+	query := &stubTaskEventQuery{
+		events: []TaskEventRecord{
+			{Seq: 1, Event: &sdkv1.TaskEvent{TaskId: "test-task", Type: "progress", Message: "one"}},
+			{Seq: 2, Event: &sdkv1.TaskEvent{TaskId: "test-task", Type: "completed", Message: "two"}},
+		},
+		run: &TaskRunState{Status: "succeeded"},
+	}
+	d := NewDispatcherWithTaskStore(nil, nil, query)
+
+	var got []string
+	done, err := d.StreamTaskRealtimeAfterSeq(context.Background(), "test-task", 0, func(evt *sdkv1.TaskEvent) bool {
+		got = append(got, evt.GetMessage())
+		return true
+	})
+	if err != nil {
+		t.Fatalf("StreamTaskRealtimeAfterSeq() error = %v", err)
+	}
+	if !done {
+		t.Fatal("StreamTaskRealtimeAfterSeq() should report done")
+	}
+	if len(got) != 2 {
+		t.Fatalf("callback count = %d, want 2", len(got))
+	}
+	if got[0] != "one" || got[1] != "two" {
+		t.Fatalf("messages = %v, want [one two]", got)
+	}
+}
+
+func TestDispatcher_StreamTask_RequiresQuery(t *testing.T) {
+	d := NewDispatcher(nil)
+
+	_, _, err := d.StreamTask(context.Background(), "test-task")
+	if err == nil {
+		t.Fatal("StreamTask() should require task event query")
+	}
+}
+
+func TestDispatcher_StreamTaskRealtime_RequiresQuery(t *testing.T) {
+	d := NewDispatcher(nil)
+
+	_, err := d.StreamTaskRealtime(context.Background(), "test-task", func(evt *sdkv1.TaskEvent) bool {
+		return true
+	})
+	if err == nil {
+		t.Fatal("StreamTaskRealtime() should require task event query")
 	}
 }
 

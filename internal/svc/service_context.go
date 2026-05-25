@@ -261,6 +261,10 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	}
 	if ctx.Dispatcher == nil {
 		var taskStore dispatch.TaskRoutingStore
+		taskEventQuery := dispatch.NewTaskEventQueryAdapter(
+			model.NewTaskEventModel(ctx.DB),
+			model.NewTaskRunModel(ctx.DB),
+		)
 		taskRoutingDir := resolveTaskRoutingDir(ctx.Config)
 		if taskRoutingDir != "" {
 			store, err := dispatch.NewFileTaskRoutingStore(taskRoutingDir)
@@ -270,7 +274,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 				taskStore = store
 			}
 		}
-		ctx.Dispatcher = dispatch.NewDispatcherWithTaskStore(ctx.RegistryStore, taskStore, nil)
+		ctx.Dispatcher = dispatch.NewDispatcherWithTaskStore(ctx.RegistryStore, taskStore, taskEventQuery)
 
 		if ttlStr := strings.TrimSpace(ctx.Config.AgentDispatch.TaskRoutingTTL); ttlStr != "" {
 			if ttl, err := time.ParseDuration(ttlStr); err != nil {
