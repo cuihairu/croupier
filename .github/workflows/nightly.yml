@@ -459,16 +459,16 @@ jobs:
         shell: pwsh
         working-directory: ./sdks/cpp
         run: |
-          mkdir -p package-static package-dynamic
+          New-Item -ItemType Directory -Force -Path package-static, package-dynamic | Out-Null
           cmake --install build --prefix package-install
 
-          cp -r package-install/include package-static/
-          cp -r package-install/include package-dynamic/
-          cp -r package-install/share package-static/
-          cp -r package-install/share package-dynamic/
-          cp -r package-install/bin package-dynamic/
+          Copy-Item -Recurse -Force package-install/include package-static/
+          Copy-Item -Recurse -Force package-install/include package-dynamic/
+          Copy-Item -Recurse -Force package-install/share package-static/
+          Copy-Item -Recurse -Force package-install/share package-dynamic/
+          Copy-Item -Recurse -Force package-install/bin package-dynamic/ -ErrorAction SilentlyContinue
 
-          mkdir -p package-static/lib package-dynamic/lib
+          New-Item -ItemType Directory -Force -Path package-static/lib, package-dynamic/lib | Out-Null
           Get-ChildItem -Path package-install -Recurse -Filter "*.lib" | Copy-Item -Destination package-static/lib
           Get-ChildItem -Path package-install -Recurse -Filter "*.dll" | Copy-Item -Destination package-dynamic/lib
 
