@@ -323,13 +323,11 @@ jobs:
         run: |
           if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
             choco install ninja -y
-            # Refresh PATH to find newly installed ninja
             $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-            # Add ninja path to GITHUB_ENV for subsequent steps
-            $ninjaPath = (Get-Command ninja).Source
-            $ninjaDir = Split-Path $ninjaPath -Parent
-            echo "$ninjaDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           }
+          $ninjaPath = (Get-Command ninja).Source
+          $ninjaDir = Split-Path $ninjaPath -Parent
+          echo "$ninjaDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           ninja --version
 
       - name: Setup MSVC Developer Command Prompt
@@ -341,12 +339,16 @@ jobs:
           $installPath = & $vsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           $vsDevCmd = Join-Path $installPath "Common7/Tools/VsDevCmd.bat"
           $env:VSCMD_SKIP_SENDTELEMETRY = "1"
+          # Export only MSVC-specific variables to GITHUB_ENV to avoid corrupting multi-line values
           cmd /c "`"$vsDevCmd`" -no_logo -arch=x64 -host_arch=x64 && set" |
             ForEach-Object {
-              if ($_ -match '^[^=]+=') {
+              if ($_ -match '^(INCLUDE|LIB|LIBPATH|VCINSTALLDIR|VCToolsInstallDir|DevEnvDir|VCIDEInstallDir|VSCMD_ARG_TGT_ARCH|VSCMD_VER)=') {
                 Add-Content -Path $env:GITHUB_ENV -Value $_
               }
             }
+          # Write the MSVC PATH separately, prepending to existing GITHUB_PATH
+          $msvcPath = cmd /c "`"$vsDevCmd`" -no_logo -arch=x64 -host_arch=x64 && echo %PATH%"
+          Add-Content -Path $env:GITHUB_ENV -Value "MSVC_PATH=$msvcPath"
 
       - name: Setup Linux Environment
         if: runner.os == 'Linux'
@@ -387,8 +389,18 @@ jobs:
         shell: pwsh
         working-directory: ./sdks/cpp
         run: |
+          # Import MSVC environment from VsDevCmd
+          $vsWhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio/Installer/vswhere.exe"
+          $installPath = & $vsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $vsDevCmd = Join-Path $installPath "Common7/Tools/VsDevCmd.bat"
+          $env:VSCMD_SKIP_SENDTELEMETRY = "1"
+          $output = cmd /c "`"$vsDevCmd`" -no_logo -arch=x64 -host_arch=x64 && set" 2>&1
+          foreach ($line in $output) {
+            if ($line -match '^([^=]+)=(.*)$') {
+              [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2], "Process")
+            }
+          }
           # Ensure ninja is in PATH
-          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
           $ninjaCmd = Get-Command ninja -ErrorAction SilentlyContinue
           if (-not $ninjaCmd) {
             Write-Error "Ninja not found in PATH"

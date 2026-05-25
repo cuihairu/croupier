@@ -589,6 +589,7 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref }}
           submodules: "recursive"
+          fetch-depth: 0
 
       - name: Setup Windows Environment
         if: runner.os == 'Windows'
@@ -615,9 +616,10 @@ jobs:
           $vsDevCmd = Join-Path $installPath "Common7/Tools/VsDevCmd.bat"
           $env:VSCMD_SKIP_SENDTELEMETRY = "1"
 
+          # Export only MSVC-specific variables to GITHUB_ENV
           cmd /c "`"$vsDevCmd`" -no_logo -arch=${{ matrix.arch }} -host_arch=x64 && set" |
             ForEach-Object {
-              if ($_ -match '^[^=]+=') {
+              if ($_ -match '^(INCLUDE|LIB|LIBPATH|VCINSTALLDIR|VCToolsInstallDir|DevEnvDir|VCIDEInstallDir|VSCMD_ARG_TGT_ARCH|VSCMD_VER)=') {
                 Add-Content -Path $env:GITHUB_ENV -Value $_
               }
             }
@@ -658,7 +660,19 @@ jobs:
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
         timeout-minutes: 30
+        shell: pwsh
         run: |
+          # Import MSVC environment from VsDevCmd
+          $vsWhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio/Installer/vswhere.exe"
+          $installPath = & $vsWhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $vsDevCmd = Join-Path $installPath "Common7/Tools/VsDevCmd.bat"
+          $env:VSCMD_SKIP_SENDTELEMETRY = "1"
+          $output = cmd /c "`"$vsDevCmd`" -no_logo -arch=${{ matrix.arch }} -host_arch=x64 && set" 2>&1
+          foreach ($line in $output) {
+            if ($line -match '^([^=]+)=(.*)$') {
+              [Environment]::SetEnvironmentVariable($Matches[1], $Matches[2], "Process")
+            }
+          }
           cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE="Release" -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/sdks/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake" -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays" -DVCPKG_TARGET_TRIPLET="${{ matrix.vcpkg_triplet }}" -DVCPKG_HOST_TRIPLET="${{ matrix.vcpkg_triplet }}" -DVCPKG_BUILD_TYPE="release" -DCMAKE_INSTALL_PREFIX=install -DBUILD_SHARED_LIBS=ON -DBUILD_STATIC_LIBS=ON -DBUILD_EXAMPLES=ON -DBUILD_TESTS=ON -DCPACK_PACKAGE_VERSION="${{ needs.version.outputs.version }}"
 
       - name: Configure CMake (Unix)

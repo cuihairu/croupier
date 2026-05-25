@@ -6,8 +6,22 @@ VCPKG_ROOT="${1:?missing vcpkg root}"
 VCPKG_COMMIT="${2:-master}"  # Default to master if no version specified
 
 # Ensure we have a clean vcpkg installation
-if [[ ! -f "$VCPKG_ROOT/vcpkg" || ! -f "$VCPKG_ROOT/.vcpkg-root" ]]; then
-  rm -rf "$VCPKG_ROOT"
+# Re-clone if directory exists but is a submodule residue (.git is a file, not a directory)
+needs_clone=false
+if [[ -d "$VCPKG_ROOT" ]]; then
+  if [[ -f "$VCPKG_ROOT/.git" ]]; then
+    echo "Detected submodule residue (.git is a file), re-cloning..."
+    rm -rf "$VCPKG_ROOT"
+    needs_clone=true
+  elif [[ ! -f "$VCPKG_ROOT/vcpkg" || ! -f "$VCPKG_ROOT/.vcpkg-root" ]]; then
+    rm -rf "$VCPKG_ROOT"
+    needs_clone=true
+  fi
+else
+  needs_clone=true
+fi
+
+if [[ "$needs_clone" == "true" ]]; then
   mkdir -p "$VCPKG_ROOT"
 
   # Clone vcpkg with full history to get all git objects needed for port versioning
