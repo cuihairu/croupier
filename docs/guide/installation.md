@@ -21,20 +21,20 @@ tag:
 
 ### 最低要求
 
-| 组件 | 最低版本 | 推荐版本 |
-|------|----------|----------|
-| Go | 1.26 | 1.26+ |
-| Node.js | 22 | 22+ |
-| pnpm | 10 | 10.22+ |
-| buf | - | latest |
+| 组件     | 最低版本            | 推荐版本    |
+| -------- | ------------------- | ----------- |
+| Go       | 1.26                | 1.26+       |
+| Node.js  | 22                  | 22+         |
+| pnpm     | 10                  | 10.22+      |
+| buf      | -                   | latest      |
 | 操作系统 | Linux/macOS/Windows | Linux/macOS |
 
 ### 硬件要求
 
-| 场景 | CPU | 内存 | 磁盘 |
-|------|-----|------|------|
-| 开发 | 2 核 | 4 GB | 10 GB |
-| 生产（小规模） | 4 核 | 8 GB | 50 GB |
+| 场景           | CPU   | 内存   | 磁盘    |
+| -------------- | ----- | ------ | ------- |
+| 开发           | 2 核  | 4 GB   | 10 GB   |
+| 生产（小规模） | 4 核  | 8 GB   | 50 GB   |
 | 生产（大规模） | 8 核+ | 16 GB+ | 100 GB+ |
 
 ## 开发环境安装
@@ -55,8 +55,8 @@ go version
 
 ```bash
 # 下载并安装
-wget https://go.dev/dl/go1.26.2.linux-amd64.tar.gz
-sudo tar -C /usr/local -xzf go1.26.2.linux-amd64.tar.gz
+wget https://go.dev/dl/go1.26.3.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.26.3.linux-amd64.tar.gz
 
 # 配置 PATH
 echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
@@ -218,9 +218,9 @@ pip install croupier-sdk-python
 ```yaml
 name: croupier-server
 host: 0.0.0.0
-port: 18780                  # HTTP 监听地址
+port: 18780 # HTTP 监听地址
 control:
-  addr: ":19090"             # Control 监听地址
+  addr: ":19090" # Control 监听地址
 database:
   driver: postgres
   dataSource: "postgres://user:pass@localhost:5432/croupier"
@@ -282,40 +282,49 @@ make test-integration
 <summary>Go 版本不兼容</summary>
 
 确保 Go 版本为 1.26 或更高：
+
 ```bash
 go version
 ```
+
 如果不满足，请升级 Go 版本。
+
 </details>
 
 <details>
 <summary>子模块为空</summary>
 
 重新初始化子模块：
+
 ```bash
 git submodule deinit --all
 git submodule update --init --recursive
 ```
+
 </details>
 
 <details>
 <summary>buf 命令未找到</summary>
 
 确保 `$GOPATH/bin` 在 `PATH` 中：
+
 ```bash
 export PATH=$PATH:$(go env GOPATH)/bin
 ```
+
 </details>
 
 <details>
 <summary>端口已被占用</summary>
 
 修改配置文件中的端口：
+
 ```yaml
 control:
   addr: ":19091"
 port: 19080
 ```
+
 </details>
 
 ## 下一步

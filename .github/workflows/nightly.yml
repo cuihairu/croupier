@@ -2,7 +2,7 @@ name: Nightly Build
 
 on:
   schedule:
-    - cron: "0 2 * * *"  # Daily at 02:00 UTC
+    - cron: "0 2 * * *" # Daily at 02:00 UTC
   workflow_dispatch:
 
 env:
@@ -147,12 +147,12 @@ jobs:
       - name: Package Go SDK
         timeout-minutes: 5
         shell: bash
+        working-directory: ./sdks/go
         run: |
-          mkdir -p release-artifacts
-          cd sdks/go
+          mkdir -p "${GITHUB_WORKSPACE}/release-artifacts"
           tar --exclude='*_test.go' \
             --exclude='examples/**/*.test' \
-            -czf ../release-artifacts/sdk-go-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz \
+            -czf "${GITHUB_WORKSPACE}/release-artifacts/sdk-go-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz" \
             go.mod \
             go.sum \
             version.go \
@@ -550,7 +550,14 @@ jobs:
     name: Create Nightly Release
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [build-binaries, build-go-sdk, build-other-sdks, build-cpp-sdk, build-dashboard]
+    needs:
+      [
+        build-binaries,
+        build-go-sdk,
+        build-other-sdks,
+        build-cpp-sdk,
+        build-dashboard,
+      ]
     permissions:
       contents: write
     steps:

@@ -1,19 +1,20 @@
 module github.com/cuihairu/croupier/sdks/go
 
-go 1.26.2
+go 1.26.3
 
 require (
 	// Testing
-	github.com/stretchr/testify v1.11.1 // indirect
+	github.com/stretchr/testify v1.11.1
 	github.com/xeipuuv/gojsonschema v1.2.0
 
 	// Protobuf for message serialization
 	google.golang.org/protobuf v1.36.11
 )
 
+require github.com/getkin/kin-openapi v0.137.0
+
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/getkin/kin-openapi v0.137.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect

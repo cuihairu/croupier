@@ -8,7 +8,7 @@
 [![Release](https://img.shields.io/github/v/release/cuihairu/croupier)](https://github.com/cuihairu/croupier/releases)
 [![codecov](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg)](https://codecov.io/gh/cuihairu/croupier)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
-![Go Version](https://img.shields.io/badge/go-1.26.2+-green.svg)
+![Go Version](https://img.shields.io/badge/go-1.26.3+-green.svg)
 
 Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。当前架构已经收敛到“统一 session 传输”方向：
 
@@ -36,7 +36,7 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。�
 | Python | `sdks/python/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=python-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/python/README.md) |
 | Java   | `sdks/java/`   | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml)     | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=java-sdk)](https://codecov.io/gh/cuihairu/croupier)   | [README](sdks/java/README.md)   |
 | C#     | `sdks/csharp/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=csharp-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/csharp/README.md) |
-| C++    | `sdks/cpp/`    | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml)       | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=cpp-sdk)](https://codecov.io/gh/cuihairu/croupier)     | [README](sdks/cpp/README.md)    |
+| C++    | `sdks/cpp/`    | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml)       | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=cpp-sdk)](https://codecov.io/gh/cuihairu/croupier)    | [README](sdks/cpp/README.md)    |
 
 ## 当前架构
 
