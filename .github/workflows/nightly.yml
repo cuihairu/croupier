@@ -462,10 +462,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path package-static, package-dynamic | Out-Null
           cmake --install build --prefix package-install
 
-          Copy-Item -Recurse -Force package-install/include package-static/
-          Copy-Item -Recurse -Force package-install/include package-dynamic/
-          Copy-Item -Recurse -Force package-install/share package-static/
-          Copy-Item -Recurse -Force package-install/share package-dynamic/
+          Copy-Item -Recurse -Force package-install/include package-static/ -ErrorAction SilentlyContinue
+          Copy-Item -Recurse -Force package-install/include package-dynamic/ -ErrorAction SilentlyContinue
+          Copy-Item -Recurse -Force package-install/share package-static/ -ErrorAction SilentlyContinue
+          Copy-Item -Recurse -Force package-install/share package-dynamic/ -ErrorAction SilentlyContinue
           Copy-Item -Recurse -Force package-install/bin package-dynamic/ -ErrorAction SilentlyContinue
 
           New-Item -ItemType Directory -Force -Path package-static/lib, package-dynamic/lib | Out-Null
