@@ -1,0 +1,35 @@
+name: CI - C# SDK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths: [ 'sdks/csharp/**' ]
+  pull_request:
+    branches: [ main ]
+    paths: [ 'sdks/csharp/**' ]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0'
+      - run: |
+          dotnet test --nologo --no-build --no-restore \
+            --configuration Release \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults \
+            DataCollector.CodeCoverage.dll
+        working-directory: sdks/csharp
+      - uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: sdks/csharp/TestResults/*/coverage.cobertura.xml
+          flags: csharp-sdk

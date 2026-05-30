@@ -1,0 +1,37 @@
+name: CI - Python SDK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths: [ 'sdks/python/**' ]
+  pull_request:
+    branches: [ main ]
+    paths: [ 'sdks/python/**' ]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: 'sdks/python/requirements*.txt'
+      - run: pip install -e '.[dev]'
+        working-directory: sdks/python
+      - run: pytest --cov=. --cov-report=xml --cov-report=term
+        working-directory: sdks/python
+      - uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: sdks/python/coverage.xml
+          flags: python-sdk

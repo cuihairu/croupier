@@ -1,0 +1,34 @@
+name: CI - JavaScript SDK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths: [ 'sdks/js/**' ]
+  pull_request:
+    branches: [ main ]
+    paths: [ 'sdks/js/**' ]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: 'sdks/js/package-lock.json'
+      - run: npm ci
+        working-directory: sdks/js
+      - run: npm test
+        working-directory: sdks/js
+      - uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: sdks/js/coverage/lcov.info
+          flags: js-sdk
