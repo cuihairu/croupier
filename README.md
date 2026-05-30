@@ -25,9 +25,9 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。�
 
 ## SDK 生态
 
-所有官方 SDK 已整合到 monorepo 的 `sdks/` 目录下统一维护。
+所有 SDK 已整合到 monorepo 的 `sdks/` 目录下统一维护。
 
-### 官方 SDK
+### 多语言 SDK
 
 | 语言   | 目录           | Coverage                                                                                                                                    | Docs                            |
 | ------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
@@ -126,20 +126,9 @@ Croupier 当前的核心传输抽象不是 `历史消息模式`，而是轻量�
 | Server / Agent   | `cmd/`, `internal/`   | 控制面、代理、调度、审计、注册与作业            |
 | Proto            | `proto/`              | protobuf 定义与生成入口（单源）                 |
 | SDKs             | `sdks/`               | 多语言 SDK（go, js, python, java, csharp, cpp） |
-| Dashboard        | `web/`                | Web 控制台（React + Ant Design）                |
+| Dashboard        | `dashboard/`           | Web 控制台（React + Ant Design）                |
 | Examples / Tools | `examples/`, `tools/` | 示例和辅助工具                                  |
 | Docs             | `docs/`               | 架构、指南、API 与 SDK 文档                     |
-
-### SDK 目录结构
-
-| 语言   | 目录           |
-| ------ | -------------- |
-| Go     | `sdks/go/`     |
-| JS/TS  | `sdks/js/`     |
-| Python | `sdks/python/` |
-| Java   | `sdks/java/`   |
-| C#     | `sdks/csharp/` |
-| C++    | `sdks/cpp/`    |
 
 ## 快速开始
 
@@ -179,7 +168,7 @@ make dev
 6. 查看 Dashboard
 
 ```bash
-cd web
+cd dashboard
 pnpm install
 pnpm dev
 ```
