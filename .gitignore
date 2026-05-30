@@ -73,23 +73,22 @@ web.local/
 docs_new/
 
 # Dashboard specific
-web/node_modules/
-web/node_modules/.cache/
-web/node_modules/.pnpm-store/
-web/.umi/
-web/src/.umi/
-web/src/.umi-production/
-web/dist/
-web/build/
-web/.next/
-web/.cache/
-web/.nyc_output/
-web/coverage/
-web/.eslintcache
-web/.DS_Store
-web/.pnpm-debug.log
-web/yarn.lock
-web/pnpm-lock.yaml
+dashboard/node_modules/
+dashboard/node_modules/.cache/
+dashboard/node_modules/.pnpm-store/
+dashboard/.umi/
+dashboard/src/.umi/
+dashboard/src/.umi-production/
+dashboard/dist/
+dashboard/build/
+dashboard/.next/
+dashboard/.cache/
+dashboard/.nyc_output/
+dashboard/coverage/
+dashboard/.eslintcache
+dashboard/.DS_Store
+dashboard/.pnpm-debug.log
+dashboard/yarn.lock
 
 # API Documentation and Swagger Files (临时生成的文件)
 # 保留主要的 server.api 和必要的文档，忽略临时生成的文件
