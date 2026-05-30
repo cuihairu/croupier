@@ -8,7 +8,7 @@
 [![Release](https://img.shields.io/github/v/release/cuihairu/croupier)](https://github.com/cuihairu/croupier/releases)
 [![codecov](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg)](https://codecov.io/gh/cuihairu/croupier)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
-![Go Version](https://img.shields.io/badge/go-1.26.2+-green.svg)
+![Go Version](https://img.shields.io/badge/go-1.26.3+-green.svg)
 
 Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。当前架构已经收敛到“统一 session 传输”方向：
 
