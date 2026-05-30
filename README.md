@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/.vitepress/public/logo.png" alt="Croupier Logo" width="64"/>
+  <img src="docs/.vuepress/public/logo.png" alt="Croupier Logo" width="64"/>
 </p>
 
 # Croupier Platform
@@ -29,14 +29,14 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。�
 
 ### 官方 SDK
 
-| 语言   | 目录           | Build                                                                                                                                                                    | Coverage                                                                                                                                    | Docs                            |
-| ------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| Go     | `sdks/go/`     | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-go.yml)         | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=go-sdk)](https://codecov.io/gh/cuihairu/croupier)     | [README](sdks/go/README.md)     |
-| JS/TS  | `sdks/js/`     | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml)         | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=js-sdk)](https://codecov.io/gh/cuihairu/croupier)     | [README](sdks/js/README.md)     |
-| Python | `sdks/python/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=python-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/python/README.md) |
-| Java   | `sdks/java/`   | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-java.yml)     | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=java-sdk)](https://codecov.io/gh/cuihairu/croupier)   | [README](sdks/java/README.md)   |
-| C#     | `sdks/csharp/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-csharp.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=csharp-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/csharp/README.md) |
-| C++    | `sdks/cpp/`    | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-cpp.yml)       | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=cpp-sdk)](https://codecov.io/gh/cuihairu/croupier)     | [README](sdks/cpp/README.md)    |
+| 语言   | 目录           | Coverage                                                                                                                                    | Docs                            |
+| ------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| Go     | `sdks/go/`     | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=go-sdk)](https://codecov.io/gh/cuihairu/croupier)     | [README](sdks/go/README.md)     |
+| JS/TS  | `sdks/js/`     | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=js-sdk)](https://codecov.io/gh/cuihairu/croupier)     | [README](sdks/js/README.md)     |
+| Python | `sdks/python/` | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=python-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/python/README.md) |
+| Java   | `sdks/java/`   | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=java-sdk)](https://codecov.io/gh/cuihairu/croupier)   | [README](sdks/java/README.md)   |
+| C#     | `sdks/csharp/` | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=csharp-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/csharp/README.md) |
+| C++    | `sdks/cpp/`    | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=cpp-sdk)](https://codecov.io/gh/cuihairu/croupier)     | [README](sdks/cpp/README.md)    |
 
 ## 当前架构
 
