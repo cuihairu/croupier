@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type AlertsListRequest struct {
 	Page int `form:"page,optional,default=1"`
 	PageSize int `form:"pageSize,optional,default=20"`
@@ -27,7 +27,7 @@ type AlertsListRequest struct {
 
 
 
-```golang
+```go
 type AlertsListResponse struct {
 	Items []Alert `json:"items"`
 	Total int64 `json:"total"`
@@ -49,7 +49,7 @@ type AlertsListResponse struct {
 
 
 
-```golang
+```go
 type AlertSilenceRequest struct {
 	ID string `path:"id"`
 	Duration int `json:"duration"` // 分钟
@@ -74,7 +74,7 @@ type AlertSilenceRequest struct {
 
 
 
-```golang
+```go
 type SilencesListRequest struct {
 }
 ```
@@ -84,7 +84,7 @@ type SilencesListRequest struct {
 
 
 
-```golang
+```go
 type SilencesListResponse struct {
 	Items []Silence `json:"items"`
 }
@@ -103,7 +103,7 @@ type SilencesListResponse struct {
 
 
 
-```golang
+```go
 type SilenceDeleteRequest struct {
 	ID string `path:"id"`
 }

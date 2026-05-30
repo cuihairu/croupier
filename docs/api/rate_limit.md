@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type RateLimitsListRequest struct {
 	Resource string `form:"resource,optional"`
 }
@@ -24,7 +24,7 @@ type RateLimitsListRequest struct {
 
 
 
-```golang
+```go
 type RateLimitsListResponse struct {
 	Items []RateLimit `json:"items"`
 }
@@ -43,7 +43,7 @@ type RateLimitsListResponse struct {
 
 
 
-```golang
+```go
 type RateLimitUpsertRequest struct {
 	Name string `json:"name"`
 	Resource string `json:"resource"`
@@ -59,7 +59,7 @@ type RateLimitUpsertRequest struct {
 
 
 
-```golang
+```go
 type RateLimitResponse struct {
 	Id string `json:"id"`
 	Name string `json:"name"`
@@ -98,7 +98,7 @@ type RateLimit struct {
 
 
 
-```golang
+```go
 type RateLimitGetRequest struct {
 	ID string `path:"id"`
 }
@@ -109,7 +109,7 @@ type RateLimitGetRequest struct {
 
 
 
-```golang
+```go
 type RateLimitResponse struct {
 	Id string `json:"id"`
 	Name string `json:"name"`
@@ -148,7 +148,7 @@ type RateLimit struct {
 
 
 
-```golang
+```go
 type RateLimitDeleteRequest struct {
 	ID string `path:"id"`
 }
@@ -171,7 +171,7 @@ type RateLimitDeleteRequest struct {
 
 
 
-```golang
+```go
 type RateLimitPreviewRequest struct {
 	Rules interface{} `json:"rules"`
 }
@@ -182,7 +182,7 @@ type RateLimitPreviewRequest struct {
 
 
 
-```golang
+```go
 type RateLimitPreviewResponse struct {
 	Matches interface{} `json:"matches"`
 	Impact interface{} `json:"impact"`

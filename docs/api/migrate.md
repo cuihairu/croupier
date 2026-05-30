@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type MigrateDownRequest struct {
 	Target string `json:"target,optional"` // specific version to migrate to
 	Force bool `json:"force,optional"` // force run even if already applied
@@ -25,7 +25,7 @@ type MigrateDownRequest struct {
 
 
 
-```golang
+```go
 type MigrateDownResponse struct {
 	Success bool `json:"success"`
 	Message string `json:"message"`
@@ -46,7 +46,7 @@ type MigrateDownResponse struct {
 
 
 
-```golang
+```go
 type MigrationHistoryRequest struct {
 	Page int `form:"page,optional,default=1"`
 	PageSize int `form:"pageSize,optional,default=20"`
@@ -59,7 +59,7 @@ type MigrationHistoryRequest struct {
 
 
 
-```golang
+```go
 type MigrationHistoryResponse struct {
 	Items []MigrationResult `json:"items"`
 	Total int64 `json:"total"`
@@ -81,7 +81,7 @@ type MigrationHistoryResponse struct {
 
 
 
-```golang
+```go
 type MigrationStatusRequest struct {
 }
 ```
@@ -91,7 +91,7 @@ type MigrationStatusRequest struct {
 
 
 
-```golang
+```go
 type MigrationStatusResponse struct {
 	LatestVersion string `json:"latestVersion"`
 	PendingCount int `json:"pendingCount"`
@@ -112,7 +112,7 @@ type MigrationStatusResponse struct {
 
 
 
-```golang
+```go
 type MigrateUpRequest struct {
 	Force bool `json:"force,optional"` // force run even if already applied
 	Step int `json:"step,optional"` // specific step to run (-1 for all)
@@ -124,7 +124,7 @@ type MigrateUpRequest struct {
 
 
 
-```golang
+```go
 type MigrateUpResponse struct {
 	Success bool `json:"success"`
 	Message string `json:"message"`

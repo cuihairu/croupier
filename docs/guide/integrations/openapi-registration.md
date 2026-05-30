@@ -139,4 +139,4 @@ OpenAPI 在这里的作用是提供函数元数据来源，而不是单独定义
 
 - [SDK-Agent 传输重构设计](../../architecture/sdk-agent-transport-redesign.md)
 - [SDK Wire Protocol](../../architecture/sdk-wire-protocol.md)
-- [SDK 规范](../../sdk/specification.md)
+- [SDK 文档](../../sdks/)

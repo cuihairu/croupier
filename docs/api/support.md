@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type SupportFAQListRequest struct {
 	Category string `form:"category,optional"`
 }
@@ -24,7 +24,7 @@ type SupportFAQListRequest struct {
 
 
 
-```golang
+```go
 type SupportFAQListResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -45,7 +45,7 @@ type SupportFAQListResponse struct {
 
 
 
-```golang
+```go
 type SupportFAQCreateRequest struct {
 	Category string `json:"category"`
 	Question string `json:"question"`
@@ -58,7 +58,7 @@ type SupportFAQCreateRequest struct {
 
 
 
-```golang
+```go
 type SupportFAQCreateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -79,7 +79,7 @@ type SupportFAQCreateResponse struct {
 
 
 
-```golang
+```go
 type SupportFAQUpdateRequest struct {
 	ID string `path:"id"`
 	Category string `json:"category,optional"`
@@ -93,7 +93,7 @@ type SupportFAQUpdateRequest struct {
 
 
 
-```golang
+```go
 type SupportFAQUpdateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -114,7 +114,7 @@ type SupportFAQUpdateResponse struct {
 
 
 
-```golang
+```go
 type SupportFAQDeleteRequest struct {
 	ID string `path:"id"`
 }
@@ -125,7 +125,7 @@ type SupportFAQDeleteRequest struct {
 
 
 
-```golang
+```go
 type SupportFAQDeleteResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -146,7 +146,7 @@ type SupportFAQDeleteResponse struct {
 
 
 
-```golang
+```go
 type SupportFeedbackListRequest struct {
 	Page int `form:"page,optional"`
 	PageSize int `form:"pageSize,optional"`
@@ -158,7 +158,7 @@ type SupportFeedbackListRequest struct {
 
 
 
-```golang
+```go
 type SupportFeedbackListResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -179,7 +179,7 @@ type SupportFeedbackListResponse struct {
 
 
 
-```golang
+```go
 type SupportFeedbackCreateRequest struct {
 	Type string `json:"type"`
 	Content string `json:"content"`
@@ -191,7 +191,7 @@ type SupportFeedbackCreateRequest struct {
 
 
 
-```golang
+```go
 type SupportFeedbackCreateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -212,7 +212,7 @@ type SupportFeedbackCreateResponse struct {
 
 
 
-```golang
+```go
 type SupportFeedbackUpdateRequest struct {
 	ID string `path:"id"`
 	Status string `json:"status,optional"`
@@ -225,7 +225,7 @@ type SupportFeedbackUpdateRequest struct {
 
 
 
-```golang
+```go
 type SupportFeedbackUpdateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -246,7 +246,7 @@ type SupportFeedbackUpdateResponse struct {
 
 
 
-```golang
+```go
 type SupportFeedbackDeleteRequest struct {
 	ID string `path:"id"`
 }
@@ -257,7 +257,7 @@ type SupportFeedbackDeleteRequest struct {
 
 
 
-```golang
+```go
 type SupportFeedbackDeleteResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -278,7 +278,7 @@ type SupportFeedbackDeleteResponse struct {
 
 
 
-```golang
+```go
 type SupportTicketsListRequest struct {
 	Page int `form:"page,optional"`
 	PageSize int `form:"pageSize,optional"`
@@ -291,7 +291,7 @@ type SupportTicketsListRequest struct {
 
 
 
-```golang
+```go
 type SupportTicketsListResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -312,7 +312,7 @@ type SupportTicketsListResponse struct {
 
 
 
-```golang
+```go
 type SupportTicketCreateRequest struct {
 	Subject string `json:"subject"`
 	Content string `json:"content"`
@@ -324,7 +324,7 @@ type SupportTicketCreateRequest struct {
 
 
 
-```golang
+```go
 type SupportTicketCreateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -345,7 +345,7 @@ type SupportTicketCreateResponse struct {
 
 
 
-```golang
+```go
 type SupportTicketDetailRequest struct {
 	ID string `path:"id"`
 }
@@ -356,7 +356,7 @@ type SupportTicketDetailRequest struct {
 
 
 
-```golang
+```go
 type SupportTicketDetailResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -377,7 +377,7 @@ type SupportTicketDetailResponse struct {
 
 
 
-```golang
+```go
 type SupportTicketUpdateRequest struct {
 	ID string `path:"id"`
 	Subject string `json:"subject,optional"`
@@ -390,7 +390,7 @@ type SupportTicketUpdateRequest struct {
 
 
 
-```golang
+```go
 type SupportTicketUpdateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -411,7 +411,7 @@ type SupportTicketUpdateResponse struct {
 
 
 
-```golang
+```go
 type SupportTicketDeleteRequest struct {
 	ID string `path:"id"`
 }
@@ -422,7 +422,7 @@ type SupportTicketDeleteRequest struct {
 
 
 
-```golang
+```go
 type SupportTicketDeleteResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -443,7 +443,7 @@ type SupportTicketDeleteResponse struct {
 
 
 
-```golang
+```go
 type SupportTicketTransitionRequest struct {
 	ID string `path:"id"`
 	Status string `json:"status"`
@@ -455,7 +455,7 @@ type SupportTicketTransitionRequest struct {
 
 
 
-```golang
+```go
 type SupportTicketTransitionResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -476,7 +476,7 @@ type SupportTicketTransitionResponse struct {
 
 
 
-```golang
+```go
 type SupportCommentsListRequest struct {
 	TicketID string `path:"ticketId"`
 	Page int `form:"page,optional"`
@@ -489,7 +489,7 @@ type SupportCommentsListRequest struct {
 
 
 
-```golang
+```go
 type SupportCommentsListResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -510,7 +510,7 @@ type SupportCommentsListResponse struct {
 
 
 
-```golang
+```go
 type SupportCommentCreateRequest struct {
 	TicketID string `path:"ticketId"`
 	Content string `json:"content"`
@@ -522,7 +522,7 @@ type SupportCommentCreateRequest struct {
 
 
 
-```golang
+```go
 type SupportCommentCreateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

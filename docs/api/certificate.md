@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type CertificatesListRequest struct {
 	Page int `form:"page,optional"`
 	PageSize int `form:"pageSize,optional"`
@@ -26,7 +26,7 @@ type CertificatesListRequest struct {
 
 
 
-```golang
+```go
 type CertificatesListResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -47,7 +47,7 @@ type CertificatesListResponse struct {
 
 
 
-```golang
+```go
 type CertificateAddRequest struct {
 	Domain string `json:"domain"`
 	Certificate string `json:"certificate,optional"`
@@ -60,7 +60,7 @@ type CertificateAddRequest struct {
 
 
 
-```golang
+```go
 type CertificateAddResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -81,7 +81,7 @@ type CertificateAddResponse struct {
 
 
 
-```golang
+```go
 type CertificateDetailRequest struct {
 	ID string `path:"id"`
 }
@@ -92,7 +92,7 @@ type CertificateDetailRequest struct {
 
 
 
-```golang
+```go
 type CertificateDetailResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -113,7 +113,7 @@ type CertificateDetailResponse struct {
 
 
 
-```golang
+```go
 type CertificateDeleteRequest struct {
 	ID string `path:"id"`
 }
@@ -124,7 +124,7 @@ type CertificateDeleteRequest struct {
 
 
 
-```golang
+```go
 type CertificateDeleteResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -145,7 +145,7 @@ type CertificateDeleteResponse struct {
 
 
 
-```golang
+```go
 type CertificateCheckRequest struct {
 	ID string `path:"id"`
 }
@@ -156,7 +156,7 @@ type CertificateCheckRequest struct {
 
 
 
-```golang
+```go
 type CertificateCheckResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -177,7 +177,7 @@ type CertificateCheckResponse struct {
 
 
 
-```golang
+```go
 type CertificateAlertAddRequest struct {
 	Domain string `json:"domain"`
 	Threshold int `json:"threshold,optional"`
@@ -189,7 +189,7 @@ type CertificateAlertAddRequest struct {
 
 
 
-```golang
+```go
 type CertificateAlertAddResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -210,7 +210,7 @@ type CertificateAlertAddResponse struct {
 
 
 
-```golang
+```go
 type CertificateAlertsListRequest struct {
 	Page int `form:"page,optional"`
 	PageSize int `form:"pageSize,optional"`
@@ -222,7 +222,7 @@ type CertificateAlertsListRequest struct {
 
 
 
-```golang
+```go
 type CertificateAlertsListResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -243,7 +243,7 @@ type CertificateAlertsListResponse struct {
 
 
 
-```golang
+```go
 type CertificateCheckAllRequest struct {
 }
 ```
@@ -253,7 +253,7 @@ type CertificateCheckAllRequest struct {
 
 
 
-```golang
+```go
 type CertificateCheckAllResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -274,7 +274,7 @@ type CertificateCheckAllResponse struct {
 
 
 
-```golang
+```go
 type CertificateDomainInfoRequest struct {
 	Domain string `form:"domain"`
 }
@@ -285,7 +285,7 @@ type CertificateDomainInfoRequest struct {
 
 
 
-```golang
+```go
 type CertificateDomainInfoResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -306,7 +306,7 @@ type CertificateDomainInfoResponse struct {
 
 
 
-```golang
+```go
 type CertificateExpiringRequest struct {
 	Days int `form:"days,optional"`
 }
@@ -317,7 +317,7 @@ type CertificateExpiringRequest struct {
 
 
 
-```golang
+```go
 type CertificateExpiringResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -338,7 +338,7 @@ type CertificateExpiringResponse struct {
 
 
 
-```golang
+```go
 type CertificateStatsRequest struct {
 }
 ```
@@ -348,7 +348,7 @@ type CertificateStatsRequest struct {
 
 
 
-```golang
+```go
 type CertificateStatsResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

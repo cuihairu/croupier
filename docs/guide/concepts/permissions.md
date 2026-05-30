@@ -302,11 +302,79 @@ server:
 
 ### 风险分级
 
-| 等级 | 说明 | 审批要求 |
-|------|------|----------|
-| `low` | 低风险 | 无需审批 |
-| `medium` | 中风险 | 可选审批 |
-| `high` | 高风险 | 强制双人审批 |
+| 等级 | 说明 | 审批要求 | 审计要求 | 允许角色 |
+|------|------|----------|----------|----------|
+| `low` | 低风险 | 无需审批 | 无需审计 | user, operator |
+| `medium` | 中风险 | 无需审批 | 需要审计 | operator |
+| `high` | 高风险 | 单管理员审批 | 需要审计 | admin |
+| `danger` | 危险 | 双人审批 | 需要审计 | super_admin |
+| `unknown` | 未知（默认） | 同 medium | 同 medium | operator |
+
+### 双层政策架构
+
+Croupier 采用**双层政策架构**，结合配置文件默认策略和数据库覆盖策略：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    函数调用请求                               │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  1. 检查数据库覆盖政策 (FunctionPolicy)                       │
+│     ├─ 存在覆盖？使用覆盖政策                                │
+│     └─ 不存在？使用默认风险等级政策                          │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  2. 应用政策检查                                              │
+│     ├─ 角色权限检查 (AllowedRoles)                           │
+│     ├─ 审批要求检查 (RequireApproval)                        │
+│     └─ 审计要求检查 (RequireAudit)                           │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  3. 执行后续操作                                              │
+│     ├─ 需要审批？创建审批请求                                 │
+│     ├─ 需要审计？记录审计日志                                 │
+│     └─ 满足条件？执行函数调用                                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**政策来源：**
+
+| 来源 | 说明 | 优先级 | 修改方式 |
+|------|------|--------|----------|
+| `default` | 来自 `configs/default-policies.yaml` 的默认政策 | 低 | 修改配置文件 |
+| `manual` | 数据库中的覆盖政策 | 高 | API 设置/删除 |
+
+**默认政策配置** (`configs/default-policies.yaml`):
+
+```yaml
+low:
+  require_approval: false
+  require_audit: false
+  allowed_roles: [user, operator]
+
+medium:
+  require_approval: false
+  require_audit: true
+  allowed_roles: [operator]
+
+high:
+  require_approval: true
+  approval_workflow: single_admin
+  require_audit: true
+  allowed_roles: [admin]
+
+danger:
+  require_approval: true
+  approval_workflow: two_person
+  require_audit: true
+  allowed_roles: [super_admin]
+```
 
 ### 风险配置
 
@@ -320,6 +388,44 @@ server:
   }
 }
 ```
+
+### 政策管理 API
+
+```bash
+# 获取函数有效政策
+GET /api/v1/functions/:function_id/policy?risk_level=high
+
+# 设置函数覆盖政策
+PUT /api/v1/functions/:function_id/policy
+{
+  "require_approval": true,
+  "approval_workflow": "single_admin",
+  "require_audit": true,
+  "allowed_roles": ["admin"]
+}
+
+# 删除函数覆盖政策（恢复默认）
+DELETE /api/v1/functions/:function_id/policy
+
+# 获取所有覆盖政策
+GET /api/v1/policies/overrides
+
+# 获取默认政策配置
+GET /api/v1/policies/defaults
+
+# 重新加载默认政策配置
+POST /api/v1/policies/reload
+```
+
+### 自动政策创建
+
+函数注册时，系统会自动根据函数的风险等级创建默认政策：
+
+```
+函数注册 → 读取 risk_level 字段 → 创建 FunctionPolicy 记录
+```
+
+如果函数未指定风险等级，默认使用 `medium` 级别。
 
 ## 限流保护
 

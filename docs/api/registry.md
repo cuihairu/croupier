@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type RegistryRequest struct {
 }
 ```
@@ -23,7 +23,7 @@ type RegistryRequest struct {
 
 
 
-```golang
+```go
 type RegistryResponse struct {
 	Agents []RegistryAgent `json:"agents"`
 	Functions []RegistryFunction `json:"functions"`
@@ -43,7 +43,7 @@ type RegistryResponse struct {
 
 2. response definition
 
-```golang
+```go
 type OpsServicesResponse struct {
 	Services []OpsServiceItem `json:"services"`
 	Total    int              `json:"total"`

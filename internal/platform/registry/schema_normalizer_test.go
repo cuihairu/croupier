@@ -73,6 +73,170 @@ func TestSchemaNormalizer_NormalizeSchema(t *testing.T) {
 	})
 }
 
+func TestSchemaNormalizer_NormalizeProtoSchema_FileDescriptor(t *testing.T) {
+	normalizer := NewSchemaNormalizer()
+
+	t.Run("FileDescriptorProto with single message", func(t *testing.T) {
+		nameFieldType := descriptorpb.FieldDescriptorProto_TYPE_STRING
+		fileProto := &descriptorpb.FileDescriptorProto{
+			MessageType: []*descriptorpb.DescriptorProto{
+				{
+					Name: protoString("TestMessage"),
+					Field: []*descriptorpb.FieldDescriptorProto{
+						{
+							Name: protoString("name"),
+							Type: &nameFieldType,
+						},
+					},
+				},
+			},
+		}
+
+		schema, err := normalizer.NormalizeSchema(SourceProto, fileProto)
+		require.NoError(t, err)
+
+		objectType := openapi3.Types{"object"}
+		assert.Equal(t, &objectType, schema.Type)
+		assert.Contains(t, schema.Properties, "name")
+	})
+
+	t.Run("FileDescriptorProto with multiple messages returns error", func(t *testing.T) {
+		fileProto := &descriptorpb.FileDescriptorProto{
+			MessageType: []*descriptorpb.DescriptorProto{
+				{Name: protoString("Message1")},
+				{Name: protoString("Message2")},
+			},
+		}
+
+		_, err := normalizer.NormalizeSchema(SourceProto, fileProto)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "exactly one top-level message")
+	})
+
+	t.Run("FileDescriptorProto with no messages returns error", func(t *testing.T) {
+		fileProto := &descriptorpb.FileDescriptorProto{
+			MessageType: []*descriptorpb.DescriptorProto{},
+		}
+
+		_, err := normalizer.NormalizeSchema(SourceProto, fileProto)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "exactly one top-level message")
+	})
+}
+
+func TestSchemaNormalizer_NormalizeProtoSchema_FileDescriptorSet(t *testing.T) {
+	normalizer := NewSchemaNormalizer()
+
+	t.Run("FileDescriptorSet with single message", func(t *testing.T) {
+		nameFieldType := descriptorpb.FieldDescriptorProto_TYPE_STRING
+		fileSet := &descriptorpb.FileDescriptorSet{
+			File: []*descriptorpb.FileDescriptorProto{
+				{
+					MessageType: []*descriptorpb.DescriptorProto{
+						{
+							Name: protoString("TestMessage"),
+							Field: []*descriptorpb.FieldDescriptorProto{
+								{
+									Name: protoString("name"),
+									Type: &nameFieldType,
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		schema, err := normalizer.NormalizeSchema(SourceProto, fileSet)
+		require.NoError(t, err)
+
+		objectType := openapi3.Types{"object"}
+		assert.Equal(t, &objectType, schema.Type)
+		assert.Contains(t, schema.Properties, "name")
+	})
+
+	t.Run("FileDescriptorSet with multiple messages returns error", func(t *testing.T) {
+		fileSet := &descriptorpb.FileDescriptorSet{
+			File: []*descriptorpb.FileDescriptorProto{
+				{
+					MessageType: []*descriptorpb.DescriptorProto{
+						{Name: protoString("Message1")},
+					},
+				},
+				{
+					MessageType: []*descriptorpb.DescriptorProto{
+						{Name: protoString("Message2")},
+					},
+				},
+			},
+		}
+
+		_, err := normalizer.NormalizeSchema(SourceProto, fileSet)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "exactly one top-level message")
+	})
+
+	t.Run("FileDescriptorSet with no messages returns error", func(t *testing.T) {
+		fileSet := &descriptorpb.FileDescriptorSet{
+			File: []*descriptorpb.FileDescriptorProto{
+				{MessageType: []*descriptorpb.DescriptorProto{}},
+			},
+		}
+
+		_, err := normalizer.NormalizeSchema(SourceProto, fileSet)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "exactly one top-level message")
+	})
+}
+
+func TestSchemaNormalizer_NormalizeProtoSchema_UnsupportedType(t *testing.T) {
+	normalizer := NewSchemaNormalizer()
+
+	_, err := normalizer.NormalizeSchema(SourceProto, "not a proto schema")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported proto schema type")
+}
+
+func TestSchemaNormalizer_NormalizeOpenAPISchema_Map(t *testing.T) {
+	normalizer := NewSchemaNormalizer()
+
+	t.Run("map[string]interface{} converts to schema", func(t *testing.T) {
+		schemaMap := map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"name": map[string]interface{}{
+					"type": "string",
+				},
+			},
+		}
+
+		schema, err := normalizer.NormalizeSchema(SourceOpenAPI, schemaMap)
+		require.NoError(t, err)
+
+		objectType := openapi3.Types{"object"}
+		assert.Equal(t, &objectType, schema.Type)
+		assert.Contains(t, schema.Properties, "name")
+	})
+
+	t.Run("map with invalid JSON returns error", func(t *testing.T) {
+		// Create a map with a value that can't be marshaled (e.g., channel)
+		invalidMap := map[string]interface{}{
+			"type": make(chan int),
+		}
+
+		_, err := normalizer.NormalizeSchema(SourceOpenAPI, invalidMap)
+		assert.Error(t, err)
+	})
+}
+
+func TestSchemaNormalizer_NormalizeOpenAPISchema_UnsupportedType(t *testing.T) {
+	normalizer := NewSchemaNormalizer()
+
+	_, err := normalizer.NormalizeSchema(SourceOpenAPI, "not a valid schema")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported schema type")
+}
+
 func protoString(value string) *string {
 	return &value
 }

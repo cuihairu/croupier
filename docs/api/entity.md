@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type EntitiesListRequest struct {
 	Page int `form:"page,optional"`
 	PageSize int `form:"pageSize,optional"`
@@ -26,7 +26,7 @@ type EntitiesListRequest struct {
 
 
 
-```golang
+```go
 type EntitiesListResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -47,7 +47,7 @@ type EntitiesListResponse struct {
 
 
 
-```golang
+```go
 type EntityCreateRequest struct {
 	Type string `json:"type"`
 	Data interface{} `json:"data"`
@@ -59,7 +59,7 @@ type EntityCreateRequest struct {
 
 
 
-```golang
+```go
 type EntityCreateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -80,7 +80,7 @@ type EntityCreateResponse struct {
 
 
 
-```golang
+```go
 type EntityDetailRequest struct {
 	ID string `path:"id"`
 }
@@ -91,7 +91,7 @@ type EntityDetailRequest struct {
 
 
 
-```golang
+```go
 type EntityDetailResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -112,7 +112,7 @@ type EntityDetailResponse struct {
 
 
 
-```golang
+```go
 type EntityUpdateRequest struct {
 	ID string `path:"id"`
 	Data interface{} `json:"data"`
@@ -124,7 +124,7 @@ type EntityUpdateRequest struct {
 
 
 
-```golang
+```go
 type EntityUpdateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -145,7 +145,7 @@ type EntityUpdateResponse struct {
 
 
 
-```golang
+```go
 type EntityDeleteRequest struct {
 	ID string `path:"id"`
 }
@@ -156,7 +156,7 @@ type EntityDeleteRequest struct {
 
 
 
-```golang
+```go
 type EntityDeleteResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -177,7 +177,7 @@ type EntityDeleteResponse struct {
 
 
 
-```golang
+```go
 type EntityPreviewRequest struct {
 	ID string `path:"id"`
 }
@@ -188,7 +188,7 @@ type EntityPreviewRequest struct {
 
 
 
-```golang
+```go
 type EntityPreviewResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -209,7 +209,7 @@ type EntityPreviewResponse struct {
 
 
 
-```golang
+```go
 type EntityValidateRequest struct {
 	Type string `json:"type"`
 	Data interface{} `json:"data"`
@@ -221,7 +221,7 @@ type EntityValidateRequest struct {
 
 
 
-```golang
+```go
 type EntityValidateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

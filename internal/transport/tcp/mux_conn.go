@@ -10,7 +10,9 @@ import (
 	"time"
 
 	transportcore "github.com/cuihairu/croupier/internal/transport"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
+	"google.golang.org/protobuf/proto"
 )
 
 // ProtocolError marks a request as a protocol violation and forces the connection to close.
@@ -248,7 +250,18 @@ func (c *MuxConn) handleInboundRequest(ctx context.Context, msgID uint32, reqID 
 		if isProtocolError(err) {
 			return err
 		}
-		respBody, _ = json.Marshal(map[string]string{"error": err.Error()})
+		// For InvokeRequest, return a proper InvokeResponse with error payload
+		if msgID == protocol.MsgInvokeRequest {
+			errorJSON := []byte(`{"error":"` + err.Error() + `"}`)
+			resp := &sdkv1.InvokeResponse{Payload: errorJSON}
+			respBody, err = proto.Marshal(resp)
+			if err != nil {
+				return err
+			}
+		} else {
+			// For other message types, return JSON error
+			respBody, _ = json.Marshal(map[string]string{"error": err.Error()})
+		}
 	}
 
 	return c.writeFrame(reqID, protocol.GetResponseMsgID(msgID), respBody)

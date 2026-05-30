@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type GamesListRequest struct {
 	Page int `form:"page,optional"`
 	PageSize int `form:"pageSize,optional"`
@@ -26,7 +26,7 @@ type GamesListRequest struct {
 
 
 
-```golang
+```go
 type GamesListResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -52,7 +52,7 @@ type GamesData struct {
 
 
 
-```golang
+```go
 type GameCreateRequest struct {
 	Name string `json:"name"`
 	Description string `json:"description,optional"`
@@ -65,7 +65,7 @@ type GameCreateRequest struct {
 
 
 
-```golang
+```go
 type GameCreateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -86,7 +86,7 @@ type GameCreateResponse struct {
 
 
 
-```golang
+```go
 type GameDetailRequest struct {
 	ID string `path:"id"`
 }
@@ -97,7 +97,7 @@ type GameDetailRequest struct {
 
 
 
-```golang
+```go
 type GameDetailResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -135,7 +135,7 @@ type GameInfo struct {
 
 
 
-```golang
+```go
 type GameUpdateRequest struct {
 	ID string `path:"id"`
 	Name string `json:"name,optional"`
@@ -150,7 +150,7 @@ type GameUpdateRequest struct {
 
 
 
-```golang
+```go
 type GameUpdateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -188,7 +188,7 @@ type GameInfo struct {
 
 
 
-```golang
+```go
 type GameDeleteRequest struct {
 	ID string `path:"id"`
 }
@@ -199,7 +199,7 @@ type GameDeleteRequest struct {
 
 
 
-```golang
+```go
 type GameDeleteResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -220,7 +220,7 @@ type GameDeleteResponse struct {
 
 
 
-```golang
+```go
 type GameEnvsListRequest struct {
 	ID string `path:"id"`
 }
@@ -231,7 +231,7 @@ type GameEnvsListRequest struct {
 
 
 
-```golang
+```go
 type GameEnvsListResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -256,7 +256,7 @@ type GameEnvsData struct {
 
 
 
-```golang
+```go
 type GameEnvAddRequest struct {
 	ID string `path:"id"`
 	Name string `json:"name"`
@@ -269,7 +269,7 @@ type GameEnvAddRequest struct {
 
 
 
-```golang
+```go
 type GameEnvAddResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -290,7 +290,7 @@ type GameEnvAddResponse struct {
 
 
 
-```golang
+```go
 type GameEnvUpdateRequest struct {
 	ID string `path:"id"`
 	EnvID string `path:"envId"`
@@ -304,7 +304,7 @@ type GameEnvUpdateRequest struct {
 
 
 
-```golang
+```go
 type GameEnvUpdateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -325,7 +325,7 @@ type GameEnvUpdateResponse struct {
 
 
 
-```golang
+```go
 type GameEnvDeleteRequest struct {
 	ID string `path:"id"`
 	EnvID string `path:"envId"`
@@ -337,7 +337,7 @@ type GameEnvDeleteRequest struct {
 
 
 
-```golang
+```go
 type GameEnvDeleteResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

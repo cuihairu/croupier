@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type LevelsRequest struct {
 	GameId string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -27,7 +27,7 @@ type LevelsRequest struct {
 
 
 
-```golang
+```go
 type LevelsResponse struct {
 	Levels []LevelMetrics `json:"levels"`
 }
@@ -46,7 +46,7 @@ type LevelsResponse struct {
 
 
 
-```golang
+```go
 type LevelsEpisodesRequest struct {
 	GameId string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -60,7 +60,7 @@ type LevelsEpisodesRequest struct {
 
 
 
-```golang
+```go
 type LevelsEpisodesResponse struct {
 	Episodes []EpisodeMetrics `json:"episodes"`
 }
@@ -79,7 +79,7 @@ type LevelsEpisodesResponse struct {
 
 
 
-```golang
+```go
 type LevelsMapsRequest struct {
 	GameId string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -93,7 +93,7 @@ type LevelsMapsRequest struct {
 
 
 
-```golang
+```go
 type LevelsMapsResponse struct {
 	Maps []MapMetrics `json:"maps"`
 }
@@ -112,7 +112,7 @@ type LevelsMapsResponse struct {
 
 
 
-```golang
+```go
 type RetentionRequest struct {
 	GameId string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -127,7 +127,7 @@ type RetentionRequest struct {
 
 
 
-```golang
+```go
 type RetentionResponse struct {
 	Cohorts []RetentionCohort `json:"cohorts"`
 }

@@ -108,12 +108,12 @@ func TestHandler_Create_BindValidation(t *testing.T) {
 	}{
 		{
 			name:     "valid create request",
-			body:     `{"username":"newadmin","password":"password123","nickname":"New Admin","email":"new@example.com"}`,
+			body:     `{"username":"newadmin","password":"MyPass123","nickname":"New Admin","email":"new@example.com"}`,
 			wantCode: 0, // Will fail at service layer
 		},
 		{
 			name:     "missing username",
-			body:     `{"password":"password123","nickname":"New Admin"}`,
+			body:     `{"password":"MyPass123","nickname":"New Admin"}`,
 			wantCode: 400,
 		},
 		{
@@ -133,7 +133,7 @@ func TestHandler_Create_BindValidation(t *testing.T) {
 		},
 		{
 			name:     "with roles",
-			body:     `{"username":"newadmin","password":"password123","roles":["admin","editor"]}`,
+			body:     `{"username":"newadmin","password":"MyPass123","roles":["admin","editor"]}`,
 			wantCode: 0,
 		},
 	}

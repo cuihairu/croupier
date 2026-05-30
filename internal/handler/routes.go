@@ -31,7 +31,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/profile"
 	"github.com/cuihairu/croupier/internal/api/provider"
 	"github.com/cuihairu/croupier/internal/api/rate_limit"
-	"github.com/cuihairu/croupier/internal/api/registry"
+	apiregistry "github.com/cuihairu/croupier/internal/api/registry"
 	"github.com/cuihairu/croupier/internal/api/role"
 	"github.com/cuihairu/croupier/internal/api/routes"
 	"github.com/cuihairu/croupier/internal/api/schema"
@@ -40,6 +40,8 @@ import (
 	"github.com/cuihairu/croupier/internal/api/terms"
 	"github.com/cuihairu/croupier/internal/api/ticket"
 	"github.com/cuihairu/croupier/internal/api/workspace"
+	functionapi "github.com/cuihairu/croupier/internal/function/api"
+	"github.com/cuihairu/croupier/internal/function/registry"
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -66,6 +68,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerAdminRoutes(protected.Group("/admin"), serverCtx)
 		registerFunctionRoutes(protected.Group("/functions"), serverCtx)
 		registerFunctionCallRoutes(protected.Group("/function-calls"), serverCtx)
+		registerFunctionMetadataRoutes(protected.Group("/metadata"), serverCtx)
 		registerGameRoutes(protected.Group("/games"), serverCtx)
 		registerNodeRoutes(protected.Group("/nodes"), serverCtx)
 		registerOpsRoutes(protected.Group("/ops"), serverCtx)
@@ -404,8 +407,8 @@ func registerStorageRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 // Registry 路由注册（公开访问，无需认证）
 // ============================================================================
 func registerRegistryRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
-	registrySvc := registry.NewService(ctx)
-	registryHandler := registry.NewHandler(registrySvc)
+	registrySvc := apiregistry.NewService(ctx)
+	registryHandler := apiregistry.NewHandler(registrySvc)
 	g.GET("/", registryHandler.GetRegistry)
 }
 
@@ -811,4 +814,26 @@ func registerRegistryShortcutRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext)
 	opsSvc := ops.NewService(ctx)
 	opsHandler := ops.NewHandler(opsSvc)
 	g.GET("/registry/services", opsHandler.Services)
+}
+
+// ============================================================================
+// Function Metadata 路由注册（基于新的 FunctionMetadata protobuf）
+// ============================================================================
+func registerFunctionMetadataRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	// Create a shared registry store for function metadata
+	store := registry.NewStore()
+	service := functionapi.NewService(store)
+	handler := functionapi.NewHandler(service)
+
+	functions := g.Group("/functions")
+	{
+		functions.GET("", handler.ListFunctions)
+		functions.POST("", handler.RegisterFunction)
+		functions.GET("/:id", handler.GetFunction)
+		functions.PUT("/:id", handler.UpdateFunction)
+		functions.DELETE("/:id", handler.DeleteFunction)
+		functions.POST("/import/openapi", handler.ImportFromOpenAPI)
+		functions.GET("/categories", handler.GetCategories)
+		functions.GET("/tags", handler.GetTags)
+	}
 }

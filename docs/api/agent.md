@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type AnalyticsFiltersQuery struct {
 }
 ```
@@ -23,7 +23,7 @@ type AnalyticsFiltersQuery struct {
 
 
 
-```golang
+```go
 type AgentAnalyticsFiltersResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -44,7 +44,7 @@ type AgentAnalyticsFiltersResponse struct {
 
 
 
-```golang
+```go
 type AgentMetaReportRequest struct {
 }
 ```
@@ -54,7 +54,7 @@ type AgentMetaReportRequest struct {
 
 
 
-```golang
+```go
 type AgentMetaResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

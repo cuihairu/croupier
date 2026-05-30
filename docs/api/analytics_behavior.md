@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type BehaviorRequest struct {
 	GameId string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -27,7 +27,7 @@ type BehaviorRequest struct {
 
 
 
-```golang
+```go
 type BehaviorResponse struct {
 	TopActions interface{} `json:"topActions"`
 	UserFlows interface{} `json:"userFlows"`
@@ -48,7 +48,7 @@ type BehaviorResponse struct {
 
 
 
-```golang
+```go
 type BehaviorAdoptionRequest struct {
 	GameId string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -63,7 +63,7 @@ type BehaviorAdoptionRequest struct {
 
 
 
-```golang
+```go
 type BehaviorAdoptionResponse struct {
 	Features []FeatureAdoption `json:"features"`
 }
@@ -82,7 +82,7 @@ type BehaviorAdoptionResponse struct {
 
 
 
-```golang
+```go
 type BehaviorAdoptionBreakdownRequest struct {
 	GameId string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -97,7 +97,7 @@ type BehaviorAdoptionBreakdownRequest struct {
 
 
 
-```golang
+```go
 type BehaviorAdoptionBreakdownResponse struct {
 	BySegment interface{} `json:"bySegment"`
 	ByTime interface{} `json:"byTime"`
@@ -117,7 +117,7 @@ type BehaviorAdoptionBreakdownResponse struct {
 
 
 
-```golang
+```go
 type BehaviorEventsRequest struct {
 	GameId string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -133,7 +133,7 @@ type BehaviorEventsRequest struct {
 
 
 
-```golang
+```go
 type BehaviorEventsResponse struct {
 	Items []BehaviorEvent `json:"items"`
 	Total int64 `json:"total"`
@@ -153,7 +153,7 @@ type BehaviorEventsResponse struct {
 
 
 
-```golang
+```go
 type BehaviorFunnelRequest struct {
 	GameId string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -168,7 +168,7 @@ type BehaviorFunnelRequest struct {
 
 
 
-```golang
+```go
 type BehaviorFunnelResponse struct {
 	Steps []FunnelStep `json:"steps"`
 }
@@ -187,7 +187,7 @@ type BehaviorFunnelResponse struct {
 
 
 
-```golang
+```go
 type BehaviorPathsRequest struct {
 	GameId string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -202,7 +202,7 @@ type BehaviorPathsRequest struct {
 
 
 
-```golang
+```go
 type BehaviorPathsResponse struct {
 	Paths interface{} `json:"paths"`
 }

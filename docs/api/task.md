@@ -11,7 +11,7 @@
 
 2. request definition
 
-```golang
+```go
 type TaskListRequest struct {
 	Status string `form:"status,optional"`
 	FunctionID string `form:"function_id,optional"`
@@ -25,7 +25,7 @@ type TaskListRequest struct {
 
 3. response definition
 
-```golang
+```go
 type TaskListResponse struct {
 	Items []TaskItem `json:"items"`
 	Total int `json:"total"`
@@ -43,7 +43,7 @@ type TaskListResponse struct {
 
 2. request definition
 
-```golang
+```go
 type TaskStartRequest struct {
 	FunctionID string `json:"functionId"`
 	Params interface{} `json:"params,optional"`
@@ -52,7 +52,7 @@ type TaskStartRequest struct {
 
 3. response definition
 
-```golang
+```go
 type TaskStartResponse struct {
 	TaskID string `json:"taskId"`
 	Status string `json:"status"`
@@ -69,7 +69,7 @@ type TaskStartResponse struct {
 
 2. request definition
 
-```golang
+```go
 type TaskCancelRequest struct {
 	ID string `path:"id"`
 }
@@ -85,7 +85,7 @@ type TaskCancelRequest struct {
 
 2. request definition
 
-```golang
+```go
 type TaskDetailRequest struct {
 	ID string `path:"id"`
 }
@@ -101,7 +101,7 @@ type TaskDetailRequest struct {
 
 2. request definition
 
-```golang
+```go
 type TaskEventsRequest struct {
 	ID string `path:"id"`
 	AfterSeq int64 `form:"after_seq,optional"`

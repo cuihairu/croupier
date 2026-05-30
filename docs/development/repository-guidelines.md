@@ -7,9 +7,10 @@ title: 仓库规范
 ## Project Structure & Module Organization
 
 - Go monorepo: binaries in `cmd/`, core implementation in `internal/`, stable exported helpers in `pkg/`.
-- Frontend UI: `../croupier-dashboard/`.
-- Configs & assets: `configs/`, `descriptors/`, `schemas/`, `scripts/`, `docs/`, runtime data in `data/`.
+- Frontend UI: `web/`.
+- Configs & assets: `configs/`, `descriptors/`, `scripts/`, `docs/`, runtime data in `data/`.
 - Protocol/IDL: `proto/`, generated stubs in `pkg/pb`.
+- SDKs: `sdks/<lang>` for code, `docs/sdks/<lang>` for formal docs.
 
 ## Build, Test, and Development Commands
 
@@ -18,7 +19,7 @@ title: 仓库规范
 - Generate protobuf code: `make proto`
 - Run tests: `make test`
 - Build docs: `cd docs && pnpm install && pnpm run build`
-- Build dashboard: `cd ../croupier-dashboard && npm ci && npm run build`
+- Build dashboard: `cd web && pnpm install && pnpm build`
 
 ## Coding Style & Naming Conventions
 
@@ -30,7 +31,7 @@ title: 仓库规范
 ## Testing Guidelines
 
 - Go unit tests co-locate as `*_test.go`; prefer table-driven tests.
-- Frontend: `cd ../croupier-dashboard && npm run test` or `npm run test:coverage`.
+- Frontend: `cd web && pnpm test` or `pnpm test:coverage`.
 - Add tests when touching RBAC, APIs, routing, analytics processing, or descriptor resolution.
 
 ## Commit & Pull Request Guidelines
@@ -43,3 +44,14 @@ title: 仓库规范
 
 - Secrets go through environment variables, not hardcoded YAML.
 - Example local run: `./bin/croupier-server --config configs/server.yaml`.
+
+## Release Tagging
+
+- Server / Agent release tags use `v*`, for example `v0.2.0`.
+- SDK release tags use namespaced prefixes:
+  - `sdk-js-v*`
+  - `sdk-python-v*`
+  - `sdk-go-v*`
+  - `sdk-java-v*`
+  - `sdk-cpp-v*`
+- Do not use plain `v*` tags for SDK-only releases, otherwise you will target the server/agent release lane.

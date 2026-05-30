@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type FAQListRequest struct {
 	Page int `form:"page,optional,default=1"`
 	PageSize int `form:"pageSize,optional,default=20"`
@@ -28,7 +28,7 @@ type FAQListRequest struct {
 
 
 
-```golang
+```go
 type FAQListResponse struct {
 	Items []FAQ `json:"items"`
 	Total int64 `json:"total"`
@@ -50,7 +50,7 @@ type FAQListResponse struct {
 
 
 
-```golang
+```go
 type FAQCreateRequest struct {
 	Question string `json:"question"`
 	Answer string `json:"answer"`
@@ -66,7 +66,7 @@ type FAQCreateRequest struct {
 
 
 
-```golang
+```go
 type FAQDetailResponse struct {
 	Id int64 `json:"id"`
 	Question string `json:"question"`
@@ -107,7 +107,7 @@ type FAQ struct {
 
 
 
-```golang
+```go
 type FAQUpdateRequest struct {
 	ID string `path:"id"`
 	Question string `json:"question,optional"`
@@ -124,7 +124,7 @@ type FAQUpdateRequest struct {
 
 
 
-```golang
+```go
 type FAQDetailResponse struct {
 	Id int64 `json:"id"`
 	Question string `json:"question"`
@@ -165,7 +165,7 @@ type FAQ struct {
 
 
 
-```golang
+```go
 type FAQDeleteRequest struct {
 	ID string `path:"id"`
 }
@@ -188,7 +188,7 @@ type FAQDeleteRequest struct {
 
 
 
-```golang
+```go
 type FAQCategoriesRequest struct {
 }
 ```
@@ -198,7 +198,7 @@ type FAQCategoriesRequest struct {
 
 
 
-```golang
+```go
 type FAQCategoriesResponse struct {
 	Items []FAQCategory `json:"items"`
 }

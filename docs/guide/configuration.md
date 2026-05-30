@@ -89,6 +89,63 @@ outboundTLS:
   enabled: false
 ```
 
+## 政策配置
+
+`configs/default-policies.yaml` 定义了不同风险等级函数的默认政策：
+
+```yaml
+low:
+  require_approval: false
+  require_audit: false
+  allowed_roles:
+    - user
+    - operator
+
+medium:
+  require_approval: false
+  require_audit: true
+  allowed_roles:
+    - operator
+
+high:
+  require_approval: true
+  approval_workflow: single_admin
+  require_audit: true
+  allowed_roles:
+    - admin
+
+danger:
+  require_approval: true
+  approval_workflow: two_person
+  require_audit: true
+  allowed_roles:
+    - super_admin
+```
+
+**字段说明：**
+
+| 字段 | 说明 |
+|------|------|
+| `require_approval` | 是否需要审批 |
+| `approval_workflow` | 审批流程类型（single_admin/two_person） |
+| `require_audit` | 是否需要审计 |
+| `allowed_roles` | 允许调用的角色列表 |
+
+**双层政策架构：**
+
+1. **默认政策**：来自 `default-policies.yaml`，根据函数风险等级自动应用
+2. **覆盖政策**：存储在数据库中，可通过 API 为特定函数设置覆盖规则
+
+**重新加载配置：**
+
+```bash
+# API 方式
+POST /api/v1/policies/reload
+
+# 重启服务自动加载
+./bin/croupier-server --config configs/server.yaml
+```
+
 ## 配置验证
 
 ```bash
@@ -131,4 +188,4 @@ cp configs/agent.yaml configs/agent.local.yaml
 ## 下一步
 
 - [部署指南](./deployment.md)
-- [开发文档](../development/README.md)
+- [开发文档](../development/)

@@ -5,13 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"gorm.io/datatypes"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/approvals"
+	"github.com/cuihairu/croupier/internal/policy"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -175,7 +179,7 @@ func functionHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *Funct
 }
 
 func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest) (*FunctionInvokeResponse, error) {
-	_, roles, err := utils.LoadCurrentAdmin(ctx, svcCtx)
+	admin, roles, err := utils.LoadCurrentAdmin(ctx, svcCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -184,9 +188,42 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 		return nil, err
 	}
 
+	var functionPolicy *policy.Policy
+	// Apply function policy checks
+	if svcCtx.PolicyManager != nil {
+		roleNames := utils.RoleNamesFromModels(roles)
+		functionPolicy, err = enforceFunctionPolicy(ctx, svcCtx, req.ID, roleNames)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	payload, err := json.Marshal(req.Payload)
 	if err != nil {
 		return nil, err
+	}
+
+	// Check if approval is required
+	if functionPolicy != nil && functionPolicy.RequireApproval && svcCtx.ApprovalsStore != nil {
+		// Create approval request instead of executing directly
+		approvalID, err := createFunctionApproval(ctx, svcCtx, req.ID, payload, req.Mode, admin, functionPolicy)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create approval request: %w", err)
+		}
+
+		// Log approval creation if audit is enabled
+		if svcCtx.AuditService != nil && functionPolicy.RequireAudit {
+			auditApprovalCreated(ctx, svcCtx, req.ID, admin, utils.RoleNamesFromModels(roles), approvalID, functionPolicy)
+		}
+
+		// Return approval response
+		return &FunctionInvokeResponse{
+			TaskId:           "",
+			ApprovalID:       approvalID,
+			ApprovalRequired: true,
+			ApprovalWorkflow: functionPolicy.ApprovalWorkflow,
+			Result:           nil,
+		}, nil
 	}
 
 	metadata := map[string]string{
@@ -196,34 +233,153 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 		metadata["async"] = "true"
 	}
 
+	var result *FunctionInvokeResponse
+	var invokeErr error
+
 	if req.Mode == "async" {
 		taskResp, err := svcCtx.Dispatcher.StartTaskRequest(ctx, utils.BuildInvokeRequest(req.ID, payload, metadata))
 		if err != nil {
-			return nil, err
+			invokeErr = err
+		} else {
+			result = &FunctionInvokeResponse{
+				TaskId: taskResp.GetTaskId(),
+				TaskID: taskResp.GetTaskId(),
+				Result: nil,
+			}
 		}
-		return &FunctionInvokeResponse{
-			TaskId: taskResp.GetTaskId(),
-			TaskID: taskResp.GetTaskId(),
-			Result: nil,
-		}, nil
+	} else {
+		resp, err := svcCtx.Dispatcher.InvokeRequest(ctx, utils.BuildInvokeRequest(req.ID, payload, metadata))
+		if err != nil {
+			invokeErr = err
+		} else {
+			result = &FunctionInvokeResponse{}
+			if resp != nil && len(resp.GetPayload()) > 0 {
+				var v map[string]interface{}
+				if err := json.Unmarshal(resp.GetPayload(), &v); err == nil {
+					result.Result = v
+				}
+			}
+		}
 	}
 
-	resp, err := svcCtx.Dispatcher.InvokeRequest(ctx, utils.BuildInvokeRequest(req.ID, payload, metadata))
-	if err != nil {
+	// Audit logging: log function invocation if policy requires audit
+	if svcCtx.AuditService != nil && functionPolicy != nil && functionPolicy.RequireAudit {
+		auditFunctionInvoke(ctx, svcCtx, req.ID, admin, utils.RoleNamesFromModels(roles), functionPolicy, invokeErr)
+	}
+
+	if invokeErr != nil {
 		return &FunctionInvokeResponse{
 			TaskId: "",
 			Result: nil,
-		}, err
+		}, invokeErr
 	}
 
-	out := &FunctionInvokeResponse{}
-	if resp != nil && len(resp.GetPayload()) > 0 {
-		var v map[string]interface{}
-		if err := json.Unmarshal(resp.GetPayload(), &v); err == nil {
-			out.Result = v
+	return result, nil
+}
+
+// auditFunctionInvoke logs function invocation to audit service
+func auditFunctionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, admin interface{}, userRoles []string, functionPolicy *policy.Policy, invokeErr error) {
+	username := ""
+	if admin != nil {
+		if u, ok := admin.(interface{ GetUsername() string }); ok {
+			username = u.GetUsername()
 		}
 	}
-	return out, nil
+
+	outcome := "success"
+	errorMsg := ""
+	if invokeErr != nil {
+		outcome = "failure"
+		errorMsg = invokeErr.Error()
+	}
+
+	// Build audit details
+	details := map[string]interface{}{
+		"function_id":   functionID,
+		"risk_level":    functionPolicy.DefaultRiskLevel,
+		"require_audit": functionPolicy.RequireAudit,
+		"is_override":   functionPolicy.IsOverride,
+		"policy_source": functionPolicy.Source,
+		"user_roles":    userRoles,
+		"allowed_roles": functionPolicy.AllowedRoles,
+	}
+
+	// Log the audit event
+	_, err := svcCtx.AuditService.Log(ctx, audit.EventFunctionInvoke,
+		audit.WithActorID(username, "user", username),
+		audit.WithResourceID("function", functionID),
+		audit.WithDetails(details),
+		audit.WithOutcome(outcome, errorMsg),
+		audit.WithIPAddress("", ""), // Could extract from request context if needed
+	)
+	if err != nil {
+		// Log error but don't fail the request
+		fmt.Printf("Failed to log audit event: %v\n", err)
+	}
+}
+
+// createFunctionApproval creates an approval request for function invocation
+func createFunctionApproval(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, payload []byte, mode string, admin interface{}, functionPolicy *policy.Policy) (string, error) {
+	username := "system"
+	if admin != nil {
+		if u, ok := admin.(interface{ GetUsername() string }); ok {
+			username = u.GetUsername()
+		}
+	}
+
+	// Generate approval ID
+	approvalID := fmt.Sprintf("func_%s_%d", functionID, time.Now().UnixNano())
+
+	// Create approval record
+	approval := &approvals.Approval{
+		ID:         approvalID,
+		State:      "pending",
+		FunctionID: functionID,
+		Actor:      username,
+		Mode:       mode,
+		Payload:    payload,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	// Store approval
+	_, err := svcCtx.ApprovalsStore.Create(approval)
+	if err != nil {
+		return "", fmt.Errorf("failed to create approval: %w", err)
+	}
+
+	return approvalID, nil
+}
+
+// auditApprovalCreated logs approval creation to audit service
+func auditApprovalCreated(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, admin interface{}, userRoles []string, approvalID string, functionPolicy *policy.Policy) {
+	username := ""
+	if admin != nil {
+		if u, ok := admin.(interface{ GetUsername() string }); ok {
+			username = u.GetUsername()
+		}
+	}
+
+	// Build audit details
+	details := map[string]interface{}{
+		"function_id":       functionID,
+		"approval_id":       approvalID,
+		"approval_workflow": functionPolicy.ApprovalWorkflow,
+		"risk_level":        functionPolicy.DefaultRiskLevel,
+		"user_roles":        userRoles,
+		"allowed_roles":     functionPolicy.AllowedRoles,
+	}
+
+	// Log the audit event
+	_, err := svcCtx.AuditService.Log(ctx, audit.EventApprovalCreated,
+		audit.WithActorID(username, "user", username),
+		audit.WithResourceID("approval", approvalID),
+		audit.WithDetails(details),
+		audit.WithOutcome("success", ""),
+	)
+	if err != nil {
+		fmt.Printf("Failed to log approval audit event: %v\n", err)
+	}
 }
 
 func functionPublish(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionPublishRequest) (*FunctionPublishResponse, error) {
@@ -717,4 +873,42 @@ func stringFromAny(value interface{}) string {
 		return v
 	}
 	return ""
+}
+
+// enforceFunctionPolicy checks if the user's roles are allowed to invoke the function
+// based on the effective policy for that function.
+// Returns the effective policy for auditing purposes.
+func enforceFunctionPolicy(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, userRoles []string) (*policy.Policy, error) {
+	// Get function's risk level from registry
+	riskLevel := policy.RiskMedium // default
+	if svcCtx.RegistryStore != nil {
+		if op, err := svcCtx.RegistryStore.GetOpenAPI(functionID); err == nil {
+			if riskVal, ok := op.Extensions["x-risk-level"].(string); ok {
+				riskLevel = policy.RiskLevel(riskVal)
+			}
+		}
+	}
+
+	// Get effective policy
+	functionPolicy, err := svcCtx.PolicyManager.GetPolicy(ctx, functionID, riskLevel)
+	if err != nil {
+		// Log error but don't block invocation if policy check fails
+		return nil, nil
+	}
+
+	// If no roles restriction, allow
+	if len(functionPolicy.AllowedRoles) == 0 {
+		return functionPolicy, nil
+	}
+
+	// Check if user has any of the allowed roles
+	for _, allowedRole := range functionPolicy.AllowedRoles {
+		for _, userRole := range userRoles {
+			if strings.EqualFold(userRole, allowedRole) {
+				return functionPolicy, nil // user has permission
+			}
+		}
+	}
+
+	return nil, errorx.NewForbidden("insufficient permissions to invoke this function")
 }

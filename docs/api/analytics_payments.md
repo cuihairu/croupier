@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type PaymentsRequest struct {
 	GameId string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -27,7 +27,7 @@ type PaymentsRequest struct {
 
 
 
-```golang
+```go
 type PaymentsResponse struct {
 	Metrics PaymentsMetrics `json:"metrics"`
 	Trends interface{} `json:"trends"`
@@ -56,7 +56,7 @@ type PaymentsMetrics struct {
 
 
 
-```golang
+```go
 type PaymentsIngestRequest struct {
 	GameId string `json:"gameId"`
 	Env string `json:"env"`
@@ -70,7 +70,7 @@ type PaymentsIngestRequest struct {
 
 
 
-```golang
+```go
 type PaymentsIngestResponse struct {
 	Accepted int `json:"accepted"`
 	Rejected int `json:"rejected"`
@@ -91,7 +91,7 @@ type PaymentsIngestResponse struct {
 
 
 
-```golang
+```go
 type PaymentsProductTrendRequest struct {
 	GameId string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -106,7 +106,7 @@ type PaymentsProductTrendRequest struct {
 
 
 
-```golang
+```go
 type PaymentsProductTrendResponse struct {
 	Items []ProductTrend `json:"items"`
 }
@@ -125,7 +125,7 @@ type PaymentsProductTrendResponse struct {
 
 
 
-```golang
+```go
 type PaymentsSummaryRequest struct {
 	GameId string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -140,7 +140,7 @@ type PaymentsSummaryRequest struct {
 
 
 
-```golang
+```go
 type PaymentsSummaryResponse struct {
 	Items []PaymentsSummary `json:"items"`
 }
@@ -159,7 +159,7 @@ type PaymentsSummaryResponse struct {
 
 
 
-```golang
+```go
 type PaymentsTransactionsRequest struct {
 	Page int `form:"page,optional,default=1"`
 	PageSize int `form:"pageSize,optional,default=20"`
@@ -176,7 +176,7 @@ type PaymentsTransactionsRequest struct {
 
 
 
-```golang
+```go
 type PaymentsTransactionsResponse struct {
 	Items []PaymentTransaction `json:"items"`
 	Total int64 `json:"total"`

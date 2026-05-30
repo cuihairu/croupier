@@ -73,7 +73,7 @@ cp configs/agent.local.yaml configs/agent.runtime.yaml
 ### 3. 启动 Dashboard（可选）
 
 ```bash
-cd ../croupier-dashboard
+cd web
 pnpm install
 pnpm dev
 ```
@@ -113,5 +113,5 @@ curl http://localhost:8000
 - [配置管理](./configuration.md)
 - [部署指南](./deployment.md)
 - [核心概念](./concepts/overview.md)
-- [SDK 规范](../sdk/specification.md)
+- [SDK 文档](../sdks/)
 - [SDK-Agent 传输设计](../architecture/sdk-agent-transport-redesign.md)

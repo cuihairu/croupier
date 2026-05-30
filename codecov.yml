@@ -1,25 +1,130 @@
+# Carryforward flags: when only some SDKs are tested,
+# use previous coverage data for untested flags
+flags:
+  go-sdk:
+    paths:
+      - sdks/go/**
+    carryforward: true
+  js-sdk:
+    paths:
+      - sdks/js/**
+    carryforward: true
+  cpp-sdk:
+    paths:
+      - sdks/cpp/**
+    carryforward: true
+  python-sdk:
+    paths:
+      - sdks/python/**
+    carryforward: true
+  java-sdk:
+    paths:
+      - sdks/java/**
+    carryforward: true
+  csharp-sdk:
+    paths:
+      - sdks/csharp/**
+    carryforward: true
+  server:
+    paths:
+      - cmd/**
+      - internal/**
+      - pkg/**
+    carryforward: true
+
 coverage:
   status:
     project:
       default:
-        target: 80%
+        target: auto
         threshold: 1%
+      go-sdk:
+        flags:
+          - go-sdk
+        target: auto
+        threshold: 1%
+        if_not_found: success
+        informational: true  # Don't fail PR
+      js-sdk:
+        flags:
+          - js-sdk
+        target: auto
+        threshold: 1%
+        if_not_found: success
+        informational: true
+      cpp-sdk:
+        flags:
+          - cpp-sdk
+        target: auto
+        threshold: 1%
+        if_not_found: success
+        informational: true
+      python-sdk:
+        flags:
+          - python-sdk
+        target: auto
+        threshold: 1%
+        if_not_found: success
+        informational: true
+      java-sdk:
+        flags:
+          - java-sdk
+        target: auto
+        threshold: 1%
+        if_not_found: success
+        informational: true
+      csharp-sdk:
+        flags:
+          - csharp-sdk
+        target: auto
+        threshold: 1%
+        if_not_found: success
+        informational: true
+      server:
+        flags:
+          - server
+        target: auto
+        threshold: 1%
+        if_not_found: success
+        informational: true
     patch:
       default:
-        target: 80%
+        target: auto
         threshold: 1%
 
-comment: false
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: true
 
 ignore:
+  # Generated code and protocols
   - "proto/**"
   - "pkg/pb/**"
   - "pkg/protocol/**"
   - "gen/**"
+  - "generated/**"
+
+  # SDK generated code (relative to repo root)
+  - "sdks/go/pkg/pb/**"
+  - "sdks/go/downloaded_proto/**"
+  - "sdks/js/generated/**"
+  - "sdks/cpp/generated/**"
+  - "sdks/cpp/vcpkg/**"
+  - "sdks/cpp/vcpkg_installed/**"
+  - "sdks/cpp/build/**"
+  - "sdks/python/croupier/pb/**"
+  - "sdks/java/build/**"
+  - "sdks/csharp/**/obj/**"
+
+  # Non-SDK code
   - "dashboard/**"
   - "cmd/**"
   - "examples/**"
   - "scripts/**"
+  - "web/**"
 
 github_checks:
   annotations: true

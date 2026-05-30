@@ -146,10 +146,10 @@ func TestService_List_Success(t *testing.T) {
 	svcCtx := setupTestServiceContext(t, db)
 
 	// Create test admins
-	admin1ID := createTestAdminWithRole(t, db, "admin1", "Test@Pass2024!", "admin")
-	admin2ID := createTestAdminWithRole(t, db, "admin2", "Test@Pass2024!", "admin")
+	admin1ID := createTestAdminWithRole(t, db, "admin1", "MyPass123", "admin")
+	admin2ID := createTestAdminWithRole(t, db, "admin2", "MyPass123", "admin")
 
-	ctx, adminID := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, adminID := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 	_ = admin1ID
 	_ = admin2ID
 
@@ -181,11 +181,11 @@ func TestService_List_WithSearch(t *testing.T) {
 	svcCtx := setupTestServiceContext(t, db)
 
 	// Create test admins with specific names
-	createTestAdminWithRole(t, db, "john_doe", "Test@Pass2024!", "admin")
-	createTestAdminWithRole(t, db, "jane_smith", "Test@Pass2024!", "admin")
-	createTestAdminWithRole(t, db, "bob_wilson", "Test@Pass2024!", "admin")
+	createTestAdminWithRole(t, db, "john_doe", "MyPass123", "admin")
+	createTestAdminWithRole(t, db, "jane_smith", "MyPass123", "admin")
+	createTestAdminWithRole(t, db, "bob_wilson", "MyPass123", "admin")
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -207,7 +207,7 @@ func TestService_List_WithRoleFilter(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -236,7 +236,7 @@ func TestService_List_WithStatusFilter(t *testing.T) {
 		Nickname: "Active User",
 		Status:   1,
 	}
-	err := adminModel.Create(context.Background(), activeAdmin, "Test@Pass2024!")
+	err := adminModel.Create(context.Background(), activeAdmin, "MyPass123")
 	require.NoError(t, err)
 
 	// Create disabled admin
@@ -245,10 +245,10 @@ func TestService_List_WithStatusFilter(t *testing.T) {
 		Nickname: "Disabled User",
 		Status:   0,
 	}
-	err = adminModel.Create(context.Background(), disabledAdmin, "Test@Pass2024!")
+	err = adminModel.Create(context.Background(), disabledAdmin, "MyPass123")
 	require.NoError(t, err)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -302,7 +302,7 @@ func TestService_Create_Success(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -329,13 +329,13 @@ func TestService_Create_EmptyUsername(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
 	resp, err := service.Create(ctx, &CreateRequest{
 		Username: "",
-		Password: "Test@Pass2024!",
+		Password: "MyPass123",
 	})
 
 	assert.Error(t, err)
@@ -349,7 +349,7 @@ func TestService_Create_EmptyPassword(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -369,7 +369,7 @@ func TestService_Create_PasswordWithWhitespace(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -395,13 +395,13 @@ func TestService_Create_WithRoles(t *testing.T) {
 	err := roleModel.Create(context.Background(), editorRole)
 	require.NoError(t, err)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
 	resp, err := service.Create(ctx, &CreateRequest{
 		Username: "editoruser",
-		Password: "Ed1t0r@Pass!",
+		Password: "MyPass123",
 		Nickname: "Editor User",
 		Roles:    []string{"admin", "editor"},
 	})
@@ -417,13 +417,13 @@ func TestService_Create_InvalidRole(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
 	resp, err := service.Create(ctx, &CreateRequest{
 		Username: "testuser",
-		Password: "Test@Pass2024!",
+		Password: "MyPass123",
 		Roles:    []string{"nonexistent"},
 	})
 
@@ -445,7 +445,7 @@ func TestService_Create_Unauthorized(t *testing.T) {
 
 	resp, err := service.Create(ctx, &CreateRequest{
 		Username: "testuser",
-		Password: "Test@Pass2024!",
+		Password: "MyPass123",
 	})
 
 	assert.Error(t, err)
@@ -458,9 +458,9 @@ func TestService_Get_Success(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	adminID := createTestAdminWithRole(t, db, "testadmin", "Test@Pass2024!", "admin")
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -480,7 +480,7 @@ func TestService_Get_NotFound(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -498,7 +498,7 @@ func TestService_Get_InvalidID(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -548,9 +548,9 @@ func TestService_Update_Success(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	adminID := createTestAdminWithRole(t, db, "testadmin", "Test@Pass2024!", "admin")
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -574,9 +574,9 @@ func TestService_Update_Status(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	adminID := createTestAdminWithRole(t, db, "testadmin", "Test@Pass2024!", "admin")
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -603,7 +603,7 @@ func TestService_Update_Roles(t *testing.T) {
 	err := roleModel.Create(context.Background(), editorRole)
 	require.NoError(t, err)
 
-	adminID := createTestAdminWithRole(t, db, "testadmin", "Test@Pass2024!", "admin")
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
 
 	// Verify initial state - should have exactly 1 role association
 	var adminRoleCount int64
@@ -611,7 +611,7 @@ func TestService_Update_Roles(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(1), adminRoleCount, "should start with exactly 1 admin_roles entry")
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -649,9 +649,9 @@ func TestService_Update_ClearRoles(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	adminID := createTestAdminWithRole(t, db, "testadmin", "Test@Pass2024!", "admin")
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -679,7 +679,7 @@ func TestService_Update_InvalidID(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -709,7 +709,7 @@ func TestService_Update_NotFound(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -728,9 +728,9 @@ func TestService_Delete_Success(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	adminID := createTestAdminWithRole(t, db, "testadmin", "Test@Pass2024!", "admin")
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -752,7 +752,7 @@ func TestService_Delete_InvalidID(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -781,7 +781,7 @@ func TestService_Delete_NotFound(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -798,9 +798,9 @@ func TestService_PasswordReset_Success(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	adminID := createTestAdminWithRole(t, db, "testadmin", "Test@Pass2024!", "admin")
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -817,7 +817,7 @@ func TestService_PasswordReset_Success(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Old password should not work
-	_, err = adminModel.ValidatePassword(context.Background(), "testadmin", "Test@Pass2024!")
+	_, err = adminModel.ValidatePassword(context.Background(), "testadmin", "MyPass123")
 	assert.Error(t, err)
 
 	// New password should work
@@ -832,9 +832,9 @@ func TestService_PasswordReset_EmptyPassword(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	adminID := createTestAdminWithRole(t, db, "testadmin", "Test@Pass2024!", "admin")
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -853,7 +853,7 @@ func TestService_PasswordReset_InvalidID(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -885,7 +885,7 @@ func TestService_PasswordReset_NotFound(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -903,9 +903,9 @@ func TestService_GetGames_Empty(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	adminID := createTestAdminWithRole(t, db, "testadmin", "Test@Pass2024!", "admin")
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -936,7 +936,7 @@ func TestService_GetGames_WithScopes(t *testing.T) {
 	err := gameModel.Create(context.Background(), game)
 	require.NoError(t, err)
 
-	adminID := createTestAdminWithRole(t, db, "testadmin", "Test@Pass2024!", "admin")
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
 
 	// Set game scope
 	err = adminModel.SetGameScope(context.Background(), adminID, game.ID)
@@ -948,7 +948,7 @@ func TestService_GetGames_WithScopes(t *testing.T) {
 	err = adminModel.SetGameEnvScope(context.Background(), adminID, game.ID, "dev")
 	require.NoError(t, err)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -990,9 +990,9 @@ func TestService_UpdateGames_Success(t *testing.T) {
 	err = gameModel.Create(context.Background(), game2)
 	require.NoError(t, err)
 
-	adminID := createTestAdminWithRole(t, db, "testadmin", "Test@Pass2024!", "admin")
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -1038,13 +1038,13 @@ func TestService_UpdateGames_ClearGames(t *testing.T) {
 	err := gameModel.Create(context.Background(), game)
 	require.NoError(t, err)
 
-	adminID := createTestAdminWithRole(t, db, "testadmin", "Test@Pass2024!", "admin")
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
 
 	// Set initial scope
 	err = adminModel.SetGameScope(context.Background(), adminID, game.ID)
 	require.NoError(t, err)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -1065,9 +1065,9 @@ func TestService_UpdateGames_InvalidGame(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	adminID := createTestAdminWithRole(t, db, "testadmin", "Test@Pass2024!", "admin")
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -1384,10 +1384,10 @@ func TestService_List_Pagination(t *testing.T) {
 
 	// Create multiple admins with unique names
 	for i := 1; i <= 25; i++ {
-		createTestAdminWithRole(t, db, "pagination_admin"+strconv.FormatUint(uint64(i), 10), "Test@Pass2024!", "admin")
+		createTestAdminWithRole(t, db, "pagination_admin"+strconv.FormatUint(uint64(i), 10), "MyPass123", "admin")
 	}
 
-	ctx, _ := createTestAdminWithContext(t, db, "pagination_superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "pagination_superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -1428,7 +1428,7 @@ func TestService_List_DefaultPagination(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "Test@Pass2024!", "admin")
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
 
 	service := NewService(svcCtx)
 
@@ -1454,7 +1454,7 @@ func Test_Debug_AdminList(t *testing.T) {
 	svcCtx := setupTestServiceContext(t, db)
 
 	// Create test admin
-	adminID := createTestAdminWithRole(t, db, "testadmin", "Test@Pass2024!", "admin")
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
 
 	// Verify admin exists
 	var count int64
@@ -1523,7 +1523,7 @@ func Test_Debug_AdminModelList(t *testing.T) {
 		Nickname: "Test Admin 2",
 		Status:   1,
 	}
-	err := svcCtx.AdminModel.Create(context.Background(), admin, "Test@Pass2024!")
+	err := svcCtx.AdminModel.Create(context.Background(), admin, "MyPass123")
 	require.NoError(t, err)
 
 	// Assign role - find role by name using db query
@@ -1561,7 +1561,7 @@ func Test_Debug_GetAdminRoles(t *testing.T) {
 	seedTestPermissions(t, db)
 	svcCtx := setupTestServiceContext(t, db)
 
-	adminID := createTestAdminWithRole(t, db, "testadmin3", "Test@Pass2024!", "admin")
+	adminID := createTestAdminWithRole(t, db, "testadmin3", "MyPass123", "admin")
 
 	ctx := context.Background()
 

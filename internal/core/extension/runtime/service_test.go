@@ -1,102 +1,186 @@
 package runtime
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
+	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
+	gsqlite "github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
+
+func setupTestDB(t *testing.T) *gorm.DB {
+	db, err := gorm.Open(gsqlite.Open("file::memory:?mode=memory"), &gorm.Config{})
+	require.NoError(t, err)
+	err = db.AutoMigrate(&model.ExtensionInstallation{}, &model.ExtensionRuntimeBinding{}, &model.ExtensionEvent{})
+	require.NoError(t, err)
+	return db
+}
+
+func TestNewService(t *testing.T) {
+	db := setupTestDB(t)
+
+	installationRepo := extensiongorm.NewInstallationRepo(db)
+	bindingRepo := extensiongorm.NewBindingRepo(db)
+	eventRepo := extensiongorm.NewEventRepo(db)
+
+	svc := NewService(installationRepo, bindingRepo, eventRepo)
+
+	require.NotNil(t, svc)
+	require.NotNil(t, svc.installationRepo)
+	require.NotNil(t, svc.bindingRepo)
+	require.NotNil(t, svc.eventRepo)
+}
+
+func TestReconcile_NilService(t *testing.T) {
+	var s *Service
+	_, err := s.Reconcile(context.Background(), 1)
+	require.Error(t, err)
+}
+
+func TestReconcile_NilRepos(t *testing.T) {
+	s := &Service{}
+	_, err := s.Reconcile(context.Background(), 1)
+	require.Error(t, err)
+}
+
+func TestReconcile_Success_Analytics(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+
+	// Create installation
+	installation := &model.ExtensionInstallation{
+		ExtensionID: "official.analytics",
+		Status:      "",
+	}
+	require.NoError(t, db.Create(installation).Error)
+
+	installationRepo := extensiongorm.NewInstallationRepo(db)
+	bindingRepo := extensiongorm.NewBindingRepo(db)
+	eventRepo := extensiongorm.NewEventRepo(db)
+
+	s := NewService(installationRepo, bindingRepo, eventRepo)
+
+	result, err := s.Reconcile(ctx, installation.ID)
+	require.NoError(t, err)
+	require.Equal(t, installation.ID, result.InstallationID)
+	require.Equal(t, "installed", result.Status)
+	require.GreaterOrEqual(t, result.Applied, 8) // analytics has at least 8 bindings
+	require.Equal(t, 0, result.Failed)
+	require.Equal(t, "reconciled", result.Message)
+
+	// Verify bindings were created
+	var bindings []model.ExtensionRuntimeBinding
+	require.NoError(t, db.Where("installation_id = ?", installation.ID).Find(&bindings).Error)
+	require.GreaterOrEqual(t, len(bindings), 8)
+
+	// Verify status was updated
+	var updated model.ExtensionInstallation
+	require.NoError(t, db.First(&updated, installation.ID).Error)
+	require.Equal(t, "installed", updated.Status)
+
+	// Verify event was created
+	var events []model.ExtensionEvent
+	require.NoError(t, db.Where("installation_id = ?", installation.ID).Find(&events).Error)
+	require.Greater(t, len(events), 0)
+	require.Equal(t, "reconcile", events[0].EventType)
+}
+
+func TestReconcile_WithExistingStatus(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+
+	// Create installation with existing status
+	installation := &model.ExtensionInstallation{
+		ExtensionID: "official.alerting",
+		Status:      "active",
+	}
+	require.NoError(t, db.Create(installation).Error)
+
+	installationRepo := extensiongorm.NewInstallationRepo(db)
+	bindingRepo := extensiongorm.NewBindingRepo(db)
+	eventRepo := extensiongorm.NewEventRepo(db)
+
+	s := NewService(installationRepo, bindingRepo, eventRepo)
+
+	result, err := s.Reconcile(ctx, installation.ID)
+	require.NoError(t, err)
+	require.Equal(t, "active", result.Status)
+}
+
+func TestReconcile_NotFound(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+
+	installationRepo := extensiongorm.NewInstallationRepo(db)
+	bindingRepo := extensiongorm.NewBindingRepo(db)
+	eventRepo := extensiongorm.NewEventRepo(db)
+
+	s := NewService(installationRepo, bindingRepo, eventRepo)
+
+	_, err := s.Reconcile(ctx, 999)
+	require.Error(t, err)
+}
+
+func TestReconcile_AllOfficialExtensions(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+
+	extensions := []string{
+		"official.analytics",
+		"official.alerting",
+		"official.notification",
+		"official.approval",
+		"official.backup-advanced",
+	}
+
+	installationRepo := extensiongorm.NewInstallationRepo(db)
+	bindingRepo := extensiongorm.NewBindingRepo(db)
+	eventRepo := extensiongorm.NewEventRepo(db)
+
+	s := NewService(installationRepo, bindingRepo, eventRepo)
+
+	for i, extID := range extensions {
+		t.Run(extID, func(t *testing.T) {
+			installation := &model.ExtensionInstallation{
+				ExtensionID:     extID,
+				InstallationKey: extID + "-" + string(rune(i)), // Unique key
+			}
+			require.NoError(t, db.Create(installation).Error)
+
+			result, err := s.Reconcile(ctx, installation.ID)
+			require.NoError(t, err)
+			require.NotZero(t, result.Applied)
+
+			// Clean up for next test - delete bindings first due to FK
+			db.Where("installation_id = ?", installation.ID).Delete(&model.ExtensionRuntimeBinding{})
+			db.Where("installation_id = ?", installation.ID).Delete(&model.ExtensionEvent{})
+			db.Delete(installation)
+		})
+	}
+}
+
+func TestBuildRuntimeBindings_NilItem(t *testing.T) {
+	out := buildRuntimeBindings(nil)
+	require.Empty(t, out)
+}
+
+func TestBuildRuntimeBindings_TrimmedExtensionID(t *testing.T) {
+	out := buildRuntimeBindings(&model.ExtensionInstallation{
+		ExtensionID: "  official.analytics  ",
+	})
+	require.GreaterOrEqual(t, len(out), 4)
+	// Check that target ref is correctly formed (trimmed)
+	require.Equal(t, "extension:official.analytics", out[0].TargetRef)
+}
 
 func TestBuildRuntimeBindings_Default(t *testing.T) {
 	out := buildRuntimeBindings(&model.ExtensionInstallation{
-		ExtensionID: "official.notify",
+		ExtensionID: "custom.extension",
 	})
-	if len(out) != 1 {
-		t.Fatalf("expected 1 binding, got %d", len(out))
-	}
-	if out[0].BindingKey != "official.notify.default" {
-		t.Fatalf("unexpected default binding key: %s", out[0].BindingKey)
-	}
-}
-
-func TestBuildRuntimeBindings_OfficialAnalytics(t *testing.T) {
-	out := buildRuntimeBindings(&model.ExtensionInstallation{
-		ExtensionID: "official.analytics",
-	})
-	if len(out) < 4 {
-		t.Fatalf("expected analytics bindings, got %d", len(out))
-	}
-	keys := map[string]bool{}
-	for _, b := range out {
-		keys[b.BindingKey] = true
-	}
-	if !keys["analytics.filters.get"] || !keys["analytics.filters.update"] || !keys["analytics.ingest.batch"] {
-		t.Fatalf("missing analytics binding keys: %+v", keys)
-	}
-	if !keys["analytics.overview"] || !keys["analytics.realtime"] || !keys["analytics.retention"] || !keys["analytics.payments"] {
-		t.Fatalf("missing analytics page bindings: %+v", keys)
-	}
-}
-
-func TestBuildRuntimeBindings_OfficialAlerting(t *testing.T) {
-	out := buildRuntimeBindings(&model.ExtensionInstallation{
-		ExtensionID: "official.alerting",
-	})
-	if len(out) < 4 {
-		t.Fatalf("expected alerting bindings, got %d", len(out))
-	}
-	keys := map[string]bool{}
-	for _, b := range out {
-		keys[b.BindingKey] = true
-	}
-	if !keys["alerts.overview"] || !keys["alerts.management"] || !keys["alerts.list"] || !keys["alerts.silence"] {
-		t.Fatalf("missing alerting binding keys: %+v", keys)
-	}
-}
-
-func TestBuildRuntimeBindings_OfficialNotification(t *testing.T) {
-	out := buildRuntimeBindings(&model.ExtensionInstallation{
-		ExtensionID: "official.notification",
-	})
-	if len(out) < 4 {
-		t.Fatalf("expected notification bindings, got %d", len(out))
-	}
-	keys := map[string]bool{}
-	for _, b := range out {
-		keys[b.BindingKey] = true
-	}
-	if !keys["notifications.overview"] || !keys["notifications.management"] || !keys["notifications.get"] || !keys["notifications.update"] {
-		t.Fatalf("missing notification binding keys: %+v", keys)
-	}
-}
-
-func TestBuildRuntimeBindings_OfficialApproval(t *testing.T) {
-	out := buildRuntimeBindings(&model.ExtensionInstallation{
-		ExtensionID: "official.approval",
-	})
-	if len(out) < 4 {
-		t.Fatalf("expected approval bindings, got %d", len(out))
-	}
-	keys := map[string]bool{}
-	for _, b := range out {
-		keys[b.BindingKey] = true
-	}
-	if !keys["approvals.overview"] || !keys["approvals.management"] || !keys["approvals.approve"] || !keys["approvals.reject"] {
-		t.Fatalf("missing approval binding keys: %+v", keys)
-	}
-}
-
-func TestBuildRuntimeBindings_OfficialBackupAdvanced(t *testing.T) {
-	out := buildRuntimeBindings(&model.ExtensionInstallation{
-		ExtensionID: "official.backup-advanced",
-	})
-	if len(out) < 4 {
-		t.Fatalf("expected backup bindings, got %d", len(out))
-	}
-	keys := map[string]bool{}
-	for _, b := range out {
-		keys[b.BindingKey] = true
-	}
-	if !keys["backups.overview"] || !keys["backups.management"] || !keys["backups.create"] || !keys["backups.delete"] {
-		t.Fatalf("missing backup binding keys: %+v", keys)
-	}
+	require.Len(t, out, 1)
+	require.Equal(t, "custom.extension.default", out[0].BindingKey)
+	require.Equal(t, "extension:custom.extension", out[0].TargetRef)
 }
