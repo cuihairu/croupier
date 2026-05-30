@@ -1,0 +1,99 @@
+name: CI - JavaScript SDK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'sdks/js/**'
+      - '.github/workflows/ci-sdk-js.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'sdks/js/**'
+      - '.github/workflows/ci-sdk-js.yml'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        timeout-minutes: 3
+        uses: actions/checkout@v5
+      - name: Setup Node.js
+        timeout-minutes: 5
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: 'sdks/js/package-lock.json'
+      - name: Install dependencies
+        timeout-minutes: 5
+        working-directory: sdks/js
+        run: npm ci
+      - name: Run ESLint
+        timeout-minutes: 5
+        working-directory: sdks/js
+        run: npm run lint
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        timeout-minutes: 3
+        uses: actions/checkout@v5
+      - name: Setup Node.js
+        timeout-minutes: 5
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: 'sdks/js/package-lock.json'
+      - name: Install dependencies
+        timeout-minutes: 5
+        working-directory: sdks/js
+        run: npm ci
+      - name: Run tests
+        timeout-minutes: 10
+        working-directory: sdks/js
+        run: npm test
+      - name: Upload coverage to Codecov
+        timeout-minutes: 3
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: sdks/js/coverage/lcov.info
+          flags: js-sdk
+          fail_ci_if_error: ${{ github.event_name != 'pull_request' }}
+          verbose: true
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        timeout-minutes: 3
+        uses: actions/checkout@v5
+      - name: Setup Node.js
+        timeout-minutes: 5
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: 'sdks/js/package-lock.json'
+      - name: Install dependencies
+        timeout-minutes: 5
+        working-directory: sdks/js
+        run: npm ci
+      - name: Build
+        timeout-minutes: 10
+        working-directory: sdks/js
+        run: npm run build

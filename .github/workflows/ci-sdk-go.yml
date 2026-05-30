@@ -1,0 +1,174 @@
+name: CI - Go SDK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'sdks/go/**'
+      - '.github/workflows/ci-sdk-go.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'sdks/go/**'
+      - '.github/workflows/ci-sdk-go.yml'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        timeout-minutes: 3
+        uses: actions/checkout@v5
+      - name: Setup Go
+        timeout-minutes: 5
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: false
+      - name: Normalize Go toolchain env
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          go env -u GOROOT || true
+          go env -u GOTOOLDIR || true
+          go env -u GOTOOLCHAIN || true
+          echo "GOCACHE=$RUNNER_TEMP/go-build-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod-${{ github.run_id }}" >> "$GITHUB_ENV"
+          go version
+      - name: Go mod download
+        timeout-minutes: 5
+        working-directory: sdks/go
+        run: go mod download
+      - name: Check gofmt
+        timeout-minutes: 5
+        working-directory: sdks/go
+        run: |
+          fmt_result=$(gofmt -l .)
+          if [[ -n "$fmt_result" ]]; then
+            echo "The following files need gofmt:"
+            echo "$fmt_result"
+            exit 1
+          fi
+      - name: Vet Go code
+        timeout-minutes: 5
+        working-directory: sdks/go
+        run: go vet ./...
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        timeout-minutes: 3
+        uses: actions/checkout@v5
+      - name: Setup Go
+        timeout-minutes: 5
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: false
+      - name: Normalize Go toolchain env
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          go env -u GOROOT || true
+          go env -u GOTOOLDIR || true
+          go env -u GOTOOLCHAIN || true
+          echo "GOCACHE=$RUNNER_TEMP/go-build-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod-${{ github.run_id }}" >> "$GITHUB_ENV"
+          go version
+      - name: Install govulncheck
+        timeout-minutes: 5
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Go mod download
+        timeout-minutes: 5
+        working-directory: sdks/go
+        run: go mod download
+      - name: Run govulncheck
+        timeout-minutes: 10
+        working-directory: sdks/go
+        run: |
+          echo "Running Go vulnerability scan..."
+          ~/go/bin/govulncheck ./...
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        timeout-minutes: 3
+        uses: actions/checkout@v5
+      - name: Setup Go
+        timeout-minutes: 5
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: false
+      - name: Normalize Go toolchain env
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          go env -u GOROOT || true
+          go env -u GOTOOLDIR || true
+          go env -u GOTOOLCHAIN || true
+          echo "GOCACHE=$RUNNER_TEMP/go-build-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod-${{ github.run_id }}" >> "$GITHUB_ENV"
+          go version
+      - name: Go mod download
+        timeout-minutes: 5
+        working-directory: sdks/go
+        run: go mod download
+      - name: Unit tests
+        timeout-minutes: 10
+        working-directory: sdks/go
+        run: go test -count=1 -coverprofile=coverage.out -covermode=atomic ./...
+      - name: Upload coverage to Codecov
+        timeout-minutes: 3
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: sdks/go/coverage.out
+          flags: go-sdk
+          fail_ci_if_error: ${{ github.event_name != 'pull_request' }}
+          verbose: true
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        timeout-minutes: 3
+        uses: actions/checkout@v5
+      - name: Setup Go
+        timeout-minutes: 5
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: false
+      - name: Normalize Go toolchain env
+        timeout-minutes: 2
+        shell: bash
+        run: |
+          go env -u GOROOT || true
+          go env -u GOTOOLDIR || true
+          go env -u GOTOOLCHAIN || true
+          echo "GOCACHE=$RUNNER_TEMP/go-build-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/go-mod-${{ github.run_id }}" >> "$GITHUB_ENV"
+          go version
+      - name: Go mod download
+        timeout-minutes: 5
+        working-directory: sdks/go
+        run: go mod download
+      - name: Build
+        timeout-minutes: 10
+        working-directory: sdks/go
+        run: go build -v ./...
