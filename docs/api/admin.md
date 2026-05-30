@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type AdminsListRequest struct {
 	Page int `form:"page,optional,default=1"`
 	PageSize int `form:"pageSize,optional,default=20"`
@@ -28,7 +28,7 @@ type AdminsListRequest struct {
 
 
 
-```golang
+```go
 type AdminsListResponse struct {
 	Items []Admin `json:"items"`
 	Total int64 `json:"total"`
@@ -50,7 +50,7 @@ type AdminsListResponse struct {
 
 
 
-```golang
+```go
 type AdminCreateRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -66,7 +66,7 @@ type AdminCreateRequest struct {
 
 
 
-```golang
+```go
 type AdminCreateResponse struct {
 	Id int64 `json:"id"`
 	Username string `json:"username"`
@@ -105,7 +105,7 @@ type Admin struct {
 
 
 
-```golang
+```go
 type AdminDetailRequest struct {
 	ID string `path:"id"`
 }
@@ -116,7 +116,7 @@ type AdminDetailRequest struct {
 
 
 
-```golang
+```go
 type AdminDetailResponse struct {
 	Id int64 `json:"id"`
 	Username string `json:"username"`
@@ -155,7 +155,7 @@ type Admin struct {
 
 
 
-```golang
+```go
 type AdminUpdateRequest struct {
 	ID string `path:"id"`
 	Nickname string `json:"nickname,optional"`
@@ -171,7 +171,7 @@ type AdminUpdateRequest struct {
 
 
 
-```golang
+```go
 type AdminUpdateResponse struct {
 	Id int64 `json:"id"`
 	Username string `json:"username"`
@@ -210,7 +210,7 @@ type Admin struct {
 
 
 
-```golang
+```go
 type AdminDeleteRequest struct {
 	ID string `path:"id"`
 }
@@ -233,7 +233,7 @@ type AdminDeleteRequest struct {
 
 
 
-```golang
+```go
 type AdminPasswordResetRequest struct {
 	ID string `path:"id"`
 	NewPassword string `json:"newPassword"`
@@ -257,7 +257,7 @@ type AdminPasswordResetRequest struct {
 
 
 
-```golang
+```go
 type PermissionsListRequest struct {
 	Page int `form:"page,optional,default=1"`
 	PageSize int `form:"pageSize,optional,default=20"`
@@ -271,7 +271,7 @@ type PermissionsListRequest struct {
 
 
 
-```golang
+```go
 type PermissionsListResponse struct {
 	Items []Permission `json:"items"`
 	Total int64 `json:"total"`
@@ -293,7 +293,7 @@ type PermissionsListResponse struct {
 
 
 
-```golang
+```go
 type PermissionDetailRequest struct {
 	ID string `path:"id"`
 }
@@ -304,7 +304,7 @@ type PermissionDetailRequest struct {
 
 
 
-```golang
+```go
 type PermissionDetailResponse struct {
 	Id string `json:"id"`
 	Name string `json:"name"`
@@ -341,7 +341,7 @@ type Permission struct {
 
 
 
-```golang
+```go
 type RolesListRequest struct {
 	Page int `form:"page,optional,default=1"`
 	PageSize int `form:"pageSize,optional,default=20"`
@@ -355,7 +355,7 @@ type RolesListRequest struct {
 
 
 
-```golang
+```go
 type RolesListResponse struct {
 	Items []Role `json:"items"`
 	Total int64 `json:"total"`
@@ -377,7 +377,7 @@ type RolesListResponse struct {
 
 
 
-```golang
+```go
 type RoleCreateRequest struct {
 	Name string `json:"name"`
 	Description string `json:"description,optional"`
@@ -391,7 +391,7 @@ type RoleCreateRequest struct {
 
 
 
-```golang
+```go
 type RoleCreateResponse struct {
 	Id int64 `json:"id"`
 	Name string `json:"name"`
@@ -426,7 +426,7 @@ type Role struct {
 
 
 
-```golang
+```go
 type RoleDetailRequest struct {
 	ID string `path:"id"`
 }
@@ -437,7 +437,7 @@ type RoleDetailRequest struct {
 
 
 
-```golang
+```go
 type RoleDetailResponse struct {
 	Id int64 `json:"id"`
 	Name string `json:"name"`
@@ -472,7 +472,7 @@ type Role struct {
 
 
 
-```golang
+```go
 type RoleUpdateRequest struct {
 	ID string `path:"id"`
 	Name string `json:"name,optional"`
@@ -487,7 +487,7 @@ type RoleUpdateRequest struct {
 
 
 
-```golang
+```go
 type RoleUpdateResponse struct {
 	Id int64 `json:"id"`
 	Name string `json:"name"`
@@ -522,7 +522,7 @@ type Role struct {
 
 
 
-```golang
+```go
 type RoleDeleteRequest struct {
 	ID string `path:"id"`
 }

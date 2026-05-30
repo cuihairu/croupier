@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type BackupsListRequest struct {
 	Page int `form:"page,optional,default=1"`
 	PageSize int `form:"pageSize,optional,default=20"`
@@ -26,7 +26,7 @@ type BackupsListRequest struct {
 
 
 
-```golang
+```go
 type BackupsListResponse struct {
 	Items []Backup `json:"items"`
 	Total int64 `json:"total"`
@@ -48,7 +48,7 @@ type BackupsListResponse struct {
 
 
 
-```golang
+```go
 type BackupCreateRequest struct {
 	Name string `json:"name,optional"`
 	Type string `json:"type,optional"` // full, incremental
@@ -60,7 +60,7 @@ type BackupCreateRequest struct {
 
 
 
-```golang
+```go
 type BackupDetailResponse struct {
 	Id string `json:"id"`
 	Name string `json:"name"`
@@ -93,7 +93,7 @@ type Backup struct {
 
 
 
-```golang
+```go
 type BackupDeleteRequest struct {
 	ID string `path:"id"`
 }
@@ -116,7 +116,7 @@ type BackupDeleteRequest struct {
 
 
 
-```golang
+```go
 type BackupDownloadRequest struct {
 	ID string `path:"id"`
 }

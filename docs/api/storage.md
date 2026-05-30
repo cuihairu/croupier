@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type SignedUrlRequest struct {
 	Path string `form:"path"`
 	Expire int `form:"expire,optional"`
@@ -25,7 +25,7 @@ type SignedUrlRequest struct {
 
 
 
-```golang
+```go
 type SignedUrlResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type FunctionsListRequest struct {
 	Page int `form:"page,optional,default=1"`
 	PageSize int `form:"pageSize,optional,default=20"`
@@ -28,7 +28,7 @@ type FunctionsListRequest struct {
 
 
 
-```golang
+```go
 type FunctionsListResponse struct {
 	Items []Function `json:"items"`
 	Total int64 `json:"total"`
@@ -50,7 +50,7 @@ type FunctionsListResponse struct {
 
 
 
-```golang
+```go
 type FunctionDetailRequest struct {
 	ID string `path:"id"`
 }
@@ -61,7 +61,7 @@ type FunctionDetailRequest struct {
 
 
 
-```golang
+```go
 type FunctionDetailResponse struct {
 	Id string `json:"id"`
 	Name string `json:"name"`
@@ -109,7 +109,7 @@ type FunctionDescriptor struct {
 
 
 
-```golang
+```go
 type FunctionActionRequest struct {
 	ID string `path:"id"`
 }
@@ -132,7 +132,7 @@ type FunctionActionRequest struct {
 
 
 
-```golang
+```go
 type FunctionCopyRequest struct {
 	ID string `path:"id"`
 }
@@ -143,7 +143,7 @@ type FunctionCopyRequest struct {
 
 
 
-```golang
+```go
 type FunctionCopyResponse struct {
 	FunctionId string `json:"function_id"`
 	NewId string `json:"new_id"`
@@ -163,7 +163,7 @@ type FunctionCopyResponse struct {
 
 
 
-```golang
+```go
 type FunctionActionRequest struct {
 	ID string `path:"id"`
 }
@@ -186,7 +186,7 @@ type FunctionActionRequest struct {
 
 
 
-```golang
+```go
 type FunctionActionRequest struct {
 	ID string `path:"id"`
 }
@@ -209,7 +209,7 @@ type FunctionActionRequest struct {
 
 
 
-```golang
+```go
 type FunctionInstancesRequest struct {
 	ID string `path:"id"`
 }
@@ -220,7 +220,7 @@ type FunctionInstancesRequest struct {
 
 
 
-```golang
+```go
 type FunctionInstancesResponse struct {
 	Items []FunctionInstance `json:"items"`
 }
@@ -239,7 +239,7 @@ type FunctionInstancesResponse struct {
 
 
 
-```golang
+```go
 type FunctionInvokeRequest struct {
 	ID string `path:"id"`
 	Params interface{} `json:"params,optional"`
@@ -258,13 +258,23 @@ type FunctionInvokeRequest struct {
 
 
 
-```golang
+```go
 type FunctionInvokeResponse struct {
-	TaskId string `json:"taskId"`
-	TaskID string `json:"taskID,omitempty"`
-	Result interface{} `json:"result,omitempty"`
+	TaskId           string      `json:"taskId"`
+	TaskID           string      `json:"taskID,omitempty"`
+	Result           interface{} `json:"result,omitempty"`
+	ApprovalID       string      `json:"approval_id,omitempty"`       // 审批请求 ID（当需要审批时返回）
+	ApprovalRequired bool        `json:"approval_required,omitempty"` // 是否需要审批
+	ApprovalWorkflow string      `json:"approval_workflow,omitempty"` // 审批流程类型（single_admin/two_person）
 }
 ```
+
+**说明：**
+- 当函数政策需要审批时（`RequireApproval=true`），调用会创建审批请求并返回 `ApprovalID`
+- 需要审批的调用不会立即执行，需等待审批通过后执行
+- `ApprovalWorkflow` 表示审批流程类型：
+  - `single_admin`: 单个管理员审批即可
+  - `two_person`: 需要双人审批
 
 ### 9. "获取函数权限"
 
@@ -279,7 +289,7 @@ type FunctionInvokeResponse struct {
 
 
 
-```golang
+```go
 type FunctionPermissionsRequest struct {
 	ID string `path:"id"`
 }
@@ -290,7 +300,7 @@ type FunctionPermissionsRequest struct {
 
 
 
-```golang
+```go
 type FunctionPermissionsResponse struct {
 	Items []FunctionPermission `json:"items"`
 }
@@ -309,7 +319,7 @@ type FunctionPermissionsResponse struct {
 
 
 
-```golang
+```go
 type FunctionPermissionsUpdateRequest struct {
 	ID string `path:"id"`
 	Permissions []FunctionPermission `json:"permissions"`
@@ -321,7 +331,7 @@ type FunctionPermissionsUpdateRequest struct {
 
 
 
-```golang
+```go
 type FunctionPermissionsResponse struct {
 	Items []FunctionPermission `json:"items"`
 }
@@ -340,7 +350,7 @@ type FunctionPermissionsResponse struct {
 
 
 
-```golang
+```go
 type FunctionPublishRequest struct {
 	ID string `path:"id"`
 }
@@ -351,7 +361,7 @@ type FunctionPublishRequest struct {
 
 
 
-```golang
+```go
 type FunctionPublishResponse struct {
 	ApprovalId string `json:"approvalId,omitempty"` // 如果需要审批
 	Published bool `json:"published"`
@@ -371,7 +381,7 @@ type FunctionPublishResponse struct {
 
 
 
-```golang
+```go
 type FunctionUIRequest struct {
 	ID string `path:"id"`
 }
@@ -382,7 +392,7 @@ type FunctionUIRequest struct {
 
 
 
-```golang
+```go
 type FunctionUIResponse struct {
 	Schema interface{} `json:"schema"`
 	Layout interface{} `json:"layout"`
@@ -403,7 +413,7 @@ type FunctionUIResponse struct {
 
 
 
-```golang
+```go
 type FunctionUIUpdateRequest struct {
 	ID string `path:"id"`
 	Schema interface{} `json:"schema,optional"`
@@ -417,7 +427,7 @@ type FunctionUIUpdateRequest struct {
 
 
 
-```golang
+```go
 type FunctionUIResponse struct {
 	Schema interface{} `json:"schema"`
 	Layout interface{} `json:"layout"`
@@ -436,7 +446,7 @@ type FunctionUIResponse struct {
 
 2. request definition
 
-```golang
+```go
 type FunctionUIHistoryRequest struct {
 	ID string `path:"id"`
 }
@@ -444,7 +454,7 @@ type FunctionUIHistoryRequest struct {
 
 3. response definition
 
-```golang
+```go
 type FunctionUIHistoryResponse struct {
 	Items []FunctionUIHistoryItem `json:"items"`
 }
@@ -461,7 +471,7 @@ type FunctionUIHistoryResponse struct {
 
 2. request definition
 
-```golang
+```go
 type FunctionUIRollbackRequest struct {
 	ID      string `path:"id"`
 	Version int    `json:"version"`
@@ -470,7 +480,7 @@ type FunctionUIRollbackRequest struct {
 
 3. response definition
 
-```golang
+```go
 type FunctionUIRollbackResponse struct {
 	AppliedVersion int                 `json:"appliedVersion"`
 	Current        *FunctionUIResponse `json:"current"`
@@ -490,7 +500,7 @@ type FunctionUIRollbackResponse struct {
 
 
 
-```golang
+```go
 type BatchCopyFunctionsRequest struct {
 	FunctionIds []string `json:"function_ids"`
 }
@@ -501,7 +511,7 @@ type BatchCopyFunctionsRequest struct {
 
 
 
-```golang
+```go
 type BatchCopyFunctionsResponse struct {
 	Updated int `json:"updated"`
 	Failed []string `json:"failed"`
@@ -522,7 +532,7 @@ type BatchCopyFunctionsResponse struct {
 
 
 
-```golang
+```go
 type BatchDeleteFunctionsRequest struct {
 	FunctionIds []string `json:"function_ids"`
 }
@@ -533,7 +543,7 @@ type BatchDeleteFunctionsRequest struct {
 
 
 
-```golang
+```go
 type BatchDeleteFunctionsResponse struct {
 	Updated int `json:"updated"`
 	Failed []string `json:"failed"`
@@ -553,7 +563,7 @@ type BatchDeleteFunctionsResponse struct {
 
 
 
-```golang
+```go
 type BatchUpdateFunctionsRequest struct {
 	FunctionIds []string `json:"function_ids"`
 	Enabled bool `json:"enabled"`
@@ -565,7 +575,7 @@ type BatchUpdateFunctionsRequest struct {
 
 
 
-```golang
+```go
 type BatchUpdateFunctionsResponse struct {
 	Updated int `json:"updated"`
 	Failed []string `json:"failed"`
@@ -585,7 +595,7 @@ type BatchUpdateFunctionsResponse struct {
 
 
 
-```golang
+```go
 type DescriptorsRequest struct {
 	Type string `form:"type,optional"`
 	GameId string `form:"gameId,optional"`
@@ -597,7 +607,7 @@ type DescriptorsRequest struct {
 
 
 
-```golang
+```go
 type DescriptorsResponse struct {
 	Items []Descriptor `json:"items"`
 }
@@ -616,7 +626,7 @@ type DescriptorsResponse struct {
 
 
 
-```golang
+```go
 type FunctionsPendingRequest struct {
 }
 ```
@@ -626,7 +636,7 @@ type FunctionsPendingRequest struct {
 
 
 
-```golang
+```go
 type FunctionsPendingResponse struct {
 	Items []PendingFunction `json:"items"`
 }
@@ -643,7 +653,7 @@ type FunctionsPendingResponse struct {
 
 2. request definition
 
-```golang
+```go
 type BatchGetSpecRequest struct {
 	FunctionIDs []string `json:"function_ids"`
 }
@@ -651,7 +661,7 @@ type BatchGetSpecRequest struct {
 
 3. response definition
 
-```golang
+```go
 // key 为 function id，value 为对应的 OpenAPI Operation；未找到时返回 null
 map[string]interface{}
 ```
@@ -660,3 +670,174 @@ map[string]interface{}
 
 - 该接口用于 Dashboard 批量读取函数 OpenAPI，避免逐个请求。
 - 当前返回值直接透传注册表中的 OpenAPI operation 对象。
+
+## 函数政策 API
+
+### 22. "获取函数政策"
+
+1. route definition
+
+- Url: /api/v1/functions/:function_id/policy
+- Method: GET
+- Request: -
+- Response: `Policy`
+
+2. request definition
+
+```
+function_id: path parameter
+risk_level: query parameter (optional, default: medium)
+```
+
+3. response definition
+
+```go
+type Policy struct {
+	FunctionID       string   `json:"function_id"`
+	RequireApproval  bool     `json:"require_approval"`
+	ApprovalWorkflow string   `json:"approval_workflow"`
+	RequireAudit     bool     `json:"require_audit"`
+	AllowedRoles     []string `json:"allowed_roles"`
+	Source           string   `json:"source"`       // "default" 或 "manual"
+	IsOverride       bool     `json:"is_override"`
+	DefaultRiskLevel string   `json:"default_risk_level"`
+}
+```
+
+**说明：**
+- 返回函数的有效政策（优先使用数据库覆盖，否则使用默认风险等级政策）
+- 风险等级可选值：`low`、`medium`、`high`、`danger`
+
+### 23. "设置函数政策覆盖"
+
+1. route definition
+
+- Url: /api/v1/functions/:function_id/policy
+- Method: PUT
+- Request: `SetPolicyRequest`
+- Response: `Policy`
+
+2. request definition
+
+```go
+type SetPolicyRequest struct {
+	RequireApproval  bool     `json:"require_approval"`
+	ApprovalWorkflow string   `json:"approval_workflow"`
+	RequireAudit     bool     `json:"require_audit"`
+	AllowedRoles     []string `json:"allowed_roles"`
+}
+```
+
+3. response definition
+
+```go
+type Policy struct {
+	FunctionID       string   `json:"function_id"`
+	RequireApproval  bool     `json:"require_approval"`
+	ApprovalWorkflow string   `json:"approval_workflow"`
+	RequireAudit     bool     `json:"require_audit"`
+	AllowedRoles     []string `json:"allowed_roles"`
+	Source           string   `json:"source"`
+	IsOverride       bool     `json:"is_override"`
+}
+```
+
+**说明：**
+- 为函数设置数据库覆盖政策，覆盖默认风险等级政策
+- `AllowedRoles` 为空时表示无角色限制
+- 设置后，`Source` 为 `"manual"`，`IsOverride` 为 `true`
+
+### 24. "删除函数政策覆盖"
+
+1. route definition
+
+- Url: /api/v1/functions/:function_id/policy
+- Method: DELETE
+- Request: -
+- Response: `{"message": "..."}`
+
+2. request definition
+
+```
+function_id: path parameter
+```
+
+3. response definition
+
+```go
+{
+  "message": "Policy deleted, using default risk-based policy"
+}
+```
+
+**说明：**
+- 删除函数的数据库覆盖政策
+- 删除后，函数将恢复使用默认风险等级政策
+
+## 系统政策 API
+
+### 25. "获取所有政策覆盖"
+
+1. route definition
+
+- Url: /api/v1/policies/overrides
+- Method: GET
+- Request: -
+- Response: `{"policies": [...]}`
+
+2. response definition
+
+```go
+{
+  "policies": []Policy  // 所有手动设置的覆盖政策
+}
+```
+
+**说明：**
+- 返回所有手动设置的函数政策覆盖列表
+- 不包括默认风险等级政策
+
+### 26. "获取默认政策配置"
+
+1. route definition
+
+- Url: /api/v1/policies/defaults
+- Method: GET
+- Request: -
+- Response: `{"low": ..., "medium": ..., "high": ..., "danger": ...}`
+
+2. response definition
+
+```go
+{
+  "low": Policy,    // 低风险默认政策
+  "medium": Policy, // 中风险默认政策
+  "high": Policy,   // 高风险默认政策
+  "danger": Policy  // 危险风险默认政策
+}
+```
+
+**说明：**
+- 返回所有风险等级的默认政策配置
+- 这些配置来自 `configs/default-policies.yaml` 文件
+
+### 27. "重新加载政策配置"
+
+1. route definition
+
+- Url: /api/v1/policies/reload
+- Method: POST
+- Request: -
+- Response: `{"message": "..."}`
+
+2. response definition
+
+```go
+{
+  "message": "Configuration reloaded"
+}
+```
+
+**说明：**
+- 重新从 `configs/default-policies.yaml` 加载默认政策配置
+- 不影响已设置的数据库覆盖政策

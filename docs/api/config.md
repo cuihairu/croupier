@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type ConfigUpsertRequest struct {
 	Key string `json:"key"` // 配置键
 	Value string `json:"value"` // 配置值
@@ -25,7 +25,7 @@ type ConfigUpsertRequest struct {
 
 
 
-```golang
+```go
 type ConfigUpsertResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -46,7 +46,7 @@ type ConfigUpsertResponse struct {
 
 
 
-```golang
+```go
 type ConfigVersionDetailRequest struct {
 	Key string `form:"key"` // 配置键
 	Version int `form:"version"` // 版本号
@@ -58,7 +58,7 @@ type ConfigVersionDetailRequest struct {
 
 
 
-```golang
+```go
 type ConfigVersionDetailResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -79,7 +79,7 @@ type ConfigVersionDetailResponse struct {
 
 
 
-```golang
+```go
 type ConfigVersionsRequest struct {
 	Key string `form:"key"` // 配置键
 }
@@ -90,7 +90,7 @@ type ConfigVersionsRequest struct {
 
 
 
-```golang
+```go
 type ConfigVersionsResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

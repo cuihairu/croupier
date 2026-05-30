@@ -16,7 +16,7 @@
 
 2. request definition
 
-```golang
+```go
 type ListRequest struct {
 	FunctionID string `form:"function_id"`
 	GameID     string `form:"game_id"`
@@ -29,7 +29,7 @@ type ListRequest struct {
 
 3. response definition
 
-```golang
+```go
 type ListResponse struct {
 	Calls    []Item `json:"calls"`
 	Total    int    `json:"total"`

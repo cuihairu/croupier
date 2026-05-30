@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type AnalyticsBehaviorRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -27,7 +27,7 @@ type AnalyticsBehaviorRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsBehaviorResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -48,7 +48,7 @@ type AnalyticsBehaviorResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsBehaviorAdoptionRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -60,7 +60,7 @@ type AnalyticsBehaviorAdoptionRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsBehaviorAdoptionResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -81,7 +81,7 @@ type AnalyticsBehaviorAdoptionResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsBehaviorAdoptionBreakdownRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -94,7 +94,7 @@ type AnalyticsBehaviorAdoptionBreakdownRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsBehaviorAdoptionBreakdownResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -115,7 +115,7 @@ type AnalyticsBehaviorAdoptionBreakdownResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsBehaviorEventsRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -128,7 +128,7 @@ type AnalyticsBehaviorEventsRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsBehaviorEventsResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -149,7 +149,7 @@ type AnalyticsBehaviorEventsResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsBehaviorFunnelRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -162,7 +162,7 @@ type AnalyticsBehaviorFunnelRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsBehaviorFunnelResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -183,7 +183,7 @@ type AnalyticsBehaviorFunnelResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsBehaviorPathsRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -195,7 +195,7 @@ type AnalyticsBehaviorPathsRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsBehaviorPathsResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -216,7 +216,7 @@ type AnalyticsBehaviorPathsResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsFiltersGetRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -228,7 +228,7 @@ type AnalyticsFiltersGetRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsFiltersGetResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -249,7 +249,7 @@ type AnalyticsFiltersGetResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsFiltersUpdateRequest struct {
 	GameID string `json:"gameId"`
 	Env string `json:"env"`
@@ -263,7 +263,7 @@ type AnalyticsFiltersUpdateRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsFiltersUpdateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -284,7 +284,7 @@ type AnalyticsFiltersUpdateResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsIngestRequest struct {
 	GameID string `json:"gameId"`
 	Env string `json:"env"`
@@ -297,7 +297,7 @@ type AnalyticsIngestRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsIngestResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -318,7 +318,7 @@ type AnalyticsIngestResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsLevelsRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -330,7 +330,7 @@ type AnalyticsLevelsRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsLevelsResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -351,7 +351,7 @@ type AnalyticsLevelsResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsLevelsEpisodesRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -363,7 +363,7 @@ type AnalyticsLevelsEpisodesRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsLevelsEpisodesResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -384,7 +384,7 @@ type AnalyticsLevelsEpisodesResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsLevelsMapsRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -396,7 +396,7 @@ type AnalyticsLevelsMapsRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsLevelsMapsResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -417,7 +417,7 @@ type AnalyticsLevelsMapsResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsOverviewRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -431,7 +431,7 @@ type AnalyticsOverviewRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsOverviewResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -452,7 +452,7 @@ type AnalyticsOverviewResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsPaymentsRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -466,7 +466,7 @@ type AnalyticsPaymentsRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsPaymentsResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -487,7 +487,7 @@ type AnalyticsPaymentsResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsPaymentsIngestRequest struct {
 	GameID string `json:"gameId"`
 	Env string `json:"env"`
@@ -500,7 +500,7 @@ type AnalyticsPaymentsIngestRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsPaymentsIngestResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -521,7 +521,7 @@ type AnalyticsPaymentsIngestResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsPaymentsProductTrendRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -534,7 +534,7 @@ type AnalyticsPaymentsProductTrendRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsPaymentsProductTrendResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -555,7 +555,7 @@ type AnalyticsPaymentsProductTrendResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsPaymentsSummaryRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -567,7 +567,7 @@ type AnalyticsPaymentsSummaryRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsPaymentsSummaryResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -588,7 +588,7 @@ type AnalyticsPaymentsSummaryResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsPaymentsTransactionsRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -602,7 +602,7 @@ type AnalyticsPaymentsTransactionsRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsPaymentsTransactionsResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -623,7 +623,7 @@ type AnalyticsPaymentsTransactionsResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsRealtimeRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -635,7 +635,7 @@ type AnalyticsRealtimeRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsRealtimeResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -656,7 +656,7 @@ type AnalyticsRealtimeResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsRealtimeSeriesRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -669,7 +669,7 @@ type AnalyticsRealtimeSeriesRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsRealtimeSeriesResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -690,7 +690,7 @@ type AnalyticsRealtimeSeriesResponse struct {
 
 
 
-```golang
+```go
 type AnalyticsRetentionRequest struct {
 	GameID string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -704,7 +704,7 @@ type AnalyticsRetentionRequest struct {
 
 
 
-```golang
+```go
 type AnalyticsRetentionResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

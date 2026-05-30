@@ -11,16 +11,41 @@ LDFLAGS := -X main.version=$(FULL_VERSION) -X main.buildTime=$(BUILD_TIME) -X ma
 .PHONY: build-sdks build-sdks-cpp build-sdks-go build-sdks-java build-sdks-js build-sdks-python
 .PHONY: build-web build-dashboard build-website dev-dashboard dev-website
 .PHONY: version version-sync
-
+.PHONY: clone-sdks clone-dashboard clone-all
 
 # Build all components (server + sdks + web)
 all: build build-sdks build-web
 
-# ========== SDK Build Targets ==========
-# SDKs are now in sdks/ subdirectory within monorepo
+# ========== Clone External Dependencies ==========
+# Clone SDK repositories (used instead of git submodules)
+SDK_REPOS := croupier-sdk-cpp croupier-sdk-go croupier-sdk-java croupier-sdk-js croupier-sdk-python croupier-sdk-csharp
+SDK_BASE_URL := git@github.com:cuihairu
+
+clone-sdks:
+	@echo "[clone] cloning SDK repositories..."
+	@for repo in $(SDK_REPOS); do \
+		if [ ! -d "sdks/$$repo" ]; then \
+			echo "[clone] $$repo"; \
+			git clone --depth 1 $(SDK_BASE_URL)/$$repo.git sdks/$$repo; \
+		else \
+			echo "[skip] $$repo already exists"; \
+		fi \
+	done
 
 # Clone dashboard repository
+clone-dashboard:
+	@echo "[clone] cloning dashboard..."
+	@if [ ! -d "dashboard" ]; then \
+		echo "[clone] croupier-dashboard"; \
+		git clone --depth 1 $(SDK_BASE_URL)/croupier-dashboard.git dashboard; \
+	else \
+		echo "[skip] dashboard already exists"; \
+	fi
+
 # Clone all external dependencies
+clone-all: clone-sdks clone-dashboard
+	@echo "[done] all dependencies cloned"
+
 # Sync proto files from remote
 sync-proto:
 	@echo "[sync] updating proto/ from latest..."
@@ -131,18 +156,18 @@ build-sdks-python:
 # ========== Web & Docs Build Targets ==========
 build-web: build-dashboard build-docs
 
-build-dashboard:
+build-dashboard: submodules
 	@echo "[web] building dashboard..."
-	@cd dashboard && pnpm install && pnpm run build
+	@cd dashboard && npm ci && npm run build
 
 build-docs:
 	@echo "[docs] building documentation..."
 	@cd docs && pnpm install --frozen-lockfile && pnpm run build
 
 # ========== Development Targets ==========
-dev-dashboard:
+dev-dashboard: submodules
 	@echo "[web] starting dashboard development server..."
-	@cd dashboard && pnpm install && pnpm run dev
+	@cd dashboard && npm ci && npm run dev
 
 dev-docs:
 	@echo "[docs] starting VuePress documentation dev server..."

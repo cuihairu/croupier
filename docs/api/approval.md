@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type ApprovalsListRequest struct {
 	Page int `form:"page,optional"` // 页码
 	PageSize int `form:"pageSize,optional"` // 每页数量
@@ -26,7 +26,7 @@ type ApprovalsListRequest struct {
 
 
 
-```golang
+```go
 type ApprovalsListResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -47,7 +47,7 @@ type ApprovalsListResponse struct {
 
 
 
-```golang
+```go
 type ApprovalGetRequest struct {
 	ID string `path:"id"` // 审批ID
 }
@@ -58,7 +58,7 @@ type ApprovalGetRequest struct {
 
 
 
-```golang
+```go
 type ApprovalGetResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -79,7 +79,7 @@ type ApprovalGetResponse struct {
 
 
 
-```golang
+```go
 type ApprovalApproveRequest struct {
 	ID string `path:"id"` // 审批ID
 }
@@ -90,7 +90,7 @@ type ApprovalApproveRequest struct {
 
 
 
-```golang
+```go
 type ApprovalApproveResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -111,7 +111,7 @@ type ApprovalApproveResponse struct {
 
 
 
-```golang
+```go
 type ApprovalRejectRequest struct {
 	ID string `path:"id"` // 审批ID
 	Reason string `json:"reason"` // 拒绝原因
@@ -123,7 +123,7 @@ type ApprovalRejectRequest struct {
 
 
 
-```golang
+```go
 type ApprovalRejectResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

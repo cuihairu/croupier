@@ -1,15 +1,24 @@
 package assignment
 
 import (
+	"context"
+
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
 
-type Handler struct {
-	service *Service
+// AssignmentService defines the interface for assignment service operations
+type AssignmentService interface {
+	List(ctx context.Context, req *AssignmentsListRequest) (*AssignmentsListResponse, error)
+	History(ctx context.Context, req *AssignmentsHistoryRequest) (*AssignmentsHistoryResponse, error)
+	Update(ctx context.Context, req *AssignmentsUpdateRequest) (*AssignmentsUpdateResponse, error)
 }
 
-func NewHandler(service *Service) *Handler {
+type Handler struct {
+	service AssignmentService
+}
+
+func NewHandler(service AssignmentService) *Handler {
 	return &Handler{service: service}
 }
 

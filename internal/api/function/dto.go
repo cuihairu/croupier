@@ -129,9 +129,12 @@ type FunctionInvokeRequest struct {
 
 // FunctionInvokeResponse represents the response of a function invocation
 type FunctionInvokeResponse struct {
-	TaskId string      `json:"taskId"`
-	TaskID string      `json:"taskID,omitempty"`
-	Result interface{} `json:"result,omitempty"`
+	TaskId           string      `json:"taskId"`
+	TaskID           string      `json:"taskID,omitempty"`
+	Result           interface{} `json:"result,omitempty"`
+	ApprovalID       string      `json:"approval_id,omitempty"`
+	ApprovalRequired bool        `json:"approval_required,omitempty"`
+	ApprovalWorkflow string      `json:"approval_workflow,omitempty"`
 }
 
 // FunctionPermission represents a permission for a function

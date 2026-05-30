@@ -218,24 +218,28 @@ private:
 The included example plugin provides these functions:
 
 ### hello
+
 ```bash
 Input:  {"name": "World"}
 Output: {"message": "Hello, World! Greetings from the example plugin."}
 ```
 
 ### calculate
+
 ```bash
 Input:  {"operation": "add", "a": 15, "b": 25}
 Output: {"result": 40.0, "operation": "add", "operands": {"a": 15, "b": 25}}
 ```
 
 ### time
+
 ```bash
 Input:  {}
 Output: {"timestamp": 1637123456, "formatted_time": "Wed Nov 17 10:30:56 2021"}
 ```
 
 ### echo
+
 ```bash
 Input:  {"test": "data"}
 Output: {"echo": {"context": "...", "payload": {"test": "data"}}}
@@ -246,6 +250,7 @@ Output: {"echo": {"context": "...", "payload": {"test": "data"}}}
 ### Common Issues
 
 **Plugin fails to load**
+
 ```cpp
 // Check error message
 std::string error = library_manager.GetLastError();
@@ -253,6 +258,7 @@ std::cout << "Load error: " << error << std::endl;
 ```
 
 **Function not found**
+
 ```cpp
 // Verify exported functions
 auto functions = plugin_manager.GetPluginFunctions("my_plugin");
@@ -262,6 +268,7 @@ for (const auto& func : functions) {
 ```
 
 **Runtime errors**
+
 ```cpp
 // Set error callback
 plugin_manager.SetErrorCallback([](const std::string& error) {

@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type PlayersListRequest struct {
 	Page int `form:"page,optional,default=1"`
 	PageSize int `form:"pageSize,optional,default=20"`
@@ -30,7 +30,7 @@ type PlayersListRequest struct {
 
 
 
-```golang
+```go
 type PlayersListResponse struct {
 	Items []Player `json:"items"`
 	Total int64 `json:"total"`
@@ -52,7 +52,7 @@ type PlayersListResponse struct {
 
 
 
-```golang
+```go
 type PlayerCreateRequest struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -68,7 +68,7 @@ type PlayerCreateRequest struct {
 
 
 
-```golang
+```go
 type PlayerCreateResponse struct {
 	Id int64 `json:"id"`
 	Username string `json:"username"`
@@ -113,7 +113,7 @@ type Player struct {
 
 
 
-```golang
+```go
 type PlayerDetailRequest struct {
 	ID string `path:"id"`
 }
@@ -124,7 +124,7 @@ type PlayerDetailRequest struct {
 
 
 
-```golang
+```go
 type PlayerDetailResponse struct {
 	Id int64 `json:"id"`
 	Username string `json:"username"`
@@ -169,7 +169,7 @@ type Player struct {
 
 
 
-```golang
+```go
 type PlayerUpdateRequest struct {
 	ID string `path:"id"`
 	Nickname string `json:"nickname,optional"`
@@ -186,7 +186,7 @@ type PlayerUpdateRequest struct {
 
 
 
-```golang
+```go
 type PlayerUpdateResponse struct {
 	Id int64 `json:"id"`
 	Username string `json:"username"`
@@ -231,7 +231,7 @@ type Player struct {
 
 
 
-```golang
+```go
 type PlayerDeleteRequest struct {
 	ID string `path:"id"`
 }
@@ -254,7 +254,7 @@ type PlayerDeleteRequest struct {
 
 
 
-```golang
+```go
 type PlayerBalanceRequest struct {
 	ID string `path:"id"`
 	Amount int64 `json:"amount"`
@@ -267,7 +267,7 @@ type PlayerBalanceRequest struct {
 
 
 
-```golang
+```go
 type PlayerBalanceResponse struct {
 	Id int64 `json:"id"`
 	Username string `json:"username"`

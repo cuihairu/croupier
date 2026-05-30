@@ -1,6 +1,6 @@
 version: v2
 plugins:
-  # Go plugins for main package (使用固定版本 v1.36.11 对应 protobuf 4.25.x)
+  # Go plugins for main package (使用固定版本 v1.36.11 对应 protobuf 4.25.x API)
   - remote: buf.build/protocolbuffers/go:v1.36.11
     out: pkg/pb
     opt:
@@ -10,3 +10,6 @@ plugins:
     opt:
       - paths=source_relative
       - require_unimplemented_servers=false
+  # C++ plugin for SDK (使用 v34.1 对应 protobuf 34.x)
+  - remote: buf.build/protocolbuffers/cpp:v34.1
+    out: sdks/cpp/generated

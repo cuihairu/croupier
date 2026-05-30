@@ -23,8 +23,7 @@ message ServiceConfig {
   string version = 2;
   string game_id = 3;
   string env = 4;           // environment: dev, staging, prod
-  string local_addr = 5;    // local listening address
-  int32 timeout_seconds = 6;
+  int32 timeout_seconds = 5;
 }
 
 // Task Status enumeration

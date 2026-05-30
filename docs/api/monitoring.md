@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type HealthzRequest struct {
 }
 ```
@@ -23,7 +23,7 @@ type HealthzRequest struct {
 
 
 
-```golang
+```go
 type HealthzResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -44,7 +44,7 @@ type HealthzResponse struct {
 
 
 
-```golang
+```go
 type MetricsRequest struct {
 }
 ```
@@ -54,7 +54,7 @@ type MetricsRequest struct {
 
 
 
-```golang
+```go
 type MetricsResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -75,7 +75,7 @@ type MetricsResponse struct {
 
 
 
-```golang
+```go
 type StatusRequest struct {
 }
 ```
@@ -85,7 +85,7 @@ type StatusRequest struct {
 
 
 
-```golang
+```go
 type StatusResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

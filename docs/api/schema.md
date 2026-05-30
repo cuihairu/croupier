@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type SchemasListRequest struct {
 	Page int `form:"page,optional"`
 	PageSize int `form:"pageSize,optional"`
@@ -25,7 +25,7 @@ type SchemasListRequest struct {
 
 
 
-```golang
+```go
 type SchemasListResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -46,7 +46,7 @@ type SchemasListResponse struct {
 
 
 
-```golang
+```go
 type SchemaCreateRequest struct {
 	Name string `json:"name"`
 	Schema interface{} `json:"schema"`
@@ -58,7 +58,7 @@ type SchemaCreateRequest struct {
 
 
 
-```golang
+```go
 type SchemaCreateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -79,7 +79,7 @@ type SchemaCreateResponse struct {
 
 
 
-```golang
+```go
 type SchemaDetailRequest struct {
 	ID string `path:"id"`
 }
@@ -90,7 +90,7 @@ type SchemaDetailRequest struct {
 
 
 
-```golang
+```go
 type SchemaDetailResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -111,7 +111,7 @@ type SchemaDetailResponse struct {
 
 
 
-```golang
+```go
 type SchemaUpdateRequest struct {
 	ID string `path:"id"`
 	Schema interface{} `json:"schema"`
@@ -123,7 +123,7 @@ type SchemaUpdateRequest struct {
 
 
 
-```golang
+```go
 type SchemaUpdateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -144,7 +144,7 @@ type SchemaUpdateResponse struct {
 
 
 
-```golang
+```go
 type SchemaDeleteRequest struct {
 	ID string `path:"id"`
 }
@@ -155,7 +155,7 @@ type SchemaDeleteRequest struct {
 
 
 
-```golang
+```go
 type SchemaDeleteResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -176,7 +176,7 @@ type SchemaDeleteResponse struct {
 
 
 
-```golang
+```go
 type SchemaUIConfigRequest struct {
 	ID string `path:"id"`
 }
@@ -187,7 +187,7 @@ type SchemaUIConfigRequest struct {
 
 
 
-```golang
+```go
 type SchemaUIConfigResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -208,7 +208,7 @@ type SchemaUIConfigResponse struct {
 
 
 
-```golang
+```go
 type SchemaUIConfigUpdateRequest struct {
 	ID string `path:"id"`
 	Config interface{} `json:"config"`
@@ -220,7 +220,7 @@ type SchemaUIConfigUpdateRequest struct {
 
 
 
-```golang
+```go
 type SchemaUIConfigUpdateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -241,7 +241,7 @@ type SchemaUIConfigUpdateResponse struct {
 
 
 
-```golang
+```go
 type SchemaValidateRequest struct {
 	ID string `path:"id"`
 	Data interface{} `json:"data"`
@@ -253,7 +253,7 @@ type SchemaValidateRequest struct {
 
 
 
-```golang
+```go
 type SchemaValidateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -274,7 +274,7 @@ type SchemaValidateResponse struct {
 
 
 
-```golang
+```go
 type SchemaRawValidateRequest struct {
 	Schema interface{} `json:"schema"`
 	Data interface{} `json:"data"`
@@ -286,7 +286,7 @@ type SchemaRawValidateRequest struct {
 
 
 
-```golang
+```go
 type SchemaRawValidateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

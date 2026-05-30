@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type AssignmentsListRequest struct {
 	Page int `form:"page,optional"`
 	PageSize int `form:"pageSize,optional"`
@@ -27,7 +27,7 @@ type AssignmentsListRequest struct {
 
 
 
-```golang
+```go
 type AssignmentsListResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -48,7 +48,7 @@ type AssignmentsListResponse struct {
 
 
 
-```golang
+```go
 type AssignmentsUpdateRequest struct {
 	GameId string `json:"game_id"`
 	Env string `json:"env,optional"`
@@ -61,7 +61,7 @@ type AssignmentsUpdateRequest struct {
 
 
 
-```golang
+```go
 type AssignmentsUpdateResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

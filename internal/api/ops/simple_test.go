@@ -1136,18 +1136,38 @@ func TestHandlerAliasMethods(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(&Service{})
+	svcCtx := &svc.ServiceContext{RegistryStore: registry.NewStore()}
+	h := NewHandler(NewService(svcCtx))
 
 	cases := []struct {
 		name string
 		fn   func(*gin.Context)
 	}{
+		// Original aliases (already tested)
 		{name: "AgentsList", fn: h.AgentsList},
 		{name: "Metrics", fn: h.Metrics},
 		{name: "MQ", fn: h.MQ},
 		{name: "Services", fn: h.Services},
 		{name: "Functions", fn: h.Functions},
 		{name: "Config", fn: h.Config},
+		// Additional alias methods that don't require DB models
+		{name: "AgentMeta", fn: h.AgentMeta},
+		{name: "AgentMetrics", fn: h.AgentMetrics},
+		{name: "AgentProcesses", fn: h.AgentProcesses},
+		{name: "AgentSystemInfo", fn: h.AgentSystemInfo},
+		{name: "AgentProcessStart", fn: h.AgentProcessStart},
+		{name: "AgentProcessStop", fn: h.AgentProcessStop},
+		{name: "AgentProcessRestart", fn: h.AgentProcessRestart},
+		{name: "AgentExecCommand", fn: h.AgentExecCommand},
+		{name: "Nodes", fn: h.Nodes},
+		{name: "NodeCommands", fn: h.NodeCommands},
+		{name: "NodeDrain", fn: h.NodeDrain},
+		{name: "NodeMeta", fn: h.NodeMeta},
+		{name: "NodeRestart", fn: h.NodeRestart},
+		{name: "NodeUndrain", fn: h.NodeUndrain},
+		{name: "HealthGet", fn: h.HealthGet},
+		{name: "HealthRun", fn: h.HealthRun},
+		{name: "HealthUpdate", fn: h.HealthUpdate},
 	}
 
 	for _, tc := range cases {

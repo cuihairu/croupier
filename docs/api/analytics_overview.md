@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type FiltersGetRequest struct {
 	GameId string `form:"gameId,optional"`
 }
@@ -24,7 +24,7 @@ type FiltersGetRequest struct {
 
 
 
-```golang
+```go
 type FiltersGetResponse struct {
 	Items []AnalyticsFilters `json:"items"`
 }
@@ -43,7 +43,7 @@ type FiltersGetResponse struct {
 
 
 
-```golang
+```go
 type FiltersUpdateRequest struct {
 	GameId string `json:"gameId"`
 	Filters interface{} `json:"filters"`
@@ -55,7 +55,7 @@ type FiltersUpdateRequest struct {
 
 
 
-```golang
+```go
 type FiltersGetResponse struct {
 	Items []AnalyticsFilters `json:"items"`
 }
@@ -74,7 +74,7 @@ type FiltersGetResponse struct {
 
 
 
-```golang
+```go
 type IngestRequest struct {
 	GameId string `json:"gameId"`
 	Env string `json:"env"`
@@ -88,7 +88,7 @@ type IngestRequest struct {
 
 
 
-```golang
+```go
 type IngestResponse struct {
 	Accepted int `json:"accepted"`
 	Rejected int `json:"rejected"`
@@ -109,7 +109,7 @@ type IngestResponse struct {
 
 
 
-```golang
+```go
 type OverviewRequest struct {
 	GameId string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -130,7 +130,7 @@ type AnalyticsQuery struct {
 
 
 
-```golang
+```go
 type OverviewResponse struct {
 	Metrics OverviewMetrics `json:"metrics"`
 	Trends interface{} `json:"trends"`
@@ -160,7 +160,7 @@ type OverviewMetrics struct {
 
 
 
-```golang
+```go
 type RealtimeRequest struct {
 	GameId string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -172,7 +172,7 @@ type RealtimeRequest struct {
 
 
 
-```golang
+```go
 type RealtimeResponse struct {
 	OnlineUsers int `json:"onlineUsers"`
 	ActiveSessions int `json:"activeSessions"`
@@ -206,7 +206,7 @@ type RealtimeMetrics struct {
 
 
 
-```golang
+```go
 type RealtimeSeriesRequest struct {
 	GameId string `form:"gameId,optional"`
 	Env string `form:"env,optional"`
@@ -220,7 +220,7 @@ type RealtimeSeriesRequest struct {
 
 
 
-```golang
+```go
 type RealtimeSeriesResponse struct {
 	Series interface{} `json:"series"`
 }

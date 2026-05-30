@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type RootRequest struct {
 }
 ```
@@ -23,7 +23,7 @@ type RootRequest struct {
 
 
 
-```golang
+```go
 type RootResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

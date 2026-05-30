@@ -313,6 +313,45 @@ func (m *FunctionModel) BatchCopyFunctions(ctx context.Context, functionIDs []st
 	return len(copiedIDs), failedIDs, copiedIDs, nil
 }
 
+// ===== Function Policy Methods =====
+
+// GetPolicy retrieves the policy for a function.
+func (m *FunctionModel) GetPolicy(ctx context.Context, functionID string) (*FunctionPolicy, error) {
+	var policy FunctionPolicy
+	err := m.db.WithContext(ctx).
+		Where("function_id = ?", functionID).
+		First(&policy).Error
+	if err != nil {
+		return nil, err
+	}
+	return &policy, nil
+}
+
+// UpsertPolicy creates or updates a function policy.
+func (m *FunctionModel) UpsertPolicy(ctx context.Context, policy *FunctionPolicy) error {
+	return m.db.WithContext(ctx).
+		Clauses(upsertAllColumns()).
+		Create(policy).Error
+}
+
+// DeletePolicy removes the policy for a function.
+func (m *FunctionModel) DeletePolicy(ctx context.Context, functionID string) error {
+	return m.db.WithContext(ctx).
+		Where("function_id = ?", functionID).
+		Delete(&FunctionPolicy{}).Error
+}
+
+// ListPolicies returns all policies.
+func (m *FunctionModel) ListPolicies(ctx context.Context, source string) ([]FunctionPolicy, error) {
+	var policies []FunctionPolicy
+	query := m.db.WithContext(ctx).Model(&FunctionPolicy{})
+	if source != "" {
+		query = query.Where("source = ?", source)
+	}
+	err := query.Find(&policies).Error
+	return policies, err
+}
+
 func normalizeJSONMapUpdate(updates map[string]interface{}, key string) {
 	if updates == nil {
 		return

@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type AuditRequest struct {
 	Page int `form:"page,optional"` // 页码
 	PageSize int `form:"pageSize,optional"` // 每页数量
@@ -27,7 +27,7 @@ type AuditRequest struct {
 
 
 
-```golang
+```go
 type AuditResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

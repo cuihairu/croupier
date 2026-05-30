@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type NodesListRequest struct {
 	Type string `form:"type,optional"`
 	Status string `form:"status,optional"`
@@ -25,7 +25,7 @@ type NodesListRequest struct {
 
 
 
-```golang
+```go
 type NodesListResponse struct {
 	Items []Node `json:"items"`
 }
@@ -44,7 +44,7 @@ type NodesListResponse struct {
 
 
 
-```golang
+```go
 type NodeDrainRequest struct {
 	ID string `path:"id"`
 	Timeout int `json:"timeout,optional"` // 秒
@@ -68,7 +68,7 @@ type NodeDrainRequest struct {
 
 
 
-```golang
+```go
 type NodeMetaRequest struct {
 	ID string `path:"id"`
 }
@@ -79,7 +79,7 @@ type NodeMetaRequest struct {
 
 
 
-```golang
+```go
 type NodeMetaResponse struct {
 	Meta interface{} `json:"meta"`
 }
@@ -98,7 +98,7 @@ type NodeMetaResponse struct {
 
 
 
-```golang
+```go
 type NodeMetaUpdateRequest struct {
 	ID string `path:"id"`
 	Meta interface{} `json:"meta"`
@@ -110,7 +110,7 @@ type NodeMetaUpdateRequest struct {
 
 
 
-```golang
+```go
 type NodeMetaResponse struct {
 	Meta interface{} `json:"meta"`
 }
@@ -129,7 +129,7 @@ type NodeMetaResponse struct {
 
 
 
-```golang
+```go
 type NodeActionRequest struct {
 	ID string `path:"id"`
 }
@@ -152,7 +152,7 @@ type NodeActionRequest struct {
 
 
 
-```golang
+```go
 type NodeActionRequest struct {
 	ID string `path:"id"`
 }
@@ -175,7 +175,7 @@ type NodeActionRequest struct {
 
 
 
-```golang
+```go
 type NodeCommandsRequest struct {
 }
 ```
@@ -185,7 +185,7 @@ type NodeCommandsRequest struct {
 
 
 
-```golang
+```go
 type NodeCommandsResponse struct {
 	Items []NodeCommand `json:"items"`
 }

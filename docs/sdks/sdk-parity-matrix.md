@@ -12,25 +12,25 @@
 
 ## 统一基线
 
-| Capability | 基线 |
-| --- | --- |
-| SDK 主动连接 Agent 本地 gateway | `Required` |
-| 单条长连接复用注册、心跳、调用、作业控制 | `Required` |
-| `ProviderConnectRequest` 作为首帧 | `Required` |
-| 默认 transport 为独立 `tcp session` | `Required` |
-| `tls` 作为 `tcp` 的可选安全配置 | `Required` |
-| `InvokeRequest/Response/TaskEvent` 默认 JSON payload | `Required` |
-| `input_schema/output_schema` 描述 JSON Schema | `Required` |
-| 自动重连 + 指数退避 + 上限后廉价周期重试 | `Required` |
-| drain / overload / backpressure 语义 | `Required` |
-| JSON payload 自动编解码 | `Required` |
-| 多地址回退 | `Optional` |
-| IPC / 本地专用优化 transport | `Optional` |
-| mTLS | `Optional` |
-| SDK 本地监听端口 | `Forbidden` |
-| `rpc_addr` / 回拨式注册 | `Forbidden` |
-| SDK 侧 `NNGServer` | `Forbidden` |
-| 以 `gRPC` 作为 SDK 默认主链路 | `Forbidden` |
+| Capability                                           | 基线        |
+| ---------------------------------------------------- | ----------- |
+| SDK 主动连接 Agent 本地 gateway                      | `Required`  |
+| 单条长连接复用注册、心跳、调用、作业控制             | `Required`  |
+| `ProviderConnectRequest` 作为首帧                    | `Required`  |
+| 默认 transport 为独立 `tcp session`                  | `Required`  |
+| `tls` 作为 `tcp` 的可选安全配置                      | `Required`  |
+| `InvokeRequest/Response/TaskEvent` 默认 JSON payload | `Required`  |
+| `input_schema/output_schema` 描述 JSON Schema        | `Required`  |
+| 自动重连 + 指数退避 + 上限后廉价周期重试             | `Required`  |
+| drain / overload / backpressure 语义                 | `Required`  |
+| JSON payload 自动编解码                              | `Required`  |
+| 多地址回退                                           | `Optional`  |
+| IPC / 本地专用优化 transport                         | `Optional`  |
+| mTLS                                                 | `Optional`  |
+| SDK 本地监听端口                                     | `Forbidden` |
+| `rpc_addr` / 回拨式注册                              | `Forbidden` |
+| SDK 侧 `NNGServer`                                   | `Forbidden` |
+| 以 `gRPC` 作为 SDK 默认主链路                        | `Forbidden` |
 
 ## 协议边界
 
@@ -54,23 +54,23 @@
 
 所有 SDK 建议至少暴露以下统一配置语义：
 
-| 字段 | 说明 |
-| --- | --- |
-| `address` | Agent 本地 gateway 地址 |
-| `connectTimeoutMs` | 建连超时 |
-| `requestTimeoutMs` | 单请求超时 |
-| `tls.enabled` | 是否启用 TLS |
-| `tls.caFile` | CA 文件 |
-| `tls.certFile` | 客户端证书 |
-| `tls.keyFile` | 客户端私钥 |
-| `tls.serverName` | TLS SNI / 校验名 |
-| `tls.insecureSkipVerify` | 仅开发环境跳过校验 |
-| `heartbeat.intervalMs` | 心跳间隔 |
-| `reconnect.enabled` | 自动重连 |
-| `reconnect.initialDelayMs` | 初始退避 |
-| `reconnect.maxDelayMs` | 最大退避 |
-| `reconnect.multiplier` | 退避倍率 |
-| `reconnect.jitter` | 抖动比例 |
+| 字段                           | 说明                     |
+| ------------------------------ | ------------------------ |
+| `address`                      | Agent 本地 gateway 地址  |
+| `connectTimeoutMs`             | 建连超时                 |
+| `requestTimeoutMs`             | 单请求超时               |
+| `tls.enabled`                  | 是否启用 TLS             |
+| `tls.caFile`                   | CA 文件                  |
+| `tls.certFile`                 | 客户端证书               |
+| `tls.keyFile`                  | 客户端私钥               |
+| `tls.serverName`               | TLS SNI / 校验名         |
+| `tls.insecureSkipVerify`       | 仅开发环境跳过校验       |
+| `heartbeat.intervalMs`         | 心跳间隔                 |
+| `reconnect.enabled`            | 自动重连                 |
+| `reconnect.initialDelayMs`     | 初始退避                 |
+| `reconnect.maxDelayMs`         | 最大退避                 |
+| `reconnect.multiplier`         | 退避倍率                 |
+| `reconnect.jitter`             | 抖动比例                 |
 | `reconnect.steadyStateDelayMs` | 到达上限后的廉价重试周期 |
 
 ## 命名要求
@@ -105,19 +105,19 @@
 - 统一术语
 - 统一禁止项
 
-而每个 SDK 当前实现状态，应由各 SDK 目录的 README、测试矩阵和 CI 结果负责给出。
+而每个 SDK 当前实现状态，应由各 SDK 仓库自己的 README、测试矩阵和 CI 结果负责给出。
 
-## SDK 目录
+## SDK 仓库
 
-- Go: `sdks/go/`
-- C++: `sdks/cpp/`
-- Java: `sdks/java/`
-- JS/TS: `sdks/js/`
-- Python: `sdks/python/`
-- C#: `sdks/csharp/`
+- Go: `croupier-sdk-go`
+- C++: `croupier-sdk-cpp`
+- Java: `croupier-sdk-java`
+- JS/TS: `croupier-sdk-js`
+- Python: `croupier-sdk-python`
+- C#: `croupier-sdk-csharp`
 
 ## 相关文档
 
-- [SDK 规范](../sdk/specification.md)
+- [SDK 概览](../sdks/)
 - [SDK-Agent 传输重构设计](../architecture/sdk-agent-transport-redesign.md)
 - [SDK Wire Protocol](../architecture/sdk-wire-protocol.md)

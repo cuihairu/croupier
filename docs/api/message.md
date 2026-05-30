@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type MessagesListRequest struct {
 	Page int `form:"page,optional"`
 	PageSize int `form:"pageSize,optional"`
@@ -27,7 +27,7 @@ type MessagesListRequest struct {
 
 
 
-```golang
+```go
 type MessagesListResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -48,7 +48,7 @@ type MessagesListResponse struct {
 
 
 
-```golang
+```go
 type MessageSendRequest struct {
 	To string `json:"to"`
 	Type string `json:"type"`
@@ -63,7 +63,7 @@ type MessageSendRequest struct {
 
 
 
-```golang
+```go
 type MessageSendResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -84,7 +84,7 @@ type MessageSendResponse struct {
 
 
 
-```golang
+```go
 type MessageDetailRequest struct {
 	ID string `path:"id"`
 }
@@ -95,7 +95,7 @@ type MessageDetailRequest struct {
 
 
 
-```golang
+```go
 type MessageDetailResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -116,7 +116,7 @@ type MessageDetailResponse struct {
 
 
 
-```golang
+```go
 type MessageReadRequest struct {
 	ID string `path:"id"`
 }
@@ -127,7 +127,7 @@ type MessageReadRequest struct {
 
 
 
-```golang
+```go
 type MessageReadResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -148,7 +148,7 @@ type MessageReadResponse struct {
 
 
 
-```golang
+```go
 type StreamMessagesRequest struct {
 }
 ```
@@ -158,7 +158,7 @@ type StreamMessagesRequest struct {
 
 
 
-```golang
+```go
 type StreamMessagesResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`
@@ -179,7 +179,7 @@ type StreamMessagesResponse struct {
 
 
 
-```golang
+```go
 type MessagesUnreadCountRequest struct {
 }
 ```
@@ -189,7 +189,7 @@ type MessagesUnreadCountRequest struct {
 
 
 
-```golang
+```go
 type MessagesUnreadCountResponse struct {
 	Code int `json:"code"`
 	Message string `json:"message"`

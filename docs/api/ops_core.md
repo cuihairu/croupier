@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type OpsConfigRequest struct {
 }
 ```
@@ -23,7 +23,7 @@ type OpsConfigRequest struct {
 
 
 
-```golang
+```go
 type OpsConfigResponse struct {
 	MaintenanceMode bool `json:"maintenanceMode"`
 	HealthCheck interface{} `json:"healthCheck"`
@@ -50,7 +50,7 @@ type OpsConfig struct {
 
 
 
-```golang
+```go
 type OpsFunctionsRequest struct {
 	GameId string `form:"gameId,optional"`
 }
@@ -61,7 +61,7 @@ type OpsFunctionsRequest struct {
 
 
 
-```golang
+```go
 type OpsFunctionsResponse struct {
 	Items []OpsFunction `json:"items"`
 }
@@ -80,7 +80,7 @@ type OpsFunctionsResponse struct {
 
 
 
-```golang
+```go
 type OpsHealthGetRequest struct {
 }
 ```
@@ -90,7 +90,7 @@ type OpsHealthGetRequest struct {
 
 
 
-```golang
+```go
 type OpsHealthResponse struct {
 	Status string `json:"status"`
 	Checks interface{} `json:"checks"`
@@ -110,7 +110,7 @@ type OpsHealthResponse struct {
 
 
 
-```golang
+```go
 type OpsHealthUpdateRequest struct {
 	Config interface{} `json:"config"`
 }
@@ -121,7 +121,7 @@ type OpsHealthUpdateRequest struct {
 
 
 
-```golang
+```go
 type OpsHealthResponse struct {
 	Status string `json:"status"`
 	Checks interface{} `json:"checks"`
@@ -141,7 +141,7 @@ type OpsHealthResponse struct {
 
 
 
-```golang
+```go
 type OpsHealthRunRequest struct {
 }
 ```
@@ -151,7 +151,7 @@ type OpsHealthRunRequest struct {
 
 
 
-```golang
+```go
 type OpsHealthResponse struct {
 	Status string `json:"status"`
 	Checks interface{} `json:"checks"`
@@ -171,7 +171,7 @@ type OpsHealthResponse struct {
 
 
 
-```golang
+```go
 type OpsMaintenanceGetRequest struct {
 }
 ```
@@ -181,7 +181,7 @@ type OpsMaintenanceGetRequest struct {
 
 
 
-```golang
+```go
 type OpsMaintenanceResponse struct {
 	Enabled bool `json:"enabled"`
 	Reason string `json:"reason"`
@@ -203,7 +203,7 @@ type OpsMaintenanceResponse struct {
 
 
 
-```golang
+```go
 type OpsMaintenanceUpdateRequest struct {
 	Enabled bool `json:"enabled"`
 	Reason string `json:"reason,optional"`
@@ -216,7 +216,7 @@ type OpsMaintenanceUpdateRequest struct {
 
 
 
-```golang
+```go
 type OpsMaintenanceResponse struct {
 	Enabled bool `json:"enabled"`
 	Reason string `json:"reason"`
@@ -238,7 +238,7 @@ type OpsMaintenanceResponse struct {
 
 
 
-```golang
+```go
 type OpsMetricsRequest struct {
 	From string `form:"from,optional"`
 	To string `form:"to,optional"`
@@ -250,7 +250,7 @@ type OpsMetricsRequest struct {
 
 
 
-```golang
+```go
 type OpsMetricsResponse struct {
 	CPU interface{} `json:"cpu"`
 	Memory interface{} `json:"memory"`
@@ -271,7 +271,7 @@ type OpsMetricsResponse struct {
 
 
 
-```golang
+```go
 type OpsMQRequest struct {
 }
 ```
@@ -281,7 +281,7 @@ type OpsMQRequest struct {
 
 
 
-```golang
+```go
 type OpsMQResponse struct {
 	Status interface{} `json:"status"`
 }
@@ -300,7 +300,7 @@ type OpsMQResponse struct {
 
 
 
-```golang
+```go
 type OpsNotificationsGetRequest struct {
 }
 ```
@@ -310,7 +310,7 @@ type OpsNotificationsGetRequest struct {
 
 
 
-```golang
+```go
 type OpsNotificationsResponse struct {
 	Email interface{} `json:"email"`
 	Webhook interface{} `json:"webhook"`
@@ -331,7 +331,7 @@ type OpsNotificationsResponse struct {
 
 
 
-```golang
+```go
 type OpsNotificationsUpdateRequest struct {
 	Email interface{} `json:"email,optional"`
 	Webhook interface{} `json:"webhook,optional"`
@@ -344,7 +344,7 @@ type OpsNotificationsUpdateRequest struct {
 
 
 
-```golang
+```go
 type OpsNotificationsResponse struct {
 	Email interface{} `json:"email"`
 	Webhook interface{} `json:"webhook"`
@@ -365,7 +365,7 @@ type OpsNotificationsResponse struct {
 
 
 
-```golang
+```go
 type OpsServicesRequest struct {
 }
 ```
@@ -375,7 +375,7 @@ type OpsServicesRequest struct {
 
 
 
-```golang
+```go
 type OpsServicesResponse struct {
 	Items []OpsService `json:"items"`
 }

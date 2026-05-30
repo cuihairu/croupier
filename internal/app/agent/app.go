@@ -131,8 +131,8 @@ func (a *App) StartLocalServer() error {
 	tcpServer, err := tcptr.NewServer(&tcptr.Config{
 		Address:     a.localAddr,
 		Insecure:    true,
-		RecvTimeout: time.Second,
-		SendTimeout: 10 * time.Second,
+		RecvTimeout: 30 * time.Second,
+		SendTimeout: 30 * time.Second,
 	}, a.localHandler)
 	if err != nil {
 		return fmt.Errorf("failed to create TCP local server: %w", err)

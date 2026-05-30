@@ -1,19 +1,35 @@
 package middleware
 
-import "net/http"
+import (
+	"net/http"
+
+	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
+)
 
 type AuthorityMiddleware struct {
+	permissionService *permissionservice.PermissionService
+	jwtSecret         string
+	config            permissionservice.PermissionConfig
 }
 
-func NewAuthorityMiddleware() *AuthorityMiddleware {
-	return &AuthorityMiddleware{}
+func NewAuthorityMiddleware(permissionService *permissionservice.PermissionService, jwtSecret string, config ...permissionservice.PermissionConfig) *AuthorityMiddleware {
+	m := &AuthorityMiddleware{
+		permissionService: permissionService,
+		jwtSecret:         jwtSecret,
+	}
+	if len(config) > 0 {
+		m.config = config[0]
+	}
+	return m
 }
 
 func (m *AuthorityMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO generate middleware implement function, delete after code implementation
+	if m == nil || m.permissionService == nil {
+		return next
+	}
 
-		// Passthrough to next handler if need
-		next(w, r)
+	return func(w http.ResponseWriter, r *http.Request) {
+		handler := permissionservice.PermissionMiddleware(m.permissionService, m.jwtSecret, m.config)(http.HandlerFunc(next))
+		handler.ServeHTTP(w, r)
 	}
 }

@@ -13,7 +13,7 @@
 
 
 
-```golang
+```go
 type LoginRequest struct {
 	Username string `json:"username"` // 用户名
 	Password string `json:"password"` // 密码
@@ -25,7 +25,7 @@ type LoginRequest struct {
 
 
 
-```golang
+```go
 type LoginResponse struct {
 	Token string `json:"token"`
 	User UserInfo `json:"user"`
@@ -53,7 +53,7 @@ type UserInfo struct {
 
 
 
-```golang
+```go
 type LogoutRequest struct {
 }
 ```
@@ -63,7 +63,7 @@ type LogoutRequest struct {
 
 
 
-```golang
+```go
 type LogoutResponse struct {
 }
 ```
@@ -80,7 +80,7 @@ type LogoutResponse struct {
 
 2. request definition
 
-```golang
+```go
 type CheckRequest struct {
 	Resource string `json:"resource"` // 例如 roles、games、functions
 	Action   string `json:"action"`   // 例如 read、write、manage
@@ -91,7 +91,7 @@ type CheckRequest struct {
 
 3. response definition
 
-```golang
+```go
 type CheckResponse struct {
 	Allowed bool   `json:"allowed"`
 	Reason  string `json:"reason,omitempty"`
@@ -110,7 +110,7 @@ type CheckResponse struct {
 
 2. request definition
 
-```golang
+```go
 type BatchCheckRequest struct {
 	Checks []CheckRequest `json:"checks"`
 }
@@ -118,7 +118,7 @@ type BatchCheckRequest struct {
 
 3. response definition
 
-```golang
+```go
 type BatchCheckResponse struct {
 	Results []CheckResponse `json:"results"`
 }

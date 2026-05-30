@@ -21,6 +21,7 @@ Component Level   ← 可分发模块 (economy-system)
 ### 设计理念
 
 #### ✅ **ID引用模式** - 解决性能问题
+
 ```cpp
 // ❌ 避免笨重的对象参数传递
 invoke("wallet.transfer", {object: wallet_instance, params: {...}})
@@ -35,22 +36,26 @@ invoke("wallet.transfer", {
 ```
 
 #### ✅ **声明式配置** - 配置驱动开发
+
 ```json
 // wallet.entity.json
 {
   "id": "wallet.entity",
-  "schema": { /* JSON Schema定义对象结构 */ },
+  "schema": {
+    /* JSON Schema定义对象结构 */
+  },
   "operations": {
     "read": "wallet.get",
     "transfer": "wallet.transfer"
   },
   "relationships": {
-    "currency": {"type": "many-to-one", "entity": "currency"}
+    "currency": { "type": "many-to-one", "entity": "currency" }
   }
 }
 ```
 
 #### ✅ **无状态函数** - 易于扩展
+
 - 每个函数是纯函数，通过ID查找对象
 - 支持水平扩展，无状态共享问题
 - Repository模式管理对象生命周期
@@ -408,16 +413,19 @@ int main() {
 ## 🎯 架构优势
 
 ### 性能优势
+
 - ✅ **轻量参数**：只传递ID字符串，网络开销极小
 - ✅ **无状态设计**：函数可水平扩展，无状态共享问题
 - ✅ **缓存友好**：多层级缓存对象数据
 
 ### 开发体验
+
 - ✅ **渐进增强**：从简单函数逐步演进到复杂对象
 - ✅ **声明式配置**：JSON驱动，易于理解和维护
 - ✅ **工具友好**：配置可生成UI、文档、测试用例
 
 ### 架构设计
+
 - ✅ **职责清晰**：函数专注业务逻辑，Repository管理对象
 - ✅ **类型安全**：JSON Schema确保参数类型正确
 - ✅ **关系明确**：通过Entity定义明确对象间关系
