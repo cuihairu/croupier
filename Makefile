@@ -101,8 +101,8 @@ ingest:
 
 .PHONY: analytics-spec
 analytics-spec:
-	@echo "[analytics] exporting analytics spec JSON to dashboard/public/analytics-spec.json"
-	@GOFLAGS=-mod=mod go run ./cmd/analytics-export --configs configs/analytics --out dashboard/public/analytics-spec.json
+	@echo "[analytics] exporting analytics spec JSON to web/public/analytics-spec.json"
+	@GOFLAGS=-mod=mod go run ./cmd/analytics-export --configs configs/analytics --out web/public/analytics-spec.json
 
 # ========== SDK Build Targets ==========
 build-sdks: build-sdks-cpp build-sdks-go
@@ -131,18 +131,18 @@ build-sdks-python:
 # ========== Web & Docs Build Targets ==========
 build-web: build-dashboard build-docs
 
-build-dashboard: submodules
+build-dashboard:
 	@echo "[web] building dashboard..."
-	@cd dashboard && npm ci && npm run build
+	@cd web && npm ci && npm run build
 
 build-docs:
 	@echo "[docs] building documentation..."
 	@cd docs && pnpm install --frozen-lockfile && pnpm run build
 
 # ========== Development Targets ==========
-dev-dashboard: submodules
+dev-dashboard:
 	@echo "[web] starting dashboard development server..."
-	@cd dashboard && npm ci && npm run dev
+	@cd web && npm ci && npm run dev
 
 dev-docs:
 	@echo "[docs] starting VuePress documentation dev server..."
@@ -161,7 +161,7 @@ clean-sdks:
 
 clean-web:
 	@echo "[clean] cleaning web and docs build artifacts..."
-	@rm -rf dashboard/dist dashboard/node_modules
+	@rm -rf web/dist web/node_modules
 	@rm -rf docs/.vuepress/dist docs/.vuepress/.cache docs/.vuepress/.temp docs/node_modules
 
 # ========== Version Management ==========

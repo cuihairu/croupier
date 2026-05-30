@@ -1,0 +1,85 @@
+/**
+ * 草稿面板样式
+ */
+
+.draft-panel {
+  .ant-card-head {
+    padding: 8px 12px;
+    min-height: auto;
+  }
+
+  .ant-card-head-title {
+    padding: 0;
+    font-size: 13px;
+  }
+
+  .ant-card-body {
+    padding: 12px;
+  }
+
+  .ant-list-item {
+    padding: 12px;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s;
+
+    &:hover {
+      background-color: #fafafa;
+    }
+
+    &.expired {
+      opacity: 0.6;
+    }
+  }
+
+  .draft-item {
+    .draft-avatar {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f5f5f5;
+      border-radius: 50%;
+      font-size: 14px;
+      color: #999;
+    }
+
+    .draft-description {
+      width: 100%;
+    }
+
+    .draft-meta {
+      margin-bottom: 4px;
+
+      span {
+        font-size: 12px;
+        color: #999;
+      }
+    }
+
+    .draft-desc-text {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .draft-progress {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+  }
+
+  .draft-tips {
+    text-align: center;
+  }
+}
+
+// 草稿指示器
+.draft-indicator {
+  .ant-badge-count {
+    background-color: #faad14;
+  }
+}

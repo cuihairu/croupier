@@ -1,0 +1,60 @@
+/**
+ * 协作面板样式
+ */
+
+.collaboration-panel {
+  .current-editor {
+    background-color: fade(@primary-color, 5%);
+    border-radius: @border-radius-base;
+  }
+
+  .ant-list-item {
+    padding: 8px 12px;
+    transition: background-color 0.3s;
+
+    &:hover {
+      background-color: fade(@primary-color, 3%);
+    }
+  }
+
+  .ant-badge-count {
+    background-color: @primary-color;
+  }
+
+  .ant-alert {
+    .ant-alert-icon {
+      margin-right: 8px;
+    }
+  }
+}
+
+// 协作状态指示器动画
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.collaboration-indicator-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+// 冲突状态
+.collaboration-conflict {
+  .ant-badge-count {
+    background-color: @error-color;
+  }
+
+  animation: pulse 1s ease-in-out infinite;
+}
+
+// 锁定状态
+.collaboration-locked {
+  .ant-badge-count {
+    background-color: @warning-color;
+  }
+}
