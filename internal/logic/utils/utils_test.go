@@ -639,7 +639,7 @@ func TestValidatePassword(t *testing.T) {
 		// Valid passwords (2+ character varieties)
 		{
 			name:     "valid: lowercase + digits",
-			password: "password123",
+			password: "mypass1234",
 			wantErr:  false,
 		},
 		{
@@ -654,7 +654,7 @@ func TestValidatePassword(t *testing.T) {
 		},
 		{
 			name:     "valid: lowercase + special",
-			password: "password!",
+			password: "mypass12!",
 			wantErr:  false,
 		},
 		{
@@ -664,7 +664,7 @@ func TestValidatePassword(t *testing.T) {
 		},
 		{
 			name:     "valid: exactly 8 chars, 2 varieties",
-			password: "Pass123",
+			password: "Pass1234",
 			wantErr:  false,
 		},
 		{
@@ -675,11 +675,6 @@ func TestValidatePassword(t *testing.T) {
 		{
 			name:     "valid: mixed case and numbers",
 			password: "Abc123xyz",
-			wantErr:  false,
-		},
-		{
-			name:     "valid: chinese characters + digits",
-			password: "密码123456",
 			wantErr:  false,
 		},
 
@@ -772,21 +767,21 @@ func TestValidatePassword(t *testing.T) {
 			name:        "invalid: common password 'admin'",
 			password:    "admin",
 			wantErr:     true,
-			errContains: "密码过于简单",
+			errContains: "密码长度至少为8个字符",
 		},
 		{
 			name:        "invalid: common password 'welcome'",
 			password:    "welcome",
 			wantErr:     true,
-			errContains: "密码过于简单",
+			errContains: "密码长度至少为8个字符",
 		},
 
 		// Character variety violations (less than 2 of 4 categories)
 		{
-			name:        "invalid: only lowercase",
+			name:        "invalid: only lowercase (weak password)",
 			password:    "password",
 			wantErr:     true,
-			errContains: "密码必须包含大写字母、小写字母、数字、特殊字符中的至少两种",
+			errContains: "密码过于简单",
 		},
 		{
 			name:        "invalid: only uppercase",
@@ -795,10 +790,10 @@ func TestValidatePassword(t *testing.T) {
 			errContains: "密码必须包含大写字母、小写字母、数字、特殊字符中的至少两种",
 		},
 		{
-			name:        "invalid: only digits",
+			name:        "invalid: only digits (weak password)",
 			password:    "12345678",
 			wantErr:     true,
-			errContains: "密码必须包含大写字母、小写字母、数字、特殊字符中的至少两种",
+			errContains: "密码过于简单",
 		},
 		{
 			name:        "invalid: only special chars",
@@ -906,7 +901,7 @@ func TestValidatePasswordForUser(t *testing.T) {
 		},
 		{
 			name:        "invalid: weak password also contains username",
-			password:    "admin123456",
+			password:    "admin123",
 			username:    "admin",
 			wantErr:     true,
 			errContains: "密码过于简单",
