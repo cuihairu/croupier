@@ -163,20 +163,24 @@ ls -la bin/
 
 ## SDK 安装
 
+所有官方 SDK 已整合到 monorepo 的 `sdks/` 目录下统一维护。
+
 ### Go SDK
 
 ```bash
-go get github.com/cuihairu/croupier-sdk-go@latest
+# 在 monorepo 中开发
+cd sdks/go
+go mod download
+
+# 或直接引用
+import "github.com/cuihairu/croupier/sdks/go/..."
 ```
 
 ### C++ SDK
 
 ```bash
-# 使用 vcpkg
-vcpkg install croupier-sdk-cpp
-
-# 或从源码构建
-cd sdks/croupier-sdk-cpp
+# 从源码构建
+cd sdks/cpp
 mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make install
@@ -184,31 +188,27 @@ make install
 
 ### Java SDK
 
-```xml
-<dependency>
-    <groupId>com.github.cuihairu</groupId>
-    <artifactId>croupier-sdk-java</artifactId>
-    <version>LATEST</version>
-</dependency>
+```bash
+# 在 monorepo 中开发
+cd sdks/java
+./gradlew build
 ```
 
 ### JavaScript/TypeScript SDK
 
 ```bash
-# npm
-npm install @croupier/sdk-js
-
-# pnpm
-pnpm add @croupier/sdk-js
-
-# yarn
-yarn add @croupier/sdk-js
+# 在 monorepo 中开发
+cd sdks/js
+pnpm install
+pnpm build
 ```
 
 ### Python SDK
 
 ```bash
-pip install croupier-sdk-python
+# 在 monorepo 中开发
+cd sdks/python
+pip install -e .
 ```
 
 ## 配置文件

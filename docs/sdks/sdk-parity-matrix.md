@@ -105,16 +105,16 @@
 - 统一术语
 - 统一禁止项
 
-而每个 SDK 当前实现状态，应由各 SDK 仓库自己的 README、测试矩阵和 CI 结果负责给出。
+而每个 SDK 当前实现状态，应由各 SDK 目录的 README、测试矩阵和 CI 结果负责给出。
 
-## SDK 仓库
+## SDK 目录
 
-- Go: `croupier-sdk-go`
-- C++: `croupier-sdk-cpp`
-- Java: `croupier-sdk-java`
-- JS/TS: `croupier-sdk-js`
-- Python: `croupier-sdk-python`
-- C#: `croupier-sdk-csharp`
+- Go: `sdks/go/`
+- C++: `sdks/cpp/`
+- Java: `sdks/java/`
+- JS/TS: `sdks/js/`
+- Python: `sdks/python/`
+- C#: `sdks/csharp/`
 
 ## 相关文档
 

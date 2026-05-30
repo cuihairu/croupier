@@ -1,6 +1,6 @@
 # Python SDK 重构清单
 
-仓库：`croupier-sdk-python`
+目录：`sdks/python/`
 
 ## 目标
 

@@ -83,15 +83,15 @@
 - 主仓文档：核心概念文档已更新为使用 Provider Session 术语。
 - TCP transport：`internal/transport/tcp/` 已实现。
 
-### 各语言 SDK（独立仓库）
+### 各语言 SDK（monorepo）
 
-各语言 SDK 的验证结果需在各 SDK 仓库中跟踪：
-- Go SDK（cuihairu/croupier-sdk-go）
-- Java SDK（cuihairu/croupier-sdk-java）
-- C++ SDK（cuihairu/croupier-sdk-cpp）
-- JS/TS SDK（cuihairu/croupier-sdk-js）
-- Python SDK（cuihairu/croupier-sdk-python）
-- C# SDK（cuihairu/croupier-sdk-csharp）
+各语言 SDK 的验证结果需在各 SDK 目录中跟踪：
+- Go SDK（`sdks/go/`）
+- Java SDK（`sdks/java/`）
+- C++ SDK（`sdks/cpp/`）
+- JS/TS SDK（`sdks/js/`）
+- Python SDK（`sdks/python/`）
+- C# SDK（`sdks/csharp/`）
 
 ## 下一步执行顺序
 
@@ -100,4 +100,4 @@
 3. `TaskRunner` / `TaskContext` 抽象优化。
 4. shared session runtime 从 Agent-Server 与 SDK-Agent 两条链路中完全抽取复用。
 
-注：各语言 SDK 的 proto 代码更新和测试需在各 SDK 仓库中跟踪。
+注：各语言 SDK 的 proto 代码更新和测试需在 monorepo 的 `sdks/` 对应子目录中跟踪。

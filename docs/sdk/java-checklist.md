@@ -1,6 +1,6 @@
 # Java SDK 重构清单
 
-仓库：`croupier-sdk-java`
+目录：`sdks/java/`
 
 ## 目标
 

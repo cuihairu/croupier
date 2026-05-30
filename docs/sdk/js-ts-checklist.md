@@ -1,6 +1,6 @@
 # JS/TS SDK 重构清单
 
-仓库：`croupier-sdk-js`
+目录：`sdks/js/`
 
 ## 目标
 

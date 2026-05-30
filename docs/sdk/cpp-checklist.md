@@ -1,6 +1,6 @@
 # C++ SDK 重构清单
 
-仓库：`croupier-sdk-cpp`
+目录：`sdks/cpp/`
 
 ## 目标
 
