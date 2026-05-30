@@ -142,6 +142,7 @@ sdks/cpp/build-*/
 sdks/cpp/bin/
 sdks/cpp/lib/
 sdks/cpp/vcpkg_installed/
+sdks/cpp/vcpkg/
 sdks/cpp/CMakeFiles/
 sdks/cpp/CMakeCache.txt
 sdks/cpp/cmake_install.cmake

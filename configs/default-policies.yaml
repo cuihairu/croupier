@@ -1,0 +1,32 @@
+# Default function policies by risk level
+# These policies are applied when a function is registered and no override exists in the database.
+low:
+  require_approval: false
+  require_audit: false
+  allowed_roles:
+    - user
+    - operator
+  description: "低风险：只读操作，无副作用"
+
+medium:
+  require_approval: false
+  require_audit: true
+  allowed_roles:
+    - operator
+  description: "中风险：标准业务操作"
+
+high:
+  require_approval: true
+  approval_workflow: single_admin
+  require_audit: true
+  allowed_roles:
+    - admin
+  description: "高风险：涉及资金、关键数据变更"
+
+danger:
+  require_approval: true
+  approval_workflow: two_person
+  require_audit: true
+  allowed_roles:
+    - super_admin
+  description: "危险操作：可能导致不可逆损失"

@@ -1,0 +1,22 @@
+#!/bin/bash
+# Pre-commit hook for Go projects
+# Install: cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+
+echo "Running go fmt..."
+UNFORMATTED=$(gofmt -l .)
+if [ -n "$UNFORMATTED" ]; then
+    echo "The following files are not properly formatted:"
+    echo "$UNFORMATTED"
+    echo ""
+    echo "Please run 'gofmt -w .' to fix formatting issues."
+    exit 1
+fi
+echo "go fmt passed ✓"
+
+echo "Running go vet..."
+if ! go vet ./...; then
+    echo ""
+    echo "go vet found issues. Please fix them before committing."
+    exit 1
+fi
+echo "go vet passed ✓"

@@ -1,0 +1,138 @@
+/**
+ * 组件库样式
+ */
+
+.component-library {
+  .ant-card-body {
+    padding: 12px;
+  }
+
+  .ant-collapse {
+    background: transparent;
+
+    .ant-collapse-item {
+      border: none;
+      margin-bottom: 8px;
+
+      .ant-collapse-header {
+        padding: 8px 12px;
+        background: #fafafa;
+        border-radius: 4px;
+        font-weight: 500;
+      }
+
+      .ant-collapse-content {
+        border: none;
+
+        .ant-collapse-content-box {
+          padding: 8px 0;
+        }
+      }
+    }
+  }
+
+  .component-category {
+    .category-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #f0f0f0;
+
+      .category-icon {
+        font-size: 16px;
+      }
+
+      .category-title {
+        flex: 1;
+        font-size: 13px;
+        font-weight: 500;
+      }
+
+      .category-count {
+        margin: 0;
+        font-size: 11px;
+      }
+    }
+
+    .category-items {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+  }
+
+  .component-library-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: #fff;
+    border: 1px solid #f0f0f0;
+    border-radius: 4px;
+    cursor: grab;
+    transition: all 0.2s;
+    user-select: none;
+
+    &:hover {
+      border-color: #1890ff;
+      box-shadow: 0 2px 4px rgba(24, 144, 255, 0.1);
+      transform: translateY(-1px);
+    }
+
+    &:active {
+      cursor: grabbing;
+    }
+
+    .component-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .component-label {
+      font-size: 12px;
+      color: #333;
+    }
+  }
+
+  .library-tips {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f0f0f0;
+    text-align: center;
+  }
+}
+
+// 紧凑模式组件库
+.compact-component-library {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: #fafafa;
+  border-radius: 4px;
+  border: 1px solid #f0f0f0;
+
+  .compact-component-item {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    background: #fff;
+    border: 1px solid #f0f0f0;
+    border-radius: 4px;
+    cursor: grab;
+    transition: all 0.2s;
+
+    &:hover {
+      border-color: #1890ff;
+      transform: scale(1.1);
+    }
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+}

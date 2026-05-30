@@ -1,0 +1,140 @@
+name: CI - Dashboard
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/ci-dashboard.yml"
+      - "web/**"
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - ".github/workflows/ci-dashboard.yml"
+      - "web/**"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '指定 Tag 构建 (例如: v1.0.0)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  dashboard-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ./web
+    steps:
+      - timeout-minutes: 3
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - timeout-minutes: 3
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.28.2
+
+      - timeout-minutes: 5
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          cache-dependency-path: "web/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        timeout-minutes: 5
+        run: pnpm install --frozen-lockfile
+
+      - name: Contract guard
+        timeout-minutes: 2
+        run: |
+          test -f src/services/contracts/extensions.ts || (echo "missing generated contracts" && exit 1)
+          test -f src/services/errors/codes.ts || (echo "missing error code mapping" && exit 1)
+
+      - name: Lint dashboard product path
+        timeout-minutes: 5
+        run: |
+          pnpm exec eslint \
+            src/components/index.ts \
+            src/pages/Console/index.tsx \
+            src/pages/DynamicPage/index.tsx \
+            src/pages/Functions/Detail.tsx \
+            src/pages/Functions/Directory/index.tsx \
+            src/pages/WorkspaceEditor/components/ConfigPreview.tsx \
+            src/pages/WorkspaceEditor/components/TemplateManager.tsx \
+            src/pages/WorkspaceEditor/index.tsx \
+            src/pages/Workspaces/Detail.tsx \
+            src/pages/Workspaces/index.tsx
+
+  docker-dashboard:
+    if: |
+      github.event_name == 'push' && (
+        github.ref == 'refs/heads/main' ||
+        startsWith(github.ref, 'refs/tags/v')
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ./web
+    steps:
+      - timeout-minutes: 3
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - timeout-minutes: 5
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GHCR
+        timeout-minutes: 3
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        timeout-minutes: 3
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/croupier-dashboard
+
+      - timeout-minutes: 3
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.28.2
+          cache_dependency_path: web/pnpm-lock.yaml
+
+      - timeout-minutes: 5
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        timeout-minutes: 5
+        run: pnpm install --frozen-lockfile
+
+      - name: Build dist
+        timeout-minutes: 10
+        run: pnpm run build
+
+      - name: Build and push Docker image
+        timeout-minutes: 15
+        uses: docker/build-push-action@v6
+        with:
+          context: ./web
+          file: ./web/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

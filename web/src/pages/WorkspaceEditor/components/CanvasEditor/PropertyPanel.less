@@ -1,0 +1,65 @@
+/**
+ * 属性面板样式
+ */
+
+.property-panel {
+  .ant-card-head {
+    padding: 8px 12px;
+    min-height: auto;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .ant-card-head-title {
+    padding: 0;
+    font-size: 13px;
+  }
+
+  .ant-card-body {
+    padding: 12px;
+  }
+
+  .property-content {
+    max-height: calc(100vh - 300px);
+    overflow-y: auto;
+  }
+
+  .property-section {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f0f0f0;
+
+    &:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+  }
+
+  .property-section-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: #666;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .ant-form-item {
+    margin-bottom: 12px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  .ant-form-item-label > label {
+    font-size: 12px;
+    height: auto;
+    color: #666;
+  }
+
+  .ant-divider {
+    font-size: 12px;
+    color: #999;
+  }
+}

@@ -1,0 +1,24 @@
+# CI专用Docker Compose配置 - 仅启动Agent供SDK测试使用
+# 使用方式: docker compose -f docker/docker-compose.ci.yml up -d
+
+services:
+  croupier-agent:
+    image: ghcr.io/cuihairu/croupier-agent:latest
+    container_name: croupier-agent-ci
+    restart: unless-stopped
+    volumes:
+      # CI中会创建这个配置文件，挂载到agent默认配置路径
+      - /tmp/agent-ci.yaml:/app/etc/agent.yaml:ro
+    ports:
+      - "19090:19090"  # SDK连接端口
+      - "19091:19091"  # Server连接端口(暂不使用)
+    networks:
+      - croupier-ci-network
+    # 如果远程镜像不可用，使用本地构建
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.agent
+
+networks:
+  croupier-ci-network:
+    driver: bridge

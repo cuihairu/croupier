@@ -1,0 +1,101 @@
+@import (reference) 'antd/es/style/themes/default.less';
+
+.profile-page {
+  .profile-hero {
+    background: linear-gradient(135deg, #f6faff 0%, #ffffff 100%);
+    border: 1px solid #f0f5ff;
+  }
+
+  .avatar-uploader {
+    .ant-upload {
+      border-radius: 50%;
+      width: 108px;
+      height: 108px;
+    }
+  }
+
+  .avatar-upload-preview {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    border: 1px solid #f0f0f0;
+    border-radius: 12px;
+    background: #fafcff;
+  }
+
+  .avatar-upload-preview__title {
+    font-weight: 600;
+    color: @heading-color;
+  }
+
+  .avatar-upload-preview__hint {
+    margin-top: 4px;
+    font-size: 12px;
+    color: @text-color-secondary;
+  }
+
+  .profile-stats__card {
+    background: #f9fbff;
+    border-radius: 12px;
+    text-align: center;
+
+    .ant-statistic-title {
+      font-size: 12px;
+      color: @text-color-secondary;
+    }
+
+    .ant-statistic-content {
+      font-size: 20px;
+      color: @heading-color;
+    }
+  }
+
+  .security-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border: 1px solid @border-color-split;
+    border-radius: 8px;
+  }
+
+  @media (max-width: @screen-sm) {
+    .profile-hero {
+      :global(.ant-avatar) {
+        width: 72px !important;
+        height: 72px !important;
+        line-height: 72px !important;
+      }
+
+      :global(.ant-space) {
+        width: 100%;
+      }
+
+      :global(.ant-space-item) {
+        max-width: 100%;
+      }
+
+      :global(.ant-descriptions) {
+        width: 100%;
+      }
+    }
+
+    .profile-stats__card {
+      :global(.ant-statistic-content) {
+        font-size: 16px;
+      }
+    }
+
+    .security-item {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .avatar-upload-preview {
+      align-items: flex-start;
+    }
+  }
+}
