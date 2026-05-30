@@ -1,0 +1,13 @@
+* text=auto eol=lf
+
+# Go source
+*.go      diff=golang
+go.mod    text eol=lf
+go.sum    text eol=lf
+
+# Scripts
+*.sh      text eol=lf
+*.ps1     text eol=lf
+
+# Proto defs tracked in this repo
+*.proto   diff=proto

@@ -1,0 +1,47 @@
+{
+  "name": "croupier-cpp-sdk",
+  "version-string": "0.1.0",
+  "description": "Croupier C++ SDK for Virtual Object Registration and TCP Integration",
+  "homepage": "https://github.com/cuihairu/croupier-sdk-cpp",
+  "builtin-baseline": "ce613c41372b23b1f51333815feb3edd87ef8a8b",
+  "supports": "windows | linux | osx",
+  "dependencies": [
+    {
+      "name": "nlohmann-json"
+    },
+    {
+      "name": "protobuf"
+    }
+  ],
+  "overrides": [
+    {
+      "name": "protobuf",
+      "version": "4.25.1"
+    }
+  ],
+  "features": {
+    "tests": {
+      "description": "Build unit tests",
+      "dependencies": [
+        {
+          "name": "gtest"
+        }
+      ]
+    },
+    "examples": {
+      "description": "Build example programs",
+      "dependencies": []
+    },
+    "lua": {
+      "description": "Enable Lua language binding (requires Lua 5.3+)",
+      "dependencies": [
+        {
+          "name": "lua"
+        },
+        {
+          "name": "sol2"
+        }
+      ]
+    }
+  }
+}

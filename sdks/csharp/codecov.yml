@@ -1,0 +1,23 @@
+comment: false
+
+ignore:
+  - "proto/**"
+  - "generated/**"
+  - "examples/**"
+  - "tests/**"
+
+# 只统计源码目录
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        base: auto
+        paths:
+          - "src/"
+    patch:
+      default:
+        target: auto
+        base: auto
+        paths:
+          - "src/"

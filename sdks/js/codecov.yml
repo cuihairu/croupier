@@ -1,0 +1,8 @@
+comment: false
+
+ignore:
+  - "proto/**"
+  - "generated/**"
+  - "dist/**"
+  - "coverage/**"
+  - "node_modules/**"

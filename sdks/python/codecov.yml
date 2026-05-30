@@ -1,0 +1,25 @@
+comment: false
+
+ignore:
+  - "proto/**"
+  - "generated/**"
+  - "croupier/pb/**"
+  - "build/**"
+  - "dist/**"
+  - "tests/**"
+
+# 只统计 croupier 包
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        base: auto
+        paths:
+          - "croupier/"
+    patch:
+      default:
+        target: auto
+        base: auto
+        paths:
+          - "croupier/"

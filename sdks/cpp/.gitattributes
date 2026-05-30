@@ -1,0 +1,30 @@
+* text=auto eol=lf
+
+# Source files use the cpp diff driver for cleaner history
+*.c       diff=cpp
+*.cc      diff=cpp
+*.cxx     diff=cpp
+*.cpp     diff=cpp
+*.hpp     diff=cpp
+*.h       diff=cpp
+*.hh      diff=cpp
+*.hxx     diff=cpp
+*.inl     diff=cpp
+
+# Build configuration scripts
+*.cmake   text eol=lf
+CMakeLists.txt text eol=lf
+
+# Shell/python scripts should always have LF endings
+*.sh      text eol=lf
+*.py      text eol=lf
+
+# Protocol buffers benefit from the proto diff driver
+*.proto   diff=proto
+
+# Keep binary assets untouched
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.pdf     binary

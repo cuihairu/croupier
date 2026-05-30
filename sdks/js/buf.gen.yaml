@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://buf.build/docs/configuration/v2/buf-gen-yaml
+version: v2
+plugins:
+  # Connect-ES 2.0 架构：只需要 protoc-gen-es（版本由 package.json 控制）
+  # 注意：Connect-ES 2.0 不再需要 protoc-gen-connect-es，service 定义由 protoc-gen-es 直接生成
+  - local: protoc-gen-es
+    out: src/gen
+    opt:
+      - target=ts
+      - import_extension=.ts

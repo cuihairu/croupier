@@ -1,0 +1,7 @@
+comment: false
+
+ignore:
+  - "proto/**"
+  - "downloaded_proto/**"
+  - "generated/**"
+  - "pkg/pb/**"

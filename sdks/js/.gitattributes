@@ -1,0 +1,20 @@
+* text=auto eol=lf
+
+# TypeScript / JavaScript sources
+*.ts      diff=ts
+*.tsx     diff=ts
+*.js      text eol=lf
+*.mjs     text eol=lf
+
+# Config files
+package.json      text eol=lf
+pnpm-lock.yaml    text eol=lf
+tsconfig.json     text eol=lf
+
+# Proto definitions
+*.proto   diff=proto
+
+# Assets
+*.png     binary
+*.jpg     binary
+*.svg     text eol=lf

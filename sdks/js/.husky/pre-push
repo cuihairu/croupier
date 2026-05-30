@@ -1,0 +1,13 @@
+#!/bin/bash
+#
+# Pre-push hook for JavaScript SDK
+# Runs full test suite with coverage before pushing
+#
+
+echo "🔍 Running pre-push checks..."
+
+# Run tests with coverage
+echo "🧪 Running tests with coverage..."
+npm run test:coverage
+
+echo "✅ All pre-push checks passed!"

@@ -1,0 +1,249 @@
+plugins {
+    id 'java-library'
+    id 'jacoco'
+    id 'maven-publish'
+    id 'signing'
+}
+
+group = 'io.github.cuihairu.croupier'
+// Determine version based on build environment
+// - For tags (releases): use exact version (e.g., 0.1.0)
+// - For main branch (snapshots): use fixed SNAPSHOT version (e.g., 0.1.0-SNAPSHOT)
+String baseVersion = '0.1.1'
+if (System.getenv('GITHUB_REF_TYPE') == 'tag') {
+    version = baseVersion
+} else {
+    version = "${baseVersion}-SNAPSHOT"
+}
+
+java { withSourcesJar() }
+
+// ============================================================================
+// Version Locking
+// ============================================================================
+// buf.build/protocolbuffers/java:v25.1 generates code using protobuf 4.29.5
+// Using protobuf-java 4.29.5 to match generated code version
+// ============================================================================
+def protobufVersion = "4.29.5"  // Must match gencode version in generated/ directory
+
+dependencies {
+    // Protobuf runtime (no gRPC)
+    implementation "com.google.protobuf:protobuf-java:${protobufVersion}"
+
+    implementation "net.java.dev.jna:jna:5.15.0"
+
+    // Reactive Streams for async job streaming
+    implementation "org.reactivestreams:reactive-streams:1.0.4"
+
+    // Logging API used in sdk sources
+    implementation "org.slf4j:slf4j-api:2.0.16"
+
+    testImplementation "org.junit.jupiter:junit-jupiter:5.11.4"
+    testImplementation "org.mockito:mockito-core:5.15.2"
+    testImplementation "org.mockito:mockito-junit-jupiter:5.15.2"
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+jacoco {
+    toolVersion = "0.8.12"
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it, exclude: [
+                '**/generated/**',
+                '**/pb/**'
+            ])
+        }))
+    }
+}
+
+// Compile to Java 17 bytecode for modern features
+tasks.withType(JavaCompile).configureEach {
+    options.release = 17
+}
+
+// Proto 代码统一生成并同步到 generated/ 目录
+// 不再使用 gradle protobuf 插件在构建时生成
+sourceSets {
+    main {
+        java {
+            srcDir "$projectDir/generated"
+            srcDir "$projectDir/src/main/java"
+        }
+    }
+}
+
+tasks.jar {
+    // Produce a stable filename for nightly artifacts
+    archiveBaseName.set("croupier-java-sdk")
+}
+
+tasks.named("sourcesJar") {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+
+// Determine if this is a release build
+boolean isRelease = System.getenv('GITHUB_REF_TYPE') == 'tag'
+
+// Maven publishing configuration
+// - Snapshots → GitHub Packages
+// - Releases → Maven Central (Sonatype OSSRH)
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = 'croupier-java-sdk'
+            from components.java
+            pom {
+                name = 'Croupier Java SDK'
+                description = 'Java SDK for Croupier Game Backend Platform'
+                url = 'https://github.com/cuihairu/croupier-sdk-java'
+
+                inceptionYear = '2025'
+
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'cuihairu'
+                        name = 'Cui Hairu'
+                        email = 'cuihairu@gmail.com'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:git://github.com/cuihairu/croupier-sdk-java.git'
+                    developerConnection = 'scm:git:ssh://github.com:cuihairu/croupier-sdk-java.git'
+                    url = 'https://github.com/cuihairu/croupier-sdk-java'
+                }
+            }
+        }
+    }
+    repositories {
+        // Maven Central (Sonatype OSSRH) for releases
+        if (isRelease) {
+            maven {
+                name = 'SonatypeReleases'
+                url = uri('https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/')
+                credentials {
+                    username = System.getenv('MAVEN_CENTRAL_USERNAME')
+                    password = System.getenv('MAVEN_CENTRAL_PASSWORD')
+                }
+            }
+        }
+        // GitHub Packages for snapshots
+        maven {
+            name = 'GitHubPackages'
+            url = uri('https://maven.pkg.github.com/cuihairu/croupier-sdk-java')
+            credentials {
+                username = System.getenv('GITHUB_ACTOR')
+                password = System.getenv('GITHUB_TOKEN')
+            }
+        }
+    }
+}
+
+// Sign artifacts for Maven Central (only for releases)
+if (isRelease) {
+    signing {
+        sign publishing.publications.mavenJava
+    }
+
+    // Optional: skip signing if key is not available (for local builds)
+    tasks.withType(Sign).configureEach {
+        onlyIf { System.getenv('GPG_PRIVATE_KEY') != null }
+    }
+}
+
+// Configure GPG signing for Maven Central
+signing {
+    useInMemoryPgpKeys(
+        System.getenv('GPG_KEY_ID'),
+        System.getenv('GPG_PRIVATE_KEY'),
+        System.getenv('GPG_PRIVATE_KEY_PASSWORD')
+    )
+}
+
+
+// Export isRelease for root project
+allprojects {
+    ext {
+        isRelease = System.getenv('GITHUB_REF_TYPE') == 'tag'
+    }
+}
+
+// Task to delete existing SNAPSHOT versions from GitHub Packages before publishing
+// This allows overwriting nightly builds
+tasks.register('deleteOldSnapshots') {
+    description = 'Delete existing SNAPSHOT versions from GitHub Packages before publish'
+    doLast {
+        if (isRelease) {
+            println 'Release build - skipping snapshot cleanup'
+            return
+        }
+
+        def githubToken = System.getenv('GITHUB_TOKEN')
+        if (!githubToken) {
+            println 'GITHUB_TOKEN not set - skipping snapshot cleanup'
+            return
+        }
+
+        def packageName = 'croupier-sdk-java'
+        def baseUrl = 'https://api.github.com/repos/cuihairu/croupier-sdk-java/packages'
+
+        // List of artifacts to delete for each version
+        def artifactIds = ['croupier-java-sdk', 'croupier-spring-boot-starter']
+
+        artifactIds.each { artifactId ->
+            try {
+                // Get all versions for this package
+                def url = "${baseUrl}/maven/${artifactId}/versions"
+                def conn = new URL(url).openConnection() as HttpURLConnection
+                conn.setRequestProperty('Authorization', "Bearer ${githubToken}")
+                conn.setRequestProperty('Accept', 'application/vnd.github.v3+json')
+                conn.connect()
+
+                if (conn.responseCode == 200) {
+                    def versions = new groovy.json.JsonSlurper().parse(conn.inputStream) as List
+                    def snapshotVersions = versions.findAll { it.name.contains('-SNAPSHOT') || it.name == 'unspecified' }
+
+                    snapshotVersions.each { version ->
+                        def deleteConn = new URL(version.delete_url).openConnection() as HttpURLConnection
+                        deleteConn.setRequestProperty('Authorization', "Bearer ${githubToken}")
+                        deleteConn.setRequestMethod('DELETE')
+                        deleteConn.connect()
+
+                        if (deleteConn.responseCode == 204) {
+                            println "Deleted ${artifactId} version: ${version.name}"
+                        } else {
+                            println "Failed to delete ${artifactId} version ${version.name}: ${deleteConn.responseCode}"
+                        }
+                        deleteConn.disconnect()
+                    }
+                }
+                conn.disconnect()
+            } catch (Exception e) {
+                println "Error cleaning up ${artifactId}: ${e.message}"
+            }
+        }
+    }
+}
+
+// Make publish depend on deleteOldSnapshots
+tasks.named('publish') {
+    dependsOn tasks.named('deleteOldSnapshots')
+}

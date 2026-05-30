@@ -1,0 +1,21 @@
+#!/bin/bash
+#
+# Pre-commit hook for JavaScript SDK
+# Runs formatting, linting, and tests before committing
+#
+
+echo "🔍 Running pre-commit checks..."
+
+# 1. Check formatting
+echo "📦 Checking code formatting (prettier)..."
+npm run format:check
+
+# 2. Run linting
+echo "🔍 Running linting (eslint)..."
+npm run lint
+
+# 3. Run tests
+echo "🧪 Running tests (jest)..."
+npm test
+
+echo "✅ All pre-commit checks passed!"

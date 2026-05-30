@@ -1,0 +1,10 @@
+version: v2
+plugins:
+  # 使用与 protobuf 4.25.x 兼容的 C++ 插件版本
+  - remote: buf.build/protocolbuffers/cpp:v25.1
+    out: generated
+  # 使用与 gRPC 1.71.x 兼容的 C++ 插件版本
+  - remote: buf.build/grpc/cpp:v1.71.0
+    out: generated
+    opt:
+      - external_uri=archive+croupierProtos
