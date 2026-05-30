@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
-	"github.com/cuihairu/croupier/internal/tasks"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	"github.com/cuihairu/croupier/internal/tasks"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	gsqlite "github.com/glebarez/sqlite"
 	"google.golang.org/protobuf/proto"
@@ -37,11 +37,11 @@ func TestControlServiceHandleTaskEvent_UpdatesRunAndAppendsEvent(t *testing.T) {
 
 	taskID := "task-123"
 	if err := runModel.Create(context.Background(), &model.TaskRun{
-		TaskID:      taskID,
-		FunctionID:  "examples.echo.invoke",
-		Status:      tasks.StatusQueued,
-		Progress:    0,
-		Message:     "queued",
+		TaskID:        taskID,
+		FunctionID:    "examples.echo.invoke",
+		Status:        tasks.StatusQueued,
+		Progress:      0,
+		Message:       "queued",
 		ResultPayload: model.EncodeTaskPayload(nil),
 	}); err != nil {
 		t.Fatalf("create task run: %v", err)
