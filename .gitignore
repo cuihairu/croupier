@@ -11,16 +11,19 @@
 go.work
 go.work.sum
 docs/.vuepress/dist
-http
-protoc-gen-croupier
+/http
+/protoc-gen-croupier
 stdout
 # =============================================================================
 # 通用
 # =============================================================================
 .env
 .env.*
+!.env*.example
 *.crt
 *.key
+*.bak
+*.backup
 *.backup.*
 *_backup.*
 .DS_Store
@@ -35,7 +38,7 @@ stdout
 # =============================================================================
 bin/
 gen/
-protoc-gen-croupier
+/protoc-gen-croupier
 /server
 /prom
 /croupier
@@ -60,6 +63,8 @@ coverage_target
 .gomodcache/
 .bufcache
 node_modules/
+**/__pycache__/
+*.py[cod]
 
 # =============================================================================
 # 日志和临时文件
@@ -129,10 +134,10 @@ sdks/java/spring-boot-starter/build/
 sdks/java/coverage.out
 
 # C# SDK
-sdks/csharp/bin/
-sdks/csharp/obj/
-sdks/csharp/[Dd]ebug/
-sdks/csharp/[Rr]elease/
+sdks/csharp/**/bin/
+sdks/csharp/**/obj/
+sdks/csharp/**/[Dd]ebug/
+sdks/csharp/**/[Rr]elease/
 sdks/csharp/x64/
 sdks/csharp/x86/
 
@@ -159,6 +164,7 @@ services/*/bin/
 services/*/logs/
 services/*/__debug_bin*
 cmd/*/__debug_bin*
+tools/adapters/prom/prom
 
 # =============================================================================
 # 文档和配置
