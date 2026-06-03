@@ -33,7 +33,7 @@ jobs:
 
       - name: Setup Node.js
         timeout-minutes: 5
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v6.4.0
         with:
           node-version: 22
       - name: Setup PNPM
