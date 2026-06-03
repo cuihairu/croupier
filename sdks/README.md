@@ -2,19 +2,6 @@
 
 本目录包含 Croupier 的官方 SDK，作为 monorepo 的一部分维护。
 
-## 架构
-
-```
-sdks/
-├── go/          # Go SDK
-├── js/          # JavaScript/TypeScript SDK
-├── python/      # Python SDK
-├── java/        # Java SDK
-├── csharp/      # C# SDK
-├── cpp/         # C++ SDK
-└── README.md    # 本文件
-```
-
 ## 协议共享
 
 所有 SDK 共享根目录的 protobuf 定义：
