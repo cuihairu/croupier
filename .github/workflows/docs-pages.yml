@@ -33,14 +33,12 @@ jobs:
 
       - name: Setup Node.js
         timeout-minutes: 5
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
       - name: Setup PNPM
         timeout-minutes: 3
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - name: Setup Pages
         timeout-minutes: 3
@@ -53,10 +51,9 @@ jobs:
         run: |
           set -euxo pipefail
           corepack enable
-          corepack prepare pnpm@9 --activate
           if ! command -v pnpm >/dev/null 2>&1; then
             echo "pnpm not found after corepack; installing via npm as fallback"
-            npm i -g pnpm@9
+            npm i -g pnpm
           fi
           pnpm --version
 
