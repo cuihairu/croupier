@@ -130,17 +130,6 @@ Croupier 当前的核心传输抽象不是 `历史消息模式`，而是轻量�
 | Examples / Tools | `examples/`, `tools/` | 示例和辅助工具                                  |
 | Docs             | `docs/`               | 架构、指南、API 与 SDK 文档                     |
 
-### SDK 目录结构
-
-| 语言   | 目录           |
-| ------ | -------------- |
-| Go     | `sdks/go/`     |
-| JS/TS  | `sdks/js/`     |
-| Python | `sdks/python/` |
-| Java   | `sdks/java/`   |
-| C#     | `sdks/csharp/` |
-| C++    | `sdks/cpp/`    |
-
 ## 快速开始
 
 1. 拉取代码
