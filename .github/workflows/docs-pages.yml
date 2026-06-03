@@ -38,7 +38,7 @@ jobs:
           node-version: 22
       - name: Setup PNPM
         timeout-minutes: 3
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Pages
         timeout-minutes: 3
