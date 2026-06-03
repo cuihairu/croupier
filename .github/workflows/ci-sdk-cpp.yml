@@ -18,13 +18,22 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
+
+      - name: Setup vcpkg
+        timeout-minutes: 5
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: ce613c41372b23b1f51333815feb3edd87ef8a8b
+          vcpkgJsonGlob: 'sdks/cpp/vcpkg.json'
+
       - run: |
           sudo apt-get update
           sudo apt-get install -y cmake g++ libcurl4-openssl-dev
+
       - run: |
           mkdir -p build
           cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
+          cmake .. -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DCROUPIER_CI_BUILD=ON
         working-directory: sdks/cpp
       - run: make -j$(nproc) && ctest --output-on-failure
         working-directory: sdks/cpp/build
