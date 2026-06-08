@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"path"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/xeipuuv/gojsonschema"
@@ -34,6 +35,9 @@ type httpInvoker struct {
 	// Default game/env for invocations
 	defaultGameID string
 	defaultEnv    string
+
+	// Job ID counter for uniqueness
+	jobCounter atomic.Int64
 }
 
 // NewHTTPInvoker creates a new HTTP-based Croupier invoker
@@ -277,7 +281,8 @@ func (i *httpInvoker) StartJob(ctx context.Context, functionID, payload string, 
 	}
 
 	// Return a fake job ID (in real implementation, server should return job ID)
-	return fmt.Sprintf("http-job-%d", time.Now().UnixNano()), nil
+	seq := i.jobCounter.Add(1)
+	return fmt.Sprintf("http-job-%d-%d", time.Now().UnixNano(), seq), nil
 }
 
 // StreamJob implements Invoker.StreamJob

@@ -84,6 +84,12 @@ type AgentSessionLoader interface {
 	DeleteExpired(ctx context.Context) (int64, error)
 }
 
+// TaskStore defines the interface for task run persistence used by handleTaskEvent.
+type TaskStore interface {
+	UpdateRun(ctx context.Context, taskID string, updates map[string]interface{}) error
+	AppendEvent(ctx context.Context, taskID string, eventType tasks.EventType, progress int32, message string, payload []byte) error
+}
+
 // Handler handles control service requests.
 type Handler interface {
 	HandleRegister(ctx context.Context, req *agentv1.RegisterRequest) (*agentv1.RegisterResponse, error)
@@ -100,7 +106,7 @@ type ControlService struct {
 	defaultSessionTTL time.Duration
 	metricsStore      *reg.MetricsStore
 	systemInfoCache   *reg.SystemInfoCache
-	taskStore         *tasks.Store
+	taskStore         TaskStore
 
 	upstream Handler
 
@@ -130,7 +136,7 @@ func NewControlService(registry *reg.Store, loader AgentSessionLoader) *ControlS
 	}
 }
 
-func (s *ControlService) SetTaskStore(store *tasks.Store) {
+func (s *ControlService) SetTaskStore(store TaskStore) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.taskStore = store
