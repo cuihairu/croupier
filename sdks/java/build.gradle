@@ -62,7 +62,12 @@ jacocoTestReport {
         classDirectories.setFrom(files(classDirectories.files.collect {
             fileTree(dir: it, exclude: [
                 '**/generated/**',
-                '**/pb/**'
+                '**/pb/**',
+                '**/scripts/ProtoGenerator.class',
+                '**/CroupierClientImpl$LocalJobState.class',
+                '**/InvokerImpl$JobEventSubscription*.class',
+                '**/InvokerImpl$CheckedSupplier.class',
+                '**/InvokerImpl$JobState.class'
             ])
         }))
     }

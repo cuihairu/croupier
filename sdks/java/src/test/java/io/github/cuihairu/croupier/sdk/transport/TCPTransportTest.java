@@ -3,6 +3,7 @@
  */
 package io.github.cuihairu.croupier.sdk.transport;
 
+import io.github.cuihairu.croupier.sdk.invoker.InvokerException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
@@ -228,7 +229,7 @@ class TCPTransportTest {
     @Test
     @DisplayName("Request should send and receive data")
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
-    void testRequest() {
+    void testRequest() throws InvokerException {
         transport = new TCPTransport("localhost", mockServer.getLocalPort(), 5000);
         transport.connect();
 
@@ -243,7 +244,7 @@ class TCPTransportTest {
     @Test
     @DisplayName("Request with empty body should work")
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
-    void testRequestWithEmptyBody() {
+    void testRequestWithEmptyBody() throws InvokerException {
         transport = new TCPTransport("localhost", mockServer.getLocalPort(), 5000);
         transport.connect();
 
@@ -335,7 +336,7 @@ class TCPTransportTest {
     @Test
     @DisplayName("Request ID should increment for each request")
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
-    void testRequestIdIncrement() {
+    void testRequestIdIncrement() throws InvokerException {
         transport = new TCPTransport("localhost", mockServer.getLocalPort(), 5000);
         transport.connect();
 
@@ -396,7 +397,7 @@ class TCPTransportTest {
     @Test
     @DisplayName("Request with large payload should work")
     @Timeout(value = 10, unit = TimeUnit.SECONDS)
-    void testRequestWithLargePayload() {
+    void testRequestWithLargePayload() throws InvokerException {
         transport = new TCPTransport("localhost", mockServer.getLocalPort(), 5000);
         transport.connect();
 
@@ -443,7 +444,7 @@ class TCPTransportTest {
     @Test
     @DisplayName("Request with different message types should work")
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
-    void testRequestWithDifferentMessageTypes() {
+    void testRequestWithDifferentMessageTypes() throws InvokerException {
         transport = new TCPTransport("localhost", mockServer.getLocalPort(), 5000);
         transport.connect();
 
@@ -491,7 +492,7 @@ class TCPTransportTest {
     @Test
     @DisplayName("Reconnect after close should work")
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
-    void testReconnectAfterClose() {
+    void testReconnectAfterClose() throws InvokerException {
         transport = new TCPTransport("localhost", mockServer.getLocalPort(), 5000);
 
         transport.connect();
@@ -571,7 +572,7 @@ class TCPTransportTest {
     @Test
     @DisplayName("Zero-length frame should be handled")
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
-    void testZeroLengthFrame() {
+    void testZeroLengthFrame() throws InvokerException {
         transport = new TCPTransport("localhost", mockServer.getLocalPort(), 5000);
         transport.connect();
 
@@ -583,7 +584,7 @@ class TCPTransportTest {
     @Test
     @DisplayName("Protocol version should be V1")
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
-    void testProtocolVersion() {
+    void testProtocolVersion() throws InvokerException {
         transport = new TCPTransport("localhost", mockServer.getLocalPort(), 5000);
         transport.connect();
 

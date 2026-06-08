@@ -289,7 +289,7 @@ public class CroupierClientImpl implements CroupierClient {
         }
     }
 
-    private SdkWireMessages.RegisterLocalResponse registerLocal(TransportClient nextTransport) {
+    private SdkWireMessages.RegisterLocalResponse registerLocal(TransportClient nextTransport) throws InvokerException {
         return SdkWireMessages.decodeRegisterLocalResponse(
             nextTransport.request(
                 Protocol.MSG_REGISTER_LOCAL_REQUEST,
@@ -365,7 +365,7 @@ public class CroupierClientImpl implements CroupierClient {
         }
     }
 
-    private void sendHeartbeat() {
+    private void sendHeartbeat() throws InvokerException {
         transport.request(
             Protocol.MSG_HEARTBEAT_LOCAL_REQUEST,
             SdkWireMessages.encodeHeartbeatRequest(new SdkWireMessages.HeartbeatRequest(

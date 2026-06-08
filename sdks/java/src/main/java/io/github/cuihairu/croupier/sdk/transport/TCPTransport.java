@@ -8,6 +8,7 @@
  */
 package io.github.cuihairu.croupier.sdk.transport;
 
+import io.github.cuihairu.croupier.sdk.invoker.InvokerException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -120,7 +121,7 @@ public class TCPTransport implements TransportClient {
      * @return Protobuf response body
      */
     @Override
-    public byte[] request(int msgType, byte[] data) {
+    public byte[] request(int msgType, byte[] data) throws InvokerException {
         if (socket == null || !socket.isConnected()) {
             throw new IllegalStateException("Not connected");
         }
