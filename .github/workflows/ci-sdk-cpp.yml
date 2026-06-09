@@ -27,9 +27,8 @@ jobs:
 
       - name: Clone vcpkg
         run: |
-          git clone --depth 1 https://github.com/microsoft/vcpkg.git
+          git clone https://github.com/microsoft/vcpkg.git
           cd vcpkg
-          git fetch --depth 1 origin "${{ env.VCPKG_COMMIT }}"
           git checkout "${{ env.VCPKG_COMMIT }}"
           ./bootstrap-vcpkg.sh -disableMetrics
 
@@ -38,7 +37,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: sdks/cpp/vcpkg_installed
-          key: vcpkg-${{ env.VCPKG_COMMIT }}-x64-linux-${{ hashFiles('sdks/cpp/vcpkg.json') }}
+          key: vcpkg-ce613c41-x64-linux-${{ hashFiles('sdks/cpp/vcpkg.json') }}
 
       - name: Install vcpkg dependencies
         if: steps.vcpkg-cache.outputs.cache-hit != 'true'
