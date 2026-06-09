@@ -11,6 +11,7 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  VCPKG_COMMIT: ce613c41372b23b1f51333815feb3edd87ef8a8b
 
 jobs:
   test:
@@ -19,33 +20,46 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Setup vcpkg
-        timeout-minutes: 10
-        uses: lukka/run-vcpkg@v11
-        with:
-          vcpkgGitCommitId: ce613c41372b23b1f51333815feb3edd87ef8a8b
-          vcpkgJsonGlob: 'sdks/cpp/vcpkg.json'
-
-      - name: Install vcpkg dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake g++ libcurl4-openssl-dev
-          "${{ github.workspace }}/vcpkg/vcpkg" install \
-            --x-install-root "${{ github.workspace }}/sdks/cpp" \
-            --triplet x64-linux
+
+      - name: Clone vcpkg
+        run: |
+          git clone --depth 1 https://github.com/microsoft/vcpkg.git
+          cd vcpkg
+          git fetch --depth 1 origin "${{ env.VCPKG_COMMIT }}"
+          git checkout "${{ env.VCPKG_COMMIT }}"
+          ./bootstrap-vcpkg.sh -disableMetrics
+
+      - name: Cache vcpkg installed packages
+        id: vcpkg-cache
+        uses: actions/cache@v4
+        with:
+          path: sdks/cpp/vcpkg_installed
+          key: vcpkg-${{ env.VCPKG_COMMIT }}-x64-linux-${{ hashFiles('sdks/cpp/vcpkg.json') }}
+
+      - name: Install vcpkg dependencies
+        if: steps.vcpkg-cache.outputs.cache-hit != 'true'
+        run: ./vcpkg/vcpkg install --triplet x64-linux
         working-directory: sdks/cpp
         env:
-          VCPKG_BINARY_SOURCES: "clear;files,/tmp/vcpkg_cache,readwrite"
+          VCPKG_BINARY_SOURCES: "clear"
 
-      - run: |
+      - name: Configure CMake
+        run: |
           mkdir -p build
           cd build
           cmake .. -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DCROUPIER_CI_BUILD=ON \
-            -DVCPKG_MANIFEST_INSTALL=OFF \
-            -DVCPKG_INSTALLED_DIR="${{ github.workspace }}/sdks/cpp/installed"
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_MANIFEST_INSTALL=OFF
         working-directory: sdks/cpp
-      - run: make -j$(nproc) && ctest --output-on-failure
+
+      - name: Build and test
+        run: make -j$(nproc) && ctest --output-on-failure
         working-directory: sdks/cpp/build
+
       - uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
