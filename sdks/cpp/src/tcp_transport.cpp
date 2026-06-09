@@ -14,7 +14,9 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <BaseTsd.h>
+#ifdef _MSC_VER
 #pragma comment(lib, "ws2_32.lib")
+#endif
 // Windows doesn't have ssize_t, use intptr_t instead
 typedef intptr_t ssize_t;
 #else

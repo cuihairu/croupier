@@ -148,11 +148,11 @@ jobs:
         timeout-minutes: 5
         shell: bash
         run: |
-          mkdir -p release-artifacts
+          mkdir -p "${{ github.workspace }}/release-artifacts"
           cd sdks/go
           tar --exclude='*_test.go' \
             --exclude='examples/**/*.test' \
-            -czf ../release-artifacts/sdk-go-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz \
+            -czf "${{ github.workspace }}/release-artifacts/sdk-go-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz" \
             go.mod \
             go.sum \
             version.go \
