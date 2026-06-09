@@ -41,7 +41,8 @@ jobs:
           mkdir -p build
           cd build
           cmake .. -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DCROUPIER_CI_BUILD=ON \
-            -DVCPKG_MANIFEST_INSTALL=OFF
+            -DVCPKG_MANIFEST_INSTALL=OFF \
+            -DVCPKG_INSTALLED_DIR="${{ github.workspace }}/sdks/cpp/installed"
         working-directory: sdks/cpp
       - run: make -j$(nproc) && ctest --output-on-failure
         working-directory: sdks/cpp/build
