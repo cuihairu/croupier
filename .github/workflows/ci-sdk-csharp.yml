@@ -24,11 +24,10 @@ jobs:
       - run: dotnet build --configuration Release
         working-directory: sdks/csharp
       - run: |
-          dotnet test --nologo \
+          dotnet test --nologo --no-build --no-restore \
             --configuration Release \
             --collect:"XPlat Code Coverage" \
-            --results-directory ./TestResults \
-            -- DataCollector.RunSettings.DataCollector=DataCollector.CodeCoverage
+            --results-directory ./TestResults
         working-directory: sdks/csharp
       - uses: codecov/codecov-action@v6
         with:
