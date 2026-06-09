@@ -42,7 +42,7 @@ jobs:
 
       - name: Install vcpkg dependencies
         if: steps.vcpkg-cache.outputs.cache-hit != 'true'
-        run: ./vcpkg/vcpkg install --triplet x64-linux
+        run: "${{ github.workspace }}/vcpkg/vcpkg" install --triplet x64-linux
         working-directory: sdks/cpp
         env:
           VCPKG_BINARY_SOURCES: "clear"
