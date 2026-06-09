@@ -31,14 +31,14 @@
 
 ---
 
-## Introduction
+## 简介
 
-Croupier Python SDK is the official Python client for the [Croupier](https://github.com/cuihairu/croupier) game backend platform. It connects to the Agent via a **single bidirectional TCP session** — the SDK is a session client (no local port listening).
+Croupier Python SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 Python 客户端实现。通过 **单条双向 TCP 连接** 与 Agent 通信——SDK 是 session 客户端（不监听本地端口）。
 
-## Documentation
+## 正式文档
 
-- Unified docs site entry: `/docs/sdks/python/`
-- In-repo path: `docs/sdks/python`
+- 统一文档站入口：`/docs/sdks/python/`
+- 仓库内路径：`docs/sdks/python`
 
 ## 主项目
 
@@ -60,11 +60,11 @@ Croupier Python SDK is the official Python client for the [Croupier](https://git
 
 ## 核心特性
 
-- Single TCP connection with multiplexed request/response
-- Automatic heartbeat and reconnection
-- Synchronous function invocation and asynchronous job execution
-- Built-in TLS support
-- Zero external TCP dependency
+- 单条 TCP 连接，多路复用请求/响应
+- 自动心跳与断线重连
+- 同步函数调用与异步作业执行
+- 内置 TLS 支持
+- 零外部 TCP 依赖
 
 ## 支持平台
 
@@ -74,12 +74,12 @@ Croupier Python SDK is the official Python client for the [Croupier](https://git
 | **Linux** | x64, ARM64 | ✅ 支持 |
 | **macOS** | x64, ARM64 (Apple Silicon) | ✅ 支持 |
 
-## Requirements
+## 系统要求
 
 - **Python** >= 3.12
 - **protobuf**
 
-## Installation
+## 安装
 
 ### pip
 
@@ -87,14 +87,14 @@ Croupier Python SDK is the official Python client for the [Croupier](https://git
 python -m pip install -e .
 ```
 
-### uv (recommended)
+### uv（推荐）
 
 ```bash
 pip install uv
 uv sync --dev --all-extras
 ```
 
-## Quick Start
+## 快速开始
 
 ```python
 import json
@@ -117,18 +117,18 @@ client.connect()
 print("Connected — handling invocations from agent")
 ```
 
-## Architecture
+## 架构设计
 
-The SDK connects to the Agent's local TCP gateway. Over a single connection:
+SDK 连接 Agent 的本地 TCP 网关，单条连接上完成：
 
-1. **Handshake**: SDK sends `ProviderConnectRequest` (function descriptors), receives `ProviderConnectResponse` (session ID)
-2. **Heartbeat**: SDK sends periodic `HeartbeatRequest` to keep the session alive
-3. **Invocation**: Agent pushes `InvokeRequest` to SDK on the same connection; SDK responds inline
-4. **Jobs**: Agent sends `StartJobRequest`; SDK processes asynchronously and streams events back
+1. **握手**：SDK 发送 `ProviderConnectRequest`（函数描述符），接收 `ProviderConnectResponse`（session ID）
+2. **心跳**：SDK 定期发送 `HeartbeatRequest` 保持会话活跃
+3. **调用**：Agent 在同一连接上推送 `InvokeRequest`，SDK 内联响应
+4. **作业**：Agent 发送 `StartJobRequest`，SDK 异步处理并回流事件
 
-No local port listening. No callback model. No TCP dependency.
+不监听本地端口，不依赖回调模型，不依赖外部 TCP 库。
 
-## Development
+## 开发指南
 
 ```bash
 uv sync --dev --all-extras
@@ -136,16 +136,6 @@ uv run pytest
 uv run python examples/main.py
 ```
 
-## Other Language SDKs
-
-| Language | Repository |
-| --- | --- |
-| Go | [croupier-sdk-go](https://github.com/cuihairu/croupier-sdk-go) |
-| C++ | [croupier-sdk-cpp](https://github.com/cuihairu/croupier-sdk-cpp) |
-| Java | [croupier-sdk-java](https://github.com/cuihairu/croupier-sdk-java) |
-| JS/TS | [croupier-sdk-js](https://github.com/cuihairu/croupier-sdk-js) |
-| C# | [croupier-sdk-csharp](https://github.com/cuihairu/croupier-sdk-csharp) |
-
-## License
+## 许可证
 
 [Apache License 2.0](LICENSE)

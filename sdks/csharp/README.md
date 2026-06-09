@@ -15,8 +15,8 @@
   <a href="https://www.apache.org/licenses/LICENSE-2.0">
     <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License">
   </a>
-  <a href="https://dotnet.microsoft.com/download/dotnet/8.0">
-    <img src="https://img.shields.io/badge/.NET-8.0%2B-purple.svg" alt=".NET Version">
+  <a href="https://dotnet.microsoft.com/download/dotnet/9.0">
+    <img src="https://img.shields.io/badge/.NET-9.0%2B-purple.svg" alt=".NET Version">
   </a>
 </p>
 
@@ -95,7 +95,7 @@ Croupier C# SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 
 ### 系统要求
 
-- **.NET 8.0 SDK** 或更高版本
+- **.NET 9.0 SDK** 或更高版本
 
 ### 安装
 
