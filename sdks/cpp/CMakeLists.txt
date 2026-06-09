@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
 
+# Set vcpkg toolchain file before project() so it's processed during compiler detection
+if(NOT CMAKE_TOOLCHAIN_FILE AND DEFINED ENV{VCPKG_ROOT})
+    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        CACHE STRING "Vcpkg toolchain file")
+endif()
+
 # Load version configuration
 include(VERSION.cmake)
 
@@ -57,12 +63,6 @@ set(CROUPIER_PROTO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/downloaded_proto" CACHE STRI
 
 # ========== vcpkg Integration (must be before proto generation) ==========
 if(ENABLE_VCPKG)
-    # Set vcpkg toolchain file if not already set
-    if(NOT CMAKE_TOOLCHAIN_FILE AND DEFINED ENV{VCPKG_ROOT})
-        set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-            CACHE STRING "Vcpkg toolchain file")
-    endif()
-
     # Set vcpkg overlay ports for custom versions
     get_filename_component(PROJECT_ROOT "${CMAKE_CURRENT_LIST_DIR}" ABSOLUTE)
     if(EXISTS "${PROJECT_ROOT}/vcpkg-overlays/ports")
