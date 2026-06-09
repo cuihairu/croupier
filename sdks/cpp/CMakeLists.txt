@@ -55,20 +55,7 @@ option(CROUPIER_ONLINE_BUILD "Enable online proto download" OFF)
 option(USE_SYSTEM_PACKAGES "Use system packages instead of vcpkg" OFF)
 set(CROUPIER_PROTO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/downloaded_proto" CACHE STRING "Proto files directory for online build")
 
-# ========== Proto Generation Module ==========
-include(cmake/ProtoGeneration.cmake)
-
-# Setup build type with enhanced logic for standalone builds
-if(CROUPIER_STANDALONE_BUILD)
-    setup_standalone_build()
-else()
-    setup_ci_build()
-endif()
-
-# gRPC support has been removed - using TCP transport
-message(STATUS "Building with TCP transport (gRPC removed)")
-
-# ========== vcpkg Integration ==========
+# ========== vcpkg Integration (must be before proto generation) ==========
 if(ENABLE_VCPKG)
     # Set vcpkg toolchain file if not already set
     if(NOT CMAKE_TOOLCHAIN_FILE AND DEFINED ENV{VCPKG_ROOT})
@@ -108,6 +95,19 @@ if(ENABLE_VCPKG)
 
     message(STATUS "Using vcpkg triplet: ${VCPKG_TARGET_TRIPLET}")
 endif()
+
+# ========== Proto Generation Module ==========
+include(cmake/ProtoGeneration.cmake)
+
+# Setup build type with enhanced logic for standalone builds
+if(CROUPIER_STANDALONE_BUILD)
+    setup_standalone_build()
+else()
+    setup_ci_build()
+endif()
+
+# gRPC support has been removed - using TCP transport
+message(STATUS "Building with TCP transport (gRPC removed)")
 
 # ========== Dependencies ==========
 find_package(Threads REQUIRED)
