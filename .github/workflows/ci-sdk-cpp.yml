@@ -25,16 +25,21 @@ jobs:
         with:
           vcpkgGitCommitId: ce613c41372b23b1f51333815feb3edd87ef8a8b
           vcpkgJsonGlob: 'sdks/cpp/vcpkg.json'
-          runVcpkgInstall: true
 
-      - run: |
+      - name: Install vcpkg dependencies
+        run: |
           sudo apt-get update
           sudo apt-get install -y cmake g++ libcurl4-openssl-dev
+          "${{ github.workspace }}/vcpkg/vcpkg" install --triplet x64-linux
+        working-directory: sdks/cpp
+        env:
+          VCPKG_BINARY_SOURCES: "clear;files,/tmp/vcpkg_cache,readwrite"
 
       - run: |
           mkdir -p build
           cd build
-          cmake .. -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DCROUPIER_CI_BUILD=ON
+          cmake .. -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DCROUPIER_CI_BUILD=ON \
+            -DVCPKG_MANIFEST_INSTALL=OFF
         working-directory: sdks/cpp
       - run: make -j$(nproc) && ctest --output-on-failure
         working-directory: sdks/cpp/build
