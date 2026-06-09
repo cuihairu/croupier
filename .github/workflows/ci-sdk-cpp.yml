@@ -46,24 +46,14 @@ jobs:
         env:
           VCPKG_BINARY_SOURCES: "clear"
 
-      - name: Debug vcpkg install layout
-        run: |
-          echo "=== vcpkg_installed contents ==="
-          ls -la sdks/cpp/vcpkg_installed/ 2>/dev/null || echo "vcpkg_installed not found"
-          echo "=== vcpkg_installed/x64-linux ==="
-          ls -la sdks/cpp/vcpkg_installed/x64-linux/ 2>/dev/null || echo "x64-linux not found"
-          echo "=== share/protobuf ==="
-          find sdks/cpp/vcpkg_installed -name "protobuf" -type d 2>/dev/null || echo "no protobuf dir"
-          echo "=== include/google/protobuf ==="
-          find sdks/cpp/vcpkg_installed -path "*/include/google/protobuf" -type d 2>/dev/null || echo "no protobuf include"
-
       - name: Configure CMake
         run: |
           mkdir -p build
           cd build
           cmake .. -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DCROUPIER_CI_BUILD=ON \
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" \
-            -DVCPKG_MANIFEST_INSTALL=OFF
+            -DVCPKG_MANIFEST_INSTALL=OFF \
+            -DVCPKG_INSTALLED_DIR="${{ github.workspace }}/sdks/cpp/vcpkg_installed"
         working-directory: sdks/cpp
 
       - name: Build and test
