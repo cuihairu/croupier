@@ -651,3 +651,174 @@ func TestToApprovalSummaries_PreserveFields(t *testing.T) {
 	assert.Equal(t, "test-1", result[0].ID)
 	assert.Equal(t, "user1", result[0].Actor)
 }
+
+func TestHandler_Approve_NilStore(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	service := NewService(&svc.ServiceContext{})
+	handler := NewHandler(service)
+
+	router := gin.New()
+	router.POST("/approvals/:id/approve", handler.Approve)
+
+	req := httptest.NewRequest("POST", "/approvals/test-1/approve", nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.NotEqual(t, http.StatusOK, resp.Code)
+}
+
+func TestHandler_Reject_NilStore(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	service := NewService(&svc.ServiceContext{})
+	handler := NewHandler(service)
+
+	router := gin.New()
+	router.POST("/approvals/:id/reject", handler.Reject)
+
+	reqBody := `{"reason":"test"}`
+	req := httptest.NewRequest("POST", "/approvals/test-1/reject", bytes.NewBufferString(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.NotEqual(t, http.StatusOK, resp.Code)
+}
+
+func TestHandler_Get_NilStore(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	service := NewService(&svc.ServiceContext{})
+	handler := NewHandler(service)
+
+	router := gin.New()
+	router.GET("/approvals/:id", handler.Get)
+
+	req := httptest.NewRequest("GET", "/approvals/test-1", nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.NotEqual(t, http.StatusOK, resp.Code)
+}
+
+func TestHandler_List_NilStore(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	service := NewService(&svc.ServiceContext{})
+	handler := NewHandler(service)
+
+	router := gin.New()
+	router.GET("/approvals", handler.List)
+
+	req := httptest.NewRequest("GET", "/approvals", nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.NotEqual(t, http.StatusOK, resp.Code)
+}
+
+func TestHandler_Get_WithPayload(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	store := approvals.NewMemStore()
+	approval := &approvals.Approval{
+		ID:      "test-payload",
+		State:   "pending",
+		Actor:   "tester",
+		Payload: []byte(`{"key":"value","nested":{"a":1}}`),
+	}
+	store.Create(approval)
+
+	service := NewService(&svc.ServiceContext{ApprovalsStore: store})
+	handler := NewHandler(service)
+
+	router := gin.New()
+	router.GET("/approvals/:id", handler.Get)
+
+	req := httptest.NewRequest("GET", "/approvals/test-payload", nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+}
+
+func TestService_Get_WithValidStore(t *testing.T) {
+	store := approvals.NewMemStore()
+	approval := &approvals.Approval{
+		ID:    "test-valid",
+		State: "pending",
+		Actor: "tester",
+	}
+	store.Create(approval)
+
+	service := NewService(&svc.ServiceContext{ApprovalsStore: store})
+
+	resp, err := service.Get(context.Background(), &ApprovalGetRequest{ID: "test-valid"})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, "test-valid", resp.Approval.ID)
+}
+
+func TestService_Approve_WithValidStore(t *testing.T) {
+	store := approvals.NewMemStore()
+	approval := &approvals.Approval{
+		ID:    "test-approve-valid",
+		State: "pending",
+		Actor: "tester",
+	}
+	store.Create(approval)
+
+	service := NewService(&svc.ServiceContext{ApprovalsStore: store})
+
+	ctx := context.WithValue(context.Background(), "username", "admin")
+	resp, err := service.Approve(ctx, &ApprovalApproveRequest{ID: "test-approve-valid"})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, "approved", resp.State)
+}
+
+func TestService_Reject_WithValidStore(t *testing.T) {
+	store := approvals.NewMemStore()
+	approval := &approvals.Approval{
+		ID:    "test-reject-valid",
+		State: "pending",
+		Actor: "tester",
+	}
+	store.Create(approval)
+
+	service := NewService(&svc.ServiceContext{ApprovalsStore: store})
+
+	ctx := context.WithValue(context.Background(), "username", "admin")
+	resp, err := service.Reject(ctx, &ApprovalRejectRequest{ID: "test-reject-valid", Reason: "test reason"})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, "rejected", resp.State)
+}
+
+func TestPaginateApprovalSummaries_NegativePage(t *testing.T) {
+	items := []ApprovalSummary{
+		{ID: "1"}, {ID: "2"},
+	}
+
+	result, total := paginateApprovalSummaries(items, -1, 10)
+
+	assert.Len(t, result, 2)
+	assert.Equal(t, 2, total)
+}
+
+func TestPaginateApprovalSummaries_NegativeSize(t *testing.T) {
+	items := []ApprovalSummary{
+		{ID: "1"}, {ID: "2"},
+	}
+
+	result, total := paginateApprovalSummaries(items, 1, -1)
+
+	assert.Len(t, result, 2)
+	assert.Equal(t, 2, total)
+}

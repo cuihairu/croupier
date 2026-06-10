@@ -241,7 +241,9 @@ func TestOpenAPIDocEntities_NilDoc(t *testing.T) {
 func TestOpenAPIDocEntities_WithXEntities(t *testing.T) {
 	t.Parallel()
 
-	doc, _ := decodeOpenAPIDoc(createTestOpenAPIDoc())
+	// Use raw JSON because openapi3.T.MarshalJSON drops extensions
+	rawJSON := `{"openapi":"3.0.3","info":{"title":"Test","version":"1.0"},"paths":{},"x-entities":[{"name":"user","description":"User entity"},{"name":"post","description":"Post entity"}]}`
+	doc, _ := decodeOpenAPIDoc([]byte(rawJSON))
 	entities := openAPIDocEntities(doc)
 
 	if len(entities) != 2 {

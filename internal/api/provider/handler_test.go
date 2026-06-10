@@ -326,3 +326,91 @@ func TestHandler_Descriptors_WithQuery(t *testing.T) {
 		t.Logf("Status: %d", rec.Code)
 	}
 }
+
+func TestHandler_List_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := createMockStore()
+	h := NewHandler(NewService(&svc.ServiceContext{RegistryStore: store}))
+	ctx, rec := newProviderTestContext(http.MethodGet, "/api/v1/providers?page=1&pageSize=10", "")
+	h.List(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandler_Capabilities_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := createMockStore()
+	h := NewHandler(NewService(&svc.ServiceContext{RegistryStore: store}))
+	ctx, rec := newProviderTestContext(http.MethodGet, "/api/v1/providers/capabilities", "")
+	h.Capabilities(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandler_Descriptors_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := createMockStore()
+	h := NewHandler(NewService(&svc.ServiceContext{RegistryStore: store}))
+	ctx, rec := newProviderTestContext(http.MethodGet, "/api/v1/providers/descriptors", "")
+	h.Descriptors(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandler_Detail_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := createMockStore()
+	h := NewHandler(NewService(&svc.ServiceContext{RegistryStore: store}))
+	ctx, rec := newProviderTestContext(http.MethodGet, "/api/v1/providers/test-provider-1", "")
+	ctx.Params = gin.Params{{Key: "id", Value: "test-provider-1"}}
+	h.Detail(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandler_Entities_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := createMockStore()
+	h := NewHandler(NewService(&svc.ServiceContext{RegistryStore: store}))
+	ctx, rec := newProviderTestContext(http.MethodGet, "/api/v1/providers/test-provider-1/entities", "")
+	ctx.Params = gin.Params{{Key: "id", Value: "test-provider-1"}}
+	h.Entities(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandler_Delete_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := createMockStore()
+	h := NewHandler(NewService(&svc.ServiceContext{RegistryStore: store}))
+	ctx, rec := newProviderTestContext(http.MethodDelete, "/api/v1/providers/test-provider-1", "")
+	ctx.Params = gin.Params{{Key: "id", Value: "test-provider-1"}}
+	h.Delete(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestHandler_Reload_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := createMockStore()
+	h := NewHandler(NewService(&svc.ServiceContext{RegistryStore: store}))
+	ctx, rec := newProviderTestContext(http.MethodPost, "/api/v1/providers/test-provider-1/reload", "")
+	ctx.Params = gin.Params{{Key: "id", Value: "test-provider-1"}}
+	h.Reload(ctx)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+}

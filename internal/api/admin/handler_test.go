@@ -1,12 +1,23 @@
 package admin
 
 import (
+	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/cache"
+	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/service/permission"
+	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
+	gsqlite "github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func assertAdminStatus(t *testing.T, rec *httptest.ResponseRecorder, want int) {
@@ -457,4 +468,406 @@ func TestHandler_UpdateGames_BindValidation(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Handler integration tests with proper router setup
+
+func setupAdminHandlerTest(t *testing.T) (*Handler, *gorm.DB) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+
+	err = model.AutoMigrate(db)
+	require.NoError(t, err)
+
+	adminModel := model.NewAdminModel(db)
+	roleModel := model.NewRoleModel(db)
+	permissionModel := model.NewPermissionModel(db)
+	gameModel := model.NewGameModel(db)
+
+	// Create admin
+	admin := &model.Admin{Username: "testadmin", Nickname: "Test Admin", Status: 1}
+	err = adminModel.Create(nil, admin, "password123")
+	require.NoError(t, err)
+
+	role := &model.Role{Name: "admin"}
+	err = roleModel.Create(nil, role)
+	require.NoError(t, err)
+
+	err = adminModel.AssignRole(nil, admin.ID, role.ID)
+	require.NoError(t, err)
+
+	err = roleModel.ReplacePermissions(nil, role.ID, []string{"admin:all", "user:read", "user:write"})
+	require.NoError(t, err)
+
+	permissions := []*model.Permission{
+		{ID: "admin:all", Name: "Admin All", Resource: "admin", Action: "all", Category: "admin"},
+		{ID: "user:read", Name: "User Read", Resource: "user", Action: "read", Category: "user"},
+		{ID: "user:write", Name: "User Write", Resource: "user", Action: "write", Category: "user"},
+	}
+	for _, perm := range permissions {
+		err = db.Create(perm).Error
+		require.NoError(t, err)
+	}
+
+	permSvc := permission.NewPermissionService(db)
+	nullCache := cache.NewNullCache()
+	cacheHelper := cache.NewCacheHelper(nullCache)
+
+	svcCtx := &svc.ServiceContext{
+		DB:                db,
+		AdminModel:        adminModel,
+		RoleModel:         roleModel,
+		PermissionModel:   permissionModel,
+		GameModel:         gameModel,
+		PermissionService: permSvc,
+		Cache:             nullCache,
+		CacheHelper:       cacheHelper,
+	}
+
+	service := NewService(svcCtx)
+	handler := NewHandler(service)
+
+	return handler, db
+}
+
+func addAdminAuthMiddleware(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		adminModel := model.NewAdminModel(db)
+		admin, _ := adminModel.FindByUsername(c.Request.Context(), "testadmin")
+		ctx := context.WithValue(c.Request.Context(), "username", "testadmin")
+		ctx = context.WithValue(ctx, "adminID", admin.ID)
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
+}
+
+func TestHandler_List_Integration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, db := setupAdminHandlerTest(t)
+
+	router := gin.New()
+	router.Use(addAdminAuthMiddleware(db))
+	router.GET("/admins", handler.List)
+
+	req := httptest.NewRequest("GET", "/admins?page=1&pageSize=10", nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+}
+
+func TestHandler_Get_Integration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, db := setupAdminHandlerTest(t)
+
+	adminModel := model.NewAdminModel(db)
+	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	require.NoError(t, err)
+
+	router := gin.New()
+	router.Use(addAdminAuthMiddleware(db))
+	router.GET("/admins/:id", handler.Get)
+
+	req := httptest.NewRequest("GET", "/admins/"+strconv.FormatUint(uint64(admin.ID), 10), nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+}
+
+func TestHandler_Create_Integration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, db := setupAdminHandlerTest(t)
+
+	router := gin.New()
+	router.Use(addAdminAuthMiddleware(db))
+	router.POST("/admins", handler.Create)
+
+	body := `{"username":"newadmin","password":"MyPass123","nickname":"New Admin"}`
+	req := httptest.NewRequest("POST", "/admins", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+}
+
+func TestHandler_Delete_Integration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, db := setupAdminHandlerTest(t)
+
+	// Create an admin to delete
+	adminModel := model.NewAdminModel(db)
+	admin := &model.Admin{Username: "todelete", Nickname: "To Delete", Status: 1}
+	err := adminModel.Create(nil, admin, "password123")
+	require.NoError(t, err)
+
+	router := gin.New()
+	router.Use(addAdminAuthMiddleware(db))
+	router.DELETE("/admins/:id", handler.Delete)
+
+	req := httptest.NewRequest("DELETE", "/admins/"+strconv.FormatUint(uint64(admin.ID), 10), nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+}
+
+func TestHandler_PasswordReset_Integration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, db := setupAdminHandlerTest(t)
+
+	adminModel := model.NewAdminModel(db)
+	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	require.NoError(t, err)
+
+	router := gin.New()
+	router.Use(addAdminAuthMiddleware(db))
+	router.POST("/admins/:id/password-reset", handler.PasswordReset)
+
+	body := `{"newPassword":"newPassword456"}`
+	req := httptest.NewRequest("POST", "/admins/"+strconv.FormatUint(uint64(admin.ID), 10)+"/password-reset", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+}
+
+func TestHandler_GetGames_Integration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, db := setupAdminHandlerTest(t)
+
+	adminModel := model.NewAdminModel(db)
+	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	require.NoError(t, err)
+
+	router := gin.New()
+	router.Use(addAdminAuthMiddleware(db))
+	router.GET("/admins/:id/games", handler.GetGames)
+
+	req := httptest.NewRequest("GET", "/admins/"+strconv.FormatUint(uint64(admin.ID), 10)+"/games", nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+}
+
+func TestHandler_UpdateGames_Integration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, db := setupAdminHandlerTest(t)
+
+	adminModel := model.NewAdminModel(db)
+	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	require.NoError(t, err)
+
+	router := gin.New()
+	router.Use(addAdminAuthMiddleware(db))
+	router.PUT("/admins/:id/games", handler.UpdateGames)
+
+	body := `{"games":[]}`
+	req := httptest.NewRequest("PUT", "/admins/"+strconv.FormatUint(uint64(admin.ID), 10)+"/games", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+}
+
+func TestHandler_Update_Integration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, db := setupAdminHandlerTest(t)
+
+	adminModel := model.NewAdminModel(db)
+	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	require.NoError(t, err)
+
+	router := gin.New()
+	router.Use(addAdminAuthMiddleware(db))
+	router.PUT("/admins/:id", handler.Update)
+
+	body := `{"nickname":"Updated Nickname"}`
+	req := httptest.NewRequest("PUT", "/admins/"+strconv.FormatUint(uint64(admin.ID), 10), bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assert.Equal(t, http.StatusOK, resp.Code)
+}
+
+// Service error path tests via router
+
+func TestHandler_Get_ServiceError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, db := setupAdminHandlerTest(t)
+
+	router := gin.New()
+	router.Use(addAdminAuthMiddleware(db))
+	router.GET("/admins/:id", handler.Get)
+
+	req := httptest.NewRequest("GET", "/admins/99999", nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assertAdminRejected(t, resp)
+}
+
+func TestHandler_Update_ServiceError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, db := setupAdminHandlerTest(t)
+
+	router := gin.New()
+	router.Use(addAdminAuthMiddleware(db))
+	router.PUT("/admins/:id", handler.Update)
+
+	body := `{"nickname":"Updated"}`
+	req := httptest.NewRequest("PUT", "/admins/99999", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assertAdminRejected(t, resp)
+}
+
+func TestHandler_Delete_ServiceError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, db := setupAdminHandlerTest(t)
+
+	router := gin.New()
+	router.Use(addAdminAuthMiddleware(db))
+	router.DELETE("/admins/:id", handler.Delete)
+
+	req := httptest.NewRequest("DELETE", "/admins/99999", nil)
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assertAdminRejected(t, resp)
+}
+
+func TestHandler_PasswordReset_ServiceError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, db := setupAdminHandlerTest(t)
+
+	router := gin.New()
+	router.Use(addAdminAuthMiddleware(db))
+	router.POST("/admins/:id/password-reset", handler.PasswordReset)
+
+	body := `{"newPassword":"newPassword456"}`
+	req := httptest.NewRequest("POST", "/admins/99999/password-reset", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assertAdminRejected(t, resp)
+}
+
+func TestHandler_Create_InvalidJSON_Integration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, db := setupAdminHandlerTest(t)
+
+	router := gin.New()
+	router.Use(addAdminAuthMiddleware(db))
+	router.POST("/admins", handler.Create)
+
+	req := httptest.NewRequest("POST", "/admins", bytes.NewBufferString("{invalid json"))
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assertAdminRejected(t, resp)
+}
+
+func TestHandler_Update_InvalidJSON_Integration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, db := setupAdminHandlerTest(t)
+
+	adminModel := model.NewAdminModel(db)
+	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	require.NoError(t, err)
+
+	router := gin.New()
+	router.Use(addAdminAuthMiddleware(db))
+	router.PUT("/admins/:id", handler.Update)
+
+	req := httptest.NewRequest("PUT", "/admins/"+strconv.FormatUint(uint64(admin.ID), 10), bytes.NewBufferString("{invalid"))
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assertAdminRejected(t, resp)
+}
+
+func TestHandler_PasswordReset_InvalidJSON_Integration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, db := setupAdminHandlerTest(t)
+
+	adminModel := model.NewAdminModel(db)
+	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	require.NoError(t, err)
+
+	router := gin.New()
+	router.Use(addAdminAuthMiddleware(db))
+	router.POST("/admins/:id/password-reset", handler.PasswordReset)
+
+	req := httptest.NewRequest("POST", "/admins/"+strconv.FormatUint(uint64(admin.ID), 10)+"/password-reset", bytes.NewBufferString("{invalid"))
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assertAdminRejected(t, resp)
+}
+
+func TestHandler_UpdateGames_InvalidJSON_Integration(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, db := setupAdminHandlerTest(t)
+
+	adminModel := model.NewAdminModel(db)
+	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	require.NoError(t, err)
+
+	router := gin.New()
+	router.Use(addAdminAuthMiddleware(db))
+	router.PUT("/admins/:id/games", handler.UpdateGames)
+
+	req := httptest.NewRequest("PUT", "/admins/"+strconv.FormatUint(uint64(admin.ID), 10)+"/games", bytes.NewBufferString("{invalid"))
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assertAdminRejected(t, resp)
+}
+
+func TestHandler_Create_ServiceError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, db := setupAdminHandlerTest(t)
+
+	router := gin.New()
+	router.Use(addAdminAuthMiddleware(db))
+	router.POST("/admins", handler.Create)
+
+	// Duplicate username
+	body := `{"username":"testadmin","password":"MyPass123","nickname":"Dup"}`
+	req := httptest.NewRequest("POST", "/admins", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+
+	router.ServeHTTP(resp, req)
+
+	assertAdminRejected(t, resp)
 }

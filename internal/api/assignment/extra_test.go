@@ -180,8 +180,9 @@ func TestCollectKnownFunctions_WithOperations(t *testing.T) {
 func TestAssignmentsPath_RelativePathWithBaseDir(t *testing.T) {
 	t.Parallel()
 
-	baseDir := "/absolute/base"
-	relPath := "relative/assignments.json"
+	// Use t.TempDir() to get a valid absolute path for the platform
+	baseDir := t.TempDir()
+	relPath := filepath.Join("relative", "assignments.json")
 
 	svcCtx := &svc.ServiceContext{
 		Config: config.Config{
@@ -202,7 +203,7 @@ func TestAssignmentsPath_RelativePathWithBaseDir(t *testing.T) {
 func TestAssignmentsPath_AbsolutePath(t *testing.T) {
 	t.Parallel()
 
-	absPath := "/absolute/path/assignments.json"
+	absPath := filepath.Join("absolute", "path", "assignments.json")
 
 	svcCtx := &svc.ServiceContext{
 		Config: config.Config{

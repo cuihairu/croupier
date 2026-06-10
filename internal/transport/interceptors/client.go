@@ -27,8 +27,15 @@ func Chain(cfg *Config) []grpc.DialOption {
 	if cfg != nil {
 		c = *cfg
 	}
-	ui := func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		// ensure timeout
+	return []grpc.DialOption{
+		grpc.WithChainUnaryInterceptor(NewUnaryRetryInterceptor(c)),
+		grpc.WithChainStreamInterceptor(NewStreamRetryInterceptor(c)),
+	}
+}
+
+// NewUnaryRetryInterceptor creates a unary client interceptor with timeout and retry.
+func NewUnaryRetryInterceptor(c Config) grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		if _, ok := ctx.Deadline(); !ok && c.Timeout > 0 {
 			var cancel context.CancelFunc
 			ctx, cancel = context.WithTimeout(ctx, c.Timeout)
@@ -48,7 +55,6 @@ func Chain(cfg *Config) []grpc.DialOption {
 			if st.Code() != codes.Unavailable && st.Code() != codes.DeadlineExceeded {
 				return err
 			}
-			// backoff
 			d := backoff(c.BackoffBase, attempts)
 			select {
 			case <-time.After(d):
@@ -57,7 +63,11 @@ func Chain(cfg *Config) []grpc.DialOption {
 			}
 		}
 	}
-	si := func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+}
+
+// NewStreamRetryInterceptor creates a stream client interceptor with timeout and retry.
+func NewStreamRetryInterceptor(c Config) grpc.StreamClientInterceptor {
+	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 		if _, ok := ctx.Deadline(); !ok && c.Timeout > 0 {
 			var cancel context.CancelFunc
 			ctx, cancel = context.WithTimeout(ctx, c.Timeout)
@@ -84,10 +94,6 @@ func Chain(cfg *Config) []grpc.DialOption {
 				return nil, ctx.Err()
 			}
 		}
-	}
-	return []grpc.DialOption{
-		grpc.WithChainUnaryInterceptor(ui),
-		grpc.WithChainStreamInterceptor(si),
 	}
 }
 

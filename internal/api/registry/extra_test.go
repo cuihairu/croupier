@@ -2,8 +2,10 @@ package registry
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -11,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -750,4 +753,234 @@ func TestService_GetRegistry_SameFunctionMultipleAgents(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "shared function should be in response")
+}
+
+func TestService_GetRegistry_WithEmptyAgentID(t *testing.T) {
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+	}
+	service := NewService(svcCtx)
+	store := svcCtx.RegistryStore
+
+	// Add agent with empty AgentID (should be filtered)
+	store.UpsertAgent(&registry.AgentSession{
+		AgentID:   "",
+		GameID:    "game1",
+		Env:       "prod",
+		RPCAddr:   "127.0.0.1:19091",
+		ExpireAt:  time.Now().Add(5 * time.Minute),
+		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
+	})
+
+	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	require.NoError(t, err)
+	assert.Empty(t, resp.Agents)
+}
+
+func TestService_GetRegistry_WithNilAgent(t *testing.T) {
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+	}
+	service := NewService(svcCtx)
+
+	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	require.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Empty(t, resp.Agents)
+}
+
+func TestService_GetRegistry_HandlerError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+	}
+	handler := NewHandler(NewService(svcCtx))
+
+	router := gin.New()
+	router.POST("/registry", handler.GetRegistry)
+
+	// Invalid JSON should still work (fallback to empty request)
+	req := httptest.NewRequest("POST", "/registry", bytes.NewBufferString("{invalid"))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestService_GetRegistry_AuthorizedUser(t *testing.T) {
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+	}
+	service := NewService(svcCtx)
+
+	// Test with authorized user context
+	ctx := context.WithValue(context.Background(), "username", "testuser")
+	ctx = context.WithValue(ctx, "adminID", uint(1))
+
+	// This will fail at permission check since no permission service is set up
+	_, err := service.GetRegistry(ctx, &RegistryRequest{})
+	// We expect an error because permission service is nil
+	assert.Error(t, err)
+}
+
+func TestService_GetRegistry_UnauthorizedUser(t *testing.T) {
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+	}
+	service := NewService(svcCtx)
+
+	// Test with user that doesn't have permission
+	ctx := context.WithValue(context.Background(), "username", "noperm")
+	ctx = context.WithValue(ctx, "adminID", uint(999))
+
+	// This will fail at permission check
+	_, err := service.GetRegistry(ctx, &RegistryRequest{})
+	assert.Error(t, err)
+}
+
+func TestService_GetRegistry_WithAssignmentsFile(t *testing.T) {
+	// Create temp directory for assignments
+	tmpDir := t.TempDir()
+	assignmentsPath := tmpDir + "/assignments.json"
+
+	// Write test assignments
+	assignmentsData := `{
+		"game1|prod": ["func1", "func2"],
+		"game2|dev": ["func3"]
+	}`
+	err := os.WriteFile(assignmentsPath, []byte(assignmentsData), 0644)
+	require.NoError(t, err)
+
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+		Config: config.Config{
+			Registry: config.RegistryConfig{
+				AssignmentsPath: assignmentsPath,
+			},
+		},
+	}
+	service := NewService(svcCtx)
+
+	// Add agent that covers func1
+	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+		AgentID:   "agent-1",
+		GameID:    "game1",
+		Env:       "prod",
+		RPCAddr:   "127.0.0.1:19091",
+		ExpireAt:  time.Now().Add(5 * time.Minute),
+		Functions: map[string]registry.FunctionMeta{"func1": {Enabled: true}},
+	})
+
+	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	require.NoError(t, err)
+	assert.NotNil(t, resp)
+
+	// Check coverage
+	assert.NotEmpty(t, resp.Coverage)
+
+	// Find game1|prod coverage
+	var game1ProdCoverage *RegistryCoverage
+	for i := range resp.Coverage {
+		if resp.Coverage[i].GameEnv == "game1|prod" {
+			game1ProdCoverage = &resp.Coverage[i]
+			break
+		}
+	}
+	require.NotNil(t, game1ProdCoverage)
+	// func1 should be covered (healthy), func2 should be uncovered
+	assert.Contains(t, game1ProdCoverage.Functions, "func1")
+	assert.Contains(t, game1ProdCoverage.Functions, "func2")
+}
+
+func TestService_GetRegistry_AssignmentWithEmptyFunctions(t *testing.T) {
+	// Create temp directory for assignments
+	tmpDir := t.TempDir()
+	assignmentsPath := tmpDir + "/assignments.json"
+
+	// Write test assignments with empty functions
+	assignmentsData := `{
+		"game1|prod": ["func1", "", "  ", "func2"]
+	}`
+	err := os.WriteFile(assignmentsPath, []byte(assignmentsData), 0644)
+	require.NoError(t, err)
+
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+		Config: config.Config{
+			Registry: config.RegistryConfig{
+				AssignmentsPath: assignmentsPath,
+			},
+		},
+	}
+	service := NewService(svcCtx)
+
+	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	require.NoError(t, err)
+	assert.NotNil(t, resp)
+
+	// Check coverage - empty functions should be filtered
+	assert.NotEmpty(t, resp.Coverage)
+}
+
+func TestService_GetRegistry_AssignmentCoverageWithAgent(t *testing.T) {
+	// Create temp directory for assignments
+	tmpDir := t.TempDir()
+	assignmentsPath := tmpDir + "/assignments.json"
+
+	// Write test assignments
+	assignmentsData := `{
+		"game1|prod": ["func1", "func2", "func3"]
+	}`
+	err := os.WriteFile(assignmentsPath, []byte(assignmentsData), 0644)
+	require.NoError(t, err)
+
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: registry.NewStore(),
+		Config: config.Config{
+			Registry: config.RegistryConfig{
+				AssignmentsPath: assignmentsPath,
+			},
+		},
+	}
+	service := NewService(svcCtx)
+
+	// Add agent that covers func1 and func2
+	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+		AgentID: "agent-1",
+		GameID:  "game1",
+		Env:     "prod",
+		RPCAddr: "127.0.0.1:19091",
+		ExpireAt: time.Now().Add(5 * time.Minute),
+		Functions: map[string]registry.FunctionMeta{
+			"func1": {Enabled: true},
+			"func2": {Enabled: true},
+		},
+	})
+
+	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	require.NoError(t, err)
+	assert.NotNil(t, resp)
+
+	// Find game1|prod coverage
+	var game1ProdCoverage *RegistryCoverage
+	for i := range resp.Coverage {
+		if resp.Coverage[i].GameEnv == "game1|prod" {
+			game1ProdCoverage = &resp.Coverage[i]
+			break
+		}
+	}
+	require.NotNil(t, game1ProdCoverage)
+
+	// func1 and func2 should be covered, func3 should be uncovered
+	assert.Contains(t, game1ProdCoverage.Functions, "func1")
+	assert.Contains(t, game1ProdCoverage.Functions, "func2")
+	assert.Contains(t, game1ProdCoverage.Functions, "func3")
+
+	// func3 should be in uncovered list
+	assert.Contains(t, game1ProdCoverage.Uncovered, "func3")
+	// func1 and func2 should not be in uncovered list
+	assert.NotContains(t, game1ProdCoverage.Uncovered, "func1")
+	assert.NotContains(t, game1ProdCoverage.Uncovered, "func2")
 }

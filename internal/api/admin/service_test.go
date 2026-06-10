@@ -1083,6 +1083,348 @@ func TestService_UpdateGames_InvalidGame(t *testing.T) {
 	assert.Contains(t, err.Error(), "game not found")
 }
 
+func TestService_GetGames_Unauthorized(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
+
+	// Create a user without admin permissions
+	nopermAdmin := &model.Admin{Username: "noperm_games", Nickname: "No Perm", Status: 1}
+	err := svcCtx.AdminModel.Create(context.Background(), nopermAdmin, "MyPass123")
+	require.NoError(t, err)
+
+	viewerRole := &model.Role{Name: "viewer_games"}
+	err = db.Where("name = ?", "viewer_games").FirstOrCreate(viewerRole).Error
+	require.NoError(t, err)
+
+	err = svcCtx.AdminModel.AssignRole(context.Background(), nopermAdmin.ID, viewerRole.ID)
+	require.NoError(t, err)
+
+	ctx := context.WithValue(context.Background(), "username", "noperm_games")
+	ctx = context.WithValue(ctx, "adminID", nopermAdmin.ID)
+
+	service := NewService(svcCtx)
+
+	resp, err := service.GetGames(ctx, &GetGamesRequest{
+		ID: strconv.FormatUint(uint64(adminID), 10),
+	})
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "无权")
+}
+
+func TestService_UpdateGames_Unauthorized(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
+
+	// Create a user without admin permissions
+	nopermAdmin := &model.Admin{Username: "noperm_upgames", Nickname: "No Perm", Status: 1}
+	err := svcCtx.AdminModel.Create(context.Background(), nopermAdmin, "MyPass123")
+	require.NoError(t, err)
+
+	viewerRole := &model.Role{Name: "viewer_upgames"}
+	err = db.Where("name = ?", "viewer_upgames").FirstOrCreate(viewerRole).Error
+	require.NoError(t, err)
+
+	err = svcCtx.AdminModel.AssignRole(context.Background(), nopermAdmin.ID, viewerRole.ID)
+	require.NoError(t, err)
+
+	ctx := context.WithValue(context.Background(), "username", "noperm_upgames")
+	ctx = context.WithValue(ctx, "adminID", nopermAdmin.ID)
+
+	service := NewService(svcCtx)
+
+	resp, err := service.UpdateGames(ctx, &UpdateGamesRequest{
+		ID:    strconv.FormatUint(uint64(adminID), 10),
+		Games: []AdminGame{{GameId: "game1", Envs: []string{"prod"}}},
+	})
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "无权")
+}
+
+func TestService_UpdateGames_EmptyGameId(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	gameModel := model.NewGameModel(db)
+	game := &model.Game{Name: "emptygidgame", AliasName: "EmptyGID", Status: "running"}
+	err := gameModel.Create(context.Background(), game)
+	require.NoError(t, err)
+
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	// Include one entry with empty gameId (should be skipped) and one valid
+	resp, err := service.UpdateGames(ctx, &UpdateGamesRequest{
+		ID: strconv.FormatUint(uint64(adminID), 10),
+		Games: []AdminGame{
+			{GameId: "", Envs: []string{"prod"}},
+			{GameId: "emptygidgame", Envs: []string{"prod"}},
+		},
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Games, 1)
+}
+
+func TestService_UpdateGames_EmptyEnvs(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	gameModel := model.NewGameModel(db)
+	game := &model.Game{Name: "emptyenvgame", AliasName: "EmptyEnv", Status: "running"}
+	err := gameModel.Create(context.Background(), game)
+	require.NoError(t, err)
+
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	// Include empty env strings (should be skipped)
+	resp, err := service.UpdateGames(ctx, &UpdateGamesRequest{
+		ID: strconv.FormatUint(uint64(adminID), 10),
+		Games: []AdminGame{
+			{GameId: "emptyenvgame", Envs: []string{"", "prod", "  "}},
+		},
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Games, 1)
+	assert.Len(t, resp.Games[0].Envs, 1)
+	assert.Equal(t, "prod", resp.Games[0].Envs[0])
+}
+
+func TestService_GetGames_InvalidID(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	_, err := service.GetGames(ctx, &GetGamesRequest{ID: "invalid"})
+	assert.Error(t, err)
+}
+
+func TestService_UpdateGames_InvalidID(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	_, err := service.UpdateGames(ctx, &UpdateGamesRequest{ID: "invalid"})
+	assert.Error(t, err)
+}
+
+func TestService_Update_NilRoles(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	adminID := createTestAdminWithRole(t, db, "testadmin_nilroles", "MyPass123", "admin")
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	// Update with nil Roles (should not touch roles)
+	resp, err := service.Update(ctx, &UpdateRequest{
+		ID:       strconv.FormatUint(uint64(adminID), 10),
+		Nickname: "Updated Nickname",
+		Roles:    nil,
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, "Updated Nickname", resp.Nickname)
+}
+
+func TestService_GetGames_GameOnlyScope(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	adminModel := model.NewAdminModel(db)
+	gameModel := model.NewGameModel(db)
+
+	// Create test game
+	game := &model.Game{
+		Name:      "gameonly",
+		AliasName: "Game Only",
+		Status:    "running",
+	}
+	err := gameModel.Create(context.Background(), game)
+	require.NoError(t, err)
+
+	adminID := createTestAdminWithRole(t, db, "testadmin_gameonly", "MyPass123", "admin")
+
+	// Set game scope only (no env scopes)
+	err = adminModel.SetGameScope(context.Background(), adminID, game.ID)
+	require.NoError(t, err)
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	resp, err := service.GetGames(ctx, &GetGamesRequest{
+		ID: strconv.FormatUint(uint64(adminID), 10),
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Games, 1)
+	assert.Equal(t, "gameonly", resp.Games[0].GameId)
+	assert.Equal(t, "Game Only", resp.Games[0].GameName)
+	assert.Empty(t, resp.Games[0].Envs)
+}
+
+func TestService_GetGames_GameWithoutAlias(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	adminModel := model.NewAdminModel(db)
+	gameModel := model.NewGameModel(db)
+
+	// Create test game without alias name
+	game := &model.Game{
+		Name:   "noalias",
+		Status: "running",
+	}
+	err := gameModel.Create(context.Background(), game)
+	require.NoError(t, err)
+
+	adminID := createTestAdminWithRole(t, db, "testadmin_noalias", "MyPass123", "admin")
+
+	// Set game env scope
+	err = adminModel.SetGameEnvScope(context.Background(), adminID, game.ID, "prod")
+	require.NoError(t, err)
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	resp, err := service.GetGames(ctx, &GetGamesRequest{
+		ID: strconv.FormatUint(uint64(adminID), 10),
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Games, 1)
+	assert.Equal(t, "noalias", resp.Games[0].GameId)
+	// GameName should fall back to GameId when AliasName is empty
+	assert.Equal(t, "noalias", resp.Games[0].GameName)
+}
+
+func TestService_UpdateGames_WithEnvs(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	gameModel := model.NewGameModel(db)
+
+	// Create test games
+	game1 := &model.Game{
+		Name:      "upgame1",
+		AliasName: "Up Game 1",
+		Status:    "running",
+	}
+	err := gameModel.Create(context.Background(), game1)
+	require.NoError(t, err)
+
+	game2 := &model.Game{
+		Name:      "upgame2",
+		AliasName: "Up Game 2",
+		Status:    "running",
+	}
+	err = gameModel.Create(context.Background(), game2)
+	require.NoError(t, err)
+
+	adminID := createTestAdminWithRole(t, db, "testadmin_upgames", "MyPass123", "admin")
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	// Update games with env scopes
+	resp, err := service.UpdateGames(ctx, &UpdateGamesRequest{
+		ID: strconv.FormatUint(uint64(adminID), 10),
+		Games: []AdminGame{
+			{GameId: "upgame1", Envs: []string{"prod", "dev"}},
+			{GameId: "upgame2", Envs: []string{"staging"}},
+		},
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Games, 2)
+}
+
+func TestService_UpdateGames_GameNotFound(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	adminID := createTestAdminWithRole(t, db, "testadmin_upnotfound", "MyPass123", "admin")
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	// Update with non-existent game
+	_, err := service.UpdateGames(ctx, &UpdateGamesRequest{
+		ID: strconv.FormatUint(uint64(adminID), 10),
+		Games: []AdminGame{
+			{GameId: "nonexistent", Envs: []string{"prod"}},
+		},
+	})
+
+	assert.Error(t, err)
+}
+
+func TestService_UpdateGames_EmptyGames(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	adminID := createTestAdminWithRole(t, db, "testadmin_upempty", "MyPass123", "admin")
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	// Update with empty games list
+	resp, err := service.UpdateGames(ctx, &UpdateGamesRequest{
+		ID:    strconv.FormatUint(uint64(adminID), 10),
+		Games: []AdminGame{},
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Empty(t, resp.Games)
+}
+
 func TestParseAdminID_Valid(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1599,3 +1941,241 @@ func Test_Debug_GetAdminRoles(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("After delete - Raw SQL count: %d", rawCount)
 }
+
+func TestLoadAdminRoleNames_EmptyInput(t *testing.T) {
+	db := setupTestDB(t)
+	svcCtx := setupTestServiceContext(t, db)
+	service := NewService(svcCtx)
+
+	result, err := service.loadAdminRoleNames(context.Background(), []uint{})
+	assert.NoError(t, err)
+	assert.Empty(t, result)
+}
+
+func TestLoadAdminRoleNames_MultipleAdmins(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	admin1ID := createTestAdminWithRole(t, db, "rolemap_admin1", "MyPass123", "admin")
+	admin2ID := createTestAdminWithRole(t, db, "rolemap_admin2", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	result, err := service.loadAdminRoleNames(context.Background(), []uint{admin1ID, admin2ID})
+	assert.NoError(t, err)
+	assert.Len(t, result, 2)
+	assert.Contains(t, result[admin1ID], "admin")
+	assert.Contains(t, result[admin2ID], "admin")
+}
+
+func TestService_Update_PhoneOnly(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	adminID := createTestAdminWithRole(t, db, "phoneonly_admin", "MyPass123", "admin")
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin_phone", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	resp, err := service.Update(ctx, &UpdateRequest{
+		ID:    strconv.FormatUint(uint64(adminID), 10),
+		Phone: "1112223333",
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, "1112223333", resp.Phone)
+}
+
+func TestService_Update_EmailOnly(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	adminID := createTestAdminWithRole(t, db, "emailonly_admin", "MyPass123", "admin")
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin_email", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	resp, err := service.Update(ctx, &UpdateRequest{
+		ID:    strconv.FormatUint(uint64(adminID), 10),
+		Email: "emailonly@test.com",
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, "emailonly@test.com", resp.Email)
+}
+
+func TestService_Update_StatusMinusOne(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	adminID := createTestAdminWithRole(t, db, "statusmin1_admin", "MyPass123", "admin")
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin_smin1", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	// Status=-1 means "don't update status"
+	resp, err := service.Update(ctx, &UpdateRequest{
+		ID:       strconv.FormatUint(uint64(adminID), 10),
+		Nickname: "No Status Change",
+		Status:   -1,
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, "No Status Change", resp.Nickname)
+}
+
+func TestService_GetGames_GameOnlyScopeEmptyAlias(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	adminModel := model.NewAdminModel(db)
+	gameModel := model.NewGameModel(db)
+
+	// Create game with empty alias
+	game := &model.Game{
+		Name:   "noaliastype",
+		Status: "running",
+	}
+	err := gameModel.Create(context.Background(), game)
+	require.NoError(t, err)
+
+	adminID := createTestAdminWithRole(t, db, "testadmin_noaliastype", "MyPass123", "admin")
+
+	// Set game scope only
+	err = adminModel.SetGameScope(context.Background(), adminID, game.ID)
+	require.NoError(t, err)
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin_noaliastype", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	resp, err := service.GetGames(ctx, &GetGamesRequest{
+		ID: strconv.FormatUint(uint64(adminID), 10),
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Games, 1)
+	// When alias is empty, GameName falls back to GameId
+	assert.Equal(t, "noaliastype", resp.Games[0].GameName)
+}
+
+func TestService_GetGames_GameScopeAlreadyInEnvMap(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	adminModel := model.NewAdminModel(db)
+	gameModel := model.NewGameModel(db)
+
+	game := &model.Game{Name: "scopeoverlap", AliasName: "Scope Overlap", Status: "running"}
+	err := gameModel.Create(context.Background(), game)
+	require.NoError(t, err)
+
+	adminID := createTestAdminWithRole(t, db, "testadmin_overlap", "MyPass123", "admin")
+
+	// Set both env scope and game scope for same game
+	err = adminModel.SetGameEnvScope(context.Background(), adminID, game.ID, "prod")
+	require.NoError(t, err)
+	err = adminModel.SetGameScope(context.Background(), adminID, game.ID)
+	require.NoError(t, err)
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin_overlap", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	resp, err := service.GetGames(ctx, &GetGamesRequest{
+		ID: strconv.FormatUint(uint64(adminID), 10),
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	// Should only appear once despite having both scopes
+	assert.Len(t, resp.Games, 1)
+	assert.Equal(t, "scopeoverlap", resp.Games[0].GameId)
+}
+
+func TestService_GetGames_GameScopeFindError(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	adminModel := model.NewAdminModel(db)
+
+	adminID := createTestAdminWithRole(t, db, "testadmin_finderr", "MyPass123", "admin")
+
+	// Insert a game scope with a non-existent game ID directly
+	err := db.Create(&model.AdminGameScope{AdminID: adminID, GameID: 99998}).Error
+	require.NoError(t, err)
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin_finderr", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	resp, err := service.GetGames(ctx, &GetGamesRequest{
+		ID: strconv.FormatUint(uint64(adminID), 10),
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	// The non-existent game should be skipped
+	assert.Empty(t, resp.Games)
+	_ = adminModel
+}
+
+func TestService_UpdateGames_NilGames(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	adminID := createTestAdminWithRole(t, db, "testadmin_nilgames", "MyPass123", "admin")
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin_nilgames", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	// Update with nil Games (should normalize to empty)
+	resp, err := service.UpdateGames(ctx, &UpdateGamesRequest{
+		ID:     strconv.FormatUint(uint64(adminID), 10),
+		Games:  nil,
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Empty(t, resp.Games)
+}
+
+func TestService_List_EmptyResult(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+	svcCtx := setupTestServiceContext(t, db)
+
+	// Create a superadmin context
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin_empty", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	// Search for non-existent admin
+	resp, err := service.List(ctx, &ListRequest{
+		Page:     1,
+		PageSize: 10,
+		Search:   "nonexistent_admin_xyz_12345",
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, int64(0), resp.Total)
+	assert.Empty(t, resp.Items)
+}
+

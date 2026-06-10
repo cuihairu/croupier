@@ -1,15 +1,9 @@
-# Policy definitions (subject, object, action)
-# Direct user permissions (keep admin convenience; avoid wildcard for generic dev accounts in tests)
 p, user:admin, *, *
 p, admin, *, *
 p, admin, audit, read
-
-# Role permissions
 p, role:admin, *, *
 p, role:admin, audit, read
-# Super admin full access
 p, role:super_admin, *, *
-# GM: function invoke + assignments + entities + registry/audit
 p, role:gm, /api/v1/functions/*/invoke, POST
 p, role:gm, /api/v1/functions/*/instances, GET
 p, role:gm, /api/v1/tasks, POST
@@ -23,10 +17,8 @@ p, role:gm, /api/v1/entities, POST
 p, role:gm, /api/v1/entities/*, GET
 p, role:gm, /api/v1/entities/*, PUT
 p, role:gm, /api/v1/entities/*, DELETE
-# GM: view registry and audit logs
 p, role:gm, /api/v1/registry, GET
 p, role:gm, /api/v1/audit, GET
-
 p, role:admin_manager, /api/v1/admin, GET
 p, role:admin_manager, /api/v1/admin, POST
 p, role:admin_manager, /api/v1/admin/*, GET
@@ -37,9 +29,6 @@ p, role:admin_manager, /api/v1/roles, GET
 p, role:admin_manager, /api/v1/roles, POST
 p, role:admin_manager, /api/v1/roles/*, PUT
 p, role:admin_manager, /api/v1/roles/*, DELETE
-
-# (economy_manager REST endpoints not implemented in server; skip HTTP grants)
-
 p, role:operator, /api/v1/functions/*/invoke, POST
 p, role:operator, /api/v1/functions/*/instances, GET
 p, role:operator, /api/v1/tasks, POST
@@ -49,8 +38,6 @@ p, role:operator, /api/v1/assignments, GET
 p, role:operator, /api/v1/entities, GET
 p, role:operator, /api/v1/entities/*, GET
 p, role:operator, /api/v1/analytics/*, GET
-
-# Developer: invoke + schema/entity validate + entities read
 p, role:developer, /api/v1/functions/*/invoke, POST
 p, role:developer, /api/v1/functions/*/instances, GET
 p, role:developer, /api/v1/tasks, POST
@@ -61,7 +48,6 @@ p, role:developer, /api/v1/schemas/raw-validate, POST
 p, role:developer, /api/v1/entities/validate, POST
 p, role:developer, /api/v1/entities, GET
 p, role:developer, /api/v1/entities/*, GET
-# Developer: functions listing and schema operations used in tests
 p, role:developer, /api/v1/functions, GET
 p, role:developer, /api/v1/functions/*, GET
 p, role:developer, /api/v1/schemas, POST
@@ -69,20 +55,14 @@ p, role:tech_lead, /api/v1/functions, GET
 p, role:tech_lead, /api/v1/functions/*, GET
 p, role:viewer, /api/v1/functions, GET
 p, role:tech_lead, /api/v1/providers, GET
-
-# Senior developer: can update entities
 p, role:senior_developer, /api/v1/functions/*/invoke, POST
 p, role:senior_developer, /api/v1/tasks, POST
 p, role:senior_developer, /api/v1/entities, POST
 p, role:senior_developer, /api/v1/entities/*, PUT
 p, role:senior_developer, /api/v1/entities/*, GET
-
-# Frontend developer: uploads + readonly entities
 p, role:frontend_developer, /api/v1/storage/signed-url, GET
 p, role:frontend_developer, /api/v1/entities, GET
 p, role:frontend_developer, /api/v1/entities/*, GET
-
-# Tester and QA lead: invoke + entities read + schema validate
 p, role:tester, /api/v1/functions/*/invoke, POST
 p, role:tester, /api/v1/tasks, POST
 p, role:tester, /api/v1/tasks/*/result, GET
@@ -95,8 +75,6 @@ p, role:qa_lead, /api/v1/tasks/*/result, GET
 p, role:qa_lead, /api/v1/entities, GET
 p, role:qa_lead, /api/v1/entities/*, GET
 p, role:qa_lead, /api/v1/entities/validate, POST
-
-# Tech lead / Backend lead: components + packs + games manage + uploads
 p, role:tech_lead, /api/v1/storage/signed-url, GET
 p, role:tech_lead, /api/v1/games, GET
 p, role:tech_lead, /api/v1/games, POST
@@ -109,14 +87,10 @@ p, role:backend_lead, /api/v1/games, POST
 p, role:backend_lead, /api/v1/games/*, GET
 p, role:backend_lead, /api/v1/games/*, PUT
 p, role:backend_lead, /api/v1/games/*, DELETE
-
-# Ops roles: components manage + uploads + games read
 p, role:ops, /api/v1/storage/signed-url, GET
 p, role:ops, /api/v1/games, GET
 p, role:ops_manager, /api/v1/storage/signed-url, GET
 p, role:ops_manager, /api/v1/games, GET
-
-# Design & content
 p, role:content_manager, /api/v1/entities, GET
 p, role:content_manager, /api/v1/entities, POST
 p, role:content_manager, /api/v1/entities/*, GET
@@ -139,14 +113,11 @@ p, role:level_designer, /api/v1/entities, GET
 p, role:level_designer, /api/v1/entities/*, GET
 p, role:numerical_designer, /api/v1/entities, GET
 p, role:numerical_designer, /api/v1/entities/*, GET
-
-# Analytics
 p, role:analyst, /api/v1/analytics/*, GET
 p, role:bi_analyst, /api/v1/analytics/*, GET
 p, role:user_researcher, /api/v1/analytics/*, GET
 p, role:marketing, /api/v1/analytics/*, GET
 p, role:community, /api/v1/analytics/*, GET
-p, role:operator, /api/v1/analytics/*, GET
 p, role:producer, /api/v1/analytics/*, GET
 p, role:project_manager, /api/v1/analytics/*, GET
 p, role:tech_lead, /api/v1/analytics/*, GET
@@ -160,16 +131,12 @@ p, role:support_manager, /api/v1/analytics/*, GET
 p, role:senior_support, /api/v1/analytics/*, GET
 p, role:support, /api/v1/analytics/*, GET
 p, role:viewer, /api/v1/analytics/*, GET
-
-# Support
 p, role:support_manager, /api/v1/entities, GET
 p, role:support_manager, /api/v1/entities/*, GET
 p, role:senior_support, /api/v1/entities, GET
 p, role:senior_support, /api/v1/entities/*, GET
 p, role:support, /api/v1/entities, GET
 p, role:support, /api/v1/entities/*, GET
-
-# Producer/PM: games read, assignments read, registry read
 p, role:producer, /api/v1/games, GET
 p, role:producer, /api/v1/games/*, GET
 p, role:producer, /api/v1/assignments, GET
@@ -177,14 +144,8 @@ p, role:producer, /api/v1/registry, GET
 p, role:project_manager, /api/v1/games, GET
 p, role:project_manager, /api/v1/games/*, GET
 p, role:project_manager, /api/v1/assignments, GET
-
-# Auditor role: audit logs view
 p, role:auditor, /api/v1/audit, GET
-
-# Viewer: minimal read-only (no assignments by default)
 p, role:viewer, /api/v1/entities, GET
 p, role:viewer, /api/v1/entities/*, GET
-
-# Role inheritance (user, role)
 g, admin, role:admin
 g, user:admin, role:admin
