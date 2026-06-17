@@ -148,11 +148,11 @@ jobs:
         timeout-minutes: 5
         shell: bash
         run: |
-          mkdir -p "${{ github.workspace }}/release-artifacts"
-          cd sdks/go
+          mkdir -p release-artifacts
           tar --exclude='*_test.go' \
             --exclude='examples/**/*.test' \
-            -czf "${{ github.workspace }}/release-artifacts/sdk-go-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz" \
+            -czf release-artifacts/sdk-go-${{ matrix.goos }}-${{ matrix.goarch }}.tar.gz \
+            -C sdks/go \
             go.mod \
             go.sum \
             version.go \
@@ -328,7 +328,7 @@ jobs:
             # Add ninja path to GITHUB_ENV for subsequent steps
             $ninjaPath = (Get-Command ninja).Source
             $ninjaDir = Split-Path $ninjaPath -Parent
-            echo "$ninjaDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            echo "$ninjaDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           }
           ninja --version
 
@@ -387,16 +387,22 @@ jobs:
         shell: pwsh
         working-directory: ./sdks/cpp
         run: |
-          # Ensure ninja is in PATH
-          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
           $ninjaCmd = Get-Command ninja -ErrorAction SilentlyContinue
           if (-not $ninjaCmd) {
             Write-Error "Ninja not found in PATH"
             exit 1
           }
+          $clCmd = Get-Command cl -ErrorAction SilentlyContinue
+          if (-not $clCmd) {
+            Write-Error "MSVC cl.exe not found in PATH"
+            exit 1
+          }
           Write-Host "Using ninja at: $($ninjaCmd.Source)"
+          Write-Host "Using cl at: $($clCmd.Source)"
           cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE="Release" `
             -DCMAKE_MAKE_PROGRAM="$($ninjaCmd.Source)" `
+            -DCMAKE_C_COMPILER="$($clCmd.Source)" `
+            -DCMAKE_CXX_COMPILER="$($clCmd.Source)" `
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/sdks/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays" `
             -DVCPKG_TARGET_TRIPLET="${{ matrix.vcpkg_triplet }}" `
@@ -434,12 +440,19 @@ jobs:
             -DBUILD_TESTS=OFF \
             ${CMAKE_ARCH_ARGS}
 
-      - name: Build C++ SDK
+      - name: Build C++ SDK (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 30
+        shell: pwsh
+        working-directory: ./sdks/cpp
+        run: cmake --build build --config Release --parallel
+
+      - name: Build C++ SDK (Unix)
+        if: runner.os != 'Windows'
         timeout-minutes: 30
         shell: bash
         working-directory: ./sdks/cpp
-        run: |
-          cmake --build build --config Release --parallel
+        run: cmake --build build --config Release --parallel
 
       - name: Package C++ SDK (Windows)
         if: runner.os == 'Windows'
@@ -447,16 +460,16 @@ jobs:
         shell: pwsh
         working-directory: ./sdks/cpp
         run: |
-          mkdir -p package-static package-dynamic
+          New-Item -ItemType Directory -Force -Path package-static,package-dynamic,package-install | Out-Null
           cmake --install build --prefix package-install
 
-          cp -r package-install/include package-static/
-          cp -r package-install/include package-dynamic/
-          cp -r package-install/share package-static/
-          cp -r package-install/share package-dynamic/
-          cp -r package-install/bin package-dynamic/
+          Copy-Item -Recurse -Force package-install/include package-static/
+          Copy-Item -Recurse -Force package-install/include package-dynamic/
+          Copy-Item -Recurse -Force package-install/share package-static/
+          Copy-Item -Recurse -Force package-install/share package-dynamic/
+          Copy-Item -Recurse -Force package-install/bin package-dynamic/
 
-          mkdir -p package-static/lib package-dynamic/lib
+          New-Item -ItemType Directory -Force -Path package-static/lib,package-dynamic/lib | Out-Null
           Get-ChildItem -Path package-install -Recurse -Filter "*.lib" | Copy-Item -Destination package-static/lib
           Get-ChildItem -Path package-install -Recurse -Filter "*.dll" | Copy-Item -Destination package-dynamic/lib
 

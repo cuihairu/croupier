@@ -101,6 +101,16 @@
       }
     },
     {
+      "name": "linux-x64-debug-tests-vcpkg",
+      "displayName": "Linux x64 Debug Tests (vcpkg)",
+      "inherits": "linux-x64-debug-vcpkg",
+      "binaryDir": "${sourceDir}/build/linux-x64-debug-tests-vcpkg",
+      "cacheVariables": {
+        "BUILD_EXAMPLES": "OFF",
+        "BUILD_TESTS": "ON"
+      }
+    },
+    {
       "name": "linux-x64-release-vcpkg",
       "displayName": "Linux x64 Release (vcpkg)",
       "inherits": "base",
@@ -180,6 +190,10 @@
     {
       "name": "linux-x64-debug",
       "configurePreset": "linux-x64-debug-vcpkg"
+    },
+    {
+      "name": "linux-x64-debug-tests",
+      "configurePreset": "linux-x64-debug-tests-vcpkg"
     },
     {
       "name": "windows-x64-debug",
