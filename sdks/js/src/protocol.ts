@@ -55,7 +55,8 @@ export const MSG_REPORT_METRICS_RESPONSE = 0x040106;
 export const MSG_STREAM_METRICS_REQUEST = 0x040107;
 export const MSG_METRIC_EVENT = 0x040108;
 
-// ProviderService (0x05xx) - replaces LocalControlService
+// Provider session control (0x05xx) — sdk-agent subprotocol
+// See docs/architecture/sdk-wire-protocol.md.
 export const MSG_PROVIDER_CONNECT_REQUEST = 0x050101;
 export const MSG_PROVIDER_CONNECT_RESPONSE = 0x050102;
 export const MSG_PROVIDER_HEARTBEAT_REQUEST = 0x050103;

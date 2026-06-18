@@ -418,7 +418,7 @@ class CroupierClient:
 
         request = self.get_register_request()
         _, response_data = transport.call(
-            protocol.MSG_REGISTER_LOCAL_REQUEST,
+            protocol.MSG_PROVIDER_CONNECT_REQUEST,
             request.SerializeToString(),
         )
 
@@ -426,7 +426,7 @@ class CroupierClient:
         response.ParseFromString(response_data)
         if not response.session_id:
             transport.close()
-            raise RuntimeError("RegisterLocal returned empty session_id")
+            raise RuntimeError("Provider connect returned empty session_id")
 
         self._transport = transport
         self._session_id = response.session_id
@@ -437,11 +437,11 @@ class CroupierClient:
             return self._handle_drain_request(body)
         if msg_type == protocol.MSG_INVOKE_REQUEST:
             return self._handle_inbound_invoke(body)
-        if msg_type == protocol.MSG_START_JOB_REQUEST:
+        if msg_type == protocol.MSG_START_TASK_REQUEST:
             return self._handle_inbound_start_job(body)
-        if msg_type == protocol.MSG_CANCEL_JOB_REQUEST:
+        if msg_type == protocol.MSG_CANCEL_TASK_REQUEST:
             return self._handle_inbound_cancel_job(body)
-        if msg_type == protocol.MSG_STREAM_JOB_REQUEST:
+        if msg_type == protocol.MSG_STREAM_TASK_REQUEST:
             return self._handle_inbound_stream_job(body)
         LOG.warning("Unsupported inbound MsgID: %s", protocol.msg_id_string(msg_type))
         return b""
@@ -625,7 +625,7 @@ class CroupierClient:
             )
             req_data = request.SerializeToString()
 
-        transport.call(protocol.MSG_HEARTBEAT_LOCAL_REQUEST, req_data)
+        transport.call(protocol.MSG_PROVIDER_HEARTBEAT_REQUEST, req_data)
 
     def _recover_connection(self) -> None:
         while not self._heartbeat_stop.is_set():

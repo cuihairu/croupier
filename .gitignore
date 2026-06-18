@@ -191,3 +191,11 @@ services/server/missing_handlers.txt
 services/server/original_handlers.txt
 services/server/current_handlers.txt
 sdks/cpp/Testing/
+
+# Coverage HTML reports
+cover_detail.html
+coverage_role.html
+objstore_cov.html
+cover_*.html
+coverage_*.html
+*_cov.html

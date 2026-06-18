@@ -50,10 +50,12 @@
 
 ## 简介
 
-Croupier Java SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 Java 客户端实现。它提供了与官方 Croupier proto 定义 100% 对齐的类型、基于 `CompletableFuture` 的异步能力以及完整的函数注册到执行链路。
+Croupier Java SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 Java 客户端实现。SDK 作为 **Provider 端被调用方**，通过 **单条 TCP session**（`sdk-agent subprotocol`）接入 Agent，提供函数注册、心跳、自动重连、TLS、控制面 manifest 上传以及独立的 Invoker 能力。
 
 ## 正式文档
 
+- 功能矩阵（跨语言一致性的单一事实来源）：[`sdks/SDK_FEATURE_MATRIX.md`](../SDK_FEATURE_MATRIX.md)
+- 线协议约定：[`docs/architecture/sdk-wire-protocol.md`](../../docs/architecture/sdk-wire-protocol.md)
 - 统一文档站入口：`/docs/sdks/java/`
 - 仓库内路径：`docs/sdks/java`
 
@@ -85,12 +87,26 @@ Croupier Java SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后
 
 ## 核心特性
 
-- 📡 **Proto 对齐** - `FunctionDescriptor`、`LocalFunctionDescriptor` 与官方 IDL 100% 对齐
-- 🏢 **多租户支持** - 内置 `gameId`、`env`、`serviceId` 维度隔离
-- 🔄 **完整链路** - 函数注册、心跳、执行、返回值、错误处理
-- ⚡ **异步能力** - 基于 `CompletableFuture`，便于与现有任务系统整合
-- 📤 **Provider Manifest** - 控制面地址可用时，自动发布能力声明
-- 🛠️ **Gradle + Buf** - CI 自动拉取 proto、生成代码、执行测试并发布产物
+按 [功能矩阵](../SDK_FEATURE_MATRIX.md) 分层：
+
+**L1 Core Provider（必备）**
+
+- 📡 **TCP session 客户端** - 单条 `sdk-agent subprotocol` 长连接，不监听本地端口
+- 🤝 **握手与心跳** - `ProviderConnectRequest` 协商，`ProviderHeartbeatRequest` 保活
+- 🔁 **自动重连** - 指数退避 + jitter
+- 📝 **函数注册** - `FunctionDescriptor` + `FunctionHandler`，handler 签名 `(context, payload: byte[]) -> String`
+- ⚡ **异步 API** - `connect()` / `serveAsync()` 基于 `CompletableFuture`
+- 🏢 **多租户隔离** - 内置 `gameId` / `env` / `serviceId` 维度
+
+**L2 Provider 扩展（可选）**
+
+- 🔐 **TLS** - `caFile` / `certFile` / `keyFile` / `serverName`
+- 📤 **Provider Manifest** - 配置 `controlAddr` 后自动通过 `RegisterCapabilitiesRequest` 推送
+- 📦 **文件传输** - `enableFileTransfer=true`
+
+**L3 Invoker（独立调用方）**
+
+- 🚀 `Invoker` 提供同步调用 / 异步作业 / 流式事件，独立配置入口
 
 ## 快速开始
 
@@ -172,7 +188,7 @@ client.connect()
 
 ### 函数描述符
 
-与 `control.proto` 对齐：
+跨语言统一的 `LocalFunctionDescriptor` 字段（对应 `proto/croupier/sdk/v1/provider.proto`）：
 
 ```java
 FunctionDescriptor descriptor = CroupierSDK.functionDescriptor("player.ban", "1.0.0")
@@ -186,7 +202,7 @@ FunctionDescriptor descriptor = CroupierSDK.functionDescriptor("player.ban", "1.
 
 ### 本地函数描述符
 
-与 `agent/local/v1/local.proto` 对齐：
+`sdk-agent subprotocol` 上承载的函数描述符（对应 `proto/croupier/sdk/v1/provider.proto` 的 `LocalFunctionDescriptor`）：
 
 ```java
 LocalFunctionDescriptor localDesc = new LocalFunctionDescriptor("player.ban", "1.0.0");
@@ -210,17 +226,23 @@ FunctionHandler handler = (context, payload) -> {
 ### 数据流
 
 ```
-Game Server → Java SDK → Agent → Croupier Server
+Game Server → Java SDK (Provider) → Agent → Croupier Server → Web UI
+                                       ↑
+                          单条 TCP session（sdk-agent subprotocol）
 ```
 
-SDK 实现两层注册系统：
-1. **SDK → Agent**: 使用 `LocalControlService`（来自 `local.proto`）
-2. **Agent → Server**: 使用 `ControlService`（来自 `control.proto`）
+SDK 是 `sdk-agent subprotocol` 上的 Provider 端：
+
+1. 拨号到 Agent，发送 `ProviderConnectRequest`，接收 `ProviderConnectResponse(sessionId)`
+2. 周期性发送 `ProviderHeartbeatRequest`
+3. 接收 `InvokeRequest`，调用 handler 后回填 `InvokeResponse`
+4. 可选：通过 `controlAddr` 向控制面推送 `RegisterCapabilitiesRequest`（manifest）
+5. 收到 `ProviderDrainRequest` 时进入 drain 状态，完成在途再关闭
 
 ### Proto 与构建流水线
 
-- `proto/`：Protobuf 协议定义文件
-- `generated/`：已提交的 `.java` gRPC Stubs，方便依赖方直接使用
+- `proto/`：Protobuf 协议定义文件（主仓库 `proto/croupier/sdk/v1`）
+- `generated/`：已提交的 stub，方便依赖方直接使用
 - `./gradlew`：内置 Gradle Wrapper + `com.google.protobuf` 插件
 - CI 会在 JDK 17/21 上运行 `./gradlew --no-daemon clean build`
 
@@ -235,10 +257,10 @@ config.setGameId("my-game");                // 游戏标识符
 config.setEnv("development");               // 环境
 config.setServiceId("my-service");          // 服务标识符
 config.setServiceVersion("1.0.0");          // 服务版本
-config.setLocalListen(":0");                // 本地服务器（自动端口）
-config.setControlAddr("localhost:18080");   // 可选控制面端点
+config.setLocalListen(":0");                // 兼容字段，新版本不再监听本地端口
+config.setControlAddr("localhost:18080");   // 可选控制面端点（manifest 上传）
 config.setTimeoutSeconds(30);               // 连接超时
-config.setInsecure(true);                   // 使用不安全的 gRPC
+config.setInsecure(true);                   // 是否跳过 TLS
 config.setProviderLang("java");             // Provider 元数据
 config.setProviderSdk("croupier-java-sdk");
 

@@ -53,10 +53,12 @@
 
 ## 简介
 
-Croupier Node.js SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 Node.js/TypeScript 客户端实现。它提供了真实的 gRPC 管道、心跳与自动重连机制以及强类型的处理器注册系统。
+Croupier Node.js SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 Node.js/TypeScript 客户端实现。SDK 作为 **Provider 端被调用方**，通过 **单条 TCP session**（`sdk-agent subprotocol`）接入 Agent，提供函数注册、心跳、自动重连、TLS 与控制面 manifest 上传能力。
 
 ## 正式文档
 
+- 功能矩阵（跨语言一致性的单一事实来源）：[`sdks/SDK_FEATURE_MATRIX.md`](../SDK_FEATURE_MATRIX.md)
+- 线协议约定：[`docs/architecture/sdk-wire-protocol.md`](../../docs/architecture/sdk-wire-protocol.md)
 - 统一文档站入口：`/docs/sdks/js/`
 - 仓库内路径：`docs/sdks/js`
 
@@ -88,11 +90,25 @@ Croupier Node.js SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏
 
 ## 核心特性
 
-- 🛰️ **真实 gRPC 管道** - 启动本地 FunctionService gRPC 服务器并向 Agent 注册
-- 🔁 **心跳与重连** - 保持会话活跃，瞬态故障后自动重试
-- 📦 **处理器注册** - 强类型描述符，支持可选的 JSON Schema 元数据
-- 🧪 **示例完备** - `examples/main.ts` 演示多处理器和载荷验证
-- 📝 **TypeScript 优先** - 完整的类型定义，开发体验优秀
+按 [功能矩阵](../SDK_FEATURE_MATRIX.md) 分层：
+
+**L1 Core Provider（必备）**
+
+- 🛰️ **TCP session 客户端** - 单条 `sdk-agent subprotocol` 长连接，不监听本地端口
+- 🤝 **握手与心跳** - `ProviderConnectRequest` 协商，可配置心跳间隔
+- 🔁 **自动重连** - 指数退避 + jitter
+- 📦 **处理器注册** - 强类型描述符，handler 签名 `(context: string, payload: string) => Promise<string> | string`
+- 📝 **TypeScript 优先** - 完整类型定义
+
+**L2 Provider 扩展（可选）**
+
+- 🔐 **TLS** - `certFile` / `keyFile` / `caFile` / `serverName`
+- 📋 **JSON Schema 元数据** - `input_schema` / `output_schema`
+- 📤 **Provider Manifest 上传** - 配置 `controlAddr` 后自动推送
+
+**L3 Invoker**
+
+- ❌ 当前版本未提供独立 Invoker，远程调用请使用平台 HTTP API 或其他语言 SDK
 
 ## 快速开始
 
@@ -200,13 +216,17 @@ const handler: FunctionHandler = async (context, payload) => {
 ### 数据流
 
 ```
-Game Server → Node.js SDK → Agent → Croupier Server
+Game Server → Node.js SDK (Provider) → Agent → Croupier Server → Web UI
+                                       ↑
+                          单条 TCP session（sdk-agent subprotocol）
 ```
 
-SDK 实现两层注册系统：
+SDK 是 `sdk-agent subprotocol` 上的 Provider 端：
 
-1. **SDK → Agent**: 使用 `LocalControlService`（来自 `local.proto`）
-2. **Agent → Server**: 使用 `ControlService`（来自 `control.proto`）
+1. 拨号到 Agent，发送 `ProviderConnectRequest`，接收 `ProviderConnectResponse`
+2. 周期性发送 `ProviderHeartbeatRequest`
+3. 接收 `InvokeRequest`，调用 handler 后回填 `InvokeResponse`
+4. 可选：通过 `controlAddr` 向控制面推送 manifest
 
 ### 项目结构
 
@@ -225,13 +245,13 @@ croupier-sdk-js/
 
 ```ts
 interface ClientConfig {
-  agentAddr: string; // Agent gRPC 地址
+  agentAddr: string; // Agent TCP session 地址（sdk-agent subprotocol）
   controlAddr?: string; // 可选控制面地址（用于 manifest 上传）
   serviceId: string; // 服务标识符
   serviceVersion: string; // 服务版本
   gameId?: string; // 游戏标识符
   env?: string; // 环境（dev/staging/prod）
-  insecure?: boolean; // 使用不安全的 gRPC
+  insecure?: boolean; // 是否跳过 TLS
 }
 ```
 

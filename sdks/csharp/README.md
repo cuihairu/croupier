@@ -47,10 +47,17 @@
 
 ## 简介
 
-Croupier C# SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 .NET 客户端实现。支持 .NET 8+，提供简洁的异步 API 用于服务器端服务连接 Agent、注册函数和调用远程函数。
+Croupier C# SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 .NET 客户端实现。支持 .NET 8+，提供两类能力：
+
+- **Provider 端（`CroupierClient`）**：注册函数、被平台调用（核心能力）
+- **Invoker 端（`CroupierInvoker`）**：作为调用方发起同步 / 异步调用（独立能力）
+
+两者通过 **单条 TCP session**（`sdk-agent subprotocol`）与 Agent 通信，不监听本地端口。
 
 ## 正式文档
 
+- 功能矩阵（跨语言一致性的单一事实来源）：[`sdks/SDK_FEATURE_MATRIX.md`](../SDK_FEATURE_MATRIX.md)
+- 线协议约定：[`docs/architecture/sdk-wire-protocol.md`](../../docs/architecture/sdk-wire-protocol.md)
 - 统一文档站入口：`/docs/sdks/csharp/`
 - 仓库内路径：`docs/sdks/csharp`
 
@@ -83,13 +90,31 @@ Croupier C# SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 
 ## 核心特性
 
-- **gRPC 通信** - 基于 Grpc.Net.Client 的高效双向通信
-- **多租户支持** - 内置 game_id/env 隔离机制
-- **函数注册** - 使用描述符和处理器注册游戏函数
-- **异步/同步** - 支持 async/await 和同步处理器
-- **依赖注入** - 集成 Microsoft.Extensions.DependencyInjection
-- **日志抽象** - 支持 ILogger 和自定义日志实现
-- **灵活配置** - 环境变量、JSON 文件、内存配置支持
+按 [功能矩阵](../SDK_FEATURE_MATRIX.md) 分层：
+
+**L1 Core Provider（`CroupierClient`，必备）**
+
+- 单条 TCP session 客户端（`sdk-agent subprotocol`），不监听本地端口
+- 自动心跳与重连（`AutoReconnect` / `ReconnectIntervalSeconds` / `ReconnectMaxAttempts`）
+- 异步 / 同步 handler，签名 `Func<string, string, Task<string>>`
+- 多租户隔离（`GameId` / `Env` / `ServiceId`）
+
+**L2 Provider 扩展（可选）**
+
+- TLS（`CertFile` / `KeyFile` / `CaFile` / `ServerName`）
+- 文件传输（`EnableFileTransfer=true`，受 `MaxFileSize` 约束）
+- 灵活配置：环境变量、JSON 文件、内存配置
+- 日志抽象（`ICroupierLogger`，可接 `ILogger`）
+
+**L3 Invoker（`CroupierInvoker`，独立调用方）**
+
+- 同步调用、异步任务、结果查询
+- 独立 `InvokerConfig`，不与 Provider 共享生命周期
+
+**L4 语言/引擎扩展（仅 C# 提供）**
+
+- 依赖注入：`Extensions/ServiceCollectionExtensions.AddCroupier(...)`
+- Unity 集成：`Unity/CroupierUnityBehaviour`
 
 ## 快速开始
 
@@ -115,7 +140,7 @@ dotnet build
 
 ## 使用示例
 
-### 创建客户端并连接
+### Provider 端：注册函数并服务（核心流程）
 
 ```csharp
 using Croupier.Sdk;
@@ -130,12 +155,7 @@ var config = new ClientConfig
 };
 
 var client = new CroupierClient(config);
-await client.ConnectAsync();
-```
 
-### 注册函数
-
-```csharp
 var descriptor = new FunctionDescriptor
 {
     Id = "player.get",
@@ -148,7 +168,6 @@ var descriptor = new FunctionDescriptor
 
 client.RegisterFunction(descriptor, async (context, payload) =>
 {
-    // 处理函数调用
     var response = new
     {
         status = "success",
@@ -157,9 +176,14 @@ client.RegisterFunction(descriptor, async (context, payload) =>
 
     return System.Text.Json.JsonSerializer.Serialize(response);
 });
+
+await client.ConnectAsync();
+await client.ServeAsync(); // 阻塞直到停止
 ```
 
-### 调用远程函数
+### Invoker 端：调用远程函数（独立能力）
+
+`CroupierInvoker` 是独立的调用方能力，不在 Provider 主流程中：
 
 ```csharp
 var invoker = new CroupierInvoker("127.0.0.1:19090", "my-game", "production");
@@ -182,7 +206,9 @@ else
 await client.ServeAsync();
 ```
 
-### 依赖注入
+> Provider 端 `ConnectAsync()` + `ServeAsync()` 已包含主流程；下方"依赖注入"与"Unity 集成"属于 **L4 语言扩展**，不阻塞核心使用。
+
+### 依赖注入（L4 语言扩展）
 
 ```csharp
 using Croupier.Sdk.Extensions;

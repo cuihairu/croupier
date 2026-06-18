@@ -69,7 +69,8 @@ const (
 	MsgListLocalRequest          = 0x050109
 	MsgListLocalResponse         = 0x05010a
 
-	// Legacy aliases for backward compatibility
+	// Legacy aliases — prefer MsgProvider* canonical names.
+	// Do not use in new code; will be removed once all call sites migrate.
 	MsgRegisterLocalRequest   = MsgProviderConnectRequest
 	MsgRegisterLocalResponse  = MsgProviderConnectResponse
 	MsgHeartbeatLocalRequest  = MsgProviderHeartbeatRequest

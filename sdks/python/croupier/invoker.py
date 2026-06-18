@@ -265,7 +265,7 @@ class Invoker:
         _, resp_data = await loop.run_in_executor(
             None,
             self._transport.call,
-            protocol.MSG_START_JOB_REQUEST,
+            protocol.MSG_START_TASK_REQUEST,
             req_data,
         )
 
@@ -289,7 +289,7 @@ class Invoker:
             _, resp_data = await loop.run_in_executor(
                 None,
                 self._transport.call,
-                protocol.MSG_STREAM_JOB_REQUEST,
+                protocol.MSG_STREAM_TASK_REQUEST,
                 req_data,
             )
 
@@ -318,7 +318,7 @@ class Invoker:
         await loop.run_in_executor(
             None,
             self._transport.call,
-            protocol.MSG_CANCEL_JOB_REQUEST,
+            protocol.MSG_CANCEL_TASK_REQUEST,
             req_data,
         )
 

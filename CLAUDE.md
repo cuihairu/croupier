@@ -36,6 +36,11 @@ gofmt -w .                # Format all Go files
 gofmt -l .                # List files that need formatting
 ```
 
+**SDK Conformance:**
+```bash
+./scripts/check-sdk-matrix.sh   # Verify each SDK exposes L1 APIs from sdks/SDK_FEATURE_MATRIX.md
+```
+
 **IMPORTANT: Before committing any changes, ALWAYS run `gofmt -w .` to ensure all Go files are properly formatted.**
 
 ## Architecture Overview
@@ -109,7 +114,9 @@ internal/auth/            # RBAC, JWT, TOTP, user management
 internal/function/        # Descriptor loading and validation
 internal/jobs/            # Job state machine and execution
 internal/loadbalancer/    # Load balancing strategies (RR, consistent hash, least conn)
-sdks/                     # Multi-language SDKs (submodules: go, cpp, java)
+sdks/                     # Multi-language SDKs (go, python, java, js, cpp, csharp)
+                          # Feature matrix: sdks/SDK_FEATURE_MATRIX.md (single source of truth)
+                          # Wire protocol: docs/architecture/sdk-wire-protocol.md
 web/                      # Frontend submodule (Umi Max + Ant Design)
 configs/                  # Configuration templates and examples
 examples/                 # Demo game servers and invokers

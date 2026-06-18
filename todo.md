@@ -70,6 +70,13 @@
 - [ ] `Dispatcher.StreamTask` 仍需改为基于持久化 `task_events` 的正式查询路径。
 - [ ] `TaskRunner` / `TaskContext` 仍需抽象，当前 agent task 执行还不是最终结构。
 - [ ] shared session runtime 仍未从 Agent-Server 与 SDK-Agent 两条链路中完全抽取复用。
+- [ ] JS SDK 未提供 L3 Invoker（`sdks/SDK_FEATURE_MATRIX.md` 中标注的 `❌`），需补齐 `invoke` / `startTask` / `streamTask` / `cancelTask`。
+- [ ] **L3 Invoker 命名漂移（CI 已可追踪）**：Go/Python/Java/C# 四个 SDK 的 invoker 仍暴露 `StartJob`/`StreamJob`/`CancelJob`（及 `JobEventInfo` / `JobStatus` 等衍生类型），与矩阵 §四 目标 `*Task*` 不一致；仅 C++ 已对齐。`scripts/check-sdk-matrix.sh::check_invoker_naming` 已强制告警。需按矩阵 §四 迁移规则引入 canonical `*Task*` 方法，并把 `*Job*` 收为 deprecated 别名（每个 SDK 至少保留一个版本），别名需登记到脚本的 allowlist，避免被 `check_wire_name_hygiene` 误判。
+- [ ] **Java SDK 协议层 Protocol.java 严重落后**（前置 L3 迁移）：当前 `MSG_*_JOB_*` / `MSG_REGISTER_LOCAL_*` 仍是主常量名，无 canonical 别名；`MSG_LIST_LOCAL_REQUEST` (0x050105/0x050106) 与主仓 `ProviderDrain` 冲突；`SdkWireMessages.java` 缺少 ProviderDrain 与 ProviderHeartbeat 处理。需重写 Protocol.java 引入 `MSG_*_TASK_*` / `MSG_PROVIDER_*` 主常量 + Job/RegisterLocal deprecated alias；将 LIST_LOCAL 删除并改为 ProviderDrain；同步重写 SdkWireMessages 实现 Drain/Heartbeat。受影响 13 个文件中 9 个为 Java（含 InvokerImpl、CroupierClientImpl 与对应测试）。
+- [ ] **C++ SDK 协议层 protocol.h 内部不一致**（前置 L3 迁移）：invoker API 已用 Task 命名，但协议常量仍是 `MSG_*_JOB_*`；`msgIdString` 把 `MSG_START_JOB_REQUEST` 硬编码返回 `"StartTaskRequest"`，表里不一。需引入 canonical `MSG_*_TASK_*` 常量，把 Job 名降为 deprecated alias，msgIdString 同步切换。受影响 4 个文件（croupier_client.cpp、test_invoker.cpp、test_protocol.cpp、protocol.h 自身）。
+- [ ] **Python SDK generated proto 严重过时**：`sdks/python/generated/croupier/sdk/v1/provider_pb2.py` 仍含 `RegisterLocalRequest` / `rpc_addr` / `HeartbeatRequest` / `ListLocalRequest`，与 root proto（`ProviderConnectRequest` / `ProviderHeartbeatRequest` / `ProviderDrainRequest`）不同步。需重新 `buf generate` 并迁移 `croupier/__init__.py` 的 `get_register_request` 与握手逻辑。
+- [ ] **Java SDK wire 层仍用 RegisterLocal 命名**：`SdkWireMessages.java` 大量手写编解码使用老命名，与 `sdk-wire-protocol.md` 不一致，需要单独重构 PR。
+- [ ] Go SDK README 的 `Mock gRPC Mode` / `Real gRPC Mode` 命名是历史残留（实际已 TCP），需要清理 Makefile 与构建 tag 命名。
 
 注：各语言 SDK 的文档和生成代码更新需在各 SDK 仓库中跟踪。
 

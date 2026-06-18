@@ -33,10 +33,12 @@
 
 ## 简介
 
-Croupier Python SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 Python 客户端实现。通过 **单条双向 TCP 连接** 与 Agent 通信——SDK 是 session 客户端（不监听本地端口）。
+Croupier Python SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 Python 客户端实现。SDK 作为 **Provider 端被调用方**，通过 **单条 TCP session**（`sdk-agent subprotocol`）与 Agent 通信——不监听本地端口。
 
 ## 正式文档
 
+- 功能矩阵（跨语言一致性的单一事实来源）：[`sdks/SDK_FEATURE_MATRIX.md`](../SDK_FEATURE_MATRIX.md)
+- 线协议约定：[`docs/architecture/sdk-wire-protocol.md`](../../docs/architecture/sdk-wire-protocol.md)
 - 统一文档站入口：`/docs/sdks/python/`
 - 仓库内路径：`docs/sdks/python`
 
@@ -60,11 +62,24 @@ Croupier Python SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏�
 
 ## 核心特性
 
-- 单条 TCP 连接，多路复用请求/响应
-- 自动心跳与断线重连
-- 同步函数调用与异步作业执行
-- 内置 TLS 支持
-- 零外部 TCP 依赖
+按 [功能矩阵](../SDK_FEATURE_MATRIX.md) 分层：
+
+**L1 Core Provider（必备）**
+
+- 单条 TCP 连接，多路复用请求/响应（`sdk-agent subprotocol`）
+- 自动心跳与断线重连（指数退避 + jitter）
+- 函数注册 + handler 签名 `(context: str, payload: bytes) -> str | bytes`
+- Provider drain 处理
+
+**L2 Provider 扩展（可选）**
+
+- 内置 TLS（`cert_file` / `key_file` / `ca_file` / `server_name`）
+- 文件传输（`enable_file_transfer=true`）
+- JSON Schema 校验
+
+**L3 Invoker（独立调用方）**
+
+- `croupier.invoker.Invoker`（`croupier/invoker.py`）提供同步调用与异步作业，独立配置入口
 
 ## 支持平台
 
@@ -119,14 +134,15 @@ print("Connected — handling invocations from agent")
 
 ## 架构设计
 
-SDK 连接 Agent 的本地 TCP 网关，单条连接上完成：
+SDK 是 `sdk-agent subprotocol` 上的 Provider session 客户端，单条 TCP 连接上完成：
 
-1. **握手**：SDK 发送 `ProviderConnectRequest`（函数描述符），接收 `ProviderConnectResponse`（session ID）
-2. **心跳**：SDK 定期发送 `HeartbeatRequest` 保持会话活跃
-3. **调用**：Agent 在同一连接上推送 `InvokeRequest`，SDK 内联响应
-4. **作业**：Agent 发送 `StartJobRequest`，SDK 异步处理并回流事件
+1. **握手**：SDK 发送 `ProviderConnectRequest`（函数描述符 + 能力声明），接收 `ProviderConnectResponse(session_id)`
+2. **心跳**：周期性发送 `ProviderHeartbeatRequest` 保持会话活跃
+3. **调用**：Agent 在同一连接上推送 `InvokeRequest`，SDK 调用 handler 并回 `InvokeResponse`
+4. **作业**：Agent 发送 `StartTaskRequest`，SDK 异步处理并回流 `TaskEvent`
+5. **Drain**：收到 `ProviderDrainRequest` 时停止接收新请求、完成在途、回 `ProviderDrainResponse`
 
-不监听本地端口，不依赖回调模型，不依赖外部 TCP 库。
+不监听本地端口，不依赖回调模型，不依赖外部 TCP 库。详见 [`docs/architecture/sdk-wire-protocol.md`](../../docs/architecture/sdk-wire-protocol.md)。
 
 ## 开发指南
 

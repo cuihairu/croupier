@@ -413,7 +413,7 @@ def test_client_has_initial_state():
 
 @pytest.mark.integration
 def test_connect_registers_with_agent():
-    """Test connect performs RegisterLocal and stores session_id (requires real server)."""
+    """Test connect performs ProviderConnect handshake and stores session_id (requires real server)."""
     # Integration test - see test_integration.py for implementation
 
 
@@ -683,6 +683,9 @@ def test_get_register_request():
     req = client.get_register_request()
     assert req.service_id == "test-svc"
     assert req.version == "1.0.0"
+    # rpc_addr is intentionally empty: the field only exists in the legacy
+    # provider_pb2 serialization; once the proto is regenerated to
+    # ProviderConnectRequest, this assertion will be removed.
     assert req.rpc_addr == ""
     assert len(req.functions) == 1
     assert req.functions[0].id == "f1"

@@ -50,10 +50,12 @@
 
 ## 简介
 
-Croupier Go SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 Go 客户端实现。它提供了与官方 Croupier proto 定义对齐的数据结构、双构建系统（本地开发 Mock 和 CI/生产环境真实 gRPC）以及多租户支持。
+Croupier Go SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 Go 客户端实现。SDK 作为 **Provider 端被调用方**，通过 **单条 TCP session**（`sdk-agent subprotocol`）接入 Agent，提供函数注册、心跳、自动重连、TLS 与可选的远程调用（Invoker）能力。
 
 ## 正式文档
 
+- 功能矩阵（跨语言一致性的单一事实来源）：[`sdks/SDK_FEATURE_MATRIX.md`](../SDK_FEATURE_MATRIX.md)
+- 线协议约定：[`docs/architecture/sdk-wire-protocol.md`](../../docs/architecture/sdk-wire-protocol.md)
 - 统一文档站入口：`/docs/sdks/go/`
 - 仓库内路径：`docs/sdks/go`
 
@@ -86,12 +88,26 @@ Croupier Go SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 
 ## 核心特性
 
-- 📡 **Proto 对齐** - 所有类型与官方 Croupier proto 定义保持一致
-- 🔧 **双构建系统** - 本地开发使用 Mock 实现，CI/生产使用真实 gRPC
-- 🏢 **多租户支持** - 内置 game_id/env 隔离机制
-- 📝 **函数注册** - 使用描述符和处理器注册游戏函数
-- 🚀 **gRPC 通信** - 与 Agent 的高效双向通信
-- 🛡️ **错误处理** - 完善的错误处理和连接管理
+按 [功能矩阵](../SDK_FEATURE_MATRIX.md) 分层：
+
+**L1 Core Provider（必备）**
+
+- 📡 **TCP session 客户端** - 单条 `sdk-agent subprotocol` 长连接，不监听本地端口
+- 🤝 **握手与心跳** - `ProviderConnectRequest`/`ProviderConnectResponse` 协商，可配置心跳间隔
+- 🔁 **自动重连** - 指数退避 + jitter，可关闭或限制重试次数
+- 📝 **函数注册** - 描述符 + handler 注册，handler 签名 `func(ctx, []byte) ([]byte, error)`
+- 🏢 **多租户隔离** - 内置 `game_id` / `env` 维度
+
+**L2 Provider 扩展（可选）**
+
+- 🔐 **TLS** - `ca_file` / `cert_file` / `key_file` / `server_name`
+- 📋 **控制面 manifest 上传** - 配置 `control_addr` 后自动推送
+- 🔍 **JSON Schema 校验** - 描述符 `input_schema` / `output_schema`
+- 📦 **文件传输** - `enable_file_transfer=true` 启用，受白名单与上限约束
+
+**L3 Invoker（独立调用方）**
+
+- 🚀 **同步调用 / 异步作业** - `pkg/croupier/invoker.go`，独立配置入口
 
 ## 快速开始
 
@@ -215,7 +231,7 @@ CROUPIER_ENV=development
 
 ### 函数描述符
 
-与 `control.proto` 对齐：
+跨语言统一的 `LocalFunctionDescriptor` 字段（对应 `proto/croupier/sdk/v1/provider.proto`）：
 
 ```go
 type FunctionDescriptor struct {
@@ -231,12 +247,14 @@ type FunctionDescriptor struct {
 
 ### 本地函数描述符
 
-与 `agent/local/v1/local.proto` 对齐：
+`sdk-agent subprotocol` 上承载的函数描述符（对应 `proto/croupier/sdk/v1/provider.proto` 的 `LocalFunctionDescriptor`）：
 
 ```go
 type LocalFunctionDescriptor struct {
     ID      string // 函数 ID
     Version string // 函数版本
+    // 扩展字段：tags / summary / description / operation_id / deprecated /
+    // input_schema / output_schema / category / risk / entity / operation
 }
 ```
 
@@ -245,12 +263,17 @@ type LocalFunctionDescriptor struct {
 ### 数据流
 
 ```
-Game Server → Go SDK → Agent → Croupier Server
+Game Server → Go SDK (Provider) → Agent → Croupier Server → Web UI
+                                       ↑
+                          单条 TCP session（sdk-agent subprotocol）
 ```
 
-SDK 实现两层注册系统：
-1. **SDK → Agent**: 使用 `LocalControlService`（来自 `local.proto`）
-2. **Agent → Server**: 使用 `ControlService`（来自 `control.proto`）
+SDK 是 `sdk-agent subprotocol` 上的 Provider 端：
+
+1. 拨号到 Agent，发送 `ProviderConnectRequest`，接收 `ProviderConnectResponse(session_id)`
+2. 周期性发送 `ProviderHeartbeatRequest`
+3. 接收 `InvokeRequest`，调用 handler 后回填 `InvokeResponse`
+4. 收到 `ProviderDrainRequest` 时停止接收新请求、完成在途、回 `ProviderDrainResponse`
 
 ### 构建模式
 
@@ -281,10 +304,10 @@ CI 系统自动：
 ```go
 type ClientConfig struct {
     // 连接配置
-    AgentAddr      string // Agent gRPC 地址
-    LocalListen    string // 本地服务器地址
+    AgentAddr      string // Agent TCP session 地址（sdk-agent subprotocol）
+    LocalListen    string // 兼容字段，新版本不再监听本地端口
     TimeoutSeconds int    // 连接超时
-    Insecure       bool   // 使用不安全的 gRPC
+    Insecure       bool   // 是否跳过 TLS
 
     // 多租户隔离
     GameID         string // 游戏标识符
@@ -306,7 +329,7 @@ SDK 提供完善的错误处理：
 
 - 连接失败自动重试
 - 函数注册验证
-- gRPC 通信错误
+- session 通信错误
 - 上下文取消时优雅关闭
 
 ## 开发指南

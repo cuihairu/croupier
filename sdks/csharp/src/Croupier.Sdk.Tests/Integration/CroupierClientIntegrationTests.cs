@@ -133,7 +133,7 @@ public class CroupierClientIntegrationTests
 
         // Act & Assert
         // Should not fail at ConnectAsync, but registration may fail
-        // The SDK allows connecting without functions, but RegisterLocal will fail
+        // The SDK allows connecting without functions, but ProviderConnect handshake will fail
         var exception = await Record.ExceptionAsync(() => client.ConnectAsync());
         _output.WriteLine($"Connect result: {exception?.Message ?? "Success"}");
     }

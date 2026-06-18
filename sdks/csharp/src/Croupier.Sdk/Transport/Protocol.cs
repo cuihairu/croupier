@@ -75,7 +75,8 @@ public static class Protocol
     public const int MsgGetTaskResultRequest = 0x050107;
     public const int MsgGetTaskResultResponse = 0x050108;
 
-    // LocalControlService (0x05xx) - Legacy aliases for backward compatibility
+    // Legacy aliases — prefer MsgProvider* canonical names.
+    // Do not use in new code; will be removed once all call sites migrate.
     public const int MsgRegisterLocalRequest = MsgProviderConnectRequest;
     public const int MsgRegisterLocalResponse = MsgProviderConnectResponse;
     public const int MsgHeartbeatLocalRequest = MsgProviderHeartbeatRequest;

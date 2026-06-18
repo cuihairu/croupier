@@ -52,7 +52,7 @@
 
 ## 简介
 
-Croupier C++ SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 C++ 客户端实现。它提供了高性能的虚拟对象注册、gRPC 通信和多平台构建支持，采用 **ID 引用模式** 解决对象参数传递性能问题，通过 **四层组件化架构** 实现优雅的函数和对象管理。
+Croupier C++ SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 C++ 客户端实现。SDK 作为 **Provider 端被调用方**，通过 **单条 TCP session**（`sdk-agent subprotocol`）接入 Agent，提供高性能函数注册、心跳、自动重连、TLS；并在此基础上提供 C++ 专属的虚拟对象（VirtualObject）/ 组件（Component）/ Lua 绑定 / 动态插件等语言扩展。
 
 ## 主项目
 
@@ -85,13 +85,33 @@ Croupier C++ SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 
 ## 核心特性
 
-- 🏗️ **虚拟对象注册系统** - 完整的对象和函数组注册机制
-- 📡 **gRPC 集成** - 真实的 Protobuf + gRPC 通信（通过 vcpkg）
-- 🔧 **多平台支持** - Windows、Linux、macOS（64位）
-- 📦 **vcpkg 包管理** - 自动依赖管理和跨平台构建
-- 🚀 **高性能设计** - ID 引用模式，无状态函数，轻量参数
-- 🛡️ **类型安全** - JSON Schema 验证，编译时类型检查
-- 🔄 **自动构建** - GitHub Actions 每日构建发布
+按 [功能矩阵](../SDK_FEATURE_MATRIX.md) 分层：
+
+**L1 Core Provider（必备）**
+
+- 📡 **TCP session 客户端** - 单条 `sdk-agent subprotocol` 长连接，不监听本地端口
+- 🤝 **握手与心跳** - `ProviderConnectRequest` 协商，`ProviderHeartbeatRequest` 保活
+- 🔁 **自动重连** - `auto_reconnect` / `reconnect_interval_seconds` / `reconnect_max_attempts`
+- 📝 **函数注册** - `FunctionDescriptor` + `FunctionHandler`
+- 🛡️ **类型安全** - 编译时类型检查
+
+**L2 Provider 扩展（可选）**
+
+- 🔐 **TLS** - `cert_file` / `key_file` / `ca_file` / `server_name`
+- 📋 **JSON Schema 校验** - 描述符 `input_schema` / `output_schema`
+- 📦 **文件传输** - `enable_file_transfer=true`，受白名单（`allowed_extensions` / `allowed_mime_types`）与上限（`max_file_size`）约束
+
+**L3 Invoker（独立调用方）**
+
+- 🚀 `CroupierInvoker` 提供同步调用 / 异步任务 / 流式事件 / 取消
+
+**L4 语言/引擎扩展（仅 C++ 提供）**
+
+- 🏗️ **虚拟对象注册** - `RegisterVirtualObject`（业务对象模型 + 操作映射）
+- 🧩 **组件系统** - `RegisterComponent` / `LoadComponentFromFile`（Function → Entity → Resource → Component 四层）
+- 🔌 **动态插件** - `plugin/dynamic_loader`
+- 🐯 **Lua 绑定** - `bindings/lua_binding_sol2`
+- 🌌 **Skynet 集成** - `skynet/`
 
 ## 快速开始
 
@@ -262,7 +282,24 @@ SDK 包含多个完整的示例程序，展示各种使用场景：
 
 ## 架构设计
 
-### 四层组件化架构
+### Provider session（跨语言基线）
+
+```
+Game Server → C++ SDK (Provider) → Agent → Croupier Server → Web UI
+                                       ↑
+                          单条 TCP session（sdk-agent subprotocol）
+```
+
+SDK 是 `sdk-agent subprotocol` 上的 Provider 端：
+
+1. 拨号到 Agent，发送 `ProviderConnectRequest`，接收 `ProviderConnectResponse(session_id)`
+2. 周期性发送 `ProviderHeartbeatRequest`
+3. 接收 `InvokeRequest`，调用 handler 后回填 `InvokeResponse`
+4. 收到 `ProviderDrainRequest` 时进入 drain 状态，完成在途再关闭
+
+### C++ 四层组件化架构（L4 语言扩展）
+
+C++ 在 Provider 基线之上提供业务建模的语法糖，**不要求其他语言对齐**：
 
 ```
 Function Level    ← wallet.transfer (具体函数实现)
@@ -288,13 +325,30 @@ Component Level   ← economy-system (可分发模块)
 ```cpp
 class CroupierClient {
 public:
+    // L1 Core Provider
     bool RegisterFunction(const FunctionDescriptor& desc, FunctionHandler handler);
-    bool RegisterVirtualObject(const VirtualObjectDescriptor& desc,
-                               const std::map<std::string, FunctionHandler>& handlers);
-    bool RegisterComponent(const ComponentDescriptor& comp);
     bool Connect();
     void Serve();
     void Stop();
+    void Close();
+
+    // L4 语言扩展（仅 C++ 提供）
+    bool RegisterVirtualObject(const VirtualObjectDescriptor& desc,
+                               const std::map<std::string, FunctionHandler>& handlers);
+    bool RegisterComponent(const ComponentDescriptor& comp);
+    bool LoadComponentFromFile(const std::string& config_file);
+};
+
+class CroupierInvoker {
+public:
+    // L3 独立调用方
+    bool Connect();
+    std::string Invoke(const std::string& function_id, const std::string& payload,
+                       const InvokeOptions& options = {});
+    std::string StartTask(const std::string& function_id, const std::string& payload,
+                          const InvokeOptions& options = {});
+    std::future<std::vector<TaskEvent>> StreamTask(const std::string& task_id);
+    bool CancelTask(const std::string& task_id);
     void Close();
 };
 ```
