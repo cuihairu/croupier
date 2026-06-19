@@ -240,6 +240,10 @@ func runServer() error {
 	authMiddleware := svc.NewAuthMiddleware(svcCtx)
 	r.Use(authMiddleware)
 
+	// 添加 Game DB 路由中间件（database-per-game 架构下根据 X-Game-ID/X-Env
+	// 解析对应的游戏数据库并注入到 request context）
+	r.Use(svc.GameDBMiddleware(svcCtx))
+
 	// 注册路由
 	handler.RegisterHandlers(r, svcCtx)
 

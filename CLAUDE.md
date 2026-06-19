@@ -136,6 +136,16 @@ examples/                 # Demo game servers and invokers
 - Registry indexed by `(game_id, function_id)` for function routing
 - HTTP headers `X-Game-ID`/`X-Env` propagated through call chain
 
+**Database-per-Game Architecture:**
+- When `database.multiGame: true` is set, each `(game_id, env)` pair gets its own physical database (e.g. `game_demo_prod`)
+- The configured `database.dataSource` is the **meta database** (`croupier_meta`) holding users, roles, games registry, `game_envs` bindings, audit, extensions, etc.
+- `internal/db/router.Router` lazily opens and caches per-game `*gorm.DB` connections, auto-creating and migrating each game database on first use
+- `internal/db/dbctx` carries the per-request DB override via `context.Context`; game-scoped models call `dbctx.Resolve(ctx, m.db)` to pick the right connection
+- `svc.GameDBMiddleware` resolves the game DB from `X-Game-ID`/`X-Env` headers and injects it into the request context
+- Game-scoped models (Player, Function, Ticket, Analytics, Task, ConfigVersion, etc.) live in per-game databases; meta models (Admin, Game, Role, Audit, Extension) stay in the meta DB
+- The `game_envs` table (`model.GameEnvBinding`) stores `(game_id, env, database_name)` routing records
+- When `multiGame: false` (default for dev/CI), all tables coexist in a single database with `game_id` columns for row-level isolation
+
 **Load Balancing Abstraction:**
 - Strategy interface with multiple implementations
 - Health checking integrated with agent selection

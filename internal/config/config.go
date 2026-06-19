@@ -183,6 +183,16 @@ func (c *ServerConfig) UnmarshalYAML(value *yaml.Node) error {
 type DatabaseConfig struct {
 	Driver     string `json:"driver,omitempty" yaml:"driver,omitempty"`
 	DataSource string `json:"dataSource,omitempty" yaml:"dataSource,omitempty"`
+	// MultiGame enables the database-per-game architecture. When true, the
+	// DataSource is treated as the meta database (croupier_meta) and each
+	// (game_id, env) pair gets its own physical database. When false (the
+	// default for backward compatibility in dev), all data lives in the single
+	// configured database with game_id columns providing row-level isolation.
+	MultiGame bool `json:"multiGame,omitempty" yaml:"multiGame,omitempty"`
+	// GameDBPrefix overrides the default "game_" prefix used when deriving a
+	// physical database name from a game scope. When empty, DefaultGameDBName
+	// in internal/db/router is used ("game_<gameID>_<env>").
+	GameDBPrefix string `json:"gameDbPrefix,omitempty" yaml:"gameDbPrefix,omitempty"`
 }
 
 func (c *DatabaseConfig) UnmarshalYAML(value *yaml.Node) error {

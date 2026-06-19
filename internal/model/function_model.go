@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -31,7 +32,7 @@ type ListFunctionsOptions struct {
 
 // Create inserts a new function record.
 func (m *FunctionModel) Create(ctx context.Context, fn *Function) error {
-	return m.db.WithContext(ctx).Create(fn).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(fn).Error
 }
 
 // Update modifies function fields.
@@ -39,18 +40,18 @@ func (m *FunctionModel) Update(ctx context.Context, id uint, updates map[string]
 	normalizeJSONMapUpdate(updates, "metadata")
 	normalizeJSONMapUpdate(updates, "schema")
 	normalizeJSONMapUpdate(updates, "open_api_spec")
-	return m.db.WithContext(ctx).Model(&Function{}).Where("id = ?", id).Updates(updates).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&Function{}).Where("id = ?", id).Updates(updates).Error
 }
 
 // Delete removes a function.
 func (m *FunctionModel) Delete(ctx context.Context, id uint) error {
-	return m.db.WithContext(ctx).Delete(&Function{}, id).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Delete(&Function{}, id).Error
 }
 
 // FindByID fetches a function.
 func (m *FunctionModel) FindByID(ctx context.Context, id uint) (*Function, error) {
 	var fn Function
-	if err := m.db.WithContext(ctx).First(&fn, id).Error; err != nil {
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).First(&fn, id).Error; err != nil {
 		return nil, err
 	}
 	return &fn, nil
@@ -59,7 +60,7 @@ func (m *FunctionModel) FindByID(ctx context.Context, id uint) (*Function, error
 // FindByFunctionID fetches by external function ID.
 func (m *FunctionModel) FindByFunctionID(ctx context.Context, functionID string) (*Function, error) {
 	var fn Function
-	if err := m.db.WithContext(ctx).
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("function_id = ?", functionID).
 		First(&fn).Error; err != nil {
 		return nil, err
@@ -74,7 +75,7 @@ func (m *FunctionModel) ListFunctionMenus(ctx context.Context) (map[string]map[s
 		Metadata   datatypes.JSONMap
 	}
 	var rows []row
-	if err := m.db.WithContext(ctx).Model(&Function{}).Select("function_id", "metadata").Find(&rows).Error; err != nil {
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&Function{}).Select("function_id", "metadata").Find(&rows).Error; err != nil {
 		return nil, err
 	}
 	out := make(map[string]map[string]interface{}, len(rows))
@@ -104,7 +105,7 @@ func (m *FunctionModel) List(ctx context.Context, opts ListFunctionsOptions) ([]
 		total int64
 	)
 
-	query := m.db.WithContext(ctx).Model(&Function{})
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&Function{})
 	if opts.GameID != "" {
 		query = query.Where("game_id = ?", opts.GameID)
 	}
@@ -133,7 +134,7 @@ func (m *FunctionModel) List(ctx context.Context, opts ListFunctionsOptions) ([]
 
 // UpsertDescriptor stores descriptor metadata.
 func (m *FunctionModel) UpsertDescriptor(ctx context.Context, desc *FunctionDescriptor) error {
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Clauses(upsertAllColumns()).
 		Create(desc).Error
 }
@@ -141,7 +142,7 @@ func (m *FunctionModel) UpsertDescriptor(ctx context.Context, desc *FunctionDesc
 // ListDescriptors fetches descriptors for a function.
 func (m *FunctionModel) ListDescriptors(ctx context.Context, functionID string) ([]FunctionDescriptor, error) {
 	var descs []FunctionDescriptor
-	err := m.db.WithContext(ctx).
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("function_id = ?", functionID).
 		Order("version DESC").
 		Find(&descs).Error
@@ -150,7 +151,7 @@ func (m *FunctionModel) ListDescriptors(ctx context.Context, functionID string) 
 
 // ListDescriptorTemplates returns reusable descriptors filtered by category.
 func (m *FunctionModel) ListDescriptorTemplates(ctx context.Context, category string) ([]Descriptor, error) {
-	query := m.db.WithContext(ctx).Model(&Descriptor{})
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&Descriptor{})
 	if category != "" {
 		query = query.Where("category = ?", category)
 	}
@@ -163,7 +164,7 @@ func (m *FunctionModel) ListDescriptorTemplates(ctx context.Context, category st
 
 // RegisterInstance upserts instance heartbeat data.
 func (m *FunctionModel) RegisterInstance(ctx context.Context, instance *FunctionInstance) error {
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Clauses(upsertAllColumns()).
 		Create(instance).Error
 }
@@ -171,7 +172,7 @@ func (m *FunctionModel) RegisterInstance(ctx context.Context, instance *Function
 // ListInstances returns function instances.
 func (m *FunctionModel) ListInstances(ctx context.Context, functionID string) ([]FunctionInstance, error) {
 	var instances []FunctionInstance
-	err := m.db.WithContext(ctx).
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("function_id = ?", functionID).
 		Order("updated_at DESC").
 		Find(&instances).Error
@@ -180,7 +181,7 @@ func (m *FunctionModel) ListInstances(ctx context.Context, functionID string) ([
 
 // ReplacePermissions fully replaces permissions for a function.
 func (m *FunctionModel) ReplacePermissions(ctx context.Context, functionID string, perms []FunctionPermission) error {
-	return m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("function_id = ?", functionID).Delete(&FunctionPermission{}).Error; err != nil {
 			return err
 		}
@@ -197,7 +198,7 @@ func (m *FunctionModel) ReplacePermissions(ctx context.Context, functionID strin
 // ListPermissions returns function permissions.
 func (m *FunctionModel) ListPermissions(ctx context.Context, functionID string) ([]FunctionPermission, error) {
 	var perms []FunctionPermission
-	err := m.db.WithContext(ctx).
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("function_id = ?", functionID).
 		Find(&perms).Error
 	return perms, err
@@ -209,14 +210,14 @@ func (m *FunctionModel) SavePendingFunction(ctx context.Context, pending *Pendin
 		return errors.New("function id required")
 	}
 
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Clauses(upsertAllColumns()).
 		Create(pending).Error
 }
 
 // DeletePending removes a pending function.
 func (m *FunctionModel) DeletePending(ctx context.Context, functionID string) error {
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("function_id = ?", functionID).
 		Delete(&PendingFunction{}).Error
 }
@@ -224,7 +225,7 @@ func (m *FunctionModel) DeletePending(ctx context.Context, functionID string) er
 // ListPending returns pending submissions.
 func (m *FunctionModel) ListPending(ctx context.Context) ([]PendingFunction, error) {
 	var pending []PendingFunction
-	err := m.db.WithContext(ctx).
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Order("updated_at DESC").
 		Find(&pending).Error
 	return pending, err
@@ -232,7 +233,7 @@ func (m *FunctionModel) ListPending(ctx context.Context) ([]PendingFunction, err
 
 // DeleteFunction deletes a function by function_id
 func (m *FunctionModel) DeleteFunction(ctx context.Context, functionID string) error {
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("function_id = ?", functionID).
 		Delete(&Function{}).Error
 }
@@ -241,7 +242,7 @@ func (m *FunctionModel) DeleteFunction(ctx context.Context, functionID string) e
 func (m *FunctionModel) CopyFunction(ctx context.Context, functionID string) (string, error) {
 	// Find the original function
 	var fn Function
-	if err := m.db.WithContext(ctx).Where("function_id = ?", functionID).First(&fn).Error; err != nil {
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).Where("function_id = ?", functionID).First(&fn).Error; err != nil {
 		return "", err
 	}
 
@@ -263,7 +264,7 @@ func (m *FunctionModel) BatchUpdateStatus(ctx context.Context, functionIDs []str
 		return 0, nil, nil
 	}
 
-	result := m.db.WithContext(ctx).
+	result := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Model(&Function{}).
 		Where("function_id IN ?", functionIDs).
 		Updates(map[string]interface{}{"enabled": enabled})
@@ -281,7 +282,7 @@ func (m *FunctionModel) BatchDeleteFunctions(ctx context.Context, functionIDs []
 		return 0, nil, nil
 	}
 
-	result := m.db.WithContext(ctx).
+	result := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("function_id IN ?", functionIDs).
 		Delete(&Function{})
 
@@ -318,7 +319,7 @@ func (m *FunctionModel) BatchCopyFunctions(ctx context.Context, functionIDs []st
 // GetPolicy retrieves the policy for a function.
 func (m *FunctionModel) GetPolicy(ctx context.Context, functionID string) (*FunctionPolicy, error) {
 	var policy FunctionPolicy
-	err := m.db.WithContext(ctx).
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("function_id = ?", functionID).
 		First(&policy).Error
 	if err != nil {
@@ -329,14 +330,14 @@ func (m *FunctionModel) GetPolicy(ctx context.Context, functionID string) (*Func
 
 // UpsertPolicy creates or updates a function policy.
 func (m *FunctionModel) UpsertPolicy(ctx context.Context, policy *FunctionPolicy) error {
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Clauses(upsertAllColumns()).
 		Create(policy).Error
 }
 
 // DeletePolicy removes the policy for a function.
 func (m *FunctionModel) DeletePolicy(ctx context.Context, functionID string) error {
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("function_id = ?", functionID).
 		Delete(&FunctionPolicy{}).Error
 }
@@ -344,7 +345,7 @@ func (m *FunctionModel) DeletePolicy(ctx context.Context, functionID string) err
 // ListPolicies returns all policies.
 func (m *FunctionModel) ListPolicies(ctx context.Context, source string) ([]FunctionPolicy, error) {
 	var policies []FunctionPolicy
-	query := m.db.WithContext(ctx).Model(&FunctionPolicy{})
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&FunctionPolicy{})
 	if source != "" {
 		query = query.Where("source = ?", source)
 	}

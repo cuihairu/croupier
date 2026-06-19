@@ -1,98 +1,249 @@
 -- Croupier SQL schema (code-first). This file mirrors current GORM models.
 -- Database-per-game architecture: Each game has its own independent database.
+--
 -- Note: Tables are created automatically by GORM at runtime. This schema
 -- provides a reference or for manual bootstrap in non-GORM environments.
+-- Run the meta section once, then run the game-database template once per
+-- (game_id, env) pair after creating the physical database.
+--
+-- For PostgreSQL. For MySQL see mysql.schema.sql. For ClickHouse analytics
+-- tables see configs/clickhouse/initdb/010_analytics.sql.
 
 -- =============================================
--- croupier_meta (元数据库)
+-- croupier_meta (元数据库) — run once
 -- =============================================
--- Contains metadata for all games: users, roles, permissions, games, environments
+-- Contains metadata for all games: users, roles, permissions, games,
+-- environments, audit, extensions, etc.
 
--- Users, roles and permissions (string-based perms)
-CREATE TABLE IF NOT EXISTS user_accounts (
+CREATE TABLE IF NOT EXISTS admins (
   id SERIAL PRIMARY KEY,
-  username VARCHAR(64) UNIQUE NOT NULL,
-  display_name VARCHAR(128),
+  username VARCHAR(64) NOT NULL,
+  nickname VARCHAR(128),
   email VARCHAR(256),
   phone VARCHAR(32),
   password_hash VARCHAR(255),
-  active BOOLEAN DEFAULT TRUE,
-  otp_secret VARCHAR(64),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  deleted_at TIMESTAMP WITH TIME ZONE
-);
-
-CREATE TABLE IF NOT EXISTS role_records (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(64) UNIQUE NOT NULL,
-  description VARCHAR(256),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  deleted_at TIMESTAMP WITH TIME ZONE
-);
-
-CREATE TABLE IF NOT EXISTS user_role_records (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES user_records(id) ON DELETE CASCADE,
-  role_id INTEGER REFERENCES role_records(id) ON DELETE CASCADE,
+  status INTEGER DEFAULT 1,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMP WITH TIME ZONE,
-  UNIQUE(user_id, role_id)
+  UNIQUE(username)
+);
+CREATE INDEX IF NOT EXISTS idx_admins_username ON admins(username);
+
+CREATE TABLE IF NOT EXISTS roles (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(64) NOT NULL,
+  description TEXT,
+  category VARCHAR(64),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+  UNIQUE(name)
 );
 
-CREATE TABLE IF NOT EXISTS role_perm_records (
-  id SERIAL PRIMARY KEY,
-  role_id INTEGER REFERENCES role_records(id) ON DELETE CASCADE,
-  perm VARCHAR(128) NOT NULL,
+CREATE TABLE IF NOT EXISTS permissions (
+  id VARCHAR(128) PRIMARY KEY,
+  name VARCHAR(128) NOT NULL,
+  description TEXT,
+  resource VARCHAR(64) NOT NULL,
+  action VARCHAR(64) NOT NULL DEFAULT '*',
+  category VARCHAR(64),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX IF NOT EXISTS idx_user_accounts_username ON user_accounts(username);
-CREATE INDEX IF NOT EXISTS idx_user_accounts_email ON user_accounts(email);
-CREATE INDEX IF NOT EXISTS idx_user_role_records_user_id ON user_role_records(user_id);
-CREATE INDEX IF NOT EXISTS idx_user_role_records_role_id ON user_role_records(role_id);
-CREATE INDEX IF NOT EXISTS idx_role_perm_role ON role_perm_records(role_id);
-CREATE INDEX IF NOT EXISTS idx_role_perm_perm ON role_perm_records(perm);
+CREATE TABLE IF NOT EXISTS admin_roles (
+  id SERIAL PRIMARY KEY,
+  admin_id INTEGER NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+  role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+  UNIQUE(admin_id, role_id)
+);
 
--- Games registry (metadata only)
+CREATE TABLE IF NOT EXISTS role_permissions (
+  id SERIAL PRIMARY KEY,
+  role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+  permission_id VARCHAR(128) NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Admin game/env scope mappings (authorization metadata → META)
+CREATE TABLE IF NOT EXISTS admin_game_scopes (
+  id SERIAL PRIMARY KEY,
+  admin_id INTEGER NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+  game_id INTEGER NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS admin_game_env_scopes (
+  id SERIAL PRIMARY KEY,
+  admin_id INTEGER NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+  game_id INTEGER NOT NULL,
+  env VARCHAR(64) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Games registry (metadata)
 CREATE TABLE IF NOT EXISTS games (
   id SERIAL PRIMARY KEY,
   game_id VARCHAR(64) UNIQUE NOT NULL,
-  name VARCHAR(200) NOT NULL,
+  name VARCHAR(128) NOT NULL,
   icon VARCHAR(255),
   description TEXT,
   enabled BOOLEAN DEFAULT TRUE,
+  alias_name VARCHAR(64) UNIQUE,
+  homepage VARCHAR(255),
+  status VARCHAR(32) DEFAULT 'dev',
+  game_type VARCHAR(64),
+  genre_code VARCHAR(64),
+  config TEXT,
+  color VARCHAR(32),
+  envs JSON,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX IF NOT EXISTS idx_games_game_id ON games(game_id);
-CREATE INDEX IF NOT EXISTS idx_games_name ON games(name);
-
--- Game environments (metadata only)
+-- Game environments with database routing
 CREATE TABLE IF NOT EXISTS game_envs (
   id SERIAL PRIMARY KEY,
   game_id VARCHAR(64) NOT NULL,
   env VARCHAR(64) NOT NULL,
   database_name VARCHAR(128) NOT NULL,
+  description TEXT,
+  color VARCHAR(16),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMP WITH TIME ZONE,
   UNIQUE(game_id, env)
 );
-
 CREATE INDEX IF NOT EXISTS idx_game_envs_game_id ON game_envs(game_id);
 
--- Internal messaging
-CREATE TABLE IF NOT EXISTS message_records (
+-- Entities (dynamic content entities)
+CREATE TABLE IF NOT EXISTS entities (
   id SERIAL PRIMARY KEY,
-  to_user_id INTEGER REFERENCES user_accounts(id) ON DELETE CASCADE,
-  from_user_id INTEGER REFERENCES user_accounts(id) ON DELETE SET NULL,
+  entity_type VARCHAR(64) NOT NULL,
+  entity_id VARCHAR(128) NOT NULL,
+  name VARCHAR(256),
+  data JSON,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Reusable descriptors
+CREATE TABLE IF NOT EXISTS descriptors (
+  id SERIAL PRIMARY KEY,
+  descriptor_id VARCHAR(128) NOT NULL,
+  version VARCHAR(32),
+  data JSON,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Ops alerts and silences
+CREATE TABLE IF NOT EXISTS alerts (
+  id SERIAL PRIMARY KEY,
+  alert_id VARCHAR(128) UNIQUE NOT NULL,
+  name VARCHAR(256),
+  severity VARCHAR(32),
+  message TEXT,
+  status VARCHAR(32),
+  labels JSON,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS alert_silences (
+  id SERIAL PRIMARY KEY,
+  alert_id VARCHAR(128),
+  starts_at TIMESTAMP WITH TIME ZONE,
+  ends_at TIMESTAMP WITH TIME ZONE,
+  created_by VARCHAR(64),
+  reason TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Backups, FAQs, rate limits, nodes, certificates, messages, etc. (META)
+CREATE TABLE IF NOT EXISTS backups (
+  id SERIAL PRIMARY KEY,
+  backup_id VARCHAR(128) UNIQUE NOT NULL,
+  status VARCHAR(32),
+  size_bytes BIGINT,
+  path TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS faqs (
+  id SERIAL PRIMARY KEY,
+  question TEXT NOT NULL,
+  answer TEXT,
+  category_id INTEGER,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS faq_categories (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(128) NOT NULL,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS rate_limits (
+  id SERIAL PRIMARY KEY,
+  key VARCHAR(256) UNIQUE NOT NULL,
+  limit_value INTEGER NOT NULL,
+  window_seconds INTEGER NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS nodes (
+  id SERIAL PRIMARY KEY,
+  node_id VARCHAR(128) UNIQUE NOT NULL,
+  name VARCHAR(128),
+  address VARCHAR(255),
+  status VARCHAR(32),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS node_commands (
+  id SERIAL PRIMARY KEY,
+  node_id VARCHAR(128) NOT NULL,
+  command VARCHAR(128) NOT NULL,
+  status VARCHAR(32),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+  id SERIAL PRIMARY KEY,
+  to_user_id INTEGER REFERENCES admins(id) ON DELETE CASCADE,
+  from_user_id INTEGER REFERENCES admins(id) ON DELETE SET NULL,
   title VARCHAR(200),
   content TEXT,
   type VARCHAR(32),
@@ -102,112 +253,410 @@ CREATE TABLE IF NOT EXISTS message_records (
   deleted_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX IF NOT EXISTS idx_message_records_to_user ON message_records(to_user_id);
-CREATE INDEX IF NOT EXISTS idx_message_records_read_at ON message_records(read_at);
-
-CREATE TABLE IF NOT EXISTS broadcast_message_records (
+CREATE TABLE IF NOT EXISTS certificates (
   id SERIAL PRIMARY KEY,
-  title VARCHAR(200),
-  content TEXT,
-  type VARCHAR(32),
-  audience VARCHAR(16) NOT NULL CHECK (audience IN ('all','roles')),
+  domain VARCHAR(255) NOT NULL,
+  status VARCHAR(32),
+  issuer VARCHAR(255),
+  not_before TIMESTAMP WITH TIME ZONE,
+  not_after TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   deleted_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE TABLE IF NOT EXISTS broadcast_role_records (
+CREATE TABLE IF NOT EXISTS certificate_alerts (
   id SERIAL PRIMARY KEY,
-  broadcast_id INTEGER REFERENCES broadcast_message_records(id) ON DELETE CASCADE,
-  role_name VARCHAR(64) NOT NULL
+  domain VARCHAR(255) NOT NULL,
+  threshold_days INTEGER,
+  enabled BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX IF NOT EXISTS idx_broadcast_role_records_role_name ON broadcast_role_records(role_name);
-
-CREATE TABLE IF NOT EXISTS broadcast_ack_records (
+-- Agent sessions (routing infra → META)
+CREATE TABLE IF NOT EXISTS agent_sessions (
   id SERIAL PRIMARY KEY,
-  broadcast_id INTEGER REFERENCES broadcast_message_records(id) ON DELETE CASCADE,
-  user_id INTEGER REFERENCES user_accounts(id) ON DELETE CASCADE,
-  read_at TIMESTAMP WITH TIME ZONE NOT NULL,
-  UNIQUE (broadcast_id, user_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_broadcast_ack_records_user ON broadcast_ack_records(user_id);
-
--- =============================================
--- game_demo_prod (游戏数据库示例)
--- =============================================
--- Each game has its own independent database.
--- The game_id and env are implicit from the database name.
--- Example: game_demo_prod, game_demo_staging, game_rpg_prod
-
-CREATE DATABASE IF NOT EXISTS game_demo_prod;
-
--- Connect to game database and create game-specific tables
-\c game_demo_prod
-
--- Game events (game_id and env implicit from database name)
-CREATE TABLE IF NOT EXISTS events (
-  id SERIAL PRIMARY KEY,
-  event_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  user_id VARCHAR(64),
-  session_id VARCHAR(64),
-  event VARCHAR(128) NOT NULL,
-  channel VARCHAR(64),
-  platform VARCHAR(32),
-  country FixedString(2),
-  app_version VARCHAR(32),
-  event_id UUID,
-  server_id VARCHAR(64), -- MMORPG multi-server support
-  props_json TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_events_event_time ON events(event_time);
-CREATE INDEX IF NOT EXISTS idx_events_user_id ON events(user_id);
-CREATE INDEX IF NOT EXISTS idx_events_event ON events(event);
-CREATE INDEX IF NOT EXISTS idx_events_server_id ON events(server_id);
-
--- Game payments (game_id and env implicit from database name)
-CREATE TABLE IF NOT EXISTS payments (
-  id SERIAL PRIMARY KEY,
-  time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  user_id VARCHAR(64) NOT NULL,
-  order_id VARCHAR(128) NOT NULL,
-  amount_cents BIGINT NOT NULL,
-  currency FixedString(3),
+  agent_id VARCHAR(128) NOT NULL,
+  game_id VARCHAR(64),
+  env VARCHAR(64),
+  session_id VARCHAR(128),
   status VARCHAR(32),
-  channel VARCHAR(64),
-  platform VARCHAR(32),
-  country FixedString(2),
-  region VARCHAR(64),
-  city VARCHAR(128),
-  product_id VARCHAR(128),
-  reason TEXT,
-  server_id VARCHAR(64), -- MMORPG multi-server support
+  last_seen TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(order_id)
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX IF NOT EXISTS idx_payments_time ON payments(time);
-CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
-CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
-CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
-CREATE INDEX IF NOT EXISTS idx_payments_server_id ON payments(server_id);
-
--- Game-specific metrics (game_id and env implicit from database name)
-CREATE TABLE IF NOT EXISTS game_metrics (
+CREATE TABLE IF NOT EXISTS term_dictionary (
   id SERIAL PRIMARY KEY,
-  metric_date DATE NOT NULL,
-  server_id VARCHAR(64),
-  dau BIGINT,
-  new_users BIGINT,
-  revenue_cents BIGINT,
-  peak_online INTEGER,
-  version BIGINT,
+  term VARCHAR(128) NOT NULL,
+  translation VARCHAR(256),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(metric_date, server_id)
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX IF NOT EXISTS idx_game_metrics_metric_date ON game_metrics(metric_date);
-CREATE INDEX IF NOT EXISTS idx_game_metrics_server_id ON game_metrics(server_id);
+CREATE TABLE IF NOT EXISTS workspace_configs (
+  id SERIAL PRIMARY KEY,
+  object_key VARCHAR(128) UNIQUE NOT NULL,
+  title VARCHAR(128),
+  published BOOLEAN DEFAULT FALSE,
+  menu_order INTEGER DEFAULT 0,
+  config JSON,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Extension catalog, releases, installations, bindings, events (META)
+CREATE TABLE IF NOT EXISTS extension_catalogs (
+  id SERIAL PRIMARY KEY,
+  extension_id VARCHAR(128) UNIQUE NOT NULL,
+  name VARCHAR(128) NOT NULL,
+  display_name VARCHAR(128),
+  vendor VARCHAR(128),
+  kind VARCHAR(64),
+  summary TEXT,
+  icon_url VARCHAR(255),
+  homepage_url VARCHAR(255),
+  status VARCHAR(32),
+  latest_version VARCHAR(64),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS extension_releases (
+  id SERIAL PRIMARY KEY,
+  extension_id VARCHAR(128) NOT NULL,
+  version VARCHAR(64) NOT NULL,
+  release_channel VARCHAR(32),
+  manifest_json JSON,
+  package_ref VARCHAR(255),
+  checksum VARCHAR(128),
+  min_core_version VARCHAR(32),
+  changelog TEXT,
+  published_at_unix BIGINT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+  UNIQUE(extension_id, version)
+);
+
+CREATE TABLE IF NOT EXISTS extension_installations (
+  id SERIAL PRIMARY KEY,
+  extension_id VARCHAR(128) NOT NULL,
+  version VARCHAR(64),
+  scope VARCHAR(64),
+  status VARCHAR(32),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS extension_runtime_bindings (
+  id SERIAL PRIMARY KEY,
+  extension_id VARCHAR(128) NOT NULL,
+  scope VARCHAR(64),
+  binding_key VARCHAR(128),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS extension_events (
+  id SERIAL PRIMARY KEY,
+  extension_id VARCHAR(128) NOT NULL,
+  event_type VARCHAR(64),
+  payload JSON,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+-- =============================================
+-- game_<game_id>_<env> (游戏数据库) — run once per game database
+-- =============================================
+-- Create the game database first, then run the template below inside it:
+--
+--   CREATE DATABASE game_demo_prod;
+--   \c game_demo_prod
+--   -- then run all CREATE TABLE statements from the GAME section below
+--
+-- Tables in the game database do NOT carry game_id/env columns — those are
+-- implicit from the database name.
+
+-- ---- GAME TABLE TEMPLATE (run inside each game database) ----
+
+CREATE TABLE IF NOT EXISTS players (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(64) NOT NULL,
+  nickname VARCHAR(128),
+  email VARCHAR(256),
+  phone VARCHAR(32),
+  status INTEGER DEFAULT 1,
+  balance BIGINT DEFAULT 0,
+  level INTEGER DEFAULT 1,
+  vip INTEGER DEFAULT 0,
+  password VARCHAR(255),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+CREATE INDEX IF NOT EXISTS idx_players_username ON players(username);
+CREATE INDEX IF NOT EXISTS idx_players_status ON players(status);
+
+CREATE TABLE IF NOT EXISTS functions (
+  id SERIAL PRIMARY KEY,
+  function_id VARCHAR(128) NOT NULL,
+  name VARCHAR(256),
+  metadata JSON,
+  enabled BOOLEAN DEFAULT TRUE,
+  spec_format VARCHAR(32),
+  open_api_spec JSON,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+  UNIQUE(function_id)
+);
+
+CREATE TABLE IF NOT EXISTS function_descriptors (
+  id SERIAL PRIMARY KEY,
+  function_id INTEGER NOT NULL,
+  descriptor JSON,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS function_instances (
+  id SERIAL PRIMARY KEY,
+  function_id INTEGER NOT NULL,
+  agent_id VARCHAR(128),
+  addr VARCHAR(255),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS function_permissions (
+  id SERIAL PRIMARY KEY,
+  function_id INTEGER NOT NULL,
+  permission VARCHAR(128) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS pending_functions (
+  id SERIAL PRIMARY KEY,
+  function_id INTEGER NOT NULL,
+  status VARCHAR(32),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS function_policies (
+  id SERIAL PRIMARY KEY,
+  function_id INTEGER NOT NULL,
+  risk VARCHAR(32),
+  approval_required BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS behavior_events (
+  id SERIAL PRIMARY KEY,
+  event_type VARCHAR(128) NOT NULL,
+  user_id VARCHAR(64),
+  occurred_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  properties JSON,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+CREATE INDEX IF NOT EXISTS idx_behavior_events_event_type ON behavior_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_behavior_events_user_id ON behavior_events(user_id);
+
+CREATE TABLE IF NOT EXISTS feature_adoptions (
+  id SERIAL PRIMARY KEY,
+  feature VARCHAR(128) NOT NULL,
+  users BIGINT DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS payment_transactions (
+  id SERIAL PRIMARY KEY,
+  transaction_id VARCHAR(128) UNIQUE NOT NULL,
+  user_id VARCHAR(64) NOT NULL,
+  product_id VARCHAR(128),
+  amount DECIMAL(12,2),
+  currency VARCHAR(8),
+  status VARCHAR(32),
+  occurred_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_user_id ON payment_transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_status ON payment_transactions(status);
+
+CREATE TABLE IF NOT EXISTS payment_product_trends (
+  id SERIAL PRIMARY KEY,
+  product_id VARCHAR(128) NOT NULL,
+  product_name VARCHAR(256),
+  revenue BIGINT,
+  sales BIGINT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS retention_cohorts (
+  id SERIAL PRIMARY KEY,
+  cohort_date DATE NOT NULL,
+  day_offset INTEGER NOT NULL,
+  retained BIGINT,
+  total BIGINT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS task_runs (
+  id SERIAL PRIMARY KEY,
+  task_id VARCHAR(128) UNIQUE NOT NULL,
+  function_id VARCHAR(128),
+  status VARCHAR(32),
+  payload JSON,
+  result JSON,
+  error TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS task_events (
+  id SERIAL PRIMARY KEY,
+  task_id INTEGER NOT NULL,
+  event_type VARCHAR(64),
+  message TEXT,
+  payload JSON,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS tickets (
+  id SERIAL PRIMARY KEY,
+  ticket_id VARCHAR(128) UNIQUE NOT NULL,
+  title VARCHAR(256),
+  description TEXT,
+  status VARCHAR(32),
+  priority VARCHAR(32),
+  created_by VARCHAR(64),
+  assigned_to VARCHAR(64),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS ticket_comments (
+  id SERIAL PRIMARY KEY,
+  ticket_id INTEGER NOT NULL,
+  author VARCHAR(64),
+  content TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS feedbacks (
+  id SERIAL PRIMARY KEY,
+  category VARCHAR(64),
+  subject VARCHAR(256),
+  content TEXT,
+  rating INTEGER,
+  status VARCHAR(32),
+  submitted_by VARCHAR(64),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS support_tickets (
+  id SERIAL PRIMARY KEY,
+  ticket_id VARCHAR(128) UNIQUE NOT NULL,
+  title VARCHAR(256),
+  description TEXT,
+  status VARCHAR(32),
+  priority VARCHAR(32),
+  created_by VARCHAR(64),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS support_ticket_comments (
+  id SERIAL PRIMARY KEY,
+  ticket_id INTEGER NOT NULL,
+  author VARCHAR(64),
+  content TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS support_faqs (
+  id SERIAL PRIMARY KEY,
+  question TEXT,
+  answer TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS support_feedback (
+  id SERIAL PRIMARY KEY,
+  category VARCHAR(64),
+  content TEXT,
+  rating INTEGER,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS config_versions (
+  id SERIAL PRIMARY KEY,
+  key VARCHAR(256) NOT NULL,
+  version BIGINT DEFAULT 1,
+  value JSON,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS profile_permissions (
+  id SERIAL PRIMARY KEY,
+  admin_id INTEGER NOT NULL,
+  permission VARCHAR(128) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TABLE IF NOT EXISTS profile_games (
+  id SERIAL PRIMARY KEY,
+  admin_id INTEGER NOT NULL,
+  game_id VARCHAR(64) NOT NULL,
+  access_summary VARCHAR(64),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP WITH TIME ZONE
+);

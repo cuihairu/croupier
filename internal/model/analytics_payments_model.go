@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"gorm.io/gorm"
 )
 
@@ -32,7 +33,7 @@ func (m *PaymentsModel) CreateTransaction(ctx context.Context, tx *PaymentTransa
 	if tx.OccurredAt.IsZero() {
 		tx.OccurredAt = NowUTC()
 	}
-	return m.db.WithContext(ctx).Create(tx).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(tx).Error
 }
 
 // ListTransactions returns paginated transactions.
@@ -44,7 +45,7 @@ func (m *PaymentsModel) ListTransactions(ctx context.Context, opts PaymentQueryO
 		total int64
 	)
 
-	query := m.db.WithContext(ctx).Model(&PaymentTransaction{})
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&PaymentTransaction{})
 
 	if opts.GameID != "" {
 		query = query.Where("game_id = ?", opts.GameID)
@@ -86,14 +87,14 @@ func (m *PaymentsModel) UpsertProductTrend(ctx context.Context, trend *ProductTr
 		trend.WindowEnd = NowUTC()
 	}
 
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Clauses(upsertAllColumns()).
 		Create(trend).Error
 }
 
 // ListProductTrends fetches trend snapshots.
 func (m *PaymentsModel) ListProductTrends(ctx context.Context, gameID, env string) ([]ProductTrend, error) {
-	query := m.db.WithContext(ctx).Model(&ProductTrend{})
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&ProductTrend{})
 	if gameID != "" {
 		query = query.Where("game_id = ?", gameID)
 	}
@@ -182,7 +183,7 @@ func (m *PaymentsModel) DailyRevenue(ctx context.Context, gameID, env string, st
 }
 
 func (m *PaymentsModel) scopedTransactions(ctx context.Context, gameID, env string, start, end time.Time) *gorm.DB {
-	query := m.db.WithContext(ctx).
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Model(&PaymentTransaction{}).
 		Where("status = ?", "success")
 	if gameID != "" {

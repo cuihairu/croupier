@@ -145,3 +145,69 @@ func (m *GameModel) ListAll(ctx context.Context) ([]Game, error) {
 func (m *GameModel) FindByGameID(ctx context.Context, gameID uint) (*Game, error) {
 	return m.FindOne(ctx, gameID)
 }
+
+// FindByGameIDString returns the game whose business GameID matches the given
+// string (e.g. "demo").
+func (m *GameModel) FindByGameIDString(ctx context.Context, gameID string) (*Game, error) {
+	var game Game
+	if err := m.db.WithContext(ctx).Where("game_id = ?", gameID).First(&game).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("game not found")
+		}
+		return nil, err
+	}
+	return &game, nil
+}
+
+// ============================================================================
+// Game environment bindings (database-per-game routing)
+// ============================================================================
+
+// AddEnvBinding creates or updates a GameEnvBinding for (gameID, env). When
+// databaseName is empty it is derived by the caller (typically the router's
+// naming function) before persisting.
+func (m *GameModel) AddEnvBinding(ctx context.Context, gameID, env, databaseName, description, color string) error {
+	binding := GameEnvBinding{
+		GameID:       gameID,
+		Env:          env,
+		DatabaseName: databaseName,
+		Description:  description,
+		Color:        color,
+	}
+	return m.db.WithContext(ctx).Where("game_id = ? AND env = ?", gameID, env).
+		Assign(GameEnvBinding{DatabaseName: databaseName, Description: description, Color: color}).
+		FirstOrCreate(&binding).Error
+}
+
+// RemoveEnvBinding deletes the GameEnvBinding for (gameID, env).
+func (m *GameModel) RemoveEnvBinding(ctx context.Context, gameID, env string) error {
+	return m.db.WithContext(ctx).
+		Where("game_id = ? AND env = ?", gameID, env).
+		Delete(&GameEnvBinding{}).Error
+}
+
+// ListEnvBindings returns all environment bindings for a game.
+func (m *GameModel) ListEnvBindings(ctx context.Context, gameID string) ([]GameEnvBinding, error) {
+	var bindings []GameEnvBinding
+	err := m.db.WithContext(ctx).
+		Where("game_id = ?", gameID).
+		Order("env ASC").
+		Find(&bindings).Error
+	return bindings, err
+}
+
+// LookupDatabaseName returns the physical database name for (gameID, env),
+// or "" when no binding exists.
+func (m *GameModel) LookupDatabaseName(ctx context.Context, gameID, env string) (string, error) {
+	var binding GameEnvBinding
+	err := m.db.WithContext(ctx).
+		Where("game_id = ? AND env = ?", gameID, env).
+		First(&binding).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", nil
+		}
+		return "", err
+	}
+	return binding.DatabaseName, nil
+}

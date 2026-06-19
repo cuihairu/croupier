@@ -21,6 +21,7 @@ import (
 	extensionmanifest "github.com/cuihairu/croupier/internal/core/extension/manifest"
 	extensionruntime "github.com/cuihairu/croupier/internal/core/extension/runtime"
 	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
+	"github.com/cuihairu/croupier/internal/db/router"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
@@ -39,11 +40,14 @@ import (
 )
 
 type ServiceContext struct {
-	Config            config.Config
-	Authority         gin.HandlerFunc
-	AdminManager      *AdminManager
-	OpsStateStore     *OpsStateStore
-	DB                *gorm.DB
+	Config        config.Config
+	Authority     gin.HandlerFunc
+	AdminManager  *AdminManager
+	OpsStateStore *OpsStateStore
+	DB            *gorm.DB
+	// Router manages per-game databases when Config.Database.MultiGame is
+	// enabled. It is nil in legacy single-database mode.
+	Router            *router.Router
 	PermissionService *permission.PermissionService
 	RegistryStore     *reg.Store
 	Dispatcher        *dispatch.Dispatcher
@@ -120,10 +124,24 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 	// 自动迁移数据库模型
 	slog.Default().Info("Starting database migration")
-	if err := autoMigrate(db); err != nil {
-		panic(fmt.Sprintf("Failed to auto migrate database: %v", err))
+	multiGame := c.Database.MultiGame
+	if multiGame {
+		if err := autoMigrateMeta(db); err != nil {
+			panic(fmt.Sprintf("Failed to auto migrate meta database: %v", err))
+		}
+	} else {
+		if err := autoMigrate(db); err != nil {
+			panic(fmt.Sprintf("Failed to auto migrate database: %v", err))
+		}
 	}
-	slog.Default().Info("Database migration completed successfully")
+	slog.Default().Info("Database migration completed successfully", "multiGame", multiGame)
+
+	// 创建 per-game 数据库路由（当启用 multiGame 时）
+	var dbRouter *router.Router
+	if multiGame {
+		dbRouter = newGameRouter(c, db)
+		slog.Default().Info("Database-per-game router initialized")
+	}
 
 	// 创建服务
 	permissionService := permission.NewPermissionService(db)
@@ -227,6 +245,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		AdminManager:      adminManager,
 		OpsStateStore:     opsStateStore,
 		DB:                db,
+		Router:            dbRouter,
 		PermissionService: permissionService,
 		Cache:             cacheStore,
 		CacheHelper:       cacheHelper,
@@ -389,6 +408,63 @@ func autoMigrate(db *gorm.DB) error {
 	}
 
 	return nil
+}
+
+// autoMigrateMeta migrates only meta-level models into the meta database
+// (database-per-game architecture).
+func autoMigrateMeta(db *gorm.DB) error {
+	if err := model.AutoMigrateMeta(db); err != nil {
+		return fmt.Errorf("failed to migrate meta models: %w", err)
+	}
+	if err := reg.MigrateAgentSessions(db); err != nil {
+		return fmt.Errorf("failed to migrate agent sessions: %w", err)
+	}
+	return nil
+}
+
+// newGameRouter builds a database-per-game router wired to the resolved
+// driver/DSN. The router auto-creates and migrates each game database on
+// first use.
+func newGameRouter(c config.Config, metaDB *gorm.DB) *router.Router {
+	driver, dsn := resolveDriverAndDSN(c)
+	dsnForDB := func(metaDSN, dbName string) string {
+		return DSNForDatabase(driver, metaDSN, dbName)
+	}
+	cfg := router.Config{
+		Driver:         driver,
+		MetaDSN:        dsn,
+		DSNForDatabase: dsnForDB,
+		EnsureDatabase: EnsureGameDatabase,
+		Open:           OpenGormForRouter,
+		MigrateGame: func(db *gorm.DB) error {
+			if err := model.AutoMigrateGame(db); err != nil {
+				return fmt.Errorf("migrate game models: %w", err)
+			}
+			return nil
+		},
+	}
+	if prefix := strings.TrimSpace(c.Database.GameDBPrefix); prefix != "" {
+		cfg.NameForGame = func(gameID, env string) string {
+			sanitized := func(s string) string {
+				s = strings.ToLower(strings.TrimSpace(s))
+				if s == "" {
+					s = "default"
+				}
+				var b strings.Builder
+				for _, r := range s {
+					switch {
+					case r >= 'a' && r <= 'z', r >= '0' && r <= '9', r == '_', r == '-':
+						b.WriteRune(r)
+					default:
+						b.WriteRune('_')
+					}
+				}
+				return b.String()
+			}
+			return prefix + sanitized(gameID) + "_" + sanitized(env)
+		}
+	}
+	return router.New(cfg, metaDB)
 }
 
 // isDevelopmentConfig checks if the current configuration is in development mode.

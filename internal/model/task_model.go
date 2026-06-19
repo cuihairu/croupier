@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -28,7 +29,7 @@ func NewTaskRunModel(db *gorm.DB) *TaskRunModel {
 }
 
 func (m *TaskRunModel) Create(ctx context.Context, task *TaskRun) error {
-	return m.db.WithContext(ctx).Create(task).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(task).Error
 }
 
 func (m *TaskRunModel) FindByTaskID(ctx context.Context, taskID string) (*TaskRun, error) {
@@ -37,7 +38,7 @@ func (m *TaskRunModel) FindByTaskID(ctx context.Context, taskID string) (*TaskRu
 		return nil, gorm.ErrRecordNotFound
 	}
 	var task TaskRun
-	if err := m.db.WithContext(ctx).Where("task_id = ?", taskID).First(&task).Error; err != nil {
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).Where("task_id = ?", taskID).First(&task).Error; err != nil {
 		return nil, err
 	}
 	return &task, nil
@@ -47,7 +48,7 @@ func (m *TaskRunModel) UpdateByTaskID(ctx context.Context, taskID string, update
 	if strings.TrimSpace(taskID) == "" {
 		return errors.New("task id required")
 	}
-	return m.db.WithContext(ctx).Model(&TaskRun{}).Where("task_id = ?", taskID).Updates(updates).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&TaskRun{}).Where("task_id = ?", taskID).Updates(updates).Error
 }
 
 func (m *TaskRunModel) List(ctx context.Context, opts ListTasksOptions) ([]TaskRun, int64, error) {
@@ -58,7 +59,7 @@ func (m *TaskRunModel) List(ctx context.Context, opts ListTasksOptions) ([]TaskR
 		total int64
 	)
 
-	query := m.db.WithContext(ctx).Model(&TaskRun{})
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&TaskRun{})
 	if v := strings.TrimSpace(opts.FunctionID); v != "" {
 		query = query.Where("function_id = ?", v)
 	}
@@ -93,7 +94,7 @@ func (m *TaskEventModel) Append(ctx context.Context, event *TaskEvent) error {
 	if event.CreatedAt.IsZero() {
 		event.CreatedAt = time.Now()
 	}
-	return m.db.WithContext(ctx).Create(event).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(event).Error
 }
 
 func (m *TaskEventModel) ListByTaskID(ctx context.Context, taskID string, afterSeq int64) ([]TaskEvent, error) {
@@ -102,7 +103,7 @@ func (m *TaskEventModel) ListByTaskID(ctx context.Context, taskID string, afterS
 		return []TaskEvent{}, nil
 	}
 	var items []TaskEvent
-	query := m.db.WithContext(ctx).Where("task_id = ?", taskID)
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Where("task_id = ?", taskID)
 	if afterSeq > 0 {
 		query = query.Where("seq > ?", afterSeq)
 	}
@@ -118,7 +119,7 @@ func (m *TaskEventModel) NextSeq(ctx context.Context, taskID string) (int64, err
 		return 1, nil
 	}
 	var latest TaskEvent
-	err := m.db.WithContext(ctx).Where("task_id = ?", taskID).Order("seq DESC").First(&latest).Error
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).Where("task_id = ?", taskID).Order("seq DESC").First(&latest).Error
 	switch {
 	case err == nil:
 		return latest.Seq + 1, nil

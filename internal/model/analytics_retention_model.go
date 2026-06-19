@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"gorm.io/gorm"
 )
 
@@ -18,14 +19,14 @@ func NewRetentionModel(db *gorm.DB) *RetentionModel {
 
 // UpsertCohort stores cohort metrics.
 func (m *RetentionModel) UpsertCohort(ctx context.Context, cohort *RetentionCohort) error {
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Clauses(upsertAllColumns()).
 		Create(cohort).Error
 }
 
 // ListCohorts fetches retention cohorts for filters.
 func (m *RetentionModel) ListCohorts(ctx context.Context, gameID, env, cohortName string) ([]RetentionCohort, error) {
-	query := m.db.WithContext(ctx).Model(&RetentionCohort{})
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&RetentionCohort{})
 	if gameID != "" {
 		query = query.Where("game_id = ?", gameID)
 	}

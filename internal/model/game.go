@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"strings"
 
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -10,23 +11,66 @@ import (
 // Game 游戏结构体
 type Game struct {
 	gorm.Model
-	Name        string         `gorm:"size:128;not null;index"`
-	Icon        string         `gorm:"size:255"`
-	Description string         `gorm:"type:text"`
-	Enabled     bool           `gorm:"default:true;index"`
-	AliasName   string         `gorm:"size:64;uniqueIndex"`
-	Homepage    string         `gorm:"size:255"`
-	Status      string         `gorm:"size:32;default:'dev';index"` // dev, test, running, online, offline, maintenance
-	GameType    string         `gorm:"size:64;index"`
-	GenreCode   string         `gorm:"size:64;index"`
-	Config      string         `gorm:"type:text"` // 游戏配置 JSON
-	Color       string         `gorm:"size:32"`
-	Envs        datatypes.JSON `gorm:"type:json"` // 环境列表 JSON
+	// GameID is the stable business identifier used for cross-game routing
+	// (e.g. "demo", "rpg"). It is the canonical key referenced by
+	// Player.GameID, Function.GameID and the database-per-game router.
+	GameID      string `gorm:"size:64;uniqueIndex;not null" json:"gameId"`
+	Name        string `gorm:"size:128;not null;index" json:"name"`
+	Icon        string `gorm:"size:255" json:"icon"`
+	Description string `gorm:"type:text" json:"description"`
+	Enabled     bool   `gorm:"default:true;index" json:"enabled"`
+	AliasName   string `gorm:"size:64;uniqueIndex" json:"aliasName"`
+	Homepage    string `gorm:"size:255" json:"homepage"`
+	Status      string `gorm:"size:32;default:'dev';index" json:"status"` // dev, test, running, online, offline, maintenance
+	GameType    string `gorm:"size:64;index" json:"gameType"`
+	GenreCode   string `gorm:"size:64;index" json:"genreCode"`
+	Config      string `gorm:"type:text" json:"config"` // 游戏配置 JSON
+	Color       string `gorm:"size:32" json:"color"`
+	// Envs is kept for backward-compatible UI metadata. The authoritative
+	// per-env routing data (including database_name) lives in GameEnvBinding.
+	Envs datatypes.JSON `gorm:"type:json" json:"envs"`
 }
 
 // TableName 实现 GORM 的表名接口
 func (Game) TableName() string {
 	return "games"
+}
+
+// BeforeCreate auto-fills GameID from Name when left empty, so callers that
+// only set Name (e.g. legacy tests) still get a valid unique business key.
+func (g *Game) BeforeCreate(tx *gorm.DB) error {
+	if strings.TrimSpace(g.GameID) == "" {
+		g.GameID = deriveGameIDFromName(g.Name)
+	}
+	return nil
+}
+
+// deriveGameIDFromName produces a safe lowercase identifier from a display
+// name: spaces/underscores collapse, non-alphanumeric characters are removed.
+func deriveGameIDFromName(name string) string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		return "game"
+	}
+	var b strings.Builder
+	prev := false
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+			prev = false
+		case r == '_' || r == '-' || r == ' ':
+			if !prev && b.Len() > 0 {
+				b.WriteRune('_')
+				prev = true
+			}
+		}
+	}
+	result := strings.TrimSuffix(b.String(), "_")
+	if result == "" {
+		return "game"
+	}
+	return result
 }
 
 // GameEnv 游戏环境项
@@ -73,3 +117,18 @@ func (g *Game) SetConfig(config interface{}) error {
 	g.Config = string(data)
 	return nil
 }
+
+// GameEnvBinding is the authoritative per-game environment record stored in
+// the meta database's game_envs table. Each (GameID, Env) pair maps to a
+// physical database name used by the database-per-game router.
+type GameEnvBinding struct {
+	gorm.Model
+	GameID       string `gorm:"size:64;index:idx_game_envs_game_env,unique;not null" json:"gameId"`
+	Env          string `gorm:"size:64;index:idx_game_envs_game_env,unique;not null" json:"env"`
+	DatabaseName string `gorm:"size:128;not null" json:"databaseName"`
+	Description  string `gorm:"type:text" json:"description,omitempty"`
+	Color        string `gorm:"size:16" json:"color,omitempty"`
+}
+
+// TableName implements gorm.Tabler.
+func (GameEnvBinding) TableName() string { return "game_envs" }

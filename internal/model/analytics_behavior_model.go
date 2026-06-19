@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"gorm.io/gorm"
 )
 
@@ -32,7 +33,7 @@ func (m *BehaviorModel) RecordEvent(ctx context.Context, event *BehaviorEvent) e
 	if event.OccurredAt.IsZero() {
 		event.OccurredAt = NowUTC()
 	}
-	return m.db.WithContext(ctx).Create(event).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(event).Error
 }
 
 // ListEvents returns paginated behavior events.
@@ -44,7 +45,7 @@ func (m *BehaviorModel) ListEvents(ctx context.Context, opts BehaviorEventOption
 		total int64
 	)
 
-	query := m.db.WithContext(ctx).Model(&BehaviorEvent{})
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&BehaviorEvent{})
 
 	if opts.GameID != "" {
 		query = query.Where("game_id = ?", opts.GameID)
@@ -79,14 +80,14 @@ func (m *BehaviorModel) ListEvents(ctx context.Context, opts BehaviorEventOption
 
 // UpsertFeatureAdoption stores aggregated adoption data.
 func (m *BehaviorModel) UpsertFeatureAdoption(ctx context.Context, adoption *FeatureAdoption) error {
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Clauses(upsertAllColumns()).
 		Create(adoption).Error
 }
 
 // ListFeatureAdoptions fetches adoption snapshots.
 func (m *BehaviorModel) ListFeatureAdoptions(ctx context.Context, gameID, env string) ([]FeatureAdoption, error) {
-	query := m.db.WithContext(ctx).Model(&FeatureAdoption{})
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&FeatureAdoption{})
 	if gameID != "" {
 		query = query.Where("game_id = ?", gameID)
 	}
@@ -185,7 +186,7 @@ func (m *BehaviorModel) DailyActivity(ctx context.Context, gameID, env string, s
 }
 
 func (m *BehaviorModel) scopedEvents(ctx context.Context, gameID, env string, start, end time.Time) *gorm.DB {
-	query := m.db.WithContext(ctx).Model(&BehaviorEvent{})
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&BehaviorEvent{})
 	if gameID != "" {
 		query = query.Where("game_id = ?", gameID)
 	}

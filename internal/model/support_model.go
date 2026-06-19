@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"gorm.io/gorm"
 )
 
@@ -24,17 +25,17 @@ type ListTicketsOptions struct {
 
 // CreateTicket inserts ticket.
 func (m *SupportModel) CreateTicket(ctx context.Context, ticket *SupportTicket) error {
-	return m.db.WithContext(ctx).Create(ticket).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(ticket).Error
 }
 
 // UpdateTicket updates ticket fields.
 func (m *SupportModel) UpdateTicket(ctx context.Context, id uint, updates map[string]interface{}) error {
-	return m.db.WithContext(ctx).Model(&SupportTicket{}).Where("id = ?", id).Updates(updates).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&SupportTicket{}).Where("id = ?", id).Updates(updates).Error
 }
 
 // DeleteTicket deletes ticket.
 func (m *SupportModel) DeleteTicket(ctx context.Context, id uint) error {
-	return m.db.WithContext(ctx).Delete(&SupportTicket{}, id).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Delete(&SupportTicket{}, id).Error
 }
 
 // ListTickets returns paginated tickets.
@@ -46,7 +47,7 @@ func (m *SupportModel) ListTickets(ctx context.Context, opts ListTicketsOptions)
 		total int64
 	)
 
-	query := m.db.WithContext(ctx).Model(&SupportTicket{})
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&SupportTicket{})
 	if opts.Status != "" {
 		query = query.Where("status = ?", opts.Status)
 	}
@@ -64,13 +65,13 @@ func (m *SupportModel) ListTickets(ctx context.Context, opts ListTicketsOptions)
 
 // CreateComment inserts ticket comment.
 func (m *SupportModel) CreateComment(ctx context.Context, comment *SupportComment) error {
-	return m.db.WithContext(ctx).Create(comment).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(comment).Error
 }
 
 // ListComments fetches ticket comments.
 func (m *SupportModel) ListComments(ctx context.Context, ticketID uint) ([]SupportComment, error) {
 	var comments []SupportComment
-	err := m.db.WithContext(ctx).
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("ticket_id = ?", ticketID).
 		Order("created_at ASC").
 		Find(&comments).Error
@@ -79,24 +80,24 @@ func (m *SupportModel) ListComments(ctx context.Context, ticketID uint) ([]Suppo
 
 // CreateFAQ inserts FAQ.
 func (m *SupportModel) CreateFAQ(ctx context.Context, faq *SupportFAQ) error {
-	return m.db.WithContext(ctx).Create(faq).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(faq).Error
 }
 
 // ListFAQs returns FAQs.
 func (m *SupportModel) ListFAQs(ctx context.Context) ([]SupportFAQ, error) {
 	var faqs []SupportFAQ
-	err := m.db.WithContext(ctx).Order("sort DESC, id DESC").Find(&faqs).Error
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).Order("sort DESC, id DESC").Find(&faqs).Error
 	return faqs, err
 }
 
 // CreateFeedback inserts support feedback.
 func (m *SupportModel) CreateFeedback(ctx context.Context, feedback *SupportFeedback) error {
-	return m.db.WithContext(ctx).Create(feedback).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(feedback).Error
 }
 
 // ListFeedback returns support feedback entries.
 func (m *SupportModel) ListFeedback(ctx context.Context) ([]SupportFeedback, error) {
 	var entries []SupportFeedback
-	err := m.db.WithContext(ctx).Order("created_at DESC").Find(&entries).Error
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).Order("created_at DESC").Find(&entries).Error
 	return entries, err
 }

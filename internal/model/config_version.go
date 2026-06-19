@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"gorm.io/gorm"
 )
 
@@ -48,7 +49,7 @@ func (m *ConfigVersionModel) List(ctx context.Context, key string) ([]ConfigVers
 		return []ConfigVersion{}, nil
 	}
 	var records []ConfigVersion
-	if err := m.db.WithContext(ctx).
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("key = ?", key).
 		Order("version DESC").
 		Find(&records).Error; err != nil {
@@ -64,7 +65,7 @@ func (m *ConfigVersionModel) Find(ctx context.Context, key string, version int) 
 		return nil, gorm.ErrRecordNotFound
 	}
 	var record ConfigVersion
-	if err := m.db.WithContext(ctx).
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("key = ? AND version = ?", key, version).
 		First(&record).Error; err != nil {
 		return nil, err
@@ -92,7 +93,7 @@ func (m *ConfigVersionModel) CreateWithMeta(ctx context.Context, payload ConfigV
 
 	var latest ConfigVersion
 	var version int
-	err := m.db.WithContext(ctx).
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("key = ?", key).
 		Order("version DESC").
 		Take(&latest).Error
@@ -121,7 +122,7 @@ func (m *ConfigVersionModel) CreateWithMeta(ctx context.Context, payload ConfigV
 		Message:   strings.TrimSpace(payload.Message),
 		CreatedBy: createdBy,
 	}
-	if err := m.db.WithContext(ctx).Create(record).Error; err != nil {
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(record).Error; err != nil {
 		return nil, err
 	}
 	return record, nil
@@ -130,7 +131,7 @@ func (m *ConfigVersionModel) CreateWithMeta(ctx context.Context, payload ConfigV
 // ListLatest fetches the latest version per key with optional filters.
 func (m *ConfigVersionModel) ListLatest(ctx context.Context, opts ConfigListOptions) ([]ConfigVersion, error) {
 	// 先应用过滤条件到子查询
-	sub := m.db.WithContext(ctx).
+	sub := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Model(&ConfigVersion{}).
 		Select("key, MAX(version) AS version")
 
@@ -151,7 +152,7 @@ func (m *ConfigVersionModel) ListLatest(ctx context.Context, opts ConfigListOpti
 
 	// 查询完整记录
 	var records []ConfigVersion
-	query := m.db.WithContext(ctx).
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Table("config_versions").
 		Joins("JOIN (?) AS latest ON config_versions.key = latest.key AND config_versions.version = latest.version", sub)
 
@@ -175,7 +176,7 @@ func (m *ConfigVersionModel) FindLatest(ctx context.Context, key string) (*Confi
 		return nil, errors.New("config key required")
 	}
 	var record ConfigVersion
-	if err := m.db.WithContext(ctx).
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("key = ?", key).
 		Order("version DESC").
 		First(&record).Error; err != nil {

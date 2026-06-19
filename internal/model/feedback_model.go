@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"gorm.io/gorm"
 )
 
@@ -30,23 +31,23 @@ type ListFeedbackOptions struct {
 
 // Create inserts feedback entry.
 func (m *FeedbackModel) Create(ctx context.Context, feedback *Feedback) error {
-	return m.db.WithContext(ctx).Create(feedback).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(feedback).Error
 }
 
 // Update changes feedback fields.
 func (m *FeedbackModel) Update(ctx context.Context, id uint, updates map[string]interface{}) error {
-	return m.db.WithContext(ctx).Model(&Feedback{}).Where("id = ?", id).Updates(updates).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&Feedback{}).Where("id = ?", id).Updates(updates).Error
 }
 
 // Delete removes feedback entry.
 func (m *FeedbackModel) Delete(ctx context.Context, id uint) error {
-	return m.db.WithContext(ctx).Delete(&Feedback{}, id).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Delete(&Feedback{}, id).Error
 }
 
 // FindByID returns a single feedback record.
 func (m *FeedbackModel) FindByID(ctx context.Context, id uint) (*Feedback, error) {
 	var record Feedback
-	if err := m.db.WithContext(ctx).First(&record, id).Error; err != nil {
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).First(&record, id).Error; err != nil {
 		return nil, err
 	}
 	return &record, nil
@@ -61,7 +62,7 @@ func (m *FeedbackModel) List(ctx context.Context, opts ListFeedbackOptions) ([]F
 		total int64
 	)
 
-	query := m.db.WithContext(ctx).Model(&Feedback{})
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&Feedback{})
 	if opts.GameID != "" {
 		query = query.Where("game_id = ?", opts.GameID)
 	}
@@ -173,7 +174,7 @@ func (m *FeedbackModel) Stats(ctx context.Context, opts FeedbackStatsOptions) (*
 }
 
 func (m *FeedbackModel) statsQuery(ctx context.Context, opts FeedbackStatsOptions) *gorm.DB {
-	query := m.db.WithContext(ctx).Model(&Feedback{})
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&Feedback{})
 	if opts.GameID != "" {
 		query = query.Where("game_id = ?", opts.GameID)
 	}

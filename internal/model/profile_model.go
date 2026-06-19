@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"gorm.io/gorm"
 )
 
@@ -18,7 +19,7 @@ func NewProfileModel(db *gorm.DB) *ProfileModel {
 
 // ReplacePermissions replaces cached permissions for an admin.
 func (m *ProfileModel) ReplacePermissions(ctx context.Context, adminID uint, perms []ProfilePermission) error {
-	return m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("admin_id = ?", adminID).Delete(&ProfilePermission{}).Error; err != nil {
 			return err
 		}
@@ -35,7 +36,7 @@ func (m *ProfileModel) ReplacePermissions(ctx context.Context, adminID uint, per
 // ListPermissions returns cached permissions.
 func (m *ProfileModel) ListPermissions(ctx context.Context, adminID uint) ([]ProfilePermission, error) {
 	var perms []ProfilePermission
-	err := m.db.WithContext(ctx).
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("admin_id = ?", adminID).
 		Find(&perms).Error
 	return perms, err
@@ -43,7 +44,7 @@ func (m *ProfileModel) ListPermissions(ctx context.Context, adminID uint) ([]Pro
 
 // ReplaceGames replaces cached game scopes.
 func (m *ProfileModel) ReplaceGames(ctx context.Context, adminID uint, games []ProfileGame) error {
-	return m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("admin_id = ?", adminID).Delete(&ProfileGame{}).Error; err != nil {
 			return err
 		}
@@ -60,7 +61,7 @@ func (m *ProfileModel) ReplaceGames(ctx context.Context, adminID uint, games []P
 // ListGames returns cached games.
 func (m *ProfileModel) ListGames(ctx context.Context, adminID uint) ([]ProfileGame, error) {
 	var games []ProfileGame
-	err := m.db.WithContext(ctx).
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("admin_id = ?", adminID).
 		Find(&games).Error
 	return games, err

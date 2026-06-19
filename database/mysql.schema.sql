@@ -1,232 +1,294 @@
 -- MySQL 8.0+ schema for Croupier (database-per-game architecture)
--- This script creates the databases and all required tables.
--- Each game has its own independent database.
+-- This file mirrors current GORM models in MySQL syntax.
+-- Run the meta section once, then run the game-database template once per
+-- (game_id, env) pair after creating the physical database.
 
 -- =============================================
--- croupier_meta (元数据库)
+-- croupier_meta (元数据库) — run once
 -- =============================================
--- Contains metadata for all games: users, roles, permissions, games, environments
 
--- 0) Create metadata database with utf8mb4
 CREATE DATABASE IF NOT EXISTS `croupier_meta`
   DEFAULT CHARACTER SET utf8mb4
   DEFAULT COLLATE utf8mb4_unicode_ci;
 USE `croupier_meta`;
 
--- 1) Users, Roles, Role-Perms (gorm.Model)
-CREATE TABLE IF NOT EXISTS `user_accounts` (
+CREATE TABLE IF NOT EXISTS `admins` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `username` VARCHAR(64) NOT NULL,
-  `display_name` VARCHAR(128) NULL,
+  `nickname` VARCHAR(128) NULL,
   `email` VARCHAR(256) NULL,
   `phone` VARCHAR(32) NULL,
   `password_hash` VARCHAR(255) NULL,
-  `active` TINYINT(1) NOT NULL DEFAULT 1,
-  `otp_secret` VARCHAR(64) NULL,
+  `status` INT NOT NULL DEFAULT 1,
   `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   `deleted_at` DATETIME(3) NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_user_accounts_username` (`username`),
-  KEY `idx_user_accounts_email` (`email`)
+  UNIQUE KEY `uk_admins_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `role_records` (
+CREATE TABLE IF NOT EXISTS `roles` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(64) NOT NULL,
-  `description` VARCHAR(256) NULL,
-  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
-  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-  `deleted_at` DATETIME(3) NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_role_records_name` (`name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `user_role_records` (
-  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `user_id` BIGINT UNSIGNED NOT NULL,
-  `role_id` BIGINT UNSIGNED NOT NULL,
-  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
-  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-  `deleted_at` DATETIME(3) NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_user_role_records_user_role` (`user_id`,`role_id`),
-  KEY `idx_user_role_records_user_id` (`user_id`),
-  KEY `idx_user_role_records_role_id` (`role_id`),
-  CONSTRAINT `fk_user_role_user` FOREIGN KEY (`user_id`) REFERENCES `user_accounts` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_user_role_role` FOREIGN KEY (`role_id`) REFERENCES `role_records` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `role_perm_records` (
-  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `role_id` BIGINT UNSIGNED NOT NULL,
-  `perm` VARCHAR(128) NOT NULL,
-  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
-  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-  `deleted_at` DATETIME(3) NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_role_perm_role` (`role_id`),
-  KEY `idx_role_perm_perm` (`perm`),
-  CONSTRAINT `fk_role_perm_role` FOREIGN KEY (`role_id`) REFERENCES `role_records` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 2) Games Registry (metadata only)
-CREATE TABLE IF NOT EXISTS `games` (
-  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `game_id` VARCHAR(64) NOT NULL,
-  `name` VARCHAR(200) NOT NULL,
-  `icon` VARCHAR(255) NULL,
   `description` TEXT NULL,
-  `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+  `category` VARCHAR(64) NULL,
   `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   `deleted_at` DATETIME(3) NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_games_game_id` (`game_id`),
-  KEY `idx_games_name` (`name`)
+  UNIQUE KEY `uk_roles_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 3) Game Environments (metadata only)
-CREATE TABLE IF NOT EXISTS `game_envs` (
-  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `game_id` VARCHAR(64) NOT NULL,
-  `env` VARCHAR(64) NOT NULL,
-  `database_name` VARCHAR(128) NOT NULL,
-  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
-  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-  `deleted_at` DATETIME(3) NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_game_envs_game_env` (`game_id`, `env`),
-  KEY `idx_game_envs_game_id` (`game_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 4) Internal messages
-CREATE TABLE IF NOT EXISTS `message_records` (
-  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `to_user_id` BIGINT UNSIGNED NOT NULL,
-  `from_user_id` BIGINT UNSIGNED NULL,
-  `title` VARCHAR(200) NULL,
-  `content` TEXT NULL,
-  `type` VARCHAR(32) NULL,
-  `read_at` DATETIME(3) NULL,
-  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
-  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
-  `deleted_at` DATETIME(3) NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_message_records_to_user` (`to_user_id`),
-  KEY `idx_message_records_read_at` (`read_at`),
-  CONSTRAINT `fk_message_to_user` FOREIGN KEY (`to_user_id`) REFERENCES `user_accounts` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_message_from_user` FOREIGN KEY (`from_user_id`) REFERENCES `user_accounts` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `broadcast_message_records` (
-  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `title` VARCHAR(200) NULL,
-  `content` TEXT NULL,
-  `type` VARCHAR(32) NULL,
-  `audience` VARCHAR(16) NOT NULL,
+CREATE TABLE IF NOT EXISTS `permissions` (
+  `id` VARCHAR(128) NOT NULL,
+  `name` VARCHAR(128) NOT NULL,
+  `description` TEXT NULL,
+  `resource` VARCHAR(64) NOT NULL,
+  `action` VARCHAR(64) NOT NULL DEFAULT '*',
+  `category` VARCHAR(64) NULL,
   `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
   `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   `deleted_at` DATETIME(3) NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `broadcast_role_records` (
+CREATE TABLE IF NOT EXISTS `admin_roles` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `broadcast_id` BIGINT UNSIGNED NOT NULL,
-  `role_name` VARCHAR(64) NOT NULL,
+  `admin_id` BIGINT UNSIGNED NOT NULL,
+  `role_id` BIGINT UNSIGNED NOT NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_broadcast_role_records_broadcast` (`broadcast_id`),
-  KEY `idx_broadcast_role_records_role_name` (`role_name`),
-  CONSTRAINT `fk_broadcast_role_broadcast` FOREIGN KEY (`broadcast_id`) REFERENCES `broadcast_message_records` (`id`) ON DELETE CASCADE
+  UNIQUE KEY `uk_admin_roles` (`admin_id`,`role_id`),
+  CONSTRAINT `fk_admin_role_admin` FOREIGN KEY (`admin_id`) REFERENCES `admins` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_admin_role_role` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `broadcast_ack_records` (
+CREATE TABLE IF NOT EXISTS `role_permissions` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `broadcast_id` BIGINT UNSIGNED NOT NULL,
-  `user_id` BIGINT UNSIGNED NOT NULL,
-  `read_at` DATETIME(3) NOT NULL,
+  `role_id` BIGINT UNSIGNED NOT NULL,
+  `permission_id` VARCHAR(128) NOT NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_broadcast_ack_user` (`broadcast_id`,`user_id`),
-  KEY `idx_broadcast_ack_user` (`user_id`),
-  CONSTRAINT `fk_broadcast_ack_broadcast` FOREIGN KEY (`broadcast_id`) REFERENCES `broadcast_message_records` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_broadcast_ack_user` FOREIGN KEY (`user_id`) REFERENCES `user_accounts` (`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_role_perm_role` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_role_perm_perm` FOREIGN KEY (`permission_id`) REFERENCES `permissions` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `admin_game_scopes` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `admin_id` BIGINT UNSIGNED NOT NULL,
+  `game_id` BIGINT UNSIGNED NOT NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `fk_admgame_admin` FOREIGN KEY (`admin_id`) REFERENCES `admins` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `admin_game_env_scopes` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `admin_id` BIGINT UNSIGNED NOT NULL,
+  `game_id` BIGINT UNSIGNED NOT NULL,
+  `env` VARCHAR(64) NOT NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `fk_admenv_admin` FOREIGN KEY (`admin_id`) REFERENCES `admins` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Games registry (game_id is the business identifier)
+CREATE TABLE IF NOT EXISTS `games` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `game_id` VARCHAR(64) NOT NULL,
+  `name` VARCHAR(128) NOT NULL,
+  `icon` VARCHAR(255) NULL,
+  `description` TEXT NULL,
+  `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+  `alias_name` VARCHAR(64) NULL,
+  `homepage` VARCHAR(255) NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'dev',
+  `game_type` VARCHAR(64) NULL,
+  `genre_code` VARCHAR(64) NULL,
+  `config` TEXT NULL,
+  `color` VARCHAR(32) NULL,
+  `envs` JSON NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_games_game_id` (`game_id`),
+  UNIQUE KEY `uk_games_alias_name` (`alias_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Game environments with database routing
+CREATE TABLE IF NOT EXISTS `game_envs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `game_id` VARCHAR(64) NOT NULL,
+  `env` VARCHAR(64) NOT NULL,
+  `database_name` VARCHAR(128) NOT NULL,
+  `description` TEXT NULL,
+  `color` VARCHAR(16) NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_game_envs` (`game_id`, `env`),
+  KEY `idx_game_envs_game_id` (`game_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================
--- game_demo_prod (游戏数据库示例)
+-- game_<game_id>_<env> (游戏数据库) — run once per game database
 -- =============================================
--- Each game has its own independent database.
--- The game_id and env are implicit from the database name.
--- Example: game_demo_prod, game_demo_staging, game_rpg_prod
+-- Create the game database first, then run the template below inside it:
+--
+--   CREATE DATABASE game_demo_prod;
+--   USE game_demo_prod;
+--   -- then run all CREATE TABLE statements from the GAME section below
+--
+-- Tables in the game database do NOT carry game_id/env columns — those are
+-- implicit from the database name.
 
--- 5) Create game database
-CREATE DATABASE IF NOT EXISTS `game_demo_prod`
-  DEFAULT CHARACTER SET utf8mb4
-  DEFAULT COLLATE utf8mb4_unicode_ci;
-USE `game_demo_prod`;
+-- ---- GAME TABLE TEMPLATE (run inside each game database) ----
 
--- 6) Game Events (game_id and env implicit from database name)
-CREATE TABLE IF NOT EXISTS `events` (
+CREATE TABLE IF NOT EXISTS `players` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `event_time` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `username` VARCHAR(64) NOT NULL,
+  `nickname` VARCHAR(128) NULL,
+  `email` VARCHAR(256) NULL,
+  `phone` VARCHAR(32) NULL,
+  `status` INT NOT NULL DEFAULT 1,
+  `balance` BIGINT NOT NULL DEFAULT 0,
+  `level` INT NOT NULL DEFAULT 1,
+  `vip` INT NOT NULL DEFAULT 0,
+  `password` VARCHAR(255) NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_players_username` (`username`),
+  KEY `idx_players_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `functions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `function_id` VARCHAR(128) NOT NULL,
+  `name` VARCHAR(256) NULL,
+  `metadata` JSON NULL,
+  `enabled` TINYINT(1) NOT NULL DEFAULT 1,
+  `spec_format` VARCHAR(32) NULL,
+  `open_api_spec` JSON NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_functions_function_id` (`function_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `behavior_events` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `event_type` VARCHAR(128) NOT NULL,
   `user_id` VARCHAR(64) NULL,
-  `session_id` VARCHAR(64) NULL,
-  `event` VARCHAR(128) NOT NULL,
-  `channel` VARCHAR(64) NULL,
-  `platform` VARCHAR(32) NULL,
-  `country` CHAR(2) NULL,
-  `app_version` VARCHAR(32) NULL,
-  `event_id` CHAR(36) NULL,
-  `server_id` VARCHAR(64) NULL,
-  `props_json` TEXT NULL,
+  `occurred_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `properties` JSON NULL,
   `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_events_event_time` (`event_time`),
-  KEY `idx_events_user_id` (`user_id`),
-  KEY `idx_events_event` (`event`),
-  KEY `idx_events_server_id` (`server_id`)
+  KEY `idx_behavior_events_type` (`event_type`),
+  KEY `idx_behavior_events_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7) Game Payments (game_id and env implicit from database name)
-CREATE TABLE IF NOT EXISTS `payments` (
+CREATE TABLE IF NOT EXISTS `payment_transactions` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `time` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `transaction_id` VARCHAR(128) NOT NULL,
   `user_id` VARCHAR(64) NOT NULL,
-  `order_id` VARCHAR(128) NOT NULL,
-  `amount_cents` BIGINT UNSIGNED NOT NULL,
-  `currency` CHAR(3) NULL,
-  `status` VARCHAR(32) NULL,
-  `channel` VARCHAR(64) NULL,
-  `platform` VARCHAR(32) NULL,
-  `country` CHAR(2) NULL,
-  `region` VARCHAR(64) NULL,
-  `city` VARCHAR(128) NULL,
   `product_id` VARCHAR(128) NULL,
-  `reason` TEXT NULL,
-  `server_id` VARCHAR(64) NULL,
+  `amount` DECIMAL(12,2) NULL,
+  `currency` VARCHAR(8) NULL,
+  `status` VARCHAR(32) NULL,
+  `occurred_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
   `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_payments_order_id` (`order_id`),
-  KEY `idx_payments_time` (`time`),
-  KEY `idx_payments_user_id` (`user_id`),
-  KEY `idx_payments_status` (`status`),
-  KEY `idx_payments_server_id` (`server_id`)
+  UNIQUE KEY `uk_payment_txn_id` (`transaction_id`),
+  KEY `idx_payment_txn_user` (`user_id`),
+  KEY `idx_payment_txn_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 8) Game Metrics (game_id and env implicit from database name)
-CREATE TABLE IF NOT EXISTS `game_metrics` (
+CREATE TABLE IF NOT EXISTS `task_runs` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `metric_date` DATE NOT NULL,
-  `server_id` VARCHAR(64) NULL,
-  `dau` BIGINT UNSIGNED NULL,
-  `new_users` BIGINT UNSIGNED NULL,
-  `revenue_cents` BIGINT UNSIGNED NULL,
-  `peak_online` INTEGER UNSIGNED NULL,
-  `version` BIGINT UNSIGNED NULL,
+  `task_id` VARCHAR(128) NOT NULL,
+  `function_id` VARCHAR(128) NULL,
+  `status` VARCHAR(32) NULL,
+  `payload` JSON NULL,
+  `result` JSON NULL,
+  `error` TEXT NULL,
   `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_game_metrics_date_server` (`metric_date`, `server_id`),
-  KEY `idx_game_metrics_metric_date` (`metric_date`),
-  KEY `idx_game_metrics_server_id` (`server_id`)
+  UNIQUE KEY `uk_task_runs_task_id` (`task_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `task_events` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `task_id` BIGINT UNSIGNED NOT NULL,
+  `event_type` VARCHAR(64) NULL,
+  `message` TEXT NULL,
+  `payload` JSON NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `tickets` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `ticket_id` VARCHAR(128) NOT NULL,
+  `title` VARCHAR(256) NULL,
+  `description` TEXT NULL,
+  `status` VARCHAR(32) NULL,
+  `priority` VARCHAR(32) NULL,
+  `created_by` VARCHAR(64) NULL,
+  `assigned_to` VARCHAR(64) NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tickets_ticket_id` (`ticket_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `feedbacks` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `category` VARCHAR(64) NULL,
+  `subject` VARCHAR(256) NULL,
+  `content` TEXT NULL,
+  `rating` INT NULL,
+  `status` VARCHAR(32) NULL,
+  `submitted_by` VARCHAR(64) NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `config_versions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `key` VARCHAR(256) NOT NULL,
+  `version` BIGINT NOT NULL DEFAULT 1,
+  `value` JSON NULL,
+  `created_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  `deleted_at` DATETIME(3) NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Note: For the full list of game-scoped tables, see database/schema.sql
+-- (PostgreSQL version) which mirrors all GORM models. The tables above are
+-- the most commonly used; the remaining game tables follow the same pattern
+-- (no game_id/env columns, identical structure across all game databases).

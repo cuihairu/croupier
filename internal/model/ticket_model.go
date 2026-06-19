@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"gorm.io/gorm"
 )
 
@@ -27,23 +28,23 @@ type TicketQueryOptions struct {
 
 // Create inserts a ticket.
 func (m *TicketModel) Create(ctx context.Context, ticket *Ticket) error {
-	return m.db.WithContext(ctx).Create(ticket).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(ticket).Error
 }
 
 // Update modifies a ticket.
 func (m *TicketModel) Update(ctx context.Context, id uint, updates map[string]interface{}) error {
-	return m.db.WithContext(ctx).Model(&Ticket{}).Where("id = ?", id).Updates(updates).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&Ticket{}).Where("id = ?", id).Updates(updates).Error
 }
 
 // Delete removes a ticket.
 func (m *TicketModel) Delete(ctx context.Context, id uint) error {
-	return m.db.WithContext(ctx).Delete(&Ticket{}, id).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Delete(&Ticket{}, id).Error
 }
 
 // FindOne loads a ticket.
 func (m *TicketModel) FindOne(ctx context.Context, id uint) (*Ticket, error) {
 	var ticket Ticket
-	if err := m.db.WithContext(ctx).First(&ticket, id).Error; err != nil {
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).First(&ticket, id).Error; err != nil {
 		return nil, err
 	}
 	return &ticket, nil
@@ -57,7 +58,7 @@ func (m *TicketModel) List(ctx context.Context, opts TicketQueryOptions) ([]Tick
 		total int64
 	)
 
-	query := m.db.WithContext(ctx).Model(&Ticket{})
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&Ticket{})
 	if opts.Status != "" {
 		query = query.Where("status = ?", opts.Status)
 	}
@@ -87,13 +88,13 @@ func (m *TicketModel) List(ctx context.Context, opts TicketQueryOptions) ([]Tick
 
 // CreateComment inserts ticket comment.
 func (m *TicketModel) CreateComment(ctx context.Context, comment *TicketComment) error {
-	return m.db.WithContext(ctx).Create(comment).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(comment).Error
 }
 
 // ListComments fetches ticket comments.
 func (m *TicketModel) ListComments(ctx context.Context, ticketID uint) ([]TicketComment, error) {
 	var comments []TicketComment
-	err := m.db.WithContext(ctx).
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("ticket_id = ?", ticketID).
 		Order("created_at ASC").
 		Find(&comments).Error

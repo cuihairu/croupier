@@ -54,7 +54,7 @@
 
 `handler(context_metadata, payload) -> result`
 
-- `context_metadata`：JSON 字符串（包含 trace、tenant、metadata 等平台控制字段）
+- `context_metadata`：JSON 字符串（包含 trace、game_id、env、metadata 等平台控制字段）
 - `payload`：UTF-8 JSON 字节序列
 - `result`：UTF-8 JSON 字符串或字节序列
 
@@ -76,7 +76,7 @@
 | `agent_addr` | 是 | Agent TCP 地址 |
 | `service_id` | 是 | Provider / 进程标识 |
 | `service_version` | 否 | Provider 版本，默认 `1.0.0` |
-| `game_id` | 否 | 多租户隔离 |
+| `game_id` | 否 | 游戏作用域标识（game scope） |
 | `env` | 否 | `development` / `staging` / `production` |
 | `insecure` | 否 | 是否跳过 TLS，默认 `true`（开发友好） |
 | `auto_reconnect` | 否 | 默认 `true` |

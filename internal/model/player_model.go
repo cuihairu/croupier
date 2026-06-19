@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -40,13 +41,13 @@ func (m *PlayerModel) Create(ctx context.Context, player *Player, password strin
 		}
 		player.Password = string(hashedPassword)
 	}
-	return m.db.WithContext(ctx).Create(player).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(player).Error
 }
 
 // FindOne 根据 ID 获取玩家
 func (m *PlayerModel) FindOne(ctx context.Context, id uint) (*Player, error) {
 	var player Player
-	if err := m.db.WithContext(ctx).First(&player, id).Error; err != nil {
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).First(&player, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("player not found")
 		}
@@ -58,7 +59,7 @@ func (m *PlayerModel) FindOne(ctx context.Context, id uint) (*Player, error) {
 // FindByUsername 根据用户名获取玩家
 func (m *PlayerModel) FindByUsername(ctx context.Context, username string, gameID string) (*Player, error) {
 	var player Player
-	query := m.db.WithContext(ctx).Where("username = ?", username)
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Where("username = ?", username)
 	if gameID != "" {
 		query = query.Where("game_id = ?", gameID)
 	}
@@ -73,12 +74,12 @@ func (m *PlayerModel) FindByUsername(ctx context.Context, username string, gameI
 
 // Update 更新玩家
 func (m *PlayerModel) Update(ctx context.Context, id uint, updates map[string]interface{}) error {
-	return m.db.WithContext(ctx).Model(&Player{}).Where("id = ?", id).Updates(updates).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&Player{}).Where("id = ?", id).Updates(updates).Error
 }
 
 // Delete 删除玩家
 func (m *PlayerModel) Delete(ctx context.Context, id uint) error {
-	return m.db.WithContext(ctx).Delete(&Player{}, id).Error
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Delete(&Player{}, id).Error
 }
 
 // List 分页获取玩家列表
@@ -95,7 +96,7 @@ func (m *PlayerModel) List(ctx context.Context, opts ListPlayersOptions) ([]Play
 		total   int64
 	)
 
-	query := m.db.WithContext(ctx).Model(&Player{})
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&Player{})
 
 	if opts.GameID != "" {
 		query = query.Where("game_id = ?", opts.GameID)
@@ -154,7 +155,7 @@ func (m *PlayerModel) UpdatePassword(ctx context.Context, id uint, newPassword s
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %w", err)
 	}
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Model(&Player{}).
 		Where("id = ?", id).
 		Update("password", string(hashedPassword)).Error
@@ -163,7 +164,7 @@ func (m *PlayerModel) UpdatePassword(ctx context.Context, id uint, newPassword s
 // UpdateBalance 更新玩家余额
 func (m *PlayerModel) UpdateBalance(ctx context.Context, id uint, amount int64, reason string) (*Player, error) {
 	var player Player
-	err := m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// 先获取当前玩家信息
 		if err := tx.First(&player, id).Error; err != nil {
 			return err
@@ -191,7 +192,7 @@ func (m *PlayerModel) UpdateBalance(ctx context.Context, id uint, amount int64, 
 
 // BanPlayer 封禁玩家
 func (m *PlayerModel) BanPlayer(ctx context.Context, id uint) error {
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Model(&Player{}).
 		Where("id = ?", id).
 		Update("status", 0).Error
@@ -199,7 +200,7 @@ func (m *PlayerModel) BanPlayer(ctx context.Context, id uint) error {
 
 // SuspendPlayer 暂停玩家
 func (m *PlayerModel) SuspendPlayer(ctx context.Context, id uint) error {
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Model(&Player{}).
 		Where("id = ?", id).
 		Update("status", 2).Error
@@ -207,7 +208,7 @@ func (m *PlayerModel) SuspendPlayer(ctx context.Context, id uint) error {
 
 // ActivatePlayer 激活玩家
 func (m *PlayerModel) ActivatePlayer(ctx context.Context, id uint) error {
-	return m.db.WithContext(ctx).
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Model(&Player{}).
 		Where("id = ?", id).
 		Update("status", 1).Error
@@ -261,7 +262,7 @@ func (m *PlayerModel) DailyNewPlayers(ctx context.Context, gameID string, start,
 }
 
 func (m *PlayerModel) scopedPlayers(ctx context.Context, gameID string, start, end time.Time) *gorm.DB {
-	query := m.db.WithContext(ctx).Model(&Player{})
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&Player{})
 	if gameID != "" {
 		query = query.Where("game_id = ?", gameID)
 	}

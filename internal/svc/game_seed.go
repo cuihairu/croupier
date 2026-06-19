@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/config"
+	"github.com/cuihairu/croupier/internal/db/router"
 	"github.com/cuihairu/croupier/internal/model"
 )
 
@@ -98,7 +99,17 @@ func seedBootstrapGames(ctx *ServiceContext) error {
 			slog.Default().Error("failed to create bootstrap game", "name", record.Name, "error", err)
 			continue
 		}
-		slog.Default().Info("seed bootstrap game", "name", record.Name, "alias", record.AliasName)
+		slog.Default().Info("seed bootstrap game", "name", record.Name, "alias", record.AliasName, "gameId", record.GameID)
+
+		// Create env bindings (game_envs table) for database-per-game routing.
+		envs, _ := record.GetEnvs()
+		for _, env := range envs {
+			dbName := router.DefaultGameDBName(record.GameID, env.Env)
+			if err := ctx.GameModel.AddEnvBinding(bg, record.GameID, env.Env, dbName, env.Description, env.Color); err != nil {
+				slog.Default().Error("failed to create game env binding",
+					"gameId", record.GameID, "env", env.Env, "error", err)
+			}
+		}
 	}
 	return nil
 }
@@ -219,6 +230,7 @@ func buildGameFromSeed(entry bootstrapGameSeedEntry, defaults []model.GameEnv, i
 	}
 
 	game := &model.Game{
+		GameID:      gameID,
 		Name:        gameID,
 		AliasName:   alias,
 		Description: strings.TrimSpace(entry.Description),

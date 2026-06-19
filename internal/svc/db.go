@@ -18,6 +18,13 @@ import (
 )
 
 func openDatabase(cfg config.Config) (*gorm.DB, error) {
+	driver, dsn := resolveDriverAndDSN(cfg)
+	return openGorm(driver, dsn)
+}
+
+// resolveDriverAndDSN resolves the effective driver and DSN from config and
+// environment overrides (DB_DRIVER, DATABASE_URL).
+func resolveDriverAndDSN(cfg config.Config) (string, string) {
 	driver := strings.ToLower(strings.TrimSpace(cfg.Database.Driver))
 	dsn := strings.TrimSpace(cfg.Database.DataSource)
 
@@ -45,6 +52,12 @@ func openDatabase(cfg config.Config) (*gorm.DB, error) {
 			driver = "sqlite"
 		}
 	}
+	return driver, dsn
+}
+
+// openGorm opens a *gorm.DB for the given driver and DSN, auto-creating the
+// physical database when it does not yet exist (for non-sqlite drivers).
+func openGorm(driver, dsn string) (*gorm.DB, error) {
 
 	switch driver {
 	case "sqlite", "sqlite3":
@@ -335,4 +348,144 @@ func createSQLServerDatabase(dsn, dbName string) error {
 	// 创建数据库（如果不存在）
 	_, err = db.Exec(fmt.Sprintf("IF NOT EXISTS (SELECT name FROM sys.databases WHERE name='%s') CREATE DATABASE [%s]", dbName, dbName))
 	return err
+}
+
+// ============================================================================
+// Per-game database helpers (used by internal/db/router)
+// ============================================================================
+
+// OpenGormForRouter is the DatabaseOpener callback for the router. It opens a
+// *gorm.DB for the given driver and DSN without auto-creating the database
+// (the router calls EnsureGameDatabase first).
+func OpenGormForRouter(driver, dsn string) (*gorm.DB, error) {
+	return openGorm(driver, dsn)
+}
+
+// DSNForDatabase returns a DSN that points at the given physical database
+// name, derived from the meta DSN. For SQLite the database name is used as a
+// sibling file (e.g. "data/croupier.db" + "game_demo_prod" →
+// "data/game_demo_prod.db").
+func DSNForDatabase(driver, metaDSN, dbName string) string {
+	switch driver {
+	case "sqlite", "sqlite3":
+		return sqliteDSNForGame(metaDSN, dbName)
+	case "postgres", "postgresql", "pg":
+		return removeDBFromPostgresDSN(metaDSN, dbName)
+	case "mysql":
+		return replaceMySQLDSNDB(metaDSN, dbName)
+	case "sqlserver":
+		return replaceDBInSQLServerDSN(metaDSN, dbName)
+	default:
+		return removeDBFromPostgresDSN(metaDSN, dbName)
+	}
+}
+
+// EnsureGameDatabase creates the physical database named dbName on the server
+// reachable from metaDSN, then returns the DSN pointing at it. For SQLite
+// this is a no-op (the file is created on open). For server-based drivers it
+// connects to an admin database and runs CREATE DATABASE IF NOT EXISTS.
+func EnsureGameDatabase(driver, metaDSN, dbName string) (string, error) {
+	gameDSN := DSNForDatabase(driver, metaDSN, dbName)
+	switch driver {
+	case "sqlite", "sqlite3":
+		if err := ensureSQLiteDir(gameDSN); err != nil {
+			return "", err
+		}
+		return gameDSN, nil
+	case "postgres", "postgresql", "pg":
+		// Try connecting first; only create if missing.
+		if _, err := gorm.Open(gpostgres.Open(gameDSN), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)}); err != nil {
+			if strings.Contains(err.Error(), "database") && strings.Contains(err.Error(), "does not exist") {
+				adminDSN := removeDBFromPostgresDSN(metaDSN, "postgres")
+				if err := createPostgresDatabase(adminDSN, dbName); err != nil {
+					return "", fmt.Errorf("create postgres database %s: %w", dbName, err)
+				}
+			} else {
+				return "", err
+			}
+		}
+		return gameDSN, nil
+	case "mysql":
+		if _, err := gorm.Open(gmysql.Open(gameDSN), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)}); err != nil {
+			if strings.Contains(err.Error(), "Unknown database") {
+				adminDSN := removeDBFromMySQLDSN(metaDSN)
+				if err := createMySQLDatabase(adminDSN, dbName); err != nil {
+					return "", fmt.Errorf("create mysql database %s: %w", dbName, err)
+				}
+			} else {
+				return "", err
+			}
+		}
+		return gameDSN, nil
+	case "sqlserver":
+		if _, err := gorm.Open(gsqlserver.Open(gameDSN), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)}); err != nil {
+			if strings.Contains(err.Error(), "Could not locate database") || strings.Contains(err.Error(), "invalid database") {
+				adminDSN := replaceDBInSQLServerDSN(metaDSN, "master")
+				if err := createSQLServerDatabase(adminDSN, dbName); err != nil {
+					return "", fmt.Errorf("create sqlserver database %s: %w", dbName, err)
+				}
+			} else {
+				return "", err
+			}
+		}
+		return gameDSN, nil
+	default:
+		return gameDSN, fmt.Errorf("unsupported driver %q", driver)
+	}
+}
+
+// sqliteDSNForGame replaces the file name in a SQLite meta DSN with a game DB
+// file name, preserving the directory and query parameters.
+//
+//	e.g. "data/croupier.db" + "game_demo_prod" → "data/game_demo_prod.db"
+//	     "file:data/croupier.db?cache=shared" + "game_demo_prod" → "file:data/game_demo_prod.db?cache=shared"
+func sqliteDSNForGame(metaDSN, dbName string) string {
+	if metaDSN == "" || metaDSN == ":memory:" {
+		// In-memory meta: fall back to an in-memory game DB (tests only).
+		return "file:" + dbName + "?mode=memory&cache=shared"
+	}
+
+	raw := metaDSN
+	prefix := ""
+	query := ""
+
+	if strings.HasPrefix(raw, "sqlite:///") {
+		prefix = "sqlite:///"
+		raw = strings.TrimPrefix(raw, prefix)
+	} else if strings.HasPrefix(raw, "file:") {
+		prefix = "file:"
+		raw = strings.TrimPrefix(raw, prefix)
+	}
+	if idx := strings.IndexByte(raw, '?'); idx >= 0 {
+		query = raw[idx:]
+		raw = raw[:idx]
+	}
+
+	dir := filepath.Dir(raw)
+	if dir == "." || dir == "" {
+		return prefix + dbName + ".db" + query
+	}
+	return prefix + filepath.Join(dir, dbName+".db") + query
+}
+
+// replaceMySQLDSNDB swaps the database name in a MySQL DSN.
+//
+//	e.g. "user:pass@tcp(host:3306)/croupier_meta?param=1" + "game_demo_prod"
+//	     → "user:pass@tcp(host:3306)/game_demo_prod?param=1"
+func replaceMySQLDSNDB(dsn, dbName string) string {
+	// Strip any "mysql://" scheme prefix for uniform handling.
+	scheme := ""
+	if strings.HasPrefix(dsn, "mysql://") {
+		scheme = "mysql://"
+		dsn = strings.TrimPrefix(dsn, scheme)
+	}
+	re := regexp.MustCompile(`/([^/?]*)(\?)`)
+	if loc := re.FindStringSubmatchIndex(dsn); loc != nil {
+		return dsn[:loc[2]+1] + dbName + dsn[loc[3]:]
+	}
+	// No query string: the path segment is everything after the last '/'.
+	if idx := strings.LastIndexByte(dsn, '/'); idx >= 0 {
+		return scheme + dsn[:idx+1] + dbName
+	}
+	return scheme + dsn + "/" + dbName
 }

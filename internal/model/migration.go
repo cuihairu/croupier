@@ -11,7 +11,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// AutoMigrate runs gorm auto migration for all server-owned tables.
+// AutoMigrate runs gorm auto migration for all server-owned tables against a
+// single (meta) database. This is the legacy single-DB path kept for the
+// non-multiGame configuration.
 func AutoMigrate(db *gorm.DB) error {
 	if err := renameLegacyTables(db); err != nil {
 		return err
@@ -22,7 +24,7 @@ func AutoMigrate(db *gorm.DB) error {
 	if db != nil && db.Dialector != nil && db.Dialector.Name() == "postgres" {
 		var lastErr error
 		for range 5 {
-			if err := autoMigrateModels(db); err == nil {
+			if err := autoMigrateAllModels(db); err == nil {
 				if err := migrateFunctionOpenAPIColumns(db); err != nil {
 					return err
 				}
@@ -37,20 +39,36 @@ func AutoMigrate(db *gorm.DB) error {
 		if lastErr != nil {
 			return lastErr
 		}
-		if err := autoMigrateModels(db); err != nil {
+		if err := autoMigrateAllModels(db); err != nil {
 			return err
 		}
 		return migrateFunctionOpenAPIColumns(db)
 	}
 
-	if err := autoMigrateModels(db); err != nil {
+	if err := autoMigrateAllModels(db); err != nil {
 		return err
 	}
 	return migrateFunctionOpenAPIColumns(db)
 }
 
-func autoMigrateModels(db *gorm.DB) error {
-	return db.AutoMigrate(
+// AutoMigrateMeta runs migrations only for meta-level models (those that live
+// in croupier_meta under the database-per-game architecture).
+func AutoMigrateMeta(db *gorm.DB) error {
+	if err := renameLegacyTables(db); err != nil {
+		return err
+	}
+	return migrateModels(db, MetaModels())
+}
+
+// AutoMigrateGame runs migrations only for game-scoped models (those that live
+// in each per-game database like game_demo_prod).
+func AutoMigrateGame(db *gorm.DB) error {
+	return migrateModels(db, GameModels())
+}
+
+// MetaModels returns the list of model values that belong in the meta database.
+func MetaModels() []interface{} {
+	return []interface{}{
 		&Admin{},
 		&Role{},
 		&Permission{},
@@ -60,42 +78,19 @@ func autoMigrateModels(db *gorm.DB) error {
 		&AdminGameEnvScope{},
 		&Entity{},
 		&Game{},
-		&Player{},
-		&ProfilePermission{},
-		&ProfileGame{},
-		&Function{},
-		&FunctionDescriptor{},
+		&GameEnvBinding{},
 		&Descriptor{},
-		&FunctionInstance{},
-		&FunctionPermission{},
-		&PendingFunction{},
-		&FunctionPolicy{},
 		&Alert{},
 		&AlertSilence{},
-		&BehaviorEvent{},
-		&FeatureAdoption{},
-		&PaymentTransaction{},
-		&ProductTrend{},
-		&RetentionCohort{},
 		&Backup{},
-		&TaskRun{},
-		&TaskEvent{},
 		&FAQ{},
 		&FAQCategory{},
-		&Feedback{},
-		&SupportTicket{},
-		&SupportComment{},
-		&SupportFAQ{},
-		&SupportFeedback{},
-		&Ticket{},
-		&TicketComment{},
 		&RateLimit{},
 		&Node{},
 		&NodeCommand{},
 		&Message{},
 		&Certificate{},
 		&CertificateAlert{},
-		&ConfigVersion{},
 		&AgentSessionDB{},
 		&TermDictionary{},
 		&WorkspaceConfig{},
@@ -104,7 +99,69 @@ func autoMigrateModels(db *gorm.DB) error {
 		&ExtensionInstallation{},
 		&ExtensionRuntimeBinding{},
 		&ExtensionEvent{},
-	)
+	}
+}
+
+// GameModels returns the list of model values that belong in each per-game
+// database. These are tables whose data is fully isolated per (game_id, env).
+func GameModels() []interface{} {
+	return []interface{}{
+		&Player{},
+		&ProfilePermission{},
+		&ProfileGame{},
+		&Function{},
+		&FunctionDescriptor{},
+		&FunctionInstance{},
+		&FunctionPermission{},
+		&PendingFunction{},
+		&FunctionPolicy{},
+		&BehaviorEvent{},
+		&FeatureAdoption{},
+		&PaymentTransaction{},
+		&ProductTrend{},
+		&RetentionCohort{},
+		&TaskRun{},
+		&TaskEvent{},
+		&Feedback{},
+		&SupportTicket{},
+		&SupportComment{},
+		&SupportFAQ{},
+		&SupportFeedback{},
+		&Ticket{},
+		&TicketComment{},
+		&ConfigVersion{},
+	}
+}
+
+// migrateModels runs AutoMigrate for a specific list of models, applying the
+// postgres self-healing loop when relevant.
+func migrateModels(db *gorm.DB, models []interface{}) error {
+	if db != nil && db.Dialector != nil && db.Dialector.Name() == "postgres" {
+		var lastErr error
+		for range 5 {
+			if err := db.AutoMigrate(models...); err == nil {
+				return nil
+			} else if tryFixPostgresMissingConstraint(db, err) {
+				lastErr = err
+				continue
+			} else {
+				return err
+			}
+		}
+		if lastErr != nil {
+			return lastErr
+		}
+	}
+	return db.AutoMigrate(models...)
+}
+
+// autoMigrateAllModels migrates every model (meta + game) into a single
+// database. Used by the legacy AutoMigrate entry point.
+func autoMigrateAllModels(db *gorm.DB) error {
+	all := make([]interface{}, 0, len(MetaModels())+len(GameModels()))
+	all = append(all, MetaModels()...)
+	all = append(all, GameModels()...)
+	return db.AutoMigrate(all...)
 }
 
 var postgresMissingConstraintRe = regexp.MustCompile(`constraint "([^"]+)" of relation "([^"]+)" does not exist`)
