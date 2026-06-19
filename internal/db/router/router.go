@@ -84,8 +84,9 @@ type Router struct {
 	cfg    Config
 	metaDB *gorm.DB
 
-	mu    sync.RWMutex
-	cache map[string]*gorm.DB // keyed by physical database name
+	mu       sync.RWMutex
+	cache    map[string]*gorm.DB // keyed by physical database name
+	gameOfDB map[string]string   // dbName → gameID (for ForgetGame)
 }
 
 // New constructs a Router. metaDB must already be open and migrated.
@@ -94,9 +95,10 @@ func New(cfg Config, metaDB *gorm.DB) *Router {
 		cfg.NameForGame = DefaultGameDBName
 	}
 	return &Router{
-		cfg:    cfg,
-		metaDB: metaDB,
-		cache:  make(map[string]*gorm.DB),
+		cfg:      cfg,
+		metaDB:   metaDB,
+		cache:    make(map[string]*gorm.DB),
+		gameOfDB: make(map[string]string),
 	}
 }
 
@@ -139,6 +141,7 @@ func (r *Router) GameDB(_ context.Context, gameID, env string) (*gorm.DB, error)
 		return nil, err
 	}
 	r.cache[dbName] = db
+	r.gameOfDB[dbName] = gameID
 	return db, nil
 }
 
@@ -165,6 +168,50 @@ func (r *Router) Close() error {
 			}
 		}
 		delete(r.cache, name)
+		delete(r.gameOfDB, name)
+	}
+	return firstErr
+}
+
+// Forget closes and removes the cached connection for a single (gameID, env)
+// pair. Use this when an environment is deleted to avoid leaking connections.
+// If the connection is not cached, it is a no-op. Subsequent GameDB calls for
+// the same scope will re-open the database.
+func (r *Router) Forget(gameID, env string) error {
+	dbName := r.cfg.NameForGame(gameID, env)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	db, ok := r.cache[dbName]
+	if !ok {
+		return nil
+	}
+	delete(r.cache, dbName)
+	delete(r.gameOfDB, dbName)
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil
+	}
+	return sqlDB.Close()
+}
+
+// ForgetGame closes and removes all cached connections belonging to the given
+// gameID, regardless of env. Use this when an entire game is deleted to clean
+// up all its environment connections.
+func (r *Router) ForgetGame(gameID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var firstErr error
+	for name, gdb := range r.cache {
+		if r.gameOfDB[name] != gameID {
+			continue
+		}
+		delete(r.cache, name)
+		delete(r.gameOfDB, name)
+		if sqlDB, err := gdb.DB(); err == nil {
+			if err := sqlDB.Close(); err != nil && firstErr == nil {
+				firstErr = err
+			}
+		}
 	}
 	return firstErr
 }

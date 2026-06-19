@@ -190,8 +190,27 @@ func (s *Service) Delete(ctx context.Context, req *GameDeleteRequest) error {
 		return err
 	}
 
+	// Fetch the game before deletion to get its business GameID for cleanup.
+	// If the game is already gone, FindOne returns an error — proceed with
+	// Delete anyway (it is idempotent) and skip Router/binding cleanup.
+	game, findErr := s.svcCtx.GameModel.FindOne(ctx, id)
+
 	if err := s.svcCtx.GameModel.Delete(ctx, id); err != nil {
 		return err
+	}
+
+	if findErr == nil && game != nil {
+		// Clean up all GameEnvBinding records for this game.
+		if envs, err := game.GetEnvs(); err == nil {
+			for _, env := range envs {
+				_ = s.svcCtx.GameModel.RemoveEnvBinding(ctx, game.GameID, env.Env)
+			}
+		}
+
+		// Close and forget all cached per-game DB connections for this game.
+		if s.svcCtx.Router != nil {
+			_ = s.svcCtx.Router.ForgetGame(game.GameID)
+		}
 	}
 
 	s.svcCtx.InvalidateGameCache(ctx, id)
@@ -382,6 +401,11 @@ func (s *Service) EnvDelete(ctx context.Context, req *GameEnvDeleteRequest) (*Ga
 	// Remove the corresponding GameEnvBinding so the router no longer routes
 	// to the deleted environment's database.
 	_ = s.svcCtx.GameModel.RemoveEnvBinding(ctx, game.GameID, removedEnv)
+
+	// Close and forget the cached per-game DB connection for this env.
+	if s.svcCtx.Router != nil {
+		_ = s.svcCtx.Router.Forget(game.GameID, removedEnv)
+	}
 
 	s.svcCtx.InvalidateGameCache(ctx, id)
 

@@ -180,6 +180,128 @@ func TestRouter_Caching(t *testing.T) {
 	}
 }
 
+// TestRouter_Forget verifies that Forget closes and removes a single cached
+// connection, and that a subsequent GameDB call opens a fresh one.
+func TestRouter_Forget(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	metaDBPath := filepath.Join(tmp, "meta.db")
+	metaDB := openSQLite(t, metaDBPath)
+
+	r := router.New(router.Config{
+		Driver:  "sqlite",
+		MetaDSN: metaDBPath,
+		DSNForDatabase: func(metaDSN, dbName string) string {
+			return filepath.Join(filepath.Dir(metaDSN), dbName+".db")
+		},
+		EnsureDatabase: func(driver, metaDSN, dbName string) (string, error) {
+			return filepath.Join(filepath.Dir(metaDSN), dbName+".db"), nil
+		},
+		Open: func(driver, dsn string) (*gorm.DB, error) {
+			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
+		},
+		MigrateGame: func(db *gorm.DB) error {
+			return model.AutoMigrateGame(db)
+		},
+	}, metaDB)
+	defer func() {
+		_ = r.Close()
+		closeDB(t, metaDB)
+	}()
+
+	db1, err := r.GameDB(context.Background(), "demo", "prod")
+	if err != nil {
+		t.Fatalf("GameDB: %v", err)
+	}
+
+	// Insert data to verify the DB was actually open.
+	if err := db1.Create(&model.Player{Username: "alice"}).Error; err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// Forget should close and remove the cached connection.
+	if err := r.Forget("demo", "prod"); err != nil {
+		t.Fatalf("Forget: %v", err)
+	}
+
+	// A new GameDB call should return a different *gorm.DB (re-opened).
+	// The data persists because SQLite writes to the same file.
+	db2, err := r.GameDB(context.Background(), "demo", "prod")
+	if err != nil {
+		t.Fatalf("GameDB after Forget: %v", err)
+	}
+	if db1 == db2 {
+		t.Error("expected a fresh DB connection after Forget")
+	}
+
+	// Data should still be there (same file).
+	var count int64
+	db2.Model(&model.Player{}).Count(&count)
+	if count != 1 {
+		t.Errorf("expected 1 player after Forget+reopen, got %d", count)
+	}
+}
+
+// TestRouter_ForgetGame verifies that ForgetGame closes all cached
+// connections for a game across multiple envs.
+func TestRouter_ForgetGame(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	metaDBPath := filepath.Join(tmp, "meta.db")
+	metaDB := openSQLite(t, metaDBPath)
+
+	r := router.New(router.Config{
+		Driver:  "sqlite",
+		MetaDSN: metaDBPath,
+		DSNForDatabase: func(metaDSN, dbName string) string {
+			return filepath.Join(filepath.Dir(metaDSN), dbName+".db")
+		},
+		EnsureDatabase: func(driver, metaDSN, dbName string) (string, error) {
+			return filepath.Join(filepath.Dir(metaDSN), dbName+".db"), nil
+		},
+		Open: func(driver, dsn string) (*gorm.DB, error) {
+			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
+		},
+	}, metaDB)
+	defer func() {
+		_ = r.Close()
+		closeDB(t, metaDB)
+	}()
+
+	// Open two envs for the same game.
+	dbProd, err := r.GameDB(context.Background(), "demo", "prod")
+	if err != nil {
+		t.Fatalf("GameDB prod: %v", err)
+	}
+	dbStaging, err := r.GameDB(context.Background(), "demo", "staging")
+	if err != nil {
+		t.Fatalf("GameDB staging: %v", err)
+	}
+
+	// ForgetGame should close both.
+	if err := r.ForgetGame("demo"); err != nil {
+		t.Fatalf("ForgetGame: %v", err)
+	}
+
+	// Re-open and verify they are fresh connections.
+	dbProd2, err := r.GameDB(context.Background(), "demo", "prod")
+	if err != nil {
+		t.Fatalf("GameDB prod after ForgetGame: %v", err)
+	}
+	dbStaging2, err := r.GameDB(context.Background(), "demo", "staging")
+	if err != nil {
+		t.Fatalf("GameDB staging after ForgetGame: %v", err)
+	}
+	if dbProd == dbProd2 {
+		t.Error("expected fresh prod connection after ForgetGame")
+	}
+	if dbStaging == dbStaging2 {
+		t.Error("expected fresh staging connection after ForgetGame")
+	}
+}
+
 // TestRouter_DbctxResolution verifies that a game-scoped model picks up the
 // correct DB from context.
 func TestRouter_DbctxResolution(t *testing.T) {
