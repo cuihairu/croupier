@@ -17,6 +17,12 @@ Croupier 当前的目标架构已经从“多条回拨链路 + 历史 旧传输/
 - `Agent <-> Server`：`agent-server subprotocol`
 - 两者共享同一套 `shared session runtime`
 
+在业务建模上，Croupier 同时采用单公司、多游戏、多环境的作用域模型：
+
+- 标准业务边界是 `game_id + env`
+- `env` 表达逻辑生命周期阶段，不直接表示物理部署位置
+- `scope` 与 `target` 必须分离
+
 ## 总体拓扑
 
 ```mermaid
@@ -103,6 +109,7 @@ graph TB
 ## 文档索引
 
 - [分层设计](./layers.md)
+- [游戏与环境作用域](./game-environment-scope.md)
 - [术语与分层](./terms-and-layering.md)
 - [数据流](./data-flow.md)
 - [SDK-Agent 传输重构设计](./sdk-agent-transport-redesign.md)

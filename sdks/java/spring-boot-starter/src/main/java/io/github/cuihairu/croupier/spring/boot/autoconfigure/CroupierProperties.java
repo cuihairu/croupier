@@ -21,7 +21,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class CroupierProperties {
 
     /**
-     * Game identifier for tenant isolation (required).
+     * Game identifier for game/environment scoping (required).
      */
     private String gameId;
 

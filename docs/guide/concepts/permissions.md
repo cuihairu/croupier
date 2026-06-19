@@ -136,6 +136,8 @@ game:{game_id}:{permission}
 - game:test-game:*.*         # test-game 的所有权限
 ```
 
+在实际请求中，Croupier 还会结合 `env` 做环境级治理，因此完整业务边界通常是 `game_id + env`。
+
 ## 函数权限配置
 
 ### 基础权限
@@ -180,7 +182,7 @@ game:{game_id}:{permission}
 | `user` | object | 当前用户信息 |
 | `user.roles` | array | 用户角色列表 |
 | `game_id` | string | 目标游戏 ID |
-| `env` | string | 环境 (dev/staging/prod) |
+| `env` | string | 逻辑环境 (dev/staging/prod) |
 | `function_id` | string | 被调用的函数 ID |
 
 ## 审批流程

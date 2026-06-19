@@ -242,7 +242,8 @@ v1 默认规则：
 - `session_id`
 - `idempotency_key`
 - `trace_id`
-- `tenant_id`
+- `game_id`
+- `env`
 - `timeout_ms`
 - `priority`
 - 能力协商、限流、重试、审计相关字段

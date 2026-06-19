@@ -10,7 +10,7 @@
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 ![Go Version](https://img.shields.io/badge/go-1.26.3+-green.svg)
 
-Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。当前架构已经收敛到“统一 session 传输”方向：
+Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，默认服务于单一游戏公司内部的多个游戏与多个环境。当前架构已经收敛到“统一 session 传输”方向：
 
 - `Agent <-> Server`：默认采用 `TCP session`，默认启用 `TLS`
 - `SDK <-> Agent`：默认采用 `TCP session`，默认不启用 `TLS`，按需开启
@@ -18,6 +18,8 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。�
 
 ## Highlights
 
+- 单公司、多游戏、多环境作用域模型：标准业务边界是 `game_id + env`
+- 业务作用域与运行目标分离：`scope` 表达归属，`target` 表达部署与执行位置
 - 统一的函数注册、调度、调用与作业模型
 - 轻量 session 传输：单连接、双向请求、可重连、可背压、可摘流
 - JSON payload + protobuf 信封，兼顾跨语言一致性与接入成本
@@ -97,9 +99,19 @@ Croupier 当前的核心传输抽象不是 `历史消息模式`，而是轻量�
 
 `subprotocol` 不是“个性化配置”，而是“共享同一套 session 运行时，但握手消息、注册内容和路由语义不同的应用层协议变体”。
 
+## Scope 模型
+
+Croupier 不采用 SaaS 多租户抽象。标准业务作用域为：
+
+- `game_id`：游戏标识
+- `env`：逻辑环境标识，如 `dev`、`staging`、`prod`
+
+这里的 `env` 表达的是生命周期阶段，不直接等于具体数据库、集群或节点。物理部署与运行位置应通过单独的 `target`、`node`、`agent` 等抽象表达，而不是混入 `env`。
+
 ## 文档入口
 
-- 架构总览：[docs/architecture/README.md](docs/architecture/README.md)
+- 架构总览：[docs/architecture/index.md](docs/architecture/index.md)
+- 游戏与环境作用域：[docs/architecture/game-environment-scope.md](docs/architecture/game-environment-scope.md)
 - SDK-Agent 设计：[docs/architecture/sdk-agent-transport-redesign.md](docs/architecture/sdk-agent-transport-redesign.md)
 - Agent-Server 设计：[docs/architecture/agent-server-session-transport-redesign.md](docs/architecture/agent-server-session-transport-redesign.md)
 - Wire 协议：[docs/architecture/sdk-wire-protocol.md](docs/architecture/sdk-wire-protocol.md)

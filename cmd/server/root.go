@@ -52,7 +52,7 @@ var rootCmd = &cobra.Command{
 - 游戏控制层：函数注册驱动的游戏操作
 - 可观察展示层：描述符驱动的 UI 生成
 
-支持多游戏租户、函数注册、负载均衡、审计链、审批工作流等功能。`,
+支持单公司多游戏多环境作用域、函数注册、负载均衡、审计链、审批工作流等功能。`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runServer()
 	},

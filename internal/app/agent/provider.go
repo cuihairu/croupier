@@ -372,7 +372,7 @@ type Config struct {
 type ProviderEntry struct {
 	Enabled bool                   `yaml:"enabled"`
 	Type    string                 `yaml:"type"`
-	GameID  string                 `yaml:"game_id"` // Game ID for multi-game scoping
-	Env     string                 `yaml:"env"`     // Environment (prod/dev/staging)
+	GameID  string                 `yaml:"game_id"` // Game ID for game/environment scoping
+	Env     string                 `yaml:"env"`     // Logical environment (prod/dev/staging)
 	Config  map[string]interface{} `yaml:"config"`
 }

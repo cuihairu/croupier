@@ -96,7 +96,7 @@ Croupier Java SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后
 - 🔁 **自动重连** - 指数退避 + jitter
 - 📝 **函数注册** - `FunctionDescriptor` + `FunctionHandler`，handler 签名 `(context, payload: byte[]) -> String`
 - ⚡ **异步 API** - `connect()` / `serveAsync()` 基于 `CompletableFuture`
-- 🏢 **多租户隔离** - 内置 `gameId` / `env` / `serviceId` 维度
+- 🏢 **多游戏多环境作用域** - 内置 `gameId` / `env` / `serviceId` 维度
 
 **L2 Provider 扩展（可选）**
 

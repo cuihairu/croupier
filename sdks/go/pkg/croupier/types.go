@@ -79,9 +79,9 @@ type ClientConfig struct {
 	AgentAddr    string `json:"agent_addr"`     // Agent address, e.g. "localhost:19090" or "ipc://croupier-agent,localhost:19090"
 	AgentIPCAddr string `json:"agent_ipc_addr"` // IPC address for local high-performance connection (e.g., "ipc://croupier-agent")
 
-	// Service identification (multi-tenant support)
-	GameID         string `json:"game_id"`         // game identifier for tenant isolation
-	Env            string `json:"env"`             // environment: "development"|"staging"|"production"
+	// Service identification (single-company, multi-game scope)
+	GameID         string `json:"game_id"`         // game identifier for business scope isolation
+	Env            string `json:"env"`             // logical environment: "development"|"staging"|"production"
 	ServiceID      string `json:"service_id"`      // unique service identifier
 	ServiceVersion string `json:"service_version"` // service version for compatibility
 	AgentID        string `json:"agent_id"`        // agent identifier for load balancing

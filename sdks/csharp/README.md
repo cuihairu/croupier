@@ -97,7 +97,7 @@ Croupier C# SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 - 单条 TCP session 客户端（`sdk-agent subprotocol`），不监听本地端口
 - 自动心跳与重连（`AutoReconnect` / `ReconnectIntervalSeconds` / `ReconnectMaxAttempts`）
 - 异步 / 同步 handler，签名 `Func<string, string, Task<string>>`
-- 多租户隔离（`GameId` / `Env` / `ServiceId`）
+- 多游戏多环境作用域（`GameId` / `Env` / `ServiceId`）
 
 **L2 Provider 扩展（可选）**
 

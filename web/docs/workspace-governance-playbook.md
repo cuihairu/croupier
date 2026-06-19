@@ -9,7 +9,7 @@
 
 - `objectKey`：按单对象灰度，不做全局一刀切发布。
 - `role`：先对 `admin/tech_lead/tester` 开放，观察后再放量。
-- `tenant/scope`：有游戏服或业务域隔离时，优先按 scope 灰度。
+- `game/env scope`：有游戏服或业务域隔离时，优先按游戏与环境作用域灰度。
 
 ### 1.2 灰度规则定义
 

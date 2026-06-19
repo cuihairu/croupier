@@ -50,7 +50,7 @@
 
 ## 简介
 
-Croupier Go SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 Go 客户端实现。SDK 作为 **Provider 端被调用方**，通过 **单条 TCP session**（`sdk-agent subprotocol`）接入 Agent，提供函数注册、心跳、自动重连、TLS 与可选的远程调用（Invoker）能力。
+Croupier Go SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后端平台的官方 Go 客户端实现。SDK 作为 **Provider 端被调用方**，通过 **单条 TCP session**（`sdk-agent subprotocol`）接入 Agent，提供函数注册、心跳、自动重连、TLS 与可选的远程调用（Invoker）能力，并内置单公司多游戏多环境作用域支持。
 
 ## 正式文档
 
@@ -96,7 +96,7 @@ Croupier Go SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 - 🤝 **握手与心跳** - `ProviderConnectRequest`/`ProviderConnectResponse` 协商，可配置心跳间隔
 - 🔁 **自动重连** - 指数退避 + jitter，可关闭或限制重试次数
 - 📝 **函数注册** - 描述符 + handler 注册，handler 签名 `func(ctx, []byte) ([]byte, error)`
-- 🏢 **多租户隔离** - 内置 `game_id` / `env` 维度
+- 🏢 **多游戏多环境作用域** - 内置 `game_id` / `env` 业务隔离维度
 
 **L2 Provider 扩展（可选）**
 
@@ -309,9 +309,9 @@ type ClientConfig struct {
     TimeoutSeconds int    // 连接超时
     Insecure       bool   // 是否跳过 TLS
 
-    // 多租户隔离
+    // 多游戏多环境作用域
     GameID         string // 游戏标识符
-    Env            string // 环境（dev/staging/prod）
+    Env            string // 逻辑环境（dev/staging/prod）
     ServiceID      string // 服务标识符
     ServiceVersion string // 服务版本
     AgentID        string // Agent 标识符

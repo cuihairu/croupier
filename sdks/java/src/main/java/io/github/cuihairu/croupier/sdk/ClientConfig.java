@@ -11,9 +11,9 @@ public class ClientConfig {
     private String agentAddr = "127.0.0.1:19090"; // Agent TCP address
     private String agentId;                       // Agent unique identifier (auto-generated if empty)
 
-    // ========== Service Identification (multi-tenant support) ==========
-    private String gameId;          // game identifier for tenant isolation
-    private String env = "development"; // environment: "development"|"staging"|"production"
+    // ========== Service Identification (single-company, multi-game scope) ==========
+    private String gameId;          // game identifier for business scope isolation
+    private String env = "development"; // logical environment: "development"|"staging"|"production"
     private String serviceId;       // unique service identifier
     private String serviceVersion = "1.0.0"; // service version for compatibility
 

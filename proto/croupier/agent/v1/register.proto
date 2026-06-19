@@ -45,8 +45,8 @@ message RegisterRequest {
   string version = 2;               // agent version
   repeated FunctionDescriptor functions = 3; // summarized function list
   string rpc_addr = 4;              // agent's reachable gRPC address (DEV ONLY)
-  string game_id = 5;               // game scope (required for multi-game)
-  string env = 6;                   // environment (optional: prod/stage/test)
+  string game_id = 5;               // game scope (required for multi-game routing)
+  string env = 6;                   // logical environment scope (optional: prod/stage/test)
   repeated AgentProcess processes = 7; // registered processes (sdk->agent)
   uint32 ttl_seconds = 8;           // session TTL (default 300s = 5min)
 

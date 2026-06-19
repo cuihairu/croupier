@@ -257,7 +257,7 @@ Game Server (C++ SDK)    ←→    Croupier Agent    ←→    Croupier Server
 
 | 选项 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `game_id` | string | *(必需)* | 游戏标识符，用于租户隔离 |
+| `game_id` | string | *(必需)* | 游戏标识符，用于多游戏作用域隔离 |
 | `env` | string | `development` | 环境：development/staging/production |
 | `service_id` | string | `cpp-service` | 服务标识符 |
 | `agent_addr` | string | `127.0.0.1:19090` | Croupier Agent 地址 |

@@ -1279,7 +1279,7 @@ namespace Croupier.Agent.V1 {
     public const int GameIdFieldNumber = 5;
     private string gameId_ = "";
     /// <summary>
-    /// game scope (required for multi-game)
+    /// game scope (required for multi-game routing)
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]

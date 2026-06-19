@@ -20,8 +20,8 @@ type Instance struct {
 // ProviderSession represents a registered provider (one OpenAPI file)
 type ProviderSession struct {
 	ProviderID   string          // Provider unique identifier
-	GameID       string          // Game ID for multi-game scoping
-	Env          string          // Environment (prod/dev/staging)
+	GameID       string          // Game ID for game/environment scoping
+	Env          string          // Logical environment (prod/dev/staging)
 	Addr         string          // Provider address
 	Version      string          // Provider version
 	LastSeenUnix int64           // Last seen timestamp (Unix)

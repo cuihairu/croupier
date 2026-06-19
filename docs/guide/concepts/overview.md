@@ -17,6 +17,14 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台。
 - `Agent <-> Server`：`TCP session + TLS`
 - `SDK <-> Agent`：`TCP session`，默认不启用 `TLS`
 
+在业务模型上，Croupier 默认服务于单一游戏公司内部的多个游戏与多个环境：
+
+- 标准业务边界是 `game_id + env`
+- `game_id` 表达游戏归属
+- `env` 表达逻辑环境，例如 `dev`、`test`、`staging`、`prod`
+- `env` 不直接等于数据库、节点或集群
+- 部署位置应通过 `target`、`agent`、`node` 等单独概念表达
+
 ## 核心特点
 
 | 特性 | 说明 |

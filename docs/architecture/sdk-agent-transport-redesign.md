@@ -391,7 +391,8 @@ Agent 至少需要实现：
 - `idempotency_key`
 - `session_id`
 - `trace_id`
-- `tenant_id`
+- `game_id`
+- `env`
 - `timeout_ms`
 - `retry` / `priority` 这类平台治理字段
 

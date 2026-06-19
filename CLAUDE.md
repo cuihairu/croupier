@@ -130,8 +130,9 @@ examples/                 # Demo game servers and invokers
 - Two-person rule enforcement for high-risk operations
 - Audit chain with hash-based integrity
 
-**Multi-Game Scoping:**
-- All operations scoped by `game_id`/`env` for tenant isolation
+**Single-Company Scope Model:**
+- Croupier is not a SaaS multi-tenant platform; it assumes one game company with multiple games
+- All operations are scoped by `game_id`/`env` for game/environment isolation
 - Registry indexed by `(game_id, function_id)` for function routing
 - HTTP headers `X-Game-ID`/`X-Env` propagated through call chain
 
