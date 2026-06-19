@@ -23,6 +23,7 @@ type BehaviorEventOptions struct {
 	PaginationOptions
 	GameID    string
 	Env       string
+	ServerID  string
 	EventType string
 	StartTime time.Time
 	EndTime   time.Time
@@ -52,6 +53,9 @@ func (m *BehaviorModel) ListEvents(ctx context.Context, opts BehaviorEventOption
 	}
 	if opts.Env != "" {
 		query = query.Where("env = ?", opts.Env)
+	}
+	if opts.ServerID != "" {
+		query = query.Where("server_id = ?", opts.ServerID)
 	}
 	if opts.EventType != "" {
 		query = query.Where("event_type = ?", opts.EventType)

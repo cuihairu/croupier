@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/db/router"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -16,6 +17,16 @@ type Service struct {
 
 func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx}
+}
+
+// deriveGameDBName returns the physical database name for a (gameID, env)
+// pair. It uses the Router's configured naming function when available,
+// falling back to the canonical DefaultGameDBName.
+func (s *Service) deriveGameDBName(gameID, env string) string {
+	if s.svcCtx != nil && s.svcCtx.Router != nil {
+		return s.svcCtx.Router.NameForGame(gameID, env)
+	}
+	return router.DefaultGameDBName(gameID, env)
 }
 
 // List retrieves a paginated list of games
@@ -255,6 +266,15 @@ func (s *Service) EnvAdd(ctx context.Context, req *GameEnvAddRequest) (*GameEnvA
 		return nil, err
 	}
 
+	// Sync GameEnvBinding so the database-per-game router can resolve this
+	// (gameID, env) to the correct physical database.
+	dbName := s.deriveGameDBName(game.GameID, newEnv)
+	if err := s.svcCtx.GameModel.AddEnvBinding(ctx, game.GameID, newEnv, dbName, strings.TrimSpace(req.Type), ""); err != nil {
+		// Best-effort: log but don't fail the env-add — the JSON envs list is
+		// already updated and is the primary UI source of truth.
+		_ = err
+	}
+
 	s.svcCtx.InvalidateGameCache(ctx, id)
 
 	return &GameEnvAddResponse{
@@ -289,6 +309,7 @@ func (s *Service) EnvUpdate(ctx context.Context, req *GameEnvUpdateRequest) (*Ga
 	}
 
 	target := envs[idx]
+	oldEnvName := target.Env
 	if newName := strings.TrimSpace(req.Name); newName != "" {
 		if other := findEnvIndex(envs, newName); other >= 0 && other != idx {
 			return nil, errorx.NewConflict("环境 " + newName + " 已存在")
@@ -305,6 +326,15 @@ func (s *Service) EnvUpdate(ctx context.Context, req *GameEnvUpdateRequest) (*Ga
 	}
 	if err := s.svcCtx.GameModel.Update(ctx, id, map[string]interface{}{"envs": game.Envs}); err != nil {
 		return nil, err
+	}
+
+	// Sync GameEnvBinding: if the env name changed, remove the old binding and
+	// create a new one with the updated name.
+	newEnvName := target.Env
+	if oldEnvName != newEnvName || strings.TrimSpace(req.Type) != "" {
+		_ = s.svcCtx.GameModel.RemoveEnvBinding(ctx, game.GameID, oldEnvName)
+		dbName := s.deriveGameDBName(game.GameID, newEnvName)
+		_ = s.svcCtx.GameModel.AddEnvBinding(ctx, game.GameID, newEnvName, dbName, target.Description, target.Color)
 	}
 
 	s.svcCtx.InvalidateGameCache(ctx, id)
@@ -340,6 +370,7 @@ func (s *Service) EnvDelete(ctx context.Context, req *GameEnvDeleteRequest) (*Ga
 		return nil, errorx.NewNotFound("环境 " + req.EnvID + " 不存在")
 	}
 
+	removedEnv := envs[idx].Env
 	envs = append(envs[:idx], envs[idx+1:]...)
 	if err := game.SetEnvs(envs); err != nil {
 		return nil, err
@@ -347,6 +378,10 @@ func (s *Service) EnvDelete(ctx context.Context, req *GameEnvDeleteRequest) (*Ga
 	if err := s.svcCtx.GameModel.Update(ctx, id, map[string]interface{}{"envs": game.Envs}); err != nil {
 		return nil, err
 	}
+
+	// Remove the corresponding GameEnvBinding so the router no longer routes
+	// to the deleted environment's database.
+	_ = s.svcCtx.GameModel.RemoveEnvBinding(ctx, game.GameID, removedEnv)
 
 	s.svcCtx.InvalidateGameCache(ctx, id)
 

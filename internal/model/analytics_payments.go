@@ -13,6 +13,7 @@ type PaymentTransaction struct {
 	TransactionID string `gorm:"size:64;uniqueIndex"`
 	GameID        string `gorm:"size:64;index"`
 	Env           string `gorm:"size:32;index"`
+	ServerID      string `gorm:"size:64;index"` // MMORPG multi-server support
 	UserID        string `gorm:"size:64;index"`
 	ProductID     string `gorm:"size:64;index"`
 	ProductName   string `gorm:"size:128"`
@@ -29,6 +30,7 @@ type ProductTrend struct {
 	gorm.Model
 	GameID      string `gorm:"size:64;index"`
 	Env         string `gorm:"size:32;index"`
+	ServerID    string `gorm:"size:64;index"` // MMORPG multi-server support
 	ProductID   string `gorm:"size:64;index:idx_product_window,unique"`
 	ProductName string `gorm:"size:128"`
 	Revenue     float64

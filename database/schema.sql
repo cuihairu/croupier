@@ -473,6 +473,7 @@ CREATE TABLE IF NOT EXISTS behavior_events (
   id SERIAL PRIMARY KEY,
   event_type VARCHAR(128) NOT NULL,
   user_id VARCHAR(64),
+  server_id VARCHAR(64), -- MMORPG multi-server support
   occurred_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   properties JSON,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -481,6 +482,7 @@ CREATE TABLE IF NOT EXISTS behavior_events (
 );
 CREATE INDEX IF NOT EXISTS idx_behavior_events_event_type ON behavior_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_behavior_events_user_id ON behavior_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_behavior_events_server_id ON behavior_events(server_id);
 
 CREATE TABLE IF NOT EXISTS feature_adoptions (
   id SERIAL PRIMARY KEY,
@@ -495,6 +497,7 @@ CREATE TABLE IF NOT EXISTS payment_transactions (
   id SERIAL PRIMARY KEY,
   transaction_id VARCHAR(128) UNIQUE NOT NULL,
   user_id VARCHAR(64) NOT NULL,
+  server_id VARCHAR(64), -- MMORPG multi-server support
   product_id VARCHAR(128),
   amount DECIMAL(12,2),
   currency VARCHAR(8),
@@ -506,6 +509,7 @@ CREATE TABLE IF NOT EXISTS payment_transactions (
 );
 CREATE INDEX IF NOT EXISTS idx_payment_transactions_user_id ON payment_transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_payment_transactions_status ON payment_transactions(status);
+CREATE INDEX IF NOT EXISTS idx_payment_transactions_server_id ON payment_transactions(server_id);
 
 CREATE TABLE IF NOT EXISTS payment_product_trends (
   id SERIAL PRIMARY KEY,

@@ -23,6 +23,7 @@ type PaymentQueryOptions struct {
 	PaginationOptions
 	GameID    string
 	Env       string
+	ServerID  string
 	Status    string
 	StartTime time.Time
 	EndTime   time.Time
@@ -52,6 +53,9 @@ func (m *PaymentsModel) ListTransactions(ctx context.Context, opts PaymentQueryO
 	}
 	if opts.Env != "" {
 		query = query.Where("env = ?", opts.Env)
+	}
+	if opts.ServerID != "" {
+		query = query.Where("server_id = ?", opts.ServerID)
 	}
 	if opts.Status != "" {
 		query = query.Where("status = ?", opts.Status)

@@ -103,6 +103,14 @@ func New(cfg Config, metaDB *gorm.DB) *Router {
 // MetaDB returns the meta database connection.
 func (r *Router) MetaDB() *gorm.DB { return r.metaDB }
 
+// NameForGame returns the physical database name the router would use for the
+// given (gameID, env). This is the public accessor that mirrors the internal
+// naming function, allowing API services to persist the same name into
+// GameEnvBinding records.
+func (r *Router) NameForGame(gameID, env string) string {
+	return r.cfg.NameForGame(gameID, env)
+}
+
 // GameDB returns the *gorm.DB for the given (gameID, env), opening and
 // migrating the physical database on first use. Concurrent calls for the
 // same scope are deduplicated by the cache.
