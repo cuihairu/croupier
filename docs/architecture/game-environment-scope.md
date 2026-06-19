@@ -224,3 +224,24 @@ GROUP BY server_id;
 4. 存储层不需要 `game_id` 和 `env` 字段（已在数据库/表名称中体现）
 5. **新增 `server_id` 作为核心字段**，支持 MMORPG 多服务器架构
 6. 需要表达部署位置时，使用 `target`、`agent`、`node`、`cluster` 等单独字段
+
+## 11. 双模式实现
+
+Croupier 通过 `database.multiGame` 配置项支持两种运行模式：
+
+### `multiGame: true`（生产推荐）
+
+- 每个 `(game_id, env)` 对应独立物理数据库（如 `game_demo_prod`）
+- `internal/db/router.Router` 懒加载、缓存 per-game `*gorm.DB` 连接
+- `svc.GameDBMiddleware` 从 `X-Game-ID` / `X-Env` 头解析游戏作用域，将 DB 注入到 request context
+- 游戏数据模型通过 `dbctx.Resolve(ctx, m.db)` 从 context 获取正确的 DB
+- 游戏表中的 `game_id` / `env` 列为冗余（同库内值恒定），保留是为了代码统一性
+
+### `multiGame: false`（默认，开发/CI）
+
+- 所有表共存于单一配置数据库
+- `game_id` / `env` 列提供行级隔离
+- Router 为 nil，中间件 pass-through
+- 游戏数据模型直接使用 ServiceContext.DB（meta DB 兼作 game DB）
+
+两种模式下，API 层和模型层代码完全一致，差异仅在连接管理。

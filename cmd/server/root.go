@@ -5,12 +5,13 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
-
-	"net/http"
 
 	"github.com/cuihairu/croupier/internal/cli/common"
 	"github.com/cuihairu/croupier/internal/config"
@@ -260,7 +261,38 @@ func runServer() error {
 		IdleTimeout:  120 * time.Second,
 	}
 
-	return srv.ListenAndServe()
+	// 启动 HTTP 服务（在 goroutine 中）
+	go func() {
+		fmt.Printf("Starting Croupier Server at %s (mode: %s, debug: %v)...\n",
+			addr, c.Server.Mode, debug)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Fprintf(os.Stderr, "HTTP server error: %v\n", err)
+			os.Exit(1)
+		}
+	}()
+
+	// 等待中断信号（SIGINT / SIGTERM）
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	fmt.Println("\nShutting down server...")
+
+	// 给在途请求 15 秒优雅退出
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "Server forced to shutdown: %v\n", err)
+	}
+
+	// 关闭 database-per-game Router 缓存的所有游戏数据库连接
+	if svcCtx.Router != nil {
+		if err := svcCtx.Router.Close(); err != nil {
+			slog.Default().Error("Failed to close game database router", "error", err)
+		}
+	}
+
+	fmt.Println("Server exited")
+	return nil
 }
 
 // startControlServer 启动控制服务器（TCP）
