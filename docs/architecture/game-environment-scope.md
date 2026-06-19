@@ -49,25 +49,72 @@ scope = game_id + env
 - 告警与观测维度
 - 函数路由
 
-## 3. 结构示意
+## 3. 数据库架构：按游戏分库
+
+Croupier 采用 **数据库-per-game 架构**，每个游戏完全独立的数据库。
+
+### 3.1 架构示意
 
 ```mermaid
 graph TD
   Company[Single Game Company]
+  Company --> MetaDB[(croupier_meta<br/>元数据库)]
   Company --> GameA[Game A]
   Company --> GameB[Game B]
-  GameA --> ADev[env: dev]
-  GameA --> AStage[env: staging]
-  GameA --> AProd[env: prod]
-  GameB --> BDev[env: dev]
-  GameB --> BProd[env: prod]
+  GameA --> ADB1[(game_a_prod<br/>生产数据库)]
+  GameA --> ADB2[(game_a_staging<br/>测试数据库)]
+  GameB --> BDB1[(game_b_prod<br/>生产数据库)]
+
+  MetaDB --> Games[games 表]
+  MetaDB --> Envs[game_envs 表]
+
+  ADB1 --> Events1[events]
+  ADB1 --> Payments1[payments]
+  ADB1 --> Metrics1[game_metrics]
+  ADB2 --> Events2[events]
+  BDB1 --> Events3[events]
 ```
+
+### 3.2 数据库组织
+
+```
+croupier_meta (元数据库)
+├─ user_accounts
+├─ role_records
+├─ user_role_records
+├─ role_perm_records
+├─ games (游戏注册表)
+├─ game_envs (环境注册表)
+├─ message_records
+└─ broadcast_message_records
+
+game_demo_prod (游戏数据库)
+├─ events (游戏事件，game_id 和 env 在数据库名中)
+├─ payments (支付数据)
+├─ game_metrics (游戏指标)
+└─ server_id 索引支持 MMORPG 多服务器
+
+game_demo_staging
+└─ (同样的表结构)
+
+game_rpg_prod
+└─ ...
+```
+
+### 3.3 按游戏分库的优势
+
+- ✅ 物理隔离，完全独立
+- ✅ 独立的容量规划和扩展
+- ✅ 简化查询（不需要 WHERE game_id = 'xxx' AND env = 'prod'）
+- ✅ 便于游戏迁移和归档
+- ✅ 符合"通用平台 + 独立游戏数据"的理念
+- ✅ 支持 MMORPG 多服务器架构（通过 server_id）
 
 ## 4. 为什么不做多租户
 
 对 Croupier 当前场景来说，引入 `tenant` 这层抽象会带来几个问题：
 
-- 会把“公司边界”和“游戏边界”混在一起
+- 会把"公司边界"和"游戏边界"混在一起
 - 会误导后续权限、审批、路由设计向 SaaS 平台靠拢
 - 会让 `game_id` 退化成二级概念，增加理解成本
 - 会让很多本来应该直接按游戏治理的策略被迫绕一层
@@ -89,6 +136,7 @@ graph TD
 
 ```text
 scope_key = game_id + ":" + env
+database_name = "game_" + game_id + "_" + env
 ```
 
 但它应该是派生值，不应替代主模型。
@@ -97,7 +145,7 @@ scope_key = game_id + ":" + env
 
 `env` 只表达逻辑环境，不直接等于：
 
-- 数据库实例
+- 数据库实例（现在通过 database_name 显式指定）
 - Agent 节点
 - Kubernetes namespace
 - Redis DB
@@ -105,6 +153,14 @@ scope_key = game_id + ":" + env
 - 物理机房
 
 这些属于运行目标或基础设施边界，需要单独建模。
+
+在按游戏分库架构下，每个 `(game_id, env)` 组合对应一个独立的物理数据库：
+
+```text
+game_id = "demo", env = "prod" → database = "game_demo_prod"
+game_id = "demo", env = "staging" → database = "game_demo_staging"
+game_id = "rpg", env = "prod" → database = "game_rpg_prod"
+```
 
 ## 7. `scope` 与 `target` 分离
 
@@ -114,19 +170,36 @@ scope_key = game_id + ":" + env
 graph LR
   Scope[Business Scope<br/>game_id + env] --> Policy[RBAC / ABAC / Approval / Risk]
   Scope --> Routing[Function Routing / Audit / Metrics]
-  Scope --> Target[Runtime Target<br/>agent / node / cluster]
-  Target --> Infra[DB / Topic / Cache / Namespace]
+  Scope --> Database[Database Routing<br/>game_xxx_yyy]
+  Database --> Infra[DB / Topic / Cache / Namespace]
 ```
 
 含义是：
 
 - `scope` 决定它属于哪个游戏、哪个环境
-- `target` 决定它实际运行在哪
-- 基础设施策略再由 `target` 或独立配置决定
+- 数据库路由根据 `game_id + env` 定位到具体数据库
+- 基础设施策略再由具体数据库配置决定
 
-这和扩展安装模型里的 `scope` / `target` 区分是一致的。
+## 8. MMORPG 多服务器支持
 
-## 8. 与开源项目的共性
+对于 MMORPG 游戏，同一游戏可能有多个服务器/大区。Croupier 通过 `server_id` 字段支持：
+
+```sql
+-- events 表中的 server_id
+server_id LowCardinality(String) -- 例如 "s1", "s2", "asia1", "us_west_1"
+```
+
+查询时可以按 `server_id` 进行聚合：
+
+```sql
+SELECT server_id, count() AS player_count
+FROM game_demo_prod.events
+WHERE event = 'player.login'
+  AND event_time >= today() - INTERVAL 7 DAY
+GROUP BY server_id;
+```
+
+## 9. 与开源项目的共性
 
 这类设计并不特殊，很多开源产品都采用类似模式：
 
@@ -141,11 +214,13 @@ graph LR
 - 环境保留为逻辑生命周期概念
 - 真实部署位置单独表达
 
-## 9. 对 Croupier 的落地要求
+## 10. 对 Croupier 的落地要求
 
 仓库内应统一遵循这些规则：
 
-1. 不再用 “tenant / multi-tenant” 描述 `game_id + env`
+1. 不再用 "tenant / multi-tenant" 描述 `game_id + env`
 2. API、SDK、权限、审计统一以 `game_id + env` 为标准作用域
-3. 需要表达部署位置时，使用 `target`、`agent`、`node`、`cluster` 等单独字段
-4. 需要表达物理存储隔离时，单独设计存储或部署策略，不把语义塞进 `env`
+3. **数据库层采用按游戏分库架构，每个 `(game_id, env)` 对应独立数据库**
+4. 存储层不需要 `game_id` 和 `env` 字段（已在数据库/表名称中体现）
+5. **新增 `server_id` 作为核心字段**，支持 MMORPG 多服务器架构
+6. 需要表达部署位置时，使用 `target`、`agent`、`node`、`cluster` 等单独字段

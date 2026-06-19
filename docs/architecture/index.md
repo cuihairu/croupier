@@ -11,7 +11,7 @@ tag:
 
 # 系统架构
 
-Croupier 当前的目标架构已经从“多条回拨链路 + 历史 旧传输/gRPC 混合模型”收敛到“统一 session 传输”：
+Croupier 当前的目标架构已经从"多条回拨链路 + 历史 旧传输/gRPC 混合模型"收敛到"统一 session 传输"：
 
 - `SDK <-> Agent`：`sdk-agent subprotocol`
 - `Agent <-> Server`：`agent-server subprotocol`
@@ -22,6 +22,7 @@ Croupier 当前的目标架构已经从“多条回拨链路 + 历史 旧传输/
 - 标准业务边界是 `game_id + env`
 - `env` 表达逻辑生命周期阶段，不直接表示物理部署位置
 - `scope` 与 `target` 必须分离
+- **数据库采用按游戏分库架构**
 
 ## 总体拓扑
 
@@ -47,6 +48,13 @@ graph TB
     SDK2[Embedded SDK / Third-party App]
   end
 
+  subgraph "存储层"
+    MetaDB[(croupier_meta<br/>元数据)]
+    GameDB1[(game_demo_prod<br/>游戏A生产)]
+    GameDB2[(game_demo_staging<br/>游戏A测试)]
+    GameDB3[(game_rpg_prod<br/>游戏B生产)]
+  end
+
   Dashboard -->|HTTP REST| Server
   Agent1 -->|TCP Session + TLS| Server
   Agent2 -->|TCP Session + TLS| Server
@@ -54,6 +62,11 @@ graph TB
   SDK1 -->|TCP Session| Agent1
   GS2 -->|TCP Session| Agent2
   SDK2 -->|TCP Session| Agent2
+
+  Server --> MetaDB
+  Server --> GameDB1
+  Server --> GameDB2
+  Server --> GameDB3
 ```
 
 ## 核心结论
@@ -62,6 +75,7 @@ graph TB
 2. `Server -> Agent` 的调用应复用既有 session，不再依赖 `rpc_addr` 反向回拨。
 3. `Agent` 本地监听只服务 `GameServer / SDK / 第三方应用`。
 4. `SDK <-> Agent` 与 `Agent <-> Server` 共享同一套 session 传输基座。
+5. **每个游戏使用独立的数据库，实现物理隔离**。
 
 ## shared session runtime
 
@@ -81,7 +95,7 @@ graph TB
 
 ## subprotocol 说明
 
-这里的 `subprotocol` 不是“个性化配置”，而是“运行在同一套 session runtime 上的不同应用层子协议”。
+这里的 `subprotocol` 不是"个性化配置"，而是"运行在同一套 session runtime 上的不同应用层子协议"。
 
 当前有两套主要 `subprotocol`：
 
@@ -104,7 +118,63 @@ graph TB
 - 多个并发 in-flight 请求复用
 - session 级别的重连、背压、drain 和路由治理
 
-因此当前架构收敛为“轻量 session 协议”，而不是继续围绕某个 `历史消息模式` 修补。
+因此当前架构收敛为"轻量 session 协议"，而不是继续围绕某个 `历史消息模式` 修补。
+
+## 数据库架构
+
+Croupier 采用 **数据库-per-game 架构**：
+
+```
+croupier_meta (元数据库)
+├─ user_accounts
+├─ role_records
+├─ user_role_records
+├─ role_perm_records
+├─ games (游戏注册表)
+├─ game_envs (环境注册表)
+└─ message_records
+
+game_demo_prod (游戏数据库)
+├─ events (游戏事件)
+├─ payments (支付数据)
+├─ game_metrics (游戏指标)
+└─ server_id 索引支持 MMORPG 多服务器
+
+game_demo_staging
+└─ (同样的表结构)
+
+game_rpg_prod
+└─ ...
+```
+
+### 按游戏分库的优势
+
+- ✅ 物理隔离，完全独立
+- ✅ 独立的容量规划和扩展
+- ✅ 简化查询（不需要 WHERE game_id = 'xxx' AND env = 'prod'）
+- ✅ 便于游戏迁移和归档
+- ✅ 符合"通用平台 + 独立游戏数据"的理念
+
+### 数据库路由
+
+Server 根据 `game_id + env` 路由到对应的数据库：
+
+| game_id | env | database |
+|---------|-----|----------|
+| demo | prod | game_demo_prod |
+| demo | staging | game_demo_staging |
+| rpg | prod | game_rpg_prod |
+
+存储层不需要 `game_id` 和 `env` 字段，这些信息已在数据库/表名称中体现。
+
+## MMORPG 多服务器支持
+
+对于 MMORPG 游戏，支持 `server_id` 字段区分不同服务器/大区：
+
+```sql
+-- events 表
+server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
+```
 
 ## 文档索引
 

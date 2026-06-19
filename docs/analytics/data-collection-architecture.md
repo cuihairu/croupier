@@ -44,9 +44,9 @@ graph TB
     end
 
     subgraph "数据存储层"
-        G1[ClickHouse<br/>时序数据仓库]
+        G1[ClickHouse<br/>按游戏分库]
         G2[Redis<br/>实时缓存]
-        G3[PostgreSQL<br/>关系型数据]
+        G3[PostgreSQL<br/>元数据与游戏数据]
     end
 
     A1 --> B1
