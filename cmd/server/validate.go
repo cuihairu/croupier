@@ -33,6 +33,9 @@ var validateCmd = &cobra.Command{
 		fmt.Printf("  - 服务地址: %s:%d\n", c.Server.Host, c.Server.Port)
 		fmt.Printf("  - 运行模式: %s\n", c.Server.Mode)
 		fmt.Printf("  - 数据库: %s\n", c.Database.Driver)
+		if c.Database.MultiGame {
+			fmt.Printf("  - 多游戏分库: 启用 (database-per-game)\n")
+		}
 		fmt.Printf("  - JWT密钥: %s\n", maskIfSet(c.Auth.JWTSecret))
 
 		return nil

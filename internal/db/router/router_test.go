@@ -365,3 +365,142 @@ func TestRouter_DbctxResolution(t *testing.T) {
 		t.Errorf("player should not be in meta DB, count=%d", metaCount)
 	}
 }
+
+// TestRouter_Accessors tests the simple accessor methods.
+func TestRouter_Accessors(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	metaDBPath := filepath.Join(tmp, "meta.db")
+	metaDB := openSQLite(t, metaDBPath)
+
+	r := router.New(router.Config{
+		Driver:  "sqlite",
+		MetaDSN: metaDBPath,
+		DSNForDatabase: func(metaDSN, dbName string) string {
+			return filepath.Join(filepath.Dir(metaDSN), dbName+".db")
+		},
+		EnsureDatabase: func(driver, metaDSN, dbName string) (string, error) {
+			return filepath.Join(filepath.Dir(metaDSN), dbName+".db"), nil
+		},
+		Open: func(driver, dsn string) (*gorm.DB, error) {
+			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
+		},
+	}, metaDB)
+	defer func() {
+		_ = r.Close()
+		closeDB(t, metaDB)
+	}()
+
+	// MetaDB returns the meta connection.
+	if r.MetaDB() != metaDB {
+		t.Error("MetaDB should return the original meta DB pointer")
+	}
+
+	// NameForGame mirrors the default naming.
+	if got := r.NameForGame("demo", "prod"); got != "game_demo_prod" {
+		t.Errorf("NameForGame = %q, want game_demo_prod", got)
+	}
+}
+
+// TestRouter_Resolve tests the Resolve convenience method that returns both
+// the enriched context and the DB.
+func TestRouter_Resolve(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	metaDBPath := filepath.Join(tmp, "meta.db")
+	metaDB := openSQLite(t, metaDBPath)
+
+	r := router.New(router.Config{
+		Driver:  "sqlite",
+		MetaDSN: metaDBPath,
+		DSNForDatabase: func(metaDSN, dbName string) string {
+			return filepath.Join(filepath.Dir(metaDSN), dbName+".db")
+		},
+		EnsureDatabase: func(driver, metaDSN, dbName string) (string, error) {
+			return filepath.Join(filepath.Dir(metaDSN), dbName+".db"), nil
+		},
+		Open: func(driver, dsn string) (*gorm.DB, error) {
+			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
+		},
+		MigrateGame: func(db *gorm.DB) error {
+			return model.AutoMigrateGame(db)
+		},
+	}, metaDB)
+	defer func() {
+		_ = r.Close()
+		closeDB(t, metaDB)
+	}()
+
+	ctx, gameDB, err := r.Resolve(context.Background(), "demo", "prod")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if gameDB == nil {
+		t.Fatal("Resolve returned nil DB")
+	}
+
+	// The context should carry the game DB override.
+	resolved := dbctx.Get(ctx)
+	if resolved == nil {
+		t.Fatal("dbctx.Get returned nil after Resolve")
+	}
+	if resolved != gameDB {
+		t.Error("dbctx.Get should return the same DB as Resolve")
+	}
+
+	// dbctx.Resolve should also return the game DB.
+	if dbctx.Resolve(ctx, metaDB) != gameDB {
+		t.Error("dbctx.Resolve should return the game DB override")
+	}
+
+	// Without override, Resolve falls back.
+	plainCtx := context.Background()
+	if dbctx.Resolve(plainCtx, metaDB) != metaDB {
+		t.Error("dbctx.Resolve should return fallback when no override")
+	}
+}
+
+// TestRouter_CustomNameFunction verifies that a custom NameForGame callback
+// is honored by the router.
+func TestRouter_CustomNameFunction(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	metaDBPath := filepath.Join(tmp, "meta.db")
+	metaDB := openSQLite(t, metaDBPath)
+
+	r := router.New(router.Config{
+		Driver:  "sqlite",
+		MetaDSN: metaDBPath,
+		NameForGame: func(gameID, env string) string {
+			return "custom_" + gameID + "_" + env
+		},
+		DSNForDatabase: func(metaDSN, dbName string) string {
+			return filepath.Join(filepath.Dir(metaDSN), dbName+".db")
+		},
+		EnsureDatabase: func(driver, metaDSN, dbName string) (string, error) {
+			return filepath.Join(filepath.Dir(metaDSN), dbName+".db"), nil
+		},
+		Open: func(driver, dsn string) (*gorm.DB, error) {
+			return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
+		},
+	}, metaDB)
+	defer func() {
+		_ = r.Close()
+		closeDB(t, metaDB)
+	}()
+
+	if got := r.NameForGame("mygame", "prod"); got != "custom_mygame_prod" {
+		t.Fatalf("NameForGame = %q, want custom_mygame_prod", got)
+	}
+
+	db, err := r.GameDB(context.Background(), "mygame", "prod")
+	if err != nil {
+		t.Fatalf("GameDB: %v", err)
+	}
+	if db == nil {
+		t.Fatal("GameDB returned nil")
+	}
+}

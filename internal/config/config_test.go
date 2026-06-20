@@ -144,3 +144,51 @@ sse:
 		t.Fatalf("SSE.UpdateInterval = %d, want 2", cfg.SSE.UpdateInterval)
 	}
 }
+
+func TestUnmarshalConfig_MultiGameDatabase(t *testing.T) {
+	input := `
+database:
+  driver: postgres
+  dataSource: "postgres://user:pass@localhost:5432/croupier_meta"
+  multiGame: true
+  gameDbPrefix: "gm_"
+`
+
+	var cfg Config
+	if err := yaml.Unmarshal([]byte(input), &cfg); err != nil {
+		t.Fatalf("yaml.Unmarshal() error = %v", err)
+	}
+
+	if cfg.Database.Driver != "postgres" {
+		t.Fatalf("Database.Driver = %q, want postgres", cfg.Database.Driver)
+	}
+	if cfg.Database.DataSource != "postgres://user:pass@localhost:5432/croupier_meta" {
+		t.Fatalf("Database.DataSource = %q", cfg.Database.DataSource)
+	}
+	if !cfg.Database.MultiGame {
+		t.Fatal("Database.MultiGame = false, want true")
+	}
+	if cfg.Database.GameDBPrefix != "gm_" {
+		t.Fatalf("Database.GameDBPrefix = %q, want gm_", cfg.Database.GameDBPrefix)
+	}
+}
+
+func TestUnmarshalConfig_MultiGameDefaultsFalse(t *testing.T) {
+	input := `
+database:
+  driver: sqlite
+  dataSource: test.db
+`
+
+	var cfg Config
+	if err := yaml.Unmarshal([]byte(input), &cfg); err != nil {
+		t.Fatalf("yaml.Unmarshal() error = %v", err)
+	}
+
+	if cfg.Database.MultiGame {
+		t.Fatal("Database.MultiGame should default to false")
+	}
+	if cfg.Database.GameDBPrefix != "" {
+		t.Fatalf("Database.GameDBPrefix = %q, want empty default", cfg.Database.GameDBPrefix)
+	}
+}
