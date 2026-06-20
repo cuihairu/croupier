@@ -278,7 +278,17 @@ func (h *LocalHandler) handleStartTask(ctx context.Context, data []byte) ([]byte
 		return nil, fmt.Errorf("unmarshal InvokeRequest for StartTask: %w", err)
 	}
 
-	taskID := fmt.Sprintf("task-%d", time.Now().UnixNano())
+	// Use the server-provided task ID when available so events flow back to
+	// the correct task_runs row. Fall back to a locally generated ID for
+	// callers that don't set one (backward compatibility).
+	taskID := ""
+	if req.Metadata != nil {
+		taskID = strings.TrimSpace(req.Metadata["task_id"])
+	}
+	if taskID == "" {
+		taskID = fmt.Sprintf("task-%d", time.Now().UnixNano())
+	}
+
 	resp := &sdkv1.StartTaskResponse{
 		TaskId: taskID,
 	}

@@ -98,3 +98,30 @@ func taskRunMessage(run *model.TaskRun) string {
 	}
 	return run.Message
 }
+
+// TaskRunWriterAdapter implements TaskRunWriter using model.TaskRunModel.
+type TaskRunWriterAdapter struct {
+	runs *model.TaskRunModel
+}
+
+// NewTaskRunWriterAdapter creates a TaskRunWriter backed by the given model.
+func NewTaskRunWriterAdapter(runs *model.TaskRunModel) *TaskRunWriterAdapter {
+	return &TaskRunWriterAdapter{runs: runs}
+}
+
+// CreateRun persists a task_runs row for a newly dispatched task.
+func (w *TaskRunWriterAdapter) CreateRun(ctx context.Context, taskID, functionID, agentID, gameID, env, status string, inputPayload []byte) error {
+	if w.runs == nil {
+		return nil
+	}
+	run := &model.TaskRun{
+		TaskID:       taskID,
+		FunctionID:   functionID,
+		AgentID:      agentID,
+		GameID:       gameID,
+		Env:          env,
+		Status:       status,
+		InputPayload: model.MustJSON(string(inputPayload)),
+	}
+	return w.runs.Create(ctx, run)
+}

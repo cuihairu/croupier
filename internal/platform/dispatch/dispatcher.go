@@ -15,8 +15,14 @@ import (
 	"github.com/cuihairu/croupier/internal/transport"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 )
+
+// generateTaskID creates a server-side unique task identifier.
+func generateTaskID() string {
+	return "task-" + uuid.NewString()
+}
 
 // AgentSessionResolver finds active TCP sessions for connected Agents.
 // The server package's AgentSessionStore implements this interface.
@@ -30,6 +36,16 @@ type TaskEventQuery interface {
 	GetRun(ctx context.Context, taskID string) (*sdkv1.TaskEvent, error)
 }
 
+// TaskRunWriter persists a task run record when a task is dispatched. It
+// closes the feedback loop: the server creates a row before dispatch, so
+// events coming back from the agent (keyed by the same task ID) can update
+// the correct row.
+type TaskRunWriter interface {
+	CreateRun(ctx context.Context, taskID, functionID, agentID, gameID, env, status string, inputPayload []byte) error
+}
+
+// TaskRoutingInfo is a minimal DTO for task routing records.
+
 // Dispatcher routes function invocations to live agents discovered via registry store.
 // Uses TCP session routing for all agent communication.
 // Supports HA features: health tracking, circuit breaker, load balancing.
@@ -39,6 +55,7 @@ type Dispatcher struct {
 	taskRouting    map[string]string // taskID -> agentID (in-memory cache)
 	taskStore      TaskRoutingStore  // persistent storage for task routing
 	taskEventQuery TaskEventQuery    // task event query from persistent storage
+	taskRunWriter  TaskRunWriter     // creates task_runs rows on dispatch
 	dialTimeout    time.Duration
 	invokeTimeout  time.Duration
 	tlsCfg         *tlsutil.ClientTLSConfig
@@ -119,6 +136,15 @@ func (d *Dispatcher) SetHAEnabled(enabled bool) {
 	}
 
 	d.haEnabled = enabled
+}
+
+// SetTaskRunWriter injects a TaskRunWriter so the Dispatcher can persist
+// task_runs rows when dispatching tasks. When set, StartTaskRequest generates
+// a server-side task ID, creates a row, and passes the ID to the agent.
+func (d *Dispatcher) SetTaskRunWriter(w TaskRunWriter) {
+	d.mu.Lock()
+	d.taskRunWriter = w
+	d.mu.Unlock()
 }
 
 // SetLoadBalanceStrategy changes the load balancing strategy
@@ -270,6 +296,23 @@ func (d *Dispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.InvokeRequ
 		req.Metadata = map[string]string{}
 	}
 	req.Metadata["agent_id"] = agent.AgentID
+
+	// Generate a server-side task ID so events flowing back from the agent
+	// can be matched to a task_runs row. This closes the feedback loop.
+	d.mu.RLock()
+	writer := d.taskRunWriter
+	d.mu.RUnlock()
+
+	if writer != nil {
+		taskID := generateTaskID()
+		req.Metadata["task_id"] = taskID
+		gameID := req.Metadata["game_id"]
+		env := req.Metadata["env"]
+		// Best-effort: create the run row. If this fails the task still
+		// dispatches — the agent will use the provided task_id and events
+		// will be orphaned but not lost (they land in task_events).
+		_ = writer.CreateRun(ctx, taskID, req.GetFunctionId(), agent.AgentID, gameID, env, "dispatching", req.GetPayload())
+	}
 
 	reqBytes, err := proto.Marshal(req)
 	if err != nil {

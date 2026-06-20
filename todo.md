@@ -66,9 +66,10 @@
 
 ### 其他任务
 
-- [ ] `TaskEvent` 上行接收后回写 `task_runs` / `task_events` 的闭环仍需完成。
-- [ ] `Dispatcher.StreamTask` 仍需改为基于持久化 `task_events` 的正式查询路径。
+- [x] **TaskEvent 上行接收后回写 task_runs / task_events 的闭环**（核心已修复）：`Dispatcher.StartTaskRequest` 现在生成服务器端 task ID（UUID）、在 dispatch 前创建 `task_runs` 行、通过 `InvokeRequest.metadata["task_id"]` 传递给 agent；agent 使用该 ID 而非自生成。agent 回传的事件因此能正确匹配到 `task_runs` 行并更新状态。
+- [ ] `Dispatcher.StreamTask` 仍需改为基于持久化 `task_events` 的正式查询路径（当前已读 DB 但有 polling bug：`afterSeq` 未推进、`GetRun` 返回错误类型）。
 - [ ] `TaskRunner` / `TaskContext` 仍需抽象，当前 agent task 执行还不是最终结构。
+- [ ] REST API `POST /api/v1/tasks` 的 Start 方法仍不 dispatch（仅创建行），需与函数调用路径统一。
 - [ ] shared session runtime 仍未从 Agent-Server 与 SDK-Agent 两条链路中完全抽取复用。
 - [ ] JS SDK 未提供 L3 Invoker（`sdks/SDK_FEATURE_MATRIX.md` 中标注的 `❌`），需补齐 `invoke` / `startTask` / `streamTask` / `cancelTask`。
 - [ ] **L3 Invoker 命名漂移（CI 已可追踪）**：Go/Python/Java/C# 四个 SDK 的 invoker 仍暴露 `StartJob`/`StreamJob`/`CancelJob`（及 `JobEventInfo` / `JobStatus` 等衍生类型），与矩阵 §四 目标 `*Task*` 不一致；仅 C++ 已对齐。`scripts/check-sdk-matrix.sh::check_invoker_naming` 已强制告警。需按矩阵 §四 迁移规则引入 canonical `*Task*` 方法，并把 `*Job*` 收为 deprecated 别名（每个 SDK 至少保留一个版本），别名需登记到脚本的 allowlist，避免被 `check_wire_name_hygiene` 误判。
@@ -102,9 +103,10 @@
 
 ## 下一步执行顺序
 
-1. `TaskEvent` 上行接收后回写 `task_runs` / `task_events` 的闭环。
-2. `Dispatcher.StreamTask` 改为基于持久化 `task_events` 的正式查询路径。
-3. `TaskRunner` / `TaskContext` 抽象优化。
-4. shared session runtime 从 Agent-Server 与 SDK-Agent 两条链路中完全抽取复用。
+1. ~~TaskEvent 上行接收后回写 task_runs / task_events 的闭环。~~ ✅ 已修复
+2. `Dispatcher.StreamTask` 改为基于持久化 `task_events` 的正式查询路径（修复 afterSeq 推进和 GetRun 类型）。
+3. REST API `POST /api/v1/tasks` 的 Start 方法与函数调用路径统一（dispatch + 持久化）。
+4. `TaskRunner` / `TaskContext` 抽象优化。
+5. shared session runtime 从 Agent-Server 与 SDK-Agent 两条链路中完全抽取复用。
 
 注：各语言 SDK 的 proto 代码更新和测试需在各 SDK 仓库中跟踪。

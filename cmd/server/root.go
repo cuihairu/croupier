@@ -205,11 +205,13 @@ func runServer() error {
 	if svcCtx.Dispatcher != nil {
 		svcCtx.Dispatcher.SetSessionResolver(server.NewSessionResolverAdapter(sessionStore))
 		// 将 task event query 注入到 Dispatcher（用于 StreamTask 查询）
-		taskQuery := dispatch.NewTaskEventQueryAdapter(
-			model.NewTaskEventModel(svcCtx.DB),
-			model.NewTaskRunModel(svcCtx.DB),
-		)
+		taskRunModel := model.NewTaskRunModel(svcCtx.DB)
+		taskEventModel := model.NewTaskEventModel(svcCtx.DB)
+		taskQuery := dispatch.NewTaskEventQueryAdapter(taskEventModel, taskRunModel)
 		svcCtx.Dispatcher.SetTaskEventQuery(taskQuery)
+		// 将 task run writer 注入到 Dispatcher（dispatch 时创建 task_runs 行，
+		// 使 agent 回传的事件能正确匹配到行）
+		svcCtx.Dispatcher.SetTaskRunWriter(dispatch.NewTaskRunWriterAdapter(taskRunModel))
 	}
 
 	// 启动控制服务器（TCP）
