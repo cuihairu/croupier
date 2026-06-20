@@ -113,8 +113,10 @@ func (s *Service) Detail(ctx context.Context, req *GameDetailRequest) (*GameDeta
 		return nil, err
 	}
 
+	bindings, _ := s.svcCtx.GameModel.ListEnvBindings(ctx, game.GameID)
+
 	return &GameDetailResponse{
-		Game: buildGameInfo(game),
+		Game: buildGameInfoWithBindings(game, bindings),
 	}, nil
 }
 
@@ -174,8 +176,10 @@ func (s *Service) Update(ctx context.Context, req *GameUpdateRequest) (*GameUpda
 		return nil, err
 	}
 
+	updateBindings, _ := s.svcCtx.GameModel.ListEnvBindings(ctx, game.GameID)
+
 	return &GameUpdateResponse{
-		Game: buildGameInfo(game),
+		Game: buildGameInfoWithBindings(game, updateBindings),
 	}, nil
 }
 
@@ -218,6 +222,20 @@ func (s *Service) Delete(ctx context.Context, req *GameDeleteRequest) error {
 	return nil
 }
 
+// enrichedEnvs returns env items with databaseName merged from GameEnvBinding.
+func (s *Service) enrichedEnvs(game *model.Game) []GameEnvItem {
+	envs, err := game.GetEnvs()
+	if err != nil {
+		return []GameEnvItem{}
+	}
+	items := convertGameEnvs(envs)
+	bindings, err := s.svcCtx.GameModel.ListEnvBindings(context.Background(), game.GameID)
+	if err != nil {
+		return items
+	}
+	return mergeBindingData(items, bindings)
+}
+
 // EnvsList retrieves the environments for a game
 func (s *Service) EnvsList(ctx context.Context, req *GameEnvsListRequest) (*GameEnvsListResponse, error) {
 	if _, _, err := utils.RequireAnyPermission(ctx, s.svcCtx, "无权查看游戏环境列表", "admin:all", "games:read", "games:manage"); err != nil {
@@ -234,13 +252,8 @@ func (s *Service) EnvsList(ctx context.Context, req *GameEnvsListRequest) (*Game
 		return nil, err
 	}
 
-	envs, err := game.GetEnvs()
-	if err != nil {
-		return nil, err
-	}
-
 	return &GameEnvsListResponse{
-		Envs: convertGameEnvs(envs),
+		Envs: s.enrichedEnvs(game),
 	}, nil
 }
 
@@ -297,7 +310,7 @@ func (s *Service) EnvAdd(ctx context.Context, req *GameEnvAddRequest) (*GameEnvA
 	s.svcCtx.InvalidateGameCache(ctx, id)
 
 	return &GameEnvAddResponse{
-		Envs: convertGameEnvs(envs),
+		Envs: s.enrichedEnvs(game),
 	}, nil
 }
 
@@ -359,7 +372,7 @@ func (s *Service) EnvUpdate(ctx context.Context, req *GameEnvUpdateRequest) (*Ga
 	s.svcCtx.InvalidateGameCache(ctx, id)
 
 	return &GameEnvUpdateResponse{
-		Envs: convertGameEnvs(envs),
+		Envs: s.enrichedEnvs(game),
 	}, nil
 }
 
@@ -410,6 +423,6 @@ func (s *Service) EnvDelete(ctx context.Context, req *GameEnvDeleteRequest) (*Ga
 	s.svcCtx.InvalidateGameCache(ctx, id)
 
 	return &GameEnvDeleteResponse{
-		Envs: convertGameEnvs(envs),
+		Envs: s.enrichedEnvs(game),
 	}, nil
 }

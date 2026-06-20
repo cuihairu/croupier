@@ -60,9 +60,10 @@ type GameEnvDeleteResponse struct {
 
 // GameEnvItem represents a game environment
 type GameEnvItem struct {
-	Env         string `json:"env"`
-	Description string `json:"description"`
-	Color       string `json:"color"`
+	Env          string `json:"env"`
+	Description  string `json:"description"`
+	Color        string `json:"color"`
+	DatabaseName string `json:"databaseName,omitempty"`
 }
 
 // GameEnvUpdateRequest represents the request to update a game environment
@@ -96,6 +97,7 @@ type GameEnvsListResponse struct {
 // GameInfo represents game information
 type GameInfo struct {
 	ID          uint          `json:"id"`
+	GameID      string        `json:"gameId"`
 	Name        string        `json:"name"`
 	Icon        string        `json:"icon"`
 	Description string        `json:"description"`

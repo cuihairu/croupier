@@ -32,6 +32,7 @@ func buildGameInfo(game *model.Game) GameInfo {
 
 	return GameInfo{
 		ID:          game.ID,
+		GameID:      game.GameID,
 		Name:        game.Name,
 		Icon:        game.Icon,
 		Description: game.Description,
@@ -48,6 +49,14 @@ func buildGameInfo(game *model.Game) GameInfo {
 	}
 }
 
+// buildGameInfoWithBindings is like buildGameInfo but also enriches each env
+// item with the databaseName from the corresponding GameEnvBinding records.
+func buildGameInfoWithBindings(game *model.Game, bindings []model.GameEnvBinding) GameInfo {
+	info := buildGameInfo(game)
+	info.Envs = mergeBindingData(info.Envs, bindings)
+	return info
+}
+
 func convertGameEnvs(envs []model.GameEnv) []GameEnvItem {
 	items := make([]GameEnvItem, 0, len(envs))
 	for _, env := range envs {
@@ -56,6 +65,24 @@ func convertGameEnvs(envs []model.GameEnv) []GameEnvItem {
 			Description: env.Description,
 			Color:       env.Color,
 		})
+	}
+	return items
+}
+
+// mergeBindingData enriches env items with databaseName from GameEnvBinding
+// records. Items without a matching binding are left unchanged.
+func mergeBindingData(items []GameEnvItem, bindings []model.GameEnvBinding) []GameEnvItem {
+	if len(bindings) == 0 {
+		return items
+	}
+	dbNames := make(map[string]string, len(bindings))
+	for _, b := range bindings {
+		dbNames[strings.ToLower(b.Env)] = b.DatabaseName
+	}
+	for i := range items {
+		if dbName, ok := dbNames[strings.ToLower(items[i].Env)]; ok {
+			items[i].DatabaseName = dbName
+		}
 	}
 	return items
 }
