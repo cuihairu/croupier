@@ -1,6 +1,6 @@
 # Croupier Task / Provider Session 重构清单
 
-更新时间：2026-04-19
+更新时间：2026-06-24
 
 ## 当前结论
 
@@ -67,7 +67,8 @@
 ### 其他任务
 
 - [x] **TaskEvent 上行接收后回写 task_runs / task_events 的闭环**（核心已修复）：`Dispatcher.StartTaskRequest` 现在生成服务器端 task ID（UUID）、在 dispatch 前创建 `task_runs` 行、通过 `InvokeRequest.metadata["task_id"]` 传递给 agent；agent 使用该 ID 而非自生成。agent 回传的事件因此能正确匹配到 `task_runs` 行并更新状态。
-- [ ] `Dispatcher.StreamTask` 仍需改为基于持久化 `task_events` 的正式查询路径（当前已读 DB 但有 polling bug：`afterSeq` 未推进、`GetRun` 返回错误类型）。
+- [x] `Dispatcher.StreamTask` 已改为基于持久化 `task_events` / `task_runs` 的正式查询路径：`TaskEventQuery` 返回带 `Seq` 的事件记录和明确的 `TaskRunState`，`StreamTaskRealtime` 会推进 `afterSeq`，`GetRun` 使用 `ErrTaskRunNotFound` 区分 not found 与 DB 错误。
+- [x] 单公司多游戏 scope 已继续收敛：扩展安装 API 拒绝 `organization/workspace` 这类 SaaS/组织作用域，只允许 `system/global/game/env/node-group/node`。
 - [ ] `TaskRunner` / `TaskContext` 仍需抽象，当前 agent task 执行还不是最终结构。
 - [ ] REST API `POST /api/v1/tasks` 的 Start 方法仍不 dispatch（仅创建行），需与函数调用路径统一。
 - [ ] shared session runtime 仍未从 Agent-Server 与 SDK-Agent 两条链路中完全抽取复用。
@@ -104,7 +105,7 @@
 ## 下一步执行顺序
 
 1. ~~TaskEvent 上行接收后回写 task_runs / task_events 的闭环。~~ ✅ 已修复
-2. `Dispatcher.StreamTask` 改为基于持久化 `task_events` 的正式查询路径（修复 afterSeq 推进和 GetRun 类型）。
+2. ~~`Dispatcher.StreamTask` 改为基于持久化 `task_events` 的正式查询路径（修复 afterSeq 推进和 GetRun 类型）。~~ ✅ 已修复
 3. REST API `POST /api/v1/tasks` 的 Start 方法与函数调用路径统一（dispatch + 持久化）。
 4. `TaskRunner` / `TaskContext` 抽象优化。
 5. shared session runtime 从 Agent-Server 与 SDK-Agent 两条链路中完全抽取复用。

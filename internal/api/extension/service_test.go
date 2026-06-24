@@ -1925,8 +1925,8 @@ func TestToInstallationItem_AllFields(t *testing.T) {
 		InstallationKey: "test-key",
 		ExtensionID:     "official.analytics",
 		ReleaseVersion:  "2.5.0",
-		ScopeType:       "organization",
-		ScopeID:         "org123",
+		ScopeType:       "game",
+		ScopeID:         "demo",
 		TargetType:      "agent_group",
 		TargetID:        "default",
 		Status:          "enabled",
@@ -1941,8 +1941,8 @@ func TestToInstallationItem_AllFields(t *testing.T) {
 	assert.Equal(t, "official.analytics", item.ExtensionID)
 	assert.Equal(t, "official.analytics", item.DisplayName)
 	assert.Equal(t, "2.5.0", item.ReleaseVersion)
-	assert.Equal(t, "organization", item.ScopeType)
-	assert.Equal(t, "org123", item.ScopeID)
+	assert.Equal(t, "game", item.ScopeType)
+	assert.Equal(t, "demo", item.ScopeID)
 	assert.Equal(t, "agent_group", item.TargetType)
 	assert.Equal(t, "default", item.TargetID)
 	assert.Equal(t, "enabled", item.Status)
@@ -2420,6 +2420,60 @@ func TestService_Install_Success(t *testing.T) {
 	if resp.Status != "installed" {
 		t.Fatalf("expected status 'installed', got: %s", resp.Status)
 	}
+}
+
+func TestService_Install_RejectsUnsupportedScopeType(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      "organization",
+		ScopeID:        "org123",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true, "interval": 60},
+	}
+
+	_, err := s.Install(ctx, req, "test_admin")
+	if err == nil {
+		t.Fatal("expected unsupported scope_type error")
+	}
+	assert.Contains(t, err.Error(), "unsupported extension scope_type")
+}
+
+func TestService_Install_NormalizesScopeTypeAndID(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+
+	s := NewService(svcCtx)
+	req := ExtensionInstallRequest{
+		ExtensionID:    "test.analytics",
+		ReleaseVersion: "2.0.0",
+		ScopeType:      " Game ",
+		ScopeID:        " demo ",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true, "interval": 60},
+	}
+
+	resp, err := s.Install(ctx, req, "test_admin")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	detail, err := s.InstallationDetail(ctx, resp.InstallationID)
+	if err != nil {
+		t.Fatalf("unexpected detail error: %v", err)
+	}
+	assert.Equal(t, "game", detail.Installation.ScopeType)
+	assert.Equal(t, "demo", detail.Installation.ScopeID)
 }
 
 // TestService_Install_Conflict tests installation conflict detection

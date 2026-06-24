@@ -147,6 +147,9 @@ func (s *Service) Install(ctx context.Context, req ExtensionInstallRequest, oper
 	if err := s.requireWritePermission(ctx, "无权安装扩展"); err != nil {
 		return nil, err
 	}
+	if err := normalizeAndValidateExtensionScope(&req.ScopeType, &req.ScopeID); err != nil {
+		return nil, err
+	}
 	if err := s.validateDependencies(ctx, req.ExtensionID, req.ReleaseVersion); err != nil {
 		return nil, err
 	}
@@ -191,6 +194,9 @@ func (s *Service) Install(ctx context.Context, req ExtensionInstallRequest, oper
 
 func (s *Service) InstallationList(ctx context.Context, req ExtensionInstallationListRequest) (*ExtensionInstallationListResponse, error) {
 	if err := s.requireReadPermission(ctx, "无权查看扩展安装实例"); err != nil {
+		return nil, err
+	}
+	if err := normalizeAndValidateExtensionScope(&req.ScopeType, &req.ScopeID); err != nil {
 		return nil, err
 	}
 	items, total, err := s.svcCtx.Extensions.Installation.List(ctx, installationListQuery(req))
@@ -1085,6 +1091,33 @@ func installationListQuery(req ExtensionInstallationListRequest) extensioninstal
 		Limit:       pageSize,
 		Offset:      (page - 1) * pageSize,
 	}
+}
+
+var allowedExtensionScopeTypes = map[string]struct{}{
+	"system":     {},
+	"global":     {},
+	"game":       {},
+	"env":        {},
+	"node-group": {},
+	"node":       {},
+}
+
+func normalizeAndValidateExtensionScope(scopeType, scopeID *string) error {
+	normalizedType := strings.ToLower(strings.TrimSpace(*scopeType))
+	normalizedID := strings.TrimSpace(*scopeID)
+	*scopeType = normalizedType
+	*scopeID = normalizedID
+
+	if normalizedType == "" && normalizedID == "" {
+		return nil
+	}
+	if normalizedType == "" || normalizedID == "" {
+		return errorx.NewBadRequest("scope_type and scope_id must be provided together")
+	}
+	if _, ok := allowedExtensionScopeTypes[normalizedType]; !ok {
+		return errorx.NewBadRequest("unsupported extension scope_type")
+	}
+	return nil
 }
 
 func mapServiceError(err error) error {

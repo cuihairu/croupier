@@ -2,10 +2,12 @@ package dispatch
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/model"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
+	"gorm.io/gorm"
 )
 
 // TaskEventQueryAdapter implements TaskEventQuery using model.TaskEventModel and model.TaskRunModel.
@@ -23,10 +25,10 @@ func NewTaskEventQueryAdapter(events *model.TaskEventModel, runs *model.TaskRunM
 }
 
 // ListEvents returns task events after the given sequence number.
-func (a *TaskEventQueryAdapter) ListEvents(ctx context.Context, taskID string, afterSeq int64) ([]*sdkv1.TaskEvent, error) {
+func (a *TaskEventQueryAdapter) ListEvents(ctx context.Context, taskID string, afterSeq int64) ([]TaskEventRecord, error) {
 	taskID = strings.TrimSpace(taskID)
 	if taskID == "" {
-		return []*sdkv1.TaskEvent{}, nil
+		return []TaskEventRecord{}, nil
 	}
 
 	events, err := a.events.ListByTaskID(ctx, taskID, afterSeq)
@@ -34,59 +36,45 @@ func (a *TaskEventQueryAdapter) ListEvents(ctx context.Context, taskID string, a
 		return nil, err
 	}
 
-	result := make([]*sdkv1.TaskEvent, len(events))
+	result := make([]TaskEventRecord, len(events))
 	for i, evt := range events {
-		result[i] = &sdkv1.TaskEvent{
-			TaskId:   evt.TaskID,
-			Type:     evt.Type,
-			Progress: evt.Progress,
-			Message:  evt.Message,
-			Payload:  evt.Payload,
+		result[i] = TaskEventRecord{
+			Seq: evt.Seq,
+			Event: &sdkv1.TaskEvent{
+				TaskId:   evt.TaskID,
+				Type:     evt.Type,
+				Progress: evt.Progress,
+				Message:  evt.Message,
+				Payload:  evt.Payload,
+			},
 		}
 	}
 	return result, nil
 }
 
 // GetRun returns the task run for the given task ID.
-func (a *TaskEventQueryAdapter) GetRun(ctx context.Context, taskID string) (*sdkv1.TaskEvent, error) {
+func (a *TaskEventQueryAdapter) GetRun(ctx context.Context, taskID string) (*TaskRunState, error) {
 	taskID = strings.TrimSpace(taskID)
 	if taskID == "" {
-		return nil, nil
+		return nil, ErrTaskRunNotFound
 	}
 
 	run, err := a.runs.FindByTaskID(ctx, taskID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrTaskRunNotFound
+		}
 		return nil, err
 	}
 
-	return &sdkv1.TaskEvent{
-		TaskId:   run.TaskID,
-		Type:     taskRunStatusToEventType(run.Status),
-		Progress: run.Progress,
-		Message:  taskRunMessage(run),
-		Payload:  []byte(run.ResultPayload),
+	return &TaskRunState{
+		TaskID:        run.TaskID,
+		Status:        run.Status,
+		Progress:      run.Progress,
+		Message:       taskRunMessage(run),
+		ResultPayload: []byte(run.ResultPayload),
+		ErrorMessage:  run.ErrorMessage,
 	}, nil
-}
-
-func taskRunStatusToEventType(status string) string {
-	switch strings.ToLower(strings.TrimSpace(status)) {
-	case "queued":
-		return "queued"
-	case "running":
-		return "started"
-	case "succeeded", "success", "done", "completed":
-		return "completed"
-	case "failed", "error":
-		return "failed"
-	case "cancel_requested":
-		return "cancel_requested"
-	case "cancelled", "canceled":
-		return "cancelled"
-	case "timed_out", "timeout":
-		return "failed"
-	default:
-		return strings.TrimSpace(status)
-	}
 }
 
 func taskRunMessage(run *model.TaskRun) string {

@@ -122,7 +122,7 @@
 | `installation_key` | varchar | 业务唯一键 |
 | `extension_id` | varchar | 扩展 ID |
 | `release_version` | varchar | 安装版本 |
-| `scope_type` | varchar | `global/workspace/game/env/node-group/node` |
+| `scope_type` | varchar | `system/global/game/env/node-group/node` |
 | `scope_id` | varchar | 对应 scope ID |
 | `target_type` | varchar | `server/agent/hybrid` |
 | `target_id` | varchar | 节点或逻辑目标 |
@@ -270,7 +270,6 @@ Scope 表达“业务归属”，不等于部署位置。
 支持：
 
 - `global`
-- `workspace`
 - `game`
 - `env`
 - `node-group`

@@ -2,6 +2,7 @@ package dispatch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -19,6 +20,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+var ErrTaskRunNotFound = errors.New("task run not found")
+
 // generateTaskID creates a server-side unique task identifier.
 func generateTaskID() string {
 	return "task-" + uuid.NewString()
@@ -30,10 +33,27 @@ type AgentSessionResolver interface {
 	ResolveAgentConn(agentID string) (transport.SessionCaller, bool)
 }
 
+// TaskEventRecord keeps the persistent event sequence alongside the wire event.
+// The sequence is not part of the SDK TaskEvent protobuf, but the dispatcher
+// needs it to advance polling cursors without replaying old rows.
+type TaskEventRecord struct {
+	Seq   int64
+	Event *sdkv1.TaskEvent
+}
+
+type TaskRunState struct {
+	TaskID        string
+	Status        string
+	Progress      int32
+	Message       string
+	ResultPayload []byte
+	ErrorMessage  string
+}
+
 // TaskEventQuery queries task events from persistent storage.
 type TaskEventQuery interface {
-	ListEvents(ctx context.Context, taskID string, afterSeq int64) ([]*sdkv1.TaskEvent, error)
-	GetRun(ctx context.Context, taskID string) (*sdkv1.TaskEvent, error)
+	ListEvents(ctx context.Context, taskID string, afterSeq int64) ([]TaskEventRecord, error)
+	GetRun(ctx context.Context, taskID string) (*TaskRunState, error)
 }
 
 // TaskRunWriter persists a task run record when a task is dispatched. It
@@ -389,19 +409,21 @@ func (d *Dispatcher) StreamTaskAfterSeq(ctx context.Context, taskID string, afte
 		return nil, false, fmt.Errorf("task event query not configured")
 	}
 
-	events, err := query.ListEvents(ctx, taskID, afterSeq)
+	records, err := query.ListEvents(ctx, taskID, afterSeq)
 	if err != nil {
 		return nil, false, fmt.Errorf("query events: %w", err)
 	}
+	events := taskEventsFromRecords(records)
 
 	run, err := query.GetRun(ctx, taskID)
 	if err != nil {
-		// If run not found, still return events but mark as not done
+		if !errors.Is(err, ErrTaskRunNotFound) {
+			return nil, false, fmt.Errorf("query task run: %w", err)
+		}
 		return events, false, nil
 	}
 
-	// Task is done if the last event type is a terminal state
-	done := isTaskEventTypeDone(run.Type)
+	done := isTaskRunDone(run.Status)
 	return events, done, nil
 }
 
@@ -433,27 +455,32 @@ func (d *Dispatcher) StreamTaskRealtimeAfterSeq(ctx context.Context, taskID stri
 		default:
 		}
 
-		events, err := query.ListEvents(ctx, taskID, afterSeq)
+		records, err := query.ListEvents(ctx, taskID, afterSeq)
 		if err != nil {
 			return false, fmt.Errorf("query events: %w", err)
 		}
 
+		done := false
 		run, err := query.GetRun(ctx, taskID)
 		if err != nil {
-			// Run not found, continue waiting
-			time.Sleep(500 * time.Millisecond)
-			continue
+			if !errors.Is(err, ErrTaskRunNotFound) {
+				return false, fmt.Errorf("query task run: %w", err)
+			}
+		} else {
+			done = isTaskRunDone(run.Status)
 		}
 
-		done := isTaskEventTypeDone(run.Type)
-
-		// Send events to callback
-		for _, evt := range events {
+		for _, record := range records {
+			if record.Seq > afterSeq {
+				afterSeq = record.Seq
+			}
+			evt := record.Event
+			if evt == nil {
+				continue
+			}
 			if !fn(evt) {
 				return done, nil // Callback stopped streaming
 			}
-			// Note: Seq field not available in TaskEvent proto yet
-			// afterSeq = evt.Seq
 		}
 
 		if done {
@@ -461,8 +488,20 @@ func (d *Dispatcher) StreamTaskRealtimeAfterSeq(ctx context.Context, taskID stri
 		}
 
 		// Wait before next poll
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(taskStreamPollInterval)
 	}
+}
+
+var taskStreamPollInterval = 500 * time.Millisecond
+
+func taskEventsFromRecords(records []TaskEventRecord) []*sdkv1.TaskEvent {
+	events := make([]*sdkv1.TaskEvent, 0, len(records))
+	for _, record := range records {
+		if record.Event != nil {
+			events = append(events, record.Event)
+		}
+	}
+	return events
 }
 
 // isTaskRunDone checks if a task run status indicates completion.
