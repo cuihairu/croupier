@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
+	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	gsqlite "github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 

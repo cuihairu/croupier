@@ -252,13 +252,13 @@ func TestHandler_RegisterFunction_WithAllFields(t *testing.T) {
 	router, _ := setupTestRouter()
 
 	reqBody := RegisterFunctionRequest{
-		ID:          "full.func",
-		Version:     "1.0.0",
-		Category:    "test",
-		Tags:        []string{"tag1", "tag2"},
-		Name:        "Full Function",
-		Description: "A function with all fields",
-		InputSchema: `{"type":"object"}`,
+		ID:           "full.func",
+		Version:      "1.0.0",
+		Category:     "test",
+		Tags:         []string{"tag1", "tag2"},
+		Name:         "Full Function",
+		Description:  "A function with all fields",
+		InputSchema:  `{"type":"object"}`,
 		OutputSchema: `{"type":"object"}`,
 		Security: &FunctionSecurity{
 			RiskLevel:        "high",

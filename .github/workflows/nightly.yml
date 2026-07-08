@@ -465,8 +465,10 @@ jobs:
 
           Copy-Item -Recurse -Force package-install/include package-static/
           Copy-Item -Recurse -Force package-install/include package-dynamic/
-          Copy-Item -Recurse -Force package-install/share package-static/
-          Copy-Item -Recurse -Force package-install/share package-dynamic/
+          if (Test-Path "package-install/share") {
+            Copy-Item -Recurse -Force "package-install/share" "package-static/"
+            Copy-Item -Recurse -Force "package-install/share" "package-dynamic/"
+          }
           Copy-Item -Recurse -Force package-install/bin package-dynamic/
 
           New-Item -ItemType Directory -Force -Path package-static/lib,package-dynamic/lib | Out-Null

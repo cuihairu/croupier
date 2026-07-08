@@ -413,17 +413,29 @@ func TestAPI_ErrorPropagation(t *testing.T) {
 		{"GetServerList", func() error { _, err := c.GetServerList(context.Background(), "p1"); return err }},
 		{"GetProductList", func() error { _, err := c.GetProductList(context.Background()); return err }},
 		{"GetDayReport", func() error { _, err := c.GetDayReport(context.Background(), "p1", DayReportOptions{}); return err }},
-		{"GetDayHourReport", func() error { _, err := c.GetDayHourReport(context.Background(), "p1", DayHourReportOptions{}); return err }},
+		{"GetDayHourReport", func() error {
+			_, err := c.GetDayHourReport(context.Background(), "p1", DayHourReportOptions{})
+			return err
+		}},
 		{"GetUserLive", func() error { _, err := c.GetUserLive(context.Background(), "p1", UserLiveOptions{}); return err }},
-		{"GetChannelDaysReport", func() error { _, err := c.GetChannelDaysReport(context.Background(), "p1", ChannelDaysReportOptions{}); return err }},
-		{"GetChannelReport", func() error { _, err := c.GetChannelReport(context.Background(), "p1", ChannelReportOptions{}); return err }},
+		{"GetChannelDaysReport", func() error {
+			_, err := c.GetChannelDaysReport(context.Background(), "p1", ChannelDaysReportOptions{})
+			return err
+		}},
+		{"GetChannelReport", func() error {
+			_, err := c.GetChannelReport(context.Background(), "p1", ChannelReportOptions{})
+			return err
+		}},
 		{"GetAdReport", func() error { _, err := c.GetAdReport(context.Background(), "p1", "d1", "d2", ""); return err }},
 		{"GetMediaAppList", func() error { _, err := c.GetMediaAppList(context.Background(), "Toutiao"); return err }},
 		{"GetAdPlanGroupList", func() error { _, err := c.GetAdPlanGroupList(context.Background(), "p1"); return err }},
 		{"GetPackageVersionList", func() error { _, err := c.GetPackageVersionList(context.Background(), "p1"); return err }},
 		{"GetAdPagesList", func() error { _, err := c.GetAdPagesList(context.Background(), "p1"); return err }},
 		{"GetAdPlanList", func() error { _, err := c.GetAdPlanList(context.Background(), "p1", AdPlanListOptions{}); return err }},
-		{"GetUserLostList", func() error { _, err := c.GetUserLostList(context.Background(), "p1", UserLostListOptions{}); return err }},
+		{"GetUserLostList", func() error {
+			_, err := c.GetUserLostList(context.Background(), "p1", UserLostListOptions{})
+			return err
+		}},
 		{"PushMessage", func() error { return c.PushMessage(context.Background(), "p1", "c1", "g", "t", "b") }},
 		{"UpdateAdPlan", func() error { return c.UpdateAdPlan(context.Background(), UpdateAdPlanOptions{}) }},
 		{"CreateAdPlan", func() error { _, err := c.CreateAdPlan(context.Background(), CreateAdPlanOptions{}); return err }},

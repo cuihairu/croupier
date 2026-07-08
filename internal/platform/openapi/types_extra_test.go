@@ -52,9 +52,9 @@ func TestFunctionProviderType_String(t *testing.T) {
 
 func TestLooksLikeJSON(t *testing.T) {
 	tests := []struct {
-		name  string
-		data  []byte
-		want  bool
+		name string
+		data []byte
+		want bool
 	}{
 		{"empty", []byte{}, false},
 		{"whitespace only", []byte("   "), false},

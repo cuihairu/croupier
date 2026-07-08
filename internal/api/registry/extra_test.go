@@ -948,10 +948,10 @@ func TestService_GetRegistry_AssignmentCoverageWithAgent(t *testing.T) {
 
 	// Add agent that covers func1 and func2
 	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
-		AgentID: "agent-1",
-		GameID:  "game1",
-		Env:     "prod",
-		RPCAddr: "127.0.0.1:19091",
+		AgentID:  "agent-1",
+		GameID:   "game1",
+		Env:      "prod",
+		RPCAddr:  "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"func1": {Enabled: true},

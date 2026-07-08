@@ -410,11 +410,11 @@ func TestFromDelegation(t *testing.T) {
 		Permissions: []DelegationPermission{
 			PermApprove,
 		},
-		State:     DelegationState("active"),
-		Reason:    "vacation",
-		StartAt:   now,
-		EndAt:     &endAt,
-		MaxUsages: 10,
+		State:      DelegationState("active"),
+		Reason:     "vacation",
+		StartAt:    now,
+		EndAt:      &endAt,
+		MaxUsages:  10,
 		UsageCount: 3,
 		Constraints: []DelegationConstraint{
 			{Type: "time_restriction"},

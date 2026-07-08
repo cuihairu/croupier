@@ -301,15 +301,15 @@ func TestEnsureMetricDefaults_AllMissing(t *testing.T) {
 
 func TestEnsureMetricDefaults_SomeExisting(t *testing.T) {
 	snapshot := map[string]interface{}{
-		"qps_1m":        100.0,
-		"active_conns":  int64(5),
+		"qps_1m":       100.0,
+		"active_conns": int64(5),
 	}
 	ensureMetricDefaults(snapshot)
 
-	assert.Equal(t, 100.0, snapshot["qps_1m"]) // preserved
+	assert.Equal(t, 100.0, snapshot["qps_1m"])          // preserved
 	assert.Equal(t, int64(5), snapshot["active_conns"]) // preserved
-	assert.Equal(t, 0.0, snapshot["error_rate"]) // added default
-	assert.Equal(t, 0.0, snapshot["avg_latency_ms"]) // added default
+	assert.Equal(t, 0.0, snapshot["error_rate"])        // added default
+	assert.Equal(t, 0.0, snapshot["avg_latency_ms"])    // added default
 }
 
 func TestParseFloatLabel_NilLabels(t *testing.T) {

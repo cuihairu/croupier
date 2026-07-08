@@ -107,8 +107,8 @@ func TestBuildFallbackUISchema(t *testing.T) {
 
 func TestFallbackFields_AllEntities(t *testing.T) {
 	tests := []struct {
-		entity   string
-		action   string
+		entity    string
+		action    string
 		minFields int
 	}{
 		{"player", "list", 2},
@@ -173,9 +173,9 @@ func TestSanitizeFallbackToken(t *testing.T) {
 
 func TestInferFallbackEntityAction(t *testing.T) {
 	tests := []struct {
-		input        string
-		wantEntity   string
-		wantAction   string
+		input      string
+		wantEntity string
+		wantAction string
 	}{
 		{"player.get", "player", "get"},
 		{"order.list", "order", "list"},

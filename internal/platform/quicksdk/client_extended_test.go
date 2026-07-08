@@ -52,7 +52,7 @@ func TestNewClient_WithCache(t *testing.T) {
 		OpenID:        "id",
 		OpenKey:       "key",
 		EnableCache:   true,
-		CacheDuration: 10,
+		CacheDuration: 10 * time.Second,
 	}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -256,7 +256,7 @@ func TestClient_Do_CacheHit(t *testing.T) {
 		OpenKey:       "key",
 		APIBaseURL:    srv.URL,
 		EnableCache:   true,
-		CacheDuration: 60,
+		CacheDuration: 60 * time.Second,
 	}, nil)
 
 	// Pre-populate cache
@@ -404,7 +404,7 @@ func TestClient_Do_CacheWrite(t *testing.T) {
 		OpenKey:       "key",
 		APIBaseURL:    srv.URL,
 		EnableCache:   true,
-		CacheDuration: 60,
+		CacheDuration: 60 * time.Second,
 	}, nil)
 
 	// Build cache key BEFORE Do mutates params (Do adds openId/time/sign)

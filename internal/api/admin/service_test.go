@@ -2147,8 +2147,8 @@ func TestService_UpdateGames_NilGames(t *testing.T) {
 
 	// Update with nil Games (should normalize to empty)
 	resp, err := service.UpdateGames(ctx, &UpdateGamesRequest{
-		ID:     strconv.FormatUint(uint64(adminID), 10),
-		Games:  nil,
+		ID:    strconv.FormatUint(uint64(adminID), 10),
+		Games: nil,
 	})
 
 	assert.NoError(t, err)
@@ -2178,4 +2178,3 @@ func TestService_List_EmptyResult(t *testing.T) {
 	assert.Equal(t, int64(0), resp.Total)
 	assert.Empty(t, resp.Items)
 }
-

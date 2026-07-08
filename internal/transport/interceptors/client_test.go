@@ -83,7 +83,7 @@ type mockClientStream struct {
 	grpc.ClientStream
 }
 
-func (m *mockClientStream) Header() (metadata.MD, error) { return nil, nil }
+func (m *mockClientStream) Header() (metadata.MD, error)  { return nil, nil }
 func (m *mockClientStream) Trailer() metadata.MD          { return nil }
 func (m *mockClientStream) CloseSend() error              { return nil }
 func (m *mockClientStream) Context() context.Context      { return context.Background() }

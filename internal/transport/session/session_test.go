@@ -18,11 +18,11 @@ type mockSession struct {
 	closed   bool
 }
 
-func (m *mockSession) SessionID() string                { return m.id }
-func (m *mockSession) UpdateLastSeen()                   { m.lastSeen = time.Now() }
-func (m *mockSession) GetLastSeen() time.Time            { return m.lastSeen }
-func (m *mockSession) IsStale(ttl time.Duration) bool    { return time.Since(m.lastSeen) > ttl }
-func (m *mockSession) Close() error                      { m.closed = true; return nil }
+func (m *mockSession) SessionID() string              { return m.id }
+func (m *mockSession) UpdateLastSeen()                { m.lastSeen = time.Now() }
+func (m *mockSession) GetLastSeen() time.Time         { return m.lastSeen }
+func (m *mockSession) IsStale(ttl time.Duration) bool { return time.Since(m.lastSeen) > ttl }
+func (m *mockSession) Close() error                   { m.closed = true; return nil }
 
 func newTestMuxConnPair(t *testing.T) (*tcp.MuxConn, net.Conn) {
 	t.Helper()

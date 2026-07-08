@@ -95,12 +95,12 @@ func TestGetString(t *testing.T) {
 
 func TestGetInt(t *testing.T) {
 	m := map[string]interface{}{
-		"int":      42,
-		"float64":  float64(3.9),
-		"str":      "100",
-		"str_bad":  "abc",
-		"bool":     true,
-		"nil":      nil,
+		"int":     42,
+		"float64": float64(3.9),
+		"str":     "100",
+		"str_bad": "abc",
+		"bool":    true,
+		"nil":     nil,
 	}
 
 	tests := []struct {

@@ -11,11 +11,11 @@ import (
 
 func TestReconnectionState_NextDelay(t *testing.T) {
 	policy := &ReconnectionPolicy{
-		MaxRetries:    3,
-		InitialDelay:  100 * time.Millisecond,
-		MaxDelay:      1 * time.Second,
-		Multiplier:    2.0,
-		Jitter:        0,
+		MaxRetries:          3,
+		InitialDelay:        100 * time.Millisecond,
+		MaxDelay:            1 * time.Second,
+		Multiplier:          2.0,
+		Jitter:              0,
 		EnableAutoReconnect: true,
 	}
 

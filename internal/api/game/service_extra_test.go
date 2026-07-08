@@ -1044,4 +1044,3 @@ func TestService_EnvUpdate_OnlyDescription_Extra(t *testing.T) {
 	assert.Equal(t, "Updated Production", resp.Envs[0].Description)
 	assert.Equal(t, "prod", resp.Envs[0].Env) // name unchanged
 }
-

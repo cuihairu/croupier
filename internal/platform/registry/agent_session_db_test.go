@@ -5,16 +5,16 @@ import (
 	"testing"
 	"time"
 
+	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	gsqlite "github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 
 func setupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	// Use unique in-memory database per test
-	db, err := gorm.Open(gsqlite.Open("file:" + t.Name() + "?mode=memory&cache=private"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open("file:"+t.Name()+"?mode=memory&cache=private"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, MigrateAgentSessions(db))
 	return db
