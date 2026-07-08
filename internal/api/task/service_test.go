@@ -2,16 +2,22 @@ package task
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/tasks"
+	"github.com/cuihairu/croupier/internal/transport"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
+	"github.com/cuihairu/croupier/pkg/protocol"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -216,4 +222,93 @@ func TestCancel_MarksCancelRequested(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "a cancel_requested event should be appended")
+}
+
+// --- End-to-end dispatch loop ---
+
+// fakeAgentSessionCaller stands in for a real agent's established TCP session.
+// On MsgStartTaskRequest it echoes back the server-generated task_id from the
+// request metadata, which is exactly what a real agent does to acknowledge the task.
+type fakeAgentSessionCaller struct {
+	sawFunctionID string
+	handledTaskID string
+}
+
+func (f *fakeAgentSessionCaller) Call(_ context.Context, msgID uint32, reqBody []byte) (uint32, []byte, error) {
+	if msgID != protocol.MsgStartTaskRequest {
+		return 0, nil, fmt.Errorf("unexpected message id 0x%x", msgID)
+	}
+	var req sdkv1.InvokeRequest
+	if err := proto.Unmarshal(reqBody, &req); err != nil {
+		return 0, nil, err
+	}
+	f.sawFunctionID = req.GetFunctionId()
+	if req.Metadata != nil {
+		f.handledTaskID = req.Metadata["task_id"]
+	}
+	resp, err := proto.Marshal(&sdkv1.StartTaskResponse{TaskId: f.handledTaskID})
+	if err != nil {
+		return 0, nil, err
+	}
+	return protocol.MsgStartTaskResponse, resp, nil
+}
+
+type fakeAgentResolver struct{ caller *fakeAgentSessionCaller }
+
+func (r *fakeAgentResolver) ResolveAgentConn(_ string) (transport.SessionCaller, bool) {
+	return r.caller, true
+}
+
+// TestStart_DispatchesAndPersists_HappyPath is the end-to-end proof that
+// /tasks Start now drives the dispatch loop: it reaches the agent over the
+// session, the agent acknowledges with the server-generated task id, and a
+// task_runs row is persisted keyed by that id. Before the fix this loop did not
+// exist; no test previously covered the happy path.
+func TestStart_DispatchesAndPersists_HappyPath(t *testing.T) {
+	t.Parallel()
+	svcCtx := setupSvcCtx(t)
+
+	// Wire the dispatcher to persist task_runs into the same DB the service
+	// reads from, and to reach a fake agent session instead of the network.
+	svcCtx.Dispatcher.SetTaskRunWriter(dispatch.NewTaskRunWriterAdapter(model.NewTaskRunModel(svcCtx.DB)))
+	caller := &fakeAgentSessionCaller{}
+	svcCtx.Dispatcher.SetSessionResolver(&fakeAgentResolver{caller: caller})
+
+	createTestFunction(t, svcCtx.DB, "player.ban", "Ban Player")
+	// Register a live agent that serves the function.
+	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+		AgentID:  "agent-e2e",
+		ExpireAt: time.Now().Add(time.Hour),
+		Functions: map[string]registry.FunctionMeta{
+			"player.ban": {Enabled: true},
+		},
+	})
+
+	ctx := seedAdminWithRole(t, svcCtx.DB, "root", "admin")
+	svc := NewService(svcCtx)
+
+	resp, err := svc.Start(ctx, &StartRequest{
+		FunctionID: "player.ban",
+		Params:     map[string]interface{}{"player": "p1"},
+		GameID:     "test-game",
+		Env:        "prod",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.NotEmpty(t, resp.TaskID, "server should return the dispatched task id")
+	assert.Equal(t, tasks.StatusDispatching, resp.Status)
+
+	// The agent received the StartTaskRequest for the right function, carrying
+	// the same server-generated task id.
+	assert.Equal(t, "player.ban", caller.sawFunctionID)
+	assert.Equal(t, resp.TaskID, caller.handledTaskID)
+
+	// A task_runs row was persisted keyed by that id — the feedback loop is closed:
+	// events coming back from the agent can now match and update this row.
+	var run model.TaskRun
+	require.NoError(t, svcCtx.DB.Where("task_id = ?", resp.TaskID).First(&run).Error)
+	assert.Equal(t, "player.ban", run.FunctionID)
+	assert.Equal(t, "agent-e2e", run.AgentID)
+	assert.Equal(t, "test-game", run.GameID)
+	assert.Equal(t, "prod", run.Env)
 }
