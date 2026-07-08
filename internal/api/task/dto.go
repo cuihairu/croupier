@@ -81,6 +81,8 @@ type EventsResponse struct {
 type StartRequest struct {
 	FunctionID string      `json:"function_id"`
 	Params     interface{} `json:"params"`
+	GameID     string      `json:"game_id,omitempty"`
+	Env        string      `json:"env,omitempty"`
 }
 
 type StartResponse struct {

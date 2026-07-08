@@ -128,28 +128,5 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *FunctionInvokeRequest) (*Funct
 }
 
 func (l *FunctionInvokeLogic) enforceInvokePermission(roleNames []string, permIDs []string, functionID string, gameID string, env string) error {
-	if utils.HasAdminRole(roleNames) {
-		return nil
-	}
-
-	// Prefer per-function permissions if configured.
-	if l.svcCtx.FunctionModel == nil {
-		return errorx.NewForbidden("无权调用该函数（函数权限模型未初始化）")
-	}
-	perms, err := l.svcCtx.FunctionModel.ListPermissions(l.ctx, functionID)
-	if err != nil {
-		return err
-	}
-	if allowed, hasRule := utils.FunctionActionAllowed(roleNames, perms, "invoke", gameID, env); hasRule {
-		if allowed {
-			return nil
-		}
-		return errorx.NewForbidden("无权调用该函数")
-	}
-
-	// Default policy: function:invoke can invoke when no per-function rule exists.
-	if utils.HasPermissionID(permIDs, "*") || utils.HasPermissionID(permIDs, "function:invoke") {
-		return nil
-	}
-	return errorx.NewForbidden("无权调用该函数（需要 function:invoke 或配置函数权限）")
+	return utils.CheckInvokePermission(l.ctx, l.svcCtx, roleNames, permIDs, functionID, gameID, env)
 }

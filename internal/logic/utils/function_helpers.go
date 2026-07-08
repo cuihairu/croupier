@@ -1,11 +1,13 @@
 package utils
 
 import (
+	"context"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/helper"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/svc"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 )
 
@@ -74,6 +76,34 @@ func BuildInvokeRequest(functionID string, payload []byte, metadata map[string]s
 		req.Metadata = metadata
 	}
 	return req
+}
+
+// CheckInvokePermission enforces function-level authorization for invoking a
+// function, whether synchronously or as an async task. It is shared by the
+// function-invoke path and the task Start API so both entry points apply
+// identical authorization and cannot drift.
+func CheckInvokePermission(ctx context.Context, svcCtx *svc.ServiceContext, roleNames, permIDs []string, functionID, gameID, env string) error {
+	if HasAdminRole(roleNames) {
+		return nil
+	}
+	if svcCtx == nil || svcCtx.FunctionModel == nil {
+		return errorx.NewForbidden("无权调用该函数（函数权限模型未初始化）")
+	}
+	perms, err := svcCtx.FunctionModel.ListPermissions(ctx, functionID)
+	if err != nil {
+		return err
+	}
+	if allowed, hasRule := FunctionActionAllowed(roleNames, perms, "invoke", gameID, env); hasRule {
+		if allowed {
+			return nil
+		}
+		return errorx.NewForbidden("无权调用该函数")
+	}
+	// Default policy: function:invoke can invoke when no per-function rule exists.
+	if HasPermissionID(permIDs, "*") || HasPermissionID(permIDs, "function:invoke") {
+		return nil
+	}
+	return errorx.NewForbidden("无权调用该函数（需要 function:invoke 或配置函数权限）")
 }
 
 // ConvertFunctionPermissions converts API permissions to model records.

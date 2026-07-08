@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
@@ -59,26 +57,54 @@ func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse,
 	if _, err := s.svcCtx.FunctionModel.FindByFunctionID(ctx, functionID); err != nil {
 		return nil, err
 	}
-	payload, err := json.Marshal(req.Params)
+
+	// Apply the same authorization as the function-invoke path so /tasks
+	// cannot be used to bypass function-level RBAC.
+	admin, roles, err := utils.LoadCurrentAdmin(ctx, s.svcCtx)
 	if err != nil {
 		return nil, err
 	}
-	taskID := uuid.NewString()
-	run := &model.TaskRun{
-		TaskID:       taskID,
-		FunctionID:   functionID,
-		Status:       tasks.StatusQueued,
-		Progress:     0,
-		Message:      "任务已创建",
-		InputPayload: payload,
-	}
-	if err := s.store.CreateRun(ctx, run); err != nil {
+	roleNames := utils.RoleNamesFromModels(roles)
+	permIDs, err := utils.PermissionIDsFromRoles(ctx, s.svcCtx, roles)
+	if err != nil {
 		return nil, err
 	}
-	if err := s.store.AppendEvent(ctx, taskID, tasks.EventQueued, 0, "任务已创建", []byte("null")); err != nil {
+
+	gameID := strings.TrimSpace(req.GameID)
+	env := strings.TrimSpace(req.Env)
+	if err := utils.RequireGameEnvScope(ctx, s.svcCtx, admin.ID, roleNames, gameID, env); err != nil {
 		return nil, err
 	}
-	return &StartResponse{TaskID: taskID, Status: tasks.StatusQueued}, nil
+	if err := utils.CheckInvokePermission(ctx, s.svcCtx, roleNames, permIDs, functionID, gameID, env); err != nil {
+		return nil, err
+	}
+
+	payloadObj := req.Params
+	if payloadObj == nil {
+		payloadObj = map[string]interface{}{}
+	}
+	payload, err := json.Marshal(payloadObj)
+	if err != nil {
+		return nil, err
+	}
+
+	metadata := map[string]string{}
+	if gameID != "" {
+		metadata["game_id"] = gameID
+	}
+	if env != "" {
+		metadata["env"] = env
+	}
+
+	// Dispatch through the same path as mode=task function invocation: the
+	// dispatcher generates the task ID, creates the task_runs row, and forwards
+	// to the agent. This unifies the async entry points so /tasks no longer
+	// leaves rows stranded in "queued".
+	resp, err := s.svcCtx.Dispatcher.StartTaskRequest(ctx, utils.BuildInvokeRequest(functionID, payload, metadata))
+	if err != nil {
+		return nil, err
+	}
+	return &StartResponse{TaskID: resp.GetTaskId(), Status: tasks.StatusDispatching}, nil
 }
 
 func (s *Service) Detail(ctx context.Context, req *DetailRequest) (*DetailResponse, error) {

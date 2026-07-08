@@ -4,6 +4,7 @@ import "context"
 
 const (
 	StatusQueued          = "queued"
+	StatusDispatching     = "dispatching"
 	StatusRunning         = "running"
 	StatusSucceeded       = "succeeded"
 	StatusFailed          = "failed"
