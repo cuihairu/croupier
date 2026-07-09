@@ -16,7 +16,7 @@
     <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License">
   </a>
   <a href="https://go.dev/">
-    <img src="https://img.shields.io/badge/Go-1.26+-00ADD8.svg" alt="Go Version">
+    <img src="https://img.shields.io/badge/Go-1.26.5+-00ADD8.svg" alt="Go Version">
   </a>
 </p>
 
@@ -113,7 +113,7 @@ Croupier Go SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 
 ### 系统要求
 
-- **Go 1.26+**
+- **Go 1.26.5+**
 - **Protocol Buffers 编译器** (protoc)
 - **Go protoc 插件**:
   ```bash

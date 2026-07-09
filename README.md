@@ -8,7 +8,7 @@
 [![Release](https://img.shields.io/badge/Release-v0.1.1-blue.svg)](https://github.com/cuihairu/croupier/releases)
 [![codecov](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg)](https://codecov.io/gh/cuihairu/croupier)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
-![Go Version](https://img.shields.io/badge/go-1.26.3+-green.svg)
+![Go Version](https://img.shields.io/badge/go-1.26.5+-green.svg)
 
 Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，默认服务于单一游戏公司内部的多个游戏与多个环境。当前架构已经收敛到“统一 session 传输”方向：
 
@@ -153,7 +153,7 @@ cd croupier
 
 2. 安装工具链
 
-- Go 1.26+
+- Go 1.26.5+
 - Node.js 22+ / pnpm
 - `buf`
 - `protoc`
