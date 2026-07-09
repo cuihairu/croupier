@@ -625,7 +625,13 @@ type KeyRotationNotifier interface {
 // Helper functions
 
 func generateKeyID(purpose string) string {
-	return fmt.Sprintf("key_%s_%d", purpose, time.Now().UnixNano())
+	// 时间戳提供可读的时间顺序，但单独依赖 UnixNano 在低精度时钟（如 Windows）
+	// 上会在紧密循环中产生重复值；追加随机后缀确保唯一性。
+	b := make([]byte, 8)
+	if _, err := io.ReadFull(rand.Reader, b); err != nil {
+		return fmt.Sprintf("key_%s_%d", purpose, time.Now().UnixNano())
+	}
+	return fmt.Sprintf("key_%s_%d_%x", purpose, time.Now().UnixNano(), b)
 }
 
 func pkcs7Pad(data []byte, blockSize int) []byte {
