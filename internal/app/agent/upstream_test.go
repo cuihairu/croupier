@@ -2,9 +2,13 @@ package agent
 
 import (
 	"context"
+	"net"
 	"testing"
+	"time"
 
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
+	"github.com/cuihairu/croupier/internal/platform/tlsutil"
+	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 )
 
@@ -109,6 +113,73 @@ func TestUpstreamClient_Connected(t *testing.T) {
 	// Not connected before dial
 	if client.Connected() {
 		t.Error("expected false when not connected")
+	}
+}
+
+func TestControlTCPConfigAppliesTLS(t *testing.T) {
+	t.Parallel()
+
+	cfg := controlTCPConfig("tcp://127.0.0.1:19090", &tlsutil.ClientTLSConfig{
+		CertFile:           "client.crt",
+		KeyFile:            "client.key",
+		CAFile:             "ca.crt",
+		ServerName:         "server.internal",
+		InsecureSkipVerify: true,
+	})
+
+	if cfg.Address != "127.0.0.1:19090" {
+		t.Fatalf("expected normalized address, got %q", cfg.Address)
+	}
+	if cfg.Insecure {
+		t.Fatal("expected TLS mode when tls config is provided")
+	}
+	if cfg.CertFile != "client.crt" || cfg.KeyFile != "client.key" || cfg.CAFile != "ca.crt" {
+		t.Fatalf("expected TLS file fields to be copied, got %+v", cfg)
+	}
+	if cfg.ServerName != "server.internal" || !cfg.InsecureSkipVerify {
+		t.Fatalf("expected TLS verification fields to be copied, got %+v", cfg)
+	}
+	if cfg.ConnectTimeout != 5*time.Second || cfg.RecvTimeout != 30*time.Second || cfg.SendTimeout != 10*time.Second {
+		t.Fatalf("unexpected timeout defaults: %+v", cfg)
+	}
+}
+
+func TestControlTCPConfigDefaultsToInsecure(t *testing.T) {
+	t.Parallel()
+
+	cfg := controlTCPConfig("127.0.0.1:19090", nil)
+
+	if !cfg.Insecure {
+		t.Fatal("expected insecure mode without TLS config")
+	}
+}
+
+func TestMuxControlClientConnectedTracksMuxState(t *testing.T) {
+	t.Parallel()
+
+	client := &muxControlClient{}
+	if client.Connected() {
+		t.Fatal("expected nil mux client to be disconnected")
+	}
+
+	client.mux = &tcptr.MuxConn{}
+	if client.Connected() {
+		t.Fatal("expected zero-value mux without closed channel to be treated as disconnected")
+	}
+
+	c1, c2 := net.Pipe()
+	defer c2.Close()
+
+	client.mux = tcptr.NewMuxConn(c1, nil, nil)
+	if !client.Connected() {
+		t.Fatal("expected live mux client to be connected")
+	}
+
+	if err := client.mux.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	if client.Connected() {
+		t.Fatal("expected closed mux client to be disconnected")
 	}
 }
 

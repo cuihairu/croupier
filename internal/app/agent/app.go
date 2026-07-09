@@ -118,6 +118,7 @@ func (a *App) StartLocalServer() error {
 		a.localHandler.SetTLSConfig(a.outTLS)
 	}
 	a.localHandler.SetTaskEventReporter(a.upstream)
+	a.upstream.SetLocalHandler(a.localHandler)
 
 	// Initialize and set ops server wrapper
 	if a.opsConfig == nil {

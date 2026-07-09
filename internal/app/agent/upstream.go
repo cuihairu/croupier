@@ -203,9 +203,9 @@ func (c *UpstreamClient) dialServer(ctx context.Context) error {
 	// For TCP transport with a local handler, use MuxConn (bidirectional).
 	// Otherwise fall back to simple TCP client.
 	if c.localHandler != nil {
-		client, err = newMuxControlClient(c.serverAddr, c.localHandler)
+		client, err = newMuxControlClient(c.serverAddr, c.localHandler, c.tlsCfg)
 	} else {
-		client, err = newControlClient(c.transportKind, c.serverAddr)
+		client, err = newControlClient(c.transportKind, c.serverAddr, c.tlsCfg)
 	}
 
 	if err != nil {

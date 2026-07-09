@@ -3,10 +3,10 @@ package agent
 import (
 	"context"
 	"fmt"
-	"net"
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	transportcore "github.com/cuihairu/croupier/internal/transport"
 	tcptr "github.com/cuihairu/croupier/internal/transport/tcp"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
@@ -37,9 +37,9 @@ type muxControlClient struct {
 	cancel context.CancelFunc
 }
 
-func newControlClient(kind, addr string) (controlClient, error) {
+func newControlClient(kind, addr string, tlsCfg *tlsutil.ClientTLSConfig) (controlClient, error) {
 	// Only TCP transport supported
-	client, err := tcptr.NewClient(&tcptr.Config{Address: addr, Insecure: true})
+	client, err := tcptr.NewClient(controlTCPConfig(addr, tlsCfg))
 	if err != nil {
 		return nil, err
 	}
@@ -48,9 +48,8 @@ func newControlClient(kind, addr string) (controlClient, error) {
 
 // newMuxControlClient creates a bidirectional TCP session using MuxConn.
 // The localHandler processes inbound requests from the Server (e.g., Invoke, StartTask).
-func newMuxControlClient(addr string, localHandler transportcore.Handler) (*muxControlClient, error) {
-	dialer := &net.Dialer{Timeout: 5 * time.Second}
-	conn, err := dialer.Dial("tcp", normalizeTCPAddr(addr))
+func newMuxControlClient(addr string, localHandler transportcore.Handler, tlsCfg *tlsutil.ClientTLSConfig) (*muxControlClient, error) {
+	conn, err := tcptr.Dial(controlTCPConfig(addr, tlsCfg))
 	if err != nil {
 		return nil, fmt.Errorf("dial upstream %s: %w", addr, err)
 	}
@@ -143,7 +142,7 @@ func (c *tcpControlClient) call(ctx context.Context, msgID uint32, req proto.Mes
 // --- muxControlClient ---
 
 func (c *muxControlClient) Connected() bool {
-	return c != nil && c.mux != nil
+	return c != nil && c.mux != nil && !c.mux.IsClosed()
 }
 
 func (c *muxControlClient) Close() error {
@@ -211,4 +210,22 @@ func (c *muxControlClient) call(ctx context.Context, msgID uint32, req proto.Mes
 // normalizeTCPAddr strips the tcp:// prefix from an address.
 func normalizeTCPAddr(addr string) string {
 	return strings.TrimPrefix(strings.TrimSpace(addr), "tcp://")
+}
+
+func controlTCPConfig(addr string, tlsCfg *tlsutil.ClientTLSConfig) *tcptr.Config {
+	cfg := &tcptr.Config{
+		Address:        normalizeTCPAddr(addr),
+		Insecure:       tlsCfg == nil,
+		ConnectTimeout: 5 * time.Second,
+		RecvTimeout:    30 * time.Second,
+		SendTimeout:    10 * time.Second,
+	}
+	if tlsCfg != nil {
+		cfg.CertFile = tlsCfg.CertFile
+		cfg.KeyFile = tlsCfg.KeyFile
+		cfg.CAFile = tlsCfg.CAFile
+		cfg.ServerName = tlsCfg.ServerName
+		cfg.InsecureSkipVerify = tlsCfg.InsecureSkipVerify
+	}
+	return cfg
 }
