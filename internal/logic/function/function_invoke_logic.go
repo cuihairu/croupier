@@ -7,6 +7,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
+	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -84,9 +85,13 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *FunctionInvokeRequest) (*Funct
 		}
 		metadata["hash_key"] = key
 	case "broadcast":
-		return nil, errorx.NewBadRequest("route=broadcast not implemented")
+		// no metadata required; fan-out happens via Dispatcher.InvokeBroadcast.
 	default:
 		return nil, errorx.NewBadRequest("invalid route " + route)
+	}
+
+	if route == "broadcast" && (mode == "task" || mode == "start_task" || mode == "async") {
+		return nil, errorx.NewBadRequest("route=broadcast is only supported for synchronous invoke")
 	}
 
 	if mode == "task" || mode == "start_task" || mode == "async" {
@@ -111,6 +116,15 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *FunctionInvokeRequest) (*Funct
 	if err := l.enforceInvokePermission(roleNames, permIDs, functionID, gameID, env); err != nil {
 		return nil, err
 	}
+
+	if route == "broadcast" {
+		broadcast, err := l.svcCtx.Dispatcher.InvokeBroadcast(l.ctx, utils.BuildInvokeRequest(functionID, payload, metadata))
+		if err != nil {
+			return nil, err
+		}
+		return buildBroadcastResponse(broadcast), nil
+	}
+
 	resp, err := l.svcCtx.Dispatcher.InvokeRequest(l.ctx, utils.BuildInvokeRequest(functionID, payload, metadata))
 	if err != nil {
 		return nil, err
@@ -129,4 +143,50 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *FunctionInvokeRequest) (*Funct
 
 func (l *FunctionInvokeLogic) enforceInvokePermission(roleNames []string, permIDs []string, functionID string, gameID string, env string) error {
 	return utils.CheckInvokePermission(l.ctx, l.svcCtx, roleNames, permIDs, functionID, gameID, env)
+}
+
+// buildBroadcastResponse aggregates per-agent outcomes and also populates
+// Result with the first successful response so legacy callers that don't
+// know about Broadcast keep working.
+func buildBroadcastResponse(b *dispatch.BroadcastInvocation) *FunctionInvokeResponse {
+	if b == nil {
+		return &FunctionInvokeResponse{Broadcast: &BroadcastResult{}}
+	}
+
+	out := &FunctionInvokeResponse{
+		Broadcast: &BroadcastResult{
+			Total:   b.Total,
+			Success: len(b.Successes),
+			Failure: len(b.Failures),
+			Results: make([]BroadcastAgentItem, 0, b.Total),
+		},
+	}
+
+	for _, s := range b.Successes {
+		item := BroadcastAgentItem{AgentID: s.AgentID}
+		if s.Response != nil && len(s.Response.GetPayload()) > 0 {
+			var v interface{}
+			if err := json.Unmarshal(s.Response.GetPayload(), &v); err == nil {
+				item.Result = v
+				if out.Result == nil {
+					out.Result = v
+				}
+			} else {
+				item.Result = string(s.Response.GetPayload())
+				if out.Result == nil {
+					out.Result = item.Result
+				}
+			}
+		}
+		out.Broadcast.Results = append(out.Broadcast.Results, item)
+	}
+
+	for _, f := range b.Failures {
+		out.Broadcast.Results = append(out.Broadcast.Results, BroadcastAgentItem{
+			AgentID: f.AgentID,
+			Error:   f.Err.Error(),
+		})
+	}
+
+	return out
 }

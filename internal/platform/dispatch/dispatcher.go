@@ -285,6 +285,123 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 	return resp, nil
 }
 
+// BroadcastAgentResult captures the outcome of a single agent invocation
+// within a broadcast. Either Response or Err is set.
+type BroadcastAgentResult struct {
+	AgentID  string
+	Response *sdkv1.InvokeResponse
+	Err      error
+}
+
+// BroadcastInvocation aggregates per-agent outcomes from InvokeBroadcast.
+// Successes and Failures together always sum to Total.
+type BroadcastInvocation struct {
+	Total     int
+	Successes []*BroadcastAgentResult
+	Failures  []*BroadcastAgentResult
+}
+
+// InvokeBroadcast delivers the same request to every live agent that owns the
+// function and returns the per-agent outcomes. Individual agent failures are
+// captured in the result instead of aborting the whole broadcast, so callers
+// can act on partial results.
+func (d *Dispatcher) InvokeBroadcast(ctx context.Context, req *sdkv1.InvokeRequest) (*BroadcastInvocation, error) {
+	if req == nil || req.GetFunctionId() == "" {
+		return nil, fmt.Errorf("function id is required")
+	}
+
+	agents := d.listAgentsForFunction(req.GetFunctionId())
+	if len(agents) == 0 {
+		return nil, fmt.Errorf("no live agent for function %s", req.GetFunctionId())
+	}
+
+	result := &BroadcastInvocation{Total: len(agents)}
+
+	var (
+		wg sync.WaitGroup
+		mu sync.Mutex
+	)
+
+	for _, agent := range agents {
+		wg.Add(1)
+		go func(agent *reg.AgentSession) {
+			defer wg.Done()
+
+			// Per-agent clone so concurrent metadata writes don't race.
+			localReq := proto.Clone(req).(*sdkv1.InvokeRequest)
+			if localReq.Metadata == nil {
+				localReq.Metadata = map[string]string{}
+			}
+			localReq.Metadata["agent_id"] = agent.AgentID
+
+			if d.healthTracker != nil {
+				d.healthTracker.IncrementConnections(agent.AgentID)
+				defer d.healthTracker.DecrementConnections(agent.AgentID)
+			}
+
+			out := &BroadcastAgentResult{AgentID: agent.AgentID}
+
+			reqBytes, err := proto.Marshal(localReq)
+			if err != nil {
+				out.Err = fmt.Errorf("marshal request: %w", err)
+			} else {
+				respBytes, callErr := d.callAgent(ctx, agent.AgentID, protocol.MsgInvokeRequest, reqBytes)
+				if callErr != nil {
+					out.Err = callErr
+				} else {
+					resp := &sdkv1.InvokeResponse{}
+					if err := proto.Unmarshal(respBytes, resp); err != nil {
+						out.Err = fmt.Errorf("unmarshal response: %w", err)
+					} else {
+						out.Response = resp
+					}
+				}
+			}
+
+			mu.Lock()
+			if out.Err != nil {
+				result.Failures = append(result.Failures, out)
+			} else {
+				result.Successes = append(result.Successes, out)
+			}
+			mu.Unlock()
+
+			if d.healthTracker != nil {
+				if out.Err != nil {
+					d.healthTracker.RecordFailure(agent.AgentID)
+				} else {
+					d.healthTracker.RecordSuccess(agent.AgentID)
+				}
+			}
+		}(agent)
+	}
+
+	wg.Wait()
+	return result, nil
+}
+
+// listAgentsForFunction returns live agents that currently expose the given
+// function. The registry read lock is taken internally.
+func (d *Dispatcher) listAgentsForFunction(functionID string) []*reg.AgentSession {
+	now := time.Now()
+
+	d.store.Mu().RLock()
+	defer d.store.Mu().RUnlock()
+
+	var out []*reg.AgentSession
+	for _, agent := range d.store.AgentsUnsafe() {
+		if agent == nil || !agent.ExpireAt.After(now) {
+			continue
+		}
+		meta, ok := agent.Functions[functionID]
+		if !ok || !meta.Enabled {
+			continue
+		}
+		out = append(out, agent)
+	}
+	return out
+}
+
 func (d *Dispatcher) StartTask(ctx context.Context, functionID string, payload []byte) (string, error) {
 	resp, err := d.StartTaskRequest(ctx, &sdkv1.InvokeRequest{
 		FunctionId: functionID,

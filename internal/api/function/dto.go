@@ -135,6 +135,24 @@ type FunctionInvokeResponse struct {
 	ApprovalID       string      `json:"approval_id,omitempty"`
 	ApprovalRequired bool        `json:"approval_required,omitempty"`
 	ApprovalWorkflow string      `json:"approval_workflow,omitempty"`
+	// Broadcast carries per-agent outcomes when route=broadcast. Empty when
+	// the call did not use broadcast routing.
+	Broadcast *BroadcastResult `json:"broadcast,omitempty"`
+}
+
+// BroadcastResult aggregates per-agent outcomes from a broadcast invocation.
+type BroadcastResult struct {
+	Total   int                  `json:"total"`
+	Success int                  `json:"success"`
+	Failure int                  `json:"failure"`
+	Results []BroadcastAgentItem `json:"results,omitempty"`
+}
+
+// BroadcastAgentItem captures one agent's outcome in a broadcast.
+type BroadcastAgentItem struct {
+	AgentID string      `json:"agentId"`
+	Result  interface{} `json:"result,omitempty"`
+	Error   string      `json:"error,omitempty"`
 }
 
 // FunctionPermission represents a permission for a function

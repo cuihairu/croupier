@@ -483,6 +483,127 @@ func TestDispatcher_pickAgent_IgnoresDisabledFunctions(t *testing.T) {
 	}
 }
 
+// TestDispatcher_listAgentsForFunction verifies the broadcast source list
+// filters by enabled functions and live expiry.
+func TestDispatcher_listAgentsForFunction(t *testing.T) {
+	d := NewDispatcher(nil)
+	now := time.Now().Add(time.Hour)
+
+	d.store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent-1",
+		ExpireAt: now,
+		Functions: map[string]reg.FunctionMeta{
+			"fn-active": {Enabled: true},
+		},
+	})
+	d.store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent-2",
+		ExpireAt: now,
+		Functions: map[string]reg.FunctionMeta{
+			"fn-active": {Enabled: false},
+		},
+	})
+	d.store.UpsertAgent(&reg.AgentSession{
+		AgentID:  "agent-3",
+		ExpireAt: time.Now().Add(-time.Hour), // expired
+		Functions: map[string]reg.FunctionMeta{
+			"fn-active": {Enabled: true},
+		},
+	})
+
+	agents := d.listAgentsForFunction("fn-active")
+	if len(agents) != 1 {
+		t.Fatalf("expected 1 live agent, got %d", len(agents))
+	}
+	if agents[0].AgentID != "agent-1" {
+		t.Errorf("expected agent-1, got %s", agents[0].AgentID)
+	}
+}
+
+// TestDispatcher_InvokeBroadcast_NoAgents covers the empty registry path.
+func TestDispatcher_InvokeBroadcast_NoAgents(t *testing.T) {
+	d := NewDispatcher(nil)
+
+	_, err := d.InvokeRequest(context.Background(), &sdkv1.InvokeRequest{
+		FunctionId: "missing",
+	})
+	if err == nil {
+		t.Fatal("expected error for missing function")
+	}
+
+	_, err = d.InvokeBroadcast(context.Background(), &sdkv1.InvokeRequest{
+		FunctionId: "missing",
+	})
+	if err == nil {
+		t.Fatal("expected error when broadcasting to no agents")
+	}
+}
+
+// TestDispatcher_InvokeBroadcast_AggregatesFailures registers multiple
+// agents without a live TCP session. Every per-agent call must fail, and
+// the broadcast must capture all of them rather than aborting early.
+func TestDispatcher_InvokeBroadcast_AggregatesFailures(t *testing.T) {
+	d := NewDispatcher(nil)
+	now := time.Now().Add(time.Hour)
+
+	for _, id := range []string{"agent-1", "agent-2", "agent-3"} {
+		d.store.UpsertAgent(&reg.AgentSession{
+			AgentID:  id,
+			ExpireAt: now,
+			Functions: map[string]reg.FunctionMeta{
+				"test-func": {Enabled: true},
+			},
+		})
+	}
+
+	result, err := d.InvokeBroadcast(context.Background(), &sdkv1.InvokeRequest{
+		FunctionId: "test-func",
+		Payload:    []byte(`{}`),
+	})
+	if err != nil {
+		t.Fatalf("InvokeBroadcast returned error despite no agent-level abort: %v", err)
+	}
+	if result.Total != 3 {
+		t.Errorf("Total = %d, want 3", result.Total)
+	}
+	if len(result.Successes) != 0 {
+		t.Errorf("Successes = %d, want 0 (no live sessions)", len(result.Successes))
+	}
+	if len(result.Failures) != 3 {
+		t.Errorf("Failures = %d, want 3", len(result.Failures))
+	}
+
+	seen := map[string]bool{}
+	for _, f := range result.Failures {
+		seen[f.AgentID] = true
+		if f.Err == nil {
+			t.Errorf("agent %s failure missing error", f.AgentID)
+		}
+	}
+	for _, id := range []string{"agent-1", "agent-2", "agent-3"} {
+		if !seen[id] {
+			t.Errorf("agent %s not in failures", id)
+		}
+	}
+}
+
+// TestDispatcher_InvokeBroadcast_RequiresFunctionID guards the contract.
+func TestDispatcher_InvokeBroadcast_RequiresFunctionID(t *testing.T) {
+	d := NewDispatcher(nil)
+
+	_, err := d.InvokeBroadcast(context.Background(), &sdkv1.InvokeRequest{
+		FunctionId: "",
+	})
+	if err == nil {
+		t.Fatal("expected error for empty function id")
+	}
+
+	_, err = d.InvokeBroadcast(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected error for nil request")
+	}
+}
+
 // TestDispatcher_pickAgent_AllowsEmptyRPCAddr 测试 session 路由下不再要求 RPC 地址
 func TestDispatcher_pickAgent_AllowsEmptyRPCAddr(t *testing.T) {
 	d := NewDispatcher(nil)

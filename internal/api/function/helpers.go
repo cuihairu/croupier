@@ -15,6 +15,7 @@ import (
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
+	"github.com/cuihairu/croupier/internal/platform/dispatch"
 	"github.com/cuihairu/croupier/internal/policy"
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -246,6 +247,13 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 				TaskID: taskResp.GetTaskId(),
 				Result: nil,
 			}
+		}
+	} else if strings.EqualFold(strings.TrimSpace(req.Route), "broadcast") {
+		broadcast, err := svcCtx.Dispatcher.InvokeBroadcast(ctx, utils.BuildInvokeRequest(req.ID, payload, metadata))
+		if err != nil {
+			invokeErr = err
+		} else {
+			result = buildBroadcastResponse(broadcast)
 		}
 	} else {
 		resp, err := svcCtx.Dispatcher.InvokeRequest(ctx, utils.BuildInvokeRequest(req.ID, payload, metadata))
@@ -911,4 +919,50 @@ func enforceFunctionPolicy(ctx context.Context, svcCtx *svc.ServiceContext, func
 	}
 
 	return nil, errorx.NewForbidden("insufficient permissions to invoke this function")
+}
+
+// buildBroadcastResponse aggregates per-agent outcomes from a broadcast
+// invocation. The legacy Result field is populated with the first successful
+// response so existing clients that don't know about Broadcast keep working.
+func buildBroadcastResponse(b *dispatch.BroadcastInvocation) *FunctionInvokeResponse {
+	if b == nil {
+		return &FunctionInvokeResponse{Broadcast: &BroadcastResult{}}
+	}
+
+	out := &FunctionInvokeResponse{
+		Broadcast: &BroadcastResult{
+			Total:   b.Total,
+			Success: len(b.Successes),
+			Failure: len(b.Failures),
+			Results: make([]BroadcastAgentItem, 0, b.Total),
+		},
+	}
+
+	for _, s := range b.Successes {
+		item := BroadcastAgentItem{AgentID: s.AgentID}
+		if s.Response != nil && len(s.Response.GetPayload()) > 0 {
+			var v interface{}
+			if err := json.Unmarshal(s.Response.GetPayload(), &v); err == nil {
+				item.Result = v
+				if out.Result == nil {
+					out.Result = v
+				}
+			} else {
+				item.Result = string(s.Response.GetPayload())
+				if out.Result == nil {
+					out.Result = item.Result
+				}
+			}
+		}
+		out.Broadcast.Results = append(out.Broadcast.Results, item)
+	}
+
+	for _, f := range b.Failures {
+		out.Broadcast.Results = append(out.Broadcast.Results, BroadcastAgentItem{
+			AgentID: f.AgentID,
+			Error:   f.Err.Error(),
+		})
+	}
+
+	return out
 }

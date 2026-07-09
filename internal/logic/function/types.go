@@ -234,6 +234,25 @@ type FunctionInvokeResponse struct {
 	Timestamp string      `json:"timestamp"`
 	TaskId    string      `json:"taskId"`
 	TaskID    string      `json:"taskID"`
+	// Broadcast carries per-agent outcomes when route=broadcast. The legacy
+	// Result field is also populated with the first successful response so
+	// existing callers keep working without reading Broadcast.
+	Broadcast *BroadcastResult `json:"broadcast,omitempty"`
+}
+
+// BroadcastResult aggregates per-agent outcomes from a broadcast invocation.
+type BroadcastResult struct {
+	Total   int                  `json:"total"`
+	Success int                  `json:"success"`
+	Failure int                  `json:"failure"`
+	Results []BroadcastAgentItem `json:"results,omitempty"`
+}
+
+// BroadcastAgentItem captures one agent's outcome in a broadcast.
+type BroadcastAgentItem struct {
+	AgentID string      `json:"agentId"`
+	Result  interface{} `json:"result,omitempty"`
+	Error   string      `json:"error,omitempty"`
 }
 
 // FunctionUIRequest represents a request for function UI
