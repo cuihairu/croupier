@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -90,7 +91,17 @@ func (s *BackupService) GetDownloadURL(ctx context.Context, backupId string) (st
 		return "", "", errors.New("backup model unavailable")
 	}
 
-	// GetDownloadURL not implemented - return placeholder URL
-	url := fmt.Sprintf("/backups/%s/download", backupId)
+	backup, err := s.svcCtx.BackupModel.FindByBackupID(ctx, backupId)
+	if err != nil {
+		return "", "", err
+	}
+
+	// Prefer the recorded storage location (file path, file:// URI, or remote URL).
+	// Fall back to the legacy placeholder route so callers that haven't populated
+	// Location still get a stable, predictable URL.
+	url := strings.TrimSpace(backup.Location)
+	if url == "" {
+		url = fmt.Sprintf("/backups/%s/download", backupId)
+	}
 	return url, utils.FormatTimestamp(time.Now().Add(24 * time.Hour)), nil
 }

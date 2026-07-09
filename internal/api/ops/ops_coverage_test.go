@@ -1839,3 +1839,49 @@ func TestBackupServiceGetDownloadURLWithRealModel(t *testing.T) {
 	assert.Contains(t, url, "/backups/")
 	assert.NotEmpty(t, expiresAt)
 }
+
+// GetDownloadURL should return the recorded storage Location when present,
+// instead of the legacy placeholder route.
+func TestBackupServiceGetDownloadURLWithLocation(t *testing.T) {
+	t.Parallel()
+
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	err = db.AutoMigrate(&model.Backup{})
+	require.NoError(t, err)
+
+	location := "https://files.example.com/backups/test.tgz"
+	backup := &model.Backup{
+		BackupID: fmt.Sprintf("backup-%d", time.Now().UnixNano()),
+		Name:     "test-backup",
+		Location: location,
+	}
+	require.NoError(t, db.Create(backup).Error)
+
+	ctx := context.Background()
+	backupModel := model.NewBackupModel(db)
+	svcCtx := &svc.ServiceContext{BackupModel: backupModel}
+	s := NewBackupService(svcCtx)
+
+	url, _, err := s.GetDownloadURL(ctx, backup.BackupID)
+	require.NoError(t, err)
+	assert.Equal(t, location, url)
+}
+
+// GetDownloadURL should surface a not-found error when the backup id is unknown.
+func TestBackupServiceGetDownloadURLUnknownID(t *testing.T) {
+	t.Parallel()
+
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	err = db.AutoMigrate(&model.Backup{})
+	require.NoError(t, err)
+
+	ctx := context.Background()
+	backupModel := model.NewBackupModel(db)
+	svcCtx := &svc.ServiceContext{BackupModel: backupModel}
+	s := NewBackupService(svcCtx)
+
+	_, _, err = s.GetDownloadURL(ctx, "does-not-exist")
+	require.Error(t, err)
+}
