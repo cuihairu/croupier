@@ -12,7 +12,7 @@
   "lint-staged": {
     "*.go": [
       "gofmt -w",
-      "go vet"
+      "bash -c 'go vet ./...'"
     ],
     "*.{md,yml,yaml}": "prettier --write"
   },

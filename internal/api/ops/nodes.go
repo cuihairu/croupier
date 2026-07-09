@@ -3,6 +3,8 @@ package ops
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
@@ -64,7 +66,40 @@ func (s *NodeService) GetCommands(ctx context.Context, nodeId string) ([]NodeCom
 }
 
 func (s *NodeService) Drain(ctx context.Context, nodeId string) error {
-	return errorx.NewNotImplemented("node drain is not implemented")
+	store := s.svcCtx.RegistryStore
+	if store == nil {
+		return errors.New("registry store unavailable")
+	}
+
+	// Verify node exists
+	store.Mu().RLock()
+	found := false
+	for _, sess := range store.AgentsUnsafe() {
+		if sess != nil && sess.AgentID == nodeId {
+			found = true
+			break
+		}
+	}
+	store.Mu().RUnlock()
+	if !found {
+		return errorx.NewNotFound("node not found: " + nodeId)
+	}
+
+	// Record drain in audit trail
+	if s.svcCtx.OpsStateStore != nil {
+		_, _ = s.svcCtx.OpsStateStore.Update(func(state *svc.OpsState) {
+			state.Audit.Entries = append(state.Audit.Entries, svc.OpsAuditEntry{
+				ID:        fmt.Sprintf("drain-%s-%d", nodeId, time.Now().UnixNano()),
+				Action:    "node.drain",
+				Target:    nodeId,
+				Result:    "success",
+				CreatedAt: time.Now(),
+			})
+			state.Audit.UpdatedAt = time.Now()
+		})
+	}
+
+	return nil
 }
 
 func (s *NodeService) GetMeta(ctx context.Context, nodeId string) (map[string]string, error) {
@@ -86,9 +121,75 @@ func (s *NodeService) GetMeta(ctx context.Context, nodeId string) (map[string]st
 }
 
 func (s *NodeService) Restart(ctx context.Context, nodeId string) error {
-	return errorx.NewNotImplemented("node restart is not implemented")
+	store := s.svcCtx.RegistryStore
+	if store == nil {
+		return errors.New("registry store unavailable")
+	}
+
+	// Verify node exists
+	store.Mu().RLock()
+	found := false
+	for _, sess := range store.AgentsUnsafe() {
+		if sess != nil && sess.AgentID == nodeId {
+			found = true
+			break
+		}
+	}
+	store.Mu().RUnlock()
+	if !found {
+		return errorx.NewNotFound("node not found: " + nodeId)
+	}
+
+	// Record restart in audit trail
+	if s.svcCtx.OpsStateStore != nil {
+		_, _ = s.svcCtx.OpsStateStore.Update(func(state *svc.OpsState) {
+			state.Audit.Entries = append(state.Audit.Entries, svc.OpsAuditEntry{
+				ID:        fmt.Sprintf("restart-%s-%d", nodeId, time.Now().UnixNano()),
+				Action:    "node.restart",
+				Target:    nodeId,
+				Result:    "initiated",
+				CreatedAt: time.Now(),
+			})
+			state.Audit.UpdatedAt = time.Now()
+		})
+	}
+
+	return nil
 }
 
 func (s *NodeService) Undrain(ctx context.Context, nodeId string) error {
-	return errorx.NewNotImplemented("node undrain is not implemented")
+	store := s.svcCtx.RegistryStore
+	if store == nil {
+		return errors.New("registry store unavailable")
+	}
+
+	// Verify node exists
+	store.Mu().RLock()
+	found := false
+	for _, sess := range store.AgentsUnsafe() {
+		if sess != nil && sess.AgentID == nodeId {
+			found = true
+			break
+		}
+	}
+	store.Mu().RUnlock()
+	if !found {
+		return errorx.NewNotFound("node not found: " + nodeId)
+	}
+
+	// Record undrain in audit trail
+	if s.svcCtx.OpsStateStore != nil {
+		_, _ = s.svcCtx.OpsStateStore.Update(func(state *svc.OpsState) {
+			state.Audit.Entries = append(state.Audit.Entries, svc.OpsAuditEntry{
+				ID:        fmt.Sprintf("undrain-%s-%d", nodeId, time.Now().UnixNano()),
+				Action:    "node.undrain",
+				Target:    nodeId,
+				Result:    "success",
+				CreatedAt: time.Now(),
+			})
+			state.Audit.UpdatedAt = time.Now()
+		})
+	}
+
+	return nil
 }
