@@ -1534,25 +1534,6 @@ func TestLoadTermDisplayMap_EdgeCases(t *testing.T) {
 	})
 }
 
-// Tests for FunctionUILogic (deprecated)
-func TestFunctionUILogic(t *testing.T) {
-	db, _ := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-
-	svcCtx := &svc.ServiceContext{
-		DB:            db,
-		FunctionModel: model.NewFunctionModel(db),
-	}
-
-	logic := NewFunctionUILogic(context.Background(), svcCtx)
-
-	// The old FunctionUI just returns NotImplemented
-	resp, err := logic.FunctionUI(&FunctionUIRequest{ID: "test"})
-
-	assert.Error(t, err)
-	assert.Nil(t, resp)
-	assert.Contains(t, err.Error(), "not implemented")
-}
-
 // Tests for FunctionHistoryLogic with more scenarios
 func TestFunctionHistoryLogic_FunctionHistory_MoreScenarios(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
