@@ -1,9 +1,16 @@
 package approvals
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"mime"
+	"net"
+	"net/smtp"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -310,13 +317,31 @@ func (h *WebSocketHub) Unregister(client *WebSocketClient) {
 	h.unregister <- client
 }
 
-// EmailSender sends email notifications
+// EmailSender sends email notifications.
+//
+// When smtpHost is empty the sender is treated as not-configured and Send is a
+// no-op (returns nil) so callers can wire an EmailSender unconditionally
+// without forcing SMTP configuration in dev/test environments. Send only ever
+// contacts a real SMTP server when smtpHost is set.
 type EmailSender struct {
 	smtpHost     string
 	smtpPort     int
 	smtpUser     string
 	smtpPassword string
 	fromAddress  string
+
+	// sendMail is an injection point for tests in the same package. When nil,
+	// the default net/smtp-based implementation (defaultSendMail) is used.
+	sendMail func(ctx context.Context, msg *emailMessage) error
+}
+
+// emailMessage carries the rendered fields needed to produce an RFC 5322
+// message via buildMessage.
+type emailMessage struct {
+	From    string
+	To      string
+	Subject string
+	Body    string // HTML body
 }
 
 // NewEmailSender creates a new email sender
@@ -330,28 +355,168 @@ func NewEmailSender(host string, port int, user, password, from string) *EmailSe
 	}
 }
 
-// Send sends an email notification
+// Send sends an email notification.
+//
+// Returns nil without doing anything when the sender was constructed without
+// an SMTP host, so an unwired EmailSender remains a safe no-op. Any failure
+// while talking to the SMTP server is returned wrapped so callers can surface
+// it via MultiChannelNotifier's aggregated error.
 func (e *EmailSender) Send(ctx context.Context, recipient string, event NotificationEvent) error {
-	// Email sending logic would be implemented here
-	// This is a placeholder that would use net/smtp or a library
-	/*
-		subject := event.Title
-		body := fmt.Sprintf(`
-		<html>
-		<body>
-		<h2>%s</h2>
-		<p>%s</p>
-		%s
-		</body>
-		</html>
-		`, event.Title, event.Message, e.formatData(event.Data))
-	*/
-	return nil
+	if e.smtpHost == "" {
+		return nil
+	}
+	if recipient == "" {
+		return fmt.Errorf("email recipient is required")
+	}
+
+	msg := &emailMessage{
+		From:    e.fromAddress,
+		To:      recipient,
+		Subject: event.Title,
+		Body:    buildEmailBody(event),
+	}
+
+	sendMail := e.sendMail
+	if sendMail == nil {
+		sendMail = e.defaultSendMail
+	}
+	return sendMail(ctx, msg)
 }
 
 // Channel returns the channel type
 func (e *EmailSender) Channel() NotificationChannel {
 	return ChannelEmail
+}
+
+// defaultSendMail connects to the configured SMTP server and delivers a single
+// message. Port 465 uses implicit TLS; every other port uses a plain TCP
+// connection and upgrades via STARTTLS when the server advertises it.
+func (e *EmailSender) defaultSendMail(ctx context.Context, msg *emailMessage) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	addr := net.JoinHostPort(e.smtpHost, strconv.Itoa(e.smtpPort))
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+
+	var conn net.Conn
+	var err error
+	if e.smtpPort == 465 {
+		conn, err = tls.DialWithDialer(dialer, "tcp", addr, &tls.Config{ServerName: e.smtpHost})
+	} else {
+		conn, err = dialer.DialContext(ctx, "tcp", addr)
+	}
+	if err != nil {
+		return fmt.Errorf("dial smtp %s: %w", addr, err)
+	}
+	defer conn.Close()
+
+	client, err := smtp.NewClient(conn, e.smtpHost)
+	if err != nil {
+		return fmt.Errorf("smtp handshake: %w", err)
+	}
+	defer func() { _ = client.Quit() }()
+
+	if e.smtpPort != 465 {
+		if ok, _ := client.Extension("STARTTLS"); ok {
+			if err := client.StartTLS(&tls.Config{ServerName: e.smtpHost}); err != nil {
+				return fmt.Errorf("smtp STARTTLS: %w", err)
+			}
+		}
+	}
+
+	if e.smtpUser != "" {
+		if err := client.Auth(smtp.PlainAuth("", e.smtpUser, e.smtpPassword, e.smtpHost)); err != nil {
+			return fmt.Errorf("smtp auth: %w", err)
+		}
+	}
+
+	if err := client.Mail(e.fromAddress); err != nil {
+		return fmt.Errorf("smtp MAIL FROM: %w", err)
+	}
+	if err := client.Rcpt(msg.To); err != nil {
+		return fmt.Errorf("smtp RCPT TO: %w", err)
+	}
+
+	writer, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("smtp DATA: %w", err)
+	}
+	if _, err := writer.Write(buildEmailMessage(msg)); err != nil {
+		return fmt.Errorf("smtp write body: %w", err)
+	}
+	if err := writer.Close(); err != nil {
+		return fmt.Errorf("smtp DATA close: %w", err)
+	}
+
+	return nil
+}
+
+// buildEmailMessage renders an RFC 5322 message with UTF-8 HTML body.
+func buildEmailMessage(msg *emailMessage) []byte {
+	headers := map[string]string{
+		"From":         msg.From,
+		"To":           msg.To,
+		"Subject":      mime.QEncoding.Encode("utf-8", msg.Subject),
+		"MIME-Version": "1.0",
+		"Content-Type": "text/html; charset=UTF-8",
+	}
+
+	var buf bytes.Buffer
+	for k, v := range headers {
+		buf.WriteString(k)
+		buf.WriteString(": ")
+		buf.WriteString(v)
+		buf.WriteString("\r\n")
+	}
+	buf.WriteString("\r\n")
+	buf.WriteString(msg.Body)
+	return buf.Bytes()
+}
+
+// buildEmailBody renders an HTML body from the event fields, escaping user
+// controlled text to avoid injection in HTML-literal mail clients.
+func buildEmailBody(event NotificationEvent) string {
+	var sb strings.Builder
+	sb.WriteString("<html><body>\n")
+
+	if event.Title != "" {
+		sb.WriteString("<h2>")
+		sb.WriteString(htmlEscape(event.Title))
+		sb.WriteString("</h2>\n")
+	}
+	if event.Message != "" {
+		sb.WriteString("<p>")
+		sb.WriteString(htmlEscape(event.Message))
+		sb.WriteString("</p>\n")
+	}
+	if len(event.Data) > 0 {
+		sb.WriteString("<table border=\"1\" cellpadding=\"4\" cellspacing=\"0\">\n")
+		for k, v := range event.Data {
+			sb.WriteString("<tr><td><strong>")
+			sb.WriteString(htmlEscape(k))
+			sb.WriteString("</strong></td><td>")
+			sb.WriteString(htmlEscape(fmt.Sprint(v)))
+			sb.WriteString("</td></tr>\n")
+		}
+		sb.WriteString("</table>\n")
+	}
+
+	sb.WriteString("</body></html>")
+	return sb.String()
+}
+
+func htmlEscape(s string) string {
+	r := strings.NewReplacer(
+		"&", "&amp;",
+		"<", "&lt;",
+		">", "&gt;",
+		`"`, "&quot;",
+		"'", "&#39;",
+	)
+	return r.Replace(s)
 }
 
 // DingTalkSender sends DingTalk notifications

@@ -132,6 +132,11 @@ type DelegationService struct {
 	store         DelegationStore
 	workflowStore WorkflowStore
 	notifier      Notifier
+
+	// approvalStore resolves live Approval records when evaluating delegation
+	// scope. Optional for backward compatibility — when nil, getApproval
+	// returns an explicit error so callers know scope cannot be enforced.
+	approvalStore Store
 	mu            sync.RWMutex
 }
 
@@ -142,6 +147,16 @@ func NewDelegationService(store DelegationStore, workflowStore WorkflowStore, no
 		workflowStore: workflowStore,
 		notifier:      notifier,
 	}
+}
+
+// SetApprovalStore wires the optional Approval store used to resolve scope
+// when checking whether a delegate can act on a specific approval. Without
+// it, CanDelegate returns an error rather than silently treating scope as
+// "all-matches".
+func (s *DelegationService) SetApprovalStore(store Store) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.approvalStore = store
 }
 
 // CreateDelegation creates a new delegation
@@ -509,11 +524,19 @@ func (s *DelegationService) checkTimeRestriction(value interface{}, now time.Tim
 	return true
 }
 
-// getApproval gets an approval by ID (placeholder - would use actual store)
+// getApproval resolves an approval by ID via the wired Approval store. When
+// no store has been configured the call fails explicitly — silently returning
+// a stub record previously caused matchesApprovalScope to treat every
+// game/function/env scope as "match nothing", which is worse than failing.
 func (s *DelegationService) getApproval(id string) (*Approval, error) {
-	// This would integrate with the actual approval store
-	// For now, return a placeholder
-	return &Approval{ID: id}, nil
+	s.mu.RLock()
+	store := s.approvalStore
+	s.mu.RUnlock()
+
+	if store == nil {
+		return nil, errors.New("approval store not configured; cannot resolve approval scope for delegation")
+	}
+	return store.Get(id)
 }
 
 // ListDelegations lists delegations with filtering

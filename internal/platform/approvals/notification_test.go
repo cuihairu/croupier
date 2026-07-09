@@ -3,6 +3,7 @@ package approvals
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -69,10 +70,109 @@ func TestNewEmailSender(t *testing.T) {
 }
 
 func TestEmailSender_Send(t *testing.T) {
+	// When SMTP host is empty, Send must be a no-op so an unwired sender
+	// stays safe in dev/test environments.
+	s := NewEmailSender("", 0, "", "", "from@example.com")
+	if err := s.Send(context.Background(), "to@example.com", NotificationEvent{Title: "Test", Message: "Body"}); err != nil {
+		t.Errorf("expected nil error when not configured, got: %v", err)
+	}
+}
+
+func TestEmailSender_Send_RequiresRecipient(t *testing.T) {
 	s := NewEmailSender("smtp.example.com", 587, "user", "pass", "from@example.com")
-	err := s.Send(context.Background(), "to@example.com", NotificationEvent{Title: "Test", Message: "Body"})
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
+	if err := s.Send(context.Background(), "", NotificationEvent{Title: "Test"}); err == nil {
+		t.Error("expected error for empty recipient")
+	}
+}
+
+func TestEmailSender_Send_PropagatesSendError(t *testing.T) {
+	s := NewEmailSender("smtp.example.com", 587, "user", "pass", "from@example.com")
+	wantErr := errors.New("smtp boom")
+	s.sendMail = func(ctx context.Context, msg *emailMessage) error {
+		return wantErr
+	}
+
+	if err := s.Send(context.Background(), "to@example.com", NotificationEvent{Title: "Test"}); err != wantErr {
+		t.Errorf("expected propagated error, got: %v", err)
+	}
+}
+
+func TestEmailSender_Send_RendersMessage(t *testing.T) {
+	s := NewEmailSender("smtp.example.com", 587, "user", "pass", "from@example.com")
+
+	var captured *emailMessage
+	s.sendMail = func(ctx context.Context, msg *emailMessage) error {
+		captured = msg
+		return nil
+	}
+
+	event := NotificationEvent{
+		Title:    "Approval Required",
+		Message:  "Player refund waiting",
+		Priority: "high",
+		Data:     map[string]interface{}{"game_id": "demo"},
+	}
+	if err := s.Send(context.Background(), "ops@example.com", event); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if captured.From != "from@example.com" {
+		t.Errorf("From = %q", captured.From)
+	}
+	if captured.To != "ops@example.com" {
+		t.Errorf("To = %q", captured.To)
+	}
+	if captured.Subject != "Approval Required" {
+		t.Errorf("Subject = %q", captured.Subject)
+	}
+	if !strings.Contains(captured.Body, "Player refund waiting") {
+		t.Errorf("Body missing message: %q", captured.Body)
+	}
+	if !strings.Contains(captured.Body, "game_id") || !strings.Contains(captured.Body, "demo") {
+		t.Errorf("Body missing data table: %q", captured.Body)
+	}
+}
+
+func TestBuildEmailBody_EscapesHTML(t *testing.T) {
+	body := buildEmailBody(NotificationEvent{
+		Title:   "<script>alert(1)</script>",
+		Message: "a < b & c > d",
+		Data:    map[string]interface{}{"k<v": "v\"x"},
+	})
+
+	if strings.Contains(body, "<script>") {
+		t.Errorf("title not escaped: %s", body)
+	}
+	if strings.Contains(body, "a < b") || strings.Contains(body, "c > d") {
+		t.Errorf("message not escaped: %s", body)
+	}
+	if !strings.Contains(body, "&lt;script&gt;") {
+		t.Errorf("expected escaped title: %s", body)
+	}
+}
+
+func TestBuildEmailMessage_HasRFCHeaders(t *testing.T) {
+	raw := buildEmailMessage(&emailMessage{
+		From:    "from@example.com",
+		To:      "to@example.com",
+		Subject: "你好",
+		Body:    "<html></html>",
+	})
+
+	lower := strings.ToLower(string(raw))
+	for _, want := range []string{
+		"from: from@example.com",
+		"to: to@example.com",
+		"mime-version: 1.0",
+		"content-type: text/html; charset=utf-8",
+		"subject: =?utf-8?q?",
+	} {
+		if !strings.Contains(lower, want) {
+			t.Errorf("missing header %q in:\n%s", want, raw)
+		}
+	}
+	if !strings.HasSuffix(string(raw), "<html></html>") {
+		t.Errorf("body not appended: %s", raw)
 	}
 }
 
