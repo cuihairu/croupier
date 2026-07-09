@@ -49,7 +49,7 @@ func NewClient(config *Config) (*Client, error) {
 		config = &Config{}
 	}
 
-	conn, err := dial(config)
+	conn, err := Dial(config)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,8 @@ func (c *Client) IsClosed() bool {
 	}
 }
 
-func dial(config *Config) (net.Conn, error) {
+// Dial creates a raw TCP or TLS connection using Config.
+func Dial(config *Config) (net.Conn, error) {
 	addr := normalizeAddr(config.Address)
 	dialer := &net.Dialer{Timeout: config.ConnectTimeout}
 	if config.ConnectTimeout == 0 {

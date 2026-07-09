@@ -163,9 +163,15 @@ func TestMuxConn_Close(t *testing.T) {
 	defer c2.Close()
 
 	mc := NewMuxConn(c1, nil, nil)
+	if mc.IsClosed() {
+		t.Fatal("expected mux conn to be open initially")
+	}
 
 	if err := mc.Close(); err != nil {
 		t.Errorf("unexpected error: %v", err)
+	}
+	if !mc.IsClosed() {
+		t.Fatal("expected mux conn to report closed after Close")
 	}
 
 	// Multiple close should not panic

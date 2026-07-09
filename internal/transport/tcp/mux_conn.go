@@ -114,6 +114,20 @@ func (c *MuxConn) Run(ctx context.Context) error {
 	}
 	defer c.Close()
 
+	// Wake a blocking read when the caller cancels the run context.
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		select {
+		case <-ctx.Done():
+			if c.conn != nil {
+				_ = c.conn.SetReadDeadline(time.Now())
+			}
+		case <-c.closed:
+		case <-done:
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -242,6 +256,19 @@ func (c *MuxConn) Close() error {
 		c.failPending(fmt.Errorf("connection closed"))
 	})
 	return closeErr
+}
+
+// IsClosed reports whether the mux connection has been closed.
+func (c *MuxConn) IsClosed() bool {
+	if c == nil || c.closed == nil {
+		return true
+	}
+	select {
+	case <-c.closed:
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *MuxConn) handleInboundRequest(ctx context.Context, msgID uint32, reqID uint32, body []byte) error {
