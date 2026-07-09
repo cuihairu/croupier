@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -75,5 +76,45 @@ agent:
 	}
 	if cfg.TLS.Enabled {
 		t.Fatal("local gateway tls = true, want false by default")
+	}
+}
+
+func TestBundledDevConfigsUsePlainControlWhenServerHasNoTLS(t *testing.T) {
+	t.Parallel()
+
+	for _, path := range []string{
+		"../../configs/agent.yaml",
+		"../../configs/agent.local.yaml",
+		"../../docker/configs/agent.yaml",
+	} {
+		t.Run(path, func(t *testing.T) {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("read config: %v", err)
+			}
+
+			var cfg AgentConfig
+			if err := yaml.Unmarshal(data, &cfg); err != nil {
+				t.Fatalf("unmarshal config: %v", err)
+			}
+			if !cfg.Server.Insecure {
+				t.Fatal("expected bundled dev agent config to use plain control connection")
+			}
+		})
+	}
+}
+
+func TestBundledDockerConfigUsesDedicatedLocalGatewayPort(t *testing.T) {
+	data, err := os.ReadFile("../../docker/configs/agent.yaml")
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+
+	var cfg AgentConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("unmarshal config: %v", err)
+	}
+	if cfg.Agent.LocalAddr != "agent:19091" {
+		t.Fatalf("localAddr = %q, want %q", cfg.Agent.LocalAddr, "agent:19091")
 	}
 }

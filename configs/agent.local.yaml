@@ -7,7 +7,7 @@ port: 19091
 server:
   # Local server address (localhost)
   addr: "localhost:19090"
-  insecure: false
+  insecure: true
   serverName: ""
   insecureSkipVerify: false
 

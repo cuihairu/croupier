@@ -5,7 +5,7 @@ port: 19091
 
 server:
   addr: "server:19090"
-  insecure: false
+  insecure: true
   serverName: ""
   insecureSkipVerify: false
 
@@ -13,7 +13,7 @@ agent:
   id: "croupier-docker-agent"
   gameId: "demo-game"
   env: "development"
-  localAddr: "agent:19090"
+  localAddr: "agent:19091"
   httpAddr: "agent:19091"
   labels: {}
 

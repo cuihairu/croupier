@@ -6,7 +6,7 @@ port: 19091
 server:
   # Upstream control plane address (docker-compose service name)
   addr: "server:19090"
-  insecure: false
+  insecure: true
   serverName: ""
   insecureSkipVerify: false
 
