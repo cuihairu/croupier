@@ -12,6 +12,7 @@ import (
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
 	"github.com/google/uuid"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -169,18 +170,12 @@ func opsAgentExecCommand(ctx context.Context, svcCtx *svc.ServiceContext, req *O
 
 func opsAgentProcessStart(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsProcessStartRequest) (*OpsProcessStartResponse, error) {
 	if svcCtx == nil {
-		return &OpsProcessStartResponse{
-			Code:    0,
-			Message: "Process start not implemented",
-		}, nil
+		return nil, errorx.NewNotImplemented("agent process start is not implemented")
 	}
 	agentSvc := NewAgentService(svcCtx)
 	pid, err := agentSvc.StartProcess(ctx, req.AgentID, req.Name, nil, nil, "")
 	if err != nil {
-		return &OpsProcessStartResponse{
-			Code:    0,
-			Message: "Process start not implemented",
-		}, nil
+		return nil, err
 	}
 	return &OpsProcessStartResponse{
 		Code:    0,
@@ -191,10 +186,7 @@ func opsAgentProcessStart(ctx context.Context, svcCtx *svc.ServiceContext, req *
 
 func opsAgentProcessStop(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsProcessActionRequest) (*OpsProcessActionResponse, error) {
 	if svcCtx == nil {
-		return &OpsProcessActionResponse{
-			Code:    0,
-			Message: "Process stop not implemented",
-		}, nil
+		return nil, errorx.NewNotImplemented("agent process stop is not implemented")
 	}
 	agentSvc := NewAgentService(svcCtx)
 	pid, err := strconv.Atoi(strings.TrimSpace(req.Name))
@@ -202,10 +194,7 @@ func opsAgentProcessStop(ctx context.Context, svcCtx *svc.ServiceContext, req *O
 		pid = 0
 	}
 	if err := agentSvc.StopProcess(ctx, req.AgentID, pid); err != nil {
-		return &OpsProcessActionResponse{
-			Code:    0,
-			Message: "Process stop not implemented",
-		}, nil
+		return nil, err
 	}
 	return &OpsProcessActionResponse{
 		Code:    0,
@@ -216,10 +205,7 @@ func opsAgentProcessStop(ctx context.Context, svcCtx *svc.ServiceContext, req *O
 
 func opsAgentProcessRestart(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsProcessActionRequest) (*OpsProcessActionResponse, error) {
 	if svcCtx == nil {
-		return &OpsProcessActionResponse{
-			Code:    0,
-			Message: "Process restart not implemented",
-		}, nil
+		return nil, errorx.NewNotImplemented("agent process restart is not implemented")
 	}
 	agentSvc := NewAgentService(svcCtx)
 	pid, err := strconv.Atoi(strings.TrimSpace(req.Name))
@@ -227,10 +213,7 @@ func opsAgentProcessRestart(ctx context.Context, svcCtx *svc.ServiceContext, req
 		pid = 0
 	}
 	if err := agentSvc.RestartProcess(ctx, req.AgentID, pid); err != nil {
-		return &OpsProcessActionResponse{
-			Code:    0,
-			Message: "Process restart not implemented",
-		}, nil
+		return nil, err
 	}
 	return &OpsProcessActionResponse{
 		Code:    0,
@@ -466,11 +449,7 @@ func opsNodeCommands(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNo
 }
 
 func opsNodeDrain(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodeCommandsRequest) (*OpsNodeDrainResponse, error) {
-	// DrainNode not implemented - return success
-	return &OpsNodeDrainResponse{
-		Code:    0,
-		Message: "Node drained successfully",
-	}, nil
+	return nil, errorx.NewNotImplemented("node drain is not implemented")
 }
 
 func opsNodeMeta(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodeMetaRequest) (*OpsNodeMetaResponse, error) {
@@ -496,65 +475,33 @@ func opsNodeMeta(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodeMe
 }
 
 func opsNodeRestart(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodeCommandsRequest) (*OpsNodeRestartResponse, error) {
-	// RestartNode not implemented
-	return &OpsNodeRestartResponse{
-		Code:    0,
-		Message: "Node restart initiated",
-	}, nil
+	return nil, errorx.NewNotImplemented("node restart is not implemented")
 }
 
 func opsNodeUndrain(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodeCommandsRequest) (*OpsNodeUndrainResponse, error) {
-	// UndrainNode not implemented
-	return &OpsNodeUndrainResponse{
-		Code:    0,
-		Message: "Node undrained successfully",
-	}, nil
+	return nil, errorx.NewNotImplemented("node undrain is not implemented")
 }
 
 // Health and maintenance implementations
 
 func opsHealthGet(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsHealthGetRequest) (*OpsHealthGetResponse, error) {
-	// HealthModel not implemented - return empty checks
-	return &OpsHealthGetResponse{
-		Code:    0,
-		Message: "Success",
-		Data:    []OpsHealthCheck{},
-	}, nil
+	return nil, errorx.NewNotImplemented("health checks are not implemented")
 }
 
 func opsHealthRun(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsHealthRunRequest) (*OpsHealthRunResponse, error) {
-	// HealthModel not implemented - return empty results
-	return &OpsHealthRunResponse{
-		Code:    0,
-		Message: "Success",
-		Data:    []OpsHealthCheck{},
-	}, nil
+	return nil, errorx.NewNotImplemented("health run is not implemented")
 }
 
 func opsMetrics(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsMetricsRequest) (*OpsMetricsResponse, error) {
-	// MetricsModel not implemented - return empty data
-	return &OpsMetricsResponse{
-		Code:    0,
-		Message: "Success",
-		Data:    []OpsMetricsData{},
-	}, nil
+	return nil, errorx.NewNotImplemented("metrics aggregation is not implemented")
 }
 
 func opsMaintenanceGet(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsMaintenanceGetRequest) (*OpsMaintenanceGetResponse, error) {
-	// MaintenanceModel not implemented - return empty windows
-	return &OpsMaintenanceGetResponse{
-		Code:    0,
-		Message: "Success",
-		Data:    []OpsMaintenanceWindow{},
-	}, nil
+	return nil, errorx.NewNotImplemented("maintenance windows are not implemented")
 }
 
 func opsMaintenanceUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsMaintenanceUpdateRequest) (*OpsMaintenanceUpdateResponse, error) {
-	// MaintenanceModel not implemented - return success
-	return &OpsMaintenanceUpdateResponse{
-		Code:    0,
-		Message: "Maintenance updated successfully",
-	}, nil
+	return nil, errorx.NewNotImplemented("maintenance update is not implemented")
 }
 
 // Services and functions implementations
@@ -600,12 +547,7 @@ func opsFunctions(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsFunct
 // Config and notifications implementations
 
 func opsConfig(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsConfigRequest) (*OpsConfigResponse, error) {
-	// ConfigModel not implemented - return empty config
-	return &OpsConfigResponse{
-		AlertmanagerURL:   "",
-		GrafanaExploreURL: "",
-		JaegerURL:         "",
-	}, nil
+	return nil, errorx.NewNotImplemented("ops config is not implemented")
 }
 
 func opsNotificationsGet(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNotificationsGetRequest) (*OpsNotificationsGetResponse, error) {
@@ -618,7 +560,7 @@ func opsNotificationsGet(ctx context.Context, svcCtx *svc.ServiceContext, req *O
 			Rules:    rules,
 		}, nil
 	}
-	// NotificationModel not implemented - fallback to empty
+	// No active notification installation - return defaults.
 	return &OpsNotificationsGetResponse{
 		Enabled:  false,
 		Channels: []OpsNotificationChannel{},
@@ -627,14 +569,20 @@ func opsNotificationsGet(ctx context.Context, svcCtx *svc.ServiceContext, req *O
 }
 
 func opsNotificationsUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNotificationsUpdateRequest) (*OpsNotificationsUpdateResponse, error) {
-	// NotificationModel not implemented - return success
 	if req == nil {
 		req = &OpsNotificationsUpdateRequest{}
 	}
-	_ = saveNotificationsToExtensionInstallation(ctx, svcCtx, req)
-	_ = recordNotificationEvent(ctx, svcCtx, "notifications_update", "notifications updated",
+	if err := saveNotificationsToExtensionInstallation(ctx, svcCtx, req); err != nil {
+		return nil, err
+	}
+	if err := recordNotificationEvent(ctx, svcCtx, "notifications_update", "notifications updated",
 		fmt.Sprintf(`{"enabled":%t,"channels":%d,"rules":%d}`, req.Enabled, len(req.Channels), len(req.Rules)),
-	)
+	); err != nil {
+		// Persistence already succeeded; only the audit event failed. Log-style
+		// swallow is acceptable here, but surface it so callers know the audit
+		// trail is incomplete.
+		return nil, err
+	}
 	return &OpsNotificationsUpdateResponse{
 		Code:    0,
 		Message: "Notifications updated successfully",
@@ -766,20 +714,11 @@ func extractNotificationConfig(config map[string]any) (bool, []OpsNotificationCh
 }
 
 func opsMQ(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsMQRequest) (*OpsMQResponse, error) {
-	// MQModel not implemented - return empty queues
-	return &OpsMQResponse{
-		Code:    0,
-		Message: "Success",
-		Data:    []map[string]interface{}{},
-	}, nil
+	return nil, errorx.NewNotImplemented("message queue inspection is not implemented")
 }
 
 func opsHealthUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsHealthUpdateRequest) (*OpsHealthUpdateResponse, error) {
-	// HealthModel not implemented - return success
-	return &OpsHealthUpdateResponse{
-		Code:    0,
-		Message: "Health updated successfully",
-	}, nil
+	return nil, errorx.NewNotImplemented("health update is not implemented")
 }
 
 func opsServices(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsServicesRequest) (*OpsServicesResponse, error) {

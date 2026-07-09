@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -63,8 +64,7 @@ func (s *NodeService) GetCommands(ctx context.Context, nodeId string) ([]NodeCom
 }
 
 func (s *NodeService) Drain(ctx context.Context, nodeId string) error {
-	// DrainNode not implemented
-	return nil
+	return errorx.NewNotImplemented("node drain is not implemented")
 }
 
 func (s *NodeService) GetMeta(ctx context.Context, nodeId string) (map[string]string, error) {
@@ -86,11 +86,9 @@ func (s *NodeService) GetMeta(ctx context.Context, nodeId string) (map[string]st
 }
 
 func (s *NodeService) Restart(ctx context.Context, nodeId string) error {
-	// RestartNode not implemented
-	return nil
+	return errorx.NewNotImplemented("node restart is not implemented")
 }
 
 func (s *NodeService) Undrain(ctx context.Context, nodeId string) error {
-	// UndrainNode not implemented
-	return nil
+	return errorx.NewNotImplemented("node undrain is not implemented")
 }

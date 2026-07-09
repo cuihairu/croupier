@@ -162,10 +162,8 @@ func TestServiceOpsAgentProcessStart(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsAgentProcessStart(ctx, &OpsProcessStartRequest{})
-	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Contains(t, resp.Message, "not implemented")
+	_, err := s.OpsAgentProcessStart(ctx, &OpsProcessStartRequest{})
+	require.Error(t, err)
 }
 
 func TestServiceOpsAgentProcessStop(t *testing.T) {
@@ -175,10 +173,8 @@ func TestServiceOpsAgentProcessStop(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsAgentProcessStop(ctx, &OpsProcessActionRequest{})
-	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Contains(t, resp.Message, "not implemented")
+	_, err := s.OpsAgentProcessStop(ctx, &OpsProcessActionRequest{})
+	require.Error(t, err)
 }
 
 func TestServiceOpsAgentProcessRestart(t *testing.T) {
@@ -188,10 +184,8 @@ func TestServiceOpsAgentProcessRestart(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsAgentProcessRestart(ctx, &OpsProcessActionRequest{})
-	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Contains(t, resp.Message, "not implemented")
+	_, err := s.OpsAgentProcessRestart(ctx, &OpsProcessActionRequest{})
+	require.Error(t, err)
 }
 
 // Node operations tests
@@ -253,10 +247,9 @@ func TestServiceOpsNodeDrain(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsNodeDrain(ctx, &OpsNodeCommandsRequest{})
-	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Contains(t, resp.Message, "drained")
+	_, err := s.OpsNodeDrain(ctx, &OpsNodeCommandsRequest{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not implemented")
 }
 
 func TestServiceOpsNodeMeta(t *testing.T) {
@@ -303,10 +296,9 @@ func TestServiceOpsNodeRestart(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsNodeRestart(ctx, &OpsNodeCommandsRequest{})
-	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Contains(t, resp.Message, "restart")
+	_, err := s.OpsNodeRestart(ctx, &OpsNodeCommandsRequest{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not implemented")
 }
 
 func TestServiceOpsNodeUndrain(t *testing.T) {
@@ -316,10 +308,9 @@ func TestServiceOpsNodeUndrain(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsNodeUndrain(ctx, &OpsNodeCommandsRequest{})
-	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Contains(t, resp.Message, "undrained")
+	_, err := s.OpsNodeUndrain(ctx, &OpsNodeCommandsRequest{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not implemented")
 }
 
 // Health operations tests
@@ -331,10 +322,9 @@ func TestServiceOpsHealthGet(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsHealthGet(ctx, &OpsHealthGetRequest{})
-	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Empty(t, resp.Data)
+	_, err := s.OpsHealthGet(ctx, &OpsHealthGetRequest{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not implemented")
 }
 
 func TestServiceOpsHealthRun(t *testing.T) {
@@ -344,10 +334,9 @@ func TestServiceOpsHealthRun(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsHealthRun(ctx, &OpsHealthRunRequest{})
-	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Empty(t, resp.Data)
+	_, err := s.OpsHealthRun(ctx, &OpsHealthRunRequest{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not implemented")
 }
 
 func TestServiceOpsHealthUpdate(t *testing.T) {
@@ -357,10 +346,9 @@ func TestServiceOpsHealthUpdate(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsHealthUpdate(ctx, &OpsHealthUpdateRequest{})
-	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Contains(t, resp.Message, "updated")
+	_, err := s.OpsHealthUpdate(ctx, &OpsHealthUpdateRequest{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not implemented")
 }
 
 // Maintenance operations tests
@@ -372,10 +360,9 @@ func TestServiceOpsMaintenanceGet(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsMaintenanceGet(ctx, &OpsMaintenanceGetRequest{})
-	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Empty(t, resp.Data)
+	_, err := s.OpsMaintenanceGet(ctx, &OpsMaintenanceGetRequest{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not implemented")
 }
 
 func TestServiceOpsMaintenanceUpdate(t *testing.T) {
@@ -385,10 +372,9 @@ func TestServiceOpsMaintenanceUpdate(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsMaintenanceUpdate(ctx, &OpsMaintenanceUpdateRequest{})
-	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Contains(t, resp.Message, "updated")
+	_, err := s.OpsMaintenanceUpdate(ctx, &OpsMaintenanceUpdateRequest{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not implemented")
 }
 
 // Metrics tests
@@ -400,10 +386,9 @@ func TestServiceOpsMetrics(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsMetrics(ctx, &OpsMetricsRequest{})
-	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Empty(t, resp.Data)
+	_, err := s.OpsMetrics(ctx, &OpsMetricsRequest{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not implemented")
 }
 
 // Config tests
@@ -415,11 +400,9 @@ func TestServiceOpsConfig(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsConfig(ctx, &OpsConfigRequest{})
-	require.NoError(t, err)
-	assert.Empty(t, resp.AlertmanagerURL)
-	assert.Empty(t, resp.GrafanaExploreURL)
-	assert.Empty(t, resp.JaegerURL)
+	_, err := s.OpsConfig(ctx, &OpsConfigRequest{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not implemented")
 }
 
 // Services tests
@@ -489,10 +472,9 @@ func TestServiceOpsMQ(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsMQ(ctx, &OpsMQRequest{})
-	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	assert.Empty(t, resp.Data)
+	_, err := s.OpsMQ(ctx, &OpsMQRequest{})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not implemented")
 }
 
 // Notifications tests
@@ -831,7 +813,7 @@ func TestOpsHealthGetHandler(t *testing.T) {
 
 	h.OpsHealthGet(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusNotImplemented, rec.Code)
 }
 
 func TestOpsMaintenanceGetHandler(t *testing.T) {
@@ -844,7 +826,7 @@ func TestOpsMaintenanceGetHandler(t *testing.T) {
 
 	h.OpsMaintenanceGet(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusNotImplemented, rec.Code)
 }
 
 func TestOpsMetricsHandler(t *testing.T) {
@@ -857,7 +839,7 @@ func TestOpsMetricsHandler(t *testing.T) {
 
 	h.OpsMetrics(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusNotImplemented, rec.Code)
 }
 
 func TestOpsConfigHandler(t *testing.T) {
@@ -870,7 +852,7 @@ func TestOpsConfigHandler(t *testing.T) {
 
 	h.OpsConfig(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusNotImplemented, rec.Code)
 }
 
 func TestOpsNotificationsGetHandler(t *testing.T) {
@@ -923,7 +905,7 @@ func TestOpsMQHandler(t *testing.T) {
 
 	h.OpsMQ(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusNotImplemented, rec.Code)
 }
 
 // Handler tests for POST requests with simple implementations
@@ -938,8 +920,7 @@ func TestOpsNodeDrainHandler(t *testing.T) {
 
 	h.OpsNodeDrain(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Contains(t, rec.Body.String(), "drained")
+	assert.Equal(t, http.StatusNotImplemented, rec.Code)
 }
 
 func TestOpsNodeRestartHandler(t *testing.T) {
@@ -952,8 +933,7 @@ func TestOpsNodeRestartHandler(t *testing.T) {
 
 	h.OpsNodeRestart(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Contains(t, rec.Body.String(), "restart")
+	assert.Equal(t, http.StatusNotImplemented, rec.Code)
 }
 
 func TestOpsNodeUndrainHandler(t *testing.T) {
@@ -966,8 +946,7 @@ func TestOpsNodeUndrainHandler(t *testing.T) {
 
 	h.OpsNodeUndrain(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Contains(t, rec.Body.String(), "undrained")
+	assert.Equal(t, http.StatusNotImplemented, rec.Code)
 }
 
 func TestOpsNodeCommandsHandler(t *testing.T) {
@@ -994,7 +973,7 @@ func TestOpsHealthRunHandler(t *testing.T) {
 
 	h.OpsHealthRun(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusNotImplemented, rec.Code)
 }
 
 func TestOpsHealthUpdateHandler(t *testing.T) {
@@ -1007,7 +986,7 @@ func TestOpsHealthUpdateHandler(t *testing.T) {
 
 	h.OpsHealthUpdate(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusNotImplemented, rec.Code)
 }
 
 func TestOpsMaintenanceUpdateHandler(t *testing.T) {
@@ -1020,7 +999,7 @@ func TestOpsMaintenanceUpdateHandler(t *testing.T) {
 
 	h.OpsMaintenanceUpdate(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, http.StatusNotImplemented, rec.Code)
 }
 
 func TestOpsNotificationsUpdateHandler(t *testing.T) {
@@ -1101,7 +1080,8 @@ func TestOpsAgentProcessStartHandler(t *testing.T) {
 
 	h.OpsAgentProcessStart(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	// Without an agent ops client configured, the call fails server-side.
+	assert.GreaterOrEqual(t, rec.Code, http.StatusBadRequest)
 }
 
 func TestOpsAgentProcessStopHandler(t *testing.T) {
@@ -1114,7 +1094,7 @@ func TestOpsAgentProcessStopHandler(t *testing.T) {
 
 	h.OpsAgentProcessStop(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.GreaterOrEqual(t, rec.Code, http.StatusBadRequest)
 }
 
 func TestOpsAgentProcessRestartHandler(t *testing.T) {
@@ -1127,7 +1107,7 @@ func TestOpsAgentProcessRestartHandler(t *testing.T) {
 
 	h.OpsAgentProcessRestart(ctx)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.GreaterOrEqual(t, rec.Code, http.StatusBadRequest)
 }
 
 // Alias handler tests
