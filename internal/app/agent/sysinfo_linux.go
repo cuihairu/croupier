@@ -4,10 +4,13 @@ package agent
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // listServicesPlatform lists Linux systemd services.
@@ -204,126 +207,19 @@ func getSystemdServiceStatus(name string) (*ServiceStatusDetail, error) {
 	return parseSystemdStatus(name, output)
 }
 
-func runSystemdCmd(args ...string) (string, error) {
-	// This is a simplified implementation
-	// In production, use exec.Command or dbus interface
-	return "", fmt.Errorf("systemd command execution not implemented")
+// systemdCmdTimeout caps how long a single systemctl invocation may take.
+// systemctl normally returns quickly, but a wedged unit or D-Bus hang should
+// not block the agent's sysinfo collection indefinitely.
+const systemdCmdTimeout = 5 * time.Second
+
+func init() {
+	// On Linux we wire the systemd runner to a real exec.CommandContext call.
+	// Other platforms keep the default stub declared in systemd_parse.go.
+	systemdRunner = func(args ...string) ([]byte, error) {
+		ctx, cancel := context.WithTimeout(context.Background(), systemdCmdTimeout)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, "systemctl", args...)
+		return cmd.CombinedOutput()
+	}
 }
 
-func parseSystemdList(output, state, namePattern string, limit int) ([]ServiceInfo, error) {
-	// Parse systemctl list-units output
-	// Format: UNIT LOAD ACTIVE SUB DESCRIPTION
-	var result []ServiceInfo
-	lines := strings.Split(output, "\n")
-
-	for _, line := range lines {
-		if len(result) >= limit {
-			break
-		}
-
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "UNIT") {
-			continue
-		}
-
-		fields := strings.Fields(line)
-		if len(fields) < 4 {
-			continue
-		}
-
-		name := strings.TrimSpace(fields[0])
-		activeState := fields[2]
-		_ = fields[3] // subState - available for future use
-
-		// Apply name pattern filter
-		if namePattern != "" && !strings.Contains(strings.ToLower(name), strings.ToLower(namePattern)) {
-			continue
-		}
-
-		// Map systemd states to our status
-		status := "unknown"
-		if activeState == "active" {
-			status = "running"
-		} else if activeState == "inactive" {
-			status = "stopped"
-		}
-
-		// Apply state filter
-		if state != "" && status != state {
-			continue
-		}
-
-		result = append(result, ServiceInfo{
-			Name:        name,
-			DisplayName: name, // systemd doesn't separate display name
-			Status:      status,
-			StartType:   "unknown", // Would need additional query
-		})
-	}
-
-	return result, nil
-}
-
-func parseSystemdStatus(name, output string) (*ServiceStatusDetail, error) {
-	// Parse systemctl show output
-	lines := strings.Split(output, "\n")
-
-	detail := &ServiceStatusDetail{
-		Name:        name,
-		DisplayName: name,
-		Status:      "unknown",
-		StartType:   "unknown",
-	}
-
-	for _, line := range lines {
-		if strings.HasPrefix(line, "Loaded:") {
-			// Parse: Loaded: loaded (/lib/systemd/system/ssh.service; enabled; vendor preset: enabled)
-			if strings.Contains(line, "enabled") {
-				detail.StartType = "auto"
-			} else if strings.Contains(line, "disabled") {
-				detail.StartType = "manual"
-			}
-			// Extract description
-			if idx := strings.Index(line, ";"); idx > 0 {
-				parts := strings.Split(line[idx+1:], "-")
-				if len(parts) > 1 {
-					detail.Description = strings.TrimSpace(parts[1])
-				}
-			}
-		} else if strings.HasPrefix(line, "Active:") {
-			// Parse: Active: active (running) since ...
-			if strings.Contains(line, "active (running)") {
-				detail.Status = "running"
-			} else if strings.Contains(line, "inactive (dead)") {
-				detail.Status = "stopped"
-			}
-		} else if strings.HasPrefix(line, "MainPID=") {
-			// Parse: MainPID=1234
-			pidStr := strings.TrimPrefix(line, "MainPID=")
-			if pidStr != "0" {
-				fmt.Sscanf(pidStr, "%d", &detail.ProcessID)
-			}
-		} else if strings.HasPrefix(line, "ExecStart=") {
-			// Parse: ExecStart={ path=/usr/sbin/sshd ... }
-			detail.BinaryPath = extractBinaryPath(line)
-		}
-	}
-
-	return detail, nil
-}
-
-func extractBinaryPath(line string) string {
-	// Extract path from ExecStart line
-	if strings.Contains(line, "path=") {
-		start := strings.Index(line, "path=")
-		if start >= 0 {
-			start += 5
-			end := strings.Index(line[start:], " ")
-			if end > 0 {
-				return line[start : start+end]
-			}
-			return line[start:]
-		}
-	}
-	return ""
-}
