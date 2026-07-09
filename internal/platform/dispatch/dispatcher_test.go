@@ -677,26 +677,26 @@ func TestDispatcher_taskAgentID_LoadsFromStore(t *testing.T) {
 	d := NewDispatcherWithTaskStore(nil, store, nil)
 
 	taskID := "test-task"
-	addr := "127.0.0.1:9001"
+	agentID := "agent-1"
 
 	// 直接设置到存储中
-	store.Set(taskID, addr)
+	store.Set(taskID, agentID)
 
 	// 通过 taskAgentID 获取
-	retrievedAddr, err := d.taskAgentID(taskID)
+	retrievedAgentID, err := d.taskAgentID(taskID)
 
 	if err != nil {
 		t.Fatalf("taskAgentID() error = %v", err)
 	}
 
-	if retrievedAddr != addr {
-		t.Errorf("taskAgentID() = %q, want %q", retrievedAddr, addr)
+	if retrievedAgentID != agentID {
+		t.Errorf("taskAgentID() = %q, want %q", retrievedAgentID, agentID)
 	}
 
 	// 现在应该在内存缓存中
-	cachedAddr, ok := d.TaskAgentID(taskID)
-	if !ok || cachedAddr != addr {
-		t.Errorf("TaskAgentID() after load = (%q, %v), want (%q, true)", cachedAddr, ok, addr)
+	cachedAgentID, ok := d.TaskAgentID(taskID)
+	if !ok || cachedAgentID != agentID {
+		t.Errorf("TaskAgentID() after load = (%q, %v), want (%q, true)", cachedAgentID, ok, agentID)
 	}
 }
 
@@ -705,11 +705,11 @@ func TestDispatcher_UnregisterTask(t *testing.T) {
 	d := NewDispatcher(nil)
 
 	// 注册任务
-	d.RegisterTask("test-task", "127.0.0.1:9001")
+	d.RegisterTask("test-task", "agent-1")
 
 	// 验证已注册
-	addr, ok := d.TaskAgentID("test-task")
-	if !ok || addr != "127.0.0.1:9001" {
+	agentID, ok := d.TaskAgentID("test-task")
+	if !ok || agentID != "agent-1" {
 		t.Fatal("Task should be registered")
 	}
 
@@ -775,11 +775,11 @@ func TestDispatcher_registerTask_StoreError(t *testing.T) {
 	d := NewDispatcherWithTaskStore(nil, errorStore, nil)
 
 	// 注册任务 - 应该成功，即使存储失败
-	d.registerTask("test-task", "127.0.0.1:9001")
+	d.registerTask("test-task", "agent-1")
 
 	// 应该在内存缓存中
-	addr, ok := d.TaskAgentID("test-task")
-	if !ok || addr != "127.0.0.1:9001" {
+	agentID, ok := d.TaskAgentID("test-task")
+	if !ok || agentID != "agent-1" {
 		t.Error("Task should be in memory cache even if store fails")
 	}
 }
@@ -806,7 +806,7 @@ func TestDispatcher_CloseWithClients(t *testing.T) {
 	d := NewDispatcherWithTaskStore(nil, store, nil)
 
 	// 添加任务来使用 dispatcher
-	d.RegisterTask("test-task", "127.0.0.1:9001")
+	d.RegisterTask("test-task", "agent-1")
 
 	err := d.Close()
 	if err != nil {
@@ -826,9 +826,9 @@ func TestDispatcher_CleanupOldTasks(t *testing.T) {
 	d := NewDispatcherWithTaskStore(nil, store, nil)
 
 	// 添加一些任务
-	d.RegisterTask("old-task", "127.0.0.1:9001")
+	d.RegisterTask("old-task", "agent-1")
 	time.Sleep(10 * time.Millisecond)
-	d.RegisterTask("new-task", "127.0.0.1:9002")
+	d.RegisterTask("new-task", "agent-2")
 
 	// 清理旧任务
 	err := d.CleanupOldTasks(1 * time.Millisecond)
@@ -843,8 +843,8 @@ func TestDispatcher_CleanupOldTasks(t *testing.T) {
 	}
 
 	// 验证新任务保留
-	addr, ok := d.TaskAgentID("new-task")
-	if !ok || addr != "127.0.0.1:9002" {
+	agentID, ok := d.TaskAgentID("new-task")
+	if !ok || agentID != "agent-2" {
 		t.Error("New task should still exist")
 	}
 }
@@ -897,7 +897,7 @@ func TestProtoMarshalError(t *testing.T) {
 	// 添加一个代理，但会导致后续错误
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "invalid-address-for-test", // 无效地址将在TCP session查找时失败
+		RPCAddr:  "compat-address-not-used",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -913,7 +913,7 @@ func TestProtoMarshalError(t *testing.T) {
 
 	_, err := d.InvokeRequest(ctx, req)
 	if err == nil {
-		t.Error("InvokeRequest() should return error with invalid address")
+		t.Error("InvokeRequest() should return error without an active agent session")
 	}
 }
 
@@ -927,7 +927,7 @@ func (s *errorTaskRoutingStore) Get(jobID string) (*TaskRouting, error) {
 	return nil, fmt.Errorf("store error")
 }
 
-func (s *errorTaskRoutingStore) Set(jobID, agentAddr string) error {
+func (s *errorTaskRoutingStore) Set(jobID, agentID string) error {
 	return fmt.Errorf("store error")
 }
 
@@ -963,7 +963,7 @@ func TestDispatcher_InvokeRequest_WithMetadata(t *testing.T) {
 
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "invalid-address", // 无效地址会在TCP session查找时失败
+		RPCAddr:  "compat-address-not-used",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -982,7 +982,7 @@ func TestDispatcher_InvokeRequest_WithMetadata(t *testing.T) {
 
 	_, err := d.InvokeRequest(ctx, req)
 	if err == nil {
-		t.Error("InvokeRequest() should return error with invalid address")
+		t.Error("InvokeRequest() should return error without an active agent session")
 	}
 }
 
@@ -993,7 +993,7 @@ func TestDispatcher_StartTaskRequest_WithMetadata(t *testing.T) {
 
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "invalid-address", // 无效地址会在TCP session查找时失败
+		RPCAddr:  "compat-address-not-used",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -1008,7 +1008,7 @@ func TestDispatcher_StartTaskRequest_WithMetadata(t *testing.T) {
 
 	_, err := d.StartTaskRequest(ctx, req)
 	if err == nil {
-		t.Error("StartTaskRequest() should return error with invalid address")
+		t.Error("StartTaskRequest() should return error without an active agent session")
 	}
 }
 
@@ -1017,14 +1017,14 @@ func TestDispatcher_CancelTask_AfterRegister(t *testing.T) {
 	d := NewDispatcher(nil)
 
 	// 注册任务
-	d.RegisterTask("test-task", "invalid-address")
+	d.RegisterTask("test-task", "agent-without-session")
 
 	ctx := context.Background()
 	err := d.CancelTask(ctx, "test-task")
 
-	// 应该返回错误，因为地址无效
+	// 应该返回错误，因为没有活动 Agent session
 	if err == nil {
-		t.Error("CancelTask() should return error with invalid address")
+		t.Error("CancelTask() should return error without an active agent session")
 	}
 
 	// 任务应该仍然被注册（因为取消失败，所以不会注销）

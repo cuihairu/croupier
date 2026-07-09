@@ -37,8 +37,12 @@ func (s CircuitBreakerState) String() string {
 // AgentHealthState tracks the health state of a single agent
 type AgentHealthState struct {
 	// Immutable fields
-	AgentID string
-	Addr    string
+	AgentID   string
+	RouteHint string
+
+	// Addr is retained as a compatibility alias for diagnostics. It is not
+	// used for routing; live requests resolve the agent's session by AgentID.
+	Addr string
 
 	// Mutable fields (use atomic operations for int32)
 	activeConnections   int32
@@ -101,16 +105,17 @@ func DefaultHealthCheckConfig() *HealthCheckConfig {
 }
 
 // NewAgentHealthState creates a new agent health state.
-// routeHint keeps a best-effort compatibility address for diagnostics only.
+// routeHint is a best-effort diagnostic label only; routing uses AgentID sessions.
 func NewAgentHealthState(agentID, routeHint string, config *HealthCheckConfig) *AgentHealthState {
 	if config == nil {
 		config = DefaultHealthCheckConfig()
 	}
 
 	state := &AgentHealthState{
-		AgentID: agentID,
-		Addr:    routeHint,
-		config:  config,
+		AgentID:   agentID,
+		RouteHint: routeHint,
+		Addr:      routeHint,
+		config:    config,
 	}
 	state.circuitState.Store(int32(CircuitClosed))
 	state.healthScore.Store(int64(math.Float64bits(config.MaxScore)))
@@ -405,15 +410,15 @@ func (t *HealthTracker) decayScores() {
 }
 
 // RegisterAgent registers a new agent or updates an existing one.
-// routeHint is a compatibility mirror used for observability, not routing.
+// routeHint is a diagnostic label used for observability, not routing.
 func (t *HealthTracker) RegisterAgent(agentID, routeHint string) *AgentHealthState {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	if state, ok := t.states[agentID]; ok {
-		// Update address if changed
-		if state.Addr != routeHint {
+		if state.RouteHint != routeHint {
 			state.mu.Lock()
+			state.RouteHint = routeHint
 			state.Addr = routeHint
 			state.mu.Unlock()
 		}

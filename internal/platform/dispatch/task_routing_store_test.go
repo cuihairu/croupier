@@ -432,31 +432,6 @@ func TestPickAgentByHash_EmptyKey(t *testing.T) {
 	}
 }
 
-// TestHostFromAddr 测试从地址提取主机
-func TestHostFromAddr(t *testing.T) {
-	tests := []struct {
-		name     string
-		addr     string
-		expected string
-	}{
-		{"IPv4", "127.0.0.1:9001", "127.0.0.1"},
-		{"IPv6", "[::1]:9001", "::1"},
-		{"IPv6 full", "[2001:db8::1]:9001", "2001:db8::1"},
-		{"只有主机", "localhost", "localhost"},
-		{"只有端口号", ":9001", ""},
-		{"空字符串", "", ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := hostFromAddr(tt.addr)
-			if result != tt.expected {
-				t.Errorf("hostFromAddr(%q) = %q, want %q", tt.addr, result, tt.expected)
-			}
-		})
-	}
-}
-
 // TestIsTerminalEvent 测试判断事件是否为终止事件
 func TestIsTerminalEvent(t *testing.T) {
 	tests := []struct {

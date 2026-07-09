@@ -242,8 +242,7 @@ func (lb *LoadBalancer) BuildCandidates(sessions []*reg.AgentSession, functionID
 			if h, ok := lb.tracker.GetState(session.AgentID); ok {
 				health = h
 			} else {
-				// Register new agent in tracker
-				health = lb.tracker.RegisterAgent(session.AgentID, session.RPCAddr)
+				health = lb.tracker.RegisterAgent(session.AgentID, "")
 			}
 		}
 

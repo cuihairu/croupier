@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net"
 	"sort"
 	"strings"
 	"sync"
@@ -732,25 +731,6 @@ func (d *Dispatcher) callAgent(ctx context.Context, agentID string, msgID uint32
 
 	_, respBody, err := caller.Call(callCtx, msgID, reqBody)
 	return respBody, err
-}
-
-// callAgentByAddr sends a request to an Agent by address.
-// NOTE: This method is not functional in TCP-only mode.
-// Task routing stores agentID, not RPC addr.
-func (d *Dispatcher) callAgentByAddr(ctx context.Context, rpcAddr string, msgID uint32, reqBody []byte) ([]byte, error) {
-	return nil, fmt.Errorf("callAgentByAddr not supported in TCP-only mode; task routing stores agentID")
-}
-
-func hostFromAddr(addr string) string {
-	addr = strings.TrimSpace(addr)
-	if addr == "" {
-		return ""
-	}
-	host, _, err := net.SplitHostPort(addr)
-	if err == nil {
-		return strings.Trim(host, "[]")
-	}
-	return strings.Trim(strings.TrimPrefix(addr, "["), "]")
 }
 
 // RegisterTask registers a task routing.

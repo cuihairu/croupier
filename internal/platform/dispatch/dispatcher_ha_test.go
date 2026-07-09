@@ -374,6 +374,12 @@ func TestLoadBalancer_BuildCandidates_AllowsEmptyRPCAddr(t *testing.T) {
 	if candidates[0].AgentID != "agent1" {
 		t.Fatalf("candidate agentID = %q, want %q", candidates[0].AgentID, "agent1")
 	}
+	if candidates[0].Health == nil {
+		t.Fatal("expected health state")
+	}
+	if candidates[0].Health.RouteHint != "" || candidates[0].Health.Addr != "" {
+		t.Fatalf("expected no address-derived route hint, got routeHint=%q addr=%q", candidates[0].Health.RouteHint, candidates[0].Health.Addr)
+	}
 }
 
 // TestReconnectionPolicy_NextDelay tests reconnection delay calculation
