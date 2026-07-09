@@ -21,6 +21,7 @@ type controlClient interface {
 	Heartbeat(ctx context.Context, req *agentv1.HeartbeatRequest) (*agentv1.HeartbeatResponse, error)
 	RegisterCapabilities(ctx context.Context, req *agentv1.RegisterCapabilitiesRequest) (*agentv1.RegisterCapabilitiesResponse, error)
 	SendTaskEvent(ctx context.Context, reqBody []byte) error
+	SendMetricEvent(ctx context.Context, reqBody []byte) error
 }
 
 // tcpControlClient wraps a simple TCP request-response client (no multiplexing).
@@ -121,6 +122,14 @@ func (c *tcpControlClient) SendTaskEvent(ctx context.Context, reqBody []byte) er
 	return err
 }
 
+func (c *tcpControlClient) SendMetricEvent(ctx context.Context, reqBody []byte) error {
+	if c == nil || c.client == nil {
+		return fmt.Errorf("tcp control client not initialized")
+	}
+	_, _, err := c.client.Call(ctx, protocol.MsgMetricEvent, reqBody)
+	return err
+}
+
 func (c *tcpControlClient) call(ctx context.Context, msgID uint32, req proto.Message, resp proto.Message) error {
 	if c == nil || c.client == nil {
 		return fmt.Errorf("tcp control client not initialized")
@@ -187,6 +196,13 @@ func (c *muxControlClient) SendTaskEvent(ctx context.Context, reqBody []byte) er
 		return fmt.Errorf("mux control client not initialized")
 	}
 	return c.mux.Send(ctx, protocol.MsgTaskEvent, reqBody)
+}
+
+func (c *muxControlClient) SendMetricEvent(ctx context.Context, reqBody []byte) error {
+	if c == nil || c.mux == nil {
+		return fmt.Errorf("mux control client not initialized")
+	}
+	return c.mux.Send(ctx, protocol.MsgMetricEvent, reqBody)
 }
 
 func (c *muxControlClient) call(ctx context.Context, msgID uint32, req proto.Message, resp proto.Message) error {

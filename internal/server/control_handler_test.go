@@ -13,6 +13,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/tasks"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"github.com/stretchr/testify/assert"
@@ -990,6 +991,49 @@ func TestControlService_HandleRequest(t *testing.T) {
 		_, err := svc.handleRequest(context.Background(), 0xFFFFFF, []byte{})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown message type")
+	})
+}
+
+// --- Tests for handleMetricEvent ---
+
+func TestHandleMetricEvent(t *testing.T) {
+	svc := &ControlService{logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))}
+
+	t.Run("valid report", func(t *testing.T) {
+		req := &opsv1.MetricsReport{
+			AgentId: "agent-1",
+			Cpu:     &opsv1.CpuMetrics{UsagePercent: 12.5, Cores: 4},
+			Memory:  &opsv1.MemoryMetrics{TotalBytes: 1000, UsedBytes: 500},
+		}
+		data, _ := proto.Marshal(req)
+
+		resp, err := svc.handleMetricEvent(context.Background(), data)
+		require.NoError(t, err)
+		assert.Nil(t, resp, "metric event is one-way, response body should be nil")
+	})
+
+	t.Run("missing agent id", func(t *testing.T) {
+		req := &opsv1.MetricsReport{AgentId: ""}
+		data, _ := proto.Marshal(req)
+
+		_, err := svc.handleMetricEvent(context.Background(), data)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "agent_id is required")
+	})
+
+	t.Run("invalid payload", func(t *testing.T) {
+		_, err := svc.handleMetricEvent(context.Background(), []byte("not protobuf"))
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unmarshal MetricsReport")
+	})
+
+	t.Run("dispatched via handleRequest", func(t *testing.T) {
+		req := &opsv1.MetricsReport{AgentId: "agent-via-dispatch"}
+		data, _ := proto.Marshal(req)
+
+		resp, err := svc.handleRequest(context.Background(), protocol.MsgMetricEvent, data)
+		require.NoError(t, err)
+		assert.Nil(t, resp)
 	})
 }
 

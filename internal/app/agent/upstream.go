@@ -15,6 +15,7 @@ import (
 	transportcore "github.com/cuihairu/croupier/internal/transport"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	componentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/component/v1"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"google.golang.org/protobuf/proto"
 )
@@ -689,9 +690,29 @@ func (c *UpstreamClient) metricsLoop(ctx context.Context) {
 	}
 }
 
-// reportMetrics sends a single metrics report to the upstream server.
-// Note: Metrics reporting is not yet implemented.
-// This method collects metrics but does not send them.
+// SendMetricEvent serialises a MetricsReport and pushes it to the server as
+// a one-way MetricEvent. Returns an error if the client is nil, not connected,
+// or the underlying transport rejects the send.
+func (c *UpstreamClient) SendMetricEvent(ctx context.Context, report *opsv1.MetricsReport) error {
+	if c == nil {
+		return fmt.Errorf("upstream client is nil")
+	}
+	if c.client == nil || !c.client.Connected() {
+		return fmt.Errorf("upstream client not connected")
+	}
+	if report == nil {
+		return fmt.Errorf("metrics report is nil")
+	}
+	data, err := proto.Marshal(report)
+	if err != nil {
+		return fmt.Errorf("marshal metrics report: %w", err)
+	}
+	return c.client.SendMetricEvent(ctx, data)
+}
+
+// reportMetrics collects a single snapshot and pushes it upstream. Errors
+// are logged but not returned because this runs from the periodic ticker
+// loop where a single failed cycle should not stop reporting.
 func (c *UpstreamClient) reportMetrics(ctx context.Context) {
 	c.metricsOnce.Do(func() {
 		if c.metricsCollector == nil {
@@ -699,8 +720,10 @@ func (c *UpstreamClient) reportMetrics(ctx context.Context) {
 		}
 	})
 
-	// Collect metrics (logging for now)
-	_ = c.metricsCollector.Collect(ctx)
+	report := c.metricsCollector.Collect(ctx)
+	if err := c.SendMetricEvent(ctx, report); err != nil {
+		slog.Debug("metrics report failed", "agent_id", c.agentID, "err", err)
+	}
 }
 
 // WithMetricsReporting enables and configures periodic metrics reporting.
@@ -719,8 +742,9 @@ func (c *UpstreamClient) WithMetricsReporting(interval time.Duration) {
 	}
 }
 
-// ReportMetricsOnce sends a single metrics report (for manual trigger).
-// Note: Metrics reporting is not yet implemented.
+// ReportMetricsOnce collects the current metrics snapshot and pushes it
+// upstream as a single MetricEvent. Use this for manual / on-demand reporting;
+// the periodic loop driven by startMetricsLoop calls reportMetrics directly.
 func (c *UpstreamClient) ReportMetricsOnce(ctx context.Context) error {
 	if c == nil {
 		return fmt.Errorf("upstream client is nil")
@@ -732,9 +756,8 @@ func (c *UpstreamClient) ReportMetricsOnce(ctx context.Context) error {
 		}
 	})
 
-	// Collect metrics (not implemented yet)
-	_ = c.metricsCollector.Collect(ctx)
-	return fmt.Errorf("metrics reporting not yet implemented")
+	report := c.metricsCollector.Collect(ctx)
+	return c.SendMetricEvent(ctx, report)
 }
 
 // toTitle converts a string to title case (first letter uppercase)

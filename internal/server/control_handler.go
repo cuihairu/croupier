@@ -22,6 +22,7 @@ import (
 	"github.com/cuihairu/croupier/internal/tasks"
 	transportcore "github.com/cuihairu/croupier/internal/transport"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
+	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
 	"google.golang.org/protobuf/proto"
@@ -220,6 +221,8 @@ func (s *ControlService) handleRequest(ctx context.Context, msgID uint32, data [
 		return s.handleRegisterCapabilities(ctx, data)
 	case protocol.MsgTaskEvent:
 		return s.handleTaskEvent(ctx, data)
+	case protocol.MsgMetricEvent:
+		return s.handleMetricEvent(ctx, data)
 	default:
 		return nil, fmt.Errorf("unknown message type: 0x%06X", msgID)
 	}
@@ -315,6 +318,33 @@ func (s *ControlService) handleTaskEvent(ctx context.Context, data []byte) ([]by
 	}
 	if err := taskStore.AppendEvent(ctx, taskID, tasks.EventType(req.GetType()), req.GetProgress(), req.GetMessage(), req.GetPayload()); err != nil {
 		return nil, fmt.Errorf("append task event: %w", err)
+	}
+	return nil, nil
+}
+
+// handleMetricEvent accepts a pushed MetricsReport snapshot from an agent.
+// It is currently a fire-and-forget sink: the report is logged at debug level
+// so operators can confirm the pipeline works end-to-end. A future change can
+// hand the report to a dedicated metrics store once that lands.
+func (s *ControlService) handleMetricEvent(ctx context.Context, data []byte) ([]byte, error) {
+	req := &opsv1.MetricsReport{}
+	if err := proto.Unmarshal(data, req); err != nil {
+		return nil, fmt.Errorf("unmarshal MetricsReport: %w", err)
+	}
+
+	agentID := strings.TrimSpace(req.GetAgentId())
+	if agentID == "" {
+		return nil, fmt.Errorf("agent_id is required")
+	}
+
+	if s.logger != nil {
+		s.logger.Debug("received metrics report",
+			"agent_id", agentID,
+			"cpu_percent", req.GetCpu().GetUsagePercent(),
+			"mem_used_bytes", req.GetMemory().GetUsedBytes(),
+			"disk_count", len(req.GetDisks()),
+			"network_count", len(req.GetNetworks()),
+		)
 	}
 	return nil, nil
 }

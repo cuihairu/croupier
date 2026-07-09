@@ -365,6 +365,42 @@ func TestFirstNonEmpty(t *testing.T) {
 	}
 }
 
+// TestReportMetricsOnceNotConnected tests ReportMetricsOnce surfaces a clear
+// error when the upstream client has no transport.
+func TestReportMetricsOnceNotConnected(t *testing.T) {
+	t.Parallel()
+
+	store := agentlocal.NewLocalStore()
+	client := NewUpstreamClient("127.0.0.1:9999", "agent-1", store, nil)
+
+	if err := client.ReportMetricsOnce(context.Background()); err == nil {
+		t.Fatal("expected error when reporting metrics without a connection")
+	}
+}
+
+// TestReportMetricsOnceNilClient tests ReportMetricsOnce on a nil receiver.
+func TestReportMetricsOnceNilClient(t *testing.T) {
+	t.Parallel()
+
+	var client *UpstreamClient
+	if err := client.ReportMetricsOnce(context.Background()); err == nil {
+		t.Fatal("expected error with nil upstream client")
+	}
+}
+
+// TestSendMetricEventNilReport tests that SendMetricEvent rejects a nil report
+// before attempting to marshal.
+func TestSendMetricEventNilReport(t *testing.T) {
+	t.Parallel()
+
+	store := agentlocal.NewLocalStore()
+	client := NewUpstreamClient("127.0.0.1:9999", "agent-1", store, nil)
+
+	if err := client.SendMetricEvent(context.Background(), nil); err == nil {
+		t.Fatal("expected error when sending nil metrics report")
+	}
+}
+
 // TestHostFromTarget tests the hostFromTarget helper function
 func TestHostFromTarget(t *testing.T) {
 	t.Parallel()
