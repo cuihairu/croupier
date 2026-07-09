@@ -291,43 +291,8 @@ type OpsConfigResponse struct {
 }
 
 // Health related types
-
-type OpsHealthGetRequest struct {
-	Target string `json:"target"`
-}
-
-type OpsHealthGetResponse struct {
-	Code    int             `json:"code"`
-	Message string          `json:"message"`
-	Data    []OpsHealthInfo `json:"data"`
-}
-
-type OpsHealthInfo struct {
-	Name      string `json:"name"`
-	Status    string `json:"status"`
-	Message   string `json:"message"`
-	LastCheck string `json:"lastCheck"`
-}
-
-type OpsHealthRunRequest struct {
-	Target string `json:"target"`
-}
-
-type OpsHealthRunResponse struct {
-	Code    int             `json:"code"`
-	Message string          `json:"message"`
-	Data    []OpsHealthInfo `json:"data"`
-}
-
-type OpsHealthUpdateRequest struct {
-	Target string      `json:"target"`
-	Config interface{} `json:"config"`
-}
-
-type OpsHealthUpdateResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
+// NOTE: Health operations are served by internal/api/ops (helpers.go) directly;
+// the logic-layer stubs have been removed.
 
 // Maintenance related types
 
@@ -378,19 +343,9 @@ type OpsQueueInfo struct {
 }
 
 // Metrics related types
-
-type OpsMetricsRequest struct {
-	GameID string `json:"gameId"`
-	NodeID string `json:"nodeId"`
-	Metric string `json:"metric"`
-	Range  string `json:"range"`
-}
-
-type OpsMetricsResponse struct {
-	Code    int              `json:"code"`
-	Message string           `json:"message"`
-	Data    []OpsMetricPoint `json:"data"`
-}
+// NOTE: OpsMetricsData / OpsMetricPoint are still used by OpsAgentMetricsLogic.
+// The logic-layer OpsMetrics stub has been removed; metrics aggregation flows
+// through internal/api/ops.
 
 type OpsMetricPoint struct {
 	Timestamp string  `json:"timestamp"`
@@ -398,55 +353,9 @@ type OpsMetricPoint struct {
 }
 
 // Backup related types
-
-type OpsBackupsListRequest struct {
-	GameID string `json:"gameId"`
-}
-
-type OpsBackupsListResponse struct {
-	Code    int             `json:"code"`
-	Message string          `json:"message"`
-	Data    []OpsBackupInfo `json:"data"`
-}
-
-type OpsBackupInfo struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Size    int64  `json:"size"`
-	Type    string `json:"type"`
-	Status  string `json:"status"`
-	Created string `json:"created"`
-}
-
-type OpsBackupCreateRequest struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
-}
-
-type OpsBackupCreateResponse struct {
-	Code    int           `json:"code"`
-	Message string        `json:"message"`
-	Data    OpsBackupInfo `json:"data"`
-}
-
-type OpsBackupDeleteRequest struct {
-	ID string `json:"id"`
-}
-
-type OpsBackupDeleteResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
-type OpsBackupDownloadRequest struct {
-	ID string `json:"id"`
-}
-
-type OpsBackupDownloadResponse struct {
-	Code    int           `json:"code"`
-	Message string        `json:"message"`
-	Data    OpsBackupInfo `json:"data"`
-}
+// NOTE: Backup operations are served exclusively by internal/api/ops (BackupService)
+// and internal/api/backup (Service). The former logic-layer stubs were removed;
+// these request/response types are intentionally not re-declared here.
 
 // Alert related types
 
@@ -589,13 +498,6 @@ type OpsServiceProcess struct {
 }
 
 // Additional query types
-
-type OpsMetricsQuery struct {
-	GameID string `json:"gameId"`
-	NodeID string `json:"nodeId"`
-	Metric string `json:"metric"`
-	Range  string `json:"range"`
-}
 
 type OpsNodeCommandsQuery struct {
 	NodeID string `json:"nodeId"`
