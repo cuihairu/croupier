@@ -4,4 +4,4 @@
 
 ## 继续阅读
 
-- [插件指南](/sdks/cpp/PLUGIN_GUIDE)
+- [插件指南](/sdks/cpp/guide/plugins)

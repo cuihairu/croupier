@@ -13,5 +13,5 @@
 
 ## 继续阅读
 
-- [配置指南](/sdks/cpp/CONFIG_GUIDE)
+- [Client Config](/sdks/cpp/configuration/client-config)
 - [configuration/index](/sdks/cpp/configuration/)

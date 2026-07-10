@@ -126,9 +126,9 @@ provider.serve();
 - [约定规范](./conventions)
 - [运行时库修复](./runtime-library-fix)
 - [测试进度](./test-implementation-progress)
-- [配置指南](./CONFIG_GUIDE)
-- [插件指南](./PLUGIN_GUIDE)
-- [虚拟对象注册机制](./VIRTUAL_OBJECT_REGISTRATION)
+- [Client Config](./configuration/client-config)
+- [插件指南](./guide/plugins)
+- [虚拟对象](./guide/virtual-objects)
 
 ## 相关文档
 

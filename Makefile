@@ -170,7 +170,7 @@ dev-dashboard: submodules
 	@cd dashboard && npm ci && npm run dev
 
 dev-docs:
-	@echo "[docs] starting VuePress documentation dev server..."
+	@echo "[docs] starting VitePress documentation dev server..."
 	@cd docs && pnpm install --frozen-lockfile && pnpm run dev
 
 # ========== Clean Targets ==========
@@ -233,7 +233,7 @@ help:
 	@echo "Web & Docs Targets:"
 	@echo "  build-web        - Build web and docs components"
 	@echo "  build-dashboard  - Build management dashboard"
-	@echo "  build-docs       - Build VuePress documentation"
+	@echo "  build-docs       - Build VitePress documentation"
 	@echo "  dev-dashboard    - Start dashboard dev server"
 	@echo "  dev-docs         - Start docs dev server"
 	@echo ""

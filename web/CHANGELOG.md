@@ -27,10 +27,10 @@
 
 #### 新增文档 (5 个)
 
-- `docs/TABEDITOR_REFACTOR_SUMMARY.md` - 重构详细总结
-- `docs/PHASE1_COMPLETION_REPORT.md` - 阶段完成报告
-- `docs/TABEDITOR_TEST_GUIDE.md` - 测试指南
-- `docs/PHASE1_FINAL_REPORT.md` - 最终完成报告
+- `../docs/archive/releases/v0.1.6/web/docs/TABEDITOR_REFACTOR_SUMMARY.md` - 重构详细总结
+- `../docs/archive/releases/v0.1.6/web/docs/PHASE1_COMPLETION_REPORT.md` - 阶段完成报告
+- `../docs/archive/releases/v0.1.6/web/docs/TABEDITOR_TEST_GUIDE.md` - 测试指南
+- `../docs/archive/releases/v0.1.6/web/docs/PHASE1_FINAL_REPORT.md` - 最终完成报告
 - `TODO_V2_UI_ENTERPRISE.md` - V2 企业级改造 TODO (75 个任务)
 
 ### 🔧 Changed
@@ -127,13 +127,13 @@ src/pages/WorkspaceEditor/components/
 **注意事项**:
 
 - 建议在升级后进行全面测试
-- 如遇问题，可参考 `docs/TABEDITOR_TEST_GUIDE.md`
+- 如遇问题，可参考 `../docs/archive/releases/v0.1.6/web/docs/TABEDITOR_TEST_GUIDE.md`
 
 ### 🔗 相关链接
 
-- [重构总结](./docs/TABEDITOR_REFACTOR_SUMMARY.md)
-- [完成报告](./docs/PHASE1_FINAL_REPORT.md)
-- [测试指南](./docs/TABEDITOR_TEST_GUIDE.md)
+- [重构总结](../docs/archive/releases/v0.1.6/web/docs/TABEDITOR_REFACTOR_SUMMARY.md)
+- [完成报告](../docs/archive/releases/v0.1.6/web/docs/PHASE1_FINAL_REPORT.md)
+- [测试指南](../docs/archive/releases/v0.1.6/web/docs/TABEDITOR_TEST_GUIDE.md)
 - [V2 TODO](./TODO_V2_UI_ENTERPRISE.md)
 
 ---

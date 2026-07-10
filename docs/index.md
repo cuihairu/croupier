@@ -11,21 +11,32 @@ actions:
   - text: 架构概述
     link: /architecture/
     type: secondary
+  - text: 文档治理
+    link: /development/documentation-governance
+    type: secondary
 features:
   - title: 控制面与 Agent 协同
-    details: Server 负责权限、审批、审计、配置和函数路由，Agent 负责接入游戏服务与节点能力。
+    details: Server 负责权限、审批、审计、配置和函数路由，Agent 通过统一 session 链路接入游戏服务与节点能力。
   - title: 函数注册驱动
     details: OpenAPI、JSON Schema、函数 UI 配置与扩展安装绑定共同驱动管理界面与调用流程。
   - title: 双层政策架构
     details: YAML 默认政策与数据库覆盖策略结合，支持低/中/高/危险四级风险控制。
   - title: 完整的审计链
     details: 所有操作记录审计日志，高风险操作需要双人审批，支持哈希链防篡改。
+  - title: 数据分析链路
+    details: ingest、worker、Redis Streams 与 ClickHouse 组成独立分析链路，文档单独归入 Analytics 入口。
 footer: Apache-2.0 License | Copyright © 2024-present Croupier
 ---
 
 ## 什么是 Croupier
 
-Croupier 是一个**分布式游戏运营控制面系统**，为单一游戏公司内部的多游戏、多环境运营提供统一的管理能力。通过控制面（Server）与代理（Agent）的协同架构，实现跨多游戏服务的管理、函数调用、权限控制和审计追踪。
+Croupier 是一个**分布式游戏运营控制面系统**，为单一游戏公司内部的多游戏、多环境运营提供统一的管理能力。通过控制面（Server）、代理（Agent）与多语言 SDK 的协同，实现跨多游戏服务的管理、函数调用、权限控制、审计追踪和数据分析。
+
+当前权威架构以统一 TCP session 为默认链路：
+
+- `Dashboard <-> Server`：HTTP REST
+- `Agent <-> Server`：TCP session，默认启用 TLS
+- `SDK / GameServer / 第三方本地应用 <-> Agent`：Agent 本地 gateway，默认 TCP session
 
 ## 系统架构
 
@@ -59,27 +70,32 @@ graph TB
 ## 核心能力
 
 ### 函数管理
+
 - **OpenAPI 驱动注册**：通过 OpenAPI 规范快速注册函数
 - **UI 自动生成**：根据函数描述自动生成管理界面
-- **多协议支持**：支持 REST、gRPC 等多种调用方式
+- **统一调用链路**：控制面通过 Agent session 路由调用，本地接入通过 Agent gateway 完成
 
 ### 权限与安全
+
 - **RBAC/ABAC 混合模型**：基于角色和属性的灵活权限控制
 - **双层政策架构**：YAML 默认策略 + 数据库覆盖策略
 - **四级风险控制**：低、中、高、危险四级，自动触发审批流程
 - **双人审批规则**：高风险操作需要多人审批
 
 ### 作用域模型
+
 - **单公司多游戏**：不引入 SaaS 多租户抽象，标准业务边界是 `game_id`
 - **多环境治理**：`env` 表达 `dev/test/staging/prod` 等逻辑环境
 - **归属与部署分离**：`scope` 表达业务归属，`target` 表达运行位置
 
 ### 可观测性
+
 - **完整审计链**：所有操作记录审计日志
 - **哈希防篡改**：审计记录通过哈希链关联，确保数据完整性
 - **敏感字段脱敏**：自动脱敏密码、token 等敏感信息
 
 ### 运维工具
+
 - **工单系统**：玩家问题工单流转
 - **反馈管理**：收集玩家反馈
 - **公告系统**：游戏公告发布
@@ -126,16 +142,17 @@ curl http://localhost:18780/api/v1/
 | 文档 | 说明 |
 |------|------|
 | [指南](/guide/) | 快速开始、安装配置、核心概念、运维指南 |
-| [架构](/architecture/) | 系统分层、传输协议、扩展系统设计 |
+| [架构](/architecture/) | 当前规范、决策边界、提案与参考资料 |
 | [API 参考](/api/) | REST API 接口文档 |
+| [数据分析](/analytics/) | ingest、worker、ClickHouse、指标与 Playbook |
 | [开发](/development/) | 仓库结构、开发约定、发布流程 |
 | [SDK](/sdks/) | 多语言 SDK 文档与能力矩阵 |
 
 ## 技术栈
 
 - **Go**：后端核心实现
-- **gRPC**：内部服务通信
-- **Protobuf**：接口定义与序列化
+- **TCP Session**：Agent/SDK 内部主链路
+- **Protobuf**：接口定义与信封序列化
 - **SQLite/PostgreSQL**：数据存储
 - **React + Formily**：管理界面
 - **VitePress**：文档站点

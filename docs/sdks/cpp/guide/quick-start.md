@@ -18,4 +18,4 @@ int main() {
 ## 下一步
 
 - [函数注册](./functions)
-- [配置指南](/sdks/cpp/CONFIG_GUIDE)
+- [Client Config](/sdks/cpp/configuration/client-config)

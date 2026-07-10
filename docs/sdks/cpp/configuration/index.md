@@ -11,4 +11,4 @@
 - [client-config](./client-config)
 - [environments](./environments)
 - [security](./security)
-- [配置指南](/sdks/cpp/CONFIG_GUIDE)
+- [Client Config](/sdks/cpp/configuration/client-config)

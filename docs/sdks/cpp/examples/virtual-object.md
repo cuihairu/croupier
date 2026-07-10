@@ -4,4 +4,4 @@
 
 ## 继续阅读
 
-- [虚拟对象注册机制](/sdks/cpp/VIRTUAL_OBJECT_REGISTRATION)
+- [虚拟对象指南](/sdks/cpp/guide/virtual-objects)

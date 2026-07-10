@@ -13,5 +13,5 @@
 ## 阅读建议
 
 - 先看 [C++ SDK 首页](/sdks/cpp/)
-- 再看 [配置指南](/sdks/cpp/CONFIG_GUIDE)
+- 再看 [Client Config](/sdks/cpp/configuration/client-config)
 - 最后结合 `sdks/cpp/include` 与 `sdks/cpp/src` 阅读实现

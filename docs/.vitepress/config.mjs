@@ -4,10 +4,11 @@ import { withMermaid } from 'vitepress-plugin-mermaid'
 const config = defineConfig({
   lang: 'zh-CN',
   title: 'Croupier',
-  description: '分布式游戏管理系统 - 统一的游戏运营控制面',
+  description: '分布式游戏管理系统 - 统一 session 架构的游戏运营控制面',
+  srcExclude: ['archive/**'],
   head: [
     ['meta', { name: 'viewport', content: 'width=device-width,initial-scale=1' }],
-    ['meta', { name: 'keywords', content: 'croupier,游戏管理,gm系统,分布式系统,gRPC' }],
+    ['meta', { name: 'keywords', content: 'croupier,游戏管理,gm系统,分布式系统,session,agent,sdk' }],
     ['meta', { name: 'theme-color', content: '#3eaf7c' }],
   ],
   base: '/croupier/',
@@ -19,6 +20,7 @@ const config = defineConfig({
       { text: '指南', link: '/guide/' },
       { text: '架构', link: '/architecture/' },
       { text: 'API 参考', link: '/api/' },
+      { text: '数据分析', link: '/analytics/' },
       {
         text: 'SDK',
         items: [
@@ -31,6 +33,7 @@ const config = defineConfig({
           { text: 'C# SDK', link: '/sdks/csharp/' },
         ],
       },
+      { text: '开发', link: '/development/' },
     ],
 
     sidebar: {
@@ -77,102 +80,172 @@ const config = defineConfig({
 
       '/architecture/': [
         {
-          text: '架构文档',
+          text: '当前规范',
           collapsed: false,
           items: [
             { text: '概述', link: '/architecture/' },
             { text: '分层', link: '/architecture/layers' },
             { text: '术语', link: '/architecture/terms-and-layering' },
             { text: '数据流', link: '/architecture/data-flow' },
-          ],
-        },
-        {
-          text: '传输协议',
-          collapsed: true,
-          items: [
-            { text: 'SDK Wire 协议', link: '/architecture/sdk-wire-protocol' },
-            { text: 'SDK-Agent 传输重构', link: '/architecture/sdk-agent-transport-redesign' },
-            { text: 'Agent-Server Session', link: '/architecture/agent-server-session-transport-redesign' },
+            { text: '游戏与环境作用域', link: '/architecture/game-environment-scope' },
             { text: 'Session 生命周期', link: '/architecture/session-lifecycle' },
-            { text: 'Session 运行时', link: '/architecture/session-runtime-landscape' },
+            { text: 'SDK Wire 协议', link: '/architecture/sdk-wire-protocol' },
           ],
         },
         {
-          text: '扩展系统',
+          text: '决策与边界',
           collapsed: true,
           items: [
             { text: '扩展安装模型', link: '/architecture/extension-installation-model' },
             { text: '核心扩展映射', link: '/architecture/core-extension-mapping' },
+            { text: '扩展 API 契约基线', link: '/architecture/extensions-api-contract-baseline' },
+          ],
+        },
+        {
+          text: '提案与迁移设计',
+          collapsed: true,
+          items: [
+            { text: 'SDK-Agent 传输重构', link: '/architecture/sdk-agent-transport-redesign' },
+            { text: 'Agent-Server Session', link: '/architecture/agent-server-session-transport-redesign' },
             { text: '扩展统一模式', link: '/architecture/official-extension-unified-pattern' },
+          ],
+        },
+        {
+          text: '参考资料',
+          collapsed: true,
+          items: [
+            { text: 'Session 运行时调研', link: '/architecture/session-runtime-landscape' },
+            { text: '前端 Adapter 模板', link: '/architecture/frontend-adapter-layer-template' },
           ],
         },
       ],
 
       '/api/': [
         {
-          text: 'REST API',
+          text: '基础',
           collapsed: false,
           items: [
             { text: '概述', link: '/api/' },
+            { text: 'REST API', link: '/api/rest' },
             { text: '认证', link: '/api/auth' },
-            { text: '用户管理', link: '/api/admin' },
+            { text: 'Schema', link: '/api/schema' },
+            { text: '元数据', link: '/api/meta' },
           ],
         },
         {
-          text: '函数 API',
+          text: '核心业务',
           collapsed: false,
           items: [
+            { text: '游戏', link: '/api/game' },
+            { text: '玩家', link: '/api/player' },
             { text: '函数管理', link: '/api/function' },
+            { text: '函数调用兼容视图', link: '/api/function_call' },
+            { text: '任务', link: '/api/task' },
+            { text: '消息', link: '/api/message' },
+            { text: '配置', link: '/api/config' },
             { text: '审批', link: '/api/approval' },
             { text: '审计', link: '/api/audit' },
           ],
         },
         {
-          text: '游戏管理',
+          text: '运维与平台',
           collapsed: true,
           items: [
-            { text: '游戏', link: '/api/game' },
-            { text: '玩家', link: '/api/player' },
-            { text: '消息', link: '/api/message' },
-          ],
-        },
-        {
-          text: '运营工具',
-          collapsed: true,
-          items: [
-            { text: '工单', link: '/api/ticket' },
-            { text: '反馈', link: '/api/feedback' },
-            { text: '公告', link: '/api/assignment' },
-          ],
-        },
-        {
-          text: '系统 API',
-          collapsed: true,
-          items: [
+            { text: '运维', link: '/api/ops' },
+            { text: '运维核心', link: '/api/ops_core' },
+            { text: '运维简化', link: '/api/ops-simple' },
             { text: 'Agent', link: '/api/agent' },
             { text: '节点', link: '/api/node' },
             { text: '注册中心', link: '/api/registry' },
-            { text: '配置', link: '/api/config' },
-            { text: '监控', link: '/api/monitoring' },
-            { text: '证书', link: '/api/certificate' },
+            { text: '平台', link: '/api/platform' },
+            { text: 'Provider', link: '/api/provider' },
+            { text: '存储', link: '/api/storage' },
             { text: '备份', link: '/api/backup' },
             { text: '迁移', link: '/api/migrate' },
-            { text: '存储', link: '/api/storage' },
+            { text: '监控', link: '/api/monitoring' },
+            { text: '证书', link: '/api/certificate' },
+            { text: '限流', link: '/api/rate_limit' },
+            { text: '告警', link: '/api/alert' },
           ],
         },
         {
-          text: '其他 API',
+          text: '数据分析 API',
           collapsed: true,
           items: [
-            { text: '平台', link: '/api/platform' },
+            { text: '分析 API', link: '/api/analytics' },
+            { text: '分析概览', link: '/api/analytics_overview' },
+            { text: '行为分析', link: '/api/analytics_behavior' },
+            { text: '留存分析', link: '/api/analytics_retention' },
+            { text: '支付分析', link: '/api/analytics_payments' },
+          ],
+        },
+        {
+          text: '控制台域',
+          collapsed: true,
+          items: [
+            { text: '管理员', link: '/api/admin' },
             { text: '工作空间', link: '/api/workspace' },
-            { text: '服务商', link: '/api/provider' },
             { text: '实体', link: '/api/entity' },
-            { text: '限流', link: '/api/rate_limit' },
-            { text: '告警', link: '/api/alert' },
-            { text: '任务', link: '/api/task' },
+            { text: 'Profile', link: '/api/profile' },
+          ],
+        },
+        {
+          text: '运营支持',
+          collapsed: true,
+          items: [
+            { text: '分配', link: '/api/assignment' },
+            { text: '工单', link: '/api/ticket' },
+            { text: '反馈', link: '/api/feedback' },
             { text: '客服', link: '/api/support' },
             { text: 'FAQ', link: '/api/faq' },
+          ],
+        },
+      ],
+
+      '/analytics/': [
+        {
+          text: '分析系统',
+          collapsed: false,
+          items: [
+            { text: '概述', link: '/analytics/' },
+            { text: '快速开始', link: '/analytics/quick-start' },
+            { text: '指标全景图', link: '/analytics/game-metrics-overview' },
+            { text: '指标词典', link: '/analytics/metrics-dictionary' },
+          ],
+        },
+        {
+          text: '采集与存储',
+          collapsed: true,
+          items: [
+            { text: '数据采集架构', link: '/analytics/data-collection-architecture' },
+            { text: 'OpenTelemetry 集成', link: '/analytics/opentelemetry-integration' },
+            { text: 'ClickHouse 表结构', link: '/analytics/clickhouse-schema' },
+            { text: 'API 参考', link: '/analytics/api-reference' },
+            { text: 'SDK 参考', link: '/analytics/sdk-reference' },
+          ],
+        },
+        {
+          text: '游戏类型',
+          collapsed: true,
+          items: [
+            { text: '游戏类型适配', link: '/analytics/game-type-adaptation' },
+            { text: '休闲游戏', link: '/analytics/casual-games' },
+            { text: '竞技游戏', link: '/analytics/competitive-games' },
+            { text: 'RPG 游戏', link: '/analytics/rpg-games' },
+            { text: '策略游戏', link: '/analytics/strategy-games' },
+            { text: '棋牌桌游 Playbook', link: '/analytics/playbooks/board-table-cn' },
+            { text: '卡牌 CCG Playbook', link: '/analytics/playbooks/card-ccg-cn' },
+            { text: '放置游戏 Playbook', link: '/analytics/playbooks/idle-cn' },
+            { text: '塔防游戏 Playbook', link: '/analytics/playbooks/tower-defense-cn' },
+          ],
+        },
+        {
+          text: '运维',
+          collapsed: true,
+          items: [
+            { text: '最佳实践', link: '/analytics/best-practices' },
+            { text: '故障排除', link: '/analytics/troubleshooting' },
+            { text: '增强方案', link: '/analytics/enhancement-plan' },
           ],
         },
       ],
@@ -187,6 +260,7 @@ const config = defineConfig({
             { text: '仓库布局', link: '/development/repository-layout' },
             { text: '发布约定', link: '/development/release-conventions' },
             { text: '业务扩展策略', link: '/development/new-business-extension-policy' },
+            { text: '文档治理', link: '/development/documentation-governance' },
           ],
         },
       ],
@@ -281,8 +355,10 @@ const config = defineConfig({
         { text: '指南', link: '/guide/' },
         { text: '架构', link: '/architecture/' },
         { text: 'API 参考', link: '/api/' },
+        { text: '数据分析', link: '/analytics/' },
         { text: '开发', link: '/development/' },
         { text: 'SDK', link: '/sdks/' },
+        { text: '安全', link: '/security' },
       ],
     },
 
