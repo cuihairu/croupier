@@ -2,85 +2,176 @@
 
 更新时间：2026-07-10
 
-本清单基于当前源码、架构文档和验证结果维护。历史迁移的完成声明已移除；只有仍可从当前代码复现或验证的事项保留。
+本清单只记录当前仍需推进的事项。已完成的历史迁移压缩到末尾，避免干扰优先级判断。
 
-## P0：安全与会话正确性
+## 当前判断
 
-- [x] **限制游戏数据库的解析与创建。** `GameDBMiddleware` 在开启分库路由时，先通过 `GameModel.LookupDatabaseName` 校验 `(game_id, env)` 存在于 `game_envs` 表，未知/未授权作用域返回 403，不再触发建库。物理库创建仅由受控的游戏/环境创建流程触发。
-  - 位置：`internal/svc/game_middleware.go`、`internal/db/router/router.go`
-  - 验证：`/usr/local/go/bin/go test ./internal/svc/...`
+项目主干的 Server/Agent session、分库路由、任务调度已有基础闭环；当前明显滞后的是“发布级闭环”：
 
-- [x] **修复 Agent 重连时旧连接删除新会话的问题。** 新增 `AgentSessionStore.RemoveSession(agentID, sessionID)`，仅在存储会话的 `SessionID` 与断连连接一致时才删除；`serveConn` 改用 `RemoveSession`，旧连接退出不再误删新会话。
-  - 位置：`internal/server/agent_session.go`、`internal/server/tcp_listener.go`
-  - 验证：`TestAgentSessionStoreRemoveSessionReconnect`（`/usr/local/go/bin/go test ./internal/server/...`）
+1. 跨语言 SDK 一致性没有收尾。
+2. CI 缺少可执行的最小 E2E。
+3. API 面铺得较宽，但部分包没有测试。
+4. 文档和协议里仍有历史 `gRPC` / `rpc_addr` / `Job` 命名残留。
+5. `ServiceContext` 仍承担过多组合根职责，需要按领域继续收敛。
 
-- [x] **在 Agent-Server 链路强制握手状态机。** `agentSessionHandler.Handle` 强制：注册前只允许 `RegisterRequest`；注册后拒绝重复 `RegisterRequest`；`Heartbeat` 的 `agent_id` 必须与会话绑定 ID 一致。
-  - 位置：`internal/server/tcp_listener.go`
-  - 验证：`heartbeat before register is rejected` / `heartbeat with mismatched agent_id is rejected` / `duplicate register is rejected`
+本阶段不以向后兼容为约束。历史协议、旧命名、旧文档可以直接删除或重命名；如必须暂留，必须写清删除条件和负责人。
 
-- [x] **统一 SDK-Agent 首帧规则。** `providerSessionHandler.Handle` 强制首帧为 `ProviderConnectRequest`；不再允许未注册 `InvokeRequest` 绕过 Provider 握手。Invoker 不是独立 subprotocol，不得跳过握手。
-  - 位置：`internal/agent/tcp_local_listener.go`、`docs/architecture/sdk-agent-transport-redesign.md`
-  - 验证：`/usr/local/go/bin/go test ./internal/agent/...`
+## P0：SDK 与协议一致性收尾
 
-## P1：运行时收敛
+- [ ] **补齐 JS/TS L3 Invoker。**
+  - 现状：`sdks/SDK_FEATURE_MATRIX.md` 明确记录 JS Invoker 暂未提供；`scripts/check-sdk-matrix.sh` 只把该问题记为 warning，不阻断 CI。
+  - 目标：JS/TS 提供独立 Invoker，支持 `invoke` / `startTask` / `streamTask` / `cancelTask`，并与其他 SDK 一致。
+  - 位置：`sdks/js/src/`、`sdks/js/examples/`、`sdks/SDK_FEATURE_MATRIX.md`、`scripts/check-sdk-matrix.sh`
+  - 验证：JS 单测 + `scripts/check-sdk-matrix.sh` 无 JS Invoker warning。
 
-- [x] **完成控制面优雅停机。** 所有后台组件（TCP listener、ControlService、session 清理、registry cleanup）派生自 server 根 context；停机顺序为：关闭 TCP listener（停止接收新连接）→ HTTP Shutdown（drain 在途请求）→ 取消根 context 级联停后台 → ControlService.Stop → Router.Close，整体 30s 超时兜底。
-  - 位置：`cmd/server/root.go`（`controlRuntime` + `runServer` 停机段）
-  - 验证：`/usr/local/go/bin/go build ./cmd/server/...`
+- [ ] **删除 C++ SDK legacy wire name 残留。**
+  - 现状：`scripts/check-sdk-matrix.sh` 仍检出 3 个 C++ 文件引用 `MSG_START_JOB_REQUEST` / `MSG_STREAM_JOB_REQUEST` / `MSG_CANCEL_JOB_REQUEST` / `MSG_JOB_EVENT`。
+  - 目标：统一为 `Task` 命名；不保留 `Job` 兼容别名。
+  - 位置：`sdks/cpp/src/croupier_client.cpp`、`sdks/cpp/tests/test_invoker.cpp`、`sdks/cpp/tests/test_protocol.cpp`
+  - 验证：`scripts/check-sdk-matrix.sh` 无 wire warning；C++ 相关测试通过。
 
-- [x] **完成 shared session runtime 抽取。** `internal/transport/session.BaseStore` 新增 `RemoveSession(key, sessionID)` compare-and-remove 原语（reconnect-safe），`AgentSessionStore.RemoveSession`（P0-2）与 Provider 会话清理复用同一语义。心跳/drain/生命周期接口保持不变，业务字段留在子协议层。
-  - 位置：`internal/transport/session/store.go`、`internal/server/agent_session.go`
-  - 验证：`TestBaseStore_RemoveSession_ReconnectSafe` / `TestAgentSessionStoreRemoveSessionReconnect`
+- [ ] **把 SDK matrix warning 升级为失败条件。**
+  - 现状：`scripts/check-sdk-matrix.sh` 在有 warning 时仍 `exit 0`，CI 无法阻止旧命名继续滞留。
+  - 目标：除显式 allowlist 外，SDK 缺能力、旧 wire name、旧 README 术语全部失败。
+  - 位置：`scripts/check-sdk-matrix.sh`、`.github/workflows/ci.yml`
+  - 验证：CI 的 “SDK matrix conformance” 能阻断新增旧术语/旧命名。
 
-- [x] **避免 Router 全局锁内执行 I/O。** `GameDB` 改用 `singleflight` 按 dbName 协调首次打开；建库/连接/迁移 I/O 在锁外执行，仅 cache map 写入持写锁。不同游戏环境首次初始化可并行，互不阻塞。
-  - 位置：`internal/db/router/router.go`
-  - 验证：`/usr/local/go/bin/go test ./internal/db/router/...`
+- [ ] **清理 `Job` 命名，统一为 `Task`。**
+  - 目标：源码、proto、生成代码、文档、示例统一使用 `Task`。
+  - 范围：`StartJob`、`StreamJob`、`CancelJob`、`JobEvent`、`job_id`、`GetJobResult` 等历史命名。
+  - 说明：不考虑兼容旧 API；直接重命名和删除旧入口。
+  - 验证：`rg "StartJob|StreamJob|CancelJob|JobEvent|GetJobResult|job_id"` 只允许出现在迁移说明或历史归档中。
 
-- [x] **收敛历史 gRPC / rpc_addr 兼容层。** 删除零主路径引用的 legacy 包：`internal/connpool/`、`internal/transport/interceptors/`、`internal/transport/jsoncodec/`。Ops/Dispatch 调用 Agent 均走 TCP session，不依赖反向回拨。proto `rpc_addr` 标注 DEPRECATED 与删除门控条件（待所有部署 Agent 弃用该字段后移除），保留点仅为镜像写入。
-  - 位置：`proto/croupier/agent/v1/register.proto`、`internal/model/agent_session_model.go`、`internal/platform/registry/`（保留镜像）
-  - 验证：`/usr/local/go/bin/go build ./...`（删除后全量编译通过）
+- [ ] **清理 `rpc_addr` / LocalControl / gRPC callback 兼容字段。**
+  - 目标：当前主链路只保留 TCP session 模型，不再保留回拨式注册语义。
+  - 范围：proto、SDK 生成代码、README、测试、ops/monitoring 输出里的兼容 alias。
+  - 位置：`proto/croupier/agent/v1/register.proto`、`internal/logic/utils/registry_helpers.go`、`sdks/*`、`docs/sdks/*`
+  - 验证：`rg "rpc_addr|LocalControl|gRPC callback|RegisterLocal"` 只允许出现在明确的历史归档文档中。
 
-## P1：作用域与依赖边界
+## P0：恢复发布级 E2E
 
-- [x] **将分库边界落实到所有 game-scoped 访问。** 审计确认所有 game-scoped model（player/function/task/ticket/analytics 等 11 个）均通过 `dbctx.Resolve(ctx, m.db)` 路由；service 层直接用 `svcCtx.DB` 的操作全部是 meta 模型（admin/role/monitoring/权限 scope），无绕过 scope 的游戏数据操作。补 `dbctx` 路由契约回归测试。
-  - 重点位置：`internal/api/extension/service.go`、`internal/api/task/service.go`、`internal/logic/utils/game_scope.go`、`internal/db/dbctx/`
-  - 验证：`TestResolve_OverrideWins`（请求 context 注入 game DB 时一定路由到注入库）
+- [ ] **恢复 CI 最小 E2E job。**
+  - 现状：`.github/workflows/ci.yml` 中 E2E job 被 `if: ${{ false }}` 禁用，原因是 health-check endpoint expectation unstable。
+  - 目标：CI 至少覆盖 Server 启动、健康检查、Agent 注册、SDK 调用、Task lifecycle。
+  - 位置：`.github/workflows/ci.yml`、`scripts/e2e/`
+  - 验证：PR 上 E2E 自动执行，失败时阻断合并。
 
-- [x] **拆分 `ServiceContext`（建立锚点）。** 遵循「先以窄接口替换直接依赖，避免一次性重构」：新增 `internal/ports/` 领域端口 `Permissions`，`*svc.PermissionService` 结构性满足该接口并由契约测试锁定。后续逐个消费者迁移到 port，ServiceContext 退回组合根。
-  - 位置：`internal/ports/permissions.go`、`internal/ports/permissions_test.go`
-  - 验证：`TestPermissionServiceSatisfiesPort`
-  - 后续：继续为 Task 运行、Ops 状态、Game scope 补 port，逐步把消费者从 `*svc.ServiceContext` 收敛到窄接口。
+- [ ] **新增 Server-Agent-SDK happy path E2E。**
+  - 覆盖路径：Server 启动 → Agent 建立 TCP session → SDK Provider 注册函数 → Invoker 调用函数 → 返回结果。
+  - 重点验证：首帧握手、session 路由、dispatcher、任务结果返回。
+  - 验证：本地脚本和 CI 都可复现。
 
-## P2：任务模型与 SDK 一致性
+- [ ] **新增 Task lifecycle E2E。**
+  - 覆盖路径：`startTask` → `streamTask` → `cancelTask` → 状态落库/事件返回。
+  - 目标：防止 REST task、Dispatcher、Agent TaskRunner、SDK Invoker 之间出现协议漂移。
 
-- [x] **统一 REST Task Start 与函数调用调度路径。** `POST /api/v1/tasks` 的 `Start` 已走 `Dispatcher.StartTaskRequest`（服务端生成 task ID + 创建 task_runs 行 + 转发 agent）；补齐 `Cancel` 也调用 `Dispatcher.CancelTask` 转发取消到 agent，不再只更新本地行。
-  - 位置：`internal/api/task/service.go`（`Start`/`Cancel`）、`internal/platform/dispatch/dispatcher.go`
-  - 验证：`/usr/local/go/bin/go test ./internal/api/task/...`
+## P1：API 测试覆盖补齐
 
-- [x] **抽象 Agent `TaskRunner` / `TaskContext`。** 新增 `internal/agent/task_runner.go`，封装任务启动/取消/事件上报/状态（`TaskExecutor` + `TaskEventReporter` 注入）；`LocalHandler` 改为委托，删除内联 `runTask`/`executeTask`/`emitTaskEvent`/`taskIndex`。
-  - 位置：`internal/agent/task_runner.go`、`internal/agent/local_handler.go`
-  - 验证：`TestTaskRunner`、`TestLocalHandler_TaskEventReporting`（`/usr/local/go/bin/go test ./internal/agent/...`）
+- [ ] **为无同包测试的 API 包补 smoke/contract tests。**
+  - 当前无测试包：
+    - `internal/api/entity`
+    - `internal/api/faq`
+    - `internal/api/feedback`
+    - `internal/api/functioncall`
+    - `internal/api/message`
+    - `internal/api/meta`
+    - `internal/api/node`
+    - `internal/api/rate_limit`
+    - `internal/api/routes`
+    - `internal/api/schema`
+    - `internal/api/storage`
+    - `internal/api/terms`
+    - `internal/api/ticket`
+    - `internal/api/user`
+    - `internal/api/workspace`
+  - 优先级：先补 `workspace`、`schema`、`storage`、`functioncall`、`rate_limit`。
+  - 验证：`/usr/local/go/bin/go test ./internal/api/...`
 
-- [x] **按 SDK 独立验证并迁移旧 wire 命名。** 6 语言 SDK 源码旧命名（`StartJob`/`RegisterLocal`/`HeartbeatLocal`/`ListLocal`/`JobEvent`）已迁移到根协议命名（`StartTask`/`ProviderConnect`/`ProviderHeartbeat`/`TaskEvent`），数值 wire opcode 不变。
-  - **Go**（主力）：57 文件，`go build` + 核心包测试通过，手写代码旧命名零残留。
-  - **Java**：17 文件 + 2 重命名，全树扫描零残留（无 JDK，一致性靠全面扫描保证）。
-  - **Python**：手写层全迁移，py_compile OK，旧命名零残留；生成 `*_pb2.py` 过时，需 `sdks/python/scripts/regen-proto.sh`（buf）重生成后运行。
-  - **JS/TS**：3 文件，`tsc --noEmit` + 144 测试全过，旧命名零残留。
-  - **C#**：手写层全迁移，操作码不变；生成 `generated/*.cs` 过时（保留方案 A），需 protoc 重生成后消除 `CroupierInvoker.cs` 中 1 处对 `StartJobResponse` 的内部引用。
-  - **C++**：审计确认无旧命名，无需迁移。
-  - 位置：`sdks/{go,java,python,js,csharp,cpp}/`、`proto/croupier/agent/v1/register.proto`、`sdks/python/scripts/regen-proto.sh`
-  - 验证：各 SDK 手写源码 `rg "StartJob|RegisterLocal|HeartbeatLocal|ListLocal|JobEvent"` 零残留；Python/C# 生成代码重生成待 buf/protoc 环境。
+- [ ] **建立 API contract guard。**
+  - 目标：核心 API 的错误格式、分页字段、鉴权失败、game/env scope 行为稳定。
+  - 范围：workspace、schema、storage、functioncall、rate_limit、task。
+  - 验证：新增 contract tests；避免仅靠 handler 单测。
 
-## 已验证（2026-07-10）
+## P1：文档重新收敛
 
-- [x] `/usr/local/go/bin/go test ./internal/server ./internal/agent ./internal/db/router ./internal/transport/session ./internal/platform/dispatch ./internal/api/task` 通过。
-- [x] 架构目标已文档化：Agent-Server 与 SDK-Agent 使用共享 session runtime，业务作用域为 `game_id + env`，并采用按游戏分库。
-- [x] P0 安全与会话正确性 4 项已修复并通过测试：game/env 分库校验、Agent 重连会话隔离、Agent-Server 握手状态机、SDK-Agent 首帧规则。
-- [x] P1 运行时收敛 4 项 + 作用域边界 2 项已完成：控制面优雅停机、shared session runtime 抽取（compare-and-remove）、Router 锁外 I/O（singleflight）、删除 legacy gRPC 包、分库边界审计 + dbctx 契约测试、ServiceContext 端口锚点（ports.Permissions）。
-- [x] P2 任务模型与 SDK 一致性 3 项已完成：REST Task 统一调度（含 Cancel 转发）、Agent TaskRunner 抽象、6 语言 SDK 旧 wire 命名迁移（Go/JS 可运行验证，Java/Python/C# 手写层迁移完成、生成代码待重生成）。
+- [ ] **统一 SDK 文档的单一事实源。**
+  - 目标：`sdks/SDK_FEATURE_MATRIX.md` 和 `docs/sdks/sdk-parity-matrix.md` 只保留当前基线，不再混入历史模型。
+  - 处理：README 只写当前接入方式；历史说明移动到归档或直接删除。
+  - 验证：文档中不再把 `gRPC`、`LocalControl`、`rpc_addr` 作为默认链路。
+
+- [ ] **清理 SDK README 的旧构建/旧链路描述。**
+  - 重点：`sdks/go/README.md`、`sdks/cpp/README.md`、`sdks/cpp/COMPLETE_SDK_README.md`、`sdks/java/README.md`、`sdks/js/examples/README.md`
+  - 目标：所有语言文档按 L1 Provider、L3 Invoker、语言扩展分层描述。
+  - 验证：`scripts/check-sdk-matrix.sh` 的 README hygiene 覆盖这些关键文件。
+
+- [ ] **重新规划 docs 信息架构。**
+  - 目标：按“用户路径”而不是“历史开发过程”组织文档。
+  - 建议结构：
+    - 快速开始：Server + Agent + 一个 SDK 的最小闭环。
+    - SDK：Provider / Invoker / 配置 / 错误处理 / 示例。
+    - API：REST contract、鉴权、game/env scope。
+    - 运维：部署、E2E、监控、备份。
+    - 开发：架构、代码规范、扩展策略、发布规则。
+  - 验证：`docs` 构建通过；首页不再链接过时迁移文档作为主路径。
+
+## P1：重构候选，先讨论边界再动代码
+
+- [ ] **继续拆 `ServiceContext`。**
+  - 问题：`internal/svc/service_context.go` 聚合 DB、Router、Dispatcher、Cache、Audit、Policy、ObjectStore、Ops、Model、Extension services，组合根过大。
+  - 建议：按领域拆窄接口/模块 provider，而不是一次性“大重构”。
+  - 优先拆分：
+    - Task runtime：Dispatcher、TaskModel、Agent session resolver。
+    - Game scope：GameModel、Router、dbctx。
+    - Storage：ObjectStore、Storage API、权限校验。
+    - Ops：OpsStateStore、MetricsStore、SystemInfoCache。
+  - 判断标准：只有当消费者能从 `*svc.ServiceContext` 缩小到领域接口时才算有效重构。
+
+- [ ] **收敛 API handler/service 模式。**
+  - 问题：API 包数量多，handler/service/model 组合方式不完全统一，新增测试成本偏高。
+  - 建议：抽取通用 response、binding、pagination、scope 校验模式；避免每个包重复样板。
+  - 约束：只抽真实重复，不为了“框架化”引入额外复杂度。
+
+- [ ] **收敛 Analytics 链路的生产 readiness。**
+  - 现状：已有 `cmd/ingest`、`cmd/analytics-worker`、ClickHouse/Redis/Flink 文档和 compose 配置，但需要专项确认端到端与部署成熟度。
+  - 建议：单独审计 ingest → MQ → worker → ClickHouse → API 查询链路。
+  - 验证：最小 analytics E2E，覆盖事件写入、消费、落库、查询。
+
+## P2：工程治理
+
+- [ ] **把“无兼容遗留”写入仓库治理规则。**
+  - 目标：新协议、新 SDK、新文档不再默认保留旧入口。
+  - 规则：如果确实需要暂留兼容字段，必须同时提交删除计划和检查脚本。
+  - 位置：`docs/development/repository-guidelines.md`、`docs/development/documentation-governance.md`
+
+- [ ] **建立 TODO 审计节奏。**
+  - 每次完成事项必须写清：
+    - 影响路径
+    - 验证命令
+    - 是否有残留 warning
+  - 已完成事项应移动到“已完成摘要”，不要长期占据 P0/P1。
+
+## 已完成摘要（保留索引，不再作为待办）
+
+- [x] 限制游戏数据库解析与创建：未知 `(game_id, env)` 不再触发建库。
+- [x] 修复 Agent 重连时旧连接删除新会话的问题。
+- [x] Agent-Server 链路强制首帧 Register 与握手状态机。
+- [x] SDK-Agent 首帧规则收敛。
+- [x] 控制面优雅停机。
+- [x] shared session runtime 抽取，并支持 reconnect-safe remove。
+- [x] Router 首次打开 DB 使用 `singleflight`，避免全局锁内 I/O。
+- [x] REST Task Start/Cancel 统一走 Dispatcher。
+- [x] Agent TaskRunner 抽象已落地。
+- [x] 分库边界审计和 `dbctx` 契约测试已落地。
+- [x] `ServiceContext` 拆分已有 `ports.Permissions` 锚点。
+
+## 最近验证
+
+- [x] 2026-07-10：`/usr/local/go/bin/go test ./...` 通过。
+- [x] 2026-07-10：`scripts/check-sdk-matrix.sh` 通过但仍有 warning：JS Invoker 缺失、C++ 3 个 legacy wire name 文件。
 
 ## 维护规则
 
-- 完成项目必须附带受影响路径和可复现的验证命令后才移入“已验证”。
-- SDK 的完成状态按语言分别记录，不以其他 SDK 的通过结果推断。
-- 不为历史兼容层新增功能；任何保留项必须标注删除条件和期限。
+- 完成项目必须附带受影响路径和可复现验证命令。
+- SDK 完成状态按语言分别记录，不用其他 SDK 的通过结果推断。
+- 不新增历史兼容层；旧协议、旧命名、旧文档优先删除。
+- 重构必须先明确边界和收益：减少依赖面、消除重复、提升测试隔离，至少满足一项。
