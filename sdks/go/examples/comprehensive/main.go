@@ -2,7 +2,7 @@
 //
 // This example showcases:
 // 1. Client interface - Function registration and lifecycle management
-// 2. Invoker interface - Function invocation and job management
+// 2. Invoker interface - Function invocation and task management
 // 3. Configuration management with context
 // 4. Error handling and graceful shutdown
 // 5. Async operations and streaming
@@ -291,31 +291,31 @@ func demonstrateInvokerInterface(ctx context.Context) error {
 
 	// 4. 启动异步作业
 	fmt.Println("\n--- 🚀 异步作业演示 ---")
-	jobPayload := map[string]interface{}{
+	taskPayload := map[string]interface{}{
 		"type":   "sword",
 		"rarity": "epic",
 		"level":  50,
 	}
-	jobPayloadJSON, _ := json.Marshal(jobPayload)
+	taskPayloadJSON, _ := json.Marshal(taskPayload)
 
-	jobOptions := croupier.InvokeOptions{
+	taskOptions := croupier.InvokeOptions{
 		IdempotencyKey: generateIdempotencyKey(),
 		Timeout:        time.Minute * 5,
 		Headers: map[string]string{
-			"X-Job-Type": "item-creation",
+			"X-Task-Type": "item-creation",
 		},
 	}
 
-	jobID, err := invoker.StartJob(ctx, "item.create", string(jobPayloadJSON), jobOptions)
+	taskID, err := invoker.StartTask(ctx, "item.create", string(taskPayloadJSON), taskOptions)
 	if err != nil {
 		log.Printf("❌ 启动作业失败: %v", err)
 	} else {
-		fmt.Printf("🚀 启动异步作业: %s\n", jobID)
+		fmt.Printf("🚀 启动异步作业: %s\n", taskID)
 
 		// 5. 流式获取作业事件
 		fmt.Println("📡 监听作业事件...")
 
-		eventChan, err := invoker.StreamJob(ctx, jobID)
+		eventChan, err := invoker.StreamTask(ctx, taskID)
 		if err != nil {
 			log.Printf("❌ 流式监听失败: %v", err)
 		} else {
@@ -336,7 +336,7 @@ func demonstrateInvokerInterface(ctx context.Context) error {
 				// 演示取消作业 (在progress事件时)
 				if event.EventType == "progress" && !event.Done {
 					fmt.Println("⏹️ 演示取消作业...")
-					if err := invoker.CancelJob(ctx, jobID); err != nil {
+					if err := invoker.CancelTask(ctx, taskID); err != nil {
 						log.Printf("❌ 取消作业失败: %v", err)
 					} else {
 						fmt.Println("✅ 作业取消成功")
@@ -556,9 +556,9 @@ func main() {
 	fmt.Println("   🔐 Close - 关闭客户端")
 	fmt.Println("   📍 GetLocalAddress - 获取本地地址")
 	fmt.Println("   📞 Invoke - 同步函数调用")
-	fmt.Println("   🚀 StartJob - 启动异步作业")
-	fmt.Println("   📡 StreamJob - 流式作业事件")
-	fmt.Println("   ⏹️ CancelJob - 取消作业")
+	fmt.Println("   🚀 StartTask - 启动异步作业")
+	fmt.Println("   📡 StreamTask - 流式作业事件")
+	fmt.Println("   ⏹️ CancelTask - 取消作业")
 	fmt.Println("   📄 SetSchema - 设置验证模式")
 
 	fmt.Println("\n🏗️ Go特性演示:")

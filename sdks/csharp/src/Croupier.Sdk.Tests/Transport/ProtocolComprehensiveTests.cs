@@ -76,17 +76,6 @@ public class ProtocolComprehensiveTests
         Protocol.MsgGetTaskResultResponse.Should().Be(0x050108);
     }
 
-    [Fact]
-    public void LegacyAliases_PointToCorrectMessages()
-    {
-        Protocol.MsgStartJobRequest.Should().Be(Protocol.MsgStartTaskRequest);
-        Protocol.MsgStartJobResponse.Should().Be(Protocol.MsgStartTaskResponse);
-        Protocol.MsgStreamJobRequest.Should().Be(Protocol.MsgStreamTaskRequest);
-        Protocol.MsgJobEvent.Should().Be(Protocol.MsgTaskEvent);
-        Protocol.MsgCancelJobRequest.Should().Be(Protocol.MsgCancelTaskRequest);
-        Protocol.MsgCancelJobResponse.Should().Be(Protocol.MsgCancelTaskResponse);
-    }
-
     #endregion
 
     #region PutMsgId Tests

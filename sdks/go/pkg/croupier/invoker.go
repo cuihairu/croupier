@@ -233,8 +233,8 @@ func (i *tcpInvoker) Invoke(ctx context.Context, functionID, payload string, opt
 	})
 }
 
-// StartJob implements Invoker.StartJob
-func (i *tcpInvoker) StartJob(ctx context.Context, functionID, payload string, options InvokeOptions) (string, error) {
+// StartTask implements Invoker.StartTask
+func (i *tcpInvoker) StartTask(ctx context.Context, functionID, payload string, options InvokeOptions) (string, error) {
 	// Ensure connected
 	var err error
 	for attempts := 0; attempts < 3; attempts++ {
@@ -272,23 +272,23 @@ func (i *tcpInvoker) StartJob(ctx context.Context, functionID, payload string, o
 			return "", fmt.Errorf("marshal request: %w", err)
 		}
 
-		// Use StartJob message type
-		_, respBody, err := client.Call(ctx, protocol.MsgStartJobRequest, reqBytes)
+		// Use StartTask message type
+		_, respBody, err := client.Call(ctx, protocol.MsgStartTaskRequest, reqBytes)
 		if err != nil {
 			return "", err
 		}
 
-		// For StartJob, response would contain job ID
+		// For StartTask, response would contain task ID
 		// For now, return a placeholder
 		return string(respBody), nil
 	})
 }
 
-// StreamJob implements Invoker.StreamJob using TCP
+// StreamTask implements Invoker.StreamTask using TCP
 // Note: Since TCP doesn't support true streaming, this implementation
-// polls for job status updates and sends events to the channel.
-func (i *tcpInvoker) StreamJob(ctx context.Context, jobID string) (<-chan JobEvent, error) {
-	eventCh := make(chan JobEvent, 10)
+// polls for task status updates and sends events to the channel.
+func (i *tcpInvoker) StreamTask(ctx context.Context, taskID string) (<-chan TaskEvent, error) {
+	eventCh := make(chan TaskEvent, 10)
 
 	// Ensure connected
 	var err error
@@ -308,7 +308,7 @@ func (i *tcpInvoker) StreamJob(ctx context.Context, jobID string) (<-chan JobEve
 		return eventCh, fmt.Errorf("not connected to server: %w", err)
 	}
 
-	// Start polling goroutine for job status
+	// Start polling goroutine for task status
 	go func() {
 		defer close(eventCh)
 
@@ -320,16 +320,16 @@ func (i *tcpInvoker) StreamJob(ctx context.Context, jobID string) (<-chan JobEve
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				// Poll for job status
+				// Poll for task status
 				req := &sdkv1.TaskStreamRequest{
-					TaskId: jobID,
+					TaskId: taskID,
 				}
 
 				reqBytes, err := proto.Marshal(req)
 				if err != nil {
-					eventCh <- JobEvent{
+					eventCh <- TaskEvent{
 						EventType: "error",
-						JobID:     jobID,
+						TaskID:    taskID,
 						Error:     fmt.Sprintf("marshal request: %v", err),
 						Done:      true,
 					}
@@ -341,32 +341,32 @@ func (i *tcpInvoker) StreamJob(ctx context.Context, jobID string) (<-chan JobEve
 				i.mu.RUnlock()
 
 				if client == nil {
-					eventCh <- JobEvent{
+					eventCh <- TaskEvent{
 						EventType: "error",
-						JobID:     jobID,
+						TaskID:    taskID,
 						Error:     "connection lost",
 						Done:      true,
 					}
 					return
 				}
 
-				_, respBody, err := client.Call(ctx, protocol.MsgStreamJobRequest, reqBytes)
+				_, respBody, err := client.Call(ctx, protocol.MsgStreamTaskRequest, reqBytes)
 				if err != nil {
-					eventCh <- JobEvent{
+					eventCh <- TaskEvent{
 						EventType: "error",
-						JobID:     jobID,
-						Error:     fmt.Sprintf("poll job status failed: %v", err),
+						TaskID:    taskID,
+						Error:     fmt.Sprintf("poll task status failed: %v", err),
 						Done:      true,
 					}
 					return
 				}
 
-				// Parse job event
+				// Parse task event
 				event := &sdkv1.TaskEvent{}
 				if err := proto.Unmarshal(respBody, event); err != nil {
-					eventCh <- JobEvent{
+					eventCh <- TaskEvent{
 						EventType: "error",
-						JobID:     jobID,
+						TaskID:    taskID,
 						Error:     fmt.Sprintf("unmarshal response: %v", err),
 						Done:      true,
 					}
@@ -374,26 +374,26 @@ func (i *tcpInvoker) StreamJob(ctx context.Context, jobID string) (<-chan JobEve
 				}
 
 				// Send event to channel
-				jobEvent := JobEvent{
+				taskEvent := TaskEvent{
 					EventType: event.GetType(),
-					JobID:     jobID,
+					TaskID:    taskID,
 					Payload:   string(event.GetPayload()),
 				}
 				if event.GetProgress() > 0 {
-					jobEvent.Payload = fmt.Sprintf("Progress: %d%%", event.GetProgress())
+					taskEvent.Payload = fmt.Sprintf("Progress: %d%%", event.GetProgress())
 				}
 				if event.GetMessage() != "" {
-					jobEvent.Payload = event.GetMessage()
+					taskEvent.Payload = event.GetMessage()
 				}
 
-				// Check if job is complete
+				// Check if task is complete
 				if event.GetType() == "done" || event.GetType() == "error" {
-					jobEvent.Done = true
-					eventCh <- jobEvent
+					taskEvent.Done = true
+					eventCh <- taskEvent
 					return
 				}
 
-				eventCh <- jobEvent
+				eventCh <- taskEvent
 			}
 		}
 	}()
@@ -401,8 +401,8 @@ func (i *tcpInvoker) StreamJob(ctx context.Context, jobID string) (<-chan JobEve
 	return eventCh, nil
 }
 
-// CancelJob implements Invoker.CancelJob
-func (i *tcpInvoker) CancelJob(ctx context.Context, jobID string) error {
+// CancelTask implements Invoker.CancelTask
+func (i *tcpInvoker) CancelTask(ctx context.Context, taskID string) error {
 	// Ensure connected
 	if err := i.connect(ctx); err != nil {
 		if i.isConnectionError(err) {
@@ -415,9 +415,9 @@ func (i *tcpInvoker) CancelJob(ctx context.Context, jobID string) error {
 	client := i.client
 	i.mu.RUnlock()
 
-	// Build CancelJobRequest
+	// Build CancelTaskRequest
 	req := &sdkv1.CancelTaskRequest{
-		TaskId: jobID,
+		TaskId: taskID,
 	}
 
 	reqBytes, err := proto.Marshal(req)
@@ -425,9 +425,9 @@ func (i *tcpInvoker) CancelJob(ctx context.Context, jobID string) error {
 		return fmt.Errorf("marshal request: %w", err)
 	}
 
-	_, _, err = client.Call(ctx, protocol.MsgCancelJobRequest, reqBytes)
+	_, _, err = client.Call(ctx, protocol.MsgCancelTaskRequest, reqBytes)
 	if err != nil {
-		return fmt.Errorf("cancel job failed: %w", err)
+		return fmt.Errorf("cancel task failed: %w", err)
 	}
 
 	return nil

@@ -47,14 +47,14 @@ message LocalFunctionDescriptor {
   string operation = 13;
 }
 
-message RegisterLocalRequest {
+message ProviderConnectRequest {
   string service_id = 1;
   string version = 2;
   string rpc_addr = 3;
   repeated LocalFunctionDescriptor functions = 4;
 }
 
-message RegisterLocalResponse {
+message ProviderConnectResponse {
   string session_id = 1;
 }
 
@@ -80,11 +80,11 @@ message RegisterCapabilitiesRequest {
 message RegisterCapabilitiesResponse {}
 `;
 const providerRoot = protobuf.parse(PROVIDER_PROTO).root;
-const RegisterLocalRequestMessage = providerRoot.lookupType(
-  "croupier.sdk.v1.RegisterLocalRequest",
+const ProviderConnectRequestMessage = providerRoot.lookupType(
+  "croupier.sdk.v1.ProviderConnectRequest",
 );
-const RegisterLocalResponseMessage = providerRoot.lookupType(
-  "croupier.sdk.v1.RegisterLocalResponse",
+const ProviderConnectResponseMessage = providerRoot.lookupType(
+  "croupier.sdk.v1.ProviderConnectResponse",
 );
 const HeartbeatRequestMessage = providerRoot.lookupType(
   "croupier.sdk.v1.HeartbeatRequest",
@@ -344,7 +344,7 @@ interface LocalFunctionDescriptor {
   operation?: string;
 }
 
-interface JobEvent {
+interface TaskEvent {
   type: string;
   message?: string;
   progress?: number;
@@ -399,12 +399,12 @@ export interface FileUploadBatchResult {
   items: FileUploadBatchItemResult[];
 }
 
-class JobState {
-  private queue: JobEvent[] = [];
-  private waiting: Array<(value: JobEvent | null) => void> = [];
+class TaskState {
+  private queue: TaskEvent[] = [];
+  private waiting: Array<(value: TaskEvent | null) => void> = [];
   private closed = false;
 
-  push(event: JobEvent, close = false): void {
+  push(event: TaskEvent, close = false): void {
     if (this.closed) {
       return;
     }
@@ -430,16 +430,16 @@ class JobState {
     }
   }
 
-  async *stream(): AsyncIterable<JobEvent> {
+  async *stream(): AsyncIterable<TaskEvent> {
     while (true) {
       if (this.queue.length > 0) {
-        yield this.queue.shift() as JobEvent;
+        yield this.queue.shift() as TaskEvent;
         continue;
       }
       if (this.closed) {
         break;
       }
-      const next = await new Promise<JobEvent | null>((resolve) =>
+      const next = await new Promise<TaskEvent | null>((resolve) =>
         this.waiting.push(resolve),
       );
       if (!next) {
@@ -462,13 +462,13 @@ export interface CroupierClient {
     payload: string,
     optionsOrMetadata?: InvokeOptions | Record<string, string>,
   ): Promise<string>;
-  startJob(
+  startTask(
     functionId: string,
     payload: string,
     optionsOrMetadata?: InvokeOptions | Record<string, string>,
   ): string;
-  streamJob(jobId: string): AsyncIterable<JobEvent>;
-  cancelJob(jobId: string): boolean;
+  streamTask(taskId: string): AsyncIterable<TaskEvent>;
+  cancelTask(taskId: string): boolean;
   uploadFile(request: FileUploadRequest): Promise<FileUploadResult>;
   uploadFileStream(request: FileUploadStreamRequest): Promise<FileUploadResult>;
   uploadFiles(requests: FileUploadRequest[]): Promise<FileUploadBatchResult>;
@@ -480,7 +480,7 @@ export class BasicClient implements CroupierClient {
   private readonly config: Required<ClientConfig>;
   private handlers: Map<string, FunctionHandler> = new Map();
   private descriptors: Map<string, FunctionDescriptor> = new Map();
-  private jobStates: Map<string, JobState> = new Map();
+  private taskStates: Map<string, TaskState> = new Map();
   private transport: TCPTransport | null = null;
   private connected = false;
   private sessionId = "";
@@ -756,7 +756,7 @@ export class BasicClient implements CroupierClient {
     return result;
   }
 
-  startJob(
+  startTask(
     functionId: string,
     payload: string,
     optionsOrMetadata: InvokeOptions | Record<string, string> = {},
@@ -785,13 +785,13 @@ export class BasicClient implements CroupierClient {
 
     const metadata = this.buildInvocationMetadata(options.headers);
 
-    const jobId = `${functionId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const state = new JobState();
-    this.jobStates.set(jobId, state);
+    const taskId = `${functionId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const state = new TaskState();
+    this.taskStates.set(taskId, state);
 
     state.push({
       type: "started",
-      message: "job started",
+      message: "task started",
       progress: 0,
       payload: new Uint8Array(),
     });
@@ -810,7 +810,7 @@ export class BasicClient implements CroupierClient {
         state.push(
           {
             type: "completed",
-            message: "job completed",
+            message: "task completed",
             progress: 100,
             payload: encoder.encode(result ?? ""),
           },
@@ -829,34 +829,34 @@ export class BasicClient implements CroupierClient {
           true,
         );
       } finally {
-        this.jobStates.delete(jobId);
+        this.taskStates.delete(taskId);
       }
     });
 
-    return jobId;
+    return taskId;
   }
 
-  streamJob(jobId: string): AsyncIterable<JobEvent> {
-    const state = this.jobStates.get(jobId);
+  streamTask(taskId: string): AsyncIterable<TaskEvent> {
+    const state = this.taskStates.get(taskId);
     if (!state) {
-      throw new Error(`Job ${jobId} not found`);
+      throw new Error(`Task ${taskId} not found`);
     }
     return state.stream();
   }
 
-  cancelJob(jobId: string): boolean {
-    const state = this.jobStates.get(jobId);
+  cancelTask(taskId: string): boolean {
+    const state = this.taskStates.get(taskId);
     if (state) {
       state.push(
         {
           type: "cancelled",
-          message: "job cancelled",
+          message: "task cancelled",
           progress: 0,
           payload: new Uint8Array(),
         },
         true,
       );
-      this.jobStates.delete(jobId);
+      this.taskStates.delete(taskId);
       return true;
     }
     return false;
@@ -1355,10 +1355,10 @@ export class BasicClient implements CroupierClient {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  private serializeRegisterLocalRequest(
+  private serializeProviderConnectProtobufRequest(
     request: ReturnType<BasicClient["getRegisterRequest"]>,
   ): Buffer {
-    const payload = RegisterLocalRequestMessage.create({
+    const payload = ProviderConnectRequestMessage.create({
       serviceId: request.serviceId,
       version: request.version,
       rpcAddr: "",
@@ -1376,12 +1376,12 @@ export class BasicClient implements CroupierClient {
       })),
     });
 
-    return Buffer.from(RegisterLocalRequestMessage.encode(payload).finish());
+    return Buffer.from(ProviderConnectRequestMessage.encode(payload).finish());
   }
 
-  private parseRegisterLocalResponse(data: Buffer): { sessionId: string } {
-    const decoded = RegisterLocalResponseMessage.decode(data);
-    const object = RegisterLocalResponseMessage.toObject(decoded, {
+  private parseProviderConnectProtobufResponse(data: Buffer): { sessionId: string } {
+    const decoded = ProviderConnectResponseMessage.decode(data);
+    const object = ProviderConnectResponseMessage.toObject(decoded, {
       defaults: true,
     }) as { sessionId?: string };
 
@@ -1428,8 +1428,8 @@ export class BasicClient implements CroupierClient {
       };
     } catch {
       // Fallback to protobuf
-      const decoded = RegisterLocalResponseMessage.decode(data);
-      const object = RegisterLocalResponseMessage.toObject(decoded, {
+      const decoded = ProviderConnectResponseMessage.decode(data);
+      const object = ProviderConnectResponseMessage.toObject(decoded, {
         defaults: true,
       }) as { sessionId?: string };
       return {

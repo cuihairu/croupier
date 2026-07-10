@@ -239,7 +239,7 @@ func TestInvoker_Invoke(t *testing.T) {
 	}
 }
 
-func TestInvoker_StartJob(t *testing.T) {
+func TestInvoker_StartTask(t *testing.T) {
 	t.Parallel()
 
 	i := NewInvoker(&InvokerConfig{
@@ -251,13 +251,13 @@ func TestInvoker_StartJob(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	_, err := i.StartJob(ctx, "test.function", `{"test":"data"}`, InvokeOptions{})
+	_, err := i.StartTask(ctx, "test.function", `{"test":"data"}`, InvokeOptions{})
 	if err == nil {
-		t.Error("expected error when starting job without connection")
+		t.Error("expected error when starting task without connection")
 	}
 }
 
-func TestInvoker_CancelJob(t *testing.T) {
+func TestInvoker_CancelTask(t *testing.T) {
 	t.Parallel()
 
 	i := NewInvoker(&InvokerConfig{
@@ -269,13 +269,13 @@ func TestInvoker_CancelJob(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	err := i.CancelJob(ctx, "job-123")
+	err := i.CancelTask(ctx, "task-123")
 	if err == nil {
-		t.Error("expected error when cancelling job without connection")
+		t.Error("expected error when cancelling task without connection")
 	}
 }
 
-func TestInvoker_StreamJob(t *testing.T) {
+func TestInvoker_StreamTask(t *testing.T) {
 	t.Parallel()
 
 	i := NewInvoker(&InvokerConfig{
@@ -287,7 +287,7 @@ func TestInvoker_StreamJob(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	ch, err := i.StreamJob(ctx, "job-123")
+	ch, err := i.StreamTask(ctx, "task-123")
 	if err == nil {
 		t.Error("expected error for streaming (not yet implemented)")
 	}
@@ -699,7 +699,7 @@ func TestInvoker_Invoke_WhenNotConnected(t *testing.T) {
 	}
 }
 
-func TestInvoker_StartJob_WhenNotConnected(t *testing.T) {
+func TestInvoker_StartTask_WhenNotConnected(t *testing.T) {
 	t.Parallel()
 
 	invoker := NewInvoker(&InvokerConfig{
@@ -707,17 +707,17 @@ func TestInvoker_StartJob_WhenNotConnected(t *testing.T) {
 		Insecure: true,
 	})
 
-	// StartJob should try to connect and fail
+	// StartTask should try to connect and fail
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	_, err := invoker.StartJob(ctx, "test.function", "{}", InvokeOptions{})
+	_, err := invoker.StartTask(ctx, "test.function", "{}", InvokeOptions{})
 	if err == nil {
-		t.Error("expected error when starting job without server")
+		t.Error("expected error when starting task without server")
 	}
 }
 
-func TestInvoker_CancelJob_WhenNotConnected(t *testing.T) {
+func TestInvoker_CancelTask_WhenNotConnected(t *testing.T) {
 	t.Parallel()
 
 	invoker := NewInvoker(&InvokerConfig{
@@ -725,13 +725,13 @@ func TestInvoker_CancelJob_WhenNotConnected(t *testing.T) {
 		Insecure: true,
 	})
 
-	// CancelJob should try to connect and fail
+	// CancelTask should try to connect and fail
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	err := invoker.CancelJob(ctx, "job-id")
+	err := invoker.CancelTask(ctx, "task-id")
 	if err == nil {
-		t.Error("expected error when canceling job without server")
+		t.Error("expected error when canceling task without server")
 	}
 }
 

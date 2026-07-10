@@ -7,7 +7,7 @@ import org.reactivestreams.Publisher;
  * Interface for invoking functions registered with the Croupier platform.
  *
  * <p>The Invoker provides client functionality for calling remote functions,
- * supporting both synchronous calls and asynchronous jobs with event streaming.</p>
+ * supporting both synchronous calls and asynchronous tasks with event streaming.</p>
  *
  * <p>Example usage:</p>
  * <pre>{@code
@@ -17,11 +17,11 @@ import org.reactivestreams.Publisher;
  * // Synchronous invocation
  * String result = invoker.invoke("player.ban", "{\"player_id\":\"123\"}").get();
  *
- * // Asynchronous job
- * String jobId = invoker.startJob("player.ban", "{\"player_id\":\"456\"}").get();
+ * // Asynchronous task
+ * String taskId = invoker.startTask("player.ban", "{\"player_id\":\"456\"}").get();
  *
- * // Stream job events
- * invoker.streamJob(jobId)
+ * // Stream task events
+ * invoker.streamTask(taskId)
  *     .doOnNext(event -> System.out.println("Event: " + event.getType()))
  *     .subscribe();
  *
@@ -34,7 +34,7 @@ public interface Invoker {
      * Connects to the server.
      *
      * <p>This method establishes a connection to the configured server address.
-     * It is automatically called by invoke/startJob if not connected.</p>
+     * It is automatically called by invoke/startTask if not connected.</p>
      *
      * @throws InvokerException if connection fails
      */
@@ -64,46 +64,46 @@ public interface Invoker {
     String invoke(String functionId, String payload, InvokeOptions options) throws InvokerException;
 
     /**
-     * Starts an asynchronous job and returns its ID.
+     * Starts an asynchronous task and returns its ID.
      *
-     * <p>The job runs in the background and can be monitored using streamJob.</p>
+     * <p>The task runs in the background and can be monitored using streamTask.</p>
      *
      * @param functionId the ID of the function to invoke
      * @param payload the function payload as a JSON string
-     * @return the job ID for tracking
-     * @throws InvokerException if job start fails
+     * @return the task ID for tracking
+     * @throws InvokerException if task start fails
      */
-    String startJob(String functionId, String payload) throws InvokerException;
+    String startTask(String functionId, String payload) throws InvokerException;
 
     /**
-     * Starts an asynchronous job with options and returns its ID.
+     * Starts an asynchronous task with options and returns its ID.
      *
      * @param functionId the ID of the function to invoke
      * @param payload the function payload as a JSON string
      * @param options invocation options
-     * @return the job ID for tracking
-     * @throws InvokerException if job start fails
+     * @return the task ID for tracking
+     * @throws InvokerException if task start fails
      */
-    String startJob(String functionId, String payload, InvokeOptions options) throws InvokerException;
+    String startTask(String functionId, String payload, InvokeOptions options) throws InvokerException;
 
     /**
-     * Streams events from a running job.
+     * Streams events from a running task.
      *
-     * <p>Returns a reactive stream of job events that can be subscribed to.
-     * The stream completes when the job finishes (completed, error, or cancelled).</p>
+     * <p>Returns a reactive stream of task events that can be subscribed to.
+     * The stream completes when the task finishes (completed, error, or cancelled).</p>
      *
-     * @param jobId the job ID to stream events for
-     * @return a Publisher that emits JobEventInfo objects
+     * @param taskId the task ID to stream events for
+     * @return a Publisher that emits TaskEventInfo objects
      */
-    Publisher<JobEventInfo> streamJob(String jobId);
+    Publisher<TaskEventInfo> streamTask(String taskId);
 
     /**
-     * Cancels a running job.
+     * Cancels a running task.
      *
-     * @param jobId the job ID to cancel
+     * @param taskId the task ID to cancel
      * @throws InvokerException if cancellation fails
      */
-    void cancelJob(String jobId) throws InvokerException;
+    void cancelTask(String taskId) throws InvokerException;
 
     /**
      * Sets a validation schema for a function.

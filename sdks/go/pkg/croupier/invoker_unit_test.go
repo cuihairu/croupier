@@ -809,7 +809,7 @@ func TestInvoker_Invoke_NotConnected(t *testing.T) {
 	}
 }
 
-func TestInvoker_StartJob_NotConnected(t *testing.T) {
+func TestInvoker_StartTask_NotConnected(t *testing.T) {
 	i := NewInvoker(&InvokerConfig{
 		Address:        "127.0.0.1:19999",
 		TimeoutSeconds: 1,
@@ -821,13 +821,13 @@ func TestInvoker_StartJob_NotConnected(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	_, err := i.StartJob(ctx, "test.function", `{"test":"data"}`, InvokeOptions{})
+	_, err := i.StartTask(ctx, "test.function", `{"test":"data"}`, InvokeOptions{})
 	if err == nil {
-		t.Error("expected error when starting job without connection")
+		t.Error("expected error when starting task without connection")
 	}
 }
 
-func TestInvoker_CancelJob_NotConnected(t *testing.T) {
+func TestInvoker_CancelTask_NotConnected(t *testing.T) {
 	i := NewInvoker(&InvokerConfig{
 		Address:        "127.0.0.1:19999",
 		TimeoutSeconds: 1,
@@ -839,13 +839,13 @@ func TestInvoker_CancelJob_NotConnected(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	err := i.CancelJob(ctx, "job-123")
+	err := i.CancelTask(ctx, "task-123")
 	if err == nil {
-		t.Error("expected error when cancelling job without connection")
+		t.Error("expected error when cancelling task without connection")
 	}
 }
 
-func TestInvoker_StreamJob_NotConnected(t *testing.T) {
+func TestInvoker_StreamTask_NotConnected(t *testing.T) {
 	i := NewInvoker(&InvokerConfig{
 		Address:        "127.0.0.1:19999",
 		TimeoutSeconds: 1,
@@ -857,7 +857,7 @@ func TestInvoker_StreamJob_NotConnected(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	ch, err := i.StreamJob(ctx, "job-123")
+	ch, err := i.StreamTask(ctx, "task-123")
 	if err == nil {
 		t.Error("expected error for streaming without connection")
 	}

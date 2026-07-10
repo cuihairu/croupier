@@ -44,8 +44,6 @@ const (
 	MsgClientHeartbeatResponse = 0x020104
 	MsgListClientsRequest      = 0x020105
 	MsgListClientsResponse     = 0x020106
-	MsgGetJobResultRequest     = 0x020107
-	MsgGetJobResultResponse    = 0x020108
 
 	// InvokerService (0x03xx)
 	MsgInvokeRequest      = 0x030101
@@ -66,23 +64,6 @@ const (
 	MsgProviderDrainResponse     = 0x050106
 	MsgGetTaskResultRequest      = 0x050107
 	MsgGetTaskResultResponse     = 0x050108
-	MsgListLocalRequest          = 0x050109
-	MsgListLocalResponse         = 0x05010a
-
-	// Legacy aliases — prefer MsgProvider* canonical names.
-	// Do not use in new code; will be removed once all call sites migrate.
-	MsgRegisterLocalRequest   = MsgProviderConnectRequest
-	MsgRegisterLocalResponse  = MsgProviderConnectResponse
-	MsgHeartbeatLocalRequest  = MsgProviderHeartbeatRequest
-	MsgHeartbeatLocalResponse = MsgProviderHeartbeatResponse
-
-	// Legacy Job aliases for backward compatibility
-	MsgStartJobRequest   = MsgStartTaskRequest
-	MsgStartJobResponse  = MsgStartTaskResponse
-	MsgStreamJobRequest  = MsgStreamTaskRequest
-	MsgJobEvent          = MsgTaskEvent
-	MsgCancelJobRequest  = MsgCancelTaskRequest
-	MsgCancelJobResponse = MsgCancelTaskResponse
 )
 
 // PutMsgID encodes a 24-bit MsgID into buf in big-endian order.
@@ -166,10 +147,6 @@ func MsgIDString(msgID uint32) string {
 		return "ListClientsRequest"
 	case MsgListClientsResponse:
 		return "ListClientsResponse"
-	case MsgGetJobResultRequest:
-		return "GetJobResultRequest"
-	case MsgGetJobResultResponse:
-		return "GetJobResultResponse"
 	case MsgInvokeRequest:
 		return "InvokeRequest"
 	case MsgInvokeResponse:
@@ -202,10 +179,6 @@ func MsgIDString(msgID uint32) string {
 		return "GetTaskResultRequest"
 	case MsgGetTaskResultResponse:
 		return "GetTaskResultResponse"
-	case MsgListLocalRequest:
-		return "ListLocalRequest"
-	case MsgListLocalResponse:
-		return "ListLocalResponse"
 	default:
 		return fmt.Sprintf("Unknown(0x%06X)", msgID)
 	}

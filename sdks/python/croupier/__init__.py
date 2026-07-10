@@ -128,13 +128,13 @@ class ClientConfig:
     tls_insecure_skip_verify: bool = False
 
 
-class _JobState:
+class _TaskState:
     def __init__(self) -> None:
-        self.queue: "queue.Queue[Optional[invocation_pb2.JobEvent]]" = queue.Queue()  # type: ignore[name-defined]
+        self.queue: "queue.Queue[Optional[invocation_pb2.TaskEvent]]" = queue.Queue()  # type: ignore[name-defined]
         self.done = threading.Event()
         self.cancelled = threading.Event()
 
-    def push(self, event: invocation_pb2.JobEvent, finished: bool = False) -> None:  # type: ignore[name-defined]
+    def push(self, event: invocation_pb2.TaskEvent, finished: bool = False) -> None:  # type: ignore[name-defined]
         if self.done.is_set():
             return
         self.queue.put(event)
@@ -161,8 +161,8 @@ class CroupierClient:
         self._config = config or ClientConfig()
         self._handlers: Dict[str, FunctionHandler] = {}
         self._descriptors: Dict[str, FunctionDescriptor] = {}
-        self._jobs: Dict[str, _JobState] = {}
-        self._job_lock = threading.Lock()
+        self._tasks: Dict[str, _TaskState] = {}
+        self._task_lock = threading.Lock()
         self._session_id = ""
         self._connected = False
 
@@ -226,9 +226,9 @@ class CroupierClient:
             operation=desc.operation or "",
         )
 
-    def get_register_request(self) -> provider_pb2.RegisterLocalRequest:  # type: ignore[name-defined]
-        """Build a registration request for the agent."""
-        return provider_pb2.RegisterLocalRequest(
+    def get_provider_connect_request(self) -> provider_pb2.ProviderConnectRequest:  # type: ignore[name-defined]
+        """Build a provider connect request for the agent."""
+        return provider_pb2.ProviderConnectRequest(
             service_id=self._config.service_id,
             version=self._config.service_version,
             rpc_addr="",
@@ -252,26 +252,26 @@ class CroupierClient:
             result = str(handler_result).encode("utf-8")
         return result
 
-    def start_job(
+    def start_task(
         self, function_id: str, payload: bytes, metadata: Optional[Dict[str, str]] = None
     ) -> str:
-        """Start an asynchronous job."""
+        """Start an asynchronous task."""
         handler = self._handlers.get(function_id)
         if handler is None:
             raise ValueError(f"Function {function_id} not found")
 
-        job_id = f"{function_id}-{uuid.uuid4().hex}"
-        state = _JobState()
-        with self._job_lock:
-            self._jobs[job_id] = state
+        task_id = f"{function_id}-{uuid.uuid4().hex}"
+        state = _TaskState()
+        with self._task_lock:
+            self._tasks[task_id] = state
 
         state.push(
-            invocation_pb2.JobEvent(type="started", message="job started", progress=0, payload=b"")  # type: ignore[name-defined]
+            invocation_pb2.TaskEvent(type="started", message="task started", progress=0, payload=b"")  # type: ignore[name-defined]
         )
 
         metadata_json = json.dumps(metadata or {})
 
-        def _run_job() -> None:
+        def _run_task() -> None:
             try:
                 handler_result = handler(metadata_json, payload)
                 if state.cancelled.is_set():
@@ -282,9 +282,9 @@ class CroupierClient:
                 else:
                     result = str(handler_result).encode("utf-8")
                 state.push(
-                    invocation_pb2.JobEvent(  # type: ignore[name-defined]
+                    invocation_pb2.TaskEvent(  # type: ignore[name-defined]
                         type="completed",
-                        message="job completed",
+                        message="task completed",
                         progress=100,
                         payload=result,
                     ),
@@ -293,9 +293,9 @@ class CroupierClient:
             except Exception as exc:  # pylint: disable=broad-except
                 if state.cancelled.is_set():
                     return
-                LOG.exception("Job %s failed", job_id)
+                LOG.exception("Task %s failed", task_id)
                 state.push(
-                    invocation_pb2.JobEvent(  # type: ignore[name-defined]
+                    invocation_pb2.TaskEvent(  # type: ignore[name-defined]
                         type="error",
                         message=str(exc),
                         progress=0,
@@ -304,34 +304,34 @@ class CroupierClient:
                     finished=True,
                 )
 
-        threading.Thread(target=_run_job, daemon=True).start()
-        return job_id
+        threading.Thread(target=_run_task, daemon=True).start()
+        return task_id
 
-    def stream_job(self, job_id: str):  # type: ignore[misc]
-        """Stream job events."""
-        with self._job_lock:
-            state = self._jobs.get(job_id)
+    def stream_task(self, task_id: str):  # type: ignore[misc]
+        """Stream task events."""
+        with self._task_lock:
+            state = self._tasks.get(task_id)
         if state is None:
-            raise ValueError(f"Job {job_id} not found")
+            raise ValueError(f"Task {task_id} not found")
 
         while True:
             event = state.queue.get()
             if event is None:
                 break
             yield event  # type: ignore[misc]
-        with self._job_lock:
-            self._jobs.pop(job_id, None)
+        with self._task_lock:
+            self._tasks.pop(task_id, None)
 
-    def cancel_job(self, job_id: str) -> bool:
-        """Cancel a running job."""
-        with self._job_lock:
-            state = self._jobs.get(job_id)
+    def cancel_task(self, task_id: str) -> bool:
+        """Cancel a running task."""
+        with self._task_lock:
+            state = self._tasks.get(task_id)
         if state and not state.done.is_set():
             state.cancelled.set()
             state.push(
-                invocation_pb2.JobEvent(  # type: ignore[name-defined]
+                invocation_pb2.TaskEvent(  # type: ignore[name-defined]
                     type="cancelled",
-                    message="job cancelled",
+                    message="task cancelled",
                     progress=0,
                     payload=b"",
                 ),
@@ -340,18 +340,18 @@ class CroupierClient:
             return True
         return False
 
-    def _handle_start_job(self, request, _context):  # type: ignore[no-untyped-def]
+    def _handle_start_task(self, request, _context):  # type: ignore[no-untyped-def]
         """Compatibility shim for older direct handler tests/callers."""
-        job_id = self.start_job(
+        task_id = self.start_task(
             request.function_id,
             request.payload,
             dict(request.metadata),
         )
-        return invocation_pb2.StartJobResponse(job_id=job_id)  # type: ignore[name-defined]
+        return invocation_pb2.StartTaskResponse(task_id=task_id)  # type: ignore[name-defined]
 
-    def _handle_stream_job(self, request, _context):  # type: ignore[no-untyped-def]
+    def _handle_stream_task(self, request, _context):  # type: ignore[no-untyped-def]
         """Compatibility shim for older direct handler tests/callers."""
-        return self.stream_job(request.job_id)
+        return self.stream_task(request.task_id)
 
     def build_manifest(self) -> bytes:
         """Build a provider manifest JSON."""
@@ -416,13 +416,13 @@ class CroupierClient:
         transport.set_handler(self._handle_inbound)
         transport.connect()
 
-        request = self.get_register_request()
+        request = self.get_provider_connect_request()
         _, response_data = transport.call(
             protocol.MSG_PROVIDER_CONNECT_REQUEST,
             request.SerializeToString(),
         )
 
-        response = provider_pb2.RegisterLocalResponse()
+        response = provider_pb2.ProviderConnectResponse()
         response.ParseFromString(response_data)
         if not response.session_id:
             transport.close()
@@ -432,17 +432,17 @@ class CroupierClient:
         self._session_id = response.session_id
 
     def _handle_inbound(self, msg_type: int, _req_id: int, body: bytes) -> bytes:
-        """Handle inbound requests from the Agent (invoke, job, cancel, drain, stream)."""
+        """Handle inbound requests from the Agent (invoke, task, cancel, drain, stream)."""
         if msg_type == protocol.MSG_PROVIDER_DRAIN_REQUEST:
             return self._handle_drain_request(body)
         if msg_type == protocol.MSG_INVOKE_REQUEST:
             return self._handle_inbound_invoke(body)
         if msg_type == protocol.MSG_START_TASK_REQUEST:
-            return self._handle_inbound_start_job(body)
+            return self._handle_inbound_start_task(body)
         if msg_type == protocol.MSG_CANCEL_TASK_REQUEST:
-            return self._handle_inbound_cancel_job(body)
+            return self._handle_inbound_cancel_task(body)
         if msg_type == protocol.MSG_STREAM_TASK_REQUEST:
-            return self._handle_inbound_stream_job(body)
+            return self._handle_inbound_stream_task(body)
         LOG.warning("Unsupported inbound MsgID: %s", protocol.msg_id_string(msg_type))
         return b""
 
@@ -457,39 +457,39 @@ class CroupierClient:
         resp = invocation_pb2.InvokeResponse(payload=result)
         return resp.SerializeToString()  # type: ignore[no-any-return]
 
-    def _handle_inbound_start_job(self, body: bytes) -> bytes:
+    def _handle_inbound_start_task(self, body: bytes) -> bytes:
         if self._draining.is_set():
-            resp = invocation_pb2.StartJobResponse(job_id="")
+            resp = invocation_pb2.StartTaskResponse(task_id="")
             return resp.SerializeToString()  # type: ignore[no-any-return]
         req = invocation_pb2.InvokeRequest()
         req.ParseFromString(body)
-        job_id = self.start_job(req.function_id, req.payload, dict(req.metadata))
-        resp = invocation_pb2.StartJobResponse(job_id=job_id)
+        task_id = self.start_task(req.function_id, req.payload, dict(req.metadata))
+        resp = invocation_pb2.StartTaskResponse(task_id=task_id)
         return resp.SerializeToString()  # type: ignore[no-any-return]
 
-    def _handle_inbound_cancel_job(self, body: bytes) -> bytes:
-        req = invocation_pb2.CancelJobRequest()
+    def _handle_inbound_cancel_task(self, body: bytes) -> bytes:
+        req = invocation_pb2.CancelTaskRequest()
         req.ParseFromString(body)
-        self.cancel_job(req.job_id)
+        self.cancel_task(req.task_id)
         resp = invocation_pb2.InvokeResponse()
         return resp.SerializeToString()  # type: ignore[no-any-return]
 
-    def _handle_inbound_stream_job(self, body: bytes) -> bytes:
-        req = invocation_pb2.JobStreamRequest()
+    def _handle_inbound_stream_task(self, body: bytes) -> bytes:
+        req = invocation_pb2.TaskStreamRequest()
         req.ParseFromString(body)
-        with self._job_lock:
-            state = self._jobs.get(req.job_id)
+        with self._task_lock:
+            state = self._tasks.get(req.task_id)
 
-        event = invocation_pb2.JobEvent()
+        event = invocation_pb2.TaskEvent()
         if state is None:
             event.type = "error"
-            event.message = f"job not found: {req.job_id}"
+            event.message = f"task not found: {req.task_id}"
         elif state.cancelled.is_set():
             event.type = "error"
-            event.message = "job was cancelled"
+            event.message = "task was cancelled"
         elif state.done.is_set():
             # drain remaining events
-            events = list(self.stream_job(req.job_id))
+            events = list(self.stream_task(req.task_id))
             if events:
                 last = events[-1]
                 event.type = last.type
@@ -498,10 +498,10 @@ class CroupierClient:
                 event.payload = last.payload
             else:
                 event.type = "error"
-                event.message = "job completed with no events"
+                event.message = "task completed with no events"
         else:
             event.type = "progress"
-            event.message = "job is running"
+            event.message = "task is running"
 
         return event.SerializeToString()  # type: ignore[no-any-return]
 
@@ -661,7 +661,7 @@ __all__ = [
     # Invoker related exports
     "InvokerConfig",
     "InvokeOptions",
-    "JobEventInfo",
+    "TaskEventInfo",
     "ReconnectConfig",
     "RetryConfig",
     "Invoker",
@@ -676,7 +676,7 @@ try:
         Invoker,
         InvokerConfig,
         InvokeOptions,
-        JobEventInfo,
+        TaskEventInfo,
         ReconnectConfig,
         RetryConfig,
         SyncInvoker,

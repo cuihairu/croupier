@@ -2,7 +2,7 @@
 Croupier Python SDK - Invoker Implementation
 
 Provides client functionality for invoking functions registered with the Croupier platform.
-Supports synchronous calls, asynchronous jobs, and event streaming.
+Supports synchronous calls, asynchronous tasks, and event streaming.
 
 Uses TCP transport for communication with the Agent.
 """
@@ -63,7 +63,7 @@ def _load_proto_module(module_name: str) -> ModuleType:
 invocation_pb2 = _load_proto_module("croupier.sdk.v1.invocation_pb2")
 
 LOG = logging.getLogger(__name__)
-_JOB_STREAM_POLL_INTERVAL_SECONDS = 0.5
+_TASK_STREAM_POLL_INTERVAL_SECONDS = 0.5
 
 
 @dataclass
@@ -135,11 +135,11 @@ class InvokeOptions:
 
 
 @dataclass
-class JobEventInfo:
-    """Information about a job event."""
+class TaskEventInfo:
+    """Information about a task event."""
 
     type: str  # "started" | "progress" | "completed" | "error" | "cancelled"
-    job_id: str
+    task_id: str
     payload: Optional[str] = None
     message: Optional[str] = None
     progress: Optional[int] = None
@@ -153,8 +153,8 @@ class Invoker:
 
     Supports:
     - Synchronous function invocation
-    - Asynchronous job execution with event streaming
-    - Job cancellation
+    - Asynchronous task execution with event streaming
+    - Task cancellation
     - Payload validation with schemas
     - Automatic reconnection with exponential backoff
 
@@ -236,10 +236,10 @@ class Invoker:
 
         return str(resp.payload.decode("utf-8"))
 
-    async def start_job(
+    async def start_task(
         self, function_id: str, payload: str, options: Optional[InvokeOptions] = None
     ) -> str:
-        """Start an asynchronous job."""
+        """Start an asynchronous task."""
         options = options or InvokeOptions()
 
         if not self._connected:
@@ -250,7 +250,7 @@ class Invoker:
             schema = self._schemas[function_id]
             self._validate_payload(payload, schema)
 
-        # Build StartJobRequest (using InvokeRequest for now)
+        # Build StartTaskRequest (using InvokeRequest for now)
         req = invocation_pb2.InvokeRequest(
             function_id=function_id,
             payload=payload.encode("utf-8"),
@@ -270,18 +270,18 @@ class Invoker:
         )
 
         # Parse response
-        resp = invocation_pb2.StartJobResponse()
+        resp = invocation_pb2.StartTaskResponse()
         resp.ParseFromString(resp_data)
 
-        return str(resp.job_id)
+        return str(resp.task_id)
 
-    async def stream_job(self, job_id: str) -> AsyncIterator[JobEventInfo]:
-        """Stream events from a running job."""
+    async def stream_task(self, task_id: str) -> AsyncIterator[TaskEventInfo]:
+        """Stream events from a running task."""
         if not self._connected:
             await self.connect()
 
-        # Build StreamJobRequest
-        req = invocation_pb2.JobStreamRequest(job_id=job_id)
+        # Build StreamTaskRequest
+        req = invocation_pb2.TaskStreamRequest(task_id=task_id)
         req_data = req.SerializeToString()
 
         loop = asyncio.get_event_loop()
@@ -293,24 +293,24 @@ class Invoker:
                 req_data,
             )
 
-            event = invocation_pb2.JobEvent()
+            event = invocation_pb2.TaskEvent()
             event.ParseFromString(resp_data)
-            job_event = self._normalize_job_event(job_id, event)
+            task_event = self._normalize_task_event(task_id, event)
 
-            yield job_event
+            yield task_event
 
-            if job_event.done:
+            if task_event.done:
                 break
 
-            await asyncio.sleep(_JOB_STREAM_POLL_INTERVAL_SECONDS)
+            await asyncio.sleep(_TASK_STREAM_POLL_INTERVAL_SECONDS)
 
-    async def cancel_job(self, job_id: str) -> None:
-        """Cancel a running job."""
+    async def cancel_task(self, task_id: str) -> None:
+        """Cancel a running task."""
         if not self._connected:
             await self.connect()
 
-        # Build CancelJobRequest
-        req = invocation_pb2.CancelJobRequest(job_id=job_id)
+        # Build CancelTaskRequest
+        req = invocation_pb2.CancelTaskRequest(task_id=task_id)
         req_data = req.SerializeToString()
 
         # Send request via TCP
@@ -350,7 +350,7 @@ class Invoker:
             self._connected = False
             LOG.info("Invoker closed")
 
-    def _normalize_job_event(self, job_id: str, event: Any) -> JobEventInfo:
+    def _normalize_task_event(self, task_id: str, event: Any) -> TaskEventInfo:
         event_type = str(getattr(event, "type", ""))
         message = str(getattr(event, "message", "")) or None
         payload_bytes = bytes(getattr(event, "payload", b""))
@@ -363,9 +363,9 @@ class Invoker:
         error = message if event_type in ("error", "cancelled") else None
         done = event_type in ("completed", "error", "cancelled")
 
-        return JobEventInfo(
+        return TaskEventInfo(
             type=event_type,
-            job_id=job_id,
+            task_id=task_id,
             payload=payload_bytes.decode("utf-8") if payload_bytes else None,
             message=message,
             progress=int(getattr(event, "progress", 0)),
@@ -501,17 +501,17 @@ class SyncInvoker:
         loop = self._get_loop()
         return loop.run_until_complete(self._async_invoker.invoke(function_id, payload, options))
 
-    def start_job(
+    def start_task(
         self, function_id: str, payload: str, options: Optional[InvokeOptions] = None
     ) -> str:
-        """Start an asynchronous job."""
+        """Start an asynchronous task."""
         loop = self._get_loop()
-        return loop.run_until_complete(self._async_invoker.start_job(function_id, payload, options))
+        return loop.run_until_complete(self._async_invoker.start_task(function_id, payload, options))
 
-    def stream_job(self, job_id: str):
-        """Stream events from a running job."""
+    def stream_task(self, task_id: str):
+        """Stream events from a running task."""
         loop = self._get_loop()
-        async_gen = self._async_invoker.stream_job(job_id)
+        async_gen = self._async_invoker.stream_task(task_id)
 
         class SyncIterator:
             def __init__(self, async_gen, loop):
@@ -529,10 +529,10 @@ class SyncInvoker:
 
         return SyncIterator(async_gen, loop)
 
-    def cancel_job(self, job_id: str) -> None:
-        """Cancel a running job."""
+    def cancel_task(self, task_id: str) -> None:
+        """Cancel a running task."""
         loop = self._get_loop()
-        loop.run_until_complete(self._async_invoker.cancel_job(job_id))
+        loop.run_until_complete(self._async_invoker.cancel_task(task_id))
 
     def set_schema(self, function_id: str, schema: Dict[str, Any]) -> None:
         """Set validation schema for a function."""
@@ -554,7 +554,7 @@ __all__ = [
     "ReconnectConfig",
     "InvokerConfig",
     "InvokeOptions",
-    "JobEventInfo",
+    "TaskEventInfo",
     "Invoker",
     "SyncInvoker",
     "default_invoker_config",

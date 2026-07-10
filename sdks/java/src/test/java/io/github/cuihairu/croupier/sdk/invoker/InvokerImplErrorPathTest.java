@@ -31,23 +31,23 @@ class InvokerImplErrorPathTest {
     }
 
     @Test
-    @DisplayName("cancelJob should wrap non-InvokerException as INTERNAL")
-    void cancelJobWrapsException() throws InvokerException {
+    @DisplayName("cancelTask should wrap non-InvokerException as INTERNAL")
+    void cancelTaskWrapsException() throws InvokerException {
         FakeTransportClient transport = new FakeTransportClient((msgType, data) -> {
-            if (msgType == Protocol.MSG_START_JOB_REQUEST) {
-                return SdkWireMessages.encodeStartJobResponse(new SdkWireMessages.StartJobResponse("job-1"));
+            if (msgType == Protocol.MSG_START_TASK_REQUEST) {
+                return SdkWireMessages.encodeStartTaskResponse(new SdkWireMessages.StartTaskResponse("task-1"));
             }
-            if (msgType == Protocol.MSG_CANCEL_JOB_REQUEST) {
+            if (msgType == Protocol.MSG_CANCEL_TASK_REQUEST) {
                 throw new RuntimeException("network error");
             }
             return new byte[0];
         });
         InvokerImpl invoker = new InvokerImpl(createConfig(), (address, timeout) -> transport);
-        String jobId = invoker.startJob("func", "{}");
+        String taskId = invoker.startTask("func", "{}");
 
-        InvokerException ex = assertThrows(InvokerException.class, () -> invoker.cancelJob(jobId));
+        InvokerException ex = assertThrows(InvokerException.class, () -> invoker.cancelTask(taskId));
         assertEquals(ErrorCode.INTERNAL, ex.getErrorCode());
-        assertTrue(ex.getMessage().contains("CancelJob failed"));
+        assertTrue(ex.getMessage().contains("CancelTask failed"));
     }
 
     @Test
@@ -64,17 +64,17 @@ class InvokerImplErrorPathTest {
     }
 
     @Test
-    @DisplayName("startJob should wrap non-InvokerException transport error")
-    void startJobWrapsTransportError() {
+    @DisplayName("startTask should wrap non-InvokerException transport error")
+    void startTaskWrapsTransportError() {
         FakeTransportClient transport = new FakeTransportClient((msgType, data) -> {
             throw new RuntimeException("timeout");
         });
         InvokerImpl invoker = new InvokerImpl(createConfig(), (address, timeout) -> transport);
 
         InvokerException ex = assertThrows(InvokerException.class, () ->
-            invoker.startJob("func", "payload", InvokeOptions.create()));
+            invoker.startTask("func", "payload", InvokeOptions.create()));
         assertEquals(ErrorCode.INTERNAL, ex.getErrorCode());
-        assertTrue(ex.getMessage().contains("StartJob failed"));
+        assertTrue(ex.getMessage().contains("StartTask failed"));
     }
 
     @Test
@@ -94,48 +94,48 @@ class InvokerImplErrorPathTest {
     }
 
     @Test
-    @DisplayName("close should stop polling for active jobs")
+    @DisplayName("close should stop polling for active tasks")
     void closeStopsPolling() throws InvokerException {
         FakeTransportClient transport = new FakeTransportClient((msgType, data) -> {
-            if (msgType == Protocol.MSG_START_JOB_REQUEST) {
-                return SdkWireMessages.encodeStartJobResponse(new SdkWireMessages.StartJobResponse("job-1"));
+            if (msgType == Protocol.MSG_START_TASK_REQUEST) {
+                return SdkWireMessages.encodeStartTaskResponse(new SdkWireMessages.StartTaskResponse("task-1"));
             }
             return new byte[0];
         });
         InvokerImpl invoker = new InvokerImpl(createConfig(), (address, timeout) -> transport);
-        invoker.startJob("func", "{}");
+        invoker.startTask("func", "{}");
 
-        assertEquals(1, invoker.getActiveJobCount());
+        assertEquals(1, invoker.getActiveTaskCount());
         invoker.close();
-        assertEquals(0, invoker.getActiveJobCount());
+        assertEquals(0, invoker.getActiveTaskCount());
     }
 
     @Test
-    @DisplayName("streamJob should handle fetchJobEvent error")
-    void streamJobFetchError() throws InvokerException {
+    @DisplayName("streamTask should handle fetchTaskEvent error")
+    void streamTaskFetchError() throws InvokerException {
         FakeTransportClient transport = new FakeTransportClient((msgType, data) -> {
-            if (msgType == Protocol.MSG_START_JOB_REQUEST) {
-                return SdkWireMessages.encodeStartJobResponse(new SdkWireMessages.StartJobResponse("job-1"));
+            if (msgType == Protocol.MSG_START_TASK_REQUEST) {
+                return SdkWireMessages.encodeStartTaskResponse(new SdkWireMessages.StartTaskResponse("task-1"));
             }
-            if (msgType == Protocol.MSG_STREAM_JOB_REQUEST) {
+            if (msgType == Protocol.MSG_STREAM_TASK_REQUEST) {
                 throw new RuntimeException("fetch failed");
             }
             return new byte[0];
         });
         InvokerImpl invoker = new InvokerImpl(createConfig(), (address, timeout) -> transport);
-        String jobId = invoker.startJob("func", "{}");
+        String taskId = invoker.startTask("func", "{}");
 
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Throwable> error = new AtomicReference<>();
 
-        invoker.streamJob(jobId).subscribe(new Subscriber<>() {
+        invoker.streamTask(taskId).subscribe(new Subscriber<>() {
             @Override
             public void onSubscribe(Subscription subscription) {
                 subscription.request(1);
             }
 
             @Override
-            public void onNext(JobEventInfo event) {
+            public void onNext(TaskEventInfo event) {
             }
 
             @Override
@@ -187,54 +187,54 @@ class InvokerImplErrorPathTest {
     }
 
     @Test
-    @DisplayName("hasJob should return true for active job")
-    void hasJobActive() throws InvokerException {
+    @DisplayName("hasTask should return true for active task")
+    void hasTaskActive() throws InvokerException {
         FakeTransportClient transport = new FakeTransportClient((msgType, data) -> {
-            if (msgType == Protocol.MSG_START_JOB_REQUEST) {
-                return SdkWireMessages.encodeStartJobResponse(new SdkWireMessages.StartJobResponse("job-1"));
+            if (msgType == Protocol.MSG_START_TASK_REQUEST) {
+                return SdkWireMessages.encodeStartTaskResponse(new SdkWireMessages.StartTaskResponse("task-1"));
             }
             return new byte[0];
         });
         InvokerImpl invoker = new InvokerImpl(createConfig(), (address, timeout) -> transport);
-        String jobId = invoker.startJob("func", "{}");
+        String taskId = invoker.startTask("func", "{}");
 
-        assertTrue(invoker.hasJob(jobId));
+        assertTrue(invoker.hasTask(taskId));
     }
 
     @Test
-    @DisplayName("getJobStatus should return STARTED for new job")
-    void getJobStatusStarted() throws InvokerException {
+    @DisplayName("getTaskStatus should return STARTED for new task")
+    void getTaskStatusStarted() throws InvokerException {
         FakeTransportClient transport = new FakeTransportClient((msgType, data) -> {
-            if (msgType == Protocol.MSG_START_JOB_REQUEST) {
-                return SdkWireMessages.encodeStartJobResponse(new SdkWireMessages.StartJobResponse("job-1"));
+            if (msgType == Protocol.MSG_START_TASK_REQUEST) {
+                return SdkWireMessages.encodeStartTaskResponse(new SdkWireMessages.StartTaskResponse("task-1"));
             }
             return new byte[0];
         });
         InvokerImpl invoker = new InvokerImpl(createConfig(), (address, timeout) -> transport);
-        String jobId = invoker.startJob("func", "{}");
+        String taskId = invoker.startTask("func", "{}");
 
-        InvokerImpl.JobStatus status = invoker.getJobStatus(jobId);
+        InvokerImpl.TaskStatus status = invoker.getTaskStatus(taskId);
         assertNotNull(status);
     }
 
     @Test
-    @DisplayName("cancelJob should send cancel request to transport")
-    void cancelJobSendsRequest() throws InvokerException {
+    @DisplayName("cancelTask should send cancel request to transport")
+    void cancelTaskSendsRequest() throws InvokerException {
         boolean[] cancelSent = {false};
         FakeTransportClient transport = new FakeTransportClient((msgType, data) -> {
-            if (msgType == Protocol.MSG_START_JOB_REQUEST) {
-                return SdkWireMessages.encodeStartJobResponse(new SdkWireMessages.StartJobResponse("job-1"));
+            if (msgType == Protocol.MSG_START_TASK_REQUEST) {
+                return SdkWireMessages.encodeStartTaskResponse(new SdkWireMessages.StartTaskResponse("task-1"));
             }
-            if (msgType == Protocol.MSG_CANCEL_JOB_REQUEST) {
+            if (msgType == Protocol.MSG_CANCEL_TASK_REQUEST) {
                 cancelSent[0] = true;
                 return new byte[0];
             }
             return new byte[0];
         });
         InvokerImpl invoker = new InvokerImpl(createConfig(), (address, timeout) -> transport);
-        String jobId = invoker.startJob("func", "{}");
+        String taskId = invoker.startTask("func", "{}");
 
-        invoker.cancelJob(jobId);
+        invoker.cancelTask(taskId);
 
         assertTrue(cancelSent[0]);
     }

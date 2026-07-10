@@ -164,20 +164,20 @@ func TestInvoker_invokeWithRetry(t *testing.T) {
 	})
 }
 
-// TestInvoker_jobOperations tests job operations
-func TestInvoker_jobOperations(t *testing.T) {
-	t.Run("StartJob with invalid address", func(t *testing.T) {
+// TestInvoker_taskOperations tests task operations
+func TestInvoker_taskOperations(t *testing.T) {
+	t.Run("StartTask with invalid address", func(t *testing.T) {
 		invoker := NewInvoker(&InvokerConfig{
 			Address: "invalid-address:99999",
 		})
 
 		ctx := context.Background()
-		jobID, err := invoker.StartJob(ctx, "test.func", "{}", InvokeOptions{})
+		taskID, err := invoker.StartTask(ctx, "test.func", "{}", InvokeOptions{})
 
-		t.Logf("StartJob error: %v, jobID: %s", err, jobID)
+		t.Logf("StartTask error: %v, taskID: %s", err, taskID)
 	})
 
-	t.Run("StartJob with timeout context", func(t *testing.T) {
+	t.Run("StartTask with timeout context", func(t *testing.T) {
 		invoker := NewInvoker(&InvokerConfig{
 			Address: "http://localhost:19090",
 		})
@@ -187,11 +187,11 @@ func TestInvoker_jobOperations(t *testing.T) {
 
 		time.Sleep(10 * time.Millisecond)
 
-		jobID, err := invoker.StartJob(ctx, "test.func", "{}", InvokeOptions{})
-		t.Logf("StartJob with timeout error: %v, jobID: %s", err, jobID)
+		taskID, err := invoker.StartTask(ctx, "test.func", "{}", InvokeOptions{})
+		t.Logf("StartTask with timeout error: %v, taskID: %s", err, taskID)
 	})
 
-	t.Run("StartJob with retry", func(t *testing.T) {
+	t.Run("StartTask with retry", func(t *testing.T) {
 		invoker := NewInvoker(&InvokerConfig{
 			Address: "http://localhost:19090",
 			Retry: &RetryConfig{
@@ -201,26 +201,26 @@ func TestInvoker_jobOperations(t *testing.T) {
 		})
 
 		ctx := context.Background()
-		jobID, err := invoker.StartJob(ctx, "test.func", "{}", InvokeOptions{})
-		t.Logf("StartJob with retry error: %v, jobID: %s", err, jobID)
+		taskID, err := invoker.StartTask(ctx, "test.func", "{}", InvokeOptions{})
+		t.Logf("StartTask with retry error: %v, taskID: %s", err, taskID)
 	})
 
-	t.Run("StreamJob with invalid job ID", func(t *testing.T) {
+	t.Run("StreamTask with invalid task ID", func(t *testing.T) {
 		invoker := NewInvoker(&InvokerConfig{
 			Address: "http://localhost:19090",
 		})
 
 		ctx := context.Background()
-		events, err := invoker.StreamJob(ctx, "invalid-job-id-99999")
+		events, err := invoker.StreamTask(ctx, "invalid-task-id-99999")
 
 		if events != nil {
-			t.Log("StreamJob returned channel")
+			t.Log("StreamTask returned channel")
 		}
 
-		t.Logf("StreamJob error: %v", err)
+		t.Logf("StreamTask error: %v", err)
 	})
 
-	t.Run("StreamJob with timeout context", func(t *testing.T) {
+	t.Run("StreamTask with timeout context", func(t *testing.T) {
 		invoker := NewInvoker(&InvokerConfig{
 			Address: "http://localhost:19090",
 		})
@@ -228,27 +228,27 @@ func TestInvoker_jobOperations(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 		defer cancel()
 
-		events, err := invoker.StreamJob(ctx, "test-job")
+		events, err := invoker.StreamTask(ctx, "test-task")
 
 		if events != nil {
-			t.Log("StreamJob returned channel")
+			t.Log("StreamTask returned channel")
 		}
 
-		t.Logf("StreamJob with timeout error: %v", err)
+		t.Logf("StreamTask with timeout error: %v", err)
 	})
 
-	t.Run("CancelJob with invalid job ID", func(t *testing.T) {
+	t.Run("CancelTask with invalid task ID", func(t *testing.T) {
 		invoker := NewInvoker(&InvokerConfig{
 			Address: "http://localhost:19090",
 		})
 
 		ctx := context.Background()
-		err := invoker.CancelJob(ctx, "invalid-job-id-99999")
+		err := invoker.CancelTask(ctx, "invalid-task-id-99999")
 
-		t.Logf("CancelJob error: %v", err)
+		t.Logf("CancelTask error: %v", err)
 	})
 
-	t.Run("CancelJob with timeout context", func(t *testing.T) {
+	t.Run("CancelTask with timeout context", func(t *testing.T) {
 		invoker := NewInvoker(&InvokerConfig{
 			Address: "http://localhost:19090",
 		})
@@ -256,12 +256,12 @@ func TestInvoker_jobOperations(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 		defer cancel()
 
-		err := invoker.CancelJob(ctx, "test-job")
+		err := invoker.CancelTask(ctx, "test-task")
 
-		t.Logf("CancelJob with timeout error: %v", err)
+		t.Logf("CancelTask with timeout error: %v", err)
 	})
 
-	t.Run("CancelJob with retry", func(t *testing.T) {
+	t.Run("CancelTask with retry", func(t *testing.T) {
 		invoker := NewInvoker(&InvokerConfig{
 			Address: "http://localhost:19090",
 			Retry: &RetryConfig{
@@ -271,9 +271,9 @@ func TestInvoker_jobOperations(t *testing.T) {
 		})
 
 		ctx := context.Background()
-		err := invoker.CancelJob(ctx, "test-job")
+		err := invoker.CancelTask(ctx, "test-task")
 
-		t.Logf("CancelJob with retry error: %v", err)
+		t.Logf("CancelTask with retry error: %v", err)
 	})
 }
 

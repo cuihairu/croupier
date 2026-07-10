@@ -122,9 +122,9 @@ func TestHTTPInvoker_realistic_api_calls(t *testing.T) {
 	})
 }
 
-// TestHTTPInvoker_job_operations tests job-based operations
-func TestHTTPInvoker_job_operations(t *testing.T) {
-	t.Run("StartJob and check job lifecycle", func(t *testing.T) {
+// TestHTTPInvoker_task_operations tests task-based operations
+func TestHTTPInvoker_task_operations(t *testing.T) {
+	t.Run("StartTask and check task lifecycle", func(t *testing.T) {
 		invoker := NewHTTPInvoker(&InvokerConfig{
 			Address: "http://localhost:8080",
 		})
@@ -137,17 +137,17 @@ func TestHTTPInvoker_job_operations(t *testing.T) {
 		ctx := context.Background()
 		payload := `{"task":"longRunningOperation","params":{"iterations":100}}`
 
-		jobID, err := invoker.StartJob(ctx, "job.longTask", payload, InvokeOptions{})
-		t.Logf("StartJob - jobID: %s, error: %v", jobID, err)
+		taskID, err := invoker.StartTask(ctx, "task.longTask", payload, InvokeOptions{})
+		t.Logf("StartTask - taskID: %s, error: %v", taskID, err)
 
-		if jobID != "" {
-			// Try to get job status
-			stream, err := invoker.StreamJob(ctx, jobID)
-			t.Logf("StreamJob - stream: %v, error: %v", stream, err)
+		if taskID != "" {
+			// Try to get task status
+			stream, err := invoker.StreamTask(ctx, taskID)
+			t.Logf("StreamTask - stream: %v, error: %v", stream, err)
 		}
 	})
 
-	t.Run("StartJob with timeout", func(t *testing.T) {
+	t.Run("StartTask with timeout", func(t *testing.T) {
 		invoker := NewHTTPInvoker(&InvokerConfig{
 			Address: "http://localhost:8080",
 		})
@@ -161,12 +161,12 @@ func TestHTTPInvoker_job_operations(t *testing.T) {
 		defer cancel()
 
 		payload := `{"task":"quickTask"}`
-		jobID, err := invoker.StartJob(ctx, "job.quick", payload, InvokeOptions{})
+		taskID, err := invoker.StartTask(ctx, "task.quick", payload, InvokeOptions{})
 
-		t.Logf("StartJob with timeout - jobID: %s, error: %v", jobID, err)
+		t.Logf("StartTask with timeout - taskID: %s, error: %v", taskID, err)
 	})
 
-	t.Run("StartJob multiple jobs concurrently", func(t *testing.T) {
+	t.Run("StartTask multiple tasks concurrently", func(t *testing.T) {
 		invoker := NewHTTPInvoker(&InvokerConfig{
 			Address: "http://localhost:8080",
 		})
@@ -177,17 +177,17 @@ func TestHTTPInvoker_job_operations(t *testing.T) {
 		defer invoker.Close()
 
 		ctx := context.Background()
-		const numJobs = 10
+		const numTasks = 10
 
-		jobIDs := make([]string, numJobs)
-		for i := 0; i < numJobs; i++ {
+		taskIDs := make([]string, numTasks)
+		for i := 0; i < numTasks; i++ {
 			payload := fmt.Sprintf(`{"task":"task%d","iteration":%d}`, i, i)
-			jobID, err := invoker.StartJob(ctx, "job.batch", payload, InvokeOptions{})
-			jobIDs[i] = jobID
-			t.Logf("Job %d - ID: %s, error: %v", i, jobID, err)
+			taskID, err := invoker.StartTask(ctx, "task.batch", payload, InvokeOptions{})
+			taskIDs[i] = taskID
+			t.Logf("Task %d - ID: %s, error: %v", i, taskID, err)
 		}
 
-		t.Logf("Started %d jobs", numJobs)
+		t.Logf("Started %d tasks", numTasks)
 	})
 }
 
@@ -516,7 +516,7 @@ func TestHTTPInvoker_concurrent_requests(t *testing.T) {
 		t.Logf("Concurrent Invoke: %d/%d succeeded", successCount, numRequests)
 	})
 
-	t.Run("Concurrent StartJob requests", func(t *testing.T) {
+	t.Run("Concurrent StartTask requests", func(t *testing.T) {
 		invoker := NewHTTPInvoker(&InvokerConfig{
 			Address: "http://localhost:8080",
 		})
@@ -526,18 +526,18 @@ func TestHTTPInvoker_concurrent_requests(t *testing.T) {
 		}
 		defer invoker.Close()
 
-		const numJobs = 10
-		jobIDs := make([]string, numJobs)
+		const numTasks = 10
+		taskIDs := make([]string, numTasks)
 
-		for i := 0; i < numJobs; i++ {
+		for i := 0; i < numTasks; i++ {
 			ctx := context.Background()
-			payload := fmt.Sprintf(`{"jobId":%d}`, i)
-			jobID, err := invoker.StartJob(ctx, "job.concurrent", payload, InvokeOptions{})
-			jobIDs[i] = jobID
-			t.Logf("Job %d - ID: %s, error: %v", i, jobID, err)
+			payload := fmt.Sprintf(`{"taskId":%d}`, i)
+			taskID, err := invoker.StartTask(ctx, "task.concurrent", payload, InvokeOptions{})
+			taskIDs[i] = taskID
+			t.Logf("Task %d - ID: %s, error: %v", i, taskID, err)
 		}
 
-		t.Logf("Started %d concurrent jobs", numJobs)
+		t.Logf("Started %d concurrent tasks", numTasks)
 	})
 }
 

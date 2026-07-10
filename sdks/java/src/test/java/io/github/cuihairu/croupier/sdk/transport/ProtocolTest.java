@@ -22,7 +22,7 @@ class ProtocolTest {
 
     @Test
     void testNewMessageWithEmptyBody() {
-        int msgType = Protocol.MSG_REGISTER_LOCAL_REQUEST;
+        int msgType = Protocol.MSG_PROVIDER_CONNECT_REQUEST;
         int reqId = 1;
         byte[] body = new byte[0];
 
@@ -69,7 +69,7 @@ class ProtocolTest {
 
     @Test
     void testParseMessage() {
-        int msgType = Protocol.MSG_REGISTER_LOCAL_REQUEST;
+        int msgType = Protocol.MSG_PROVIDER_CONNECT_REQUEST;
         int reqId = 999;
         byte[] body = "hello world".getBytes();
 
@@ -117,9 +117,9 @@ class ProtocolTest {
     @Test
     void testGetResponseMsgID() {
         assertEquals(Protocol.MSG_INVOKE_RESPONSE, Protocol.getResponseMsgID(Protocol.MSG_INVOKE_REQUEST));
-        assertEquals(Protocol.MSG_REGISTER_LOCAL_RESPONSE, Protocol.getResponseMsgID(Protocol.MSG_REGISTER_LOCAL_REQUEST));
-        assertEquals(Protocol.MSG_START_JOB_RESPONSE, Protocol.getResponseMsgID(Protocol.MSG_START_JOB_REQUEST));
-        assertEquals(Protocol.MSG_CANCEL_JOB_RESPONSE, Protocol.getResponseMsgID(Protocol.MSG_CANCEL_JOB_REQUEST));
+        assertEquals(Protocol.MSG_PROVIDER_CONNECT_RESPONSE, Protocol.getResponseMsgID(Protocol.MSG_PROVIDER_CONNECT_REQUEST));
+        assertEquals(Protocol.MSG_START_TASK_RESPONSE, Protocol.getResponseMsgID(Protocol.MSG_START_TASK_REQUEST));
+        assertEquals(Protocol.MSG_CANCEL_TASK_RESPONSE, Protocol.getResponseMsgID(Protocol.MSG_CANCEL_TASK_REQUEST));
     }
 
     @Test
@@ -131,33 +131,33 @@ class ProtocolTest {
     @Test
     void testIsRequest() {
         assertTrue(Protocol.isRequest(Protocol.MSG_INVOKE_REQUEST));
-        assertTrue(Protocol.isRequest(Protocol.MSG_REGISTER_LOCAL_REQUEST));
-        assertTrue(Protocol.isRequest(Protocol.MSG_START_JOB_REQUEST));
-        assertTrue(Protocol.isRequest(Protocol.MSG_CANCEL_JOB_REQUEST));
+        assertTrue(Protocol.isRequest(Protocol.MSG_PROVIDER_CONNECT_REQUEST));
+        assertTrue(Protocol.isRequest(Protocol.MSG_START_TASK_REQUEST));
+        assertTrue(Protocol.isRequest(Protocol.MSG_CANCEL_TASK_REQUEST));
         assertFalse(Protocol.isRequest(Protocol.MSG_INVOKE_RESPONSE));
-        assertFalse(Protocol.isRequest(Protocol.MSG_REGISTER_LOCAL_RESPONSE));
+        assertFalse(Protocol.isRequest(Protocol.MSG_PROVIDER_CONNECT_RESPONSE));
     }
 
     @Test
     void testIsRequestWithEvenNumbers() {
         assertFalse(Protocol.isRequest(Protocol.MSG_INVOKE_RESPONSE));
-        assertFalse(Protocol.isRequest(Protocol.MSG_JOB_EVENT)); // Special case
+        assertFalse(Protocol.isRequest(Protocol.MSG_TASK_EVENT)); // Special case
     }
 
     @Test
     void testIsResponse() {
         assertTrue(Protocol.isResponse(Protocol.MSG_INVOKE_RESPONSE));
-        assertTrue(Protocol.isResponse(Protocol.MSG_REGISTER_LOCAL_RESPONSE));
-        assertTrue(Protocol.isResponse(Protocol.MSG_START_JOB_RESPONSE));
-        assertTrue(Protocol.isResponse(Protocol.MSG_CANCEL_JOB_RESPONSE));
+        assertTrue(Protocol.isResponse(Protocol.MSG_PROVIDER_CONNECT_RESPONSE));
+        assertTrue(Protocol.isResponse(Protocol.MSG_START_TASK_RESPONSE));
+        assertTrue(Protocol.isResponse(Protocol.MSG_CANCEL_TASK_RESPONSE));
         assertFalse(Protocol.isResponse(Protocol.MSG_INVOKE_REQUEST));
-        assertFalse(Protocol.isResponse(Protocol.MSG_REGISTER_LOCAL_REQUEST));
+        assertFalse(Protocol.isResponse(Protocol.MSG_PROVIDER_CONNECT_REQUEST));
     }
 
     @Test
     void testIsResponseWithOddNumbers() {
         assertFalse(Protocol.isResponse(Protocol.MSG_INVOKE_REQUEST));
-        assertFalse(Protocol.isResponse(Protocol.MSG_JOB_EVENT)); // Special case
+        assertFalse(Protocol.isResponse(Protocol.MSG_TASK_EVENT)); // Special case
     }
 
     @Test
@@ -168,18 +168,16 @@ class ProtocolTest {
         assertEquals("HeartbeatResponse", Protocol.msgIdString(Protocol.MSG_HEARTBEAT_RESPONSE));
         assertEquals("InvokeRequest", Protocol.msgIdString(Protocol.MSG_INVOKE_REQUEST));
         assertEquals("InvokeResponse", Protocol.msgIdString(Protocol.MSG_INVOKE_RESPONSE));
-        assertEquals("StartJobRequest", Protocol.msgIdString(Protocol.MSG_START_JOB_REQUEST));
-        assertEquals("StartJobResponse", Protocol.msgIdString(Protocol.MSG_START_JOB_RESPONSE));
-        assertEquals("StreamJobRequest", Protocol.msgIdString(Protocol.MSG_STREAM_JOB_REQUEST));
-        assertEquals("JobEvent", Protocol.msgIdString(Protocol.MSG_JOB_EVENT));
-        assertEquals("CancelJobRequest", Protocol.msgIdString(Protocol.MSG_CANCEL_JOB_REQUEST));
-        assertEquals("CancelJobResponse", Protocol.msgIdString(Protocol.MSG_CANCEL_JOB_RESPONSE));
-        assertEquals("RegisterLocalRequest", Protocol.msgIdString(Protocol.MSG_REGISTER_LOCAL_REQUEST));
-        assertEquals("RegisterLocalResponse", Protocol.msgIdString(Protocol.MSG_REGISTER_LOCAL_RESPONSE));
-        assertEquals("HeartbeatLocalRequest", Protocol.msgIdString(Protocol.MSG_HEARTBEAT_LOCAL_REQUEST));
-        assertEquals("HeartbeatLocalResponse", Protocol.msgIdString(Protocol.MSG_HEARTBEAT_LOCAL_RESPONSE));
-        assertEquals("ListLocalRequest", Protocol.msgIdString(Protocol.MSG_LIST_LOCAL_REQUEST));
-        assertEquals("ListLocalResponse", Protocol.msgIdString(Protocol.MSG_LIST_LOCAL_RESPONSE));
+        assertEquals("StartTaskRequest", Protocol.msgIdString(Protocol.MSG_START_TASK_REQUEST));
+        assertEquals("StartTaskResponse", Protocol.msgIdString(Protocol.MSG_START_TASK_RESPONSE));
+        assertEquals("StreamTaskRequest", Protocol.msgIdString(Protocol.MSG_STREAM_TASK_REQUEST));
+        assertEquals("TaskEvent", Protocol.msgIdString(Protocol.MSG_TASK_EVENT));
+        assertEquals("CancelTaskRequest", Protocol.msgIdString(Protocol.MSG_CANCEL_TASK_REQUEST));
+        assertEquals("CancelTaskResponse", Protocol.msgIdString(Protocol.MSG_CANCEL_TASK_RESPONSE));
+        assertEquals("ProviderConnectRequest", Protocol.msgIdString(Protocol.MSG_PROVIDER_CONNECT_REQUEST));
+        assertEquals("ProviderConnectResponse", Protocol.msgIdString(Protocol.MSG_PROVIDER_CONNECT_RESPONSE));
+        assertEquals("ProviderHeartbeatRequest", Protocol.msgIdString(Protocol.MSG_PROVIDER_HEARTBEAT_REQUEST));
+        assertEquals("ProviderHeartbeatResponse", Protocol.msgIdString(Protocol.MSG_PROVIDER_HEARTBEAT_RESPONSE));
     }
 
     @Test
@@ -253,7 +251,7 @@ class ProtocolTest {
         // Verify all message IDs are distinct
         assertNotEquals(Protocol.MSG_REGISTER_REQUEST, Protocol.MSG_REGISTER_RESPONSE);
         assertNotEquals(Protocol.MSG_INVOKE_REQUEST, Protocol.MSG_INVOKE_RESPONSE);
-        assertNotEquals(Protocol.MSG_START_JOB_REQUEST, Protocol.MSG_START_JOB_RESPONSE);
+        assertNotEquals(Protocol.MSG_START_TASK_REQUEST, Protocol.MSG_START_TASK_RESPONSE);
     }
 
     @Test
@@ -262,11 +260,10 @@ class ProtocolTest {
         assertEquals(Protocol.MSG_REGISTER_REQUEST + 1, Protocol.MSG_REGISTER_RESPONSE);
         assertEquals(Protocol.MSG_HEARTBEAT_REQUEST + 1, Protocol.MSG_HEARTBEAT_RESPONSE);
         assertEquals(Protocol.MSG_INVOKE_REQUEST + 1, Protocol.MSG_INVOKE_RESPONSE);
-        assertEquals(Protocol.MSG_START_JOB_REQUEST + 1, Protocol.MSG_START_JOB_RESPONSE);
-        assertEquals(Protocol.MSG_CANCEL_JOB_REQUEST + 1, Protocol.MSG_CANCEL_JOB_RESPONSE);
-        assertEquals(Protocol.MSG_REGISTER_LOCAL_REQUEST + 1, Protocol.MSG_REGISTER_LOCAL_RESPONSE);
-        assertEquals(Protocol.MSG_HEARTBEAT_LOCAL_REQUEST + 1, Protocol.MSG_HEARTBEAT_LOCAL_RESPONSE);
-        assertEquals(Protocol.MSG_LIST_LOCAL_REQUEST + 1, Protocol.MSG_LIST_LOCAL_RESPONSE);
+        assertEquals(Protocol.MSG_START_TASK_REQUEST + 1, Protocol.MSG_START_TASK_RESPONSE);
+        assertEquals(Protocol.MSG_CANCEL_TASK_REQUEST + 1, Protocol.MSG_CANCEL_TASK_RESPONSE);
+        assertEquals(Protocol.MSG_PROVIDER_CONNECT_REQUEST + 1, Protocol.MSG_PROVIDER_CONNECT_RESPONSE);
+        assertEquals(Protocol.MSG_PROVIDER_HEARTBEAT_REQUEST + 1, Protocol.MSG_PROVIDER_HEARTBEAT_RESPONSE);
     }
 
     @Test

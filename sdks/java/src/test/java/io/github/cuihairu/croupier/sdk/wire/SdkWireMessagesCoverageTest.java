@@ -87,57 +87,57 @@ class SdkWireMessagesCoverageTest {
     }
 
     @Test
-    @DisplayName("StartJobResponse encode/decode round-trip")
-    void startJobResponseRoundTrip() {
-        SdkWireMessages.StartJobResponse original = new SdkWireMessages.StartJobResponse("job-123");
+    @DisplayName("StartTaskResponse encode/decode round-trip")
+    void startTaskResponseRoundTrip() {
+        SdkWireMessages.StartTaskResponse original = new SdkWireMessages.StartTaskResponse("task-123");
 
-        byte[] encoded = SdkWireMessages.encodeStartJobResponse(original);
-        SdkWireMessages.StartJobResponse decoded = SdkWireMessages.decodeStartJobResponse(encoded);
+        byte[] encoded = SdkWireMessages.encodeStartTaskResponse(original);
+        SdkWireMessages.StartTaskResponse decoded = SdkWireMessages.decodeStartTaskResponse(encoded);
 
-        assertEquals("job-123", decoded.jobId);
+        assertEquals("task-123", decoded.taskId);
     }
 
     @Test
-    @DisplayName("StartJobResponse with null jobId")
-    void startJobResponseNullJobId() {
-        SdkWireMessages.StartJobResponse original = new SdkWireMessages.StartJobResponse(null);
+    @DisplayName("StartTaskResponse with null taskId")
+    void startTaskResponseNullTaskId() {
+        SdkWireMessages.StartTaskResponse original = new SdkWireMessages.StartTaskResponse(null);
 
-        byte[] encoded = SdkWireMessages.encodeStartJobResponse(original);
-        SdkWireMessages.StartJobResponse decoded = SdkWireMessages.decodeStartJobResponse(encoded);
+        byte[] encoded = SdkWireMessages.encodeStartTaskResponse(original);
+        SdkWireMessages.StartTaskResponse decoded = SdkWireMessages.decodeStartTaskResponse(encoded);
 
-        assertEquals("", decoded.jobId);
+        assertEquals("", decoded.taskId);
     }
 
     @Test
-    @DisplayName("JobStreamRequest encode/decode round-trip")
-    void jobStreamRequestRoundTrip() {
-        SdkWireMessages.JobStreamRequest original = new SdkWireMessages.JobStreamRequest("job-456");
+    @DisplayName("TaskStreamRequest encode/decode round-trip")
+    void taskStreamRequestRoundTrip() {
+        SdkWireMessages.TaskStreamRequest original = new SdkWireMessages.TaskStreamRequest("task-456");
 
-        byte[] encoded = SdkWireMessages.encodeJobStreamRequest(original);
-        SdkWireMessages.JobStreamRequest decoded = SdkWireMessages.decodeJobStreamRequest(encoded);
+        byte[] encoded = SdkWireMessages.encodeTaskStreamRequest(original);
+        SdkWireMessages.TaskStreamRequest decoded = SdkWireMessages.decodeTaskStreamRequest(encoded);
 
-        assertEquals("job-456", decoded.jobId);
+        assertEquals("task-456", decoded.taskId);
     }
 
     @Test
-    @DisplayName("JobStreamRequest with null jobId")
-    void jobStreamRequestNullJobId() {
-        SdkWireMessages.JobStreamRequest original = new SdkWireMessages.JobStreamRequest(null);
+    @DisplayName("TaskStreamRequest with null taskId")
+    void taskStreamRequestNullTaskId() {
+        SdkWireMessages.TaskStreamRequest original = new SdkWireMessages.TaskStreamRequest(null);
 
-        byte[] encoded = SdkWireMessages.encodeJobStreamRequest(original);
-        SdkWireMessages.JobStreamRequest decoded = SdkWireMessages.decodeJobStreamRequest(encoded);
+        byte[] encoded = SdkWireMessages.encodeTaskStreamRequest(original);
+        SdkWireMessages.TaskStreamRequest decoded = SdkWireMessages.decodeTaskStreamRequest(encoded);
 
-        assertEquals("", decoded.jobId);
+        assertEquals("", decoded.taskId);
     }
 
     @Test
-    @DisplayName("JobEvent encode/decode round-trip")
-    void jobEventRoundTrip() {
-        SdkWireMessages.JobEvent original = new SdkWireMessages.JobEvent(
+    @DisplayName("TaskEvent encode/decode round-trip")
+    void taskEventRoundTrip() {
+        SdkWireMessages.TaskEvent original = new SdkWireMessages.TaskEvent(
             "progress", "Processing", 50, "data".getBytes());
 
-        byte[] encoded = SdkWireMessages.encodeJobEvent(original);
-        SdkWireMessages.JobEvent decoded = SdkWireMessages.decodeJobEvent(encoded);
+        byte[] encoded = SdkWireMessages.encodeTaskEvent(original);
+        SdkWireMessages.TaskEvent decoded = SdkWireMessages.decodeTaskEvent(encoded);
 
         assertEquals("progress", decoded.type);
         assertEquals("Processing", decoded.message);
@@ -147,13 +147,13 @@ class SdkWireMessagesCoverageTest {
     }
 
     @Test
-    @DisplayName("JobEvent with null fields")
-    void jobEventNullFields() {
-        SdkWireMessages.JobEvent original = new SdkWireMessages.JobEvent(
+    @DisplayName("TaskEvent with null fields")
+    void taskEventNullFields() {
+        SdkWireMessages.TaskEvent original = new SdkWireMessages.TaskEvent(
             null, null, 0, null);
 
-        byte[] encoded = SdkWireMessages.encodeJobEvent(original);
-        SdkWireMessages.JobEvent decoded = SdkWireMessages.decodeJobEvent(encoded);
+        byte[] encoded = SdkWireMessages.encodeTaskEvent(original);
+        SdkWireMessages.TaskEvent decoded = SdkWireMessages.decodeTaskEvent(encoded);
 
         assertEquals("", decoded.type);
         assertEquals("", decoded.message);
@@ -162,40 +162,40 @@ class SdkWireMessagesCoverageTest {
     }
 
     @Test
-    @DisplayName("CancelJobRequest encode/decode round-trip")
-    void cancelJobRequestRoundTrip() {
-        SdkWireMessages.CancelJobRequest original = new SdkWireMessages.CancelJobRequest("job-789");
+    @DisplayName("CancelTaskRequest encode/decode round-trip")
+    void cancelTaskRequestRoundTrip() {
+        SdkWireMessages.CancelTaskRequest original = new SdkWireMessages.CancelTaskRequest("task-789");
 
-        byte[] encoded = SdkWireMessages.encodeCancelJobRequest(original);
-        SdkWireMessages.CancelJobRequest decoded = SdkWireMessages.decodeCancelJobRequest(encoded);
+        byte[] encoded = SdkWireMessages.encodeCancelTaskRequest(original);
+        SdkWireMessages.CancelTaskRequest decoded = SdkWireMessages.decodeCancelTaskRequest(encoded);
 
-        assertEquals("job-789", decoded.jobId);
+        assertEquals("task-789", decoded.taskId);
     }
 
     @Test
-    @DisplayName("CancelJobRequest with null jobId")
-    void cancelJobRequestNullJobId() {
-        SdkWireMessages.CancelJobRequest original = new SdkWireMessages.CancelJobRequest(null);
+    @DisplayName("CancelTaskRequest with null taskId")
+    void cancelTaskRequestNullTaskId() {
+        SdkWireMessages.CancelTaskRequest original = new SdkWireMessages.CancelTaskRequest(null);
 
-        byte[] encoded = SdkWireMessages.encodeCancelJobRequest(original);
-        SdkWireMessages.CancelJobRequest decoded = SdkWireMessages.decodeCancelJobRequest(encoded);
+        byte[] encoded = SdkWireMessages.encodeCancelTaskRequest(original);
+        SdkWireMessages.CancelTaskRequest decoded = SdkWireMessages.decodeCancelTaskRequest(encoded);
 
-        assertEquals("", decoded.jobId);
+        assertEquals("", decoded.taskId);
     }
 
     @Test
-    @DisplayName("RegisterLocalRequest encode/decode round-trip with functions")
-    void registerLocalRequestRoundTrip() {
+    @DisplayName("ProviderConnectRequest encode/decode round-trip with functions")
+    void providerConnectRequestRoundTrip() {
         SdkWireMessages.LocalFunctionDescriptor func = new SdkWireMessages.LocalFunctionDescriptor(
             "f1", "1.0.0", List.of("tag1", "tag2"), "Summary", "Description",
             "opId", true, "{\"type\":\"object\"}", "{\"type\":\"string\"}",
             "game", "low", "Player", "create");
 
-        SdkWireMessages.RegisterLocalRequest original = new SdkWireMessages.RegisterLocalRequest(
+        SdkWireMessages.ProviderConnectRequest original = new SdkWireMessages.ProviderConnectRequest(
             "svc-1", "2.0.0", "localhost:9090", List.of(func));
 
-        byte[] encoded = SdkWireMessages.encodeRegisterLocalRequest(original);
-        SdkWireMessages.RegisterLocalRequest decoded = SdkWireMessages.decodeRegisterLocalRequest(encoded);
+        byte[] encoded = SdkWireMessages.encodeProviderConnectRequest(original);
+        SdkWireMessages.ProviderConnectRequest decoded = SdkWireMessages.decodeProviderConnectRequest(encoded);
 
         assertEquals("svc-1", decoded.serviceId);
         assertEquals("2.0.0", decoded.version);
@@ -221,13 +221,13 @@ class SdkWireMessagesCoverageTest {
     }
 
     @Test
-    @DisplayName("RegisterLocalRequest with null fields")
-    void registerLocalRequestNullFields() {
-        SdkWireMessages.RegisterLocalRequest original = new SdkWireMessages.RegisterLocalRequest(
+    @DisplayName("ProviderConnectRequest with null fields")
+    void providerConnectRequestNullFields() {
+        SdkWireMessages.ProviderConnectRequest original = new SdkWireMessages.ProviderConnectRequest(
             null, null, null, null);
 
-        byte[] encoded = SdkWireMessages.encodeRegisterLocalRequest(original);
-        SdkWireMessages.RegisterLocalRequest decoded = SdkWireMessages.decodeRegisterLocalRequest(encoded);
+        byte[] encoded = SdkWireMessages.encodeProviderConnectRequest(original);
+        SdkWireMessages.ProviderConnectRequest decoded = SdkWireMessages.decodeProviderConnectRequest(encoded);
 
         assertEquals("", decoded.serviceId);
         assertEquals("", decoded.version);
@@ -236,23 +236,23 @@ class SdkWireMessagesCoverageTest {
     }
 
     @Test
-    @DisplayName("RegisterLocalResponse encode/decode round-trip")
-    void registerLocalResponseRoundTrip() {
-        SdkWireMessages.RegisterLocalResponse original = new SdkWireMessages.RegisterLocalResponse("session-abc");
+    @DisplayName("ProviderConnectResponse encode/decode round-trip")
+    void providerConnectResponseRoundTrip() {
+        SdkWireMessages.ProviderConnectResponse original = new SdkWireMessages.ProviderConnectResponse("session-abc");
 
-        byte[] encoded = SdkWireMessages.encodeRegisterLocalResponse(original);
-        SdkWireMessages.RegisterLocalResponse decoded = SdkWireMessages.decodeRegisterLocalResponse(encoded);
+        byte[] encoded = SdkWireMessages.encodeProviderConnectResponse(original);
+        SdkWireMessages.ProviderConnectResponse decoded = SdkWireMessages.decodeProviderConnectResponse(encoded);
 
         assertEquals("session-abc", decoded.sessionId);
     }
 
     @Test
-    @DisplayName("RegisterLocalResponse with null sessionId")
-    void registerLocalResponseNullSessionId() {
-        SdkWireMessages.RegisterLocalResponse original = new SdkWireMessages.RegisterLocalResponse(null);
+    @DisplayName("ProviderConnectResponse with null sessionId")
+    void providerConnectResponseNullSessionId() {
+        SdkWireMessages.ProviderConnectResponse original = new SdkWireMessages.ProviderConnectResponse(null);
 
-        byte[] encoded = SdkWireMessages.encodeRegisterLocalResponse(original);
-        SdkWireMessages.RegisterLocalResponse decoded = SdkWireMessages.decodeRegisterLocalResponse(encoded);
+        byte[] encoded = SdkWireMessages.encodeProviderConnectResponse(original);
+        SdkWireMessages.ProviderConnectResponse decoded = SdkWireMessages.decodeProviderConnectResponse(encoded);
 
         assertEquals("", decoded.sessionId);
     }
@@ -323,29 +323,29 @@ class SdkWireMessagesCoverageTest {
     }
 
     @Test
-    @DisplayName("Decode JobEvent with unknown field should skip")
-    void decodeJobEventUnknownField() {
-        SdkWireMessages.JobEvent original = new SdkWireMessages.JobEvent("type", "msg", 10, "data".getBytes());
-        byte[] encoded = SdkWireMessages.encodeJobEvent(original);
-        SdkWireMessages.JobEvent decoded = SdkWireMessages.decodeJobEvent(encoded);
+    @DisplayName("Decode TaskEvent with unknown field should skip")
+    void decodeTaskEventUnknownField() {
+        SdkWireMessages.TaskEvent original = new SdkWireMessages.TaskEvent("type", "msg", 10, "data".getBytes());
+        byte[] encoded = SdkWireMessages.encodeTaskEvent(original);
+        SdkWireMessages.TaskEvent decoded = SdkWireMessages.decodeTaskEvent(encoded);
         assertEquals("type", decoded.type);
         assertEquals("msg", decoded.message);
         assertEquals(10, decoded.progress);
     }
 
     @Test
-    @DisplayName("Encode/decode multiple functions in RegisterLocalRequest")
-    void registerLocalRequestMultipleFunctions() {
+    @DisplayName("Encode/decode multiple functions in ProviderConnectRequest")
+    void providerConnectRequestMultipleFunctions() {
         SdkWireMessages.LocalFunctionDescriptor func1 = new SdkWireMessages.LocalFunctionDescriptor(
             "f1", "1.0.0", List.of(), "", "", "", false, "", "", "", "", "", "");
         SdkWireMessages.LocalFunctionDescriptor func2 = new SdkWireMessages.LocalFunctionDescriptor(
             "f2", "2.0.0", List.of("tag"), "Sum", "Desc", "op", false, "", "", "", "", "", "");
 
-        SdkWireMessages.RegisterLocalRequest original = new SdkWireMessages.RegisterLocalRequest(
+        SdkWireMessages.ProviderConnectRequest original = new SdkWireMessages.ProviderConnectRequest(
             "svc", "1.0.0", "addr", List.of(func1, func2));
 
-        byte[] encoded = SdkWireMessages.encodeRegisterLocalRequest(original);
-        SdkWireMessages.RegisterLocalRequest decoded = SdkWireMessages.decodeRegisterLocalRequest(encoded);
+        byte[] encoded = SdkWireMessages.encodeProviderConnectRequest(original);
+        SdkWireMessages.ProviderConnectRequest decoded = SdkWireMessages.decodeProviderConnectRequest(encoded);
 
         assertEquals(2, decoded.functions.size());
         assertEquals("f1", decoded.functions.get(0).id);
@@ -381,78 +381,78 @@ class SdkWireMessagesCoverageTest {
     }
 
     @Test
-    @DisplayName("Decode RegisterLocalRequest with truncated data should throw")
-    void decodeRegisterLocalRequestTruncated() {
+    @DisplayName("Decode ProviderConnectRequest with truncated data should throw")
+    void decodeProviderConnectRequestTruncated() {
         SdkWireMessages.LocalFunctionDescriptor func = new SdkWireMessages.LocalFunctionDescriptor(
             "f1", "1.0.0", List.of(), "", "", "", false, "", "", "", "", "", "");
-        SdkWireMessages.RegisterLocalRequest original = new SdkWireMessages.RegisterLocalRequest(
+        SdkWireMessages.ProviderConnectRequest original = new SdkWireMessages.ProviderConnectRequest(
             "svc", "1.0.0", "addr", List.of(func));
-        byte[] encoded = SdkWireMessages.encodeRegisterLocalRequest(original);
+        byte[] encoded = SdkWireMessages.encodeProviderConnectRequest(original);
         byte[] truncated = new byte[Math.max(1, encoded.length / 2)];
         System.arraycopy(encoded, 0, truncated, 0, truncated.length);
 
         assertThrows(IllegalArgumentException.class, () ->
-            SdkWireMessages.decodeRegisterLocalRequest(truncated));
+            SdkWireMessages.decodeProviderConnectRequest(truncated));
     }
 
     @Test
-    @DisplayName("Decode RegisterLocalResponse with truncated data should throw")
-    void decodeRegisterLocalResponseTruncated() {
-        SdkWireMessages.RegisterLocalResponse original = new SdkWireMessages.RegisterLocalResponse("sess");
-        byte[] encoded = SdkWireMessages.encodeRegisterLocalResponse(original);
+    @DisplayName("Decode ProviderConnectResponse with truncated data should throw")
+    void decodeProviderConnectResponseTruncated() {
+        SdkWireMessages.ProviderConnectResponse original = new SdkWireMessages.ProviderConnectResponse("sess");
+        byte[] encoded = SdkWireMessages.encodeProviderConnectResponse(original);
         byte[] truncated = new byte[Math.max(1, encoded.length / 2)];
         System.arraycopy(encoded, 0, truncated, 0, truncated.length);
 
         assertThrows(IllegalArgumentException.class, () ->
-            SdkWireMessages.decodeRegisterLocalResponse(truncated));
+            SdkWireMessages.decodeProviderConnectResponse(truncated));
     }
 
     @Test
-    @DisplayName("Decode StartJobResponse with truncated data should throw")
-    void decodeStartJobResponseTruncated() {
-        SdkWireMessages.StartJobResponse original = new SdkWireMessages.StartJobResponse("job-1");
-        byte[] encoded = SdkWireMessages.encodeStartJobResponse(original);
+    @DisplayName("Decode StartTaskResponse with truncated data should throw")
+    void decodeStartTaskResponseTruncated() {
+        SdkWireMessages.StartTaskResponse original = new SdkWireMessages.StartTaskResponse("task-1");
+        byte[] encoded = SdkWireMessages.encodeStartTaskResponse(original);
         byte[] truncated = new byte[Math.max(1, encoded.length / 2)];
         System.arraycopy(encoded, 0, truncated, 0, truncated.length);
 
         assertThrows(IllegalArgumentException.class, () ->
-            SdkWireMessages.decodeStartJobResponse(truncated));
+            SdkWireMessages.decodeStartTaskResponse(truncated));
     }
 
     @Test
-    @DisplayName("Decode JobStreamRequest with truncated data should throw")
-    void decodeJobStreamRequestTruncated() {
-        SdkWireMessages.JobStreamRequest original = new SdkWireMessages.JobStreamRequest("job-1");
-        byte[] encoded = SdkWireMessages.encodeJobStreamRequest(original);
+    @DisplayName("Decode TaskStreamRequest with truncated data should throw")
+    void decodeTaskStreamRequestTruncated() {
+        SdkWireMessages.TaskStreamRequest original = new SdkWireMessages.TaskStreamRequest("task-1");
+        byte[] encoded = SdkWireMessages.encodeTaskStreamRequest(original);
         byte[] truncated = new byte[Math.max(1, encoded.length / 2)];
         System.arraycopy(encoded, 0, truncated, 0, truncated.length);
 
         assertThrows(IllegalArgumentException.class, () ->
-            SdkWireMessages.decodeJobStreamRequest(truncated));
+            SdkWireMessages.decodeTaskStreamRequest(truncated));
     }
 
     @Test
-    @DisplayName("Decode CancelJobRequest with truncated data should throw")
-    void decodeCancelJobRequestTruncated() {
-        SdkWireMessages.CancelJobRequest original = new SdkWireMessages.CancelJobRequest("job-1");
-        byte[] encoded = SdkWireMessages.encodeCancelJobRequest(original);
+    @DisplayName("Decode CancelTaskRequest with truncated data should throw")
+    void decodeCancelTaskRequestTruncated() {
+        SdkWireMessages.CancelTaskRequest original = new SdkWireMessages.CancelTaskRequest("task-1");
+        byte[] encoded = SdkWireMessages.encodeCancelTaskRequest(original);
         byte[] truncated = new byte[Math.max(1, encoded.length / 2)];
         System.arraycopy(encoded, 0, truncated, 0, truncated.length);
 
         assertThrows(IllegalArgumentException.class, () ->
-            SdkWireMessages.decodeCancelJobRequest(truncated));
+            SdkWireMessages.decodeCancelTaskRequest(truncated));
     }
 
     @Test
-    @DisplayName("Decode JobEvent with truncated data should throw")
-    void decodeJobEventTruncated() {
-        SdkWireMessages.JobEvent original = new SdkWireMessages.JobEvent("type", "msg", 10, "data".getBytes());
-        byte[] encoded = SdkWireMessages.encodeJobEvent(original);
+    @DisplayName("Decode TaskEvent with truncated data should throw")
+    void decodeTaskEventTruncated() {
+        SdkWireMessages.TaskEvent original = new SdkWireMessages.TaskEvent("type", "msg", 10, "data".getBytes());
+        byte[] encoded = SdkWireMessages.encodeTaskEvent(original);
         byte[] truncated = new byte[Math.max(1, encoded.length / 2)];
         System.arraycopy(encoded, 0, truncated, 0, truncated.length);
 
         assertThrows(IllegalArgumentException.class, () ->
-            SdkWireMessages.decodeJobEvent(truncated));
+            SdkWireMessages.decodeTaskEvent(truncated));
     }
 
     @Test
@@ -487,12 +487,12 @@ class SdkWireMessagesCoverageTest {
         SdkWireMessages.LocalFunctionDescriptor desc = new SdkWireMessages.LocalFunctionDescriptor(
             "f1", "1.0.0", List.of(), "", "", "", false, "", "", "", "", "", "");
 
-        // Encode as part of RegisterLocalRequest to exercise encodeLocalFunctionDescriptor
-        SdkWireMessages.RegisterLocalRequest req = new SdkWireMessages.RegisterLocalRequest(
+        // Encode as part of ProviderConnectRequest to exercise encodeLocalFunctionDescriptor
+        SdkWireMessages.ProviderConnectRequest req = new SdkWireMessages.ProviderConnectRequest(
             "svc", "1.0.0", "addr", List.of(desc));
 
-        byte[] encoded = SdkWireMessages.encodeRegisterLocalRequest(req);
-        SdkWireMessages.RegisterLocalRequest decoded = SdkWireMessages.decodeRegisterLocalRequest(encoded);
+        byte[] encoded = SdkWireMessages.encodeProviderConnectRequest(req);
+        SdkWireMessages.ProviderConnectRequest decoded = SdkWireMessages.decodeProviderConnectRequest(encoded);
 
         assertEquals(1, decoded.functions.size());
         assertTrue(decoded.functions.get(0).tags.isEmpty());

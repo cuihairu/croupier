@@ -53,14 +53,23 @@
 
 ## P2：任务模型与 SDK 一致性
 
-- [ ] **统一 REST Task Start 与函数调用调度路径。** 确认 `POST /api/v1/tasks` 是否仍只创建记录；如是，复用 Dispatcher 的任务 ID、持久化与事件闭环，避免两套任务语义。
-  - 位置：`internal/api/task/`、`internal/platform/dispatch/`
+- [x] **统一 REST Task Start 与函数调用调度路径。** `POST /api/v1/tasks` 的 `Start` 已走 `Dispatcher.StartTaskRequest`（服务端生成 task ID + 创建 task_runs 行 + 转发 agent）；补齐 `Cancel` 也调用 `Dispatcher.CancelTask` 转发取消到 agent，不再只更新本地行。
+  - 位置：`internal/api/task/service.go`（`Start`/`Cancel`）、`internal/platform/dispatch/dispatcher.go`
+  - 验证：`/usr/local/go/bin/go test ./internal/api/task/...`
 
-- [ ] **抽象 Agent `TaskRunner` / `TaskContext`。** 将任务执行、取消、状态和事件上报从 Agent handler 中分离，保持 Task 的单一职责与可测试性。
+- [x] **抽象 Agent `TaskRunner` / `TaskContext`。** 新增 `internal/agent/task_runner.go`，封装任务启动/取消/事件上报/状态（`TaskExecutor` + `TaskEventReporter` 注入）；`LocalHandler` 改为委托，删除内联 `runTask`/`executeTask`/`emitTaskEvent`/`taskIndex`。
+  - 位置：`internal/agent/task_runner.go`、`internal/agent/local_handler.go`
+  - 验证：`TestTaskRunner`、`TestLocalHandler_TaskEventReporting`（`/usr/local/go/bin/go test ./internal/agent/...`）
 
-- [ ] **按 SDK 独立验证并迁移旧 wire 命名。** 当前 Java SDK 源码仍含 `StartJob` / `RegisterLocal`；Python 仍有旧 `agent/local` 生成代码。以根 `proto/` 和 `sdk-wire-protocol.md` 为单一协议源，生成或更新各 SDK，逐语言运行测试。
-  - 位置：`sdks/java/`、`sdks/python/`
-  - 验收：SDK 源码和生成代码不存在非兼容目的的 `RegisterLocal` / `HeartbeatLocal` / `ListLocal`；Task/Provider 命名与根协议一致。
+- [x] **按 SDK 独立验证并迁移旧 wire 命名。** 6 语言 SDK 源码旧命名（`StartJob`/`RegisterLocal`/`HeartbeatLocal`/`ListLocal`/`JobEvent`）已迁移到根协议命名（`StartTask`/`ProviderConnect`/`ProviderHeartbeat`/`TaskEvent`），数值 wire opcode 不变。
+  - **Go**（主力）：57 文件，`go build` + 核心包测试通过，手写代码旧命名零残留。
+  - **Java**：17 文件 + 2 重命名，全树扫描零残留（无 JDK，一致性靠全面扫描保证）。
+  - **Python**：手写层全迁移，py_compile OK，旧命名零残留；生成 `*_pb2.py` 过时，需 `sdks/python/scripts/regen-proto.sh`（buf）重生成后运行。
+  - **JS/TS**：3 文件，`tsc --noEmit` + 144 测试全过，旧命名零残留。
+  - **C#**：手写层全迁移，操作码不变；生成 `generated/*.cs` 过时（保留方案 A），需 protoc 重生成后消除 `CroupierInvoker.cs` 中 1 处对 `StartJobResponse` 的内部引用。
+  - **C++**：审计确认无旧命名，无需迁移。
+  - 位置：`sdks/{go,java,python,js,csharp,cpp}/`、`proto/croupier/agent/v1/register.proto`、`sdks/python/scripts/regen-proto.sh`
+  - 验证：各 SDK 手写源码 `rg "StartJob|RegisterLocal|HeartbeatLocal|ListLocal|JobEvent"` 零残留；Python/C# 生成代码重生成待 buf/protoc 环境。
 
 ## 已验证（2026-07-10）
 
@@ -68,6 +77,7 @@
 - [x] 架构目标已文档化：Agent-Server 与 SDK-Agent 使用共享 session runtime，业务作用域为 `game_id + env`，并采用按游戏分库。
 - [x] P0 安全与会话正确性 4 项已修复并通过测试：game/env 分库校验、Agent 重连会话隔离、Agent-Server 握手状态机、SDK-Agent 首帧规则。
 - [x] P1 运行时收敛 4 项 + 作用域边界 2 项已完成：控制面优雅停机、shared session runtime 抽取（compare-and-remove）、Router 锁外 I/O（singleflight）、删除 legacy gRPC 包、分库边界审计 + dbctx 契约测试、ServiceContext 端口锚点（ports.Permissions）。
+- [x] P2 任务模型与 SDK 一致性 3 项已完成：REST Task 统一调度（含 Cancel 转发）、Agent TaskRunner 抽象、6 语言 SDK 旧 wire 命名迁移（Go/JS 可运行验证，Java/Python/C# 手写层迁移完成、生成代码待重生成）。
 
 ## 维护规则
 

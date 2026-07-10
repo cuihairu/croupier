@@ -5,7 +5,7 @@ import io.github.cuihairu.croupier.sdk.invoker.InvokeOptions;
 import io.github.cuihairu.croupier.sdk.invoker.Invoker;
 import io.github.cuihairu.croupier.sdk.invoker.InvokerConfig;
 import io.github.cuihairu.croupier.sdk.invoker.InvokerException;
-import io.github.cuihairu.croupier.sdk.invoker.JobEventInfo;
+import io.github.cuihairu.croupier.sdk.invoker.TaskEventInfo;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
 
@@ -17,7 +17,7 @@ import java.util.Map;
  * Comprehensive examples demonstrating the Croupier Java SDK Invoker functionality.
  *
  * <p>This class shows how to use the Invoker to call functions registered with
- * the Croupier platform, including synchronous calls, asynchronous jobs, and
+ * the Croupier platform, including synchronous calls, asynchronous tasks, and
  * event streaming.</p>
  *
  * <p>Before running these examples, ensure you have a Croupier server running
@@ -36,9 +36,9 @@ public class InvokerExample {
         try {
             // Run all examples
             syncInvokeExample();
-            asyncJobExample();
-            jobStreamExample();
-            jobCancelExample();
+            asyncTaskExample();
+            taskStreamExample();
+            taskCancelExample();
             schemaValidationExample();
 
             System.out.println("\n✅ 所有示例完成");
@@ -93,10 +93,10 @@ public class InvokerExample {
     }
 
     /**
-     * Example 2: Asynchronous job execution.
+     * Example 2: Asynchronous task execution.
      */
-    static void asyncJobExample() throws InvokerException {
-        printHeader("异步任务示例 (Asynchronous Job)");
+    static void asyncTaskExample() throws InvokerException {
+        printHeader("异步任务示例 (Asynchronous Task)");
 
         Invoker invoker = CroupierSDK.createInvoker();
 
@@ -104,13 +104,13 @@ public class InvokerExample {
             invoker.connect();
             System.out.println("✅ 已连接到服务器\n");
 
-            // Start an asynchronous job
+            // Start an asynchronous task
             String functionId = "player.ban";
             String payload = String.format("{\"player_id\":\"%s\",\"reason\":\"%s\",\"duration\":%d}",
                 "67890", "严重违规", 604800);
 
-            String jobId = invoker.startJob(functionId, payload);
-            System.out.println("🚀 任务已启动，Job ID: " + jobId);
+            String taskId = invoker.startTask(functionId, payload);
+            System.out.println("🚀 任务已启动，Task ID: " + taskId);
 
         } catch (InvokerException e) {
             System.out.println("❌ 任务失败: " + e.getMessage());
@@ -120,10 +120,10 @@ public class InvokerExample {
     }
 
     /**
-     * Example 3: Stream job events using Reactive Streams.
+     * Example 3: Stream task events using Reactive Streams.
      */
-    static void jobStreamExample() throws InvokerException {
-        printHeader("流式任务事件示例 (Job Event Streaming)");
+    static void taskStreamExample() throws InvokerException {
+        printHeader("流式任务事件示例 (Task Event Streaming)");
 
         Invoker invoker = CroupierSDK.createInvoker();
 
@@ -131,17 +131,17 @@ public class InvokerExample {
             invoker.connect();
             System.out.println("✅ 已连接到服务器\n");
 
-            // Start a job
+            // Start a task
             String functionId = "player.ban";
             String payload = String.format("{\"player_id\":\"%s\",\"reason\":\"%s\",\"duration\":%d}",
                 "11111", "测试流式", 3600);
 
-            String jobId = invoker.startJob(functionId, payload);
-            System.out.println("🚀 任务已启动，Job ID: " + jobId);
+            String taskId = invoker.startTask(functionId, payload);
+            System.out.println("🚀 任务已启动，Task ID: " + taskId);
             System.out.println("📡 接收任务事件...\n");
 
-            // Subscribe to job events
-            invoker.streamJob(jobId).subscribe(new Subscriber<JobEventInfo>() {
+            // Subscribe to task events
+            invoker.streamTask(taskId).subscribe(new Subscriber<TaskEventInfo>() {
                 private Subscription subscription;
                 private int eventCount = 0;
 
@@ -152,7 +152,7 @@ public class InvokerExample {
                 }
 
                 @Override
-                public void onNext(JobEventInfo event) {
+                public void onNext(TaskEventInfo event) {
                     eventCount++;
                     System.out.printf("📬 事件 [%s]: %s%n", event.getType(), event.getMessage());
 
@@ -197,10 +197,10 @@ public class InvokerExample {
     }
 
     /**
-     * Example 4: Job cancellation.
+     * Example 4: Task cancellation.
      */
-    static void jobCancelExample() throws InvokerException {
-        printHeader("取消任务示例 (Job Cancellation)");
+    static void taskCancelExample() throws InvokerException {
+        printHeader("取消任务示例 (Task Cancellation)");
 
         Invoker invoker = CroupierSDK.createInvoker();
 
@@ -213,15 +213,15 @@ public class InvokerExample {
             String payload = String.format("{\"player_id\":\"%s\",\"reason\":\"%s\",\"duration\":%d}",
                 "22222", "测试取消", 9999999);
 
-            String jobId = invoker.startJob(functionId, payload);
-            System.out.println("🚀 任务已启动，Job ID: " + jobId + "\n");
+            String taskId = invoker.startTask(functionId, payload);
+            System.out.println("🚀 任务已启动，Task ID: " + taskId + "\n");
 
             // Wait a bit then cancel
             Thread.sleep(1000);
 
-            // Cancel the job
-            invoker.cancelJob(jobId);
-            System.out.println("🛑 任务已取消: " + jobId + "\n");
+            // Cancel the task
+            invoker.cancelTask(taskId);
+            System.out.println("🛑 任务已取消: " + taskId + "\n");
 
         } catch (InvokerException | InterruptedException e) {
             System.out.println("❌ 操作失败: " + e.getMessage());

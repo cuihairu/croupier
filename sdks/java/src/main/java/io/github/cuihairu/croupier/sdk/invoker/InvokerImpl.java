@@ -20,7 +20,7 @@ import java.util.function.BiFunction;
 import static io.github.cuihairu.croupier.sdk.invoker.InvokerException.ErrorCode;
 
 /**
- * Implementation of the Invoker interface with job management support.
+ * Implementation of the Invoker interface with task management support.
  *
  * <p>This implementation uses the shared SDK wire protocol over transport abstractions.</p>
  */
@@ -30,7 +30,7 @@ public class InvokerImpl implements Invoker {
 
     private final InvokerConfig config;
     private final Map<String, Map<String, Object>> schemas;
-    private final Map<String, JobState> activeJobs;
+    private final Map<String, TaskState> activeTasks;
     private final BiFunction<String, Integer, TransportClient> transportFactory;
     private volatile TransportClient transport;
     private volatile boolean connected;
@@ -52,7 +52,7 @@ public class InvokerImpl implements Invoker {
     public InvokerImpl(InvokerConfig config, BiFunction<String, Integer, TransportClient> transportFactory) {
         this.config = config;
         this.schemas = new ConcurrentHashMap<>();
-        this.activeJobs = new ConcurrentHashMap<>();
+        this.activeTasks = new ConcurrentHashMap<>();
         this.transportFactory = transportFactory;
         this.connected = false;
     }
@@ -95,55 +95,55 @@ public class InvokerImpl implements Invoker {
     }
 
     @Override
-    public String startJob(String functionId, String payload) throws InvokerException {
-        return startJob(functionId, payload, InvokeOptions.create());
+    public String startTask(String functionId, String payload) throws InvokerException {
+        return startTask(functionId, payload, InvokeOptions.create());
     }
 
     @Override
-    public String startJob(String functionId, String payload, InvokeOptions options) throws InvokerException {
+    public String startTask(String functionId, String payload, InvokeOptions options) throws InvokerException {
         ensureConnected();
         InvokeOptions effectiveOptions = options != null ? options : InvokeOptions.create();
-        return withRetry("StartJob", effectiveOptions.getRetry(), () -> startJobInternal(functionId, payload, effectiveOptions));
+        return withRetry("StartTask", effectiveOptions.getRetry(), () -> startTaskInternal(functionId, payload, effectiveOptions));
     }
 
     @Override
-    public Publisher<JobEventInfo> streamJob(String jobId) {
-        logger.info("Streaming events for job: {}", jobId);
-        return new JobEventPublisher(jobId);
+    public Publisher<TaskEventInfo> streamTask(String taskId) {
+        logger.info("Streaming events for task: {}", taskId);
+        return new TaskEventPublisher(taskId);
     }
 
     @Override
-    public void cancelJob(String jobId) throws InvokerException {
-        JobState jobState = activeJobs.get(jobId);
+    public void cancelTask(String taskId) throws InvokerException {
+        TaskState taskState = activeTasks.get(taskId);
 
-        if (jobState == null) {
+        if (taskState == null) {
             throw new InvokerException(ErrorCode.NOT_FOUND,
-                "Job not found: " + jobId);
+                "Task not found: " + taskId);
         }
 
-        if (jobState.isDone()) {
+        if (taskState.isDone()) {
             throw new InvokerException(ErrorCode.FAILED_PRECONDITION,
-                "Job already finished: " + jobId + " (status: " + jobState.getStatus() + ")");
+                "Task already finished: " + taskId + " (status: " + taskState.getStatus() + ")");
         }
 
         try {
-            logger.info("Cancelling job: {}", jobId);
+            logger.info("Cancelling task: {}", taskId);
             requireTransport().request(
-                Protocol.MSG_CANCEL_JOB_REQUEST,
-                SdkWireMessages.encodeCancelJobRequest(new SdkWireMessages.CancelJobRequest(jobId))
+                Protocol.MSG_CANCEL_TASK_REQUEST,
+                SdkWireMessages.encodeCancelTaskRequest(new SdkWireMessages.CancelTaskRequest(taskId))
             );
-            publishJobEvent(jobId, JobEventInfo.builder()
+            publishTaskEvent(taskId, TaskEventInfo.builder()
                 .type("cancelled")
-                .jobId(jobId)
-                .message("Job cancelled")
+                .taskId(taskId)
+                .message("Task cancelled")
                 .done(true)
                 .build());
-            logger.info("Job cancelled: {}", jobId);
+            logger.info("Task cancelled: {}", taskId);
         } catch (Exception e) {
             if (e instanceof InvokerException) {
                 throw (InvokerException) e;
             }
-            throw new InvokerException(ErrorCode.INTERNAL, "CancelJob failed: " + e.getMessage(), e);
+            throw new InvokerException(ErrorCode.INTERNAL, "CancelTask failed: " + e.getMessage(), e);
         }
     }
 
@@ -159,12 +159,12 @@ public class InvokerImpl implements Invoker {
             transport.close();
             transport = null;
         }
-        for (JobState state : activeJobs.values()) {
+        for (TaskState state : activeTasks.values()) {
             state.stopPolling();
         }
         connected = false;
         schemas.clear();
-        activeJobs.clear();
+        activeTasks.clear();
         logger.info("Invoker closed");
     }
 
@@ -174,32 +174,32 @@ public class InvokerImpl implements Invoker {
     }
 
     /**
-     * Gets the number of active jobs.
+     * Gets the number of active tasks.
      *
-     * @return the count of active jobs
+     * @return the count of active tasks
      */
-    public int getActiveJobCount() {
-        return activeJobs.size();
+    public int getActiveTaskCount() {
+        return activeTasks.size();
     }
 
     /**
-     * Checks if a job exists.
+     * Checks if a task exists.
      *
-     * @param jobId the job ID to check
-     * @return true if the job exists, false otherwise
+     * @param taskId the task ID to check
+     * @return true if the task exists, false otherwise
      */
-    public boolean hasJob(String jobId) {
-        return activeJobs.containsKey(jobId);
+    public boolean hasTask(String taskId) {
+        return activeTasks.containsKey(taskId);
     }
 
     /**
-     * Gets the status of a job.
+     * Gets the status of a task.
      *
-     * @param jobId the job ID
-     * @return the job status, or null if not found
+     * @param taskId the task ID
+     * @return the task status, or null if not found
      */
-    public JobStatus getJobStatus(String jobId) {
-        JobState state = activeJobs.get(jobId);
+    public TaskStatus getTaskStatus(String taskId) {
+        TaskState state = activeTasks.get(taskId);
         return state != null ? state.getStatus() : null;
     }
 
@@ -232,9 +232,9 @@ public class InvokerImpl implements Invoker {
         }
     }
 
-    private String startJobInternal(String functionId, String payload, InvokeOptions options) throws InvokerException {
+    private String startTaskInternal(String functionId, String payload, InvokeOptions options) throws InvokerException {
         try {
-            logger.debug("Starting job for function: {}", functionId);
+            logger.debug("Starting task for function: {}", functionId);
             SdkWireMessages.InvokeRequest request = new SdkWireMessages.InvokeRequest(
                 functionId,
                 options.getIdempotencyKey(),
@@ -242,27 +242,27 @@ public class InvokerImpl implements Invoker {
                 options.getHeaders()
             );
             byte[] responseBody = requireTransport().request(
-                Protocol.MSG_START_JOB_REQUEST,
+                Protocol.MSG_START_TASK_REQUEST,
                 SdkWireMessages.encodeInvokeRequest(request)
             );
-            String jobId = SdkWireMessages.decodeStartJobResponse(responseBody).jobId;
-            if (jobId.isEmpty()) {
-                throw new InvokerException(ErrorCode.INTERNAL, "StartJob response did not include job ID");
+            String taskId = SdkWireMessages.decodeStartTaskResponse(responseBody).taskId;
+            if (taskId.isEmpty()) {
+                throw new InvokerException(ErrorCode.INTERNAL, "StartTask response did not include task ID");
             }
 
-            JobState jobState = new JobState(jobId, functionId, payload == null ? "" : payload, options);
-            activeJobs.put(jobId, jobState);
-            publishJobEvent(jobId, JobEventInfo.builder()
+            TaskState taskState = new TaskState(taskId, functionId, payload == null ? "" : payload, options);
+            activeTasks.put(taskId, taskState);
+            publishTaskEvent(taskId, TaskEventInfo.builder()
                 .type("started")
-                .jobId(jobId)
-                .message("Job started")
+                .taskId(taskId)
+                .message("Task started")
                 .done(false)
                 .build());
-            return jobId;
+            return taskId;
         } catch (InvokerException e) {
             throw e;
         } catch (Exception e) {
-            throw new InvokerException(ErrorCode.INTERNAL, "StartJob failed: " + e.getMessage(), e);
+            throw new InvokerException(ErrorCode.INTERNAL, "StartTask failed: " + e.getMessage(), e);
         }
     }
 
@@ -334,27 +334,27 @@ public class InvokerImpl implements Invoker {
         return transport;
     }
 
-    private void publishJobEvent(String jobId, JobEventInfo event) {
-        JobState state = activeJobs.get(jobId);
+    private void publishTaskEvent(String taskId, TaskEventInfo event) {
+        TaskState state = activeTasks.get(taskId);
         if (state != null) {
             state.recordEvent(event);
         }
     }
 
-    private JobEventInfo fetchJobEvent(String jobId) throws InvokerException {
+    private TaskEventInfo fetchTaskEvent(String taskId) throws InvokerException {
         try {
             byte[] responseBody = requireTransport().request(
-                Protocol.MSG_STREAM_JOB_REQUEST,
-                SdkWireMessages.encodeJobStreamRequest(new SdkWireMessages.JobStreamRequest(jobId))
+                Protocol.MSG_STREAM_TASK_REQUEST,
+                SdkWireMessages.encodeTaskStreamRequest(new SdkWireMessages.TaskStreamRequest(taskId))
             );
-            SdkWireMessages.JobEvent event = SdkWireMessages.decodeJobEvent(responseBody);
-            String normalizedType = normalizeJobEventType(event.type, event.message);
+            SdkWireMessages.TaskEvent event = SdkWireMessages.decodeTaskEvent(responseBody);
+            String normalizedType = normalizeTaskEventType(event.type, event.message);
             boolean done = "completed".equals(normalizedType) ||
                 "error".equals(normalizedType) ||
                 "cancelled".equals(normalizedType);
-            return JobEventInfo.builder()
+            return TaskEventInfo.builder()
                 .type(normalizedType)
-                .jobId(jobId)
+                .taskId(taskId)
                 .payload(event.payloadUtf8().isEmpty() ? null : event.payloadUtf8())
                 .message(event.message)
                 .progress(event.progress)
@@ -364,11 +364,11 @@ public class InvokerImpl implements Invoker {
         } catch (InvokerException e) {
             throw e;
         } catch (Exception e) {
-            throw new InvokerException(ErrorCode.INTERNAL, "StreamJob failed: " + e.getMessage(), e);
+            throw new InvokerException(ErrorCode.INTERNAL, "StreamTask failed: " + e.getMessage(), e);
         }
     }
 
-    private void startPolling(JobState state) {
+    private void startPolling(TaskState state) {
         if (!state.markPollingStarted()) {
             return;
         }
@@ -376,7 +376,7 @@ public class InvokerImpl implements Invoker {
         Thread pollingThread = new Thread(() -> {
             try {
                 while (!state.shouldStopPolling() && !state.isDone()) {
-                    JobEventInfo event = fetchJobEvent(state.getJobId());
+                    TaskEventInfo event = fetchTaskEvent(state.getTaskId());
                     state.recordEventIfNew(event);
                     if (event.isDone()) {
                         break;
@@ -390,13 +390,13 @@ public class InvokerImpl implements Invoker {
             } finally {
                 state.stopPolling();
             }
-        }, "croupier-java-job-poller-" + state.getJobId());
+        }, "croupier-java-task-poller-" + state.getTaskId());
         pollingThread.setDaemon(true);
         state.setPollingThread(pollingThread);
         pollingThread.start();
     }
 
-    private String normalizeJobEventType(String type, String message) {
+    private String normalizeTaskEventType(String type, String message) {
         String loweredType = type == null ? "" : type.toLowerCase();
         if ("done".equals(loweredType)) {
             return "completed";
@@ -407,17 +407,17 @@ public class InvokerImpl implements Invoker {
         return loweredType;
     }
 
-    private JobStatus toJobStatus(JobEventInfo event) {
+    private TaskStatus toTaskStatus(TaskEventInfo event) {
         return switch (event.getType()) {
-            case "completed" -> JobStatus.COMPLETED;
-            case "error" -> JobStatus.ERROR;
-            case "cancelled" -> JobStatus.CANCELLED;
-            case "progress" -> JobStatus.PROGRESS;
-            default -> JobStatus.STARTED;
+            case "completed" -> TaskStatus.COMPLETED;
+            case "error" -> TaskStatus.ERROR;
+            case "cancelled" -> TaskStatus.CANCELLED;
+            case "progress" -> TaskStatus.PROGRESS;
+            default -> TaskStatus.STARTED;
         };
     }
 
-    private boolean isSameEvent(JobEventInfo left, JobEventInfo right) {
+    private boolean isSameEvent(TaskEventInfo left, TaskEventInfo right) {
         return left != null && left.equals(right);
     }
 
@@ -427,29 +427,29 @@ public class InvokerImpl implements Invoker {
     }
 
     /**
-     * Simulates job progress updates (for testing/future implementation).
+     * Simulates task progress updates (for testing/future implementation).
      *
-     * @param jobId the job ID to update
+     * @param taskId the task ID to update
      * @param progress the progress percentage (0-100)
      * @param message the progress message
      */
-    public void simulateJobProgress(String jobId, int progress, String message) {
-        JobState state = activeJobs.get(jobId);
+    public void simulateTaskProgress(String taskId, int progress, String message) {
+        TaskState state = activeTasks.get(taskId);
         if (state != null && !state.isDone()) {
-            publishJobEvent(jobId, JobEventInfo.builder()
+            publishTaskEvent(taskId, TaskEventInfo.builder()
                 .type("progress")
-                .jobId(jobId)
+                .taskId(taskId)
                 .progress(progress)
                 .message(message)
                 .done(false)
                 .build());
 
-            // If job is complete, mark as done
+            // If task is complete, mark as done
             if (progress >= 100) {
-                publishJobEvent(jobId, JobEventInfo.builder()
+                publishTaskEvent(taskId, TaskEventInfo.builder()
                     .type("completed")
-                    .jobId(jobId)
-                    .message("Job completed")
+                    .taskId(taskId)
+                    .message("Task completed")
                     .progress(100)
                     .done(true)
                     .build());
@@ -458,19 +458,19 @@ public class InvokerImpl implements Invoker {
     }
 
     /**
-     * Simulates job error (for testing/future implementation).
+     * Simulates task error (for testing/future implementation).
      *
-     * @param jobId the job ID that failed
+     * @param taskId the task ID that failed
      * @param error the error message
      */
-    public void simulateJobError(String jobId, String error) {
-        JobState state = activeJobs.get(jobId);
+    public void simulateTaskError(String taskId, String error) {
+        TaskState state = activeTasks.get(taskId);
         if (state != null) {
-            publishJobEvent(jobId, JobEventInfo.builder()
+            publishTaskEvent(taskId, TaskEventInfo.builder()
                 .type("error")
-                .jobId(jobId)
+                .taskId(taskId)
                 .error(error)
-                .message("Job failed: " + error)
+                .message("Task failed: " + error)
                 .done(true)
                 .build());
         }
@@ -479,9 +479,9 @@ public class InvokerImpl implements Invoker {
     // Inner classes
 
     /**
-     * Job status enumeration.
+     * Task status enumeration.
      */
-    public enum JobStatus {
+    public enum TaskStatus {
         STARTED,
         PROGRESS,
         COMPLETED,
@@ -490,23 +490,23 @@ public class InvokerImpl implements Invoker {
     }
 
     /**
-     * Internal state for tracking active jobs.
+     * Internal state for tracking active tasks.
      */
-    private class JobState {
-        private final String jobId;
+    private class TaskState {
+        private final String taskId;
         private final String functionId;
         private final String payload;
         private final InvokeOptions options;
-        private final CopyOnWriteArrayList<JobEventInfo> events;
-        private final CopyOnWriteArrayList<JobEventSubscription> subscriptions;
+        private final CopyOnWriteArrayList<TaskEventInfo> events;
+        private final CopyOnWriteArrayList<TaskEventSubscription> subscriptions;
         private final AtomicBoolean pollingStarted;
         private final AtomicBoolean stopPolling;
-        private volatile JobStatus status;
+        private volatile TaskStatus status;
         private volatile InvokerException failure;
         private volatile Thread pollingThread;
 
-        JobState(String jobId, String functionId, String payload, InvokeOptions options) {
-            this.jobId = jobId;
+        TaskState(String taskId, String functionId, String payload, InvokeOptions options) {
+            this.taskId = taskId;
             this.functionId = functionId;
             this.payload = payload;
             this.options = options;
@@ -514,11 +514,11 @@ public class InvokerImpl implements Invoker {
             this.subscriptions = new CopyOnWriteArrayList<>();
             this.pollingStarted = new AtomicBoolean(false);
             this.stopPolling = new AtomicBoolean(false);
-            this.status = JobStatus.STARTED;
+            this.status = TaskStatus.STARTED;
         }
 
-        String getJobId() {
-            return jobId;
+        String getTaskId() {
+            return taskId;
         }
 
         String getFunctionId() {
@@ -533,18 +533,18 @@ public class InvokerImpl implements Invoker {
             return options;
         }
 
-        JobStatus getStatus() {
+        TaskStatus getStatus() {
             return status;
         }
 
-        void setStatus(JobStatus status) {
+        void setStatus(TaskStatus status) {
             this.status = status;
         }
 
         boolean isDone() {
-            return status == JobStatus.COMPLETED ||
-                   status == JobStatus.ERROR ||
-                   status == JobStatus.CANCELLED;
+            return status == TaskStatus.COMPLETED ||
+                   status == TaskStatus.ERROR ||
+                   status == TaskStatus.CANCELLED;
         }
 
         boolean markPollingStarted() {
@@ -566,20 +566,20 @@ public class InvokerImpl implements Invoker {
             }
         }
 
-        void recordEvent(JobEventInfo event) {
+        void recordEvent(TaskEventInfo event) {
             events.add(event);
-            status = toJobStatus(event);
-            for (JobEventSubscription subscription : subscriptions) {
+            status = toTaskStatus(event);
+            for (TaskEventSubscription subscription : subscriptions) {
                 subscription.emitAvailable();
             }
             if (event.isDone()) {
-                for (JobEventSubscription subscription : subscriptions) {
+                for (TaskEventSubscription subscription : subscriptions) {
                     subscription.completeIfDone();
                 }
             }
         }
 
-        void recordEventIfNew(JobEventInfo event) {
+        void recordEventIfNew(TaskEventInfo event) {
             if (events.isEmpty() || !isSameEvent(events.get(events.size() - 1), event)) {
                 recordEvent(event);
             }
@@ -589,7 +589,7 @@ public class InvokerImpl implements Invoker {
             return events.size();
         }
 
-        JobEventInfo eventAt(int index) {
+        TaskEventInfo eventAt(int index) {
             return events.get(index);
         }
 
@@ -599,42 +599,42 @@ public class InvokerImpl implements Invoker {
 
         void fail(InvokerException error) {
             failure = error;
-            for (JobEventSubscription subscription : subscriptions) {
+            for (TaskEventSubscription subscription : subscriptions) {
                 subscription.emitFailure(error);
             }
         }
 
-        void addSubscription(JobEventSubscription subscription) {
+        void addSubscription(TaskEventSubscription subscription) {
             subscriptions.add(subscription);
         }
 
-        void removeSubscription(JobEventSubscription subscription) {
+        void removeSubscription(TaskEventSubscription subscription) {
             subscriptions.remove(subscription);
         }
     }
 
     /**
-     * Reactive publisher for job events.
+     * Reactive publisher for task events.
      */
-    private class JobEventPublisher implements Publisher<JobEventInfo> {
-        private final String jobId;
+    private class TaskEventPublisher implements Publisher<TaskEventInfo> {
+        private final String taskId;
 
-        JobEventPublisher(String jobId) {
-            this.jobId = jobId;
+        TaskEventPublisher(String taskId) {
+            this.taskId = taskId;
         }
 
         @Override
-        public void subscribe(Subscriber<? super JobEventInfo> subscriber) {
-            JobState state = activeJobs.get(jobId);
+        public void subscribe(Subscriber<? super TaskEventInfo> subscriber) {
+            TaskState state = activeTasks.get(taskId);
 
             if (state == null) {
                 subscriber.onError(new InvokerException(ErrorCode.NOT_FOUND,
-                    "Job not found: " + jobId));
+                    "Task not found: " + taskId));
                 return;
             }
 
             try {
-                JobEventSubscription subscription = new JobEventSubscription(state, subscriber);
+                TaskEventSubscription subscription = new TaskEventSubscription(state, subscriber);
                 state.addSubscription(subscription);
                 subscriber.onSubscribe(subscription);
                 subscription.emitAvailable();
@@ -648,17 +648,17 @@ public class InvokerImpl implements Invoker {
     }
 
     /**
-     * Subscription for job event streams.
+     * Subscription for task event streams.
      */
-    private class JobEventSubscription implements org.reactivestreams.Subscription {
-        private final JobState jobState;
-        private final Subscriber<? super JobEventInfo> subscriber;
+    private class TaskEventSubscription implements org.reactivestreams.Subscription {
+        private final TaskState taskState;
+        private final Subscriber<? super TaskEventInfo> subscriber;
         private final AtomicLong requested = new AtomicLong();
         private volatile boolean cancelled = false;
         private int nextIndex = 0;
 
-        JobEventSubscription(JobState state, Subscriber<? super JobEventInfo> subscriber) {
-            this.jobState = state;
+        TaskEventSubscription(TaskState state, Subscriber<? super TaskEventInfo> subscriber) {
+            this.taskState = state;
             this.subscriber = subscriber;
         }
 
@@ -669,8 +669,8 @@ public class InvokerImpl implements Invoker {
                 }
 
                 try {
-                    while (!cancelled && requested.get() > 0 && nextIndex < jobState.eventCount()) {
-                        JobEventInfo event = jobState.eventAt(nextIndex++);
+                    while (!cancelled && requested.get() > 0 && nextIndex < taskState.eventCount()) {
+                        TaskEventInfo event = taskState.eventAt(nextIndex++);
                         subscriber.onNext(event);
                         if (requested.get() != Long.MAX_VALUE) {
                             requested.decrementAndGet();
@@ -681,9 +681,9 @@ public class InvokerImpl implements Invoker {
                             return;
                         }
                     }
-                    if (!cancelled && jobState.getFailure() != null && nextIndex >= jobState.eventCount()) {
+                    if (!cancelled && taskState.getFailure() != null && nextIndex >= taskState.eventCount()) {
                         cancelInternal();
-                        subscriber.onError(jobState.getFailure());
+                        subscriber.onError(taskState.getFailure());
                     }
                 } catch (Exception e) {
                     cancelInternal();
@@ -694,7 +694,7 @@ public class InvokerImpl implements Invoker {
 
         void completeIfDone() {
             synchronized (this) {
-                if (!cancelled && jobState.isDone() && nextIndex >= jobState.eventCount()) {
+                if (!cancelled && taskState.isDone() && nextIndex >= taskState.eventCount()) {
                     cancelInternal();
                     subscriber.onComplete();
                 }
@@ -737,7 +737,7 @@ public class InvokerImpl implements Invoker {
 
         private void cancelInternal() {
             cancelled = true;
-            jobState.removeSubscription(this);
+            taskState.removeSubscription(this);
         }
     }
 }

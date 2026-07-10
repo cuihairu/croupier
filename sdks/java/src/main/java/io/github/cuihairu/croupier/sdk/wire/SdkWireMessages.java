@@ -80,12 +80,12 @@ public final class SdkWireMessages {
         return new InvokeResponse(payload);
     }
 
-    public static byte[] encodeStartJobResponse(StartJobResponse message) {
-        return encode(out -> writeString(out, 1, message.jobId));
+    public static byte[] encodeStartTaskResponse(StartTaskResponse message) {
+        return encode(out -> writeString(out, 1, message.taskId));
     }
 
-    public static StartJobResponse decodeStartJobResponse(byte[] data) {
-        String jobId = "";
+    public static StartTaskResponse decodeStartTaskResponse(byte[] data) {
+        String taskId = "";
         CodedInputStream input = newInput(data);
         try {
             while (!input.isAtEnd()) {
@@ -94,23 +94,23 @@ public final class SdkWireMessages {
                     break;
                 }
                 if (WireFormat.getTagFieldNumber(tag) == 1) {
-                    jobId = input.readString();
+                    taskId = input.readString();
                 } else {
                     input.skipField(tag);
                 }
             }
         } catch (IOException e) {
-            throw new IllegalArgumentException("Failed to decode StartJobResponse", e);
+            throw new IllegalArgumentException("Failed to decode StartTaskResponse", e);
         }
-        return new StartJobResponse(jobId);
+        return new StartTaskResponse(taskId);
     }
 
-    public static byte[] encodeJobStreamRequest(JobStreamRequest message) {
-        return encode(out -> writeString(out, 1, message.jobId));
+    public static byte[] encodeTaskStreamRequest(TaskStreamRequest message) {
+        return encode(out -> writeString(out, 1, message.taskId));
     }
 
-    public static JobStreamRequest decodeJobStreamRequest(byte[] data) {
-        String jobId = "";
+    public static TaskStreamRequest decodeTaskStreamRequest(byte[] data) {
+        String taskId = "";
         CodedInputStream input = newInput(data);
         try {
             while (!input.isAtEnd()) {
@@ -119,18 +119,18 @@ public final class SdkWireMessages {
                     break;
                 }
                 if (WireFormat.getTagFieldNumber(tag) == 1) {
-                    jobId = input.readString();
+                    taskId = input.readString();
                 } else {
                     input.skipField(tag);
                 }
             }
         } catch (IOException e) {
-            throw new IllegalArgumentException("Failed to decode JobStreamRequest", e);
+            throw new IllegalArgumentException("Failed to decode TaskStreamRequest", e);
         }
-        return new JobStreamRequest(jobId);
+        return new TaskStreamRequest(taskId);
     }
 
-    public static byte[] encodeJobEvent(JobEvent message) {
+    public static byte[] encodeTaskEvent(TaskEvent message) {
         return encode(out -> {
             writeString(out, 1, message.type);
             writeString(out, 2, message.message);
@@ -139,7 +139,7 @@ public final class SdkWireMessages {
         });
     }
 
-    public static JobEvent decodeJobEvent(byte[] data) {
+    public static TaskEvent decodeTaskEvent(byte[] data) {
         String type = "";
         String message = "";
         int progress = 0;
@@ -160,17 +160,17 @@ public final class SdkWireMessages {
                 }
             }
         } catch (IOException e) {
-            throw new IllegalArgumentException("Failed to decode JobEvent", e);
+            throw new IllegalArgumentException("Failed to decode TaskEvent", e);
         }
-        return new JobEvent(type, message, progress, payload);
+        return new TaskEvent(type, message, progress, payload);
     }
 
-    public static byte[] encodeCancelJobRequest(CancelJobRequest message) {
-        return encode(out -> writeString(out, 1, message.jobId));
+    public static byte[] encodeCancelTaskRequest(CancelTaskRequest message) {
+        return encode(out -> writeString(out, 1, message.taskId));
     }
 
-    public static CancelJobRequest decodeCancelJobRequest(byte[] data) {
-        String jobId = "";
+    public static CancelTaskRequest decodeCancelTaskRequest(byte[] data) {
+        String taskId = "";
         CodedInputStream input = newInput(data);
         try {
             while (!input.isAtEnd()) {
@@ -179,18 +179,18 @@ public final class SdkWireMessages {
                     break;
                 }
                 if (WireFormat.getTagFieldNumber(tag) == 1) {
-                    jobId = input.readString();
+                    taskId = input.readString();
                 } else {
                     input.skipField(tag);
                 }
             }
         } catch (IOException e) {
-            throw new IllegalArgumentException("Failed to decode CancelJobRequest", e);
+            throw new IllegalArgumentException("Failed to decode CancelTaskRequest", e);
         }
-        return new CancelJobRequest(jobId);
+        return new CancelTaskRequest(taskId);
     }
 
-    public static byte[] encodeRegisterLocalRequest(RegisterLocalRequest message) {
+    public static byte[] encodeProviderConnectRequest(ProviderConnectRequest message) {
         return encode(out -> {
             writeString(out, 1, message.serviceId);
             writeString(out, 2, message.version);
@@ -201,7 +201,7 @@ public final class SdkWireMessages {
         });
     }
 
-    public static RegisterLocalRequest decodeRegisterLocalRequest(byte[] data) {
+    public static ProviderConnectRequest decodeProviderConnectRequest(byte[] data) {
         String serviceId = "";
         String version = "";
         String rpcAddr = "";
@@ -222,16 +222,16 @@ public final class SdkWireMessages {
                 }
             }
         } catch (IOException e) {
-            throw new IllegalArgumentException("Failed to decode RegisterLocalRequest", e);
+            throw new IllegalArgumentException("Failed to decode ProviderConnectRequest", e);
         }
-        return new RegisterLocalRequest(serviceId, version, rpcAddr, functions);
+        return new ProviderConnectRequest(serviceId, version, rpcAddr, functions);
     }
 
-    public static byte[] encodeRegisterLocalResponse(RegisterLocalResponse message) {
+    public static byte[] encodeProviderConnectResponse(ProviderConnectResponse message) {
         return encode(out -> writeString(out, 1, message.sessionId));
     }
 
-    public static RegisterLocalResponse decodeRegisterLocalResponse(byte[] data) {
+    public static ProviderConnectResponse decodeProviderConnectResponse(byte[] data) {
         String sessionId = "";
         CodedInputStream input = newInput(data);
         try {
@@ -247,9 +247,9 @@ public final class SdkWireMessages {
                 }
             }
         } catch (IOException e) {
-            throw new IllegalArgumentException("Failed to decode RegisterLocalResponse", e);
+            throw new IllegalArgumentException("Failed to decode ProviderConnectResponse", e);
         }
-        return new RegisterLocalResponse(sessionId);
+        return new ProviderConnectResponse(sessionId);
     }
 
     public static byte[] encodeHeartbeatRequest(HeartbeatRequest message) {
@@ -471,29 +471,29 @@ public final class SdkWireMessages {
         }
     }
 
-    public static final class StartJobResponse {
-        public final String jobId;
+    public static final class StartTaskResponse {
+        public final String taskId;
 
-        public StartJobResponse(String jobId) {
-            this.jobId = jobId == null ? "" : jobId;
+        public StartTaskResponse(String taskId) {
+            this.taskId = taskId == null ? "" : taskId;
         }
     }
 
-    public static final class JobStreamRequest {
-        public final String jobId;
+    public static final class TaskStreamRequest {
+        public final String taskId;
 
-        public JobStreamRequest(String jobId) {
-            this.jobId = jobId == null ? "" : jobId;
+        public TaskStreamRequest(String taskId) {
+            this.taskId = taskId == null ? "" : taskId;
         }
     }
 
-    public static final class JobEvent {
+    public static final class TaskEvent {
         public final String type;
         public final String message;
         public final int progress;
         public final byte[] payload;
 
-        public JobEvent(String type, String message, int progress, byte[] payload) {
+        public TaskEvent(String type, String message, int progress, byte[] payload) {
             this.type = type == null ? "" : type;
             this.message = message == null ? "" : message;
             this.progress = progress;
@@ -505,21 +505,21 @@ public final class SdkWireMessages {
         }
     }
 
-    public static final class CancelJobRequest {
-        public final String jobId;
+    public static final class CancelTaskRequest {
+        public final String taskId;
 
-        public CancelJobRequest(String jobId) {
-            this.jobId = jobId == null ? "" : jobId;
+        public CancelTaskRequest(String taskId) {
+            this.taskId = taskId == null ? "" : taskId;
         }
     }
 
-    public static final class RegisterLocalRequest {
+    public static final class ProviderConnectRequest {
         public final String serviceId;
         public final String version;
         public final String rpcAddr;
         public final java.util.List<LocalFunctionDescriptor> functions;
 
-        public RegisterLocalRequest(String serviceId, String version, String rpcAddr,
+        public ProviderConnectRequest(String serviceId, String version, String rpcAddr,
                                     java.util.List<LocalFunctionDescriptor> functions) {
             this.serviceId = serviceId == null ? "" : serviceId;
             this.version = version == null ? "" : version;
@@ -528,10 +528,10 @@ public final class SdkWireMessages {
         }
     }
 
-    public static final class RegisterLocalResponse {
+    public static final class ProviderConnectResponse {
         public final String sessionId;
 
-        public RegisterLocalResponse(String sessionId) {
+        public ProviderConnectResponse(String sessionId) {
             this.sessionId = sessionId == null ? "" : sessionId;
         }
     }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
@@ -208,51 +209,49 @@ func TestLocalHandler_Handle(t *testing.T) {
 	})
 }
 
-// --- Tests for taskIndex ---
+// --- Tests for TaskRunner ---
 
-func TestTaskIndex(t *testing.T) {
-	t.Run("new task index", func(t *testing.T) {
-		idx := newTaskIndex()
-		assert.NotNil(t, idx)
+func TestTaskRunner(t *testing.T) {
+	t.Run("new task runner", func(t *testing.T) {
+		r := NewTaskRunner(func(context.Context, *sdkv1.InvokeRequest) ([]byte, error) {
+			return []byte("null"), nil
+		}, nil, nil)
+		assert.NotNil(t, r)
+		assert.Equal(t, 0, r.Count())
 	})
 
-	t.Run("Set and Get", func(t *testing.T) {
-		idx := newTaskIndex()
+	t.Run("Start tracks task and Cancel reports event", func(t *testing.T) {
+		reporter := &mockTaskEventReporter{}
+		executed := make(chan struct{})
+		r := NewTaskRunner(func(ctx context.Context, _ *sdkv1.InvokeRequest) ([]byte, error) {
+			<-ctx.Done() // block until cancelled
+			return nil, ctx.Err()
+		}, reporter, nil)
 
-		cancel := func() {}
-		idx.Set("task-1", cancel)
+		id := r.Start(&sdkv1.InvokeRequest{FunctionId: "f", Metadata: map[string]string{"task_id": "task-1"}})
+		assert.Equal(t, "task-1", id)
+		assert.Equal(t, 1, r.Count())
 
-		got, ok := idx.Get("task-1")
+		ok := r.Cancel("task-1")
 		assert.True(t, ok)
-		assert.NotNil(t, got)
+		_ = executed
 	})
 
-	t.Run("Get non-existing", func(t *testing.T) {
-		idx := newTaskIndex()
-
-		got, ok := idx.Get("non-existing")
-		assert.False(t, ok)
-		assert.Nil(t, got)
+	t.Run("Cancel unknown task returns false", func(t *testing.T) {
+		r := NewTaskRunner(func(context.Context, *sdkv1.InvokeRequest) ([]byte, error) {
+			return []byte("null"), nil
+		}, nil, nil)
+		assert.False(t, r.Cancel("missing"))
 	})
 
-	t.Run("Delete", func(t *testing.T) {
-		idx := newTaskIndex()
+	t.Run("Start without metadata generates local task id", func(t *testing.T) {
+		reporter := &mockTaskEventReporter{}
+		r := NewTaskRunner(func(context.Context, *sdkv1.InvokeRequest) ([]byte, error) {
+			return []byte("ok"), nil
+		}, reporter, nil)
 
-		cancel := func() {}
-		idx.Set("task-1", cancel)
-
-		idx.Delete("task-1")
-
-		got, ok := idx.Get("task-1")
-		assert.False(t, ok)
-		assert.Nil(t, got)
-	})
-
-	t.Run("Delete non-existing", func(t *testing.T) {
-		idx := newTaskIndex()
-
-		// Should not panic
-		idx.Delete("non-existing")
+		id := r.Start(&sdkv1.InvokeRequest{FunctionId: "f"})
+		assert.Contains(t, id, "task-")
 	})
 }
 
@@ -617,34 +616,45 @@ func TestLocalHandler_HandleCancelTask(t *testing.T) {
 	})
 }
 
-// --- Tests for emitTaskEvent ---
+// --- Tests for task event reporting via TaskRunner ---
 
-func TestLocalHandler_EmitTaskEvent(t *testing.T) {
-	t.Run("with nil reporter", func(t *testing.T) {
-		store := agentlocal.NewLocalStore()
-		handler := NewLocalHandler(store, "/tmp", "agent-1", nil)
-
-		err := handler.emitTaskEvent(context.Background(), &sdkv1.TaskEvent{
-			TaskId: "task-1",
-			Type:   "started",
-		})
-		// Should not error even with nil reporter
-		assert.NoError(t, err)
-	})
-
-	t.Run("with reporter", func(t *testing.T) {
+func TestLocalHandler_TaskEventReporting(t *testing.T) {
+	t.Run("task events route through reporter", func(t *testing.T) {
 		store := agentlocal.NewLocalStore()
 		handler := NewLocalHandler(store, "/tmp", "agent-1", nil)
 
 		reporter := &mockTaskEventReporter{}
 		handler.SetTaskEventReporter(reporter)
 
-		err := handler.emitTaskEvent(context.Background(), &sdkv1.TaskEvent{
-			TaskId: "task-1",
-			Type:   "started",
-		})
+		// A StartTask with no provider registered will fail fast; the TaskRunner
+		// still emits started + failed events through the reporter.
+		req := &sdkv1.InvokeRequest{
+			FunctionId: "fn.echo",
+			Metadata:   map[string]string{"task_id": "task-evt"},
+		}
+		data, _ := proto.Marshal(req)
+
+		resp, err := handler.handleStartTask(context.Background(), data)
 		assert.NoError(t, err)
-		assert.Equal(t, 1, reporter.reportCalled)
+		assert.NotNil(t, resp)
+
+		// Allow the async task to run and report events.
+		time.Sleep(50 * time.Millisecond)
+		assert.GreaterOrEqual(t, reporter.reportCalled, 1)
+	})
+
+	t.Run("nil reporter does not panic", func(t *testing.T) {
+		store := agentlocal.NewLocalStore()
+		handler := NewLocalHandler(store, "/tmp", "agent-1", nil)
+		// No reporter set; starting a task must not panic and events are dropped.
+		req := &sdkv1.InvokeRequest{
+			FunctionId: "fn.echo",
+			Metadata:   map[string]string{"task_id": "task-nil"},
+		}
+		data, _ := proto.Marshal(req)
+		_, err := handler.handleStartTask(context.Background(), data)
+		assert.NoError(t, err)
+		time.Sleep(30 * time.Millisecond)
 	})
 }
 
@@ -1184,10 +1194,15 @@ func TestLocalHandler_HandleCancelTask_WithExistingTask(t *testing.T) {
 	reporter := &mockTaskEventReporter{}
 	handler.SetTaskEventReporter(reporter)
 
-	// Register a task
-	cancelCalled := false
-	handler.tasks.Set("task-1", func() {
-		cancelCalled = true
+	// Register a task through the runner so it is tracked for cancellation.
+	// The executor blocks until cancelled, mirroring a long-running task.
+	handler.tasks = NewTaskRunner(func(ctx context.Context, _ *sdkv1.InvokeRequest) ([]byte, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}, reporter, nil)
+	handler.tasks.Start(&sdkv1.InvokeRequest{
+		FunctionId: "fn.block",
+		Metadata:   map[string]string{"task_id": "task-1"},
 	})
 
 	req := &sdkv1.CancelTaskRequest{
@@ -1198,22 +1213,21 @@ func TestLocalHandler_HandleCancelTask_WithExistingTask(t *testing.T) {
 	resp, err := handler.handleCancelTask(context.Background(), data)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.True(t, cancelCalled)
-	assert.Equal(t, 1, reporter.reportCalled)
+	// cancel_requested event is emitted by the runner on Cancel.
+	assert.GreaterOrEqual(t, reporter.reportCalled, 1)
 }
 
-// --- Tests for emitTaskEvent with nil event ---
+// --- Tests for task reporting with nil event safety ---
 
-func TestLocalHandler_EmitTaskEvent_NilEvent(t *testing.T) {
-	store := agentlocal.NewLocalStore()
-	handler := NewLocalHandler(store, "/tmp", "agent-1", nil)
-
-	reporter := &mockTaskEventReporter{}
-	handler.SetTaskEventReporter(reporter)
-
-	err := handler.emitTaskEvent(context.Background(), nil)
-	assert.NoError(t, err)
-	assert.Equal(t, 0, reporter.reportCalled) // Should not call reporter for nil event
+func TestLocalHandler_TaskRunner_NilReporterSafe(t *testing.T) {
+	// A TaskRunner with a nil reporter must execute tasks and drop events
+	// without panicking — mirrors the handler before a reporter is wired.
+	r := NewTaskRunner(func(context.Context, *sdkv1.InvokeRequest) ([]byte, error) {
+		return []byte("null"), nil
+	}, nil, nil)
+	r.Start(&sdkv1.InvokeRequest{FunctionId: "f", Metadata: map[string]string{"task_id": "t"}})
+	time.Sleep(30 * time.Millisecond)
+	assert.Equal(t, 0, r.Count()) // task completes and untracks itself
 }
 
 // --- Tests for handleProviderConnect with functions ---

@@ -470,10 +470,10 @@ public class CroupierInvokerTests
 
     #endregion
 
-    #region Job Tests
+    #region Task Tests
 
     [Fact]
-    public async Task CroupierInvoker_StartJobAsync_ReturnsJobId()
+    public async Task CroupierInvoker_StartTaskAsync_ReturnsTaskId()
     {
         // Skip integration test if no agent is running
         if (ShouldSkipIntegrationTests())
@@ -486,7 +486,7 @@ public class CroupierInvokerTests
         var providerConfig = new ClientConfig
         {
             AgentAddr = "127.0.0.1:19090",
-            ServiceId = "test-provider-job",
+            ServiceId = "test-provider-task",
             GameId = "test-game",
             Env = "test",
             Insecure = true,
@@ -502,7 +502,7 @@ public class CroupierInvokerTests
             Operation = "function"
         };
 
-        FunctionHandlerDelegate handler = (ctx, payload) => Task.FromResult($"job result: {payload}");
+        FunctionHandlerDelegate handler = (ctx, payload) => Task.FromResult($"task result: {payload}");
         provider.RegisterFunction(descriptor, handler);
         await provider.ConnectAsync();
 
@@ -512,12 +512,12 @@ public class CroupierInvokerTests
             var invoker = new CroupierInvoker(CreateTestConfig());
 
             // Act
-            var jobId = await invoker.StartJobAsync("long.running.function", "{}");
+            var taskId = await invoker.StartTaskAsync("long.running.function", "{}");
 
             // Assert
-            jobId.Should().NotBeNullOrEmpty();
+            taskId.Should().NotBeNullOrEmpty();
             // Agent returns task IDs with "task-" prefix (internal naming)
-            jobId.Should().StartWith("task-");
+            taskId.Should().StartWith("task-");
         }
         catch (Exception ex) when (IsConnectionError(ex))
         {
@@ -531,7 +531,7 @@ public class CroupierInvokerTests
     }
 
     [Fact]
-    public async Task CroupierInvoker_CancelJobAsync_ReturnsSuccess()
+    public async Task CroupierInvoker_CancelTaskAsync_ReturnsSuccess()
     {
         // Skip integration test if no agent is running
         if (ShouldSkipIntegrationTests())
@@ -546,7 +546,7 @@ public class CroupierInvokerTests
             var invoker = new CroupierInvoker(CreateTestConfig());
 
             // Act
-            var result = await invoker.CancelJobAsync("job_123");
+            var result = await invoker.CancelTaskAsync("task_123");
 
             // Assert
             result.Should().BeTrue();
@@ -559,7 +559,7 @@ public class CroupierInvokerTests
     }
 
     [Fact]
-    public async Task CroupierInvoker_GetJobStatusAsync_ReturnsStatus()
+    public async Task CroupierInvoker_GetTaskStatusAsync_ReturnsStatus()
     {
         // Skip integration test if no agent is running
         if (ShouldSkipIntegrationTests())
@@ -588,7 +588,7 @@ public class CroupierInvokerTests
             Operation = "function"
         };
 
-        FunctionHandlerDelegate handler = (ctx, payload) => Task.FromResult($"job result: {payload}");
+        FunctionHandlerDelegate handler = (ctx, payload) => Task.FromResult($"task result: {payload}");
         provider.RegisterFunction(descriptor, handler);
         await provider.ConnectAsync();
 
@@ -601,16 +601,16 @@ public class CroupierInvokerTests
             // The test is kept to document the expected behavior
             try
             {
-                var status = await invoker.GetJobStatusAsync("task-123");
+                var status = await invoker.GetTaskStatusAsync("task-123");
 
                 // Assert
                 status.Should().NotBeNull();
-                status!.JobId.Should().Be("task-123");
+                status!.TaskId.Should().Be("task-123");
             }
             catch (Exception ex)
             {
                 // Expected to fail since Agent doesn't implement task streaming
-                Assert.True(true, $"GetJobStatusAsync not yet fully implemented: {ex.Message}");
+                Assert.True(true, $"GetTaskStatusAsync not yet fully implemented: {ex.Message}");
             }
         }
         catch (Exception ex) when (IsConnectionError(ex))

@@ -123,9 +123,9 @@ func TestComprehensive_eventScenarios(t *testing.T) {
 
 		for _, eventType := range eventTypes {
 			for _, payload := range payloads {
-				event := JobEvent{
+				event := TaskEvent{
 					EventType: eventType,
-					JobID:     "test-job",
+					TaskID:    "test-task",
 					Payload:   payload,
 					Done:      eventType == "completed" || eventType == "error",
 				}
@@ -137,18 +137,18 @@ func TestComprehensive_eventScenarios(t *testing.T) {
 		}
 	})
 
-	t.Run("job event lifecycle", func(t *testing.T) {
-		events := []JobEvent{
-			{EventType: "started", JobID: "job-1", Done: false},
-			{EventType: "progress", JobID: "job-1", Payload: `{"percent": 25}`, Done: false},
-			{EventType: "progress", JobID: "job-1", Payload: `{"percent": 50}`, Done: false},
-			{EventType: "progress", JobID: "job-1", Payload: `{"percent": 75}`, Done: false},
-			{EventType: "completed", JobID: "job-1", Payload: `{"result": "success"}`, Done: true},
+	t.Run("task event lifecycle", func(t *testing.T) {
+		events := []TaskEvent{
+			{EventType: "started", TaskID: "task-1", Done: false},
+			{EventType: "progress", TaskID: "task-1", Payload: `{"percent": 25}`, Done: false},
+			{EventType: "progress", TaskID: "task-1", Payload: `{"percent": 50}`, Done: false},
+			{EventType: "progress", TaskID: "task-1", Payload: `{"percent": 75}`, Done: false},
+			{EventType: "completed", TaskID: "task-1", Payload: `{"result": "success"}`, Done: true},
 		}
 
 		for i, event := range events {
-			if event.JobID != "job-1" {
-				t.Errorf("Event %d has wrong JobID", i)
+			if event.TaskID != "task-1" {
+				t.Errorf("Event %d has wrong TaskID", i)
 			}
 		}
 	})
@@ -321,9 +321,9 @@ func TestComprehensive_nilAndZero(t *testing.T) {
 			t.Error("Zero FunctionDescriptor should have empty ID")
 		}
 
-		var event JobEvent
+		var event TaskEvent
 		if event.EventType != "" {
-			t.Error("Zero JobEvent should have empty EventType")
+			t.Error("Zero TaskEvent should have empty EventType")
 		}
 
 		var options InvokeOptions

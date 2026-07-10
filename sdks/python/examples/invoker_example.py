@@ -15,7 +15,7 @@ from typing import Optional
 from croupier import (
     InvokerConfig,
     InvokeOptions,
-    JobEventInfo,
+    TaskEventInfo,
     create_sync_invoker,
 )
 
@@ -71,10 +71,10 @@ async def sync_invoke_example() -> None:
         await invoker.close()
 
 
-async def async_job_example() -> None:
-    """Demonstrate asynchronous job with event streaming."""
+async def async_task_example() -> None:
+    """Demonstrate asynchronous task with event streaming."""
     print("\n" + "=" * 60)
-    print("异步任务示例 (Asynchronous Job)")
+    print("异步任务示例 (Asynchronous Task)")
     print("=" * 60)
 
     from croupier import create_invoker
@@ -86,7 +86,7 @@ async def async_job_example() -> None:
         await invoker.connect()
         print("✅ 已连接到服务器\n")
 
-        # Start an asynchronous job
+        # Start an asynchronous task
         function_id = "player.ban"
         payload = json.dumps({
             "player_id": "67890",
@@ -94,12 +94,12 @@ async def async_job_example() -> None:
             "duration": 604800  # 7 days
         })
 
-        job_id = await invoker.start_job(function_id, payload)
-        print(f"🚀 任务已启动，Job ID: {job_id}\n")
+        task_id = await invoker.start_task(function_id, payload)
+        print(f"🚀 任务已启动，Task ID: {task_id}\n")
 
-        # Stream job events
+        # Stream task events
         print("📡 接收任务事件...")
-        async for event in invoker.stream_job(job_id):
+        async for event in invoker.stream_task(task_id):
             print(f"📬 事件 [{event.type}]: {event.message}")
 
             if event.payload:
@@ -126,10 +126,10 @@ async def async_job_example() -> None:
         await invoker.close()
 
 
-async def job_cancel_example() -> None:
-    """Demonstrate job cancellation."""
+async def task_cancel_example() -> None:
+    """Demonstrate task cancellation."""
     print("\n" + "=" * 60)
-    print("取消任务示例 (Job Cancellation)")
+    print("取消任务示例 (Task Cancellation)")
     print("=" * 60)
 
     from croupier import create_invoker
@@ -149,19 +149,19 @@ async def job_cancel_example() -> None:
             "duration": 9999999  # Very long duration
         })
 
-        job_id = await invoker.start_job(function_id, payload)
-        print(f"🚀 任务已启动，Job ID: {job_id}\n")
+        task_id = await invoker.start_task(function_id, payload)
+        print(f"🚀 任务已启动，Task ID: {task_id}\n")
 
         # Wait a bit then cancel
         await asyncio.sleep(1)
 
-        # Cancel the job
-        await invoker.cancel_job(job_id)
-        print(f"🛑 任务已取消: {job_id}\n")
+        # Cancel the task
+        await invoker.cancel_task(task_id)
+        print(f"🛑 任务已取消: {task_id}\n")
 
-        # Verify the job was actually cancelled
+        # Verify the task was actually cancelled
         print("📡 验证任务状态...")
-        async for event in invoker.stream_job(job_id):
+        async for event in invoker.stream_task(task_id):
             print(f"📬 事件 [{event.type}]: {event.message}")
             if event.done:
                 break
@@ -281,8 +281,8 @@ async def main_async():
 
     # Run async examples
     await sync_invoke_example()
-    await async_job_example()
-    await job_cancel_example()
+    await async_task_example()
+    await task_cancel_example()
     await schema_validation_example()
 
     print("\n✅ 所有异步示例完成")

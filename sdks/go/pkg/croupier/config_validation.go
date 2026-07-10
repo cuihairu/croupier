@@ -234,14 +234,14 @@ func ValidateLocalFunctionDescriptor(descriptor *LocalFunctionDescriptor) error 
 	return nil
 }
 
-// ValidateJobEvent validates a job event
-func ValidateJobEvent(event *JobEvent) error {
+// ValidateTaskEvent validates a task event
+func ValidateTaskEvent(event *TaskEvent) error {
 	if event == nil {
 		return fmt.Errorf("event cannot be nil")
 	}
 
-	if event.JobID == "" {
-		return fmt.Errorf("job_id is required")
+	if event.TaskID == "" {
+		return fmt.Errorf("task_id is required")
 	}
 
 	validTypes := map[string]bool{

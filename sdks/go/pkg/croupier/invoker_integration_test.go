@@ -101,7 +101,7 @@ func TestInvoker_concurrent_invocations(t *testing.T) {
 		t.Logf("Concurrent Invoke: %d goroutines in %v", numGoroutines, elapsed)
 	})
 
-	t.Run("Concurrent StartJob operations", func(t *testing.T) {
+	t.Run("Concurrent StartTask operations", func(t *testing.T) {
 		invoker := NewInvoker(&InvokerConfig{
 			Address: "http://localhost:19090",
 		})
@@ -120,13 +120,13 @@ func TestInvoker_concurrent_invocations(t *testing.T) {
 				defer wg.Done()
 
 				ctx := context.Background()
-				jobID, _ := invoker.StartJob(ctx, "test.func", "{}", InvokeOptions{})
-				_ = jobID
+				taskID, _ := invoker.StartTask(ctx, "test.func", "{}", InvokeOptions{})
+				_ = taskID
 			}(i)
 		}
 
 		wg.Wait()
-		t.Logf("Concurrent StartJob: %d goroutines", numGoroutines)
+		t.Logf("Concurrent StartTask: %d goroutines", numGoroutines)
 	})
 
 	t.Run("Concurrent mixed operations", func(t *testing.T) {
@@ -153,8 +153,8 @@ func TestInvoker_concurrent_invocations(t *testing.T) {
 				case 0:
 					_, _ = invoker.Invoke(ctx, "test.func", "{}", InvokeOptions{})
 				case 1:
-					jobID, _ := invoker.StartJob(ctx, "test.func", "{}", InvokeOptions{})
-					_ = jobID
+					taskID, _ := invoker.StartTask(ctx, "test.func", "{}", InvokeOptions{})
+					_ = taskID
 				case 2:
 					_ = invoker.SetSchema("test.func", map[string]interface{}{"type": "object"})
 				}
@@ -536,7 +536,7 @@ func TestInvoker_error_scenarios(t *testing.T) {
 		t.Logf("Invoke after Close error: %v", err)
 	})
 
-	t.Run("StartJob after Close", func(t *testing.T) {
+	t.Run("StartTask after Close", func(t *testing.T) {
 		invoker := NewInvoker(&InvokerConfig{
 			Address: "http://localhost:19090",
 		})
@@ -548,8 +548,8 @@ func TestInvoker_error_scenarios(t *testing.T) {
 		_ = invoker.Close()
 
 		ctx := context.Background()
-		jobID, err := invoker.StartJob(ctx, "test.func", "{}", InvokeOptions{})
-		t.Logf("StartJob after Close - jobID: %s, error: %v", jobID, err)
+		taskID, err := invoker.StartTask(ctx, "test.func", "{}", InvokeOptions{})
+		t.Logf("StartTask after Close - taskID: %s, error: %v", taskID, err)
 	})
 
 	t.Run("SetSchema after Close", func(t *testing.T) {
@@ -567,7 +567,7 @@ func TestInvoker_error_scenarios(t *testing.T) {
 		t.Logf("SetSchema after Close error: %v", err)
 	})
 
-	t.Run("StreamJob with invalid job ID", func(t *testing.T) {
+	t.Run("StreamTask with invalid task ID", func(t *testing.T) {
 		invoker := NewInvoker(&InvokerConfig{
 			Address: "http://localhost:19090",
 		})
@@ -578,11 +578,11 @@ func TestInvoker_error_scenarios(t *testing.T) {
 		defer invoker.Close()
 
 		ctx := context.Background()
-		stream, err := invoker.StreamJob(ctx, "invalid-job-id")
-		t.Logf("StreamJob with invalid job ID - stream: %v, error: %v", stream, err)
+		stream, err := invoker.StreamTask(ctx, "invalid-task-id")
+		t.Logf("StreamTask with invalid task ID - stream: %v, error: %v", stream, err)
 	})
 
-	t.Run("CancelJob with invalid job ID", func(t *testing.T) {
+	t.Run("CancelTask with invalid task ID", func(t *testing.T) {
 		invoker := NewInvoker(&InvokerConfig{
 			Address: "http://localhost:19090",
 		})
@@ -593,8 +593,8 @@ func TestInvoker_error_scenarios(t *testing.T) {
 		defer invoker.Close()
 
 		ctx := context.Background()
-		err := invoker.CancelJob(ctx, "invalid-job-id")
-		t.Logf("CancelJob with invalid job ID error: %v", err)
+		err := invoker.CancelTask(ctx, "invalid-task-id")
+		t.Logf("CancelTask with invalid task ID error: %v", err)
 	})
 }
 

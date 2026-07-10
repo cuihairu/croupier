@@ -27,12 +27,12 @@ class CroupierClientImplCoverageTest {
 
     private FakeTransportClient createFakeTransport() {
         return new FakeTransportClient((msgType, data) -> {
-            if (msgType == Protocol.MSG_REGISTER_LOCAL_REQUEST) {
-                return SdkWireMessages.encodeRegisterLocalResponse(
-                    new SdkWireMessages.RegisterLocalResponse("session-1")
+            if (msgType == Protocol.MSG_PROVIDER_CONNECT_REQUEST) {
+                return SdkWireMessages.encodeProviderConnectResponse(
+                    new SdkWireMessages.ProviderConnectResponse("session-1")
                 );
             }
-            if (msgType == Protocol.MSG_HEARTBEAT_LOCAL_REQUEST) {
+            if (msgType == Protocol.MSG_PROVIDER_HEARTBEAT_REQUEST) {
                 return new byte[0];
             }
             return new byte[0];
@@ -324,9 +324,9 @@ class CroupierClientImplCoverageTest {
     @DisplayName("connect should fail with empty session ID")
     void connectEmptySessionId() throws CroupierException {
         FakeTransportClient transport = new FakeTransportClient((msgType, data) -> {
-            if (msgType == Protocol.MSG_REGISTER_LOCAL_REQUEST) {
-                return SdkWireMessages.encodeRegisterLocalResponse(
-                    new SdkWireMessages.RegisterLocalResponse("")
+            if (msgType == Protocol.MSG_PROVIDER_CONNECT_REQUEST) {
+                return SdkWireMessages.encodeProviderConnectResponse(
+                    new SdkWireMessages.ProviderConnectResponse("")
                 );
             }
             return new byte[0];
@@ -340,17 +340,17 @@ class CroupierClientImplCoverageTest {
     }
 
     @Test
-    @DisplayName("startJob should delegate to invoker")
-    void startJobDelegation() throws Exception {
+    @DisplayName("startTask should delegate to invoker")
+    void startTaskDelegation() throws Exception {
         FakeTransportClient transport = new FakeTransportClient((msgType, data) -> {
-            if (msgType == Protocol.MSG_REGISTER_LOCAL_REQUEST) {
-                return SdkWireMessages.encodeRegisterLocalResponse(
-                    new SdkWireMessages.RegisterLocalResponse("session-1")
+            if (msgType == Protocol.MSG_PROVIDER_CONNECT_REQUEST) {
+                return SdkWireMessages.encodeProviderConnectResponse(
+                    new SdkWireMessages.ProviderConnectResponse("session-1")
                 );
             }
-            if (msgType == Protocol.MSG_START_JOB_REQUEST) {
-                return SdkWireMessages.encodeStartJobResponse(
-                    new SdkWireMessages.StartJobResponse("job-1")
+            if (msgType == Protocol.MSG_START_TASK_REQUEST) {
+                return SdkWireMessages.encodeStartTaskResponse(
+                    new SdkWireMessages.StartTaskResponse("task-1")
                 );
             }
             return new byte[0];
@@ -361,23 +361,23 @@ class CroupierClientImplCoverageTest {
         client.registerFunction(new FunctionDescriptor("f1", "1.0.0"), (ctx, payload) -> "ok");
         client.connect().join();
 
-        String jobId = client.startJob("f1", "{}", Map.of("key", "value"));
+        String taskId = client.startTask("f1", "{}", Map.of("key", "value"));
 
-        assertEquals("job-1", jobId);
+        assertEquals("task-1", taskId);
     }
 
     @Test
-    @DisplayName("cancelJob should return true on success")
-    void cancelJobSuccess() throws Exception {
+    @DisplayName("cancelTask should return true on success")
+    void cancelTaskSuccess() throws Exception {
         FakeTransportClient transport = new FakeTransportClient((msgType, data) -> {
-            if (msgType == Protocol.MSG_REGISTER_LOCAL_REQUEST) {
-                return SdkWireMessages.encodeRegisterLocalResponse(
-                    new SdkWireMessages.RegisterLocalResponse("session-1")
+            if (msgType == Protocol.MSG_PROVIDER_CONNECT_REQUEST) {
+                return SdkWireMessages.encodeProviderConnectResponse(
+                    new SdkWireMessages.ProviderConnectResponse("session-1")
                 );
             }
-            if (msgType == Protocol.MSG_START_JOB_REQUEST) {
-                return SdkWireMessages.encodeStartJobResponse(
-                    new SdkWireMessages.StartJobResponse("job-1")
+            if (msgType == Protocol.MSG_START_TASK_REQUEST) {
+                return SdkWireMessages.encodeStartTaskResponse(
+                    new SdkWireMessages.StartTaskResponse("task-1")
                 );
             }
             return new byte[0];
@@ -388,8 +388,8 @@ class CroupierClientImplCoverageTest {
         client.registerFunction(new FunctionDescriptor("f1", "1.0.0"), (ctx, payload) -> "ok");
         client.connect().join();
 
-        String jobId = client.startJob("f1", "{}");
-        boolean result = client.cancelJob(jobId);
+        String taskId = client.startTask("f1", "{}");
+        boolean result = client.cancelTask(taskId);
 
         assertTrue(result);
     }
@@ -518,17 +518,17 @@ class CroupierClientImplCoverageTest {
     }
 
     @Test
-    @DisplayName("startJob with metadata should delegate")
-    void startJobWithMetadata() throws Exception {
+    @DisplayName("startTask with metadata should delegate")
+    void startTaskWithMetadata() throws Exception {
         FakeTransportClient transport = new FakeTransportClient((msgType, data) -> {
-            if (msgType == Protocol.MSG_REGISTER_LOCAL_REQUEST) {
-                return SdkWireMessages.encodeRegisterLocalResponse(
-                    new SdkWireMessages.RegisterLocalResponse("session-1")
+            if (msgType == Protocol.MSG_PROVIDER_CONNECT_REQUEST) {
+                return SdkWireMessages.encodeProviderConnectResponse(
+                    new SdkWireMessages.ProviderConnectResponse("session-1")
                 );
             }
-            if (msgType == Protocol.MSG_START_JOB_REQUEST) {
-                return SdkWireMessages.encodeStartJobResponse(
-                    new SdkWireMessages.StartJobResponse("job-1")
+            if (msgType == Protocol.MSG_START_TASK_REQUEST) {
+                return SdkWireMessages.encodeStartTaskResponse(
+                    new SdkWireMessages.StartTaskResponse("task-1")
                 );
             }
             return new byte[0];
@@ -539,22 +539,22 @@ class CroupierClientImplCoverageTest {
         client.registerFunction(new FunctionDescriptor("f1", "1.0.0"), (ctx, payload) -> "ok");
         client.connect().join();
 
-        String jobId = client.startJob("f1", "{}", Map.of("key", "value"));
-        assertEquals("job-1", jobId);
+        String taskId = client.startTask("f1", "{}", Map.of("key", "value"));
+        assertEquals("task-1", taskId);
     }
 
     @Test
-    @DisplayName("startJob with null metadata should use empty map")
-    void startJobWithNullMetadata() throws Exception {
+    @DisplayName("startTask with null metadata should use empty map")
+    void startTaskWithNullMetadata() throws Exception {
         FakeTransportClient transport = new FakeTransportClient((msgType, data) -> {
-            if (msgType == Protocol.MSG_REGISTER_LOCAL_REQUEST) {
-                return SdkWireMessages.encodeRegisterLocalResponse(
-                    new SdkWireMessages.RegisterLocalResponse("session-1")
+            if (msgType == Protocol.MSG_PROVIDER_CONNECT_REQUEST) {
+                return SdkWireMessages.encodeProviderConnectResponse(
+                    new SdkWireMessages.ProviderConnectResponse("session-1")
                 );
             }
-            if (msgType == Protocol.MSG_START_JOB_REQUEST) {
-                return SdkWireMessages.encodeStartJobResponse(
-                    new SdkWireMessages.StartJobResponse("job-1")
+            if (msgType == Protocol.MSG_START_TASK_REQUEST) {
+                return SdkWireMessages.encodeStartTaskResponse(
+                    new SdkWireMessages.StartTaskResponse("task-1")
                 );
             }
             return new byte[0];
@@ -565,8 +565,8 @@ class CroupierClientImplCoverageTest {
         client.registerFunction(new FunctionDescriptor("f1", "1.0.0"), (ctx, payload) -> "ok");
         client.connect().join();
 
-        String jobId = client.startJob("f1", "{}", null);
-        assertEquals("job-1", jobId);
+        String taskId = client.startTask("f1", "{}", null);
+        assertEquals("task-1", taskId);
     }
 
     @Test

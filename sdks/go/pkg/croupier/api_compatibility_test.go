@@ -36,17 +36,17 @@ func TestAPICompatibility_InterfaceContracts(t *testing.T) {
 		_ = result
 		_ = err
 
-		jobID, err := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-		_ = jobID
+		taskID, err := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+		_ = taskID
 		_ = err
 
 		err = invoker.SetSchema("test.function", map[string]interface{}{"type": "string"})
 		_ = err
 
-		err = invoker.CancelJob(ctx, "test-job-id")
+		err = invoker.CancelTask(ctx, "test-task-id")
 		_ = err
 
-		eventChan, err := invoker.StreamJob(ctx, "test-job-id")
+		eventChan, err := invoker.StreamTask(ctx, "test-task-id")
 		_ = eventChan
 		_ = err
 
@@ -73,10 +73,10 @@ func TestAPICompatibility_InterfaceContracts(t *testing.T) {
 		// These will panic, which we recover from
 		_ = invoker.Close()
 		_, _ = invoker.Invoke(ctx, "test.function", "{}", InvokeOptions{})
-		_, _ = invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
+		_, _ = invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
 		_ = invoker.SetSchema("test", map[string]interface{}{})
-		_ = invoker.CancelJob(ctx, "job-id")
-		_, _ = invoker.StreamJob(ctx, "job-id")
+		_ = invoker.CancelTask(ctx, "task-id")
+		_, _ = invoker.StreamTask(ctx, "task-id")
 
 		t.Log("Nil invoker operations panic as expected")
 	})
@@ -233,9 +233,9 @@ func TestAPICompatibility_ErrorHandlingConsistency(t *testing.T) {
 				},
 			},
 			{
-				"Invalid job ID",
+				"Invalid task ID",
 				func() error {
-					return invoker.CancelJob(ctx, "")
+					return invoker.CancelTask(ctx, "")
 				},
 			},
 			{
@@ -623,9 +623,9 @@ func TestAPICompatibility_RetryBehavior(t *testing.T) {
 	})
 }
 
-// TestAPICompatibility_JobBehavior tests job behavior
-func TestAPICompatibility_JobBehavior(t *testing.T) {
-	t.Run("Job lifecycle", func(t *testing.T) {
+// TestAPICompatibility_TaskBehavior tests task behavior
+func TestAPICompatibility_TaskBehavior(t *testing.T) {
+	t.Run("Task lifecycle", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -638,32 +638,32 @@ func TestAPICompatibility_JobBehavior(t *testing.T) {
 
 		ctx := context.Background()
 
-		// Start job
-		jobID, err := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-		t.Logf("Start job: jobID=%s, error=%v", jobID, err)
+		// Start task
+		taskID, err := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+		t.Logf("Start task: taskID=%s, error=%v", taskID, err)
 
-		if jobID != "" {
-			// Stream job
-			eventChan, err := invoker.StreamJob(ctx, jobID)
-			t.Logf("Stream job: error=%v", err)
+		if taskID != "" {
+			// Stream task
+			eventChan, err := invoker.StreamTask(ctx, taskID)
+			t.Logf("Stream task: error=%v", err)
 
 			if eventChan != nil {
 				// Try to read one event
 				select {
 				case event := <-eventChan:
-					t.Logf("Job event: %+v", event)
+					t.Logf("Task event: %+v", event)
 				case <-time.After(100 * time.Millisecond):
 					t.Log("No event received (timeout)")
 				}
 			}
 
-			// Cancel job
-			err = invoker.CancelJob(ctx, jobID)
-			t.Logf("Cancel job: error=%v", err)
+			// Cancel task
+			err = invoker.CancelTask(ctx, taskID)
+			t.Logf("Cancel task: error=%v", err)
 		}
 	})
 
-	t.Run("Invalid job operations", func(t *testing.T) {
+	t.Run("Invalid task operations", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -676,12 +676,12 @@ func TestAPICompatibility_JobBehavior(t *testing.T) {
 
 		ctx := context.Background()
 
-		// Cancel non-existent job
-		err := invoker.CancelJob(ctx, "non-existent-job")
-		t.Logf("Cancel non-existent job: error=%v", err)
+		// Cancel non-existent task
+		err := invoker.CancelTask(ctx, "non-existent-task")
+		t.Logf("Cancel non-existent task: error=%v", err)
 
-		// Stream non-existent job
-		eventChan, err := invoker.StreamJob(ctx, "non-existent-job")
-		t.Logf("Stream non-existent job: error=%v, channel=%v", err, eventChan != nil)
+		// Stream non-existent task
+		eventChan, err := invoker.StreamTask(ctx, "non-existent-task")
+		t.Logf("Stream non-existent task: error=%v, channel=%v", err, eventChan != nil)
 	})
 }

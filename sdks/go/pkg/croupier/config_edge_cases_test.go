@@ -1602,8 +1602,8 @@ func TestRetryConfig_IsRetryable(t *testing.T) {
 	}
 }
 
-// TestJobEvent_Validation tests job event validation
-func TestJobEvent_Validation(t *testing.T) {
+// TestTaskEvent_Validation tests task event validation
+func TestTaskEvent_Validation(t *testing.T) {
 	t.Parallel()
 
 	validTypes := []string{"started", "progress", "completed", "error"}
@@ -1612,13 +1612,13 @@ func TestJobEvent_Validation(t *testing.T) {
 		t.Run("valid_"+eventType, func(t *testing.T) {
 			t.Parallel()
 
-			event := &JobEvent{
+			event := &TaskEvent{
 				EventType: eventType,
-				JobID:     "test-job",
+				TaskID:    "test-task",
 				Payload:   `{"status":"running"}`,
 			}
 
-			err := ValidateJobEvent(event)
+			err := ValidateTaskEvent(event)
 			if err != nil {
 				t.Errorf("Expected no error for event type %q, got %v", eventType, err)
 			}
@@ -1631,12 +1631,12 @@ func TestJobEvent_Validation(t *testing.T) {
 		t.Run("invalid_"+eventType, func(t *testing.T) {
 			t.Parallel()
 
-			event := &JobEvent{
+			event := &TaskEvent{
 				EventType: eventType,
-				JobID:     "test-job",
+				TaskID:    "test-task",
 			}
 
-			err := ValidateJobEvent(event)
+			err := ValidateTaskEvent(event)
 			if err == nil {
 				t.Error("Expected error for invalid event type")
 			}
@@ -1644,14 +1644,14 @@ func TestJobEvent_Validation(t *testing.T) {
 	}
 }
 
-// TestJobEvent_CompleteEvent tests job completion event
-func TestJobEvent_CompleteEvent(t *testing.T) {
+// TestTaskEvent_CompleteEvent tests task completion event
+func TestTaskEvent_CompleteEvent(t *testing.T) {
 	t.Parallel()
 
-	event := &JobEvent{
+	event := &TaskEvent{
 		EventType: "completed",
 		Done:      true, // Completed events should have Done=true
-		JobID:     "test-job",
+		TaskID:    "test-task",
 		Payload:   `{"result":"success"}`,
 	}
 
@@ -1659,20 +1659,20 @@ func TestJobEvent_CompleteEvent(t *testing.T) {
 		t.Error("Completed event should have Done=true")
 	}
 
-	err := ValidateJobEvent(event)
+	err := ValidateTaskEvent(event)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
 }
 
-// TestJobEvent_ErrorEvent tests job error event
-func TestJobEvent_ErrorEvent(t *testing.T) {
+// TestTaskEvent_ErrorEvent tests task error event
+func TestTaskEvent_ErrorEvent(t *testing.T) {
 	t.Parallel()
 
-	event := &JobEvent{
+	event := &TaskEvent{
 		EventType: "error",
 		Done:      true, // Error events should have Done=true
-		JobID:     "test-job",
+		TaskID:    "test-task",
 		Error:     "something went wrong",
 	}
 
@@ -1680,19 +1680,19 @@ func TestJobEvent_ErrorEvent(t *testing.T) {
 		t.Error("Error event should have Done=true")
 	}
 
-	err := ValidateJobEvent(event)
+	err := ValidateTaskEvent(event)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
 }
 
-// TestJobEvent_ProgressEvent tests job progress event
-func TestJobEvent_ProgressEvent(t *testing.T) {
+// TestTaskEvent_ProgressEvent tests task progress event
+func TestTaskEvent_ProgressEvent(t *testing.T) {
 	t.Parallel()
 
-	event := &JobEvent{
+	event := &TaskEvent{
 		EventType: "progress",
-		JobID:     "test-job",
+		TaskID:    "test-task",
 		Payload:   `{"progress":50}`,
 	}
 
@@ -1700,7 +1700,7 @@ func TestJobEvent_ProgressEvent(t *testing.T) {
 		t.Error("Progress event should have Done=false")
 	}
 
-	err := ValidateJobEvent(event)
+	err := ValidateTaskEvent(event)
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}

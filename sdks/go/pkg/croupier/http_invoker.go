@@ -19,7 +19,7 @@ import (
 )
 
 // httpInvoker implements Invoker interface using HTTP REST API
-// Note: Async job operations (StartJob, StreamJob, CancelJob) are not fully supported
+// Note: Async task operations (StartTask, StreamTask, CancelTask) are not fully supported
 type httpInvoker struct {
 	config     *InvokerConfig
 	httpClient *http.Client
@@ -36,8 +36,8 @@ type httpInvoker struct {
 	defaultGameID string
 	defaultEnv    string
 
-	// Job ID counter for uniqueness
-	jobCounter atomic.Int64
+	// Task ID counter for uniqueness
+	taskCounter atomic.Int64
 }
 
 // NewHTTPInvoker creates a new HTTP-based Croupier invoker
@@ -270,31 +270,31 @@ func (i *httpInvoker) Invoke(ctx context.Context, functionID, payload string, op
 	return "", fmt.Errorf("invoke failed after %d attempts: %w", maxAttempts, lastErr)
 }
 
-// StartJob implements Invoker.StartJob
-// Note: HTTP REST API doesn't fully support async jobs yet
-func (i *httpInvoker) StartJob(ctx context.Context, functionID, payload string, options InvokeOptions) (string, error) {
-	// For HTTP API, we can simulate async jobs by invoking synchronously
+// StartTask implements Invoker.StartTask
+// Note: HTTP REST API doesn't fully support async tasks yet
+func (i *httpInvoker) StartTask(ctx context.Context, functionID, payload string, options InvokeOptions) (string, error) {
+	// For HTTP API, we can simulate async tasks by invoking synchronously
 	// but this is not true async execution
 	_, err := i.Invoke(ctx, functionID, payload, options)
 	if err != nil {
 		return "", err
 	}
 
-	// Return a fake job ID (in real implementation, server should return job ID)
-	seq := i.jobCounter.Add(1)
-	return fmt.Sprintf("http-job-%d-%d", time.Now().UnixNano(), seq), nil
+	// Return a fake task ID (in real implementation, server should return task ID)
+	seq := i.taskCounter.Add(1)
+	return fmt.Sprintf("http-task-%d-%d", time.Now().UnixNano(), seq), nil
 }
 
-// StreamJob implements Invoker.StreamJob
+// StreamTask implements Invoker.StreamTask
 // Note: Not supported for HTTP REST API
-func (i *httpInvoker) StreamJob(ctx context.Context, jobID string) (<-chan JobEvent, error) {
-	return nil, fmt.Errorf("StreamJob is not supported for HTTP invoker")
+func (i *httpInvoker) StreamTask(ctx context.Context, taskID string) (<-chan TaskEvent, error) {
+	return nil, fmt.Errorf("StreamTask is not supported for HTTP invoker")
 }
 
-// CancelJob implements Invoker.CancelJob
+// CancelTask implements Invoker.CancelTask
 // Note: Not supported for HTTP REST API
-func (i *httpInvoker) CancelJob(ctx context.Context, jobID string) error {
-	return fmt.Errorf("CancelJob is not supported for HTTP invoker")
+func (i *httpInvoker) CancelTask(ctx context.Context, taskID string) error {
+	return fmt.Errorf("CancelTask is not supported for HTTP invoker")
 }
 
 // SetSchema implements Invoker.SetSchema

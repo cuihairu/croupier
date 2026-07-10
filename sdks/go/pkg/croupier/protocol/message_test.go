@@ -363,25 +363,3 @@ func TestRoundTripMessage(t *testing.T) {
 		}
 	}
 }
-
-func TestLegacyAliases(t *testing.T) {
-	// Test that legacy aliases point to correct constants
-	if MsgRegisterLocalRequest != MsgProviderConnectRequest {
-		t.Error("MsgRegisterLocalRequest != MsgProviderConnectRequest")
-	}
-	if MsgRegisterLocalResponse != MsgProviderConnectResponse {
-		t.Error("MsgRegisterLocalResponse != MsgProviderConnectResponse")
-	}
-	if MsgStartJobRequest != MsgStartTaskRequest {
-		t.Error("MsgStartJobRequest != MsgStartTaskRequest")
-	}
-	if MsgStartJobResponse != MsgStartTaskResponse {
-		t.Error("MsgStartJobResponse != MsgStartTaskResponse")
-	}
-	if MsgStreamJobRequest != MsgStreamTaskRequest {
-		t.Error("MsgStreamJobRequest != MsgStreamTaskRequest")
-	}
-	if MsgJobEvent != MsgTaskEvent {
-		t.Error("MsgJobEvent != MsgTaskEvent")
-	}
-}

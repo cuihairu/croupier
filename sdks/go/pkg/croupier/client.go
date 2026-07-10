@@ -35,14 +35,14 @@ type Invoker interface {
 	// Invoke synchronously calls a function
 	Invoke(ctx context.Context, functionID, payload string, options InvokeOptions) (string, error)
 
-	// StartJob starts an asynchronous job
-	StartJob(ctx context.Context, functionID, payload string, options InvokeOptions) (string, error)
+	// StartTask starts an asynchronous task
+	StartTask(ctx context.Context, functionID, payload string, options InvokeOptions) (string, error)
 
-	// StreamJob streams events from a running job
-	StreamJob(ctx context.Context, jobID string) (<-chan JobEvent, error)
+	// StreamTask streams events from a running task
+	StreamTask(ctx context.Context, taskID string) (<-chan TaskEvent, error)
 
-	// CancelJob cancels a running job
-	CancelJob(ctx context.Context, jobID string) error
+	// CancelTask cancels a running task
+	CancelTask(ctx context.Context, taskID string) error
 
 	// SetSchema sets validation schema for a function
 	SetSchema(functionID string, schema map[string]interface{}) error

@@ -3,33 +3,33 @@ package io.github.cuihairu.croupier.sdk.invoker;
 import java.util.Objects;
 
 /**
- * Information about a job event received during streaming.
+ * Information about a task event received during streaming.
  *
- * <p>Job events are emitted during asynchronous job execution and provide
- * real-time updates about job progress, completion, or errors.</p>
+ * <p>Task events are emitted during asynchronous task execution and provide
+ * real-time updates about task progress, completion, or errors.</p>
  *
  * <p>Event types:</p>
  * <ul>
- *   <li>{@code started} - Job has started execution</li>
- *   <li>{@code progress} - Job progress update with percentage</li>
- *   <li>{@code completed} - Job completed successfully</li>
- *   <li>{@code error} - Job failed with an error</li>
- *   <li>{@code cancelled} - Job was cancelled</li>
+ *   <li>{@code started} - Task has started execution</li>
+ *   <li>{@code progress} - Task progress update with percentage</li>
+ *   <li>{@code completed} - Task completed successfully</li>
+ *   <li>{@code error} - Task failed with an error</li>
+ *   <li>{@code cancelled} - Task was cancelled</li>
  * </ul>
  */
-public class JobEventInfo {
+public class TaskEventInfo {
 
     private final String type;
-    private final String jobId;
+    private final String taskId;
     private final String payload;
     private final String message;
     private final Integer progress;
     private final String error;
     private final boolean done;
 
-    private JobEventInfo(Builder builder) {
+    private TaskEventInfo(Builder builder) {
         this.type = builder.type;
-        this.jobId = builder.jobId;
+        this.taskId = builder.taskId;
         this.payload = builder.payload;
         this.message = builder.message;
         this.progress = builder.progress;
@@ -38,7 +38,7 @@ public class JobEventInfo {
     }
 
     /**
-     * Creates a new builder for constructing JobEventInfo instances.
+     * Creates a new builder for constructing TaskEventInfo instances.
      *
      * @return a new Builder instance
      */
@@ -56,12 +56,12 @@ public class JobEventInfo {
     }
 
     /**
-     * Gets the job ID this event belongs to.
+     * Gets the task ID this event belongs to.
      *
-     * @return the job ID
+     * @return the task ID
      */
-    public String getJobId() {
-        return jobId;
+    public String getTaskId() {
+        return taskId;
     }
 
     /**
@@ -101,9 +101,9 @@ public class JobEventInfo {
     }
 
     /**
-     * Checks if this event indicates the job is finished.
+     * Checks if this event indicates the task is finished.
      *
-     * @return true if the job is done (completed, error, or cancelled)
+     * @return true if the task is done (completed, error, or cancelled)
      */
     public boolean isDone() {
         return done;
@@ -113,10 +113,10 @@ public class JobEventInfo {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        JobEventInfo that = (JobEventInfo) o;
+        TaskEventInfo that = (TaskEventInfo) o;
         return done == that.done &&
                Objects.equals(type, that.type) &&
-               Objects.equals(jobId, that.jobId) &&
+               Objects.equals(taskId, that.taskId) &&
                Objects.equals(payload, that.payload) &&
                Objects.equals(message, that.message) &&
                Objects.equals(progress, that.progress) &&
@@ -125,14 +125,14 @@ public class JobEventInfo {
 
     @Override
     public int hashCode() {
-        return Objects.hash(type, jobId, payload, message, progress, error, done);
+        return Objects.hash(type, taskId, payload, message, progress, error, done);
     }
 
     @Override
     public String toString() {
-        return "JobEventInfo{" +
+        return "TaskEventInfo{" +
                "type='" + type + '\'' +
-               ", jobId='" + jobId + '\'' +
+               ", taskId='" + taskId + '\'' +
                ", payload='" + payload + '\'' +
                ", message='" + message + '\'' +
                ", progress=" + progress +
@@ -142,11 +142,11 @@ public class JobEventInfo {
     }
 
     /**
-     * Builder for creating JobEventInfo instances.
+     * Builder for creating TaskEventInfo instances.
      */
     public static class Builder {
         private String type;
-        private String jobId;
+        private String taskId;
         private String payload;
         private String message;
         private Integer progress;
@@ -165,13 +165,13 @@ public class JobEventInfo {
         }
 
         /**
-         * Sets the job ID.
+         * Sets the task ID.
          *
-         * @param jobId the job ID
+         * @param taskId the task ID
          * @return this builder
          */
-        public Builder jobId(String jobId) {
-            this.jobId = jobId;
+        public Builder taskId(String taskId) {
+            this.taskId = taskId;
             return this;
         }
 
@@ -222,7 +222,7 @@ public class JobEventInfo {
         /**
          * Marks this event as done (completed, error, or cancelled).
          *
-         * @param done true if the job is finished
+         * @param done true if the task is finished
          * @return this builder
          */
         public Builder done(boolean done) {
@@ -231,12 +231,12 @@ public class JobEventInfo {
         }
 
         /**
-         * Builds the JobEventInfo instance.
+         * Builds the TaskEventInfo instance.
          *
-         * @return a new JobEventInfo
+         * @return a new TaskEventInfo
          */
-        public JobEventInfo build() {
-            return new JobEventInfo(this);
+        public TaskEventInfo build() {
+            return new TaskEventInfo(this);
         }
     }
 }

@@ -1,6 +1,6 @@
 package io.github.cuihairu.croupier.sdk;
 
-import io.github.cuihairu.croupier.sdk.invoker.JobEventInfo;
+import io.github.cuihairu.croupier.sdk.invoker.TaskEventInfo;
 import org.reactivestreams.Publisher;
 
 import java.util.Map;
@@ -72,49 +72,49 @@ public interface CroupierClient {
      */
     boolean isServing();
 
-    // ========== Job Management Methods ==========
+    // ========== Task Management Methods ==========
 
     /**
-     * Starts an asynchronous job and returns its ID.
+     * Starts an asynchronous task and returns its ID.
      *
-     * <p>This is a convenience method that delegates to the Invoker's startJob method.</p>
+     * <p>This is a convenience method that delegates to the Invoker's startTask method.</p>
      *
      * @param functionId the ID of the function to execute
-     * @param payload the job payload as a JSON string
-     *return the job ID for tracking
-     * @throws CroupierException if job start fails
+     * @param payload the task payload as a JSON string
+     *return the task ID for tracking
+     * @throws CroupierException if task start fails
      */
-    String startJob(String functionId, String payload) throws CroupierException;
+    String startTask(String functionId, String payload) throws CroupierException;
 
     /**
-     * Starts an asynchronous job with metadata and returns its ID.
+     * Starts an asynchronous task with metadata and returns its ID.
      *
      * @param functionId the ID of the function to execute
-     * @param payload the job payload as a JSON string
-     * @param metadata additional metadata for the job
-     * @return the job ID for tracking
-     * @throws CroupierException if job start fails
+     * @param payload the task payload as a JSON string
+     * @param metadata additional metadata for the task
+     * @return the task ID for tracking
+     * @throws CroupierException if task start fails
      */
-    String startJob(String functionId, String payload, Map<String, String> metadata) throws CroupierException;
+    String startTask(String functionId, String payload, Map<String, String> metadata) throws CroupierException;
 
     /**
-     * Streams events from a running job.
+     * Streams events from a running task.
      *
-     * <p>This is a convenience method that delegates to the Invoker's streamJob method.</p>
+     * <p>This is a convenience method that delegates to the Invoker's streamTask method.</p>
      *
-     * @param jobId the job ID to stream events for
-     * @return a Publisher that emits JobEventInfo objects
+     * @param taskId the task ID to stream events for
+     * @return a Publisher that emits TaskEventInfo objects
      */
-    Publisher<JobEventInfo> streamJob(String jobId);
+    Publisher<TaskEventInfo> streamTask(String taskId);
 
     /**
-     * Cancels a running job.
+     * Cancels a running task.
      *
-     * <p>This is a convenience method that delegates to the Invoker's cancelJob method.</p>
+     * <p>This is a convenience method that delegates to the Invoker's cancelTask method.</p>
      *
-     * @param jobId the job ID to cancel
+     * @param taskId the task ID to cancel
      * @return true if cancellation was successful, false otherwise
      * @throws CroupierException if cancellation fails
      */
-    boolean cancelJob(String jobId) throws CroupierException;
+    boolean cancelTask(String taskId) throws CroupierException;
 }

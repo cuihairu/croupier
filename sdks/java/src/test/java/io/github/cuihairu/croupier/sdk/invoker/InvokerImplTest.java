@@ -77,38 +77,38 @@ class InvokerImplTest {
     }
 
     @Test
-    @DisplayName("startJob() should create tracked job from transport response")
-    void testStartJob() throws InvokerException {
+    @DisplayName("startTask() should create tracked task from transport response")
+    void testStartTask() throws InvokerException {
         FakeTransportClient transport = new FakeTransportClient((msgType, data) -> {
-            assertEquals(Protocol.MSG_START_JOB_REQUEST, msgType);
-            return SdkWireMessages.encodeStartJobResponse(new SdkWireMessages.StartJobResponse("job-123"));
+            assertEquals(Protocol.MSG_START_TASK_REQUEST, msgType);
+            return SdkWireMessages.encodeStartTaskResponse(new SdkWireMessages.StartTaskResponse("task-123"));
         });
         InvokerImpl invoker = new InvokerImpl(config, (address, timeout) -> transport);
 
-        String jobId = invoker.startJob("player.sync", "{\"user\":\"u1\"}");
+        String taskId = invoker.startTask("player.sync", "{\"user\":\"u1\"}");
 
-        assertEquals("job-123", jobId);
-        assertTrue(invoker.hasJob(jobId));
-        assertEquals(InvokerImpl.JobStatus.STARTED, invoker.getJobStatus(jobId));
+        assertEquals("task-123", taskId);
+        assertTrue(invoker.hasTask(taskId));
+        assertEquals(InvokerImpl.TaskStatus.STARTED, invoker.getTaskStatus(taskId));
     }
 
     @Test
-    @DisplayName("streamJob() should poll until terminal event and normalize done to completed")
-    void testStreamJob() throws Exception {
+    @DisplayName("streamTask() should poll until terminal event and normalize done to completed")
+    void testStreamTask() throws Exception {
         AtomicInteger streamCalls = new AtomicInteger();
         FakeTransportClient transport = new FakeTransportClient((msgType, data) -> {
-            if (msgType == Protocol.MSG_START_JOB_REQUEST) {
-                return SdkWireMessages.encodeStartJobResponse(new SdkWireMessages.StartJobResponse("job-1"));
+            if (msgType == Protocol.MSG_START_TASK_REQUEST) {
+                return SdkWireMessages.encodeStartTaskResponse(new SdkWireMessages.StartTaskResponse("task-1"));
             }
-            if (msgType == Protocol.MSG_STREAM_JOB_REQUEST) {
+            if (msgType == Protocol.MSG_STREAM_TASK_REQUEST) {
                 int call = streamCalls.getAndIncrement();
                 if (call == 0) {
-                    return SdkWireMessages.encodeJobEvent(
-                        new SdkWireMessages.JobEvent("progress", "working", 50, new byte[0])
+                    return SdkWireMessages.encodeTaskEvent(
+                        new SdkWireMessages.TaskEvent("progress", "working", 50, new byte[0])
                     );
                 }
-                return SdkWireMessages.encodeJobEvent(
-                    new SdkWireMessages.JobEvent(
+                return SdkWireMessages.encodeTaskEvent(
+                    new SdkWireMessages.TaskEvent(
                         "done",
                         "finished",
                         100,
@@ -119,18 +119,18 @@ class InvokerImplTest {
             return new byte[0];
         });
         InvokerImpl invoker = new InvokerImpl(config, (address, timeout) -> transport);
-        String jobId = invoker.startJob("player.sync", "{}");
+        String taskId = invoker.startTask("player.sync", "{}");
 
-        List<JobEventInfo> events = new ArrayList<>();
+        List<TaskEventInfo> events = new ArrayList<>();
         CountDownLatch latch = new CountDownLatch(1);
-        invoker.streamJob(jobId).subscribe(new Subscriber<>() {
+        invoker.streamTask(taskId).subscribe(new Subscriber<>() {
             @Override
             public void onSubscribe(Subscription subscription) {
                 subscription.request(Long.MAX_VALUE);
             }
 
             @Override
-            public void onNext(JobEventInfo event) {
+            public void onNext(TaskEventInfo event) {
                 events.add(event);
                 if (event.isDone()) {
                     latch.countDown();
@@ -154,45 +154,45 @@ class InvokerImplTest {
         assertEquals("completed", events.get(2).getType());
         assertEquals("{\"result\":1}", events.get(2).getPayload());
         assertTrue(events.get(2).isDone());
-        assertEquals(InvokerImpl.JobStatus.COMPLETED, invoker.getJobStatus(jobId));
+        assertEquals(InvokerImpl.TaskStatus.COMPLETED, invoker.getTaskStatus(taskId));
     }
 
     @Test
-    @DisplayName("cancelJob() should send cancel request and mark job cancelled")
-    void testCancelJob() throws InvokerException {
+    @DisplayName("cancelTask() should send cancel request and mark task cancelled")
+    void testCancelTask() throws InvokerException {
         FakeTransportClient transport = new FakeTransportClient((msgType, data) -> {
-            if (msgType == Protocol.MSG_START_JOB_REQUEST) {
-                return SdkWireMessages.encodeStartJobResponse(new SdkWireMessages.StartJobResponse("job-9"));
+            if (msgType == Protocol.MSG_START_TASK_REQUEST) {
+                return SdkWireMessages.encodeStartTaskResponse(new SdkWireMessages.StartTaskResponse("task-9"));
             }
-            if (msgType == Protocol.MSG_CANCEL_JOB_REQUEST) {
-                SdkWireMessages.CancelJobRequest request = SdkWireMessages.decodeCancelJobRequest(data);
-                assertEquals("job-9", request.jobId);
+            if (msgType == Protocol.MSG_CANCEL_TASK_REQUEST) {
+                SdkWireMessages.CancelTaskRequest request = SdkWireMessages.decodeCancelTaskRequest(data);
+                assertEquals("task-9", request.taskId);
             }
             return new byte[0];
         });
         InvokerImpl invoker = new InvokerImpl(config, (address, timeout) -> transport);
-        String jobId = invoker.startJob("player.sync", "{}");
+        String taskId = invoker.startTask("player.sync", "{}");
 
-        invoker.cancelJob(jobId);
+        invoker.cancelTask(taskId);
 
-        assertEquals(InvokerImpl.JobStatus.CANCELLED, invoker.getJobStatus(jobId));
+        assertEquals(InvokerImpl.TaskStatus.CANCELLED, invoker.getTaskStatus(taskId));
     }
 
     @Test
-    @DisplayName("streamJob() should error for unknown job id")
-    void testStreamJobUnknownJob() throws Exception {
+    @DisplayName("streamTask() should error for unknown task id")
+    void testStreamTaskUnknownTask() throws Exception {
         InvokerImpl invoker = new InvokerImpl(config, (address, timeout) -> new FakeTransportClient((msgType, data) -> new byte[0]));
         AtomicReference<Throwable> error = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
 
-        invoker.streamJob("missing").subscribe(new Subscriber<>() {
+        invoker.streamTask("missing").subscribe(new Subscriber<>() {
             @Override
             public void onSubscribe(Subscription subscription) {
                 subscription.request(1);
             }
 
             @Override
-            public void onNext(JobEventInfo event) {
+            public void onNext(TaskEventInfo event) {
             }
 
             @Override

@@ -260,7 +260,7 @@ func TestEdgeCases_invalidInputs(t *testing.T) {
 		}
 	})
 
-	t.Run("StartJob with invalid contexts", func(t *testing.T) {
+	t.Run("StartTask with invalid contexts", func(t *testing.T) {
 		invoker := NewInvoker(&InvokerConfig{
 			Address: "http://localhost:19090",
 		})
@@ -269,14 +269,14 @@ func TestEdgeCases_invalidInputs(t *testing.T) {
 		ctx1, cancel1 := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 		defer cancel1()
 		time.Sleep(10 * time.Millisecond)
-		_, err1 := invoker.StartJob(ctx1, "test.func", "{}", InvokeOptions{})
-		t.Logf("StartJob with expired context error: %v", err1)
+		_, err1 := invoker.StartTask(ctx1, "test.func", "{}", InvokeOptions{})
+		t.Logf("StartTask with expired context error: %v", err1)
 
 		// Cancelled context
 		ctx2, cancel2 := context.WithCancel(context.Background())
 		cancel2()
-		_, err2 := invoker.StartJob(ctx2, "test.func", "{}", InvokeOptions{})
-		t.Logf("StartJob with cancelled context error: %v", err2)
+		_, err2 := invoker.StartTask(ctx2, "test.func", "{}", InvokeOptions{})
+		t.Logf("StartTask with cancelled context error: %v", err2)
 	})
 
 	t.Run("SetSchema with invalid schemas", func(t *testing.T) {
@@ -498,7 +498,7 @@ func TestEdgeCases_rapidOperations(t *testing.T) {
 			elapsed, float64(elapsed.Milliseconds())/100)
 	})
 
-	t.Run("rapid StartJob attempts", func(t *testing.T) {
+	t.Run("rapid StartTask attempts", func(t *testing.T) {
 		invoker := NewInvoker(&InvokerConfig{
 			Address: "http://localhost:19090",
 		})
@@ -506,17 +506,17 @@ func TestEdgeCases_rapidOperations(t *testing.T) {
 		ctx := context.Background()
 		start := time.Now()
 
-		jobIDs := make([]string, 50)
+		taskIDs := make([]string, 50)
 		for i := 0; i < 50; i++ {
-			jobID, err := invoker.StartJob(ctx, "test.func", "{}", InvokeOptions{})
-			jobIDs[i] = jobID
+			taskID, err := invoker.StartTask(ctx, "test.func", "{}", InvokeOptions{})
+			taskIDs[i] = taskID
 			if err != nil {
-				t.Logf("StartJob %d error: %v", i, err)
+				t.Logf("StartTask %d error: %v", i, err)
 			}
 		}
 
 		elapsed := time.Since(start)
-		t.Logf("50 rapid StartJobs took: %v (%.2f ms per StartJob)",
+		t.Logf("50 rapid StartTasks took: %v (%.2f ms per StartTask)",
 			elapsed, float64(elapsed.Milliseconds())/50)
 	})
 
@@ -559,11 +559,11 @@ func TestEdgeCases_concurrentStressTests(t *testing.T) {
 				case 0:
 					_, _ = invoker.Invoke(ctx, "test.func", "{}", InvokeOptions{})
 				case 1:
-					jobID, _ := invoker.StartJob(ctx, "test.func", "{}", InvokeOptions{})
-					_, _ = invoker.StreamJob(ctx, jobID)
+					taskID, _ := invoker.StartTask(ctx, "test.func", "{}", InvokeOptions{})
+					_, _ = invoker.StreamTask(ctx, taskID)
 				case 2:
-					jobID, _ := invoker.StartJob(ctx, "test.func", "{}", InvokeOptions{})
-					_ = invoker.CancelJob(ctx, jobID)
+					taskID, _ := invoker.StartTask(ctx, "test.func", "{}", InvokeOptions{})
+					_ = invoker.CancelTask(ctx, taskID)
 				case 3:
 					_ = invoker.SetSchema("test.func", map[string]interface{}{"type": "object"})
 				}

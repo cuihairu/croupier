@@ -13,7 +13,7 @@ from croupier.invoker import (
     ReconnectConfig,
     RetryConfig,
     InvokeOptions,
-    JobEventInfo,
+    TaskEventInfo,
     _calculate_reconnect_delay,
     _default_reconnect_config,
     _default_retry_config,
@@ -127,29 +127,29 @@ def test_invoke_options_custom():
     assert options.retry is custom_retry
 
 
-def test_job_event_info():
-    info = JobEventInfo(
+def test_task_event_info():
+    info = TaskEventInfo(
         type="completed",
-        job_id="test-job",
+        task_id="test-task",
         payload="result",
-        message="Job completed",
+        message="Task completed",
         progress=100,
         error=None,
         done=True,
     )
     assert info.type == "completed"
-    assert info.job_id == "test-job"
+    assert info.task_id == "test-task"
     assert info.payload == "result"
-    assert info.message == "Job completed"
+    assert info.message == "Task completed"
     assert info.progress == 100
     assert info.error is None
     assert info.done is True
 
 
-def test_job_event_info_defaults():
-    info = JobEventInfo(type="test", job_id="job-1")
+def test_task_event_info_defaults():
+    info = TaskEventInfo(type="test", task_id="task-1")
     assert info.type == "test"
-    assert info.job_id == "job-1"
+    assert info.task_id == "task-1"
     assert info.payload is None
     assert info.message is None
     assert info.progress is None
@@ -271,29 +271,29 @@ def test_invoker_invoke_with_server():
     pass
 
 
-def test_invoker_start_job_with_server():
-    """Test starting a job through TCP server (requires real server)."""
+def test_invoker_start_task_with_server():
+    """Test starting a task through TCP server (requires real server)."""
     # This test requires a real server, skip it in unit tests
     pass
 
 
-def test_invoker_stream_job_polls_until_terminal_event():
+def test_invoker_stream_task_polls_until_terminal_event():
     async def test():
         invoker = Invoker()
         invoker._connected = True
 
         responses = []
 
-        progress = invoker_module.invocation_pb2.JobEvent(
+        progress = invoker_module.invocation_pb2.TaskEvent(
             type="progress",
-            message="Job is running",
+            message="Task is running",
             progress=25,
         )
         responses.append(progress.SerializeToString())
 
-        completed = invoker_module.invocation_pb2.JobEvent(
+        completed = invoker_module.invocation_pb2.TaskEvent(
             type="done",
-            message="Job completed successfully",
+            message="Task completed successfully",
             payload=b"result",
         )
         responses.append(completed.SerializeToString())
@@ -302,10 +302,10 @@ def test_invoker_stream_job_polls_until_terminal_event():
 
         def fake_call(msg_type, data):
             nonlocal call_count
-            assert msg_type == invoker_module.protocol.MSG_STREAM_JOB_REQUEST
-            req = invoker_module.invocation_pb2.JobStreamRequest()
+            assert msg_type == invoker_module.protocol.MSG_STREAM_TASK_REQUEST
+            req = invoker_module.invocation_pb2.TaskStreamRequest()
             req.ParseFromString(data)
-            assert req.job_id == "job-1"
+            assert req.task_id == "task-1"
 
             body = responses[call_count]
             call_count += 1
@@ -319,7 +319,7 @@ def test_invoker_stream_job_polls_until_terminal_event():
         invoker._transport.call = fake_call  # type: ignore[method-assign]
         invoker_module.asyncio.sleep = fake_sleep
         try:
-            events = [event async for event in invoker.stream_job("job-1")]
+            events = [event async for event in invoker.stream_task("task-1")]
         finally:
             invoker_module.asyncio.sleep = original_sleep
 
@@ -327,7 +327,7 @@ def test_invoker_stream_job_polls_until_terminal_event():
         assert len(events) == 2
         assert events[0].type == "progress"
         assert events[0].done is False
-        assert events[0].message == "Job is running"
+        assert events[0].message == "Task is running"
         assert events[0].progress == 25
         assert events[1].type == "completed"
         assert events[1].done is True
@@ -336,21 +336,21 @@ def test_invoker_stream_job_polls_until_terminal_event():
     asyncio.run(test())
 
 
-def test_invoker_stream_job_normalizes_cancelled_event():
+def test_invoker_stream_task_normalizes_cancelled_event():
     async def test():
         invoker = Invoker()
         invoker._connected = True
 
-        cancelled = invoker_module.invocation_pb2.JobEvent(
+        cancelled = invoker_module.invocation_pb2.TaskEvent(
             type="error",
-            message="Job was cancelled",
+            message="Task was cancelled",
         )
 
         def fake_call(msg_type, data):
-            assert msg_type == invoker_module.protocol.MSG_STREAM_JOB_REQUEST
-            req = invoker_module.invocation_pb2.JobStreamRequest()
+            assert msg_type == invoker_module.protocol.MSG_STREAM_TASK_REQUEST
+            req = invoker_module.invocation_pb2.TaskStreamRequest()
             req.ParseFromString(data)
-            assert req.job_id == "job-cancelled"
+            assert req.task_id == "task-cancelled"
             return (
                 invoker_module.protocol.get_response_msg_id(msg_type),
                 cancelled.SerializeToString(),
@@ -358,11 +358,11 @@ def test_invoker_stream_job_normalizes_cancelled_event():
 
         invoker._transport.call = fake_call  # type: ignore[method-assign]
 
-        events = [event async for event in invoker.stream_job("job-cancelled")]
+        events = [event async for event in invoker.stream_task("task-cancelled")]
         assert len(events) == 1
         assert events[0].type == "cancelled"
         assert events[0].done is True
-        assert events[0].error == "Job was cancelled"
+        assert events[0].error == "Task was cancelled"
 
     asyncio.run(test())
 

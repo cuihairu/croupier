@@ -37,9 +37,6 @@ MSG_LIST_CLIENTS_REQUEST = 0x020105
 MSG_LIST_CLIENTS_RESPONSE = 0x020106
 MSG_GET_TASK_RESULT_REQUEST = 0x020107
 MSG_GET_TASK_RESULT_RESPONSE = 0x020108
-# Legacy alias — prefer MSG_GET_TASK_RESULT_*.
-MSG_GET_JOB_RESULT_REQUEST = MSG_GET_TASK_RESULT_REQUEST
-MSG_GET_JOB_RESULT_RESPONSE = MSG_GET_TASK_RESULT_RESPONSE
 
 # Invocation / Task service (0x03xx)
 MSG_INVOKE_REQUEST = 0x030101
@@ -50,13 +47,6 @@ MSG_STREAM_TASK_REQUEST = 0x030105
 MSG_TASK_EVENT = 0x030106
 MSG_CANCEL_TASK_REQUEST = 0x030107
 MSG_CANCEL_TASK_RESPONSE = 0x030108
-# Legacy aliases — prefer MSG_*_TASK_*.
-MSG_START_JOB_REQUEST = MSG_START_TASK_REQUEST
-MSG_START_JOB_RESPONSE = MSG_START_TASK_RESPONSE
-MSG_STREAM_JOB_REQUEST = MSG_STREAM_TASK_REQUEST
-MSG_JOB_EVENT = MSG_TASK_EVENT
-MSG_CANCEL_JOB_REQUEST = MSG_CANCEL_TASK_REQUEST
-MSG_CANCEL_JOB_RESPONSE = MSG_CANCEL_TASK_RESPONSE
 
 # OpsService (0x04xx)
 MSG_GET_SYSTEM_INFO_REQUEST = 0x040101
@@ -90,15 +80,6 @@ MSG_PROVIDER_DRAIN_REQUEST = 0x050105
 MSG_PROVIDER_DRAIN_RESPONSE = 0x050106
 MSG_PROVIDER_DRAIN_COMPLETE_REQUEST = 0x050107
 MSG_PROVIDER_DRAIN_COMPLETE_RESPONSE = 0x050108
-
-# Legacy aliases kept for backward compatibility with older SDK code.
-# Do NOT use in new code — prefer the MSG_PROVIDER_* canonical names.
-MSG_REGISTER_LOCAL_REQUEST = MSG_PROVIDER_CONNECT_REQUEST
-MSG_REGISTER_LOCAL_RESPONSE = MSG_PROVIDER_CONNECT_RESPONSE
-MSG_HEARTBEAT_LOCAL_REQUEST = MSG_PROVIDER_HEARTBEAT_REQUEST
-MSG_HEARTBEAT_LOCAL_RESPONSE = MSG_PROVIDER_HEARTBEAT_RESPONSE
-MSG_LIST_LOCAL_REQUEST = 0x050109   # legacy; not part of v1 wire protocol
-MSG_LIST_LOCAL_RESPONSE = 0x05010A  # legacy; not part of v1 wire protocol
 
 # Message type names
 MSG_NAMES = {
@@ -200,12 +181,12 @@ def parse_message(data: bytes) -> Tuple[int, int, int, bytes]:
 
 def is_request(msg_id: int) -> bool:
     """Check if the MsgID indicates a request message."""
-    return msg_id % 2 == 1 and msg_id not in (MSG_JOB_EVENT, MSG_METRIC_EVENT)
+    return msg_id % 2 == 1 and msg_id not in (MSG_TASK_EVENT, MSG_METRIC_EVENT)
 
 
 def is_response(msg_id: int) -> bool:
     """Check if the MsgID indicates a response message."""
-    return msg_id % 2 == 0 and msg_id not in (MSG_JOB_EVENT, MSG_METRIC_EVENT)
+    return msg_id % 2 == 0 and msg_id not in (MSG_TASK_EVENT, MSG_METRIC_EVENT)
 
 
 def get_response_msg_id(req_msg_id: int) -> int:

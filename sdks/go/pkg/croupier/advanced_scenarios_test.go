@@ -28,7 +28,7 @@ func TestComplex_invokeScenarios(t *testing.T) {
 		}
 	})
 
-	t.Run("sequential job operations", func(t *testing.T) {
+	t.Run("sequential task operations", func(t *testing.T) {
 		invoker := NewInvoker(&InvokerConfig{
 			Address: "http://localhost:19090",
 		})
@@ -36,10 +36,10 @@ func TestComplex_invokeScenarios(t *testing.T) {
 		ctx := context.Background()
 
 		for i := 0; i < 5; i++ {
-			jobID, _ := invoker.StartJob(ctx, "test.func", "{}", InvokeOptions{})
-			_, _ = invoker.StreamJob(ctx, jobID)
-			_ = invoker.CancelJob(ctx, jobID)
-			t.Logf("Job operation sequence %d completed", i)
+			taskID, _ := invoker.StartTask(ctx, "test.func", "{}", InvokeOptions{})
+			_, _ = invoker.StreamTask(ctx, taskID)
+			_ = invoker.CancelTask(ctx, taskID)
+			t.Logf("Task operation sequence %d completed", i)
 		}
 	})
 }

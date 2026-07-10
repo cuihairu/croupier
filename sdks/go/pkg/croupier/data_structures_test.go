@@ -25,10 +25,10 @@ func TestStruct_initialization(t *testing.T) {
 			desc.ID, desc.Version, desc.Deprecated)
 	})
 
-	t.Run("JobEvent zero value", func(t *testing.T) {
-		var event JobEvent
-		t.Logf("Zero JobEvent: EventType='%s', JobID='%s', Done=%v",
-			event.EventType, event.JobID, event.Done)
+	t.Run("TaskEvent zero value", func(t *testing.T) {
+		var event TaskEvent
+		t.Logf("Zero TaskEvent: EventType='%s', TaskID='%s', Done=%v",
+			event.EventType, event.TaskID, event.Done)
 	})
 
 	t.Run("InvokeOptions zero value", func(t *testing.T) {
@@ -83,11 +83,11 @@ func TestField_assignments(t *testing.T) {
 		}
 	})
 
-	t.Run("JobEvent field assignments", func(t *testing.T) {
-		var event JobEvent
+	t.Run("TaskEvent field assignments", func(t *testing.T) {
+		var event TaskEvent
 
 		event.EventType = "started"
-		event.JobID = "job-123"
+		event.TaskID = "task-123"
 		event.Payload = `{"data":"test"}`
 		event.Error = "test error"
 		event.Done = true

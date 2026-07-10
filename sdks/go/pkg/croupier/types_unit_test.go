@@ -158,10 +158,10 @@ func TestLocalFunctionDescriptor_Fields(t *testing.T) {
 	}
 }
 
-func TestJobEvent_Fields(t *testing.T) {
-	event := JobEvent{
+func TestTaskEvent_Fields(t *testing.T) {
+	event := TaskEvent{
 		EventType: "progress",
-		JobID:     "job-123",
+		TaskID:    "task-123",
 		Payload:   `{"pct":50}`,
 		Error:     "",
 		Done:      false,
@@ -170,8 +170,8 @@ func TestJobEvent_Fields(t *testing.T) {
 	if event.EventType != "progress" {
 		t.Errorf("expected EventType=progress, got %s", event.EventType)
 	}
-	if event.JobID != "job-123" {
-		t.Errorf("expected JobID=job-123, got %s", event.JobID)
+	if event.TaskID != "task-123" {
+		t.Errorf("expected TaskID=task-123, got %s", event.TaskID)
 	}
 	if event.Done {
 		t.Error("expected Done=false")

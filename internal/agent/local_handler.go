@@ -45,15 +45,11 @@ type OpsServerWrapper interface {
 	ListCronJobsJSON(ctx context.Context) ([]byte, error)
 }
 
-type TaskEventReporter interface {
-	ReportTaskEvent(ctx context.Context, event *sdkv1.TaskEvent) error
-}
-
 // LocalHandler contains the business logic for handling agent requests
 // without any transport-specific dependencies.
 type LocalHandler struct {
 	store     *agentlocal.LocalStore
-	tasks     *taskIndex
+	tasks     *TaskRunner
 	pm        ProviderManager // Use field name `pm` to avoid conflict with existing providerManager in app.go
 	opsServer OpsServerWrapper
 	reporter  TaskEventReporter
@@ -69,13 +65,15 @@ func NewLocalHandler(store *agentlocal.LocalStore, configDir, agentID string, lo
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &LocalHandler{
+	h := &LocalHandler{
 		store:     store,
-		tasks:     newTaskIndex(),
 		logger:    logger,
 		configDir: configDir,
 		agentID:   agentID,
 	}
+	// TaskRunner executes tasks via the handler's invoke path.
+	h.tasks = NewTaskRunner(h.executeTask, nil, logger)
+	return h
 }
 
 // SetProviderManager sets the provider manager
@@ -96,6 +94,9 @@ func (h *LocalHandler) SetTaskEventReporter(reporter TaskEventReporter) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.reporter = reporter
+	if h.tasks != nil {
+		h.tasks.SetReporter(reporter)
+	}
 }
 
 // SetTLSConfig sets the TLS config for outbound connections
@@ -278,25 +279,11 @@ func (h *LocalHandler) handleStartTask(ctx context.Context, data []byte) ([]byte
 		return nil, fmt.Errorf("unmarshal InvokeRequest for StartTask: %w", err)
 	}
 
-	// Use the server-provided task ID when available so events flow back to
-	// the correct task_runs row. Fall back to a locally generated ID for
-	// callers that don't set one (backward compatibility).
-	taskID := ""
-	if req.Metadata != nil {
-		taskID = strings.TrimSpace(req.Metadata["task_id"])
-	}
-	if taskID == "" {
-		taskID = fmt.Sprintf("task-%d", time.Now().UnixNano())
-	}
+	taskID := h.tasks.Start(req)
 
 	resp := &sdkv1.StartTaskResponse{
 		TaskId: taskID,
 	}
-
-	taskCtx, cancel := context.WithCancel(context.Background())
-	h.tasks.Set(taskID, cancel)
-	go h.runTask(taskCtx, taskID, cancel, req)
-
 	return proto.Marshal(resp)
 }
 
@@ -311,64 +298,14 @@ func (h *LocalHandler) handleCancelTask(ctx context.Context, data []byte) ([]byt
 		return nil, fmt.Errorf("task tracking not available")
 	}
 
-	if cancel, ok := h.tasks.Get(req.GetTaskId()); ok {
-		cancel()
-		h.tasks.Delete(req.GetTaskId())
-		_ = h.emitTaskEvent(context.Background(), &sdkv1.TaskEvent{
-			TaskId:   req.GetTaskId(),
-			Type:     "cancel_requested",
-			Message:  "已请求取消任务",
-			Progress: 0,
-			Payload:  []byte("null"),
-		})
-		h.logger.Info("task cancel requested", "task_id", req.GetTaskId())
-	}
+	h.tasks.Cancel(req.GetTaskId())
 
 	resp := &sdkv1.StartTaskResponse{}
 	return proto.Marshal(resp)
 }
 
-func (h *LocalHandler) runTask(ctx context.Context, taskID string, cancel context.CancelFunc, req *sdkv1.InvokeRequest) {
-	defer func() {
-		h.tasks.Delete(taskID)
-		cancel() // Ensure the context is canceled to prevent leaks
-	}()
-
-	_ = h.emitTaskEvent(context.Background(), &sdkv1.TaskEvent{
-		TaskId:   taskID,
-		Type:     "started",
-		Message:  "任务开始执行",
-		Progress: 0,
-		Payload:  []byte("null"),
-	})
-
-	result, err := h.executeTask(ctx, req)
-	if err != nil {
-		eventType := "failed"
-		message := err.Error()
-		if ctx.Err() != nil {
-			eventType = "cancelled"
-			message = "任务已取消"
-		}
-		_ = h.emitTaskEvent(context.Background(), &sdkv1.TaskEvent{
-			TaskId:   taskID,
-			Type:     eventType,
-			Message:  message,
-			Progress: 0,
-			Payload:  []byte("null"),
-		})
-		return
-	}
-
-	_ = h.emitTaskEvent(context.Background(), &sdkv1.TaskEvent{
-		TaskId:   taskID,
-		Type:     "completed",
-		Message:  "任务执行完成",
-		Progress: 100,
-		Payload:  result,
-	})
-}
-
+// executeTask is the TaskExecutor seam: it routes a task invocation through
+// the same provider-call path as a synchronous invoke. Used by TaskRunner.
 func (h *LocalHandler) executeTask(ctx context.Context, req *sdkv1.InvokeRequest) ([]byte, error) {
 	respBytes, err := h.handleInvoke(ctx, mustMarshal(req))
 	if err != nil {
@@ -382,19 +319,6 @@ func (h *LocalHandler) executeTask(ctx context.Context, req *sdkv1.InvokeRequest
 		return []byte("null"), nil
 	}
 	return resp.GetPayload(), nil
-}
-
-func (h *LocalHandler) emitTaskEvent(ctx context.Context, event *sdkv1.TaskEvent) error {
-	h.mu.RLock()
-	reporter := h.reporter
-	h.mu.RUnlock()
-	if reporter == nil || event == nil {
-		return nil
-	}
-	if len(event.GetPayload()) == 0 {
-		event.Payload = []byte("null")
-	}
-	return reporter.ReportTaskEvent(ctx, event)
 }
 
 func mustMarshal(msg proto.Message) []byte {
@@ -609,37 +533,6 @@ func (h *LocalHandler) handleRegisterCapabilities(ctx context.Context, data []by
 	}
 	resp := &agentv1.RegisterCapabilitiesResponse{}
 	return proto.Marshal(resp)
-}
-
-// taskIndex tracks running tasks.
-type taskIndex struct {
-	mu    sync.RWMutex
-	tasks map[string]context.CancelFunc
-}
-
-func newTaskIndex() *taskIndex {
-	return &taskIndex{
-		tasks: make(map[string]context.CancelFunc),
-	}
-}
-
-func (j *taskIndex) Set(taskID string, cancel context.CancelFunc) {
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	j.tasks[taskID] = cancel
-}
-
-func (j *taskIndex) Get(taskID string) (context.CancelFunc, bool) {
-	j.mu.RLock()
-	defer j.mu.RUnlock()
-	cancel, ok := j.tasks[taskID]
-	return cancel, ok
-}
-
-func (j *taskIndex) Delete(taskID string) {
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	delete(j.tasks, taskID)
 }
 
 // hostFromAddr extracts hostname from address

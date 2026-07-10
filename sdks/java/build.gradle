@@ -32,7 +32,7 @@ dependencies {
 
     implementation "net.java.dev.jna:jna:5.15.0"
 
-    // Reactive Streams for async job streaming
+    // Reactive Streams for async task streaming
     implementation "org.reactivestreams:reactive-streams:1.0.4"
 
     // Logging API used in sdk sources
@@ -64,10 +64,10 @@ jacocoTestReport {
                 '**/generated/**',
                 '**/pb/**',
                 '**/scripts/ProtoGenerator.class',
-                '**/CroupierClientImpl$LocalJobState.class',
-                '**/InvokerImpl$JobEventSubscription*.class',
+                '**/CroupierClientImpl$LocalTaskState.class',
+                '**/InvokerImpl$TaskEventSubscription*.class',
                 '**/InvokerImpl$CheckedSupplier.class',
-                '**/InvokerImpl$JobState.class'
+                '**/InvokerImpl$TaskState.class'
             ])
         }))
     }

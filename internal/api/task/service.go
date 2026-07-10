@@ -165,7 +165,20 @@ func (s *Service) Cancel(ctx context.Context, req *CancelRequest) error {
 	}); err != nil {
 		return err
 	}
-	return s.store.AppendEvent(ctx, taskID, tasks.EventCancelRequested, 0, "已请求取消任务", []byte("null"))
+	if err := s.store.AppendEvent(ctx, taskID, tasks.EventCancelRequested, 0, "已请求取消任务", []byte("null")); err != nil {
+		return err
+	}
+
+	// Forward the cancellation to the agent so the running task actually
+	// stops. Without this, /tasks/cancel only updates the DB row and the
+	// agent keeps executing — leaving REST cancellation a no-op against the
+	// live task. Best-effort: if the agent is unreachable the row still
+	// reflects the requested-cancel state so operators and the SSE stream
+	// see the intent.
+	if s.svcCtx != nil && s.svcCtx.Dispatcher != nil {
+		_ = s.svcCtx.Dispatcher.CancelTask(ctx, taskID)
+	}
+	return nil
 }
 
 func buildItem(run *model.TaskRun) Item {

@@ -75,23 +75,6 @@ public static class Protocol
     public const int MsgGetTaskResultRequest = 0x050107;
     public const int MsgGetTaskResultResponse = 0x050108;
 
-    // Legacy aliases — prefer MsgProvider* canonical names.
-    // Do not use in new code; will be removed once all call sites migrate.
-    public const int MsgRegisterLocalRequest = MsgProviderConnectRequest;
-    public const int MsgRegisterLocalResponse = MsgProviderConnectResponse;
-    public const int MsgHeartbeatLocalRequest = MsgProviderHeartbeatRequest;
-    public const int MsgHeartbeatLocalResponse = MsgProviderHeartbeatResponse;
-    public const int MsgListLocalRequest = 0x050109;
-    public const int MsgListLocalResponse = 0x05010a;
-
-    // Legacy Job aliases for backward compatibility
-    public const int MsgStartJobRequest = MsgStartTaskRequest;
-    public const int MsgStartJobResponse = MsgStartTaskResponse;
-    public const int MsgStreamJobRequest = MsgStreamTaskRequest;
-    public const int MsgJobEvent = MsgTaskEvent;
-    public const int MsgCancelJobRequest = MsgCancelTaskRequest;
-    public const int MsgCancelJobResponse = MsgCancelTaskResponse;
-
     /// <summary>
     /// Encode a 24-bit MsgID into 3 bytes (big-endian).
     /// </summary>
@@ -232,8 +215,6 @@ public static class Protocol
             MsgProviderDrainResponse => "ProviderDrainResponse",
             MsgGetTaskResultRequest => "GetTaskResultRequest",
             MsgGetTaskResultResponse => "GetTaskResultResponse",
-            MsgListLocalRequest => "ListLocalRequest",
-            MsgListLocalResponse => "ListLocalResponse",
             _ => $"Unknown(0x{msgId:X6})"
         };
     }

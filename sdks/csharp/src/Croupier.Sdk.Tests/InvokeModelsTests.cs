@@ -343,30 +343,30 @@ public class InvokeModelsTests
 
     #endregion
 
-    #region JobStatus Tests
+    #region TaskStatus Tests
 
     [Fact]
-    public void JobStatus_RequiredProperties_MustBeSet()
+    public void TaskStatus_RequiredProperties_MustBeSet()
     {
         // Arrange & Act
-        var status = new JobStatus
+        var status = new TaskStatus
         {
-            JobId = "job-123",
+            TaskId = "task-123",
             Status = "running"
         };
 
         // Assert
-        status.JobId.Should().Be("job-123");
+        status.TaskId.Should().Be("task-123");
         status.Status.Should().Be("running");
     }
 
     [Fact]
-    public void JobStatus_OptionalProperties_HaveDefaults()
+    public void TaskStatus_OptionalProperties_HaveDefaults()
     {
         // Arrange
-        var status = new JobStatus
+        var status = new TaskStatus
         {
-            JobId = "job-456",
+            TaskId = "task-456",
             Status = "pending"
         };
 

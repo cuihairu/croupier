@@ -470,13 +470,13 @@ func TestInvokerConfig(t *testing.T) {
 	}
 }
 
-// Test JobEvent structure
-func TestJobEvent(t *testing.T) {
+// Test TaskEvent structure
+func TestTaskEvent(t *testing.T) {
 	t.Parallel()
 
-	event := JobEvent{
+	event := TaskEvent{
 		EventType: "completed",
-		JobID:     "job-123",
+		TaskID:    "task-123",
 		Payload:   `{"result":"success"}`,
 		Done:      true,
 	}
@@ -485,8 +485,8 @@ func TestJobEvent(t *testing.T) {
 		t.Errorf("expected EventType completed, got %q", event.EventType)
 	}
 
-	if event.JobID != "job-123" {
-		t.Errorf("expected JobID job-123, got %q", event.JobID)
+	if event.TaskID != "task-123" {
+		t.Errorf("expected TaskID task-123, got %q", event.TaskID)
 	}
 
 	if !event.Done {

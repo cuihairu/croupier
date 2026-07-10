@@ -91,23 +91,23 @@ def test_gzip_bytes_roundtrip():
     assert gzip.decompress(compressed) == original
 
 
-def test_start_job_streams_started_then_completed():
-    """Test that start_job creates job and streams events."""
+def test_start_task_streams_started_then_completed():
+    """Test that start_task creates task and streams events."""
     client = croupier.CroupierClient()
     client.register_function(
         croupier.FunctionDescriptor(id="f1", version="1.0.0"),
         lambda ctx, payload: (time.sleep(0.05) or payload.decode("utf-8")),  # noqa: E731
     )
 
-    job_id = client.start_job("f1", b"hi")
+    task_id = client.start_task("f1", b"hi")
 
-    events = list(client.stream_job(job_id))
+    events = list(client.stream_task(task_id))
     assert events[0].type == "started"
     assert events[-1].type == "completed"
     assert events[-1].payload == b"hi"
 
 
-def test_start_job_can_stream_after_completion():
+def test_start_task_can_stream_after_completion():
     client = croupier.CroupierClient()
     client.register_function(
         croupier.FunctionDescriptor(id="f1", version="1.0.0"),
@@ -115,33 +115,33 @@ def test_start_job_can_stream_after_completion():
     )
 
     req = croupier.invoker_pb2.InvokeRequest(function_id="f1", payload=b"done")
-    resp = client._handle_start_job(req, None)
+    resp = client._handle_start_task(req, None)
 
     time.sleep(0.05)
 
-    stream_req = croupier.invoker_pb2.JobStreamRequest(job_id=resp.job_id)
-    events = list(client._handle_stream_job(stream_req, None))
+    stream_req = croupier.invoker_pb2.TaskStreamRequest(task_id=resp.task_id)
+    events = list(client._handle_stream_task(stream_req, None))
     assert events[0].type == "started"
     assert events[-1].type == "completed"
     assert events[-1].payload == b"DONE"
 
 
-def test_cancel_job_emits_cancelled_and_closes_stream():
-    """Test that cancel_job stops the job stream."""
+def test_cancel_task_emits_cancelled_and_closes_stream():
+    """Test that cancel_task stops the task stream."""
     client = croupier.CroupierClient()
     client.register_function(
         croupier.FunctionDescriptor(id="f1", version="1.0.0"),
         lambda ctx, payload: (time.sleep(0.2) or "late"),  # noqa: E731
     )
 
-    job_id = client.start_job("f1", b"hi")
+    task_id = client.start_task("f1", b"hi")
 
-    state = client._jobs.get(job_id)
+    state = client._tasks.get(task_id)
     assert state is not None
 
-    client.cancel_job(job_id)
+    client.cancel_task(task_id)
 
-    events = list(client.stream_job(job_id))
+    events = list(client.stream_task(task_id))
     assert any(e.type == "cancelled" for e in events)
 
 
@@ -169,8 +169,8 @@ def test_invoke_raises_for_unregistered_function():
         client.invoke("unknown", b"test")
 
 
-def test_start_job_emits_error_on_handler_failure():
-    """Test that start_job emits error event when handler fails."""
+def test_start_task_emits_error_on_handler_failure():
+    """Test that start_task emits error event when handler fails."""
     client = croupier.CroupierClient()
 
     def failing_handler(ctx, payload):
@@ -181,27 +181,27 @@ def test_start_job_emits_error_on_handler_failure():
         failing_handler,
     )
 
-    job_id = client.start_job("failing", b"test")
+    task_id = client.start_task("failing", b"test")
 
-    events = list(client.stream_job(job_id))
+    events = list(client.stream_task(task_id))
 
     assert events[0].type == "started"
     assert events[1].type == "error"
     assert "handler error" in events[1].message
 
 
-def test_stream_job_raises_for_missing_job_id():
-    """Test that stream_job raises for unknown job."""
+def test_stream_task_raises_for_missing_task_id():
+    """Test that stream_task raises for unknown task."""
     client = croupier.CroupierClient()
 
     with pytest.raises(ValueError, match="not found"):
-        list(client.stream_job("unknown-job"))
+        list(client.stream_task("unknown-task"))
 
 
-def test_cancel_job_does_nothing_for_unknown_job():
-    """Test that cancel_job returns False for unknown job."""
+def test_cancel_task_does_nothing_for_unknown_task():
+    """Test that cancel_task returns False for unknown task."""
     client = croupier.CroupierClient()
-    result = client.cancel_job("unknown-job")
+    result = client.cancel_task("unknown-task")
     assert result is False
 
 
@@ -252,11 +252,11 @@ def test_disconnect_clears_state():
     assert client._session_id == ""
 
 
-def test_job_state_push_and_finished():
-    """Test _JobState push method."""
-    state = croupier._JobState()
+def test_task_state_push_and_finished():
+    """Test _TaskState push method."""
+    state = croupier._TaskState()
 
-    event = croupier.invocation_pb2.JobEvent(type="test", payload=b"data")
+    event = croupier.invocation_pb2.TaskEvent(type="test", payload=b"data")
     state.push(event, finished=False)
 
     result = state.queue.get(timeout=1)
@@ -264,11 +264,11 @@ def test_job_state_push_and_finished():
     assert result.payload == b"data"
 
 
-def test_job_state_finished_sets_done():
-    """Test _JobState finished flag sets done event."""
-    state = croupier._JobState()
+def test_task_state_finished_sets_done():
+    """Test _TaskState finished flag sets done event."""
+    state = croupier._TaskState()
 
-    event = croupier.invocation_pb2.JobEvent(type="test", payload=b"data")
+    event = croupier.invocation_pb2.TaskEvent(type="test", payload=b"data")
     state.push(event, finished=True)
 
     assert state.done.is_set()
@@ -368,11 +368,11 @@ def test_client_config_with_all_fields():
     assert config.max_file_size == 32 * 1024 * 1024
 
 
-def test_job_state_push_with_finished():
-    """Test _JobState.push with finished=True sets done event."""
-    state = croupier._JobState()
+def test_task_state_push_with_finished():
+    """Test _TaskState.push with finished=True sets done event."""
+    state = croupier._TaskState()
 
-    event = croupier.invocation_pb2.JobEvent(type="test", payload=b"data")
+    event = croupier.invocation_pb2.TaskEvent(type="test", payload=b"data")
     state.push(event, finished=True)
 
     assert state.done.is_set()
@@ -384,12 +384,12 @@ def test_job_state_push_with_finished():
     assert second is None
 
 
-def test_job_state_multiple_push():
-    """Test _JobState with multiple pushes."""
-    state = croupier._JobState()
+def test_task_state_multiple_push():
+    """Test _TaskState with multiple pushes."""
+    state = croupier._TaskState()
 
-    event1 = croupier.invocation_pb2.JobEvent(type="progress", payload=b"50")
-    event2 = croupier.invocation_pb2.JobEvent(type="progress", payload=b"100")
+    event1 = croupier.invocation_pb2.TaskEvent(type="progress", payload=b"50")
+    event2 = croupier.invocation_pb2.TaskEvent(type="progress", payload=b"100")
 
     state.push(event1, finished=False)
     state.push(event2, finished=False)
@@ -397,7 +397,7 @@ def test_job_state_multiple_push():
     assert state.queue.qsize() == 2
     assert not state.done.is_set()
 
-    state.push(croupier.invocation_pb2.JobEvent(type="done"), finished=True)
+    state.push(croupier.invocation_pb2.TaskEvent(type="done"), finished=True)
     assert state.done.is_set()
 
 
@@ -407,7 +407,7 @@ def test_client_has_initial_state():
 
     assert client._handlers == {}
     assert client._descriptors == {}
-    assert client._jobs == {}
+    assert client._tasks == {}
     assert client._session_id == ""
 
 
@@ -563,12 +563,12 @@ def test_invoke_handler_with_empty_payload():
     assert result == b"received:0"
 
 
-def test_start_job_for_unknown_function():
-    """Test start_job returns error for unknown function."""
+def test_start_task_for_unknown_function():
+    """Test start_task returns error for unknown function."""
     client = croupier.CroupierClient()
 
     with pytest.raises(ValueError, match="not found"):
-        client.start_job("unknown.fn", b"test")
+        client.start_task("unknown.fn", b"test")
 
 
 def test_build_manifest_with_disabled_function():
@@ -627,7 +627,7 @@ def test_invoker_imports_from_module():
     from croupier import (
         InvokerConfig,
         InvokeOptions,
-        JobEventInfo,
+        TaskEventInfo,
         Invoker,
         SyncInvoker,
         create_invoker,
@@ -636,7 +636,7 @@ def test_invoker_imports_from_module():
 
     assert InvokerConfig is not None
     assert InvokeOptions is not None
-    assert JobEventInfo is not None
+    assert TaskEventInfo is not None
     assert Invoker is not None
     assert SyncInvoker is not None
     assert create_invoker is not None
@@ -671,8 +671,8 @@ def test_get_function_descriptor_unknown():
     assert desc is None
 
 
-def test_get_register_request():
-    """Test get_register_request builds correct request."""
+def test_get_provider_connect_request():
+    """Test get_provider_connect_request builds correct request."""
     config = croupier.ClientConfig(service_id="test-svc", service_version="1.0.0")
     client = croupier.CroupierClient(config)
     client.register_function(
@@ -680,7 +680,7 @@ def test_get_register_request():
         lambda ctx, payload: "ok",  # noqa: E731
     )
 
-    req = client.get_register_request()
+    req = client.get_provider_connect_request()
     assert req.service_id == "test-svc"
     assert req.version == "1.0.0"
     # rpc_addr is intentionally empty: the field only exists in the legacy
@@ -691,8 +691,8 @@ def test_get_register_request():
     assert req.functions[0].id == "f1"
 
 
-def test_start_job_with_metadata():
-    """Test start_job with metadata."""
+def test_start_task_with_metadata():
+    """Test start_task with metadata."""
     client = croupier.CroupierClient()
 
     def handler(ctx, payload):
@@ -702,22 +702,22 @@ def test_start_job_with_metadata():
         return "done"
 
     client.register_function(
-        croupier.FunctionDescriptor(id="job", version="1.0.0"),
+        croupier.FunctionDescriptor(id="task", version="1.0.0"),
         handler,
     )
 
-    job_id = client.start_job("job", b"test", metadata={"job_key": "job_value"})
-    events = list(client.stream_job(job_id))
+    task_id = client.start_task("task", b"test", metadata={"task_key": "task_value"})
+    events = list(client.stream_task(task_id))
 
     assert len(events) >= 2
     assert events[0].type == "started"
     assert events[-1].type in ["completed", "error"]
 
 
-def test_cancel_nonexistent_job():
-    """Test cancel_job with nonexistent job returns False."""
+def test_cancel_nonexistent_task():
+    """Test cancel_task with nonexistent task returns False."""
     client = croupier.CroupierClient()
-    result = client.cancel_job("nonexistent-job-id")
+    result = client.cancel_task("nonexistent-task-id")
     assert result is False
 
 
@@ -769,8 +769,8 @@ def test_invoke_with_int_result():
     assert result == b"42"
 
 
-def test_multiple_jobs_concurrent():
-    """Test running multiple jobs sequentially."""
+def test_multiple_tasks_concurrent():
+    """Test running multiple tasks sequentially."""
     client = croupier.CroupierClient()
 
     def handler(ctx, payload):
@@ -785,8 +785,8 @@ def test_multiple_jobs_concurrent():
     )
 
     for i in range(3):
-        job_id = client.start_job("multi", f"task{i}".encode())
-        events = list(client.stream_job(job_id))
+        task_id = client.start_task("multi", f"task{i}".encode())
+        events = list(client.stream_task(task_id))
         assert events[0].type == "started"
         assert events[1].type == "completed"
 
@@ -910,8 +910,8 @@ def test_invoke_rejected_when_draining():
     assert resp.payload == b""
 
 
-def test_start_job_rejected_when_draining():
-    """Test that inbound start_job is rejected when draining."""
+def test_start_task_rejected_when_draining():
+    """Test that inbound start_task is rejected when draining."""
     client = croupier.CroupierClient()
     client.register_function(
         croupier.FunctionDescriptor(id="test.fn", version="1.0.0"),
@@ -922,10 +922,10 @@ def test_start_job_rejected_when_draining():
     client._draining.set()
 
     req = croupier.invocation_pb2.InvokeRequest(function_id="test.fn", payload=b"hello")
-    resp_bytes = client._handle_inbound_start_job(req.SerializeToString())
-    resp = croupier.invocation_pb2.StartJobResponse()
+    resp_bytes = client._handle_inbound_start_task(req.SerializeToString())
+    resp = croupier.invocation_pb2.StartTaskResponse()
     resp.ParseFromString(resp_bytes)
-    assert resp.job_id == ""
+    assert resp.task_id == ""
 
 
 def test_handle_inbound_dispatches_drain():

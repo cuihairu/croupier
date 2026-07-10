@@ -112,38 +112,38 @@ func TestInvoker_InvokeOptions(t *testing.T) {
 	})
 }
 
-func TestInvoker_JobOperations(t *testing.T) {
+func TestInvoker_TaskOperations(t *testing.T) {
 	invoker := NewInvoker(&InvokerConfig{
 		Address: "http://localhost:19090",
 	})
 
 	ctx := context.Background()
 
-	t.Run("start job", func(t *testing.T) {
-		jobID, err := invoker.StartJob(ctx, "test.func", "{}", InvokeOptions{})
-		t.Logf("StartJob jobID: %s, error: %v", jobID, err)
+	t.Run("start task", func(t *testing.T) {
+		taskID, err := invoker.StartTask(ctx, "test.func", "{}", InvokeOptions{})
+		t.Logf("StartTask taskID: %s, error: %v", taskID, err)
 	})
 
-	t.Run("start job with timeout", func(t *testing.T) {
+	t.Run("start task with timeout", func(t *testing.T) {
 		options := InvokeOptions{
 			Timeout: 30 * time.Second,
 		}
-		jobID, err := invoker.StartJob(ctx, "test.func", "{}", options)
-		t.Logf("StartJob with timeout jobID: %s, error: %v", jobID, err)
+		taskID, err := invoker.StartTask(ctx, "test.func", "{}", options)
+		t.Logf("StartTask with timeout taskID: %s, error: %v", taskID, err)
 	})
 
-	t.Run("stream job", func(t *testing.T) {
-		events, err := invoker.StreamJob(ctx, "job-123")
-		t.Logf("StreamJob error: %v", err)
+	t.Run("stream task", func(t *testing.T) {
+		events, err := invoker.StreamTask(ctx, "task-123")
+		t.Logf("StreamTask error: %v", err)
 
 		if err == nil && events != nil {
-			t.Log("StreamJob returned event channel")
+			t.Log("StreamTask returned event channel")
 		}
 	})
 
-	t.Run("cancel job", func(t *testing.T) {
-		err := invoker.CancelJob(ctx, "job-456")
-		t.Logf("CancelJob error: %v", err)
+	t.Run("cancel task", func(t *testing.T) {
+		err := invoker.CancelTask(ctx, "task-456")
+		t.Logf("CancelTask error: %v", err)
 	})
 }
 

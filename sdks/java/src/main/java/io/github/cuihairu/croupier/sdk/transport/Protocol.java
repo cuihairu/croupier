@@ -48,20 +48,18 @@ public final class Protocol {
     // InvokerService (0x03xx)
     public static final int MSG_INVOKE_REQUEST = 0x030101;
     public static final int MSG_INVOKE_RESPONSE = 0x030102;
-    public static final int MSG_START_JOB_REQUEST = 0x030103;
-    public static final int MSG_START_JOB_RESPONSE = 0x030104;
-    public static final int MSG_STREAM_JOB_REQUEST = 0x030105;
-    public static final int MSG_JOB_EVENT = 0x030106;
-    public static final int MSG_CANCEL_JOB_REQUEST = 0x030107;
-    public static final int MSG_CANCEL_JOB_RESPONSE = 0x030108;
+    public static final int MSG_START_TASK_REQUEST = 0x030103;
+    public static final int MSG_START_TASK_RESPONSE = 0x030104;
+    public static final int MSG_STREAM_TASK_REQUEST = 0x030105;
+    public static final int MSG_TASK_EVENT = 0x030106;
+    public static final int MSG_CANCEL_TASK_REQUEST = 0x030107;
+    public static final int MSG_CANCEL_TASK_RESPONSE = 0x030108;
 
     // LocalControlService (0x05xx)
-    public static final int MSG_REGISTER_LOCAL_REQUEST = 0x050101;
-    public static final int MSG_REGISTER_LOCAL_RESPONSE = 0x050102;
-    public static final int MSG_HEARTBEAT_LOCAL_REQUEST = 0x050103;
-    public static final int MSG_HEARTBEAT_LOCAL_RESPONSE = 0x050104;
-    public static final int MSG_LIST_LOCAL_REQUEST = 0x050105;
-    public static final int MSG_LIST_LOCAL_RESPONSE = 0x050106;
+    public static final int MSG_PROVIDER_CONNECT_REQUEST = 0x050101;
+    public static final int MSG_PROVIDER_CONNECT_RESPONSE = 0x050102;
+    public static final int MSG_PROVIDER_HEARTBEAT_REQUEST = 0x050103;
+    public static final int MSG_PROVIDER_HEARTBEAT_RESPONSE = 0x050104;
 
     /**
      * Encode a 24-bit MsgID into 3 bytes (big-endian).
@@ -147,14 +145,14 @@ public final class Protocol {
      * Check if the MsgID indicates a request message.
      */
     public static boolean isRequest(int msgId) {
-        return msgId % 2 == 1 && msgId != MSG_JOB_EVENT;
+        return msgId % 2 == 1 && msgId != MSG_TASK_EVENT;
     }
 
     /**
      * Check if the MsgID indicates a response message.
      */
     public static boolean isResponse(int msgId) {
-        return msgId % 2 == 0 && msgId != MSG_JOB_EVENT;
+        return msgId % 2 == 0 && msgId != MSG_TASK_EVENT;
     }
 
     /**
@@ -175,18 +173,16 @@ public final class Protocol {
             case MSG_HEARTBEAT_RESPONSE: return "HeartbeatResponse";
             case MSG_INVOKE_REQUEST: return "InvokeRequest";
             case MSG_INVOKE_RESPONSE: return "InvokeResponse";
-            case MSG_START_JOB_REQUEST: return "StartJobRequest";
-            case MSG_START_JOB_RESPONSE: return "StartJobResponse";
-            case MSG_STREAM_JOB_REQUEST: return "StreamJobRequest";
-            case MSG_JOB_EVENT: return "JobEvent";
-            case MSG_CANCEL_JOB_REQUEST: return "CancelJobRequest";
-            case MSG_CANCEL_JOB_RESPONSE: return "CancelJobResponse";
-            case MSG_REGISTER_LOCAL_REQUEST: return "RegisterLocalRequest";
-            case MSG_REGISTER_LOCAL_RESPONSE: return "RegisterLocalResponse";
-            case MSG_HEARTBEAT_LOCAL_REQUEST: return "HeartbeatLocalRequest";
-            case MSG_HEARTBEAT_LOCAL_RESPONSE: return "HeartbeatLocalResponse";
-            case MSG_LIST_LOCAL_REQUEST: return "ListLocalRequest";
-            case MSG_LIST_LOCAL_RESPONSE: return "ListLocalResponse";
+            case MSG_START_TASK_REQUEST: return "StartTaskRequest";
+            case MSG_START_TASK_RESPONSE: return "StartTaskResponse";
+            case MSG_STREAM_TASK_REQUEST: return "StreamTaskRequest";
+            case MSG_TASK_EVENT: return "TaskEvent";
+            case MSG_CANCEL_TASK_REQUEST: return "CancelTaskRequest";
+            case MSG_CANCEL_TASK_RESPONSE: return "CancelTaskResponse";
+            case MSG_PROVIDER_CONNECT_REQUEST: return "ProviderConnectRequest";
+            case MSG_PROVIDER_CONNECT_RESPONSE: return "ProviderConnectResponse";
+            case MSG_PROVIDER_HEARTBEAT_REQUEST: return "ProviderHeartbeatRequest";
+            case MSG_PROVIDER_HEARTBEAT_RESPONSE: return "ProviderHeartbeatResponse";
             default: return String.format("Unknown(0x%06X)", msgId);
         }
     }

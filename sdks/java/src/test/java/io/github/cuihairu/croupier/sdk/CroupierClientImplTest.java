@@ -1,6 +1,6 @@
 package io.github.cuihairu.croupier.sdk;
 
-import io.github.cuihairu.croupier.sdk.invoker.JobEventInfo;
+import io.github.cuihairu.croupier.sdk.invoker.TaskEventInfo;
 import io.github.cuihairu.croupier.sdk.testing.FakeTransportClient;
 import io.github.cuihairu.croupier.sdk.transport.Protocol;
 import io.github.cuihairu.croupier.sdk.wire.SdkWireMessages;
@@ -89,32 +89,32 @@ class CroupierClientImplTest {
     }
 
     @Test
-    void startJobDelegatesToInvokerTransport() throws Exception {
+    void startTaskDelegatesToInvokerTransport() throws Exception {
         client.registerFunction(new FunctionDescriptor("local.fn", "1.0.0"), (ctx, payload) -> "ok");
         client.connect().join();
 
-        String jobId = client.startJob("remote.fn", "{}", Map.of("X-Trace", "trace-1"));
+        String taskId = client.startTask("remote.fn", "{}", Map.of("X-Trace", "trace-1"));
 
-        assertEquals("remote-job-1", jobId);
+        assertEquals("remote-task-1", taskId);
         assertEquals("trace-1", harness.lastRemoteInvoke.get().metadata.get("X-Trace"));
     }
 
     @Test
-    void streamJobReturnsCompletedEventFromInvoker() throws Exception {
+    void streamTaskReturnsCompletedEventFromInvoker() throws Exception {
         client.registerFunction(new FunctionDescriptor("local.fn", "1.0.0"), (ctx, payload) -> "ok");
         client.connect().join();
-        String jobId = client.startJob("remote.fn", "{}");
+        String taskId = client.startTask("remote.fn", "{}");
 
-        List<JobEventInfo> events = new ArrayList<>();
+        List<TaskEventInfo> events = new ArrayList<>();
         CountDownLatch latch = new CountDownLatch(1);
-        client.streamJob(jobId).subscribe(new Subscriber<>() {
+        client.streamTask(taskId).subscribe(new Subscriber<>() {
             @Override
             public void onSubscribe(Subscription subscription) {
                 subscription.request(Long.MAX_VALUE);
             }
 
             @Override
-            public void onNext(JobEventInfo event) {
+            public void onNext(TaskEventInfo event) {
                 events.add(event);
                 if (event.isDone()) {
                     latch.countDown();
@@ -182,39 +182,39 @@ class CroupierClientImplTest {
     }
 
     private static final class TestHarness {
-        private final AtomicReference<SdkWireMessages.RegisterLocalRequest> registerRequest = new AtomicReference<>();
+        private final AtomicReference<SdkWireMessages.ProviderConnectRequest> registerRequest = new AtomicReference<>();
         private final AtomicReference<SdkWireMessages.InvokeRequest> lastRemoteInvoke = new AtomicReference<>();
         private final CountDownLatch heartbeatLatch = new CountDownLatch(1);
         private final AtomicInteger remoteStreamCount = new AtomicInteger();
 
         private FakeTransportClient newTransport() {
             return new FakeTransportClient((msgType, data) -> {
-                if (msgType == Protocol.MSG_REGISTER_LOCAL_REQUEST) {
-                    registerRequest.set(SdkWireMessages.decodeRegisterLocalRequest(data));
-                    return SdkWireMessages.encodeRegisterLocalResponse(
-                        new SdkWireMessages.RegisterLocalResponse("session-1")
+                if (msgType == Protocol.MSG_PROVIDER_CONNECT_REQUEST) {
+                    registerRequest.set(SdkWireMessages.decodeProviderConnectRequest(data));
+                    return SdkWireMessages.encodeProviderConnectResponse(
+                        new SdkWireMessages.ProviderConnectResponse("session-1")
                     );
                 }
-                if (msgType == Protocol.MSG_HEARTBEAT_LOCAL_REQUEST) {
+                if (msgType == Protocol.MSG_PROVIDER_HEARTBEAT_REQUEST) {
                     heartbeatLatch.countDown();
                     return new byte[0];
                 }
-                if (msgType == Protocol.MSG_START_JOB_REQUEST) {
+                if (msgType == Protocol.MSG_START_TASK_REQUEST) {
                     lastRemoteInvoke.set(SdkWireMessages.decodeInvokeRequest(data));
                     remoteStreamCount.set(0);
-                    return SdkWireMessages.encodeStartJobResponse(
-                        new SdkWireMessages.StartJobResponse("remote-job-1")
+                    return SdkWireMessages.encodeStartTaskResponse(
+                        new SdkWireMessages.StartTaskResponse("remote-task-1")
                     );
                 }
-                if (msgType == Protocol.MSG_STREAM_JOB_REQUEST) {
+                if (msgType == Protocol.MSG_STREAM_TASK_REQUEST) {
                     int call = remoteStreamCount.getAndIncrement();
                     if (call == 0) {
-                        return SdkWireMessages.encodeJobEvent(
-                            new SdkWireMessages.JobEvent("progress", "working", 50, new byte[0])
+                        return SdkWireMessages.encodeTaskEvent(
+                            new SdkWireMessages.TaskEvent("progress", "working", 50, new byte[0])
                         );
                     }
-                    return SdkWireMessages.encodeJobEvent(
-                        new SdkWireMessages.JobEvent(
+                    return SdkWireMessages.encodeTaskEvent(
+                        new SdkWireMessages.TaskEvent(
                             "done",
                             "finished",
                             100,
@@ -222,7 +222,7 @@ class CroupierClientImplTest {
                         )
                     );
                 }
-                if (msgType == Protocol.MSG_CANCEL_JOB_REQUEST || msgType == Protocol.MSG_INVOKE_REQUEST) {
+                if (msgType == Protocol.MSG_CANCEL_TASK_REQUEST || msgType == Protocol.MSG_INVOKE_REQUEST) {
                     return new byte[0];
                 }
                 throw new IllegalStateException("Unexpected message type " + msgType);

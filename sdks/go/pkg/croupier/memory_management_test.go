@@ -141,7 +141,7 @@ func TestMemoryManagement_LargePayloads(t *testing.T) {
 
 // TestMemoryManagement_GoroutineLeakTests tests for goroutine leaks
 func TestMemoryManagement_GoroutineLeakTests(t *testing.T) {
-	t.Run("Start and cancel many jobs", func(t *testing.T) {
+	t.Run("Start and cancel many tasks", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -153,21 +153,21 @@ func TestMemoryManagement_GoroutineLeakTests(t *testing.T) {
 		defer invoker.Close()
 
 		ctx := context.Background()
-		const numJobs = 30
+		const numTasks = 30
 
 		// Check goroutine count before
 		numGoroutinesBefore := runtime.NumGoroutine()
 		t.Logf("Goroutines before: %d", numGoroutinesBefore)
 
-		jobIDs := make([]string, numJobs)
-		for i := 0; i < numJobs; i++ {
-			jobID, _ := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-			jobIDs[i] = jobID
+		taskIDs := make([]string, numTasks)
+		for i := 0; i < numTasks; i++ {
+			taskID, _ := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+			taskIDs[i] = taskID
 		}
 
-		// Cancel all jobs
-		for _, jobID := range jobIDs {
-			invoker.CancelJob(ctx, jobID)
+		// Cancel all tasks
+		for _, taskID := range taskIDs {
+			invoker.CancelTask(ctx, taskID)
 		}
 
 		// Give time for cleanup
@@ -178,7 +178,7 @@ func TestMemoryManagement_GoroutineLeakTests(t *testing.T) {
 		t.Logf("Goroutines after: %d (delta: %d)", numGoroutinesAfter, numGoroutinesAfter-numGoroutinesBefore)
 	})
 
-	t.Run("Stream job and cleanup", func(t *testing.T) {
+	t.Run("Stream task and cleanup", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -195,9 +195,9 @@ func TestMemoryManagement_GoroutineLeakTests(t *testing.T) {
 		numGoroutinesBefore := runtime.NumGoroutine()
 
 		for i := 0; i < numStreams; i++ {
-			jobID, _ := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
+			taskID, _ := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
 
-			eventChan, err := invoker.StreamJob(ctx, jobID)
+			eventChan, err := invoker.StreamTask(ctx, taskID)
 			t.Logf("Stream %d: error=%v, channel=%v", i, err, eventChan != nil)
 
 			// Don't read from channel, just let it get garbage collected
@@ -358,11 +358,11 @@ func TestMemoryManagement_CleanupTests(t *testing.T) {
 
 		ctx := context.Background()
 
-		// Start some jobs
-		jobIDs := make([]string, 5)
+		// Start some tasks
+		taskIDs := make([]string, 5)
 		for i := 0; i < 5; i++ {
-			jobID, _ := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-			jobIDs[i] = jobID
+			taskID, _ := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+			taskIDs[i] = taskID
 		}
 
 		// Set schemas
@@ -374,10 +374,10 @@ func TestMemoryManagement_CleanupTests(t *testing.T) {
 
 		t.Logf("Cleanup sequence: Close error=%v", err)
 
-		// Verify we can still cancel jobs (should handle gracefully)
-		for _, jobID := range jobIDs {
-			err = invoker.CancelJob(ctx, jobID)
-			t.Logf("Cancel after close: jobID=%s, error=%v", jobID, err)
+		// Verify we can still cancel tasks (should handle gracefully)
+		for _, taskID := range taskIDs {
+			err = invoker.CancelTask(ctx, taskID)
+			t.Logf("Cancel after close: taskID=%s, error=%v", taskID, err)
 		}
 	})
 

@@ -24,9 +24,9 @@ class CroupierClientImplEscapeTest {
 
     private FakeTransportClient createFakeTransport() {
         return new FakeTransportClient((msgType, data) -> {
-            if (msgType == Protocol.MSG_REGISTER_LOCAL_REQUEST) {
-                return SdkWireMessages.encodeRegisterLocalResponse(
-                    new SdkWireMessages.RegisterLocalResponse("session-1")
+            if (msgType == Protocol.MSG_PROVIDER_CONNECT_REQUEST) {
+                return SdkWireMessages.encodeProviderConnectResponse(
+                    new SdkWireMessages.ProviderConnectResponse("session-1")
                 );
             }
             return new byte[0];

@@ -284,27 +284,27 @@ func TestTypes_ClientConfig(t *testing.T) {
 	})
 }
 
-// TestTypes_JobEvent tests JobEvent variations
-func TestTypes_JobEvent(t *testing.T) {
-	t.Run("JobEvent with all event types", func(t *testing.T) {
+// TestTypes_TaskEvent tests TaskEvent variations
+func TestTypes_TaskEvent(t *testing.T) {
+	t.Run("TaskEvent with all event types", func(t *testing.T) {
 		eventTypes := []string{"started", "progress", "completed", "error"}
 
 		for _, eventType := range eventTypes {
-			event := JobEvent{
+			event := TaskEvent{
 				EventType: eventType,
-				JobID:     "job-123",
+				TaskID:    "task-123",
 				Payload:   `{"status":"processing"}`,
 				Error:     "",
 			}
 
-			t.Logf("JobEvent: Type=%s, JobID=%s", event.EventType, event.JobID)
+			t.Logf("TaskEvent: Type=%s, TaskID=%s", event.EventType, event.TaskID)
 		}
 	})
 
-	t.Run("JobEvent with error", func(t *testing.T) {
-		event := JobEvent{
+	t.Run("TaskEvent with error", func(t *testing.T) {
+		event := TaskEvent{
 			EventType: "error",
-			JobID:     "job-456",
+			TaskID:    "task-456",
 			Payload:   "",
 			Error:     "processing failed",
 		}
@@ -312,10 +312,10 @@ func TestTypes_JobEvent(t *testing.T) {
 		t.Logf("Error event: Error='%s'", event.Error)
 	})
 
-	t.Run("JobEvent with progress", func(t *testing.T) {
-		event := JobEvent{
+	t.Run("TaskEvent with progress", func(t *testing.T) {
+		event := TaskEvent{
 			EventType: "progress",
-			JobID:     "job-789",
+			TaskID:    "task-789",
 			Payload:   `{"progress":50,"message":"Half done"}`,
 			Error:     "",
 		}

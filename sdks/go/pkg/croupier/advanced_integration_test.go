@@ -71,10 +71,10 @@ func TestAdvancedIntegration_MultiInvoker(t *testing.T) {
 
 	t.Run("Concurrent invokers with shared workload", func(t *testing.T) {
 		const numInvokers = 5
-		const numJobs = 100
+		const numTasks = 100
 
 		var wg sync.WaitGroup
-		jobsCompleted := atomic.Int32{}
+		tasksCompleted := atomic.Int32{}
 
 		for i := 0; i < numInvokers; i++ {
 			wg.Add(1)
@@ -91,21 +91,21 @@ func TestAdvancedIntegration_MultiInvoker(t *testing.T) {
 				defer invoker.Close()
 
 				ctx := context.Background()
-				jobsPerInvoker := numJobs / numInvokers
+				tasksPerInvoker := numTasks / numInvokers
 
-				for j := 0; j < jobsPerInvoker; j++ {
+				for j := 0; j < tasksPerInvoker; j++ {
 					result, err := invoker.Invoke(ctx, "test.function",
-						fmt.Sprintf(`{"invoker":%d,"job":%d}`, invokerID, j), InvokeOptions{})
+						fmt.Sprintf(`{"invoker":%d,"task":%d}`, invokerID, j), InvokeOptions{})
 
 					if err == nil || len(result) >= 0 {
-						jobsCompleted.Add(1)
+						tasksCompleted.Add(1)
 					}
 				}
 			}(i)
 		}
 
 		wg.Wait()
-		t.Logf("Completed %d/%d jobs across %d invokers", jobsCompleted.Load(), numJobs, numInvokers)
+		t.Logf("Completed %d/%d tasks across %d invokers", tasksCompleted.Load(), numTasks, numInvokers)
 	})
 }
 
@@ -125,24 +125,24 @@ func TestAdvancedIntegration_ComplexWorkflows(t *testing.T) {
 		ctx := context.Background()
 		const numWorkers = 10
 
-		// Fan-out: Start multiple jobs
-		jobIDs := make([]string, numWorkers)
+		// Fan-out: Start multiple tasks
+		taskIDs := make([]string, numWorkers)
 		for i := 0; i < numWorkers; i++ {
-			jobID, err := invoker.StartJob(ctx, "test.job", fmt.Sprintf(`{"worker":%d}`, i), InvokeOptions{})
-			jobIDs[i] = jobID
-			t.Logf("Started job %d: jobID=%s, error=%v", i, jobID, err)
+			taskID, err := invoker.StartTask(ctx, "test.task", fmt.Sprintf(`{"worker":%d}`, i), InvokeOptions{})
+			taskIDs[i] = taskID
+			t.Logf("Started task %d: taskID=%s, error=%v", i, taskID, err)
 		}
 
-		// Fan-in: Wait for all jobs
+		// Fan-in: Wait for all tasks
 		var wg sync.WaitGroup
-		for _, jobID := range jobIDs {
+		for _, taskID := range taskIDs {
 			wg.Add(1)
-			go func(jid string) {
+			go func(tid string) {
 				defer wg.Done()
 
-				eventChan, err := invoker.StreamJob(ctx, jid)
+				eventChan, err := invoker.StreamTask(ctx, tid)
 				if err != nil {
-					t.Logf("Stream job %s: error=%v", jid, err)
+					t.Logf("Stream task %s: error=%v", tid, err)
 					return
 				}
 
@@ -154,8 +154,8 @@ func TestAdvancedIntegration_ComplexWorkflows(t *testing.T) {
 						break
 					}
 				}
-				t.Logf("Job %s: received %d events", jid, eventCount)
-			}(jobID)
+				t.Logf("Task %s: received %d events", tid, eventCount)
+			}(taskID)
 		}
 
 		wg.Wait()
@@ -274,7 +274,7 @@ func TestAdvancedIntegration_StateManagement(t *testing.T) {
 		t.Logf("Clear schema: error=%v", err)
 	})
 
-	t.Run("Job state transitions", func(t *testing.T) {
+	t.Run("Task state transitions", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -287,25 +287,25 @@ func TestAdvancedIntegration_StateManagement(t *testing.T) {
 
 		ctx := context.Background()
 
-		// Start job
-		jobID, err := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-		t.Logf("Start job: jobID=%s, error=%v", jobID, err)
+		// Start task
+		taskID, err := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+		t.Logf("Start task: taskID=%s, error=%v", taskID, err)
 
-		if jobID != "" {
-			// Stream job events
-			eventChan, err := invoker.StreamJob(ctx, jobID)
-			t.Logf("Stream job: error=%v", err)
+		if taskID != "" {
+			// Stream task events
+			eventChan, err := invoker.StreamTask(ctx, taskID)
+			t.Logf("Stream task: error=%v", err)
 
 			if err == nil && eventChan != nil {
 				// Read a few events
 				eventCount := 0
 				for event := range eventChan {
 					eventCount++
-					t.Logf("Job event: %+v", event)
+					t.Logf("Task event: %+v", event)
 					if eventCount >= 3 {
-						// Cancel job
-						cancelErr := invoker.CancelJob(ctx, jobID)
-						t.Logf("Cancel job: error=%v", cancelErr)
+						// Cancel task
+						cancelErr := invoker.CancelTask(ctx, taskID)
+						t.Logf("Cancel task: error=%v", cancelErr)
 						break
 					}
 				}
@@ -503,25 +503,25 @@ func TestAdvancedIntegration_ResourceContention(t *testing.T) {
 
 		ctx := context.Background()
 
-		// Start many jobs concurrently
-		const numJobs = 50
-		jobIDs := make([]string, numJobs)
+		// Start many tasks concurrently
+		const numTasks = 50
+		taskIDs := make([]string, numTasks)
 
-		for i := 0; i < numJobs; i++ {
-			jobID, _ := invoker.StartJob(ctx, "test.job", fmt.Sprintf(`{"job":%d}`, i), InvokeOptions{})
-			jobIDs[i] = jobID
+		for i := 0; i < numTasks; i++ {
+			taskID, _ := invoker.StartTask(ctx, "test.task", fmt.Sprintf(`{"task":%d}`, i), InvokeOptions{})
+			taskIDs[i] = taskID
 		}
 
-		// Stream all jobs
+		// Stream all tasks
 		var wg sync.WaitGroup
-		for _, jobID := range jobIDs {
-			if jobID == "" {
+		for _, taskID := range taskIDs {
+			if taskID == "" {
 				continue
 			}
 			wg.Add(1)
-			go func(jid string) {
+			go func(tid string) {
 				defer wg.Done()
-				eventChan, _ := invoker.StreamJob(ctx, jid)
+				eventChan, _ := invoker.StreamTask(ctx, tid)
 				if eventChan != nil {
 					eventCount := 0
 					for range eventChan {
@@ -531,11 +531,11 @@ func TestAdvancedIntegration_ResourceContention(t *testing.T) {
 						}
 					}
 				}
-			}(jobID)
+			}(taskID)
 		}
 
 		wg.Wait()
-		t.Logf("Completed streaming for %d jobs", numJobs)
+		t.Logf("Completed streaming for %d tasks", numTasks)
 	})
 }
 
@@ -556,9 +556,9 @@ func TestAdvancedIntegration_ObserverPattern(t *testing.T) {
 		const numEvents = 10
 
 		// Simulate event streaming
-		jobID, _ := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-		if jobID != "" {
-			eventChan, err := invoker.StreamJob(ctx, jobID)
+		taskID, _ := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+		if taskID != "" {
+			eventChan, err := invoker.StreamTask(ctx, taskID)
 			t.Logf("Event subscription: error=%v", err)
 
 			if err == nil && eventChan != nil {
@@ -588,17 +588,17 @@ func TestAdvancedIntegration_ObserverPattern(t *testing.T) {
 		ctx := context.Background()
 		const numObservers = 3
 
-		jobID, _ := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-		if jobID != "" {
+		taskID, _ := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+		if taskID != "" {
 			var wg sync.WaitGroup
 
-			// Multiple observers watching same job
+			// Multiple observers watching same task
 			for i := 0; i < numObservers; i++ {
 				wg.Add(1)
 				go func(observerID int) {
 					defer wg.Done()
 
-					eventChan, err := invoker.StreamJob(ctx, jobID)
+					eventChan, err := invoker.StreamTask(ctx, taskID)
 					t.Logf("Observer %d: subscribe error=%v", observerID, err)
 
 					if err == nil && eventChan != nil {
@@ -686,9 +686,9 @@ func TestAdvancedIntegration_BackpressureTests(t *testing.T) {
 
 		ctx := context.Background()
 
-		jobID, _ := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-		if jobID != "" {
-			eventChan, _ := invoker.StreamJob(ctx, jobID)
+		taskID, _ := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+		if taskID != "" {
+			eventChan, _ := invoker.StreamTask(ctx, taskID)
 
 			if eventChan != nil {
 				// Slow consumer: add delay between events

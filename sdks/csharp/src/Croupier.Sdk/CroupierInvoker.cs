@@ -240,7 +240,7 @@ public class CroupierInvoker : IDisposable
     /// <param name="payload">请求负载</param>
     /// <param name="options">调用选项</param>
     /// <returns>任务 ID</returns>
-    public async Task<string> StartJobAsync(
+    public async Task<string> StartTaskAsync(
         string functionId,
         string payload,
         InvokeOptions? options = null)
@@ -253,7 +253,7 @@ public class CroupierInvoker : IDisposable
             Env = _env
         };
 
-        _logger.LogDebug("CroupierInvoker", $"Starting job: {functionId}");
+        _logger.LogDebug("CroupierInvoker", $"Starting task: {functionId}");
 
         // Ensure transport is connected
         EnsureTransportConnected();
@@ -273,12 +273,14 @@ public class CroupierInvoker : IDisposable
         // Send via TCP
         var requestData = request.ToByteArray();
         var responseData = await _transport!.CallAsync(
-            Protocol.MsgStartJobRequest,
+            Protocol.MsgStartTaskRequest,
             requestData);
 
         // Parse response
+        // NOTE: generated Invocation.cs still names this StartJobResponse; rename awaits
+        // regeneration of the C# protobuf code from proto/croupier/sdk/v1/.
         var response = StartJobResponse.Parser.ParseFrom(responseData);
-        _logger.LogInfo("CroupierInvoker", $"Job started: {response.JobId}");
+        _logger.LogInfo("CroupierInvoker", $"Task started: {response.JobId}");
 
         return response.JobId;
     }
@@ -286,45 +288,47 @@ public class CroupierInvoker : IDisposable
     /// <summary>
     /// 取消正在运行的任务
     /// </summary>
-    /// <param name="jobId">任务 ID</param>
+    /// <param name="taskId">任务 ID</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>是否成功取消</returns>
-    public async Task<bool> CancelJobAsync(
-        string jobId,
+    public async Task<bool> CancelTaskAsync(
+        string taskId,
         CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
 
-        _logger.LogDebug("CroupierInvoker", $"Canceling job: {jobId}");
+        _logger.LogDebug("CroupierInvoker", $"Canceling task: {taskId}");
 
         // Ensure transport is connected
         EnsureTransportConnected();
 
         // Build protobuf request
+        // NOTE: generated Invocation.cs still names this CancelJobRequest with a JobId
+        // field; rename awaits regeneration of the C# protobuf code from proto/.
         var request = new CancelJobRequest
         {
-            JobId = jobId
+            JobId = taskId
         };
 
         // Send via TCP
         var requestData = request.ToByteArray();
         await _transport!.CallAsync(
-            Protocol.MsgCancelJobRequest,
+            Protocol.MsgCancelTaskRequest,
             requestData,
             cancellationToken);
 
-        _logger.LogInfo("CroupierInvoker", $"Job canceled: {jobId}");
+        _logger.LogInfo("CroupierInvoker", $"Task canceled: {taskId}");
         return true;
     }
 
     /// <summary>
     /// 获取任务状态
     /// </summary>
-    /// <param name="jobId">任务 ID</param>
+    /// <param name="taskId">任务 ID</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>任务状态</returns>
-    public async Task<JobStatus?> GetJobStatusAsync(
-        string jobId,
+    public async Task<TaskStatus?> GetTaskStatusAsync(
+        string taskId,
         CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -333,33 +337,35 @@ public class CroupierInvoker : IDisposable
         EnsureTransportConnected();
 
         // Build protobuf request
+        // NOTE: generated Invocation.cs still names this JobStreamRequest with a JobId
+        // field and the event JobEvent; rename awaits regeneration from proto/.
         var request = new JobStreamRequest
         {
-            JobId = jobId
+            JobId = taskId
         };
 
         // Send via TCP
         var requestData = request.ToByteArray();
         var responseData = await _transport!.CallAsync(
-            Protocol.MsgStreamJobRequest,
+            Protocol.MsgStreamTaskRequest,
             requestData,
             cancellationToken);
 
         // Parse response
-        var jobEvent = JobEvent.Parser.ParseFrom(responseData);
-        var normalizedStatus = NormalizeJobEventType(jobEvent.Type, jobEvent.Message);
+        var taskEvent = JobEvent.Parser.ParseFrom(responseData);
+        var normalizedStatus = NormalizeTaskEventType(taskEvent.Type, taskEvent.Message);
 
-        return new JobStatus
+        return new TaskStatus
         {
-            JobId = jobId,
+            TaskId = taskId,
             Status = normalizedStatus,
-            Progress = jobEvent.Progress,
-            Message = jobEvent.Message,
-            Result = jobEvent.Payload.Length > 0 ? jobEvent.Payload.ToStringUtf8() : null
+            Progress = taskEvent.Progress,
+            Message = taskEvent.Message,
+            Result = taskEvent.Payload.Length > 0 ? taskEvent.Payload.ToStringUtf8() : null
         };
     }
 
-    private static string NormalizeJobEventType(string type, string? message)
+    private static string NormalizeTaskEventType(string type, string? message)
     {
         if (string.Equals(type, "done", StringComparison.OrdinalIgnoreCase))
         {
@@ -424,12 +430,12 @@ public class BatchInvokeRequest
 /// <summary>
 /// 任务状态
 /// </summary>
-public class JobStatus
+public class TaskStatus
 {
     /// <summary>
     /// 任务 ID
     /// </summary>
-    public required string JobId { get; init; }
+    public required string TaskId { get; init; }
 
     /// <summary>
     /// 状态: pending, running, completed, failed, canceled

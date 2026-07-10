@@ -229,20 +229,20 @@ func TestMonitoring_ResourceUsage(t *testing.T) {
 
 		ctx := context.Background()
 
-		// Start multiple jobs
-		const numJobs = 20
-		jobIDs := make([]string, numJobs)
+		// Start multiple tasks
+		const numTasks = 20
+		taskIDs := make([]string, numTasks)
 
-		for i := 0; i < numJobs; i++ {
-			jobID, _ := invoker.StartJob(ctx, "test.job", fmt.Sprintf(`{"job":%d}`, i), InvokeOptions{})
-			jobIDs[i] = jobID
+		for i := 0; i < numTasks; i++ {
+			taskID, _ := invoker.StartTask(ctx, "test.task", fmt.Sprintf(`{"task":%d}`, i), InvokeOptions{})
+			taskIDs[i] = taskID
 		}
 
-		t.Logf("Started %d jobs", numJobs)
+		t.Logf("Started %d tasks", numTasks)
 
-		// Cancel all jobs
-		for _, jobID := range jobIDs {
-			invoker.CancelJob(ctx, jobID)
+		// Cancel all tasks
+		for _, taskID := range taskIDs {
+			invoker.CancelTask(ctx, taskID)
 		}
 	})
 }
@@ -579,9 +579,9 @@ func TestMonitoring_CircuitBreakerMetrics(t *testing.T) {
 	})
 }
 
-// TestMonitoring_JobMetrics tests job-related metrics
-func TestMonitoring_JobMetrics(t *testing.T) {
-	t.Run("Job lifecycle metrics", func(t *testing.T) {
+// TestMonitoring_TaskMetrics tests task-related metrics
+func TestMonitoring_TaskMetrics(t *testing.T) {
+	t.Run("Task lifecycle metrics", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -593,34 +593,34 @@ func TestMonitoring_JobMetrics(t *testing.T) {
 		defer invoker.Close()
 
 		ctx := context.Background()
-		const numJobs = 10
+		const numTasks = 10
 
 		start := time.Now()
-		jobIDs := make([]string, numJobs)
+		taskIDs := make([]string, numTasks)
 
-		// Start jobs
-		for i := 0; i < numJobs; i++ {
-			jobID, err := invoker.StartJob(ctx, "test.job", fmt.Sprintf(`{"job":%d}`, i), InvokeOptions{})
-			jobIDs[i] = jobID
+		// Start tasks
+		for i := 0; i < numTasks; i++ {
+			taskID, err := invoker.StartTask(ctx, "test.task", fmt.Sprintf(`{"task":%d}`, i), InvokeOptions{})
+			taskIDs[i] = taskID
 			_ = err
 		}
 
 		startDuration := time.Since(start)
 
-		// Cancel all jobs
+		// Cancel all tasks
 		cancelStart := time.Now()
-		for _, jobID := range jobIDs {
-			invoker.CancelJob(ctx, jobID)
+		for _, taskID := range taskIDs {
+			invoker.CancelTask(ctx, taskID)
 		}
 		cancelDuration := time.Since(cancelStart)
 
-		t.Logf("Job metrics:")
-		t.Logf("  Jobs started: %d", numJobs)
+		t.Logf("Task metrics:")
+		t.Logf("  Tasks started: %d", numTasks)
 		t.Logf("  Start duration: %v", startDuration)
 		t.Logf("  Cancel duration: %v", cancelDuration)
 	})
 
-	t.Run("Job streaming metrics", func(t *testing.T) {
+	t.Run("Task streaming metrics", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -633,12 +633,12 @@ func TestMonitoring_JobMetrics(t *testing.T) {
 
 		ctx := context.Background()
 
-		jobID, err := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-		t.Logf("Start job: jobID=%s, error=%v", jobID, err)
+		taskID, err := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+		t.Logf("Start task: taskID=%s, error=%v", taskID, err)
 
-		if jobID != "" {
-			eventChan, err := invoker.StreamJob(ctx, jobID)
-			t.Logf("Stream job: error=%v", err)
+		if taskID != "" {
+			eventChan, err := invoker.StreamTask(ctx, taskID)
+			t.Logf("Stream task: error=%v", err)
 
 			if err == nil && eventChan != nil {
 				eventCount := 0
@@ -652,7 +652,7 @@ func TestMonitoring_JobMetrics(t *testing.T) {
 				}
 
 				duration := time.Since(start)
-				t.Logf("Job streaming metrics:")
+				t.Logf("Task streaming metrics:")
 				t.Logf("  Events received: %d", eventCount)
 				t.Logf("  Duration: %v", duration)
 			}

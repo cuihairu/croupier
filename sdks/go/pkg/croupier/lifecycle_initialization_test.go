@@ -284,7 +284,7 @@ func TestLifecycle_ResourceAcquisition(t *testing.T) {
 		}
 	})
 
-	t.Run("Job resource management", func(t *testing.T) {
+	t.Run("Task resource management", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -296,21 +296,21 @@ func TestLifecycle_ResourceAcquisition(t *testing.T) {
 		defer invoker.Close()
 
 		ctx := context.Background()
-		const numJobs = 20
+		const numTasks = 20
 
-		// Start multiple jobs
-		jobIDs := make([]string, numJobs)
-		for i := 0; i < numJobs; i++ {
-			jobID, err := invoker.StartJob(ctx, "test.job", fmt.Sprintf(`{"job":%d}`, i), InvokeOptions{})
-			jobIDs[i] = jobID
-			t.Logf("Started job %d: jobID=%s, error=%v", i, jobID, err)
+		// Start multiple tasks
+		taskIDs := make([]string, numTasks)
+		for i := 0; i < numTasks; i++ {
+			taskID, err := invoker.StartTask(ctx, "test.task", fmt.Sprintf(`{"task":%d}`, i), InvokeOptions{})
+			taskIDs[i] = taskID
+			t.Logf("Started task %d: taskID=%s, error=%v", i, taskID, err)
 		}
 
-		// Cancel all jobs
-		for _, jobID := range jobIDs {
-			if jobID != "" {
-				err := invoker.CancelJob(ctx, jobID)
-				t.Logf("Cancelled job %s: error=%v", jobID, err)
+		// Cancel all tasks
+		for _, taskID := range taskIDs {
+			if taskID != "" {
+				err := invoker.CancelTask(ctx, taskID)
+				t.Logf("Cancelled task %s: error=%v", taskID, err)
 			}
 		}
 	})
@@ -339,7 +339,7 @@ func TestLifecycle_CleanupOperations(t *testing.T) {
 		t.Logf("Cleanup after error: close error=%v", closeErr)
 	})
 
-	t.Run("Cleanup with pending jobs", func(t *testing.T) {
+	t.Run("Cleanup with pending tasks", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -351,16 +351,16 @@ func TestLifecycle_CleanupOperations(t *testing.T) {
 
 		ctx := context.Background()
 
-		// Start some jobs
-		jobIDs := make([]string, 5)
+		// Start some tasks
+		taskIDs := make([]string, 5)
 		for i := 0; i < 5; i++ {
-			jobID, _ := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-			jobIDs[i] = jobID
+			taskID, _ := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+			taskIDs[i] = taskID
 		}
 
-		// Close without cancelling jobs
+		// Close without cancelling tasks
 		closeErr := invoker.Close()
-		t.Logf("Close with pending jobs: error=%v", closeErr)
+		t.Logf("Close with pending tasks: error=%v", closeErr)
 	})
 
 	t.Run("Cleanup with active streams", func(t *testing.T) {
@@ -375,9 +375,9 @@ func TestLifecycle_CleanupOperations(t *testing.T) {
 
 		ctx := context.Background()
 
-		jobID, _ := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-		if jobID != "" {
-			eventChan, _ := invoker.StreamJob(ctx, jobID)
+		taskID, _ := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+		if taskID != "" {
+			eventChan, _ := invoker.StreamTask(ctx, taskID)
 
 			// Close while stream is active
 			closeErr := invoker.Close()
@@ -664,19 +664,19 @@ func TestLifecycle_TimeoutHandling(t *testing.T) {
 			t.Fatal("NewHTTPInvoker returned nil")
 		}
 
-		// Start some jobs
+		// Start some tasks
 		ctx := context.Background()
 		for i := 0; i < 10; i++ {
-			jobID, _ := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-			_ = jobID
+			taskID, _ := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+			_ = taskID
 		}
 
-		// Close with pending jobs
+		// Close with pending tasks
 		start := time.Now()
 		err := invoker.Close()
 		duration := time.Since(start)
 
-		t.Logf("Close with pending jobs: duration=%v, error=%v", duration, err)
+		t.Logf("Close with pending tasks: duration=%v, error=%v", duration, err)
 	})
 }
 

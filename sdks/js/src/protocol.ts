@@ -64,28 +64,6 @@ export const MSG_PROVIDER_HEARTBEAT_RESPONSE = 0x050104;
 export const MSG_PROVIDER_DRAIN_REQUEST = 0x050105;
 export const MSG_PROVIDER_DRAIN_RESPONSE = 0x050106;
 
-// Legacy aliases (deprecated)
-/** @deprecated Use MSG_PROVIDER_CONNECT_REQUEST instead */
-export const MSG_REGISTER_LOCAL_REQUEST = MSG_PROVIDER_CONNECT_REQUEST;
-/** @deprecated Use MSG_PROVIDER_CONNECT_RESPONSE instead */
-export const MSG_REGISTER_LOCAL_RESPONSE = MSG_PROVIDER_CONNECT_RESPONSE;
-/** @deprecated Use MSG_PROVIDER_HEARTBEAT_REQUEST instead */
-export const MSG_HEARTBEAT_LOCAL_REQUEST = MSG_PROVIDER_HEARTBEAT_REQUEST;
-/** @deprecated Use MSG_PROVIDER_HEARTBEAT_RESPONSE instead */
-export const MSG_HEARTBEAT_LOCAL_RESPONSE = MSG_PROVIDER_HEARTBEAT_RESPONSE;
-/** @deprecated Use MSG_START_TASK_REQUEST instead */
-export const MSG_START_JOB_REQUEST = MSG_START_TASK_REQUEST;
-/** @deprecated Use MSG_START_TASK_RESPONSE instead */
-export const MSG_START_JOB_RESPONSE = MSG_START_TASK_RESPONSE;
-/** @deprecated Use MSG_STREAM_TASK_REQUEST instead */
-export const MSG_STREAM_JOB_REQUEST = MSG_STREAM_TASK_REQUEST;
-/** @deprecated Use MSG_TASK_EVENT instead */
-export const MSG_JOB_EVENT = MSG_TASK_EVENT;
-/** @deprecated Use MSG_CANCEL_TASK_REQUEST instead */
-export const MSG_CANCEL_JOB_REQUEST = MSG_CANCEL_TASK_REQUEST;
-/** @deprecated Use MSG_CANCEL_TASK_RESPONSE instead */
-export const MSG_CANCEL_JOB_RESPONSE = MSG_CANCEL_TASK_RESPONSE;
-
 /**
  * Encode a 24-bit MsgID into 3 bytes (big-endian).
  */
@@ -146,7 +124,7 @@ export function parseMessage(data: Buffer): ParsedMessage {
  */
 export function isRequest(msgId: number): boolean {
   return (
-    msgId % 2 === 1 && msgId !== MSG_JOB_EVENT && msgId !== MSG_METRIC_EVENT
+    msgId % 2 === 1 && msgId !== MSG_TASK_EVENT && msgId !== MSG_METRIC_EVENT
   );
 }
 
@@ -155,7 +133,7 @@ export function isRequest(msgId: number): boolean {
  */
 export function isResponse(msgId: number): boolean {
   return (
-    msgId % 2 === 0 && msgId !== MSG_JOB_EVENT && msgId !== MSG_METRIC_EVENT
+    msgId % 2 === 0 && msgId !== MSG_TASK_EVENT && msgId !== MSG_METRIC_EVENT
   );
 }
 

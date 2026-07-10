@@ -651,7 +651,7 @@ func TestHTTPInvoker_errorPaths(t *testing.T) {
 		}
 	})
 
-	t.Run("StartJob with invalid options", func(t *testing.T) {
+	t.Run("StartTask with invalid options", func(t *testing.T) {
 		invoker := NewHTTPInvoker(&InvokerConfig{
 			Address: "http://localhost:8080",
 		})
@@ -661,8 +661,8 @@ func TestHTTPInvoker_errorPaths(t *testing.T) {
 		}
 
 		ctx := context.Background()
-		jobID, err := invoker.StartJob(ctx, "test.func", "{}", options)
-		t.Logf("StartJob with invalid timeout error: %v, jobID: %s", err, jobID)
+		taskID, err := invoker.StartTask(ctx, "test.func", "{}", options)
+		t.Logf("StartTask with invalid timeout error: %v, taskID: %s", err, taskID)
 	})
 }
 

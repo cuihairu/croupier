@@ -21,9 +21,9 @@ const decoder = new TextDecoder();
 const providerRoot = protobuf.parse(`
 syntax = "proto3";
 package croupier.sdk.v1;
-message RegisterLocalResponse { string session_id = 1; }
+message ProviderConnectResponse { string session_id = 1; }
 message HeartbeatResponse {}
-message RegisterLocalRequest {
+message ProviderConnectRequest {
   string service_id = 1;
   string version = 2;
   string rpc_addr = 3;
@@ -44,11 +44,11 @@ message RegisterCapabilitiesRequest {
 }
 message RegisterCapabilitiesResponse {}
 `).root;
-const RegisterLocalResponseMessage = providerRoot.lookupType(
-  "croupier.sdk.v1.RegisterLocalResponse",
+const ProviderConnectResponseMessage = providerRoot.lookupType(
+  "croupier.sdk.v1.ProviderConnectResponse",
 );
-const RegisterLocalRequestMessage = providerRoot.lookupType(
-  "croupier.sdk.v1.RegisterLocalRequest",
+const ProviderConnectRequestMessage = providerRoot.lookupType(
+  "croupier.sdk.v1.ProviderConnectRequest",
 );
 const HeartbeatRequestMessage = providerRoot.lookupType(
   "croupier.sdk.v1.HeartbeatRequest",
@@ -364,7 +364,7 @@ describe("BasicClient", () => {
     expect(manifest.functions[0].version).toBe("1.2.3");
   });
 
-  test("startJob/streamJob produces started then completed", async () => {
+  test("startTask/streamTask produces started then completed", async () => {
     const client = new BasicClient();
     client.registerFunction(
       { id: "f1", version: "1.0.0" },
@@ -374,8 +374,8 @@ describe("BasicClient", () => {
       },
     );
 
-    const jobId = client.startJob("f1", "hi");
-    const iterable = client.streamJob(jobId);
+    const taskId = client.startTask("f1", "hi");
+    const iterable = client.streamTask(taskId);
     const events: any[] = [];
 
     for await (const evt of iterable) {
@@ -389,23 +389,23 @@ describe("BasicClient", () => {
     );
   });
 
-  test("cancelJob closes stream with cancelled event", async () => {
+  test("cancelTask closes stream with cancelled event", async () => {
     const client = new BasicClient();
     client.registerFunction({ id: "f1", version: "1.0.0" }, async () => {
       await new Promise((resolve) => setTimeout(resolve, 200));
       return "late";
     });
 
-    const jobId = client.startJob("f1", "");
-    const iterable = client.streamJob(jobId);
+    const taskId = client.startTask("f1", "");
+    const iterable = client.streamTask(taskId);
 
     // Get the first event (started)
     const reader = iterable[Symbol.asyncIterator]();
     const first = await reader.next();
     expect(first.value.type).toBe("started");
 
-    // Cancel the job
-    client.cancelJob(jobId);
+    // Cancel the task
+    client.cancelTask(taskId);
 
     // Continue streaming
     const events: any[] = [first.value];
@@ -490,26 +490,26 @@ describe("BasicClient", () => {
     ).toThrow(/Cannot register new functions while connected/);
   });
 
-  test("streamJob throws for missing jobId", () => {
+  test("streamTask throws for missing taskId", () => {
     const client = new BasicClient();
 
-    expect(() => client.streamJob("")).toThrow();
+    expect(() => client.streamTask("")).toThrow();
   });
 
-  test("startJob creates job state and returns jobId", () => {
+  test("startTask creates task state and returns taskId", () => {
     const client = new BasicClient();
     client.registerFunction(
       { id: "async.fn", version: "1.0.0" },
       async () => "done",
     );
 
-    const jobId = client.startJob("async.fn", "");
+    const taskId = client.startTask("async.fn", "");
 
-    expect(jobId).toBeDefined();
-    expect(jobId).toContain("async.fn-");
+    expect(taskId).toBeDefined();
+    expect(taskId).toContain("async.fn-");
   });
 
-  test("startJob emits error event on handler failure", async () => {
+  test("startTask emits error event on handler failure", async () => {
     const client = new BasicClient();
     client.registerFunction(
       { id: "failing.fn", version: "1.0.0" },
@@ -518,10 +518,10 @@ describe("BasicClient", () => {
       },
     );
 
-    const jobId = client.startJob("failing.fn", "");
+    const taskId = client.startTask("failing.fn", "");
     const events: any[] = [];
 
-    for await (const evt of client.streamJob(jobId)) {
+    for await (const evt of client.streamTask(taskId)) {
       events.push(evt);
     }
 
@@ -556,11 +556,11 @@ describe("BasicClient", () => {
     expect(fn.output_schema).toEqual({ type: "string" });
   });
 
-  test("cancelJob does nothing for unknown job", () => {
+  test("cancelTask does nothing for unknown task", () => {
     const client = new BasicClient();
 
     // Should return false (not throw)
-    const result = client.cancelJob("unknown-job");
+    const result = client.cancelTask("unknown-task");
     expect(result).toBe(false);
   });
 
@@ -608,7 +608,7 @@ describe("BasicClient", () => {
     await expect(client.connect()).resolves.not.toThrow();
   });
 
-  test("connect sends RegisterLocalRequest and stores session id", async () => {
+  test("connect sends ProviderConnectRequest and stores session id", async () => {
     const registerCalls: Buffer[] = [];
     const connectSpy = jest
       .spyOn(TCPTransport.prototype, "connect")
@@ -618,12 +618,12 @@ describe("BasicClient", () => {
       .mockImplementation(async (msgType, data) => {
         if (msgType === MSG_PROVIDER_CONNECT_REQUEST) {
           registerCalls.push(Buffer.from(data));
-          const response = RegisterLocalResponseMessage.create({
+          const response = ProviderConnectResponseMessage.create({
             sessionId: "session-1",
           });
           return [
             msgType + 1,
-            Buffer.from(RegisterLocalResponseMessage.encode(response).finish()),
+            Buffer.from(ProviderConnectResponseMessage.encode(response).finish()),
           ];
         }
         if (msgType === MSG_PROVIDER_HEARTBEAT_REQUEST) {
@@ -667,12 +667,12 @@ describe("BasicClient", () => {
       .spyOn(TCPTransport.prototype, "call")
       .mockImplementation(async (msgType, data) => {
         if (msgType === MSG_PROVIDER_CONNECT_REQUEST) {
-          const response = RegisterLocalResponseMessage.create({
+          const response = ProviderConnectResponseMessage.create({
             sessionId: "session-1",
           });
           return [
             msgType + 1,
-            Buffer.from(RegisterLocalResponseMessage.encode(response).finish()),
+            Buffer.from(ProviderConnectResponseMessage.encode(response).finish()),
           ];
         }
         if (msgType === MSG_REGISTER_CAPABILITIES_REQ) {
@@ -735,12 +735,12 @@ describe("BasicClient", () => {
       .spyOn(TCPTransport.prototype, "call")
       .mockImplementation(async (msgType) => {
         if (msgType === MSG_PROVIDER_CONNECT_REQUEST) {
-          const response = RegisterLocalResponseMessage.create({
+          const response = ProviderConnectResponseMessage.create({
             sessionId: "session-1",
           });
           return [
             msgType + 1,
-            Buffer.from(RegisterLocalResponseMessage.encode(response).finish()),
+            Buffer.from(ProviderConnectResponseMessage.encode(response).finish()),
           ];
         }
         if (msgType === MSG_REGISTER_CAPABILITIES_REQ) {
@@ -788,12 +788,12 @@ describe("BasicClient", () => {
       .mockImplementation(async (msgType, data) => {
         if (msgType === MSG_PROVIDER_CONNECT_REQUEST) {
           registerCount += 1;
-          const response = RegisterLocalResponseMessage.create({
+          const response = ProviderConnectResponseMessage.create({
             sessionId: `session-${registerCount}`,
           });
           return [
             msgType + 1,
-            Buffer.from(RegisterLocalResponseMessage.encode(response).finish()),
+            Buffer.from(ProviderConnectResponseMessage.encode(response).finish()),
           ];
         }
         if (msgType === MSG_PROVIDER_HEARTBEAT_REQUEST) {
@@ -848,16 +848,16 @@ describe("BasicClient", () => {
     closeSpy.mockRestore();
   });
 
-  test("startJob throws for unregistered function", () => {
+  test("startTask throws for unregistered function", () => {
     const client = new BasicClient();
 
-    expect(() => client.startJob("unknown.fn", "")).toThrow(/not found/i);
+    expect(() => client.startTask("unknown.fn", "")).toThrow(/not found/i);
   });
 
-  test("streamJob throws for unknown job", () => {
+  test("streamTask throws for unknown task", () => {
     const client = new BasicClient();
 
-    expect(() => client.streamJob("unknown-job-id")).toThrow(/not found/i);
+    expect(() => client.streamTask("unknown-task-id")).toThrow(/not found/i);
   });
 
   test("buildManifest without category uses descriptor id", () => {
@@ -885,17 +885,17 @@ describe("BasicClient", () => {
     expect(client).toBeInstanceOf(BasicClient);
   });
 
-  test("startJob creates job with correct jobId format", () => {
+  test("startTask creates task with correct taskId format", () => {
     const client = new BasicClient();
     client.registerFunction(
       { id: "test.fn", version: "1.0.0" },
       async () => "ok",
     );
 
-    const jobId = client.startJob("test.fn", "");
+    const taskId = client.startTask("test.fn", "");
 
-    expect(jobId).toContain("test.fn-");
-    expect(typeof jobId).toBe("string");
+    expect(taskId).toContain("test.fn-");
+    expect(typeof taskId).toBe("string");
   });
 
   test("invoke with metadata", async () => {
@@ -966,7 +966,7 @@ describe("BasicClient", () => {
     expect(gzipped.length).toBeGreaterThan(0);
   });
 
-  test("startJob with metadata passes to handler", async () => {
+  test("startTask with metadata passes to handler", async () => {
     const client = new BasicClient();
     let receivedContext = "";
     client.registerFunction(
@@ -977,10 +977,10 @@ describe("BasicClient", () => {
       },
     );
 
-    const jobId = client.startJob("test.fn", "payload", { key: "value" });
+    const taskId = client.startTask("test.fn", "payload", { key: "value" });
 
-    // Wait for job to complete
-    for await (const _ of client.streamJob(jobId)) {
+    // Wait for task to complete
+    for await (const _ of client.streamTask(taskId)) {
       // just consume events
     }
 
@@ -988,20 +988,20 @@ describe("BasicClient", () => {
     expect(receivedContext).toContain("value");
   });
 
-  test("cancelJob returns true when job exists", async () => {
+  test("cancelTask returns true when task exists", async () => {
     const client = new BasicClient();
     client.registerFunction({ id: "test.fn", version: "1.0.0" }, async () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       return "done";
     });
 
-    const jobId = client.startJob("test.fn", "");
+    const taskId = client.startTask("test.fn", "");
 
     // Wait for started event
-    const reader = client.streamJob(jobId)[Symbol.asyncIterator]();
+    const reader = client.streamTask(taskId)[Symbol.asyncIterator]();
     await reader.next();
 
-    const result = client.cancelJob(jobId);
+    const result = client.cancelTask(taskId);
     expect(result).toBe(true);
   });
 
@@ -1017,7 +1017,7 @@ describe("BasicClient", () => {
     expect((client as any).connected).toBe(false);
   });
 
-  test("job handler with byte array result", async () => {
+  test("task handler with byte array result", async () => {
     const client = new BasicClient();
     client.registerFunction(
       { id: "byte.fn", version: "1.0.0" },
@@ -1052,21 +1052,21 @@ describe("BasicClient", () => {
     expect(req.functions[0].id).toBe("f1");
   });
 
-  test("startJob with multiple rapid cancels", async () => {
+  test("startTask with multiple rapid cancels", async () => {
     const client = new BasicClient();
     client.registerFunction({ id: "test.fn", version: "1.0.0" }, async () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
       return "done";
     });
 
-    const jobId = client.startJob("test.fn", "");
+    const taskId = client.startTask("test.fn", "");
 
     // Cancel multiple times - should be idempotent
-    const result1 = client.cancelJob(jobId);
-    const result2 = client.cancelJob(jobId);
+    const result1 = client.cancelTask(taskId);
+    const result2 = client.cancelTask(taskId);
 
     expect(result1).toBe(true);
-    expect(result2).toBe(false); // Second cancel returns false since job is already cancelled
+    expect(result2).toBe(false); // Second cancel returns false since task is already cancelled
   });
 
   test("function descriptor with all optional fields", () => {
@@ -1108,16 +1108,16 @@ describe("BasicClient", () => {
     expect(result).toBeDefined();
   });
 
-  test("job error event includes progress", async () => {
+  test("task error event includes progress", async () => {
     const client = new BasicClient();
     client.registerFunction({ id: "error.fn", version: "1.0.0" }, async () => {
       throw new Error("Test error");
     });
 
-    const jobId = client.startJob("error.fn", "");
+    const taskId = client.startTask("error.fn", "");
     const events: any[] = [];
 
-    for await (const evt of client.streamJob(jobId)) {
+    for await (const evt of client.streamTask(taskId)) {
       events.push(evt);
     }
 
@@ -1333,7 +1333,7 @@ describe("BasicClient", () => {
       );
     });
 
-    test("startJob accepts InvokeOptions", async () => {
+    test("startTask accepts InvokeOptions", async () => {
       const client = new BasicClient();
       let receivedContext = "";
       client.registerFunction(
@@ -1353,10 +1353,10 @@ describe("BasicClient", () => {
         },
       };
 
-      const jobId = client.startJob("test.fn", "payload", invokeOptions);
+      const taskId = client.startTask("test.fn", "payload", invokeOptions);
 
-      // Wait for job to complete
-      for await (const _ of client.streamJob(jobId)) {
+      // Wait for task to complete
+      for await (const _ of client.streamTask(taskId)) {
         // consume events
       }
 
@@ -1470,7 +1470,7 @@ describe("BasicClient", () => {
       expect(context.timeout).toBe(10000); // Override should work
     });
 
-    test("startJob accepts idempotencyKey in InvokeOptions", async () => {
+    test("startTask accepts idempotencyKey in InvokeOptions", async () => {
       const client = new BasicClient();
       let receivedContext = "";
       client.registerFunction(
@@ -1488,10 +1488,10 @@ describe("BasicClient", () => {
         },
       };
 
-      const jobId = client.startJob("test.fn", "payload", invokeOptions);
+      const taskId = client.startTask("test.fn", "payload", invokeOptions);
 
-      // Wait for job to complete
-      for await (const _ of client.streamJob(jobId)) {
+      // Wait for task to complete
+      for await (const _ of client.streamTask(taskId)) {
         // consume events
       }
 
@@ -1500,7 +1500,7 @@ describe("BasicClient", () => {
       expect(context["x-job-id"]).toBe("123");
     });
 
-    test("startJob accepts timeout in InvokeOptions", async () => {
+    test("startTask accepts timeout in InvokeOptions", async () => {
       const client = new BasicClient();
       let receivedContext = "";
       client.registerFunction(
@@ -1515,10 +1515,10 @@ describe("BasicClient", () => {
         timeout: 15000,
       };
 
-      const jobId = client.startJob("test.fn", "payload", invokeOptions);
+      const taskId = client.startTask("test.fn", "payload", invokeOptions);
 
-      // Wait for job to complete
-      for await (const _ of client.streamJob(jobId)) {
+      // Wait for task to complete
+      for await (const _ of client.streamTask(taskId)) {
         // consume events
       }
 
@@ -1663,7 +1663,7 @@ describe("BasicClient", () => {
       expect(context["X-Env"]).toBe("production");
     });
 
-    test("startJob uses merged client-level metadata", async () => {
+    test("startTask uses merged client-level metadata", async () => {
       const client = new BasicClient({
         authToken: "job-token",
         gameId: "job-game",
@@ -1681,13 +1681,13 @@ describe("BasicClient", () => {
         },
       );
 
-      const jobId = client.startJob("test.fn", "payload", {
+      const taskId = client.startTask("test.fn", "payload", {
         headers: {
           "X-Request-ID": "job-1",
         },
       });
 
-      for await (const _ of client.streamJob(jobId)) {
+      for await (const _ of client.streamTask(taskId)) {
         // consume events
       }
 

@@ -630,21 +630,21 @@ func TestZeroValue_structs(t *testing.T) {
 			desc.ID, desc.Version, desc.Enabled)
 	})
 
-	t.Run("zero JobEvent", func(t *testing.T) {
-		var event JobEvent
+	t.Run("zero TaskEvent", func(t *testing.T) {
+		var event TaskEvent
 
 		if event.EventType != "" {
-			t.Error("Zero JobEvent EventType should be empty")
+			t.Error("Zero TaskEvent EventType should be empty")
 		}
-		if event.JobID != "" {
-			t.Error("Zero JobEvent JobID should be empty")
+		if event.TaskID != "" {
+			t.Error("Zero TaskEvent TaskID should be empty")
 		}
 		if event.Done != false {
-			t.Error("Zero JobEvent Done should be false")
+			t.Error("Zero TaskEvent Done should be false")
 		}
 
-		t.Logf("Zero JobEvent: EventType='%s', JobID='%s', Done=%v",
-			event.EventType, event.JobID, event.Done)
+		t.Logf("Zero TaskEvent: EventType='%s', TaskID='%s', Done=%v",
+			event.EventType, event.TaskID, event.Done)
 	})
 
 	t.Run("zero InvokeOptions", func(t *testing.T) {

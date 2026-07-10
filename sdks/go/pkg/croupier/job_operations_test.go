@@ -13,9 +13,9 @@ import (
 	"time"
 )
 
-// TestJobOperations_BasicScenarios tests basic job operation scenarios
-func TestJobOperations_BasicScenarios(t *testing.T) {
-	t.Run("StartJob with minimal configuration", func(t *testing.T) {
+// TestTaskOperations_BasicScenarios tests basic task operation scenarios
+func TestTaskOperations_BasicScenarios(t *testing.T) {
+	t.Run("StartTask with minimal configuration", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -27,12 +27,12 @@ func TestJobOperations_BasicScenarios(t *testing.T) {
 		defer invoker.Close()
 
 		ctx := context.Background()
-		jobID, err := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
+		taskID, err := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
 
-		t.Logf("StartJob result: jobID=%s, error=%v", jobID, err)
+		t.Logf("StartTask result: taskID=%s, error=%v", taskID, err)
 	})
 
-	t.Run("StartJob with custom options", func(t *testing.T) {
+	t.Run("StartTask with custom options", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -44,10 +44,10 @@ func TestJobOperations_BasicScenarios(t *testing.T) {
 		defer invoker.Close()
 
 		opts := InvokeOptions{
-			IdempotencyKey: fmt.Sprintf("job-key-%d", time.Now().UnixNano()),
+			IdempotencyKey: fmt.Sprintf("task-key-%d", time.Now().UnixNano()),
 			Timeout:        30 * 1000 * 1000 * 1000, // 30s
 			Headers: map[string]string{
-				"X-Job-Type":   "test",
+				"X-Task-Type":  "test",
 				"X-Priority":   "high",
 				"X-Attempt":    "1",
 				"X-Request-ID": fmt.Sprintf("req-%d", time.Now().UnixNano()),
@@ -55,12 +55,12 @@ func TestJobOperations_BasicScenarios(t *testing.T) {
 		}
 
 		ctx := context.Background()
-		jobID, err := invoker.StartJob(ctx, "test.job.withOptions", "{}", opts)
+		taskID, err := invoker.StartTask(ctx, "test.task.withOptions", "{}", opts)
 
-		t.Logf("StartJob with options: jobID=%s, error=%v", jobID, err)
+		t.Logf("StartTask with options: taskID=%s, error=%v", taskID, err)
 	})
 
-	t.Run("StartJob with various payloads", func(t *testing.T) {
+	t.Run("StartTask with various payloads", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -84,15 +84,15 @@ func TestJobOperations_BasicScenarios(t *testing.T) {
 		ctx := context.Background()
 
 		for i, payload := range payloads {
-			jobID, err := invoker.StartJob(ctx, "test.job", payload, InvokeOptions{})
-			t.Logf("Payload %d (len=%d): jobID=%s, error=%v", i, len(payload), jobID, err)
+			taskID, err := invoker.StartTask(ctx, "test.task", payload, InvokeOptions{})
+			t.Logf("Payload %d (len=%d): taskID=%s, error=%v", i, len(payload), taskID, err)
 		}
 	})
 }
 
-// TestJobOperations_StreamJob tests job streaming scenarios
-func TestJobOperations_StreamJob(t *testing.T) {
-	t.Run("StreamJob with valid job ID", func(t *testing.T) {
+// TestTaskOperations_StreamTask tests task streaming scenarios
+func TestTaskOperations_StreamTask(t *testing.T) {
+	t.Run("StreamTask with valid task ID", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -105,25 +105,25 @@ func TestJobOperations_StreamJob(t *testing.T) {
 
 		ctx := context.Background()
 
-		// First start a job
-		jobID, err := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
+		// First start a task
+		taskID, err := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
 		if err != nil {
-			t.Logf("StartJob failed: %v", err)
+			t.Logf("StartTask failed: %v", err)
 		}
 
-		t.Logf("Started job: %s", jobID)
+		t.Logf("Started task: %s", taskID)
 
-		// Try to stream the job
-		eventChan, err := invoker.StreamJob(ctx, jobID)
-		t.Logf("StreamJob: error=%v, channel=%v", err, eventChan != nil)
+		// Try to stream the task
+		eventChan, err := invoker.StreamTask(ctx, taskID)
+		t.Logf("StreamTask: error=%v, channel=%v", err, eventChan != nil)
 
 		if eventChan != nil {
 			// Try to read from channel with timeout
 			select {
 			case event, ok := <-eventChan:
 				if ok {
-					t.Logf("Received event: Type=%s, JobID=%s, Payload=%s, Error=%s",
-						event.EventType, event.JobID, event.Payload, event.Error)
+					t.Logf("Received event: Type=%s, TaskID=%s, Payload=%s, Error=%s",
+						event.EventType, event.TaskID, event.Payload, event.Error)
 				} else {
 					t.Log("Event channel closed")
 				}
@@ -133,7 +133,7 @@ func TestJobOperations_StreamJob(t *testing.T) {
 		}
 	})
 
-	t.Run("StreamJob with timeout context", func(t *testing.T) {
+	t.Run("StreamTask with timeout context", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -147,13 +147,13 @@ func TestJobOperations_StreamJob(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
 		defer cancel()
 
-		jobID := "test-job-timeout"
-		eventChan, err := invoker.StreamJob(ctx, jobID)
+		taskID := "test-task-timeout"
+		eventChan, err := invoker.StreamTask(ctx, taskID)
 
-		t.Logf("StreamJob with timeout: error=%v, channel=%v", err, eventChan != nil)
+		t.Logf("StreamTask with timeout: error=%v, channel=%v", err, eventChan != nil)
 	})
 
-	t.Run("StreamJob multiple jobs concurrently", func(t *testing.T) {
+	t.Run("StreamTask multiple tasks concurrently", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -165,20 +165,20 @@ func TestJobOperations_StreamJob(t *testing.T) {
 		defer invoker.Close()
 
 		ctx := context.Background()
-		const numJobs = 3
+		const numTasks = 3
 
-		for i := 0; i < numJobs; i++ {
-			jobID := fmt.Sprintf("test-job-%d", i)
-			eventChan, err := invoker.StreamJob(ctx, jobID)
-			t.Logf("StreamJob %d: jobID=%s, error=%v, channel=%v",
-				i, jobID, err, eventChan != nil)
+		for i := 0; i < numTasks; i++ {
+			taskID := fmt.Sprintf("test-task-%d", i)
+			eventChan, err := invoker.StreamTask(ctx, taskID)
+			t.Logf("StreamTask %d: taskID=%s, error=%v, channel=%v",
+				i, taskID, err, eventChan != nil)
 		}
 	})
 }
 
-// TestJobOperations_CancelJob tests job cancellation scenarios
-func TestJobOperations_CancelJob(t *testing.T) {
-	t.Run("CancelJob immediately after start", func(t *testing.T) {
+// TestTaskOperations_CancelTask tests task cancellation scenarios
+func TestTaskOperations_CancelTask(t *testing.T) {
+	t.Run("CancelTask immediately after start", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -191,16 +191,16 @@ func TestJobOperations_CancelJob(t *testing.T) {
 
 		ctx := context.Background()
 
-		// Start a job
-		jobID, err := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-		t.Logf("Started job: %s, error=%v", jobID, err)
+		// Start a task
+		taskID, err := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+		t.Logf("Started task: %s, error=%v", taskID, err)
 
 		// Cancel immediately
-		err = invoker.CancelJob(ctx, jobID)
-		t.Logf("CancelJob result: error=%v", err)
+		err = invoker.CancelTask(ctx, taskID)
+		t.Logf("CancelTask result: error=%v", err)
 	})
 
-	t.Run("CancelJob with various job IDs", func(t *testing.T) {
+	t.Run("CancelTask with various task IDs", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -213,21 +213,21 @@ func TestJobOperations_CancelJob(t *testing.T) {
 
 		ctx := context.Background()
 
-		jobIDs := []string{
+		taskIDs := []string{
 			"",
-			"non-existent-job",
-			"job-123",
-			"job/with/slashes",
-			fmt.Sprintf("job-%d", time.Now().UnixNano()),
+			"non-existent-task",
+			"task-123",
+			"task/with/slashes",
+			fmt.Sprintf("task-%d", time.Now().UnixNano()),
 		}
 
-		for _, jobID := range jobIDs {
-			err := invoker.CancelJob(ctx, jobID)
-			t.Logf("CancelJob for '%s' (len=%d): error=%v", jobID, len(jobID), err)
+		for _, taskID := range taskIDs {
+			err := invoker.CancelTask(ctx, taskID)
+			t.Logf("CancelTask for '%s' (len=%d): error=%v", taskID, len(taskID), err)
 		}
 	})
 
-	t.Run("CancelJob with context values", func(t *testing.T) {
+	t.Run("CancelTask with context values", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -242,16 +242,16 @@ func TestJobOperations_CancelJob(t *testing.T) {
 		ctx := context.WithValue(context.Background(), contextKey("userID"), "user-123")
 		ctx = context.WithValue(ctx, contextKey("reason"), "user_request")
 
-		jobID := "test-job-context"
-		err := invoker.CancelJob(ctx, jobID)
+		taskID := "test-task-context"
+		err := invoker.CancelTask(ctx, taskID)
 
-		t.Logf("CancelJob with context: jobID=%s, error=%v", jobID, err)
+		t.Logf("CancelTask with context: taskID=%s, error=%v", taskID, err)
 	})
 }
 
-// TestJobOperations_ErrorScenarios tests job operation error scenarios
-func TestJobOperations_ErrorScenarios(t *testing.T) {
-	t.Run("StartJob with invalid function IDs", func(t *testing.T) {
+// TestTaskOperations_ErrorScenarios tests task operation error scenarios
+func TestTaskOperations_ErrorScenarios(t *testing.T) {
+	t.Run("StartTask with invalid function IDs", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -272,12 +272,12 @@ func TestJobOperations_ErrorScenarios(t *testing.T) {
 		ctx := context.Background()
 
 		for _, funcID := range invalidFunctionIDs {
-			jobID, err := invoker.StartJob(ctx, funcID, "{}", InvokeOptions{})
-			t.Logf("Invalid function ID '%s': jobID=%s, error=%v", funcID, jobID, err)
+			taskID, err := invoker.StartTask(ctx, funcID, "{}", InvokeOptions{})
+			t.Logf("Invalid function ID '%s': taskID=%s, error=%v", funcID, taskID, err)
 		}
 	})
 
-	t.Run("StartJob with cancelled context", func(t *testing.T) {
+	t.Run("StartTask with cancelled context", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -291,11 +291,11 @@ func TestJobOperations_ErrorScenarios(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel() // Cancel immediately
 
-		jobID, err := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-		t.Logf("StartJob with cancelled context: jobID=%s, error=%v", jobID, err)
+		taskID, err := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+		t.Logf("StartTask with cancelled context: taskID=%s, error=%v", taskID, err)
 	})
 
-	t.Run("Job operations on closed invoker", func(t *testing.T) {
+	t.Run("Task operations on closed invoker", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -310,25 +310,25 @@ func TestJobOperations_ErrorScenarios(t *testing.T) {
 		t.Logf("Close invoker: %v", err)
 
 		ctx := context.Background()
-		jobID := "test-job-closed"
+		taskID := "test-task-closed"
 
-		// Try StartJob
-		startedJobID, err := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-		t.Logf("StartJob on closed invoker: jobID=%s, error=%v", startedJobID, err)
+		// Try StartTask
+		startedTaskID, err := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+		t.Logf("StartTask on closed invoker: taskID=%s, error=%v", startedTaskID, err)
 
-		// Try StreamJob
-		eventChan, err := invoker.StreamJob(ctx, jobID)
-		t.Logf("StreamJob on closed invoker: error=%v, channel=%v", err, eventChan != nil)
+		// Try StreamTask
+		eventChan, err := invoker.StreamTask(ctx, taskID)
+		t.Logf("StreamTask on closed invoker: error=%v, channel=%v", err, eventChan != nil)
 
-		// Try CancelJob
-		err = invoker.CancelJob(ctx, jobID)
-		t.Logf("CancelJob on closed invoker: error=%v", err)
+		// Try CancelTask
+		err = invoker.CancelTask(ctx, taskID)
+		t.Logf("CancelTask on closed invoker: error=%v", err)
 	})
 }
 
-// TestJobOperations_PerformancePatterns tests performance-related patterns
-func TestJobOperations_PerformancePatterns(t *testing.T) {
-	t.Run("Rapid job creation", func(t *testing.T) {
+// TestTaskOperations_PerformancePatterns tests performance-related patterns
+func TestTaskOperations_PerformancePatterns(t *testing.T) {
+	t.Run("Rapid task creation", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -339,26 +339,26 @@ func TestJobOperations_PerformancePatterns(t *testing.T) {
 		}
 		defer invoker.Close()
 
-		const numJobs = 20
+		const numTasks = 20
 		ctx := context.Background()
 
 		start := time.Now()
 		successful := 0
 
-		for i := 0; i < numJobs; i++ {
-			jobID, err := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
+		for i := 0; i < numTasks; i++ {
+			taskID, err := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
 			if err == nil {
 				successful++
-				t.Logf("Job %d started: %s", i, jobID)
+				t.Logf("Task %d started: %s", i, taskID)
 			}
 		}
 
 		duration := time.Since(start)
-		t.Logf("Rapid job creation: %d/%d successful in %v (%.2f jobs/sec)",
-			successful, numJobs, duration, float64(numJobs)/duration.Seconds())
+		t.Logf("Rapid task creation: %d/%d successful in %v (%.2f tasks/sec)",
+			successful, numTasks, duration, float64(numTasks)/duration.Seconds())
 	})
 
-	t.Run("Concurrent job operations", func(t *testing.T) {
+	t.Run("Concurrent task operations", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -379,12 +379,12 @@ func TestJobOperations_PerformancePatterns(t *testing.T) {
 			go func(idx int) {
 				defer func() { done <- true }()
 
-				jobID, err := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-				t.Logf("Goroutine %d: jobID=%s, error=%v", idx, jobID, err)
+				taskID, err := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+				t.Logf("Goroutine %d: taskID=%s, error=%v", idx, taskID, err)
 
 				// Try to cancel
-				if jobID != "" {
-					_ = invoker.CancelJob(ctx, jobID)
+				if taskID != "" {
+					_ = invoker.CancelTask(ctx, taskID)
 				}
 			}(i)
 		}
@@ -395,13 +395,13 @@ func TestJobOperations_PerformancePatterns(t *testing.T) {
 		}
 
 		duration := time.Since(start)
-		t.Logf("Concurrent job operations: %d goroutines completed in %v", numGoroutines, duration)
+		t.Logf("Concurrent task operations: %d goroutines completed in %v", numGoroutines, duration)
 	})
 }
 
-// TestJobOperations_IntegrationPatterns tests integration patterns with jobs
-func TestJobOperations_IntegrationPatterns(t *testing.T) {
-	t.Run("Invoke and job operations together", func(t *testing.T) {
+// TestTaskOperations_IntegrationPatterns tests integration patterns with tasks
+func TestTaskOperations_IntegrationPatterns(t *testing.T) {
+	t.Run("Invoke and task operations together", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -418,20 +418,20 @@ func TestJobOperations_IntegrationPatterns(t *testing.T) {
 		result, err := invoker.Invoke(ctx, "test.function", "{}", InvokeOptions{})
 		t.Logf("Invoke result: len=%d, error=%v", len(result), err)
 
-		// Start job
-		jobID, err := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-		t.Logf("StartJob result: jobID=%s, error=%v", jobID, err)
+		// Start task
+		taskID, err := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+		t.Logf("StartTask result: taskID=%s, error=%v", taskID, err)
 
-		// Stream job
-		eventChan, err := invoker.StreamJob(ctx, jobID)
-		t.Logf("StreamJob result: error=%v, channel=%v", err, eventChan != nil)
+		// Stream task
+		eventChan, err := invoker.StreamTask(ctx, taskID)
+		t.Logf("StreamTask result: error=%v, channel=%v", err, eventChan != nil)
 
-		// Cancel job
-		err = invoker.CancelJob(ctx, jobID)
-		t.Logf("CancelJob result: error=%v", err)
+		// Cancel task
+		err = invoker.CancelTask(ctx, taskID)
+		t.Logf("CancelTask result: error=%v", err)
 	})
 
-	t.Run("Job with idempotency", func(t *testing.T) {
+	t.Run("Task with idempotency", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -442,24 +442,24 @@ func TestJobOperations_IntegrationPatterns(t *testing.T) {
 		}
 		defer invoker.Close()
 
-		idempotencyKey := fmt.Sprintf("idempotent-job-%d", time.Now().UnixNano())
+		idempotencyKey := fmt.Sprintf("idempotent-task-%d", time.Now().UnixNano())
 		opts := InvokeOptions{
 			IdempotencyKey: idempotencyKey,
 		}
 
 		ctx := context.Background()
 
-		// Start job with idempotency key
-		jobID1, err1 := invoker.StartJob(ctx, "test.job", "{}", opts)
-		t.Logf("First StartJob: jobID=%s, error=%v", jobID1, err1)
+		// Start task with idempotency key
+		taskID1, err1 := invoker.StartTask(ctx, "test.task", "{}", opts)
+		t.Logf("First StartTask: taskID=%s, error=%v", taskID1, err1)
 
 		// Try to start again with same key
-		jobID2, err2 := invoker.StartJob(ctx, "test.job", "{}", opts)
-		t.Logf("Second StartJob (same key): jobID=%s, error=%v", jobID2, err2)
+		taskID2, err2 := invoker.StartTask(ctx, "test.task", "{}", opts)
+		t.Logf("Second StartTask (same key): taskID=%s, error=%v", taskID2, err2)
 
-		// Check if job IDs are the same (idempotency)
-		if jobID1 == jobID2 {
-			t.Log("Idempotency verified: same job ID returned")
+		// Check if task IDs are the same (idempotency)
+		if taskID1 == taskID2 {
+			t.Log("Idempotency verified: same task ID returned")
 		}
 	})
 }

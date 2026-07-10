@@ -224,11 +224,11 @@ type InvokeOptions struct {
 	Retry          *RetryConfig      `json:"retry"`           // retry configuration override
 }
 
-// JobEvent represents a job execution event
-type JobEvent struct {
+// TaskEvent represents a task execution event
+type TaskEvent struct {
 	EventType string `json:"event_type"` // "started"|"progress"|"completed"|"error"
-	JobID     string `json:"job_id"`     // job identifier
+	TaskID    string `json:"task_id"`    // task identifier
 	Payload   string `json:"payload"`    // event payload (JSON)
 	Error     string `json:"error"`      // error message (if any)
-	Done      bool   `json:"done"`       // whether the job is complete
+	Done      bool   `json:"done"`       // whether the task is complete
 }

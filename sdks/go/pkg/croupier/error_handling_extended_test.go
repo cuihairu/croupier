@@ -293,9 +293,9 @@ func TestErrorHandling_InvokerErrors(t *testing.T) {
 		result, err := invoker.Invoke(ctx, "test.function", "{}", InvokeOptions{})
 		t.Logf("Invoke after close: error=%v, result_len=%d", err, len(result))
 
-		// Try to start job on closed invoker
-		jobID, err := invoker.StartJob(ctx, "test.function", "{}", InvokeOptions{})
-		t.Logf("StartJob after close: error=%v, jobID=%s", err, jobID)
+		// Try to start task on closed invoker
+		taskID, err := invoker.StartTask(ctx, "test.function", "{}", InvokeOptions{})
+		t.Logf("StartTask after close: error=%v, taskID=%s", err, taskID)
 
 		// Close again
 		err = invoker.Close()
@@ -413,9 +413,9 @@ func TestErrorHandling_RetryErrors(t *testing.T) {
 	})
 }
 
-// TestErrorHandling_JobErrors tests job-related error scenarios
-func TestErrorHandling_JobErrors(t *testing.T) {
-	t.Run("Invalid job IDs", func(t *testing.T) {
+// TestErrorHandling_TaskErrors tests task-related error scenarios
+func TestErrorHandling_TaskErrors(t *testing.T) {
+	t.Run("Invalid task IDs", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -426,29 +426,29 @@ func TestErrorHandling_JobErrors(t *testing.T) {
 		}
 		defer invoker.Close()
 
-		invalidJobIDs := []string{
+		invalidTaskIDs := []string{
 			"",
-			"non-existent-job",
-			"invalid/job/id",
+			"non-existent-task",
+			"invalid/task/id",
 			string(make([]byte, 1000)),
 		}
 
 		ctx := context.Background()
 
-		for _, jobID := range invalidJobIDs {
-			// Try to stream job events
-			eventChan, err := invoker.StreamJob(ctx, jobID)
-			t.Logf("StreamJob for invalid ID (len=%d): error=%v, channel=%v",
-				len(jobID), err, eventChan != nil)
+		for _, taskID := range invalidTaskIDs {
+			// Try to stream task events
+			eventChan, err := invoker.StreamTask(ctx, taskID)
+			t.Logf("StreamTask for invalid ID (len=%d): error=%v, channel=%v",
+				len(taskID), err, eventChan != nil)
 
-			// Try to cancel job
-			err = invoker.CancelJob(ctx, jobID)
-			t.Logf("CancelJob for invalid ID (len=%d): error=%v",
-				len(jobID), err)
+			// Try to cancel task
+			err = invoker.CancelTask(ctx, taskID)
+			t.Logf("CancelTask for invalid ID (len=%d): error=%v",
+				len(taskID), err)
 		}
 	})
 
-	t.Run("Job operations on closed invoker", func(t *testing.T) {
+	t.Run("Task operations on closed invoker", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -461,14 +461,14 @@ func TestErrorHandling_JobErrors(t *testing.T) {
 		invoker.Close()
 
 		ctx := context.Background()
-		jobID := "test-job-123"
+		taskID := "test-task-123"
 
-		// Try various job operations on closed invoker
-		eventChan, err := invoker.StreamJob(ctx, jobID)
-		t.Logf("StreamJob on closed invoker: error=%v, channel=%v", err, eventChan != nil)
+		// Try various task operations on closed invoker
+		eventChan, err := invoker.StreamTask(ctx, taskID)
+		t.Logf("StreamTask on closed invoker: error=%v, channel=%v", err, eventChan != nil)
 
-		err = invoker.CancelJob(ctx, jobID)
-		t.Logf("CancelJob on closed invoker: error=%v", err)
+		err = invoker.CancelTask(ctx, taskID)
+		t.Logf("CancelTask on closed invoker: error=%v", err)
 	})
 }
 

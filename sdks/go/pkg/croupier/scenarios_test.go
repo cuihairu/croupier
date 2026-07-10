@@ -88,11 +88,11 @@ func TestFunctionDescriptor_AllVersions(t *testing.T) {
 	}
 }
 
-func TestJobEvent_AllEventTypes(t *testing.T) {
+func TestTaskEvent_AllEventTypes(t *testing.T) {
 	t.Run("started event", func(t *testing.T) {
-		event := JobEvent{
+		event := TaskEvent{
 			EventType: "started",
-			JobID:     "job-123",
+			TaskID:    "task-123",
 			Payload:   `{"status":"started"}`,
 			Done:      false,
 		}
@@ -103,9 +103,9 @@ func TestJobEvent_AllEventTypes(t *testing.T) {
 	})
 
 	t.Run("completed event", func(t *testing.T) {
-		event := JobEvent{
+		event := TaskEvent{
 			EventType: "completed",
-			JobID:     "job-789",
+			TaskID:    "task-789",
 			Payload:   `{"result":"success"}`,
 			Done:      true,
 		}
@@ -116,9 +116,9 @@ func TestJobEvent_AllEventTypes(t *testing.T) {
 	})
 
 	t.Run("error event", func(t *testing.T) {
-		event := JobEvent{
+		event := TaskEvent{
 			EventType: "error",
-			JobID:     "job-error",
+			TaskID:    "task-error",
 			Error:     "Something went wrong",
 			Done:      true,
 		}

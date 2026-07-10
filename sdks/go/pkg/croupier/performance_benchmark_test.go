@@ -181,7 +181,7 @@ func TestPerformanceBenchmark_ResourceUsageBenchmarks(t *testing.T) {
 
 // TestPerformanceBenchmark_OperationComparison compares operation performance
 func TestPerformanceBenchmark_OperationComparison(t *testing.T) {
-	t.Run("Invoke vs StartJob performance", func(t *testing.T) {
+	t.Run("Invoke vs StartTask performance", func(t *testing.T) {
 		if testing.Short() {
 			t.Skip("Skipping benchmark in short mode")
 		}
@@ -206,18 +206,18 @@ func TestPerformanceBenchmark_OperationComparison(t *testing.T) {
 		}
 		invokeDuration := time.Since(startInvoke)
 
-		// Benchmark StartJob
-		startJob := time.Now()
+		// Benchmark StartTask
+		startTask := time.Now()
 		for i := 0; i < iterations; i++ {
-			invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
+			invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
 		}
-		jobDuration := time.Since(startJob)
+		taskDuration := time.Since(startTask)
 
 		t.Logf("Operation comparison:")
 		t.Logf("  Invoke: %v (%.2f ops/sec)", invokeDuration,
 			float64(iterations)/invokeDuration.Seconds())
-		t.Logf("  StartJob: %v (%.2f ops/sec)", jobDuration,
-			float64(iterations)/jobDuration.Seconds())
+		t.Logf("  StartTask: %v (%.2f ops/sec)", taskDuration,
+			float64(iterations)/taskDuration.Seconds())
 	})
 
 	t.Run("With retry vs without retry", func(t *testing.T) {

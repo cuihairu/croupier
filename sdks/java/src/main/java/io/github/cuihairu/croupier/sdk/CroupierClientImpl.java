@@ -8,7 +8,7 @@ import io.github.cuihairu.croupier.sdk.invoker.InvokeOptions;
 import io.github.cuihairu.croupier.sdk.invoker.Invoker;
 import io.github.cuihairu.croupier.sdk.invoker.InvokerConfig;
 import io.github.cuihairu.croupier.sdk.invoker.InvokerException;
-import io.github.cuihairu.croupier.sdk.invoker.JobEventInfo;
+import io.github.cuihairu.croupier.sdk.invoker.TaskEventInfo;
 import io.github.cuihairu.croupier.sdk.invoker.InvokerImpl;
 import io.github.cuihairu.croupier.sdk.wire.SdkWireMessages;
 import org.reactivestreams.Publisher;
@@ -43,7 +43,7 @@ public class CroupierClientImpl implements CroupierClient {
     private final ClientConfig config;
     private final Map<String, FunctionHandler> handlers = new ConcurrentHashMap<>();
     private final Map<String, FunctionDescriptor> descriptors = new ConcurrentHashMap<>();
-    private final Map<String, LocalJobState> localJobs = new ConcurrentHashMap<>();
+    private final Map<String, LocalTaskState> localTasks = new ConcurrentHashMap<>();
     private final BiFunction<String, Integer, TransportClient> transportFactory;
 
     private final AtomicBoolean connected = new AtomicBoolean(false);
@@ -120,9 +120,9 @@ public class CroupierClientImpl implements CroupierClient {
                     config.getTimeoutSeconds() * 1000
                 );
                 nextTransport.connect();
-                SdkWireMessages.RegisterLocalResponse response = registerLocal(nextTransport);
+                SdkWireMessages.ProviderConnectResponse response = providerConnect(nextTransport);
                 if (response.sessionId.isEmpty()) {
-                    throw new CroupierException("RegisterLocal returned empty session_id");
+                    throw new CroupierException("ProviderConnect returned empty session_id");
                 }
 
                 if (transport != null) {
@@ -203,7 +203,7 @@ public class CroupierClientImpl implements CroupierClient {
         stop();
         handlers.clear();
         descriptors.clear();
-        localJobs.clear();
+        localTasks.clear();
 
         // Close invoker
         try {
@@ -228,37 +228,37 @@ public class CroupierClientImpl implements CroupierClient {
         return sessionId;
     }
 
-    // ========== Job Management Methods ==========
+    // ========== Task Management Methods ==========
 
     @Override
-    public String startJob(String functionId, String payload) throws CroupierException {
-        return startJob(functionId, payload, Map.of());
+    public String startTask(String functionId, String payload) throws CroupierException {
+        return startTask(functionId, payload, Map.of());
     }
 
     @Override
-    public String startJob(String functionId, String payload, Map<String, String> metadata) throws CroupierException {
+    public String startTask(String functionId, String payload, Map<String, String> metadata) throws CroupierException {
         try {
             InvokeOptions options = InvokeOptions.builder()
                 .headers(metadata != null ? metadata : Map.of())
                 .build();
-            return invoker.startJob(functionId, payload, options);
+            return invoker.startTask(functionId, payload, options);
         } catch (InvokerException e) {
-            throw new CroupierException("Failed to start job: " + e.getMessage(), e);
+            throw new CroupierException("Failed to start task: " + e.getMessage(), e);
         }
     }
 
     @Override
-    public Publisher<JobEventInfo> streamJob(String jobId) {
-        return invoker.streamJob(jobId);
+    public Publisher<TaskEventInfo> streamTask(String taskId) {
+        return invoker.streamTask(taskId);
     }
 
     @Override
-    public boolean cancelJob(String jobId) throws CroupierException {
+    public boolean cancelTask(String taskId) throws CroupierException {
         try {
-            invoker.cancelJob(jobId);
+            invoker.cancelTask(taskId);
             return true;
         } catch (InvokerException e) {
-            throw new CroupierException("Failed to cancel job: " + e.getMessage(), e);
+            throw new CroupierException("Failed to cancel task: " + e.getMessage(), e);
         }
     }
 
@@ -289,20 +289,20 @@ public class CroupierClientImpl implements CroupierClient {
         }
     }
 
-    private SdkWireMessages.RegisterLocalResponse registerLocal(TransportClient nextTransport) throws InvokerException {
-        return SdkWireMessages.decodeRegisterLocalResponse(
+    private SdkWireMessages.ProviderConnectResponse providerConnect(TransportClient nextTransport) throws InvokerException {
+        return SdkWireMessages.decodeProviderConnectResponse(
             nextTransport.request(
-                Protocol.MSG_REGISTER_LOCAL_REQUEST,
-                SdkWireMessages.encodeRegisterLocalRequest(buildRegisterLocalRequest())
+                Protocol.MSG_PROVIDER_CONNECT_REQUEST,
+                SdkWireMessages.encodeProviderConnectRequest(buildProviderConnectRequest())
             )
         );
     }
 
-    private SdkWireMessages.RegisterLocalRequest buildRegisterLocalRequest() {
+    private SdkWireMessages.ProviderConnectRequest buildProviderConnectRequest() {
         List<SdkWireMessages.LocalFunctionDescriptor> functions = descriptors.values().stream()
             .map(this::toWireDescriptor)
             .collect(Collectors.toList());
-        return new SdkWireMessages.RegisterLocalRequest(
+        return new SdkWireMessages.ProviderConnectRequest(
             config.getServiceId(),
             config.getServiceVersion(),
             "",
@@ -367,7 +367,7 @@ public class CroupierClientImpl implements CroupierClient {
 
     private void sendHeartbeat() throws InvokerException {
         transport.request(
-            Protocol.MSG_HEARTBEAT_LOCAL_REQUEST,
+            Protocol.MSG_PROVIDER_HEARTBEAT_REQUEST,
             SdkWireMessages.encodeHeartbeatRequest(new SdkWireMessages.HeartbeatRequest(
                 config.getServiceId(),
                 sessionId
@@ -378,9 +378,9 @@ public class CroupierClientImpl implements CroupierClient {
     private byte[] handleLocalRequest(int msgType, int requestId, byte[] body) throws Exception {
         return switch (msgType) {
             case Protocol.MSG_INVOKE_REQUEST -> handleInvokeRequest(body);
-            case Protocol.MSG_START_JOB_REQUEST -> handleStartJobRequest(body);
-            case Protocol.MSG_STREAM_JOB_REQUEST -> handleStreamJobRequest(body);
-            case Protocol.MSG_CANCEL_JOB_REQUEST -> handleCancelJobRequest(body);
+            case Protocol.MSG_START_TASK_REQUEST -> handleStartTaskRequest(body);
+            case Protocol.MSG_STREAM_TASK_REQUEST -> handleStreamTaskRequest(body);
+            case Protocol.MSG_CANCEL_TASK_REQUEST -> handleCancelTaskRequest(body);
             default -> throw new CroupierException("Unsupported local request type: " + requestId);
         };
     }
@@ -397,7 +397,7 @@ public class CroupierClientImpl implements CroupierClient {
         );
     }
 
-    private byte[] handleStartJobRequest(byte[] body) throws Exception {
+    private byte[] handleStartTaskRequest(byte[] body) throws Exception {
         SdkWireMessages.InvokeRequest request = SdkWireMessages.decodeInvokeRequest(body);
         String functionId = request.functionId;
         FunctionHandler handler = handlers.get(functionId);
@@ -406,13 +406,13 @@ public class CroupierClientImpl implements CroupierClient {
         }
 
         String payload = new String(request.payload, StandardCharsets.UTF_8);
-        String jobId = functionId + "-" + UUID.randomUUID().toString().substring(0, 12);
-        LocalJobState jobState = new LocalJobState(jobId);
-        localJobs.put(jobId, jobState);
-        appendLocalJobEvent(jobState, JobEventInfo.builder()
+        String taskId = functionId + "-" + UUID.randomUUID().toString().substring(0, 12);
+        LocalTaskState taskState = new LocalTaskState(taskId);
+        localTasks.put(taskId, taskState);
+        appendLocalTaskEvent(taskState, TaskEventInfo.builder()
             .type("started")
-            .jobId(jobId)
-            .message("Job started")
+            .taskId(taskId)
+            .message("Task started")
             .progress(0)
             .done(false)
             .build());
@@ -421,49 +421,49 @@ public class CroupierClientImpl implements CroupierClient {
         Thread worker = new Thread(() -> {
             try {
                 String result = handler.handle(context, payload);
-                if (jobState.cancelled.get()) {
+                if (taskState.cancelled.get()) {
                     return;
                 }
-                appendLocalJobEvent(jobState, JobEventInfo.builder()
+                appendLocalTaskEvent(taskState, TaskEventInfo.builder()
                     .type("completed")
-                    .jobId(jobId)
-                    .message("Job completed")
+                    .taskId(taskId)
+                    .message("Task completed")
                     .progress(100)
                     .payload(result)
                     .done(true)
                     .build());
             } catch (Exception e) {
-                if (jobState.cancelled.get()) {
+                if (taskState.cancelled.get()) {
                     return;
                 }
-                appendLocalJobEvent(jobState, JobEventInfo.builder()
+                appendLocalTaskEvent(taskState, TaskEventInfo.builder()
                     .type("error")
-                    .jobId(jobId)
+                    .taskId(taskId)
                     .message(e.getMessage())
                     .error(e.getMessage())
                     .done(true)
                     .build());
             }
-        }, "croupier-java-local-job-" + jobId);
+        }, "croupier-java-local-task-" + taskId);
         worker.setDaemon(true);
-        jobState.worker = worker;
+        taskState.worker = worker;
         worker.start();
 
-        return SdkWireMessages.encodeStartJobResponse(new SdkWireMessages.StartJobResponse(jobId));
+        return SdkWireMessages.encodeStartTaskResponse(new SdkWireMessages.StartTaskResponse(taskId));
     }
 
-    private byte[] handleStreamJobRequest(byte[] body) {
-        SdkWireMessages.JobStreamRequest request = SdkWireMessages.decodeJobStreamRequest(body);
-        LocalJobState state = localJobs.get(request.jobId);
-        JobEventInfo event = state != null ? state.latest() : JobEventInfo.builder()
+    private byte[] handleStreamTaskRequest(byte[] body) {
+        SdkWireMessages.TaskStreamRequest request = SdkWireMessages.decodeTaskStreamRequest(body);
+        LocalTaskState state = localTasks.get(request.taskId);
+        TaskEventInfo event = state != null ? state.latest() : TaskEventInfo.builder()
             .type("error")
-            .jobId(request.jobId)
-            .message("Job not found")
-            .error("Job not found")
+            .taskId(request.taskId)
+            .message("Task not found")
+            .error("Task not found")
             .done(true)
             .build();
 
-        return SdkWireMessages.encodeJobEvent(new SdkWireMessages.JobEvent(
+        return SdkWireMessages.encodeTaskEvent(new SdkWireMessages.TaskEvent(
             event.getType(),
             event.getError() != null ? event.getError() : defaultValue(event.getMessage(), ""),
             event.getProgress() != null ? event.getProgress() : 0,
@@ -471,23 +471,23 @@ public class CroupierClientImpl implements CroupierClient {
         ));
     }
 
-    private byte[] handleCancelJobRequest(byte[] body) {
-        SdkWireMessages.CancelJobRequest request = SdkWireMessages.decodeCancelJobRequest(body);
-        LocalJobState state = localJobs.get(request.jobId);
+    private byte[] handleCancelTaskRequest(byte[] body) {
+        SdkWireMessages.CancelTaskRequest request = SdkWireMessages.decodeCancelTaskRequest(body);
+        LocalTaskState state = localTasks.get(request.taskId);
         if (state != null && !state.done.get()) {
             state.cancelled.set(true);
-            appendLocalJobEvent(state, JobEventInfo.builder()
+            appendLocalTaskEvent(state, TaskEventInfo.builder()
                 .type("cancelled")
-                .jobId(request.jobId)
-                .message("Job cancelled")
-                .error("Job cancelled")
+                .taskId(request.taskId)
+                .message("Task cancelled")
+                .error("Task cancelled")
                 .done(true)
                 .build());
         }
         return new byte[0];
     }
 
-    private void appendLocalJobEvent(LocalJobState state, JobEventInfo event) {
+    private void appendLocalTaskEvent(LocalTaskState state, TaskEventInfo event) {
         state.events.add(event);
         if (event.isDone()) {
             state.done.set(true);
@@ -694,23 +694,23 @@ public class CroupierClientImpl implements CroupierClient {
         return value == null || value.trim().isEmpty();
     }
 
-    private static final class LocalJobState {
-        private final String jobId;
-        private final CopyOnWriteArrayList<JobEventInfo> events = new CopyOnWriteArrayList<>();
+    private static final class LocalTaskState {
+        private final String taskId;
+        private final CopyOnWriteArrayList<TaskEventInfo> events = new CopyOnWriteArrayList<>();
         private final AtomicBoolean done = new AtomicBoolean(false);
         private final AtomicBoolean cancelled = new AtomicBoolean(false);
         private volatile Thread worker;
 
-        private LocalJobState(String jobId) {
-            this.jobId = jobId;
+        private LocalTaskState(String taskId) {
+            this.taskId = taskId;
         }
 
-        private JobEventInfo latest() {
+        private TaskEventInfo latest() {
             if (events.isEmpty()) {
-                return JobEventInfo.builder()
+                return TaskEventInfo.builder()
                     .type("started")
-                    .jobId(jobId)
-                    .message("Job started")
+                    .taskId(taskId)
+                    .message("Task started")
                     .progress(0)
                     .done(false)
                     .build();

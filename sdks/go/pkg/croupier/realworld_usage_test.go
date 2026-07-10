@@ -214,18 +214,18 @@ func TestRealWorldUsage_EventDriven(t *testing.T) {
 
 		ctx := context.Background()
 
-		// Start a streaming job
-		jobID, err := invoker.StartJob(ctx, "stream.events", `{"type":"continuous"}`, InvokeOptions{})
-		t.Logf("Started streaming job: jobID=%s, error=%v", jobID, err)
+		// Start a streaming task
+		taskID, err := invoker.StartTask(ctx, "stream.events", `{"type":"continuous"}`, InvokeOptions{})
+		t.Logf("Started streaming task: taskID=%s, error=%v", taskID, err)
 
 		// Try to stream events
-		eventChan, err := invoker.StreamJob(ctx, jobID)
+		eventChan, err := invoker.StreamTask(ctx, taskID)
 		t.Logf("Stream events: error=%v, channel=%v", err, eventChan != nil)
 
 		if eventChan != nil {
 			select {
 			case event := <-eventChan:
-				t.Logf("Received stream event: Type=%s, JobID=%s", event.EventType, event.JobID)
+				t.Logf("Received stream event: Type=%s, TaskID=%s", event.EventType, event.TaskID)
 			case <-time.After(time.Second):
 				t.Log("No stream event received within timeout")
 			}

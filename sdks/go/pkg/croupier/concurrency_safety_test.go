@@ -144,9 +144,9 @@ func TestConcurrencySafety_SharedState(t *testing.T) {
 					t.Logf("Op %d (schema): error=%v", idx, err)
 					atomic.AddInt32(&schemaCount, 1)
 				case 2:
-					// StartJob
-					jobID, err := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-					t.Logf("Op %d (job): jobID=%s, error=%v", idx, jobID, err)
+					// StartTask
+					taskID, err := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+					t.Logf("Op %d (task): taskID=%s, error=%v", idx, taskID, err)
 				}
 			}(i)
 		}
@@ -287,28 +287,28 @@ func TestConcurrencySafety_DeadlockScenarios(t *testing.T) {
 		const numOps = 30
 		var wg sync.WaitGroup
 
-		// StartJob and CancelJob concurrently
+		// StartTask and CancelTask concurrently
 		for i := 0; i < numOps; i++ {
 			wg.Add(2)
 
-			// StartJob goroutine
+			// StartTask goroutine
 			go func(idx int) {
 				defer wg.Done()
-				jobID, err := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-				t.Logf("StartJob %d: jobID=%s, error=%v", idx, jobID, err)
+				taskID, err := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+				t.Logf("StartTask %d: taskID=%s, error=%v", idx, taskID, err)
 			}(i)
 
-			// CancelJob goroutine
+			// CancelTask goroutine
 			go func(idx int) {
 				defer wg.Done()
-				jobID := fmt.Sprintf("job-%d", idx)
-				err := invoker.CancelJob(ctx, jobID)
-				t.Logf("CancelJob %d: error=%v", idx, err)
+				taskID := fmt.Sprintf("task-%d", idx)
+				err := invoker.CancelTask(ctx, taskID)
+				t.Logf("CancelTask %d: error=%v", idx, err)
 			}(i)
 		}
 
 		wg.Wait()
-		t.Logf("Completed bidirectional job operations")
+		t.Logf("Completed bidirectional task operations")
 	})
 }
 
@@ -520,7 +520,7 @@ func TestConcurrencySafety_AtomicOperations(t *testing.T) {
 
 // TestConcurrencySafety_ChannelUsage tests safe channel usage patterns
 func TestConcurrencySafety_ChannelUsage(t *testing.T) {
-	t.Run("Concurrent job streaming", func(t *testing.T) {
+	t.Run("Concurrent task streaming", func(t *testing.T) {
 		config := &InvokerConfig{
 			Address: "http://localhost:19090",
 		}
@@ -532,33 +532,33 @@ func TestConcurrencySafety_ChannelUsage(t *testing.T) {
 		defer invoker.Close()
 
 		ctx := context.Background()
-		const numJobs = 10
+		const numTasks = 10
 
 		var wg sync.WaitGroup
-		jobIDs := make([]string, numJobs)
+		taskIDs := make([]string, numTasks)
 
-		// Start multiple jobs
-		for i := 0; i < numJobs; i++ {
+		// Start multiple tasks
+		for i := 0; i < numTasks; i++ {
 			wg.Add(1)
 			go func(idx int) {
 				defer wg.Done()
 
-				jobID, err := invoker.StartJob(ctx, "test.job", "{}", InvokeOptions{})
-				jobIDs[idx] = jobID
-				t.Logf("Started job %d: %s, error=%v", idx, jobID, err)
+				taskID, err := invoker.StartTask(ctx, "test.task", "{}", InvokeOptions{})
+				taskIDs[idx] = taskID
+				t.Logf("Started task %d: %s, error=%v", idx, taskID, err)
 			}(i)
 		}
 
 		wg.Wait()
 
-		// Stream from all jobs concurrently
-		for _, jobID := range jobIDs {
+		// Stream from all tasks concurrently
+		for _, taskID := range taskIDs {
 			wg.Add(1)
 			go func(id string) {
 				defer wg.Done()
 
-				eventChan, err := invoker.StreamJob(ctx, id)
-				t.Logf("Stream job %s: error=%v, channel=%v", id, err, eventChan != nil)
+				eventChan, err := invoker.StreamTask(ctx, id)
+				t.Logf("Stream task %s: error=%v, channel=%v", id, err, eventChan != nil)
 
 				if eventChan != nil {
 					select {
@@ -568,10 +568,10 @@ func TestConcurrencySafety_ChannelUsage(t *testing.T) {
 						t.Log("No event within timeout")
 					}
 				}
-			}(jobID)
+			}(taskID)
 		}
 
 		wg.Wait()
-		t.Logf("Concurrent job streaming completed")
+		t.Logf("Concurrent task streaming completed")
 	})
 }

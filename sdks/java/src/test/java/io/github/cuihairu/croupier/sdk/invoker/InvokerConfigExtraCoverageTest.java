@@ -239,11 +239,11 @@ class InvokerConfigExtraCoverageTest {
     }
 
     @Test
-    @DisplayName("JobEventInfo.Builder with all fields")
-    void jobEventInfoBuilderAllFields() {
-        JobEventInfo info = JobEventInfo.builder()
+    @DisplayName("TaskEventInfo.Builder with all fields")
+    void taskEventInfoBuilderAllFields() {
+        TaskEventInfo info = TaskEventInfo.builder()
             .type("progress")
-            .jobId("job-1")
+            .taskId("task-1")
             .message("msg")
             .progress(50)
             .payload("data")
@@ -252,7 +252,7 @@ class InvokerConfigExtraCoverageTest {
             .build();
 
         assertEquals("progress", info.getType());
-        assertEquals("job-1", info.getJobId());
+        assertEquals("task-1", info.getTaskId());
         assertEquals("msg", info.getMessage());
         assertEquals(50, info.getProgress());
         assertEquals("data", info.getPayload());
@@ -261,12 +261,12 @@ class InvokerConfigExtraCoverageTest {
     }
 
     @Test
-    @DisplayName("JobEventInfo default values")
-    void jobEventInfoDefaults() {
-        JobEventInfo info = JobEventInfo.builder().build();
+    @DisplayName("TaskEventInfo default values")
+    void taskEventInfoDefaults() {
+        TaskEventInfo info = TaskEventInfo.builder().build();
 
         assertNull(info.getType());
-        assertNull(info.getJobId());
+        assertNull(info.getTaskId());
         assertNull(info.getMessage());
         assertNull(info.getProgress());
         assertNull(info.getPayload());

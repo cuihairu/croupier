@@ -307,20 +307,20 @@ public class EdgeCaseTests
 
     #endregion
 
-    #region JobStatus Edge Cases
+    #region TaskStatus Edge Cases
 
     [Fact]
-    public void JobStatus_DefaultValues_AreCorrect()
+    public void TaskStatus_DefaultValues_AreCorrect()
     {
         // Arrange & Act
-        var status = new JobStatus
+        var status = new TaskStatus
         {
-            JobId = "job-123",
+            TaskId = "task-123",
             Status = "pending"
         };
 
         // Assert
-        status.JobId.Should().Be("job-123");
+        status.TaskId.Should().Be("task-123");
         status.Status.Should().Be("pending");
         status.Progress.Should().Be(0);
         status.Error.Should().BeNull();
@@ -328,12 +328,12 @@ public class EdgeCaseTests
     }
 
     [Fact]
-    public void JobStatus_Progress_CanBeZero()
+    public void TaskStatus_Progress_CanBeZero()
     {
         // Arrange & Act
-        var status = new JobStatus
+        var status = new TaskStatus
         {
-            JobId = "job-123",
+            TaskId = "task-123",
             Status = "pending",
             Progress = 0
         };
@@ -343,12 +343,12 @@ public class EdgeCaseTests
     }
 
     [Fact]
-    public void JobStatus_Progress_CanBeHundred()
+    public void TaskStatus_Progress_CanBeHundred()
     {
         // Arrange & Act
-        var status = new JobStatus
+        var status = new TaskStatus
         {
-            JobId = "job-123",
+            TaskId = "task-123",
             Status = "completed",
             Progress = 1.0 // 100%
         };
@@ -358,12 +358,12 @@ public class EdgeCaseTests
     }
 
     [Fact]
-    public void JobStatus_Progress_CanBePartial()
+    public void TaskStatus_Progress_CanBePartial()
     {
         // Arrange & Act
-        var status = new JobStatus
+        var status = new TaskStatus
         {
-            JobId = "job-123",
+            TaskId = "task-123",
             Status = "running",
             Progress = 0.5 // 50%
         };
@@ -373,12 +373,12 @@ public class EdgeCaseTests
     }
 
     [Fact]
-    public void JobStatus_AllFields_CanBeSet()
+    public void TaskStatus_AllFields_CanBeSet()
     {
         // Arrange & Act
-        var status = new JobStatus
+        var status = new TaskStatus
         {
-            JobId = "job-123",
+            TaskId = "task-123",
             Status = "running",
             Progress = 0.75,
             Error = "Partial failure",
@@ -386,7 +386,7 @@ public class EdgeCaseTests
         };
 
         // Assert
-        status.JobId.Should().Be("job-123");
+        status.TaskId.Should().Be("task-123");
         status.Status.Should().Be("running");
         status.Progress.Should().Be(0.75);
         status.Error.Should().Be("Partial failure");
