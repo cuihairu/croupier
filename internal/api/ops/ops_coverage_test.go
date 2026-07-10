@@ -457,7 +457,7 @@ func TestNodeServiceDrain(t *testing.T) {
 
 	err := s.Drain(ctx, "node-1")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not implemented")
+	assert.Contains(t, err.Error(), "registry store unavailable")
 }
 
 func TestNodeServiceRestart(t *testing.T) {
@@ -469,7 +469,7 @@ func TestNodeServiceRestart(t *testing.T) {
 
 	err := s.Restart(ctx, "node-1")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not implemented")
+	assert.Contains(t, err.Error(), "registry store unavailable")
 }
 
 func TestNodeServiceUndrain(t *testing.T) {
@@ -481,7 +481,7 @@ func TestNodeServiceUndrain(t *testing.T) {
 
 	err := s.Undrain(ctx, "node-1")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not implemented")
+	assert.Contains(t, err.Error(), "registry store unavailable")
 }
 
 func TestNodeServiceGetMetaNilStore(t *testing.T) {
@@ -530,7 +530,7 @@ func TestAgentServiceStopProcess(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewAgentService(svcCtx)
 
-	err := s.StopProcess(ctx, "agent-1", 1234)
+	err := s.StopProcess(ctx, "agent-1", "my-process")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "ops client unavailable")
 }
@@ -542,7 +542,7 @@ func TestAgentServiceRestartProcess(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewAgentService(svcCtx)
 
-	err := s.RestartProcess(ctx, "agent-1", 1234)
+	err := s.RestartProcess(ctx, "agent-1", "my-process")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "ops client unavailable")
 }
@@ -616,9 +616,9 @@ func TestHandlerAliasAgentMethods(t *testing.T) {
 		{name: "AgentExecCommand", method: http.MethodPost, url: "/api/v1/ops/agent/exec", body: `{"agentId":"agent-1","command":"ls"}`, fn: h.AgentExecCommand, statusCode: http.StatusInternalServerError},
 		{name: "Nodes", method: http.MethodGet, url: "/api/v1/ops/nodes", body: "", fn: h.Nodes, statusCode: http.StatusOK},
 		{name: "NodeCommands", method: http.MethodPost, url: "/api/v1/ops/node/commands", body: `{"nodeId":"node-1"}`, fn: h.NodeCommands, statusCode: http.StatusOK},
-		{name: "NodeDrain", method: http.MethodPost, url: "/api/v1/ops/node/drain", body: `{"nodeId":"node-1"}`, fn: h.NodeDrain, statusCode: http.StatusInternalServerError},
-		{name: "NodeRestart", method: http.MethodPost, url: "/api/v1/ops/node/restart", body: `{"nodeId":"node-1"}`, fn: h.NodeRestart, statusCode: http.StatusInternalServerError},
-		{name: "NodeUndrain", method: http.MethodPost, url: "/api/v1/ops/node/undrain", body: `{"nodeId":"node-1"}`, fn: h.NodeUndrain, statusCode: http.StatusInternalServerError},
+		{name: "NodeDrain", method: http.MethodPost, url: "/api/v1/ops/node/drain", body: `{"nodeId":"agent-1"}`, fn: h.NodeDrain, statusCode: http.StatusOK},
+		{name: "NodeRestart", method: http.MethodPost, url: "/api/v1/ops/node/restart", body: `{"nodeId":"agent-1"}`, fn: h.NodeRestart, statusCode: http.StatusOK},
+		{name: "NodeUndrain", method: http.MethodPost, url: "/api/v1/ops/node/undrain", body: `{"nodeId":"agent-1"}`, fn: h.NodeUndrain, statusCode: http.StatusOK},
 		{name: "HealthGet", method: http.MethodGet, url: "/api/v1/ops/health/get", body: "", fn: h.HealthGet, statusCode: http.StatusOK},
 		{name: "HealthRun", method: http.MethodPost, url: "/api/v1/ops/health/run", body: `{"id":"check-1"}`, fn: h.HealthRun, statusCode: http.StatusInternalServerError},
 		{name: "HealthUpdate", method: http.MethodPost, url: "/api/v1/ops/health/update", body: `{"enabled":true}`, fn: h.HealthUpdate, statusCode: http.StatusInternalServerError},

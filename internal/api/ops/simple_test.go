@@ -247,9 +247,9 @@ func TestServiceOpsNodeDrain(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	_, err := s.OpsNodeDrain(ctx, &OpsNodeCommandsRequest{})
+	_, err := s.OpsNodeDrain(ctx, &OpsNodeCommandsRequest{NodeId: "node-1"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not implemented")
+	assert.Contains(t, err.Error(), "registry store unavailable")
 }
 
 func TestServiceOpsNodeMeta(t *testing.T) {
@@ -296,9 +296,9 @@ func TestServiceOpsNodeRestart(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	_, err := s.OpsNodeRestart(ctx, &OpsNodeCommandsRequest{})
+	_, err := s.OpsNodeRestart(ctx, &OpsNodeCommandsRequest{NodeId: "node-1"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not implemented")
+	assert.Contains(t, err.Error(), "registry store unavailable")
 }
 
 func TestServiceOpsNodeUndrain(t *testing.T) {
@@ -308,9 +308,9 @@ func TestServiceOpsNodeUndrain(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	_, err := s.OpsNodeUndrain(ctx, &OpsNodeCommandsRequest{})
+	_, err := s.OpsNodeUndrain(ctx, &OpsNodeCommandsRequest{NodeId: "node-1"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not implemented")
+	assert.Contains(t, err.Error(), "registry store unavailable")
 }
 
 // Health operations tests
@@ -322,9 +322,9 @@ func TestServiceOpsHealthGet(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	_, err := s.OpsHealthGet(ctx, &OpsHealthGetRequest{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not implemented")
+	resp, err := s.OpsHealthGet(ctx, &OpsHealthGetRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, 0, resp.Code)
 }
 
 func TestServiceOpsHealthRun(t *testing.T) {
@@ -334,9 +334,9 @@ func TestServiceOpsHealthRun(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	_, err := s.OpsHealthRun(ctx, &OpsHealthRunRequest{})
+	_, err := s.OpsHealthRun(ctx, &OpsHealthRunRequest{ID: "check-1"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not implemented")
+	assert.Contains(t, err.Error(), "ops state store unavailable")
 }
 
 func TestServiceOpsHealthUpdate(t *testing.T) {
@@ -348,7 +348,7 @@ func TestServiceOpsHealthUpdate(t *testing.T) {
 
 	_, err := s.OpsHealthUpdate(ctx, &OpsHealthUpdateRequest{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not implemented")
+	assert.Contains(t, err.Error(), "ops state store unavailable")
 }
 
 // Maintenance operations tests
@@ -360,9 +360,9 @@ func TestServiceOpsMaintenanceGet(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	_, err := s.OpsMaintenanceGet(ctx, &OpsMaintenanceGetRequest{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not implemented")
+	resp, err := s.OpsMaintenanceGet(ctx, &OpsMaintenanceGetRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, 0, resp.Code)
 }
 
 func TestServiceOpsMaintenanceUpdate(t *testing.T) {
@@ -374,7 +374,7 @@ func TestServiceOpsMaintenanceUpdate(t *testing.T) {
 
 	_, err := s.OpsMaintenanceUpdate(ctx, &OpsMaintenanceUpdateRequest{})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not implemented")
+	assert.Contains(t, err.Error(), "ops state store unavailable")
 }
 
 // Metrics tests
@@ -386,9 +386,9 @@ func TestServiceOpsMetrics(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	_, err := s.OpsMetrics(ctx, &OpsMetricsRequest{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not implemented")
+	resp, err := s.OpsMetrics(ctx, &OpsMetricsRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, 0, resp.Code)
 }
 
 // Config tests
@@ -400,9 +400,9 @@ func TestServiceOpsConfig(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	_, err := s.OpsConfig(ctx, &OpsConfigRequest{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not implemented")
+	resp, err := s.OpsConfig(ctx, &OpsConfigRequest{})
+	require.NoError(t, err)
+	assert.NotNil(t, resp)
 }
 
 // Services tests
@@ -472,9 +472,9 @@ func TestServiceOpsMQ(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	_, err := s.OpsMQ(ctx, &OpsMQRequest{})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not implemented")
+	resp, err := s.OpsMQ(ctx, &OpsMQRequest{})
+	require.NoError(t, err)
+	assert.Equal(t, 0, resp.Code)
 }
 
 // Notifications tests
