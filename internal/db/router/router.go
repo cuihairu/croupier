@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/cuihairu/croupier/internal/db/dbctx"
+	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
 )
 
@@ -87,6 +88,12 @@ type Router struct {
 	mu       sync.RWMutex
 	cache    map[string]*gorm.DB // keyed by physical database name
 	gameOfDB map[string]string   // dbName → gameID (for ForgetGame)
+
+	// inflight deduplicates concurrent first-open attempts per physical
+	// database name so that expensive I/O (create/migrate) runs once per db
+	// while different dbs open in parallel. I/O happens OUTSIDE the cache
+	// mutex to avoid blocking readers on other scopes.
+	inflight singleflight.Group
 }
 
 // New constructs a Router. metaDB must already be open and migrated.
@@ -115,13 +122,17 @@ func (r *Router) NameForGame(gameID, env string) string {
 
 // GameDB returns the *gorm.DB for the given (gameID, env), opening and
 // migrating the physical database on first use. Concurrent calls for the
-// same scope are deduplicated by the cache.
+// same scope are deduplicated by singleflight; different scopes open in
+// parallel. All I/O (create/migrate/open) runs OUTSIDE the cache mutex so a
+// slow first-open for one game never blocks reads on another game's cached
+// connection.
 func (r *Router) GameDB(_ context.Context, gameID, env string) (*gorm.DB, error) {
 	dbName := r.cfg.NameForGame(gameID, env)
 	if dbName == "" {
 		return nil, fmt.Errorf("router: empty database name for game %q env %q", gameID, env)
 	}
 
+	// Fast path: read lock only, never blocks other scopes' opens.
 	r.mu.RLock()
 	if db, ok := r.cache[dbName]; ok {
 		r.mu.RUnlock()
@@ -129,20 +140,41 @@ func (r *Router) GameDB(_ context.Context, gameID, env string) (*gorm.DB, error)
 	}
 	r.mu.RUnlock()
 
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	// Re-check under write lock.
-	if db, ok := r.cache[dbName]; ok {
-		return db, nil
-	}
+	// Slow path: deduplicate per-db. The create/migrate/open I/O happens
+	// inside openGameDB, outside any cache lock.
+	v, err, _ := r.inflight.Do(dbName, func() (interface{}, error) {
+		// Re-check under read lock once we win the race: another goroutine may
+		// have populated the cache while we were waiting.
+		r.mu.RLock()
+		if db, ok := r.cache[dbName]; ok {
+			r.mu.RUnlock()
+			return db, nil
+		}
+		r.mu.RUnlock()
 
-	db, err := r.openGameDB(dbName)
+		db, err := r.openGameDB(dbName)
+		if err != nil {
+			return nil, err
+		}
+
+		// Publish under a brief write lock. Only map writes happen here, no I/O.
+		r.mu.Lock()
+		// Another opener for the same db could have raced ahead (e.g. after a
+		// Forget); prefer the existing one and close ours to avoid a leak.
+		if existing, ok := r.cache[dbName]; ok {
+			r.mu.Unlock()
+			_ = closeQuietly(db)
+			return existing, nil
+		}
+		r.cache[dbName] = db
+		r.gameOfDB[dbName] = gameID
+		r.mu.Unlock()
+		return db, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	r.cache[dbName] = db
-	r.gameOfDB[dbName] = gameID
-	return db, nil
+	return v.(*gorm.DB), nil
 }
 
 // Resolve is a convenience that returns the game DB and stores it in ctx via

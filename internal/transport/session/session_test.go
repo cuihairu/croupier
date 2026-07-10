@@ -223,6 +223,66 @@ func TestBaseStore_Remove_NotFound(t *testing.T) {
 	store.Remove("missing") // should not panic
 }
 
+// TestBaseStore_RemoveSession_ReconnectSafe verifies the shared
+// compare-and-remove primitive: a stale session's cleanup (by an old
+// connection) must NOT delete a newer session that replaced it. This is the
+// abstraction that backs both AgentSessionStore.RemoveSession and the
+// Provider session removal.
+func TestBaseStore_RemoveSession_ReconnectSafe(t *testing.T) {
+	store := NewBaseStore()
+
+	// First connection registers.
+	old := &mockSession{id: "s1", lastSeen: time.Now()}
+	_ = store.Add("agent", old)
+
+	// Reconnect: Upsert replaces with a new session.
+	cur := &mockSession{id: "s2", lastSeen: time.Now()}
+	store.Upsert("agent", cur, true)
+
+	// Stale old connection (s1) tries to clean up — must be rejected.
+	if removed := store.RemoveSession("agent", "s1"); removed {
+		t.Error("RemoveSession with stale sessionID must return false")
+	}
+	if store.Count() != 1 {
+		t.Errorf("count after stale removal = %d, want 1", store.Count())
+	}
+	got, ok := store.Get("agent")
+	if !ok || got.SessionID() != "s2" {
+		t.Error("current session was wrongly removed by stale cleanup")
+	}
+
+	// Current connection (s2) cleans up its own session — succeeds.
+	if removed := store.RemoveSession("agent", "s2"); !removed {
+		t.Error("RemoveSession with current sessionID must return true")
+	}
+	if store.Count() != 0 {
+		t.Errorf("count after current removal = %d, want 0", store.Count())
+	}
+}
+
+// TestBaseStore_RemoveSession_EmptyID verifies backward-compatible behavior:
+// an empty sessionID falls back to unconditional removal.
+func TestBaseStore_RemoveSession_EmptyID(t *testing.T) {
+	store := NewBaseStore()
+	s := &mockSession{id: "s1", lastSeen: time.Now()}
+	_ = store.Add("k", s)
+
+	if !store.RemoveSession("k", "") {
+		t.Error("empty sessionID must fall back to unconditional removal")
+	}
+	if store.Count() != 0 {
+		t.Errorf("count = %d, want 0", store.Count())
+	}
+}
+
+// TestBaseStore_RemoveSession_MissingKey returns false for an absent key.
+func TestBaseStore_RemoveSession_MissingKey(t *testing.T) {
+	store := NewBaseStore()
+	if store.RemoveSession("missing", "s1") {
+		t.Error("RemoveSession on missing key must return false")
+	}
+}
+
 func TestBaseStore_List(t *testing.T) {
 	store := NewBaseStore()
 	s1 := &mockSession{id: "s1", lastSeen: time.Now()}

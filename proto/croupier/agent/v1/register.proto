@@ -44,7 +44,7 @@ message RegisterRequest {
   string agent_id = 1;              // agent unique id
   string version = 2;               // agent version
   repeated FunctionDescriptor functions = 3; // summarized function list
-  string rpc_addr = 4;              // agent's reachable gRPC address (DEV ONLY)
+  string rpc_addr = 4;              // DEPRECATED: legacy gRPC callback addr. Do NOT use for routing — Server calls Agents over the established TCP session. Kept only so older Agents can still register; removal is gated on all deployed Agents dropping this field.
   string game_id = 5;               // game scope (required for multi-game routing)
   string env = 6;                   // logical environment scope (optional: prod/stage/test)
   repeated AgentProcess processes = 7; // registered processes (sdk->agent)

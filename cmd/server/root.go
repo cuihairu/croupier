@@ -214,11 +214,16 @@ func runServer() error {
 		svcCtx.Dispatcher.SetTaskRunWriter(dispatch.NewTaskRunWriterAdapter(taskRunModel))
 	}
 
-	// 启动控制服务器（TCP）
-	go startControlServer(&c, svcCtx, sessionStore)
+	// 创建根 context，所有后台组件（TCP listener、ControlService、清理任务、
+	// registry cleanup）都派生自它，确保收到停机信号时能级联取消。
+	rootCtx, rootCancel := context.WithCancel(context.Background())
+	defer rootCancel()
+
+	// 启动控制服务器（TCP），返回可关闭的资源句柄用于优雅停机。
+	controlResources := startControlServer(rootCtx, &c, svcCtx, sessionStore)
 
 	// 启动 Registry 清理任务（定期删除过期的 AgentSession）
-	go startRegistryCleanup(svcCtx)
+	go startRegistryCleanup(rootCtx, svcCtx)
 
 	// 设置 Gin 模式
 	switch c.Server.Mode {
@@ -279,26 +284,63 @@ func runServer() error {
 	<-quit
 	fmt.Println("\nShutting down server...")
 
-	// 给在途请求 15 秒优雅退出
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "Server forced to shutdown: %v\n", err)
-	}
+	// 优雅停机，按顺序：停止接收新连接 → drain 在途请求 → 超时关闭会话与后台任务。
+	// 整体超时兜底，避免卡死。
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+	shutdownDone := make(chan struct{})
 
-	// 关闭 database-per-game Router 缓存的所有游戏数据库连接
-	if svcCtx.Router != nil {
-		if err := svcCtx.Router.Close(); err != nil {
-			slog.Default().Error("Failed to close game database router", "error", err)
+	go func() {
+		defer close(shutdownDone)
+
+		// 1. 停止接收新的 TCP Agent 连接并 drain 在途会话（Close 等待活跃连接结束）。
+		if controlResources != nil && controlResources.tcpListener != nil {
+			if err := controlResources.tcpListener.Close(); err != nil {
+				slog.Default().Error("Failed to close TCP listener", "error", err)
+			}
 		}
-	}
 
-	fmt.Println("Server exited")
+		// 2. HTTP REST：停止接收新请求，drain 在途请求。
+		if err := srv.Shutdown(context.Background()); err != nil {
+			fmt.Fprintf(os.Stderr, "HTTP server forced to shutdown: %v\n", err)
+		}
+
+		// 3. 取消根 context，级联停止后台任务（ControlService 后台循环、
+		//    registry cleanup、session prune ticker）。
+		rootCancel()
+
+		// 4. 停止 ControlService 后台任务（DB 加载、metrics 清理、session 过期清理）。
+		if controlResources != nil && controlResources.controlService != nil {
+			controlResources.controlService.Stop()
+		}
+
+		// 5. 关闭 database-per-game Router 缓存的所有游戏数据库连接。
+		if svcCtx.Router != nil {
+			if err := svcCtx.Router.Close(); err != nil {
+				slog.Default().Error("Failed to close game database router", "error", err)
+			}
+		}
+	}()
+
+	select {
+	case <-shutdownDone:
+		fmt.Println("Server exited")
+	case <-shutdownCtx.Done():
+		fmt.Fprintln(os.Stderr, "Server shutdown timed out, forcing exit")
+	}
 	return nil
 }
 
-// startControlServer 启动控制服务器（TCP）
-func startControlServer(c *config.Config, svcCtx *svc.ServiceContext, sessionStore *server.AgentSessionStore) {
+// controlRuntime holds the resources started by startControlServer so the
+// graceful-shutdown path can close them in order.
+type controlRuntime struct {
+	tcpListener    *server.TCPListener
+	controlService *server.ControlService
+}
+
+// startControlServer 启动控制服务器（TCP）。所有后台组件派生自 ctx，ctx 取消后
+// 停止接收新连接；返回的资源句柄用于优雅停机时 Close。
+func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.ServiceContext, sessionStore *server.AgentSessionStore) *controlRuntime {
 	// 解析监听地址
 	addr := c.Control.Addr
 	if addr == "" {
@@ -331,43 +373,53 @@ func startControlServer(c *config.Config, svcCtx *svc.ServiceContext, sessionSto
 	tcpListener, err := server.NewTCPListener(listenerConfig, sessionStore, svcCtx.RegistryStore, slog.Default())
 	if err != nil {
 		fmt.Printf("Failed to create TCP listener: %v\n", err)
-		return
+		return &controlRuntime{controlService: controlService}
 	}
 
 	// 设置 control handler
 	tcpListener.SetHandler(controlService)
 
-	// 启动 session 清理任务（定期删除过时的 session）
+	// 启动 session 清理任务（定期删除过时的 session）。
+	// 派生自 ctx，ctx 取消后退出。
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
-		for range ticker.C {
-			pruned := sessionStore.PruneStale(5 * time.Minute)
-			if pruned > 0 {
-				fmt.Printf("[control] Pruned %d stale sessions\n", pruned)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				pruned := sessionStore.PruneStale(5 * time.Minute)
+				if pruned > 0 {
+					fmt.Printf("[control] Pruned %d stale sessions\n", pruned)
+				}
 			}
 		}
 	}()
 
 	fmt.Printf("Starting TCP ControlService on %s (SDK/Agent registration with session management)...\n", addr)
-	if err := tcpListener.Serve(context.Background()); err != nil && err != context.Canceled {
-		fmt.Printf("TCP Control server stopped: %v\n", err)
+	go func() {
+		if err := tcpListener.Serve(ctx); err != nil && err != context.Canceled {
+			fmt.Printf("TCP Control server stopped: %v\n", err)
+		}
+	}()
+
+	return &controlRuntime{
+		tcpListener:    tcpListener,
+		controlService: controlService,
 	}
 }
 
-// startRegistryCleanup 启动后台清理任务，定期删除过期的 AgentSession
-func startRegistryCleanup(svcCtx *svc.ServiceContext) {
+// startRegistryCleanup 启动后台清理任务，定期删除过期的 AgentSession。
+// 派生自 ctx，ctx 取消后退出。
+func startRegistryCleanup(ctx context.Context, svcCtx *svc.ServiceContext) {
 	store := svcCtx.RegistryStore
 	if store == nil {
 		fmt.Println("RegistryStore is nil, skipping cleanup routine")
 		return
 	}
 
-	// 创建可取消的 context
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// 启动清理任务，默认每分钟执行一次
+	// 启动清理任务，默认每分钟执行一次。store.StartCleanupRoutine 内部会响应 ctx 取消。
 	store.StartCleanupRoutine(ctx, 1*time.Minute)
 }
 

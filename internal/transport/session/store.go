@@ -88,6 +88,34 @@ func (s *BaseStore) Remove(key string) {
 	}
 }
 
+// RemoveSession removes the session matching the given key, but only if the
+// stored session's SessionID matches the provided sessionID. This is the
+// compare-and-remove primitive that prevents a stale connection's cleanup
+// from deleting a newer session that replaced it during a reconnect.
+//
+// If sessionID is empty, the behavior falls back to unconditional removal
+// (backward compatibility). Returns true if a session was removed.
+//
+// This is the shared implementation of the reconnect-safe removal that both
+// Server (AgentSessionStore.RemoveSession) and Agent (ProviderSessionStore)
+// rely on.
+func (s *BaseStore) RemoveSession(key, sessionID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	wrapper, ok := s.sessions[key]
+	if !ok || wrapper.session == nil {
+		return false
+	}
+	// Only remove if the stored session is the same one disconnecting.
+	if sessionID != "" && wrapper.session.SessionID() != sessionID {
+		return false
+	}
+	_ = wrapper.session.Close()
+	delete(s.sessions, key)
+	return true
+}
+
 // List returns all active sessions.
 func (s *BaseStore) List() []Session {
 	s.mu.RLock()

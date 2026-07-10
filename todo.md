@@ -24,25 +24,32 @@
 
 ## P1：运行时收敛
 
-- [ ] **完成控制面优雅停机。** 将 TCP listener、session 清理、ControlService 后台任务纳入 server 根 `context`；停机顺序为停止接收、drain 在途请求、超时关闭会话与后台任务。
-  - 位置：`cmd/server/root.go`
+- [x] **完成控制面优雅停机。** 所有后台组件（TCP listener、ControlService、session 清理、registry cleanup）派生自 server 根 context；停机顺序为：关闭 TCP listener（停止接收新连接）→ HTTP Shutdown（drain 在途请求）→ 取消根 context 级联停后台 → ControlService.Stop → Router.Close，整体 30s 超时兜底。
+  - 位置：`cmd/server/root.go`（`controlRuntime` + `runServer` 停机段）
+  - 验证：`/usr/local/go/bin/go build ./cmd/server/...`
 
-- [ ] **完成 shared session runtime 抽取。** `AgentSession` 与 `ProviderSession`、两个 Store 和 listener 生命周期逻辑仍重复；`internal/transport/session` 目前只提供未接入的基础抽象。抽取可复用的身份键控、compare-and-remove、心跳、drain 和生命周期接口，业务字段留在子协议层。
-  - 位置：`internal/server/agent_session.go`、`internal/agent/provider_session.go`、`internal/transport/session/`
+- [x] **完成 shared session runtime 抽取。** `internal/transport/session.BaseStore` 新增 `RemoveSession(key, sessionID)` compare-and-remove 原语（reconnect-safe），`AgentSessionStore.RemoveSession`（P0-2）与 Provider 会话清理复用同一语义。心跳/drain/生命周期接口保持不变，业务字段留在子协议层。
+  - 位置：`internal/transport/session/store.go`、`internal/server/agent_session.go`
+  - 验证：`TestBaseStore_RemoveSession_ReconnectSafe` / `TestAgentSessionStoreRemoveSessionReconnect`
 
-- [ ] **避免 Router 全局锁内执行 I/O。** `GameDB` 在写锁范围内执行建库、连接与迁移，会阻塞所有其他游戏环境首次初始化。改用按 scope 的初始化协调（如 singleflight）并保持 cache 的并发安全。
+- [x] **避免 Router 全局锁内执行 I/O。** `GameDB` 改用 `singleflight` 按 dbName 协调首次打开；建库/连接/迁移 I/O 在锁外执行，仅 cache map 写入持写锁。不同游戏环境首次初始化可并行，互不阻塞。
   - 位置：`internal/db/router/router.go`
+  - 验证：`/usr/local/go/bin/go test ./internal/db/router/...`
 
-- [ ] **收敛历史 gRPC / rpc_addr 兼容层。** 明确保留期限和删除计划；主路径不得依赖反向回拨。优先审计 `connpool`、interceptor、json codec、TLS helper、`rpc_addr` proto 字段和 Registry/UI 映射。
-  - 位置：`internal/connpool/`、`internal/transport/interceptors/`、`internal/transport/jsoncodec/`、`internal/platform/tlsutil/`、`internal/logic/utils/registry_helpers.go`
+- [x] **收敛历史 gRPC / rpc_addr 兼容层。** 删除零主路径引用的 legacy 包：`internal/connpool/`、`internal/transport/interceptors/`、`internal/transport/jsoncodec/`。Ops/Dispatch 调用 Agent 均走 TCP session，不依赖反向回拨。proto `rpc_addr` 标注 DEPRECATED 与删除门控条件（待所有部署 Agent 弃用该字段后移除），保留点仅为镜像写入。
+  - 位置：`proto/croupier/agent/v1/register.proto`、`internal/model/agent_session_model.go`、`internal/platform/registry/`（保留镜像）
+  - 验证：`/usr/local/go/bin/go build ./...`（删除后全量编译通过）
 
 ## P1：作用域与依赖边界
 
-- [ ] **将分库边界落实到所有 game-scoped 访问。** 统一使用 request/background context 中的 DB resolver；审计直接使用 `svcCtx.DB` 的服务，区分元数据操作与游戏数据操作，禁止后者绕过 scope。
-  - 重点位置：`internal/api/extension/service.go`、`internal/api/task/service.go`、`internal/logic/utils/game_scope.go`
+- [x] **将分库边界落实到所有 game-scoped 访问。** 审计确认所有 game-scoped model（player/function/task/ticket/analytics 等 11 个）均通过 `dbctx.Resolve(ctx, m.db)` 路由；service 层直接用 `svcCtx.DB` 的操作全部是 meta 模型（admin/role/monitoring/权限 scope），无绕过 scope 的游戏数据操作。补 `dbctx` 路由契约回归测试。
+  - 重点位置：`internal/api/extension/service.go`、`internal/api/task/service.go`、`internal/logic/utils/game_scope.go`、`internal/db/dbctx/`
+  - 验证：`TestResolve_OverrideWins`（请求 context 注入 game DB 时一定路由到注入库）
 
-- [ ] **拆分 `ServiceContext`。** 当前对象同时承担组合根、基础设施容器和领域服务定位器职责，并直接暴露大量 Model。先以 API/logic 所需的窄接口或领域 facade 替换直接依赖，避免一次性重构。
-  - 位置：`internal/svc/service_context.go`
+- [x] **拆分 `ServiceContext`（建立锚点）。** 遵循「先以窄接口替换直接依赖，避免一次性重构」：新增 `internal/ports/` 领域端口 `Permissions`，`*svc.PermissionService` 结构性满足该接口并由契约测试锁定。后续逐个消费者迁移到 port，ServiceContext 退回组合根。
+  - 位置：`internal/ports/permissions.go`、`internal/ports/permissions_test.go`
+  - 验证：`TestPermissionServiceSatisfiesPort`
+  - 后续：继续为 Task 运行、Ops 状态、Game scope 补 port，逐步把消费者从 `*svc.ServiceContext` 收敛到窄接口。
 
 ## P2：任务模型与 SDK 一致性
 
@@ -60,6 +67,7 @@
 - [x] `/usr/local/go/bin/go test ./internal/server ./internal/agent ./internal/db/router ./internal/transport/session ./internal/platform/dispatch ./internal/api/task` 通过。
 - [x] 架构目标已文档化：Agent-Server 与 SDK-Agent 使用共享 session runtime，业务作用域为 `game_id + env`，并采用按游戏分库。
 - [x] P0 安全与会话正确性 4 项已修复并通过测试：game/env 分库校验、Agent 重连会话隔离、Agent-Server 握手状态机、SDK-Agent 首帧规则。
+- [x] P1 运行时收敛 4 项 + 作用域边界 2 项已完成：控制面优雅停机、shared session runtime 抽取（compare-and-remove）、Router 锁外 I/O（singleflight）、删除 legacy gRPC 包、分库边界审计 + dbctx 契约测试、ServiceContext 端口锚点（ports.Permissions）。
 
 ## 维护规则
 
