@@ -217,10 +217,29 @@ type providerSessionHandler struct {
 }
 
 // Handle processes inbound requests on a Provider TCP session.
+// It enforces the SDK-Agent subprotocol handshake:
+//   - Before registration: only MsgProviderConnectRequest is accepted
+//     (InvokeRequest from an unregistered client is rejected — Invokers are
+//     not a bypass for the Provider handshake).
+//   - After registration: MsgProviderConnectRequest is rejected (duplicate).
+//   - After registration: Heartbeat must reference the session-bound session_id.
 func (h *providerSessionHandler) Handle(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
-	// InvokeRequest can be sent without registration (for invokers)
-	if !h.registered && msgID != protocol.MsgProviderConnectRequest && msgID != protocol.MsgInvokeRequest {
-		return nil, tcptr.NewProtocolError(fmt.Errorf("first frame must be %s or %s, got %s", protocol.MsgIDString(protocol.MsgProviderConnectRequest), protocol.MsgIDString(protocol.MsgInvokeRequest), protocol.MsgIDString(msgID)))
+	// Enforce handshake: first frame must be ProviderConnectRequest.
+	// InvokeRequest is NOT a valid first frame — it is only valid as an
+	// outbound Agent→Provider message on an established session, not as an
+	// inbound client→Agent message before connect. Rejecting it here closes
+	// the gap where an Invoker could bypass the Provider handshake.
+	if !h.registered && msgID != protocol.MsgProviderConnectRequest {
+		return nil, tcptr.NewProtocolError(fmt.Errorf(
+			"protocol violation: first frame must be %s, got %s",
+			protocol.MsgIDString(protocol.MsgProviderConnectRequest),
+			protocol.MsgIDString(msgID)))
+	}
+
+	// After registration, reject duplicate connect.
+	if h.registered && msgID == protocol.MsgProviderConnectRequest {
+		return nil, tcptr.NewProtocolError(fmt.Errorf(
+			"protocol violation: session already connected as %s", h.sessionID))
 	}
 
 	switch msgID {
@@ -231,7 +250,7 @@ func (h *providerSessionHandler) Handle(ctx context.Context, msgID uint32, reqID
 	case protocol.MsgProviderDrainRequest:
 		return h.handleDrain(ctx, body)
 	default:
-		// Delegate to local handler for other message types (including InvokeRequest)
+		// Delegate to local handler for other message types.
 		if h.listener.localHandler != nil {
 			return h.listener.localHandler.Handle(ctx, msgID, reqID, body)
 		}

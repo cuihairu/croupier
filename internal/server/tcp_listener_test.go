@@ -468,8 +468,8 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 		handler := &agentSessionHandler{
 			listener:   listener,
 			conn:       nil,
-			registered: false,
-			agentID:    "",
+			registered: true,
+			agentID:    "agent-1",
 		}
 
 		req := &agentv1.HeartbeatRequest{
@@ -480,6 +480,97 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 		resp, err := handler.Handle(context.Background(), protocol.MsgHeartbeatRequest, 1, data)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
+	})
+
+	t.Run("heartbeat before register is rejected", func(t *testing.T) {
+		config := &TCPListenerConfig{
+			Address:  ":0",
+			Insecure: true,
+		}
+
+		listener, err := NewTCPListener(config, nil, nil, nil)
+		require.NoError(t, err)
+		defer listener.Close()
+
+		svc := newTestControlService()
+		listener.SetHandler(svc)
+
+		handler := &agentSessionHandler{
+			listener:   listener,
+			conn:       nil,
+			registered: false,
+			agentID:    "",
+		}
+
+		req := &agentv1.HeartbeatRequest{
+			AgentId: "agent-1",
+		}
+		data, _ := proto.Marshal(req)
+
+		_, err = handler.Handle(context.Background(), protocol.MsgHeartbeatRequest, 1, data)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "must register first")
+	})
+
+	t.Run("heartbeat with mismatched agent_id is rejected", func(t *testing.T) {
+		config := &TCPListenerConfig{
+			Address:  ":0",
+			Insecure: true,
+		}
+
+		listener, err := NewTCPListener(config, nil, nil, nil)
+		require.NoError(t, err)
+		defer listener.Close()
+
+		svc := newTestControlService()
+		listener.SetHandler(svc)
+
+		handler := &agentSessionHandler{
+			listener:   listener,
+			conn:       nil,
+			registered: true,
+			agentID:    "agent-1",
+		}
+
+		req := &agentv1.HeartbeatRequest{
+			AgentId: "agent-2", // mismatched
+		}
+		data, _ := proto.Marshal(req)
+
+		_, err = handler.Handle(context.Background(), protocol.MsgHeartbeatRequest, 1, data)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "does not match registered agent_id")
+	})
+
+	t.Run("duplicate register is rejected", func(t *testing.T) {
+		config := &TCPListenerConfig{
+			Address:  ":0",
+			Insecure: true,
+		}
+
+		listener, err := NewTCPListener(config, nil, nil, nil)
+		require.NoError(t, err)
+		defer listener.Close()
+
+		svc := newTestControlService()
+		listener.SetHandler(svc)
+
+		handler := &agentSessionHandler{
+			listener:   listener,
+			conn:       nil,
+			registered: true,
+			agentID:    "agent-1",
+		}
+
+		req := &agentv1.RegisterRequest{
+			AgentId: "agent-1",
+			GameId:  "game-1",
+		}
+		data, _ := proto.Marshal(req)
+
+		_, err = handler.Handle(context.Background(), protocol.MsgRegisterRequest, 1, data)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "already registered")
 	})
 
 	t.Run("delegates to control service for other messages", func(t *testing.T) {
@@ -498,8 +589,8 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 		handler := &agentSessionHandler{
 			listener:   listener,
 			conn:       nil,
-			registered: false,
-			agentID:    "",
+			registered: true,
+			agentID:    "agent-1",
 		}
 
 		// MsgTaskEvent is delegated to control service
@@ -521,8 +612,8 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 		handler := &agentSessionHandler{
 			listener:   listener,
 			conn:       nil,
-			registered: false,
-			agentID:    "",
+			registered: true,
+			agentID:    "agent-1",
 		}
 
 		_, err = handler.Handle(context.Background(), 0xFFFFFF, 1, []byte{})

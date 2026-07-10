@@ -196,6 +196,80 @@ func TestAgentSessionStoreRemove(t *testing.T) {
 	}
 }
 
+// TestAgentSessionStoreRemoveSessionReconnect verifies that an old connection's
+// cleanup does not delete a newer session that replaced it during a reconnect.
+func TestAgentSessionStoreRemoveSessionReconnect(t *testing.T) {
+	store := NewAgentSessionStore()
+
+	// First connection registers.
+	sess1 := &AgentSession{
+		AgentID:   "agent-1",
+		SessionID: "session-1",
+		Env:       "dev",
+	}
+	store.Add(sess1)
+
+	// Agent reconnects: Upsert replaces the old session with a new one.
+	sess2 := &AgentSession{
+		AgentID:   "agent-1",
+		SessionID: "session-2",
+		Env:       "prod",
+	}
+	store.Upsert(sess2)
+
+	// The stored session must be the new one.
+	got, ok := store.Get("agent-1")
+	if !ok {
+		t.Fatal("Get() after reconnect returned not found")
+	}
+	if got.SessionID != "session-2" {
+		t.Errorf("stored SessionID = %s, want session-2", got.SessionID)
+	}
+
+	// Old connection (session-1) disconnects and attempts cleanup.
+	// It must NOT remove the current session (session-2).
+	removed := store.RemoveSession("agent-1", "session-1")
+	if removed {
+		t.Error("RemoveSession() with stale sessionID returned true; should be false")
+	}
+	if store.Count() != 1 {
+		t.Errorf("Count() after stale RemoveSession = %d, want 1", store.Count())
+	}
+	got2, ok2 := store.Get("agent-1")
+	if !ok2 || got2.SessionID != "session-2" {
+		t.Error("new session was deleted by stale connection cleanup")
+	}
+
+	// New connection (session-2) disconnects and cleans up its own session.
+	removed = store.RemoveSession("agent-1", "session-2")
+	if !removed {
+		t.Error("RemoveSession() with current sessionID returned false; should be true")
+	}
+	if store.Count() != 0 {
+		t.Errorf("Count() after current RemoveSession = %d, want 0", store.Count())
+	}
+}
+
+// TestAgentSessionStoreRemoveSessionEmptyID verifies backward-compatible
+// behavior when sessionID is empty (falls back to unconditional removal).
+func TestAgentSessionStoreRemoveSessionEmptyID(t *testing.T) {
+	store := NewAgentSessionStore()
+	sess := &AgentSession{
+		AgentID:   "agent-1",
+		SessionID: "session-1",
+	}
+	store.Add(sess)
+
+	// Empty sessionID should fall back to unconditional removal.
+	removed := store.RemoveSession("agent-1", "")
+	if !removed {
+		t.Error("RemoveSession() with empty sessionID returned false; should be true")
+	}
+	if store.Count() != 0 {
+		t.Errorf("Count() after RemoveSession('','') = %d, want 0", store.Count())
+	}
+}
+
 func TestAgentSessionStoreList(t *testing.T) {
 	store := NewAgentSessionStore()
 

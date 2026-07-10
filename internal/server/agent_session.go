@@ -120,6 +120,8 @@ func (store *AgentSessionStore) Get(agentID string) (*AgentSession, bool) {
 }
 
 // Remove removes an Agent session by AgentID and closes its connection.
+// Deprecated: Use RemoveSession which compares sessionID to avoid deleting a
+// newer session when an old connection disconnects after a reconnect.
 func (store *AgentSessionStore) Remove(agentID string) {
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -128,6 +130,30 @@ func (store *AgentSessionStore) Remove(agentID string) {
 		_ = sess.Close()
 		delete(store.sessions, agentID)
 	}
+}
+
+// RemoveSession removes the Agent session matching the given (agentID, sessionID)
+// pair. It only deletes the session if the stored session's SessionID matches
+// the provided sessionID. This prevents a stale connection's cleanup from
+// deleting a newer session that replaced it during a reconnect.
+//
+// Returns true if a session was removed.
+func (store *AgentSessionStore) RemoveSession(agentID, sessionID string) bool {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+
+	sess, ok := store.sessions[agentID]
+	if !ok {
+		return false
+	}
+	// Only remove if the stored session is the same one that is disconnecting.
+	// If sessionID is empty, fall back to the old behavior for backward compat.
+	if sessionID != "" && sess.SessionID != sessionID {
+		return false
+	}
+	_ = sess.Close()
+	delete(store.sessions, agentID)
+	return true
 }
 
 // List returns all active Agent sessions.

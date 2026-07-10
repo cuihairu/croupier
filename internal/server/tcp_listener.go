@@ -147,6 +147,7 @@ func (l *TCPListener) serveConn(ctx context.Context, conn net.Conn) {
 		conn:       nil, // set below
 		registered: false,
 		agentID:    "",
+		sessionID:  "",
 	}
 
 	mux := tcptr.NewMuxConn(conn, muxCfg, handler)
@@ -157,10 +158,20 @@ func (l *TCPListener) serveConn(ctx context.Context, conn net.Conn) {
 		l.logger.Debug("Agent MuxConn ended", "remote", remoteAddr, "error", err)
 	}
 
-	// Clean up session on disconnect
+	// Clean up session on disconnect.
+	// Use RemoveSession (not Remove) so that an old connection's cleanup
+	// does not delete a newer session that replaced it during a reconnect.
 	if handler.agentID != "" {
-		l.sessionStore.Remove(handler.agentID)
-		l.logger.Info("Agent session removed on disconnect", "agent_id", handler.agentID)
+		removed := l.sessionStore.RemoveSession(handler.agentID, handler.sessionID)
+		if removed {
+			l.logger.Info("Agent session removed on disconnect",
+				"agent_id", handler.agentID,
+				"session_id", handler.sessionID)
+		} else {
+			l.logger.Debug("Agent session already replaced, skipping removal",
+				"agent_id", handler.agentID,
+				"session_id", handler.sessionID)
+		}
 	}
 }
 
@@ -206,10 +217,34 @@ type agentSessionHandler struct {
 	conn       *tcptr.MuxConn
 	registered bool
 	agentID    string
+	sessionID  string // assigned on successful registration
 }
 
 // Handle processes inbound requests on an Agent TCP session.
+// It enforces a strict handshake state machine:
+//   - Before registration: only MsgRegisterRequest is accepted
+//   - After registration: MsgRegisterRequest is rejected (duplicate registration)
+//   - After registration: Heartbeat must carry the same agent_id as the session
 func (h *agentSessionHandler) Handle(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
+	// Enforce handshake state machine:
+	// 1. Before registration, only RegisterRequest is allowed.
+	if !h.registered && msgID != protocol.MsgRegisterRequest {
+		return nil, fmt.Errorf("protocol violation: must register first before sending %s", protocol.MsgIDString(msgID))
+	}
+
+	// 2. After registration, reject duplicate RegisterRequest.
+	if h.registered && msgID == protocol.MsgRegisterRequest {
+		return nil, fmt.Errorf("protocol violation: session already registered as %s", h.agentID)
+	}
+
+	// 3. After registration, Heartbeat must carry the same agent_id as the
+	//    session-bound ID, preventing cross-agent ID spoofing on a live conn.
+	if h.registered && msgID == protocol.MsgHeartbeatRequest {
+		if err := h.validateHeartbeatAgentID(body); err != nil {
+			return nil, err
+		}
+	}
+
 	switch msgID {
 	case protocol.MsgRegisterRequest:
 		return h.handleRegister(ctx, body)
@@ -222,6 +257,21 @@ func (h *agentSessionHandler) Handle(ctx context.Context, msgID uint32, reqID ui
 		}
 		return nil, fmt.Errorf("unsupported message type for Agent session: %s", protocol.MsgIDString(msgID))
 	}
+}
+
+// validateHeartbeatAgentID ensures a Heartbeat's agent_id matches the
+// agent_id bound to this session at registration time.
+func (h *agentSessionHandler) validateHeartbeatAgentID(body []byte) error {
+	req := &agentv1.HeartbeatRequest{}
+	if err := proto.Unmarshal(body, req); err != nil {
+		// Let handleHeartbeat surface the unmarshal error; do not block here.
+		return nil
+	}
+	if req.AgentId != h.agentID {
+		return fmt.Errorf("protocol violation: heartbeat agent_id=%q does not match registered agent_id=%q",
+			req.AgentId, h.agentID)
+	}
+	return nil
 }
 
 func (h *agentSessionHandler) handleRegister(ctx context.Context, body []byte) ([]byte, error) {
@@ -259,6 +309,7 @@ func (h *agentSessionHandler) handleRegister(ctx context.Context, body []byte) (
 	// Store session
 	h.listener.sessionStore.Upsert(sess)
 	h.agentID = req.AgentId
+	h.sessionID = sess.SessionID
 	h.registered = true
 
 	h.listener.logger.Info("Agent registered via TCP session",

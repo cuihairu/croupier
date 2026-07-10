@@ -2,12 +2,12 @@ package svc
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"github.com/gin-gonic/gin"
-	"log/slog"
 )
 
 // GameDBHeader is the canonical header carrying the game business identifier.
@@ -33,6 +33,11 @@ type GameScope struct {
 // and stores it in the request context so game-scoped models pick it up via
 // dbctx.Resolve. When the router is nil (legacy single-DB mode) the middleware
 // is a pass-through.
+//
+// SECURITY: When the database-per-game router is enabled, this middleware
+// validates that the (gameID, env) pair exists in the meta database's
+// game_envs table before opening or creating any database connection.
+// Requests with unknown or unauthorized game/env pairs are rejected with 403.
 func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		gameID := strings.TrimSpace(c.GetHeader(GameDBHeader))
@@ -48,6 +53,21 @@ func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 		ctx := context.WithValue(c.Request.Context(), gameScopeCtxKey{}, scope)
 
 		if svcCtx != nil && svcCtx.Router != nil && gameID != "" {
+			// SECURITY: Validate that the (gameID, env) pair is registered in
+			// the meta database before allowing access. This prevents:
+			// 1. Unauthenticated/unknown game IDs from triggering database creation
+			// 2. Environment spoofing (accessing non-existent envs)
+			// 3. Database name injection via crafted headers
+			if err := validateGameScope(ctx, svcCtx, gameID, env); err != nil {
+				slog.WarnContext(ctx, "game scope validation failed",
+					"gameId", gameID, "env", env, "error", err)
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+					"error":   "invalid_game_scope",
+					"message": "游戏环境不存在或无权访问",
+				})
+				return
+			}
+
 			gameDB, err := svcCtx.Router.GameDB(ctx, gameID, env)
 			if err != nil {
 				slog.ErrorContext(ctx, "failed to resolve game database",
@@ -64,6 +84,36 @@ func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// validateGameScope checks that the (gameID, env) pair exists in the meta
+// database's game_envs table. This ensures only registered game environments
+// can access the database-per-game routing.
+func validateGameScope(ctx context.Context, svcCtx *ServiceContext, gameID, env string) error {
+	if svcCtx.GameModel == nil {
+		// If GameModel is not available, skip validation (legacy mode).
+		// This maintains backward compatibility for deployments without
+		// the meta database model.
+		return nil
+	}
+
+	// Check if the binding exists in game_envs table.
+	dbName, err := svcCtx.GameModel.LookupDatabaseName(ctx, gameID, env)
+	if err != nil {
+		return err
+	}
+	if dbName == "" {
+		return errGameScopeNotFound
+	}
+	return nil
+}
+
+// errGameScopeNotFound is returned when the requested (gameID, env) pair
+// does not exist in the meta database.
+type gameScopeNotFoundError struct{}
+
+func (e *gameScopeNotFoundError) Error() string { return "game scope not found" }
+
+var errGameScopeNotFound = &gameScopeNotFoundError{}
 
 // GameScopeFromContext extracts the (gameID, env) pair stored by
 // GameDBMiddleware from a standard context. Returns empty values when absent.
