@@ -222,4 +222,3 @@ func init() {
 		return cmd.CombinedOutput()
 	}
 }
-

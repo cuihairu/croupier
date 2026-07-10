@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -171,7 +170,7 @@ func opsAgentExecCommand(ctx context.Context, svcCtx *svc.ServiceContext, req *O
 
 func opsAgentProcessStart(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsProcessStartRequest) (*OpsProcessStartResponse, error) {
 	if svcCtx == nil {
-		return nil, errorx.NewNotImplemented("agent process start is not implemented")
+		return nil, errorx.NewBadRequest("service context is required")
 	}
 	agentSvc := NewAgentService(svcCtx)
 	pid, err := agentSvc.StartProcess(ctx, req.AgentID, req.Name, nil, nil, "")
@@ -187,39 +186,31 @@ func opsAgentProcessStart(ctx context.Context, svcCtx *svc.ServiceContext, req *
 
 func opsAgentProcessStop(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsProcessActionRequest) (*OpsProcessActionResponse, error) {
 	if svcCtx == nil {
-		return nil, errorx.NewNotImplemented("agent process stop is not implemented")
+		return nil, errorx.NewBadRequest("service context is required")
 	}
 	agentSvc := NewAgentService(svcCtx)
-	pid, err := strconv.Atoi(strings.TrimSpace(req.Name))
-	if err != nil {
-		pid = 0
-	}
-	if err := agentSvc.StopProcess(ctx, req.AgentID, pid); err != nil {
+	processName := strings.TrimSpace(req.Name)
+	if err := agentSvc.StopProcess(ctx, req.AgentID, processName); err != nil {
 		return nil, err
 	}
 	return &OpsProcessActionResponse{
 		Code:    0,
 		Message: "Success",
-		Data:    int32(pid),
 	}, nil
 }
 
 func opsAgentProcessRestart(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsProcessActionRequest) (*OpsProcessActionResponse, error) {
 	if svcCtx == nil {
-		return nil, errorx.NewNotImplemented("agent process restart is not implemented")
+		return nil, errorx.NewBadRequest("service context is required")
 	}
 	agentSvc := NewAgentService(svcCtx)
-	pid, err := strconv.Atoi(strings.TrimSpace(req.Name))
-	if err != nil {
-		pid = 0
-	}
-	if err := agentSvc.RestartProcess(ctx, req.AgentID, pid); err != nil {
+	processName := strings.TrimSpace(req.Name)
+	if err := agentSvc.RestartProcess(ctx, req.AgentID, processName); err != nil {
 		return nil, err
 	}
 	return &OpsProcessActionResponse{
 		Code:    0,
 		Message: "Success",
-		Data:    int32(pid),
 	}, nil
 }
 

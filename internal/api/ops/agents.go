@@ -130,7 +130,7 @@ func (s *AgentService) StartProcess(ctx context.Context, agentId, command string
 	return int(resp.Pid), nil
 }
 
-func (s *AgentService) StopProcess(ctx context.Context, agentId string, pid int) error {
+func (s *AgentService) StopProcess(ctx context.Context, agentId, processName string) error {
 	client := ops.GetAgentOpsClient()
 	wrapper, err := client.GetClient(ctx, agentId)
 	if err != nil {
@@ -138,14 +138,14 @@ func (s *AgentService) StopProcess(ctx context.Context, agentId string, pid int)
 	}
 
 	req := &opsv1.StopProcessRequest{
-		ProcessName: "", // Process name by pid not supported in proto
+		ProcessName: processName,
 	}
 
 	_, err = wrapper.StopProcess(ctx, req)
 	return err
 }
 
-func (s *AgentService) RestartProcess(ctx context.Context, agentId string, pid int) error {
+func (s *AgentService) RestartProcess(ctx context.Context, agentId, processName string) error {
 	client := ops.GetAgentOpsClient()
 	wrapper, err := client.GetClient(ctx, agentId)
 	if err != nil {
@@ -153,7 +153,7 @@ func (s *AgentService) RestartProcess(ctx context.Context, agentId string, pid i
 	}
 
 	req := &opsv1.RestartProcessRequest{
-		ProcessName: "", // Process name by pid not supported in proto
+		ProcessName: processName,
 	}
 
 	_, err = wrapper.RestartProcess(ctx, req)

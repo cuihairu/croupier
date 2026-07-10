@@ -616,14 +616,14 @@ func TestHandlerAliasAgentMethods(t *testing.T) {
 		{name: "AgentExecCommand", method: http.MethodPost, url: "/api/v1/ops/agent/exec", body: `{"agentId":"agent-1","command":"ls"}`, fn: h.AgentExecCommand, statusCode: http.StatusInternalServerError},
 		{name: "Nodes", method: http.MethodGet, url: "/api/v1/ops/nodes", body: "", fn: h.Nodes, statusCode: http.StatusOK},
 		{name: "NodeCommands", method: http.MethodPost, url: "/api/v1/ops/node/commands", body: `{"nodeId":"node-1"}`, fn: h.NodeCommands, statusCode: http.StatusOK},
-		{name: "NodeDrain", method: http.MethodPost, url: "/api/v1/ops/node/drain", body: `{"nodeId":"node-1"}`, fn: h.NodeDrain, statusCode: http.StatusNotImplemented},
-		{name: "NodeRestart", method: http.MethodPost, url: "/api/v1/ops/node/restart", body: `{"nodeId":"node-1"}`, fn: h.NodeRestart, statusCode: http.StatusNotImplemented},
-		{name: "NodeUndrain", method: http.MethodPost, url: "/api/v1/ops/node/undrain", body: `{"nodeId":"node-1"}`, fn: h.NodeUndrain, statusCode: http.StatusNotImplemented},
-		{name: "HealthGet", method: http.MethodGet, url: "/api/v1/ops/health/get", body: "", fn: h.HealthGet, statusCode: http.StatusNotImplemented},
-		{name: "HealthRun", method: http.MethodPost, url: "/api/v1/ops/health/run", body: `{"id":"check-1"}`, fn: h.HealthRun, statusCode: http.StatusNotImplemented},
-		{name: "HealthUpdate", method: http.MethodPost, url: "/api/v1/ops/health/update", body: `{"enabled":true}`, fn: h.HealthUpdate, statusCode: http.StatusNotImplemented},
-		{name: "MaintenanceGet", method: http.MethodGet, url: "/api/v1/ops/maintenance/get", body: "", fn: h.MaintenanceGet, statusCode: http.StatusNotImplemented},
-		{name: "MaintenanceUpdate", method: http.MethodPost, url: "/api/v1/ops/maintenance/update", body: `{"enabled":true}`, fn: h.MaintenanceUpdate, statusCode: http.StatusNotImplemented},
+		{name: "NodeDrain", method: http.MethodPost, url: "/api/v1/ops/node/drain", body: `{"nodeId":"node-1"}`, fn: h.NodeDrain, statusCode: http.StatusInternalServerError},
+		{name: "NodeRestart", method: http.MethodPost, url: "/api/v1/ops/node/restart", body: `{"nodeId":"node-1"}`, fn: h.NodeRestart, statusCode: http.StatusInternalServerError},
+		{name: "NodeUndrain", method: http.MethodPost, url: "/api/v1/ops/node/undrain", body: `{"nodeId":"node-1"}`, fn: h.NodeUndrain, statusCode: http.StatusInternalServerError},
+		{name: "HealthGet", method: http.MethodGet, url: "/api/v1/ops/health/get", body: "", fn: h.HealthGet, statusCode: http.StatusOK},
+		{name: "HealthRun", method: http.MethodPost, url: "/api/v1/ops/health/run", body: `{"id":"check-1"}`, fn: h.HealthRun, statusCode: http.StatusInternalServerError},
+		{name: "HealthUpdate", method: http.MethodPost, url: "/api/v1/ops/health/update", body: `{"enabled":true}`, fn: h.HealthUpdate, statusCode: http.StatusInternalServerError},
+		{name: "MaintenanceGet", method: http.MethodGet, url: "/api/v1/ops/maintenance/get", body: "", fn: h.MaintenanceGet, statusCode: http.StatusOK},
+		{name: "MaintenanceUpdate", method: http.MethodPost, url: "/api/v1/ops/maintenance/update", body: `{"enabled":true}`, fn: h.MaintenanceUpdate, statusCode: http.StatusInternalServerError},
 		{name: "NotificationsGet", method: http.MethodGet, url: "/api/v1/ops/notifications/get", body: "", fn: h.NotificationsGet, statusCode: http.StatusOK},
 		{name: "NotificationsUpdate", method: http.MethodPost, url: "/api/v1/ops/notifications/update", body: `{"enabled":true}`, fn: h.NotificationsUpdate, statusCode: http.StatusOK},
 	}
@@ -1434,7 +1434,7 @@ func TestHandlerAliasWithQueryParams(t *testing.T) {
 	ctx, rec := newOpsTestContext(http.MethodGet, "/api/v1/ops/metrics?gameId=game1&env=prod&metric=cpu", "")
 	h.Metrics(ctx)
 
-	assert.Equal(t, http.StatusNotImplemented, rec.Code)
+	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
 // Test for bindOpsRequest with GET and complex query params

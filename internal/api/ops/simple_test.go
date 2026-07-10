@@ -813,7 +813,7 @@ func TestOpsHealthGetHandler(t *testing.T) {
 
 	h.OpsHealthGet(ctx)
 
-	assert.Equal(t, http.StatusNotImplemented, rec.Code)
+	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
 func TestOpsMaintenanceGetHandler(t *testing.T) {
@@ -826,7 +826,7 @@ func TestOpsMaintenanceGetHandler(t *testing.T) {
 
 	h.OpsMaintenanceGet(ctx)
 
-	assert.Equal(t, http.StatusNotImplemented, rec.Code)
+	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
 func TestOpsMetricsHandler(t *testing.T) {
@@ -839,7 +839,7 @@ func TestOpsMetricsHandler(t *testing.T) {
 
 	h.OpsMetrics(ctx)
 
-	assert.Equal(t, http.StatusNotImplemented, rec.Code)
+	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
 func TestOpsConfigHandler(t *testing.T) {
@@ -852,7 +852,7 @@ func TestOpsConfigHandler(t *testing.T) {
 
 	h.OpsConfig(ctx)
 
-	assert.Equal(t, http.StatusNotImplemented, rec.Code)
+	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
 func TestOpsNotificationsGetHandler(t *testing.T) {
@@ -905,7 +905,7 @@ func TestOpsMQHandler(t *testing.T) {
 
 	h.OpsMQ(ctx)
 
-	assert.Equal(t, http.StatusNotImplemented, rec.Code)
+	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
 // Handler tests for POST requests with simple implementations
@@ -920,7 +920,7 @@ func TestOpsNodeDrainHandler(t *testing.T) {
 
 	h.OpsNodeDrain(ctx)
 
-	assert.Equal(t, http.StatusNotImplemented, rec.Code)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 func TestOpsNodeRestartHandler(t *testing.T) {
@@ -933,7 +933,7 @@ func TestOpsNodeRestartHandler(t *testing.T) {
 
 	h.OpsNodeRestart(ctx)
 
-	assert.Equal(t, http.StatusNotImplemented, rec.Code)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 func TestOpsNodeUndrainHandler(t *testing.T) {
@@ -946,7 +946,7 @@ func TestOpsNodeUndrainHandler(t *testing.T) {
 
 	h.OpsNodeUndrain(ctx)
 
-	assert.Equal(t, http.StatusNotImplemented, rec.Code)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 func TestOpsNodeCommandsHandler(t *testing.T) {
@@ -973,7 +973,7 @@ func TestOpsHealthRunHandler(t *testing.T) {
 
 	h.OpsHealthRun(ctx)
 
-	assert.Equal(t, http.StatusNotImplemented, rec.Code)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 func TestOpsHealthUpdateHandler(t *testing.T) {
@@ -986,7 +986,7 @@ func TestOpsHealthUpdateHandler(t *testing.T) {
 
 	h.OpsHealthUpdate(ctx)
 
-	assert.Equal(t, http.StatusNotImplemented, rec.Code)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 func TestOpsMaintenanceUpdateHandler(t *testing.T) {
@@ -999,7 +999,7 @@ func TestOpsMaintenanceUpdateHandler(t *testing.T) {
 
 	h.OpsMaintenanceUpdate(ctx)
 
-	assert.Equal(t, http.StatusNotImplemented, rec.Code)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 func TestOpsNotificationsUpdateHandler(t *testing.T) {
