@@ -306,16 +306,32 @@ func (h *agentSessionHandler) handleRegister(ctx context.Context, body []byte) (
 	}
 	sess.UpdateLastSeen()
 
-	// Store session
+	// Store session (carries the live MuxConn for request forwarding).
 	h.listener.sessionStore.Upsert(sess)
 	h.agentID = req.AgentId
 	h.sessionID = sess.SessionID
 	h.registered = true
 
+	// Register declared functions into the dispatcher registry. The session
+	// store above carries the live connection; the registry carries the
+	// function table that pickAgentWithRouting consults. Without this, the
+	// registry's Functions map stays empty and every dispatch fails with
+	// "no live agent for function".
+	var regWarnings []string
+	if h.listener.handler != nil {
+		if rr, err := h.listener.handler.handleRegisterRequest(ctx, req); err == nil {
+			regWarnings = rr.GetWarnings()
+		} else {
+			h.listener.logger.Warn("register functions to dispatcher registry failed",
+				"agent_id", req.AgentId, "error", err)
+		}
+	}
+
 	h.listener.logger.Info("Agent registered via TCP session",
 		"agent_id", req.AgentId,
 		"game_id", req.GameId,
 		"session_id", sess.SessionID,
+		"functions", len(req.GetFunctions()),
 		"remote", h.conn.RemoteAddr(),
 	)
 
@@ -323,6 +339,7 @@ func (h *agentSessionHandler) handleRegister(ctx context.Context, body []byte) (
 	resp := &agentv1.RegisterResponse{
 		SessionId: sess.SessionID,
 		ExpireAt:  expireAt.Unix(),
+		Warnings:  regWarnings,
 	}
 	return proto.Marshal(resp)
 }

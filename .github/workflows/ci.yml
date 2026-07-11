@@ -198,6 +198,9 @@ jobs:
           # the Agent→Server TCP handshake (Register + Heartbeat). Without it,
           # the agent TCP step is skipped (./bin/e2e-agent-probe absent).
           go build -o bin/e2e-agent-probe ./examples/cmd/e2e-agent-probe
+          # Function-seed helper: inserts the function metadata row that the
+          # task-lifecycle E2E's POST /tasks requires (no create API exists).
+          go build -o bin/e2e-function-seed ./examples/cmd/e2e-function-seed
           # Fresh DB every run: a stale test-data/croupier.db with an older
           # schema makes AutoMigrate fail (sqlite cannot ALTER ADD a NOT NULL
           # column). Remove any leftover state before booting.
@@ -235,8 +238,10 @@ jobs:
         timeout-minutes: 10
         env:
           SERVER_URL: http://localhost:18780
+          DSN: test-data/croupier.db
         run: |
           bash scripts/e2e/happy-path.sh
+          bash scripts/e2e/task-lifecycle.sh
       - name: Cleanup
         timeout-minutes: 2
         if: always()

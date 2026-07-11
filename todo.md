@@ -55,10 +55,11 @@
   - ✅ Agent TCP 注册握手（首帧 Register + Heartbeat）由 `examples/cmd/e2e-agent-probe` 落地：复用生产 `internal/transport/tcp.Client`（而非重写协议），发 RegisterRequest → 校验 RegisterResponse.SessionId → 发 HeartbeatRequest 验证握手后链路。CI e2e job 已加 `go build -o bin/e2e-agent-probe`，`happy-path.sh` 的 agent TCP 步骤从 skip 变 PASS。
   - 验证：本地 `happy-path.sh` 6/6 PASS（含 agent TCP register handshake）；握手状态机单元测试 `TestAgentSessionHandler` 覆盖未注册 Heartbeat 拒绝 / 重复 Register 拒绝 / 跨 agent_id 拒绝。
 
-- [ ] **新增 Task lifecycle E2E。**
-  - 覆盖路径：`startTask` → `streamTask` → `cancelTask` → 状态落库/事件返回。
-  - 目标：防止 REST task、Dispatcher、Agent TaskRunner、SDK Invoker 之间出现协议漂移。
-  - 待补：注册握手 probe（`examples/cmd/e2e-agent-probe`）已具备；Task lifecycle 需把它扩展为 mock agent（注册 function descriptor + 响应 StartTask/Invoke），才能端到端跑通 startTask→streamTask→cancelTask。
+- [x] **新增 Task lifecycle E2E。**
+  - 覆盖路径：`startTask` → 轮询 `/tasks/:id/events`（started/progress/completed）→ `cancelTask`（cancel_requested/cancelled）→ 状态落库。
+  - 实现：`scripts/e2e/task-lifecycle.sh` + `examples/cmd/e2e-agent-probe`（serve 模式 mock agent：复用 `internal/transport/tcp.MuxConn` 接 StartTask/Cancel + 流 TaskEvent）+ `examples/cmd/e2e-function-seed`（插 function 元数据行，因无 create API）。CI e2e job 接入，本地 8/8 PASS。
+  - 附带修复（server bug）：`internal/server/tcp_listener.go` handleRegister 现在把声明的 functions 写入 dispatcher registry（调 `ControlService.handleRegisterRequest`）。之前 TCP 注册的 functions 完全丢弃，dispatcher 永远报 `no live agent for function`——这是阻断所有 agent function 路由的真实 regression。
+  - 注：无真 SSE；`GET /tasks/:id/stream` 不存在，实际端点是 `/events` 轮询（从 DB 读 `task_runs`/`task_events`）。
 
 ## P1：API 测试覆盖补齐
 
@@ -147,6 +148,8 @@
 - [x] Job→Task 命名：主链路 + SDK 手写层 + proto + 文档统一（generated 滞后收尾见 P0）。
 - [x] Python SDK 手写层清理废弃 `rpc_addr` 引用（CI 绿）。
 - [x] 新增 `examples/cmd/e2e-agent-probe`：复用生产 `internal/transport/tcp.Client` 完成 Agent→Server 注册握手（Register+Heartbeat）；CI e2e job 接入后 happy-path 6/6 PASS。
+- [x] 新增 Task lifecycle E2E：`task-lifecycle.sh` + probe serve 模式（MuxConn mock agent）+ `e2e-function-seed`，CI 接入本地 8/8 PASS。
+- [x] 修复 server regression：`tcp_listener.handleRegister` 把 agent 声明的 functions 写入 dispatcher registry（之前丢失，dispatcher 无法路由 function）。
 
 ## 最近验证
 
