@@ -40,7 +40,7 @@ export interface FunctionCallRecord {
   serviceId?: string;
   gameId?: string;
   env?: string;
-  jobId?: string;
+  taskId?: string;
   retryCount?: number;
 }
 
@@ -253,7 +253,7 @@ export async function getFunctionCalls(params?: {
       serviceId: item.service_id || item.serviceId,
       gameId: item.game_id || item.gameId,
       env: item.env,
-      jobId: item.job_id || item.jobId,
+      taskId: item.task_id || item.taskId,
       retryCount: item.retry_count || item.retryCount,
     })),
     total: res.total || 0,
@@ -281,7 +281,7 @@ export async function getFunctionCall(callId: string): Promise<FunctionCallRecor
     serviceId: item.service_id || item.serviceId,
     gameId: item.game_id || item.gameId,
     env: item.env,
-    jobId: item.job_id || item.jobId,
+    taskId: item.task_id || item.taskId,
     retryCount: item.retry_count || item.retryCount,
   };
 }
@@ -289,12 +289,12 @@ export async function getFunctionCall(callId: string): Promise<FunctionCallRecor
 /**
  * 重新运行失败的调用
  */
-export async function rerunFunctionCall(callId: string): Promise<{ jobId: string }> {
-  const response = await request<{ job_id?: string; jobId?: string }>(
+export async function rerunFunctionCall(callId: string): Promise<{ taskId: string }> {
+  const response = await request<{ task_id?: string; taskId?: string }>(
     `/api/v1/function-calls/${callId}/rerun`,
     { method: 'POST' },
   );
-  return { jobId: response.job_id || response.jobId || '' };
+  return { taskId: response.task_id || response.taskId || '' };
 }
 
 /**

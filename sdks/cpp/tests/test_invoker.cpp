@@ -121,7 +121,7 @@ TEST_F(InvokerTest, StartTaskAndStreamTaskPollsRemoteEvents) {
     std::unordered_map<std::string, int> stream_counts;
 
     server.SetHandler([&stream_counts](uint32_t msg_type, uint32_t, const std::vector<uint8_t>& body) -> std::vector<uint8_t> {
-        if (msg_type == protocol::MSG_START_JOB_REQUEST) {
+        if (msg_type == protocol::MSG_START_TASK_REQUEST) {
             auto request = ParseMessage<croupier::sdk::v1::InvokeRequest>(body);
             EXPECT_EQ(request.function_id(), "player.batch");
 
@@ -130,7 +130,7 @@ TEST_F(InvokerTest, StartTaskAndStreamTaskPollsRemoteEvents) {
             return SerializeMessage(response);
         }
 
-        if (msg_type == protocol::MSG_STREAM_JOB_REQUEST) {
+        if (msg_type == protocol::MSG_STREAM_TASK_REQUEST) {
             auto request = ParseMessage<croupier::sdk::v1::TaskStreamRequest>(body);
             int count = ++stream_counts[request.task_id()];
 
@@ -190,13 +190,13 @@ TEST_F(InvokerTest, CancelTaskSendsProtocolRequest) {
     bool cancel_called = false;
 
     server.SetHandler([&cancel_called](uint32_t msg_type, uint32_t, const std::vector<uint8_t>& body) -> std::vector<uint8_t> {
-        if (msg_type == protocol::MSG_START_JOB_REQUEST) {
+        if (msg_type == protocol::MSG_START_TASK_REQUEST) {
             croupier::sdk::v1::StartTaskResponse response;
             response.set_task_id("job-cancel");
             return SerializeMessage(response);
         }
 
-        if (msg_type == protocol::MSG_CANCEL_JOB_REQUEST) {
+        if (msg_type == protocol::MSG_CANCEL_TASK_REQUEST) {
             auto request = ParseMessage<croupier::sdk::v1::CancelTaskRequest>(body);
             EXPECT_EQ(request.task_id(), "job-cancel");
             cancel_called = true;

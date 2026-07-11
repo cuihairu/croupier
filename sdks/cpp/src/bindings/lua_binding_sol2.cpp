@@ -292,7 +292,7 @@ public:
     }
 
     // Start a task
-    std::string start_job(const std::string& function_id, const sol::object& args_obj) {
+    std::string start_task(const std::string& function_id, const sol::object& args_obj) {
         std::string payload = "{}";
         if (args_obj.valid() && args_obj.is<sol::table>()) {
             payload = serialize_table(args_obj.as<sol::table>());
@@ -305,8 +305,8 @@ public:
     }
 
     // Cancel a task
-    bool cancel_job(const std::string& job_id) {
-        return invoker_->CancelTask(job_id);
+    bool cancel_task(const std::string& task_id) {
+        return invoker_->CancelTask(task_id);
     }
 
     // Set credentials
@@ -421,8 +421,8 @@ int luaopen_croupier(lua_State* L) {
             static_cast<std::string(LuaInvoker::*)(const std::string&, const sol::object&)>(&LuaInvoker::invoke),
             static_cast<std::string(LuaInvoker::*)(const std::string&, const sol::table&, const sol::table&)>(&LuaInvoker::invoke_with_options)
         ),
-        "start_job", &LuaInvoker::start_job,
-        "cancel_job", &LuaInvoker::cancel_job,
+        "start_task", &LuaInvoker::start_task,
+        "cancel_task", &LuaInvoker::cancel_task,
         "set_credentials", &LuaInvoker::set_credentials,
         "close", &LuaInvoker::close,
 

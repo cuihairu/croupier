@@ -1,5 +1,4 @@
 import { request } from '@umijs/max';
-import { createEventSource } from '../core/http';
 import {
   normalizeFunctionInstance,
   type FunctionInstance,
@@ -173,8 +172,8 @@ export type FunctionInvokeResponse = {
   error?: string;
   duration?: number;
   timestamp?: string;
-  jobId?: string;
-  jobID?: string;
+  taskId?: string;
+  taskID?: string;
 };
 
 export type FunctionUiSchemaDocument = {
@@ -244,7 +243,7 @@ export async function invokeFunction(
   );
 }
 
-export async function startJob(
+export async function startTask(
   functionId: string,
   payload: any,
   opts?: InvokeFunctionOptions,
@@ -270,14 +269,22 @@ export async function startJob(
   );
 }
 
-export async function cancelJob(job_id: string) {
-  return request<void>(`/api/v1/jobs/${encodeURIComponent(job_id)}/cancel`, { method: 'POST' });
+// Cancel a running task. Backed by the server's task cancel route, NOT a
+// legacy /jobs route. See internal/handler/routes.go registerTaskRoutes.
+export async function cancelTask(taskId: string) {
+  return request<void>(`/api/v1/tasks/${encodeURIComponent(taskId)}/cancel`, { method: 'POST' });
 }
 
-export async function fetchJobResult(id: string) {
-  return request<{ state: string; payload?: any; error?: string }>(`/api/v1/jobs/${id}/result`, {
-    method: 'GET',
-  });
+// Fetch the final result/state of a task. The server has no /tasks/:id/result
+// endpoint; the task detail endpoint GET /api/v1/tasks/:id already carries the
+// final `result` and `error`, so we project it into the {state, payload, error}
+// shape that callers consume.
+export async function fetchTaskResult(taskId: string) {
+  const detail = await request<{ status?: string; result?: any; error?: string }>(
+    `/api/v1/tasks/${encodeURIComponent(taskId)}`,
+    { method: 'GET' },
+  );
+  return { state: detail.status, payload: detail.result, error: detail.error };
 }
 
 export async function listFunctionInstances(params: {
@@ -414,8 +421,82 @@ export async function updateFunctionPermissions(
   );
 }
 
-export function openJobEventSource(jobId: string) {
-  return createEventSource(`/api/v1/jobs/${jobId}/stream`);
+// A single task event emitted by GET /api/v1/tasks/:id/events.
+// Source: croupier/internal/api/task/dto.go EventItem.
+export type TaskEvent = {
+  seq: number;
+  type: string;
+  progress: number;
+  message: string;
+  payload: any;
+  createdAt: string;
+};
+
+export interface TaskEventHandlers {
+  onEvent?: (event: TaskEvent) => void;
+  onDone?: () => void;
+  onError?: (err: unknown) => void;
+}
+
+export interface TaskEventSubscription {
+  close(): void;
+}
+
+// Subscribe to a task's event stream by polling GET /api/v1/tasks/:id/events.
+//
+// The legacy frontend opened an SSE EventSource at /api/v1/jobs/:id/stream, but
+// the server never exposed that route: it only offers the polled JSON endpoint
+// GET /api/v1/tasks/:id/events (returns {items, next_seq, done}). This helper
+// adapts the frontend to the real endpoint: it polls, replays new events via
+// onEvent, fires onDone when the server marks the stream done, and stops on
+// error. Returns a handle whose close() cancels polling.
+//
+// Server reference: internal/handler/routes.go registerTaskRoutes and
+// internal/api/task/service.go Service.Events.
+export function subscribeTaskEvents(
+  taskId: string,
+  handlers: TaskEventHandlers = {},
+): TaskEventSubscription {
+  let afterSeq = 0;
+  let stopped = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const intervalMs = 1500;
+
+  const poll = async () => {
+    if (stopped) return;
+    try {
+      const res = await request<{
+        items?: TaskEvent[];
+        next_seq?: number;
+        nextSeq?: number;
+        done?: boolean;
+      }>(`/api/v1/tasks/${encodeURIComponent(taskId)}/events`, {
+        params: { after_seq: afterSeq },
+      });
+      if (stopped) return;
+      const items = res.items || [];
+      for (const it of items) handlers.onEvent?.(it);
+      afterSeq = res.next_seq ?? res.nextSeq ?? afterSeq;
+      if (res.done) {
+        handlers.onDone?.();
+        return;
+      }
+    } catch (err) {
+      if (!stopped) handlers.onError?.(err);
+      return;
+    }
+    if (stopped) return;
+    timer = setTimeout(poll, intervalMs);
+  };
+
+  void poll();
+
+  return {
+    close() {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    },
+  };
 }
 
 // Batch operations

@@ -3,7 +3,7 @@ import { request } from '@umijs/max';
 // Source: croupier/internal/api/functioncall/dto.go Item
 export type FunctionCallItem = {
   id: string;
-  jobId: string;
+  taskId: string;
   functionId: string;
   gameId?: string;
   env?: string;
@@ -58,8 +58,8 @@ export type FunctionCallsListParams = {
 
 type RawFunctionCallItem = {
   id: string;
-  job_id?: string;
-  jobId?: string;
+  task_id?: string;
+  taskId?: string;
   function_id?: string;
   functionId?: string;
   game_id?: string;
@@ -113,7 +113,7 @@ type RawFunctionCallStatsResponse = {
 function normalizeFunctionCallItem(item: RawFunctionCallItem): FunctionCallItem {
   return {
     id: item.id,
-    jobId: item.job_id || item.jobId || '',
+    taskId: item.task_id || item.taskId || '',
     functionId: item.function_id || item.functionId || '',
     gameId: item.game_id || item.gameId,
     env: item.env,
@@ -176,14 +176,14 @@ export async function getFunctionCallDetail(id: string) {
  * 重新执行失败的调用
  */
 export async function rerunFunctionCall(id: string, payload?: any) {
-  const response = await request<{ job_id?: string; jobId?: string }>(
+  const response = await request<{ task_id?: string; taskId?: string }>(
     `/api/v1/function-calls/${encodeURIComponent(id)}/rerun`,
     {
       method: 'POST',
       data: { payload },
     },
   );
-  return { jobId: response.job_id || response.jobId || '' };
+  return { taskId: response.task_id || response.taskId || '' };
 }
 
 /**

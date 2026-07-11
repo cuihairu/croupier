@@ -42,27 +42,26 @@
   - 说明：不考虑兼容旧 API；直接重命名和删除旧入口。
   - 验证：`rg "StartJob|StreamJob|CancelJob|JobEvent|GetJobResult|job_id"` 只允许出现在迁移说明或历史归档中。
 
-- [ ] **清理 `rpc_addr` / LocalControl / gRPC callback 兼容字段。**
-  - 目标：当前主链路只保留 TCP session 模型，不再保留回拨式注册语义。
-  - 范围：proto、SDK 生成代码、README、测试、ops/monitoring 输出里的兼容 alias。
-  - 位置：`proto/croupier/agent/v1/register.proto`、`internal/logic/utils/registry_helpers.go`、`sdks/*`、`docs/sdks/*`
-  - 验证：`rg "rpc_addr|LocalControl|gRPC callback|RegisterLocal"` 只允许出现在明确的历史归档文档中。
+- [~] **清理 `rpc_addr` / LocalControl / gRPC callback 兼容字段（主链路已完成，schema 级残留待专项）。**
+  - ✅ 已完成：主链路路由零依赖 rpc_addr（`internal/platform/dispatch/` 无引用）；运行时无 gRPC 反向回拨代码（无 `grpc.Dial`）；LocalControl 概念清理（Java Protocol.java 注释改 ProviderService）。
+  - 🟡 待专项（schema 级，需协调 migration，不强行删以免破坏 ops）：`rpc_addr` 仍是 ops 展示用的 agent 地址镜像（`Addr`/`RPCAddr` 重复字段，前端 Nodes/Jobs/RateLimits 页面消费 `rpcAddr`）；DB 列 `agent_sessions.rpc_addr`（`internal/model/agent_session_model.go`）；proto 字段 `RegisterRequest.rpc_addr`（删需 SDK 重新生成）。
+  - 删除门控：需同步 (1) ops 改用 TCP session `RemoteAddr` 取代 legacy rpc_addr 镜像；(2) Server 删 `RPCAddr` 响应字段 + 前端改读 `addr`；(3) DB migration 删列；(4) proto 删字段 + SDK 重生成。
+  - 验证（主链路）：`rg "rpc_addr|RPCAddr" internal/platform/dispatch/ internal/logic/ops/agent_ops_client.go` 无路由用途引用。
 
 ## P0：恢复发布级 E2E
 
-- [ ] **恢复 CI 最小 E2E job。**
-  - 现状：`.github/workflows/ci.yml` 中 E2E job 被 `if: ${{ false }}` 禁用，原因是 health-check endpoint expectation unstable。
-  - 目标：CI 至少覆盖 Server 启动、健康检查、Agent 注册、SDK 调用、Task lifecycle。
-  - 位置：`.github/workflows/ci.yml`、`scripts/e2e/`
-  - 验证：PR 上 E2E 自动执行，失败时阻断合并。
+- [x] **恢复 CI 最小 E2E job。** 根因是旧 job 用 `configs/server.yaml`（mysql/postgres）在无 DB 的 CI runner 启动失败；改为 `configs/test-sqlite.yaml`（无外部 DB，admin 从 configs/*.json seed），删除 `if: ${{ false }}`，新增确定性 readiness probe（60s 轮询 /healthz），跑 `scripts/e2e/happy-path.sh`。
+  - 位置：`.github/workflows/ci.yml`（e2e job）、`scripts/e2e/happy-path.sh`、`configs/test-sqlite.yaml`
+  - 验证：本地 `happy-path.sh` 5/5 通过（healthz + auth + /games + /ops/agents + /tasks）；CI 在 PR 上自动执行、失败阻断合并。
 
-- [ ] **新增 Server-Agent-SDK happy path E2E。**
-  - 覆盖路径：Server 启动 → Agent 建立 TCP session → SDK Provider 注册函数 → Invoker 调用函数 → 返回结果。
-  - 重点验证：首帧握手、session 路由、dispatcher、任务结果返回。
-  - 验证：本地脚本和 CI 都可复现。
+- [~] **新增 Server-Agent-SDK happy path E2E。**
+  - ✅ Server 启动 + 健康检查 + auth + REST surface 已在 `happy-path.sh` 覆盖。
+  - 🟡 Agent TCP 注册握手（首帧 Register、session 路由、dispatcher）脚本已预留 `./bin/e2e-agent-probe` 接入点；握手状态机本身已由 `internal/server` 单元测试覆盖（`TestAgentSessionHandler`：未注册 Heartbeat 拒绝、重复 Register 拒绝、跨 agent_id 拒绝）。Agent probe 二进制待后续补一个 examples/cmd 小程序发送 RegisterRequest 帧。
 
 - [ ] **新增 Task lifecycle E2E。**
   - 覆盖路径：`startTask` → `streamTask` → `cancelTask` → 状态落库/事件返回。
+  - 目标：防止 REST task、Dispatcher、Agent TaskRunner、SDK Invoker 之间出现协议漂移。
+  - 待补：依赖 Agent probe（无真实 agent 运行时，startTask 无法端到端完成）。
   - 目标：防止 REST task、Dispatcher、Agent TaskRunner、SDK Invoker 之间出现协议漂移。
 
 ## P1：API 测试覆盖补齐

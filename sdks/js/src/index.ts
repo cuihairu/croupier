@@ -1504,4 +1504,16 @@ export function createClient(config?: ClientConfig): CroupierClient {
 export * from "./protocol";
 export { TCPTransport } from "./tcp_transport";
 
+// L3 Invoker (independent caller-side module over HTTP)
+export {
+  Invoker,
+  createInvoker,
+  InvokerError,
+  InvokerEventSource,
+  type InvokerConfig,
+  type InvokeTaskOptions,
+  type TaskEvent,
+  type InvokeResult,
+} from "./invoker";
+
 export { BasicClient as default };

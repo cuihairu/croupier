@@ -15,12 +15,17 @@ import {
 } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
-import { listOpsJobs, type OpsJob, listOpsFunctions } from '@/services/api/ops';
-import { cancelJob, fetchJobResult, openJobEventSource } from '@/services/api/functions';
+import { listOpsTasks, type OpsTask, listOpsFunctions } from '@/services/api/ops';
+import {
+  cancelTask,
+  fetchTaskResult,
+  subscribeTaskEvents,
+  type TaskEventSubscription,
+} from '@/services/api/functions';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
 const { Paragraph, Text } = Typography;
 
-function getJobStatusMeta(state?: string) {
+function getTaskStatusMeta(state?: string) {
   if (state === 'running') return { color: 'blue', text: '运行中' };
   if (state === 'succeeded') return { color: 'green', text: '已成功' };
   if (state === 'failed') return { color: 'red', text: '已失败' };
@@ -28,20 +33,20 @@ function getJobStatusMeta(state?: string) {
   return { color: 'default', text: state || '-' };
 }
 
-export default function OpsJobsPage() {
+export default function OpsTasksPage() {
   const { message } = App.useApp();
-  const [rows, setRows] = useState<OpsJob[]>([]);
+  const [rows, setRows] = useState<OpsTask[]>([]);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [fid, setFid] = useState<string>('');
   const [actor, setActor] = useState<string>('');
   const [funcs, setFuncs] = useState<string[]>([]);
-  const [detail, setDetail] = useState<OpsJob | null>(null);
+  const [detail, setDetail] = useState<OpsTask | null>(null);
   const [stream, setStream] = useState<string[]>([]);
   const [result, setResult] = useState<{ state?: string; payload?: any; error?: string } | null>(
     null,
   );
-  const esRef = useRef<EventSource | null>(null);
+  const subRef = useRef<TaskEventSubscription | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -51,8 +56,8 @@ export default function OpsJobsPage() {
       if (fid) params.functionId = fid;
       const actorValue = actor.trim();
       if (actorValue) params.actor = actorValue;
-      const r = await listOpsJobs(params);
-      setRows(r.jobs || []);
+      const r = await listOpsTasks(params);
+      setRows(r.tasks || []);
     } catch (e: any) {
       message.error(e?.message || '加载失败');
     } finally {
@@ -92,69 +97,67 @@ export default function OpsJobsPage() {
 
   const hasFilters = Boolean(status || fid || actor.trim());
   const filterSummary = [
-    status ? `状态 ${getJobStatusMeta(status).text}` : null,
+    status ? `状态 ${getTaskStatusMeta(status).text}` : null,
     fid ? `函数 ${fid}` : null,
     actor.trim() ? `操作者 ${actor.trim()}` : null,
   ]
     .filter(Boolean)
     .join(' / ');
 
-  // Auto-connect SSE for running job when opening detail
+  // Auto-subscribe to task events for a running task when opening detail.
+  // Polls GET /api/v1/tasks/:id/events (the server exposes a polled JSON
+  // endpoint, not SSE — see subscribeTaskEvents).
   useEffect(() => {
     if (!detail) return;
     setResult(null);
     setStream([]);
     if (detail.state !== 'running') return;
     try {
-      if (esRef.current) {
-        esRef.current.close();
-        esRef.current = null;
+      if (subRef.current) {
+        subRef.current.close();
+        subRef.current = null;
       }
     } catch {}
     const id = detail.id;
-    const es = openJobEventSource(id);
     const push = (type: string, data: any) => {
       setStream((prev) =>
         [...prev, `${type}: ${typeof data === 'string' ? data : JSON.stringify(data)}`].slice(-200),
       );
     };
-    const handle = (ev: MessageEvent) => {
-      // generic handler for default messages (if any)
-      push('message', ev.data);
-    };
-    es.onmessage = handle;
-    // listen typed events
-    ['stdout', 'stderr', 'progress', 'log'].forEach((t) =>
-      es.addEventListener(t, (ev: MessageEvent) => push(t, (ev as any).data)),
-    );
-    es.addEventListener('error', (ev: MessageEvent) => push('error', (ev as any).data));
-    es.addEventListener('done', async (_ev: MessageEvent) => {
-      // close stream, fetch final result and refresh list
-      try {
-        es.close();
-      } catch {}
-      esRef.current = null;
-      try {
-        const r = await fetchJobResult(id);
-        setResult(r as any);
-      } catch {}
-      load();
+    const sub = subscribeTaskEvents(id, {
+      onEvent: (ev) => {
+        const body = ev.message || ev.payload;
+        push(ev.type, body);
+      },
+      onError: (err) => push('error', err),
+      onDone: async () => {
+        // stream finished: fetch final result and refresh list
+        try {
+          sub.close();
+        } catch {}
+        subRef.current = null;
+        try {
+          const r = await fetchTaskResult(id);
+          setResult(r as any);
+        } catch {}
+        load();
+      },
     });
-    esRef.current = es;
+    subRef.current = sub;
     return () => {
       try {
-        es.close();
+        sub.close();
       } catch {}
-      esRef.current = null;
+      subRef.current = null;
     };
   }, [detail]);
 
-  const handleCancelJob = async (job: OpsJob) => {
+  const handleCancelTask = async (task: OpsTask) => {
     try {
-      await cancelJob(job.id);
+      await cancelTask(task.id);
       message.success('已取消');
-      if (detail?.id === job.id) {
-        setDetail({ ...job, state: 'canceled' });
+      if (detail?.id === task.id) {
+        setDetail({ ...task, state: 'canceled' });
       }
       load();
     } catch (e: any) {
@@ -162,15 +165,15 @@ export default function OpsJobsPage() {
     }
   };
 
-  const columns: ColumnsType<OpsJob> = [
-    { title: 'JobID', dataIndex: 'id', width: 220 },
+  const columns: ColumnsType<OpsTask> = [
+    { title: 'TaskID', dataIndex: 'id', width: 220 },
     { title: '函数', dataIndex: 'functionId', width: 220 },
     {
       title: '状态',
       dataIndex: 'state',
       width: 120,
       render: (v) => {
-        const meta = getJobStatusMeta(v);
+        const meta = getTaskStatusMeta(v);
         return <Tag color={meta.color}>{meta.text}</Tag>;
       },
     },
@@ -209,7 +212,7 @@ export default function OpsJobsPage() {
             查看详情
           </Button>
           {r.state === 'running' && (
-            <Button size="small" danger onClick={() => handleCancelJob(r)}>
+            <Button size="small" danger onClick={() => handleCancelTask(r)}>
               取消
             </Button>
           )}
@@ -231,7 +234,7 @@ export default function OpsJobsPage() {
             { color: '#ff4d4f', text: `失败 ${summary.failedCount}` },
             { color: '#722ed1', text: `函数 ${summary.functionCount}` },
           ]}
-          hint="推荐路径：先筛选任务，再打开详情查看 SSE 事件流和结果，不必在主表里同时处理所有上下文。"
+          hint="推荐路径：先筛选任务，再打开详情查看事件流和结果，不必在主表里同时处理所有上下文。"
         />
 
         <StandardListSection title="任务列表" extra={<Button onClick={load}>刷新</Button>}>
@@ -309,16 +312,16 @@ export default function OpsJobsPage() {
       </Space>
 
       <Drawer
-        title="作业详情"
+        title="任务详情"
         width={720}
         open={!!detail}
         onClose={() => {
           setDetail(null);
           setStream([]);
           setResult(null);
-          if (esRef.current) {
-            esRef.current.close();
-            esRef.current = null;
+          if (subRef.current) {
+            subRef.current.close();
+            subRef.current = null;
           }
         }}
         extra={
@@ -328,7 +331,7 @@ export default function OpsJobsPage() {
                 danger
                 onClick={async () => {
                   if (!detail) return;
-                  await handleCancelJob(detail);
+                  await handleCancelTask(detail);
                 }}
               >
                 取消
@@ -338,7 +341,7 @@ export default function OpsJobsPage() {
               onClick={async () => {
                 if (!detail) return;
                 try {
-                  const r = await fetchJobResult(detail.id);
+                  const r = await fetchTaskResult(detail.id);
                   setResult(r as any);
                   message.success(`状态：${r?.state}`);
                   load();
@@ -359,8 +362,8 @@ export default function OpsJobsPage() {
               description="先判断任务当前处于运行、成功还是失败，再决定要不要刷新结果或查看事件流。"
               items={[
                 {
-                  color: getJobStatusMeta(detail.state).color,
-                  text: getJobStatusMeta(detail.state).text,
+                  color: getTaskStatusMeta(detail.state).color,
+                  text: getTaskStatusMeta(detail.state).text,
                 },
                 { color: '#1677ff', text: detail.functionId || '-' },
                 { color: '#722ed1', text: detail.actor || '未知操作者' },
@@ -383,15 +386,15 @@ export default function OpsJobsPage() {
             />
 
             <Descriptions bordered size="small" column={1}>
-              <Descriptions.Item label="JobID">
+              <Descriptions.Item label="TaskID">
                 <Text code copyable>
                   {detail.id}
                 </Text>
               </Descriptions.Item>
               <Descriptions.Item label="函数">{detail.functionId}</Descriptions.Item>
               <Descriptions.Item label="状态">
-                <Tag color={getJobStatusMeta(detail.state).color}>
-                  {getJobStatusMeta(detail.state).text}
+                <Tag color={getTaskStatusMeta(detail.state).color}>
+                  {getTaskStatusMeta(detail.state).text}
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label="操作者">{detail.actor || '-'}</Descriptions.Item>
@@ -451,7 +454,7 @@ export default function OpsJobsPage() {
             </Card>
             <Card
               size="small"
-              title="事件流（SSE）"
+              title="事件流"
               extra={
                 <Space>
                   <Button
@@ -459,12 +462,11 @@ export default function OpsJobsPage() {
                     onClick={() => {
                       if (!detail) return;
                       try {
-                        if (esRef.current) {
-                          esRef.current.close();
-                          esRef.current = null;
+                        if (subRef.current) {
+                          subRef.current.close();
+                          subRef.current = null;
                         }
                       } catch {}
-                      const es = openJobEventSource(detail.id);
                       const push = (type: string, data: any) =>
                         setStream((prev) =>
                           [
@@ -472,30 +474,22 @@ export default function OpsJobsPage() {
                             `${type}: ${typeof data === 'string' ? data : JSON.stringify(data)}`,
                           ].slice(-200),
                         );
-                      es.onmessage = (ev) => push('message', ev.data);
-                      ['stdout', 'stderr', 'progress', 'log'].forEach((t) =>
-                        es.addEventListener(t, (ev: MessageEvent) => push(t, (ev as any).data)),
-                      );
-                      es.addEventListener('error', (ev: MessageEvent) =>
-                        push('error', (ev as any).data),
-                      );
-                      es.addEventListener('done', async () => {
-                        try {
-                          es.close();
-                        } catch {}
-                        esRef.current = null;
-                        try {
-                          const r = await fetchJobResult(detail.id);
-                          setResult(r as any);
-                        } catch {}
-                        load();
+                      const sub = subscribeTaskEvents(detail.id, {
+                        onEvent: (ev) => push(ev.type, ev.message || ev.payload),
+                        onError: (err) => push('error', err),
+                        onDone: async () => {
+                          try {
+                            sub.close();
+                          } catch {}
+                          subRef.current = null;
+                          try {
+                            const r = await fetchTaskResult(detail.id);
+                            setResult(r as any);
+                          } catch {}
+                          load();
+                        },
                       });
-                      es.onerror = () => {
-                        try {
-                          es.close();
-                        } catch {}
-                      };
-                      esRef.current = es;
+                      subRef.current = sub;
                     }}
                   >
                     连接
@@ -504,9 +498,9 @@ export default function OpsJobsPage() {
                     size="small"
                     onClick={() => {
                       try {
-                        if (esRef.current) esRef.current.close();
+                        if (subRef.current) subRef.current.close();
                       } catch {}
-                      esRef.current = null;
+                      subRef.current = null;
                     }}
                   >
                     断开
@@ -529,7 +523,7 @@ export default function OpsJobsPage() {
                   stream.map((ln, i) => <div key={i}>{ln}</div>)
                 ) : (
                   <Typography.Text type="secondary">
-                    还没有事件流输出。运行中的任务可以先连接 SSE；已结束任务可能不会再产生新事件。
+                    还没有事件流输出。运行中的任务可以先连接事件流；已结束任务可能不会再产生新事件。
                   </Typography.Text>
                 )}
               </div>

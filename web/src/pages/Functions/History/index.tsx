@@ -135,8 +135,8 @@ export default () => {
       content: `确定要重新执行函数 ${record.functionId} 吗？`,
       onOk: async () => {
         try {
-          const response = await rerunFunctionCall(record.jobId);
-          message.success(`已创建新任务: ${response.jobId}`);
+          const response = await rerunFunctionCall(record.taskId);
+          message.success(`已创建新任务: ${response.taskId}`);
           fetchData();
           fetchStats();
         } catch (error: any) {
@@ -169,7 +169,7 @@ export default () => {
     },
     {
       title: '任务ID',
-      dataIndex: 'jobId',
+      dataIndex: 'taskId',
       width: 200,
       copyable: true,
       ellipsis: true,
@@ -424,7 +424,7 @@ export default () => {
               </Descriptions.Item>
               <Descriptions.Item label="任务ID" span={2}>
                 <Space>
-                  <span>{selectedCall.jobId}</span>
+                  <span>{selectedCall.taskId}</span>
                   {(selectedCall.status === 'failed' ||
                     selectedCall.status === 'timeout' ||
                     selectedCall.status === 'cancelled') && (

@@ -120,7 +120,7 @@
 | Go | ✅ `pkg/croupier/invoker.go` |
 | Python | ✅ `croupier/invoker.py` |
 | Java | ✅ `invoker/Invoker.java` |
-| JS | ❌ 暂未提供 |
+| JS | ✅ `src/invoker.ts` |
 | C++ | ✅ `CroupierInvoker` |
 | C# | ✅ `CroupierInvoker` |
 
@@ -183,23 +183,21 @@
 
 ### L3 Invoker 能力映射
 
-> **目标命名**统一为 `task` 系列（`startTask` / `streamTask` / `cancelTask`），与 `proto/croupier/sdk/v1/invocation.proto` 对齐。
-> **当前状态**列反映各 SDK 实际暴露的符号；`job` 系列属于历史命名，按 `todo.md` 跟踪迁移。
+> 命名统一为 `task` 系列（`startTask` / `streamTask` / `cancelTask`），与 `proto/croupier/sdk/v1/invocation.proto` 对齐。
+> 本阶段不以向后兼容为约束：`Job` 系列旧命名已删除，不留 deprecated 别名。
 
-| SDK | 入口文件 | 同步调用 | 异步任务（目标 / 当前） | 流式事件 | 取消 |
+| SDK | 入口文件 | 同步调用 | 异步任务 | 流式事件 | 取消 |
 | --- | --- | --- | --- | --- | --- |
-| Go | `pkg/croupier/invoker.go` | `Invoker.Invoke` | `StartTask` / ❌ `StartJob` | `StreamTask` / ❌ `StreamJob` | `CancelTask` / ❌ `CancelJob` |
-| Python | `croupier/invoker.py` | `Invoker.invoke` | `start_task` / ❌ `start_job` | `stream_task` / ❌ `stream_job` | `cancel_task` / ❌ `cancel_job` |
-| Java | `invoker/Invoker.java` | `invoke` | `startTask` / ❌ `startJob` | `streamTask` / ❌ `streamJob` | `cancelTask` / ❌ `cancelJob` |
-| JS | — | — | — | — | — |
-| C++ | `CroupierInvoker` | `Invoke` | ✅ `StartTask` | ✅ `StreamTask` | ✅ `CancelTask` |
-| C# | `CroupierInvoker` | `InvokeAsync` | `StartTaskAsync` / ❌ `StartJobAsync` | （内部 `StreamJob`） | `CancelTaskAsync` / ❌ `CancelJobAsync` |
+| Go | `pkg/croupier/invoker.go` | `Invoker.Invoke` | `StartTask` | `StreamTask` | `CancelTask` |
+| Python | `croupier/invoker.py` | `Invoker.invoke` | `start_task` | `stream_task` | `cancel_task` |
+| Java | `invoker/Invoker.java` | `invoke` | `startTask` | `streamTask` | `cancelTask` |
+| JS | `src/invoker.ts` | `invoke` | `startTask` | `streamTask` | `cancelTask` |
+| C++ | `CroupierInvoker` | `Invoke` | `StartTask` | `StreamTask` | `CancelTask` |
+| C# | `CroupierInvoker` | `InvokeAsync` | `StartTaskAsync` | `StreamTaskAsync` | `CancelTaskAsync` |
 
-**迁移规则**：
-- 每个 SDK 必须保留 `Job` 系列方法作为** deprecated 别名**至少一个版本，内部委托到 `Task` 系列。
-- 别名方法上加 `@Deprecated` / `// Deprecated:` / `__deprecated__` 等语言原生标记。
-- 别名在 `scripts/check-sdk-matrix.sh` 的 wire-allowlist 中显式登记，避免被误判。
-- 完成迁移后，在矩阵"当前"列改为 ✅。
+**命名规则**：
+- 所有 SDK 必须使用 `Task` 系列，禁止保留 `Job` 系列入口。
+- `scripts/check-sdk-matrix.sh` 的 wire 检查将任何 `Job` 命名视为失败（仅 allowlist 内的协议别名模块除外，且这些模块也已迁移为纯 `Task`）。
 
 ---
 

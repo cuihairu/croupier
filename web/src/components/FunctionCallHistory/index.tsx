@@ -101,8 +101,8 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
   };
 
   const handleRerun = (call: FunctionCall) => {
-    if (call.jobId) {
-      // Try to rerun the job
+    if (call.taskId) {
+      // Try to rerun the task
       rerunFunctionCall(call.id).then(handleRefresh).catch(console.error);
     }
     onRerun?.(call);
@@ -297,9 +297,9 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
                 <Descriptions.Item label="开始时间">{selectedCall.startedText}</Descriptions.Item>
                 <Descriptions.Item label="结束时间">{selectedCall.completedText}</Descriptions.Item>
                 <Descriptions.Item label="执行时长">{selectedCall.durationText}</Descriptions.Item>
-                {selectedCall.jobId && (
+                {selectedCall.taskId && (
                   <Descriptions.Item label="任务ID">
-                    <Text code>{selectedCall.jobId}</Text>
+                    <Text code>{selectedCall.taskId}</Text>
                   </Descriptions.Item>
                 )}
               </Descriptions>

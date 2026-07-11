@@ -23,13 +23,14 @@ import {
   listDescriptors,
   listFunctionInstances,
   invokeFunction,
-  startJob,
-  cancelJob,
+  startTask,
+  cancelTask,
   FunctionDescriptor,
   fetchAssignments,
   fetchFunctionUiSchema,
   getFunctionOpenAPI,
-  openJobEventSource,
+  subscribeTaskEvents,
+  type TaskEventSubscription,
 } from '@/services/api';
 import { getRenderer, registerBuiltins } from '@/plugin/registry';
 import { applyTransform } from '@/plugin/transform';
@@ -162,9 +163,9 @@ export default function GmFunctionsPage() {
   >([]);
   const [targetService, setTargetService] = useState<string | undefined>();
   const [hashKey, setHashKey] = useState<string | undefined>();
-  const [jobId, setJobId] = useState<string | undefined>();
+  const [taskId, setTaskId] = useState<string | undefined>();
   const [events, setEvents] = useState<string[]>([]);
-  const esRef = useRef<EventSource | null>(null);
+  const subRef = useRef<TaskEventSubscription | null>(null);
   const [form] = Form.useForm();
   const formValues = Form.useWatch([], form);
   const [uiSchema, setUiSchema] = useState<UISchema | undefined>();
@@ -251,7 +252,7 @@ export default function GmFunctionsPage() {
       }
     });
     return () => {
-      if (esRef.current) esRef.current.close();
+      if (subRef.current) subRef.current.close();
     };
   }, []);
 
@@ -353,7 +354,7 @@ export default function GmFunctionsPage() {
     }
   };
 
-  const onStartJob = async () => {
+  const onStartTask = async () => {
     try {
       let values: any;
       if (renderMode === 'form-render' && effectiveSchema) {
@@ -364,31 +365,43 @@ export default function GmFunctionsPage() {
         values = await form.validateFields();
       }
 
-      const res = await startJob(currentId!, values, {
+      const res = await startTask(currentId!, values, {
         route,
         targetServiceId: route === 'targeted' ? targetService : undefined,
         hashKey: route === 'hash' ? hashKey : undefined,
       });
-      const createdJobId = res.jobId || res.jobID || '';
-      setJobId(createdJobId);
+      const createdTaskId = res.taskId || res.taskID || '';
+      setTaskId(createdTaskId);
       setEvents([]);
       setLastOutput(undefined);
-      // open SSE
-      if (esRef.current) esRef.current.close();
-      const es = openJobEventSource(createdJobId);
-      es.onmessage = (ev) => setEvents((prev) => [...prev, ev.data]);
-      es.addEventListener('done', () => es.close());
-      es.addEventListener('error', () => es.close());
-      esRef.current = es;
+      // Subscribe to task events via polling (server exposes polled JSON, not SSE).
+      if (subRef.current) subRef.current.close();
+      const sub = subscribeTaskEvents(createdTaskId, {
+        onEvent: (ev) =>
+          setEvents((prev) => [...prev, `${ev.type}: ${ev.message || JSON.stringify(ev.payload)}`]),
+        onDone: () => {
+          if (subRef.current) {
+            subRef.current.close();
+            subRef.current = null;
+          }
+        },
+        onError: () => {
+          if (subRef.current) {
+            subRef.current.close();
+            subRef.current = null;
+          }
+        },
+      });
+      subRef.current = sub;
     } catch (e: any) {
       if (e?.errorFields) return;
-      getMessage()?.error(e?.message || 'Start job failed');
+      getMessage()?.error(e?.message || 'Start task failed');
     }
   };
 
   const onCancel = async () => {
-    if (!jobId) return;
-    await cancelJob(jobId);
+    if (!taskId) return;
+    await cancelTask(taskId);
     getMessage()?.info('Cancel sent');
   };
 
@@ -520,11 +533,11 @@ export default function GmFunctionsPage() {
           <Button type="primary" onClick={onInvoke} loading={invoking} disabled={!currentId}>
             Invoke
           </Button>
-          <Button onClick={onStartJob} disabled={!currentId}>
-            Start Job
+          <Button onClick={onStartTask} disabled={!currentId}>
+            Start Task
           </Button>
-          <Button onClick={onCancel} danger disabled={!jobId}>
-            Cancel Job
+          <Button onClick={onCancel} danger disabled={!taskId}>
+            Cancel Task
           </Button>
         </Space>
         <Divider />

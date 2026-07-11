@@ -27,7 +27,7 @@ import {
   invokeFunction,
   listDescriptors,
   saveFunctionUiSchema,
-  startJob,
+  startTask,
   type FunctionDescriptor,
 } from '@/services/api';
 import { buildUISchemaFromJSONSchema, parseInputSchema } from '@/utils/json';
@@ -581,13 +581,13 @@ export default function FunctionRuntimeUIPage() {
     }
   };
 
-  const handleStartJob = async (values: any) => {
+  const handleStartTask = async (values: any) => {
     if (!selected?.id) return;
     setExecuting(true);
     setError('');
     setResult(undefined);
     try {
-      const res = await startJob(selected.id, values);
+      const res = await startTask(selected.id, values);
       setResult(res);
       message.success('任务已创建');
     } catch (e: any) {
@@ -708,7 +708,7 @@ export default function FunctionRuntimeUIPage() {
             schema={schema}
             uiSchema={uiSchema}
             onSubmit={handleInvoke}
-            onSecondarySubmit={handleStartJob}
+            onSecondarySubmit={handleStartTask}
             loading={executing}
             secondaryLoading={executing}
             submitText="执行"

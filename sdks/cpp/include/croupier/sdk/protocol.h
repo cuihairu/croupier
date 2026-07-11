@@ -49,18 +49,16 @@ constexpr uint32_t MSG_CLIENT_HEARTBEAT_REQUEST = 0x020103;
 constexpr uint32_t MSG_CLIENT_HEARTBEAT_RESPONSE = 0x020104;
 constexpr uint32_t MSG_LIST_CLIENTS_REQUEST = 0x020105;
 constexpr uint32_t MSG_LIST_CLIENTS_RESPONSE = 0x020106;
-constexpr uint32_t MSG_GET_JOB_RESULT_REQUEST = 0x020107;
-constexpr uint32_t MSG_GET_JOB_RESULT_RESPONSE = 0x020108;
 
 // InvokerService (0x03xx)
 constexpr uint32_t MSG_INVOKE_REQUEST = 0x030101;
 constexpr uint32_t MSG_INVOKE_RESPONSE = 0x030102;
-constexpr uint32_t MSG_START_JOB_REQUEST = 0x030103;
-constexpr uint32_t MSG_START_JOB_RESPONSE = 0x030104;
-constexpr uint32_t MSG_STREAM_JOB_REQUEST = 0x030105;
-constexpr uint32_t MSG_JOB_EVENT = 0x030106;
-constexpr uint32_t MSG_CANCEL_JOB_REQUEST = 0x030107;
-constexpr uint32_t MSG_CANCEL_JOB_RESPONSE = 0x030108;
+constexpr uint32_t MSG_START_TASK_REQUEST = 0x030103;
+constexpr uint32_t MSG_START_TASK_RESPONSE = 0x030104;
+constexpr uint32_t MSG_STREAM_TASK_REQUEST = 0x030105;
+constexpr uint32_t MSG_TASK_EVENT = 0x030106;
+constexpr uint32_t MSG_CANCEL_TASK_REQUEST = 0x030107;
+constexpr uint32_t MSG_CANCEL_TASK_RESPONSE = 0x030108;
 
 // OpsService (0x04xx)
 constexpr uint32_t MSG_GET_SYSTEM_INFO_REQUEST = 0x040101;
@@ -171,14 +169,14 @@ inline ParsedMessage ParseMessage(const std::vector<uint8_t>& data) {
  * Check if the MsgID indicates a request message.
  */
 inline bool IsRequest(uint32_t msg_id) {
-    return msg_id % 2 == 1 && msg_id != MSG_JOB_EVENT && msg_id != MSG_METRIC_EVENT;
+    return msg_id % 2 == 1 && msg_id != MSG_TASK_EVENT && msg_id != MSG_METRIC_EVENT;
 }
 
 /**
  * Check if the MsgID indicates a response message.
  */
 inline bool IsResponse(uint32_t msg_id) {
-    return msg_id % 2 == 0 && msg_id != MSG_JOB_EVENT && msg_id != MSG_METRIC_EVENT;
+    return msg_id % 2 == 0 && msg_id != MSG_TASK_EVENT && msg_id != MSG_METRIC_EVENT;
 }
 
 /**
@@ -205,16 +203,14 @@ inline std::string MsgIDString(uint32_t msg_id) {
         case MSG_CLIENT_HEARTBEAT_RESPONSE: return "ClientHeartbeatResponse";
         case MSG_LIST_CLIENTS_REQUEST: return "ListClientsRequest";
         case MSG_LIST_CLIENTS_RESPONSE: return "ListClientsResponse";
-        case MSG_GET_JOB_RESULT_REQUEST: return "GetJobResultRequest";
-        case MSG_GET_JOB_RESULT_RESPONSE: return "GetJobResultResponse";
         case MSG_INVOKE_REQUEST: return "InvokeRequest";
         case MSG_INVOKE_RESPONSE: return "InvokeResponse";
-        case MSG_START_JOB_REQUEST: return "StartTaskRequest";
-        case MSG_START_JOB_RESPONSE: return "StartTaskResponse";
-        case MSG_STREAM_JOB_REQUEST: return "StreamTaskRequest";
-        case MSG_JOB_EVENT: return "TaskEvent";
-        case MSG_CANCEL_JOB_REQUEST: return "CancelTaskRequest";
-        case MSG_CANCEL_JOB_RESPONSE: return "CancelTaskResponse";
+        case MSG_START_TASK_REQUEST: return "StartTaskRequest";
+        case MSG_START_TASK_RESPONSE: return "StartTaskResponse";
+        case MSG_STREAM_TASK_REQUEST: return "StreamTaskRequest";
+        case MSG_TASK_EVENT: return "TaskEvent";
+        case MSG_CANCEL_TASK_REQUEST: return "CancelTaskRequest";
+        case MSG_CANCEL_TASK_RESPONSE: return "CancelTaskResponse";
         case MSG_GET_SYSTEM_INFO_REQUEST: return "GetSystemInfoRequest";
         case MSG_GET_SYSTEM_INFO_RESPONSE: return "GetSystemInfoResponse";
         case MSG_LIST_PROCESSES_REQUEST: return "ListProcessesRequest";

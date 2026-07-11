@@ -133,7 +133,7 @@ check_csharp() {
 }
 
 # ---------------------------------------------------------------------------
-# L3 Invoker presence (informational; JS is currently empty).
+# L3 Invoker presence (required: a missing Invoker fails the matrix).
 # ---------------------------------------------------------------------------
 
 check_invoker_presence() {
@@ -182,6 +182,7 @@ check_invoker_naming() {
     "go|func.*StartTask\\(|func.*StartJob\\(|sdks/go/pkg/croupier/invoker*.go"
     "python|def start_task|def start_job|sdks/python/croupier/invoker.py"
     "java|startTask\\(|startJob\\(|sdks/java/src/main/java/io/github/cuihairu/croupier/sdk/invoker/Invoker.java"
+    "js|startTask\\(|startJob\\(|sdks/js/src/invoker*.ts"
     "cpp|StartTask\\(|StartJob\\(|sdks/cpp/include/croupier/sdk/croupier_client.h"
     "csharp|StartTaskAsync\\(|StartJobAsync\\(|sdks/csharp/src/Croupier.Sdk/CroupierInvoker.cs"
   )
@@ -384,7 +385,14 @@ check_wire_name_hygiene
 echo
 
 if [ "$warnings" -gt 0 ]; then
-  echo "${YELLOW}Warnings: ${warnings} (informational only)${RESET}"
+  # Warnings are failures: the matrix must stay clean. Any legacy wire name,
+  # missing L3 Invoker, or stale README term blocks CI. The allowlist in
+  # check_wire_name_hygiene is the ONLY place legacy names may legitimately
+  # appear; everything outside it must use canonical names.
+  echo "${RED}Failed: ${warnings} warning(s) above (treated as errors).${RESET}"
+  echo "SDK matrix must be clean: no legacy wire names outside the allowlist,"
+  echo "no missing L3 Invoker, no stale README terms. Fix before merging."
+  exit 1
 fi
 
 if [ "$errors" -gt 0 ]; then

@@ -218,7 +218,7 @@ export type OpsAlert = {
   labels?: Record<string, unknown>;
   annotations?: Record<string, unknown>;
 };
-export type OpsJob = {
+export type OpsTask = {
   id: string;
   functionId: string;
   actor?: string;
@@ -290,19 +290,30 @@ type RawOpsAlert = {
   labels?: Record<string, unknown>;
   annotations?: Record<string, unknown>;
 };
-type RawOpsJob = {
+type RawOpsTask = {
   id: string;
-  function_id: string;
+  function_id?: string;
+  functionId?: string;
   actor?: string;
   game_id?: string;
+  gameId?: string;
   env?: string;
-  state: 'running' | 'succeeded' | 'failed' | 'canceled' | string;
+  // The canonical task endpoint exposes `status` (see internal/api/task/dto.go
+  // Item). Legacy/ops payloads used `state`; accept both.
+  status?: string;
+  state?: 'running' | 'succeeded' | 'failed' | 'canceled' | string;
   started_at?: string;
+  startedAt?: string;
+  finished_at?: string;
   ended_at?: string;
+  endedAt?: string;
   duration_ms?: number;
+  durationMs?: number;
   error?: string;
   rpc_addr?: string;
+  rpcAddr?: string;
   trace_id?: string;
+  traceId?: string;
 };
 
 function normalizeOpsConfig(raw?: RawOpsConfig): OpsConfig {
@@ -377,23 +388,23 @@ function normalizeOpsAlert(raw: RawOpsAlert): OpsAlert {
     annotations: raw.annotations,
   };
 }
-function normalizeOpsJob(raw: RawOpsJob): OpsJob {
+function normalizeOpsTask(raw: RawOpsTask): OpsTask {
   return {
     id: raw.id,
-    functionId: raw.function_id,
+    functionId: raw.function_id || raw.functionId || '',
     actor: raw.actor,
-    gameId: raw.game_id,
+    gameId: raw.game_id || raw.gameId,
     env: raw.env,
-    state: raw.state,
-    startedAt: raw.started_at,
-    endedAt: raw.ended_at,
-    durationMs: raw.duration_ms,
+    state: raw.state ?? raw.status ?? '',
+    startedAt: raw.started_at || raw.startedAt,
+    endedAt: raw.ended_at || raw.endedAt || raw.finished_at,
+    durationMs: raw.duration_ms ?? raw.durationMs,
     error: raw.error,
-    rpcAddr: raw.rpc_addr,
-    traceId: raw.trace_id,
+    rpcAddr: raw.rpc_addr || raw.rpcAddr,
+    traceId: raw.trace_id || raw.traceId,
   };
 }
-export async function listOpsJobs(params?: {
+export async function listOpsTasks(params?: {
   status?: string;
   functionId?: string;
   actor?: string;
@@ -402,18 +413,25 @@ export async function listOpsJobs(params?: {
   page?: number;
   size?: number;
 }) {
-  const response = await request<{ jobs: RawOpsJob[]; total: number }>('/api/v1/jobs', {
-    params: {
-      status: params?.status,
-      function_id: params?.functionId,
-      actor: params?.actor,
-      game_id: params?.gameId,
-      env: params?.env,
-      page: params?.page,
-      size: params?.size,
+  // Backed by the canonical task list route GET /api/v1/tasks. The server
+  // returns {items, total} (internal/api/task/dto.go ListResponse); accept the
+  // legacy {jobs, total} shape as well for safety.
+  const response = await request<{ items?: RawOpsTask[]; jobs?: RawOpsTask[]; total?: number }>(
+    '/api/v1/tasks',
+    {
+      params: {
+        status: params?.status,
+        function_id: params?.functionId,
+        actor: params?.actor,
+        game_id: params?.gameId,
+        env: params?.env,
+        page: params?.page,
+        size: params?.size,
+      },
     },
-  });
-  return { jobs: (response.jobs || []).map(normalizeOpsJob), total: response.total || 0 };
+  );
+  const rows = response.items || response.jobs || [];
+  return { tasks: rows.map(normalizeOpsTask), total: response.total || 0 };
 }
 
 export async function fetchOpsMetrics(params: { instance: string; range?: string; step?: string }) {

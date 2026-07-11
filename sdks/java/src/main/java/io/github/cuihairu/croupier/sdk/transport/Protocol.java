@@ -55,7 +55,7 @@ public final class Protocol {
     public static final int MSG_CANCEL_TASK_REQUEST = 0x030107;
     public static final int MSG_CANCEL_TASK_RESPONSE = 0x030108;
 
-    // LocalControlService (0x05xx)
+    // ProviderService (0x05xx)
     public static final int MSG_PROVIDER_CONNECT_REQUEST = 0x050101;
     public static final int MSG_PROVIDER_CONNECT_RESPONSE = 0x050102;
     public static final int MSG_PROVIDER_HEARTBEAT_REQUEST = 0x050103;

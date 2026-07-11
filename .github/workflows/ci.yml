@@ -163,7 +163,9 @@ jobs:
 
   e2e:
     name: E2E Tests
-    if: ${{ false }} # Temporarily disabled: health-check endpoint expectation is unstable in CI
+    # Restored: uses the SQLite config so no external DB is needed. The earlier
+    # instability came from booting with configs/server.yaml (mysql/postgres)
+    # in a CI runner with no database service.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: [test]
@@ -188,30 +190,36 @@ jobs:
       - name: Setup E2E scripts
         timeout-minutes: 1
         run: chmod +x scripts/e2e/*.sh
-      - name: Start Server
+      - name: Start Server (SQLite, no external DB)
         timeout-minutes: 15
         run: |
           go build -o bin/croupier-server ./cmd/server
-          mkdir -p data/uploads
-          ./bin/croupier-server --config configs/server.yaml &
+          mkdir -p data/uploads test-data
+          # Use the SQLite test config so the server boots without a database
+          # service. Admin/games are seeded from configs/*.json.
+          ./bin/croupier-server --config configs/test-sqlite.yaml &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
-          # Wait for server to be ready
-          for i in {1..30}; do
-            if curl -s http://localhost:18780/healthz > /dev/null; then
-              echo "Server is ready"
+          # Wait for server REST to be ready (deterministic readiness probe).
+          ready=0
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:18780/healthz > /dev/null; then
+              echo "Server is ready (after ${i}s)"
+              ready=1
               break
             fi
-            echo "Waiting for server... ($i/30)"
             sleep 1
           done
+          if [ "$ready" -ne 1 ]; then
+            echo "::error::server did not become ready within 60s"
+            exit 1
+          fi
       - name: Run E2E tests
         timeout-minutes: 10
         env:
           SERVER_URL: http://localhost:18780
         run: |
-          bash scripts/e2e/health-check.sh
-          bash scripts/e2e/test-performance.sh
+          bash scripts/e2e/happy-path.sh
       - name: Cleanup
         timeout-minutes: 2
         if: always()
@@ -219,3 +227,4 @@ jobs:
           if [ -n "${SERVER_PID:-}" ]; then
             kill $SERVER_PID 2>/dev/null || true
           fi
+

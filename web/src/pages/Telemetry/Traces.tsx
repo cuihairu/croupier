@@ -92,7 +92,7 @@ export default function TracesPage() {
             </Button>
           </Space>
 
-          <Empty description="请从 Job/调用日志中获取 trace_id，然后跳转到 Grafana/Jaeger 查看" />
+          <Empty description="请从 Task/调用日志中获取 trace_id，然后跳转到 Grafana/Jaeger 查看" />
         </Space>
       </Card>
     </PageContainer>

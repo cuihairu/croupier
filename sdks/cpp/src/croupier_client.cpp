@@ -1169,7 +1169,7 @@ public:
                 if (!transport_ || !transport_->IsConnected()) {
                     throw std::runtime_error("Not connected to server");
                 }
-                auto response = transport_->Call(protocol::MSG_START_JOB_REQUEST, SerializeMessage(req));
+                auto response = transport_->Call(protocol::MSG_START_TASK_REQUEST, SerializeMessage(req));
                 response_body = std::move(response.second);
             }
 
@@ -1310,7 +1310,7 @@ public:
                             events.push_back(error_event);
                             return events;
                         }
-                        auto response = transport_->Call(protocol::MSG_STREAM_JOB_REQUEST, SerializeMessage(req));
+                        auto response = transport_->Call(protocol::MSG_STREAM_TASK_REQUEST, SerializeMessage(req));
                         response_body = std::move(response.second);
                     }
 
@@ -1407,7 +1407,7 @@ public:
                     std::cerr << "Not connected to server" << '\n';
                     return false;
                 }
-                transport_->Call(protocol::MSG_CANCEL_JOB_REQUEST, SerializeMessage(req));
+                transport_->Call(protocol::MSG_CANCEL_TASK_REQUEST, SerializeMessage(req));
             }
 
             std::lock_guard<std::mutex> lock(jobs_mutex_);
