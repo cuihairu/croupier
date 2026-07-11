@@ -158,7 +158,7 @@ public class CroupierClientExtensionsTests : IDisposable
 
         // Assert - Task should complete (even if InvokeAsync fails)
         await Task.WhenAny(task, Task.Delay(1000));
-        task.Status.Should().NotBe(TaskStatus.WaitingForActivation);
+        task.Status.Should().NotBe(System.Threading.Tasks.TaskStatus.WaitingForActivation);
     }
 
     [Fact]
@@ -273,7 +273,7 @@ public class CroupierClientExtensionsTests : IDisposable
         await Task.WhenAny(task, Task.Delay(1000));
 
         // Assert - Task should complete
-        task.Status.Should().NotBe(TaskStatus.WaitingForActivation);
+        task.Status.Should().NotBe(System.Threading.Tasks.TaskStatus.WaitingForActivation);
     }
 
     #endregion

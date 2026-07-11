@@ -89,6 +89,8 @@ constexpr uint32_t MSG_PROVIDER_HEARTBEAT_REQUEST = 0x050103;
 constexpr uint32_t MSG_PROVIDER_HEARTBEAT_RESPONSE = 0x050104;
 constexpr uint32_t MSG_PROVIDER_DRAIN_REQUEST = 0x050105;
 constexpr uint32_t MSG_PROVIDER_DRAIN_RESPONSE = 0x050106;
+constexpr uint32_t MSG_GET_TASK_RESULT_REQUEST = 0x050107;
+constexpr uint32_t MSG_GET_TASK_RESULT_RESPONSE = 0x050108;
 
 /**
  * Encode a 24-bit MsgID into 3 bytes (big-endian).
@@ -237,6 +239,8 @@ inline std::string MsgIDString(uint32_t msg_id) {
         case MSG_PROVIDER_HEARTBEAT_RESPONSE: return "ProviderHeartbeatResponse";
         case MSG_PROVIDER_DRAIN_REQUEST: return "ProviderDrainRequest";
         case MSG_PROVIDER_DRAIN_RESPONSE: return "ProviderDrainResponse";
+        case MSG_GET_TASK_RESULT_REQUEST: return "GetTaskResultRequest";
+        case MSG_GET_TASK_RESULT_RESPONSE: return "GetTaskResultResponse";
         default: {
             std::ostringstream stream;
             stream << "Unknown(0x" << std::uppercase << std::hex << msg_id << ")";

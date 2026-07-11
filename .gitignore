@@ -72,6 +72,7 @@ node_modules/
 logs/
 .tmp/
 data/
+test-data/
 configs/dev/
 configs/ops_state.json
 configs/*.BIN

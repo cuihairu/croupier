@@ -260,7 +260,7 @@ public class CroupierClientReconnectTests : IDisposable
         var completed = await Task.WhenAny(reconnectTask, Task.Delay(2000));
 
         // Assert
-        Assert.True(reconnectCompleted || completed.Status == TaskStatus.RanToCompletion,
+        Assert.True(reconnectCompleted || completed.Status == System.Threading.Tasks.TaskStatus.RanToCompletion,
             "Reconnect should have stopped after cancellation");
     }
 

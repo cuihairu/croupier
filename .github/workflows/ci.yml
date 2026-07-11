@@ -194,10 +194,17 @@ jobs:
         timeout-minutes: 15
         run: |
           go build -o bin/croupier-server ./cmd/server
+          # Fresh DB every run: a stale test-data/croupier.db with an older
+          # schema makes AutoMigrate fail (sqlite cannot ALTER ADD a NOT NULL
+          # column). Remove any leftover state before booting.
+          rm -rf data test-data
           mkdir -p data/uploads test-data
           # Use the SQLite test config so the server boots without a database
-          # service. Admin/games are seeded from configs/*.json.
-          ./bin/croupier-server --config configs/test-sqlite.yaml &
+          # service. Admin/games are seeded from configs/*.json. Redirect
+          # output to a log file so failures (panic/migrate errors) are
+          # visible in the failed step instead of being lost to the background.
+          : > server.log
+          ./bin/croupier-server --config configs/test-sqlite.yaml >> server.log 2>&1 &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
           # Wait for server REST to be ready (deterministic readiness probe).
@@ -208,10 +215,16 @@ jobs:
               ready=1
               break
             fi
+            # If the server process already exited, it panicked — stop early.
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              echo "::error::server process exited before becoming ready"
+              break
+            fi
             sleep 1
           done
           if [ "$ready" -ne 1 ]; then
-            echo "::error::server did not become ready within 60s"
+            echo "::error::server did not become ready within 60s; server log:"
+            cat server.log
             exit 1
           fi
       - name: Run E2E tests
