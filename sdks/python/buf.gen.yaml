@@ -1,7 +1,12 @@
 version: v2
+# Generate Python protobuf stubs from the root proto/ tree so the
+# handwritten layer (canonical Task/ProviderConnect names) resolves against
+# current schemas. Run from the repo root: `buf generate sdks/python/buf.gen.yaml`.
+inputs:
+  - directory: proto
 plugins:
   # Python plugins (使用固定版本 v25.1 对应 protobuf 4.25.x)
   - remote: buf.build/protocolbuffers/python:v25.1
-    out: generated
+    out: sdks/python/generated
   - remote: buf.build/grpc/python:v1.71.0
-    out: generated
+    out: sdks/python/generated
