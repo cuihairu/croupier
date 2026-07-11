@@ -1,6 +1,6 @@
 # Croupier 当前待办
 
-更新时间：2026-07-10
+更新时间：2026-07-11
 
 本清单只记录当前仍需推进的事项。已完成的历史迁移压缩到末尾，避免干扰优先级判断。
 
@@ -18,33 +18,29 @@
 
 ## P0：SDK 与协议一致性收尾
 
-- [ ] **补齐 JS/TS L3 Invoker。**
-  - 现状：`sdks/SDK_FEATURE_MATRIX.md` 明确记录 JS Invoker 暂未提供；`scripts/check-sdk-matrix.sh` 只把该问题记为 warning，不阻断 CI。
-  - 目标：JS/TS 提供独立 Invoker，支持 `invoke` / `startTask` / `streamTask` / `cancelTask`，并与其他 SDK 一致。
-  - 位置：`sdks/js/src/`、`sdks/js/examples/`、`sdks/SDK_FEATURE_MATRIX.md`、`scripts/check-sdk-matrix.sh`
-  - 验证：JS 单测 + `scripts/check-sdk-matrix.sh` 无 JS Invoker warning。
+- [x] **补齐 JS/TS L3 Invoker。** `sdks/js/src/invoker.ts` 已落地：独立 HTTP 调用方模块，支持 `invoke` / `startTask` / `streamTask`（SSE 轮询）/ `cancelTask`，与 Provider Client 解耦；`index.ts` 导出 `Invoker`/`createInvoker`/`InvokerError`；`SDK_FEATURE_MATRIX.md` Invoker 表 JS 标 ✅。
+  - 位置：`sdks/js/src/invoker.ts`、`sdks/js/src/index.ts`、`sdks/SDK_FEATURE_MATRIX.md`
+  - 验证：JS SDK CI `success`；`scripts/check-sdk-matrix.sh` exit 0、无 JS Invoker warning。
 
-- [ ] **删除 C++ SDK legacy wire name 残留。**
-  - 现状：`scripts/check-sdk-matrix.sh` 仍检出 3 个 C++ 文件引用 `MSG_START_JOB_REQUEST` / `MSG_STREAM_JOB_REQUEST` / `MSG_CANCEL_JOB_REQUEST` / `MSG_JOB_EVENT`。
-  - 目标：统一为 `Task` 命名；不保留 `Job` 兼容别名。
-  - 位置：`sdks/cpp/src/croupier_client.cpp`、`sdks/cpp/tests/test_invoker.cpp`、`sdks/cpp/tests/test_protocol.cpp`
-  - 验证：`scripts/check-sdk-matrix.sh` 无 wire warning；C++ 相关测试通过。
+- [x] **删除 C++ SDK legacy wire name 残留。** `protocol.h` 已删 `MSG_START_JOB_REQUEST` / `MSG_STREAM_JOB_REQUEST` / `MSG_CANCEL_JOB_REQUEST` / `MSG_JOB_EVENT` / `MSG_GET_JOB_RESULT_REQUEST/RESPONSE(旧 0x0201xx)` 等别名，补 `MSG_GET_TASK_RESULT_REQUEST/RESPONSE (0x050107/8)`；`croupier_client.cpp` 形参 `grpc_status_code`→`status_code`；Lua binding `start_job`→`start_task` 等。
+  - 位置：`sdks/cpp/include/croupier/sdk/protocol.h`、`sdks/cpp/src/croupier_client.cpp`、`sdks/cpp/src/bindings/lua_binding_sol2.cpp`
+  - 验证：`rg "MSG_START_JOB|MSG_STREAM_JOB|MSG_CANCEL_JOB|MSG_JOB_EVENT|MSG_GET_JOB_RESULT_REQUEST" sdks/cpp/` 零命中；C++ SDK CI `success`。
 
-- [ ] **把 SDK matrix warning 升级为失败条件。**
-  - 现状：`scripts/check-sdk-matrix.sh` 在有 warning 时仍 `exit 0`，CI 无法阻止旧命名继续滞留。
-  - 目标：除显式 allowlist 外，SDK 缺能力、旧 wire name、旧 README 术语全部失败。
+- [x] **把 SDK matrix warning 升级为失败条件。** `scripts/check-sdk-matrix.sh` 的 warning 分支改为 `exit 1`（含 JS Invoker 缺失、C++ legacy wire name、旧 README 术语）；CI 的 SDK matrix conformance 步骤据此可阻断旧命名新增。
   - 位置：`scripts/check-sdk-matrix.sh`、`.github/workflows/ci.yml`
-  - 验证：CI 的 “SDK matrix conformance” 能阻断新增旧术语/旧命名。
+  - 验证：`bash scripts/check-sdk-matrix.sh; echo $?` → exit 0（当前仓库无 warning）；脚本逻辑为 warning 即 1。
 
-- [ ] **清理 `Job` 命名，统一为 `Task`。**
-  - 目标：源码、proto、生成代码、文档、示例统一使用 `Task`。
-  - 范围：`StartJob`、`StreamJob`、`CancelJob`、`JobEvent`、`job_id`、`GetJobResult` 等历史命名。
-  - 说明：不考虑兼容旧 API；直接重命名和删除旧入口。
-  - 验证：`rg "StartJob|StreamJob|CancelJob|JobEvent|GetJobResult|job_id"` 只允许出现在迁移说明或历史归档中。
+- [~] **清理 `Job` 命名，统一为 `Task`（主链路 + SDK 手写层完成；generated 滞后待收尾）。**
+  - ✅ 已完成：Go/Python/JS/C++/C# 的手写层、proto、`internal/`、文档、示例已统一 `Task`；C# 测试 `TaskStatus` 与 `System.Threading.Tasks.TaskStatus` 碰撞已全限定修复。
+  - 🟡 待收尾（已提交 generated 滞后于 proto，CI 因各自 regen 不报错但仓库码陈旧）：
+    - `sdks/csharp/generated/Invocation.cs` 仍含 `StartJobResponse` / `JobEvent` / `CancelJobRequest` / `JobId`（源自旧版 Invocation.proto，C# CI 自带 regen 故编译过）。
+    - `sdks/python/croupier/pb/**/*_pb2.py` 仍含 `RegisterLocalRequest.rpc_addr` / `RegisterClientRequest.rpc_addr` / `RegisterRequest.rpc_addr` / `GetJobResultRequest.job_id`（Python CI 已加 `buf generate` 故过，但提交的 pb2 是旧的）。
+  - 收尾动作：各 SDK 按自身工具链重新生成 generated 并提交，使仓库码 == proto 当前态。
+  - 验证（主链路）：`rg "StartJob|StreamJob|CancelJob|JobEvent|GetJobResult|job_id" --glob '!**/generated/**' --glob '!**/pb/**' --glob '!*.md' sdks/ proto/ internal/` 零命中。
 
 - [~] **清理 `rpc_addr` / LocalControl / gRPC callback 兼容字段（主链路已完成，schema 级残留待专项）。**
-  - ✅ 已完成：主链路路由零依赖 rpc_addr（`internal/platform/dispatch/` 无引用）；运行时无 gRPC 反向回拨代码（无 `grpc.Dial`）；LocalControl 概念清理（Java Protocol.java 注释改 ProviderService）。
-  - 🟡 待专项（schema 级，需协调 migration，不强行删以免破坏 ops）：`rpc_addr` 仍是 ops 展示用的 agent 地址镜像（`Addr`/`RPCAddr` 重复字段，前端 Nodes/Jobs/RateLimits 页面消费 `rpcAddr`）；DB 列 `agent_sessions.rpc_addr`（`internal/model/agent_session_model.go`）；proto 字段 `RegisterRequest.rpc_addr`（删需 SDK 重新生成）。
+  - ✅ 已完成：主链路路由零依赖 rpc_addr（`internal/platform/dispatch/` 无引用）；运行时无 gRPC 反向回拨代码（无 `grpc.Dial`）；LocalControl 概念清理（Java Protocol.java 注释改 ProviderService）；Python SDK 手写层去掉 `ProviderConnectRequest(rpc_addr="")` 与对应断言（Python SDK CI `success`）。
+  - 🟡 待专项（schema 级，需协调 migration，不强行删以免破坏 ops）：`rpc_addr` 仍是 ops 展示用的 agent 地址镜像（`Addr`/`RPCAddr` 重复字段，前端 Nodes/Jobs/RateLimits 页面消费 `rpcAddr`）；DB 列 `agent_sessions.rpc_addr`（`internal/model/agent_session_model.go`）；proto 字段 `RegisterRequest.rpc_addr`（删需 SDK 重新生成）；已提交的 `sdks/python/croupier/pb/**/*_pb2.py` 仍含 rpc_addr（见 Job→Task 收尾项的 generated 滞后）。
   - 删除门控：需同步 (1) ops 改用 TCP session `RemoteAddr` 取代 legacy rpc_addr 镜像；(2) Server 删 `RPCAddr` 响应字段 + 前端改读 `addr`；(3) DB migration 删列；(4) proto 删字段 + SDK 重生成。
   - 验证（主链路）：`rg "rpc_addr|RPCAddr" internal/platform/dispatch/ internal/logic/ops/agent_ops_client.go` 无路由用途引用。
 
@@ -144,9 +140,16 @@
 - [x] Agent TaskRunner 抽象已落地。
 - [x] 分库边界审计和 `dbctx` 契约测试已落地。
 - [x] `ServiceContext` 拆分已有 `ports.Permissions` 锚点。
+- [x] 补齐 JS/TS L3 Invoker（`sdks/js/src/invoker.ts`）。
+- [x] 删除 C++ SDK legacy wire name 残留（`protocol.h` 等）。
+- [x] SDK matrix warning 升级为失败条件（`check-sdk-matrix.sh` warning 即 exit 1）。
+- [x] Job→Task 命名：主链路 + SDK 手写层 + proto + 文档统一（generated 滞后收尾见 P0）。
+- [x] Python SDK 手写层清理废弃 `rpc_addr` 引用（CI 绿）。
 
 ## 最近验证
 
+- [x] 2026-07-11：`/usr/local/go/bin/go test ./...` 通过；所有 CI workflow `success`（CI - Core / Python / C# / C++ / Java / JavaScript SDK / CodeQL / Docker / Nightly / Release）。
+- [x] 2026-07-11：`scripts/check-sdk-matrix.sh` exit 0，无 warning（JS Invoker 已补、C++ legacy wire name 已清、warning 已升级为 exit 1）。
 - [x] 2026-07-10：`/usr/local/go/bin/go test ./...` 通过。
 - [x] 2026-07-10：`scripts/check-sdk-matrix.sh` 通过但仍有 warning：JS Invoker 缺失、C++ 3 个 legacy wire name 文件。
 
