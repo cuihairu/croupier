@@ -29,10 +29,10 @@ jobs:
       # Regenerate protobuf stubs from the root proto/ so the handwritten layer
       # (which references canonical Task/ProviderConnect names) resolves against
       # current schemas. The committed generated/ tree can lag behind proto/.
-      # sdks/python/buf.gen.yaml declares the proto input + sdks/python/generated
-      # output; run from the repo root where proto/ lives.
+      # Python plugins live in the root buf.gen.yaml alongside go/cpp; run
+      # `buf generate` from the repo root.
       - uses: bufbuild/buf-setup-action@v1
-      - run: buf generate sdks/python/buf.gen.yaml
+      - run: buf generate
       - run: pip install -e '.[dev]'
         working-directory: sdks/python
       - run: pytest --cov=. --cov-report=xml --cov-report=term
