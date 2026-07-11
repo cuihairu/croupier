@@ -194,6 +194,10 @@ jobs:
         timeout-minutes: 15
         run: |
           go build -o bin/croupier-server ./cmd/server
+          # Build the agent registration probe so happy-path.sh can exercise
+          # the Agent→Server TCP handshake (Register + Heartbeat). Without it,
+          # the agent TCP step is skipped (./bin/e2e-agent-probe absent).
+          go build -o bin/e2e-agent-probe ./examples/cmd/e2e-agent-probe
           # Fresh DB every run: a stale test-data/croupier.db with an older
           # schema makes AutoMigrate fail (sqlite cannot ALTER ADD a NOT NULL
           # column). Remove any leftover state before booting.

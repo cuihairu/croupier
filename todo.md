@@ -50,15 +50,15 @@
   - 位置：`.github/workflows/ci.yml`（e2e job）、`scripts/e2e/happy-path.sh`、`configs/test-sqlite.yaml`
   - 验证：本地 `happy-path.sh` 5/5 通过（healthz + auth + /games + /ops/agents + /tasks）；CI 在 PR 上自动执行、失败阻断合并。
 
-- [~] **新增 Server-Agent-SDK happy path E2E。**
-  - ✅ Server 启动 + 健康检查 + auth + REST surface 已在 `happy-path.sh` 覆盖。
-  - 🟡 Agent TCP 注册握手（首帧 Register、session 路由、dispatcher）脚本已预留 `./bin/e2e-agent-probe` 接入点；握手状态机本身已由 `internal/server` 单元测试覆盖（`TestAgentSessionHandler`：未注册 Heartbeat 拒绝、重复 Register 拒绝、跨 agent_id 拒绝）。Agent probe 二进制待后续补一个 examples/cmd 小程序发送 RegisterRequest 帧。
+- [x] **新增 Server-Agent-SDK happy path E2E。**
+  - ✅ Server 启动 + 健康检查 + auth + REST surface 在 `happy-path.sh` 覆盖。
+  - ✅ Agent TCP 注册握手（首帧 Register + Heartbeat）由 `examples/cmd/e2e-agent-probe` 落地：复用生产 `internal/transport/tcp.Client`（而非重写协议），发 RegisterRequest → 校验 RegisterResponse.SessionId → 发 HeartbeatRequest 验证握手后链路。CI e2e job 已加 `go build -o bin/e2e-agent-probe`，`happy-path.sh` 的 agent TCP 步骤从 skip 变 PASS。
+  - 验证：本地 `happy-path.sh` 6/6 PASS（含 agent TCP register handshake）；握手状态机单元测试 `TestAgentSessionHandler` 覆盖未注册 Heartbeat 拒绝 / 重复 Register 拒绝 / 跨 agent_id 拒绝。
 
 - [ ] **新增 Task lifecycle E2E。**
   - 覆盖路径：`startTask` → `streamTask` → `cancelTask` → 状态落库/事件返回。
   - 目标：防止 REST task、Dispatcher、Agent TaskRunner、SDK Invoker 之间出现协议漂移。
-  - 待补：依赖 Agent probe（无真实 agent 运行时，startTask 无法端到端完成）。
-  - 目标：防止 REST task、Dispatcher、Agent TaskRunner、SDK Invoker 之间出现协议漂移。
+  - 待补：注册握手 probe（`examples/cmd/e2e-agent-probe`）已具备；Task lifecycle 需把它扩展为 mock agent（注册 function descriptor + 响应 StartTask/Invoke），才能端到端跑通 startTask→streamTask→cancelTask。
 
 ## P1：API 测试覆盖补齐
 
@@ -70,6 +70,7 @@
   - 位置：`internal/common/response/response.go`、`internal/common/response/response_test.go`
   - 验证：`/usr/local/go/bin/go test ./internal/api/... ./internal/common/response/...`（零失败，零回归）。
   - 🟡 待后续：`functioncall.Service.Detail` 返回字段与 `List` 不一致（丢弃 FunctionID/GameID/Env/AgentID），非 contract 阻塞，单独修。
+  - 🟡 待后续：ops handlers 仍返回 envelope `{code,message}`（如 `GET /api/v1/ops/agents` → `{"code":0,"message":"Success"}` 无 payload），违反 CLAUDE.md「禁止 envelope」契约，需改走 `internal/common/response` 直返 payload。E2E happy-path 仅校验 HTTP 200 故未拦住。
 
 ## P1：文档重新收敛
 
@@ -145,6 +146,7 @@
 - [x] SDK matrix warning 升级为失败条件（`check-sdk-matrix.sh` warning 即 exit 1）。
 - [x] Job→Task 命名：主链路 + SDK 手写层 + proto + 文档统一（generated 滞后收尾见 P0）。
 - [x] Python SDK 手写层清理废弃 `rpc_addr` 引用（CI 绿）。
+- [x] 新增 `examples/cmd/e2e-agent-probe`：复用生产 `internal/transport/tcp.Client` 完成 Agent→Server 注册握手（Register+Heartbeat）；CI e2e job 接入后 happy-path 6/6 PASS。
 
 ## 最近验证
 
