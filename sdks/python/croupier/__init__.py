@@ -231,7 +231,6 @@ class CroupierClient:
         return provider_pb2.ProviderConnectRequest(
             service_id=self._config.service_id,
             version=self._config.service_version,
-            rpc_addr="",
             functions=[self.get_function_descriptor(fid) for fid in self._handlers.keys()],  # type: ignore[misc]
         )
 
