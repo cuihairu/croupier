@@ -1,4 +1,3 @@
-version: v2
 # Generate Python protobuf stubs from the root proto/ tree so the
 # handwritten layer (canonical Task/ProviderConnect names) resolves against
 # current schemas. Run from the repo root: `buf generate sdks/python/buf.gen.yaml`.
