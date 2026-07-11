@@ -52,6 +52,10 @@ func (h *Handler) UpdateMeta(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
 
 	resp, err := h.service.UpdateMeta(c.Request.Context(), &req)
 	if err != nil {

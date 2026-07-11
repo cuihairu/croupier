@@ -4,12 +4,12 @@
 
 ## 🎯 概述
 
-Croupier C++ SDK 是一个企业级的游戏后端虚拟对象注册系统，提供完整的 gRPC 通信框架和生产级功能。
+Croupier C++ SDK 是一个企业级的游戏后端虚拟对象注册系统，通过单条 TCP session（`sdk-agent subprotocol`）接入 Agent，提供完整的函数注册、心跳与错误恢复能力。
 
 ### ✨ 主要特性
 
 - **🎮 虚拟对象管理** - 四层架构设计 (Function → Entity → Resource → Component)
-- **🌐 gRPC 通信** - 完整的 Agent 注册、心跳和错误恢复机制
+- **🌐 TCP session 通信** - 通过 `sdk-agent subprotocol` 完成 Agent 注册、心跳和错误恢复
 - **🔒 安全认证** - 支持 TLS/mTLS、认证令牌和权限控制
 - **⚡ 高性能** - ID 引用模式，避免重复序列化
 - **🔄 自动重连** - 智能错误处理和连接恢复
@@ -23,8 +23,7 @@ Croupier C++ SDK 是一个企业级的游戏后端虚拟对象注册系统，提
 
 - **C++17** 或更高版本
 - **CMake 3.20+**
-- **vcpkg** (包管理器)
-- **gRPC** (通过 vcpkg 安装)
+- **vcpkg** (包管理器，用于安装 Protobuf / nlohmann-json)
 
 ### 2. 构建项目
 
@@ -217,7 +216,7 @@ config.headers["X-Client-ID"] = "backend-server-01";
 - ✅ **组件管理**
 - ✅ **配置验证**
 - ✅ **错误处理**
-- ✅ **gRPC 连接管理**
+- ✅ **TCP session 连接管理**
 - ✅ **关系定义**
 - ✅ **复杂业务场景**
 
@@ -244,7 +243,7 @@ config.headers["X-Client-ID"] = "backend-server-01";
 ```
 Game Server (C++ SDK)    ←→    Croupier Agent    ←→    Croupier Server
        ↓                              ↓                        ↓
-   本地 gRPC 服务              负载均衡/路由              权限验证/审计
+   TCP session (Provider)       负载均衡/路由              权限验证/审计
    函数处理器执行              会话管理                  多游戏隔离
    ID引用模式                 心跳监控                  RBAC/ABAC
 ```
@@ -313,7 +312,6 @@ FROM ubuntu:22.04
 
 # 安装运行时依赖
 RUN apt-get update && apt-get install -y \
-    libgrpc++1.54 \
     libprotobuf32 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -384,7 +382,7 @@ spec:
 
 ### 🐛 调试技巧
 
-1. **详细日志** - 启用详细的 gRPC 日志
+1. **详细日志** - 启用详细的 SDK 传输日志
 2. **健康检查** - 实现服务健康检查端点
 3. **指标监控** - 集成 Prometheus/Grafana 监控
 4. **分布式追踪** - 使用 OpenTelemetry 追踪请求

@@ -340,7 +340,7 @@ client.connect()
 ```
 croupier-sdk-java/
 ├── proto/                    # 子模块：官方 API/SDK proto
-├── generated/                # 已提交的 gRPC stubs
+├── generated/                # 已提交的 Protobuf stubs
 ├── src/
 │   ├── main/java/com/croupier/sdk/
 │   │   ├── CroupierSDK.java
@@ -363,7 +363,7 @@ croupier-sdk-java/
 # 仅运行单元测试
 ./gradlew --no-daemon test
 
-# 查看生成的 gRPC 代码
+# 查看生成的 Protobuf 代码
 ls build/generated/source/proto/main/java
 ```
 

@@ -1,7 +1,7 @@
 # Croupier Go SDK Makefile
 # Uses unified proto files from project root
 
-.PHONY: help build build-with-grpc clean test proto check-deps install-deps example
+.PHONY: help build clean test proto check-deps install-deps example
 
 # Default target
 help:

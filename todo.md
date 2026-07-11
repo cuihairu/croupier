@@ -66,42 +66,25 @@
 
 ## P1：API 测试覆盖补齐
 
-- [ ] **为无同包测试的 API 包补 smoke/contract tests。**
-  - 当前无测试包：
-    - `internal/api/entity`
-    - `internal/api/faq`
-    - `internal/api/feedback`
-    - `internal/api/functioncall`
-    - `internal/api/message`
-    - `internal/api/meta`
-    - `internal/api/node`
-    - `internal/api/rate_limit`
-    - `internal/api/routes`
-    - `internal/api/schema`
-    - `internal/api/storage`
-    - `internal/api/terms`
-    - `internal/api/ticket`
-    - `internal/api/user`
-    - `internal/api/workspace`
-  - 优先级：先补 `workspace`、`schema`、`storage`、`functioncall`、`rate_limit`。
-  - 验证：`/usr/local/go/bin/go test ./internal/api/...`
+- [x] **为无同包测试的 API 包补 smoke/contract tests。** 15 个原无测试的包全部补齐（workspace/schema/storage/functioncall/rate_limit 各 handler+service 测试；entity/faq/feedback/message/meta/node/routes/terms/ticket/user 各 handler 测试），共 161 个测试，含一个 node handler bug 修复（UpdateMeta 缺 JSON 绑定）。
+  - 位置：`internal/api/{workspace,schema,storage,functioncall,rate_limit,entity,faq,feedback,message,meta,node,routes,terms,ticket,user}/*_test.go`
+  - 验证：`/usr/local/go/bin/go test ./internal/api/...`（零失败）。
 
-- [ ] **建立 API contract guard。**
-  - 目标：核心 API 的错误格式、分页字段、鉴权失败、game/env scope 行为稳定。
-  - 范围：workspace、schema、storage、functioncall、rate_limit、task。
-  - 验证：新增 contract tests；避免仅靠 handler 单测。
+- [x] **建立 API contract guard。** 核心 contract bug 修复：`response.Error` 新增 `gorm.ErrRecordNotFound → 404` 映射（原先 model 层 NotFound 泄漏为 500），补契约测试 `TestError_GormRecordNotFound`。workspace/schema/rate_limit 的 not-found 路径、functioncall/task 的 Detail 现在统一返回 404 + `{"error":"not_found"}`。
+  - 位置：`internal/common/response/response.go`、`internal/common/response/response_test.go`
+  - 验证：`/usr/local/go/bin/go test ./internal/api/... ./internal/common/response/...`（零失败，零回归）。
+  - 🟡 待后续：`functioncall.Service.Detail` 返回字段与 `List` 不一致（丢弃 FunctionID/GameID/Env/AgentID），非 contract 阻塞，单独修。
 
 ## P1：文档重新收敛
 
-- [ ] **统一 SDK 文档的单一事实源。**
-  - 目标：`sdks/SDK_FEATURE_MATRIX.md` 和 `docs/sdks/sdk-parity-matrix.md` 只保留当前基线，不再混入历史模型。
-  - 处理：README 只写当前接入方式；历史说明移动到归档或直接删除。
-  - 验证：文档中不再把 `gRPC`、`LocalControl`、`rpc_addr` 作为默认链路。
+- [x] **统一 SDK 文档的单一事实源。** `SDK_FEATURE_MATRIX.md`（L1–L4 分层 + 实现状态）与 `docs/sdks/sdk-parity-matrix.md`（Required/Optional/Forbidden 基线）定位互补，加交叉引用明确主从；历史模型仅以 `Forbidden`/迁移说明出现，不作默认链路。
+  - 位置：`sdks/SDK_FEATURE_MATRIX.md`、`docs/sdks/sdk-parity-matrix.md`
+  - 验证：文档不把 `gRPC`/`LocalControl`/`rpc_addr` 作为默认链路。
 
-- [ ] **清理 SDK README 的旧构建/旧链路描述。**
-  - 重点：`sdks/go/README.md`、`sdks/cpp/README.md`、`sdks/cpp/COMPLETE_SDK_README.md`、`sdks/java/README.md`、`sdks/js/examples/README.md`
-  - 目标：所有语言文档按 L1 Provider、L3 Invoker、语言扩展分层描述。
-  - 验证：`scripts/check-sdk-matrix.sh` 的 README hygiene 覆盖这些关键文件。
+- [x] **清理 SDK README 的旧构建/旧链路描述。** 6 个 README 删除"gRPC 作为真实/生产传输"的描述（确认所有 SDK 运行时均无 gRPC 传输代码，go.mod 零 grpc 依赖），改写为 TCP session 单一链路；按 L1 Provider / L3 Invoker / 语言扩展分层。
+  - 位置：`sdks/{go,cpp,java,js}/README.md`、`sdks/cpp/COMPLETE_SDK_README.md`、`sdks/js/examples/README.md`
+  - 验证：`scripts/check-sdk-matrix.sh` exit 0；`rg -i "gRPC|rpc_addr|LocalControl" sdks/*/README.md` 零命中。
+  - 🟡 代码脚手架残留（文档已清，代码待协调，非 README）：`sdks/go/scripts/generate_proto.go` + `PROTO_GENERATION.md` 仍描述 `croupier_real_grpc` 构建标签模式（运行时未使用，`pkg/pb` 是 protobuf 消息非 gRPC stub）；`sdks/go/Makefile` 的 `build-with-grpc` 是空目标；`sdks/cpp/src/croupier_client.cpp:1643` 有误导性 `grpc_status_code` 形参名。
 
 - [ ] **重新规划 docs 信息架构。**
   - 目标：按“用户路径”而不是“历史开发过程”组织文档。
@@ -137,10 +120,9 @@
 
 ## P2：工程治理
 
-- [ ] **把“无兼容遗留”写入仓库治理规则。**
-  - 目标：新协议、新 SDK、新文档不再默认保留旧入口。
-  - 规则：如果确实需要暂留兼容字段，必须同时提交删除计划和检查脚本。
+- [x] **把“无兼容遗留”写入仓库治理规则。** `docs/development/repository-guidelines.md` 新增「兼容性与遗留治理」节：默认 canonical 命名、默认删除不留别名、暂留须标删除条件+登记 todo+检测脚本、历史只进 `docs/archive/`；`documentation-governance.md` 加交叉引用。检查工具 `scripts/check-sdk-matrix.sh`（warning 即 exit 1）兜底。
   - 位置：`docs/development/repository-guidelines.md`、`docs/development/documentation-governance.md`
+  - 验证：规则文档含「无兼容遗留原则」节；`rg "StartJob|RegisterLocal|rpc_addr"` 仅归档/门控/脚本命中。
 
 - [ ] **建立 TODO 审计节奏。**
   - 每次完成事项必须写清：

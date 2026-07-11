@@ -9,6 +9,7 @@ import (
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"gorm.io/gorm"
 )
 
 func Success(c *gin.Context, data interface{}) {
@@ -55,6 +56,15 @@ func Error(c *gin.Context, err error) {
 	if errors.As(err, &codeErr) {
 		code, payload := codeErr.Data()
 		c.JSON(code, payload)
+		return
+	}
+	// GORM record-not-found maps to 404 so model-layer First()/RecordNotFound()
+	// errors surface correctly instead of leaking as 500 internal_error.
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error":   "not_found",
+			"message": "资源不存在",
+		})
 		return
 	}
 	c.JSON(http.StatusInternalServerError, gin.H{

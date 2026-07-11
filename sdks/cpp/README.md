@@ -59,7 +59,7 @@ Croupier C++ SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 | 项目 | 描述 | 链接 |
 |------|------|------|
 | **Croupier** | 游戏后端平台主项目 | [cuihairu/croupier](https://github.com/cuihairu/croupier) |
-| **Croupier Proto** | 协议定义（Protobuf/gRPC） | [proto/](https://github.com/cuihairu/croupier/tree/main/proto) |
+| **Croupier Proto** | Protobuf 协议定义 | [proto/](https://github.com/cuihairu/croupier/tree/main/proto) |
 
 ## 其他语言 SDK
 
@@ -125,11 +125,10 @@ Croupier C++ SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 
 ### 依赖库（自动安装）
 
-- gRPC 1.71.x (通过 vcpkg)
 - **Protobuf 4.25.x** (通过 vcpkg) - **版本固定以确保 ABI 兼容性**
 - nlohmann/json 3.12.x (通过 vcpkg)
 
-> **⚠️ 重要提示**：Protobuf 版本已固定为 **4.25.x** 系列以确保与 gRPC 1.71.x 的兼容性。请勿擅自升级到 5.x 版本，否则可能导致 ABI 不兼容问题。
+> **⚠️ 重要提示**：Protobuf 版本已固定为 **4.25.x** 系列，确保生成的消息代码与运行时 ABI 一致。请勿擅自升级到 5.x 版本，否则可能导致 ABI 不兼容问题。
 >
 > 📖 **详细版本管理策略**：查看 [`proto/README.md`](proto/README.md) 了解完整的版本固定策略和升级流程。版本在三个层面保持一致：
 > - `vcpkg.json` - C++ 编译库版本
@@ -190,7 +189,7 @@ cmake --build build --parallel
 ### VS Code (CMake Tools) 使用 vcpkg（固定 Protobuf 4.25.x）
 
 `CMake Tools` 本身不会"自动使用 vcpkg"，它只会按你当前的 CMake 配置去 `find_package()`。
-如果你本机装过 Homebrew 的 `protobuf/grpc`，而 CMake 没用 vcpkg toolchain，就会误用系统 protobuf，进而报：
+如果你本机装过 Homebrew 的 `protobuf`，而 CMake 没用 vcpkg toolchain，就会误用系统 protobuf，进而报：
 `Protobuf C++ gencode is built with an incompatible version of Protobuf C++ headers/runtime`。
 
 本仓库提供了 `croupier-sdk-cpp/CMakePresets.json`（默认走 vcpkg）：

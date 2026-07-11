@@ -5,6 +5,12 @@
 
 参考协议基线：[`docs/architecture/sdk-wire-protocol.md`](../docs/architecture/sdk-wire-protocol.md)。
 
+> **与对齐矩阵的关系**：本表定义 L1–L4 分层与各 SDK 的实现状态（"做了什么"）；
+> [`docs/sdks/sdk-parity-matrix.md`](../docs/sdks/sdk-parity-matrix.md) 定义跨语言统一基线
+> （Required / Optional / Forbidden，"该做什么、禁止做什么"）。两者互补，本表为实现状态主表。
+> 历史模型（local server / LocalControl / gRPC callback / rpc_addr）不作默认链路，仅在
+> `Forbidden` / 迁移说明中出现，见 [`docs/development/documentation-governance.md`](../docs/development/documentation-governance.md)。
+
 ---
 
 ## 一、能力分层原则

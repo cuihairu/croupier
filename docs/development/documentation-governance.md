@@ -73,3 +73,7 @@ title: 文档治理
 - 将 SDK 源目录文档改写为跳转页或归档页
 
 批量迁移前必须先列出影响范围、目标路径和回滚方式。
+
+## 与仓库规范的关系
+
+本文档约束**文档术语**。代码、协议、SDK 的兼容性治理（无兼容遗留原则、暂留门控、检查脚本）见 [`repository-guidelines.md` § 兼容性与遗留治理](./repository-guidelines.md)。两者配合：文档不写旧链路，代码不留旧入口，`scripts/check-sdk-matrix.sh` 兜底检测。

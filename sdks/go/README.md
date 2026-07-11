@@ -64,7 +64,7 @@ Croupier Go SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 | 项目 | 描述 | 链接 |
 |------|------|------|
 | **Croupier** | 游戏后端平台主项目（包含所有 SDK） | [cuihairu/croupier](https://github.com/cuihairu/croupier) |
-| **Proto 文件** | 协议定义（Protobuf/gRPC） | [proto/](https://github.com/cuihairu/croupier/tree/main/proto) |
+| **Proto 文件** | Protobuf 协议定义 | [proto/](https://github.com/cuihairu/croupier/tree/main/proto) |
 
 ## 其他语言 SDK
 
@@ -114,12 +114,9 @@ Croupier Go SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 ### 系统要求
 
 - **Go 1.26.5+**
-- **Protocol Buffers 编译器** (protoc)
-- **Go protoc 插件**:
-  ```bash
-  go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-  ```
+
+> 运行时只需 Go：SDK 通过单条 TCP session（`sdk-agent subprotocol`）接入 Agent，不依赖任何 RPC 框架。
+> 仅在修改主仓库 `proto/` 后重新生成 Protobuf 消息类型时才需要 protoc 工具链（见下文「Protobuf 代码生成」）。
 
 ### 安装
 
@@ -127,25 +124,23 @@ Croupier Go SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 go get github.com/cuihairu/croupier/sdks/go
 ```
 
-### Build Options
+### 构建
 
-The SDK supports two build modes:
-
-**1. Mock Mode (Default - No Dependencies)**
 ```bash
 go build ./...
 ```
 
-**2. Real gRPC Mode (Requires Proto Generation)**
-```bash
-# Generate gRPC code first
-./generate_proto.sh
+SDK 始终通过单条 TCP session 与 Agent 通信：`ProviderConnectRequest` 握手 → 周期性 `ProviderHeartbeatRequest` → 接收 `InvokeRequest` 并回填 `InvokeResponse`。Protobuf 仅作为 TCP 帧的消息编解码格式，不是独立的传输层；SDK 不存在「mock / 真实传输」两种模式。
 
-# Or use Makefile
-make build-with-grpc
+### Protobuf 代码生成（可选）
+
+仅当主仓库 `proto/croupier/sdk/v1` 发生变更、需要刷新消息类型时执行：
+
+```bash
+make proto   # 从主仓库 proto/ 生成 Protobuf Go 代码到 pkg/pb/
 ```
 
-For detailed proto generation instructions, see [PROTO_GENERATION.md](PROTO_GENERATION.md).
+详细步骤见 [PROTO_GENERATION.md](PROTO_GENERATION.md)。
 
 ### 基础使用
 
@@ -223,7 +218,6 @@ go run ./examples/game_demo
 CROUPIER_AGENT_ADDR=127.0.0.1:19091
 CROUPIER_GAME_ID=demo-game
 CROUPIER_SERVICE_ID=game-demo-service
-CROUPIER_LOCAL_LISTEN=127.0.0.1:19103
 CROUPIER_ENV=development
 ```
 
@@ -275,27 +269,18 @@ SDK 是 `sdk-agent subprotocol` 上的 Provider 端：
 3. 接收 `InvokeRequest`，调用 handler 后回填 `InvokeResponse`
 4. 收到 `ProviderDrainRequest` 时停止接收新请求、完成在途、回 `ProviderDrainResponse`
 
-### 构建模式
+### 构建与运行
 
-**本地开发（Mock gRPC）：**
+SDK 始终使用 TCP session（`sdk-agent subprotocol`）作为唯一链路，本地、CI 与生产共用同一套传输实现，不存在「mock / 真实传输」分支。
+
 ```bash
+# 本地开发 / CI / 生产
 go build ./...
 go run examples/basic/main.go
 go run examples/game_demo/main.go
 ```
 
-**CI/生产（真实 gRPC）：**
-```bash
-export CROUPIER_CI_BUILD=ON
-go run scripts/generate_proto.go
-go build -tags croupier_real_grpc ./...
-```
-
-CI 系统自动：
-1. 从主仓库下载 proto 文件
-2. 使用 protoc 生成 gRPC Go 代码
-3. 使用真实 gRPC 实现构建
-4. 运行测试和示例
+CI 流水线会在构建前运行 `make proto`，从主仓库 `proto/` 重新生成 Protobuf 消息类型，再执行上面的构建与测试。
 
 ## API 参考
 
@@ -347,17 +332,14 @@ sdks/go/
 ### 构建命令
 
 ```bash
-# 本地开发（mock）
+# 构建（TCP session 传输，本地与 CI 一致）
 make build
-
-# CI 构建（真实 gRPC）
-make ci-build
 
 # 运行测试
 make test
 
-# 手动生成 proto 代码
-go run scripts/generate_proto.go
+# 重新生成 Protobuf 消息类型（仅 proto 变更时需要）
+make proto
 ```
 
 ## 贡献指南
@@ -365,7 +347,7 @@ go run scripts/generate_proto.go
 1. 确保所有类型与 proto 定义对齐
 2. 为新功能添加测试
 3. 更新 API 变更的文档
-4. 测试本地和 CI 两种构建模式
+4. 在本地和 CI 中验证构建与测试
 
 ## 许可证
 

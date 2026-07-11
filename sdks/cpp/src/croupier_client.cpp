@@ -1640,9 +1640,9 @@ public:
     }
 
     // Check if error is retryable based on status code
-    bool IsRetryableError(int grpc_status_code) const {
+    bool IsRetryableError(int status_code) const {
         for (int code : retry_config_.retryable_status_codes) {
-            if (code == grpc_status_code) {
+            if (code == status_code) {
                 return true;
             }
         }

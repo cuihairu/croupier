@@ -232,8 +232,7 @@ SDK 是 `sdk-agent subprotocol` 上的 Provider 端：
 
 ```
 croupier-sdk-js/
-├── src/                # SDK 源码（TypeScript）
-├── generated/          # Protobuf/gRPC 绑定（connect-es）
+├── src/                # SDK 源码（TypeScript；Protobuf 消息经 protobufjs 内联定义）
 ├── examples/           # 端到端示例
 ├── dist/               # tsc 输出
 └── package.json

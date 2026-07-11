@@ -283,7 +283,7 @@ const walletTransferHandler: FunctionHandler = async (
 ## 📚 相关文档
 
 - [Croupier 主文档](https://docs.croupier.io)
-- [gRPC API 参考](https://docs.croupier.io/api/grpc)
+- [SDK 功能矩阵](../../SDK_FEATURE_MATRIX.md)
 - [Node.js 最佳实践](https://nodejs.org/en/docs/guides/)
 - [TypeScript 手册](https://www.typescriptlang.org/docs/)
 

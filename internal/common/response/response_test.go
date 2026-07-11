@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/assert"
+	"gorm.io/gorm"
 )
 
 func TestSuccess(t *testing.T) {
@@ -271,6 +272,24 @@ func TestError_CodeError(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+// TestError_GormRecordNotFound locks the contract that a model-layer
+// gorm.ErrRecordNotFound surfaces as 404 (not 500). Handlers that delegate
+// First()/RecordNotFound() errors to Error rely on this mapping.
+func TestError_GormRecordNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.GET("/test", func(c *gin.Context) {
+		Error(c, gorm.ErrRecordNotFound)
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/test", nil)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Contains(t, w.Body.String(), "not_found")
 }
 
 func TestError_GenericError(t *testing.T) {

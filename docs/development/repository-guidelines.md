@@ -55,3 +55,29 @@ title: 仓库规范
   - `sdk-java-v*`
   - `sdk-cpp-v*`
 - Do not use plain `v*` tags for SDK-only releases, otherwise you will target the server/agent release lane.
+
+## 兼容性与遗留治理（无兼容遗留原则）
+
+本阶段不以向后兼容为约束。新协议、新 SDK、新文档**不默认保留旧入口**。
+
+### 硬性规则
+
+1. **新代码使用 canonical 命名**：协议字段、SDK API、文档术语统一使用当前基线命名（例如 `Task` 而非 `Job`、`ProviderConnect` 而非 `RegisterLocal`、TCP session 而非 `rpc_addr` 回拨）。
+2. **默认删除，不默认保留**：重命名或迁移时直接删除旧入口，不留 `@Deprecated` 别名。旧的生成代码、旧文档、旧示例一并清理或归档。
+3. **暂留必须有门控**：若确实需要暂留兼容字段（例如 DB 列删除需 migration、proto 字段删除需 SDK 重生成），必须同时满足：
+   - 在代码处标注**删除条件**（什么事件触发后可删）和**负责人/期限**。
+   - 在 `todo.md` 登记为独立待办，附受影响路径。
+   - 提供检测脚本（如 `scripts/check-sdk-matrix.sh`）能在彻底删除前持续可见。
+4. **历史归档只进 `docs/archive/`**：迁移说明、旧设计文档移入 `docs/archive/`，不留在主路径文档里作为"当前链路"描述。
+
+### 检查工具
+
+- `scripts/check-sdk-matrix.sh`：SDK 缺能力、旧 wire name、旧 README 术语均视为**失败**（exit 1），CI 阻断。allowlist 仅限协议别名模块，且这些模块本身也须为 canonical 命名。
+- `rg "StartJob|RegisterLocal|HeartbeatLocal|rpc_addr|LocalControl"` 只允许出现在 `docs/archive/`、`todo.md` 的门控说明、或生成代码重生成脚本中。
+
+### 违反示例
+
+- ❌ 新增 `startJob` 作为 `startTask` 的别名"方便迁移"。
+- ❌ 在 README 中把 `rpc_addr` / gRPC 回拨描述为当前链路。
+- ❌ 删除旧字段时不写删除条件、不登记 todo。
+- ✅ 直接把 `startJob` 改名为 `startTask`，更新所有调用点和测试。
