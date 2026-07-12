@@ -81,15 +81,9 @@
   - 验证：`scripts/check-sdk-matrix.sh` exit 0；`rg -i "gRPC|rpc_addr|LocalControl" sdks/*/README.md` 零命中。
   - 🟡 代码脚手架残留（文档已清，代码待协调，非 README）：`sdks/go/scripts/generate_proto.go` + `PROTO_GENERATION.md` 仍描述 `croupier_real_grpc` 构建标签模式（运行时未使用，`pkg/pb` 是 protobuf 消息非 gRPC stub）；`sdks/go/Makefile` 的 `build-with-grpc` 是空目标；`sdks/cpp/src/croupier_client.cpp:1643` 有误导性 `grpc_status_code` 形参名。
 
-- [ ] **重新规划 docs 信息架构。**
-  - 目标：按“用户路径”而不是“历史开发过程”组织文档。
-  - 建议结构：
-    - 快速开始：Server + Agent + 一个 SDK 的最小闭环。
-    - SDK：Provider / Invoker / 配置 / 错误处理 / 示例。
-    - API：REST contract、鉴权、game/env scope。
-    - 运维：部署、E2E、监控、备份。
-    - 开发：架构、代码规范、扩展策略、发布规则。
-  - 验证：`docs` 构建通过；首页不再链接过时迁移文档作为主路径。
+- [x] **重新规划 docs 信息架构。** 首页（`docs/index.md`）按用户路径重组：hero actions 去掉「文档治理」主入口，改为「快速开始 / SDK 指南 / API 参考」；「文档导航」表格改为五大路径（快速开始 / SDK / API / 运维 / 开发），历史迁移文档标为架构侧栏折叠项（不作接入主路径）。现有 sidebar 结构已按用户路径组织（guide/api/sdks/development/analytics），无需大改。
+  - 验证：本地 `pnpm build`（vitepress）通过（20s，无错）；首页不再以迁移文档为主路径。
+  - 🟡 待后续：`guide/quick-start` 可补「Server + Agent + 一个 SDK 的最小闭环」端到端示例（当前聚焦 Server+Agent 启动）。
 
 ## P1：重构候选，先讨论边界再动代码
 

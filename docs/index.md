@@ -8,11 +8,11 @@ actions:
   - text: 快速开始 →
     link: /guide/quick-start
     type: primary
-  - text: 架构概述
-    link: /architecture/
+  - text: SDK 指南
+    link: /sdks/
     type: secondary
-  - text: 文档治理
-    link: /development/documentation-governance
+  - text: API 参考
+    link: /api/
     type: secondary
 features:
   - title: 控制面与 Agent 协同
@@ -139,14 +139,17 @@ curl http://localhost:18780/api/v1/
 
 ## 文档导航
 
-| 文档 | 说明 |
-|------|------|
-| [指南](/guide/) | 快速开始、安装配置、核心概念、运维指南 |
-| [架构](/architecture/) | 当前规范、决策边界、提案与参考资料 |
-| [API 参考](/api/) | REST API 接口文档 |
-| [数据分析](/analytics/) | ingest、worker、ClickHouse、指标与 Playbook |
-| [开发](/development/) | 仓库结构、开发约定、发布流程 |
-| [SDK](/sdks/) | 多语言 SDK 文档与能力矩阵 |
+按使用路径组织：
+
+| 路径 | 入口 | 说明 |
+|------|------|------|
+| **快速开始** | [指南](/guide/) · [快速开始](/guide/quick-start) | 安装、配置、Server + Agent 启动、最小闭环 |
+| **SDK** | [SDK 概览](/sdks/) | Provider / Invoker / 配置 / 能力矩阵，6 种语言 |
+| **API** | [API 参考](/api/) | REST 契约、鉴权、game/env scope、各资源 API |
+| **运维** | [监控](/guide/operations/monitoring) · [数据分析](/analytics/) | 部署、监控、备份、分析、故障排除 |
+| **开发** | [开发](/development/) · [架构](/architecture/) | 架构、代码规范、扩展策略、发布规则 |
+
+历史设计与迁移文档归入 [架构 - 提案与迁移](/architecture/)（侧栏已折叠），不作为接入主路径。
 
 ## 技术栈
 
