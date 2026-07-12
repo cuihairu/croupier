@@ -28,7 +28,7 @@ echo "Starting Redis + ClickHouse..."
 docker compose -f "$COMPOSE_FILE" up -d redis clickhouse 2>&1 || { fail "docker-compose up"; exit 1; }
 
 # Wait for ClickHouse
-for i in $(seq 1 120); do
+for i in $(seq 1 180); do
   docker exec croupier-clickhouse clickhouse-client --query "SELECT 1" >/dev/null 2>&1 && break
   sleep 1
 done
