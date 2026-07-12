@@ -133,11 +133,20 @@ docker exec croupier-redis redis-cli XADD analytics:payments '*' \
 
 ok "events + payment written"
 
-# --- 6. Wait for worker to consume ---
-echo "Waiting for worker to consume events..."
-sleep 5
+# --- 6. Wait briefly for worker to read events into its batch ---
+sleep 1
 
-# --- 7. Verify in ClickHouse ---
+# --- 7. Kill worker (SIGTERM triggers defer flushBatches, writing to ClickHouse) ---
+echo "Stopping worker to flush event batches..."
+kill $WORKER_PID 2>/dev/null
+# Wait for worker to flush and exit (defer flushBatches runs on SIGTERM).
+for i in $(seq 1 15); do
+  kill -0 $WORKER_PID 2>/dev/null || break
+  sleep 0.5
+done
+sleep 1
+
+# --- 8. Verify in ClickHouse ---
 echo "Verifying in ClickHouse..."
 
 EVENTS_COUNT=$(docker exec croupier-clickhouse clickhouse-client --query \
