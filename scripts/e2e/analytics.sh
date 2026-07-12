@@ -164,6 +164,10 @@ if [ "$EVENTS_COUNT" -ge 2 ]; then
   ok "events in ClickHouse (count=$EVENTS_COUNT)"
 else
   fail "events NOT in ClickHouse (count=$EVENTS_COUNT, expected >= 2)"
+  echo "--- worker log (last 20 lines) ---"
+  tail -20 /tmp/e2e-analytics-worker.log 2>/dev/null || echo "(no worker log)"
+  echo "--- Redis stream analytics:events (XLEN) ---"
+  docker exec croupier-redis redis-cli XLEN analytics:events 2>/dev/null || echo "(redis query failed)"
 fi
 
 PAYMENTS_COUNT=$(docker exec croupier-clickhouse clickhouse-client --query \
