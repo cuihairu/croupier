@@ -1,4 +1,4 @@
-name: Build and Push Go SDK Example Docker Images
+name: Build and Push Go SDK Example Image
 
 on:
   push:
@@ -7,35 +7,12 @@ on:
       - ".github/workflows/docker-go-sdk-examples.yml"
       - "sdks/go/**"
       - "proto/**"
-  pull_request:
-    branches: [main]
-    paths:
-      - ".github/workflows/docker-go-sdk-examples.yml"
-      - "sdks/go/**"
-      - "proto/**"
   workflow_dispatch:
-    inputs:
-      example:
-        description: 'Example to build (basic, comprehensive, game_demo, http_invoker_example, or all)'
-        required: false
-        type: choice
-        options:
-        - all
-        - basic
-        - comprehensive
-        - game_demo
-        - http_invoker_example
-        default: all
-      push:
-        description: 'Push to registry'
-        required: false
-        type: boolean
-        default: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   REGISTRY: ghcr.io
-  IMAGE_NAME: ghcr.io/cuihairu/croupier-go-sdk-example
+  IMAGE_NAME: ghcr.io/cuihairu/croupier-sdk-go-example-demo
 
 permissions:
   contents: read
@@ -43,49 +20,19 @@ permissions:
 
 jobs:
   build-and-push:
-    name: Build ${{ matrix.example }}
+    name: Build game demo image
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - example: basic
-            dir: examples/basic
-          - example: comprehensive
-            dir: examples/comprehensive
-          - example: game_demo
-            dir: examples/game_demo
-          - example: http_invoker_example
-            dir: examples/http_invoker_example
-
     steps:
-      - name: Determine if this example should build
-        id: filter
-        run: |
-          INPUT="${{ inputs.example }}"
-          if [ "$INPUT" = "" ] || [ "$INPUT" = "all" ]; then
-            echo "should_build=true" >> "$GITHUB_OUTPUT"
-          else
-            if [ "$INPUT" = "${{ matrix.example }}" ]; then
-              echo "should_build=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "should_build=false" >> "$GITHUB_OUTPUT"
-            fi
-          fi
-
       - name: Checkout repository
-        if: steps.filter.outputs.should_build == 'true'
         timeout-minutes: 3
         uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
-        if: steps.filter.outputs.should_build == 'true'
         timeout-minutes: 5
         uses: docker/setup-buildx-action@v4
 
       - name: Log in to Container Registry
-        if: steps.filter.outputs.should_build == 'true' && (github.event_name != 'pull_request' || inputs.push == 'true')
         timeout-minutes: 3
         uses: docker/login-action@v4
         with:
@@ -94,27 +41,25 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata
-        if: steps.filter.outputs.should_build == 'true'
         id: meta
         timeout-minutes: 3
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.IMAGE_NAME }}-${{ matrix.example }}
+          images: ${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
-        if: steps.filter.outputs.should_build == 'true'
         timeout-minutes: 20
         uses: docker/build-push-action@v6
         with:
           context: sdks/go
           file: sdks/go/examples/Dockerfile
           build-args: |
-            EXAMPLE_DIR=${{ matrix.dir }}
-          push: ${{ github.event_name != 'pull_request' || inputs.push == 'true' }}
+            EXAMPLE_DIR=examples/demo
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha

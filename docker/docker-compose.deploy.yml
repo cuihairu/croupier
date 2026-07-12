@@ -115,9 +115,9 @@ services:
     networks:
       - croupier-network
 
-  sdk-example-game-demo:
-    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-sdk-go-example-game-demo:${CROUPIER_SDK_EXAMPLE_TAG:-main}
-    container_name: croupier-sdk-example-game-demo
+  sdk-example-demo:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-sdk-go-example-demo:${CROUPIER_SDK_EXAMPLE_TAG:-main}
+    container_name: croupier-sdk-example-demo
     restart: unless-stopped
     profiles: ["sdk-examples"]
     environment:

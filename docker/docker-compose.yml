@@ -143,15 +143,15 @@ services:
   # ================================
 
   # Go SDK - 游戏演示（完整模拟游戏场景：玩家、订单、排行榜、道具、邮件）
-  sdk-example-game-demo:
+  sdk-example-demo:
     build:
       context: ..
       dockerfile: sdks/go/examples/Dockerfile
       args:
         GO_IMAGE: ${GO_IMAGE:-golang:1.26}
         RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/base-debian12:nonroot}
-        EXAMPLE_DIR: game_demo
-    container_name: croupier-sdk-game-demo
+        EXAMPLE_DIR: demo
+    container_name: croupier-sdk-demo
     restart: unless-stopped
     environment:
       CROUPIER_AGENT_ADDR: agent:19091
