@@ -118,7 +118,7 @@
     - ingest 层（HMAC 鉴权）未走通——当前 E2E 绕过。
     - `cmd/analytics-export` 导出链路 + analytics API 查询层（ClickHouse→HTTP）未验证。
     - Flink 仅文档/compose 提及，E2E 未涉及。
-    - 根因定位（2026-07-12，CI 连续 15 次 failure）：**非时序问题**——E2E 写入的 event 数据缺 `event_id`（events 表 UUID 列），worker 透传空值触发 ClickHouse `invalid UUID length: 0`，消息全部重试→死信；`payments` 因无 UUID 列而通过，造成「链路看似通、events=0」的假象。同源问题：E2E 用 `props_json` 字段名但 worker 读 `props`，导致 props 落库 `null`。已修 `analytics.sh`：补 `event_id`(uuid4)+`country`+改正 `props` 字段名；顺带修诊断分支 XREADGROUP 的 COUNT 参数位置。本地数据形状验证通过，待 CI 下次端到端验证。
+    - 根因定位（2026-07-12，CI 连续 15 次 failure）：**非时序问题**——E2E 写入的 event 数据缺 `event_id`（events 表 UUID 列），worker 透传空值触发 ClickHouse `invalid UUID length: 0`，消息全部重试→死信；`payments` 因无 UUID 列而通过，造成「链路看似通、events=0」的假象。同源问题：E2E 用 `props_json` 字段名但 worker 读 `props`，导致 props 落库 `null`。已修 `analytics.sh`：补 `event_id`(uuid4)+`country`+改正 `props` 字段名；顺带修诊断分支 XREADGROUP 的 COUNT 参数位置。CI 已验证通过（run 29199144520，10/10 PASS：events count=2、event types login,purchase、payments count=1 全绿）。
   - 位置：`scripts/e2e/analytics.sh`、`.github/workflows/ci-analytics.yml`、`docker/docker-compose.yml`、`cmd/analytics-worker`、`internal/analytics/mq`
   - 验证：`bash scripts/e2e/analytics.sh`（本地需 docker）；CI `CI - Analytics E2E` workflow（本地未实跑，CI 稳定性待 main 观察）。
 
@@ -156,7 +156,7 @@
 
 ## 最近验证
 
-- [~] 2026-07-12：Analytics E2E 落地 + 接入 CI，但 main 上连续 15 次 failure；定位真根因（E2E 缺 `event_id` UUID → ClickHouse 拒绝 → 死信，非时序问题）并修复 `analytics.sh`。`go build ./...` 通过、`scripts/check-sdk-matrix.sh` exit 0。待 push 后 CI 验证。
+- [x] 2026-07-12：Analytics E2E 修复推送后 CI 验证通过（run 29199144520，10/10 PASS：events count=2、event types login,purchase、payments count=1 全绿）。此前 main 连续 15 次 failure 的根因是 E2E 缺 `event_id` UUID（非时序问题）。`go build ./...` 通过、`scripts/check-sdk-matrix.sh` exit 0。
 - [x] 2026-07-11：`/usr/local/go/bin/go test ./...` 通过；所有 CI workflow `success`（CI - Core / Python / C# / C++ / Java / JavaScript SDK / CodeQL / Docker / Nightly / Release）。
 - [x] 2026-07-11：`scripts/check-sdk-matrix.sh` exit 0，无 warning（JS Invoker 已补、C++ legacy wire name 已清、warning 已升级为 exit 1）。
 - [x] 2026-07-10：`/usr/local/go/bin/go test ./...` 通过。
