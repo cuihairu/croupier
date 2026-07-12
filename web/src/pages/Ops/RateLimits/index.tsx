@@ -380,7 +380,7 @@ export default function OpsRateLimitsPage() {
                       a.env || '',
                       a.region || '',
                       a.zone || '',
-                      a.rpcAddr || '',
+                      a.addr || '',
                       a.qps || '',
                       (a.qps1m || 0).toFixed(2),
                     ]);
@@ -390,7 +390,7 @@ export default function OpsRateLimitsPage() {
                       'env',
                       'region',
                       'zone',
-                      'rpcAddr',
+                      'addr',
                       'qpsLimit',
                       'qps1m',
                     ]);

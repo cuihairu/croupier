@@ -6,7 +6,7 @@ export type OpsAgent = {
   agentId: string;
   gameId: string;
   env: string;
-  rpcAddr: string;
+  addr: string;
   ip?: string;
   type?: string;
   version?: string;
@@ -46,7 +46,7 @@ export type RateLimitPreviewAgent = {
   env?: string;
   region?: string;
   zone?: string;
-  rpcAddr?: string;
+  addr?: string;
   qps: number;
   qps1m?: number;
 };
@@ -63,7 +63,6 @@ type RawRateLimitPreviewAgent = {
   env?: string;
   region?: string;
   zone?: string;
-  rpc_addr?: string;
   qps: number;
   qps_1m?: number;
 };
@@ -83,7 +82,6 @@ function normalizeRateLimitPreviewAgent(raw: RawRateLimitPreviewAgent): RateLimi
     env: raw.env,
     region: raw.region,
     zone: raw.zone,
-    rpcAddr: raw.rpc_addr,
     qps: raw.qps,
     qps1m: raw.qps_1m,
   };
@@ -229,7 +227,7 @@ export type OpsTask = {
   endedAt?: string;
   durationMs?: number;
   error?: string;
-  rpcAddr?: string;
+  addr?: string;
   traceId?: string;
 };
 
@@ -310,8 +308,7 @@ type RawOpsTask = {
   duration_ms?: number;
   durationMs?: number;
   error?: string;
-  rpc_addr?: string;
-  rpcAddr?: string;
+  addr?: string;
   trace_id?: string;
   traceId?: string;
 };
@@ -400,7 +397,7 @@ function normalizeOpsTask(raw: RawOpsTask): OpsTask {
     endedAt: raw.ended_at || raw.endedAt || raw.finished_at,
     durationMs: raw.duration_ms ?? raw.durationMs,
     error: raw.error,
-    rpcAddr: raw.rpc_addr || raw.rpcAddr,
+    addr: raw.addr,
     traceId: raw.trace_id || raw.traceId,
   };
 }

@@ -26,7 +26,6 @@ type OpsAgentInfo struct {
 	Env       string            `json:"env"`
 	Version   string            `json:"version"`
 	Addr      string            `json:"addr"`
-	RPCAddr   string            `json:"rpcAddr"` // compatibility alias; prefer "addr"
 	Connected bool              `json:"connected"`
 	LastSeen  string            `json:"lastSeen"`
 	Functions []string          `json:"functions"`

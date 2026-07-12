@@ -5,11 +5,10 @@ import (
 	"testing"
 )
 
-func TestOpsAgentInfoJSONIncludesAddrAndCompatibilityRPCAddr(t *testing.T) {
+func TestOpsAgentInfoJSONIncludesAddr(t *testing.T) {
 	agent := OpsAgentInfo{
 		AgentID: "agent-1",
 		Addr:    "127.0.0.1:19091",
-		RPCAddr: "127.0.0.1:19091",
 	}
 
 	data, err := json.Marshal(agent)
@@ -23,8 +22,5 @@ func TestOpsAgentInfoJSONIncludesAddrAndCompatibilityRPCAddr(t *testing.T) {
 	}
 	if got["addr"] != "127.0.0.1:19091" {
 		t.Fatalf("addr = %v, want %q", got["addr"], "127.0.0.1:19091")
-	}
-	if got["rpcAddr"] != "127.0.0.1:19091" {
-		t.Fatalf("rpcAddr = %v, want %q", got["rpcAddr"], "127.0.0.1:19091")
 	}
 }

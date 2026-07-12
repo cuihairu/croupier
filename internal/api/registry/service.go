@@ -48,7 +48,6 @@ func (s *Service) GetRegistry(ctx context.Context, req *RegistryRequest) (*Regis
 				GameID:       sess.GameID,
 				Env:          sess.Env,
 				Addr:         sess.Addr,
-				RpcAddr:      sess.Addr,
 				Functions:    utils.CountEnabledFunctions(sess.Functions),
 				Healthy:      healthy,
 				ExpiresInSec: ttl,

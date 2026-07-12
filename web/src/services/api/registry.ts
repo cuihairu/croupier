@@ -5,7 +5,7 @@ export type RegistryAgent = {
   agentId: string;
   gameId: string;
   env: string;
-  rpcAddr: string;
+  addr: string;
   functions: number;
   healthy: boolean;
   expiresInSec: number;

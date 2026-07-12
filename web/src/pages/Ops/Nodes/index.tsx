@@ -24,7 +24,7 @@ function normalizeOpsNode(node: OpsNode): NodeRow {
     type: 'agent',
     gameId: node.gameId || '',
     env: node.env || '',
-    rpcAddr: node.addr || '',
+    addr: node.addr || '',
     functions: 0,
     healthy: node.status === 'healthy',
     expiresInSec: 0,
@@ -68,7 +68,7 @@ export default function OpsNodesPage() {
       if (healthy === 'healthy' && !a.healthy) return false;
       if (healthy === 'unhealthy' && a.healthy) return false;
       if (q) {
-        const s = `${a.agentId} ${a.ip || ''} ${a.rpcAddr || ''} ${a.type || ''} ${
+        const s = `${a.agentId} ${a.ip || ''} ${a.addr || ''} ${a.type || ''} ${
           a.version || ''
         }`.toLowerCase();
         if (!s.includes(q.toLowerCase())) return false;
@@ -147,7 +147,7 @@ export default function OpsNodesPage() {
       render: (v) => (v ? <Tag color="green">健康</Tag> : <Tag color="default">异常</Tag>),
     },
     { title: 'TTL', dataIndex: 'expiresInSec', width: 80 },
-    { title: 'RPC 地址', dataIndex: 'rpcAddr', width: 220, ellipsis: true },
+    { title: 'RPC 地址', dataIndex: 'addr', width: 220, ellipsis: true },
     {
       title: '操作',
       width: 220,

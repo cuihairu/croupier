@@ -61,7 +61,6 @@ func (l *OpsAgentsListLogic) OpsAgentsList(req *OpsAgentsListRequest) (*OpsAgent
 			GameID:    sess.GameID,
 			Env:       sess.Env,
 			Version:   sess.Version,
-			RPCAddr:   sess.Addr,
 			Connected: connected,
 			LastSeen:  sess.ExpireAt.Format(time.RFC3339),
 			Functions: functions,

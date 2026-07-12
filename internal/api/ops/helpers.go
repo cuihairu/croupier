@@ -58,7 +58,6 @@ func opsAgentsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgen
 		agents = append(agents, OpsAgentInfo{
 			AgentID:   sess.AgentID,
 			Addr:      sess.Addr,
-			RPCAddr:   sess.Addr,
 			GameID:    sess.GameID,
 			Env:       sess.Env,
 			Version:   sess.Version,

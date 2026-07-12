@@ -202,7 +202,7 @@ export default function OpsTasksPage() {
       width: 180,
       render: (v: any) => (v ? new Date(v).toLocaleString() : '-'),
     },
-    { title: '服务地址', dataIndex: 'rpcAddr', ellipsis: true },
+    { title: '服务地址', dataIndex: 'addr', ellipsis: true },
     {
       title: '操作',
       width: 160,
@@ -401,7 +401,7 @@ export default function OpsTasksPage() {
               <Descriptions.Item label="游戏/环境">
                 {(detail.gameId || '') + '/' + (detail.env || '')}
               </Descriptions.Item>
-              <Descriptions.Item label="服务地址">{detail.rpcAddr || '-'}</Descriptions.Item>
+              <Descriptions.Item label="服务地址">{detail.addr || '-'}</Descriptions.Item>
               <Descriptions.Item label="Trace">{detail.traceId || '-'}</Descriptions.Item>
               <Descriptions.Item label="开始时间">
                 {detail.startedAt ? new Date(detail.startedAt).toLocaleString() : '-'}
