@@ -51,7 +51,7 @@ func (s *Service) List(ctx context.Context, req *BackupsListRequest) (*BackupsLi
 	}
 	opts := model.ListBackupsOptions{
 		PaginationOptions: model.NewPagination(req.Page, req.PageSize),
-		Type: strings.TrimSpace(req.Type),
+		Type:              strings.TrimSpace(req.Type),
 	}
 
 	backups, total, err := s.svcCtx.BackupModel.List(ctx, opts)

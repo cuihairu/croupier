@@ -213,11 +213,11 @@ func loadBehaviorEvents(ctx context.Context, svcCtx *svc.ServiceContext, gameID,
 	appendEvents := func(eventType string) ([]model.BehaviorEvent, error) {
 		opts := model.BehaviorEventOptions{
 			PaginationOptions: model.NewPagination(1, pageSize),
-			GameID:    trimString(gameID),
-			Env:       trimString(env),
-			EventType: trimString(eventType),
-			StartTime: start,
-			EndTime:   end,
+			GameID:            trimString(gameID),
+			Env:               trimString(env),
+			EventType:         trimString(eventType),
+			StartTime:         start,
+			EndTime:           end,
 		}
 		events, _, err := svcCtx.BehaviorModel.ListEvents(ctx, opts)
 		if err != nil {

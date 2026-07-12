@@ -25,9 +25,9 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 func (s *Service) List(ctx context.Context, req *FAQListRequest) (*FAQListResponse, error) {
 	opts := model.ListFAQOptions{
 		PaginationOptions: model.NewPagination(req.Page, req.PageSize),
-		Category: strings.TrimSpace(req.Category),
-		Keyword:  strings.TrimSpace(req.Keyword),
-		Visible:  req.Visible,
+		Category:          strings.TrimSpace(req.Category),
+		Keyword:           strings.TrimSpace(req.Keyword),
+		Visible:           req.Visible,
 	}
 
 	items, total, err := s.svcCtx.FAQModel.List(ctx, opts)

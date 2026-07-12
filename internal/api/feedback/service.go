@@ -30,9 +30,9 @@ func (s *Service) List(ctx context.Context, req *FeedbackListRequest) (*Feedback
 
 	opts := model.ListFeedbackOptions{
 		PaginationOptions: model.NewPagination(req.Page, req.PageSize),
-		Status:   strings.TrimSpace(req.Status),
-		Category: strings.TrimSpace(req.Category),
-		GameID:   strings.TrimSpace(req.GameId),
+		Status:            strings.TrimSpace(req.Status),
+		Category:          strings.TrimSpace(req.Category),
+		GameID:            strings.TrimSpace(req.GameId),
 	}
 
 	entries, total, err := s.svcCtx.FeedbackModel.List(ctx, opts)

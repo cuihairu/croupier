@@ -213,11 +213,11 @@ func paymentsTransactions(ctx context.Context, svcCtx *svc.ServiceContext, req *
 
 	opts := model.PaymentQueryOptions{
 		PaginationOptions: model.NewPagination(page, size),
-		GameID:    strings.TrimSpace(req.GameId),
-		Env:       strings.TrimSpace(req.Env),
-		Status:    strings.TrimSpace(req.Status),
-		StartTime: start,
-		EndTime:   end,
+		GameID:            strings.TrimSpace(req.GameId),
+		Env:               strings.TrimSpace(req.Env),
+		Status:            strings.TrimSpace(req.Status),
+		StartTime:         start,
+		EndTime:           end,
 	}
 
 	items, total, err := svcCtx.PaymentsModel.ListTransactions(ctx, opts)
