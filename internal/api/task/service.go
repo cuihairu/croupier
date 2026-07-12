@@ -28,10 +28,10 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, error) {
 	items, total, err := s.runtime.ListRuns(ctx, model.ListTasksOptions{
 		PaginationOptions: model.NewPagination(req.Page, req.Size),
-		FunctionID: req.FunctionID,
-		Status:     req.Status,
-		GameID:     req.GameID,
-		Env:        req.Env,
+		FunctionID:        req.FunctionID,
+		Status:            req.Status,
+		GameID:            req.GameID,
+		Env:               req.Env,
 	})
 	if err != nil {
 		return nil, err
