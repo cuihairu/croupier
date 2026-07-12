@@ -544,7 +544,7 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 		GameID:            strings.TrimSpace(c.Agent.GameID),
 		Env:               strings.TrimSpace(c.Agent.Env),
 		Version:           Version,
-		RPCAddr:           legacyRPCAddr,
+		Addr:              legacyRPCAddr,
 		Region:            "",
 		Zone:              "",
 		Labels:            labels,

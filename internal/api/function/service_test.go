@@ -526,7 +526,7 @@ func TestFunctionInstances_WithRegistry(t *testing.T) {
 		AgentID:   "agent1",
 		GameID:    "test-game",
 		Env:       "prod",
-		RPCAddr:   "localhost:8080",
+		Addr:      "localhost:8080",
 		Version:   "1.0.0",
 		Functions: map[string]registry.FunctionMeta{"func1": {Enabled: true, Version: "1.0.0"}},
 		LastSeen:  time.Now(),
@@ -566,7 +566,7 @@ func TestFunctionInstancesAll_WithRegistry(t *testing.T) {
 		AgentID: "agent1",
 		GameID:  "test-game",
 		Env:     "prod",
-		RPCAddr: "localhost:8080",
+		Addr:    "localhost:8080",
 		Functions: map[string]registry.FunctionMeta{
 			"func1": {Enabled: true, Version: "1.0.0"},
 			"func2": {Enabled: true, Version: "1.0.0"},
@@ -577,7 +577,7 @@ func TestFunctionInstancesAll_WithRegistry(t *testing.T) {
 		AgentID: "agent2",
 		GameID:  "test-game",
 		Env:     "prod",
-		RPCAddr: "localhost:8081",
+		Addr:    "localhost:8081",
 		Functions: map[string]registry.FunctionMeta{
 			"func1": {Enabled: true, Version: "1.0.0"},
 		},

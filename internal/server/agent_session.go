@@ -32,10 +32,6 @@ type AgentSession struct {
 	// Version is the agent's reported version.
 	Version string
 
-	// RPCAddr mirrors the legacy compatibility address published during register.
-	// Session routing should prefer the live TCP session instead of this field.
-	RPCAddr string
-
 	// ConnectedAt is the time the session was established.
 	ConnectedAt time.Time
 
@@ -46,6 +42,16 @@ type AgentSession struct {
 // Conn returns the underlying MuxConn for sending requests to this Agent.
 func (s *AgentSession) Conn() *tcptr.MuxConn {
 	return s.conn
+}
+
+// Addr returns the remote address of the live TCP session. This replaces the
+// legacy rpc_addr mirror — the agent's reachable address is the TCP session it
+// established, not a self-published string.
+func (s *AgentSession) Addr() string {
+	if s == nil || s.conn == nil {
+		return ""
+	}
+	return s.conn.RemoteAddr()
 }
 
 // UpdateLastSeen updates the LastSeen timestamp to now.

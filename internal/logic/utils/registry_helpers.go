@@ -40,9 +40,9 @@ func BuildOpsAgentSnapshot(sess *reg.AgentSession) map[string]interface{} {
 		"game_id":   sess.GameID,
 		"env":       sess.Env,
 		"type":      firstNonEmpty(sess.Labels["type"], "agent"),
-		"addr":      sess.RPCAddr,
-		"rpc_addr":  sess.RPCAddr, // compatibility alias; prefer "addr"
-		"ip":        guessAgentIP(sess.RPCAddr),
+		"addr":      sess.Addr,
+		"rpc_addr":  sess.Addr, // compatibility alias; prefer "addr"
+		"ip":        guessAgentIP(sess.Addr),
 		"version":   sess.Version,
 		"region":    sess.Region,
 		"zone":      sess.Zone,

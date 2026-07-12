@@ -88,7 +88,7 @@ func NewUpstreamClient(serverAddr, agentID string, store *agentlocal.LocalStore,
 			GameID:  firstNonEmpty(os.Getenv("CROUPIER_GAME_ID"), os.Getenv("GAME_ID")),
 			Env:     firstNonEmpty(os.Getenv("CROUPIER_ENV"), os.Getenv("ENV")),
 			Version: firstNonEmpty(os.Getenv("CROUPIER_AGENT_VERSION"), os.Getenv("AGENT_VERSION")),
-			RPCAddr: os.Getenv("CROUPIER_AGENT_RPC_ADDR"),
+			Addr:    os.Getenv("CROUPIER_AGENT_RPC_ADDR"),
 		}
 	}
 	client := &UpstreamClient{
@@ -101,7 +101,7 @@ func NewUpstreamClient(serverAddr, agentID string, store *agentlocal.LocalStore,
 		client.gameID = meta.GameID
 		client.env = meta.Env
 		client.version = meta.Version
-		client.legacyRPCAddr = meta.RPCAddr
+		client.legacyRPCAddr = meta.Addr
 		client.region = meta.Region
 		client.zone = meta.Zone
 		if meta.Labels != nil {
@@ -146,7 +146,7 @@ type UpstreamMetadata struct {
 	GameID            string
 	Env               string
 	Version           string
-	RPCAddr           string            // legacy compatibility field; session routing should not depend on it
+	Addr              string            // agent's advertised address (legacy; proto rpc_addr removal is gated)
 	Region            string            // region/zone info (e.g. "us-west-1")
 	Zone              string            // availability zone (e.g. "us-west-1a")
 	Labels            map[string]string // system metadata (os, arch, hostname, etc.)
@@ -160,7 +160,7 @@ func (c *UpstreamClient) WithMetadata(meta UpstreamMetadata) {
 	c.gameID = meta.GameID
 	c.env = meta.Env
 	c.version = meta.Version
-	c.legacyRPCAddr = meta.RPCAddr
+	c.legacyRPCAddr = meta.Addr
 	c.region = meta.Region
 	c.zone = meta.Zone
 	if meta.Labels != nil {

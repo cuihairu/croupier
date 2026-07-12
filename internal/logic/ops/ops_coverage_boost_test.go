@@ -572,7 +572,7 @@ func TestOpsAgentInfo_Construction(t *testing.T) {
 			GameID:    "game1",
 			Env:       "prod",
 			Version:   "v1.0.0",
-			RPCAddr:   "localhost:19090",
+			Addr:      "localhost:19090",
 			Connected: true,
 			LastSeen:  time.Now().Format(time.RFC3339),
 			Functions: []string{"func1", "func2", "func3"},

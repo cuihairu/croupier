@@ -17,7 +17,6 @@ type AgentSessionDB struct {
 	AgentID   string         `gorm:"size:64;uniqueIndex;not null"`
 	GameID    string         `gorm:"size:64;index"`
 	Env       string         `gorm:"size:32;index"`
-	RPCAddr   string         `gorm:"size:255;not null"`
 	Version   string         `gorm:"size:32"`
 	Region    string         `gorm:"size:64;index"`
 	Zone      string         `gorm:"size:64;index"`
@@ -49,7 +48,15 @@ func NewAgentSessionModel(db *gorm.DB) *AgentSessionModel {
 
 // MigrateAgentSessions runs auto migration for agent sessions table.
 func MigrateAgentSessions(db *gorm.DB) error {
-	return db.AutoMigrate(&AgentSessionDB{})
+	if err := db.AutoMigrate(&AgentSessionDB{}); err != nil {
+		return err
+	}
+	// Drop the legacy rpc_addr column. The agent's reachable address now comes
+	// from the live TCP session RemoteAddr, not a self-published string.
+	if db.Migrator().HasColumn(&AgentSessionDB{}, "rpc_addr") {
+		_ = db.Migrator().DropColumn(&AgentSessionDB{}, "rpc_addr")
+	}
+	return nil
 }
 
 // Upsert inserts or updates an agent session.
@@ -110,7 +117,6 @@ func toDomainSession(dbSess *AgentSessionDB) (*AgentSession, error) {
 		AgentID:   dbSess.AgentID,
 		GameID:    dbSess.GameID,
 		Env:       dbSess.Env,
-		RPCAddr:   dbSess.RPCAddr,
 		Version:   dbSess.Version,
 		Region:    dbSess.Region,
 		Zone:      dbSess.Zone,
@@ -151,7 +157,6 @@ func toDBSession(sess *AgentSession) (*AgentSessionDB, error) {
 		AgentID:  sess.AgentID,
 		GameID:   sess.GameID,
 		Env:      sess.Env,
-		RPCAddr:  sess.RPCAddr,
 		Version:  sess.Version,
 		Region:   sess.Region,
 		Zone:     sess.Zone,

@@ -595,7 +595,7 @@ func TestHandlerAliasAgentMethods(t *testing.T) {
 
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
-		RPCAddr:   "localhost:1001",
+		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
 		Functions: map[string]registry.FunctionMeta{},
@@ -1071,7 +1071,7 @@ func TestOpsNodesHandlerWithAgents(t *testing.T) {
 	store := registry.NewStore()
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
-		RPCAddr:   "localhost:2001",
+		Addr:      "localhost:2001",
 		GameID:    "game1",
 		Env:       "prod",
 		Labels:    map[string]string{"hostname": "node1"},
@@ -1114,7 +1114,7 @@ func TestOpsAgentMetaWithRegistry(t *testing.T) {
 	store := registry.NewStore()
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
-		RPCAddr:   "localhost:1001",
+		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
 		Labels:    map[string]string{"os": "linux", "arch": "amd64", "hostname": "host1"},
@@ -1140,7 +1140,7 @@ func TestOpsNodeMetaWithRegistry(t *testing.T) {
 	store := registry.NewStore()
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
-		RPCAddr:   "localhost:2001",
+		Addr:      "localhost:2001",
 		GameID:    "game1",
 		Env:       "prod",
 		Labels:    map[string]string{"zone": "us-west-2", "datacenter": "dc1"},
@@ -1226,7 +1226,7 @@ func TestOpsAgentSystemInfoResponseStructure(t *testing.T) {
 	store := registry.NewStore()
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
-		RPCAddr:   "localhost:1001",
+		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
 		Labels:    map[string]string{"os": "windows", "arch": "arm64", "hostname": "win-host"},
@@ -1251,7 +1251,7 @@ func TestOpsAgentSystemInfoEmptyLabels(t *testing.T) {
 	store := registry.NewStore()
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
-		RPCAddr:   "localhost:1001",
+		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
 		Labels:    map[string]string{},
@@ -1339,7 +1339,7 @@ func TestOpsAgentSystemInfoHandlerFound(t *testing.T) {
 	store := registry.NewStore()
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
-		RPCAddr:   "localhost:1001",
+		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
 		Labels:    map[string]string{"os": "linux", "arch": "amd64"},
@@ -1366,7 +1366,7 @@ func TestOpsAgentMetaHandlerFound(t *testing.T) {
 	store := registry.NewStore()
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
-		RPCAddr:   "localhost:1001",
+		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
 		Labels:    map[string]string{"os": "darwin", "arch": "arm64"},
@@ -1393,7 +1393,7 @@ func TestOpsNodeMetaHandlerFound(t *testing.T) {
 	store := registry.NewStore()
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
-		RPCAddr:   "localhost:2001",
+		Addr:      "localhost:2001",
 		GameID:    "game1",
 		Env:       "prod",
 		Labels:    map[string]string{"zone": "eu-west-1"},
@@ -1477,7 +1477,7 @@ func TestOpsAgentsListMultiple(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		store.UpsertAgent(&registry.AgentSession{
 			AgentID:   fmt.Sprintf("agent-%d", i),
-			RPCAddr:   fmt.Sprintf("localhost:100%d", i),
+			Addr:      fmt.Sprintf("localhost:100%d", i),
 			GameID:    "game1",
 			Env:       "prod",
 			Version:   "1.0.0",
@@ -1505,7 +1505,7 @@ func TestOpsNodesMultiple(t *testing.T) {
 	for i := 1; i <= 5; i++ {
 		store.UpsertAgent(&registry.AgentSession{
 			AgentID:   fmt.Sprintf("node-%d", i),
-			RPCAddr:   fmt.Sprintf("localhost:200%d", i),
+			Addr:      fmt.Sprintf("localhost:200%d", i),
 			GameID:    "game1",
 			Env:       "prod",
 			Labels:    map[string]string{"hostname": fmt.Sprintf("node-%d", i)},
@@ -1531,7 +1531,7 @@ func TestOpsFunctionsMultiple(t *testing.T) {
 	// Agent 1 has func1 and func2
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID: "agent-1",
-		RPCAddr: "localhost:1001",
+		Addr:    "localhost:1001",
 		GameID:  "game1",
 		Env:     "prod",
 		Functions: map[string]registry.FunctionMeta{
@@ -1544,7 +1544,7 @@ func TestOpsFunctionsMultiple(t *testing.T) {
 	// Agent 2 has func1 and func3
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID: "agent-2",
-		RPCAddr: "localhost:1002",
+		Addr:    "localhost:1002",
 		GameID:  "game1",
 		Env:     "prod",
 		Functions: map[string]registry.FunctionMeta{
@@ -1570,7 +1570,7 @@ func TestOpsAgentSystemInfoHandlerPOST(t *testing.T) {
 	store := registry.NewStore()
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
-		RPCAddr:   "localhost:1001",
+		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
 		Labels:    map[string]string{"os": "linux"},
@@ -1596,7 +1596,7 @@ func TestOpsAgentMetaHandlerGET(t *testing.T) {
 	store := registry.NewStore()
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
-		RPCAddr:   "localhost:1001",
+		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
 		Labels:    map[string]string{"os": "linux"},
@@ -1622,7 +1622,7 @@ func TestOpsNodeMetaHandlerGET(t *testing.T) {
 	store := registry.NewStore()
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
-		RPCAddr:   "localhost:2001",
+		Addr:      "localhost:2001",
 		GameID:    "game1",
 		Env:       "prod",
 		Labels:    map[string]string{"zone": "us-east-1"},
@@ -1679,7 +1679,7 @@ func TestOpsAgentsListHandlerGET(t *testing.T) {
 	store := registry.NewStore()
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
-		RPCAddr:   "localhost:1001",
+		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
 		Functions: map[string]registry.FunctionMeta{},

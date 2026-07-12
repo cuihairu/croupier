@@ -117,7 +117,7 @@ func TestService_Metrics_WithAgents(t *testing.T) {
 		AgentID:   "test-agent",
 		GameID:    "game1",
 		Env:       "dev",
-		RPCAddr:   "127.0.0.1:19091",
+		Addr:      "127.0.0.1:19091",
 		ExpireAt:  time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 	})
@@ -142,7 +142,7 @@ func TestService_Status_WithExpiredAgent(t *testing.T) {
 		AgentID:   "expired-agent",
 		GameID:    "game1",
 		Env:       "dev",
-		RPCAddr:   "127.0.0.1:19091",
+		Addr:      "127.0.0.1:19091",
 		ExpireAt:  time.Now().Add(-1 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 	})
@@ -392,7 +392,7 @@ func TestService_Status_FullyConfigured(t *testing.T) {
 		AgentID:  "test-agent",
 		GameID:   "game1",
 		Env:      "dev",
-		RPCAddr:  "127.0.0.1:19091",
+		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(5 * time.Minute),
 	})
 

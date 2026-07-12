@@ -109,7 +109,7 @@ func TestDispatcher_InvokeRequest_InvalidMarshal(t *testing.T) {
 	// 添加一个过期的代理
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
-		RPCAddr:  "127.0.0.1:9999",
+		Addr:     "127.0.0.1:9999",
 		ExpireAt: time.Now().Add(-time.Hour), // 已过期
 		Functions: map[string]reg.FunctionMeta{
 			"test-function": {Enabled: true},
@@ -221,7 +221,7 @@ func TestDispatcher_ListFunctionAgents(t *testing.T) {
 	now := time.Now().Add(time.Hour)
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "127.0.0.1:9001",
+		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"func-1": {Enabled: true},
@@ -230,7 +230,7 @@ func TestDispatcher_ListFunctionAgents(t *testing.T) {
 	})
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-2",
-		RPCAddr:  "127.0.0.1:9002",
+		Addr:     "127.0.0.1:9002",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"func-1": {Enabled: true},
@@ -239,7 +239,7 @@ func TestDispatcher_ListFunctionAgents(t *testing.T) {
 	// 添加过期代理
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-3",
-		RPCAddr:  "127.0.0.1:9003",
+		Addr:     "127.0.0.1:9003",
 		ExpireAt: time.Now().Add(-time.Hour),
 		Functions: map[string]reg.FunctionMeta{
 			"func-1": {Enabled: true},
@@ -248,7 +248,7 @@ func TestDispatcher_ListFunctionAgents(t *testing.T) {
 	// 添加禁用功能的代理
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-4",
-		RPCAddr:  "127.0.0.1:9004",
+		Addr:     "127.0.0.1:9004",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"func-1": {Enabled: false},
@@ -290,7 +290,7 @@ func TestDispatcher_ListFunctionAgents_IgnoresNilAgents(t *testing.T) {
 	// 添加有效代理
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "127.0.0.1:9001",
+		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"func-1": {Enabled: true},
@@ -395,7 +395,7 @@ func TestDispatcher_pickAgent(t *testing.T) {
 	// 添加多个代理
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-3",
-		RPCAddr:  "127.0.0.1:9003",
+		Addr:     "127.0.0.1:9003",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -403,7 +403,7 @@ func TestDispatcher_pickAgent(t *testing.T) {
 	})
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "127.0.0.1:9001",
+		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -411,7 +411,7 @@ func TestDispatcher_pickAgent(t *testing.T) {
 	})
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-2",
-		RPCAddr:  "127.0.0.1:9002",
+		Addr:     "127.0.0.1:9002",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -448,7 +448,7 @@ func TestDispatcher_pickAgent_ExpiresExpiredAgents(t *testing.T) {
 	// 添加过期代理
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "127.0.0.1:9001",
+		Addr:     "127.0.0.1:9001",
 		ExpireAt: time.Now().Add(-time.Hour),
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -469,7 +469,7 @@ func TestDispatcher_pickAgent_IgnoresDisabledFunctions(t *testing.T) {
 
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "127.0.0.1:9001",
+		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: false},
@@ -611,7 +611,7 @@ func TestDispatcher_pickAgent_AllowsEmptyRPCAddr(t *testing.T) {
 
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "",
+		Addr:     "",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -634,7 +634,7 @@ func TestDispatcher_pickAgentWithRouting_TargetServiceID(t *testing.T) {
 
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "127.0.0.1:9001",
+		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -648,7 +648,7 @@ func TestDispatcher_pickAgentWithRouting_TargetServiceID(t *testing.T) {
 	})
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-2",
-		RPCAddr:  "127.0.0.1:9002",
+		Addr:     "127.0.0.1:9002",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -680,7 +680,7 @@ func TestDispatcher_pickAgentWithRouting_TargetServiceIDNotFound(t *testing.T) {
 
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "127.0.0.1:9001",
+		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -702,7 +702,7 @@ func TestDispatcher_pickAgentWithRouting_HashKey(t *testing.T) {
 
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "127.0.0.1:9001",
+		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -710,7 +710,7 @@ func TestDispatcher_pickAgentWithRouting_HashKey(t *testing.T) {
 	})
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-2",
-		RPCAddr:  "127.0.0.1:9002",
+		Addr:     "127.0.0.1:9002",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -737,7 +737,7 @@ func TestDispatcher_pickAgentWithRouting_EmptyHashKey(t *testing.T) {
 
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "127.0.0.1:9001",
+		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -763,7 +763,7 @@ func TestDispatcher_pickAgentWithRouting_NilMetadata(t *testing.T) {
 
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "127.0.0.1:9001",
+		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -1018,7 +1018,7 @@ func TestProtoMarshalError(t *testing.T) {
 	// 添加一个代理，但会导致后续错误
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "compat-address-not-used",
+		Addr:     "compat-address-not-used",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -1084,7 +1084,7 @@ func TestDispatcher_InvokeRequest_WithMetadata(t *testing.T) {
 
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "compat-address-not-used",
+		Addr:     "compat-address-not-used",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},
@@ -1114,7 +1114,7 @@ func TestDispatcher_StartTaskRequest_WithMetadata(t *testing.T) {
 
 	d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
-		RPCAddr:  "compat-address-not-used",
+		Addr:     "compat-address-not-used",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"test-func": {Enabled: true},

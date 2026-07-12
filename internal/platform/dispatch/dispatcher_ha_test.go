@@ -195,9 +195,9 @@ func TestLoadBalancer_MinID(t *testing.T) {
 	lb := NewLoadBalancer(StrategyMinID, tracker)
 
 	candidates := []*Candidate{
-		{AgentID: "agent3", Session: &reg.AgentSession{AgentID: "agent3", RPCAddr: "addr3"}},
-		{AgentID: "agent1", Session: &reg.AgentSession{AgentID: "agent1", RPCAddr: "addr1"}},
-		{AgentID: "agent2", Session: &reg.AgentSession{AgentID: "agent2", RPCAddr: "addr2"}},
+		{AgentID: "agent3", Session: &reg.AgentSession{AgentID: "agent3", Addr: "addr3"}},
+		{AgentID: "agent1", Session: &reg.AgentSession{AgentID: "agent1", Addr: "addr1"}},
+		{AgentID: "agent2", Session: &reg.AgentSession{AgentID: "agent2", Addr: "addr2"}},
 	}
 
 	selected, err := lb.Select("testFunc", candidates)
@@ -218,9 +218,9 @@ func TestLoadBalancer_RoundRobin(t *testing.T) {
 	lb := NewLoadBalancer(StrategyRoundRobin, tracker)
 
 	candidates := []*Candidate{
-		{AgentID: "agent1", Session: &reg.AgentSession{AgentID: "agent1", RPCAddr: "addr1"}},
-		{AgentID: "agent2", Session: &reg.AgentSession{AgentID: "agent2", RPCAddr: "addr2"}},
-		{AgentID: "agent3", Session: &reg.AgentSession{AgentID: "agent3", RPCAddr: "addr3"}},
+		{AgentID: "agent1", Session: &reg.AgentSession{AgentID: "agent1", Addr: "addr1"}},
+		{AgentID: "agent2", Session: &reg.AgentSession{AgentID: "agent2", Addr: "addr2"}},
+		{AgentID: "agent3", Session: &reg.AgentSession{AgentID: "agent3", Addr: "addr3"}},
 	}
 
 	// Select in order
@@ -261,9 +261,9 @@ func TestLoadBalancer_LeastConn(t *testing.T) {
 	// agent3: 0 connections
 
 	candidates := []*Candidate{
-		{AgentID: "agent1", Session: &reg.AgentSession{AgentID: "agent1", RPCAddr: "addr1"}, Health: state1},
-		{AgentID: "agent2", Session: &reg.AgentSession{AgentID: "agent2", RPCAddr: "addr2"}, Health: state2},
-		{AgentID: "agent3", Session: &reg.AgentSession{AgentID: "agent3", RPCAddr: "addr3"}, Health: state3},
+		{AgentID: "agent1", Session: &reg.AgentSession{AgentID: "agent1", Addr: "addr1"}, Health: state1},
+		{AgentID: "agent2", Session: &reg.AgentSession{AgentID: "agent2", Addr: "addr2"}, Health: state2},
+		{AgentID: "agent3", Session: &reg.AgentSession{AgentID: "agent3", Addr: "addr3"}, Health: state3},
 	}
 
 	selected, err := lb.Select("testFunc", candidates)
@@ -293,8 +293,8 @@ func TestLoadBalancer_Weighted(t *testing.T) {
 	state2.RecordFailure() // Lower health score
 
 	candidates := []*Candidate{
-		{AgentID: "agent1", Session: &reg.AgentSession{AgentID: "agent1", RPCAddr: "addr1"}, Health: state1},
-		{AgentID: "agent2", Session: &reg.AgentSession{AgentID: "agent2", RPCAddr: "addr2"}, Health: state2},
+		{AgentID: "agent1", Session: &reg.AgentSession{AgentID: "agent1", Addr: "addr1"}, Health: state1},
+		{AgentID: "agent2", Session: &reg.AgentSession{AgentID: "agent2", Addr: "addr2"}, Health: state2},
 	}
 
 	// With weighted selection, agent1 should be selected more often
@@ -337,8 +337,8 @@ func TestLoadBalancer_HealthFiltering(t *testing.T) {
 	}
 
 	candidates := []*Candidate{
-		{AgentID: "agent1", Session: &reg.AgentSession{AgentID: "agent1", RPCAddr: "addr1"}, Health: state1},
-		{AgentID: "agent2", Session: &reg.AgentSession{AgentID: "agent2", RPCAddr: "addr2"}, Health: state2},
+		{AgentID: "agent1", Session: &reg.AgentSession{AgentID: "agent1", Addr: "addr1"}, Health: state1},
+		{AgentID: "agent2", Session: &reg.AgentSession{AgentID: "agent2", Addr: "addr2"}, Health: state2},
 	}
 
 	// Should only return agent1 as available
@@ -360,7 +360,7 @@ func TestLoadBalancer_BuildCandidates_AllowsEmptyRPCAddr(t *testing.T) {
 	sessions := []*reg.AgentSession{
 		{
 			AgentID: "agent1",
-			RPCAddr: "",
+			Addr:    "",
 			Functions: map[string]reg.FunctionMeta{
 				"test-func": {Enabled: true},
 			},
@@ -603,31 +603,31 @@ func TestLoadBalancer_BuildCandidates(t *testing.T) {
 	sessions := []*reg.AgentSession{
 		{
 			AgentID:   "agent1",
-			RPCAddr:   "addr1",
+			Addr:      "addr1",
 			ExpireAt:  now,
 			Functions: map[string]reg.FunctionMeta{"testFunc": {Enabled: true}},
 		},
 		{
 			AgentID:   "agent2",
-			RPCAddr:   "addr2",
+			Addr:      "addr2",
 			ExpireAt:  now,
 			Functions: map[string]reg.FunctionMeta{"testFunc": {Enabled: false}}, // Disabled
 		},
 		{
 			AgentID:   "agent3",
-			RPCAddr:   "addr3",
+			Addr:      "addr3",
 			ExpireAt:  now,
 			Functions: map[string]reg.FunctionMeta{"otherFunc": {Enabled: true}}, // Different function
 		},
 		{
 			AgentID:   "agent4",
-			RPCAddr:   "addr4",
+			Addr:      "addr4",
 			ExpireAt:  past, // Expired (BuildCandidates doesn't filter expired, that's dispatcher's job)
 			Functions: map[string]reg.FunctionMeta{"testFunc": {Enabled: true}},
 		},
 		{
 			AgentID:   "agent5",
-			RPCAddr:   "addr5",
+			Addr:      "addr5",
 			ExpireAt:  now,
 			Functions: map[string]reg.FunctionMeta{"testFunc": {Enabled: true}},
 		},

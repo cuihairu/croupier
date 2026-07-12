@@ -22,7 +22,7 @@ func TestUpstreamClient_NewUpstreamClient(t *testing.T) {
 		GameID:  "game-1",
 		Env:     "staging",
 		Version: "agent-ver",
-		RPCAddr: "127.0.0.1:19090",
+		Addr:    "127.0.0.1:19090",
 		Region:  "us-west-1",
 		Zone:    "us-west-1a",
 	})
@@ -85,7 +85,7 @@ func TestUpstreamClient_WithMetadata(t *testing.T) {
 		GameID:  "game-2",
 		Env:     "production",
 		Version: "v2.0.0",
-		RPCAddr: "127.0.0.1:19091",
+		Addr:    "127.0.0.1:19091",
 	})
 
 	if client.gameID != "game-2" {

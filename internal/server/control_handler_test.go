@@ -326,7 +326,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 			},
 		}
 
-		resp, err := svc.handleRegisterRequest(context.Background(), req)
+		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.Empty(t, resp.Warnings)
@@ -349,7 +349,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 			TtlSeconds: 600,
 		}
 
-		resp, err := svc.handleRegisterRequest(context.Background(), req)
+		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 
@@ -379,7 +379,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 			},
 		}
 
-		resp, err := svc.handleRegisterRequest(context.Background(), req)
+		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
 		require.NoError(t, err)
 		assert.NotEmpty(t, resp.Warnings)
 	})
@@ -401,7 +401,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 			},
 		}
 
-		resp, err := svc.handleRegisterRequest(context.Background(), req)
+		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 
@@ -425,7 +425,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 			GameId:  "game-1",
 		}
 
-		resp, err := svc.handleRegisterRequest(context.Background(), req)
+		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
 		require.NoError(t, err)
 		assert.Equal(t, []string{"upstream warning"}, resp.Warnings)
 	})
@@ -439,7 +439,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 			GameId:  "game-1",
 		}
 
-		resp, err := svc.handleRegisterRequest(context.Background(), req)
+		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 		assert.Equal(t, int32(1), atomic.LoadInt32(&loader.upsertCalled))
@@ -460,7 +460,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 			},
 		}
 
-		resp, err := svc.handleRegisterRequest(context.Background(), req)
+		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
@@ -480,7 +480,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 			},
 		}
 
-		resp, err := svc.handleRegisterRequest(context.Background(), req)
+		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
@@ -499,7 +499,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 			},
 		}
 
-		resp, err := svc.handleRegisterRequest(context.Background(), req)
+		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
@@ -516,7 +516,7 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		}
 
 		// Should not fail even if database write fails
-		resp, err := svc.handleRegisterRequest(context.Background(), req)
+		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
 		require.NoError(t, err)
 		assert.NotNil(t, resp)
 	})

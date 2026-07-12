@@ -42,7 +42,7 @@ func (s *NodeService) List(ctx context.Context, gameId, env, status string) ([]N
 		nodes = append(nodes, Node{
 			Id:       sess.AgentID,
 			Hostname: sess.Labels["hostname"],
-			Addr:     sess.RPCAddr,
+			Addr:     sess.Addr,
 			GameId:   sess.GameID,
 			Env:      sess.Env,
 			Status:   "active",

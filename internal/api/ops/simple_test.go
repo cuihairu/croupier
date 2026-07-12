@@ -38,7 +38,7 @@ func TestServiceOpsAgentsList(t *testing.T) {
 
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
-		RPCAddr:   "localhost:1001",
+		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
 		Version:   "1.0.0",
@@ -75,7 +75,7 @@ func TestServiceOpsAgentMeta(t *testing.T) {
 
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
-		RPCAddr:   "localhost:1001",
+		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
 		Labels:    map[string]string{"os": "linux", "arch": "amd64"},
@@ -111,7 +111,7 @@ func TestServiceOpsAgentSystemInfo(t *testing.T) {
 
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
-		RPCAddr:   "localhost:1001",
+		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
 		Labels:    map[string]string{"os": "linux"},
@@ -193,7 +193,7 @@ func TestServiceOpsNodes(t *testing.T) {
 
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
-		RPCAddr:   "localhost:2001",
+		Addr:      "localhost:2001",
 		GameID:    "game1",
 		Env:       "prod",
 		Labels:    map[string]string{"hostname": "node1"},
@@ -252,7 +252,7 @@ func TestServiceOpsNodeMeta(t *testing.T) {
 
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
-		RPCAddr:   "localhost:2001",
+		Addr:      "localhost:2001",
 		GameID:    "game1",
 		Env:       "prod",
 		Labels:    map[string]string{"zone": "us-east-1"},
@@ -417,7 +417,7 @@ func TestServiceOpsFunctions(t *testing.T) {
 
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
-		RPCAddr:   "localhost:1001",
+		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
 		Functions: map[string]registry.FunctionMeta{"func1": {Enabled: true}},
@@ -555,7 +555,7 @@ func TestAgentServiceList(t *testing.T) {
 
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
-		RPCAddr:   "localhost:1001",
+		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
 		Functions: map[string]registry.FunctionMeta{},
@@ -577,7 +577,7 @@ func TestAgentServiceListFilterByGameID(t *testing.T) {
 
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
-		RPCAddr:   "localhost:1001",
+		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
 		Functions: map[string]registry.FunctionMeta{},
@@ -585,7 +585,7 @@ func TestAgentServiceListFilterByGameID(t *testing.T) {
 	})
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-2",
-		RPCAddr:   "localhost:1002",
+		Addr:      "localhost:1002",
 		GameID:    "game2",
 		Env:       "prod",
 		Functions: map[string]registry.FunctionMeta{},
@@ -607,7 +607,7 @@ func TestAgentServiceGetMeta(t *testing.T) {
 
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
-		RPCAddr:   "localhost:1001",
+		Addr:      "localhost:1001",
 		GameID:    "game1",
 		Env:       "prod",
 		Labels:    map[string]string{"os": "linux"},
@@ -651,7 +651,7 @@ func TestNodeServiceList(t *testing.T) {
 
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
-		RPCAddr:   "localhost:2001",
+		Addr:      "localhost:2001",
 		GameID:    "game1",
 		Env:       "prod",
 		Functions: map[string]registry.FunctionMeta{},
@@ -685,7 +685,7 @@ func TestNodeServiceGetMeta(t *testing.T) {
 
 	store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
-		RPCAddr:   "localhost:2001",
+		Addr:      "localhost:2001",
 		GameID:    "game1",
 		Env:       "prod",
 		Labels:    map[string]string{"zone": "us-east-1"},

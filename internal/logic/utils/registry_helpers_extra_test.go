@@ -35,7 +35,7 @@ func TestBuildOpsAgentSnapshot_WithExpireAt(t *testing.T) {
 		AgentID:   "agent-1",
 		GameID:    "game1",
 		Env:       "dev",
-		RPCAddr:   "192.168.1.100:9090",
+		Addr:      "192.168.1.100:9090",
 		Version:   "1.0.0",
 		Region:    "us-east",
 		Zone:      "zone-a",

@@ -47,7 +47,6 @@ func TestAgentSessionModel_Upsert(t *testing.T) {
 		AgentID:  "agent-1",
 		GameID:   "game-1",
 		Env:      "prod",
-		RPCAddr:  "localhost:19090",
 		Version:  "1.0.0",
 		Region:   "us-west",
 		Zone:     "zone-a",
@@ -81,7 +80,6 @@ func TestAgentSessionModel_LoadActiveSessions(t *testing.T) {
 		AgentID:  "load-active-1",
 		GameID:   "game-1",
 		Env:      "prod",
-		RPCAddr:  "localhost:19090",
 		ExpireAt: now.Add(time.Hour),
 		LastSeen: now,
 	})
@@ -92,7 +90,7 @@ func TestAgentSessionModel_LoadActiveSessions(t *testing.T) {
 		AgentID:  "load-expired-1",
 		GameID:   "game-1",
 		Env:      "prod",
-		RPCAddr:  "localhost:19091",
+		Addr:     "localhost:19091",
 		ExpireAt: now.Add(-time.Hour),
 		LastSeen: now.Add(-time.Hour),
 	})
@@ -124,7 +122,6 @@ func TestAgentSessionModel_DeleteExpired(t *testing.T) {
 		AgentID:  "del-active-1",
 		GameID:   "game-1",
 		Env:      "prod",
-		RPCAddr:  "localhost:19090",
 		ExpireAt: now.Add(time.Hour),
 		LastSeen: now,
 	})
@@ -135,7 +132,7 @@ func TestAgentSessionModel_DeleteExpired(t *testing.T) {
 		AgentID:  "del-expired-1",
 		GameID:   "game-1",
 		Env:      "prod",
-		RPCAddr:  "localhost:19091",
+		Addr:     "localhost:19091",
 		ExpireAt: now.Add(-time.Hour),
 		LastSeen: now.Add(-time.Hour),
 	})
@@ -167,7 +164,6 @@ func TestToDomainSession(t *testing.T) {
 			AgentID:   "agent-1",
 			GameID:    "game-1",
 			Env:       "prod",
-			RPCAddr:   "localhost:19090",
 			Version:   "1.0.0",
 			Region:    "us-west",
 			Zone:      "zone-a",
@@ -189,7 +185,6 @@ func TestToDomainSession(t *testing.T) {
 			AgentID: "agent-2",
 			GameID:  "game-1",
 			Env:     "prod",
-			RPCAddr: "localhost:19090",
 		}
 
 		sess, err := toDomainSession(dbSess)
@@ -225,7 +220,6 @@ func TestToDBSession(t *testing.T) {
 			AgentID:  "agent-1",
 			GameID:   "game-1",
 			Env:      "prod",
-			RPCAddr:  "localhost:19090",
 			Version:  "1.0.0",
 			Region:   "us-west",
 			Zone:     "zone-a",
@@ -249,7 +243,6 @@ func TestToDBSession(t *testing.T) {
 			AgentID:  "agent-2",
 			GameID:   "game-1",
 			Env:      "prod",
-			RPCAddr:  "localhost:19090",
 			ExpireAt: time.Now().Add(time.Hour),
 			LastSeen: time.Now(),
 		}

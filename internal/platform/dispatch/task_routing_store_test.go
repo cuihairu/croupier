@@ -371,9 +371,9 @@ func TestFileTaskRoutingStore_Close(t *testing.T) {
 // TestPickAgentByHash 测试哈希选择代理
 func TestPickAgentByHash(t *testing.T) {
 	agents := []*reg.AgentSession{
-		{AgentID: "agent-1", RPCAddr: "127.0.0.1:9001"},
-		{AgentID: "agent-2", RPCAddr: "127.0.0.1:9002"},
-		{AgentID: "agent-3", RPCAddr: "127.0.0.1:9003"},
+		{AgentID: "agent-1", Addr: "127.0.0.1:9001"},
+		{AgentID: "agent-2", Addr: "127.0.0.1:9002"},
+		{AgentID: "agent-3", Addr: "127.0.0.1:9003"},
 	}
 
 	// 相同的 key 应该选择相同的 agent
@@ -403,7 +403,7 @@ func TestPickAgentByHash_EmptyCandidates(t *testing.T) {
 // TestPickAgentByHash_SingleCandidate 测试单个候选
 func TestPickAgentByHash_SingleCandidate(t *testing.T) {
 	agents := []*reg.AgentSession{
-		{AgentID: "agent-1", RPCAddr: "127.0.0.1:9001"},
+		{AgentID: "agent-1", Addr: "127.0.0.1:9001"},
 	}
 
 	agent := pickAgentByHash(agents, "any-key")
@@ -418,8 +418,8 @@ func TestPickAgentByHash_SingleCandidate(t *testing.T) {
 // TestPickAgentByHash_EmptyKey 测试空 key
 func TestPickAgentByHash_EmptyKey(t *testing.T) {
 	agents := []*reg.AgentSession{
-		{AgentID: "agent-1", RPCAddr: "127.0.0.1:9001"},
-		{AgentID: "agent-2", RPCAddr: "127.0.0.1:9002"},
+		{AgentID: "agent-1", Addr: "127.0.0.1:9001"},
+		{AgentID: "agent-2", Addr: "127.0.0.1:9002"},
 	}
 
 	agent := pickAgentByHash(agents, "")
@@ -489,7 +489,7 @@ func BenchmarkPickAgentByHash(b *testing.B) {
 	for i := 0; i < 100; i++ {
 		agents[i] = &reg.AgentSession{
 			AgentID: string(rune('a' + i)),
-			RPCAddr: "127.0.0.1:9001",
+			Addr:    "127.0.0.1:9001",
 		}
 	}
 

@@ -233,7 +233,7 @@ func (s *ControlService) handleRegister(ctx context.Context, data []byte) ([]byt
 	if err := proto.Unmarshal(data, req); err != nil {
 		return nil, fmt.Errorf("unmarshal RegisterRequest: %w", err)
 	}
-	resp, err := s.handleRegisterRequest(ctx, req)
+	resp, err := s.handleRegisterRequest(ctx, req, "")
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +350,7 @@ func (s *ControlService) handleMetricEvent(ctx context.Context, data []byte) ([]
 }
 
 // handleRegisterRequest implements the actual Register logic.
-func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1.RegisterRequest) (*agentv1.RegisterResponse, error) {
+func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1.RegisterRequest, remoteAddr string) (*agentv1.RegisterResponse, error) {
 	if s.upstream != nil {
 		return s.upstream.HandleRegister(ctx, req)
 	}
@@ -378,7 +378,7 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 		AgentID:   req.AgentId,
 		GameID:    req.GameId,
 		Env:       req.Env,
-		RPCAddr:   req.RpcAddr, // legacy compatibility address; session routing should not depend on it
+		Addr:      remoteAddr,
 		Version:   req.Version,
 		Region:    "",
 		Zone:      "",
@@ -668,7 +668,7 @@ func NewControlHandler(service *ControlService) *ControlHandler {
 }
 
 func (h *ControlHandler) HandleRegister(ctx context.Context, req *agentv1.RegisterRequest) (*agentv1.RegisterResponse, error) {
-	return h.service.handleRegisterRequest(ctx, req)
+	return h.service.handleRegisterRequest(ctx, req, "")
 }
 
 func (h *ControlHandler) HandleHeartbeat(ctx context.Context, req *agentv1.HeartbeatRequest) (*agentv1.HeartbeatResponse, error) {

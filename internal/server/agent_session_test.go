@@ -16,7 +16,6 @@ func TestAgentSessionFields(t *testing.T) {
 		GameID:      "game-789",
 		Env:         "production",
 		Version:     "1.0.0",
-		RPCAddr:     "127.0.0.1:50051",
 		ConnectedAt: time.Now(),
 	}
 
@@ -34,9 +33,6 @@ func TestAgentSessionFields(t *testing.T) {
 	}
 	if sess.Version != "1.0.0" {
 		t.Errorf("Version = %s, want 1.0.0", sess.Version)
-	}
-	if sess.RPCAddr != "127.0.0.1:50051" {
-		t.Errorf("RPCAddr = %s, want 127.0.0.1:50051", sess.RPCAddr)
 	}
 }
 

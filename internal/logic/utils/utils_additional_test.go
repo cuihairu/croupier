@@ -758,7 +758,7 @@ func TestBuildOpsAgentSnapshot(t *testing.T) {
 		AgentID:  "agent-1",
 		GameID:   "game1",
 		Env:      "prod",
-		RPCAddr:  "192.168.1.1:8080",
+		Addr:     "192.168.1.1:8080",
 		Version:  "1.0.0",
 		Region:   "us-east",
 		Zone:     "zone1",

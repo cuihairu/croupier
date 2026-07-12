@@ -301,7 +301,6 @@ func (h *agentSessionHandler) handleRegister(ctx context.Context, body []byte) (
 		GameID:      req.GameId,
 		Env:         req.Env,
 		Version:     req.Version,
-		RPCAddr:     req.RpcAddr,
 		ConnectedAt: time.Now(),
 	}
 	sess.UpdateLastSeen()
@@ -319,7 +318,7 @@ func (h *agentSessionHandler) handleRegister(ctx context.Context, body []byte) (
 	// "no live agent for function".
 	var regWarnings []string
 	if h.listener.handler != nil {
-		if rr, err := h.listener.handler.handleRegisterRequest(ctx, req); err == nil {
+		if rr, err := h.listener.handler.handleRegisterRequest(ctx, req, h.conn.RemoteAddr()); err == nil {
 			regWarnings = rr.GetWarnings()
 		} else {
 			h.listener.logger.Warn("register functions to dispatcher registry failed",

@@ -107,7 +107,7 @@ func (l *OpsServicesLogic) OpsServices(_ *OpsServicesRequest) (*OpsServicesRespo
 				Name:           sess.AgentID,
 				Type:           "agent",
 				Status:         status,
-				Address:        sess.RPCAddr,
+				Address:        sess.Addr,
 				GameID:         sess.GameID,
 				Env:            sess.Env,
 				Version:        sess.Version,

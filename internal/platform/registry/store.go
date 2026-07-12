@@ -39,7 +39,7 @@ type AgentSession struct {
 	AgentID   string
 	GameID    string
 	Env       string
-	RPCAddr   string
+	Addr      string
 	Version   string
 	Region    string
 	Zone      string
@@ -145,7 +145,7 @@ func (s *Store) UpsertAgent(a *AgentSession) {
 	}
 	// Merge minimal fields. RPCAddr remains a compatibility mirror and should
 	// not be treated as the primary runtime route.
-	cur.GameID, cur.Env, cur.RPCAddr, cur.Version = a.GameID, a.Env, a.RPCAddr, a.Version
+	cur.GameID, cur.Env, cur.Addr, cur.Version = a.GameID, a.Env, a.Addr, a.Version
 	cur.Region, cur.Zone = a.Region, a.Zone
 	// merge labels: new labels replace old ones
 	if a.Labels != nil {
@@ -178,7 +178,6 @@ func (s *Store) writeToDB(ctx context.Context, a *AgentSession) error {
 		AgentID   string
 		GameID    string
 		Env       string
-		RPCAddr   string
 		Version   string
 		Region    string
 		Zone      string
@@ -191,7 +190,6 @@ func (s *Store) writeToDB(ctx context.Context, a *AgentSession) error {
 		AgentID:  a.AgentID,
 		GameID:   a.GameID,
 		Env:      a.Env,
-		RPCAddr:  a.RPCAddr,
 		Version:  a.Version,
 		Region:   a.Region,
 		Zone:     a.Zone,

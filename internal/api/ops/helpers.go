@@ -57,8 +57,8 @@ func opsAgentsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgen
 
 		agents = append(agents, OpsAgentInfo{
 			AgentID:   sess.AgentID,
-			Addr:      sess.RPCAddr,
-			RPCAddr:   sess.RPCAddr,
+			Addr:      sess.Addr,
+			RPCAddr:   sess.Addr,
 			GameID:    sess.GameID,
 			Env:       sess.Env,
 			Version:   sess.Version,
@@ -375,7 +375,7 @@ func opsNodes(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodesRequ
 		nodes = append(nodes, Node{
 			Id:       sess.AgentID,
 			Hostname: sess.Labels["hostname"],
-			Addr:     sess.RPCAddr,
+			Addr:     sess.Addr,
 			GameId:   sess.GameID,
 			Env:      sess.Env,
 			Status:   "active",
@@ -1200,7 +1200,7 @@ func opsServices(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsServic
 				Name:           sess.AgentID,
 				Type:           "agent",
 				Status:         status,
-				Address:        sess.RPCAddr,
+				Address:        sess.Addr,
 				GameID:         sess.GameID,
 				Env:            sess.Env,
 				Version:        sess.Version,

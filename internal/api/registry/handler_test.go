@@ -31,7 +31,7 @@ func TestHandler_GetRegistry_Success(t *testing.T) {
 		AgentID:   "test-agent-1",
 		GameID:    "game1",
 		Env:       "dev",
-		RPCAddr:   "127.0.0.1:19091",
+		Addr:      "127.0.0.1:19091",
 		ExpireAt:  time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 	})
@@ -116,7 +116,7 @@ func TestService_GetRegistry_MultipleAgents(t *testing.T) {
 		AgentID:  "agent-z",
 		GameID:   "game2",
 		Env:      "dev",
-		RPCAddr:  "127.0.0.1:19092",
+		Addr:     "127.0.0.1:19092",
 		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"func.a": {Enabled: true},
@@ -126,7 +126,7 @@ func TestService_GetRegistry_MultipleAgents(t *testing.T) {
 		AgentID:  "agent-a",
 		GameID:   "game1",
 		Env:      "dev",
-		RPCAddr:  "127.0.0.1:19091",
+		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"func.b": {Enabled: true},
@@ -153,7 +153,7 @@ func TestService_GetRegistry_ExpiredAgent(t *testing.T) {
 		AgentID:  "expired-agent",
 		GameID:   "game1",
 		Env:      "dev",
-		RPCAddr:  "127.0.0.1:19091",
+		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(-1 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"test.func": {Enabled: true},
@@ -180,7 +180,7 @@ func TestService_GetRegistry_AgentWithNilExpireAt(t *testing.T) {
 		AgentID:  "no-expiry-agent",
 		GameID:   "game1",
 		Env:      "dev",
-		RPCAddr:  "127.0.0.1:19091",
+		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Time{},
 		Functions: map[string]registry.FunctionMeta{
 			"test.func": {Enabled: true},
@@ -206,7 +206,7 @@ func TestService_GetRegistry_AgentWithZeroID(t *testing.T) {
 		AgentID:  "",
 		GameID:   "game1",
 		Env:      "dev",
-		RPCAddr:  "127.0.0.1:19091",
+		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"test.func": {Enabled: true},
@@ -230,7 +230,7 @@ func TestService_GetRegistry_MultipleAgentsSameFunction(t *testing.T) {
 		AgentID:  "agent-1",
 		GameID:   "game1",
 		Env:      "dev",
-		RPCAddr:  "127.0.0.1:19091",
+		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"shared.func": {Enabled: true},
@@ -240,7 +240,7 @@ func TestService_GetRegistry_MultipleAgentsSameFunction(t *testing.T) {
 		AgentID:  "agent-2",
 		GameID:   "game1",
 		Env:      "dev",
-		RPCAddr:  "127.0.0.1:19092",
+		Addr:     "127.0.0.1:19092",
 		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"shared.func": {Enabled: true},
@@ -267,7 +267,7 @@ func TestService_GetRegistry_DisabledFunctionNotIncluded(t *testing.T) {
 		AgentID:  "agent-1",
 		GameID:   "game1",
 		Env:      "dev",
-		RPCAddr:  "127.0.0.1:19091",
+		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"disabled.func": {Enabled: false},

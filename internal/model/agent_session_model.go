@@ -18,7 +18,6 @@ type AgentSessionDB struct {
 	AgentID   string         `gorm:"size:64;uniqueIndex;not null"`
 	GameID    string         `gorm:"size:64;index"`
 	Env       string         `gorm:"size:32;index"`
-	RPCAddr   string         `gorm:"size:255;not null"`
 	Version   string         `gorm:"size:32"`
 	Region    string         `gorm:"size:64;index"`
 	Zone      string         `gorm:"size:64;index"`
@@ -104,7 +103,6 @@ func toDomainSession(dbSess *AgentSessionDB) (*registry.AgentSession, error) {
 		AgentID:  dbSess.AgentID,
 		GameID:   dbSess.GameID,
 		Env:      dbSess.Env,
-		RPCAddr:  dbSess.RPCAddr,
 		Version:  dbSess.Version,
 		Region:   dbSess.Region,
 		Zone:     dbSess.Zone,
@@ -136,7 +134,6 @@ func toDBSession(sess *registry.AgentSession) (*AgentSessionDB, error) {
 		AgentID:  sess.AgentID,
 		GameID:   sess.GameID,
 		Env:      sess.Env,
-		RPCAddr:  sess.RPCAddr,
 		Version:  sess.Version,
 		Region:   sess.Region,
 		Zone:     sess.Zone,

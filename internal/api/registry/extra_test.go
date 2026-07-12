@@ -34,7 +34,7 @@ func TestHandler_GetRegistry_WithFilters(t *testing.T) {
 		AgentID:   "agent-1",
 		GameID:    "game1",
 		Env:       "prod",
-		RPCAddr:   "127.0.0.1:19091",
+		Addr:      "127.0.0.1:19091",
 		ExpireAt:  time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 		Labels:    map[string]string{"region": "us-east"},
@@ -84,7 +84,7 @@ func TestService_GetRegistry_WithAgentLabels(t *testing.T) {
 		AgentID:   "labeled-agent",
 		GameID:    "game1",
 		Env:       "prod",
-		RPCAddr:   "127.0.0.1:19091",
+		Addr:      "127.0.0.1:19091",
 		ExpireAt:  time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 		Labels: map[string]string{
@@ -111,7 +111,7 @@ func TestService_GetRegistry_AgentAboutToExpire(t *testing.T) {
 		AgentID:   "expiring-soon-agent",
 		GameID:    "game1",
 		Env:       "dev",
-		RPCAddr:   "127.0.0.1:19091",
+		Addr:      "127.0.0.1:19091",
 		ExpireAt:  time.Now().Add(30 * time.Second),
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 	})
@@ -135,7 +135,7 @@ func TestService_GetRegistry_FunctionWithMultipleAgents(t *testing.T) {
 			AgentID:  "agent-" + string(rune('0'+i)),
 			GameID:   "game1",
 			Env:      "dev",
-			RPCAddr:  "127.0.0.1:1909" + string(rune('0'+i)),
+			Addr:     "127.0.0.1:1909" + string(rune('0'+i)),
 			ExpireAt: time.Now().Add(5 * time.Minute),
 			Functions: map[string]registry.FunctionMeta{
 				"multi.func": {Enabled: true},
@@ -161,7 +161,7 @@ func TestService_GetRegistry_EmptyFunctions(t *testing.T) {
 		AgentID:   "no-func-agent",
 		GameID:    "game1",
 		Env:       "dev",
-		RPCAddr:   "127.0.0.1:19091",
+		Addr:      "127.0.0.1:19091",
 		ExpireAt:  time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{},
 	})
@@ -184,7 +184,7 @@ func TestService_GetRegistry_FilteredResponse(t *testing.T) {
 		AgentID:   "agent-1",
 		GameID:    "game1",
 		Env:       "prod",
-		RPCAddr:   "127.0.0.1:19091",
+		Addr:      "127.0.0.1:19091",
 		ExpireAt:  time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{"game1.func": {Enabled: true}},
 	})
@@ -192,7 +192,7 @@ func TestService_GetRegistry_FilteredResponse(t *testing.T) {
 		AgentID:   "agent-2",
 		GameID:    "game2",
 		Env:       "dev",
-		RPCAddr:   "127.0.0.1:19092",
+		Addr:      "127.0.0.1:19092",
 		ExpireAt:  time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{"game2.func": {Enabled: true}},
 	})
@@ -271,7 +271,7 @@ func TestService_GetRegistry_WithAssignments(t *testing.T) {
 		AgentID:   "agent-1",
 		GameID:    "game1",
 		Env:       "prod",
-		RPCAddr:   "127.0.0.1:19091",
+		Addr:      "127.0.0.1:19091",
 		ExpireAt:  time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 	})
@@ -290,9 +290,9 @@ func TestService_GetRegistry_Sorting(t *testing.T) {
 
 	// Add agents in non-sorted order
 	agents := []*registry.AgentSession{
-		{AgentID: "z-agent", GameID: "b-game", Env: "prod", RPCAddr: "127.0.0.1:19093", ExpireAt: time.Now().Add(5 * time.Minute), Functions: map[string]registry.FunctionMeta{"z.func": {Enabled: true}}},
-		{AgentID: "a-agent", GameID: "a-game", Env: "prod", RPCAddr: "127.0.0.1:19091", ExpireAt: time.Now().Add(5 * time.Minute), Functions: map[string]registry.FunctionMeta{"a.func": {Enabled: true}}},
-		{AgentID: "m-agent", GameID: "a-game", Env: "prod", RPCAddr: "127.0.0.1:19092", ExpireAt: time.Now().Add(5 * time.Minute), Functions: map[string]registry.FunctionMeta{"m.func": {Enabled: true}}},
+		{AgentID: "z-agent", GameID: "b-game", Env: "prod", Addr: "127.0.0.1:19093", ExpireAt: time.Now().Add(5 * time.Minute), Functions: map[string]registry.FunctionMeta{"z.func": {Enabled: true}}},
+		{AgentID: "a-agent", GameID: "a-game", Env: "prod", Addr: "127.0.0.1:19091", ExpireAt: time.Now().Add(5 * time.Minute), Functions: map[string]registry.FunctionMeta{"a.func": {Enabled: true}}},
+		{AgentID: "m-agent", GameID: "a-game", Env: "prod", Addr: "127.0.0.1:19092", ExpireAt: time.Now().Add(5 * time.Minute), Functions: map[string]registry.FunctionMeta{"m.func": {Enabled: true}}},
 	}
 	for _, agent := range agents {
 		svcCtx.RegistryStore.UpsertAgent(agent)
@@ -321,7 +321,7 @@ func TestService_GetRegistry_FunctionSorting(t *testing.T) {
 		AgentID:  "agent-1",
 		GameID:   "game1",
 		Env:      "prod",
-		RPCAddr:  "127.0.0.1:19091",
+		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"z.func": {Enabled: true},
@@ -332,7 +332,7 @@ func TestService_GetRegistry_FunctionSorting(t *testing.T) {
 		AgentID:  "agent-2",
 		GameID:   "game1",
 		Env:      "prod",
-		RPCAddr:  "127.0.0.1:19092",
+		Addr:     "127.0.0.1:19092",
 		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"m.func": {Enabled: true},
@@ -368,7 +368,7 @@ func TestService_GetRegistry_CoverageSorting(t *testing.T) {
 		AgentID:   "agent-1",
 		GameID:    "z-game",
 		Env:       "prod",
-		RPCAddr:   "127.0.0.1:19091",
+		Addr:      "127.0.0.1:19091",
 		ExpireAt:  time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 	})
@@ -376,7 +376,7 @@ func TestService_GetRegistry_CoverageSorting(t *testing.T) {
 		AgentID:   "agent-2",
 		GameID:    "a-game",
 		Env:       "dev",
-		RPCAddr:   "127.0.0.1:19092",
+		Addr:      "127.0.0.1:19092",
 		ExpireAt:  time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 	})
@@ -401,7 +401,7 @@ func TestService_GetRegistry_DisabledFunctions(t *testing.T) {
 		AgentID:  "agent-1",
 		GameID:   "game1",
 		Env:      "prod",
-		RPCAddr:  "127.0.0.1:19091",
+		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"enabled.func":  {Enabled: true},
@@ -431,7 +431,7 @@ func TestService_GetRegistry_EmptyAgentID(t *testing.T) {
 		AgentID:   "",
 		GameID:    "game1",
 		Env:       "prod",
-		RPCAddr:   "127.0.0.1:19091",
+		Addr:      "127.0.0.1:19091",
 		ExpireAt:  time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 	})
@@ -495,7 +495,7 @@ func TestService_GetRegistry_WhitespacedAgentID(t *testing.T) {
 		AgentID:   "  agent-whitespace  ",
 		GameID:    "game1",
 		Env:       "prod",
-		RPCAddr:   "127.0.0.1:19091",
+		Addr:      "127.0.0.1:19091",
 		ExpireAt:  time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 	})
@@ -517,7 +517,7 @@ func TestService_GetRegistry_FunctionsKeyGeneration(t *testing.T) {
 		AgentID:  "agent-a",
 		GameID:   "game1",
 		Env:      "prod",
-		RPCAddr:  "127.0.0.1:19091",
+		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"shared.func": {Enabled: true},
@@ -527,7 +527,7 @@ func TestService_GetRegistry_FunctionsKeyGeneration(t *testing.T) {
 		AgentID:  "agent-b",
 		GameID:   "game1",
 		Env:      "prod",
-		RPCAddr:  "127.0.0.1:19092",
+		Addr:     "127.0.0.1:19092",
 		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"shared.func": {Enabled: true},
@@ -553,7 +553,7 @@ func TestService_GetRegistry_AssignmentIntegration(t *testing.T) {
 		AgentID:   "agent-1",
 		GameID:    "game1",
 		Env:       "prod",
-		RPCAddr:   "127.0.0.1:19091",
+		Addr:      "127.0.0.1:19091",
 		ExpireAt:  time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{"assigned.func": {Enabled: true}},
 	})
@@ -576,7 +576,7 @@ func TestService_GetRegistry_CoverageUncovered(t *testing.T) {
 		AgentID:  "agent-1",
 		GameID:   "game1",
 		Env:      "prod",
-		RPCAddr:  "127.0.0.1:19091",
+		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"covered.func":   {Enabled: true},
@@ -664,7 +664,7 @@ func TestService_GetRegistry_CoverageStats(t *testing.T) {
 		AgentID:  "stats-agent",
 		GameID:   "game1",
 		Env:      "prod",
-		RPCAddr:  "127.0.0.1:19091",
+		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"func1": {Enabled: true},
@@ -694,7 +694,7 @@ func TestService_GetRegistry_DisabledFunctionsNotCounted(t *testing.T) {
 		AgentID:  "mixed-agent",
 		GameID:   "game1",
 		Env:      "prod",
-		RPCAddr:  "127.0.0.1:19091",
+		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"enabled.func":  {Enabled: true},
@@ -733,7 +733,7 @@ func TestService_GetRegistry_SameFunctionMultipleAgents(t *testing.T) {
 			AgentID:  "agent-" + string(rune('0'+i)),
 			GameID:   "game1",
 			Env:      "prod",
-			RPCAddr:  "127.0.0.1:1909" + string(rune('0'+i)),
+			Addr:     "127.0.0.1:1909" + string(rune('0'+i)),
 			ExpireAt: time.Now().Add(5 * time.Minute),
 			Functions: map[string]registry.FunctionMeta{
 				"shared.func": {Enabled: true},
@@ -767,7 +767,7 @@ func TestService_GetRegistry_WithEmptyAgentID(t *testing.T) {
 		AgentID:   "",
 		GameID:    "game1",
 		Env:       "prod",
-		RPCAddr:   "127.0.0.1:19091",
+		Addr:      "127.0.0.1:19091",
 		ExpireAt:  time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 	})
@@ -868,7 +868,7 @@ func TestService_GetRegistry_WithAssignmentsFile(t *testing.T) {
 		AgentID:   "agent-1",
 		GameID:    "game1",
 		Env:       "prod",
-		RPCAddr:   "127.0.0.1:19091",
+		Addr:      "127.0.0.1:19091",
 		ExpireAt:  time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{"func1": {Enabled: true}},
 	})
@@ -951,7 +951,7 @@ func TestService_GetRegistry_AssignmentCoverageWithAgent(t *testing.T) {
 		AgentID:  "agent-1",
 		GameID:   "game1",
 		Env:      "prod",
-		RPCAddr:  "127.0.0.1:19091",
+		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{
 			"func1": {Enabled: true},
