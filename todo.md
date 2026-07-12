@@ -98,16 +98,19 @@
     - Storage：ObjectStore、Storage API、权限校验。
     - Ops：OpsStateStore、MetricsStore、SystemInfoCache。
   - 判断标准：只有当消费者能从 `*svc.ServiceContext` 缩小到领域接口时才算有效重构。
+  - 边界讨论结论（2026-07-12）：探查 ~44 指针字段（~20 Model + Dispatcher/Router/Cache/Audit/Policy/ObjectStore/Ops/Extensions），所有 handler/service 依赖全量。先拆 **TaskRuntime** 试点（task lifecycle E2E + server test 覆盖，有测试保护）：定义 `TaskRuntime` 接口（Dispatcher + TaskModel + AgentSessionResolver），task handler/service 依赖该接口而非 `*ServiceContext`。验证模式后扩展 GameScope/Storage/Ops。收益：测试隔离（mock 领域接口）+ 依赖面缩小；风险：大重构，分步。
 
 - [ ] **收敛 API handler/service 模式。**
   - 问题：API 包数量多，handler/service/model 组合方式不完全统一，新增测试成本偏高。
   - 建议：抽取通用 response、binding、pagination、scope 校验模式；避免每个包重复样板。
   - 约束：只抽真实重复，不为了“框架化”引入额外复杂度。
+  - 边界讨论结论（2026-07-12）：探查 32 处 `response.Error(c, err)` + 37 处 `ShouldBindJSON/BindQuery` 重复；已有 `internal/common/response` + `requestbind.BindQueryCompat`，但 pagination/scope 校验仍各包重复。先审计 `PaginationOptions` + `RequireGameEnvScope` 调用，抽 1-2 个 helper（`Paginate(req)` + `ResolveScope(c, svcCtx)`），不引框架。收益：新增 handler 成本降 + 一致性；风险：过度抽象。
 
 - [ ] **收敛 Analytics 链路的生产 readiness。**
   - 现状：已有 `cmd/ingest`、`cmd/analytics-worker`、ClickHouse/Redis/Flink 文档和 compose 配置，但需要专项确认端到端与部署成熟度。
   - 建议：单独审计 ingest → MQ → worker → ClickHouse → API 查询链路。
   - 验证：最小 analytics E2E，覆盖事件写入、消费、落库、查询。
+  - 边界讨论结论（2026-07-12）：探查 `cmd/ingest` + `cmd/analytics-worker` + `cmd/analytics-export` + `internal/analytics` 存在；compose 配置未在仓库根（需确认部署配置位置）。独立专项，不与 ServiceContext 重构耦合。先审计链路完整性（代码 + 配置 + compose），确认 ingest/worker/export 可启动 + 连 ClickHouse/Redis；再补最小 E2E（docker-compose 起 ClickHouse/Redis）。风险：外部依赖（ClickHouse/Redis/Flink），E2E 需 compose。
 
 ## P2：工程治理
 
