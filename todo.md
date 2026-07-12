@@ -71,7 +71,7 @@
   - 位置：`internal/common/response/response.go`、`internal/common/response/response_test.go`
   - 验证：`/usr/local/go/bin/go test ./internal/api/... ./internal/common/response/...`（零失败，零回归）。
   - 🟡 待后续：`functioncall.Service.Detail` 返回字段与 `List` 不一致（丢弃 FunctionID/GameID/Env/AgentID），非 contract 阻塞，单独修。
-  - 🟡 待后续：ops handlers 仍返回 envelope `{code,message}`（如 `GET /api/v1/ops/agents` → `{"code":0,"message":"Success"}` 无 payload），违反 CLAUDE.md「禁止 envelope」契约，需改走 `internal/common/response` 直返 payload。E2E happy-path 仅校验 HTTP 200 故未拦住。
+  - ✅ 已完成：ops handlers 不再返回 envelope `{code,message}`。全部 ~25 个 ops 响应 DTO（agent/backup/alert/silence/node/health/metrics/maintenance/functions/mq/notifications）改为直返业务 payload（`{agents}`/`{functions}`/`{nodes}`/`{metrics}`/...），符合 CLAUDE.md 契约。前端早已期望直返，此修复同时修正前端链路。分 3 批提交。
 
 ## P1：文档重新收敛
 

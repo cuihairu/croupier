@@ -800,10 +800,7 @@ func TestOpsFunctionsNilSvcCtx(t *testing.T) {
 
 	resp, err := s.OpsFunctions(ctx, &OpsFunctionsRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	data, ok := resp.Data.(map[string][]string)
-	require.True(t, ok)
-	assert.Empty(t, data)
+	assert.Empty(t, resp.Functions)
 }
 
 // Tests for extractNotificationConfig helper
@@ -1182,7 +1179,7 @@ func TestOpsNotificationsUpdateWithChannelsAndRules(t *testing.T) {
 	ctx := context.Background()
 	svcCtx := &svc.ServiceContext{}
 
-	resp, err := opsNotificationsUpdate(ctx, svcCtx, &OpsNotificationsUpdateRequest{
+	_, err := opsNotificationsUpdate(ctx, svcCtx, &OpsNotificationsUpdateRequest{
 		Enabled: true,
 		Channels: []OpsNotificationChannel{
 			{ID: "webhook-1", Type: "webhook", URL: "https://example.com/hook"},
@@ -1194,7 +1191,6 @@ func TestOpsNotificationsUpdateWithChannelsAndRules(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
 }
 
 // Tests for saveNotificationsToExtensionInstallation with nil extension
@@ -1560,11 +1556,9 @@ func TestOpsFunctionsMultiple(t *testing.T) {
 
 	resp, err := opsFunctions(ctx, svcCtx, &OpsFunctionsRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	data := resp.Data.(map[string][]string)
-	assert.Len(t, data["func1"], 2) // Both agents have func1
-	assert.Len(t, data["func2"], 1) // Only agent-1 has func2
-	assert.Len(t, data["func3"], 1) // Only agent-2 has func3
+	assert.Len(t, resp.Functions["func1"], 2) // Both agents have func1
+	assert.Len(t, resp.Functions["func2"], 1) // Only agent-1 has func2
+	assert.Len(t, resp.Functions["func3"], 1) // Only agent-2 has func3
 }
 
 // Test for opsAgentSystemInfo handler with POST

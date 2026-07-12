@@ -309,9 +309,8 @@ func TestServiceOpsHealthGet(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsHealthGet(ctx, &OpsHealthGetRequest{})
+	_, err := s.OpsHealthGet(ctx, &OpsHealthGetRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
 }
 
 func TestServiceOpsHealthRun(t *testing.T) {
@@ -347,9 +346,8 @@ func TestServiceOpsMaintenanceGet(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsMaintenanceGet(ctx, &OpsMaintenanceGetRequest{})
+	_, err := s.OpsMaintenanceGet(ctx, &OpsMaintenanceGetRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
 }
 
 func TestServiceOpsMaintenanceUpdate(t *testing.T) {
@@ -373,9 +371,8 @@ func TestServiceOpsMetrics(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsMetrics(ctx, &OpsMetricsRequest{})
+	_, err := s.OpsMetrics(ctx, &OpsMetricsRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
 }
 
 // Config tests
@@ -429,10 +426,7 @@ func TestServiceOpsFunctions(t *testing.T) {
 
 	resp, err := s.OpsFunctions(ctx, &OpsFunctionsRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	data, ok := resp.Data.(map[string][]string)
-	require.True(t, ok)
-	assert.Len(t, data["func1"], 1)
+	assert.Len(t, resp.Functions["func1"], 1)
 }
 
 func TestServiceOpsFunctionsEmptyRegistry(t *testing.T) {
@@ -444,10 +438,7 @@ func TestServiceOpsFunctionsEmptyRegistry(t *testing.T) {
 
 	resp, err := s.OpsFunctions(ctx, &OpsFunctionsRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
-	data, ok := resp.Data.(map[string][]string)
-	require.True(t, ok)
-	assert.Empty(t, data)
+	assert.Empty(t, resp.Functions)
 }
 
 // MQ tests
@@ -459,9 +450,8 @@ func TestServiceOpsMQ(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsMQ(ctx, &OpsMQRequest{})
+	_, err := s.OpsMQ(ctx, &OpsMQRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
 }
 
 // Notifications tests
@@ -485,13 +475,12 @@ func TestServiceOpsNotificationsUpdate(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsNotificationsUpdate(ctx, &OpsNotificationsUpdateRequest{
+	_, err := s.OpsNotificationsUpdate(ctx, &OpsNotificationsUpdateRequest{
 		Enabled:  true,
 		Channels: []OpsNotificationChannel{},
 		Rules:    []OpsNotificationRule{},
 	})
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
 }
 
 func TestServiceOpsNotificationsUpdateNilRequest(t *testing.T) {
@@ -501,9 +490,8 @@ func TestServiceOpsNotificationsUpdateNilRequest(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
 	s := NewService(svcCtx)
 
-	resp, err := s.OpsNotificationsUpdate(ctx, nil)
+	_, err := s.OpsNotificationsUpdate(ctx, nil)
 	require.NoError(t, err)
-	assert.Equal(t, 0, resp.Code)
 }
 
 // Backup operations - safe tests only

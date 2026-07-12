@@ -560,9 +560,8 @@ func opsNodeUndrain(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNod
 func opsHealthGet(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsHealthGetRequest) (*OpsHealthGetResponse, error) {
 	if svcCtx == nil || svcCtx.OpsStateStore == nil {
 		return &OpsHealthGetResponse{
-			Code:    0,
-			Message: "Success",
-			Data:    map[string]interface{}{"checks": []interface{}{}, "status": []interface{}{}},
+			Checks: []OpsHealthCheck{},
+			Status: []map[string]interface{}{},
 		}, nil
 	}
 
@@ -593,13 +592,9 @@ func opsHealthGet(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsHealt
 	}
 
 	return &OpsHealthGetResponse{
-		Code:    0,
-		Message: "Success",
-		Data: map[string]interface{}{
-			"checks":    checks,
-			"status":    statusList,
-			"updatedAt": utils.FormatTimestamp(state.Health.UpdatedAt),
-		},
+		Checks:    checks,
+		Status:    statusList,
+		UpdatedAt: utils.FormatTimestamp(state.Health.UpdatedAt),
 	}, nil
 }
 
@@ -665,14 +660,10 @@ func opsHealthRun(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsHealt
 	_ = updated
 
 	return &OpsHealthRunResponse{
-		Code:    0,
-		Message: "Health check executed",
-		Data: map[string]interface{}{
-			"id":        req.ID,
-			"ok":        ok,
-			"latencyMs": latencyMS,
-			"checkedAt": utils.FormatTimestamp(now),
-		},
+		Id:        req.ID,
+		Ok:        ok,
+		LatencyMs: latencyMS,
+		CheckedAt: utils.FormatTimestamp(now),
 	}, nil
 }
 
@@ -708,36 +699,28 @@ func opsHealthUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsHe
 	_ = updated
 
 	return &OpsHealthUpdateResponse{
-		Code:    0,
-		Message: "Health checks updated",
-		Data:    checks,
+		Checks: checks,
 	}, nil
 }
 
 func opsMetrics(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsMetricsRequest) (*OpsMetricsResponse, error) {
 	if svcCtx == nil {
 		return &OpsMetricsResponse{
-			Code:    0,
-			Message: "Success",
-			Data:    []OpsMetricsData{},
+			Metrics: []OpsMetricsData{},
 		}, nil
 	}
 
 	// Aggregate latest metrics from MetricsStore across registered agents
 	if svcCtx.MetricsStore == nil {
 		return &OpsMetricsResponse{
-			Code:    0,
-			Message: "Success",
-			Data:    []OpsMetricsData{},
+			Metrics: []OpsMetricsData{},
 		}, nil
 	}
 
 	store := svcCtx.RegistryStore
 	if store == nil {
 		return &OpsMetricsResponse{
-			Code:    0,
-			Message: "Success",
-			Data:    []OpsMetricsData{},
+			Metrics: []OpsMetricsData{},
 		}, nil
 	}
 
@@ -810,18 +793,14 @@ func opsMetrics(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsMetrics
 	}
 
 	return &OpsMetricsResponse{
-		Code:    0,
-		Message: "Success",
-		Data:    result,
+		Metrics: result,
 	}, nil
 }
 
 func opsMaintenanceGet(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsMaintenanceGetRequest) (*OpsMaintenanceGetResponse, error) {
 	if svcCtx == nil || svcCtx.OpsStateStore == nil {
 		return &OpsMaintenanceGetResponse{
-			Code:    0,
-			Message: "Success",
-			Data:    map[string]interface{}{"windows": []interface{}{}},
+			Windows: []OpsMaintenanceWindow{},
 		}, nil
 	}
 
@@ -840,12 +819,8 @@ func opsMaintenanceGet(ctx context.Context, svcCtx *svc.ServiceContext, req *Ops
 	}
 
 	return &OpsMaintenanceGetResponse{
-		Code:    0,
-		Message: "Success",
-		Data: map[string]interface{}{
-			"windows":   windows,
-			"updatedAt": utils.FormatTimestamp(state.Maintenance.UpdatedAt),
-		},
+		Windows:   windows,
+		UpdatedAt: utils.FormatTimestamp(state.Maintenance.UpdatedAt),
 	}, nil
 }
 
@@ -890,9 +865,7 @@ func opsMaintenanceUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *
 	_ = updated
 
 	return &OpsMaintenanceUpdateResponse{
-		Code:    0,
-		Message: "Maintenance windows updated",
-		Data:    windows,
+		Windows: windows,
 	}, nil
 }
 
@@ -901,17 +874,13 @@ func opsMaintenanceUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req *
 func opsFunctions(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsFunctionsRequest) (*OpsFunctionsResponse, error) {
 	if svcCtx == nil {
 		return &OpsFunctionsResponse{
-			Code:    0,
-			Message: "Success",
-			Data:    map[string][]string{},
+			Functions: map[string][]string{},
 		}, nil
 	}
 	store := svcCtx.RegistryStore
 	if store == nil {
 		return &OpsFunctionsResponse{
-			Code:    0,
-			Message: "Success",
-			Data:    map[string][]string{},
+			Functions: map[string][]string{},
 		}, nil
 	}
 
@@ -930,9 +899,7 @@ func opsFunctions(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsFunct
 	}
 
 	return &OpsFunctionsResponse{
-		Code:    0,
-		Message: "Success",
-		Data:    result,
+		Functions: result,
 	}, nil
 }
 
@@ -988,10 +955,7 @@ func opsNotificationsUpdate(ctx context.Context, svcCtx *svc.ServiceContext, req
 		// trail is incomplete.
 		return nil, err
 	}
-	return &OpsNotificationsUpdateResponse{
-		Code:    0,
-		Message: "Notifications updated successfully",
-	}, nil
+	return &OpsNotificationsUpdateResponse{}, nil
 }
 
 func findActiveExtensionInstallationByID(ctx context.Context, svcCtx *svc.ServiceContext, extensionID string) (*model.ExtensionInstallation, bool, error) {
@@ -1121,9 +1085,7 @@ func extractNotificationConfig(config map[string]any) (bool, []OpsNotificationCh
 func opsMQ(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsMQRequest) (*OpsMQResponse, error) {
 	if svcCtx == nil || svcCtx.OpsStateStore == nil {
 		return &OpsMQResponse{
-			Code:    0,
-			Message: "Success",
-			Data:    map[string]interface{}{},
+			Result: map[string]interface{}{},
 		}, nil
 	}
 
@@ -1163,9 +1125,7 @@ func opsMQ(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsMQRequest) (
 	}
 
 	return &OpsMQResponse{
-		Code:    0,
-		Message: "Success",
-		Data:    result,
+		Result: result,
 	}, nil
 }
 

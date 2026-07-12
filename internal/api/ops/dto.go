@@ -238,9 +238,7 @@ type OpsMetricsQuery struct {
 }
 
 type OpsMetricsResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Metrics []OpsMetricsData `json:"metrics"`
 }
 
 type OpsNetworkMetrics struct {
@@ -277,9 +275,7 @@ type OpsFunctionsRequest struct {
 }
 
 type OpsFunctionsResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Functions map[string][]string `json:"functions"`
 }
 
 // Health operations DTOs
@@ -302,9 +298,9 @@ type OpsHealthGetRequest struct {
 }
 
 type OpsHealthGetResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Checks    []OpsHealthCheck         `json:"checks"`
+	Status    []map[string]interface{} `json:"status"`
+	UpdatedAt string                   `json:"updatedAt"`
 }
 
 type OpsHealthRunRequest struct {
@@ -312,9 +308,10 @@ type OpsHealthRunRequest struct {
 }
 
 type OpsHealthRunResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Id        string `json:"id"`
+	Ok        bool   `json:"ok"`
+	LatencyMs int64  `json:"latencyMs"`
+	CheckedAt string `json:"checkedAt"`
 }
 
 type OpsHealthUpdateRequest struct {
@@ -323,9 +320,7 @@ type OpsHealthUpdateRequest struct {
 }
 
 type OpsHealthUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Checks interface{} `json:"checks"`
 }
 
 // Maintenance operations DTOs
@@ -334,9 +329,8 @@ type OpsMaintenanceGetRequest struct {
 }
 
 type OpsMaintenanceGetResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Windows   []OpsMaintenanceWindow `json:"windows"`
+	UpdatedAt string                 `json:"updatedAt"`
 }
 
 type OpsMaintenanceUpdateRequest struct {
@@ -346,9 +340,7 @@ type OpsMaintenanceUpdateRequest struct {
 }
 
 type OpsMaintenanceUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Windows interface{} `json:"windows"`
 }
 
 type OpsMaintenanceWindow struct {
@@ -367,9 +359,7 @@ type OpsMQRequest struct {
 }
 
 type OpsMQResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
+	Result interface{} `json:"result"`
 }
 
 // Node operations DTOs
@@ -447,9 +437,6 @@ type OpsNotificationsUpdateRequest struct {
 }
 
 type OpsNotificationsUpdateResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
 }
 
 // Process operations DTOs
