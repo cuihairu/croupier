@@ -52,10 +52,17 @@ jobs:
         timeout-minutes: 1
         run: mkdir -p "${{ inputs.deploy_dir }}"
 
-      - name: Prepare compose and env
+      - name: Prepare compose, configs and env
         timeout-minutes: 2
         run: |
           cp docker/docker-compose.deploy.yml "${{ inputs.deploy_dir }}/docker-compose.yml"
+          # Server/agent bind-mount ./configs/{server,agent}.yaml read-only
+          # (see docker-compose.deploy.yml). Recreate the dir each run: a prior
+          # failed `up` leaves Docker auto-created empty same-name *directories*
+          # in place of the missing files, which then fail with "not a directory".
+          rm -rf "${{ inputs.deploy_dir }}/configs"
+          mkdir -p "${{ inputs.deploy_dir }}/configs"
+          cp docker/configs/server.yaml docker/configs/agent.yaml "${{ inputs.deploy_dir }}/configs/"
           cat > "${{ inputs.deploy_dir }}/.env" <<EOF
           GHCR_OWNER=${{ inputs.ghcr_owner }}
           CROUPIER_SERVER_TAG=${{ inputs.server_tag }}
