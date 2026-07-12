@@ -37,6 +37,11 @@ if ! docker exec croupier-clickhouse clickhouse-client --query "SELECT 1" >/dev/
 fi
 ok "ClickHouse ready"
 
+# Wait for ClickHouse system tables to fully initialize after readiness.
+# Immediately after readiness the system tables may still be loading,
+# causing ATTEMPT_TO_READ_AFTER_EOF on CREATE DATABASE/DATA statements.
+sleep 5
+
 # Wait for Redis
 for i in $(seq 1 15); do
   docker exec croupier-redis redis-cli ping 2>/dev/null | grep -q PONG && break
@@ -88,6 +93,10 @@ CREATE TABLE IF NOT EXISTS analytics.payments (
   ORDER BY (game_id, env, user_id, time)
   TTL time + INTERVAL 12 MONTH;
 SQL
+if [ $? -ne 0 ]; then
+  fail "create analytics tables"
+  docker compose -f "$COMPOSE_FILE" down; exit 1
+fi
 ok "analytics tables created"
 
 # --- 3. Build worker ---
