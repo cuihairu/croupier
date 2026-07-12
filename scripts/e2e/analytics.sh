@@ -142,7 +142,7 @@ ok "worker consumer group ready"
 # Use python to safely serialize JSON and pass to redis-cli via docker exec.
 echo "Writing test events..."
 python3 -c "
-import json, subprocess, sys
+import json, subprocess, sys, uuid
 
 def xadd(stream, obj):
     payload = json.dumps(obj)
@@ -156,14 +156,16 @@ def xadd(stream, obj):
 xadd('analytics:events', {
     'game_id': 'e2e-game', 'env': 'dev', 'event': 'login',
     'user_id': 'test-user', 'session_id': 's1',
-    'channel': 'direct', 'platform': 'linux',
-    'props_json': json.dumps({'action': 'login'})
+    'channel': 'direct', 'platform': 'linux', 'country': 'US',
+    'event_id': str(uuid.uuid4()),
+    'props': {'action': 'login'}
 })
 xadd('analytics:events', {
     'game_id': 'e2e-game', 'env': 'dev', 'event': 'purchase',
     'user_id': 'test-user', 'session_id': 's1',
-    'channel': 'direct', 'platform': 'linux',
-    'props_json': json.dumps({'item': 'sword', 'amount': 100})
+    'channel': 'direct', 'platform': 'linux', 'country': 'US',
+    'event_id': str(uuid.uuid4()),
+    'props': {'item': 'sword', 'amount': 100}
 })
 xadd('analytics:payments', {
     'game_id': 'e2e-game', 'env': 'dev', 'user_id': 'test-user',
@@ -206,7 +208,7 @@ else
   echo "--- worker log (last 20 lines) ---"
   tail -20 /tmp/e2e-analytics-worker.log 2>/dev/null || echo "(no worker log)"
   # XReadGROUP direct test
-  XREADGROUP_OUT=$(docker exec croupier-redis redis-cli XREADGROUP GROUP analytics-worker c1 STREAMS analytics:events ">" COUNT 2 2>&1)
+  XREADGROUP_OUT=$(docker exec croupier-redis redis-cli XREADGROUP GROUP analytics-worker c1 COUNT 2 STREAMS analytics:events ">" 2>&1)
   echo "--- XReadGROUP direct result ---"
   echo "$XREADGROUP_OUT"
   echo "--- Redis stream analytics:events (XLEN) ---"

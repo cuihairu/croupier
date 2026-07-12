@@ -1,6 +1,6 @@
 # Croupier 当前待办
 
-更新时间：2026-07-11
+更新时间：2026-07-12
 
 本清单只记录当前仍需推进的事项。已完成的历史迁移压缩到末尾，避免干扰优先级判断。
 
@@ -107,11 +107,20 @@
   - 边界讨论结论（2026-07-12）：探查 32 处 `response.Error(c, err)` + 37 处 `ShouldBindJSON/BindQuery` 重复；已有 `internal/common/response` + `requestbind.BindQueryCompat`，但 pagination/scope 校验仍各包重复。先审计 `PaginationOptions` + `RequireGameEnvScope` 调用，抽 1-2 个 helper（`Paginate(req)` + `ResolveScope(c, svcCtx)`），不引框架。收益：新增 handler 成本降 + 一致性；风险：过度抽象。
   - 已完成 pagination helper（`model.NewPagination`）：10 处 `PaginationOptions{Page,PageSize}` 替换为 `model.NewPagination(req.Page, req.PageSize)`。scope 校验 `RequireGameEnvScope` 只 1 处调用（task/service.go），暂不够抽 helper。
 
-- [ ] **收敛 Analytics 链路的生产 readiness。**
-  - 现状：已有 `cmd/ingest`、`cmd/analytics-worker`、ClickHouse/Redis/Flink 文档和 compose 配置，但需要专项确认端到端与部署成熟度。
-  - 建议：单独审计 ingest → MQ → worker → ClickHouse → API 查询链路。
-  - 验证：最小 analytics E2E，覆盖事件写入、消费、落库、查询。
-  - 边界讨论结论（2026-07-12）：探查 `cmd/ingest` + `cmd/analytics-worker` + `cmd/analytics-export` + `internal/analytics` 存在；compose 配置未在仓库根（需确认部署配置位置）。独立专项，不与 ServiceContext 重构耦合。先审计链路完整性（代码 + 配置 + compose），确认 ingest/worker/export 可启动 + 连 ClickHouse/Redis；再补最小 E2E（docker-compose 起 ClickHouse/Redis）。风险：外部依赖（ClickHouse/Redis/Flink），E2E 需 compose。
+- [~] **收敛 Analytics 链路的生产 readiness。** 简化版 E2E 已落地并接入 CI，核心 worker→ClickHouse 通路已验证；ingest/export/API 查询层仍未覆盖。
+  - ✅ 已完成：`scripts/e2e/analytics.sh`（240 行）+ `ci-analytics.yml` workflow。策略为「简化版」——绕过 ingest HMAC，直接 Redis `XADD` 写 2 events + 1 payment，验证 worker 消费 → ClickHouse 落库 → 内容校验（login/purchase event 类型 + payments 计数）。compose 依赖已确认为 `docker/docker-compose.yml`（redis + clickhouse）。
+  - ✅ 07-12 集中修复 E2E 在 CI 的稳定性阻塞（~20 提交）：
+    - ClickHouse 就绪：HTTP healthcheck（`wget 8123/?query=SELECT%201`）替代不可靠的 clickhouse-client；`docker compose up --wait`；就绪轮询 60×2s；表创建后 sleep 3s 等 system 表初始化。
+    - XReadGroup 语义：worker 先建 consumer group（`XGROUP CREATE MKSTREAM`），E2E 轮询 `XINFO GROUPS` 确认 group 存在后再写事件（group 从 `$` 起只消费创建后消息）；`last-delivered-ID` 必须为 `>`（非 `$`/`0`）。
+    - worker 时序：等 25s（消费 2s + batch flush 15s + 余量）后校验，而非提前 kill；kill worker 触发残余 batch flush。
+    - 数据格式：ClickHouse `DateTime`（非 RFC3339）；XADD 用单个 `data` JSON 字段；`retry_count` 默认 `float64(0)`。
+  - 🟡 待后续（非当前 E2E 覆盖范围）：
+    - ingest 层（HMAC 鉴权）未走通——当前 E2E 绕过。
+    - `cmd/analytics-export` 导出链路 + analytics API 查询层（ClickHouse→HTTP）未验证。
+    - Flink 仅文档/compose 提及，E2E 未涉及。
+    - 根因定位（2026-07-12，CI 连续 15 次 failure）：**非时序问题**——E2E 写入的 event 数据缺 `event_id`（events 表 UUID 列），worker 透传空值触发 ClickHouse `invalid UUID length: 0`，消息全部重试→死信；`payments` 因无 UUID 列而通过，造成「链路看似通、events=0」的假象。同源问题：E2E 用 `props_json` 字段名但 worker 读 `props`，导致 props 落库 `null`。已修 `analytics.sh`：补 `event_id`(uuid4)+`country`+改正 `props` 字段名；顺带修诊断分支 XREADGROUP 的 COUNT 参数位置。本地数据形状验证通过，待 CI 下次端到端验证。
+  - 位置：`scripts/e2e/analytics.sh`、`.github/workflows/ci-analytics.yml`、`docker/docker-compose.yml`、`cmd/analytics-worker`、`internal/analytics/mq`
+  - 验证：`bash scripts/e2e/analytics.sh`（本地需 docker）；CI `CI - Analytics E2E` workflow（本地未实跑，CI 稳定性待 main 观察）。
 
 ## P2：工程治理
 
@@ -147,6 +156,7 @@
 
 ## 最近验证
 
+- [~] 2026-07-12：Analytics E2E 落地 + 接入 CI，但 main 上连续 15 次 failure；定位真根因（E2E 缺 `event_id` UUID → ClickHouse 拒绝 → 死信，非时序问题）并修复 `analytics.sh`。`go build ./...` 通过、`scripts/check-sdk-matrix.sh` exit 0。待 push 后 CI 验证。
 - [x] 2026-07-11：`/usr/local/go/bin/go test ./...` 通过；所有 CI workflow `success`（CI - Core / Python / C# / C++ / Java / JavaScript SDK / CodeQL / Docker / Nightly / Release）。
 - [x] 2026-07-11：`scripts/check-sdk-matrix.sh` exit 0，无 warning（JS Invoker 已补、C++ legacy wire name 已清、warning 已升级为 exit 1）。
 - [x] 2026-07-10：`/usr/local/go/bin/go test ./...` 通过。
