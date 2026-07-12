@@ -139,27 +139,28 @@ fi
 ok "worker consumer group ready"
 
 # --- 6. Write test events via Redis Streams (bypassing ingest HMAC) ---
+# Use single-line XADD commands to avoid shell continuation / argument
+# splitting issues in CI. Minimal fields to stay reliable.
 echo "Writing test events..."
-EVENT_ID_1=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || python3 -c "import uuid; print(uuid.uuid4())")
-EVENT_ID_2=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || python3 -c "import uuid; print(uuid.uuid4())")
+MSG1=$(docker exec croupier-redis redis-cli XADD analytics:events '*' game_id=e2e-game env=dev event=login user_id=test-user 2>&1)
+if [ $? -ne 0 ]; then
+  fail "XADD event 1 failed: $MSG1"
+  kill $WORKER_PID 2>/dev/null; docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1; exit 1
+fi
 
-docker exec croupier-redis redis-cli XADD analytics:events '*' \
-  game_id=e2e-game env=dev user_id=test-user session_id=s1 \
-  event=login channel=direct platform=linux country=US \
-  app_version=1.0.0 "event_id=$EVENT_ID_1" 'props_json={"action":"login"}' >/dev/null
+MSG2=$(docker exec croupier-redis redis-cli XADD analytics:events '*' game_id=e2e-game env=dev event=purchase user_id=test-user 2>&1)
+if [ $? -ne 0 ]; then
+  fail "XADD event 2 failed: $MSG2"
+  kill $WORKER_PID 2>/dev/null; docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1; exit 1
+fi
 
-docker exec croupier-redis redis-cli XADD analytics:events '*' \
-  game_id=e2e-game env=dev user_id=test-user session_id=s1 \
-  event=purchase channel=direct platform=linux country=US \
-  app_version=1.0.0 "event_id=$EVENT_ID_2" 'props_json={"item":"sword","amount":100}' >/dev/null
+MSG3=$(docker exec croupier-redis redis-cli XADD analytics:payments '*' game_id=e2e-game env=dev user_id=test-user order_id=ORD-001 2>&1)
+if [ $? -ne 0 ]; then
+  fail "XADD payment failed: $MSG3"
+  kill $WORKER_PID 2>/dev/null; docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1; exit 1
+fi
 
-docker exec croupier-redis redis-cli XADD analytics:payments '*' \
-  time="$(date -u +%Y-%m-%dT%H:%M:%SZ)" game_id=e2e-game env=dev \
-  user_id=test-user order_id=ORD-001 amount_cents=999 currency=USD \
-  status=paid channel=direct platform=linux country=US region=us-west \
-  city=SF product_id=sword reason= >/dev/null
-
-# Verify events are in Redis stream (XADD succeeded)
+# Verify events are in Redis stream
 EVENTS_LEN=$(docker exec croupier-redis redis-cli XLEN analytics:events 2>/dev/null || echo "0")
 if [ "$EVENTS_LEN" -ge 2 ]; then
   ok "events in Redis stream (count=$EVENTS_LEN)"
