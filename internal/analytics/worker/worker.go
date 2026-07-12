@@ -231,7 +231,7 @@ func (w *Worker) insertEvent(ctx context.Context, m map[string]any) error {
 	// Minimal fields; props_json stays raw
 	ts := asString(m, "ts")
 	if ts == "" {
-		ts = time.Now().Format(time.RFC3339)
+		ts = time.Now().Format("2006-01-02 15:04:05")
 	}
 	game := asString(m, "game_id")
 	env := asString(m, "env")
@@ -250,7 +250,7 @@ func (w *Worker) insertEvent(ctx context.Context, m map[string]any) error {
 func (w *Worker) insertPayment(ctx context.Context, m map[string]any) error {
 	ts := asString(m, "ts")
 	if ts == "" {
-		ts = time.Now().Format(time.RFC3339)
+		ts = time.Now().Format("2006-01-02 15:04:05")
 	}
 	game := asString(m, "game_id")
 	env := asString(m, "env")
