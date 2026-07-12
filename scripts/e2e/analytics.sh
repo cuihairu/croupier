@@ -139,24 +139,42 @@ fi
 ok "worker consumer group ready"
 
 # --- 6. Write test events via Redis Streams (bypassing ingest HMAC) ---
-# Use single-line XADD commands to avoid shell continuation / argument
-# splitting issues in CI. Minimal fields to stay reliable.
+# Worker processMessage expects a single "data" field containing JSON.
+# Use python to safely serialize JSON and pass to redis-cli via docker exec.
 echo "Writing test events..."
-MSG1=$(docker exec croupier-redis redis-cli XADD analytics:events '*' game_id=e2e-game env=dev event=login user_id=test-user 2>&1)
-if [ $? -ne 0 ]; then
-  fail "XADD event 1 failed: $MSG1"
-  kill $WORKER_PID 2>/dev/null; docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1; exit 1
-fi
+python3 -c "
+import json, subprocess, sys
 
-MSG2=$(docker exec croupier-redis redis-cli XADD analytics:events '*' game_id=e2e-game env=dev event=purchase user_id=test-user 2>&1)
-if [ $? -ne 0 ]; then
-  fail "XADD event 2 failed: $MSG2"
-  kill $WORKER_PID 2>/dev/null; docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1; exit 1
-fi
+def xadd(stream, obj):
+    payload = json.dumps(obj)
+    cmd = ['docker', 'exec', 'croupier-redis', 'redis-cli', 'XADD', stream, '*', 'data', payload]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f'XADD failed for {stream}: {r.stderr.strip()}', file=sys.stderr)
+        sys.exit(1)
+    print(r.stdout.strip())
 
-MSG3=$(docker exec croupier-redis redis-cli XADD analytics:payments '*' game_id=e2e-game env=dev user_id=test-user order_id=ORD-001 2>&1)
+xadd('analytics:events', {
+    'game_id': 'e2e-game', 'env': 'dev', 'event': 'login',
+    'user_id': 'test-user', 'session_id': 's1',
+    'channel': 'direct', 'platform': 'linux',
+    'props_json': json.dumps({'action': 'login'})
+})
+xadd('analytics:events', {
+    'game_id': 'e2e-game', 'env': 'dev', 'event': 'purchase',
+    'user_id': 'test-user', 'session_id': 's1',
+    'channel': 'direct', 'platform': 'linux',
+    'props_json': json.dumps({'item': 'sword', 'amount': 100})
+})
+xadd('analytics:payments', {
+    'game_id': 'e2e-game', 'env': 'dev', 'user_id': 'test-user',
+    'order_id': 'ORD-001', 'amount_cents': 999, 'currency': 'USD',
+    'status': 'paid', 'channel': 'direct', 'platform': 'linux',
+    'country': 'US', 'region': 'us-west', 'city': 'SF', 'product_id': 'sword'
+})
+"
 if [ $? -ne 0 ]; then
-  fail "XADD payment failed: $MSG3"
+  fail "XADD failed"
   kill $WORKER_PID 2>/dev/null; docker compose -f "$COMPOSE_FILE" down >/dev/null 2>&1; exit 1
 fi
 
