@@ -166,7 +166,7 @@ func (w *Worker) Run(ctx context.Context) error {
 		streams := []string{w.streamEvents, w.streamPayments}
 		streamIDs := make([]string, len(streams))
 		for i := range streamIDs {
-			streamIDs[i] = ">" // only new (unacknowledged) messages
+			streamIDs[i] = "0" // read all pending + new messages (">" failed in CI)
 		}
 		res, err := w.rdb.XReadGroup(ctx, &redis.XReadGroupArgs{
 			Group:    w.group,
